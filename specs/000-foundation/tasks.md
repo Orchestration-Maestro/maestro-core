@@ -1598,7 +1598,7 @@ Expected: success, the Copilot integration listed.
 
 ### T017 Root documents in English [US1, US4]
 
-**Files:** rewrite `README.md`, `THIRD-PARTY-NOTICES.md`; create `AGENTS.md`;
+**Files:** rewrite `README.md`; create `AGENTS.md`;
 modify `deny.toml`, `typos.toml`.
 
 - [x] **Step 1: `README.md`**
@@ -1641,7 +1641,7 @@ are: see [TOKENIZER.md](crates/maestro-canonicalization/TOKENIZER.md).
 
 ## Licence
 
-MIT: [LICENSE](LICENSE), [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+MIT: [LICENSE](LICENSE).
 ````
 
 - [x] **Step 2: `AGENTS.md`**
@@ -1675,17 +1675,8 @@ working summary.
    ADR in [docs/adr](docs/adr/README.md).
 ```
 
-- [x] **Step 3: `THIRD-PARTY-NOTICES.md`**
-
-```markdown
-# Licences
-
-Maestro Core and the files adopted from `rust-workflows` are distributed under
-the [MIT licence](LICENSE).
-
-External dependencies and development tools keep their own licences; the
-project's licence does not change their terms.
-```
+- [x] **Step 3: The licence.** `LICENSE` alone covers the repository, which
+  redistributes no third-party material.
 
 - [x] **Step 4: `deny.toml` and `typos.toml`.** In `deny.toml`, replace the
   two-line comment above `unused-allowed-license` with

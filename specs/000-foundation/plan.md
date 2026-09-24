@@ -109,7 +109,7 @@ maestro-core/
 ├── docs/{architecture,adr}/
 ├── specs/{000-foundation,001-knowledge-kernel}/
 ├── scripts/bootstrap.sh
-├── AGENTS.md  CONTEXT.md  README.md  LICENSE  THIRD-PARTY-NOTICES.md
+├── AGENTS.md  CONTEXT.md  README.md  LICENSE
 ├── Cargo.toml  Cargo.lock  rust-toolchain.toml  clippy.toml  deny.toml  typos.toml
 ├── mise.toml  mise.lock  justfile  .pre-commit-config.yaml
 └── .editorconfig  .gitattributes  .gitignore  .taplo.toml  .yamlfmt.yml
