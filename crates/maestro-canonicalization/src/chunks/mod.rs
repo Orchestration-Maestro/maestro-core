@@ -13,7 +13,7 @@ mod tests;
 mod validation;
 
 /// Version of canonical mapping, structural splitting and chunk identity rules.
-pub const CHUNKER_VERSION: &str = "mapped-structural-chunks/1";
+pub const CHUNKER_VERSION: &str = "mapped-structural-chunks/2";
 
 /// Half-open UTF-8 byte range in derived text, never original Markdown.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]

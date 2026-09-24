@@ -295,7 +295,7 @@ impl Layout<'_> {
                 None => Ok(false),
             })?;
             let mut piece = make(length).ok_or_else(structure_error)?;
-            if !code && !meaningful.contains(&length) {
+            if !code && length < text.len() && !whitespace.contains(&length) {
                 if let Some(&boundary) = whitespace.iter().rev().find(|&&p| p > 0 && p < length) {
                     if let Some(candidate) = make(boundary) {
                         if self.prepare(&candidate, count)?.token_count <= MAX_TOKENS {
@@ -305,6 +305,8 @@ impl Layout<'_> {
                 }
             }
             let end = piece.fragments[0].contribution.range.end;
+            // The unit's own end is no cut: the last piece is named like the cuts before it.
+            let last = end == stop;
             piece.fragments[0].split = if code {
                 let starts_line = start == 0 || unit.text[..start].ends_with('\n');
                 let ends_line = end == unit.text.len() || unit.text[..end].ends_with('\n');
@@ -315,9 +317,9 @@ impl Layout<'_> {
                 }
             } else if cell {
                 SplitKind::CellFragment
-            } else if meaningful.contains(&(end - start)) {
+            } else if meaningful.contains(&(end - start)) || (last && !meaningful.is_empty()) {
                 SplitKind::Sentence
-            } else if whitespace.contains(&(end - start)) {
+            } else if whitespace.contains(&(end - start)) || (last && !whitespace.is_empty()) {
                 SplitKind::Whitespace
             } else {
                 SplitKind::Scalar

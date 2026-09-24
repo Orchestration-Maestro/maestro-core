@@ -228,6 +228,10 @@ pub(super) fn fit_prefix(
     let mut end = text.len();
     loop {
         if end > 0 && fits(end)? {
+            // A rest that fits stays whole; only a halved prefix moves back to a preferred cut.
+            if end == text.len() {
+                return Ok(end);
+            }
             if let Some(&boundary) = preferred
                 .iter()
                 .rev()
