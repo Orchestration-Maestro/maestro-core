@@ -21,3 +21,4 @@ order; a superseded record stays and names its successor.
 | [0014](0014-strict-json-for-collection-and-source-policy.md) | Collection and source-policy declarations are strict JSON |
 | [0015](0015-bundle-freshness-and-revocation.md) | Bundles need freshness and revocation, not only signatures |
 | [0016](0016-native-rust-desktop-workbench.md) | The workbench is a native Rust desktop application |
+| [0017](0017-spec-kit-installed-once-for-the-organization.md) | Spec Kit is installed once for the organization, not committed |

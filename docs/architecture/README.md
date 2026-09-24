@@ -27,7 +27,7 @@ and the invariants. Each layer has its own document:
 | [07 Extensibility](07-extensibility.md) | Entry points, the event stream (exit points), extensions that plug in and out without core changes |
 | [08 Traceability](08-traceability.md) | Every earlier requirement and decision, with its status and location in this design |
 | [ADRs](../adr/README.md) | The hard-to-reverse decisions and their trade-offs |
-| [Constitution](../../.specify/memory/constitution.md) | The non-negotiable principles and gates |
+| [Constitution](https://github.com/Orchestration-Maestro/.github/blob/main/CONSTITUTION.md) | The non-negotiable principles and gates |
 | [Glossary](../../CONTEXT.md) | The domain vocabulary every document and identifier uses |
 
 ## 1. What Maestro is
@@ -230,7 +230,7 @@ crates/
   maestro-catalog/             S3     parse, compile, verify, install, route, project
   maestro-runtime/             S4     engine, sessions, providers, broker, sandbox, contracts
   maestro/                     S1     the binary: CLI + MCP server (+ daemon in S4)
-docs/architecture/  docs/adr/  specs/  .specify/  CONTEXT.md
+docs/architecture/  docs/adr/  specs/  CONTEXT.md
 ```
 
 Dependency direction is one-way and checked by Cargo: `maestro` → (`runtime`,

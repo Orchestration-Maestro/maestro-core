@@ -1,3 +1,5 @@
 /.tools/
+# Spec Kit, installed once beside the organization's checkouts (ADR-0017).
+/.specify
 /target/
 /mutants.out*/
