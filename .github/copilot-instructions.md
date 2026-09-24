@@ -17,6 +17,12 @@ for how a change is proposed. The organization's
 [constitution](https://github.com/Orchestration-Maestro/.github/blob/main/CONSTITUTION.md)
 binds every specification, plan, review and release.
 
+For quality, engineering or security changes, read
+[northstar.md](../docs/standards/northstar.md),
+[engineering.md](../docs/standards/engineering.md) and
+[security.md](../docs/standards/security.md): this repository's map of the
+organization's golden rules.
+
 Keep changes scoped to the request, and read historical plans and specifications
 as records, not as instructions to start new work.
 
@@ -184,16 +190,20 @@ already here, so improve an explanation in place.
 │   │   ├── 0015-bundle-freshness-and-revocation.md                          # Bundles need freshness and revocation, not only signatures
 │   │   ├── 0016-native-rust-desktop-workbench.md                            # The workbench is a native Rust desktop application
 │   │   └── README.md                                                        # Hard-to-reverse decisions, each with the trade-off that produced it
-│   └── architecture/                                                        # Status: design of record, 2026-09-23, completed 2026-09-24
-│       ├── 01-knowledge-pipeline.md                                         # 01 Knowledge pipeline
-│       ├── 02-retrieval-and-knowledge-graph.md                              # 02 Retrieval and knowledge graph
-│       ├── 03-agent-orchestration.md                                        # 03 Agent orchestration
-│       ├── 04-intelligence-backend.md                                       # 04 Intelligence backend
-│       ├── 05-platform-and-operations.md                                    # 05 Platform and operations
-│       ├── 06-roadmap.md                                                    # 06 Roadmap
-│       ├── 07-extensibility.md                                              # 07 Extensibility: entry points, exit points and extensions
-│       ├── 08-traceability.md                                               # 08 Traceability
-│       └── README.md                                                        # Status: design of record, 2026-09-23, completed 2026-09-24
+│   ├── architecture/                                                        # Status: design of record, 2026-09-23, completed 2026-09-24
+│   │   ├── 01-knowledge-pipeline.md                                         # 01 Knowledge pipeline
+│   │   ├── 02-retrieval-and-knowledge-graph.md                              # 02 Retrieval and knowledge graph
+│   │   ├── 03-agent-orchestration.md                                        # 03 Agent orchestration
+│   │   ├── 04-intelligence-backend.md                                       # 04 Intelligence backend
+│   │   ├── 05-platform-and-operations.md                                    # 05 Platform and operations
+│   │   ├── 06-roadmap.md                                                    # 06 Roadmap
+│   │   ├── 07-extensibility.md                                              # 07 Extensibility: entry points, exit points and extensions
+│   │   ├── 08-traceability.md                                               # 08 Traceability
+│   │   └── README.md                                                        # Status: design of record, 2026-09-23, completed 2026-09-24
+│   └── standards/                                                           # Standards
+│       ├── engineering.md                                                   # Engineering rules in maestro-core
+│       ├── northstar.md                                                     # Northstar for maestro-core
+│       └── security.md                                                      # Security rules in maestro-core
 ├── scripts/                                                                 # Maintenance scripts
 │   └── bootstrap.sh                                                         # One command to get from a fresh clone to a machine that can run the gate
 ├── specs/                                                                   # Specifications, one directory per slice
