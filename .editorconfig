@@ -1,0 +1,70 @@
+# Editor settings that survive the editor.
+#
+# Formatting is enforced by the gate (`cargo fmt`, `yamlfmt`, `taplo`), but only
+# after a file is written. This makes an editor produce the right bytes in the
+# first place, so a contributor never sees a diff full of whitespace they did
+# not intend. Every kind of file this repository holds has its rule; a kind it
+# does not hold gets one the day it arrives, not before.
+
+root = true
+
+# ------------------------------------------------------------------- Default
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+# --------------------------------------------------------------------- Rust
+# Four spaces and a 100-column limit are rustfmt's defaults. Matching them here
+# means the editor and the gate never disagree.
+[*.rs]
+indent_size = 4
+max_line_length = 100
+
+# --------------------------------------------------------- Cargo and config
+[*.toml]
+indent_size = 4
+
+# ---------------------------------------------------------------- Workflows
+# Two spaces is the only indentation GitHub Actions and yamlfmt both accept
+# without argument. Tabs are invalid YAML.
+[*.{yml,yaml}]
+indent_size = 2
+indent_style = space
+
+# -------------------------------------------------------------------- Just
+# Just accepts either tabs or spaces, but not both inside one recipe. Fixing it
+# to four spaces removes the ambiguity.
+[justfile]
+indent_size = 4
+
+# -------------------------------------------------------------------- Shell
+[*.sh]
+indent_size = 2
+max_line_length = 100
+
+# -------------------------------------------------------------------- Data
+[*.json]
+indent_size = 2
+
+# ---------------------------------------------------------------- Markdown
+# Two trailing spaces are a hard line break in Markdown, so trimming them
+# silently changes rendered output.
+[*.md]
+trim_trailing_whitespace = false
+indent_size = 2
+max_line_length = off
+
+# -------------------------------------------------------------- Not ours
+# Generated or vendored content is reproduced verbatim; reformatting it would
+# create a diff against its source.
+[*.lock]
+insert_final_newline = unset
+trim_trailing_whitespace = unset
+
+[LICENSE]
+insert_final_newline = unset
+trim_trailing_whitespace = unset

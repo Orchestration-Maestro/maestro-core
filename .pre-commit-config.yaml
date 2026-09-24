@@ -1,0 +1,80 @@
+minimum_prek_version: '0.5.0'
+default_stages: [pre-commit, pre-merge-commit]
+default_install_hook_types: [pre-commit, pre-merge-commit, commit-msg]
+# Spec Kit writes and refreshes these files in its own style; they stay as it
+# writes them, so a refresh changes nothing by itself. The constitution and the
+# specs remain checked.
+exclude: |
+  (?x)^(
+    \.specify/(integrations|scripts|templates|workflows)/
+    | \.specify/[^/]+\.json$
+    | \.specify/memory/\.constitution-template\.json$
+    | \.github/skills/speckit-[^/]+/
+  )
+repos:
+  - repo: builtin
+    hooks:
+      - id: check-merge-conflict
+      - id: check-yaml
+      - id: check-toml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+  - repo: local
+    hooks:
+      - id: rustfmt
+        name: Rust formatting
+        language: system
+        entry: rustfmt +1.98.1 --check --edition 2024
+        types: [rust]
+      - id: just-format
+        name: Just formatting
+        language: system
+        entry: bash -c 'for file; do just --unstable --fmt --check --justfile "$file" || exit; done' --
+        files: '(^|/)justfile$'
+      - id: yaml-format
+        name: YAML formatting
+        language: system
+        entry: yamlfmt -no_global_conf -lint
+        types: [yaml]
+        pass_filenames: false
+      - id: toml-format
+        name: TOML formatting
+        language: system
+        entry: taplo fmt --check --diff
+        types: [toml]
+      - id: typos
+        name: Spelling in code and prose
+        language: system
+        entry: typos --force-exclude
+      - id: actionlint
+        name: GitHub workflow lint
+        language: system
+        entry: actionlint
+        files: '^\.github/workflows/.*\.ya?ml$'
+      - id: zizmor
+        name: GitHub workflow security audit
+        language: system
+        entry: zizmor --offline --persona=pedantic --no-progress --config .github/zizmor.yml
+        files: '^(\.github/(workflows/.*|dependabot|actions/.*/action)\.ya?ml|action\.ya?ml)$'
+      - id: shellcheck
+        name: Shell script analysis
+        language: system
+        entry: shellcheck
+        types: [shell]
+      - id: source-line-width
+        name: Rust shell and Just lines stay within 100 columns
+        language: pygrep
+        entry: '^.{101,}$'
+        files: '(\.rs$|\.sh$|(^|/)justfile$)'
+      - id: conventional-commit-header
+        name: Commit message opens with a conventional header
+        language: pygrep
+        entry: '\A(build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test)(\([a-z0-9-]+\))?!?: [a-z][^\n]{0,70}\n'
+        args: [--negate, --multiline]
+        stages: [commit-msg]
+      - id: eighty-columns
+        name: Commit message lines stay within 80 columns
+        language: pygrep
+        entry: '^.{81,}$'
+        stages: [commit-msg]

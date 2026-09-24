@@ -1,0 +1,22 @@
+# Spelling checks for maintained code and documentation.
+#
+# Every entry below is a word this repository means, not a mistake the checker
+# should keep reporting. Adding one is a decision: it says the word is domain
+# vocabulary. An entry nobody needs any more is noise, so take it out when the
+# word leaves the repository.
+
+[files]
+# Spec Kit writes and refreshes its scripts in its own spelling.
+extend-exclude = [".specify/scripts/"]
+
+[default]
+# W3C trace-context identifiers in examples: hexadecimal, not words.
+extend-ignore-re = ["\\b[0-9a-f]{2}-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}\\b"]
+
+[default.extend-words]
+# French test input: the canonicalizer's tests use text in other languages.
+Exemple = "Exemple"
+# Recovery time objective, next to the recovery point objective (RPO).
+RTO = "RTO"
+# The POSIX open flag O_WRONLY, as rustix names it.
+WRONLY = "WRONLY"

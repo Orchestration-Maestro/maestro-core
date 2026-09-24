@@ -1,0 +1,8 @@
+# taplo: the TOML formatter `just check` and the commit hook run over every
+# TOML file in the repository. Arrays keep the shape they were written in, so
+# the licence list in deny.toml stays one entry per line.
+include = ["**/*.toml"]
+exclude = [".tools/**", "**/target/**"]
+
+[formatting]
+array_auto_collapse = false

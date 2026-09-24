@@ -1,0 +1,41 @@
+# Licence, dependency-ban, source and yanked-crate policy for every Cargo
+# manifest in this repository. Vulnerability reporting stays with cargo-audit and
+# its reviewed RustSec database; the `advisories` check below exists for the one
+# thing cargo-audit does not cover: a crate withdrawn from the registry.
+
+[graph]
+all-features = true
+
+[licenses]
+# Reviewed allowlist. Every entry is an SPDX identifier actually present in a
+# committed Cargo.lock; add one only after a licence review, never to silence a
+# failing check.
+allow = [
+  "Apache-2.0",
+  "MIT",
+  "MIT-0",
+  "Unicode-3.0",
+  "Unlicense",
+]
+confidence-threshold = 0.93
+# A reviewed licence stays allowed while no current crate uses it.
+unused-allowed-license = "allow"
+
+# Our own non-publishable fixtures and test crates carry no licence field.
+private = { ignore = true }
+
+[advisories]
+# A yanked crate stays resolvable from a committed lockfile long after its author
+# withdrew it, which is a distinct failure from a published vulnerability. This
+# check reads the registry index, so it runs only where the network is available.
+yanked = "deny"
+
+[bans]
+multiple-versions = "deny"
+wildcards = "deny"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+# Dependencies are read directly from the official crates.io index.
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
