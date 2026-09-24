@@ -5,10 +5,6 @@
 # vocabulary. An entry nobody needs any more is noise, so take it out when the
 # word leaves the repository.
 
-[files]
-# Spec Kit writes and refreshes its scripts in its own spelling.
-extend-exclude = [".specify/scripts/"]
-
 [default]
 # W3C trace-context identifiers in examples: hexadecimal, not words.
 extend-ignore-re = ["\\b[0-9a-f]{2}-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}\\b"]
