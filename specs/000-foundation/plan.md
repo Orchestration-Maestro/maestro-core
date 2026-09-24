@@ -220,7 +220,6 @@ several sessions of local commits before it is opened.
 
 | Violation | Why needed | Simpler alternative rejected because | Owner | Expiry |
 | --- | --- | --- | --- | --- |
-| The import pull request runs CI with `mutation-test: false` | 810 mutants exceed the job's 45 minutes | Importing module by module: the modules depend on each other, so a partial crate does not build | Maintainer | The next maestro-core pull request |
 | `#[expect(clippy::struct_excessive_bools)]` on `ParserOptions` | Its eight booleans are independent parser switches, serialized and included in identities | An enum set or bit flags would change the public, serialized API and every identity | Maintainer | While schema `1.2.0` holds |
 
 ## Risks

@@ -17,11 +17,6 @@ jobs:
       clippy-level: pedantic
       license-policy: enforce
       artifact-key: maestro-core
-      # The import pull request's diff is the whole crate, 810 mutants, more
-      # than the job's 45 minutes. A full local run reached zero survivors
-      # first (specs/000-foundation/plan.md, Complexity Tracking); the next
-      # pull request removes this line.
-      mutation-test: false
   # Clippy and secret-scan findings into the Security tab: the only job that
   # needs a write scope.
   sarif:

@@ -1845,7 +1845,7 @@ gh api -X PATCH repos/Orchestration-Maestro/maestro-core -F allow_auto_merge=tru
   The two web-only items of the `.github` repository's new-repository checklist
   (reported content, social preview) go to the maintainer.
 
-- [ ] **Step 3: One clean commit on top of GitHub's first**
+- [x] **Step 3: One clean commit on top of GitHub's first**
 
 ```bash
 git remote add origin git@github.com:Orchestration-Maestro/maestro-core.git
@@ -1859,7 +1859,7 @@ just check
   Commit with the title `feat: start maestro-core from the canonicalization crate`
   and a body naming what S0 changed and the mutation evidence of T019.
 
-- [ ] **Step 4: Prove the pushed history is clean**
+- [x] **Step 4: Prove the pushed history is clean**
 
 ```bash
 cargo test -p maestro-conventions --test policies 2>&1 | grep 'test result'
@@ -1869,7 +1869,7 @@ git log --oneline origin/main..HEAD | wc -l
 
 Expected: `ok. 5 passed`, no leaks, `1`.
 
-- [ ] **Step 5: Push and open the pull request**
+- [x] **Step 5: Push and open the pull request**
 
 ```bash
 git push -u origin feat/foundation
@@ -1877,7 +1877,7 @@ gh pr create --title "feat: start maestro-core from the canonicalization crate" 
   --body-file <(git log -1 --format=%b)
 ```
 
-- [ ] **Step 6: Merge when green.** `rust / Required Rust CI`, CodeQL, SARIF and
+- [x] **Step 6: Merge when green.** `rust / Required Rust CI`, CodeQL, SARIF and
   coverage pass; squash-merge with the branch deleted. Then check `main`: the CI
   run on the push and the Scorecard run pass.
 
@@ -1927,7 +1927,7 @@ cp -r "$ARCHIVE/ctm-collection/." .
 
 ### T024 Mutation-test pull requests again [US1] (next session)
 
-- [ ] **Step 1:** In `maestro-core`'s `.github/workflows/ci.yml`, delete the
+- [x] **Step 1:** In `maestro-core`'s `.github/workflows/ci.yml`, delete the
   `mutation-test: false` line and the comment above it.
 - [ ] **Step 2:** `just check`; pull request titled
   `ci: mutation-test pull requests again`; its diff has no Rust change, so the
