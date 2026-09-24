@@ -1929,10 +1929,10 @@ cp -r "$ARCHIVE/ctm-collection/." .
 
 - [x] **Step 1:** In `maestro-core`'s `.github/workflows/ci.yml`, delete the
   `mutation-test: false` line and the comment above it.
-- [ ] **Step 2:** `just check`; pull request titled
+- [x] **Step 2:** `just check`; pull request titled
   `ci: mutation-test pull requests again`; its diff has no Rust change, so the
   mutation step finishes in seconds.
-- [ ] **Step 3:** Merge when green; remove the row from plan.md's Complexity
+- [x] **Step 3:** Merge when green; remove the row from plan.md's Complexity
   Tracking in the same pull request.
 
 ### T025 Split oversized units without tiny last pieces [US1] (before S1)
@@ -1946,12 +1946,12 @@ bytes, then into `word ` and `word`; a paragraph of sentences ends with
 boundary even when the whole rest fits, and `split_unit` then backs off one
 more whitespace. T019 pins these cuts as they are.
 
-- [ ] **Step 1:** Write the expected cuts first in
+- [x] **Step 1:** Write the expected cuts first in
   `chunk_split/tests/splitting.rs`: once the rest of a unit fits, it is one
   last piece. See the tests fail.
-- [ ] **Step 2:** Fix `fit_prefix` and `split_unit`; `just check` and the
+- [x] **Step 2:** Fix `fit_prefix` and `split_unit`; `just check` and the
   native tests pass, and chunk identities change once.
-- [ ] **Step 3:** A full mutation run keeps 0 missed and 0 timeouts; pull
+- [x] **Step 3:** A full mutation run keeps 0 missed and 0 timeouts; pull
   request titled `fix: split oversized units without tiny last pieces`.
 
 ---

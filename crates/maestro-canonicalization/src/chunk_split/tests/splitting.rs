@@ -67,16 +67,27 @@ fn a_wide_row_splits_by_column_and_its_pieces_pack_along_the_row() {
 #[test]
 fn oversized_units_cut_at_sentences_code_lines_then_whitespace() {
     use SplitKind::{CellFragment, CodeLine, CodeLineFragment, Scalar, Sentence, Whitespace};
-    // The cuts as made today, short last pieces included.
+    // Once the rest of a unit fits, it is one last piece, named like the cuts before it.
     let words = format!("{}\n", "word ".repeat(300).trim_end());
     assert_eq!(
         cuts(&words),
         [
-            (0, 365, Whitespace),
-            (365, 925, Whitespace),
-            (925, 1490, Whitespace),
-            (1490, 1495, Whitespace),
-            (1495, 1499, Scalar)
+            (0, 370, Whitespace),
+            (370, 930, Whitespace),
+            (930, 1499, Whitespace)
+        ]
+    );
+    let unbroken = format!("{}\n", "c".repeat(800));
+    assert_eq!(cuts(&unbroken), [(0, 400, Scalar), (400, 800, Scalar)]);
+    // The one sentence end lies past the halved prefix, whose cut inside a word moves back to
+    // the last whitespace.
+    let late_end = format!("{}. End.\n", "word ".repeat(300).trim_end());
+    assert_eq!(
+        cuts(&late_end),
+        [
+            (0, 375, Whitespace),
+            (375, 940, Whitespace),
+            (940, 1505, Sentence)
         ]
     );
     let sentences = format!("{}\n", "Sentence one here. ".repeat(80).trim_end());
@@ -85,24 +96,14 @@ fn oversized_units_cut_at_sentences_code_lines_then_whitespace() {
         [
             (0, 361, Sentence),
             (361, 931, Sentence),
-            (931, 1501, Sentence),
-            (1501, 1510, Whitespace),
-            (1510, 1514, Whitespace),
-            (1514, 1519, Scalar)
+            (931, 1519, Sentence)
         ]
     );
     let lines = format!(
         "```\n{}```\n",
         "let value = 1; // a line of code\n".repeat(40)
     );
-    assert_eq!(
-        cuts(&lines),
-        [
-            (0, 627, CodeLine),
-            (627, 1287, CodeLine),
-            (1287, 1320, CodeLine)
-        ]
-    );
+    assert_eq!(cuts(&lines), [(0, 627, CodeLine), (627, 1320, CodeLine)]);
     let line = format!("```\n{}\n```\n", "x".repeat(900));
     assert_eq!(
         cuts(&line),
@@ -114,12 +115,7 @@ fn oversized_units_cut_at_sentences_code_lines_then_whitespace() {
     );
     assert_eq!(
         cuts(&cell),
-        [
-            (0, 484, CellFragment),
-            (484, 979, CellFragment),
-            (979, 984, CellFragment),
-            (984, 989, CellFragment)
-        ]
+        [(0, 489, CellFragment), (489, 989, CellFragment)]
     );
 }
 

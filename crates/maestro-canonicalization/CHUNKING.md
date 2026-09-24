@@ -52,7 +52,7 @@ under the explicit warning policy. Only then are runtime artifacts verified and
 source text prepared. A successful batch is returned only after final artifact
 revalidation. Any refusal returns no partial batch.
 
-The profiles are `mapped-structural-chunks/1`, `canonical-context-parts/v1` and
+The profiles are `mapped-structural-chunks/2`, `canonical-context-parts/v1` and
 `ordered-input-parts/v1`. Complete input means the verbatim concatenation of
 `input_parts`; native BOS/EOS and all context/separators count toward **target 500,
 hard maximum 700**. There is no artificial minimum, clipping, hidden normalization,
@@ -68,8 +68,10 @@ not filled with invented blanks. Original typed documents, assets, extractor
 relationships, policies and independent revisions remain in `deduplication`.
 
 Scalar fallback repeatedly measures complete inputs and halves the candidate,
-then tries a preferred boundary. It does not assume tokenizer monotonicity or
-claim a maximal fitting prefix. Oversized mandatory context, unsupported unsafe
+then tries a preferred boundary. A rest that fits stays one last piece, named
+like the cuts before it, and prose is cut inside a word only when no whitespace
+cut fits. It does not assume tokenizer monotonicity or claim a maximal fitting
+prefix. Oversized mandatory context, unsupported unsafe
 structure, incomplete accounting, changed artifacts and runtime errors refuse
 rather than silently dropping text. No fallback to approximate token counts exists.
 
