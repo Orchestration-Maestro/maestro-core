@@ -1,0 +1,1834 @@
+{
+  "schema_version": "1.2.0",
+  "document_id": "example:canonicalization",
+  "revision_id": "rev-e85220a701aa29f4ebaf2a0cfb3601488b92fddbc2c8866ef975b04acbc68c47",
+  "content_hash": "sha256:532551db335beb56018d9fcee91f87492a5d0f27b94bf78f0486e0c378217272",
+  "source_reference": "urn:example:canonicalization",
+  "source_metadata": {
+    "source_reference": "urn:example:canonicalization",
+    "title": "Canonicalization example: café 🦀",
+    "language": "en",
+    "extraction": {
+      "method": "authored-example"
+    },
+    "access_policy": null,
+    "extra": {
+      "markdown_frontmatter": {
+        "source_reference": "urn:example:canonicalization",
+        "title": "Canonicalization example: café 🦀"
+      }
+    }
+  },
+  "input_metadata": {
+    "source_reference": null,
+    "title": null,
+    "language": "en",
+    "extraction": {
+      "method": "authored-example"
+    },
+    "access_policy": null,
+    "extra": {}
+  },
+  "operational_metadata": {},
+  "access_policy": null,
+  "original_markdown_reference": {
+    "path": "original.md",
+    "content_hash": "sha256:532551db335beb56018d9fcee91f87492a5d0f27b94bf78f0486e0c378217272",
+    "byte_length": 615
+  },
+  "parser_version": "canonicalization/0.3.0+pulldown-cmark/0.13.4+source-accounting",
+  "parser_options": {
+    "tables": true,
+    "footnotes": true,
+    "strikethrough": true,
+    "tasklists": true,
+    "heading_attributes": true,
+    "definition_lists": true,
+    "math": true,
+    "gfm": true
+  },
+  "asset_inventory": {
+    "assets/flow.svg": "available"
+  },
+  "validation_status": "valid_with_warnings",
+  "blocks": [
+    {
+      "block_id": "block-9fb56f99ac09cac5b2016e2bcd424a9ee81164a7fb171f85f3503f0969fbd557",
+      "revision_id": "rev-e85220a701aa29f4ebaf2a0cfb3601488b92fddbc2c8866ef975b04acbc68c47",
+      "block_type": "metadata",
+      "parent_block_id": null,
+      "parent_section_id": null,
+      "heading_path": [],
+      "source_spans": [
+        {
+          "start": 0,
+          "end": 102
+        }
+      ],
+      "retrieval_text": "title: \"Canonicalization example: café 🦀\"\nsource_reference: \"urn:example:canonicalization\"\n",
+      "structured_content": {
+        "attributes": {
+          "kind": "metadata"
+        },
+        "children": [
+          {
+            "kind": "inline",
+            "inline": {
+              "content": {
+                "kind": "text",
+                "text": "title: \"Canonicalization example: café 🦀\"\nsource_reference: \"urn:example:canonicalization\"\n"
+              },
+              "source_span": {
+                "start": 4,
+                "end": 99
+              },
+              "children": []
+            }
+          }
+        ]
+      },
+      "asset_references": [],
+      "extractor_block_ids": []
+    },
+    {
+      "block_id": "block-4185d37aa3fcac7525a1e7a4ad2e03f82503b6c790773254058278fda640908c",
+      "revision_id": "rev-e85220a701aa29f4ebaf2a0cfb3601488b92fddbc2c8866ef975b04acbc68c47",
+      "block_type": "heading",
+      "parent_block_id": null,
+      "parent_section_id": null,
+      "heading_path": [
+        "Operations"
+      ],
+      "source_spans": [
+        {
+          "start": 103,
+          "end": 116
+        }
+      ],
+      "retrieval_text": "Operations",
+      "structured_content": {
+        "attributes": {
+          "kind": "heading",
+          "level": 1,
+          "explicit_id": null,
+          "classes": [],
+          "attributes": []
+        },
+        "children": [
+          {
+            "kind": "inline",
+            "inline": {
+              "content": {
+                "kind": "text",
+                "text": "Operations"
+              },
+              "source_span": {
+                "start": 105,
+                "end": 115
+              },
+              "children": []
+            }
+          }
+        ]
+      },
+      "asset_references": [],
+      "extractor_block_ids": []
+    },
+    {
+      "block_id": "block-974298bc8ac73f7d2b827ac1dbd02681c3c8a6500a1c4c499ee21e4f7fda97a5",
+      "revision_id": "rev-e85220a701aa29f4ebaf2a0cfb3601488b92fddbc2c8866ef975b04acbc68c47",
+      "block_type": "paragraph",
+      "parent_block_id": null,
+      "parent_section_id": "block-4185d37aa3fcac7525a1e7a4ad2e03f82503b6c790773254058278fda640908c",
+      "heading_path": [
+        "Operations"
+      ],
+      "source_spans": [
+        {
+          "start": 117,
+          "end": 200
+        }
+      ],
+      "retrieval_text": "Do not restart version 9.0.22 before waiting 20 ms. Read the guide.",
+      "structured_content": {
+        "attributes": {
+          "kind": "paragraph"
+        },
+        "children": [
+          {
+            "kind": "inline",
+            "inline": {
+              "content": {
+                "kind": "text",
+                "text": "Do "
+              },
+              "source_span": {
+                "start": 117,
+                "end": 120
+              },
+              "children": []
+            }
+          },
+          {
+            "kind": "inline",
+            "inline": {
+              "content": {
+                "kind": "strong"
+              },
+              "source_span": {
+                "start": 120,
+                "end": 127
+              },
+              "children": [
+                {
+                  "content": {
+                    "kind": "text",
+                    "text": "not"
+                  },
+                  "source_span": {
+                    "start": 122,
+                    "end": 125
+                  },
+                  "children": []
+                }
+              ]
+            }
+          },
+          {
+            "kind": "inline",
+            "inline": {
+              "content": {
+                "kind": "text",
+                "text": " restart version "
+              },
+              "source_span": {
+                "start": 127,
+                "end": 144
+              },
+              "children": []
+            }
+          },
+          {
+            "kind": "inline",
+            "inline": {
+              "content": {
+                "kind": "code",
+                "text": "9.0.22"
+              },
+              "source_span": {
+                "start": 144,
+                "end": 152
+              },
+              "children": []
+            }
+          },
+          {
+            "kind": "inline",
+            "inline": {
+              "content": {
+                "kind": "text",
+                "text": " before waiting 20 ms. Read the "
+              },
+              "source_span": {
+                "start": 152,
+                "end": 184
+              },
+              "children": []
+            }
+          },
+          {
+            "kind": "inline",
+            "inline": {
+              "content": {
+                "kind": "link",
+                "destination": "https://example.test/guide",
+                "title": "Synthetic guide",
+                "reference": "guide",
+                "link_type": "Reference"
+              },
+              "source_span": {
+                "start": 184,
+                "end": 198
+              },
+              "children": [
+                {
+                  "content": {
+                    "kind": "text",
+                    "text": "guide"
+                  },
+                  "source_span": {
+                    "start": 185,
+                    "end": 190
+                  },
+                  "children": []
+                }
+              ]
+            }
+          },
+          {
+            "kind": "inline",
+            "inline": {
+              "content": {
+                "kind": "text",
+                "text": "."
+              },
+              "source_span": {
+                "start": 198,
+                "end": 199
+              },
+              "children": []
+            }
+          }
+        ]
+      },
+      "asset_references": [
+        {
+          "destination": "https://example.test/guide",
+          "status": "remote",
+          "source_span": {
+            "start": 184,
+            "end": 198
+          }
+        }
+      ],
+      "extractor_block_ids": []
+    },
+    {
+      "block_id": "block-84aaed589ecd27826b380cf789c0635435ad5c7084988ee96bcb7102ebd0b5fa",
+      "revision_id": "rev-e85220a701aa29f4ebaf2a0cfb3601488b92fddbc2c8866ef975b04acbc68c47",
+      "block_type": "heading",
+      "parent_block_id": null,
+      "parent_section_id": "block-4185d37aa3fcac7525a1e7a4ad2e03f82503b6c790773254058278fda640908c",
+      "heading_path": [
+        "Operations",
+        "Checks"
+      ],
+      "source_spans": [
+        {
+          "start": 201,
+          "end": 212
+        }
+      ],
+      "retrieval_text": "Checks",
+      "structured_content": {
+        "attributes": {
+          "kind": "heading",
+          "level": 3,
+          "explicit_id": null,
+          "classes": [],
+          "attributes": []
+        },
+        "children": [
+          {
+            "kind": "inline",
+            "inline": {
+              "content": {
+                "kind": "text",
+                "text": "Checks"
+              },
+              "source_span": {
+                "start": 205,
+                "end": 211
+              },
+              "children": []
+            }
+          }
+        ]
+      },
+      "asset_references": [],
+      "extractor_block_ids": []
+    },
+    {
+      "block_id": "block-49e28f5dc328866b158100934dd8bd40e72da8acd7c49795434ff739b2cb4c92",
+      "revision_id": "rev-e85220a701aa29f4ebaf2a0cfb3601488b92fddbc2c8866ef975b04acbc68c47",
+      "block_type": "list",
+      "parent_block_id": null,
+      "parent_section_id": "block-84aaed589ecd27826b380cf789c0635435ad5c7084988ee96bcb7102ebd0b5fa",
+      "heading_path": [
+        "Operations",
+        "Checks"
+      ],
+      "source_spans": [
+        {
+          "start": 213,
+          "end": 308
+        }
+      ],
+      "retrieval_text": "1. Keep the original Markdown.\n  - Preserve Unicode: café 🦀.\n  - [x] Keep source spans.",
+      "structured_content": {
+        "attributes": {
+          "kind": "list",
+          "start": 1
+        },
+        "children": [
+          {
+            "kind": "block",
+            "block_id": "block-9d304a60c2b16d5c26a582d5031aceee256460b3e57870d1b8b8d43f7315d4aa"
+          }
+        ]
+      },
+      "asset_references": [],
+      "extractor_block_ids": []
+    },
+    {
+      "block_id": "block-9d304a60c2b16d5c26a582d5031aceee256460b3e57870d1b8b8d43f7315d4aa",
+      "revision_id": "rev-e85220a701aa29f4ebaf2a0cfb3601488b92fddbc2c8866ef975b04acbc68c47",
+      "block_type": "list_item",
+      "parent_block_id": "block-49e28f5dc328866b158100934dd8bd40e72da8acd7c49795434ff739b2cb4c92",
+      "parent_section_id": "block-84aaed589ecd27826b380cf789c0635435ad5c7084988ee96bcb7102ebd0b5fa",
+      "heading_path": [
+        "Operations",
+        "Checks"
+      ],
+      "source_spans": [
+        {
+          "start": 213,
+          "end": 308
+        }
+      ],
+      "retrieval_text": "Keep the original Markdown.\n- Preserve Unicode: café 🦀.\n- [x] Keep source spans.",
+      "structured_content": {
+        "attributes": {
+          "kind": "list_item"
+        },
+        "children": [
+          {
+            "kind": "inline",
+            "inline": {
+              "content": {
+                "kind": "text",
+                "text": "Keep the original Markdown."
+              },
+              "source_span": {
+                "start": 216,
+                "end": 243
+              },
+              "children": []
+            }
+          },
+          {
+            "kind": "block",
+            "block_id": "block-02379792a11e64a813768182c6b27109e473ec41881f0627644619447c295836"
+          }
+        ]
+      },
+      "asset_references": [],
+      "extractor_block_ids": []
+    },
+    {
+      "block_id": "block-02379792a11e64a813768182c6b27109e473ec41881f0627644619447c295836",
+      "revision_id": "rev-e85220a701aa29f4ebaf2a0cfb3601488b92fddbc2c8866ef975b04acbc68c47",
+      "block_type": "list",
+      "parent_block_id": "block-9d304a60c2b16d5c26a582d5031aceee256460b3e57870d1b8b8d43f7315d4aa",
+      "parent_section_id": "block-84aaed589ecd27826b380cf789c0635435ad5c7084988ee96bcb7102ebd0b5fa",
+      "heading_path": [
+        "Operations",
+        "Checks"
+      ],
+      "source_spans": [
+        {
+          "start": 247,
+          "end": 308
+        }
+      ],
+      "retrieval_text": "- Preserve Unicode: café 🦀.\n- [x] Keep source spans.",
+      "structured_content": {
+        "attributes": {
+          "kind": "list",
+          "start": null
+        },
+        "children": [
+          {
+            "kind": "block",
+            "block_id": "block-6c49bfa2ef1756786526047bb7c1668a9d24f648e79709f4a6633b6ba9221253"
+          },
+          {
+            "kind": "block",
+            "block_id": "block-c54037175367b2d6176b0416f626a92879b199cae75a113459b628a018ee27d6"
+          }
+        ]
+      },
+      "asset_references": [],
+      "extractor_block_ids": []
+    },
+    {
+      "block_id": "block-6c49bfa2ef1756786526047bb7c1668a9d24f648e79709f4a6633b6ba9221253",
+      "revision_id": "rev-e85220a701aa29f4ebaf2a0cfb3601488b92fddbc2c8866ef975b04acbc68c47",
+      "block_type": "list_item",
+      "parent_block_id": "block-02379792a11e64a813768182c6b27109e473ec41881f0627644619447c295836",
+      "parent_section_id": "block-84aaed589ecd27826b380cf789c0635435ad5c7084988ee96bcb7102ebd0b5fa",
+      "heading_path": [
+        "Operations",
+        "Checks"
+      ],
+      "source_spans": [
+        {
+          "start": 247,
+          "end": 279
+        }
+      ],
+      "retrieval_text": "Preserve Unicode: café 🦀.",
+      "structured_content": {
+        "attributes": {
+          "kind": "list_item"
+        },
+        "children": [
+          {
+            "kind": "inline",
+            "inline": {
+              "content": {
+                "kind": "text",
+                "text": "Preserve Unicode: café 🦀."
+              },
+              "source_span": {
+                "start": 249,
+                "end": 278
+              },
+              "children": []
+            }
+          }
+        ]
+      },
+      "asset_references": [],
+      "extractor_block_ids": []
+    },
+    {
+      "block_id": "block-c54037175367b2d6176b0416f626a92879b199cae75a113459b628a018ee27d6",
+      "revision_id": "rev-e85220a701aa29f4ebaf2a0cfb3601488b92fddbc2c8866ef975b04acbc68c47",
+      "block_type": "list_item",
+      "parent_block_id": "block-02379792a11e64a813768182c6b27109e473ec41881f0627644619447c295836",
+      "parent_section_id": "block-84aaed589ecd27826b380cf789c0635435ad5c7084988ee96bcb7102ebd0b5fa",
+      "heading_path": [
+        "Operations",
+        "Checks"
+      ],
+      "source_spans": [
+        {
+          "start": 282,
+          "end": 308
+        }
+      ],
+      "retrieval_text": "[x] Keep source spans.",
+      "structured_content": {
+        "attributes": {
+          "kind": "list_item"
+        },
+        "children": [
+          {
+            "kind": "inline",
+            "inline": {
+              "content": {
+                "kind": "task_marker",
+                "checked": true
+              },
+              "source_span": {
+                "start": 284,
+                "end": 287
+              },
+              "children": []
+            }
+          },
+          {
+            "kind": "inline",
+            "inline": {
+              "content": {
+                "kind": "text",
+                "text": "Keep source spans."
+              },
+              "source_span": {
+                "start": 288,
+                "end": 306
+              },
+              "children": []
+            }
+          }
+        ]
+      },
+      "asset_references": [],
+      "extractor_block_ids": []
+    },
+    {
+      "block_id": "block-21cd7755266ac64271d3b72fb350bc82f1c597098d2d21ff5dd40d7cf2f8cb95",
+      "revision_id": "rev-e85220a701aa29f4ebaf2a0cfb3601488b92fddbc2c8866ef975b04acbc68c47",
+      "block_type": "code",
+      "parent_block_id": null,
+      "parent_section_id": "block-84aaed589ecd27826b380cf789c0635435ad5c7084988ee96bcb7102ebd0b5fa",
+      "heading_path": [
+        "Operations",
+        "Checks"
+      ],
+      "source_spans": [
+        {
+          "start": 308,
+          "end": 364
+        }
+      ],
+      "retrieval_text": "if [ \"$ready\" != \"yes\" ]; then\n    sleep 20\nfi\n",
+      "structured_content": {
+        "attributes": {
+          "kind": "code",
+          "style": "fenced",
+          "info": "sh",
+          "language": "sh"
+        },
+        "children": [
+          {
+            "kind": "inline",
+            "inline": {
+              "content": {
+                "kind": "text",
+                "text": "if [ \"$ready\" != \"yes\" ]; then\n    sleep 20\nfi\n"
+              },
+              "source_span": {
+                "start": 314,
+                "end": 361
+              },
+              "children": []
+            }
+          }
+        ]
+      },
+      "asset_references": [],
+      "extractor_block_ids": []
+    },
+    {
+      "block_id": "block-73be418878c0ae10003f4a9bdd156fc183baf6b2cf2e12e7805933d7e322060e",
+      "revision_id": "rev-e85220a701aa29f4ebaf2a0cfb3601488b92fddbc2c8866ef975b04acbc68c47",
+      "block_type": "table",
+      "parent_block_id": null,
+      "parent_section_id": "block-84aaed589ecd27826b380cf789c0635435ad5c7084988ee96bcb7102ebd0b5fa",
+      "heading_path": [
+        "Operations",
+        "Checks"
+      ],
+      "source_spans": [
+        {
+          "start": 366,
+          "end": 424
+        }
+      ],
+      "retrieval_text": "Version\tWait\n9.0.22\t20 ms",
+      "structured_content": {
+        "attributes": {
+          "kind": "table",
+          "alignments": [
+            "left",
+            "right"
+          ]
+        },
+        "children": [
+          {
+            "kind": "block",
+            "block_id": "block-123d851e2cddea9459591141b3e42d67fd02ed2ff802491d074e3c1940450b98"
+          },
+          {
+            "kind": "block",
+            "block_id": "block-f0abbfb2390e816791db37d5dd5a66cfa385f3ac2d0cb8c7300dfb839b8c424f"
+          }
+        ]
+      },
+      "asset_references": [],
+      "extractor_block_ids": []
+    },
+    {
+      "block_id": "block-123d851e2cddea9459591141b3e42d67fd02ed2ff802491d074e3c1940450b98",
+      "revision_id": "rev-e85220a701aa29f4ebaf2a0cfb3601488b92fddbc2c8866ef975b04acbc68c47",
+      "block_type": "table_head",
+      "parent_block_id": "block-73be418878c0ae10003f4a9bdd156fc183baf6b2cf2e12e7805933d7e322060e",
+      "parent_section_id": "block-84aaed589ecd27826b380cf789c0635435ad5c7084988ee96bcb7102ebd0b5fa",
+      "heading_path": [
+        "Operations",
+        "Checks"
+      ],
+      "source_spans": [
+        {
+          "start": 366,
+          "end": 385
+        }
+      ],
+      "retrieval_text": "Version\tWait",
+      "structured_content": {
+        "attributes": {
+          "kind": "table_head"
+        },
+        "children": [
+          {
+            "kind": "block",
+            "block_id": "block-8beccced9b71767f83a12836e1f077b046ea90b25fdfddfc702b2fd3a5156c27"
+          },
+          {
+            "kind": "block",
+            "block_id": "block-0885493b8905d4ddd4dd0525c4e2bb83a45983f983bc07e504796336f15de867"
+          }
+        ]
+      },
+      "asset_references": [],
+      "extractor_block_ids": []
+    },
+    {
+      "block_id": "block-8beccced9b71767f83a12836e1f077b046ea90b25fdfddfc702b2fd3a5156c27",
+      "revision_id": "rev-e85220a701aa29f4ebaf2a0cfb3601488b92fddbc2c8866ef975b04acbc68c47",
+      "block_type": "table_cell",
+      "parent_block_id": "block-123d851e2cddea9459591141b3e42d67fd02ed2ff802491d074e3c1940450b98",
+      "parent_section_id": "block-84aaed589ecd27826b380cf789c0635435ad5c7084988ee96bcb7102ebd0b5fa",
+      "heading_path": [
+        "Operations",
+        "Checks"
+      ],
+      "source_spans": [
+        {
+          "start": 367,
+          "end": 376
+        }
+      ],
+      "retrieval_text": "Version",
+      "structured_content": {
+        "attributes": {
+          "kind": "table_cell"
+        },
+        "children": [
+          {
+            "kind": "inline",
+            "inline": {
+              "content": {
+                "kind": "text",
+                "text": "Version"
+              },
+              "source_span": {
+                "start": 368,
+                "end": 375
+              },
+              "children": []
+            }
+          }
+        ]
+      },
+      "asset_references": [],
+      "extractor_block_ids": []
+    },
+    {
+      "block_id": "block-0885493b8905d4ddd4dd0525c4e2bb83a45983f983bc07e504796336f15de867",
+      "revision_id": "rev-e85220a701aa29f4ebaf2a0cfb3601488b92fddbc2c8866ef975b04acbc68c47",
+      "block_type": "table_cell",
+      "parent_block_id": "block-123d851e2cddea9459591141b3e42d67fd02ed2ff802491d074e3c1940450b98",
+      "parent_section_id": "block-84aaed589ecd27826b380cf789c0635435ad5c7084988ee96bcb7102ebd0b5fa",
+      "heading_path": [
+        "Operations",
+        "Checks"
+      ],
+      "source_spans": [
+        {
+          "start": 377,
+          "end": 383
+        }
+      ],
+      "retrieval_text": "Wait",
+      "structured_content": {
+        "attributes": {
+          "kind": "table_cell"
+        },
+        "children": [
+          {
+            "kind": "inline",
+            "inline": {
+              "content": {
+                "kind": "text",
+                "text": "Wait"
+              },
+              "source_span": {
+                "start": 378,
+                "end": 382
+              },
+              "children": []
+            }
+          }
+        ]
+      },
+      "asset_references": [],
+      "extractor_block_ids": []
+    },
+    {
+      "block_id": "block-f0abbfb2390e816791db37d5dd5a66cfa385f3ac2d0cb8c7300dfb839b8c424f",
+      "revision_id": "rev-e85220a701aa29f4ebaf2a0cfb3601488b92fddbc2c8866ef975b04acbc68c47",
+      "block_type": "table_row",
+      "parent_block_id": "block-73be418878c0ae10003f4a9bdd156fc183baf6b2cf2e12e7805933d7e322060e",
+      "parent_section_id": "block-84aaed589ecd27826b380cf789c0635435ad5c7084988ee96bcb7102ebd0b5fa",
+      "heading_path": [
+        "Operations",
+        "Checks"
+      ],
+      "source_spans": [
+        {
+          "start": 404,
+          "end": 424
+        }
+      ],
+      "retrieval_text": "9.0.22\t20 ms",
+      "structured_content": {
+        "attributes": {
+          "kind": "table_row"
+        },
+        "children": [
+          {
+            "kind": "block",
+            "block_id": "block-226871d7b4bb96aca9392c4c1410fc94cebb67298c83b77c3327c0b496a7ddb8"
+          },
+          {
+            "kind": "block",
+            "block_id": "block-bf90af406c48e9196bcf50254ad4959e8523666df130fb17dcaf5f66b943d84c"
+          }
+        ]
+      },
+      "asset_references": [],
+      "extractor_block_ids": []
+    },
+    {
+      "block_id": "block-226871d7b4bb96aca9392c4c1410fc94cebb67298c83b77c3327c0b496a7ddb8",
+      "revision_id": "rev-e85220a701aa29f4ebaf2a0cfb3601488b92fddbc2c8866ef975b04acbc68c47",
+      "block_type": "table_cell",
+      "parent_block_id": "block-f0abbfb2390e816791db37d5dd5a66cfa385f3ac2d0cb8c7300dfb839b8c424f",
+      "parent_section_id": "block-84aaed589ecd27826b380cf789c0635435ad5c7084988ee96bcb7102ebd0b5fa",
+      "heading_path": [
+        "Operations",
+        "Checks"
+      ],
+      "source_spans": [
+        {
+          "start": 405,
+          "end": 414
+        }
+      ],
+      "retrieval_text": "9.0.22",
+      "structured_content": {
+        "attributes": {
+          "kind": "table_cell"
+        },
+        "children": [
+          {
+            "kind": "inline",
+            "inline": {
+              "content": {
+                "kind": "text",
+                "text": "9.0.22"
+              },
+              "source_span": {
+                "start": 406,
+                "end": 412
+              },
+              "children": []
+            }
+          }
+        ]
+      },
+      "asset_references": [],
+      "extractor_block_ids": []
+    },
+    {
+      "block_id": "block-bf90af406c48e9196bcf50254ad4959e8523666df130fb17dcaf5f66b943d84c",
+      "revision_id": "rev-e85220a701aa29f4ebaf2a0cfb3601488b92fddbc2c8866ef975b04acbc68c47",
+      "block_type": "table_cell",
+      "parent_block_id": "block-f0abbfb2390e816791db37d5dd5a66cfa385f3ac2d0cb8c7300dfb839b8c424f",
+      "parent_section_id": "block-84aaed589ecd27826b380cf789c0635435ad5c7084988ee96bcb7102ebd0b5fa",
+      "heading_path": [
+        "Operations",
+        "Checks"
+      ],
+      "source_spans": [
+        {
+          "start": 415,
+          "end": 422
+        }
+      ],
+      "retrieval_text": "20 ms",
+      "structured_content": {
+        "attributes": {
+          "kind": "table_cell"
+        },
+        "children": [
+          {
+            "kind": "inline",
+            "inline": {
+              "content": {
+                "kind": "text",
+                "text": "20 ms"
+              },
+              "source_span": {
+                "start": 416,
+                "end": 421
+              },
+              "children": []
+            }
+          }
+        ]
+      },
+      "asset_references": [],
+      "extractor_block_ids": []
+    },
+    {
+      "block_id": "block-bdef9338c8bee55c32b12d7a8b687da6e262e60411c7530d8428d00de73e774a",
+      "revision_id": "rev-e85220a701aa29f4ebaf2a0cfb3601488b92fddbc2c8866ef975b04acbc68c47",
+      "block_type": "heading",
+      "parent_block_id": null,
+      "parent_section_id": "block-4185d37aa3fcac7525a1e7a4ad2e03f82503b6c790773254058278fda640908c",
+      "heading_path": [
+        "Operations",
+        "Checks"
+      ],
+      "source_spans": [
+        {
+          "start": 425,
+          "end": 436
+        }
+      ],
+      "retrieval_text": "Checks",
+      "structured_content": {
+        "attributes": {
+          "kind": "heading",
+          "level": 3,
+          "explicit_id": null,
+          "classes": [],
+          "attributes": []
+        },
+        "children": [
+          {
+            "kind": "inline",
+            "inline": {
+              "content": {
+                "kind": "text",
+                "text": "Checks"
+              },
+              "source_span": {
+                "start": 429,
+                "end": 435
+              },
+              "children": []
+            }
+          }
+        ]
+      },
+      "asset_references": [],
+      "extractor_block_ids": []
+    },
+    {
+      "block_id": "block-463a34516f165ff61f2fc4e6dbf7c2b1f48a0cabc5ee9b01b2091e70f4c7240a",
+      "revision_id": "rev-e85220a701aa29f4ebaf2a0cfb3601488b92fddbc2c8866ef975b04acbc68c47",
+      "block_type": "block_quote",
+      "parent_block_id": null,
+      "parent_section_id": "block-bdef9338c8bee55c32b12d7a8b687da6e262e60411c7530d8428d00de73e774a",
+      "heading_path": [
+        "Operations",
+        "Checks"
+      ],
+      "source_spans": [
+        {
+          "start": 437,
+          "end": 476
+        }
+      ],
+      "retrieval_text": "Warnings are not permissions.[^note]",
+      "structured_content": {
+        "attributes": {
+          "kind": "block_quote",
+          "alert": null
+        },
+        "children": [
+          {
+            "kind": "block",
+            "block_id": "block-8e5a0b1d900a26a7dbb7cf103cb23d0b35bbdb2831a996947beb3beabcd6ae45"
+          }
+        ]
+      },
+      "asset_references": [],
+      "extractor_block_ids": []
+    },
+    {
+      "block_id": "block-8e5a0b1d900a26a7dbb7cf103cb23d0b35bbdb2831a996947beb3beabcd6ae45",
+      "revision_id": "rev-e85220a701aa29f4ebaf2a0cfb3601488b92fddbc2c8866ef975b04acbc68c47",
+      "block_type": "paragraph",
+      "parent_block_id": "block-463a34516f165ff61f2fc4e6dbf7c2b1f48a0cabc5ee9b01b2091e70f4c7240a",
+      "parent_section_id": "block-bdef9338c8bee55c32b12d7a8b687da6e262e60411c7530d8428d00de73e774a",
+      "heading_path": [
+        "Operations",
+        "Checks"
+      ],
+      "source_spans": [
+        {
+          "start": 439,
+          "end": 476
+        }
+      ],
+      "retrieval_text": "Warnings are not permissions.[^note]",
+      "structured_content": {
+        "attributes": {
+          "kind": "paragraph"
+        },
+        "children": [
+          {
+            "kind": "inline",
+            "inline": {
+              "content": {
+                "kind": "text",
+                "text": "Warnings are not permissions."
+              },
+              "source_span": {
+                "start": 439,
+                "end": 468
+              },
+              "children": []
+            }
+          },
+          {
+            "kind": "inline",
+            "inline": {
+              "content": {
+                "kind": "footnote_reference",
+                "label": "note"
+              },
+              "source_span": {
+                "start": 468,
+                "end": 475
+              },
+              "children": []
+            }
+          }
+        ]
+      },
+      "asset_references": [],
+      "extractor_block_ids": []
+    },
+    {
+      "block_id": "block-d6e4175c6c85ae22cc1073116774de7bdccac7cd449328030c3ca17715d55308",
+      "revision_id": "rev-e85220a701aa29f4ebaf2a0cfb3601488b92fddbc2c8866ef975b04acbc68c47",
+      "block_type": "paragraph",
+      "parent_block_id": null,
+      "parent_section_id": "block-bdef9338c8bee55c32b12d7a8b687da6e262e60411c7530d8428d00de73e774a",
+      "heading_path": [
+        "Operations",
+        "Checks"
+      ],
+      "source_spans": [
+        {
+          "start": 477,
+          "end": 511
+        }
+      ],
+      "retrieval_text": "Local diagram (assets/flow.svg)",
+      "structured_content": {
+        "attributes": {
+          "kind": "paragraph"
+        },
+        "children": [
+          {
+            "kind": "inline",
+            "inline": {
+              "content": {
+                "kind": "image",
+                "destination": "assets/flow.svg",
+                "title": "",
+                "reference": "",
+                "link_type": "Inline"
+              },
+              "source_span": {
+                "start": 477,
+                "end": 510
+              },
+              "children": [
+                {
+                  "content": {
+                    "kind": "text",
+                    "text": "Local diagram"
+                  },
+                  "source_span": {
+                    "start": 479,
+                    "end": 492
+                  },
+                  "children": []
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "asset_references": [
+        {
+          "destination": "assets/flow.svg",
+          "status": "available",
+          "source_span": {
+            "start": 477,
+            "end": 510
+          }
+        }
+      ],
+      "extractor_block_ids": []
+    },
+    {
+      "block_id": "block-e89ec4966de82732cb1f1859de92a5fe638ba68500783cf1f42f699ea5bae9e3",
+      "revision_id": "rev-e85220a701aa29f4ebaf2a0cfb3601488b92fddbc2c8866ef975b04acbc68c47",
+      "block_type": "reference_definition",
+      "parent_block_id": null,
+      "parent_section_id": "block-bdef9338c8bee55c32b12d7a8b687da6e262e60411c7530d8428d00de73e774a",
+      "heading_path": [
+        "Operations",
+        "Checks"
+      ],
+      "source_spans": [
+        {
+          "start": 512,
+          "end": 565
+        }
+      ],
+      "retrieval_text": "",
+      "structured_content": {
+        "attributes": {
+          "kind": "reference_definition",
+          "label": "guide",
+          "destination": "https://example.test/guide",
+          "title": "Synthetic guide"
+        },
+        "children": []
+      },
+      "asset_references": [],
+      "extractor_block_ids": []
+    },
+    {
+      "block_id": "block-f32975d92c0a53a0eb3789f1582ef48f9bade7a1c238cacae4f5a2c07b4f7bc1",
+      "revision_id": "rev-e85220a701aa29f4ebaf2a0cfb3601488b92fddbc2c8866ef975b04acbc68c47",
+      "block_type": "footnote_definition",
+      "parent_block_id": null,
+      "parent_section_id": "block-bdef9338c8bee55c32b12d7a8b687da6e262e60411c7530d8428d00de73e774a",
+      "heading_path": [
+        "Operations",
+        "Checks"
+      ],
+      "source_spans": [
+        {
+          "start": 567,
+          "end": 615
+        }
+      ],
+      "retrieval_text": "The source's access policy is unknown.",
+      "structured_content": {
+        "attributes": {
+          "kind": "footnote_definition",
+          "label": "note"
+        },
+        "children": [
+          {
+            "kind": "block",
+            "block_id": "block-9c8fe2a362f6ccadece61401a449b4700bec1d351002c48173af3ce8d9a2f30a"
+          }
+        ]
+      },
+      "asset_references": [],
+      "extractor_block_ids": []
+    },
+    {
+      "block_id": "block-9c8fe2a362f6ccadece61401a449b4700bec1d351002c48173af3ce8d9a2f30a",
+      "revision_id": "rev-e85220a701aa29f4ebaf2a0cfb3601488b92fddbc2c8866ef975b04acbc68c47",
+      "block_type": "paragraph",
+      "parent_block_id": "block-f32975d92c0a53a0eb3789f1582ef48f9bade7a1c238cacae4f5a2c07b4f7bc1",
+      "parent_section_id": "block-bdef9338c8bee55c32b12d7a8b687da6e262e60411c7530d8428d00de73e774a",
+      "heading_path": [
+        "Operations",
+        "Checks"
+      ],
+      "source_spans": [
+        {
+          "start": 576,
+          "end": 615
+        }
+      ],
+      "retrieval_text": "The source's access policy is unknown.",
+      "structured_content": {
+        "attributes": {
+          "kind": "paragraph"
+        },
+        "children": [
+          {
+            "kind": "inline",
+            "inline": {
+              "content": {
+                "kind": "text",
+                "text": "The source's access policy is unknown."
+              },
+              "source_span": {
+                "start": 576,
+                "end": 614
+              },
+              "children": []
+            }
+          }
+        ]
+      },
+      "asset_references": [],
+      "extractor_block_ids": []
+    }
+  ],
+  "source_accounting": [
+    {
+      "source_span": {
+        "start": 0,
+        "end": 102
+      },
+      "role": "metadata_or_reference",
+      "block_id": "block-9fb56f99ac09cac5b2016e2bcd424a9ee81164a7fb171f85f3503f0969fbd557"
+    },
+    {
+      "source_span": {
+        "start": 102,
+        "end": 103
+      },
+      "role": "structural_syntax",
+      "block_id": null
+    },
+    {
+      "source_span": {
+        "start": 103,
+        "end": 105
+      },
+      "role": "structural_syntax",
+      "block_id": "block-4185d37aa3fcac7525a1e7a4ad2e03f82503b6c790773254058278fda640908c"
+    },
+    {
+      "source_span": {
+        "start": 105,
+        "end": 115
+      },
+      "role": "parsed_content",
+      "block_id": "block-4185d37aa3fcac7525a1e7a4ad2e03f82503b6c790773254058278fda640908c"
+    },
+    {
+      "source_span": {
+        "start": 115,
+        "end": 116
+      },
+      "role": "structural_syntax",
+      "block_id": "block-4185d37aa3fcac7525a1e7a4ad2e03f82503b6c790773254058278fda640908c"
+    },
+    {
+      "source_span": {
+        "start": 116,
+        "end": 117
+      },
+      "role": "structural_syntax",
+      "block_id": null
+    },
+    {
+      "source_span": {
+        "start": 117,
+        "end": 120
+      },
+      "role": "parsed_content",
+      "block_id": "block-974298bc8ac73f7d2b827ac1dbd02681c3c8a6500a1c4c499ee21e4f7fda97a5"
+    },
+    {
+      "source_span": {
+        "start": 120,
+        "end": 122
+      },
+      "role": "structural_syntax",
+      "block_id": "block-974298bc8ac73f7d2b827ac1dbd02681c3c8a6500a1c4c499ee21e4f7fda97a5"
+    },
+    {
+      "source_span": {
+        "start": 122,
+        "end": 125
+      },
+      "role": "parsed_content",
+      "block_id": "block-974298bc8ac73f7d2b827ac1dbd02681c3c8a6500a1c4c499ee21e4f7fda97a5"
+    },
+    {
+      "source_span": {
+        "start": 125,
+        "end": 127
+      },
+      "role": "structural_syntax",
+      "block_id": "block-974298bc8ac73f7d2b827ac1dbd02681c3c8a6500a1c4c499ee21e4f7fda97a5"
+    },
+    {
+      "source_span": {
+        "start": 127,
+        "end": 184
+      },
+      "role": "parsed_content",
+      "block_id": "block-974298bc8ac73f7d2b827ac1dbd02681c3c8a6500a1c4c499ee21e4f7fda97a5"
+    },
+    {
+      "source_span": {
+        "start": 184,
+        "end": 185
+      },
+      "role": "metadata_or_reference",
+      "block_id": "block-974298bc8ac73f7d2b827ac1dbd02681c3c8a6500a1c4c499ee21e4f7fda97a5"
+    },
+    {
+      "source_span": {
+        "start": 185,
+        "end": 190
+      },
+      "role": "parsed_content",
+      "block_id": "block-974298bc8ac73f7d2b827ac1dbd02681c3c8a6500a1c4c499ee21e4f7fda97a5"
+    },
+    {
+      "source_span": {
+        "start": 190,
+        "end": 198
+      },
+      "role": "metadata_or_reference",
+      "block_id": "block-974298bc8ac73f7d2b827ac1dbd02681c3c8a6500a1c4c499ee21e4f7fda97a5"
+    },
+    {
+      "source_span": {
+        "start": 198,
+        "end": 199
+      },
+      "role": "parsed_content",
+      "block_id": "block-974298bc8ac73f7d2b827ac1dbd02681c3c8a6500a1c4c499ee21e4f7fda97a5"
+    },
+    {
+      "source_span": {
+        "start": 199,
+        "end": 200
+      },
+      "role": "structural_syntax",
+      "block_id": "block-974298bc8ac73f7d2b827ac1dbd02681c3c8a6500a1c4c499ee21e4f7fda97a5"
+    },
+    {
+      "source_span": {
+        "start": 200,
+        "end": 201
+      },
+      "role": "structural_syntax",
+      "block_id": null
+    },
+    {
+      "source_span": {
+        "start": 201,
+        "end": 205
+      },
+      "role": "structural_syntax",
+      "block_id": "block-84aaed589ecd27826b380cf789c0635435ad5c7084988ee96bcb7102ebd0b5fa"
+    },
+    {
+      "source_span": {
+        "start": 205,
+        "end": 211
+      },
+      "role": "parsed_content",
+      "block_id": "block-84aaed589ecd27826b380cf789c0635435ad5c7084988ee96bcb7102ebd0b5fa"
+    },
+    {
+      "source_span": {
+        "start": 211,
+        "end": 212
+      },
+      "role": "structural_syntax",
+      "block_id": "block-84aaed589ecd27826b380cf789c0635435ad5c7084988ee96bcb7102ebd0b5fa"
+    },
+    {
+      "source_span": {
+        "start": 212,
+        "end": 213
+      },
+      "role": "structural_syntax",
+      "block_id": null
+    },
+    {
+      "source_span": {
+        "start": 213,
+        "end": 216
+      },
+      "role": "structural_syntax",
+      "block_id": "block-9d304a60c2b16d5c26a582d5031aceee256460b3e57870d1b8b8d43f7315d4aa"
+    },
+    {
+      "source_span": {
+        "start": 216,
+        "end": 243
+      },
+      "role": "parsed_content",
+      "block_id": "block-9d304a60c2b16d5c26a582d5031aceee256460b3e57870d1b8b8d43f7315d4aa"
+    },
+    {
+      "source_span": {
+        "start": 243,
+        "end": 247
+      },
+      "role": "structural_syntax",
+      "block_id": "block-9d304a60c2b16d5c26a582d5031aceee256460b3e57870d1b8b8d43f7315d4aa"
+    },
+    {
+      "source_span": {
+        "start": 247,
+        "end": 249
+      },
+      "role": "structural_syntax",
+      "block_id": "block-6c49bfa2ef1756786526047bb7c1668a9d24f648e79709f4a6633b6ba9221253"
+    },
+    {
+      "source_span": {
+        "start": 249,
+        "end": 278
+      },
+      "role": "parsed_content",
+      "block_id": "block-6c49bfa2ef1756786526047bb7c1668a9d24f648e79709f4a6633b6ba9221253"
+    },
+    {
+      "source_span": {
+        "start": 278,
+        "end": 279
+      },
+      "role": "structural_syntax",
+      "block_id": "block-6c49bfa2ef1756786526047bb7c1668a9d24f648e79709f4a6633b6ba9221253"
+    },
+    {
+      "source_span": {
+        "start": 279,
+        "end": 282
+      },
+      "role": "structural_syntax",
+      "block_id": "block-02379792a11e64a813768182c6b27109e473ec41881f0627644619447c295836"
+    },
+    {
+      "source_span": {
+        "start": 282,
+        "end": 284
+      },
+      "role": "structural_syntax",
+      "block_id": "block-c54037175367b2d6176b0416f626a92879b199cae75a113459b628a018ee27d6"
+    },
+    {
+      "source_span": {
+        "start": 284,
+        "end": 287
+      },
+      "role": "parsed_content",
+      "block_id": "block-c54037175367b2d6176b0416f626a92879b199cae75a113459b628a018ee27d6"
+    },
+    {
+      "source_span": {
+        "start": 287,
+        "end": 288
+      },
+      "role": "structural_syntax",
+      "block_id": "block-c54037175367b2d6176b0416f626a92879b199cae75a113459b628a018ee27d6"
+    },
+    {
+      "source_span": {
+        "start": 288,
+        "end": 306
+      },
+      "role": "parsed_content",
+      "block_id": "block-c54037175367b2d6176b0416f626a92879b199cae75a113459b628a018ee27d6"
+    },
+    {
+      "source_span": {
+        "start": 306,
+        "end": 308
+      },
+      "role": "structural_syntax",
+      "block_id": "block-c54037175367b2d6176b0416f626a92879b199cae75a113459b628a018ee27d6"
+    },
+    {
+      "source_span": {
+        "start": 308,
+        "end": 314
+      },
+      "role": "structural_syntax",
+      "block_id": "block-21cd7755266ac64271d3b72fb350bc82f1c597098d2d21ff5dd40d7cf2f8cb95"
+    },
+    {
+      "source_span": {
+        "start": 314,
+        "end": 361
+      },
+      "role": "parsed_content",
+      "block_id": "block-21cd7755266ac64271d3b72fb350bc82f1c597098d2d21ff5dd40d7cf2f8cb95"
+    },
+    {
+      "source_span": {
+        "start": 361,
+        "end": 364
+      },
+      "role": "structural_syntax",
+      "block_id": "block-21cd7755266ac64271d3b72fb350bc82f1c597098d2d21ff5dd40d7cf2f8cb95"
+    },
+    {
+      "source_span": {
+        "start": 364,
+        "end": 366
+      },
+      "role": "structural_syntax",
+      "block_id": null
+    },
+    {
+      "source_span": {
+        "start": 366,
+        "end": 367
+      },
+      "role": "structural_syntax",
+      "block_id": "block-123d851e2cddea9459591141b3e42d67fd02ed2ff802491d074e3c1940450b98"
+    },
+    {
+      "source_span": {
+        "start": 367,
+        "end": 368
+      },
+      "role": "structural_syntax",
+      "block_id": "block-8beccced9b71767f83a12836e1f077b046ea90b25fdfddfc702b2fd3a5156c27"
+    },
+    {
+      "source_span": {
+        "start": 368,
+        "end": 375
+      },
+      "role": "parsed_content",
+      "block_id": "block-8beccced9b71767f83a12836e1f077b046ea90b25fdfddfc702b2fd3a5156c27"
+    },
+    {
+      "source_span": {
+        "start": 375,
+        "end": 376
+      },
+      "role": "structural_syntax",
+      "block_id": "block-8beccced9b71767f83a12836e1f077b046ea90b25fdfddfc702b2fd3a5156c27"
+    },
+    {
+      "source_span": {
+        "start": 376,
+        "end": 377
+      },
+      "role": "structural_syntax",
+      "block_id": "block-123d851e2cddea9459591141b3e42d67fd02ed2ff802491d074e3c1940450b98"
+    },
+    {
+      "source_span": {
+        "start": 377,
+        "end": 378
+      },
+      "role": "structural_syntax",
+      "block_id": "block-0885493b8905d4ddd4dd0525c4e2bb83a45983f983bc07e504796336f15de867"
+    },
+    {
+      "source_span": {
+        "start": 378,
+        "end": 382
+      },
+      "role": "parsed_content",
+      "block_id": "block-0885493b8905d4ddd4dd0525c4e2bb83a45983f983bc07e504796336f15de867"
+    },
+    {
+      "source_span": {
+        "start": 382,
+        "end": 383
+      },
+      "role": "structural_syntax",
+      "block_id": "block-0885493b8905d4ddd4dd0525c4e2bb83a45983f983bc07e504796336f15de867"
+    },
+    {
+      "source_span": {
+        "start": 383,
+        "end": 385
+      },
+      "role": "structural_syntax",
+      "block_id": "block-123d851e2cddea9459591141b3e42d67fd02ed2ff802491d074e3c1940450b98"
+    },
+    {
+      "source_span": {
+        "start": 385,
+        "end": 404
+      },
+      "role": "structural_syntax",
+      "block_id": "block-73be418878c0ae10003f4a9bdd156fc183baf6b2cf2e12e7805933d7e322060e"
+    },
+    {
+      "source_span": {
+        "start": 404,
+        "end": 405
+      },
+      "role": "structural_syntax",
+      "block_id": "block-f0abbfb2390e816791db37d5dd5a66cfa385f3ac2d0cb8c7300dfb839b8c424f"
+    },
+    {
+      "source_span": {
+        "start": 405,
+        "end": 406
+      },
+      "role": "structural_syntax",
+      "block_id": "block-226871d7b4bb96aca9392c4c1410fc94cebb67298c83b77c3327c0b496a7ddb8"
+    },
+    {
+      "source_span": {
+        "start": 406,
+        "end": 412
+      },
+      "role": "parsed_content",
+      "block_id": "block-226871d7b4bb96aca9392c4c1410fc94cebb67298c83b77c3327c0b496a7ddb8"
+    },
+    {
+      "source_span": {
+        "start": 412,
+        "end": 414
+      },
+      "role": "structural_syntax",
+      "block_id": "block-226871d7b4bb96aca9392c4c1410fc94cebb67298c83b77c3327c0b496a7ddb8"
+    },
+    {
+      "source_span": {
+        "start": 414,
+        "end": 415
+      },
+      "role": "structural_syntax",
+      "block_id": "block-f0abbfb2390e816791db37d5dd5a66cfa385f3ac2d0cb8c7300dfb839b8c424f"
+    },
+    {
+      "source_span": {
+        "start": 415,
+        "end": 416
+      },
+      "role": "structural_syntax",
+      "block_id": "block-bf90af406c48e9196bcf50254ad4959e8523666df130fb17dcaf5f66b943d84c"
+    },
+    {
+      "source_span": {
+        "start": 416,
+        "end": 421
+      },
+      "role": "parsed_content",
+      "block_id": "block-bf90af406c48e9196bcf50254ad4959e8523666df130fb17dcaf5f66b943d84c"
+    },
+    {
+      "source_span": {
+        "start": 421,
+        "end": 422
+      },
+      "role": "structural_syntax",
+      "block_id": "block-bf90af406c48e9196bcf50254ad4959e8523666df130fb17dcaf5f66b943d84c"
+    },
+    {
+      "source_span": {
+        "start": 422,
+        "end": 424
+      },
+      "role": "structural_syntax",
+      "block_id": "block-f0abbfb2390e816791db37d5dd5a66cfa385f3ac2d0cb8c7300dfb839b8c424f"
+    },
+    {
+      "source_span": {
+        "start": 424,
+        "end": 425
+      },
+      "role": "structural_syntax",
+      "block_id": null
+    },
+    {
+      "source_span": {
+        "start": 425,
+        "end": 429
+      },
+      "role": "structural_syntax",
+      "block_id": "block-bdef9338c8bee55c32b12d7a8b687da6e262e60411c7530d8428d00de73e774a"
+    },
+    {
+      "source_span": {
+        "start": 429,
+        "end": 435
+      },
+      "role": "parsed_content",
+      "block_id": "block-bdef9338c8bee55c32b12d7a8b687da6e262e60411c7530d8428d00de73e774a"
+    },
+    {
+      "source_span": {
+        "start": 435,
+        "end": 436
+      },
+      "role": "structural_syntax",
+      "block_id": "block-bdef9338c8bee55c32b12d7a8b687da6e262e60411c7530d8428d00de73e774a"
+    },
+    {
+      "source_span": {
+        "start": 436,
+        "end": 437
+      },
+      "role": "structural_syntax",
+      "block_id": null
+    },
+    {
+      "source_span": {
+        "start": 437,
+        "end": 439
+      },
+      "role": "structural_syntax",
+      "block_id": "block-463a34516f165ff61f2fc4e6dbf7c2b1f48a0cabc5ee9b01b2091e70f4c7240a"
+    },
+    {
+      "source_span": {
+        "start": 439,
+        "end": 475
+      },
+      "role": "parsed_content",
+      "block_id": "block-8e5a0b1d900a26a7dbb7cf103cb23d0b35bbdb2831a996947beb3beabcd6ae45"
+    },
+    {
+      "source_span": {
+        "start": 475,
+        "end": 476
+      },
+      "role": "structural_syntax",
+      "block_id": "block-8e5a0b1d900a26a7dbb7cf103cb23d0b35bbdb2831a996947beb3beabcd6ae45"
+    },
+    {
+      "source_span": {
+        "start": 476,
+        "end": 477
+      },
+      "role": "structural_syntax",
+      "block_id": null
+    },
+    {
+      "source_span": {
+        "start": 477,
+        "end": 479
+      },
+      "role": "metadata_or_reference",
+      "block_id": "block-d6e4175c6c85ae22cc1073116774de7bdccac7cd449328030c3ca17715d55308"
+    },
+    {
+      "source_span": {
+        "start": 479,
+        "end": 492
+      },
+      "role": "parsed_content",
+      "block_id": "block-d6e4175c6c85ae22cc1073116774de7bdccac7cd449328030c3ca17715d55308"
+    },
+    {
+      "source_span": {
+        "start": 492,
+        "end": 510
+      },
+      "role": "metadata_or_reference",
+      "block_id": "block-d6e4175c6c85ae22cc1073116774de7bdccac7cd449328030c3ca17715d55308"
+    },
+    {
+      "source_span": {
+        "start": 510,
+        "end": 511
+      },
+      "role": "structural_syntax",
+      "block_id": "block-d6e4175c6c85ae22cc1073116774de7bdccac7cd449328030c3ca17715d55308"
+    },
+    {
+      "source_span": {
+        "start": 511,
+        "end": 512
+      },
+      "role": "structural_syntax",
+      "block_id": null
+    },
+    {
+      "source_span": {
+        "start": 512,
+        "end": 565
+      },
+      "role": "metadata_or_reference",
+      "block_id": "block-e89ec4966de82732cb1f1859de92a5fe638ba68500783cf1f42f699ea5bae9e3"
+    },
+    {
+      "source_span": {
+        "start": 565,
+        "end": 567
+      },
+      "role": "structural_syntax",
+      "block_id": null
+    },
+    {
+      "source_span": {
+        "start": 567,
+        "end": 576
+      },
+      "role": "structural_syntax",
+      "block_id": "block-f32975d92c0a53a0eb3789f1582ef48f9bade7a1c238cacae4f5a2c07b4f7bc1"
+    },
+    {
+      "source_span": {
+        "start": 576,
+        "end": 614
+      },
+      "role": "parsed_content",
+      "block_id": "block-9c8fe2a362f6ccadece61401a449b4700bec1d351002c48173af3ce8d9a2f30a"
+    },
+    {
+      "source_span": {
+        "start": 614,
+        "end": 615
+      },
+      "role": "structural_syntax",
+      "block_id": "block-9c8fe2a362f6ccadece61401a449b4700bec1d351002c48173af3ce8d9a2f30a"
+    }
+  ],
+  "sections": [
+    {
+      "section_id": "block-4185d37aa3fcac7525a1e7a4ad2e03f82503b6c790773254058278fda640908c",
+      "parent_section_id": null,
+      "level": 1,
+      "title": "Operations",
+      "heading_path": [
+        "Operations"
+      ]
+    },
+    {
+      "section_id": "block-84aaed589ecd27826b380cf789c0635435ad5c7084988ee96bcb7102ebd0b5fa",
+      "parent_section_id": "block-4185d37aa3fcac7525a1e7a4ad2e03f82503b6c790773254058278fda640908c",
+      "level": 3,
+      "title": "Checks",
+      "heading_path": [
+        "Operations",
+        "Checks"
+      ]
+    },
+    {
+      "section_id": "block-bdef9338c8bee55c32b12d7a8b687da6e262e60411c7530d8428d00de73e774a",
+      "parent_section_id": "block-4185d37aa3fcac7525a1e7a4ad2e03f82503b6c790773254058278fda640908c",
+      "level": 3,
+      "title": "Checks",
+      "heading_path": [
+        "Operations",
+        "Checks"
+      ]
+    }
+  ],
+  "links": [
+    {
+      "block_id": "block-974298bc8ac73f7d2b827ac1dbd02681c3c8a6500a1c4c499ee21e4f7fda97a5",
+      "destination": "https://example.test/guide",
+      "title": "Synthetic guide",
+      "label": "guide",
+      "image": false,
+      "source_span": {
+        "start": 184,
+        "end": 198
+      }
+    },
+    {
+      "block_id": "block-d6e4175c6c85ae22cc1073116774de7bdccac7cd449328030c3ca17715d55308",
+      "destination": "assets/flow.svg",
+      "title": "",
+      "label": "Local diagram",
+      "image": true,
+      "source_span": {
+        "start": 477,
+        "end": 510
+      }
+    }
+  ],
+  "extractor_blocks": [],
+  "warnings": [
+    {
+      "severity": "warning",
+      "code": "missing_metadata",
+      "message": "access_policy is unknown; not inferred",
+      "block_id": null,
+      "source_spans": []
+    }
+  ]
+}

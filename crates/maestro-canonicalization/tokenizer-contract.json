@@ -1,0 +1,165 @@
+{
+  "llama_commit": "77f132cb1df1de6357617aeaf0ca04c02cf15fb1",
+  "input_template": "ordered-input-parts/v1: concatenate text verbatim",
+  "preprocessing": "No caller trimming, Unicode normalization, escaping, prefix or suffix; native GGUF normalization applies",
+  "add_special": true,
+  "parse_special": true,
+  "padding": false,
+  "truncation": false,
+  "chunk_target": 500,
+  "chunk_hard_max": 700,
+  "configured_context": 8192,
+  "selected_counter": "llama.cpp vocabulary-only subprocess",
+  "schema": "local-tokenizer-contract/2",
+  "artifacts": {
+    "model": {
+      "sha256": "aa473d51f451a22f0fcf39ba3330c14bed38a385712b1113440f69df4047a173",
+      "bytes": 634553760
+    },
+    "counter": {
+      "sha256": "7a74998544dfae5ce7f81da0c798feae9b44f05c56170b1577b7236b2909694e",
+      "bytes": 40720
+    },
+    "libraries": [
+      {
+        "file": "libggml-base.so.0.22.0",
+        "bytes": 939528,
+        "sha256": "12f9ce42d6479d4d8a6abc3ce75c6480c90666b4fc890e84d31fa98806cd2acb"
+      },
+      {
+        "file": "libggml-cpu.so.0.22.0",
+        "bytes": 1366776,
+        "sha256": "04ba5cb6295e9f2aebe2303f293644740e57fa38c19f9dfef0da021c6ede2808"
+      },
+      {
+        "file": "libggml-cuda.so.0.22.0",
+        "bytes": 66695336,
+        "sha256": "2103a5e69bd5200dc5611c782b71fd67963c8b815a190835f3680adda92c4171"
+      },
+      {
+        "file": "libggml.so.0.22.0",
+        "bytes": 56016,
+        "sha256": "6a4b459b78bb48ae8abdc2148ec5ccea7987f8db7fda81109911b6ee9cb4cddc"
+      },
+      {
+        "file": "libllama-bench-impl.so",
+        "bytes": 485232,
+        "sha256": "7068bbcb332255b5a2ff3941df27b1d0f457b2fd3379d69a062b589af1569330"
+      },
+      {
+        "file": "libllama-cli-impl.so",
+        "bytes": 243032,
+        "sha256": "5e9c5639ecdb3e89129b2ee4304455c9f6cc508de9f3f0f616095f02ad7cd6b7"
+      },
+      {
+        "file": "libllama-common.so.0.3.0",
+        "bytes": 5909928,
+        "sha256": "e2b84e325372250edd2ba0c6d97cf73dcbf30131cf6a5eb8159823966a8d0baa"
+      },
+      {
+        "file": "libllama-fit-params-impl.so",
+        "bytes": 39568,
+        "sha256": "873c3d41b3188b7c63947d0112dee08ff765dcd4ebc48aaed198c0483efd1193"
+      },
+      {
+        "file": "libllama-perplexity-impl.so",
+        "bytes": 168440,
+        "sha256": "22770571231bf22f3d2e1761c98a59e269455f1fbf740656055cc84168061ddc"
+      },
+      {
+        "file": "libllama-server-impl.so",
+        "bytes": 6953248,
+        "sha256": "53bac4cce458e0e41224a7c9facb5007cee1d3710c85acfdf7eb4901c8af19b2"
+      },
+      {
+        "file": "libllama.so.0.3.0",
+        "bytes": 4692320,
+        "sha256": "f7f8085af7a4bf50d5a4387f1fba29ac696af63a2777747c1e42cff17b494d1e"
+      },
+      {
+        "file": "libmtmd.so.0.3.0",
+        "bytes": 1929720,
+        "sha256": "b4125b9def903ef21b973d22b4e3e206659e4c095d0e2ba1fda8e7ee7599f3f1"
+      }
+    ],
+    "sources": [
+      {
+        "file": "tools/tokenize/tokenize.cpp",
+        "bytes": 7335,
+        "sha256": "db0cd035294b91009250029a1435a1a688d72eb489c406b630d2293b30d6fb34"
+      },
+      {
+        "file": "common/arg.cpp",
+        "bytes": 221070,
+        "sha256": "35c2d762e5c7ea2a2d456a13d44587129e9fb3c7970c75145a1c3d7312125438"
+      },
+      {
+        "file": "common/common.cpp",
+        "bytes": 79606,
+        "sha256": "9d0819ee984f36cab9c35eb0fb374c9e73bfd0af0fe6a5b912cdf1ccce7d51a3"
+      },
+      {
+        "file": "common/common.h",
+        "bytes": 51029,
+        "sha256": "2d189832492ca9899e2035ad7e7aaef8e2893726ae5ebf880462ed249c23f87f"
+      },
+      {
+        "file": "include/llama.h",
+        "bytes": 84829,
+        "sha256": "3d1b18eda626c1b9ecf5bda0798e65b974a8f70f30d56726610633a980cb4160"
+      },
+      {
+        "file": "src/llama-vocab.cpp",
+        "bytes": 182463,
+        "sha256": "32b8b7ac4a023bc6367eb7832e56e988ab7373a676ddcca4977665f78932ab88"
+      },
+      {
+        "file": "src/llama.cpp",
+        "bytes": 22085,
+        "sha256": "ad23605e3b9d21d7d46549ad5649f7ebccfacf7a5e0ff6e2fee5f91741621cd7"
+      },
+      {
+        "file": "src/llama-context.cpp",
+        "bytes": 152453,
+        "sha256": "2014334b471eb7739868752ece59d6245a31703d81b90609577bfc95b5190194"
+      },
+      {
+        "file": "src/llama-model-loader.cpp",
+        "bytes": 75731,
+        "sha256": "61b2972c5292234953453de09ab23b7c55fe4e6294cdb9b72a07131bb7b40d2f"
+      },
+      {
+        "file": "tools/server/server-context.cpp",
+        "bytes": 224474,
+        "sha256": "c8e4d0095d5c87c17e0e1356574fcaf753f9c04d4a83f4df4778ab4a241f9134"
+      },
+      {
+        "file": "tools/server/server-common.cpp",
+        "bytes": 65595,
+        "sha256": "bd3d8ab38b62f0f1ba19afe7a00b93de48a17ce6e063432a1ce7a477d3fcf0b7"
+      }
+    ]
+  },
+  "invocation": {
+    "args": [
+      "-m",
+      "{model}",
+      "--offline",
+      "--stdin",
+      "--no-escape",
+      "--ids"
+    ],
+    "stdin": "complete prepared UTF-8 text",
+    "stdout": "JSON array of token IDs",
+    "environment_replace": {
+      "PATH": "/usr/bin:/bin",
+      "LC_ALL": "C.UTF-8",
+      "CUDA_VISIBLE_DEVICES": ""
+    },
+    "timeout_seconds": 30
+  },
+  "document_prefix": "",
+  "document_suffix": "",
+  "separators": "Only explicit formatting_separator input parts",
+  "contract_id": "sha256:3546447555757daa4996a2e2e708bc67bce4389e8cee3f8386ed503eeaa6d01c"
+}

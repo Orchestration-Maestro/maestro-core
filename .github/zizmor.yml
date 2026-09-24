@@ -1,0 +1,8 @@
+# The workflow security audit `just check` and the commit hook run: zizmor, in
+# its pedantic persona, offline. Every finding blocks.
+rules:
+  unpinned-uses:
+    # Every action pinned to a commit, GitHub's own included.
+    config:
+      policies:
+        "*": hash-pin

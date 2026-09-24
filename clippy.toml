@@ -1,0 +1,9 @@
+# The size limits the North Star holds every function to; the justfile denies
+# the two lints that are off by default.
+cognitive-complexity-threshold = 15
+too-many-lines-threshold = 100
+too-many-arguments-threshold = 5
+# The binary never panics; its own unit tests may.
+allow-unwrap-in-tests = true
+allow-expect-in-tests = true
+allow-panic-in-tests = true
