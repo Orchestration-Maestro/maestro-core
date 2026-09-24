@@ -1,6 +1,6 @@
 # Agent guide
 
-The [constitution](.specify/memory/constitution.md) governs; this page is the
+The [constitution](https://github.com/Orchestration-Maestro/.github/blob/main/CONSTITUTION.md) governs; this page is the
 working summary.
 
 | Command | When |
