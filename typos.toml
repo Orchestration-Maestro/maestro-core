@@ -14,6 +14,9 @@ extend-exclude = [".specify/scripts/"]
 extend-ignore-re = ["\\b[0-9a-f]{2}-[0-9a-f]{32}-[0-9a-f]{16}-[0-9a-f]{2}\\b"]
 
 [default.extend-words]
+# The engineering rules' foundation prefix (FND-001 to FND-004), which the
+# rule map in docs/standards/ cites.
+FND = "FND"
 # French test input: the canonicalizer's tests use text in other languages.
 Exemple = "Exemple"
 # Recovery time objective, next to the recovery point objective (RPO).
