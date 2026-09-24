@@ -35,4 +35,4 @@ are: see [TOKENIZER.md](crates/maestro-canonicalization/TOKENIZER.md).
 
 ## Licence
 
-MIT: [LICENSE](LICENSE), [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+MIT: [LICENSE](LICENSE).
