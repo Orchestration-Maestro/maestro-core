@@ -52,7 +52,19 @@ impl std::error::Error for Error {}
 
 /// Lower-case hexadecimal SHA-256 of the bytes.
 pub(crate) fn digest(bytes: &[u8]) -> String {
-    format!("{:x}", Sha256::digest(bytes))
+    lower_hex(&Sha256::digest(bytes))
+}
+
+/// Two lower-case hexadecimal digits per byte; sha2's hashes no longer format as hex themselves.
+pub(crate) fn lower_hex(bytes: &[u8]) -> String {
+    /// The sixteen digits, by value.
+    const DIGITS: &[u8; 16] = b"0123456789abcdef";
+    let mut hex = String::new();
+    for &byte in bytes {
+        hex.push(char::from(DIGITS[usize::from(byte >> 4)]));
+        hex.push(char::from(DIGITS[usize::from(byte & 0x0f)]));
+    }
+    hex
 }
 
 /// Parse unchanged Markdown into a provenance-bearing canonical document.

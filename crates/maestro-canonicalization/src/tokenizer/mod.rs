@@ -1,7 +1,7 @@
 //! Local vocabulary-only tokenization through the qualified executable.
 use self::binding::NativeBinding;
 use self::process::run_native;
-use crate::{Error, digest};
+use crate::{Error, digest, lower_hex};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::{
@@ -264,7 +264,7 @@ fn verify_artifact(path: &Path, bytes: u64, hash: &str) -> Result<(), Error> {
             .ok_or_else(invalid_contract)?;
         hasher.update(&buffer[..length]);
     }
-    if total != bytes || format!("{:x}", hasher.finalize()) != hash {
+    if total != bytes || lower_hex(&hasher.finalize()) != hash {
         return Err(Error("tokenizer artifact fingerprint mismatch".into()));
     }
     Ok(())
