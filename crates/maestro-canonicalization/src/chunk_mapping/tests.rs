@@ -298,6 +298,19 @@ fn a_shifted_or_empty_ledger_part_refuses_mapping() {
 }
 
 #[test]
+fn an_eligible_ledger_part_without_primary_text_refuses_mapping() {
+    let markdown = "Body text\n";
+    let doc = canonicalize(CanonicalizeInput::new(markdown, "unrepresented")).unwrap();
+    let mut units = map_document(&doc, markdown).unwrap().units;
+    map_accounting(&doc, markdown, &units).unwrap();
+    // The same origins, carried only as context, leave the paragraph's text unrepresented.
+    for unit in &mut units {
+        unit.primary = false;
+    }
+    assert!(map_accounting(&doc, markdown, &units).is_err());
+}
+
+#[test]
 fn front_matter_bytes_are_metadata_whatever_their_role() {
     let markdown = "---\ntitle: T\n---\nBody\n";
     let mut doc = canonicalize(CanonicalizeInput::new(markdown, "front")).unwrap();

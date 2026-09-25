@@ -92,3 +92,21 @@ fn a_piece_inside_deletions_repeats_only_the_delimiters_it_lacks() {
     // Starting at the inner closing delimiter: only the outer deletion is open.
     assert_eq!(parts(7, 13), [delimiter(), (Source, "~~ z~~".to_owned())]);
 }
+
+#[test]
+fn only_units_mapped_as_primary_text_are_primary() {
+    let markdown = "- item\n";
+    let doc = canonicalize(CanonicalizeInput::new(markdown, "primary")).unwrap();
+    let mapped = map_document(&doc, markdown).unwrap();
+    let layout = layout(&doc, markdown, &mapped).unwrap();
+    let marker = mapped
+        .units
+        .iter()
+        .position(|unit| unit.field == UnitField::ListMarker)
+        .unwrap();
+    let item = mapped.units.iter().position(|unit| unit.primary).unwrap();
+    assert!(!layout.is_primary(marker));
+    assert!(layout.is_primary(item));
+    // An unknown unit is not primary.
+    assert!(!layout.is_primary(mapped.units.len()));
+}

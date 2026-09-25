@@ -144,3 +144,25 @@ fn every_piece_counts_at_most_the_maximum_when_counted_again() {
     };
     assert!(build_drafts(&doc, &markdown, &mapped, &mut unstable).is_err());
 }
+
+#[test]
+fn a_cut_inside_a_word_stays_when_the_whitespace_before_it_does_not_fit() {
+    let markdown = format!("{}\n", "word ".repeat(300).trim_end());
+    let doc = canonicalize(CanonicalizeInput::new(&markdown, "retreat")).unwrap();
+    let mapped = map_document(&doc, &markdown).unwrap();
+    // A counter that refuses every piece ending in whitespace: the halved prefix ends inside the
+    // text, and the retreat to the space before it no longer fits.
+    let mut no_trailing_space = |text: &str| {
+        Ok(if text.len() > 600 || text.ends_with(' ') {
+            MAX_TOKENS + 1
+        } else {
+            MAX_TOKENS
+        })
+    };
+    let chunks = build_drafts(&doc, &markdown, &mapped, &mut no_trailing_space).unwrap();
+    let first = &chunks[0].fragments[0];
+    assert_eq!(
+        (first.contribution.range.end, first.split),
+        (374, SplitKind::Scalar)
+    );
+}
