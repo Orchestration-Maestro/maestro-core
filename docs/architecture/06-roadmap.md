@@ -152,7 +152,7 @@ has passing allow and deny tests.
 | Extensions | Extension host, Maestro Extension Protocol, process extensions, outbound webhooks, public event catalogue with schema compatibility tests, a reference `echo` extension ([07](07-extensibility.md)) |
 | Qualification | Provider qualification on both routes (direct endpoint, then SDK), the first model cards and the qualification registry, the test kit and released scenario runner with strict replay rules |
 
-**Exit criteria:** `feature-delivery` completes on the release-canary repository
+**Exit criteria:** `feature-delivery` completes on the maestro-release-canary repository
 with an accepted result on each provider separately; killing the daemon
 mid-run and restarting it resumes correctly with uncertain effects surfaced;
 every denial test proves its stimulus reached the real guard; sandbox escape
