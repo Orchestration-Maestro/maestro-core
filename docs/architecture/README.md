@@ -148,7 +148,7 @@ that the combination has been tested.
 | Component | Choice | Role | Alternatives considered | Why this choice | Risk / qualification |
 | --- | --- | --- | --- | --- | --- |
 | Language/toolchain | Rust 1.98.1, edition 2024, MSRV 1.94 | Everything first-party | — | Org standard; the Copilot SDK requires 1.94 | Workspace MSRV checked by rust-workflows |
-| CI | `Orchestration-Maestro/rust-workflows` v1.2.1 | Gates, releases, attestations | — | Production-proven on release-canary | Pinned by commit with tag comment |
+| CI | `Orchestration-Maestro/rust-workflows` v1.2.1 | Gates, releases, attestations | — | Production-proven on maestro-release-canary | Pinned by commit with tag comment |
 | Authority store | SQLite (rusqlite 0.40.2, bundled), WAL | Scopes, journal, jobs, facts, catalog state | Postgres, SurrealDB 3.2 | Embedded, zero-ops on a laptop, transactional, one file to back up | Single writer: short transactions, no I/O inside them |
 | Artifact store | Content-addressed files (SHA-256, zstd 0.14 optional) | Originals, canonical JSON, bundles, reports | Object store | Immutable, verifiable, deduplicated, rsync-able | fsync + atomic rename; verify on read |
 | Vector + lexical index | Qdrant 1.19 server + qdrant-client 1.19.0 | Dense, BM25 sparse, payload filters, aliases | Qdrant Edge 0.8 (embedded), LanceDB 0.39, tantivy 0.26 | Mature hybrid queries, server-side BM25, aliases for atomic generations | Edge evaluated before the laptop rollout (ADR-0003) |
