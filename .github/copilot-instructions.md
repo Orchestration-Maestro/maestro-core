@@ -179,6 +179,7 @@ in place.
 │   │   ├── 0015-bundle-freshness-and-revocation.md                          # Bundles need freshness and revocation, not only signatures
 │   │   ├── 0016-native-rust-desktop-workbench.md                            # The workbench is a native Rust desktop application
 │   │   ├── 0017-spec-kit-installed-once-for-the-organization.md             # Spec Kit is installed once for the organization, not committed
+│   │   ├── 0018-portable-filesystem-access-through-cap-std.md               # The snapshot store reaches the filesystem through cap-std
 │   │   └── README.md                                                        # Hard-to-reverse decisions, each with the trade-off that produced it
 │   ├── architecture/                                                        # Status: design of record, 2026-09-23, completed 2026-09-24
 │   │   ├── 01-knowledge-pipeline.md                                         # 01 Knowledge pipeline
