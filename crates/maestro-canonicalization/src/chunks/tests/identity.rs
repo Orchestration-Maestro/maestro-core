@@ -4,32 +4,32 @@ use super::*;
 #[test]
 fn equal_inputs_retain_occurrences_policies_and_deterministic_scoped_groups() {
     let markdown = "Keep 9.0.22.\n";
-    let (a, b) = two_access_policies(markdown);
-    let before = serde_json::to_vec(&(&a, &b)).unwrap();
-    let scope = scope(&[&a, &b]);
+    let (role_a, role_b) = two_access_policies(markdown);
+    let before = serde_json::to_vec(&(&role_a, &role_b)).unwrap();
+    let scope = scope(&[&role_a, &role_b]);
     let first = DedupInput {
-        document: &a,
+        document: &role_a,
         markdown,
     };
     let second = DedupInput {
-        document: &b,
+        document: &role_b,
         markdown,
     };
     let left = check_order_does_not_change_the_batch(&scope, first, second);
     let subset = check_a_subset_keeps_group_and_chunk_identities(&scope, first, &left);
     check_scope_changes_change_the_identities(&scope, first, &subset);
-    assert_eq!(before, serde_json::to_vec(&(&a, &b)).unwrap());
+    assert_eq!(before, serde_json::to_vec(&(&role_a, &role_b)).unwrap());
 }
 
 /// Two documents with the same text and different access policies.
 fn two_access_policies(markdown: &str) -> (CanonicalDocument, CanonicalDocument) {
     let mut input = CanonicalizeInput::new(markdown, "a");
     input.metadata.access_policy = Some(serde_json::json!({"role":"a"}));
-    let a = canonicalize(input).unwrap();
+    let role_a = canonicalize(input).unwrap();
     let mut input = CanonicalizeInput::new(markdown, "b");
     input.metadata.access_policy = Some(serde_json::json!({"role":"b"}));
-    let b = canonicalize(input).unwrap();
-    (a, b)
+    let role_b = canonicalize(input).unwrap();
+    (role_a, role_b)
 }
 
 /// Equal inputs in either order give one batch: two chunks, one prepared
@@ -91,7 +91,7 @@ fn check_a_subset_keeps_group_and_chunk_identities<'a>(
     assert!(
         left.chunks
             .iter()
-            .any(|c| c.chunk_id == subset.chunks[0].chunk_id)
+            .any(|chunk| chunk.chunk_id == subset.chunks[0].chunk_id)
     );
     subset
 }
@@ -149,15 +149,15 @@ fn check_scope_changes_change_the_identities(
 fn context_revisions_and_counter_profiles_are_not_false_equalities() {
     let first_md = "# First\n\nbody\n";
     let second_md = "# Second\n\nbody\n";
-    let a = canonicalize(CanonicalizeInput::new(first_md, "same-source")).unwrap();
-    let b = canonicalize(CanonicalizeInput::new(second_md, "same-source")).unwrap();
-    let scope = scope(&[&a, &b]);
+    let first_doc = canonicalize(CanonicalizeInput::new(first_md, "same-source")).unwrap();
+    let second_doc = canonicalize(CanonicalizeInput::new(second_md, "same-source")).unwrap();
+    let scope = scope(&[&first_doc, &second_doc]);
     let first = DedupInput {
-        document: &a,
+        document: &first_doc,
         markdown: first_md,
     };
     let second = DedupInput {
-        document: &b,
+        document: &second_doc,
         markdown: second_md,
     };
     let result = chunk_with_count(
@@ -182,28 +182,29 @@ fn context_revisions_and_counter_profiles_are_not_false_equalities() {
         result
             .chunks
             .iter()
-            .all(|c| c.chunk_id != changed.chunks[0].chunk_id)
+            .all(|chunk| chunk.chunk_id != changed.chunks[0].chunk_id)
     );
     assert!(
         result
             .prepared_groups
             .iter()
-            .all(|g| g.group_id != changed.prepared_groups[0].group_id)
+            .all(|group| group.group_id != changed.prepared_groups[0].group_id)
     );
 }
 
 #[test]
 fn operational_metadata_does_not_change_chunk_or_prepared_identity() {
     let markdown = "Stable bytes.\n";
-    let a = canonicalize(CanonicalizeInput::new(markdown, "stable")).unwrap();
-    let mut b = a.clone();
-    b.operational_metadata
+    let original = canonicalize(CanonicalizeInput::new(markdown, "stable")).unwrap();
+    let mut rerun = original.clone();
+    rerun
+        .operational_metadata
         .insert("run_id".into(), serde_json::json!("another-run"));
-    let scope = scope(&[&a]);
+    let scope = scope(&[&original]);
     let left = chunk_with_count(
         &scope,
         &[DedupInput {
-            document: &a,
+            document: &original,
             markdown,
         }],
         WarningPolicy::Preserve,
@@ -214,7 +215,7 @@ fn operational_metadata_does_not_change_chunk_or_prepared_identity() {
     let right = chunk_with_count(
         &scope,
         &[DedupInput {
-            document: &b,
+            document: &rerun,
             markdown,
         }],
         WarningPolicy::Preserve,

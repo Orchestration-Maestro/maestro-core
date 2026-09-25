@@ -1,9 +1,12 @@
 //! Prepared-input groups: identical prepared inputs share one identity.
-use super::{
-    CHUNKER_VERSION, ChunkContent, MappedDocument, PREPARATION_PROFILE, PreparedInputGroup,
-    record_bytes,
-};
-use crate::{CanonicalDocument, Deduplication, Error};
+use super::batch::PreparedInputGroup;
+use super::mapping::{CHUNKER_VERSION, MappedDocument};
+use super::prepared::{ChunkContent, PREPARATION_PROFILE};
+use super::validation::invalid_chunks;
+use crate::CanonicalDocument;
+use crate::Error;
+use crate::dedup::Deduplication;
+use serde::Serialize;
 use std::collections::BTreeMap;
 
 /// The identities of one prepared input, the grouping key of identical inputs.
@@ -26,16 +29,17 @@ pub(super) fn chunk_id(
     content: &ChunkContent,
     tokenizer_contract_id: &str,
 ) -> Result<String, Error> {
-    let coordinates: Vec<_> = content
+    let coordinates = content
         .fragments
         .iter()
         .map(|fragment| {
-            (
-                &mapped.units[fragment.contribution.unit_index].unit_id,
-                fragment.contribution.range,
-            )
+            let unit = mapped
+                .units
+                .get(fragment.contribution.unit_index)
+                .ok_or_else(invalid_chunks)?;
+            Ok((&unit.unit_id, fragment.contribution.range))
         })
-        .collect();
+        .collect::<Result<Vec<_>, Error>>()?;
     Ok(format!(
         "chunk-{}",
         crate::digest(&record_bytes(&(
@@ -112,4 +116,9 @@ pub(super) fn insert_prepared_group(
         }
     }
     Ok(())
+}
+
+/// The JSON bytes an identity digests.
+fn record_bytes(value: &impl Serialize) -> Result<Vec<u8>, Error> {
+    serde_json::to_vec(value).map_err(|_| invalid_chunks())
 }

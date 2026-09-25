@@ -33,8 +33,8 @@ struct Reap(Child);
 impl Drop for Reap {
     fn drop(&mut self) {
         // Normal exit may already be reaped; cleanup must also run on early errors.
-        let _ = self.0.kill();
-        let _ = self.0.wait();
+        drop(self.0.kill());
+        drop(self.0.wait());
     }
 }
 
