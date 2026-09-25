@@ -38,7 +38,6 @@ in place.
 │   └── mutants.toml                                                         # Mutants no test can kill, each with its reason: none changes behaviour a test can observe
 ├── .github/                                                                 # GitHub metadata, templates and workflows
 │   ├── workflows/                                                           # GitHub Actions workflows
-│   │   ├── ci.yml                                                           # CI: calls ci.yml, upload-coverage.yml, upload-sarif.yml
 │   │   ├── dependabot-auto-merge.yml                                        # Dependabot auto-merge
 │   │   └── scorecard.yml                                                    # OpenSSF Scorecard
 │   ├── CODEOWNERS                                                           # Who reviews each path
