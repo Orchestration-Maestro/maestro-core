@@ -57,8 +57,52 @@ pub(super) fn verify_artifact(path: &Path, bytes: u64, hash: &str) -> Result<(),
     Ok(())
 }
 
+/// The names a pinned library is also reached by, under the shared-library naming its own file
+/// name follows, so that every host applies the same rule to the same profile:
+/// - Linux: `libx.so.1.2` is linked as `libx.so` and `libx.so.1`;
+/// - macOS: `libx.1.2.dylib` is linked as `libx.dylib` and `libx.1.dylib`;
+/// - Windows: `x.dll` has none, and neither has an unversioned `libx.so` or `libx.dylib`.
+///
+/// The macOS and Windows extensions match in any letter case, as their file systems do.
+pub(super) fn version_aliases(name: &str) -> Result<Vec<String>, Error> {
+    let (stem, extension) = name.rsplit_once('.').ok_or_else(invalid_contract)?;
+    if extension.eq_ignore_ascii_case("dll") {
+        return Ok(Vec::new());
+    }
+    if extension.eq_ignore_ascii_case("dylib") {
+        return Ok(stem
+            .split_once('.')
+            .map_or_else(Vec::new, |(base, version)| {
+                let major = version.split_once('.').map_or(version, |(major, _)| major);
+                vec![
+                    format!("{base}.{extension}"),
+                    format!("{base}.{major}.{extension}"),
+                ]
+            }));
+    }
+    let (base, suffix) = name.split_once(".so").ok_or_else(invalid_contract)?;
+    if suffix.is_empty() {
+        return Ok(Vec::new());
+    }
+    let major = suffix
+        .strip_prefix('.')
+        .and_then(|suffix| suffix.split('.').next())
+        .ok_or_else(invalid_contract)?;
+    Ok(vec![format!("{base}.so"), format!("{base}.so.{major}")])
+}
+
+/// Whether a directory entry is a shared library under any platform's naming: a name holding
+/// `.so`, or a `.dylib` or `.dll` extension in any letter case.
+fn is_library(name: &str) -> bool {
+    let extension = name.rsplit_once('.').map_or("", |(_, extension)| extension);
+    name.contains(".so")
+        || extension.eq_ignore_ascii_case("dylib")
+        || extension.eq_ignore_ascii_case("dll")
+}
+
 /// The library directory holds exactly the profile's libraries and their version aliases, each
-/// resolving to its pinned file.
+/// resolving to its pinned file. Both sides are compared resolved, so a directory reached through
+/// a link (macOS `/var`) or named without the `\\?\` prefix Windows resolution adds passes alike.
 pub(super) fn verify_libraries(libraries: &[PathBuf]) -> Result<(), Error> {
     let mut expected = BTreeMap::new();
     for path in libraries {
@@ -67,15 +111,9 @@ pub(super) fn verify_libraries(libraries: &[PathBuf]) -> Result<(), Error> {
             .file_name()
             .and_then(|name| name.to_str())
             .ok_or_else(invalid_contract)?;
-        let (base, suffix) = name.split_once(".so").ok_or_else(invalid_contract)?;
-        expected.insert(path.clone(), path.clone());
-        if !suffix.is_empty() {
-            let major = suffix
-                .strip_prefix('.')
-                .and_then(|suffix| suffix.split('.').next())
-                .ok_or_else(invalid_contract)?;
-            expected.insert(directory.join(format!("{base}.so")), path.clone());
-            expected.insert(directory.join(format!("{base}.so.{major}")), path.clone());
+        expected.insert(path.clone(), name);
+        for alias in version_aliases(name)? {
+            expected.insert(directory.join(alias), name);
         }
     }
     let directory = expected
@@ -91,17 +129,20 @@ pub(super) fn verify_libraries(libraries: &[PathBuf]) -> Result<(), Error> {
         .map_err(|_| Error("tokenizer library directory unavailable".into()))?
     {
         let entry = entry.map_err(|_| Error("tokenizer library inventory unavailable".into()))?;
-        if entry.file_name().to_string_lossy().contains(".so") {
+        if is_library(&entry.file_name().to_string_lossy()) {
             actual.insert(entry.path());
         }
     }
     if actual != expected.keys().cloned().collect() {
         return Err(Error("tokenizer library inventory mismatch".into()));
     }
+    // The pinned file itself must resolve to its own name here: it is no link to elsewhere.
+    let resolved = fs::canonicalize(directory)
+        .map_err(|_| Error("tokenizer library resolution failed".into()))?;
     for (alias, target) in &expected {
         if fs::canonicalize(alias)
             .map_err(|_| Error("tokenizer library resolution failed".into()))?
-            != *target
+            != resolved.join(target)
         {
             return Err(Error("tokenizer library target mismatch".into()));
         }

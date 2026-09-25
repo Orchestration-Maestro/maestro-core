@@ -1,46 +1,40 @@
 //! Tests of the native tokenizer: profile identity, artifacts, process limits and output.
-//! The counter, its shared libraries and the processes these tests start are Unix fixtures.
+//! The counter and the processes these tests start are Unix fixtures.
 use super::artifacts::verify_artifact;
 use super::binding::NativeBinding;
 use super::contract::{array_at, parse_contract, text_at};
 use super::native::parse_ids;
 #[cfg(unix)]
-use super::{
-    NativeTokenizer, artifacts::verify_libraries, native::configured_command, process::run_native,
-};
+use super::{NativeTokenizer, process::run_native};
 #[cfg(unix)]
 use crate::{error::Error, hashing::digest};
 #[cfg(unix)]
 use serde_json::Value;
 use serde_json::json;
-#[cfg(unix)]
-use std::{
-    collections::BTreeSet,
-    os::unix::fs::symlink,
-    process::Command,
-    sync::mpsc,
-    thread,
-    time::{Duration, Instant},
-};
 use std::{
     env, fs,
     path::{Path, PathBuf},
     process,
     sync::atomic::{AtomicUsize, Ordering},
 };
+#[cfg(unix)]
+use std::{
+    os::unix::fs::symlink,
+    process::Command,
+    sync::mpsc,
+    thread,
+    time::{Duration, Instant},
+};
 
+mod invocation;
+mod libraries;
+
+/// A new empty directory under the platform's temporary directory, as it is named there.
 struct Scratch(PathBuf);
 impl Scratch {
-    /// A new empty directory. macOS reaches the temporary directory through the `/var` link, and
-    /// a library alias resolves to a link-free path, so there the link-free path is used.
     fn new() -> Self {
         static NEXT: AtomicUsize = AtomicUsize::new(0);
-        let temporary = if cfg!(target_os = "macos") {
-            fs::canonicalize(env::temp_dir()).unwrap()
-        } else {
-            env::temp_dir()
-        };
-        let path = temporary.join(format!(
+        let path = env::temp_dir().join(format!(
             "ctm-tokenizer-{}-{}",
             process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)
@@ -151,7 +145,7 @@ fn a_changed_artifact_is_refused_until_restored() {
 #[test]
 fn the_reported_contract_id_is_the_committed_profiles() {
     let scratch = Scratch::new();
-    let committed = parse_contract(include_str!("../../tokenizer-contract.json")).unwrap();
+    let committed = parse_contract(include_str!("../../../tokenizer-contract.json")).unwrap();
     assert_eq!(
         committed["contract_id"],
         fake_tokenizer(&scratch).contract_id()
@@ -200,7 +194,7 @@ fn a_binding_refusal_names_the_variable_and_the_schema() {
 
 #[test]
 fn the_committed_profile_names_files_never_machine_paths() {
-    let profile = parse_contract(include_str!("../../tokenizer-contract.json")).unwrap();
+    let profile = parse_contract(include_str!("../../../tokenizer-contract.json")).unwrap();
     assert_eq!(profile["schema"], "local-tokenizer-contract/2");
     assert!(!profile.to_string().contains("\"path\""));
     let libraries = array_at(&profile, "/artifacts/libraries").unwrap();
@@ -310,7 +304,7 @@ fn process_errors_and_timeouts_do_not_return_partial_output() {
 
 #[test]
 fn contract_identity_cannot_be_self_asserted_or_silently_changed() {
-    let text = include_str!("../../tokenizer-contract.json");
+    let text = include_str!("../../../tokenizer-contract.json");
     let mut contract = parse_contract(text).unwrap();
     contract["chunk_hard_max"] = json!(701);
     assert!(parse_contract(&contract.to_string()).is_err());
@@ -353,79 +347,4 @@ fn oversized_process_output_is_refused_not_truncated() {
         command.args(["-c", script]);
         assert!(run_native(&mut command, b"", Duration::from_secs(10)).is_err());
     }
-}
-
-#[cfg(unix)]
-#[test]
-fn library_aliases_cannot_redirect_away_from_pinned_files() {
-    let scratch = Scratch::new();
-    let path = scratch.0.join("libfixture.so.1.2");
-    fs::write(&path, b"abc").unwrap();
-    let base = scratch.0.join("libfixture.so");
-    symlink(&path, &base).unwrap();
-    symlink(&path, scratch.0.join("libfixture.so.1")).unwrap();
-    let libraries = [path.clone()];
-    verify_libraries(&libraries).unwrap();
-    fs::remove_file(&base).unwrap();
-    assert!(verify_libraries(&libraries).is_err());
-    let outside = Scratch::new();
-    let replacement = outside.0.join("libfixture.so.1.2");
-    fs::write(&replacement, b"abc").unwrap();
-    symlink(&replacement, &base).unwrap();
-    assert!(verify_libraries(&libraries).is_err());
-    fs::remove_file(&base).unwrap();
-    symlink(&path, &base).unwrap();
-    let extra = scratch.0.join("libextra.so");
-    fs::write(&extra, b"abc").unwrap();
-    assert!(verify_libraries(&libraries).is_err());
-    fs::remove_file(extra).unwrap();
-    verify_libraries(&libraries).unwrap();
-}
-
-#[cfg(unix)]
-#[test]
-fn invocation_replaces_environment_and_preserves_model_argument() {
-    let mut contract = parse_contract(include_str!("../../tokenizer-contract.json")).unwrap();
-    contract["invocation"]["args"] = json!([
-        "-c",
-        "import json,os,sys; print(json.dumps([dict(os.environ),sys.argv[1:]]))",
-        "{model}"
-    ]);
-    let binding = NativeBinding {
-        model: "/a path/model;literal.gguf".into(),
-        counter: "/usr/bin/python3".into(),
-        library_directory: "/somewhere/lib".into(),
-        source_root: "/somewhere/src".into(),
-    };
-    let mut command = configured_command(&contract, &binding).unwrap();
-    let output = run_native(&mut command, b"", Duration::from_secs(2)).unwrap();
-    let result: Value = serde_json::from_slice(&output).unwrap();
-    let environment = result[0].as_object().unwrap();
-    // macOS sets these in the child whatever environment it was given: CoreFoundation's text
-    // encoding, and the SDK paths the /usr/bin/python3 xcrun shim exports before Python starts.
-    let injected: &[&str] = if cfg!(target_os = "macos") {
-        &[
-            "CPATH",
-            "LIBRARY_PATH",
-            "MANPATH",
-            "SDKROOT",
-            "__CF_USER_TEXT_ENCODING",
-        ]
-    } else {
-        &[]
-    };
-    // On failure, show only key names, never inherited environment values.
-    assert_eq!(
-        environment
-            .keys()
-            .map(String::as_str)
-            .filter(|key| !injected.contains(key))
-            .collect::<BTreeSet<_>>(),
-        BTreeSet::from(["CUDA_VISIBLE_DEVICES", "LC_ALL", "LD_LIBRARY_PATH", "PATH"])
-    );
-    assert_eq!(environment["LD_LIBRARY_PATH"], "/somewhere/lib");
-    assert_eq!(environment["CUDA_VISIBLE_DEVICES"], "");
-    assert_eq!(environment["LC_ALL"], "C.UTF-8");
-    assert_eq!(environment["PATH"], "/usr/bin:/bin");
-    assert_eq!(result[1], json!(["/a path/model;literal.gguf"]));
 }

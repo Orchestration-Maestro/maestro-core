@@ -2,6 +2,7 @@
 mod artifacts;
 mod binding;
 mod contract;
+mod loader;
 mod native;
 mod process;
 #[cfg(test)]
