@@ -1,15 +1,13 @@
 //! Replay validation: coverage and prepared parts must rebuild from the mapped source.
 use super::*;
+use std::mem;
 
 #[test]
 fn primary_ranges_not_broad_origins_prove_coverage() {
     let markdown = "`alpha beta`\n";
     let doc = canonicalize(CanonicalizeInput::new(markdown, "coverage")).unwrap();
-    let mapped = crate::chunk_mapping::map_document(&doc, markdown).unwrap();
-    let drafts = crate::chunk_split::build_drafts(&doc, markdown, &mapped, &mut |input| {
-        Ok(fake_count(input))
-    })
-    .unwrap();
+    let mapped = map_document(&doc, markdown).unwrap();
+    let drafts = build_drafts(&doc, markdown, &mapped, &mut |input| Ok(fake_count(input))).unwrap();
     assert_eq!(validate_coverage(&mapped, &drafts).unwrap().len(), 1);
     assert_eq!(
         mapped.units[0].mappings[0].mode,
@@ -34,11 +32,9 @@ fn prepared_parts_counts_and_table_header_associations_are_validated() {
         "x".repeat(1500)
     );
     let doc = canonicalize(CanonicalizeInput::new(&markdown, "parts")).unwrap();
-    let mapped = crate::chunk_mapping::map_document(&doc, &markdown).unwrap();
-    let drafts = crate::chunk_split::build_drafts(&doc, &markdown, &mapped, &mut |input| {
-        Ok(fake_count(input))
-    })
-    .unwrap();
+    let mapped = map_document(&doc, &markdown).unwrap();
+    let drafts =
+        build_drafts(&doc, &markdown, &mapped, &mut |input| Ok(fake_count(input))).unwrap();
     validate_chunks(&doc, &markdown, &mapped, &drafts, &mut |input| {
         Ok(fake_count(input))
     })
@@ -106,11 +102,8 @@ fn prepared_parts_counts_and_table_header_associations_are_validated() {
 /// A document, its mapped units and its drafts under the fake counter.
 fn drafted(markdown: &str) -> (CanonicalDocument, MappedDocument, Vec<ChunkContent>) {
     let doc = canonicalize(CanonicalizeInput::new(markdown, "tamper")).unwrap();
-    let mapped = crate::chunk_mapping::map_document(&doc, markdown).unwrap();
-    let drafts = crate::chunk_split::build_drafts(&doc, markdown, &mapped, &mut |input| {
-        Ok(fake_count(input))
-    })
-    .unwrap();
+    let mapped = map_document(&doc, markdown).unwrap();
+    let drafts = build_drafts(&doc, markdown, &mapped, &mut |input| Ok(fake_count(input))).unwrap();
     (doc, mapped, drafts)
 }
 
@@ -155,11 +148,10 @@ fn each_coverage_fault_is_refused_and_a_split_unit_is_accepted() {
 fn a_chunk_of_exactly_the_maximum_tokens_is_valid() {
     let markdown = "Body\n";
     let doc = canonicalize(CanonicalizeInput::new(markdown, "maximum")).unwrap();
-    let mapped = crate::chunk_mapping::map_document(&doc, markdown).unwrap();
-    let mut at_maximum = |_: &str| Ok(crate::chunk_split::MAX_TOKENS);
-    let drafts =
-        crate::chunk_split::build_drafts(&doc, markdown, &mapped, &mut at_maximum).unwrap();
-    assert_eq!(drafts[0].token_count, crate::chunk_split::MAX_TOKENS);
+    let mapped = map_document(&doc, markdown).unwrap();
+    let mut at_maximum = |_: &str| Ok(MAX_TOKENS);
+    let drafts = build_drafts(&doc, markdown, &mapped, &mut at_maximum).unwrap();
+    assert_eq!(drafts[0].token_count, MAX_TOKENS);
     validate_chunks(&doc, markdown, &mapped, &drafts, &mut at_maximum).unwrap();
 }
 
@@ -208,7 +200,7 @@ fn a_part_replays_each_contribution_at_its_own_offset() {
     let markdown = "Body one.\n\nBody two.\n";
     let (doc, mapped, drafts) = drafted(markdown);
     let mut chunk = drafts[0].clone();
-    let parts = std::mem::take(&mut chunk.input_parts);
+    let parts = mem::take(&mut chunk.input_parts);
     assert_eq!(parts.len(), 3);
     // One part holding both sources, without the separator: consistent, so replay accepts it,
     // and the rebuild then refuses a layout the preparation never makes.

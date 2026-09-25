@@ -179,10 +179,7 @@ fn exact_slices_narrow_but_transformed_slices_keep_original_syntax() {
     let plain = mapped.units.iter().find(|u| u.text == "café ").unwrap();
     let narrowed = mapped_slice(plain, TextRange { start: 3, end: 5 }, markdown).unwrap();
     assert_eq!(narrowed[0].range, TextRange { start: 0, end: 2 });
-    assert_eq!(
-        narrowed[0].origins[0].span,
-        SourceSpan { start: 3, end: 5 }
-    );
+    assert_eq!(narrowed[0].origins[0].span, SourceSpan { start: 3, end: 5 });
     assert!(mapped_slice(plain, TextRange { start: 3, end: 4 }, markdown).is_err());
     assert!(mapped_slice(plain, TextRange { start: 5, end: 3 }, markdown).is_err());
     let entity = mapped.units.iter().find(|u| u.text == "&").unwrap();

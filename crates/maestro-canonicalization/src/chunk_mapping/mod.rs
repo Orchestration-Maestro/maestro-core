@@ -2,13 +2,18 @@
 use crate::{
     Block, BlockAttributes, BlockType, CanonicalDocument, ContentNode, Error, Inline, InlineKind,
     SourceSpan,
+    assemble::render_inline,
     chunks::{
         CHUNKER_VERSION, InlineEnvelope, MappedDocument, MappingRun, OriginMode, SourceOrigin,
         SourceUnit, TextRange, UnitField,
     },
     digest,
+    parse::{self, inline_text},
 };
-use std::collections::{BTreeMap, BTreeSet};
+use std::{
+    cmp::Reverse,
+    collections::{BTreeMap, BTreeSet},
+};
 
 pub(crate) use slice::{map_accounting, mapped_slice};
 
@@ -29,7 +34,7 @@ pub(crate) fn map_document(
 ) -> Result<MappedDocument, Error> {
     // Reuse the exact parser option profile for Unicode/case/whitespace reference lookup.
     let parser =
-        pulldown_cmark::Parser::new_ext(markdown, crate::parse::options(&document.parser_options));
+        pulldown_cmark::Parser::new_ext(markdown, parse::options(&document.parser_options));
     let mut mapper = Mapper {
         markdown,
         blocks: document
@@ -157,11 +162,11 @@ impl Mapper<'_> {
                         true,
                     )?;
                     self.render(block, inline, &mut unit)?;
-                    if unit.text != crate::assemble::render_inline(inline) {
+                    if unit.text != render_inline(inline) {
                         return Err(invalid_mapping());
                     }
                     unit.envelopes
-                        .sort_by_key(|e| (e.opening.start, std::cmp::Reverse(e.closing.end)));
+                        .sort_by_key(|e| (e.opening.start, Reverse(e.closing.end)));
                     self.push(unit)?;
                 }
             }
@@ -319,11 +324,7 @@ impl Mapper<'_> {
             | InlineKind::SoftBreak
             | InlineKind::HardBreak
             | InlineKind::TaskMarker { .. } => {
-                self.append(
-                    unit,
-                    &crate::parse::inline_text(&inline.content, ""),
-                    vec![origin],
-                )?;
+                self.append(unit, &inline_text(&inline.content, ""), vec![origin])?;
             }
         }
         Ok(())

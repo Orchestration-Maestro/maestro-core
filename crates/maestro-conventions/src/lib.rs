@@ -168,10 +168,11 @@ fn slug(title: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::{env, process};
 
     /// A fresh directory under the system's temporary directory.
     fn scratch(name: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("policy-{name}-{}", std::process::id()));
+        let dir = env::temp_dir().join(format!("policy-{name}-{}", process::id()));
         drop(fs::remove_dir_all(&dir));
         fs::create_dir_all(&dir).unwrap();
         dir

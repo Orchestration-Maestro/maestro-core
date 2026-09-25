@@ -2,20 +2,27 @@
 use super::binding::NativeBinding;
 use super::process::run_native;
 use super::*;
+use rustix::fs::{Mode, mkfifoat};
 use std::path::PathBuf;
 use std::{
-    fs,
-    sync::atomic::{AtomicUsize, Ordering},
+    env, fs,
+    os::unix::fs::symlink,
+    process,
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        mpsc,
+    },
+    thread,
     time::Instant,
 };
 
-struct Scratch(std::path::PathBuf);
+struct Scratch(PathBuf);
 impl Scratch {
     fn new() -> Self {
         static NEXT: AtomicUsize = AtomicUsize::new(0);
-        let path = std::env::temp_dir().join(format!(
+        let path = env::temp_dir().join(format!(
             "ctm-tokenizer-{}-{}",
-            std::process::id(),
+            process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)
         ));
         fs::create_dir(&path).unwrap();
@@ -56,7 +63,7 @@ fn fake_tokenizer(scratch: &Scratch) -> NativeTokenizer {
     fs::write(root.join("src/vocab.cpp"), b"source").unwrap();
     fs::write(root.join("lib/libfake.so.1.2"), b"library").unwrap();
     for alias in ["libfake.so", "libfake.so.1"] {
-        std::os::unix::fs::symlink("libfake.so.1.2", root.join("lib").join(alias)).unwrap();
+        symlink("libfake.so.1.2", root.join("lib").join(alias)).unwrap();
     }
     // The shell itself, not a link to it: artifacts are opened without following links.
     let counter = fs::canonicalize("/bin/sh").unwrap();
@@ -87,8 +94,8 @@ fn fake_tokenizer(scratch: &Scratch) -> NativeTokenizer {
 /// `verify_artifact` on its own thread: the test fails, rather than hangs, if the open blocks.
 fn verify_without_blocking(path: &Path, bytes: u64, hash: &'static str) -> Result<(), Error> {
     let path = path.to_owned();
-    let (sender, receiver) = std::sync::mpsc::channel();
-    std::thread::spawn(move || sender.send(verify_artifact(&path, bytes, hash)));
+    let (sender, receiver) = mpsc::channel();
+    thread::spawn(move || sender.send(verify_artifact(&path, bytes, hash)));
     receiver
         .recv_timeout(Duration::from_secs(5))
         .expect("opening the artifact blocked")
@@ -223,13 +230,13 @@ fn artifact_check_requires_original_bytes_and_regular_file() {
         // A link is refused even to the right bytes; so is a FIFO, whose empty content would match.
         fs::write(&path, b"abc").unwrap();
         let link = scratch.0.join("link");
-        std::os::unix::fs::symlink(&path, &link).unwrap();
+        symlink(&path, &link).unwrap();
         assert!(verify_artifact(&link, 3, hash).is_err());
         let fifo = scratch.0.join("fifo");
-        rustix::fs::mkfifoat(
+        mkfifoat(
             File::open(&scratch.0).unwrap(),
             "fifo",
-            rustix::fs::Mode::RUSR | rustix::fs::Mode::WUSR,
+            Mode::RUSR | Mode::WUSR,
         )
         .unwrap();
         let empty = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
@@ -324,7 +331,6 @@ fn oversized_process_output_is_refused_not_truncated() {
 #[cfg(unix)]
 #[test]
 fn library_aliases_cannot_redirect_away_from_pinned_files() {
-    use std::os::unix::fs::symlink;
     let scratch = Scratch::new();
     let path = scratch.0.join("libfixture.so.1.2");
     fs::write(&path, b"abc").unwrap();

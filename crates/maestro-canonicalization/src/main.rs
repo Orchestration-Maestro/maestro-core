@@ -8,7 +8,7 @@ use maestro_canonicalization::{
 use serde::Deserialize;
 use std::{
     collections::{BTreeMap, BTreeSet},
-    fs,
+    env, fs, io,
     path::{Component, Path, PathBuf},
     process::ExitCode,
 };
@@ -51,7 +51,7 @@ struct Args {
 }
 
 fn main() -> ExitCode {
-    let args: Vec<_> = std::env::args().skip(1).collect();
+    let args: Vec<_> = env::args().skip(1).collect();
     if args == ["--help"] {
         println!("{USAGE}");
         return ExitCode::SUCCESS;
@@ -208,7 +208,7 @@ fn local_asset_status(destination: &str, root: &Path) -> AssetStatus {
         Ok(path) if !path.starts_with(root) => AssetStatus::OutsideRoot,
         Ok(path) if path.is_file() => AssetStatus::Available,
         Ok(_) => AssetStatus::Missing,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => AssetStatus::Missing,
+        Err(e) if e.kind() == io::ErrorKind::NotFound => AssetStatus::Missing,
         Err(_) => AssetStatus::Unchecked,
     }
 }

@@ -3,6 +3,8 @@ use self::identity::{PreparedGroups, chunk_id, insert_prepared_group, prepared_i
 use self::validation::{validate_chunks, validate_coverage};
 use crate::{
     DedupInput, DedupScope, Deduplication, Error, NativeTokenizer, SourceSpan, WarningPolicy,
+    chunk_mapping::map_document,
+    chunk_split::{MAX_TOKENS, TARGET_TOKENS, build_drafts},
 };
 use serde::Serialize;
 use std::collections::BTreeMap;
@@ -385,9 +387,8 @@ fn build_batch<'a>(
     let mut groups = PreparedGroups::new();
     for (occurrence_index, occurrence) in deduplication.occurrences.iter().enumerate() {
         let doc = occurrence.document;
-        let mapped = crate::chunk_mapping::map_document(doc, occurrence.markdown)?;
-        let drafts =
-            crate::chunk_split::build_drafts(doc, occurrence.markdown, &mapped, &mut cached_count)?;
+        let mapped = map_document(doc, occurrence.markdown)?;
+        let drafts = build_drafts(doc, occurrence.markdown, &mapped, &mut cached_count)?;
         let coverage = validate_coverage(&mapped, &drafts)?;
         validate_chunks(
             doc,
@@ -435,8 +436,8 @@ fn build_batch<'a>(
         version: CHUNKER_VERSION.into(),
         preparation_profile: PREPARATION_PROFILE.into(),
         tokenizer_contract_id: tokenizer_contract_id.into(),
-        target_tokens: crate::chunk_split::TARGET_TOKENS,
-        hard_max_tokens: crate::chunk_split::MAX_TOKENS,
+        target_tokens: TARGET_TOKENS,
+        hard_max_tokens: MAX_TOKENS,
         overlap_tokens: 0,
         deduplication,
         documents,

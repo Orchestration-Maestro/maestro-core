@@ -1,5 +1,6 @@
 //! Context, characterized on small documents: the exact prepared input of each chunk.
 use super::*;
+use crate::chunks::{Contribution, TextRange};
 
 /// Each chunk under the fake counter.
 fn drafted(markdown: &str) -> Vec<ChunkContent> {
@@ -70,9 +71,9 @@ fn a_piece_inside_deletions_repeats_only_the_delimiters_it_lacks() {
     let layout = layout(&doc, markdown, &mapped).unwrap();
     let parts = |start, end| {
         let fragment = Fragment {
-            contribution: crate::chunks::Contribution {
+            contribution: Contribution {
                 unit_index: 0,
-                range: crate::chunks::TextRange { start, end },
+                range: TextRange { start, end },
             },
             part_ordinal: 0,
             split: SplitKind::Whitespace,

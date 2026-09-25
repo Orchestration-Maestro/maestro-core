@@ -1,5 +1,5 @@
 //! Build natural blocks and lexical heading context from the offset-aware tree.
-use crate::parse::{Kind, Node, text};
+use crate::parse::{Kind, Node, inline_text, text};
 use crate::{
     AssetReference, AssetStatus, Block, BlockAttributes, CanonicalDocument, ContentNode, Error,
     Inline, InlineKind, Link, Section, StructuredContent, digest,
@@ -170,7 +170,7 @@ fn inline(node: &Node) -> Result<Inline, Error> {
 
 /// The text an inline node reads as, its children rendered first.
 pub(crate) fn render_inline(inline: &Inline) -> String {
-    crate::parse::inline_text(
+    inline_text(
         &inline.content,
         &inline
             .children

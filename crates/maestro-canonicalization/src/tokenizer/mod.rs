@@ -233,8 +233,8 @@ fn verify_record(path: &Path, record: &Value) -> Result<(), Error> {
 /// Refuse a path that is not a regular file of exactly this size and SHA-256, read without
 /// following links.
 fn verify_artifact(path: &Path, bytes: u64, hash: &str) -> Result<(), Error> {
-    use rustix::fs::{Mode, OFlags};
-    let fd = rustix::fs::open(
+    use rustix::fs::{Mode, OFlags, open};
+    let fd = open(
         path,
         OFlags::RDONLY | OFlags::CLOEXEC | OFlags::NOFOLLOW | OFlags::NONBLOCK,
         Mode::empty(),

@@ -3,7 +3,11 @@ use super::{
     ChunkContent, Contribution, InputPart, InputRole, MappedDocument, MappingRun, OriginMode,
     TextRange, UnitCoverage, invalid_chunks,
 };
-use crate::{CanonicalDocument, Error};
+use crate::{
+    CanonicalDocument, Error,
+    chunk_mapping::{map_accounting, mapped_slice},
+    chunk_split::{MAX_TOKENS, validate_preparation},
+};
 
 /// Check that the chunks' fragments cover each primary unit's text exactly once and in order;
 /// returns each unit's ranges.
@@ -61,13 +65,12 @@ pub(super) fn validate_chunks(
     chunks: &[ChunkContent],
     count: &mut impl FnMut(&str) -> Result<usize, Error>,
 ) -> Result<(), Error> {
-    if mapped.accounting != crate::chunk_mapping::map_accounting(document, markdown, &mapped.units)?
-    {
+    if mapped.accounting != map_accounting(document, markdown, &mapped.units)? {
         return Err(invalid_chunks());
     }
     for chunk in chunks {
         if chunk.fragments.is_empty()
-            || chunk.token_count > crate::chunk_split::MAX_TOKENS
+            || chunk.token_count > MAX_TOKENS
             || count(&chunk.prepared_input)? != chunk.token_count
         {
             return Err(invalid_chunks());
@@ -101,7 +104,7 @@ pub(super) fn validate_chunks(
         }
         check_fragment_order(chunk, &primary)?;
     }
-    crate::chunk_split::validate_preparation(document, markdown, mapped, chunks, count)
+    validate_preparation(document, markdown, mapped, chunks, count)
 }
 
 /// A formatting separator contributes no source and maps as formatting only.
@@ -147,7 +150,7 @@ fn replay_part(
         if selected.is_empty() {
             return Err(invalid_chunks());
         }
-        let mut runs = crate::chunk_mapping::mapped_slice(unit, contribution.range, markdown)?;
+        let mut runs = mapped_slice(unit, contribution.range, markdown)?;
         for run in &mut runs {
             run.range.start += text.len();
             run.range.end += text.len();

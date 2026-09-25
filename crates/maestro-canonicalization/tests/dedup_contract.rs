@@ -6,6 +6,7 @@ use maestro_canonicalization::{
     group_exact,
 };
 use serde_json::json;
+use std::ptr;
 
 fn document(text: &str, identity: &str) -> CanonicalDocument {
     canonicalize(CanonicalizeInput::new(text, identity)).unwrap()
@@ -469,7 +470,7 @@ fn check_each_occurrence_keeps_its_own_revision(
             .iter()
             .find(|o| o.document.revision_id == expected.revision_id)
             .unwrap();
-        assert!(std::ptr::eq(occurrence.document, expected));
+        assert!(ptr::eq(occurrence.document, expected));
         assert_eq!(occurrence.document.access_policy, expected.access_policy);
         assert_eq!(
             occurrence.document.extractor_blocks,

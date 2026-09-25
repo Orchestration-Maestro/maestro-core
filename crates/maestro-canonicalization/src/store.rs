@@ -1,10 +1,14 @@
 //! Immutable snapshots, accessed through directory handles without following symlinks.
 use crate::{CanonicalDocument, Error, digest};
-use rustix::fs::{AtFlags, Mode, OFlags, linkat, mkdirat, openat, unlinkat};
+use rustix::{
+    fs::{AtFlags, Mode, OFlags, linkat, mkdirat, openat, unlinkat},
+    io::Errno,
+};
 use std::{
     fs::File,
     io::{self, ErrorKind, Read, Write},
     path::{Component, Path, PathBuf},
+    process,
     sync::atomic::{AtomicUsize, Ordering},
 };
 
@@ -125,10 +129,10 @@ fn open_directory(path: &Path, create: bool) -> io::Result<File> {
         if let Component::Normal(name) = component {
             let next = match openat(&directory, name, flags, Mode::empty()) {
                 Ok(next) => next,
-                Err(rustix::io::Errno::NOENT) if create => {
+                Err(Errno::NOENT) if create => {
                     match mkdirat(&directory, name, Mode::RWXU) {
                         Ok(()) => directory.sync_all()?,
-                        Err(rustix::io::Errno::EXIST) => {}
+                        Err(Errno::EXIST) => {}
                         Err(error) => return Err(error.into()),
                     }
                     openat(&directory, name, flags, Mode::empty())?
@@ -179,7 +183,7 @@ fn write_immutable(directory: &File, name: &str, bytes: &[u8]) -> io::Result<()>
     }
     let temporary = format!(
         ".{name}.pending-{}-{}",
-        std::process::id(),
+        process::id(),
         TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed)
     );
     let fd = openat(
@@ -200,7 +204,7 @@ fn write_immutable(directory: &File, name: &str, bytes: &[u8]) -> io::Result<()>
             AtFlags::empty(),
         ) {
             Ok(()) => directory.sync_all(),
-            Err(rustix::io::Errno::EXIST) if verify_existing(directory, name, bytes)? => Ok(()),
+            Err(Errno::EXIST) if verify_existing(directory, name, bytes)? => Ok(()),
             Err(error) => Err(error.into()),
         }
     })();
@@ -212,14 +216,21 @@ fn write_immutable(directory: &File, name: &str, bytes: &[u8]) -> io::Result<()>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{fs, os::unix::fs::symlink, sync::mpsc, thread, time::Duration};
+    use rustix::fs::mkfifoat;
+    use std::{
+        env, fs,
+        os::unix::fs::symlink,
+        sync::{Barrier, mpsc},
+        thread,
+        time::Duration,
+    };
 
     /// A new empty directory; its name does not draw on `TEMP_SEQUENCE`, which pending names use.
     fn scratch() -> PathBuf {
         static NEXT: AtomicUsize = AtomicUsize::new(0);
-        let root = std::env::temp_dir().join(format!(
+        let root = env::temp_dir().join(format!(
             "canonical-store-{}-{}",
-            std::process::id(),
+            process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)
         ));
         fs::create_dir(&root).unwrap();
@@ -253,7 +264,7 @@ mod tests {
             b"unchanged"
         );
         assert!(open_directory(&output, false).is_err());
-        rustix::fs::mkfifoat(&directory, "fifo", Mode::RUSR | Mode::WUSR).unwrap();
+        mkfifoat(&directory, "fifo", Mode::RUSR | Mode::WUSR).unwrap();
         assert!(read_without_blocking(&directory, "fifo").is_err());
         assert!(read_regular(&directory, ".").is_err());
         fs::remove_dir_all(root).unwrap();
@@ -318,7 +329,7 @@ mod tests {
         // Other tests may take sequence numbers meanwhile; plant well past the next one.
         let next = TEMP_SEQUENCE.load(Ordering::Relaxed);
         for sequence in next..next + 64 {
-            let pending = format!(".original.md.pending-{}-{sequence}", std::process::id());
+            let pending = format!(".original.md.pending-{}-{sequence}", process::id());
             symlink(root.join("victim"), root.join(pending)).unwrap();
         }
         let directory = open_directory(&root, false).unwrap();
@@ -335,7 +346,7 @@ mod tests {
         // the winner's file at the link and must compare it, not accept it.
         for round in 0..50 {
             let directory = open_directory(&root.join(round.to_string()), true).unwrap();
-            let barrier = std::sync::Barrier::new(2);
+            let barrier = Barrier::new(2);
             let accepted: Vec<bool> = thread::scope(|scope| {
                 let writers: Vec<_> = [b"left".as_slice(), b"right"]
                     .into_iter()
