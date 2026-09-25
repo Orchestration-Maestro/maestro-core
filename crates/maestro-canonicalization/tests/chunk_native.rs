@@ -43,7 +43,7 @@ fn public_chunk_example_uses_native_complete_input() {
     );
 }
 
-fn check_native_batch(batch: &maestro_canonicalization::ChunkBatch<'_>, counter: &NativeTokenizer) {
+fn check_native_batch(batch: &ChunkBatch<'_>, counter: &NativeTokenizer) {
     for chunk in &batch.chunks {
         let prepared: String = chunk
             .content

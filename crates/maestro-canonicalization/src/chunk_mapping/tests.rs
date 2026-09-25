@@ -181,7 +181,7 @@ fn exact_slices_narrow_but_transformed_slices_keep_original_syntax() {
     assert_eq!(narrowed[0].range, TextRange { start: 0, end: 2 });
     assert_eq!(
         narrowed[0].origins[0].span,
-        crate::SourceSpan { start: 3, end: 5 }
+        SourceSpan { start: 3, end: 5 }
     );
     assert!(mapped_slice(plain, TextRange { start: 3, end: 4 }, markdown).is_err());
     assert!(mapped_slice(plain, TextRange { start: 5, end: 3 }, markdown).is_err());
@@ -189,7 +189,7 @@ fn exact_slices_narrow_but_transformed_slices_keep_original_syntax() {
     let transformed = mapped_slice(entity, TextRange { start: 0, end: 1 }, markdown).unwrap();
     assert_eq!(
         transformed[0].origins[0].span,
-        crate::SourceSpan { start: 6, end: 11 }
+        SourceSpan { start: 6, end: 11 }
     );
     let mut corrupted = plain.clone();
     corrupted.mappings[0].origins[0].span.end = 3;

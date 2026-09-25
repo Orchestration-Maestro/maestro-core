@@ -172,7 +172,7 @@ mod tests {
     /// A fresh directory under the system's temporary directory.
     fn scratch(name: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("policy-{name}-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&dir);
+        drop(fs::remove_dir_all(&dir));
         fs::create_dir_all(&dir).unwrap();
         dir
     }

@@ -133,7 +133,7 @@ fn warning_policy_and_empty_content_are_explicit() {
     assert!(empty.chunks.is_empty());
     for markdown in ["", "---\ntitle: Metadata\n---\n"] {
         let doc = canonicalize(CanonicalizeInput::new(markdown, "rejected-empty")).unwrap();
-        let grant = super::tests::scope(&[&doc]);
+        let grant = tests::scope(&[&doc]);
         assert!(
             chunk_with_count(
                 &grant,
@@ -155,7 +155,7 @@ fn warning_policy_and_empty_content_are_explicit() {
             .iter()
             .all(|finding| finding.severity != crate::Severity::Error)
     );
-    let grant = super::tests::scope(&[&doc]);
+    let grant = tests::scope(&[&doc]);
     let result = chunk_with_count(
         &grant,
         &[DedupInput {

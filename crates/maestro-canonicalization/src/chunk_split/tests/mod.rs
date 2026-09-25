@@ -12,7 +12,7 @@ mod context;
 mod packing;
 mod splitting;
 
-fn structural_chunks(markdown: &str) -> Result<(MappedDocument, Vec<ChunkContent>), crate::Error> {
+fn structural_chunks(markdown: &str) -> Result<(MappedDocument, Vec<ChunkContent>), Error> {
     let doc = canonicalize(CanonicalizeInput::new(markdown, "structural-test"))?;
     let mapped = map_document(&doc, markdown)?;
     let mut fake_counter = |s: &str| Ok(s.chars().count() + 2);

@@ -227,7 +227,7 @@ fn artifact_check_requires_original_bytes_and_regular_file() {
         assert!(verify_artifact(&link, 3, hash).is_err());
         let fifo = scratch.0.join("fifo");
         rustix::fs::mkfifoat(
-            fs::File::open(&scratch.0).unwrap(),
+            File::open(&scratch.0).unwrap(),
             "fifo",
             rustix::fs::Mode::RUSR | rustix::fs::Mode::WUSR,
         )
