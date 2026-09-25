@@ -46,7 +46,7 @@ every commit and keeps what each row says here. A rule added there arrives as
 | ENF-009 Allowlists that cannot rot | Test: each `.cargo/mutants.toml` exclusion names one mutant by line and its reason, and returns as missed when the code moves; typos and zizmor entries carry their reasons |
 | ENF-010 Configuration is the authority | Organization: its settings as code in `.github/org/`, checked weekly by `org-drift.yml` |
 | ENF-011 Instructions grant nothing | Organization: authority lives in rulesets, workflow `permissions:` and access control; no instruction file grants any |
-| ENF-012 Pinned inputs | Gate: `Cargo.lock` with `--locked`, actions pinned by SHA (zizmor hash-pin), tools by `mise.lock` checksums, tokenizer artifacts by size and SHA-256 |
+| ENF-012 Pinned inputs | Gate: `Cargo.lock` with `--locked`, actions pinned by SHA (zizmor hash-pin), tools pinned by rust-workflows and installed by `rust-gate setup`, tokenizer artifacts by size and SHA-256 |
 | ENF-013 No secret in history | Organization: secret scanning with push protection and validity checks (`maestrolabs-baseline`); CI: gitleaks |
 | ENF-014 Multi-factor authentication | Organization: two-factor authentication is required of every member and outside collaborator |
 | C-001 Map every rule | These pages, kept current by `rust-gate rules` at every commit; the daily drift check reports a row not mapped yet |

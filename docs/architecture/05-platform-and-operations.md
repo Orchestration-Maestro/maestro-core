@@ -290,9 +290,9 @@ skill and model versions, never to people.
   advisories), cargo-audit, gitleaks, unused dependencies, SBOMs (SPDX and
   CycloneDX), reproducible release builds, build-provenance attestations,
   verified release evidence.
-- Toolchain and tools pinned (`mise.lock`), updated weekly by a bot pull request;
-  actions pinned by commit; Dependabot grouped updates with auto-merge for patch
-  and minor after the full gate.
+- Toolchain pinned; tools pinned by rust-workflows and installed by
+  `rust-gate setup`; actions pinned by commit; Dependabot grouped updates with
+  auto-merge for patch and minor after the full gate.
 - Catalog bundles are attested by the manifests release workflow and verified by
   `maestro catalog install`; the `maestro` binary is verified the same way by
   `maestro setup`. Freshness, revocation and rollback protection follow

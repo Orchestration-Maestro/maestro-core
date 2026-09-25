@@ -9,9 +9,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
-/// Directories that hold history, downloaded tools, build output or mutation
-/// test output, never repository content.
-const SKIPPED: [&str; 5] = [".git", ".tools", "target", "mutants.out", "mutants.out.old"];
+/// Directories that hold history, build output or mutation test output, never
+/// repository content.
+const SKIPPED: [&str; 4] = [".git", "target", "mutants.out", "mutants.out.old"];
 
 /// The repository root, two levels above this crate.
 #[must_use]
@@ -19,8 +19,8 @@ pub fn root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
 }
 
-/// Every file under `root` outside `.git`, `.tools`, `target` and the mutation
-/// test output, relative and sorted. A walk rather than `git ls-files`:
+/// Every file under `root` outside `.git`, `target` and the mutation test
+/// output, relative and sorted. A walk rather than `git ls-files`:
 /// mutation testing runs in a copy without `.git`.
 ///
 /// # Errors
@@ -260,11 +260,10 @@ mod tests {
     }
 
     #[test]
-    fn repository_files_skip_git_tools_and_build_output() {
+    fn repository_files_skip_git_and_build_output() {
         let root = scratch("files");
         for dir in [
             ".git",
-            ".tools/bin",
             "target/debug",
             "crates/a/target",
             "crates/a/src",
@@ -275,7 +274,6 @@ mod tests {
         }
         for file in [
             ".git/HEAD",
-            ".tools/bin/x",
             "target/debug/y",
             "crates/a/target/z",
             "crates/a/src/lib.rs",

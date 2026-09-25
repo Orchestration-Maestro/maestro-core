@@ -6,7 +6,7 @@ repository; this page is the working summary.
 
 | Command | When |
 | --- | --- |
-| `scripts/bootstrap.sh` | Once per clone: the pinned toolbelt and the commit hooks |
+| `rust-gate setup` | Once per clone: the pinned toolbelt and the commit hooks ([README](README.md#develop)) |
 | `just check` | Before every push; it must exit 0 |
 | `just native` | After touching the tokenizer; needs `MAESTRO_NATIVE_BINDING` |
 | `just mutants` | Before a pull request whose diff CI cannot mutate within its 45 minutes |
