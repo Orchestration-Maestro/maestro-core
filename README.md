@@ -22,7 +22,9 @@ and cuts them into token-budgeted chunks. The rest arrives slice by slice
 
 ## Develop
 
-On Linux x86_64 with rustup:
+The crates build and pass their tests on Linux, macOS and Windows; CI runs them
+on all three ([ADR-0018](docs/adr/0018-rustix-on-unix-and-win32-flags-on-windows.md)).
+The pinned toolbelt and the local gate need Linux x86_64 with rustup:
 
 ```bash
 scripts/bootstrap.sh   # the pinned toolbelt in .tools/, and the commit hooks

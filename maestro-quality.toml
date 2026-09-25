@@ -6,10 +6,12 @@
 # deny.toml and artifacts named after the repository. Pedantic Clippy needs no
 # input: the organization's lint block in Cargo.toml already denies the group,
 # and `clippy-level: pedantic` would deny on the command line the lints the
-# block allows on purpose, similar_names among them.
+# block allows on purpose, similar_names among them. The platforms beside
+# Linux are ADR-0016's first-class targets, so the tests run on each.
 [ci]
 license-policy = "enforce"
 artifact-key = "maestro-core"
+platforms = "macos windows"
 
 # The seams of the canonicalization crate that keep one caller: each door is a
 # subsystem, and its one outside caller is the stage that composes it.
@@ -42,6 +44,20 @@ rule = "ARC-005"
 path = "crates/maestro-canonicalization/src/validate/mod.rs"
 item = "validate_structure"
 reason = "the pipeline runs the structural validator, a subsystem of its own"
+
+# The platform door picks rustix on Unix or Win32's flags on Windows, so that
+# neither the store nor the tokenizer branches on the platform (ADR-0018).
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-canonicalization/src/filesystem/mod.rs"
+item = "Directory"
+reason = "the store's link-free directories, one type on each platform"
+
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-canonicalization/src/filesystem/mod.rs"
+item = "open_nofollow"
+reason = "the artifact check's link-free open, one function on each platform"
 
 # The words this repository means that the spell checker reads as mistakes:
 # Exemple, French test input for the canonicalizer; RTO, the recovery time

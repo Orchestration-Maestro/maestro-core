@@ -49,13 +49,29 @@ fn local_asset_status(destination: &str, root: &Path) -> AssetStatus {
             _ => return AssetStatus::OutsideRoot,
         }
     }
-    match fs::canonicalize(root.join(relative)) {
+    match fs::canonicalize(root.join(&relative)) {
         Ok(path) if !path.starts_with(root) => AssetStatus::OutsideRoot,
         Ok(path) if path.is_file() => AssetStatus::Available,
         Ok(_) => AssetStatus::Missing,
-        Err(error) if error.kind() == ErrorKind::NotFound => AssetStatus::Missing,
-        Err(_) => AssetStatus::Unchecked,
+        Err(error) => match error.kind() {
+            ErrorKind::NotFound | ErrorKind::NotADirectory
+                if !crosses_non_directory(root, &relative) =>
+            {
+                AssetStatus::Missing
+            }
+            _ => AssetStatus::Unchecked,
+        },
     }
+}
+
+/// Whether a directory on the way to `relative` exists but is not a directory, so the destination
+/// cannot be resolved. Unix reports that as `ENOTDIR`, but Windows as `ERROR_PATH_NOT_FOUND`, the
+/// same code as for a directory that does not exist, so the error kind alone cannot tell.
+fn crosses_non_directory(root: &Path, relative: &Path) -> bool {
+    relative
+        .ancestors()
+        .skip(1)
+        .any(|ancestor| fs::metadata(root.join(ancestor)).is_ok_and(|meta| !meta.is_dir()))
 }
 
 /// Decode percent escapes into UTF-8 text; a malformed escape, invalid UTF-8 or a NUL gives

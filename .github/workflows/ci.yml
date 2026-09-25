@@ -16,6 +16,7 @@ jobs:
     with:
       license-policy: enforce
       artifact-key: maestro-core
+      platforms: macos windows
   # Clippy and secret-scan findings into the Security tab.
   sarif:
     needs: rust

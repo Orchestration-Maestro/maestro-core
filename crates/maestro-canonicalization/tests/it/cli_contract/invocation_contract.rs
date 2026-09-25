@@ -273,7 +273,8 @@ fn cli_resolves_dot_segments_and_reports_directories_and_unresolvable_assets() {
     let fixture = Fixture::new();
     fs::write(fixture.0.join("pic.svg"), "<svg/>").unwrap();
     fs::create_dir(fixture.0.join("folder")).unwrap();
-    let md = "![a](./pic.svg) ![b](folder/../pic.svg) ![c](folder) ![d](pic.svg/inner.svg)\n";
+    let md = "![a](./pic.svg) ![b](folder/../pic.svg) ![c](folder) ![d](pic.svg/inner.svg) \
+              ![e](absent/inner.svg)\n";
     fs::write(fixture.0.join("input.md"), md).unwrap();
     let output = fixture.run(&[]);
     assert!(output.status.success());
@@ -283,4 +284,5 @@ fn cli_resolves_dot_segments_and_reports_directories_and_unresolvable_assets() {
     assert_eq!(inventory["folder/../pic.svg"], "available");
     assert_eq!(inventory["folder"], "missing");
     assert_eq!(inventory["pic.svg/inner.svg"], "unchecked");
+    assert_eq!(inventory["absent/inner.svg"], "missing");
 }

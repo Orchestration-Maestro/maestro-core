@@ -1,13 +1,13 @@
 //! Artifact checks: pinned files by size and SHA-256, and the exact library inventory.
 use super::contract::{invalid_contract, text_at, value_at};
 use crate::error::Error;
+use crate::filesystem::open_nofollow;
 use crate::hashing::lower_hex;
-use rustix::fs::{Mode, OFlags, open};
 use serde_json::Value;
 use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, BTreeSet},
-    fs::{self, File},
+    fs,
     io::Read,
     path::{Path, PathBuf},
 };
@@ -24,15 +24,10 @@ pub(super) fn verify_record(path: &Path, record: &Value) -> Result<(), Error> {
 }
 
 /// Refuse a path that is not a regular file of exactly this size and SHA-256, read without
-/// following links.
+/// following a link in its last component and without blocking on a FIFO.
 pub(super) fn verify_artifact(path: &Path, bytes: u64, hash: &str) -> Result<(), Error> {
-    let fd = open(
-        path,
-        OFlags::RDONLY | OFlags::CLOEXEC | OFlags::NOFOLLOW | OFlags::NONBLOCK,
-        Mode::empty(),
-    )
-    .map_err(|_| Error("tokenizer artifact unavailable".into()))?;
-    let mut file = File::from(fd);
+    let mut file =
+        open_nofollow(path).map_err(|_| Error("tokenizer artifact unavailable".into()))?;
     let metadata = file
         .metadata()
         .map_err(|_| Error("tokenizer artifact metadata unavailable".into()))?;
