@@ -24,12 +24,17 @@ and cuts them into token-budgeted chunks. The rest arrives slice by slice
 
 The crates build and pass their tests on Linux, macOS and Windows; CI runs them
 on all three ([ADR-0018](docs/adr/0018-rustix-on-unix-and-win32-flags-on-windows.md)).
-The pinned toolbelt and the local gate need Linux x86_64 with rustup:
+Install [rustup](https://rustup.rs), then the organization's gate, which
+installs the toolbelt CI runs, at the versions it runs, and the commit hooks
+([details](https://github.com/Orchestration-Maestro/rust-workflows/blob/v4.0.0/docs/ci.md#the-tools-on-your-machine)).
+The local gate runs on Linux:
 
 ```bash
-scripts/bootstrap.sh   # the pinned toolbelt in .tools/, and the commit hooks
-just check             # the local gate; it must pass before every push
-just native            # the native tokenizer tests, through a local binding
+cargo install --locked --git https://github.com/Orchestration-Maestro/rust-workflows \
+  --tag v4.0.0 rust-gate
+rust-gate setup   # the pinned toolbelt, and the commit hooks
+just check        # the local gate; it must pass before every push
+just native       # the native tokenizer tests, through a local binding
 ```
 
 The native tests read the tokenizer's artifacts where a binding file says they

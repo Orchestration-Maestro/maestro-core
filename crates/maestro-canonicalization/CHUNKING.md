@@ -118,7 +118,7 @@ cargo test --manifest-path canonicalization/Cargo.toml --locked --offline \
   --test it chunk_native -- --ignored --nocapture
 cargo clippy --manifest-path canonicalization/Cargo.toml --locked --offline \
   --all-targets -- -D warnings
-PATH="$PWD/.tools/bin:$PATH" just check
+just check
 ```
 
 Ordinary tests deliberately ignore machine-specific native acceptance. An ignored

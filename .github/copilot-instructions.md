@@ -40,8 +40,7 @@ in place.
 │   ├── workflows/                                                           # GitHub Actions workflows
 │   │   ├── ci.yml                                                           # CI: calls ci.yml, upload-coverage.yml, upload-sarif.yml
 │   │   ├── dependabot-auto-merge.yml                                        # Dependabot auto-merge
-│   │   ├── scorecard.yml                                                    # OpenSSF Scorecard
-│   │   └── tool-updates.yml                                                 # Tool updates
+│   │   └── scorecard.yml                                                    # OpenSSF Scorecard
 │   ├── CODEOWNERS                                                           # Who reviews each path
 │   ├── copilot-instructions.md                                              # This guide, written by rust-gate guide at every commit
 │   ├── dependabot.yml                                                       # The organization merges only conventional titles: "ci(deps): bump ..."
@@ -92,16 +91,21 @@ in place.
 │   │   │   │   └── validation.rs                                            # Replay checks: coverage and every prepared part must rebuild from the mapped source
 │   │   │   ├── filesystem/                                                  # Filesystem access that never follows a link, behind one interface: rustix's directory-relative
 │   │   │   │   ├── mod.rs                                                   # Filesystem access that never follows a link, behind one interface: rustix's directory-relative
+│   │   │   │   ├── root.rs                                                  # The root a caller names, resolved once, and the names the store appends below it
 │   │   │   │   ├── unix.rs                                                  # Unix: every name resolves against an open directory through rustix's openat family, which
 │   │   │   │   └── windows.rs                                               # Windows: names resolve by path, but every directory on the way is held open without
 │   │   │   ├── tokenizer/                                                   # Local vocabulary-only tokenization through the qualified executable
+│   │   │   │   ├── tests/                                                   # Tests of the native tokenizer: profile identity, artifacts, process limits and output
+│   │   │   │   │   ├── invocation.rs                                        # Tests of the counter's invocation: its environment, its arguments and each platform's loader
+│   │   │   │   │   ├── libraries.rs                                         # Tests of the library inventory: each platform's naming, its aliases and where they resolve
+│   │   │   │   │   └── mod.rs                                               # Tests of the native tokenizer: profile identity, artifacts, process limits and output
 │   │   │   │   ├── artifacts.rs                                             # Artifact checks: pinned files by size and SHA-256, and the exact library inventory
 │   │   │   │   ├── binding.rs                                               # Where this machine keeps the artifacts the tokenizer profile fingerprints
 │   │   │   │   ├── contract.rs                                              # The committed qualification profile: its identity and typed access to its fields
+│   │   │   │   ├── loader.rs                                                # How each platform's dynamic loader is made to load the verified libraries, and only them
 │   │   │   │   ├── mod.rs                                                   # Local vocabulary-only tokenization through the qualified executable
 │   │   │   │   ├── native.rs                                                # The pinned native tokenizer: verified artifacts and one counter process per input
-│   │   │   │   ├── process.rs                                               # The counter subprocess: bounded pipes, a timeout and a child that is always reaped
-│   │   │   │   └── tests.rs                                                 # Tests of the native tokenizer: profile identity, artifacts, process limits and output
+│   │   │   │   └── process.rs                                               # The counter subprocess: bounded pipes, a timeout and a child that is always reaped
 │   │   │   ├── validate/                                                    # Structural checks against the preserved bytes; no guessed repairs
 │   │   │   │   ├── blocks.rs                                                # Block checks: children, parents, assets, attributes, inline content and tables
 │   │   │   │   ├── mod.rs                                                   # Structural checks against the preserved bytes; no guessed repairs
@@ -197,8 +201,6 @@ in place.
 │       ├── engineering.md                                                   # Engineering rules in maestro-core
 │       ├── northstar.md                                                     # Northstar for maestro-core
 │       └── security.md                                                      # Security rules in maestro-core
-├── scripts/                                                                 # Maintenance scripts
-│   └── bootstrap.sh                                                         # One command to get from a fresh clone to a machine that can run the gate
 ├── specs/                                                                   # Specifications, one directory per slice
 │   ├── 000-foundation/                                                      # 000 foundation
 │   │   ├── plan.md                                                          # Implementation Plan: Foundation
@@ -223,8 +225,6 @@ in place.
 ├── README.md                                                                # The local runtime of Maestro: knowledge kernel, retrieval, orchestration and the command-line tools
 ├── justfile                                                                 # List every recipe and what it does; this is what just alone prints
 ├── maestro-quality.toml                                                     # The organization's quality rules as this repository shapes them: the inputs its CI caller passes, the seams that keep one caller
-├── mise.lock                                                                # The checksum of every pinned tool download
-├── mise.toml                                                                # The development toolbelt: every tool just check needs, at the version CI pins
 ├── rust-toolchain.toml                                                      # The pinned Rust toolchain
 └── typos.toml                                                               # Spelling checks for maintained code and documentation
 ```
@@ -237,7 +237,6 @@ in place.
 3. The commit hook `rust-gate guide` rewrites this guide when a file is added,
    moved or removed; commit it with the change. The organization's daily drift
    check reports a guide left stale.
-4. Run `scripts/bootstrap.sh` once, then `just check`, and report the commands
-   you actually ran.
+4. Run `just check`, and report the commands you actually ran.
 5. Commits are signed, with a conventional title; the default branch takes only
    squash-merged pull requests.
