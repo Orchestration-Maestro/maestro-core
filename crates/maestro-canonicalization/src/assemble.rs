@@ -129,6 +129,9 @@ impl Builder<'_> {
                 self.references(inline, &id, &mut assets);
             }
         }
+        // `index` is the block pushed above, and blocks are only ever appended, so
+        // the lookup always finds it; `get_mut` keeps the indexing lint's promise
+        // that no slice access can panic.
         if let Some(block) = self.doc.blocks.get_mut(index) {
             block.structured_content.children = children;
             block.asset_references = assets;

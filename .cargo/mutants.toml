@@ -48,7 +48,7 @@ exclude_re = [
   '^crates/maestro-canonicalization/src/chunk_split/layout\.rs:212:21: replace && with \|\| in Layout<.+>::compatible$',
   # Cut points end after a character, so none is 0: `p >= 0` equals `p > 0`.
   '^crates/maestro-canonicalization/src/chunk_split/layout\.rs:333:34: replace > with >= in Layout<.+>::split_unit$',
-  # The whitespace cut is sought only when `length` is none, so `p <= length`
-  # finds the cut `p < length` finds.
+  # The whitespace cut is used only when `length` is none, so `p <= length`
+  # yields the cut `p < length` yields.
   '^crates/maestro-canonicalization/src/chunk_split/layout\.rs:333:45: replace < with <= in Layout<.+>::split_unit$',
 ]

@@ -75,6 +75,7 @@ mutants jobs="4":
     cargo mutants --workspace --jobs {{ jobs }} --cargo-arg=--locked
 
 # Move every tool mise.toml pins to its latest release, mise.lock with it (network).
+[linux]
 update-tools:
     #!/usr/bin/env bash
     set -euo pipefail
