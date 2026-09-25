@@ -3,3 +3,7 @@
 /.specify
 /target/
 /mutants.out*/
+
+# Coverage runs of test children that start with a cleared environment write
+# their raw profile where they run.
+*.profraw
