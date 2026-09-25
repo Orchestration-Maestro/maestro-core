@@ -1,9 +1,11 @@
 //! Replay checks: coverage and every prepared part must rebuild from the mapped source.
-use super::{
-    ChunkContent, Contribution, InputPart, InputRole, MappedDocument, MappingRun, OriginMode,
-    TextRange, UnitCoverage, invalid_chunks,
-};
-use crate::{CanonicalDocument, Error};
+use super::batch::UnitCoverage;
+use super::mapping::{MappedDocument, MappingRun, OriginMode, TextRange};
+use super::prepared::{ChunkContent, Contribution, InputPart, InputRole};
+use crate::CanonicalDocument;
+use crate::Error;
+use crate::chunk_mapping::{map_accounting, mapped_slice};
+use crate::chunk_split::{MAX_TOKENS, validate_preparation};
 
 /// Check that the chunks' fragments cover each primary unit's text exactly once and in order;
 /// returns each unit's ranges.
@@ -61,13 +63,12 @@ pub(super) fn validate_chunks(
     chunks: &[ChunkContent],
     count: &mut impl FnMut(&str) -> Result<usize, Error>,
 ) -> Result<(), Error> {
-    if mapped.accounting != crate::chunk_mapping::map_accounting(document, markdown, &mapped.units)?
-    {
+    if mapped.accounting != map_accounting(document, markdown, &mapped.units)? {
         return Err(invalid_chunks());
     }
     for chunk in chunks {
         if chunk.fragments.is_empty()
-            || chunk.token_count > crate::chunk_split::MAX_TOKENS
+            || chunk.token_count > MAX_TOKENS
             || count(&chunk.prepared_input)? != chunk.token_count
         {
             return Err(invalid_chunks());
@@ -101,7 +102,7 @@ pub(super) fn validate_chunks(
         }
         check_fragment_order(chunk, &primary)?;
     }
-    crate::chunk_split::validate_preparation(document, markdown, mapped, chunks, count)
+    validate_preparation(document, markdown, mapped, chunks, count)
 }
 
 /// A formatting separator contributes no source and maps as formatting only.
@@ -147,7 +148,7 @@ fn replay_part(
         if selected.is_empty() {
             return Err(invalid_chunks());
         }
-        let mut runs = crate::chunk_mapping::mapped_slice(unit, contribution.range, markdown)?;
+        let mut runs = mapped_slice(unit, contribution.range, markdown)?;
         for run in &mut runs {
             run.range.start += text.len();
             run.range.end += text.len();
@@ -171,7 +172,13 @@ fn replay_part(
 /// fragment covered exactly, with no gap and no overlap.
 fn check_fragment_order(chunk: &ChunkContent, primary: &[Contribution]) -> Result<(), Error> {
     let mut fragment = 0;
-    let mut cursor = chunk.fragments[0].contribution.range.start;
+    let mut cursor = chunk
+        .fragments
+        .first()
+        .ok_or_else(invalid_chunks)?
+        .contribution
+        .range
+        .start;
     for contribution in primary {
         let expected = chunk
             .fragments
@@ -190,11 +197,16 @@ fn check_fragment_order(chunk: &ChunkContent, primary: &[Contribution]) -> Resul
             cursor = chunk
                 .fragments
                 .get(fragment)
-                .map_or(0, |f| f.contribution.range.start);
+                .map_or(0, |next| next.contribution.range.start);
         }
     }
     if fragment != chunk.fragments.len() {
         return Err(invalid_chunks());
     }
     Ok(())
+}
+
+/// The refusal for chunks whose coverage or preparation does not replay.
+pub(super) fn invalid_chunks() -> Error {
+    Error("invalid chunk coverage or preparation".into())
 }
