@@ -401,11 +401,25 @@ fn invocation_replaces_environment_and_preserves_model_argument() {
     let output = run_native(&mut command, b"", Duration::from_secs(2)).unwrap();
     let result: Value = serde_json::from_slice(&output).unwrap();
     let environment = result[0].as_object().unwrap();
+    // macOS sets these in the child whatever environment it was given: CoreFoundation's text
+    // encoding, and the SDK paths the /usr/bin/python3 xcrun shim exports before Python starts.
+    let injected: &[&str] = if cfg!(target_os = "macos") {
+        &[
+            "CPATH",
+            "LIBRARY_PATH",
+            "MANPATH",
+            "SDKROOT",
+            "__CF_USER_TEXT_ENCODING",
+        ]
+    } else {
+        &[]
+    };
     // On failure, show only key names, never inherited environment values.
     assert_eq!(
         environment
             .keys()
             .map(String::as_str)
+            .filter(|key| !injected.contains(key))
             .collect::<BTreeSet<_>>(),
         BTreeSet::from(["CUDA_VISIBLE_DEVICES", "LC_ALL", "LD_LIBRARY_PATH", "PATH"])
     );
