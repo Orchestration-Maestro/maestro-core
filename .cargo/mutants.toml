@@ -4,51 +4,51 @@
 # back as missed and its exclusion is reviewed again (tasks.md, T019).
 exclude_re = [
   # OFlags and Mode bits are disjoint, so `a ^ b` equals `a | b`.
-  '^crates/maestro-canonicalization/src/store\.rs:123:32: replace \| with \^ in open_directory$',
-  '^crates/maestro-canonicalization/src/store\.rs:123:52: replace \| with \^ in open_directory$',
-  '^crates/maestro-canonicalization/src/store\.rs:123:71: replace \| with \^ in open_directory$',
-  '^crates/maestro-canonicalization/src/store\.rs:149:24: replace \| with \^ in read_regular$',
-  '^crates/maestro-canonicalization/src/store\.rs:149:43: replace \| with \^ in read_regular$',
-  '^crates/maestro-canonicalization/src/store\.rs:149:62: replace \| with \^ in read_regular$',
-  '^crates/maestro-canonicalization/src/store\.rs:188:24: replace \| with \^ in write_immutable$',
-  '^crates/maestro-canonicalization/src/store\.rs:188:41: replace \| with \^ in write_immutable$',
-  '^crates/maestro-canonicalization/src/store\.rs:188:56: replace \| with \^ in write_immutable$',
-  '^crates/maestro-canonicalization/src/store\.rs:188:75: replace \| with \^ in write_immutable$',
-  '^crates/maestro-canonicalization/src/store\.rs:189:20: replace \| with \^ in write_immutable$',
-  '^crates/maestro-canonicalization/src/tokenizer/mod\.rs:239:24: replace \| with \^ in verify_artifact$',
-  '^crates/maestro-canonicalization/src/tokenizer/mod\.rs:239:42: replace \| with \^ in verify_artifact$',
-  '^crates/maestro-canonicalization/src/tokenizer/mod\.rs:239:61: replace \| with \^ in verify_artifact$',
+  '^crates/maestro-canonicalization/src/store\.rs:140:32: replace \| with \^ in open_child$',
+  '^crates/maestro-canonicalization/src/store\.rs:140:52: replace \| with \^ in open_child$',
+  '^crates/maestro-canonicalization/src/store\.rs:140:71: replace \| with \^ in open_child$',
+  '^crates/maestro-canonicalization/src/store\.rs:160:24: replace \| with \^ in read_regular$',
+  '^crates/maestro-canonicalization/src/store\.rs:160:43: replace \| with \^ in read_regular$',
+  '^crates/maestro-canonicalization/src/store\.rs:160:62: replace \| with \^ in read_regular$',
+  '^crates/maestro-canonicalization/src/store\.rs:199:24: replace \| with \^ in write_immutable$',
+  '^crates/maestro-canonicalization/src/store\.rs:199:41: replace \| with \^ in write_immutable$',
+  '^crates/maestro-canonicalization/src/store\.rs:199:56: replace \| with \^ in write_immutable$',
+  '^crates/maestro-canonicalization/src/store\.rs:199:75: replace \| with \^ in write_immutable$',
+  '^crates/maestro-canonicalization/src/store\.rs:200:20: replace \| with \^ in write_immutable$',
+  '^crates/maestro-canonicalization/src/tokenizer/artifacts\.rs:31:24: replace \| with \^ in verify_artifact$',
+  '^crates/maestro-canonicalization/src/tokenizer/artifacts\.rs:31:42: replace \| with \^ in verify_artifact$',
+  '^crates/maestro-canonicalization/src/tokenizer/artifacts\.rs:31:61: replace \| with \^ in verify_artifact$',
   # `& O_CLOEXEC` drops O_NOFOLLOW, which O_CREAT | O_EXCL already implies for
   # the new pending file, and O_CLOEXEC, which only a child process started
   # while the file is open could observe.
-  '^crates/maestro-canonicalization/src/store\.rs:188:75: replace \| with & in write_immutable$',
+  '^crates/maestro-canonicalization/src/store\.rs:199:75: replace \| with & in write_immutable$',
   # `RDONLY & CLOEXEC` is 0 on Linux: it drops O_CLOEXEC only, which only a
   # child process started while the artifact is open could observe.
-  '^crates/maestro-canonicalization/src/tokenizer/mod\.rs:239:24: replace \| with & in verify_artifact$',
+  '^crates/maestro-canonicalization/src/tokenizer/artifacts\.rs:31:24: replace \| with & in verify_artifact$',
   # `<=` only adds the empty range, which holds no content: the same findings.
-  '^crates/maestro-canonicalization/src/validate/mod\.rs:194:19: replace < with <= in check_uncovered$',
-  '^crates/maestro-canonicalization/src/validate/mod\.rs:204:14: replace < with <= in check_gap$',
-  '^crates/maestro-canonicalization/src/validate/blocks\.rs:222:19: replace < with <= in validate_container_gaps$',
+  '^crates/maestro-canonicalization/src/validate/structure\.rs:155:19: replace < with <= in check_uncovered$',
+  '^crates/maestro-canonicalization/src/validate/structure\.rs:165:14: replace < with <= in check_gap$',
+  '^crates/maestro-canonicalization/src/validate/blocks\.rs:230:19: replace < with <= in validate_container_gaps$',
   # `push` checks every unit with `mapped_slice`, which refuses the same
   # origins with the same error.
-  '^crates/maestro-canonicalization/src/chunk_mapping/mod\.rs:215:13: replace \|\| with && in Mapper<.+>::append$',
+  '^crates/maestro-canonicalization/src/chunk_mapping/document\.rs:218:13: replace \|\| with && in Mapper<.+>::append$',
   # The parser never enables superscript (`^b^` stays text), and chunking
   # replays every document first, so no mapped document holds one.
-  '^crates/maestro-canonicalization/src/chunk_mapping/mod\.rs:260:21: delete match arm InlineKind::Superscript in Mapper<.+>::render$',
+  '^crates/maestro-canonicalization/src/chunk_mapping/document\.rs:259:21: delete match arm InlineKind::Superscript in Mapper<.+>::render$',
   # A column past the row's width also fails the rebuild, with the same error;
   # a window without columns matches no fragment.
-  '^crates/maestro-canonicalization/src/chunk_split/mod\.rs:140:17: replace \|\| with && in validate_preparation$',
+  '^crates/maestro-canonicalization/src/chunk_split/replay\.rs:85:13: replace \|\| with && in order_windows$',
   # At `end == closing.end` the delimiter would extend `end` to itself.
-  '^crates/maestro-canonicalization/src/chunk_split/prepare\.rs:179:55: replace < with <= in normalized_range$',
+  '^crates/maestro-canonicalization/src/chunk_split/prepare\.rs:224:69: replace < with <= in normalized_range$',
   # `normalized_range` refuses a range that ends where an opening delimiter
   # ends, so `>=` adds no range `>` lacks.
-  '^crates/maestro-canonicalization/src/chunk_split/context\.rs:405:68: replace > with >= in Layout<.+>::fragment_parts$',
+  '^crates/maestro-canonicalization/src/chunk_split/context\.rs:446:67: replace > with >= in Layout<.+>::fragment_parts$',
   # The key already holds the enclosing table, so bodies of two tables never
   # reach the window test.
-  '^crates/maestro-canonicalization/src/chunk_split/layout\.rs:199:42: replace && with \|\| in Layout<.+>::compatible$',
+  '^crates/maestro-canonicalization/src/chunk_split/layout\.rs:212:21: replace && with \|\| in Layout<.+>::compatible$',
   # Cut points end after a character, so none is 0: `p >= 0` equals `p > 0`.
-  '^crates/maestro-canonicalization/src/chunk_split/layout\.rs:299:79: replace > with >= in Layout<.+>::split_unit$',
+  '^crates/maestro-canonicalization/src/chunk_split/layout\.rs:333:34: replace > with >= in Layout<.+>::split_unit$',
   # The whitespace cut is sought only when `length` is none, so `p <= length`
   # finds the cut `p < length` finds.
-  '^crates/maestro-canonicalization/src/chunk_split/layout\.rs:299:88: replace < with <= in Layout<.+>::split_unit$',
+  '^crates/maestro-canonicalization/src/chunk_split/layout\.rs:333:45: replace < with <= in Layout<.+>::split_unit$',
 ]
