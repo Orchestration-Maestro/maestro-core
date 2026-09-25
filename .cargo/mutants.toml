@@ -3,28 +3,6 @@
 # Names are exact, line and column included: when code moves, the mutant comes
 # back as missed and its exclusion is reviewed again (tasks.md, T019).
 exclude_re = [
-  # OFlags and Mode bits are disjoint, so `a ^ b` equals `a | b`.
-  '^crates/maestro-canonicalization/src/store\.rs:140:32: replace \| with \^ in open_child$',
-  '^crates/maestro-canonicalization/src/store\.rs:140:52: replace \| with \^ in open_child$',
-  '^crates/maestro-canonicalization/src/store\.rs:140:71: replace \| with \^ in open_child$',
-  '^crates/maestro-canonicalization/src/store\.rs:160:24: replace \| with \^ in read_regular$',
-  '^crates/maestro-canonicalization/src/store\.rs:160:43: replace \| with \^ in read_regular$',
-  '^crates/maestro-canonicalization/src/store\.rs:160:62: replace \| with \^ in read_regular$',
-  '^crates/maestro-canonicalization/src/store\.rs:199:24: replace \| with \^ in write_immutable$',
-  '^crates/maestro-canonicalization/src/store\.rs:199:41: replace \| with \^ in write_immutable$',
-  '^crates/maestro-canonicalization/src/store\.rs:199:56: replace \| with \^ in write_immutable$',
-  '^crates/maestro-canonicalization/src/store\.rs:199:75: replace \| with \^ in write_immutable$',
-  '^crates/maestro-canonicalization/src/store\.rs:200:20: replace \| with \^ in write_immutable$',
-  '^crates/maestro-canonicalization/src/tokenizer/artifacts\.rs:31:24: replace \| with \^ in verify_artifact$',
-  '^crates/maestro-canonicalization/src/tokenizer/artifacts\.rs:31:42: replace \| with \^ in verify_artifact$',
-  '^crates/maestro-canonicalization/src/tokenizer/artifacts\.rs:31:61: replace \| with \^ in verify_artifact$',
-  # `& O_CLOEXEC` drops O_NOFOLLOW, which O_CREAT | O_EXCL already implies for
-  # the new pending file, and O_CLOEXEC, which only a child process started
-  # while the file is open could observe.
-  '^crates/maestro-canonicalization/src/store\.rs:199:75: replace \| with & in write_immutable$',
-  # `RDONLY & CLOEXEC` is 0 on Linux: it drops O_CLOEXEC only, which only a
-  # child process started while the artifact is open could observe.
-  '^crates/maestro-canonicalization/src/tokenizer/artifacts\.rs:31:24: replace \| with & in verify_artifact$',
   # `<=` only adds the empty range, which holds no content: the same findings.
   '^crates/maestro-canonicalization/src/validate/structure\.rs:155:19: replace < with <= in check_uncovered$',
   '^crates/maestro-canonicalization/src/validate/structure\.rs:165:14: replace < with <= in check_gap$',

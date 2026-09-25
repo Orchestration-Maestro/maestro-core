@@ -1,36 +1,46 @@
 //! Tests of the native tokenizer: profile identity, artifacts, process limits and output.
-use super::NativeTokenizer;
-use super::artifacts::{verify_artifact, verify_libraries};
+//! The counter, its shared libraries and the processes these tests start are Unix fixtures.
+use super::artifacts::verify_artifact;
 use super::binding::NativeBinding;
 use super::contract::{array_at, parse_contract, text_at};
-use super::native::{configured_command, parse_ids};
-use super::process::run_native;
-use crate::error::Error;
-use crate::hashing::digest;
+use super::native::parse_ids;
 #[cfg(unix)]
-use rustix::fs::{Mode, mkfifoat};
-use serde_json::{Value, json};
+use super::{
+    NativeTokenizer, artifacts::verify_libraries, native::configured_command, process::run_native,
+};
 #[cfg(unix)]
-use std::os::unix::fs::symlink;
+use crate::{error::Error, hashing::digest};
+#[cfg(unix)]
+use serde_json::Value;
+use serde_json::json;
+#[cfg(unix)]
 use std::{
     collections::BTreeSet,
-    env,
-    fs::{self, File},
-    path::{Path, PathBuf},
-    process::{self, Command},
-    sync::{
-        atomic::{AtomicUsize, Ordering},
-        mpsc,
-    },
+    os::unix::fs::symlink,
+    process::Command,
+    sync::mpsc,
     thread,
     time::{Duration, Instant},
+};
+use std::{
+    env, fs,
+    path::{Path, PathBuf},
+    process,
+    sync::atomic::{AtomicUsize, Ordering},
 };
 
 struct Scratch(PathBuf);
 impl Scratch {
+    /// A new empty directory. macOS reaches the temporary directory through the `/var` link, and
+    /// a library alias resolves to a link-free path, so there the link-free path is used.
     fn new() -> Self {
         static NEXT: AtomicUsize = AtomicUsize::new(0);
-        let path = env::temp_dir().join(format!(
+        let temporary = if cfg!(target_os = "macos") {
+            fs::canonicalize(env::temp_dir()).unwrap()
+        } else {
+            env::temp_dir()
+        };
+        let path = temporary.join(format!(
             "ctm-tokenizer-{}-{}",
             process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)
@@ -52,6 +62,7 @@ fn write_binding(scratch: &Scratch, text: &str) -> PathBuf {
 }
 
 /// The size and SHA-256 record of a file, with its profile name when it has one.
+#[cfg(unix)]
 fn record(path: &Path, file: Option<&str>) -> Value {
     let bytes = fs::read(path).unwrap();
     let mut record = json!({"bytes": bytes.len(), "sha256": digest(&bytes)});
@@ -102,6 +113,7 @@ fn fake_tokenizer(scratch: &Scratch) -> NativeTokenizer {
 }
 
 /// `verify_artifact` on its own thread: the test fails, rather than hangs, if the open blocks.
+#[cfg(unix)]
 fn verify_without_blocking(path: &Path, bytes: u64, hash: &'static str) -> Result<(), Error> {
     let path = path.to_owned();
     let (sender, receiver) = mpsc::channel();
@@ -149,14 +161,14 @@ fn the_reported_contract_id_is_the_committed_profiles() {
 #[test]
 fn a_binding_resolves_relative_paths_against_its_own_directory() {
     let scratch = Scratch::new();
-    let path = write_binding(
-        &scratch,
-        r#"{"schema":"maestro-native-binding/1","model":"models/m.gguf",
-            "counter":"/somewhere/bin/count","library_directory":"lib","source_root":"src"}"#,
-    );
+    // An absolute path in this platform's form: `/somewhere` has no drive on Windows.
+    let counter = env::temp_dir().join("somewhere").join("bin").join("count");
+    let text = json!({"schema": "maestro-native-binding/1", "model": "models/m.gguf",
+        "counter": counter, "library_directory": "lib", "source_root": "src"});
+    let path = write_binding(&scratch, &text.to_string());
     let binding = NativeBinding::from_file(&path).unwrap();
     assert_eq!(binding.model, scratch.0.join("models/m.gguf"));
-    assert_eq!(binding.counter, PathBuf::from("/somewhere/bin/count"));
+    assert_eq!(binding.counter, counter);
     assert_eq!(binding.library_directory, scratch.0.join("lib"));
     assert_eq!(binding.source_root, scratch.0.join("src"));
 }
@@ -243,17 +255,15 @@ fn artifact_check_requires_original_bytes_and_regular_file() {
         symlink(&path, &link).unwrap();
         assert!(verify_artifact(&link, 3, hash).is_err());
         let fifo = scratch.0.join("fifo");
-        mkfifoat(
-            File::open(&scratch.0).unwrap(),
-            "fifo",
-            Mode::RUSR | Mode::WUSR,
-        )
-        .unwrap();
+        // POSIX's `mkfifo` utility: Linux and macOS both ship it.
+        let made = Command::new("mkfifo").arg(&fifo).status();
+        assert!(made.unwrap().success());
         let empty = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
         assert!(verify_without_blocking(&fifo, 0, empty).is_err());
     }
 }
 
+#[cfg(unix)]
 #[test]
 fn process_preserves_stdin_bytes_and_drains_both_streams() {
     let script = concat!(
@@ -269,6 +279,7 @@ fn process_preserves_stdin_bytes_and_drains_both_streams() {
     );
 }
 
+#[cfg(unix)]
 #[test]
 fn process_errors_and_timeouts_do_not_return_partial_output() {
     let mut failed = Command::new("/bin/sh");
@@ -310,8 +321,9 @@ fn contract_identity_cannot_be_self_asserted_or_silently_changed() {
     }
 }
 
+#[cfg(unix)]
 #[test]
-fn output_and_bindings_at_their_exact_limits_are_accepted() {
+fn output_at_its_exact_limit_is_accepted() {
     let mut command = Command::new("/usr/bin/python3");
     command.args([
         "-c",
@@ -319,6 +331,10 @@ fn output_and_bindings_at_their_exact_limits_are_accepted() {
     ]);
     let output = run_native(&mut command, b"", Duration::from_secs(10)).unwrap();
     assert_eq!(output.len(), 16 * 1024 * 1024);
+}
+
+#[test]
+fn a_binding_at_its_exact_limit_is_accepted() {
     let scratch = Scratch::new();
     let text = r#"{"schema":"maestro-native-binding/1","model":"m","counter":"c",
         "library_directory":"l","source_root":"s"}"#;
@@ -326,6 +342,7 @@ fn output_and_bindings_at_their_exact_limits_are_accepted() {
     NativeBinding::from_file(&write_binding(&scratch, &padded)).unwrap();
 }
 
+#[cfg(unix)]
 #[test]
 fn oversized_process_output_is_refused_not_truncated() {
     for script in [
@@ -365,6 +382,7 @@ fn library_aliases_cannot_redirect_away_from_pinned_files() {
     verify_libraries(&libraries).unwrap();
 }
 
+#[cfg(unix)]
 #[test]
 fn invocation_replaces_environment_and_preserves_model_argument() {
     let mut contract = parse_contract(include_str!("../../tokenizer-contract.json")).unwrap();
