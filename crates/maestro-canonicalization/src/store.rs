@@ -223,7 +223,8 @@ fn write_immutable(directory: &File, name: &str, bytes: &[u8]) -> io::Result<()>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{CanonicalizeInput, canonicalize};
+    use crate::model::CanonicalizeInput;
+    use crate::pipeline::canonicalize;
     use rustix::fs::mkfifoat;
     use std::{
         env, fs,

@@ -3,9 +3,10 @@ use super::blocks::validate_block;
 use super::report::issue;
 use super::sections::{validate_extractor, validate_sections};
 use crate::content::{Block, BlockType};
+use crate::document::{CanonicalDocument, SourceRole};
+use crate::hashing::digest;
 use crate::metadata::finding;
 use crate::model::{Finding, Severity, SourceSpan};
-use crate::{CanonicalDocument, SourceRole, digest};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Every structural check of a document against its Markdown, findings in a fixed order.

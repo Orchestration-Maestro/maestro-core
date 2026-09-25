@@ -1,9 +1,9 @@
 //! Section and extractor checks: the heading hierarchy and supplied extractor anchors.
 use super::report::issue;
 use crate::content::{Block, BlockType};
+use crate::document::{CanonicalDocument, Section};
 use crate::metadata::finding;
 use crate::model::{Finding, Severity};
-use crate::{CanonicalDocument, Section};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Each section's parent is an earlier, shallower section, and its heading path follows the

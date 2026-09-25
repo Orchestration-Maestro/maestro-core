@@ -219,7 +219,9 @@ fn merge_converter(
 
 #[cfg(test)]
 mod tests {
-    use crate::{CanonicalDocument, CanonicalizeInput, canonicalize};
+    use crate::document::CanonicalDocument;
+    use crate::model::CanonicalizeInput;
+    use crate::pipeline::canonicalize;
 
     /// The codes of a document's findings.
     fn codes(doc: &CanonicalDocument) -> Vec<&str> {

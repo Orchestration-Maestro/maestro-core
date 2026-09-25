@@ -1,6 +1,7 @@
 //! Artifact checks: pinned files by size and SHA-256, and the exact library inventory.
 use super::contract::{invalid_contract, text_at, value_at};
-use crate::{Error, lower_hex};
+use crate::error::Error;
+use crate::hashing::lower_hex;
 use rustix::fs::{Mode, OFlags, open};
 use serde_json::Value;
 use sha2::{Digest, Sha256};

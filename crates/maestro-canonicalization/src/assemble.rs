@@ -214,7 +214,8 @@ pub(crate) fn destination_status(destination: &str, supplied: Option<&AssetStatu
 
 #[cfg(test)]
 mod tests {
-    use crate::{CanonicalizeInput, ExtractorBlock, SourceSpan, canonicalize};
+    use crate::model::{CanonicalizeInput, ExtractorBlock, SourceSpan};
+    use crate::pipeline::canonicalize;
 
     /// An extractor block anchored to one Markdown span.
     fn extracted(id: &str, span: SourceSpan) -> ExtractorBlock {

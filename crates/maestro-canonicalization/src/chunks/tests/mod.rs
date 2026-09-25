@@ -3,11 +3,12 @@ use super::build::chunk_with_count;
 use super::identity::{PreparedGroups, insert_prepared_group};
 use super::validation::{invalid_chunks, validate_chunks, validate_coverage};
 use super::*;
+use crate::dedup::{DedupInput, DedupScope, RevisionKey, WarningPolicy};
+use crate::document::CanonicalDocument;
+use crate::error::Error;
+use crate::model::{CanonicalizeInput, Severity};
+use crate::pipeline::canonicalize;
 use crate::replay::validate_document;
-use crate::{
-    CanonicalDocument, CanonicalizeInput, DedupInput, DedupScope, Error, RevisionKey,
-    WarningPolicy, canonicalize,
-};
 
 mod identity;
 mod replay;
@@ -155,7 +156,7 @@ fn warning_policy_and_empty_content_are_explicit() {
     assert!(
         validate_document(&doc, markdown)
             .iter()
-            .all(|finding| finding.severity != crate::Severity::Error)
+            .all(|finding| finding.severity != Severity::Error)
     );
     let grant = self::scope(&[&doc]);
     let result = chunk_with_count(

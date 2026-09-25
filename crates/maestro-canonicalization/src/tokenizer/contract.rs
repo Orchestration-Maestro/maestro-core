@@ -1,5 +1,6 @@
 //! The committed qualification profile: its identity and typed access to its fields.
-use crate::{Error, digest};
+use crate::error::Error;
+use crate::hashing::digest;
 use serde_json::Value;
 use std::collections::BTreeMap;
 

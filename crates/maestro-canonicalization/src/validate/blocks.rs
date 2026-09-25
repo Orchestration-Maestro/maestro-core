@@ -1,7 +1,7 @@
 //! Block checks: children, parents, assets, attributes, inline content and tables.
 use super::report::issue;
-use crate::CanonicalDocument;
 use crate::content::{Block, BlockAttributes, BlockType, ContentNode, Inline, InlineKind};
+use crate::document::CanonicalDocument;
 use crate::metadata::finding;
 use crate::model::{AssetStatus, Finding, Severity, SourceSpan};
 use std::collections::BTreeMap;

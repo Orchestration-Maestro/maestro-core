@@ -1,6 +1,6 @@
 //! Where this machine keeps the artifacts the tokenizer profile fingerprints.
 use super::process::read_bounded;
-use crate::Error;
+use crate::error::Error;
 use serde::Deserialize;
 use std::{
     env,

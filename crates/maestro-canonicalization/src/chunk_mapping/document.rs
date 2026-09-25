@@ -3,14 +3,15 @@
 use super::refusal::invalid_mapping;
 use super::slice::{map_accounting, mapped_slice};
 use crate::{
-    CanonicalDocument, Error,
     assemble::render_inline,
     chunks::{
         CHUNKER_VERSION, InlineEnvelope, MappedDocument, MappingRun, OriginMode, SourceOrigin,
         SourceUnit, TextRange, UnitField,
     },
     content::{Block, BlockAttributes, BlockType, ContentNode, Inline, InlineKind},
-    digest,
+    document::CanonicalDocument,
+    error::Error,
+    hashing::digest,
     model::SourceSpan,
     parse,
 };

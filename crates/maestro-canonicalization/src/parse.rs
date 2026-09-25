@@ -369,7 +369,9 @@ pub(crate) fn inline_text(kind: &InlineKind, children: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{BlockType, CanonicalizeInput, canonicalize};
+    use crate::content::BlockType;
+    use crate::model::CanonicalizeInput;
+    use crate::pipeline::canonicalize;
 
     #[test]
     fn only_nonempty_valid_gaps_become_raw_blocks() {

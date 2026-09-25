@@ -1,11 +1,12 @@
 //! Mapped slices and the source accounting ledger: which original bytes each unit covers.
 use super::refusal::invalid_mapping;
 use crate::{
-    CanonicalDocument, Error, SourceRole,
     chunks::{
         AccountingDisposition, MappingRun, OriginMode, SourceDisposition, SourceUnit, TextRange,
     },
     content::BlockType,
+    document::{CanonicalDocument, SourceRole},
+    error::Error,
     model::SourceSpan,
 };
 use std::collections::{BTreeMap, BTreeSet};

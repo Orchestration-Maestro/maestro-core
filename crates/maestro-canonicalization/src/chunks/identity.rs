@@ -3,9 +3,10 @@ use super::batch::PreparedInputGroup;
 use super::mapping::{CHUNKER_VERSION, MappedDocument};
 use super::prepared::{ChunkContent, PREPARATION_PROFILE};
 use super::validation::invalid_chunks;
-use crate::CanonicalDocument;
-use crate::Error;
 use crate::dedup::Deduplication;
+use crate::document::CanonicalDocument;
+use crate::error::Error;
+use crate::hashing::digest;
 use serde::Serialize;
 use std::collections::BTreeMap;
 
@@ -42,7 +43,7 @@ pub(super) fn chunk_id(
         .collect::<Result<Vec<_>, Error>>()?;
     Ok(format!(
         "chunk-{}",
-        crate::digest(&record_bytes(&(
+        digest(&record_bytes(&(
             "source-retrieval-chunk/v1",
             deduplication.tenant_id,
             deduplication.workspace_id,
@@ -66,10 +67,10 @@ pub(super) fn prepared_identity(
     prepared_input: &str,
 ) -> Result<PreparedIdentity, Error> {
     let bytes = record_bytes(&(PREPARATION_PROFILE, tokenizer_contract_id, prepared_input))?;
-    let fingerprint = format!("sha256:{}", crate::digest(&bytes));
+    let fingerprint = format!("sha256:{}", digest(&bytes));
     let group_id = format!(
         "prepared-{}",
-        crate::digest(&record_bytes(&(
+        digest(&record_bytes(&(
             "prepared-document-input/v1",
             deduplication.tenant_id,
             deduplication.workspace_id,

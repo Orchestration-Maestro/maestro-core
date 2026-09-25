@@ -1,10 +1,10 @@
 //! Structural checks against documents altered one field at a time: each fault is reported
 //! on its own, and malformed spans are reported rather than trusted.
 use super::validate_structure;
-use crate::{
-    AssetStatus, Block, BlockType, CanonicalDocument, CanonicalizeInput, ContentNode,
-    ExtractorBlock, Inline, SourceAccounting, SourceRole, SourceSpan, canonicalize,
-};
+use crate::content::{Block, BlockType, ContentNode, Inline};
+use crate::document::{CanonicalDocument, SourceAccounting, SourceRole};
+use crate::model::{AssetStatus, CanonicalizeInput, ExtractorBlock, SourceSpan};
+use crate::pipeline::canonicalize;
 
 /// The canonical document of some Markdown.
 fn document(markdown: &str) -> CanonicalDocument {

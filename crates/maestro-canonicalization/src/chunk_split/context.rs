@@ -3,10 +3,10 @@ use super::prepare::{formatting, normalized_range};
 use super::refusal::structure_error;
 use super::structure::{Body, ContextEntry, Layout};
 use crate::{
-    Error,
     chunk_mapping::mapped_slice,
     chunks::{Contribution, Fragment, InputPart, InputRole, TextRange, UnitField},
     content::{Block, BlockType, ContentNode, InlineKind},
+    error::Error,
 };
 use std::collections::BTreeSet;
 

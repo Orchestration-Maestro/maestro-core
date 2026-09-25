@@ -131,7 +131,8 @@ fn inline_contributions<'a>(inline: &Inline, owner: &'a str, result: &mut Vec<Co
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{CanonicalizeInput, canonicalize};
+    use crate::model::CanonicalizeInput;
+    use crate::pipeline::canonicalize;
 
     /// Each ledger segment as the text it covers and its role.
     fn segments<'a>(ledger: &[SourceAccounting], markdown: &'a str) -> Vec<(&'a str, SourceRole)> {

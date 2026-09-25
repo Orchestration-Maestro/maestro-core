@@ -2,12 +2,12 @@
 use super::refusal::structure_error;
 use super::structure::{Body, Layout};
 use crate::{
-    Error,
     chunks::{
         ChunkContent, InputPart, InputRole, MappingRun, OriginMode, SourceUnit, TableWindow,
         TextRange,
     },
     content::BlockType,
+    error::Error,
 };
 use std::collections::BTreeSet;
 

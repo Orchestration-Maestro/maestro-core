@@ -5,7 +5,8 @@ use super::binding::NativeBinding;
 use super::contract::{array_at, parse_contract, text_at};
 use super::native::{configured_command, parse_ids};
 use super::process::run_native;
-use crate::{Error, digest};
+use crate::error::Error;
+use crate::hashing::digest;
 #[cfg(unix)]
 use rustix::fs::{Mode, mkfifoat};
 use serde_json::{Value, json};

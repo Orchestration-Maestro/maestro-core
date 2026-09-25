@@ -1,5 +1,5 @@
 //! The refusal every structural check returns.
-use crate::Error;
+use crate::error::Error;
 
 /// The refusal when a chunk's context or structure cannot be represented within the measured
 /// profile.

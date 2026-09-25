@@ -4,10 +4,10 @@ use super::identity::{PreparedGroups, chunk_id, insert_prepared_group, prepared_
 use super::mapping::CHUNKER_VERSION;
 use super::prepared::PREPARATION_PROFILE;
 use super::validation::{validate_chunks, validate_coverage};
-use crate::Error;
 use crate::chunk_mapping::map_document;
 use crate::chunk_split::{MAX_TOKENS, TARGET_TOKENS, build_drafts};
 use crate::dedup::{DedupInput, DedupScope, Deduplication, WarningPolicy, group_exact};
+use crate::error::Error;
 use crate::tokenizer::NativeTokenizer;
 use std::collections::BTreeMap;
 

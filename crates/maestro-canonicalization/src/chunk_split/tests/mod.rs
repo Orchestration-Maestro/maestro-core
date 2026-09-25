@@ -3,10 +3,11 @@ use super::prepare::fit_prefix;
 use super::structure::{Body, layout};
 use super::{MAX_TOKENS, build_drafts, validate_preparation};
 use crate::{
-    Error, canonicalize,
     chunk_mapping::map_document,
     chunks::{ChunkContent, Fragment, InputRole, MappedDocument, SplitKind, UnitField},
+    error::Error,
     model::CanonicalizeInput,
+    pipeline::canonicalize,
 };
 use std::collections::BTreeSet;
 

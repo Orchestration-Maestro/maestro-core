@@ -1,13 +1,14 @@
 //! Tests of source mapping: order, Unicode, entities, envelopes and accounting.
 use super::{map_accounting, map_document, mapped_slice};
 use crate::{
-    CanonicalDocument, canonicalize,
     chunks::{
         InlineEnvelope, MappedDocument, MappingRun, OriginMode, SourceDisposition, SourceOrigin,
         TextRange, UnitField,
     },
     content::{BlockType, ContentNode},
+    document::{CanonicalDocument, SourceRole},
     model::{CanonicalizeInput, SourceSpan},
+    pipeline::canonicalize,
 };
 
 #[test]
@@ -260,7 +261,7 @@ fn deletion_wrappers_keep_semantic_envelopes_and_source_origins() {
 fn missing_original_accounting_refuses_mapping() {
     let markdown = "visible\n";
     let mut doc = canonicalize(CanonicalizeInput::new(markdown, "accounting")).unwrap();
-    doc.source_accounting[0].role = crate::SourceRole::Unaccounted;
+    doc.source_accounting[0].role = SourceRole::Unaccounted;
     assert!(map_document(&doc, markdown).is_err());
     doc.source_accounting.clear();
     assert!(map_document(&doc, markdown).is_err());
@@ -304,9 +305,9 @@ fn front_matter_bytes_are_metadata_whatever_their_role() {
     let front = doc
         .source_accounting
         .iter()
-        .position(|entry| entry.role == crate::SourceRole::MetadataOrReference)
+        .position(|entry| entry.role == SourceRole::MetadataOrReference)
         .unwrap();
-    doc.source_accounting[front].role = crate::SourceRole::ParsedContent;
+    doc.source_accounting[front].role = SourceRole::ParsedContent;
     let accounting = map_accounting(&doc, markdown, &units).unwrap();
     assert_eq!(accounting[front].disposition, SourceDisposition::Metadata);
 }

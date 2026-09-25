@@ -1,5 +1,5 @@
 //! The counter subprocess: bounded pipes, a timeout and a child that is always reaped.
-use crate::Error;
+use crate::error::Error;
 use std::{
     io::{Read, Write},
     process::{Child, Command, Stdio},

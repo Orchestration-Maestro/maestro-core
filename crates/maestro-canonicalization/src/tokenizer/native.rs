@@ -3,7 +3,7 @@ use super::artifacts::{verify_libraries, verify_record};
 use super::binding::NativeBinding;
 use super::contract::{CONTRACT_ID, array_at, invalid_contract, parse_contract, text_at, value_at};
 use super::process::run_native;
-use crate::Error;
+use crate::error::Error;
 use serde_json::Value;
 use std::{path::PathBuf, process::Command, time::Duration};
 

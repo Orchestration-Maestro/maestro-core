@@ -4,9 +4,9 @@ use super::prepare::{boundaries, fit_prefix, normalized_range};
 use super::refusal::structure_error;
 use super::structure::{Body, Layout};
 use crate::{
-    Error,
     chunks::{ChunkContent, Contribution, Fragment, SplitKind, TableWindow, TextRange},
     content::{Block, BlockType, ContentNode},
+    error::Error,
 };
 
 impl Layout<'_> {

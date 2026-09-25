@@ -3,8 +3,9 @@
 use super::refusal::structure_error;
 use super::structure::{Body, Layout, layout};
 use crate::{
-    CanonicalDocument, Error,
     chunks::{ChunkContent, MappedDocument, TableWindow},
+    document::CanonicalDocument,
+    error::Error,
 };
 use std::collections::BTreeSet;
 

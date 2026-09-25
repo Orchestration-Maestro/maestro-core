@@ -2,10 +2,10 @@
 use super::batch::UnitCoverage;
 use super::mapping::{MappedDocument, MappingRun, OriginMode, TextRange};
 use super::prepared::{ChunkContent, Contribution, InputPart, InputRole};
-use crate::CanonicalDocument;
-use crate::Error;
 use crate::chunk_mapping::{map_accounting, mapped_slice};
 use crate::chunk_split::{MAX_TOKENS, validate_preparation};
+use crate::document::CanonicalDocument;
+use crate::error::Error;
 
 /// Check that the chunks' fragments cover each primary unit's text exactly once and in order;
 /// returns each unit's ranges.
