@@ -28,7 +28,7 @@ exclude_re = [
   # `<=` only adds the empty range, which holds no content: the same findings.
   '^crates/maestro-canonicalization/src/validate/structure\.rs:155:19: replace < with <= in check_uncovered$',
   '^crates/maestro-canonicalization/src/validate/structure\.rs:165:14: replace < with <= in check_gap$',
-  '^crates/maestro-canonicalization/src/validate/blocks\.rs:230:19: replace < with <= in validate_container_gaps$',
+  '^crates/maestro-canonicalization/src/validate/blocks\.rs:207:23: replace < with <= in BlockCheck<.+>::container_gaps$',
   # `push` checks every unit with `mapped_slice`, which refuses the same
   # origins with the same error.
   '^crates/maestro-canonicalization/src/chunk_mapping/document\.rs:218:13: replace \|\| with && in Mapper<.+>::append$',
