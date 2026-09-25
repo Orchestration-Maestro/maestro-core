@@ -36,11 +36,14 @@ in place.
 .                                                                            # Repository root
 ├── .cargo/                                                                  # Cargo settings for this workspace
 │   └── mutants.toml                                                         # Mutants no test can kill, each with its reason: none changes behaviour a test can observe
+├── .config/                                                                 # Tool settings that live in a directory
+│   └── nextest.toml                                                         # TOML settings: nextest; rendered by rust-gate sync
 ├── .github/                                                                 # GitHub metadata, templates and workflows
 │   ├── workflows/                                                           # GitHub Actions workflows
 │   │   ├── ci.yml                                                           # CI: calls ci.yml, upload-coverage.yml, upload-sarif.yml
 │   │   ├── dependabot-auto-merge.yml                                        # Dependabot auto-merge
-│   │   └── scorecard.yml                                                    # OpenSSF Scorecard
+│   │   ├── scorecard.yml                                                    # OpenSSF Scorecard
+│   │   └── tool-updates.yml                                                 # Tool updates
 │   ├── CODEOWNERS                                                           # Who reviews each path
 │   ├── copilot-instructions.md                                              # This guide, written by rust-gate guide at every commit
 │   ├── dependabot.yml                                                       # The organization merges only conventional titles: "ci(deps): bump ..."
@@ -57,57 +60,91 @@ in place.
 │   │   │   └── metadata.json                                                # JSON data: metadata
 │   │   ├── src/                                                             # The crate's sources
 │   │   │   ├── chunk_mapping/                                               # Phase B-only mappings; original source offsets are never rendered offsets
+│   │   │   │   ├── document.rs                                              # Mapping a canonical document into source units: each block's context and inline text, with
 │   │   │   │   ├── mod.rs                                                   # Phase B-only mappings; original source offsets are never rendered offsets
+│   │   │   │   ├── refusal.rs                                               # The refusal every mapping check returns
 │   │   │   │   ├── slice.rs                                                 # Mapped slices and the source accounting ledger: which original bytes each unit covers
 │   │   │   │   └── tests.rs                                                 # Tests of source mapping: order, Unicode, entities, envelopes and accounting
 │   │   │   ├── chunk_split/                                                 # Structural preparation and packing; only the public native path certifies counts
 │   │   │   │   ├── tests/                                                   # Tests of structural preparation and packing
 │   │   │   │   │   ├── boundaries.rs                                        # The pure preparation helpers: cut points, fitting prefixes and delimiter-safe ranges
 │   │   │   │   │   ├── context.rs                                           # Context, characterized on small documents: the exact prepared input of each chunk
+│   │   │   │   │   ├── mod.rs                                               # Tests of structural preparation and packing
 │   │   │   │   │   ├── packing.rs                                           # Packing and preparation: shared chunks, context text, containers, part numbers and the table
 │   │   │   │   │   └── splitting.rs                                         # Splitting, characterized on small documents: where oversized units and rows are cut
 │   │   │   │   ├── context.rs                                               # The context a chunk repeats: headings, parent items, task markers and table headers
+│   │   │   │   ├── drafts.rs                                                # Packing a document's atoms into drafts: combined up to the target, refined or split past the
 │   │   │   │   ├── layout.rs                                                # The layout's structural queries: owners, sections, table windows and packing atoms
+│   │   │   │   ├── limits.rs                                                # The token budgets drafts grow toward and never exceed
 │   │   │   │   ├── mod.rs                                                   # Structural preparation and packing; only the public native path certifies counts
 │   │   │   │   ├── prepare.rs                                               # The prepared input: body parts, formatting, sentence boundaries and fitting prefixes
-│   │   │   │   └── tests.rs                                                 # Tests of structural preparation and packing
-│   │   │   ├── chunks/                                                      # Derived Phase B coordinates and evidence; none of these records grant access
+│   │   │   │   ├── refusal.rs                                               # The refusal every structural check returns
+│   │   │   │   ├── replay.rs                                                # Replaying a chunk's preparation: its table windows against its fragments, then the chunk
+│   │   │   │   └── structure.rs                                             # A document's structure indexed for chunking, the bodies packed from it and the context they
+│   │   │   ├── chunks/                                                      # Phase B chunk batches: assembly, prepared-input identities and replay validation
 │   │   │   │   ├── tests/                                                   # Tests of chunk assembly, prepared-input groups and replay validation
 │   │   │   │   │   ├── identity.rs                                          # Identities: chunk and prepared-input identities follow scope and content alone
 │   │   │   │   │   ├── mod.rs                                               # Tests of chunk assembly, prepared-input groups and replay validation
 │   │   │   │   │   └── replay.rs                                            # Replay validation: coverage and prepared parts must rebuild from the mapped source
+│   │   │   │   ├── batch.rs                                                 # Batch records: per-occurrence evidence, retrieval chunks and prepared-input groups
+│   │   │   │   ├── build.rs                                                 # Batch assembly: map, split, replay and identify every authorized occurrence
 │   │   │   │   ├── identity.rs                                              # Prepared-input groups: identical prepared inputs share one identity
-│   │   │   │   ├── mod.rs                                                   # Derived Phase B coordinates and evidence; none of these records grant access
+│   │   │   │   ├── mod.rs                                                   # Phase B chunk batches: assembly, prepared-input identities and replay validation
 │   │   │   │   └── validation.rs                                            # Replay checks: coverage and every prepared part must rebuild from the mapped source
 │   │   │   ├── tokenizer/                                                   # Local vocabulary-only tokenization through the qualified executable
+│   │   │   │   ├── artifacts.rs                                             # Artifact checks: pinned files by size and SHA-256, and the exact library inventory
 │   │   │   │   ├── binding.rs                                               # Where this machine keeps the artifacts the tokenizer profile fingerprints
+│   │   │   │   ├── contract.rs                                              # The committed qualification profile: its identity and typed access to its fields
 │   │   │   │   ├── mod.rs                                                   # Local vocabulary-only tokenization through the qualified executable
+│   │   │   │   ├── native.rs                                                # The pinned native tokenizer: verified artifacts and one counter process per input
 │   │   │   │   ├── process.rs                                               # The counter subprocess: bounded pipes, a timeout and a child that is always reaped
 │   │   │   │   └── tests.rs                                                 # Tests of the native tokenizer: profile identity, artifacts, process limits and output
 │   │   │   ├── validate/                                                    # Structural checks against the preserved bytes; no guessed repairs
 │   │   │   │   ├── blocks.rs                                                # Block checks: children, parents, assets, attributes, inline content and tables
 │   │   │   │   ├── mod.rs                                                   # Structural checks against the preserved bytes; no guessed repairs
+│   │   │   │   ├── report.rs                                                # How a check records a finding located at a block's spans
 │   │   │   │   ├── sections.rs                                              # Section and extractor checks: the heading hierarchy and supplied extractor anchors
+│   │   │   │   ├── structure.rs                                             # Whole-document structural checks: reference, block hierarchy, source ledger and coverage
 │   │   │   │   └── tests.rs                                                 # Structural checks against documents altered one field at a time: each fault is reported
 │   │   │   ├── accounting.rs                                                # A deterministic, unique byte partition; nested block spans remain independently valid
 │   │   │   ├── assemble.rs                                                  # Build natural blocks and lexical heading context from the offset-aware tree
+│   │   │   ├── cli.rs                                                       # The command line: its usage, its flags, the metadata sidecar and the run that canonicalizes
 │   │   │   ├── content.rs                                                   # Typed natural blocks and nested inline content
 │   │   │   ├── dedup.rs                                                     # Pure, scoped exact grouping; equality never merges identity or grants access
+│   │   │   ├── document.rs                                                  # The canonical document: the versioned record canonicalization returns, its heading sections
+│   │   │   ├── error.rs                                                     # The crate's one error type: a refusal that says why, never the source text
+│   │   │   ├── hashing.rs                                                   # SHA-256 as lower-case hexadecimal, the form every identity and content hash takes
 │   │   │   ├── lib.rs                                                       # Local, deterministic canonical documents
+│   │   │   ├── local_assets.rs                                              # The binary's filesystem look-up of local asset destinations; the library itself does no I/O
 │   │   │   ├── main.rs                                                      # Local CLI for Markdown canonicalization
 │   │   │   ├── metadata.rs                                                  # Merge supplied metadata without guessing provenance or permissions
 │   │   │   ├── model.rs                                                     # Database-independent provenance and versioning contract
 │   │   │   ├── parse.rs                                                     # Offset-aware parser tree
+│   │   │   ├── pipeline.rs                                                  # The canonicalization pipeline: parse, merge metadata, assemble blocks, keep what the parser
+│   │   │   ├── prepared_inputs.rs                                           # The prepared embedding input: its parts, primary fragments and table windows
+│   │   │   ├── replay.rs                                                    # Validation by replay: canonicalize the reference bytes again with a document's recorded inputs
+│   │   │   ├── source_units.rs                                              # Mapped source units: derived-text ranges and how each run relates to original source
 │   │   │   └── store.rs                                                     # Immutable snapshots, accessed through directory handles without following symlinks
 │   │   ├── tests/                                                           # Integration tests
-│   │   │   ├── acceptance.rs                                                # Phase A acceptance: every source byte is accounted for and no content is silently hidden
-│   │   │   ├── chunk_contract.rs                                            # Public API boundary: production callers cannot supply a substitute counter
-│   │   │   ├── chunk_native.rs                                              # Explicit local acceptance: never treat an ignored native test as a pass
-│   │   │   ├── cli_contract.rs                                              # The command-line tool's contract: arguments, exit codes and saved documents
-│   │   │   ├── dedup_contract.rs                                            # Exact duplicate grouping: stable occurrences, authorized scope and whole-batch refusals
-│   │   │   ├── document_contract.rs                                         # The canonical document's contract: structure, spans and provenance as the source gives them
-│   │   │   ├── properties.rs                                                # Generated Markdown dialects keep their spans, meaning and round trips, deterministically
-│   │   │   └── validation_boundary.rs                                       # Regression checks for review findings at the source and JSON trust boundaries
+│   │   │   └── it/                                                          # The crate's integration tests, built as one test crate
+│   │   │       ├── cli_contract/                                            # The command-line tool's contract: arguments, exit codes and saved documents
+│   │   │       │   ├── fixture.rs                                           # The scratch directory each command-line test runs the tool in
+│   │   │       │   ├── invocation_contract.rs                               # Running the tool: arguments, exit codes, source bytes, sidecars, assets
+│   │   │       │   ├── mod.rs                                               # The command-line tool's contract: arguments, exit codes and saved documents
+│   │   │       │   └── snapshot_contract.rs                                 # Saved snapshots: publication, recovery, verified loading and the roots
+│   │   │       ├── dedup_contract/                                          # Exact duplicate grouping: stable occurrences, authorized scope and whole-batch refusals
+│   │   │       │   ├── authorized_scope.rs                                  # The authorized scope bounds each group, and an invalid, duplicate
+│   │   │       │   ├── batch_inputs.rs                                      # The documents and the authorized scope each grouping test starts from
+│   │   │       │   ├── content_equality.rs                                  # What groups occurrences: equal content in a stable order, canonical
+│   │   │       │   ├── mod.rs                                               # Exact duplicate grouping: stable occurrences, authorized scope and whole-batch refusals
+│   │   │       │   └── revision_history.rs                                  # Revisions of one document grouped together keep their own policy
+│   │   │       ├── chunk_contract.rs                                        # Public API boundary: production callers cannot supply a substitute counter
+│   │   │       ├── chunk_native.rs                                          # Explicit local acceptance: never treat an ignored native test as a pass
+│   │   │       ├── dialect_properties.rs                                    # Generated Markdown dialects keep their spans, meaning and round trips, deterministically
+│   │   │       ├── document_contract.rs                                     # The canonical document's contract: structure, spans and provenance as the source gives them
+│   │   │       ├── main.rs                                                  # The crate's integration tests, built as one test crate: each module proves
+│   │   │       ├── phase_a_acceptance.rs                                    # Phase A acceptance: every source byte is accounted for and no content is silently hidden
+│   │   │       └── validation_boundary.rs                                   # Regression checks for review findings at the source and JSON trust boundaries
 │   │   ├── ACCEPTANCE.md                                                    # Phase A acceptance — canonicalization
 │   │   ├── CHUNKING.md                                                      # Mapped structural chunking
 │   │   ├── Cargo.toml                                                       # Crate manifest
@@ -169,6 +206,7 @@ in place.
 ├── .gitattributes                                                           # How Git should treat each kind of file
 ├── .gitignore                                                               # Paths git never tracks
 ├── .pre-commit-config.yaml                                                  # Spec Kit writes and refreshes these files in its own style; they stay as it writes them, so a refresh changes nothing by itself
+├── .rumdl.toml                                                              # rumdl: the Markdown structure every repository holds to; rendered by rust-gate sync
 ├── .taplo.toml                                                              # taplo: the TOML formatter just check and the commit hook run over every TOML file in the repository
 ├── .yamlfmt.yml                                                             # How yamlfmt formats every YAML file
 ├── AGENTS.md                                                                # Rules for coding agents: what to read, what never to weaken, how to verify
@@ -180,9 +218,11 @@ in place.
 ├── clippy.toml                                                              # The size limits the North Star holds every function to; the justfile denies the two lints that are off by default
 ├── deny.toml                                                                # Licence, dependency-ban, source and yanked-crate policy for every Cargo manifest in this repository
 ├── justfile                                                                 # List every recipe and what it does; this is what just alone prints
+├── maestro-quality.toml                                                     # The organization's quality rules as this repository shapes them: the inputs its CI caller passes, the seams that keep one caller
 ├── mise.lock                                                                # The checksum of every pinned tool download
 ├── mise.toml                                                                # The development toolbelt: every tool just check needs, at the version CI pins
 ├── rust-toolchain.toml                                                      # The pinned Rust toolchain
+├── rustfmt.toml                                                             # TOML settings: rustfmt; rendered by rust-gate sync
 └── typos.toml                                                               # Spelling checks for maintained code and documentation
 ```
 
