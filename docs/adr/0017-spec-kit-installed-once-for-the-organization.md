@@ -8,10 +8,14 @@ repository of the organization shares, so no repository commits them. They are
 installed once, in a `.specify/` and an `.agents/skills/` beside the
 organization's checkouts; each repository holds a `.specify` link to that
 install, which git ignores, so Spec Kit still takes the repository as its
-project root and writes `specs/NNN-*/` here. The constitution governs every
-repository and lives in the organization's `.github` repository as
-[`CONSTITUTION.md`](https://github.com/Orchestration-Maestro/.github/blob/main/CONSTITUTION.md), which the install's `memory/constitution.md` links
-to. Specs, plans and tasks stay in the repository they deliver.
+project root and writes `specs/NNN-*/` here. The constitution lives in the
+organization's `.github` repository as
+[`CONSTITUTION.md`](https://github.com/Orchestration-Maestro/.github/blob/main/CONSTITUTION.md), which the install's
+`memory/constitution.md` links to. It holds no rule of its own: it points to the
+organization's golden rules, which come first, so a specification answers to
+them and to this repository's rule map rather than to ADR-0010's
+`.specify/memory/constitution.md`. Specs, plans and tasks stay in the
+repository they deliver.
 
 ## Considered options
 

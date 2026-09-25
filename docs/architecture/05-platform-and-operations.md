@@ -348,6 +348,6 @@ Carried from the organization's golden workflow standards and applied from S0:
 | Coverage and mutation | ≥ 90 % line coverage of owned runtime code; mutation campaigns report selection and outcomes with no surviving selected mutant; a sampled campaign is never reported as exhaustive |
 | Speed | Cached local check under 40 seconds is an improvement target, never a reason to drop a gate |
 | Hooks | Installed, not just configured: merge markers, YAML/TOML, whitespace, formatters, spelling, ShellCheck, actionlint, zizmor, conventional commits; proved in disposable repositories |
-| Principles | The four foundations, the eighteen named engineering principles and the nine mandates of the organization's engineering standard; judgement controls stay labelled as review obligations |
+| Principles | The organization's golden rules, as [`docs/standards/`](../standards/engineering.md) maps them here; judgement controls stay labelled as review obligations |
 | Canonicalization identities | Schema 1.2.0, parser `canonicalization/0.3.0+pulldown-cmark/0.13.4+source-accounting`, `mapped-structural-chunks/1`, `canonical-context-parts/v1`, `scoped-exact-dedup/1`, `original-utf8/v1`, `canonical-structured/v1`, `source-retrieval-chunk/v1`, `prepared-document-input/v1`, unchanged unless a reviewed semantic change needs a new version |
 | Licence | MIT for new material; upstream notices preserved, nothing relicensed |

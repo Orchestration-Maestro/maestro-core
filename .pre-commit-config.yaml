@@ -1,16 +1,6 @@
 minimum_prek_version: '0.5.0'
 default_stages: [pre-commit, pre-merge-commit]
 default_install_hook_types: [pre-commit, pre-merge-commit, commit-msg]
-# Spec Kit writes and refreshes these files in its own style; they stay as it
-# writes them, so a refresh changes nothing by itself. The constitution and the
-# specs remain checked.
-exclude: |
-  (?x)^(
-    \.specify/(integrations|scripts|templates|workflows)/
-    | \.specify/[^/]+\.json$
-    | \.specify/memory/\.constitution-template\.json$
-    | \.github/skills/speckit-[^/]+/
-  )
 repos:
   - repo: builtin
     hooks:

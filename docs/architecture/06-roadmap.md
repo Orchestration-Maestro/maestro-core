@@ -212,7 +212,7 @@ are settled before the phase that needs them.
 
 | # | Risk | Likelihood | Impact | Mitigation |
 | --- | --- | --- | --- | --- |
-| R1 | Planning outgrows delivery again | Medium | High | Constitution: specs only for the active slice; evals and tests are the only gates; every slice ends in a release |
+| R1 | Planning outgrows delivery again | Medium | High | [ADR-0010](../adr/0010-spec-kit-and-executable-gates.md): specs only for the active slice; evals and tests are the only gates; every slice ends in a release |
 | R2 | Copilot SDK or CLI changes break sessions | Medium | High | Pin SDK and CLI; L2/L3 tests catch protocol changes; the `llamacpp` provider keeps the engine usable |
 | R3 | neo4rs incompatible with Neo4j 2026.x | Medium | Medium | Qualify in S2; fall back to 5.26 LTS; LadybugDB adapter |
 | R4 | Model licences or quality disappoint | Medium | Medium | Bake-off with licence checks; managed route for agent roles when local models do not qualify |

@@ -1,7 +1,8 @@
 # Agent guide
 
-The [constitution](https://github.com/Orchestration-Maestro/.github/blob/main/CONSTITUTION.md) governs; this page is the
-working summary.
+The organization's [golden rules](https://github.com/Orchestration-Maestro/.github/blob/main/golden-rules/engineering.md) come first,
+and [`docs/standards/`](docs/standards/engineering.md) maps them to this
+repository; this page is the working summary.
 
 | Command | When |
 | --- | --- |
