@@ -36,8 +36,14 @@ pub use document::{CanonicalDocument, MarkdownReference, Section, SourceAccounti
 pub use error::Error;
 pub use model::*;
 pub use pipeline::{PARSER_VERSION, SCHEMA_VERSION, canonicalize};
-pub use prepared_inputs::*;
+pub use prepared_inputs::{
+    ChunkContent, Contribution, Fragment, InputPart, InputRole, PREPARATION_PROFILE, SplitKind,
+    TableWindow,
+};
 pub use replay::validate_document;
-pub use source_units::*;
+pub use source_units::{
+    AccountingDisposition, CHUNKER_VERSION, InlineEnvelope, MappedDocument, MappingRun, OriginMode,
+    SourceDisposition, SourceOrigin, SourceUnit, TextRange, UnitField,
+};
 pub use store::{load_document, save_document};
 pub use tokenizer::NativeTokenizer;
