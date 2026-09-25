@@ -1,5 +1,7 @@
 //! Offset-aware parser tree. Its nodes are temporary; the public result is an arena.
-use crate::{BlockAttributes, CodeKind, Error, InlineKind, ParserOptions, SourceSpan};
+use crate::content::{BlockAttributes, CodeKind, InlineKind};
+use crate::error::Error;
+use crate::model::{ParserOptions, SourceSpan};
 use pulldown_cmark::{CodeBlockKind, Event, Options, Parser, Tag, TagEnd};
 
 /// What a parser node is: a block with its attributes, or inline content.
@@ -127,8 +129,8 @@ pub(crate) fn preserve_gaps(
     markdown: &str,
     mut gaps: Vec<(SourceSpan, String)>,
 ) {
-    gaps.sort_by_key(|(s, _)| (s.start, s.end));
-    gaps.dedup_by_key(|(s, _)| (s.start, s.end));
+    gaps.sort_by_key(|(span, _)| (span.start, span.end));
+    gaps.dedup_by_key(|(span, _)| (span.start, span.end));
     for (span, reason) in gaps {
         if span.start >= span.end || !span.is_valid(markdown) {
             continue;
@@ -174,68 +176,66 @@ fn insert_definition(nodes: &mut Vec<Node>, definition: Node) {
 
 /// The node kind a parser start tag opens.
 fn tag_kind(tag: Tag<'_>) -> Kind {
-    use BlockAttributes as B;
-    use InlineKind as I;
     let block = match tag {
-        Tag::Paragraph => B::Paragraph,
+        Tag::Paragraph => BlockAttributes::Paragraph,
         Tag::Heading {
             level,
             id,
             classes,
             attrs,
-        } => B::Heading {
+        } => BlockAttributes::Heading {
             level: level as u8,
-            explicit_id: id.map(|s| s.to_string()),
+            explicit_id: id.map(|explicit| explicit.to_string()),
             classes: classes.iter().map(ToString::to_string).collect(),
             attributes: attrs
                 .into_iter()
-                .map(|(k, v)| (k.to_string(), v.map(|s| s.to_string())))
+                .map(|(name, value)| (name.to_string(), value.map(|text| text.to_string())))
                 .collect(),
         },
-        Tag::CodeBlock(CodeBlockKind::Indented) => B::Code {
+        Tag::CodeBlock(CodeBlockKind::Indented) => BlockAttributes::Code {
             style: CodeKind::Indented,
             info: None,
             language: None,
         },
-        Tag::CodeBlock(CodeBlockKind::Fenced(info)) => B::Code {
+        Tag::CodeBlock(CodeBlockKind::Fenced(info)) => BlockAttributes::Code {
             style: CodeKind::Fenced,
             language: info.split_whitespace().next().map(str::to_owned),
             info: Some(info.to_string()),
         },
-        Tag::BlockQuote(kind) => B::BlockQuote {
-            alert: kind.map(|k| format!("{k:?}").to_lowercase()),
+        Tag::BlockQuote(kind) => BlockAttributes::BlockQuote {
+            alert: kind.map(|alert| format!("{alert:?}").to_lowercase()),
         },
-        Tag::List(start) => B::List { start },
-        Tag::Item => B::ListItem,
-        Tag::Table(alignments) => B::Table {
+        Tag::List(start) => BlockAttributes::List { start },
+        Tag::Item => BlockAttributes::ListItem,
+        Tag::Table(alignments) => BlockAttributes::Table {
             alignments: alignments
                 .iter()
-                .map(|a| format!("{a:?}").to_lowercase())
+                .map(|alignment| format!("{alignment:?}").to_lowercase())
                 .collect(),
         },
-        Tag::TableHead => B::TableHead,
-        Tag::TableRow => B::TableRow,
-        Tag::TableCell => B::TableCell,
-        Tag::FootnoteDefinition(label) => B::FootnoteDefinition {
+        Tag::TableHead => BlockAttributes::TableHead,
+        Tag::TableRow => BlockAttributes::TableRow,
+        Tag::TableCell => BlockAttributes::TableCell,
+        Tag::FootnoteDefinition(label) => BlockAttributes::FootnoteDefinition {
             label: label.to_string(),
         },
-        Tag::HtmlBlock => B::Html,
-        Tag::MetadataBlock(_) => B::Metadata,
-        Tag::DefinitionList => B::DefinitionList,
-        Tag::DefinitionListTitle => B::DefinitionTerm,
-        Tag::DefinitionListDefinition => B::DefinitionDescription,
-        Tag::Emphasis => return Kind::Inline(I::Emphasis),
-        Tag::Strong => return Kind::Inline(I::Strong),
-        Tag::Strikethrough => return Kind::Inline(I::Strikethrough),
-        Tag::Superscript => return Kind::Inline(I::Superscript),
-        Tag::Subscript => return Kind::Inline(I::Subscript),
+        Tag::HtmlBlock => BlockAttributes::Html,
+        Tag::MetadataBlock(_) => BlockAttributes::Metadata,
+        Tag::DefinitionList => BlockAttributes::DefinitionList,
+        Tag::DefinitionListTitle => BlockAttributes::DefinitionTerm,
+        Tag::DefinitionListDefinition => BlockAttributes::DefinitionDescription,
+        Tag::Emphasis => return Kind::Inline(InlineKind::Emphasis),
+        Tag::Strong => return Kind::Inline(InlineKind::Strong),
+        Tag::Strikethrough => return Kind::Inline(InlineKind::Strikethrough),
+        Tag::Superscript => return Kind::Inline(InlineKind::Superscript),
+        Tag::Subscript => return Kind::Inline(InlineKind::Subscript),
         Tag::Link {
             link_type,
             dest_url,
             title,
             id,
         } => {
-            return Kind::Inline(I::Link {
+            return Kind::Inline(InlineKind::Link {
                 destination: dest_url.to_string(),
                 title: title.to_string(),
                 reference: id.to_string(),
@@ -248,7 +248,7 @@ fn tag_kind(tag: Tag<'_>) -> Kind {
             title,
             id,
         } => {
-            return Kind::Inline(I::Image {
+            return Kind::Inline(InlineKind::Image {
                 destination: dest_url.to_string(),
                 title: title.to_string(),
                 reference: id.to_string(),
@@ -262,31 +262,30 @@ fn tag_kind(tag: Tag<'_>) -> Kind {
 /// The node kind of a leaf event: text, code, math, HTML, a note reference, a break, a task marker
 /// or a thematic break.
 fn leaf_kind(event: Event<'_>) -> Result<Kind, Error> {
-    use InlineKind as I;
     let inline = match event {
-        Event::Text(text) => I::Text {
+        Event::Text(text) => InlineKind::Text {
             text: text.to_string(),
         },
-        Event::Code(text) => I::Code {
+        Event::Code(text) => InlineKind::Code {
             text: text.to_string(),
         },
-        Event::InlineMath(text) => I::Math {
+        Event::InlineMath(text) => InlineKind::Math {
             text: text.to_string(),
             display: false,
         },
-        Event::DisplayMath(text) => I::Math {
+        Event::DisplayMath(text) => InlineKind::Math {
             text: text.to_string(),
             display: true,
         },
-        Event::Html(raw) | Event::InlineHtml(raw) => I::Html {
+        Event::Html(raw) | Event::InlineHtml(raw) => InlineKind::Html {
             raw: raw.to_string(),
         },
-        Event::FootnoteReference(label) => I::FootnoteReference {
+        Event::FootnoteReference(label) => InlineKind::FootnoteReference {
             label: label.to_string(),
         },
-        Event::SoftBreak => I::SoftBreak,
-        Event::HardBreak => I::HardBreak,
-        Event::TaskListMarker(checked) => I::TaskMarker { checked },
+        Event::SoftBreak => InlineKind::SoftBreak,
+        Event::HardBreak => InlineKind::HardBreak,
+        Event::TaskListMarker(checked) => InlineKind::TaskMarker { checked },
         Event::Rule => return Ok(Kind::Block(BlockAttributes::ThematicBreak)),
         Event::Start(_) | Event::End(_) => {
             return Err(Error("container received as a leaf".into()));
@@ -319,12 +318,12 @@ pub(crate) fn text(node: &Node) -> String {
         Kind::Block(BlockAttributes::List { start }) => children
             .iter()
             .enumerate()
-            .map(|(i, s)| {
+            .map(|(i, item)| {
                 let marker = match start {
                     Some(n) => format!("{}. ", u128::from(*n) + i as u128),
                     None => "- ".into(),
                 };
-                format!("{marker}{}", s.replace('\n', "\n  "))
+                format!("{marker}{}", item.replace('\n', "\n  "))
             })
             .collect::<Vec<_>>()
             .join("\n"),
@@ -350,19 +349,20 @@ pub(crate) fn text(node: &Node) -> String {
 /// The text an inline node reads as, given its children's text; deletion and script markers are
 /// kept.
 pub(crate) fn inline_text(kind: &InlineKind, children: &str) -> String {
-    use InlineKind as I;
     match kind {
-        I::Text { text } | I::Code { text } | I::Math { text, .. } => text.clone(),
-        I::Html { raw } => raw.clone(),
-        I::FootnoteReference { label } => format!("[^{label}]"),
-        I::SoftBreak | I::HardBreak => "\n".into(),
-        I::TaskMarker { checked } => if *checked { "[x] " } else { "[ ] " }.into(),
-        I::Image { destination, .. } => format!("{children} ({destination})"),
+        InlineKind::Text { text } | InlineKind::Code { text } | InlineKind::Math { text, .. } => {
+            text.clone()
+        }
+        InlineKind::Html { raw } => raw.clone(),
+        InlineKind::FootnoteReference { label } => format!("[^{label}]"),
+        InlineKind::SoftBreak | InlineKind::HardBreak => "\n".into(),
+        InlineKind::TaskMarker { checked } => if *checked { "[x] " } else { "[ ] " }.into(),
+        InlineKind::Image { destination, .. } => format!("{children} ({destination})"),
         // Deletion and script position carry meaning; don't silently erase them.
-        I::Strikethrough => format!("~~{children}~~"),
-        I::Superscript => format!("^({children})"),
-        I::Subscript => format!("_({children})"),
-        I::Emphasis | I::Strong | I::Link { .. } => children.to_owned(),
+        InlineKind::Strikethrough => format!("~~{children}~~"),
+        InlineKind::Superscript => format!("^({children})"),
+        InlineKind::Subscript => format!("_({children})"),
+        InlineKind::Emphasis | InlineKind::Strong | InlineKind::Link { .. } => children.to_owned(),
     }
 }
 
@@ -392,7 +392,7 @@ mod tests {
         let quote = doc
             .blocks
             .iter()
-            .find(|b| b.block_type == BlockType::BlockQuote)
+            .find(|block| block.block_type == BlockType::BlockQuote)
             .unwrap();
         assert_eq!(quote.retrieval_text, "A\nB");
     }

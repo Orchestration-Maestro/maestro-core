@@ -1,37 +1,11 @@
 //! A deterministic, unique byte partition; nested block spans remain independently valid.
-use crate::{BlockType, CanonicalDocument, ContentNode, Inline, InlineKind, SourceSpan};
-use serde::{Deserialize, Serialize};
+use crate::content::{BlockType, ContentNode, Inline, InlineKind};
+use crate::document::{CanonicalDocument, SourceAccounting, SourceRole};
+use crate::model::SourceSpan;
 use std::{
     cmp::Reverse,
     collections::{BTreeMap, BTreeSet},
 };
-
-/// What accounts for an original source-syntax range, not a normalized-text range.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SourceRole {
-    /// Syntax contributing to a parsed textual value; may include escapes or inline delimiters.
-    ParsedContent,
-    /// Container delimiters, attributes, whitespace and other parser-recognized syntax.
-    StructuralSyntax,
-    /// Metadata, link destinations/titles, or reference definitions retained in typed fields.
-    MetadataOrReference,
-    /// Exact raw/fallback syntax, explicitly retained without interpreting its semantics.
-    Unsupported,
-    /// A source contribution lacking a representation; blocks document acceptance.
-    Unaccounted,
-}
-
-/// One nonoverlapping segment in the exhaustive original-byte accounting ledger.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SourceAccounting {
-    /// Inclusive start/exclusive end in the immutable original Markdown.
-    pub source_span: SourceSpan,
-    /// How this syntax is represented; never a statement about extraction accuracy.
-    pub role: SourceRole,
-    /// Innermost owning block, or null for inter-block whitespace/unaccounted source.
-    pub block_id: Option<String>,
-}
 
 /// One claim on original bytes: its span, role, owning block and the rank that decides which claim
 /// wins where claims overlap.
@@ -76,22 +50,22 @@ pub(crate) fn account(doc: &CanonicalDocument, markdown: &str) -> Vec<SourceAcco
     let mut endpoints: BTreeMap<usize, Vec<(usize, bool)>> = BTreeMap::new();
     endpoints.entry(0).or_default();
     endpoints.entry(markdown.len()).or_default();
-    for (id, c) in contributions.iter().enumerate() {
-        if c.span.start < c.span.end && c.span.is_valid(markdown) {
-            endpoints.entry(c.span.start).or_default().push((id, true));
-            endpoints.entry(c.span.end).or_default().push((id, false));
+    for (id, contribution) in contributions.iter().enumerate() {
+        let span = contribution.span;
+        if span.start < span.end && span.is_valid(markdown) {
+            endpoints.entry(span.start).or_default().push((id, true));
+            endpoints.entry(span.end).or_default().push((id, false));
         }
     }
-    let mut active = BTreeSet::new();
+    // The claims covering the sweep position, ordered so the winner is last.
+    let mut active: BTreeSet<(u8, Reverse<usize>, usize)> = BTreeSet::new();
     let mut result: Vec<SourceAccounting> = Vec::new();
     let mut previous = 0;
     for (position, events) in endpoints {
         if previous < position {
-            let (role, owner) = match active.last().copied() {
-                Some((_, _, id)) => {
-                    let c: &Contribution<'_> = &contributions[id];
-                    (c.role, Some(c.owner.to_owned()))
-                }
+            let winner = active.last().and_then(|&(_, _, id)| contributions.get(id));
+            let (role, owner) = match winner {
+                Some(contribution) => (contribution.role, Some(contribution.owner.to_owned())),
                 None if markdown[previous..position].trim().is_empty() => {
                     (SourceRole::StructuralSyntax, None)
                 }
@@ -99,7 +73,7 @@ pub(crate) fn account(doc: &CanonicalDocument, markdown: &str) -> Vec<SourceAcco
             };
             if let Some(last) = result
                 .last_mut()
-                .filter(|a| a.role == role && a.block_id == owner)
+                .filter(|segment| segment.role == role && segment.block_id == owner)
             {
                 last.source_span.end = position;
             } else {
@@ -114,8 +88,11 @@ pub(crate) fn account(doc: &CanonicalDocument, markdown: &str) -> Vec<SourceAcco
             }
         }
         for (id, start) in events {
-            let c = &contributions[id];
-            let key = (c.rank, Reverse(c.span.end - c.span.start), id);
+            let Some(contribution) = contributions.get(id) else {
+                continue;
+            };
+            let span = contribution.span;
+            let key = (contribution.rank, Reverse(span.end - span.start), id);
             if start {
                 active.insert(key);
             } else {
@@ -172,7 +149,8 @@ mod tests {
     /// A document whose paragraph block is removed, leaving its bytes unclaimed.
     fn without_paragraph(markdown: &str) -> CanonicalDocument {
         let mut doc = canonicalize(CanonicalizeInput::new(markdown, "ledger.md")).unwrap();
-        doc.blocks.retain(|b| b.block_type == BlockType::Heading);
+        doc.blocks
+            .retain(|block| block.block_type == BlockType::Heading);
         doc
     }
 

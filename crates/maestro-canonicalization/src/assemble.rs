@@ -1,14 +1,17 @@
 //! Build natural blocks and lexical heading context from the offset-aware tree.
-use crate::parse::{Kind, Node, text};
-use crate::{
-    AssetReference, AssetStatus, Block, BlockAttributes, CanonicalDocument, ContentNode, Error,
-    Inline, InlineKind, Link, Section, StructuredContent, digest,
+use crate::content::{
+    Block, BlockAttributes, ContentNode, Inline, InlineKind, Link, StructuredContent,
 };
+use crate::document::{CanonicalDocument, Section};
+use crate::error::Error;
+use crate::hashing::digest;
+use crate::model::{AssetReference, AssetStatus};
+use crate::parse::{Kind, Node, inline_text, text};
 
 /// Build the document's blocks, sections, links and asset references from the parsed tree.
 pub(crate) fn assemble(nodes: &[Node], doc: &mut CanonicalDocument) -> Result<(), Error> {
     let config = serde_json::to_vec(&(&doc.parser_version, &doc.parser_options))
-        .map_err(|e| Error(e.to_string()))?;
+        .map_err(|error| Error(error.to_string()))?;
     let mut builder = Builder {
         doc,
         config: digest(&config),
@@ -63,13 +66,19 @@ impl Builder<'_> {
             )
         );
         let rendered = text(node);
-        let mut parent_section = context.last().map(|s| s.section_id.clone());
+        let mut parent_section = context.last().map(|section| section.section_id.clone());
         if let BlockAttributes::Heading { level, .. } = attributes {
-            while context.last().is_some_and(|s| s.level >= *level) {
+            while context
+                .last()
+                .is_some_and(|section| section.level >= *level)
+            {
                 context.pop();
             }
-            parent_section = context.last().map(|s| s.section_id.clone());
-            let mut path: Vec<_> = context.iter().map(|s| s.title.clone()).collect();
+            parent_section = context.last().map(|section| section.section_id.clone());
+            let mut path: Vec<_> = context
+                .iter()
+                .map(|section| section.title.clone())
+                .collect();
             path.push(rendered.clone());
             let section = Section {
                 section_id: id.clone(),
@@ -85,12 +94,13 @@ impl Builder<'_> {
             .doc
             .extractor_blocks
             .iter()
-            .filter(|e| {
-                e.markdown_spans
+            .filter(|extracted| {
+                extracted
+                    .markdown_spans
                     .iter()
-                    .any(|s| s.start < node.span.end && node.span.start < s.end)
+                    .any(|span| span.start < node.span.end && node.span.start < span.end)
             })
-            .map(|e| e.extractor_id.clone())
+            .map(|extracted| extracted.extractor_id.clone())
             .collect();
         self.doc.blocks.push(Block {
             block_id: id.clone(),
@@ -98,7 +108,10 @@ impl Builder<'_> {
             block_type: attributes.block_type(),
             parent_block_id: parent.map(str::to_owned),
             parent_section_id: parent_section,
-            heading_path: context.iter().map(|s| s.title.clone()).collect(),
+            heading_path: context
+                .iter()
+                .map(|section| section.title.clone())
+                .collect(),
             source_spans: vec![node.span],
             retrieval_text: rendered,
             structured_content: StructuredContent {
@@ -116,8 +129,10 @@ impl Builder<'_> {
                 self.references(inline, &id, &mut assets);
             }
         }
-        self.doc.blocks[index].structured_content.children = children;
-        self.doc.blocks[index].asset_references = assets;
+        if let Some(block) = self.doc.blocks.get_mut(index) {
+            block.structured_content.children = children;
+            block.asset_references = assets;
+        }
         Ok(ContentNode::Block { block_id: id })
     }
 
@@ -170,7 +185,7 @@ fn inline(node: &Node) -> Result<Inline, Error> {
 
 /// The text an inline node reads as, its children rendered first.
 pub(crate) fn render_inline(inline: &Inline) -> String {
-    crate::parse::inline_text(
+    inline_text(
         &inline.content,
         &inline
             .children
@@ -189,7 +204,7 @@ pub(crate) fn destination_status(destination: &str, supplied: Option<&AssetStatu
         || destination
             .split('/')
             .next()
-            .is_some_and(|s| s.contains(':'))
+            .is_some_and(|scheme| scheme.contains(':'))
     {
         AssetStatus::Remote
     } else {
@@ -215,7 +230,7 @@ mod tests {
     fn extractor_blocks_attach_to_overlapping_blocks_not_touching_ones() {
         let markdown = "First\n\nSecond\n";
         let plain = canonicalize(CanonicalizeInput::new(markdown, "two.md")).unwrap();
-        let [first, second] = [0, 1].map(|i| plain.blocks[i].source_spans[0]);
+        let [first, second] = [0, 1].map(|index| plain.blocks[index].source_spans[0]);
         assert!(first.end < second.start, "{first:?} {second:?}");
         let mut input = CanonicalizeInput::new(markdown, "two.md");
         input.extractor_blocks = vec![
@@ -229,7 +244,11 @@ mod tests {
             ),
         ];
         let doc = canonicalize(input).unwrap();
-        let attached: Vec<_> = doc.blocks.iter().map(|b| &b.extractor_block_ids).collect();
+        let attached: Vec<_> = doc
+            .blocks
+            .iter()
+            .map(|block| &block.extractor_block_ids)
+            .collect();
         assert_eq!(attached, [&vec!["first".to_owned()], &Vec::new()]);
     }
 }

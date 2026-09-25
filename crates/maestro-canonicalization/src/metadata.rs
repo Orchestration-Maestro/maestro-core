@@ -1,7 +1,7 @@
 //! Merge supplied metadata without guessing provenance or permissions.
-use crate::BlockAttributes;
+use crate::content::BlockAttributes;
+use crate::model::{Finding, Severity, SourceMetadata, SourceSpan};
 use crate::parse::{Kind, Node, text};
-use crate::{Finding, Severity, SourceMetadata, SourceSpan};
 use serde_json::Value;
 use std::collections::BTreeMap;
 
@@ -30,38 +30,35 @@ pub(crate) fn merge(nodes: &[Node], supplied: &SourceMetadata) -> (SourceMetadat
         if !matches!(node.kind, Kind::Block(BlockAttributes::Metadata)) {
             continue;
         }
-        match serde_yaml_ng::from_str::<serde_yaml_ng::Value>(&text(node))
+        let Ok(map) = serde_yaml_ng::from_str::<serde_yaml_ng::Value>(&text(node))
             .and_then(serde_yaml_ng::from_value::<BTreeMap<String, Value>>)
-        {
-            Ok(map) => {
-                // Preserve every original metadata value, even a conflicting one.
-                if merged.extra.contains_key("markdown_frontmatter") {
-                    warnings.push(finding(
-                        "metadata_conflict",
-                        "reserved markdown_frontmatter key supplied",
-                        Severity::Error,
-                        Some(node.span),
-                    ));
-                } else {
-                    merged
-                        .extra
-                        .insert("markdown_frontmatter".into(), serde_json::json!(map));
-                }
-                for (key, value) in &map {
-                    if key != "converter" {
-                        merge_field(&mut merged, key, value, node.span, &mut warnings);
-                    }
-                }
-                if let Some(converter) = map.get("converter").filter(|v| !v.is_null()) {
-                    merge_converter(&mut merged, converter, node.span, &mut warnings);
-                }
-            }
-            Err(_) => warnings.push(finding(
+        else {
+            warnings.push(finding(
                 "invalid_frontmatter",
                 "frontmatter is not a valid YAML mapping; original bytes retained",
                 Severity::Error,
                 Some(node.span),
-            )),
+            ));
+            continue;
+        };
+        // Preserve every original metadata value, even a conflicting one.
+        if merged.extra.contains_key("markdown_frontmatter") {
+            warnings.push(finding(
+                "metadata_conflict",
+                "reserved markdown_frontmatter key supplied",
+                Severity::Error,
+                Some(node.span),
+            ));
+        } else {
+            merged
+                .extra
+                .insert("markdown_frontmatter".into(), serde_json::json!(map));
+        }
+        for (key, value) in map.iter().filter(|(key, _)| *key != "converter") {
+            merge_field(&mut merged, key, value, node.span, &mut warnings);
+        }
+        if let Some(converter) = map.get("converter").filter(|value| !value.is_null()) {
+            merge_converter(&mut merged, converter, node.span, &mut warnings);
         }
     }
     for (name, missing) in [
@@ -70,18 +67,21 @@ pub(crate) fn merge(nodes: &[Node], supplied: &SourceMetadata) -> (SourceMetadat
             merged
                 .source_reference
                 .as_deref()
-                .is_none_or(|s| s.trim().is_empty()),
+                .is_none_or(|value| value.trim().is_empty()),
         ),
         (
             "title",
-            merged.title.as_deref().is_none_or(|s| s.trim().is_empty()),
+            merged
+                .title
+                .as_deref()
+                .is_none_or(|value| value.trim().is_empty()),
         ),
         (
             "language",
             merged
                 .language
                 .as_deref()
-                .is_none_or(|s| s.trim().is_empty()),
+                .is_none_or(|value| value.trim().is_empty()),
         ),
         (
             "extraction",
@@ -107,7 +107,10 @@ pub(crate) fn merge(nodes: &[Node], supplied: &SourceMetadata) -> (SourceMetadat
         &mut merged.title,
         &mut merged.language,
     ] {
-        if field.as_deref().is_some_and(|s| s.trim().is_empty()) {
+        if field
+            .as_deref()
+            .is_some_and(|value| value.trim().is_empty())
+        {
             *field = None;
         }
     }
@@ -147,7 +150,7 @@ fn merge_field(
                 "title" => &mut merged.title,
                 _ => &mut merged.language,
             };
-            if field.as_deref().is_some_and(|s| s != text) {
+            if field.as_deref().is_some_and(|supplied| supplied != text) {
                 warnings.push(finding(
                     "metadata_conflict",
                     format!("conflicting {key}; supplied and Markdown values retained"),
@@ -164,7 +167,7 @@ fn merge_field(
             } else {
                 &mut merged.extraction
             };
-            if field.as_ref().is_some_and(|v| v != value) {
+            if field.as_ref().is_some_and(|supplied| supplied != value) {
                 warnings.push(finding(
                     "metadata_conflict",
                     format!("conflicting {key}; no resolution inferred"),
@@ -191,7 +194,10 @@ fn merge_converter(
             merged.extraction = Some(serde_json::json!({"converter": converter}));
         }
         Some(Value::Object(details)) => {
-            if details.get("converter").is_some_and(|v| v != converter) {
+            if details
+                .get("converter")
+                .is_some_and(|recorded| recorded != converter)
+            {
                 warnings.push(finding(
                     "metadata_conflict",
                     "converter conflicts with extraction details",
@@ -217,7 +223,10 @@ mod tests {
 
     /// The codes of a document's findings.
     fn codes(doc: &CanonicalDocument) -> Vec<&str> {
-        doc.warnings.iter().map(|f| f.code.as_str()).collect()
+        doc.warnings
+            .iter()
+            .map(|found| found.code.as_str())
+            .collect()
     }
 
     #[test]

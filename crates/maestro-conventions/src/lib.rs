@@ -70,7 +70,9 @@ pub fn names_a_personal_directory(text: &str) -> bool {
         text.match_indices(prefix.as_str()).any(|(at, _)| {
             let rest = &text[at + prefix.len()..];
             let name = rest
-                .find(|c: char| !(c.is_alphanumeric() || matches!(c, '.' | '_' | '-')))
+                .find(|character: char| {
+                    !(character.is_alphanumeric() || matches!(character, '.' | '_' | '-'))
+                })
                 .unwrap_or(rest.len());
             name > 0 && rest[name..].starts_with(*separator)
         })
@@ -136,12 +138,7 @@ fn anchors(text: &str) -> BTreeSet<String> {
             }
             Event::End(TagEnd::Heading(_)) => {
                 if let Some(title) = heading.take() {
-                    let base = slug(&title);
-                    let (mut anchor, mut number) = (base.clone(), 0);
-                    while anchors.contains(&anchor) {
-                        number += 1;
-                        anchor = format!("{base}-{number}");
-                    }
+                    let anchor = unused_anchor(&anchors, &slug(&title));
                     anchors.insert(anchor);
                 }
             }
@@ -151,15 +148,25 @@ fn anchors(text: &str) -> BTreeSet<String> {
     anchors
 }
 
+/// The first of `base`, `base-1`, `base-2`... that `anchors` does not hold yet.
+fn unused_anchor(anchors: &BTreeSet<String>, base: &str) -> String {
+    let (mut anchor, mut number) = (base.to_owned(), 0);
+    while anchors.contains(&anchor) {
+        number += 1;
+        anchor = format!("{base}-{number}");
+    }
+    anchor
+}
+
 /// GitHub's heading slug: lower case; letters, digits, `_` and `-` kept;
 /// spaces as `-`; everything else dropped.
 fn slug(title: &str) -> String {
     title
         .to_lowercase()
         .chars()
-        .filter_map(|c| match c {
+        .filter_map(|character| match character {
             ' ' => Some('-'),
-            c if c.is_alphanumeric() || c == '_' || c == '-' => Some(c),
+            kept if kept.is_alphanumeric() || kept == '_' || kept == '-' => Some(kept),
             _ => None,
         })
         .collect()
@@ -168,11 +175,14 @@ fn slug(title: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::{env, process};
 
     /// A fresh directory under the system's temporary directory.
     fn scratch(name: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("policy-{name}-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&dir);
+        let dir = env::temp_dir().join(format!("policy-{name}-{}", process::id()));
+        if dir.exists() {
+            fs::remove_dir_all(&dir).unwrap();
+        }
         fs::create_dir_all(&dir).unwrap();
         dir
     }

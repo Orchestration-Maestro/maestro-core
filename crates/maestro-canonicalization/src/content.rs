@@ -1,5 +1,5 @@
 //! Typed natural blocks and nested inline content.
-use crate::{AssetReference, SourceSpan};
+use crate::model::{AssetReference, SourceSpan};
 use serde::{Deserialize, Serialize};
 
 /// Natural Markdown block category, not a retrieval chunk type.
