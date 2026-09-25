@@ -203,6 +203,10 @@ in place.
 │   │   └── tasks.md                                                         # Foundation Implementation Tasks
 │   └── 001-knowledge-kernel/                                                # 001 knowledge kernel
 │       └── spec.md                                                          # Feature Specification: Knowledge kernel and hybrid RAG
+├── supply-chain/                                                            # cargo-vet audits, configuration and imports
+│   ├── audits.toml                                                          # cargo-vet audits file
+│   ├── config.toml                                                          # cargo-vet config file
+│   └── imports.lock                                                         # The audits cargo-vet imports, locked
 ├── .editorconfig                                                            # Editor settings that survive the editor
 ├── .gitattributes                                                           # How Git should treat each kind of file
 ├── .gitignore                                                               # Paths git never tracks
