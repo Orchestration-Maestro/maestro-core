@@ -4,6 +4,7 @@ use maestro_canonicalization::{
     CanonicalizeInput, Severity, ValidationStatus, canonicalize, save_document, validate_document,
 };
 use serde_json::json;
+use std::{env, process};
 
 #[test]
 fn duplicate_yaml_keys_fail_including_nested_permissions() {
@@ -110,8 +111,7 @@ fn altered_json_is_rejected_by_replay_validation() {
                 .any(|w| w.severity == Severity::Error),
             "mutation {change}"
         );
-        let path =
-            std::env::temp_dir().join(format!("canonical-refuse-{}-{change}", std::process::id()));
+        let path = env::temp_dir().join(format!("canonical-refuse-{}-{change}", process::id()));
         assert!(save_document(&doc, md, &path).is_err(), "mutation {change}");
         assert!(!path.exists());
     }
