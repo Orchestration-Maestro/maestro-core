@@ -1,13 +1,11 @@
 //! Tests of the native tokenizer: profile identity, artifacts, process limits and output.
-//! The counter, its shared libraries and the processes these tests start are Unix fixtures.
+//! The counter and the processes these tests start are Unix fixtures.
 use super::artifacts::verify_artifact;
 use super::binding::NativeBinding;
 use super::contract::{array_at, parse_contract, text_at};
 use super::native::parse_ids;
 #[cfg(unix)]
-use super::{
-    NativeTokenizer, artifacts::verify_libraries, native::configured_command, process::run_native,
-};
+use super::{NativeTokenizer, native::configured_command, process::run_native};
 #[cfg(unix)]
 use crate::{error::Error, hashing::digest};
 #[cfg(unix)]
@@ -29,18 +27,14 @@ use std::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 
+mod libraries;
+
+/// A new empty directory under the platform's temporary directory, as it is named there.
 struct Scratch(PathBuf);
 impl Scratch {
-    /// A new empty directory. macOS reaches the temporary directory through the `/var` link, and
-    /// a library alias resolves to a link-free path, so there the link-free path is used.
     fn new() -> Self {
         static NEXT: AtomicUsize = AtomicUsize::new(0);
-        let temporary = if cfg!(target_os = "macos") {
-            fs::canonicalize(env::temp_dir()).unwrap()
-        } else {
-            env::temp_dir()
-        };
-        let path = temporary.join(format!(
+        let path = env::temp_dir().join(format!(
             "ctm-tokenizer-{}-{}",
             process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)
@@ -151,7 +145,7 @@ fn a_changed_artifact_is_refused_until_restored() {
 #[test]
 fn the_reported_contract_id_is_the_committed_profiles() {
     let scratch = Scratch::new();
-    let committed = parse_contract(include_str!("../../tokenizer-contract.json")).unwrap();
+    let committed = parse_contract(include_str!("../../../tokenizer-contract.json")).unwrap();
     assert_eq!(
         committed["contract_id"],
         fake_tokenizer(&scratch).contract_id()
@@ -200,7 +194,7 @@ fn a_binding_refusal_names_the_variable_and_the_schema() {
 
 #[test]
 fn the_committed_profile_names_files_never_machine_paths() {
-    let profile = parse_contract(include_str!("../../tokenizer-contract.json")).unwrap();
+    let profile = parse_contract(include_str!("../../../tokenizer-contract.json")).unwrap();
     assert_eq!(profile["schema"], "local-tokenizer-contract/2");
     assert!(!profile.to_string().contains("\"path\""));
     let libraries = array_at(&profile, "/artifacts/libraries").unwrap();
@@ -310,7 +304,7 @@ fn process_errors_and_timeouts_do_not_return_partial_output() {
 
 #[test]
 fn contract_identity_cannot_be_self_asserted_or_silently_changed() {
-    let text = include_str!("../../tokenizer-contract.json");
+    let text = include_str!("../../../tokenizer-contract.json");
     let mut contract = parse_contract(text).unwrap();
     contract["chunk_hard_max"] = json!(701);
     assert!(parse_contract(&contract.to_string()).is_err());
@@ -357,35 +351,8 @@ fn oversized_process_output_is_refused_not_truncated() {
 
 #[cfg(unix)]
 #[test]
-fn library_aliases_cannot_redirect_away_from_pinned_files() {
-    let scratch = Scratch::new();
-    let path = scratch.0.join("libfixture.so.1.2");
-    fs::write(&path, b"abc").unwrap();
-    let base = scratch.0.join("libfixture.so");
-    symlink(&path, &base).unwrap();
-    symlink(&path, scratch.0.join("libfixture.so.1")).unwrap();
-    let libraries = [path.clone()];
-    verify_libraries(&libraries).unwrap();
-    fs::remove_file(&base).unwrap();
-    assert!(verify_libraries(&libraries).is_err());
-    let outside = Scratch::new();
-    let replacement = outside.0.join("libfixture.so.1.2");
-    fs::write(&replacement, b"abc").unwrap();
-    symlink(&replacement, &base).unwrap();
-    assert!(verify_libraries(&libraries).is_err());
-    fs::remove_file(&base).unwrap();
-    symlink(&path, &base).unwrap();
-    let extra = scratch.0.join("libextra.so");
-    fs::write(&extra, b"abc").unwrap();
-    assert!(verify_libraries(&libraries).is_err());
-    fs::remove_file(extra).unwrap();
-    verify_libraries(&libraries).unwrap();
-}
-
-#[cfg(unix)]
-#[test]
 fn invocation_replaces_environment_and_preserves_model_argument() {
-    let mut contract = parse_contract(include_str!("../../tokenizer-contract.json")).unwrap();
+    let mut contract = parse_contract(include_str!("../../../tokenizer-contract.json")).unwrap();
     contract["invocation"]["args"] = json!([
         "-c",
         "import json,os,sys; print(json.dumps([dict(os.environ),sys.argv[1:]]))",

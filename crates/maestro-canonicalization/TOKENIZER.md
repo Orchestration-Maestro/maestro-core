@@ -39,6 +39,22 @@ Write a binding file outside the repository and name it in
   to artifacts are refused.
 - The library directory holds exactly the profile's libraries and their
   version aliases, and the counter runs with `LD_LIBRARY_PATH` set to it.
+  Each profile file name follows one platform's naming, which gives its
+  aliases the same way on every host (the committed profile pins a Linux
+  build; another platform's build has other bytes and needs its own profile):
+
+  | Platform | Pinned file | Its aliases, links to it |
+  | --- | --- | --- |
+  | Linux | `libx.so.1.2` | `libx.so`, `libx.so.1` |
+  | macOS | `libx.1.2.dylib` | `libx.dylib`, `libx.1.dylib` |
+  | Windows | `x.dll` | none |
+
+  An unversioned `libx.so` or `libx.dylib` has no alias. Any other file
+  there named with `.so`, or with a `.dylib` or `.dll` extension in any
+  letter case, is refused. Every alias must resolve to its pinned file in
+  this directory, and the pinned file must not be a link itself. Both sides
+  are compared after resolving the directory, so reaching it through a link
+  (macOS `/var`) changes nothing.
 
 Then run the native tests: `just native`. Without a binding they fail with an
 error naming `MAESTRO_NATIVE_BINDING`; they are never skipped silently.
