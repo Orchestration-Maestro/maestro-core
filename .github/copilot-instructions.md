@@ -92,6 +92,10 @@ in place.
 │   │   │   │   ├── identity.rs                                              # Prepared-input groups: identical prepared inputs share one identity
 │   │   │   │   ├── mod.rs                                                   # Phase B chunk batches: assembly, prepared-input identities and replay validation
 │   │   │   │   └── validation.rs                                            # Replay checks: coverage and every prepared part must rebuild from the mapped source
+│   │   │   ├── filesystem/                                                  # Filesystem access that never follows a link, behind one interface: rustix's directory-relative
+│   │   │   │   ├── mod.rs                                                   # Filesystem access that never follows a link, behind one interface: rustix's directory-relative
+│   │   │   │   ├── unix.rs                                                  # Unix: every name resolves against an open directory through rustix's openat family, which
+│   │   │   │   └── windows.rs                                               # Windows: names resolve by path, but every directory on the way is held open without
 │   │   │   ├── tokenizer/                                                   # Local vocabulary-only tokenization through the qualified executable
 │   │   │   │   ├── artifacts.rs                                             # Artifact checks: pinned files by size and SHA-256, and the exact library inventory
 │   │   │   │   ├── binding.rs                                               # Where this machine keeps the artifacts the tokenizer profile fingerprints
@@ -179,7 +183,7 @@ in place.
 │   │   ├── 0015-bundle-freshness-and-revocation.md                          # Bundles need freshness and revocation, not only signatures
 │   │   ├── 0016-native-rust-desktop-workbench.md                            # The workbench is a native Rust desktop application
 │   │   ├── 0017-spec-kit-installed-once-for-the-organization.md             # Spec Kit is installed once for the organization, not committed
-│   │   ├── 0018-portable-filesystem-access-through-cap-std.md               # The snapshot store reaches the filesystem through cap-std
+│   │   ├── 0018-rustix-on-unix-and-win32-flags-on-windows.md                # The snapshot store uses rustix on Unix and Win32 flags on Windows
 │   │   └── README.md                                                        # Hard-to-reverse decisions, each with the trade-off that produced it
 │   ├── architecture/                                                        # Status: design of record, 2026-09-23, completed 2026-09-24
 │   │   ├── 01-knowledge-pipeline.md                                         # 01 Knowledge pipeline

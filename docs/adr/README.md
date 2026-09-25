@@ -22,4 +22,4 @@ order; a superseded record stays and names its successor.
 | [0015](0015-bundle-freshness-and-revocation.md) | Bundles need freshness and revocation, not only signatures |
 | [0016](0016-native-rust-desktop-workbench.md) | The workbench is a native Rust desktop application |
 | [0017](0017-spec-kit-installed-once-for-the-organization.md) | Spec Kit is installed once for the organization, not committed |
-| [0018](0018-portable-filesystem-access-through-cap-std.md) | The snapshot store reaches the filesystem through cap-std, on Linux, macOS and Windows |
+| [0018](0018-rustix-on-unix-and-win32-flags-on-windows.md) | The snapshot store uses rustix on Unix and the standard library's Win32 flags on Windows |

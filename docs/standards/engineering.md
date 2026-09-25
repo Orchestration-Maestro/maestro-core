@@ -36,7 +36,7 @@ every commit and keeps what each row says here. A rule added there arrives as
 | P-017 Premature optimisation | Review: a reviewer names the principle a change breaks |
 | P-018 Broken windows | Gate: Clippy pedantic and rustdoc warnings are errors, zero surviving mutants, every file within 500 counted lines |
 | ENF-001 No machine-named paths | Test: `no_personal_path_in_repository_text` fails on a home or profile path; the tokenizer's artifacts resolve through `MAESTRO_NATIVE_BINDING` |
-| ENF-002 Every claimed platform is tested | CI: every pull request runs the gate on `ubuntu-24.04` and `cargo test` on `macos-15` and `windows-2025`; the README claims those three ([ADR-0018](../adr/0018-portable-filesystem-access-through-cap-std.md)) |
+| ENF-002 Every claimed platform is tested | CI: every pull request runs the gate on `ubuntu-24.04` and `cargo test` on `macos-15` and `windows-2025`; the README claims those three ([ADR-0018](../adr/0018-rustix-on-unix-and-win32-flags-on-windows.md)) |
 | ENF-003 English only | Review: prose and identifiers are English |
 | ENF-004 Conventional commits | Organization: the `commits-are-conventional` ruleset refuses any other title on the default branch |
 | ENF-005 Failing test first | Review: the new test is seen failing first; CI mutation-tests every pull request's diff, so an untested change fails |
