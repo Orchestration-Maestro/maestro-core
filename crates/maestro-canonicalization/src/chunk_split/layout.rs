@@ -11,7 +11,7 @@ impl Layout<'_> {
     pub(super) fn owner(&self, unit: usize) -> Result<&Block, Error> {
         self.ancestry
             .get(unit)
-            .and_then(|a| a.last())
+            .and_then(|ancestors| ancestors.last())
             .copied()
             .ok_or_else(structure_error)
     }
@@ -22,7 +22,7 @@ impl Layout<'_> {
             .iter()
             .rev()
             .copied()
-            .find(|b| b.block_type == *kind)
+            .find(|block| block.block_type == *kind)
     }
 
     /// The heading whose section holds a unit: the unit's own heading, or its owner's section.
@@ -40,9 +40,9 @@ impl Layout<'_> {
     fn key(&self, unit: usize) -> (Option<String>, Vec<String>) {
         let containers = self.ancestry[unit]
             .iter()
-            .filter(|b| {
+            .filter(|block| {
                 matches!(
-                    b.block_type,
+                    block.block_type,
                     BlockType::List
                         | BlockType::Code
                         | BlockType::Table
@@ -53,7 +53,7 @@ impl Layout<'_> {
                         | BlockType::Raw
                 )
             })
-            .map(|b| b.block_id.clone())
+            .map(|block| block.block_id.clone())
             .collect();
         (self.section(unit), containers)
     }
@@ -81,7 +81,7 @@ impl Layout<'_> {
                     .ok_or_else(structure_error)?,
             )
             .into_iter()
-            .filter(|b| b.block_type == BlockType::TableCell)
+            .filter(|block| block.block_type == BlockType::TableCell)
             .collect())
     }
 
@@ -99,7 +99,7 @@ impl Layout<'_> {
             .iter()
             .rev()
             .copied()
-            .find(|b| matches!(b.block_type, BlockType::TableHead | BlockType::TableRow))
+            .find(|block| matches!(block.block_type, BlockType::TableHead | BlockType::TableRow))
             .ok_or_else(structure_error)?;
         let cell = self
             .nearest(unit, &BlockType::TableCell)
@@ -107,19 +107,19 @@ impl Layout<'_> {
         let rows: Vec<_> = self
             .child_blocks(table)
             .into_iter()
-            .filter(|b| matches!(b.block_type, BlockType::TableHead | BlockType::TableRow))
+            .filter(|block| matches!(block.block_type, BlockType::TableHead | BlockType::TableRow))
             .collect();
         let cells = self.row_cells(&row.block_id)?;
         let column = cells
             .iter()
-            .position(|b| b.block_id == cell.block_id)
+            .position(|block| block.block_id == cell.block_id)
             .ok_or_else(structure_error)?;
         Ok(Some(TableWindow {
             table_id: table.block_id.clone(),
             row_id: row.block_id.clone(),
             row_index: rows
                 .iter()
-                .position(|b| b.block_id == row.block_id)
+                .position(|block| block.block_id == row.block_id)
                 .ok_or_else(structure_error)?,
             columns: if whole_row {
                 (0..cells.len()).collect()
@@ -139,7 +139,7 @@ impl Layout<'_> {
             .units
             .iter()
             .enumerate()
-            .filter(|(_, u)| u.primary)
+            .filter(|(_, unit)| unit.primary)
         {
             let window = self.window(index, true)?;
             let natural = window.as_ref().map_or_else(
@@ -195,8 +195,10 @@ impl Layout<'_> {
             return false;
         }
         match (left.windows.last(), right.windows.first()) {
-            (Some(a), Some(b)) => {
-                a.table_id == b.table_id && (a.row_id == b.row_id || a.columns == b.columns)
+            (Some(left_window), Some(right_window)) => {
+                left_window.table_id == right_window.table_id
+                    && (left_window.row_id == right_window.row_id
+                        || left_window.columns == right_window.columns)
             }
             (None, None) => true,
             _ => false,
@@ -214,13 +216,14 @@ impl Layout<'_> {
                 let fragments: Vec<_> = body
                     .fragments
                     .iter()
-                    .filter(|f| {
-                        self.mapped.units[f.contribution.unit_index].block_id == cell.block_id
+                    .filter(|fragment| {
+                        self.mapped.units[fragment.contribution.unit_index].block_id
+                            == cell.block_id
                     })
                     .cloned()
-                    .map(|mut f| {
-                        f.split = SplitKind::Structural;
-                        f
+                    .map(|mut fragment| {
+                        fragment.split = SplitKind::Structural;
+                        fragment
                     })
                     .collect();
                 if !fragments.is_empty() {
@@ -296,7 +299,11 @@ impl Layout<'_> {
             })?;
             let mut piece = make(length).ok_or_else(structure_error)?;
             if !code && length < text.len() && !whitespace.contains(&length) {
-                if let Some(&boundary) = whitespace.iter().rev().find(|&&p| p > 0 && p < length) {
+                if let Some(&boundary) = whitespace
+                    .iter()
+                    .rev()
+                    .find(|&&offset| offset > 0 && offset < length)
+                {
                     if let Some(candidate) = make(boundary) {
                         if self.prepare(&candidate, count)?.token_count <= MAX_TOKENS {
                             piece = candidate;
@@ -336,9 +343,9 @@ impl Layout<'_> {
 
     /// Whether the body carries a unit's whole text in one fragment.
     pub(super) fn full(&self, unit: usize, body: &Body) -> bool {
-        body.fragments.iter().any(|f| {
-            f.contribution.unit_index == unit
-                && f.contribution.range
+        body.fragments.iter().any(|fragment| {
+            fragment.contribution.unit_index == unit
+                && fragment.contribution.range
                     == TextRange {
                         start: 0,
                         end: self.mapped.units[unit].text.len(),
@@ -352,7 +359,7 @@ impl Layout<'_> {
             .units
             .iter()
             .enumerate()
-            .filter(|(_, u)| u.block_id == block)
+            .filter(|(_, unit)| unit.block_id == block)
             .map(|(i, _)| i)
             .collect()
     }

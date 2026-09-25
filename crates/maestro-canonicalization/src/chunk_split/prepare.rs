@@ -24,8 +24,9 @@ impl Layout<'_> {
                         formatting(&mut parts, "\t".into(), true);
                     }
                     let cell = cells.get(column).ok_or_else(structure_error)?;
-                    for fragment in body.fragments.iter().filter(|f| {
-                        self.mapped.units[f.contribution.unit_index].block_id == cell.block_id
+                    for fragment in body.fragments.iter().filter(|fragment| {
+                        self.mapped.units[fragment.contribution.unit_index].block_id
+                            == cell.block_id
                     }) {
                         self.fragment_parts(fragment, &mut parts)?;
                     }
@@ -40,7 +41,7 @@ impl Layout<'_> {
             let item = self.nearest(index, &BlockType::ListItem);
             if let Some(previous) = previous {
                 let previous_item = self.nearest(previous, &BlockType::ListItem);
-                if item.map(|b| &b.block_id) != previous_item.map(|b| &b.block_id) {
+                if item.map(|block| &block.block_id) != previous_item.map(|block| &block.block_id) {
                     formatting(&mut parts, "\n".into(), true);
                 } else if self.mapped.units[index].block_id != self.mapped.units[previous].block_id
                 {
@@ -176,8 +177,8 @@ pub(super) fn normalized_range(
         let next = unit
             .envelopes
             .iter()
-            .filter(|e| e.closing.start <= end && end < e.closing.end)
-            .map(|e| e.closing.end)
+            .filter(|envelope| envelope.closing.start <= end && end < envelope.closing.end)
+            .map(|envelope| envelope.closing.end)
             .max();
         match next {
             Some(next) => end = next,
@@ -187,8 +188,8 @@ pub(super) fn normalized_range(
     let text = unit.text.get(start..end)?;
     let substantive = text.char_indices().any(|(offset, _)| {
         let at = start + offset;
-        !unit.envelopes.iter().any(|e| {
-            [e.opening, e.closing]
+        !unit.envelopes.iter().any(|envelope| {
+            [envelope.opening, envelope.closing]
                 .iter()
                 .any(|w| w.start <= at && at < w.end)
         })
@@ -207,7 +208,7 @@ pub(super) fn boundaries(text: &str, code: bool) -> (Vec<usize>, Vec<usize>) {
         if character.is_whitespace() {
             whitespace.push(end);
             if (code && character == '\n')
-                || (!code && previous.is_some_and(|c| SENTENCE_ENDS.contains(&c)))
+                || (!code && previous.is_some_and(|last| SENTENCE_ENDS.contains(&last)))
             {
                 meaningful.push(end);
             }
@@ -235,7 +236,7 @@ pub(super) fn fit_prefix(
             if let Some(&boundary) = preferred
                 .iter()
                 .rev()
-                .find(|&&p| p > 0 && p < end && text.is_char_boundary(p))
+                .find(|&&offset| offset > 0 && offset < end && text.is_char_boundary(offset))
             {
                 if fits(boundary)? {
                     return Ok(boundary);

@@ -15,14 +15,14 @@ fn document(markdown: &str) -> CanonicalDocument {
 fn reports(doc: &CanonicalDocument, markdown: &str, code: &str, part: &str) -> bool {
     validate_structure(doc, markdown)
         .iter()
-        .any(|f| f.code == code && f.message.contains(part))
+        .any(|finding| finding.code == code && finding.message.contains(part))
 }
 
 /// The index of the first block of a type.
 fn index(doc: &CanonicalDocument, kind: &BlockType) -> usize {
     doc.blocks
         .iter()
-        .position(|b| b.block_type == *kind)
+        .position(|block| block.block_type == *kind)
         .unwrap()
 }
 
@@ -32,7 +32,7 @@ fn first_inline(block: &mut Block) -> &mut Inline {
         .structured_content
         .children
         .iter_mut()
-        .find_map(|c| match c {
+        .find_map(|child| match child {
             ContentNode::Inline { inline } => Some(inline),
             ContentNode::Block { .. } => None,
         })
@@ -63,12 +63,14 @@ fn each_source_ledger_fault_is_reported_at_its_part() {
     let markdown = "# Title\n\nBody text\n";
     let doc = document(markdown);
     assert!(!reports(&doc, markdown, "invalid_source_accounting", ""));
-    let k = doc
+    let entry_index = doc
         .source_accounting
         .iter()
-        .position(|p| p.block_id.is_some() && p.source_span.end - p.source_span.start >= 2)
+        .position(|entry| {
+            entry.block_id.is_some() && entry.source_span.end - entry.source_span.start >= 2
+        })
         .unwrap();
-    let part = doc.source_accounting[k].clone();
+    let part = doc.source_accounting[entry_index].clone();
     let empty = SourceAccounting {
         source_span: SourceSpan {
             start: part.source_span.start,
@@ -80,16 +82,17 @@ fn each_source_ledger_fault_is_reported_at_its_part() {
         let mut changed = doc.clone();
         let ledger = &mut changed.source_accounting;
         match fault {
-            0 => ledger[k].source_span.start += 1,
-            1 => ledger.insert(k, empty.clone()),
-            2 => ledger[k].role = SourceRole::Unaccounted,
-            _ => ledger[k].block_id = Some("unknown".into()),
+            0 => ledger[entry_index].source_span.start += 1,
+            1 => ledger.insert(entry_index, empty.clone()),
+            2 => ledger[entry_index].role = SourceRole::Unaccounted,
+            _ => ledger[entry_index].block_id = Some("unknown".into()),
         }
-        let at = changed.source_accounting[k].source_span;
+        let at = changed.source_accounting[entry_index].source_span;
         assert!(
             validate_structure(&changed, markdown)
                 .iter()
-                .any(|f| f.code == "invalid_source_accounting" && f.source_spans == [at]),
+                .any(|finding| finding.code == "invalid_source_accounting"
+                    && finding.source_spans == [at]),
             "{fault}"
         );
     }
@@ -167,9 +170,17 @@ fn outside_assets_changed_code_and_inline_html_are_reported() {
 fn an_alert_marker_is_quote_syntax_not_lost_content() {
     // Lost content would come back as a raw fallback block with its own finding.
     let doc = document("> [!NOTE]\n> Remember this.\n");
-    let kinds: Vec<_> = doc.blocks.iter().map(|b| b.block_type.clone()).collect();
+    let kinds: Vec<_> = doc
+        .blocks
+        .iter()
+        .map(|block| block.block_type.clone())
+        .collect();
     assert_eq!(kinds, [BlockType::BlockQuote, BlockType::Paragraph]);
-    assert!(doc.warnings.iter().all(|f| f.code == "missing_metadata"));
+    assert!(
+        doc.warnings
+            .iter()
+            .all(|finding| finding.code == "missing_metadata")
+    );
 }
 
 #[test]
@@ -199,7 +210,7 @@ fn table_source_left_between_cells_is_reported() {
     let cell = doc
         .blocks
         .iter()
-        .position(|b| b.block_type == BlockType::TableCell && b.retrieval_text == "c")
+        .position(|block| block.block_type == BlockType::TableCell && block.retrieval_text == "c")
         .unwrap();
     let mut changed = doc;
     let span = &mut changed.blocks[cell].source_spans[0];

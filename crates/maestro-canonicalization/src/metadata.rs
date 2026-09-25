@@ -52,7 +52,7 @@ pub(crate) fn merge(nodes: &[Node], supplied: &SourceMetadata) -> (SourceMetadat
                         merge_field(&mut merged, key, value, node.span, &mut warnings);
                     }
                 }
-                if let Some(converter) = map.get("converter").filter(|v| !v.is_null()) {
+                if let Some(converter) = map.get("converter").filter(|value| !value.is_null()) {
                     merge_converter(&mut merged, converter, node.span, &mut warnings);
                 }
             }
@@ -70,18 +70,21 @@ pub(crate) fn merge(nodes: &[Node], supplied: &SourceMetadata) -> (SourceMetadat
             merged
                 .source_reference
                 .as_deref()
-                .is_none_or(|s| s.trim().is_empty()),
+                .is_none_or(|text| text.trim().is_empty()),
         ),
         (
             "title",
-            merged.title.as_deref().is_none_or(|s| s.trim().is_empty()),
+            merged
+                .title
+                .as_deref()
+                .is_none_or(|text| text.trim().is_empty()),
         ),
         (
             "language",
             merged
                 .language
                 .as_deref()
-                .is_none_or(|s| s.trim().is_empty()),
+                .is_none_or(|text| text.trim().is_empty()),
         ),
         (
             "extraction",
@@ -107,7 +110,7 @@ pub(crate) fn merge(nodes: &[Node], supplied: &SourceMetadata) -> (SourceMetadat
         &mut merged.title,
         &mut merged.language,
     ] {
-        if field.as_deref().is_some_and(|s| s.trim().is_empty()) {
+        if field.as_deref().is_some_and(|text| text.trim().is_empty()) {
             *field = None;
         }
     }
@@ -147,7 +150,7 @@ fn merge_field(
                 "title" => &mut merged.title,
                 _ => &mut merged.language,
             };
-            if field.as_deref().is_some_and(|s| s != text) {
+            if field.as_deref().is_some_and(|existing| existing != text) {
                 warnings.push(finding(
                     "metadata_conflict",
                     format!("conflicting {key}; supplied and Markdown values retained"),
@@ -164,7 +167,7 @@ fn merge_field(
             } else {
                 &mut merged.extraction
             };
-            if field.as_ref().is_some_and(|v| v != value) {
+            if field.as_ref().is_some_and(|existing| existing != value) {
                 warnings.push(finding(
                     "metadata_conflict",
                     format!("conflicting {key}; no resolution inferred"),
@@ -191,7 +194,10 @@ fn merge_converter(
             merged.extraction = Some(serde_json::json!({"converter": converter}));
         }
         Some(Value::Object(details)) => {
-            if details.get("converter").is_some_and(|v| v != converter) {
+            if details
+                .get("converter")
+                .is_some_and(|recorded| recorded != converter)
+            {
                 warnings.push(finding(
                     "metadata_conflict",
                     "converter conflicts with extraction details",
@@ -217,7 +223,10 @@ mod tests {
 
     /// The codes of a document's findings.
     fn codes(doc: &CanonicalDocument) -> Vec<&str> {
-        doc.warnings.iter().map(|f| f.code.as_str()).collect()
+        doc.warnings
+            .iter()
+            .map(|finding| finding.code.as_str())
+            .collect()
     }
 
     #[test]

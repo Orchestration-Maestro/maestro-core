@@ -73,7 +73,7 @@ fn main() -> ExitCode {
 
 /// Read the input path and the flag pairs; an unknown, repeated or empty flag is a usage error.
 fn parse_args(args: &[String]) -> Result<Args, Error> {
-    let Some(input) = args.first().filter(|s| !s.starts_with('-')) else {
+    let Some(input) = args.first().filter(|text| !text.starts_with('-')) else {
         return Err(Error(USAGE.into()));
     };
     let mut values = BTreeMap::new();
@@ -95,7 +95,7 @@ fn parse_args(args: &[String]) -> Result<Args, Error> {
         input: input.into(),
         output: output.into(),
         metadata: values.get("--metadata").map(PathBuf::from),
-        document_id: values.get("--document-id").map(|s| (*s).into()),
+        document_id: values.get("--document-id").map(|value| (*value).into()),
         identity_key: values
             .get("--identity-key")
             .copied()
@@ -108,17 +108,17 @@ fn parse_args(args: &[String]) -> Result<Args, Error> {
 /// JSON summary.
 fn run(args: &Args) -> Result<ValidationStatus, Error> {
     let markdown = fs::read_to_string(&args.input)
-        .map_err(|e| Error(format!("cannot read UTF-8 Markdown: {e}")))?;
+        .map_err(|error| Error(format!("cannot read UTF-8 Markdown: {error}")))?;
     let sidecar = match &args.metadata {
         Some(path) => {
-            let bytes =
-                fs::read(path).map_err(|e| Error(format!("cannot read metadata sidecar: {e}")))?;
+            let bytes = fs::read(path)
+                .map_err(|error| Error(format!("cannot read metadata sidecar: {error}")))?;
             // Deserialize JSON with the existing strict mapping visitor first:
             // serde_json::Value alone silently overwrites duplicate policy keys.
             serde_json::from_slice::<serde_yaml_ng::Value>(&bytes)
-                .map_err(|e| Error(format!("invalid metadata sidecar: {e}")))?;
+                .map_err(|error| Error(format!("invalid metadata sidecar: {error}")))?;
             serde_json::from_slice::<Sidecar>(&bytes)
-                .map_err(|e| Error(format!("invalid metadata sidecar: {e}")))?
+                .map_err(|error| Error(format!("invalid metadata sidecar: {error}")))?
         }
         None => Sidecar::default(),
     };
@@ -126,7 +126,7 @@ fn run(args: &Args) -> Result<ValidationStatus, Error> {
         .document_id
         .as_ref()
         .zip(sidecar.document_id.as_ref())
-        .is_some_and(|(a, b)| a != b)
+        .is_some_and(|(from_arguments, from_sidecar)| from_arguments != from_sidecar)
     {
         return Err(Error("conflicting CLI and sidecar document IDs".into()));
     }
@@ -144,7 +144,7 @@ fn run(args: &Args) -> Result<ValidationStatus, Error> {
         &parsed,
         args.input
             .parent()
-            .filter(|p| !p.as_os_str().is_empty())
+            .filter(|parent| !parent.as_os_str().is_empty())
             .unwrap_or(Path::new(".")),
     )?;
     let doc = canonicalize(input)?;
@@ -157,7 +157,7 @@ fn run(args: &Args) -> Result<ValidationStatus, Error> {
     });
     println!(
         "{}",
-        serde_json::to_string(&summary).map_err(|e| Error(e.to_string()))?
+        serde_json::to_string(&summary).map_err(|error| Error(error.to_string()))?
     );
     Ok(doc.validation_status)
 }
@@ -167,14 +167,14 @@ fn asset_inventory(
     doc: &CanonicalDocument,
     root: &Path,
 ) -> Result<BTreeMap<String, AssetStatus>, Error> {
-    let root =
-        fs::canonicalize(root).map_err(|e| Error(format!("cannot resolve asset root: {e}")))?;
+    let root = fs::canonicalize(root)
+        .map_err(|error| Error(format!("cannot resolve asset root: {error}")))?;
     let destinations: BTreeSet<_> = doc
         .blocks
         .iter()
-        .flat_map(|b| &b.asset_references)
-        .filter(|a| a.status == AssetStatus::Unchecked)
-        .map(|a| a.destination.clone())
+        .flat_map(|block| &block.asset_references)
+        .filter(|asset| asset.status == AssetStatus::Unchecked)
+        .map(|asset| asset.destination.clone())
         .collect();
     Ok(destinations
         .into_iter()
@@ -208,7 +208,7 @@ fn local_asset_status(destination: &str, root: &Path) -> AssetStatus {
         Ok(path) if !path.starts_with(root) => AssetStatus::OutsideRoot,
         Ok(path) if path.is_file() => AssetStatus::Available,
         Ok(_) => AssetStatus::Missing,
-        Err(e) if e.kind() == io::ErrorKind::NotFound => AssetStatus::Missing,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => AssetStatus::Missing,
         Err(_) => AssetStatus::Unchecked,
     }
 }
@@ -229,5 +229,5 @@ fn percent_decode(text: &str) -> Option<String> {
     }
     String::from_utf8(decoded)
         .ok()
-        .filter(|s| !s.contains('\0'))
+        .filter(|decoded_text| !decoded_text.contains('\0'))
 }

@@ -98,12 +98,14 @@ fn check_deterministic_valid_round_trip(
     assert!(
         !validate_document(&decoded, source)
             .iter()
-            .any(|f| f.severity == Severity::Error),
+            .any(|finding| finding.severity == Severity::Error),
         "{case}"
     );
     assert!(doc.access_policy.is_none(), "{case}");
     assert!(
-        doc.blocks.iter().any(|b| b.retrieval_text.contains(marker)),
+        doc.blocks
+            .iter()
+            .any(|block| block.retrieval_text.contains(marker)),
         "{case}"
     );
     doc
@@ -149,13 +151,14 @@ fn check_blocks_nest_inside_their_parents(case: &str, doc: &CanonicalDocument, s
                 let parent = doc
                     .blocks
                     .iter()
-                    .find(|b| &b.block_id == parent)
+                    .find(|candidate| &candidate.block_id == parent)
                     .expect(case);
                 assert!(
                     parent
                         .source_spans
                         .iter()
-                        .any(|p| p.start <= span.start && span.end <= p.end),
+                        .any(|parent_span| parent_span.start <= span.start
+                            && span.end <= parent_span.end),
                     "{case}"
                 );
             }

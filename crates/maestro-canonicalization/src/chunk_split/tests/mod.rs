@@ -15,7 +15,7 @@ mod splitting;
 fn structural_chunks(markdown: &str) -> Result<(MappedDocument, Vec<ChunkContent>), Error> {
     let doc = canonicalize(CanonicalizeInput::new(markdown, "structural-test"))?;
     let mapped = map_document(&doc, markdown)?;
-    let mut fake_counter = |s: &str| Ok(s.chars().count() + 2);
+    let mut fake_counter = |text: &str| Ok(text.chars().count() + 2);
     let chunks = build_drafts(&doc, markdown, &mapped, &mut fake_counter)?;
     for chunk in &chunks {
         assert!(chunk.token_count <= 700);
@@ -24,7 +24,7 @@ fn structural_chunks(markdown: &str) -> Result<(MappedDocument, Vec<ChunkContent
             chunk
                 .input_parts
                 .iter()
-                .map(|p| p.text.as_str())
+                .map(|part| part.text.as_str())
                 .collect::<String>()
         );
         assert_eq!(
@@ -32,8 +32,8 @@ fn structural_chunks(markdown: &str) -> Result<(MappedDocument, Vec<ChunkContent
             chunk
                 .input_parts
                 .iter()
-                .filter(|p| p.role == InputRole::SourceContent || p.body_layout)
-                .map(|p| p.text.as_str())
+                .filter(|part| part.role == InputRole::SourceContent || part.body_layout)
+                .map(|part| part.text.as_str())
                 .collect::<String>()
         );
         for part in &chunk.input_parts {
@@ -51,11 +51,11 @@ fn structural_chunks(markdown: &str) -> Result<(MappedDocument, Vec<ChunkContent
     {
         let mut ranges: Vec<_> = chunks
             .iter()
-            .flat_map(|c| &c.fragments)
-            .filter(|f| f.contribution.unit_index == index)
-            .map(|f| f.contribution.range)
+            .flat_map(|chunk| &chunk.fragments)
+            .filter(|fragment| fragment.contribution.unit_index == index)
+            .map(|fragment| fragment.contribution.range)
             .collect();
-        ranges.sort_by_key(|r| r.start);
+        ranges.sort_by_key(|range| range.start);
         let mut cursor = 0;
         for range in ranges {
             assert_eq!(range.start, cursor, "body gap or overlap");
@@ -75,7 +75,7 @@ fn scalar_fallback_preserves_all_body_text_without_overlap() {
     assert_eq!(
         chunks
             .iter()
-            .map(|c| c.body_text.as_str())
+            .map(|chunk| chunk.body_text.as_str())
             .collect::<String>(),
         markdown
     );
@@ -90,7 +90,7 @@ fn code_continuations_retain_info_and_line_fragment_identity() {
     assert_eq!(
         chunks
             .iter()
-            .map(|c| c.body_text.as_str())
+            .map(|chunk| chunk.body_text.as_str())
             .collect::<String>(),
         body
     );
@@ -99,14 +99,14 @@ fn code_continuations_retain_info_and_line_fragment_identity() {
             chunk
                 .input_parts
                 .iter()
-                .any(|p| p.role == InputRole::StructuralContext && p.text == "rust")
+                .any(|part| part.role == InputRole::StructuralContext && part.text == "rust")
         );
         assert!(!chunk.prepared_input.contains("```"));
         assert!(
             chunk
                 .fragments
                 .iter()
-                .any(|f| f.split == SplitKind::CodeLineFragment)
+                .any(|fragment| fragment.split == SplitKind::CodeLineFragment)
         );
     }
 }
@@ -120,7 +120,7 @@ fn table_cell_windows_keep_matching_headers_without_missing_column_placeholders(
     let (_, chunks) = structural_chunks(&markdown).unwrap();
     let cells: Vec<_> = chunks
         .iter()
-        .filter(|c| c.body_text.contains('界'))
+        .filter(|chunk| chunk.body_text.contains('界'))
         .collect();
     assert!(cells.len() > 1);
     for chunk in cells {
@@ -131,14 +131,14 @@ fn table_cell_windows_keep_matching_headers_without_missing_column_placeholders(
             chunk
                 .input_parts
                 .iter()
-                .any(|p| p.role == InputRole::TableHeaderContext && p.text == "Value")
+                .any(|part| part.role == InputRole::TableHeaderContext && part.text == "Value")
         );
         assert!(!chunk.body_text.contains('\t'));
         assert!(
             chunk
                 .fragments
                 .iter()
-                .any(|f| f.split == SplitKind::CellFragment)
+                .any(|fragment| fragment.split == SplitKind::CellFragment)
         );
     }
 }
@@ -149,7 +149,7 @@ fn nested_item_repeats_parent_but_not_its_own_unsplit_body() {
     let (_, chunks) = structural_chunks(&markdown).unwrap();
     let children: Vec<_> = chunks
         .iter()
-        .filter(|c| c.body_text.contains('x'))
+        .filter(|chunk| chunk.body_text.contains('x'))
         .collect();
     assert!(children.len() > 1);
     for chunk in children {
@@ -158,13 +158,13 @@ fn nested_item_repeats_parent_but_not_its_own_unsplit_body() {
             chunk
                 .input_parts
                 .iter()
-                .any(|p| p.role == InputRole::ParentListContext && p.text == "Parent")
+                .any(|part| part.role == InputRole::ParentListContext && part.text == "Parent")
         );
         assert!(
             !chunk
                 .input_parts
                 .iter()
-                .any(|p| p.role == InputRole::ParentListContext && p.text.contains('x'))
+                .any(|part| part.role == InputRole::ParentListContext && part.text.contains('x'))
         );
     }
 }
@@ -176,7 +176,7 @@ fn task_status_is_source_backed_context_on_every_item_continuation() {
         let (_, chunks) = structural_chunks(&markdown).unwrap();
         let continuations: Vec<_> = chunks
             .iter()
-            .filter(|c| c.body_text.contains('a'))
+            .filter(|chunk| chunk.body_text.contains('a'))
             .collect();
         assert!(continuations.len() > 1);
         for chunk in continuations {
@@ -184,9 +184,9 @@ fn task_status_is_source_backed_context_on_every_item_continuation() {
                 chunk
                     .input_parts
                     .iter()
-                    .any(|p| p.role == InputRole::StructuralContext
-                        && p.text == format!("[{status}] ")
-                        && !p.contributions.is_empty())
+                    .any(|part| part.role == InputRole::StructuralContext
+                        && part.text == format!("[{status}] ")
+                        && !part.contributions.is_empty())
             );
         }
     }
@@ -200,14 +200,14 @@ fn list_ordinals_retain_source_backed_input_provenance() {
         .iter()
         .position(|unit| unit.field == UnitField::ListMarker)
         .unwrap();
-    assert!(
-        chunks[0]
-            .input_parts
-            .iter()
-            .any(|part| part.role == InputRole::StructuralContext
-                && part.contributions.iter().any(|c| c.unit_index == marker)
-                && part.mappings.iter().any(|run| !run.origins.is_empty()))
-    );
+    assert!(chunks[0].input_parts.iter().any(|part| {
+        part.role == InputRole::StructuralContext
+            && part
+                .contributions
+                .iter()
+                .any(|contribution| contribution.unit_index == marker)
+            && part.mappings.iter().any(|run| !run.origins.is_empty())
+    }));
 }
 
 #[test]
@@ -240,7 +240,7 @@ fn list_continuation_lines_have_explicit_canonical_indentation() {
         chunks[0]
             .input_parts
             .iter()
-            .any(|p| p.role == InputRole::FormattingSeparator && p.text == "  ")
+            .any(|part| part.role == InputRole::FormattingSeparator && part.text == "  ")
     );
 }
 
@@ -248,12 +248,12 @@ fn list_continuation_lines_have_explicit_canonical_indentation() {
 fn nested_item_context_keeps_all_direct_parent_paragraphs() {
     let markdown = format!("- Before\n  - {}\n\n  After\n", "x".repeat(1500));
     let (_, chunks) = structural_chunks(&markdown).unwrap();
-    for chunk in chunks.iter().filter(|c| c.body_text.contains('x')) {
+    for chunk in chunks.iter().filter(|chunk| chunk.body_text.contains('x')) {
         let parent: String = chunk
             .input_parts
             .iter()
-            .filter(|p| p.role == InputRole::ParentListContext)
-            .map(|p| p.text.as_str())
+            .filter(|part| part.role == InputRole::ParentListContext)
+            .map(|part| part.text.as_str())
             .collect();
         assert!(parent.contains("Before"));
         assert!(parent.contains("After"));
@@ -280,7 +280,7 @@ fn deletion_semantics_surround_every_continuation_without_extra_body_coverage() 
     assert_eq!(
         chunks
             .iter()
-            .map(|c| c.body_text.as_str())
+            .map(|chunk| chunk.body_text.as_str())
             .collect::<String>(),
         markdown.trim_end_matches('\n')
     );
@@ -300,7 +300,7 @@ fn section_boundaries_and_heading_or_header_only_documents_remain_independent() 
             !chunk
                 .input_parts
                 .iter()
-                .any(|p| p.role == InputRole::HeadingContext)
+                .any(|part| part.role == InputRole::HeadingContext)
         );
     }
     for markdown in ["# Alone\n", "| Header |\n|---|\n"] {
@@ -320,12 +320,12 @@ fn section_boundaries_and_heading_or_header_only_documents_remain_independent() 
 fn definition_continuations_retain_the_actual_term() {
     let markdown = format!("Term\n: {}\n", "x".repeat(1500));
     let (_, chunks) = structural_chunks(&markdown).unwrap();
-    for chunk in chunks.iter().filter(|c| c.body_text.contains('x')) {
+    for chunk in chunks.iter().filter(|chunk| chunk.body_text.contains('x')) {
         assert!(
             chunk
                 .input_parts
                 .iter()
-                .any(|p| p.role == InputRole::StructuralContext && p.text == "Term")
+                .any(|part| part.role == InputRole::StructuralContext && part.text == "Term")
         );
     }
 }

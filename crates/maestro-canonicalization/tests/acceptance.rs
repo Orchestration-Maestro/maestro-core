@@ -16,12 +16,12 @@ fn valid_dialect_surplus_cells_remain_raw_without_inventing_headers() {
     assert!(
         doc.blocks
             .iter()
-            .any(|b| b.retrieval_text.contains("not 9.0.21"))
+            .any(|block| block.retrieval_text.contains("not 9.0.21"))
     );
     let raw = doc
         .blocks
         .iter()
-        .find(|b| serde_json::to_value(&b.block_type).unwrap() == "raw")
+        .find(|block| serde_json::to_value(&block.block_type).unwrap() == "raw")
         .unwrap();
     assert_eq!(
         raw.retrieval_text,
@@ -30,7 +30,8 @@ fn valid_dialect_surplus_cells_remain_raw_without_inventing_headers() {
     assert!(
         doc.warnings
             .iter()
-            .any(|f| f.code == "source_fallback" && f.block_id.as_ref() == Some(&raw.block_id))
+            .any(|finding| finding.code == "source_fallback"
+                && finding.block_id.as_ref() == Some(&raw.block_id))
     );
 }
 
@@ -45,7 +46,7 @@ fn valid_duplicate_definitions_preserve_both_destinations() {
         assert!(
             doc.blocks
                 .iter()
-                .any(|b| b.retrieval_text.contains("https://second.test"))
+                .any(|block| block.retrieval_text.contains("https://second.test"))
         );
         assert_eq!(doc.links[0].destination, "https://first.test");
     }
@@ -118,20 +119,26 @@ fn parser_omitted_heading_attributes_stay_raw_without_changing_the_title() {
         let raw = doc
             .blocks
             .iter()
-            .find(|b| b.block_type == BlockType::Raw && b.retrieval_text.contains(retained))
+            .find(|block| {
+                block.block_type == BlockType::Raw && block.retrieval_text.contains(retained)
+            })
             .expect("discarded attributes retained raw");
         assert!(
             raw.source_spans
                 .iter()
-                .any(|s| md[s.start..s.end] == raw.retrieval_text)
+                .any(|span| md[span.start..span.end] == raw.retrieval_text)
         );
-        assert!(doc.source_accounting.iter().any(
-            |a| a.block_id.as_ref() == Some(&raw.block_id) && a.role == SourceRole::Unsupported
-        ));
+        assert!(
+            doc.source_accounting
+                .iter()
+                .any(|entry| entry.block_id.as_ref() == Some(&raw.block_id)
+                    && entry.role == SourceRole::Unsupported)
+        );
         assert!(
             doc.warnings
                 .iter()
-                .any(|f| f.code == "source_fallback" && f.block_id.as_ref() == Some(&raw.block_id))
+                .any(|finding| finding.code == "source_fallback"
+                    && finding.block_id.as_ref() == Some(&raw.block_id))
         );
     }
 }
@@ -142,7 +149,11 @@ fn html_only_document_retains_unsupported_content_with_a_warning() {
     let doc = document(md);
     assert_eq!(doc.validation_status, ValidationStatus::ValidWithWarnings);
     assert_eq!(doc.blocks[0].retrieval_text, md);
-    assert!(doc.warnings.iter().any(|f| f.code == "raw_html"));
+    assert!(
+        doc.warnings
+            .iter()
+            .any(|finding| finding.code == "raw_html")
+    );
 }
 
 #[test]
@@ -150,8 +161,13 @@ fn nul_replacement_is_visible_and_original_quotes_remain_exact() {
     let md = "Do not replace \0 in repoName 9.0.22.\n";
     let doc = document(md);
     assert_ne!(doc.validation_status, ValidationStatus::Failed);
-    assert!(doc.warnings.iter().any(|f| f.code == "extraction_artifact"
-        && f.source_spans.iter().any(|s| &md[s.start..s.end] == "\0")));
+    assert!(doc.warnings.iter().any(|finding| {
+        finding.code == "extraction_artifact"
+            && finding
+                .source_spans
+                .iter()
+                .any(|span| &md[span.start..span.end] == "\0")
+    }));
     let span = doc.blocks[0].source_spans[0];
     assert_eq!(&md[span.start..span.end], md);
 }
@@ -184,6 +200,6 @@ fn heading_free_text_is_supported_without_inferred_headings() {
     assert!(
         doc.blocks
             .iter()
-            .all(|b| b.parent_section_id.is_none() && b.heading_path.is_empty())
+            .all(|block| block.parent_section_id.is_none() && block.heading_path.is_empty())
     );
 }

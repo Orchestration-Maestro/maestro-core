@@ -80,7 +80,7 @@ pub fn load_document(path: &Path) -> Result<(CanonicalDocument, String), Error> 
 
 /// The snapshot's JSON: pretty-printed with a final newline, the exact bytes saved and compared.
 fn encode(document: &CanonicalDocument) -> Result<Vec<u8>, Error> {
-    let mut json = serde_json::to_vec_pretty(document).map_err(|e| Error(e.to_string()))?;
+    let mut json = serde_json::to_vec_pretty(document).map_err(|error| Error(error.to_string()))?;
     json.push(b'\n');
     Ok(json)
 }
@@ -96,7 +96,7 @@ fn artifact_suffix(document: &CanonicalDocument, json: &[u8]) -> PathBuf {
 fn verify_replay(document: &CanonicalDocument, markdown: &str) -> Result<(), Error> {
     if crate::validate_document(document, markdown)
         .iter()
-        .any(|f| matches!(f.code.as_str(), "canonical_mismatch" | "replay_error"))
+        .any(|finding| matches!(finding.code.as_str(), "canonical_mismatch" | "replay_error"))
     {
         return Err(Error(
             "snapshot differs from deterministic source replay".into(),
@@ -117,7 +117,7 @@ fn storage_error(error: &io::Error) -> Error {
 fn open_directory(path: &Path, create: bool) -> io::Result<File> {
     if path
         .components()
-        .any(|c| matches!(c, Component::ParentDir | Component::Prefix(_)))
+        .any(|component| matches!(component, Component::ParentDir | Component::Prefix(_)))
     {
         return Err(io::Error::other(
             "snapshot path contains parent traversal or a prefix",
@@ -360,7 +360,14 @@ mod tests {
                     .collect();
                 writers.into_iter().map(|w| w.join().unwrap()).collect()
             });
-            assert_eq!(accepted.iter().filter(|a| **a).count(), 1, "round {round}");
+            assert_eq!(
+                accepted
+                    .iter()
+                    .filter(|was_accepted| **was_accepted)
+                    .count(),
+                1,
+                "round {round}"
+            );
             let winner: &[u8] = if accepted[0] { b"left" } else { b"right" };
             let artifact = root.join(round.to_string()).join("artifact");
             assert_eq!(fs::read(artifact).unwrap(), winner);

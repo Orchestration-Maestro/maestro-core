@@ -40,7 +40,7 @@ pub(super) fn validate_sections(
             || !(1..=6).contains(&section.level)
             || !blocks
                 .get(section.section_id.as_str())
-                .is_some_and(|b| b.block_type == BlockType::Heading)
+                .is_some_and(|block| block.block_type == BlockType::Heading)
         {
             issues.push(finding(
                 "invalid_section",
@@ -62,17 +62,20 @@ pub(super) fn validate_sections(
         let expected = if block.block_type == BlockType::Heading {
             seen.get(&block.block_id)
         } else {
-            block.parent_section_id.as_ref().and_then(|p| seen.get(p))
+            block
+                .parent_section_id
+                .as_ref()
+                .and_then(|parent_id| seen.get(parent_id))
         };
         if expected
-            .map(|s| &s.heading_path)
+            .map(|section| &section.heading_path)
             .cloned()
             .unwrap_or_default()
             != block.heading_path
             || block
                 .parent_section_id
                 .as_ref()
-                .is_some_and(|p| !seen.contains_key(p))
+                .is_some_and(|parent_id| !seen.contains_key(parent_id))
         {
             issue(
                 issues,

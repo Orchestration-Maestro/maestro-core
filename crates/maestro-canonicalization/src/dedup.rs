@@ -140,9 +140,9 @@ pub fn group_exact<'a>(
         }
     }
     let mut ordered = inputs.to_vec();
-    ordered.sort_unstable_by(|a, b| {
-        (&a.document.document_id, &a.document.revision_id)
-            .cmp(&(&b.document.document_id, &b.document.revision_id))
+    ordered.sort_unstable_by(|left, right| {
+        (&left.document.document_id, &left.document.revision_id)
+            .cmp(&(&right.document.document_id, &right.document.revision_id))
     });
     let mut groups = Groups::new();
     let mut occurrences = Vec::with_capacity(ordered.len());
@@ -413,7 +413,10 @@ mod tests {
             let key = (representation, "hash".into());
             insert_group(&mut groups, &scope, key, b"bytes".to_vec(), index).unwrap();
         }
-        let profiles: BTreeSet<_> = groups.values().map(|(_, g)| g.profile.as_str()).collect();
+        let profiles: BTreeSet<_> = groups
+            .values()
+            .map(|(_, group)| group.profile.as_str())
+            .collect();
         assert_eq!(
             profiles,
             BTreeSet::from(["canonical-structured/v1", "original-utf8/v1"])

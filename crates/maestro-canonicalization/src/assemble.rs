@@ -8,7 +8,7 @@ use crate::{
 /// Build the document's blocks, sections, links and asset references from the parsed tree.
 pub(crate) fn assemble(nodes: &[Node], doc: &mut CanonicalDocument) -> Result<(), Error> {
     let config = serde_json::to_vec(&(&doc.parser_version, &doc.parser_options))
-        .map_err(|e| Error(e.to_string()))?;
+        .map_err(|error| Error(error.to_string()))?;
     let mut builder = Builder {
         doc,
         config: digest(&config),
@@ -63,13 +63,19 @@ impl Builder<'_> {
             )
         );
         let rendered = text(node);
-        let mut parent_section = context.last().map(|s| s.section_id.clone());
+        let mut parent_section = context.last().map(|section| section.section_id.clone());
         if let BlockAttributes::Heading { level, .. } = attributes {
-            while context.last().is_some_and(|s| s.level >= *level) {
+            while context
+                .last()
+                .is_some_and(|section| section.level >= *level)
+            {
                 context.pop();
             }
-            parent_section = context.last().map(|s| s.section_id.clone());
-            let mut path: Vec<_> = context.iter().map(|s| s.title.clone()).collect();
+            parent_section = context.last().map(|section| section.section_id.clone());
+            let mut path: Vec<_> = context
+                .iter()
+                .map(|section| section.title.clone())
+                .collect();
             path.push(rendered.clone());
             let section = Section {
                 section_id: id.clone(),
@@ -85,12 +91,13 @@ impl Builder<'_> {
             .doc
             .extractor_blocks
             .iter()
-            .filter(|e| {
-                e.markdown_spans
+            .filter(|extractor_block| {
+                extractor_block
+                    .markdown_spans
                     .iter()
-                    .any(|s| s.start < node.span.end && node.span.start < s.end)
+                    .any(|span| span.start < node.span.end && node.span.start < span.end)
             })
-            .map(|e| e.extractor_id.clone())
+            .map(|extractor_block| extractor_block.extractor_id.clone())
             .collect();
         self.doc.blocks.push(Block {
             block_id: id.clone(),
@@ -98,7 +105,10 @@ impl Builder<'_> {
             block_type: attributes.block_type(),
             parent_block_id: parent.map(str::to_owned),
             parent_section_id: parent_section,
-            heading_path: context.iter().map(|s| s.title.clone()).collect(),
+            heading_path: context
+                .iter()
+                .map(|section| section.title.clone())
+                .collect(),
             source_spans: vec![node.span],
             retrieval_text: rendered,
             structured_content: StructuredContent {
@@ -189,7 +199,7 @@ pub(crate) fn destination_status(destination: &str, supplied: Option<&AssetStatu
         || destination
             .split('/')
             .next()
-            .is_some_and(|s| s.contains(':'))
+            .is_some_and(|text| text.contains(':'))
     {
         AssetStatus::Remote
     } else {
@@ -229,7 +239,11 @@ mod tests {
             ),
         ];
         let doc = canonicalize(input).unwrap();
-        let attached: Vec<_> = doc.blocks.iter().map(|b| &b.extractor_block_ids).collect();
+        let attached: Vec<_> = doc
+            .blocks
+            .iter()
+            .map(|block| &block.extractor_block_ids)
+            .collect();
         assert_eq!(attached, [&vec!["first".to_owned()], &Vec::new()]);
     }
 }

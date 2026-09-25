@@ -76,10 +76,16 @@ pub(crate) fn account(doc: &CanonicalDocument, markdown: &str) -> Vec<SourceAcco
     let mut endpoints: BTreeMap<usize, Vec<(usize, bool)>> = BTreeMap::new();
     endpoints.entry(0).or_default();
     endpoints.entry(markdown.len()).or_default();
-    for (id, c) in contributions.iter().enumerate() {
-        if c.span.start < c.span.end && c.span.is_valid(markdown) {
-            endpoints.entry(c.span.start).or_default().push((id, true));
-            endpoints.entry(c.span.end).or_default().push((id, false));
+    for (id, contribution) in contributions.iter().enumerate() {
+        if contribution.span.start < contribution.span.end && contribution.span.is_valid(markdown) {
+            endpoints
+                .entry(contribution.span.start)
+                .or_default()
+                .push((id, true));
+            endpoints
+                .entry(contribution.span.end)
+                .or_default()
+                .push((id, false));
         }
     }
     let mut active = BTreeSet::new();
@@ -89,8 +95,8 @@ pub(crate) fn account(doc: &CanonicalDocument, markdown: &str) -> Vec<SourceAcco
         if previous < position {
             let (role, owner) = match active.last().copied() {
                 Some((_, _, id)) => {
-                    let c: &Contribution<'_> = &contributions[id];
-                    (c.role, Some(c.owner.to_owned()))
+                    let contribution: &Contribution<'_> = &contributions[id];
+                    (contribution.role, Some(contribution.owner.to_owned()))
                 }
                 None if markdown[previous..position].trim().is_empty() => {
                     (SourceRole::StructuralSyntax, None)
@@ -99,7 +105,7 @@ pub(crate) fn account(doc: &CanonicalDocument, markdown: &str) -> Vec<SourceAcco
             };
             if let Some(last) = result
                 .last_mut()
-                .filter(|a| a.role == role && a.block_id == owner)
+                .filter(|entry| entry.role == role && entry.block_id == owner)
             {
                 last.source_span.end = position;
             } else {
@@ -114,8 +120,12 @@ pub(crate) fn account(doc: &CanonicalDocument, markdown: &str) -> Vec<SourceAcco
             }
         }
         for (id, start) in events {
-            let c = &contributions[id];
-            let key = (c.rank, Reverse(c.span.end - c.span.start), id);
+            let contribution = &contributions[id];
+            let key = (
+                contribution.rank,
+                Reverse(contribution.span.end - contribution.span.start),
+                id,
+            );
             if start {
                 active.insert(key);
             } else {
@@ -172,7 +182,8 @@ mod tests {
     /// A document whose paragraph block is removed, leaving its bytes unclaimed.
     fn without_paragraph(markdown: &str) -> CanonicalDocument {
         let mut doc = canonicalize(CanonicalizeInput::new(markdown, "ledger.md")).unwrap();
-        doc.blocks.retain(|b| b.block_type == BlockType::Heading);
+        doc.blocks
+            .retain(|block| block.block_type == BlockType::Heading);
         doc
     }
 

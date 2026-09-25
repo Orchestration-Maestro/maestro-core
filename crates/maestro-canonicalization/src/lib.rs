@@ -115,7 +115,7 @@ pub fn canonicalize(input: CanonicalizeInput<'_>) -> Result<CanonicalDocument, E
         &source_metadata,
         &input.extractor_blocks,
     ))
-    .map_err(|e| Error(e.to_string()))?;
+    .map_err(|error| Error(error.to_string()))?;
     let revision_id = format!("rev-{}", digest(&revision_bytes));
     let mut doc = CanonicalDocument {
         schema_version: SCHEMA_VERSION.into(),
@@ -146,11 +146,17 @@ pub fn canonicalize(input: CanonicalizeInput<'_>) -> Result<CanonicalDocument, E
     assemble::assemble(&nodes, &mut doc)?;
     let gaps: Vec<_> = validate::validate_structure(&doc, input.markdown)
         .into_iter()
-        .filter(|f| matches!(f.code.as_str(), "unparsed_content" | "table_content_loss"))
-        .flat_map(|f| {
-            f.source_spans
+        .filter(|finding| {
+            matches!(
+                finding.code.as_str(),
+                "unparsed_content" | "table_content_loss"
+            )
+        })
+        .flat_map(|finding| {
+            finding
+                .source_spans
                 .into_iter()
-                .map(move |span| (span, f.code.clone()))
+                .map(move |span| (span, finding.code.clone()))
         })
         .collect();
     if !gaps.is_empty() {

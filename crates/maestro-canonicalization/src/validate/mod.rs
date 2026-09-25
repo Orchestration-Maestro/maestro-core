@@ -55,7 +55,7 @@ pub(crate) fn validate_structure(doc: &CanonicalDocument, markdown: &str) -> Vec
     let by_id: BTreeMap<_, _> = doc
         .blocks
         .iter()
-        .map(|b| (b.block_id.as_str(), b))
+        .map(|block| (block.block_id.as_str(), block))
         .collect();
     if by_id.len() != doc.blocks.len() {
         issues.push(finding(
@@ -71,7 +71,7 @@ pub(crate) fn validate_structure(doc: &CanonicalDocument, markdown: &str) -> Vec
         if block
             .parent_block_id
             .as_ref()
-            .is_some_and(|p| !seen.contains(p.as_str()))
+            .is_some_and(|parent_id| !seen.contains(parent_id.as_str()))
         {
             issue(
                 &mut issues,
@@ -147,11 +147,11 @@ fn check_source_ledger(
 
 /// A document needs at least one block with searchable content.
 fn check_usable(doc: &CanonicalDocument, issues: &mut Vec<Finding>) {
-    let usable = doc.blocks.iter().any(|b| {
+    let usable = doc.blocks.iter().any(|block| {
         !matches!(
-            b.block_type,
+            block.block_type,
             BlockType::Metadata | BlockType::ThematicBreak | BlockType::ReferenceDefinition
-        ) && !b.retrieval_text.trim().is_empty()
+        ) && !block.retrieval_text.trim().is_empty()
     });
     if !usable {
         issues.push(finding(
@@ -185,10 +185,10 @@ fn check_uncovered(doc: &CanonicalDocument, markdown: &str, issues: &mut Vec<Fin
     let mut spans: Vec<_> = doc
         .blocks
         .iter()
-        .flat_map(|b| b.source_spans.iter().copied())
-        .filter(|s| s.is_valid(markdown))
+        .flat_map(|block| block.source_spans.iter().copied())
+        .filter(|span| span.is_valid(markdown))
         .collect();
-    spans.sort_by_key(|s| s.start);
+    spans.sort_by_key(|span| span.start);
     let mut cursor = 0;
     for span in spans {
         if cursor < span.start {
@@ -215,7 +215,7 @@ fn check_gap(markdown: &str, start: usize, end: usize, issues: &mut Vec<Finding>
 fn contains(spans: &[SourceSpan], span: SourceSpan) -> bool {
     spans
         .iter()
-        .any(|s| s.start <= span.start && span.end <= s.end)
+        .any(|outer| outer.start <= span.start && span.end <= outer.end)
 }
 
 /// Record a finding about a block, located at its spans.

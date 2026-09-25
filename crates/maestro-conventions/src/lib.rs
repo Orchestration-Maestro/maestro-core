@@ -70,7 +70,9 @@ pub fn names_a_personal_directory(text: &str) -> bool {
         text.match_indices(prefix.as_str()).any(|(at, _)| {
             let rest = &text[at + prefix.len()..];
             let name = rest
-                .find(|c: char| !(c.is_alphanumeric() || matches!(c, '.' | '_' | '-')))
+                .find(|character: char| {
+                    !(character.is_alphanumeric() || matches!(character, '.' | '_' | '-'))
+                })
                 .unwrap_or(rest.len());
             name > 0 && rest[name..].starts_with(*separator)
         })
@@ -157,9 +159,11 @@ fn slug(title: &str) -> String {
     title
         .to_lowercase()
         .chars()
-        .filter_map(|c| match c {
+        .filter_map(|character| match character {
             ' ' => Some('-'),
-            c if c.is_alphanumeric() || c == '_' || c == '-' => Some(c),
+            character if character.is_alphanumeric() || character == '_' || character == '-' => {
+                Some(character)
+            }
             _ => None,
         })
         .collect()

@@ -174,16 +174,16 @@ fn warning_policy_and_empty_content_are_explicit() {
 #[test]
 fn counts_are_cached_by_complete_bytes_only_within_one_authorized_call() {
     let markdown = "equal\n";
-    let a = canonicalize(CanonicalizeInput::new(markdown, "cache-a")).unwrap();
-    let b = canonicalize(CanonicalizeInput::new(markdown, "cache-b")).unwrap();
-    let scope = scope(&[&a, &b]);
+    let first_document = canonicalize(CanonicalizeInput::new(markdown, "cache-a")).unwrap();
+    let second_document = canonicalize(CanonicalizeInput::new(markdown, "cache-b")).unwrap();
+    let scope = scope(&[&first_document, &second_document]);
     let inputs = [
         DedupInput {
-            document: &a,
+            document: &first_document,
             markdown,
         },
         DedupInput {
-            document: &b,
+            document: &second_document,
             markdown,
         },
     ];
@@ -248,7 +248,12 @@ fn structural_matrix_survives_full_authorization_and_dual_accounting() {
             batch.documents[0].mapped.accounting.len(),
             doc.source_accounting.len()
         );
-        assert!(batch.chunks.iter().all(|c| c.content.token_count <= 700));
+        assert!(
+            batch
+                .chunks
+                .iter()
+                .all(|chunk| chunk.content.token_count <= 700)
+        );
         assert_eq!(before, serde_json::to_vec(&doc).unwrap());
     }
 }

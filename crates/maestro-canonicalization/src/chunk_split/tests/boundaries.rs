@@ -40,7 +40,9 @@ fn ranges_never_split_a_delimiter_and_take_in_a_closing_one() {
         opening: TextRange { start: 2, end: 4 },
         closing: TextRange { start: 5, end: 7 },
     }];
-    let range = |start, end| normalized_range(&unit, start, end).map(|r| (r.start, r.end));
+    let range = |start, end| {
+        normalized_range(&unit, start, end).map(|normalized| (normalized.start, normalized.end))
+    };
     // Starting at an opening delimiter, or ending where one starts, splits nothing.
     assert_eq!(range(2, 9), Some((2, 9)));
     assert_eq!(range(0, 2), Some((0, 2)));

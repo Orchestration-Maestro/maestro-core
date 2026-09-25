@@ -41,10 +41,11 @@ fn prepared_parts_counts_and_table_header_associations_are_validated() {
     .unwrap();
     let target = drafts
         .iter()
-        .position(|c| {
-            c.input_parts
+        .position(|draft| {
+            draft
+                .input_parts
                 .iter()
-                .any(|p| p.role == InputRole::TableHeaderContext)
+                .any(|part| part.role == InputRole::TableHeaderContext)
         })
         .unwrap();
     let mut broken = drafts.clone();
@@ -80,7 +81,7 @@ fn prepared_parts_counts_and_table_header_associations_are_validated() {
     let header = broken[target]
         .input_parts
         .iter_mut()
-        .find(|p| p.role == InputRole::TableHeaderContext)
+        .find(|part| part.role == InputRole::TableHeaderContext)
         .unwrap();
     header.role = InputRole::HeadingContext;
     assert!(
@@ -163,16 +164,16 @@ fn each_replayed_fault_is_refused_by_its_own_check() {
     assert_eq!(refusal(&doc, markdown, &mapped, &drafts), None);
     let target = drafts
         .iter()
-        .position(|c| c.prepared_input.contains("Body one"))
+        .position(|chunk| chunk.prepared_input.contains("Body one"))
         .unwrap();
     let parts = &drafts[target].input_parts;
     let source = parts
         .iter()
-        .position(|p| p.role == InputRole::SourceContent)
+        .position(|part| part.role == InputRole::SourceContent)
         .unwrap();
     let separator = parts
         .iter()
-        .position(|p| p.role == InputRole::FormattingSeparator)
+        .position(|part| part.role == InputRole::FormattingSeparator)
         .unwrap();
     for fault in 0..7 {
         let mut chunks = drafts.clone();

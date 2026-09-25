@@ -34,16 +34,16 @@ fn equal_content_retains_independent_unchanged_occurrences_in_stable_order() {
     assert_ne!(first.document_id, second.document_id);
     let before = serde_json::to_vec(&(&first, &second)).unwrap();
     let authorization = scope(&[&first, &second]);
-    let a = DedupInput {
+    let left = DedupInput {
         document: &first,
         markdown: text,
     };
-    let b = DedupInput {
+    let right = DedupInput {
         document: &second,
         markdown: text,
     };
-    let result = group_exact(&authorization, &[a, b], WarningPolicy::Preserve).unwrap();
-    let reversed = group_exact(&authorization, &[b, a], WarningPolicy::Preserve).unwrap();
+    let result = group_exact(&authorization, &[left, right], WarningPolicy::Preserve).unwrap();
+    let reversed = group_exact(&authorization, &[right, left], WarningPolicy::Preserve).unwrap();
     assert_eq!(
         serde_json::to_vec(&result).unwrap(),
         serde_json::to_vec(&reversed).unwrap()
@@ -67,18 +67,18 @@ fn equal_content_retains_independent_unchanged_occurrences_in_stable_order() {
 fn canonical_equality_is_separate_from_original_syntax_and_source_offsets() {
     let atx = "# Title\n\nKeep **bold** and [link](https://example.invalid/path).\n";
     let setext = "Title\n=====\n\nKeep **bold** and [link](https://example.invalid/path).\n";
-    let a = document(atx, "a");
-    let b = document(setext, "b");
-    let authorization = scope(&[&a, &b]);
+    let atx_document = document(atx, "a");
+    let setext_document = document(setext, "b");
+    let authorization = scope(&[&atx_document, &setext_document]);
     let result = group_exact(
         &authorization,
         &[
             DedupInput {
-                document: &a,
+                document: &atx_document,
                 markdown: atx,
             },
             DedupInput {
-                document: &b,
+                document: &setext_document,
                 markdown: setext,
             },
         ],
@@ -97,7 +97,7 @@ fn canonical_equality_is_separate_from_original_syntax_and_source_offsets() {
     let canonical = result
         .groups
         .iter()
-        .find(|g| g.representation == Representation::Canonical)
+        .find(|group| group.representation == Representation::Canonical)
         .unwrap();
     assert_eq!(canonical.occurrence_indices, [0, 1]);
 }
@@ -105,22 +105,22 @@ fn canonical_equality_is_separate_from_original_syntax_and_source_offsets() {
 #[test]
 fn scope_and_current_authorization_bound_membership_without_deleting_history() {
     let text = "# Title\n\nSame source content.\n";
-    let a = document(text, "a");
-    let b = document(text, "b");
-    let authorization = scope(&[&a, &b]);
+    let first = document(text, "a");
+    let second = document(text, "b");
+    let authorization = scope(&[&first, &second]);
     let inputs = [
         DedupInput {
-            document: &a,
+            document: &first,
             markdown: text,
         },
         DedupInput {
-            document: &b,
+            document: &second,
             markdown: text,
         },
     ];
     let original = group_exact(&authorization, &inputs, WarningPolicy::Preserve).unwrap();
     for (tenant, workspace) in [("tenant-b", "workspace-a"), ("tenant-a", "workspace-b")] {
-        let mut changed = scope(&[&a, &b]);
+        let mut changed = scope(&[&first, &second]);
         changed.tenant_id = tenant.into();
         changed.workspace_id = workspace.into();
         let result = group_exact(&changed, &inputs, WarningPolicy::Preserve).unwrap();
@@ -129,17 +129,25 @@ fn scope_and_current_authorization_bound_membership_without_deleting_history() {
                 .groups
                 .iter()
                 .zip(&result.groups)
-                .all(|(a, b)| a.group_id != b.group_id)
+                .all(|(before, after)| before.group_id != after.group_id)
         );
     }
-    let revoked = scope(&[&b]);
+    let revoked = scope(&[&second]);
     assert!(group_exact(&revoked, &inputs, WarningPolicy::Preserve).is_err());
     let surviving = group_exact(&revoked, &inputs[1..], WarningPolicy::Preserve).unwrap();
     assert_eq!(surviving.occurrences.len(), 1);
-    assert_eq!(surviving.occurrences[0].document.document_id, b.document_id);
-    assert!(surviving.groups.iter().all(|g| g.occurrence_indices == [0]));
+    assert_eq!(
+        surviving.occurrences[0].document.document_id,
+        second.document_id
+    );
+    assert!(
+        surviving
+            .groups
+            .iter()
+            .all(|group| group.occurrence_indices == [0])
+    );
     assert_eq!(original.occurrences.len(), 2);
-    assert_eq!(a.content_hash, b.content_hash);
+    assert_eq!(first.content_hash, second.content_hash);
 }
 
 #[test]
@@ -242,18 +250,18 @@ fn structured_comparison_preserves_meaning_sensitive_content_and_hierarchy() {
         ("raw html", "<div>a</div>\n", "<div>b</div>\n"),
     ];
     for (name, left, right) in mutations {
-        let a = document(left, "left");
-        let b = document(right, "right");
-        let authorization = scope(&[&a, &b]);
+        let left_document = document(left, "left");
+        let right_document = document(right, "right");
+        let authorization = scope(&[&left_document, &right_document]);
         let result = group_exact(
             &authorization,
             &[
                 DedupInput {
-                    document: &a,
+                    document: &left_document,
                     markdown: left,
                 },
                 DedupInput {
-                    document: &b,
+                    document: &right_document,
                     markdown: right,
                 },
             ],
@@ -265,7 +273,7 @@ fn structured_comparison_preserves_meaning_sensitive_content_and_hierarchy() {
             result
                 .groups
                 .iter()
-                .all(|g| g.occurrence_indices.len() == 1),
+                .all(|group| group.occurrence_indices.len() == 1),
             "{name}"
         );
         assert_ne!(
@@ -311,18 +319,18 @@ fn source_metadata_and_extractor_structure_are_not_silently_discarded() {
             }
             _ => unreachable!(),
         }
-        let a = canonicalize(left).unwrap();
-        let b = canonicalize(right).unwrap();
-        let authorization = scope(&[&a, &b]);
+        let left_document = canonicalize(left).unwrap();
+        let right_document = canonicalize(right).unwrap();
+        let authorization = scope(&[&left_document, &right_document]);
         let result = group_exact(
             &authorization,
             &[
                 DedupInput {
-                    document: &a,
+                    document: &left_document,
                     markdown: text,
                 },
                 DedupInput {
-                    document: &b,
+                    document: &right_document,
                     markdown: text,
                 },
             ],
@@ -348,12 +356,12 @@ fn policies_coordinates_and_revision_history_remain_per_occurrence() {
     check_a_clean_revision_groups_under_reject(text, &old);
     old.extractor_blocks.push(extractor_block(text));
     let updated = updated_revision(&old);
-    let a = canonicalize(old).unwrap();
-    let b = canonicalize(updated).unwrap();
-    check_two_revisions_of_one_document(&a, &b);
-    let before = serde_json::to_vec(&(&a, &b)).unwrap();
-    check_each_occurrence_keeps_its_own_revision(text, &a, &b);
-    assert_eq!(before, serde_json::to_vec(&(&a, &b)).unwrap());
+    let older = canonicalize(old).unwrap();
+    let newer = canonicalize(updated).unwrap();
+    check_two_revisions_of_one_document(&older, &newer);
+    let before = serde_json::to_vec(&(&older, &newer)).unwrap();
+    check_each_occurrence_keeps_its_own_revision(text, &older, &newer);
+    assert_eq!(before, serde_json::to_vec(&(&older, &newer)).unwrap());
 }
 
 /// An input with a source reference, title, language, extraction record,
@@ -424,8 +432,8 @@ fn updated_revision<'a>(old: &CanonicalizeInput<'a>) -> CanonicalizeInput<'a> {
 
 /// Both revisions carry only the retained-extractor warning, share the
 /// document identity and differ in revision.
-fn check_two_revisions_of_one_document(a: &CanonicalDocument, b: &CanonicalDocument) {
-    for doc in [a, b] {
+fn check_two_revisions_of_one_document(older: &CanonicalDocument, newer: &CanonicalDocument) {
+    for doc in [older, newer] {
         assert_eq!(doc.validation_status, ValidationStatus::ValidWithWarnings);
         assert_eq!(
             doc.warnings
@@ -435,27 +443,27 @@ fn check_two_revisions_of_one_document(a: &CanonicalDocument, b: &CanonicalDocum
             ["extractor_payload_retained"]
         );
     }
-    assert_eq!(a.document_id, b.document_id);
-    assert_ne!(a.revision_id, b.revision_id);
+    assert_eq!(older.document_id, newer.document_id);
+    assert_ne!(older.revision_id, newer.revision_id);
 }
 
 /// Grouped together, each occurrence keeps its own revision's policy,
 /// extractor content and run metadata.
 fn check_each_occurrence_keeps_its_own_revision(
     text: &str,
-    a: &CanonicalDocument,
-    b: &CanonicalDocument,
+    older: &CanonicalDocument,
+    newer: &CanonicalDocument,
 ) {
-    let authorization = scope(&[a, b]);
+    let authorization = scope(&[older, newer]);
     let result = group_exact(
         &authorization,
         &[
             DedupInput {
-                document: a,
+                document: older,
                 markdown: text,
             },
             DedupInput {
-                document: b,
+                document: newer,
                 markdown: text,
             },
         ],
@@ -463,12 +471,17 @@ fn check_each_occurrence_keeps_its_own_revision(
     )
     .unwrap();
     assert_eq!(result.groups.len(), 2);
-    assert!(result.groups.iter().all(|g| g.occurrence_indices == [0, 1]));
-    for expected in [a, b] {
+    assert!(
+        result
+            .groups
+            .iter()
+            .all(|group| group.occurrence_indices == [0, 1])
+    );
+    for expected in [older, newer] {
         let occurrence = result
             .occurrences
             .iter()
-            .find(|o| o.document.revision_id == expected.revision_id)
+            .find(|occurrence| occurrence.document.revision_id == expected.revision_id)
             .unwrap();
         assert!(ptr::eq(occurrence.document, expected));
         assert_eq!(occurrence.document.access_policy, expected.access_policy);

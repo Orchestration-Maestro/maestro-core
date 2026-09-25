@@ -69,7 +69,7 @@ fn layout<'a>(
     let blocks: BTreeMap<_, _> = document
         .blocks
         .iter()
-        .map(|b| (b.block_id.as_str(), b))
+        .map(|block| (block.block_id.as_str(), block))
         .collect();
     let mut ancestry = Vec::new();
     for unit in &mapped.units {
@@ -77,7 +77,7 @@ fn layout<'a>(
         let mut current = Some(unit.block_id.as_str());
         while let Some(id) = current {
             let block = blocks.get(id).copied().ok_or_else(structure_error)?;
-            if path.iter().any(|b: &&Block| b.block_id == id) {
+            if path.iter().any(|ancestor: &&Block| ancestor.block_id == id) {
                 return Err(structure_error());
             }
             path.push(block);

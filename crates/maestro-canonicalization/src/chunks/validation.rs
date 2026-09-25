@@ -193,7 +193,7 @@ fn check_fragment_order(chunk: &ChunkContent, primary: &[Contribution]) -> Resul
             cursor = chunk
                 .fragments
                 .get(fragment)
-                .map_or(0, |f| f.contribution.range.start);
+                .map_or(0, |next_fragment| next_fragment.contribution.range.start);
         }
     }
     if fragment != chunk.fragments.len() {

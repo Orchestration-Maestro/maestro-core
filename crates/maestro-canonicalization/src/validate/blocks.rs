@@ -27,7 +27,12 @@ pub(super) fn validate_block(
             Severity::Error,
         );
     }
-    if block.source_spans.is_empty() || block.source_spans.iter().any(|s| !s.is_valid(markdown)) {
+    if block.source_spans.is_empty()
+        || block
+            .source_spans
+            .iter()
+            .any(|span| !span.is_valid(markdown))
+    {
         issue(
             issues,
             block,
@@ -59,7 +64,7 @@ fn check_children(
                         && child
                             .source_spans
                             .iter()
-                            .all(|s| contains(&block.source_spans, *s)) => {}
+                            .all(|span| contains(&block.source_spans, *span)) => {}
                 _ => issue(
                     issues,
                     block,
@@ -82,14 +87,14 @@ fn check_parent_reference(
     if let Some(parent) = block
         .parent_block_id
         .as_ref()
-        .and_then(|p| by_id.get(p.as_str()))
+        .and_then(|parent_id| by_id.get(parent_id.as_str()))
     {
         let count = parent
             .structured_content
             .children
             .iter()
-            .filter(|c| {
-                matches!(c,
+            .filter(|child| {
+                matches!(child,
             ContentNode::Block { block_id } if block_id == &block.block_id)
             })
             .count();
@@ -134,7 +139,7 @@ fn check_attributes(
                 .structured_content
                 .children
                 .iter()
-                .filter_map(|c| match c {
+                .filter_map(|child| match child {
                     ContentNode::Inline {
                         inline:
                             Inline {
@@ -196,23 +201,27 @@ fn validate_container_gaps(
     ) {
         return;
     }
-    let Some(span) = block.source_spans.first().filter(|s| s.is_valid(markdown)) else {
+    let Some(span) = block
+        .source_spans
+        .first()
+        .filter(|span| span.is_valid(markdown))
+    else {
         return;
     };
     let mut children: Vec<SourceSpan> = block
         .structured_content
         .children
         .iter()
-        .flat_map(|c| match c {
+        .flat_map(|child| match child {
             ContentNode::Block { block_id } => by_id
                 .get(block_id.as_str())
-                .map(|b| b.source_spans.clone())
+                .map(|child_block| child_block.source_spans.clone())
                 .unwrap_or_default(),
             ContentNode::Inline { inline } => vec![inline.source_span],
         })
-        .filter(|s| s.is_valid(markdown) && contains(&[*span], *s))
+        .filter(|child_span| child_span.is_valid(markdown) && contains(&[*span], *child_span))
         .collect();
-    children.sort_by_key(|s| s.start);
+    children.sort_by_key(|child_span| child_span.start);
     children.push(SourceSpan {
         start: span.end,
         end: span.end,
@@ -239,13 +248,13 @@ fn validate_container_gaps(
             }
             // Only container syntax can be outside children. Duplicate reference
             // definitions carry labels/URLs and must not hide inside an outer span.
-            if gap.chars().any(|c| {
-                !(c.is_whitespace()
-                    || c.is_ascii_digit()
-                    || matches!(c, '>' | '-' | '+' | '*' | '.' | ')' | ':')
-                    || (block.block_type == BlockType::Heading && matches!(c, '#' | '=')))
+            if gap.chars().any(|character| {
+                !(character.is_whitespace()
+                    || character.is_ascii_digit()
+                    || matches!(character, '>' | '-' | '+' | '*' | '.' | ')' | ':')
+                    || (block.block_type == BlockType::Heading && matches!(character, '#' | '=')))
             }) {
-                let mut f = finding(
+                let mut gap_finding = finding(
                     "unparsed_content",
                     "container contains source material omitted from child blocks",
                     Severity::Error,
@@ -254,8 +263,8 @@ fn validate_container_gaps(
                         end: child.start,
                     }),
                 );
-                f.block_id = Some(block.block_id.clone());
-                issues.push(f);
+                gap_finding.block_id = Some(block.block_id.clone());
+                issues.push(gap_finding);
             }
         }
         cursor = cursor.max(child.end);
@@ -318,11 +327,11 @@ fn validate_table(
             .structured_content
             .children
             .iter()
-            .filter_map(|c| match c {
+            .filter_map(|child| match child {
                 ContentNode::Block { block_id } => by_id.get(block_id.as_str()).copied(),
                 ContentNode::Inline { .. } => None,
             })
-            .filter(|b| b.block_type == BlockType::TableCell)
+            .filter(|cell| cell.block_type == BlockType::TableCell)
             .collect();
         if cells.len() != width {
             issue(
@@ -335,7 +344,11 @@ fn validate_table(
         }
         // GFM permits surplus cells that the parser omits. Raw children preserve
         // those ranges without inventing column names or rejecting valid syntax.
-        if let Some(span) = row.source_spans.first().filter(|s| s.is_valid(markdown)) {
+        if let Some(span) = row
+            .source_spans
+            .first()
+            .filter(|span| span.is_valid(markdown))
+        {
             let mut represented: Vec<_> = row
                 .structured_content
                 .children
@@ -345,9 +358,9 @@ fn validate_table(
                     ContentNode::Inline { .. } => None,
                 })
                 .flat_map(|child| child.source_spans.iter().copied())
-                .filter(|s| s.is_valid(markdown))
+                .filter(|cell_span| cell_span.is_valid(markdown))
                 .collect();
-            represented.sort_by_key(|s| s.start);
+            represented.sort_by_key(|cell_span| cell_span.start);
             let mut cursor = span.start;
             for source in represented {
                 if cursor <= source.start {
@@ -366,15 +379,15 @@ fn validate_table(
 fn table_gap(markdown: &str, start: usize, end: usize, block: &Block, issues: &mut Vec<Finding>) {
     if markdown[start..end]
         .chars()
-        .any(|c| !c.is_whitespace() && c != '|')
+        .any(|character| !character.is_whitespace() && character != '|')
     {
-        let mut f = finding(
+        let mut gap_finding = finding(
             "table_content_loss",
             "table source contains material not represented by cells",
             Severity::Error,
             Some(SourceSpan { start, end }),
         );
-        f.block_id = Some(block.block_id.clone());
-        issues.push(f);
+        gap_finding.block_id = Some(block.block_id.clone());
+        issues.push(gap_finding);
     }
 }

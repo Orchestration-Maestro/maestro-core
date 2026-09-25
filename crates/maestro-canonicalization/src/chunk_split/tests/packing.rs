@@ -18,7 +18,7 @@ fn context_leads_the_prepared_input_without_a_separator_before_it() {
     let (_, chunks) = structural_chunks("# A\n\n## B\n\nBody one.\n\nBody two.\n").unwrap();
     let chunk = chunks
         .iter()
-        .find(|c| c.body_text.contains("Body one."))
+        .find(|chunk| chunk.body_text.contains("Body one."))
         .unwrap();
     assert_eq!(chunk.prepared_input, "A\n\nB\n\nBody one.\n\nBody two.");
 }
@@ -29,7 +29,11 @@ fn a_chunk_names_each_container_once_outermost_first() {
     let doc = canonicalize(CanonicalizeInput::new(markdown, "containers")).unwrap();
     let mapped = map_document(&doc, markdown).unwrap();
     let chunks = build_drafts(&doc, markdown, &mapped, &mut fake()).unwrap();
-    let ids: Vec<_> = doc.blocks.iter().map(|b| b.block_id.clone()).collect();
+    let ids: Vec<_> = doc
+        .blocks
+        .iter()
+        .map(|block| block.block_id.clone())
+        .collect();
     assert_eq!(chunks.len(), 1);
     assert_eq!(chunks[0].container_ids, ids);
 }
@@ -39,8 +43,8 @@ fn a_split_unit_numbers_its_parts_in_order() {
     let (_, chunks) = structural_chunks(&format!("{}\n", "word ".repeat(400))).unwrap();
     let ordinals: Vec<_> = chunks
         .iter()
-        .flat_map(|c| &c.fragments)
-        .map(|f| f.part_ordinal)
+        .flat_map(|chunk| &chunk.fragments)
+        .map(|fragment| fragment.part_ordinal)
         .collect();
     assert!(ordinals.len() > 1);
     assert_eq!(ordinals, (0..ordinals.len()).collect::<Vec<_>>());
@@ -53,7 +57,10 @@ fn table_windows_must_match_their_rows_in_order() {
     let mapped = map_document(&doc, markdown).unwrap();
     let chunks = build_drafts(&doc, markdown, &mapped, &mut fake()).unwrap();
     validate_preparation(&doc, markdown, &mapped, &chunks, &mut fake()).unwrap();
-    let chunk = chunks.iter().find(|c| c.table_windows.len() >= 2).unwrap();
+    let chunk = chunks
+        .iter()
+        .find(|chunk| chunk.table_windows.len() >= 2)
+        .unwrap();
     let layout = layout(&doc, markdown, &mapped).unwrap();
     // Each altered chunk is prepared from its own windows, so only the window checks refuse it.
     let mut swapped = chunk.table_windows.clone();

@@ -49,7 +49,7 @@ fn check_native_batch(batch: &ChunkBatch<'_>, counter: &NativeTokenizer) {
             .content
             .input_parts
             .iter()
-            .map(|p| p.text.as_str())
+            .map(|part| part.text.as_str())
             .collect();
         assert_eq!(prepared, chunk.content.prepared_input);
         assert_eq!(
@@ -73,7 +73,7 @@ fn check_native_batch(batch: &ChunkBatch<'_>, counter: &NativeTokenizer) {
                 .iter()
                 .filter(|chunk| chunk.occurrence_index == document.occurrence_index)
                 .flat_map(|chunk| &chunk.content.fragments)
-                .filter(|f| f.contribution.unit_index == index)
+                .filter(|fragment| fragment.contribution.unit_index == index)
             {
                 let range = fragment.contribution.range;
                 assert_eq!(range.start, end);
@@ -108,7 +108,7 @@ fn native_structures_boundaries_and_zero_overlap() {
         let chunks: Vec<_> = batch
             .chunks
             .iter()
-            .filter(|c| c.occurrence_index == index)
+            .filter(|chunk| chunk.occurrence_index == index)
             .collect();
         check_plain_and_context_counts(name, &chunks);
         if name == "code" {
@@ -199,9 +199,9 @@ fn native_scope(documents: &[CanonicalDocument]) -> DedupScope {
         workspace_id: "native-workspace".into(),
         authorized_revisions: documents
             .iter()
-            .map(|d| RevisionKey {
-                document_id: d.document_id.clone(),
-                revision_id: d.revision_id.clone(),
+            .map(|document| RevisionKey {
+                document_id: document.document_id.clone(),
+                revision_id: document.revision_id.clone(),
             })
             .collect(),
     }
@@ -213,7 +213,7 @@ fn occurrence_of(batch: &ChunkBatch<'_>, document: &CanonicalDocument) -> usize 
         .deduplication
         .occurrences
         .iter()
-        .position(|o| o.document.document_id == document.document_id)
+        .position(|occurrence| occurrence.document.document_id == document.document_id)
         .unwrap()
 }
 
@@ -222,7 +222,7 @@ fn occurrence_of(batch: &ChunkBatch<'_>, document: &CanonicalDocument) -> usize 
 fn check_plain_and_context_counts(name: &str, chunks: &[&RetrievalChunk]) {
     if let Some(expected) = name
         .strip_prefix("plain-")
-        .and_then(|s| s.parse::<usize>().ok())
+        .and_then(|text| text.parse::<usize>().ok())
     {
         if expected <= 700 {
             assert_eq!(chunks.len(), 1);
@@ -233,7 +233,7 @@ fn check_plain_and_context_counts(name: &str, chunks: &[&RetrievalChunk]) {
     }
     if let Some(expected) = name
         .strip_prefix("context-")
-        .and_then(|s| s.parse::<usize>().ok())
+        .and_then(|text| text.parse::<usize>().ok())
     {
         if expected <= 700 {
             assert_eq!(chunks.len(), 2);
@@ -246,11 +246,12 @@ fn check_plain_and_context_counts(name: &str, chunks: &[&RetrievalChunk]) {
 
 /// Oversized code splits at line fragments.
 fn check_code_splits_at_lines(chunks: &[&RetrievalChunk]) {
-    assert!(chunks.iter().any(|c| {
-        c.content
+    assert!(chunks.iter().any(|chunk| {
+        chunk
+            .content
             .fragments
             .iter()
-            .any(|f| f.split == SplitKind::CodeLineFragment)
+            .any(|fragment| fragment.split == SplitKind::CodeLineFragment)
     }));
 }
 
@@ -259,23 +260,25 @@ fn check_table_rows_keep_their_header(chunks: &[&RetrievalChunk]) {
     assert!(
         chunks
             .iter()
-            .any(|c| c.content.table_windows.iter().any(|w| w.columns == [1]))
+            .any(|chunk| chunk.content.table_windows.iter().any(|w| w.columns == [1]))
     );
-    assert!(chunks.iter().any(|c| {
-        c.content
+    assert!(chunks.iter().any(|chunk| {
+        chunk
+            .content
             .input_parts
             .iter()
-            .any(|p| p.role == InputRole::TableHeaderContext && p.text == "Value")
+            .any(|part| part.role == InputRole::TableHeaderContext && part.text == "Value")
     }));
 }
 
 /// A nested item's continuations repeat the parent item's text.
 fn check_list_items_repeat_their_parent(chunks: &[&RetrievalChunk]) {
-    assert!(chunks.iter().any(|c| {
-        c.content
+    assert!(chunks.iter().any(|chunk| {
+        chunk
+            .content
             .input_parts
             .iter()
-            .any(|p| p.role == InputRole::ParentListContext && p.text == "Parent")
+            .any(|part| part.role == InputRole::ParentListContext && part.text == "Parent")
     }));
 }
 
@@ -286,15 +289,18 @@ fn check_task_status_repeats_on_every_continuation(name: &str, chunks: &[&Retrie
     } else {
         "[ ] "
     };
-    for chunk in chunks.iter().filter(|c| c.content.body_text.contains('a')) {
+    for chunk in chunks
+        .iter()
+        .filter(|chunk| chunk.content.body_text.contains('a'))
+    {
         assert!(
             chunk
                 .content
                 .input_parts
                 .iter()
-                .any(|p| p.role == InputRole::StructuralContext
-                    && p.text == status
-                    && !p.contributions.is_empty())
+                .any(|part| part.role == InputRole::StructuralContext
+                    && part.text == status
+                    && !part.contributions.is_empty())
         );
     }
 }
@@ -315,8 +321,8 @@ fn check_deletion_wraps_every_continuation(
     assert!(
         chunks
             .iter()
-            .all(|c| c.content.prepared_input.starts_with("~~")
-                && c.content.prepared_input.ends_with("~~"))
+            .all(|chunk| chunk.content.prepared_input.starts_with("~~")
+                && chunk.content.prepared_input.ends_with("~~"))
     );
 }
 
@@ -333,17 +339,20 @@ fn check_context_changes_the_prepared_fingerprint(
         .filter(|((name, _), _)| name == "context-a" || name == "context-b")
         .map(|(_, document)| occurrence_of(batch, document))
         .collect();
-    let a = batch
+    let first_chunk = batch
         .chunks
         .iter()
-        .find(|c| c.occurrence_index == contextual[0])
+        .find(|chunk| chunk.occurrence_index == contextual[0])
         .unwrap();
-    let b = batch
+    let second_chunk = batch
         .chunks
         .iter()
-        .find(|c| c.occurrence_index == contextual[1])
+        .find(|chunk| chunk.occurrence_index == contextual[1])
         .unwrap();
-    assert_ne!(a.retrieval_input_fingerprint, b.retrieval_input_fingerprint);
+    assert_ne!(
+        first_chunk.retrieval_input_fingerprint,
+        second_chunk.retrieval_input_fingerprint
+    );
 }
 
 #[test]

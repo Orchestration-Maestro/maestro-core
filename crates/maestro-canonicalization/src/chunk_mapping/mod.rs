@@ -166,7 +166,7 @@ impl Mapper<'_> {
                         return Err(invalid_mapping());
                     }
                     unit.envelopes
-                        .sort_by_key(|e| (e.opening.start, Reverse(e.closing.end)));
+                        .sort_by_key(|pair| (pair.opening.start, Reverse(pair.closing.end)));
                     self.push(unit)?;
                 }
             }
@@ -304,9 +304,9 @@ impl Mapper<'_> {
                     let owner = self
                         .blocks
                         .values()
-                        .find(|b| {
-                            b.block_type == BlockType::ReferenceDefinition
-                                && b.source_spans.contains(&span)
+                        .find(|definition| {
+                            definition.block_type == BlockType::ReferenceDefinition
+                                && definition.source_spans.contains(&span)
                         })
                         .ok_or_else(invalid_mapping)?;
                     origins.push(SourceOrigin {

@@ -59,7 +59,7 @@ impl Layout<'_> {
             if body
                 .fragments
                 .iter()
-                .all(|f| self.mapped.units[f.contribution.unit_index].block_id == *id)
+                .all(|fragment| self.mapped.units[fragment.contribution.unit_index].block_id == *id)
             {
                 continue;
             }
@@ -86,7 +86,7 @@ impl Layout<'_> {
             let index = fragment.contribution.unit_index;
             let own_item = self
                 .nearest(index, &BlockType::ListItem)
-                .map(|b| b.block_id.as_str());
+                .map(|block| block.block_id.as_str());
             for (depth, block) in self.ancestry[index].iter().enumerate() {
                 entries.extend(self.ancestor_block_entries(block, depth, own_item, &mut seen)?);
             }
@@ -203,8 +203,8 @@ impl Layout<'_> {
             .ok_or_else(structure_error)?;
         self.child_blocks(parent)
             .into_iter()
-            .take_while(|b| b.block_id != description.block_id)
-            .filter(|b| b.block_type == BlockType::DefinitionTerm)
+            .take_while(|block| block.block_id != description.block_id)
+            .filter(|block| block.block_type == BlockType::DefinitionTerm)
             .last()
             .ok_or_else(structure_error)
     }
@@ -227,7 +227,7 @@ impl Layout<'_> {
         let header = self
             .child_blocks(table)
             .into_iter()
-            .find(|b| b.block_type == BlockType::TableHead)
+            .find(|block| block.block_type == BlockType::TableHead)
             .ok_or_else(structure_error)?;
         let cells = self.row_cells(&header.block_id)?;
         let columns: Vec<Vec<usize>> = window
@@ -298,7 +298,7 @@ impl Layout<'_> {
         "  ".repeat(
             self.ancestry[index]
                 .iter()
-                .filter(|b| b.block_type == BlockType::List)
+                .filter(|block| block.block_type == BlockType::List)
                 .count(),
         )
     }
@@ -366,7 +366,7 @@ impl Layout<'_> {
             } else if entry.role == InputRole::ParentListContext {
                 let depth = self.ancestry[index]
                     .iter()
-                    .filter(|b| b.block_type == BlockType::List)
+                    .filter(|block| block.block_type == BlockType::List)
                     .count();
                 formatting(&mut result, "  ".repeat(depth.saturating_sub(1)), false);
             }
@@ -402,7 +402,9 @@ impl Layout<'_> {
         let active: Vec<_> = unit
             .envelopes
             .iter()
-            .filter(|e| range.start < e.closing.start && range.end > e.opening.end)
+            .filter(|envelope| {
+                range.start < envelope.closing.start && range.end > envelope.opening.end
+            })
             .collect();
         for envelope in &active {
             if range.start > envelope.opening.start {
@@ -439,7 +441,7 @@ impl Layout<'_> {
         if let Some(item) = self.nearest(index, &BlockType::ListItem) {
             let depth = self.ancestry[index]
                 .iter()
-                .filter(|b| b.block_type == BlockType::List)
+                .filter(|block| block.block_type == BlockType::List)
                 .count();
             formatting(parts, "  ".repeat(depth.saturating_sub(1)), true);
             let marker = self
