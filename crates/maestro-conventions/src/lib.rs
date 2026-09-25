@@ -9,8 +9,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
-/// Directories that hold history, build output or mutation test output, never
-/// repository content.
+/// Entries that hold history, build output or mutation test output, never
+/// repository content. `.git` is a file in a worktree or submodule.
 const SKIPPED: [&str; 4] = [".git", "target", "mutants.out", "mutants.out.old"];
 
 /// The repository root, two levels above this crate.
@@ -31,8 +31,11 @@ pub fn repository_files(root: &Path) -> io::Result<Vec<PathBuf>> {
     while let Some(directory) = pending.pop() {
         for entry in fs::read_dir(&directory)? {
             let entry = entry?;
+            if SKIPPED.iter().any(|name| entry.file_name() == *name) {
+                continue;
+            }
             let kind = entry.file_type()?;
-            if kind.is_dir() && !SKIPPED.iter().any(|name| entry.file_name() == *name) {
+            if kind.is_dir() {
                 pending.push(entry.path());
             } else if kind.is_file() {
                 let path = entry.path();
@@ -267,6 +270,7 @@ mod tests {
             "target/debug",
             "crates/a/target",
             "crates/a/src",
+            "crates/b",
             "mutants.out/log",
             "mutants.out.old",
         ] {
@@ -274,6 +278,8 @@ mod tests {
         }
         for file in [
             ".git/HEAD",
+            // A worktree's `.git` is a file naming the main checkout.
+            "crates/b/.git",
             "target/debug/y",
             "crates/a/target/z",
             "crates/a/src/lib.rs",

@@ -5,7 +5,8 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 unix_cache := env('XDG_CACHE_HOME', home_directory() / '.cache')
 cache_home := if os_family() == "windows" { env('LOCALAPPDATA') } else { unix_cache }
 tools_bin := cache_home / 'maestro/tools/bin'
-export PATH := tools_bin + ":" + env_var("PATH")
+path_sep := if os_family() == "windows" { ";" } else { ":" }
+export PATH := tools_bin + path_sep + env_var("PATH")
 
 # List every recipe and what it does; this is what `just` alone prints.
 help:
