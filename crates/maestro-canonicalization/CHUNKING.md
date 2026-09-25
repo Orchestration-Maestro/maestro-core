@@ -115,7 +115,7 @@ Saved batches are not authorization certificates; later consumers must reauthori
 ```bash
 cargo test --manifest-path canonicalization/Cargo.toml --locked --offline
 cargo test --manifest-path canonicalization/Cargo.toml --locked --offline \
-  --test chunk_native -- --ignored --nocapture
+  --test it chunk_native -- --ignored --nocapture
 cargo clippy --manifest-path canonicalization/Cargo.toml --locked --offline \
   --all-targets -- -D warnings
 PATH="$PWD/.tools/bin:$PATH" just check

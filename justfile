@@ -68,7 +68,7 @@ docs:
 
 # The native tokenizer tests; MAESTRO_NATIVE_BINDING names this machine's binding.
 native:
-    cargo test --locked -p maestro-canonicalization --test chunk_native -- --ignored
+    cargo test --locked -p maestro-canonicalization --test it chunk_native -- --ignored
 
 # Every mutant in the workspace; a survivor fails. Hours long: run before an import.
 mutants jobs="4":
