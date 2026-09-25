@@ -1,19 +1,13 @@
-//! Immutable snapshots, accessed through directory handles without following symlinks.
+//! Immutable snapshots, accessed through directory handles without following links.
 use crate::document::CanonicalDocument;
 use crate::error::Error;
+use crate::filesystem::Directory;
 use crate::hashing::digest;
 use crate::replay::validate_document;
-use cap_fs_ext::{DirExt, FollowSymlinks, OpenOptionsFollowExt, OpenOptionsSyncExt};
-#[cfg(unix)]
-use cap_std::fs::{DirBuilderExt, OpenOptionsExt};
-use cap_std::{
-    ambient_authority,
-    fs::{Dir, DirBuilder, File, OpenOptions},
-};
 use std::{
-    ffi::OsStr,
-    io::{self, ErrorKind, Read, Write},
-    path::{Component, Path, PathBuf},
+    fs::File,
+    io::{self, ErrorKind, Write},
+    path::{Path, PathBuf},
     process,
     sync::atomic::{AtomicUsize, Ordering},
 };
@@ -40,7 +34,7 @@ pub fn save_document(
     saved.original_markdown_reference.path = "original.md".into();
     let json = encode(&saved)?;
     let directory = output.join(artifact_suffix(&saved, &json));
-    let dir = open_directory(&directory, true).map_err(|error| storage_error(&error))?;
+    let dir = Directory::open(&directory, true).map_err(|error| storage_error(&error))?;
     write_immutable(&dir, "original.md", markdown.as_bytes())
         .map_err(|error| storage_error(&error))?;
     write_immutable(&dir, "canonical.json", &json).map_err(|error| storage_error(&error))?;
@@ -63,8 +57,10 @@ pub fn load_document(path: &Path) -> Result<(CanonicalDocument, String), Error> 
     let parent = path
         .parent()
         .ok_or_else(|| Error("missing snapshot directory".into()))?;
-    let dir = open_directory(parent, false).map_err(|error| storage_error(&error))?;
-    let json = read_regular(&dir, "canonical.json").map_err(|error| storage_error(&error))?;
+    let dir = Directory::open(parent, false).map_err(|error| storage_error(&error))?;
+    let json = dir
+        .read_regular("canonical.json")
+        .map_err(|error| storage_error(&error))?;
     // The strict mapping visitor also rejects duplicates inside opaque JSON policies.
     serde_json::from_slice::<serde_yaml_ng::Value>(&json)
         .map_err(|_| Error("invalid or duplicate snapshot JSON fields".into()))?;
@@ -79,7 +75,8 @@ pub fn load_document(path: &Path) -> Result<(CanonicalDocument, String), Error> 
         ));
     }
     let markdown = String::from_utf8(
-        read_regular(&dir, "original.md").map_err(|error| storage_error(&error))?,
+        dir.read_regular("original.md")
+            .map_err(|error| storage_error(&error))?,
     )
     .map_err(|_| Error("snapshot Markdown is not valid UTF-8".into()))?;
     verify_replay(&document, &markdown)?;
@@ -118,87 +115,10 @@ fn storage_error(error: &io::Error) -> Error {
     Error(format!("cannot access immutable snapshot: {error}"))
 }
 
-// Directory handles close the check-then-open ancestor/symlink race: Linux and macOS resolve each
-// name against an open directory, and Windows cannot rename or delete a directory cap-std holds
-// open. The local filesystem must support hard links (ADR-0018).
-/// Open a directory one component at a time without following links, creating missing components
-/// when asked; parent traversal is refused. The walk starts at the path's root, with its Windows
-/// drive or share prefix, or at the working directory for a relative path.
-fn open_directory(path: &Path, create: bool) -> io::Result<Dir> {
-    if path
-        .components()
-        .any(|component| component == Component::ParentDir)
-    {
-        return Err(io::Error::other("snapshot path contains parent traversal"));
-    }
-    let anchor: PathBuf = path
-        .components()
-        .take_while(|component| matches!(component, Component::Prefix(_) | Component::RootDir))
-        .collect();
-    let start = if anchor.as_os_str().is_empty() {
-        Path::new(".")
-    } else {
-        &anchor
-    };
-    let mut directory = Dir::open_ambient_dir(start, ambient_authority())?;
-    for component in path.components() {
-        if let Component::Normal(name) = component {
-            directory = open_child(&directory, name, create)?;
-        }
-    }
-    Ok(directory)
-}
-
-/// Open one child directory without following a link, creating it first when asked and absent.
-fn open_child(directory: &Dir, name: &OsStr, create: bool) -> io::Result<Dir> {
-    match directory.open_dir_nofollow(name) {
-        Err(error) if create && error.kind() == ErrorKind::NotFound => {
-            let builder = &mut DirBuilder::new();
-            #[cfg(unix)]
-            builder.mode(0o700);
-            match directory.create_dir_with(name, builder) {
-                Ok(()) => sync_directory(directory)?,
-                Err(error) if error.kind() == ErrorKind::AlreadyExists => {}
-                Err(error) => return Err(error),
-            }
-            directory.open_dir_nofollow(name)
-        }
-        opened => opened,
-    }
-}
-
-/// Flush the directory's entries to storage. Windows flushes only through a writable handle and
-/// cap-std opens directories read-only, so there NTFS's journal alone makes an entry durable.
-fn sync_directory(directory: &Dir) -> io::Result<()> {
-    if cfg!(windows) {
-        return Ok(());
-    }
-    directory.open(".")?.sync_all()
-}
-
-/// The bytes of a regular file in the directory, never read through a link. The type is checked
-/// before the open, which Windows refuses for a directory with an error of its own, and again after
-/// it, against a swap in between; the open does not block on a FIFO.
-fn read_regular(directory: &Dir, name: &str) -> io::Result<Vec<u8>> {
-    let not_regular = || io::Error::other("artifact is not a regular file");
-    if !directory.symlink_metadata(name)?.is_file() {
-        return Err(not_regular());
-    }
-    let mut options = OpenOptions::new();
-    options.read(true).follow(FollowSymlinks::No).nonblock(true);
-    let mut file = directory.open_with(name, &options)?;
-    if !file.metadata()?.is_file() {
-        return Err(not_regular());
-    }
-    let mut bytes = Vec::new();
-    file.read_to_end(&mut bytes)?;
-    Ok(bytes)
-}
-
 /// Whether the file already holds exactly these bytes; different bytes are an error, never
 /// overwritten.
-fn verify_existing(directory: &Dir, name: &str, bytes: &[u8]) -> io::Result<bool> {
-    match read_regular(directory, name) {
+fn verify_existing(directory: &Directory, name: &str, bytes: &[u8]) -> io::Result<bool> {
+    match directory.read_regular(name) {
         Ok(existing) if existing == bytes => Ok(true),
         Ok(_) => Err(io::Error::other(
             "existing immutable artifact differs; refusing overwrite",
@@ -210,7 +130,7 @@ fn verify_existing(directory: &Dir, name: &str, bytes: &[u8]) -> io::Result<bool
 
 /// Write a file once: to a pending name, synced, then linked into place; an existing equal file is
 /// kept and a different one refused.
-fn write_immutable(directory: &Dir, name: &str, bytes: &[u8]) -> io::Result<()> {
+fn write_immutable(directory: &Directory, name: &str, bytes: &[u8]) -> io::Result<()> {
     if verify_existing(directory, name, bytes)? {
         return Ok(());
     }
@@ -219,23 +139,17 @@ fn write_immutable(directory: &Dir, name: &str, bytes: &[u8]) -> io::Result<()> 
         process::id(),
         TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed)
     );
-    let mut options = OpenOptions::new();
-    options
-        .write(true)
-        .create_new(true)
-        .follow(FollowSymlinks::No);
-    #[cfg(unix)]
-    options.mode(0o600);
-    let file = directory.open_with(&temporary, &options)?;
+    let file = directory.create_new(&temporary)?;
     let result = publish(directory, file, &temporary, name, bytes);
     let cleanup = directory.remove_file(&temporary);
     result.and(cleanup)
 }
 
 /// Fill and sync the pending file, then link it as `name`: a writer that meets another's file
-/// there accepts it only when it holds the same bytes.
+/// there accepts it only when it holds the same bytes. The pending file is closed on return,
+/// before its removal, which Windows refuses for an open file.
 fn publish(
-    directory: &Dir,
+    directory: &Directory,
     mut file: File,
     temporary: &str,
     name: &str,
@@ -243,8 +157,8 @@ fn publish(
 ) -> io::Result<()> {
     file.write_all(bytes)?;
     file.sync_all()?;
-    match directory.hard_link(temporary, directory, name) {
-        Ok(()) => sync_directory(directory),
+    match directory.link(temporary, name) {
+        Ok(()) => Ok(()),
         Err(error)
             if error.kind() == ErrorKind::AlreadyExists
                 && verify_existing(directory, name, bytes)? =>
@@ -260,6 +174,8 @@ mod tests {
     use super::*;
     use crate::model::CanonicalizeInput;
     use crate::pipeline::canonicalize;
+    #[cfg(windows)]
+    use std::path::Component;
     use std::{env, fs, sync::Barrier, thread};
     #[cfg(unix)]
     use std::{
@@ -290,10 +206,10 @@ mod tests {
 
     /// `read_regular` on its own thread: the test fails, rather than hangs, if the open blocks.
     #[cfg(unix)]
-    fn read_without_blocking(directory: &Dir, name: &'static str) -> io::Result<Vec<u8>> {
+    fn read_without_blocking(directory: &Directory, name: &'static str) -> io::Result<Vec<u8>> {
         let directory = directory.try_clone().unwrap();
         let (sender, receiver) = mpsc::channel();
-        thread::spawn(move || sender.send(read_regular(&directory, name)));
+        thread::spawn(move || sender.send(directory.read_regular(name)));
         receiver
             .recv_timeout(Duration::from_secs(5))
             .expect("opening the artifact blocked")
@@ -304,24 +220,24 @@ mod tests {
     fn directory_handles_resist_ancestor_replacement_and_reject_special_files() {
         let root = scratch();
         let output = root.join("output");
-        let directory = open_directory(&output, true).unwrap();
+        let directory = Directory::open(&output, true).unwrap();
         fs::rename(&output, root.join("moved")).unwrap();
         fs::create_dir(root.join("outside")).unwrap();
         fs::write(root.join("outside/original.md"), "unchanged").unwrap();
         symlink(root.join("outside"), &output).unwrap();
         write_immutable(&directory, "original.md", b"safe").unwrap();
-        assert_eq!(read_regular(&directory, "original.md").unwrap(), b"safe");
+        assert_eq!(directory.read_regular("original.md").unwrap(), b"safe");
         assert_eq!(fs::read(root.join("moved/original.md")).unwrap(), b"safe");
         assert_eq!(
             fs::read(root.join("outside/original.md")).unwrap(),
             b"unchanged"
         );
-        assert!(open_directory(&output, false).is_err());
+        assert!(Directory::open(&output, false).is_err());
         // POSIX's `mkfifo` utility: Linux and macOS both ship it.
         let made = Command::new("mkfifo").arg(root.join("moved/fifo")).status();
         assert!(made.unwrap().success());
         assert!(read_without_blocking(&directory, "fifo").is_err());
-        assert!(read_regular(&directory, ".").is_err());
+        assert!(directory.read_regular(".").is_err());
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -346,10 +262,10 @@ mod tests {
     fn only_directories_open_and_only_saving_creates_them() {
         let root = scratch();
         fs::write(root.join("plain"), "not a directory").unwrap();
-        assert!(open_directory(&root.join("plain"), false).is_err());
-        assert!(open_directory(&root.join("absent/deeper"), false).is_err());
+        assert!(Directory::open(&root.join("plain"), false).is_err());
+        assert!(Directory::open(&root.join("absent/deeper"), false).is_err());
         assert!(!root.join("absent").exists());
-        open_directory(&root.join("absent/deeper"), true).unwrap();
+        Directory::open(&root.join("absent/deeper"), true).unwrap();
         assert!(root.join("absent/deeper").is_dir());
         fs::remove_dir_all(root).unwrap();
     }
@@ -360,9 +276,9 @@ mod tests {
         let root = scratch();
         fs::write(root.join("target.md"), "linked").unwrap();
         symlink(root.join("target.md"), root.join("original.md")).unwrap();
-        let directory = open_directory(&root, false).unwrap();
-        assert!(read_regular(&directory, "original.md").is_err());
-        assert_eq!(read_regular(&directory, "target.md").unwrap(), b"linked");
+        let directory = Directory::open(&root, false).unwrap();
+        assert!(directory.read_regular("original.md").is_err());
+        assert_eq!(directory.read_regular("target.md").unwrap(), b"linked");
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -370,7 +286,7 @@ mod tests {
     fn a_directory_in_place_of_an_artifact_is_named_and_kept() {
         let root = scratch();
         fs::create_dir(root.join("original.md")).unwrap();
-        let directory = open_directory(&root, false).unwrap();
+        let directory = Directory::open(&root, false).unwrap();
         let error = write_immutable(&directory, "original.md", b"text").unwrap_err();
         assert_eq!(error.to_string(), "artifact is not a regular file");
         assert!(root.join("original.md").is_dir());
@@ -390,7 +306,7 @@ mod tests {
             let pending = format!(".original.md.pending-{}-{sequence}", process::id());
             symlink(root.join("victim"), root.join(pending)).unwrap();
         }
-        let directory = open_directory(&root, false).unwrap();
+        let directory = Directory::open(&root, false).unwrap();
         assert!(write_immutable(&directory, "original.md", b"planted").is_err());
         assert_eq!(fs::read(root.join("victim")).unwrap(), b"unchanged");
         assert!(fs::symlink_metadata(root.join("original.md")).is_err());
@@ -408,7 +324,7 @@ mod tests {
         for pending in &planted {
             fs::write(pending, "unchanged").unwrap();
         }
-        let directory = open_directory(&root, false).unwrap();
+        let directory = Directory::open(&root, false).unwrap();
         assert!(write_immutable(&directory, "original.md", b"planted").is_err());
         for pending in &planted {
             assert_eq!(fs::read(pending).unwrap(), b"unchanged");
@@ -421,7 +337,7 @@ mod tests {
     #[test]
     fn a_directory_handle_writes_where_it_was_opened() {
         let root = scratch();
-        let directory = open_directory(&root.join("parent/output"), true).unwrap();
+        let directory = Directory::open(&root.join("parent/output"), true).unwrap();
         // Unix lets the ancestor move away; Windows refuses while a directory below it is open.
         let opened = if fs::rename(root.join("parent"), root.join("moved")).is_ok() {
             fs::create_dir_all(root.join("parent/output")).unwrap();
@@ -445,10 +361,16 @@ mod tests {
             root.components().next(),
             Some(Component::Prefix(_))
         ));
-        open_directory(&root.join("deeper"), true).unwrap();
+        Directory::open(&root.join("deeper"), true).unwrap();
         assert!(root.join("deeper").is_dir());
-        let error = open_directory(&root.join("deeper/../deeper"), false).unwrap_err();
+        let error = Directory::open(&root.join("deeper/../deeper"), false).unwrap_err();
         assert_eq!(error.to_string(), "snapshot path contains parent traversal");
+        // `C:relative` names the working directory of drive C, not a root.
+        let error = Directory::open(Path::new("C:relative"), false).unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "snapshot path has a drive prefix without its root"
+        );
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -465,21 +387,9 @@ mod tests {
             .status()
             .unwrap();
         assert!(created.success());
-        assert!(open_directory(&root.join("linked"), false).is_err());
-        assert!(open_directory(&root.join("linked/deeper"), true).is_err());
+        assert!(Directory::open(&root.join("linked"), false).is_err());
+        assert!(Directory::open(&root.join("linked/deeper"), true).is_err());
         assert!(!root.join("outside/deeper").exists());
-        fs::remove_dir_all(root).unwrap();
-    }
-
-    #[cfg(unix)]
-    #[test]
-    fn a_directory_that_cannot_be_flushed_is_an_error() {
-        let root = scratch();
-        let directory = open_directory(&root.join("sealed"), true).unwrap();
-        // The flush reads the directory, which its owner can no longer do.
-        fs::set_permissions(root.join("sealed"), fs::Permissions::from_mode(0o000)).unwrap();
-        assert!(sync_directory(&directory).is_err());
-        fs::set_permissions(root.join("sealed"), fs::Permissions::from_mode(0o700)).unwrap();
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -489,7 +399,7 @@ mod tests {
         let root = scratch();
         fs::create_dir(root.join("locked")).unwrap();
         fs::set_permissions(root.join("locked"), fs::Permissions::from_mode(0o500)).unwrap();
-        let error = open_directory(&root.join("locked/new"), true).unwrap_err();
+        let error = Directory::open(&root.join("locked/new"), true).unwrap_err();
         assert_eq!(error.kind(), ErrorKind::PermissionDenied);
         fs::set_permissions(root.join("locked"), fs::Permissions::from_mode(0o700)).unwrap();
         fs::remove_dir_all(root).unwrap();
@@ -501,7 +411,7 @@ mod tests {
         // Both writers usually pass the first check before either links: the loser then meets
         // the winner's file at the link and must compare it, not accept it.
         for round in 0..50 {
-            let directory = open_directory(&root.join(round.to_string()), true).unwrap();
+            let directory = Directory::open(&root.join(round.to_string()), true).unwrap();
             let accepted = race_writers(&directory);
             assert_eq!(
                 accepted.iter().filter(|&&won| won).count(),
@@ -517,7 +427,7 @@ mod tests {
 
     /// Two threads released together, each writing different bytes to `artifact`: which of the
     /// left and right writers were accepted.
-    fn race_writers(directory: &Dir) -> Vec<bool> {
+    fn race_writers(directory: &Directory) -> Vec<bool> {
         let barrier = Barrier::new(2);
         let write = |bytes: &[u8]| {
             barrier.wait();

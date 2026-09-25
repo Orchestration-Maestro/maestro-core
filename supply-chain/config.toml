@@ -30,18 +30,6 @@ criteria = "safe-to-deploy"
 version = "0.12.1"
 criteria = "safe-to-deploy"
 
-[[exemptions.cap-fs-ext]]
-version = "3.4.6"
-criteria = "safe-to-deploy"
-
-[[exemptions.cap-primitives]]
-version = "3.4.6"
-criteria = "safe-to-deploy"
-
-[[exemptions.cap-std]]
-version = "3.4.6"
-criteria = "safe-to-deploy"
-
 [[exemptions.cfg-if]]
 version = "1.0.5"
 criteria = "safe-to-deploy"
@@ -62,10 +50,6 @@ criteria = "safe-to-deploy"
 version = "0.11.3"
 criteria = "safe-to-deploy"
 
-[[exemptions.fs-set-times]]
-version = "0.20.3"
-criteria = "safe-to-deploy"
-
 [[exemptions.hashbrown]]
 version = "0.17.1"
 criteria = "safe-to-deploy"
@@ -76,18 +60,6 @@ criteria = "safe-to-deploy"
 
 [[exemptions.indexmap]]
 version = "2.14.2"
-criteria = "safe-to-deploy"
-
-[[exemptions.io-extras]]
-version = "0.18.4"
-criteria = "safe-to-deploy"
-
-[[exemptions.io-lifetimes]]
-version = "2.0.4"
-criteria = "safe-to-deploy"
-
-[[exemptions.ipnet]]
-version = "2.12.2"
 criteria = "safe-to-deploy"
 
 [[exemptions.itoa]]
@@ -102,16 +74,8 @@ criteria = "safe-to-deploy"
 version = "0.12.1"
 criteria = "safe-to-deploy"
 
-[[exemptions.maybe-owned]]
-version = "0.3.4"
-criteria = "safe-to-deploy"
-
 [[exemptions.memchr]]
 version = "2.8.3"
-criteria = "safe-to-deploy"
-
-[[exemptions.once_cell]]
-version = "1.12.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.proc-macro2]]
@@ -175,47 +139,7 @@ version = "0.2.11"
 criteria = "safe-to-deploy"
 
 [[exemptions.windows-sys]]
-version = "0.59.0"
-criteria = "safe-to-deploy"
-
-[[exemptions.windows-targets]]
-version = "0.52.6"
-criteria = "safe-to-deploy"
-
-[[exemptions.windows_aarch64_gnullvm]]
-version = "0.52.6"
-criteria = "safe-to-deploy"
-
-[[exemptions.windows_aarch64_msvc]]
-version = "0.52.6"
-criteria = "safe-to-deploy"
-
-[[exemptions.windows_i686_gnu]]
-version = "0.52.6"
-criteria = "safe-to-deploy"
-
-[[exemptions.windows_i686_gnullvm]]
-version = "0.52.6"
-criteria = "safe-to-deploy"
-
-[[exemptions.windows_i686_msvc]]
-version = "0.52.6"
-criteria = "safe-to-deploy"
-
-[[exemptions.windows_x86_64_gnu]]
-version = "0.52.6"
-criteria = "safe-to-deploy"
-
-[[exemptions.windows_x86_64_gnullvm]]
-version = "0.52.6"
-criteria = "safe-to-deploy"
-
-[[exemptions.windows_x86_64_msvc]]
-version = "0.52.6"
-criteria = "safe-to-deploy"
-
-[[exemptions.winx]]
-version = "0.36.4"
+version = "0.61.2"
 criteria = "safe-to-deploy"
 
 [[exemptions.zmij]]

@@ -3,6 +3,32 @@
 # Names are exact, line and column included: when code moves, the mutant comes
 # back as missed and its exclusion is reviewed again (tasks.md, T019).
 exclude_re = [
+  # Compiled only for Windows, the one file named whole: the Linux mutation run
+  # builds none of it, so no test there can see its mutants. The Windows CI leg
+  # runs its tests (ADR-0018).
+  '^crates/maestro-canonicalization/src/filesystem/windows\.rs:',
+  # OFlags and Mode bits are disjoint, so `a ^ b` equals `a | b`.
+  '^crates/maestro-canonicalization/src/filesystem/unix\.rs:87:32: replace \| with \^ in open_child$',
+  '^crates/maestro-canonicalization/src/filesystem/unix\.rs:87:52: replace \| with \^ in open_child$',
+  '^crates/maestro-canonicalization/src/filesystem/unix\.rs:87:71: replace \| with \^ in open_child$',
+  '^crates/maestro-canonicalization/src/filesystem/unix\.rs:44:28: replace \| with \^ in Directory::read_regular$',
+  '^crates/maestro-canonicalization/src/filesystem/unix\.rs:44:47: replace \| with \^ in Directory::read_regular$',
+  '^crates/maestro-canonicalization/src/filesystem/unix\.rs:44:66: replace \| with \^ in Directory::read_regular$',
+  '^crates/maestro-canonicalization/src/filesystem/unix\.rs:61:28: replace \| with \^ in Directory::create_new$',
+  '^crates/maestro-canonicalization/src/filesystem/unix\.rs:61:45: replace \| with \^ in Directory::create_new$',
+  '^crates/maestro-canonicalization/src/filesystem/unix\.rs:61:60: replace \| with \^ in Directory::create_new$',
+  '^crates/maestro-canonicalization/src/filesystem/unix\.rs:61:79: replace \| with \^ in Directory::create_new$',
+  '^crates/maestro-canonicalization/src/filesystem/unix\.rs:62:24: replace \| with \^ in Directory::create_new$',
+  '^crates/maestro-canonicalization/src/filesystem/unix\.rs:107:24: replace \| with \^ in open_nofollow$',
+  '^crates/maestro-canonicalization/src/filesystem/unix\.rs:107:42: replace \| with \^ in open_nofollow$',
+  '^crates/maestro-canonicalization/src/filesystem/unix\.rs:107:61: replace \| with \^ in open_nofollow$',
+  # `& O_CLOEXEC` drops O_NOFOLLOW, which O_CREAT | O_EXCL already implies for
+  # the new pending file, and O_CLOEXEC, which only a child process started
+  # while the file is open could observe.
+  '^crates/maestro-canonicalization/src/filesystem/unix\.rs:61:79: replace \| with & in Directory::create_new$',
+  # `RDONLY & CLOEXEC` is 0 on Linux: it drops O_CLOEXEC only, which only a
+  # child process started while the artifact is open could observe.
+  '^crates/maestro-canonicalization/src/filesystem/unix\.rs:107:24: replace \| with & in open_nofollow$',
   # `<=` only adds the empty range, which holds no content: the same findings.
   '^crates/maestro-canonicalization/src/validate/structure\.rs:155:19: replace < with <= in check_uncovered$',
   '^crates/maestro-canonicalization/src/validate/structure\.rs:165:14: replace < with <= in check_gap$',

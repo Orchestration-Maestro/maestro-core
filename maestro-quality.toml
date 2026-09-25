@@ -45,6 +45,20 @@ path = "crates/maestro-canonicalization/src/validate/mod.rs"
 item = "validate_structure"
 reason = "the pipeline runs the structural validator, a subsystem of its own"
 
+# The platform door picks rustix on Unix or Win32's flags on Windows, so that
+# neither the store nor the tokenizer branches on the platform (ADR-0018).
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-canonicalization/src/filesystem/mod.rs"
+item = "Directory"
+reason = "the store's link-free directories, one type on each platform"
+
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-canonicalization/src/filesystem/mod.rs"
+item = "open_nofollow"
+reason = "the artifact check's link-free open, one function on each platform"
+
 # The words this repository means that the spell checker reads as mistakes:
 # Exemple, French test input for the canonicalizer; RTO, the recovery time
 # objective beside RPO; WRONLY, the POSIX open flag as rustix names it.
