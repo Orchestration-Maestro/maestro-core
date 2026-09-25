@@ -1,62 +1,107 @@
 //! The prepared input: body parts, formatting, sentence boundaries and fitting prefixes.
-use super::{Body, Layout, SENTENCE_ENDS, structure_error};
+use super::refusal::structure_error;
+use super::structure::{Body, Layout};
 use crate::{
-    BlockType, Error,
-    chunks::{ChunkContent, InputPart, InputRole, MappingRun, OriginMode, SourceUnit, TextRange},
+    Error,
+    chunks::{
+        ChunkContent, InputPart, InputRole, MappingRun, OriginMode, SourceUnit, TableWindow,
+        TextRange,
+    },
+    content::BlockType,
 };
 use std::collections::BTreeSet;
+
+/// Characters after which whitespace ends a sentence: ASCII and full-width.
+const SENTENCE_ENDS: [char; 6] = ['.', '!', '?', '。', '！', '？'];
 
 impl Layout<'_> {
     /// The body's input parts: a table window's cells separated by tabs, else each fragment with
     /// its item marker and the separators between items and blocks.
     fn body_parts(&self, body: &Body) -> Result<Vec<InputPart>, Error> {
-        let mut parts = Vec::new();
         if !body.windows.is_empty() {
-            let index = body.fragments[0].contribution.unit_index;
-            self.item_prefix(index, &mut parts)?;
-            for (row, window) in body.windows.iter().enumerate() {
-                if row > 0 {
-                    formatting(&mut parts, format!("\n{}", self.indentation(index)), true);
-                }
-                let cells = self.row_cells(&window.row_id)?;
-                for (position, &column) in window.columns.iter().enumerate() {
-                    if position > 0 {
-                        formatting(&mut parts, "\t".into(), true);
-                    }
-                    let cell = cells.get(column).ok_or_else(structure_error)?;
-                    for fragment in body.fragments.iter().filter(|f| {
-                        self.mapped.units[f.contribution.unit_index].block_id == cell.block_id
-                    }) {
-                        self.fragment_parts(fragment, &mut parts)?;
-                    }
-                }
-            }
-            return Ok(parts);
+            return self.window_parts(body);
         }
+        let mut parts = Vec::new();
         let mut previous: Option<usize> = None;
         let mut seen_items = BTreeSet::new();
         for fragment in &body.fragments {
             let index = fragment.contribution.unit_index;
-            let item = self.nearest(index, &BlockType::ListItem);
             if let Some(previous) = previous {
-                let previous_item = self.nearest(previous, &BlockType::ListItem);
-                if item.map(|b| &b.block_id) != previous_item.map(|b| &b.block_id) {
-                    formatting(&mut parts, "\n".into(), true);
-                } else if self.mapped.units[index].block_id != self.mapped.units[previous].block_id
-                {
-                    let separator = format!("\n{}", self.indentation(index));
-                    formatting(&mut parts, separator.repeat(2), true);
-                }
+                self.body_separator(&mut parts, previous, index)?;
             }
-            if let Some(item) = item {
-                if seen_items.insert(item.block_id.as_str()) {
-                    self.item_prefix(index, &mut parts)?;
-                }
+            let first_of_item = self
+                .nearest(index, &BlockType::ListItem)
+                .is_some_and(|item| seen_items.insert(item.block_id.as_str()));
+            if first_of_item {
+                self.item_prefix(index, &mut parts)?;
             }
             self.fragment_parts(fragment, &mut parts)?;
             previous = Some(index);
         }
         Ok(parts)
+    }
+
+    /// A table body's input parts: its item marker, then each window's cells separated by tabs
+    /// and its rows by indented line breaks.
+    fn window_parts(&self, body: &Body) -> Result<Vec<InputPart>, Error> {
+        let mut parts = Vec::new();
+        let index = body
+            .fragments
+            .first()
+            .ok_or_else(structure_error)?
+            .contribution
+            .unit_index;
+        self.item_prefix(index, &mut parts)?;
+        for (row, window) in body.windows.iter().enumerate() {
+            if row > 0 {
+                formatting(&mut parts, format!("\n{}", self.indentation(index)), true);
+            }
+            self.row_parts(body, window, &mut parts)?;
+        }
+        Ok(parts)
+    }
+
+    /// One window's cells, separated by tabs: the body's fragments in each cell.
+    fn row_parts(
+        &self,
+        body: &Body,
+        window: &TableWindow,
+        parts: &mut Vec<InputPart>,
+    ) -> Result<(), Error> {
+        let cells = self.row_cells(&window.row_id)?;
+        for (position, &column) in window.columns.iter().enumerate() {
+            if position > 0 {
+                formatting(parts, "\t".into(), true);
+            }
+            let cell = cells.get(column).ok_or_else(structure_error)?;
+            for fragment in body
+                .fragments
+                .iter()
+                .filter(|fragment| self.in_block(fragment.contribution.unit_index, &cell.block_id))
+            {
+                self.fragment_parts(fragment, parts)?;
+            }
+        }
+        Ok(())
+    }
+
+    /// The separator before a body fragment: a line break between list items, a blank line
+    /// between blocks of one item.
+    fn body_separator(
+        &self,
+        parts: &mut Vec<InputPart>,
+        previous: usize,
+        index: usize,
+    ) -> Result<(), Error> {
+        let item = self.nearest(index, &BlockType::ListItem);
+        let previous_item = self.nearest(previous, &BlockType::ListItem);
+        if item.map(|found| &found.block_id) != previous_item.map(|found| &found.block_id) {
+            formatting(parts, "\n".into(), true);
+        } else if self.unit(index)?.block_id != self.unit(previous)?.block_id {
+            let separator = format!("\n{}", self.indentation(index));
+            formatting(parts, separator.repeat(2), true);
+        }
+        Ok(())
     }
 
     /// The chunk a body makes: its context, a blank line and its body, counted as one complete
@@ -105,11 +150,13 @@ impl Layout<'_> {
         }
         let token_count = count(&prepared_input)?;
         let mut container_ids = Vec::new();
-        for fragment in &body.fragments {
-            for block in &self.ancestry[fragment.contribution.unit_index] {
-                if !container_ids.contains(&block.block_id) {
-                    container_ids.push(block.block_id.clone());
-                }
+        let ancestors = body
+            .fragments
+            .iter()
+            .flat_map(|fragment| self.ancestors(fragment.contribution.unit_index));
+        for block in ancestors {
+            if !container_ids.contains(&block.block_id) {
+                container_ids.push(block.block_id.clone());
             }
         }
         Ok(ChunkContent {
@@ -176,8 +223,8 @@ pub(super) fn normalized_range(
         let next = unit
             .envelopes
             .iter()
-            .filter(|e| e.closing.start <= end && end < e.closing.end)
-            .map(|e| e.closing.end)
+            .filter(|envelope| envelope.closing.start <= end && end < envelope.closing.end)
+            .map(|envelope| envelope.closing.end)
             .max();
         match next {
             Some(next) => end = next,
@@ -187,10 +234,10 @@ pub(super) fn normalized_range(
     let text = unit.text.get(start..end)?;
     let substantive = text.char_indices().any(|(offset, _)| {
         let at = start + offset;
-        !unit.envelopes.iter().any(|e| {
-            [e.opening, e.closing]
+        !unit.envelopes.iter().any(|envelope| {
+            [envelope.opening, envelope.closing]
                 .iter()
-                .any(|w| w.start <= at && at < w.end)
+                .any(|wrapper| wrapper.start <= at && at < wrapper.end)
         })
     });
     substantive.then_some(TextRange { start, end })
@@ -207,7 +254,7 @@ pub(super) fn boundaries(text: &str, code: bool) -> (Vec<usize>, Vec<usize>) {
         if character.is_whitespace() {
             whitespace.push(end);
             if (code && character == '\n')
-                || (!code && previous.is_some_and(|c| SENTENCE_ENDS.contains(&c)))
+                || (!code && previous.is_some_and(|before| SENTENCE_ENDS.contains(&before)))
             {
                 meaningful.push(end);
             }
@@ -232,16 +279,15 @@ pub(super) fn fit_prefix(
             if end == text.len() {
                 return Ok(end);
             }
-            if let Some(&boundary) = preferred
+            let boundary = preferred
                 .iter()
                 .rev()
-                .find(|&&p| p > 0 && p < end && text.is_char_boundary(p))
-            {
-                if fits(boundary)? {
-                    return Ok(boundary);
-                }
-            }
-            return Ok(end);
+                .copied()
+                .find(|&cut| cut > 0 && cut < end && text.is_char_boundary(cut));
+            return match boundary {
+                Some(boundary) if fits(boundary)? => Ok(boundary),
+                Some(_) | None => Ok(end),
+            };
         }
         let scalar_count = text[..end].chars().count();
         if scalar_count <= 1 {
