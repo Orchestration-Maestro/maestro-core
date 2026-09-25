@@ -49,24 +49,27 @@ fn generated_unicode_dialects_preserve_spans_semantics_and_roundtrips() {
             format!("# H {{#first #last}}\n\n{body}\n"),
         ];
         for (wrapper_id, wrapper) in wrappers.iter().enumerate() {
-            for crlf in [false, true] {
-                let source = if crlf {
-                    wrapper.replace('\n', "\r\n")
-                } else {
-                    wrapper.clone()
-                };
-                for extensions in [false, true] {
-                    let case = format!(
-                        "fragment={fragment_id} wrapper={wrapper_id} \
-                         crlf={crlf} extensions={extensions}"
-                    );
-                    let doc =
-                        check_deterministic_valid_round_trip(&case, &source, extensions, &marker);
-                    check_ledger_covers_every_byte_once(&case, &doc, &source);
-                    check_meaning_is_never_markup(&case, &doc, &source, &marker);
-                    check_blocks_nest_inside_their_parents(&case, &doc, &source);
-                }
-            }
+            let wrapped = format!("fragment={fragment_id} wrapper={wrapper_id}");
+            check_every_line_ending_and_profile(&wrapped, wrapper, &marker);
+        }
+    }
+}
+
+/// Every property of one wrapped fragment, with LF and CRLF line endings,
+/// without and with the parser's extensions.
+fn check_every_line_ending_and_profile(wrapped: &str, wrapper: &str, marker: &str) {
+    for crlf in [false, true] {
+        let source = if crlf {
+            wrapper.replace('\n', "\r\n")
+        } else {
+            wrapper.to_owned()
+        };
+        for extensions in [false, true] {
+            let case = format!("{wrapped} crlf={crlf} extensions={extensions}");
+            let doc = check_deterministic_valid_round_trip(&case, &source, extensions, marker);
+            check_ledger_covers_every_byte_once(&case, &doc, &source);
+            check_meaning_is_never_markup(&case, &doc, &source, marker);
+            check_blocks_nest_inside_their_parents(&case, &doc, &source);
         }
     }
 }
@@ -98,12 +101,14 @@ fn check_deterministic_valid_round_trip(
     assert!(
         !validate_document(&decoded, source)
             .iter()
-            .any(|f| f.severity == Severity::Error),
+            .any(|finding| finding.severity == Severity::Error),
         "{case}"
     );
     assert!(doc.access_policy.is_none(), "{case}");
     assert!(
-        doc.blocks.iter().any(|b| b.retrieval_text.contains(marker)),
+        doc.blocks
+            .iter()
+            .any(|block| block.retrieval_text.contains(marker)),
         "{case}"
     );
     doc
@@ -149,13 +154,13 @@ fn check_blocks_nest_inside_their_parents(case: &str, doc: &CanonicalDocument, s
                 let parent = doc
                     .blocks
                     .iter()
-                    .find(|b| &b.block_id == parent)
+                    .find(|candidate| &candidate.block_id == parent)
                     .expect(case);
                 assert!(
                     parent
                         .source_spans
                         .iter()
-                        .any(|p| p.start <= span.start && span.end <= p.end),
+                        .any(|outer| outer.start <= span.start && span.end <= outer.end),
                     "{case}"
                 );
             }
