@@ -1,14 +1,14 @@
 //! Tests of source mapping: order, Unicode, entities, envelopes and accounting.
 use super::{map_accounting, map_document, mapped_slice};
 use crate::{
-    chunks::{
-        InlineEnvelope, MappedDocument, MappingRun, OriginMode, SourceDisposition, SourceOrigin,
-        TextRange, UnitField,
-    },
     content::{BlockType, ContentNode},
     document::{CanonicalDocument, SourceRole},
     model::{CanonicalizeInput, SourceSpan},
     pipeline::canonicalize,
+    source_units::{
+        InlineEnvelope, MappedDocument, MappingRun, OriginMode, SourceDisposition, SourceOrigin,
+        TextRange, UnitField,
+    },
 };
 
 #[test]

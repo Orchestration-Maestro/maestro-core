@@ -4,9 +4,10 @@ use super::refusal::structure_error;
 use super::structure::{Body, ContextEntry, Layout};
 use crate::{
     chunk_mapping::mapped_slice,
-    chunks::{Contribution, Fragment, InputPart, InputRole, TextRange, UnitField},
     content::{Block, BlockType, ContentNode, InlineKind},
     error::Error,
+    prepared_inputs::{Contribution, Fragment, InputPart, InputRole},
+    source_units::{TextRange, UnitField},
 };
 use std::collections::BTreeSet;
 

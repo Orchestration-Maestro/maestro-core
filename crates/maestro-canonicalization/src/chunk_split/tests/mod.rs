@@ -4,10 +4,11 @@ use super::structure::{Body, layout};
 use super::{MAX_TOKENS, build_drafts, validate_preparation};
 use crate::{
     chunk_mapping::map_document,
-    chunks::{ChunkContent, Fragment, InputRole, MappedDocument, SplitKind, UnitField},
     error::Error,
     model::CanonicalizeInput,
     pipeline::canonicalize,
+    prepared_inputs::{ChunkContent, Fragment, InputRole, SplitKind},
+    source_units::{MappedDocument, UnitField},
 };
 use std::collections::BTreeSet;
 

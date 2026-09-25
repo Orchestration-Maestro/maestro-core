@@ -1,7 +1,7 @@
 //! Batch records: per-occurrence evidence, retrieval chunks and prepared-input groups.
-use super::mapping::{MappedDocument, TextRange};
-use super::prepared::ChunkContent;
 use crate::dedup::Deduplication;
+use crate::prepared_inputs::ChunkContent;
+use crate::source_units::{MappedDocument, TextRange};
 use serde::Serialize;
 
 /// Exactly-once primary coverage in one mapped unit.

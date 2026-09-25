@@ -2,10 +2,11 @@
 //! repeat.
 use super::refusal::structure_error;
 use crate::{
-    chunks::{Fragment, InputRole, MappedDocument, SourceUnit, TableWindow},
     content::Block,
     document::CanonicalDocument,
     error::Error,
+    prepared_inputs::{Fragment, InputRole, TableWindow},
+    source_units::{MappedDocument, SourceUnit},
 };
 use std::collections::BTreeMap;
 

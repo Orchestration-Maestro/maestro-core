@@ -23,7 +23,9 @@ mod metadata;
 mod model;
 mod parse;
 mod pipeline;
+mod prepared_inputs;
 mod replay;
+mod source_units;
 mod store;
 mod tokenizer;
 mod validate;
@@ -34,6 +36,8 @@ pub use document::{CanonicalDocument, MarkdownReference, Section, SourceAccounti
 pub use error::Error;
 pub use model::*;
 pub use pipeline::{PARSER_VERSION, SCHEMA_VERSION, canonicalize};
+pub use prepared_inputs::*;
 pub use replay::validate_document;
+pub use source_units::*;
 pub use store::{load_document, save_document};
 pub use tokenizer::NativeTokenizer;

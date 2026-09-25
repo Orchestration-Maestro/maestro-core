@@ -1,6 +1,7 @@
 //! Context, characterized on small documents: the exact prepared input of each chunk.
 use super::*;
-use crate::chunks::{Contribution, TextRange};
+use crate::prepared_inputs::Contribution;
+use crate::source_units::TextRange;
 
 /// Each chunk under the fake counter.
 fn drafted(markdown: &str) -> Vec<ChunkContent> {

@@ -1,7 +1,7 @@
 //! The pure preparation helpers: cut points, fitting prefixes and delimiter-safe ranges.
 use super::super::prepare::{boundaries, normalized_range};
 use super::*;
-use crate::chunks::{InlineEnvelope, TextRange};
+use crate::source_units::{InlineEnvelope, TextRange};
 
 #[test]
 fn cut_points_follow_whitespace_and_meaningful_ones_end_sentences_or_code_lines() {

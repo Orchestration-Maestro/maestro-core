@@ -4,9 +4,8 @@ use super::limits::{MAX_TOKENS, TARGET_TOKENS};
 use super::refusal::structure_error;
 use super::structure::{Body, Layout, layout};
 use crate::{
-    chunks::{ChunkContent, MappedDocument},
-    document::CanonicalDocument,
-    error::Error,
+    document::CanonicalDocument, error::Error, prepared_inputs::ChunkContent,
+    source_units::MappedDocument,
 };
 use std::collections::{BTreeMap, VecDeque};
 

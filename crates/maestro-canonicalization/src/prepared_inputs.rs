@@ -1,5 +1,5 @@
 //! The prepared embedding input: its parts, primary fragments and table windows.
-use super::mapping::{MappingRun, TextRange};
+use crate::source_units::{MappingRun, TextRange};
 use serde::Serialize;
 
 /// Explicit role of a piece of the complete embedding input.

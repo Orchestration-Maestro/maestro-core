@@ -1,12 +1,12 @@
 //! Prepared-input groups: identical prepared inputs share one identity.
 use super::batch::PreparedInputGroup;
-use super::mapping::{CHUNKER_VERSION, MappedDocument};
-use super::prepared::{ChunkContent, PREPARATION_PROFILE};
 use super::validation::invalid_chunks;
 use crate::dedup::Deduplication;
 use crate::document::CanonicalDocument;
 use crate::error::Error;
 use crate::hashing::digest;
+use crate::prepared_inputs::{ChunkContent, PREPARATION_PROFILE};
+use crate::source_units::{CHUNKER_VERSION, MappedDocument};
 use serde::Serialize;
 use std::collections::BTreeMap;
 

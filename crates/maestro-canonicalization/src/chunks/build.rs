@@ -1,13 +1,13 @@
 //! Batch assembly: map, split, replay and identify every authorized occurrence.
 use super::batch::{ChunkBatch, ChunkDocument, RetrievalChunk};
 use super::identity::{PreparedGroups, chunk_id, insert_prepared_group, prepared_identity};
-use super::mapping::CHUNKER_VERSION;
-use super::prepared::PREPARATION_PROFILE;
 use super::validation::{validate_chunks, validate_coverage};
 use crate::chunk_mapping::map_document;
 use crate::chunk_split::{MAX_TOKENS, TARGET_TOKENS, build_drafts};
 use crate::dedup::{DedupInput, DedupScope, Deduplication, WarningPolicy, group_exact};
 use crate::error::Error;
+use crate::prepared_inputs::PREPARATION_PROFILE;
+use crate::source_units::CHUNKER_VERSION;
 use crate::tokenizer::NativeTokenizer;
 use std::collections::BTreeMap;
 

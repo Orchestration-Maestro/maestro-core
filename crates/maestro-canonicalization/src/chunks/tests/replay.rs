@@ -2,6 +2,8 @@
 use super::*;
 use crate::chunk_mapping::map_document;
 use crate::chunk_split::{MAX_TOKENS, build_drafts};
+use crate::prepared_inputs::{ChunkContent, Fragment, InputRole};
+use crate::source_units::{MappedDocument, OriginMode, TextRange};
 use std::mem;
 
 #[test]

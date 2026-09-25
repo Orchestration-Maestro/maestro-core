@@ -3,9 +3,10 @@
 use super::refusal::structure_error;
 use super::structure::{Body, Layout, layout};
 use crate::{
-    chunks::{ChunkContent, MappedDocument, TableWindow},
     document::CanonicalDocument,
     error::Error,
+    prepared_inputs::{ChunkContent, TableWindow},
+    source_units::MappedDocument,
 };
 use std::collections::BTreeSet;
 
