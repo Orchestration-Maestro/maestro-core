@@ -299,7 +299,12 @@ the projections from the kernel.
 `source_ref`, `source_tree` to `source_kind` (6 kinds), `collection` to `set`
 (30 document sets, an optional field added to the contract so nothing is
 dropped), the directory name to `version`; `lang`, `captured_at`, `component`
-and `platform` are left out, never guessed.
+and `platform` are left out, never guessed. `path` stays relative to the
+manifest's own directory. 832 lines carry no URL, all of the GitHub and
+internal documents: their `source_ref` is `corpus-path:` followed by `path`,
+unique and derived rather than invented, and without the release so a document
+keeps its identity in the next one. Five URLs are each shared by two documents
+with different content; the importer holds both of each pair (T019).
 `collection.json` declares `ctm` (ADR-0014). The golden set is drafted after
 canonicalization, because its expected answers are section IDs: agents sample
 the corpus stratified by source kind, write the questions, and the owner
@@ -342,7 +347,7 @@ Kernel tables, beside the document tables of
 
 | Contract | Shape |
 | --- | --- |
-| `maestro-corpus/1` | JSONL; required `schema`, `path`, `sha256`, `bytes`, `source_ref`, `title`, `source_kind`; optional `set`, `version`, `lang`, `captured_at`, `product`, `component`, `platform`, `extractor`, `access`; unknown keys refused |
+| `maestro-corpus/1` | JSONL; required `schema`, `path` (relative to the manifest's directory), `sha256`, `bytes`, `source_ref` (the origin URL, or `corpus-path:` and `path` when there is none), `title`, `source_kind`; optional `set`, `version`, `lang`, `captured_at`, `product`, `component`, `platform`, `extractor`, `access`; unknown keys refused; lines sharing a `source_ref` with different digests are held |
 | `maestro-collection/1` | Strict JSON of [01 §1](../../docs/architecture/01-knowledge-pipeline.md#1-collections-sources-and-scopes) (ADR-0014) |
 | `maestro-evidence/1` | Passages with title, section path, version, URL, digest, span and text; conflict flags; known gaps; routes and their availability; trace apart |
 | Events | `maestro.knowledge.{import.completed, revision.held, generation.published, generation.retired}.v1`, CloudEvents envelope, schemas in `schemas/events/` |

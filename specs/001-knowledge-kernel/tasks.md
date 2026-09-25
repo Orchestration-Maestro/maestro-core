@@ -382,9 +382,11 @@ SC-S1-001.
 
 - [ ] **Step 1: Failing tests** on a synthetic manifest: a digest mismatch
   refuses that entry with both digests and the rest continue; a malformed
-  line is refused with its number; a second import reports every revision
-  `unchanged` and writes nothing; memory stays bounded by the largest
-  document.
+  line is refused with its number; two lines sharing a `source_ref` with
+  different digests are both held with the reason, never one silently
+  replacing the other; `path` resolves against the manifest's directory; a
+  second import reports every revision `unchanged` and writes nothing;
+  memory stays bounded by the largest document.
 - [ ] **Step 2: Implement** the streaming import: record the collection, its
   sources and scope tags; parse, verify and canonicalize each line; store
   originals and canonical documents as artifacts; record revisions.
