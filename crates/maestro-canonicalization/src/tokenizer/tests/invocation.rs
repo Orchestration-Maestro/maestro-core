@@ -80,6 +80,9 @@ fn invocation_replaces_environment_and_preserves_model_argument() {
             .keys()
             .map(String::as_str)
             .filter(|key| !injected.contains(key))
+            // The probe is this test executable: under coverage measurement its own profile
+            // runtime sets this marker as it starts, so the child adds it itself.
+            .filter(|key| !key.starts_with("__LLVM_PROFILE_"))
             .collect::<BTreeSet<_>>(),
         BTreeSet::from(["CUDA_VISIBLE_DEVICES", "LC_ALL", "PATH", loader])
     );
