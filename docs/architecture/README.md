@@ -27,7 +27,8 @@ and the invariants. Each layer has its own document:
 | [07 Extensibility](07-extensibility.md) | Entry points, the event stream (exit points), extensions that plug in and out without core changes |
 | [08 Traceability](08-traceability.md) | Every earlier requirement and decision, with its status and location in this design |
 | [ADRs](../adr/README.md) | The hard-to-reverse decisions and their trade-offs |
-| [Constitution](https://github.com/Orchestration-Maestro/.github/blob/main/CONSTITUTION.md) | The non-negotiable principles and gates |
+| [Golden rules](https://github.com/Orchestration-Maestro/.github/blob/main/golden-rules/engineering.md) | The organization's rules, which come first; [`docs/standards/`](../standards/engineering.md) maps them here |
+| [Constitution](https://github.com/Orchestration-Maestro/.github/blob/main/CONSTITUTION.md) | Spec Kit's index of the organization's identity, rules and tools; it holds no rule of its own |
 | [Glossary](../../CONTEXT.md) | The domain vocabulary every document and identifier uses |
 
 ## 1. What Maestro is

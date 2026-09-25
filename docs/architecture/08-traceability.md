@@ -408,9 +408,9 @@ first slice; the earlier plan's first governed workflow (U08) moves to S4.
 | ID | Requirement | Status | Where |
 | --- | --- | --- | --- |
 | core ownership | `maestro-core` is the complete production home; no separate runtime repository | Kept | README §7 |
-| core no stubs | No empty command handlers, interface crates or stub supervisor | Kept | Constitution principle II, README §8 |
+| core no stubs | No empty command handlers, interface crates or stub supervisor | Kept | FND-002 and P-001 of the golden rules, README §8 |
 | core dependency rule | Adapters → application → processing → I/O; no transport types in processing; no cycles | Kept | README §8 |
-| core abstractions | New crates, traits and registries only for a real variation | Kept | Constitution principle III |
+| core abstractions | New crates, traits and registries only for a real variation | Kept | P-004 and P-005 of the golden rules |
 | core baseline | Golden controls, 24 tools, 90 % coverage, size limits, hooks, security, release evidence, principles and mandates | Kept | [05 §9](05-platform-and-operations.md#9-engineering-baseline), [06 S0](06-roadmap.md#s0-foundation) |
 | core Sonar | Sonar as a scoped capability | Dropped (§16) | — |
 | core migration | 43 reviewed candidates, fixtures byte-preserved, a second synthetic topic | Adapted (§15 A25) | ADR-0001 |
