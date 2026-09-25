@@ -1,0 +1,3 @@
+# The example fixture's original.md keeps its author's relative link to
+# assets/flow.svg, which resolves beside input.md, not beside the copy.
+examples/expected/assets/flow\.svg$

@@ -56,6 +56,7 @@ in place.
 │   │   │   ├── expected/                                                    # What the tool must write for the example input
 │   │   │   │   ├── canonical.json                                           # JSON data: canonical
 │   │   │   │   └── original.md                                              # Sample document: Operations
+│   │   │   ├── .rumdl.toml                                                  # The example is a fixture, not documentation: input.md is Markdown as an author wrote it, duplicate headings and all
 │   │   │   ├── input.md                                                     # Sample document: Operations
 │   │   │   └── metadata.json                                                # JSON data: metadata
 │   │   ├── src/                                                             # The crate's sources
@@ -205,6 +206,7 @@ in place.
 ├── .editorconfig                                                            # Editor settings that survive the editor
 ├── .gitattributes                                                           # How Git should treat each kind of file
 ├── .gitignore                                                               # Paths git never tracks
+├── .lycheeignore                                                            # The example fixture's original.md keeps its author's relative link to assets/flow.svg, which resolves beside input.md, not beside the copy
 ├── .pre-commit-config.yaml                                                  # Spec Kit writes and refreshes these files in its own style; they stay as it writes them, so a refresh changes nothing by itself
 ├── .rumdl.toml                                                              # rumdl: the Markdown structure every repository holds to; rendered by rust-gate sync
 ├── .taplo.toml                                                              # taplo: the TOML formatter just check and the commit hook run over every TOML file in the repository
