@@ -17,10 +17,11 @@ quality, prepare, representations, Qdrant generations, search, `ask`, evals)
 and `maestro` (the binary: CLI and MCP server). The canonicalization crate gains
 one seam, a `TokenCounter` trait, so chunks can be counted by the router as well
 as by the native counter. The router gains one option: load a model only into
-free memory. The private collection gains the corpus mapping, the collection
+free memory, as a guest it unloads first. The private collection gains the
+corpus mapping, the collection
 declaration and the golden set. Model roles are filled by the first bake-off,
-and the published generation uses its winners. The work runs as 39 tasks in
-13 waves of up to five parallel tasks, on a critical path of twelve (D16).
+and the published generation uses its winners. The work runs as 40 tasks in
+13 waves of up to six parallel tasks, on a critical path of twelve (D16).
 
 ## Technical Context
 
@@ -109,6 +110,7 @@ No exception is needed; Complexity Tracking is empty.
 specs/001-knowledge-kernel/
 ├── spec.md
 ├── plan.md                 # this file: design, data model, contracts, research
+├── research.md             # the measured answers to the research rows
 ├── checklists/requirements.md
 └── tasks.md
 ```
@@ -162,8 +164,12 @@ when the variable is unset.
 ### D2 Artifacts (B3)
 
 `artifacts/sha256/<2>/<2>/<64 hex>`. A write goes to a temporary file in the
-same directory, is flushed, renamed, and the directory flushed; an existing
-digest is not rewritten. Every read verifies the digest. An `artifacts` table
+same directory, is flushed, renamed, and the directory flushed; each directory
+the store creates is flushed into its parent. An intact copy is never
+rewritten; a damaged one, whose bytes no longer match or which is not a
+regular file, is replaced by the same write. Every read verifies the digest
+and reads only a regular file. The files and directories the store creates
+are its owner's only (`0600` and `0700`). An `artifacts` table
 indexes digest, size, media type, pin count and creation time. Garbage
 collection deletes only unreferenced, unpinned artifacts, and reports what it
 would delete before it does.
@@ -228,15 +234,22 @@ calls the router's dedicated endpoints: `/v1/embeddings`, `/v1/rerank`,
 `/tokenize`, `/v1/chat/completions`, each call bound to a card, never to a bare
 model name. Search calls carry a request header that the router change
 introduces, `X-Model-Router-Room: free`: admission may then use only free room,
-and answers `503 insufficient_room` rather than unload anything. The gateway
-maps that refusal to an unavailable route, which search flags (FR-S1-015a).
+and answers `503 insufficient_room` rather than unload anything. A model
+loaded that way is a guest: when another request needs room, idle guests are
+unloaded before any other model, so a search's models never push a chat model
+out later either. The gateway maps the refusal to an unavailable route, which
+search flags (FR-S1-015a).
 
 ### D9 Representations and generations (B6)
 
 One Qdrant collection per generation (`maestro-<collection>-g<n>`), behind the
 alias `maestro-<collection>`. Points carry a dense vector (dimension from the
-embedder's card) and a BM25 sparse vector, with the chunk ID, revision ID,
-section path, scope tags, version and source kind as payload. Batches are
+embedder's card) and a sparse vector that maestro computes with the
+`bm25-en-fr/1` analyzer and Qdrant weights with `modifier: idf` (R7), with the
+chunk ID, revision ID, section path, scope tags, version and source kind as
+payload. Qdrant neither stores nor checks an analyzer policy, so the
+generation records its sparse profile, and a query is analysed with the
+profile of the generation it searches. Batches are
 journaled, so a publish resumes at the last committed batch. Verification checks
 the point count against the chunk set, the vectors' dimension and finiteness,
 and a set of spot queries; only then does the alias switch, atomically, and
@@ -312,11 +325,11 @@ validates 30 stratified by topic, language and answerability.
 
 ### D16 Parallel delivery, CI and pull requests
 
-The work is cut for parallel agents, not for one writer: 39 tasks in 13 waves,
+The work is cut for parallel agents, not for one writer: 40 tasks in 13 waves,
 each task naming the tasks it waits for and the files it owns
 ([tasks.md](tasks.md#parallel-delivery)). A task starts when its prerequisites
 have merged, so a wave never waits for its slowest member. The critical path
-is twelve tasks, from the artifact store to the release; the 27 others run
+is twelve tasks, from the artifact store to the release; the 28 others run
 beside it. Up to four agents work at once, one task and one branch each,
 because review is the limit; shared files are append-only and migration
 numbers are reserved per task, so the merge order inside a wave is free.
@@ -359,12 +372,12 @@ Kernel tables, beside the document tables of
 | # | Question | Decision | Rationale | Alternatives |
 | --- | --- | --- | --- | --- |
 | R1 | Does the router pass `/tokenize` to a model? | Yes, through `/models/<id>/tokenize` | Its dedicated endpoints forward any path (router `main`, `eddeb59`) | A router change, not needed |
-| R2 | Can the router load a model without unloading another? | Not today; add `X-Model-Router-Room: free` | Admission picks the coldest idle model to unload; only the router knows the room, so only it can refuse honestly | Checking `/metrics` first: racy, and still unloads when wrong |
+| R2 | Can the router load a model without unloading another? | Not today; add `X-Model-Router-Room: free`, and unload what it loads first | Admission picks the coldest idle model to unload; only the router knows the room, so only it can refuse honestly | Checking `/metrics` first: racy, and still unloads when wrong |
 | R3 | Which MSRV? | 1.88, raised in T034 when `rmcp` enters | `rmcp` 3.4.1 declares it; the other crates declare less or nothing, and the MSRV job checks those | Keeping 1.85 without MCP |
 | R4 | Where does the corpus mapping live? | `export.jq` in the private repository, run with `jaq` from the toolbelt | Seven keys to rename and three to leave out; no program needed | A Rust exporter; a Python script |
 | R5 | How can a chunk profile depend on a model the bake-off has not chosen? | Each candidate has its own chunk profile inside the bake-off | ADR-0008 counts chunks in the embedder's tokens; the golden set judges sections, which every profile shares | One neutral profile for all: breaks ADR-0008 |
 | R6 | Where do Qdrant tests run? | A CI job with a pinned Qdrant service | Reusable workflows take no service containers; the adapter must still be tested in CI | Local only: breaks ENF-006 |
-| R7 | Can Qdrant's server-side BM25 hold the French and English policy? | To measure in the index task, before the first generation | The design requires an explicit analyzer policy; the capability is claimed, not yet checked | Client-side sparse vectors, if the server's analyzer cannot |
+| R7 | Can Qdrant's server-side BM25 hold the French and English policy? | No: maestro computes the sparse vectors (`bm25-en-fr/1`, T040); Qdrant keeps the sparse index, IDF and fusion | Measured by T004 on Qdrant 1.19.1 ([research](research.md#r7-server-side-bm25)): no configuration passes the 23 checks, the best 18; folding runs before the French stemmer, no tokenizer keeps `max_retries` or `job-id` whole, and a misspelled option is ignored with HTTP 200 | Server-side BM25 with a language per passage and folding: fails French inflections and identifiers |
 | R8 | What does reranking 80–120 pairs cost? | To measure batched, in the search task | At the noted 12 ms per pair, 80–120 pairs would take 1–1.4 s of the 1.5 s budget unless batching lowers it; the depth becomes a ladder parameter | A fixed depth |
 
 ## Validation
@@ -394,7 +407,7 @@ None: no golden rule is waived.
 | --- | --- |
 | Reranking does not fit 1.5 s at the design's depth | The depth is measured (R8) and set on the ladder; a shallower rung ships only if it pays for itself |
 | The router change waits on review | It is small and lands first; search works without it but reports the dense route and reranking unavailable whenever room is short |
-| Qdrant's BM25 cannot hold the French and English policy | Client-side sparse vectors (R7), decided before the first generation |
+| The lexical analyzer fits T004's sample but not the corpus | The ladder measures the BM25 route alone on the golden set (FR-S1-005a); the profile is versioned, so a better analyzer is a new generation |
 | An agent-drafted golden set misses real questions | Stratified drafting, the owner's 30-question check, and real questions added as they come (risk R8 of the roadmap) |
 | #14 changes the lints and manifests under S1 | Each S1 branch rebases on `main`; the lints only get stricter |
 | #14 holds up the counting seam (T013), which is on the critical path | Coordinated with #14's session; if #14 is late, T013 lands on `main` first and #14 rebases on it |

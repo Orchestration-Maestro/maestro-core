@@ -61,6 +61,17 @@ reason = "the artifact check's link-free open, one function on each platform"
 
 # The words this repository means that the spell checker reads as mistakes:
 # Exemple, French test input for the canonicalizer; RTO, the recovery time
-# objective beside RPO; WRONLY, the POSIX open flag as rustix names it.
+# objective beside RPO; WRONLY, the POSIX open flag as rustix names it;
+# abandonne, exponentiel and termine, French words of the lexical sample in
+# specs/001-knowledge-kernel/research.md and T040's tests of it; languag, the
+# misspelled Qdrant option that research shows being silently ignored.
 [typos]
-words = ["Exemple", "RTO", "WRONLY"]
+words = [
+  "Exemple",
+  "RTO",
+  "WRONLY",
+  "abandonne",
+  "exponentiel",
+  "termine",
+  "languag",
+]

@@ -23,7 +23,7 @@ Qdrant 1.19, `maestro-model-router`.
 
 ## Parallel delivery
 
-The 39 tasks run in **13 waves**. Every task that shares its wave is marked
+The 40 tasks run in **13 waves**. Every task that shares its wave is marked
 `[P]` and runs beside the others of its wave: they own different files and
 none waits for another. A task starts as soon as the tasks in its **After** line have merged,
 even before the rest of its wave. Up to **four agents** work at once, one task
@@ -33,7 +33,7 @@ each, because pull-request review, not code, is the limit.
 | --- | --- | --- |
 | 1 | T001 kernel artifacts · T002 router free room · T003 private mapping · T004 BM25 spike | Now |
 | 2 | T005 database · T006 model gateway · T007 capabilities · T008 rerank spike · T009 knowledge contracts | T001 (T008: T002) |
-| 3 | T010 journal · T011 scopes · T012 records · T013 counting seam · T014 synthetic collection | T005 (T013: #14; T014: T009) |
+| 3 | T010 journal · T011 scopes · T012 records · T013 counting seam · T014 synthetic collection · T040 lexical analyzer | T005 (T013: #14; T014 and T040: T009) |
 | 4 | T015 public events · T016 jobs · T017 evidence · T018 router tokenizer · T019 import | Their After lines |
 | 5 | T020 quality and real import · T021 evaluation runner · T022 the binary | Their After lines |
 | 6 | T023 prepare · T024 golden set · T025 setup and doctor | Their After lines |
@@ -46,7 +46,7 @@ each, because pull-request review, not code, is the limit.
 | 13 | T039 measure, map and release | Everything |
 
 **Critical path**, twelve tasks: T001 → T005 → T012 → T019 → T020 → T023 →
-T026 → T029 → T031 → T037 → T038 → T039. The other 27 tasks run beside it.
+T026 → T029 → T031 → T037 → T038 → T039. The other 28 tasks run beside it.
 T023 also waits on the counting seam, T013, which waits on #14: that is the
 external dependency to watch.
 
@@ -160,11 +160,11 @@ src/paths.rs, src/artifact.rs}`, `Cargo.lock`. **Requirements:** FR-S1-001
 **After:** nothing. **Files:** `specs/001-knowledge-kernel/plan.md` (R7).
 **Requirements:** FR-S1-004, R7.
 
-- [ ] **Step 1: Run Qdrant 1.19** on the workstation, pinned by version and
+- [x] **Step 1: Run Qdrant 1.19** on the workstation, pinned by version and
   checksum.
-- [ ] **Step 2: Index a public sample** in French and English with
+- [x] **Step 2: Index a public sample** in French and English with
   server-side BM25, and query it with accents, plurals and identifiers.
-- [ ] **Step 3: Record the verdict** in R7 with the commands and their
+- [x] **Step 3: Record the verdict** in R7 with the commands and their
   output: server-side BM25, or client-side sparse vectors.
 
 ## Phase 2: Wave 2 — on the kernel crate
@@ -234,8 +234,11 @@ src/collection.rs, src/corpus.rs}`, `crates/maestro-kernel/src/binding.rs`.
 
 - [ ] **Step 1: Failing tests.** A valid `maestro-collection/1` parses;
   unknown or duplicate keys, dangling references and non-finite budgets are
-  refused; a `maestro-corpus/1` line parses and one with an unknown key is
-  refused; a missing binding is a typed refusal before any work.
+  refused, a dangling reference being a name the declaration uses without
+  defining it (a file it names is checked when first read, so the quality
+  ledger and the suite may not exist yet); a `maestro-corpus/1` line parses
+  and one with an unknown key is refused; a missing binding is a typed
+  refusal before any work.
 - [ ] **Step 2: Create `maestro-knowledge`** and implement the declaration,
   the corpus line and the bindings file.
 - [ ] **Step 3: Gate and pull request** `feat: parse collections and corpus
@@ -314,6 +317,24 @@ SC-S1-007.
   contracts of T009.
 - [ ] **Step 4: Gate and pull request** `test: add the public synthetic
   collection`.
+
+### T040 [P] The lexical analyzer `bm25-en-fr/1` [US1]
+
+**After:** T009. **Files:** `crates/maestro-knowledge/src/lexical/`.
+**Requirements:** FR-S1-004, FR-S1-005a, R7.
+
+- [ ] **Step 1: Failing tests** on T004's public sample
+  ([research.md](research.md#the-sample-and-its-checks)): all 23 checks pass,
+  scored with BM25 (k 1.2, b 0.75) and IDF over the sample, with no language
+  given for any passage or query, since the corpus declares none and nothing
+  is guessed; the same text always gives the same vector.
+- [ ] **Step 2: Implement** `bm25-en-fr/1`: identifiers kept whole as well as
+  split into their parts, French and English forms that meet with or without
+  their accents, stopwords, BM25 term weights with the generation's average
+  length, and a stable 32-bit token ID. A change to any rule is a new profile
+  version.
+- [ ] **Step 3: Gate and pull request** `feat: analyze text for the lexical
+  route`.
 
 ## Phase 4: Wave 4 — the journal and the records at work
 
@@ -403,7 +424,8 @@ SC-S1-001.
 
 - [ ] **Step 1: Failing tests.** Each rule of 01 §4 gives its disposition with
   rule IDs and reasons; only `accepted` and `accepted_with_warnings`
-  revisions are eligible; a held revision emits `revision.held`.
+  revisions are eligible; a held revision emits `revision.held`; a missing
+  quality ledger reads as an empty one.
 - [ ] **Step 2: Implement** the gate and `knowledge quality`.
 - [ ] **Step 3: Import `ctm` for real:** all 7,988 documents accounted for.
 - [ ] **Step 4: Run the gate on `ctm`** and keep the disposition report in
@@ -485,16 +507,18 @@ FR-S1-013.
 
 ### T026 [P] The Qdrant projection [US2]
 
-**After:** T023, T006, T012, T004. **Files:**
+**After:** T023, T006, T012, T040. **Files:**
 `crates/maestro-knowledge/src/{represent,index}.rs`,
 `.github/workflows/integration.yml`. **Requirements:** FR-S1-004, D9, R6, R7.
 
 - [ ] **Step 1: Failing integration tests** against a pinned Qdrant: a
   generation builds in its own collection; a vector of the wrong dimension or
   a non-finite value refuses the batch; an interrupted build resumes at its
-  last journaled batch; the alias moves only after verification.
+  last journaled batch; the alias moves only after verification; a
+  generation records its sparse profile.
 - [ ] **Step 2: Implement** representations (dense through the gateway,
-  sparse by the route T004 chose) and the generation lifecycle.
+  sparse through T040's analyzer, weighted by Qdrant with `modifier: idf`)
+  and the generation lifecycle.
 - [ ] **Step 3: CI job** `integration.yml` with the Qdrant image pinned by
   digest.
 - [ ] **Step 4: Gate and pull request** `feat: publish search generations in
