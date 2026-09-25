@@ -6,10 +6,12 @@
 # deny.toml and artifacts named after the repository. Pedantic Clippy needs no
 # input: the organization's lint block in Cargo.toml already denies the group,
 # and `clippy-level: pedantic` would deny on the command line the lints the
-# block allows on purpose, similar_names among them.
+# block allows on purpose, similar_names among them. The platforms beside
+# Linux are ADR-0016's first-class targets, so the tests run on each.
 [ci]
 license-policy = "enforce"
 artifact-key = "maestro-core"
+platforms = "macos windows"
 
 # The seams of the canonicalization crate that keep one caller: each door is a
 # subsystem, and its one outside caller is the stage that composes it.
