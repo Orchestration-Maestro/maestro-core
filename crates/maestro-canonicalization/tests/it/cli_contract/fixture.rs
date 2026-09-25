@@ -13,16 +13,9 @@ static SEQUENCE: AtomicUsize = AtomicUsize::new(0);
 pub(super) struct Fixture(pub(super) PathBuf);
 
 impl Fixture {
-    /// A new, empty scratch directory. macOS reaches the temporary directory
-    /// through the `/var` link, which the snapshot store refuses, so there the
-    /// link-free path is used.
+    /// A new, empty scratch directory under the plain temporary path.
     pub(super) fn new() -> Self {
-        let temporary = if cfg!(target_os = "macos") {
-            fs::canonicalize(env::temp_dir()).unwrap()
-        } else {
-            env::temp_dir()
-        };
-        let path = temporary.join(format!(
+        let path = env::temp_dir().join(format!(
             "canonicalization-{}-{}",
             process::id(),
             SEQUENCE.fetch_add(1, Ordering::Relaxed)

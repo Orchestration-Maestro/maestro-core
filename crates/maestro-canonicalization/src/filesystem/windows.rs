@@ -5,6 +5,7 @@
 //! opened itself and refused, never followed. The standard library exposes these flags safely;
 //! the constants are Win32's documented values. The local filesystem must support hard links;
 //! directories are not flushed, which Windows does only through a writable handle (ADR-0018).
+use super::root::resolve;
 use std::{
     ffi::OsStr,
     fs::{self, File, OpenOptions},
@@ -36,32 +37,17 @@ pub(crate) struct Directory {
 }
 
 impl Directory {
-    /// Open a directory one component at a time without following links, creating missing
-    /// components when asked; parent traversal is refused, and a drive or share prefix is accepted
-    /// only with its root. The walk starts at the path's root or, for a relative path, at the
-    /// working directory.
-    pub(crate) fn open(path: &Path, create: bool) -> io::Result<Self> {
-        if path
-            .components()
-            .any(|component| component == Component::ParentDir)
-        {
-            return Err(io::Error::other("snapshot path contains parent traversal"));
-        }
-        let anchor: PathBuf = path
+    /// Open the directory `below` names under the caller's `root`: the root resolves once, to a
+    /// verbatim path such as `\\?\C:\data`, then the walk holds every component from its drive or
+    /// share on, never following a link, and creates missing components when asked.
+    pub(crate) fn open(root: &Path, below: &Path, create: bool) -> io::Result<Self> {
+        let path = resolve(root, below)?;
+        // The prefix and root of a resolved path, such as `\\?\C:\` or `\\?\UNC\server\share\`.
+        let start: PathBuf = path
             .components()
             .take_while(|component| matches!(component, Component::Prefix(_) | Component::RootDir))
             .collect();
-        if !anchor.as_os_str().is_empty() && !anchor.has_root() {
-            return Err(io::Error::other(
-                "snapshot path has a drive prefix without its root",
-            ));
-        }
-        let start = if anchor.as_os_str().is_empty() {
-            PathBuf::from(".")
-        } else {
-            anchor
-        };
-        // The anchor, like `/` or `.` on Unix, is trusted as it resolves.
+        // The anchor, like `/` on Unix, is trusted as it resolves.
         let held = hold(&start, FILE_FLAG_BACKUP_SEMANTICS)?;
         let mut directory = Self {
             path: start,

@@ -1,6 +1,7 @@
 //! Unix filesystem access: every name resolves against an open directory, never a path.
 //! rustix's `openat` family closes the check-then-open ancestor/symlink race. The local filesystem
 //! must support hard links and directory fsync.
+use super::root::resolve;
 use rustix::fd::OwnedFd;
 use rustix::fs::{AtFlags, Mode, OFlags, linkat, mkdirat, open, openat, unlinkat};
 use rustix::io::Errno;
@@ -16,18 +17,12 @@ use std::{
 pub(crate) struct Directory(File);
 
 impl Directory {
-    /// Open a directory one component at a time without following links, creating missing
-    /// components when asked; parent traversal is refused.
-    pub(crate) fn open(path: &Path, create: bool) -> io::Result<Self> {
-        if path
-            .components()
-            .any(|component| matches!(component, Component::ParentDir | Component::Prefix(_)))
-        {
-            return Err(io::Error::other(
-                "snapshot path contains parent traversal or a prefix",
-            ));
-        }
-        let mut directory = File::open(if path.is_absolute() { "/" } else { "." })?;
+    /// Open the directory `below` names under the caller's `root`: the root resolves once, then
+    /// the walk opens every component from `/` on without following links, creating missing
+    /// components when asked.
+    pub(crate) fn open(root: &Path, below: &Path, create: bool) -> io::Result<Self> {
+        let path = resolve(root, below)?;
+        let mut directory = File::open("/")?;
         for component in path.components() {
             if let Component::Normal(name) = component {
                 directory = File::from(open_child(&directory, name, create)?);

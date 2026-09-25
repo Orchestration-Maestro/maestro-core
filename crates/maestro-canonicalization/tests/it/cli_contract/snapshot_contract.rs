@@ -154,8 +154,6 @@ fn symlinks_and_traversal_cannot_escape_asset_or_snapshot_roots() {
     );
     let (doc, original) = load_document(&path).unwrap();
     assert!(save_document(&doc, &original, &fixture.0.join("traverse/../out")).is_err());
-    symlink(&outside.0, fixture.0.join("linked-output")).unwrap();
-    assert!(save_document(&doc, &original, &fixture.0.join("linked-output/new")).is_err());
     let link = fixture.0.join("linked-snapshot");
     symlink(path.parent().unwrap(), &link).unwrap();
     assert!(load_document(&link.join("canonical.json")).is_err());
@@ -174,7 +172,30 @@ fn symlinks_and_traversal_cannot_escape_asset_or_snapshot_roots() {
         fs::read_to_string(outside.0.join("secret.svg")).unwrap(),
         "never read this asset"
     );
-    assert!(!outside.0.join("new").exists());
+}
+
+#[test]
+#[cfg(unix)]
+fn a_root_reached_through_a_link_is_accepted_but_no_link_below_it() {
+    use std::os::unix::fs::symlink;
+    let fixture = Fixture::new();
+    let outside = Fixture::new();
+    let md = "Linked root\n";
+    let doc = canonicalize(CanonicalizeInput::new(md, "linked.md")).unwrap();
+    symlink(&outside.0, fixture.0.join("linked-output")).unwrap();
+    let path = save_document(&doc, md, &fixture.0.join("linked-output/new")).unwrap();
+    assert!(path.starts_with(fixture.0.join("linked-output/new")));
+    assert!(outside.0.join("new").is_dir());
+    assert_eq!(load_document(&path).unwrap().1, md);
+    // A link planted under the root, in place of an identity directory, is refused.
+    let identity = path.ancestors().nth(3).unwrap();
+    let moved = outside.0.join("moved");
+    fs::rename(identity, &moved).unwrap();
+    symlink(&moved, identity).unwrap();
+    assert!(load_document(&path).is_err());
+    assert!(save_document(&doc, md, &fixture.0.join("linked-output/new")).is_err());
+    let snapshot = moved.join(path.parent().unwrap().strip_prefix(identity).unwrap());
+    assert_eq!(fs::read_dir(snapshot).unwrap().count(), 2);
 }
 
 #[test]

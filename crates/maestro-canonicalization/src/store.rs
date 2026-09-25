@@ -17,7 +17,8 @@ static TEMP_SEQUENCE: AtomicUsize = AtomicUsize::new(0);
 
 /// Save exact Markdown and JSON in a versioned local directory on Linux, macOS or Windows.
 /// JSON references `original.md` relative to itself. Equal artifacts are reused;
-/// existing unequal files, traversal and symlinks are refused, never overwritten.
+/// existing unequal files, traversal and symlinks are refused, never overwritten. `output` is
+/// trusted: its links resolve once, and below it no link is followed.
 /// JSON is published last; files and directory entries are synchronized, except that Windows
 /// cannot flush a directory: there power loss before NTFS commits its journal can drop the
 /// newest entry, which the next save recreates (ADR-0018).
@@ -33,16 +34,18 @@ pub fn save_document(
     let mut saved = document.clone();
     saved.original_markdown_reference.path = "original.md".into();
     let json = encode(&saved)?;
-    let directory = output.join(artifact_suffix(&saved, &json));
-    let dir = Directory::open(&directory, true).map_err(|error| storage_error(&error))?;
+    let suffix = artifact_suffix(&saved, &json);
+    let dir = Directory::open(output, &suffix, true).map_err(|error| storage_error(&error))?;
     write_immutable(&dir, "original.md", markdown.as_bytes())
         .map_err(|error| storage_error(&error))?;
     write_immutable(&dir, "canonical.json", &json).map_err(|error| storage_error(&error))?;
-    Ok(directory.join("canonical.json"))
+    Ok(output.join(suffix).join("canonical.json"))
 }
 
 /// Load a saved snapshot, verifying path identities, exact bytes and deterministic replay.
 /// Only the fixed local `original.md` reference is read, never a supplied arbitrary path.
+/// The directory three levels above the snapshot is the root the caller saved to: its links
+/// resolve once, and the three identity directories below it are never reached through a link.
 /// Failed-but-consistent documents remain inspectable; callers must check validation status.
 /// Authenticity still requires a trusted artifact reference and filesystem permissions.
 ///
@@ -57,7 +60,14 @@ pub fn load_document(path: &Path) -> Result<(CanonicalDocument, String), Error> 
     let parent = path
         .parent()
         .ok_or_else(|| Error("missing snapshot directory".into()))?;
-    let dir = Directory::open(parent, false).map_err(|error| storage_error(&error))?;
+    let root = parent
+        .ancestors()
+        .nth(3)
+        .ok_or_else(|| Error("missing snapshot identity directories".into()))?;
+    let below = parent
+        .strip_prefix(root)
+        .map_err(|error| Error(error.to_string()))?;
+    let dir = Directory::open(root, below, false).map_err(|error| storage_error(&error))?;
     let json = dir
         .read_regular("canonical.json")
         .map_err(|error| storage_error(&error))?;
@@ -186,16 +196,10 @@ mod tests {
     };
 
     /// A new empty directory; its name does not draw on `TEMP_SEQUENCE`, which pending names use.
-    /// macOS reaches the temporary directory through the `/var` link, which the store refuses, so
-    /// there the link-free path is used.
+    /// It is the plain temporary path, a link into `/private` on macOS: the root resolves once.
     fn scratch() -> PathBuf {
         static NEXT: AtomicUsize = AtomicUsize::new(0);
-        let temporary = if cfg!(target_os = "macos") {
-            fs::canonicalize(env::temp_dir()).unwrap()
-        } else {
-            env::temp_dir()
-        };
-        let root = temporary.join(format!(
+        let root = env::temp_dir().join(format!(
             "canonical-store-{}-{}",
             process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)
@@ -220,7 +224,7 @@ mod tests {
     fn directory_handles_resist_ancestor_replacement_and_reject_special_files() {
         let root = scratch();
         let output = root.join("output");
-        let directory = Directory::open(&output, true).unwrap();
+        let directory = Directory::open(&root, Path::new("output"), true).unwrap();
         fs::rename(&output, root.join("moved")).unwrap();
         fs::create_dir(root.join("outside")).unwrap();
         fs::write(root.join("outside/original.md"), "unchanged").unwrap();
@@ -232,7 +236,7 @@ mod tests {
             fs::read(root.join("outside/original.md")).unwrap(),
             b"unchanged"
         );
-        assert!(Directory::open(&output, false).is_err());
+        assert!(Directory::open(&root, Path::new("output"), false).is_err());
         // POSIX's `mkfifo` utility: Linux and macOS both ship it.
         let made = Command::new("mkfifo").arg(root.join("moved/fifo")).status();
         assert!(made.unwrap().success());
@@ -262,10 +266,10 @@ mod tests {
     fn only_directories_open_and_only_saving_creates_them() {
         let root = scratch();
         fs::write(root.join("plain"), "not a directory").unwrap();
-        assert!(Directory::open(&root.join("plain"), false).is_err());
-        assert!(Directory::open(&root.join("absent/deeper"), false).is_err());
+        assert!(Directory::open(&root, Path::new("plain"), false).is_err());
+        assert!(Directory::open(&root, Path::new("absent/deeper"), false).is_err());
         assert!(!root.join("absent").exists());
-        Directory::open(&root.join("absent/deeper"), true).unwrap();
+        Directory::open(&root, Path::new("absent/deeper"), true).unwrap();
         assert!(root.join("absent/deeper").is_dir());
         fs::remove_dir_all(root).unwrap();
     }
@@ -276,7 +280,7 @@ mod tests {
         let root = scratch();
         fs::write(root.join("target.md"), "linked").unwrap();
         symlink(root.join("target.md"), root.join("original.md")).unwrap();
-        let directory = Directory::open(&root, false).unwrap();
+        let directory = Directory::open(&root, Path::new(""), false).unwrap();
         assert!(directory.read_regular("original.md").is_err());
         assert_eq!(directory.read_regular("target.md").unwrap(), b"linked");
         fs::remove_dir_all(root).unwrap();
@@ -286,7 +290,7 @@ mod tests {
     fn a_directory_in_place_of_an_artifact_is_named_and_kept() {
         let root = scratch();
         fs::create_dir(root.join("original.md")).unwrap();
-        let directory = Directory::open(&root, false).unwrap();
+        let directory = Directory::open(&root, Path::new(""), false).unwrap();
         let error = write_immutable(&directory, "original.md", b"text").unwrap_err();
         assert_eq!(error.to_string(), "artifact is not a regular file");
         assert!(root.join("original.md").is_dir());
@@ -306,7 +310,7 @@ mod tests {
             let pending = format!(".original.md.pending-{}-{sequence}", process::id());
             symlink(root.join("victim"), root.join(pending)).unwrap();
         }
-        let directory = Directory::open(&root, false).unwrap();
+        let directory = Directory::open(&root, Path::new(""), false).unwrap();
         assert!(write_immutable(&directory, "original.md", b"planted").is_err());
         assert_eq!(fs::read(root.join("victim")).unwrap(), b"unchanged");
         assert!(fs::symlink_metadata(root.join("original.md")).is_err());
@@ -324,7 +328,7 @@ mod tests {
         for pending in &planted {
             fs::write(pending, "unchanged").unwrap();
         }
-        let directory = Directory::open(&root, false).unwrap();
+        let directory = Directory::open(&root, Path::new(""), false).unwrap();
         assert!(write_immutable(&directory, "original.md", b"planted").is_err());
         for pending in &planted {
             assert_eq!(fs::read(pending).unwrap(), b"unchanged");
@@ -337,7 +341,7 @@ mod tests {
     #[test]
     fn a_directory_handle_writes_where_it_was_opened() {
         let root = scratch();
-        let directory = Directory::open(&root.join("parent/output"), true).unwrap();
+        let directory = Directory::open(&root, Path::new("parent/output"), true).unwrap();
         // Unix lets the ancestor move away; Windows refuses while a directory below it is open.
         let opened = if fs::rename(root.join("parent"), root.join("moved")).is_ok() {
             fs::create_dir_all(root.join("parent/output")).unwrap();
@@ -355,22 +359,28 @@ mod tests {
 
     #[cfg(windows)]
     #[test]
-    fn a_drive_prefix_anchors_the_walk_and_parent_traversal_stays_refused() {
+    fn a_verbatim_root_anchors_the_walk_and_parent_traversal_stays_refused() {
         let root = scratch();
+        // The root resolves to a verbatim path, such as `\\?\C:\...`, which the walk accepts.
+        let resolved = fs::canonicalize(&root).unwrap();
         assert!(matches!(
-            root.components().next(),
-            Some(Component::Prefix(_))
+            resolved.components().next(),
+            Some(Component::Prefix(prefix)) if prefix.kind().is_verbatim()
         ));
-        Directory::open(&root.join("deeper"), true).unwrap();
+        drop(Directory::open(&root, Path::new("deeper"), true).unwrap());
         assert!(root.join("deeper").is_dir());
-        let error = Directory::open(&root.join("deeper/../deeper"), false).unwrap_err();
-        assert_eq!(error.to_string(), "snapshot path contains parent traversal");
-        // `C:relative` names the working directory of drive C, not a root.
-        let error = Directory::open(Path::new("C:relative"), false).unwrap_err();
+        let error = Directory::open(&root.join("deeper/../deeper"), Path::new(""), false);
         assert_eq!(
-            error.to_string(),
-            "snapshot path has a drive prefix without its root"
+            error.unwrap_err().to_string(),
+            "snapshot path contains parent traversal"
         );
+        for below in ["deeper/../deeper", "C:relative", "C:\\deeper"] {
+            let error = Directory::open(&root, Path::new(below), false).unwrap_err();
+            assert_eq!(
+                error.to_string(),
+                "snapshot path below its root holds more than names"
+            );
+        }
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -387,9 +397,11 @@ mod tests {
             .status()
             .unwrap();
         assert!(created.success());
-        assert!(Directory::open(&root.join("linked"), false).is_err());
-        assert!(Directory::open(&root.join("linked/deeper"), true).is_err());
+        assert!(Directory::open(&root, Path::new("linked"), false).is_err());
+        assert!(Directory::open(&root, Path::new("linked/deeper"), true).is_err());
         assert!(!root.join("outside/deeper").exists());
+        // A root the caller reaches through the junction resolves once and is accepted.
+        drop(Directory::open(&root.join("linked"), Path::new(""), false).unwrap());
         fs::remove_dir_all(root).unwrap();
     }
 
@@ -399,7 +411,7 @@ mod tests {
         let root = scratch();
         fs::create_dir(root.join("locked")).unwrap();
         fs::set_permissions(root.join("locked"), fs::Permissions::from_mode(0o500)).unwrap();
-        let error = Directory::open(&root.join("locked/new"), true).unwrap_err();
+        let error = Directory::open(&root, Path::new("locked/new"), true).unwrap_err();
         assert_eq!(error.kind(), ErrorKind::PermissionDenied);
         fs::set_permissions(root.join("locked"), fs::Permissions::from_mode(0o700)).unwrap();
         fs::remove_dir_all(root).unwrap();
@@ -411,7 +423,7 @@ mod tests {
         // Both writers usually pass the first check before either links: the loser then meets
         // the winner's file at the link and must compare it, not accept it.
         for round in 0..50 {
-            let directory = Directory::open(&root.join(round.to_string()), true).unwrap();
+            let directory = Directory::open(&root, Path::new(&round.to_string()), true).unwrap();
             let accepted = race_writers(&directory);
             assert_eq!(
                 accepted.iter().filter(|&&won| won).count(),
