@@ -25,6 +25,7 @@ different things in different sources.
 | `ingest` | Full ingestion design, ingestion source audit, one-page Spider spike and the source-policy proposal (2026-09-22) | Native acquisition lifecycle, sessions, policy, 15 sources |
 | `delivery` | Unified delivery plan (2026-09-22) | Tasks U01–U18 with folded F0–F8, Q1–Q4, D1–D5; dispositions C01–C30; corrections R01–R11 |
 | `product` | Provider analysis: master product specification, capability and Graphify decisions made with the owner, native Rust product direction, visual workbench, native ingestion specification | C01–C16, M01–M11, U01–U15, J01–J08, A01–A20, N01–N10, D01–D11, CD1–CD8, GD1–GD5, V01–V12 |
+| `revtools` | Reverse-engineering analysis supplied by the owner (2026-09-24): whether several tools can be studied and rebuilt as one, and which instruments do it | Legal boundary, licence and porting rules, per-project capability map, recommended architecture, instrument chain, defensible process (§19) |
 
 The source documents stay archived with the S0 snapshot; those carrying vendor
 specifics move to the private collection repository (ADR-0009).
@@ -493,3 +494,99 @@ first slice; the earlier plan's first governed workflow (U08) moves to S4.
   S3; it is read once, in the comparison pass after M3 (owner.catalog).
 - Nothing here was executed against a live model, endpoint, sandbox, browser or
   source; statuses describe the design, not delivered behaviour.
+- The `revtools` source's licence statements about named projects were not
+  established against their repositories; §19 records them as claims to
+  re-establish, not as facts.
+
+## 19. Reverse-engineering analysis
+
+Supplied by the owner on 2026-09-24 with the instruction to fit it into the
+stack as a later phase, using the knowledge core, connecting through the
+extension points, and losing nothing. Every item of the source appears below.
+The transcript stays with the archived design sources.
+
+### 19.1 Architecture recommendations already held
+
+The source recommends an internal architecture for a unified code-and-memory
+product. Maestro decided each of these earlier and for its own reasons, so they
+are **Kept, already in the design**; the value of the row is that an independent
+analysis converges on it.
+
+| ID | Recommendation | Where it already lives |
+| --- | --- | --- |
+| revtools.arch1 | Canonical immutable event store; agents submit events or proposals through one controlled write path, never rewriting canonical knowledge | B2 journal, [04 §3](04-intelligence-backend.md#3-the-kernel-building-blocks); [07 §1](07-extensibility.md#1-principles) |
+| revtools.arch2 | One graph model over code, memory, documents and operational state, with node and edge fields for source, validity, confidence, extraction method and security scope | [02 §8.2](02-retrieval-and-knowledge-graph.md#82-graph-model), B8 |
+| revtools.arch2-types | Node types (person, project, conversation, message, document, file, class, function, variable, decision, task, requirement, claim, event, agent) and relations (mentions, calls, imports, implements, depends on, derived from, decided in, supersedes, contradicts, assigned to, related to) | [02 §8.2](02-retrieval-and-knowledge-graph.md#82-graph-model) for knowledge; [04 §5](04-intelligence-backend.md#5-phase-i2--code-intelligence) for code; §19.3 adds the analysis types |
+| revtools.arch2-prov | Provenance mandatory: where a fact came from, when it was true, extracted or inferred | Invariant 2 of [README §6](README.md#6-invariants); B7 |
+| revtools.arch3 | Several coordinated indexes rather than one vector database: lexical, vector, code graph, knowledge graph, temporal, permission | Routes R1–R6, [02 §3](02-retrieval-and-knowledge-graph.md#3-retrieval-routes) |
+| revtools.arch3-planner | A retrieval planner: classify intent, gather candidates, expand the graph, filter by time and permission, detect conflicts, rerank, package with provenance | [02 §2](02-retrieval-and-knowledge-graph.md#2-query-understanding) through [§6](02-retrieval-and-knowledge-graph.md#6-evidence-assembly) |
+| revtools.arch4 | Explicit conflict handling: a correction supersedes with validity bounds; obsolete facts stay recallable and are not treated as current | [04 §6](04-intelligence-backend.md#6-phase-i3--governed-semantic-and-temporal-knowledge), bitemporal facts |
+| revtools.arch5 | Language-independent intermediate representation; one parser adapter per language emitting the same schema | I2, [04 §5](04-intelligence-backend.md#5-phase-i2--code-intelligence) |
+| revtools.arch6 | Safety and operational policy: human confirmation for destructive work, read-only and write modes, per-agent capabilities, delegation depth, budgets, audit logs, review gates, recovery checkpoints before compaction | [03 §4](03-agent-orchestration.md#4-the-policy-broker-cedar), [§5](03-agent-orchestration.md#5-sandbox), [§6](03-agent-orchestration.md#6-handoff-contracts-and-acceptance), [04 §4](04-intelligence-backend.md#4-phase-i1--memory-and-continuity) |
+| revtools.arch7 | Stable external interfaces: MCP for AI clients, HTTP or gRPC for applications, CLI for people, a plugin SDK; contracts language-neutral | [07 §2](07-extensibility.md#2-entry-points), ADR-0013 (gRPC not chosen; local HTTP with a Unix socket) |
+| revtools.lang | Rust for parsing, watching, indexing, graph traversal and local storage; adapters at the edges; one language is not required everywhere | [04 §1](04-intelligence-backend.md#1-scope-and-stance) |
+
+### 19.2 The method, which is new
+
+| ID | Item | Status | Where |
+| --- | --- | --- | --- |
+| revtools.cleanroom | Porting is derivative and keeps the original licence; only an implementation written from documented observable behaviour, without the original source, expressions, names or distinctive structure, is separate | Kept, and made enforceable rather than procedural | [09 §3](09-reverse-engineering.md#3-the-clean-room-boundary), ADR-0019 |
+| revtools.process | The nine-step defensible process: freeze repository, commit, licence and dependencies; keep a licence and SBOM register of reused, modified, ported and independent code; specify before porting; import permissive components deliberately with attribution; separate analysis from implementation so decompiled code never reaches tickets, prompts, tests or the repository; use our own names, structures, UI, documentation and branding; record provenance per file and algorithm; test against expected behaviour rather than copied internals; licence and IP review before distribution | Kept whole | [09 §11](09-reverse-engineering.md#11-the-process-end-to-end) (steps 1–11, expanded with the scope grant and the promotion gate) |
+| revtools.register | A provenance register with component, origin, commit, licence, usage and notice requirement | Adapted: usage becomes five named classes, and obligations are recorded rather than a notice flag | [09 §4](09-reverse-engineering.md#4-the-provenance-register) |
+| revtools.contracts | Behavioural tests built from authorized observation become the specification for the rewritten product | Kept, and promoted to a gate: a provider is replaced when the native capability passes the contract derived from the provider | [09 §7](09-reverse-engineering.md#7-behaviour-contracts), [04 §11](04-intelligence-backend.md#11-transition-from-existing-providers) |
+| revtools.legal | Canada s. 30.61 and s. 41.12, United States 17 U.S.C. §1201(f), EU study and decompilation limits; concept safer than implementation; API and format reimplementation safer than internal code; line-by-line translation of decompiled code high risk; circumvention of activation, subscription, DRM or licence enforcement a separate problem; names, logos, artwork, documentation, messages, sample data, prompts, keys and user data all carry risk; copyright is not the only exposure | Kept as the recorded boundary, with the source's own caveat that it is not legal advice | [09 §10](09-reverse-engineering.md#10-legal-boundary) |
+| revtools.risk | A product can clear copyright and still meet a patent, trademark, trade-secret, privacy or contract problem | Kept | [09 §10](09-reverse-engineering.md#10-legal-boundary), risk R14 of [06 §4](06-roadmap.md#4-risk-register) |
+
+### 19.3 Instruments
+
+All of them are analyzers behind one contract ([09 §8](09-reverse-engineering.md#8-analyzers-are-extensions)),
+never runtime dependencies and never shipped.
+
+| ID | Instrument | Status | Where |
+| --- | --- | --- | --- |
+| revtools.joern | Joern as the comparison platform: code property graphs joining syntax, calls, control flow and data flow, queryable across languages, with its x86 frontend using Ghidra | Kept as the R2 analyzer | [09 §5](09-reverse-engineering.md#5-static-analysis) |
+| revtools.joern-q | The questions to ask it: entry points, public APIs, storage layers, retrieval pipelines, graph construction, ingestion, ranking, background jobs, MCP commands, agent hooks, security boundaries | Kept | [09 §5](09-reverse-engineering.md#5-static-analysis) |
+| revtools.joern-export | Export normalized findings (project, module, class, function, endpoint, command, database table, graph node and edge types, external dependency) | Adapted: normalized to target, component, surface, capability, finding and obligation, reusing the surface vocabulary the provider inventory already counts | [09 §5](09-reverse-engineering.md#5-static-analysis) |
+| revtools.codeql | CodeQL for precise data-flow questions across mixed-language repositories; its terms differ for public and private repositories | Kept, with the terms recorded per target | [09 §5](09-reverse-engineering.md#5-static-analysis) |
+| revtools.treesitter | Tree-sitter as the foundation of the new indexer: concrete syntax trees, incremental updates, error tolerance, many bindings | Kept, and already chosen for I2 before this analysis | [04 §5](04-intelligence-backend.md#5-phase-i2--code-intelligence), [09 §5](09-reverse-engineering.md#5-static-analysis) |
+| revtools.scancode | ScanCode Toolkit for licences, copyright, package metadata, dependencies and attribution material | Kept as the R1 analyzer proposing register records | [09 §4](09-reverse-engineering.md#4-the-provenance-register) |
+| revtools.ghidra | Ghidra for compiled components: disassembly, decompilation, graphing, scripting, headless operation | Adapted: bounded to lawfully possessed native components, headless, inside the analysis scope, output never promoted | [09 §6](09-reverse-engineering.md#6-native-binaries) |
+| revtools.ghidra-loss | What compilation destroys: names, comments, module boundaries, generic types, tests, build configuration, history, error structure, optimized-away code, server-side logic; and the design questions it cannot answer | Kept as the reason Ghidra is not the primary instrument | [09 §6](09-reverse-engineering.md#6-native-binaries) |
+| revtools.frida | Frida for runtime tracing of authorized native applications: which function runs, with which arguments, returning what | Kept, R3 | [09 §7](09-reverse-engineering.md#7-behaviour-contracts) |
+| revtools.mitmproxy | mitmproxy to record and replay authorized HTTP, HTTPS and WebSocket conversations into an independent API specification | Kept, R3, with capture hygiene | [09 §7](09-reverse-engineering.md#7-behaviour-contracts) |
+| revtools.playwright | Playwright for end-to-end behavioural contracts across browsers | Kept, R3 | [09 §7](09-reverse-engineering.md#7-behaviour-contracts) |
+| revtools.hygiene | Captured credentials, tokens, private user information and proprietary server responses are not reusable product material | Kept as a test | [09 §7](09-reverse-engineering.md#7-behaviour-contracts), [§13](09-reverse-engineering.md#13-tests) |
+| revtools.stack | The eleven-step recommended setup (repositories and documentation, ScanCode, Joern, CodeQL, tree-sitter, behavioural benchmarks, Ghidra only for missing native components, Frida when runtime tracing is required, mitmproxy for authorized interoperability testing, Rust core, adapters) | Kept, sequenced as R1–R4 | [09 §12](09-reverse-engineering.md#12-delivery), [06 S8](06-roadmap.md#s8-provenance-and-reverse-engineering--m8) |
+
+### 19.4 Targets and licences
+
+The source's capability map names what each studied project contributes. Those
+contributions are already the provider inventory of
+[04 §2](04-intelligence-backend.md#2-the-provider-analysis-distilled), which
+counted them surface by surface; the rows below record the correspondence and
+the licence question each one still carries.
+
+| ID | Project | Contribution as the source describes it | Licence claim | Status |
+| --- | --- | --- | --- | --- |
+| revtools.utopia | Utopia | Persistent operational state, human-confirmation gates, review before canonicalization, multi-agent handoffs, session recovery, safety controls | MIT | Claim to re-establish at R1; the outcomes are already inventoried (172 surfaces) |
+| revtools.codegraph | CodeGraph | Incremental code indexing, symbol, call, import and dependency relationships, cross-file resolution, file watching, focused context retrieval | MIT | Claim to re-establish at R1; 33 surfaces inventoried |
+| revtools.cgc | CodeGraphContext | Not named by this source; the inventory holds it | — | 132 surfaces inventoried |
+| revtools.graphify | Graphify | Evidence-linked graph over code and documents, extracted versus inferred provenance, path queries, communities, exploration | Apache-2.0 with a `NOTICE` file | Claim to re-establish at R1; an attribution obligation that a public MIT repository must resolve before any reuse |
+| revtools.mempalace | MemPalace | Verbatim memory, scoped semantic retrieval, pluggable storage backends, temporal entity relationships, MCP memory operations | MIT | Claim to re-establish at R1; 125 surfaces inventoried |
+| revtools.semantica | Semantica | Not identifiable from the source | Unknown | Blocked until identified: an unresolved licence refuses the analysis ([09 §2](09-reverse-engineering.md#2-stance)); the inventory's 134 surfaces stand on their own |
+
+revtools.licences: "a new language does not erase the original licence". MIT
+requires the notice in copies and substantial portions; Apache-2.0 adds
+attribution, modification notices and `NOTICE`. Kept, as the reason the register
+records obligations rather than licence names alone
+([09 §4](09-reverse-engineering.md#4-the-provenance-register),
+[§10](09-reverse-engineering.md#10-legal-boundary)).
+
+### 19.5 Dropped
+
+| Item | Reason |
+| --- | --- |
+| Ghidra as the primary method for rebuilding five existing implementations | The source itself rejects it; source analysis keeps what compilation destroys |
+| Merging the internal code of several projects into one codebase | Against "outcomes, not engines" ([04 §1](04-intelligence-backend.md#1-scope-and-stance)) and against the clean-room boundary |
+| gRPC as an application interface | Local HTTP on a Unix socket plus MCP already cover it ([07 §2](07-extensibility.md#2-entry-points)); a remote profile is a separate decision |
+| Python or TypeScript adapters for AI and agent integrations as a starting assumption | Rust wherever feasible; an exception must record its justification ([04 §1](04-intelligence-backend.md#1-scope-and-stance)) |

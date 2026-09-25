@@ -23,9 +23,10 @@ and the invariants. Each layer has its own document:
 | [03 Agent orchestration](03-agent-orchestration.md) | Catalog, workflow graphs, the orchestration engine, Copilot SDK and llama.cpp sessions, policy broker, sandbox, handoff contracts |
 | [04 Intelligence backend](04-intelligence-backend.md) | The provider analysis distilled, the kernel building blocks, memory and continuity, code intelligence, temporal knowledge, workbench |
 | [05 Platform and operations](05-platform-and-operations.md) | Observability, evaluations and benchmarks, security, supply chain, deployment, data management, CI/CD |
-| [06 Roadmap](06-roadmap.md) | Slices S0–S7, exit criteria, estimates, tracks, risks |
+| [06 Roadmap](06-roadmap.md) | Slices S0–S8, exit criteria, estimates, tracks, risks |
 | [07 Extensibility](07-extensibility.md) | Entry points, the event stream (exit points), extensions that plug in and out without core changes |
 | [08 Traceability](08-traceability.md) | Every earlier requirement and decision, with its status and location in this design |
+| [09 Reverse engineering](09-reverse-engineering.md) | How a system is analysed without inheriting its code: the provenance register, the clean-room boundary, behaviour contracts, analyzers as extensions |
 | [ADRs](../adr/README.md) | The hard-to-reverse decisions and their trade-offs |
 | [Golden rules](https://github.com/Orchestration-Maestro/.github/blob/main/golden-rules/engineering.md) | The organization's rules, which come first; [`docs/standards/`](../standards/engineering.md) maps them here |
 | [Constitution](https://github.com/Orchestration-Maestro/.github/blob/main/CONSTITUTION.md) | Spec Kit's index of the organization's identity, rules and tools; it holds no rule of its own |
@@ -138,6 +139,7 @@ from the kernel at any time.
 | L17 | Security | Threat model, policy, secrets, supply chain | cross-cutting | Cedar, Landlock, rust-workflows gates, attestations | S0 → |
 | L18 | Operations | Install, services, backup, doctor | `maestro` | systemd user units, XDG paths | S1 → |
 | L19 | Extensibility | Entry points, public event stream, extension host | `maestro-kernel::journal`, `maestro-runtime::extensions` | CloudEvents 1.0 envelope, JSON-RPC 2.0 extension protocol | S1 (stream), S4 (host) |
+| L20 | Provenance and analysis | Component origins, licences and obligations; analyzer findings behind the clean-room boundary | `maestro-provenance` (+ analyzer extensions) | Analyzer contract over ScanCode, Joern, CodeQL, Ghidra, Frida, mitmproxy, Playwright | S8 |
 
 ## 5. Technology matrix
 
@@ -204,6 +206,11 @@ These hold in every slice and are enforced by tests, not by prose.
    commands every entry point uses and leave through the public event stream;
    adding or removing one is a catalog change and an activation, never a core
    release.
+9. **Analysis is not implementation.** Material produced by studying another
+   system stays in its own scope; only an approved specification, quoting
+   nothing, reaches the code that is written from it, and every component we
+   adopt, port or study carries its origin, licence and obligations
+   ([09](09-reverse-engineering.md), ADR-0019).
 
 ## 7. Repositories
 

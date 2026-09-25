@@ -251,9 +251,14 @@ feature list.
 
 ## 11. Transition from existing providers
 
+The method these steps rely on — how a provider is studied without inheriting
+its code or its licence obligations — is [09](09-reverse-engineering.md).
+
 1. Register each provider in `maestro-manifests/mcp/` with an approved tool
    allowlist and the policies that govern it; agents use them today.
-2. For each capability, build the eval suite first, from real questions.
+2. For each capability, build the eval suite first, from real questions. The
+   behaviour contracts of [09 §7](09-reverse-engineering.md#7-behaviour-contracts)
+   are how that suite is derived from the provider itself.
 3. **Inventory without mutation, snapshot and prove readability**, then map
    scopes explicitly (unknown legacy scope goes to a restricted area), keeping
    native IDs beside new ones.

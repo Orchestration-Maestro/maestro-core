@@ -21,6 +21,7 @@ that mapping before it starts.
 | **S5 Capabilities + InnerSource** | Monitoring, Product Owner and Control-M orchestration-planning capabilities; scaffolder; scenario runner; a contributed capability | 10–15 days | S4 | **M5 "First contributed capability"** |
 | **S6 Native acquisition** | Frontier, fetchers, extraction, policy; private BMC connectors; Python retired source by source | 15–25 days | S1 | **M6 "Python retired"** |
 | **S7 Intelligence backend** | I1 memory and continuity, I2 code intelligence, I3 governed knowledge, I4 workbench | I1 4–6 wk, I2 3–4 wk, I3 3–5 wk, I4 4–6 wk | S1–S4 | **M7 "Maestro remembers"** (I1) |
+| **S8 Provenance and reverse engineering** | Provenance register, analyzer extensions, behaviour contracts, the clean-room boundary | R1 1–2 wk, R2 2–3 wk, R3 2–3 wk, R4 1 wk | S1, S4, S7-I2 | **M8 "Cleared to reimplement"** |
 
 \*Engineering days of one developer working with coding agents, excluding waits
 for external approvals. Estimates are replaced by measured velocity after S1.
@@ -195,6 +196,34 @@ usefulness gates of [04 §10](04-intelligence-backend.md#10-quality-targets-and-
 The open decisions of [04 §12](04-intelligence-backend.md#12-decisions-still-open)
 are settled before the phase that needs them.
 
+### S8 Provenance and reverse engineering → M8
+
+**Goal:** a provider or component can be studied, compared and replaced without
+inheriting its code, its licence obligations or its defects, and the record
+proves it afterwards. Design: [09](09-reverse-engineering.md), ADR-0019.
+
+| Deliverable | Detail |
+| --- | --- |
+| **R1 Provenance register** | The `provenance` collection: component, origin, pinned revision, licence, usage class (`reused`, `modified`, `ported`, `specification-only`, `independent`), obligations, evidence and approver; a ScanCode-class analyzer proposing records; notices and SBOM material generated from the register rather than maintained beside it |
+| **R2 Static analysis** | The `analyzer` extension kind and its contract (findings, evidence, coverage, limits, method); analysis jobs and `analysis/<target>` scopes; Joern and CodeQL analyzers; normalization to targets, components, surfaces and capabilities; the comparison report across analysed systems |
+| **R3 Behaviour contracts** | Authorized capture through Playwright and mitmproxy, turned into executable scenario suites and an independent API specification; Frida and headless Ghidra analyzers for lawfully possessed native components; parity suites generated from the contracts |
+| **R4 Clean-room promotion** | The `analysis/*` boundary as Cedar policy with allow and deny fixtures; `analysis.specification.promote` with a named approver; the verbatim-quotation check; the promotion audit trail |
+
+**Exit criteria:** an implementation principal cannot reach an `analysis/*`
+passage, event or artifact through any route or cache, proved by the isolation
+suite; a specification quoting analysis material is refused and the refusal
+names the span; a component without an origin, revision, licence and usage class
+blocks the build that would ship it; the notices of every `reused`, `modified`
+and `ported` component in a release are generated from the register and match
+it; two analyzers answering the same question produce comparable findings, each
+with its own coverage and limits, neither silently merged; one provider from
+[04 §2](04-intelligence-backend.md#2-the-provider-analysis-distilled) has a
+behaviour contract that its own release passes and that a native capability is
+then measured against.
+
+R1 may be pulled forward: the first S7 provider replacement needs its component
+registered before it starts, so R1 ships with that phase if S8 has not begun.
+
 ## 3. Explicitly deferred
 
 - The desktop workbench before I4 (it is native Rust, ADR-0016; there is no web
@@ -225,3 +254,4 @@ are settled before the phase that needs them.
 | R11 | Requirements lost between plans | Medium | High | [08](08-traceability.md) is updated by every slice spec; a requirement changes status only with a stated reason |
 | R12 | Bare identifiers collide across documents (C01, U03 mean different things in different sources) | High | Medium | Namespaced IDs in 08 (`chat.C01`, `delivery.U03`, `product.C01`) |
 | R13 | An extension becomes an attack path | Medium | High | Out-of-process, sandboxed, least-privilege principals, declared effects, activation separate from publication (ADR-0013) |
+| R14 | A studied component's licence obligations reach a public MIT repository unnoticed | Medium | High | The provenance register gates adoption on a resolved licence and a usage class; the clean-room boundary keeps analysis material away from implementation; notices are generated from the register and checked in the release ([09](09-reverse-engineering.md), ADR-0019) |

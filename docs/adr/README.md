@@ -23,3 +23,4 @@ order; a superseded record stays and names its successor.
 | [0016](0016-native-rust-desktop-workbench.md) | The workbench is a native Rust desktop application |
 | [0017](0017-spec-kit-installed-once-for-the-organization.md) | Spec Kit is installed once for the organization, not committed |
 | [0018](0018-rustix-on-unix-and-win32-flags-on-windows.md) | The snapshot store uses rustix on Unix and the standard library's Win32 flags on Windows |
+| [0019](0019-reverse-engineering-is-analysis-behind-a-clean-room.md) | Reverse engineering produces knowledge only, behind a clean-room boundary |
