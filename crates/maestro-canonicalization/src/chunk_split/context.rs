@@ -1,10 +1,12 @@
 //! The context a chunk repeats: headings, parent items, task markers and table headers.
 use super::prepare::{formatting, normalized_range};
-use super::{Body, ContextEntry, Layout, structure_error};
+use super::refusal::structure_error;
+use super::structure::{Body, ContextEntry, Layout};
 use crate::{
-    Block, BlockType, ContentNode, Error,
+    Error,
     chunk_mapping::mapped_slice,
     chunks::{Contribution, Fragment, InputPart, InputRole, TextRange, UnitField},
+    content::{Block, BlockType, ContentNode, InlineKind},
 };
 use std::collections::BTreeSet;
 
@@ -12,7 +14,12 @@ impl Layout<'_> {
     /// The context a body repeats: its enclosing headings, its ancestors' context and a table
     /// header, less what the body holds whole, headings first.
     pub(super) fn context_entries(&self, body: &Body) -> Result<Vec<ContextEntry>, Error> {
-        let first = body.fragments[0].contribution.unit_index;
+        let first = body
+            .fragments
+            .first()
+            .ok_or_else(structure_error)?
+            .contribution
+            .unit_index;
         let headings = self.heading_chain(first)?;
         let mut entries = self.heading_entries(body, &headings);
         entries.extend(self.ancestor_entries(body)?);
@@ -22,9 +29,9 @@ impl Layout<'_> {
                 .units
                 .iter()
                 .copied()
-                .filter(|&i| self.mapped.units[i].primary)
+                .filter(|&unit| self.is_primary(unit))
                 .collect();
-            primary.is_empty() || !primary.iter().all(|&i| self.full(i, body))
+            primary.is_empty() || !primary.iter().all(|&unit| self.full(unit, body))
         });
         entries.sort_by_key(|entry| (entry.role != InputRole::HeadingContext, entry.depth));
         Ok(entries)
@@ -59,14 +66,14 @@ impl Layout<'_> {
             if body
                 .fragments
                 .iter()
-                .all(|f| self.mapped.units[f.contribution.unit_index].block_id == *id)
+                .all(|fragment| self.in_block(fragment.contribution.unit_index, id))
             {
                 continue;
             }
             let units = self
                 .owned_units(id)
                 .into_iter()
-                .filter(|&i| self.mapped.units[i].primary)
+                .filter(|&unit| self.is_primary(unit))
                 .collect();
             entries.push(ContextEntry {
                 role: InputRole::HeadingContext,
@@ -86,8 +93,8 @@ impl Layout<'_> {
             let index = fragment.contribution.unit_index;
             let own_item = self
                 .nearest(index, &BlockType::ListItem)
-                .map(|b| b.block_id.as_str());
-            for (depth, block) in self.ancestry[index].iter().enumerate() {
+                .map(|item| item.block_id.as_str());
+            for (depth, block) in self.ancestors(index).iter().enumerate() {
                 entries.extend(self.ancestor_block_entries(block, depth, own_item, &mut seen)?);
             }
         }
@@ -129,9 +136,16 @@ impl Layout<'_> {
                 });
             }
         }
-        for unit in self.owned_units(&block.block_id).into_iter().filter(|&i| {
-            !self.mapped.units[i].primary && self.mapped.units[i].field != UnitField::ListMarker
-        }) {
+        for unit in self
+            .owned_units(&block.block_id)
+            .into_iter()
+            .filter(|&unit| {
+                self.mapped
+                    .units
+                    .get(unit)
+                    .is_some_and(|owned| !owned.primary && owned.field != UnitField::ListMarker)
+            })
+        {
             if seen.insert(format!("attribute:{unit}")) {
                 entries.push(ContextEntry {
                     role: InputRole::StructuralContext,
@@ -161,29 +175,31 @@ impl Layout<'_> {
             .units
             .iter()
             .enumerate()
-            .filter(|(i, _)| {
-                self.nearest(*i, &BlockType::ListItem)
+            .filter(|(index, _)| {
+                self.nearest(*index, &BlockType::ListItem)
                     .is_some_and(|item| item.block_id == item_id)
             })
-            .map(|(i, _)| i)
+            .map(|(index, _)| index)
             .collect()
     }
 
     /// The units of `item_id`'s own task marker, if it has one.
     fn task_marker_units(&self, item_id: &str) -> Result<Vec<usize>, Error> {
         let mut units = Vec::new();
-        for (i, unit) in self.mapped.units.iter().enumerate() {
+        for (index, unit) in self.mapped.units.iter().enumerate() {
             if self
-                .nearest(i, &BlockType::ListItem)
-                .is_some_and(|item| item.block_id == item_id)
+                .nearest(index, &BlockType::ListItem)
+                .is_none_or(|item| item.block_id != item_id)
             {
-                if let UnitField::Inline { child_path } = &unit.field {
-                    let root = *child_path.first().ok_or_else(structure_error)?;
-                    let child = self.owner(i)?.structured_content.children.get(root);
-                    if Self::is_task_marker(child) {
-                        units.push(i);
-                    }
-                }
+                continue;
+            }
+            let UnitField::Inline { child_path } = &unit.field else {
+                continue;
+            };
+            let root = *child_path.first().ok_or_else(structure_error)?;
+            let child = self.owner(index)?.structured_content.children.get(root);
+            if Self::is_task_marker(child) {
+                units.push(index);
             }
         }
         Ok(units)
@@ -203,8 +219,8 @@ impl Layout<'_> {
             .ok_or_else(structure_error)?;
         self.child_blocks(parent)
             .into_iter()
-            .take_while(|b| b.block_id != description.block_id)
-            .filter(|b| b.block_type == BlockType::DefinitionTerm)
+            .take_while(|block| block.block_id != description.block_id)
+            .filter(|block| block.block_type == BlockType::DefinitionTerm)
             .last()
             .ok_or_else(structure_error)
     }
@@ -215,7 +231,7 @@ impl Layout<'_> {
         let Some(window) = body
             .windows
             .first()
-            .filter(|_| body.windows.iter().any(|w| w.row_index != 0))
+            .filter(|_| body.windows.iter().any(|window| window.row_index != 0))
         else {
             return Ok(None);
         };
@@ -227,7 +243,7 @@ impl Layout<'_> {
         let header = self
             .child_blocks(table)
             .into_iter()
-            .find(|b| b.block_type == BlockType::TableHead)
+            .find(|block| block.block_type == BlockType::TableHead)
             .ok_or_else(structure_error)?;
         let cells = self.row_cells(&header.block_id)?;
         let columns: Vec<Vec<usize>> = window
@@ -242,7 +258,7 @@ impl Layout<'_> {
             .collect::<Result<_, _>>()?;
         Ok(Some(ContextEntry {
             role: InputRole::TableHeaderContext,
-            depth: self.ancestry[first].len(),
+            depth: self.ancestors(first).len(),
             units: columns.iter().flatten().copied().collect(),
             columns: Some(columns),
         }))
@@ -253,7 +269,7 @@ impl Layout<'_> {
         matches!(
             node,
             Some(ContentNode::Inline { inline })
-                if matches!(inline.content, crate::InlineKind::TaskMarker { .. })
+                if matches!(inline.content, InlineKind::TaskMarker { .. })
         )
     }
 
@@ -286,7 +302,7 @@ impl Layout<'_> {
                 unit_index: index,
                 range: TextRange {
                     start: 0,
-                    end: self.mapped.units[index].text.len(),
+                    end: self.unit(index)?.text.len(),
                 },
             },
             role,
@@ -295,12 +311,15 @@ impl Layout<'_> {
 
     /// Two spaces for each list around a unit: the indentation its continuation lines carry.
     pub(super) fn indentation(&self, index: usize) -> String {
-        "  ".repeat(
-            self.ancestry[index]
-                .iter()
-                .filter(|b| b.block_type == BlockType::List)
-                .count(),
-        )
+        "  ".repeat(self.list_depth(index))
+    }
+
+    /// How many lists a unit is inside.
+    fn list_depth(&self, index: usize) -> usize {
+        self.ancestors(index)
+            .iter()
+            .filter(|block| block.block_type == BlockType::List)
+            .count()
     }
 
     /// Append a contribution line by line, each line break followed by the unit's list indentation
@@ -311,7 +330,7 @@ impl Layout<'_> {
         contribution: Contribution,
         role: InputRole,
     ) -> Result<(), Error> {
-        let unit = &self.mapped.units[contribution.unit_index];
+        let unit = self.unit(contribution.unit_index)?;
         let text = unit
             .text
             .get(contribution.range.start..contribution.range.end)
@@ -338,36 +357,17 @@ impl Layout<'_> {
     /// The input parts of a context entry: a table header's columns separated by tabs, else its
     /// units with the separators their blocks need.
     pub(super) fn context_parts(&self, entry: &ContextEntry) -> Result<Vec<InputPart>, Error> {
-        let mut result = Vec::new();
         if let Some(columns) = &entry.columns {
-            for (column, units) in columns.iter().enumerate() {
-                if column > 0 {
-                    formatting(&mut result, "\t".into(), false);
-                }
-                for &index in units {
-                    result.push(self.whole_part(index, entry.role)?);
-                }
-            }
-            return Ok(result);
+            return self.header_parts(columns, entry.role);
         }
+        let mut result = Vec::new();
         let mut previous: Option<usize> = None;
         for &index in &entry.units {
-            let unit = &self.mapped.units[index];
+            let unit = self.unit(index)?;
             if let Some(previous) = previous {
-                let preceding = &self.mapped.units[previous];
-                if preceding.field != UnitField::ListMarker {
-                    if preceding.block_id != unit.block_id {
-                        let separator = format!("\n{}", self.indentation(index));
-                        formatting(&mut result, separator.repeat(2), false);
-                    } else if !preceding.primary {
-                        formatting(&mut result, format!("\n{}", self.indentation(index)), false);
-                    }
-                }
+                self.context_separator(&mut result, previous, index)?;
             } else if entry.role == InputRole::ParentListContext {
-                let depth = self.ancestry[index]
-                    .iter()
-                    .filter(|b| b.block_type == BlockType::List)
-                    .count();
+                let depth = self.list_depth(index);
                 formatting(&mut result, "  ".repeat(depth.saturating_sub(1)), false);
             }
             self.append_source(
@@ -386,6 +386,45 @@ impl Layout<'_> {
         Ok(result)
     }
 
+    /// A table header's input parts: each column's units, the columns separated by tabs.
+    fn header_parts(
+        &self,
+        columns: &[Vec<usize>],
+        role: InputRole,
+    ) -> Result<Vec<InputPart>, Error> {
+        let mut result = Vec::new();
+        for (column, units) in columns.iter().enumerate() {
+            if column > 0 {
+                formatting(&mut result, "\t".into(), false);
+            }
+            for &index in units {
+                result.push(self.whole_part(index, role)?);
+            }
+        }
+        Ok(result)
+    }
+
+    /// The separator between two context units: none after a list marker, a blank line between
+    /// blocks, a line break after a block's non-primary attribute.
+    fn context_separator(
+        &self,
+        result: &mut Vec<InputPart>,
+        previous: usize,
+        index: usize,
+    ) -> Result<(), Error> {
+        let preceding = self.unit(previous)?;
+        if preceding.field == UnitField::ListMarker {
+            return Ok(());
+        }
+        if preceding.block_id != self.unit(index)?.block_id {
+            let separator = format!("\n{}", self.indentation(index));
+            formatting(result, separator.repeat(2), false);
+        } else if !preceding.primary {
+            formatting(result, format!("\n{}", self.indentation(index)), false);
+        }
+        Ok(())
+    }
+
     /// Append a body fragment, repeating the delimiters of the inline envelopes, such as deletions,
     /// that it starts or ends inside.
     pub(super) fn fragment_parts(
@@ -394,7 +433,7 @@ impl Layout<'_> {
         parts: &mut Vec<InputPart>,
     ) -> Result<(), Error> {
         let contribution = fragment.contribution;
-        let unit = &self.mapped.units[contribution.unit_index];
+        let unit = self.unit(contribution.unit_index)?;
         let range = contribution.range;
         if normalized_range(unit, range.start, range.end) != Some(range) {
             return Err(structure_error());
@@ -402,7 +441,9 @@ impl Layout<'_> {
         let active: Vec<_> = unit
             .envelopes
             .iter()
-            .filter(|e| range.start < e.closing.start && range.end > e.opening.end)
+            .filter(|envelope| {
+                range.start < envelope.closing.start && range.end > envelope.opening.end
+            })
             .collect();
         for envelope in &active {
             if range.start > envelope.opening.start {
@@ -437,15 +478,17 @@ impl Layout<'_> {
         parts: &mut Vec<InputPart>,
     ) -> Result<(), Error> {
         if let Some(item) = self.nearest(index, &BlockType::ListItem) {
-            let depth = self.ancestry[index]
-                .iter()
-                .filter(|b| b.block_type == BlockType::List)
-                .count();
+            let depth = self.list_depth(index);
             formatting(parts, "  ".repeat(depth.saturating_sub(1)), true);
             let marker = self
                 .owned_units(&item.block_id)
                 .into_iter()
-                .find(|&i| self.mapped.units[i].field == UnitField::ListMarker)
+                .find(|&unit| {
+                    self.mapped
+                        .units
+                        .get(unit)
+                        .is_some_and(|owned| owned.field == UnitField::ListMarker)
+                })
                 .ok_or_else(structure_error)?;
             // Canonical markers/ordinals are source-backed context, unlike indentation.
             parts.push(self.whole_part(marker, InputRole::StructuralContext)?);

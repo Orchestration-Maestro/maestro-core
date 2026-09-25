@@ -1,5 +1,6 @@
 //! Context, characterized on small documents: the exact prepared input of each chunk.
 use super::*;
+use crate::chunks::{Contribution, TextRange};
 
 /// Each chunk under the fake counter.
 fn drafted(markdown: &str) -> Vec<ChunkContent> {
@@ -10,7 +11,7 @@ fn drafted(markdown: &str) -> Vec<ChunkContent> {
 fn prepared(markdown: &str) -> Vec<String> {
     drafted(markdown)
         .into_iter()
-        .map(|c| c.prepared_input)
+        .map(|chunk| chunk.prepared_input)
         .collect()
 }
 
@@ -24,22 +25,23 @@ fn a_nested_item_repeats_its_parent_and_no_foreign_task_marker() {
 
 #[test]
 fn parents_repeat_indented_by_their_lists_with_block_separators() {
-    let c = "c".repeat(650);
-    let nested = format!("- a\n  - b\n\n    - {c}");
-    assert_eq!(prepared(&format!("- a\n  - b\n    - {c}\n"))[2], nested);
+    let deep = "c".repeat(650);
+    let nested = format!("- a\n  - b\n\n    - {deep}");
+    assert_eq!(prepared(&format!("- a\n  - b\n    - {deep}\n"))[2], nested);
     // A quote between the lists adds no indentation: only lists count.
     assert_eq!(
-        prepared(&format!("- a\n\n  > - b\n  >\n  >   - {c}\n"))[2],
+        prepared(&format!("- a\n\n  > - b\n  >\n  >   - {deep}\n"))[2],
         nested
     );
-    let markdown = format!("# H\n\n- first\n\n  second\n\n  ```rust\n  code\n  ```\n\n  - {c}\n");
+    let markdown =
+        format!("# H\n\n- first\n\n  second\n\n  ```rust\n  code\n  ```\n\n  - {deep}\n");
     let chunks = drafted(&markdown);
     // Headings lead; a code line's break carries the item's indentation as body layout.
     assert_eq!(chunks[2].prepared_input, "H\nrust\n\n- code\n  ");
     assert_eq!(chunks[2].body_text, "code\n  ");
     assert_eq!(
         chunks[3].prepared_input,
-        format!("H\n- first\n  \n  second\n  \n  rust\n  code\n  \n\n  - {c}")
+        format!("H\n- first\n  \n  second\n  \n  rust\n  code\n  \n\n  - {deep}")
     );
 }
 
@@ -57,7 +59,7 @@ fn a_section_that_is_not_a_heading_is_a_structure_error() {
     let intro = doc.blocks[0].block_id.clone();
     doc.blocks.last_mut().unwrap().parent_section_id = Some(intro);
     let mapped = map_document(&doc, markdown).unwrap();
-    let mut count = |s: &str| Ok(s.chars().count() + 2);
+    let mut count = |text: &str| Ok(text.chars().count() + 2);
     assert!(build_drafts(&doc, markdown, &mapped, &mut count).is_err());
 }
 
@@ -70,9 +72,9 @@ fn a_piece_inside_deletions_repeats_only_the_delimiters_it_lacks() {
     let layout = layout(&doc, markdown, &mapped).unwrap();
     let parts = |start, end| {
         let fragment = Fragment {
-            contribution: crate::chunks::Contribution {
+            contribution: Contribution {
                 unit_index: 0,
-                range: crate::chunks::TextRange { start, end },
+                range: TextRange { start, end },
             },
             part_ordinal: 0,
             split: SplitKind::Whitespace,
@@ -81,7 +83,7 @@ fn a_piece_inside_deletions_repeats_only_the_delimiters_it_lacks() {
         layout.fragment_parts(&fragment, &mut parts).unwrap();
         parts
             .into_iter()
-            .map(|p| (p.role, p.text))
+            .map(|part| (part.role, part.text))
             .collect::<Vec<_>>()
     };
     let delimiter = || (Delimiter, "~~".to_owned());

@@ -1,6 +1,14 @@
 //! Tests of source mapping: order, Unicode, entities, envelopes and accounting.
-use super::*;
-use crate::{CanonicalizeInput, canonicalize, chunks::SourceDisposition};
+use super::{map_accounting, map_document, mapped_slice};
+use crate::{
+    CanonicalDocument, canonicalize,
+    chunks::{
+        InlineEnvelope, MappedDocument, MappingRun, OriginMode, SourceDisposition, SourceOrigin,
+        TextRange, UnitField,
+    },
+    content::{BlockType, ContentNode},
+    model::{CanonicalizeInput, SourceSpan},
+};
 
 #[test]
 fn decoded_entities_keep_original_syntax_origins() {
@@ -11,18 +19,24 @@ fn decoded_entities_keep_original_syntax_origins() {
         mapped
             .units
             .iter()
-            .filter(|u| u.primary)
-            .map(|u| u.text.as_str())
+            .filter(|unit| unit.primary)
+            .map(|unit| unit.text.as_str())
             .collect::<String>(),
         "A & B"
     );
-    assert!(mapped.units.iter().flat_map(|u| &u.mappings).any(|run| {
-        run.mode == OriginMode::CanonicalTransformation
-            && run
-                .origins
-                .iter()
-                .any(|o| &markdown[o.span.start..o.span.end] == "&amp;")
-    }));
+    assert!(
+        mapped
+            .units
+            .iter()
+            .flat_map(|unit| &unit.mappings)
+            .any(|run| {
+                run.mode == OriginMode::CanonicalTransformation
+                    && run
+                        .origins
+                        .iter()
+                        .any(|origin| &markdown[origin.span.start..origin.span.end] == "&amp;")
+            })
+    );
 }
 
 #[test]
@@ -100,15 +114,15 @@ fn check_primary_text_ledger_and_slices(
         mapped
             .units
             .iter()
-            .filter(|u| u.primary)
-            .map(|u| u.text.as_str())
+            .filter(|unit| unit.primary)
+            .map(|unit| unit.text.as_str())
             .collect::<String>(),
         expected,
         "{name}"
     );
     assert_eq!(mapped.accounting.len(), doc.source_accounting.len());
-    for (i, entry) in mapped.accounting.iter().enumerate() {
-        assert_eq!(entry.accounting_index, i);
+    for (index, entry) in mapped.accounting.iter().enumerate() {
+        assert_eq!(entry.accounting_index, index);
         if entry.disposition == SourceDisposition::Eligible {
             assert!(!entry.unit_indices.is_empty());
         }
@@ -138,7 +152,7 @@ fn check_metadata_only_accounting(
         mapped
             .accounting
             .iter()
-            .any(|a| a.disposition == SourceDisposition::Metadata)
+            .any(|entry| entry.disposition == SourceDisposition::Metadata)
     );
     for entry in &mapped.accounting {
         if entry.disposition != SourceDisposition::Metadata {
@@ -155,7 +169,7 @@ fn check_code_info_is_context(mapped: &MappedDocument) {
         mapped
             .units
             .iter()
-            .any(|u| !u.primary && u.field == UnitField::CodeInfo && u.text == "rust")
+            .any(|unit| !unit.primary && unit.field == UnitField::CodeInfo && unit.text == "rust")
     );
 }
 
@@ -165,7 +179,7 @@ fn check_both_list_markers_are_units(mapped: &MappedDocument) {
         mapped
             .units
             .iter()
-            .filter(|u| u.field == UnitField::ListMarker)
+            .filter(|unit| unit.field == UnitField::ListMarker)
             .count(),
         2
     );
@@ -176,20 +190,21 @@ fn exact_slices_narrow_but_transformed_slices_keep_original_syntax() {
     let markdown = "café &amp; done\n";
     let doc = canonicalize(CanonicalizeInput::new(markdown, "slices")).unwrap();
     let mapped = map_document(&doc, markdown).unwrap();
-    let plain = mapped.units.iter().find(|u| u.text == "café ").unwrap();
+    let plain = mapped
+        .units
+        .iter()
+        .find(|unit| unit.text == "café ")
+        .unwrap();
     let narrowed = mapped_slice(plain, TextRange { start: 3, end: 5 }, markdown).unwrap();
     assert_eq!(narrowed[0].range, TextRange { start: 0, end: 2 });
-    assert_eq!(
-        narrowed[0].origins[0].span,
-        crate::SourceSpan { start: 3, end: 5 }
-    );
+    assert_eq!(narrowed[0].origins[0].span, SourceSpan { start: 3, end: 5 });
     assert!(mapped_slice(plain, TextRange { start: 3, end: 4 }, markdown).is_err());
     assert!(mapped_slice(plain, TextRange { start: 5, end: 3 }, markdown).is_err());
-    let entity = mapped.units.iter().find(|u| u.text == "&").unwrap();
+    let entity = mapped.units.iter().find(|unit| unit.text == "&").unwrap();
     let transformed = mapped_slice(entity, TextRange { start: 0, end: 1 }, markdown).unwrap();
     assert_eq!(
         transformed[0].origins[0].span,
-        crate::SourceSpan { start: 6, end: 11 }
+        SourceSpan { start: 6, end: 11 }
     );
     let mut corrupted = plain.clone();
     corrupted.mappings[0].origins[0].span.end = 3;
@@ -201,22 +216,22 @@ fn reference_images_keep_the_resolved_definition_not_a_same_url_neighbor() {
     let markdown = "![caption][  PIC  ]\n\n[wrong]: image.svg\n[pic]: image.svg\n";
     let doc = canonicalize(CanonicalizeInput::new(markdown, "reference")).unwrap();
     let mapped = map_document(&doc, markdown).unwrap();
-    let image = mapped.units.iter().find(|u| u.primary).unwrap();
+    let image = mapped.units.iter().find(|unit| unit.primary).unwrap();
     assert_eq!(image.text, "caption (image.svg)");
     let origins: Vec<_> = image
         .mappings
         .iter()
-        .flat_map(|r| &r.origins)
-        .map(|o| &markdown[o.span.start..o.span.end])
+        .flat_map(|run| &run.origins)
+        .map(|origin| &markdown[origin.span.start..origin.span.end])
         .collect();
-    assert!(origins.iter().any(|s| s.starts_with("![caption]")));
-    assert!(origins.iter().any(|s| s.starts_with("[pic]:")));
-    assert!(!origins.iter().any(|s| s.starts_with("[wrong]:")));
+    assert!(origins.iter().any(|text| text.starts_with("![caption]")));
+    assert!(origins.iter().any(|text| text.starts_with("[pic]:")));
+    assert!(!origins.iter().any(|text| text.starts_with("[wrong]:")));
     assert_eq!(
         mapped
             .accounting
             .iter()
-            .filter(|a| a.disposition == SourceDisposition::ReferenceDefinition)
+            .filter(|entry| entry.disposition == SourceDisposition::ReferenceDefinition)
             .count(),
         2
     );
@@ -227,7 +242,7 @@ fn deletion_wrappers_keep_semantic_envelopes_and_source_origins() {
     let markdown = "~~do **not** delete~~\n";
     let doc = canonicalize(CanonicalizeInput::new(markdown, "deletion")).unwrap();
     let mapped = map_document(&doc, markdown).unwrap();
-    let unit = mapped.units.iter().find(|u| u.primary).unwrap();
+    let unit = mapped.units.iter().find(|unit| unit.primary).unwrap();
     assert_eq!(
         unit.envelopes,
         [InlineEnvelope {
@@ -259,7 +274,7 @@ fn ledger_parts_carry_only_the_units_that_overlap_them() {
     let units: Vec<_> = mapped
         .accounting
         .iter()
-        .map(|a| a.unit_indices.clone())
+        .map(|entry| entry.unit_indices.clone())
         .collect();
     // `# ` ends where the title's origin starts, and the newline starts where it ends.
     assert_eq!(units, [vec![], vec![0], vec![], vec![], vec![1], vec![]]);
@@ -289,7 +304,7 @@ fn front_matter_bytes_are_metadata_whatever_their_role() {
     let front = doc
         .source_accounting
         .iter()
-        .position(|a| a.role == crate::SourceRole::MetadataOrReference)
+        .position(|entry| entry.role == crate::SourceRole::MetadataOrReference)
         .unwrap();
     doc.source_accounting[front].role = crate::SourceRole::ParsedContent;
     let accounting = map_accounting(&doc, markdown, &units).unwrap();
@@ -304,16 +319,16 @@ fn each_reference_image_names_its_own_definition_block() {
     let definitions: Vec<_> = mapped
         .units
         .iter()
-        .flat_map(|u| &u.mappings)
-        .flat_map(|r| &r.origins)
-        .filter(|o| markdown[o.span.start..o.span.end].starts_with('['))
+        .flat_map(|unit| &unit.mappings)
+        .flat_map(|run| &run.origins)
+        .filter(|origin| markdown[origin.span.start..origin.span.end].starts_with('['))
         .collect();
     assert_eq!(definitions.len(), 2);
     for origin in definitions {
         let owner = doc
             .blocks
             .iter()
-            .find(|b| b.block_id == origin.block_id)
+            .find(|block| block.block_id == origin.block_id)
             .unwrap();
         assert_eq!(owner.block_type, BlockType::ReferenceDefinition);
         assert!(owner.source_spans.contains(&origin.span));
