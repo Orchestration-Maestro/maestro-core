@@ -1,10 +1,12 @@
 # The organization's quality rules as this repository shapes them: the inputs
 # its CI caller passes and the words it means. Read by rust-gate sync.
 
-# What the caller passed before its ci.yml became generated: pedantic Clippy,
-# a required deny.toml, and artifacts named after the repository.
+# What the caller passed before its ci.yml became generated: a required
+# deny.toml and artifacts named after the repository. Pedantic Clippy needs no
+# input: the organization's lint block in Cargo.toml already denies the group,
+# and `clippy-level: pedantic` would deny on the command line the lints the
+# block allows on purpose, similar_names among them.
 [ci]
-clippy-level = "pedantic"
 license-policy = "enforce"
 artifact-key = "maestro-core"
 

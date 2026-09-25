@@ -14,7 +14,6 @@ jobs:
     permissions:
       contents: read
     with:
-      clippy-level: pedantic
       license-policy: enforce
       artifact-key: maestro-core
   # Clippy and secret-scan findings into the Security tab.
