@@ -7,7 +7,7 @@ fn prepared(markdown: &str) -> Vec<String> {
         .unwrap()
         .1
         .into_iter()
-        .map(|c| c.prepared_input)
+        .map(|chunk| chunk.prepared_input)
         .collect()
 }
 
@@ -15,17 +15,17 @@ fn prepared(markdown: &str) -> Vec<String> {
 fn cuts(markdown: &str) -> Vec<(usize, usize, SplitKind)> {
     let (mapped, chunks) = structural_chunks(markdown).unwrap();
     let longest = (0..mapped.units.len())
-        .max_by_key(|&i| mapped.units[i].text.len())
+        .max_by_key(|&index| mapped.units[index].text.len())
         .unwrap();
     chunks
         .iter()
-        .flat_map(|c| &c.fragments)
-        .filter(|f| f.contribution.unit_index == longest)
-        .map(|f| {
+        .flat_map(|chunk| &chunk.fragments)
+        .filter(|fragment| fragment.contribution.unit_index == longest)
+        .map(|fragment| {
             (
-                f.contribution.range.start,
-                f.contribution.range.end,
-                f.split,
+                fragment.contribution.range.start,
+                fragment.contribution.range.end,
+                fragment.split,
             )
         })
         .collect()
@@ -124,23 +124,45 @@ fn every_piece_counts_at_most_the_maximum_when_counted_again() {
     let markdown = format!("{}\n", "word ".repeat(300).trim_end());
     let doc = canonicalize(CanonicalizeInput::new(&markdown, "recount")).unwrap();
     let mapped = map_document(&doc, &markdown).unwrap();
-    let mut at_most = |s: &str| {
-        Ok(if s.len() <= 600 {
+    let mut at_most = |text: &str| {
+        Ok(if text.len() <= 600 {
             MAX_TOKENS
         } else {
             MAX_TOKENS + 1
         })
     };
     let chunks = build_drafts(&doc, &markdown, &mapped, &mut at_most).unwrap();
-    assert!(chunks.iter().all(|c| c.token_count == MAX_TOKENS));
+    assert!(chunks.iter().all(|chunk| chunk.token_count == MAX_TOKENS));
     // A counter that grows when it sees the same text again: the final recount refuses the piece.
     let mut seen = BTreeSet::new();
-    let mut unstable = |s: &str| {
-        Ok(if seen.insert(s.to_owned()) {
-            s.chars().count() + 2
+    let mut unstable = |text: &str| {
+        Ok(if seen.insert(text.to_owned()) {
+            text.chars().count() + 2
         } else {
             MAX_TOKENS + 100
         })
     };
     assert!(build_drafts(&doc, &markdown, &mapped, &mut unstable).is_err());
+}
+
+#[test]
+fn a_cut_inside_a_word_stays_when_the_whitespace_before_it_does_not_fit() {
+    let markdown = format!("{}\n", "word ".repeat(300).trim_end());
+    let doc = canonicalize(CanonicalizeInput::new(&markdown, "retreat")).unwrap();
+    let mapped = map_document(&doc, &markdown).unwrap();
+    // A counter that refuses every piece ending in whitespace: the halved prefix ends inside the
+    // text, and the retreat to the space before it no longer fits.
+    let mut no_trailing_space = |text: &str| {
+        Ok(if text.len() > 600 || text.ends_with(' ') {
+            MAX_TOKENS + 1
+        } else {
+            MAX_TOKENS
+        })
+    };
+    let chunks = build_drafts(&doc, &markdown, &mapped, &mut no_trailing_space).unwrap();
+    let first = &chunks[0].fragments[0];
+    assert_eq!(
+        (first.contribution.range.end, first.split),
+        (374, SplitKind::Scalar)
+    );
 }

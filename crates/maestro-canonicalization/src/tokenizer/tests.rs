@@ -1,21 +1,38 @@
 //! Tests of the native tokenizer: profile identity, artifacts, process limits and output.
+use super::NativeTokenizer;
+use super::artifacts::{verify_artifact, verify_libraries};
 use super::binding::NativeBinding;
+use super::contract::{array_at, parse_contract, text_at};
+use super::native::{configured_command, parse_ids};
 use super::process::run_native;
-use super::*;
-use std::path::PathBuf;
+use crate::error::Error;
+use crate::hashing::digest;
+#[cfg(unix)]
+use rustix::fs::{Mode, mkfifoat};
+use serde_json::{Value, json};
+#[cfg(unix)]
+use std::os::unix::fs::symlink;
 use std::{
-    fs,
-    sync::atomic::{AtomicUsize, Ordering},
-    time::Instant,
+    collections::BTreeSet,
+    env,
+    fs::{self, File},
+    path::{Path, PathBuf},
+    process::{self, Command},
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        mpsc,
+    },
+    thread,
+    time::{Duration, Instant},
 };
 
-struct Scratch(std::path::PathBuf);
+struct Scratch(PathBuf);
 impl Scratch {
     fn new() -> Self {
         static NEXT: AtomicUsize = AtomicUsize::new(0);
-        let path = std::env::temp_dir().join(format!(
+        let path = env::temp_dir().join(format!(
             "ctm-tokenizer-{}-{}",
-            std::process::id(),
+            process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)
         ));
         fs::create_dir(&path).unwrap();
@@ -37,7 +54,7 @@ fn write_binding(scratch: &Scratch, text: &str) -> PathBuf {
 /// The size and SHA-256 record of a file, with its profile name when it has one.
 fn record(path: &Path, file: Option<&str>) -> Value {
     let bytes = fs::read(path).unwrap();
-    let mut record = serde_json::json!({"bytes": bytes.len(), "sha256": digest(&bytes)});
+    let mut record = json!({"bytes": bytes.len(), "sha256": digest(&bytes)});
     if let Some(file) = file {
         record["file"] = file.into();
     }
@@ -56,11 +73,11 @@ fn fake_tokenizer(scratch: &Scratch) -> NativeTokenizer {
     fs::write(root.join("src/vocab.cpp"), b"source").unwrap();
     fs::write(root.join("lib/libfake.so.1.2"), b"library").unwrap();
     for alias in ["libfake.so", "libfake.so.1"] {
-        std::os::unix::fs::symlink("libfake.so.1.2", root.join("lib").join(alias)).unwrap();
+        symlink("libfake.so.1.2", root.join("lib").join(alias)).unwrap();
     }
     // The shell itself, not a link to it: artifacts are opened without following links.
     let counter = fs::canonicalize("/bin/sh").unwrap();
-    let contract = serde_json::json!({
+    let contract = json!({
         "artifacts": {
             "model": record(&root.join("model.gguf"), None),
             "counter": record(&counter, None),
@@ -87,8 +104,8 @@ fn fake_tokenizer(scratch: &Scratch) -> NativeTokenizer {
 /// `verify_artifact` on its own thread: the test fails, rather than hangs, if the open blocks.
 fn verify_without_blocking(path: &Path, bytes: u64, hash: &'static str) -> Result<(), Error> {
     let path = path.to_owned();
-    let (sender, receiver) = std::sync::mpsc::channel();
-    std::thread::spawn(move || sender.send(verify_artifact(&path, bytes, hash)));
+    let (sender, receiver) = mpsc::channel();
+    thread::spawn(move || sender.send(verify_artifact(&path, bytes, hash)));
     receiver
         .recv_timeout(Duration::from_secs(5))
         .expect("opening the artifact blocked")
@@ -223,13 +240,13 @@ fn artifact_check_requires_original_bytes_and_regular_file() {
         // A link is refused even to the right bytes; so is a FIFO, whose empty content would match.
         fs::write(&path, b"abc").unwrap();
         let link = scratch.0.join("link");
-        std::os::unix::fs::symlink(&path, &link).unwrap();
+        symlink(&path, &link).unwrap();
         assert!(verify_artifact(&link, 3, hash).is_err());
         let fifo = scratch.0.join("fifo");
-        rustix::fs::mkfifoat(
-            fs::File::open(&scratch.0).unwrap(),
+        mkfifoat(
+            File::open(&scratch.0).unwrap(),
             "fifo",
-            rustix::fs::Mode::RUSR | rustix::fs::Mode::WUSR,
+            Mode::RUSR | Mode::WUSR,
         )
         .unwrap();
         let empty = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
@@ -284,9 +301,9 @@ fn process_errors_and_timeouts_do_not_return_partial_output() {
 fn contract_identity_cannot_be_self_asserted_or_silently_changed() {
     let text = include_str!("../../tokenizer-contract.json");
     let mut contract = parse_contract(text).unwrap();
-    contract["chunk_hard_max"] = serde_json::json!(701);
+    contract["chunk_hard_max"] = json!(701);
     assert!(parse_contract(&contract.to_string()).is_err());
-    contract["contract_id"] = serde_json::json!("sha256:unapproved");
+    contract["contract_id"] = json!("sha256:unapproved");
     assert!(parse_contract(&contract.to_string()).is_err());
     for invalid in ["null", "[]", "{}", "{", "{\"contract_id\":0}"] {
         assert!(parse_contract(invalid).is_err());
@@ -324,7 +341,6 @@ fn oversized_process_output_is_refused_not_truncated() {
 #[cfg(unix)]
 #[test]
 fn library_aliases_cannot_redirect_away_from_pinned_files() {
-    use std::os::unix::fs::symlink;
     let scratch = Scratch::new();
     let path = scratch.0.join("libfixture.so.1.2");
     fs::write(&path, b"abc").unwrap();
@@ -352,7 +368,7 @@ fn library_aliases_cannot_redirect_away_from_pinned_files() {
 #[test]
 fn invocation_replaces_environment_and_preserves_model_argument() {
     let mut contract = parse_contract(include_str!("../../tokenizer-contract.json")).unwrap();
-    contract["invocation"]["args"] = serde_json::json!([
+    contract["invocation"]["args"] = json!([
         "-c",
         "import json,os,sys; print(json.dumps([dict(os.environ),sys.argv[1:]]))",
         "{model}"
@@ -379,5 +395,5 @@ fn invocation_replaces_environment_and_preserves_model_argument() {
     assert_eq!(environment["CUDA_VISIBLE_DEVICES"], "");
     assert_eq!(environment["LC_ALL"], "C.UTF-8");
     assert_eq!(environment["PATH"], "/usr/bin:/bin");
-    assert_eq!(result[1], serde_json::json!(["/a path/model;literal.gguf"]));
+    assert_eq!(result[1], json!(["/a path/model;literal.gguf"]));
 }

@@ -1,7 +1,9 @@
 //! Section and extractor checks: the heading hierarchy and supplied extractor anchors.
-use super::issue;
+use super::report::issue;
+use crate::content::{Block, BlockType};
+use crate::document::{CanonicalDocument, Section};
 use crate::metadata::finding;
-use crate::{Block, BlockType, CanonicalDocument, Finding, Severity};
+use crate::model::{Finding, Severity};
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Each section's parent is an earlier, shallower section, and its heading path follows the
@@ -13,34 +15,13 @@ pub(super) fn validate_sections(
 ) {
     let mut seen = BTreeMap::new();
     for section in &doc.sections {
-        let mut path = Vec::new();
-        if let Some(parent_id) = &section.parent_section_id {
-            if let Some(parent) = seen.get(parent_id) {
-                let parent: &&crate::Section = parent;
-                path.clone_from(&parent.heading_path);
-                if parent.level >= section.level {
-                    issues.push(finding(
-                        "invalid_section",
-                        "parent heading level is not shallower",
-                        Severity::Error,
-                        None,
-                    ));
-                }
-            } else {
-                issues.push(finding(
-                    "invalid_section",
-                    "parent section must precede child",
-                    Severity::Error,
-                    None,
-                ));
-            }
-        }
+        let mut path = inherited_path(&seen, section, issues);
         path.push(section.title.clone());
         if path != section.heading_path
             || !(1..=6).contains(&section.level)
             || !blocks
                 .get(section.section_id.as_str())
-                .is_some_and(|b| b.block_type == BlockType::Heading)
+                .is_some_and(|heading| heading.block_type == BlockType::Heading)
         {
             issues.push(finding(
                 "invalid_section",
@@ -62,17 +43,20 @@ pub(super) fn validate_sections(
         let expected = if block.block_type == BlockType::Heading {
             seen.get(&block.block_id)
         } else {
-            block.parent_section_id.as_ref().and_then(|p| seen.get(p))
+            block
+                .parent_section_id
+                .as_ref()
+                .and_then(|parent_id| seen.get(parent_id))
         };
         if expected
-            .map(|s| &s.heading_path)
+            .map(|section| &section.heading_path)
             .cloned()
             .unwrap_or_default()
             != block.heading_path
             || block
                 .parent_section_id
                 .as_ref()
-                .is_some_and(|p| !seen.contains_key(p))
+                .is_some_and(|parent_id| !seen.contains_key(parent_id))
         {
             issue(
                 issues,
@@ -83,6 +67,36 @@ pub(super) fn validate_sections(
             );
         }
     }
+}
+
+/// The heading path a section inherits from its parent, which must be an earlier, shallower
+/// section.
+fn inherited_path(
+    seen: &BTreeMap<&String, &Section>,
+    section: &Section,
+    issues: &mut Vec<Finding>,
+) -> Vec<String> {
+    let Some(parent_id) = &section.parent_section_id else {
+        return Vec::new();
+    };
+    let Some(parent) = seen.get(parent_id) else {
+        issues.push(finding(
+            "invalid_section",
+            "parent section must precede child",
+            Severity::Error,
+            None,
+        ));
+        return Vec::new();
+    };
+    if parent.level >= section.level {
+        issues.push(finding(
+            "invalid_section",
+            "parent heading level is not shallower",
+            Severity::Error,
+            None,
+        ));
+    }
+    parent.heading_path.clone()
 }
 
 /// Supplied extractor blocks need a unique identifier, at least one valid Markdown anchor and

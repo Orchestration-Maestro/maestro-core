@@ -420,7 +420,8 @@ blocks regressions.
 
 **Ladder protocol:** each capability must beat the previous rung on the same
 generation and questions: BM25 → dense → hybrid → + identifier route → + rerank →
-+ graph → + contextual enrichment → + late interaction. A rung that does not pay
+
+- graph → + contextual enrichment → + late interaction. A rung that does not pay
 for its cost is not shipped. After selection, a drop of more than 2 points on
 Recall@10 or MRR@10, or any command-exactness failure, blocks the change.
 

@@ -1,8 +1,9 @@
 //! Where this machine keeps the artifacts the tokenizer profile fingerprints.
 use super::process::read_bounded;
-use crate::Error;
+use crate::error::Error;
 use serde::Deserialize;
 use std::{
+    env,
     ffi::OsString,
     fs::File,
     path::{Path, PathBuf},
@@ -55,7 +56,7 @@ fn refusal(problem: &str) -> Error {
 impl NativeBinding {
     /// Read the binding file that `MAESTRO_NATIVE_BINDING` names.
     pub(crate) fn from_environment() -> Result<Self, Error> {
-        Self::from_variable(std::env::var_os(BINDING_VARIABLE))
+        Self::from_variable(env::var_os(BINDING_VARIABLE))
     }
 
     /// Read the binding file a variable's value names; an unset variable is refused.

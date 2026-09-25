@@ -1,9 +1,13 @@
 //! Prepared-input groups: identical prepared inputs share one identity.
-use super::{
-    CHUNKER_VERSION, ChunkContent, MappedDocument, PREPARATION_PROFILE, PreparedInputGroup,
-    record_bytes,
-};
-use crate::{CanonicalDocument, Deduplication, Error};
+use super::batch::PreparedInputGroup;
+use super::validation::invalid_chunks;
+use crate::dedup::Deduplication;
+use crate::document::CanonicalDocument;
+use crate::error::Error;
+use crate::hashing::digest;
+use crate::prepared_inputs::{ChunkContent, PREPARATION_PROFILE};
+use crate::source_units::{CHUNKER_VERSION, MappedDocument};
+use serde::Serialize;
 use std::collections::BTreeMap;
 
 /// The identities of one prepared input, the grouping key of identical inputs.
@@ -26,19 +30,20 @@ pub(super) fn chunk_id(
     content: &ChunkContent,
     tokenizer_contract_id: &str,
 ) -> Result<String, Error> {
-    let coordinates: Vec<_> = content
+    let coordinates = content
         .fragments
         .iter()
         .map(|fragment| {
-            (
-                &mapped.units[fragment.contribution.unit_index].unit_id,
-                fragment.contribution.range,
-            )
+            let unit = mapped
+                .units
+                .get(fragment.contribution.unit_index)
+                .ok_or_else(invalid_chunks)?;
+            Ok((&unit.unit_id, fragment.contribution.range))
         })
-        .collect();
+        .collect::<Result<Vec<_>, Error>>()?;
     Ok(format!(
         "chunk-{}",
-        crate::digest(&record_bytes(&(
+        digest(&record_bytes(&(
             "source-retrieval-chunk/v1",
             deduplication.tenant_id,
             deduplication.workspace_id,
@@ -62,10 +67,10 @@ pub(super) fn prepared_identity(
     prepared_input: &str,
 ) -> Result<PreparedIdentity, Error> {
     let bytes = record_bytes(&(PREPARATION_PROFILE, tokenizer_contract_id, prepared_input))?;
-    let fingerprint = format!("sha256:{}", crate::digest(&bytes));
+    let fingerprint = format!("sha256:{}", digest(&bytes));
     let group_id = format!(
         "prepared-{}",
-        crate::digest(&record_bytes(&(
+        digest(&record_bytes(&(
             "prepared-document-input/v1",
             deduplication.tenant_id,
             deduplication.workspace_id,
@@ -112,4 +117,9 @@ pub(super) fn insert_prepared_group(
         }
     }
     Ok(())
+}
+
+/// The JSON bytes an identity digests.
+fn record_bytes(value: &impl Serialize) -> Result<Vec<u8>, Error> {
+    serde_json::to_vec(value).map_err(|_| invalid_chunks())
 }

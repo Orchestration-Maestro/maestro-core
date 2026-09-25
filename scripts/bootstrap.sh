@@ -13,15 +13,18 @@ set -euo pipefail
 readonly MISE_VERSION=v2026.9.9
 readonly MISE_SHA256=e4767e4854af5daeff2191b2bbdc94f834742a23efad591dbd33187861d41604
 
-fail() { echo "$1" >&2; exit 1; }
+fail() {
+  echo "$1" >&2
+  exit 1
+}
 
 cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.."
 
 [[ "$(uname -s)/$(uname -m)" == Linux/x86_64 ]] ||
   fail 'Pinned tooling requires Linux x64.'
-command -v rustup > /dev/null ||
+command -v rustup >/dev/null ||
   fail 'rustup is required. Install it through your approved platform channel, then run this again.'
-command -v curl > /dev/null || fail 'curl is required.'
+command -v curl >/dev/null || fail 'curl is required.'
 # The root rust-toolchain.toml is the one copy of the local toolchain version;
 # the justfile reads the same line, so a bump happens in one file.
 TOOLCHAIN=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)

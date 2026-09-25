@@ -1,10 +1,17 @@
 //! Immutable snapshots, accessed through directory handles without following symlinks.
-use crate::{CanonicalDocument, Error, digest};
+use crate::document::CanonicalDocument;
+use crate::error::Error;
+use crate::hashing::digest;
+use crate::replay::validate_document;
+use rustix::fd::OwnedFd;
 use rustix::fs::{AtFlags, Mode, OFlags, linkat, mkdirat, openat, unlinkat};
+use rustix::io::Errno;
 use std::{
+    ffi::OsStr,
     fs::File,
     io::{self, ErrorKind, Read, Write},
     path::{Component, Path, PathBuf},
+    process,
     sync::atomic::{AtomicUsize, Ordering},
 };
 
@@ -76,7 +83,7 @@ pub fn load_document(path: &Path) -> Result<(CanonicalDocument, String), Error> 
 
 /// The snapshot's JSON: pretty-printed with a final newline, the exact bytes saved and compared.
 fn encode(document: &CanonicalDocument) -> Result<Vec<u8>, Error> {
-    let mut json = serde_json::to_vec_pretty(document).map_err(|e| Error(e.to_string()))?;
+    let mut json = serde_json::to_vec_pretty(document).map_err(|error| Error(error.to_string()))?;
     json.push(b'\n');
     Ok(json)
 }
@@ -90,9 +97,9 @@ fn artifact_suffix(document: &CanonicalDocument, json: &[u8]) -> PathBuf {
 
 /// Refuse a document that deterministic replay of its Markdown does not reproduce.
 fn verify_replay(document: &CanonicalDocument, markdown: &str) -> Result<(), Error> {
-    if crate::validate_document(document, markdown)
+    if validate_document(document, markdown)
         .iter()
-        .any(|f| matches!(f.code.as_str(), "canonical_mismatch" | "replay_error"))
+        .any(|finding| matches!(finding.code.as_str(), "canonical_mismatch" | "replay_error"))
     {
         return Err(Error(
             "snapshot differs from deterministic source replay".into(),
@@ -113,32 +120,36 @@ fn storage_error(error: &io::Error) -> Error {
 fn open_directory(path: &Path, create: bool) -> io::Result<File> {
     if path
         .components()
-        .any(|c| matches!(c, Component::ParentDir | Component::Prefix(_)))
+        .any(|component| matches!(component, Component::ParentDir | Component::Prefix(_)))
     {
         return Err(io::Error::other(
             "snapshot path contains parent traversal or a prefix",
         ));
     }
     let mut directory = File::open(if path.is_absolute() { "/" } else { "." })?;
-    let flags = OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC;
     for component in path.components() {
         if let Component::Normal(name) = component {
-            let next = match openat(&directory, name, flags, Mode::empty()) {
-                Ok(next) => next,
-                Err(rustix::io::Errno::NOENT) if create => {
-                    match mkdirat(&directory, name, Mode::RWXU) {
-                        Ok(()) => directory.sync_all()?,
-                        Err(rustix::io::Errno::EXIST) => {}
-                        Err(error) => return Err(error.into()),
-                    }
-                    openat(&directory, name, flags, Mode::empty())?
-                }
-                Err(error) => return Err(error.into()),
-            };
-            directory = File::from(next);
+            directory = File::from(open_child(&directory, name, create)?);
         }
     }
     Ok(directory)
+}
+
+/// Open one child directory without following a link, creating it first when asked and absent.
+fn open_child(directory: &File, name: &OsStr, create: bool) -> io::Result<OwnedFd> {
+    let flags = OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC;
+    match openat(directory, name, flags, Mode::empty()) {
+        Ok(child) => Ok(child),
+        Err(Errno::NOENT) if create => {
+            match mkdirat(directory, name, Mode::RWXU) {
+                Ok(()) => directory.sync_all()?,
+                Err(Errno::EXIST) => {}
+                Err(error) => return Err(error.into()),
+            }
+            Ok(openat(directory, name, flags, Mode::empty())?)
+        }
+        Err(error) => Err(error.into()),
+    }
 }
 
 /// The bytes of a regular file in the directory, never read through a link.
@@ -179,7 +190,7 @@ fn write_immutable(directory: &File, name: &str, bytes: &[u8]) -> io::Result<()>
     }
     let temporary = format!(
         ".{name}.pending-{}-{}",
-        std::process::id(),
+        process::id(),
         TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed)
     );
     let fd = openat(
@@ -200,7 +211,7 @@ fn write_immutable(directory: &File, name: &str, bytes: &[u8]) -> io::Result<()>
             AtFlags::empty(),
         ) {
             Ok(()) => directory.sync_all(),
-            Err(rustix::io::Errno::EXIST) if verify_existing(directory, name, bytes)? => Ok(()),
+            Err(Errno::EXIST) if verify_existing(directory, name, bytes)? => Ok(()),
             Err(error) => Err(error.into()),
         }
     })();
@@ -212,14 +223,23 @@ fn write_immutable(directory: &File, name: &str, bytes: &[u8]) -> io::Result<()>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{fs, os::unix::fs::symlink, sync::mpsc, thread, time::Duration};
+    use crate::model::CanonicalizeInput;
+    use crate::pipeline::canonicalize;
+    use rustix::fs::mkfifoat;
+    use std::{
+        env, fs,
+        os::unix::fs::symlink,
+        sync::{Barrier, mpsc},
+        thread,
+        time::Duration,
+    };
 
     /// A new empty directory; its name does not draw on `TEMP_SEQUENCE`, which pending names use.
     fn scratch() -> PathBuf {
         static NEXT: AtomicUsize = AtomicUsize::new(0);
-        let root = std::env::temp_dir().join(format!(
+        let root = env::temp_dir().join(format!(
             "canonical-store-{}-{}",
-            std::process::id(),
+            process::id(),
             NEXT.fetch_add(1, Ordering::Relaxed)
         ));
         fs::create_dir(&root).unwrap();
@@ -253,7 +273,7 @@ mod tests {
             b"unchanged"
         );
         assert!(open_directory(&output, false).is_err());
-        rustix::fs::mkfifoat(&directory, "fifo", Mode::RUSR | Mode::WUSR).unwrap();
+        mkfifoat(&directory, "fifo", Mode::RUSR | Mode::WUSR).unwrap();
         assert!(read_without_blocking(&directory, "fifo").is_err());
         assert!(read_regular(&directory, ".").is_err());
         fs::remove_dir_all(root).unwrap();
@@ -263,8 +283,7 @@ mod tests {
     fn a_snapshot_copied_out_of_its_identity_directory_is_refused() {
         let root = scratch();
         let markdown = "Moved\n";
-        let document =
-            crate::canonicalize(crate::CanonicalizeInput::new(markdown, "moved.md")).unwrap();
+        let document = canonicalize(CanonicalizeInput::new(markdown, "moved.md")).unwrap();
         let saved = save_document(&document, markdown, &root.join("out")).unwrap();
         load_document(&saved).unwrap();
         let copy = root.join("copy");
@@ -318,7 +337,7 @@ mod tests {
         // Other tests may take sequence numbers meanwhile; plant well past the next one.
         let next = TEMP_SEQUENCE.load(Ordering::Relaxed);
         for sequence in next..next + 64 {
-            let pending = format!(".original.md.pending-{}-{sequence}", std::process::id());
+            let pending = format!(".original.md.pending-{}-{sequence}", process::id());
             symlink(root.join("victim"), root.join(pending)).unwrap();
         }
         let directory = open_directory(&root, false).unwrap();
@@ -335,25 +354,31 @@ mod tests {
         // the winner's file at the link and must compare it, not accept it.
         for round in 0..50 {
             let directory = open_directory(&root.join(round.to_string()), true).unwrap();
-            let barrier = std::sync::Barrier::new(2);
-            let accepted: Vec<bool> = thread::scope(|scope| {
-                let writers: Vec<_> = [b"left".as_slice(), b"right"]
-                    .into_iter()
-                    .map(|bytes| {
-                        let (directory, barrier) = (&directory, &barrier);
-                        scope.spawn(move || {
-                            barrier.wait();
-                            write_immutable(directory, "artifact", bytes).is_ok()
-                        })
-                    })
-                    .collect();
-                writers.into_iter().map(|w| w.join().unwrap()).collect()
-            });
-            assert_eq!(accepted.iter().filter(|a| **a).count(), 1, "round {round}");
+            let accepted = race_writers(&directory);
+            assert_eq!(
+                accepted.iter().filter(|&&won| won).count(),
+                1,
+                "round {round}"
+            );
             let winner: &[u8] = if accepted[0] { b"left" } else { b"right" };
             let artifact = root.join(round.to_string()).join("artifact");
             assert_eq!(fs::read(artifact).unwrap(), winner);
         }
         fs::remove_dir_all(root).unwrap();
+    }
+
+    /// Two threads released together, each writing different bytes to `artifact`: which of the
+    /// left and right writers were accepted.
+    fn race_writers(directory: &File) -> Vec<bool> {
+        let barrier = Barrier::new(2);
+        let write = |bytes: &[u8]| {
+            barrier.wait();
+            write_immutable(directory, "artifact", bytes).is_ok()
+        };
+        thread::scope(|scope| {
+            let left = scope.spawn(|| write(b"left"));
+            let right = scope.spawn(|| write(b"right"));
+            vec![left.join().unwrap(), right.join().unwrap()]
+        })
     }
 }

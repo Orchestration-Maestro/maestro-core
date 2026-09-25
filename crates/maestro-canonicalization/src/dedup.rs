@@ -1,9 +1,11 @@
 //! Pure, scoped exact grouping; equality never merges identity or grants access.
 //! Authorization is asserted by a trusted caller, not inferred from document data.
-use crate::{
-    BlockAttributes, BlockType, CanonicalDocument, ContentNode, Error, Inline, InlineKind,
-    Severity, digest, validate_document,
-};
+use crate::content::{BlockAttributes, BlockType, ContentNode, Inline, InlineKind};
+use crate::document::CanonicalDocument;
+use crate::error::Error;
+use crate::hashing::digest;
+use crate::model::Severity;
+use crate::replay::validate_document;
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet, btree_map::Entry};
 
@@ -140,9 +142,9 @@ pub fn group_exact<'a>(
         }
     }
     let mut ordered = inputs.to_vec();
-    ordered.sort_unstable_by(|a, b| {
-        (&a.document.document_id, &a.document.revision_id)
-            .cmp(&(&b.document.document_id, &b.document.revision_id))
+    ordered.sort_unstable_by(|left, right| {
+        (&left.document.document_id, &left.document.revision_id)
+            .cmp(&(&right.document.document_id, &right.document.revision_id))
     });
     let mut groups = Groups::new();
     let mut occurrences = Vec::with_capacity(ordered.len());
@@ -413,7 +415,10 @@ mod tests {
             let key = (representation, "hash".into());
             insert_group(&mut groups, &scope, key, b"bytes".to_vec(), index).unwrap();
         }
-        let profiles: BTreeSet<_> = groups.values().map(|(_, g)| g.profile.as_str()).collect();
+        let profiles: BTreeSet<_> = groups
+            .values()
+            .map(|(_, group)| group.profile.as_str())
+            .collect();
         assert_eq!(
             profiles,
             BTreeSet::from(["canonical-structured/v1", "original-utf8/v1"])

@@ -1,0 +1,50 @@
+# The organization's quality rules as this repository shapes them: the inputs
+# its CI caller passes, the seams that keep one caller, each with its reason,
+# and the words it means. Read by rust-gate architecture and rust-gate sync.
+
+# What the caller passed before its ci.yml became generated: a required
+# deny.toml and artifacts named after the repository. Pedantic Clippy needs no
+# input: the organization's lint block in Cargo.toml already denies the group,
+# and `clippy-level: pedantic` would deny on the command line the lints the
+# block allows on purpose, similar_names among them.
+[ci]
+license-policy = "enforce"
+artifact-key = "maestro-core"
+
+# The seams of the canonicalization crate that keep one caller: each door is a
+# subsystem, and its one outside caller is the stage that composes it.
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-canonicalization/src/chunk_mapping/mod.rs"
+item = "map_document"
+reason = "the chunker maps each document through the source mapper"
+
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-canonicalization/src/chunk_split/mod.rs"
+item = "build_drafts"
+reason = "the chunker packs a mapped document through the structural splitter"
+
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-canonicalization/src/chunk_split/mod.rs"
+item = "validate_preparation"
+reason = "chunk replay reruns the splitter and so lives beside its rules"
+
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-canonicalization/src/tokenizer/mod.rs"
+item = "NativeTokenizer"
+reason = "a public type callers build; in the crate only the chunker counts"
+
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-canonicalization/src/validate/mod.rs"
+item = "validate_structure"
+reason = "the pipeline runs the structural validator, a subsystem of its own"
+
+# The words this repository means that the spell checker reads as mistakes:
+# Exemple, French test input for the canonicalizer; RTO, the recovery time
+# objective beside RPO; WRONLY, the POSIX open flag as rustix names it.
+[typos]
+words = ["Exemple", "RTO", "WRONLY"]

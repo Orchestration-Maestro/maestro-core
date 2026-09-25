@@ -1,7 +1,7 @@
 //! The pure preparation helpers: cut points, fitting prefixes and delimiter-safe ranges.
 use super::super::prepare::{boundaries, normalized_range};
 use super::*;
-use crate::chunks::{InlineEnvelope, TextRange};
+use crate::source_units::{InlineEnvelope, TextRange};
 
 #[test]
 fn cut_points_follow_whitespace_and_meaningful_ones_end_sentences_or_code_lines() {
@@ -40,7 +40,8 @@ fn ranges_never_split_a_delimiter_and_take_in_a_closing_one() {
         opening: TextRange { start: 2, end: 4 },
         closing: TextRange { start: 5, end: 7 },
     }];
-    let range = |start, end| normalized_range(&unit, start, end).map(|r| (r.start, r.end));
+    let range =
+        |start, end| normalized_range(&unit, start, end).map(|range| (range.start, range.end));
     // Starting at an opening delimiter, or ending where one starts, splits nothing.
     assert_eq!(range(2, 9), Some((2, 9)));
     assert_eq!(range(0, 2), Some((0, 2)));

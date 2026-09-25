@@ -1,8 +1,11 @@
 //! Mapped slices and the source accounting ledger: which original bytes each unit covers.
-use super::invalid_mapping;
+use super::refusal::invalid_mapping;
 use crate::{
-    BlockType, CanonicalDocument, Error, SourceRole, SourceSpan,
-    chunks::{
+    content::BlockType,
+    document::{CanonicalDocument, SourceRole},
+    error::Error,
+    model::SourceSpan,
+    source_units::{
         AccountingDisposition, MappingRun, OriginMode, SourceDisposition, SourceUnit, TextRange,
     },
 };
@@ -36,14 +39,10 @@ pub(crate) fn mapped_slice(
         }
         cursor = run.range.end;
         match run.mode {
-            OriginMode::ExactCopy => {
-                if run.origins.len() != 1
-                    || markdown.get(run.origins[0].span.start..run.origins[0].span.end)
-                        != Some(text)
-                {
-                    return Err(invalid_mapping());
-                }
-            }
+            OriginMode::ExactCopy => match run.origins.as_slice() {
+                [origin] if markdown.get(origin.span.start..origin.span.end) == Some(text) => {}
+                _ => return Err(invalid_mapping()),
+            },
             OriginMode::CanonicalTransformation if run.origins.is_empty() => {
                 return Err(invalid_mapping());
             }
@@ -56,9 +55,9 @@ pub(crate) fn mapped_slice(
             continue;
         }
         let mut origins = run.origins.clone();
-        if run.mode == OriginMode::ExactCopy {
-            origins[0].span.start += start - run.range.start;
-            origins[0].span.end = origins[0].span.start + (end - start);
+        if let (OriginMode::ExactCopy, [origin]) = (run.mode, origins.as_mut_slice()) {
+            origin.span.start += start - run.range.start;
+            origin.span.end = origin.span.start + (end - start);
         }
         result.push(MappingRun {
             range: TextRange {
@@ -132,23 +131,8 @@ pub(crate) fn map_accounting(
             .filter(|(_, origin)| origin.start < span.end && span.start < origin.end)
             .copied()
             .collect();
-        if disposition == SourceDisposition::Eligible {
-            let mut ranges: Vec<_> = matches
-                .iter()
-                .filter(|(index, _)| units[*index].primary)
-                .map(|(_, span)| *span)
-                .collect();
-            ranges.sort_by_key(|span| span.start);
-            let mut represented = span.start;
-            for range in ranges {
-                if range.start > represented {
-                    return Err(invalid_mapping());
-                }
-                represented = represented.max(range.end.min(span.end));
-            }
-            if represented != span.end {
-                return Err(invalid_mapping());
-            }
+        if disposition == SourceDisposition::Eligible && !represented(span, &matches, units) {
+            return Err(invalid_mapping());
         }
         let unit_indices = matches
             .into_iter()
@@ -166,4 +150,23 @@ pub(crate) fn map_accounting(
         return Err(invalid_mapping());
     }
     Ok(result)
+}
+
+/// Whether the origins of primary units cover an eligible ledger span from its start to its end
+/// without a gap.
+fn represented(span: SourceSpan, matches: &[(usize, SourceSpan)], units: &[SourceUnit]) -> bool {
+    let mut ranges: Vec<_> = matches
+        .iter()
+        .filter(|(index, _)| units.get(*index).is_some_and(|unit| unit.primary))
+        .map(|(_, origin)| *origin)
+        .collect();
+    ranges.sort_by_key(|origin| origin.start);
+    let mut represented = span.start;
+    for range in ranges {
+        if range.start > represented {
+            return false;
+        }
+        represented = represented.max(range.end.min(span.end));
+    }
+    represented == span.end
 }

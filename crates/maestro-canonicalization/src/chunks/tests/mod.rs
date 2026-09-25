@@ -1,11 +1,14 @@
 //! Tests of chunk assembly, prepared-input groups and replay validation.
+use super::build::chunk_with_count;
 use super::identity::{PreparedGroups, insert_prepared_group};
-use super::validation::{validate_chunks, validate_coverage};
+use super::validation::{invalid_chunks, validate_chunks, validate_coverage};
 use super::*;
-use crate::{
-    CanonicalDocument, CanonicalizeInput, DedupInput, DedupScope, Error, RevisionKey,
-    WarningPolicy, canonicalize,
-};
+use crate::dedup::{DedupInput, DedupScope, RevisionKey, WarningPolicy};
+use crate::document::CanonicalDocument;
+use crate::error::Error;
+use crate::model::{CanonicalizeInput, Severity};
+use crate::pipeline::canonicalize;
+use crate::replay::validate_document;
 
 mod identity;
 mod replay;
@@ -133,7 +136,7 @@ fn warning_policy_and_empty_content_are_explicit() {
     assert!(empty.chunks.is_empty());
     for markdown in ["", "---\ntitle: Metadata\n---\n"] {
         let doc = canonicalize(CanonicalizeInput::new(markdown, "rejected-empty")).unwrap();
-        let grant = super::tests::scope(&[&doc]);
+        let grant = self::scope(&[&doc]);
         assert!(
             chunk_with_count(
                 &grant,
@@ -151,11 +154,11 @@ fn warning_policy_and_empty_content_are_explicit() {
     let markdown = "-\n";
     let doc = canonicalize(CanonicalizeInput::new(markdown, "empty-item")).unwrap();
     assert!(
-        crate::validate_document(&doc, markdown)
+        validate_document(&doc, markdown)
             .iter()
-            .all(|finding| finding.severity != crate::Severity::Error)
+            .all(|finding| finding.severity != Severity::Error)
     );
-    let grant = super::tests::scope(&[&doc]);
+    let grant = self::scope(&[&doc]);
     let result = chunk_with_count(
         &grant,
         &[DedupInput {
@@ -174,16 +177,16 @@ fn warning_policy_and_empty_content_are_explicit() {
 #[test]
 fn counts_are_cached_by_complete_bytes_only_within_one_authorized_call() {
     let markdown = "equal\n";
-    let a = canonicalize(CanonicalizeInput::new(markdown, "cache-a")).unwrap();
-    let b = canonicalize(CanonicalizeInput::new(markdown, "cache-b")).unwrap();
-    let scope = scope(&[&a, &b]);
+    let cache_a = canonicalize(CanonicalizeInput::new(markdown, "cache-a")).unwrap();
+    let cache_b = canonicalize(CanonicalizeInput::new(markdown, "cache-b")).unwrap();
+    let scope = scope(&[&cache_a, &cache_b]);
     let inputs = [
         DedupInput {
-            document: &a,
+            document: &cache_a,
             markdown,
         },
         DedupInput {
-            document: &b,
+            document: &cache_b,
             markdown,
         },
     ];
@@ -248,7 +251,12 @@ fn structural_matrix_survives_full_authorization_and_dual_accounting() {
             batch.documents[0].mapped.accounting.len(),
             doc.source_accounting.len()
         );
-        assert!(batch.chunks.iter().all(|c| c.content.token_count <= 700));
+        assert!(
+            batch
+                .chunks
+                .iter()
+                .all(|chunk| chunk.content.token_count <= 700)
+        );
         assert_eq!(before, serde_json::to_vec(&doc).unwrap());
     }
 }

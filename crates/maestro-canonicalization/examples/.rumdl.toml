@@ -1,0 +1,6 @@
+# The example is a fixture, not documentation: input.md is Markdown as an
+# author wrote it, duplicate headings and all, and expected/original.md is the
+# copy the canonicalizer must keep byte for byte. Formatting either would change
+# what the tests prove, so rumdl leaves this directory alone.
+[global]
+disable = ["all"]

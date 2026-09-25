@@ -91,7 +91,7 @@ them:
   "dataschema": "maestro://schemas/events/knowledge.generation.published/1",
   "maestroscope": "workspace/default/collection/ctm",
   "maestrosequence": 18231,
-  "traceparent": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01",
+  "traceparent": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0bc902b7-01",
   "data": { "collection": "ctm", "generation": 8, "point_count": 81234 }
 }
 ```

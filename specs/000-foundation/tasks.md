@@ -391,6 +391,7 @@ git commit -m "build: inherit the workspace lints in the crate"
 `crates/maestro-conventions/src/lib.rs`, `crates/maestro-conventions/tests/policies.rs`.
 
 **Interfaces:**
+
 - Produces: `root() -> PathBuf`, `repository_files(root: &Path) -> io::Result<Vec<PathBuf>>`,
   `counted_lines(text: &str) -> usize`, `names_a_personal_directory(text: &str) -> bool`,
   `broken_links(root: &Path, file: &Path) -> io::Result<Vec<String>>`.
@@ -1052,6 +1053,7 @@ Expected: `clippy clean`, `docs clean`.
 `CRATE/tokenizer-contract.json`, `CRATE/TOKENIZER.md`, `CRATE/CHUNKING.md`.
 
 **Interfaces:**
+
 - Produces: `NativeBinding { model, counter, library_directory, source_root: PathBuf }`,
   `NativeBinding::from_variable(Option<OsString>) -> Result<Self, Error>`,
   `NativeBinding::from_file(&Path) -> Result<Self, Error>`,
@@ -1932,8 +1934,8 @@ The maintainer decided on 2026-09-24 to fix this in its own pull request
 before S1 indexes any content, since the cuts decide chunk identities.
 
 Today a paragraph of 300 words (1,499 bytes) splits at 365, 925 and 1,490
-bytes, then into `word ` and `word`; a paragraph of sentences ends with
-`Sentence `, `one ` and `here.`. `fit_prefix` cuts back to the last preferred
+bytes, then into `word` and `word`; a paragraph of sentences ends with
+`Sentence `, `one` and `here.`. `fit_prefix` cuts back to the last preferred
 boundary even when the whole rest fits, and `split_unit` then backs off one
 more whitespace. T019 pins these cuts as they are.
 
