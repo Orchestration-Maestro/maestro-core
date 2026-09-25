@@ -2,10 +2,11 @@
 use super::artifacts::{verify_libraries, verify_record};
 use super::binding::NativeBinding;
 use super::contract::{CONTRACT_ID, array_at, invalid_contract, parse_contract, text_at, value_at};
+use super::loader::Loader;
 use super::process::run_native;
 use crate::error::Error;
 use serde_json::Value;
-use std::{path::PathBuf, process::Command, time::Duration};
+use std::{ffi::OsStr, path::PathBuf, process::Command, time::Duration};
 
 /// Pinned local tokenizer. This type never runs a model forward pass.
 ///
@@ -54,7 +55,7 @@ impl NativeTokenizer {
             &self.binding.counter,
             value_at(&self.contract, "/artifacts/counter")?,
         )?;
-        verify_libraries(&self.library_paths()?)?;
+        self.verify_loading()?;
         let mut command = configured_command(&self.contract, &self.binding)?;
         let timeout = self
             .contract
@@ -96,7 +97,14 @@ impl NativeTokenizer {
                 .join(text_at(library, "/file")?);
             verify_record(&path, library)?;
         }
-        verify_libraries(&self.library_paths()?)
+        self.verify_loading()
+    }
+
+    /// The libraries the counter loads are the verified ones: the directory holds exactly the
+    /// profile's, and this platform's loader finds them before any other.
+    fn verify_loading(&self) -> Result<(), Error> {
+        verify_libraries(&self.library_paths()?)?;
+        Loader::HOST.check_counter_location(&self.binding.counter, &self.binding.library_directory)
     }
 
     /// The profile's libraries inside the bound directory.
@@ -114,7 +122,7 @@ impl NativeTokenizer {
 }
 
 /// The counter command: the profile's arguments with the bound model in place,
-/// the profile's environment only, and the bound library directory to load from.
+/// the profile's environment only, and the bound library directory searched first.
 pub(super) fn configured_command(
     contract: &Value,
     binding: &NativeBinding,
@@ -136,9 +144,14 @@ pub(super) fn configured_command(
     {
         command.env(name, value.as_str().ok_or_else(invalid_contract)?);
     }
-    // The counter's RUNPATH names the directory it was built in; the loader
-    // searches LD_LIBRARY_PATH first, so the verified libraries are the loaded ones.
-    command.env("LD_LIBRARY_PATH", &binding.library_directory);
+    // The counter names the directory it was built in (RUNPATH, @rpath); this platform's
+    // loader variable is searched first, so the verified libraries are the loaded ones.
+    let path = contract
+        .pointer("/invocation/environment_replace/PATH")
+        .and_then(Value::as_str);
+    let (name, value) =
+        Loader::HOST.search_variable(&binding.library_directory, path.map(OsStr::new))?;
+    command.env(name, value);
     Ok(command)
 }
 

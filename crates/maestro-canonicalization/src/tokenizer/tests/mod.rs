@@ -5,28 +5,28 @@ use super::binding::NativeBinding;
 use super::contract::{array_at, parse_contract, text_at};
 use super::native::parse_ids;
 #[cfg(unix)]
-use super::{NativeTokenizer, native::configured_command, process::run_native};
+use super::{NativeTokenizer, process::run_native};
 #[cfg(unix)]
 use crate::{error::Error, hashing::digest};
 #[cfg(unix)]
 use serde_json::Value;
 use serde_json::json;
-#[cfg(unix)]
-use std::{
-    collections::BTreeSet,
-    os::unix::fs::symlink,
-    process::Command,
-    sync::mpsc,
-    thread,
-    time::{Duration, Instant},
-};
 use std::{
     env, fs,
     path::{Path, PathBuf},
     process,
     sync::atomic::{AtomicUsize, Ordering},
 };
+#[cfg(unix)]
+use std::{
+    os::unix::fs::symlink,
+    process::Command,
+    sync::mpsc,
+    thread,
+    time::{Duration, Instant},
+};
 
+mod invocation;
 mod libraries;
 
 /// A new empty directory under the platform's temporary directory, as it is named there.
@@ -347,52 +347,4 @@ fn oversized_process_output_is_refused_not_truncated() {
         command.args(["-c", script]);
         assert!(run_native(&mut command, b"", Duration::from_secs(10)).is_err());
     }
-}
-
-#[cfg(unix)]
-#[test]
-fn invocation_replaces_environment_and_preserves_model_argument() {
-    let mut contract = parse_contract(include_str!("../../../tokenizer-contract.json")).unwrap();
-    contract["invocation"]["args"] = json!([
-        "-c",
-        "import json,os,sys; print(json.dumps([dict(os.environ),sys.argv[1:]]))",
-        "{model}"
-    ]);
-    let binding = NativeBinding {
-        model: "/a path/model;literal.gguf".into(),
-        counter: "/usr/bin/python3".into(),
-        library_directory: "/somewhere/lib".into(),
-        source_root: "/somewhere/src".into(),
-    };
-    let mut command = configured_command(&contract, &binding).unwrap();
-    let output = run_native(&mut command, b"", Duration::from_secs(2)).unwrap();
-    let result: Value = serde_json::from_slice(&output).unwrap();
-    let environment = result[0].as_object().unwrap();
-    // macOS sets these in the child whatever environment it was given: CoreFoundation's text
-    // encoding, and the SDK paths the /usr/bin/python3 xcrun shim exports before Python starts.
-    let injected: &[&str] = if cfg!(target_os = "macos") {
-        &[
-            "CPATH",
-            "LIBRARY_PATH",
-            "MANPATH",
-            "SDKROOT",
-            "__CF_USER_TEXT_ENCODING",
-        ]
-    } else {
-        &[]
-    };
-    // On failure, show only key names, never inherited environment values.
-    assert_eq!(
-        environment
-            .keys()
-            .map(String::as_str)
-            .filter(|key| !injected.contains(key))
-            .collect::<BTreeSet<_>>(),
-        BTreeSet::from(["CUDA_VISIBLE_DEVICES", "LC_ALL", "LD_LIBRARY_PATH", "PATH"])
-    );
-    assert_eq!(environment["LD_LIBRARY_PATH"], "/somewhere/lib");
-    assert_eq!(environment["CUDA_VISIBLE_DEVICES"], "");
-    assert_eq!(environment["LC_ALL"], "C.UTF-8");
-    assert_eq!(environment["PATH"], "/usr/bin:/bin");
-    assert_eq!(result[1], json!(["/a path/model;literal.gguf"]));
 }

@@ -38,7 +38,7 @@ Write a binding file outside the repository and name it in
 - Every artifact must match the profile's size and SHA-256; symbolic links
   to artifacts are refused.
 - The library directory holds exactly the profile's libraries and their
-  version aliases, and the counter runs with `LD_LIBRARY_PATH` set to it.
+  version aliases.
   Each profile file name follows one platform's naming, which gives its
   aliases the same way on every host (the committed profile pins a Linux
   build; another platform's build has other bytes and needs its own profile):
@@ -55,6 +55,31 @@ Write a binding file outside the repository and name it in
   this directory, and the pinned file must not be a link itself. Both sides
   are compared after resolving the directory, so reaching it through a link
   (macOS `/var`) changes nothing.
+- The counter loads exactly those libraries: its platform's loader searches
+  the library directory before the directory the counter was built for.
+  The rest of the environment is the profile's, on every platform. A
+  library directory holding the loader's list separator (`:`, or `;` on
+  Windows) is refused.
+
+  | Platform | The counter runs with | What the binding must provide |
+  | --- | --- | --- |
+  | Linux | `LD_LIBRARY_PATH` set to the directory | Nothing more |
+  | macOS | `DYLD_LIBRARY_PATH` set to the directory | The Mach-O counter itself, see below |
+  | Windows | `PATH`: the directory, then the profile's | The counter inside the directory |
+
+  On macOS, System Integrity Protection strips `DYLD_*` variables when it
+  starts a protected executable (anything under `/usr/bin`, `/bin`, `/sbin`
+  or `/System`, such as the `/usr/bin/python3` shim), and the hardened
+  runtime ignores them without the
+  `com.apple.security.cs.allow-dyld-environment-variables` entitlement. The
+  counter must be the built `llama-tokenize` itself, outside those
+  directories and not signed with the hardened runtime; a wrapper script or
+  interpreter in between would lose the variable.
+
+  Windows searches the executable's own directory, then the system
+  directories and the current directory, before `PATH`, and no variable
+  precedes them. So there the counter is refused unless it sits in the
+  library directory, as llama.cpp's Windows build places it.
 
 Then run the native tests: `just native`. Without a binding they fail with an
 error naming `MAESTRO_NATIVE_BINDING`; they are never skipped silently.
