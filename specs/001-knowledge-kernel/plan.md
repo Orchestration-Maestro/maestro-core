@@ -232,9 +232,13 @@ A model card is a strict JSON artifact (role, router entry, file digest,
 template digest, server build, dimensions, limits, suite results). The gateway
 calls the router's dedicated endpoints: `/v1/embeddings`, `/v1/rerank`,
 `/tokenize`, `/v1/chat/completions`, each call bound to a card, never to a bare
-model name. Search calls carry a request header that the router change
-introduces, `X-Model-Router-Room: free`: admission may then use only free room,
-and answers `503 insufficient_room` rather than unload anything. A model
+model name. The router reports no file digest, so the gateway checks a card
+against what the model's own server reports through `/props`, its build and
+its chat template, and refuses a mismatch before any call; the file digest is
+recorded when the card is made (T030). Search calls carry a request header
+that the router change introduces, `X-Model-Router-Room: free`: admission may
+then use only free room, and answers `503 insufficient_room` rather than
+unload anything. A model
 loaded that way is a guest: when another request needs room, idle guests are
 unloaded before any other model, so a search's models never push a chat model
 out later either. The gateway maps the refusal to an unavailable route, which
@@ -407,6 +411,7 @@ None: no golden rule is waived.
 | --- | --- |
 | Reranking does not fit 1.5 s at the design's depth | The depth is measured (R8) and set on the ladder; a shallower rung ships only if it pays for itself |
 | The router change waits on review | It is small and lands first; search works without it but reports the dense route and reranking unavailable whenever room is short |
+| Beside the largest chat models, free room holds the embedder but not the reranker too | A free-room request unloads nothing, idle guests included, so reranking is flagged unavailable (FR-S1-015a); T008 and the ladder measure how often, and if it costs the quality target, a free-room request may replace an idle guest |
 | The lexical analyzer fits T004's sample but not the corpus | The ladder measures the BM25 route alone on the golden set (FR-S1-005a); the profile is versioned, so a better analyzer is a new generation |
 | An agent-drafted golden set misses real questions | Stratified drafting, the owner's 30-question check, and real questions added as they come (risk R8 of the roadmap) |
 | #14 changes the lints and manifests under S1 | Each S1 branch rebases on `main`; the lints only get stricter |

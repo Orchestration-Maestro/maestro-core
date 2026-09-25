@@ -129,13 +129,13 @@ src/paths.rs, src/artifact.rs}`, `Cargo.lock`. **Requirements:** FR-S1-001
 **After:** nothing. **Files:** `ROUTER`: admission, the proxy head, README.
 **Requirements:** FR-S1-015a, R2.
 
-- [ ] **Step 1: Failing test in `ROUTER`.** With the card full and an idle
+- [x] **Step 1: Failing test in `ROUTER`.** With the card full and an idle
   model loaded, a request carrying `X-Model-Router-Room: free` is refused with
   `503 insufficient_room` and the idle model stays loaded; without the header,
   admission behaves as today.
-- [ ] **Step 2: Implement** the header in admission and document it in the
+- [x] **Step 2: Implement** the header in admission and document it in the
   router's README.
-- [ ] **Step 3: Gate** (`just check` in `ROUTER`) and pull request `feat: load
+- [x] **Step 3: Gate** (`just check` in `ROUTER`) and pull request `feat: load
   a model only into free room on request`.
 - [ ] **Step 4: Deploy** the new router on the workstation and confirm the
   behaviour against the real card.
@@ -145,14 +145,14 @@ src/paths.rs, src/artifact.rs}`, `Cargo.lock`. **Requirements:** FR-S1-001
 **After:** nothing. **Files:** `PRIVATE`: `export.jq`, `collection.json`,
 `justfile`. **Requirements:** FR-S1-016, D15, R4.
 
-- [ ] **Step 1: Write `export.jq`** mapping the seven keys of the Python
+- [x] **Step 1: Write `export.jq`** mapping the seven keys of the Python
   manifest to `maestro-corpus/1` (D15), leaving out what the corpus does not
   carry.
-- [ ] **Step 2: Check it** on the full manifest: 7,988 lines out, each with
+- [x] **Step 2: Check it** on the full manifest: 7,988 lines out, each with
   every required key and no unknown key, none invented.
-- [ ] **Step 3: Declare `ctm`** in `collection.json` with its source, bindings
+- [x] **Step 3: Declare `ctm`** in `collection.json` with its source, bindings
   and scope tags.
-- [ ] **Step 4: Pull request** in `PRIVATE` `feat: map the corpus to
+- [x] **Step 4: Pull request** in `PRIVATE` `feat: map the corpus to
   maestro-corpus/1`.
 
 ### T004 [P] Spike: Qdrant's BM25 and the French and English policy [US1]
@@ -172,7 +172,8 @@ src/paths.rs, src/artifact.rs}`, `Cargo.lock`. **Requirements:** FR-S1-001
 ### T005 [P] The kernel database and its migrations [US2]
 
 **After:** T001. **Files:** `crates/maestro-kernel/src/store.rs`,
-`migrations/0001_artifacts.sql`. **Requirements:** FR-S1-001, D1.
+`crates/maestro-kernel/migrations/0001_artifacts.sql`, and `Store::remove` in
+`artifact.rs`. **Requirements:** FR-S1-001, D1.
 
 - [ ] **Step 1: Failing tests.** A new database is created in WAL mode and
   migrated; reopening applies nothing; migrations apply by number and are
@@ -191,9 +192,10 @@ src/paths.rs, src/artifact.rs}`, `Cargo.lock`. **Requirements:** FR-S1-001
 **Requirements:** FR-S1-014, D8.
 
 - [ ] **Step 1: Failing tests** against a stub router: embeddings, reranking,
-  tokenization and chat calls each carry their model card; a card whose
-  digest does not match the router's answer is refused; `503
-  insufficient_room` becomes an `Unavailable` result with the router's reason.
+  tokenization and chat calls each carry their model card; a card that does
+  not match what the model's server reports (`/props`: its build and chat
+  template) is refused before any call; `503 insufficient_room` becomes an
+  `Unavailable` result with the router's reason.
 - [ ] **Step 2: Implement** model cards (strict JSON artifacts) and the
   gateway.
 - [ ] **Step 3: The deterministic fake** embedder, reranker and generator CI
@@ -229,8 +231,8 @@ telemetry}.rs`. **Requirements:** FR-S1-001 (B9, B11).
 ### T009 [P] The knowledge crate: collection and corpus contracts [US2]
 
 **After:** T001. **Files:** `crates/maestro-knowledge/{Cargo.toml, src/lib.rs,
-src/collection.rs, src/corpus.rs}`, `crates/maestro-kernel/src/binding.rs`.
-**Requirements:** FR-S1-002, ADR-0014.
+src/collection.rs, src/corpus.rs}`, `crates/maestro-kernel/src/binding.rs`,
+and `config_dir` in `paths.rs`. **Requirements:** FR-S1-002, ADR-0014.
 
 - [ ] **Step 1: Failing tests.** A valid `maestro-collection/1` parses;
   unknown or duplicate keys, dangling references and non-finite budgets are
