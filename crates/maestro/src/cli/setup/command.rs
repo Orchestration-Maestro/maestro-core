@@ -4,7 +4,7 @@
 
 use super::{
     release::{GRPC_PORT, HOST, HTTP_PORT, Release, SERVICE, release_for},
-    service::{Layout, Step, apply, survey},
+    service::{Layout, Step, apply, survey, user_manager},
     tools::Tools,
 };
 use crate::cli::{failure::Failure, output::Output};
@@ -58,8 +58,9 @@ pub(in crate::cli) enum Readiness {
 /// # Errors
 ///
 /// [`Failure::Refused`] on a platform setup does not install on, with the
-/// manual steps, or for a path no unit can hold, and [`Failure::Failed`]
-/// when a directory cannot be resolved or a step fails.
+/// manual steps, where no systemd user manager runs, or for a path no unit
+/// can hold, before any step; [`Failure::Failed`] when a directory cannot be
+/// resolved or a step fails.
 pub(in crate::cli) fn run(output: Output, yes: bool) -> Result<ExitCode, Failure> {
     let environment = Environment::current();
     let layout = layout(&environment)?;
@@ -67,6 +68,7 @@ pub(in crate::cli) fn run(output: Output, yes: bool) -> Result<ExitCode, Failure
         Failure::refused(unsupported.manual_steps(&layout.storage, &layout.snapshots))
     })?;
     let tools = Tools::on_path();
+    user_manager(&tools)?;
     let steps = survey(&layout, &release, &tools)?;
     let changed = yes && !steps.is_empty();
     if changed {

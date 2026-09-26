@@ -148,6 +148,30 @@ fn quoted(text: &str) -> String {
     format!("\"{}\"", text.replace('%', "%%"))
 }
 
+/// Refuses a machine where no systemd user manager runs, before any step:
+/// setup runs the search service as a user unit, which only a user manager
+/// starts, and `systemctl --user show-environment` fails without one. On
+/// WSL, systemd runs only when `/etc/wsl.conf` sets `systemd=true` under
+/// `[boot]`.
+///
+/// # Errors
+///
+/// [`Failure::Refused`] naming what `systemctl` said and that setting, and
+/// [`Failure::Failed`] when `systemctl` cannot run at all.
+pub(in crate::cli) fn user_manager(tools: &Tools) -> Result<(), Failure> {
+    let answer = tools.systemctl(&["show-environment"])?;
+    if answer.success {
+        return Ok(());
+    }
+    Err(Failure::refused(format!(
+        "no systemd user manager runs for this user ({}), and setup runs the search service \
+         as a systemd user unit: start one, then run setup again; on WSL, set \
+         `systemd=true` under `[boot]` in /etc/wsl.conf, then restart WSL with \
+         `wsl --shutdown`",
+        answer.stderr
+    )))
+}
+
 /// What the machine lacks of `release` as `layout` places it, in the order
 /// the steps run; none when everything is in place. It only reads, and asks
 /// the user manager whether the service is enabled and running.
