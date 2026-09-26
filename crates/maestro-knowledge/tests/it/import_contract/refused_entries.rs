@@ -200,3 +200,33 @@ fn bytes_or_a_document_the_kernel_holds_otherwise_are_refused_as_conflicts() {
     }
     assert_eq!(originals(&database, "garden"), [Digest::of(&mulch)]);
 }
+
+#[test]
+fn the_same_line_under_another_source_is_refused_as_a_conflict() {
+    let scratch = Scratch::new();
+    let mulch = markdown("mulch");
+    scratch.put("mulch.md", &mulch);
+    let same = [line("mulch.md", &mulch, &page("mulch"))];
+    scratch.manifest_at("docs.jsonl", &same);
+    scratch.manifest_at("notes.jsonl", &same);
+    let database = scratch.database();
+    let declaration = declaration_of(
+        "garden",
+        &[("docs", "docs.jsonl"), ("notes", "notes.jsonl")],
+    );
+    let report = import_declared(&scratch, &database, &declaration);
+    assert_eq!(counts(&report), [1, 0, 0, 1]);
+    let [refusal] = report.refusals.as_slice() else {
+        panic!("one refusal: {:?}", report.refusals);
+    };
+    assert_eq!((refusal.source.as_str(), refusal.line), ("notes", 1));
+    assert!(
+        matches!(&refusal.reason, Reason::Conflict { message } if !message.is_empty()),
+        "{refusal:?}"
+    );
+    // Its own source's line stays unchanged on a rerun; the other's is
+    // refused again.
+    let rerun = import_declared(&scratch, &database, &declaration);
+    assert_eq!(counts(&rerun), [0, 1, 0, 1]);
+    assert_eq!(originals(&database, "garden"), [Digest::of(&mulch)]);
+}
