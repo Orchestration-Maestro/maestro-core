@@ -78,8 +78,11 @@ indexing or slicing, no one-letter names, paths within two segments, `mod.rs`
 modules whose `mod.rs` holds only `mod` and `use` lines, no import cycle, no
 file over 500 lines of code, `Debug` on every type.
 
-**Scale/Scope**: 7,988 documents, 31.3 MiB of Markdown (4.1 KB on average);
-the chunk count is measured at prepare (T023); one local user.
+**Scale/Scope**: `ctm`'s export of 2026-09-26, 17,272 documents (19,165
+revisions), 56.2 MiB of Markdown by each document's latest revision (3.3 KiB
+on average); prepare (T023) cut 99,125 chunks, 14.6 million tokens, from its
+17,173 eligible documents (147 tokens a chunk on average, 700 at most); one
+local user.
 
 ## Starting point (measured 2026-09-25)
 
