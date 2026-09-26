@@ -64,9 +64,11 @@ pub fn gate(
             None => record(database, scopes, ledger, &candidate)?,
         };
         if !decided {
-            let outranked = ledger
-                .first_match(&candidate)
-                .filter(|rule| rule.disposition != disposition.outcome);
+            let outranked = ledger.first_match(&candidate).filter(|rule| {
+                rule.disposition != disposition.outcome
+                    && (outcome::holds(rule.disposition)
+                        || revision.status != RevisionStatus::Failed)
+            });
             if let Some(rule) = outranked {
                 report.ignore(rule.rule_id());
             }

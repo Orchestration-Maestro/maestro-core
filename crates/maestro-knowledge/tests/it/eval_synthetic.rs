@@ -315,13 +315,14 @@ impl Drop for Scratch {
 
 #[test]
 fn a_report_is_recorded_under_its_own_collection_generation_and_suite() {
-    let report = evaluate(oracle);
+    let mut report = evaluate(oracle);
+    report.suite = "handbook".to_owned();
     let scratch = Scratch::new("recorded");
     let database = scratch.kernel(GENERATION);
     let recorded = eval::record(&database, &report).unwrap();
     assert_eq!(recorded.collection_id, "synthetic");
     assert_eq!(recorded.generation, GENERATION);
-    assert_eq!(recorded.suite, "synthetic");
+    assert_eq!(recorded.suite, "handbook");
     let json = database.get(&recorded.digest).unwrap();
     assert_eq!(
         str::from_utf8(&json).unwrap().parse::<Report>().unwrap(),

@@ -190,6 +190,12 @@ fn the_report_for_people_counts_the_revisions_held_and_lists_none() {
         !text.stdout.contains("backup-policy"),
         "the revisions held are listed under --json only: {text:?}"
     );
+    let rerun = home.run(&["knowledge", "quality", "--collection", "synthetic"]);
+    assert_eq!(rerun.code, Some(0), "{rerun:?}");
+    assert!(
+        !rerun.stdout.contains("backup-policy"),
+        "a rerun prints the report, not held revision details: {rerun:?}"
+    );
 }
 
 #[test]

@@ -53,6 +53,13 @@ fn candidate() -> Report {
     ])
 }
 
+/// The comparison error after changing the candidate report.
+fn refused(change: impl FnOnce(&mut Report)) -> CompareError {
+    let mut candidate = candidate();
+    change(&mut candidate);
+    compare(&baseline(), &candidate, 1).unwrap_err()
+}
+
 /// The estimate `value` in `[low, high]`.
 fn estimate(value: f64, low: f64, high: f64) -> Estimate {
     Estimate { value, low, high }
@@ -151,15 +158,14 @@ fn a_question_answerable_in_one_run_only_is_refused() {
 
 #[test]
 fn a_report_of_another_suite_is_refused() {
-    let mut other = candidate();
-    other.suite = "other".to_owned();
-    let error = compare(&baseline(), &other, 1).unwrap_err();
-    assert_eq!(
-        error,
-        CompareError::Suite {
-            baseline: "synthetic".to_owned(),
-            candidate: "other".to_owned(),
-        }
+    let error = refused(|report| report.suite = "other".to_owned());
+    assert!(
+        matches!(
+            &error,
+            CompareError::Suite { baseline, candidate }
+                if baseline == "synthetic" && candidate == "other"
+        ),
+        "{error:?}"
     );
     assert_eq!(
         error.to_string(),
@@ -170,15 +176,17 @@ fn a_report_of_another_suite_is_refused() {
 
 #[test]
 fn a_report_of_another_collection_is_refused() {
-    let mut other = candidate();
-    other.collection = "other".to_owned();
-    let error = compare(&baseline(), &other, 1).unwrap_err();
+    let error = refused(|report| report.collection = "other".to_owned());
+    let CompareError::Collection {
+        baseline,
+        candidate,
+    } = &error
+    else {
+        panic!("{error:?}");
+    };
     assert_eq!(
-        error,
-        CompareError::Collection {
-            baseline: "synthetic".to_owned(),
-            candidate: "other".to_owned(),
-        }
+        (baseline.as_str(), candidate.as_str()),
+        ("synthetic", "other")
     );
     assert_eq!(
         error.to_string(),
@@ -189,9 +197,7 @@ fn a_report_of_another_collection_is_refused() {
 
 #[test]
 fn a_report_of_the_suite_read_from_another_file_is_refused() {
-    let mut edited = candidate();
-    edited.suite_digest = Digest::of(b"an edited suite");
-    let error = compare(&baseline(), &edited, 1).unwrap_err();
+    let error = refused(|report| report.suite_digest = Digest::of(b"an edited suite"));
     assert_eq!(
         error,
         CompareError::SuiteDigest {

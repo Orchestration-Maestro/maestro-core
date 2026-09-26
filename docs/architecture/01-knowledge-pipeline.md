@@ -89,9 +89,10 @@ repository (ADR-0009).
 
 ### 2.1 S1 — import an existing corpus
 
-The Control-M corpus already exists: 7,988 documents in the main manifest
-(support KB, community, vendor web documentation, GitHub, internal archives,
-security attachments), converted to Markdown by the current Python tooling.
+The current Control-M export has 17,322 lines and 17,272 documents in the
+main manifest (support KB, community, vendor web documentation, GitHub,
+internal archives, security attachments), converted to Markdown by the
+current Python tooling.
 S1 imports it through a small, vendor-neutral manifest instead of re-crawling:
 
 ```json
@@ -659,10 +660,10 @@ Noun-then-verb grammar, `--json` versioned output on stdout and diagnostics on
 stderr (the Herdr CLI conventions the earlier proposal adopted). Exit codes: 0
 success, 1 failed, a job that failed or was cancelled included, 2 usage error
 or refused input. Long commands print their job ID first; acknowledgement is
-not completion: `maestro job wait <job>` waits, a client timeout never cancels,
-`--resume <job>` continues unfinished work, and an idempotency key bound to
-the operation and its frozen inputs makes a retried request return the
-existing job.
+not completion: `maestro job wait <job>` waits, and a client timeout never
+cancels. Rerunning the same command takes over an expired job and continues
+it; an idempotency key bound to the operation and its frozen inputs makes a
+retried request return the existing job.
 
 ## 13. Failure modes
 

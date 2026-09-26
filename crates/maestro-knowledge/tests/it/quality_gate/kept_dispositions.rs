@@ -4,8 +4,10 @@
 //! kept disposition outranks. Otherwise a ledger rule outranks the automatic
 //! checks.
 
-use super::support::{CLEAN, EMPTY, HELD, Scratch, data_of, disposition_of, events, revision_of};
-use maestro_kernel::document::Outcome;
+use super::support::{
+    CLEAN, EMPTY, FAILED, HELD, Scratch, data_of, disposition_of, events, revision_of,
+};
+use maestro_kernel::document::{Outcome, RevisionStatus};
 use maestro_knowledge::quality::{self, Ledger};
 use serde_json::json;
 use std::collections::BTreeMap;
@@ -138,6 +140,30 @@ fn a_first_matching_rule_a_kept_disposition_outranks_is_counted_as_ignored() {
     );
     assert_eq!(
         disposition_of(&database, &scopes, EMPTY).outcome,
+        Outcome::NeedsReextraction
+    );
+}
+
+#[test]
+fn an_accepting_rule_for_a_failed_revision_is_not_counted_as_ignored() {
+    let scratch = Scratch::new();
+    scratch.pages(&[("failed", FAILED)]);
+    let database = scratch.database();
+    let scopes = scratch.import(&database);
+    quality::gate(&database, &scopes, "garden", &Ledger::default()).unwrap();
+    let failed = revision_of(&database, &scopes, FAILED);
+    assert_eq!(failed.status, RevisionStatus::Failed);
+
+    let report = quality::gate(
+        &database,
+        &scopes,
+        "garden",
+        &ledger(&[decision("accept-failed", "failed", "accepted")]),
+    )
+    .unwrap();
+    assert_eq!(report.ignored_rules, BTreeMap::new());
+    assert_eq!(
+        disposition_of(&database, &scopes, FAILED).outcome,
         Outcome::NeedsReextraction
     );
 }

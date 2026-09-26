@@ -442,7 +442,8 @@ SC-S1-001.
   revisions are eligible; a held revision emits `revision.held`; a missing
   quality ledger reads as an empty one.
 - [ ] **Step 2: Implement** the gate and `knowledge quality`.
-- [ ] **Step 3: Import `ctm` for real:** all 7,988 documents accounted for.
+- [ ] **Step 3: Import `ctm` for real:** all 17,272 documents from the
+  17,322-line export accounted for.
 - [ ] **Step 4: Run the gate on `ctm`** and keep the disposition report in
   `PRIVATE`.
 - [ ] **Step 5: Gate and pull request** `feat: give every revision a quality

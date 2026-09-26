@@ -115,10 +115,15 @@ impl<'a> Follower<'a> {
             .events(&self.kernel.scopes, &filter)
             .map_err(|error| Failure::failed_by(&error))?;
         for event in events {
-            self.output.text(&format!(
-                "{} {} {}",
-                event.sequence, event.r#type, event.data
-            ))?;
+            let mut data = event.data;
+            if matches!(
+                event.r#type.as_str(),
+                job::SUCCEEDED | job::FAILED | job::CANCELLED
+            ) {
+                drop(data.as_object_mut().map(|data| data.remove("outcome")));
+            }
+            self.output
+                .text(&format!("{} {} {}", event.sequence, event.r#type, data))?;
             self.after = event.sequence;
         }
         let ended = matches!(
