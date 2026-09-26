@@ -14,6 +14,8 @@ mod lexical_vectors;
 mod live_router;
 mod local_collection;
 mod prepare_live;
+mod publish_live;
+mod qdrant_projection;
 mod quality_gate;
 mod quality_ledger;
 mod router_parity;

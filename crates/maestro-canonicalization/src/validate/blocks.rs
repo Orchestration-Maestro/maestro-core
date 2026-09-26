@@ -223,14 +223,12 @@ impl BlockCheck<'_> {
         if let BlockAttributes::FootnoteDefinition { label } = attributes {
             gap = gap.replace(&format!("[^{label}]:"), "");
         }
-        if leading {
-            if let BlockAttributes::BlockQuote { alert: Some(alert) } = attributes {
-                gap = gap.to_ascii_lowercase().replacen(
-                    &format!("[!{}]", alert.to_ascii_lowercase()),
-                    "",
-                    1,
-                );
-            }
+        if leading && let BlockAttributes::BlockQuote { alert: Some(alert) } = attributes {
+            gap = gap.to_ascii_lowercase().replacen(
+                &format!("[!{}]", alert.to_ascii_lowercase()),
+                "",
+                1,
+            );
         }
         // Only container syntax can be outside children. Duplicate reference
         // definitions carry labels/URLs and must not hide inside an outer span.
