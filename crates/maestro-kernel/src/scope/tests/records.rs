@@ -25,7 +25,7 @@ const DOCUMENTS: [&str; 3] = ["doc-a", "doc-b", "doc-c"];
 const REVISIONS: [&str; 3] = ["rev-a", "rev-b", "rev-c"];
 
 /// What a set that covers `ctm` reads: every record of `ctm`, none of `ct`.
-const CTM: [&str; 12] = [
+const CTM: [&str; 14] = [
     "collection ctm",
     "source ctm/docs-core",
     "source ctm/guides",
@@ -35,6 +35,8 @@ const CTM: [&str; 12] = [
     "revision rev-b",
     "eligible rev-a",
     "eligible rev-b",
+    "listed rev-a",
+    "listed rev-b",
     "generation ctm Retired",
     "generation ctm Published",
     "published ctm",
@@ -188,6 +190,12 @@ fn seen(database: &Database, scopes: &ScopeSet, generations: &[i64]) -> Vec<Stri
             .map(|revision| format!("eligible {}", revision.id)),
     );
     seen.extend(
+        COLLECTIONS
+            .into_iter()
+            .flat_map(|id| database.revisions(scopes, id).unwrap())
+            .map(|revision| format!("listed {}", revision.id)),
+    );
+    seen.extend(
         generations
             .iter()
             .filter_map(|id| database.generation(scopes, *id).unwrap())
@@ -223,6 +231,7 @@ fn each_reader_of_records_reads_only_inside_the_set() {
             "document doc-c",
             "revision rev-c",
             "eligible rev-c",
+            "listed rev-c",
             "generation ct Retired",
             "generation ct Published",
             "published ct",
@@ -240,6 +249,7 @@ fn each_reader_of_records_reads_only_inside_the_set() {
             "document doc-a",
             "revision rev-a",
             "eligible rev-a",
+            "listed rev-a",
         ]
     );
 }

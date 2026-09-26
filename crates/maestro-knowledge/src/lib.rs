@@ -11,6 +11,9 @@
 //! reads a collection's manifests through them and records a revision of each
 //! document in the kernel.
 //!
+//! The quality gate ([`quality`]) then gives every revision a disposition
+//! before it may be indexed.
+//!
 //! Preparing the imported revisions for search starts with counting tokens as
 //! the selected embedder counts them, through the model router ([`prepare`]).
 
@@ -20,6 +23,7 @@ pub mod eval;
 pub mod import;
 pub mod lexical;
 pub mod prepare;
+pub mod quality;
 mod relative_path;
 mod shape;
 pub mod suite;

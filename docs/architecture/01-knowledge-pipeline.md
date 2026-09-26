@@ -390,7 +390,9 @@ rewrites documents into "clean" Markdown.
   9.0.22, discard superseded releases), channel preference (keep the latest
   publication channel of duplicated documentation), validated mixed-edition
   rules, recorded exceptions tagged `policy_exception`, object-type scope. Each
-  rule carries who decided it and how to reverse it.
+  rule carries who decided it and how to reverse it. In the ledger a person's
+  exception needs no tag: the disposition it gives names its rule,
+  `ledger.<id>`, and who decided it (`decided_by`).
 - **Mirroring is not ingestion.** A source can be mirrored in full while only
   part of it is admitted, so that, for example, support articles do not
   dominate official documentation in retrieval.

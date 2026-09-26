@@ -422,6 +422,30 @@ in place.
 │       │   │   ├── native-parity.json                                       # The native counter's ordered IDs for the 41 parity fixtures a router tokenizer must match to qualify
 │       │   │   ├── parity.rs                                                # The native profile's parity fixtures, native-parity.json: complete
 │       │   │   └── router_tokenizer.rs                                      # The router tokenizer: maestro-canonicalization's TokenCounter over the
+│       │   ├── quality/                                                     # The quality gate: one disposition per revision before indexing (01 §4, FR-S1-002a)
+│       │   │   ├── checks/                                                  # The automatic checks, each a rule ID with a documented threshold
+│       │   │   │   ├── body.rs                                              # The body as the checks count it: near-empty and navigation-heavy
+│       │   │   │   ├── flag.rs                                              # What a check says of a revision it flags: rule, outcome and reason
+│       │   │   │   ├── mod.rs                                               # The automatic checks, each a rule ID with a documented threshold
+│       │   │   │   ├── page.rs                                              # A page that is not the document: an application error, a sign-in prompt
+│       │   │   │   ├── record.rs                                            # Canonicalization failures, missing provenance and assets, incomplete tables
+│       │   │   │   ├── rules.rs                                             # Every automatic check, run in the order of the module table
+│       │   │   │   ├── secret.rs                                            # text.suspected-secret: PEM private keys and AWS, GitHub, GitLab, Slack tokens
+│       │   │   │   └── text.rs                                              # Replacement characters and extraction markers left in the text
+│       │   │   ├── tests/                                                   # Each check with a document it flags and one it must not; the precedence
+│       │   │   │   ├── body.rs                                              # The body checks: near-empty, navigation, application error, sign-in
+│       │   │   │   ├── mod.rs                                               # Each check with a document it flags and one it must not; the precedence
+│       │   │   │   ├── precedence.rs                                        # A ledger rule outranks the checks but never accepts a failed document
+│       │   │   │   ├── record.rs                                            # The record checks: canonicalization, metadata, assets, tables, characters
+│       │   │   │   ├── secrets.rs                                           # Each secret format with examples it flags and must not, placeholders among them
+│       │   │   │   └── support.rs                                           # Canonical documents made from Markdown, revisions and ledgers for the tests
+│       │   │   ├── decide.rs                                                # One decision: the first ledger rule that matches, else the checks
+│       │   │   ├── error.rs                                                 # Why the gate stopped; what it decided before stays decided
+│       │   │   ├── gate.rs                                                  # The gate over a collection, and the eligible revisions it lets through
+│       │   │   ├── ledger.rs                                                # The quality ledger, maestro-quality-ledger/1: one strict JSON rule a line
+│       │   │   ├── mod.rs                                                   # The gate, its precedence, and the list of automatic checks
+│       │   │   ├── outcome.rs                                               # The five outcomes by their 01 §4 names, and which hold a revision back
+│       │   │   └── report.rs                                                # What the gate reports: every revision counted once, the held ones listed
 │       │   ├── collection.rs                                                # A collection's declaration: maestro-collection/1, the strict JSON that
 │       │   ├── corpus.rs                                                    # A corpus manifest: maestro-corpus/1, one JSON line per document, through
 │       │   ├── lib.rs                                                       # The knowledge pipeline of Maestro (docs/architecture/01): collections, their
@@ -442,6 +466,18 @@ in place.
 │       │       │   ├── repeated_imports.rs                                  # An import is idempotent: a second one writes nothing, a change of metadata gives a new revision
 │       │       │   ├── support.rs                                           # What the import's tests share: a scratch corpus and database, declarations, and the kernel read whole
 │       │       │   └── synthetic_corpus.rs                                  # The public synthetic collection (T014) imported end to end
+│       │       ├── local_collection/                                        # The collection this machine names, imported for real and gated on demand
+│       │       │   ├── dispositions.rs                                      # The disposition report of a local run: identities, rules, reasons, counts
+│       │       │   ├── mod.rs                                               # The collection this machine names, imported for real and gated on demand
+│       │       │   └── real_import.rs                                       # The ignored run: a collection imported into the kernel data directory, then gated
+│       │       ├── quality_gate/                                            # The quality gate (T020) through the import, the ledger and the kernel
+│       │       │   ├── gate_report.rs                                       # The report as JSON, and the stops: unknown collection, broken artifact
+│       │       │   ├── kept_dispositions.rs                                 # A disposition is kept: a rerun decides nothing, the import holds stay
+│       │       │   ├── latest_revision.rs                                   # A document is eligible by its latest revision alone, never an older one
+│       │       │   ├── mod.rs                                               # The quality gate (T020) through the import, the ledger and the kernel
+│       │       │   ├── recorded_dispositions.rs                             # Dispositions with rule IDs and reasons, revision.held, eligibility
+│       │       │   ├── support.rs                                           # A scratch corpus imported as garden, and what the kernel then records
+│       │       │   └── synthetic_corpus.rs                                  # The public synthetic collection (T014) passes the gate end to end
 │       │       ├── suite_check/                                             # Checking suites against their corpus: every name a suite of a directory
 │       │       │   ├── check.rs                                             # The check itself: each suite of a directory read under its contract, and
 │       │       │   ├── local_suites.rs                                      # The check on the suites and corpus this machine names, by hand
@@ -460,6 +496,7 @@ in place.
 │       │       ├── lexical_sample.rs                                        # Research R7's public sample on bm25-en-fr/1: 22 passages, 11 in English
 │       │       ├── lexical_vectors.rs                                       # The sparse vectors of bm25-en-fr/1: a passage's term weighs BM25's
 │       │       ├── main.rs                                                  # The crate's integration tests, built as one test crate: each module proves
+│       │       ├── quality_ledger.rs                                        # maestro-quality-ledger/1: strict rules a line; a missing ledger is empty
 │       │       ├── router_parity.rs                                         # The router tokenizer's parity with the native counter, live: an explicit
 │       │       ├── suite_contract.rs                                        # maestro-suite/1: a suite, one JSON line per question, parses into typed
 │       │       ├── suite_resolution.rs                                      # Resolving an expected section in its canonicalized document: a heading path
