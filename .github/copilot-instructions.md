@@ -173,7 +173,8 @@ in place.
 │   │   │   ├── 0002_journal.sql                                             # The journal: the append-only events, their triggers, and the consumers' cursors
 │   │   │   ├── 0003_scopes.sql                                              # The grants: each principal's rights on a scope and on every scope below it
 │   │   │   ├── 0004_documents.sql                                           # The pipeline's records: collections, sources, documents, revisions, their dispositions, chunk sets, chunks and generations
-│   │   │   └── 0005_jobs.sql                                                # The jobs table: each job's key, attempt, resource, state, lease and outcome, and its triggers
+│   │   │   ├── 0005_jobs.sql                                                # The jobs table: each job's key, attempt, resource, state, lease and outcome, and its triggers
+│   │   │   └── 0006_eval_reports.sql                                        # The evaluation reports: each run's collection, generation, suite and report artifact, and the triggers that keep it as recorded
 │   │   ├── src/                                                             # The crate's sources
 │   │   │   ├── artifact/                                                    # Content-addressed artifacts: immutable bytes stored, and read back, by their
 │   │   │   │   ├── digest.rs                                                # A SHA-256 digest: the name every artifact is stored under
@@ -198,6 +199,15 @@ in place.
 │   │   │   │   ├── error.rs                                                 # Why the kernel refused to record a collection, a source, a document or a revision
 │   │   │   │   ├── mod.rs                                                   # The pipeline's document records (building block B5; docs/architecture/01
 │   │   │   │   └── revision.rs                                              # Revisions: one exact version of a document's bytes and metadata, recorded
+│   │   │   ├── eval/                                                        # Evaluation reports (plan D13; FR-S1-009): each run of an evaluation suite
+│   │   │   │   ├── tests/                                                   # Tests of the evaluation reports the kernel records: their artifact, their
+│   │   │   │   │   ├── mod.rs                                               # Tests of the evaluation reports the kernel records: their artifact, their
+│   │   │   │   │   ├── records.rs                                           # A report is stored as an artifact, indexed and pinned by its record, and
+│   │   │   │   │   ├── support.rs                                           # What the report tests share: a scratch database holding the collections
+│   │   │   │   │   └── table.rs                                             # The table of reports refuses, whoever writes, to change, replace or
+│   │   │   │   ├── error.rs                                                 # Why the kernel refused to record or read an evaluation report
+│   │   │   │   ├── mod.rs                                                   # Evaluation reports (plan D13; FR-S1-009): each run of an evaluation suite
+│   │   │   │   └── report.rs                                                # Reports as the kernel records them: the artifact of each, the record that
 │   │   │   ├── evidence/                                                    # Evidence (building block B7; docs/architecture/02 §6, plan D10): what a
 │   │   │   │   ├── tests/                                                   # Tests of evidence: resolving a chunk from the authority, and bundles as
 │   │   │   │   │   ├── bundle.rs                                            # Bundles: maestro-evidence/1 as JSON, its evidence apart from its trace
@@ -320,6 +330,26 @@ in place.
 │   │   └── Cargo.toml                                                       # Crate manifest: The single authoritative store of Maestro, starting with its content-addressed artifacts
 │   └── maestro-knowledge/                                                   # Maestro knowledge
 │       ├── src/                                                             # The crate's sources
+│       │   ├── eval/                                                        # The evaluation runner (plan D13; FR-S1-009, SC-S1-008): every retrieval
+│       │   │   ├── tests/                                                   # Tests of the evaluation runner: how it ranks and judges each question
+│       │   │   │   ├── compare.rs                                           # compare pairs two runs by question and gives, for each metric, the
+│       │   │   │   ├── degraded.rs                                          # A degraded search, one where a route or the reranker could not run, still
+│       │   │   │   ├── failures.rs                                          # Each failure of an answerable question gets its class at each cut-off it
+│       │   │   │   ├── intervals.rs                                         # The intervals: 95 % percentile intervals of 2,000 bootstrap resamples
+│       │   │   │   ├── metrics.rs                                           # Each metric of a run against values computed by hand on a small suite
+│       │   │   │   ├── mod.rs                                               # Tests of the evaluation runner: how it ranks and judges each question
+│       │   │   │   ├── ranking.rs                                           # A bundle lists its passages in reading order, so the runner ranks them
+│       │   │   │   ├── report.rs                                            # A report is a strict JSON artifact, maestro-eval-report/1: it writes and
+│       │   │   │   ├── run.rs                                               # run resolves each expected section of a suite in the canonical document
+│       │   │   │   └── support.rs                                           # What the evaluation tests share: questions, bundles built from the hits a
+│       │   │   ├── bootstrap.rs                                             # The bootstrap: resamples of a run's questions, drawn within the
+│       │   │   ├── compare.rs                                               # Comparing two runs of one suite, question by question
+│       │   │   ├── error.rs                                                 # Why a run or a comparison was refused
+│       │   │   ├── judge.rs                                                 # Judging one question: ranking its bundle's passages, finding the sections
+│       │   │   ├── metric.rs                                                # The metrics of a run: each a value over a sample of its questions, drawn
+│       │   │   ├── mod.rs                                                   # The evaluation runner (plan D13; FR-S1-009, SC-S1-008): every retrieval
+│       │   │   ├── report.rs                                                # Reports: maestro-eval-report/1, what a run measured, question by
+│       │   │   └── run.rs                                                   # A run: every question of a suite, resolved in the generation it
 │       │   ├── import/                                                      # Importing a collection's corpus through its maestro-corpus/1 manifests
 │       │   │   ├── tests/                                                   # Tests of the import that reach inside it: its manifest lines, and its streaming, proven by an in-memory corpus
 │       │   │   │   ├── lines.rs                                             # A manifest read one numbered line at a time, until it ends
@@ -378,6 +408,7 @@ in place.
 │       │       │   └── synthetic_corpus.rs                                  # The public synthetic collection (T014) imported end to end
 │       │       ├── collection_contract.rs                                   # maestro-collection/1: a strict declaration parses into typed values; an
 │       │       ├── corpus_contract.rs                                       # maestro-corpus/1: one line per document parses into typed values; an
+│       │       ├── eval_synthetic.rs                                        # The evaluation runner over the public synthetic suite (T014), end to end
 │       │       ├── lexical_accents.rs                                       # Properties of bm25-en-fr/1 over generated texts: a text and the same
 │       │       ├── lexical_fold.rs                                          # Folding in bm25-en-fr/1: every letter of Latin-1 Supplement and Latin
 │       │       ├── lexical_golden.rs                                        # The golden of bm25-en-fr/1: the terms and vectors of sample passages and

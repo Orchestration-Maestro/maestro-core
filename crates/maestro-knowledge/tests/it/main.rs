@@ -3,6 +3,7 @@
 
 mod collection_contract;
 mod corpus_contract;
+mod eval_synthetic;
 mod import_contract;
 mod lexical_accents;
 mod lexical_fold;

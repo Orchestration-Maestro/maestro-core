@@ -53,15 +53,6 @@ path = "crates/maestro-canonicalization/src/filesystem/mod.rs"
 item = "open_nofollow"
 reason = "the artifact check's link-free open, one function on each platform"
 
-# The kernel's pins, which the revisions alone take for now: the first task
-# whose table pins an artifact too removes this exception, since the rule then
-# refuses it.
-[[exception]]
-rule = "ARC-005"
-path = "crates/maestro-kernel/src/store/mod.rs"
-item = "artifacts"
-reason = "every kernel table that refers to an artifact pins it in the transaction that records the reference: revisions now, then chunk sets, evaluation reports and model cards"
-
 # The journal's filter, which jobs alone use outside the journal for now, to
 # read a job's last step: the lane that adds a second reader of a stream, the
 # binary's job wait (T022) among them, removes it when the rule reports it

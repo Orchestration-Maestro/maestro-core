@@ -16,6 +16,7 @@
 
 pub mod collection;
 pub mod corpus;
+pub mod eval;
 pub mod import;
 pub mod lexical;
 pub mod prepare;
