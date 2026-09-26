@@ -70,7 +70,9 @@ reason = "every kernel table that refers to an artifact pins it in the transacti
 # misspelled Qdrant option that research shows being silently ignored;
 # adresse, amont, certificat, certificats, contracter, groupe, groupes, reste,
 # responsable, ressource, restauration, seconde, sur and valide, French words
-# of the synthetic collection in tests/fixtures/synthetic.
+# of the synthetic collection in tests/fixtures/synthetic; celle, celles and
+# toi, French stopwords of the lexical analyzer, as sur is too, and requet and
+# schedul, stems its golden test pins.
 [typos]
 words = [
   "Exemple",
@@ -94,4 +96,9 @@ words = [
   "seconde",
   "sur",
   "valide",
+  "celle",
+  "celles",
+  "toi",
+  "requet",
+  "schedul",
 ]

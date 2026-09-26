@@ -257,6 +257,15 @@ in place.
 │   │   └── Cargo.toml                                                       # Crate manifest: The single authoritative store of Maestro, starting with its content-addressed artifacts
 │   └── maestro-knowledge/                                                   # Maestro knowledge
 │       ├── src/                                                             # The crate's sources
+│       │   ├── lexical/                                                     # The lexical analyzer of the BM25 route, profile bm25-en-fr/1: it turns a
+│       │   │   ├── analyzer.rs                                              # The profile's name and the terms of a text
+│       │   │   ├── fold.rs                                                  # Folding: a text without its accents, before any other rule reads it
+│       │   │   ├── mod.rs                                                   # The lexical analyzer of the BM25 route, profile bm25-en-fr/1: it turns a
+│       │   │   ├── split.rs                                                 # Splitting: the identifiers and words of a folded text, and the parts of
+│       │   │   ├── stem.rs                                                  # Stemming: light suffix rules on folded, lowercased words, French and
+│       │   │   ├── stopwords.rs                                             # The stopwords of bm25-en-fr/1: an English list and a French one, each of
+│       │   │   ├── tests.rs                                                 # What the lexical module's lookups rely on
+│       │   │   └── vector.rs                                                # Sparse vectors: a passage's terms weighed with BM25's term-frequency part
 │       │   ├── prepare/                                                     # Preparing revisions for search: tokens counted as the selected embedder counts them, through the model router
 │       │   │   ├── tests/                                                   # Tests of the router tokenizer: qualification by parity with the native
 │       │   │   │   ├── counting.rs                                          # Counting and verifying through a qualified tokenizer: the port's IDs in
@@ -284,6 +293,11 @@ in place.
 │       │   └── it/                                                          # It
 │       │       ├── collection_contract.rs                                   # maestro-collection/1: a strict declaration parses into typed values; an
 │       │       ├── corpus_contract.rs                                       # maestro-corpus/1: one line per document parses into typed values; an
+│       │       ├── lexical_accents.rs                                       # Properties of bm25-en-fr/1 over generated texts: a text and the same
+│       │       ├── lexical_golden.rs                                        # The golden of bm25-en-fr/1: the terms and vectors of sample passages and
+│       │       ├── lexical_rules.rs                                         # The rules of bm25-en-fr/1 as the lexical module states them, each with
+│       │       ├── lexical_sample.rs                                        # Research R7's public sample on bm25-en-fr/1: 22 passages, 11 in English
+│       │       ├── lexical_vectors.rs                                       # The sparse vectors of bm25-en-fr/1: a passage's term weighs BM25's
 │       │       ├── main.rs                                                  # The crate's integration tests, built as one test crate: each module proves
 │       │       ├── router_parity.rs                                         # The router tokenizer's parity with the native counter, live: an explicit
 │       │       ├── suite_contract.rs                                        # maestro-suite/1: a suite, one JSON line per question, parses into typed
