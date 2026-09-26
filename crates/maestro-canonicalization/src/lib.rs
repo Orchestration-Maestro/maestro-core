@@ -47,4 +47,4 @@ pub use source_units::{
     SourceDisposition, SourceOrigin, SourceUnit, TextRange, UnitField,
 };
 pub use store::{load_document, save_document};
-pub use tokenizer::NativeTokenizer;
+pub use tokenizer::{NativeTokenizer, TokenCounter};

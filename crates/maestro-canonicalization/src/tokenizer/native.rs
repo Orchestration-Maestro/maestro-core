@@ -2,6 +2,7 @@
 use super::artifacts::{verify_libraries, verify_record};
 use super::binding::NativeBinding;
 use super::contract::{CONTRACT_ID, array_at, invalid_contract, parse_contract, text_at, value_at};
+use super::counter::TokenCounter;
 use super::loader::Loader;
 use super::process::run_native;
 use crate::error::Error;
@@ -34,41 +35,6 @@ impl NativeTokenizer {
         };
         counter.verify_artifacts()?;
         Ok(counter)
-    }
-
-    /// Identity of the qualified model, native implementation and preparation policy.
-    #[must_use]
-    pub fn contract_id(&self) -> &'static str {
-        CONTRACT_ID
-    }
-
-    /// Tokenize complete UTF-8 input without padding or truncation.
-    ///
-    /// Call [`Self::verify_artifacts`] at batch boundaries. Executable bytes and
-    /// library resolution are additionally checked before each process launch.
-    ///
-    /// # Errors
-    /// Refuses changed executable/library resolution, process errors, timeouts,
-    /// excessive process output and invalid ordered vocabulary IDs.
-    pub fn token_ids(&self, input: &str) -> Result<Vec<u32>, Error> {
-        verify_record(
-            &self.binding.counter,
-            value_at(&self.contract, "/artifacts/counter")?,
-        )?;
-        self.verify_loading()?;
-        let mut command = configured_command(&self.contract, &self.binding)?;
-        let timeout = self
-            .contract
-            .pointer("/invocation/timeout_seconds")
-            .and_then(Value::as_u64)
-            .ok_or_else(invalid_contract)?;
-        // ponytail: reload vocabulary per call; use a separately qualified persistent
-        // adapter if measured throughput requires it.
-        parse_ids(&run_native(
-            &mut command,
-            input.as_bytes(),
-            Duration::from_secs(timeout),
-        )?)
     }
 
     /// Recheck the pinned artifacts before accepting a batch.
@@ -118,6 +84,50 @@ impl NativeTokenizer {
                     .join(text_at(library, "/file")?))
             })
             .collect()
+    }
+}
+
+impl TokenCounter for NativeTokenizer {
+    /// Identity of the qualified model, native implementation and preparation policy.
+    fn contract_id(&self) -> &str {
+        CONTRACT_ID
+    }
+
+    /// The artifact check, [`NativeTokenizer::verify_artifacts`].
+    ///
+    /// # Errors
+    /// Refuses missing, nonregular or changed artifacts and redirected libraries.
+    fn verify(&self) -> Result<(), Error> {
+        self.verify_artifacts()
+    }
+
+    /// Tokenize complete UTF-8 input without padding or truncation.
+    ///
+    /// Call [`Self::verify_artifacts`] at batch boundaries. Executable bytes and
+    /// library resolution are additionally checked before each process launch.
+    ///
+    /// # Errors
+    /// Refuses changed executable/library resolution, process errors, timeouts,
+    /// excessive process output and invalid ordered vocabulary IDs.
+    fn token_ids(&self, input: &str) -> Result<Vec<u32>, Error> {
+        verify_record(
+            &self.binding.counter,
+            value_at(&self.contract, "/artifacts/counter")?,
+        )?;
+        self.verify_loading()?;
+        let mut command = configured_command(&self.contract, &self.binding)?;
+        let timeout = self
+            .contract
+            .pointer("/invocation/timeout_seconds")
+            .and_then(Value::as_u64)
+            .ok_or_else(invalid_contract)?;
+        // ponytail: reload vocabulary per call; use a separately qualified persistent
+        // adapter if measured throughput requires it.
+        parse_ids(&run_native(
+            &mut command,
+            input.as_bytes(),
+            Duration::from_secs(timeout),
+        )?)
     }
 }
 

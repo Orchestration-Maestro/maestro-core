@@ -2,8 +2,8 @@
 #![cfg(test)]
 use maestro_canonicalization::{
     CanonicalDocument, CanonicalizeInput, ChunkBatch, DedupInput, DedupScope, InputRole,
-    NativeTokenizer, RetrievalChunk, RevisionKey, SplitKind, WarningPolicy, canonicalize,
-    chunk_documents,
+    NativeTokenizer, RetrievalChunk, RevisionKey, SplitKind, TokenCounter, WarningPolicy,
+    canonicalize, chunk_documents,
 };
 
 #[test]

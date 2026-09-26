@@ -8,44 +8,30 @@ use crate::dedup::{DedupInput, DedupScope, Deduplication, WarningPolicy, group_e
 use crate::error::Error;
 use crate::prepared_inputs::PREPARATION_PROFILE;
 use crate::source_units::CHUNKER_VERSION;
-use crate::tokenizer::NativeTokenizer;
+use crate::tokenizer::TokenCounter;
 use std::collections::BTreeMap;
 
-/// Prepare structural chunks with the qualified, vocabulary-only native counter.
+/// Prepare structural chunks, counting through `counter`: it is verified before and after the
+/// batch, and its contract ID enters every chunk and prepared-input identity.
 /// Fresh authorization and canonical replay are required for every call.
 ///
 /// # Errors
 /// Refuses unauthorized/repeated revisions, invalid sources, disallowed warnings,
-/// unsafe splits, impossible context budgets, incomplete coverage or changed artifacts.
+/// unsafe splits, impossible context budgets, incomplete coverage or a counter that
+/// fails to verify or to count.
 pub fn chunk_documents<'a>(
     scope: &'a DedupScope,
     inputs: &[DedupInput<'a>],
     warning_policy: WarningPolicy,
-    tokenizer: &NativeTokenizer,
+    counter: &(impl TokenCounter + ?Sized),
 ) -> Result<ChunkBatch<'a>, Error> {
     let deduplication = group_exact(scope, inputs, warning_policy)?;
-    tokenizer.verify_artifacts()?;
-    let batch = build_batch(deduplication, tokenizer.contract_id(), &mut |input| {
-        Ok(tokenizer.token_ids(input)?.len())
+    counter.verify()?;
+    let batch = build_batch(deduplication, counter.contract_id(), &mut |input| {
+        Ok(counter.token_ids(input)?.len())
     })?;
-    tokenizer.verify_artifacts()?;
+    counter.verify()?;
     Ok(batch)
-}
-
-/// [`chunk_documents`] with a stand-in counter in place of the qualified native one.
-#[cfg(test)]
-pub(super) fn chunk_with_count<'a>(
-    scope: &'a DedupScope,
-    inputs: &[DedupInput<'a>],
-    warning_policy: WarningPolicy,
-    tokenizer_contract_id: &str,
-    count: &mut impl FnMut(&str) -> Result<usize, Error>,
-) -> Result<ChunkBatch<'a>, Error> {
-    build_batch(
-        group_exact(scope, inputs, warning_policy)?,
-        tokenizer_contract_id,
-        count,
-    )
 }
 
 /// Map, chunk, validate and identify every authorized occurrence, counting each distinct prepared

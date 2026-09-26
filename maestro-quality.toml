@@ -35,12 +35,6 @@ reason = "chunk replay reruns the splitter and so lives beside its rules"
 
 [[exception]]
 rule = "ARC-005"
-path = "crates/maestro-canonicalization/src/tokenizer/mod.rs"
-item = "NativeTokenizer"
-reason = "a public type callers build; in the crate only the chunker counts"
-
-[[exception]]
-rule = "ARC-005"
 path = "crates/maestro-canonicalization/src/validate/mod.rs"
 item = "validate_structure"
 reason = "the pipeline runs the structural validator, a subsystem of its own"

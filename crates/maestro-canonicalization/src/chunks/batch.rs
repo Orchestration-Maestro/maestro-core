@@ -59,11 +59,11 @@ pub struct ChunkBatch<'a> {
     pub version: String,
     /// Canonical context/formatting policy.
     pub preparation_profile: String,
-    /// Qualified local counter identity.
+    /// Contract ID of the counter that counted the batch.
     pub tokenizer_contract_id: String,
     /// Preferred complete-input size, not a minimum.
     pub target_tokens: usize,
-    /// Maximum complete-input size, including context and native specials.
+    /// Maximum complete-input size, including context and the counter's special tokens.
     pub hard_max_tokens: usize,
     /// Primary body overlap; repeated context does not add coverage.
     pub overlap_tokens: usize,

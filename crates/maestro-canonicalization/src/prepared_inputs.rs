@@ -34,7 +34,7 @@ pub struct Contribution {
 pub struct InputPart {
     /// Why this text is included.
     pub role: InputRole,
-    /// Exact bytes sent to the qualified tokenizer.
+    /// Exact bytes sent to the counter.
     pub text: String,
     /// Location in the complete prepared input.
     pub prepared_range: TextRange,
@@ -111,7 +111,8 @@ pub struct ChunkContent {
     pub input_parts: Vec<InputPart>,
     /// Verbatim concatenation of all input parts.
     pub prepared_input: String,
-    /// Complete-input count; only the verified native API certifies this value.
+    /// Complete-input count; only `chunk_documents`, through a verified `TokenCounter`,
+    /// certifies this value.
     pub token_count: usize,
 }
 
