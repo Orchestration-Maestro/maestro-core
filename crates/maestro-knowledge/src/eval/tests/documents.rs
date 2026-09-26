@@ -6,7 +6,7 @@
 
 use super::support::{DOCUMENT, Hit, bundle, close, documents, hit, question, sections, whole};
 use crate::eval::{Expected, Failure, FailureClass, Metrics, judge::judge, metric::measure};
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, num::NonZeroU32};
 
 /// The metrics of one answerable question that expects `expected` and got
 /// `hits`.
@@ -21,7 +21,7 @@ fn ranks(expected: &[Expected], hits: &[Hit]) -> Vec<Option<u32>> {
     result
         .expected
         .iter()
-        .map(|Expected { rank, .. }| *rank)
+        .map(|Expected { rank, .. }| rank.map(NonZeroU32::get))
         .collect()
 }
 

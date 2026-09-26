@@ -6,6 +6,7 @@ use super::support::{Hit, bundle, hit, question, report_of, sections};
 use crate::eval::{
     CompareError, Comparison, Estimate, QuestionResult, Report, compare, judge::judge,
 };
+use maestro_kernel::artifact::Digest;
 
 /// A question as a run answered it: its id, the section it expects if any,
 /// its hits and its latency.
@@ -164,5 +165,48 @@ fn a_report_of_another_suite_is_refused() {
         error.to_string(),
         "the baseline ran the suite synthetic and the candidate the suite other, \
          so the runs cannot be paired"
+    );
+}
+
+#[test]
+fn a_report_of_another_collection_is_refused() {
+    let mut other = candidate();
+    other.collection = "other".to_owned();
+    let error = compare(&baseline(), &other, 1).unwrap_err();
+    assert_eq!(
+        error,
+        CompareError::Collection {
+            baseline: "synthetic".to_owned(),
+            candidate: "other".to_owned(),
+        }
+    );
+    assert_eq!(
+        error.to_string(),
+        "the baseline evaluated the collection synthetic and the candidate the collection \
+         other, so the runs cannot be paired"
+    );
+}
+
+#[test]
+fn a_report_of_the_suite_read_from_another_file_is_refused() {
+    let mut edited = candidate();
+    edited.suite_digest = Digest::of(b"an edited suite");
+    let error = compare(&baseline(), &edited, 1).unwrap_err();
+    assert_eq!(
+        error,
+        CompareError::SuiteDigest {
+            suite: "synthetic".to_owned(),
+            baseline: baseline().suite_digest,
+            candidate: Digest::of(b"an edited suite"),
+        }
+    );
+    assert_eq!(
+        error.to_string(),
+        format!(
+            "the baseline and the candidate ran the suite synthetic from different files, of \
+             digests {} and {}, so the runs cannot be paired",
+            baseline().suite_digest.as_str(),
+            Digest::of(b"an edited suite").as_str()
+        )
     );
 }

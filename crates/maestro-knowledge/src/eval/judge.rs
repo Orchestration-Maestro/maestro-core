@@ -7,6 +7,7 @@ use maestro_kernel::evidence::{Bundle, Passage, RouteStatus};
 use std::{
     cmp::Ordering,
     collections::{BTreeMap, BTreeSet},
+    num::NonZeroU32,
 };
 
 /// The cut-offs of the metrics: 5 for Recall@5, 10 for Recall@10, MRR@10 and
@@ -34,7 +35,7 @@ pub(super) fn judge(
             rank: ranked
                 .iter()
                 .position(|passage| holds(passage, expected))
-                .and_then(|index| u32::try_from(index + 1).ok()),
+                .and_then(|index| NonZeroU32::new(u32::try_from(index + 1).ok()?)),
             ..expected.clone()
         })
         .collect();

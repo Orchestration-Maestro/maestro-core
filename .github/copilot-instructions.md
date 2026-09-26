@@ -439,6 +439,7 @@ in place.
 │       │   │   ├── judge.rs                                                 # Judging one question: ranking its bundle's passages, finding the sections
 │       │   │   ├── metric.rs                                                # The metrics of a run: each a value over a sample of its questions, drawn
 │       │   │   ├── mod.rs                                                   # The evaluation runner (plan D13; FR-S1-009, SC-S1-008): every retrieval
+│       │   │   ├── record.rs                                                # Recording a report in the kernel, under the collection, generation and suite it names
 │       │   │   ├── report.rs                                                # Reports: maestro-eval-report/1, what a run measured, question by
 │       │   │   └── run.rs                                                   # A run: every question of a suite, resolved in the generation it
 │       │   ├── import/                                                      # Importing a collection's corpus through its maestro-corpus/1 manifests

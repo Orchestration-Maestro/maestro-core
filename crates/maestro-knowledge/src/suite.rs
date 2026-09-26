@@ -28,6 +28,7 @@
 
 use crate::shape;
 use maestro_canonicalization::{CanonicalDocument, Section};
+use maestro_kernel::artifact::Digest;
 use serde::Deserialize;
 use std::{collections::BTreeMap, error, fmt, num::NonZeroU32, str::FromStr};
 
@@ -40,6 +41,10 @@ use std::{collections::BTreeMap, error, fmt, num::NonZeroU32, str::FromStr};
 pub struct Suite {
     /// The questions, in the order of their lines.
     pub questions: Vec<Question>,
+    /// The SHA-256 of the text they were read from: the digest of the
+    /// suite's file, read whole, which a run's report names, so that two
+    /// runs compare only when they read the same file.
+    pub digest: Digest,
 }
 
 impl FromStr for Suite {
@@ -79,7 +84,10 @@ impl FromStr for Suite {
         if questions.is_empty() {
             return Err(Error::Empty);
         }
-        Ok(Self { questions })
+        Ok(Self {
+            questions,
+            digest: Digest::of(text.as_bytes()),
+        })
     }
 }
 

@@ -1,6 +1,7 @@
 //! Why a run or a comparison was refused.
 
 use crate::suite::Unresolved;
+use maestro_kernel::artifact::Digest;
 use std::{error, fmt};
 
 /// Why a run was refused: the caller's own error, a suite that does not fit
@@ -147,8 +148,9 @@ impl<E: error::Error + 'static> error::Error for RunError<E> {
     }
 }
 
-/// Why two runs could not be paired question by question: they ran different
-/// suites, or their questions differ.
+/// Why two runs could not be paired question by question: they evaluated
+/// different collections, ran different suites or different files of one,
+/// or their questions differ.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CompareError {
     /// A question is in one run only.
@@ -173,6 +175,23 @@ pub enum CompareError {
         /// The candidate's suite.
         candidate: String,
     },
+    /// The two runs evaluated different collections.
+    Collection {
+        /// The baseline's collection.
+        baseline: String,
+        /// The candidate's collection.
+        candidate: String,
+    },
+    /// The two runs read their suite from files of different digests: the
+    /// suite changed between them.
+    SuiteDigest {
+        /// The suite.
+        suite: String,
+        /// The digest of the baseline's file.
+        baseline: Digest,
+        /// The digest of the candidate's file.
+        candidate: Digest,
+    },
 }
 
 impl fmt::Display for CompareError {
@@ -186,6 +205,29 @@ impl fmt::Display for CompareError {
                     formatter,
                     "the baseline ran the suite {baseline} and the candidate the suite \
                      {candidate}, so the runs cannot be paired"
+                );
+            }
+            Self::Collection {
+                baseline,
+                candidate,
+            } => {
+                return write!(
+                    formatter,
+                    "the baseline evaluated the collection {baseline} and the candidate the \
+                     collection {candidate}, so the runs cannot be paired"
+                );
+            }
+            Self::SuiteDigest {
+                suite,
+                baseline,
+                candidate,
+            } => {
+                return write!(
+                    formatter,
+                    "the baseline and the candidate ran the suite {suite} from different files, \
+                     of digests {} and {}, so the runs cannot be paired",
+                    baseline.as_str(),
+                    candidate.as_str()
                 );
             }
             Self::Unpaired { id } => (id, "is in one run only"),

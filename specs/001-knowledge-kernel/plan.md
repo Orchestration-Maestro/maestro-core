@@ -319,8 +319,10 @@ whole to its document ID, which its passages carry.
 Metrics: Recall@5 and @10, MRR@10, nDCG@10, no-answer accuracy, command
 exactness, latency p50 and p95. Confidence intervals by paired bootstrap
 (2,000 resamples). Each failure is classified as not retrieved, misranked or
-wrong answer, with the route that missed it. The ladder report compares each
-rung with the one below it. The bake-off follows
+wrong answer, with the route that missed it. A report names the digest of its
+suite's file, and a comparison refuses two reports of different collections,
+suites or suite files. The ladder report compares each rung with the one
+below it. The bake-off follows
 [05 §3.3](../../docs/architecture/05-platform-and-operations.md#33-protocol):
 each embedder candidate gets its own chunk profile and generation, because
 chunks are counted in the embedder's tokens; the golden set's expected answers

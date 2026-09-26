@@ -3,9 +3,11 @@
 //! contract does not name.
 
 use super::support::{
-    COLLECTION, GENERATION, bundle, bundle_with, documents, hit, question, sections, whole,
+    COLLECTION, GENERATION, SUITE_TEXT, bundle, bundle_with, documents, hit, question, sections,
+    whole,
 };
 use crate::eval::{Report, Schema, judge::judge, metric::measure};
+use maestro_kernel::artifact::Digest;
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 
@@ -36,6 +38,7 @@ fn report() -> Report {
     Report {
         schema: Schema::V1,
         suite: "synthetic".to_owned(),
+        suite_digest: Digest::of(SUITE_TEXT),
         collection: COLLECTION.to_owned(),
         generation: GENERATION,
         profiles: BTreeMap::from([
@@ -66,6 +69,7 @@ fn a_report_writes_and_reads_back_equal() {
     assert_eq!(text.parse::<Report>().unwrap(), report);
     let value: Value = serde_json::from_str(&text).unwrap();
     assert_eq!(value["schema"], "maestro-eval-report/1");
+    assert_eq!(value["suite_digest"], Digest::of(SUITE_TEXT).as_str());
     assert_eq!(value["seed"], json!(u64::MAX));
     assert_eq!(value["degraded_searches"], 1);
     assert_eq!(value["questions"][1]["degraded"], true);
@@ -215,6 +219,22 @@ fn routes_and_profiles_are_read_from_objects_of_texts_only() {
     let mut value = written();
     value["questions"][1]["failures"][0]["unavailable"] = json!({"dense": 1});
     assert!(refusal(&value).contains("invalid type: integer"));
+}
+
+#[test]
+fn a_suite_digest_that_is_no_sha_256_is_refused() {
+    let mut value = written();
+    value["suite_digest"] = json!("ABC");
+    assert!(refusal(&value).contains("not a SHA-256 digest"));
+    value.as_object_mut().unwrap().remove("suite_digest");
+    assert!(refusal(&value).contains("missing field `suite_digest`"));
+}
+
+#[test]
+fn a_rank_of_zero_is_refused() {
+    let mut value = written();
+    value["questions"][0]["expected"][0]["rank"] = json!(0);
+    assert!(refusal(&value).contains("expected a nonzero u32"));
 }
 
 #[test]

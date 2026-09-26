@@ -23,9 +23,10 @@ pub struct Comparison {
     pub differences: Metrics,
 }
 
-/// The comparison of `candidate` with `baseline`, two runs of the same suite
-/// and questions: each question of one is paired with the question of the
-/// other that has its id, in the baseline's order. For each metric, it gives
+/// The comparison of `candidate` with `baseline`, two runs over one
+/// collection of the same suite, read from the same file, and questions:
+/// each question of one is paired with the question of the other that has
+/// its id, in the baseline's order. For each metric, it gives
 /// the candidate's value minus the baseline's, with the 2.5th and 97.5th
 /// percentiles of that difference over 2,000 resamples of the pairs, each
 /// drawing as many answerable and unanswerable pairs as there are, with the
@@ -34,19 +35,35 @@ pub struct Comparison {
 ///
 /// # Errors
 ///
-/// [`CompareError::Suite`] for runs of two suites, [`CompareError::Repeated`]
-/// for a question given twice in one run, [`CompareError::Unpaired`] for a
-/// question in one run only, and [`CompareError::Answerability`] for a
-/// question answerable in one run only.
+/// [`CompareError::Collection`] for runs over two collections,
+/// [`CompareError::Suite`] for runs of two suites,
+/// [`CompareError::SuiteDigest`] for runs of one suite read from files of
+/// different digests, [`CompareError::Repeated`] for a question given twice
+/// in one run, [`CompareError::Unpaired`] for a question in one run only,
+/// and [`CompareError::Answerability`] for a question answerable in one run
+/// only.
 pub fn compare(
     baseline: &Report,
     candidate: &Report,
     seed: u64,
 ) -> Result<Comparison, CompareError> {
+    if baseline.collection != candidate.collection {
+        return Err(CompareError::Collection {
+            baseline: baseline.collection.clone(),
+            candidate: candidate.collection.clone(),
+        });
+    }
     if baseline.suite != candidate.suite {
         return Err(CompareError::Suite {
             baseline: baseline.suite.clone(),
             candidate: candidate.suite.clone(),
+        });
+    }
+    if baseline.suite_digest != candidate.suite_digest {
+        return Err(CompareError::SuiteDigest {
+            suite: baseline.suite.clone(),
+            baseline: baseline.suite_digest.clone(),
+            candidate: candidate.suite_digest.clone(),
         });
     }
     let baselines = by_id(&baseline.questions)?;

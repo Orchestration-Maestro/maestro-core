@@ -5,6 +5,7 @@
 
 use super::support::{Hit, bundle, hit, question, sections, unscored};
 use crate::eval::{Expected, judge::judge};
+use std::num::NonZeroU32;
 
 /// The rank the runner gives each of `expected` among `hits`.
 fn ranks(expected: &[&str], hits: &[Hit]) -> Vec<Option<u32>> {
@@ -17,7 +18,7 @@ fn ranks(expected: &[&str], hits: &[Hit]) -> Vec<Option<u32>> {
     result
         .expected
         .iter()
-        .map(|Expected { rank, .. }| *rank)
+        .map(|Expected { rank, .. }| rank.map(NonZeroU32::get))
         .collect()
 }
 
