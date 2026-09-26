@@ -172,7 +172,8 @@ in place.
 │   │   │   ├── 0001_artifacts.sql                                           # The artifacts table: each artifact's size, media type, pins and creation time
 │   │   │   ├── 0002_journal.sql                                             # The journal: the append-only events, their triggers, and the consumers' cursors
 │   │   │   ├── 0003_scopes.sql                                              # The grants: each principal's rights on a scope and on every scope below it
-│   │   │   └── 0004_documents.sql                                           # The pipeline's records: collections, sources, documents, revisions, their dispositions, chunk sets, chunks and generations
+│   │   │   ├── 0004_documents.sql                                           # The pipeline's records: collections, sources, documents, revisions, their dispositions, chunk sets, chunks and generations
+│   │   │   └── 0005_jobs.sql                                                # The jobs table: each job's key, attempt, resource, state, lease and outcome, and its triggers
 │   │   ├── src/                                                             # The crate's sources
 │   │   │   ├── artifact/                                                    # Content-addressed artifacts: immutable bytes stored, and read back, by their
 │   │   │   │   ├── digest.rs                                                # A SHA-256 digest: the name every artifact is stored under
@@ -230,6 +231,29 @@ in place.
 │   │   │   │   ├── lifecycle.rs                                             # Generations as the kernel records them, and the calls that create and move
 │   │   │   │   ├── mod.rs                                                   # The search generations of a collection (building block B6; plan D9): each
 │   │   │   │   └── state.rs                                                 # The states a generation moves through, and the one move each allows
+│   │   │   ├── job/                                                         # Jobs: long work, such as an import, a preparation or a publication, run
+│   │   │   │   ├── tests/                                                   # Tests of jobs: their keys and attempts, their leases and states, their
+│   │   │   │   │   ├── changes.rs                                           # Changes: each change of a job recorded on its stream of the journal, with
+│   │   │   │   │   ├── child.rs                                             # Not a test of its own: the first process of the resume test, which works
+│   │   │   │   │   ├── errors.rs                                            # Refusals: what each one says, and a stored job the kernel cannot read
+│   │   │   │   │   ├── leases.rs                                            # Leases: one holder at a time, taken over once expired, renewed by
+│   │   │   │   │   ├── mod.rs                                               # Tests of jobs: their keys and attempts, their leases and states, their
+│   │   │   │   │   ├── progress.rs                                          # Progress: recorded on the job's stream of the journal in the write that
+│   │   │   │   │   ├── resources.rs                                         # Resources: what a job holds exclusively while it is queued or running
+│   │   │   │   │   ├── resume.rs                                            # A job interrupted mid-way: its first process dies, and a second process
+│   │   │   │   │   ├── scopes.rs                                            # Scopes: a job is read only through a set that covers the scope it works
+│   │   │   │   │   ├── states.rs                                            # States: a job moves only forward, and its three outcomes are final
+│   │   │   │   │   ├── submit.rs                                            # Submitting a job: its ID, its idempotency key, and the job a retried
+│   │   │   │   │   ├── support.rs                                           # What the job tests share: a scratch data directory, the publication they
+│   │   │   │   │   └── table.rs                                             # The jobs table: what the database itself refuses, whoever writes, so no
+│   │   │   │   ├── error.rs                                                 # Why the kernel refused to submit, lease, move or read a job
+│   │   │   │   ├── events.rs                                                # The events of a job: each change and each step, recorded on the job's
+│   │   │   │   ├── lease.rs                                                 # Leases: taken by one holder at a time, taken over once expired, and
+│   │   │   │   ├── mod.rs                                                   # Jobs: long work, such as an import, a preparation or a publication, run
+│   │   │   │   ├── outcome.rs                                               # Outcomes: a job ends succeeded, failed or cancelled, and stays so
+│   │   │   │   ├── progress.rs                                              # Progress: each step of a job recorded on its stream of the journal, in
+│   │   │   │   ├── record.rs                                                # Jobs as the kernel records them, their leases, and the calls that submit
+│   │   │   │   └── state.rs                                                 # The states a job moves through, and the moves it may make
 │   │   │   ├── journal/                                                     # The journal: every change the kernel makes, recorded as an event in one
 │   │   │   │   ├── tests/                                                   # Tests of the journal: its events and their streams, its cursors, and what
 │   │   │   │   │   ├── append_only.rs                                       # The journal is append-only: the database itself refuses to update, delete
