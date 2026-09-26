@@ -5,7 +5,11 @@ use std::{
     collections::{BTreeMap, btree_map::Entry},
     error, fmt,
     panic::{self, AssertUnwindSafe},
-    sync::{Arc, mpsc},
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+        mpsc,
+    },
     thread,
     time::{Duration, Instant},
 };
@@ -36,8 +40,61 @@ pub struct Report {
     pub status: Status,
 }
 
-/// Asks one component how it is doing.
-type Check = Arc<dyn Fn() -> Status + Send + Sync>;
+/// One component's check, and whether a run of it is still going.
+struct Check {
+    /// Asks the component how it is doing.
+    ask: Arc<dyn Fn() -> Status + Send + Sync>,
+    /// Set from the start of a run until it ends, so that a check still
+    /// running from an earlier call is never started beside itself.
+    running: Arc<AtomicBool>,
+}
+
+impl Check {
+    /// Starts a run of the check on a thread of its own, which sends
+    /// `(index, status)` on `answers` once the check answers, and returns the
+    /// component's status until then: down, with the reason no answer came.
+    fn start(
+        &self,
+        index: usize,
+        answers: &mpsc::Sender<(usize, Status)>,
+        patience: Duration,
+    ) -> Status {
+        if self.running.swap(true, Ordering::AcqRel) {
+            return Status::Down {
+                reason: "its check from an earlier call has not answered yet".to_owned(),
+            };
+        }
+        let run = Run(Arc::clone(&self.running));
+        let ask = Arc::clone(&self.ask);
+        let answers = answers.clone();
+        let started = thread::Builder::new().spawn(move || {
+            let status = panic::catch_unwind(AssertUnwindSafe(&*ask))
+                .unwrap_or_else(|payload| panicked(&*payload));
+            // The run ends before its answer goes, so whoever holds the
+            // answer may ask again at once.
+            drop(run);
+            // Past the patience nobody listens any more, and that is fine.
+            drop(answers.send((index, status)));
+        });
+        Status::Down {
+            reason: match started {
+                Ok(_thread) => format!("no answer within {patience:?}"),
+                // The thread's closure is dropped, and the run with it.
+                Err(error) => format!("its check could not start: {error}"),
+            },
+        }
+    }
+}
+
+/// A run of a check: ending it, by dropping it, clears the check's running
+/// flag, whether the check answered, panicked or never started.
+struct Run(Arc<AtomicBool>);
+
+impl Drop for Run {
+    fn drop(&mut self) {
+        self.0.store(false, Ordering::Release);
+    }
+}
 
 /// The components whose health is reported, each with its check.
 #[derive(Default)]
@@ -57,8 +114,9 @@ impl fmt::Debug for Components {
 
 impl Components {
     /// Registers `component`, whose health `check` reports. A check bounds
-    /// its own waits where it can; [`Components::health`] stops waiting for
-    /// it after its patience anyway.
+    /// its own waits where it can: [`Components::health`] stops waiting for
+    /// it after its patience, but a check that never returns keeps its thread
+    /// for good, and its component stays down.
     ///
     /// # Errors
     ///
@@ -72,7 +130,10 @@ impl Components {
         match self.checks.entry(component.into()) {
             Entry::Occupied(taken) => Err(DuplicateComponent(taken.key().clone())),
             Entry::Vacant(slot) => {
-                slot.insert(Arc::new(check));
+                slot.insert(Check {
+                    ask: Arc::new(check),
+                    running: Arc::new(AtomicBool::new(false)),
+                });
                 Ok(())
             }
         }
@@ -82,28 +143,20 @@ impl Components {
     /// on a thread of its own, so a slow one delays no other. A component
     /// whose check cannot start, panics or gives no answer within `patience`
     /// is down with that reason: a component is never missing from the
-    /// report. A check still running then is left to finish on its own.
+    /// report. A check still running then is left to finish on its own; until
+    /// it has, later calls report its component down and do not start it
+    /// again, so a check that never returns holds one thread, not one per
+    /// call.
     #[must_use]
     pub fn health(&self, patience: Duration) -> Vec<Report> {
         let started = Instant::now();
         let (sender, answers) = mpsc::channel();
-        let mut statuses = Vec::with_capacity(self.checks.len());
-        for (index, check) in self.checks.values().enumerate() {
-            let sender = sender.clone();
-            let check = Arc::clone(check);
-            let asked = thread::Builder::new().spawn(move || {
-                let status = panic::catch_unwind(AssertUnwindSafe(&*check))
-                    .unwrap_or_else(|payload| panicked(&*payload));
-                // Past the patience nobody listens any more, and that is fine.
-                drop(sender.send((index, status)));
-            });
-            statuses.push(Status::Down {
-                reason: match asked {
-                    Ok(_running) => format!("no answer within {patience:?}"),
-                    Err(error) => format!("its check could not start: {error}"),
-                },
-            });
-        }
+        let mut statuses: Vec<Status> = self
+            .checks
+            .values()
+            .enumerate()
+            .map(|(index, check)| check.start(index, &sender, patience))
+            .collect();
         // Once every check has answered, no sender is left and the wait ends.
         drop(sender);
         while let Ok((index, status)) =

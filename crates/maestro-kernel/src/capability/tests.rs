@@ -4,18 +4,26 @@
 //! refused, and tools are listed in name order.
 
 use super::{DuplicateTool, Effect, Registry, Tool};
-use serde_json::json;
+use serde_json::{Map, Value, json};
 use std::collections::BTreeSet;
+
+/// The JSON object `value`, written as `json!({...})`, as a schema holds it.
+fn object(value: Value) -> Map<String, Value> {
+    match value {
+        Value::Object(object) => object,
+        other => panic!("not a JSON object: {other}"),
+    }
+}
 
 /// A tool named `name` that reads within `scope`, given one query.
 fn tool(name: &str, scope: &str) -> Tool {
     Tool {
         name: name.to_owned(),
-        schema: json!({
+        schema: object(json!({
             "type": "object",
             "properties": { "query": { "type": "string" } },
             "required": ["query"],
-        }),
+        })),
         effects: BTreeSet::from([Effect::Read]),
         scopes: BTreeSet::from([scope.to_owned()]),
     }
@@ -26,14 +34,14 @@ fn a_tool_registers_with_its_schema_effects_and_scopes() {
     let mut registry = Registry::default();
     let search = Tool {
         name: "knowledge_search".to_owned(),
-        schema: json!({
+        schema: object(json!({
             "type": "object",
             "properties": {
                 "query": { "type": "string" },
                 "limit": { "type": "integer", "minimum": 1 },
             },
             "required": ["query"],
-        }),
+        })),
         effects: BTreeSet::from([Effect::Read, Effect::Network, Effect::Model]),
         scopes: BTreeSet::from([
             "workspace/default/collection/ctm".to_owned(),

@@ -10,9 +10,9 @@
 //! carry. Until then a span reaches only the subscriber the process installs.
 //!
 //! [`Components::health`] reports each registered component as ready,
-//! degraded or down, with its reason. A component whose check panics or gives
-//! no answer in time is down, never missing from the report. The journal, not
-//! telemetry, is the audit.
+//! degraded or down, with its reason. A component whose check panics, gives
+//! no answer in time or is still running from an earlier call is down, never
+//! missing from the report. The journal, not telemetry, is the audit.
 
 mod health;
 pub mod span;

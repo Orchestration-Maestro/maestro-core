@@ -1,6 +1,6 @@
 //! The registry: each tool once, with what it takes, does and needs.
 
-use serde_json::Value;
+use serde_json::{Map, Value};
 use std::{
     collections::{BTreeMap, BTreeSet, btree_map::Entry},
     error, fmt,
@@ -25,8 +25,10 @@ pub enum Effect {
 pub struct Tool {
     /// Its name, unique in the registry.
     pub name: String,
-    /// The JSON Schema its input follows.
-    pub schema: Value,
+    /// The JSON Schema its input follows: a JSON object, as MCP holds a
+    /// tool's input schema. The check that its root type is `object` arrives
+    /// with the MCP server (T034).
+    pub schema: Map<String, Value>,
     /// What it may do.
     pub effects: BTreeSet<Effect>,
     /// The scope paths (D4) a caller needs, such as
