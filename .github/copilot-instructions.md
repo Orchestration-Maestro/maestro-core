@@ -442,6 +442,14 @@ in place.
 │       │       │   ├── repeated_imports.rs                                  # An import is idempotent: a second one writes nothing, a change of metadata gives a new revision
 │       │       │   ├── support.rs                                           # What the import's tests share: a scratch corpus and database, declarations, and the kernel read whole
 │       │       │   └── synthetic_corpus.rs                                  # The public synthetic collection (T014) imported end to end
+│       │       ├── suite_check/                                             # Checking suites against their corpus: every name a suite of a directory
+│       │       │   ├── check.rs                                             # The check itself: each suite of a directory read under its contract, and
+│       │       │   ├── local_suites.rs                                      # The check on the suites and corpus this machine names, by hand
+│       │       │   ├── mod.rs                                               # Checking suites against their corpus: every name a suite of a directory
+│       │       │   ├── reported_problems.rs                                 # What the check reports as problems: a name that gives no one section nor
+│       │       │   ├── scratch.rs                                           # What the check's tests share: a scratch directory holding a corpus, its
+│       │       │   ├── synthetic_suite.rs                                   # The check on the public synthetic collection: every section its suite
+│       │       │   └── unanswerable_leads.rs                                # Leads for unanswerable questions: each document of the manifest that holds
 │       │       ├── collection_contract.rs                                   # maestro-collection/1: a strict declaration parses into typed values; an
 │       │       ├── corpus_contract.rs                                       # maestro-corpus/1: one line per document parses into typed values; an
 │       │       ├── eval_synthetic.rs                                        # The evaluation runner over the public synthetic suite (T014), end to end

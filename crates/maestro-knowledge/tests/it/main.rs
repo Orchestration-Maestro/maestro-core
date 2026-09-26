@@ -12,6 +12,7 @@ mod lexical_rules;
 mod lexical_sample;
 mod lexical_vectors;
 mod router_parity;
+mod suite_check;
 mod suite_contract;
 mod suite_resolution;
 mod synthetic_collection;
