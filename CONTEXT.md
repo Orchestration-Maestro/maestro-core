@@ -219,3 +219,43 @@ acknowledgements and a dead-letter list.
 A declared, reviewed and separately activated integration that runs as a
 sandboxed process with its own least-privilege principal.
 _Avoid_: plugin (implies in-process code)
+
+## Analysis and provenance
+
+**Target**:
+One system Maestro is authorized to analyse, pinned to an exact revision.
+_Avoid_: competitor, subject
+
+**Analyzer**:
+An extension that leases an analysis job and submits findings about a target,
+with their evidence, coverage, limits and method; the instrument behind it
+(licence scanner, graph query runner, decompiler, traffic recorder) is
+replaceable and never ships.
+
+**Finding**:
+One analyzer observation about a target revision: a claim like any other, with
+the query or configuration that produced it.
+
+**Surface**:
+An externally observable entry point of a target: a command, route, tool,
+library entry or file format. What an inventory counts.
+
+**Behaviour contract**:
+An executable description of what an authorized system does from the outside,
+which becomes both the specification a reimplementation is written from and the
+suite it is measured against.
+_Avoid_: test plan, acceptance criteria (which are narrower)
+
+**Clean-room boundary**:
+The separation between the `analysis/<target>` scope and implementation work,
+crossed only by an approved specification that quotes nothing.
+
+**Provenance register**:
+The record of every component Maestro adopts, ports or studies: origin, pinned
+revision, licence, usage class, obligations and approver.
+_Avoid_: inventory, SBOM (which are generated from it)
+
+**Usage class**:
+How a component entered our tree: `reused`, `modified`, `ported`,
+`specification-only` or `independent`. The first three carry the original
+licence's obligations.

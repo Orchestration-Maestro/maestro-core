@@ -109,6 +109,8 @@ trace context so a consumer's work joins the originating trace.
 | Runs | `run.started`, `run.interrupt.raised`, `run.node.completed`, `run.completed`, `run.cancelled` | run |
 | Policy | `policy.decided` (denials and approvals only, redacted arguments) | run |
 | Memory (S7) | `memory.checkpoint.committed`, `memory.restore.delivered` | session |
+| Analysis (S8) | `analysis.job.ready`, `analysis.finding.submitted`, `analysis.contract.recorded`, `analysis.specification.promoted` | target, contract, specification |
+| Provenance (S8) | `provenance.component.registered`, `provenance.obligation.raised` | component |
 | Operations | `job.failed`, `health.degraded`, `backup.completed` | job, component |
 
 Only events marked **public** in the catalogue reach extensions; internal events
@@ -146,6 +148,7 @@ its released predecessor.
 | `extractor` | Converts one media type to canonical Markdown under the extractor contract ([01 §3](01-knowledge-pipeline.md#3-l2-extraction-and-normalization)) | A format the core does not support |
 | `tool-provider` | Exposes agent tools | An MCP server declared in `mcp/*.toml` (existing path in [03](03-agent-orchestration.md)) |
 | `exporter` | Writes projections or reports elsewhere | A dashboard feed, an archive |
+| `analyzer` | Leases an analysis job and submits findings about one target revision, with their evidence, coverage and limits ([09 §8](09-reverse-engineering.md#8-analyzers-are-extensions)) | A licence scanner, a code-property-graph query runner, an authorized traffic recorder |
 
 New agent-facing tools keep using MCP servers and `step` nodes, which are
 already sandboxed and policy-governed. The extension protocol serves system
@@ -259,6 +262,7 @@ The core never embeds a message broker; a broker is an exit point like any other
 | S4 | Extension host in the daemon, Maestro Extension Protocol, process extensions, outbound webhooks, local HTTP API with server-sent events, schedules; a reference `echo` extension in CI |
 | S5 | Capabilities use subscribers (for example notifications); a contributed extension ships through the catalog |
 | S6 | Source connectors as extensions; the private vendor connectors run this way |
+| S8 | The `analyzer` kind and its contract; analysis and provenance events; analyzers run under an `analysis/<target>` scope and reach nothing else ([09](09-reverse-engineering.md)) |
 | Later | Inbound webhooks, broker bridge, WebAssembly components, on demand |
 
 ## 8. Tests
