@@ -6,7 +6,7 @@ use crate::{
     scope::{Right, Scope, ScopeSet},
     store::Database,
 };
-use rusqlite::Connection;
+use rusqlite::{Connection, params};
 use serde_json::Value;
 use std::{
     env, fs,
@@ -14,6 +14,7 @@ use std::{
     process,
     sync::atomic::{AtomicUsize, Ordering},
 };
+use ulid::Ulid;
 
 /// The scope of the collection the tests grant most.
 pub(super) const CTM: &str = "workspace/default/collection/ctm";
@@ -79,6 +80,21 @@ pub(super) fn record_in(database: &Database, stream: &str, path: &str) -> Event 
             data: &Value::Null,
         })
         .unwrap()
+}
+
+/// Records on `stream`, as a program outside the kernel would, an import in
+/// the scope `text`: the kernel itself refuses text that is not a scope path.
+pub(super) fn record_outside(scratch: &Scratch, stream: &str, text: &str) {
+    scratch
+        .outside()
+        .execute(
+            "INSERT INTO events (id, stream, sequence, type, subject, scope, data)
+             SELECT ?1, ?2, coalesce(max(sequence), 0) + 1,
+                    'maestro.knowledge.import.completed.v1', 'import/1', ?3, 'null'
+             FROM events WHERE stream = ?2",
+            params![Ulid::generate().to_string(), stream, text],
+        )
+        .unwrap();
 }
 
 /// Every event of `stream` that `scopes` reads, in sequence order.

@@ -2,6 +2,12 @@
 //! the kernel's database that opens a reader takes one, but for the readers
 //! of unscoped bookkeeping the scope module's docs list with their reason.
 //! The test reads the crate's own sources, as rustfmt lays them out.
+//!
+//! The scan sees a reader only by the `self.reader()` in its own body. A
+//! method that reads inside its write, as `ack` does, through another method
+//! or from the artifact store escapes it, and so does a reader outside the
+//! database's `impl` blocks: those are kept by hand in `BY_HAND`, and the
+//! scope module's docs must name each.
 
 use std::{
     collections::BTreeSet,
@@ -12,6 +18,17 @@ use std::{
 /// The readers of unscoped bookkeeping that open a reader: each takes no
 /// `ScopeSet`, and the scope module's docs give its reason.
 const UNSCOPED: [&str; 4] = ["artifact", "cursor", "garbage", "visible"];
+
+/// The unscoped readers the scan cannot see, as the scope module's docs name
+/// them: `ack` reads inside its write, `collect_garbage` through `garbage`,
+/// `get` from the artifact store, and the other two are not the database's.
+const BY_HAND: [&str; 5] = [
+    "Database::ack",
+    "Database::collect_garbage",
+    "Database::get",
+    "artifact::Store::get",
+    "ModelCard::load",
+];
 
 /// A public method of the database, as the crate's sources declare it.
 #[derive(Debug)]
@@ -117,8 +134,12 @@ fn there_is_no_read_function_without_a_scope_set() {
          bookkeeping is listed here and in the scope module's docs"
     );
     let docs = fs::read_to_string(root.join("scope").join("mod.rs")).unwrap();
-    for name in UNSCOPED {
-        assert!(docs.contains(&format!("[`Database::{name}`]")), "{name}");
+    let listed = UNSCOPED
+        .map(|name| format!("Database::{name}"))
+        .into_iter()
+        .chain(BY_HAND.map(str::to_owned));
+    for name in listed {
+        assert!(docs.contains(&format!("[`{name}`]")), "{name}");
     }
 }
 

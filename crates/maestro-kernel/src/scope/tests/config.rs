@@ -126,6 +126,35 @@ fn loading_leaves_the_grants_of_other_principals_alone() {
 }
 
 #[test]
+fn a_refused_revocation_leaves_the_whole_file_unapplied() {
+    let scratch = Scratch::new();
+    let database = scratch.open();
+    let first = database
+        .apply_config(&reading(&[CTM]).parse().unwrap())
+        .unwrap();
+    scratch
+        .outside()
+        .execute_batch(
+            "CREATE TRIGGER grants_are_kept BEFORE DELETE ON grants
+             BEGIN SELECT RAISE(ABORT, 'the test refuses every revocation'); END;",
+        )
+        .unwrap();
+    let refusal = database
+        .apply_config(&reading(&[GARDEN]).parse().unwrap())
+        .unwrap_err();
+    let reason = error::Error::source(&refusal).map(ToString::to_string);
+    assert_eq!(reason.as_deref(), Some("the test refuses every revocation"));
+    let local = database.visible(LOCAL).unwrap();
+    assert!(
+        !local.covers(&scope(GARDEN)),
+        "the grant of the refused file stays"
+    );
+    assert!(local.covers(&scope(CTM)));
+    let auditor = audit(&database);
+    assert_eq!(read(&database, &auditor, "principal/local"), first);
+}
+
+#[test]
 fn an_unknown_key_is_refused_naming_it_and_the_file() {
     for (text, key) in [
         ("color = 'blue'\n", "color"),

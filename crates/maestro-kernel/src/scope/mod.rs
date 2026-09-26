@@ -4,11 +4,14 @@
 //! A scope is a node of the kernel's access tree, written as a path of kind
 //! and name pairs: `workspace/<name>`, then optionally `collection/<name>`,
 //! then optionally `source/<name>`. Those are the kinds, in that order, and a
-//! name follows the rule collection and source IDs follow ([`check_name`]),
-//! so each ID forms a segment. The kernel's records live in the workspace
-//! `default`: a collection's scope is `workspace/default/collection/<id>`, a
-//! source's `…/source/<id>`; a document and its revisions have their
-//! source's, a generation its collection's.
+//! name follows the rule of [`check_name`]. Collection and source IDs follow
+//! the same rule: the kernel refuses to record a collection or a source whose
+//! ID breaks it, so each ID forms one segment of its scope's path. The
+//! kernel's records live in the workspace `default`: a collection's scope is
+//! `workspace/default/collection/<id>`, a source's `…/source/<id>`; a
+//! document and its revisions have their source's, a generation its
+//! collection's, and an event the scope it was recorded in, which the journal
+//! refuses unless it is a scope path.
 //!
 //! A grant gives a principal a right on a scope and every scope below it,
 //! compared by whole segments: `…/collection/ct` never covers
@@ -28,13 +31,21 @@
 //! can build a set that covers every scope. The readers of unscoped
 //! bookkeeping take none:
 //!
-//! - [`Database::artifact`](crate::store::Database::artifact) and
-//!   [`Database::get`](crate::store::Database::get): an artifact by its
-//!   digest, which a caller learns only from a record it may read;
-//! - [`Database::garbage`](crate::store::Database::garbage): the artifacts
-//!   no record refers to;
+//! - [`Database::artifact`](crate::store::Database::artifact),
+//!   [`Database::get`](crate::store::Database::get),
+//!   [`artifact::Store::get`](crate::artifact::Store::get) and
+//!   [`ModelCard::load`](crate::gateway::ModelCard::load): an artifact, or a
+//!   model card, by its digest. A digest is a capability: whoever holds one
+//!   can read the bytes it names, so a digest is handed out only with a
+//!   record its reader may read;
+//! - [`Database::garbage`](crate::store::Database::garbage) and
+//!   [`Database::collect_garbage`](crate::store::Database::collect_garbage):
+//!   the artifacts no record refers to, whatever their scope, which serve the
+//!   garbage collector only, never a tool;
 //! - [`Database::cursor`](crate::store::Database::cursor): how far a
 //!   consumer has read a stream, a position rather than an event;
+//! - [`Database::ack`](crate::store::Database::ack): its refusal names a
+//!   stream's last sequence, a position rather than an event;
 //! - [`Database::visible`](crate::store::Database::visible): a principal's
 //!   grants, which are what a set is made of.
 //!

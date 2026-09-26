@@ -5,11 +5,11 @@
 use super::support::{Scratch, collection, document, source};
 use crate::{
     document::{Collection, Document, Error, Source},
-    scope::ScopeSet,
+    scope::{ScopeSet, check_name},
     store,
 };
 use rusqlite::ffi;
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, error};
 
 /// Whether `error` is SQLite refusing a constraint, with the extended code
 /// `code`.
@@ -140,6 +140,44 @@ fn two_collections_may_each_declare_a_source_of_one_id() {
             .unwrap(),
         None
     );
+}
+
+/// Checks that `error` refuses `id` as no scope name, naming it, with the
+/// name's refusal as its source.
+fn assert_invalid_id(error: &Error, id: &str) {
+    let expected = check_name(id).unwrap_err();
+    assert!(
+        matches!(error, Error::InvalidId(invalid) if *invalid == expected),
+        "{id}: {error:?}"
+    );
+    assert!(error.to_string().contains(&format!("`{id}`")), "{error}");
+    let reason = error::Error::source(error).map(ToString::to_string);
+    assert_eq!(reason, Some(expected.to_string()));
+}
+
+#[test]
+fn an_id_that_is_no_scope_name_is_refused_before_anything_is_recorded() {
+    let scratch = Scratch::new();
+    let database = scratch.empty();
+    database.record_collection(&collection("ctm")).unwrap();
+    for id in ["ctm/source/x", "a/b", "ctm/"] {
+        let as_collection = database.record_collection(&collection(id)).unwrap_err();
+        assert_invalid_id(&as_collection, id);
+        let as_source = database.record_source(&source("ctm", id)).unwrap_err();
+        assert_invalid_id(&as_source, id);
+        let as_its_collection = database.record_source(&source(id, "docs")).unwrap_err();
+        assert_invalid_id(&as_its_collection, id);
+    }
+    let recorded: (i64, i64) = database
+        .reader()
+        .unwrap()
+        .query_row(
+            "SELECT (SELECT count(*) FROM collections), (SELECT count(*) FROM sources)",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(recorded, (1, 0), "ctm alone is recorded");
 }
 
 #[test]

@@ -3,7 +3,7 @@
 
 use super::error::Error;
 use crate::{
-    scope::ScopeSet,
+    scope::{InvalidScope, Scope, ScopeSet},
     store::{self, Database},
 };
 use rusqlite::{Row, Transaction, params, types::Type};
@@ -50,7 +50,8 @@ pub struct NewEvent<'a> {
     pub r#type: &'a str,
     /// What it happened to.
     pub subject: &'a str,
-    /// The path of the scope it belongs to.
+    /// The path of the scope it belongs to, which must be a scope path: the
+    /// journal refuses any other text.
     pub scope: &'a str,
     /// What it carries.
     pub data: &'a Value,
@@ -76,7 +77,9 @@ impl Database {
     ///
     /// # Errors
     ///
-    /// [`Error::Store`] when the database cannot record it.
+    /// [`Error::Store`] when the event's scope is not a scope path, before
+    /// anything is written, its source then the [`InvalidScope`], and when the
+    /// database cannot record it.
     pub fn record(&self, event: &NewEvent<'_>) -> Result<Event, Error> {
         Ok(self.write(|transaction| record(transaction, event))?)
     }
@@ -113,13 +116,19 @@ impl Database {
 ///
 /// # Errors
 ///
-/// [`store::Error::Sqlite`] when the database cannot record it, or cannot
-/// read back the row it recorded: the insert has then run already, so the
-/// caller must return the error from its write, which then rolls back.
+/// [`store::Error::Sqlite`] holding a `ToSqlConversionFailure` of the
+/// [`InvalidScope`] when the event's scope is not a scope path: nothing is
+/// written then. [`store::Error::Sqlite`] also when the database cannot record
+/// it, or cannot read back the row it recorded: the insert has then run
+/// already, so the caller must return the error from its write, which then
+/// rolls back.
 pub(crate) fn record(
     transaction: &Transaction<'_>,
     event: &NewEvent<'_>,
 ) -> Result<Event, store::Error> {
+    let scope: Scope = event.scope.parse().map_err(|invalid: InvalidScope| {
+        rusqlite::Error::ToSqlConversionFailure(Box::new(invalid))
+    })?;
     let recorded = transaction.query_row(
         &format!(
             "INSERT INTO events (id, stream, sequence, type, subject, scope, data)
@@ -132,7 +141,7 @@ pub(crate) fn record(
             event.stream,
             event.r#type,
             event.subject,
-            event.scope,
+            scope.as_str(),
             event.data.to_string(),
         ],
         event_row,

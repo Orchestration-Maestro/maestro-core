@@ -6,9 +6,12 @@
 //! or a job. Recording it gives it a ULID and the next sequence of its
 //! stream, 1 for the first, taken in the transaction that inserts it, so
 //! writers in any thread or process never skip or repeat a sequence; the
-//! database gives it its time. The kernel's other tables record the event of
-//! a change in the transaction that makes it, through `event::record` in the
-//! crate, so the change and its event are committed or rolled back together.
+//! database gives it its time. Its scope must be a scope path: the journal
+//! refuses any other text before it writes, so every event is read by the
+//! sets that cover its scope, and by no other. The kernel's other tables
+//! record the event of a change in the transaction that makes it, through
+//! `event::record` in the crate, so the change and its event are committed or
+//! rolled back together.
 //!
 //! The table is the outbox events leave the kernel through: a consumer reads
 //! a stream after the commit, never inside it, only the events whose scope

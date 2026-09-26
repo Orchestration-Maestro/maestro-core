@@ -77,6 +77,22 @@ path = "crates/maestro-kernel/src/journal/mod.rs"
 item = "NewEvent"
 reason = "a kernel write journals its change in its own transaction through event::record"
 
+# The name rule of scopes is public: maestro-knowledge's parser applies it to
+# every collection and source id, which the rule does not count, and the
+# kernel's record writers apply it again. A second caller in the crate removes
+# these, which the rule then reports stale.
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-kernel/src/scope/mod.rs"
+item = "check_name"
+reason = "the scope module owns the public name rule: maestro-knowledge's parser and the kernel's record writers apply it"
+
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-kernel/src/scope/mod.rs"
+item = "InvalidName"
+reason = "the scope module owns the public name rule: maestro-knowledge's parser and the kernel's record writers apply it"
+
 # The words this repository means that the spell checker reads as mistakes:
 # Exemple, French test input for the canonicalizer; RTO, the recovery time
 # objective beside RPO; WRONLY, the POSIX open flag as rustix names it;

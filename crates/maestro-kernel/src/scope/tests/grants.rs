@@ -1,11 +1,13 @@
 //! Grants: a principal sees only what it was granted and what lies below it,
-//! read anew for each request, and each grant and revocation is journaled
-//! with its actor.
+//! read anew for each request, whichever handle of the database changed it,
+//! and each grant and revocation is journaled with its actor, in the write
+//! that makes it.
 
 use super::support::{CTM, Scratch, audit, read, record_in, scope};
 use crate::{scope::Right, store};
 use rusqlite::{ErrorCode, types::Type};
 use serde_json::json;
+use std::error;
 
 #[test]
 fn a_principal_sees_only_its_granted_scopes_and_their_descendants() {
@@ -98,7 +100,7 @@ fn a_grant_and_its_revocation_are_journaled_once_with_their_actor() {
 }
 
 #[test]
-fn a_revocation_applies_to_the_next_read() {
+fn a_revocation_through_another_handle_applies_to_the_next_read() {
     let scratch = Scratch::new();
     let database = scratch.open();
     let event = record_in(&database, "collection/ctm", CTM);
@@ -107,12 +109,44 @@ fn a_revocation_applies_to_the_next_read() {
         .unwrap();
     let before = database.visible("local").unwrap();
     assert_eq!(read(&database, &before, "collection/ctm"), [event]);
-    database
-        .revoke("local", &scope(CTM), Right::Read, "test")
+    let another = scratch.open();
+    another
+        .revoke("local", &scope(CTM), Right::Read, "operator")
         .unwrap();
     let after = database.visible("local").unwrap();
     assert!(!after.covers(&scope(CTM)));
     assert_eq!(read(&database, &after, "collection/ctm"), []);
+}
+
+#[test]
+fn a_grant_whose_event_is_refused_is_not_granted() {
+    let scratch = Scratch::new();
+    let database = scratch.open();
+    let outside = scratch.outside();
+    outside
+        .execute_batch(
+            "CREATE TRIGGER grant_events_are_refused BEFORE INSERT ON events
+             WHEN NEW.type = 'maestro.kernel.grant.added.v1'
+             BEGIN SELECT RAISE(ABORT, 'the test refuses the event of a grant'); END;",
+        )
+        .unwrap();
+    let refusal = database
+        .grant("local", &scope(CTM), Right::Read, "test")
+        .unwrap_err();
+    let reason = error::Error::source(&refusal).map(ToString::to_string);
+    assert_eq!(
+        reason.as_deref(),
+        Some("the test refuses the event of a grant")
+    );
+    assert!(!database.visible("local").unwrap().covers(&scope(CTM)));
+    let rows: (i64, i64) = outside
+        .query_row(
+            "SELECT (SELECT count(*) FROM grants), (SELECT count(*) FROM events)",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(rows, (0, 0), "neither the grant nor its event is recorded");
 }
 
 #[test]

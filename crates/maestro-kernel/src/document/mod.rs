@@ -3,11 +3,16 @@
 //! each source holds, and the revisions of each document.
 //!
 //! A collection and a source follow their declaration: recording one again
-//! takes its new values. A document keeps the collection, source and source
-//! reference it was first recorded with, and a source reference names one
-//! document in each collection. Its id, the namespaced hash of its source
-//! reference (01 §2.1), comes from the import, as a revision's id,
-//! canonicalization's recipe over its bytes and metadata, does.
+//! takes its new values. Their ids are scope names
+//! ([`check_name`](crate::scope::check_name)), and the kernel refuses any
+//! other before it writes, so each id forms one segment of its scope's path
+//! and no record reaches into another's scope.
+//!
+//! A document keeps the collection, source and source reference it was first
+//! recorded with, and a source reference names one document in each
+//! collection. Its id, the namespaced hash of its source reference (01 §2.1),
+//! comes from the import, as a revision's id, canonicalization's recipe over
+//! its bytes and metadata, does.
 //!
 //! A revision is one exact version of a document's bytes and metadata,
 //! recorded once, in the transaction that pins its original and canonical

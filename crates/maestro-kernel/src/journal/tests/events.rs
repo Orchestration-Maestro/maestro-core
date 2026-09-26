@@ -4,13 +4,14 @@
 use super::support::{IMPORTED, SCOPE, Scratch, imported, whole};
 use crate::{
     journal::{Error, Event, Filter, NewEvent, event::record},
-    scope::ScopeSet,
+    scope::{InvalidScope, Scope, ScopeSet},
     store,
 };
 use rusqlite::types::Type;
 use serde_json::{Value, json};
 use std::{
     collections::BTreeSet,
+    error,
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -141,6 +142,50 @@ fn events_are_read_after_a_position_in_sequence_order_and_by_type() {
     assert_eq!(read(3, None), []);
     assert_eq!(read(u64::MAX, None), []);
     assert_eq!(whole(&database, "collection/none"), []);
+}
+
+/// Whether `refusal` is the store refusing to write `expected` as a scope.
+fn refuses_scope(refusal: &store::Error, expected: &InvalidScope) -> bool {
+    matches!(
+        refusal,
+        store::Error::Sqlite(rusqlite::Error::ToSqlConversionFailure(invalid))
+            if invalid.downcast_ref::<InvalidScope>() == Some(expected)
+    )
+}
+
+#[test]
+fn an_event_whose_scope_is_no_scope_path_is_refused_before_it_is_written() {
+    let scratch = Scratch::new();
+    let database = scratch.open();
+    for text in [
+        "",
+        "not a scope",
+        "collection/demo",
+        "workspace/default/",
+        "workspace/default/collection/Demo",
+    ] {
+        let expected = text.parse::<Scope>().unwrap_err();
+        let event = NewEvent {
+            scope: text,
+            ..imported("collection/a", "import/1", &Value::Null)
+        };
+        let refusal = database.record(&event).unwrap_err();
+        assert!(
+            matches!(&refusal, Error::Store(inner) if refuses_scope(inner, &expected)),
+            "{text:?}: {refusal:?}"
+        );
+        let reason = error::Error::source(&refusal).map(ToString::to_string);
+        assert_eq!(reason, Some(expected.to_string()));
+        let inside = database
+            .write(|transaction| record(transaction, &event))
+            .unwrap_err();
+        assert!(refuses_scope(&inside, &expected), "{text:?}: {inside:?}");
+    }
+    let recorded: i64 = scratch
+        .outside()
+        .query_row("SELECT count(*) FROM events", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(recorded, 0);
 }
 
 #[test]

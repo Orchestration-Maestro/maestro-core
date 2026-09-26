@@ -40,19 +40,35 @@ const CTM: [&str; 12] = [
     "published ctm",
 ];
 
+/// The private collection `id`.
+fn collection(id: &str) -> Collection {
+    Collection {
+        id: id.to_owned(),
+        title: format!("The {id} collection"),
+        visibility: "private".to_owned(),
+        profiles: BTreeMap::new(),
+    }
+}
+
+/// The import source `id` of `collection`.
+fn source(collection: &str, id: &str) -> Source {
+    Source {
+        collection_id: collection.to_owned(),
+        id: id.to_owned(),
+        kind: "import".to_owned(),
+        transport: None,
+        reference: format!("corpus_root:{id}.jsonl"),
+        profiles: BTreeMap::new(),
+    }
+}
+
 /// Records each collection with a chunk set, each source with a document and
 /// its revision, then two generations of each collection, the second
 /// published after the first, which it retires; returns the generations'
 /// ids in the order they were created.
 fn record(database: &Database) -> Vec<i64> {
     for id in COLLECTIONS {
-        let collection = Collection {
-            id: id.to_owned(),
-            title: format!("The {id} collection"),
-            visibility: "private".to_owned(),
-            profiles: BTreeMap::new(),
-        };
-        database.record_collection(&collection).unwrap();
+        database.record_collection(&collection(id)).unwrap();
         database
             .write(|transaction| {
                 transaction.execute(
@@ -88,30 +104,23 @@ fn record(database: &Database) -> Vec<i64> {
     generations
 }
 
-/// Records the source `source` of `collection`, its document `document` and
-/// that document's revision `revision`, with its two artifacts.
+/// Records the source `source_id` of `collection`, its document `document`
+/// and that document's revision `revision`, with its two artifacts.
 fn record_revision(
     database: &Database,
     collection: &str,
-    source: &str,
+    source_id: &str,
     document: &str,
     revision: &str,
 ) {
     database
-        .record_source(&Source {
-            collection_id: collection.to_owned(),
-            id: source.to_owned(),
-            kind: "import".to_owned(),
-            transport: None,
-            reference: format!("corpus_root:{source}.jsonl"),
-            profiles: BTreeMap::new(),
-        })
+        .record_source(&source(collection, source_id))
         .unwrap();
     database
         .record_document(&Document {
             id: document.to_owned(),
             collection_id: collection.to_owned(),
-            source_id: source.to_owned(),
+            source_id: source_id.to_owned(),
             source_ref: format!("https://example.org/{collection}/{document}"),
         })
         .unwrap();
@@ -261,4 +270,32 @@ fn a_revocation_hides_every_record_on_the_next_read_a_retired_generation_include
         .unwrap();
     let after = database.visible("local").unwrap();
     assert_eq!(seen(&database, &after, &generations), [""; 0]);
+}
+
+#[test]
+fn a_grant_on_a_collection_reads_no_record_of_another_collection() {
+    let scratch = Scratch::new();
+    let database = scratch.open();
+    record(&database);
+    let ctm = granted(&database, "ctm-reader", "workspace/default/collection/ctm");
+    for id in ["ctm/source/x", "ctm/"] {
+        let recorded = database.record_collection(&collection(id));
+        assert_eq!(database.collection(&ctm, id).unwrap(), None, "{id}");
+        assert!(recorded.is_err(), "{id} was recorded");
+    }
+}
+
+#[test]
+fn a_grant_on_a_source_reads_no_record_of_another_source() {
+    let scratch = Scratch::new();
+    let database = scratch.open();
+    record(&database);
+    let docs = granted(
+        &database,
+        "docs-reader",
+        "workspace/default/collection/ctm/source/docs-core",
+    );
+    let recorded = database.record_source(&source("ctm", "docs-core/x"));
+    assert_eq!(database.source(&docs, "ctm", "docs-core/x").unwrap(), None);
+    assert!(recorded.is_err(), "docs-core/x was recorded");
 }

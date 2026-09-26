@@ -192,7 +192,7 @@ in place.
 │   │   │   │   │   ├── schema.rs                                            # The documents migration: the ten pipeline tables of 01 §11, all strict
 │   │   │   │   │   └── support.rs                                           # What the record tests share: a scratch database, and the collection
 │   │   │   │   ├── collection.rs                                            # Collections, the sources they declare and the documents those sources
-│   │   │   │   ├── error.rs                                                 # Why the kernel refused to record a document or a revision
+│   │   │   │   ├── error.rs                                                 # Why the kernel refused to record a collection, a source, a document or a revision
 │   │   │   │   ├── mod.rs                                                   # The pipeline's document records (building block B5; docs/architecture/01
 │   │   │   │   └── revision.rs                                              # Revisions: one exact version of a document's bytes and metadata, recorded
 │   │   │   ├── gateway/                                                     # The model gateway (building block B10): every model, embedder, reranker

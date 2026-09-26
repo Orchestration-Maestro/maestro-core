@@ -1,8 +1,8 @@
 //! Readers of scoped data take the caller's `ScopeSet` and filter inside
-//! their query: nothing outside the set is read, and an empty set reads
-//! nothing.
+//! their query: nothing outside the set is read, a name matches only itself,
+//! never as a pattern nor in another case, and an empty set reads nothing.
 
-use super::support::{CTM, Scratch, read, record_in, scope};
+use super::support::{CTM, Scratch, read, record_in, record_outside, scope};
 use crate::{
     journal::{Event, Filter},
     scope::Right,
@@ -81,6 +81,33 @@ fn a_name_that_is_a_prefix_of_another_reads_none_of_it() {
 }
 
 #[test]
+fn a_granted_name_matches_itself_never_as_a_pattern_nor_in_another_case() {
+    let scratch = Scratch::new();
+    let database = scratch.open();
+    let a_b = record_in(&database, STREAM, "workspace/default/collection/a_b");
+    record_each(
+        &database,
+        &[
+            "workspace/default/collection/axb",
+            "workspace/default/collection/axb/source/s",
+            "workspace/default/collection/a.b/source/s",
+        ],
+    );
+    record_outside(
+        &scratch,
+        STREAM,
+        "workspace/default/collection/CTM/source/x",
+    );
+    for path in ["workspace/default/collection/a_b", CTM] {
+        database
+            .grant("local", &scope(path), Right::Read, "test")
+            .unwrap();
+    }
+    let local = database.visible("local").unwrap();
+    assert_eq!(read(&database, &local, STREAM), [a_b]);
+}
+
+#[test]
 fn an_empty_set_reads_nothing() {
     let scratch = Scratch::new();
     let database = scratch.open();
@@ -90,10 +117,11 @@ fn an_empty_set_reads_nothing() {
             "workspace/default",
             CTM,
             "workspace/default/collection/ctm/source/docs-core",
-            "",
-            "not a scope",
         ],
     );
+    for text in ["", "not a scope"] {
+        record_outside(&scratch, STREAM, text);
+    }
     let nothing = database.visible("nobody").unwrap();
     assert!(nothing.is_empty());
     assert_eq!(read(&database, &nothing, STREAM), []);
