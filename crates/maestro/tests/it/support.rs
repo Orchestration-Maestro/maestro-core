@@ -214,17 +214,19 @@ pub(crate) fn types(events: &[Event]) -> Vec<&str> {
     events.iter().map(|event| event.r#type.as_str()).collect()
 }
 
-/// The binary, running: its lines on stdout as it prints them, its stderr
-/// once it ends.
+/// The binary, running: the lines it prints on stdout and on stderr, each
+/// as it prints it.
 pub(crate) struct Running {
     /// The process.
     child: Child,
     /// Each line it prints on stdout, as it prints it.
     lines: Receiver<String>,
-    /// Everything it prints on stderr, once it closes it.
-    stderr: Receiver<String>,
+    /// Each line it prints on stderr, as it prints it.
+    errors: Receiver<String>,
     /// The lines of stdout a test has read already.
     read: Vec<String>,
+    /// The lines of stderr a test has read already.
+    read_errors: Vec<String>,
 }
 
 impl Running {
@@ -232,38 +234,43 @@ impl Running {
     /// that neither pipe ever fills.
     pub(crate) fn of(mut command: Command) -> Self {
         let mut child = command.spawn().unwrap();
-        let stdout = child.stdout.take().unwrap();
-        let mut stderr = child.stderr.take().unwrap();
-        let (line, lines) = mpsc::channel();
-        thread::spawn(move || {
-            for text in BufReader::new(stdout).lines() {
-                line.send(text.unwrap()).unwrap();
-            }
-        });
-        let (text, errors) = mpsc::channel();
-        thread::spawn(move || {
-            let mut all = String::new();
-            stderr.read_to_string(&mut all).unwrap();
-            text.send(all).unwrap();
-        });
+        let lines = lines_of(child.stdout.take().unwrap());
+        let errors = lines_of(child.stderr.take().unwrap());
         Self {
             child,
             lines,
-            stderr: errors,
+            errors,
             read: Vec::new(),
+            read_errors: Vec::new(),
         }
     }
 
     /// The next line the binary prints on stdout.
     pub(crate) fn line(&mut self) -> String {
-        match self.lines.recv_timeout(DEADLINE) {
+        self.next_line(false)
+    }
+
+    /// The next line the binary prints on stderr, while it may still run.
+    pub(crate) fn error_line(&mut self) -> String {
+        self.next_line(true)
+    }
+
+    /// The next line the binary prints on stderr, or else on stdout, kept
+    /// with the lines of its stream read already.
+    fn next_line(&mut self, stderr: bool) -> String {
+        let (lines, read, name) = if stderr {
+            (&self.errors, &mut self.read_errors, "stderr")
+        } else {
+            (&self.lines, &mut self.read, "stdout")
+        };
+        match lines.recv_timeout(DEADLINE) {
             Ok(line) => {
-                self.read.push(line.clone());
+                read.push(line.clone());
                 line
             }
             Err(error) => {
                 let (ended, _) = self.end(Duration::ZERO);
-                panic!("no line on stdout ({error}): {ended:?}");
+                panic!("no line on {name} ({error}): {ended:?}");
             }
         }
     }
@@ -314,7 +321,14 @@ impl Running {
             stdout.push_str(&line);
             stdout.push('\n');
         }
-        let stderr = self.stderr.recv().unwrap();
+        // The rest of stderr, which the binary closes as it ends.
+        let unread: Vec<String> = self.errors.iter().collect();
+        let stderr = self
+            .read_errors
+            .iter()
+            .chain(&unread)
+            .flat_map(|line| [line.as_str(), "\n"])
+            .collect();
         let status = self.child.wait().unwrap();
         let ended = Ended {
             code: status.code(),
@@ -334,6 +348,17 @@ impl Drop for Running {
             drop(self.child.wait());
         }
     }
+}
+
+/// Each line `output` holds, sent as it is read, on a thread of its own.
+fn lines_of(output: impl Read + Send + 'static) -> Receiver<String> {
+    let (line, lines) = mpsc::channel();
+    thread::spawn(move || {
+        for text in BufReader::new(output).lines() {
+            line.send(text.unwrap()).unwrap();
+        }
+    });
+    lines
 }
 
 /// What the binary did, once it ended.

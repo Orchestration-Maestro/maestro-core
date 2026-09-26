@@ -2,12 +2,16 @@
 //! JSON document per command on stdout, under a versioned schema; diagnostics
 //! on stderr only; the exit codes 0 (done), 1 (the operation failed) and 2
 //! (a usage error or a refused input); and a long command's job ID printed
-//! before anything else.
+//! before anything else, while its job still runs.
 
-use super::support::{Home, stream, synthetic, types};
-use maestro_kernel::artifact::Digest;
+use super::support::{Home, stream, submit_synthetic_import, synthetic, types};
+use maestro_kernel::{artifact::Digest, job::JobState};
 use serde_json::json;
-use std::{fs, path::Path};
+use std::{
+    fs,
+    path::Path,
+    time::{Duration, SystemTime},
+};
 use ulid::Ulid;
 
 /// The type of the event that records a declaration added.
@@ -200,4 +204,31 @@ fn a_long_command_prints_its_job_id_before_anything_else() {
         )),
         "and the document's first member after its schema: {json:?}"
     );
+}
+
+#[test]
+fn under_json_the_job_id_comes_on_stderr_while_the_job_still_runs() {
+    let home = Home::new();
+    home.add_synthetic();
+    let database = home.database();
+    let job = submit_synthetic_import(&database);
+    let lease = database
+        .take_job(
+            job.id,
+            "another",
+            SystemTime::now(),
+            Duration::from_secs(60),
+        )
+        .unwrap();
+    let mut running = home.start(&["knowledge", "import", "--collection", "synthetic", "--json"]);
+    // Another process holds the job for a minute: the import follows it.
+    assert_eq!(running.error_line(), format!("job {}", job.id));
+    let outcome = json!({ "collection": "synthetic", "imported": 0 });
+    database
+        .complete_job(&lease, JobState::Succeeded, &outcome)
+        .unwrap();
+    let ended = running.finish();
+    assert_eq!(ended.code, Some(0), "{ended:?}");
+    assert_eq!(ended.stderr, format!("job {}\n", job.id), "{ended:?}");
+    assert_eq!(ended.json()["outcome"], outcome, "{ended:?}");
 }
