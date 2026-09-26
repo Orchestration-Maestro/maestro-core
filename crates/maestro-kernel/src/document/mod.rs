@@ -3,11 +3,16 @@
 //! each source holds, and the revisions of each document.
 //!
 //! A collection and a source follow their declaration: recording one again
-//! takes its new values. A document keeps the collection, source and source
-//! reference it was first recorded with, and a source reference names one
-//! document in each collection. Its id, the namespaced hash of its source
-//! reference (01 §2.1), comes from the import, as a revision's id,
-//! canonicalization's recipe over its bytes and metadata, does.
+//! takes its new values. Their ids are scope names
+//! ([`check_name`](crate::scope::check_name)), and the kernel refuses any
+//! other before it writes, so each id forms one segment of its scope's path
+//! and no record reaches into another's scope.
+//!
+//! A document keeps the collection, source and source reference it was first
+//! recorded with, and a source reference names one document in each
+//! collection. Its id, the namespaced hash of its source reference (01 §2.1),
+//! comes from the import, as a revision's id, canonicalization's recipe over
+//! its bytes and metadata, does.
 //!
 //! A revision is one exact version of a document's bytes and metadata,
 //! recorded once, in the transaction that pins its original and canonical
@@ -15,6 +20,11 @@
 //! replacement or deletion, whoever writes: only its status,
 //! canonicalization's verdict, moves, and only to `failed`, which it never
 //! leaves. A failed revision stays readable and is never eligible.
+//!
+//! Every reader takes the caller's [`ScopeSet`](crate::scope::ScopeSet) and
+//! reads only what it covers: a collection has the scope
+//! `workspace/default/collection/<id>`, a source `…/source/<id>` below it,
+//! and a document and its revisions have their source's.
 //!
 //! The migration `0004_documents` creates every table of the pipeline's
 //! records, those the quality gate and the preparation write included, so no

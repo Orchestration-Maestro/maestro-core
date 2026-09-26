@@ -5,6 +5,7 @@
 use crate::{
     document::Collection,
     generation::{GenerationState, NewGeneration},
+    scope::ScopeSet,
     store::{self, Database},
 };
 use std::{
@@ -100,7 +101,11 @@ pub(super) fn generation_in(database: &Database, collection: &str, state: Genera
 
 /// The state the generation `id` is in.
 pub(super) fn state(database: &Database, id: i64) -> GenerationState {
-    database.generation(id).unwrap().unwrap().state
+    database
+        .generation(&ScopeSet::default_workspace(), id)
+        .unwrap()
+        .unwrap()
+        .state
 }
 
 /// Runs `statement` with the parameter `value` on the writer and commits

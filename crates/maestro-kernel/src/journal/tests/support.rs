@@ -3,6 +3,7 @@
 
 use crate::{
     journal::{Event, Filter, NewEvent},
+    scope::ScopeSet,
     store::Database,
 };
 use rusqlite::Connection;
@@ -85,11 +86,14 @@ pub(super) fn imported<'a>(stream: &'a str, subject: &'a str, data: &'a Value) -
 /// Every event of `stream` in `database`, in sequence order.
 pub(super) fn whole(database: &Database, stream: &str) -> Vec<Event> {
     database
-        .events(&Filter {
-            stream,
-            after: 0,
-            r#type: None,
-        })
+        .events(
+            &ScopeSet::default_workspace(),
+            &Filter {
+                stream,
+                after: 0,
+                r#type: None,
+            },
+        )
         .unwrap()
 }
 

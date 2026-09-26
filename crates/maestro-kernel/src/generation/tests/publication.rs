@@ -3,9 +3,12 @@
 //! it in the same transaction, and a failed one is never published.
 
 use super::support::{Scratch, execute, generation_in, state};
-use crate::generation::{
-    Error,
-    GenerationState::{Building, Failed, Published, Retired, Verified},
+use crate::{
+    generation::{
+        Error,
+        GenerationState::{Building, Failed, Published, Retired, Verified},
+    },
+    scope::ScopeSet,
 };
 use rusqlite::{Connection, ffi};
 
@@ -41,9 +44,15 @@ fn a_second_publish_in_one_collection_retires_the_first() {
     assert_eq!(state(&database, second), Published);
     assert_eq!(state(&database, building), Building);
     assert_eq!(state(&database, verified), Verified);
-    let published = database.published_generation("ctm").unwrap().unwrap();
+    let published = database
+        .published_generation(&ScopeSet::default_workspace(), "ctm")
+        .unwrap()
+        .unwrap();
     assert_eq!(published.id, second);
-    let retired = database.generation(first).unwrap().unwrap();
+    let retired = database
+        .generation(&ScopeSet::default_workspace(), first)
+        .unwrap()
+        .unwrap();
     assert!(retired.published_at.is_some(), "{retired:?}");
 }
 
@@ -62,7 +71,10 @@ fn a_failed_generation_neither_holds_back_the_next_publish_nor_resumes() {
     );
     assert_eq!(state(&database, next), Published);
     for failed in [failed_building, failed_verified] {
-        let kept = database.generation(failed).unwrap().unwrap();
+        let kept = database
+            .generation(&ScopeSet::default_workspace(), failed)
+            .unwrap()
+            .unwrap();
         assert_eq!((kept.state, kept.published_at), (Failed, None));
         // Resuming it would verify it, then publish it.
         let resumed = [
@@ -86,7 +98,9 @@ fn a_publish_in_one_collection_leaves_the_others_published() {
     let ctm = generation_in(&database, "ctm", Verified);
     assert_eq!(database.publish_generation(ctm).unwrap(), None);
     assert_eq!(state(&database, synthetic), Published);
-    let published = database.published_generation("synthetic").unwrap();
+    let published = database
+        .published_generation(&ScopeSet::default_workspace(), "synthetic")
+        .unwrap();
     assert_eq!(published.map(|generation| generation.id), Some(synthetic));
 }
 
@@ -100,7 +114,7 @@ fn publishing_records_when_the_generation_was_published() {
     database.publish_generation(id).unwrap();
     let after = now(&clock);
     let published_at = database
-        .generation(id)
+        .generation(&ScopeSet::default_workspace(), id)
         .unwrap()
         .unwrap()
         .published_at
@@ -118,14 +132,19 @@ fn retiring_the_published_generation_leaves_its_collection_without_one() {
     let id = generation_in(&database, "ctm", Published);
     assert_eq!(
         database
-            .published_generation("ctm")
+            .published_generation(&ScopeSet::default_workspace(), "ctm")
             .unwrap()
             .map(|generation| generation.id),
         Some(id)
     );
     database.retire_generation(id).unwrap();
     assert_eq!(state(&database, id), Retired);
-    assert_eq!(database.published_generation("ctm").unwrap(), None);
+    assert_eq!(
+        database
+            .published_generation(&ScopeSet::default_workspace(), "ctm")
+            .unwrap(),
+        None
+    );
 }
 
 #[test]

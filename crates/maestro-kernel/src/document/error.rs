@@ -1,11 +1,16 @@
-//! Why the kernel refused to record a document or a revision.
+//! Why the kernel refused to record a collection, a source, a document or a
+//! revision.
 
-use crate::store;
+use crate::{scope::InvalidName, store};
 use std::{error, fmt};
 
-/// Why the kernel refused to record a document or a revision.
+/// Why the kernel refused to record a collection, a source, a document or a
+/// revision.
 #[derive(Debug)]
 pub enum Error {
+    /// A collection or source id is not a scope name, so it would not form
+    /// one segment of its scope's path: nothing is recorded.
+    InvalidId(InvalidName),
     /// The document of this id is recorded already under another collection,
     /// source or source reference; its record stays as it is.
     DocumentConflict(String),
@@ -28,6 +33,7 @@ pub enum Error {
 impl fmt::Display for Error {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::InvalidId(invalid) => write!(formatter, "the id is refused: {invalid}"),
             Self::DocumentConflict(id) => write!(
                 formatter,
                 "the document {id} is recorded already under another collection, source or \
@@ -50,6 +56,7 @@ impl fmt::Display for Error {
 impl error::Error for Error {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match self {
+            Self::InvalidId(invalid) => Some(invalid),
             Self::Store(error) => error.source(),
             Self::DocumentConflict(_)
             | Self::RevisionConflict(_)

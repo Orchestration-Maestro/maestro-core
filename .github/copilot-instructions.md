@@ -171,6 +171,7 @@ in place.
 │   │   ├── migrations/                                                      # The kernel database's migrations, embedded and applied in number order
 │   │   │   ├── 0001_artifacts.sql                                           # The artifacts table: each artifact's size, media type, pins and creation time
 │   │   │   ├── 0002_journal.sql                                             # The journal: the append-only events, their triggers, and the consumers' cursors
+│   │   │   ├── 0003_scopes.sql                                              # The grants: each principal's rights on a scope and on every scope below it
 │   │   │   └── 0004_documents.sql                                           # The pipeline's records: collections, sources, documents, revisions, their dispositions, chunk sets, chunks and generations
 │   │   ├── src/                                                             # The crate's sources
 │   │   │   ├── artifact/                                                    # Content-addressed artifacts: immutable bytes stored, and read back, by their
@@ -191,7 +192,7 @@ in place.
 │   │   │   │   │   ├── schema.rs                                            # The documents migration: the ten pipeline tables of 01 §11, all strict
 │   │   │   │   │   └── support.rs                                           # What the record tests share: a scratch database, and the collection
 │   │   │   │   ├── collection.rs                                            # Collections, the sources they declare and the documents those sources
-│   │   │   │   ├── error.rs                                                 # Why the kernel refused to record a document or a revision
+│   │   │   │   ├── error.rs                                                 # Why the kernel refused to record a collection, a source, a document or a revision
 │   │   │   │   ├── mod.rs                                                   # The pipeline's document records (building block B5; docs/architecture/01
 │   │   │   │   └── revision.rs                                              # Revisions: one exact version of a document's bytes and metadata, recorded
 │   │   │   ├── gateway/                                                     # The model gateway (building block B10): every model, embedder, reranker
@@ -232,6 +233,22 @@ in place.
 │   │   │   │   ├── error.rs                                                 # Why the journal refused an operation
 │   │   │   │   ├── event.rs                                                 # Events: recorded with a new ID and the next sequence of their stream
 │   │   │   │   └── mod.rs                                                   # The journal: every change the kernel makes, recorded as an event in one
+│   │   │   ├── scope/                                                       # Scopes and grants: who may see what (docs/architecture/04 §3, building
+│   │   │   │   ├── tests/                                                   # Tests of scopes: their paths and names, what a grant covers, the grants
+│   │   │   │   │   ├── config.rs                                            # config.toml: the local principal's grants, checked whole when read, and
+│   │   │   │   │   ├── grants.rs                                            # Grants: a principal sees only what it was granted and what lies below it
+│   │   │   │   │   ├── inventory.rs                                         # There is no read function without a ScopeSet: every public method of
+│   │   │   │   │   ├── mod.rs                                               # Tests of scopes: their paths and names, what a grant covers, the grants
+│   │   │   │   │   ├── paths.rs                                             # Scope paths: a workspace, then a collection, then a source, each named by
+│   │   │   │   │   ├── readers.rs                                           # Readers of scoped data take the caller's ScopeSet and filter inside
+│   │   │   │   │   ├── records.rs                                           # The readers of the pipeline's records take the caller's ScopeSet and
+│   │   │   │   │   └── support.rs                                           # What the scope tests share: a scratch directory for the kernel's data and
+│   │   │   │   ├── config.rs                                                # config.toml, the kernel's configuration file in its configuration
+│   │   │   │   ├── grant.rs                                                 # Grants: the rights of principals on scopes, each given or taken back in a
+│   │   │   │   ├── mod.rs                                                   # Scopes and grants: who may see what (docs/architecture/04 §3, building
+│   │   │   │   ├── path.rs                                                  # Scope paths: a workspace, then optionally a collection, then optionally a
+│   │   │   │   ├── right.rs                                                 # The rights a grant gives on a scope
+│   │   │   │   └── set.rs                                                   # The scopes a principal may read, found for one request, and the condition
 │   │   │   ├── store/                                                       # The kernel's database: one SQLite file beside the artifact store, holding
 │   │   │   │   ├── tests/                                                   # Tests of the kernel database: its migrations, its connections, the
 │   │   │   │   │   ├── artifacts.rs                                         # Artifacts: stored, recorded with their size, media type and pins, and read

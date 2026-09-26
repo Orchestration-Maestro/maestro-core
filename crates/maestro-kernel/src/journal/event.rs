@@ -2,7 +2,10 @@
 //! and read back in sequence order.
 
 use super::error::Error;
-use crate::store::{self, Database};
+use crate::{
+    scope::{InvalidScope, Scope, ScopeSet},
+    store::{self, Database},
+};
 use rusqlite::{Row, Transaction, params, types::Type};
 use serde_json::Value;
 use std::error;
@@ -47,7 +50,8 @@ pub struct NewEvent<'a> {
     pub r#type: &'a str,
     /// What it happened to.
     pub subject: &'a str,
-    /// The path of the scope it belongs to.
+    /// The path of the scope it belongs to, which must be a scope path: the
+    /// journal refuses any other text.
     pub scope: &'a str,
     /// What it carries.
     pub data: &'a Value,
@@ -73,29 +77,35 @@ impl Database {
     ///
     /// # Errors
     ///
-    /// [`Error::Store`] when the database cannot record it.
+    /// [`Error::Store`] when the event's scope is not a scope path, before
+    /// anything is written, its source then the [`InvalidScope`], and when the
+    /// database cannot record it.
     pub fn record(&self, event: &NewEvent<'_>) -> Result<Event, Error> {
         Ok(self.write(|transaction| record(transaction, event))?)
     }
 
-    /// The events `filter` selects, in sequence order, as the last commit
-    /// left them: a write in progress is not read.
+    /// The events `filter` selects whose scope `scopes` covers, in sequence
+    /// order, as the last commit left them: a write in progress is not read.
+    /// The other events of the stream are skipped, so their sequences are
+    /// missing from what is read.
     ///
     /// # Errors
     ///
     /// [`Error::Store`] when the database cannot be read, or holds an event
     /// it cannot read back.
-    pub fn events(&self, filter: &Filter<'_>) -> Result<Vec<Event>, Error> {
+    pub fn events(&self, scopes: &ScopeSet, filter: &Filter<'_>) -> Result<Vec<Event>, Error> {
         // No event follows a position beyond what SQLite's integers hold.
         let after = i64::try_from(filter.after).unwrap_or(i64::MAX);
         let reader = self.reader()?;
         let mut statement = reader.prepare(&format!(
             "SELECT {COLUMNS} FROM events
-             WHERE stream = ?1 AND sequence > ?2 AND (?3 IS NULL OR type = ?3)
-             ORDER BY sequence"
+             WHERE stream = ?1 AND sequence > ?2 AND (?3 IS NULL OR type = ?3) AND {}
+             ORDER BY sequence",
+            ScopeSet::condition("events.scope", 4)
         ))?;
+        let parameters = params![filter.stream, after, filter.r#type, scopes.parameter()];
         let events = statement
-            .query_map(params![filter.stream, after, filter.r#type], event_row)?
+            .query_map(parameters, event_row)?
             .collect::<Result<_, _>>()?;
         Ok(events)
     }
@@ -106,13 +116,19 @@ impl Database {
 ///
 /// # Errors
 ///
-/// [`store::Error::Sqlite`] when the database cannot record it, or cannot
-/// read back the row it recorded: the insert has then run already, so the
-/// caller must return the error from its write, which then rolls back.
+/// [`store::Error::Sqlite`] holding a `ToSqlConversionFailure` of the
+/// [`InvalidScope`] when the event's scope is not a scope path: nothing is
+/// written then. [`store::Error::Sqlite`] also when the database cannot record
+/// it, or cannot read back the row it recorded: the insert has then run
+/// already, so the caller must return the error from its write, which then
+/// rolls back.
 pub(crate) fn record(
     transaction: &Transaction<'_>,
     event: &NewEvent<'_>,
 ) -> Result<Event, store::Error> {
+    let scope: Scope = event.scope.parse().map_err(|invalid: InvalidScope| {
+        rusqlite::Error::ToSqlConversionFailure(Box::new(invalid))
+    })?;
     let recorded = transaction.query_row(
         &format!(
             "INSERT INTO events (id, stream, sequence, type, subject, scope, data)
@@ -125,7 +141,7 @@ pub(crate) fn record(
             event.stream,
             event.r#type,
             event.subject,
-            event.scope,
+            scope.as_str(),
             event.data.to_string(),
         ],
         event_row,

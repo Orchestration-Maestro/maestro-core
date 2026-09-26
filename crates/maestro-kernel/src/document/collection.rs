@@ -2,7 +2,10 @@
 //! hold: what every revision is recorded under (docs/architecture/01 §1).
 
 use super::error::Error;
-use crate::store::Database;
+use crate::{
+    scope::{ScopeSet, check_name},
+    store::Database,
+};
 use rusqlite::{Connection, OptionalExtension as _, Row, Transaction, params, types::Type};
 use serde::de::DeserializeOwned;
 use serde_json::Value;
@@ -11,7 +14,7 @@ use std::collections::BTreeMap;
 /// A collection: a logical body of knowledge, as its declaration names it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Collection {
-    /// Its id, such as `ctm`.
+    /// Its id, such as `ctm`: a scope name.
     pub id: String,
     /// What it holds, for people.
     pub title: String,
@@ -28,7 +31,8 @@ pub struct Collection {
 pub struct Source {
     /// The collection that declares it.
     pub collection_id: String,
-    /// Its id, unique in its collection only, such as `docs-core`.
+    /// Its id, unique in its collection only, such as `docs-core`: a scope
+    /// name.
     pub id: String,
     /// How its documents arrive, such as `import`.
     pub kind: String,
@@ -60,8 +64,10 @@ impl Database {
     ///
     /// # Errors
     ///
-    /// [`Error::Store`] when the database cannot record it.
+    /// [`Error::InvalidId`] when its id is not a scope name, before anything
+    /// is written, and [`Error::Store`] when the database cannot record it.
     pub fn record_collection(&self, collection: &Collection) -> Result<(), Error> {
+        check_name(&collection.id).map_err(Error::InvalidId)?;
         self.write(|transaction| {
             transaction.execute(
                 "INSERT INTO collections (id, title, visibility, profiles_json)
@@ -79,17 +85,21 @@ impl Database {
         })
     }
 
-    /// The collection `id`, if it is recorded.
+    /// The collection `id`, if it is recorded and `scopes` covers its scope.
     ///
     /// # Errors
     ///
     /// [`Error::Store`] when the database cannot be read.
-    pub fn collection(&self, id: &str) -> Result<Option<Collection>, Error> {
+    pub fn collection(&self, scopes: &ScopeSet, id: &str) -> Result<Option<Collection>, Error> {
         let collection = self
             .reader()?
             .query_row(
-                "SELECT id, title, visibility, profiles_json FROM collections WHERE id = ?1",
-                [id],
+                &format!(
+                    "SELECT id, title, visibility, profiles_json FROM collections
+                     WHERE id = ?1 AND {}",
+                    ScopeSet::collection_condition("collections.id", 2)
+                ),
+                params![id, scopes.parameter()],
                 |row| {
                     Ok(Collection {
                         id: row.get(0)?,
@@ -109,9 +119,12 @@ impl Database {
     ///
     /// # Errors
     ///
-    /// [`Error::Store`] when its collection is not recorded or the database
-    /// cannot record it.
+    /// [`Error::InvalidId`] when its id or its collection's is not a scope
+    /// name, before anything is written, and [`Error::Store`] when its
+    /// collection is not recorded or the database cannot record it.
     pub fn record_source(&self, source: &Source) -> Result<(), Error> {
+        check_name(&source.collection_id).map_err(Error::InvalidId)?;
+        check_name(&source.id).map_err(Error::InvalidId)?;
         self.write(|transaction| {
             transaction.execute(
                 "INSERT INTO sources (collection_id, id, kind, transport, reference, profiles_json)
@@ -132,18 +145,27 @@ impl Database {
         })
     }
 
-    /// The source `id` of the collection `collection_id`, if it is recorded.
+    /// The source `id` of the collection `collection_id`, if it is recorded
+    /// and `scopes` covers its scope.
     ///
     /// # Errors
     ///
     /// [`Error::Store`] when the database cannot be read.
-    pub fn source(&self, collection_id: &str, id: &str) -> Result<Option<Source>, Error> {
+    pub fn source(
+        &self,
+        scopes: &ScopeSet,
+        collection_id: &str,
+        id: &str,
+    ) -> Result<Option<Source>, Error> {
         let source = self
             .reader()?
             .query_row(
-                "SELECT collection_id, id, kind, transport, reference, profiles_json
-                 FROM sources WHERE collection_id = ?1 AND id = ?2",
-                [collection_id, id],
+                &format!(
+                    "SELECT collection_id, id, kind, transport, reference, profiles_json
+                     FROM sources WHERE collection_id = ?1 AND id = ?2 AND {}",
+                    ScopeSet::source_condition("sources.collection_id", "sources.id", 3)
+                ),
+                params![collection_id, id, scopes.parameter()],
                 |row| {
                     Ok(Source {
                         collection_id: row.get(0)?,
@@ -171,7 +193,7 @@ impl Database {
     /// database cannot record it.
     pub fn record_document(&self, document: &Document) -> Result<(), Error> {
         self.write(
-            |transaction| match find_document(transaction, &document.id)? {
+            |transaction| match find_document(transaction, None, &document.id)? {
                 Some(recorded) if recorded == *document => Ok(()),
                 Some(_) => Err(Error::DocumentConflict(document.id.clone())),
                 None => insert_document(transaction, document),
@@ -179,13 +201,14 @@ impl Database {
         )
     }
 
-    /// The document `id`, if it is recorded.
+    /// The document `id`, if it is recorded and `scopes` covers the scope of
+    /// its source.
     ///
     /// # Errors
     ///
     /// [`Error::Store`] when the database cannot be read.
-    pub fn document(&self, id: &str) -> Result<Option<Document>, Error> {
-        Ok(find_document(&self.reader()?, id)?)
+    pub fn document(&self, scopes: &ScopeSet, id: &str) -> Result<Option<Document>, Error> {
+        Ok(find_document(&self.reader()?, Some(scopes), id)?)
     }
 }
 
@@ -218,12 +241,22 @@ fn insert_document(transaction: &Transaction<'_>, document: &Document) -> Result
     Ok(())
 }
 
-/// The document `id` that `connection` records, if any.
-fn find_document(connection: &Connection, id: &str) -> rusqlite::Result<Option<Document>> {
+/// The document `id` that `connection` records, if any and `scopes` covers
+/// the scope of its source; with no set, whatever its scope, as a write
+/// checks a document against every one recorded.
+fn find_document(
+    connection: &Connection,
+    scopes: Option<&ScopeSet>,
+    id: &str,
+) -> rusqlite::Result<Option<Document>> {
     connection
         .query_row(
-            "SELECT id, collection_id, source_id, source_ref FROM documents WHERE id = ?1",
-            [id],
+            &format!(
+                "SELECT id, collection_id, source_id, source_ref FROM documents
+                 WHERE id = ?1 AND (?2 IS NULL OR {})",
+                ScopeSet::source_condition("documents.collection_id", "documents.source_id", 2)
+            ),
+            params![id, scopes.map(ScopeSet::parameter)],
             |row| {
                 Ok(Document {
                     id: row.get(0)?,
