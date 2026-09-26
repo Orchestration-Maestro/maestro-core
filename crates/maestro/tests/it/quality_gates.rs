@@ -1,9 +1,9 @@
 //! `knowledge quality`: the quality gate (T020) over a collection, run as a
 //! leased job of the collection's scope in the foreground, holding the
-//! collection's quality gate: its report printed as the job ended, a rerun
-//! finding the same job, a gate after an import a new job, the ledger beside
-//! the declaration deciding first, a gate that fails exiting 1, and the
-//! refusals exiting 2.
+//! collection's quality gate: its report printed as the job ended, for
+//! people as its counts, a rerun finding the same job, a gate after an
+//! import a new job, the ledger beside the declaration deciding first, a
+//! gate that fails exiting 1, and the refusals exiting 2.
 
 use super::support::{Ended, Home, local, stream, synthetic, types};
 use maestro_kernel::{
@@ -157,10 +157,38 @@ fn the_gate_decides_every_revision_as_a_job_and_prints_its_report() {
         "the same inputs find the same job: {again:?}"
     );
     assert!(
-        lines
-            .last()
-            .is_some_and(|line| line.starts_with("succeeded {")),
+        lines.ends_with(&[
+            "succeeded: 28 revisions, 28 decided, 0 kept as decided before",
+            "outcomes: accepted 28, accepted_with_warnings 0, excluded 0, needs_reextraction 0, \
+             quarantined 0",
+            "0 held",
+        ]),
         "printed as it ended, in text: {again:?}"
+    );
+}
+
+#[test]
+fn the_report_for_people_counts_the_revisions_held_and_lists_none() {
+    let home = Home::new();
+    add_beside_ledger(&home, &format!("{RULE}\n"));
+    import(&home);
+    let text = home.run(&["knowledge", "quality", "--collection", "synthetic"]);
+    assert_eq!(text.code, Some(0), "{text:?}");
+    let lines: Vec<&str> = text.stdout.lines().collect();
+    assert_eq!(
+        lines[1..],
+        [
+            "succeeded: 28 revisions, 28 decided, 0 kept as decided before",
+            "outcomes: accepted 27, accepted_with_warnings 0, excluded 1, needs_reextraction 0, \
+             quarantined 0",
+            "rules: ledger.retired-policy 1",
+            "1 held: see --json",
+        ],
+        "{text:?}"
+    );
+    assert!(
+        !text.stdout.contains("backup-policy"),
+        "the revisions held are listed under --json only: {text:?}"
     );
 }
 

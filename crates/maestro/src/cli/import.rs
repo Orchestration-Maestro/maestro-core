@@ -17,6 +17,7 @@ use super::{
     kernel::Kernel,
     lease::Holder,
     output::Output,
+    wait::{self, Printing},
 };
 use maestro_kernel::{
     artifact::Digest,
@@ -29,8 +30,12 @@ use std::{fs, ops::ControlFlow, process::ExitCode};
 
 /// The kind of the job an import runs.
 const KIND: &str = "knowledge.import";
-/// The schema of the document `knowledge import` prints under `--json`.
-const SCHEMA: &str = "maestro-cli/import/1";
+/// How `knowledge import` prints its job as it ended:
+/// `maestro-cli/import/1`, or as `job wait` does for people.
+const PRINTING: Printing = Printing {
+    schema: "maestro-cli/import/1",
+    text: wait::line,
+};
 
 /// Imports the collection `collection` as a job, or finds the job of the
 /// same import, and prints it as it ended.
@@ -54,7 +59,7 @@ pub(super) fn run(kernel: &Kernel, output: Output, collection: &str) -> Result<E
         scope: &scope,
         resource: Some(&resource),
     };
-    foreground::run(kernel, output, &new, SCHEMA, |holder| {
+    let work = |holder: &Holder<'_>| {
         let mut lost = None;
         let imported = import::import_observed(
             &kernel.database,
@@ -64,7 +69,8 @@ pub(super) fn run(kernel: &Kernel, output: Output, collection: &str) -> Result<E
             &mut |report: &Report| step(holder, output, report, &mut lost),
         );
         ending(imported, lost)
-    })
+    };
+    foreground::run(kernel, output, &new, work, PRINTING)
 }
 
 /// The frozen inputs of the import of `declared`: its collection, the digest

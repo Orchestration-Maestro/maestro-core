@@ -16,7 +16,7 @@ use super::{
     kernel::Kernel,
     lease::{Holder, TIMING, Timing, holder},
     output::Output,
-    wait::{self, Follower, POLL},
+    wait::{self, Follower, POLL, Printing},
 };
 use maestro_kernel::{
     job::{self, Job, JobState, Lease, NewJob},
@@ -31,8 +31,8 @@ use ulid::Ulid;
 const LOOKS_PER_TRY: u32 = 10;
 
 /// Runs the job `new` describes in the foreground, under the command line's
-/// leases, [`TIMING`], as [`run_to_end`] does, then prints it under `schema`
-/// as it ended, and returns the exit code of its outcome.
+/// leases, [`TIMING`], as [`run_to_end`] does, then prints it as it ended,
+/// as `printing` says, and returns the exit code of its outcome.
 ///
 /// # Errors
 ///
@@ -41,11 +41,11 @@ pub(super) fn run(
     kernel: &Kernel,
     output: Output,
     new: &NewJob<'_>,
-    schema: &'static str,
     work: impl FnOnce(&Holder<'_>) -> (JobState, Value),
+    printing: Printing,
 ) -> Result<ExitCode, Failure> {
     let ended = run_to_end(kernel, output, new, TIMING, work)?;
-    wait::report(output, schema, &ended)
+    wait::report(output, printing, &ended)
 }
 
 /// Runs the job `new` describes to its end, or follows it there, printing
