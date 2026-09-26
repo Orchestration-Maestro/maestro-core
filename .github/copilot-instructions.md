@@ -170,7 +170,8 @@ in place.
 │   ├── maestro-kernel/                                                      # Maestro kernel
 │   │   ├── migrations/                                                      # The kernel database's migrations, embedded and applied in number order
 │   │   │   ├── 0001_artifacts.sql                                           # The artifacts table: each artifact's size, media type, pins and creation time
-│   │   │   └── 0002_journal.sql                                             # The journal: the append-only events, their triggers, and the consumers' cursors
+│   │   │   ├── 0002_journal.sql                                             # The journal: the append-only events, their triggers, and the consumers' cursors
+│   │   │   └── 0004_documents.sql                                           # The pipeline's records: collections, sources, documents, revisions, their dispositions, chunk sets, chunks and generations
 │   │   ├── src/                                                             # The crate's sources
 │   │   │   ├── artifact/                                                    # Content-addressed artifacts: immutable bytes stored, and read back, by their
 │   │   │   │   ├── digest.rs                                                # A SHA-256 digest: the name every artifact is stored under
@@ -181,6 +182,18 @@ in place.
 │   │   │   │   ├── mod.rs                                                   # Capabilities: the registry of the tools Maestro offers (building block B9)
 │   │   │   │   ├── registry.rs                                              # The registry: each tool once, with what it takes, does and needs
 │   │   │   │   └── tests.rs                                                 # Tests of the capability registry: declarations, refusals and order
+│   │   │   ├── document/                                                    # The pipeline's document records (building block B5; docs/architecture/01
+│   │   │   │   ├── tests/                                                   # Tests of the document records: the documents migration, collections
+│   │   │   │   │   ├── errors.rs                                            # What the document records' refusals say, and the store's refusals they
+│   │   │   │   │   ├── mod.rs                                               # Tests of the document records: the documents migration, collections
+│   │   │   │   │   ├── parents.rs                                           # Collections, their sources and their documents: collections and sources
+│   │   │   │   │   ├── revisions.rs                                         # Revisions: recorded once with their two artifacts pinned, immutable after
+│   │   │   │   │   ├── schema.rs                                            # The documents migration: the ten pipeline tables of 01 §11, all strict
+│   │   │   │   │   └── support.rs                                           # What the record tests share: a scratch database, and the collection
+│   │   │   │   ├── collection.rs                                            # Collections, the sources they declare and the documents those sources
+│   │   │   │   ├── error.rs                                                 # Why the kernel refused to record a document or a revision
+│   │   │   │   ├── mod.rs                                                   # The pipeline's document records (building block B5; docs/architecture/01
+│   │   │   │   └── revision.rs                                              # Revisions: one exact version of a document's bytes and metadata, recorded
 │   │   │   ├── gateway/                                                     # The model gateway (building block B10): every model, embedder, reranker
 │   │   │   │   ├── tests/                                                   # Tests of the model gateway: model cards, the router client against a stub
 │   │   │   │   │   ├── card.rs                                              # Tests of model cards: strict JSON artifacts whose digest is their
@@ -195,6 +208,16 @@ in place.
 │   │   │   │   ├── mod.rs                                                   # The model gateway (building block B10): every model, embedder, reranker
 │   │   │   │   ├── port.rs                                                  # The model port: the calls every way of reaching a model answers, each
 │   │   │   │   └── router.rs                                                # The router client: the model port over maestro-model-router's dedicated
+│   │   │   ├── generation/                                                  # The search generations of a collection (building block B6; plan D9): each
+│   │   │   │   ├── tests/                                                   # Tests of the generation records: their lifecycle and their publication
+│   │   │   │   │   ├── lifecycle.rs                                         # A generation's lifecycle: created building, then verified, published and
+│   │   │   │   │   ├── mod.rs                                               # Tests of the generation records: their lifecycle and their publication
+│   │   │   │   │   ├── publication.rs                                       # Publication: at most one generation of a collection is published, which
+│   │   │   │   │   └── support.rs                                           # What the generation tests share: a scratch database holding two
+│   │   │   │   ├── error.rs                                                 # Why the kernel refused to create or move a generation
+│   │   │   │   ├── lifecycle.rs                                             # Generations as the kernel records them, and the calls that create and move
+│   │   │   │   ├── mod.rs                                                   # The search generations of a collection (building block B6; plan D9): each
+│   │   │   │   └── state.rs                                                 # The states a generation moves through, and the one move each allows
 │   │   │   ├── journal/                                                     # The journal: every change the kernel makes, recorded as an event in one
 │   │   │   │   ├── tests/                                                   # Tests of the journal: its events and their streams, its cursors, and what
 │   │   │   │   │   ├── append_only.rs                                       # The journal is append-only: the database itself refuses to update, delete
