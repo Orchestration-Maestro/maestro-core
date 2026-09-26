@@ -4,7 +4,7 @@
 
 use super::{
     card::{ModelCard, Role},
-    port::{Error, Message, ModelPort, Speaker, embedder_dimensions, require},
+    port::{Error, Message, ModelPort, Room, Speaker, embedder_dimensions, require},
 };
 use sha2::{Digest as _, Sha256};
 use std::{
@@ -18,7 +18,8 @@ use std::{
 /// the tokenizer gives one token per word, whatever the card; and the
 /// answerer replies with the line of evidence, from the user's messages
 /// before the last, that shares the most words with the last message, the
-/// question, or with nothing when no line shares one.
+/// question, or with nothing when no line shares one. They load nothing, so
+/// the room a call names changes nothing.
 #[derive(Debug)]
 pub struct FakeModels;
 
@@ -26,6 +27,7 @@ impl ModelPort for FakeModels {
     fn embed(
         &self,
         card: &ModelCard,
+        _room: Room,
         inputs: &[String],
     ) -> impl Future<Output = Result<Vec<Vec<f32>>, Error>> + Send {
         future::ready(embedder_dimensions(card).map(|dimensions| {
@@ -39,6 +41,7 @@ impl ModelPort for FakeModels {
     fn rerank(
         &self,
         card: &ModelCard,
+        _room: Room,
         query: &str,
         documents: &[String],
     ) -> impl Future<Output = Result<Vec<f64>, Error>> + Send {
@@ -54,6 +57,7 @@ impl ModelPort for FakeModels {
     fn tokenize(
         &self,
         _card: &ModelCard,
+        _room: Room,
         text: &str,
     ) -> impl Future<Output = Result<Vec<u32>, Error>> + Send {
         future::ready(Ok(words(text).map(token_id).collect()))
@@ -62,6 +66,7 @@ impl ModelPort for FakeModels {
     fn chat(
         &self,
         card: &ModelCard,
+        _room: Room,
         messages: &[Message],
     ) -> impl Future<Output = Result<String, Error>> + Send {
         future::ready(require(card, Role::Answerer).map(|()| reply(messages).to_owned()))

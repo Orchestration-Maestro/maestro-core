@@ -3,7 +3,7 @@
 
 use super::{
     card::{ModelCard, Role},
-    port::{Error, Message, ModelPort, embedder_dimensions, require},
+    port::{Error, Message, ModelPort, Room, embedder_dimensions, require},
 };
 use crate::artifact::Digest;
 use reqwest::{Client, RequestBuilder, Url};
@@ -15,20 +15,22 @@ use std::{
 };
 
 /// The request header that lets the router load a model only into free room
-/// (T002): with it, the router refuses rather than unload another model.
+/// (T002): with its one value, `free`, the router refuses rather than unload
+/// another model.
 const ROOM_HEADER: &str = "X-Model-Router-Room";
 
 /// A client of the model router. Each call goes to the entry its card names,
 /// after the card is checked against what the model's server reports, and
-/// every request asks for free room, so no call through this client ever
-/// unloads another model (FR-S1-015a).
+/// in the room the call names: a call in [`Room::Free`] asks for free room
+/// and never unloads another model (FR-S1-015a), while a call in
+/// [`Room::Any`] names no room, so the router may unload an idle model for it.
 #[derive(Debug)]
 pub struct RouterClient {
     /// Where the router answers.
     base: Url,
     /// The HTTP client, which keeps connections to the router open.
     http: Client,
-    /// The cards already checked against their server's `/props`.
+    /// The cards that passed their check against their server's `/props`.
     checked: Mutex<HashSet<Digest>>,
 }
 
@@ -62,13 +64,18 @@ impl RouterClient {
         url
     }
 
-    /// Checks `card` against what its model's server reports, once per card:
-    /// its build and, where the card records one, its chat template.
-    async fn check(&self, card: &ModelCard) -> Result<(), Error> {
+    /// Checks `card` against what its model's server reports, its build and,
+    /// where the card records one, its chat template, asking `/props` in the
+    /// room of the call the check precedes.
+    ///
+    /// A card counts as checked only once it passes: a refused card, or one
+    /// whose check the router refused, is checked again at its next call.
+    /// Calls that start together before a card first passes may each check it.
+    async fn check(&self, card: &ModelCard, room: Room) -> Result<(), Error> {
         if self.is_checked(card.digest()) {
             return Ok(());
         }
-        let props: Props = send(self.http.get(self.endpoint(card, "props"))).await?;
+        let props: Props = send(self.http.get(self.endpoint(card, "props")), room).await?;
         props.compare(card)?;
         self.checked
             .lock()
@@ -90,22 +97,28 @@ impl RouterClient {
     async fn call<T: DeserializeOwned>(
         &self,
         card: &ModelCard,
+        room: Room,
         path: &str,
         body: &Value,
     ) -> Result<T, Error> {
-        self.check(card).await?;
-        send(self.http.post(self.endpoint(card, path)).json(body)).await
+        self.check(card, room).await?;
+        send(self.http.post(self.endpoint(card, path)).json(body), room).await
     }
 }
 
 impl ModelPort for RouterClient {
-    async fn embed(&self, card: &ModelCard, inputs: &[String]) -> Result<Vec<Vec<f32>>, Error> {
+    async fn embed(
+        &self,
+        card: &ModelCard,
+        room: Room,
+        inputs: &[String],
+    ) -> Result<Vec<Vec<f32>>, Error> {
         let dimensions = embedder_dimensions(card)?;
         if inputs.is_empty() {
             return Ok(Vec::new());
         }
         let answer: Embeddings = self
-            .call(card, "v1/embeddings", &json!({"input": inputs}))
+            .call(card, room, "v1/embeddings", &json!({"input": inputs}))
             .await?;
         let vectors = by_index(
             inputs.len(),
@@ -129,6 +142,7 @@ impl ModelPort for RouterClient {
     async fn rerank(
         &self,
         card: &ModelCard,
+        room: Room,
         query: &str,
         documents: &[String],
     ) -> Result<Vec<f64>, Error> {
@@ -137,7 +151,7 @@ impl ModelPort for RouterClient {
             return Ok(Vec::new());
         }
         let body = json!({"query": query, "documents": documents});
-        let answer: Ranking = self.call(card, "v1/rerank", &body).await?;
+        let answer: Ranking = self.call(card, room, "v1/rerank", &body).await?;
         by_index(
             documents.len(),
             answer
@@ -147,18 +161,23 @@ impl ModelPort for RouterClient {
         )
     }
 
-    async fn tokenize(&self, card: &ModelCard, text: &str) -> Result<Vec<u32>, Error> {
+    async fn tokenize(&self, card: &ModelCard, room: Room, text: &str) -> Result<Vec<u32>, Error> {
         // As the embedding path counts: special tokens added and parsed, as
         // maestro-canonicalization's TOKENIZER.md records.
         let body = json!({"content": text, "add_special": true, "parse_special": true});
-        let answer: Tokens = self.call(card, "tokenize", &body).await?;
+        let answer: Tokens = self.call(card, room, "tokenize", &body).await?;
         Ok(answer.tokens)
     }
 
-    async fn chat(&self, card: &ModelCard, messages: &[Message]) -> Result<String, Error> {
+    async fn chat(
+        &self,
+        card: &ModelCard,
+        room: Room,
+        messages: &[Message],
+    ) -> Result<String, Error> {
         require(card, Role::Answerer)?;
         let body = json!({"messages": messages});
-        let answer: Completion = self.call(card, "v1/chat/completions", &body).await?;
+        let answer: Completion = self.call(card, room, "v1/chat/completions", &body).await?;
         answer
             .choices
             .into_iter()
@@ -168,13 +187,14 @@ impl ModelPort for RouterClient {
     }
 }
 
-/// Sends `request` asking for free room, and reads its answer as `T`.
-async fn send<T: DeserializeOwned>(request: RequestBuilder) -> Result<T, Error> {
-    let response = request
-        .header(ROOM_HEADER, "free")
-        .send()
-        .await
-        .map_err(Error::Transport)?;
+/// Sends `request` in `room`, and reads its answer as `T`.
+async fn send<T: DeserializeOwned>(request: RequestBuilder, room: Room) -> Result<T, Error> {
+    let request = match room {
+        Room::Free => request.header(ROOM_HEADER, "free"),
+        // No header at all: the router refuses any value but `free`.
+        Room::Any => request,
+    };
+    let response = request.send().await.map_err(Error::Transport)?;
     let status = response.status();
     let body = response.bytes().await.map_err(Error::Transport)?;
     if !status.is_success() {

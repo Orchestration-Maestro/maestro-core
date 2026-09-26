@@ -11,6 +11,9 @@ publish = false
 
 [workspace.dependencies]
 pulldown-cmark = { version = "=0.13.4", default-features = false }
+# Cargo.lock pins idna_adapter, which reqwest reaches through url, to 1.1.0 for MSRV 1.85:
+# 1.2's ICU4X back end needs Rust 1.87. Restore it after an update with
+# `cargo update -p idna_adapter --precise 1.1.0`; it goes when T034 raises the MSRV to 1.88.
 reqwest = { version = "0.13.5", default-features = false, features = ["json"] }
 rustix = { version = "=1.1.5", features = ["fs"] }
 serde = { version = "1", features = ["derive"] }

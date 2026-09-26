@@ -1,8 +1,9 @@
 //! Tests of the deterministic fake: its outputs are fixed by its inputs, the
 //! same on every run and every platform, and each call keeps to its role.
+//! The fake loads nothing, so each call names a room it ignores.
 
 use super::{
-    super::{CardFields, Error, FakeModels, Message, ModelPort, Role, Speaker},
+    super::{CardFields, Error, FakeModels, Message, ModelPort, Role, Room, Speaker},
     fixture::{card, card_of, fields},
 };
 use std::num::NonZeroUsize;
@@ -22,7 +23,7 @@ async fn fake_vectors_derive_from_a_digest_of_the_text() {
         ..fields(Role::Embedder)
     });
     let texts = ["The whale sings.", "A whale sings."].map(str::to_owned);
-    let vectors = FakeModels.embed(&card, &texts).await.unwrap();
+    let vectors = FakeModels.embed(&card, Room::Free, &texts).await.unwrap();
     // Each value is two bytes of SHA-256(text ‖ block as 4 big-endian bytes),
     // read as a little-endian i16 over 32768, 16 values a block: Python's
     // hashlib and struct give these.
@@ -87,7 +88,7 @@ async fn the_fake_reranker_scores_the_words_shared_with_the_query() {
     .map(str::to_owned);
     let card = card(Role::Reranker);
     let scores = FakeModels
-        .rerank(&card, "The blue WHALE sings", &documents)
+        .rerank(&card, Room::Free, "The blue WHALE sings", &documents)
         .await
         .unwrap();
     assert_eq!(scores, [0.0, 4.0, 1.0, 2.0, 0.0]);
@@ -99,7 +100,7 @@ async fn fake_tokens_come_back_one_per_word_in_order() {
     let (the, whale, sings, lower_the) = (249_054_387, 682_545_829, 929_686_021, 2_104_326_073);
     for role in [Role::Embedder, Role::Reranker, Role::Answerer] {
         let ids = FakeModels
-            .tokenize(&card(role), "The whale sings, the whale.")
+            .tokenize(&card(role), Room::Free, "The whale sings, the whale.")
             .await
             .unwrap();
         assert_eq!(ids, [the, whale, sings, lower_the, whale]);
@@ -121,7 +122,7 @@ async fn the_fake_answers_with_the_evidence_line_closest_to_the_question() {
         message(Speaker::User, "Do blue whales sing?"),
     ];
     let reply = FakeModels
-        .chat(&card(Role::Answerer), &messages)
+        .chat(&card(Role::Answerer), Room::Any, &messages)
         .await
         .unwrap();
     assert_eq!(reply, "Blue whales sing long songs.");
@@ -135,7 +136,7 @@ async fn the_fake_keeps_the_first_of_equally_close_lines() {
         message(Speaker::User, "Do whales sing?"),
     ];
     let reply = FakeModels
-        .chat(&card(Role::Answerer), &messages)
+        .chat(&card(Role::Answerer), Room::Any, &messages)
         .await
         .unwrap();
     assert_eq!(reply, "Whales sing.");
@@ -148,8 +149,10 @@ async fn the_fake_says_nothing_the_evidence_does_not_hold() {
         message(Speaker::User, "Ships sail at dawn."),
         message(Speaker::User, "Do whales sing?"),
     ];
-    assert_eq!(FakeModels.chat(&card, &unrelated).await.unwrap(), "");
-    assert_eq!(FakeModels.chat(&card, &[]).await.unwrap(), "");
+    let reply = FakeModels.chat(&card, Room::Any, &unrelated).await;
+    assert_eq!(reply.unwrap(), "");
+    let silence = FakeModels.chat(&card, Room::Any, &[]).await;
+    assert_eq!(silence.unwrap(), "");
 }
 
 #[tokio::test]
@@ -159,18 +162,24 @@ async fn the_fake_refuses_a_card_for_another_role() {
     let question = [message(Speaker::User, "Do whales sing?")];
     let refusals = [
         (
-            FakeModels.embed(&reranker, &texts).await.unwrap_err(),
+            FakeModels
+                .embed(&reranker, Room::Free, &texts)
+                .await
+                .unwrap_err(),
             Role::Embedder,
         ),
         (
             FakeModels
-                .rerank(&embedder, "whale", &texts)
+                .rerank(&embedder, Room::Free, "whale", &texts)
                 .await
                 .unwrap_err(),
             Role::Reranker,
         ),
         (
-            FakeModels.chat(&embedder, &question).await.unwrap_err(),
+            FakeModels
+                .chat(&embedder, Room::Any, &question)
+                .await
+                .unwrap_err(),
             Role::Answerer,
         ),
     ];

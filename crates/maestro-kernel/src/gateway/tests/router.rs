@@ -1,12 +1,13 @@
 //! Tests of the router client against a stub router: every call is bound to
-//! its card and asks for free room, a card the model's server does not match
-//! is refused before any call, and each refusal keeps its meaning.
+//! its card and to the room it names, a card the model's server does not
+//! match is refused before any call, and each refusal keeps its meaning.
 
 use super::{
-    super::{CardFields, Error, Message, ModelPort, Role, RouterClient, Speaker},
+    super::{CardFields, Error, Message, ModelPort, Role, Room, RouterClient, Speaker},
     fixture::{BUILD, TEMPLATE, TEMPLATE_DIGEST, card, card_of, fields},
-    stub::{Reply, StubRouter, answer, free},
+    stub::{Reply, StubRouter, answer, any_room, free},
 };
+use crate::artifact::Digest;
 use serde_json::{Value, json};
 use std::error::Error as _;
 
@@ -114,9 +115,23 @@ fn completion(content: &str) -> Reply {
 async fn embedding_error(reply: Reply) -> Error {
     let (_stub, client) = serve("embed", "v1/embeddings", reply);
     client
-        .embed(&card(Role::Embedder), &inputs())
+        .embed(&card(Role::Embedder), Room::Free, &inputs())
         .await
         .unwrap_err()
+}
+
+/// What a card mismatch names: the card, the property, what the card records
+/// and what the server reports. Any other outcome fails the test.
+fn mismatch(outcome: Result<String, Error>) -> (Digest, &'static str, String, String) {
+    match outcome {
+        Err(Error::CardMismatch {
+            card,
+            property,
+            recorded,
+            reported,
+        }) => (card, property, recorded, reported),
+        other => panic!("not a card mismatch: {other:?}"),
+    }
 }
 
 /// A user's message.
@@ -128,7 +143,7 @@ fn user(content: &str) -> Message {
 }
 
 #[tokio::test]
-async fn every_call_is_bound_to_its_card_and_asks_for_free_room() {
+async fn every_call_is_bound_to_its_card_and_to_its_room() {
     let tokens = answer(200, &json!({"tokens": [0, 35378, 8999, 2]}));
     let stub = StubRouter::serve(vec![
         ("/models/embed/props", props(BUILD, TEMPLATE)),
@@ -141,13 +156,19 @@ async fn every_call_is_bound_to_its_card_and_asks_for_free_room() {
     ]);
     let client = RouterClient::new(stub.base()).unwrap();
     let embedder = card(Role::Embedder);
-    let vectors = client.embed(&embedder, &inputs()).await.unwrap();
-    assert_eq!(vectors, [[0.125, 0.0, -1.0], [0.5, -0.25, 1.0]], "by index");
-    let ids = client.tokenize(&embedder, "Hello world").await.unwrap();
-    assert_eq!(ids, [0, 35378, 8999, 2]);
+    // Tokenization comes first, so that the embedder's check is its own.
+    let ids = client.tokenize(&embedder, Room::Free, "Hello world").await;
+    assert_eq!(ids.unwrap(), [0, 35378, 8999, 2]);
+    let vectors = client.embed(&embedder, Room::Free, &inputs()).await;
+    assert_eq!(
+        vectors.unwrap(),
+        [[0.125, 0.0, -1.0], [0.5, -0.25, 1.0]],
+        "by index"
+    );
     let documents = ["Ships sail.", "Whales sing.", "Blue whales sing."].map(str::to_owned);
+    let reranker = card(Role::Reranker);
     let scores = client
-        .rerank(&card(Role::Reranker), "whale song", &documents)
+        .rerank(&reranker, Room::Free, "whale song", &documents)
         .await;
     assert_eq!(scores.unwrap(), [0.75, -2.0, 3.5], "by index");
     let instructions = Message {
@@ -155,7 +176,9 @@ async fn every_call_is_bound_to_its_card_and_asks_for_free_room() {
         content: "Answer from the evidence.".to_owned(),
     };
     let messages = [instructions, user("Whales sing."), user("Do whales sing?")];
-    let reply = client.chat(&card(Role::Answerer), &messages).await;
+    let reply = client
+        .chat(&card(Role::Answerer), Room::Any, &messages)
+        .await;
     assert_eq!(reply.unwrap(), "They do.");
     let counted = json!({"content": "Hello world", "add_special": true, "parse_special": true});
     let asked = json!({"messages": [
@@ -167,20 +190,20 @@ async fn every_call_is_bound_to_its_card_and_asks_for_free_room() {
         stub.requests(),
         [
             free("GET", "/models/embed/props", Value::Null),
+            free("POST", "/models/embed/tokenize", counted),
             free(
                 "POST",
                 "/models/embed/v1/embeddings",
                 json!({"input": inputs()})
             ),
-            free("POST", "/models/embed/tokenize", counted),
             free("GET", "/models/rerank/props", Value::Null),
             free(
                 "POST",
                 "/models/rerank/v1/rerank",
                 json!({"query": "whale song", "documents": documents})
             ),
-            free("GET", "/models/answer/props", Value::Null),
-            free("POST", "/models/answer/v1/chat/completions", asked),
+            any_room("GET", "/models/answer/props", Value::Null),
+            any_room("POST", "/models/answer/v1/chat/completions", asked),
         ]
     );
 }
@@ -203,29 +226,24 @@ async fn a_card_the_server_does_not_match_is_refused_before_any_call() {
         ),
         (bare, "chat_template", TEMPLATE_DIGEST, "none"),
     ];
+    let question = [user("Do whales sing?")];
     for (props, property, recorded, reported) in cases {
         let stub = StubRouter::serve(vec![("/models/answer/props", props)]);
         let client = RouterClient::new(stub.base()).unwrap();
         let card = card(Role::Answerer);
-        let error = client
-            .chat(&card, &[user("Do whales sing?")])
-            .await
-            .unwrap_err();
-        let Error::CardMismatch {
-            card: refused,
-            property: found,
-            recorded: kept,
-            reported: given,
-        } = &error
-        else {
-            panic!("not a card mismatch: {error}");
-        };
-        assert_eq!(
-            (refused, *found, kept.as_str(), given.as_str()),
-            (card.digest(), property, recorded, reported)
+        let refused = (
+            card.digest().clone(),
+            property,
+            recorded.to_owned(),
+            reported.to_owned(),
         );
-        let checked = free("GET", "/models/answer/props", Value::Null);
-        assert_eq!(stub.requests(), [checked], "no call follows the check");
+        // A refused card is never taken as checked: its next call checks again.
+        let first = mismatch(client.chat(&card, Room::Any, &question).await);
+        let second = mismatch(client.chat(&card, Room::Any, &question).await);
+        assert_eq!([first, second], [refused.clone(), refused]);
+        let checked = any_room("GET", "/models/answer/props", Value::Null);
+        let requests = [checked.clone(), checked];
+        assert_eq!(stub.requests(), requests, "no call follows a check");
     }
 }
 
@@ -238,10 +256,10 @@ async fn a_card_is_checked_once_per_card_and_gateway() {
         ..fields(Role::Embedder)
     });
     for card in [&card, &card, &other] {
-        first.embed(card, &inputs()).await.unwrap();
+        first.embed(card, Room::Free, &inputs()).await.unwrap();
     }
     let second = RouterClient::new(stub.base()).unwrap();
-    second.embed(&card, &inputs()).await.unwrap();
+    second.embed(&card, Room::Free, &inputs()).await.unwrap();
     let paths: Vec<String> = stub
         .requests()
         .into_iter()
@@ -256,19 +274,38 @@ async fn insufficient_room_makes_the_model_unavailable_with_the_routers_reason()
     let reason = "'embed' was asked for with 'X-Model-Router-Room: free', and there is \
                   no free room for it: loading it would unload gemma3; nothing was unloaded";
     let full = refusal(503, "insufficient_room", reason);
-    // The check loads the model, so the router may refuse it as well as the call.
+    // The check loads the model, so the router may refuse it as well as the
+    // call. A refused check is made again at the next call; a passed one is
+    // not, even when its call is refused.
     let at_check = StubRouter::serve(vec![("/models/embed/props", full.clone())]);
-    let (_at_call, client) = serve("embed", "v1/embeddings", full);
-    let clients = [RouterClient::new(at_check.base()).unwrap(), client];
-    for client in clients {
-        let error = client
-            .embed(&card(Role::Embedder), &inputs())
-            .await
-            .unwrap_err();
-        assert!(
-            matches!(&error, Error::Unavailable { reason: given } if given == reason),
-            "{error}"
-        );
+    let at_call = StubRouter::serve(vec![
+        ("/models/embed/props", props(BUILD, TEMPLATE)),
+        ("/models/embed/v1/embeddings", full),
+    ]);
+    let check = free("GET", "/models/embed/props", Value::Null);
+    let call = free(
+        "POST",
+        "/models/embed/v1/embeddings",
+        json!({"input": inputs()}),
+    );
+    let cases = [
+        (at_check, vec![check.clone(), check.clone()]),
+        (at_call, vec![check, call.clone(), call]),
+    ];
+    for (stub, requests) in cases {
+        let client = RouterClient::new(stub.base()).unwrap();
+        let card = card(Role::Embedder);
+        for _ in 0..2 {
+            let error = client
+                .embed(&card, Room::Free, &inputs())
+                .await
+                .unwrap_err();
+            assert!(
+                matches!(&error, Error::Unavailable { reason: given } if given == reason),
+                "{error}"
+            );
+        }
+        assert_eq!(stub.requests(), requests);
     }
 }
 
@@ -350,20 +387,26 @@ async fn a_card_for_another_role_is_refused_before_any_request() {
     let question = [user("Do whales sing?")];
     let refusals = [
         (
-            client.embed(&reranker, &inputs()).await.unwrap_err(),
+            client
+                .embed(&reranker, Room::Free, &inputs())
+                .await
+                .unwrap_err(),
             &reranker,
             Role::Embedder,
         ),
         (
             client
-                .rerank(&embedder, "whale", &inputs())
+                .rerank(&embedder, Room::Free, "whale", &inputs())
                 .await
                 .unwrap_err(),
             &embedder,
             Role::Reranker,
         ),
         (
-            client.chat(&reranker, &question).await.unwrap_err(),
+            client
+                .chat(&reranker, Room::Any, &question)
+                .await
+                .unwrap_err(),
             &reranker,
             Role::Answerer,
         ),
@@ -383,9 +426,10 @@ async fn a_card_for_another_role_is_refused_before_any_request() {
 async fn no_input_and_no_document_need_no_request() {
     let stub = StubRouter::serve(Vec::new());
     let client = RouterClient::new(stub.base()).unwrap();
-    let vectors = client.embed(&card(Role::Embedder), &[]).await;
+    let vectors = client.embed(&card(Role::Embedder), Room::Free, &[]).await;
     assert!(vectors.unwrap().is_empty());
-    let scores = client.rerank(&card(Role::Reranker), "whale", &[]).await;
+    let reranker = card(Role::Reranker);
+    let scores = client.rerank(&reranker, Room::Free, "whale", &[]).await;
     assert!(scores.unwrap().is_empty());
     assert_eq!(stub.requests(), []);
 }
@@ -420,7 +464,7 @@ async fn a_chat_without_a_reply_is_refused() {
         let (_stub, client) = serve("answer", "v1/chat/completions", reply);
         let card = card(Role::Answerer);
         let error = client
-            .chat(&card, &[user("Do whales sing?")])
+            .chat(&card, Room::Any, &[user("Do whales sing?")])
             .await
             .unwrap_err();
         assert!(
@@ -436,7 +480,7 @@ async fn a_ranking_that_misses_a_document_is_refused() {
     let (_stub, client) = serve("rerank", "v1/rerank", answer(200, &partial));
     let documents = ["Ships sail.", "Whales sing."].map(str::to_owned);
     let error = client
-        .rerank(&card(Role::Reranker), "whale", &documents)
+        .rerank(&card(Role::Reranker), Room::Free, "whale", &documents)
         .await
         .unwrap_err();
     assert!(matches!(error, Error::InvalidAnswer { .. }), "{error}");
@@ -447,7 +491,7 @@ async fn a_router_that_hangs_up_is_a_transport_error() {
     let stub = StubRouter::serve(vec![("/models/embed/props", Reply::HangUp)]);
     let client = RouterClient::new(stub.base()).unwrap();
     let error = client
-        .embed(&card(Role::Embedder), &inputs())
+        .embed(&card(Role::Embedder), Room::Free, &inputs())
         .await
         .unwrap_err();
     assert!(matches!(error, Error::Transport(_)), "{error}");

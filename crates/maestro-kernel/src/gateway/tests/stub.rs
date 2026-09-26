@@ -49,6 +49,15 @@ pub(super) fn free(method: &str, path: &str, body: Value) -> Request {
     }
 }
 
+/// A request of `method` to `path` naming no room, as a call that may load
+/// its model into any room sends it, with `body`.
+pub(super) fn any_room(method: &str, path: &str, body: Value) -> Request {
+    Request {
+        room: None,
+        ..free(method, path, body)
+    }
+}
+
 /// A running stub.
 pub(super) struct StubRouter {
     /// Where it listens.

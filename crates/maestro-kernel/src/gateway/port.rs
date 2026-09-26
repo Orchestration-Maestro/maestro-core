@@ -8,13 +8,15 @@ use std::{error, fmt, future::Future, num::NonZeroUsize};
 
 /// The calls a model answers, each bound to the card of the model that
 /// answers it: an embedding needs an embedder's card, a reranking a
-/// reranker's and a chat an answerer's, while any card tokenizes.
+/// reranker's and a chat an answerer's, while any card tokenizes. Each call
+/// also names the [`Room`] its model may be loaded into.
 pub trait ModelPort {
     /// One vector per input, in the order of the inputs, each of the card's
     /// dimensions. No input needs no call.
     fn embed(
         &self,
         card: &ModelCard,
+        room: Room,
         inputs: &[String],
     ) -> impl Future<Output = Result<Vec<Vec<f32>>, Error>> + Send;
 
@@ -23,6 +25,7 @@ pub trait ModelPort {
     fn rerank(
         &self,
         card: &ModelCard,
+        room: Room,
         query: &str,
         documents: &[String],
     ) -> impl Future<Output = Result<Vec<f64>, Error>> + Send;
@@ -31,6 +34,7 @@ pub trait ModelPort {
     fn tokenize(
         &self,
         card: &ModelCard,
+        room: Room,
         text: &str,
     ) -> impl Future<Output = Result<Vec<u32>, Error>> + Send;
 
@@ -38,8 +42,22 @@ pub trait ModelPort {
     fn chat(
         &self,
         card: &ModelCard,
+        room: Room,
         messages: &[Message],
     ) -> impl Future<Output = Result<String, Error>> + Send;
+}
+
+/// Where a call lets the router load its model when the model is not loaded
+/// yet.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Room {
+    /// Only into free room: the router refuses the call, [`Error::Unavailable`],
+    /// rather than unload another model. Search calls use it, so that a search
+    /// never unloads a chat model (FR-S1-015a).
+    Free,
+    /// Anywhere the router can make room, unloading idle models as it does for
+    /// any request. `ask`'s answerer uses it.
+    Any,
 }
 
 /// Who says a message of a chat.
@@ -76,9 +94,9 @@ pub enum Error {
         /// The role the call needs.
         needed: Role,
     },
-    /// The model's server does not report what the card records, so the card
-    /// is refused before any call: read from `/props` once per card and
-    /// gateway, its build and, where the card records one, its chat template.
+    /// The model's server does not report what the card records, its build
+    /// and, where the card records one, its chat template, as `/props` gives
+    /// them: the card is refused before any call.
     CardMismatch {
         /// The card's digest.
         card: Digest,
@@ -90,8 +108,9 @@ pub enum Error {
         /// `none` when the server reports no template.
         reported: String,
     },
-    /// The router has no free room for the model (`503 insufficient_room`):
-    /// the route is unavailable, for the reason the router gives.
+    /// The router cannot make room for the model in the room the call names
+    /// (`503 insufficient_room`): the route is unavailable, for the reason
+    /// the router gives.
     Unavailable {
         /// The router's message.
         reason: String,

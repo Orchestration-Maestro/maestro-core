@@ -17,6 +17,6 @@ mod tests;
 
 pub use card::{CardError, CardFields, Limits, ModelCard, Role, RouterEntry, SuiteResult};
 pub use fake::FakeModels;
-pub use port::{Error, Message, ModelPort, Speaker};
+pub use port::{Error, Message, ModelPort, Room, Speaker};
 pub use reqwest::Url;
 pub use router::RouterClient;
