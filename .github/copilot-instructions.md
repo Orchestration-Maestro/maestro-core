@@ -159,12 +159,22 @@ in place.
 │   │   ├── TOKENIZER.md                                                     # Local GGUF tokenizer
 │   │   ├── VERIFICATION.md                                                  # Initial verification — 2026-09-21 (historical)
 │   │   └── tokenizer-contract.json                                          # JSON data: tokenizer contract
-│   └── maestro-conventions/                                                 # Maestro conventions
+│   ├── maestro-conventions/                                                 # Maestro conventions
+│   │   ├── src/                                                             # The crate's sources
+│   │   │   └── lib.rs                                                       # Helpers for the repository's policy tests: the files the repository holds
+│   │   ├── tests/                                                           # Integration tests
+│   │   │   └── policies.rs                                                  # The repository's policies, checked on every pull request by cargo test
+│   │   └── Cargo.toml                                                       # Crate manifest: Tests that hold the maestro-core repository to its own policies
+│   └── maestro-kernel/                                                      # Maestro kernel
 │       ├── src/                                                             # The crate's sources
-│       │   └── lib.rs                                                       # Helpers for the repository's policy tests: the files the repository holds
-│       ├── tests/                                                           # Integration tests
-│       │   └── policies.rs                                                  # The repository's policies, checked on every pull request by cargo test
-│       └── Cargo.toml                                                       # Crate manifest: Tests that hold the maestro-core repository to its own policies
+│       │   ├── artifact/                                                    # Content-addressed artifacts: immutable bytes stored, and read back, by their
+│       │   │   ├── digest.rs                                                # A SHA-256 digest: the name every artifact is stored under
+│       │   │   ├── mod.rs                                                   # Content-addressed artifacts: immutable bytes stored, and read back, by their
+│       │   │   ├── store.rs                                                 # The store: artifacts written once under their digest, read back checked
+│       │   │   └── tests.rs                                                 # Tests of the artifact store: digests, writes, repairs and refusals, with
+│       │   ├── lib.rs                                                       # The kernel of Maestro: the single authoritative store every later
+│       │   └── paths.rs                                                     # Where the kernel keeps its data: $XDG_DATA_HOME/maestro when that names an
+│       └── Cargo.toml                                                       # Crate manifest: The single authoritative store of Maestro, starting with its content-addressed artifacts
 ├── docs/                                                                    # Documentation
 │   ├── adr/                                                                 # Hard-to-reverse decisions, each with the trade-off that produced it
 │   │   ├── 0001-fresh-start-with-canonicalization-only.md                   # Fresh start: only the canonicalization crate is carried over
