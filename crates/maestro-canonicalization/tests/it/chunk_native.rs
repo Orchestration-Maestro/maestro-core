@@ -398,8 +398,8 @@ fn native_mandatory_context_is_not_clipped() {
 
 /// The native profile's parity fixtures, which maestro-knowledge's router
 /// tokenizer must match to qualify: the 41 complete inputs of the S0
-/// qualification, five of them made vendor-neutral, each with the ordered IDs
-/// this counter gave it. This counter alone records them.
+/// qualification, the eleven that named a vendor made neutral, each with the
+/// ordered IDs this counter gave it. This counter alone records them.
 const PARITY: &str = include_str!("../../../maestro-knowledge/src/prepare/native-parity.json");
 
 /// The parity fixtures' file.

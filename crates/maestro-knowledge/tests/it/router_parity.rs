@@ -6,10 +6,14 @@
 //! It reads `MAESTRO_ROUTER_URL`, where the router answers, such as
 //! `http://127.0.0.1:8080`; `MAESTRO_ROUTER_EMBEDDER`, the router's entry for
 //! the embedder, such as `embed`; and `MAESTRO_ROUTER_EMBEDDER_FILE`, the
-//! model file the router serves under it. The card it builds records that
-//! file's SHA-256 and the build the embedder's `/props` reports, as T030 will
-//! record the real cards. Every request asks for free room: the router
-//! refuses rather than unload another model.
+//! model file the router serves under it. It reads all three, and hashes the
+//! file, before its first request. The card it builds records that file's
+//! SHA-256 and the build the embedder's `/props` reports, as T030 will record
+//! the real cards.
+//!
+//! Every request asks for free room, which only a router with free room
+//! (T002, redeployed) honours: an older one ignores it, and may unload the
+//! chat model to load the embedder. Run it against no other.
 #![cfg(test)]
 
 use maestro_canonicalization::TokenCounter;
@@ -78,17 +82,21 @@ fn file_digest(path: &str) -> Digest {
 }
 
 #[test]
-#[ignore = "requires the model router serving the native profile's embedder; run explicitly"]
+#[ignore = "needs a model router with free room (T002 redeployed): an older one may unload the \
+            chat model; run explicitly"]
 fn the_router_gives_every_parity_fixture_the_native_ids() {
     let base = Url::parse(&required("MAESTRO_ROUTER_URL")).unwrap();
     let entry = RouterEntry::parse(&required("MAESTRO_ROUTER_EMBEDDER")).unwrap();
+    let model_file = file_digest(&required("MAESTRO_ROUTER_EMBEDDER_FILE"));
+    // The first request, once every variable is read and the file hashed.
+    let server_build = server_build(&base, &entry);
     // BGE-M3's dimensions and context: only the native profile's model can
     // give the goldens.
     let fields = CardFields {
         role: Role::Embedder,
-        server_build: server_build(&base, &entry),
+        server_build,
         router_entry: entry,
-        file_digest: file_digest(&required("MAESTRO_ROUTER_EMBEDDER_FILE")),
+        file_digest: model_file,
         template_digest: None,
         dimensions: NonZeroUsize::new(1024),
         limits: Limits {

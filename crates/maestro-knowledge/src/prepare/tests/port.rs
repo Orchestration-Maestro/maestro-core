@@ -7,6 +7,7 @@ use super::super::parity::fixtures;
 use maestro_kernel::gateway::{Error, FakeModels, Message, ModelCard, ModelPort, Room};
 use std::{
     collections::HashMap,
+    future,
     sync::{Arc, Mutex},
 };
 
@@ -20,6 +21,9 @@ pub(super) enum Answer {
     Unavailable,
     /// A panic, which stops the thread that calls the port.
     Panic,
+    /// No answer ever, as from a router that accepts the connection and
+    /// never replies.
+    Never,
 }
 
 /// The port. Its clones share their answers and calls, so a test keeps one
@@ -96,6 +100,7 @@ impl ModelPort for Goldens {
                 reason: "no free room for 1280 MiB".to_owned(),
             }),
             (Some(Answer::Panic), _) => panic!("the port broke off"),
+            (Some(Answer::Never), _) => future::pending().await,
             (None, Some(golden)) => Ok(golden.clone()),
             (None, None) => FakeModels.tokenize(card, room, text).await,
         }

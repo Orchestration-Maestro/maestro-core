@@ -4,7 +4,7 @@ use maestro_kernel::{
     artifact::Digest,
     gateway::{self, Role},
 };
-use std::{error, fmt, io};
+use std::{error, fmt, io, time::Duration};
 
 /// Why a router tokenizer refuses to qualify, or to count.
 #[derive(Debug)]
@@ -36,6 +36,12 @@ pub enum TokenizerError {
         native: Vec<u32>,
         /// The router's IDs.
         router: Vec<u32>,
+    },
+    /// The port did not answer within the deadline: the call was abandoned,
+    /// and the next one is answered as usual.
+    TimedOut {
+        /// The deadline.
+        after: Duration,
     },
     /// The parity fixtures built into this crate are not valid JSON of their
     /// shape.
@@ -84,6 +90,9 @@ impl fmt::Display for TokenizerError {
                 "the router's IDs for the parity fixture {fixture} differ from those of the \
                  native counter: native {native:?}, router {router:?}"
             ),
+            Self::TimedOut { after } => {
+                write!(formatter, "the router did not tokenize within {after:?}")
+            }
             Self::Fixtures(error) => write!(
                 formatter,
                 "the parity fixtures built into maestro-knowledge are not valid: {error}"
@@ -106,6 +115,7 @@ impl error::Error for TokenizerError {
             Self::NotAnEmbedder { .. }
             | Self::Unavailable { .. }
             | Self::Disagreement { .. }
+            | Self::TimedOut { .. }
             | Self::Stopped => None,
         }
     }

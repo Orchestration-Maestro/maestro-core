@@ -1,8 +1,9 @@
 //! The native profile's parity fixtures, `native-parity.json`: complete
 //! inputs, each with the ordered IDs the native counter gives it. Only the
 //! native counter records them, maestro-canonicalization's `NativeTokenizer`
-//! under the contract ID the file's `profile` names, and `just native` fails
-//! when the live native counter disagrees with any of them.
+//! under the contract ID the file's `profile` names. A test fails when that
+//! ID is not the committed native profile's, and `just native` when the live
+//! native counter disagrees with any of them.
 //!
 //! A fixture is a JSON object: its `name`; its `input`, the concatenation of
 //! its parts; its `ids`, the concatenation of its runs; and `canary`, true
@@ -66,7 +67,7 @@ fn expand<T: Clone>(runs: Vec<Run<T>>) -> impl Iterator<Item = T> {
     })
 }
 
-/// The file as it is written; its `profile` is the native test's to check.
+/// The file as it is written; its `profile` is the tests' to check.
 #[derive(Deserialize)]
 struct ParityJson {
     /// The fixtures, in their order.

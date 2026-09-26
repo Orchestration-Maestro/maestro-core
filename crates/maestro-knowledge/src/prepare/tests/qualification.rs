@@ -4,7 +4,7 @@
 use super::{
     super::{RouterTokenizer, TokenizerError, parity::fixtures},
     port::{Answer, Goldens},
-    support::{BUILD, MODEL_FILE, OTHER_FILE, card, embedder},
+    support::{BUILD, MODEL_FILE, OTHER_FILE, SHORT_DEADLINE, card, embedder},
 };
 use maestro_canonicalization::TokenCounter;
 use maestro_kernel::gateway::{Role, Room};
@@ -24,8 +24,8 @@ fn a_port_that_answers_the_native_goldens_qualifies_after_every_fixture() {
     assert_eq!(
         texts[40],
         format!(
-            "# Control-M 9.0.22\n\n## Server / SSL\n\n{}",
-            "a ".repeat(688)
+            "# Relay-X 4.2.17\n\n## Server / SSL\n\n{}",
+            "a ".repeat(687)
         )
     );
     assert_eq!(port.rooms(), [Room::Free; 41]);
@@ -35,34 +35,45 @@ fn a_port_that_answers_the_native_goldens_qualifies_after_every_fixture() {
 fn a_port_that_differs_on_any_one_fixture_is_refused_naming_it() {
     let mut refused = 0;
     for fixture in fixtures().unwrap() {
-        let port = Goldens::new();
-        let mut answered = fixture.ids.clone();
-        answered.insert(1, 6);
-        port.answer(&fixture.input, Answer::Ids(answered.clone()));
-        match RouterTokenizer::qualify(port, embedder()) {
-            Err(TokenizerError::Disagreement {
-                fixture: name,
-                input,
-                native,
-                router,
-            }) => {
-                assert_eq!(name, fixture.name);
-                assert_eq!(input, fixture.input, "{name}");
-                assert_eq!(native, fixture.ids, "{name}");
-                assert_eq!(router, answered, "{name}");
+        // The same IDs in the reverse order, so the same count; all of them
+        // but the last, a prefix; and one more.
+        let mut reversed = fixture.ids.clone();
+        reversed.reverse();
+        let prefix = fixture.ids[..fixture.ids.len() - 1].to_vec();
+        let mut longer = fixture.ids.clone();
+        longer.insert(1, 6);
+        for answered in [reversed, prefix, longer] {
+            let port = Goldens::new();
+            port.answer(&fixture.input, Answer::Ids(answered.clone()));
+            match RouterTokenizer::qualify(port, embedder()) {
+                Err(TokenizerError::Disagreement {
+                    fixture: name,
+                    input,
+                    native,
+                    router,
+                }) => {
+                    assert_eq!(name, fixture.name);
+                    assert_eq!(input, fixture.input, "{name}");
+                    assert_eq!(native, fixture.ids, "{name}");
+                    assert_eq!(router, answered, "{name}");
+                }
+                other => panic!("{} answered {answered:?}: {other:?}", fixture.name),
             }
-            other => panic!("{}: {other:?}", fixture.name),
+            refused += 1;
         }
-        refused += 1;
     }
-    assert_eq!(refused, 41);
+    assert_eq!(refused, 3 * 41);
 }
 
 #[test]
 fn qualification_stops_at_the_first_disagreement() {
     let port = Goldens::new();
-    port.answer("a\0b", Answer::Ids(vec![0, 10, 275, 2]));
-    port.answer("café naïve Ångström", Answer::Ids(vec![0, 26216, 2]));
+    // Each golden with two of its IDs swapped: the same IDs, in another order.
+    port.answer("a\0b", Answer::Ids(vec![0, 10, 275, 3, 2]));
+    port.answer(
+        "café naïve Ångström",
+        Answer::Ids(vec![0, 26216, 9392, 24, 272, 8839, 449, 30011, 2]),
+    );
     let refused = RouterTokenizer::qualify(port.clone(), embedder()).unwrap_err();
     let TokenizerError::Disagreement {
         fixture,
@@ -76,9 +87,24 @@ fn qualification_stops_at_the_first_disagreement() {
     assert_eq!(fixture, "nfc");
     assert_eq!(input, "café naïve Ångström");
     assert_eq!(native, [0, 26216, 24, 9392, 272, 8839, 449, 30011, 2]);
-    assert_eq!(router, [0, 26216, 2]);
+    assert_eq!(router, [0, 26216, 9392, 24, 272, 8839, 449, 30011, 2]);
     // `nfc` is the ninth fixture, `nul` the seventeenth: never asked.
     assert_eq!(port.texts().len(), 9);
+}
+
+#[test]
+fn a_port_that_never_answers_refuses_to_qualify_at_the_deadline() {
+    let port = Goldens::new();
+    port.answer("Hello world", Answer::Never);
+    let refused =
+        RouterTokenizer::qualify_within(port.clone(), embedder(), SHORT_DEADLINE).unwrap_err();
+    let TokenizerError::TimedOut { after } = refused else {
+        panic!("{refused:?}");
+    };
+    assert_eq!(after, SHORT_DEADLINE);
+    // The empty input, then `Hello world`, which never answered: nothing
+    // after it was asked.
+    assert_eq!(port.texts(), ["", "Hello world"]);
 }
 
 #[test]

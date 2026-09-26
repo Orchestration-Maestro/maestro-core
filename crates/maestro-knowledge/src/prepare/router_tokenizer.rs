@@ -9,6 +9,11 @@ use super::{
 };
 use maestro_canonicalization::{Error, TokenCounter};
 use maestro_kernel::gateway::{ModelCard, ModelPort, Role};
+use std::time::Duration;
+
+/// How long one call to the port may take: long enough for the router to
+/// load the embedder into free room from cold, then tokenize.
+const DEADLINE: Duration = Duration::from_secs(60);
 
 /// Counts tokens as one embedder counts them, through the model router's
 /// `/tokenize` for the embedder's model card (ADR-0008).
@@ -26,9 +31,19 @@ use maestro_kernel::gateway::{ModelCard, ModelPort, Role};
 /// changes under the same card is refused although the gateway checks a card
 /// only once.
 ///
+/// Through `TokenCounter`, a refusal is text. [`RouterTokenizer::check`] and
+/// [`RouterTokenizer::count`] are `verify` and `token_ids` with their refusals
+/// typed: when `chunk_documents` refuses a batch, `check` tells an embedder
+/// that does not fit in free room for now, [`TokenizerError::Unavailable`],
+/// from a model or a build that changed under the card,
+/// [`TokenizerError::Disagreement`].
+///
 /// The model port is asynchronous and a `TokenCounter` is not: the port's
-/// calls run on a thread of the tokenizer's own, which a caller may reach
-/// from a plain thread or from inside a runtime.
+/// calls run on a thread of the tokenizer's own, each within 60 s, so that
+/// none waits forever on a router that never answers. A call blocks its
+/// caller until the answer or the deadline. It never panics inside a
+/// runtime, but it holds that runtime's thread: from async code, call it
+/// through `tokio::task::spawn_blocking`.
 #[derive(Debug)]
 pub struct RouterTokenizer {
     /// `router/1:sha256:<the card's digest>`.
@@ -49,8 +64,22 @@ impl RouterTokenizer {
     /// [`TokenizerError::NotAnEmbedder`] for any other card, before any call;
     /// [`TokenizerError::Disagreement`] for the first fixture whose IDs
     /// differ; [`TokenizerError::Unavailable`] when the embedder does not fit
-    /// in free room, and any other refusal of the port.
+    /// in free room; [`TokenizerError::TimedOut`] for a call the port did not
+    /// answer within 60 s, and any other refusal of the port.
     pub fn qualify<P>(port: P, card: ModelCard) -> Result<Self, TokenizerError>
+    where
+        P: ModelPort + Send + 'static,
+    {
+        Self::qualify_within(port, card, DEADLINE)
+    }
+
+    /// [`RouterTokenizer::qualify`], with each call to the port within
+    /// `deadline` rather than [`DEADLINE`], which tests cannot wait out.
+    pub(super) fn qualify_within<P>(
+        port: P,
+        card: ModelCard,
+        deadline: Duration,
+    ) -> Result<Self, TokenizerError>
     where
         P: ModelPort + Send + 'static,
     {
@@ -63,7 +92,7 @@ impl RouterTokenizer {
         }
         let fixtures = fixtures().map_err(TokenizerError::Fixtures)?;
         let contract_id = format!("router/1:sha256:{}", card.digest().as_str());
-        let bridge = Bridge::start(port, card)?;
+        let bridge = Bridge::start(port, card, deadline)?;
         agree(&bridge, &fixtures)?;
         Ok(Self {
             contract_id,
@@ -73,6 +102,31 @@ impl RouterTokenizer {
                 .collect(),
             bridge,
         })
+    }
+
+    /// Tokenizes the canary fixtures again, as the router does now: `verify`,
+    /// with its refusal typed.
+    ///
+    /// # Errors
+    ///
+    /// [`TokenizerError::Disagreement`] for the first canary whose IDs
+    /// changed since qualification; [`TokenizerError::Unavailable`] when the
+    /// embedder does not fit in free room; [`TokenizerError::TimedOut`] and
+    /// any other refusal of the port.
+    pub fn check(&self) -> Result<(), TokenizerError> {
+        agree(&self.bridge, &self.canaries)
+    }
+
+    /// The router's ordered token IDs for the complete `input`, as given,
+    /// special tokens included, without padding or truncation: `token_ids`,
+    /// with its refusal typed.
+    ///
+    /// # Errors
+    ///
+    /// [`TokenizerError::Unavailable`] when the embedder does not fit in free
+    /// room; [`TokenizerError::TimedOut`] and any other refusal of the port.
+    pub fn count(&self, input: &str) -> Result<Vec<u32>, TokenizerError> {
+        self.bridge.tokenize(input)
     }
 }
 
@@ -93,8 +147,8 @@ fn agree(bridge: &Bridge, fixtures: &[Fixture]) -> Result<(), TokenizerError> {
     Ok(())
 }
 
-/// The chunker's refusal for `error`: its text, since a count's refusal
-/// holds no type of its own.
+/// The chunker's refusal for `error`: its text, since the chunker's error
+/// holds text only; `check` and `count` keep the type.
 fn refusal(error: &TokenizerError) -> Error {
     Error(error.to_string())
 }
@@ -105,24 +159,23 @@ impl TokenCounter for RouterTokenizer {
         &self.contract_id
     }
 
-    /// Tokenizes the canary fixtures again, as the router does now.
+    /// [`RouterTokenizer::check`], its refusal as text.
     ///
     /// # Errors
     ///
     /// Refuses the first canary whose IDs changed since qualification, and
     /// any refusal of the port.
     fn verify(&self) -> Result<(), Error> {
-        agree(&self.bridge, &self.canaries).map_err(|error| refusal(&error))
+        self.check().map_err(|error| refusal(&error))
     }
 
-    /// The router's ordered token IDs for the complete `input`, special
-    /// tokens included, without padding or truncation.
+    /// [`RouterTokenizer::count`], its refusal as text.
     ///
     /// # Errors
     ///
     /// Any refusal of the port, an embedder that does not fit in free room
-    /// among them.
+    /// and a call past the deadline among them.
     fn token_ids(&self, input: &str) -> Result<Vec<u32>, Error> {
-        self.bridge.tokenize(input).map_err(|error| refusal(&error))
+        self.count(input).map_err(|error| refusal(&error))
     }
 }

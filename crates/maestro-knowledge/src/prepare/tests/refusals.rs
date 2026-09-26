@@ -5,10 +5,10 @@ use super::{
     support::{MODEL_FILE, digest},
 };
 use maestro_kernel::gateway::{self, Role};
-use std::{error::Error as _, io};
+use std::{error::Error as _, io, time::Duration};
 
 /// A refusal of each kind.
-fn every_refusal() -> [TokenizerError; 7] {
+fn every_refusal() -> [TokenizerError; 8] {
     [
         TokenizerError::NotAnEmbedder {
             card: digest(MODEL_FILE),
@@ -27,6 +27,9 @@ fn every_refusal() -> [TokenizerError; 7] {
             input: "a\0b".to_owned(),
             native: vec![0, 10, 3, 275, 2],
             router: vec![0, 10, 275, 2],
+        },
+        TokenizerError::TimedOut {
+            after: Duration::from_secs(60),
         },
         TokenizerError::Fixtures(serde_json::from_str::<u32>("x").unwrap_err()),
         TokenizerError::Start(io::Error::other("no thread left")),
@@ -48,6 +51,7 @@ fn every_refusal_says_what_it_refuses() {
             "the router did not tokenize: refused with 500: boom",
             "the router's IDs for the parity fixture nul differ from those of the native \
              counter: native [0, 10, 3, 275, 2], router [0, 10, 275, 2]",
+            "the router did not tokenize within 60s",
             "the parity fixtures built into maestro-knowledge are not valid: expected value at \
              line 1 column 1",
             "the tokenizer's thread could not start: no thread left",
@@ -68,6 +72,7 @@ fn a_refusal_keeps_the_cause_it_wraps() {
             None,
             None,
             Some("refused with 500: boom".to_owned()),
+            None,
             None,
             Some("expected value at line 1 column 1".to_owned()),
             Some("no thread left".to_owned()),

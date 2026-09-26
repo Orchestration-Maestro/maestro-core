@@ -1,5 +1,6 @@
 //! What the router tokenizer's tests share: model cards, recorded in a
-//! scratch store that is gone once they are made.
+//! scratch store that is gone once they are made, and a deadline a test can
+//! wait out.
 
 use maestro_kernel::{
     artifact::{Digest, Store},
@@ -10,6 +11,7 @@ use std::{
     num::{NonZeroU32, NonZeroUsize},
     process,
     sync::atomic::{AtomicUsize, Ordering},
+    time::Duration,
 };
 
 /// The llama.cpp build the stub router's embedder reports.
@@ -20,6 +22,9 @@ pub(super) const MODEL_FILE: &str =
 /// Another model file's digest, SHA-256 of `another model file`.
 pub(super) const OTHER_FILE: &str =
     "dfb5dcc5de5d764a869a534c112278852326fa24ba93e2c13dac6886876c3fd2";
+/// A deadline short enough for a test to wait out, and long enough for the
+/// goldens port, which answers at once, to answer every call within it.
+pub(super) const SHORT_DEADLINE: Duration = Duration::from_millis(500);
 
 /// The digest `hex` names.
 pub(super) fn digest(hex: &str) -> Digest {

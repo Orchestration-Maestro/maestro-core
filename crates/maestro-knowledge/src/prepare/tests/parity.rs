@@ -1,7 +1,8 @@
-//! The parity fixtures: how their file writes them, and what the built-in
-//! set holds.
+//! The parity fixtures: how their file writes them, what the built-in set
+//! holds, and the native profile it was recorded under.
 
 use super::super::parity::{Fixture, fixtures, parse};
+use serde_json::Value;
 
 #[test]
 fn parts_and_runs_repeat_as_many_times_as_they_say() {
@@ -83,4 +84,19 @@ fn the_built_in_fixtures_count_every_boundary_in_full() {
         ]
     );
     assert_eq!(fixtures.len(), 41);
+}
+
+#[test]
+fn the_goldens_were_recorded_under_the_committed_native_profile() {
+    // A new native profile needs its goldens recorded again: until then,
+    // they are no longer the native counter's.
+    let recorded: Value = serde_json::from_str(include_str!("../native-parity.json")).unwrap();
+    let native: Value = serde_json::from_str(include_str!(
+        "../../../../maestro-canonicalization/tokenizer-contract.json"
+    ))
+    .unwrap();
+    assert_eq!(
+        recorded["profile"].as_str().unwrap(),
+        native["contract_id"].as_str().unwrap()
+    );
 }
