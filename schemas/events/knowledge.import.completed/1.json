@@ -7,7 +7,7 @@
       "type": "string"
     },
     "held": {
-      "description": "How many entries it recorded as new revisions and held back from indexing.",
+      "description": "How many entries it held back from indexing, their revisions new or recorded before.",
       "format": "uint64",
       "minimum": 0,
       "type": "integer"

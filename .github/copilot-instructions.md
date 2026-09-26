@@ -186,6 +186,7 @@ in place.
 │   │   │   │   └── tests.rs                                                 # Tests of the capability registry: declarations, refusals and order
 │   │   │   ├── document/                                                    # The pipeline's document records (building block B5; docs/architecture/01
 │   │   │   │   ├── tests/                                                   # Tests of the document records: the documents migration, collections
+│   │   │   │   │   ├── dispositions.rs                                      # Quality dispositions: one per revision, kept once given, read in scope, a hold journaled with it
 │   │   │   │   │   ├── errors.rs                                            # What the document records' refusals say, and the store's refusals they
 │   │   │   │   │   ├── mod.rs                                               # Tests of the document records: the documents migration, collections
 │   │   │   │   │   ├── parents.rs                                           # Collections, their sources and their documents: collections and sources
@@ -193,6 +194,7 @@ in place.
 │   │   │   │   │   ├── schema.rs                                            # The documents migration: the ten pipeline tables of 01 §11, all strict
 │   │   │   │   │   └── support.rs                                           # What the record tests share: a scratch database, and the collection
 │   │   │   │   ├── collection.rs                                            # Collections, the sources they declare and the documents those sources
+│   │   │   │   ├── disposition.rs                                           # Quality dispositions: one per revision, kept once given, a hold journaled in the same write
 │   │   │   │   ├── error.rs                                                 # Why the kernel refused to record a collection, a source, a document or a revision
 │   │   │   │   ├── mod.rs                                                   # The pipeline's document records (building block B5; docs/architecture/01
 │   │   │   │   └── revision.rs                                              # Revisions: one exact version of a document's bytes and metadata, recorded
@@ -318,6 +320,18 @@ in place.
 │   │   └── Cargo.toml                                                       # Crate manifest: The single authoritative store of Maestro, starting with its content-addressed artifacts
 │   └── maestro-knowledge/                                                   # Maestro knowledge
 │       ├── src/                                                             # The crate's sources
+│       │   ├── import/                                                      # Importing a collection's corpus through its maestro-corpus/1 manifests
+│       │   │   ├── tests/                                                   # Tests of the import that reach inside it: its manifest lines, and its streaming, proven by an in-memory corpus
+│       │   │   │   ├── lines.rs                                             # A manifest read one numbered line at a time, until it ends
+│       │   │   │   ├── mod.rs                                               # Tests of the import that reach inside it: its manifest lines, and its streaming, proven by an in-memory corpus
+│       │   │   │   └── streaming.rs                                         # The import holds one manifest line and one document at a time
+│       │   │   ├── collection.rs                                            # Importing a collection: its declaration recorded, each source's manifest imported, its completion journaled
+│       │   │   ├── corpus.rs                                                # Where an import reads a source's corpus: its manifest, and each document relative to it
+│       │   │   ├── entry.rs                                                 # Importing one entry: its document checked, canonicalized, stored and recorded, or held
+│       │   │   ├── error.rs                                                 # Why an import stopped, before any work or part way
+│       │   │   ├── mod.rs                                                   # Importing a collection's corpus through its maestro-corpus/1 manifests
+│       │   │   ├── report.rs                                                # What an import reports: its counts, and why it refused each entry it refused
+│       │   │   └── source.rs                                                # Importing one source's manifest: shared source_refs found first, then each line in turn
 │       │   ├── lexical/                                                     # The lexical analyzer of the BM25 route, profile bm25-en-fr/1: it turns a
 │       │   │   ├── analyzer.rs                                              # The profile's name and the terms of a text
 │       │   │   ├── fold.rs                                                  # Folding: a text without its accents, before any other rule reads it
@@ -352,6 +366,16 @@ in place.
 │       │   └── suite.rs                                                     # An evaluation suite: maestro-suite/1, one JSON line per question, which
 │       ├── tests/                                                           # Integration tests
 │       │   └── it/                                                          # It
+│       │       ├── import_contract/                                         # The import of corpus manifests (T019): refusals, holds, idempotency, identity, report, synthetic collection
+│       │       │   ├── document_identity.rs                                 # A document's identity: its collection and source_ref hashed, its path relative to the manifest
+│       │       │   ├── held_pairs.rs                                        # Lines sharing a source_ref with different digests: both revisions recorded, both held
+│       │       │   ├── import_rate.rs                                       # The import rate on 2,000 generated documents, measured on demand
+│       │       │   ├── import_report.rs                                     # What an import reports, as JSON and as import.completed, and what stops it before any work
+│       │       │   ├── mod.rs                                               # The import of corpus manifests (T019): refusals, holds, idempotency, identity, report, synthetic collection
+│       │       │   ├── refused_entries.rs                                   # Refusals, each with its line and reason, and the import goes on
+│       │       │   ├── repeated_imports.rs                                  # An import is idempotent: a second one writes nothing, a change of metadata gives a new revision
+│       │       │   ├── support.rs                                           # What the import's tests share: a scratch corpus and database, declarations, and the kernel read whole
+│       │       │   └── synthetic_corpus.rs                                  # The public synthetic collection (T014) imported end to end
 │       │       ├── collection_contract.rs                                   # maestro-collection/1: a strict declaration parses into typed values; an
 │       │       ├── corpus_contract.rs                                       # maestro-corpus/1: one line per document parses into typed values; an
 │       │       ├── lexical_accents.rs                                       # Properties of bm25-en-fr/1 over generated texts: a text and the same

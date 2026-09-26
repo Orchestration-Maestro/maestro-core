@@ -84,7 +84,7 @@ pub struct ImportCompleted {
     pub imported: u64,
     /// How many entries it found recorded already, as they are.
     pub unchanged: u64,
-    /// How many entries it recorded as new revisions and held back from indexing.
+    /// How many entries it held back from indexing, their revisions new or recorded before.
     pub held: u64,
     /// How many entries it refused, each with its reason in the import's report.
     pub refused: u64,

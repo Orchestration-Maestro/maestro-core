@@ -72,6 +72,29 @@ path = "crates/maestro-kernel/src/journal/mod.rs"
 item = "Filter"
 reason = "the journal's public filter, which every reader of a stream names: jobs first, then the binary's job wait (T022)"
 
+# The public knowledge events, which the quality dispositions alone journal
+# inside the kernel for now: maestro-knowledge's import journals them too,
+# which the rule does not count. The publication's write (T028) records its
+# generation events on the collection's stream, a second caller in the crate
+# that removes the exception for `stream` when the rule reports it stale.
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-kernel/src/journal/mod.rs"
+item = "HeldDisposition"
+reason = "the public knowledge event catalogue: a disposition that holds its revision journals revision.held, and other crates journal the other events"
+
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-kernel/src/journal/mod.rs"
+item = "RevisionHeld"
+reason = "the public knowledge event catalogue: a disposition that holds its revision journals revision.held, and other crates journal the other events"
+
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-kernel/src/journal/mod.rs"
+item = "stream"
+reason = "every knowledge event is recorded on its collection's stream: the dispositions now, then the publication's generation events (T028)"
+
 # The name rule of scopes is public: maestro-knowledge's parser applies it to
 # every collection and source id, which the rule does not count, and the
 # kernel's record writers apply it again. A second caller in the crate removes

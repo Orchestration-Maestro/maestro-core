@@ -61,13 +61,15 @@ impl RevisionStatus {
     }
 }
 
-/// What recording a revision did.
+/// What recording a revision, or a quality disposition, did.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Recorded {
-    /// The revision is new: it is recorded and its two artifacts pinned.
+    /// The record is new: a revision is recorded and its two artifacts
+    /// pinned, a disposition recorded and journaled if it holds its revision
+    /// back.
     New,
-    /// The revision was recorded before with the same content: nothing was
-    /// written.
+    /// It was recorded before, a revision with the same content, a
+    /// disposition with any: nothing was written.
     Unchanged,
 }
 
@@ -82,10 +84,7 @@ impl Database {
     /// and [`Error::Store`] when an artifact or its document is not recorded
     /// or the database cannot record it: nothing is recorded then.
     pub fn record_revision(&self, revision: &Revision) -> Result<Recorded, Error> {
-        self.write(|transaction| match find(transaction, None, &revision.id)? {
-            Some(recorded) => record_again(recorded, revision),
-            None => insert(transaction, revision),
-        })
+        self.write(|transaction| record(transaction, revision))
     }
 
     /// The revision `id`, if it is recorded, whatever its status, and
@@ -123,6 +122,18 @@ impl Database {
             .query_map(params![collection_id, scopes.parameter()], revision_row)?
             .collect::<Result<_, _>>()?;
         Ok(revisions)
+    }
+}
+
+/// Records `revision` inside `transaction`, as [`Database::record_revision`]
+/// does in a write of its own.
+pub(super) fn record(
+    transaction: &Transaction<'_>,
+    revision: &Revision,
+) -> Result<Recorded, Error> {
+    match find(transaction, None, &revision.id)? {
+        Some(recorded) => record_again(recorded, revision),
+        None => insert(transaction, revision),
     }
 }
 
