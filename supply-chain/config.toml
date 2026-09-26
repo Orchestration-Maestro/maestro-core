@@ -66,6 +66,10 @@ criteria = "safe-to-deploy"
 version = "0.11.3"
 criteria = "safe-to-deploy"
 
+[[exemptions.dyn-clone]]
+version = "1.0.20"
+criteria = "safe-to-deploy"
+
 [[exemptions.find-msvc-tools]]
 version = "0.1.14"
 criteria = "safe-to-deploy"
@@ -206,6 +210,14 @@ criteria = "safe-to-deploy"
 version = "0.10.1"
 criteria = "safe-to-deploy"
 
+[[exemptions.ref-cast]]
+version = "1.0.27"
+criteria = "safe-to-deploy"
+
+[[exemptions.ref-cast-impl]]
+version = "1.0.27"
+criteria = "safe-to-deploy"
+
 [[exemptions.reqwest]]
 version = "0.13.5"
 criteria = "safe-to-deploy"
@@ -226,6 +238,14 @@ criteria = "safe-to-deploy"
 version = "1.0.23"
 criteria = "safe-to-deploy"
 
+[[exemptions.schemars]]
+version = "1.2.2"
+criteria = "safe-to-deploy"
+
+[[exemptions.schemars_derive]]
+version = "1.2.2"
+criteria = "safe-to-deploy"
+
 [[exemptions.serde]]
 version = "1.0.229"
 criteria = "safe-to-deploy"
@@ -236,6 +256,10 @@ criteria = "safe-to-deploy"
 
 [[exemptions.serde_derive]]
 version = "1.0.229"
+criteria = "safe-to-deploy"
+
+[[exemptions.serde_derive_internals]]
+version = "0.30.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.serde_json]]

@@ -223,15 +223,23 @@ in place.
 │   │   │   │   ├── tests/                                                   # Tests of the journal: its events and their streams, its cursors, and what
 │   │   │   │   │   ├── append_only.rs                                       # The journal is append-only: the database itself refuses to update, delete
 │   │   │   │   │   ├── child.rs                                             # Not a test of its own: what the child processes of the crash and
+│   │   │   │   │   ├── compatibility.rs                                     # The compatibility check's rules on small schemas: what it refuses as a narrowing, what it lets through
 │   │   │   │   │   ├── concurrency.rs                                       # Writers together: threads sharing the database and processes of their own
 │   │   │   │   │   ├── crash.rs                                             # A crash: the event a process committed before it is read after the
 │   │   │   │   │   ├── cursors.rs                                           # Cursors: where each consumer stands in each stream, moved forward only
+│   │   │   │   │   ├── envelope.rs                                          # The envelope: an event read back from the journal as its CloudEvents 1.0 envelope
 │   │   │   │   │   ├── events.rs                                            # Events: the ID and the sequence recording gives them, the event it
 │   │   │   │   │   ├── mod.rs                                               # Tests of the journal: its events and their streams, its cursors, and what
-│   │   │   │   │   └── support.rs                                           # What the journal tests share: a scratch data directory, the events they
+│   │   │   │   │   ├── narrowing.rs                                         # The compatibility check: what a fresh event schema removes or narrows of the committed one
+│   │   │   │   │   ├── schemas.rs                                           # The committed event schemas: generated from their types, never narrowed, followed by the data, and the command that regenerates them
+│   │   │   │   │   ├── subset.rs                                            # What the check and the validator read of a schema: the subset of JSON Schema schemars generates
+│   │   │   │   │   ├── support.rs                                           # What the journal tests share: a scratch data directory, the events they
+│   │   │   │   │   └── validation.rs                                        # A validator of data against the committed event schemas, over the subset schemars generates
 │   │   │   │   ├── cursor.rs                                                # Cursors: how far each consumer has read each stream, moved forward only
+│   │   │   │   ├── envelope.rs                                              # Events as they leave the kernel: the CloudEvents 1.0 envelope, and the machine its source names
 │   │   │   │   ├── error.rs                                                 # Why the journal refused an operation
 │   │   │   │   ├── event.rs                                                 # Events: recorded with a new ID and the next sequence of their stream
+│   │   │   │   ├── knowledge.rs                                             # The public knowledge events: the data of each, and the catalogue naming the schema each follows
 │   │   │   │   └── mod.rs                                                   # The journal: every change the kernel makes, recorded as an event in one
 │   │   │   ├── scope/                                                       # Scopes and grants: who may see what (docs/architecture/04 §3, building
 │   │   │   │   ├── tests/                                                   # Tests of scopes: their paths and names, what a grant covers, the grants
@@ -344,6 +352,17 @@ in place.
 │       ├── engineering.md                                                   # Engineering rules in maestro-core
 │       ├── northstar.md                                                     # Northstar for maestro-core
 │       └── security.md                                                      # Security rules in maestro-core
+├── schemas/                                                                 # The JSON Schemas this repository publishes, each generated from its Rust type
+│   └── events/                                                              # The JSON Schema of each public event's data (07 §3.2), generated from its Rust type in journal/knowledge.rs
+│       ├── knowledge.generation.published/                                  # The schemas of maestro.knowledge.generation.published, one file per major version
+│       │   └── 1.json                                                       # A generation of a collection was published: searches read it from now on
+│       ├── knowledge.generation.retired/                                    # The schemas of maestro.knowledge.generation.retired, one file per major version
+│       │   └── 1.json                                                       # A published generation was retired: no search reads it, and it is kept for rollback
+│       ├── knowledge.import.completed/                                      # The schemas of maestro.knowledge.import.completed, one file per major version
+│       │   └── 1.json                                                       # An import of a collection's corpus manifest completed: what it did with its entries
+│       ├── knowledge.revision.held/                                         # The schemas of maestro.knowledge.revision.held, one file per major version
+│       │   └── 1.json                                                       # The quality gate held a revision back: it is not indexed
+│       └── README.md                                                        # The JSON Schema of each public event's data (07 §3.2), generated from its Rust type in journal/knowledge.rs
 ├── specs/                                                                   # Specifications, one directory per slice
 │   ├── 000-foundation/                                                      # 000 foundation
 │   │   ├── plan.md                                                          # Implementation Plan: Foundation
