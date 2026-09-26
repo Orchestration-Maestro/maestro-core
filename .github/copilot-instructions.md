@@ -167,55 +167,69 @@ in place.
 │   │   ├── tests/                                                           # Integration tests
 │   │   │   └── policies.rs                                                  # The repository's policies, checked on every pull request by cargo test
 │   │   └── Cargo.toml                                                       # Crate manifest: Tests that hold the maestro-core repository to its own policies
-│   └── maestro-kernel/                                                      # Maestro kernel
-│       ├── migrations/                                                      # The kernel database's migrations, embedded and applied in number order
-│       │   └── 0001_artifacts.sql                                           # The artifacts table: each artifact's size, media type, pins and creation time
+│   ├── maestro-kernel/                                                      # Maestro kernel
+│   │   ├── migrations/                                                      # The kernel database's migrations, embedded and applied in number order
+│   │   │   └── 0001_artifacts.sql                                           # The artifacts table: each artifact's size, media type, pins and creation time
+│   │   ├── src/                                                             # The crate's sources
+│   │   │   ├── artifact/                                                    # Content-addressed artifacts: immutable bytes stored, and read back, by their
+│   │   │   │   ├── digest.rs                                                # A SHA-256 digest: the name every artifact is stored under
+│   │   │   │   ├── mod.rs                                                   # Content-addressed artifacts: immutable bytes stored, and read back, by their
+│   │   │   │   ├── store.rs                                                 # The store: artifacts written once under their digest, read back checked
+│   │   │   │   └── tests.rs                                                 # Tests of the artifact store: digests, writes, repairs and refusals, with
+│   │   │   ├── capability/                                                  # Capabilities: the registry of the tools Maestro offers (building block B9)
+│   │   │   │   ├── mod.rs                                                   # Capabilities: the registry of the tools Maestro offers (building block B9)
+│   │   │   │   ├── registry.rs                                              # The registry: each tool once, with what it takes, does and needs
+│   │   │   │   └── tests.rs                                                 # Tests of the capability registry: declarations, refusals and order
+│   │   │   ├── gateway/                                                     # The model gateway (building block B10): every model, embedder, reranker
+│   │   │   │   ├── tests/                                                   # Tests of the model gateway: model cards, the router client against a stub
+│   │   │   │   │   ├── card.rs                                              # Tests of model cards: strict JSON artifacts whose digest is their
+│   │   │   │   │   ├── fake.rs                                              # Tests of the deterministic fake: its outputs are fixed by its inputs, the
+│   │   │   │   │   ├── fixture.rs                                           # What the gateway's tests share: a scratch store, a card for each role, and
+│   │   │   │   │   ├── mod.rs                                               # Tests of the model gateway: model cards, the router client against a stub
+│   │   │   │   │   ├── port.rs                                              # Tests of the port's refusals: each says what was refused and why
+│   │   │   │   │   ├── router.rs                                            # Tests of the router client against a stub router: every call is bound to
+│   │   │   │   │   └── stub.rs                                              # A stub of the model router: a loopback HTTP server, on a thread of its
+│   │   │   │   ├── card.rs                                                  # Model cards: what was evaluated of a model filling a role (D8), kept as
+│   │   │   │   ├── fake.rs                                                  # The deterministic fake behind the model port, which public CI uses since it
+│   │   │   │   ├── mod.rs                                                   # The model gateway (building block B10): every model, embedder, reranker
+│   │   │   │   ├── port.rs                                                  # The model port: the calls every way of reaching a model answers, each
+│   │   │   │   └── router.rs                                                # The router client: the model port over maestro-model-router's dedicated
+│   │   │   ├── store/                                                       # The kernel's database: one SQLite file beside the artifact store, holding
+│   │   │   │   ├── tests/                                                   # Tests of the kernel database: its migrations, its connections, the
+│   │   │   │   │   ├── artifacts.rs                                         # Artifacts: stored, recorded with their size, media type and pins, and read
+│   │   │   │   │   ├── connections.rs                                       # Connections: one writer shared by every thread, readers of their own, the
+│   │   │   │   │   ├── garbage.rs                                           # Garbage collection: it lists before it removes, removes only artifacts
+│   │   │   │   │   ├── migrations.rs                                        # Migrations: applied in number order, each once, recorded by name, and a
+│   │   │   │   │   ├── mod.rs                                               # Tests of the kernel database: its migrations, its connections, the
+│   │   │   │   │   └── support.rs                                           # What the database tests share: scratch directories, the digests of their
+│   │   │   │   ├── artifacts.rs                                             # The artifacts table: what the artifact store holds, the pins that keep
+│   │   │   │   ├── database.rs                                              # The database: its file, one writer connection behind a mutex, and readers
+│   │   │   │   ├── error.rs                                                 # Why the kernel's database refused an operation
+│   │   │   │   ├── migration.rs                                             # The migrations: the SQL files of migrations/, embedded in the binary
+│   │   │   │   └── mod.rs                                                   # The kernel's database: one SQLite file beside the artifact store, holding
+│   │   │   ├── telemetry/                                                   # Telemetry: pinned span names and component health (building block B11)
+│   │   │   │   ├── health.rs                                                # Health: how each component is doing, asked of its own check
+│   │   │   │   ├── mod.rs                                                   # Telemetry: pinned span names and component health (building block B11)
+│   │   │   │   ├── span.rs                                                  # The spans the kernel opens, and the names they carry, pinned in one place
+│   │   │   │   └── tests.rs                                                 # Tests of telemetry: component health and the names of a tool call's span
+│   │   │   ├── binding.rs                                                   # Named bindings: the local paths that the logical names of committed files
+│   │   │   ├── filesystem.rs                                                # The files and directories the kernel creates: its owner's only, and each
+│   │   │   ├── lib.rs                                                       # The kernel of Maestro: the single authoritative store every later
+│   │   │   └── paths.rs                                                     # Where the kernel keeps its data: $XDG_DATA_HOME/maestro when that names an
+│   │   └── Cargo.toml                                                       # Crate manifest: The single authoritative store of Maestro, starting with its content-addressed artifacts
+│   └── maestro-knowledge/                                                   # Maestro knowledge
 │       ├── src/                                                             # The crate's sources
-│       │   ├── artifact/                                                    # Content-addressed artifacts: immutable bytes stored, and read back, by their
-│       │   │   ├── digest.rs                                                # A SHA-256 digest: the name every artifact is stored under
-│       │   │   ├── mod.rs                                                   # Content-addressed artifacts: immutable bytes stored, and read back, by their
-│       │   │   ├── store.rs                                                 # The store: artifacts written once under their digest, read back checked
-│       │   │   └── tests.rs                                                 # Tests of the artifact store: digests, writes, repairs and refusals, with
-│       │   ├── capability/                                                  # Capabilities: the registry of the tools Maestro offers (building block B9)
-│       │   │   ├── mod.rs                                                   # Capabilities: the registry of the tools Maestro offers (building block B9)
-│       │   │   ├── registry.rs                                              # The registry: each tool once, with what it takes, does and needs
-│       │   │   └── tests.rs                                                 # Tests of the capability registry: declarations, refusals and order
-│       │   ├── gateway/                                                     # The model gateway (building block B10): every model, embedder, reranker
-│       │   │   ├── tests/                                                   # Tests of the model gateway: model cards, the router client against a stub
-│       │   │   │   ├── card.rs                                              # Tests of model cards: strict JSON artifacts whose digest is their
-│       │   │   │   ├── fake.rs                                              # Tests of the deterministic fake: its outputs are fixed by its inputs, the
-│       │   │   │   ├── fixture.rs                                           # What the gateway's tests share: a scratch store, a card for each role, and
-│       │   │   │   ├── mod.rs                                               # Tests of the model gateway: model cards, the router client against a stub
-│       │   │   │   ├── port.rs                                              # Tests of the port's refusals: each says what was refused and why
-│       │   │   │   ├── router.rs                                            # Tests of the router client against a stub router: every call is bound to
-│       │   │   │   └── stub.rs                                              # A stub of the model router: a loopback HTTP server, on a thread of its
-│       │   │   ├── card.rs                                                  # Model cards: what was evaluated of a model filling a role (D8), kept as
-│       │   │   ├── fake.rs                                                  # The deterministic fake behind the model port, which public CI uses since it
-│       │   │   ├── mod.rs                                                   # The model gateway (building block B10): every model, embedder, reranker
-│       │   │   ├── port.rs                                                  # The model port: the calls every way of reaching a model answers, each
-│       │   │   └── router.rs                                                # The router client: the model port over maestro-model-router's dedicated
-│       │   ├── store/                                                       # The kernel's database: one SQLite file beside the artifact store, holding
-│       │   │   ├── tests/                                                   # Tests of the kernel database: its migrations, its connections, the
-│       │   │   │   ├── artifacts.rs                                         # Artifacts: stored, recorded with their size, media type and pins, and read
-│       │   │   │   ├── connections.rs                                       # Connections: one writer shared by every thread, readers of their own, the
-│       │   │   │   ├── garbage.rs                                           # Garbage collection: it lists before it removes, removes only artifacts
-│       │   │   │   ├── migrations.rs                                        # Migrations: applied in number order, each once, recorded by name, and a
-│       │   │   │   ├── mod.rs                                               # Tests of the kernel database: its migrations, its connections, the
-│       │   │   │   └── support.rs                                           # What the database tests share: scratch directories, the digests of their
-│       │   │   ├── artifacts.rs                                             # The artifacts table: what the artifact store holds, the pins that keep
-│       │   │   ├── database.rs                                              # The database: its file, one writer connection behind a mutex, and readers
-│       │   │   ├── error.rs                                                 # Why the kernel's database refused an operation
-│       │   │   ├── migration.rs                                             # The migrations: the SQL files of migrations/, embedded in the binary
-│       │   │   └── mod.rs                                                   # The kernel's database: one SQLite file beside the artifact store, holding
-│       │   ├── telemetry/                                                   # Telemetry: pinned span names and component health (building block B11)
-│       │   │   ├── health.rs                                                # Health: how each component is doing, asked of its own check
-│       │   │   ├── mod.rs                                                   # Telemetry: pinned span names and component health (building block B11)
-│       │   │   ├── span.rs                                                  # The spans the kernel opens, and the names they carry, pinned in one place
-│       │   │   └── tests.rs                                                 # Tests of telemetry: component health and the names of a tool call's span
-│       │   ├── filesystem.rs                                                # The files and directories the kernel creates: its owner's only, and each
-│       │   ├── lib.rs                                                       # The kernel of Maestro: the single authoritative store every later
-│       │   └── paths.rs                                                     # Where the kernel keeps its data: $XDG_DATA_HOME/maestro when that names an
-│       └── Cargo.toml                                                       # Crate manifest: The single authoritative store of Maestro, starting with its content-addressed artifacts
+│       │   ├── collection.rs                                                # A collection's declaration: maestro-collection/1, the strict JSON that
+│       │   ├── corpus.rs                                                    # A corpus manifest: maestro-corpus/1, one JSON line per document, through
+│       │   ├── lib.rs                                                       # The knowledge pipeline of Maestro (docs/architecture/01): collections, their
+│       │   ├── relative_path.rs                                             # Paths that a declaration or a manifest gives relative to a directory, which
+│       │   └── shape.rs                                                     # The JSON shapes the contracts name, and no other: an object where a
+│       ├── tests/                                                           # Integration tests
+│       │   └── it/                                                          # It
+│       │       ├── collection_contract.rs                                   # maestro-collection/1: a strict declaration parses into typed values; an
+│       │       ├── corpus_contract.rs                                       # maestro-corpus/1: one line per document parses into typed values; an
+│       │       └── main.rs                                                  # The crate's integration tests, built as one test crate: each module proves
+│       └── Cargo.toml                                                       # Crate manifest: The knowledge pipeline of Maestro, starting with the collection and corpus contracts it imports through
 ├── docs/                                                                    # Documentation
 │   ├── adr/                                                                 # Hard-to-reverse decisions, each with the trade-off that produced it
 │   │   ├── 0001-fresh-start-with-canonicalization-only.md                   # Fresh start: only the canonicalization crate is carried over
