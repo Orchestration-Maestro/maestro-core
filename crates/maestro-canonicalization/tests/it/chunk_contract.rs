@@ -45,11 +45,14 @@ impl TokenCounter for OutsideCounter {
     }
 }
 
+/// The Markdown every batch here chunks: 11 characters in 13 bytes, so the number of the outside
+/// counter's IDs (15: one per byte, then BOS and EOS) differs from any count of characters (13).
+const MARKDOWN: &str = "Héllo wörld";
+
 /// The contract ID and the only chunk's token count of a one-document batch that `counter`
 /// counts.
 fn chunk_one(counter: &OutsideCounter) -> Result<(String, usize), Error> {
-    let markdown = "Hello world";
-    let document = canonicalize(CanonicalizeInput::new(markdown, "outside"))?;
+    let document = canonicalize(CanonicalizeInput::new(MARKDOWN, "outside"))?;
     let scope = DedupScope {
         tenant_id: "outside-tenant".into(),
         workspace_id: "outside-workspace".into(),
@@ -62,7 +65,7 @@ fn chunk_one(counter: &OutsideCounter) -> Result<(String, usize), Error> {
     };
     let inputs = [DedupInput {
         document: &document,
-        markdown,
+        markdown: MARKDOWN,
     }];
     let batch = chunk_documents(&scope, &inputs, WarningPolicy::Preserve, counter)?;
     assert_eq!(batch.chunks.len(), 1);
@@ -77,7 +80,7 @@ fn a_counter_from_another_crate_chunks_under_its_contract() {
     let counter = OutsideCounter::new(None);
     let (contract_id, token_count) = chunk_one(&counter).unwrap();
     assert_eq!(contract_id, "outside/bytes");
-    assert_eq!(token_count, "Hello world".len() + 2);
+    assert_eq!(token_count, MARKDOWN.len() + 2);
     assert_eq!(counter.verifications.get(), 2);
 }
 
