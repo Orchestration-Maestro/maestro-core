@@ -247,6 +247,42 @@ fn a_failed_revision_can_be_neither_replaced_nor_deleted() {
 }
 
 #[test]
+fn a_revision_is_never_replaced_through_its_rowid() {
+    let scratch = Scratch::new();
+    let database = scratch.open();
+    let kept = revision(&database, "rev-a", RevisionStatus::Valid);
+    database.record_revision(&kept).unwrap();
+    database
+        .record_revision(&revision(&database, "rev-b", RevisionStatus::Valid))
+        .unwrap();
+    // A new id passes the insert's trigger, and a change of the rowid alone
+    // fires no update trigger; each takes the rowid of `rev-a`.
+    let rewrites = [
+        "INSERT OR REPLACE INTO revisions (rowid, id, document_id, original_digest,
+           canonical_digest, status, metadata_json)
+         SELECT rowid, 'rev-c', document_id, original_digest, canonical_digest, 'valid', '{}'
+         FROM revisions WHERE id = 'rev-a'",
+        "UPDATE OR REPLACE revisions SET rowid = (SELECT rowid FROM revisions WHERE id = 'rev-a')
+         WHERE id = 'rev-b'",
+    ];
+    for rewrite in rewrites {
+        assert_eq!(
+            run(&database, rewrite).map_err(|error| error.to_string()),
+            Err("a revision is immutable once recorded: it is never deleted".to_owned()),
+            "{rewrite}"
+        );
+        assert_eq!(
+            database
+                .revision(&ScopeSet::default_workspace(), "rev-a")
+                .unwrap()
+                .as_ref(),
+            Some(&kept),
+            "{rewrite}"
+        );
+    }
+}
+
+#[test]
 fn a_revision_status_moves_only_to_failed_and_never_back() {
     let scratch = Scratch::new();
     let database = scratch.open();

@@ -5,8 +5,10 @@
 //! WAL mode. One writer connection, behind a mutex, serves every thread, and
 //! each write is one short `IMMEDIATE` transaction; readers open connections
 //! of their own, which only read and see the last commit. Every connection
-//! waits 5 s for another's lock and enforces foreign keys. The kernel's other
-//! tables write through `Database::write`, in the crate, and pin the
+//! waits 5 s for another's lock, enforces foreign keys, and fires the delete
+//! triggers of the rows a `REPLACE` removes (recursive triggers), so no
+//! replacement that names a guarded row's rowid deletes it. The kernel's
+//! other tables write through `Database::write`, in the crate, and pin the
 //! artifacts they refer to in the same transaction.
 //!
 //! `open` creates the file and its missing directories for the owner only,

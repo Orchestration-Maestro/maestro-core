@@ -4,7 +4,11 @@
 //! kernel's functions never send, one test each.
 
 use super::support::{Scratch, new_set};
-use crate::store::{self, Database};
+use crate::{
+    chunk_set::ChunkSetState,
+    scope::ScopeSet,
+    store::{self, Database},
+};
 
 /// A manifest's digest, as a complete set records it.
 const MANIFEST: &str = "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945";
@@ -103,6 +107,38 @@ fn a_chunk_set_is_never_replaced() {
         run(&database, replaced),
         Err("a chunk set is never replaced: its id names it for good".to_owned())
     );
+}
+
+#[test]
+fn a_chunk_set_is_never_replaced_through_its_rowid() {
+    let scratch = Scratch::new();
+    let database = complete(&scratch);
+    // `set-b` failed without chunks, so no foreign key holds it.
+    run(&database, &insert("building", "NULL")).unwrap();
+    run(
+        &database,
+        "UPDATE chunk_sets SET state = 'failed' WHERE id = 'set-b'",
+    )
+    .unwrap();
+    // A new id passes the insert's triggers, and a change of the rowid alone
+    // fires no update trigger; each takes the rowid of `set-b`.
+    for rewrite in [
+        "INSERT OR REPLACE INTO chunk_sets (rowid, id, collection_id, chunk_profile,
+           counter_contract_id, state)
+         SELECT rowid, 'set-c', collection_id, chunk_profile, counter_contract_id, 'building'
+         FROM chunk_sets WHERE id = 'set-b'",
+        "UPDATE OR REPLACE chunk_sets
+         SET rowid = (SELECT rowid FROM chunk_sets WHERE id = 'set-b') WHERE id = 'set-a'",
+    ] {
+        assert_eq!(
+            run(&database, rewrite),
+            Err("a chunk set is never deleted: a generation may name it".to_owned()),
+            "{rewrite}"
+        );
+    }
+    let scopes = ScopeSet::default_workspace();
+    let failed = database.chunk_set(&scopes, "set-b").unwrap().unwrap();
+    assert_eq!(failed.state, ChunkSetState::Failed);
 }
 
 #[test]
@@ -218,6 +254,31 @@ fn a_chunk_is_never_replaced() {
             &chunk("chunk-1", "rev-a").replace("INSERT", "INSERT OR REPLACE")
         ),
         Err("a chunk is never replaced: its set holds it as it was counted".to_owned())
+    );
+}
+
+#[test]
+fn a_chunk_is_never_replaced_through_its_rowid() {
+    let scratch = Scratch::new();
+    let database = complete(&scratch);
+    run(&database, &insert("building", "NULL")).unwrap();
+    // A new chunk of the building `set-b` passes the insert's triggers; the
+    // rowid is that of `chunk-1`, in the complete `set-a`.
+    let replace = "INSERT OR REPLACE INTO chunks (rowid, chunk_set_id, id, revision_id, digest,
+           token_count, span_start, span_end)
+         SELECT rowid, 'set-b', 'chunk-9', revision_id, digest, token_count, span_start, span_end
+         FROM chunks WHERE id = 'chunk-1'";
+    assert_eq!(
+        run(&database, replace),
+        Err("a chunk is never deleted: its set holds it as it was counted".to_owned())
+    );
+    let scopes = ScopeSet::default_workspace();
+    let kept = database.chunks(&scopes, "set-a").unwrap();
+    assert_eq!(
+        kept.iter()
+            .map(|chunk| chunk.id.as_str())
+            .collect::<Vec<_>>(),
+        ["chunk-1"]
     );
 }
 
