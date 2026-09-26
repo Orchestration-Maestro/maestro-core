@@ -100,8 +100,10 @@ fn one(format: &str, line: usize) -> String {
 fn flagged_on_line_four(page: &str, format: &str) {
     let found = flags(page);
     let secret = flag(&found, "text.suspected-secret");
-    assert_eq!(secret.outcome, Outcome::Quarantined, "{page}");
-    assert_eq!(secret.reason, one(format, 4), "{page}");
+    // The message names the format, never the page: the page holds a
+    // credential, and a failing test's message is a log.
+    assert_eq!(secret.outcome, Outcome::Quarantined, "{format}");
+    assert_eq!(secret.reason, one(format, 4), "{format}");
 }
 
 #[test]
