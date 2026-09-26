@@ -77,7 +77,7 @@ what it waited for, has merged.
 | --- | --- | --- |
 | `0001` | T005 | `artifacts` |
 | `0002` | T010 | `events`, `cursors` |
-| `0003` | T011 | `scopes`, `grants` |
+| `0003` | T011 | `grants` |
 | `0004` | T012 | the document and generation tables of 01 §11 |
 | `0005` | T016 | `jobs` |
 | `0006` | T021 | `eval_reports` |
@@ -370,7 +370,7 @@ SC-S1-007.
 
 ### T016 [P] Jobs with leases [US2]
 
-**After:** T010. **Files:** `crates/maestro-kernel/src/job.rs`,
+**After:** T010. **Files:** `crates/maestro-kernel/src/job/`,
 `migrations/0005_jobs.sql`. **Requirements:** FR-S1-011, D5.
 
 - [ ] **Step 1: Failing tests.** A second lease on the same idempotency key is
@@ -499,7 +499,7 @@ FR-S1-013.
 - [ ] **Step 1: Sample** the canonical sections stratified by source kind and
   set.
 - [ ] **Step 2: Draft** at least 100 questions, French and English, about
-  15 % unanswerable, each with its expected section IDs.
+  15 % unanswerable, each with its expected sections.
 - [ ] **Step 3: Check** that every expected section exists and every
   unanswerable question has none.
 - [ ] **Step 4: Pull request** in `PRIVATE` `feat: draft the ctm golden set`.
@@ -606,7 +606,8 @@ FR-S1-005, FR-S1-005a, FR-S1-006.
 FR-S1-015a.
 
 - [ ] **Step 1: Failing tests.** Results map back by index; no candidate is
-  truncated; a reranker without room answers `rerank: "unavailable"`.
+  truncated; a reranker without room answers
+  `"rerank": {"unavailable": "<reason>"}`.
 - [ ] **Step 2: Implement** reranking with the depth T008 measured, as a
   ladder parameter.
 - [ ] **Step 3: Gate and pull request** `feat: rerank fused candidates`.

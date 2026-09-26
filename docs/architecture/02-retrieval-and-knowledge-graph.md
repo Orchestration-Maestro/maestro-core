@@ -91,7 +91,8 @@ bounded retrieval.
 
 Starting depths are budgets to tune with the ladder protocol (§10), not
 optima. Routes run in parallel under the admission deadline. A route that fails
-or times out is reported in the response (`routes: {graph: "unavailable"}`).
+or times out is reported in the response, with its reason
+(`"routes": {"graph": {"unavailable": "<reason>"}}`).
 Degradation depends on the question: without the graph, a documentary
 explanation may proceed with the limitation disclosed, but a dependency
 conclusion that needs the graph is refused rather than asserted unchecked.
@@ -161,8 +162,8 @@ ranking once enough relevance labels exist.
 - Latency: measured in S1 at 30, 60 and 120 candidates, batched through the
   router; the chosen depth is the smallest that keeps the measured gain.
 - If the reranker is unavailable, `search` returns the fused order flagged
-  `rerank: "unavailable"`; `ask` refuses unless the caller's policy accepts
-  degraded evidence.
+  `"rerank": {"unavailable": "<reason>"}`; `ask` refuses unless the caller's
+  policy accepts degraded evidence.
 
 ## 6. Evidence assembly
 
@@ -420,7 +421,7 @@ blocks regressions.
 | --- | --- |
 | Recall@k | Share of answerable questions with at least one expected section in the top k (k = 5, 10) |
 | MRR@10 | Mean reciprocal rank of the first expected section |
-| nDCG@10 | Graded relevance with multiple expected sections |
+| nDCG@10 | Binary relevance: each expected section, or document named whole, gains 1 at its best rank, over the ideal ranking of every expected one |
 | No-answer accuracy | Share of unanswerable questions correctly refused |
 | Citation precision / recall | Cited passages that support the answer / required passages cited |
 | Command exactness | Share of answers whose commands all appear verbatim in evidence (must be 100 %) |
@@ -436,8 +437,10 @@ Recall@10 or MRR@10, or any command-exactness failure, blocks the change.
 
 **Golden set construction:** questions are drafted from the corpus by an agent,
 covering all query types and both languages; the collection owner validates a
-stratified sample (at least 20 %), and every expected answer points at section
-IDs, or at the document ID of a document without sections, never at free text.
+stratified sample (at least 20 %), and every expected answer is a section,
+named by its document's `source_ref` and its heading path, or a document
+without sections named whole, never free text; the runner resolves each name
+to the IDs of the generation it evaluates.
 The set starts at 100+ questions for M1 and grows toward 200–500 (exact
 identifiers, paraphrases, close versions, tables, contradictions, unanswerable
 questions), with held-out items the tuning never sees. Targets are declared
