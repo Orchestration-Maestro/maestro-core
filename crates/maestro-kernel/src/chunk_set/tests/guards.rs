@@ -21,6 +21,14 @@ fn run(database: &Database, statement: &str) -> Result<(), String> {
         })
 }
 
+/// Asserts that `statement`, on the database `setup` prepares, is refused
+/// with `message`.
+fn assert_refused(setup: fn(&Scratch) -> Database, statement: &str, message: &str) {
+    let scratch = Scratch::new();
+    let refusal = run(&setup(&scratch), statement);
+    assert_eq!(refusal, Err(message.to_owned()), "{statement}");
+}
+
 /// The database of `scratch` with the chunk set `set-a` of `ctm` building.
 fn building(scratch: &Scratch) -> Database {
     let database = scratch.open();
@@ -166,11 +174,10 @@ fn a_chunk_set_moves_only_from_building_to_complete_with_a_manifest_or_to_failed
 
 #[test]
 fn a_chunk_set_is_never_deleted() {
-    let scratch = Scratch::new();
-    let database = building(&scratch);
-    assert_eq!(
-        run(&database, "DELETE FROM chunk_sets WHERE id = 'set-a'"),
-        Err("a chunk set is never deleted: a generation may name it".to_owned())
+    assert_refused(
+        building,
+        "DELETE FROM chunk_sets WHERE id = 'set-a'",
+        "a chunk set is never deleted: a generation may name it",
     );
 }
 
@@ -216,23 +223,18 @@ fn a_chunk_is_never_replaced() {
 
 #[test]
 fn a_chunk_never_changes() {
-    let scratch = Scratch::new();
-    let database = complete(&scratch);
-    assert_eq!(
-        run(
-            &database,
-            "UPDATE chunks SET token_count = 4 WHERE id = 'chunk-1'"
-        ),
-        Err("a chunk never changes: its set holds it as it was counted".to_owned())
+    assert_refused(
+        complete,
+        "UPDATE chunks SET token_count = 4 WHERE id = 'chunk-1'",
+        "a chunk never changes: its set holds it as it was counted",
     );
 }
 
 #[test]
 fn a_chunk_is_never_deleted() {
-    let scratch = Scratch::new();
-    let database = complete(&scratch);
-    assert_eq!(
-        run(&database, "DELETE FROM chunks WHERE id = 'chunk-1'"),
-        Err("a chunk is never deleted: its set holds it as it was counted".to_owned())
+    assert_refused(
+        complete,
+        "DELETE FROM chunks WHERE id = 'chunk-1'",
+        "a chunk is never deleted: its set holds it as it was counted",
     );
 }
