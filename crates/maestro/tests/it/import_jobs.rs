@@ -1,18 +1,20 @@
 //! `knowledge import` as a leased job run in the foreground (plan D5, T016):
 //! the public synthetic collection imported end to end through the binary,
-//! a rerun that returns the same job, a resource a live lease holds refused
+//! a rerun that returns the same job, and one with `--again` that imports
+//! again what the first refused; a resource a live lease holds refused
 //! naming its job, and one whose lease expired superseded; a job another
 //! process holds followed to its end, and an expired lease taken over, when
 //! the rerun starts or while it follows.
 
 use super::support::{
-    Home, IMPORT, local, stream, submit_other_import, submit_synthetic_import, synthetic_inputs,
-    types,
+    Home, IMPORT, local, stream, submit_other_import, submit_synthetic_import, synthetic,
+    synthetic_inputs, types,
 };
 use maestro_kernel::job::JobState;
 use serde_json::{Value, json};
 use std::{
     fs,
+    path::Path,
     time::{Duration, SystemTime},
 };
 
@@ -119,6 +121,75 @@ fn rerunning_an_import_returns_its_job_and_imports_nothing_again() {
         4,
         "nor moved the job"
     );
+}
+
+/// Copies the directory `from`, with everything in it, to `to`.
+fn copy_tree(from: &Path, to: &Path) {
+    fs::create_dir_all(to).unwrap();
+    for entry in fs::read_dir(from).unwrap() {
+        let path = entry.unwrap().path();
+        let target = to.join(path.file_name().unwrap());
+        if path.is_dir() {
+            copy_tree(&path, &target);
+        } else {
+            fs::copy(&path, &target).unwrap();
+        }
+    }
+}
+
+#[test]
+fn an_import_again_is_a_new_job_that_imports_what_the_first_refused() {
+    let home = Home::new();
+    home.add_synthetic();
+    // A copy of the synthetic corpus, bound in place of the fixture, whose
+    // backup policy is missing at the first import.
+    let root = home.root().join("root");
+    copy_tree(&synthetic().join("corpus"), &root.join("corpus"));
+    let binding = format!("synthetic_root = '{}'\n", root.display());
+    fs::write(home.config().join("bindings.toml"), binding).unwrap();
+    let policy = root.join("corpus/en/backups/backup-policy.md");
+    let kept = fs::read(&policy).unwrap();
+    fs::remove_file(&policy).unwrap();
+    let arguments = ["knowledge", "import", "--collection", "synthetic", "--json"];
+    let first = home.run(&arguments).json();
+    assert_eq!(
+        [&first["outcome"]["imported"], &first["outcome"]["refused"]],
+        [27, 1]
+    );
+    fs::write(&policy, kept).unwrap();
+    let same = home.run(&arguments).json();
+    assert_eq!(same, first, "the same inputs find the same job");
+    let again = home.run(&[&arguments[..], &["--again"]].concat());
+    assert_eq!(again.code, Some(0), "{again:?}");
+    let document = again.json();
+    assert_ne!(
+        document["job"], first["job"],
+        "a job of its own: {document}"
+    );
+    assert_eq!(document["attempt"], 1, "of a key of its own: {document}");
+    let outcome = &document["outcome"];
+    assert_eq!(
+        [
+            &outcome["imported"],
+            &outcome["unchanged"],
+            &outcome["refused"]
+        ],
+        [1, 27, 0],
+        "{document}"
+    );
+    let database = home.database();
+    let created = &stream(
+        &database,
+        &format!("job/{}", document["job"].as_str().unwrap()),
+    )[0];
+    let nonce = created.data["inputs"]["again"].as_str().unwrap();
+    assert!(nonce.parse::<ulid::Ulid>().is_ok(), "{nonce}");
+    let once_more = home.run(&[&arguments[..], &["--again"]].concat()).json();
+    assert_ne!(
+        once_more["job"], document["job"],
+        "each --again its own job"
+    );
+    assert_eq!(once_more["outcome"]["unchanged"], 28, "{once_more}");
 }
 
 #[test]
