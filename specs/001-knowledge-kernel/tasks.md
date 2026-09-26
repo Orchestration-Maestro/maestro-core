@@ -109,19 +109,19 @@ the private collection repository.
 src/paths.rs, src/artifact.rs}`, `Cargo.lock`. **Requirements:** FR-S1-001
 (B3).
 
-- [ ] **Step 1: Failing tests.** `put` returns the SHA-256 digest and stores
+- [x] **Step 1: Failing tests.** `put` returns the SHA-256 digest and stores
   the bytes under `sha256/<2>/<2>/<digest>`; `get` returns them and refuses a
   file whose bytes no longer match; a second `put` of the same bytes writes
   nothing; a digest that is not 64 lowercase hex characters is refused before
   any path is built.
-- [ ] **Step 2: Create the crate** with the workspace lints; its only
+- [x] **Step 2: Create the crate** with the workspace lints; its only
   dependency is `sha2`, already in the lockfile.
-- [ ] **Step 3: Implement** `paths` (XDG data home, `~/.local/share` fallback)
+- [x] **Step 3: Implement** `paths` (XDG data home, `~/.local/share` fallback)
   and `artifact` (temporary file, flush, rename, directory flush; verify on
   read).
-- [ ] **Step 4: Gate.** `just check` passes; `cargo mutants` on the diff leaves
+- [x] **Step 4: Gate.** `just check` passes; `cargo mutants` on the diff leaves
   no survivor.
-- [ ] **Step 5: Pull request** `feat: add the kernel's content-addressed
+- [x] **Step 5: Pull request** `feat: add the kernel's content-addressed
   artifact store`.
 
 ### T002 [P] The router loads into free room on request [US1]
