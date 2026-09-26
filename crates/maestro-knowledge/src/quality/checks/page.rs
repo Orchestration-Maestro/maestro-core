@@ -5,6 +5,8 @@
 //! structure, never one quoted, listed or in a table, and compare their
 //! text lowercased, each run of characters that are not letters or digits
 //! made one space: a page that explains an error, or quotes one, is content.
+//! A heading names what its page is about, so an error message as a heading
+//! counts only over a body too short to explain it.
 
 use super::{
     body::Body,
@@ -61,17 +63,20 @@ const PROMPT_OPENINGS: [&str; 9] = [
     "enable javascript and cookies",
 ];
 
-/// A sign-in or challenge page holds fewer words than this; a guide about
-/// signing in holds more.
-const SIGN_IN_WORDS: u64 = 50;
+/// A sign-in or challenge page holds fewer words than this, and so does an
+/// error's page under an error message as its heading; a guide about signing
+/// in, or a page that explains an error, holds more.
+const PAGE_WORDS: u64 = 50;
 
-/// `page.application-error`: a paragraph or heading that is an application's
-/// error message.
-pub(super) fn application_error(document: &CanonicalDocument) -> Option<Flag> {
+/// `page.application-error`: a paragraph that is an application's error
+/// message, or a heading that is one over a body of fewer than
+/// [`PAGE_WORDS`] words.
+pub(super) fn application_error(document: &CanonicalDocument, body: &Body) -> Option<Flag> {
     let errors = document
         .blocks
         .iter()
         .filter(|block| on_top(block))
+        .filter(|block| block.block_type != BlockType::Heading || body.words < PAGE_WORDS)
         .filter(|block| APPLICATION_ERRORS.contains(&normalized(&block.retrieval_text).as_str()))
         .count();
     (errors > 0).then(|| Flag {
@@ -86,9 +91,9 @@ pub(super) fn application_error(document: &CanonicalDocument) -> Option<Flag> {
 }
 
 /// `page.sign-in`: the first heading or the first paragraph is a sign-in or
-/// challenge prompt, and the body holds fewer than [`SIGN_IN_WORDS`] words.
+/// challenge prompt, and the body holds fewer than [`PAGE_WORDS`] words.
 pub(super) fn sign_in(document: &CanonicalDocument, body: &Body) -> Option<Flag> {
-    if body.words >= SIGN_IN_WORDS {
+    if body.words >= PAGE_WORDS {
         return None;
     }
     let first = |kind: BlockType| {
@@ -112,7 +117,7 @@ pub(super) fn sign_in(document: &CanonicalDocument, body: &Body) -> Option<Flag>
         outcome: Outcome::NeedsReextraction,
         reason: format!(
             "its {prompt} is a sign-in or challenge prompt, and its body holds {}: fewer than \
-             {SIGN_IN_WORDS} is the prompt's page, not the document",
+             {PAGE_WORDS} is the prompt's page, not the document",
             counted(body.words, "word")
         ),
     })

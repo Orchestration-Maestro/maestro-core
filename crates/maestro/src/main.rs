@@ -123,7 +123,8 @@
 //! ```json
 //! {"schema":"maestro-cli/knowledge-quality/1","job":"<ulid>",
 //!  "kind":"knowledge.quality","attempt":1,"state":"succeeded",
-//!  "outcome":{"collection":"synthetic","decided":28,"held":[],"kept":0,
+//!  "outcome":{"collection":"synthetic","decided":28,"held":[],
+//!   "ignored_rules":{},"kept":0,
 //!   "outcomes":{"accepted":28,"accepted_with_warnings":0,"excluded":0,
 //!    "needs_reextraction":0,"quarantined":0},"revisions":28,"rules":{}}}
 //! ```

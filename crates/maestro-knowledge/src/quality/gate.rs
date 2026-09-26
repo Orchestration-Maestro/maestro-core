@@ -21,7 +21,8 @@ use std::collections::HashMap;
 /// automatic checks of its canonical document and its original Markdown.
 /// Each disposition that holds a revision back is journaled as
 /// `maestro.knowledge.revision.held.v1` in the write that records it.
-/// Returns the report of every revision, decided now or before.
+/// Returns the report of every revision, decided now or before, which counts
+/// each first matching rule of `ledger` that a kept disposition outranks.
 ///
 /// # Errors
 ///
@@ -57,15 +58,19 @@ pub fn gate(
         let kept = database
             .disposition(scopes, &revision.id)
             .map_err(Error::Records)?;
+        let candidate = Candidate::new(&revision, &source_ref);
         let (disposition, decided) = match kept {
             Some(kept) => (kept, false),
-            None => record(
-                database,
-                scopes,
-                ledger,
-                &Candidate::new(&revision, &source_ref),
-            )?,
+            None => record(database, scopes, ledger, &candidate)?,
         };
+        if !decided {
+            let outranked = ledger
+                .first_match(&candidate)
+                .filter(|rule| rule.disposition != disposition.outcome);
+            if let Some(rule) = outranked {
+                report.ignore(rule.rule_id());
+            }
+        }
         report.count(&revision, &source_ref, disposition, decided);
     }
     Ok(report)

@@ -12,7 +12,9 @@
 //! 1. A disposition recorded before is kept, whoever decided it: the
 //!    import's quarantine of the lines that give one `source_ref` different
 //!    bytes, a person's, or an earlier run's. A rule or a check changed since
-//!    decides only the revisions not yet decided.
+//!    decides only the revisions not yet decided; the report counts, by rule,
+//!    each first matching ledger rule a kept disposition outranks with
+//!    another outcome.
 //! 2. The first rule of the collection's quality ledger ([`Ledger`]) that
 //!    matches the revision decides it, with the rule's reason and author:
 //!    a person's decision outranks every automatic check. A failed canonical
@@ -54,9 +56,9 @@
 //!   the lines it is on.
 //! - `table.incomplete`, `accepted_with_warnings`: a table row with fewer or
 //!   more cells than its table's header.
-//! - `page.application-error`, `needs_reextraction`: a paragraph or heading,
-//!   outside quotes, lists and tables, that is an application's error
-//!   message.
+//! - `page.application-error`, `needs_reextraction`: a paragraph, outside
+//!   quotes, lists and tables, that is an application's error message, or a
+//!   heading that is one while the body holds fewer than 50 words.
 //! - `page.sign-in`, `needs_reextraction`: the first heading or paragraph is
 //!   a sign-in or challenge prompt, and the body holds fewer than 50 words.
 //! - `metadata.missing`, `quarantined`: no source reference or no title, so

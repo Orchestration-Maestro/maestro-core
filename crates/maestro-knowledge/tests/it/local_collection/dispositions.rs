@@ -155,6 +155,18 @@ fn gate_section(text: &mut String, run: &Run<'_>) {
         let _ = writeln!(text, "| `{rule}` | {count} |");
     }
     text.push('\n');
+    if gate.ignored_rules.is_empty() {
+        return;
+    }
+    text.push_str(
+        "A disposition, once recorded, is kept: these ledger rules match first a\n\
+         revision decided before, and would give it another outcome.\n\n\
+         | Ledger rule a kept disposition outranks | Revisions |\n| --- | ---: |\n",
+    );
+    for (rule, count) in &gate.ignored_rules {
+        let _ = writeln!(text, "| `{rule}` | {count} |");
+    }
+    text.push('\n');
 }
 
 /// The documents, by the outcome of their latest revision, and how many are

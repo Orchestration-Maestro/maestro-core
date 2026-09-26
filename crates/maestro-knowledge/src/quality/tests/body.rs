@@ -164,12 +164,34 @@ fn an_application_error_where_content_should_be_is_flagged() {
 
 #[test]
 fn an_error_a_page_explains_is_not_an_application_error() {
-    let page = "# Deploy fails\n\n\
-        The deploy fails with an Internal Server Error when the token expires.\n\n\
-        ```text\nHTTP/1.1 500 Internal Server Error\n```\n\n\
-        > Internal Server Error\n\n\
-        Renew the token, then deploy again.\n";
-    assert_eq!(rules(page), [""; 0]);
+    for page in [
+        "# Deploy fails\n\n\
+         The deploy fails with an Internal Server Error when the token expires.\n\n\
+         ```text\nHTTP/1.1 500 Internal Server Error\n```\n\n\
+         > Internal Server Error\n\n\
+         Renew the token, then deploy again.\n",
+        "# 502 Bad Gateway\n\n\
+         A proxy answers 502 Bad Gateway when the server behind it sends no valid answer in \
+         time. Check first that the application server runs and listens on the port the proxy \
+         forwards to. Then compare the proxy's timeout with the time the slowest request \
+         takes, and raise it if requests end early. Restart the proxy once its configuration \
+         changes.\n",
+    ] {
+        assert_eq!(rules(page), [""; 0], "{page}");
+    }
+}
+
+#[test]
+fn an_error_heading_counts_over_a_body_of_fewer_than_fifty_words() {
+    let page = |words: usize| format!("# 502 Bad Gateway\n\n{}\n", vec!["word"; words].join(" "));
+    assert!(rules(&page(49)).contains(&"page.application-error"));
+    assert!(!rules(&page(50)).contains(&"page.application-error"));
+    // A paragraph that is an error message counts over any body.
+    let paragraph = format!(
+        "# Status\n\nInternal server error\n\n{}\n",
+        vec!["word"; 60].join(" ")
+    );
+    assert!(rules(&paragraph).contains(&"page.application-error"));
 }
 
 #[test]

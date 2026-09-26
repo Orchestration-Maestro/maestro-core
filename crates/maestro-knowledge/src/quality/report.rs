@@ -24,6 +24,10 @@ pub struct Report {
     pub outcomes: Outcomes,
     /// Each rule ID with the number of revisions whose disposition names it.
     pub rules: BTreeMap<String, u64>,
+    /// Each ledger rule's ID with the number of revisions decided before
+    /// that it matches first and would give another outcome: a recorded
+    /// disposition is kept, so the rule changed none of them.
+    pub ignored_rules: BTreeMap<String, u64>,
     /// Each revision held back, in record order.
     pub held: Vec<Held>,
 }
@@ -38,8 +42,15 @@ impl Report {
             kept: 0,
             outcomes: Outcomes::default(),
             rules: BTreeMap::new(),
+            ignored_rules: BTreeMap::new(),
             held: Vec::new(),
         }
+    }
+
+    /// Counts a revision decided before that the ledger rule `rule` would
+    /// have given another outcome.
+    pub(super) fn ignore(&mut self, rule: String) {
+        *self.ignored_rules.entry(rule).or_default() += 1;
     }
 
     /// Counts `revision`, whose document has `source_ref`, with its
