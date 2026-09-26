@@ -2,11 +2,12 @@
 //! question and metric by metric, read back as strictly as it is written.
 
 use crate::shape;
+use maestro_kernel::artifact::Digest;
 use serde::{
-    Deserialize, Deserializer, Serialize,
+    Deserialize, Deserializer, Serialize, Serializer,
     de::{self, MapAccess, Visitor},
 };
-use std::{collections::BTreeMap, fmt, str::FromStr};
+use std::{collections::BTreeMap, fmt, num::NonZeroU32, str::FromStr};
 
 /// What a run evaluates, which its report names: the suite, the generation
 /// of a collection with its profiles, and the seed of its intervals.
@@ -37,6 +38,10 @@ pub struct Report {
     pub schema: Schema,
     /// The suite run, as [`Header::suite`].
     pub suite: String,
+    /// The digest of the text the suite was read from, its file's
+    /// ([`Suite::digest`](crate::suite::Suite::digest)).
+    #[serde(serialize_with = "hexadecimal", deserialize_with = "shape::digest")]
+    pub suite_digest: Digest,
     /// The collection, as [`Header::collection`].
     pub collection: String,
     /// The generation, as [`Header::generation`].
@@ -112,6 +117,7 @@ impl QuestionResult {
             .iter()
             .filter_map(|expected| expected.rank)
             .min()
+            .map(NonZeroU32::get)
     }
 }
 
@@ -129,9 +135,9 @@ pub struct Expected {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub section_id: Option<String>,
     /// The rank of its best passage, from 1, absent when no passage holds
-    /// it.
+    /// it: a report that gives 0 is refused.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub rank: Option<u32>,
+    pub rank: Option<NonZeroU32>,
 }
 
 /// A failure of an answerable question at a metric's cut-off: no expected
@@ -222,6 +228,11 @@ pub struct Estimate {
     pub low: f64,
     /// The interval's high end: the 97.5th percentile of the resamples.
     pub high: f64,
+}
+
+/// `digest` as its 64 hexadecimal characters.
+fn hexadecimal<S: Serializer>(digest: &Digest, serializer: S) -> Result<S::Ok, S::Error> {
+    serializer.serialize_str(digest.as_str())
 }
 
 /// An estimate, from a JSON object only: a metric that covers no question is

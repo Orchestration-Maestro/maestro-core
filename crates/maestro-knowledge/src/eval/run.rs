@@ -15,7 +15,8 @@ use std::{
     time::Instant,
 };
 
-/// The report of `suite` over the generation `header` names.
+/// The report of `suite` over the generation `header` names, which names the
+/// digest of the suite's text.
 ///
 /// First, every section the suite expects is resolved to its ID in the
 /// canonical document `documents` gives for its `source_ref`, and every
@@ -65,6 +66,7 @@ pub fn run<E>(
     Ok(Report {
         schema: Schema::V1,
         suite: header.suite,
+        suite_digest: suite.digest.clone(),
         collection: header.collection,
         generation: header.generation,
         profiles: header.profiles,

@@ -1,13 +1,20 @@
 //! The evaluation runner over the public synthetic suite (T014), end to end
 //! with fake retrievals: an oracle that returns exactly the expected sections
 //! scores every metric at its best, a blind retrieval fails every question,
-//! and the comparison of the two gains the whole scale, with certainty.
+//! and the comparison of the two gains the whole scale, with certainty. A
+//! report names the digest of its suite's file, and is recorded in a kernel
+//! under its own collection, generation and suite.
 #![cfg(test)]
 
 use maestro_canonicalization::{CanonicalDocument, CanonicalizeInput, canonicalize};
 use maestro_kernel::{
     artifact::Digest,
+    chunk_set::NewChunkSet,
+    document::Collection,
+    eval::Error as KernelError,
     evidence::{Budget, Bundle, Passage, RouteStatus, Schema, Span, Trace},
+    generation::NewGeneration,
+    store::Database,
 };
 use maestro_knowledge::{
     collection::Declaration,
@@ -15,28 +22,52 @@ use maestro_knowledge::{
     eval::{self, Estimate, FailureClass, Header, Report},
     suite::{Question, Resolved, Suite},
 };
-use std::{collections::BTreeMap, convert::Infallible, fs, path::Path};
+use std::{
+    collections::BTreeMap,
+    convert::Infallible,
+    env, error, fs,
+    num::NonZeroU32,
+    path::{Path, PathBuf},
+    process, str,
+};
 
 /// The generation the fake retrievals answer from.
 const GENERATION: i64 = 3;
 
-/// The suite `synthetic`, and the canonical document of each line of the
-/// collection's corpus manifest, by `source_ref`, as its declaration names
-/// them under the fixture directory.
-fn synthetic() -> (Suite, Documents) {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+/// The fixture directory of the synthetic collection.
+fn root() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR"))
         .ancestors()
         .nth(2)
         .unwrap()
         .join("tests")
         .join("fixtures")
-        .join("synthetic");
-    let declaration: Declaration = fs::read_to_string(root.join("collection.json"))
+        .join("synthetic")
+}
+
+/// The declaration of the synthetic collection.
+fn declaration() -> Declaration {
+    fs::read_to_string(root().join("collection.json"))
         .unwrap()
         .parse()
-        .unwrap();
-    let suite = declaration.evals.suite.under(&root).join("synthetic.jsonl");
-    let suite = fs::read_to_string(suite).unwrap().parse().unwrap();
+        .unwrap()
+}
+
+/// The file of the suite `synthetic`, where the declaration names it.
+fn suite_file() -> PathBuf {
+    declaration()
+        .evals
+        .suite
+        .under(&root())
+        .join("synthetic.jsonl")
+}
+
+/// The suite `synthetic`, and the canonical document of each line of the
+/// collection's corpus manifest, by `source_ref`, as its declaration names
+/// them under the fixture directory.
+fn synthetic() -> (Suite, Documents) {
+    let (root, declaration) = (root(), declaration());
+    let suite = fs::read_to_string(suite_file()).unwrap().parse().unwrap();
     let manifest = declaration.sources[0].manifest.path.under(&root);
     let corpus = manifest.parent().unwrap();
     let documents = fs::read_to_string(&manifest)
@@ -171,7 +202,7 @@ fn an_oracle_retrieval_scores_every_metric_at_its_best() {
         let ranks: Vec<Option<u32>> = result
             .expected
             .iter()
-            .map(|expected| expected.rank)
+            .map(|expected| expected.rank.map(NonZeroU32::get))
             .collect();
         let first: Vec<Option<u32>> = (1..).map(Some).take(ranks.len()).collect();
         assert_eq!(ranks, first, "{}", result.id);
@@ -219,5 +250,106 @@ fn a_blind_retrieval_fails_every_question_and_the_comparison_gains_the_whole_sca
     assert_eq!(
         comparison.differences.no_answer_accuracy,
         Some(certain(1.0))
+    );
+}
+
+#[test]
+fn a_report_names_the_digest_of_its_suite_file() {
+    let file = fs::read(suite_file()).unwrap();
+    assert_eq!(evaluate(oracle).suite_digest, Digest::of(&file));
+}
+
+/// A new empty directory under the platform's temporary directory, removed
+/// with everything in it when dropped: after the database a test opened in
+/// it, which it declares later.
+struct Scratch(PathBuf);
+
+impl Scratch {
+    fn new(name: &str) -> Self {
+        let path = env::temp_dir().join(format!("maestro-knowledge-eval-{name}-{}", process::id()));
+        fs::create_dir(&path).unwrap();
+        Self(path)
+    }
+
+    /// A kernel in this directory with the collection `synthetic` and
+    /// `generations` generations of it, numbered from 1, each built from
+    /// one complete chunk set.
+    fn kernel(&self, generations: i64) -> Database {
+        let database = Database::open_in(&self.0).unwrap();
+        database
+            .record_collection(&Collection {
+                id: "synthetic".to_owned(),
+                title: "The synthetic collection".to_owned(),
+                visibility: "public".to_owned(),
+                profiles: BTreeMap::new(),
+            })
+            .unwrap();
+        let set = NewChunkSet {
+            id: "synthetic-set",
+            collection_id: "synthetic",
+            chunk_profile: "mapped-structural-chunks/2",
+            counter_contract_id: "router/1:test",
+        };
+        database.begin_chunk_set(&set).unwrap();
+        let manifest = database.put(b"{}", "application/json").unwrap();
+        database.complete_chunk_set(set.id, &manifest).unwrap();
+        for _ in 0..generations {
+            database
+                .create_generation(&NewGeneration {
+                    collection_id: "synthetic".to_owned(),
+                    chunk_set_id: set.id.to_owned(),
+                    embedding_profile: "embed:test".to_owned(),
+                    sparse_profile: "bm25-en-fr/1".to_owned(),
+                })
+                .unwrap();
+        }
+        database
+    }
+}
+
+impl Drop for Scratch {
+    fn drop(&mut self) {
+        fs::remove_dir_all(&self.0).unwrap();
+    }
+}
+
+#[test]
+fn a_report_is_recorded_under_its_own_collection_generation_and_suite() {
+    let report = evaluate(oracle);
+    let scratch = Scratch::new("recorded");
+    let database = scratch.kernel(GENERATION);
+    let recorded = eval::record(&database, &report).unwrap();
+    assert_eq!(recorded.collection_id, "synthetic");
+    assert_eq!(recorded.generation, GENERATION);
+    assert_eq!(recorded.suite, "synthetic");
+    let json = database.get(&recorded.digest).unwrap();
+    assert_eq!(
+        str::from_utf8(&json).unwrap().parse::<Report>().unwrap(),
+        report
+    );
+}
+
+#[test]
+fn a_report_of_a_generation_the_kernel_lacks_is_refused_naming_it() {
+    let report = evaluate(oracle);
+    let scratch = Scratch::new("refused");
+    let database = scratch.kernel(GENERATION - 1);
+    let error = eval::record(&database, &report).unwrap_err();
+    assert!(
+        matches!(
+            &error,
+            eval::RecordError::Kernel(KernelError::UnknownGeneration { collection, generation })
+                if collection == "synthetic" && *generation == GENERATION
+        ),
+        "{error:?}"
+    );
+    assert_eq!(
+        error.to_string(),
+        "the report could not be recorded: the collection synthetic records no generation 3"
+    );
+    let source = error::Error::source(&error).map(ToString::to_string);
+    assert_eq!(
+        source.as_deref(),
+        Some("the collection synthetic records no generation 3")
     );
 }

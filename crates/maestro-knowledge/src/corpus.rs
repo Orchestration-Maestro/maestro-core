@@ -37,7 +37,7 @@ pub struct Entry {
     /// The document's file, relative to the manifest's directory.
     pub path: RelativePath,
     /// The SHA-256 digest of the file's bytes.
-    #[serde(deserialize_with = "digest")]
+    #[serde(deserialize_with = "shape::digest")]
     pub sha256: Digest,
     /// The file's size in bytes.
     pub bytes: NonZeroU64,
@@ -164,13 +164,6 @@ fn is_web_url(text: &str) -> bool {
         && !text
             .chars()
             .any(|character| character.is_whitespace() || character.is_control())
-}
-
-/// `sha256` as the kernel's [`Digest`], which only 64 lowercase hexadecimal
-/// characters make.
-fn digest<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Digest, D::Error> {
-    let text = String::deserialize(deserializer)?;
-    Digest::parse(&text).map_err(de::Error::custom)
 }
 
 /// `extractor` or `access`: an object the contract leaves open, read with

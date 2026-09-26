@@ -8,6 +8,7 @@ use crate::eval::{
     judge::judge,
     metric::{DISCOUNTS, measure},
 };
+use std::num::NonZeroU32;
 
 /// The results of the small suite: its six answerable questions, then its two
 /// unanswerable ones, answered in 10, 20, … 80 µs.
@@ -134,7 +135,11 @@ fn a_question_scores_its_own_ranks() {
     assert!(two.answerable);
     assert_eq!(two.passages, 7);
     assert_eq!(two.latency_us, 20);
-    let ranks: Vec<_> = two.expected.iter().map(|expected| expected.rank).collect();
+    let ranks: Vec<_> = two
+        .expected
+        .iter()
+        .map(|expected| expected.rank.map(NonZeroU32::get))
+        .collect();
     assert_eq!(ranks, [Some(3), Some(7)]);
     assert_eq!(two.best_rank(), Some(3));
     let wrong = results

@@ -19,6 +19,7 @@ use std::{
     collections::BTreeMap,
     convert::Infallible,
     error, io,
+    num::NonZeroU32,
     time::{Duration, Instant},
 };
 
@@ -152,6 +153,7 @@ fn a_run_judges_each_question_in_the_suites_order_under_its_header() {
     let report = run(header(), &three(), lookup(), answers()).unwrap();
     assert_eq!(report.schema, Schema::V1);
     assert_eq!(report.suite, "small");
+    assert_eq!(report.suite_digest, three().digest);
     assert_eq!(report.collection, COLLECTION);
     assert_eq!(report.generation, GENERATION);
     assert_eq!(report.profiles, header().profiles);
@@ -168,7 +170,10 @@ fn a_run_judges_each_question_in_the_suites_order_under_its_header() {
         .map(|result| {
             let expected = result.expected.iter();
             expected
-                .map(|expected| (expected.section_id.as_deref(), expected.rank))
+                .map(|expected| {
+                    let rank = expected.rank.map(NonZeroU32::get);
+                    (expected.section_id.as_deref(), rank)
+                })
                 .collect()
         })
         .collect();
@@ -240,7 +245,7 @@ fn a_document_without_sections_is_expected_whole_and_held_by_its_passages() {
     let whole = Expected {
         document_id: notes.to_owned(),
         section_id: None,
-        rank: Some(2),
+        rank: NonZeroU32::new(2),
     };
     let restore = Expected {
         document_id: document_id(BACKUPS).to_owned(),
@@ -269,7 +274,7 @@ fn two_documents_without_sections_expected_by_one_question_are_each_ranked() {
     let whole = |document_id: &str, rank| Expected {
         document_id: document_id.to_owned(),
         section_id: None,
-        rank: Some(rank),
+        rank: NonZeroU32::new(rank),
     };
     assert_eq!(
         report.questions[0].expected,

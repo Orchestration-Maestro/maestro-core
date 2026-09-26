@@ -1,12 +1,13 @@
 //! The JSON shapes the contracts name, and no other: an object where a
-//! contract names an object, a string where it names one of its values, and
-//! a scope name where it names an id. Serde's derive would also read a
+//! contract names an object, a string where it names one of its values, a
+//! scope name where it names an id, and a SHA-256 digest's hexadecimal text
+//! where it names a digest. Serde's derive would also read a
 //! struct from an array of its fields in order, and `serde_json` a unit
 //! variant from an object such as `{"public": null}`; the declaration and
 //! the corpus manifest read their objects, their named values and their ids
 //! through these instead.
 
-use maestro_kernel::scope;
+use maestro_kernel::{artifact::Digest, scope};
 use serde::{
     Deserialize, Deserializer,
     de::{
@@ -63,6 +64,13 @@ where
     let id = String::deserialize(deserializer)?;
     scope::check_name(&id).map_err(de::Error::custom)?;
     Ok(id)
+}
+
+/// A SHA-256 digest, as the kernel's [`Digest`], from a JSON string of the
+/// 64 lowercase hexadecimal characters that alone make one.
+pub(crate) fn digest<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Digest, D::Error> {
+    let text = String::deserialize(deserializer)?;
+    Digest::parse(&text).map_err(de::Error::custom)
 }
 
 /// A list element read by [`object`].

@@ -150,13 +150,17 @@ fn passage(hit: &Hit) -> Passage {
     }
 }
 
-/// The report of a run of the suite `synthetic` over [`GENERATION`] of
-/// [`COLLECTION`] whose questions got `questions`, with no profile, its
-/// intervals drawn with the seed 1.
+/// The text of the suite the tests' reports name.
+pub(super) const SUITE_TEXT: &[u8] = b"the synthetic suite, one question per line\n";
+
+/// The report of a run of the suite `synthetic`, read from [`SUITE_TEXT`],
+/// over [`GENERATION`] of [`COLLECTION`] whose questions got `questions`,
+/// with no profile, its intervals drawn with the seed 1.
 pub(super) fn report_of(questions: Vec<QuestionResult>) -> Report {
     Report {
         schema: eval::Schema::V1,
         suite: "synthetic".to_owned(),
+        suite_digest: Digest::of(SUITE_TEXT),
         collection: COLLECTION.to_owned(),
         generation: GENERATION,
         profiles: BTreeMap::new(),

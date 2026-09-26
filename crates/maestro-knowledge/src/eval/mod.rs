@@ -66,22 +66,26 @@
 //! Command exactness needs expected answers, which `maestro-suite/1` does not
 //! carry, so it is not measured here.
 //!
-//! A run's [`Report`], `maestro-eval-report/1`, names the suite, the
-//! collection, the generation, its profiles and the seed, with each question's
-//! result, the number of degraded searches and the metrics. It is strict JSON:
-//! its reader refuses an unknown key, a key given twice, an object written as
-//! an array and a metric written `null`. The kernel stores it as an artifact
-//! and indexes it ([`maestro_kernel::eval`]).
+//! A run's [`Report`], `maestro-eval-report/1`, names the suite and the
+//! digest of the text it was read from, the collection, the generation, its
+//! profiles and the seed, with each question's result, the number of degraded
+//! searches and the metrics. It is strict JSON: its reader refuses an unknown
+//! key, a key given twice, an object written as an array, a metric written
+//! `null` and a rank of 0. [`record()`] records it in the kernel, which
+//! stores it as an artifact and indexes it by the collection, generation and
+//! suite it names ([`maestro_kernel::eval`]).
 //!
-//! [`compare()`] pairs two runs of one suite by question id and gives, for
-//! each metric, the candidate's value minus the baseline's, with the interval
-//! of 2,000 paired resamples drawn the same way under the seed it is given.
+//! [`compare()`] pairs two runs of one suite, read from the same file, over
+//! one collection by question id and gives, for each metric, the candidate's
+//! value minus the baseline's, with the interval of 2,000 paired resamples
+//! drawn the same way under the seed it is given.
 
 mod bootstrap;
 mod compare;
 mod error;
 mod judge;
 mod metric;
+mod record;
 mod report;
 mod run;
 #[cfg(test)]
@@ -89,6 +93,7 @@ mod tests;
 
 pub use compare::{Comparison, compare};
 pub use error::{CompareError, RunError};
+pub use record::{RecordError, record};
 pub use report::{
     Estimate, Expected, Failure, FailureClass, Header, Metrics, QuestionResult, Report, Schema,
 };

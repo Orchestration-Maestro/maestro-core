@@ -154,7 +154,7 @@ fn ndcg(result: &QuestionResult) -> f64 {
         .expected
         .iter()
         .filter_map(|expected| expected.rank)
-        .map(discount)
+        .map(|rank| discount(rank.get()))
         .sum();
     let ideal: f64 = DISCOUNTS.iter().take(result.expected.len()).sum();
     if ideal > 0.0 { gained / ideal } else { 0.0 }
