@@ -89,7 +89,9 @@ pub(in crate::cli) fn run(output: Output) -> Result<ExitCode, Failure> {
     };
     let services = [
         kernel,
-        qdrant_check(&qdrant_address(), || setup::readiness(&environment)),
+        qdrant_check(&qdrant_address(), || {
+            setup::readiness(&environment, &setup::Tools::on_path())
+        }),
         router_check(router_url(env::var_os(ROUTER_VARIABLE).as_deref())),
     ];
     let collections = match &opened {

@@ -1,7 +1,7 @@
 //! The services' checks: Qdrant answering as the pinned version, the model
 //! router listing its catalog, and each role's model card; a failure names
 //! the address it tried and the next action, which for Qdrant depends on
-//! what setup would still do.
+//! what setup would still do, asked of the user manager and nothing more.
 
 use super::{
     super::services::{DEFAULT_ROUTER, card_checks, qdrant_check, router_check, router_url},
@@ -12,6 +12,8 @@ use crate::cli::{
     setup::{Readiness, Step},
 };
 use std::ffi::OsStr;
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+use {crate::cli::setup, maestro_kernel::paths::Environment};
 
 /// What Qdrant 1.19.1 answers `GET /` with.
 const ROOT: &str = concat!(
@@ -87,6 +89,32 @@ fn qdrant_that_does_not_answer_fails_with_what_setup_would_do_next() {
             "{expected} is missing from: {next}"
         );
     }
+}
+
+/// Where setup installs, a Qdrant that does not answer makes doctor ask the
+/// user manager what setup would do, as a preview does: whether the service
+/// is enabled and running, and nothing else; it downloads nothing.
+#[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+#[test]
+fn qdrant_that_does_not_answer_only_asks_the_user_manager_what_setup_would_do() {
+    let home = setup::tests::support::Home::new();
+    let mut environment = Environment::default();
+    environment.xdg_data_home = Some(home.root().join("data").into());
+    environment.xdg_config_home = Some(home.root().join("config").into());
+    let check = qdrant_check(&nothing_at(), || {
+        setup::readiness(&environment, &home.tools())
+    });
+    let (problem, next) = failure(&check);
+    assert!(problem.starts_with("no answer"), "{problem}");
+    assert!(next.contains("maestro setup --yes"), "{next}");
+    assert_eq!(
+        home.calls(),
+        [
+            "systemctl --user is-enabled maestro-qdrant.service",
+            "systemctl --user is-active maestro-qdrant.service",
+        ],
+        "no curl, no tar, no other systemctl"
+    );
 }
 
 #[test]

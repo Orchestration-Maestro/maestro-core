@@ -13,7 +13,7 @@ use std::{
 
 /// Where each tool setup runs is.
 #[derive(Debug, Clone)]
-pub(super) struct Tools {
+pub(in crate::cli) struct Tools {
     /// `curl`.
     pub(super) curl: PathBuf,
     /// `tar`.
@@ -35,7 +35,7 @@ pub(super) struct Answer {
 
 impl Tools {
     /// Each tool by its name, found on the `PATH` when it runs.
-    pub(super) fn on_path() -> Self {
+    pub(in crate::cli) fn on_path() -> Self {
         Self {
             curl: PathBuf::from("curl"),
             tar: PathBuf::from("tar"),

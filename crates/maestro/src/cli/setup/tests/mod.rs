@@ -9,6 +9,6 @@ mod install;
 mod manager;
 mod platform;
 #[cfg(unix)]
-mod support;
+pub(in crate::cli) mod support;
 #[cfg(unix)]
 mod unit;
