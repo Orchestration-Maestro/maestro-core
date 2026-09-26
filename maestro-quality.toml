@@ -102,6 +102,15 @@ path = "crates/maestro-kernel/src/scope/mod.rs"
 item = "InvalidName"
 reason = "the scope module owns the public name rule: maestro-knowledge's parser and the kernel's record writers apply it"
 
+# The quality gate's reader of the revisions it lets through: the gate owns
+# eligibility, so the preparation (T023) reads it rather than deciding again,
+# and the gate's contract tests call it from outside the crate's sources.
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-knowledge/src/quality/mod.rs"
+item = "eligible"
+reason = "the quality gate owns which revisions go on: the preparation reads them through it rather than deciding again, and the gate's contract tests call it from outside the crate's sources"
+
 # The words this repository means that the spell checker reads as mistakes:
 # Exemple, French test input for the canonicalizer; RTO, the recovery time
 # objective beside RPO; WRONLY, the POSIX open flag as rustix names it;

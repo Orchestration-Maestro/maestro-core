@@ -5,6 +5,7 @@
 
 mod counts;
 mod dispositions;
+mod duplicates;
 mod errors;
 mod parents;
 mod revisions;

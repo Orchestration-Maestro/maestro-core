@@ -30,13 +30,16 @@ fn status_reports_documents_revisions_dispositions_and_generations() {
         decided_by: "test".to_owned(),
     };
     database.record_disposition(&accepted).unwrap();
-    // A chunk set as preparation will record it, which no public call writes yet.
+    // A chunk set as preparation records it: begun building, then complete
+    // with its manifest.
     Connection::open(home.data().join("kernel.sqlite3"))
         .unwrap()
-        .execute(
+        .execute_batch(
             "INSERT INTO chunk_sets (id, collection_id, chunk_profile, counter_contract_id, state)
-             VALUES ('synthetic-set', 'synthetic', 'structural-500-700/1', 'native', 'complete')",
-            [],
+             VALUES ('synthetic-set', 'synthetic', 'structural-500-700/1', 'native', 'building');
+             UPDATE chunk_sets SET state = 'complete',
+               manifest_digest = '4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945'
+             WHERE id = 'synthetic-set';",
         )
         .unwrap();
     let generation = database

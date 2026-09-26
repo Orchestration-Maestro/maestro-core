@@ -16,6 +16,8 @@ use std::{
     sync::atomic::{AtomicUsize, Ordering},
 };
 
+/// The digest of the manifest each complete chunk set of the tests names.
+const MANIFEST: &str = "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945";
 /// The generation of `ctm` in the database [`Scratch::open`] gives.
 pub(super) const CTM: i64 = 1;
 /// The generation of `synthetic` in the database [`Scratch::open`] gives.
@@ -59,7 +61,15 @@ impl Scratch {
                 &format!(
                     "INSERT INTO chunk_sets (id, collection_id, chunk_profile, counter_contract_id,
                        state)
-                     VALUES ('{id}-set', '{id}', 'structural-500-700/1', 'native', 'complete')"
+                     VALUES ('{id}-set', '{id}', 'structural-500-700/1', 'native', 'building')"
+                ),
+            )
+            .unwrap();
+            execute(
+                &database,
+                &format!(
+                    "UPDATE chunk_sets SET state = 'complete', manifest_digest = '{MANIFEST}'
+                     WHERE id = '{id}-set'"
                 ),
             )
             .unwrap();

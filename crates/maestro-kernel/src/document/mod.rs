@@ -30,20 +30,30 @@
 //! that must never be read undecided, as the import's holds, is recorded
 //! with its disposition in one write.
 //!
+//! The preparation (01 §6) records where each revision's content occurs: an
+//! exact duplicate is prepared once, as the revision its occurrences name,
+//! and every place it occurs keeps its own source and source reference. It
+//! also records the groups of near duplicates, each member with the confirmed
+//! Jaccard that holds it there: grouped, never deleted. Both are recorded
+//! once, a batch in one write.
+//!
 //! Every reader takes the caller's [`ScopeSet`](crate::scope::ScopeSet) and
 //! reads only what it covers: a collection has the scope
 //! `workspace/default/collection/<id>`, a source `…/source/<id>` below it,
-//! and a document and its revisions have their source's. A collection's
-//! [`Counts`], its documents and its revisions by status and by disposition,
-//! count only those records, read in one snapshot.
+//! and a document and its revisions have their source's, as an occurrence
+//! has its own source's. A collection's [`Counts`], its documents and its
+//! revisions by status and by disposition, count only those records, read in
+//! one snapshot.
 //!
 //! The migration `0004_documents` creates every table of the pipeline's
 //! records, those the quality gate and the preparation write included, so no
-//! later task of S1 needs a migration of its own.
+//! later task of S1 needs a table of its own; `0007_chunk_sets` adds the
+//! guards of the chunk sets and their chunks.
 
 mod collection;
 mod counts;
 mod disposition;
+mod duplicate;
 mod error;
 mod revision;
 #[cfg(test)]
@@ -52,5 +62,6 @@ mod tests;
 pub use collection::{Collection, Document, Source};
 pub use counts::Counts;
 pub use disposition::{Disposition, Outcome};
+pub use duplicate::{NearDuplicate, Occurrence};
 pub use error::Error;
 pub use revision::{Recorded, Revision, RevisionStatus};

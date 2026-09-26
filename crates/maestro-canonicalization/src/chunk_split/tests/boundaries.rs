@@ -14,19 +14,33 @@ fn cut_points_follow_whitespace_and_meaningful_ones_end_sentences_or_code_lines(
 
 #[test]
 fn a_fitting_rest_stays_whole_and_a_halved_prefix_ends_at_a_preferred_cut() {
-    assert_eq!(fit_prefix("ab cd", &[3], &mut |_| Ok(true)).unwrap(), 5);
+    assert_eq!(
+        fit_prefix("ab cd", &[3], &mut |_| Ok(true)).unwrap(),
+        Some(5)
+    );
     // Up to 6 bytes fit: the halved prefix of 5 moves back to the last cut inside it.
     let mut up_to_six = |end: usize| Ok(end <= 6);
     assert_eq!(
         fit_prefix("ab cd ef gh", &[3, 5, 9], &mut up_to_six).unwrap(),
-        3
+        Some(3)
     );
     // A cut at the start, past the prefix or inside a character is never taken.
     let mut up_to_ten = |end: usize| Ok(end <= 10);
-    assert_eq!(fit_prefix("ab cd ef gh", &[0], &mut up_to_ten).unwrap(), 5);
-    assert_eq!(fit_prefix("ab cd ef gh", &[9], &mut up_to_ten).unwrap(), 5);
-    assert_eq!(fit_prefix("éab cd ef gh", &[1], &mut up_to_ten).unwrap(), 7);
-    assert!(fit_prefix("", &[], &mut up_to_ten).is_err());
+    assert_eq!(
+        fit_prefix("ab cd ef gh", &[0], &mut up_to_ten).unwrap(),
+        Some(5)
+    );
+    assert_eq!(
+        fit_prefix("ab cd ef gh", &[9], &mut up_to_ten).unwrap(),
+        Some(5)
+    );
+    assert_eq!(
+        fit_prefix("éab cd ef gh", &[1], &mut up_to_ten).unwrap(),
+        Some(7)
+    );
+    // Nothing fits in an empty text, nor a single character that does not fit alone.
+    assert_eq!(fit_prefix("", &[], &mut up_to_ten).unwrap(), None);
+    assert_eq!(fit_prefix("ab", &[], &mut |_| Ok(false)).unwrap(), None);
 }
 
 #[test]

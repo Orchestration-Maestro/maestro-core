@@ -263,19 +263,19 @@ pub(super) fn boundaries(text: &str, code: bool) -> (Vec<usize>, Vec<usize>) {
 }
 
 /// A prefix of the text that fits: the whole text, or the first fitting half by halving, then cut
-/// back to the last preferred boundary if that also fits; a single character that does not fit is
-/// refused.
+/// back to the last preferred boundary if that also fits; none when not even a single character
+/// fits, which its caller refuses by naming its unit.
 pub(super) fn fit_prefix(
     text: &str,
     preferred: &[usize],
     fits: &mut impl FnMut(usize) -> Result<bool, Error>,
-) -> Result<usize, Error> {
+) -> Result<Option<usize>, Error> {
     let mut end = text.len();
     loop {
         if end > 0 && fits(end)? {
             // A rest that fits stays whole; only a halved prefix moves back to a preferred cut.
             if end == text.len() {
-                return Ok(end);
+                return Ok(Some(end));
             }
             let boundary = preferred
                 .iter()
@@ -283,13 +283,13 @@ pub(super) fn fit_prefix(
                 .copied()
                 .find(|&cut| cut > 0 && cut < end && text.is_char_boundary(cut));
             return match boundary {
-                Some(boundary) if fits(boundary)? => Ok(boundary),
-                Some(_) | None => Ok(end),
+                Some(boundary) if fits(boundary)? => Ok(Some(boundary)),
+                Some(_) | None => Ok(Some(end)),
             };
         }
         let scalar_count = text[..end].chars().count();
         if scalar_count <= 1 {
-            return Err(structure_error());
+            return Ok(None);
         }
         end = text
             .char_indices()

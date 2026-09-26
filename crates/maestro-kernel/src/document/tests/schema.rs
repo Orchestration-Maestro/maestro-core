@@ -47,7 +47,7 @@ const ORPHANS: [&str; 12] = [
     "INSERT INTO near_dup_groups (group_id, revision_id, jaccard)
      VALUES ('group', 'missing', 0.9)",
     "INSERT INTO chunk_sets (id, collection_id, chunk_profile, counter_contract_id, state)
-     VALUES ('set-b', 'missing', 'profile', 'counter', 'complete')",
+     VALUES ('set-b', 'missing', 'profile', 'counter', 'building')",
     "INSERT INTO chunks (chunk_set_id, id, revision_id, digest, token_count, span_start,
        span_end)
      VALUES ('missing', 'chunk', 'rev-a', 'digest', 1, 0, 1)",
@@ -139,7 +139,7 @@ fn parents(scratch: &Scratch) -> Database {
     run(
         &database,
         "INSERT INTO chunk_sets (id, collection_id, chunk_profile, counter_contract_id, state)
-         VALUES ('set-a', 'ctm', 'profile', 'counter', 'complete')",
+         VALUES ('set-a', 'ctm', 'profile', 'counter', 'building')",
     )
     .unwrap();
     database

@@ -64,6 +64,9 @@ fn source(collection: &str, id: &str) -> Source {
     }
 }
 
+/// The digest of the manifest each complete chunk set of the tests names.
+const MANIFEST: &str = "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945";
+
 /// Records each collection with a chunk set, each source with a document and
 /// its revision, then two generations of each collection, the second
 /// published after the first, which it retires; returns the generations'
@@ -76,7 +79,14 @@ fn record(database: &Database) -> Vec<i64> {
                 transaction.execute(
                     "INSERT INTO chunk_sets (id, collection_id, chunk_profile,
                        counter_contract_id, state)
-                     VALUES (?1 || '-set', ?1, 'structural-500-700/1', 'native', 'complete')",
+                     VALUES (?1 || '-set', ?1, 'structural-500-700/1', 'native', 'building')",
+                    [id],
+                )?;
+                transaction.execute(
+                    &format!(
+                        "UPDATE chunk_sets SET state = 'complete', manifest_digest = '{MANIFEST}'
+                         WHERE id = ?1 || '-set'"
+                    ),
                     [id],
                 )?;
                 Ok::<_, store::Error>(())

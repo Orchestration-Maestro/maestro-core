@@ -75,6 +75,10 @@ cut fits. It does not assume tokenizer monotonicity or claim a maximal fitting
 prefix. Oversized mandatory context, unsupported unsafe
 structure, incomplete accounting, changed artifacts and runtime errors refuse
 rather than silently dropping text. No fallback to approximate token counts exists.
+A unit that cannot fit the hard maximum with its mandatory context is refused by
+name, never by its text: `the unit <unit ID> of block <block ID> at bytes
+[<start>, <end>) does not fit in 700 tokens with its context`, the span being
+the block's in the original Markdown.
 
 ## Coordinates and coverage
 

@@ -8,6 +8,7 @@
 pub mod artifact;
 pub mod binding;
 pub mod capability;
+pub mod chunk_set;
 pub mod document;
 pub mod eval;
 pub mod evidence;

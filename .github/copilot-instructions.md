@@ -97,6 +97,7 @@ in place.
 │   │   │   │   │   ├── boundaries.rs                                        # The pure preparation helpers: cut points, fitting prefixes and delimiter-safe ranges
 │   │   │   │   │   ├── context.rs                                           # Context, characterized on small documents: the exact prepared input of each chunk
 │   │   │   │   │   ├── mod.rs                                               # Tests of structural preparation and packing
+│   │   │   │   │   ├── oversized.rs                                         # Oversized units: refused by name, with their block and its span, never by their text
 │   │   │   │   │   ├── packing.rs                                           # Packing and preparation: shared chunks, context text, containers, part numbers and the table
 │   │   │   │   │   └── splitting.rs                                         # Splitting, characterized on small documents: where oversized units and rows are cut
 │   │   │   │   ├── context.rs                                               # The context a chunk repeats: headings, parent items, task markers and table headers
@@ -204,7 +205,8 @@ in place.
 │   │   │   ├── 0003_scopes.sql                                              # The grants: each principal's rights on a scope and on every scope below it
 │   │   │   ├── 0004_documents.sql                                           # The pipeline's records: collections, sources, documents, revisions, their dispositions, chunk sets, chunks and generations
 │   │   │   ├── 0005_jobs.sql                                                # The jobs table: each job's key, attempt, resource, state, lease and outcome, and its triggers
-│   │   │   └── 0006_eval_reports.sql                                        # The evaluation reports: each run's collection, generation, suite and report artifact, and the triggers that keep it as recorded
+│   │   │   ├── 0006_eval_reports.sql                                        # The evaluation reports: each run's collection, generation, suite and report artifact, and the triggers that keep it as recorded
+│   │   │   └── 0007_chunk_sets.sql                                          # The guards of the chunk sets and their chunks: their states, moves and identity, and a complete set's chunks as counted
 │   │   ├── src/                                                             # The crate's sources
 │   │   │   ├── artifact/                                                    # Content-addressed artifacts: immutable bytes stored, and read back, by their
 │   │   │   │   ├── digest.rs                                                # A SHA-256 digest: the name every artifact is stored under
@@ -215,10 +217,23 @@ in place.
 │   │   │   │   ├── mod.rs                                                   # Capabilities: the registry of the tools Maestro offers (building block B9)
 │   │   │   │   ├── registry.rs                                              # The registry: each tool once, with what it takes, does and needs
 │   │   │   │   └── tests.rs                                                 # Tests of the capability registry: declarations, refusals and order
+│   │   │   ├── chunk_set/                                                   # Chunk sets: a collection's chunks under one profile and one counter, building until complete or failed
+│   │   │   │   ├── tests/                                                   # Tests of the chunk set records: their lifecycle and their chunks
+│   │   │   │   │   ├── chunks.rs                                            # Chunks: a revision's chunks recorded at once into a building set, their prepared inputs pinned, read in scope
+│   │   │   │   │   ├── guards.rs                                            # The guards of migration 0007_chunk_sets: each trigger refusing raw SQL, one test each
+│   │   │   │   │   ├── lifecycle.rs                                         # A chunk set's lifecycle: begun building, found again by a rerun, then complete or failed for good
+│   │   │   │   │   ├── mod.rs                                               # Tests of the chunk set records: their lifecycle and their chunks
+│   │   │   │   │   └── support.rs                                           # What the chunk set tests share: a scratch database with revisions of two collections
+│   │   │   │   ├── chunk.rs                                                 # Chunks: a revision's passages in a chunk set, recorded at once, each pinning its prepared input
+│   │   │   │   ├── error.rs                                                 # Why the kernel refused to begin, move or fill a chunk set
+│   │   │   │   ├── mod.rs                                                   # Chunk sets: a collection's chunks under one profile and one counter, building until complete or failed
+│   │   │   │   ├── record.rs                                                # Chunk sets as the kernel records them: begun, completed with their manifest or failed, read in scope
+│   │   │   │   └── state.rs                                                 # The states a chunk set moves through, and the moves it may make
 │   │   │   ├── document/                                                    # The pipeline's document records (building block B5; docs/architecture/01
 │   │   │   │   ├── tests/                                                   # Tests of the document records: the documents migration, collections
 │   │   │   │   │   ├── counts.rs                                            # A collection's counts: documents, revisions by status and disposition, only in scope
 │   │   │   │   │   ├── dispositions.rs                                      # Quality dispositions: one per revision, kept once given, read in scope, a hold journaled with it
+│   │   │   │   │   ├── duplicates.rs                                        # Occurrences and near-duplicate groups: each recorded once, a batch in one write, read in scope
 │   │   │   │   │   ├── errors.rs                                            # What the document records' refusals say, and the store's refusals they
 │   │   │   │   │   ├── mod.rs                                               # Tests of the document records: the documents migration, collections
 │   │   │   │   │   ├── parents.rs                                           # Collections, their sources and their documents: collections and sources
@@ -228,6 +243,7 @@ in place.
 │   │   │   │   ├── collection.rs                                            # Collections, the sources they declare and the documents those sources
 │   │   │   │   ├── counts.rs                                                # A collection's counts: documents, and revisions by status and by disposition, in one snapshot
 │   │   │   │   ├── disposition.rs                                           # Quality dispositions: one per revision, kept once given, a hold journaled in the same write
+│   │   │   │   ├── duplicate.rs                                             # The duplicates of revisions: every place a revision's content occurs, and the groups of near duplicates
 │   │   │   │   ├── error.rs                                                 # Why the kernel refused to record a collection, a source, a document or a revision
 │   │   │   │   ├── mod.rs                                                   # The pipeline's document records (building block B5; docs/architecture/01
 │   │   │   │   └── revision.rs                                              # Revisions: one exact version of a document's bytes and metadata, recorded
@@ -405,22 +421,41 @@ in place.
 │       │   │   ├── stopwords.rs                                             # The stopwords of bm25-en-fr/1: an English list and a French one, each of
 │       │   │   ├── tests.rs                                                 # What the lexical module's lookups rely on
 │       │   │   └── vector.rs                                                # Sparse vectors: a passage's terms weighed with BM25's term-frequency part
-│       │   ├── prepare/                                                     # Preparing revisions for search: tokens counted as the selected embedder counts them, through the model router
-│       │   │   ├── tests/                                                   # Tests of the router tokenizer: qualification by parity with the native
+│       │   ├── prepare/                                                     # Preparing revisions for search: duplicates grouped, then chunks counted as the selected embedder counts them, through the model router
+│       │   │   ├── tests/                                                   # Tests of the router tokenizer, and of the preparation of a collection over it
+│       │   │   │   ├── chunk_sets.rs                                        # What a chunk set records: its profile, its counter, the same chunk IDs for the same input, each prepared input pinned
 │       │   │   │   ├── counting.rs                                          # Counting and verifying through a qualified tokenizer: the port's IDs in
-│       │   │   │   ├── mod.rs                                               # Tests of the router tokenizer: qualification by parity with the native
+│       │   │   │   ├── duplicates.rs                                        # Duplicates: exact ones prepared once with every occurrence kept, near ones grouped with their Jaccard
+│       │   │   │   ├── eligibility.rs                                       # Which revisions a preparation reads: the accepted ones, for a caller who reads the whole collection
+│       │   │   │   ├── interruptions.rs                                     # Interrupted work never reads as complete: a stopped run resumes, a changed counter fails the set
+│       │   │   │   ├── latest.rs                                            # A document is prepared by its latest revision alone; one whose latest is held or failed is left out and reported
+│       │   │   │   ├── mod.rs                                               # Tests of the router tokenizer, and of the preparation of a collection over it
+│       │   │   │   ├── near.rs                                              # Near duplicates: signatures and bands propose, an exact Jaccard of 0.85 or more confirms, pairs link groups
+│       │   │   │   ├── oversized.rs                                         # A unit that cannot fit 700 tokens with its context refuses its document by name; the rest are prepared
 │       │   │   │   ├── parity.rs                                            # The parity fixtures: how their file writes them, and what the built-in
 │       │   │   │   ├── port.rs                                              # A model port that answers each parity fixture with the native counter's
 │       │   │   │   ├── qualification.rs                                     # Qualification: a router tokenizer exists only once the port gives every
 │       │   │   │   ├── refusals.rs                                          # The refusals: what each says, and the cause each keeps
 │       │   │   │   ├── router_client.rs                                     # The router client through a router tokenizer, against a stub router: from
+│       │   │   │   ├── scratch.rs                                           # What the preparation's tests share: a scratch corpus and kernel, a collection imported and decided
+│       │   │   │   ├── stops.rs                                             # Why a preparation stops: what each stop says, and the cause each keeps
 │       │   │   │   ├── stub.rs                                              # A stub of the model router for the router client's tests: a loopback HTTP
-│       │   │   │   └── support.rs                                           # What the router tokenizer's tests share: model cards, recorded in a
+│       │   │   │   ├── support.rs                                           # What the router tokenizer's tests share: model cards, recorded in a
+│       │   │   │   └── synthetic.rs                                         # The public synthetic collection prepared end to end: one exact group, two near-duplicate groups
 │       │   │   ├── bridge.rs                                                # A model port's asynchronous tokenize, called synchronously: the port's
+│       │   │   ├── chunking.rs                                              # Chunking prepared revisions: each prepared input stored, a revision's chunks recorded at once
+│       │   │   ├── collection.rs                                            # Preparing a collection: its eligible revisions deduplicated, then chunked into the chunk set they name
+│       │   │   ├── counter.rs                                               # The router tokenizer as the chunker counts through it, keeping the typed refusal the chunker holds as text
 │       │   │   ├── error.rs                                                 # Why a router tokenizer refuses to qualify, or to count
-│       │   │   ├── mod.rs                                                   # Preparing revisions for search (docs/architecture/01 §7): their chunks are
+│       │   │   ├── exact.rs                                                 # Exact duplicates: the same original bytes and canonical content, prepared once as the smallest revision
+│       │   │   ├── failure.rs                                               # Why a preparation stopped, and what a rerun does then
+│       │   │   ├── left_out.rs                                              # The documents a preparation leaves out, since the quality gate does not let their latest revision through, each with why
+│       │   │   ├── manifest.rs                                              # A chunk set's identity, and its manifest maestro-chunk-set/1, which a complete set pins
+│       │   │   ├── mod.rs                                                   # Preparing revisions for search: deduplicated, then chunked in the tokens of the selected embedder
 │       │   │   ├── native-parity.json                                       # The native counter's ordered IDs for the 41 parity fixtures a router tokenizer must match to qualify
+│       │   │   ├── near.rs                                                  # Near duplicates: word 5-gram shingles, MinHash bands, exact Jaccard confirmation, groups that delete nothing
 │       │   │   ├── parity.rs                                                # The native profile's parity fixtures, native-parity.json: complete
+│       │   │   ├── report.rs                                                # What a preparation reports, as JSON: its chunk set, its counts and each refusal
 │       │   │   └── router_tokenizer.rs                                      # The router tokenizer: maestro-canonicalization's TokenCounter over the
 │       │   ├── quality/                                                     # The quality gate: one disposition per revision before indexing (01 §4, FR-S1-002a)
 │       │   │   ├── checks/                                                  # The automatic checks, each a rule ID with a documented threshold
@@ -495,7 +530,9 @@ in place.
 │       │       ├── lexical_rules.rs                                         # The rules of bm25-en-fr/1 as the lexical module states them, each with
 │       │       ├── lexical_sample.rs                                        # Research R7's public sample on bm25-en-fr/1: 22 passages, 11 in English
 │       │       ├── lexical_vectors.rs                                       # The sparse vectors of bm25-en-fr/1: a passage's term weighs BM25's
+│       │       ├── live_router.rs                                           # What the live tests share: the router their variables name, and its embedder's model card
 │       │       ├── main.rs                                                  # The crate's integration tests, built as one test crate: each module proves
+│       │       ├── prepare_live.rs                                          # knowledge prepare on this machine's kernel as a leased job, live: the chunk count, wall time and router calls
 │       │       ├── quality_ledger.rs                                        # maestro-quality-ledger/1: strict rules a line; a missing ledger is empty
 │       │       ├── router_parity.rs                                         # The router tokenizer's parity with the native counter, live: an explicit
 │       │       ├── suite_contract.rs                                        # maestro-suite/1: a suite, one JSON line per question, parses into typed

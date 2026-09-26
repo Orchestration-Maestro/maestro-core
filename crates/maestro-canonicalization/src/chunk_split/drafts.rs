@@ -11,7 +11,7 @@ use std::collections::{BTreeMap, VecDeque};
 
 /// Pack a document's atoms into drafts: combine compatible atoms up to the target, refine or split
 /// what exceeds the maximum, then number each unit's parts. A refinement that hands a body back
-/// unchanged would never end, so it is a structure error.
+/// unchanged would never end, so it refuses the body's first unit by name.
 pub(crate) fn build_drafts(
     document: &CanonicalDocument,
     markdown: &str,
@@ -35,7 +35,8 @@ pub(crate) fn build_drafts(
             current = settle(&mut result, atom, prepared);
         } else if let Some(refined) = layout.refine(&atom)? {
             if refined.contains(&atom) {
-                return Err(structure_error());
+                let first = atom.fragments.first().ok_or_else(structure_error)?;
+                return Err(layout.oversized(first.contribution.unit_index));
             }
             for piece in refined.into_iter().rev() {
                 pending.push_front(piece);

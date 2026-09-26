@@ -389,7 +389,9 @@ fn native_mandatory_context_is_not_clipped() {
         )
         .unwrap_err();
         assert!(
-            error.to_string().contains("chunk context/structure"),
+            error
+                .to_string()
+                .contains("does not fit in 700 tokens with its context"),
             "unexpected native refusal: {error}"
         );
     }
