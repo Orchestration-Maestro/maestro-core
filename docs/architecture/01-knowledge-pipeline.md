@@ -67,10 +67,11 @@ owns the content (the private `ctm-collection` repository for Control-M):
 
 `visibility` becomes a scope tag on every derived record; `embed:winner`
 resolves to a concrete model card at run time; `extraction` applies from S6 (S1
-imports Markdown). Each source declares its **synchronization policy**
-(`one-off`, `manual` or `watch`, an owner decision): automation is explicit,
-bounded by the source's budgets and scope, and never widens access. Paths
-resolve at run time from named bindings
+imports Markdown); `evals.suite` names a directory, relative to the
+declaration's, where each `<name>.jsonl` is the suite `<name>`. Each source
+declares its **synchronization policy** (`one-off`, `manual` or `watch`, an
+owner decision): automation is explicit, bounded by the source's budgets and
+scope, and never widens access. Paths resolve at run time from named bindings
 (`$XDG_CONFIG_HOME/maestro/bindings.toml`); committed files hold logical names
 only. A missing binding is a typed refusal before any work starts; unknown or
 duplicate keys, dangling references and non-finite budgets are rejected.
@@ -106,7 +107,7 @@ S1 imports it through a small, vendor-neutral manifest instead of re-crawling:
 | Rule | Behaviour |
 | --- | --- |
 | Integrity | The file's SHA-256 must equal `sha256`; a mismatch refuses that entry (typed `DigestMismatch`), never imports it silently. |
-| Identity | `document_id` = namespaced hash of `source_ref`, the origin URL or, when there is none, `corpus-path:` followed by `path`, which is relative to the manifest's directory; `revision_id` = canonicalization's content-and-metadata recipe. |
+| Identity | `document_id` = namespaced hash of the collection and `source_ref`, the origin URL or, when there is none, `corpus-path:` followed by `path`, which is relative to the manifest's directory, so one URL in two collections is two documents; `revision_id` = canonicalization's content-and-metadata recipe. |
 | Idempotency | An unchanged revision is recorded as `unchanged`; re-running an import is a no-op. |
 | Metadata or permission change | Propagates even when the bytes are unchanged; embeddings are recomputed only if the prepared input changed. |
 | Streaming | JSONL is streamed; memory is bounded by the largest document, not the corpus. |
@@ -399,6 +400,13 @@ rewrites documents into "clean" Markdown.
 - The quality ledger is an artifact of the collection; the importer applies it
   and records every disposition in the kernel; retrieval reports dispositions
   in evidence.
+- **Eligibility:** a document is eligible, for chunking first, by its latest
+  revision in the kernel's record order alone, when that revision is not
+  failed and is `accepted` or `accepted_with_warnings`; an older revision
+  never stands in for a latest one that is held, failed or undecided. Known
+  limit: an import that finds a revision recorded already records nothing,
+  so bytes and metadata restored to an earlier revision record nothing new,
+  and the revision in between stays the latest.
 
 ## 5. L3 Canonicalization
 
@@ -638,22 +646,23 @@ separate budgets; interactive work has priority over ingestion.
 
 ```text
 maestro knowledge collection add <collection.json>
-maestro knowledge import   --collection ctm [--source docs-core]
+maestro knowledge import   --collection ctm
 maestro knowledge quality  --collection ctm            # dispositions report, held items
 maestro knowledge prepare  --collection ctm            # dedup + chunk set
 maestro knowledge publish  --collection ctm            # embed + index + verify + switch
-maestro knowledge status   --collection ctm            # sets, generations, jobs, health
+maestro knowledge status   --collection ctm            # documents, revisions, dispositions, generations
 maestro knowledge verify   --collection ctm            # replay digests, recount, spot-check
 maestro knowledge sync     --collection ctm [--full]   # S6: acquisition refresh
 ```
 
 Noun-then-verb grammar, `--json` versioned output on stdout and diagnostics on
 stderr (the Herdr CLI conventions the earlier proposal adopted). Exit codes: 0
-success, 1 refused or failed, 2 usage error. Long commands print their job ID
-first; acknowledgement is not completion: `maestro run wait <job>` waits, a
-client timeout never cancels, `--resume <job>` continues unfinished work, and
-an idempotency key bound to the operation and its frozen inputs makes a retried
-request return the existing job.
+success, 1 failed, a job that failed or was cancelled included, 2 usage error
+or refused input. Long commands print their job ID first; acknowledgement is
+not completion: `maestro job wait <job>` waits, a client timeout never cancels,
+`--resume <job>` continues unfinished work, and an idempotency key bound to
+the operation and its frozen inputs makes a retried request return the
+existing job.
 
 ## 13. Failure modes
 

@@ -9,8 +9,8 @@
 //! every path stays inside its directory ([`RelativePath`]); every id is a
 //! scope name ([`maestro_kernel::scope::check_name`]), so the collection and
 //! each source form a scope path; and no two sources share an id. The files a
-//! declaration names, its quality ledger and its evaluation suite, are checked
-//! when first read, so they may not exist yet.
+//! declaration names, its quality ledger and the directory of its evaluation
+//! suites, are checked when first read, so they may not exist yet.
 //!
 //! A dangling reference, a name the declaration uses without defining it,
 //! cannot occur in this version: no key refers to a name the declaration
@@ -51,7 +51,7 @@ pub struct Declaration {
     /// Where the collection's documents come from, in the declared order.
     #[serde(deserialize_with = "shape::objects")]
     pub sources: Vec<Source>,
-    /// The collection's evaluation suite.
+    /// The collection's evaluation suites.
     #[serde(deserialize_with = "shape::object")]
     pub evals: Evals,
 }
@@ -150,12 +150,13 @@ pub struct Quality {
     pub ledger: RelativePath,
 }
 
-/// Where a collection keeps its evaluation suite.
+/// Where a collection keeps its evaluation suites.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[non_exhaustive]
 pub struct Evals {
-    /// The suite, relative to the declaration's directory.
+    /// The directory of the collection's suites, relative to the
+    /// declaration's: each `<name>.jsonl` in it is the suite `<name>`.
     pub suite: RelativePath,
 }
 

@@ -218,10 +218,10 @@ access.
 A job has a kind, an idempotency key (a digest of the command and its frozen
 inputs), a state (`queued`, `running`, `succeeded`, `failed`, `cancelled`), a
 lease with a heartbeat and an expiry, and its progress in the journal. A second
-lease on the same key is refused, which is how two publishes of one collection
-are refused. `maestro job wait <id>` follows a job; the glossary keeps "run" for
-workflows, so this replaces the `maestro run wait` of
-[01 §12](../../docs/architecture/01-knowledge-pipeline.md#12-commands).
+lease on the same key is refused, and a job may hold a resource, such as the
+publication of a collection, which one queued or running job at most holds:
+that is how two publishes of one collection are refused. `maestro job wait
+<id>` follows a job; the glossary keeps "run" for workflows.
 
 ### D6 Documents and quality (B5)
 
@@ -349,13 +349,16 @@ and `platform` are left out, never guessed. `path` stays relative to the
 manifest's own directory. 832 lines carry no URL, all of the GitHub and
 internal documents: their `source_ref` is `corpus-path:` followed by `path`,
 unique and derived rather than invented, and without the release so a document
-keeps its identity in the next one. Five URLs are each shared by two documents
-with different content; the importer holds both of each pair (T019).
+keeps its identity in the next one. The export of 2026-09-26 holds 17,322
+lines, 17,272 documents: 50 `source_ref`s are each given by two lines with
+different content, and the importer holds both of each pair (T019).
 `collection.json` declares `ctm` (ADR-0014). The golden set is drafted after
-canonicalization, because its expected answers point at section IDs, or at the
-document ID of a document without sections, never at free text: agents sample
-the corpus stratified by source kind, write the questions, and the owner
-validates 30 stratified by topic, language and answerability.
+canonicalization, because its expected answers are sections, each named by its
+document's `source_ref` and its heading path, or documents without sections
+named whole, never free text, which the runner resolves to the IDs of the
+generation it evaluates: agents sample the corpus stratified by source kind,
+write the questions, and the owner validates 30 stratified by topic, language
+and answerability.
 
 ### D16 Parallel delivery, CI and pull requests
 
@@ -381,14 +384,13 @@ Kernel tables, beside the document tables of
 
 | Table | Key columns | Rules |
 | --- | --- | --- |
-| `scopes` | `path, parent, tags_json` | Tree; unknown path is no access |
-| `grants` | `principal, scope, rights, granted_by, granted_at` | Journaled; no implicit grant |
-| `events` | `id, stream, sequence, type, subject, scope, time, data_json` | Append-only (triggers); unique `(stream, sequence)` |
+| `grants` | `principal, scope, right, granted_by, granted_at` | Journaled; no implicit grant; no table of scopes: an unknown path is no access |
+| `events` | `id, stream, sequence, type, subject, scope, time, data` | Append-only (triggers); unique `(stream, sequence)` |
 | `cursors` | `consumer, stream, position, updated_at` | Moves forward only |
 | `artifacts` | `digest, bytes, media, pins, created_at` | Content-addressed; verified on read |
-| `jobs` | `id, kind, idempotency_key, state, lease_owner, lease_expires, attempt, outcome_json` | One live lease per key |
+| `jobs` | `id, kind, idempotency_key, attempt, scope, resource, state, lease_number, lease_holder, lease_heartbeat, lease_expires, outcome_json` | One live job per key and per resource; never replaced nor deleted (triggers) |
 | `model_cards` | `id, role, digest, card_json, recorded_at` | A generation names its cards |
-| `eval_reports` | `id, suite, generation_id, report_digest, created_at` | The report itself is an artifact |
+| `eval_reports` | `id, collection_id, generation_id, suite, digest, recorded_at` | The report itself is an artifact; never updated, replaced nor deleted (triggers) |
 
 ## Contracts
 
@@ -396,7 +398,7 @@ Kernel tables, beside the document tables of
 | --- | --- |
 | `maestro-corpus/1` | JSONL; required `schema`, `path` (relative to the manifest's directory), `sha256`, `bytes`, `source_ref` (the origin URL, or `corpus-path:` and `path` when there is none), `title`, `source_kind`; optional `set`, `version`, `lang`, `captured_at`, `product`, `component`, `platform`, `extractor`, `access`; unknown keys refused; lines sharing a `source_ref` with different digests are held |
 | `maestro-collection/1` | Strict JSON of [01 §1](../../docs/architecture/01-knowledge-pipeline.md#1-collections-sources-and-scopes) (ADR-0014) |
-| `maestro-evidence/1` | Passages with title, section path, version, URL, digest, span and text; conflict flags; known gaps; routes and their availability; trace apart |
+| `maestro-evidence/1` | Passages with title, section path, version, `source_ref`, digest, span and text; conflict flags; known gaps; routes and their availability; trace apart |
 | Events | `maestro.knowledge.{import.completed, revision.held, generation.published, generation.retired}.v1`, CloudEvents envelope, schemas in `schemas/events/` |
 | CLI | `knowledge collection add`, `knowledge import`, `knowledge quality`, `knowledge prepare`, `knowledge publish`, `knowledge status`, `knowledge verify`, `knowledge search`, `knowledge ask`; `eval run`, `eval compare`, `eval bakeoff`; `job wait`; `setup`, `status`, `doctor`, `backup`, `restore` |
 | MCP | The four tools of D12, inputs and outputs as in [02 §9](../../docs/architecture/02-retrieval-and-knowledge-graph.md#9-mcp-tools-knowledge) |
@@ -420,7 +422,8 @@ The end-to-end proof of M1, run on the reference workstation:
 
 1. `maestro setup`, then `maestro doctor`: every check passes or names its fix.
 2. `maestro knowledge collection add collection.json`, `import`, `quality`,
-   `prepare`: 7,988 documents accounted for, each with a disposition.
+   `prepare`: the 17,322 lines of the current export, 17,272 documents,
+   accounted for, each revision with a disposition.
 3. `maestro eval bakeoff`: a model card per role, every attempt kept.
 4. `maestro knowledge publish --collection ctm`: a verified generation, the
    alias switched, the event journaled.
