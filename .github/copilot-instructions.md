@@ -176,6 +176,10 @@ in place.
 │       │   │   ├── mod.rs                                                   # Content-addressed artifacts: immutable bytes stored, and read back, by their
 │       │   │   ├── store.rs                                                 # The store: artifacts written once under their digest, read back checked
 │       │   │   └── tests.rs                                                 # Tests of the artifact store: digests, writes, repairs and refusals, with
+│       │   ├── capability/                                                  # Capabilities: the registry of the tools Maestro offers (building block B9)
+│       │   │   ├── mod.rs                                                   # Capabilities: the registry of the tools Maestro offers (building block B9)
+│       │   │   ├── registry.rs                                              # The registry: each tool once, with what it takes, does and needs
+│       │   │   └── tests.rs                                                 # Tests of the capability registry: declarations, refusals and order
 │       │   ├── gateway/                                                     # The model gateway (building block B10): every model, embedder, reranker
 │       │   │   ├── tests/                                                   # Tests of the model gateway: model cards, the router client against a stub
 │       │   │   │   ├── card.rs                                              # Tests of model cards: strict JSON artifacts whose digest is their
@@ -203,6 +207,11 @@ in place.
 │       │   │   ├── error.rs                                                 # Why the kernel's database refused an operation
 │       │   │   ├── migration.rs                                             # The migrations: the SQL files of migrations/, embedded in the binary
 │       │   │   └── mod.rs                                                   # The kernel's database: one SQLite file beside the artifact store, holding
+│       │   ├── telemetry/                                                   # Telemetry: pinned span names and component health (building block B11)
+│       │   │   ├── health.rs                                                # Health: how each component is doing, asked of its own check
+│       │   │   ├── mod.rs                                                   # Telemetry: pinned span names and component health (building block B11)
+│       │   │   ├── span.rs                                                  # The spans the kernel opens, and the names they carry, pinned in one place
+│       │   │   └── tests.rs                                                 # Tests of telemetry: component health and the names of a tool call's span
 │       │   ├── filesystem.rs                                                # The files and directories the kernel creates: its owner's only, and each
 │       │   ├── lib.rs                                                       # The kernel of Maestro: the single authoritative store every later
 │       │   └── paths.rs                                                     # Where the kernel keeps its data: $XDG_DATA_HOME/maestro when that names an
