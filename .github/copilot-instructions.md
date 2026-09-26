@@ -222,7 +222,8 @@ in place.
 │       │   ├── collection.rs                                                # A collection's declaration: maestro-collection/1, the strict JSON that
 │       │   ├── corpus.rs                                                    # A corpus manifest: maestro-corpus/1, one JSON line per document, through
 │       │   ├── lib.rs                                                       # The knowledge pipeline of Maestro (docs/architecture/01): collections, their
-│       │   └── relative_path.rs                                             # Paths that a declaration or a manifest gives relative to a directory, which
+│       │   ├── relative_path.rs                                             # Paths that a declaration or a manifest gives relative to a directory, which
+│       │   └── shape.rs                                                     # The JSON shapes the contracts name, and no other: an object where a
 │       ├── tests/                                                           # Integration tests
 │       │   └── it/                                                          # It
 │       │       ├── collection_contract.rs                                   # maestro-collection/1: a strict declaration parses into typed values; an

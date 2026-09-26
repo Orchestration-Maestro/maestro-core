@@ -1,7 +1,8 @@
 //! `maestro-corpus/1`: one line per document parses into typed values; an
-//! unknown key, a key given twice at any depth, a path that leaves the
-//! manifest's directory, a malformed digest or size and a `source_ref` that is
-//! neither a web URL nor the line's own corpus path are refused.
+//! unknown key, a key given twice at any depth, a line written as an array or
+//! its schema as an object, a path that leaves the manifest's directory, a
+//! malformed digest or size and a `source_ref` that is neither a web URL with a
+//! host nor the line's own corpus path are refused.
 #![cfg(test)]
 
 use maestro_kernel::artifact::Digest;
@@ -198,6 +199,40 @@ fn the_schema_is_maestro_corpus_1() {
 }
 
 #[test]
+fn a_schema_written_as_an_object_is_refused() {
+    let named = with("schema", json!({ "maestro-corpus/1": null }));
+    let reason = json_refusal(&named.to_string());
+    assert!(reason.contains("invalid type: map"), "{reason}");
+}
+
+#[test]
+fn a_line_written_as_an_array_is_refused() {
+    // The values of the required and the optional text keys, in the order the
+    // fields are declared, without keys.
+    let values = json!([
+        "maestro-corpus/1",
+        "beds/raised-beds.md",
+        ABC,
+        1832,
+        "https://example.org/garden/raised-beds",
+        "Building raised beds",
+        "guide",
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+    ]);
+    let reason = json_refusal(&values.to_string());
+    assert!(
+        reason.contains("invalid type: sequence, expected a JSON object"),
+        "{reason}"
+    );
+}
+
+#[test]
 fn a_path_that_is_absolute_or_climbs_out_of_the_manifest_directory_is_refused() {
     for path in [
         "",
@@ -209,6 +244,9 @@ fn a_path_that_is_absolute_or_climbs_out_of_the_manifest_directory_is_refused() 
         "beds/..",
         "beds\\raised-beds.md",
         "\\\\server\\share\\beds.md",
+        "beds/C:/beds.md",
+        "beds/c:beds.md",
+        "beds.md:notes",
     ] {
         let reason = json_refusal(&with("path", json!(path)).to_string());
         assert!(reason.contains(&format!("{path:?}")), "{path}: {reason}");
@@ -281,6 +319,8 @@ fn source_ref_is_a_web_url_or_the_line_s_own_corpus_path() {
         "https://example.org/garden/raised-beds",
         "http://example.org",
         "https://example.org:8443/beds?page=2#top",
+        "https://gardener@example.org/beds",
+        "https://[2001:db8::1]:8443/beds",
         "corpus-path:beds/raised-beds.md",
     ] {
         let entry = parse(&with("source_ref", json!(source_ref)).to_string()).unwrap();
@@ -312,6 +352,8 @@ fn a_source_ref_that_is_not_a_web_url_is_refused() {
         "https://",
         "https:///garden",
         "https://?page=2",
+        "https://:8443/beds",
+        "https://gardener@/beds",
         "https://example.org/raised beds",
         "https://example.org/\u{7}",
     ] {

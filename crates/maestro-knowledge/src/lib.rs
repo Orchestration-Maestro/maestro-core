@@ -12,5 +12,6 @@
 pub mod collection;
 pub mod corpus;
 mod relative_path;
+mod shape;
 
 pub use relative_path::RelativePath;

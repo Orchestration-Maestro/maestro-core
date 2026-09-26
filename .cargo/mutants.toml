@@ -61,7 +61,7 @@ exclude_re = [
   '^crates/maestro-kernel/src/filesystem\.rs:66:5: replace sync_directory -> Result<\(\), E> with Ok\(\(\)\)$',
   # serde_json reads every JSON value through this visitor, so it never asks
   # what the visitor expected.
-  '^crates/maestro-knowledge/src/corpus\.rs:216:9: replace <impl Visitor<.de> for ValueVisitor>::expecting -> fmt::Result with Ok\(Default::default\(\)\)$',
+  '^crates/maestro-knowledge/src/corpus\.rs:226:9: replace <impl Visitor<.de> for ValueVisitor>::expecting -> fmt::Result with Ok\(Default::default\(\)\)$',
   # The default `Value` is `Value::Null`, the value `visit_unit` returns.
-  '^crates/maestro-knowledge/src/corpus\.rs:242:9: replace <impl Visitor<.de> for ValueVisitor>::visit_unit -> Result<Value, E> with Ok\(Default::default\(\)\)$',
+  '^crates/maestro-knowledge/src/corpus\.rs:252:9: replace <impl Visitor<.de> for ValueVisitor>::visit_unit -> Result<Value, E> with Ok\(Default::default\(\)\)$',
 ]

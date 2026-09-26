@@ -253,7 +253,7 @@ mod tests {
     }
 
     #[test]
-    fn a_file_the_kernel_can_open_is_not_mistaken_for_a_missing_one() {
+    fn an_empty_file_binds_nothing() {
         let directory = scratch();
         File::create(directory.join("bindings.toml")).unwrap();
         assert_eq!(Bindings::load(&directory).unwrap(), Bindings::default());

@@ -5,10 +5,12 @@ use serde::{Deserialize, Deserializer, de};
 use std::path::{Path, PathBuf};
 
 /// A path relative to a directory it cannot leave: `/` between its segments,
-/// never absolute (a leading `/`, or a Windows drive such as `C:`) and never a
-/// `..` segment. A backslash is refused too, since Windows reads it as a
-/// separator and Linux as part of a name, and the path must mean the same on
-/// every platform (ADR-0018).
+/// never absolute (a leading `/`) and never a `..` segment. A backslash and a
+/// colon are refused too, in every segment: Windows reads a backslash as a
+/// separator and a colon as a drive (`C:`, which replaces the directory the
+/// path is joined to) or a file's data stream (`notes.md:draft`), where Linux
+/// reads both as part of a name, and the path must mean the same on every
+/// platform (ADR-0018).
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct RelativePath(String);
 
@@ -46,20 +48,13 @@ fn refusal(text: &str) -> Option<&'static str> {
         Some("is empty")
     } else if text.contains('\\') {
         Some("holds a backslash, where `/` separates segments")
-    } else if text.starts_with('/') || starts_with_drive(text) {
+    } else if text.contains(':') {
+        Some("holds a colon, which Windows reads as a drive or a data stream")
+    } else if text.starts_with('/') {
         Some("is absolute")
     } else if text.split('/').any(|segment| segment == "..") {
         Some("climbs out of its directory")
     } else {
         None
     }
-}
-
-/// Whether `text` starts with a Windows drive, such as `C:`.
-fn starts_with_drive(text: &str) -> bool {
-    let mut characters = text.chars();
-    characters
-        .next()
-        .is_some_and(|first| first.is_ascii_alphabetic())
-        && characters.next() == Some(':')
 }

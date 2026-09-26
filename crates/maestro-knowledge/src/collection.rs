@@ -2,12 +2,13 @@
 //! declares a collection, the profiles that process it and its sources
 //! (docs/architecture/01 §1, ADR-0014).
 //!
-//! Strict means that every key is one the contract names and appears once in
-//! its object, every value is one the contract allows, the text is one JSON
-//! value with no number out of range, every path stays inside its directory
-//! ([`RelativePath`]), and no two sources share an id. The files a declaration
-//! names, its quality ledger and its evaluation suite, are checked when first
-//! read, so they may not exist yet.
+//! Strict means that the text is one JSON object with no number out of range;
+//! every object the contract names is a JSON object, never an array of its
+//! values; every key is one the contract names and appears once in its object;
+//! every value is one the contract allows, a named one written as a string;
+//! every path stays inside its directory ([`RelativePath`]); and no two sources
+//! share an id. The files a declaration names, its quality ledger and its
+//! evaluation suite, are checked when first read, so they may not exist yet.
 //!
 //! A dangling reference, a name the declaration uses without defining it,
 //! cannot occur in this version: no key refers to a name the declaration
@@ -16,32 +17,39 @@
 //! The check arrives with the first key that does refer to a declared name,
 //! in the source policies of S6.
 
-use crate::relative_path::RelativePath;
+use crate::{relative_path::RelativePath, shape};
 use maestro_kernel::binding::{self, Bindings};
 use serde::Deserialize;
 use std::{collections::BTreeSet, error, fmt, path::PathBuf, str::FromStr};
 
-/// A collection's declaration. [`str::parse`] reads one and refuses two
-/// sources that share an id, which the shape alone allows.
+/// A collection's declaration. [`str::parse`] reads one from a JSON object
+/// only, and refuses two sources that share an id, which the shape alone
+/// allows.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[non_exhaustive]
 pub struct Declaration {
     /// The contract the declaration follows.
+    #[serde(deserialize_with = "shape::name")]
     pub schema: Schema,
     /// The collection's id, such as `ctm`.
     pub id: String,
     /// What the collection holds, for people.
     pub title: String,
     /// Who may see what the collection derives: a scope tag on every record.
+    #[serde(deserialize_with = "shape::name")]
     pub visibility: Visibility,
     /// The profiles that process every source.
+    #[serde(deserialize_with = "shape::object")]
     pub profiles: Profiles,
     /// The collection's quality ledger.
+    #[serde(deserialize_with = "shape::object")]
     pub quality: Quality,
     /// Where the collection's documents come from, in the declared order.
+    #[serde(deserialize_with = "shape::objects")]
     pub sources: Vec<Source>,
     /// The collection's evaluation suite.
+    #[serde(deserialize_with = "shape::object")]
     pub evals: Evals,
 }
 
@@ -77,7 +85,7 @@ impl FromStr for Declaration {
     /// [`Error::Json`] when the text is not strict JSON of the contract's
     /// shape, and [`Error::DuplicateSource`] when two sources share an id.
     fn from_str(text: &str) -> Result<Self, Error> {
-        let declaration: Self = serde_json::from_str(text).map_err(Error::Json)?;
+        let declaration: Self = shape::parse(text).map_err(Error::Json)?;
         match repeated_id(&declaration.sources) {
             Some(id) => Err(Error::DuplicateSource(id.to_owned())),
             None => Ok(declaration),
@@ -156,10 +164,13 @@ pub struct Source {
     /// The source's id, unique in its collection, such as `docs-core`.
     pub id: String,
     /// How its documents arrive.
+    #[serde(deserialize_with = "shape::name")]
     pub kind: SourceKind,
     /// When it is brought up to date.
+    #[serde(deserialize_with = "shape::name")]
     pub sync: Synchronization,
     /// The corpus manifest it imports.
+    #[serde(deserialize_with = "shape::object")]
     pub manifest: Manifest,
 }
 
@@ -199,9 +210,10 @@ pub struct Manifest {
 /// Why a text is not a `maestro-collection/1` declaration.
 #[derive(Debug)]
 pub enum Error {
-    /// Not strict JSON of the contract's shape: not one JSON value, a number
-    /// out of range, an unknown, repeated or missing key, a value the contract
-    /// does not allow or a path that leaves its directory.
+    /// Not strict JSON of the contract's shape: not one JSON object, an array
+    /// where the contract names an object, a number out of range, an unknown,
+    /// repeated or missing key, a value the contract does not allow or a path
+    /// that is not a [`RelativePath`].
     Json(serde_json::Error),
     /// Two sources share this id.
     DuplicateSource(String),

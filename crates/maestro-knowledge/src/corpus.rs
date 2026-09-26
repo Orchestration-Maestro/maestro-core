@@ -1,17 +1,18 @@
 //! A corpus manifest: `maestro-corpus/1`, one JSON line per document, through
 //! which S1 imports an existing corpus (docs/architecture/01 §2.1, plan D15).
 //!
-//! A line is strict as a declaration is: every key is one the contract names
-//! and appears once in its object, at every depth of `extractor` and `access`
-//! too, whose contents the contract leaves open, and the line is one JSON value
-//! with no number out of range. `path` stays inside the manifest's directory,
-//! `sha256` is 64 lowercase hexadecimal characters, `bytes` is a positive
-//! whole number, and `source_ref`, the document's identity, is its origin URL
-//! or, for a document without one, `corpus-path:` followed by the line's own
-//! `path`. Whether the file holds those bytes is the importer's check, when it
-//! reads the file.
+//! A line is strict as a declaration is: it is one JSON object, never an array
+//! of its values, with no number out of range; every key is one the contract
+//! names and appears once in its object, at every depth of `extractor` and
+//! `access` too, whose contents the contract leaves open; and `schema` is
+//! written as a string. `path` stays inside the manifest's directory, `sha256`
+//! is 64 lowercase hexadecimal characters, `bytes` is a positive whole number,
+//! and `source_ref`, the document's identity, is its origin URL or, for a
+//! document without one, `corpus-path:` followed by the line's own `path`.
+//! Whether the file holds those bytes is the importer's check, when it reads
+//! the file.
 
-use crate::relative_path::RelativePath;
+use crate::{relative_path::RelativePath, shape};
 use maestro_kernel::artifact::Digest;
 use serde::{
     Deserialize, Deserializer,
@@ -23,13 +24,15 @@ use std::{error, fmt, num::NonZeroU64, str::FromStr};
 /// The `source_ref` prefix of a document without a URL.
 const CORPUS_PATH: &str = "corpus-path:";
 
-/// One document of a corpus manifest. [`str::parse`] reads a line and checks
-/// its `source_ref` against its `path`, which the shape alone cannot.
+/// One document of a corpus manifest. [`str::parse`] reads a line from a JSON
+/// object only, and checks its `source_ref` against its `path`, which the
+/// shape alone cannot.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[non_exhaustive]
 pub struct Entry {
     /// The contract the line follows.
+    #[serde(deserialize_with = "shape::name")]
     pub schema: Schema,
     /// The document's file, relative to the manifest's directory.
     pub path: RelativePath,
@@ -89,7 +92,7 @@ impl FromStr for Entry {
     /// shape, and [`Error::SourceRef`] when its `source_ref` is neither a web
     /// URL nor its own corpus path.
     fn from_str(line: &str) -> Result<Self, Error> {
-        let entry: Self = serde_json::from_str(line).map_err(Error::Json)?;
+        let entry: Self = shape::parse(line).map_err(Error::Json)?;
         if entry.source_ref_holds() {
             Ok(entry)
         } else {
@@ -109,9 +112,9 @@ pub enum Schema {
 /// Why a line is not a `maestro-corpus/1` entry.
 #[derive(Debug)]
 pub enum Error {
-    /// Not strict JSON of the contract's shape: not one JSON value, a number
+    /// Not strict JSON of the contract's shape: not one JSON object, a number
     /// out of range, an unknown, repeated or missing key, a value the contract
-    /// does not allow or a path that leaves the manifest's directory.
+    /// does not allow or a path that is not a [`RelativePath`].
     Json(serde_json::Error),
     /// This `source_ref` is neither a web URL nor `corpus-path:` followed by
     /// the line's own path.
@@ -149,7 +152,14 @@ fn is_web_url(text: &str) -> bool {
     else {
         return false;
     };
-    let host = rest.split(['/', '?', '#']).next().unwrap_or_default();
+    let authority = rest.split(['/', '?', '#']).next().unwrap_or_default();
+    // The host follows the user information, up to the authority's last `@`,
+    // and precedes the port, from its first `:`. An IPv6 address holds colons
+    // but starts with `[`, so what precedes its first colon is never empty.
+    let host_and_port = authority
+        .rsplit_once('@')
+        .map_or(authority, |(_user, host_and_port)| host_and_port);
+    let host = host_and_port.split(':').next().unwrap_or_default();
     !host.is_empty()
         && !text
             .chars()

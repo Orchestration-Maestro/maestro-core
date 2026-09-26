@@ -1,7 +1,8 @@
 //! `maestro-collection/1`: a strict declaration parses into typed values; an
-//! unknown or repeated key, an unknown value, a number out of range, a path
-//! that leaves its directory and two sources with one id are refused, and so is
-//! a manifest whose binding is missing, before any is resolved.
+//! unknown or repeated key, an unknown value, an object written as an array or
+//! a name as an object, a number out of range, a path that leaves its directory
+//! and two sources with one id are refused, and so is a manifest whose binding
+//! is missing, before any is resolved.
 #![cfg(test)]
 
 use maestro_kernel::binding::{self, Bindings};
@@ -162,6 +163,66 @@ fn a_value_the_contract_does_not_name_is_refused() {
 }
 
 #[test]
+fn a_named_value_written_as_an_object_is_refused() {
+    for (pointer, value) in [
+        ("/schema", "maestro-collection/1"),
+        ("/visibility", "public"),
+        ("/sources/0/kind", "import"),
+        ("/sources/0/sync", "manual"),
+    ] {
+        let mut declared = declaration();
+        *declared.pointer_mut(pointer).unwrap() = json!({ value: null });
+        let reason = json_refusal(&declared.to_string());
+        assert!(reason.contains("invalid type: map"), "{pointer}: {reason}");
+    }
+}
+
+#[test]
+fn an_object_written_as_an_array_is_refused_at_every_level() {
+    let declared = declaration();
+    // Each object's values in the order its fields are declared, without keys.
+    let whole = json!([
+        "maestro-collection/1",
+        "garden",
+        "Kitchen garden notes",
+        "public",
+        declared["profiles"],
+        declared["quality"],
+        declared["sources"],
+        declared["evals"]
+    ]);
+    let profiles = json!([
+        "technical-html/1",
+        "structural-500-700/1",
+        "embed:winner",
+        "bm25-en-fr/1"
+    ]);
+    let source = json!([
+        "seed-catalog",
+        "import",
+        "manual",
+        declared["sources"][0]["manifest"]
+    ]);
+    let manifest = json!(["garden_root", "2026/maestro-corpus.jsonl"]);
+    for (pointer, values) in [
+        ("", whole),
+        ("/profiles", profiles),
+        ("/quality", json!(["quality/ledger.jsonl"])),
+        ("/sources/0", source),
+        ("/sources/0/manifest", manifest),
+        ("/evals", json!(["evals/garden"])),
+    ] {
+        let mut changed = declaration();
+        *changed.pointer_mut(pointer).unwrap() = values;
+        let reason = json_refusal(&changed.to_string());
+        assert!(
+            reason.contains("invalid type: sequence, expected a JSON object"),
+            "{pointer}: {reason}"
+        );
+    }
+}
+
+#[test]
 fn an_unknown_key_is_refused_at_every_level() {
     for pointer in [
         "",
@@ -276,6 +337,9 @@ fn a_path_that_is_absolute_or_leaves_its_directory_is_refused() {
             "notes/../../notes.jsonl",
             "notes/..",
             "notes\\notes.jsonl",
+            "beds/C:/beds.md",
+            "beds/c:beds.md",
+            "beds.md:notes",
         ] {
             let mut declared = declaration();
             *declared.pointer_mut(pointer).unwrap() = json!(path);
