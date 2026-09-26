@@ -6,7 +6,7 @@ use super::{
     migration::{MIGRATIONS, migrate},
 };
 use crate::{
-    artifact,
+    artifact::Store,
     filesystem::{create_directories, new_file},
 };
 use rusqlite::{Connection, OpenFlags, Transaction, TransactionBehavior};
@@ -35,8 +35,8 @@ pub struct Database {
     writer: Mutex<Connection>,
     /// The database file, absolute, which each reader opens.
     path: PathBuf,
-    /// The artifacts the `artifacts` table records.
-    pub(super) artifacts: artifact::Store,
+    /// The artifact store whose artifacts the `artifacts` table records.
+    pub(super) artifacts: Store,
 }
 
 impl Database {
@@ -84,7 +84,7 @@ impl Database {
         Ok(Self {
             writer: Mutex::new(writer),
             path,
-            artifacts: artifact::Store::new(artifacts),
+            artifacts: Store::new(artifacts),
         })
     }
 

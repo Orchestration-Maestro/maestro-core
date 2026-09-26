@@ -53,14 +53,6 @@ path = "crates/maestro-canonicalization/src/filesystem/mod.rs"
 item = "open_nofollow"
 reason = "the artifact check's link-free open, one function on each platform"
 
-# The kernel's artifact store is a door of its own, whatever the number of
-# callers: every kernel record that keeps bytes keeps them through it.
-[[exception]]
-rule = "ARC-005"
-path = "crates/maestro-kernel/src/artifact/mod.rs"
-item = "Store"
-reason = "a public type callers build; in the crate only model cards store through it"
-
 # The words this repository means that the spell checker reads as mistakes:
 # Exemple, French test input for the canonicalizer; RTO, the recovery time
 # objective beside RPO; WRONLY, the POSIX open flag as rustix names it;
