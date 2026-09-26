@@ -40,6 +40,26 @@ fn a_chunk_resolves_to_the_exact_text_of_its_span_with_its_digest_span_and_versi
 }
 
 #[test]
+fn a_span_after_or_across_a_character_of_several_bytes_resolves_to_its_exact_bytes() {
+    let scratch = Scratch::new();
+    let database = scratch.open(metadata(None));
+    // The first starts after the three bytes of the dash; the second covers
+    // them and ends before the text does.
+    let texts = [
+        ("chunk-after", "unless the installer"),
+        ("chunk-across", "7006 — unless"),
+    ];
+    for (id, text) in texts {
+        let span = span_of(text);
+        chunk(&database, id, None, span);
+        let excerpt = database.resolve("set-a", id).unwrap();
+        assert_eq!(excerpt.span, span);
+        assert_eq!(excerpt.text, text);
+        assert_eq!(excerpt.digest, Digest::of(text.as_bytes()));
+    }
+}
+
+#[test]
 fn a_revision_without_a_version_as_text_resolves_without_one() {
     for version in [None, Some(Value::Null), Some(Value::from(2))] {
         let scratch = Scratch::new();

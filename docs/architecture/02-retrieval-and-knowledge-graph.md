@@ -211,11 +211,19 @@ any text is drafted, so an unsupported conclusion is caught before generation.
     "title": "Installing Control-M/Agent on UNIX", "section_path": ["Installation", "Prerequisites"],
     "version": "9.0.22", "source_ref": "https://…", "span": [18230, 20411], "digest": "sha256:…",
     "text": "…verbatim source text…", "alternates": [{"version": "9.0.21", "section_id": "…"}]
+  }, {
+    "n": 2, "section_id": "…", "doc_id": "…", "revision_id": "…",
+    "title": "…", "section_path": ["…"], "version": "9.0.20",
+    "source_ref": "https://…", "span": [4096, 5210], "digest": "sha256:…",
+    "text": "…verbatim source text…", "alternates": []
   }],
-  "conflicts": [{"entity": "…", "attribute": "default port", "passages": [2, 4]}],
+  "conflicts": [{"entity": "…", "attribute": "default port", "passages": [1, 2]}],
   "known_gaps": ["…"],
   "budget": {"evidence_tokens": 5870, "limit": 6000},
-  "trace": [{"n": 1, "score": 0.83, "routes": ["dense", "bm25"], "procedural": true}]
+  "trace": [
+    {"n": 1, "score": 0.83, "routes": ["dense", "bm25"], "procedural": true},
+    {"n": 2, "score": 0.61, "routes": ["bm25"], "procedural": false}
+  ]
 }
 ```
 

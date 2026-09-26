@@ -17,10 +17,14 @@
 //! route and the reranker ran, with the reason of one that could not; its
 //! known gaps, its conflicts and its budget; and, apart from the evidence,
 //! the trace of how each passage was found and ranked. Its JSON is strict: the
-//! schema is checked, an unknown key is refused, a span never starts after it
-//! ends, passage numbers start from 1 and are given once, though they may
-//! skip, and each conflict and trace entry names a passage the bundle holds.
-//! A bundle writes and reads back equal, its scores to the bit.
+//! schema is checked, and an unknown key or a route named twice is refused.
+//! Its parts agree, both when it is written, which is refused before anything
+//! is written, and when it is read: no span starts after it ends; passage
+//! numbers start from 1 and are given once, though they may skip; a route
+//! that could not run gives a reason that is not blank; a conflict names at
+//! least two of the bundle's passages and no other; and the trace names each
+//! of its passages at most once and no other, with a finite score if any. So
+//! a bundle that writes reads back equal, its scores to the bit.
 
 mod bundle;
 mod error;

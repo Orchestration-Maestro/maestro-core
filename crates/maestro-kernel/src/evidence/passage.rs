@@ -56,8 +56,8 @@ pub struct Alternate {
 }
 
 /// A span of a revision's original Markdown in UTF-8 bytes, its start
-/// included and its end excluded. It is written `[start, end]`, and read only
-/// when its start is not after its end.
+/// included and its end excluded. It is written `[start, end]`, and read, as
+/// a bundle writes it, only when its start is not after its end.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(into = "[usize; 2]", try_from = "[usize; 2]")]
 pub struct Span {
@@ -65,6 +65,17 @@ pub struct Span {
     pub start: usize,
     /// The offset just past its last byte.
     pub end: usize,
+}
+
+impl Span {
+    /// The span, unless it starts after it ends, which no span of text does.
+    pub(super) fn checked(self) -> Result<Self, String> {
+        if self.start <= self.end {
+            Ok(self)
+        } else {
+            Err(format!("the span {self} starts after it ends"))
+        }
+    }
 }
 
 impl fmt::Display for Span {
@@ -84,12 +95,7 @@ impl TryFrom<[usize; 2]> for Span {
 
     /// The span from `start` to `end`, unless it starts after it ends.
     fn try_from([start, end]: [usize; 2]) -> Result<Self, String> {
-        let span = Self { start, end };
-        if start <= end {
-            Ok(span)
-        } else {
-            Err(format!("the span {span} starts after it ends"))
-        }
+        Self { start, end }.checked()
     }
 }
 

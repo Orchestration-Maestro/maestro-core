@@ -13,6 +13,21 @@ fn read(value: &Value) -> Result<Bundle, String> {
     serde_json::from_str(&value.to_string()).map_err(|error| error.to_string())
 }
 
+/// The JSON `bundle` writes, or why it is refused: a refused bundle writes
+/// nothing at all.
+fn write(bundle: &Bundle) -> Result<String, String> {
+    let mut written = Vec::new();
+    let outcome = serde_json::to_writer(&mut written, bundle);
+    let text = String::from_utf8(written).unwrap();
+    match outcome {
+        Ok(()) => Ok(text),
+        Err(error) => {
+            assert_eq!(text, "", "a refused bundle writes nothing");
+            Err(error.to_string())
+        }
+    }
+}
+
 /// `text` written as a bundle writes a digest.
 fn digest_of(text: &str) -> String {
     format!("sha256:{}", Digest::of(text.as_bytes()).as_str())
@@ -71,7 +86,7 @@ fn a_bundle_writes_maestro_evidence_1_and_reads_back_equal() {
             {"n": 2, "score": 0.41, "routes": ["dense"], "procedural": true},
         ],
     });
-    let text = serde_json::to_string(&bundle()).unwrap();
+    let text = write(&bundle()).unwrap();
     assert!(
         text.starts_with(r#"{"schema":"maestro-evidence/1","#),
         "{text}"
@@ -102,6 +117,45 @@ fn a_bundle_names_an_unavailable_route_with_its_reason_and_its_known_gaps() {
     unknown["routes"]["identifier"] = json!("down");
     let refusal = read(&unknown).unwrap_err();
     assert!(refusal.contains("unknown variant `down`"), "{refusal}");
+}
+
+#[test]
+fn routes_read_only_from_an_object_that_names_each_route_once() {
+    let text = serde_json::to_string(&bundle()).unwrap();
+    let twice = text.replacen(
+        r#""routes":{"#,
+        r#""routes":{"rerank":{"unavailable":"the reranker had no room to load"},"#,
+        1,
+    );
+    assert_ne!(twice, text);
+    let refusal = serde_json::from_str::<Bundle>(&twice)
+        .unwrap_err()
+        .to_string();
+    assert!(
+        refusal.contains("the route rerank is given twice"),
+        "{refusal}"
+    );
+    let mut listed = serde_json::to_value(bundle()).unwrap();
+    listed["routes"] = json!([["rerank", "ok"]]);
+    let refusal = read(&listed).unwrap_err();
+    assert!(
+        refusal.contains("expected an object of routes"),
+        "{refusal}"
+    );
+}
+
+#[test]
+fn a_route_that_could_not_run_without_a_reason_is_refused() {
+    let original = serde_json::to_value(bundle()).unwrap();
+    for reason in ["", " \t"] {
+        let mut value = original.clone();
+        value["routes"]["identifier"] = json!({"unavailable": reason});
+        let refusal = read(&value).unwrap_err();
+        assert!(
+            refusal.contains("the route identifier could not run and gives no reason"),
+            "{refusal}"
+        );
+    }
 }
 
 #[test]
@@ -228,6 +282,44 @@ fn passage_numbers_start_from_one_and_are_unique_but_may_skip() {
 }
 
 #[test]
+fn a_passage_number_given_twice_is_refused_even_with_another_between() {
+    let mut value = serde_json::to_value(bundle()).unwrap();
+    let third = value["passages"][1].clone();
+    value["passages"].as_array_mut().unwrap().push(third);
+    value["passages"][2]["n"] = json!(1);
+    let refusal = read(&value).unwrap_err();
+    assert!(
+        refusal.contains("passage number 1 is given twice"),
+        "{refusal}"
+    );
+}
+
+#[test]
+fn a_conflict_naming_fewer_than_two_passages_is_refused() {
+    let original = serde_json::to_value(bundle()).unwrap();
+    for passages in [json!([]), json!([1]), json!([2, 2])] {
+        let mut value = original.clone();
+        value["conflicts"][0]["passages"] = passages;
+        let refusal = read(&value).unwrap_err();
+        assert!(
+            refusal.contains("the conflict on agent's default port names fewer than two passages"),
+            "{refusal}"
+        );
+    }
+}
+
+#[test]
+fn a_trace_naming_one_passage_twice_is_refused() {
+    let mut value = serde_json::to_value(bundle()).unwrap();
+    value["trace"][1]["n"] = json!(1);
+    let refusal = read(&value).unwrap_err();
+    assert!(
+        refusal.contains("the trace names passage 1 twice"),
+        "{refusal}"
+    );
+}
+
+#[test]
 fn a_conflict_or_a_trace_naming_a_passage_the_bundle_does_not_hold_is_refused() {
     let original = serde_json::to_value(bundle()).unwrap();
     let mut conflicting = original.clone();
@@ -241,4 +333,50 @@ fn a_conflict_or_a_trace_naming_a_passage_the_bundle_does_not_hold_is_refused() 
     traced["trace"][1]["n"] = json!(3);
     let refusal = read(&traced).unwrap_err();
     assert!(refusal.contains("the trace names passage 3"), "{refusal}");
+}
+
+#[test]
+fn a_bundle_whose_trace_names_a_passage_it_does_not_hold_is_not_written() {
+    let mut dangling = bundle();
+    dangling.trace[1].n = 3;
+    let refusal = write(&dangling).unwrap_err();
+    assert!(
+        refusal.contains("the trace names passage 3, which the bundle does not hold"),
+        "{refusal}"
+    );
+}
+
+#[test]
+fn a_bundle_whose_conflict_names_a_passage_it_does_not_hold_is_not_written() {
+    let mut dangling = bundle();
+    dangling.conflicts[0].passages = vec![1, 3];
+    let refusal = write(&dangling).unwrap_err();
+    assert!(
+        refusal.contains("the conflict on agent's default port names passage 3"),
+        "{refusal}"
+    );
+}
+
+#[test]
+fn a_bundle_with_a_score_that_is_not_a_finite_number_is_not_written() {
+    for score in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        let mut unscorable = bundle();
+        unscorable.trace[1].score = Some(score);
+        let refusal = write(&unscorable).unwrap_err();
+        assert!(
+            refusal.contains(&format!("the trace scores passage 2 {score}, which is not")),
+            "{refusal}"
+        );
+    }
+}
+
+#[test]
+fn a_bundle_with_a_span_that_starts_after_it_ends_is_not_written() {
+    let mut reversed = bundle();
+    reversed.passages[0].span = Span { start: 30, end: 20 };
+    let refusal = write(&reversed).unwrap_err();
+    assert!(
+        refusal.contains("the span [30, 20) starts after it ends"),
+        "{refusal}"
+    );
 }
