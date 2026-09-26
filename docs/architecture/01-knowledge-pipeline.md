@@ -59,7 +59,7 @@ owns the content (the private `ctm-collection` repository for Control-M):
   "sources": [
     { "id": "docs-core", "kind": "import", "sync": "manual",
       "manifest": { "binding": "corpus_root",
-                    "path": "9.0.22/corpus-manifest.jsonl" } }
+                    "path": "9.0.22/maestro-corpus.jsonl" } }
   ],
   "evals": { "suite": "evals/ctm" }
 }
@@ -94,7 +94,7 @@ security attachments), converted to Markdown by the current Python tooling.
 S1 imports it through a small, vendor-neutral manifest instead of re-crawling:
 
 ```json
-{"schema":"maestro-corpus/1","path":"9.0.22/docs/agent-install-unix.md",
+{"schema":"maestro-corpus/1","path":"docs/agent-install-unix.md",
  "sha256":"…","bytes":18233,"source_ref":"https://docs.bmc.com/…",
  "title":"Installing Control-M/Agent on UNIX","source_kind":"docs",
  "product":"control-m","component":"agent","platform":"unix","version":"9.0.22",
@@ -106,7 +106,7 @@ S1 imports it through a small, vendor-neutral manifest instead of re-crawling:
 | Rule | Behaviour |
 | --- | --- |
 | Integrity | The file's SHA-256 must equal `sha256`; a mismatch refuses that entry (typed `DigestMismatch`), never imports it silently. |
-| Identity | `document_id` = namespaced hash of `source_ref`; `revision_id` = canonicalization's content-and-metadata recipe. |
+| Identity | `document_id` = namespaced hash of `source_ref`, the origin URL or, when there is none, `corpus-path:` followed by `path`, which is relative to the manifest's directory; `revision_id` = canonicalization's content-and-metadata recipe. |
 | Idempotency | An unchanged revision is recorded as `unchanged`; re-running an import is a no-op. |
 | Metadata or permission change | Propagates even when the bytes are unchanged; embeddings are recomputed only if the prepared input changed. |
 | Streaming | JSONL is streamed; memory is bounded by the largest document, not the corpus. |
@@ -482,8 +482,9 @@ pub trait TokenCounter {
     fn contract_id(&self) -> &str;
     /// Re-verifies the qualified artifacts; called at batch boundaries.
     fn verify(&self) -> Result<(), Error>;
-    /// Token count of the complete prepared input, special tokens included.
-    fn count(&self, prepared_input: &str) -> Result<usize, Error>;
+    /// The ordered token IDs of the complete prepared input, special tokens
+    /// included: their number is the count, and parity compares the IDs.
+    fn token_ids(&self, prepared_input: &str) -> Result<Vec<u32>, Error>;
 }
 ```
 
