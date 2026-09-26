@@ -11,6 +11,13 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+maestro-canonicalization.workspace = true
 maestro-kernel.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+tokio = { workspace = true, features = ["rt"] }
+
+[dev-dependencies]
+reqwest.workspace = true
+sha2.workspace = true
+tokio = { workspace = true, features = ["macros", "rt"] }

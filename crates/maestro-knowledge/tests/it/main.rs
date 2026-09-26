@@ -3,3 +3,4 @@
 
 mod collection_contract;
 mod corpus_contract;
+mod router_parity;

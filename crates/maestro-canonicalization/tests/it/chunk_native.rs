@@ -5,6 +5,8 @@ use maestro_canonicalization::{
     NativeTokenizer, RetrievalChunk, RevisionKey, SplitKind, TokenCounter, WarningPolicy,
     canonicalize, chunk_documents,
 };
+use serde::Deserialize;
+use std::iter;
 
 #[test]
 #[ignore = "requires the qualified local GGUF and counter; run explicitly"]
@@ -394,46 +396,79 @@ fn native_mandatory_context_is_not_clipped() {
     tokenizer.verify_artifacts().unwrap();
 }
 
+/// The native profile's parity fixtures, which maestro-knowledge's router
+/// tokenizer must match to qualify: the 41 complete inputs of the S0
+/// qualification, five of them made vendor-neutral, each with the ordered IDs
+/// this counter gave it. This counter alone records them.
+const PARITY: &str = include_str!("../../../maestro-knowledge/src/prepare/native-parity.json");
+
+/// The parity fixtures' file.
+#[derive(Deserialize)]
+struct Parity {
+    /// The native contract ID the IDs were recorded under.
+    profile: String,
+    /// The fixtures, in their order.
+    fixtures: Vec<ParityFixture>,
+}
+
+/// A parity fixture as the file writes it.
+#[derive(Deserialize)]
+struct ParityFixture {
+    /// The name a failure gives.
+    name: String,
+    /// The parts of the complete input.
+    input: Vec<Run<String>>,
+    /// The runs of the ordered IDs.
+    ids: Vec<Run<u32>>,
+}
+
+/// A part of an input or a run of IDs: one item, or one item repeated.
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum Run<T> {
+    /// The item once.
+    Once(T),
+    /// `repeat`, `times` times.
+    Repeated {
+        /// The item.
+        repeat: T,
+        /// How many times.
+        times: usize,
+    },
+}
+
+/// Each run's item, as many times as the run repeats it.
+fn expand<T: Clone>(runs: Vec<Run<T>>) -> impl Iterator<Item = T> {
+    runs.into_iter().flat_map(|run| match run {
+        Run::Once(item) => iter::repeat_n(item, 1),
+        Run::Repeated { repeat, times } => iter::repeat_n(repeat, times),
+    })
+}
+
+/// Every parity fixture, the budgets' and the context's boundaries among
+/// them, gets its recorded IDs, twice, under the recorded contract ID.
 #[test]
 #[ignore = "requires the qualified local GGUF and counter; run explicitly"]
 fn qualified_native_ids_and_boundaries() {
     let counter = NativeTokenizer::open().unwrap();
-    assert_eq!(
-        counter.token_ids("Hello world").unwrap(),
-        [0, 35378, 8999, 2]
-    );
-    assert_eq!(counter.token_ids("").unwrap(), [0, 2]);
-    for expected in [499, 500, 501, 699, 700, 701, 8192, 8193] {
-        let input = "a ".repeat(expected - 2);
-        assert_eq!(counter.token_ids(&input).unwrap().len(), expected);
-    }
-    let prefix = "# Control-M 9.0.22\n\n## Server / SSL\n\n";
-    let overhead = counter.token_ids(prefix).unwrap().len();
-    for expected in [499, 500, 501, 699, 700, 701] {
-        assert!(overhead < expected);
-        let input = format!("{prefix}{}", "a ".repeat(expected - overhead));
-        assert_eq!(counter.token_ids(&input).unwrap().len(), expected);
-    }
-    for (input, expected) in [("  a   b  ", 4), ("left   <mask>   right", 8)] {
-        assert_eq!(counter.token_ids(input).unwrap().len(), expected);
-    }
-    // Independent ordered-ID goldens captured by the approved #19 qualification.
-    for (input, expected) in [
-        ("a\0b", vec![0, 10, 3, 275, 2]),
-        (
-            r"path\new\table\u00e9",
-            vec![
-                0, 60875, 41872, 54936, 41872, 22819, 41872, 34, 7049, 13, 1126, 2,
-            ],
-        ),
-        (
-            "café naïve Ångström",
-            vec![0, 26216, 24, 9392, 272, 8839, 449, 30011, 2],
-        ),
-        ("<s></s>", vec![0, 0, 2, 2]),
-    ] {
-        assert_eq!(counter.token_ids(input).unwrap(), expected);
-        assert_eq!(counter.token_ids(input).unwrap(), expected);
+    let parity: Parity = serde_json::from_str(PARITY).unwrap();
+    assert_eq!(parity.profile, counter.contract_id());
+    assert_eq!(parity.fixtures.len(), 41);
+    for fixture in parity.fixtures {
+        let input: String = expand(fixture.input).collect();
+        let expected: Vec<u32> = expand(fixture.ids).collect();
+        assert_eq!(
+            counter.token_ids(&input).unwrap(),
+            expected,
+            "{}",
+            fixture.name
+        );
+        assert_eq!(
+            counter.token_ids(&input).unwrap(),
+            expected,
+            "{}",
+            fixture.name
+        );
     }
     counter.verify_artifacts().unwrap();
 }
