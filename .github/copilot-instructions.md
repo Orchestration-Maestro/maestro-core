@@ -45,6 +45,36 @@ in place.
 │   ├── dependabot.yml                                                       # The organization merges only conventional titles: "ci(deps): bump ..."
 │   └── zizmor.yml                                                           # The workflow security audit just check and the commit hook run: zizmor, in its pedantic persona, offline
 ├── crates/                                                                  # The workspace's crates
+│   ├── maestro/                                                             # The maestro binary: the command line (CLI) over the knowledge library and the kernel
+│   │   ├── src/                                                             # The crate's sources
+│   │   │   ├── cli/                                                         # The commands, a module each, and what they share
+│   │   │   │   ├── tests/                                                   # Unit tests: the lease of a foreground job, and how an import ends its job
+│   │   │   │   │   ├── import_endings.rs                                    # An import ends its job succeeded with its report or failed saying why; each step journaled, or a lost lease stops it
+│   │   │   │   │   ├── lease_heartbeats.rs                                  # A foreground job's lease, held only by Holder::run: renewed at each heartbeat and step, never after a takeover
+│   │   │   │   │   ├── mod.rs                                               # The unit tests' door: declarations only
+│   │   │   │   │   ├── supersessions.rs                                     # An import supersedes its resource's holder once no live lease holds it, and leaves a live one alone
+│   │   │   │   │   └── support.rs                                           # What the unit tests share: a scratch kernel and a job leased in it, held or lost
+│   │   │   │   ├── args.rs                                                  # The grammar, noun then verb, as clap derives it; the comments are the help
+│   │   │   │   ├── collection.rs                                            # knowledge collection add, and the declaration a later command finds for a collection
+│   │   │   │   ├── failure.rs                                               # Why a command stopped short: refused (exit 2) or failed (exit 1)
+│   │   │   │   ├── import.rs                                                # knowledge import: a leased job in the foreground, its ID first; a rerun follows, takes over or supersedes
+│   │   │   │   ├── kernel.rs                                                # The kernel every command opens: paths, database, config.toml applied, the local principal's scopes
+│   │   │   │   ├── lease.rs                                                 # The lease of a job run in the foreground: Holder::run's heartbeat thread and each step renew it
+│   │   │   │   ├── mod.rs                                                   # The commands' door: declarations only
+│   │   │   │   ├── output.rs                                                # How a command prints: text, or one JSON document under --json; diagnostics on stderr
+│   │   │   │   ├── run.rs                                                   # Parses the arguments, opens the kernel, runs the command, returns its exit code
+│   │   │   │   ├── status.rs                                                # knowledge status: documents, revisions by status and disposition, generations
+│   │   │   │   └── wait.rs                                                  # job wait: a job's stream followed to its end, the command exiting with its outcome; the follower
+│   │   │   └── main.rs                                                      # The binary root: the commands, their output, exit codes and JSON schemas documented
+│   │   ├── tests/                                                           # Integration tests
+│   │   │   └── it/                                                          # The contract tests: the built binary run in a scratch home
+│   │   │       ├── cli_contract.rs                                          # JSON on stdout, diagnostics on stderr, exit codes 0, 1 and 2, the job ID first
+│   │   │       ├── collection_status.rs                                     # knowledge status of the synthetic collection: counts, dispositions and a generation
+│   │   │       ├── import_jobs.rs                                           # knowledge import end to end, rerun, live holder refused, stale one superseded, leases taken over
+│   │   │       ├── job_waits.rs                                             # job wait follows a job to its end and exits with its outcome; an unreadable job is unknown
+│   │   │       ├── main.rs                                                  # The one integration-test crate of the binary
+│   │   │       └── support.rs                                               # What the contract tests share: a scratch home, the synthetic collection, the binary under a deadline
+│   │   └── Cargo.toml                                                       # Crate manifest: The command line of Maestro: collections, their imports and the jobs that run them
 │   ├── maestro-canonicalization/                                            # Local Rust library and CLI: completed Markdown + supplied metadata → parsed structure → validation → CanonicalDocument
 │   │   ├── examples/                                                        # Worked examples
 │   │   │   ├── assets/                                                      # Images and other assets
@@ -187,6 +217,7 @@ in place.
 │   │   │   │   └── tests.rs                                                 # Tests of the capability registry: declarations, refusals and order
 │   │   │   ├── document/                                                    # The pipeline's document records (building block B5; docs/architecture/01
 │   │   │   │   ├── tests/                                                   # Tests of the document records: the documents migration, collections
+│   │   │   │   │   ├── counts.rs                                            # A collection's counts: documents, revisions by status and disposition, only in scope
 │   │   │   │   │   ├── dispositions.rs                                      # Quality dispositions: one per revision, kept once given, read in scope, a hold journaled with it
 │   │   │   │   │   ├── errors.rs                                            # What the document records' refusals say, and the store's refusals they
 │   │   │   │   │   ├── mod.rs                                               # Tests of the document records: the documents migration, collections
@@ -195,6 +226,7 @@ in place.
 │   │   │   │   │   ├── schema.rs                                            # The documents migration: the ten pipeline tables of 01 §11, all strict
 │   │   │   │   │   └── support.rs                                           # What the record tests share: a scratch database, and the collection
 │   │   │   │   ├── collection.rs                                            # Collections, the sources they declare and the documents those sources
+│   │   │   │   ├── counts.rs                                                # A collection's counts: documents, and revisions by status and by disposition, in one snapshot
 │   │   │   │   ├── disposition.rs                                           # Quality dispositions: one per revision, kept once given, a hold journaled in the same write
 │   │   │   │   ├── error.rs                                                 # Why the kernel refused to record a collection, a source, a document or a revision
 │   │   │   │   ├── mod.rs                                                   # The pipeline's document records (building block B5; docs/architecture/01
@@ -236,6 +268,7 @@ in place.
 │   │   │   ├── generation/                                                  # The search generations of a collection (building block B6; plan D9): each
 │   │   │   │   ├── tests/                                                   # Tests of the generation records: their lifecycle and their publication
 │   │   │   │   │   ├── lifecycle.rs                                         # A generation's lifecycle: created building, then verified, published and
+│   │   │   │   │   ├── listing.rs                                           # A collection's generations: all of them, in creation order, only in scope
 │   │   │   │   │   ├── mod.rs                                               # Tests of the generation records: their lifecycle and their publication
 │   │   │   │   │   ├── publication.rs                                       # Publication: at most one generation of a collection is published, which
 │   │   │   │   │   └── support.rs                                           # What the generation tests share: a scratch database holding two
@@ -397,11 +430,13 @@ in place.
 │       ├── tests/                                                           # Integration tests
 │       │   └── it/                                                          # It
 │       │       ├── import_contract/                                         # The import of corpus manifests (T019): refusals, holds, idempotency, identity, report, synthetic collection
+│       │       │   ├── declared_collections.rs                              # Declaring a collection records it and its sources, and nothing for a caller who cannot read them
 │       │       │   ├── document_identity.rs                                 # A document's identity: its collection and source_ref hashed, its path relative to the manifest
 │       │       │   ├── held_pairs.rs                                        # Lines sharing a source_ref with different digests: both revisions recorded, both held
 │       │       │   ├── import_rate.rs                                       # The import rate on 2,000 generated documents, measured on demand
 │       │       │   ├── import_report.rs                                     # What an import reports, as JSON and as import.completed, and what stops it before any work
 │       │       │   ├── mod.rs                                               # The import of corpus manifests (T019): refusals, holds, idempotency, identity, report, synthetic collection
+│       │       │   ├── observed_imports.rs                                  # An observed import: the report every hundred lines and after each last line; a break stops it
 │       │       │   ├── refused_entries.rs                                   # Refusals, each with its line and reason, and the import goes on
 │       │       │   ├── repeated_imports.rs                                  # An import is idempotent: a second one writes nothing, a change of metadata gives a new revision
 │       │       │   ├── support.rs                                           # What the import's tests share: a scratch corpus and database, declarations, and the kernel read whole

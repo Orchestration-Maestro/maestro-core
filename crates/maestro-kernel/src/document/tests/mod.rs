@@ -1,7 +1,9 @@
 //! Tests of the document records: the documents migration, collections,
-//! sources and documents, revisions and their quality dispositions, with the
-//! same outcomes on Linux, macOS and Windows.
+//! sources and documents, revisions and their quality dispositions, and a
+//! collection's counts of them, with the same outcomes on Linux, macOS and
+//! Windows.
 
+mod counts;
 mod dispositions;
 mod errors;
 mod parents;

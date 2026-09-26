@@ -16,6 +16,7 @@ use crate::{
 };
 use rusqlite::{OptionalExtension as _, Row, Transaction, params, types::Type};
 use serde_json::{Value, json};
+use std::fmt;
 
 /// A revision's quality disposition: its outcome, why, and who decided it.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -52,7 +53,7 @@ pub enum Outcome {
 
 impl Outcome {
     /// Every outcome.
-    const ALL: [Self; 5] = [
+    pub(super) const ALL: [Self; 5] = [
         Self::Accepted,
         Self::AcceptedWithWarnings,
         Self::NeedsReextraction,
@@ -80,6 +81,12 @@ impl Outcome {
             Self::Quarantined => Some(HeldDisposition::Quarantined),
             Self::Excluded => Some(HeldDisposition::Excluded),
         }
+    }
+}
+
+impl fmt::Display for Outcome {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(self.as_str())
     }
 }
 
@@ -230,7 +237,7 @@ fn disposition_row(row: &Row<'_>) -> rusqlite::Result<Disposition> {
 }
 
 /// The outcome column `index` of `row` names.
-fn outcome(row: &Row<'_>, index: usize) -> rusqlite::Result<Outcome> {
+pub(super) fn outcome(row: &Row<'_>, index: usize) -> rusqlite::Result<Outcome> {
     let text: String = row.get(index)?;
     Outcome::ALL
         .into_iter()

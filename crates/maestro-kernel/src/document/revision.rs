@@ -10,6 +10,7 @@ use crate::{
 };
 use rusqlite::{Connection, OptionalExtension as _, Row, Transaction, params, types::Type};
 use serde_json::{Map, Value};
+use std::fmt;
 
 /// The columns [`revision_row`] reads, in its order.
 const COLUMNS: &str = "revisions.id, document_id, original_digest, canonical_digest, status, \
@@ -49,7 +50,7 @@ pub enum RevisionStatus {
 
 impl RevisionStatus {
     /// Every status.
-    const ALL: [Self; 3] = [Self::Valid, Self::ValidWithWarnings, Self::Failed];
+    pub(super) const ALL: [Self; 3] = [Self::Valid, Self::ValidWithWarnings, Self::Failed];
 
     /// Its name, as the `status` column holds it.
     fn as_str(self) -> &'static str {
@@ -58,6 +59,12 @@ impl RevisionStatus {
             Self::ValidWithWarnings => "valid_with_warnings",
             Self::Failed => "failed",
         }
+    }
+}
+
+impl fmt::Display for RevisionStatus {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(self.as_str())
     }
 }
 
@@ -217,7 +224,7 @@ fn digest(row: &Row<'_>, index: usize) -> rusqlite::Result<Digest> {
 }
 
 /// The status column `index` of `row` names.
-fn status(row: &Row<'_>, index: usize) -> rusqlite::Result<RevisionStatus> {
+pub(super) fn status(row: &Row<'_>, index: usize) -> rusqlite::Result<RevisionStatus> {
     let text: String = row.get(index)?;
     RevisionStatus::ALL
         .into_iter()

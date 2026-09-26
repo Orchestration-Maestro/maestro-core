@@ -37,6 +37,14 @@
 //! manifest is imported all the same. A second import finds every revision
 //! unchanged and writes nothing but its completion, and a rerun after a
 //! failure continues where the first stopped.
+//!
+//! [`declare`] records a collection and its sources as an import does first,
+//! for a caller who declares a collection before importing it.
+//!
+//! [`import_observed`] shows its caller the report after every hundredth
+//! line of each manifest and after its last line, which a job journals as
+//! its progress, and stops, journaling no completion, when the caller
+//! breaks: a job whose lease was lost does.
 
 mod collection;
 mod corpus;
@@ -47,6 +55,6 @@ mod source;
 #[cfg(test)]
 mod tests;
 
-pub use collection::import;
+pub use collection::{declare, import, import_observed};
 pub use error::Error;
 pub use report::{Reason, Refusal, Report};

@@ -6,7 +6,7 @@
 use crate::{
     RelativePath,
     collection::Declaration,
-    import::{collection::import_corpora, corpus::Corpus},
+    import::{Report, collection::import_corpora, corpus::Corpus},
 };
 use maestro_kernel::{
     artifact::Digest,
@@ -19,6 +19,7 @@ use std::{
     collections::BTreeMap,
     env, fs,
     io::{self, BufRead, Read},
+    ops::ControlFlow,
     path::PathBuf,
     process,
     sync::atomic::{AtomicUsize, Ordering},
@@ -254,7 +255,9 @@ fn the_import_holds_one_manifest_line_and_one_document_at_a_time() {
     let declaration = declaration();
     let corpus = Memory::of(DOCUMENTS, &database, &scopes);
     let corpora = [(&declaration.sources[0], corpus)];
-    let report = import_corpora(&database, &scopes, &declaration, &corpora).unwrap();
+    let mut unobserved = |_: &Report| ControlFlow::Continue(());
+    let report =
+        import_corpora(&database, &scopes, &declaration, &corpora, &mut unobserved).unwrap();
     assert_eq!(report.imported, u64::try_from(DOCUMENTS).unwrap());
     let seen = corpora[0].1.seen.borrow();
     assert_eq!(seen.documents, DOCUMENTS);

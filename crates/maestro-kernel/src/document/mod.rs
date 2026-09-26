@@ -33,13 +33,16 @@
 //! Every reader takes the caller's [`ScopeSet`](crate::scope::ScopeSet) and
 //! reads only what it covers: a collection has the scope
 //! `workspace/default/collection/<id>`, a source `…/source/<id>` below it,
-//! and a document and its revisions have their source's.
+//! and a document and its revisions have their source's. A collection's
+//! [`Counts`], its documents and its revisions by status and by disposition,
+//! count only those records, read in one snapshot.
 //!
 //! The migration `0004_documents` creates every table of the pipeline's
 //! records, those the quality gate and the preparation write included, so no
 //! later task of S1 needs a migration of its own.
 
 mod collection;
+mod counts;
 mod disposition;
 mod error;
 mod revision;
@@ -47,6 +50,7 @@ mod revision;
 mod tests;
 
 pub use collection::{Collection, Document, Source};
+pub use counts::Counts;
 pub use disposition::{Disposition, Outcome};
 pub use error::Error;
 pub use revision::{Recorded, Revision, RevisionStatus};

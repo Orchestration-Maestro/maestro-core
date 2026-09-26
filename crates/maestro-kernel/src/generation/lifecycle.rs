@@ -188,6 +188,29 @@ impl Database {
             .optional()?;
         Ok(published)
     }
+
+    /// Every generation of the collection `collection_id`, whatever its
+    /// state, in the order they were created, if `scopes` covers the scope
+    /// of the collection; none otherwise.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Store`] when the database cannot be read.
+    pub fn generations(
+        &self,
+        scopes: &ScopeSet,
+        collection_id: &str,
+    ) -> Result<Vec<Generation>, Error> {
+        let reader = self.reader()?;
+        let mut statement = reader.prepare(&format!(
+            "SELECT {COLUMNS} FROM generations WHERE collection_id = ?1 AND {} ORDER BY id",
+            ScopeSet::collection_condition("generations.collection_id", 2)
+        ))?;
+        let generations = statement
+            .query_map(params![collection_id, scopes.parameter()], generation_row)?
+            .collect::<Result<_, _>>()?;
+        Ok(generations)
+    }
 }
 
 /// Moves the generation `id` to `to` inside `transaction`, when it may, and

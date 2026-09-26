@@ -1,7 +1,8 @@
 //! Importing the manifest of one source: a first pass finds the
 //! `source_ref`s its lines give different digests, keeping one digest per
 //! `source_ref` and no line, then each line is imported in turn, one line and
-//! one document at a time.
+//! one document at a time, the caller's observer shown the report every
+//! hundred lines and after the last.
 
 use super::{
     corpus::Corpus,
@@ -14,21 +15,30 @@ use maestro_kernel::artifact::Digest;
 use std::{
     collections::{BTreeSet, HashMap},
     io::{self, BufRead},
+    ops::ControlFlow,
     str,
 };
+
+/// How many lines of a manifest an import reads between two looks of its
+/// observer.
+const BATCH: u64 = 100;
 
 /// Imports each line of the manifest of `corpus` into `target`'s source,
 /// and counts what each did in `report`: a line refused is kept there with
 /// its number and reason, and the next line is imported all the same.
+/// `observer` sees `report` after every [`BATCH`]th line and after the last
+/// line, once each.
 ///
 /// # Errors
 ///
-/// [`Error::Manifest`] when the manifest cannot be read, and the kernel's
-/// failures, which stop the import where it is.
+/// [`Error::Manifest`] when the manifest cannot be read, the kernel's
+/// failures, which stop the import where it is, and [`Error::Stopped`] when
+/// `observer` breaks.
 pub(super) fn import_source(
     target: &Target<'_>,
     corpus: &impl Corpus,
     report: &mut Report,
+    observer: &mut impl FnMut(&Report) -> ControlFlow<()>,
 ) -> Result<(), Error> {
     let shared = shared_source_refs(target, corpus)?;
     let mut lines = Lines::new(
@@ -37,17 +47,39 @@ pub(super) fn import_source(
             .map_err(|error| unreadable(target, error))?,
     );
     while let Some(line) = lines.next().map_err(|error| unreadable(target, error))? {
+        let number = line.number;
         let imported = match line.text {
             Ok(text) => import_line(target, corpus, text, &shared),
             Err(reason) => Err(NotImported::Refused(reason)),
         };
         match imported {
             Ok(imported) => report.count(imported),
-            Err(NotImported::Refused(reason)) => report.refuse(target.source, line.number, reason),
+            Err(NotImported::Refused(reason)) => report.refuse(target.source, number, reason),
             Err(NotImported::Failed(error)) => return Err(error),
         }
+        if number % BATCH == 0 {
+            observe(observer, report)?;
+        }
     }
-    Ok(())
+    if lines.number % BATCH == 0 {
+        return Ok(());
+    }
+    observe(observer, report)
+}
+
+/// Shows `report` to `observer`.
+///
+/// # Errors
+///
+/// [`Error::Stopped`] when `observer` breaks.
+fn observe(
+    observer: &mut impl FnMut(&Report) -> ControlFlow<()>,
+    report: &Report,
+) -> Result<(), Error> {
+    match observer(report) {
+        ControlFlow::Continue(()) => Ok(()),
+        ControlFlow::Break(()) => Err(Error::Stopped),
+    }
 }
 
 /// Imports the line `text`, refused as malformed unless it is a strict

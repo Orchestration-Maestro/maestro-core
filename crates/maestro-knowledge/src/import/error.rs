@@ -1,7 +1,7 @@
 //! Why an import stopped: before any work, for a manifest it cannot find or
 //! a scope its caller cannot read, or part way, for a manifest it cannot
-//! read or a kernel that failed. What it recorded before it stopped stays,
-//! so a rerun continues where it stopped.
+//! read, a kernel that failed or a caller that stopped it. What it recorded
+//! before it stopped stays, so a rerun continues where it stopped.
 
 use maestro_kernel::{binding, document, journal, store};
 use std::{error, fmt, io};
@@ -29,6 +29,11 @@ pub enum Error {
     Artifacts(store::Error),
     /// The journal failed to record the import's completion.
     Journal(journal::Error),
+    /// The caller's observer stopped the import
+    /// ([`import_observed`](super::import_observed)), as a job does once its
+    /// lease is lost: what was recorded before stays, and no completion is
+    /// journaled.
+    Stopped,
 }
 
 impl fmt::Display for Error {
@@ -47,6 +52,10 @@ impl fmt::Display for Error {
             Self::Records(error) => write!(formatter, "the kernel's records failed: {error}"),
             Self::Artifacts(error) => write!(formatter, "the artifact store failed: {error}"),
             Self::Journal(error) => write!(formatter, "the journal failed: {error}"),
+            Self::Stopped => formatter.write_str(
+                "the import was stopped by its caller: what it recorded stays, and a rerun \
+                 continues where it stopped",
+            ),
         }
     }
 }
@@ -55,7 +64,7 @@ impl error::Error for Error {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match self {
             Self::Binding(error) => Some(error),
-            Self::NotVisible(_) => None,
+            Self::NotVisible(_) | Self::Stopped => None,
             Self::Manifest { error, .. } => Some(error),
             Self::Records(error) => Some(error),
             Self::Artifacts(error) => Some(error),

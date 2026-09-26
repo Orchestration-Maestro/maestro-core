@@ -18,7 +18,7 @@ use maestro_kernel::{
     store::Database,
 };
 use serde_json::json;
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, ops::ControlFlow};
 
 /// Imports the corpus manifest of each source of `declaration`, found
 /// through `bindings`, for a caller who reads `scopes`, and returns its
@@ -48,31 +48,44 @@ pub fn import(
     declaration: &Declaration,
     bindings: &Bindings,
 ) -> Result<Report, Error> {
+    let mut unobserved = |_: &Report| ControlFlow::Continue(());
+    import_observed(database, scopes, declaration, bindings, &mut unobserved)
+}
+
+/// [`import`], showing `observer` the report as it stands after every
+/// hundredth line of each source's manifest and after the last line of
+/// each, which a job journals as its progress. When `observer` breaks, the
+/// import stops there with [`Error::Stopped`]: what it recorded stays, no
+/// completion is journaled, and a rerun continues where it stopped.
+///
+/// # Errors
+///
+/// As [`import`], and [`Error::Stopped`].
+pub fn import_observed(
+    database: &Database,
+    scopes: &ScopeSet,
+    declaration: &Declaration,
+    bindings: &Bindings,
+    observer: &mut impl FnMut(&Report) -> ControlFlow<()>,
+) -> Result<Report, Error> {
     let corpora: Vec<(&Source, Files)> = declaration
         .manifest_paths(bindings)
         .map_err(Error::Binding)?
         .into_iter()
         .map(|(source, manifest)| (source, Files::new(manifest)))
         .collect();
-    import_corpora(database, scopes, declaration, &corpora)
+    import_corpora(database, scopes, declaration, &corpora, observer)
 }
 
-/// [`import`], each source's corpus given with it.
+/// [`import_observed`], each source's corpus given with it.
 pub(super) fn import_corpora<C: Corpus>(
     database: &Database,
     scopes: &ScopeSet,
     declaration: &Declaration,
     corpora: &[(&Source, C)],
+    observer: &mut impl FnMut(&Report) -> ControlFlow<()>,
 ) -> Result<Report, Error> {
-    let hidden = declaration
-        .sources
-        .iter()
-        .map(|source| source_scope(&declaration.id, &source.id))
-        .find(|scope| !visible(scopes, scope));
-    if let Some(scope) = hidden {
-        return Err(Error::NotVisible(scope));
-    }
-    record_declaration(database, scopes, declaration).map_err(Error::Records)?;
+    declare(database, scopes, declaration)?;
     let mut report = Report::new(&declaration.id);
     for (source, corpus) in corpora {
         let target = Target {
@@ -81,10 +94,37 @@ pub(super) fn import_corpora<C: Corpus>(
             collection: &declaration.id,
             source: &source.id,
         };
-        import_source(&target, corpus, &mut report)?;
+        import_source(&target, corpus, &mut report, observer)?;
     }
     journal_completion(database, &report).map_err(Error::Journal)?;
     Ok(report)
+}
+
+/// Records the collection `declaration` declares and each of its sources,
+/// as an import does before its first revision, for a caller who reads
+/// `scopes`: unless the kernel records them already just so, and without a
+/// write when nothing changed. `maestro knowledge collection add` declares a
+/// collection before its first import.
+///
+/// # Errors
+///
+/// [`Error::NotVisible`] when `scopes` does not cover the scope of each
+/// source, whose records the import reads and writes: nothing is recorded
+/// then. [`Error::Records`] when the kernel fails.
+pub fn declare(
+    database: &Database,
+    scopes: &ScopeSet,
+    declaration: &Declaration,
+) -> Result<(), Error> {
+    let hidden = declaration
+        .sources
+        .iter()
+        .map(|source| source_scope(&declaration.id, &source.id))
+        .find(|scope| !visible(scopes, scope));
+    if let Some(scope) = hidden {
+        return Err(Error::NotVisible(scope));
+    }
+    record_declaration(database, scopes, declaration).map_err(Error::Records)
 }
 
 /// The scope of the source `source` of the collection `collection`.
