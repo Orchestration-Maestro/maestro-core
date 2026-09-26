@@ -168,6 +168,8 @@ in place.
 │   │   │   └── policies.rs                                                  # The repository's policies, checked on every pull request by cargo test
 │   │   └── Cargo.toml                                                       # Crate manifest: Tests that hold the maestro-core repository to its own policies
 │   └── maestro-kernel/                                                      # Maestro kernel
+│       ├── migrations/                                                      # The kernel database's migrations, embedded and applied in number order
+│       │   └── 0001_artifacts.sql                                           # The artifacts table: each artifact's size, media type, pins and creation time
 │       ├── src/                                                             # The crate's sources
 │       │   ├── artifact/                                                    # Content-addressed artifacts: immutable bytes stored, and read back, by their
 │       │   │   ├── digest.rs                                                # A SHA-256 digest: the name every artifact is stored under
@@ -188,6 +190,20 @@ in place.
 │       │   │   ├── mod.rs                                                   # The model gateway (building block B10): every model, embedder, reranker
 │       │   │   ├── port.rs                                                  # The model port: the calls every way of reaching a model answers, each
 │       │   │   └── router.rs                                                # The router client: the model port over maestro-model-router's dedicated
+│       │   ├── store/                                                       # The kernel's database: one SQLite file beside the artifact store, holding
+│       │   │   ├── tests/                                                   # Tests of the kernel database: its migrations, its connections, the
+│       │   │   │   ├── artifacts.rs                                         # Artifacts: stored, recorded with their size, media type and pins, and read
+│       │   │   │   ├── connections.rs                                       # Connections: one writer shared by every thread, readers of their own, the
+│       │   │   │   ├── garbage.rs                                           # Garbage collection: it lists before it removes, removes only artifacts
+│       │   │   │   ├── migrations.rs                                        # Migrations: applied in number order, each once, recorded by name, and a
+│       │   │   │   ├── mod.rs                                               # Tests of the kernel database: its migrations, its connections, the
+│       │   │   │   └── support.rs                                           # What the database tests share: scratch directories, the digests of their
+│       │   │   ├── artifacts.rs                                             # The artifacts table: what the artifact store holds, the pins that keep
+│       │   │   ├── database.rs                                              # The database: its file, one writer connection behind a mutex, and readers
+│       │   │   ├── error.rs                                                 # Why the kernel's database refused an operation
+│       │   │   ├── migration.rs                                             # The migrations: the SQL files of migrations/, embedded in the binary
+│       │   │   └── mod.rs                                                   # The kernel's database: one SQLite file beside the artifact store, holding
+│       │   ├── filesystem.rs                                                # The files and directories the kernel creates: its owner's only, and each
 │       │   ├── lib.rs                                                       # The kernel of Maestro: the single authoritative store every later
 │       │   └── paths.rs                                                     # Where the kernel keeps its data: $XDG_DATA_HOME/maestro when that names an
 │       └── Cargo.toml                                                       # Crate manifest: The single authoritative store of Maestro, starting with its content-addressed artifacts

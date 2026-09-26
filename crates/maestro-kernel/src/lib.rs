@@ -6,5 +6,7 @@
 //! and jobs join it slice by slice.
 
 pub mod artifact;
+mod filesystem;
 pub mod gateway;
 pub mod paths;
+pub mod store;

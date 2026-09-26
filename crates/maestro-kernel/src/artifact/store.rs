@@ -1,11 +1,9 @@
 //! The store: artifacts written once under their digest, read back checked.
 
 use super::digest::Digest;
-#[cfg(unix)]
-use std::os::unix::fs::{DirBuilderExt as _, OpenOptionsExt as _};
+use crate::filesystem::{create_directories, new_file, sync_directory};
 use std::{
-    error, fmt,
-    fs::{self, DirBuilder, File, OpenOptions},
+    error, fmt, fs,
     io::{self, Write as _},
     path::{self, Path, PathBuf},
     process,
@@ -91,16 +89,16 @@ impl Store {
         if self.get(&digest).is_ok() {
             // A writer of the same bytes may have renamed its copy into place
             // without flushing the directory yet.
-            sync_directory(directory)?;
+            sync_directory(directory, io_error)?;
             return Ok(digest);
         }
-        create_directories(directory)?;
+        create_directories(directory, io_error)?;
         let temporary = directory.join(format!(
             ".tmp-{}-{}",
             process::id(),
             NEXT_TEMPORARY.fetch_add(1, Ordering::Relaxed)
         ));
-        let mut file = temporary_options()
+        let mut file = new_file()
             .open(&temporary)
             .map_err(|source| io_error(&temporary, source))?;
         let written = file.write_all(bytes).and_then(|()| file.sync_all());
@@ -115,7 +113,7 @@ impl Store {
             drop(fs::remove_file(&temporary));
             return Err(error);
         }
-        sync_directory(directory)?;
+        sync_directory(directory, io_error)?;
         Ok(digest)
     }
 
@@ -149,6 +147,21 @@ impl Store {
         }
     }
 
+    /// Removes the artifact stored under `digest`; one already gone is no
+    /// error. Garbage collection alone calls it, once no row records the
+    /// artifact.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Io`] when something is in its place but cannot be removed.
+    pub(crate) fn remove(&self, digest: &Digest) -> Result<(), Error> {
+        let path = self.path(digest);
+        match fs::remove_file(&path) {
+            Err(source) if source.kind() != io::ErrorKind::NotFound => Err(io_error(&path, source)),
+            _ => Ok(()),
+        }
+    }
+
     /// Where `digest` is stored: `sha256/<2 hex>/<2 hex>/<64 hex>`.
     fn path(&self, digest: &Digest) -> PathBuf {
         let hex = digest.as_str();
@@ -156,57 +169,6 @@ impl Store {
         let (second, _) = rest.split_at_checked(2).unwrap_or_default();
         self.root.join("sha256").join(first).join(second).join(hex)
     }
-}
-
-/// Creates `directory` and its missing ancestors for the owner only, each
-/// flushed into its parent so that it survives a crash.
-fn create_directories(directory: &Path) -> Result<(), Error> {
-    let missing: Vec<&Path> = directory
-        .ancestors()
-        .take_while(|ancestor| !ancestor.is_dir())
-        .collect();
-    for created in missing.into_iter().rev() {
-        match directory_builder().create(created) {
-            Ok(()) => sync_directory(created.parent().unwrap_or(created))?,
-            // Another writer made it first; a file in its place fails the
-            // next step, which names it.
-            Err(source) if source.kind() == io::ErrorKind::AlreadyExists => {}
-            Err(source) => return Err(io_error(created, source)),
-        }
-    }
-    Ok(())
-}
-
-/// Options that create a temporary file, never open an existing one: the
-/// owner's only on Linux and macOS; on Windows it takes its directory's
-/// access list.
-fn temporary_options() -> OpenOptions {
-    let mut options = OpenOptions::new();
-    options.write(true).create_new(true);
-    #[cfg(unix)]
-    options.mode(0o600);
-    options
-}
-
-/// A builder of the store's directories: the owner's only on Linux and
-/// macOS; on Windows each takes its parent's access list.
-fn directory_builder() -> DirBuilder {
-    #[cfg_attr(not(unix), expect(unused_mut, reason = "only Unix sets a mode"))]
-    let mut builder = DirBuilder::new();
-    #[cfg(unix)]
-    builder.mode(0o700);
-    builder
-}
-
-/// Flushes the entries of `directory` to the disk; on Windows, which cannot
-/// flush a directory through a handle the standard library opens, nothing.
-fn sync_directory(directory: &Path) -> Result<(), Error> {
-    if cfg!(windows) {
-        return Ok(());
-    }
-    File::open(directory)
-        .and_then(|handle| handle.sync_all())
-        .map_err(|source| io_error(directory, source))
 }
 
 /// An [`Error::Io`] about `path`.
