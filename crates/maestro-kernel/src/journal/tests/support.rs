@@ -27,7 +27,10 @@ pub(super) const RACE: u64 = 25;
 pub(super) const ACT: &str = "MAESTRO_KERNEL_JOURNAL_TEST_ACT";
 /// The environment variable that names the data directory a child opens.
 pub(super) const DATA: &str = "MAESTRO_KERNEL_JOURNAL_TEST_DATA";
-/// What starts each line a child says, among the test harness's own output.
+/// What comes before each thing a child says, among the test harness's own
+/// output. It may follow the harness's text on the same line: a harness that
+/// runs one test at a time prints the test's name, with no line break, before
+/// the test runs.
 pub(super) const MARK: &str = "journal-child: ";
 /// The test a child runs, alone.
 const CHILD: &str = "journal::tests::child::act";
@@ -104,10 +107,12 @@ pub(super) struct ChildProcess {
 
 impl ChildProcess {
     /// Starts the child that does `act` to the database of the data
-    /// directory `data`.
+    /// directory `data`. Its harness runs one test at a time, so what it says
+    /// first follows the harness's text on every host, as it would anywhere
+    /// `RUST_TEST_THREADS=1` is set or one processor is available.
     pub(super) fn start(act: &str, data: &Path) -> Self {
         let mut process = Command::new(env::current_exe().unwrap())
-            .args([CHILD, "--exact", "--nocapture"])
+            .args([CHILD, "--exact", "--nocapture", "--test-threads=1"])
             .env(ACT, act)
             .env(DATA, data)
             .stdin(Stdio::piped())
@@ -129,12 +134,13 @@ impl ChildProcess {
         self.input.flush().unwrap();
     }
 
-    /// The next line the child says, without its mark.
+    /// What the child says next, without the mark or the harness's text
+    /// before it.
     pub(super) fn said(&mut self) -> String {
         self.output
             .by_ref()
             .map(Result::unwrap)
-            .find_map(|line| line.strip_prefix(MARK).map(str::to_owned))
+            .find_map(|line| line.split_once(MARK).map(|(_, words)| words.to_owned()))
             .expect("the child ended before it said anything more")
     }
 

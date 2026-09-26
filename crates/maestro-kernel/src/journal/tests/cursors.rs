@@ -3,8 +3,12 @@
 
 use super::support::{Scratch, imported};
 use crate::{journal::Error, store::Database};
+use rusqlite::Connection;
 use serde_json::Value;
 use std::error;
+
+/// A time long before any test runs.
+const LONG_AGO: &str = "2000-01-01T00:00:00.000Z";
 
 /// Records `count` events on `stream`.
 fn record(database: &Database, stream: &str, count: usize) {
@@ -13,6 +17,18 @@ fn record(database: &Database, stream: &str, count: usize) {
             .record(&imported(stream, "import/1", &Value::Null))
             .unwrap();
     }
+}
+
+/// The `updated_at` of every cursor `connection` sees.
+fn updated(connection: &Connection) -> Vec<String> {
+    let mut statement = connection
+        .prepare("SELECT updated_at FROM cursors")
+        .unwrap();
+    statement
+        .query_map([], |row| row.get(0))
+        .unwrap()
+        .collect::<Result<_, _>>()
+        .unwrap()
 }
 
 #[test]
@@ -31,6 +47,30 @@ fn a_cursor_starts_at_zero_and_ack_moves_it_forward() {
     );
     database.ack("indexer", "collection/a", 3).unwrap();
     assert_eq!(database.cursor("indexer", "collection/a").unwrap(), 3);
+}
+
+#[test]
+fn a_cursor_is_written_only_when_its_position_moves() {
+    let scratch = Scratch::new();
+    let database = scratch.open();
+    record(&database, "collection/a", 2);
+    let outside = scratch.outside();
+    database.ack("indexer", "collection/a", 1).unwrap();
+    outside
+        .execute("UPDATE cursors SET updated_at = ?1", [LONG_AGO])
+        .unwrap();
+    database.ack("indexer", "collection/a", 1).unwrap();
+    assert_eq!(
+        updated(&outside),
+        [LONG_AGO],
+        "an ack at the cursor writes nothing"
+    );
+    database.ack("indexer", "collection/a", 2).unwrap();
+    let moved = updated(&outside);
+    assert_eq!(moved.len(), 1);
+    assert_ne!(moved[0], LONG_AGO, "a move is written with its time");
+    database.ack("notifier", "collection/a", 0).unwrap();
+    assert_eq!(updated(&outside), moved, "an ack at 0 records no cursor");
 }
 
 #[test]

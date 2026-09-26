@@ -17,7 +17,8 @@ impl Database {
 
     /// Moves the cursor of `consumer` on `stream` to `position`, the
     /// sequence of the last event it processed, in a write of its own. An
-    /// ack at the cursor's position leaves it where it is.
+    /// ack at the cursor's position writes nothing, so the cursor's
+    /// `updated_at` is when its position last moved.
     ///
     /// # Errors
     ///
@@ -43,6 +44,9 @@ impl Database {
                     position,
                     current,
                 });
+            }
+            if position == current {
+                return Ok(());
             }
             // At most the stream's last sequence, which SQLite's integers hold.
             let position = i64::try_from(position).unwrap_or(i64::MAX);

@@ -68,7 +68,7 @@ fn race(database: &Database) {
     }
 }
 
-/// Says `words` to the parent, on a line of their own after the mark.
+/// Says `words` to the parent: the mark, then the words and a line break.
 fn say(words: &str) {
     let mut output = io::stdout().lock();
     writeln!(output, "{MARK}{words}").unwrap();

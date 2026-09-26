@@ -106,7 +106,9 @@ impl Database {
 ///
 /// # Errors
 ///
-/// [`store::Error::Sqlite`] when the database cannot record it.
+/// [`store::Error::Sqlite`] when the database cannot record it, or cannot
+/// read back the row it recorded: the insert has then run already, so the
+/// caller must return the error from its write, which then rolls back.
 pub(crate) fn record(
     transaction: &Transaction<'_>,
     event: &NewEvent<'_>,
