@@ -41,10 +41,17 @@ fn ends_in_plural_s(word: &str) -> bool {
     }
 }
 
-/// Step 2: English `ed` or `ing` goes when a stem stays.
+/// Step 2: a final `ied` becomes `ie`, which step 3 turns into `i` when a stem
+/// stays; else English `ed` or `ing` goes when a stem stays, and when that
+/// leaves `eed`, its `ed` goes too when a stem stays, as from the bare verb.
 fn english_ending(word: &mut String) {
-    if cut(word, "ed") || cut(word, "ing") {
+    if word.ends_with("ied") {
+        word.pop();
+    } else if cut(word, "ed") || cut(word, "ing") {
         undouble(word);
+        if word.ends_with("eed") {
+            cut(word, "ed");
+        }
     }
 }
 
@@ -90,8 +97,8 @@ fn is_stem(stem: &str) -> bool {
     stem.chars().count() >= 3 && stem.chars().any(is_vowel)
 }
 
-/// Drops the last letter of a final `bb`, `dd`, `ff`, `gg`, `mm`, `nn`, `pp`,
-/// `rr` or `tt` when three letters stay.
+/// Drops the last letter of a final `bb`, `dd`, `gg`, `mm`, `nn`, `pp`, `rr`
+/// or `tt` when three letters stay.
 fn undouble(word: &mut String) {
     let mut letters = word.chars().rev();
     let doubled = match (letters.next(), letters.next()) {
@@ -104,9 +111,9 @@ fn undouble(word: &mut String) {
 }
 
 /// Whether `letter` is a consonant English or French doubles before an
-/// ending.
+/// ending; not `f`, since a final `ff` is the base's own (`stuff`, `staff`).
 fn doubles(letter: char) -> bool {
-    matches!(letter, 'b' | 'd' | 'f' | 'g' | 'm' | 'n' | 'p' | 'r' | 't')
+    matches!(letter, 'b' | 'd' | 'g' | 'm' | 'n' | 'p' | 'r' | 't')
 }
 
 /// Whether `letter` is a vowel, `y` included.

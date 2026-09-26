@@ -5,14 +5,23 @@
 //! function word of one language that technical text often uses as a word of
 //! the other is left out: French `ai` (have) and `ça` (that), which would
 //! drop `AI` and `CA`, and English `am`, which would drop `AM`.
+//!
+//! An apostrophe separates words, so the forms English contractions leave are
+//! stopwords, as the French elided forms are: `don` and `t` of `don't`, `ll`
+//! of `we'll`, `re`, `ve`, `isn`, `won` and the others, at the cost of the
+//! rare words `don`, `haven` and `won`. The negation words `not`, `no`, `ne`,
+//! `n` and `pas` are stopwords too: a bag of words cannot use negation, which
+//! the dense route and the reranker carry. A word is looked up before it is
+//! stemmed, so `note`, whose stem is `not`, stays a term.
 
 /// Whether `word`, folded and lowercased, is a stopword of either list.
 pub(super) fn is_stopword(word: &str) -> bool {
     ENGLISH.binary_search(&word).is_ok() || FRENCH.binary_search(&word).is_ok()
 }
 
-/// The English stopwords, sorted.
-pub(super) const ENGLISH: [&str; 113] = [
+/// The English stopwords, sorted; `aren`, `don`, `ll` and the other
+/// contracted forms stand for `aren't` and the rest.
+pub(super) const ENGLISH: [&str; 133] = [
     "a",
     "about",
     "after",
@@ -22,6 +31,7 @@ pub(super) const ENGLISH: [&str; 113] = [
     "an",
     "and",
     "are",
+    "aren",
     "as",
     "at",
     "be",
@@ -35,15 +45,22 @@ pub(super) const ENGLISH: [&str; 113] = [
     "can",
     "cannot",
     "could",
+    "couldn",
     "did",
+    "didn",
     "do",
     "does",
+    "doesn",
+    "don",
     "during",
     "for",
     "from",
     "had",
+    "hadn",
     "has",
+    "hasn",
     "have",
+    "haven",
     "having",
     "he",
     "her",
@@ -57,17 +74,22 @@ pub(super) const ENGLISH: [&str; 113] = [
     "in",
     "into",
     "is",
+    "isn",
     "it",
     "its",
     "itself",
+    "ll",
     "may",
     "me",
     "might",
     "mine",
     "must",
+    "mustn",
     "my",
     "myself",
+    "no",
     "nor",
+    "not",
     "of",
     "on",
     "onto",
@@ -76,9 +98,11 @@ pub(super) const ENGLISH: [&str; 113] = [
     "ours",
     "ourselves",
     "per",
+    "re",
     "shall",
     "she",
     "should",
+    "shouldn",
     "since",
     "so",
     "than",
@@ -102,10 +126,13 @@ pub(super) const ENGLISH: [&str; 113] = [
     "until",
     "upon",
     "us",
+    "ve",
     "via",
     "was",
+    "wasn",
     "we",
     "were",
+    "weren",
     "what",
     "when",
     "where",
@@ -119,7 +146,9 @@ pub(super) const ENGLISH: [&str; 113] = [
     "with",
     "within",
     "without",
+    "won",
     "would",
+    "wouldn",
     "yet",
     "you",
     "your",
@@ -129,9 +158,9 @@ pub(super) const ENGLISH: [&str; 113] = [
 ];
 
 /// The French stopwords, folded and sorted: `à` is `a`, `après` is `apres`,
-/// `où` is `ou` and `été` is `ete`; `l`, `d`, `qu` and the other elided
+/// `où` is `ou` and `été` is `ete`; `l`, `d`, `n`, `qu` and the other elided
 /// forms stand for `l'` and the rest, since an apostrophe separates words.
-pub(super) const FRENCH: [&str; 138] = [
+pub(super) const FRENCH: [&str; 141] = [
     "a",
     "apres",
     "as",
@@ -212,6 +241,8 @@ pub(super) const FRENCH: [&str; 138] = [
     "mes",
     "moi",
     "mon",
+    "n",
+    "ne",
     "ni",
     "nos",
     "notre",
@@ -222,6 +253,7 @@ pub(super) const FRENCH: [&str; 138] = [
     "ou",
     "par",
     "parmi",
+    "pas",
     "pendant",
     "peut",
     "peuvent",

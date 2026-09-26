@@ -8,7 +8,9 @@
 //! with the sample's average length. A recall check passes when every
 //! expected passage scores above zero; an identifier or topic check passes
 //! when every expected passage scores strictly above every other passage:
-//! scores, not ranks, since Qdrant orders tied scores arbitrarily.
+//! scores, not ranks, since Qdrant orders tied scores arbitrarily. A score
+//! that is not a finite number, or an expected passage the sample lacks,
+//! fails either check.
 #![cfg(test)]
 
 use maestro_knowledge::lexical::{AverageLength, Passage, SparseVector, query_vector};
@@ -174,46 +176,86 @@ fn dot(query: &[(u32, f32)], passage: &SparseVector) -> f32 {
         .sum()
 }
 
-/// The recall checks among `checks` that fail: some expected passage scores
-/// zero.
+/// The expected passages that do not score a finite number above zero, those
+/// the scores lack included.
+fn missed(scores: &[Score], expected: &[&'static str]) -> Vec<&'static str> {
+    expected
+        .iter()
+        .copied()
+        .filter(|id| {
+            !scores
+                .iter()
+                .any(|(passage, score)| passage == id && score.is_finite() && *score > 0.0)
+        })
+        .collect()
+}
+
+/// The other passages that score as high as the lowest expected passage, or
+/// all of them when the scores lack an expected passage or hold a number that
+/// is not finite, so that such a check never passes.
+fn rivals(scores: &[Score], expected: &[&str]) -> Vec<Score> {
+    let (found, others): (Vec<Score>, Vec<Score>) = scores
+        .iter()
+        .copied()
+        .partition(|(id, _)| expected.contains(id));
+    let judged = found.len() == expected.len() && scores.iter().all(|(_, score)| score.is_finite());
+    let lowest = found
+        .iter()
+        .map(|(_, score)| *score)
+        .fold(f32::INFINITY, f32::min);
+    others
+        .into_iter()
+        .filter(|(_, score)| !judged || *score >= lowest)
+        .collect()
+}
+
+/// The recall checks among `checks` that fail: some expected passage is
+/// [`missed`].
 fn failed_recall(checks: &[Check]) -> Vec<String> {
     let sample = Sample::new();
     checks
         .iter()
         .filter_map(|&(query, expected)| {
             let scores = sample.scores(query);
-            let missed: Vec<&str> = scores
-                .iter()
-                .filter(|(id, score)| expected.contains(id) && *score <= 0.0)
-                .map(|(id, _)| *id)
-                .collect();
+            let missed = missed(&scores, expected);
             (!missed.is_empty()).then(|| format!("{query:?} misses {missed:?}: {scores:?}"))
         })
         .collect()
 }
 
-/// The ranking checks among `checks` that fail: some expected passage scores
-/// no higher than some other passage.
+/// The ranking checks among `checks` that fail: some other passage is one of
+/// the [`rivals`].
 fn failed_ranking(checks: &[Check]) -> Vec<String> {
     let sample = Sample::new();
     checks
         .iter()
         .filter_map(|&(query, expected)| {
             let scores = sample.scores(query);
-            let (found, others): (Vec<Score>, Vec<Score>) = scores
-                .into_iter()
-                .partition(|(id, _)| expected.contains(id));
-            let lowest = found
-                .iter()
-                .map(|(_, score)| *score)
-                .fold(f32::INFINITY, f32::min);
-            let rivals: Vec<Score> = others
-                .into_iter()
-                .filter(|(_, score)| *score >= lowest)
-                .collect();
-            (!rivals.is_empty()).then(|| format!("{query:?} ranks {rivals:?} as high as {found:?}"))
+            let rivals = rivals(&scores, expected);
+            (!rivals.is_empty())
+                .then(|| format!("{query:?} ranks {rivals:?} as high as {expected:?}: {scores:?}"))
         })
         .collect()
+}
+
+#[test]
+fn scores_that_are_not_finite_fail_both_kinds_of_check() {
+    let ids = |scores: Vec<Score>| -> Vec<&str> { scores.into_iter().map(|(id, _)| id).collect() };
+    let scores = [
+        ("en01", f32::NAN),
+        ("en02", 1.0),
+        ("en03", f32::INFINITY),
+        ("en04", 0.0),
+    ];
+    // A passage the sample lacks is missed too, rather than skipped.
+    let expected = ["en01", "en02", "en03", "en04", "fr99"];
+    assert_eq!(missed(&scores, &expected), ["en01", "en03", "en04", "fr99"]);
+    assert_eq!(ids(rivals(&scores, &["en02"])), ["en01", "en03", "en04"]);
+    assert_eq!(ids(rivals(&scores, &["en01"])), ["en02", "en03", "en04"]);
+    let finite = [("en01", 2.0), ("en02", 1.0), ("en03", 1.0)];
+    assert_eq!(ids(rivals(&finite, &["en01"])), Vec::<&str>::new());
+    assert_eq!(ids(rivals(&finite, &["en02"])), ["en01", "en03"]);
+    assert_eq!(ids(rivals(&finite, &["en01", "fr99"])), ["en02", "en03"]);
 }
 
 #[test]

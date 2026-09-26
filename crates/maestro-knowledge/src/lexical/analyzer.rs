@@ -18,9 +18,22 @@ pub fn terms(text: &str) -> Vec<String> {
         .filter_map(|piece| match piece {
             Piece::Identifier(whole) => Some(whole.to_lowercase()),
             Piece::Word(word) => {
-                let word = word.to_lowercase();
+                let word = singular_acronym(word).to_lowercase();
                 (!is_stopword(&word)).then(|| stem(&word))
             }
         })
         .collect()
+}
+
+/// `word` without its plural `s` when it is an acronym's plural, two capitals
+/// or more followed by one lowercase `s` (`PDFs`); `word` itself otherwise.
+fn singular_acronym(word: &str) -> &str {
+    match word.strip_suffix('s') {
+        Some(acronym)
+            if acronym.chars().count() >= 2 && acronym.chars().all(char::is_uppercase) =>
+        {
+            acronym
+        }
+        _ => word,
+    }
 }

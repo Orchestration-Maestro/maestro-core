@@ -1,6 +1,11 @@
 //! Splitting: the identifiers and words of a folded text, and the parts of
 //! its camelCase words.
 
+/// The longest word, in characters, that gives its camelCase parts: a longer
+/// run of letters and digits, such as a base64 blob, gives only its whole
+/// form, so that it does not swell a passage's term count.
+const LONGEST_SPLIT_WORD: usize = 64;
+
 /// A piece of a folded text.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum Piece<'text> {
@@ -33,13 +38,17 @@ pub(super) fn pieces(folded: &str) -> Vec<Piece<'_>> {
 }
 
 /// Whether `character` joins the runs of letters and digits of an
-/// identifier.
+/// identifier: `-`, `_`, `.`, `/`, `\` (of a Windows path) or `:`.
 fn is_joiner(character: char) -> bool {
-    matches!(character, '-' | '_' | '.' | '/' | ':')
+    matches!(character, '-' | '_' | '.' | '/' | '\\' | ':')
 }
 
-/// The camelCase parts of `word`: the word itself when it has none.
+/// The camelCase parts of `word`: the word itself when it has none, or when
+/// it is longer than [`LONGEST_SPLIT_WORD`] characters.
 fn camel_case_parts(word: &str) -> Vec<&str> {
+    if word.chars().count() > LONGEST_SPLIT_WORD {
+        return vec![word];
+    }
     let letters: Vec<Option<char>> = [None, None]
         .into_iter()
         .chain(word.chars().map(Some))

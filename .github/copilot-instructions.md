@@ -294,6 +294,7 @@ in place.
 │       │       ├── collection_contract.rs                                   # maestro-collection/1: a strict declaration parses into typed values; an
 │       │       ├── corpus_contract.rs                                       # maestro-corpus/1: one line per document parses into typed values; an
 │       │       ├── lexical_accents.rs                                       # Properties of bm25-en-fr/1 over generated texts: a text and the same
+│       │       ├── lexical_fold.rs                                          # Folding in bm25-en-fr/1: every letter of Latin-1 Supplement and Latin
 │       │       ├── lexical_golden.rs                                        # The golden of bm25-en-fr/1: the terms and vectors of sample passages and
 │       │       ├── lexical_rules.rs                                         # The rules of bm25-en-fr/1 as the lexical module states them, each with
 │       │       ├── lexical_sample.rs                                        # Research R7's public sample on bm25-en-fr/1: 22 passages, 11 in English
