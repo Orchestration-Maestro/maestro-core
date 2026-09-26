@@ -1,7 +1,8 @@
 //! `maestro setup` as its users run it: on Linux on x86-64, a preview that
-//! changes nothing, and an install that refuses a download that is not the
-//! pinned archive before it writes anything; on any other platform, the
-//! manual steps and exit 2. The install itself, with a small release, is
+//! changes nothing, an install that refuses a download that is not the
+//! pinned archive before it writes anything, and a machine without a systemd
+//! user manager refused before any step, with exit 2; on any other platform,
+//! the manual steps and exit 2. The install itself, with a small release, is
 //! tested in the crate.
 
 use super::support::Home;
@@ -37,8 +38,10 @@ mod linux {
         Running::of(command).finish()
     }
 
-    /// The questions a survey asks the user manager, and nothing else.
-    const QUESTIONS: [&str; 2] = [
+    /// The questions setup asks the user manager before it surveys: whether
+    /// one runs; then the survey's, and nothing else.
+    const QUESTIONS: [&str; 3] = [
+        "systemctl --user show-environment",
         "systemctl --user is-enabled maestro-qdrant.service",
         "systemctl --user is-active maestro-qdrant.service",
     ];
@@ -94,6 +97,24 @@ mod linux {
             "not even the kernel's database"
         );
         assert_eq!(fakes.calls(), [QUESTIONS, QUESTIONS].concat());
+    }
+
+    #[test]
+    fn a_machine_without_a_user_manager_is_refused_before_any_step() {
+        let home = Home::bare();
+        let fakes = Fakes::in_home(&home);
+        fakes.without_user_manager();
+        for arguments in [&["setup"][..], &["setup", "--yes", "--json"]] {
+            let refused = run(&home, &fakes, arguments);
+            assert_eq!(refused.code, Some(2), "{arguments:?}: {refused:?}");
+            assert_eq!(refused.stdout, "", "{arguments:?}");
+            assert!(
+                refused.stderr.contains("[boot]") && refused.stderr.contains("systemd=true"),
+                "{arguments:?}: {refused:?}"
+            );
+        }
+        assert!(!home.data().join("qdrant").exists() && !unit(&home).exists());
+        assert_eq!(fakes.calls(), [QUESTIONS[0], QUESTIONS[0]], "no step taken");
     }
 
     #[test]

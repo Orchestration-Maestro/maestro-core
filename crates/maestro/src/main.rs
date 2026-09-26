@@ -164,7 +164,9 @@
 //! machine lacks and changes nothing; with it, it takes them. A machine with
 //! everything in place has no step, and a run then changes nothing. It
 //! installs on Linux on x86-64 with systemd only; elsewhere it prints the
-//! manual steps and exits 2.
+//! manual steps and exits 2. Where no systemd user manager runs for the
+//! user, as on WSL unless `/etc/wsl.conf` sets `systemd=true` under
+//! `[boot]`, it exits 2 before any step, saying so.
 //!
 //! ```json
 //! {"schema":"maestro-cli/setup/1","version":"1.19.1","service":"maestro-qdrant.service",

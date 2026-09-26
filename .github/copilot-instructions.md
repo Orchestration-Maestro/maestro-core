@@ -65,6 +65,7 @@ in place.
 │   │   │   │   ├── setup/                                                   # maestro setup: Qdrant 1.19.1 pinned by digest, a systemd user unit on 127.0.0.1; a preview, then --yes
 │   │   │   │   │   ├── tests/                                               # Unit tests of setup: the pin and the platforms everywhere; the unit and the install with fake tools on Unix
 │   │   │   │   │   │   ├── install.rs                                       # A preview and a second run change nothing, a digest mismatch writes nothing, each failure is named
+│   │   │   │   │   │   ├── manager.rs                                       # The systemd user manager setup needs: without one, setup is refused before any step
 │   │   │   │   │   │   ├── mod.rs                                           # The setup unit tests' door: declarations only
 │   │   │   │   │   │   ├── platform.rs                                      # The pinned release is research R7's; Linux on x86-64 only, every other platform gets the manual steps
 │   │   │   │   │   │   ├── support.rs                                       # What the install tests share: a scratch home, fake curl, tar and systemctl that log, a small release

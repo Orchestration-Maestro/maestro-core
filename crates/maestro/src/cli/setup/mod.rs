@@ -3,7 +3,8 @@
 //! directory as a systemd user unit, bound to 127.0.0.1 with telemetry off.
 //! Without `--yes` it previews and changes nothing; a second run with
 //! everything in place changes nothing. It installs on Linux on x86-64, the
-//! reference workstation's platform, and prints the manual steps elsewhere.
+//! reference workstation's platform, and prints the manual steps elsewhere;
+//! where no systemd user manager runs, it is refused before any step.
 
 mod command;
 mod release;

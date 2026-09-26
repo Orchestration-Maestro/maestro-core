@@ -1,7 +1,8 @@
 //! Fake tools for the binary's tests: shell scripts found first on the
 //! `PATH`, each logging its call, so that no test reaches the network or the
-//! user's own systemd manager. `systemctl` finds the service neither enabled
-//! nor running, and `curl` serves [`SERVED`], which is not Qdrant's archive.
+//! user's own systemd manager. `systemctl` finds a user manager running, and
+//! the service neither enabled nor running, unless a test takes the manager
+//! away; `curl` serves [`SERVED`], which is not Qdrant's archive.
 
 use super::support::Home;
 use std::{
@@ -36,6 +37,17 @@ impl Fakes {
              esac",
         );
         fakes
+    }
+
+    /// Makes `systemctl` answer as it does where no user manager runs: every
+    /// call fails, as it cannot reach one. Setup's own tests use it, on the
+    /// one platform setup installs on.
+    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
+    pub(crate) fn without_user_manager(&self) {
+        self.script(
+            "systemctl",
+            "echo 'Failed to connect to bus: No medium found' >&2\nexit 1",
+        );
     }
 
     /// The `PATH` that finds the fake tools first, then the test's own.
