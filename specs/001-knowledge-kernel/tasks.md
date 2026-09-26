@@ -244,16 +244,18 @@ src/collection.rs, src/corpus.rs}`, `crates/maestro-kernel/src/binding.rs`,
 and `config_dir` in `paths.rs`. **Requirements:** FR-S1-002, ADR-0014.
 
 - [ ] **Step 1: Failing tests.** A valid `maestro-collection/1` parses;
-  unknown or duplicate keys, dangling references and non-finite budgets are
-  refused, a dangling reference being a name the declaration uses without
-  defining it (a file it names is checked when first read, so the quality
-  ledger and the suite may not exist yet); a `maestro-corpus/1` line parses
-  and one with an unknown key is refused; a missing binding is a typed
-  refusal before any work.
+  unknown or duplicate keys, a source ID declared twice and numbers out of
+  range are refused (no field of S1's declaration names another declared
+  name, so ADR-0014's dangling-reference check arrives with the first one,
+  in S6's source policy; a file the declaration names is checked when first
+  read, so the quality ledger and the suite may not exist yet); a
+  `maestro-corpus/1` line parses and one with an unknown key is refused; a
+  missing binding is a typed refusal before any work.
 - [ ] **Step 2: Create `maestro-knowledge`** and implement the declaration,
   the corpus line and the bindings file.
-- [ ] **Step 3: Gate and pull request** `feat: parse collections and corpus
-  manifests`.
+- [ ] **Step 3: Gate and pull request** `feat!: parse collections and corpus
+  manifests` (the kernel's `Environment` gains the configuration variables
+  and becomes non-exhaustive).
 
 ## Phase 3: Wave 3 — on the database
 
@@ -305,14 +307,14 @@ generation}.rs`, `migrations/0004_documents.sql`. **Requirements:** FR-S1-001
 `crates/maestro-canonicalization/src/{tokenizer,chunks}/`. **Requirements:**
 FR-S1-003, D7.
 
-- [ ] **Step 1: Failing test.** `chunk_documents` accepts any `TokenCounter`;
+- [x] **Step 1: Failing test.** `chunk_documents` accepts any `TokenCounter`;
   the test helper `chunk_with_count` becomes a test implementation of the
   trait.
-- [ ] **Step 2: Implement** the trait; `NativeTokenizer` implements it; every
+- [x] **Step 2: Implement** the trait; `NativeTokenizer` implements it; every
   existing test and fixture byte is unchanged.
-- [ ] **Step 3: Native run.** The four native tests pass with the local
+- [x] **Step 3: Native run.** The four native tests pass with the local
   binding.
-- [ ] **Step 4: Gate and pull request** `feat: count chunk tokens through a
+- [x] **Step 4: Gate and pull request** `feat: count chunk tokens through a
   trait`.
 
 ### T014 [P] A public synthetic collection and suite [US3]
