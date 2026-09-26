@@ -15,9 +15,9 @@ maestro-canonicalization.workspace = true
 maestro-kernel.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
 tokio = { workspace = true, features = ["rt", "time"] }
 
 [dev-dependencies]
 reqwest.workspace = true
-sha2.workspace = true
 tokio = { workspace = true, features = ["macros", "rt"] }

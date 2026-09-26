@@ -14,6 +14,7 @@
 
 pub mod collection;
 pub mod corpus;
+pub mod lexical;
 pub mod prepare;
 mod relative_path;
 mod shape;
