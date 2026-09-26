@@ -128,8 +128,15 @@ fn a_stored_job_the_kernel_cannot_read_back_is_an_error_never_a_guess() {
         .unwrap()
         .idempotency_key;
     let outside = scratch.outside();
+    // It plants rows the kernel never writes, as a writer that bypasses the
+    // table's guards would: without its checks, and deleting each row once
+    // read.
     outside
-        .execute_batch("DELETE FROM jobs; PRAGMA ignore_check_constraints = ON;")
+        .execute_batch(
+            "DROP TRIGGER jobs_are_never_deleted;
+             DELETE FROM jobs;
+             PRAGMA ignore_check_constraints = ON;",
+        )
         .unwrap();
     // Each row breaks one column: its ID, key, attempt, state, lease number
     // and outcome are columns 0, 2, 3, 6, 7 and 11.

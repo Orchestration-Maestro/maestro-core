@@ -12,11 +12,12 @@
 -- queued or running holds each.
 --
 -- A job is queued, then running, then succeeded, failed or cancelled, or
--- cancelled while queued; once it ended, it never changes. It holds a lease
--- while it runs, and only then: its holder, its number (1 for the first lease,
--- one more for each takeover, and never fewer), its last heartbeat and its
--- expiry, RFC 3339 in UTC to the millisecond, from the caller's clock. Its
--- outcome, JSON text, is recorded when it ends.
+-- cancelled while queued; once it ended, it never changes, and no job is ever
+-- replaced nor deleted. It holds a lease while it runs, and only then: its
+-- holder, its number (1 for the first lease, one more for each takeover, and
+-- never fewer), its last heartbeat and its expiry, RFC 3339 in UTC to the
+-- millisecond, from the caller's clock. Its outcome, JSON text, is recorded
+-- when it ends.
 CREATE TABLE jobs (
   id TEXT PRIMARY KEY NOT NULL,
   kind TEXT NOT NULL,
@@ -49,6 +50,32 @@ WHERE state IN ('queued', 'running', 'succeeded');
 -- One job at most, queued or running, holds each resource.
 CREATE UNIQUE INDEX jobs_one_per_resource ON jobs (resource)
 WHERE resource IS NOT NULL AND state IN ('queued', 'running');
+
+-- A job is never replaced nor deleted, whoever writes: its row stays, as its
+-- stream in the journal does; a retention task that removes old jobs will
+-- lift this by a migration of its own. INSERT OR REPLACE removes the rows it
+-- conflicts with without firing a delete trigger, and an upsert updates the
+-- row it conflicts with, so an insert that would take the ID or the place of a
+-- job (its attempt of its key, its live key, its resource) is refused before
+-- SQLite resolves the conflict.
+CREATE TRIGGER jobs_are_never_replaced
+BEFORE INSERT ON jobs
+WHEN EXISTS (SELECT 1 FROM jobs WHERE id = NEW.id)
+  OR EXISTS (SELECT 1 FROM jobs
+    WHERE idempotency_key = NEW.idempotency_key AND attempt = NEW.attempt)
+  OR (NEW.state IN ('queued', 'running', 'succeeded') AND EXISTS (SELECT 1 FROM jobs
+    WHERE idempotency_key = NEW.idempotency_key AND state IN ('queued', 'running', 'succeeded')))
+  OR (NEW.resource IS NOT NULL AND NEW.state IN ('queued', 'running') AND EXISTS (SELECT 1 FROM jobs
+    WHERE resource = NEW.resource AND state IN ('queued', 'running')))
+BEGIN
+  SELECT RAISE(ABORT, 'a job is never replaced: no insert takes the ID or the place of a job');
+END;
+
+CREATE TRIGGER jobs_are_never_deleted
+BEFORE DELETE ON jobs
+BEGIN
+  SELECT RAISE(ABORT, 'a job is never deleted: its row stays, as its stream does');
+END;
 
 -- A job that ended never changes, whoever writes: its outcome is final.
 CREATE TRIGGER jobs_that_ended_never_change

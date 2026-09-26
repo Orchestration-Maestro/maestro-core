@@ -1,13 +1,16 @@
 //! The jobs table: what the database itself refuses, whoever writes, so no
 //! program outside the kernel breaks what the kernel relies on.
 
-use super::support::{SECOND, Scratch, TERM, at, collection, publish, running};
-use crate::job::JobState;
+use super::support::{FIRST, SECOND, Scratch, TERM, at, collection, publish, rows, running};
+use crate::job::{JobState, NewJob};
 use rusqlite::Connection;
 use serde_json::json;
 
 /// A lease time as the kernel writes it, as SQL.
 const TIME: &str = "'2026-09-26T12:00:00.000Z'";
+/// How the database refuses an insert that would take the ID or the place of
+/// a job: its message starts so.
+const REPLACED: &str = "a job is never replaced";
 
 /// Inserts through `outside` the job of `values`: its ID, kind, key, attempt,
 /// scope, resource, state, lease number, holder, heartbeat, expiry and
@@ -71,16 +74,36 @@ fn the_table_refuses_what_no_job_is() {
     ];
     for values in live {
         let error = refusal(&outside, values);
-        assert!(
-            error.starts_with("UNIQUE constraint failed: jobs.idempotency_key"),
-            "{values}: {error}"
-        );
+        assert!(error.starts_with(REPLACED), "{values}: {error}");
     }
     insert(
         &outside,
         "'q', 'k', 'key', 3, 's', NULL, 'cancelled', 0, NULL, NULL, NULL, '{}'",
     )
     .unwrap();
+    insert(
+        &outside,
+        "'r', 'k', 'key-r', 1, 's', NULL, 'queued', 0, NULL, NULL, NULL, NULL",
+    )
+    .unwrap();
+    // No insert reaches the unique indexes any more; they still guard updates.
+    let moves = [
+        (
+            "idempotency_key = 'key', attempt = 9",
+            "UNIQUE constraint failed: jobs.idempotency_key",
+        ),
+        (
+            "idempotency_key = 'key', attempt = 1, state = 'cancelled', outcome_json = '{}'",
+            "UNIQUE constraint failed: jobs.idempotency_key, jobs.attempt",
+        ),
+    ];
+    for (change, constraint) in moves {
+        let error = outside
+            .execute(&format!("UPDATE jobs SET {change} WHERE id = 'r'"), [])
+            .unwrap_err()
+            .to_string();
+        assert_eq!(error, constraint, "{change}");
+    }
 }
 
 #[test]
@@ -129,10 +152,7 @@ fn one_queued_or_running_job_at_most_holds_a_resource_whoever_writes() {
     ];
     for values in holding {
         let error = refusal(&outside, values);
-        assert!(
-            error.starts_with("UNIQUE constraint failed: jobs.resource"),
-            "{values}: {error}"
-        );
+        assert!(error.starts_with(REPLACED), "{values}: {error}");
     }
     let ended = [
         "'d', 'k', 'key-d', 1, 's', 'res', 'succeeded', 1, NULL, NULL, NULL, '{}'",
@@ -144,6 +164,73 @@ fn one_queued_or_running_job_at_most_holds_a_resource_whoever_writes() {
     ];
     for values in ended {
         insert(&outside, values).unwrap();
+    }
+    let error = outside
+        .execute("UPDATE jobs SET resource = 'res' WHERE id = 'g'", [])
+        .unwrap_err()
+        .to_string();
+    assert_eq!(error, "UNIQUE constraint failed: jobs.resource");
+}
+
+#[test]
+fn a_job_is_never_replaced_nor_deleted_whoever_writes() {
+    let scratch = Scratch::new();
+    let database = scratch.open();
+    let inputs = collection("demo");
+    let holding = NewJob {
+        resource: Some("res"),
+        ..publish(&inputs)
+    };
+    let job = database.submit_job(&holding, at(0)).unwrap();
+    database.take_job(job.id, FIRST, at(0), TERM).unwrap();
+    let (id, key) = (job.id, job.idempotency_key.as_str());
+    let other = "01ARZ3NDEKTSV4RRFFQ69G5FAV";
+    let into = "INSERT INTO jobs (id, kind, idempotency_key, attempt, scope, resource, state, \
+                outcome_json)";
+    let replace = "INSERT OR REPLACE INTO jobs (id, kind, idempotency_key, attempt, scope, \
+                   resource, state, outcome_json)";
+    let attempts = [
+        // Its ID, replaced, then upserted.
+        (
+            format!("{replace} VALUES ('{id}', 'k', 'key', 1, 's', NULL, 'queued', NULL)"),
+            REPLACED,
+        ),
+        (
+            format!(
+                "{into} VALUES ('{id}', 'k', 'key', 1, 's', NULL, 'queued', NULL)
+                 ON CONFLICT (id) DO UPDATE SET kind = excluded.kind"
+            ),
+            REPLACED,
+        ),
+        // Its place under another ID: its attempt of its key, its live key,
+        // then its resource.
+        (
+            format!("{replace} VALUES ('{other}', 'k', '{key}', 1, 's', NULL, 'failed', '{{}}')"),
+            REPLACED,
+        ),
+        (
+            format!("{replace} VALUES ('{other}', 'k', '{key}', 2, 's', NULL, 'queued', NULL)"),
+            REPLACED,
+        ),
+        (
+            format!("{replace} VALUES ('{other}', 'k', 'other', 1, 's', 'res', 'queued', NULL)"),
+            REPLACED,
+        ),
+        (
+            format!("DELETE FROM jobs WHERE id = '{id}'"),
+            "a job is never deleted",
+        ),
+    ];
+    let outside = scratch.outside();
+    let before = (rows(&outside, "jobs"), rows(&outside, "events"));
+    for (sql, refusal) in attempts {
+        let error = outside.execute(&sql, []).unwrap_err().to_string();
+        assert!(error.starts_with(refusal), "{sql}: {error}");
+        assert_eq!(
+            (rows(&outside, "jobs"), rows(&outside, "events")),
+            before,
+            "{sql}: the job and its stream stay as they were"
+        );
     }
 }
 
