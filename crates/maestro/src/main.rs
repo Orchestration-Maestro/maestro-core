@@ -3,8 +3,8 @@
 //!
 //! - `maestro knowledge collection add <collection.json>` adds a collection
 //!   from its strict declaration, or takes its new version;
-//! - `maestro knowledge import --collection <id>` imports the collection's
-//!   corpus manifests as a job, its ID printed first;
+//! - `maestro knowledge import --collection <id> [--again]` imports the
+//!   collection's corpus manifests as a job, its ID printed first;
 //! - `maestro knowledge quality --collection <id>` gives each revision of the
 //!   collection its quality disposition, as a job, its ID printed first;
 //! - `maestro knowledge status --collection <id>` reports its documents, its
@@ -80,13 +80,18 @@
 //! `{"error": <why>}`; a lease another process took over ends the command
 //! with 1, the job left to that process.
 //!
-//! The same command again, with the same declaration and manifests, finds
-//! the job of its key. One that succeeded is printed as it ended. One another
-//! process holds is followed, each event printed for people as `job wait`
-//! prints it, and its lease is tried again about once a second: once that
-//! lease expired, the command takes the job over, as it does at once with a
-//! lease that expired before it started, and imports again, which records
-//! only what is missing.
+//! With `--again`, the inputs also carry `"again": <ulid>`, a nonce, so the
+//! import is a job of a key of its own even when nothing it reads changed:
+//! after files restored or fixed, it records what the last import refused,
+//! and finds everything else unchanged.
+//!
+//! The same command again, with the same declaration and manifests and
+//! without `--again`, finds the job of its key. One that succeeded is
+//! printed as it ended. One another process holds is followed, each event
+//! printed for people as `job wait` prints it, and its lease is tried again
+//! about once a second: once that lease expired, the command takes the job
+//! over, as it does at once with a lease that expired before it started, and
+//! imports again, which records only what is missing.
 //!
 //! Another job on the collection's import, an import of other inputs, is
 //! superseded when no live lease holds it, because its lease expired or no

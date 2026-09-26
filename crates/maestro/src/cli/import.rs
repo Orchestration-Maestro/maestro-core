@@ -8,7 +8,9 @@
 //! heartbeat thread renews in between; and the command exits with the job's
 //! outcome. The same command again finds the job of its key, and an import
 //! of other inputs that holds the collection's import is superseded or
-//! refuses this one, as [`foreground`] says.
+//! refuses this one, as [`foreground`] says. With `--again`, the frozen
+//! inputs carry a nonce, a new ULID, so the import is a job of a key of its
+//! own, which records what an earlier one refused once its files are back.
 
 use super::{
     collection::{self, Declared},
@@ -27,6 +29,7 @@ use maestro_kernel::{
 use maestro_knowledge::import::{self, Report};
 use serde_json::{Map, Value, json};
 use std::{fs, ops::ControlFlow, process::ExitCode};
+use ulid::Ulid;
 
 /// The kind of the job an import runs.
 const KIND: &str = "knowledge.import";
@@ -38,7 +41,8 @@ const PRINTING: Printing = Printing {
 };
 
 /// Imports the collection `collection` as a job, or finds the job of the
-/// same import, and prints it as it ended.
+/// same import, unless `again` asks for a job of its own, and prints it as
+/// it ended.
 ///
 /// # Errors
 ///
@@ -46,11 +50,16 @@ const PRINTING: Printing = Printing {
 /// binding is not bound or its manifest cannot be read, or a live lease holds
 /// another job on the collection's import; [`Failure::Failed`] when the
 /// kernel fails.
-pub(super) fn run(kernel: &Kernel, output: Output, collection: &str) -> Result<ExitCode, Failure> {
+pub(super) fn run(
+    kernel: &Kernel,
+    output: Output,
+    collection: &str,
+    again: bool,
+) -> Result<ExitCode, Failure> {
     let declared = collection::declared(kernel, collection)?;
     let bindings =
         Bindings::load(&kernel.config_dir).map_err(|error| Failure::refused_by(&error))?;
-    let inputs = inputs(&declared, &bindings)?;
+    let inputs = inputs(&declared, &bindings, again.then(Ulid::generate))?;
     let scope = collection::collection_scope(collection)?;
     let resource = format!("collection/{collection}/import");
     let new = NewJob {
@@ -75,8 +84,9 @@ pub(super) fn run(kernel: &Kernel, output: Output, collection: &str) -> Result<E
 
 /// The frozen inputs of the import of `declared`: its collection, the digest
 /// of its declaration, and the digest of each source's manifest, found
-/// through `bindings`, by source.
-fn inputs(declared: &Declared, bindings: &Bindings) -> Result<Value, Failure> {
+/// through `bindings`, by source; and `again`, the nonce of an import asked
+/// for again, if it is one.
+fn inputs(declared: &Declared, bindings: &Bindings, again: Option<Ulid>) -> Result<Value, Failure> {
     let manifests = declared
         .declaration
         .manifest_paths(bindings)
@@ -92,11 +102,21 @@ fn inputs(declared: &Declared, bindings: &Bindings) -> Result<Value, Failure> {
         })?;
         digests.insert(source.id.clone(), Value::from(Digest::of(&bytes).as_str()));
     }
-    Ok(json!({
-        "collection": declared.declaration.id,
-        "declaration": declared.digest.as_str(),
-        "manifests": digests,
-    }))
+    let mut inputs = Map::from_iter([
+        (
+            "collection".to_owned(),
+            Value::from(declared.declaration.id.as_str()),
+        ),
+        (
+            "declaration".to_owned(),
+            Value::from(declared.digest.as_str()),
+        ),
+        ("manifests".to_owned(), Value::Object(digests)),
+    ]);
+    if let Some(nonce) = again {
+        inputs.insert("again".to_owned(), Value::from(nonce.to_string()));
+    }
+    Ok(Value::Object(inputs))
 }
 
 /// Journals the counts of `report` as the job's next step, and prints them

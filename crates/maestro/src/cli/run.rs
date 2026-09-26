@@ -67,7 +67,9 @@ fn knowledge(
         KnowledgeCommand::Collection(CollectionCommand::Add { declaration }) => {
             collection::add(kernel, output, declaration)
         }
-        KnowledgeCommand::Import { collection } => import::run(kernel, output, collection),
+        KnowledgeCommand::Import { collection, again } => {
+            import::run(kernel, output, collection, *again)
+        }
         KnowledgeCommand::Quality { collection } => quality::run(kernel, output, collection),
         KnowledgeCommand::Status { collection } => status::run(kernel, output, collection),
     }

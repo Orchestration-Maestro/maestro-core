@@ -52,6 +52,11 @@ pub(super) enum KnowledgeCommand {
         /// The collection's ID, as its declaration names it.
         #[arg(long)]
         collection: String,
+        /// Import again, as a job of its own, though the same declaration and
+        /// manifests were imported: after files restored or fixed, it records
+        /// what the last import refused.
+        #[arg(long)]
+        again: bool,
     },
     /// Give each revision of a collection its quality disposition, as a job
     /// printing its ID first.

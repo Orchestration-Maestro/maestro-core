@@ -646,7 +646,7 @@ separate budgets; interactive work has priority over ingestion.
 
 ```text
 maestro knowledge collection add <collection.json>
-maestro knowledge import   --collection ctm
+maestro knowledge import   --collection ctm [--again]  # --again: a new job, as after files restored
 maestro knowledge quality  --collection ctm            # dispositions report, held items
 maestro knowledge prepare  --collection ctm            # dedup + chunk set
 maestro knowledge publish  --collection ctm            # embed + index + verify + switch
