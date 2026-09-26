@@ -10,18 +10,23 @@
 //! the collection's quality gate, `collection/<id>/quality`, as its resource,
 //! a heartbeat thread renews its lease while the gate runs, and it ends
 //! succeeded with the gate's report, or failed with why the gate stopped:
-//! what it decided before stays decided.
+//! what it decided before stays decided. For people, a report is printed as
+//! its counts: of revisions, by outcome and by rule, and of the revisions it
+//! holds back, which only `--json` lists, since a large collection holds
+//! thousands.
 
 use super::{
     collection::{self, Declared},
     failure::{Failure, chain},
     foreground,
     kernel::Kernel,
+    lease::Holder,
     output::Output,
+    wait::{self, Printing},
 };
 use maestro_kernel::{
     artifact::Digest,
-    job::{JobState, NewJob},
+    job::{Job, JobState, NewJob},
 };
 use maestro_knowledge::quality::{self, Ledger, LedgerError, Report};
 use serde_json::{Value, json};
@@ -29,8 +34,12 @@ use std::{fmt::Display, fs, io, process::ExitCode, str};
 
 /// The kind of the job the gate runs.
 const KIND: &str = "knowledge.quality";
-/// The schema of the document `knowledge quality` prints under `--json`.
-const SCHEMA: &str = "maestro-cli/knowledge-quality/1";
+/// How `knowledge quality` prints its job as it ended:
+/// `maestro-cli/knowledge-quality/1`, or its [`summary`] for people.
+const PRINTING: Printing = Printing {
+    schema: "maestro-cli/knowledge-quality/1",
+    text: summary,
+};
 
 /// Runs the quality gate over the collection `collection` as a job, or finds
 /// the job of the same gate, and prints it as it ended.
@@ -60,14 +69,60 @@ pub(super) fn run(kernel: &Kernel, output: Output, collection: &str) -> Result<E
     };
     // The gate journals no step: the heartbeats alone renew its lease, over
     // a run of a minute or more on a large collection.
-    foreground::run(kernel, output, &new, SCHEMA, |_| {
+    let work = |_: &Holder<'_>| {
         ending(quality::gate(
             &kernel.database,
             &kernel.scopes,
             collection,
             &ledger,
         ))
-    })
+    };
+    foreground::run(kernel, output, &new, work, PRINTING)
+}
+
+/// `job`, which ended, for people: when it succeeded, the counts of its
+/// report, then how many revisions it holds back, which only `--json` lists;
+/// otherwise as `job wait` prints it.
+fn summary(job: &Job) -> String {
+    let Some(report) = job
+        .outcome
+        .as_ref()
+        .filter(|_| job.state == JobState::Succeeded)
+    else {
+        return wait::line(job);
+    };
+    let count = |name: &str| report[name].as_u64().unwrap_or_default();
+    let counted = |name: &str| -> Option<String> {
+        let counts = report[name]
+            .as_object()
+            .filter(|counts| !counts.is_empty())?;
+        let listed: Vec<String> = counts
+            .iter()
+            .map(|(key, count)| format!("{key} {count}"))
+            .collect();
+        Some(listed.join(", "))
+    };
+    let mut lines = vec![format!(
+        "succeeded: {} revisions, {} decided, {} kept as decided before",
+        count("revisions"),
+        count("decided"),
+        count("kept")
+    )];
+    let named = [
+        ("outcomes", "outcomes"),
+        ("rules", "rules"),
+        ("ignored_rules", "ledger rules a kept disposition outranks"),
+    ];
+    for (name, label) in named {
+        lines.extend(counted(name).map(|counts| format!("{label}: {counts}")));
+    }
+    let held = report["held"].as_array().map_or(0, Vec::len);
+    lines.push(if held == 0 {
+        "0 held".to_owned()
+    } else {
+        format!("{held} held: see --json")
+    });
+    lines.join("\n")
 }
 
 /// The quality ledger `declared` names, relative to its directory, with the

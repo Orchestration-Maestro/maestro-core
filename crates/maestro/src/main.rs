@@ -118,7 +118,8 @@
 //! is a new job, which decides them. A ledger that is not strict is refused
 //! before any job. The job ends succeeded with the gate's report, or failed
 //! with `{"error": <why>}`; what the gate decided before it stopped stays
-//! decided:
+//! decided. For people, a report is printed as its counts, then the number
+//! of revisions it holds back, which only the document lists:
 //!
 //! ```json
 //! {"schema":"maestro-cli/knowledge-quality/1","job":"<ulid>",

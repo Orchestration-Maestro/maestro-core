@@ -13,8 +13,12 @@ use serde_json::Value;
 use std::{process::ExitCode, thread, time::Duration};
 use ulid::Ulid;
 
-/// The schema of the document `job wait` prints under `--json`.
-const SCHEMA: &str = "maestro-cli/job-wait/1";
+/// How `job wait` prints a job as it ended: `maestro-cli/job-wait/1`, or
+/// [`line()`] for people.
+const PRINTING: Printing = Printing {
+    schema: "maestro-cli/job-wait/1",
+    text: line,
+};
 /// How long a follower waits before it reads a running job's stream again.
 pub(super) const POLL: Duration = Duration::from_millis(100);
 
@@ -45,7 +49,7 @@ pub(super) fn run(kernel: &Kernel, output: Output, id: Ulid) -> Result<ExitCode,
     let mut follower = Follower::new(kernel, output, id);
     loop {
         if let Some(ended) = follower.look()? {
-            return report(output, SCHEMA, &ended);
+            return report(output, PRINTING, &ended);
         }
         thread::sleep(POLL);
     }
@@ -125,23 +129,39 @@ impl<'a> Follower<'a> {
     }
 }
 
-/// Prints `job`, which ended, under `schema`, and returns the exit code of
-/// its outcome: 0 when it succeeded, 1 otherwise.
+/// How a command prints a job as it ended: under `--json`, the document of
+/// `schema`; for people, the text `text` gives.
+#[derive(Debug, Clone, Copy)]
+pub(super) struct Printing {
+    /// The schema of the document, such as `maestro-cli/import/1`.
+    pub(super) schema: &'static str,
+    /// The job as text for people.
+    pub(super) text: fn(&Job) -> String,
+}
+
+/// `job`, which ended, for people: its state, then its outcome's JSON.
+pub(super) fn line(job: &Job) -> String {
+    let outcome = job.outcome.as_ref().unwrap_or(&Value::Null);
+    format!("{} {outcome}", job.state)
+}
+
+/// Prints `job`, which ended, as `printing` says, and returns the exit code
+/// of its outcome: 0 when it succeeded, 1 otherwise.
 ///
 /// # Errors
 ///
 /// [`Failure::Failed`] when stdout cannot be written to.
-pub(super) fn report(output: Output, schema: &'static str, job: &Job) -> Result<ExitCode, Failure> {
+pub(super) fn report(output: Output, printing: Printing, job: &Job) -> Result<ExitCode, Failure> {
     let outcome = job.outcome.as_ref().unwrap_or(&Value::Null);
     let document = JobDocument {
-        schema,
+        schema: printing.schema,
         job: job.id.to_string(),
         kind: &job.kind,
         attempt: job.attempt,
         state: job.state.to_string(),
         outcome,
     };
-    output.result(&document, &format!("{} {outcome}", job.state))?;
+    output.result(&document, &(printing.text)(job))?;
     Ok(if job.state == JobState::Succeeded {
         ExitCode::SUCCESS
     } else {
