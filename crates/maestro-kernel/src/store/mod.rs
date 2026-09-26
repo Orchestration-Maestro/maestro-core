@@ -5,16 +5,21 @@
 //! WAL mode. One writer connection, behind a mutex, serves every thread, and
 //! each write is one short `IMMEDIATE` transaction; readers open connections
 //! of their own, which only read and see the last commit. Every connection
-//! waits 5 s for another's lock and enforces foreign keys.
+//! waits 5 s for another's lock and enforces foreign keys. The kernel's other
+//! tables write through `Database::write`, in the crate, and pin the
+//! artifacts they refer to in the same transaction.
 //!
 //! `open` creates the file and its missing directories for the owner only,
 //! as the artifact store creates its own. A new file is made in WAL mode
 //! under the temporary name `<file>.tmp-<process>-<number>`, then hard-linked
 //! into place, so processes opening a new database together never race
 //! SQLite's switch to WAL: the directory must be on a file system with hard
-//! links, as ext4, APFS and NTFS are. The temporary name is removed whether
-//! the link was made or another process made the file first; one a crash
-//! left is never the database.
+//! links, as ext4, APFS and NTFS are, and `open` fails naming the file when
+//! the link cannot be made. The temporary name is removed whether the link
+//! was made or another process made the file first. One left behind, by a
+//! crash between the link and the removal or by a removal the system
+//! refused, may be another name of the database itself: remove it, never
+//! open it, since SQLite would give it a write-ahead log of its own.
 //!
 //! Migrations are the SQL files of `migrations/`, embedded in the binary,
 //! each named after its number, applied once in number order, each in a
@@ -38,7 +43,7 @@
 //! `.tmp-<process>-<number>` under the artifact root are writes in progress,
 //! never artifacts: a collection leaves them alone.
 
-mod artifacts;
+pub(crate) mod artifacts;
 mod database;
 mod error;
 mod migration;

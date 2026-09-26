@@ -4,12 +4,15 @@
 use super::support::{ABC, EMPTY, Scratch, pins, stored};
 use crate::{
     artifact::Digest,
-    store::{Database, Error, database::link_new_file},
+    store::{
+        Database, Error,
+        database::{configured, link_into_place, link_new_file},
+    },
 };
 use rusqlite::Connection;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt as _;
-use std::{error, fs, path::Path, sync::Barrier, thread};
+use std::{error, fs, path::Path, sync::Barrier, thread, time::Duration};
 
 /// A table the writers count in.
 const COUNTER: (&str, &str) = (
@@ -61,7 +64,7 @@ fn count_together(database: &Database, start: &Barrier) {
                 let value: i64 =
                     transaction.query_row("SELECT value FROM counter", [], |row| row.get(0))?;
                 transaction.execute("UPDATE counter SET value = ?1", [value + 1])?;
-                Ok(())
+                Ok::<_, Error>(())
             })
             .unwrap();
     }
@@ -73,9 +76,33 @@ fn every_connection_waits_five_seconds_and_enforces_foreign_keys() {
     let database = scratch.open();
     assert_eq!(settings(&database.reader().unwrap()), (5000, 1));
     let writer = database
-        .write(|transaction| Ok(settings(transaction)))
+        .write(|transaction| Ok::<_, Error>(settings(transaction)))
         .unwrap();
     assert_eq!(writer, (5000, 1));
+}
+
+#[test]
+fn configured_sets_both_settings_whatever_the_connection_had() {
+    let connection = Connection::open_in_memory().unwrap();
+    connection.busy_timeout(Duration::ZERO).unwrap();
+    connection
+        .pragma_update(None, "foreign_keys", false)
+        .unwrap();
+    assert_eq!(settings(&connection), (0, 0));
+    assert_eq!(settings(&configured(connection).unwrap()), (5000, 1));
+}
+
+#[test]
+fn a_write_holds_the_write_lock_before_its_function_runs() {
+    let scratch = Scratch::new();
+    let database = scratch.open();
+    let outside = scratch.outside();
+    outside.busy_timeout(Duration::ZERO).unwrap();
+    let begun = database
+        .write(|_| Ok::<_, Error>(outside.execute_batch("BEGIN IMMEDIATE").is_ok()))
+        .unwrap();
+    assert!(!begun, "no other connection begins a write inside one");
+    outside.execute_batch("BEGIN IMMEDIATE; COMMIT").unwrap();
 }
 
 #[test]
@@ -93,7 +120,7 @@ fn a_reader_sees_only_commits_and_cannot_write() {
                 0,
                 "a write in progress is not seen"
             );
-            Ok(())
+            Ok::<_, Error>(())
         })
         .unwrap();
     let reader = database.reader().unwrap();
@@ -180,6 +207,18 @@ fn a_database_another_process_made_first_is_kept_and_the_temporary_removed() {
         Some(0),
         "the database is the first one"
     );
+}
+
+#[test]
+fn a_link_that_cannot_be_made_is_an_io_error_naming_the_database() {
+    let scratch = Scratch::new();
+    let never_made = scratch.0.join("kernel.sqlite3.tmp-7-0");
+    let error = link_into_place(&never_made, &scratch.database()).unwrap_err();
+    assert!(
+        matches!(&error, Error::Io { path, .. } if *path == scratch.database()),
+        "{error:?}"
+    );
+    assert!(!scratch.database().exists());
 }
 
 #[test]

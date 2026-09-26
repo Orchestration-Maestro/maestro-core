@@ -1,5 +1,9 @@
 //! The `artifacts` table: what the artifact store holds, the pins that keep
 //! it, and the garbage collection that removes what nothing pins.
+//!
+//! A table that refers to an artifact pins it in the transaction that records
+//! the reference, through [`pin`] and [`unpin`], so that a reference and its
+//! pin are committed or rolled back together.
 
 use super::{database::Database, error::Error};
 use crate::artifact::Digest;
@@ -36,11 +40,24 @@ impl Database {
     /// [`Error::Sqlite`] when they cannot be recorded.
     pub fn put(&self, bytes: &[u8], media: &str) -> Result<Digest, Error> {
         let digest = self.artifacts.put(bytes)?;
+        self.record_then_store(bytes, &digest, media)?;
+        Ok(digest)
+    }
+
+    /// The rest of a put once the bytes are stored under `digest`: records
+    /// their row, then stores them again, which writes them only if a
+    /// collection removed them before the row was recorded.
+    pub(super) fn record_then_store(
+        &self,
+        bytes: &[u8],
+        digest: &Digest,
+        media: &str,
+    ) -> Result<(), Error> {
         // A slice holds at most `isize::MAX` bytes, which `i64` holds.
         let size = i64::try_from(bytes.len()).unwrap_or(i64::MAX);
-        self.write(|transaction| record(transaction, &digest, size, media))?;
+        self.write(|transaction| record(transaction, digest, size, media))?;
         self.artifacts.put(bytes)?;
-        Ok(digest)
+        Ok(())
     }
 
     /// The bytes of the artifact `digest`, checked against it.
@@ -70,18 +87,19 @@ impl Database {
         Ok(found)
     }
 
-    /// Adds a pin to the artifact `digest`: one more record refers to it.
+    /// Adds a pin to the artifact `digest`, in a write of its own: one more
+    /// record refers to it.
     ///
     /// # Errors
     ///
     /// [`Error::UnknownArtifact`] when no artifact is recorded under
     /// `digest`, and [`Error::Sqlite`] when the pin cannot be written.
     pub fn pin(&self, digest: &Digest) -> Result<(), Error> {
-        self.repin(digest, 1)
+        self.write(|transaction| pin(transaction, digest))
     }
 
-    /// Removes a pin from the artifact `digest`: one record fewer refers to
-    /// it.
+    /// Removes a pin from the artifact `digest`, in a write of its own: one
+    /// record fewer refers to it.
     ///
     /// # Errors
     ///
@@ -89,7 +107,7 @@ impl Database {
     /// when no artifact is recorded under `digest`, and [`Error::Sqlite`]
     /// when the change cannot be written.
     pub fn unpin(&self, digest: &Digest) -> Result<(), Error> {
-        self.repin(digest, -1)
+        self.write(|transaction| unpin(transaction, digest))
     }
 
     /// What a garbage collection would remove now: every artifact with no
@@ -116,16 +134,20 @@ impl Database {
     ///
     /// # Errors
     ///
-    /// [`Error::Artifact`] when a file cannot be removed, which stops the
-    /// collection: the rows are gone already, so what stays are files no row
-    /// names, which a put of the same bytes records again. [`Error::Sqlite`]
-    /// when the database cannot be read or written.
+    /// [`Error::Artifact`], the first failure, when a file cannot be removed:
+    /// the collection still tries every other file first. The rows are gone
+    /// already, so what stays are files no row names, which a put of the same
+    /// bytes records again. [`Error::Sqlite`] when the database cannot be
+    /// read or written.
     pub fn collect_garbage(&self) -> Result<Vec<Artifact>, Error> {
         let removed = self.delete_rows(&self.garbage()?)?;
+        let mut failed = None;
         for artifact in &removed {
-            self.remove_unrecorded(&artifact.digest)?;
+            // Only a row visits a file, so a file skipped now is never tried again.
+            let removal = self.remove_unrecorded(&artifact.digest);
+            failed = failed.or(removal.err());
         }
-        Ok(removed)
+        failed.map_or(Ok(removed), Err)
     }
 
     /// Deletes, in one short transaction, the rows of `garbage` that still
@@ -159,23 +181,45 @@ impl Database {
             Ok(())
         })
     }
+}
 
-    /// Adds `change`, one pin or minus one, to the pins of `digest`, never
-    /// below zero.
-    fn repin(&self, digest: &Digest, change: i64) -> Result<(), Error> {
-        self.write(|transaction| {
-            let changed = transaction.execute(
-                "UPDATE artifacts SET pins = pins + ?2 WHERE digest = ?1 AND pins + ?2 >= 0",
-                params![digest.as_str(), change],
-            )?;
-            if changed > 0 {
-                Ok(())
-            } else if recorded(transaction, digest)? {
-                Err(Error::NotPinned(digest.clone()))
-            } else {
-                Err(Error::UnknownArtifact(digest.clone()))
-            }
-        })
+/// Adds a pin to the artifact `digest` inside `transaction`, a write that
+/// records a reference to it: the pin commits or rolls back with the
+/// reference.
+///
+/// # Errors
+///
+/// [`Error::UnknownArtifact`] when no artifact is recorded under `digest`,
+/// and [`Error::Sqlite`] when the pin cannot be written.
+pub(crate) fn pin(transaction: &Transaction<'_>, digest: &Digest) -> Result<(), Error> {
+    repin(transaction, digest, 1)
+}
+
+/// Removes a pin from the artifact `digest` inside `transaction`, a write that
+/// removes a reference to it.
+///
+/// # Errors
+///
+/// [`Error::NotPinned`] when it has no pin, [`Error::UnknownArtifact`] when no
+/// artifact is recorded under `digest`, and [`Error::Sqlite`] when the change
+/// cannot be written.
+pub(crate) fn unpin(transaction: &Transaction<'_>, digest: &Digest) -> Result<(), Error> {
+    repin(transaction, digest, -1)
+}
+
+/// Adds `change`, one pin or minus one, to the pins of `digest`, never below
+/// zero.
+fn repin(transaction: &Transaction<'_>, digest: &Digest, change: i64) -> Result<(), Error> {
+    let changed = transaction.execute(
+        "UPDATE artifacts SET pins = pins + ?2 WHERE digest = ?1 AND pins + ?2 >= 0",
+        params![digest.as_str(), change],
+    )?;
+    if changed > 0 {
+        Ok(())
+    } else if recorded(transaction, digest)? {
+        Err(Error::NotPinned(digest.clone()))
+    } else {
+        Err(Error::UnknownArtifact(digest.clone()))
     }
 }
 

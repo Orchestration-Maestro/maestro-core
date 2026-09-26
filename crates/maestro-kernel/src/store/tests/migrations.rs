@@ -2,7 +2,10 @@
 //! database a newer binary migrated refused before anything changes.
 
 use super::support::Scratch;
-use crate::store::{Error, migration::MIGRATIONS};
+use crate::store::{
+    Error,
+    migration::{MIGRATIONS, apply, migrate},
+};
 use rusqlite::Connection;
 use std::{sync::Barrier, thread};
 
@@ -116,6 +119,18 @@ fn databases_opened_at_once_apply_each_migration_once() {
     let outside = scratch.outside();
     assert_eq!(values(&outside), [1, 2, 3]);
     assert_eq!(names(&outside), ["0001_first", "0002_second", "0003_third"]);
+}
+
+#[test]
+fn a_migration_another_opener_applied_meanwhile_is_skipped() {
+    let scratch = Scratch::new();
+    let mut connection = scratch.outside();
+    migrate(&mut connection, &[]).unwrap();
+    apply(&mut connection, FIRST.0, FIRST.1).unwrap();
+    // As an opener that listed the migrations before another applied it.
+    apply(&mut connection, FIRST.0, FIRST.1).unwrap();
+    assert_eq!(values(&connection), [1]);
+    assert_eq!(names(&connection), ["0001_first"]);
 }
 
 #[test]

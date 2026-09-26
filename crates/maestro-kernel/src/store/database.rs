@@ -89,24 +89,33 @@ impl Database {
     }
 
     /// Runs `work` in one write transaction on the writer and commits what it
-    /// did, or rolls it all back when it fails. Writers wait for each other,
-    /// here and in other processes; keep `work` short, with no file-system
-    /// work inside.
+    /// did, or rolls it all back when it fails. The transaction takes the
+    /// write lock as it begins, so writers wait for each other, here and in
+    /// other processes; keep `work` short, with no file-system work inside.
+    ///
+    /// `work` must not call a method of this database that writes, `pin` and
+    /// `put` among them: the lock is not re-entrant, and the call would wait
+    /// forever. It pins and unpins through `artifacts::pin` and
+    /// `artifacts::unpin`, which take its transaction. Its error type may be
+    /// the caller's own, as long as this module's [`Error`] converts into it,
+    /// so that `?` works on the store's calls inside `work`.
     ///
     /// # Errors
     ///
-    /// The error of `work`, or [`Error::Sqlite`] when the transaction cannot
-    /// begin or commit.
-    pub(crate) fn write<T>(
+    /// The error of `work`, or [`Error::Sqlite`], converted, when the
+    /// transaction cannot begin or commit.
+    pub(crate) fn write<T, E: From<Error>>(
         &self,
-        work: impl FnOnce(&Transaction<'_>) -> Result<T, Error>,
-    ) -> Result<T, Error> {
+        work: impl FnOnce(&Transaction<'_>) -> Result<T, E>,
+    ) -> Result<T, E> {
         // A writer that panicked left no transaction open: dropping it rolled
         // the transaction back, so the connection is sound.
         let mut writer = self.writer.lock().unwrap_or_else(PoisonError::into_inner);
-        let transaction = writer.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let transaction = writer
+            .transaction_with_behavior(TransactionBehavior::Immediate)
+            .map_err(Error::from)?;
         let value = work(&transaction)?;
-        transaction.commit()?;
+        transaction.commit().map_err(Error::from)?;
         Ok(value)
     }
 
@@ -127,7 +136,7 @@ impl Database {
 /// `connection` with the settings every connection of the kernel has: a 5 s
 /// wait for another's lock, and foreign keys enforced. rusqlite and the
 /// bundled SQLite default to both; the kernel does not depend on it.
-fn configured(connection: Connection) -> Result<Connection, Error> {
+pub(super) fn configured(connection: Connection) -> Result<Connection, Error> {
     connection.busy_timeout(BUSY_TIMEOUT)?;
     connection.pragma_update(None, "foreign_keys", true)?;
     Ok(connection)
@@ -154,6 +163,9 @@ fn create_file(path: &Path) -> Result<(), Error> {
 /// WAL that races another connection's, as when several processes open a new
 /// database together; under its temporary name no other connection can reach
 /// the file, and the link never replaces one another process made.
+///
+/// Once linked, the temporary name is a second name of the database: one a
+/// crash or a refused removal leaves behind is to be removed, never opened.
 pub(super) fn link_new_file(path: &Path) -> Result<(), Error> {
     let mut name = path.as_os_str().to_owned();
     name.push(format!(
@@ -162,13 +174,24 @@ pub(super) fn link_new_file(path: &Path) -> Result<(), Error> {
         NEXT_TEMPORARY.fetch_add(1, Ordering::Relaxed)
     ));
     let temporary = PathBuf::from(name);
-    let made = make_in_wal_mode(&temporary, path);
-    if made.is_ok() {
-        // When another process made the file first, it is in WAL mode too.
-        drop(fs::hard_link(&temporary, path));
-    }
+    let linked =
+        make_in_wal_mode(&temporary, path).and_then(|()| link_into_place(&temporary, path));
     drop(fs::remove_file(&temporary));
-    made
+    linked
+}
+
+/// Links `temporary` to `path`. A file another process linked there first is
+/// kept, in WAL mode as this one is.
+///
+/// # Errors
+///
+/// [`Error::Io`] naming `path` when the link cannot be made for another
+/// reason, a file system without hard links among them.
+pub(super) fn link_into_place(temporary: &Path, path: &Path) -> Result<(), Error> {
+    match fs::hard_link(temporary, path) {
+        Err(source) if source.kind() != io::ErrorKind::AlreadyExists => Err(io_error(path, source)),
+        _ => Ok(()),
+    }
 }
 
 /// Creates `temporary` for the owner only, puts it in WAL mode and reads it

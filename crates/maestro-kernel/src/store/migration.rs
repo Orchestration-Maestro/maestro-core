@@ -47,23 +47,35 @@ pub(super) fn migrate(
         .collect();
     missing.sort_unstable_by_key(|(name, _)| *name);
     for (name, sql) in missing {
-        let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
-        // Another process opening the database may have applied it since.
-        let applied = transaction
-            .query_row("SELECT 1 FROM migrations WHERE name = ?1", [name], |_| {
-                Ok(())
-            })
-            .optional()?;
-        if applied.is_none() {
-            transaction.execute_batch(sql)?;
-            transaction.execute(
-                "INSERT INTO migrations (name, applied_at)
-                 VALUES (?1, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))",
-                [name],
-            )?;
-        }
-        transaction.commit()?;
+        apply(connection, name, sql)?;
     }
+    Ok(())
+}
+
+/// Applies the migration `name` of statements `sql` in a transaction of its
+/// own that records it, unless the database records it already: another
+/// process opening the database may have applied it since the list was read.
+///
+/// # Errors
+///
+/// [`Error::Sqlite`] when the migration fails, which leaves it neither
+/// applied nor recorded.
+pub(super) fn apply(connection: &mut Connection, name: &str, sql: &str) -> Result<(), Error> {
+    let transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
+    let applied = transaction
+        .query_row("SELECT 1 FROM migrations WHERE name = ?1", [name], |_| {
+            Ok(())
+        })
+        .optional()?;
+    if applied.is_none() {
+        transaction.execute_batch(sql)?;
+        transaction.execute(
+            "INSERT INTO migrations (name, applied_at)
+             VALUES (?1, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))",
+            [name],
+        )?;
+    }
+    transaction.commit()?;
     Ok(())
 }
 

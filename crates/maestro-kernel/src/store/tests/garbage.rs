@@ -7,7 +7,7 @@ use crate::{
     artifact::{self, Digest},
     store::{Artifact, Database, Error},
 };
-use std::fs;
+use std::{fs, path::PathBuf};
 
 /// The digests of `artifacts`, in their order.
 fn digests(artifacts: &[Artifact]) -> Vec<&str> {
@@ -15,6 +15,15 @@ fn digests(artifacts: &[Artifact]) -> Vec<&str> {
         .iter()
         .map(|artifact| artifact.digest.as_str())
         .collect()
+}
+
+/// Puts a directory in place of the file of `digest`, which no removal of a
+/// file can then remove, and returns its path.
+fn block(scratch: &Scratch, digest: &Digest) -> PathBuf {
+    let artifact = stored(&scratch.artifacts(), digest);
+    fs::remove_file(&artifact).unwrap();
+    fs::create_dir_all(artifact.join("occupied")).unwrap();
+    artifact
 }
 
 /// A database holding `abc`, pinned, then the empty input and `hello`,
@@ -120,6 +129,24 @@ fn a_put_after_the_unlink_writes_the_file_again() {
 }
 
 #[test]
+fn a_file_collected_before_a_put_records_its_row_is_stored_again() {
+    let scratch = Scratch::new();
+    let database = scratch.open();
+    let digest = database.put(b"hello", "text/plain").unwrap();
+    database.delete_rows(&database.garbage().unwrap()).unwrap();
+    // A put's first store finds the bytes in place; the collection then
+    // removes them, since no row names them yet.
+    database.artifacts.put(b"hello").unwrap();
+    database.remove_unrecorded(&digest).unwrap();
+    assert!(!stored(&scratch.artifacts(), &digest).exists());
+    database
+        .record_then_store(b"hello", &digest, "text/plain")
+        .unwrap();
+    assert_eq!(database.get(&digest).unwrap(), b"hello");
+    assert_eq!(pins(&database, &digest), Some(0));
+}
+
+#[test]
 fn an_artifact_whose_file_is_already_gone_is_still_collected() {
     let scratch = Scratch::new();
     let database = scratch.open();
@@ -130,18 +157,28 @@ fn an_artifact_whose_file_is_already_gone_is_still_collected() {
 }
 
 #[test]
-fn a_file_that_cannot_be_removed_fails_the_collection_naming_it() {
+fn files_that_cannot_be_removed_fail_the_collection_once_it_tried_every_file() {
     let scratch = Scratch::new();
     let database = scratch.open();
-    let digest = database.put(b"hello", "text/plain").unwrap();
-    let artifact = stored(&scratch.artifacts(), &digest);
-    fs::remove_file(&artifact).unwrap();
-    fs::create_dir_all(artifact.join("occupied")).unwrap();
+    // In digest order: `hello`, then `abc`, then the empty input.
+    let first = database.put(b"hello", "text/plain").unwrap();
+    let removable = database.put(b"abc", "text/plain").unwrap();
+    let last = database.put(b"", "text/plain").unwrap();
+    let blocked = [block(&scratch, &first), block(&scratch, &last)];
     let error = database.collect_garbage().unwrap_err();
     assert!(
-        matches!(&error, Error::Artifact(artifact::Error::Io { path, .. }) if *path == artifact),
-        "{error:?}"
+        matches!(&error, Error::Artifact(artifact::Error::Io { path, .. }) if *path == blocked[0]),
+        "the first failure is reported: {error:?}"
     );
-    assert_eq!(pins(&database, &digest), None, "a file no row names stays");
-    assert!(artifact.is_dir());
+    for digest in [&first, &removable, &last] {
+        assert_eq!(pins(&database, digest), None, "{}", digest.as_str());
+    }
+    assert!(
+        !stored(&scratch.artifacts(), &removable).exists(),
+        "a file after the failure is removed"
+    );
+    assert!(
+        blocked.iter().all(|path| path.is_dir()),
+        "what cannot be removed stays, a file no row names"
+    );
 }

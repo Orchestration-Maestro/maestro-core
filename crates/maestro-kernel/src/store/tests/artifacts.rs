@@ -4,10 +4,28 @@
 use super::support::{ABC, Scratch, pins, stored};
 use crate::{
     artifact::{self, Digest},
-    store::{Artifact, Error},
+    store::{
+        Artifact, Error,
+        artifacts::{pin, unpin},
+    },
 };
 use rusqlite::Connection;
 use std::{error, fs, io, path::PathBuf};
+
+/// A refusal of the caller's own, as the journal's and the records' will be.
+#[derive(Debug)]
+enum Refusal {
+    /// The database refused.
+    Store(Error),
+    /// The caller stopped after its pins.
+    Stopped,
+}
+
+impl From<Error> for Refusal {
+    fn from(error: Error) -> Self {
+        Self::Store(error)
+    }
+}
 
 #[test]
 fn put_stores_the_bytes_and_records_them_without_a_pin() {
@@ -28,6 +46,21 @@ fn put_stores_the_bytes_and_records_them_without_a_pin() {
     };
     assert_eq!(database.artifact(&digest).unwrap(), Some(expected));
     assert_eq!(database.artifact(&Digest::of(b"")).unwrap(), None);
+}
+
+#[test]
+fn bytes_that_cannot_be_stored_are_never_recorded() {
+    let scratch = Scratch::new();
+    let database = scratch.open();
+    // A file where the store's first directory goes.
+    fs::create_dir(scratch.artifacts()).unwrap();
+    fs::write(scratch.artifacts().join("sha256"), b"").unwrap();
+    let error = database.put(b"abc", "text/plain").unwrap_err();
+    assert!(
+        matches!(error, Error::Artifact(artifact::Error::Io { .. })),
+        "{error:?}"
+    );
+    assert_eq!(database.artifact(&Digest::of(b"abc")).unwrap(), None);
 }
 
 #[test]
@@ -106,6 +139,38 @@ fn pins_count_up_and_down_to_zero_but_not_below() {
         "{error:?}"
     );
     assert_eq!(pins(&database, &digest), Some(0));
+}
+
+#[test]
+fn pins_taken_inside_a_write_that_then_fails_are_rolled_back() {
+    let scratch = Scratch::new();
+    let database = scratch.open();
+    let digest = database.put(b"abc", "text/plain").unwrap();
+    let refused = database.write(|transaction| {
+        pin(transaction, &digest)?;
+        pin(transaction, &digest)?;
+        unpin(transaction, &digest)?;
+        let inside: i64 = transaction
+            .query_row(
+                "SELECT pins FROM artifacts WHERE digest = ?1",
+                [ABC],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(inside, 1, "the pins are in the transaction");
+        Err::<(), _>(Refusal::Stopped)
+    });
+    assert!(matches!(refused, Err(Refusal::Stopped)), "{refused:?}");
+    assert_eq!(pins(&database, &digest), Some(0), "they went with it");
+    let unknown = Digest::of(b"never stored");
+    let refused = database.write(|transaction| {
+        pin(transaction, &unknown)?;
+        Ok::<_, Refusal>(())
+    });
+    assert!(
+        matches!(&refused, Err(Refusal::Store(Error::UnknownArtifact(found))) if *found == unknown),
+        "{refused:?}"
+    );
 }
 
 #[test]
