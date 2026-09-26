@@ -6,9 +6,11 @@
 //! lookup of the canonical documents of the evaluated generation by
 //! `source_ref`, and a retrieval, any function from a question to an evidence
 //! bundle, `maestro-evidence/1`. It first resolves every section the suite
-//! expects to its ID in that generation, looking each document up once, and
-//! refuses a name that gives no one section, and a question that names one
-//! section twice, before any retrieval. Then it retrieves each question in
+//! expects to its ID in that generation, and every document without sections
+//! it expects whole to the document's ID, looking each document up once, and
+//! refuses a name that gives no one section, or no document without
+//! sections, and a question that names one section, or one document, twice,
+//! before any retrieval. Then it retrieves each question in
 //! the suite's order, times the retrieval, refuses a bundle of another
 //! collection or generation, and judges it.
 //!
@@ -18,7 +20,8 @@
 //! finite; passages of equal score, and unscored ones, by passage number,
 //! lowest first, which evidence assembly (T032) gives in rank order.
 //! Relevance is binary: a passage is relevant when its section is one the
-//! question expects, and a section found twice counts once, at its best rank.
+//! question expects, or its document one the question expects whole, and a
+//! section or document found twice counts once, at its best rank.
 //! The metrics ([`Metrics`]):
 //!
 //! - Recall@5 and Recall@10: the share of answerable questions with an

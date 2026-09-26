@@ -1,10 +1,10 @@
 //! What the evaluation tests share: questions, bundles built from the hits a
-//! test lists, with their trace and their routes' statuses, the report of a
-//! run's results, and a comparison of computed numbers with hand-computed
-//! ones.
+//! test lists, with their trace and their routes' statuses, what a question
+//! expects, the report of a run's results, and a comparison of computed
+//! numbers with hand-computed ones.
 
 use crate::{
-    eval::{self, QuestionResult, Report, metric::measure},
+    eval::{self, Expected, QuestionResult, Report, metric::measure},
     suite::{Language, Question, Schema},
 };
 use maestro_kernel::{
@@ -17,9 +17,12 @@ use std::collections::BTreeMap;
 pub(super) const COLLECTION: &str = "synthetic";
 /// The generation the tests' bundles are pinned to.
 pub(super) const GENERATION: i64 = 7;
+/// The document of the sections the tests name.
+pub(super) const DOCUMENT: &str = "document";
 
 /// The question `id`, answerable or not. The runner judges a question by the
-/// section IDs its names resolve to, so its own names are left out.
+/// sections and documents its names resolve to, so its own names are left
+/// out.
 pub(super) fn question(id: &str, answerable: bool) -> Question {
     Question {
         schema: Schema::V1,
@@ -31,12 +34,15 @@ pub(super) fn question(id: &str, answerable: bool) -> Question {
     }
 }
 
-/// A passage of a bundle as a test lists it: its number, the section it
-/// belongs to, the reranker's score and the routes that found it.
+/// A passage of a bundle as a test lists it: its number, the document and
+/// the section it belongs to, the reranker's score and the routes that found
+/// it.
 #[derive(Debug, Clone, Copy)]
 pub(super) struct Hit {
     /// The passage's number.
     pub(super) n: u32,
+    /// The document of its revision.
+    pub(super) document: &'static str,
     /// The section its text belongs to.
     pub(super) section: Option<&'static str>,
     /// The reranker's score, absent when the reranker did not run.
@@ -45,14 +51,25 @@ pub(super) struct Hit {
     pub(super) routes: &'static [&'static str],
 }
 
-/// The passage `n` of `section`, scored `score` and found by `bm25` and
-/// `dense`.
+/// The passage `n` of `section`, in [`DOCUMENT`], scored `score` and found by
+/// `bm25` and `dense`.
 pub(super) fn hit(n: u32, section: &'static str, score: f64) -> Hit {
     Hit {
         n,
+        document: DOCUMENT,
         section: Some(section),
         score: Some(score),
         routes: &["bm25", "dense"],
+    }
+}
+
+/// The passage `n` of `document`, a document without sections, scored
+/// `score` and found by `bm25` and `dense`.
+pub(super) fn whole(n: u32, document: &'static str, score: f64) -> Hit {
+    Hit {
+        document,
+        section: None,
+        ..hit(n, "unused", score)
     }
 }
 
@@ -117,7 +134,7 @@ fn passage(hit: &Hit) -> Passage {
     Passage {
         n: hit.n,
         section_id: hit.section.map(str::to_owned),
-        document_id: "document".to_owned(),
+        document_id: hit.document.to_owned(),
         revision_id: "revision".to_owned(),
         title: "A document".to_owned(),
         section_path: vec!["A document".to_owned()],
@@ -150,9 +167,25 @@ pub(super) fn report_of(questions: Vec<QuestionResult>) -> Report {
     }
 }
 
-/// `expected`, as the section IDs a question expects.
-pub(super) fn sections(expected: &[&str]) -> Vec<String> {
-    expected.iter().map(|&section| section.to_owned()).collect()
+/// `expected`, as the sections of [`DOCUMENT`] a question expects, unranked.
+pub(super) fn sections(expected: &[&str]) -> Vec<Expected> {
+    let section = |section: &str| Expected {
+        document_id: DOCUMENT.to_owned(),
+        section_id: Some(section.to_owned()),
+        rank: None,
+    };
+    expected.iter().map(|&id| section(id)).collect()
+}
+
+/// `expected`, as the documents without sections a question expects whole,
+/// unranked.
+pub(super) fn documents(expected: &[&str]) -> Vec<Expected> {
+    let document = |document: &str| Expected {
+        document_id: document.to_owned(),
+        section_id: None,
+        rank: None,
+    };
+    expected.iter().map(|&id| document(id)).collect()
 }
 
 /// Asserts that `computed` is `expected`, a hand-computed number, to the

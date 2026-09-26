@@ -308,8 +308,10 @@ in the directory a collection's `evals.suite` names is the suite `<name>`,
 with one question per line, giving its id, language (`fr` or `en`), text,
 answerable flag and expected sections, each named by its document's
 `source_ref` and heading path, plus a 1-based occurrence when that path
-repeats, never by a section ID, which changes with the revision; the runner
-resolves the names to the section IDs of the generation it evaluates.
+repeats, or by an empty heading path for a document without sections, never
+by a section ID, which changes with the revision; the runner resolves the
+names to the section IDs of the generation it evaluates, and a document named
+whole to its document ID, which its passages carry.
 Metrics: Recall@5 and @10, MRR@10, nDCG@10, no-answer accuracy, command
 exactness, latency p50 and p95. Confidence intervals by paired bootstrap
 (2,000 resamples). Each failure is classified as not retrieved, misranked or
@@ -344,7 +346,8 @@ unique and derived rather than invented, and without the release so a document
 keeps its identity in the next one. Five URLs are each shared by two documents
 with different content; the importer holds both of each pair (T019).
 `collection.json` declares `ctm` (ADR-0014). The golden set is drafted after
-canonicalization, because its expected answers are section IDs: agents sample
+canonicalization, because its expected answers point at section IDs, or at the
+document ID of a document without sections, never at free text: agents sample
 the corpus stratified by source kind, write the questions, and the owner
 validates 30 stratified by topic, language and answerability.
 

@@ -13,7 +13,7 @@ use maestro_knowledge::{
     collection::Declaration,
     corpus::Entry,
     eval::{self, Estimate, FailureClass, Header, Report},
-    suite::{Question, Suite},
+    suite::{Question, Resolved, Suite},
 };
 use std::{collections::BTreeMap, convert::Infallible, fs, path::Path};
 
@@ -151,7 +151,10 @@ fn oracle(question: &Question, documents: &Documents) -> Bundle {
         .iter()
         .map(|expected| {
             let document = &documents[&expected.source_ref];
-            Some(expected.resolve(document).unwrap().section_id.clone())
+            let Ok(Resolved::Section(section)) = expected.resolve(document) else {
+                panic!("the synthetic suite expects sections only: {expected:?}");
+            };
+            Some(section.section_id.clone())
         })
         .collect();
     if !sections.is_empty() {

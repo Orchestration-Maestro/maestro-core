@@ -115,13 +115,19 @@ impl QuestionResult {
     }
 }
 
-/// A section a question expects, and where its bundle ranked it.
+/// A section a question expects, or a document without sections it expects
+/// whole, and where its bundle ranked it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[non_exhaustive]
 pub struct Expected {
-    /// The section's ID in the evaluated generation.
-    pub section_id: String,
+    /// The ID of the section's document, or of the document expected whole,
+    /// in the evaluated generation.
+    pub document_id: String,
+    /// The section's ID in the evaluated generation, absent when the
+    /// document has no section and is expected whole.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub section_id: Option<String>,
     /// The rank of its best passage, from 1, absent when no passage holds
     /// it.
     #[serde(default, skip_serializing_if = "Option::is_none")]

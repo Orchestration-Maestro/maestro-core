@@ -5,9 +5,9 @@ use super::{
     error::RunError,
     judge::judge,
     metric::measure,
-    report::{Header, Report, Schema},
+    report::{Expected, Header, Report, Schema},
 };
-use crate::suite::{ExpectedSection, Question, Suite};
+use crate::suite::{ExpectedSection, Question, Resolved, Suite};
 use maestro_canonicalization::CanonicalDocument;
 use maestro_kernel::evidence::Bundle;
 use std::{
@@ -18,9 +18,10 @@ use std::{
 /// The report of `suite` over the generation `header` names.
 ///
 /// First, every section the suite expects is resolved to its ID in the
-/// canonical document `documents` gives for its `source_ref`: the document of
-/// the evaluated generation, looked up once for all the names of its
-/// `source_ref`, one after the other. Then each question, in the suite's
+/// canonical document `documents` gives for its `source_ref`, and every
+/// document without sections it expects whole to that document's ID: the
+/// document of the evaluated generation, looked up once for all the names of
+/// its `source_ref`, one after the other. Then each question, in the suite's
 /// order, is retrieved by `retrieve`, timed from the call to its return, and
 /// judged; the metrics and their intervals, drawn with the header's seed,
 /// close the report.
@@ -29,10 +30,12 @@ use std::{
 ///
 /// [`RunError::Documents`] and [`RunError::Retrieval`] with the caller's own
 /// error; [`RunError::NoDocument`] for a `source_ref` the lookup does not
-/// find, [`RunError::Unresolved`] for a name that gives no one section and
-/// [`RunError::SameSection`] for a question that names one section twice, all
-/// before any retrieval; and [`RunError::OtherGeneration`] for a bundle of
-/// another collection or generation than the header's.
+/// find, [`RunError::Unresolved`] for a name that gives no one section, or no
+/// document without sections, and [`RunError::SameSection`] and
+/// [`RunError::SameDocument`] for a question that names one section, or one
+/// document, twice, all before any retrieval; and
+/// [`RunError::OtherGeneration`] for a bundle of another collection or
+/// generation than the header's.
 pub fn run<E>(
     header: Header,
     suite: &Suite,
@@ -77,13 +80,14 @@ pub fn run<E>(
 /// the name.
 type Name<'suite> = (usize, usize, &'suite Question, &'suite ExpectedSection);
 
-/// The section IDs each question of `suite` expects, in the suite's order,
-/// each resolved in the canonical document `documents` gives for its
-/// `source_ref`, which is looked up once and dropped once its names resolve.
+/// The sections and documents each question of `suite` expects, unranked,
+/// in the suite's order, each resolved in the canonical document `documents`
+/// gives for its `source_ref`, which is looked up once and dropped once its
+/// names resolve.
 fn resolve<E>(
     suite: &Suite,
     documents: &mut impl FnMut(&str) -> Result<Option<CanonicalDocument>, E>,
-) -> Result<Vec<Vec<String>>, RunError<E>> {
+) -> Result<Vec<Vec<Expected>>, RunError<E>> {
     let mut named: BTreeMap<&str, Vec<Name<'_>>> = BTreeMap::new();
     for (question_index, question) in suite.questions.iter().enumerate() {
         for (name_index, name) in question.expected.iter().enumerate() {
@@ -91,7 +95,7 @@ fn resolve<E>(
             names.push((question_index, name_index, question, name));
         }
     }
-    let mut resolved: Vec<Vec<Option<String>>> = suite
+    let mut resolved: Vec<Vec<Option<Expected>>> = suite
         .questions
         .iter()
         .map(|question| vec![None; question.expected.len()])
@@ -102,12 +106,12 @@ fn resolve<E>(
             error,
         })?;
         for (question_index, name_index, question, name) in names {
-            let section_id = resolve_name(document.as_ref(), question, name)?;
+            let expected = resolve_name(document.as_ref(), question, name)?;
             let place = resolved
                 .get_mut(question_index)
-                .and_then(|ids| ids.get_mut(name_index));
+                .and_then(|places| places.get_mut(name_index));
             if let Some(place) = place {
-                *place = Some(section_id);
+                *place = Some(expected);
             }
         }
     }
@@ -115,22 +119,23 @@ fn resolve<E>(
         .questions
         .iter()
         .zip(resolved)
-        .map(|(question, ids)| distinct(question, ids.into_iter().flatten().collect()))
+        .map(|(question, places)| distinct(question, places.into_iter().flatten().collect()))
         .collect()
 }
 
-/// The ID of the section `name`, of `question`, gives in `document`, the
-/// canonical document of its `source_ref` if the lookup found one.
+/// The section, or the document without sections, that `name`, of
+/// `question`, gives in `document`, the canonical document of its
+/// `source_ref` if the lookup found one; unranked.
 fn resolve_name<E>(
     document: Option<&CanonicalDocument>,
     question: &Question,
     name: &ExpectedSection,
-) -> Result<String, RunError<E>> {
+) -> Result<Expected, RunError<E>> {
     let document = document.ok_or_else(|| RunError::NoDocument {
         question: question.id.clone(),
         source_ref: name.source_ref.clone(),
     })?;
-    let section = name
+    let resolved = name
         .resolve(document)
         .map_err(|reason| RunError::Unresolved {
             question: question.id.clone(),
@@ -138,17 +143,37 @@ fn resolve_name<E>(
             heading_path: name.heading_path.clone(),
             reason,
         })?;
-    Ok(section.section_id.clone())
+    let section_id = match resolved {
+        Resolved::Section(section) => Some(section.section_id.clone()),
+        Resolved::Document(_) => None,
+    };
+    Ok(Expected {
+        document_id: document.document_id.clone(),
+        section_id,
+        rank: None,
+    })
 }
 
-/// `ids`, the section IDs `question` expects, unless two are one section.
-fn distinct<E>(question: &Question, ids: Vec<String>) -> Result<Vec<String>, RunError<E>> {
+/// `expected`, the sections and documents `question` expects, unless two
+/// are one section or one document.
+fn distinct<E>(question: &Question, expected: Vec<Expected>) -> Result<Vec<Expected>, RunError<E>> {
     let mut seen = BTreeSet::new();
-    match ids.iter().find(|id| !seen.insert(id.as_str())) {
-        Some(repeated) => Err(RunError::SameSection {
-            question: question.id.clone(),
-            section_id: repeated.clone(),
+    let repeated = expected
+        .iter()
+        .find(|expected| !seen.insert((&expected.document_id, &expected.section_id)));
+    let question = question.id.clone();
+    match repeated {
+        None => Ok(expected),
+        Some(Expected {
+            section_id: Some(section_id),
+            ..
+        }) => Err(RunError::SameSection {
+            question,
+            section_id: section_id.clone(),
         }),
-        None => Ok(ids),
+        Some(Expected { document_id, .. }) => Err(RunError::SameDocument {
+            question,
+            document_id: document_id.clone(),
+        }),
     }
 }

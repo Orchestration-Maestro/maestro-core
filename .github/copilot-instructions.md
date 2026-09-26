@@ -367,6 +367,7 @@ in place.
 │       │   │   ├── tests/                                                   # Tests of the evaluation runner: how it ranks and judges each question
 │       │   │   │   ├── compare.rs                                           # compare pairs two runs by question and gives, for each metric, the
 │       │   │   │   ├── degraded.rs                                          # A degraded search, one where a route or the reranker could not run, still
+│       │   │   │   ├── documents.rs                                         # A question may expect a document without sections whole: any passage of
 │       │   │   │   ├── failures.rs                                          # Each failure of an answerable question gets its class at each cut-off it
 │       │   │   │   ├── intervals.rs                                         # The intervals: 95 % percentile intervals of 2,000 bootstrap resamples
 │       │   │   │   ├── metrics.rs                                           # Each metric of a run against values computed by hand on a small suite

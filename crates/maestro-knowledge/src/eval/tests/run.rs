@@ -1,12 +1,14 @@
 //! `run` resolves each expected section of a suite in the canonical document
 //! the caller's lookup gives, looking each document up once, then retrieves
-//! and judges every question in the suite's order. It refuses a name that
-//! gives no one section, two names of one section, and a bundle of another
-//! collection or generation, and passes the caller's own errors through.
+//! and judges every question in the suite's order; an empty heading path
+//! expects a document without sections whole. It refuses a name that gives no
+//! one section, or no document without sections, two names of one section or
+//! of one document, and a bundle of another collection or generation, and
+//! passes the caller's own errors through.
 
-use super::support::{COLLECTION, GENERATION, Hit, bundle, close, hit};
+use super::support::{COLLECTION, GENERATION, Hit, bundle, close, hit, whole};
 use crate::{
-    eval::{Header, Report, RunError, Schema, metric::measure, run},
+    eval::{Expected, Header, Report, RunError, Schema, metric::measure, run},
     suite::{Question, Suite, Unresolved},
 };
 use maestro_canonicalization::{CanonicalDocument, CanonicalizeInput, canonicalize};
@@ -24,6 +26,10 @@ use std::{
 const BACKUPS: &str = "https://handbook.example.org/backups";
 /// A document whose heading path `Queues › Retries` repeats.
 const QUEUES: &str = "corpus-path:queues.md";
+/// A document without a heading, so without a section.
+const NOTES: &str = "corpus-path:notes.md";
+/// Another document without a section.
+const LOGS: &str = "corpus-path:logs.md";
 
 /// The canonical document of `source_ref`, if the tests hold one.
 fn document(source_ref: &str) -> Option<CanonicalDocument> {
@@ -35,6 +41,8 @@ fn document(source_ref: &str) -> Option<CanonicalDocument> {
         QUEUES => {
             "# Queues\n\n## Retries\n\nThree times.\n\n## Retries\n\nThen the dead letters.\n"
         }
+        NOTES => "Retries stop after three.\n\n**Cause**\n\nThe queue is full.\n",
+        LOGS => "Logs rotate every day.\n\n**Cause**\n\nThe disk fills up.\n",
         _ => return None,
     };
     let mut input = CanonicalizeInput::new(markdown, "document.md");
@@ -52,6 +60,11 @@ fn section_id(source_ref: &str, path: &[&str], occurrence: usize) -> &'static st
         .nth(occurrence - 1)
         .unwrap();
     section.section_id.clone().leak()
+}
+
+/// The ID of the document of `source_ref`.
+fn document_id(source_ref: &str) -> &'static str {
+    document(source_ref).unwrap().document_id.leak()
 }
 
 /// The suite line of the question `id`, answerable when it expects sections.
@@ -149,24 +162,32 @@ fn a_run_judges_each_question_in_the_suites_order_under_its_header() {
         .map(|result| result.id.as_str())
         .collect();
     assert_eq!(ids, ["retention", "second-retry", "unknown"]);
-    let ranks: Vec<Vec<(&str, Option<u32>)>> = report
+    let ranks: Vec<Vec<(Option<&str>, Option<u32>)>> = report
         .questions
         .iter()
         .map(|result| {
             let expected = result.expected.iter();
             expected
-                .map(|expected| (expected.section_id.as_str(), expected.rank))
+                .map(|expected| (expected.section_id.as_deref(), expected.rank))
                 .collect()
         })
         .collect();
     assert_eq!(
         ranks,
         [
-            vec![(section_id(BACKUPS, &["Backups", "Retention"], 1), Some(1))],
-            vec![(section_id(QUEUES, &["Queues", "Retries"], 2), Some(2))],
+            vec![(
+                Some(section_id(BACKUPS, &["Backups", "Retention"], 1)),
+                Some(1)
+            )],
+            vec![(Some(section_id(QUEUES, &["Queues", "Retries"], 2)), Some(2))],
             vec![],
         ]
     );
+    let documents: Vec<&str> = report.questions[..2]
+        .iter()
+        .map(|result| result.expected[0].document_id.as_str())
+        .collect();
+    assert_eq!(documents, [document_id(BACKUPS), document_id(QUEUES)]);
     assert_eq!(report.metrics, measure(&report.questions, 5));
     close(report.metrics.mrr_at_10.unwrap().value, 0.75);
 }
@@ -199,6 +220,85 @@ fn each_document_is_looked_up_once() {
     let mut looked_up = looked_up.into_inner();
     looked_up.sort();
     assert_eq!(looked_up, [QUEUES, BACKUPS].map(str::to_owned));
+}
+
+#[test]
+fn a_document_without_sections_is_expected_whole_and_held_by_its_passages() {
+    let suite = suite(&[line(
+        "whole",
+        &json!([
+            {"source_ref": NOTES, "heading_path": []},
+            {"source_ref": BACKUPS, "heading_path": ["Backups", "Restore"]},
+        ]),
+    )]);
+    let notes = document_id(NOTES);
+    let retrieve = |_: &Question| {
+        let hits = [hit(1, "unrelated", 0.9), whole(2, notes, 0.5)];
+        Ok::<_, Infallible>(bundle(&hits))
+    };
+    let report = run(header(), &suite, lookup(), retrieve).unwrap();
+    let whole = Expected {
+        document_id: notes.to_owned(),
+        section_id: None,
+        rank: Some(2),
+    };
+    let restore = Expected {
+        document_id: document_id(BACKUPS).to_owned(),
+        section_id: Some(section_id(BACKUPS, &["Backups", "Restore"], 1).to_owned()),
+        rank: None,
+    };
+    assert_eq!(report.questions[0].expected, [whole, restore]);
+}
+
+#[test]
+fn two_documents_without_sections_expected_by_one_question_are_each_ranked() {
+    let suite = suite(&[line(
+        "two-whole",
+        &json!([
+            {"source_ref": NOTES, "heading_path": []},
+            {"source_ref": LOGS, "heading_path": []},
+        ]),
+    )]);
+    let (notes, logs) = (document_id(NOTES), document_id(LOGS));
+    assert_ne!(notes, logs);
+    let retrieve = |_: &Question| {
+        let hits = [whole(1, logs, 0.9), whole(2, notes, 0.5)];
+        Ok::<_, Infallible>(bundle(&hits))
+    };
+    let report = run(header(), &suite, lookup(), retrieve).unwrap();
+    let whole = |document_id: &str, rank| Expected {
+        document_id: document_id.to_owned(),
+        section_id: None,
+        rank: Some(rank),
+    };
+    assert_eq!(
+        report.questions[0].expected,
+        [whole(notes, 2), whole(logs, 1)]
+    );
+}
+
+#[test]
+fn an_empty_heading_path_in_a_document_with_sections_refuses_the_run() {
+    let error = refusal(&suite(&[line(
+        "sectioned",
+        &json!([{"source_ref": BACKUPS, "heading_path": []}]),
+    )]));
+    assert!(matches!(
+        &error,
+        RunError::Unresolved {
+            question,
+            source_ref,
+            heading_path,
+            reason: Unresolved::HasSections { sections: 3 },
+        } if question == "sectioned" && source_ref == BACKUPS && heading_path.is_empty()
+    ));
+    assert_eq!(
+        error.to_string(),
+        format!(
+            "question sectioned expects the whole of {BACKUPS}: an empty heading path names a \
+             document without sections, but this document has 3 sections"
+        )
+    );
 }
 
 #[test]
@@ -264,6 +364,22 @@ fn two_names_of_one_section_refuse_the_run() {
     assert_eq!(
         error.to_string(),
         format!("question twice names the section {id} twice")
+    );
+    assert!(error::Error::source(&error).is_none());
+}
+
+#[test]
+fn two_names_of_one_document_refuse_the_run() {
+    let notes = json!({"source_ref": NOTES, "heading_path": []});
+    let error = refusal(&suite(&[line("twice", &json!([notes, notes]))]));
+    let id = document_id(NOTES);
+    assert!(
+        matches!(&error, RunError::SameDocument { question, document_id }
+            if question == "twice" && document_id == id)
+    );
+    assert_eq!(
+        error.to_string(),
+        format!("question twice names the document {id} twice")
     );
     assert!(error::Error::source(&error).is_none());
 }

@@ -17,25 +17,25 @@ const CUTOFFS: [u32; 2] = [5, 10];
 /// routes found, and finds nothing itself.
 const RERANKER: &str = "rerank";
 
-/// What `question`, whose expected sections resolve to the IDs `expected`,
-/// got from `bundle`, retrieved in `latency_us` microseconds: the rank of
-/// each expected section, and, for an answerable question, a failure at each
-/// cut-off none ranks within.
+/// What `question`, whose names resolve to the sections and documents
+/// `expected`, unranked, got from `bundle`, retrieved in `latency_us`
+/// microseconds: the rank of each, and, for an answerable question, a
+/// failure at each cut-off none ranks within.
 pub(super) fn judge(
     question: &Question,
-    expected: &[String],
+    expected: &[Expected],
     bundle: &Bundle,
     latency_us: u32,
 ) -> QuestionResult {
     let ranked = ranked(bundle);
     let expected = expected
         .iter()
-        .map(|section_id| Expected {
-            section_id: section_id.clone(),
+        .map(|expected| Expected {
             rank: ranked
                 .iter()
-                .position(|passage| passage.section_id.as_ref() == Some(section_id))
+                .position(|passage| holds(passage, expected))
                 .and_then(|index| u32::try_from(index + 1).ok()),
+            ..expected.clone()
         })
         .collect();
     let mut result = QuestionResult {
@@ -77,6 +77,15 @@ fn ranked(bundle: &Bundle) -> Vec<&Passage> {
         by_score(*left_score, *right_score).then(left.n.cmp(&right.n))
     });
     ranked.into_iter().map(|(passage, _)| passage).collect()
+}
+
+/// Whether `passage` holds `expected`: it belongs to the section expected,
+/// or, for a document expected whole, to that document.
+fn holds(passage: &Passage, expected: &Expected) -> bool {
+    match &expected.section_id {
+        Some(section_id) => passage.section_id.as_ref() == Some(section_id),
+        None => passage.document_id == expected.document_id,
+    }
 }
 
 /// How two passages' scores, each finite if any, order them: the higher
@@ -122,19 +131,14 @@ fn failures(result: &QuestionResult, bundle: &Bundle) -> Vec<Failure> {
 }
 
 /// The routes of `bundle` that ran, the reranker aside, and whose trace found
-/// none of the sections `result` expects, in name order.
+/// none of the sections and documents `result` expects, in name order.
 fn missed_by(result: &QuestionResult, bundle: &Bundle) -> Vec<String> {
-    let expected: BTreeSet<&str> = result
-        .expected
-        .iter()
-        .map(|expected| expected.section_id.as_str())
-        .collect();
     let holding: BTreeSet<u32> = bundle
         .passages
         .iter()
         .filter(|passage| {
-            let section = passage.section_id.as_deref();
-            section.is_some_and(|section| expected.contains(section))
+            let mut expected = result.expected.iter();
+            expected.any(|expected| holds(passage, expected))
         })
         .map(|passage| passage.n)
         .collect();

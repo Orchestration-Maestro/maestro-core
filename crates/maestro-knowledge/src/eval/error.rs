@@ -23,7 +23,8 @@ pub enum RunError<E> {
         /// The `source_ref` it names.
         source_ref: String,
     },
-    /// A name of an expected section gives no one section of its document.
+    /// A name of an expected section gives no one section of its document,
+    /// nor, with an empty heading path, a document without sections.
     Unresolved {
         /// The question's id.
         question: String,
@@ -40,6 +41,13 @@ pub enum RunError<E> {
         question: String,
         /// The section's ID.
         section_id: String,
+    },
+    /// Two names of a question give one document without sections, whole.
+    SameDocument {
+        /// The question's id.
+        question: String,
+        /// The document's ID.
+        document_id: String,
     },
     /// The retrieval of a question failed.
     Retrieval {
@@ -80,6 +88,15 @@ impl<E: fmt::Display> fmt::Display for RunError<E> {
                 source_ref,
                 heading_path,
                 reason,
+            } if heading_path.is_empty() => write!(
+                formatter,
+                "question {question} expects the whole of {source_ref}: {reason}"
+            ),
+            Self::Unresolved {
+                question,
+                source_ref,
+                heading_path,
+                reason,
             } => write!(
                 formatter,
                 "question {question} expects {} in {source_ref}, which names no one section: \
@@ -92,6 +109,13 @@ impl<E: fmt::Display> fmt::Display for RunError<E> {
             } => write!(
                 formatter,
                 "question {question} names the section {section_id} twice"
+            ),
+            Self::SameDocument {
+                question,
+                document_id,
+            } => write!(
+                formatter,
+                "question {question} names the document {document_id} twice"
             ),
             Self::Retrieval { question, error } => write!(
                 formatter,
@@ -115,9 +139,10 @@ impl<E: error::Error + 'static> error::Error for RunError<E> {
         match self {
             Self::Documents { error, .. } | Self::Retrieval { error, .. } => Some(error),
             Self::Unresolved { reason, .. } => Some(reason),
-            Self::NoDocument { .. } | Self::SameSection { .. } | Self::OtherGeneration { .. } => {
-                None
-            }
+            Self::NoDocument { .. }
+            | Self::SameSection { .. }
+            | Self::SameDocument { .. }
+            | Self::OtherGeneration { .. } => None,
         }
     }
 }

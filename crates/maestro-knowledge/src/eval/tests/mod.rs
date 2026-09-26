@@ -1,9 +1,11 @@
 //! Tests of the evaluation runner: how it ranks and judges each question,
-//! its metrics against hand-computed values, its degraded searches, its
-//! intervals, its reports, its runs and its comparisons.
+//! the documents a question expects whole, its metrics against hand-computed
+//! values, its degraded searches, its intervals, its reports, its runs and its
+//! comparisons.
 
 mod compare;
 mod degraded;
+mod documents;
 mod failures;
 mod intervals;
 mod metrics;

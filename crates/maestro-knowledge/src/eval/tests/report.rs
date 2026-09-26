@@ -2,7 +2,9 @@
 //! reads back equal, its numbers to the bit, and its reader refuses what its
 //! contract does not name.
 
-use super::support::{COLLECTION, GENERATION, bundle, bundle_with, hit, question, sections};
+use super::support::{
+    COLLECTION, GENERATION, bundle, bundle_with, documents, hit, question, sections, whole,
+};
 use crate::eval::{Report, Schema, judge::judge, metric::measure};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
@@ -69,7 +71,7 @@ fn a_report_writes_and_reads_back_equal() {
     assert_eq!(value["questions"][1]["degraded"], true);
     assert_eq!(
         value["questions"][0]["expected"],
-        json!([{"section_id": "wanted", "rank": 2}])
+        json!([{"document_id": "document", "section_id": "wanted", "rank": 2}])
     );
     assert_eq!(
         value["questions"][1]["failures"][0],
@@ -86,6 +88,28 @@ fn a_report_writes_and_reads_back_equal() {
         })
     );
     assert!(value["metrics"]["recall_at_5"]["value"].is_number());
+}
+
+#[test]
+fn a_document_expected_whole_is_written_without_a_section() {
+    let mut report = report();
+    report.questions[0] = judge(
+        &question("whole", true),
+        &documents(&["article", "unfound"]),
+        &bundle(&[whole(1, "article", 0.4)]),
+        12,
+    );
+    report.metrics = measure(&report.questions, u64::MAX);
+    let value = serde_json::to_value(&report).unwrap();
+    assert_eq!(
+        value["questions"][0]["expected"],
+        json!([{"document_id": "article", "rank": 1}, {"document_id": "unfound"}])
+    );
+    assert_eq!(value.to_string().parse::<Report>().unwrap(), report);
+    let mut value = written();
+    let expected = &mut value["questions"][0]["expected"][0];
+    expected.as_object_mut().unwrap().remove("document_id");
+    assert!(refusal(&value).contains("missing field `document_id`"));
 }
 
 #[test]

@@ -437,10 +437,11 @@ Recall@10 or MRR@10, or any command-exactness failure, blocks the change.
 **Golden set construction:** questions are drafted from the corpus by an agent,
 covering all query types and both languages; the collection owner validates a
 stratified sample (at least 20 %), and every expected answer points at section
-IDs, not free text. The set starts at 100+ questions for M1 and grows toward
-200–500 (exact identifiers, paraphrases, close versions, tables,
-contradictions, unanswerable questions), with held-out items the tuning never
-sees. Targets are declared before a run and never lowered after a failure.
+IDs, or at the document ID of a document without sections, never at free text.
+The set starts at 100+ questions for M1 and grows toward 200–500 (exact
+identifiers, paraphrases, close versions, tables, contradictions, unanswerable
+questions), with held-out items the tuning never sees. Targets are declared
+before a run and never lowered after a failure.
 
 **Diagnosis before tuning.** Evidence recall is measured per route **before**
 fusion, using the independent `search_dense` and `search_bm25` diagnostics
