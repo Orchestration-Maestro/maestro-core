@@ -7,7 +7,8 @@ use std::{error, fmt};
 /// Why the kernel refused to resolve a chunk.
 #[derive(Debug)]
 pub enum Error {
-    /// The chunk set holds no chunk of this id.
+    /// The chunk set holds no chunk of this id that the caller may read:
+    /// whether one exists outside the caller's scopes is never said.
     UnknownChunk {
         /// The chunk set asked.
         chunk_set_id: String,

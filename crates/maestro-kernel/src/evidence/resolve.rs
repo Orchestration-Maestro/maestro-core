@@ -4,14 +4,16 @@
 use super::{error::Error, passage::Span};
 use crate::{
     artifact::{self, Digest},
+    scope::ScopeSet,
     store::{self, Database},
 };
-use rusqlite::{OptionalExtension as _, Row, types::Type};
+use rusqlite::{OptionalExtension as _, Row, params, types::Type};
 use std::str;
 
 /// Finds a chunk of a chunk set with its revision and document: the columns
 /// [`located`] reads, in its order. The version is the revision's `version`
-/// metadata when it is text.
+/// metadata when it is text. The caller's scopes follow, as a condition on
+/// the scope of the document's source.
 const LOCATE: &str = "SELECT chunks.revision_id, revisions.document_id, chunks.section_id,
        documents.source_ref,
        CASE json_type(revisions.metadata_json, '$.version')
@@ -67,23 +69,37 @@ struct Located {
 }
 
 impl Database {
-    /// The excerpt of the chunk `chunk_id` of the chunk set `chunk_set_id`:
-    /// the bytes of its span in its revision's original Markdown, read from
-    /// the artifact store and checked against the revision's
-    /// `original_digest`.
+    /// The excerpt of the chunk `chunk_id` of the chunk set `chunk_set_id`,
+    /// if `scopes` covers the scope of its document's source: the bytes of its
+    /// span in its revision's original Markdown, read from the artifact store
+    /// and checked against the revision's `original_digest`. A chunk outside
+    /// the set is refused as one that does not exist, so a refusal never
+    /// reveals that it does.
     ///
     /// # Errors
     ///
-    /// [`Error::UnknownChunk`] when the chunk set holds no such chunk,
-    /// [`Error::DigestMismatch`] when the stored original no longer matches
+    /// [`Error::UnknownChunk`] when the chunk set holds no such chunk that
+    /// `scopes` covers, [`Error::DigestMismatch`] when the stored original no longer matches
     /// the revision's digest, [`Error::SpanOutOfRange`] when the span reaches
     /// past its end, [`Error::SpanOffBoundary`] when the span starts or ends
     /// inside a character, and [`Error::Store`] when the database or the
     /// artifact store cannot be read, a missing original among them.
-    pub fn resolve(&self, chunk_set_id: &str, chunk_id: &str) -> Result<Excerpt, Error> {
+    pub fn resolve(
+        &self,
+        scopes: &ScopeSet,
+        chunk_set_id: &str,
+        chunk_id: &str,
+    ) -> Result<Excerpt, Error> {
         let located = self
             .reader()?
-            .query_row(LOCATE, [chunk_set_id, chunk_id], located)
+            .query_row(
+                &format!(
+                    "{LOCATE} AND {}",
+                    ScopeSet::source_condition("documents.collection_id", "documents.source_id", 3)
+                ),
+                params![chunk_set_id, chunk_id, scopes.parameter()],
+                located,
+            )
             .optional()?
             .ok_or_else(|| Error::UnknownChunk {
                 chunk_set_id: chunk_set_id.to_owned(),

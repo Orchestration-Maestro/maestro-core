@@ -3,10 +3,11 @@
 //! revision's digest, with the digest of that text, the span, the version
 //! and what identifies them.
 
-use super::support::{ORIGINAL, SOURCE_REF, Scratch, chunk, metadata, span_of};
+use super::support::{ORIGINAL, SOURCE_REF, Scratch, chunk, granted, metadata, span_of};
 use crate::{
     artifact::{self, Digest},
     evidence::{Error, Excerpt, Span},
+    scope::ScopeSet,
     store,
 };
 use serde_json::Value;
@@ -25,7 +26,9 @@ fn a_chunk_resolves_to_the_exact_text_of_its_span_with_its_digest_span_and_versi
     );
     chunk(&database, "chunk-2", Some("sec-ports"), span);
     assert_eq!(
-        database.resolve("set-a", "chunk-2").unwrap(),
+        database
+            .resolve(&ScopeSet::default_workspace(), "set-a", "chunk-2")
+            .unwrap(),
         Excerpt {
             revision_id: "rev-a".to_owned(),
             document_id: "doc-a".to_owned(),
@@ -52,7 +55,9 @@ fn a_span_after_or_across_a_character_of_several_bytes_resolves_to_its_exact_byt
     for (id, text) in texts {
         let span = span_of(text);
         chunk(&database, id, None, span);
-        let excerpt = database.resolve("set-a", id).unwrap();
+        let excerpt = database
+            .resolve(&ScopeSet::default_workspace(), "set-a", id)
+            .unwrap();
         assert_eq!(excerpt.span, span);
         assert_eq!(excerpt.text, text);
         assert_eq!(excerpt.digest, Digest::of(text.as_bytes()));
@@ -65,7 +70,9 @@ fn a_revision_without_a_version_as_text_resolves_without_one() {
         let scratch = Scratch::new();
         let database = scratch.open(metadata(version));
         chunk(&database, "chunk-1", None, span_of("The agent listens"));
-        let excerpt = database.resolve("set-a", "chunk-1").unwrap();
+        let excerpt = database
+            .resolve(&ScopeSet::default_workspace(), "set-a", "chunk-1")
+            .unwrap();
         assert_eq!(excerpt.version, None);
         assert_eq!(excerpt.section_id, None);
         assert_eq!(excerpt.text, "The agent listens");
@@ -80,7 +87,9 @@ fn an_original_that_no_longer_matches_its_digest_is_refused_naming_both_digests(
     let recorded = Digest::of(ORIGINAL.as_bytes());
     let tampered = ORIGINAL.replace("7005", "7007");
     fs::write(scratch.stored(&recorded), &tampered).unwrap();
-    let error = database.resolve("set-a", "chunk-1").unwrap_err();
+    let error = database
+        .resolve(&ScopeSet::default_workspace(), "set-a", "chunk-1")
+        .unwrap_err();
     assert!(
         matches!(
             &error,
@@ -100,7 +109,9 @@ fn an_original_that_is_gone_is_refused_as_the_store_reports_it() {
     chunk(&database, "chunk-1", None, span_of("The agent listens"));
     let recorded = Digest::of(ORIGINAL.as_bytes());
     fs::remove_file(scratch.stored(&recorded)).unwrap();
-    let error = database.resolve("set-a", "chunk-1").unwrap_err();
+    let error = database
+        .resolve(&ScopeSet::default_workspace(), "set-a", "chunk-1")
+        .unwrap_err();
     assert!(
         matches!(
             &error,
@@ -128,7 +139,9 @@ fn a_span_past_the_end_of_the_original_is_refused() {
         let scratch = Scratch::new();
         let database = scratch.open(metadata(None));
         chunk(&database, "chunk-1", None, past);
-        let error = database.resolve("set-a", "chunk-1").unwrap_err();
+        let error = database
+            .resolve(&ScopeSet::default_workspace(), "set-a", "chunk-1")
+            .unwrap_err();
         assert!(
             matches!(
                 &error,
@@ -158,7 +171,9 @@ fn a_span_that_starts_or_ends_inside_a_character_is_refused() {
         let scratch = Scratch::new();
         let database = scratch.open(metadata(None));
         chunk(&database, "chunk-1", None, inside);
-        let error = database.resolve("set-a", "chunk-1").unwrap_err();
+        let error = database
+            .resolve(&ScopeSet::default_workspace(), "set-a", "chunk-1")
+            .unwrap_err();
         assert!(
             matches!(
                 &error,
@@ -176,7 +191,9 @@ fn a_chunk_its_chunk_set_does_not_hold_is_refused_as_unknown() {
     let database = scratch.open(metadata(None));
     chunk(&database, "chunk-1", None, span_of("The agent listens"));
     for (set, id) in [("set-a", "chunk-9"), ("set-b", "chunk-1")] {
-        let error = database.resolve(set, id).unwrap_err();
+        let error = database
+            .resolve(&ScopeSet::default_workspace(), set, id)
+            .unwrap_err();
         assert!(
             matches!(
                 &error,
@@ -185,6 +202,49 @@ fn a_chunk_its_chunk_set_does_not_hold_is_refused_as_unknown() {
             ),
             "{error:?}"
         );
+    }
+}
+
+#[test]
+fn a_chunk_outside_the_callers_scopes_is_refused_as_a_chunk_that_does_not_exist() {
+    let scratch = Scratch::new();
+    let database = scratch.open(metadata(None));
+    chunk(&database, "chunk-1", None, span_of("The agent listens"));
+    let outside = [
+        database.visible("nobody").unwrap(),
+        granted(
+            &database,
+            "other-source",
+            "workspace/default/collection/ctm/source/other",
+        ),
+        granted(
+            &database,
+            "other-collection",
+            "workspace/default/collection/synthetic",
+        ),
+    ];
+    for scopes in &outside {
+        let error = database.resolve(scopes, "set-a", "chunk-1").unwrap_err();
+        assert!(
+            matches!(
+                &error,
+                Error::UnknownChunk { chunk_set_id, chunk_id }
+                    if chunk_set_id == "set-a" && chunk_id == "chunk-1"
+            ),
+            "{error:?}"
+        );
+    }
+    let inside = [
+        granted(&database, "ctm-reader", "workspace/default/collection/ctm"),
+        granted(
+            &database,
+            "docs-reader",
+            "workspace/default/collection/ctm/source/docs",
+        ),
+    ];
+    for scopes in &inside {
+        let excerpt = database.resolve(scopes, "set-a", "chunk-1").unwrap();
+        assert_eq!(excerpt.text, "The agent listens");
     }
 }
 

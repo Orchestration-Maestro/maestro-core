@@ -6,6 +6,7 @@ use crate::{
     artifact::Digest,
     document::{Collection, Document, Revision, RevisionStatus, Source},
     evidence::{Alternate, Budget, Bundle, Conflict, Passage, RouteStatus, Schema, Span, Trace},
+    scope::{Right, ScopeSet},
     store::{self, Database},
 };
 use serde_json::{Map, Value};
@@ -146,6 +147,14 @@ pub(super) fn chunk(database: &Database, id: &str, section: Option<&str>, span: 
             Ok::<_, store::Error>(())
         })
         .unwrap();
+}
+
+/// The set of `principal`, once granted the scope `path` alone.
+pub(super) fn granted(database: &Database, principal: &str, path: &str) -> ScopeSet {
+    database
+        .grant(principal, &path.parse().unwrap(), Right::Read, "test")
+        .unwrap();
+    database.visible(principal).unwrap()
 }
 
 /// The span of `ORIGINAL` that `text` takes, where it first appears.

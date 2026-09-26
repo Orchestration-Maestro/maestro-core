@@ -7,10 +7,12 @@
 //! store under the revision's `original_digest` and checked against it, with
 //! the SHA-256 of that text, the span, the revision's `version` metadata and
 //! what identifies them. A chunk's own digest hashes its prepared input,
-//! context included, so it is never the excerpt's. Stored bytes that no
-//! longer match their digest, a span past the end of the text and a span that
-//! starts or ends inside a character are each refused with an [`Error`] of
-//! their own.
+//! context included, so it is never the excerpt's. It reads a chunk only if
+//! the caller's scopes cover its document's source, and refuses any other as
+//! it refuses a chunk that does not exist, so a refusal never reveals one.
+//! Stored bytes that no longer match their digest, a span past the end of the
+//! text and a span that starts or ends inside a character are each refused
+//! with an [`Error`] of their own.
 //!
 //! A [`Bundle`] is the search response contract, `maestro-evidence/1`: the
 //! passages it cites, each with what identifies and cites it; whether each
