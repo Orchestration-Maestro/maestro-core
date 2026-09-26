@@ -192,9 +192,9 @@ chunk: technical procedures lose meaning when cut.
 6. **Conflicts**: when two passages state different values for the same entity
    and attribute (e.g. a default port that changed between versions), both are
    kept and flagged with their versions.
-7. **Signals and trace**: rerank score, routes that agreed, version and whether
-   the passage is procedural live in a `trace` section, separate from the
-   evidence itself.
+7. **Signals and trace**: rerank score, routes that agreed and whether the
+   passage is procedural live in a `trace` section, separate from the evidence
+   itself, which carries the version.
 
 The bundle also carries the claims and paths used (S2), the **known gaps**
 (required evidence not found or not accessible) and, when `ask` is used, an
@@ -209,12 +209,21 @@ any text is drafted, so an unsupported conclusion is caught before generation.
   "passages": [{
     "n": 1, "section_id": "…", "doc_id": "…", "revision_id": "…",
     "title": "Installing Control-M/Agent on UNIX", "section_path": ["Installation", "Prerequisites"],
-    "version": "9.0.22", "url": "https://…", "span": [18230, 20411], "digest": "sha256:…",
-    "text": "…verbatim source text…", "score": 0.83, "routes": ["dense", "bm25"],
-    "procedural": true, "alternates": [{"version": "9.0.21", "section_id": "…"}]
+    "version": "9.0.22", "source_ref": "https://…", "span": [18230, 20411], "digest": "sha256:…",
+    "text": "…verbatim source text…", "alternates": [{"version": "9.0.21", "section_id": "…"}]
+  }, {
+    "n": 2, "section_id": "…", "doc_id": "…", "revision_id": "…",
+    "title": "…", "section_path": ["…"], "version": "9.0.20",
+    "source_ref": "https://…", "span": [4096, 5210], "digest": "sha256:…",
+    "text": "…verbatim source text…", "alternates": []
   }],
-  "conflicts": [{"entity": "…", "attribute": "default port", "passages": [2, 4]}],
-  "budget": {"evidence_tokens": 5870, "limit": 6000}
+  "conflicts": [{"entity": "…", "attribute": "default port", "passages": [1, 2]}],
+  "known_gaps": ["…"],
+  "budget": {"evidence_tokens": 5870, "limit": 6000},
+  "trace": [
+    {"n": 1, "score": 0.83, "routes": ["dense", "bm25"], "procedural": true},
+    {"n": 2, "score": 0.61, "routes": ["bm25"], "procedural": false}
+  ]
 }
 ```
 

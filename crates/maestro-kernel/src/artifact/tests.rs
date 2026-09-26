@@ -123,7 +123,11 @@ fn get_refuses_bytes_that_no_longer_match_and_put_repairs_them() {
     let witness = scratch.0.join("witness");
     fs::hard_link(&artifact, &witness).unwrap();
     fs::write(&artifact, b"tampered").unwrap();
-    assert!(matches!(store.get(&digest), Err(Error::Corrupt(found)) if found == digest));
+    assert!(matches!(
+        store.get(&digest),
+        Err(Error::Corrupt { expected, found })
+            if expected == digest && found == Digest::of(b"tampered")
+    ));
     store.put(b"abc").unwrap();
     assert_eq!(store.get(&digest).unwrap(), b"abc");
     assert_eq!(
@@ -297,9 +301,13 @@ fn every_error_says_what_went_wrong() {
     let missing = Error::Missing(Digest::of(b"abc"));
     assert!(missing.to_string().contains(ABC), "{missing}");
     assert!(error::Error::source(&missing).is_none());
-    let corrupt = Error::Corrupt(Digest::of(b"abc")).to_string();
+    let corrupt = Error::Corrupt {
+        expected: Digest::of(b"abc"),
+        found: Digest::of(b""),
+    }
+    .to_string();
     assert!(
-        corrupt.contains(ABC) && corrupt.contains("no longer"),
+        corrupt.contains(ABC) && corrupt.contains(EMPTY) && corrupt.contains("no longer"),
         "{corrupt}"
     );
 }

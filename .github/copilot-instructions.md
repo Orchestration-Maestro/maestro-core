@@ -195,6 +195,17 @@ in place.
 │   │   │   │   ├── error.rs                                                 # Why the kernel refused to record a collection, a source, a document or a revision
 │   │   │   │   ├── mod.rs                                                   # The pipeline's document records (building block B5; docs/architecture/01
 │   │   │   │   └── revision.rs                                              # Revisions: one exact version of a document's bytes and metadata, recorded
+│   │   │   ├── evidence/                                                    # Evidence (building block B7; docs/architecture/02 §6, plan D10): what a
+│   │   │   │   ├── tests/                                                   # Tests of evidence: resolving a chunk from the authority, and bundles as
+│   │   │   │   │   ├── bundle.rs                                            # Bundles: maestro-evidence/1 as JSON, its evidence apart from its trace
+│   │   │   │   │   ├── mod.rs                                               # Tests of evidence: resolving a chunk from the authority, and bundles as
+│   │   │   │   │   ├── resolve.rs                                           # Resolving a chunk: the exact bytes its span covers in its revision's
+│   │   │   │   │   └── support.rs                                           # What the evidence tests share: a scratch database holding one revision of
+│   │   │   │   ├── bundle.rs                                                # Bundles: maestro-evidence/1, the search response contract, checked whole
+│   │   │   │   ├── error.rs                                                 # Why the kernel refused to resolve a chunk
+│   │   │   │   ├── mod.rs                                                   # Evidence (building block B7; docs/architecture/02 §6, plan D10): what a
+│   │   │   │   ├── passage.rs                                               # The passages a bundle cites: the source text of a span of one revision
+│   │   │   │   └── resolve.rs                                               # Resolving a chunk: the exact source text its span covers, read from the
 │   │   │   ├── gateway/                                                     # The model gateway (building block B10): every model, embedder, reranker
 │   │   │   │   ├── tests/                                                   # Tests of the model gateway: model cards, the router client against a stub
 │   │   │   │   │   ├── card.rs                                              # Tests of model cards: strict JSON artifacts whose digest is their
