@@ -33,7 +33,7 @@ each, because pull-request review, not code, is the limit.
 | --- | --- | --- |
 | 1 | T001 kernel artifacts · T002 router free room · T003 private mapping · T004 BM25 spike | Now |
 | 2 | T005 database · T006 model gateway · T007 capabilities · T008 rerank spike · T009 knowledge contracts | T001 (T008: T002) |
-| 3 | T010 journal · T011 scopes · T012 records · T013 counting seam · T014 synthetic collection · T040 lexical analyzer | T005 (T013: #14; T014 and T040: T009) |
+| 3 | T010 journal · T011 scopes · T012 records · T013 counting seam · T014 synthetic collection · T040 lexical analyzer | T005 (T013: now; T014 and T040: T009) |
 | 4 | T015 public events · T016 jobs · T017 evidence · T018 router tokenizer · T019 import | Their After lines |
 | 5 | T020 quality and real import · T021 evaluation runner · T022 the binary | Their After lines |
 | 6 | T023 prepare · T024 golden set · T025 setup and doctor | Their After lines |
@@ -47,11 +47,10 @@ each, because pull-request review, not code, is the limit.
 
 **Critical path**, twelve tasks: T001 → T005 → T012 → T019 → T020 → T023 →
 T026 → T029 → T031 → T037 → T038 → T039. The other 28 tasks run beside it.
-T023 also waits on the counting seam, T013, which waits on #14: that is the
-external dependency to watch.
+T023 also waits on the counting seam, T013, which can start at once: #14,
+what it waited for, has merged.
 
-**Waits outside the code:** #14 merged (T013); the owner's go to redeploy the
-router (T002), check of 30 questions (T027) and approval of model downloads
+**Waits outside the code:** the owner's go to redeploy the router (T002), check of 30 questions (T027) and approval of model downloads
 (T030); the workstation's GPU for the measurements (T008, T030, T037).
 
 ### Rules that keep parallel work from colliding
@@ -62,13 +61,17 @@ router (T002), check of 30 questions (T027) and approval of model downloads
 2. A task changes only the files in its **Files** line, plus the shared files
    below.
 3. Shared files are append-only: a crate's `lib.rs` module lines, workspace
-   members and dependencies, `Cargo.lock` (regenerated after a rebase),
-   `.cargo/mutants.toml`, the Copilot guide (regenerated after a rebase), and
+   members and `[workspace.dependencies]`, `Cargo.lock` (regenerated after a
+   rebase), `.cargo/mutants.toml`, the `[typos] words` of
+   `maestro-quality.toml` (`rust-gate sync` writes `typos.toml` from them), the
+   Copilot guide (`rust-gate guide`, regenerated after a rebase), and
    `tasks.md`, where a task ticks only its own steps.
 4. Migration numbers are reserved below, so parallel tasks never take the same
    one; the store applies them by number and records each by name (D1), so
    the merge order of a wave does not matter.
-5. Before merging: rebase on `main`, then `just check` again.
+5. Before merging: rebase on `main`, then `just check` again. `just check` is
+   `rust-gate ci --local`: it checks the committed branch as CI will, so
+   commit first; the pre-push hook runs it too.
 
 | Migration | Task | Tables |
 | --- | --- | --- |
@@ -88,8 +91,14 @@ router (T002), check of 30 questions (T027) and approval of model downloads
   for a real variation (P-004, P-005).
 - The workspace lints hold everywhere: no `unwrap`, `expect` or `panic`
   outside tests, every item documented, files at most 500 counted lines.
-- New code meets the stricter lints of rust-workflows v2.5.1 (#14) from its
-  first commit, so the move to it changes nothing here.
+- New code meets the organization's generated lints and source rules
+  (rust-workflows v4.3.0) from its first commit: a `mod.rs` holds only `mod`
+  and `use` lines, no import cycle, no file over 500 lines of code.
+- Every crate builds and passes its tests on Linux, macOS and Windows
+  (ADR-0018); a platform difference sits in a small function every host
+  tests. Clippy for the other two runs locally with the gate's settings:
+  `CLIPPY_CONF_DIR=<dir> cargo clippy --target x86_64-pc-windows-gnu` and
+  `--target aarch64-apple-darwin`.
 - No Control-M text, personal path or secret in this repository: corpus,
   golden set and `ctm-*` reports stay in the private collection (FR-S1-016).
 - A search never unloads a chat model (FR-S1-015a); no measurement does
@@ -292,7 +301,7 @@ generation}.rs`, `migrations/0004_documents.sql`. **Requirements:** FR-S1-001
 
 ### T013 [P] A token-counting seam in canonicalization [US2]
 
-**After:** #14 merged. **Files:**
+**After:** nothing (#14 merged on 2026-09-25). **Files:**
 `crates/maestro-canonicalization/src/{tokenizer,chunks}/`. **Requirements:**
 FR-S1-003, D7.
 

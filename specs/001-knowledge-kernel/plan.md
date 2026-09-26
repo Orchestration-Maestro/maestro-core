@@ -37,8 +37,10 @@ with the task that first needs it): `rusqlite` 0.40.2 (bundled), `qdrant-client`
 `opentelemetry-otlp` 0.33.0. `zstd` is not taken: nothing in S1 needs
 compression.
 
-**Storage**: SQLite (WAL) and a content-addressed artifact tree under
-`$XDG_DATA_HOME/maestro/`; Qdrant 1.19 as the search projection.
+**Storage**: SQLite (WAL) and a content-addressed artifact tree under the
+kernel's data directory: `$XDG_DATA_HOME/maestro/` when that is absolute,
+else `$HOME/.local/share/maestro/` on Linux and macOS and
+`%LOCALAPPDATA%\maestro\` on Windows; Qdrant 1.19 as the search projection.
 
 **Testing**: `cargo test` with the workspace lints; a synthetic collection and
 suite in public CI with a deterministic fake embedder; Qdrant integration tests
@@ -46,8 +48,12 @@ against a pinned Qdrant container; explicit local runs for the router, native
 tokenizer parity and every `ctm-*` suite; `cargo mutants` on each diff;
 coverage ≥ 90 % of lines.
 
-**Target Platform**: Linux x86_64 (CI `ubuntu-24.04`, the reference WSL2
-workstation with an RTX 5090). No other platform is claimed in S1.
+**Target Platform**: every crate builds and passes its tests on Linux, macOS
+and Windows, as ADR-0016 and ADR-0018 require: CI runs them on `ubuntu-24.04`,
+`macos-15` and `windows-2025`. Where a platform differs, the difference sits
+in a small function every host tests. The router, the GPU measurements and
+the end-to-end proof of M1 run on the reference workstation (Linux x86_64
+under WSL2, with an RTX 5090).
 
 **Project Type**: Cargo workspace: libraries plus one binary (CLI and MCP stdio
 server).
@@ -58,10 +64,11 @@ loaded (SC-S1-004); import streams with memory bounded by the largest document.
 **Constraints**: public repository, so no Control-M content, personal path or
 secret (ADR-0009, ENF-001, SEC-001); a search never unloads a chat model
 (FR-S1-015a); every model role comes from a bake-off (ADR-0011); the
-organization's rulesets, including `branch-names`. New code meets, from its
-first commit, the stricter lints rust-workflows v2.5.1 brings with #14: no
-indexing or slicing, no one-letter names, imports within two path segments,
-`mod.rs` modules, `Debug` on every type.
+organization's rulesets, including `branch-names`. New code meets the
+organization's generated lints and source rules (rust-workflows v4.3.0): no
+indexing or slicing, no one-letter names, paths within two segments, `mod.rs`
+modules whose `mod.rs` holds only `mod` and `use` lines, no import cycle, no
+file over 500 lines of code, `Debug` on every type.
 
 **Scale/Scope**: 7,988 documents, 31.3 MiB of Markdown (4.1 KB on average);
 the chunk count is measured at prepare (T023); one local user.
@@ -76,7 +83,7 @@ the chunk count is measured at prepare (T023); one local user.
 | Router | Dedicated endpoints forward any path (`/models/<id>/tokenize` reaches the model); entries `embed` (bge-m3 Q8) and `rerank` (bge-reranker-v2-m3 Q8), 1,280 MiB each, on demand; the largest chat entries estimate 28,928–30,464 MiB of the 32 GiB card; when room is short, admission unloads the coldest idle model, and no request option forbids it |
 | Reranking cost | 12 ms per pair on the card, from the router catalogue's note (about a quarter of a second for twenty pairs); the cost at 80–120 pairs is unmeasured |
 | MSRV | Workspace 1.85; `rmcp` 3.4.1 needs 1.88 |
-| In flight | maestro-core #14 (rust-workflows v2.5.1 and its lints) touches manifests and code; S1 branches rebase on it when it merges, and new crates meet its lints already |
+| Merged since | maestro-core #14 (rust-workflows v2.5.1 and its lints), #17, #20 and #21 (Linux, macOS and Windows, ADR-0018), then the moves to rust-workflows v4.x, where `just check` became `rust-gate ci --local`; the S1 branches rebased on them on 2026-09-26 |
 
 ## Constitution Check
 
@@ -158,8 +165,8 @@ numbered in advance per task, applied in number order and recorded by name in
 a `migrations` table, so parallel tasks can merge in any order; each creates
 only its own tables, and a database holding a migration the binary does not
 know is refused. Triggers refuse `UPDATE` and `DELETE` on `events`. Paths:
-`$XDG_DATA_HOME/maestro/kernel.sqlite3` and `…/artifacts/`, with `~/.local/share`
-when the variable is unset.
+`kernel.sqlite3` and `artifacts/` in the kernel's data directory (Technical
+Context), which `paths::data_dir` resolves.
 
 ### D2 Artifacts (B3)
 
@@ -414,7 +421,6 @@ None: no golden rule is waived.
 | Beside the largest chat models, free room holds the embedder but not the reranker too | A free-room request unloads nothing, idle guests included, so reranking is flagged unavailable (FR-S1-015a); T008 and the ladder measure how often, and if it costs the quality target, a free-room request may replace an idle guest |
 | The lexical analyzer fits T004's sample but not the corpus | The ladder measures the BM25 route alone on the golden set (FR-S1-005a); the profile is versioned, so a better analyzer is a new generation |
 | An agent-drafted golden set misses real questions | Stratified drafting, the owner's 30-question check, and real questions added as they come (risk R8 of the roadmap) |
-| #14 changes the lints and manifests under S1 | Each S1 branch rebases on `main`; the lints only get stricter |
-| #14 holds up the counting seam (T013), which is on the critical path | Coordinated with #14's session; if #14 is late, T013 lands on `main` first and #14 rebases on it |
+| The organization's gate moves under S1 (rust-workflows went from 2.5 to 4.3 in a day) | Each S1 branch rebases on `main` and runs `just check` before its push; the lints and rules only get stricter |
 | Model downloads need the owner's approval | Candidates are listed with size and licence before the bake-off; nothing downloads without approval |
 | The corpus manifest lacks language and capture time | Left out, never guessed; the analyzer policy and version filters do not depend on them |
