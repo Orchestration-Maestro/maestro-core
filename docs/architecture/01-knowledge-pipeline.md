@@ -482,8 +482,9 @@ pub trait TokenCounter {
     fn contract_id(&self) -> &str;
     /// Re-verifies the qualified artifacts; called at batch boundaries.
     fn verify(&self) -> Result<(), Error>;
-    /// Token count of the complete prepared input, special tokens included.
-    fn count(&self, prepared_input: &str) -> Result<usize, Error>;
+    /// The ordered token IDs of the complete prepared input, special tokens
+    /// included: their number is the count, and parity compares the IDs.
+    fn token_ids(&self, prepared_input: &str) -> Result<Vec<u32>, Error>;
 }
 ```
 
