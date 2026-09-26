@@ -172,6 +172,20 @@ in place.
 │       │   │   ├── mod.rs                                                   # Content-addressed artifacts: immutable bytes stored, and read back, by their
 │       │   │   ├── store.rs                                                 # The store: artifacts written once under their digest, read back checked
 │       │   │   └── tests.rs                                                 # Tests of the artifact store: digests, writes, repairs and refusals, with
+│       │   ├── gateway/                                                     # The model gateway (building block B10): every model, embedder, reranker
+│       │   │   ├── tests/                                                   # Tests of the model gateway: model cards, the router client against a stub
+│       │   │   │   ├── card.rs                                              # Tests of model cards: strict JSON artifacts whose digest is their
+│       │   │   │   ├── fake.rs                                              # Tests of the deterministic fake: its outputs are fixed by its inputs, the
+│       │   │   │   ├── fixture.rs                                           # What the gateway's tests share: a scratch store, a card for each role, and
+│       │   │   │   ├── mod.rs                                               # Tests of the model gateway: model cards, the router client against a stub
+│       │   │   │   ├── port.rs                                              # Tests of the port's refusals: each says what was refused and why
+│       │   │   │   ├── router.rs                                            # Tests of the router client against a stub router: every call is bound to
+│       │   │   │   └── stub.rs                                              # A stub of the model router: a loopback HTTP server, on a thread of its
+│       │   │   ├── card.rs                                                  # Model cards: what was evaluated of a model filling a role (D8), kept as
+│       │   │   ├── fake.rs                                                  # The deterministic fake behind the model port, which public CI uses since it
+│       │   │   ├── mod.rs                                                   # The model gateway (building block B10): every model, embedder, reranker
+│       │   │   ├── port.rs                                                  # The model port: the calls every way of reaching a model answers, each
+│       │   │   └── router.rs                                                # The router client: the model port over maestro-model-router's dedicated
 │       │   ├── lib.rs                                                       # The kernel of Maestro: the single authoritative store every later
 │       │   └── paths.rs                                                     # Where the kernel keeps its data: $XDG_DATA_HOME/maestro when that names an
 │       └── Cargo.toml                                                       # Crate manifest: The single authoritative store of Maestro, starting with its content-addressed artifacts
