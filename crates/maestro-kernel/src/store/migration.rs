@@ -8,10 +8,16 @@ use rusqlite::{Connection, OptionalExtension as _, TransactionBehavior};
 /// its four-digit number, so name order is number order; each task appends the
 /// migration its number reserves (tasks.md), and parallel tasks merge in any
 /// order. A migration holds statements only, never `BEGIN` or `COMMIT`.
-pub(super) const MIGRATIONS: &[(&str, &str)] = &[(
-    "0001_artifacts",
-    include_str!("../../migrations/0001_artifacts.sql"),
-)];
+pub(super) const MIGRATIONS: &[(&str, &str)] = &[
+    (
+        "0001_artifacts",
+        include_str!("../../migrations/0001_artifacts.sql"),
+    ),
+    (
+        "0002_journal",
+        include_str!("../../migrations/0002_journal.sql"),
+    ),
+];
 
 /// Applies to `connection` each of `migrations` it does not record yet, in
 /// name order, each in a transaction of its own that records its name in

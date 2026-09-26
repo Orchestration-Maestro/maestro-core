@@ -169,7 +169,8 @@ in place.
 │   │   └── Cargo.toml                                                       # Crate manifest: Tests that hold the maestro-core repository to its own policies
 │   ├── maestro-kernel/                                                      # Maestro kernel
 │   │   ├── migrations/                                                      # The kernel database's migrations, embedded and applied in number order
-│   │   │   └── 0001_artifacts.sql                                           # The artifacts table: each artifact's size, media type, pins and creation time
+│   │   │   ├── 0001_artifacts.sql                                           # The artifacts table: each artifact's size, media type, pins and creation time
+│   │   │   └── 0002_journal.sql                                             # The journal: the append-only events, their triggers, and the consumers' cursors
 │   │   ├── src/                                                             # The crate's sources
 │   │   │   ├── artifact/                                                    # Content-addressed artifacts: immutable bytes stored, and read back, by their
 │   │   │   │   ├── digest.rs                                                # A SHA-256 digest: the name every artifact is stored under
@@ -194,6 +195,20 @@ in place.
 │   │   │   │   ├── mod.rs                                                   # The model gateway (building block B10): every model, embedder, reranker
 │   │   │   │   ├── port.rs                                                  # The model port: the calls every way of reaching a model answers, each
 │   │   │   │   └── router.rs                                                # The router client: the model port over maestro-model-router's dedicated
+│   │   │   ├── journal/                                                     # The journal: every change the kernel makes, recorded as an event in one
+│   │   │   │   ├── tests/                                                   # Tests of the journal: its events and their streams, its cursors, and what
+│   │   │   │   │   ├── append_only.rs                                       # The journal is append-only: the database itself refuses to update, delete
+│   │   │   │   │   ├── child.rs                                             # Not a test of its own: what the child processes of the crash and
+│   │   │   │   │   ├── concurrency.rs                                       # Writers together: threads sharing the database and processes of their own
+│   │   │   │   │   ├── crash.rs                                             # A crash: the event a process committed before it is read after the
+│   │   │   │   │   ├── cursors.rs                                           # Cursors: where each consumer stands in each stream, moved forward only
+│   │   │   │   │   ├── events.rs                                            # Events: the ID and the sequence recording gives them, the event it
+│   │   │   │   │   ├── mod.rs                                               # Tests of the journal: its events and their streams, its cursors, and what
+│   │   │   │   │   └── support.rs                                           # What the journal tests share: a scratch data directory, the events they
+│   │   │   │   ├── cursor.rs                                                # Cursors: how far each consumer has read each stream, moved forward only
+│   │   │   │   ├── error.rs                                                 # Why the journal refused an operation
+│   │   │   │   ├── event.rs                                                 # Events: recorded with a new ID and the next sequence of their stream
+│   │   │   │   └── mod.rs                                                   # The journal: every change the kernel makes, recorded as an event in one
 │   │   │   ├── store/                                                       # The kernel's database: one SQLite file beside the artifact store, holding
 │   │   │   │   ├── tests/                                                   # Tests of the kernel database: its migrations, its connections, the
 │   │   │   │   │   ├── artifacts.rs                                         # Artifacts: stored, recorded with their size, media type and pins, and read
