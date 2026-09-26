@@ -1,0 +1,29 @@
+{
+  "schema": "maestro-collection/1",
+  "id": "synthetic",
+  "title": "Synthetic operations handbook in French and English, written for public tests",
+  "visibility": "public",
+  "profiles": {
+    "extraction": "technical-html/1",
+    "chunking": "structural-500-700/1",
+    "embedding": "embed:winner",
+    "sparse": "bm25-en-fr/1"
+  },
+  "quality": {
+    "ledger": "quality/ledger.jsonl"
+  },
+  "sources": [
+    {
+      "id": "handbook",
+      "kind": "import",
+      "sync": "manual",
+      "manifest": {
+        "binding": "synthetic_root",
+        "path": "corpus/maestro-corpus.jsonl"
+      }
+    }
+  ],
+  "evals": {
+    "suite": "suite.jsonl"
+  }
+}

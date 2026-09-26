@@ -278,13 +278,16 @@ in place.
 │       │   ├── corpus.rs                                                    # A corpus manifest: maestro-corpus/1, one JSON line per document, through
 │       │   ├── lib.rs                                                       # The knowledge pipeline of Maestro (docs/architecture/01): collections, their
 │       │   ├── relative_path.rs                                             # Paths that a declaration or a manifest gives relative to a directory, which
-│       │   └── shape.rs                                                     # The JSON shapes the contracts name, and no other: an object where a
+│       │   ├── shape.rs                                                     # The JSON shapes the contracts name, and no other: an object where a
+│       │   └── suite.rs                                                     # An evaluation suite: maestro-suite/1, one JSON line per question, which
 │       ├── tests/                                                           # Integration tests
 │       │   └── it/                                                          # It
 │       │       ├── collection_contract.rs                                   # maestro-collection/1: a strict declaration parses into typed values; an
 │       │       ├── corpus_contract.rs                                       # maestro-corpus/1: one line per document parses into typed values; an
 │       │       ├── main.rs                                                  # The crate's integration tests, built as one test crate: each module proves
-│       │       └── router_parity.rs                                         # The router tokenizer's parity with the native counter, live: an explicit
+│       │       ├── router_parity.rs                                         # The router tokenizer's parity with the native counter, live: an explicit
+│       │       ├── suite_contract.rs                                        # maestro-suite/1: a suite, one JSON line per question, parses into typed
+│       │       └── synthetic_collection.rs                                  # The public synthetic collection, tests/fixtures/synthetic, which stands in
 │       └── Cargo.toml                                                       # Crate manifest: The knowledge pipeline of Maestro, starting with the collection and corpus contracts it imports through
 ├── docs/                                                                    # Documentation
 │   ├── adr/                                                                 # Hard-to-reverse decisions, each with the trade-off that produced it
@@ -339,6 +342,61 @@ in place.
 │   ├── audits.toml                                                          # cargo-vet audits file
 │   ├── config.toml                                                          # cargo-vet config file
 │   └── imports.lock                                                         # The audits cargo-vet imports, locked
+├── tests/                                                                   # Test data shared by the workspace's crates
+│   └── fixtures/                                                            # Test fixtures
+│       └── synthetic/                                                       # The public synthetic collection and its suite, which stand in for the private corpus in public CI (ADR-0009)
+│           ├── corpus/                                                      # The collection's one source: its maestro-corpus/1 manifest beside the Markdown documents it names
+│           │   ├── en/                                                      # The documents written in English
+│           │   │   ├── backups/                                             # Backups
+│           │   │   │   ├── backup-policy.md                                 # Sample document: Backup policy
+│           │   │   │   └── restoring-a-database.md                          # Sample document: Restoring a database from a backup
+│           │   │   ├── databases/                                           # Databases
+│           │   │   │   └── schema-migrations.md                             # Sample document: Running schema migrations
+│           │   │   ├── http/                                                # HTTP APIs
+│           │   │   │   ├── error-codes.md                                   # Sample document: HTTP error codes
+│           │   │   │   └── pagination.md                                    # Sample document: Paginating API results
+│           │   │   ├── logging/                                             # Logging
+│           │   │   │   └── log-rotation.md                                  # Sample document: Log rotation
+│           │   │   ├── messaging/                                           # Messaging
+│           │   │   │   └── dead-letter-queues.md                            # Sample document: Dead-letter queues
+│           │   │   ├── operations/                                          # Operations
+│           │   │   │   ├── payments/                                        # The payments team's runbooks
+│           │   │   │   │   └── on-call-handover.md                          # Sample document: On-call handover, a near-duplicate of operations/on-call-handover.md on purpose (T023)
+│           │   │   │   ├── glossary.md                                      # Sample document: Glossary, an exact copy of en/glossary.md on purpose (T023)
+│           │   │   │   └── on-call-handover.md                              # Sample document: On-call handover
+│           │   │   ├── scheduling/                                          # Scheduling
+│           │   │   │   ├── job-retries.md                                   # Sample document: Retrying scheduled jobs
+│           │   │   │   └── schedule-expressions.md                          # Sample document: Schedule expressions
+│           │   │   ├── tls/                                                 # TLS certificates
+│           │   │   │   ├── certificate-renewal-4.1.md                       # Sample document: Renewing TLS certificates as release 4.1 had it, the older of two versions on purpose (T032)
+│           │   │   │   └── certificate-renewal.md                           # Sample document: Renewing TLS certificates in release 4.2, the newer of two versions
+│           │   │   └── glossary.md                                          # Sample document: Glossary
+│           │   ├── fr/                                                      # The documents written in French
+│           │   │   ├── backups/                                             # Backups
+│           │   │   │   ├── politique-de-sauvegarde.md                       # Sample document: Politique de sauvegarde
+│           │   │   │   └── verification-des-sauvegardes.md                  # Sample document: Vérifier les sauvegardes
+│           │   │   ├── databases/                                           # Databases
+│           │   │   │   └── migrations-sans-interruption.md                  # Sample document: Migrations sans interruption de service
+│           │   │   ├── http/                                                # HTTP APIs
+│           │   │   │   ├── codes-d-erreur.md                                # Sample document: Codes d'erreur HTTP
+│           │   │   │   ├── jetons.md                                        # Sample document: Jetons d'accès à l'API
+│           │   │   │   └── limites-de-debit.md                              # Sample document: Limites de débit
+│           │   │   ├── logging/                                             # Logging
+│           │   │   │   └── journaux-structures.md                           # Sample document: Journaux structurés
+│           │   │   ├── messaging/                                           # Messaging
+│           │   │   │   ├── accuses-de-reception.md                          # Sample document: Accusés de réception
+│           │   │   │   └── ordre-des-messages.md                            # Sample document: Ordre des messages et partitions
+│           │   │   ├── operations/                                          # Operations
+│           │   │   │   └── gestion-des-incidents.md                         # Sample document: Gestion des incidents
+│           │   │   ├── scheduling/                                          # Scheduling
+│           │   │   │   ├── relance-manuelle.md                              # Sample document: Relancer une tâche à la main
+│           │   │   │   └── supervision-des-taches.md                        # Sample document: Surveiller les tâches planifiées
+│           │   │   └── tls/                                                 # TLS certificates
+│           │   │       └── certificats-clients.md                           # Sample document: Certificats clients et TLS mutuel
+│           │   └── maestro-corpus.jsonl                                     # The source's manifest: one maestro-corpus/1 line per document, with its digest and size
+│           ├── .rumdl.toml                                                  # The synthetic collection is test input, not documentation: one of its documents repeats a heading under the same parent, as authors do
+│           ├── collection.json                                              # The maestro-collection/1 declaration of the public collection synthetic
+│           └── suite.jsonl                                                  # The evaluation suite: one maestro-suite/1 question per line, French and English, each with the sections that answer it
 ├── .editorconfig                                                            # Editor settings that survive the editor
 ├── .gitattributes                                                           # How Git should treat each kind of file
 ├── .gitignore                                                               # Paths git never tracks

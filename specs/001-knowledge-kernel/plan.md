@@ -303,7 +303,12 @@ a scope check per call and a 64 KiB response limit that reports truncation.
 
 ### D13 Evaluation and the bake-off
 
-Suites are JSONL: question, language, expected section IDs, answerable flag.
+Suites are JSONL, `maestro-suite/1`: one question per line, with its id,
+language (`fr` or `en`), text, answerable flag and expected sections, each
+named by its document's `source_ref` and heading path, plus a 1-based
+occurrence when that path repeats, never by a section ID, which changes with
+the revision; the runner resolves the names to the section IDs of the
+generation it evaluates.
 Metrics: Recall@5 and @10, MRR@10, nDCG@10, no-answer accuracy, command
 exactness, latency p50 and p95. Confidence intervals by paired bootstrap
 (2,000 resamples). Each failure is classified as not retrieved, misranked or

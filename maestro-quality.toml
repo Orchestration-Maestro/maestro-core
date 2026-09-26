@@ -67,7 +67,10 @@ reason = "every kernel table that refers to an artifact pins it in the transacti
 # objective beside RPO; WRONLY, the POSIX open flag as rustix names it;
 # abandonne, exponentiel and termine, French words of the lexical sample in
 # specs/001-knowledge-kernel/research.md and T040's tests of it; languag, the
-# misspelled Qdrant option that research shows being silently ignored.
+# misspelled Qdrant option that research shows being silently ignored;
+# adresse, amont, certificat, certificats, contracter, groupe, groupes, reste,
+# responsable, ressource, restauration, seconde and sur, French words of the
+# synthetic collection in tests/fixtures/synthetic.
 [typos]
 words = [
   "Exemple",
@@ -77,4 +80,17 @@ words = [
   "exponentiel",
   "termine",
   "languag",
+  "adresse",
+  "amont",
+  "certificat",
+  "certificats",
+  "contracter",
+  "groupe",
+  "groupes",
+  "reste",
+  "responsable",
+  "ressource",
+  "restauration",
+  "seconde",
+  "sur",
 ]

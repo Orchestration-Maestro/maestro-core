@@ -1,0 +1,6 @@
+# The synthetic collection is test input, not documentation: one of its
+# documents repeats a heading under the same parent, as authors do, and the
+# suite names the second by its occurrence. Every other rule still applies;
+# the corpus manifest pins each document's bytes.
+[global]
+disable = ["MD024"]
