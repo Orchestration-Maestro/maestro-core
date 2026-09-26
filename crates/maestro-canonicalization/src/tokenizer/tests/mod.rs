@@ -5,7 +5,7 @@ use super::binding::NativeBinding;
 use super::contract::{array_at, parse_contract, text_at};
 use super::native::parse_ids;
 #[cfg(unix)]
-use super::{NativeTokenizer, process::run_native};
+use super::{NativeTokenizer, TokenCounter, process::run_native};
 #[cfg(unix)]
 use crate::{error::Error, hashing::digest};
 #[cfg(unix)]
@@ -139,6 +139,16 @@ fn a_changed_artifact_is_refused_until_restored() {
         fs::write(&path, original).unwrap();
         tokenizer.verify_artifacts().unwrap();
     }
+}
+
+#[cfg(unix)]
+#[test]
+fn the_counters_verify_is_the_native_artifact_check() {
+    let scratch = Scratch::new();
+    let tokenizer = fake_tokenizer(&scratch);
+    TokenCounter::verify(&tokenizer).unwrap();
+    fs::write(scratch.0.join("model.gguf"), b"changed").unwrap();
+    assert!(TokenCounter::verify(&tokenizer).is_err());
 }
 
 #[cfg(unix)]

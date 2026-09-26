@@ -1,6 +1,8 @@
 //! Tests of the counter's invocation: its environment, its arguments and each platform's loader.
 //! The counter here is this test executable itself: a binary outside the system's protected
 //! directories, so macOS passes it `DYLD_LIBRARY_PATH` as it passes the real counter.
+#[cfg(unix)]
+use super::super::TokenCounter;
 use super::super::loader::Loader;
 use super::super::native::configured_command;
 use super::super::process::run_native;
@@ -186,4 +188,31 @@ fn an_unverified_library_stops_the_tokenizer_before_it_counts() {
     assert!(tokenizer.token_ids("any text").is_err());
     fs::remove_file(extra).unwrap();
     assert_eq!(tokenizer.token_ids("any text").unwrap(), [0, 17, 2]);
+}
+
+#[cfg(unix)]
+#[test]
+fn a_changed_counter_is_refused_before_it_runs() {
+    let scratch = Scratch::new();
+    let mut tokenizer = fake_tokenizer(&scratch);
+    let counter = scratch.0.join("counter");
+    fs::copy(&tokenizer.binding.counter, &counter).unwrap();
+    tokenizer.binding.counter.clone_from(&counter);
+    tokenizer.verify_artifacts().unwrap();
+    fs::write(&counter, b"changed").unwrap();
+    let refused = tokenizer.token_ids("any text").unwrap_err();
+    assert_eq!(
+        refused.to_string(),
+        "tokenizer artifact size or file type mismatch"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn a_failing_counter_process_returns_no_ids() {
+    let scratch = Scratch::new();
+    let mut tokenizer = fake_tokenizer(&scratch);
+    tokenizer.contract["invocation"]["args"] = json!(["-c", "cat >/dev/null; exit 3", "{model}"]);
+    let refused = tokenizer.token_ids("any text").unwrap_err();
+    assert_eq!(refused.to_string(), "tokenizer process failed");
 }

@@ -59,7 +59,7 @@ pub struct ChunkBatch<'a> {
     pub version: String,
     /// Canonical context/formatting policy.
     pub preparation_profile: String,
-    /// Qualified local counter identity.
+    /// Contract ID of the counter that counted the batch.
     pub tokenizer_contract_id: String,
     /// Preferred complete-input size, not a minimum.
     pub target_tokens: usize,

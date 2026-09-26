@@ -42,7 +42,8 @@ fn main() -> Result<(), Error> {
 The qualified GGUF, native counter, libraries and source fingerprints must already
 exist where the local binding says (see [TOKENIZER.md](TOKENIZER.md)).
 See [TOKENIZER.md](TOKENIZER.md) for qualification, prerequisites and limitations.
-There is no alternate-counter constructor or public callback bypass.
+`chunk_documents` counts through any `TokenCounter`; that counter's contract ID
+enters every chunk and prepared-input identity (ADR-0008).
 
 ## Contract
 

@@ -1,5 +1,4 @@
 //! Tests of chunk assembly, prepared-input groups and replay validation.
-use super::build::chunk_with_count;
 use super::identity::{PreparedGroups, insert_prepared_group};
 use super::validation::{invalid_chunks, validate_chunks, validate_coverage};
 use super::*;
@@ -9,7 +8,10 @@ use crate::error::Error;
 use crate::model::{CanonicalizeInput, Severity};
 use crate::pipeline::canonicalize;
 use crate::replay::validate_document;
+use crate::tokenizer::TokenCounter;
+use std::cell::Cell;
 
+mod counter;
 mod identity;
 mod replay;
 
@@ -31,6 +33,53 @@ fn fake_count(input: &str) -> usize {
     input.chars().count() + 2
 }
 
+/// The stand-in counter of these tests: `fake_count` IDs, one per character between BOS 0 and
+/// EOS 2, under a contract ID of the test's choosing. It records its calls, and its `verify`
+/// can fail at a chosen call.
+struct TestCounter {
+    /// The contract every identity of its batches carries.
+    contract_id: &'static str,
+    /// The `verify` call, counted from one, that fails; `None` never fails.
+    failing_verify: Option<usize>,
+    /// How many times `verify` ran.
+    verifications: Cell<usize>,
+    /// How many inputs it tokenized.
+    tokenizations: Cell<usize>,
+}
+
+impl TestCounter {
+    /// A counter under `contract_id` whose `verify` always passes.
+    fn new(contract_id: &'static str) -> Self {
+        Self {
+            contract_id,
+            failing_verify: None,
+            verifications: Cell::new(0),
+            tokenizations: Cell::new(0),
+        }
+    }
+}
+
+impl TokenCounter for TestCounter {
+    fn contract_id(&self) -> &str {
+        self.contract_id
+    }
+
+    fn verify(&self) -> Result<(), Error> {
+        let call = self.verifications.get() + 1;
+        self.verifications.set(call);
+        if self.failing_verify == Some(call) {
+            return Err(Error("test counter artifacts changed".into()));
+        }
+        Ok(())
+    }
+
+    fn token_ids(&self, input: &str) -> Result<Vec<u32>, Error> {
+        self.tokenizations.set(self.tokenizations.get() + 1);
+        let characters = input.chars().map(u32::from);
+        Ok([0].into_iter().chain(characters).chain([2]).collect())
+    }
+}
+
 #[test]
 fn authorization_and_all_replays_precede_every_counter_call() {
     let markdown = "private body\n";
@@ -47,47 +96,44 @@ fn authorization_and_all_replays_precede_every_counter_call() {
             markdown,
         },
     ];
-    let mut never_called =
-        |_: &str| -> Result<usize, Error> { panic!("ineligible source reached counter") };
-    let denied = chunk_with_count(
+    let never_called = TestCounter::new("test/unqualified");
+    let denied = chunk_documents(
         &scope(&[&valid]),
         &inputs,
         WarningPolicy::Preserve,
-        "test/unqualified",
-        &mut never_called,
+        &never_called,
     )
     .unwrap_err();
     assert!(!denied.to_string().contains("private"));
     assert!(
-        chunk_with_count(
+        chunk_documents(
             &scope(&[]),
             &inputs[..1],
             WarningPolicy::Preserve,
-            "test/unqualified",
-            &mut never_called
+            &never_called
         )
         .is_err()
     );
     assert!(
-        chunk_with_count(
+        chunk_documents(
             &scope(&[&valid, &invalid]),
             &inputs,
             WarningPolicy::Preserve,
-            "test/unqualified",
-            &mut never_called
+            &never_called
         )
         .is_err()
     );
     assert!(
-        chunk_with_count(
+        chunk_documents(
             &scope(&[&valid]),
             &[inputs[0], inputs[0]],
             WarningPolicy::Preserve,
-            "test/unqualified",
-            &mut never_called
+            &never_called
         )
         .is_err()
     );
+    assert_eq!(never_called.verifications.get(), 0);
+    assert_eq!(never_called.tokenizations.get(), 0);
 }
 
 #[test]
@@ -99,24 +145,13 @@ fn warning_policy_and_empty_content_are_explicit() {
         document: &doc,
         markdown,
     };
-    let mut never_called =
-        |_: &str| -> Result<usize, Error> { panic!("rejected warning reached counter") };
-    assert!(
-        chunk_with_count(
-            &scope,
-            &[input],
-            WarningPolicy::Reject,
-            "test/unqualified",
-            &mut never_called
-        )
-        .is_err()
-    );
-    let preserved = chunk_with_count(
+    let never_called = TestCounter::new("test/unqualified");
+    assert!(chunk_documents(&scope, &[input], WarningPolicy::Reject, &never_called).is_err());
+    let preserved = chunk_documents(
         &scope,
         &[input],
         WarningPolicy::Preserve,
-        "test/unqualified",
-        &mut |input| Ok(fake_count(input)),
+        &TestCounter::new("test/unqualified"),
     )
     .unwrap();
     assert!(
@@ -125,28 +160,20 @@ fn warning_policy_and_empty_content_are_explicit() {
             .warnings
             .is_empty()
     );
-    let empty = chunk_with_count(
-        &scope,
-        &[],
-        WarningPolicy::Reject,
-        "test/unqualified",
-        &mut never_called,
-    )
-    .unwrap();
+    let empty = chunk_documents(&scope, &[], WarningPolicy::Reject, &never_called).unwrap();
     assert!(empty.chunks.is_empty());
     for markdown in ["", "---\ntitle: Metadata\n---\n"] {
         let doc = canonicalize(CanonicalizeInput::new(markdown, "rejected-empty")).unwrap();
         let grant = self::scope(&[&doc]);
         assert!(
-            chunk_with_count(
+            chunk_documents(
                 &grant,
                 &[DedupInput {
                     document: &doc,
                     markdown
                 }],
                 WarningPolicy::Preserve,
-                "test/unqualified",
-                &mut never_called
+                &never_called
             )
             .is_err()
         );
@@ -159,19 +186,19 @@ fn warning_policy_and_empty_content_are_explicit() {
             .all(|finding| finding.severity != Severity::Error)
     );
     let grant = self::scope(&[&doc]);
-    let result = chunk_with_count(
+    let result = chunk_documents(
         &grant,
         &[DedupInput {
             document: &doc,
             markdown,
         }],
         WarningPolicy::Preserve,
-        "test/unqualified",
-        &mut never_called,
+        &never_called,
     )
     .unwrap();
     assert!(result.chunks.is_empty());
     assert!(result.documents[0].no_searchable_content);
+    assert_eq!(never_called.tokenizations.get(), 0);
 }
 
 #[test]
@@ -190,33 +217,11 @@ fn counts_are_cached_by_complete_bytes_only_within_one_authorized_call() {
             markdown,
         },
     ];
-    let mut calls = 0;
-    let mut count = |text: &str| {
-        calls += 1;
-        Ok(fake_count(text))
-    };
-    chunk_with_count(
-        &scope,
-        &inputs,
-        WarningPolicy::Preserve,
-        "test/unqualified",
-        &mut count,
-    )
-    .unwrap();
-    assert_eq!(calls, 1);
-    let mut count = |text: &str| {
-        calls += 1;
-        Ok(fake_count(text))
-    };
-    chunk_with_count(
-        &scope,
-        &inputs,
-        WarningPolicy::Preserve,
-        "test/unqualified",
-        &mut count,
-    )
-    .unwrap();
-    assert_eq!(calls, 2);
+    let counter = TestCounter::new("test/unqualified");
+    chunk_documents(&scope, &inputs, WarningPolicy::Preserve, &counter).unwrap();
+    assert_eq!(counter.tokenizations.get(), 1);
+    chunk_documents(&scope, &inputs, WarningPolicy::Preserve, &counter).unwrap();
+    assert_eq!(counter.tokenizations.get(), 2);
 }
 
 #[test]
@@ -235,15 +240,14 @@ fn structural_matrix_survives_full_authorization_and_dual_accounting() {
         let doc = canonicalize(CanonicalizeInput::new(markdown, "matrix")).unwrap();
         let before = serde_json::to_vec(&doc).unwrap();
         let scope = scope(&[&doc]);
-        let batch = chunk_with_count(
+        let batch = chunk_documents(
             &scope,
             &[DedupInput {
                 document: &doc,
                 markdown,
             }],
             WarningPolicy::Preserve,
-            "test/unqualified",
-            &mut |input| Ok(fake_count(input)),
+            &TestCounter::new("test/unqualified"),
         )
         .unwrap();
         assert!(!batch.chunks.is_empty());

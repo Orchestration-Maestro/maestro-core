@@ -39,20 +39,18 @@ fn check_order_does_not_change_the_batch<'a>(
     first: DedupInput<'a>,
     second: DedupInput<'a>,
 ) -> ChunkBatch<'a> {
-    let left = chunk_with_count(
+    let left = chunk_documents(
         scope,
         &[first, second],
         WarningPolicy::Preserve,
-        "test/unqualified",
-        &mut |input| Ok(fake_count(input)),
+        &TestCounter::new("test/unqualified"),
     )
     .unwrap();
-    let right = chunk_with_count(
+    let right = chunk_documents(
         scope,
         &[second, first],
         WarningPolicy::Preserve,
-        "test/unqualified",
-        &mut |input| Ok(fake_count(input)),
+        &TestCounter::new("test/unqualified"),
     )
     .unwrap();
     assert_eq!(
@@ -76,12 +74,11 @@ fn check_a_subset_keeps_group_and_chunk_identities<'a>(
     first: DedupInput<'a>,
     left: &ChunkBatch<'_>,
 ) -> ChunkBatch<'a> {
-    let subset = chunk_with_count(
+    let subset = chunk_documents(
         scope,
         &[first],
         WarningPolicy::Preserve,
-        "test/unqualified",
-        &mut |input| Ok(fake_count(input)),
+        &TestCounter::new("test/unqualified"),
     )
     .unwrap();
     assert_eq!(
@@ -105,12 +102,11 @@ fn check_scope_changes_change_the_identities(
 ) {
     let mut changed_scope = scope.clone();
     changed_scope.tenant_id = "tenant-b".into();
-    let changed = chunk_with_count(
+    let changed = chunk_documents(
         &changed_scope,
         &[first],
         WarningPolicy::Preserve,
-        "test/unqualified",
-        &mut |input| Ok(fake_count(input)),
+        &TestCounter::new("test/unqualified"),
     )
     .unwrap();
     assert_ne!(
@@ -120,12 +116,11 @@ fn check_scope_changes_change_the_identities(
     assert_ne!(changed.chunks[0].chunk_id, subset.chunks[0].chunk_id);
     changed_scope = scope.clone();
     changed_scope.workspace_id = "workspace-b".into();
-    let changed = chunk_with_count(
+    let changed = chunk_documents(
         &changed_scope,
         &[first],
         WarningPolicy::Preserve,
-        "test/unqualified",
-        &mut |input| Ok(fake_count(input)),
+        &TestCounter::new("test/unqualified"),
     )
     .unwrap();
     assert_ne!(
@@ -134,12 +129,11 @@ fn check_scope_changes_change_the_identities(
     );
     changed_scope.authorized_revisions.clear();
     assert!(
-        chunk_with_count(
+        chunk_documents(
             &changed_scope,
             &[first],
             WarningPolicy::Preserve,
-            "test/unqualified",
-            &mut |input| Ok(fake_count(input))
+            &TestCounter::new("test/unqualified")
         )
         .is_err()
     );
@@ -160,22 +154,20 @@ fn context_revisions_and_counter_profiles_are_not_false_equalities() {
         document: &second_doc,
         markdown: second_md,
     };
-    let result = chunk_with_count(
+    let result = chunk_documents(
         &scope,
         &[first, second],
         WarningPolicy::Preserve,
-        "test/unqualified",
-        &mut |input| Ok(fake_count(input)),
+        &TestCounter::new("test/unqualified"),
     )
     .unwrap();
     assert_eq!(result.prepared_groups.len(), 2);
     assert_ne!(result.chunks[0].chunk_id, result.chunks[1].chunk_id);
-    let changed = chunk_with_count(
+    let changed = chunk_documents(
         &scope,
         &[first],
         WarningPolicy::Preserve,
-        "test/changed",
-        &mut |input| Ok(fake_count(input)),
+        &TestCounter::new("test/changed"),
     )
     .unwrap();
     assert!(
@@ -201,26 +193,24 @@ fn operational_metadata_does_not_change_chunk_or_prepared_identity() {
         .operational_metadata
         .insert("run_id".into(), serde_json::json!("another-run"));
     let scope = scope(&[&original]);
-    let left = chunk_with_count(
+    let left = chunk_documents(
         &scope,
         &[DedupInput {
             document: &original,
             markdown,
         }],
         WarningPolicy::Preserve,
-        "test/unqualified",
-        &mut |input| Ok(fake_count(input)),
+        &TestCounter::new("test/unqualified"),
     )
     .unwrap();
-    let right = chunk_with_count(
+    let right = chunk_documents(
         &scope,
         &[DedupInput {
             document: &rerun,
             markdown,
         }],
         WarningPolicy::Preserve,
-        "test/unqualified",
-        &mut |input| Ok(fake_count(input)),
+        &TestCounter::new("test/unqualified"),
     )
     .unwrap();
     assert_eq!(left.chunks, right.chunks);

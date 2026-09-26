@@ -80,6 +80,7 @@ in place.
 │   │   │   │   └── structure.rs                                             # A document's structure indexed for chunking, the bodies packed from it and the context they
 │   │   │   ├── chunks/                                                      # Phase B chunk batches: assembly, prepared-input identities and replay validation
 │   │   │   │   ├── tests/                                                   # Tests of chunk assembly, prepared-input groups and replay validation
+│   │   │   │   │   ├── counter.rs                                           # Tests of the counting seam: any TokenCounter chunks, verified around its batch
 │   │   │   │   │   ├── identity.rs                                          # Identities: chunk and prepared-input identities follow scope and content alone
 │   │   │   │   │   ├── mod.rs                                               # Tests of chunk assembly, prepared-input groups and replay validation
 │   │   │   │   │   └── replay.rs                                            # Replay validation: coverage and prepared parts must rebuild from the mapped source
@@ -93,7 +94,7 @@ in place.
 │   │   │   │   ├── root.rs                                                  # The root a caller names, resolved once, and the names the store appends below it
 │   │   │   │   ├── unix.rs                                                  # Unix: every name resolves against an open directory through rustix's openat family, which
 │   │   │   │   └── windows.rs                                               # Windows: names resolve by path, but every directory on the way is held open without
-│   │   │   ├── tokenizer/                                                   # Local vocabulary-only tokenization through the qualified executable
+│   │   │   ├── tokenizer/                                                   # Token counting: the TokenCounter seam, and the qualified local executable that fills it
 │   │   │   │   ├── tests/                                                   # Tests of the native tokenizer: profile identity, artifacts, process limits and output
 │   │   │   │   │   ├── invocation.rs                                        # Tests of the counter's invocation: its environment, its arguments and each platform's loader
 │   │   │   │   │   ├── libraries.rs                                         # Tests of the library inventory: each platform's naming, its aliases and where they resolve
@@ -101,8 +102,9 @@ in place.
 │   │   │   │   ├── artifacts.rs                                             # Artifact checks: pinned files by size and SHA-256, and the exact library inventory
 │   │   │   │   ├── binding.rs                                               # Where this machine keeps the artifacts the tokenizer profile fingerprints
 │   │   │   │   ├── contract.rs                                              # The committed qualification profile: its identity and typed access to its fields
+│   │   │   │   ├── counter.rs                                               # The seam every token counter fills: what the chunker counts through, whoever counts
 │   │   │   │   ├── loader.rs                                                # How each platform's dynamic loader is made to load the verified libraries, and only them
-│   │   │   │   ├── mod.rs                                                   # Local vocabulary-only tokenization through the qualified executable
+│   │   │   │   ├── mod.rs                                                   # Token counting: the TokenCounter seam, and the qualified local executable that fills it
 │   │   │   │   ├── native.rs                                                # The pinned native tokenizer: verified artifacts and one counter process per input
 │   │   │   │   └── process.rs                                               # The counter subprocess: bounded pipes, a timeout and a child that is always reaped
 │   │   │   ├── validate/                                                    # Structural checks against the preserved bytes; no guessed repairs
@@ -144,7 +146,7 @@ in place.
 │   │   │       │   ├── content_equality.rs                                  # What groups occurrences: equal content in a stable order, canonical
 │   │   │       │   ├── mod.rs                                               # Exact duplicate grouping: stable occurrences, authorized scope and whole-batch refusals
 │   │   │       │   └── revision_history.rs                                  # Revisions of one document grouped together keep their own policy
-│   │   │       ├── chunk_contract.rs                                        # Public API boundary: production callers cannot supply a substitute counter
+│   │   │       ├── chunk_contract.rs                                        # Public API boundary: a counter from another crate chunks through the crate-root trait
 │   │   │       ├── chunk_native.rs                                          # Explicit local acceptance: never treat an ignored native test as a pass
 │   │   │       ├── dialect_properties.rs                                    # Generated Markdown dialects keep their spans, meaning and round trips, deterministically
 │   │   │       ├── document_contract.rs                                     # The canonical document's contract: structure, spans and provenance as the source gives them
