@@ -97,6 +97,11 @@ impl Home {
         fs::write(self.state().join(format!("fail-{verb}")), "").unwrap();
     }
 
+    /// Makes the fake `systemctl` succeed at its `verb` again.
+    pub(super) fn heal_systemctl(&self, verb: &str) {
+        fs::remove_file(self.state().join(format!("fail-{verb}"))).unwrap();
+    }
+
     /// Makes the fake user manager forget that the service is enabled and
     /// running.
     pub(super) fn stop_service(&self) {

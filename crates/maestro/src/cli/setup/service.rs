@@ -1,7 +1,10 @@
 //! The service setup installs, and the steps that install it: where it
 //! lives, the systemd user unit that runs it, what a machine lacks of it,
 //! and doing that. Each step checks first, so a second run finds nothing to
-//! do and changes nothing.
+//! do and changes nothing. Before setup writes the binary or the unit, it
+//! marks the service `restart-pending`, and only a restart that succeeds
+//! clears the mark: a rerun after a step that failed in between reloads and
+//! restarts the service, which still runs on what it read before.
 
 use super::{
     release::{GRPC_PORT, HOST, HTTP_PORT, Release, SERVICE},
@@ -19,6 +22,10 @@ use std::{
 /// The member of the archive that is the binary.
 const MEMBER: &str = "qdrant";
 
+/// What the restart-pending mark says to whoever finds it.
+const PENDING: &str = "maestro setup wrote the search service's binary or unit, and has not \
+                       restarted the service on them yet: `maestro setup --yes` does\n";
+
 /// Where the service lives: its binary and its data under the kernel's data
 /// directory, its unit among the user's systemd units.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -35,6 +42,9 @@ pub(in crate::cli) struct Layout {
     /// The unit, `systemd/user/maestro-qdrant.service` under the
     /// configuration home, where systemd's user manager reads it.
     pub(in crate::cli) unit: PathBuf,
+    /// The mark of files written that the service has not restarted on,
+    /// `restart-pending`.
+    pub(in crate::cli) pending: PathBuf,
 }
 
 impl Layout {
@@ -48,6 +58,7 @@ impl Layout {
             storage: root.join("storage"),
             snapshots: root.join("snapshots"),
             unit: config_home.join("systemd").join("user").join(SERVICE),
+            pending: root.join("restart-pending"),
             root,
         }
     }
@@ -174,7 +185,9 @@ pub(in crate::cli) fn user_manager(tools: &Tools) -> Result<(), Failure> {
 
 /// What the machine lacks of `release` as `layout` places it, in the order
 /// the steps run; none when everything is in place. It only reads, and asks
-/// the user manager whether the service is enabled and running.
+/// the user manager whether the service is enabled and running. A service
+/// marked restart-pending is reloaded and restarted, whatever else is in
+/// place.
 ///
 /// # Errors
 ///
@@ -190,17 +203,21 @@ pub(in crate::cli) fn survey(
     let unit_in_place = fs::read(&layout.unit).is_ok_and(|written| written == unit.as_bytes());
     let enabled = tools.systemctl(&["is-enabled", SERVICE])?.stdout == "enabled";
     let active = tools.systemctl(&["is-active", SERVICE])?.stdout == "active";
+    let pending = layout.pending.exists();
     let mut steps = Vec::new();
     if !binary_in_place {
         steps.push(Step::Install);
     }
     if !unit_in_place {
-        steps.extend([Step::WriteUnit, Step::Reload]);
+        steps.push(Step::WriteUnit);
+    }
+    if !unit_in_place || pending {
+        steps.push(Step::Reload);
     }
     if !enabled {
         steps.push(Step::Enable);
     }
-    if !(binary_in_place && unit_in_place && active) {
+    if pending || !(binary_in_place && unit_in_place && active) {
         steps.push(Step::Restart);
     }
     Ok(steps)
@@ -224,14 +241,15 @@ fn installed(path: &Path, sha256: &str) -> bool {
 
 /// Takes `steps`, in their order, to install `release` as `layout` places
 /// it. The install downloads and checks both digests before it writes
-/// anything, and each file is written whole or not at all.
+/// anything, and each file is written whole or not at all, once the service
+/// is marked restart-pending; a restart that succeeds clears the mark.
 ///
 /// # Errors
 ///
 /// [`Failure::Failed`] naming the step that failed and why: a download
 /// that is not the pinned one, a file that cannot be written or a
 /// `systemctl` that fails. The steps before it stay done, and a rerun takes
-/// the rest.
+/// the rest, a reload and a restart among them once a file was written.
 pub(super) fn apply(
     steps: &[Step],
     layout: &Layout,
@@ -242,14 +260,36 @@ pub(super) fn apply(
         match step {
             Step::Install => install(layout, release, tools)?,
             Step::WriteUnit => {
-                write_whole(&layout.unit, unit_text(layout, release)?.as_bytes(), 0o600)?;
+                let unit = unit_text(layout, release)?;
+                mark_pending(layout)?;
+                write_whole(&layout.unit, unit.as_bytes(), 0o600)?;
             }
             Step::Reload => tools.systemctl_must(&["daemon-reload"])?,
             Step::Enable => tools.systemctl_must(&["enable", SERVICE])?,
-            Step::Restart => tools.systemctl_must(&["restart", SERVICE])?,
+            Step::Restart => {
+                tools.systemctl_must(&["restart", SERVICE])?;
+                clear_pending(layout)?;
+            }
         }
     }
     Ok(())
+}
+
+/// Marks the service restart-pending, before a file it runs on is written.
+fn mark_pending(layout: &Layout) -> Result<(), Failure> {
+    write_whole(&layout.pending, PENDING.as_bytes(), 0o600)
+}
+
+/// Clears the restart-pending mark, once the service restarted on what was
+/// written; none is there to clear when nothing was.
+fn clear_pending(layout: &Layout) -> Result<(), Failure> {
+    match fs::remove_file(&layout.pending) {
+        Err(error) if error.kind() != io::ErrorKind::NotFound => Err(Failure::failed(format!(
+            "cannot remove {}: {error}",
+            layout.pending.display()
+        ))),
+        _ => Ok(()),
+    }
 }
 
 /// Downloads the archive of `release`, checks it and the binary it holds
@@ -259,6 +299,7 @@ fn install(layout: &Layout, release: &Release<'_>, tools: &Tools) -> Result<(), 
     pinned(&archive, release.archive_sha256, release.archive)?;
     let binary = tools.unpack(&archive, MEMBER)?;
     pinned(&binary, release.binary_sha256, "the binary it holds")?;
+    mark_pending(layout)?;
     write_whole(&layout.binary, &binary, 0o700)
 }
 

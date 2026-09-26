@@ -1,8 +1,9 @@
 //! Installing the service: a survey, which is all a preview does, changes
 //! nothing; an install writes the binary and the unit and starts the
-//! service, and a second run then changes nothing; and a download that is not
+//! service, and a second run then changes nothing; a download that is not
 //! the pinned one, or a tool that fails, stops setup before it writes what
-//! depends on it.
+//! depends on it; and a rerun after a step failed reloads and restarts the
+//! service on what the failed run wrote.
 
 use super::{
     super::{
@@ -216,6 +217,59 @@ fn a_failed_systemctl_stops_setup_naming_its_command_and_why() {
         home.calls().last().map(String::as_str),
         Some("systemctl --user daemon-reload"),
         "nothing after the step that failed"
+    );
+}
+
+#[test]
+fn a_rerun_after_a_failed_step_restarts_the_service_on_what_was_written() {
+    let home = Home::new();
+    let fixture = Fixture::new(&home);
+    let (layout, release, tools) = (home.layout(), fixture.release(), home.tools());
+    // A unit edited by hand, written again before the reload fails; then a
+    // binary changed by hand, installed again before the restart fails. Each
+    // time the service still runs, on what it read before.
+    let changes: [(&dyn Fn(), &str); 2] = [
+        (
+            &|| fs::write(&layout.unit, "[Service]\nExecStart=/bin/false\n").unwrap(),
+            "daemon-reload",
+        ),
+        (
+            &|| fs::write(&layout.binary, "#!/bin/sh\nexit 1\n").unwrap(),
+            "restart",
+        ),
+    ];
+    install(&home, &release);
+    for (change, failing) in changes {
+        change();
+        home.fail_systemctl(failing);
+        let steps = survey(&layout, &release, &tools).unwrap();
+        apply(&steps, &layout, &release, &tools).unwrap_err();
+        home.heal_systemctl(failing);
+        let steps = survey(&layout, &release, &tools).unwrap();
+        assert_eq!(steps, [Step::Reload, Step::Restart], "after {failing}");
+        apply(&steps, &layout, &release, &tools).unwrap();
+        assert_eq!(
+            survey(&layout, &release, &tools).unwrap(),
+            [],
+            "nothing pending once the service restarted, after {failing}"
+        );
+    }
+}
+
+#[test]
+fn a_mark_that_cannot_be_cleared_fails_the_restart_naming_it() {
+    let home = Home::new();
+    let fixture = Fixture::new(&home);
+    let (layout, release, tools) = (home.layout(), fixture.release(), home.tools());
+    install(&home, &release);
+    // A directory where the mark would be: no file to remove.
+    fs::create_dir(&layout.pending).unwrap();
+    let refusal = apply(&[Step::Restart], &layout, &release, &tools).unwrap_err();
+    assert!(matches!(refusal, Failure::Failed(_)), "{refusal:?}");
+    let message = refusal.to_string();
+    assert!(
+        message.contains(&layout.pending.display().to_string()),
+        "{message}"
     );
 }
 
