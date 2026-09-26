@@ -53,6 +53,13 @@ pub(super) enum KnowledgeCommand {
         #[arg(long)]
         collection: String,
     },
+    /// Give each revision of a collection its quality disposition, as a job
+    /// printing its ID first.
+    Quality {
+        /// The collection's ID, as its declaration names it.
+        #[arg(long)]
+        collection: String,
+    },
     /// Report a collection's documents, revisions and generations.
     Status {
         /// The collection's ID, as its declaration names it.

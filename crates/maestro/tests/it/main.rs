@@ -11,6 +11,7 @@ mod fakes;
 mod import_jobs;
 mod job_waits;
 mod machine;
+mod quality_gates;
 mod setup_installs;
 mod status_summaries;
 mod support;

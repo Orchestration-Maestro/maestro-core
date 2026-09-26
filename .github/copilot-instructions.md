@@ -83,11 +83,13 @@ in place.
 │   │   │   │   ├── args.rs                                                  # The grammar, noun then verb, as clap derives it; the comments are the help
 │   │   │   │   ├── collection.rs                                            # knowledge collection add, and the declaration a later command finds for a collection
 │   │   │   │   ├── failure.rs                                               # Why a command stopped short: refused (exit 2) or failed (exit 1)
+│   │   │   │   ├── foreground.rs                                            # A job run in the foreground: submitted or found by its key, taken or followed, a stale holder superseded
 │   │   │   │   ├── import.rs                                                # knowledge import: a leased job in the foreground, its ID first; a rerun follows, takes over or supersedes
 │   │   │   │   ├── kernel.rs                                                # The kernel every command opens: paths, database, config.toml applied, the local principal's scopes
 │   │   │   │   ├── lease.rs                                                 # The lease of a job run in the foreground: Holder::run's heartbeat thread and each step renew it
 │   │   │   │   ├── mod.rs                                                   # The commands' door: declarations only
 │   │   │   │   ├── output.rs                                                # How a command prints: text, or one JSON document under --json; diagnostics on stderr
+│   │   │   │   ├── quality.rs                                               # knowledge quality: the gate as a leased job; its inputs the ledger beside the declaration and the revisions
 │   │   │   │   ├── run.rs                                                   # Parses the arguments, opens the kernel, runs the command, returns its exit code
 │   │   │   │   ├── status.rs                                                # knowledge status: documents, revisions by status and disposition, generations
 │   │   │   │   └── wait.rs                                                  # job wait: a job's stream followed to its end, the command exiting with its outcome; the follower
@@ -102,6 +104,7 @@ in place.
 │   │   │       ├── job_waits.rs                                             # job wait follows a job to its end and exits with its outcome; an unreadable job is unknown
 │   │   │       ├── machine.rs                                               # How doctor and status tests run the binary: a router where nothing answers, the fakes on the PATH
 │   │   │       ├── main.rs                                                  # The one integration-test crate of the binary
+│   │   │       ├── quality_gates.rs                                         # knowledge quality: its report, a rerun, a gate after an import, the ledger first, failures and refusals
 │   │   │       ├── setup_installs.rs                                        # maestro setup: the preview writes nothing, a wrong download is refused; elsewhere manual steps, exit 2
 │   │   │       ├── status_summaries.rs                                      # maestro status: services ready or down, the readable collections, nothing created on a fresh machine
 │   │   │       └── support.rs                                               # What the contract tests share: a scratch home, the synthetic collection, the binary under a deadline

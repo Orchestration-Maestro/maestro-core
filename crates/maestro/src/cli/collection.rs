@@ -17,7 +17,7 @@ use maestro_knowledge::{
 use serde::{Deserialize, Serialize};
 use std::{
     fs,
-    path::{self, Path},
+    path::{self, Path, PathBuf},
     process::ExitCode,
     str,
 };
@@ -67,6 +67,9 @@ pub(super) struct Declared {
     pub(super) declaration: Declaration,
     /// The digest of its bytes.
     pub(super) digest: Digest,
+    /// The file it was added from, absolute: its quality ledger and its
+    /// evaluation suite are relative to its directory.
+    pub(super) path: PathBuf,
 }
 
 /// Adds the collection the declaration `file` declares, and prints what it
@@ -155,6 +158,7 @@ pub(super) fn declared(kernel: &Kernel, collection: &str) -> Result<Declared, Fa
     Ok(Declared {
         declaration,
         digest,
+        path: PathBuf::from(added.path),
     })
 }
 

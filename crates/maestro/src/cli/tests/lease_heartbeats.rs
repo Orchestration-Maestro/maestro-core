@@ -1,13 +1,20 @@
 //! The lease of a job run in the foreground, which only `Holder::run` holds:
 //! renewed at each heartbeat and each step while its work runs, never again
 //! once another process took it over, and released with the outcome its
-//! work returns.
+//! work returns; and a command's work, which the foreground loop runs under
+//! that lease, never without its heartbeats.
 
 use super::support::{Scratch, everything, leased, lost, recorded};
-use crate::cli::lease::{Holder, TIMING, Timing, ticks};
-use maestro_kernel::job::{self, JobState};
+use crate::cli::{
+    foreground,
+    kernel::Kernel,
+    lease::{Holder, TIMING, Timing, ticks},
+    output::Output,
+};
+use maestro_kernel::job::{self, JobState, NewJob};
 use serde_json::json;
 use std::{
+    path::PathBuf,
     sync::mpsc,
     thread,
     time::{Duration, Instant, SystemTime},
@@ -31,6 +38,12 @@ const QUIET: Timing = Timing {
 /// 20 s a mutation test is given at least, so that heartbeats that never come
 /// fail the test instead of timing out.
 const PATIENCE: Duration = Duration::from_secs(10);
+
+/// How long a test waits for a job run in the foreground to end before it
+/// fails: its work's patience and more, and shorter than the 20 s a mutation
+/// test is given at least, so that a loop that never runs the work fails the
+/// test instead of timing out.
+const ENDING: Duration = Duration::from_secs(15);
 
 #[test]
 fn the_command_line_leases_last_a_minute_renewed_every_twenty_seconds() {
@@ -63,6 +76,69 @@ fn heartbeats_renew_the_lease_while_the_work_runs() {
         ended.outcome,
         Some(json!({ "renewed": true })),
         "a heartbeat renewed the lease within {PATIENCE:?}"
+    );
+}
+
+/// Whether the expiry `expires` reads comes to be later than at its first
+/// reading before `deadline`: whether a heartbeat renewed the lease.
+fn renewed_before(deadline: Instant, expires: impl Fn() -> String) -> bool {
+    let taken = expires();
+    loop {
+        if expires() > taken {
+            return true;
+        }
+        if Instant::now() > deadline {
+            return false;
+        }
+    }
+}
+
+#[test]
+fn a_command_runs_its_work_under_the_heartbeats_of_its_lease() {
+    let scratch = Scratch::new();
+    let database = scratch.database();
+    let scopes = everything(&database);
+    let (ended, ending) = mpsc::channel();
+    // A thread of its own, which a loop that never runs the work would keep.
+    let running = thread::spawn(move || {
+        let inputs = json!({ "test": "heartbeats" });
+        let scope = "workspace/default/collection/synthetic".parse().unwrap();
+        let new = NewJob {
+            kind: "knowledge.test",
+            inputs: &inputs,
+            scope: &scope,
+            resource: None,
+        };
+        // The same key, so the foreground loop runs this job.
+        let submitted = database.submit_job(&new, SystemTime::now()).unwrap();
+        let kernel = Kernel {
+            database,
+            scopes,
+            config_dir: PathBuf::new(),
+        };
+        let expires = || {
+            let job = kernel.database.job(&kernel.scopes, submitted.id).unwrap();
+            job.and_then(|job| job.lease).unwrap().expires
+        };
+        let deadline = Instant::now() + PATIENCE;
+        let job = foreground::run_to_end(&kernel, Output::new(true), &new, BEATING, |_| {
+            let renewed = renewed_before(deadline, expires);
+            (JobState::Succeeded, json!({ "renewed": renewed }))
+        });
+        ended.send((submitted.id, job.unwrap())).unwrap();
+    });
+    let (submitted, job) = ending
+        .recv_timeout(ENDING)
+        .unwrap_or_else(|error| panic!("the job did not end within {ENDING:?}: {error}"));
+    running.join().unwrap();
+    assert_eq!(
+        (job.id, job.state, job.outcome),
+        (
+            submitted,
+            JobState::Succeeded,
+            Some(json!({ "renewed": true }))
+        ),
+        "a heartbeat renewed the lease within {PATIENCE:?} while the work ran"
     );
 }
 

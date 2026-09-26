@@ -5,6 +5,8 @@
 //!   from its strict declaration, or takes its new version;
 //! - `maestro knowledge import --collection <id>` imports the collection's
 //!   corpus manifests as a job, its ID printed first;
+//! - `maestro knowledge quality --collection <id>` gives each revision of the
+//!   collection its quality disposition, as a job, its ID printed first;
 //! - `maestro knowledge status --collection <id>` reports its documents, its
 //!   revisions by status and by disposition, and its generations;
 //! - `maestro job wait <id>` follows a job until it ends, and exits with its
@@ -97,6 +99,33 @@
 //! {"schema":"maestro-cli/import/1","job":"<ulid>","kind":"knowledge.import",
 //!  "attempt":1,"state":"succeeded","outcome":{"collection":"synthetic",
 //!  "held":0,"imported":28,"refusals":[],"refused":0,"unchanged":0}}
+//! ```
+//!
+//! # `knowledge quality`
+//!
+//! Runs the quality gate (`maestro_knowledge::quality`) over the collection
+//! as a job of the kind `knowledge.quality`, in the collection's scope,
+//! holding the resource `collection/<id>/quality`, as the import runs its
+//! own: its ID first, a heartbeat renewing its lease while the gate runs, a
+//! rerun finding the job of its key, and another job on the resource
+//! superseded or refusing it. Its frozen inputs are
+//! `{"collection": <id>, "declaration": <sha256>, "ledger": <sha256 or null>,
+//! "revisions": <sha256>}`: the digest of the quality ledger the declaration
+//! names, relative to the file it was added from, null when there is no such
+//! file; and that of the revisions the local principal reads, their IDs in
+//! record order, each followed by a line feed. So the same command again
+//! decides nothing twice, and after an import that recorded new revisions it
+//! is a new job, which decides them. A ledger that is not strict is refused
+//! before any job. The job ends succeeded with the gate's report, or failed
+//! with `{"error": <why>}`; what the gate decided before it stopped stays
+//! decided:
+//!
+//! ```json
+//! {"schema":"maestro-cli/knowledge-quality/1","job":"<ulid>",
+//!  "kind":"knowledge.quality","attempt":1,"state":"succeeded",
+//!  "outcome":{"collection":"synthetic","decided":28,"held":[],"kept":0,
+//!   "outcomes":{"accepted":28,"accepted_with_warnings":0,"excluded":0,
+//!    "needs_reextraction":0,"quarantined":0},"revisions":28,"rules":{}}}
 //! ```
 //!
 //! # `knowledge status`

@@ -4,7 +4,7 @@
 //! meanwhile leaves the resource free, as it ended.
 
 use super::support::{Scratch, everything, leased};
-use crate::cli::import::supersede;
+use crate::cli::foreground::supersede;
 use maestro_kernel::job::{self, JobState, NewJob};
 use serde_json::{Value, json};
 use std::time::{Duration, SystemTime};
