@@ -12,6 +12,7 @@ pub mod document;
 mod filesystem;
 pub mod gateway;
 pub mod generation;
+pub mod job;
 pub mod journal;
 pub mod paths;
 pub mod scope;

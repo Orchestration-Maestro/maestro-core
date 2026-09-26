@@ -62,20 +62,15 @@ path = "crates/maestro-kernel/src/store/mod.rs"
 item = "artifacts"
 reason = "every kernel table that refers to an artifact pins it in the transaction that records the reference: revisions now, then chunk sets, evaluation reports and model cards"
 
-# The journal's event types serve every kernel write that journals its change;
-# the grants of scopes are the first in the crate. The second writer to use
-# them removes these, which the rule then reports stale.
+# The journal's filter, which jobs alone use outside the journal for now, to
+# read a job's last step: the lane that adds a second reader of a stream, the
+# binary's job wait (T022) among them, removes it when the rule reports it
+# stale.
 [[exception]]
 rule = "ARC-005"
 path = "crates/maestro-kernel/src/journal/mod.rs"
-item = "Event"
-reason = "a kernel write journals its change in its own transaction through event::record"
-
-[[exception]]
-rule = "ARC-005"
-path = "crates/maestro-kernel/src/journal/mod.rs"
-item = "NewEvent"
-reason = "a kernel write journals its change in its own transaction through event::record"
+item = "Filter"
+reason = "the journal's public filter, which every reader of a stream names: jobs first, then the binary's job wait (T022)"
 
 # The name rule of scopes is public: maestro-knowledge's parser applies it to
 # every collection and source id, which the rule does not count, and the
