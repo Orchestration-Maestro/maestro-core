@@ -3,11 +3,13 @@
 
 use super::{
     error::Error,
+    events::{TAKEN_OVER, moved_into, record_on_stream},
     record::{Job, Lease, find, unsigned},
     state::JobState,
 };
 use crate::store::Database;
 use rusqlite::{Connection, Transaction, params};
+use serde_json::{Value, json};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use ulid::Ulid;
 
@@ -16,7 +18,10 @@ impl Database {
     /// caller's clock, for `term`, and returns it: a queued job starts
     /// running, and a running job whose lease expired, at `now` or before,
     /// keeps running under its new holder, with the next lease number. The
-    /// expiry is compared with `now`, never with another clock.
+    /// expiry is the one its holder's lease records, compared with `now`,
+    /// never with another clock. The same write records
+    /// [`TAKEN`](super::TAKEN) with the lease, or [`TAKEN_OVER`] with the
+    /// lease and the one it took over.
     ///
     /// # Errors
     ///
@@ -24,7 +29,8 @@ impl Database {
     /// lease has not expired, whoever asks; [`Error::IllegalMove`] when the
     /// job has ended; [`Error::UnknownJob`]; [`Error::Time`] when `now` or
     /// the expiry falls outside what the kernel records; and [`Error::Store`]
-    /// when the database cannot record the lease.
+    /// when the database cannot record the lease or its event. Nothing is
+    /// then recorded.
     pub fn take_job(
         &self,
         id: Ulid,
@@ -35,12 +41,12 @@ impl Database {
         self.write(|transaction| {
             let job = find(transaction, id)?.ok_or(Error::UnknownJob(id))?;
             let (heartbeat, expires) = times(transaction, now, term)?;
-            match job.lease {
+            match &job.lease {
                 Some(current) if current.expires > heartbeat => {
                     return Err(Error::Held {
                         job: id,
-                        holder: current.holder,
-                        expires: current.expires,
+                        holder: current.holder.clone(),
+                        expires: current.expires.clone(),
                     });
                 }
                 None if !job.state.may_move_to(JobState::Running) => {
@@ -61,13 +67,25 @@ impl Database {
                 params![id.to_string(), holder, heartbeat, expires],
                 |row| unsigned(row, 0),
             )?;
-            Ok(Lease {
+            let lease = Lease {
                 job: id,
                 holder: holder.to_owned(),
                 number,
                 heartbeat,
                 expires,
-            })
+            };
+            let (r#type, data) = match &job.lease {
+                Some(previous) => (
+                    TAKEN_OVER,
+                    json!({ "lease": lease_data(&lease), "previous_lease": lease_data(previous) }),
+                ),
+                None => (
+                    moved_into(JobState::Running),
+                    json!({ "lease": lease_data(&lease) }),
+                ),
+            };
+            record_on_stream(transaction, id, &job.scope, r#type, &data)?;
+            Ok(lease)
         })
     }
 
@@ -94,6 +112,16 @@ impl Database {
         *lease = renewed;
         Ok(())
     }
+}
+
+/// `lease` as the events of its job carry it.
+pub(super) fn lease_data(lease: &Lease) -> Value {
+    json!({
+        "holder": lease.holder,
+        "number": lease.number,
+        "heartbeat": lease.heartbeat,
+        "expires": lease.expires,
+    })
 }
 
 /// The job of `lease` as `transaction` records it, when `lease` is still its

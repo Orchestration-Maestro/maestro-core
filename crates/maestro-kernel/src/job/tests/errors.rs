@@ -37,7 +37,21 @@ fn each_refusal_says_what_was_refused_and_why() {
                 holder: FIRST.to_owned(),
                 expires: "2026-09-26T12:00:30.000Z".to_owned(),
             },
-            format!("job {ID} is leased to first-process until 2026-09-26T12:00:30.000Z"),
+            format!(
+                "job {ID} is leased to first-process with an expiry of \
+                 2026-09-26T12:00:30.000Z: only its holder moves the job, and another takes \
+                 the lease over only from that time on"
+            ),
+        ),
+        (
+            Error::ResourceHeld {
+                resource: "knowledge.publish/demo".to_owned(),
+                job,
+            },
+            format!(
+                "resource knowledge.publish/demo is held by job {ID}, which is queued or \
+                 running: another job on it is refused until that one ends"
+            ),
         ),
         (
             Error::Lost {
@@ -118,14 +132,14 @@ fn a_stored_job_the_kernel_cannot_read_back_is_an_error_never_a_guess() {
         .execute_batch("DELETE FROM jobs; PRAGMA ignore_check_constraints = ON;")
         .unwrap();
     // Each row breaks one column: its ID, key, attempt, state, lease number
-    // and outcome are columns 0, 2, 3, 5, 6 and 10.
+    // and outcome are columns 0, 2, 3, 6, 7 and 11.
     let rows = [
         ("not a ulid", key.as_str(), 1, "queued", 0, None, 0),
         (ID, "not a digest", 1, "queued", 0, None, 2),
         (ID, key.as_str(), -1, "queued", 0, None, 3),
-        (ID, key.as_str(), 1, "paused", 0, None, 5),
-        (ID, key.as_str(), 1, "queued", -1, None, 6),
-        (ID, key.as_str(), 1, "succeeded", 1, Some("1e400"), 10),
+        (ID, key.as_str(), 1, "paused", 0, None, 6),
+        (ID, key.as_str(), 1, "queued", -1, None, 7),
+        (ID, key.as_str(), 1, "succeeded", 1, Some("1e400"), 11),
     ];
     for (id, stored_key, attempt, state, number, outcome, column) in rows {
         outside

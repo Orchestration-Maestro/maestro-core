@@ -1,12 +1,13 @@
 //! What the job tests share: a scratch data directory, the publication they
-//! submit, the holders of its leases, and the clock they inject.
+//! submit, the holders of its leases, the clock they inject, and what they
+//! read of the journal and of the tables.
 
 use crate::{
     job::{Job, Lease, NewJob, stream},
     journal::{Event, Filter},
     store::Database,
 };
-use rusqlite::Connection;
+use rusqlite::{Connection, types::Value as Stored};
 use serde_json::{Value, json};
 use std::{
     env, fs,
@@ -77,12 +78,13 @@ pub(super) fn collection(name: &str) -> Value {
     json!({ "collection": name })
 }
 
-/// A publication with `inputs`, on the tests' scope.
+/// A publication with `inputs`, on the tests' scope, holding no resource.
 pub(super) fn publish(inputs: &Value) -> NewJob<'_> {
     NewJob {
         kind: PUBLISH,
         inputs,
         scope: SCOPE,
+        resource: None,
     }
 }
 
@@ -104,5 +106,27 @@ pub(super) fn journaled(database: &Database, id: Ulid) -> Vec<Event> {
             after: 0,
             r#type: None,
         })
+        .unwrap()
+}
+
+/// The types of the events of the stream of job `id`, in sequence order.
+pub(super) fn types(database: &Database, id: Ulid) -> Vec<String> {
+    journaled(database, id)
+        .into_iter()
+        .map(|event| event.r#type)
+        .collect()
+}
+
+/// Every row of `table`, each column as SQLite stores it, in the order the
+/// rows were inserted, read through `connection`.
+pub(super) fn rows(connection: &Connection, table: &str) -> Vec<Vec<Stored>> {
+    let mut statement = connection
+        .prepare(&format!("SELECT * FROM {table} ORDER BY rowid"))
+        .unwrap();
+    let columns = statement.column_count();
+    statement
+        .query_map([], |row| (0..columns).map(|index| row.get(index)).collect())
+        .unwrap()
+        .collect::<Result<_, _>>()
         .unwrap()
 }

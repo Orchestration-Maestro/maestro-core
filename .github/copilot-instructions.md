@@ -173,7 +173,7 @@ in place.
 │   │   │   ├── 0002_journal.sql                                             # The journal: the append-only events, their triggers, and the consumers' cursors
 │   │   │   ├── 0003_scopes.sql                                              # The grants: each principal's rights on a scope and on every scope below it
 │   │   │   ├── 0004_documents.sql                                           # The pipeline's records: collections, sources, documents, revisions, their dispositions, chunk sets, chunks and generations
-│   │   │   └── 0005_jobs.sql                                                # The jobs table: each job's key, attempt, state, lease and outcome
+│   │   │   └── 0005_jobs.sql                                                # The jobs table: each job's key, attempt, resource, state, lease and outcome, and its triggers
 │   │   ├── src/                                                             # The crate's sources
 │   │   │   ├── artifact/                                                    # Content-addressed artifacts: immutable bytes stored, and read back, by their
 │   │   │   │   ├── digest.rs                                                # A SHA-256 digest: the name every artifact is stored under
@@ -222,16 +222,20 @@ in place.
 │   │   │   │   └── state.rs                                                 # The states a generation moves through, and the one move each allows
 │   │   │   ├── job/                                                         # Jobs: long work, such as an import, a preparation or a publication, run
 │   │   │   │   ├── tests/                                                   # Tests of jobs: their keys and attempts, their leases and states, their
+│   │   │   │   │   ├── changes.rs                                           # Changes: each change of a job recorded on its stream of the journal, with
 │   │   │   │   │   ├── child.rs                                             # Not a test of its own: the first process of the resume test, which works
 │   │   │   │   │   ├── errors.rs                                            # Refusals: what each one says, and a stored job the kernel cannot read
 │   │   │   │   │   ├── leases.rs                                            # Leases: one holder at a time, taken over once expired, renewed by
 │   │   │   │   │   ├── mod.rs                                               # Tests of jobs: their keys and attempts, their leases and states, their
 │   │   │   │   │   ├── progress.rs                                          # Progress: recorded on the job's stream of the journal in the write that
+│   │   │   │   │   ├── resources.rs                                         # Resources: what a job holds exclusively while it is queued or running
 │   │   │   │   │   ├── resume.rs                                            # A job interrupted mid-way: its first process dies, and a second process
 │   │   │   │   │   ├── states.rs                                            # States: a job moves only forward, and its three outcomes are final
 │   │   │   │   │   ├── submit.rs                                            # Submitting a job: its ID, its idempotency key, and the job a retried
-│   │   │   │   │   └── support.rs                                           # What the job tests share: a scratch data directory, the publication they
+│   │   │   │   │   ├── support.rs                                           # What the job tests share: a scratch data directory, the publication they
+│   │   │   │   │   └── table.rs                                             # The jobs table: what the database itself refuses, whoever writes, so no
 │   │   │   │   ├── error.rs                                                 # Why the kernel refused to submit, lease, move or read a job
+│   │   │   │   ├── events.rs                                                # The events of a job: each change and each step, recorded on the job's
 │   │   │   │   ├── lease.rs                                                 # Leases: taken by one holder at a time, taken over once expired, and
 │   │   │   │   ├── mod.rs                                                   # Jobs: long work, such as an import, a preparation or a publication, run
 │   │   │   │   ├── outcome.rs                                               # Outcomes: a job ends succeeded, failed or cancelled, and stays so

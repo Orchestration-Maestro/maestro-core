@@ -19,16 +19,25 @@ pub enum Error {
         /// The state the move would have put it in.
         to: JobState,
     },
-    /// A lease holds the job: another lease is refused until it expires, and
-    /// only its holder cancels the running job. The job stays as it is.
+    /// A lease holds the job: only its holder moves the job, and another
+    /// takes the lease over only once it has expired. The job stays as it
+    /// is.
     Held {
         /// The job's ID.
         job: Ulid,
         /// Who holds its lease.
         holder: String,
-        /// When the lease expires, unless its holder renews it: RFC 3339 in
-        /// UTC.
+        /// The lease's expiry, RFC 3339 in UTC: a time to come when a lease is
+        /// refused, and a time already past, or not, when a cancellation is.
         expires: String,
+    },
+    /// Another job holds the resource, queued or running: the job is not
+    /// submitted.
+    ResourceHeld {
+        /// The resource.
+        resource: String,
+        /// The job that holds it.
+        job: Ulid,
     },
     /// The lease is no longer the job's: another holder took it over, or the
     /// job ended. Its holder writes nothing more to the job, so a stalled
@@ -64,7 +73,16 @@ impl fmt::Display for Error {
                 job,
                 holder,
                 expires,
-            } => write!(formatter, "job {job} is leased to {holder} until {expires}"),
+            } => write!(
+                formatter,
+                "job {job} is leased to {holder} with an expiry of {expires}: only its holder \
+                 moves the job, and another takes the lease over only from that time on"
+            ),
+            Self::ResourceHeld { resource, job } => write!(
+                formatter,
+                "resource {resource} is held by job {job}, which is queued or running: another \
+                 job on it is refused until that one ends"
+            ),
             Self::Lost {
                 job,
                 holder,
@@ -92,6 +110,7 @@ impl error::Error for Error {
             Self::UnknownJob(_)
             | Self::IllegalMove { .. }
             | Self::Held { .. }
+            | Self::ResourceHeld { .. }
             | Self::Lost { .. }
             | Self::Time => None,
         }

@@ -3,25 +3,17 @@
 
 use super::{
     error::Error,
+    events::{PROGRESSED, record_on_stream, stream},
     lease::{held, renewal},
     record::Lease,
 };
 use crate::{
-    journal::{Event, Filter, NewEvent, event::record},
+    journal::{Event, Filter},
     store::Database,
 };
 use serde_json::Value;
 use std::time::{Duration, SystemTime};
 use ulid::Ulid;
-
-/// The type of the events that record a step of a job.
-pub const PROGRESSED: &str = "maestro.job.progressed.v1";
-
-/// The stream of job `id` in the journal, `job/<id>`: its steps, in order.
-#[must_use]
-pub fn stream(id: Ulid) -> String {
-    format!("job/{id}")
-}
 
 impl Database {
     /// Records `data`, the caller's JSON, as the next step of the job of
@@ -42,20 +34,10 @@ impl Database {
         term: Duration,
         data: &Value,
     ) -> Result<Event, Error> {
-        let name = stream(lease.job);
         let (renewed, event) = self.write(|transaction| {
             let job = held(transaction, lease)?;
             let renewed = renewal(transaction, lease, now, term)?;
-            let event = record(
-                transaction,
-                &NewEvent {
-                    stream: &name,
-                    r#type: PROGRESSED,
-                    subject: &name,
-                    scope: &job.scope,
-                    data,
-                },
-            )?;
+            let event = record_on_stream(transaction, job.id, &job.scope, PROGRESSED, data)?;
             Ok::<_, Error>((renewed, event))
         })?;
         *lease = renewed;

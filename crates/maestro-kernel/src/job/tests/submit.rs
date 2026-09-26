@@ -1,7 +1,7 @@
 //! Submitting a job: its ID, its idempotency key, and the job a retried
 //! command finds.
 
-use super::support::{FIRST, PUBLISH, SCOPE, Scratch, TERM, at, collection, publish};
+use super::support::{FIRST, PUBLISH, SCOPE, Scratch, TERM, at, collection, journaled, publish};
 use crate::{
     artifact::Digest,
     job::{Job, JobState, NewJob},
@@ -11,7 +11,8 @@ use std::time::UNIX_EPOCH;
 use ulid::Ulid;
 
 #[test]
-fn a_submitted_job_is_queued_under_a_ulid_of_its_time_and_the_digest_of_its_kind_and_inputs() {
+fn a_submitted_job_is_queued_under_a_ulid_of_its_time_and_the_digest_of_its_kind_scope_and_inputs()
+{
     let scratch = Scratch::new();
     let database = scratch.open();
     let inputs = collection("demo");
@@ -25,9 +26,12 @@ fn a_submitted_job_is_queued_under_a_ulid_of_its_time_and_the_digest_of_its_kind
     let expected = Job {
         id: job.id,
         kind: PUBLISH.to_owned(),
-        idempotency_key: Digest::of(br#"["knowledge.publish",{"collection":"demo"}]"#),
+        idempotency_key: Digest::of(
+            br#"["knowledge.publish","workspace/default/collection/demo",{"collection":"demo"}]"#,
+        ),
         attempt: 1,
         scope: SCOPE.to_owned(),
+        resource: None,
         state: JobState::Queued,
         lease: None,
         outcome: None,
@@ -38,7 +42,7 @@ fn a_submitted_job_is_queued_under_a_ulid_of_its_time_and_the_digest_of_its_kind
 }
 
 #[test]
-fn the_same_kind_and_inputs_make_the_same_key_whatever_the_order_of_their_fields() {
+fn the_same_kind_scope_and_inputs_make_the_same_key_whatever_the_order_of_their_fields() {
     let scratch = Scratch::new();
     let database = scratch.open();
     let inputs = json!({"collection": "demo", "force": true});
@@ -50,13 +54,17 @@ fn the_same_kind_and_inputs_make_the_same_key_whatever_the_order_of_their_fields
     );
     let prepare = NewJob {
         kind: "knowledge.prepare",
-        inputs: &inputs,
-        scope: SCOPE,
+        ..publish(&inputs)
+    };
+    let elsewhere = NewJob {
+        scope: "workspace/default/collection/other",
+        ..publish(&inputs)
     };
     let other_inputs = collection("other");
     let others = [
         database.submit_job(&prepare, at(2)).unwrap(),
-        database.submit_job(&publish(&other_inputs), at(3)).unwrap(),
+        database.submit_job(&elsewhere, at(3)).unwrap(),
+        database.submit_job(&publish(&other_inputs), at(4)).unwrap(),
     ];
     for other in others {
         assert_ne!(other.idempotency_key, job.idempotency_key, "{other:?}");
@@ -71,14 +79,20 @@ fn a_retried_command_returns_the_job_while_it_is_queued_or_running_and_once_it_s
     let database = scratch.open();
     let inputs = collection("demo");
     let queued = database.submit_job(&publish(&inputs), at(0)).unwrap();
-    assert_eq!(
-        database.submit_job(&publish(&inputs), at(1)).unwrap(),
-        queued
-    );
+    let retried = |seconds| {
+        let before = journaled(&database, queued.id);
+        let found = database.submit_job(&publish(&inputs), at(seconds)).unwrap();
+        assert_eq!(
+            journaled(&database, queued.id),
+            before,
+            "a retried command records nothing"
+        );
+        found
+    };
+    assert_eq!(retried(1), queued);
     let lease = database.take_job(queued.id, FIRST, at(2), TERM).unwrap();
-    let running = database.submit_job(&publish(&inputs), at(3)).unwrap();
     assert_eq!(
-        running,
+        retried(3),
         Job {
             state: JobState::Running,
             lease: Some(lease.clone()),
@@ -94,13 +108,10 @@ fn a_retried_command_returns_the_job_while_it_is_queued_or_running_and_once_it_s
         Job {
             state: JobState::Succeeded,
             outcome: Some(outcome),
-            ..queued
+            ..queued.clone()
         }
     );
-    assert_eq!(
-        database.submit_job(&publish(&inputs), at(4)).unwrap(),
-        succeeded
-    );
+    assert_eq!(retried(4), succeeded);
 }
 
 #[test]

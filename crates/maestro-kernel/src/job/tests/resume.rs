@@ -6,7 +6,7 @@ use super::{
     child::{DATA, DONE, MARK},
     support::{FIRST, SECOND, Scratch, TERM, at, collection, journaled, publish},
 };
-use crate::job::{Error, JobState};
+use crate::job::{CREATED, Error, JobState, PROGRESSED, SUCCEEDED, TAKEN, TAKEN_OVER};
 use serde_json::json;
 use std::{
     env,
@@ -19,6 +19,11 @@ use std::{
 const STEPS: u64 = 5;
 /// The child test the first process runs, alone.
 const CHILD: &str = "job::tests::child::act";
+/// The time zone the first process runs in, five hours east of UTC in the
+/// POSIX notation glibc, macOS and the Windows C runtime read: a lease time
+/// it wrote in local time rather than UTC would not be the expiry the second
+/// process reads, whatever zone that one runs in.
+const EAST_OF_UTC: &str = "ABC-5";
 
 /// Runs this test binary again as the first process, working in the data
 /// directory `data`; kills it, as a crash would, once it has said the ID of
@@ -27,6 +32,7 @@ fn first_process(data: &Path) -> String {
     let mut child = Command::new(env::current_exe().unwrap())
         .args([CHILD, "--exact", "--nocapture", "--test-threads=1"])
         .env(DATA, data)
+        .env("TZ", EAST_OF_UTC)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .spawn()
@@ -82,8 +88,18 @@ fn a_job_interrupted_mid_way_resumes_in_a_second_process_from_its_last_journaled
         .complete_job(&lease, JobState::Succeeded, &json!({ "steps": STEPS }))
         .unwrap();
     assert_eq!(ended.state, JobState::Succeeded);
-    let steps: Vec<u64> = journaled(&database, job.id)
+    let journal = journaled(&database, job.id);
+    let types: Vec<&str> = journal.iter().map(|event| event.r#type.as_str()).collect();
+    assert_eq!(
+        types,
+        [
+            CREATED, TAKEN, PROGRESSED, PROGRESSED, PROGRESSED, TAKEN_OVER, PROGRESSED, PROGRESSED,
+            SUCCEEDED,
+        ]
+    );
+    let steps: Vec<u64> = journal
         .iter()
+        .filter(|event| event.r#type == PROGRESSED)
         .map(|event| event.data["step"].as_u64().unwrap())
         .collect();
     assert_eq!(steps, [1, 2, 3, 4, 5], "no step is lost nor done twice");

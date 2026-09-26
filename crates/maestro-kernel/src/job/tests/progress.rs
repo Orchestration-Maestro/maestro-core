@@ -14,6 +14,7 @@ fn progress_goes_to_the_stream_of_its_job_in_the_write_that_renews_the_lease() {
     let scratch = Scratch::new();
     let database = scratch.open();
     let (job, mut lease) = running(&database, "demo");
+    let mut journal = journaled(&database, job.id);
     let name = format!("job/{}", job.id);
     assert_eq!(stream(job.id), name);
     assert_eq!(PROGRESSED, "maestro.job.progressed.v1");
@@ -28,7 +29,8 @@ fn progress_goes_to_the_stream_of_its_job_in_the_write_that_renews_the_lease() {
             first.scope.as_str(),
             &first.data,
         ),
-        (name.as_str(), 1, PROGRESSED, name.as_str(), SCOPE, &data)
+        (name.as_str(), 3, PROGRESSED, name.as_str(), SCOPE, &data),
+        "the first step follows the job's creation and its lease"
     );
     assert_eq!(
         (lease.heartbeat.as_str(), lease.expires.as_str()),
@@ -41,9 +43,10 @@ fn progress_goes_to_the_stream_of_its_job_in_the_write_that_renews_the_lease() {
     let second = database
         .progress(&mut lease, at(20), TERM, &json!({"batch": 2}))
         .unwrap();
-    assert_eq!(second.sequence, 2);
+    assert_eq!(second.sequence, 4);
     assert_eq!(lease.expires, "2026-09-26T12:00:50.000Z");
-    assert_eq!(journaled(&database, job.id), [first, second.clone()]);
+    journal.extend([first, second.clone()]);
+    assert_eq!(journaled(&database, job.id), journal);
     assert_eq!(database.last_progress(job.id).unwrap(), Some(second));
 }
 
@@ -53,6 +56,7 @@ fn progress_and_the_renewal_of_its_lease_land_in_one_write_or_not_at_all() {
     let database = scratch.open();
     let (job, mut lease) = running(&database, "demo");
     let held = lease.clone();
+    let journal = journaled(&database, job.id);
     let outside = scratch.outside();
     let step = json!({"batch": 1});
     outside
@@ -85,12 +89,16 @@ fn progress_and_the_renewal_of_its_lease_land_in_one_write_or_not_at_all() {
     assert_eq!(lease, held);
     assert_eq!(
         journaled(&database, job.id),
-        [],
+        journal,
         "the event went with the renewal"
     );
     outside.execute_batch("DROP TRIGGER no_renewal").unwrap();
     let recorded = database.progress(&mut lease, at(30), TERM, &step).unwrap();
-    assert_eq!(recorded.sequence, 1, "the refused steps took no sequence");
+    assert_eq!(
+        recorded.sequence,
+        journal.last().unwrap().sequence + 1,
+        "the refused steps took no sequence"
+    );
 }
 
 #[test]
