@@ -18,7 +18,11 @@ use tokio::{runtime::Builder, time};
 /// otherwise: its own default address.
 pub(super) const DEFAULT_ROUTER: &str = "http://127.0.0.1:8080";
 /// The variable that names where the model router answers.
-pub(super) const ROUTER_VARIABLE: &str = "MAESTRO_ROUTER_URL";
+pub(crate) const ROUTER_VARIABLE: &str = "MAESTRO_ROUTER_URL";
+/// Where Qdrant's gRPC API answers unless `MAESTRO_QDRANT_URL` says otherwise.
+pub(crate) const DEFAULT_QDRANT: &str = "http://127.0.0.1:6334";
+/// The variable that names where Qdrant's gRPC API answers.
+pub(crate) const QDRANT_VARIABLE: &str = "MAESTRO_QDRANT_URL";
 /// How long a check waits for a service to answer.
 const PATIENCE: Duration = Duration::from_secs(5);
 
@@ -116,7 +120,7 @@ fn unanswered(readiness: Result<Readiness, Failure>) -> String {
 /// # Errors
 ///
 /// The text of the variable, when it is no URL.
-pub(super) fn router_url(variable: Option<&OsStr>) -> Result<Url, String> {
+pub(crate) fn router_url(variable: Option<&OsStr>) -> Result<Url, String> {
     let text = variable.map_or(Cow::Borrowed(DEFAULT_ROUTER), OsStr::to_string_lossy);
     Url::parse(&text).map_err(|_| text.into_owned())
 }

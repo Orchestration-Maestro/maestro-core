@@ -11,7 +11,10 @@ use crate::cli::{
     lease::{Holder, TIMING, Timing, ticks},
     output::Output,
 };
-use maestro_kernel::job::{self, JobState, NewJob};
+use maestro_kernel::{
+    artifact::Store,
+    job::{self, JobState, NewJob},
+};
 use serde_json::json;
 use std::{
     path::PathBuf,
@@ -51,6 +54,30 @@ fn the_command_line_leases_last_a_minute_renewed_every_twenty_seconds() {
         (TIMING.term, TIMING.beat),
         (Duration::from_secs(60), Duration::from_secs(20))
     );
+}
+
+#[test]
+fn the_holder_reports_the_job_its_lease_holds() {
+    let scratch = Scratch::new();
+    let database = scratch.database();
+    let everything = everything(&database);
+    let lease = leased(
+        &database,
+        "holder",
+        SystemTime::now(),
+        Duration::from_secs(60),
+    );
+    let id = lease.job;
+    let ended = Holder::run(&database, lease, QUIET, |holder| {
+        assert_eq!(holder.job_id(), id);
+        (JobState::Succeeded, json!({}))
+    })
+    .unwrap();
+    assert_eq!(
+        database.job(&everything, id).unwrap().unwrap().state,
+        JobState::Succeeded
+    );
+    assert_eq!(ended.id, id);
 }
 
 #[test]
@@ -113,6 +140,7 @@ fn a_command_runs_its_work_under_the_heartbeats_of_its_lease() {
         let submitted = database.submit_job(&new, SystemTime::now()).unwrap();
         let kernel = Kernel {
             database,
+            artifacts: Store::new("unused-artifact-store"),
             scopes,
             config_dir: PathBuf::new(),
         };

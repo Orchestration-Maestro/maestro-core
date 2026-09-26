@@ -12,12 +12,15 @@ mod import;
 mod kernel;
 mod lease;
 mod output;
+mod prepare;
+mod publish;
 mod quality;
 mod run;
 mod setup;
 mod status;
 #[cfg(test)]
 mod tests;
+mod verify;
 mod wait;
 
 pub(crate) use run::main;

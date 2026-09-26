@@ -89,8 +89,10 @@ in place.
 │   │   │   │   │   ├── import_endings.rs                                    # An import ends its job succeeded with its report or failed saying why; each step journaled, or a lost lease stops it
 │   │   │   │   │   ├── lease_heartbeats.rs                                  # A foreground job's lease, held only by Holder::run: renewed at each heartbeat and step, never after a takeover
 │   │   │   │   │   ├── mod.rs                                               # The unit tests' door: declarations only
+│   │   │   │   │   ├── publication_resume.rs                                # A new publication attempt resumes from the last step of its predecessor
 │   │   │   │   │   ├── supersessions.rs                                     # An import supersedes its resource's holder once no live lease holds it, and leaves a live one alone
-│   │   │   │   │   └── support.rs                                           # What the unit tests share: a scratch kernel and a job leased in it, held or lost
+│   │   │   │   │   ├── support.rs                                           # What the unit tests share: a scratch kernel and a job leased in it, held or lost
+│   │   │   │   │   └── verify_outcome.rs                                    # Verification findings make the verify job fail without dropping its report
 │   │   │   │   ├── args.rs                                                  # The grammar, noun then verb, as clap derives it; the comments are the help
 │   │   │   │   ├── collection.rs                                            # knowledge collection add, and the declaration a later command finds for a collection
 │   │   │   │   ├── failure.rs                                               # Why a command stopped short: refused (exit 2) or failed (exit 1)
@@ -100,9 +102,12 @@ in place.
 │   │   │   │   ├── lease.rs                                                 # The lease of a job run in the foreground: Holder::run's heartbeat thread and each step renew it
 │   │   │   │   ├── mod.rs                                                   # The commands' door: declarations only
 │   │   │   │   ├── output.rs                                                # How a command prints: text, or one JSON document under --json; diagnostics on stderr
+│   │   │   │   ├── prepare.rs                                               # knowledge prepare: T023's chunking as a leased job
+│   │   │   │   ├── publish.rs                                               # knowledge publish: T026's verified Qdrant projection as a leased job
 │   │   │   │   ├── quality.rs                                               # knowledge quality: the gate as a leased job; its inputs the ledger beside the declaration and the revisions
 │   │   │   │   ├── run.rs                                                   # Parses the arguments, opens the kernel, runs the command, returns its exit code
 │   │   │   │   ├── status.rs                                                # knowledge status: documents, revisions by status and disposition, generations
+│   │   │   │   ├── verify.rs                                                # knowledge verify: checks a published generation as a leased job
 │   │   │   │   └── wait.rs                                                  # job wait: a job's stream followed to its end, the command exiting with its outcome; the follower
 │   │   │   └── main.rs                                                      # The binary root: the commands, their output, exit codes and JSON schemas documented
 │   │   ├── tests/                                                           # Integration tests
@@ -115,6 +120,8 @@ in place.
 │   │   │       ├── fakes.rs                                                 # Fake curl and systemctl for the binary's tests, found first on the PATH, logging each call
 │   │   │       ├── import_jobs.rs                                           # knowledge import end to end, rerun, live holder refused, stale one superseded, leases taken over
 │   │   │       ├── job_waits.rs                                             # job wait follows a job to its end and exits with its outcome; an unreadable job is unknown
+│   │   │       ├── knowledge_publish.rs                                     # knowledge prepare and knowledge publish refuse missing or unsuitable
+│   │   │       ├── knowledge_verify_recheck.rs                              # knowledge verify must read its artifacts again on every invocation
 │   │   │       ├── machine.rs                                               # How doctor and status tests run the binary: a router where nothing answers, the fakes on the PATH
 │   │   │       ├── main.rs                                                  # The one integration-test crate of the binary
 │   │   │       ├── quality_gates.rs                                         # knowledge quality: its report, a rerun, a gate after an import, the ledger first, failures and refusals
@@ -269,6 +276,7 @@ in place.
 │   │   │   │   ├── tests/                                                   # Tests of the chunk set records: their lifecycle and their chunks
 │   │   │   │   │   ├── chunks.rs                                            # Chunks: a revision's chunks recorded at once into a building set, their prepared inputs pinned, read in scope
 │   │   │   │   │   ├── guards.rs                                            # The guards of migration 0007_chunk_sets: each trigger refusing raw SQL, one test each
+│   │   │   │   │   ├── latest.rs                                            # The default set for publication is the latest complete set, ignoring
 │   │   │   │   │   ├── lifecycle.rs                                         # A chunk set's lifecycle: begun building, found again by a rerun, then complete or failed for good
 │   │   │   │   │   ├── mod.rs                                               # Tests of the chunk set records: their lifecycle and their chunks
 │   │   │   │   │   └── support.rs                                           # What the chunk set tests share: a scratch database with revisions of two collections
@@ -338,6 +346,7 @@ in place.
 │   │   │   │   │   ├── listing.rs                                           # A collection's generations: all of them, in creation order, only in scope
 │   │   │   │   │   ├── mod.rs                                               # Tests of the generation records: their lifecycle and their publication
 │   │   │   │   │   ├── publication.rs                                       # Publication: at most one generation of a collection is published, which
+│   │   │   │   │   ├── publication_events.rs                                # Publication events are committed with each generation lifecycle change
 │   │   │   │   │   └── support.rs                                           # What the generation tests share: a scratch database holding two
 │   │   │   │   ├── error.rs                                                 # Why the kernel refused to create or move a generation
 │   │   │   │   ├── lifecycle.rs                                             # Generations as the kernel records them, and the calls that create and move
@@ -590,6 +599,7 @@ in place.
 │       │   ├── collection.rs                                                # A collection's declaration: maestro-collection/1, the strict JSON that
 │       │   ├── corpus.rs                                                    # A corpus manifest: maestro-corpus/1, one JSON line per document, through
 │       │   ├── lib.rs                                                       # The knowledge pipeline of Maestro (docs/architecture/01): collections, their
+│       │   ├── publish.rs                                                   # Verification of a published generation against the kernel artifacts and
 │       │   ├── relative_path.rs                                             # Paths that a declaration or a manifest gives relative to a directory, which
 │       │   ├── shape.rs                                                     # The JSON shapes the contracts name, and no other: an object where a
 │       │   └── suite.rs                                                     # An evaluation suite: maestro-suite/1, one JSON line per question, which
@@ -631,6 +641,7 @@ in place.
 │       │       │   ├── kernel.rs                                            # A kernel holding a complete chunk set to publish, in a scratch directory
 │       │       │   ├── mod.rs                                               # The Qdrant projection (T026), against a fake Qdrant and a real one when named
 │       │       │   ├── models.rs                                            # The embedder the tests publish through, which records and spoils calls on demand
+│       │       │   ├── publication_verification.rs                          # Published-generation verification names corrupted inputs, bad counts and
 │       │       │   ├── refused_batches.rs                                   # A batch whose vectors break a check is refused whole
 │       │       │   ├── resumed_builds.rs                                    # An interrupted build resumes after its last journaled batch
 │       │       │   ├── stopped_builds.rs                                    # Refusals before any work, unreadable chunks, and a Qdrant that refuses or is out of reach

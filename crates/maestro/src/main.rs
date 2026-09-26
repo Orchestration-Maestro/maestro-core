@@ -7,6 +7,15 @@
 //!   collection's corpus manifests as a job, its ID printed first;
 //! - `maestro knowledge quality --collection <id>` gives each revision of the
 //!   collection its quality disposition, as a job, its ID printed first;
+//! - `maestro knowledge prepare --collection <id> --card <digest>` prepares
+//!   eligible revisions into a chunk set as a job, under
+//!   `maestro-cli/knowledge-prepare/1`;
+//! - `maestro knowledge publish --collection <id> --card <digest>
+//!   [--chunk-set <id>]` publishes the latest complete chunk set by default
+//!   as a verified Qdrant generation, as a job,
+//!   under `maestro-cli/knowledge-publish/1`;
+//! - `maestro knowledge verify --collection <id>` verifies the published
+//!   generation as a job, under `maestro-cli/knowledge-verify/1`;
 //! - `maestro knowledge status --collection <id>` reports its documents, its
 //!   revisions by status and by disposition, and its generations;
 //! - `maestro job wait <id>` follows a job until it ends, and exits with its
@@ -141,6 +150,36 @@
 //!   "outcomes":{"accepted":28,"accepted_with_warnings":0,"excluded":0,
 //!    "needs_reextraction":0,"quarantined":0},"revisions":28,"rules":{}}}
 //! ```
+//!
+//! # `knowledge prepare`
+//!
+//! Takes a recorded embedder card by SHA-256 digest, qualifies the router at
+//! `MAESTRO_ROUTER_URL` or else `http://127.0.0.1:8080`, and runs T023's
+//! preparation as the job kind `knowledge.prepare`, resource
+//! `collection/<id>/prepare`. The frozen inputs are the collection, card
+//! digest and chunk set ID. Its document is `maestro-cli/knowledge-prepare/1`.
+//! Until T030 binds the collection's `embedding` profile to a card, both
+//! `prepare` and `publish` take `--card`.
+//!
+//! # `knowledge publish`
+//!
+//! Takes a recorded embedder card by SHA-256 digest and a complete chunk set,
+//! defaulting to the latest complete one. It runs T026's publication as the
+//! job kind `knowledge.publish`, resource `collection/<id>/publish`, on
+//! `MAESTRO_QDRANT_URL` or else `http://127.0.0.1:6334`; its batch progress is
+//! journaled, so a rerun resumes after the last step. Its frozen inputs are
+//! the collection, chunk set, card digest and sparse profile. Its document is
+//! `maestro-cli/knowledge-publish/1`.
+//!
+//! # `knowledge verify`
+//!
+//! Checks every prepared-input artifact, Qdrant's point count against the
+//! published generation and its chunk set, and the alias that serves it. It
+//! runs as the job kind `knowledge.verify`, resource
+//! `collection/<id>/verify`; each finding names a failed invariant and fails
+//! the job with exit 1. An unknown collection or one without a published
+//! generation is refused before job submission with exit 2. Its document is
+//! `maestro-cli/knowledge-verify/1`.
 //!
 //! # `knowledge status`
 //!

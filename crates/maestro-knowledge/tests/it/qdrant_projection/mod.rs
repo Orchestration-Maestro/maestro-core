@@ -12,6 +12,7 @@ mod built_generations;
 mod fake;
 mod kernel;
 mod models;
+mod publication_verification;
 mod refused_batches;
 mod resumed_builds;
 mod search_routes;

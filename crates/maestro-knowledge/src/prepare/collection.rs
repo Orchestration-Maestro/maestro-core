@@ -18,6 +18,7 @@ use maestro_canonicalization::{CHUNKER_VERSION, TokenCounter as _};
 use maestro_kernel::{
     chunk_set::{ChunkSetState, NewChunkSet},
     document::Revision,
+    gateway::ModelCard,
     scope::{Scope, ScopeSet, collection_path},
     store::Database,
 };
@@ -134,8 +135,37 @@ pub fn chunk_set_id(
     collection: &str,
     tokenizer: &RouterTokenizer,
 ) -> Result<String, Error> {
+    chunk_set_id_for_counter(database, scopes, collection, tokenizer.contract_id())
+}
+
+/// The chunk set a preparation of `collection` counted by the embedder
+/// `card` would build now, without qualifying the router. Its ID uses the
+/// router-counter contract derived from the card's digest.
+///
+/// # Errors
+///
+/// [`Error::NotVisible`] when `scopes` does not cover the collection's
+/// scope, and [`Error::Records`] when the kernel cannot be read.
+pub fn chunk_set_id_for_card(
+    database: &Database,
+    scopes: &ScopeSet,
+    collection: &str,
+    card: &ModelCard,
+) -> Result<String, Error> {
+    let counter = format!("router/1:sha256:{}", card.digest().as_str());
+    chunk_set_id_for_counter(database, scopes, collection, &counter)
+}
+
+/// The ID of the chunk set identified by `counter` and the eligible revisions
+/// of `collection`.
+fn chunk_set_id_for_counter(
+    database: &Database,
+    scopes: &ScopeSet,
+    collection: &str,
+    counter: &str,
+) -> Result<String, Error> {
     let (_, ids) = eligible_in(database, scopes, collection)?;
-    Ok(id_of(collection, tokenizer.contract_id(), &ids))
+    Ok(id_of(collection, counter, &ids))
 }
 
 /// The eligible revisions of the collection `collection`, as the quality gate

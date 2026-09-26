@@ -4,5 +4,6 @@
 
 mod chunks;
 mod guards;
+mod latest;
 mod lifecycle;
 mod support;

@@ -63,11 +63,8 @@ path = "crates/maestro-kernel/src/journal/mod.rs"
 item = "Filter"
 reason = "the journal's public filter, which every reader of a stream names: jobs first, then the binary's job wait (T022)"
 
-# The public knowledge events, which the quality dispositions alone journal
-# inside the kernel for now: maestro-knowledge's import journals them too,
-# which the rule does not count. The publication's write (T028) records its
-# generation events on the collection's stream, a second caller in the crate
-# that removes the exception for `stream` when the rule reports it stale.
+# The public knowledge event catalogue stays together, although a database
+# writer inside the kernel emits each type.
 [[exception]]
 rule = "ARC-005"
 path = "crates/maestro-kernel/src/journal/mod.rs"
@@ -83,8 +80,14 @@ reason = "the public knowledge event catalogue: a disposition that holds its rev
 [[exception]]
 rule = "ARC-005"
 path = "crates/maestro-kernel/src/journal/mod.rs"
-item = "stream"
-reason = "every knowledge event is recorded on its collection's stream: the dispositions now, then the publication's generation events (T028)"
+item = "GenerationPublished"
+reason = "the public knowledge event catalogue: the lifecycle writer journals each publication on its collection's stream"
+
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-kernel/src/journal/mod.rs"
+item = "GenerationRetired"
+reason = "the public knowledge event catalogue: the lifecycle writer journals each retirement on its collection's stream"
 
 # The name rule of scopes is public: maestro-knowledge's parser applies it to
 # every collection and source id, which the rule does not count, and the
@@ -102,16 +105,8 @@ path = "crates/maestro-kernel/src/scope/mod.rs"
 item = "InvalidName"
 reason = "the scope module owns the public name rule: maestro-knowledge's parser and the kernel's record writers apply it"
 
-# The scope paths of a collection and of a source, which the scope module
-# writes in one place: maestro-knowledge's import and preparation and the
-# binary build them too, which the rule does not count. A second caller in
-# the crate removes these, which the rule then reports stale.
-[[exception]]
-rule = "ARC-005"
-path = "crates/maestro-kernel/src/scope/mod.rs"
-item = "collection_path"
-reason = "the scope module writes every collection's scope path: the kernel's writers, maestro-knowledge and the binary build it"
-
+# The scope module writes each source path in one place; kernel hold events
+# and maestro-knowledge's import build it too, which the rule does not count.
 [[exception]]
 rule = "ARC-005"
 path = "crates/maestro-kernel/src/scope/mod.rs"

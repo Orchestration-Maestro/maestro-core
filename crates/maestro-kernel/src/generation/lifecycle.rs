@@ -2,8 +2,16 @@
 //! them.
 
 use super::{error::Error, state::GenerationState};
-use crate::{scope::ScopeSet, store::Database};
+use crate::{
+    journal::{
+        GenerationPublished, GenerationRetired, NewEvent, event::record as record_event, stream,
+    },
+    scope::{ScopeSet, collection_path},
+    store::{self, Database},
+};
 use rusqlite::{Connection, OptionalExtension as _, Row, Transaction, params, types::Type};
+use serde_json::json;
+use std::num::TryFromIntError;
 
 /// The columns [`generation_row`] reads, in its order.
 const COLUMNS: &str = "id, collection_id, chunk_set_id, embedding_profile, sparse_profile, \
@@ -123,6 +131,10 @@ impl Database {
                  WHERE id = ?1",
                 [id],
             )?;
+            if let Some(retired) = retired {
+                record_retired(transaction, &generation.collection_id, retired)?;
+            }
+            record_published(transaction, &generation)?;
             Ok(retired)
         })
     }
@@ -136,7 +148,15 @@ impl Database {
     /// published, and [`Error::Store`] when the database cannot record the
     /// move.
     pub fn retire_generation(&self, id: i64) -> Result<(), Error> {
-        self.write(|transaction| move_to(transaction, id, GenerationState::Retired))
+        self.write(|transaction| {
+            let generation = legal_move(transaction, id, GenerationState::Retired)?;
+            transaction.execute(
+                "UPDATE generations SET state = 'retired' WHERE id = ?1",
+                [id],
+            )?;
+            record_retired(transaction, &generation.collection_id, id)?;
+            Ok(())
+        })
     }
 
     /// Moves the generation `id` from `building` or `verified` to `failed`,
@@ -226,6 +246,67 @@ fn move_to(transaction: &Transaction<'_>, id: i64, to: GenerationState) -> Resul
         params![id, to.as_str()],
     )?;
     Ok(())
+}
+
+/// Records the publication of `generation` in the same transaction as its move.
+fn record_published(
+    transaction: &Transaction<'_>,
+    generation: &Generation,
+) -> Result<(), store::Error> {
+    let id = u64::try_from(generation.id).map_err(sql_integer)?;
+    let point_count = generation.point_count.unwrap_or_default();
+    let data = json!(GenerationPublished {
+        collection: generation.collection_id.clone(),
+        generation: id,
+        point_count,
+    });
+    record_knowledge_event(
+        transaction,
+        &generation.collection_id,
+        GenerationPublished::TYPE,
+        &data,
+    )
+}
+
+/// Records the retirement of `id` in the same transaction as its move.
+fn record_retired(
+    transaction: &Transaction<'_>,
+    collection: &str,
+    id: i64,
+) -> Result<(), store::Error> {
+    let generation = u64::try_from(id).map_err(sql_integer)?;
+    let data = json!(GenerationRetired {
+        collection: collection.to_owned(),
+        generation,
+    });
+    record_knowledge_event(transaction, collection, GenerationRetired::TYPE, &data)
+}
+
+/// Records a knowledge event about `collection`'s state change.
+fn record_knowledge_event(
+    transaction: &Transaction<'_>,
+    collection: &str,
+    r#type: &'static str,
+    data: &serde_json::Value,
+) -> Result<(), store::Error> {
+    let stream = stream(collection);
+    let scope = collection_path(collection);
+    record_event(
+        transaction,
+        &NewEvent {
+            stream: &stream,
+            r#type,
+            subject: &stream,
+            scope: &scope,
+            data,
+        },
+    )?;
+    Ok(())
+}
+
+/// Converts an unsigned event field that did not fit from SQLite's signed ID.
+fn sql_integer(error: TryFromIntError) -> store::Error {
+    rusqlite::Error::ToSqlConversionFailure(Box::new(error)).into()
 }
 
 /// The generation `id` as `transaction` records it, when it may move to `to`.

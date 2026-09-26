@@ -201,7 +201,11 @@ impl Qdrant {
     }
 
     /// How many points the collection `collection` holds, counted exactly.
-    pub(super) async fn count(&self, collection: &str) -> Result<u64, QdrantError> {
+    ///
+    /// # Errors
+    ///
+    /// [`QdrantError`] when Qdrant refuses or cannot answer.
+    pub async fn count(&self, collection: &str) -> Result<u64, QdrantError> {
         let counted = self
             .client
             .count(CountPointsBuilder::new(collection).exact(true))
@@ -237,6 +241,25 @@ impl Qdrant {
                 PointIdOptions::Num(number) => number.to_string(),
             })
             .collect())
+    }
+
+    /// The collection the alias `alias` points at, or none when Qdrant has
+    /// no such alias.
+    ///
+    /// # Errors
+    ///
+    /// [`QdrantError`] when Qdrant refuses or cannot answer.
+    pub async fn alias_collection(&self, alias: &str) -> Result<Option<String>, QdrantError> {
+        let aliases = self
+            .client
+            .list_aliases()
+            .await
+            .map_err(QdrantError::Client)?;
+        Ok(aliases
+            .aliases
+            .into_iter()
+            .find(|entry| entry.alias_name == alias)
+            .map(|entry| entry.collection_name))
     }
 
     /// Points the alias `alias` at the collection `collection`, in one

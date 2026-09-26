@@ -6,6 +6,8 @@
 
 use super::failure::Failure;
 use maestro_kernel::{
+    artifact::{Digest, Store},
+    gateway::{ModelCard, Role},
     paths::{self, Environment},
     scope::{Config, LOCAL, ScopeSet},
     store::Database,
@@ -17,6 +19,8 @@ use std::path::PathBuf;
 pub(super) struct Kernel {
     /// Its database, with the artifacts it records.
     pub(super) database: Database,
+    /// The same artifact store, for strict model-card loading.
+    pub(super) artifacts: Store,
     /// What the local principal reads: every read goes through it.
     pub(super) scopes: ScopeSet,
     /// Its configuration directory, which holds `bindings.toml`.
@@ -39,6 +43,7 @@ impl Kernel {
             paths::config_dir(&environment).map_err(|error| Failure::failed_by(&error))?;
         let config = Config::load(&config_dir).map_err(|error| Failure::refused_by(&error))?;
         let database = Database::open_in(&data).map_err(|error| Failure::failed_by(&error))?;
+        let artifacts = Store::new(data.join("artifacts"));
         database
             .apply_config(&config)
             .map_err(|error| Failure::failed_by(&error))?;
@@ -47,8 +52,41 @@ impl Kernel {
             .map_err(|error| Failure::failed_by(&error))?;
         Ok(Self {
             database,
+            artifacts,
             scopes,
             config_dir,
         })
+    }
+
+    /// The recorded model card `digest` when it is an embedder's.
+    ///
+    /// # Errors
+    ///
+    /// [`Failure::Refused`] when the artifact is not recorded as a model card
+    /// or its role is not an embedder's, and [`Failure::Failed`] when the
+    /// kernel fails to read it.
+    pub(super) fn embedder_card(&self, digest: &str) -> Result<ModelCard, Failure> {
+        let digest = Digest::parse(digest).map_err(|error| Failure::refused_by(&error))?;
+        if self
+            .database
+            .artifact(&digest)
+            .map_err(|error| Failure::failed_by(&error))?
+            .is_none()
+        {
+            return Err(Failure::refused(format!(
+                "no model card sha256:{} is recorded",
+                digest.as_str()
+            )));
+        }
+        let card = ModelCard::load(&self.artifacts, &digest)
+            .map_err(|error| Failure::refused_by(&error))?;
+        if card.fields().role != Role::Embedder {
+            return Err(Failure::refused(format!(
+                "model card sha256:{} is a {}'s, not an embedder's",
+                digest.as_str(),
+                card.fields().role
+            )));
+        }
+        Ok(card)
     }
 }

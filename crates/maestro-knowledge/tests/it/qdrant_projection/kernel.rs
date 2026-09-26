@@ -53,7 +53,7 @@ pub(super) struct Kernel {
     /// Its complete chunk set.
     pub(super) chunk_set: String,
     /// The directory of the database, removed once the database is closed.
-    _scratch: Scratch,
+    scratch: Scratch,
 }
 
 impl Kernel {
@@ -93,6 +93,30 @@ impl Kernel {
         String::from_utf8(self.database.get(&chunk.digest).unwrap()).unwrap()
     }
 
+    /// Removes the file of a prepared-input artifact without changing its
+    /// database record.
+    pub(super) fn remove_artifact(&self, digest: &Digest) {
+        fs::remove_file(self.artifact_path(digest)).unwrap();
+    }
+
+    /// Replaces a prepared-input artifact's bytes without changing its
+    /// database record or digest.
+    pub(super) fn corrupt_artifact(&self, digest: &Digest, bytes: &[u8]) {
+        fs::write(self.artifact_path(digest), bytes).unwrap();
+    }
+
+    /// The file the artifact store holds for `digest`.
+    fn artifact_path(&self, digest: &Digest) -> PathBuf {
+        let hex = digest.as_str();
+        self.scratch
+            .0
+            .join("artifacts")
+            .join("sha256")
+            .join(&hex[..2])
+            .join(&hex[2..4])
+            .join(hex)
+    }
+
     /// The scope of the collection.
     pub(super) fn collection_scope(&self) -> String {
         format!("workspace/default/collection/{}", self.collection)
@@ -125,7 +149,7 @@ impl Kernel {
             scopes,
             chunk_set: format!("chunk-set-{collection}"),
             collection,
-            _scratch: Scratch(directory),
+            scratch: Scratch(directory),
         }
     }
 

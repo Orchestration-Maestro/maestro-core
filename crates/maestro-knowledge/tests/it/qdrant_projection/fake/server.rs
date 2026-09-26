@@ -37,6 +37,16 @@ impl FakeQdrant {
         &self.url
     }
 
+    /// Points `alias` at the existing collection `collection`, as an
+    /// operator's mistaken alias change would.
+    pub(in super::super) fn alias_to(&self, alias: &str, collection: &str) {
+        assert!(self.fake.state().collections.contains_key(collection));
+        self.fake
+            .state()
+            .aliases
+            .insert(alias.to_owned(), collection.to_owned());
+    }
+
     /// Makes it refuse the next call `call` with `code`: `upsert`, `count`,
     /// `get`, `create`, `collection_exists`, `collection_info` or
     /// `update_aliases`.

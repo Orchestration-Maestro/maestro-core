@@ -4,4 +4,5 @@
 mod lifecycle;
 mod listing;
 mod publication;
+mod publication_events;
 mod support;

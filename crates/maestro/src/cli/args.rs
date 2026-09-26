@@ -77,6 +77,33 @@ pub(super) enum KnowledgeCommand {
         #[arg(long)]
         collection: String,
     },
+    /// Prepare a collection's eligible revisions as a chunk set, as a job.
+    Prepare {
+        /// The collection's ID, as its declaration names it.
+        #[arg(long)]
+        collection: String,
+        /// The recorded embedder model card's SHA-256 digest.
+        #[arg(long)]
+        card: String,
+    },
+    /// Publish a complete chunk set as a verified Qdrant generation, as a job.
+    Publish {
+        /// The collection's ID, as its declaration names it.
+        #[arg(long)]
+        collection: String,
+        /// The recorded embedder model card's SHA-256 digest.
+        #[arg(long)]
+        card: String,
+        /// The complete chunk set to publish; defaults to the latest complete set.
+        #[arg(long)]
+        chunk_set: Option<String>,
+    },
+    /// Verify the collection's published Qdrant generation, as a job.
+    Verify {
+        /// The collection's ID, as its declaration names it.
+        #[arg(long)]
+        collection: String,
+    },
     /// Report a collection's documents, revisions and generations.
     Status {
         /// The collection's ID, as its declaration names it.

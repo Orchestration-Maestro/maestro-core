@@ -125,6 +125,32 @@ impl Database {
     pub fn chunk_set(&self, scopes: &ScopeSet, id: &str) -> Result<Option<ChunkSet>, Error> {
         Ok(find(&self.reader()?, Some(scopes), id)?)
     }
+
+    /// The latest complete chunk set of `collection_id`, if one is recorded
+    /// and `scopes` covers its collection.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Store`] when the database cannot be read.
+    pub fn latest_complete_chunk_set(
+        &self,
+        scopes: &ScopeSet,
+        collection_id: &str,
+    ) -> Result<Option<ChunkSet>, Error> {
+        Ok(self
+            .reader()?
+            .query_row(
+                &format!(
+                    "SELECT {COLUMNS} FROM chunk_sets
+                     WHERE collection_id = ?1 AND state = 'complete' AND {}
+                     ORDER BY rowid DESC LIMIT 1",
+                    ScopeSet::collection_condition("chunk_sets.collection_id", 2)
+                ),
+                params![collection_id, scopes.parameter()],
+                chunk_set_row,
+            )
+            .optional()?)
+    }
 }
 
 /// `recorded`, the chunk set of the id of `new`, if it was begun for the

@@ -48,7 +48,7 @@ mod router_tokenizer;
 #[cfg(test)]
 mod tests;
 
-pub use collection::{chunk_set_id, prepare, prepare_observed};
+pub use collection::{chunk_set_id, chunk_set_id_for_card, prepare, prepare_observed};
 pub use error::TokenizerError;
 pub use failure::Error;
 pub use report::{Ineligibility, LeftOut, Refusal, Report};

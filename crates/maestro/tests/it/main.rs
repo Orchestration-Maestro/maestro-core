@@ -12,6 +12,8 @@ mod doctor_checks;
 mod fakes;
 mod import_jobs;
 mod job_waits;
+mod knowledge_publish;
+mod knowledge_verify_recheck;
 mod machine;
 mod quality_gates;
 mod setup_installs;

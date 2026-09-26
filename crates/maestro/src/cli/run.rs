@@ -9,7 +9,7 @@ use super::{
     health, import,
     kernel::Kernel,
     output::{Output, diagnose},
-    quality, setup, status, wait,
+    prepare, publish, quality, setup, status, verify, wait,
 };
 use clap::Parser as _;
 use std::process::ExitCode;
@@ -72,6 +72,15 @@ fn knowledge(
             import::run(kernel, output, collection, *again)
         }
         KnowledgeCommand::Quality { collection } => quality::run(kernel, output, collection),
+        KnowledgeCommand::Prepare { collection, card } => {
+            prepare::run(kernel, output, collection, card)
+        }
+        KnowledgeCommand::Publish {
+            collection,
+            card,
+            chunk_set,
+        } => publish::run(kernel, output, collection, card, chunk_set.as_deref()),
+        KnowledgeCommand::Verify { collection } => verify::run(kernel, output, collection),
         KnowledgeCommand::Status { collection } => status::run(kernel, output, collection),
     }
 }

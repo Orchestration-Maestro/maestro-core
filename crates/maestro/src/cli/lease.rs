@@ -18,6 +18,7 @@ use std::{
     thread,
     time::{Duration, SystemTime},
 };
+use ulid::Ulid;
 
 /// How long a lease lasts, and how often its holder renews it.
 #[derive(Debug, Clone, Copy)]
@@ -90,6 +91,11 @@ impl<'a> Holder<'a> {
             .into_inner()
             .unwrap_or_else(PoisonError::into_inner);
         database.complete_job(&lease, state, &outcome)
+    }
+
+    /// The ID of the job this lease holds.
+    pub(super) fn job_id(&self) -> Ulid {
+        self.lock().job
     }
 
     /// Journals `data` as the job's next step, renewing the lease in the same

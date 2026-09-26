@@ -9,9 +9,9 @@ use super::{
         COLLECTION, Scratch, chunk_set_of, chunks_of, decide, decide_all, manifest_of, revision_of,
         tokenizer, words,
     },
-    support::{BUILD, OTHER_FILE, card},
+    support::{BUILD, MODEL_FILE, OTHER_FILE, card},
 };
-use crate::prepare::{Error, RouterTokenizer, chunk_set_id, prepare};
+use crate::prepare::{Error, RouterTokenizer, chunk_set_id, chunk_set_id_for_card, prepare};
 use maestro_canonicalization::{CHUNKER_VERSION, PREPARATION_PROFILE, TokenCounter as _};
 use maestro_kernel::{
     chunk_set::ChunkSetState,
@@ -132,6 +132,18 @@ fn each_chunks_prepared_input_is_stored_as_counted_and_pinned_by_its_chunk() {
         let first_word = excerpt.text.split_whitespace().next().unwrap();
         assert!(prepared.contains(first_word), "{first_word} in {prepared}");
     }
+}
+
+#[test]
+fn a_card_identifies_the_chunk_set_without_qualifying_the_router() {
+    let scratch = Scratch::new();
+    let (database, scopes) = imported(&scratch);
+    let card = card(Role::Embedder, MODEL_FILE, BUILD);
+    let (_, tokenizer) = tokenizer();
+    assert_eq!(
+        chunk_set_id_for_card(&database, &scopes, COLLECTION, &card).unwrap(),
+        chunk_set_id(&database, &scopes, COLLECTION, &tokenizer).unwrap()
+    );
 }
 
 #[test]
