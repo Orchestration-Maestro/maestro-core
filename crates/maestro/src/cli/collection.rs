@@ -8,7 +8,7 @@ use super::{failure::Failure, kernel::Kernel, output::Output};
 use maestro_kernel::{
     artifact::Digest,
     journal::{self, Filter, NewEvent},
-    scope::Scope,
+    scope::{Scope, collection_path},
 };
 use maestro_knowledge::{
     collection::{self, Declaration},
@@ -173,7 +173,7 @@ fn parse(bytes: &[u8]) -> Result<Declaration, String> {
 
 /// The scope of the collection `id`, which its records have.
 pub(super) fn collection_scope(id: &str) -> Result<Scope, Failure> {
-    format!("workspace/default/collection/{id}")
+    collection_path(id)
         .parse()
         .map_err(|error| Failure::refused_by(&error))
 }

@@ -1,12 +1,9 @@
 //! The scopes a principal may read, found for one request, and the condition
 //! a reader's query filters by.
 
-use super::path::Scope;
+use super::path::{Scope, WORKSPACE};
 use serde_json::Value;
 use std::collections::BTreeSet;
-
-/// The workspace the kernel keeps its records in: S1 has one.
-pub(super) const WORKSPACE: &str = "workspace/default";
 
 /// The scopes a principal may read, as [`Database::visible`] found them for
 /// one request: each scope granted to it, and every scope below one. Keep it
@@ -66,7 +63,8 @@ impl ScopeSet {
     }
 
     /// [`ScopeSet::condition`] for the collection whose id is the column
-    /// `collection`, whose scope is `workspace/default/collection/<id>`.
+    /// `collection`, whose scope is `workspace/default/collection/<id>`, as
+    /// [`collection_path`](super::collection_path) writes it.
     pub(crate) fn collection_condition(collection: &str, parameter: usize) -> String {
         Self::condition(
             &format!("('{WORKSPACE}/collection/' || {collection})"),
@@ -76,7 +74,8 @@ impl ScopeSet {
 
     /// [`ScopeSet::condition`] for the source whose id is the column `source`
     /// in the collection whose id is the column `collection`, whose scope is
-    /// `workspace/default/collection/<id>/source/<id>`.
+    /// `workspace/default/collection/<id>/source/<id>`, as
+    /// [`source_path`](super::source_path) writes it.
     pub(crate) fn source_condition(collection: &str, source: &str, parameter: usize) -> String {
         Self::condition(
             &format!("('{WORKSPACE}/collection/' || {collection} || '/source/' || {source})"),

@@ -2,7 +2,7 @@
 //! the rule collection and source IDs follow, and what a scope covers.
 
 use super::support::scope;
-use crate::scope::{Scope, check_name};
+use crate::scope::{Scope, WORKSPACE, check_name, collection_path, source_path};
 use std::error;
 
 #[test]
@@ -151,4 +151,17 @@ fn a_scope_covers_itself_and_its_descendants_by_whole_segments() {
     ] {
         assert!(!granted.covers(other), "{granted} does not cover {other}");
     }
+}
+
+#[test]
+fn a_collection_and_its_sources_have_their_scopes_below_the_workspace() {
+    assert_eq!(WORKSPACE, "workspace/default");
+    let collection = collection_path("ctm");
+    assert_eq!(collection, "workspace/default/collection/ctm");
+    let source = source_path("ctm", "docs-core");
+    assert_eq!(source, "workspace/default/collection/ctm/source/docs-core");
+    let [workspace, collection, source] =
+        [WORKSPACE, collection.as_str(), source.as_str()].map(scope);
+    assert!(workspace.covers(&collection), "{collection}");
+    assert!(collection.covers(&source), "{source}");
 }

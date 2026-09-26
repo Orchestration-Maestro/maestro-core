@@ -3,8 +3,8 @@
 //! records. `maestro doctor` names each grant that reaches none of them.
 
 use super::{
-    path::Scope,
-    set::{ScopeSet, WORKSPACE},
+    path::{Scope, WORKSPACE},
+    set::ScopeSet,
 };
 use crate::store::{self, Database};
 use rusqlite::{params, types::Type};

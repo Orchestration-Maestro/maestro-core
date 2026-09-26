@@ -102,6 +102,22 @@ path = "crates/maestro-kernel/src/scope/mod.rs"
 item = "InvalidName"
 reason = "the scope module owns the public name rule: maestro-knowledge's parser and the kernel's record writers apply it"
 
+# The scope paths of a collection and of a source, which the scope module
+# writes in one place: maestro-knowledge's import and preparation and the
+# binary build them too, which the rule does not count. A second caller in
+# the crate removes these, which the rule then reports stale.
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-kernel/src/scope/mod.rs"
+item = "collection_path"
+reason = "the scope module writes every collection's scope path: the kernel's writers, maestro-knowledge and the binary build it"
+
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-kernel/src/scope/mod.rs"
+item = "source_path"
+reason = "the scope module writes every source's scope path: the kernel's hold events and maestro-knowledge's import build it"
+
 # The quality gate's reader of the revisions it lets through: the gate owns
 # eligibility, so the preparation (T023) reads it rather than deciding again,
 # and the gate's contract tests call it from outside the crate's sources.

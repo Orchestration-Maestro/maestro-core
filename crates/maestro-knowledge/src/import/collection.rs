@@ -14,7 +14,7 @@ use maestro_kernel::{
     binding::Bindings,
     document,
     journal::{self, ImportCompleted, NewEvent},
-    scope::{Scope, ScopeSet},
+    scope::{Scope, ScopeSet, collection_path, source_path},
     store::Database,
 };
 use serde_json::json;
@@ -119,17 +119,12 @@ pub fn declare(
     let hidden = declaration
         .sources
         .iter()
-        .map(|source| source_scope(&declaration.id, &source.id))
+        .map(|source| source_path(&declaration.id, &source.id))
         .find(|scope| !visible(scopes, scope));
     if let Some(scope) = hidden {
         return Err(Error::NotVisible(scope));
     }
     record_declaration(database, scopes, declaration).map_err(Error::Records)
-}
-
-/// The scope of the source `source` of the collection `collection`.
-fn source_scope(collection: &str, source: &str) -> String {
-    format!("workspace/default/collection/{collection}/source/{source}")
 }
 
 /// Whether `scopes` covers the scope `path`.
@@ -220,7 +215,7 @@ fn journal_completion(database: &Database, report: &Report) -> Result<(), journa
         r#type: ImportCompleted::TYPE,
         // The collection it happened to, which its stream names.
         subject: &stream,
-        scope: &format!("workspace/default/collection/{}", report.collection),
+        scope: &collection_path(&report.collection),
         data: &data,
     })?;
     Ok(())

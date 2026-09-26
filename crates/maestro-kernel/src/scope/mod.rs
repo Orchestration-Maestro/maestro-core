@@ -7,8 +7,9 @@
 //! name follows the rule of [`check_name`]. Collection and source IDs follow
 //! the same rule: the kernel refuses to record a collection or a source whose
 //! ID breaks it, so each ID forms one segment of its scope's path. The
-//! kernel's records live in the workspace `default`: a collection's scope is
-//! `workspace/default/collection/<id>`, a source's `…/source/<id>`; a
+//! kernel's records live in the workspace `default`, [`WORKSPACE`]: a
+//! collection's scope is `workspace/default/collection/<id>`, a source's
+//! `…/source/<id>`, which [`collection_path`] and [`source_path`] write; a
 //! document and its revisions have their source's, a generation its
 //! collection's, and an event the scope it was recorded in, which the journal
 //! refuses unless it is a scope path.
@@ -69,6 +70,8 @@ mod set;
 mod tests;
 
 pub use config::{CONFIG_FILE, Config, ConfigError, LOCAL};
-pub use path::{InvalidName, InvalidScope, Scope, check_name};
+pub use path::{
+    InvalidName, InvalidScope, Scope, WORKSPACE, check_name, collection_path, source_path,
+};
 pub use right::Right;
 pub use set::ScopeSet;

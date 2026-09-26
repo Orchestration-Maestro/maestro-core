@@ -5,7 +5,7 @@ use super::error::Error;
 use crate::{
     artifact::Digest,
     journal::{self, NewEvent, event},
-    scope::ScopeSet,
+    scope::{ScopeSet, collection_path},
     store::{Database, artifacts},
 };
 use rusqlite::{OptionalExtension as _, Row, Transaction, params, types::Type};
@@ -166,7 +166,7 @@ fn journal(transaction: &Transaction<'_>, report: &Report) -> Result<(), Error> 
             stream: &journal::stream(collection),
             r#type: RECORDED,
             subject: &format!("eval-report/{}", report.id),
-            scope: &format!("workspace/default/collection/{collection}"),
+            scope: &collection_path(collection),
             data: &data,
         },
     )?;
