@@ -56,6 +56,24 @@ pub(super) fn migrate(
             applied_at TEXT NOT NULL
         ) STRICT;",
     )?;
+    for (name, sql) in pending(connection, migrations)? {
+        apply(connection, name, sql)?;
+    }
+    Ok(())
+}
+
+/// The migrations of `migrations` the database of `connection` does not
+/// record, in name order, the order they apply in; all of them when it
+/// records none.
+///
+/// # Errors
+///
+/// [`Error::UnknownMigration`] when the database records a name `migrations`
+/// lacks, and [`Error::Sqlite`] when it cannot be read.
+pub(super) fn pending<'m>(
+    connection: &Connection,
+    migrations: &'m [(&'m str, &'m str)],
+) -> Result<Vec<(&'m str, &'m str)>, Error> {
     let recorded = recorded(connection)?;
     let unknown = recorded
         .iter()
@@ -69,10 +87,7 @@ pub(super) fn migrate(
         .copied()
         .collect();
     missing.sort_unstable_by_key(|(name, _)| *name);
-    for (name, sql) in missing {
-        apply(connection, name, sql)?;
-    }
-    Ok(())
+    Ok(missing)
 }
 
 /// Applies the migration `name` of statements `sql` in a transaction of its
@@ -102,8 +117,17 @@ pub(super) fn apply(connection: &mut Connection, name: &str, sql: &str) -> Resul
     Ok(())
 }
 
-/// The names of the migrations `connection` records.
+/// The names of the migrations `connection` records: none when its database
+/// has no `migrations` table, as one no binary migrated yet.
 fn recorded(connection: &Connection) -> Result<Vec<String>, Error> {
+    let tables: i64 = connection.query_row(
+        "SELECT count(*) FROM sqlite_schema WHERE type = 'table' AND name = 'migrations'",
+        [],
+        |row| row.get(0),
+    )?;
+    if tables == 0 {
+        return Ok(Vec::new());
+    }
     let mut statement = connection.prepare("SELECT name FROM migrations")?;
     let names = statement
         .query_map([], |row| row.get(0))?

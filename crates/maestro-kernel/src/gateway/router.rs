@@ -2,7 +2,7 @@
 //! endpoints, `/models/<entry>/…`.
 
 use super::{
-    card::{ModelCard, Role},
+    card::{ModelCard, Role, RouterEntry},
     port::{Error, Message, ModelPort, Room, embedder_dimensions, require},
 };
 use crate::artifact::Digest;
@@ -52,6 +52,33 @@ impl RouterClient {
             http,
             checked: Mutex::default(),
         })
+    }
+
+    /// The entries of the router's catalog, in its order, as `GET
+    /// /v1/models` lists them: the listing starts no model, so it asks for
+    /// no room.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Transport`] when the router cannot be reached,
+    /// [`Error::Refused`] when it refuses, and [`Error::InvalidAnswer`] when
+    /// the answer is no listing or names an entry that is no entry name.
+    pub async fn catalog(&self) -> Result<Vec<RouterEntry>, Error> {
+        let mut url = self.base.clone();
+        url.set_path("/v1/models");
+        let listing: Listing = send(self.http.get(url), Room::Any).await?;
+        listing
+            .data
+            .into_iter()
+            .map(|model| {
+                RouterEntry::parse(&model.id).map_err(|_| {
+                    invalid(format!(
+                        "the catalog lists {:?}, which is no entry name",
+                        model.id
+                    ))
+                })
+            })
+            .collect()
     }
 
     /// The URL of `path` under the model `card` names.
@@ -318,6 +345,20 @@ struct Refusal {
     message: String,
     /// Why, for a program: a word from the router, a number from llama.cpp.
     code: Option<Value>,
+}
+
+/// `/v1/models`' answer: the router's catalog.
+#[derive(Deserialize)]
+struct Listing {
+    /// One model per entry.
+    data: Vec<Listed>,
+}
+
+/// One entry of the catalog.
+#[derive(Deserialize)]
+struct Listed {
+    /// Its name.
+    id: String,
 }
 
 /// `/v1/embeddings`' answer.

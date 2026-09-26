@@ -445,9 +445,11 @@ dependencies = [
  "clap",
  "maestro-kernel",
  "maestro-knowledge",
+ "reqwest",
  "rusqlite",
  "serde",
  "serde_json",
+ "tokio",
  "ulid",
 ]
 

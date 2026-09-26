@@ -48,6 +48,32 @@ in place.
 │   ├── maestro/                                                             # The maestro binary: the command line (CLI) over the knowledge library and the kernel
 │   │   ├── src/                                                             # The crate's sources
 │   │   │   ├── cli/                                                         # The commands, a module each, and what they share
+│   │   │   │   ├── health/                                                  # maestro doctor and status: the checks of the kernel, the search service, the router and each role's card
+│   │   │   │   │   ├── tests/                                               # Unit tests of the checks: the kernel's files, the services, the cards, what doctor must not touch
+│   │   │   │   │   │   ├── findings.rs                                      # Foreign entries of the data directory listed and left untouched; grants that reach no known scope
+│   │   │   │   │   │   ├── kernel.rs                                        # config.toml and bindings.toml refused with a fix; the database never created, damage and lost artifacts found
+│   │   │   │   │   │   ├── mod.rs                                           # The health unit tests' door: declarations only
+│   │   │   │   │   │   ├── services.rs                                      # Qdrant at the pinned version, the router's catalog, each role's card; next actions from what setup would do
+│   │   │   │   │   │   └── support.rs                                       # What the health tests share: a scratch kernel directory, a one-answer HTTP stub, a closed address
+│   │   │   │   │   ├── check.rs                                             # A check of the machine: its target, and what it saw, or its problem and next action
+│   │   │   │   │   ├── doctor.rs                                            # maestro doctor: every check, each failure with its next action, what it must not touch; exit 1 on a failure
+│   │   │   │   │   ├── findings.rs                                          # What doctor lists and never touches: entries the kernel does not own, as maestro v1's, and unreached grants
+│   │   │   │   │   ├── kernel.rs                                            # The kernel's checks: configuration files, the database opened only if it exists and checked whole, the artifacts
+│   │   │   │   │   ├── mod.rs                                               # The checks' door: declarations only
+│   │   │   │   │   ├── services.rs                                          # Qdrant answering as the pinned version, the router listing its catalog, each role's model card
+│   │   │   │   │   └── status.rs                                            # maestro status: the kernel, Qdrant and the router ready or not, and each readable collection; exits 0
+│   │   │   │   ├── setup/                                                   # maestro setup: Qdrant 1.19.1 pinned by digest, a systemd user unit on 127.0.0.1; a preview, then --yes
+│   │   │   │   │   ├── tests/                                               # Unit tests of setup: the pin and the platforms everywhere; the unit and the install with fake tools on Unix
+│   │   │   │   │   │   ├── install.rs                                       # A preview and a second run change nothing, a digest mismatch writes nothing, each failure is named
+│   │   │   │   │   │   ├── mod.rs                                           # The setup unit tests' door: declarations only
+│   │   │   │   │   │   ├── platform.rs                                      # The pinned release is research R7's; Linux on x86-64 only, every other platform gets the manual steps
+│   │   │   │   │   │   ├── support.rs                                       # What the install tests share: a scratch home, fake curl, tar and systemctl that log, a small release
+│   │   │   │   │   │   └── unit.rs                                          # The service's layout and unit: loopback, telemetry off, data under the kernel's; paths escaped or refused
+│   │   │   │   │   ├── command.rs                                           # maestro setup: the preview, the steps taken with --yes, the document printed; the readiness doctor asks
+│   │   │   │   │   ├── mod.rs                                               # The setup's door: declarations only
+│   │   │   │   │   ├── release.rs                                           # The pinned Qdrant 1.19.1 archive and binary digests, the ports, and the manual steps elsewhere
+│   │   │   │   │   ├── service.rs                                           # The layout, the unit, the survey of what is missing, and the steps that install it, each checked first
+│   │   │   │   │   └── tools.rs                                             # curl over HTTPS into memory, tar unpacking in memory, systemctl --user: the tools setup runs
 │   │   │   │   ├── tests/                                                   # Unit tests: the lease of a foreground job, and how an import ends its job
 │   │   │   │   │   ├── import_endings.rs                                    # An import ends its job succeeded with its report or failed saying why; each step journaled, or a lost lease stops it
 │   │   │   │   │   ├── lease_heartbeats.rs                                  # A foreground job's lease, held only by Holder::run: renewed at each heartbeat and step, never after a takeover
@@ -70,11 +96,16 @@ in place.
 │   │   │   └── it/                                                          # The contract tests: the built binary run in a scratch home
 │   │   │       ├── cli_contract.rs                                          # JSON on stdout, diagnostics on stderr, exit codes 0, 1 and 2, the job ID first
 │   │   │       ├── collection_status.rs                                     # knowledge status of the synthetic collection: counts, dispositions and a generation
+│   │   │       ├── doctor_checks.rs                                         # maestro doctor: each failure names its next action, the router its address; v1 files listed, untouched
+│   │   │       ├── fakes.rs                                                 # Fake curl and systemctl for the binary's tests, found first on the PATH, logging each call
 │   │   │       ├── import_jobs.rs                                           # knowledge import end to end, rerun, live holder refused, stale one superseded, leases taken over
 │   │   │       ├── job_waits.rs                                             # job wait follows a job to its end and exits with its outcome; an unreadable job is unknown
+│   │   │       ├── machine.rs                                               # How doctor and status tests run the binary: a router where nothing answers, the fakes on the PATH
 │   │   │       ├── main.rs                                                  # The one integration-test crate of the binary
+│   │   │       ├── setup_installs.rs                                        # maestro setup: the preview writes nothing, a wrong download is refused; elsewhere manual steps, exit 2
+│   │   │       ├── status_summaries.rs                                      # maestro status: services ready or down, the readable collections, nothing created on a fresh machine
 │   │   │       └── support.rs                                               # What the contract tests share: a scratch home, the synthetic collection, the binary under a deadline
-│   │   └── Cargo.toml                                                       # Crate manifest: The command line of Maestro: collections, their imports and the jobs that run them
+│   │   └── Cargo.toml                                                       # Crate manifest: The command line of Maestro: collections, their imports, the jobs that run them, and the machine's setup and checks
 │   ├── maestro-canonicalization/                                            # Local Rust library and CLI: completed Markdown + supplied metadata → parsed structure → validation → CanonicalDocument
 │   │   ├── examples/                                                        # Worked examples
 │   │   │   ├── assets/                                                      # Images and other assets
@@ -235,6 +266,7 @@ in place.
 │   │   │   │   │   ├── dispositions.rs                                      # Quality dispositions: one per revision, kept once given, read in scope, a hold journaled with it
 │   │   │   │   │   ├── duplicates.rs                                        # Occurrences and near-duplicate groups: each recorded once, a batch in one write, read in scope
 │   │   │   │   │   ├── errors.rs                                            # What the document records' refusals say, and the store's refusals they
+│   │   │   │   │   ├── listing.rs                                           # The collections a set covers, listed in id order; a source's grant never lists its collection
 │   │   │   │   │   ├── mod.rs                                               # Tests of the document records: the documents migration, collections
 │   │   │   │   │   ├── parents.rs                                           # Collections, their sources and their documents: collections and sources
 │   │   │   │   │   ├── revisions.rs                                         # Revisions: recorded once with their two artifacts pinned, immutable after
@@ -270,6 +302,7 @@ in place.
 │   │   │   ├── gateway/                                                     # The model gateway (building block B10): every model, embedder, reranker
 │   │   │   │   ├── tests/                                                   # Tests of the model gateway: model cards, the router client against a stub
 │   │   │   │   │   ├── card.rs                                              # Tests of model cards: strict JSON artifacts whose digest is their
+│   │   │   │   │   ├── catalog.rs                                           # The router's catalog: GET /v1/models in no room; refusals kept, a bad entry name an invalid answer
 │   │   │   │   │   ├── fake.rs                                              # Tests of the deterministic fake: its outputs are fixed by its inputs, the
 │   │   │   │   │   ├── fixture.rs                                           # What the gateway's tests share: a scratch store, a card for each role, and
 │   │   │   │   │   ├── mod.rs                                               # Tests of the model gateway: model cards, the router client against a stub
@@ -343,6 +376,7 @@ in place.
 │   │   │   │   │   ├── config.rs                                            # config.toml: the local principal's grants, checked whole when read, and
 │   │   │   │   │   ├── grants.rs                                            # Grants: a principal sees only what it was granted and what lies below it
 │   │   │   │   │   ├── inventory.rs                                         # There is no read function without a ScopeSet: every public method of
+│   │   │   │   │   ├── known.rs                                             # The scopes a set was granted, and the known scopes it covers: the workspace, collections and sources
 │   │   │   │   │   ├── mod.rs                                               # Tests of scopes: their paths and names, what a grant covers, the grants
 │   │   │   │   │   ├── paths.rs                                             # Scope paths: a workspace, then a collection, then a source, each named by
 │   │   │   │   │   ├── readers.rs                                           # Readers of scoped data take the caller's ScopeSet and filter inside
@@ -350,6 +384,7 @@ in place.
 │   │   │   │   │   └── support.rs                                           # What the scope tests share: a scratch directory for the kernel's data and
 │   │   │   │   ├── config.rs                                                # config.toml, the kernel's configuration file in its configuration
 │   │   │   │   ├── grant.rs                                                 # Grants: the rights of principals on scopes, each given or taken back in a
+│   │   │   │   ├── known.rs                                                 # The scopes the kernel knows, as a set sees them: its workspace and each recorded collection and source
 │   │   │   │   ├── mod.rs                                                   # Scopes and grants: who may see what (docs/architecture/04 §3, building
 │   │   │   │   ├── path.rs                                                  # Scope paths: a workspace, then optionally a collection, then optionally a
 │   │   │   │   ├── right.rs                                                 # The rights a grant gives on a scope
@@ -357,6 +392,7 @@ in place.
 │   │   │   ├── store/                                                       # The kernel's database: one SQLite file beside the artifact store, holding
 │   │   │   │   ├── tests/                                                   # Tests of the kernel database: its migrations, its connections, the
 │   │   │   │   │   ├── artifacts.rs                                         # Artifacts: stored, recorded with their size, media type and pins, and read
+│   │   │   │   │   ├── checks.rs                                            # SQLite's quick check, damage reported as found; each recorded artifact present and intact, or named
 │   │   │   │   │   ├── connections.rs                                       # Connections: one writer shared by every thread, readers of their own, the
 │   │   │   │   │   ├── garbage.rs                                           # Garbage collection: it lists before it removes, removes only artifacts
 │   │   │   │   │   ├── migrations.rs                                        # Migrations: applied in number order, each once, recorded by name, and a

@@ -3,6 +3,7 @@
 //! on Linux, macOS and Windows.
 
 mod artifacts;
+mod checks;
 mod connections;
 mod garbage;
 mod migrations;

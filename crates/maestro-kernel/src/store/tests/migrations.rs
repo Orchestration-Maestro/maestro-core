@@ -1,13 +1,15 @@
 //! Migrations: applied in number order, each once, recorded by name, and a
-//! database a newer binary migrated refused before anything changes.
+//! database a newer binary migrated refused before anything changes; and
+//! the migrations a database lacks, read without opening it for writing.
 
 use super::support::Scratch;
 use crate::store::{
     Error,
     migration::{MIGRATIONS, apply, migrate},
+    pending_migrations,
 };
 use rusqlite::Connection;
-use std::{sync::Barrier, thread};
+use std::{fs, sync::Barrier, thread};
 
 /// Creates the table the other test migrations fill.
 const FIRST: (&str, &str) = (
@@ -187,4 +189,68 @@ fn a_failing_migration_leaves_neither_its_changes_nor_its_record() {
     assert_eq!(partial, 0, "the failed migration's table was rolled back");
     drop(scratch.open_with(&[FIRST, SECOND]).unwrap());
     assert_eq!(values(&outside), [1, 2]);
+}
+
+/// The names of `migrations`, in name order.
+fn sorted(migrations: &[(&'static str, &str)]) -> Vec<&'static str> {
+    let mut names: Vec<&str> = migrations.iter().map(|(name, _)| *name).collect();
+    names.sort_unstable();
+    names
+}
+
+#[test]
+fn the_migrations_a_database_lacks_are_read_without_changing_it() {
+    let scratch = Scratch::new();
+    drop(scratch.open_with(&MIGRATIONS[..6]).unwrap());
+    let lacking = sorted(&MIGRATIONS[6..]);
+    assert_eq!(lacking.first(), Some(&"0007_chunk_sets"), "{lacking:?}");
+    let before = fs::read(scratch.database()).unwrap();
+    assert_eq!(pending_migrations(&scratch.0).unwrap(), lacking);
+    assert_eq!(
+        fs::read(scratch.database()).unwrap(),
+        before,
+        "the file is unchanged"
+    );
+    assert_eq!(
+        names(&scratch.outside()),
+        sorted(&MIGRATIONS[..6]),
+        "nothing was applied"
+    );
+}
+
+#[test]
+fn an_up_to_date_database_lacks_nothing_and_one_never_migrated_lacks_all() {
+    let scratch = Scratch::new();
+    drop(scratch.open());
+    assert_eq!(pending_migrations(&scratch.0).unwrap(), Vec::<&str>::new());
+    let scratch = Scratch::new();
+    scratch
+        .outside()
+        .execute_batch("CREATE TABLE other (value INTEGER) STRICT;")
+        .unwrap();
+    assert_eq!(pending_migrations(&scratch.0).unwrap(), sorted(MIGRATIONS));
+}
+
+#[test]
+fn a_database_a_newer_binary_migrated_is_named_and_a_missing_one_never_created() {
+    let scratch = Scratch::new();
+    let missing = pending_migrations(&scratch.0).unwrap_err();
+    assert!(matches!(missing, Error::Sqlite(_)), "{missing}");
+    assert!(
+        !scratch.database().exists(),
+        "reading never creates the file"
+    );
+    drop(scratch.open());
+    scratch
+        .outside()
+        .execute(
+            "INSERT INTO migrations (name, applied_at) VALUES ('9999_future', 'now')",
+            [],
+        )
+        .unwrap();
+    let newer = pending_migrations(&scratch.0).unwrap_err();
+    assert!(
+        matches!(&newer, Error::UnknownMigration(name) if name == "9999_future"),
+        "{newer}"
+    );
 }

@@ -8,7 +8,13 @@
 //! - `maestro knowledge status --collection <id>` reports its documents, its
 //!   revisions by status and by disposition, and its generations;
 //! - `maestro job wait <id>` follows a job until it ends, and exits with its
-//!   outcome.
+//!   outcome;
+//! - `maestro setup` previews the search service Maestro needs, and installs
+//!   it with `--yes`;
+//! - `maestro status` summarizes which services and collections are ready;
+//! - `maestro doctor` checks the kernel, the search service, the model
+//!   router and each role's model card, naming the next action for every
+//!   failure.
 //!
 //! # Output and exit codes
 //!
@@ -29,8 +35,11 @@
 //! Every command opens the kernel of the directories the environment names
 //! (`maestro_kernel::paths`), applies `config.toml` to the local principal,
 //! and reads through what that principal may read: a collection or a job
-//! outside its grants is unknown. In the data directory it touches only
-//! `kernel.sqlite3` and `artifacts/`, never the files maestro v1 left there.
+//! outside its grants is unknown. `setup` opens no kernel, and `status` and
+//! `doctor` open it only when its database exists and lacks no migration
+//! this build carries, never creating or migrating it. In the data directory
+//! a command touches only `kernel.sqlite3`, `artifacts/` and, for `setup`,
+//! `qdrant/`, never the files maestro v1 left there.
 //!
 //! # `knowledge collection add`
 //!
@@ -105,6 +114,70 @@
 //!  "generations":[{"id":1,"state":"published","chunk_set":"…",
 //!   "embedding_profile":"…","sparse_profile":"bm25-en-fr/1","point_count":3,
 //!   "published_at":"…"}]}
+//! ```
+//!
+//! # `setup`
+//!
+//! Installs Qdrant 1.19.1, the search service, as the systemd user unit
+//! `maestro-qdrant.service`: its archive is downloaded over HTTPS with the
+//! system's `curl`, refused unless its SHA-256 and that of the binary it
+//! holds are the ones pinned in the code, and the binary goes under the data
+//! directory, `qdrant/bin/qdrant`, with the service's storage and snapshots
+//! beside it. The service binds 127.0.0.1 only, HTTP on 6333 and gRPC on
+//! 6334, with telemetry off. Without `--yes` the command lists the steps the
+//! machine lacks and changes nothing; with it, it takes them. A machine with
+//! everything in place has no step, and a run then changes nothing. It
+//! installs on Linux on x86-64 with systemd only; elsewhere it prints the
+//! manual steps and exits 2.
+//!
+//! ```json
+//! {"schema":"maestro-cli/setup/1","version":"1.19.1","service":"maestro-qdrant.service",
+//!  "binary":"/…/qdrant/bin/qdrant","storage":"/…/qdrant/storage",
+//!  "snapshots":"/…/qdrant/snapshots","unit":"/…/systemd/user/maestro-qdrant.service",
+//!  "http":"127.0.0.1:6333","grpc":"127.0.0.1:6334",
+//!  "steps":["install","write_unit","reload","enable","restart"],"changed":false}
+//! ```
+//!
+//! # `status`
+//!
+//! Reports the kernel, Qdrant and the model router, each ready or not with
+//! what its check saw, and each collection the local principal reads with
+//! its documents and its published generation. It exits 0 whatever is down.
+//!
+//! ```json
+//! {"schema":"maestro-cli/status/1",
+//!  "services":[{"name":"kernel","target":"/…/kernel.sqlite3","ready":true,"detail":"intact"},
+//!   {"name":"qdrant","target":"http://127.0.0.1:6333","ready":true,
+//!    "detail":"Qdrant 1.19.1 answers"},
+//!   {"name":"router","target":"http://127.0.0.1:8080/","ready":true,
+//!    "detail":"16 entries in its catalog"}],
+//!  "collections":[{"collection":"ctm","title":"…","documents":7131,
+//!   "published":{"generation":3,"points":51234}}]}
+//! ```
+//!
+//! # `doctor`
+//!
+//! Runs every check, in this order: `config.toml` and `bindings.toml`; the
+//! kernel's database, which must exist, lack no migration this build carries
+//! (a missing one is named, never applied), open, pass SQLite's quick check
+//! and take `config.toml`'s grants; the artifact tree, each recorded artifact
+//! present and intact; Qdrant answering as the pinned version; the model
+//! router, at `MAESTRO_ROUTER_URL` or else `http://127.0.0.1:8080`, listing
+//! its catalog, which starts no model; and each role's model card. A failed
+//! check names its next action. It then lists what it found but must not
+//! touch: the entries of the data directory the kernel does not own, as the
+//! files maestro v1 left there, and the grants of `config.toml` that reach
+//! no scope the kernel knows. It deletes nothing, and exits 0 when every
+//! check passed and 1 when one failed.
+//!
+//! ```json
+//! {"schema":"maestro-cli/doctor/1",
+//!  "checks":[{"name":"database","target":"/…/kernel.sqlite3","passed":true,
+//!    "detail":"intact","next_action":null},
+//!   {"name":"model_card","target":"embedder","passed":false,
+//!    "detail":"no model card is recorded for the embedder","next_action":"…"}],
+//!  "untouched":["/…/ledger.sqlite3","/…/material"],
+//!  "unreached_grants":["workspace/other"]}
 //! ```
 //!
 //! # `job wait`

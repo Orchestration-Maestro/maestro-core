@@ -46,6 +46,11 @@ pub enum Role {
     Answerer,
 }
 
+impl Role {
+    /// Every role, in the order cards name them.
+    pub const ALL: [Self; 3] = [Self::Embedder, Self::Reranker, Self::Answerer];
+}
+
 impl fmt::Display for Role {
     /// The role as a card writes it.
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {

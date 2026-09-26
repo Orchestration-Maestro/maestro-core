@@ -5,8 +5,8 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 use ulid::Ulid;
 
-/// Maestro's command line: collections, their imports and the jobs that run
-/// them.
+/// Maestro's command line: collections, their imports, the jobs that run
+/// them, and the machine's setup and checks.
 #[derive(Debug, Parser)]
 #[command(name = "maestro", version)]
 pub(super) struct Arguments {
@@ -19,7 +19,7 @@ pub(super) struct Arguments {
     pub(super) noun: Noun,
 }
 
-/// What a command works on.
+/// What a command works on, or the machine it sets up and checks.
 #[derive(Debug, Subcommand)]
 pub(super) enum Noun {
     /// Collections, their imports and their status.
@@ -28,6 +28,17 @@ pub(super) enum Noun {
     /// Jobs: long work run under a lease.
     #[command(subcommand)]
     Job(JobCommand),
+    /// Preview the search service Maestro needs, or install it with --yes.
+    Setup {
+        /// Take the steps the preview lists, rather than only print them.
+        #[arg(long)]
+        yes: bool,
+    },
+    /// Summarize which services and collections are ready.
+    Status,
+    /// Check the kernel, the search service, the model router and each
+    /// role's model card, naming the next action for every failure.
+    Doctor,
 }
 
 /// What to do with the knowledge of a collection.

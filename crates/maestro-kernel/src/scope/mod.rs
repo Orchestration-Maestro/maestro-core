@@ -42,18 +42,26 @@
 //!   [`Database::collect_garbage`](crate::store::Database::collect_garbage):
 //!   the artifacts no record refers to, whatever their scope, which serve the
 //!   garbage collector only, never a tool;
+//! - [`Database::quick_check`](crate::store::Database::quick_check) and
+//!   [`Database::check_artifacts`](crate::store::Database::check_artifacts):
+//!   whether the database file and the artifact tree are intact, which
+//!   serve `maestro doctor` only, never a tool: they name no record, and the
+//!   digests they give are those of artifacts nobody can read intact;
 //! - [`Database::cursor`](crate::store::Database::cursor): how far a
 //!   consumer has read a stream, a position rather than an event;
 //! - [`Database::ack`](crate::store::Database::ack): its refusal names a
 //!   stream's last sequence, a position rather than an event;
 //! - [`Database::visible`](crate::store::Database::visible): a principal's
-//!   grants, which are what a set is made of.
-//!
-//! The migrations have no public reader: the database applies them when it
-//! opens.
+//!   grants, which are what a set is made of;
+//! - [`store::pending_migrations`](crate::store::pending_migrations): the
+//!   migrations a database lacks, or the one it records that this binary
+//!   lacks, read from the file opened read-only, which serve `maestro
+//!   doctor` and `maestro status` only, so that neither migrates a database:
+//!   the database applies them when it opens.
 
 mod config;
 mod grant;
+mod known;
 mod path;
 mod right;
 mod set;

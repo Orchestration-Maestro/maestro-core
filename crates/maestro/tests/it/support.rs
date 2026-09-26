@@ -230,7 +230,7 @@ pub(crate) struct Running {
 impl Running {
     /// Starts `command`, reading its two outputs on threads of their own so
     /// that neither pipe ever fills.
-    fn of(mut command: Command) -> Self {
+    pub(crate) fn of(mut command: Command) -> Self {
         let mut child = command.spawn().unwrap();
         let stdout = child.stdout.take().unwrap();
         let mut stderr = child.stderr.take().unwrap();

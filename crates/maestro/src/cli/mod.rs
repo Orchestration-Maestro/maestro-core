@@ -5,11 +5,13 @@
 mod args;
 mod collection;
 mod failure;
+mod health;
 mod import;
 mod kernel;
 mod lease;
 mod output;
 mod run;
+mod setup;
 mod status;
 #[cfg(test)]
 mod tests;

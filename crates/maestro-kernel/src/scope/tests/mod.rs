@@ -6,6 +6,7 @@
 mod config;
 mod grants;
 mod inventory;
+mod known;
 mod paths;
 mod readers;
 mod records;

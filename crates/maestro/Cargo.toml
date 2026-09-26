@@ -1,6 +1,6 @@
 [package]
 name = "maestro"
-description = "The command line of Maestro: collections, their imports and the jobs that run them"
+description = "The command line of Maestro: collections, their imports, the jobs that run them, and the machine's setup and checks"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -14,8 +14,10 @@ workspace = true
 clap.workspace = true
 maestro-kernel.workspace = true
 maestro-knowledge.workspace = true
+reqwest.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+tokio = { workspace = true, features = ["rt", "time"] }
 ulid.workspace = true
 
 [dev-dependencies]

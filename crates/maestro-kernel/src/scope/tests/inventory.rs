@@ -17,17 +17,26 @@ use std::{
 
 /// The readers of unscoped bookkeeping that open a reader: each takes no
 /// `ScopeSet`, and the scope module's docs give its reason.
-const UNSCOPED: [&str; 4] = ["artifact", "cursor", "garbage", "visible"];
+const UNSCOPED: [&str; 6] = [
+    "artifact",
+    "check_artifacts",
+    "cursor",
+    "garbage",
+    "quick_check",
+    "visible",
+];
 
 /// The unscoped readers the scan cannot see, as the scope module's docs name
 /// them: `ack` reads inside its write, `collect_garbage` through `garbage`,
-/// `get` from the artifact store, and the other two are not the database's.
-const BY_HAND: [&str; 5] = [
+/// `get` from the artifact store, and the other three are not the
+/// database's.
+const BY_HAND: [&str; 6] = [
     "Database::ack",
     "Database::collect_garbage",
     "Database::get",
     "artifact::Store::get",
     "ModelCard::load",
+    "store::pending_migrations",
 ];
 
 /// A public method of the database, as the crate's sources declare it.

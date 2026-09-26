@@ -7,6 +7,7 @@ mod counts;
 mod dispositions;
 mod duplicates;
 mod errors;
+mod listing;
 mod parents;
 mod revisions;
 mod schema;

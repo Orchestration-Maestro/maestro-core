@@ -6,10 +6,10 @@ use super::{
     args::{Arguments, CollectionCommand, JobCommand, KnowledgeCommand, Noun},
     collection,
     failure::Failure,
-    import,
+    health, import,
     kernel::Kernel,
     output::{Output, diagnose},
-    status, wait,
+    setup, status, wait,
 };
 use clap::Parser as _;
 use std::process::ExitCode;
@@ -44,19 +44,30 @@ fn run(arguments: &Arguments) -> ExitCode {
     }
 }
 
-/// Opens the kernel and runs the command `arguments` name in it.
+/// Runs the command `arguments` name, in the kernel it opens; `setup`,
+/// `status` and `doctor` open none, since the first installs beside the
+/// kernel and the others look at it without creating or migrating it.
 fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> {
-    let kernel = Kernel::open()?;
     match &arguments.noun {
-        Noun::Knowledge(KnowledgeCommand::Collection(CollectionCommand::Add { declaration })) => {
-            collection::add(&kernel, output, declaration)
+        Noun::Knowledge(command) => knowledge(&Kernel::open()?, output, command),
+        Noun::Job(JobCommand::Wait { id }) => wait::run(&Kernel::open()?, output, *id),
+        Noun::Setup { yes } => setup::run(output, *yes),
+        Noun::Status => health::status::run(output),
+        Noun::Doctor => health::doctor::run(output),
+    }
+}
+
+/// Runs the knowledge command `command` in `kernel`.
+fn knowledge(
+    kernel: &Kernel,
+    output: Output,
+    command: &KnowledgeCommand,
+) -> Result<ExitCode, Failure> {
+    match command {
+        KnowledgeCommand::Collection(CollectionCommand::Add { declaration }) => {
+            collection::add(kernel, output, declaration)
         }
-        Noun::Knowledge(KnowledgeCommand::Import { collection }) => {
-            import::run(&kernel, output, collection)
-        }
-        Noun::Knowledge(KnowledgeCommand::Status { collection }) => {
-            status::run(&kernel, output, collection)
-        }
-        Noun::Job(JobCommand::Wait { id }) => wait::run(&kernel, output, *id),
+        KnowledgeCommand::Import { collection } => import::run(kernel, output, collection),
+        KnowledgeCommand::Status { collection } => status::run(kernel, output, collection),
     }
 }

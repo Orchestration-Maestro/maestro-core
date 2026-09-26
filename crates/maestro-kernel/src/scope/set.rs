@@ -6,7 +6,7 @@ use serde_json::Value;
 use std::collections::BTreeSet;
 
 /// The workspace the kernel keeps its records in: S1 has one.
-const WORKSPACE: &str = "workspace/default";
+pub(super) const WORKSPACE: &str = "workspace/default";
 
 /// The scopes a principal may read, as [`Database::visible`] found them for
 /// one request: each scope granted to it, and every scope below one. Keep it
@@ -36,6 +36,12 @@ impl ScopeSet {
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
+    }
+
+    /// The scopes the set was granted, in path order; each covers every
+    /// scope below it too.
+    pub fn granted(&self) -> impl Iterator<Item = &Scope> {
+        self.0.iter()
     }
 
     /// The granted scopes' paths, as the JSON array a query binds to the
