@@ -10,6 +10,7 @@ license = "MIT"
 publish = false
 
 [workspace.dependencies]
+maestro-canonicalization = { path = "crates/maestro-canonicalization", version = "0.1.0" }
 maestro-kernel = { path = "crates/maestro-kernel", version = "0.1.0" }
 pulldown-cmark = { version = "=0.13.4", default-features = false }
 # Cargo.lock pins idna_adapter, which reqwest reaches through url, to 1.1.0 for MSRV 1.85:

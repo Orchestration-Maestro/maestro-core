@@ -29,6 +29,15 @@ docs:
 native:
     cargo test --locked -p maestro-canonicalization --test it chunk_native -- --ignored
 
+# The router tokenizer's parity: the native counter's IDs for the parity
+# fixtures, then the router's, live, in free room. MAESTRO_NATIVE_BINDING and
+# the MAESTRO_ROUTER_* variables of tests/it/router_parity.rs name this
+# machine's.
+# Live parity: needs free room (T002 redeployed); an older router may unload the chat model.
+parity:
+    cargo test --locked -p maestro-canonicalization --test it qualified_native_ids -- --ignored
+    cargo test --locked -p maestro-knowledge --test it router_parity -- --ignored
+
 # Every mutant in the workspace; a survivor fails. Hours long: run before an import.
 mutants jobs="4":
     cargo mutants --workspace --jobs {{ jobs }} --cargo-arg=--locked

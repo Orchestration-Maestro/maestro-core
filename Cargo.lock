@@ -420,9 +420,13 @@ dependencies = [
 name = "maestro-knowledge"
 version = "0.1.0"
 dependencies = [
+ "maestro-canonicalization",
  "maestro-kernel",
+ "reqwest",
  "serde",
  "serde_json",
+ "sha2",
+ "tokio",
 ]
 
 [[package]]

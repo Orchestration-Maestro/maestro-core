@@ -257,6 +257,23 @@ in place.
 │   │   └── Cargo.toml                                                       # Crate manifest: The single authoritative store of Maestro, starting with its content-addressed artifacts
 │   └── maestro-knowledge/                                                   # Maestro knowledge
 │       ├── src/                                                             # The crate's sources
+│       │   ├── prepare/                                                     # Preparing revisions for search: tokens counted as the selected embedder counts them, through the model router
+│       │   │   ├── tests/                                                   # Tests of the router tokenizer: qualification by parity with the native
+│       │   │   │   ├── counting.rs                                          # Counting and verifying through a qualified tokenizer: the port's IDs in
+│       │   │   │   ├── mod.rs                                               # Tests of the router tokenizer: qualification by parity with the native
+│       │   │   │   ├── parity.rs                                            # The parity fixtures: how their file writes them, and what the built-in
+│       │   │   │   ├── port.rs                                              # A model port that answers each parity fixture with the native counter's
+│       │   │   │   ├── qualification.rs                                     # Qualification: a router tokenizer exists only once the port gives every
+│       │   │   │   ├── refusals.rs                                          # The refusals: what each says, and the cause each keeps
+│       │   │   │   ├── router_client.rs                                     # The router client through a router tokenizer, against a stub router: from
+│       │   │   │   ├── stub.rs                                              # A stub of the model router for the router client's tests: a loopback HTTP
+│       │   │   │   └── support.rs                                           # What the router tokenizer's tests share: model cards, recorded in a
+│       │   │   ├── bridge.rs                                                # A model port's asynchronous tokenize, called synchronously: the port's
+│       │   │   ├── error.rs                                                 # Why a router tokenizer refuses to qualify, or to count
+│       │   │   ├── mod.rs                                                   # Preparing revisions for search (docs/architecture/01 §7): their chunks are
+│       │   │   ├── native-parity.json                                       # The native counter's ordered IDs for the 41 parity fixtures a router tokenizer must match to qualify
+│       │   │   ├── parity.rs                                                # The native profile's parity fixtures, native-parity.json: complete
+│       │   │   └── router_tokenizer.rs                                      # The router tokenizer: maestro-canonicalization's TokenCounter over the
 │       │   ├── collection.rs                                                # A collection's declaration: maestro-collection/1, the strict JSON that
 │       │   ├── corpus.rs                                                    # A corpus manifest: maestro-corpus/1, one JSON line per document, through
 │       │   ├── lib.rs                                                       # The knowledge pipeline of Maestro (docs/architecture/01): collections, their
@@ -266,7 +283,8 @@ in place.
 │       │   └── it/                                                          # It
 │       │       ├── collection_contract.rs                                   # maestro-collection/1: a strict declaration parses into typed values; an
 │       │       ├── corpus_contract.rs                                       # maestro-corpus/1: one line per document parses into typed values; an
-│       │       └── main.rs                                                  # The crate's integration tests, built as one test crate: each module proves
+│       │       ├── main.rs                                                  # The crate's integration tests, built as one test crate: each module proves
+│       │       └── router_parity.rs                                         # The router tokenizer's parity with the native counter, live: an explicit
 │       └── Cargo.toml                                                       # Crate manifest: The knowledge pipeline of Maestro, starting with the collection and corpus contracts it imports through
 ├── docs/                                                                    # Documentation
 │   ├── adr/                                                                 # Hard-to-reverse decisions, each with the trade-off that produced it
