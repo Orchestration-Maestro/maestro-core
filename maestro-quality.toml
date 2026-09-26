@@ -53,6 +53,15 @@ path = "crates/maestro-canonicalization/src/filesystem/mod.rs"
 item = "open_nofollow"
 reason = "the artifact check's link-free open, one function on each platform"
 
+# The kernel's pins, which the revisions alone take for now: the first task
+# whose table pins an artifact too removes this exception, since the rule then
+# refuses it.
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-kernel/src/store/mod.rs"
+item = "artifacts"
+reason = "every kernel table that refers to an artifact pins it in the transaction that records the reference: revisions now, then chunk sets, evaluation reports and model cards"
+
 # The words this repository means that the spell checker reads as mistakes:
 # Exemple, French test input for the canonicalizer; RTO, the recovery time
 # objective beside RPO; WRONLY, the POSIX open flag as rustix names it;

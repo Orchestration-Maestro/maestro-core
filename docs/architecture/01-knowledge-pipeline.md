@@ -553,12 +553,21 @@ in the journal, retries idempotent because point IDs are deterministic.
 ```mermaid
 stateDiagram-v2
   [*] --> building: publish(collection, profiles)
-  building --> verifying: all points upserted
-  verifying --> published: representations, references, retrieval checks pass
-  verifying --> failed: any check fails
-  published --> retired: newer generation published
-  retired --> [*]: dropped after K=2 newer generations
+  building --> verified: all points upserted and checked
+  building --> failed: its build or its checks fail
+  verified --> published: the alias switches to it
+  verified --> failed: withdrawn before the switch
+  published --> retired: a newer generation is published
+  retired --> [*]: kept for rollback, then dropped
+  failed --> [*]
 ```
+
+The kernel records every generation and refuses any other move. A failed
+generation is final: it is never published and never resumed, and it does not
+hold back the next build of its collection. Publishing a generation retires
+the one published before it, in the same transaction; the retired generation
+is kept for rollback. How long it is kept, and how a rollback returns to it,
+is settled with the publish command.
 
 | Aspect | Design |
 | --- | --- |
@@ -655,7 +664,7 @@ request return the existing job.
 | Router unavailable | Typed `Unavailable { service: "router", remediation }`; the job is resumable |
 | Embedding with wrong dimension or non-finite values | Batch refused; no partial generation is published |
 | Qdrant down during publish | Generation stays `building`; `--resume` continues from the last journaled batch |
-| Crash between upsert and alias switch | Generation stays `verifying`; the alias still points at the previous generation |
+| Crash between upsert and alias switch | Generation stays `verified` (`building` if its checks had not all passed); the alias still points at the previous generation |
 | Session expired during acquisition (S6) | Items stay pending; the run stops with `session_expired`; resume after re-authentication |
 | WAF challenge (S6) | Typed `challenge` outcome with backoff; never saved as content |
 | Concurrent publish on one collection | Refused by the job lease |

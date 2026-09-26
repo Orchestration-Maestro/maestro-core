@@ -8,8 +8,10 @@
 pub mod artifact;
 pub mod binding;
 pub mod capability;
+pub mod document;
 mod filesystem;
 pub mod gateway;
+pub mod generation;
 pub mod journal;
 pub mod paths;
 pub mod store;
