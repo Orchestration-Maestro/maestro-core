@@ -20,7 +20,7 @@ pub(in crate::quality) fn run(document: &CanonicalDocument, markdown: &str) -> V
         text::extraction_artifacts(document),
         secret::suspected_secret(markdown),
         record::table_incomplete(document),
-        page::application_error(document),
+        page::application_error(document, &body),
         page::sign_in(document, &body),
         record::metadata_missing(document),
         record::assets_missing(document),

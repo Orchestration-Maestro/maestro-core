@@ -109,6 +109,7 @@ fn the_gate_decides_every_revision_as_a_job_and_prints_its_report() {
                 "kept": 0,
                 "outcomes": outcomes(28, 0),
                 "rules": {},
+                "ignored_rules": {},
                 "held": [],
             },
         })

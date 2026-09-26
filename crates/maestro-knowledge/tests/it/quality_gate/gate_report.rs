@@ -1,7 +1,8 @@
 //! What the gate reports, as JSON: every revision counted once by outcome
-//! and by rule, and each one held back listed; and why it stops, before any
-//! work for a collection its caller cannot read, part way for a canonical
-//! document the kernel cannot give back.
+//! and by rule, the ledger rules kept dispositions outranked, and each one
+//! held back listed; and why it stops, before any work for a collection its
+//! caller cannot read, part way for a canonical document the kernel cannot
+//! give back.
 
 use super::support::{CLEAN, EMPTY, GATE, REPLACED, Scratch, disposition_of, revision_of};
 use maestro_kernel::{
@@ -38,6 +39,7 @@ fn the_report_counts_every_revision_once_and_lists_each_one_held_back() {
                 "excluded": 0,
             },
             "rules": { "body.near-empty": 1, "text.replacement-characters": 1 },
+            "ignored_rules": {},
             "held": [{
                 "revision": empty.id,
                 "document": empty.document_id,
