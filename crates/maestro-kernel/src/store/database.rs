@@ -3,13 +3,13 @@
 
 use super::{
     error::Error,
-    migration::{MIGRATIONS, migrate},
+    migration::{MIGRATIONS, migrate, pending},
 };
 use crate::{
     artifact::Store,
     filesystem::{create_directories, new_file},
 };
-use rusqlite::{Connection, OpenFlags, Transaction, TransactionBehavior};
+use rusqlite::{Connection, ErrorCode, OpenFlags, Transaction, TransactionBehavior};
 use std::{
     fs, io,
     path::{self, Path, PathBuf},
@@ -23,6 +23,8 @@ use std::{
 
 /// How long a connection waits for another's lock before it gives up.
 const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
+/// The database's file in the kernel's data directory.
+const FILE: &str = "kernel.sqlite3";
 
 /// Numbers the temporary database files of this process, so two opens never
 /// share one.
@@ -63,7 +65,7 @@ impl Database {
     ///
     /// As [`Database::open`].
     pub fn open_in(data: &Path) -> Result<Self, Error> {
-        Self::open(&data.join("kernel.sqlite3"), &data.join("artifacts"))
+        Self::open(&data.join(FILE), &data.join("artifacts"))
     }
 
     /// [`Database::open`] with `migrations` in place of the binary's own.
@@ -119,6 +121,35 @@ impl Database {
         Ok(value)
     }
 
+    /// What SQLite's quick check finds wrong in the database file, in its
+    /// words: nothing when the file is intact. It reads every page, so it
+    /// takes as long as the file is large; `maestro doctor` runs it.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Sqlite`] when the database cannot be read at all.
+    pub fn quick_check(&self) -> Result<Vec<String>, Error> {
+        let reader = self.reader()?;
+        let checked = reader
+            .prepare("PRAGMA quick_check")
+            .and_then(|mut statement| {
+                statement
+                    .query_map([], |row| row.get(0))?
+                    .collect::<rusqlite::Result<Vec<String>>>()
+            });
+        match checked {
+            Ok(found) => Ok(found.into_iter().filter(|line| line != "ok").collect()),
+            // A damaged page can end the check itself, as when it reads the
+            // rows of a table to check their NOT NULL columns.
+            Err(rusqlite::Error::SqliteFailure(failure, message))
+                if failure.code == ErrorCode::DatabaseCorrupt =>
+            {
+                Ok(vec![message.unwrap_or_else(|| failure.to_string())])
+            }
+            Err(error) => Err(error.into()),
+        }
+    }
+
     /// A connection of its own that only reads, and sees the last commit,
     /// never a write in progress.
     ///
@@ -131,6 +162,29 @@ impl Database {
             OpenFlags::SQLITE_OPEN_READ_ONLY,
         )?)
     }
+}
+
+/// The migrations this binary carries that the kernel's database in the data
+/// directory `data` does not record, by name, in the order
+/// [`Database::open_in`] applies them: none when it is up to date. It opens
+/// the file read-only and never creates, migrates or changes it, so that
+/// `maestro doctor` and `maestro status`, which ask it before they open a
+/// database, never migrate one.
+///
+/// # Errors
+///
+/// [`Error::UnknownMigration`] when the database records a migration this
+/// binary lacks, which a newer binary applied, and [`Error::Sqlite`] when
+/// the file cannot be opened or read, a missing one among them.
+pub fn pending_migrations(data: &Path) -> Result<Vec<&'static str>, Error> {
+    let connection = configured(Connection::open_with_flags(
+        data.join(FILE),
+        OpenFlags::SQLITE_OPEN_READ_ONLY,
+    )?)?;
+    Ok(pending(&connection, MIGRATIONS)?
+        .into_iter()
+        .map(|(name, _)| name)
+        .collect())
 }
 
 /// `connection` with the settings every connection of the kernel has: a 5 s

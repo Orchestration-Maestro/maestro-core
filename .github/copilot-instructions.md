@@ -45,6 +45,70 @@ in place.
 │   ├── dependabot.yml                                                       # The organization merges only conventional titles: "ci(deps): bump ..."
 │   └── zizmor.yml                                                           # The workflow security audit just check and the commit hook run: zizmor, in its pedantic persona, offline
 ├── crates/                                                                  # The workspace's crates
+│   ├── maestro/                                                             # The maestro binary: the command line (CLI) over the knowledge library and the kernel
+│   │   ├── src/                                                             # The crate's sources
+│   │   │   ├── cli/                                                         # The commands, a module each, and what they share
+│   │   │   │   ├── health/                                                  # maestro doctor and status: the checks of the kernel, the search service, the router and each role's card
+│   │   │   │   │   ├── tests/                                               # Unit tests of the checks: the kernel's files, the services, the cards, what doctor must not touch
+│   │   │   │   │   │   ├── findings.rs                                      # Foreign entries of the data directory listed and left untouched; grants that reach no known scope
+│   │   │   │   │   │   ├── kernel.rs                                        # config.toml and bindings.toml refused with a fix; the database never created, damage and lost artifacts found
+│   │   │   │   │   │   ├── mod.rs                                           # The health unit tests' door: declarations only
+│   │   │   │   │   │   ├── services.rs                                      # Qdrant at the pinned version, the router's catalog, each role's card; next actions from what setup would do
+│   │   │   │   │   │   └── support.rs                                       # What the health tests share: a scratch kernel directory, a one-answer HTTP stub, a closed address
+│   │   │   │   │   ├── check.rs                                             # A check of the machine: its target, and what it saw, or its problem and next action
+│   │   │   │   │   ├── doctor.rs                                            # maestro doctor: every check, each failure with its next action, what it must not touch; exit 1 on a failure
+│   │   │   │   │   ├── findings.rs                                          # What doctor lists and never touches: entries the kernel does not own, as maestro v1's, and unreached grants
+│   │   │   │   │   ├── kernel.rs                                            # The kernel's checks: configuration files, the database opened only if it exists and checked whole, the artifacts
+│   │   │   │   │   ├── mod.rs                                               # The checks' door: declarations only
+│   │   │   │   │   ├── services.rs                                          # Qdrant answering as the pinned version, the router listing its catalog, each role's model card
+│   │   │   │   │   └── status.rs                                            # maestro status: the kernel, Qdrant and the router ready or not, and each readable collection; exits 0
+│   │   │   │   ├── setup/                                                   # maestro setup: Qdrant 1.19.1 pinned by digest, a systemd user unit on 127.0.0.1; a preview, then --yes
+│   │   │   │   │   ├── tests/                                               # Unit tests of setup: the pin and the platforms everywhere; the unit and the install with fake tools on Unix
+│   │   │   │   │   │   ├── install.rs                                       # A preview and a second run change nothing, a digest mismatch writes nothing, each failure is named
+│   │   │   │   │   │   ├── mod.rs                                           # The setup unit tests' door: declarations only
+│   │   │   │   │   │   ├── platform.rs                                      # The pinned release is research R7's; Linux on x86-64 only, every other platform gets the manual steps
+│   │   │   │   │   │   ├── support.rs                                       # What the install tests share: a scratch home, fake curl, tar and systemctl that log, a small release
+│   │   │   │   │   │   └── unit.rs                                          # The service's layout and unit: loopback, telemetry off, data under the kernel's; paths escaped or refused
+│   │   │   │   │   ├── command.rs                                           # maestro setup: the preview, the steps taken with --yes, the document printed; the readiness doctor asks
+│   │   │   │   │   ├── mod.rs                                               # The setup's door: declarations only
+│   │   │   │   │   ├── release.rs                                           # The pinned Qdrant 1.19.1 archive and binary digests, the ports, and the manual steps elsewhere
+│   │   │   │   │   ├── service.rs                                           # The layout, the unit, the survey of what is missing, and the steps that install it, each checked first
+│   │   │   │   │   └── tools.rs                                             # curl over HTTPS into memory, tar unpacking in memory, systemctl --user: the tools setup runs
+│   │   │   │   ├── tests/                                                   # Unit tests: the lease of a foreground job, and how an import ends its job
+│   │   │   │   │   ├── import_endings.rs                                    # An import ends its job succeeded with its report or failed saying why; each step journaled, or a lost lease stops it
+│   │   │   │   │   ├── lease_heartbeats.rs                                  # A foreground job's lease, held only by Holder::run: renewed at each heartbeat and step, never after a takeover
+│   │   │   │   │   ├── mod.rs                                               # The unit tests' door: declarations only
+│   │   │   │   │   ├── supersessions.rs                                     # An import supersedes its resource's holder once no live lease holds it, and leaves a live one alone
+│   │   │   │   │   └── support.rs                                           # What the unit tests share: a scratch kernel and a job leased in it, held or lost
+│   │   │   │   ├── args.rs                                                  # The grammar, noun then verb, as clap derives it; the comments are the help
+│   │   │   │   ├── collection.rs                                            # knowledge collection add, and the declaration a later command finds for a collection
+│   │   │   │   ├── failure.rs                                               # Why a command stopped short: refused (exit 2) or failed (exit 1)
+│   │   │   │   ├── foreground.rs                                            # A job run in the foreground: submitted or found by its key, taken or followed, a stale holder superseded
+│   │   │   │   ├── import.rs                                                # knowledge import: a leased job in the foreground, its ID first; a rerun follows, takes over or supersedes
+│   │   │   │   ├── kernel.rs                                                # The kernel every command opens: paths, database, config.toml applied, the local principal's scopes
+│   │   │   │   ├── lease.rs                                                 # The lease of a job run in the foreground: Holder::run's heartbeat thread and each step renew it
+│   │   │   │   ├── mod.rs                                                   # The commands' door: declarations only
+│   │   │   │   ├── output.rs                                                # How a command prints: text, or one JSON document under --json; diagnostics on stderr
+│   │   │   │   ├── quality.rs                                               # knowledge quality: the gate as a leased job; its inputs the ledger beside the declaration and the revisions
+│   │   │   │   ├── run.rs                                                   # Parses the arguments, opens the kernel, runs the command, returns its exit code
+│   │   │   │   ├── status.rs                                                # knowledge status: documents, revisions by status and disposition, generations
+│   │   │   │   └── wait.rs                                                  # job wait: a job's stream followed to its end, the command exiting with its outcome; the follower
+│   │   │   └── main.rs                                                      # The binary root: the commands, their output, exit codes and JSON schemas documented
+│   │   ├── tests/                                                           # Integration tests
+│   │   │   └── it/                                                          # The contract tests: the built binary run in a scratch home
+│   │   │       ├── cli_contract.rs                                          # JSON on stdout, diagnostics on stderr, exit codes 0, 1 and 2, the job ID first
+│   │   │       ├── collection_status.rs                                     # knowledge status of the synthetic collection: counts, dispositions and a generation
+│   │   │       ├── doctor_checks.rs                                         # maestro doctor: each failure names its next action, the router its address; v1 files listed, untouched
+│   │   │       ├── fakes.rs                                                 # Fake curl and systemctl for the binary's tests, found first on the PATH, logging each call
+│   │   │       ├── import_jobs.rs                                           # knowledge import end to end, rerun, live holder refused, stale one superseded, leases taken over
+│   │   │       ├── job_waits.rs                                             # job wait follows a job to its end and exits with its outcome; an unreadable job is unknown
+│   │   │       ├── machine.rs                                               # How doctor and status tests run the binary: a router where nothing answers, the fakes on the PATH
+│   │   │       ├── main.rs                                                  # The one integration-test crate of the binary
+│   │   │       ├── quality_gates.rs                                         # knowledge quality: its report, a rerun, a gate after an import, the ledger first, failures and refusals
+│   │   │       ├── setup_installs.rs                                        # maestro setup: the preview writes nothing, a wrong download is refused; elsewhere manual steps, exit 2
+│   │   │       ├── status_summaries.rs                                      # maestro status: services ready or down, the readable collections, nothing created on a fresh machine
+│   │   │       └── support.rs                                               # What the contract tests share: a scratch home, the synthetic collection, the binary under a deadline
+│   │   └── Cargo.toml                                                       # Crate manifest: The command line of Maestro: collections, their imports, the jobs that run them, and the machine's setup and checks
 │   ├── maestro-canonicalization/                                            # Local Rust library and CLI: completed Markdown + supplied metadata → parsed structure → validation → CanonicalDocument
 │   │   ├── examples/                                                        # Worked examples
 │   │   │   ├── assets/                                                      # Images and other assets
@@ -67,6 +131,7 @@ in place.
 │   │   │   │   │   ├── boundaries.rs                                        # The pure preparation helpers: cut points, fitting prefixes and delimiter-safe ranges
 │   │   │   │   │   ├── context.rs                                           # Context, characterized on small documents: the exact prepared input of each chunk
 │   │   │   │   │   ├── mod.rs                                               # Tests of structural preparation and packing
+│   │   │   │   │   ├── oversized.rs                                         # Oversized units: refused by name, with their block and its span, never by their text
 │   │   │   │   │   ├── packing.rs                                           # Packing and preparation: shared chunks, context text, containers, part numbers and the table
 │   │   │   │   │   └── splitting.rs                                         # Splitting, characterized on small documents: where oversized units and rows are cut
 │   │   │   │   ├── context.rs                                               # The context a chunk repeats: headings, parent items, task markers and table headers
@@ -173,7 +238,9 @@ in place.
 │   │   │   ├── 0002_journal.sql                                             # The journal: the append-only events, their triggers, and the consumers' cursors
 │   │   │   ├── 0003_scopes.sql                                              # The grants: each principal's rights on a scope and on every scope below it
 │   │   │   ├── 0004_documents.sql                                           # The pipeline's records: collections, sources, documents, revisions, their dispositions, chunk sets, chunks and generations
-│   │   │   └── 0005_jobs.sql                                                # The jobs table: each job's key, attempt, resource, state, lease and outcome, and its triggers
+│   │   │   ├── 0005_jobs.sql                                                # The jobs table: each job's key, attempt, resource, state, lease and outcome, and its triggers
+│   │   │   ├── 0006_eval_reports.sql                                        # The evaluation reports: each run's collection, generation, suite and report artifact, and the triggers that keep it as recorded
+│   │   │   └── 0007_chunk_sets.sql                                          # The guards of the chunk sets and their chunks: their states, moves and identity, and a complete set's chunks as counted
 │   │   ├── src/                                                             # The crate's sources
 │   │   │   ├── artifact/                                                    # Content-addressed artifacts: immutable bytes stored, and read back, by their
 │   │   │   │   ├── digest.rs                                                # A SHA-256 digest: the name every artifact is stored under
@@ -184,18 +251,46 @@ in place.
 │   │   │   │   ├── mod.rs                                                   # Capabilities: the registry of the tools Maestro offers (building block B9)
 │   │   │   │   ├── registry.rs                                              # The registry: each tool once, with what it takes, does and needs
 │   │   │   │   └── tests.rs                                                 # Tests of the capability registry: declarations, refusals and order
+│   │   │   ├── chunk_set/                                                   # Chunk sets: a collection's chunks under one profile and one counter, building until complete or failed
+│   │   │   │   ├── tests/                                                   # Tests of the chunk set records: their lifecycle and their chunks
+│   │   │   │   │   ├── chunks.rs                                            # Chunks: a revision's chunks recorded at once into a building set, their prepared inputs pinned, read in scope
+│   │   │   │   │   ├── guards.rs                                            # The guards of migration 0007_chunk_sets: each trigger refusing raw SQL, one test each
+│   │   │   │   │   ├── lifecycle.rs                                         # A chunk set's lifecycle: begun building, found again by a rerun, then complete or failed for good
+│   │   │   │   │   ├── mod.rs                                               # Tests of the chunk set records: their lifecycle and their chunks
+│   │   │   │   │   └── support.rs                                           # What the chunk set tests share: a scratch database with revisions of two collections
+│   │   │   │   ├── chunk.rs                                                 # Chunks: a revision's passages in a chunk set, recorded at once, each pinning its prepared input
+│   │   │   │   ├── error.rs                                                 # Why the kernel refused to begin, move or fill a chunk set
+│   │   │   │   ├── mod.rs                                                   # Chunk sets: a collection's chunks under one profile and one counter, building until complete or failed
+│   │   │   │   ├── record.rs                                                # Chunk sets as the kernel records them: begun, completed with their manifest or failed, read in scope
+│   │   │   │   └── state.rs                                                 # The states a chunk set moves through, and the moves it may make
 │   │   │   ├── document/                                                    # The pipeline's document records (building block B5; docs/architecture/01
 │   │   │   │   ├── tests/                                                   # Tests of the document records: the documents migration, collections
+│   │   │   │   │   ├── counts.rs                                            # A collection's counts: documents, revisions by status and disposition, only in scope
+│   │   │   │   │   ├── dispositions.rs                                      # Quality dispositions: one per revision, kept once given, read in scope, a hold journaled with it
+│   │   │   │   │   ├── duplicates.rs                                        # Occurrences and near-duplicate groups: each recorded once, a batch in one write, read in scope
 │   │   │   │   │   ├── errors.rs                                            # What the document records' refusals say, and the store's refusals they
+│   │   │   │   │   ├── listing.rs                                           # The collections a set covers, listed in id order; a source's grant never lists its collection
 │   │   │   │   │   ├── mod.rs                                               # Tests of the document records: the documents migration, collections
 │   │   │   │   │   ├── parents.rs                                           # Collections, their sources and their documents: collections and sources
 │   │   │   │   │   ├── revisions.rs                                         # Revisions: recorded once with their two artifacts pinned, immutable after
 │   │   │   │   │   ├── schema.rs                                            # The documents migration: the ten pipeline tables of 01 §11, all strict
 │   │   │   │   │   └── support.rs                                           # What the record tests share: a scratch database, and the collection
 │   │   │   │   ├── collection.rs                                            # Collections, the sources they declare and the documents those sources
+│   │   │   │   ├── counts.rs                                                # A collection's counts: documents, and revisions by status and by disposition, in one snapshot
+│   │   │   │   ├── disposition.rs                                           # Quality dispositions: one per revision, kept once given, a hold journaled in the same write
+│   │   │   │   ├── duplicate.rs                                             # The duplicates of revisions: every place a revision's content occurs, and the groups of near duplicates
 │   │   │   │   ├── error.rs                                                 # Why the kernel refused to record a collection, a source, a document or a revision
 │   │   │   │   ├── mod.rs                                                   # The pipeline's document records (building block B5; docs/architecture/01
 │   │   │   │   └── revision.rs                                              # Revisions: one exact version of a document's bytes and metadata, recorded
+│   │   │   ├── eval/                                                        # Evaluation reports (plan D13; FR-S1-009): each run of an evaluation suite
+│   │   │   │   ├── tests/                                                   # Tests of the evaluation reports the kernel records: their artifact, their
+│   │   │   │   │   ├── mod.rs                                               # Tests of the evaluation reports the kernel records: their artifact, their
+│   │   │   │   │   ├── records.rs                                           # A report is stored as an artifact, indexed and pinned by its record, and
+│   │   │   │   │   ├── support.rs                                           # What the report tests share: a scratch database holding the collections
+│   │   │   │   │   └── table.rs                                             # The table of reports refuses, whoever writes, to change, replace or
+│   │   │   │   ├── error.rs                                                 # Why the kernel refused to record or read an evaluation report
+│   │   │   │   ├── mod.rs                                                   # Evaluation reports (plan D13; FR-S1-009): each run of an evaluation suite
+│   │   │   │   └── report.rs                                                # Reports as the kernel records them: the artifact of each, the record that
 │   │   │   ├── evidence/                                                    # Evidence (building block B7; docs/architecture/02 §6, plan D10): what a
 │   │   │   │   ├── tests/                                                   # Tests of evidence: resolving a chunk from the authority, and bundles as
 │   │   │   │   │   ├── bundle.rs                                            # Bundles: maestro-evidence/1 as JSON, its evidence apart from its trace
@@ -210,6 +305,7 @@ in place.
 │   │   │   ├── gateway/                                                     # The model gateway (building block B10): every model, embedder, reranker
 │   │   │   │   ├── tests/                                                   # Tests of the model gateway: model cards, the router client against a stub
 │   │   │   │   │   ├── card.rs                                              # Tests of model cards: strict JSON artifacts whose digest is their
+│   │   │   │   │   ├── catalog.rs                                           # The router's catalog: GET /v1/models in no room; refusals kept, a bad entry name an invalid answer
 │   │   │   │   │   ├── fake.rs                                              # Tests of the deterministic fake: its outputs are fixed by its inputs, the
 │   │   │   │   │   ├── fixture.rs                                           # What the gateway's tests share: a scratch store, a card for each role, and
 │   │   │   │   │   ├── mod.rs                                               # Tests of the model gateway: model cards, the router client against a stub
@@ -224,6 +320,7 @@ in place.
 │   │   │   ├── generation/                                                  # The search generations of a collection (building block B6; plan D9): each
 │   │   │   │   ├── tests/                                                   # Tests of the generation records: their lifecycle and their publication
 │   │   │   │   │   ├── lifecycle.rs                                         # A generation's lifecycle: created building, then verified, published and
+│   │   │   │   │   ├── listing.rs                                           # A collection's generations: all of them, in creation order, only in scope
 │   │   │   │   │   ├── mod.rs                                               # Tests of the generation records: their lifecycle and their publication
 │   │   │   │   │   ├── publication.rs                                       # Publication: at most one generation of a collection is published, which
 │   │   │   │   │   └── support.rs                                           # What the generation tests share: a scratch database holding two
@@ -257,22 +354,32 @@ in place.
 │   │   │   ├── journal/                                                     # The journal: every change the kernel makes, recorded as an event in one
 │   │   │   │   ├── tests/                                                   # Tests of the journal: its events and their streams, its cursors, and what
 │   │   │   │   │   ├── append_only.rs                                       # The journal is append-only: the database itself refuses to update, delete
+│   │   │   │   │   ├── breaking.rs                                          # The compatibility check: what a fresh event schema changes of the committed one, beyond an added optional property
 │   │   │   │   │   ├── child.rs                                             # Not a test of its own: what the child processes of the crash and
+│   │   │   │   │   ├── compatibility.rs                                     # The compatibility check's rules on small schemas: what it refuses as a breaking change, what it lets through
 │   │   │   │   │   ├── concurrency.rs                                       # Writers together: threads sharing the database and processes of their own
 │   │   │   │   │   ├── crash.rs                                             # A crash: the event a process committed before it is read after the
 │   │   │   │   │   ├── cursors.rs                                           # Cursors: where each consumer stands in each stream, moved forward only
+│   │   │   │   │   ├── envelope.rs                                          # The envelope: an event read back from the journal as its CloudEvents 1.0 envelope
 │   │   │   │   │   ├── events.rs                                            # Events: the ID and the sequence recording gives them, the event it
 │   │   │   │   │   ├── mod.rs                                               # Tests of the journal: its events and their streams, its cursors, and what
-│   │   │   │   │   └── support.rs                                           # What the journal tests share: a scratch data directory, the events they
+│   │   │   │   │   ├── regeneration.rs                                      # The command that regenerates the committed event schemas and their index, tested on a scratch directory
+│   │   │   │   │   ├── schemas.rs                                           # The committed event schemas: generated from their types, never narrowed, followed by the data, and the command that regenerates them
+│   │   │   │   │   ├── subset.rs                                            # What the check and the validator read of a schema: the subset of JSON Schema schemars generates
+│   │   │   │   │   ├── support.rs                                           # What the journal tests share: a scratch data directory, the events they
+│   │   │   │   │   └── validation.rs                                        # A validator of data against the committed event schemas, over the subset schemars generates
 │   │   │   │   ├── cursor.rs                                                # Cursors: how far each consumer has read each stream, moved forward only
+│   │   │   │   ├── envelope.rs                                              # Events as they leave the kernel: the CloudEvents 1.0 envelope, and the machine its source names
 │   │   │   │   ├── error.rs                                                 # Why the journal refused an operation
 │   │   │   │   ├── event.rs                                                 # Events: recorded with a new ID and the next sequence of their stream
+│   │   │   │   ├── knowledge.rs                                             # The public knowledge events: the data of each, and the catalogue naming the schema each follows
 │   │   │   │   └── mod.rs                                                   # The journal: every change the kernel makes, recorded as an event in one
 │   │   │   ├── scope/                                                       # Scopes and grants: who may see what (docs/architecture/04 §3, building
 │   │   │   │   ├── tests/                                                   # Tests of scopes: their paths and names, what a grant covers, the grants
 │   │   │   │   │   ├── config.rs                                            # config.toml: the local principal's grants, checked whole when read, and
 │   │   │   │   │   ├── grants.rs                                            # Grants: a principal sees only what it was granted and what lies below it
 │   │   │   │   │   ├── inventory.rs                                         # There is no read function without a ScopeSet: every public method of
+│   │   │   │   │   ├── known.rs                                             # The scopes a set was granted, and the known scopes it covers: the workspace, collections and sources
 │   │   │   │   │   ├── mod.rs                                               # Tests of scopes: their paths and names, what a grant covers, the grants
 │   │   │   │   │   ├── paths.rs                                             # Scope paths: a workspace, then a collection, then a source, each named by
 │   │   │   │   │   ├── readers.rs                                           # Readers of scoped data take the caller's ScopeSet and filter inside
@@ -280,6 +387,7 @@ in place.
 │   │   │   │   │   └── support.rs                                           # What the scope tests share: a scratch directory for the kernel's data and
 │   │   │   │   ├── config.rs                                                # config.toml, the kernel's configuration file in its configuration
 │   │   │   │   ├── grant.rs                                                 # Grants: the rights of principals on scopes, each given or taken back in a
+│   │   │   │   ├── known.rs                                                 # The scopes the kernel knows, as a set sees them: its workspace and each recorded collection and source
 │   │   │   │   ├── mod.rs                                                   # Scopes and grants: who may see what (docs/architecture/04 §3, building
 │   │   │   │   ├── path.rs                                                  # Scope paths: a workspace, then optionally a collection, then optionally a
 │   │   │   │   ├── right.rs                                                 # The rights a grant gives on a scope
@@ -287,6 +395,7 @@ in place.
 │   │   │   ├── store/                                                       # The kernel's database: one SQLite file beside the artifact store, holding
 │   │   │   │   ├── tests/                                                   # Tests of the kernel database: its migrations, its connections, the
 │   │   │   │   │   ├── artifacts.rs                                         # Artifacts: stored, recorded with their size, media type and pins, and read
+│   │   │   │   │   ├── checks.rs                                            # SQLite's quick check, damage reported as found; each recorded artifact present and intact, or named
 │   │   │   │   │   ├── connections.rs                                       # Connections: one writer shared by every thread, readers of their own, the
 │   │   │   │   │   ├── garbage.rs                                           # Garbage collection: it lists before it removes, removes only artifacts
 │   │   │   │   │   ├── migrations.rs                                        # Migrations: applied in number order, each once, recorded by name, and a
@@ -309,6 +418,39 @@ in place.
 │   │   └── Cargo.toml                                                       # Crate manifest: The single authoritative store of Maestro, starting with its content-addressed artifacts
 │   └── maestro-knowledge/                                                   # Maestro knowledge
 │       ├── src/                                                             # The crate's sources
+│       │   ├── eval/                                                        # The evaluation runner (plan D13; FR-S1-009, SC-S1-008): every retrieval
+│       │   │   ├── tests/                                                   # Tests of the evaluation runner: how it ranks and judges each question
+│       │   │   │   ├── compare.rs                                           # compare pairs two runs by question and gives, for each metric, the
+│       │   │   │   ├── degraded.rs                                          # A degraded search, one where a route or the reranker could not run, still
+│       │   │   │   ├── documents.rs                                         # A question may expect a document without sections whole: any passage of
+│       │   │   │   ├── failures.rs                                          # Each failure of an answerable question gets its class at each cut-off it
+│       │   │   │   ├── intervals.rs                                         # The intervals: 95 % percentile intervals of 2,000 bootstrap resamples
+│       │   │   │   ├── metrics.rs                                           # Each metric of a run against values computed by hand on a small suite
+│       │   │   │   ├── mod.rs                                               # Tests of the evaluation runner: how it ranks and judges each question
+│       │   │   │   ├── ranking.rs                                           # A bundle lists its passages in reading order, so the runner ranks them
+│       │   │   │   ├── report.rs                                            # A report is a strict JSON artifact, maestro-eval-report/1: it writes and
+│       │   │   │   ├── run.rs                                               # run resolves each expected section of a suite in the canonical document
+│       │   │   │   └── support.rs                                           # What the evaluation tests share: questions, bundles built from the hits a
+│       │   │   ├── bootstrap.rs                                             # The bootstrap: resamples of a run's questions, drawn within the
+│       │   │   ├── compare.rs                                               # Comparing two runs of one suite, question by question
+│       │   │   ├── error.rs                                                 # Why a run or a comparison was refused
+│       │   │   ├── judge.rs                                                 # Judging one question: ranking its bundle's passages, finding the sections
+│       │   │   ├── metric.rs                                                # The metrics of a run: each a value over a sample of its questions, drawn
+│       │   │   ├── mod.rs                                                   # The evaluation runner (plan D13; FR-S1-009, SC-S1-008): every retrieval
+│       │   │   ├── report.rs                                                # Reports: maestro-eval-report/1, what a run measured, question by
+│       │   │   └── run.rs                                                   # A run: every question of a suite, resolved in the generation it
+│       │   ├── import/                                                      # Importing a collection's corpus through its maestro-corpus/1 manifests
+│       │   │   ├── tests/                                                   # Tests of the import that reach inside it: its manifest lines, and its streaming, proven by an in-memory corpus
+│       │   │   │   ├── lines.rs                                             # A manifest read one numbered line at a time, until it ends
+│       │   │   │   ├── mod.rs                                               # Tests of the import that reach inside it: its manifest lines, and its streaming, proven by an in-memory corpus
+│       │   │   │   └── streaming.rs                                         # The import holds one manifest line and one document at a time
+│       │   │   ├── collection.rs                                            # Importing a collection: its declaration recorded, each source's manifest imported, its completion journaled
+│       │   │   ├── corpus.rs                                                # Where an import reads a source's corpus: its manifest, and each document relative to it
+│       │   │   ├── entry.rs                                                 # Importing one entry: its document checked, canonicalized, stored and recorded, or held
+│       │   │   ├── error.rs                                                 # Why an import stopped, before any work or part way
+│       │   │   ├── mod.rs                                                   # Importing a collection's corpus through its maestro-corpus/1 manifests
+│       │   │   ├── report.rs                                                # What an import reports: its counts, and why it refused each entry it refused
+│       │   │   └── source.rs                                                # Importing one source's manifest: shared source_refs found first, then each line in turn
 │       │   ├── lexical/                                                     # The lexical analyzer of the BM25 route, profile bm25-en-fr/1: it turns a
 │       │   │   ├── analyzer.rs                                              # The profile's name and the terms of a text
 │       │   │   ├── fold.rs                                                  # Folding: a text without its accents, before any other rule reads it
@@ -318,23 +460,72 @@ in place.
 │       │   │   ├── stopwords.rs                                             # The stopwords of bm25-en-fr/1: an English list and a French one, each of
 │       │   │   ├── tests.rs                                                 # What the lexical module's lookups rely on
 │       │   │   └── vector.rs                                                # Sparse vectors: a passage's terms weighed with BM25's term-frequency part
-│       │   ├── prepare/                                                     # Preparing revisions for search: tokens counted as the selected embedder counts them, through the model router
-│       │   │   ├── tests/                                                   # Tests of the router tokenizer: qualification by parity with the native
+│       │   ├── prepare/                                                     # Preparing revisions for search: duplicates grouped, then chunks counted as the selected embedder counts them, through the model router
+│       │   │   ├── tests/                                                   # Tests of the router tokenizer, and of the preparation of a collection over it
+│       │   │   │   ├── chunk_sets.rs                                        # What a chunk set records: its profile, its counter, the same chunk IDs for the same input, each prepared input pinned
 │       │   │   │   ├── counting.rs                                          # Counting and verifying through a qualified tokenizer: the port's IDs in
-│       │   │   │   ├── mod.rs                                               # Tests of the router tokenizer: qualification by parity with the native
+│       │   │   │   ├── duplicates.rs                                        # Duplicates: exact ones prepared once with every occurrence kept, near ones grouped with their Jaccard
+│       │   │   │   ├── eligibility.rs                                       # Which revisions a preparation reads: the accepted ones, for a caller who reads the whole collection
+│       │   │   │   ├── interruptions.rs                                     # Interrupted work never reads as complete: a stopped run resumes, a changed counter fails the set
+│       │   │   │   ├── latest.rs                                            # A document is prepared by its latest revision alone; one whose latest is held or failed is left out and reported
+│       │   │   │   ├── mod.rs                                               # Tests of the router tokenizer, and of the preparation of a collection over it
+│       │   │   │   ├── near.rs                                              # Near duplicates: signatures and bands propose, an exact Jaccard of 0.85 or more confirms, pairs link groups
+│       │   │   │   ├── oversized.rs                                         # A unit that cannot fit 700 tokens with its context refuses its document by name; the rest are prepared
 │       │   │   │   ├── parity.rs                                            # The parity fixtures: how their file writes them, and what the built-in
 │       │   │   │   ├── port.rs                                              # A model port that answers each parity fixture with the native counter's
 │       │   │   │   ├── qualification.rs                                     # Qualification: a router tokenizer exists only once the port gives every
 │       │   │   │   ├── refusals.rs                                          # The refusals: what each says, and the cause each keeps
 │       │   │   │   ├── router_client.rs                                     # The router client through a router tokenizer, against a stub router: from
+│       │   │   │   ├── scratch.rs                                           # What the preparation's tests share: a scratch corpus and kernel, a collection imported and decided
+│       │   │   │   ├── stops.rs                                             # Why a preparation stops: what each stop says, and the cause each keeps
 │       │   │   │   ├── stub.rs                                              # A stub of the model router for the router client's tests: a loopback HTTP
-│       │   │   │   └── support.rs                                           # What the router tokenizer's tests share: model cards, recorded in a
+│       │   │   │   ├── support.rs                                           # What the router tokenizer's tests share: model cards, recorded in a
+│       │   │   │   └── synthetic.rs                                         # The public synthetic collection prepared end to end: one exact group, two near-duplicate groups
 │       │   │   ├── bridge.rs                                                # A model port's asynchronous tokenize, called synchronously: the port's
+│       │   │   ├── chunking.rs                                              # Chunking prepared revisions: each prepared input stored, a revision's chunks recorded at once
+│       │   │   ├── collection.rs                                            # Preparing a collection: its eligible revisions deduplicated, then chunked into the chunk set they name
+│       │   │   ├── counter.rs                                               # The router tokenizer as the chunker counts through it, keeping the typed refusal the chunker holds as text
 │       │   │   ├── error.rs                                                 # Why a router tokenizer refuses to qualify, or to count
-│       │   │   ├── mod.rs                                                   # Preparing revisions for search (docs/architecture/01 §7): their chunks are
+│       │   │   ├── exact.rs                                                 # Exact duplicates: the same original bytes and canonical content, prepared once as the smallest revision
+│       │   │   ├── failure.rs                                               # Why a preparation stopped, and what a rerun does then
+│       │   │   ├── left_out.rs                                              # The documents a preparation leaves out, since the quality gate does not let their latest revision through, each with why
+│       │   │   ├── manifest.rs                                              # A chunk set's identity, and its manifest maestro-chunk-set/1, which a complete set pins
+│       │   │   ├── mod.rs                                                   # Preparing revisions for search: deduplicated, then chunked in the tokens of the selected embedder
 │       │   │   ├── native-parity.json                                       # The native counter's ordered IDs for the 41 parity fixtures a router tokenizer must match to qualify
+│       │   │   ├── near.rs                                                  # Near duplicates: word 5-gram shingles, MinHash bands, exact Jaccard confirmation, groups that delete nothing
 │       │   │   ├── parity.rs                                                # The native profile's parity fixtures, native-parity.json: complete
+│       │   │   ├── report.rs                                                # What a preparation reports, as JSON: its chunk set, its counts and each refusal
 │       │   │   └── router_tokenizer.rs                                      # The router tokenizer: maestro-canonicalization's TokenCounter over the
+│       │   ├── quality/                                                     # The quality gate: one disposition per revision before indexing (01 §4, FR-S1-002a)
+│       │   │   ├── checks/                                                  # The automatic checks, each a rule ID with a documented threshold
+│       │   │   │   ├── body.rs                                              # The body as the checks count it: near-empty and navigation-heavy
+│       │   │   │   ├── flag.rs                                              # What a check says of a revision it flags: rule, outcome and reason
+│       │   │   │   ├── mod.rs                                               # The automatic checks, each a rule ID with a documented threshold
+│       │   │   │   ├── page.rs                                              # A page that is not the document: an application error, a sign-in prompt
+│       │   │   │   ├── record.rs                                            # Canonicalization failures, missing provenance and assets, incomplete tables
+│       │   │   │   ├── rules.rs                                             # Every automatic check, run in the order of the module table
+│       │   │   │   ├── secret.rs                                            # text.suspected-secret: PEM private keys and AWS, GitHub, GitLab, Slack tokens
+│       │   │   │   └── text.rs                                              # Replacement characters and extraction markers left in the text
+│       │   │   ├── tests/                                                   # Each check with a document it flags and one it must not; the precedence
+│       │   │   │   ├── body.rs                                              # The body checks: near-empty, navigation, application error, sign-in
+│       │   │   │   ├── mod.rs                                               # Each check with a document it flags and one it must not; the precedence
+│       │   │   │   ├── precedence.rs                                        # A ledger rule outranks the checks but never accepts a failed document
+│       │   │   │   ├── record.rs                                            # The record checks: canonicalization, metadata, assets, tables, characters
+│       │   │   │   ├── secrets.rs                                           # Each secret format with examples it flags and must not, placeholders among them
+│       │   │   │   └── support.rs                                           # Canonical documents made from Markdown, revisions and ledgers for the tests
+│       │   │   ├── decide.rs                                                # One decision: the first ledger rule that matches, else the checks
+│       │   │   ├── error.rs                                                 # Why the gate stopped; what it decided before stays decided
+│       │   │   ├── gate.rs                                                  # The gate over a collection, and the eligible revisions it lets through
+│       │   │   ├── ledger.rs                                                # The quality ledger, maestro-quality-ledger/1: one strict JSON rule a line
+│       │   │   ├── mod.rs                                                   # The gate, its precedence, and the list of automatic checks
+│       │   │   ├── outcome.rs                                               # The five outcomes by their 01 §4 names, and which hold a revision back
+│       │   │   └── report.rs                                                # What the gate reports: every revision counted once, the held ones listed
+│       │   ├── search/                                                      # Search
+│       │   │   ├── tests/                                                   # Integration tests
+│       │   │   │   ├── fusion.rs                                            # Rust source: fusion
+│       │   │   │   └── mod.rs                                               # Rust source: mod
+│       │   │   ├── fusion.rs                                                # Reciprocal rank fusion over independent retrieval routes
+│       │   │   └── mod.rs                                                   # Rust source: mod
 │       │   ├── collection.rs                                                # A collection's declaration: maestro-collection/1, the strict JSON that
 │       │   ├── corpus.rs                                                    # A corpus manifest: maestro-corpus/1, one JSON line per document, through
 │       │   ├── lib.rs                                                       # The knowledge pipeline of Maestro (docs/architecture/01): collections, their
@@ -343,15 +534,51 @@ in place.
 │       │   └── suite.rs                                                     # An evaluation suite: maestro-suite/1, one JSON line per question, which
 │       ├── tests/                                                           # Integration tests
 │       │   └── it/                                                          # It
+│       │       ├── import_contract/                                         # The import of corpus manifests (T019): refusals, holds, idempotency, identity, report, synthetic collection
+│       │       │   ├── declared_collections.rs                              # Declaring a collection records it and its sources, and nothing for a caller who cannot read them
+│       │       │   ├── document_identity.rs                                 # A document's identity: its collection and source_ref hashed, its path relative to the manifest
+│       │       │   ├── held_pairs.rs                                        # Lines sharing a source_ref with different digests: both revisions recorded, both held
+│       │       │   ├── import_rate.rs                                       # The import rate on 2,000 generated documents, measured on demand
+│       │       │   ├── import_report.rs                                     # What an import reports, as JSON and as import.completed, and what stops it before any work
+│       │       │   ├── mod.rs                                               # The import of corpus manifests (T019): refusals, holds, idempotency, identity, report, synthetic collection
+│       │       │   ├── observed_imports.rs                                  # An observed import: the report every hundred lines and after each last line; a break stops it
+│       │       │   ├── refused_entries.rs                                   # Refusals, each with its line and reason, and the import goes on
+│       │       │   ├── repeated_imports.rs                                  # An import is idempotent: a second one writes nothing, a change of metadata gives a new revision
+│       │       │   ├── support.rs                                           # What the import's tests share: a scratch corpus and database, declarations, and the kernel read whole
+│       │       │   └── synthetic_corpus.rs                                  # The public synthetic collection (T014) imported end to end
+│       │       ├── local_collection/                                        # The collection this machine names, imported for real and gated on demand
+│       │       │   ├── dispositions.rs                                      # The disposition report of a local run: identities, rules, reasons, counts
+│       │       │   ├── mod.rs                                               # The collection this machine names, imported for real and gated on demand
+│       │       │   └── real_import.rs                                       # The ignored run: a collection imported into the kernel data directory, then gated
+│       │       ├── quality_gate/                                            # The quality gate (T020) through the import, the ledger and the kernel
+│       │       │   ├── gate_report.rs                                       # The report as JSON, and the stops: unknown collection, broken artifact
+│       │       │   ├── kept_dispositions.rs                                 # A disposition is kept: a rerun decides nothing, the import holds stay
+│       │       │   ├── latest_revision.rs                                   # A document is eligible by its latest revision alone, never an older one
+│       │       │   ├── mod.rs                                               # The quality gate (T020) through the import, the ledger and the kernel
+│       │       │   ├── recorded_dispositions.rs                             # Dispositions with rule IDs and reasons, revision.held, eligibility
+│       │       │   ├── support.rs                                           # A scratch corpus imported as garden, and what the kernel then records
+│       │       │   └── synthetic_corpus.rs                                  # The public synthetic collection (T014) passes the gate end to end
+│       │       ├── suite_check/                                             # Checking suites against their corpus: every name a suite of a directory
+│       │       │   ├── check.rs                                             # The check itself: each suite of a directory read under its contract, and
+│       │       │   ├── local_suites.rs                                      # The check on the suites and corpus this machine names, by hand
+│       │       │   ├── mod.rs                                               # Checking suites against their corpus: every name a suite of a directory
+│       │       │   ├── reported_problems.rs                                 # What the check reports as problems: a name that gives no one section nor
+│       │       │   ├── scratch.rs                                           # What the check's tests share: a scratch directory holding a corpus, its
+│       │       │   ├── synthetic_suite.rs                                   # The check on the public synthetic collection: every section its suite
+│       │       │   └── unanswerable_leads.rs                                # Leads for unanswerable questions: each document of the manifest that holds
 │       │       ├── collection_contract.rs                                   # maestro-collection/1: a strict declaration parses into typed values; an
 │       │       ├── corpus_contract.rs                                       # maestro-corpus/1: one line per document parses into typed values; an
+│       │       ├── eval_synthetic.rs                                        # The evaluation runner over the public synthetic suite (T014), end to end
 │       │       ├── lexical_accents.rs                                       # Properties of bm25-en-fr/1 over generated texts: a text and the same
 │       │       ├── lexical_fold.rs                                          # Folding in bm25-en-fr/1: every letter of Latin-1 Supplement and Latin
 │       │       ├── lexical_golden.rs                                        # The golden of bm25-en-fr/1: the terms and vectors of sample passages and
 │       │       ├── lexical_rules.rs                                         # The rules of bm25-en-fr/1 as the lexical module states them, each with
 │       │       ├── lexical_sample.rs                                        # Research R7's public sample on bm25-en-fr/1: 22 passages, 11 in English
 │       │       ├── lexical_vectors.rs                                       # The sparse vectors of bm25-en-fr/1: a passage's term weighs BM25's
+│       │       ├── live_router.rs                                           # What the live tests share: the router their variables name, and its embedder's model card
 │       │       ├── main.rs                                                  # The crate's integration tests, built as one test crate: each module proves
+│       │       ├── prepare_live.rs                                          # knowledge prepare on this machine's kernel as a leased job, live: the chunk count, wall time and router calls
+│       │       ├── quality_ledger.rs                                        # maestro-quality-ledger/1: strict rules a line; a missing ledger is empty
 │       │       ├── router_parity.rs                                         # The router tokenizer's parity with the native counter, live: an explicit
 │       │       ├── suite_contract.rs                                        # maestro-suite/1: a suite, one JSON line per question, parses into typed
 │       │       ├── suite_resolution.rs                                      # Resolving an expected section in its canonicalized document: a heading path
@@ -378,6 +605,7 @@ in place.
 │   │   ├── 0017-spec-kit-installed-once-for-the-organization.md             # Spec Kit is installed once for the organization, not committed
 │   │   ├── 0018-rustix-on-unix-and-win32-flags-on-windows.md                # The snapshot store uses rustix on Unix and Win32 flags on Windows
 │   │   ├── 0019-reverse-engineering-is-analysis-behind-a-clean-room.md      # Reverse engineering produces knowledge only, behind a clean-room boundary
+│   │   ├── 0020-rust-libraries-with-named-dependency-exceptions.md          # Rust libraries join the stack; the duplicates they force are named exceptions
 │   │   └── README.md                                                        # Hard-to-reverse decisions, each with the trade-off that produced it
 │   ├── architecture/                                                        # Status: design of record, 2026-09-23, completed 2026-09-24
 │   │   ├── 01-knowledge-pipeline.md                                         # 01 Knowledge pipeline
@@ -394,6 +622,18 @@ in place.
 │       ├── engineering.md                                                   # Engineering rules in maestro-core
 │       ├── northstar.md                                                     # Northstar for maestro-core
 │       └── security.md                                                      # Security rules in maestro-core
+├── schemas/                                                                 # The JSON Schemas this repository publishes, each generated from its Rust type
+│   └── events/                                                              # The JSON Schema of each public event's data (07 §3.2), generated from its Rust type in journal/knowledge.rs
+│       ├── knowledge.generation.published/                                  # The schemas of maestro.knowledge.generation.published, one file per major version
+│       │   └── 1.json                                                       # A generation of a collection was published: searches read it from now on
+│       ├── knowledge.generation.retired/                                    # The schemas of maestro.knowledge.generation.retired, one file per major version
+│       │   └── 1.json                                                       # A published generation was retired: no search reads it, and it is kept for rollback
+│       ├── knowledge.import.completed/                                      # The schemas of maestro.knowledge.import.completed, one file per major version
+│       │   └── 1.json                                                       # An import of a collection's corpus manifest completed: what it did with its entries
+│       ├── knowledge.revision.held/                                         # The schemas of maestro.knowledge.revision.held, one file per major version
+│       │   └── 1.json                                                       # The quality gate held a revision back: it is not indexed
+│       ├── README.md                                                        # The JSON Schema of each public event's data (07 §3.2), generated from its Rust type in journal/knowledge.rs
+│       └── index.json                                                       # The committed event schemas, by name: the regeneration command refuses one whose file is gone
 ├── specs/                                                                   # Specifications, one directory per slice
 │   ├── 000-foundation/                                                      # 000 foundation
 │   │   ├── plan.md                                                          # Implementation Plan: Foundation

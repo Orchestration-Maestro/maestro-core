@@ -237,3 +237,9 @@ fn an_invalid_card_says_why_and_names_the_schema() {
     assert!(message.contains("dimensions: missing"), "{message}");
     assert!(error.source().is_none());
 }
+
+#[test]
+fn every_role_is_listed_once_as_cards_name_it() {
+    let names: Vec<String> = Role::ALL.iter().map(ToString::to_string).collect();
+    assert_eq!(names, ["embedder", "reranker", "answerer"]);
+}

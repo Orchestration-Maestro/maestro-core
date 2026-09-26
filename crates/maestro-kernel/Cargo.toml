@@ -13,6 +13,7 @@ workspace = true
 [dependencies]
 reqwest.workspace = true
 rusqlite.workspace = true
+schemars.workspace = true
 serde.workspace = true
 # Scores read back to the same bits, so a bundle reads back equal.
 serde_json = { workspace = true, features = ["float_roundtrip"] }

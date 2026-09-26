@@ -310,6 +310,34 @@ fn a_failed_revision_stays_inspectable_and_is_never_eligible() {
 }
 
 #[test]
+fn every_revision_of_a_collection_is_listed_in_record_order_failed_ones_included() {
+    let scratch = Scratch::new();
+    let database = scratch.open();
+    for (id, status) in [
+        ("rev-c", RevisionStatus::Valid),
+        ("rev-b", RevisionStatus::Failed),
+        ("rev-a", RevisionStatus::ValidWithWarnings),
+    ] {
+        database
+            .record_revision(&revision(&database, id, status))
+            .unwrap();
+    }
+    let scopes = ScopeSet::default_workspace();
+    let listed = database.revisions(&scopes, "ctm").unwrap();
+    assert_eq!(ids(&listed), ["rev-c", "rev-b", "rev-a"], "in record order");
+    assert_eq!(
+        listed[1],
+        revision(&database, "rev-b", RevisionStatus::Failed),
+        "read whole"
+    );
+    assert_eq!(
+        ids(&database.eligible_revisions(&scopes, "ctm").unwrap()),
+        ["rev-c", "rev-a"]
+    );
+    assert_eq!(database.revisions(&scopes, "other").unwrap(), Vec::new());
+}
+
+#[test]
 fn a_revision_whose_status_moved_to_failed_is_no_longer_eligible() {
     let scratch = Scratch::new();
     let database = scratch.open();

@@ -1,10 +1,11 @@
 //! `maestro-suite/1`: a suite, one JSON line per question, parses into typed
-//! questions in the order of their lines; an unknown or repeated key at any
-//! depth, a line or an expected section written as an array, a named value
-//! written as an object, a value the contract does not name, an occurrence
-//! below 1, an `answerable` that disagrees with `expected`, an id given twice
-//! and a line that is not one JSON object are refused, each naming its line,
-//! and so is a text without a question.
+//! questions in the order of their lines, an expected section with an empty
+//! heading path among them; an unknown or repeated key at any depth, a line
+//! or an expected section written as an array, a named value written as an
+//! object, a value the contract does not name, an occurrence below 1, an
+//! `answerable` that disagrees with `expected`, an id given twice and a line
+//! that is not one JSON object are refused, each naming its line, and so is a
+//! text without a question.
 #![cfg(test)]
 
 use maestro_knowledge::suite::{Error, Language, Schema, Suite};
@@ -106,6 +107,19 @@ fn an_answerable_question_parses_into_typed_values() {
     assert_eq!(example.source_ref, "corpus-path:beds/soil.md");
     assert_eq!(example.heading_path, ["Soil", "Example"]);
     assert_eq!(example.occurrence.map(NonZeroU32::get), Some(2));
+}
+
+#[test]
+fn an_empty_heading_path_names_a_document_without_sections() {
+    let mut line = answerable();
+    line["expected"] = json!([{"source_ref": "corpus-path:notes/frost.md", "heading_path": []}]);
+    let parsed = parse(&suite(&[line])).unwrap();
+    let [whole] = parsed.questions[0].expected.as_slice() else {
+        panic!("one expected section: {:?}", parsed.questions[0].expected);
+    };
+    assert_eq!(whole.source_ref, "corpus-path:notes/frost.md");
+    assert!(whole.heading_path.is_empty(), "{:?}", whole.heading_path);
+    assert_eq!(whole.occurrence, None);
 }
 
 #[test]

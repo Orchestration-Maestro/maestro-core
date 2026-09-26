@@ -78,8 +78,11 @@ indexing or slicing, no one-letter names, paths within two segments, `mod.rs`
 modules whose `mod.rs` holds only `mod` and `use` lines, no import cycle, no
 file over 500 lines of code, `Debug` on every type.
 
-**Scale/Scope**: 7,988 documents, 31.3 MiB of Markdown (4.1 KB on average);
-the chunk count is measured at prepare (T023); one local user.
+**Scale/Scope**: `ctm`'s export of 2026-09-26, 17,272 documents (19,165
+revisions), 56.2 MiB of Markdown by each document's latest revision (3.3 KiB
+on average); prepare (T023) cut 99,125 chunks, 14.6 million tokens, from its
+17,173 eligible documents (147 tokens a chunk on average, 700 at most); one
+local user.
 
 ## Starting point (measured 2026-09-25)
 
@@ -308,8 +311,10 @@ in the directory a collection's `evals.suite` names is the suite `<name>`,
 with one question per line, giving its id, language (`fr` or `en`), text,
 answerable flag and expected sections, each named by its document's
 `source_ref` and heading path, plus a 1-based occurrence when that path
-repeats, never by a section ID, which changes with the revision; the runner
-resolves the names to the section IDs of the generation it evaluates.
+repeats, or by an empty heading path for a document without sections, never
+by a section ID, which changes with the revision; the runner resolves the
+names to the section IDs of the generation it evaluates, and a document named
+whole to its document ID, which its passages carry.
 Metrics: Recall@5 and @10, MRR@10, nDCG@10, no-answer accuracy, command
 exactness, latency p50 and p95. Confidence intervals by paired bootstrap
 (2,000 resamples). Each failure is classified as not retrieved, misranked or
@@ -344,7 +349,8 @@ unique and derived rather than invented, and without the release so a document
 keeps its identity in the next one. Five URLs are each shared by two documents
 with different content; the importer holds both of each pair (T019).
 `collection.json` declares `ctm` (ADR-0014). The golden set is drafted after
-canonicalization, because its expected answers are section IDs: agents sample
+canonicalization, because its expected answers point at section IDs, or at the
+document ID of a document without sections, never at free text: agents sample
 the corpus stratified by source kind, write the questions, and the owner
 validates 30 stratified by topic, language and answerability.
 
@@ -403,7 +409,7 @@ Kernel tables, beside the document tables of
 | R5 | How can a chunk profile depend on a model the bake-off has not chosen? | Each candidate has its own chunk profile inside the bake-off | ADR-0008 counts chunks in the embedder's tokens; the golden set judges sections, which every profile shares | One neutral profile for all: breaks ADR-0008 |
 | R6 | Where do Qdrant tests run? | A CI job with a pinned Qdrant service | Reusable workflows take no service containers; the adapter must still be tested in CI | Local only: breaks ENF-006 |
 | R7 | Can Qdrant's server-side BM25 hold the French and English policy? | No: maestro computes the sparse vectors (`bm25-en-fr/1`, T040); Qdrant keeps the sparse index, IDF and fusion | Measured by T004 on Qdrant 1.19.1 ([research](research.md#r7-server-side-bm25)): no configuration passes the 23 checks, the best 18; folding runs before the French stemmer, no tokenizer keeps `max_retries` or `job-id` whole, and a misspelled option is ignored with HTTP 200 | Server-side BM25 with a language per passage and folding: fails French inflections and identifiers |
-| R8 | What does reranking 80–120 pairs cost? | To measure batched, in the search task | At the noted 12 ms per pair, 80–120 pairs would take 1–1.4 s of the 1.5 s budget unless batching lowers it; the depth becomes a ladder parameter | A fixed depth |
+| R8 | What does reranking 80–120 pairs cost? | About 11 ms a pair, batched or not; the ladder starts at depth 80, the deepest whose p95 leaves 0.3 s for the rest of a search ([research](research.md#r8-the-cost-of-reranking-on-the-card)) | Measured by T008 on the RTX 5090: a `/v1/rerank` call is batched on the wire only, since the reranker's one slot scores its pairs one after another; p95 0.29–0.43 s at 20 pairs, 0.90–1.13 s at 80 and 1.41–1.42 s at 120; the depth stays a ladder parameter | A fixed depth; reranking on the CPU, 16 s for 20 pairs |
 
 ## Validation
 

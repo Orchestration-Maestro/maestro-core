@@ -1,5 +1,6 @@
 //! A document's structure indexed for chunking, the bodies packed from it and the context they
 //! repeat.
+use super::limits::MAX_TOKENS;
 use super::refusal::structure_error;
 use crate::{
     content::Block,
@@ -88,6 +89,23 @@ impl Layout<'_> {
     /// A unit by index; an unknown unit is a structure error.
     pub(super) fn unit(&self, index: usize) -> Result<&SourceUnit, Error> {
         self.mapped.units.get(index).ok_or_else(structure_error)
+    }
+
+    /// The refusal of a unit that cannot fit the hard maximum with its mandatory context: it
+    /// names the unit, its block and the block's span in the original Markdown, never their text.
+    /// A unit or block the layout does not hold, or a block without a span, is a structure error.
+    pub(super) fn oversized(&self, index: usize) -> Error {
+        let named = self.mapped.units.get(index).and_then(|unit| {
+            let spans = &self.blocks.get(unit.block_id.as_str())?.source_spans;
+            let start = spans.iter().map(|span| span.start).min()?;
+            let end = spans.iter().map(|span| span.end).max()?;
+            Some(Error(format!(
+                "the unit {} of block {} at bytes [{start}, {end}) does not fit in {MAX_TOKENS} \
+                 tokens with its context",
+                unit.unit_id, unit.block_id
+            )))
+        });
+        named.unwrap_or_else(structure_error)
     }
 
     /// Whether a unit is primary text; an unknown unit is not.

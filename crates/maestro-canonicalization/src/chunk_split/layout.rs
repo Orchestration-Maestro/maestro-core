@@ -291,7 +291,9 @@ impl Layout<'_> {
     }
 
     /// Split one oversized unit into chunks, each the longest prefix that fits, preferring sentence
-    /// ends or code lines, then whitespace; each piece records how it was cut.
+    /// ends or code lines, then whitespace; each piece records how it was cut. A unit of which not
+    /// even one character fits with its context, or a piece counted over the maximum once chosen,
+    /// is refused by name.
     pub(super) fn split_unit(
         &self,
         body: &Body,
@@ -322,7 +324,8 @@ impl Layout<'_> {
             let length = fit_prefix(text, preferred, &mut |length| match make(length) {
                 Some(piece) => Ok(self.prepare(&piece, count)?.token_count <= MAX_TOKENS),
                 None => Ok(false),
-            })?;
+            })?
+            .ok_or_else(|| self.oversized(index))?;
             let mut piece = make(length).ok_or_else(structure_error)?;
             // A cut inside a word moves back to the last whitespace when that piece fits too.
             let retreat = !code && length < text.len() && !whitespace.contains(&length);
@@ -356,7 +359,7 @@ impl Layout<'_> {
             };
             let prepared = self.prepare(&piece, count)?;
             if prepared.token_count > MAX_TOKENS {
-                return Err(structure_error());
+                return Err(self.oversized(index));
             }
             result.push(prepared);
             start = end;

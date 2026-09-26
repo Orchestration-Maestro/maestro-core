@@ -91,7 +91,7 @@ impl Scratch {
         execute(
             &database,
             "INSERT INTO chunk_sets (id, collection_id, chunk_profile, counter_contract_id, state)
-             VALUES ('set-a', 'ctm', 'structural-500-700/1', 'native', 'complete')",
+             VALUES ('set-a', 'ctm', 'structural-500-700/1', 'native', 'building')",
         );
         database
     }

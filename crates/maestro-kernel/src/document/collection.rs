@@ -100,17 +100,28 @@ impl Database {
                     ScopeSet::collection_condition("collections.id", 2)
                 ),
                 params![id, scopes.parameter()],
-                |row| {
-                    Ok(Collection {
-                        id: row.get(0)?,
-                        title: row.get(1)?,
-                        visibility: row.get(2)?,
-                        profiles: json(row, 3)?,
-                    })
-                },
+                collection_row,
             )
             .optional()?;
         Ok(collection)
+    }
+
+    /// Every collection recorded whose scope `scopes` covers, in id order.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Store`] when the database cannot be read.
+    pub fn collections(&self, scopes: &ScopeSet) -> Result<Vec<Collection>, Error> {
+        let reader = self.reader()?;
+        let mut statement = reader.prepare(&format!(
+            "SELECT id, title, visibility, profiles_json FROM collections
+             WHERE {} ORDER BY id",
+            ScopeSet::collection_condition("collections.id", 1)
+        ))?;
+        let collections = statement
+            .query_map([scopes.parameter()], collection_row)?
+            .collect::<Result<_, _>>()?;
+        Ok(collections)
     }
 
     /// Records `source` in its collection as its declaration now names it: a
@@ -267,6 +278,16 @@ fn find_document(
             },
         )
         .optional()
+}
+
+/// The collection of a row of `id, title, visibility, profiles_json`.
+fn collection_row(row: &Row<'_>) -> rusqlite::Result<Collection> {
+    Ok(Collection {
+        id: row.get(0)?,
+        title: row.get(1)?,
+        visibility: row.get(2)?,
+        profiles: json(row, 3)?,
+    })
 }
 
 /// `profiles` as the JSON object their column holds.

@@ -14,6 +14,7 @@ use std::collections::BTreeSet;
 
 mod boundaries;
 mod context;
+mod oversized;
 mod packing;
 mod splitting;
 
@@ -360,6 +361,6 @@ fn failed_shorter_boundary_does_not_discard_a_measured_fitting_prefix() {
         Ok(end == 4)
     })
     .unwrap();
-    assert_eq!(result, 4);
+    assert_eq!(result, Some(4));
     assert_eq!(measured, [8, 4, 2]);
 }

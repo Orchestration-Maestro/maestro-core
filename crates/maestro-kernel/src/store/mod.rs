@@ -26,7 +26,9 @@
 //! transaction of its own, and recorded by name in `migrations`. A migration
 //! merged later with a lower number still applies; a database that records
 //! a migration this binary lacks was migrated by a newer binary and is
-//! refused before anything changes.
+//! refused before anything changes. [`pending_migrations`] reads which
+//! migrations a database lacks, or the one it records that this binary
+//! lacks, from the file opened read-only, and changes nothing.
 //!
 //! The `artifacts` table records each artifact the store holds: its size, its
 //! media type, its pins and when it was first stored. A pin is a record that
@@ -50,6 +52,6 @@ mod migration;
 #[cfg(test)]
 mod tests;
 
-pub use artifacts::Artifact;
-pub use database::Database;
+pub use artifacts::{Artifact, ArtifactCheck};
+pub use database::{Database, pending_migrations};
 pub use error::Error;

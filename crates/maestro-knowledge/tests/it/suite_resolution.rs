@@ -1,12 +1,14 @@
 //! Resolving an expected section in its canonicalized document: a heading path
-//! that one section has names that section, and an occurrence counts the
-//! sections of a repeated path from 1 in the document's order; a path no
-//! section has, a repeated path without an occurrence, and an occurrence on a
-//! path that does not repeat, or past its last repeat, are refused.
+//! that one section has names that section, an occurrence counts the
+//! sections of a repeated path from 1 in the document's order, and an empty
+//! heading path names a document without sections whole; a path no section
+//! has, a repeated path without an occurrence, an occurrence on a path that
+//! does not repeat, or past its last repeat, and an empty path in a document
+//! with sections are refused.
 #![cfg(test)]
 
 use maestro_canonicalization::{CanonicalDocument, CanonicalizeInput, canonicalize};
-use maestro_knowledge::suite::{ExpectedSection, Suite, Unresolved};
+use maestro_knowledge::suite::{ExpectedSection, Resolved, Suite, Unresolved};
 use serde_json::json;
 use std::{error, num::NonZeroU32};
 
@@ -21,6 +23,14 @@ const MARKDOWN: &str = "# Rotation\n\nLogs rotate by size or by time.\n\n\
 
 fn document() -> CanonicalDocument {
     canonicalize(CanonicalizeInput::new(MARKDOWN, "rotation.md")).unwrap()
+}
+
+/// A document without a heading, so without a section.
+fn without_sections() -> CanonicalDocument {
+    let markdown = "Logs rotate every day.\n\n**Note**\n\nTimes are in UTC.\n";
+    let document = canonicalize(CanonicalizeInput::new(markdown, "rotation.md")).unwrap();
+    assert!(document.sections.is_empty(), "{:?}", document.sections);
+    document
 }
 
 /// The section a suite names by `heading_path` and `occurrence`, read through
@@ -56,7 +66,8 @@ fn a_heading_path_that_one_section_has_names_that_section() {
         (&["Rotation", "By time", "Note"][..], 5),
     ] {
         let resolved = named(heading_path, None).resolve(&document);
-        assert_eq!(resolved, Ok(&document.sections[index]), "{heading_path:?}");
+        let section = Resolved::Section(&document.sections[index]);
+        assert_eq!(resolved, Ok(section), "{heading_path:?}");
     }
 }
 
@@ -65,7 +76,8 @@ fn an_occurrence_counts_the_sections_of_a_repeated_path_from_1_in_document_order
     let document = document();
     for (occurrence, index) in [(1, 3), (2, 6)] {
         let resolved = named(&["Rotation", "Example"], Some(occurrence)).resolve(&document);
-        assert_eq!(resolved, Ok(&document.sections[index]), "{occurrence}");
+        let section = Resolved::Section(&document.sections[index]);
+        assert_eq!(resolved, Ok(section), "{occurrence}");
     }
 }
 
@@ -78,11 +90,35 @@ fn a_heading_path_that_no_section_has_is_refused() {
         (&["Note"][..], None),
         (&["Rotation", "by size"][..], None),
         (&["Rotation", "By size", "Note", "Sizes"][..], None),
-        (&[][..], None),
         (&["Rotation", "By volume"][..], Some(2)),
     ] {
         let resolved = named(heading_path, occurrence).resolve(&document);
         assert_eq!(resolved, Err(Unresolved::NoSection), "{heading_path:?}");
+    }
+    let document = without_sections();
+    for heading_path in [&["Note"][..], &["Rotation"][..]] {
+        let resolved = named(heading_path, None).resolve(&document);
+        assert_eq!(resolved, Err(Unresolved::NoSection), "{heading_path:?}");
+    }
+}
+
+#[test]
+fn an_empty_heading_path_names_a_document_without_sections_whole() {
+    let document = without_sections();
+    let resolved = named(&[], None).resolve(&document);
+    assert_eq!(resolved, Ok(Resolved::Document(&document)));
+}
+
+#[test]
+fn an_empty_heading_path_in_a_document_with_sections_is_refused() {
+    let document = document();
+    for occurrence in [None, Some(1), Some(2)] {
+        let resolved = named(&[], occurrence).resolve(&document);
+        assert_eq!(
+            resolved,
+            Err(Unresolved::HasSections { sections: 7 }),
+            "{occurrence:?}"
+        );
     }
 }
 
@@ -107,6 +143,12 @@ fn an_occurrence_on_a_heading_path_that_does_not_repeat_is_refused() {
             Err(Unresolved::NotRepeated),
             "{heading_path:?} {occurrence}"
         );
+    }
+    // A document is one: an empty heading path takes no occurrence either.
+    let document = without_sections();
+    for occurrence in [1, 2] {
+        let resolved = named(&[], Some(occurrence)).resolve(&document);
+        assert_eq!(resolved, Err(Unresolved::NotRepeated), "{occurrence}");
     }
 }
 
@@ -137,6 +179,10 @@ fn a_refusal_says_why_the_name_gives_no_one_section() {
                 sections: 2,
             },
             "occurrence 3 is past the 2 sections",
+        ),
+        (
+            Unresolved::HasSections { sections: 7 },
+            "names a document without sections, but this document has 7",
         ),
     ] {
         let shown = refusal.to_string();

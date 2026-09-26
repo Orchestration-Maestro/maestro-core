@@ -1,0 +1,47 @@
+{
+  "$defs": {
+    "HeldDisposition": {
+      "description": "A quality disposition that holds a revision back from indexing.",
+      "oneOf": [
+        {
+          "const": "needs_reextraction",
+          "description": "Its structure was lost or garbled: it waits for another extraction.",
+          "type": "string"
+        },
+        {
+          "const": "quarantined",
+          "description": "It needs a review: a suspected secret, hostile content or unresolved provenance.",
+          "type": "string"
+        },
+        {
+          "const": "excluded",
+          "description": "It is out of scope by a recorded decision.",
+          "type": "string"
+        }
+      ]
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "A revision was held back, by its import or by the quality gate: it is not indexed.",
+  "properties": {
+    "collection": {
+      "description": "The collection of the revision.",
+      "type": "string"
+    },
+    "disposition": {
+      "$ref": "#/$defs/HeldDisposition",
+      "description": "Why it is held: its quality disposition."
+    },
+    "revision": {
+      "description": "The revision held.",
+      "type": "string"
+    }
+  },
+  "required": [
+    "collection",
+    "revision",
+    "disposition"
+  ],
+  "title": "RevisionHeld",
+  "type": "object"
+}
