@@ -2,13 +2,34 @@
 //! but for their status's one move, to failed, and inspectable whatever
 //! their status, while a failed one is never eligible.
 
-use super::support::{Scratch, collection, document, ids, pins, revision, source};
+use super::support::{Scratch, collection, document, failure, ids, pins, revision, source};
 use crate::{
     artifact::Digest,
     document::{Error, Recorded, Revision, RevisionStatus},
     store::{self, Database},
 };
+use rusqlite::ffi;
 use serde_json::Value;
+
+/// Writes that would bring the failed revision `rev-a` back as valid, its
+/// digests swapped, or free its id, whoever makes them: an insert that
+/// replaces it, another, an upsert, and a delete.
+const REWRITES: [&str; 4] = [
+    "INSERT OR REPLACE INTO revisions (id, document_id, original_digest, canonical_digest,
+       status, metadata_json)
+     SELECT id, document_id, canonical_digest, original_digest, 'valid', '{}'
+     FROM revisions WHERE id = 'rev-a'",
+    "REPLACE INTO revisions (id, document_id, original_digest, canonical_digest, status,
+       metadata_json)
+     SELECT id, document_id, canonical_digest, original_digest, 'valid', '{}'
+     FROM revisions WHERE id = 'rev-a'",
+    "INSERT INTO revisions (id, document_id, original_digest, canonical_digest, status,
+       metadata_json)
+     SELECT id, document_id, canonical_digest, original_digest, 'valid', '{}'
+     FROM revisions WHERE id = 'rev-a'
+     ON CONFLICT (id) DO UPDATE SET status = 'valid'",
+    "DELETE FROM revisions WHERE id = 'rev-a'",
+];
 
 /// Runs `statement` on the writer and commits what it did.
 fn run(database: &Database, statement: &str) -> rusqlite::Result<usize> {
@@ -153,6 +174,33 @@ fn a_recorded_revision_refuses_every_change_to_its_content() {
         );
         assert_eq!(database.revision("rev-a").unwrap().as_ref(), Some(&kept));
     }
+}
+
+#[test]
+fn a_failed_revision_can_be_neither_replaced_nor_deleted() {
+    let scratch = Scratch::new();
+    let database = scratch.open();
+    let failed = revision(&database, "rev-a", RevisionStatus::Failed);
+    database.record_revision(&failed).unwrap();
+    for rewrite in REWRITES {
+        assert_eq!(
+            failure(run(&database, rewrite)),
+            Some(ffi::SQLITE_CONSTRAINT_TRIGGER),
+            "{rewrite}"
+        );
+        assert_eq!(
+            database.revision("rev-a").unwrap().as_ref(),
+            Some(&failed),
+            "{rewrite}"
+        );
+        assert_eq!(
+            database.eligible_revisions("ctm").unwrap(),
+            Vec::new(),
+            "{rewrite}"
+        );
+    }
+    assert_eq!(pins(&database, &failed.original_digest), 1);
+    assert_eq!(pins(&database, &failed.canonical_digest), 1);
 }
 
 #[test]

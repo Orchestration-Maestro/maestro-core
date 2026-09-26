@@ -1,5 +1,5 @@
-//! What the record tests share: a scratch database, and the collection,
-//! source, document and revisions they record in it.
+//! What the record tests share: a scratch database, the collection, source,
+//! document and revisions they record in it, and the code of a refusal.
 
 use crate::{
     artifact::Digest,
@@ -116,6 +116,15 @@ pub(super) fn revision(database: &Database, id: &str, status: RevisionStatus) ->
 /// records.
 pub(super) fn pins(database: &Database, digest: &Digest) -> u64 {
     database.artifact(digest).unwrap().unwrap().pins
+}
+
+/// The extended result code of the SQLite failure in `result`, if SQLite
+/// refused it.
+pub(super) fn failure<T>(result: rusqlite::Result<T>) -> Option<i32> {
+    result
+        .err()?
+        .sqlite_error()
+        .map(|error| error.extended_code)
 }
 
 /// The ids of `revisions`, in their order.

@@ -50,8 +50,8 @@ impl Database {
     ///
     /// # Errors
     ///
-    /// [`Error::Store`] when its collection or chunk set is not recorded or
-    /// the database cannot record it.
+    /// [`Error::Store`] when its collection is not recorded, its chunk set is
+    /// not one of that collection's, or the database cannot record it.
     pub fn create_generation(&self, new: &NewGeneration) -> Result<Generation, Error> {
         self.write(|transaction| {
             let generation = transaction.query_row(
@@ -85,7 +85,7 @@ impl Database {
         let point_count = i64::try_from(point_count)
             .map_err(|error| rusqlite::Error::ToSqlConversionFailure(Box::new(error)))?;
         self.write(|transaction| {
-            next_move(transaction, id, GenerationState::Verified)?;
+            legal_move(transaction, id, GenerationState::Verified)?;
             transaction.execute(
                 "UPDATE generations SET state = 'verified', point_count = ?2 WHERE id = ?1",
                 params![id, point_count],
@@ -105,7 +105,7 @@ impl Database {
     /// move.
     pub fn publish_generation(&self, id: i64) -> Result<Option<i64>, Error> {
         self.write(|transaction| {
-            let generation = next_move(transaction, id, GenerationState::Published)?;
+            let generation = legal_move(transaction, id, GenerationState::Published)?;
             // First, since the database holds one published generation per
             // collection at every statement.
             let retired = transaction
@@ -136,14 +136,20 @@ impl Database {
     /// published, and [`Error::Store`] when the database cannot record the
     /// move.
     pub fn retire_generation(&self, id: i64) -> Result<(), Error> {
-        self.write(|transaction| {
-            next_move(transaction, id, GenerationState::Retired)?;
-            transaction.execute(
-                "UPDATE generations SET state = 'retired' WHERE id = ?1",
-                [id],
-            )?;
-            Ok(())
-        })
+        self.write(|transaction| move_to(transaction, id, GenerationState::Retired))
+    }
+
+    /// Moves the generation `id` from `building` or `verified` to `failed`,
+    /// which is final: it is never published nor resumed, and the next
+    /// generation of its collection is published as if it did not exist.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::UnknownGeneration`], [`Error::IllegalMove`] when it is
+    /// published, retired or failed already, and [`Error::Store`] when the
+    /// database cannot record the move.
+    pub fn fail_generation(&self, id: i64) -> Result<(), Error> {
+        self.write(|transaction| move_to(transaction, id, GenerationState::Failed))
     }
 
     /// The generation `id`, if it is recorded.
@@ -177,20 +183,34 @@ impl Database {
     }
 }
 
-/// The generation `id` as `transaction` records it, when `to` is the one
-/// state it may move to.
+/// Moves the generation `id` to `to` inside `transaction`, when it may, and
+/// changes nothing else.
+///
+/// # Errors
+///
+/// As [`legal_move`], and [`Error::Store`] when the move cannot be written.
+fn move_to(transaction: &Transaction<'_>, id: i64, to: GenerationState) -> Result<(), Error> {
+    legal_move(transaction, id, to)?;
+    transaction.execute(
+        "UPDATE generations SET state = ?2 WHERE id = ?1",
+        params![id, to.as_str()],
+    )?;
+    Ok(())
+}
+
+/// The generation `id` as `transaction` records it, when it may move to `to`.
 ///
 /// # Errors
 ///
 /// [`Error::UnknownGeneration`] and [`Error::IllegalMove`], and
 /// [`Error::Store`] when the database cannot be read.
-fn next_move(
+fn legal_move(
     transaction: &Transaction<'_>,
     id: i64,
     to: GenerationState,
 ) -> Result<Generation, Error> {
     let generation = find(transaction, id)?.ok_or(Error::UnknownGeneration(id))?;
-    if generation.state.next() == Some(to) {
+    if generation.state.may_move_to(to) {
         Ok(generation)
     } else {
         Err(Error::IllegalMove {

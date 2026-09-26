@@ -3,7 +3,7 @@
 
 use super::error::Error;
 use crate::store::Database;
-use rusqlite::{Connection, OptionalExtension as _, Row, params, types::Type};
+use rusqlite::{Connection, OptionalExtension as _, Row, Transaction, params, types::Type};
 use serde::de::DeserializeOwned;
 use serde_json::Value;
 use std::collections::BTreeMap;
@@ -165,28 +165,18 @@ impl Database {
     /// # Errors
     ///
     /// [`Error::DocumentConflict`] when its id is recorded under another
-    /// collection, source or source reference, and [`Error::Store`] when its
-    /// source is not recorded, another document of its collection has its
-    /// source reference, or the database cannot record it.
+    /// collection, source or source reference, [`Error::SourceRefConflict`]
+    /// when another document of its collection is recorded from its source
+    /// reference, and [`Error::Store`] when its source is not recorded or the
+    /// database cannot record it.
     pub fn record_document(&self, document: &Document) -> Result<(), Error> {
-        self.write(|transaction| {
-            transaction.execute(
-                "INSERT INTO documents (id, collection_id, source_id, source_ref)
-                 VALUES (?1, ?2, ?3, ?4)
-                 ON CONFLICT (id) DO NOTHING",
-                params![
-                    document.id,
-                    document.collection_id,
-                    document.source_id,
-                    document.source_ref,
-                ],
-            )?;
-            if find_document(transaction, &document.id)?.as_ref() == Some(document) {
-                Ok(())
-            } else {
-                Err(Error::DocumentConflict(document.id.clone()))
-            }
-        })
+        self.write(
+            |transaction| match find_document(transaction, &document.id)? {
+                Some(recorded) if recorded == *document => Ok(()),
+                Some(_) => Err(Error::DocumentConflict(document.id.clone())),
+                None => insert_document(transaction, document),
+            },
+        )
     }
 
     /// The document `id`, if it is recorded.
@@ -197,6 +187,35 @@ impl Database {
     pub fn document(&self, id: &str) -> Result<Option<Document>, Error> {
         Ok(find_document(&self.reader()?, id)?)
     }
+}
+
+/// Records the new `document` inside `transaction`, unless another document
+/// of its collection is recorded from its source reference.
+fn insert_document(transaction: &Transaction<'_>, document: &Document) -> Result<(), Error> {
+    let recorded = transaction
+        .query_row(
+            "SELECT id FROM documents WHERE collection_id = ?1 AND source_ref = ?2",
+            [&document.collection_id, &document.source_ref],
+            |row| row.get(0),
+        )
+        .optional()?;
+    if let Some(recorded) = recorded {
+        return Err(Error::SourceRefConflict {
+            recorded,
+            given: document.id.clone(),
+        });
+    }
+    transaction.execute(
+        "INSERT INTO documents (id, collection_id, source_id, source_ref)
+         VALUES (?1, ?2, ?3, ?4)",
+        params![
+            document.id,
+            document.collection_id,
+            document.source_id,
+            document.source_ref,
+        ],
+    )?;
+    Ok(())
 }
 
 /// The document `id` that `connection` records, if any.

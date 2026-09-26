@@ -1,9 +1,12 @@
 //! Publication: at most one generation of a collection is published, which
-//! the database itself holds, and publishing one retires the one published
-//! before it in the same transaction.
+//! the database itself holds, publishing one retires the one published before
+//! it in the same transaction, and a failed one is never published.
 
 use super::support::{Scratch, execute, generation_in, state};
-use crate::generation::GenerationState::{Published, Retired, Verified};
+use crate::generation::{
+    Error,
+    GenerationState::{Building, Failed, Published, Retired, Verified},
+};
 use rusqlite::{Connection, ffi};
 
 /// The time SQLite reads from the clock, in the form the kernel records.
@@ -30,13 +33,49 @@ fn a_second_publish_in_one_collection_retires_the_first() {
     let first = generation_in(&database, "ctm", Verified);
     assert_eq!(database.publish_generation(first).unwrap(), None);
     let second = generation_in(&database, "ctm", Verified);
+    // A build to resume and one waiting to be published: neither is retired.
+    let building = generation_in(&database, "ctm", Building);
+    let verified = generation_in(&database, "ctm", Verified);
     assert_eq!(database.publish_generation(second).unwrap(), Some(first));
     assert_eq!(state(&database, first), Retired);
     assert_eq!(state(&database, second), Published);
+    assert_eq!(state(&database, building), Building);
+    assert_eq!(state(&database, verified), Verified);
     let published = database.published_generation("ctm").unwrap().unwrap();
     assert_eq!(published.id, second);
     let retired = database.generation(first).unwrap().unwrap();
     assert!(retired.published_at.is_some(), "{retired:?}");
+}
+
+#[test]
+fn a_failed_generation_neither_holds_back_the_next_publish_nor_resumes() {
+    let scratch = Scratch::new();
+    let database = scratch.open();
+    let failed_building = generation_in(&database, "ctm", Failed);
+    let failed_verified = generation_in(&database, "ctm", Verified);
+    database.fail_generation(failed_verified).unwrap();
+    let next = generation_in(&database, "ctm", Verified);
+    assert_eq!(
+        database.publish_generation(next).unwrap(),
+        None,
+        "a failed generation was never published, so none is retired"
+    );
+    assert_eq!(state(&database, next), Published);
+    for failed in [failed_building, failed_verified] {
+        let kept = database.generation(failed).unwrap().unwrap();
+        assert_eq!((kept.state, kept.published_at), (Failed, None));
+        // Resuming it would verify it, then publish it.
+        let resumed = [
+            database.verify_generation(failed, 3),
+            database.publish_generation(failed).map(drop),
+        ];
+        for refused in resumed {
+            assert!(
+                matches!(refused, Err(Error::IllegalMove { from: Failed, .. })),
+                "{refused:?}"
+            );
+        }
+    }
 }
 
 #[test]

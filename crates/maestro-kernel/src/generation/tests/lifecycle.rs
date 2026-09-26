@@ -1,12 +1,12 @@
 //! A generation's lifecycle: created building, then verified, published and
-//! retired in that order only; every other move is refused, naming both
-//! states.
+//! retired in that order only, or failed before it is published; every other
+//! move is refused, naming both states.
 
 use super::support::{Scratch, execute, generation_in, new_generation, state};
 use crate::{
     generation::{
         Error, Generation,
-        GenerationState::{self, Building, Published, Retired, Verified},
+        GenerationState::{self, Building, Failed, Published, Retired, Verified},
     },
     store,
 };
@@ -14,12 +14,16 @@ use rusqlite::ffi;
 use std::error;
 
 /// Each state with the name a refusal gives it.
-const NAMES: [(GenerationState, &str); 4] = [
+const NAMES: [(GenerationState, &str); 5] = [
     (Building, "building"),
     (Verified, "verified"),
     (Published, "published"),
     (Retired, "retired"),
+    (Failed, "failed"),
 ];
+
+/// The states a call can move a generation to: every state but building.
+const TARGETS: [GenerationState; 4] = [Verified, Published, Retired, Failed];
 
 /// Moves the generation `id` to `to` through the call that makes that move.
 fn move_to(database: &store::Database, id: i64, to: GenerationState) -> Result<(), Error> {
@@ -27,6 +31,7 @@ fn move_to(database: &store::Database, id: i64, to: GenerationState) -> Result<(
         Verified => database.verify_generation(id, 3),
         Published => database.publish_generation(id).map(drop),
         Retired => database.retire_generation(id),
+        Failed => database.fail_generation(id),
         Building => panic!("no call moves a generation back to building"),
     }
 }
@@ -80,16 +85,18 @@ fn a_generation_id_is_never_given_again_once_its_row_is_gone() {
 }
 
 #[test]
-fn a_generation_moves_only_from_building_to_verified_published_then_retired() {
+fn a_generation_moves_only_forward_or_fails_before_publication() {
     let scratch = Scratch::new();
     let database = scratch.open();
     let legal = [
         (Building, Verified),
+        (Building, Failed),
         (Verified, Published),
+        (Verified, Failed),
         (Published, Retired),
     ];
     for (from, _) in NAMES {
-        for to in [Verified, Published, Retired] {
+        for to in TARGETS {
             let id = generation_in(&database, "ctm", from);
             let moved = move_to(&database, id, to);
             if legal.contains(&(from, to)) {
@@ -161,7 +168,7 @@ fn a_point_count_sqlite_cannot_hold_is_refused_unrecorded() {
 fn moving_an_unrecorded_generation_is_refused() {
     let scratch = Scratch::new();
     let database = scratch.open();
-    for to in [Verified, Published, Retired] {
+    for to in TARGETS {
         let error = move_to(&database, 7, to).unwrap_err();
         assert!(
             matches!(error, Error::UnknownGeneration(7)),
@@ -171,14 +178,17 @@ fn moving_an_unrecorded_generation_is_refused() {
 }
 
 #[test]
-fn a_generation_of_an_unrecorded_collection_or_chunk_set_is_refused() {
+fn a_generation_needs_a_recorded_chunk_set_of_its_own_collection() {
     let scratch = Scratch::new();
     let database = scratch.open();
     let mut unknown_collection = new_generation("ctm");
     unknown_collection.collection_id = "other".to_owned();
     let mut unknown_chunk_set = new_generation("ctm");
     unknown_chunk_set.chunk_set_id = "other-set".to_owned();
-    for new in [unknown_collection, unknown_chunk_set] {
+    // Both are recorded, but the chunk set is the other collection's.
+    let mut crossed = new_generation("ctm");
+    crossed.chunk_set_id = "synthetic-set".to_owned();
+    for new in [unknown_collection, unknown_chunk_set, crossed] {
         let error = database.create_generation(&new).unwrap_err();
         assert!(
             matches!(

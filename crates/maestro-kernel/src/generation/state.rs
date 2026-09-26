@@ -1,4 +1,4 @@
-//! The states a generation moves through, and the one move each allows.
+//! The states a generation moves through, and the moves it may make.
 
 use std::fmt;
 
@@ -13,34 +13,43 @@ pub enum GenerationState {
     Published,
     /// A newer generation replaced it, or it was withdrawn.
     Retired,
+    /// It failed before it was published: it is never published, nor resumed.
+    Failed,
 }
+
+/// Every move a generation may make, from one state to another: forward one
+/// state at a time, or to failed before it is published.
+const MOVES: [(GenerationState, GenerationState); 5] = [
+    (GenerationState::Building, GenerationState::Verified),
+    (GenerationState::Building, GenerationState::Failed),
+    (GenerationState::Verified, GenerationState::Published),
+    (GenerationState::Verified, GenerationState::Failed),
+    (GenerationState::Published, GenerationState::Retired),
+];
 
 impl GenerationState {
     /// Every state, in lifecycle order.
-    const ALL: [Self; 4] = [
+    const ALL: [Self; 5] = [
         Self::Building,
         Self::Verified,
         Self::Published,
         Self::Retired,
+        Self::Failed,
     ];
 
-    /// The one state it may move to, if any.
-    pub(super) fn next(self) -> Option<Self> {
-        match self {
-            Self::Building => Some(Self::Verified),
-            Self::Verified => Some(Self::Published),
-            Self::Published => Some(Self::Retired),
-            Self::Retired => None,
-        }
+    /// Whether a generation in this state may move to `to`.
+    pub(super) fn may_move_to(self, to: Self) -> bool {
+        MOVES.contains(&(self, to))
     }
 
     /// Its name, as the `state` column holds it and a refusal gives it.
-    fn as_str(self) -> &'static str {
+    pub(super) fn as_str(self) -> &'static str {
         match self {
             Self::Building => "building",
             Self::Verified => "verified",
             Self::Published => "published",
             Self::Retired => "retired",
+            Self::Failed => "failed",
         }
     }
 

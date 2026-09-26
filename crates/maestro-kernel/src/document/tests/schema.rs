@@ -2,7 +2,7 @@
 //! each refusing a row whose parent is missing and a value outside its
 //! contract, whichever task writes it.
 
-use super::support::{Scratch, revision};
+use super::support::{Scratch, failure, revision};
 use crate::{
     document::RevisionStatus,
     store::{Database, Error},
@@ -78,7 +78,7 @@ const ROWS: [&str; 5] = [
 
 /// Rows holding a value their table's contract refuses; everything else in
 /// them is valid.
-const OUT_OF_CONTRACT: [&str; 12] = [
+const OUT_OF_CONTRACT: [&str; 14] = [
     // A status that is not a verdict of canonicalization.
     "INSERT INTO revisions (id, document_id, original_digest, canonical_digest, status,
        metadata_json)
@@ -103,20 +103,26 @@ const OUT_OF_CONTRACT: [&str; 12] = [
     "INSERT INTO quality_dispositions (revision_id, disposition, reasons_json, rule_ids,
        decided_by)
      VALUES ('rev-a', 'accepted', '[]', 'Q-001', 'the gate')",
-    // A Jaccard similarity above one.
+    // A Jaccard similarity below zero, and one above one.
+    "INSERT INTO near_dup_groups (group_id, revision_id, jaccard)
+     VALUES ('group', 'rev-a', -0.1)",
     "INSERT INTO near_dup_groups (group_id, revision_id, jaccard)
      VALUES ('group', 'rev-a', 1.5)",
-    // A negative token count, and a span that ends before it starts.
+    // A negative token count, a span that starts before the text, and one that
+    // ends before it starts.
     "INSERT INTO chunks (chunk_set_id, id, revision_id, digest, token_count, span_start,
        span_end)
      VALUES ('set-a', 'chunk', 'rev-a', 'digest', -1, 0, 1)",
     "INSERT INTO chunks (chunk_set_id, id, revision_id, digest, token_count, span_start,
        span_end)
+     VALUES ('set-a', 'chunk', 'rev-a', 'digest', 1, -1, 1)",
+    "INSERT INTO chunks (chunk_set_id, id, revision_id, digest, token_count, span_start,
+       span_end)
      VALUES ('set-a', 'chunk', 'rev-a', 'digest', 1, 5, 4)",
-    // A generation state outside the four, and a negative point count.
+    // A generation state outside its lifecycle, and a negative point count.
     "INSERT INTO generations (collection_id, chunk_set_id, embedding_profile, sparse_profile,
        state)
-     VALUES ('ctm', 'set-a', 'embed', 'bm25-en-fr/1', 'failed')",
+     VALUES ('ctm', 'set-a', 'embed', 'bm25-en-fr/1', 'verifying')",
     "INSERT INTO generations (collection_id, chunk_set_id, embedding_profile, sparse_profile,
        point_count)
      VALUES ('ctm', 'set-a', 'embed', 'bm25-en-fr/1', -1)",
@@ -144,14 +150,6 @@ fn run(database: &Database, statement: &str) -> rusqlite::Result<()> {
     database
         .write(|transaction| Ok::<_, Error>(transaction.execute_batch(statement)))
         .unwrap()
-}
-
-/// The extended result code of the SQLite failure in `result`.
-fn failure(result: rusqlite::Result<()>) -> i32 {
-    match result {
-        Err(rusqlite::Error::SqliteFailure(error, _)) => error.extended_code,
-        other => panic!("not a SQLite failure: {other:?}"),
-    }
 }
 
 #[test]
@@ -196,7 +194,7 @@ fn every_pipeline_table_refuses_a_row_whose_parent_is_missing() {
     for orphan in ORPHANS {
         assert_eq!(
             failure(run(&database, orphan)),
-            ffi::SQLITE_CONSTRAINT_FOREIGNKEY,
+            Some(ffi::SQLITE_CONSTRAINT_FOREIGNKEY),
             "{orphan}"
         );
     }
@@ -212,7 +210,7 @@ fn every_pipeline_table_refuses_a_value_outside_its_contract() {
     for row in OUT_OF_CONTRACT {
         assert_eq!(
             failure(run(&database, row)),
-            ffi::SQLITE_CONSTRAINT_CHECK,
+            Some(ffi::SQLITE_CONSTRAINT_CHECK),
             "{row}"
         );
     }

@@ -75,12 +75,17 @@ pub(super) fn new_generation(collection: &str) -> NewGeneration {
 }
 
 /// The id of a new generation of `collection`, moved to `state` by the
-/// legal moves: publishing it retires the one published before it.
+/// legal moves: publishing it retires the one published before it, and a
+/// failed one fails while it is building.
 pub(super) fn generation_in(database: &Database, collection: &str, state: GenerationState) -> i64 {
     let id = database
         .create_generation(&new_generation(collection))
         .unwrap()
         .id;
+    if state == GenerationState::Failed {
+        database.fail_generation(id).unwrap();
+        return id;
+    }
     if state != GenerationState::Building {
         database.verify_generation(id, 3).unwrap();
     }

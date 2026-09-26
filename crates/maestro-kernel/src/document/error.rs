@@ -12,6 +12,15 @@ pub enum Error {
     /// The revision of this id is recorded already with other content: an id
     /// names one exact version of a document, so its record stays as it is.
     RevisionConflict(String),
+    /// Another document of the collection is recorded already from the same
+    /// source reference: a source reference names one document in each
+    /// collection, so the record stays as it is.
+    SourceRefConflict {
+        /// The document recorded from the source reference.
+        recorded: String,
+        /// The document refused.
+        given: String,
+    },
     /// The kernel's database refused; the message and the source are its own.
     Store(store::Error),
 }
@@ -28,6 +37,11 @@ impl fmt::Display for Error {
                 formatter,
                 "the revision {id} is recorded already with other content"
             ),
+            Self::SourceRefConflict { recorded, given } => write!(
+                formatter,
+                "the document {given} is refused: its collection records the document \
+                 {recorded} from the same source reference"
+            ),
             Self::Store(error) => fmt::Display::fmt(error, formatter),
         }
     }
@@ -37,7 +51,9 @@ impl error::Error for Error {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match self {
             Self::Store(error) => error.source(),
-            Self::DocumentConflict(_) | Self::RevisionConflict(_) => None,
+            Self::DocumentConflict(_)
+            | Self::RevisionConflict(_)
+            | Self::SourceRefConflict { .. } => None,
         }
     }
 }

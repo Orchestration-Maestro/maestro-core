@@ -15,9 +15,18 @@ fn every_refusal_says_what_went_wrong() {
         revision.replace("rev-a", ""),
         "each conflict says what it is about"
     );
+    let source_ref = || Error::SourceRefConflict {
+        recorded: "doc-a".to_owned(),
+        given: "doc-b".to_owned(),
+    };
+    let both = source_ref().to_string();
+    for id in ["doc-a", "doc-b"] {
+        assert!(both.contains(id), "{id} is missing from: {both}");
+    }
     for error in [
         Error::DocumentConflict(String::new()),
         Error::RevisionConflict(String::new()),
+        source_ref(),
     ] {
         assert!(error::Error::source(&error).is_none(), "{error}");
     }

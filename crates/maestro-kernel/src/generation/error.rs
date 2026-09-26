@@ -34,7 +34,8 @@ impl fmt::Display for Error {
             } => write!(
                 formatter,
                 "generation {generation} cannot move from {from} to {to}: a generation moves \
-                 only from building to verified, then to published, then to retired"
+                 only from building to verified, then to published, then to retired, or to \
+                 failed before it is published"
             ),
             Self::Store(error) => fmt::Display::fmt(error, formatter),
         }

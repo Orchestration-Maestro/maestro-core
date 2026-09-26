@@ -152,14 +152,30 @@ fn a_document_recorded_again_elsewhere_is_refused_and_kept() {
 }
 
 #[test]
-fn a_second_document_from_one_source_reference_is_refused() {
+fn a_source_reference_names_one_document_in_each_collection() {
     let scratch = Scratch::new();
     let database = scratch.open();
     let error = database
         .record_document(&document("doc-b", "https://example.org/a"))
         .unwrap_err();
-    assert!(refused(&error, ffi::SQLITE_CONSTRAINT_UNIQUE), "{error:?}");
+    assert!(
+        matches!(
+            &error,
+            Error::SourceRefConflict { recorded, given } if recorded == "doc-a" && given == "doc-b"
+        ),
+        "{error:?}"
+    );
     assert_eq!(database.document("doc-b").unwrap(), None);
+    database
+        .record_collection(&collection("synthetic"))
+        .unwrap();
+    database
+        .record_source(&source("synthetic", "docs"))
+        .unwrap();
+    let mut elsewhere = document("doc-b", "https://example.org/a");
+    elsewhere.collection_id = "synthetic".to_owned();
+    database.record_document(&elsewhere).unwrap();
+    assert_eq!(database.document("doc-b").unwrap(), Some(elsewhere));
 }
 
 #[test]

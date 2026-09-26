@@ -56,12 +56,29 @@ CREATE TABLE revisions (
 
 CREATE INDEX revisions_by_document ON revisions (document_id);
 
--- A revision is immutable once recorded: nothing but its status changes.
+-- A revision is immutable once recorded: nothing but its status changes, and
+-- it is never replaced nor deleted, which would free its id for other content
+-- and leave its pins behind. INSERT OR REPLACE removes the row it conflicts
+-- with without firing a delete trigger, so an insert that would take the id
+-- of a revision is refused before SQLite resolves the conflict.
 CREATE TRIGGER revisions_are_immutable
 BEFORE UPDATE OF id, document_id, original_digest, canonical_digest, captured_at,
   metadata_json, recorded_at ON revisions
 BEGIN
   SELECT RAISE(ABORT, 'a revision is immutable once recorded: only its status moves');
+END;
+
+CREATE TRIGGER revisions_are_never_replaced
+BEFORE INSERT ON revisions
+WHEN EXISTS (SELECT 1 FROM revisions WHERE id = NEW.id)
+BEGIN
+  SELECT RAISE(ABORT, 'a revision is immutable once recorded: it is never replaced');
+END;
+
+CREATE TRIGGER revisions_are_never_deleted
+BEFORE DELETE ON revisions
+BEGIN
+  SELECT RAISE(ABORT, 'a revision is immutable once recorded: it is never deleted');
 END;
 
 -- Its status moves only to failed, which it never leaves: a failed revision
@@ -109,14 +126,17 @@ CREATE TABLE near_dup_groups (
 CREATE INDEX near_dup_groups_by_revision ON near_dup_groups (revision_id);
 
 -- The chunks of a collection under one chunk profile and token counter
--- (01 §7). Its states are the preparation's to name.
+-- (01 §7). Its states are the preparation's to name. A generation names its
+-- chunk set with its collection, so that it is never built from another
+-- collection's chunks.
 CREATE TABLE chunk_sets (
   id TEXT PRIMARY KEY NOT NULL,
   collection_id TEXT NOT NULL REFERENCES collections (id),
   chunk_profile TEXT NOT NULL,
   counter_contract_id TEXT NOT NULL,
   state TEXT NOT NULL,
-  manifest_digest TEXT
+  manifest_digest TEXT,
+  UNIQUE (collection_id, id)
 ) STRICT;
 
 -- A chunk of a chunk set: a passage of one revision, the digest of its
@@ -138,18 +158,20 @@ CREATE TABLE chunks (
 CREATE INDEX chunks_by_revision ON chunks (revision_id);
 
 -- A search generation (plan D9): one build of a collection's projection from
--- one chunk set, with the profiles that represent it. It moves only building,
--- verified, published, retired; its id is never given twice.
+-- one of its chunk sets, with the profiles that represent it. It moves only
+-- building, verified, published, retired, or from building or verified to
+-- failed, which is final; its id is never given twice.
 CREATE TABLE generations (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   collection_id TEXT NOT NULL REFERENCES collections (id),
-  chunk_set_id TEXT NOT NULL REFERENCES chunk_sets (id),
+  chunk_set_id TEXT NOT NULL,
   embedding_profile TEXT NOT NULL,
   sparse_profile TEXT NOT NULL,
   state TEXT NOT NULL DEFAULT 'building'
-    CHECK (state IN ('building', 'verified', 'published', 'retired')),
+    CHECK (state IN ('building', 'verified', 'published', 'retired', 'failed')),
   point_count INTEGER CHECK (point_count >= 0),
-  published_at TEXT
+  published_at TEXT,
+  FOREIGN KEY (collection_id, chunk_set_id) REFERENCES chunk_sets (collection_id, id)
 ) STRICT;
 
 -- At most one published generation per collection, whoever writes.
