@@ -22,7 +22,7 @@ use maestro_canonicalization::{
 };
 use maestro_kernel::{
     document::{Document, Occurrence, Revision},
-    scope::ScopeSet,
+    scope::{ScopeSet, WORKSPACE, collection_path},
     store::Database,
 };
 use std::collections::BTreeMap;
@@ -77,10 +77,12 @@ pub(super) struct Kernel<'a> {
 impl Kernel<'_> {
     /// The explicit scope canonicalization groups and chunks in: the
     /// kernel's workspace and the collection, which authorize the revisions
-    /// of `loaded`, and no other.
+    /// of `loaded`, and no other. Both texts are part of every chunk's
+    /// identity, so they keep the collection's scope path split in two:
+    /// [`WORKSPACE`], then `collection/<id>`.
     pub(super) fn dedup_scope(&self, loaded: &[&Loaded]) -> DedupScope {
         DedupScope {
-            tenant_id: "workspace/default".to_owned(),
+            tenant_id: WORKSPACE.to_owned(),
             workspace_id: format!("collection/{}", self.collection),
             authorized_revisions: loaded
                 .iter()
@@ -103,9 +105,7 @@ impl Kernel<'_> {
         self.database
             .document(self.scopes, &revision.document_id)
             .map_err(Error::Records)?
-            .ok_or_else(|| {
-                Error::NotVisible(format!("workspace/default/collection/{}", self.collection))
-            })
+            .ok_or_else(|| Error::NotVisible(collection_path(self.collection)))
     }
 
     /// `revision` with its document and its two documents, or why it cannot

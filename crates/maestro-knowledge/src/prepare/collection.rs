@@ -18,7 +18,7 @@ use maestro_canonicalization::{CHUNKER_VERSION, TokenCounter as _};
 use maestro_kernel::{
     chunk_set::{ChunkSetState, NewChunkSet},
     document::Revision,
-    scope::{Scope, ScopeSet},
+    scope::{Scope, ScopeSet, collection_path},
     store::Database,
 };
 use std::{collections::BTreeSet, ops::ControlFlow};
@@ -151,7 +151,7 @@ fn eligible_in(
     scopes: &ScopeSet,
     collection: &str,
 ) -> Result<(Vec<Revision>, Vec<String>), Error> {
-    let scope = format!("workspace/default/collection/{collection}");
+    let scope = collection_path(collection);
     if !scope
         .parse::<Scope>()
         .is_ok_and(|parsed| scopes.covers(&parsed))

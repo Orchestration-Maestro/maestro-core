@@ -11,7 +11,7 @@ use super::{
 };
 use crate::{
     journal::{HeldDisposition, NewEvent, RevisionHeld, event, stream},
-    scope::ScopeSet,
+    scope::{ScopeSet, source_path},
     store::Database,
 };
 use rusqlite::{OptionalExtension as _, Row, Transaction, params, types::Type};
@@ -201,7 +201,7 @@ fn journal_hold(
         [revision_id],
         |row| Ok((row.get(0)?, row.get(1)?)),
     )?;
-    let scope = format!("workspace/default/collection/{collection}/source/{source}");
+    let scope = source_path(&collection, &source);
     let data = json!(RevisionHeld {
         collection: collection.clone(),
         revision: revision_id.to_owned(),

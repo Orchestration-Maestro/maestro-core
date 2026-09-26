@@ -7,6 +7,9 @@ use std::{error, fmt, str::FromStr};
 /// The kinds of the nodes a scope path names, in the order they nest.
 const KINDS: [&str; 3] = ["workspace", "collection", "source"];
 
+/// The scope of the workspace the kernel keeps its records in: S1 has one.
+pub const WORKSPACE: &str = "workspace/default";
+
 /// The most characters a name holds.
 const LONGEST_NAME: usize = 64;
 
@@ -73,6 +76,22 @@ impl fmt::Display for Scope {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(&self.0)
     }
+}
+
+/// The path of the scope of the collection `collection`, which every record
+/// of the collection has, `workspace/default/collection/<id>`: the one place
+/// a collection's scope is written, which the readers' conditions filter by.
+#[must_use]
+pub fn collection_path(collection: &str) -> String {
+    format!("{WORKSPACE}/collection/{collection}")
+}
+
+/// The path of the scope of the source `source` of the collection
+/// `collection`, which the documents and revisions of that source have:
+/// `workspace/default/collection/<id>/source/<id>`.
+#[must_use]
+pub fn source_path(collection: &str, source: &str) -> String {
+    format!("{}/source/{source}", collection_path(collection))
 }
 
 /// Checks that `name` may name a node of a scope path: 1 to 64 characters,
