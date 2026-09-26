@@ -10,6 +10,7 @@ pub mod binding;
 pub mod capability;
 mod filesystem;
 pub mod gateway;
+pub mod journal;
 pub mod paths;
 pub mod store;
 pub mod telemetry;
