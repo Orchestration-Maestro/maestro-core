@@ -4,7 +4,9 @@
 //! and canonicalized, and each unanswerable question probed for leads in the
 //! files of every manifest line.
 
-use maestro_canonicalization::{CanonicalDocument, CanonicalizeInput, canonicalize};
+use maestro_canonicalization::{
+    CanonicalDocument, CanonicalizeInput, ValidationStatus, canonicalize,
+};
 use maestro_kernel::artifact::Digest;
 use maestro_knowledge::{
     corpus::Entry,
@@ -28,7 +30,7 @@ pub(super) struct Checked {
     pub(super) changed: BTreeSet<String>,
     /// Each name that gives no one section, nor a document without sections,
     /// each question that names one twice, and each file that cannot be read
-    /// as it should, in words, sorted.
+    /// as it should or canonicalizes as failed, in words, sorted.
     pub(super) problems: Vec<String>,
     /// For each unanswerable question with identifier-like terms, by
     /// `<suite>: <id>`, when documents of the manifest hold them all: its
@@ -305,7 +307,9 @@ fn is_identifier_like(run: &str) -> bool {
 /// The canonical document of `source_ref`, which `declared`, its manifest
 /// lines, must declare, all with the same bytes, read from the file of the
 /// first of them under `root`, and recorded in `checked` as changed when the
-/// file no longer holds the bytes the line declares; or why there is none.
+/// file no longer holds the bytes the line declares; or why there is none,
+/// a document that canonicalizes as failed among them, since no generation
+/// holds a failed revision.
 fn document(
     root: &Path,
     declared: Option<&Vec<Entry>>,
@@ -335,5 +339,12 @@ fn document(
     let mut input = CanonicalizeInput::new(&markdown, source_ref);
     input.metadata.source_reference = Some(source_ref.to_owned());
     input.metadata.title = Some(entry.title.clone());
-    canonicalize(input).map_err(|error| format!("{path} does not canonicalize: {error}"))
+    let document =
+        canonicalize(input).map_err(|error| format!("{path} does not canonicalize: {error}"))?;
+    if document.validation_status == ValidationStatus::Failed {
+        return Err(format!(
+            "{path} canonicalizes as failed, and no generation holds a failed revision"
+        ));
+    }
+    Ok(document)
 }
