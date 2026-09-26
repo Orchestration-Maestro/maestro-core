@@ -3,7 +3,7 @@
 
 use super::support::{IMPORTED, SCOPE, Scratch, imported, whole};
 use crate::{
-    journal::{Error, Event, Filter, NewEvent, event::record},
+    journal::{EmptyAttribute, Error, Event, Filter, NewEvent, event::record},
     scope::{InvalidScope, Scope, ScopeSet},
     store,
 };
@@ -180,6 +180,60 @@ fn an_event_whose_scope_is_no_scope_path_is_refused_before_it_is_written() {
             .write(|transaction| record(transaction, &event))
             .unwrap_err();
         assert!(refuses_scope(&inside, &expected), "{text:?}: {inside:?}");
+    }
+    let recorded: i64 = scratch
+        .outside()
+        .query_row("SELECT count(*) FROM events", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(recorded, 0);
+}
+
+/// Whether `refusal` is the store refusing to write an event whose
+/// `attribute` is empty.
+fn refuses_empty(refusal: &store::Error, attribute: EmptyAttribute) -> bool {
+    matches!(
+        refusal,
+        store::Error::Sqlite(rusqlite::Error::ToSqlConversionFailure(invalid))
+            if invalid.downcast_ref::<EmptyAttribute>() == Some(&attribute)
+    )
+}
+
+#[test]
+fn an_event_whose_type_or_subject_is_empty_is_refused_before_it_is_written() {
+    let scratch = Scratch::new();
+    let database = scratch.open();
+    let event = imported("collection/a", "import/1", &Value::Null);
+    let untyped = NewEvent {
+        r#type: "",
+        ..event
+    };
+    let unnamed = NewEvent {
+        subject: "",
+        ..event
+    };
+    for (event, attribute, reason) in [
+        (
+            untyped,
+            EmptyAttribute::Type,
+            "an event's type is empty: CloudEvents requires a non-empty type",
+        ),
+        (
+            unnamed,
+            EmptyAttribute::Subject,
+            "an event's subject is empty: CloudEvents requires a non-empty subject",
+        ),
+    ] {
+        let refusal = database.record(&event).unwrap_err();
+        assert!(
+            matches!(&refusal, Error::Store(inner) if refuses_empty(inner, attribute)),
+            "{refusal:?}"
+        );
+        let found = error::Error::source(&refusal).map(ToString::to_string);
+        assert_eq!(found.as_deref(), Some(reason));
+        let inside = database
+            .write(|transaction| record(transaction, &event))
+            .unwrap_err();
+        assert!(refuses_empty(&inside, attribute), "{inside:?}");
     }
     let recorded: i64 = scratch
         .outside()

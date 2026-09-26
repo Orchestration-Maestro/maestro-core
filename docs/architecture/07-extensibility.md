@@ -90,6 +90,7 @@ them:
   "datacontenttype": "application/json",
   "dataschema": "maestro://schemas/events/knowledge.generation.published/1",
   "maestroscope": "workspace/default/collection/ctm",
+  "maestrostream": "collection/ctm",
   "maestrosequence": 18231,
   "traceparent": "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0bc902b7-01",
   "data": { "collection": "ctm", "generation": 8, "point_count": 81234 }
@@ -98,6 +99,9 @@ them:
 
 `maestrosequence` is the per-stream position; `traceparent` carries the W3C
 trace context so a consumer's work joins the originating trace.
+`maestrostream` names the stream that `maestrosequence` counts in,
+`collection/<id>` for the knowledge family, so a consumer orders and
+acknowledges events per stream, since sequences restart in each stream.
 
 ### 3.2 Event catalogue
 
