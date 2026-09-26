@@ -19,7 +19,12 @@ pub enum Error {
     /// No artifact is stored under the digest.
     Missing(Digest),
     /// The stored bytes no longer hash to their digest.
-    Corrupt(Digest),
+    Corrupt {
+        /// The digest they are stored under.
+        expected: Digest,
+        /// The digest of the bytes found in its place.
+        found: Digest,
+    },
     /// A file-system operation failed; the error's source says why.
     Io {
         /// The file or directory it concerned.
@@ -37,10 +42,12 @@ impl fmt::Display for Error {
                 "no artifact is stored under sha256:{}",
                 digest.as_str()
             ),
-            Self::Corrupt(digest) => write!(
+            Self::Corrupt { expected, found } => write!(
                 formatter,
-                "the artifact stored under sha256:{} no longer matches its digest",
-                digest.as_str()
+                "the artifact stored under sha256:{} no longer matches its digest: its bytes \
+                 hash to sha256:{}",
+                expected.as_str(),
+                found.as_str()
             ),
             Self::Io { path, .. } => write!(formatter, "cannot access {}", path.display()),
         }
@@ -51,7 +58,7 @@ impl error::Error for Error {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match self {
             Self::Io { source, .. } => Some(source),
-            Self::Missing(_) | Self::Corrupt(_) => None,
+            Self::Missing(_) | Self::Corrupt { .. } => None,
         }
     }
 }
@@ -124,9 +131,9 @@ impl Store {
     /// # Errors
     ///
     /// [`Error::Missing`] when nothing is stored under `digest`,
-    /// [`Error::Corrupt`] when the stored bytes no longer match it, and
-    /// [`Error::Io`] when something other than a regular file is in its place
-    /// or the file cannot be read.
+    /// [`Error::Corrupt`], naming the digest of the bytes found, when they no
+    /// longer match it, and [`Error::Io`] when something other than a regular
+    /// file is in its place or the file cannot be read.
     pub fn get(&self, digest: &Digest) -> Result<Vec<u8>, Error> {
         let path = self.path(digest);
         let failed = |source: io::Error| {
@@ -140,10 +147,14 @@ impl Store {
             return Err(io_error(&path, io::Error::other("not a regular file")));
         }
         let bytes = fs::read(&path).map_err(failed)?;
-        if Digest::of(&bytes) == *digest {
+        let found = Digest::of(&bytes);
+        if found == *digest {
             Ok(bytes)
         } else {
-            Err(Error::Corrupt(digest.clone()))
+            Err(Error::Corrupt {
+                expected: digest.clone(),
+                found,
+            })
         }
     }
 
