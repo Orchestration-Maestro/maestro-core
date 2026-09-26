@@ -162,7 +162,10 @@
 //! beside it. The service binds 127.0.0.1 only, HTTP on 6333 and gRPC on
 //! 6334, with telemetry off. Without `--yes` the command lists the steps the
 //! machine lacks and changes nothing; with it, it takes them. A machine with
-//! everything in place has no step, and a run then changes nothing. It
+//! everything in place has no step, and a run then changes nothing. Before
+//! it writes the binary or the unit, setup marks the service
+//! `qdrant/restart-pending`, and only a restart that succeeds clears the
+//! mark, so a run after a step that failed reloads and restarts the service. It
 //! installs on Linux on x86-64 with systemd only; elsewhere it prints the
 //! manual steps and exits 2. Where no systemd user manager runs for the
 //! user, as on WSL unless `/etc/wsl.conf` sets `systemd=true` under
