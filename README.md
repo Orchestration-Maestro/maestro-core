@@ -24,16 +24,19 @@ and cuts them into token-budgeted chunks. The rest arrives slice by slice
 
 The crates build and pass their tests on Linux, macOS and Windows; CI runs them
 on all three ([ADR-0018](docs/adr/0018-rustix-on-unix-and-win32-flags-on-windows.md)).
-Install [rustup](https://rustup.rs), then the organization's gate, which
-installs the toolbelt CI runs, at the versions it runs, and the commit hooks
-([details](https://github.com/Orchestration-Maestro/rust-workflows/blob/v4.0.0/docs/ci.md#the-tools-on-your-machine)).
-The local gate runs on Linux:
+Install [rustup](https://rustup.rs), then the organization's gate from the
+[latest rust-workflows release](https://github.com/Orchestration-Maestro/rust-workflows/releases/latest),
+which installs the toolbelt CI runs, at the versions it runs, and the commit
+hooks ([details](https://github.com/Orchestration-Maestro/rust-workflows/blob/main/docs/ci.md#the-tools-on-your-machine)).
+`just check` runs exactly what CI runs, the steps of its checks job over the
+commits a push sends, and the pre-push hook runs it
+([details](https://github.com/Orchestration-Maestro/rust-workflows/blob/main/docs/ci.md#run-ci-before-you-push)):
 
 ```bash
 cargo install --locked --git https://github.com/Orchestration-Maestro/rust-workflows \
-  --tag v4.0.0 rust-gate
+  --tag vX.Y.Z rust-gate   # the latest release's tag
 rust-gate setup   # the pinned toolbelt, and the commit hooks
-just check        # the local gate; it must pass before every push
+just check        # CI's checks, here; it must pass before every push
 just native       # the native tokenizer tests, through a local binding
 ```
 

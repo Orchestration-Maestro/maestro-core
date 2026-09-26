@@ -42,7 +42,7 @@ every commit and keeps what each row says here. A rule added there arrives as
 | ENF-005 Failing test first | Review: the new test is seen failing first; CI mutation-tests every pull request's diff, so an untested change fails |
 | ENF-006 Never weaken a gate | Organization: required checks and code scanning block every merge; a gate changes only in its own reviewed pull request |
 | ENF-007 Pull requests only | Organization: the `default-branch-discipline` ruleset (pull request, signed commits, code scanning) and `floor-no-destruction`, with no bypass actor |
-| ENF-008 Tiered checks | Commit hooks (prek), then `just check` before a push, then CI's required gate; `just check` mirrors rust-workflows' gate without sharing its commands, and the full mutation run and native tests run by hand |
+| ENF-008 Tiered checks | Commit hooks (prek), then `just check` before a push, then CI's required gate; `just check`, which the pre-push hook runs, is CI's checks job itself (`rust-gate ci --local`), and the full mutation run and native tests run by hand |
 | ENF-009 Allowlists that cannot rot | Test: each `.cargo/mutants.toml` exclusion names one mutant by line and its reason, and returns as missed when the code moves; typos and zizmor entries carry their reasons |
 | ENF-010 Configuration is the authority | Organization: its settings as code in `.github/org/`, checked weekly by `org-drift.yml` |
 | ENF-011 Instructions grant nothing | Organization: authority lives in rulesets, workflow `permissions:` and access control; no instruction file grants any |
