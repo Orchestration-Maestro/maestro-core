@@ -8,7 +8,7 @@ use crate::{
 };
 use rusqlite::{Row, Transaction, params, types::Type};
 use serde_json::Value;
-use std::error;
+use std::{error, fmt};
 use ulid::Ulid;
 
 /// The columns of an event, in the order [`event_row`] reads them.
@@ -77,9 +77,10 @@ impl Database {
     ///
     /// # Errors
     ///
-    /// [`Error::Store`] when the event's scope is not a scope path, before
-    /// anything is written, its source then the [`InvalidScope`], and when the
-    /// database cannot record it.
+    /// [`Error::Store`] when the event's type or subject is empty or its
+    /// scope is not a scope path, before anything is written, its source then
+    /// the [`EmptyAttribute`] or the [`InvalidScope`], and when the database
+    /// cannot record it.
     pub fn record(&self, event: &NewEvent<'_>) -> Result<Event, Error> {
         Ok(self.write(|transaction| record(transaction, event))?)
     }
@@ -111,21 +112,53 @@ impl Database {
     }
 }
 
+/// An attribute of an event to record that is empty, where `CloudEvents`
+/// requires a non-empty one: the journal refuses the event.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EmptyAttribute {
+    /// Its type: what happened.
+    Type,
+    /// Its subject: what it happened to.
+    Subject,
+}
+
+impl fmt::Display for EmptyAttribute {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let name = match self {
+            Self::Type => "type",
+            Self::Subject => "subject",
+        };
+        write!(
+            formatter,
+            "an event's {name} is empty: CloudEvents requires a non-empty {name}"
+        )
+    }
+}
+
+impl error::Error for EmptyAttribute {}
+
 /// Records `event` inside `transaction`, a write that records the change
 /// the event tells of, and returns it as stored.
 ///
 /// # Errors
 ///
 /// [`store::Error::Sqlite`] holding a `ToSqlConversionFailure` of the
-/// [`InvalidScope`] when the event's scope is not a scope path: nothing is
-/// written then. [`store::Error::Sqlite`] also when the database cannot record
-/// it, or cannot read back the row it recorded: the insert has then run
-/// already, so the caller must return the error from its write, which then
-/// rolls back.
+/// [`EmptyAttribute`] when the event's type or subject is empty, or of the
+/// [`InvalidScope`] when its scope is not a scope path: nothing is written
+/// then. [`store::Error::Sqlite`] also when the database cannot record it, or
+/// cannot read back the row it recorded: the insert has then run already, so
+/// the caller must return the error from its write, which then rolls back.
 pub(crate) fn record(
     transaction: &Transaction<'_>,
     event: &NewEvent<'_>,
 ) -> Result<Event, store::Error> {
+    let empty = [
+        (event.r#type, EmptyAttribute::Type),
+        (event.subject, EmptyAttribute::Subject),
+    ];
+    if let Some((_, attribute)) = empty.into_iter().find(|(text, _)| text.is_empty()) {
+        return Err(rusqlite::Error::ToSqlConversionFailure(Box::new(attribute)).into());
+    }
     let scope: Scope = event.scope.parse().map_err(|invalid: InvalidScope| {
         rusqlite::Error::ToSqlConversionFailure(Box::new(invalid))
     })?;

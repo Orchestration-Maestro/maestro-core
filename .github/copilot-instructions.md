@@ -222,15 +222,16 @@ in place.
 │   │   │   ├── journal/                                                     # The journal: every change the kernel makes, recorded as an event in one
 │   │   │   │   ├── tests/                                                   # Tests of the journal: its events and their streams, its cursors, and what
 │   │   │   │   │   ├── append_only.rs                                       # The journal is append-only: the database itself refuses to update, delete
+│   │   │   │   │   ├── breaking.rs                                          # The compatibility check: what a fresh event schema changes of the committed one, beyond an added optional property
 │   │   │   │   │   ├── child.rs                                             # Not a test of its own: what the child processes of the crash and
-│   │   │   │   │   ├── compatibility.rs                                     # The compatibility check's rules on small schemas: what it refuses as a narrowing, what it lets through
+│   │   │   │   │   ├── compatibility.rs                                     # The compatibility check's rules on small schemas: what it refuses as a breaking change, what it lets through
 │   │   │   │   │   ├── concurrency.rs                                       # Writers together: threads sharing the database and processes of their own
 │   │   │   │   │   ├── crash.rs                                             # A crash: the event a process committed before it is read after the
 │   │   │   │   │   ├── cursors.rs                                           # Cursors: where each consumer stands in each stream, moved forward only
 │   │   │   │   │   ├── envelope.rs                                          # The envelope: an event read back from the journal as its CloudEvents 1.0 envelope
 │   │   │   │   │   ├── events.rs                                            # Events: the ID and the sequence recording gives them, the event it
 │   │   │   │   │   ├── mod.rs                                               # Tests of the journal: its events and their streams, its cursors, and what
-│   │   │   │   │   ├── narrowing.rs                                         # The compatibility check: what a fresh event schema removes or narrows of the committed one
+│   │   │   │   │   ├── regeneration.rs                                      # The command that regenerates the committed event schemas and their index, tested on a scratch directory
 │   │   │   │   │   ├── schemas.rs                                           # The committed event schemas: generated from their types, never narrowed, followed by the data, and the command that regenerates them
 │   │   │   │   │   ├── subset.rs                                            # What the check and the validator read of a schema: the subset of JSON Schema schemars generates
 │   │   │   │   │   ├── support.rs                                           # What the journal tests share: a scratch data directory, the events they
@@ -362,7 +363,8 @@ in place.
 │       │   └── 1.json                                                       # An import of a collection's corpus manifest completed: what it did with its entries
 │       ├── knowledge.revision.held/                                         # The schemas of maestro.knowledge.revision.held, one file per major version
 │       │   └── 1.json                                                       # The quality gate held a revision back: it is not indexed
-│       └── README.md                                                        # The JSON Schema of each public event's data (07 §3.2), generated from its Rust type in journal/knowledge.rs
+│       ├── README.md                                                        # The JSON Schema of each public event's data (07 §3.2), generated from its Rust type in journal/knowledge.rs
+│       └── index.json                                                       # The committed event schemas, by name: the regeneration command refuses one whose file is gone
 ├── specs/                                                                   # Specifications, one directory per slice
 │   ├── 000-foundation/                                                      # 000 foundation
 │   │   ├── plan.md                                                          # Implementation Plan: Foundation

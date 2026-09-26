@@ -50,8 +50,6 @@ pub(super) struct Bound {
     pub(super) outside: fn(f64, f64) -> bool,
     /// Where a value outside it lies.
     pub(super) side: &'static str,
-    /// How it moves when a schema tightens it.
-    pub(super) tightened: &'static str,
 }
 
 /// The bounds both read: `minimum` and `maximum`, each inclusive.
@@ -60,13 +58,11 @@ pub(super) const BOUNDS: [Bound; 2] = [
         keyword: "minimum",
         outside: |value, bound| value < bound,
         side: "below",
-        tightened: "raised",
     },
     Bound {
         keyword: "maximum",
         outside: |value, bound| value > bound,
         side: "above",
-        tightened: "lowered",
     },
 ];
 
@@ -112,13 +108,6 @@ pub(super) fn types(schema: &Map<String, Value>) -> Option<Vec<String>> {
         ),
         _ => None,
     }
-}
-
-/// Whether `types` accept a value of the JSON type `kind`: a `number`
-/// accepts an `integer`.
-pub(super) fn accepts(types: &[String], kind: &str) -> bool {
-    let named = |name: &str| types.iter().any(|kind| kind == name);
-    named(kind) || (kind == "integer" && named("number"))
 }
 
 /// The JSON type of `value`, as `type` names it.

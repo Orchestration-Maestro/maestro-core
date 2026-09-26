@@ -1,10 +1,12 @@
 //! The committed schemas of the public events: each the one its type
-//! generates, none narrowed by its type, and each followed by the data of
-//! its events' envelopes. The ignored test at the end is the command that
-//! regenerates the committed files after an additive change.
+//! generates, none broken by its type, all listed in the index, and each
+//! followed by the data of its events' envelopes. The ignored test at the
+//! end is the command that regenerates the committed files after an
+//! additive change.
 
 use super::{
-    narrowing::narrowings,
+    breaking::breaking_changes,
+    regeneration::{INDEX, file_of, regenerate},
     support::{SCOPE, Scratch, whole},
     validation::violations,
 };
@@ -31,19 +33,16 @@ const PUBLISHED: &str = "knowledge.generation.published/1";
 /// The stream the tests record their events on.
 const STREAM: &str = "collection/demo";
 
-/// The committed file of the schema named `schema`, such as
-/// `knowledge.generation.published/1`: `schemas/events/<name>/<major>.json`
-/// at the root of the workspace.
-fn path_of(schema: &str) -> PathBuf {
-    let (name, major) = schema.split_once('/').unwrap();
+/// The directory of the committed schemas: `schemas/events` at the root of
+/// the workspace.
+fn root() -> PathBuf {
     let workspace = Path::new(env!("CARGO_MANIFEST_DIR")).ancestors().nth(2);
-    let events = workspace.unwrap().join("schemas").join("events");
-    events.join(name).join(format!("{major}.json"))
+    workspace.unwrap().join("schemas").join("events")
 }
 
 /// The committed schema named `schema`.
 fn committed(schema: &str) -> Value {
-    let path = path_of(schema);
+    let path = file_of(&root(), schema);
     let text =
         fs::read_to_string(&path).unwrap_or_else(|error| panic!("{}: {error}", path.display()));
     serde_json::from_str(&text).unwrap()
@@ -64,6 +63,7 @@ fn samples() -> [(&'static str, Value); 4] {
                 collection: collection(),
                 imported: 7,
                 unchanged: 2,
+                held: 1,
                 refused: 1,
             }),
         ),
@@ -138,10 +138,19 @@ fn each_committed_schema_is_the_one_its_type_generates() {
 }
 
 #[test]
-fn no_type_removes_or_narrows_what_its_committed_schema_held() {
+fn the_index_lists_the_schema_of_every_public_event_and_no_other() {
+    let text = fs::read_to_string(root().join(INDEX)).unwrap();
+    let listed: Vec<String> = serde_json::from_str(&text).unwrap();
+    let mut names: Vec<&str> = PUBLIC_EVENTS.iter().map(|event| event.schema).collect();
+    names.sort_unstable();
+    assert_eq!(listed, names);
+}
+
+#[test]
+fn no_type_breaks_its_committed_schema() {
     for event in PUBLIC_EVENTS {
         let fresh = (event.generate)().to_value();
-        let found = narrowings(&committed(event.schema), &fresh);
+        let found = breaking_changes(&committed(event.schema), &fresh);
         assert_eq!(found, Vec::<String>::new(), "{}", event.schema);
     }
 }
@@ -199,6 +208,21 @@ struct WithOptionalField {
     chunk_set: Option<String>,
 }
 
+/// `GenerationPublished` with a field added that it always writes, as null
+/// when it has no value.
+#[derive(JsonSchema)]
+#[expect(dead_code, reason = "only its schema is generated")]
+struct WithNullableField {
+    /// The collection it is a generation of.
+    collection: String,
+    /// The generation published.
+    generation: u64,
+    /// How many points its verification counted.
+    point_count: u64,
+    /// The chunk set it is built from, or null.
+    chunk_set: Option<String>,
+}
+
 /// `GenerationPublished` with a required field added.
 #[derive(JsonSchema)]
 #[expect(dead_code, reason = "only its schema is generated")]
@@ -217,7 +241,7 @@ struct WithRequiredField {
 fn removing_a_field_from_a_type_fails_the_compatibility_test() {
     let fresh = schema_of::<WithoutPointCount>().to_value();
     assert_eq!(
-        narrowings(&committed(PUBLISHED), &fresh),
+        breaking_changes(&committed(PUBLISHED), &fresh),
         ["property point_count is gone"]
     );
 }
@@ -226,7 +250,7 @@ fn removing_a_field_from_a_type_fails_the_compatibility_test() {
 fn an_added_optional_field_passes_the_compatibility_test() {
     let fresh = schema_of::<WithOptionalField>().to_value();
     assert_eq!(
-        narrowings(&committed(PUBLISHED), &fresh),
+        breaking_changes(&committed(PUBLISHED), &fresh),
         Vec::<String>::new()
     );
 }
@@ -235,7 +259,16 @@ fn an_added_optional_field_passes_the_compatibility_test() {
 fn a_new_required_field_fails_the_compatibility_test() {
     let fresh = schema_of::<WithRequiredField>().to_value();
     assert_eq!(
-        narrowings(&committed(PUBLISHED), &fresh),
+        breaking_changes(&committed(PUBLISHED), &fresh),
+        ["property chunk_set is newly required"]
+    );
+}
+
+#[test]
+fn a_field_written_even_when_null_is_a_required_property() {
+    let fresh = schema_of::<WithNullableField>().to_value();
+    assert_eq!(
+        breaking_changes(&committed(PUBLISHED), &fresh),
         ["property chunk_set is newly required"]
     );
 }
@@ -243,29 +276,9 @@ fn a_new_required_field_fails_the_compatibility_test() {
 #[test]
 #[ignore = "writes schemas/events: the command that regenerates the committed schemas"]
 fn regenerate_the_committed_schemas_after_an_additive_change() {
-    let generated: Vec<(&str, Value)> = PUBLIC_EVENTS
-        .iter()
-        .map(|event| (event.schema, (event.generate)().to_value()))
-        .collect();
-    let refused: Vec<String> = generated
-        .iter()
-        .filter(|(schema, _)| path_of(schema).exists())
-        .flat_map(|(schema, fresh)| {
-            let found = narrowings(&committed(schema), fresh);
-            found
-                .into_iter()
-                .map(move |line| format!("{schema}: {line}"))
-        })
-        .collect();
-    assert!(
-        refused.is_empty(),
-        "nothing written: a narrowing needs a new major version\n{}",
-        refused.join("\n")
+    assert_eq!(
+        regenerate(&PUBLIC_EVENTS, &root()),
+        Ok(()),
+        "nothing written: a breaking change needs a new major version"
     );
-    for (schema, fresh) in &generated {
-        let path = path_of(schema);
-        fs::create_dir_all(path.parent().unwrap()).unwrap();
-        let text = serde_json::to_string_pretty(fresh).unwrap();
-        fs::write(&path, text + "\n").unwrap();
-    }
 }

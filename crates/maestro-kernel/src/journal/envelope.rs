@@ -65,8 +65,10 @@ impl error::Error for InvalidMachine {}
 
 /// An event as it leaves the kernel: the `CloudEvents` 1.0 envelope of an
 /// event the journal recorded, its attributes named and written as
-/// `CloudEvents`' JSON format has them.
+/// `CloudEvents`' JSON format has them. It gains attributes without a new
+/// version, so it is non-exhaustive.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[non_exhaustive]
 pub struct Envelope {
     /// The version of `CloudEvents` it follows: `1.0`.
     pub specversion: &'static str,
@@ -89,6 +91,10 @@ pub struct Envelope {
     pub dataschema: Option<String>,
     /// An extension: the path of the scope it belongs to.
     pub maestroscope: String,
+    /// An extension: the stream it belongs to, which `maestrosequence`
+    /// counts in and a consumer acknowledges it on, such as `collection/<id>`
+    /// for the knowledge events.
+    pub maestrostream: String,
     /// An extension: its place in its stream, 1 for the first event.
     /// `CloudEvents`' integers stop at 2,147,483,647, which a stream passes
     /// only after as many events.
@@ -120,6 +126,7 @@ impl Envelope {
             datacontenttype: DATACONTENTTYPE,
             dataschema,
             maestroscope: event.scope,
+            maestrostream: event.stream,
             maestrosequence: event.sequence,
             traceparent: None,
             data: event.data,

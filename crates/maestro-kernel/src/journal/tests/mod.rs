@@ -4,6 +4,7 @@
 //! public events.
 
 mod append_only;
+mod breaking;
 mod child;
 mod compatibility;
 mod concurrency;
@@ -11,7 +12,7 @@ mod crash;
 mod cursors;
 mod envelope;
 mod events;
-mod narrowing;
+mod regeneration;
 mod schemas;
 mod subset;
 mod support;

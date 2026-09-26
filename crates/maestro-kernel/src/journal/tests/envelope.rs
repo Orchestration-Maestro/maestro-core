@@ -1,8 +1,11 @@
 //! The envelope: an event read back from the journal as the `CloudEvents` 1.0
-//! envelope it leaves the kernel in, and the machine its source names.
+//! envelope it leaves the kernel in, the stream it names, and the machine its
+//! source names.
 
 use super::support::{SCOPE, Scratch, imported, whole};
-use crate::journal::{Envelope, Event, GenerationPublished, InvalidMachine, Machine, NewEvent};
+use crate::journal::{
+    Envelope, Event, GenerationPublished, InvalidMachine, Machine, NewEvent, stream,
+};
 use serde_json::{Value, json};
 
 /// The stream the tests record their events on.
@@ -50,6 +53,7 @@ fn an_event_reads_back_as_a_cloudevents_envelope_with_its_sequence_and_scope() {
             "datacontenttype": "application/json",
             "dataschema": "maestro://schemas/events/knowledge.generation.published/1",
             "maestroscope": "workspace/default/collection/demo",
+            "maestrostream": "collection/demo",
             "maestrosequence": 2,
             "data": {"collection": "demo", "generation": 8, "point_count": 81_234}
         })
@@ -95,11 +99,18 @@ fn an_event_outside_the_public_catalogue_carries_no_dataschema() {
                 "time": time,
                 "datacontenttype": "application/json",
                 "maestroscope": "workspace/default/collection/demo",
+                "maestrostream": "collection/demo",
                 "maestrosequence": sequence,
                 "data": {"done": 2}
             })
         );
     }
+}
+
+#[test]
+fn the_knowledge_events_of_a_collection_share_the_stream_of_the_collection() {
+    assert_eq!(stream("demo"), STREAM);
+    assert_eq!(stream("ctm"), "collection/ctm");
 }
 
 #[test]

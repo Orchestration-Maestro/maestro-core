@@ -62,15 +62,10 @@ path = "crates/maestro-kernel/src/store/mod.rs"
 item = "artifacts"
 reason = "every kernel table that refers to an artifact pins it in the transaction that records the reference: revisions now, then chunk sets, evaluation reports and model cards"
 
-# The journal's event types serve every kernel write that journals its change;
+# The journal's NewEvent serves every kernel write that journals its change;
 # the grants of scopes are the first in the crate. The second writer to use
-# them removes these, which the rule then reports stale.
-[[exception]]
-rule = "ARC-005"
-path = "crates/maestro-kernel/src/journal/mod.rs"
-item = "Event"
-reason = "a kernel write journals its change in its own transaction through event::record"
-
+# it removes this, which the rule then reports stale. Event needs none: the
+# journal's envelope shares it.
 [[exception]]
 rule = "ARC-005"
 path = "crates/maestro-kernel/src/journal/mod.rs"

@@ -3,8 +3,8 @@
 //! cannot check, it reports, never passes.
 
 use super::subset::{
-    BOUNDS, DEPTH, accepts, allowed_values, below, constants, json_type, located, members, names,
-    number, resolved, types, unread,
+    BOUNDS, DEPTH, allowed_values, below, constants, json_type, located, members, names, number,
+    resolved, types, unread,
 };
 use serde_json::{Map, Value, json};
 
@@ -115,6 +115,13 @@ fn unchecked(schema: &Map<String, Value>) -> Vec<String> {
     let other = format.filter(|format| *format != "uint64");
     lines.extend(other.map(|format| format!("cannot check format {format}")));
     lines
+}
+
+/// Whether `types` accept a value of the JSON type `kind`: a `number`
+/// accepts an `integer`.
+fn accepts(types: &[String], kind: &str) -> bool {
+    let named = |name: &str| types.iter().any(|kind| kind == name);
+    named(kind) || (kind == "integer" && named("number"))
 }
 
 /// Why `instance` is of no JSON type `schema` accepts, when it names them.

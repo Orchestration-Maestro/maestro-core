@@ -6,8 +6,14 @@
       "description": "The collection imported.",
       "type": "string"
     },
+    "held": {
+      "description": "How many entries it recorded as new revisions and held back from indexing.",
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    },
     "imported": {
-      "description": "How many entries it recorded as new revisions.",
+      "description": "How many entries it recorded as new revisions, not counting those it held.",
       "format": "uint64",
       "minimum": 0,
       "type": "integer"
@@ -29,6 +35,7 @@
     "collection",
     "imported",
     "unchanged",
+    "held",
     "refused"
   ],
   "title": "ImportCompleted",

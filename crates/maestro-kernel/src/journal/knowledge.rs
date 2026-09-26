@@ -6,11 +6,14 @@
 //! Each type lives in the kernel, so that a kernel write records its event in
 //! the same transaction as its change. Its schema is generated from the type
 //! and committed under `schemas/events/`, and a test fails when the type
-//! removes or narrows anything the committed schema held: within a major
-//! version an event only gains optional fields, and
+//! changes anything the committed schema held but by adding an optional
+//! field: within a major version an event only gains optional fields, and
 //! `schemas/events/README.md` gives the command that regenerates the
-//! committed files after such an addition. A change that removes or narrows
-//! is a new major version: a new type, `.v2`, beside the old one.
+//! committed files after such an addition. Any other change is a new major
+//! version: a new type, `.v2`, beside the old one.
+//!
+//! The knowledge family is keyed by collection (docs/architecture/07 §3.2):
+//! each emitter records a collection's events on its [`stream`].
 
 use schemars::{JsonSchema, Schema, generate::SchemaSettings};
 use serde::{Deserialize, Serialize};
@@ -64,15 +67,25 @@ pub(super) fn schema_of<T: JsonSchema>() -> Schema {
         .into_root_schema_for::<T>()
 }
 
+/// The stream every knowledge event of the collection `collection` is
+/// recorded on, `collection/<id>`, so that a consumer reads them in order
+/// there and acknowledges them there.
+#[must_use]
+pub fn stream(collection: &str) -> String {
+    format!("collection/{collection}")
+}
+
 /// An import of a collection's corpus manifest completed: what it did with its entries.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct ImportCompleted {
     /// The collection imported.
     pub collection: String,
-    /// How many entries it recorded as new revisions.
+    /// How many entries it recorded as new revisions, not counting those it held.
     pub imported: u64,
     /// How many entries it found recorded already, as they are.
     pub unchanged: u64,
+    /// How many entries it recorded as new revisions and held back from indexing.
+    pub held: u64,
     /// How many entries it refused, each with its reason in the import's report.
     pub refused: u64,
 }
@@ -82,14 +95,14 @@ impl ImportCompleted {
     pub const TYPE: &'static str = "maestro.knowledge.import.completed.v1";
 }
 
-/// The quality gate held a revision back: it is not indexed.
+/// A revision was held back, by its import or by the quality gate: it is not indexed.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 pub struct RevisionHeld {
     /// The collection of the revision.
     pub collection: String,
     /// The revision held.
     pub revision: String,
-    /// Why it is held: the gate's disposition of it.
+    /// Why it is held: its quality disposition.
     pub disposition: HeldDisposition,
 }
 
@@ -98,7 +111,7 @@ impl RevisionHeld {
     pub const TYPE: &'static str = "maestro.knowledge.revision.held.v1";
 }
 
-/// A disposition of the quality gate that holds a revision back from indexing.
+/// A quality disposition that holds a revision back from indexing.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub enum HeldDisposition {

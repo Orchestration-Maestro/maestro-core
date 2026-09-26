@@ -1,7 +1,7 @@
 {
   "$defs": {
     "HeldDisposition": {
-      "description": "A disposition of the quality gate that holds a revision back from indexing.",
+      "description": "A quality disposition that holds a revision back from indexing.",
       "oneOf": [
         {
           "const": "needs_reextraction",
@@ -22,7 +22,7 @@
     }
   },
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "description": "The quality gate held a revision back: it is not indexed.",
+  "description": "A revision was held back, by its import or by the quality gate: it is not indexed.",
   "properties": {
     "collection": {
       "description": "The collection of the revision.",
@@ -30,7 +30,7 @@
     },
     "disposition": {
       "$ref": "#/$defs/HeldDisposition",
-      "description": "Why it is held: the gate's disposition of it."
+      "description": "Why it is held: its quality disposition."
     },
     "revision": {
       "description": "The revision held.",

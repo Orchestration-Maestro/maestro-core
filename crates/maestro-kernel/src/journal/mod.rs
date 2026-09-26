@@ -37,8 +37,8 @@ mod tests;
 
 pub use envelope::{Envelope, InvalidMachine, Machine};
 pub use error::Error;
-pub use event::{Event, Filter, NewEvent};
+pub use event::{EmptyAttribute, Event, Filter, NewEvent};
 pub use knowledge::{
     GenerationPublished, GenerationRetired, HeldDisposition, ImportCompleted, PUBLIC_EVENTS,
-    PublicEvent, RevisionHeld,
+    PublicEvent, RevisionHeld, stream,
 };
