@@ -5,6 +5,7 @@
 use super::support::{Scratch, collection, document, source};
 use crate::{
     document::{Collection, Document, Error, Source},
+    scope::ScopeSet,
     store,
 };
 use rusqlite::ffi;
@@ -24,7 +25,12 @@ fn refused(error: &Error, code: i32) -> bool {
 fn a_collection_is_recorded_then_follows_its_declaration() {
     let scratch = Scratch::new();
     let database = scratch.empty();
-    assert_eq!(database.collection("ctm").unwrap(), None);
+    assert_eq!(
+        database
+            .collection(&ScopeSet::default_workspace(), "ctm")
+            .unwrap(),
+        None
+    );
     database.record_collection(&collection("ctm")).unwrap();
     let recorded = Collection {
         id: "ctm".to_owned(),
@@ -32,7 +38,12 @@ fn a_collection_is_recorded_then_follows_its_declaration() {
         visibility: "private".to_owned(),
         profiles: BTreeMap::from([("chunking".to_owned(), "structural-500-700/1".to_owned())]),
     };
-    assert_eq!(database.collection("ctm").unwrap(), Some(recorded));
+    assert_eq!(
+        database
+            .collection(&ScopeSet::default_workspace(), "ctm")
+            .unwrap(),
+        Some(recorded)
+    );
     let declared = Collection {
         id: "ctm".to_owned(),
         title: "Control of the ctm collection".to_owned(),
@@ -43,8 +54,18 @@ fn a_collection_is_recorded_then_follows_its_declaration() {
         ]),
     };
     database.record_collection(&declared).unwrap();
-    assert_eq!(database.collection("ctm").unwrap(), Some(declared));
-    assert_eq!(database.collection("other").unwrap(), None);
+    assert_eq!(
+        database
+            .collection(&ScopeSet::default_workspace(), "ctm")
+            .unwrap(),
+        Some(declared)
+    );
+    assert_eq!(
+        database
+            .collection(&ScopeSet::default_workspace(), "other")
+            .unwrap(),
+        None
+    );
 }
 
 #[test]
@@ -61,7 +82,12 @@ fn a_source_is_recorded_in_its_collection_then_follows_its_declaration() {
         reference: "corpus_root:docs.jsonl".to_owned(),
         profiles: BTreeMap::new(),
     };
-    assert_eq!(database.source("ctm", "docs").unwrap(), Some(recorded));
+    assert_eq!(
+        database
+            .source(&ScopeSet::default_workspace(), "ctm", "docs")
+            .unwrap(),
+        Some(recorded)
+    );
     let declared = Source {
         collection_id: "ctm".to_owned(),
         id: "docs".to_owned(),
@@ -71,8 +97,18 @@ fn a_source_is_recorded_in_its_collection_then_follows_its_declaration() {
         profiles: BTreeMap::from([("extraction".to_owned(), "technical-html/1".to_owned())]),
     };
     database.record_source(&declared).unwrap();
-    assert_eq!(database.source("ctm", "docs").unwrap(), Some(declared));
-    assert_eq!(database.source("ctm", "other").unwrap(), None);
+    assert_eq!(
+        database
+            .source(&ScopeSet::default_workspace(), "ctm", "docs")
+            .unwrap(),
+        Some(declared)
+    );
+    assert_eq!(
+        database
+            .source(&ScopeSet::default_workspace(), "ctm", "other")
+            .unwrap(),
+        None
+    );
 }
 
 #[test]
@@ -87,14 +123,23 @@ fn two_collections_may_each_declare_a_source_of_one_id() {
     database.record_source(&source("ctm", "docs")).unwrap();
     database.record_source(&synthetic).unwrap();
     assert_eq!(
-        database.source("ctm", "docs").unwrap(),
+        database
+            .source(&ScopeSet::default_workspace(), "ctm", "docs")
+            .unwrap(),
         Some(source("ctm", "docs"))
     );
     assert_eq!(
-        database.source("synthetic", "docs").unwrap(),
+        database
+            .source(&ScopeSet::default_workspace(), "synthetic", "docs")
+            .unwrap(),
         Some(synthetic)
     );
-    assert_eq!(database.source("other", "docs").unwrap(), None);
+    assert_eq!(
+        database
+            .source(&ScopeSet::default_workspace(), "other", "docs")
+            .unwrap(),
+        None
+    );
 }
 
 #[test]
@@ -106,7 +151,12 @@ fn a_source_of_an_unrecorded_collection_is_refused() {
         refused(&error, ffi::SQLITE_CONSTRAINT_FOREIGNKEY),
         "{error:?}"
     );
-    assert_eq!(database.source("ctm", "docs").unwrap(), None);
+    assert_eq!(
+        database
+            .source(&ScopeSet::default_workspace(), "ctm", "docs")
+            .unwrap(),
+        None
+    );
 }
 
 #[test]
@@ -119,10 +169,25 @@ fn a_document_is_recorded_once_and_recording_it_again_changes_nothing() {
         source_id: "docs".to_owned(),
         source_ref: "https://example.org/a".to_owned(),
     };
-    assert_eq!(database.document("doc-a").unwrap(), Some(recorded.clone()));
+    assert_eq!(
+        database
+            .document(&ScopeSet::default_workspace(), "doc-a")
+            .unwrap(),
+        Some(recorded.clone())
+    );
     database.record_document(&recorded).unwrap();
-    assert_eq!(database.document("doc-a").unwrap(), Some(recorded));
-    assert_eq!(database.document("doc-b").unwrap(), None);
+    assert_eq!(
+        database
+            .document(&ScopeSet::default_workspace(), "doc-a")
+            .unwrap(),
+        Some(recorded)
+    );
+    assert_eq!(
+        database
+            .document(&ScopeSet::default_workspace(), "doc-b")
+            .unwrap(),
+        None
+    );
 }
 
 #[test]
@@ -147,7 +212,13 @@ fn a_document_recorded_again_elsewhere_is_refused_and_kept() {
             matches!(&error, Error::DocumentConflict(id) if id == "doc-a"),
             "{moved:?}: {error:?}"
         );
-        assert_eq!(database.document("doc-a").unwrap().as_ref(), Some(&kept));
+        assert_eq!(
+            database
+                .document(&ScopeSet::default_workspace(), "doc-a")
+                .unwrap()
+                .as_ref(),
+            Some(&kept)
+        );
     }
 }
 
@@ -165,7 +236,12 @@ fn a_source_reference_names_one_document_in_each_collection() {
         ),
         "{error:?}"
     );
-    assert_eq!(database.document("doc-b").unwrap(), None);
+    assert_eq!(
+        database
+            .document(&ScopeSet::default_workspace(), "doc-b")
+            .unwrap(),
+        None
+    );
     database
         .record_collection(&collection("synthetic"))
         .unwrap();
@@ -175,7 +251,12 @@ fn a_source_reference_names_one_document_in_each_collection() {
     let mut elsewhere = document("doc-b", "https://example.org/a");
     elsewhere.collection_id = "synthetic".to_owned();
     database.record_document(&elsewhere).unwrap();
-    assert_eq!(database.document("doc-b").unwrap(), Some(elsewhere));
+    assert_eq!(
+        database
+            .document(&ScopeSet::default_workspace(), "doc-b")
+            .unwrap(),
+        Some(elsewhere)
+    );
 }
 
 #[test]
@@ -189,5 +270,10 @@ fn a_document_of_an_undeclared_source_is_refused() {
         refused(&error, ffi::SQLITE_CONSTRAINT_FOREIGNKEY),
         "{error:?}"
     );
-    assert_eq!(database.document("doc-b").unwrap(), None);
+    assert_eq!(
+        database
+            .document(&ScopeSet::default_workspace(), "doc-b")
+            .unwrap(),
+        None
+    );
 }

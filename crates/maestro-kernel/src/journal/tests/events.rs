@@ -4,6 +4,7 @@
 use super::support::{IMPORTED, SCOPE, Scratch, imported, whole};
 use crate::{
     journal::{Error, Event, Filter, NewEvent, event::record},
+    scope::ScopeSet,
     store,
 };
 use rusqlite::types::Type;
@@ -122,11 +123,14 @@ fn events_are_read_after_a_position_in_sequence_order_and_by_type() {
     let third = record("collection/a", IMPORTED);
     let read = |after, r#type| {
         database
-            .events(&Filter {
-                stream: "collection/a",
-                after,
-                r#type,
-            })
+            .events(
+                &ScopeSet::default_workspace(),
+                &Filter {
+                    stream: "collection/a",
+                    after,
+                    r#type,
+                },
+            )
             .unwrap()
     };
     let all = [first.clone(), second.clone(), third.clone()];
@@ -184,19 +188,23 @@ fn a_stored_event_the_journal_cannot_read_back_is_an_error_never_a_guess() {
     outside
         .execute_batch(
             "INSERT INTO events (id, stream, sequence, type, subject, scope, data)
-             VALUES ('not a ulid', 'collection/a', 1, 'x', 'y', 'z', '{}');
+             VALUES ('not a ulid', 'collection/a', 1, 'x', 'y', 'workspace/default', '{}');
              INSERT INTO events (id, stream, sequence, type, subject, scope, data)
-             VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FAV', 'collection/b', 1, 'x', 'y', 'z', '1e400');",
+             VALUES ('01ARZ3NDEKTSV4RRFFQ69G5FAV', 'collection/b', 1, 'x', 'y',
+                     'workspace/default', '1e400');",
         )
         .unwrap();
     // The ID is column 0, the data column 7.
     for (stream, column) in [("collection/a", 0), ("collection/b", 7)] {
         let error = database
-            .events(&Filter {
-                stream,
-                after: 0,
-                r#type: None,
-            })
+            .events(
+                &ScopeSet::default_workspace(),
+                &Filter {
+                    stream,
+                    after: 0,
+                    r#type: None,
+                },
+            )
             .unwrap_err();
         assert!(
             matches!(

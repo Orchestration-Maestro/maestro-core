@@ -8,6 +8,7 @@ use crate::{
         Error, Generation,
         GenerationState::{self, Building, Failed, Published, Retired, Verified},
     },
+    scope::ScopeSet,
     store,
 };
 use rusqlite::ffi;
@@ -61,9 +62,24 @@ fn a_new_generation_is_building_without_points_or_publication() {
         published_at: None,
     };
     assert_eq!(created, expected);
-    assert_eq!(database.generation(1).unwrap(), Some(expected));
-    assert_eq!(database.generation(2).unwrap(), None);
-    assert_eq!(database.published_generation("ctm").unwrap(), None);
+    assert_eq!(
+        database
+            .generation(&ScopeSet::default_workspace(), 1)
+            .unwrap(),
+        Some(expected)
+    );
+    assert_eq!(
+        database
+            .generation(&ScopeSet::default_workspace(), 2)
+            .unwrap(),
+        None
+    );
+    assert_eq!(
+        database
+            .published_generation(&ScopeSet::default_workspace(), "ctm")
+            .unwrap(),
+        None
+    );
 }
 
 #[test]
@@ -138,7 +154,10 @@ fn verifying_a_generation_records_its_point_count() {
     let database = scratch.open();
     let id = generation_in(&database, "ctm", Building);
     database.verify_generation(id, 1_234).unwrap();
-    let verified = database.generation(id).unwrap().unwrap();
+    let verified = database
+        .generation(&ScopeSet::default_workspace(), id)
+        .unwrap()
+        .unwrap();
     assert_eq!(
         (verified.state, verified.point_count),
         (Verified, Some(1_234))
@@ -160,7 +179,10 @@ fn a_point_count_sqlite_cannot_hold_is_refused_unrecorded() {
         ),
         "{error:?}"
     );
-    let kept = database.generation(id).unwrap().unwrap();
+    let kept = database
+        .generation(&ScopeSet::default_workspace(), id)
+        .unwrap()
+        .unwrap();
     assert_eq!((kept.state, kept.point_count), (Building, None));
 }
 
@@ -199,7 +221,12 @@ fn a_generation_needs_a_recorded_chunk_set_of_its_own_collection() {
             "{new:?}: {error:?}"
         );
     }
-    assert_eq!(database.generation(1).unwrap(), None);
+    assert_eq!(
+        database
+            .generation(&ScopeSet::default_workspace(), 1)
+            .unwrap(),
+        None
+    );
 }
 
 #[test]

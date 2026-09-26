@@ -62,6 +62,21 @@ path = "crates/maestro-kernel/src/store/mod.rs"
 item = "artifacts"
 reason = "every kernel table that refers to an artifact pins it in the transaction that records the reference: revisions now, then chunk sets, evaluation reports and model cards"
 
+# The journal's event types serve every kernel write that journals its change;
+# the grants of scopes are the first in the crate. The second writer to use
+# them removes these, which the rule then reports stale.
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-kernel/src/journal/mod.rs"
+item = "Event"
+reason = "a kernel write journals its change in its own transaction through event::record"
+
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-kernel/src/journal/mod.rs"
+item = "NewEvent"
+reason = "a kernel write journals its change in its own transaction through event::record"
+
 # The words this repository means that the spell checker reads as mistakes:
 # Exemple, French test input for the canonicalizer; RTO, the recovery time
 # objective beside RPO; WRONLY, the POSIX open flag as rustix names it;

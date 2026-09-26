@@ -6,6 +6,7 @@ use super::support::{Scratch, collection, document, failure, ids, pins, revision
 use crate::{
     artifact::Digest,
     document::{Error, Recorded, Revision, RevisionStatus},
+    scope::ScopeSet,
     store::{self, Database},
 };
 use rusqlite::ffi;
@@ -57,11 +58,21 @@ fn a_new_revision_is_recorded_with_its_two_artifacts_pinned() {
     assert_eq!(pins(&database, &given.original_digest), 0);
     assert_eq!(pins(&database, &given.canonical_digest), 0);
     assert_eq!(database.record_revision(&given).unwrap(), Recorded::New);
-    assert_eq!(database.revision("rev-a").unwrap(), Some(given.clone()));
+    assert_eq!(
+        database
+            .revision(&ScopeSet::default_workspace(), "rev-a")
+            .unwrap(),
+        Some(given.clone())
+    );
     assert_eq!(pins(&database, &given.original_digest), 1);
     assert_eq!(pins(&database, &given.canonical_digest), 1);
     assert_eq!(status(&database, "rev-a"), "valid");
-    assert_eq!(database.revision("rev-b").unwrap(), None);
+    assert_eq!(
+        database
+            .revision(&ScopeSet::default_workspace(), "rev-b")
+            .unwrap(),
+        None
+    );
 }
 
 #[test]
@@ -83,7 +94,12 @@ fn recording_a_revision_again_is_unchanged_and_pins_nothing_more() {
     );
     assert_eq!(pins(&database, &given.original_digest), 1);
     assert_eq!(pins(&database, &given.canonical_digest), 1);
-    assert_eq!(database.revision("rev-a").unwrap(), Some(given));
+    assert_eq!(
+        database
+            .revision(&ScopeSet::default_workspace(), "rev-a")
+            .unwrap(),
+        Some(given)
+    );
 }
 
 #[test]
@@ -108,7 +124,13 @@ fn a_revision_recorded_again_with_other_content_is_refused_and_kept() {
             matches!(&error, Error::RevisionConflict(id) if id == "rev-a"),
             "{given:?}: {error:?}"
         );
-        assert_eq!(database.revision("rev-a").unwrap().as_ref(), Some(&kept));
+        assert_eq!(
+            database
+                .revision(&ScopeSet::default_workspace(), "rev-a")
+                .unwrap()
+                .as_ref(),
+            Some(&kept)
+        );
     }
     assert_eq!(pins(&database, &kept.original_digest), 1);
     assert_eq!(pins(&database, &other.original_digest), 0);
@@ -127,7 +149,12 @@ fn a_revision_whose_artifact_is_not_recorded_is_refused_whole() {
         matches!(&error, Error::Store(store::Error::UnknownArtifact(digest)) if *digest == unknown),
         "{error:?}"
     );
-    assert_eq!(database.revision("rev-a").unwrap(), None);
+    assert_eq!(
+        database
+            .revision(&ScopeSet::default_workspace(), "rev-a")
+            .unwrap(),
+        None
+    );
     assert_eq!(pins(&database, &given.original_digest), 0, "rolled back");
 }
 
@@ -142,7 +169,12 @@ fn a_revision_of_an_unrecorded_document_is_refused() {
         matches!(&error, Error::Store(store::Error::Sqlite(_))),
         "{error:?}"
     );
-    assert_eq!(database.revision("rev-a").unwrap(), None);
+    assert_eq!(
+        database
+            .revision(&ScopeSet::default_workspace(), "rev-a")
+            .unwrap(),
+        None
+    );
     assert_eq!(pins(&database, &given.original_digest), 0);
 }
 
@@ -172,7 +204,13 @@ fn a_recorded_revision_refuses_every_change_to_its_content() {
                 .contains("a revision is immutable once recorded"),
             "{change}: {error}"
         );
-        assert_eq!(database.revision("rev-a").unwrap().as_ref(), Some(&kept));
+        assert_eq!(
+            database
+                .revision(&ScopeSet::default_workspace(), "rev-a")
+                .unwrap()
+                .as_ref(),
+            Some(&kept)
+        );
     }
 }
 
@@ -189,12 +227,17 @@ fn a_failed_revision_can_be_neither_replaced_nor_deleted() {
             "{rewrite}"
         );
         assert_eq!(
-            database.revision("rev-a").unwrap().as_ref(),
+            database
+                .revision(&ScopeSet::default_workspace(), "rev-a")
+                .unwrap()
+                .as_ref(),
             Some(&failed),
             "{rewrite}"
         );
         assert_eq!(
-            database.eligible_revisions("ctm").unwrap(),
+            database
+                .eligible_revisions(&ScopeSet::default_workspace(), "ctm")
+                .unwrap(),
             Vec::new(),
             "{rewrite}"
         );
@@ -251,9 +294,16 @@ fn a_failed_revision_stays_inspectable_and_is_never_eligible() {
             RevisionStatus::ValidWithWarnings,
         ))
         .unwrap();
-    assert_eq!(database.revision("rev-b").unwrap(), Some(failed.clone()));
+    assert_eq!(
+        database
+            .revision(&ScopeSet::default_workspace(), "rev-b")
+            .unwrap(),
+        Some(failed.clone())
+    );
     assert_eq!(status(&database, "rev-b"), "failed");
-    let eligible = database.eligible_revisions("ctm").unwrap();
+    let eligible = database
+        .eligible_revisions(&ScopeSet::default_workspace(), "ctm")
+        .unwrap();
     assert_eq!(ids(&eligible), ["rev-c", "rev-a"], "in record order");
     assert_eq!(pins(&database, &failed.original_digest), 1);
     assert_eq!(pins(&database, &failed.canonical_digest), 1);
@@ -273,9 +323,13 @@ fn a_revision_whose_status_moved_to_failed_is_no_longer_eligible() {
         "UPDATE revisions SET status = 'failed' WHERE id = 'rev-a'",
     )
     .unwrap();
-    let eligible = database.eligible_revisions("ctm").unwrap();
+    let eligible = database
+        .eligible_revisions(&ScopeSet::default_workspace(), "ctm")
+        .unwrap();
     assert_eq!(ids(&eligible), ["rev-b"]);
-    let inspected: Option<Revision> = database.revision("rev-a").unwrap();
+    let inspected: Option<Revision> = database
+        .revision(&ScopeSet::default_workspace(), "rev-a")
+        .unwrap();
     assert_eq!(
         inspected.map(|revision| revision.status),
         Some(RevisionStatus::Failed)
@@ -308,15 +362,24 @@ fn eligible_revisions_are_those_of_the_collection_alone() {
         .record_revision(&revision(&database, "rev-a", RevisionStatus::Valid))
         .unwrap();
     assert_eq!(
-        database.eligible_revisions("ctm").unwrap(),
+        database
+            .eligible_revisions(&ScopeSet::default_workspace(), "ctm")
+            .unwrap(),
         [
             of_doc_b,
             revision(&database, "rev-a", RevisionStatus::Valid)
         ]
     );
     assert_eq!(
-        ids(&database.eligible_revisions("synthetic").unwrap()),
+        ids(&database
+            .eligible_revisions(&ScopeSet::default_workspace(), "synthetic")
+            .unwrap()),
         ["rev-s"]
     );
-    assert_eq!(database.eligible_revisions("other").unwrap(), Vec::new());
+    assert_eq!(
+        database
+            .eligible_revisions(&ScopeSet::default_workspace(), "other")
+            .unwrap(),
+        Vec::new()
+    );
 }

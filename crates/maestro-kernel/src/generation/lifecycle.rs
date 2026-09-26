@@ -2,7 +2,7 @@
 //! them.
 
 use super::{error::Error, state::GenerationState};
-use crate::store::Database;
+use crate::{scope::ScopeSet, store::Database};
 use rusqlite::{Connection, OptionalExtension as _, Row, Transaction, params, types::Type};
 
 /// The columns [`generation_row`] reads, in its order.
@@ -152,30 +152,37 @@ impl Database {
         self.write(|transaction| move_to(transaction, id, GenerationState::Failed))
     }
 
-    /// The generation `id`, if it is recorded.
+    /// The generation `id`, if it is recorded and `scopes` covers the scope
+    /// of its collection, whatever its state: a revocation applies to a
+    /// retired generation too.
     ///
     /// # Errors
     ///
     /// [`Error::Store`] when the database cannot be read.
-    pub fn generation(&self, id: i64) -> Result<Option<Generation>, Error> {
-        Ok(find(&self.reader()?, id)?)
+    pub fn generation(&self, scopes: &ScopeSet, id: i64) -> Result<Option<Generation>, Error> {
+        Ok(find(&self.reader()?, Some(scopes), id)?)
     }
 
     /// The published generation of the collection `collection_id`, if it has
-    /// one.
+    /// one and `scopes` covers the scope of the collection.
     ///
     /// # Errors
     ///
     /// [`Error::Store`] when the database cannot be read.
-    pub fn published_generation(&self, collection_id: &str) -> Result<Option<Generation>, Error> {
+    pub fn published_generation(
+        &self,
+        scopes: &ScopeSet,
+        collection_id: &str,
+    ) -> Result<Option<Generation>, Error> {
         let published = self
             .reader()?
             .query_row(
                 &format!(
                     "SELECT {COLUMNS} FROM generations
-                     WHERE collection_id = ?1 AND state = 'published'"
+                     WHERE collection_id = ?1 AND state = 'published' AND {}",
+                    ScopeSet::collection_condition("generations.collection_id", 2)
                 ),
-                [collection_id],
+                params![collection_id, scopes.parameter()],
                 generation_row,
             )
             .optional()?;
@@ -209,7 +216,7 @@ fn legal_move(
     id: i64,
     to: GenerationState,
 ) -> Result<Generation, Error> {
-    let generation = find(transaction, id)?.ok_or(Error::UnknownGeneration(id))?;
+    let generation = find(transaction, None, id)?.ok_or(Error::UnknownGeneration(id))?;
     if generation.state.may_move_to(to) {
         Ok(generation)
     } else {
@@ -221,12 +228,21 @@ fn legal_move(
     }
 }
 
-/// The generation `id` that `connection` records, if any.
-fn find(connection: &Connection, id: i64) -> rusqlite::Result<Option<Generation>> {
+/// The generation `id` that `connection` records, if any and `scopes`
+/// covers the scope of its collection; with no set, whatever its scope, as a
+/// move checks the generation's state as recorded.
+fn find(
+    connection: &Connection,
+    scopes: Option<&ScopeSet>,
+    id: i64,
+) -> rusqlite::Result<Option<Generation>> {
     connection
         .query_row(
-            &format!("SELECT {COLUMNS} FROM generations WHERE id = ?1"),
-            [id],
+            &format!(
+                "SELECT {COLUMNS} FROM generations WHERE id = ?1 AND (?2 IS NULL OR {})",
+                ScopeSet::collection_condition("generations.collection_id", 2)
+            ),
+            params![id, scopes.map(ScopeSet::parameter)],
             generation_row,
         )
         .optional()

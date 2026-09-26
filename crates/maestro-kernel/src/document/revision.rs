@@ -5,6 +5,7 @@
 use super::{collection::json, error::Error};
 use crate::{
     artifact::Digest,
+    scope::ScopeSet,
     store::{Database, artifacts},
 };
 use rusqlite::{Connection, OptionalExtension as _, Row, Transaction, params, types::Type};
@@ -81,38 +82,45 @@ impl Database {
     /// and [`Error::Store`] when an artifact or its document is not recorded
     /// or the database cannot record it: nothing is recorded then.
     pub fn record_revision(&self, revision: &Revision) -> Result<Recorded, Error> {
-        self.write(|transaction| match find(transaction, &revision.id)? {
+        self.write(|transaction| match find(transaction, None, &revision.id)? {
             Some(recorded) => record_again(recorded, revision),
             None => insert(transaction, revision),
         })
     }
 
-    /// The revision `id`, if it is recorded, whatever its status.
+    /// The revision `id`, if it is recorded, whatever its status, and
+    /// `scopes` covers the scope of its document's source.
     ///
     /// # Errors
     ///
     /// [`Error::Store`] when the database cannot be read.
-    pub fn revision(&self, id: &str) -> Result<Option<Revision>, Error> {
-        Ok(find(&self.reader()?, id)?)
+    pub fn revision(&self, scopes: &ScopeSet, id: &str) -> Result<Option<Revision>, Error> {
+        Ok(find(&self.reader()?, Some(scopes), id)?)
     }
 
-    /// Every revision of the collection `collection_id` that is not failed,
-    /// in the order they were recorded.
+    /// Every revision of the collection `collection_id` that is not failed
+    /// and whose document's source has a scope `scopes` covers, in the order
+    /// they were recorded.
     ///
     /// # Errors
     ///
     /// [`Error::Store`] when the database cannot be read.
-    pub fn eligible_revisions(&self, collection_id: &str) -> Result<Vec<Revision>, Error> {
+    pub fn eligible_revisions(
+        &self,
+        scopes: &ScopeSet,
+        collection_id: &str,
+    ) -> Result<Vec<Revision>, Error> {
         let reader = self.reader()?;
         // Each insert takes a rowid above every other, so rowid order is
         // record order, whatever the clock did in between.
         let mut statement = reader.prepare(&format!(
             "SELECT {COLUMNS} FROM revisions JOIN documents ON documents.id = revisions.document_id
-             WHERE documents.collection_id = ?1 AND status <> 'failed'
-             ORDER BY revisions.rowid"
+             WHERE documents.collection_id = ?1 AND status <> 'failed' AND {}
+             ORDER BY revisions.rowid",
+            ScopeSet::source_condition("documents.collection_id", "documents.source_id", 2)
         ))?;
         let revisions = statement
-            .query_map([collection_id], revision_row)?
+            .query_map(params![collection_id, scopes.parameter()], revision_row)?
             .collect::<Result<_, _>>()?;
         Ok(revisions)
     }
@@ -154,12 +162,23 @@ fn insert(transaction: &Transaction<'_>, revision: &Revision) -> Result<Recorded
     Ok(Recorded::New)
 }
 
-/// The revision `id` that `connection` records, if any.
-fn find(connection: &Connection, id: &str) -> rusqlite::Result<Option<Revision>> {
+/// The revision `id` that `connection` records, if any and `scopes` covers
+/// the scope of its document's source; with no set, whatever its scope, as
+/// a write checks a revision against the one recorded.
+fn find(
+    connection: &Connection,
+    scopes: Option<&ScopeSet>,
+    id: &str,
+) -> rusqlite::Result<Option<Revision>> {
     connection
         .query_row(
-            &format!("SELECT {COLUMNS} FROM revisions WHERE id = ?1"),
-            [id],
+            &format!(
+                "SELECT {COLUMNS} FROM revisions
+                 JOIN documents ON documents.id = revisions.document_id
+                 WHERE revisions.id = ?1 AND (?2 IS NULL OR {})",
+                ScopeSet::source_condition("documents.collection_id", "documents.source_id", 2)
+            ),
+            params![id, scopes.map(ScopeSet::parameter)],
             revision_row,
         )
         .optional()

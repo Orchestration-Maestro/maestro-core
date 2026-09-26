@@ -14,5 +14,6 @@ pub mod gateway;
 pub mod generation;
 pub mod journal;
 pub mod paths;
+pub mod scope;
 pub mod store;
 pub mod telemetry;

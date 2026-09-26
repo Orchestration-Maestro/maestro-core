@@ -16,6 +16,11 @@
 //! canonicalization's verdict, moves, and only to `failed`, which it never
 //! leaves. A failed revision stays readable and is never eligible.
 //!
+//! Every reader takes the caller's [`ScopeSet`](crate::scope::ScopeSet) and
+//! reads only what it covers: a collection has the scope
+//! `workspace/default/collection/<id>`, a source `…/source/<id>` below it,
+//! and a document and its revisions have their source's.
+//!
 //! The migration `0004_documents` creates every table of the pipeline's
 //! records, those the quality gate and the preparation write included, so no
 //! later task of S1 needs a migration of its own.

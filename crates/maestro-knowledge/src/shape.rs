@@ -1,14 +1,16 @@
 //! The JSON shapes the contracts name, and no other: an object where a
-//! contract names an object, and a string where it names one of its values.
-//! Serde's derive would also read a struct from an array of its fields in
-//! order, and `serde_json` a unit variant from an object such as
-//! `{"public": null}`; the declaration and the corpus manifest read their
-//! objects and their named values through these instead.
+//! contract names an object, a string where it names one of its values, and
+//! a scope name where it names an id. Serde's derive would also read a
+//! struct from an array of its fields in order, and `serde_json` a unit
+//! variant from an object such as `{"public": null}`; the declaration and
+//! the corpus manifest read their objects, their named values and their ids
+//! through these instead.
 
+use maestro_kernel::scope;
 use serde::{
     Deserialize, Deserializer,
     de::{
-        DeserializeOwned, MapAccess, Visitor,
+        self, DeserializeOwned, MapAccess, Visitor,
         value::{MapAccessDeserializer, StringDeserializer},
     },
 };
@@ -49,6 +51,18 @@ where
 {
     let text = String::deserialize(deserializer)?;
     T::deserialize(StringDeserializer::new(text))
+}
+
+/// An id, of a collection or of one of its sources, from a JSON string that
+/// is a scope name ([`scope::check_name`]), so that it forms a segment of the
+/// path of the scope it names.
+pub(crate) fn id<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let id = String::deserialize(deserializer)?;
+    scope::check_name(&id).map_err(de::Error::custom)?;
+    Ok(id)
 }
 
 /// A list element read by [`object`].

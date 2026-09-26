@@ -2,7 +2,10 @@
 //! and read back in sequence order.
 
 use super::error::Error;
-use crate::store::{self, Database};
+use crate::{
+    scope::ScopeSet,
+    store::{self, Database},
+};
 use rusqlite::{Row, Transaction, params, types::Type};
 use serde_json::Value;
 use std::error;
@@ -78,24 +81,28 @@ impl Database {
         Ok(self.write(|transaction| record(transaction, event))?)
     }
 
-    /// The events `filter` selects, in sequence order, as the last commit
-    /// left them: a write in progress is not read.
+    /// The events `filter` selects whose scope `scopes` covers, in sequence
+    /// order, as the last commit left them: a write in progress is not read.
+    /// The other events of the stream are skipped, so their sequences are
+    /// missing from what is read.
     ///
     /// # Errors
     ///
     /// [`Error::Store`] when the database cannot be read, or holds an event
     /// it cannot read back.
-    pub fn events(&self, filter: &Filter<'_>) -> Result<Vec<Event>, Error> {
+    pub fn events(&self, scopes: &ScopeSet, filter: &Filter<'_>) -> Result<Vec<Event>, Error> {
         // No event follows a position beyond what SQLite's integers hold.
         let after = i64::try_from(filter.after).unwrap_or(i64::MAX);
         let reader = self.reader()?;
         let mut statement = reader.prepare(&format!(
             "SELECT {COLUMNS} FROM events
-             WHERE stream = ?1 AND sequence > ?2 AND (?3 IS NULL OR type = ?3)
-             ORDER BY sequence"
+             WHERE stream = ?1 AND sequence > ?2 AND (?3 IS NULL OR type = ?3) AND {}
+             ORDER BY sequence",
+            ScopeSet::condition("events.scope", 4)
         ))?;
+        let parameters = params![filter.stream, after, filter.r#type, scopes.parameter()];
         let events = statement
-            .query_map(params![filter.stream, after, filter.r#type], event_row)?
+            .query_map(parameters, event_row)?
             .collect::<Result<_, _>>()?;
         Ok(events)
     }

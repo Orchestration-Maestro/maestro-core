@@ -18,6 +18,10 @@ pub(super) const MIGRATIONS: &[(&str, &str)] = &[
         include_str!("../../migrations/0002_journal.sql"),
     ),
     (
+        "0003_scopes",
+        include_str!("../../migrations/0003_scopes.sql"),
+    ),
+    (
         "0004_documents",
         include_str!("../../migrations/0004_documents.sql"),
     ),

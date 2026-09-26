@@ -6,9 +6,11 @@
 //! every object the contract names is a JSON object, never an array of its
 //! values; every key is one the contract names and appears once in its object;
 //! every value is one the contract allows, a named one written as a string;
-//! every path stays inside its directory ([`RelativePath`]); and no two sources
-//! share an id. The files a declaration names, its quality ledger and its
-//! evaluation suite, are checked when first read, so they may not exist yet.
+//! every path stays inside its directory ([`RelativePath`]); every id is a
+//! scope name ([`maestro_kernel::scope::check_name`]), so the collection and
+//! each source form a scope path; and no two sources share an id. The files a
+//! declaration names, its quality ledger and its evaluation suite, are checked
+//! when first read, so they may not exist yet.
 //!
 //! A dangling reference, a name the declaration uses without defining it,
 //! cannot occur in this version: no key refers to a name the declaration
@@ -32,7 +34,8 @@ pub struct Declaration {
     /// The contract the declaration follows.
     #[serde(deserialize_with = "shape::name")]
     pub schema: Schema,
-    /// The collection's id, such as `ctm`.
+    /// The collection's id, such as `ctm`: a scope name.
+    #[serde(deserialize_with = "shape::id")]
     pub id: String,
     /// What the collection holds, for people.
     pub title: String,
@@ -161,7 +164,9 @@ pub struct Evals {
 #[serde(deny_unknown_fields)]
 #[non_exhaustive]
 pub struct Source {
-    /// The source's id, unique in its collection, such as `docs-core`.
+    /// The source's id, unique in its collection, such as `docs-core`: a
+    /// scope name.
+    #[serde(deserialize_with = "shape::id")]
     pub id: String,
     /// How its documents arrive.
     #[serde(deserialize_with = "shape::name")]
@@ -212,8 +217,8 @@ pub struct Manifest {
 pub enum Error {
     /// Not strict JSON of the contract's shape: not one JSON object, an array
     /// where the contract names an object, a number out of range, an unknown,
-    /// repeated or missing key, a value the contract does not allow or a path
-    /// that is not a [`RelativePath`].
+    /// repeated or missing key, a value the contract does not allow, a path
+    /// that is not a [`RelativePath`] or an id that is not a scope name.
     Json(serde_json::Error),
     /// Two sources share this id.
     DuplicateSource(String),

@@ -1,11 +1,15 @@
 //! `maestro-collection/1`: a strict declaration parses into typed values; an
 //! unknown or repeated key, an unknown value, an object written as an array or
-//! a name as an object, a number out of range, a path that leaves its directory
-//! and two sources with one id are refused, and so is a manifest whose binding
-//! is missing, before any is resolved.
+//! a name as an object, a number out of range, a path that leaves its directory,
+//! an id that is no scope name and two sources with one id are refused, and so
+//! is a manifest whose binding is missing, before any is resolved. Every id a
+//! declaration accepts forms a segment of a scope path.
 #![cfg(test)]
 
-use maestro_kernel::binding::{self, Bindings};
+use maestro_kernel::{
+    binding::{self, Bindings},
+    scope::Scope,
+};
 use maestro_knowledge::collection::{
     Declaration, Error, Schema, SourceKind, Synchronization, Visibility,
 };
@@ -380,6 +384,70 @@ fn two_sources_with_one_id_are_refused() {
     );
     assert!(refusal.to_string().contains("`seed-catalog`"), "{refusal}");
     assert!(error::Error::source(&refusal).is_none());
+}
+
+/// Every text of one or two characters, each from ASCII or from a few letters
+/// and digits beyond it, then the empty text and the texts either side of the
+/// longest name.
+fn candidate_ids() -> Vec<String> {
+    let characters: Vec<char> = (0..=0x7f_u8)
+        .map(char::from)
+        .chain([
+            '\u{e9}', '\u{df}', '\u{17f}', '\u{212a}', '\u{663}', '\u{ff17}',
+        ])
+        .collect();
+    let mut ids = vec![String::new(), "a".repeat(64), "a".repeat(65)];
+    for first in &characters {
+        ids.push(first.to_string());
+        ids.extend(characters.iter().map(|second| format!("{first}{second}")));
+    }
+    ids
+}
+
+#[test]
+fn every_id_a_declaration_accepts_forms_a_segment_of_a_scope() {
+    let mut accepted = 0;
+    for id in candidate_ids() {
+        let mut declared = declaration();
+        declared["id"] = json!(id);
+        declared["sources"][0]["id"] = json!(id);
+        let Ok(parsed) = parse(&declared.to_string()) else {
+            continue;
+        };
+        let path = format!(
+            "workspace/default/collection/{}/source/{}",
+            parsed.id, parsed.sources[0].id
+        );
+        let scope: Scope = path
+            .parse()
+            .unwrap_or_else(|refusal| panic!("{id:?}: {refusal}"));
+        assert_eq!(scope.as_str(), path);
+        accepted += 1;
+    }
+    // One character: 26 letters and 10 digits. Two: one of those, then one of
+    // those or `-`, `_` or `.`. And 64 letters.
+    assert_eq!(accepted, 36 + 36 * 39 + 1);
+}
+
+#[test]
+fn an_id_that_is_no_scope_name_is_refused_naming_it() {
+    for (pointer, id) in [
+        ("/id", ""),
+        ("/id", "Garden"),
+        ("/id", "garden/seeds"),
+        ("/id", "-garden"),
+        ("/sources/0/id", "seed catalog"),
+        ("/sources/0/id", "seed:catalog"),
+        ("/sources/0/id", "."),
+    ] {
+        let mut declared = declaration();
+        *declared.pointer_mut(pointer).unwrap() = json!(id);
+        let reason = json_refusal(&declared.to_string());
+        assert!(
+            reason.contains(&format!("`{id}` is not a scope name")),
+            "{pointer} = {id}: {reason}"
+        );
+    }
 }
 
 #[test]
