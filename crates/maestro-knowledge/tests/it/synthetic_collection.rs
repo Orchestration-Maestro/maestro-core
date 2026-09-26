@@ -1,8 +1,8 @@
 //! The public synthetic collection, `tests/fixtures/synthetic`, which stands in
 //! for the private corpus in public CI (ADR-0009): its declaration, its corpus
-//! manifest and its suite hold under their contracts, every document
+//! manifest and its suites hold under their contracts, every document
 //! canonicalizes without a blocking finding, and every section the suite
-//! expects is exactly one section of its document.
+//! `synthetic` expects is exactly one section of its document.
 #![cfg(test)]
 
 use maestro_canonicalization::{CanonicalDocument, CanonicalizeInput, Severity, canonicalize};
@@ -13,9 +13,15 @@ use maestro_knowledge::{
     suite::{ExpectedSection, Language, Question, Suite},
 };
 use std::{
+    collections::{BTreeMap, BTreeSet},
     fs,
     path::{Path, PathBuf},
 };
+
+/// What surrounds a word in prose or code without being part of it.
+const PUNCTUATION: &[char] = &[
+    '?', '!', ',', ';', ':', '.', '"', '\'', '(', ')', '[', ']', '{', '}', '«', '»',
+];
 
 /// The fixture directory, `tests/fixtures/synthetic` at the workspace root,
 /// two levels above this crate's manifest directory.
@@ -66,14 +72,18 @@ fn entries() -> Vec<Entry> {
         .collect()
 }
 
+/// The Markdown of the document `entry` declares.
+fn markdown(entry: &Entry) -> String {
+    fs::read_to_string(entry.path.under(&corpus())).unwrap()
+}
+
 /// Every document of the manifest, canonicalized with the provenance its line
 /// gives.
 fn documents() -> Vec<(Entry, CanonicalDocument)> {
-    let corpus = corpus();
     entries()
         .into_iter()
         .map(|entry| {
-            let markdown = fs::read_to_string(entry.path.under(&corpus)).unwrap();
+            let markdown = markdown(&entry);
             let mut input = CanonicalizeInput::new(&markdown, entry.path.as_str());
             input.metadata.source_reference = Some(entry.source_ref.clone());
             input.metadata.title = Some(entry.title.clone());
@@ -83,43 +93,52 @@ fn documents() -> Vec<(Entry, CanonicalDocument)> {
         .collect()
 }
 
-/// The questions of the suite the declaration names.
-fn questions() -> Vec<Question> {
-    let path = declaration().evals.suite.under(&fixture());
-    let suite: Suite = fs::read_to_string(path).unwrap().parse().unwrap();
-    suite.questions
+/// Every suite of the directory the declaration's `evals.suite` names: each
+/// `<name>.jsonl` in it is the suite `<name>`.
+fn suites() -> BTreeMap<String, Suite> {
+    let directory = declaration().evals.suite.under(&fixture());
+    fs::read_dir(&directory)
+        .unwrap_or_else(|error| panic!("{}: {error}", directory.display()))
+        .map(|file| file.unwrap().path())
+        .filter(|path| {
+            path.extension()
+                .is_some_and(|extension| extension == "jsonl")
+        })
+        .map(|path| {
+            let name = path.file_stem().unwrap().to_str().unwrap().to_owned();
+            let text = fs::read_to_string(&path).unwrap();
+            let suite = text
+                .parse()
+                .unwrap_or_else(|error| panic!("{}: {error}", path.display()));
+            (name, suite)
+        })
+        .collect()
 }
 
-/// The ID of the one section `expected` names among `documents`, or why it
-/// names none or several.
-fn resolve(
+/// The questions of the suite `synthetic`.
+fn questions() -> Vec<Question> {
+    let mut suites = suites();
+    let suite = suites.remove("synthetic");
+    suite
+        .unwrap_or_else(|| panic!("no suite synthetic among {:?}", suites.keys()))
+        .questions
+}
+
+/// The ID of the section `expected` names, in the document of `documents`
+/// whose `source_ref` it gives, or why it names none.
+fn section_id(
     documents: &[(Entry, CanonicalDocument)],
     expected: &ExpectedSection,
 ) -> Result<String, String> {
-    let matching: Vec<&str> = documents
+    let (_, document) = documents
         .iter()
-        .filter(|(entry, _)| entry.source_ref == expected.source_ref)
-        .flat_map(|(_, document)| &document.sections)
-        .filter(|section| section.heading_path == expected.heading_path)
-        .map(|section| section.section_id.as_str())
-        .collect();
-    let named = match (expected.occurrence, matching.as_slice()) {
-        (None, [only]) => Some(*only),
-        (Some(occurrence), repeated) if repeated.len() > 1 => {
-            let index = usize::try_from(occurrence.get()).unwrap() - 1;
-            repeated.get(index).copied()
-        }
-        _ => None,
-    };
-    named.map(str::to_owned).ok_or_else(|| {
-        format!(
-            "{} {:?} occurrence {:?} matches {} sections",
-            expected.source_ref,
-            expected.heading_path,
-            expected.occurrence,
-            matching.len()
-        )
-    })
+        .find(|(entry, _)| entry.source_ref == expected.source_ref)
+        .ok_or_else(|| format!("no document is {}", expected.source_ref))?;
+    let section = expected.resolve(document).map_err(|refusal| {
+        let path = &expected.heading_path;
+        format!("{} {path:?}: {refusal}", expected.source_ref)
+    })?;
+    Ok(section.section_id.clone())
 }
 
 /// The language a document is written in: its path's first directory.
@@ -131,18 +150,84 @@ fn written_in(entry: &Entry) -> Language {
     }
 }
 
-/// The languages of the documents whose sections `question` expects.
-fn answered_in(documents: &[(Entry, CanonicalDocument)], question: &Question) -> Vec<Language> {
+/// The documents whose sections `question` expects.
+fn answered_in<'entries>(
+    documents: &'entries [(Entry, CanonicalDocument)],
+    question: &Question,
+) -> Vec<&'entries Entry> {
     documents
         .iter()
-        .filter(|(entry, _)| {
+        .map(|(entry, _)| entry)
+        .filter(|entry| {
             question
                 .expected
                 .iter()
                 .any(|expected| expected.source_ref == entry.source_ref)
         })
-        .map(|(entry, _)| written_in(entry))
         .collect()
+}
+
+/// The words a Markdown text writes as code: in its fenced blocks and in its
+/// code spans.
+fn code_words(markdown: &str) -> BTreeSet<String> {
+    markdown
+        .split("```")
+        .enumerate()
+        .flat_map(|(index, part)| {
+            if index % 2 == 1 {
+                vec![part]
+            } else {
+                part.split('`').skip(1).step_by(2).collect()
+            }
+        })
+        .flat_map(str::split_whitespace)
+        .map(|word| word.trim_matches(PUNCTUATION).to_owned())
+        .collect()
+}
+
+/// Whether `character` is a lowercase ASCII letter or a digit.
+fn lowercase_or_digit(character: char) -> bool {
+    character.is_ascii_lowercase() || character.is_ascii_digit()
+}
+
+/// The style of identifier `word` is written in, if it is one: `snake_case`,
+/// lowercase kebab-case or dotted, `camelCase`, or an error code such as
+/// `TLS-017`.
+fn identifier_style(word: &str) -> Option<&'static str> {
+    let only = |allowed: fn(char) -> bool| word.chars().all(allowed);
+    let lowercase_start = word.starts_with(|character: char| character.is_ascii_lowercase());
+    let uppercase_start = word.starts_with(|character: char| character.is_ascii_uppercase());
+    let has_uppercase = word.contains(|character: char| character.is_ascii_uppercase());
+    let has_digit = word.contains(|character: char| character.is_ascii_digit());
+    [
+        (
+            "snake_case",
+            lowercase_start
+                && word.contains('_')
+                && only(|character| lowercase_or_digit(character) || character == '_'),
+        ),
+        (
+            "kebab-case or dotted",
+            lowercase_start
+                && word.contains(['-', '.'])
+                && only(|character| lowercase_or_digit(character) || "-.".contains(character)),
+        ),
+        (
+            "camelCase",
+            lowercase_start && has_uppercase && only(|character| character.is_ascii_alphanumeric()),
+        ),
+        (
+            "error code",
+            uppercase_start
+                && has_digit
+                && word.contains('-')
+                && only(|character| {
+                    character.is_ascii_uppercase() || character.is_ascii_digit() || character == '-'
+                }),
+        ),
+    ]
+    .into_iter()
+    .find_map(|(style, written)| written.then_some(style))
 }
 
 #[test]
@@ -153,8 +238,8 @@ fn the_declaration_is_a_public_collection_of_one_source_bound_to_the_fixture() {
     let manifest = manifest();
     assert!(manifest.starts_with(fixture()), "{}", manifest.display());
     assert!(manifest.is_file(), "{}", manifest.display());
-    let suite = declaration.evals.suite.under(&fixture());
-    assert!(suite.is_file(), "{}", suite.display());
+    let evals = declaration.evals.suite.under(&fixture());
+    assert!(evals.is_dir(), "{}", evals.display());
 }
 
 #[test]
@@ -195,7 +280,7 @@ fn every_document_canonicalizes_without_a_blocking_finding() {
 }
 
 #[test]
-fn the_suite_holds_40_to_60_questions_under_its_contract() {
+fn the_suite_synthetic_holds_40_to_60_questions_under_its_contract() {
     let count = questions().len();
     assert!((40..=60).contains(&count), "{count} questions");
 }
@@ -207,7 +292,7 @@ fn every_expected_section_names_exactly_one_section_of_its_document() {
     for question in questions() {
         let mut named: Vec<String> = Vec::new();
         for expected in &question.expected {
-            match resolve(&documents, expected) {
+            match section_id(&documents, expected) {
                 Ok(section) if named.contains(&section) => {
                     problems.push(format!("{}: {section} named twice", question.id));
                 }
@@ -263,11 +348,40 @@ fn some_questions_are_answered_in_the_other_language_both_ways() {
     let questions = questions();
     for (asked, written) in [(Language::Fr, Language::En), (Language::En, Language::Fr)] {
         let crossing = questions.iter().any(|question| {
-            question.language == asked && answered_in(&documents, question).contains(&written)
+            question.language == asked
+                && answered_in(&documents, question)
+                    .into_iter()
+                    .any(|entry| written_in(entry) == written)
         });
         assert!(
             crossing,
             "no question asked in {asked:?} is answered in {written:?}"
         );
     }
+}
+
+#[test]
+fn some_question_looks_up_each_style_of_identifier_its_answer_writes_as_code() {
+    let documents = documents();
+    let mut looked_up = BTreeSet::new();
+    for question in questions() {
+        let code: BTreeSet<String> = answered_in(&documents, &question)
+            .into_iter()
+            .flat_map(|entry| code_words(&markdown(entry)))
+            .collect();
+        let words = question.question.split_whitespace();
+        looked_up.extend(
+            words
+                .map(|word| word.trim_matches(PUNCTUATION))
+                .filter(|word| code.contains(*word))
+                .filter_map(identifier_style),
+        );
+    }
+    let styles = [
+        "camelCase",
+        "error code",
+        "kebab-case or dotted",
+        "snake_case",
+    ];
+    assert_eq!(looked_up, BTreeSet::from(styles));
 }

@@ -287,6 +287,7 @@ in place.
 │       │       ├── main.rs                                                  # The crate's integration tests, built as one test crate: each module proves
 │       │       ├── router_parity.rs                                         # The router tokenizer's parity with the native counter, live: an explicit
 │       │       ├── suite_contract.rs                                        # maestro-suite/1: a suite, one JSON line per question, parses into typed
+│       │       ├── suite_resolution.rs                                      # Resolving an expected section in its canonicalized document: a heading path
 │       │       └── synthetic_collection.rs                                  # The public synthetic collection, tests/fixtures/synthetic, which stands in
 │       └── Cargo.toml                                                       # Crate manifest: The knowledge pipeline of Maestro, starting with the collection and corpus contracts it imports through
 ├── docs/                                                                    # Documentation
@@ -394,9 +395,10 @@ in place.
 │           │   │   └── tls/                                                 # TLS certificates
 │           │   │       └── certificats-clients.md                           # Sample document: Certificats clients et TLS mutuel
 │           │   └── maestro-corpus.jsonl                                     # The source's manifest: one maestro-corpus/1 line per document, with its digest and size
+│           ├── evals/                                                       # The collection's evaluation suites, as evals.suite names them: each <name>.jsonl is the suite <name>
+│           │   └── synthetic.jsonl                                          # The suite synthetic: one maestro-suite/1 question per line, French and English, each with the sections that answer it
 │           ├── .rumdl.toml                                                  # The synthetic collection is test input, not documentation: one of its documents repeats a heading under the same parent, as authors do
-│           ├── collection.json                                              # The maestro-collection/1 declaration of the public collection synthetic
-│           └── suite.jsonl                                                  # The evaluation suite: one maestro-suite/1 question per line, French and English, each with the sections that answer it
+│           └── collection.json                                              # The maestro-collection/1 declaration of the public collection synthetic
 ├── .editorconfig                                                            # Editor settings that survive the editor
 ├── .gitattributes                                                           # How Git should treat each kind of file
 ├── .gitignore                                                               # Paths git never tracks

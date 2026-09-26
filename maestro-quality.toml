@@ -69,8 +69,8 @@ reason = "every kernel table that refers to an artifact pins it in the transacti
 # specs/001-knowledge-kernel/research.md and T040's tests of it; languag, the
 # misspelled Qdrant option that research shows being silently ignored;
 # adresse, amont, certificat, certificats, contracter, groupe, groupes, reste,
-# responsable, ressource, restauration, seconde and sur, French words of the
-# synthetic collection in tests/fixtures/synthetic.
+# responsable, ressource, restauration, seconde, sur and valide, French words
+# of the synthetic collection in tests/fixtures/synthetic.
 [typos]
 words = [
   "Exemple",
@@ -93,4 +93,5 @@ words = [
   "restauration",
   "seconde",
   "sur",
+  "valide",
 ]

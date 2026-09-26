@@ -3,7 +3,8 @@
 //! depth, a line or an expected section written as an array, a named value
 //! written as an object, a value the contract does not name, an occurrence
 //! below 1, an `answerable` that disagrees with `expected`, an id given twice
-//! and a line that is not one JSON object are refused, each naming its line.
+//! and a line that is not one JSON object are refused, each naming its line,
+//! and so is a text without a question.
 #![cfg(test)]
 
 use maestro_knowledge::suite::{Error, Language, Schema, Suite};
@@ -309,6 +310,18 @@ fn a_line_that_is_not_one_json_object_is_refused_with_its_number() {
             other => panic!("expected a JSON refusal of {text}, got {other:?}"),
         }
     }
+}
+
+#[test]
+fn a_text_without_a_question_is_refused() {
+    let refusal = parse("").unwrap_err();
+    assert!(matches!(refusal, Error::Empty), "{refusal:?}");
+    let shown = refusal.to_string();
+    assert!(
+        shown.contains("maestro-suite/1") && shown.contains("no question"),
+        "{shown}"
+    );
+    assert!(error::Error::source(&refusal).is_none());
 }
 
 #[test]

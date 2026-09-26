@@ -5,4 +5,5 @@ mod collection_contract;
 mod corpus_contract;
 mod router_parity;
 mod suite_contract;
+mod suite_resolution;
 mod synthetic_collection;

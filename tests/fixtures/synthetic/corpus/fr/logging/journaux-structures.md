@@ -35,5 +35,5 @@ platformctl log level --service billing-worker --level debug --for 1h
 
 Aucune adresse électronique, aucun numéro de téléphone et aucun jeton d'accès
 ne doit apparaître dans un journal. Le collecteur masque les motifs qu'il
-reconnaît en les changeant en `[masqué]`, et compte chaque masquage dans la
+reconnaît en les remplaçant par `[masqué]`, et compte chaque masquage dans la
 métrique `log_redactions_total`.

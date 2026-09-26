@@ -22,7 +22,7 @@ requête dans tous les journaux.
 
 | Statut | Code d'erreur | Signification |
 | --- | --- | --- |
-| 400 | `invalid_request` | Le corps n'est pas du JSON correct ou un champ a le mauvais type ; `details` liste les champs |
+| 400 | `invalid_request` | Le corps n'est pas du JSON valide ou un champ a le mauvais type ; `details` liste les champs |
 | 401 | `invalid_token` | Le jeton d'accès est absent, mal formé ou expiré |
 | 403 | `forbidden` | Le jeton est valable, mais il n'a pas la portée que l'opération exige |
 | 404 | `not_found` | La ressource n'existe pas, ou l'appelant n'a pas le droit de savoir qu'elle existe |
