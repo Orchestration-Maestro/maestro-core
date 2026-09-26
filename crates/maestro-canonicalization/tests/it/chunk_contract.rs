@@ -51,7 +51,7 @@ const MARKDOWN: &str = "Héllo wörld";
 
 /// The contract ID and the only chunk's token count of a one-document batch that `counter`
 /// counts.
-fn chunk_one(counter: &OutsideCounter) -> Result<(String, usize), Error> {
+fn chunk_one(counter: &(impl TokenCounter + ?Sized)) -> Result<(String, usize), Error> {
     let document = canonicalize(CanonicalizeInput::new(MARKDOWN, "outside"))?;
     let scope = DedupScope {
         tenant_id: "outside-tenant".into(),
@@ -82,6 +82,14 @@ fn a_counter_from_another_crate_chunks_under_its_contract() {
     assert_eq!(contract_id, "outside/bytes");
     assert_eq!(token_count, MARKDOWN.len() + 2);
     assert_eq!(counter.verifications.get(), 2);
+}
+
+#[test]
+fn a_counter_behind_dyn_chunks_as_its_type_does() {
+    let counter = OutsideCounter::new(None);
+    let behind_dyn: &dyn TokenCounter = &counter;
+    assert_eq!(chunk_one(behind_dyn).unwrap(), chunk_one(&counter).unwrap());
+    assert_eq!(counter.verifications.get(), 4);
 }
 
 #[test]

@@ -23,7 +23,7 @@ pub fn chunk_documents<'a>(
     scope: &'a DedupScope,
     inputs: &[DedupInput<'a>],
     warning_policy: WarningPolicy,
-    counter: &impl TokenCounter,
+    counter: &(impl TokenCounter + ?Sized),
 ) -> Result<ChunkBatch<'a>, Error> {
     let deduplication = group_exact(scope, inputs, warning_policy)?;
     counter.verify()?;
