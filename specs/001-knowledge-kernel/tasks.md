@@ -33,7 +33,7 @@ each, because pull-request review, not code, is the limit.
 | --- | --- | --- |
 | 1 | T001 kernel artifacts · T002 router free room · T003 private mapping · T004 BM25 spike | Now |
 | 2 | T005 database · T006 model gateway · T007 capabilities · T008 rerank spike · T009 knowledge contracts | T001 (T008: T002) |
-| 3 | T010 journal · T011 scopes · T012 records · T013 counting seam · T014 synthetic collection · T040 lexical analyzer | T005 (T013: now; T014 and T040: T009) |
+| 3 | T010 journal · T011 scopes · T012 records · T013 counting seam · T014 synthetic collection · T040 lexical analyzer | T005 (T011: T010; T013: now; T014 and T040: T009) |
 | 4 | T015 public events · T016 jobs · T017 evidence · T018 router tokenizer · T019 import | Their After lines |
 | 5 | T020 quality and real import · T021 evaluation runner · T022 the binary | Their After lines |
 | 6 | T023 prepare · T024 golden set · T025 setup and doctor | Their After lines |
@@ -184,15 +184,15 @@ src/paths.rs, src/artifact.rs}`, `Cargo.lock`. **Requirements:** FR-S1-001
 `crates/maestro-kernel/migrations/0001_artifacts.sql`, and `Store::remove` in
 `artifact.rs`. **Requirements:** FR-S1-001, D1.
 
-- [ ] **Step 1: Failing tests.** A new database is created in WAL mode and
+- [x] **Step 1: Failing tests.** A new database is created in WAL mode and
   migrated; reopening applies nothing; migrations apply by number and are
   recorded by name, so one merged out of order still applies; a database
   holding a migration the binary does not know is refused.
-- [ ] **Step 2: Implement** the store: one writer connection behind a mutex,
+- [x] **Step 2: Implement** the store: one writer connection behind a mutex,
   readers apart, `busy_timeout` 5 s, foreign keys on.
-- [ ] **Step 3: Index artifacts** from T001 in `artifacts`, with pins and a
+- [x] **Step 3: Index artifacts** from T001 in `artifacts`, with pins and a
   garbage collection that lists before it deletes.
-- [ ] **Step 4: Gate and pull request** `feat: add the kernel database and its
+- [x] **Step 4: Gate and pull request** `feat: add the kernel database and its
   migrations`.
 
 ### T006 [P] The model gateway and model cards [US3]
@@ -200,16 +200,16 @@ src/paths.rs, src/artifact.rs}`, `Cargo.lock`. **Requirements:** FR-S1-001
 **After:** T001. **Files:** `crates/maestro-kernel/src/gateway.rs`.
 **Requirements:** FR-S1-014, D8.
 
-- [ ] **Step 1: Failing tests** against a stub router: embeddings, reranking,
+- [x] **Step 1: Failing tests** against a stub router: embeddings, reranking,
   tokenization and chat calls each carry their model card; a card that does
   not match what the model's server reports (`/props`: its build and chat
   template) is refused before any call; `503 insufficient_room` becomes an
   `Unavailable` result with the router's reason.
-- [ ] **Step 2: Implement** model cards (strict JSON artifacts) and the
+- [x] **Step 2: Implement** model cards (strict JSON artifacts) and the
   gateway.
-- [ ] **Step 3: The deterministic fake** embedder, reranker and generator CI
+- [x] **Step 3: The deterministic fake** embedder, reranker and generator CI
   uses, behind the same port.
-- [ ] **Step 4: Gate and pull request** `feat: reach models only through
+- [x] **Step 4: Gate and pull request** `feat: reach models only through
   cards`.
 
 ### T007 [P] Capability registry and telemetry [US6]
@@ -217,12 +217,12 @@ src/paths.rs, src/artifact.rs}`, `Cargo.lock`. **Requirements:** FR-S1-001
 **After:** T001. **Files:** `crates/maestro-kernel/src/{capability,
 telemetry}.rs`. **Requirements:** FR-S1-001 (B9, B11).
 
-- [ ] **Step 1: Failing tests.** A tool registers with its schema, effects and
+- [x] **Step 1: Failing tests.** A tool registers with its schema, effects and
   required scopes; registering a name twice is refused; `health()` reports
   each component as ready, degraded or down with a reason.
-- [ ] **Step 2: Implement** the registry and the telemetry helpers (spans with
-  pinned attribute names; OTLP export only when configured).
-- [ ] **Step 3: Gate and pull request** `feat: register capabilities and
+- [x] **Step 2: Implement** the registry and the telemetry helpers (spans with
+  pinned attribute names; no OTLP export in S1, see the plan's dependencies).
+- [x] **Step 3: Gate and pull request** `feat: register capabilities and
   report health`.
 
 ### T008 [P] Spike: the cost of reranking on the card [US1]
@@ -243,7 +243,7 @@ telemetry}.rs`. **Requirements:** FR-S1-001 (B9, B11).
 src/collection.rs, src/corpus.rs}`, `crates/maestro-kernel/src/binding.rs`,
 and `config_dir` in `paths.rs`. **Requirements:** FR-S1-002, ADR-0014.
 
-- [ ] **Step 1: Failing tests.** A valid `maestro-collection/1` parses;
+- [x] **Step 1: Failing tests.** A valid `maestro-collection/1` parses;
   unknown or duplicate keys, a source ID declared twice and numbers out of
   range are refused (no field of S1's declaration names another declared
   name, so ADR-0014's dangling-reference check arrives with the first one,
@@ -251,9 +251,9 @@ and `config_dir` in `paths.rs`. **Requirements:** FR-S1-002, ADR-0014.
   read, so the quality ledger and the suite may not exist yet); a
   `maestro-corpus/1` line parses and one with an unknown key is refused; a
   missing binding is a typed refusal before any work.
-- [ ] **Step 2: Create `maestro-knowledge`** and implement the declaration,
+- [x] **Step 2: Create `maestro-knowledge`** and implement the declaration,
   the corpus line and the bindings file.
-- [ ] **Step 3: Gate and pull request** `feat!: parse collections and corpus
+- [x] **Step 3: Gate and pull request** `feat!: parse collections and corpus
   manifests` (the kernel's `Environment` gains the configuration variables
   and becomes non-exhaustive).
 
@@ -276,7 +276,7 @@ and `config_dir` in `paths.rs`. **Requirements:** FR-S1-002, ADR-0014.
 
 ### T011 [P] Scopes and grants [US1]
 
-**After:** T005. **Files:** `crates/maestro-kernel/src/scope.rs`,
+**After:** T005, T010. **Files:** `crates/maestro-kernel/src/scope.rs`,
 `migrations/0003_scopes.sql`. **Requirements:** FR-S1-006, D4.
 
 - [ ] **Step 1: Failing tests.** A principal sees only granted scopes and
@@ -394,7 +394,7 @@ SC-S1-007.
 
 ### T018 [P] The router tokenizer and its parity [US2]
 
-**After:** T006, T013. **Files:**
+**After:** T006, T009, T013. **Files:**
 `crates/maestro-knowledge/src/prepare/router_tokenizer.rs`.
 **Requirements:** FR-S1-003, ADR-0008.
 

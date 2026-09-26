@@ -438,7 +438,7 @@ first slice; the earlier plan's first governed workflow (U08) moves to S4.
 | A11 | Empty agent metadata with a separate descriptor (chat.M019) | Frontmatter `metadata:` if Copilot tolerates it, else a sidecar | Decided by an S3 spike |
 | A12 | Ordered workflow steps (chat) | Workflow graphs with bounded loops and joins (ADR-0006) | Expresses reviews, repairs and fan-out |
 | A13 | Rig as the agent abstraction (rag.N016) | The in-house engine and sessions | Semantics are host-specific |
-| A14 | Tantivy for lexical search (rag.N011) | Qdrant server-side BM25; Tantivy only if tests show gaps | One engine |
+| A14 | Tantivy for lexical search (rag.N011) | Qdrant sparse vectors from maestro's `bm25-en-fr/1` analyzer (R7); Tantivy only if tests show gaps | One engine |
 | A15 | Crawl4AI in the production path | Comparison oracle until per-source cutover | Rust-first; parity gates |
 | A16 | kreuzberg 4.10 as the document extractor (first draft of this design) | Xberg or docling.rs per media type by bake-off | rag.N046 |
 | A17 | dom_smoothie readability by default (first draft) | htmd first; readability only if it helps | delivery.U10 (Q1) |
