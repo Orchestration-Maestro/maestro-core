@@ -33,9 +33,17 @@ the MSRV job checks the dependencies that declare none.
 with the task that first needs it): `rusqlite` 0.40.2 (bundled), `qdrant-client`
 1.19.0, `rmcp` 3.4.1, `tokio` 1.53.1, `reqwest` 0.13.5, `clap` 4.6.7,
 `schemars` 1.2.2, `serde` and `serde_json`, `sha2` (already locked), `ulid`
-3.0.0, `thiserror` 2.0.21, `tracing` 0.1.44, `tracing-opentelemetry` 0.34.0,
-`opentelemetry-otlp` 0.33.0. `zstd` is not taken: nothing in S1 needs
-compression.
+3.0.0, `thiserror` 2.0.21, `tracing` 0.1.44 without its default features.
+Not taken:
+
+- `zstd`: nothing in S1 needs compression.
+- OTLP export (`tracing-opentelemetry` 0.34.0, `opentelemetry-otlp` 0.33.0):
+  it builds on `prost-derive` 0.14, which still uses `syn` 2 beside the
+  workspace's `syn` 3, a duplicate major version the gate refuses (DEP-001).
+  Spans already carry pinned attribute names, so adding the exporter once
+  `prost-derive` moves to `syn` 3 renames nothing.
+- `tracing`'s default `attributes` feature: `tracing-attributes` uses `syn` 2
+  too, so `#[instrument]` is not available.
 
 **Storage**: SQLite (WAL) and a content-addressed artifact tree under the
 kernel's data directory: `$XDG_DATA_HOME/maestro/` when that is absolute,

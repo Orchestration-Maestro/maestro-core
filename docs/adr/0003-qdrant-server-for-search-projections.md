@@ -14,3 +14,13 @@ BM25.
 
 LanceDB (embedded) and tantivy + an in-process vector index were viable; Qdrant
 was preferred for its mature hybrid query API and the team's explicit choice.
+
+## Note, 2026-09-25
+
+R7, in the S1 [research notes][r7], measured that server-side BM25 cannot hold
+the French and English analyzer policy. Maestro computes the sparse vectors
+with its `bm25-en-fr/1` analyzer; Qdrant keeps the sparse index, IDF weighting
+and fusion. The decision stands, and Edge's missing server-side BM25 no longer
+counts against it.
+
+[r7]: ../../specs/001-knowledge-kernel/research.md#r7-server-side-bm25

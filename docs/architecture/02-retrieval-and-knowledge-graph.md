@@ -83,7 +83,7 @@ bounded retrieval.
 | Route | Mechanism | Starting k | Strength |
 | --- | --- | --- | --- |
 | R1 Dense | Qdrant `dense` named vector, query embedded with the profile's own query instruction (never another model's prefix, never applied to the reranker) | 100 | Paraphrases, cross-lingual meaning |
-| R2 Lexical | Qdrant `bm25` sparse vector (server-side BM25) with the ingestion analyzer settings | 100 | Exact words, rare terms |
+| R2 Lexical | Qdrant sparse vector that maestro computes with its versioned `bm25-en-fr/1` analyzer; Qdrant applies IDF (`modifier: idf`), and a query is analysed with its generation's profile ([R7](../../specs/001-knowledge-kernel/research.md#r7-server-side-bm25)) | 100 | Exact words, rare terms |
 | R3 Identifier | Payload/keyword match on extracted identifiers + kernel full-text lookup | 20 | Commands, parameters, error codes: must never be missed |
 | R4 Graph (S2) | Entity linking → bounded typed traversal → supporting chunks | ≤ 50 evidence items | Relationships, dependencies, multi-hop |
 | R5 Late interaction (candidate) | Qdrant multivector MaxSim | 100 | Fine-grained matching, if selected by the bake-off |

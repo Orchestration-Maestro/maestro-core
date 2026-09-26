@@ -126,9 +126,10 @@ Ordinary tests deliberately ignore machine-specific native acceptance. An ignore
 test is not a pass. Private scalar-counter tests establish structure, not native
 budget compliance.
 
-The explicit native run passed **four tests in 209.498 seconds**: independent
-ordered-ID goldens; the public example; **21 synthetic documents / 61 chunks**
-independently recounted and checked for complete nonoverlapping primary coverage;
+The explicit native run, on CPU, passed **four tests in 133.27 seconds**:
+independent ordered-ID goldens; the public example;
+**21 synthetic documents / 47 chunks** independently recounted and checked for
+complete nonoverlapping primary coverage;
 and heading/parent-context refusal. Cases include plain/contextual
 499/500/501/699/700/701 boundaries, long prose/lists/code/cells, Unicode, NUL,
 literal specials, deletion continuations and checked/unchecked tasks.
