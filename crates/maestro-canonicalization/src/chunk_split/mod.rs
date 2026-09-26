@@ -1,4 +1,5 @@
-//! Structural preparation and packing; only the public native path certifies counts.
+//! Structural preparation and packing; only `chunk_documents`, through a verified `TokenCounter`,
+//! certifies counts.
 pub(crate) use drafts::build_drafts;
 pub(crate) use limits::{MAX_TOKENS, TARGET_TOKENS};
 pub(crate) use replay::validate_preparation;

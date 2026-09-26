@@ -4,7 +4,7 @@ Local Rust library and CLI: **completed Markdown + supplied metadata → parsed 
 
 No document networking, model inference, crawling, OCR, embeddings, graph extraction, indexing, retrieval, ranking or answers. Build-time dependency/security checks are separate and may need network access.
 
-Phase B library APIs provide [scoped exact grouping](DEDUPLICATION.md) and [mapped structural chunks](CHUNKING.md), preserving every source occurrence. Chunking invokes the qualified local vocabulary-only counter described in [TOKENIZER.md](TOKENIZER.md) and the pinned [counter contract](tokenizer-contract.json). The Phase A CLI remains unchanged; Phase B CLI/manifests remain pending.
+Phase B library APIs provide [scoped exact grouping](DEDUPLICATION.md) and [mapped structural chunks](CHUNKING.md), preserving every source occurrence. Chunking counts through a `TokenCounter`, such as the qualified local vocabulary-only counter described in [TOKENIZER.md](TOKENIZER.md) and the pinned [counter contract](tokenizer-contract.json). The Phase A CLI remains unchanged; Phase B CLI/manifests remain pending.
 
 ## 1. Run the example
 

@@ -62,7 +62,7 @@ in place.
 │   │   │   │   ├── refusal.rs                                               # The refusal every mapping check returns
 │   │   │   │   ├── slice.rs                                                 # Mapped slices and the source accounting ledger: which original bytes each unit covers
 │   │   │   │   └── tests.rs                                                 # Tests of source mapping: order, Unicode, entities, envelopes and accounting
-│   │   │   ├── chunk_split/                                                 # Structural preparation and packing; only the public native path certifies counts
+│   │   │   ├── chunk_split/                                                 # Structural preparation and packing; only chunk_documents, through a verified TokenCounter, certifies counts
 │   │   │   │   ├── tests/                                                   # Tests of structural preparation and packing
 │   │   │   │   │   ├── boundaries.rs                                        # The pure preparation helpers: cut points, fitting prefixes and delimiter-safe ranges
 │   │   │   │   │   ├── context.rs                                           # Context, characterized on small documents: the exact prepared input of each chunk
@@ -73,7 +73,7 @@ in place.
 │   │   │   │   ├── drafts.rs                                                # Packing a document's atoms into drafts: combined up to the target, refined or split past the
 │   │   │   │   ├── layout.rs                                                # The layout's structural queries: owners, sections, table windows and packing atoms
 │   │   │   │   ├── limits.rs                                                # The token budgets drafts grow toward and never exceed
-│   │   │   │   ├── mod.rs                                                   # Structural preparation and packing; only the public native path certifies counts
+│   │   │   │   ├── mod.rs                                                   # Structural preparation and packing; only chunk_documents, through a verified TokenCounter, certifies counts
 │   │   │   │   ├── prepare.rs                                               # The prepared input: body parts, formatting, sentence boundaries and fitting prefixes
 │   │   │   │   ├── refusal.rs                                               # The refusal every structural check returns
 │   │   │   │   ├── replay.rs                                                # Replaying a chunk's preparation: its table windows against its fragments, then the chunk

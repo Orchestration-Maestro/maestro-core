@@ -55,7 +55,7 @@ revalidation. Any refusal returns no partial batch.
 
 The profiles are `mapped-structural-chunks/2`, `canonical-context-parts/v1` and
 `ordered-input-parts/v1`. Complete input means the verbatim concatenation of
-`input_parts`; native BOS/EOS and all context/separators count toward **target 500,
+`input_parts`; the counter's BOS/EOS and all context/separators count toward **target 500,
 hard maximum 700**. There is no artificial minimum, clipping, hidden normalization,
 truncation or primary-body overlap. Counts are cached by exact complete strings
 only inside the authorized call. Context copies do not add primary coverage.
