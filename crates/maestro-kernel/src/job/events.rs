@@ -2,7 +2,10 @@
 //! stream of the journal in the write that makes it.
 
 use super::{error::Error, state::JobState};
-use crate::journal::{Event, NewEvent, event::record};
+use crate::{
+    journal::{Event, NewEvent, event::record},
+    scope::Scope,
+};
 use rusqlite::Transaction;
 use serde_json::Value;
 use ulid::Ulid;
@@ -55,7 +58,7 @@ pub(super) fn moved_into(state: JobState) -> &'static str {
 pub(super) fn record_on_stream(
     transaction: &Transaction<'_>,
     id: Ulid,
-    scope: &str,
+    scope: &Scope,
     r#type: &str,
     data: &Value,
 ) -> Result<Event, Error> {
@@ -64,7 +67,7 @@ pub(super) fn record_on_stream(
         stream: &name,
         r#type,
         subject: &name,
-        scope,
+        scope: scope.as_str(),
         data,
     };
     Ok(record(transaction, &event)?)

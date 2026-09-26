@@ -230,6 +230,7 @@ in place.
 │   │   │   │   │   ├── progress.rs                                          # Progress: recorded on the job's stream of the journal in the write that
 │   │   │   │   │   ├── resources.rs                                         # Resources: what a job holds exclusively while it is queued or running
 │   │   │   │   │   ├── resume.rs                                            # A job interrupted mid-way: its first process dies, and a second process
+│   │   │   │   │   ├── scopes.rs                                            # Scopes: a job is read only through a set that covers the scope it works
 │   │   │   │   │   ├── states.rs                                            # States: a job moves only forward, and its three outcomes are final
 │   │   │   │   │   ├── submit.rs                                            # Submitting a job: its ID, its idempotency key, and the job a retried
 │   │   │   │   │   ├── support.rs                                           # What the job tests share: a scratch data directory, the publication they

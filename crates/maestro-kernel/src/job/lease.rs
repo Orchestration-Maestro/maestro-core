@@ -39,7 +39,7 @@ impl Database {
         term: Duration,
     ) -> Result<Lease, Error> {
         self.write(|transaction| {
-            let job = find(transaction, id)?.ok_or(Error::UnknownJob(id))?;
+            let job = find(transaction, None, id)?.ok_or(Error::UnknownJob(id))?;
             let (heartbeat, expires) = times(transaction, now, term)?;
             match &job.lease {
                 Some(current) if current.expires > heartbeat => {
@@ -132,7 +132,7 @@ pub(super) fn lease_data(lease: &Lease) -> Value {
 /// [`Error::Lost`] when another took the lease over or the job ended,
 /// [`Error::UnknownJob`], and [`Error::Store`].
 pub(super) fn held(transaction: &Transaction<'_>, lease: &Lease) -> Result<Job, Error> {
-    let job = find(transaction, lease.job)?.ok_or(Error::UnknownJob(lease.job))?;
+    let job = find(transaction, None, lease.job)?.ok_or(Error::UnknownJob(lease.job))?;
     if job
         .lease
         .as_ref()

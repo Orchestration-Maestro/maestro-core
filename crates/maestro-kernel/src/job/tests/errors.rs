@@ -4,6 +4,7 @@
 use super::support::{FIRST, PUBLISH, SCOPE, Scratch, at, collection, publish};
 use crate::{
     job::{Error, JobState},
+    scope::ScopeSet,
     store,
 };
 use rusqlite::{params, types::Type};
@@ -100,10 +101,14 @@ fn a_refusal_of_the_journal_or_the_database_reads_as_its_own_with_its_source() {
         .unwrap();
     let outside = scratch.outside();
     outside.execute_batch("DROP TABLE events").unwrap();
-    let journal = database.last_progress(job.id).unwrap_err();
+    let journal = database
+        .last_progress(&ScopeSet::default_workspace(), job.id)
+        .unwrap_err();
     assert!(matches!(journal, Error::Journal(_)), "{journal:?}");
     outside.execute_batch("DROP TABLE jobs").unwrap();
-    let store = database.job(job.id).unwrap_err();
+    let store = database
+        .job(&ScopeSet::default_workspace(), job.id)
+        .unwrap_err();
     assert!(matches!(store, Error::Store(_)), "{store:?}");
     for (refusal, table) in [(journal, "events"), (store, "jobs")] {
         assert_eq!(
@@ -160,7 +165,10 @@ fn a_stored_job_the_kernel_cannot_read_back_is_an_error_never_a_guess() {
             )
             .unwrap();
         let read = if id == ID {
-            database.job(Ulid::from_string(ID).unwrap())
+            database.job(
+                &ScopeSet::default_workspace(),
+                Ulid::from_string(ID).unwrap(),
+            )
         } else {
             database.submit_job(&publish(&inputs), at(1)).map(Some)
         };
@@ -177,4 +185,37 @@ fn a_stored_job_the_kernel_cannot_read_back_is_an_error_never_a_guess() {
         );
         outside.execute_batch("DELETE FROM jobs").unwrap();
     }
+}
+
+#[test]
+fn a_stored_scope_that_is_not_a_scope_path_is_an_error_never_a_guess() {
+    let scratch = Scratch::new();
+    let database = scratch.open();
+    let inputs = collection("demo");
+    let job = database.submit_job(&publish(&inputs), at(0)).unwrap();
+    scratch
+        .outside()
+        .execute(
+            "UPDATE jobs SET scope = 'not a scope' WHERE id = ?1",
+            [job.id.to_string()],
+        )
+        .unwrap();
+    // The scope is column 4; a retried command finds the job by its key.
+    let refusal = database.submit_job(&publish(&inputs), at(1)).unwrap_err();
+    assert!(
+        matches!(
+            &refusal,
+            Error::Store(store::Error::Sqlite(
+                rusqlite::Error::FromSqlConversionFailure(4, Type::Text, _)
+            ))
+        ),
+        "{refusal:?}"
+    );
+    assert_eq!(
+        database
+            .job(&ScopeSet::default_workspace(), job.id)
+            .unwrap(),
+        None,
+        "no set covers text that is not a scope"
+    );
 }

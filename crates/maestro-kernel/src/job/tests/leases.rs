@@ -2,7 +2,10 @@
 //! heartbeats, and a stale holder refused once another took the lease over.
 
 use super::support::{FIRST, SECOND, Scratch, TERM, at, collection, journaled, publish, running};
-use crate::job::{Error, JobState, Lease};
+use crate::{
+    job::{Error, JobState, Lease},
+    scope::ScopeSet,
+};
 use serde_json::json;
 use std::time::{Duration, UNIX_EPOCH};
 use ulid::Ulid;
@@ -42,7 +45,10 @@ fn a_second_lease_on_the_same_key_is_refused_naming_the_holder_and_the_expiry() 
             "{refused:?}"
         );
     }
-    let unchanged = database.job(job.id).unwrap().unwrap();
+    let unchanged = database
+        .job(&ScopeSet::default_workspace(), job.id)
+        .unwrap()
+        .unwrap();
     assert_eq!(unchanged.state, JobState::Running);
     assert_eq!(unchanged.lease, Some(lease));
 }
@@ -63,7 +69,10 @@ fn an_expired_lease_is_taken_over_and_its_job_keeps_running_under_the_new_holder
             expires: "2026-09-26T12:01:00.000Z".to_owned(),
         }
     );
-    let job = database.job(job.id).unwrap().unwrap();
+    let job = database
+        .job(&ScopeSet::default_workspace(), job.id)
+        .unwrap()
+        .unwrap();
     assert_eq!(job.state, JobState::Running);
     assert_eq!(job.lease, Some(taken));
 }
@@ -113,7 +122,11 @@ fn a_heartbeat_renews_the_lease_from_its_time_and_is_not_journaled() {
         }
     );
     assert_eq!(
-        database.job(job.id).unwrap().unwrap().lease,
+        database
+            .job(&ScopeSet::default_workspace(), job.id)
+            .unwrap()
+            .unwrap()
+            .lease,
         Some(lease.clone())
     );
     let refused = database.take_job(job.id, SECOND, at(30), TERM).unwrap_err();
@@ -135,7 +148,14 @@ fn a_holder_keeps_an_expired_lease_until_another_takes_it_over() {
     let (job, mut lease) = running(&database, "demo");
     database.heartbeat(&mut lease, at(45), TERM).unwrap();
     assert_eq!(lease.expires, "2026-09-26T12:01:15.000Z");
-    assert_eq!(database.job(job.id).unwrap().unwrap().lease, Some(lease));
+    assert_eq!(
+        database
+            .job(&ScopeSet::default_workspace(), job.id)
+            .unwrap()
+            .unwrap()
+            .lease,
+        Some(lease)
+    );
 }
 
 #[test]
@@ -144,7 +164,9 @@ fn a_stale_holder_is_refused_once_its_lease_was_taken_over_and_writes_nothing() 
     let database = scratch.open();
     let (job, mut stale) = running(&database, "demo");
     let mut successor = database.take_job(job.id, SECOND, at(30), TERM).unwrap();
-    let before = database.job(job.id).unwrap();
+    let before = database
+        .job(&ScopeSet::default_workspace(), job.id)
+        .unwrap();
     let journal = journaled(&database, job.id);
     let step = json!({"step": 1});
     let refusals = [
@@ -166,7 +188,12 @@ fn a_stale_holder_is_refused_once_its_lease_was_taken_over_and_writes_nothing() 
         );
     }
     assert_eq!(stale.heartbeat, "2026-09-26T12:00:00.000Z");
-    assert_eq!(database.job(job.id).unwrap(), before);
+    assert_eq!(
+        database
+            .job(&ScopeSet::default_workspace(), job.id)
+            .unwrap(),
+        before
+    );
     assert_eq!(journaled(&database, job.id), journal);
     database
         .progress(&mut successor, at(32), TERM, &step)
@@ -180,7 +207,9 @@ fn a_lease_is_known_by_its_number_not_by_the_name_of_its_holder() {
     let (job, mut stale) = running(&database, "demo");
     let mut restarted = database.take_job(job.id, FIRST, at(30), TERM).unwrap();
     assert_eq!((restarted.holder.as_str(), restarted.number), (FIRST, 2));
-    let before = database.job(job.id).unwrap();
+    let before = database
+        .job(&ScopeSet::default_workspace(), job.id)
+        .unwrap();
     let journal = journaled(&database, job.id);
     let step = json!({"step": 1});
     let refusals = [
@@ -201,7 +230,12 @@ fn a_lease_is_known_by_its_number_not_by_the_name_of_its_holder() {
             "{refused:?}"
         );
     }
-    assert_eq!(database.job(job.id).unwrap(), before);
+    assert_eq!(
+        database
+            .job(&ScopeSet::default_workspace(), job.id)
+            .unwrap(),
+        before
+    );
     assert_eq!(journaled(&database, job.id), journal);
     database.heartbeat(&mut restarted, at(31), TERM).unwrap();
     database
@@ -257,12 +291,18 @@ fn a_time_the_kernel_cannot_record_is_refused_before_anything_changes() {
         );
     }
     assert_eq!(
-        database.job(queued.id).unwrap().unwrap().state,
+        database
+            .job(&ScopeSet::default_workspace(), queued.id)
+            .unwrap()
+            .unwrap()
+            .state,
         JobState::Queued
     );
     assert_eq!(journaled(&database, queued.id), created);
     let (job, mut lease) = running(&database, "running");
-    let before = database.job(job.id).unwrap();
+    let before = database
+        .job(&ScopeSet::default_workspace(), job.id)
+        .unwrap();
     let journal = journaled(&database, job.id);
     let refusals = [
         database
@@ -275,7 +315,12 @@ fn a_time_the_kernel_cannot_record_is_refused_before_anything_changes() {
     for refused in refusals {
         assert!(matches!(refused, Error::Time), "{refused:?}");
     }
-    assert_eq!(database.job(job.id).unwrap(), before);
+    assert_eq!(
+        database
+            .job(&ScopeSet::default_workspace(), job.id)
+            .unwrap(),
+        before
+    );
     assert_eq!(lease.heartbeat, "2026-09-26T12:00:00.000Z");
     assert_eq!(journaled(&database, job.id), journal);
     database

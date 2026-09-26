@@ -9,6 +9,7 @@ use super::{
 };
 use crate::{
     journal::{Event, Filter},
+    scope::ScopeSet,
     store::Database,
 };
 use serde_json::Value;
@@ -45,19 +46,23 @@ impl Database {
     }
 
     /// The last step job `id` recorded, which a process resuming it
-    /// continues after; none before its first.
+    /// continues after, read through `scopes`; none before its first.
     ///
     /// # Errors
     ///
-    /// [`Error::UnknownJob`], [`Error::Store`] when the job cannot be read,
-    /// and [`Error::Journal`] when its stream cannot.
-    pub fn last_progress(&self, id: Ulid) -> Result<Option<Event>, Error> {
-        self.job(id)?.ok_or(Error::UnknownJob(id))?;
-        let mut steps = self.events(&Filter {
-            stream: &stream(id),
-            after: 0,
-            r#type: Some(PROGRESSED),
-        })?;
+    /// [`Error::UnknownJob`] when the job is not recorded or `scopes` does not
+    /// cover the scope it works on, [`Error::Store`] when the job cannot be
+    /// read, and [`Error::Journal`] when its stream cannot.
+    pub fn last_progress(&self, scopes: &ScopeSet, id: Ulid) -> Result<Option<Event>, Error> {
+        self.job(scopes, id)?.ok_or(Error::UnknownJob(id))?;
+        let mut steps = self.events(
+            scopes,
+            &Filter {
+                stream: &stream(id),
+                after: 0,
+                r#type: Some(PROGRESSED),
+            },
+        )?;
         Ok(steps.pop())
     }
 }

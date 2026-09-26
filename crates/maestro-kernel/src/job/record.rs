@@ -6,7 +6,11 @@ use super::{
     events::{moved_into, record_on_stream},
     state::JobState,
 };
-use crate::{artifact::Digest, store::Database};
+use crate::{
+    artifact::Digest,
+    scope::{Scope, ScopeSet},
+    store::Database,
+};
 use rusqlite::{Connection, OptionalExtension as _, Row, params, types::Type};
 use serde_json::{Value, json};
 use std::{error, time::SystemTime};
@@ -26,8 +30,8 @@ pub struct NewJob<'a> {
     /// What makes it the same work when a command is retried: the caller
     /// chooses them and freezes them before it submits.
     pub inputs: &'a Value,
-    /// The path of the scope it works on, its collection's.
-    pub scope: &'a str,
+    /// The scope it works on, its collection's.
+    pub scope: &'a Scope,
     /// What it holds exclusively while it is queued or running, such as the
     /// publication of a collection, if anything: a name its caller chose,
     /// which no other job queued or running holds.
@@ -48,8 +52,8 @@ pub struct Job {
     /// Its place among the jobs of its key: 1 for the first, one more for
     /// each job submitted after the last one failed or was cancelled.
     pub attempt: u64,
-    /// The path of the scope it works on.
-    pub scope: String,
+    /// The scope it works on.
+    pub scope: Scope,
     /// What it holds exclusively while it is queued or running, if anything.
     pub resource: Option<String>,
     /// Where it is in its life.
@@ -120,7 +124,7 @@ impl Database {
                     Ulid::from_datetime(now).to_string(),
                     new.kind,
                     key.as_str(),
-                    new.scope,
+                    new.scope.as_str(),
                     new.resource,
                 ],
                 job_row,
@@ -138,14 +142,15 @@ impl Database {
         })
     }
 
-    /// The job `id`, if it is recorded, as the last commit left it.
+    /// The job `id`, if it is recorded and `scopes` covers the scope it works
+    /// on, as the last commit left it.
     ///
     /// # Errors
     ///
     /// [`Error::Store`] when the database cannot be read, or holds a job it
     /// cannot read back.
-    pub fn job(&self, id: Ulid) -> Result<Option<Job>, Error> {
-        Ok(find(&self.reader()?, id)?)
+    pub fn job(&self, scopes: &ScopeSet, id: Ulid) -> Result<Option<Job>, Error> {
+        Ok(find(&self.reader()?, Some(scopes), id)?)
     }
 }
 
@@ -153,7 +158,7 @@ impl Database {
 /// inputs]`, in which `serde_json` writes the fields of each object in the
 /// order of their names.
 fn idempotency_key(new: &NewJob<'_>) -> Digest {
-    let named = json!([new.kind, new.scope, new.inputs]);
+    let named = json!([new.kind, new.scope.as_str(), new.inputs]);
     Digest::of(named.to_string().as_bytes())
 }
 
@@ -177,9 +182,24 @@ fn free(connection: &Connection, resource: Option<&str>) -> Result<(), Error> {
     }
 }
 
-/// The job `id` that `connection` records, if any.
-pub(super) fn find(connection: &Connection, id: Ulid) -> rusqlite::Result<Option<Job>> {
-    first(connection, "id = ?1", &id.to_string())
+/// The job `id` that `connection` records, if any and `scopes` covers the
+/// scope it works on; with no set, whatever its scope, as a write checks the
+/// job it changes as recorded.
+pub(super) fn find(
+    connection: &Connection,
+    scopes: Option<&ScopeSet>,
+    id: Ulid,
+) -> rusqlite::Result<Option<Job>> {
+    connection
+        .query_row(
+            &format!(
+                "SELECT {COLUMNS} FROM jobs WHERE id = ?1 AND (?2 IS NULL OR {})",
+                ScopeSet::condition("jobs.scope", 2)
+            ),
+            params![id.to_string(), scopes.map(ScopeSet::parameter)],
+            job_row,
+        )
+        .optional()
 }
 
 /// The first job `connection` records of those `clause` selects, if any:
@@ -195,12 +215,14 @@ fn first(connection: &Connection, clause: &str, value: &str) -> rusqlite::Result
 }
 
 /// The job of a row of [`COLUMNS`]. An ID that is not a ULID, a key that is
-/// not a digest, a state no job has, a negative number or an outcome serde
-/// cannot read is an error, never a guess.
+/// not a digest, a scope that is not a scope path, a state no job has, a
+/// negative number or an outcome serde cannot read is an error, never a
+/// guess.
 pub(super) fn job_row(row: &Row<'_>) -> rusqlite::Result<Job> {
     let id: String = row.get(0)?;
     let id = Ulid::from_string(&id).map_err(|invalid| unreadable(0, invalid))?;
     let key: String = row.get(2)?;
+    let scope: String = row.get(4)?;
     let state: String = row.get(6)?;
     let number = unsigned(row, 7)?;
     let holder: Option<String> = row.get(8)?;
@@ -212,7 +234,7 @@ pub(super) fn job_row(row: &Row<'_>) -> rusqlite::Result<Job> {
         kind: row.get(1)?,
         idempotency_key: Digest::parse(&key).map_err(|invalid| unreadable(2, invalid))?,
         attempt: unsigned(row, 3)?,
-        scope: row.get(4)?,
+        scope: scope.parse().map_err(|invalid| unreadable(4, invalid))?,
         resource: row.get(5)?,
         state: JobState::named(&state)
             .ok_or_else(|| unreadable(6, format!("no job state is named {state:?}")))?,

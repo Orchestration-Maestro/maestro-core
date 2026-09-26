@@ -1,10 +1,11 @@
 //! Submitting a job: its ID, its idempotency key, and the job a retried
 //! command finds.
 
-use super::support::{FIRST, PUBLISH, SCOPE, Scratch, TERM, at, collection, journaled, publish};
+use super::support::{DEMO, FIRST, PUBLISH, Scratch, TERM, at, collection, journaled, publish};
 use crate::{
     artifact::Digest,
     job::{Job, JobState, NewJob},
+    scope::{Scope, ScopeSet},
 };
 use serde_json::json;
 use std::time::UNIX_EPOCH;
@@ -30,15 +31,25 @@ fn a_submitted_job_is_queued_under_a_ulid_of_its_time_and_the_digest_of_its_kind
             br#"["knowledge.publish","workspace/default/collection/demo",{"collection":"demo"}]"#,
         ),
         attempt: 1,
-        scope: SCOPE.to_owned(),
+        scope: DEMO.clone(),
         resource: None,
         state: JobState::Queued,
         lease: None,
         outcome: None,
     };
     assert_eq!(job, expected);
-    assert_eq!(database.job(job.id).unwrap(), Some(expected));
-    assert_eq!(database.job(Ulid::nil()).unwrap(), None);
+    assert_eq!(
+        database
+            .job(&ScopeSet::default_workspace(), job.id)
+            .unwrap(),
+        Some(expected)
+    );
+    assert_eq!(
+        database
+            .job(&ScopeSet::default_workspace(), Ulid::nil())
+            .unwrap(),
+        None
+    );
 }
 
 #[test]
@@ -56,8 +67,9 @@ fn the_same_kind_scope_and_inputs_make_the_same_key_whatever_the_order_of_their_
         kind: "knowledge.prepare",
         ..publish(&inputs)
     };
+    let other: Scope = "workspace/default/collection/other".parse().unwrap();
     let elsewhere = NewJob {
-        scope: "workspace/default/collection/other",
+        scope: &other,
         ..publish(&inputs)
     };
     let other_inputs = collection("other");
@@ -136,9 +148,16 @@ fn after_a_failure_or_a_cancellation_the_same_key_starts_a_new_attempt() {
     assert_ne!(third.id, second.id);
     assert_eq!((third.attempt, third.state), (3, JobState::Queued));
     assert_eq!(
-        database.job(first.id).unwrap(),
+        database
+            .job(&ScopeSet::default_workspace(), first.id)
+            .unwrap(),
         Some(failed),
         "an earlier attempt stays as it ended"
     );
-    assert_eq!(database.job(second.id).unwrap(), Some(cancelled));
+    assert_eq!(
+        database
+            .job(&ScopeSet::default_workspace(), second.id)
+            .unwrap(),
+        Some(cancelled)
+    );
 }

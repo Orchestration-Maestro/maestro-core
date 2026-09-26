@@ -5,6 +5,7 @@
 use crate::{
     job::{Job, Lease, NewJob, stream},
     journal::{Event, Filter},
+    scope::{Scope, ScopeSet},
     store::Database,
 };
 use rusqlite::{Connection, types::Value as Stored};
@@ -13,7 +14,10 @@ use std::{
     env, fs,
     path::PathBuf,
     process,
-    sync::atomic::{AtomicUsize, Ordering},
+    sync::{
+        LazyLock,
+        atomic::{AtomicUsize, Ordering},
+    },
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 use ulid::Ulid;
@@ -22,6 +26,8 @@ use ulid::Ulid;
 pub(super) const PUBLISH: &str = "knowledge.publish";
 /// The scope of the collection the tests' jobs work on.
 pub(super) const SCOPE: &str = "workspace/default/collection/demo";
+/// [`SCOPE`] as the scope the tests' jobs are submitted in.
+pub(super) static DEMO: LazyLock<Scope> = LazyLock::new(|| SCOPE.parse().unwrap());
 /// The holder of the first lease the tests take.
 pub(super) const FIRST: &str = "first-process";
 /// The holder that takes a lease over.
@@ -83,7 +89,7 @@ pub(super) fn publish(inputs: &Value) -> NewJob<'_> {
     NewJob {
         kind: PUBLISH,
         inputs,
-        scope: SCOPE,
+        scope: &DEMO,
         resource: None,
     }
 }
@@ -101,11 +107,14 @@ pub(super) fn running(database: &Database, name: &str) -> (Job, Lease) {
 /// Every event of the stream of job `id`, in sequence order.
 pub(super) fn journaled(database: &Database, id: Ulid) -> Vec<Event> {
     database
-        .events(&Filter {
-            stream: &stream(id),
-            after: 0,
-            r#type: None,
-        })
+        .events(
+            &ScopeSet::default_workspace(),
+            &Filter {
+                stream: &stream(id),
+                after: 0,
+                r#type: None,
+            },
+        )
         .unwrap()
 }
 

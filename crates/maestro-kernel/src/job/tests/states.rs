@@ -1,7 +1,10 @@
 //! States: a job moves only forward, and its three outcomes are final.
 
 use super::support::{FIRST, SECOND, Scratch, TERM, at, collection, publish, running};
-use crate::job::{Error, Job, JobState};
+use crate::{
+    job::{Error, Job, JobState},
+    scope::ScopeSet,
+};
 use serde_json::{Value, json};
 
 /// The three states a job ends in.
@@ -22,7 +25,12 @@ fn a_running_job_ends_in_each_outcome_with_what_it_reports_and_without_its_lease
             ..job.clone()
         };
         assert_eq!(ended, expected);
-        assert_eq!(database.job(job.id).unwrap(), Some(expected));
+        assert_eq!(
+            database
+                .job(&ScopeSet::default_workspace(), job.id)
+                .unwrap(),
+            Some(expected)
+        );
     }
 }
 
@@ -54,7 +62,11 @@ fn a_queued_job_is_cancelled_without_a_lease_and_a_running_one_only_by_its_holde
         "{refused:?}"
     );
     assert_eq!(
-        database.job(job.id).unwrap().unwrap().state,
+        database
+            .job(&ScopeSet::default_workspace(), job.id)
+            .unwrap()
+            .unwrap()
+            .state,
         JobState::Running
     );
     let ended = database
@@ -116,7 +128,12 @@ fn the_three_outcomes_are_final() {
         for refused in lost {
             assert!(matches!(&refused, Error::Lost { .. }), "{refused:?}");
         }
-        assert_eq!(database.job(job.id).unwrap(), Some(ended));
+        assert_eq!(
+            database
+                .job(&ScopeSet::default_workspace(), job.id)
+                .unwrap(),
+            Some(ended)
+        );
     }
 }
 
@@ -147,7 +164,12 @@ fn a_job_cancelled_while_queued_stays_cancelled() {
             "{refused:?}"
         );
     }
-    assert_eq!(database.job(job.id).unwrap(), Some(cancelled));
+    assert_eq!(
+        database
+            .job(&ScopeSet::default_workspace(), job.id)
+            .unwrap(),
+        Some(cancelled)
+    );
 }
 
 #[test]
@@ -155,7 +177,9 @@ fn a_running_job_never_moves_back_to_queued_nor_to_running_again() {
     let scratch = Scratch::new();
     let database = scratch.open();
     let (job, lease) = running(&database, "demo");
-    let before = database.job(job.id).unwrap();
+    let before = database
+        .job(&ScopeSet::default_workspace(), job.id)
+        .unwrap();
     for moved in [JobState::Queued, JobState::Running] {
         let refused = database
             .complete_job(&lease, moved, &Value::Null)
@@ -169,5 +193,10 @@ fn a_running_job_never_moves_back_to_queued_nor_to_running_again() {
             "{refused:?}"
         );
     }
-    assert_eq!(database.job(job.id).unwrap(), before);
+    assert_eq!(
+        database
+            .job(&ScopeSet::default_workspace(), job.id)
+            .unwrap(),
+        before
+    );
 }

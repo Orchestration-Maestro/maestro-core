@@ -5,6 +5,7 @@ use super::support::{SCOPE, Scratch, TERM, at, collection, journaled, publish, r
 use crate::{
     job::{Error, PROGRESSED, stream},
     journal::NewEvent,
+    scope::ScopeSet,
 };
 use serde_json::{Value, json};
 use ulid::Ulid;
@@ -37,7 +38,11 @@ fn progress_goes_to_the_stream_of_its_job_in_the_write_that_renews_the_lease() {
         ("2026-09-26T12:00:10.000Z", "2026-09-26T12:00:40.000Z")
     );
     assert_eq!(
-        database.job(job.id).unwrap().unwrap().lease,
+        database
+            .job(&ScopeSet::default_workspace(), job.id)
+            .unwrap()
+            .unwrap()
+            .lease,
         Some(lease.clone())
     );
     let second = database
@@ -47,7 +52,12 @@ fn progress_goes_to_the_stream_of_its_job_in_the_write_that_renews_the_lease() {
     assert_eq!(lease.expires, "2026-09-26T12:00:50.000Z");
     journal.extend([first, second.clone()]);
     assert_eq!(journaled(&database, job.id), journal);
-    assert_eq!(database.last_progress(job.id).unwrap(), Some(second));
+    assert_eq!(
+        database
+            .last_progress(&ScopeSet::default_workspace(), job.id)
+            .unwrap(),
+        Some(second)
+    );
 }
 
 #[test]
@@ -71,7 +81,11 @@ fn progress_and_the_renewal_of_its_lease_land_in_one_write_or_not_at_all() {
     assert!(matches!(&refused, Error::Store(_)), "{refused:?}");
     assert_eq!(lease, held, "the holder's lease is unchanged");
     assert_eq!(
-        database.job(job.id).unwrap().unwrap().lease,
+        database
+            .job(&ScopeSet::default_workspace(), job.id)
+            .unwrap()
+            .unwrap()
+            .lease,
         Some(held.clone()),
         "the renewal went with the event"
     );
@@ -108,7 +122,12 @@ fn resuming_reads_the_last_progress_of_its_own_job_only() {
     let job = database
         .submit_job(&publish(&collection("demo")), at(0))
         .unwrap();
-    assert_eq!(database.last_progress(job.id).unwrap(), None);
+    assert_eq!(
+        database
+            .last_progress(&ScopeSet::default_workspace(), job.id)
+            .unwrap(),
+        None
+    );
     let mut lease = database.take_job(job.id, "holder", at(0), TERM).unwrap();
     let step = database
         .progress(&mut lease, at(1), TERM, &json!({"step": 1}))
@@ -127,9 +146,16 @@ fn resuming_reads_the_last_progress_of_its_own_job_only() {
     database
         .progress(&mut other, at(2), TERM, &json!({"step": 9}))
         .unwrap();
-    assert_eq!(database.last_progress(job.id).unwrap(), Some(step));
+    assert_eq!(
+        database
+            .last_progress(&ScopeSet::default_workspace(), job.id)
+            .unwrap(),
+        Some(step)
+    );
     let unknown = Ulid::nil();
-    let refused = database.last_progress(unknown).unwrap_err();
+    let refused = database
+        .last_progress(&ScopeSet::default_workspace(), unknown)
+        .unwrap_err();
     assert!(
         matches!(refused, Error::UnknownJob(id) if id == unknown),
         "{refused:?}"

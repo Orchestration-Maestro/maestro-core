@@ -2,14 +2,21 @@
 //! under a lease and resumed from its progress in the journal (building block
 //! B4; plan D5).
 //!
-//! A caller submits a job with its kind, the frozen inputs it chose, the path
-//! of the scope it works on, and the resource it holds, if any. The job's ID
-//! is a ULID, and its idempotency key is the SHA-256 digest of its kind, its
-//! scope and its inputs. A retried command submits the same kind, scope and
-//! inputs, so it finds the job of its key while that job is queued or
-//! running, and once it succeeded. After a failure or a cancellation the key
-//! starts a new job, the next attempt; whether that attempt resumes from the
-//! last one's progress is the caller's choice.
+//! A caller submits a job with its kind, the frozen inputs it chose, the scope
+//! it works on, its collection's, and the resource it holds, if any. The
+//! job's ID is a ULID, and its idempotency key is the SHA-256 digest of its
+//! kind, its scope and its inputs. A retried command submits the same kind,
+//! scope and inputs, so it finds the job of its key while that job is queued
+//! or running, and once it succeeded. After a failure or a cancellation the
+//! key starts a new job, the next attempt; whether that attempt resumes from
+//! the last one's progress is the caller's choice.
+//!
+//! A job is read, as every record of the kernel is, through the caller's
+//! `ScopeSet`: [`Database::job`](crate::store::Database::job) and
+//! [`Database::last_progress`](crate::store::Database::last_progress) see
+//! only the jobs whose scope the set covers, and one it does not cover reads
+//! as unknown. The calls that take, renew and end a lease name a job by the
+//! ID or the lease a submission or a reader gave.
 //!
 //! A resource, such as the publication of a collection, is a name the caller
 //! chooses: at most one job queued or running holds each, so a second job on

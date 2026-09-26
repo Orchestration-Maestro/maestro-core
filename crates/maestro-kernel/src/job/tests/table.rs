@@ -2,7 +2,10 @@
 //! program outside the kernel breaks what the kernel relies on.
 
 use super::support::{FIRST, SECOND, Scratch, TERM, at, collection, publish, rows, running};
-use crate::job::{JobState, NewJob};
+use crate::{
+    job::{JobState, NewJob},
+    scope::ScopeSet,
+};
 use rusqlite::Connection;
 use serde_json::json;
 
@@ -262,7 +265,12 @@ fn a_job_that_ended_never_changes_whoever_writes() {
             "{change}: {error}"
         );
     }
-    assert_eq!(database.job(job.id).unwrap(), Some(ended));
+    assert_eq!(
+        database
+            .job(&ScopeSet::default_workspace(), job.id)
+            .unwrap(),
+        Some(ended)
+    );
 }
 
 #[test]
@@ -283,7 +291,7 @@ fn a_job_moves_only_forward_whoever_writes() {
         ),
     ];
     for (id, change) in moves {
-        let before = database.job(id).unwrap();
+        let before = database.job(&ScopeSet::default_workspace(), id).unwrap();
         let error = outside
             .execute(
                 &format!("UPDATE jobs SET {change} WHERE id = ?1"),
@@ -292,7 +300,10 @@ fn a_job_moves_only_forward_whoever_writes() {
             .unwrap_err()
             .to_string();
         assert!(error.starts_with("a job moves only"), "{change}: {error}");
-        assert_eq!(database.job(id).unwrap(), before);
+        assert_eq!(
+            database.job(&ScopeSet::default_workspace(), id).unwrap(),
+            before
+        );
     }
 }
 
@@ -314,5 +325,12 @@ fn a_lease_number_never_decreases_whoever_writes() {
         error.starts_with("a lease number never decreases"),
         "{error}"
     );
-    assert_eq!(database.job(job.id).unwrap().unwrap().lease, Some(taken));
+    assert_eq!(
+        database
+            .job(&ScopeSet::default_workspace(), job.id)
+            .unwrap()
+            .unwrap()
+            .lease,
+        Some(taken)
+    );
 }

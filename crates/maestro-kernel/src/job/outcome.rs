@@ -56,7 +56,7 @@ impl Database {
     /// record the end or its event. Nothing is then recorded.
     pub fn cancel_job(&self, id: Ulid, outcome: &Value) -> Result<Job, Error> {
         self.write(|transaction| {
-            let job = find(transaction, id)?.ok_or(Error::UnknownJob(id))?;
+            let job = find(transaction, None, id)?.ok_or(Error::UnknownJob(id))?;
             if let Some(current) = &job.lease {
                 return Err(Error::Held {
                     job: id,

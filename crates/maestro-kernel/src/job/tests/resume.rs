@@ -6,7 +6,10 @@ use super::{
     child::{DATA, DONE, MARK},
     support::{FIRST, SECOND, Scratch, TERM, at, collection, journaled, publish},
 };
-use crate::job::{CREATED, Error, JobState, PROGRESSED, SUCCEEDED, TAKEN, TAKEN_OVER};
+use crate::{
+    job::{CREATED, Error, JobState, PROGRESSED, SUCCEEDED, TAKEN, TAKEN_OVER},
+    scope::ScopeSet,
+};
 use serde_json::json;
 use std::{
     env,
@@ -76,7 +79,10 @@ fn a_job_interrupted_mid_way_resumes_in_a_second_process_from_its_last_journaled
     );
     let resumed = at(DONE) + TERM;
     let mut lease = database.take_job(job.id, SECOND, resumed, TERM).unwrap();
-    let last = database.last_progress(job.id).unwrap().unwrap();
+    let last = database
+        .last_progress(&ScopeSet::default_workspace(), job.id)
+        .unwrap()
+        .unwrap();
     let done = last.data["step"].as_u64().unwrap();
     assert_eq!(done, DONE);
     for step in done + 1..=STEPS {

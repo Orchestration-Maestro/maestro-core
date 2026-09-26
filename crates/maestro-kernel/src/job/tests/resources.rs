@@ -2,7 +2,10 @@
 //! such as the publication of a collection.
 
 use super::support::{FIRST, Scratch, TERM, at, publish, rows};
-use crate::job::{Error, JobState, NewJob};
+use crate::{
+    job::{Error, JobState, NewJob},
+    scope::ScopeSet,
+};
 use serde_json::{Value, json};
 
 /// The resource the tests' publications hold: the publication of the
@@ -32,7 +35,14 @@ fn a_second_job_on_a_held_resource_is_refused_naming_the_job_that_holds_it() {
     let holder = database.submit_job(&holding(&first_set), at(0)).unwrap();
     assert_eq!(holder.resource.as_deref(), Some(PUBLICATION));
     let refused_while = |seconds, state| {
-        assert_eq!(database.job(holder.id).unwrap().unwrap().state, state);
+        assert_eq!(
+            database
+                .job(&ScopeSet::default_workspace(), holder.id)
+                .unwrap()
+                .unwrap()
+                .state,
+            state
+        );
         let before = (rows(&outside, "jobs"), rows(&outside, "events"));
         let refused = database
             .submit_job(&holding(&second_set), at(seconds))
