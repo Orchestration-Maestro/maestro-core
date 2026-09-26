@@ -520,6 +520,12 @@ in place.
 │       │   │   ├── mod.rs                                                   # The gate, its precedence, and the list of automatic checks
 │       │   │   ├── outcome.rs                                               # The five outcomes by their 01 §4 names, and which hold a revision back
 │       │   │   └── report.rs                                                # What the gate reports: every revision counted once, the held ones listed
+│       │   ├── search/                                                      # Search
+│       │   │   ├── tests/                                                   # Integration tests
+│       │   │   │   ├── fusion.rs                                            # Rust source: fusion
+│       │   │   │   └── mod.rs                                               # Rust source: mod
+│       │   │   ├── fusion.rs                                                # Reciprocal rank fusion over independent retrieval routes
+│       │   │   └── mod.rs                                                   # Rust source: mod
 │       │   ├── collection.rs                                                # A collection's declaration: maestro-collection/1, the strict JSON that
 │       │   ├── corpus.rs                                                    # A corpus manifest: maestro-corpus/1, one JSON line per document, through
 │       │   ├── lib.rs                                                       # The knowledge pipeline of Maestro (docs/architecture/01): collections, their

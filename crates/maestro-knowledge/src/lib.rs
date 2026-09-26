@@ -25,6 +25,8 @@ pub mod lexical;
 pub mod prepare;
 pub mod quality;
 mod relative_path;
+/// Rank fusion for knowledge search.
+pub mod search;
 mod shape;
 pub mod suite;
 
