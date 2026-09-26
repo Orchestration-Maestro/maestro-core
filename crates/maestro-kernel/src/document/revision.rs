@@ -61,13 +61,15 @@ impl RevisionStatus {
     }
 }
 
-/// What recording a revision did.
+/// What recording a revision, or a quality disposition, did.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Recorded {
-    /// The revision is new: it is recorded and its two artifacts pinned.
+    /// The record is new: a revision is recorded and its two artifacts
+    /// pinned, a disposition recorded and journaled if it holds its revision
+    /// back.
     New,
-    /// The revision was recorded before with the same content: nothing was
-    /// written.
+    /// It was recorded before, a revision with the same content, a
+    /// disposition with any: nothing was written.
     Unchanged,
 }
 

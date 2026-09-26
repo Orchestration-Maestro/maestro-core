@@ -3,6 +3,7 @@
 
 mod collection_contract;
 mod corpus_contract;
+mod import_contract;
 mod lexical_accents;
 mod lexical_fold;
 mod lexical_golden;

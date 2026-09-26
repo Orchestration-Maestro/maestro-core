@@ -423,6 +423,7 @@ dependencies = [
  "maestro-canonicalization",
  "maestro-kernel",
  "reqwest",
+ "rusqlite",
  "serde",
  "serde_json",
  "sha2",

@@ -20,4 +20,5 @@ tokio = { workspace = true, features = ["rt", "time"] }
 
 [dev-dependencies]
 reqwest.workspace = true
+rusqlite.workspace = true
 tokio = { workspace = true, features = ["macros", "rt"] }

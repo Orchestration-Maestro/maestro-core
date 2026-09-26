@@ -1,6 +1,7 @@
 //! The pipeline's document records (building block B5; docs/architecture/01
 //! §11, plan D6): the collections and the sources they declare, the documents
-//! each source holds, and the revisions of each document.
+//! each source holds, the revisions of each document, and the quality
+//! disposition of each revision.
 //!
 //! A collection and a source follow their declaration: recording one again
 //! takes its new values. Their ids are scope names
@@ -21,6 +22,12 @@
 //! canonicalization's verdict, moves, and only to `failed`, which it never
 //! leaves. A failed revision stays readable and is never eligible.
 //!
+//! A revision's quality disposition (01 §4) is decided once: recording
+//! another keeps the first. One that holds the revision back,
+//! `needs_reextraction`, `quarantined` or `excluded`, is journaled in the
+//! same write as `maestro.knowledge.revision.held.v1`, on the stream of the
+//! revision's collection, `collection/<id>`.
+//!
 //! Every reader takes the caller's [`ScopeSet`](crate::scope::ScopeSet) and
 //! reads only what it covers: a collection has the scope
 //! `workspace/default/collection/<id>`, a source `…/source/<id>` below it,
@@ -31,11 +38,13 @@
 //! later task of S1 needs a migration of its own.
 
 mod collection;
+mod disposition;
 mod error;
 mod revision;
 #[cfg(test)]
 mod tests;
 
 pub use collection::{Collection, Document, Source};
+pub use disposition::{Disposition, Outcome};
 pub use error::Error;
 pub use revision::{Recorded, Revision, RevisionStatus};
