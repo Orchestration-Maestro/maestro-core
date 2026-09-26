@@ -39,6 +39,7 @@ in place.
 ├── .github/                                                                 # GitHub metadata, templates and workflows
 │   ├── workflows/                                                           # GitHub Actions workflows
 │   │   ├── dependabot-auto-merge.yml                                        # Dependabot auto-merge
+│   │   ├── integration.yml                                                  # Qdrant integration: the projection's tests against a Qdrant 1.19 image pinned by digest
 │   │   └── scorecard.yml                                                    # OpenSSF Scorecard
 │   ├── CODEOWNERS                                                           # Who reviews each path
 │   ├── copilot-instructions.md                                              # This guide, written by rust-gate guide at every commit
@@ -451,6 +452,26 @@ in place.
 │       │   │   ├── mod.rs                                                   # Importing a collection's corpus through its maestro-corpus/1 manifests
 │       │   │   ├── report.rs                                                # What an import reports: its counts, and why it refused each entry it refused
 │       │   │   └── source.rs                                                # Importing one source's manifest: shared source_refs found first, then each line in turn
+│       │   ├── index/                                                       # The search projection in Qdrant: generations of chunk sets, behind the collection's alias
+│       │   │   ├── tests/                                                   # Tests of the projection's parts no publication reaches
+│       │   │   │   ├── dense.rs                                             # The embedder's deadline: a port that never answers is dropped
+│       │   │   │   ├── errors.rs                                            # What each refusal of a publication says, and the cause each keeps
+│       │   │   │   ├── lengths.rs                                           # The lengths the sparse vectors are weighed against, with no passage or no term
+│       │   │   │   ├── mod.rs                                               # Tests of the projection's parts no publication reaches
+│       │   │   │   ├── point.rs                                             # Point IDs: the UUIDv5 of the chunk's ID, pinned by Python's uuid
+│       │   │   │   └── qdrant.rs                                            # A Qdrant out of reach: the client's error is the cause of the refusal
+│       │   │   ├── batches.rs                                               # Writing a generation's points a batch at a time, each shown to the caller to journal
+│       │   │   ├── dense.rs                                                 # Dense vectors: a batch embedded in free room within a deadline, then checked
+│       │   │   ├── error.rs                                                 # Why a publication stopped, and the check a generation's collection failed
+│       │   │   ├── mod.rs                                                   # The search projection in Qdrant: generations of chunk sets, behind the collection's alias
+│       │   │   ├── point.rs                                                 # Points: each chunk under the UUIDv5 of its ID, with its two vectors and its payload
+│       │   │   ├── progress.rs                                              # A publication's progress after each batch, which a job journals, and its report
+│       │   │   ├── projection.rs                                            # What a publication works with
+│       │   │   ├── provenance.rs                                            # What a chunk's point carries of its revision: version, source kind, scope tags, sections
+│       │   │   ├── publish.rs                                               # Publishing a chunk set as a generation: built or resumed, checked, then behind the alias
+│       │   │   ├── qdrant.rs                                                # Qdrant through its official Rust client, qdrant-client 1.19, over gRPC
+│       │   │   ├── sparse.rs                                                # Sparse vectors: BM25 weights against the chunk set's average passage length
+│       │   │   └── verify.rs                                                # The structural check of a generation's collection before its alias moves
 │       │   ├── lexical/                                                     # The lexical analyzer of the BM25 route, profile bm25-en-fr/1: it turns a
 │       │   │   ├── analyzer.rs                                              # The profile's name and the terms of a text
 │       │   │   ├── fold.rs                                                  # Folding: a text without its accents, before any other rule reads it
@@ -544,6 +565,23 @@ in place.
 │       │       │   ├── dispositions.rs                                      # The disposition report of a local run: identities, rules, reasons, counts
 │       │       │   ├── mod.rs                                               # The collection this machine names, imported for real and gated on demand
 │       │       │   └── real_import.rs                                       # The ignored run: a collection imported into the kernel data directory, then gated
+│       │       ├── qdrant_projection/                                       # The Qdrant projection (T026), against a fake Qdrant and a real one when named
+│       │       │   ├── fake/                                                # A fake Qdrant: a gRPC server in memory, on a loopback port
+│       │       │   │   ├── collections.rs                                   # The fake's collections: creation, existence, parameters and aliases
+│       │       │   │   ├── mod.rs                                           # A fake Qdrant: a gRPC server in memory, on a loopback port
+│       │       │   │   ├── points.rs                                        # The fake's points: written, checked and normalized as Qdrant does, found and counted
+│       │       │   │   ├── server.rs                                        # The fake's server: its two services on a loopback port, in the test's runtime
+│       │       │   │   └── state.rs                                         # What the fake keeps, and the refusals and hollow answers a test asked for
+│       │       │   ├── alias_moves.rs                                       # The alias moves only to a generation whose collection passes its checks
+│       │       │   ├── backends.rs                                          # The Qdrant servers a test runs against, and what it reads back from them
+│       │       │   ├── built_generations.rs                                 # A generation builds in its own collection; its points, payloads and IDs
+│       │       │   ├── kernel.rs                                            # A kernel holding a complete chunk set to publish, in a scratch directory
+│       │       │   ├── mod.rs                                               # The Qdrant projection (T026), against a fake Qdrant and a real one when named
+│       │       │   ├── models.rs                                            # The embedder the tests publish through, which records and spoils calls on demand
+│       │       │   ├── refused_batches.rs                                   # A batch whose vectors break a check is refused whole
+│       │       │   ├── resumed_builds.rs                                    # An interrupted build resumes after its last journaled batch
+│       │       │   ├── stopped_builds.rs                                    # Refusals before any work, unreadable chunks, and a Qdrant that refuses or is out of reach
+│       │       │   └── support.rs                                           # What the projection's tests share: a publication and the names it gives
 │       │       ├── quality_gate/                                            # The quality gate (T020) through the import, the ledger and the kernel
 │       │       │   ├── gate_report.rs                                       # The report as JSON, and the stops: unknown collection, broken artifact
 │       │       │   ├── kept_dispositions.rs                                 # A disposition is kept: a rerun decides nothing, the import holds stay
@@ -572,6 +610,7 @@ in place.
 │       │       ├── live_router.rs                                           # What the live tests share: the router their variables name, and its embedder's model card
 │       │       ├── main.rs                                                  # The crate's integration tests, built as one test crate: each module proves
 │       │       ├── prepare_live.rs                                          # knowledge prepare on this machine's kernel as a leased job, live: the chunk count, wall time and router calls
+│       │       ├── publish_live.rs                                          # A chunk set of this machine's kernel published into Qdrant as a leased job, live: the embed and upsert rates
 │       │       ├── quality_ledger.rs                                        # maestro-quality-ledger/1: strict rules a line; a missing ledger is empty
 │       │       ├── router_parity.rs                                         # The router tokenizer's parity with the native counter, live: an explicit
 │       │       ├── suite_contract.rs                                        # maestro-suite/1: a suite, one JSON line per question, parses into typed

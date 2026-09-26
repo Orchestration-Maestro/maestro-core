@@ -16,11 +16,14 @@
 //!
 //! Preparing the imported revisions for search starts with counting tokens as
 //! the selected embedder counts them, through the model router ([`prepare`]).
+//! A complete chunk set is then published as a search generation in Qdrant,
+//! each chunk represented by a dense and a sparse vector ([`index`]).
 
 pub mod collection;
 pub mod corpus;
 pub mod eval;
 pub mod import;
+pub mod index;
 pub mod lexical;
 pub mod prepare;
 pub mod quality;

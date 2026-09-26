@@ -61,11 +61,8 @@ pub(crate) fn parse_args(args: &[String]) -> Result<Args, Error> {
         return Err(Error(USAGE.into()));
     };
     let mut values = BTreeMap::new();
-    let mut pairs = flags.chunks_exact(2);
-    for pair in &mut pairs {
-        let [flag, value] = pair else {
-            return Err(Error(USAGE.into()));
-        };
+    let (pairs, remainder) = flags.as_chunks::<2>();
+    for [flag, value] in pairs {
         if !FLAGS.contains(&flag.as_str())
             || value.is_empty()
             || values.insert(flag.as_str(), value.as_str()).is_some()
@@ -73,7 +70,7 @@ pub(crate) fn parse_args(args: &[String]) -> Result<Args, Error> {
             return Err(Error(USAGE.into()));
         }
     }
-    if !pairs.remainder().is_empty() {
+    if !remainder.is_empty() {
         return Err(Error(USAGE.into()));
     }
     let output = values.get("--output").ok_or_else(|| Error(USAGE.into()))?;

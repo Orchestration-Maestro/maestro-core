@@ -111,6 +111,46 @@ path = "crates/maestro-knowledge/src/quality/mod.rs"
 item = "eligible"
 reason = "the quality gate owns which revisions go on: the preparation reads them through it rather than deciding again, and the gate's contract tests call it from outside the crate's sources"
 
+# The lexical analyzer's passage side (T040), public: the index weighs a
+# generation's passages through it (T026), which the rule counts, and the
+# analyzer's contract tests call it from outside the crate's sources, which it
+# does not; a query is weighed through query_vector instead.
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-knowledge/src/lexical/mod.rs"
+item = "AverageLength"
+reason = "the analyzer's public passage weights: the index weighs a generation's passages through them, and the analyzer's contract tests call them from outside the crate's sources"
+
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-knowledge/src/lexical/mod.rs"
+item = "Passage"
+reason = "the analyzer's public passage weights: the index weighs a generation's passages through them, and the analyzer's contract tests call them from outside the crate's sources"
+
+# The second versions qdrant-client 1.19 forces (ADR-0020), each removed when
+# the crates that hold it move to the version maestro-core uses: syn 2 for the
+# procedural macros of its gRPC stack, base64 0.22 for tonic, and getrandom 0.2
+# and windows-sys 0.52 for ring, under tonic's TLS.
+[[exception]]
+rule = "DEP-001"
+path = "syn@2"
+reason = "qdrant-client 1.19 requires it (prost-derive 0.14, derive_builder 0.20, pin-project-internal and tracing-attributes under tonic; ADR-0020); remove when they move to syn 3, the version maestro-core uses"
+
+[[exception]]
+rule = "DEP-001"
+path = "base64@0.22.1"
+reason = "qdrant-client 1.19 requires it (tonic 0.14; ADR-0020); remove when tonic moves to base64 0.23, the version maestro-core uses"
+
+[[exception]]
+rule = "DEP-001"
+path = "getrandom@0.2.17"
+reason = "qdrant-client 1.19 requires it (ring 0.17 under tonic's TLS; ADR-0020); remove when ring moves to getrandom 0.4, the version maestro-core uses"
+
+[[exception]]
+rule = "DEP-001"
+path = "windows-sys@0.52.0"
+reason = "qdrant-client 1.19 requires it (ring 0.17 under tonic's TLS; ADR-0020); remove when ring moves to windows-sys 0.61, the version maestro-core uses"
+
 # The words this repository means that the spell checker reads as mistakes:
 # Exemple, French test input for the canonicalizer; RTO, the recovery time
 # objective beside RPO; WRONLY, the POSIX open flag as rustix names it;
@@ -121,7 +161,8 @@ reason = "the quality gate owns which revisions go on: the preparation reads the
 # responsable, ressource, restauration, seconde, sur and valide, French words
 # of the synthetic collection in tests/fixtures/synthetic; celle, celles and
 # toi, French stopwords of the lexical analyzer, as sur is too, and requet and
-# schedul, stems its golden test pins.
+# schedul, stems its golden test pins; flate, of flate2, the compression crate
+# qdrant-client's tonic brings, which supply-chain/config.toml exempts.
 [typos]
 words = [
   "Exemple",
@@ -150,4 +191,5 @@ words = [
   "toi",
   "requet",
   "schedul",
+  "flate",
 ]

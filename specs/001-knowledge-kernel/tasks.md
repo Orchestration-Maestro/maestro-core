@@ -15,7 +15,7 @@ and evaluation) and `maestro` (CLI and MCP server), with Qdrant as the search
 projection and the model router serving every model. See [plan.md](plan.md)
 for the decisions (D1–D16) and the research (R1–R8).
 
-**Tech Stack:** Rust 1.98.1 (MSRV 1.85, then 1.88 from T034), rusqlite 0.40,
+**Tech Stack:** Rust 1.98.1 (MSRV 1.85, then 1.88 from T026), rusqlite 0.40,
 qdrant-client 1.19, rmcp 3.4, tokio 1.53, reqwest 0.13, clap 4.6, schemars 1.2,
 Qdrant 1.19, `maestro-model-router`.
 
@@ -651,8 +651,8 @@ cli/search.rs}`. **Requirements:** FR-S1-008, FR-S1-012.
   truncated and says so; `knowledge search` and `knowledge get` print
   versioned JSON.
 - [ ] **Step 2: Implement** the server with `rmcp` 3.4.1 and the two
-  commands, and raise the workspace MSRV to 1.88, the lowest `rmcp` accepts
-  (R3).
+  commands; the workspace MSRV is 1.88 already, the lowest `rmcp` accepts,
+  raised by T026 for `tonic` 0.14 (R3).
 - [ ] **Step 3: Gate and pull request** `feat: serve knowledge over MCP`.
 
 ### T035 [P] `ask` with its guards [US4]
