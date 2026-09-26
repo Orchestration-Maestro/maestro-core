@@ -224,9 +224,10 @@ impl fmt::Display for Unresolved {
                 formatter,
                 "{sections} sections have this heading path, and no occurrence says which"
             ),
-            Self::NotRepeated => {
-                formatter.write_str("one section has this heading path, so it takes no occurrence")
-            }
+            Self::NotRepeated => formatter.write_str(
+                "this heading path names one section, or the document whole, so it takes no \
+                 occurrence",
+            ),
             Self::PastLastRepeat {
                 occurrence,
                 sections,

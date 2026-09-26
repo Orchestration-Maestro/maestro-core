@@ -1,12 +1,12 @@
 //! What the check reports as problems: a name that gives no one section nor
 //! a document without sections, a `source_ref` that no manifest line
 //! declares, or that several declare with different bytes, a question that
-//! names one section or document twice, a document that cannot be read, a
-//! manifest line that is not a corpus entry, a file that is not a suite and a
-//! directory without one; and, without a problem, a document whose file
-//! changed since its manifest line, a `source_ref` that several lines declare
-//! with the same bytes, and two documents without sections named by one
-//! question.
+//! names one section or document twice, a document that cannot be read or
+//! that canonicalizes as failed, a manifest line that is not a corpus entry,
+//! a file that is not a suite and a directory without one; and, without a
+//! problem, a document whose file changed since its manifest line, a
+//! `source_ref` that several lines declare with the same bytes, and two
+//! documents without sections named by one question.
 
 use super::{
     check::Counts,
@@ -169,6 +169,35 @@ fn a_document_that_cannot_be_read_is_a_problem_of_each_question_that_names_it() 
         "{second}"
     );
     assert_eq!(third, "files: garbled: garbled.md is not UTF-8");
+}
+
+#[test]
+fn a_document_that_canonicalizes_as_failed_is_a_problem_of_each_question_that_names_it() {
+    let scratch = corpus();
+    // Its front matter contradicts the title its manifest line gives.
+    let failed = "---\ntitle: Another page\n---\n# Rotation\n\nEvery day.\n";
+    let failed_ref = "https://handbook.example.org/failed";
+    scratch.document("failed.md", failed.as_bytes());
+    scratch.manifest(&[
+        line("rotation.md", ROTATION.as_bytes(), ROTATION_REF),
+        line("failed.md", failed.as_bytes(), failed_ref),
+    ]);
+    scratch.suite(
+        "failures",
+        &[
+            question("failed", &json!([name(failed_ref, &["Rotation"])])),
+            question("found", &json!([name(ROTATION_REF, &["Rotation"])])),
+        ],
+    );
+    let checked = scratch.check();
+    assert_eq!(
+        checked.problems,
+        [
+            "failures: failed: failed.md canonicalizes as failed, and no generation holds a failed \
+          revision"
+        ]
+    );
+    assert_eq!(checked.suites["failures"].sections, 1);
 }
 
 #[test]

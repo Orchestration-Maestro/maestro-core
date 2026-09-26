@@ -172,7 +172,10 @@ fn a_refusal_says_why_the_name_gives_no_one_section() {
     for (refusal, says) in [
         (Unresolved::NoSection, "no section"),
         (Unresolved::Ambiguous { sections: 2 }, "2 sections"),
-        (Unresolved::NotRepeated, "takes no occurrence"),
+        (
+            Unresolved::NotRepeated,
+            "names one section, or the document whole, so it takes no occurrence",
+        ),
         (
             Unresolved::PastLastRepeat {
                 occurrence,

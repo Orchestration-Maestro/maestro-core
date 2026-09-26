@@ -81,8 +81,7 @@ impl<E: fmt::Display> fmt::Display for RunError<E> {
                 source_ref,
             } => write!(
                 formatter,
-                "question {question} expects a section of {source_ref}, which the generation \
-                 does not hold"
+                "question {question} expects {source_ref}, which the generation does not hold"
             ),
             Self::Unresolved {
                 question,

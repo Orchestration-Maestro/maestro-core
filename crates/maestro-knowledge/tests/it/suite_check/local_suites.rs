@@ -6,7 +6,10 @@
 //! It prints the counts of each suite, the documents whose file changed since
 //! its manifest line, every problem, and the leads of the unanswerable
 //! questions with the questions not probed, as JSON, and fails on a problem,
-//! never on a lead: an explicit local run, never a pass when ignored.
+//! never on a lead: an explicit local run, never a pass when ignored. It
+//! reads the corpus, not a kernel: a document the quality gate holds back
+//! shows up only when the runner resolves the suite in a generation, after
+//! the import and the gate.
 
 use super::check::check;
 use serde_json::json;

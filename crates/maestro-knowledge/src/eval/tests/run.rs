@@ -319,7 +319,7 @@ fn a_document_the_lookup_does_not_find_refuses_the_run() {
     );
     assert_eq!(
         error.to_string(),
-        format!("question lost expects a section of {missing}, which the generation does not hold")
+        format!("question lost expects {missing}, which the generation does not hold")
     );
 }
 

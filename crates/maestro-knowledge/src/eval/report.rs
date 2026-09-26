@@ -81,8 +81,8 @@ pub enum Schema {
     V1,
 }
 
-/// What one question got: the rank of each section it expects, the size of
-/// its bundle, how long its retrieval took, and its failures.
+/// What one question got: the rank of each section and document it expects,
+/// the size of its bundle, how long its retrieval took, and its failures.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[non_exhaustive]
@@ -91,7 +91,8 @@ pub struct QuestionResult {
     pub id: String,
     /// Whether any section answers it.
     pub answerable: bool,
-    /// The sections it expects, in the suite's order, each with its rank.
+    /// The sections and documents it expects, in the suite's order, each
+    /// with its rank.
     #[serde(deserialize_with = "shape::objects")]
     pub expected: Vec<Expected>,
     /// How many passages its bundle held: none is an abstention.
