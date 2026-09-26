@@ -170,7 +170,8 @@ has one consumer in S1.
 ### D1 Kernel store
 
 SQLite through `rusqlite` (bundled), WAL, `busy_timeout` 5 s, foreign keys on,
-short transactions with no I/O inside them, one writer connection behind a
+recursive triggers on (a `REPLACE` fires the delete triggers of the rows it
+removes), short transactions with no I/O inside them, one writer connection behind a
 mutex and readers on their own connections. Migrations are embedded SQL files,
 numbered in advance per task, applied in number order and recorded by name in
 a `migrations` table, so parallel tasks can merge in any order; each creates

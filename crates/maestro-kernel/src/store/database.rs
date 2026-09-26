@@ -188,11 +188,16 @@ pub fn pending_migrations(data: &Path) -> Result<Vec<&'static str>, Error> {
 }
 
 /// `connection` with the settings every connection of the kernel has: a 5 s
-/// wait for another's lock, and foreign keys enforced. rusqlite and the
-/// bundled SQLite default to both; the kernel does not depend on it.
+/// wait for another's lock, foreign keys enforced, and recursive triggers, so
+/// that a row a `REPLACE` removes fires its delete triggers. Without them,
+/// an `INSERT OR REPLACE` or `UPDATE OR REPLACE` that names a row's rowid
+/// would delete a row the migrations say is never deleted. rusqlite and the
+/// bundled SQLite default to the first two; the kernel does not depend on it.
+/// No trigger of the kernel writes, so none fires another.
 pub(super) fn configured(connection: Connection) -> Result<Connection, Error> {
     connection.busy_timeout(BUSY_TIMEOUT)?;
     connection.pragma_update(None, "foreign_keys", true)?;
+    connection.pragma_update(None, "recursive_triggers", true)?;
     Ok(connection)
 }
 

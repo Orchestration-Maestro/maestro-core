@@ -41,3 +41,26 @@ fn a_report_is_never_updated_replaced_nor_deleted() {
         "the report is as it was recorded"
     );
 }
+
+#[test]
+fn a_report_is_never_replaced_through_its_rowid() {
+    let scratch = Scratch::new();
+    let database = scratch.open();
+    let recorded = database
+        .record_eval_report(&report("synthetic", SYNTHETIC))
+        .unwrap();
+    let id = recorded.id;
+    // A new id passes the insert's trigger; the rowid is the report's own.
+    let statement = format!(
+        "INSERT OR REPLACE INTO eval_reports
+           (rowid, id, collection_id, generation_id, suite, digest)
+         SELECT rowid, '01ARZ3NDEKTSV4RRFFQ69G5FAV', collection_id, generation_id, 'other', digest
+         FROM eval_reports WHERE id = '{id}'"
+    );
+    assert_eq!(
+        execute(&database, &statement).map_err(|error| error.to_string()),
+        Err("an evaluation report is never deleted: it is a measurement".to_owned())
+    );
+    let scopes = ScopeSet::default_workspace();
+    assert_eq!(database.eval_report(&scopes, id).unwrap(), Some(recorded));
+}

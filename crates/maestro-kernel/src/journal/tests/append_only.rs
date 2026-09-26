@@ -3,6 +3,7 @@
 //! stores.
 
 use super::support::{Scratch, imported, whole};
+use crate::store;
 use serde_json::json;
 
 /// Records one event, then runs `sql` on a connection outside the kernel and
@@ -56,6 +57,33 @@ fn an_event_is_never_replaced_by_an_insert() {
                   VALUES ('{id}', 'collection/a', 1, 'x', 'y', 'z', '{}')
                   ON CONFLICT (id) DO UPDATE SET data = excluded.data";
     assert_eq!(refused(upsert), replaced);
+}
+
+#[test]
+fn an_event_is_never_replaced_through_its_rowid() {
+    let scratch = Scratch::new();
+    let database = scratch.open();
+    let data = json!({"documents": 3});
+    let event = database
+        .record(&imported("collection/a", "import/1", &data))
+        .unwrap();
+    // Another ID in another stream passes the insert's trigger; the rowid is
+    // the event's own.
+    let replace = format!(
+        "INSERT OR REPLACE INTO events (rowid, id, stream, sequence, type, subject, scope, data)
+         SELECT rowid, '01ARZ3NDEKTSV4RRFFQ69G5FAV', 'collection/b', 1, 'x', 'y', 'z', '{{}}'
+         FROM events WHERE id = '{}'",
+        event.id
+    );
+    let refusal = database
+        .write(|transaction| Ok::<_, store::Error>(transaction.execute(&replace, [])))
+        .unwrap()
+        .map_err(|error| error.to_string());
+    assert_eq!(
+        refusal,
+        Err("the journal is append-only: an event is never deleted".to_owned())
+    );
+    assert_eq!(whole(&database, "collection/a"), [event]);
 }
 
 #[test]
