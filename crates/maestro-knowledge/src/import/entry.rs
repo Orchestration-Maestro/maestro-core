@@ -94,7 +94,10 @@ impl From<store::Error> for NotImported {
 /// that is held is recorded with its hold in one write, so none is ever
 /// recorded undecided. A revision the kernel records already is left as it
 /// is: nothing is written for it but the hold it lacks, when its
-/// `source_ref` became shared after an earlier import recorded it.
+/// `source_ref` became shared after an earlier import recorded it. One whose
+/// document another source of the collection holds is refused, as a line
+/// that differs by one byte is: a revision's ID names its document, not
+/// its source.
 pub(super) fn import(
     target: &Target<'_>,
     corpus: &impl Corpus,
@@ -110,6 +113,12 @@ pub(super) fn import(
         .revision(target.scopes, &canonical.revision_id)?
         .is_some()
     {
+        let held_elsewhere = database
+            .document(target.scopes, &document_id)?
+            .is_some_and(|document| document.source_id != target.source);
+        if held_elsewhere {
+            return Err(document::Error::DocumentConflict(document_id).into());
+        }
         match &hold {
             Some(hold) => database.record_disposition(hold)?,
             None => Recorded::Unchanged,
