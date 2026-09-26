@@ -82,7 +82,8 @@ what it waited for, has merged.
 | `0005` | T016 | `jobs` |
 | `0006` | T021 | `eval_reports` |
 | `0007` | T023 | the guards of `chunk_sets` and `chunks` |
-| `0008` | T030 | `model_cards` |
+| `0008` | S1 polish | the guards of `documents` |
+| `0009` | T030 | `model_cards` |
 
 ## Global Constraints
 
@@ -584,7 +585,7 @@ FR-S1-005, FR-S1-005a, FR-S1-006.
 
 **After:** T021, T026, T027. **Files:** `PRIVATE`: `bakeoff/`;
 `crates/maestro-knowledge/src/eval/bakeoff.rs`,
-`migrations/0008_model_cards.sql`. **Requirements:** FR-S1-014, ADR-0011.
+`migrations/0009_model_cards.sql`. **Requirements:** FR-S1-014, ADR-0011.
 
 - [ ] **Step 1: List candidates** per role from 05 §3.2 with size, licence and
   source.

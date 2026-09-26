@@ -9,8 +9,9 @@
 //! other before it writes, so each id forms one segment of its scope's path
 //! and no record reaches into another's scope.
 //!
-//! A document keeps the collection, source and source reference it was first
-//! recorded with, and a source reference names one document in each
+//! A document keeps the id, collection, source and source reference it was
+//! first recorded with, whoever writes, so its revisions never move to
+//! another collection, and a source reference names one document in each
 //! collection. Its id, the namespaced hash of its collection and its source
 //! reference (01 §2.1), comes from the import, as a revision's id,
 //! canonicalization's recipe over its bytes and metadata, does.
@@ -48,7 +49,8 @@
 //! The migration `0004_documents` creates every table of the pipeline's
 //! records, those the quality gate and the preparation write included, so no
 //! later task of S1 needs a table of its own; `0007_chunk_sets` adds the
-//! guards of the chunk sets and their chunks.
+//! guards of the chunk sets and their chunks, and `0008_document_guards`
+//! those of the documents.
 
 mod collection;
 mod counts;

@@ -240,7 +240,8 @@ in place.
 │   │   │   ├── 0004_documents.sql                                           # The pipeline's records: collections, sources, documents, revisions, their dispositions, chunk sets, chunks and generations
 │   │   │   ├── 0005_jobs.sql                                                # The jobs table: each job's key, attempt, resource, state, lease and outcome, and its triggers
 │   │   │   ├── 0006_eval_reports.sql                                        # The evaluation reports: each run's collection, generation, suite and report artifact, and the triggers that keep it as recorded
-│   │   │   └── 0007_chunk_sets.sql                                          # The guards of the chunk sets and their chunks: their states, moves and identity, and a complete set's chunks as counted
+│   │   │   ├── 0007_chunk_sets.sql                                          # The guards of the chunk sets and their chunks: their states, moves and identity, and a complete set's chunks as counted
+│   │   │   └── 0008_document_guards.sql                                     # The guards of the documents: each keeps its id, collection, source and source reference
 │   │   ├── src/                                                             # The crate's sources
 │   │   │   ├── artifact/                                                    # Content-addressed artifacts: immutable bytes stored, and read back, by their
 │   │   │   │   ├── digest.rs                                                # A SHA-256 digest: the name every artifact is stored under
@@ -269,6 +270,7 @@ in place.
 │   │   │   │   │   ├── dispositions.rs                                      # Quality dispositions: one per revision, kept once given, read in scope, a hold journaled with it
 │   │   │   │   │   ├── duplicates.rs                                        # Occurrences and near-duplicate groups: each recorded once, a batch in one write, read in scope
 │   │   │   │   │   ├── errors.rs                                            # What the document records' refusals say, and the store's refusals they
+│   │   │   │   │   ├── guards.rs                                            # The guards of migration 0008_document_guards: each trigger refusing raw SQL
 │   │   │   │   │   ├── listing.rs                                           # The collections a set covers, listed in id order; a source's grant never lists its collection
 │   │   │   │   │   ├── mod.rs                                               # Tests of the document records: the documents migration, collections
 │   │   │   │   │   ├── parents.rs                                           # Collections, their sources and their documents: collections and sources
