@@ -78,20 +78,20 @@ pub(in crate::cli) fn run(output: Output, yes: bool) -> Result<ExitCode, Failure
 }
 
 /// What stands between this machine and the search service, as the
-/// environment places it, asking only.
+/// environment places it, asking only, through `tools`: whether the service
+/// is enabled and running.
 ///
 /// # Errors
 ///
 /// As [`survey`], and [`Failure::Failed`] when a directory cannot be
 /// resolved.
-pub(in crate::cli) fn readiness(environment: &Environment) -> Result<Readiness, Failure> {
+pub(in crate::cli) fn readiness(
+    environment: &Environment,
+    tools: &Tools,
+) -> Result<Readiness, Failure> {
     let layout = layout(environment)?;
     match release_for(consts::OS, consts::ARCH) {
-        Ok(release) => Ok(Readiness::Steps(survey(
-            &layout,
-            &release,
-            &Tools::on_path(),
-        )?)),
+        Ok(release) => Ok(Readiness::Steps(survey(&layout, &release, tools)?)),
         Err(_) => Ok(Readiness::ByHand),
     }
 }

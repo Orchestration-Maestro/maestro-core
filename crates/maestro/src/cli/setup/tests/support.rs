@@ -1,7 +1,8 @@
-//! What the install tests share: a scratch home holding the kernel's data
-//! directory and a configuration home, fake `curl`, `tar` and `systemctl`
-//! that log each call, and a small release: an archive holding a stand-in
-//! `qdrant`, with the digests a pin gives them.
+//! What the install tests share, and doctor's check of Qdrant with them: a
+//! scratch home holding the kernel's data directory and a configuration
+//! home, fake `curl`, `tar` and `systemctl` that log each call, and a small
+//! release: an archive holding a stand-in `qdrant`, with the digests a pin
+//! gives them.
 
 use super::super::{release::Release, service::Layout, tools::Tools};
 use maestro_kernel::artifact::Digest;
@@ -20,10 +21,10 @@ use std::{
 /// `data/maestro` is the kernel's data directory, `config` the
 /// configuration home, and `tools` holds the fake tools, their log and
 /// the state of the fake user manager.
-pub(super) struct Home(PathBuf);
+pub(in crate::cli) struct Home(PathBuf);
 
 impl Home {
-    pub(super) fn new() -> Self {
+    pub(in crate::cli) fn new() -> Self {
         static NEXT: AtomicUsize = AtomicUsize::new(0);
         let root = env::temp_dir().join(format!(
             "maestro-cli-setup-{}-{}",
@@ -58,7 +59,7 @@ impl Home {
     }
 
     /// The directory of the scratch home.
-    pub(super) fn root(&self) -> &Path {
+    pub(in crate::cli) fn root(&self) -> &Path {
         &self.0
     }
 
@@ -68,7 +69,7 @@ impl Home {
     }
 
     /// The fake tools.
-    pub(super) fn tools(&self) -> Tools {
+    pub(in crate::cli) fn tools(&self) -> Tools {
         let tools = self.0.join("tools");
         Tools {
             curl: tools.join("curl"),
@@ -111,7 +112,7 @@ impl Home {
     }
 
     /// Each call of a fake tool so far, as `<tool> <arguments>`.
-    pub(super) fn calls(&self) -> Vec<String> {
+    pub(in crate::cli) fn calls(&self) -> Vec<String> {
         fs::read_to_string(self.log())
             .unwrap_or_default()
             .lines()

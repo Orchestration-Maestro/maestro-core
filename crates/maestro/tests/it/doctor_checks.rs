@@ -4,8 +4,6 @@
 //! left as it was; and the kernel's database never created by it, nor
 //! migrated by it or by `maestro status`.
 
-#[cfg(unix)]
-use super::fakes::Fakes;
 use super::{
     machine::{checked, checked_with, nothing_at},
     support::Home,
@@ -77,14 +75,6 @@ fn every_failed_check_names_its_next_action() {
     assert!(
         !home.data().join("kernel.sqlite3").exists(),
         "doctor never creates the kernel's database"
-    );
-    #[cfg(unix)]
-    assert!(
-        Fakes::in_home(&home).calls().iter().all(|call| {
-            call == "systemctl --user is-enabled maestro-qdrant.service"
-                || call == "systemctl --user is-active maestro-qdrant.service"
-        }),
-        "doctor only asks the user manager, and downloads nothing"
     );
 }
 

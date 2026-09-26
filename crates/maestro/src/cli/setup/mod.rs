@@ -10,10 +10,11 @@ mod command;
 mod release;
 mod service;
 #[cfg(test)]
-mod tests;
+pub(super) mod tests;
 mod tools;
 
 pub(super) use command::{Readiness, readiness, run};
 pub(super) use release::{HOST, HTTP_PORT, QDRANT, SERVICE};
 #[cfg(test)]
 pub(super) use service::Step;
+pub(super) use tools::Tools;

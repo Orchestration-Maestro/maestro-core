@@ -65,7 +65,7 @@ pub(in crate::cli) fn run(output: Output) -> Result<ExitCode, Failure> {
     let mut checks = vec![config, bindings_check(&config_dir), database];
     checks.push(artifacts_check(&data, opened.as_ref()));
     checks.push(qdrant_check(&qdrant_address(), || {
-        setup::readiness(&environment)
+        setup::readiness(&environment, &setup::Tools::on_path())
     }));
     checks.push(router_check(router_url(
         env::var_os(ROUTER_VARIABLE).as_deref(),

@@ -58,7 +58,9 @@ impl Fakes {
         path
     }
 
-    /// Each call of a fake tool so far, as `<tool> <arguments>`.
+    /// Each call of a fake tool so far, as `<tool> <arguments>`, which
+    /// setup's own tests read, on the one platform setup installs on.
+    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
     pub(crate) fn calls(&self) -> Vec<String> {
         fs::read_to_string(self.0.join("log"))
             .unwrap_or_default()
