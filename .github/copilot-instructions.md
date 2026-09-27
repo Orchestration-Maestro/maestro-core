@@ -261,7 +261,8 @@ in place.
 │   │   │   ├── 0005_jobs.sql                                                # The jobs table: each job's key, attempt, resource, state, lease and outcome, and its triggers
 │   │   │   ├── 0006_eval_reports.sql                                        # The evaluation reports: each run's collection, generation, suite and report artifact, and the triggers that keep it as recorded
 │   │   │   ├── 0007_chunk_sets.sql                                          # The guards of the chunk sets and their chunks: their states, moves and identity, and a complete set's chunks as counted
-│   │   │   └── 0008_document_guards.sql                                     # The guards of the documents: each keeps its id, collection, source and source reference
+│   │   │   ├── 0008_document_guards.sql                                     # The guards of the documents: each keeps its id, collection, source and source reference
+│   │   │   └── 0010_search.sql                                              # File: 0010 search
 │   │   ├── src/                                                             # The crate's sources
 │   │   │   ├── artifact/                                                    # Content-addressed artifacts: immutable bytes stored, and read back, by their
 │   │   │   │   ├── digest.rs                                                # A SHA-256 digest: the name every artifact is stored under
@@ -403,10 +404,20 @@ in place.
 │   │   │   │   └── mod.rs                                                   # The journal: every change the kernel makes, recorded as an event in one
 │   │   │   ├── retrieval/                                                   # Controlled, scope-bound retrieval and its shared literal search rules
 │   │   │   │   ├── tests/                                                   # Tests for exact identifier search inputs
+│   │   │   │   │   ├── deadlines.rs                                         # Cancellation and real-clock bounds on SQLite reads
+│   │   │   │   │   ├── errors.rs                                            # Nonblank retrieval refusals and preserved store error sources
 │   │   │   │   │   ├── identifiers.rs                                       # Literal identifier boundaries and shared whitespace normalization
-│   │   │   │   │   └── mod.rs                                               # Tests for exact identifier search inputs
+│   │   │   │   │   ├── inventory.rs                                         # Complete, pinned-generation inventory reads
+│   │   │   │   │   ├── mod.rs                                               # Tests for exact identifier search inputs
+│   │   │   │   │   ├── storage.rs                                           # Atomic derived-input, member and readiness writes
+│   │   │   │   │   └── support.rs                                           # Shared scratch records for controlled search-reader tests
+│   │   │   │   ├── error.rs                                                 # Errors from exact, scoped search storage and reads
 │   │   │   │   ├── identifiers.rs                                           # Shared literal identifier matching and query-whitespace normalization
-│   │   │   │   └── mod.rs                                                   # Controlled, scope-bound retrieval and its shared literal search rules
+│   │   │   │   ├── inventory.rs                                             # Exact, bounded inventories over a pinned generation's own member revisions
+│   │   │   │   ├── mod.rs                                                   # Controlled, scope-bound retrieval and its shared literal search rules
+│   │   │   │   ├── read.rs                                                  # Deadline-controlled SQLite readers and scoped chunk-batch loading
+│   │   │   │   ├── types.rs                                                 # Public inputs and results of kernel-owned search operations
+│   │   │   │   └── write.rs                                                 # Atomic writes of exact search derivatives and readiness markers
 │   │   │   ├── scope/                                                       # Scopes and grants: who may see what (docs/architecture/04 §3, building
 │   │   │   │   ├── tests/                                                   # Tests of scopes: their paths and names, what a grant covers, the grants
 │   │   │   │   │   ├── config.rs                                            # config.toml: the local principal's grants, checked whole when read, and

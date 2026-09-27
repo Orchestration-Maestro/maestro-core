@@ -113,6 +113,29 @@ path = "crates/maestro-kernel/src/scope/mod.rs"
 item = "source_path"
 reason = "the scope module writes every source's scope path: the kernel's hold events and maestro-knowledge's import build it"
 
+# Search reads reuse the generation and chunk records as their public pinned
+# identifiers; creating parallel projection-specific record types would split
+# their authority.
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-kernel/src/generation/mod.rs"
+item = "Generation"
+reason = "SearchRead carries the lifecycle generation itself so every kernel search stays pinned to its authoritative collection and chunk set"
+
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-kernel/src/chunk_set/mod.rs"
+item = "Chunk"
+reason = "the scoped search batch reader returns the existing public chunk record rather than copying its digest, span and token count"
+
+# InventoryCount is the strict wire item nested in evidence::Inventory; the
+# reader builds that wire answer without a duplicate projection type.
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-kernel/src/evidence/mod.rs"
+item = "InventoryCount"
+reason = "InventoryCount is the public strict wire item nested in Inventory, which the controlled kernel reader assembles directly"
+
 # The quality gate's reader of the revisions it lets through: the gate owns
 # eligibility, so the preparation (T023) reads it rather than deciding again,
 # and the gate's contract tests call it from outside the crate's sources.

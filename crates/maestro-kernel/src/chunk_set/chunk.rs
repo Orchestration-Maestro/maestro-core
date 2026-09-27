@@ -12,8 +12,8 @@ use rusqlite::{Connection, Row, Transaction, params, types::Type};
 use std::num::TryFromIntError;
 
 /// The columns [`chunk_row`] reads, in its order.
-const COLUMNS: &str = "chunks.id, chunks.revision_id, chunks.section_id, chunks.digest, \
-                       chunks.token_count, chunks.span_start, chunks.span_end";
+pub(crate) const COLUMNS: &str = "chunks.id, chunks.revision_id, chunks.section_id, chunks.digest, \
+                                  chunks.token_count, chunks.span_start, chunks.span_end";
 
 /// A chunk: one passage of a revision, as the chunker prepared and counted it.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -151,7 +151,7 @@ fn read(
 }
 
 /// The chunk of a row of [`COLUMNS`].
-fn chunk_row(row: &Row<'_>) -> rusqlite::Result<Chunk> {
+pub(crate) fn chunk_row(row: &Row<'_>) -> rusqlite::Result<Chunk> {
     let digest: String = row.get(3)?;
     Ok(Chunk {
         id: row.get(0)?,

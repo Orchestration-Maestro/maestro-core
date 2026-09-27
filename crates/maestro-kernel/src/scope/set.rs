@@ -12,7 +12,7 @@ use std::collections::BTreeSet;
 /// nothing.
 ///
 /// [`Database::visible`]: crate::store::Database::visible
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ScopeSet(BTreeSet<Scope>);
 
 impl ScopeSet {

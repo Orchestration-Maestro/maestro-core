@@ -37,6 +37,7 @@ mod state;
 mod tests;
 
 pub use chunk::Chunk;
+pub(crate) use chunk::{COLUMNS, chunk_row};
 pub use error::Error;
 pub use record::{ChunkSet, NewChunkSet};
 pub use state::ChunkSetState;

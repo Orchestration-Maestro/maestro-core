@@ -87,6 +87,35 @@ fn a_new_database_is_created_in_wal_mode_and_migrated() {
 }
 
 #[test]
+fn adding_search_storage_to_an_existing_database_leaves_it_empty() {
+    let scratch = Scratch::new();
+    let earlier: Vec<_> = MIGRATIONS
+        .iter()
+        .copied()
+        .filter(|(name, _)| *name != "0010_search")
+        .collect();
+    drop(scratch.open_with(&earlier).unwrap());
+    assert_eq!(pending_migrations(&scratch.0).unwrap(), ["0010_search"]);
+
+    drop(scratch.open());
+    let reader = scratch.outside();
+    for table in [
+        "chunk_search_inputs",
+        "chunk_set_members",
+        "generation_search",
+        "chunk_search_fts",
+    ] {
+        let count: i64 = reader
+            .query_row(&format!("SELECT count(*) FROM {table}"), [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(count, 0, "{table}");
+    }
+    assert_eq!(names(&reader), sorted(MIGRATIONS));
+}
+
+#[test]
 fn reopening_a_database_applies_nothing_again() {
     let scratch = Scratch::new();
     drop(scratch.open());

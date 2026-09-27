@@ -44,7 +44,7 @@ pub struct InventoryCount {
 
 impl Inventory {
     /// Whether the groups agree with the exact total and wire bounds.
-    pub(super) fn validate(&self) -> Result<(), String> {
+    pub(crate) fn validate(&self) -> Result<(), String> {
         let (total_documents, groups) = match self {
             Self::DocumentsBySet {
                 total_documents,

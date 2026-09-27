@@ -84,6 +84,7 @@ what it waited for, has merged.
 | `0007` | T023 | the guards of `chunk_sets` and `chunks` |
 | `0008` | S1 polish | the guards of `documents` |
 | `0009` | T030 | `model_cards` |
+| `0010` | T029c | search inputs, members and generation readiness |
 
 ## Global Constraints
 
