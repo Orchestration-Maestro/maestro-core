@@ -354,7 +354,7 @@ async fn unicode_windows_preserve_character_boundaries() {
     assert_eq!(result.ranked[0].score, Some(0.9));
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn every_failure_falls_back_in_fused_order_with_a_reason() {
     let reranker_card = card(Role::Reranker, 128);
     let candidates = || {
@@ -395,7 +395,7 @@ async fn every_failure_falls_back_in_fused_order_with_a_reason() {
     assert_unavailable(&result, &["first", "second"]);
     assert!(port.calls.lock().unwrap().is_empty());
 
-    let port = FakePort::new(Reply::Scores(vec![1.0, 0.0]), Duration::from_millis(25));
+    let port = FakePort::delayed_scores(vec![1.0, 0.0], Duration::from_millis(25));
     let result = rerank(
         "q",
         candidates(),
