@@ -5,7 +5,7 @@ use crate::index::QdrantError;
 use qdrant_client::qdrant::{ScoredPoint, value::Kind};
 use std::collections::HashSet;
 
-/// A chunk returned by one independent route, in its Qdrant ranking order.
+/// A chunk returned by one independent route, with its route score.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ScoredChunk {
     /// The chunk's stable ID.
@@ -25,11 +25,8 @@ pub(crate) fn deduplicate(hits: Vec<ScoredChunk>, limit: usize) -> Vec<ScoredChu
         .collect()
 }
 
-/// Converts Qdrant hits to their required payload fields, preserving order.
-pub(super) fn chunks(
-    points: Vec<ScoredPoint>,
-    limit: usize,
-) -> Result<Vec<ScoredChunk>, RouteError> {
+/// Converts Qdrant hits to their required payload fields; `rank` orders them.
+pub(super) fn chunks(points: Vec<ScoredPoint>) -> Result<Vec<ScoredChunk>, RouteError> {
     let mut hits = Vec::with_capacity(points.len());
     for point in points {
         let chunk_id = payload_text(&point, "chunk_id")?;
@@ -43,7 +40,38 @@ pub(super) fn chunks(
             score: f64::from(point.score),
         });
     }
-    Ok(deduplicate(hits, limit))
+    Ok(hits)
+}
+
+/// Orders near-equal scores by ID, then removes duplicates and applies `limit`.
+///
+/// Qdrant's IDF-weighted f32 scores vary by a few ULPs between builds, far
+/// below τ = 1e-5 × max(1, |group leader|); meaningful score gaps are far larger.
+/// A tie group larger than the extra `limit` fetched by each route can still
+/// be truncated by Qdrant, leaving its cutoff order-dependent.
+pub(crate) fn rank(hits: Vec<ScoredChunk>, limit: usize) -> Vec<ScoredChunk> {
+    let mut hits = hits;
+    hits.sort_by(|left, right| right.score.total_cmp(&left.score));
+    let hits_len = hits.len();
+    let mut group_start = 0;
+    while group_start < hits_len {
+        let Some(group_tail) = hits.get_mut(group_start..) else {
+            break;
+        };
+        let Some(leader) = group_tail.first().map(|hit| hit.score) else {
+            break;
+        };
+        let tolerance = 1e-5 * leader.abs().max(1.0);
+        let group_len = group_tail
+            .iter()
+            .take_while(|hit| leader - hit.score <= tolerance)
+            .count()
+            .max(1); // Always advance past the leader.
+        let (group, remaining) = group_tail.split_at_mut(group_len);
+        group.sort_by(|left, right| left.chunk_id.cmp(&right.chunk_id));
+        group_start = hits_len.saturating_sub(remaining.len());
+    }
+    deduplicate(hits, limit)
 }
 
 /// Gets a string payload field from one Qdrant hit.
@@ -57,4 +85,72 @@ fn payload_text(point: &ScoredPoint, key: &str) -> Result<String, RouteError> {
 /// Wraps a malformed answer from Qdrant as an invalid answer error.
 fn invalid_answer(reason: &str) -> RouteError {
     RouteError::Qdrant(QdrantError::InvalidAnswer(reason.to_owned()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn scores_within_the_tie_tolerance_are_ordered_by_id_independent_of_input_order() {
+        let first = rank(
+            vec![hit("c", 1.0), hit("a", 0.999_995), hit("b", 0.999_991)],
+            3,
+        );
+        let second = rank(
+            vec![hit("b", 0.999_991), hit("c", 1.0), hit("a", 0.999_995)],
+            3,
+        );
+        assert_eq!(first, second);
+        assert_eq!(ids(&first), ["a", "b", "c"]);
+    }
+
+    #[test]
+    fn score_gaps_larger_than_the_tie_tolerance_keep_score_order() {
+        let result = rank(vec![hit("a", 0.999_98), hit("z", 1.0)], 2);
+        assert_eq!(ids(&result), ["z", "a"]);
+    }
+
+    #[test]
+    fn scaled_tolerance_groups_ulp_noise_but_keeps_real_score_gaps() {
+        let leader = 10.0_f32;
+        let one_ulp_below = f32::from_bits(leader.to_bits() - 1);
+        let two_ulps_below = f32::from_bits(leader.to_bits() - 2);
+        let result = rank(
+            vec![
+                hit("z", leader),
+                hit("b", one_ulp_below),
+                hit("a", two_ulps_below),
+                hit("m", 9.99),
+            ],
+            4,
+        );
+        assert_eq!(ids(&result), ["a", "b", "z", "m"]);
+    }
+
+    #[test]
+    fn tie_group_crossing_the_limit_keeps_the_lowest_chunk_ids() {
+        let result = rank(
+            vec![
+                hit("z", 1.0),
+                hit("b", 0.999_996),
+                hit("a", 0.999_993),
+                hit("outside-group", 0.5),
+            ],
+            2,
+        );
+        assert_eq!(ids(&result), ["a", "b"]);
+    }
+
+    fn hit(chunk_id: &str, score: f32) -> ScoredChunk {
+        ScoredChunk {
+            chunk_id: chunk_id.to_owned(),
+            revision_id: "revision".to_owned(),
+            score: f64::from(score),
+        }
+    }
+
+    fn ids(chunks: &[ScoredChunk]) -> Vec<&str> {
+        chunks.iter().map(|chunk| chunk.chunk_id.as_str()).collect()
+    }
 }

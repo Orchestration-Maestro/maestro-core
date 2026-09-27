@@ -2,7 +2,7 @@
 
 use super::{
     error::RouteError,
-    results::{ScoredChunk, chunks},
+    results::{ScoredChunk, chunks, rank},
 };
 use crate::{
     lexical,
@@ -39,10 +39,10 @@ pub async fn search_bm25(query: &Query<'_>) -> Result<Vec<ScoredChunk>, RouteErr
                 indices: vector.indices().to_vec(),
                 values: vector.values().to_vec(),
             },
-            query.limit,
+            query.limit.saturating_mul(2),
             scope_filter(query.scopes),
         )
         .await
         .map_err(RouteError::Qdrant)?;
-    chunks(points, query.limit)
+    Ok(rank(chunks(points)?, query.limit))
 }

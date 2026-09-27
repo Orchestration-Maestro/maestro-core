@@ -2,7 +2,7 @@
 
 use super::{
     error::{RouteError, VectorError},
-    results::{ScoredChunk, chunks},
+    results::{ScoredChunk, chunks, rank},
 };
 use crate::{
     index::embedding_profile,
@@ -87,12 +87,12 @@ pub async fn search_dense<P: ModelPort>(
         .query_dense(
             &query.collection(),
             vector.clone(),
-            query.limit,
+            query.limit.saturating_mul(2),
             scope_filter(query.scopes),
         )
         .await
         .map_err(RouteError::Qdrant)?;
-    chunks(points, query.limit)
+    Ok(rank(chunks(points)?, query.limit))
 }
 
 /// Refuses an embedding whose shape or values cannot be used as a Qdrant vector.

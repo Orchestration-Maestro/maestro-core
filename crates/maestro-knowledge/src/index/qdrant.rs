@@ -147,6 +147,7 @@ impl Qdrant {
 
     /// Queries the named dense vector `DENSE`, applying `filter` in Qdrant
     /// before the top `limit` points are ranked.
+    /// The search stays approximate, Qdrant's default; exact search is never asked.
     ///
     /// # Errors
     ///
@@ -174,6 +175,7 @@ impl Qdrant {
 
     /// Queries the named sparse vector `SPARSE`, applying `filter` in Qdrant
     /// before the top `limit` points are ranked.
+    /// The search stays approximate, Qdrant's default; exact search is never asked.
     ///
     /// # Errors
     ///
