@@ -867,6 +867,10 @@ name = "maestro-conventions"
 version = "0.1.0"
 dependencies = [
  "pulldown-cmark",
+ "rusqlite",
+ "serde_json",
+ "sha2",
+ "unicode-normalization",
 ]
 
 [[package]]

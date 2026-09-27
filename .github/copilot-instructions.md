@@ -272,9 +272,30 @@ in place.
 │   │   └── tokenizer-contract.json                                          # JSON data: tokenizer contract
 │   ├── maestro-conventions/                                                 # Maestro conventions
 │   │   ├── src/                                                             # The crate's sources
+│   │   │   ├── bin/                                                         # Binaries, one file per executable
+│   │   │   │   └── maestro-privacy.rs                                       # CLI for a private-content fingerprint bank and Git-object scan
+│   │   │   ├── conventions/                                                 # Public helpers used by repository policy checks
+│   │   │   │   ├── files.rs                                                 # Lists repository files while excluding generated output
+│   │   │   │   ├── lines.rs                                                 # Counts significant source lines for policy size checks
+│   │   │   │   ├── links.rs                                                 # Checks relative Markdown links and heading anchors
+│   │   │   │   ├── mod.rs                                                   # Public helpers used by repository policy checks
+│   │   │   │   ├── personal_directories.rs                                  # Detects absolute paths naming a user's home directory
+│   │   │   │   └── test_support.rs                                          # Shared scratch-directory helpers for unit tests
+│   │   │   ├── privacy/                                                     # Private-content fingerprinting and outgoing Git-object scanning
+│   │   │   │   ├── bank.rs                                                  # Builds, authenticates and queries the private fingerprint bank
+│   │   │   │   ├── cli.rs                                                   # Parses privacy CLI arguments and returns location-only output
+│   │   │   │   ├── git.rs                                                   # Scans explicit outgoing Git objects against authenticated fingerprints
+│   │   │   │   ├── git_objects.rs                                           # Reads Git object graphs without checking out candidate content
+│   │   │   │   ├── lookup.rs                                                # Reuses prepared fingerprint lookups during one private-content scan
+│   │   │   │   ├── mac.rs                                                   # Computes versioned HMAC-SHA-256 fingerprints over framed content
+│   │   │   │   ├── mod.rs                                                   # Private-content fingerprinting and outgoing Git-object scanning
+│   │   │   │   └── normalize.rs                                             # Normalizes private text and fingerprints complete token windows
 │   │   │   └── lib.rs                                                       # Helpers for the repository's policy tests: the files the repository holds
 │   │   ├── tests/                                                           # Integration tests
-│   │   │   └── policies.rs                                                  # The repository's policies, checked on every pull request by cargo test
+│   │   │   └── it/                                                          # It
+│   │   │       ├── main.rs                                                  # Integration tests for the conventions crate
+│   │   │       ├── policy_invariants.rs                                     # The repository's policies, checked on every pull request by cargo test
+│   │   │       └── private_content.rs                                       # The privacy CLI refuses invented private content without disclosing it
 │   │   └── Cargo.toml                                                       # Crate manifest: Tests that hold the maestro-core repository to its own policies
 │   ├── maestro-kernel/                                                      # Maestro kernel
 │   │   ├── migrations/                                                      # The kernel database's migrations, embedded and applied in number order
@@ -882,6 +903,7 @@ in place.
 │   └── standards/                                                           # Standards
 │       ├── engineering.md                                                   # Engineering rules in maestro-core
 │       ├── northstar.md                                                     # Northstar for maestro-core
+│       ├── privacy.md                                                       # Private-content refusal
 │       └── security.md                                                      # Security rules in maestro-core
 ├── schemas/                                                                 # The JSON Schemas this repository publishes, each generated from its Rust type
 │   └── events/                                                              # The JSON Schema of each public event's data (07 §3.2), generated from its Rust type in journal/knowledge.rs

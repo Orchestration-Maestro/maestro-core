@@ -18,8 +18,10 @@ repository; this page is the working summary.
    uses one integration pull request; see the linked S1 workflow above.
 3. Conventional titles, lower case after the type, subject at most 71
    characters, lines at most 80.
-4. No personal path, secret or vendor-private material: `maestro-conventions`
-   refuses them, and vendor material lives in the private collection (ADR-0009).
+4. No personal path, secret or vendor-private material. Public conventions checks
+   enforce structural/path rules and synthetic scanner tests; they do not compare
+   private content. Before a public push, the owner preflight uses
+   `maestro-privacy` with the external private bank (ADR-0009).
 5. Files stay within 500 counted lines; functions within 100 lines,
    5 parameters and complexity 15. Split rather than allow.
 6. Canonicalization identities and fixture bytes change only through a recorded

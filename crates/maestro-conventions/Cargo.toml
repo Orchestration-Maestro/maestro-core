@@ -6,9 +6,18 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 publish.workspace = true
+autotests = false
+
+[[test]]
+name = "integration"
+path = "tests/it/main.rs"
 
 [lints]
 workspace = true
 
 [dependencies]
 pulldown-cmark.workspace = true
+rusqlite.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+unicode-normalization.workspace = true
