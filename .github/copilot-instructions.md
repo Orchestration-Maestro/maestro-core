@@ -371,6 +371,7 @@ in place.
 │   │   │   │   ├── tests/                                                   # Tests of the model gateway: model cards, the router client against a stub
 │   │   │   │   │   ├── card.rs                                              # Tests of model cards: strict JSON artifacts whose digest is their
 │   │   │   │   │   ├── catalog.rs                                           # The router's catalog: GET /v1/models in no room; refusals kept, a bad entry name an invalid answer
+│   │   │   │   │   ├── chat.rs                                              # Chat sends one bounded, non-streaming prompt and refuses unusable replies
 │   │   │   │   │   ├── fake.rs                                              # Tests of the deterministic fake: its outputs are fixed by its inputs, the
 │   │   │   │   │   ├── fixture.rs                                           # What the gateway's tests share: a scratch store, a card for each role, and
 │   │   │   │   │   ├── mod.rs                                               # Tests of the model gateway: model cards, the router client against a stub

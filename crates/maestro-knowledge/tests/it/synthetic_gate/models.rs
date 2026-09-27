@@ -3,7 +3,7 @@
 use maestro_kernel::{
     artifact::{Digest, Store},
     gateway::{
-        CardError, CardFields, Error, FakeModels, Limits, Message, ModelCard, ModelPort, Role,
+        CardError, CardFields, ChatRequest, Error, FakeModels, Limits, ModelCard, ModelPort, Role,
         Room, RouterEntry,
     },
 };
@@ -147,9 +147,9 @@ impl ModelPort for SyntheticModels {
         &self,
         card: &ModelCard,
         room: Room,
-        messages: &[Message],
+        request: &ChatRequest,
     ) -> Result<String, Error> {
-        FakeModels.chat(card, room, messages).await
+        FakeModels.chat(card, room, request).await
     }
 }
 

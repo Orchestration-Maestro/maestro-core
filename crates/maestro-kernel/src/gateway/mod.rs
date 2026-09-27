@@ -20,6 +20,6 @@ mod tests;
 pub use card::{CardError, CardFields, Limits, ModelCard, Role, RouterEntry, SuiteResult};
 pub use card_v2::CardIdentity;
 pub use fake::FakeModels;
-pub use port::{Error, Message, ModelPort, Room, Speaker};
+pub use port::{ChatRequest, Error, MAX_CHAT_OUTPUT_TOKENS, Message, ModelPort, Room, Speaker};
 pub use reqwest::Url;
 pub use router::RouterClient;

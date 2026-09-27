@@ -1,7 +1,9 @@
 //! What the gateway's tests share: a scratch store, a card for each role, and
 //! the values those cards record.
 
-use super::super::{CardFields, Limits, ModelCard, Role, RouterEntry, SuiteResult};
+use super::super::{
+    CardFields, ChatRequest, Limits, Message, ModelCard, Role, RouterEntry, SuiteResult,
+};
 use crate::artifact::{Digest, Store};
 use std::{
     env, fs,
@@ -93,4 +95,9 @@ pub(super) fn card_of(fields: &CardFields) -> ModelCard {
 /// The card of [`fields`] for `role`.
 pub(super) fn card(role: Role) -> ModelCard {
     card_of(&fields(role))
+}
+
+/// A test-only chat request capped to 400 output tokens.
+pub(super) fn chat_request(messages: &[Message]) -> ChatRequest {
+    ChatRequest::new(messages.to_vec(), 400)
 }

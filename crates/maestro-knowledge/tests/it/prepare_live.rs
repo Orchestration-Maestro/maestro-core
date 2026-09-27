@@ -20,7 +20,7 @@
 use super::live_router::{embedder_card, required};
 use maestro_kernel::{
     artifact::Store,
-    gateway::{Error, Message, ModelCard, ModelPort, Room, RouterClient},
+    gateway::{ChatRequest, Error, ModelCard, ModelPort, Room, RouterClient},
     job::{JobState, NewJob},
     paths::{self, Environment},
     scope::{Config, LOCAL, Scope},
@@ -79,9 +79,9 @@ impl ModelPort for Counted {
         &self,
         card: &ModelCard,
         room: Room,
-        messages: &[Message],
+        request: &ChatRequest,
     ) -> Result<String, Error> {
-        self.client.chat(card, room, messages).await
+        self.client.chat(card, room, request).await
     }
 }
 

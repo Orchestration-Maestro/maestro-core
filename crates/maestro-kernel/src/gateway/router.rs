@@ -3,12 +3,12 @@
 
 use super::{
     card::{ModelCard, Role, RouterEntry},
-    port::{Error, Message, ModelPort, Room, embedder_dimensions, require},
+    port::{ChatRequest, Error, ModelPort, Room, embedder_dimensions, require},
 };
 use crate::artifact::Digest;
 use reqwest::{Client, RequestBuilder, Url};
 use serde::{Deserialize, de::DeserializeOwned};
-use serde_json::{Value, json};
+use serde_json::{Map, Value, json};
 use std::{
     collections::HashSet,
     sync::{Mutex, PoisonError},
@@ -18,6 +18,10 @@ use std::{
 /// (T002): with its one value, `free`, the router refuses rather than unload
 /// another model.
 const ROOM_HEADER: &str = "X-Model-Router-Room";
+/// Maximum buffered HTTP chat body, including JSON escaping and metadata.
+const MAX_CHAT_BODY_BYTES: usize = 262_144;
+/// Maximum decoded answer content accepted from the model.
+const MAX_CHAT_CONTENT_BYTES: usize = 32_768;
 
 /// A client of the model router. Each call goes to the entry its card names,
 /// after the card is checked against what the model's server reports, and
@@ -200,17 +204,42 @@ impl ModelPort for RouterClient {
         &self,
         card: &ModelCard,
         room: Room,
-        messages: &[Message],
+        request: &ChatRequest,
     ) -> Result<String, Error> {
-        require(card, Role::Answerer)?;
-        let body = json!({"messages": messages});
-        let answer: Completion = self.call(card, room, "v1/chat/completions", &body).await?;
-        answer
-            .choices
-            .into_iter()
-            .next()
-            .and_then(|choice| choice.message.content)
-            .ok_or_else(|| invalid("no reply"))
+        let sampling = request.validate(card)?;
+        let mut body = Map::from_iter([
+            ("messages".to_owned(), json!(request.messages)),
+            ("max_tokens".to_owned(), json!(request.max_output_tokens)),
+            ("stream".to_owned(), Value::Bool(false)),
+            (
+                "chat_template_kwargs".to_owned(),
+                request.template_values()?,
+            ),
+        ]);
+        if let Some(sampling) = sampling {
+            for (field, value) in [
+                ("temperature", json!(sampling.temperature)),
+                ("top_p", json!(sampling.top_p)),
+                ("top_k", json!(sampling.top_k)),
+                ("min_p", json!(sampling.min_p)),
+                ("typical_p", json!(sampling.typical_p)),
+                ("repeat_penalty", json!(sampling.repeat_penalty)),
+                ("frequency_penalty", json!(sampling.frequency_penalty)),
+                ("presence_penalty", json!(sampling.presence_penalty)),
+            ] {
+                body.insert(field.to_owned(), value);
+            }
+            if let Some(seed) = sampling.seed {
+                body.insert("seed".to_owned(), json!(seed));
+            }
+        }
+        self.check(card, room).await?;
+        let response = self
+            .http
+            .post(self.endpoint(card, "v1/chat/completions"))
+            .json(&body);
+        let answer = send_chat(response, room).await?;
+        answer.into_content()
     }
 }
 
@@ -228,6 +257,82 @@ async fn send<T: DeserializeOwned>(request: RequestBuilder, room: Room) -> Resul
         return Err(refusal(status.as_u16(), &body));
     }
     serde_json::from_slice(&body).map_err(|error| invalid(error.to_string()))
+}
+
+/// Sends one bounded chat request and parses its completion envelope.
+async fn send_chat(request: RequestBuilder, room: Room) -> Result<Completion, Error> {
+    let request = match room {
+        Room::Free => request.header(ROOM_HEADER, "free"),
+        Room::Any => request,
+    };
+    let mut response = request.send().await.map_err(Error::Transport)?;
+    let status = response.status();
+    let body = read_chat_body(&mut response).await?;
+    if !status.is_success() {
+        return Err(refusal(status.as_u16(), &body));
+    }
+    serde_json::from_slice(&body).map_err(|error| invalid(error.to_string()))
+}
+
+/// Reads a chat response only while it remains within the hard buffer limit.
+async fn read_chat_body(response: &mut reqwest::Response) -> Result<Vec<u8>, Error> {
+    if response
+        .content_length()
+        .is_some_and(|length| length > MAX_CHAT_BODY_BYTES as u64)
+    {
+        return Err(invalid("chat response exceeds the body limit"));
+    }
+    let mut body = Vec::new();
+    while let Some(chunk) = response.chunk().await.map_err(Error::Transport)? {
+        let Some(length) = body.len().checked_add(chunk.len()) else {
+            return Err(invalid("chat response exceeds the body limit"));
+        };
+        if length > MAX_CHAT_BODY_BYTES {
+            return Err(invalid("chat response exceeds the body limit"));
+        }
+        body.extend_from_slice(&chunk);
+    }
+    Ok(body)
+}
+
+/// The text of a one-choice, complete assistant reply.
+fn completion_content(completion: Completion) -> Result<String, Error> {
+    let mut choices = completion.choices.into_iter();
+    let Some(choice) = choices.next() else {
+        return Err(invalid("chat response must contain exactly one choice"));
+    };
+    if choices.next().is_some() {
+        return Err(invalid("chat response must contain exactly one choice"));
+    }
+    if choice.index != 0 {
+        return Err(invalid("chat response choice index is not zero"));
+    }
+    if choice.finish_reason != "stop" {
+        return Err(invalid("chat response was truncated or ended unexpectedly"));
+    }
+    if choice.message.role != "assistant" || has_tool_call(&choice.message) {
+        return Err(invalid("chat response is not a plain assistant reply"));
+    }
+    let content = choice
+        .message
+        .content
+        .filter(|content| !content.is_empty())
+        .ok_or_else(|| invalid("chat response has no content"))?;
+    if content.len() > MAX_CHAT_CONTENT_BYTES {
+        return Err(invalid("chat response content exceeds 32768 bytes"));
+    }
+    Ok(content)
+}
+
+/// Whether a chat completion tries to call a tool or function.
+fn has_tool_call(message: &Reply) -> bool {
+    message.tool_calls.as_ref().is_some_and(has_value)
+        || message.function_call.as_ref().is_some_and(has_value)
+}
+
+/// Whether a provider field contains a nonempty tool invocation.
+fn has_value(value: &Value) -> bool {
+    !value.is_null() && !value.as_array().is_some_and(Vec::is_empty)
 }
 
 /// The error a refusal of `status` with `body` means: the router's own
@@ -403,13 +508,24 @@ struct Tokens {
 /// `/v1/chat/completions`' answer.
 #[derive(Deserialize)]
 struct Completion {
-    /// The replies; one unless more were asked for.
+    /// The choices returned for the single prompt.
     choices: Vec<Choice>,
+}
+
+impl Completion {
+    /// The one plain reply, if the response did not truncate or call tools.
+    fn into_content(self) -> Result<String, Error> {
+        completion_content(self)
+    }
 }
 
 /// One reply.
 #[derive(Deserialize)]
 struct Choice {
+    /// Its position in the request's choices.
+    index: usize,
+    /// Why generation stopped.
+    finish_reason: String,
     /// The reply's message.
     message: Reply,
 }
@@ -417,6 +533,12 @@ struct Choice {
 /// A reply's message.
 #[derive(Deserialize)]
 struct Reply {
-    /// The text, which a reply that only calls tools lacks.
+    /// The role the provider returned.
+    role: String,
+    /// The generated text, which a reply that only calls tools lacks.
     content: Option<String>,
+    /// A provider tool invocation, which ask never permits.
+    tool_calls: Option<Value>,
+    /// A legacy provider function invocation, which ask never permits.
+    function_call: Option<Value>,
 }

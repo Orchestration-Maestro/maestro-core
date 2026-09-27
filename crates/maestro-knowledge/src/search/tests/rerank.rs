@@ -3,7 +3,7 @@ use maestro_kernel::{
     artifact::{Digest, Store},
     evidence::RouteStatus,
     gateway::{
-        CardFields, Error, Limits, Message, ModelCard, ModelPort, Role, Room, RouterEntry,
+        CardFields, ChatRequest, Error, Limits, ModelCard, ModelPort, Role, Room, RouterEntry,
         SuiteResult,
     },
 };
@@ -125,7 +125,7 @@ impl ModelPort for FakePort {
         &self,
         _card: &ModelCard,
         _room: Room,
-        _messages: &[Message],
+        _request: &ChatRequest,
     ) -> impl Future<Output = Result<String, Error>> + Send {
         future::ready(Err(Error::InvalidAnswer {
             reason: "chat is unused by this fake".to_owned(),

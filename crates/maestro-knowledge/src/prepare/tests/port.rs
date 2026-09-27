@@ -4,7 +4,7 @@
 //! It records every call.
 
 use super::super::parity::fixtures;
-use maestro_kernel::gateway::{Error, FakeModels, Message, ModelCard, ModelPort, Room};
+use maestro_kernel::gateway::{ChatRequest, Error, FakeModels, ModelCard, ModelPort, Room};
 use std::{
     collections::HashMap,
     future,
@@ -110,8 +110,8 @@ impl ModelPort for Goldens {
         &self,
         card: &ModelCard,
         room: Room,
-        messages: &[Message],
+        request: &ChatRequest,
     ) -> Result<String, Error> {
-        FakeModels.chat(card, room, messages).await
+        FakeModels.chat(card, room, request).await
     }
 }

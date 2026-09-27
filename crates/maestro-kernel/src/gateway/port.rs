@@ -1,10 +1,14 @@
 //! The model port: the calls every way of reaching a model answers, each
 //! bound to a model card, and the refusals they share.
 
-use super::card::{CardFields, ModelCard, Role};
+use super::{
+    card::{CardFields, ModelCard, Role},
+    card_v2::{Capability, ControlValue, Sampling, SamplingParameters},
+};
 use crate::artifact::Digest;
 use serde::Serialize;
-use std::{error, fmt, future::Future, num::NonZeroUsize};
+use serde_json::{Map, Number, Value};
+use std::{collections::BTreeMap, error, fmt, future::Future, num::NonZeroUsize};
 
 /// The calls a model answers, each bound to the card of the model that
 /// answers it: an embedding needs an embedder's card, a reranking a
@@ -38,12 +42,12 @@ pub trait ModelPort {
         text: &str,
     ) -> impl Future<Output = Result<Vec<u32>, Error>> + Send;
 
-    /// The reply to `messages`, the last of which is the question.
+    /// One buffered reply to an explicitly bounded prompt.
     fn chat(
         &self,
         card: &ModelCard,
         room: Room,
-        messages: &[Message],
+        request: &ChatRequest,
     ) -> impl Future<Output = Result<String, Error>> + Send;
 }
 
@@ -52,11 +56,11 @@ pub trait ModelPort {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Room {
     /// Only into free room: the router refuses the call, [`Error::Unavailable`],
-    /// rather than unload another model. Search calls use it, so that a search
-    /// never unloads a chat model (FR-S1-015a).
+    /// rather than unload another model. Search and local ask calls use it, so
+    /// neither unloads another model (FR-S1-015a).
     Free,
     /// Anywhere the router can make room, unloading idle models as it does for
-    /// any request. `ask`'s answerer uses it.
+    /// any request; local ask does not use it.
     Any,
 }
 
@@ -131,7 +135,12 @@ pub enum Error {
         /// refusal.
         message: String,
     },
-    /// The answer is not what the call expects.
+    /// The caller's chat request violates the bounded request contract.
+    InvalidRequest {
+        /// How the request differs.
+        reason: String,
+    },
+    /// The model's answer is not what the call expects.
     InvalidAnswer {
         /// How it differs.
         reason: String,
@@ -174,6 +183,9 @@ impl fmt::Display for Error {
                 code: None,
                 message,
             } => write!(formatter, "refused with {status}: {message}"),
+            Self::InvalidRequest { reason } => {
+                write!(formatter, "invalid chat request: {reason}")
+            }
             Self::InvalidAnswer { reason } => {
                 write!(
                     formatter,
@@ -223,5 +235,119 @@ pub(super) fn embedder_dimensions(card: &ModelCard) -> Result<NonZeroUsize, Erro
             role: fields.role,
             needed: Role::Embedder,
         }),
+    }
+}
+
+/// Hard per-call generation ceiling for local answer requests.
+pub const MAX_CHAT_OUTPUT_TOKENS: u32 = 1024;
+
+/// One non-streaming chat prompt with bounded output and template controls.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ChatRequest {
+    /// The messages sent to the answerer.
+    pub messages: Vec<Message>,
+    /// Maximum generated tokens; callers choose a smaller calibrated bound.
+    pub max_output_tokens: u32,
+    /// Exact supported chat-template controls, not arbitrary router options.
+    pub chat_template_kwargs: BTreeMap<String, ControlValue>,
+}
+
+impl ChatRequest {
+    /// Makes a bounded request with no template controls.
+    #[must_use]
+    pub fn new(messages: Vec<Message>, max_output_tokens: u32) -> Self {
+        Self {
+            messages,
+            max_output_tokens,
+            chat_template_kwargs: BTreeMap::new(),
+        }
+    }
+
+    /// Refuses controls outside local limits or different from a v2 card.
+    pub(super) fn validate<'a>(
+        &self,
+        card: &'a ModelCard,
+    ) -> Result<Option<&'a SamplingParameters>, Error> {
+        require(card, Role::Answerer)?;
+        let sampling = chat_sampling(
+            card.identity()
+                .map(|identity| &identity.invocation.sampling),
+        )?;
+        if !(1..=MAX_CHAT_OUTPUT_TOKENS).contains(&self.max_output_tokens) {
+            return Err(invalid_request(
+                "output limit must be between 1 and 1024 tokens",
+            ));
+        }
+        if card
+            .fields()
+            .limits
+            .output_tokens
+            .is_some_and(|limit| self.max_output_tokens > limit.get())
+        {
+            return Err(invalid_request("output limit exceeds the answerer's card"));
+        }
+        for (name, value) in &self.chat_template_kwargs {
+            if name.trim().is_empty()
+                || matches!(value, ControlValue::Number(number) if !number.is_finite())
+            {
+                return Err(invalid_request(
+                    "template controls must have names and finite values",
+                ));
+            }
+        }
+        if let Some(identity) = card.identity() {
+            let supported = match &identity.invocation.reasoning {
+                Capability::Supported(controls) => controls == &self.chat_template_kwargs,
+                Capability::Unsupported => self.chat_template_kwargs.is_empty(),
+                Capability::NotApplicable => false,
+            };
+            if !supported {
+                return Err(invalid_request(
+                    "template controls differ from the answerer's card",
+                ));
+            }
+        }
+        Ok(sampling)
+    }
+
+    /// The template controls in their untagged llama.cpp wire representation.
+    pub(super) fn template_values(&self) -> Result<Value, Error> {
+        self.chat_template_kwargs
+            .iter()
+            .map(|(name, value)| Ok((name.clone(), template_value(value)?)))
+            .collect::<Result<Map<_, _>, Error>>()
+            .map(Value::Object)
+    }
+}
+
+/// Converts a validated model-card control to the router's raw template value.
+fn template_value(value: &ControlValue) -> Result<Value, Error> {
+    match value {
+        ControlValue::Boolean(value) => Ok(Value::Bool(*value)),
+        ControlValue::Integer(value) => Ok(Value::from(*value)),
+        ControlValue::Number(value) => Number::from_f64(*value)
+            .map(Value::Number)
+            .ok_or_else(|| invalid_request("template control is not finite")),
+        ControlValue::Text(value) => Ok(Value::String(value.clone())),
+    }
+}
+
+/// Sampling values recorded by a v2 answerer; a v1 card records none.
+pub(super) fn chat_sampling(
+    sampling: Option<&Sampling>,
+) -> Result<Option<&SamplingParameters>, Error> {
+    match sampling {
+        Some(Sampling::Configured(settings)) => Ok(Some(settings)),
+        Some(Sampling::NotApplicable) => Err(invalid_request(
+            "the v2 answerer's card must record generation sampling",
+        )),
+        None => Ok(None),
+    }
+}
+
+/// A sanitized refusal for an invalid caller-supplied chat request.
+fn invalid_request(reason: &'static str) -> Error {
+    Error::InvalidRequest {
+        reason: reason.to_owned(),
     }
 }

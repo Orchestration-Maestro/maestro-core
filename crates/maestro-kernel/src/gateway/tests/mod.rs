@@ -3,6 +3,7 @@
 
 mod card;
 mod catalog;
+mod chat;
 mod fake;
 mod fixture;
 mod port;

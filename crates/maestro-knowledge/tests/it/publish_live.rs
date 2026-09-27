@@ -26,7 +26,7 @@ use super::live_router::required;
 use maestro_kernel::{
     artifact::{Digest, Store},
     chunk_set::ChunkSet,
-    gateway::{Error, Message, ModelCard, ModelPort, Room, RouterClient, Url},
+    gateway::{ChatRequest, Error, ModelCard, ModelPort, Room, RouterClient, Url},
     job::{JobState, Lease, NewJob},
     paths::{self, Environment},
     retrieval::IDENTIFIER_PROFILE,
@@ -90,9 +90,9 @@ impl ModelPort for Timed {
         &self,
         card: &ModelCard,
         room: Room,
-        messages: &[Message],
+        request: &ChatRequest,
     ) -> Result<String, Error> {
-        self.client.chat(card, room, messages).await
+        self.client.chat(card, room, request).await
     }
 }
 
