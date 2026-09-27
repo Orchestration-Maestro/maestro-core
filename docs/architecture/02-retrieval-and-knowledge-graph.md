@@ -412,7 +412,7 @@ blocks regressions.
 | Suite | Content | Where it runs |
 | --- | --- | --- |
 | `synthetic` | Public synthetic corpus (non-vendor topics) with 56 labelled questions in `tests/fixtures/synthetic` | Public CI on every PR with pinned Qdrant 1.19 and deterministic fake inference |
-| `ctm-retrieval` | 100+ Control-M questions (FR/EN) with expected sections; ~15 % unanswerable | Local, private (`just eval`); reports attached to PRs |
+| `ctm-retrieval` | Owner-pinned private questions from eligible official documentation; contents, counts and review receipt remain private | Local, private; reports remain private |
 | `ctm-identifiers` | Queries naming commands, parameters, error codes | Local, private |
 | `ctm-answers` | Questions with reference answers and required citations | Local, private |
 | `ctm-graph` (S2) | Relationship, dependency, version-difference and multi-hop questions | Local, private |
@@ -448,16 +448,15 @@ generation and questions: BM25 → dense → hybrid → + identifier route → +
 for its cost is not shipped. After selection, a drop of more than 2 points on
 Recall@10 or MRR@10, or any command-exactness failure, blocks the change.
 
-**Golden set construction:** questions are drafted from the corpus by an agent,
-covering all query types and both languages; the collection owner validates a
-stratified sample (at least 20 %), and every expected answer is a section,
-named by its document's `source_ref` and its heading path, or a document
-without sections named whole, never free text; the runner resolves each name
-to the IDs of the generation it evaluates.
-The set starts at 100+ questions for M1 and grows toward 200–500 (exact
-identifiers, paraphrases, close versions, tables, contradictions, unanswerable
-questions), with held-out items the tuning never sees. Targets are declared
-before a run and never lowered after a failure.
+**Golden set construction:** questions are drafted from eligible official
+documentation by an agent; an independent model checks every question and its
+expected sections, and the owner decides only flagged wording or answerability
+changes. Every expected answer is a section named by its document's
+`source_ref` and heading path, or a sectionless document named whole; the runner
+resolves each name against the generation. Equivalent version copies form one
+grouped evaluation item. The private repository keeps the current scope rule,
+question set and review receipt; public CI uses synthetic fixtures only.
+Targets are declared before a run and never lowered after a failure.
 
 **Diagnosis before tuning.** Evidence recall is measured per route **before**
 fusion, using the independent `search_dense` and `search_bm25` diagnostics

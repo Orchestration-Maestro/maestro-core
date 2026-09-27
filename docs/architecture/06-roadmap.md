@@ -83,15 +83,15 @@ cited passages from the full corpus, with measured quality.
 | `maestro-knowledge` | Collections (`collection.json`), import (`maestro-corpus/1`), the corpus quality gate with explicit outcomes, prepare (exact + near-duplicate dedup, chunking through `TokenCounter`), `RouterTokenizer` with parity qualification, representations (dense + BM25 with an explicit French/English analyzer policy), Qdrant generations with alias switch, independent `search_dense` / `search_bm25` diagnostics, search (R1–R3 and R6, RRF, rerank, evidence assembly with span unions), `ask` with guards and validation before delivery, eval runner |
 | Journal | S1 ships and tests per-stream sequences, durable cursors and acknowledgements; built-in projection and telemetry consumers use them in S2 ([07 §7](07-extensibility.md#7-delivery-by-slice)) |
 | `maestro` binary | CLI (`knowledge …`, `eval …`, `status`, `doctor`, `setup`, `backup`, `restore`) and MCP stdio server (`knowledge_collections`, `knowledge_search`, `knowledge_get`, `knowledge_ask`) |
-| `ctm-collection` | Corpus exporter from the existing Python outputs, `collection.json`, the quality ledger, a 100+ question golden set (FR/EN, ~15 % unanswerable) validated by the owner on a stratified sample |
+| Private product collection | Owner-managed source scope, inventory, counts, quality ledger, evaluation set and receipts stay in the private collection repository; public CI uses synthetic fixtures only |
 | Bake-off round 1 | Embedder, reranker, answerer (see [05 §3](05-platform-and-operations.md#3-model-selection)) |
 | Services | Qdrant unit through `maestro setup` |
 
 **Exit criteria:**
 
-1. The full corpus imports with every refusal explained in the report, and
-   every document carries a quality outcome; only accepted documents are
-   indexed.
+1. The current owner-pinned private receipt is fully accounted for, with every
+   refusal explained in the private report and each revision carrying a quality
+   outcome; only accepted documents are indexed.
 2. Evidence recall per route is measured before fusion, and every failure in
    the golden set is classified (not retrieved, misranked, wrong answer).
 3. A generation built with the bake-off winners is published; the ladder report
@@ -248,7 +248,7 @@ registered before it starts, so R1 ships with that phase if S8 has not begun.
 | R5 | VRAM contention between embedder, reranker, answerer and agents | High | Medium | Router budget; residency plan per role; batch jobs scheduled off interactive hours |
 | R6 | WSL2 specifics (systemd, Landlock, GPU) differ from native Linux | Medium | Medium | Reference environment explicit; native Linux qualified separately |
 | R7 | Copilot runtime misbehaves inside the sandbox | Medium | High | S4 spike first; narrow the sandbox profile rather than drop it; broker remains authoritative |
-| R8 | Eval set not representative | Medium | High | Owner validates a stratified sample; add questions from real usage; track per-type results |
+| R8 | Eval set not representative | Medium | High | An independent reviewer checks every question; the owner decides flagged changes; group equivalent version copies and track per-type results |
 | R9 | Vendor content or connectors leak publicly | Low | High | Private repository, gitleaks and path checks, scope tags, no corpus in public CI |
 | R10 | Single maintainer bandwidth | High | High | Two-track schedule only if review capacity exists; slices small enough to finish |
 | R11 | Requirements lost between plans | Medium | High | [08](08-traceability.md) is updated by every slice spec; a requirement changes status only with a stated reason |

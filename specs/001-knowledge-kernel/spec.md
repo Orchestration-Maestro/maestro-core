@@ -26,11 +26,11 @@ in [`docs/standards/`](../../docs/standards/engineering.md)
 
 ## Clarifications
 
-### Session 2026-09-25
+### Session 2026-09-25 (superseded by the 2026-09-26 clarification)
 
-- Q: Who writes the 100+ Control-M test questions, and how many does the owner
-  check? → A: Agents draft all of them from the corpus; the owner validates a
-  stratified sample of 30.
+- Q: Who writes the evaluation questions, and how many does the owner check? →
+  A: Agents draft them from the corpus; the owner validates a stratified sample
+  of 30.
 - Q: When a search and the largest chat model cannot both fit on the GPU, which
   gives way? → A: The search. Its models load on demand and chat models keep the
   card; the latency target applies with the search models loaded.
@@ -76,15 +76,16 @@ match the expected sections of sample questions.
 
 ### User Story 2 - Import and publish the corpus safely (Priority: P1)
 
-As the maintainer, I import the corpus of record (Control-M 9.0.22, 7,988
-documents), prepare chunks and publish a searchable generation, knowing that bad
-inputs are refused, re-runs are idempotent and a crash can be resumed.
+As the maintainer, I import the owner-approved private product collection,
+prepare chunks and publish a searchable generation, knowing that bad inputs are
+refused, re-runs are idempotent and a crash can be resumed.
 
 **Why this priority**: without a trustworthy published generation there is
 nothing to search.
 
-**Independent Test**: import, prepare and publish on the full corpus; kill the
-process during publish and resume; compare counts and digests.
+**Independent Test**: use the current owner-pinned receipt privately; import,
+prepare and publish; interrupt publishing and resume; compare counts and
+digests in the private report.
 
 **Acceptance Scenarios**:
 
@@ -297,8 +298,9 @@ collections and generations are ready and how to fix what is not.
 - **Evidence bundle**: the search response contract.
 - **Eval suite / report**: questions with expected sections; measured results,
   with every failure classified.
-- **Golden set**: the private Control-M question set the `ctm-*` suites are
-  built from, drafted by agents and checked by the owner on a stratified sample.
+- **Golden set**: the private product question set used by evaluation suites,
+  drafted by agents and independently reviewed in full; the owner decides only
+  flagged changes.
 - **Ladder report**: the paired comparison of each retrieval rung against the one
   below it, deciding which rungs ship.
 - **Public event**: a journaled event in the public catalogue, with its schema.
@@ -339,30 +341,26 @@ collections and generations are ready and how to fix what is not.
 
 ## Traceability
 
-[08](../../docs/architecture/08-traceability.md) requires each slice's spec to
-re-check the rows it touches. S1 touches 94 of them; none changes status. The
-rows S1 delivers only in part say which part:
+[08](../../docs/architecture/08-traceability.md) records design dispositions;
+those statuses are not delivery evidence. The earlier aggregate claim that S1
+touches 94 rows has not been reconciled into an approved row inventory (for
+example, §11.3 contains ten rows, not the previously counted nine). Current
+integrated examples are `9c21827` (grouped evaluation labels count once),
+`25bbc47` (stable dense and lexical ties), and `d30573d` (the synthetic
+retrieval regression gate). These commits are examples, not a complete map or a
+claim that all 94 rows are delivered.
 
-| 08 section | Rows | S1's part |
-| --- | --- | --- |
-| [§3 Owner requirements](../../docs/architecture/08-traceability.md#3-owner-requirements) | 9 | The local RAG chain, BM25 with dense, Qdrant, the tokenizer contract (owner.n007, n020, n029, n031, n047, n062, session); llama.cpp and telemetry in part |
-| [§10 Testing and observability](../../docs/architecture/08-traceability.md#10-testing-observability-benchmarks-and-improvement) | 9 | The eval runner, per-item reports, bake-off round 1, OTel spans for knowledge; run telemetry waits for S4 |
-| [§11.1–§11.2 Acquisition, quality](../../docs/architecture/08-traceability.md#111-acquisition) | 5 | The corpus quality gate and per-source synchronization as a one-off import; native acquisition is S6 |
-| [§11.3 Canonicalization and chunking](../../docs/architecture/08-traceability.md#113-canonicalization-deduplication-and-chunking) | 9 | All, through the existing crate; A6 and A22 as adapted |
-| [§11.4 Representations and publication](../../docs/architecture/08-traceability.md#114-representations-indexing-and-publication) | 9 | All |
-| [§11.5 Retrieval and answers](../../docs/architecture/08-traceability.md#115-retrieval-fusion-reranking-evidence-and-answers) | 16 | All but the graph expansion and the research loop, which need S2 |
-| [§12 Delivery mapping](../../docs/architecture/08-traceability.md#12-delivery-mapping) | 12 | U03 parity, U11 local prepared documents, U13 Qdrant and embedding qualification, U14 retrieval, U15 and U16 in part |
-| [§4, §6–§9, §11.6, §13–§15, §17](../../docs/architecture/08-traceability.md) | 25 | Model profiles and provider qualification for knowledge roles only; the knowledge CLI; the journal as audit; knowledge ACLs apart from the catalog's; graph publication waits for S2; CD2, CD3; storage and scale; A1, A6, A22, A26 as adapted; the operational bindings, supplied as machine configuration |
-
-The rows that belong to later slices keep their slice; `tasks.md` assigns each S1
-row to a task.
+T039 owns the owner-approved exact row keys, each delivered portion and its
+task, integrated code/test evidence, and named remaining slice. Its check must
+reject missing, duplicate, or extra keys. Until that map is approved and
+completed, this spec makes no complete 94-row delivery claim.
 
 ## Assumptions
 
-- The corpus of record is the Control-M 9.0.22 clean corpus produced by the
-  existing Python pipeline: 7,988 documents with their manifest and Markdown
-  files, on the maintainer's machine. The private collection gains the exporter
-  that turns it into `maestro-corpus/1`; native acquisition comes in S6.
+- The owner's product collection is private. Its scope rule, counts and
+  receipts live in the private collection repository; public CI uses synthetic
+  fixtures only. Re-measure acceptance from the current owner-pinned receipt,
+  and keep the resulting report private.
 - The model router's dedicated endpoints forward any path to the model, so
   `/models/<id>/tokenize` reaches the embedder's tokenizer; no router change is
   needed (verified on the router's `main`, 2026-09-25).

@@ -8,20 +8,17 @@ measured on 2026-09-25. Tasks: [tasks.md](tasks.md).
 
 ## Summary
 
-Build the first product slice: a Rust knowledge kernel and a hybrid, evaluated
-RAG over the Control-M corpus, reachable from Pi, Codex, Claude Code and Copilot
-CLI through MCP. Three new crates appear, each only as its first working
-behaviour lands: `maestro-kernel` (the building blocks B1–B7, B9–B11 on SQLite
-and content-addressed artifacts), `maestro-knowledge` (collections, import,
-quality, prepare, representations, Qdrant generations, search, `ask`, evals)
-and `maestro` (the binary: CLI and MCP server). The canonicalization crate gains
-one seam, a `TokenCounter` trait, so chunks can be counted by the router as well
-as by the native counter. The router gains one option: load a model only into
-free memory, as a guest it unloads first. The private collection gains the
-corpus mapping, the collection
-declaration and the golden set. Model roles are filled by the first bake-off,
-and the published generation uses its winners. The work runs as 40 tasks in
-13 waves of up to six parallel tasks, on a critical path of twelve (D16).
+Build the first product slice: a Rust knowledge kernel and evaluated hybrid
+retrieval over the owner's private product collection, reachable from Pi,
+Codex, Claude Code and Copilot CLI through MCP. The workspace contains
+`maestro-kernel` (building blocks B1–B7, B9–B11 on SQLite and content-addressed
+artifacts), `maestro-knowledge` (collections, import, quality, preparation,
+representations, Qdrant generations, search, `ask` and evaluation), and
+`maestro` (the CLI and MCP server). The canonicalization crate exposes the
+`TokenCounter` seam for native and router counters. The router supports loading
+search models only into free memory. The private collection owns source rules,
+mappings, evaluation data and receipts; public CI uses synthetic fixtures only.
+The original 40-task, 13-wave schedule and critical path are historical (D16).
 
 ## Technical Context
 
@@ -82,11 +79,10 @@ indexing or slicing, no one-letter names, paths within two segments, `mod.rs`
 modules whose `mod.rs` holds only `mod` and `use` lines, no import cycle, no
 file over 500 lines of code, `Debug` on every type.
 
-**Scale/Scope**: `ctm`'s export of 2026-09-26, 17,272 documents (19,165
-revisions), 56.2 MiB of Markdown by each document's latest revision (3.3 KiB
-on average); prepare (T023) cut 99,125 chunks, 14.6 million tokens, from its
-17,173 eligible documents (147 tokens a chunk on average, 700 at most); one
-local user.
+**Scale/Scope**: The owner's product collection is private. Its scope rule,
+counts and pinned acceptance receipts live in the private collection repository;
+public CI uses synthetic fixtures only. Re-measure acceptance from the current
+owner-pinned receipt and keep production reports private.
 
 ## Starting point (measured 2026-09-25)
 
@@ -94,7 +90,7 @@ local user.
 | --- | --- |
 | Workspace | Two crates, `maestro-canonicalization` and `maestro-conventions`; 333 tests pass; line coverage 94.41 % (`just check` on `main`) |
 | Token counting | No `TokenCounter` trait: `chunk_documents` takes `&NativeTokenizer`; a counting seam exists only as a test helper, `chunk_with_count` |
-| Corpus of record | 7,988 manifest lines, 31.3 MiB; every line carries the same 7 keys (`path`, `title`, `source_url`, `collection`, `source_tree`, `bytes`, `sha256`), fewer than `maestro-corpus/1` names; `source_tree` takes 6 values and `collection` 30 |
+| Corpus of record | The initial inventory and manifest contract were private; current scope, counts and receipts remain in the private collection repository |
 | Router | Dedicated endpoints forward any path (`/models/<id>/tokenize` reaches the model); entries `embed` (bge-m3 Q8) and `rerank` (bge-reranker-v2-m3 Q8), 1,280 MiB each, on demand; the largest chat entries estimate 28,928–30,464 MiB of the 32 GiB card; when room is short, admission unloads the coldest idle model, and no request option forbids it |
 | Reranking cost | 12 ms per pair on the card, from the router catalogue's note (about a quarter of a second for twenty pairs); the cost at 80–120 pairs is unmeasured |
 | MSRV | Workspace 1.85 at the time, 1.98 since 2026-09-27; `rmcp` 3.4.1 needs 1.88 |
@@ -113,16 +109,18 @@ them in [`docs/standards/`](../../docs/standards/engineering.md).
 | P-012 Illegal states unrepresentable | Pass: every read path takes a `ScopeSet`; there is no unscoped read function |
 | P-014 Least privilege | Pass: MCP tools check scopes per call; the search models load only into free room |
 | ENF-001 No machine paths | Pass: paths come from `bindings.toml` and XDG variables, never committed |
-| ENF-002 Claimed platforms tested | Pass: Linux only, and only Linux is claimed |
+| ENF-002 Claimed platforms tested | Required: Linux, macOS and Windows (ADR-0018); final platform-test evidence remains part of the full CI gate |
 | ENF-005 Failing test first | Pass: every task starts from a failing test; each diff is mutation-tested |
-| ENF-006, ENF-008 Gates | Pass: coverage stays ≥ 90 %; `just check` mirrors CI; the Qdrant tests run in CI, not only locally |
+| ENF-006, ENF-008 Gates | Full `just check` is the normal gate, including ≥ 90 % coverage; active S1 uses [targeted checks](tasks.md#current-s1-integration-workflow), with full CI required at integration; Qdrant tests run in CI |
 | ENF-012 Pinned inputs | Pass: Qdrant pinned by version and digest; models by model card digest; crates by `Cargo.lock` |
 | SEC-001 Minimise sensitive data | Pass: corpus, golden set and `ctm-*` reports live only in the private collection (FR-S1-016) |
 | SEC-002 Input is data | Pass: corpus text and retrieved passages never become instructions; `ask` validates before delivery |
 | SEC-003 Validate boundaries | Pass: artifact paths derive from digests only; restore refuses traversal and links |
 | SEC-008 Truthful evidence | Pass: every bake-off attempt, including failures, is kept; unavailable routes are flagged, never hidden |
 
-No exception is needed; Complexity Tracking is empty.
+No golden-rule exception is declared. `maestro-quality.toml` records five named
+DEP-001 dependency-version exceptions and scoped ARC-005 exceptions under
+ADR-0020; no other exception is assumed.
 
 ## Project Structure
 
@@ -340,46 +338,31 @@ release archive, checked against a digest pinned in the code, under
 nothing. `maestro doctor` checks the kernel database, the artifact tree,
 Qdrant, the router and each role's model card, with a next action for every
 failure. `maestro backup` uses SQLite's online backup and a manifest of the
-artifact tree; `maestro restore` refuses traversal and links, then rebuilds
-the projections from the kernel.
+artifact tree; `maestro restore` refuses traversal and links, then restores
+the authoritative kernel. Projection rebuilding is a separate T033b operation;
+restore itself does not rebuild projections.
 
 ### D15 The private collection
 
-`export.jq` maps the Python manifest to `maestro-corpus/1`: `source_url` to
-`source_ref`, `source_tree` to `source_kind` (6 kinds), `collection` to `set`
-(30 document sets, an optional field added to the contract so nothing is
-dropped), the directory name to `version`; `lang`, `captured_at`, `component`
-and `platform` are left out, never guessed. `path` stays relative to the
-manifest's own directory. 832 lines carry no URL, all of the GitHub and
-internal documents: their `source_ref` is `corpus-path:` followed by `path`,
-unique and derived rather than invented, and without the release so a document
-keeps its identity in the next one. The export of 2026-09-26 holds 17,322
-lines, 17,272 documents: 50 `source_ref`s are each given by two lines with
-different content, and the importer holds both of each pair (T019).
-`collection.json` declares `ctm` (ADR-0014). The golden set is drafted after
-canonicalization, because its expected answers are sections, each named by its
-document's `source_ref` and its heading path, or documents without sections
-named whole, never free text, which the runner resolves to the IDs of the
-generation it evaluates: agents sample the corpus stratified by source kind,
-write the questions, and the owner validates 30 stratified by topic, language
-and answerability.
+The owner's product collection is maintained separately in a private
+repository. Its scope rules, mapping, inventory, counts, evaluation set,
+quality ledger and pinned acceptance receipts stay there. Public CI uses
+synthetic fixtures; public documentation publishes no production counts,
+content or reports. Re-measure acceptance from the current owner-pinned receipt
+and keep the result private.
 
-### D16 Parallel delivery, CI and pull requests
+### D16 Original parallel delivery plan (historical)
 
-The work is cut for parallel agents, not for one writer: 40 tasks in 13 waves,
-each task naming the tasks it waits for and the files it owns
-([tasks.md](tasks.md#parallel-delivery)). A task starts when its prerequisites
-have merged, so a wave never waits for its slowest member. The critical path
-is twelve tasks, from the artifact store to the release; the 28 others run
-beside it. Up to four agents work at once, one task and one branch each,
-because review is the limit; shared files are append-only and migration
-numbers are reserved per task, so the merge order inside a wave is free.
+The original 40-task, 13-wave plan and its critical path remain as planning
+history in [tasks.md](tasks.md#original-parallel-delivery-plan-historical).
+They do not describe the current branch, pull-request or ownership workflow.
+Follow [the current S1 integration workflow](tasks.md#current-s1-integration-workflow)
+for the single integration pull request, targeted task gates, current dependency
+and ownership table, and migration reservations. Migration `0010` was reserved
+to T029c and integrated as `fd73c13`; T030a owns `0009`.
 
 `integration.yml` runs the Qdrant tests against the `qdrant/qdrant` 1.19 image
-pinned by digest; `ci.yml` runs everything else through rust-workflows. Branch
-names carry a conventional type first (`feat/s1-t005-kernel-store`), as the
-organization's `branch-names` ruleset requires; `ctm-collection` and the
-router take their pull requests in the waves that need them.
+pinned by digest; `ci.yml` runs everything else through rust-workflows.
 
 ## Data model
 
@@ -425,18 +408,20 @@ Kernel tables, beside the document tables of
 The end-to-end proof of M1, run on the reference workstation:
 
 1. `maestro setup`, then `maestro doctor`: every check passes or names its fix.
-2. `maestro knowledge collection add collection.json`, `import`, `quality`,
-   `prepare`: the 17,322 lines of the current export, 17,272 documents,
-   accounted for, each revision with a disposition.
+2. `maestro knowledge collection add <collection.json>`, `import`, `quality`,
+   `prepare`: the current owner-pinned private receipt is fully accounted for,
+   each revision has a disposition, and the report stays private.
 3. `maestro eval bakeoff`: a model card per role, every attempt kept.
-4. `maestro knowledge publish --collection ctm`: a verified generation, the
-   alias switched, the event journaled.
+4. `maestro knowledge publish --collection <collection-id> --card <card-id>`:
+   a verified generation, the alias switched, the event journaled.
 5. `maestro eval run ctm-retrieval` and `ctm-answers`: SC-S1-002, SC-S1-003 and
    SC-S1-008 met, the reports kept private.
 6. From Pi, Codex, Claude Code and Copilot CLI: `knowledge_search` returns cited
    passages (SC-S1-005); p95 measured (SC-S1-004).
-7. `maestro backup`, wipe, `maestro restore`: identical synthetic rankings
-   (SC-S1-006).
+7. `maestro backup`, restore the scratch kernel, then use T033b's approved
+   `publish --again` projection-rebuild path and compare identical synthetic
+   rankings (SC-S1-006). This end-to-end rebuild flow remains unverified until
+   T033b is integrated.
 
 ## Complexity Tracking
 
@@ -450,7 +435,7 @@ None: no golden rule is waived.
 | The router change waits on review | It is small and lands first; search works without it but reports the dense route and reranking unavailable whenever room is short |
 | Beside the largest chat models, free room holds the embedder but not the reranker too | A free-room request unloads nothing, idle guests included, so reranking is flagged unavailable (FR-S1-015a); T008 and the ladder measure how often, and if it costs the quality target, a free-room request may replace an idle guest |
 | The lexical analyzer fits T004's sample but not the corpus | The ladder measures the BM25 route alone on the golden set (FR-S1-005a); the profile is versioned, so a better analyzer is a new generation |
-| An agent-drafted golden set misses real questions | Stratified drafting, the owner's 30-question check, and real questions added as they come (risk R8 of the roadmap) |
-| The organization's gate moves under S1 (rust-workflows went from 2.5 to 4.3 in a day) | Each S1 branch rebases on `main` and runs `just check` before its push; the lints and rules only get stricter |
+| An agent-drafted golden set misses real questions | Independent review checks every question; the owner decides flagged changes, and new questions follow the same private review receipt (risk R8 of the roadmap) |
+| The organization's gate moves under S1 | Task branches follow the current S1 workflow in [tasks.md](tasks.md#current-s1-integration-workflow); the final integration pull request still receives the full CI gate |
 | Model downloads need the owner's approval | Candidates are listed with size and licence before the bake-off; nothing downloads without approval |
-| The corpus manifest lacks language and capture time | Left out, never guessed; the analyzer policy and version filters do not depend on them |
+| Private source metadata is incomplete | Missing values remain explicit and are never guessed; the owner-managed private receipt defines the current acceptance scope |

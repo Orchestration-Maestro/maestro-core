@@ -35,7 +35,7 @@ published generation. A question never triggers a crawl.
 
 | Term | Meaning |
 | --- | --- |
-| **Collection** | A logical body of knowledge: `ctm` (Control-M), `catalog` (the agent catalog), later `code:<repo>` and `memory:<project>`. Not a Qdrant collection, not a permission. |
+| **Collection** | A logical body of knowledge, such as `product` or `catalog`; later `code:<repo>` and `memory:<project>`. Not a Qdrant collection, not a permission. |
 | **Source** | A declared origin inside a collection: its kind, its reference, its transport and the profiles used to process it. |
 | **Scope** | A node of the kernel's access tree: `workspace → collection → source`, and later `project`, `agent`, `run`, `session`. Every read is filtered by the caller's scopes. |
 | **Document / revision** | A stable identity for one source document, and one exact version of its bytes and metadata. |
@@ -46,8 +46,8 @@ owns the content (the private `ctm-collection` repository for Control-M):
 ```json
 {
   "schema": "maestro-collection/1",
-  "id": "ctm",
-  "title": "Control-M 9.0.22 documentation",
+  "id": "product",
+  "title": "Private product documentation",
   "visibility": "private",
   "profiles": {
     "extraction": "technical-html/1",
@@ -59,9 +59,9 @@ owns the content (the private `ctm-collection` repository for Control-M):
   "sources": [
     { "id": "docs-core", "kind": "import", "sync": "manual",
       "manifest": { "binding": "corpus_root",
-                    "path": "9.0.22/maestro-corpus.jsonl" } }
+                    "path": "docs/maestro-corpus.jsonl" } }
   ],
-  "evals": { "suite": "evals/ctm" }
+  "evals": { "suite": "evals/product" }
 }
 ```
 
@@ -76,34 +76,20 @@ scope, and never widens access. Paths resolve at run time from named bindings
 only. A missing binding is a typed refusal before any work starts; unknown or
 duplicate keys, dangling references and non-finite budgets are rejected.
 
-The Control-M collection declares **15 sources**, kept verbatim from the earlier
-source policy: ten documentation collections with their **40 entry URLs** (core,
-three Automation API channels, Kubernetes, release notes, announcements,
-deprecated features, integrations, the Python client), community records,
-support knowledge-base articles, the electronic-distribution catalogue and its
-assets, **ten GitHub repositories**, and document attachments. Their exact
-seeds, exclusions and promotion decisions live in the private collection
-repository (ADR-0009).
+The owner's product collection is private. Its scope rules, source inventory,
+counts, content, quality ledger and acceptance receipts remain in the private
+collection repository. Public CI uses synthetic fixtures only; the public
+architecture describes generic contracts and controls.
 
 ## 2. L1 Acquisition
 
 ### 2.1 S1 — import an existing corpus
 
-The current Control-M export has 17,322 lines and 17,272 documents in the
-main manifest (support KB, community, vendor web documentation, GitHub,
-internal archives, security attachments), converted to Markdown by the
-current Python tooling.
-S1 imports it through a small, vendor-neutral manifest instead of re-crawling:
-
-```json
-{"schema":"maestro-corpus/1","path":"docs/agent-install-unix.md",
- "sha256":"…","bytes":18233,"source_ref":"https://docs.bmc.com/…",
- "title":"Installing Control-M/Agent on UNIX","source_kind":"docs",
- "product":"control-m","component":"agent","platform":"unix","version":"9.0.22",
- "lang":"en","captured_at":"2026-09-13T16:34:20Z",
- "extractor":{"name":"crawl4ai+docling","version":"…","options":"…"},
- "access":{"visibility":"private","license":"vendor-documentation"}}
-```
+The owner's product collection is private. Its scope rules, inventory and
+counts, quality ledger, and acceptance receipts stay in the private collection
+repository; public CI uses synthetic fixtures only. S1 exercises the generic
+manifest, import, and quality-gate contracts without publishing private corpus
+details.
 
 | Rule | Behaviour |
 | --- | --- |
@@ -111,12 +97,11 @@ S1 imports it through a small, vendor-neutral manifest instead of re-crawling:
 | Identity | `document_id` = namespaced hash of the collection and `source_ref`, the origin URL or, when there is none, `corpus-path:` followed by `path`, which is relative to the manifest's directory, so one URL in two collections is two documents; `revision_id` = canonicalization's content-and-metadata recipe. |
 | Idempotency | An unchanged revision is recorded as `unchanged`; re-running an import is a no-op. |
 | Metadata or permission change | Propagates even when the bytes are unchanged; embeddings are recomputed only if the prepared input changed. |
-| Streaming | JSONL is streamed; memory is bounded by the largest document, not the corpus. |
+| Streaming | JSONL is read one line at a time and document bodies one at a time; retained bookkeeping includes one digest/conflict entry per distinct `source_ref` and one refusal record per refused entry. |
 | Report | Imported / unchanged / held / refused (with reasons) counts, as JSON and as a journal event. |
 
-The exporter that writes this manifest from the Python corpus lives in the
-private collection repository; the public importer knows nothing about BMC.
-The count is re-measured at import; inventory presence is not content
+The private repository owns source eligibility and current receipts. Public
+CI exercises only synthetic inputs; inventory presence is not content
 validation.
 
 ### 2.2 S6 — native acquisition
@@ -133,11 +118,8 @@ requirements the native engine must meet. Connectors run as source-connector
 extensions that lease items from the core-owned frontier
 ([07 §4.1](07-extensibility.md#41-what-an-extension-can-be)).
 
-Scope of the Control-M collection: official documentation, community records
-and replies, knowledge-base articles, GitHub source documents, public or
-licensed attachments and the electronic-distribution catalogue and assets.
-Installers are asset-only unless a separate decision admits a document from
-them; importing a private archive is a separate, explicitly authorized ingress.
+The private repository owns the product-specific source list and eligibility
+rules. This public section specifies generic acquisition controls only.
 
 #### 2.2.1 Frontier and scheduling
 
@@ -388,10 +370,10 @@ rewrites documents into "clean" Markdown.
   application-error markers, sign-in or challenge pages, fidelity-receipt
   losses, missing assets, missing provenance or required metadata,
   canonicalization failures.
-- **Collection rules** (private, versioned): version retention (e.g. keep
-  9.0.22, discard superseded releases), channel preference (keep the latest
-  publication channel of duplicated documentation), validated mixed-edition
-  rules, recorded exceptions tagged `policy_exception`, object-type scope. Each
+- **Collection rules** (private, versioned): version retention (e.g. keep the
+  current approved version and discard superseded releases), channel preference
+  for duplicate documentation, validated mixed-edition rules, recorded
+  exceptions tagged `policy_exception`, object-type scope. Each
   rule carries who decided it and how to reverse it. In the ledger a person's
   exception needs no tag: the disposition it gives names its rule,
   `ledger.<id>`, and who decided it (`decided_by`).
@@ -547,7 +529,7 @@ follow an explicit policy.
 | Representation | Status |
 | --- | --- |
 | Dense | Required; model chosen by the bake-off |
-| BM25 (Qdrant server-side `qdrant/bm25`) | Required; tokenizer settings tested on identifier queries (commands, parameters, error codes as whole tokens) |
+| BM25 (`bm25-en-fr/1`, client-generated sparse vectors) | Required; Qdrant stores and searches the sparse vectors with IDF weighting (R7) |
 | Learned sparse (e.g. BGE-M3 sparse, SPLADE) | Candidate; complements or replaces BM25 only on evidence |
 | Late interaction (multivector, MaxSim) | Candidate; kept only if it beats the cross-encoder trade-off |
 | Entity vectors (S2) | For entity linking in the graph route |
@@ -582,7 +564,7 @@ is settled with the publish command.
 
 | Aspect | Design |
 | --- | --- |
-| Naming | Qdrant collection `{collection}__g{N}`; alias `{collection}` points at the published generation |
+| Naming | Generation collection `maestro-<collection>-g<id>`; alias `maestro-<collection>` points at the published generation |
 | Atomic switch | One `update_collection_aliases` call swaps the alias; readers never see a partial generation |
 | Vectors | Named `dense` (size = measured dimensions, cosine, HNSW m=16, ef_construct=200, in RAM); sparse `bm25` (IDF modifier); optional `late` multivector (MaxSim, on disk, no HNSW) |
 | Statistics scope | One Qdrant collection per generation isolates BM25 statistics; where several scopes share one, the Qdrant 1.19 IDF corpus filter scopes term rarity. Neither is an authorization mechanism |
@@ -647,13 +629,13 @@ separate budgets; interactive work has priority over ingestion.
 
 ```text
 maestro knowledge collection add <collection.json>
-maestro knowledge import   --collection ctm [--again]  # --again: a new job, as after files restored
-maestro knowledge quality  --collection ctm            # dispositions report, held items
-maestro knowledge prepare  --collection ctm            # dedup + chunk set
-maestro knowledge publish  --collection ctm            # embed + index + verify + switch
-maestro knowledge status   --collection ctm            # documents, revisions, dispositions, generations
-maestro knowledge verify   --collection ctm            # replay digests, recount, spot-check
-maestro knowledge sync     --collection ctm [--full]   # S6: acquisition refresh
+maestro knowledge import   --collection <collection-id> [--again]
+maestro knowledge quality  --collection <collection-id>
+maestro knowledge prepare  --collection <collection-id> --card <card-id>
+maestro knowledge publish  --collection <collection-id> --card <card-id> [--chunk-set <id>]
+maestro knowledge status   --collection <collection-id>
+maestro knowledge verify   --collection <collection-id>
+maestro knowledge sync     --collection <collection-id> [--full]   # S6: acquisition refresh
 ```
 
 Noun-then-verb grammar, `--json` versioned output on stdout and diagnostics on
@@ -675,7 +657,7 @@ retried request return the existing job.
 | Unit above 700 tokens with no legal split | Document refused with the offending unit; nothing truncated |
 | Router unavailable | Typed `Unavailable { service: "router", remediation }`; the job is resumable |
 | Embedding with wrong dimension or non-finite values | Batch refused; no partial generation is published |
-| Qdrant down during publish | Generation stays `building`; `--resume` continues from the last journaled batch |
+| Qdrant down during publish | Generation stays `building`; rerun the publish command with the same frozen job inputs to resume from the last journaled batch. `--resume` is not a CLI flag. |
 | Crash between upsert and alias switch | Generation stays `verified` (`building` if its checks had not all passed); the alias still points at the previous generation |
 | Session expired during acquisition (S6) | Items stay pending; the run stops with `session_expired`; resume after re-authentication |
 | WAF challenge (S6) | Typed `challenge` outcome with backoff; never saved as content |

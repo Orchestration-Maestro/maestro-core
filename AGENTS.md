@@ -7,14 +7,15 @@ repository; this page is the working summary.
 | Command | When |
 | --- | --- |
 | `rust-gate setup` | Once per clone: the pinned toolbelt and the commit hooks ([README](README.md#develop)) |
-| `just check` | Before every push, which runs it too: exactly what CI runs; it must exit 0 |
+| `just check` | Full local CI check for the normal workflow; active S1 work follows the [S1 integration workflow](specs/001-knowledge-kernel/tasks.md#current-s1-integration-workflow) |
 | `just native` | After touching the tokenizer; needs `MAESTRO_NATIVE_BINDING` |
-| `just mutants` | Before a pull request whose diff CI cannot mutate within its 45 minutes |
+| `just mutants` | Full-workspace mutations; defaults to four jobs. Use `just mutants 1` on memory-constrained machines. Follow the active slice for diff-scoped mutation runs. |
 
 1. Work from the active slice's `specs/NNN-*/tasks.md`; a changed behaviour
    starts with a failing test.
-2. One pull request per repository per working session; a `feat` and a `fix`
-   never share one.
+2. Outside an explicitly documented slice workflow, one pull request per
+   repository per working session; a `feat` and a `fix` never share one. S1
+   uses one integration pull request; see the linked S1 workflow above.
 3. Conventional titles, lower case after the type, subject at most 71
    characters, lines at most 80.
 4. No personal path, secret or vendor-private material: `maestro-conventions`

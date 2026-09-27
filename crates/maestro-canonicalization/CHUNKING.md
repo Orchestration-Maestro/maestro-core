@@ -1,8 +1,8 @@
 # Mapped structural chunking
 
-**Task #14: PASS for the library-only contract and measured synthetic acceptance.**
-No CLI/manifests, inference, embeddings, indexing, model downloads, permission
-inference or source rewriting.
+**S0 record (2026-09-26): PASS for the library-only contract and measured
+synthetic acceptance.** No CLI/manifests, inference, embeddings, indexing, model
+downloads, permission inference or source rewriting.
 
 ## Use
 
@@ -117,18 +117,21 @@ Saved batches are not authorization certificates; later consumers must reauthori
 
 ## Verification and limits
 
+Run package checks from the workspace root:
+
 ```bash
-cargo test --manifest-path canonicalization/Cargo.toml --locked --offline
-cargo test --manifest-path canonicalization/Cargo.toml --locked --offline \
-  --test it chunk_native -- --ignored --nocapture
-cargo clippy --manifest-path canonicalization/Cargo.toml --locked --offline \
-  --all-targets -- -D warnings
-just check
+cargo test --locked -p maestro-canonicalization
+cargo clippy --locked -p maestro-canonicalization --all-targets -- -D warnings
+just native
 ```
 
-Ordinary tests deliberately ignore machine-specific native acceptance. An ignored
-test is not a pass. Private scalar-counter tests establish structure, not native
-budget compliance.
+`just native` runs the machine-specific ignored native test and requires
+`MAESTRO_NATIVE_BINDING`; see [TOKENIZER.md](TOKENIZER.md) for its prerequisites.
+For the current repository gate, use the workflow in the root
+[README](../../README.md#develop). An ignored test is not a pass. Private
+scalar-counter tests establish structure, not native budget compliance.
+
+### Historical S0 verification (2026-09-26)
 
 The explicit native run, on CPU, passed **four tests in 133.27 seconds**:
 independent ordered-ID goldens; the public example;

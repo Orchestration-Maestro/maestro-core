@@ -22,7 +22,7 @@ different things in different sources.
 | `chat` | Design conversation 1, platform and manifest (messages M001–M059) | Reference design, repository review, implementation plan, two repositories, catalog MCP, SDK controls, testing, providers and telemetry |
 | `rag` | Design conversation 2, knowledge pipeline and graph (N001–N075) | Local Rust RAG, GraphRAG, Qdrant + Neo4j, fusion and reranking, extraction tools, canonicalization, chunking, tokenizer and indexing prompts, unified analysis |
 | `core` | Fresh maestro-core design (2026-09-21) | Golden foundation, module rules, quality contract, selective migration, native portability, authorization and artifacts |
-| `ingest` | Full ingestion design, ingestion source audit, one-page Spider spike and the source-policy proposal (2026-09-22) | Native acquisition lifecycle, sessions, policy, 15 sources |
+| `ingest` | Full ingestion design, source-policy proposal and acquisition research (2026-09-22) | Native acquisition lifecycle and sessions; the owner-approved inventory is private |
 | `delivery` | Unified delivery plan (2026-09-22) | Tasks U01–U18 with folded F0–F8, Q1–Q4, D1–D5; dispositions C01–C30; corrections R01–R11 |
 | `product` | Provider analysis: master product specification, capability and Graphify decisions made with the owner, native Rust product direction, visual workbench, native ingestion specification | C01–C16, M01–M11, U01–U15, J01–J08, A01–A20, N01–N10, D01–D11, CD1–CD8, GD1–GD5, V01–V12 |
 | `revtools` | Reverse-engineering analysis supplied by the owner (2026-09-24): whether several tools can be studied and rebuilt as one, and which instruments do it | Legal boundary, licence and porting rules, per-project capability map, recommended architecture, instrument chain, defensible process (§19) |
@@ -39,6 +39,10 @@ specifics move to the private collection repository (ADR-0009).
 | **Deferred** | Kept and scheduled for a later slice or a demand-driven profile |
 | **Dropped** | Not kept; §16 gives the reason and who decided |
 | **Open** | Needs an owner decision; listed in §17 |
+
+These statuses are design dispositions, not implementation or test evidence. A
+slice's delivery map must identify its exact requirement rows, delivered
+portion, integrated code or test evidence, and remaining work.
 
 ## 3. Owner requirements
 
@@ -222,7 +226,7 @@ specifics move to the private collection repository (ADR-0009).
 | --- | --- | --- | --- |
 | rag.N011 two circuits | Ingestion and question answering are separate; never crawl per question | Kept | [01](01-knowledge-pipeline.md) introduction |
 | ingest approach | Staged native engine with adapters; Python harness only for comparison; no big-bang rewrite; Python kept until per-source parity | Kept | [01 §2.2](01-knowledge-pipeline.md#22-s6--native-acquisition) |
-| ingest scope | Official docs, community, KB, GitHub, attachments, distribution catalogue; installers asset-only; private archives a separate ingress; 15 sources and 40 entry URLs | Kept | [01 §1](01-knowledge-pipeline.md#1-collections-sources-and-scopes), [§2.2](01-knowledge-pipeline.md#22-s6--native-acquisition) |
+| ingest scope | Owner-approved source rules and collection inventory are private; public docs describe only the generic acquisition contract | Kept | [01 §1](01-knowledge-pipeline.md#1-collections-sources-and-scopes), [§2.2](01-knowledge-pipeline.md#22-s6--native-acquisition) |
 | ingest policy | Strict executable JSON; review-only proposal refused; frozen exclusion registries; historical exceptions as promotion decisions | Kept | [01 §2.2.7](01-knowledge-pipeline.md#227-source-policy-robots-and-url-identity), ADR-0014 |
 | ingest sessions | Session reuse before credentials; KeePass entry pair; TOTP and e-mail MFA with human completion; owned browser lifecycle; bindings per source role; second synthetic collection | Kept | [01 §2.2.3](01-knowledge-pipeline.md#223-sessions-and-authentication-private-connectors) |
 | ingest preflight | Bounded protected preflight (180 s, two reads, one login) | Kept | [01 §2.2.3](01-knowledge-pipeline.md#223-sessions-and-authentication-private-connectors) |

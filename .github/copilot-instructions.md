@@ -2,12 +2,13 @@
 
 ## Start here
 
-The local runtime of Maestro: knowledge kernel, retrieval, orchestration and the
-command-line tools. Today it holds one crate,
-[`maestro-canonicalization`](../crates/maestro-canonicalization/README.md),
-which turns Markdown into provenance-bearing canonical documents, groups
-duplicates and cuts them into token-budgeted chunks. The rest arrives slice by
-slice ([roadmap](../docs/architecture/06-roadmap.md)).
+The local runtime of Maestro: a knowledge kernel, retrieval and a command-line
+application. The workspace contains `maestro-canonicalization`,
+`maestro-conventions`, `maestro-kernel`, `maestro-knowledge` and `maestro`.
+[`maestro-canonicalization`](../crates/maestro-canonicalization/README.md) turns
+Markdown into provenance-bearing canonical documents, groups duplicates and cuts
+them into token-budgeted chunks; later capabilities arrive slice by slice
+([roadmap](../docs/architecture/06-roadmap.md)).
 
 Paths below are relative to this repository. Before editing, read
 [AGENTS.md](../AGENTS.md) for the rules that bind every change,
