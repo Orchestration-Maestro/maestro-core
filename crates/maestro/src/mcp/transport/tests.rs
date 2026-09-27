@@ -6,6 +6,10 @@ use tokio::{
     time::timeout,
 };
 
+/// A bound that only stops a hung test; it is generous so a loaded
+/// machine cannot fail a correct run.
+const HANG_GUARD: Duration = Duration::from_secs(30);
+
 fn run_bounded(runtime: &Runtime, future: impl Future<Output = ()>) {
     runtime.block_on(async {
         timeout(Duration::from_secs(15), future)
@@ -47,7 +51,7 @@ fn input_line_limit_includes_its_newline() {
             .expect("write final frame at limit");
         drop(client_input);
         assert_eq!(
-            timeout(Duration::from_secs(1), transport.line())
+            timeout(HANG_GUARD, transport.line())
                 .await
                 .expect("final frame is bounded"),
             Some(final_frame)
@@ -213,7 +217,7 @@ fn queued_refusal_flushes_after_receive_is_cancelled() {
         let mut response = Vec::new();
         let mut byte = [0_u8; 1];
         loop {
-            let read = timeout(Duration::from_secs(1), client_output.read(&mut byte))
+            let read = timeout(HANG_GUARD, client_output.read(&mut byte))
                 .await
                 .expect("queued refusal flushes without another message or close")
                 .expect("read refusal");

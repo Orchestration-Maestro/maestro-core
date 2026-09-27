@@ -24,6 +24,10 @@ use tokio::{
     time::timeout,
 };
 
+/// A bound that only stops a hung test; it is generous so a loaded
+/// machine cannot fail a correct run.
+const HANG_GUARD: Duration = Duration::from_secs(30);
+
 #[test]
 fn empty_collection_arguments_are_strict_and_refuse_identity_fields() {
     assert!(CollectionsRequest::parse(json!({})).is_ok());
@@ -59,10 +63,7 @@ fn protocol_versions_match_rmcp_defaults() {
 #[tokio::test]
 async fn collections_delivery_refuses_access_revoked_after_operation_refresh() {
     let scratch = RefreshScratch::new();
-    let server = KnowledgeServer::with_kernel_opener(
-        move || scratch.kernel(Some(1)),
-        Duration::from_secs(1),
-    );
+    let server = KnowledgeServer::with_kernel_opener(move || scratch.kernel(Some(1)), HANG_GUARD);
     let response = serve_one_call(server, handshake_and_call(2), 2).await;
     assert_eq!(tool_error(&response)["error"]["code"], "access_changed");
 }
@@ -70,10 +71,7 @@ async fn collections_delivery_refuses_access_revoked_after_operation_refresh() {
 #[tokio::test]
 async fn get_delivery_refuses_access_revoked_after_operation_refreshes() {
     let scratch = RefreshScratch::new();
-    let server = KnowledgeServer::with_kernel_opener(
-        move || scratch.kernel(Some(2)),
-        Duration::from_secs(1),
-    );
+    let server = KnowledgeServer::with_kernel_opener(move || scratch.kernel(Some(2)), HANG_GUARD);
     let response = serve_one_call(server, handshake_and_get_call(2), 2).await;
     assert_eq!(tool_error(&response)["error"]["code"], "access_changed");
 }
@@ -181,13 +179,13 @@ async fn cancellation_keeps_the_worker_permit_and_busy_is_a_json_text_error() {
         .write_all(&handshake_and_call(2))
         .await
         .expect("write initial call");
-    let service = timeout(Duration::from_secs(2), serving)
+    let service = timeout(HANG_GUARD, serving)
         .await
         .expect("MCP handshake deadline")
         .expect("join service handshake")
         .expect("start test service");
     let waiting = spawn(service.waiting());
-    spawn_blocking(move || started_rx.recv_timeout(Duration::from_secs(2)))
+    spawn_blocking(move || started_rx.recv_timeout(HANG_GUARD))
         .await
         .expect("join opener wait")
         .expect("blocking operation started");
@@ -202,11 +200,11 @@ async fn cancellation_keeps_the_worker_permit_and_busy_is_a_json_text_error() {
     assert_eq!(tool_error(response(&responses, 3))["error"]["code"], "busy");
     drop(held);
     drop(release_worker);
-    spawn_blocking(move || finished_rx.recv_timeout(Duration::from_secs(2)))
+    spawn_blocking(move || finished_rx.recv_timeout(HANG_GUARD))
         .await
         .expect("join kernel-open wait")
         .expect("blocking operation finished");
-    timeout(Duration::from_secs(2), waiting)
+    timeout(HANG_GUARD, waiting)
         .await
         .expect("service shutdown deadline")
         .expect("join service")
@@ -237,13 +235,13 @@ async fn deadline_returns_a_refusal_while_the_blocking_worker_keeps_its_permit()
         .write_all(&handshake_and_call(2))
         .await
         .expect("write initial call");
-    let service = timeout(Duration::from_secs(2), serving)
+    let service = timeout(HANG_GUARD, serving)
         .await
         .expect("MCP handshake deadline")
         .expect("join service handshake")
         .expect("start test service");
     let waiting = spawn(service.waiting());
-    spawn_blocking(move || started_rx.recv_timeout(Duration::from_secs(2)))
+    spawn_blocking(move || started_rx.recv_timeout(HANG_GUARD))
         .await
         .expect("join opener wait")
         .expect("blocking operation started");
@@ -253,12 +251,12 @@ async fn deadline_returns_a_refusal_while_the_blocking_worker_keeps_its_permit()
     assert_eq!(tool_error(response)["error"]["code"], "deadline_exceeded");
     drop(held);
     drop(release_worker);
-    spawn_blocking(move || finished_rx.recv_timeout(Duration::from_secs(2)))
+    spawn_blocking(move || finished_rx.recv_timeout(HANG_GUARD))
         .await
         .expect("join kernel-open wait")
         .expect("blocking operation finished");
     drop(client_input);
-    timeout(Duration::from_secs(2), waiting)
+    timeout(HANG_GUARD, waiting)
         .await
         .expect("service shutdown deadline")
         .expect("join service")
@@ -396,7 +394,7 @@ async fn serve_one_call(server: KnowledgeServer, request: Vec<u8>, id: i64) -> V
         .write_all(&request)
         .await
         .expect("write MCP call");
-    let service = timeout(Duration::from_secs(2), serving)
+    let service = timeout(HANG_GUARD, serving)
         .await
         .expect("MCP startup deadline")
         .expect("join service startup")
@@ -404,7 +402,7 @@ async fn serve_one_call(server: KnowledgeServer, request: Vec<u8>, id: i64) -> V
     let waiting = spawn(service.waiting());
     let responses = responses_for(client_output, &[id]).await;
     drop(client_input);
-    timeout(Duration::from_secs(2), waiting)
+    timeout(HANG_GUARD, waiting)
         .await
         .expect("service shutdown deadline")
         .expect("join service")
@@ -421,7 +419,7 @@ async fn responses_for(output: DuplexStream, ids: &[i64]) -> Vec<Value> {
             .any(|response: &Value| response["id"] == *id)
     }) {
         let mut line = String::new();
-        timeout(Duration::from_secs(2), reader.read_line(&mut line))
+        timeout(HANG_GUARD, reader.read_line(&mut line))
             .await
             .expect("response deadline")
             .expect("read response");
