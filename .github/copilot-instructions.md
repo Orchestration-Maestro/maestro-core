@@ -659,6 +659,36 @@ in place.
 │       │   │   ├── tests.rs                                                 # Regression tests for deterministic query understanding
 │       │   │   └── understand.rs                                            # Public query-understanding result and entry point
 │       │   ├── search/                                                      # Search
+│       │   │   ├── evidence/                                                # Internal algorithms for assembling authoritative, bounded evidence
+│       │   │   │   ├── conflicts/                                           # Conflicts
+│       │   │   │   │   ├── detect.rs                                        # Rust source: detect
+│       │   │   │   │   ├── mod.rs                                           # Rust source: mod
+│       │   │   │   │   └── tables.rs                                        # Rust source: tables
+│       │   │   │   ├── features/                                            # Computes case-sensitive shingles and source features for evidence ranking
+│       │   │   │   │   ├── mod.rs                                           # Case-sensitive shingles and protected source signatures
+│       │   │   │   │   ├── mutation_tests.rs                                # Regression checks for source offsets used by diversity signatures
+│       │   │   │   │   └── signatures.rs                                    # Computes case-sensitive shingles and source features for evidence ranking
+│       │   │   │   ├── sections/                                            # Derives validated section extents and bounded sibling windows
+│       │   │   │   │   ├── index.rs                                         # Derives validated section extents and bounded sibling windows
+│       │   │   │   │   ├── mod.rs                                           # Derives validated section extents and bounded sibling windows
+│       │   │   │   │   └── validation.rs                                    # Validates canonical block links and source spans before evidence expansion
+│       │   │   │   ├── tests/                                               # Integration tests
+│       │   │   │   │   ├── budget.rs                                        # Rust source: budget
+│       │   │   │   │   ├── conflict_structures.rs                           # Rust source: conflict structures
+│       │   │   │   │   ├── conflicts.rs                                     # Rust source: conflicts
+│       │   │   │   │   ├── features.rs                                      # Rust source: features
+│       │   │   │   │   ├── mod.rs                                           # Rust source: mod
+│       │   │   │   │   ├── section_selection.rs                             # Rust source: section selection
+│       │   │   │   │   ├── section_validation.rs                            # Rust source: section validation
+│       │   │   │   │   ├── sections.rs                                      # Rust source: sections
+│       │   │   │   │   ├── signals.rs                                       # Rust source: signals
+│       │   │   │   │   ├── spans.rs                                         # Rust source: spans
+│       │   │   │   │   └── versions.rs                                      # Rust source: versions
+│       │   │   │   ├── budget.rs                                            # Token-counting helpers for compact serialized evidence
+│       │   │   │   ├── mod.rs                                               # Authoritative section reads and bounded evidence assembly
+│       │   │   │   ├── signals.rs                                           # Rust source: signals
+│       │   │   │   ├── spans.rs                                             # Candidate source-span unions
+│       │   │   │   └── versions.rs                                          # Numeric release-label ordering
 │       │   │   ├── routes/                                                  # Independent route diagnostics
 │       │   │   │   ├── dense.rs                                             # Dense diagnostic search through the generation's own embedder and vector
 │       │   │   │   ├── error.rs                                             # Typed failures for the admission and diagnostic routes
