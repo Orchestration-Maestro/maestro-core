@@ -161,4 +161,6 @@ mod tests;
 mod vector;
 
 pub use analyzer::{PROFILE, terms};
+pub(crate) use fold::fold;
+pub(crate) use stopwords::is_stopword;
 pub use vector::{AverageLength, Passage, SparseVector, query_vector};

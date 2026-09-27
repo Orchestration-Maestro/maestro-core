@@ -10,7 +10,7 @@
 /// `ﬂ`, `ﬃ` and `ﬄ` of text taken from PDF files, are written as their
 /// letters: `Œ` becomes `OE` and `ﬁ` becomes `fi`. A letter outside the two
 /// blocks, such as Vietnamese `ệ`, folds only when decomposed.
-pub(super) fn fold(text: &str) -> String {
+pub(crate) fn fold(text: &str) -> String {
     let mut folded = String::with_capacity(text.len());
     for character in text.chars() {
         match base_letters(character) {

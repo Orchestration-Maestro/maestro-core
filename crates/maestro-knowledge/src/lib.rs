@@ -27,6 +27,8 @@ pub mod index;
 pub mod lexical;
 pub mod prepare;
 pub mod quality;
+/// Deterministic query normalization, language detection and classification.
+pub mod query;
 mod relative_path;
 /// Search admission, route diagnostics and rank fusion for knowledge search.
 pub mod search;

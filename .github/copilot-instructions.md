@@ -557,6 +557,17 @@ in place.
 │       │   │   ├── mod.rs                                                   # The gate, its precedence, and the list of automatic checks
 │       │   │   ├── outcome.rs                                               # The five outcomes by their 01 §4 names, and which hold a revision back
 │       │   │   └── report.rs                                                # What the gate reports: every revision counted once, the held ones listed
+│       │   ├── query/                                                       # Query
+│       │   │   ├── identifier_numbers.rs                                    # Version, port and error-code identifier patterns
+│       │   │   ├── identifier_patterns.rs                                   # Parameter, command and path identifier patterns
+│       │   │   ├── identifier_types.rs                                      # Public identifier data and internal source-span candidates
+│       │   │   ├── identifiers.rs                                           # Identifier detection and overlap resolution
+│       │   │   ├── kind.rs                                                  # Rule-based query-kind classification in English and French
+│       │   │   ├── language.rs                                              # Language detection for normalized queries
+│       │   │   ├── mod.rs                                                   # Rust source: mod
+│       │   │   ├── normalize.rs                                             # Whitespace normalization for queries
+│       │   │   ├── tests.rs                                                 # Regression tests for deterministic query understanding
+│       │   │   └── understand.rs                                            # Public query-understanding result and entry point
 │       │   ├── search/                                                      # Search
 │       │   │   ├── routes/                                                  # Independent route diagnostics
 │       │   │   │   ├── dense.rs                                             # Dense diagnostic search through the generation's own embedder and vector

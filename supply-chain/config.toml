@@ -199,6 +199,10 @@ version = "0.4.19"
 criteria = "safe-to-deploy"
 
 [[exemptions.hashbrown]]
+version = "0.14.2"
+criteria = "safe-to-deploy"
+
+[[exemptions.hashbrown]]
 version = "0.17.1"
 criteria = "safe-to-deploy"
 
@@ -660,6 +664,10 @@ criteria = "safe-to-deploy"
 
 [[exemptions.web-time]]
 version = "1.1.0"
+criteria = "safe-to-deploy"
+
+[[exemptions.whatlang]]
+version = "0.18.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.winapi-util]]

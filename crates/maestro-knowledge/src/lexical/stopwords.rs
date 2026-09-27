@@ -15,7 +15,7 @@
 //! stemmed, so `note`, whose stem is `not`, stays a term.
 
 /// Whether `word`, folded and lowercased, is a stopword of either list.
-pub(super) fn is_stopword(word: &str) -> bool {
+pub(crate) fn is_stopword(word: &str) -> bool {
     ENGLISH.binary_search(&word).is_ok() || FRENCH.binary_search(&word).is_ok()
 }
 

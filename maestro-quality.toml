@@ -166,6 +166,10 @@ reason = "qdrant-client 1.19 requires it (ring 0.17 under tonic's TLS; ADR-0020)
 rule = "DEP-001"
 path = "windows-sys@0.52.0"
 reason = "qdrant-client 1.19 requires it (ring 0.17 under tonic's TLS; ADR-0020); remove when ring moves to windows-sys 0.61, the version maestro-core uses"
+[[exception]]
+rule = "DEP-001"
+path = "hashbrown@0.15.5"
+reason = "whatlang 0.18 requires it (ADR-0020); remove when whatlang moves to hashbrown 0.17"
 
 # The words this repository means that the spell checker reads as mistakes:
 # Exemple, French test input for the canonicalizer; RTO, the recovery time
