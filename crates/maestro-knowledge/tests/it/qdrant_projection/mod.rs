@@ -14,5 +14,6 @@ mod kernel;
 mod models;
 mod refused_batches;
 mod resumed_builds;
+mod search_routes;
 mod stopped_builds;
 mod support;

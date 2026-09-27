@@ -1,0 +1,26 @@
+//! The scopes and generation admitted for a search.
+
+use crate::index::{Qdrant, collection_name};
+use maestro_kernel::{generation::Generation, scope::ScopeSet};
+
+/// The request shared by the dense and BM25 diagnostic routes.
+#[derive(Debug)]
+pub struct Query<'a> {
+    /// The generation pinned at admission; routes keep using it if the alias moves.
+    pub generation: &'a Generation,
+    /// The caller's current read scopes.
+    pub scopes: &'a ScopeSet,
+    /// The text to search.
+    pub text: &'a str,
+    /// The maximum number of chunks to return.
+    pub limit: usize,
+    /// The Qdrant server holding the generation's collection.
+    pub qdrant: &'a Qdrant,
+}
+
+impl Query<'_> {
+    /// The immutable collection of this generation, never its alias.
+    pub(super) fn collection(&self) -> String {
+        collection_name(self.generation)
+    }
+}

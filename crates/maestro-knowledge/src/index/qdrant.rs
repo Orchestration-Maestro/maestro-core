@@ -5,9 +5,10 @@ use qdrant_client::{
     Qdrant as Client, QdrantError as ClientError,
     qdrant::{
         CollectionParams, CountPointsBuilder, CreateAliasBuilder, CreateCollectionBuilder,
-        Distance, GetPointsBuilder, HnswConfigDiffBuilder, Modifier, PointId, PointStruct,
-        SparseVectorParamsBuilder, SparseVectorsConfigBuilder, UpsertPointsBuilder,
-        VectorParamsBuilder, VectorsConfigBuilder, point_id::PointIdOptions,
+        CreateFieldIndexCollectionBuilder, Distance, FieldType, Filter, GetPointsBuilder,
+        HnswConfigDiffBuilder, Modifier, PointId, PointStruct, QueryPointsBuilder, ScoredPoint,
+        SparseVector, SparseVectorParamsBuilder, SparseVectorsConfigBuilder, UpsertPointsBuilder,
+        VectorInput, VectorParamsBuilder, VectorsConfigBuilder, point_id::PointIdOptions,
     },
 };
 use std::{error, fmt, time::Duration};
@@ -109,6 +110,80 @@ impl Qdrant {
             .and_then(|info| info.config)
             .and_then(|config| config.params)
             .ok_or_else(|| QdrantError::InvalidAnswer(format!("no parameters of {collection}")))
+    }
+
+    /// Creates the keyword index used by the generation's `scope_tags` filter.
+    ///
+    /// # Errors
+    ///
+    /// [`QdrantError::Client`] when Qdrant refuses the index.
+    pub(crate) async fn index_scope_tags(&self, collection: &str) -> Result<(), QdrantError> {
+        self.client
+            .create_field_index(
+                CreateFieldIndexCollectionBuilder::new(
+                    collection,
+                    "scope_tags",
+                    FieldType::Keyword,
+                )
+                .wait(true),
+            )
+            .await
+            .map(drop)
+            .map_err(QdrantError::Client)
+    }
+
+    /// Queries the named dense vector `DENSE`, applying `filter` in Qdrant
+    /// before the top `limit` points are ranked.
+    ///
+    /// # Errors
+    ///
+    /// [`QdrantError::Client`] when Qdrant refuses the query.
+    pub(crate) async fn query_dense(
+        &self,
+        collection: &str,
+        vector: Vec<f32>,
+        limit: usize,
+        filter: Filter,
+    ) -> Result<Vec<ScoredPoint>, QdrantError> {
+        self.client
+            .query(
+                QueryPointsBuilder::new(collection)
+                    .using(DENSE)
+                    .query(vector)
+                    .limit(u64::try_from(limit).unwrap_or(u64::MAX))
+                    .filter(filter)
+                    .with_payload(true),
+            )
+            .await
+            .map(|response| response.result)
+            .map_err(QdrantError::Client)
+    }
+
+    /// Queries the named sparse vector `SPARSE`, applying `filter` in Qdrant
+    /// before the top `limit` points are ranked.
+    ///
+    /// # Errors
+    ///
+    /// [`QdrantError::Client`] when Qdrant refuses the query.
+    pub(crate) async fn query_sparse(
+        &self,
+        collection: &str,
+        vector: SparseVector,
+        limit: usize,
+        filter: Filter,
+    ) -> Result<Vec<ScoredPoint>, QdrantError> {
+        self.client
+            .query(
+                QueryPointsBuilder::new(collection)
+                    .using(SPARSE)
+                    .query(VectorInput::new_sparse(vector.indices, vector.values))
+                    .limit(u64::try_from(limit).unwrap_or(u64::MAX))
+                    .filter(filter)
+                    .with_payload(true),
+            )
+            .await
+            .map(|response| response.result)
+            .map_err(QdrantError::Client)
     }
 
     /// Writes `points` into the collection `collection`, replacing any of the

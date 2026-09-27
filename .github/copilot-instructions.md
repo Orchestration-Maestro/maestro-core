@@ -479,6 +479,7 @@ in place.
 │       │   │   ├── dense.rs                                                 # Dense vectors: a batch embedded in free room within a deadline, then checked
 │       │   │   ├── error.rs                                                 # Why a publication stopped, and the check a generation's collection failed
 │       │   │   ├── mod.rs                                                   # The search projection in Qdrant: generations of chunk sets, behind the collection's alias
+│       │   │   ├── names.rs                                                 # Qdrant names derived from a generation's kernel record
 │       │   │   ├── point.rs                                                 # Points: each chunk under the UUIDv5 of its ID, with its two vectors and its payload
 │       │   │   ├── progress.rs                                              # A publication's progress after each batch, which a job journals, and its report
 │       │   │   ├── projection.rs                                            # What a publication works with
@@ -557,13 +558,23 @@ in place.
 │       │   │   ├── outcome.rs                                               # The five outcomes by their 01 §4 names, and which hold a revision back
 │       │   │   └── report.rs                                                # What the gate reports: every revision counted once, the held ones listed
 │       │   ├── search/                                                      # Search
+│       │   │   ├── routes/                                                  # Independent route diagnostics
+│       │   │   │   ├── dense.rs                                             # Dense diagnostic search through the generation's own embedder and vector
+│       │   │   │   ├── error.rs                                             # Typed failures for the admission and diagnostic routes
+│       │   │   │   ├── lexical.rs                                           # BM25 diagnostic search, using the generation's recorded analyzer profile
+│       │   │   │   ├── mod.rs                                               # Independent route diagnostics
+│       │   │   │   └── results.rs                                           # Route-order results and the common first-hit deduplication rule
 │       │   │   ├── tests/                                                   # Integration tests
 │       │   │   │   ├── fusion.rs                                            # Rust source: fusion
 │       │   │   │   ├── mod.rs                                               # Rust source: mod
 │       │   │   │   ├── rerank.rs                                            # Rust source: rerank
+│       │   │   │   ├── routes.rs                                            # Pure route helpers: Qdrant scope filters and ranked-hit cleanup
 │       │   │   │   └── window_boundaries.rs                                 # Rust source: window boundaries
+│       │   │   ├── filter.rs                                                # Qdrant's in-route filter for the scopes admitted to one request
 │       │   │   ├── fusion.rs                                                # Reciprocal rank fusion over independent retrieval routes
 │       │   │   ├── mod.rs                                                   # Rust source: mod
+│       │   │   ├── pin.rs                                                   # Pins the published generation before any route touches Qdrant
+│       │   │   ├── query.rs                                                 # The scopes and generation admitted for a search
 │       │   │   └── rerank.rs                                                # Reranks the head of a fused list without truncating candidate text
 │       │   ├── collection.rs                                                # A collection's declaration: maestro-collection/1, the strict JSON that
 │       │   ├── corpus.rs                                                    # A corpus manifest: maestro-corpus/1, one JSON line per document, through
@@ -594,8 +605,15 @@ in place.
 │       │       │   │   ├── collections.rs                                   # The fake's collections: creation, existence, parameters and aliases
 │       │       │   │   ├── mod.rs                                           # A fake Qdrant: a gRPC server in memory, on a loopback port
 │       │       │   │   ├── points.rs                                        # The fake's points: written, checked and normalized as Qdrant does, found and counted
+│       │       │   │   ├── query.rs                                         # Qdrant's filtered nearest-vector query, as the projection tests' fake serves it
 │       │       │   │   ├── server.rs                                        # The fake's server: its two services on a loopback port, in the test's runtime
 │       │       │   │   └── state.rs                                         # What the fake keeps, and the refusals and hollow answers a test asked for
+│       │       │   ├── search_routes/                                       # Dense and lexical routes against the shared fake and, when configured, real Qdrant
+│       │       │   │   ├── mod.rs                                           # Dense and lexical routes against the shared fake and, when configured, real Qdrant
+│       │       │   │   ├── route_behavior.rs                                # Behavior of dense and lexical searches over the generation-pinned collection
+│       │       │   │   ├── route_errors.rs                                  # Refusals from admission, profiles and dense embedding
+│       │       │   │   ├── scope_index.rs                                   # A new generation indexes the scope payload it searches by
+│       │       │   │   └── support.rs                                       # Qdrant points and pinned generations shared by route tests
 │       │       │   ├── alias_moves.rs                                       # The alias moves only to a generation whose collection passes its checks
 │       │       │   ├── backends.rs                                          # The Qdrant servers a test runs against, and what it reads back from them
 │       │       │   ├── built_generations.rs                                 # A generation builds in its own collection; its points, payloads and IDs

@@ -8,6 +8,7 @@
 
 mod collections;
 mod points;
+mod query;
 mod server;
 mod state;
 

@@ -6,6 +6,7 @@ use super::{
     batches::Target,
     dense::embedding_profile,
     error::{Error, Unverified},
+    names::collection_name,
     progress::{Progress, Report},
     projection::Projection,
     verify::{vectors, verify},
@@ -98,7 +99,7 @@ impl<P: ModelPort> Projection<'_, P> {
         let dimensions = self.dimensions()?;
         let set = self.complete(chunk_set)?;
         let (generation, step) = self.generation(&set)?;
-        let names = Names::of(&set.collection_id, generation.id);
+        let names = Names::of(&generation);
         if step == Step::Done {
             if !self
                 .qdrant
@@ -135,7 +136,7 @@ impl<P: ModelPort> Projection<'_, P> {
             self.database
                 .published_generation(self.scopes, &set.collection_id)
                 .map_err(Error::Generation)?
-                .map(|published| Names::of(&set.collection_id, published.id).collection)
+                .map(|published| Names::of(&published).collection)
         } else {
             None
         };
@@ -224,27 +225,33 @@ impl<P: ModelPort> Projection<'_, P> {
     /// `dimensions`: a collection with others fails the generation.
     async fn ensure(&self, names: &Names, dimensions: u64) -> Result<bool, Error> {
         let collection = &names.collection;
-        if !self
+        let created = if self
             .qdrant
             .exists(collection)
             .await
             .map_err(Error::Qdrant)?
         {
+            let parameters = self
+                .qdrant
+                .parameters(collection)
+                .await
+                .map_err(Error::Qdrant)?;
+            if let Err(reason) = vectors(&parameters, dimensions) {
+                return self.fail(names.generation, reason, None).await;
+            }
+            false
+        } else {
             self.qdrant
                 .create(collection, dimensions)
                 .await
                 .map_err(Error::Qdrant)?;
-            return Ok(true);
-        }
-        let parameters = self
-            .qdrant
-            .parameters(collection)
+            true
+        };
+        self.qdrant
+            .index_scope_tags(collection)
             .await
             .map_err(Error::Qdrant)?;
-        match vectors(&parameters, dimensions) {
-            Ok(()) => Ok(false),
-            Err(reason) => self.fail(names.generation, reason, None).await,
-        }
+        Ok(created)
     }
 
     /// The points the collection of `names` holds once it passes every
@@ -309,13 +316,12 @@ struct Names {
 }
 
 impl Names {
-    /// The names of the generation `generation` of the collection
-    /// `collection`.
-    fn of(collection: &str, generation: i64) -> Self {
+    /// The names of `generation` in Qdrant.
+    fn of(generation: &Generation) -> Self {
         Self {
-            generation,
-            collection: format!("maestro-{collection}-g{generation}"),
-            alias: format!("maestro-{collection}"),
+            generation: generation.id,
+            collection: collection_name(generation),
+            alias: super::alias_name(generation),
         }
     }
 }

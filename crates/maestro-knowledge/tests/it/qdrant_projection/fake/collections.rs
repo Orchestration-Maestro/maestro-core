@@ -9,8 +9,8 @@ use qdrant_client::qdrant::{
     CreateShardKeyRequest, CreateShardKeyResponse, DeleteCollection, DeleteShardKeyRequest,
     DeleteShardKeyResponse, GetCollectionInfoRequest, GetCollectionInfoResponse,
     ListAliasesRequest, ListAliasesResponse, ListCollectionAliasesRequest, ListCollectionsRequest,
-    ListCollectionsResponse, ListShardKeysRequest, ListShardKeysResponse, UpdateCollection,
-    UpdateCollectionClusterSetupRequest, UpdateCollectionClusterSetupResponse,
+    ListCollectionsResponse, ListShardKeysRequest, ListShardKeysResponse, PayloadSchemaInfo,
+    UpdateCollection, UpdateCollectionClusterSetupRequest, UpdateCollectionClusterSetupResponse,
     alias_operations::Action, collections_server::Collections,
 };
 use tonic::{Request, Response, Status};
@@ -38,6 +38,20 @@ impl Collections for Fake {
                 hnsw_config: collection.hnsw_config,
                 ..CollectionConfig::default()
             }),
+            payload_schema: collection
+                .indexes
+                .iter()
+                .map(|(field, data_type)| {
+                    (
+                        field.clone(),
+                        PayloadSchemaInfo {
+                            data_type: *data_type,
+                            points: Some(collection.points.len() as u64),
+                            ..PayloadSchemaInfo::default()
+                        },
+                    )
+                })
+                .collect(),
             ..CollectionInfo::default()
         };
         let result = (!hollow).then_some(info);

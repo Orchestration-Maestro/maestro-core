@@ -19,6 +19,8 @@ pub(super) struct Collection {
     pub(super) hnsw_config: Option<HnswConfigDiff>,
     /// Its points, by ID.
     pub(super) points: BTreeMap<String, RetrievedPoint>,
+    /// Its payload indexes, by field and Qdrant field type.
+    pub(super) indexes: BTreeMap<String, i32>,
 }
 
 /// What the fake keeps.

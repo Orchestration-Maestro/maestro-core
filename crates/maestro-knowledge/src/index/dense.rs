@@ -11,7 +11,7 @@ use tokio::time;
 /// the router's build, so a new model or a new build is a new profile, and
 /// version 1 embeds a chunk's prepared input as it is, the text its chunk
 /// set counted, with no template around it.
-pub(super) fn embedding_profile(card: &ModelCard) -> String {
+pub(crate) fn embedding_profile(card: &ModelCard) -> String {
     format!("dense/1:sha256:{}", card.digest().as_str())
 }
 

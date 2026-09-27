@@ -53,6 +53,7 @@
 mod batches;
 mod dense;
 mod error;
+mod names;
 mod point;
 mod progress;
 mod projection;
@@ -64,8 +65,10 @@ mod sparse;
 mod tests;
 mod verify;
 
+pub(crate) use dense::embedding_profile;
 pub use dense::{Failure, Refusal};
 pub use error::{Error, Unverified};
+pub(crate) use names::{alias_name, collection_name};
 pub use progress::{Progress, Report};
 pub use projection::Projection;
 pub use qdrant::{Qdrant, QdrantError};

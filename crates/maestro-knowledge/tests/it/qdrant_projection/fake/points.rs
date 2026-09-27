@@ -11,15 +11,15 @@ use qdrant_client::qdrant::{
     CreateFieldIndexCollection, CreateVectorNameRequest, DeleteFieldIndexCollection,
     DeletePayloadPoints, DeletePointVectors, DeletePoints, DeleteVectorNameRequest, DenseVector,
     DiscoverBatchPoints, DiscoverBatchResponse, DiscoverPoints, DiscoverResponse, Distance,
-    FacetCounts, FacetResponse, GetPoints, GetResponse, NamedVectorsOutput, PointStruct,
-    PointsOperationResponse, QueryBatchPoints, QueryBatchResponse, QueryGroupsResponse,
-    QueryPointGroups, QueryPoints, QueryResponse, RecommendBatchPoints, RecommendBatchResponse,
-    RecommendGroupsResponse, RecommendPointGroups, RecommendPoints, RecommendResponse,
-    RetrievedPoint, ScrollPoints, ScrollResponse, SearchBatchPoints, SearchBatchResponse,
-    SearchGroupsResponse, SearchMatrixOffsetsResponse, SearchMatrixPairsResponse,
-    SearchMatrixPoints, SearchPointGroups, SearchPoints, SearchResponse, SetPayloadPoints,
-    UpdateBatchPoints, UpdateBatchResponse, UpdatePointVectors, UpdateResult, UpdateStatus,
-    UpsertPoints, VectorOutput, VectorsOutput, points_selector::PointsSelectorOneOf,
+    FacetCounts, FacetResponse, FieldType, GetPoints, GetResponse, NamedVectorsOutput,
+    PayloadSchemaType, PointStruct, PointsOperationResponse, QueryBatchPoints, QueryBatchResponse,
+    QueryGroupsResponse, QueryPointGroups, QueryPoints, QueryResponse, RecommendBatchPoints,
+    RecommendBatchResponse, RecommendGroupsResponse, RecommendPointGroups, RecommendPoints,
+    RecommendResponse, RetrievedPoint, ScrollPoints, ScrollResponse, SearchBatchPoints,
+    SearchBatchResponse, SearchGroupsResponse, SearchMatrixOffsetsResponse,
+    SearchMatrixPairsResponse, SearchMatrixPoints, SearchPointGroups, SearchPoints, SearchResponse,
+    SetPayloadPoints, UpdateBatchPoints, UpdateBatchResponse, UpdatePointVectors, UpdateResult,
+    UpdateStatus, UpsertPoints, VectorOutput, VectorsOutput, points_selector::PointsSelectorOneOf,
     points_server::Points, vector, vector_output, vectors::VectorsOptions, vectors_config::Config,
     vectors_output, with_payload_selector, with_vectors_selector,
 };
@@ -286,9 +286,20 @@ impl Points for Fake {
 
     async fn create_field_index(
         &self,
-        _request: Request<CreateFieldIndexCollection>,
+        request: Request<CreateFieldIndexCollection>,
     ) -> Result<Response<PointsOperationResponse>, Status> {
-        Err(unserved("create_field_index"))
+        self.admit("create_field_index")?;
+        let request = request.into_inner();
+        if request.field_type != Some(FieldType::Keyword as i32) {
+            return Err(Status::invalid_argument(
+                "the fake only indexes keyword fields",
+            ));
+        }
+        self.state()
+            .collection(&request.collection_name)?
+            .indexes
+            .insert(request.field_name, PayloadSchemaType::Keyword as i32);
+        Ok(Response::new(completed()))
     }
 
     async fn delete_field_index(
@@ -377,9 +388,9 @@ impl Points for Fake {
 
     async fn query(
         &self,
-        _request: Request<QueryPoints>,
+        request: Request<QueryPoints>,
     ) -> Result<Response<QueryResponse>, Status> {
-        Err(unserved("query"))
+        super::query::run(self, request)
     }
 
     async fn query_batch(
