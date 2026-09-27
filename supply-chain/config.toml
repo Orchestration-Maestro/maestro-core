@@ -662,6 +662,10 @@ criteria = "safe-to-deploy"
 version = "1.1.0"
 criteria = "safe-to-deploy"
 
+[[exemptions.winapi-util]]
+version = "0.1.11"
+criteria = "safe-to-deploy"
+
 [[exemptions.windows-sys]]
 version = "0.52.0"
 criteria = "safe-to-deploy"
