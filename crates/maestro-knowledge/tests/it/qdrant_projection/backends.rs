@@ -51,6 +51,11 @@ pub(super) fn fake() -> Backend {
     }
 }
 
+/// Starts the existing test-owned fake on a loopback ephemeral port.
+pub(crate) fn synthetic_fake_qdrant_url() -> String {
+    fake().url
+}
+
 /// The servers the test `test` runs against: the fake, then the Qdrant
 /// `MAESTRO_QDRANT_URL` names, if it names one; else `test` says on stderr
 /// that its leg against a real Qdrant is skipped.

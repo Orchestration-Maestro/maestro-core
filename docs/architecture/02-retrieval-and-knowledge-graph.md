@@ -411,11 +411,20 @@ blocks regressions.
 
 | Suite | Content | Where it runs |
 | --- | --- | --- |
-| `synthetic-retrieval` | Public synthetic corpus (non-vendor topics) with labelled questions | Public CI on every PR (deterministic fake embedder for pipeline checks; real models locally) |
+| `synthetic` | Public synthetic corpus (non-vendor topics) with 56 labelled questions in `tests/fixtures/synthetic` | Public CI on every PR with pinned Qdrant 1.19 and deterministic fake inference |
 | `ctm-retrieval` | 100+ Control-M questions (FR/EN) with expected sections; ~15 % unanswerable | Local, private (`just eval`); reports attached to PRs |
 | `ctm-identifiers` | Queries naming commands, parameters, error codes | Local, private |
 | `ctm-answers` | Questions with reference answers and required citations | Local, private |
 | `ctm-graph` (S2) | Relationship, dependency, version-difference and multi-hop questions | Local, private |
+
+The public synthetic CI leg uses pinned Qdrant and deterministic fake inference;
+its temporary test adapter records route/fusion rankings and T021 metrics without
+T032's abstention policy. Its no-answer accuracy of zero is expected and is not a
+regression result. Reports remain candidates until the supervisor seeds a
+baseline from a reviewed integration; later baseline changes require review.
+After seeding, integrity and degradation fail closed and the gate compares
+Recall@5/10, MRR@10, nDCG@10, no-answer accuracy and false abstentions, with no
+latency threshold.
 
 | Metric | Definition |
 | --- | --- |

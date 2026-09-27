@@ -18,3 +18,5 @@ mod resumed_builds;
 mod search_routes;
 mod stopped_builds;
 mod support;
+
+pub(crate) use backends::synthetic_fake_qdrant_url;

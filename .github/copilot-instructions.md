@@ -684,6 +684,25 @@ in place.
 │       │       │   ├── scratch.rs                                           # What the check's tests share: a scratch directory holding a corpus, its
 │       │       │   ├── synthetic_suite.rs                                   # The check on the public synthetic collection: every section its suite
 │       │       │   └── unanswerable_leads.rs                                # Leads for unanswerable questions: each document of the manifest that holds
+│       │       ├── synthetic_gate/                                          # Public synthetic retrieval regression gate, with a real-Qdrant CI leg
+│       │       │   ├── pipeline/                                            # The staged fixture, import, evaluation and report path for the synthetic gate
+│       │       │   │   ├── baseline.rs                                      # Strict baseline loading and deterministic candidate comparison
+│       │       │   │   ├── contract.rs                                      # Run identity and result types shared by the synthetic pipeline stages
+│       │       │   │   ├── driver.rs                                        # Builds, prepares, publishes and evaluates the public synthetic collection
+│       │       │   │   ├── fixture.rs                                       # Loads the pinned synthetic collection and verifies every fixture digest
+│       │       │   │   ├── mod.rs                                           # Pipeline door: declarations and public entry-point re-exports
+│       │       │   │   ├── readiness.rs                                     # Waits for an exact, green Qdrant collection before the real retrieval pass
+│       │       │   │   ├── report.rs                                        # Writes public-only reports, provenance and summaries for a gate run
+│       │       │   │   └── runner.rs                                        # Runs the test adapter against fake Qdrant or the pinned real service
+│       │       │   ├── comparison.rs                                        # Deterministic, exact comparison of complete public synthetic runs
+│       │       │   ├── failure.rs                                           # Stages, items and completed-question counts for a failed synthetic run
+│       │       │   ├── mod.rs                                               # Public synthetic retrieval regression gate, with a real-Qdrant CI leg
+│       │       │   ├── models.rs                                            # Synthetic-only tokenizer canaries plus deterministic fake inference
+│       │       │   ├── policy_tests.rs                                      # Synthetic-gate policy checks, built from strict T021 reports
+│       │       │   ├── qdrant.rs                                            # Ownership checks and cleanup for the test-owned Qdrant instance
+│       │       │   ├── real_qdrant.rs                                       # Exercises the mandatory synthetic pipeline against the pinned Qdrant service
+│       │       │   ├── search.rs                                            # Test-only bridge from the integrated dense/lexical routes and fusion to T021
+│       │       │   └── support.rs                                           # Owns private scratch directories used by synthetic-gate tests
 │       │       ├── collection_contract.rs                                   # maestro-collection/1: a strict declaration parses into typed values; an
 │       │       ├── corpus_contract.rs                                       # maestro-corpus/1: one line per document parses into typed values; an
 │       │       ├── eval_synthetic.rs                                        # The evaluation runner over the public synthetic suite (T014), end to end

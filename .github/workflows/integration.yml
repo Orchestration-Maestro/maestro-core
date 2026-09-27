@@ -1,7 +1,6 @@
-name: Qdrant integration
-# The tests of the Qdrant projection (T026) against a real Qdrant 1.19, which
-# the organization's CI cannot give them: a reusable workflow takes no service
-# container (plan R6). The image is pinned by digest, each action by commit.
+name: Synthetic retrieval and Qdrant integration
+# T036 runs the public retrieval regression gate against the pinned Qdrant 1.19
+# service; T026 projection tests run afterward against the same test-owned service.
 "on":
   pull_request:
   merge_group:
@@ -13,11 +12,11 @@ permissions:
 # A newer push to the same pull request supersedes the run in flight; other
 # runs finish.
 concurrency:
-  group: qdrant-integration-${{ github.ref }}
+  group: synthetic-retrieval-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   qdrant:
-    name: Qdrant projection against Qdrant 1.19
+    name: Synthetic retrieval and Qdrant projection (1.19)
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
@@ -28,16 +27,17 @@ jobs:
         image: qdrant/qdrant@sha256:12364fe851b9f17356fc88189fc06d1b521262e04659ec7345975b00c9246a10
         env:
           QDRANT__TELEMETRY_DISABLED: "true"
-        # REST, which the readiness check asks, and gRPC, which the tests use.
+        # REST for readiness, gRPC for tests; keep the host off Qdrant defaults.
         ports:
-          - 6333:6333
-          - 6334:6334
+          - 16633:6333
+          - 16634:6334
     env:
-      MAESTRO_QDRANT_URL: http://127.0.0.1:6334
+      MAESTRO_QDRANT_URL: http://127.0.0.1:16634
     steps:
       - name: Check out the revision
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
       - name: Install the toolchain rust-toolchain.toml pins
         run: |
@@ -45,16 +45,101 @@ jobs:
           toolchain=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)
           rustup toolchain install "$toolchain" --profile minimal
           echo "RUSTUP_TOOLCHAIN=$toolchain" >> "$GITHUB_ENV"
+      - name: Read the synthetic baseline from the trusted base revision
+        env:
+          TRUSTED_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$TRUSTED_BASE_SHA" || "$TRUSTED_BASE_SHA" =~ ^0+$ ]]; then
+            git fetch --no-tags origin "refs/heads/$DEFAULT_BRANCH:refs/remotes/origin/$DEFAULT_BRANCH"
+            TRUSTED_BASE_SHA=$(git rev-parse "refs/remotes/origin/$DEFAULT_BRANCH")
+          fi
+          if [[ ! "$TRUSTED_BASE_SHA" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "::error::Trusted base revision is not a commit SHA"
+            exit 1
+          fi
+          if ! git cat-file -e "$TRUSTED_BASE_SHA^{commit}" 2>/dev/null; then
+            git fetch --no-tags --depth=1 origin "$TRUSTED_BASE_SHA"
+          fi
+          baseline_path=tests/fixtures/synthetic/evals/baseline.json
+          if git cat-file -e "$TRUSTED_BASE_SHA:$baseline_path" 2>/dev/null; then
+            mkdir -p "$RUNNER_TEMP/maestro-synthetic-trusted"
+            git show "$TRUSTED_BASE_SHA:$baseline_path" \
+              > "$RUNNER_TEMP/maestro-synthetic-trusted/baseline.json"
+            echo "MAESTRO_SYNTHETIC_BASELINE=$RUNNER_TEMP/maestro-synthetic-trusted/baseline.json" \
+              >> "$GITHUB_ENV"
+            echo "Trusted base baseline present at $TRUSTED_BASE_SHA:$baseline_path." \
+              >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "No baseline on trusted base $TRUSTED_BASE_SHA; the gate will report no baseline and pass without comparison." \
+              >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Wait for Qdrant to be ready
         run: |
           set -euo pipefail
           for _ in $(seq 60); do
-            if curl --silent --fail http://127.0.0.1:6333/readyz; then
+            if curl --silent --fail http://127.0.0.1:16633/readyz; then
               exit 0
             fi
             sleep 1
           done
           echo "::error::Qdrant was not ready within 60 s"
           exit 1
+      - name: Test public synthetic gate (real Qdrant)
+        env:
+          MAESTRO_SYNTHETIC_REPORT_DIR: ${{ runner.temp }}/maestro-synthetic-gate
+        run: |
+          set -euo pipefail
+          env -u MAESTRO_ROUTER_URL -u MAESTRO_NATIVE_BINDING cargo test --locked \
+            -p maestro-knowledge --test it synthetic_gate::real_qdrant::real_qdrant_runs_synthetic_gate \
+            -- --ignored --exact
+          test -s "$MAESTRO_SYNTHETIC_REPORT_DIR/report.json"
+          test -s "$MAESTRO_SYNTHETIC_REPORT_DIR/rankings.json"
+          test -s "$MAESTRO_SYNTHETIC_REPORT_DIR/provenance.json"
+      - name: Prove a worse candidate fails through the real-gate command
+        env:
+          MAESTRO_SYNTHETIC_REPORT_DIR: ${{ runner.temp }}/maestro-synthetic-gate-negative
+          MAESTRO_SYNTHETIC_BASELINE: ${{ runner.temp }}/maestro-synthetic-test-baseline.json
+          MAESTRO_SYNTHETIC_TEST_BAD_CANDIDATE: "1"
+        run: |
+          set -euo pipefail
+          python3 - "$RUNNER_TEMP/maestro-synthetic-gate/report.json" \
+            "$MAESTRO_SYNTHETIC_BASELINE" <<'PY'
+          import json
+          import pathlib
+          import sys
+
+          candidate = json.loads(pathlib.Path(sys.argv[1]).read_text())
+          candidate["metrics"]["recall_at_5"] = {"low": 1.0, "value": 1.0, "high": 1.0}
+          pathlib.Path(sys.argv[2]).write_text(json.dumps(candidate, separators=(",", ":")))
+          PY
+          status=0
+          env -u MAESTRO_ROUTER_URL -u MAESTRO_NATIVE_BINDING cargo test --locked \
+            -p maestro-knowledge --test it synthetic_gate::real_qdrant::real_qdrant_runs_synthetic_gate \
+            -- --ignored --exact > "$RUNNER_TEMP/maestro-synthetic-bad-candidate.log" 2>&1 || status=$?
+          cat "$RUNNER_TEMP/maestro-synthetic-bad-candidate.log"
+          if [ "$status" -eq 0 ]; then
+            echo "::error::A deliberately worse candidate passed the real-gate command"
+            exit 1
+          fi
+          grep -q '"stage":"baseline-regression"' \
+            "$MAESTRO_SYNTHETIC_REPORT_DIR/failure.json"
+          echo "Controlled worse candidate failed with baseline-regression as required." \
+            >> "$GITHUB_STEP_SUMMARY"
+      # Run after the synthetic gate because that test requires an empty service.
       - name: Test the projection against Qdrant
+        if: ${{ !cancelled() }}
         run: cargo test --locked -p maestro-knowledge --test it qdrant_projection
+      - name: Upload public synthetic gate report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: synthetic-gate-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/maestro-synthetic-gate/report.json
+            ${{ runner.temp }}/maestro-synthetic-gate/rankings.json
+            ${{ runner.temp }}/maestro-synthetic-gate/provenance.json
+            ${{ runner.temp }}/maestro-synthetic-gate/failure.json
+            ${{ runner.temp }}/maestro-synthetic-gate-negative/failure.json
+          if-no-files-found: warn
