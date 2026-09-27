@@ -74,6 +74,14 @@ in place.
 │   │   │   │   │   ├── mod.rs                                               # The checks' door: declarations only
 │   │   │   │   │   ├── services.rs                                          # Qdrant answering as the pinned version, the router listing its catalog, each role's model card
 │   │   │   │   │   └── status.rs                                            # maestro status: the kernel, Qdrant and the router ready or not, and each readable collection; exits 0
+│   │   │   │   ├── publish/                                                 # Publish
+│   │   │   │   │   ├── mod.rs                                               # Rust source: mod
+│   │   │   │   │   ├── recovery.rs                                          # Frozen identity and restart selection for explicit projection recovery
+│   │   │   │   │   └── run.rs                                               # knowledge publish: a verified Qdrant projection as a leased job
+│   │   │   │   ├── publish_report/                                          # Publish report
+│   │   │   │   │   ├── mod.rs                                               # Rust source: mod
+│   │   │   │   │   ├── render.rs                                            # Reconciled output for the historical publication and current projection
+│   │   │   │   │   └── tests.rs                                             # Pure report formatting and database-to-Qdrant reconciliation checks
 │   │   │   │   ├── setup/                                                   # maestro setup: Qdrant 1.19.1 pinned by digest, a systemd user unit on 127.0.0.1; a preview, then --yes
 │   │   │   │   │   ├── tests/                                               # Unit tests of setup: the pin and the platforms everywhere; the unit and the install with fake tools on Unix
 │   │   │   │   │   │   ├── install.rs                                       # A preview and a second run change nothing, a digest mismatch writes nothing, each failure is named
@@ -88,6 +96,11 @@ in place.
 │   │   │   │   │   ├── service.rs                                           # The layout, the unit, the survey of what is missing, and the steps that install it, each checked first
 │   │   │   │   │   └── tools.rs                                             # curl over HTTPS into memory, tar unpacking in memory, systemctl --user: the tools setup runs
 │   │   │   │   ├── tests/                                                   # Unit tests: the lease of a foreground job, and how an import ends its job
+│   │   │   │   │   ├── publish_again/                                       # Publish again
+│   │   │   │   │   │   ├── selection/                                       # Selection
+│   │   │   │   │   │   │   └── jobs.rs                                      # End-to-end selection and retry of journaled publication attempts
+│   │   │   │   │   │   ├── cases.rs                                         # Selection of active and failed explicit replacement jobs
+│   │   │   │   │   │   └── mod.rs                                           # Rust source: mod
 │   │   │   │   │   ├── import_endings.rs                                    # An import ends its job succeeded with its report or failed saying why; each step journaled, or a lost lease stops it
 │   │   │   │   │   ├── lease_heartbeats.rs                                  # A foreground job's lease, held only by Holder::run: renewed at each heartbeat and step, never after a takeover
 │   │   │   │   │   ├── mod.rs                                               # The unit tests' door: declarations only
@@ -103,7 +116,6 @@ in place.
 │   │   │   │   ├── mod.rs                                                   # The commands' door: declarations only
 │   │   │   │   ├── output.rs                                                # How a command prints: text, or one JSON document under --json; diagnostics on stderr
 │   │   │   │   ├── prepare.rs                                               # knowledge prepare: T023's chunking as a leased job
-│   │   │   │   ├── publish.rs                                               # knowledge publish: T026's verified Qdrant projection as a leased job
 │   │   │   │   ├── quality.rs                                               # knowledge quality: the gate as a leased job; its inputs the ledger beside the declaration and the revisions
 │   │   │   │   ├── retrieve.rs                                              # CLI adapters for the shared, permission-scoped read operations
 │   │   │   │   ├── run.rs                                                   # Parses the arguments, opens the kernel, runs the command, returns its exit code
@@ -152,6 +164,7 @@ in place.
 │   │   │       ├── machine.rs                                               # How doctor and status tests run the binary: a router where nothing answers, the fakes on the PATH
 │   │   │       ├── main.rs                                                  # The one integration-test crate of the binary
 │   │   │       ├── mcp_stdio.rs                                             # The stdio MCP server's process boundary and advertised tools
+│   │   │       ├── publish_again.rs                                         # Help for explicit projection recovery
 │   │   │       ├── quality_gates.rs                                         # knowledge quality: its report, a rerun, a gate after an import, the ledger first, failures and refusals
 │   │   │       ├── setup_installs.rs                                        # maestro setup: the preview writes nothing, a wrong download is refused; elsewhere manual steps, exit 2
 │   │   │       ├── status_summaries.rs                                      # maestro status: services ready or down, the readable collections, nothing created on a fresh machine
@@ -598,6 +611,7 @@ in place.
 │       │   │   ├── provenance.rs                                            # What a chunk's point carries of its revision: version, source kind, scope tags, sections
 │       │   │   ├── publish.rs                                               # Publishing a chunk set as a generation: built or resumed, checked, then behind the alias
 │       │   │   ├── qdrant.rs                                                # Qdrant through its official Rust client, qdrant-client 1.19, over gRPC
+│       │   │   ├── rebuild.rs                                               # A fresh, guarded replacement for a published generation whose projection
 │       │   │   ├── search_inputs.rs                                         # The kernel-owned search derivatives of one published generation
 │       │   │   ├── sparse.rs                                                # Sparse vectors: BM25 weights against the chunk set's average passage length
 │       │   │   └── verify.rs                                                # The structural check of a generation's collection before its alias moves
@@ -821,6 +835,10 @@ in place.
 │       │       │   │   ├── scroll.rs                                        # Filtered, point-ID-ordered pages for the fake's Qdrant scroll API
 │       │       │   │   ├── server.rs                                        # The fake's server: its two services on a loopback port, in the test's runtime
 │       │       │   │   └── state.rs                                         # What the fake keeps, and the refusals and hollow answers a test asked for
+│       │       │   ├── projection_rebuild/                                  # Projection rebuild
+│       │       │   │   ├── crash_boundaries.rs                              # Crash boundaries around alias and kernel publication
+│       │       │   │   ├── mod.rs                                           # Rust source: mod
+│       │       │   │   └── rebuild_tests.rs                                 # Explicit replacement of a lost published projection
 │       │       │   ├── search_routes/                                       # Dense and lexical routes against the shared fake and, when configured, real Qdrant
 │       │       │   │   ├── fused_search.rs                                  # The public search handoff fuses available routes when dense metadata is absent
 │       │       │   │   ├── fused_search_admission_pinning.rs                # Search admission and generation-pinning acceptance tests

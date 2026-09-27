@@ -2,6 +2,7 @@
 //! in it, held or lost, and that job's lease as the kernel records it.
 
 use maestro_kernel::{
+    artifact::Store,
     job::{Lease, NewJob},
     scope::{Right, ScopeSet},
     store::Database,
@@ -35,6 +36,11 @@ impl Scratch {
     /// The kernel's database in this directory.
     pub(super) fn database(&self) -> Database {
         Database::open_in(&self.0).unwrap()
+    }
+
+    /// The artifact store under the scratch kernel.
+    pub(super) fn artifacts(&self) -> Store {
+        Store::new(self.0.join("artifacts"))
     }
 }
 

@@ -1,7 +1,7 @@
 //! The command line's grammar, noun then verb (plan D12), as clap derives it
 //! from these types, whose comments are the help it prints.
 
-use clap::{Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
 use std::path::PathBuf;
 use ulid::Ulid;
 
@@ -55,6 +55,23 @@ pub(super) enum Noun {
     },
 }
 
+/// The explicit inputs to a publication.
+#[derive(Debug, Args)]
+pub(super) struct PublishArguments {
+    /// The collection's ID, as its declaration names it.
+    #[arg(long)]
+    pub(super) collection: String,
+    /// The recorded embedder model card's SHA-256 digest.
+    #[arg(long)]
+    pub(super) card: String,
+    /// The complete chunk set to publish; defaults to the latest complete set.
+    #[arg(long)]
+    pub(super) chunk_set: Option<String>,
+    /// Build a new generation instead of reusing an already published one.
+    #[arg(long)]
+    pub(super) again: bool,
+}
+
 /// What to do with the knowledge of a collection.
 #[derive(Debug, Subcommand)]
 pub(super) enum KnowledgeCommand {
@@ -90,15 +107,9 @@ pub(super) enum KnowledgeCommand {
     },
     /// Publish a complete chunk set as a verified Qdrant generation, as a job.
     Publish {
-        /// The collection's ID, as its declaration names it.
-        #[arg(long)]
-        collection: String,
-        /// The recorded embedder model card's SHA-256 digest.
-        #[arg(long)]
-        card: String,
-        /// The complete chunk set to publish; defaults to the latest complete set.
-        #[arg(long)]
-        chunk_set: Option<String>,
+        /// The collection, card and explicit recovery request.
+        #[command(flatten)]
+        arguments: PublishArguments,
     },
     /// Verify the collection's published Qdrant generation, as a job.
     Verify {

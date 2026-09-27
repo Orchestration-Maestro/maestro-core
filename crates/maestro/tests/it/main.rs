@@ -18,6 +18,7 @@ mod knowledge_publish;
 mod knowledge_verify_recheck;
 mod machine;
 mod mcp_stdio;
+mod publish_again;
 mod quality_gates;
 mod setup_installs;
 mod status_summaries;

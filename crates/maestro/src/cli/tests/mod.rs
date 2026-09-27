@@ -6,6 +6,7 @@
 mod import_endings;
 mod lease_heartbeats;
 mod publication_resume;
+mod publish_again;
 mod supersessions;
 mod support;
 mod verify_outcome;

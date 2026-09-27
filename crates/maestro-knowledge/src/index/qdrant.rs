@@ -72,7 +72,11 @@ impl Qdrant {
     }
 
     /// Whether the collection `collection` exists.
-    pub(super) async fn exists(&self, collection: &str) -> Result<bool, QdrantError> {
+    ///
+    /// # Errors
+    ///
+    /// [`QdrantError::Client`] when Qdrant refuses or cannot answer.
+    pub async fn exists(&self, collection: &str) -> Result<bool, QdrantError> {
         self.client
             .collection_exists(collection)
             .await

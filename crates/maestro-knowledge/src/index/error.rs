@@ -68,6 +68,30 @@ pub enum Error {
     /// A published generation's collection is missing, so it cannot be
     /// reported as published.
     MissingCollection(String),
+    /// The published generation changed from the frozen expected pointer.
+    PublishedChanged {
+        /// What was published at admission, or none.
+        expected: Option<i64>,
+        /// What is published now, or none.
+        found: Option<i64>,
+    },
+    /// A recovery target does not match its job's frozen tuple or watermark.
+    RecoveryTarget {
+        /// The target generation's ID.
+        generation: i64,
+    },
+    /// More than one generation could be the unjournaled recovery target.
+    AmbiguousRecoveryTarget {
+        /// All candidate generation IDs.
+        generations: Vec<i64>,
+    },
+    /// The collection alias points at a generation unrelated to this job.
+    UnrelatedAlias {
+        /// The collection alias.
+        alias: String,
+        /// The unexpected alias target.
+        found: String,
+    },
     /// The generation's collection failed a check, which failed the
     /// generation for good: the alias stays where it was.
     Unverified {
@@ -129,6 +153,22 @@ impl fmt::Display for Error {
                 formatter,
                 "the published generation's Qdrant collection {collection} is missing"
             ),
+            Self::PublishedChanged { expected, found } => write!(
+                formatter,
+                "published generation changed from {expected:?} to {found:?} during replacement"
+            ),
+            Self::RecoveryTarget { generation } => write!(
+                formatter,
+                "generation {generation} does not match the frozen recovery target"
+            ),
+            Self::AmbiguousRecoveryTarget { generations } => write!(
+                formatter,
+                "multiple generations could be the recovery target: {generations:?}"
+            ),
+            Self::UnrelatedAlias { alias, found } => write!(
+                formatter,
+                "alias {alias} points to unrelated collection {found}"
+            ),
             Self::Unverified { generation, reason } => write!(
                 formatter,
                 "generation {generation} failed its check, and the alias stays where it was: \
@@ -167,6 +207,10 @@ impl error::Error for Error {
             | Self::CounterContractMismatch { .. }
             | Self::Unreadable { .. }
             | Self::MissingCollection(_)
+            | Self::PublishedChanged { .. }
+            | Self::RecoveryTarget { .. }
+            | Self::AmbiguousRecoveryTarget { .. }
+            | Self::UnrelatedAlias { .. }
             | Self::Unverified { .. }
             | Self::Stopped => None,
         }

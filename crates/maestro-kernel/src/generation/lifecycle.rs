@@ -114,28 +114,37 @@ impl Database {
     pub fn publish_generation(&self, id: i64) -> Result<Option<i64>, Error> {
         self.write(|transaction| {
             let generation = legal_move(transaction, id, GenerationState::Published)?;
-            // First, since the database holds one published generation per
-            // collection at every statement.
-            let retired = transaction
+            publish_in(transaction, &generation)
+        })
+    }
+
+    /// Publishes `id` only while `expected` remains the collection's current
+    /// generation, including an expected absence.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::UnknownGeneration`] if `id` is unknown, [`Error::IllegalMove`]
+    /// if it is not verified, [`Error::PublishedChanged`] if `expected` no
+    /// longer matches, or [`Error::Store`] if the database cannot record the
+    /// move.
+    pub fn publish_generation_if_current(
+        &self,
+        id: i64,
+        expected: Option<i64>,
+    ) -> Result<Option<i64>, Error> {
+        self.write(|transaction| {
+            let generation = legal_move(transaction, id, GenerationState::Published)?;
+            let found = transaction
                 .query_row(
-                    "UPDATE generations SET state = 'retired'
-                     WHERE collection_id = ?1 AND state = 'published'
-                     RETURNING id",
+                    "SELECT id FROM generations WHERE collection_id = ?1 AND state = 'published'",
                     [&generation.collection_id],
                     |row| row.get(0),
                 )
                 .optional()?;
-            transaction.execute(
-                "UPDATE generations
-                 SET state = 'published', published_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-                 WHERE id = ?1",
-                [id],
-            )?;
-            if let Some(retired) = retired {
-                record_retired(transaction, &generation.collection_id, retired)?;
+            if found != expected {
+                return Err(Error::PublishedChanged { expected, found });
             }
-            record_published(transaction, &generation)?;
-            Ok(retired)
+            publish_in(transaction, &generation)
         })
     }
 
@@ -231,6 +240,33 @@ impl Database {
             .collect::<Result<_, _>>()?;
         Ok(generations)
     }
+}
+
+/// Publishes `generation` and retires its predecessor in `transaction`.
+fn publish_in(
+    transaction: &Transaction<'_>,
+    generation: &Generation,
+) -> Result<Option<i64>, Error> {
+    let retired = transaction
+        .query_row(
+            "UPDATE generations SET state = 'retired'
+             WHERE collection_id = ?1 AND state = 'published'
+             RETURNING id",
+            [&generation.collection_id],
+            |row| row.get(0),
+        )
+        .optional()?;
+    transaction.execute(
+        "UPDATE generations
+         SET state = 'published', published_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+         WHERE id = ?1",
+        [generation.id],
+    )?;
+    if let Some(retired) = retired {
+        record_retired(transaction, &generation.collection_id, retired)?;
+    }
+    record_published(transaction, generation)?;
+    Ok(retired)
 }
 
 /// Moves the generation `id` to `to` inside `transaction`, when it may, and

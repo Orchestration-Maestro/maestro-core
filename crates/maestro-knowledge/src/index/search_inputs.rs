@@ -1,6 +1,11 @@
 //! The kernel-owned search derivatives of one published generation.
 
-use super::{Error, Unverified, point::point_id, projection::Projection};
+use super::{
+    error::{Error, Unverified},
+    names::collection_name,
+    point::point_id,
+    projection::Projection,
+};
 use crate::{
     prepare::search_members,
     query::{PROFILE, index_identifiers},
@@ -87,7 +92,7 @@ impl<P: ModelPort> Projection<'_, P> {
         }
         let indexes = self
             .qdrant
-            .payload_indexes(&super::collection_name(generation))
+            .payload_indexes(&collection_name(generation))
             .await
             .map_err(Error::Qdrant)?;
         for field in ["scope_tags", "identifiers", "identifier_profile", "version"] {
@@ -117,7 +122,7 @@ impl<P: ModelPort> Projection<'_, P> {
             let point_ids: Vec<String> = expected.keys().cloned().collect();
             let points = self
                 .qdrant
-                .payload_points(&super::collection_name(generation), &point_ids)
+                .payload_points(&collection_name(generation), &point_ids)
                 .await
                 .map_err(Error::Qdrant)?;
             if points.len() != batch.len() {

@@ -11,7 +11,10 @@ mod import;
 mod lease;
 mod output;
 mod prepare;
+/// Explicit replacement of a lost published projection.
 mod publish;
+/// Reconciled output for historical publication and current projection state.
+mod publish_report;
 mod quality;
 mod retrieve;
 mod run;

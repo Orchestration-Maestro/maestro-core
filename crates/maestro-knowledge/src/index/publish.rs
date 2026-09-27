@@ -6,7 +6,7 @@ use super::{
     batches::{BATCH, Target},
     dense::embedding_profile,
     error::{Error, Unverified},
-    names::collection_name,
+    names::{alias_name, collection_name},
     progress::{Progress, Report},
     projection::{Projection, ProjectionWithBatchSize},
     search_inputs,
@@ -23,7 +23,7 @@ use std::ops::ControlFlow;
 /// Where a generation found again stands, and what its publication still
 /// does.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Step {
+pub(super) enum Step {
     /// It is building: write its points, check it, then publish it.
     Build,
     /// It is verified: check it again, then publish it.
@@ -35,7 +35,7 @@ enum Step {
 impl Step {
     /// What is left to do for a generation in `state`; none once it is
     /// retired or failed, which is never published again.
-    fn of(state: GenerationState) -> Option<Self> {
+    pub(super) fn of(state: GenerationState) -> Option<Self> {
         match state {
             GenerationState::Building => Some(Self::Build),
             GenerationState::Verified => Some(Self::Check),
@@ -199,7 +199,7 @@ impl<P: ModelPort> Projection<'_, P> {
     }
 
     /// The card's dimensions, when it is an embedder's.
-    fn dimensions(&self) -> Result<u64, Error> {
+    pub(super) fn dimensions(&self) -> Result<u64, Error> {
         match (self.card.fields().role, self.card.fields().dimensions) {
             (Role::Embedder, Some(dimensions)) => {
                 Ok(u64::try_from(dimensions.get()).unwrap_or(u64::MAX))
@@ -212,7 +212,7 @@ impl<P: ModelPort> Projection<'_, P> {
     }
 
     /// The chunk set `id`, when the caller reads it and it is complete.
-    fn complete(&self, id: &str) -> Result<ChunkSet, Error> {
+    pub(super) fn complete(&self, id: &str) -> Result<ChunkSet, Error> {
         let set = self
             .database
             .chunk_set(self.scopes, id)
@@ -275,7 +275,7 @@ impl<P: ModelPort> Projection<'_, P> {
     /// Creates the collection of `names`, unless it exists already, when its
     /// vectors must be those of a generation whose embedder gives
     /// `dimensions`: a collection with others fails the generation.
-    async fn ensure(&self, names: &Names, dimensions: u64) -> Result<bool, Error> {
+    pub(super) async fn ensure(&self, names: &Names, dimensions: u64) -> Result<bool, Error> {
         let collection = &names.collection;
         let created = if self
             .qdrant
@@ -309,7 +309,7 @@ impl<P: ModelPort> Projection<'_, P> {
     /// The points the collection of `names` holds once it passes every
     /// check of a generation whose embedder gives `dimensions` and whose
     /// chunk set holds `chunks`; a check it fails fails the generation.
-    async fn check(
+    pub(super) async fn check(
         &self,
         names: &Names,
         dimensions: u64,
@@ -331,7 +331,7 @@ impl<P: ModelPort> Projection<'_, P> {
     /// Fails the generation `generation` for `reason`, and refuses its
     /// publication. A failed re-check restores the alias to `rollback` when
     /// that published collection still exists.
-    async fn fail<T>(
+    pub(super) async fn fail<T>(
         &self,
         generation: i64,
         reason: Unverified,
@@ -389,29 +389,29 @@ impl<P: ModelPort> ProjectionWithBatchSize<'_, P> {
 
 /// The names of a generation in Qdrant.
 #[derive(Debug)]
-struct Names {
+pub(super) struct Names {
     /// Its generation ID.
-    generation: i64,
+    pub(super) generation: i64,
     /// Its collection, `maestro-<collection>-g<n>`.
-    collection: String,
+    pub(super) collection: String,
     /// Its collection's alias, `maestro-<collection>`.
-    alias: String,
+    pub(super) alias: String,
 }
 
 impl Names {
     /// The names of `generation` in Qdrant.
-    fn of(generation: &Generation) -> Self {
+    pub(super) fn of(generation: &Generation) -> Self {
         Self {
             generation: generation.id,
             collection: collection_name(generation),
-            alias: super::alias_name(generation),
+            alias: alias_name(generation),
         }
     }
 }
 
 /// The report of `generation`, which publishes `set` under `names` with
 /// `points`, and retired the generation `retired`.
-fn report(
+pub(super) fn report(
     set: &ChunkSet,
     generation: &Generation,
     names: &Names,

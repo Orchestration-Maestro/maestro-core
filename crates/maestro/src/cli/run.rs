@@ -97,11 +97,7 @@ fn knowledge(
         KnowledgeCommand::Prepare { collection, card } => {
             prepare::run(kernel, output, collection, card)
         }
-        KnowledgeCommand::Publish {
-            collection,
-            card,
-            chunk_set,
-        } => publish::run(kernel, output, collection, card, chunk_set.as_deref()),
+        KnowledgeCommand::Publish { arguments } => publish::run(kernel, output, arguments),
         KnowledgeCommand::Verify { collection } => verify::run(kernel, output, collection),
         KnowledgeCommand::Status { collection } => status::run(kernel, output, collection),
         KnowledgeCommand::Collections | KnowledgeCommand::Get { .. } => Err(Failure::failed(
