@@ -102,6 +102,21 @@ pub(super) fn first_artifact(manifest: &Json) -> &str {
     manifest["artifacts"][0]["path"].as_str().unwrap()
 }
 
+/// The migrations the kernel database at `path` applied, by name, from the
+/// first.
+fn applied_migrations(path: &Path) -> Vec<String> {
+    let names: Vec<String> = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+        .unwrap()
+        .prepare("SELECT name FROM migrations ORDER BY name")
+        .unwrap()
+        .query_map([], |row| row.get(0))
+        .unwrap()
+        .collect::<Result<_, _>>()
+        .unwrap();
+    assert_eq!(names.first().map(String::as_str), Some("0001_artifacts"));
+    names
+}
+
 /// Asserts restore refuses `backup` without installing kernel state.
 pub(super) fn assert_refused_without_kernel(home: &Home, backup: &Path) {
     let ended = restore(home, backup);
@@ -131,16 +146,7 @@ fn backup_has_the_database_rows_and_each_recorded_artifact() {
     assert_eq!(manifest["maestro_version"], env!("CARGO_PKG_VERSION"));
     assert_eq!(
         manifest["migrations"],
-        json!([
-            "0001_artifacts",
-            "0002_journal",
-            "0003_scopes",
-            "0004_documents",
-            "0005_jobs",
-            "0006_eval_reports",
-            "0007_chunk_sets",
-            "0008_document_guards"
-        ])
+        json!(applied_migrations(&source_database))
     );
     assert_eq!(
         manifest["database"]["sha256"],
