@@ -7,7 +7,7 @@ use std::{
 };
 
 /// The exact identifier payload and kernel-search projection profile.
-pub const IDENTIFIER_PROFILE: &str = "identifiers/1";
+pub const IDENTIFIER_PROFILE: &str = "identifiers/2";
 
 /// One exact prepared input to index for identifier search.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -16,6 +16,8 @@ pub struct SearchInput {
     pub chunk_id: String,
     /// The exact UTF-8 text whose digest the chunk records.
     pub prepared_input: String,
+    /// Exact values emitted by the shared query and payload identifier extractor.
+    pub identifiers: Vec<String>,
 }
 
 /// One document revision represented by a chunk-set revision.
@@ -71,6 +73,15 @@ pub struct ChunkHit {
     pub chunk_id: String,
     /// The revision that owns this chunk.
     pub revision_id: String,
+}
+
+/// Exact identifier hits and any high-frequency values skipped.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct IdentifierSearchResult {
+    /// Scoped, exact matches in stable search order.
+    pub hits: Vec<ChunkHit>,
+    /// Whether one or more exact identifiers matched over 10% of the chunk set.
+    pub skipped_too_common: bool,
 }
 
 /// A complete inventory and its bounded supporting chunks.

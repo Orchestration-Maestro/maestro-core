@@ -5,14 +5,14 @@ use crate::{
     document::{Collection, Document, Revision, RevisionStatus, Source},
     evidence::Span,
     generation::{Generation, NewGeneration},
-    retrieval::{SearchInput, SearchMember},
+    retrieval::{IDENTIFIER_PROFILE, SearchInput, SearchMember},
     scope::{Right, ScopeSet},
     store::{self, Database},
 };
 use rusqlite::params;
 use serde_json::{Map, Value};
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     env, fs,
     path::PathBuf,
     process,
@@ -39,6 +39,18 @@ impl SearchDb {
     /// Records one or more prepared chunks in the pinned set.
     pub(super) fn with_inputs(prepared_inputs: &[&str]) -> Self {
         Self::with_inputs_and_eligibility(prepared_inputs, RevisionStatus::Valid, "accepted")
+    }
+
+    /// Records prepared inputs with unrelated rows to exercise frequency bounds.
+    pub(super) fn with_input_population(prepared_inputs: &[&str], population: usize) -> Self {
+        assert!(population >= prepared_inputs.len());
+        let padding = vec!["unrelated prepared input"; population - prepared_inputs.len()];
+        let inputs = prepared_inputs
+            .iter()
+            .copied()
+            .chain(padding)
+            .collect::<Vec<_>>();
+        Self::with_inputs(&inputs)
     }
 
     /// Records a chunk owner with the requested status and quality disposition.
@@ -86,6 +98,7 @@ impl SearchDb {
                 .map(|(index, prepared_input)| SearchInput {
                     chunk_id: chunk_id(index),
                     prepared_input: (*prepared_input).to_owned(),
+                    identifiers: fixture_identifiers(prepared_input),
                 })
                 .collect(),
             _scratch: scratch,
@@ -149,22 +162,37 @@ impl SearchDb {
         self.database
             .record_search_members(&self.scopes, &self.generation.chunk_set_id, members)
             .unwrap();
-        self.database
-            .record_search_inputs(
-                &self.scopes,
-                &self.generation.chunk_set_id,
-                &self.search_inputs,
-            )
-            .unwrap();
+        for batch in self.search_inputs.chunks(64) {
+            self.database
+                .record_search_inputs(&self.scopes, &self.generation.chunk_set_id, batch)
+                .unwrap();
+        }
         assert!(
             self.database
-                .begin_generation_search(&self.scopes, self.generation.id, "identifiers/1")
+                .begin_generation_search(&self.scopes, self.generation.id, IDENTIFIER_PROFILE)
                 .unwrap()
         );
         self.database
             .complete_generation_search(&self.scopes, self.generation.id)
             .unwrap();
     }
+}
+
+/// Supplies short exact values for kernel tests without depending on the query crate.
+fn fixture_identifiers(prepared_input: &str) -> Vec<String> {
+    let words = prepared_input.split_whitespace().collect::<Vec<_>>();
+    let mut identifiers = BTreeSet::new();
+    for start in 0..words.len() {
+        for end in start..words.len().min(start + 3) {
+            let candidate = words[start..=end].join(" ");
+            identifiers.insert(candidate.clone());
+            let trimmed = candidate.trim_end_matches(['.', ',', ';', ':', '!', '?']);
+            if !trimmed.is_empty() {
+                identifiers.insert(trimmed.to_owned());
+            }
+        }
+    }
+    identifiers.into_iter().collect()
 }
 
 /// Records the collection, source, document, accepted revision and disposition.

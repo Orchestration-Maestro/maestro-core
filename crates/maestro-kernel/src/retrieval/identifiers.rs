@@ -3,10 +3,11 @@
 use super::{
     error::Error,
     read::{classify, controlled_reader, ready_projection},
-    types::{ChunkHit, SearchRead},
+    types::{ChunkHit, IdentifierSearchResult, SearchRead},
 };
 use crate::{scope::ScopeSet, store::Database};
 use rusqlite::{Transaction, TransactionBehavior, params};
+use std::collections::{BTreeMap, HashSet};
 
 /// Trims `text` and collapses each Unicode-whitespace run to one ASCII space,
 /// preserving every other character exactly.
@@ -85,260 +86,184 @@ fn delimiter(character: char) -> bool {
 impl Database {
     /// Finds scoped exact identifier matches in the ready pinned generation.
     ///
-    /// FTS only identifies candidate rows; every returned input passes
-    /// [`contains_identifier`]. If any identifier has no ASCII alphanumeric,
-    /// the kernel streams the scoped generation's inputs instead of using
-    /// FTS, whose tokenizer has no term for punctuation-only identifiers.
+    /// Identifiers matching more than 10% of the set's chunks are skipped
+    /// using the exact membership index. Scope and eligibility are applied
+    /// before the requested hit limit.
     ///
     /// # Errors
     ///
     /// [`Error::ProjectionMissing`] or [`Error::ProfileMismatch`] when the
     /// generation's identifier projection is unavailable; [`Error::Cancelled`]
-    /// or [`Error::TimedOut`] when the controlled read stops; or [`Error::Store`].
+    /// or [`Error::TimedOut`] when the controlled read stops; [`Error::TooLarge`]
+    /// when the request exceeds its identifier or SQLite limit; or [`Error::Store`].
     pub fn identifier_hits(
         &self,
         read: &SearchRead<'_>,
         identifiers: &[String],
         limit: usize,
-    ) -> Result<Vec<ChunkHit>, Error> {
+    ) -> Result<IdentifierSearchResult, Error> {
         read.control.check()?;
         if identifiers.is_empty() || limit == 0 {
-            return Ok(Vec::new());
+            return Ok(IdentifierSearchResult::default());
         }
         if identifiers.len() > 64 {
             return Err(Error::TooLarge);
         }
-        let streaming = identifiers
-            .iter()
-            .any(|identifier| !identifier.bytes().any(|byte| byte.is_ascii_alphanumeric()));
-        // ponytail: punctuation-only identifiers scan scoped inputs; replace
-        // only if measurements justify a second tokenizer.
-        let match_expression = (!streaming).then(|| {
-            identifiers
-                .iter()
-                .map(|identifier| format!("\"{}\"", identifier.replace('"', "\"\"")))
-                .collect::<Vec<_>>()
-                .join(" OR ")
-        });
+        let sqlite_limit = i64::try_from(limit).map_err(|_| Error::TooLarge)?;
         let mut connection = controlled_reader(self, read.control)?;
         let transaction = connection
             .transaction_with_behavior(TransactionBehavior::Deferred)
             .map_err(|error| classify(error, read.control))?;
         ready_projection(&transaction, read)?;
-        let hits = exact_hits(
-            &transaction,
-            read,
-            identifiers,
-            limit,
-            match_expression.as_deref(),
-        )?;
+
+        let chunk_count: i64 = transaction
+            .query_row(
+                "SELECT count(*) FROM chunks WHERE chunk_set_id = ?1",
+                [&read.generation.chunk_set_id],
+                |row| row.get(0),
+            )
+            .map_err(|error| classify(error, read.control))?;
+        let threshold = chunk_count / 10;
+        let mut seen = HashSet::new();
+        let requested_identifiers = identifiers
+            .iter()
+            .filter(|identifier| seen.insert(identifier.as_str()))
+            .cloned()
+            .collect::<Vec<_>>();
+        let too_common =
+            too_common_identifiers(&transaction, read, &requested_identifiers, threshold)?;
+        let active_identifiers = requested_identifiers
+            .into_iter()
+            .filter(|identifier| !too_common.contains(identifier))
+            .collect::<Vec<_>>();
+        let hits = if active_identifiers.is_empty() {
+            Vec::new()
+        } else {
+            indexed_hits(&transaction, read, &active_identifiers, sqlite_limit)?
+        };
+        let skipped_too_common = !too_common.is_empty();
         read.control.check()?;
         transaction
             .commit()
             .map_err(|error| classify(error, read.control))?;
         read.control.check()?;
-        Ok(hits)
+        Ok(IdentifierSearchResult {
+            hits,
+            skipped_too_common,
+        })
     }
 }
 
-/// Streams candidate inputs in chunk-ID order, accepting only literal matches.
-fn exact_hits(
+/// Counts each requested identifier only through the commonness threshold.
+fn too_common_identifiers(
     transaction: &Transaction<'_>,
     read: &SearchRead<'_>,
     identifiers: &[String],
-    limit: usize,
-    match_expression: Option<&str>,
-) -> Result<Vec<ChunkHit>, Error> {
-    let scoped = ScopeSet::source_condition("documents.collection_id", "documents.source_id", 3);
-    let fts_scope = ScopeSet::source_condition("documents.collection_id", "documents.source_id", 4);
-    let sql = if match_expression.is_some() {
-        format!(
-            "SELECT chunks.id, chunks.revision_id, chunk_search_inputs.prepared_input
-             FROM chunk_search_fts
-             JOIN chunk_search_inputs ON chunk_search_inputs.rowid = chunk_search_fts.rowid
-             JOIN chunks ON chunks.chunk_set_id = chunk_search_inputs.chunk_set_id
-               AND chunks.id = chunk_search_inputs.chunk_id
-             JOIN revisions ON revisions.id = chunks.revision_id
-             JOIN documents ON documents.id = revisions.document_id
-             JOIN quality_dispositions ON quality_dispositions.revision_id = revisions.id
-             WHERE chunk_search_fts MATCH ?1 AND chunks.chunk_set_id = ?2
-               AND documents.collection_id = ?3 AND {fts_scope} AND (?5 IS NULL OR
-                 CASE json_type(revisions.metadata_json, '$.version')
-                   WHEN 'text' THEN json_extract(revisions.metadata_json, '$.version') END = ?5)
-               AND revisions.status <> 'failed'
-               AND quality_dispositions.disposition IN ('accepted', 'accepted_with_warnings')
-             ORDER BY bm25(chunk_search_fts), chunks.id"
+    threshold: i64,
+) -> Result<HashSet<String>, Error> {
+    let encoded_identifiers = serde_json::to_string(identifiers)
+        .map_err(|_| Error::InvalidInput("identifier values could not be encoded".to_owned()))?;
+    read.control.check()?;
+    let mut statement = transaction
+        .prepare(
+            "SELECT requested.value,
+                    (SELECT count(*) FROM (
+                       SELECT 1 FROM chunk_search_identifiers
+                       WHERE chunk_set_id = ?2 AND identifier = requested.value
+                       LIMIT ?3
+                     ))
+             FROM json_each(?1) AS requested",
         )
-    } else {
-        format!(
-            "SELECT chunks.id, chunks.revision_id, chunk_search_inputs.prepared_input
-             FROM chunk_search_inputs
-             JOIN chunks ON chunks.chunk_set_id = chunk_search_inputs.chunk_set_id
-               AND chunks.id = chunk_search_inputs.chunk_id
-             JOIN revisions ON revisions.id = chunks.revision_id
-             JOIN documents ON documents.id = revisions.document_id
-             JOIN quality_dispositions ON quality_dispositions.revision_id = revisions.id
-             WHERE chunks.chunk_set_id = ?1 AND documents.collection_id = ?2
-               AND {scoped} AND (?4 IS NULL OR
-                 CASE json_type(revisions.metadata_json, '$.version')
-                   WHEN 'text' THEN json_extract(revisions.metadata_json, '$.version') END = ?4)
-               AND revisions.status <> 'failed'
-               AND quality_dispositions.disposition IN ('accepted', 'accepted_with_warnings')
-             ORDER BY chunks.id"
-        )
-    };
-    (|| {
-        read.control.check()?;
-        let mut statement = transaction
-            .prepare(&sql)
-            .map_err(|error| classify(error, read.control))?;
-        let mut rows = match match_expression {
-            Some(expression) => statement.query(params![
-                expression,
-                read.generation.chunk_set_id,
-                read.generation.collection_id,
-                read.scopes.parameter(),
-                read.version,
-            ]),
-            None => statement.query(params![
-                read.generation.chunk_set_id,
-                read.generation.collection_id,
-                read.scopes.parameter(),
-                read.version,
-            ]),
-        }
         .map_err(|error| classify(error, read.control))?;
-        let mut hits = Vec::new();
+    let mut rows = statement
+        .query(params![
+            encoded_identifiers,
+            read.generation.chunk_set_id,
+            threshold.saturating_add(1),
+        ])
+        .map_err(|error| classify(error, read.control))?;
+    let mut common = HashSet::new();
+    while let Some(row) = rows.next().map_err(|error| classify(error, read.control))? {
+        read.control.check()?;
+        let identifier: String = row.get(0).map_err(|error| classify(error, read.control))?;
+        let count: i64 = row.get(1).map_err(|error| classify(error, read.control))?;
+        if count > threshold {
+            common.insert(identifier);
+        }
+    }
+    read.control.check()?;
+    Ok(common)
+}
+
+/// Reads each identifier's scoped, eligible top hits and merges them by chunk ID.
+pub(super) fn indexed_hits(
+    transaction: &Transaction<'_>,
+    read: &SearchRead<'_>,
+    identifiers: &[String],
+    limit: i64,
+) -> Result<Vec<ChunkHit>, Error> {
+    let limit_size = usize::try_from(limit).map_err(|_| Error::TooLarge)?;
+    let scoped = ScopeSet::source_condition("documents.collection_id", "documents.source_id", 4);
+    // Keep the composite-key order so each identifier yields a sorted, bounded stream.
+    let sql = format!(
+        "SELECT indexed.chunk_id, chunks.revision_id
+         FROM chunk_search_identifiers AS indexed
+         CROSS JOIN chunks
+         CROSS JOIN revisions
+         CROSS JOIN documents
+         CROSS JOIN quality_dispositions
+         WHERE indexed.chunk_set_id = ?1 AND indexed.identifier = ?2
+           AND chunks.chunk_set_id = indexed.chunk_set_id AND chunks.id = indexed.chunk_id
+           AND revisions.id = chunks.revision_id AND documents.id = revisions.document_id
+           AND quality_dispositions.revision_id = revisions.id
+           AND documents.collection_id = ?3 AND {scoped}
+           AND (?5 IS NULL OR CASE json_type(revisions.metadata_json, '$.version')
+             WHEN 'text' THEN json_extract(revisions.metadata_json, '$.version') END = ?5)
+           AND revisions.status <> 'failed'
+           AND quality_dispositions.disposition IN ('accepted', 'accepted_with_warnings')
+         ORDER BY indexed.chunk_id LIMIT ?6"
+    );
+    read.control.check()?;
+    let mut statement = transaction
+        .prepare(&sql)
+        .map_err(|error| classify(error, read.control))?;
+    let scopes = read.scopes.parameter();
+    let mut hits = BTreeMap::new();
+    for identifier in identifiers {
+        read.control.check()?;
+        let mut rows = statement
+            .query(params![
+                read.generation.chunk_set_id,
+                identifier,
+                read.generation.collection_id,
+                scopes,
+                read.version,
+                limit,
+            ])
+            .map_err(|error| classify(error, read.control))?;
         while let Some(row) = rows.next().map_err(|error| classify(error, read.control))? {
             read.control.check()?;
             let chunk_id: String = row.get(0).map_err(|error| classify(error, read.control))?;
-            let prepared_input: String =
-                row.get(2).map_err(|error| classify(error, read.control))?;
-            if !identifiers
-                .iter()
-                .any(|identifier| contains_identifier(&prepared_input, identifier))
-            {
-                continue;
+            let revision_id: String = row.get(1).map_err(|error| classify(error, read.control))?;
+            hits.entry(chunk_id.clone()).or_insert(revision_id);
+            if hits.len() > limit_size {
+                hits.pop_last();
             }
-            hits.push(ChunkHit {
-                chunk_id,
-                revision_id: row.get(1).map_err(|error| classify(error, read.control))?,
-            });
-            if hits.len() == limit {
+            if hits.len() == limit_size
+                && hits
+                    .last_key_value()
+                    .is_some_and(|(last_chunk_id, _)| chunk_id >= *last_chunk_id)
+            {
                 break;
             }
         }
-        read.control.check()?;
-        Ok(hits)
-    })()
-}
-
-#[cfg(test)]
-mod scope_tests {
-    use super::exact_hits;
-    use crate::{
-        generation::{Generation, GenerationState},
-        retrieval::{ReadControl, SearchRead},
-        scope::{Scope, ScopeSet},
-    };
-    use rusqlite::{Connection, TransactionBehavior};
-    use std::{
-        collections::BTreeSet,
-        sync::{Arc, atomic::AtomicBool},
-        time::{Duration, Instant},
-    };
-
-    #[test]
-    fn identifier_fts_filters_scope_before_its_unique_hit_limit() {
-        let mut connection = Connection::open_in_memory().unwrap();
-        connection
-            .execute_batch(
-                "CREATE VIRTUAL TABLE chunk_search_fts USING fts5(prepared_input);
-                 CREATE TABLE chunk_search_inputs (
-                   rowid INTEGER PRIMARY KEY, chunk_set_id TEXT, chunk_id TEXT,
-                   prepared_input TEXT
-                 );
-                 CREATE TABLE chunks (chunk_set_id TEXT, id TEXT, revision_id TEXT);
-                 CREATE TABLE revisions (
-                   id TEXT, document_id TEXT, status TEXT, metadata_json TEXT
-                 );
-                 CREATE TABLE documents (id TEXT, collection_id TEXT, source_id TEXT);
-                 CREATE TABLE quality_dispositions (revision_id TEXT, disposition TEXT);",
-            )
-            .unwrap();
-        for (rowid, chunk, revision, document, source) in [
-            (1, "aaa-forbidden", "rev-secret", "doc-secret", "secret"),
-            (2, "zzz-allowed", "rev-visible", "doc-visible", "docs"),
-        ] {
-            connection
-                .execute(
-                    "INSERT INTO chunk_search_fts(rowid, prepared_input)
-                     VALUES (?1, 'ctm install')",
-                    [rowid],
-                )
-                .unwrap();
-            connection
-                .execute(
-                    "INSERT INTO chunk_search_inputs(rowid, chunk_set_id, chunk_id, prepared_input)
-                     VALUES (?1, 'set-a', ?2, 'ctm install')",
-                    rusqlite::params![rowid, chunk],
-                )
-                .unwrap();
-            connection
-                .execute(
-                    "INSERT INTO chunks VALUES ('set-a', ?1, ?2)",
-                    rusqlite::params![chunk, revision],
-                )
-                .unwrap();
-            connection
-                .execute(
-                    "INSERT INTO revisions VALUES (?1, ?2, 'valid', '{}')",
-                    rusqlite::params![revision, document],
-                )
-                .unwrap();
-            connection
-                .execute(
-                    "INSERT INTO documents VALUES (?1, 'ctm', ?2)",
-                    rusqlite::params![document, source],
-                )
-                .unwrap();
-            connection
-                .execute(
-                    "INSERT INTO quality_dispositions VALUES (?1, 'accepted')",
-                    [revision],
-                )
-                .unwrap();
-        }
-        let scope: Scope = "workspace/default/collection/ctm/source/docs"
-            .parse()
-            .unwrap();
-        let scopes = ScopeSet::new(BTreeSet::from([scope]));
-        let generation = Generation {
-            id: 1,
-            collection_id: "ctm".to_owned(),
-            chunk_set_id: "set-a".to_owned(),
-            embedding_profile: "embed:test".to_owned(),
-            sparse_profile: "bm25-en-fr/1".to_owned(),
-            state: GenerationState::Building,
-            point_count: None,
-            published_at: None,
-        };
-        let control = ReadControl {
-            deadline: Instant::now() + Duration::from_secs(5),
-            cancelled: Arc::new(AtomicBool::new(false)),
-        };
-        let read = SearchRead {
-            generation: &generation,
-            scopes: &scopes,
-            version: None,
-            control: &control,
-        };
-        let transaction = connection
-            .transaction_with_behavior(TransactionBehavior::Deferred)
-            .unwrap();
-        let hits =
-            exact_hits(&transaction, &read, &["ctm".to_owned()], 1, Some("\"ctm\"")).unwrap();
-        assert_eq!(hits.len(), 1);
-        assert_eq!(hits[0].chunk_id, "zzz-allowed");
     }
+    read.control.check()?;
+    Ok(hits
+        .into_iter()
+        .map(|(chunk_id, revision_id)| ChunkHit {
+            chunk_id,
+            revision_id,
+        })
+        .collect())
 }

@@ -188,7 +188,7 @@ reason = "the query module owns the rule-based interpretation contract passed un
 rule = "ARC-005"
 path = "crates/maestro-knowledge/src/search/routes/mod.rs"
 item = "identifier"
-reason = "the identifier route combines its exact payload and scoped FTS legs behind one route API"
+reason = "the identifier route combines exact payloads and indexed scoped rows behind one route API"
 
 [[exception]]
 rule = "ARC-005"

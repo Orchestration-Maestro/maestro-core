@@ -10,8 +10,8 @@ fn every_refusal_has_a_nonblank_display() {
         Error::UnknownOrInaccessible,
         Error::ProjectionMissing,
         Error::ProfileMismatch {
-            expected: "identifiers/1".to_owned(),
-            found: "identifiers/2".to_owned(),
+            expected: "identifiers/2".to_owned(),
+            found: "identifiers/1".to_owned(),
         },
         Error::InvalidInput("bad input".to_owned()),
         Error::InputConflict,

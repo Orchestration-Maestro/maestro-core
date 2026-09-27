@@ -92,18 +92,21 @@ fn adding_search_storage_to_an_existing_database_leaves_it_empty() {
     let earlier: Vec<_> = MIGRATIONS
         .iter()
         .copied()
-        .filter(|(name, _)| *name != "0010_search")
+        .filter(|(name, _)| !matches!(*name, "0010_search" | "0011_exact_identifiers"))
         .collect();
     drop(scratch.open_with(&earlier).unwrap());
-    assert_eq!(pending_migrations(&scratch.0).unwrap(), ["0010_search"]);
+    assert_eq!(
+        pending_migrations(&scratch.0).unwrap(),
+        ["0010_search", "0011_exact_identifiers"]
+    );
 
     drop(scratch.open());
     let reader = scratch.outside();
     for table in [
         "chunk_search_inputs",
+        "chunk_search_identifiers",
         "chunk_set_members",
         "generation_search",
-        "chunk_search_fts",
     ] {
         let count: i64 = reader
             .query_row(&format!("SELECT count(*) FROM {table}"), [], |row| {
@@ -113,6 +116,52 @@ fn adding_search_storage_to_an_existing_database_leaves_it_empty() {
         assert_eq!(count, 0, "{table}");
     }
     assert_eq!(names(&reader), sorted(MIGRATIONS));
+}
+
+#[test]
+fn exact_identifier_migration_replaces_fts_without_backfilling() {
+    let without_exact_identifiers: Vec<_> = MIGRATIONS
+        .iter()
+        .copied()
+        .filter(|(name, _)| *name != "0011_exact_identifiers")
+        .collect();
+    let scratch = Scratch::new();
+    drop(scratch.open_with(&without_exact_identifiers).unwrap());
+    let before = scratch.outside();
+    assert_eq!(
+        before
+            .query_row(
+                "SELECT count(*) FROM sqlite_schema
+                 WHERE type = 'table' AND name = 'chunk_search_fts'",
+                [],
+                |row| row.get::<_, i64>(0),
+            )
+            .unwrap(),
+        1
+    );
+    drop(before);
+
+    drop(scratch.open_with(MIGRATIONS).unwrap());
+    let reader = scratch.outside();
+    assert_eq!(
+        reader
+            .query_row(
+                "SELECT count(*) FROM sqlite_schema
+                 WHERE type = 'table' AND name = 'chunk_search_fts'",
+                [],
+                |row| row.get::<_, i64>(0),
+            )
+            .unwrap(),
+        0
+    );
+    assert_eq!(
+        reader
+            .query_row("SELECT count(*) FROM chunk_search_identifiers", [], |row| {
+                row.get::<_, i64>(0)
+            })
+            .unwrap(),
+        0
+    );
 }
 
 #[test]
@@ -162,6 +211,7 @@ fn model_card_migration_applies_after_0008_and_after_0010_search() {
     let applied = names(&outside);
     assert!(applied.contains(&"0009_model_cards".to_owned()));
     assert!(applied.contains(&"0010_search".to_owned()));
+    assert!(applied.contains(&"0011_exact_identifiers".to_owned()));
     assert_eq!(
         outside
             .query_row("SELECT count(*) FROM model_cards", [], |row| row

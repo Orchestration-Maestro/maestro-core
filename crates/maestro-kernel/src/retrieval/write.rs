@@ -9,10 +9,11 @@ use rusqlite::{OptionalExtension as _, Transaction, params};
 use std::collections::{BTreeMap, BTreeSet};
 
 impl Database {
-    /// Records up to 64 exact prepared inputs for a chunk set, idempotently.
+    /// Records up to 64 exact prepared inputs and their identifier values for a
+    /// chunk set, idempotently.
     ///
     /// Each input must have its chunk's recorded digest and owner-source scope.
-    /// The FTS trigger runs in this same short write transaction.
+    /// Identifier rows are written in this same short write transaction.
     ///
     /// # Errors
     ///
@@ -106,8 +107,8 @@ impl Database {
     /// Marks a checked projection ready, idempotently, while its generation
     /// remains Building.
     ///
-    /// The publisher calls this only after verifying complete FTS coverage,
-    /// memberships, payload identifiers and keyword indexes.
+    /// The publisher calls this only after verifying identifier membership,
+    /// chunk-set members, payload values and keyword indexes.
     ///
     /// # Errors
     ///
@@ -124,7 +125,7 @@ impl Database {
     }
 }
 
-/// Checks the digest and idempotently inserts one input with its FTS trigger.
+/// Checks the digest and idempotently inserts one input and its identifiers.
 fn record_inputs(
     transaction: &Transaction<'_>,
     scopes: &ScopeSet,
@@ -137,7 +138,7 @@ fn record_inputs(
     Ok(())
 }
 
-/// Checks and records one exact prepared input.
+/// Checks and records one exact prepared input and its identifier set.
 fn record_input(
     transaction: &Transaction<'_>,
     scopes: &ScopeSet,
@@ -169,7 +170,10 @@ fn record_input(
         )
         .optional()?;
     match previous {
-        Some(previous) if digest_matches && previous == input.prepared_input => Ok(()),
+        Some(previous) if digest_matches && previous == input.prepared_input => {
+            record_identifiers(transaction, chunk_set_id, input)?;
+            Ok(())
+        }
         Some(_) if digest_matches => Err(Error::InputConflict),
         None if digest_matches => {
             transaction.execute(
@@ -177,12 +181,53 @@ fn record_input(
                  (chunk_set_id, chunk_id, prepared_input) VALUES (?1, ?2, ?3)",
                 params![chunk_set_id, input.chunk_id, input.prepared_input],
             )?;
-            Ok(())
+            record_identifiers(transaction, chunk_set_id, input)
         }
         Some(_) | None => Err(Error::InvalidInput(
             "prepared input digest differs from its chunk".to_owned(),
         )),
     }
+}
+
+/// Records the immutable exact identifier set, or verifies an identical retry.
+fn record_identifiers(
+    transaction: &Transaction<'_>,
+    chunk_set_id: &str,
+    input: &SearchInput,
+) -> Result<(), Error> {
+    let requested: Vec<String> = input
+        .identifiers
+        .iter()
+        .map(String::as_str)
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .map(str::to_owned)
+        .collect();
+    let existing = {
+        let mut statement = transaction.prepare(
+            "SELECT identifier FROM chunk_search_identifiers
+             WHERE chunk_set_id = ?1 AND chunk_id = ?2 ORDER BY identifier",
+        )?;
+        statement
+            .query_map(params![chunk_set_id, input.chunk_id], |row| {
+                row.get::<_, String>(0)
+            })?
+            .collect::<Result<Vec<_>, _>>()?
+    };
+    if existing == requested {
+        return Ok(());
+    }
+    if !existing.is_empty() {
+        return Err(Error::InputConflict);
+    }
+    for identifier in requested {
+        transaction.execute(
+            "INSERT INTO chunk_search_identifiers
+             (chunk_set_id, identifier, chunk_id) VALUES (?1, ?2, ?3)",
+            params![chunk_set_id, identifier, input.chunk_id],
+        )?;
+    }
+    Ok(())
 }
 
 /// Validates and records one complete chunk-set membership list.

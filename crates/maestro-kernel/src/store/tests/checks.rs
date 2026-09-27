@@ -58,18 +58,27 @@ fn an_intact_database_passes_its_quick_check() {
 #[test]
 fn a_damaged_file_fails_the_quick_check_saying_how() {
     let scratch = Scratch::new();
-    drop(scratch.open());
-    // The header's count of free pages, 5, where the file has none.
+    let database = scratch.open();
+    let reader = database.reader().unwrap();
+    let free_pages: i64 = reader
+        .query_row("PRAGMA freelist_count", [], |row| row.get(0))
+        .unwrap();
+    drop(reader);
+    drop(database);
+    let claimed_pages = u32::try_from(free_pages + 1).unwrap();
+    // The header claims one more free page than the file actually holds.
     let mut file = OpenOptions::new()
         .write(true)
         .open(scratch.database())
         .unwrap();
     file.seek(SeekFrom::Start(36)).unwrap();
-    file.write_all(&5_u32.to_be_bytes()).unwrap();
+    file.write_all(&claimed_pages.to_be_bytes()).unwrap();
     drop(file);
     assert_eq!(
         scratch.open().quick_check().unwrap(),
-        ["*** in database main ***\nFreelist: size is 0 but should be 5"]
+        [format!(
+            "*** in database main ***\nFreelist: size is {free_pages} but should be {claimed_pages}"
+        )]
     );
 }
 

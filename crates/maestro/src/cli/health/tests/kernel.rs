@@ -107,19 +107,41 @@ fn an_intact_database_passes_and_applies_the_grants_of_config_toml() {
 fn a_damaged_database_fails_with_what_sqlite_found() {
     let scratch = Scratch::new();
     drop(Database::open_in(&scratch.data()).unwrap());
-    // The header's count of free pages, 5, where the file has none.
-    let mut file = OpenOptions::new()
-        .write(true)
-        .open(scratch.data().join("kernel.sqlite3"))
+    let database = scratch.data().join("kernel.sqlite3");
+    let free_pages: u32 = Connection::open(&database)
+        .unwrap()
+        .pragma_query_value(None, "freelist_count", |row| row.get(0))
         .unwrap();
+    let corrupted_free_pages = free_pages.wrapping_add(1);
+    // Change the header's count so the corruption does not depend on the schema's free pages.
+    let mut file = OpenOptions::new().write(true).open(&database).unwrap();
     file.seek(SeekFrom::Start(36)).unwrap();
-    file.write_all(&5_u32.to_be_bytes()).unwrap();
+    file.write_all(&corrupted_free_pages.to_be_bytes()).unwrap();
     drop(file);
+    let sqlite_report = {
+        let connection = Connection::open(&database).unwrap();
+        let mut statement = connection.prepare("PRAGMA quick_check").unwrap();
+        statement
+            .query_map([], |row| row.get::<_, String>(0))
+            .unwrap()
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .unwrap()
+            .into_iter()
+            .filter(|report| report != "ok")
+            .collect::<Vec<_>>()
+    };
+    assert!(
+        !sqlite_report.is_empty(),
+        "SQLite must report the corruption"
+    );
     let (check, _) = database_check(&scratch.data(), None);
     let (problem, next) = failure(&check);
-    assert!(
-        problem.contains("Freelist: size is 0 but should be 5"),
-        "{problem}"
+    assert_eq!(
+        problem,
+        format!(
+            "the kernel database is damaged: {}",
+            sqlite_report.join("; ")
+        )
     );
     assert!(next.contains("backup"), "{next}");
 }

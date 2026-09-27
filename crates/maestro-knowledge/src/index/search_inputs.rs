@@ -42,8 +42,8 @@ pub(super) fn record_members(
     Ok(members)
 }
 
-/// Writes each exact prepared input to the FTS projection before its point is
-/// upserted and its progress acknowledged.
+/// Writes each prepared input and its extracted identifiers before its point
+/// is upserted and its progress acknowledged.
 pub(super) fn record_batch(
     database: &Database,
     scopes: &ScopeSet,
@@ -62,6 +62,7 @@ pub(super) fn record_batch(
         .map(|(chunk, prepared_input)| SearchInput {
             chunk_id: chunk.id.clone(),
             prepared_input: prepared_input.clone(),
+            identifiers: index_identifiers(prepared_input),
         })
         .collect();
     database
@@ -70,8 +71,8 @@ pub(super) fn record_batch(
 }
 
 impl<P: ModelPort> Projection<'_, P> {
-    /// Rechecks manifest membership, every FTS input, every exact payload and
-    /// its keyword indexes before making this generation searchable.
+    /// Rechecks manifest membership, every prepared input, each exact payload
+    /// and its keyword indexes before making this generation searchable.
     pub(super) async fn verify_search(
         &self,
         generation: &Generation,

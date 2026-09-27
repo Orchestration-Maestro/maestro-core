@@ -1,4 +1,4 @@
-//! Exact identifiers combine payload equality with scoped prepared-input FTS.
+//! Exact identifiers combine payload equality with the scoped kernel index.
 
 use super::super::support::projection;
 use super::{
@@ -11,11 +11,15 @@ use maestro_kernel::{
     document::{Disposition, Outcome},
     evidence::RouteStatus,
     generation::{Generation, GenerationState},
+    retrieval::IDENTIFIER_PROFILE,
 };
 use maestro_knowledge::{
     index::Qdrant,
     query::understand,
-    search::{Query, RouteOutcome, routes::identifier::search_identifiers},
+    search::{
+        Query, RouteOutcome,
+        routes::{identifier::search_identifiers, lexical::search_bm25},
+    },
 };
 use qdrant_client::qdrant::{Condition, Filter, condition::ConditionOneOf, r#match::MatchValue};
 use std::time::Duration;
@@ -34,13 +38,17 @@ pub(super) struct PublishedCommand {
 
 /// Publishes one accepted prepared input containing a bare command and error code.
 pub(super) async fn publish_command(backend: &Backend) -> PublishedCommand {
-    let kernel = Kernel::with_changed_guides(1, &|kernel, guide, mut chunks| {
-        if guide != 0 {
-            return chunks;
+    let kernel = Kernel::with_changed_guides(4, &|kernel, guide, mut chunks| {
+        if guide == 0 {
+            chunks[0].digest = kernel.put(b"The ctm command repairs the local cache at ERR-042.");
         }
-        chunks[0].digest = kernel.put(b"The ctm command repairs the local cache at ERR-042.");
         chunks
     });
+    publish_kernel(backend, kernel).await
+}
+
+/// Publishes a prepared kernel as one searchable physical generation.
+async fn publish_kernel(backend: &Backend, kernel: Kernel) -> PublishedCommand {
     let lead = kernel
         .chunks()
         .into_iter()
@@ -371,7 +379,7 @@ async fn payload_filter_conjoins_scope_identifier_profile_and_version() {
     ));
     assert!(matches!(
         field_match(filter, "identifier_profile"),
-        Some(MatchValue::Keyword(value)) if value == "identifiers/1"
+        Some(MatchValue::Keyword(value)) if value == IDENTIFIER_PROFILE
     ));
     assert!(matches!(
         field_match(filter, "identifiers"),
@@ -381,8 +389,31 @@ async fn payload_filter_conjoins_scope_identifier_profile_and_version() {
 }
 
 #[tokio::test]
-async fn code_span_finds_bare_command_missed_by_identifier_payload() {
-    for backend in backends("code_span_finds_bare_command_missed_by_identifier_payload") {
+async fn too_common_kernel_identifier_is_reported_without_kernel_hits() {
+    let backend = fake();
+    let kernel = Kernel::with_changed_guides(10, &|kernel, guide, mut chunks| {
+        if guide != 0 {
+            return chunks;
+        }
+        for chunk in &mut chunks {
+            chunk.digest = kernel.put(b"Install the tool with --force.");
+        }
+        chunks
+    });
+    let fixture = publish_kernel(&backend, kernel).await;
+
+    let outcome = identifier_search_with(&fixture, "--force", 20, Some("99.99.99")).await;
+    assert_eq!(
+        outcome.status,
+        RouteStatus::Unavailable("kernel: identifier too common".to_owned())
+    );
+    assert!(outcome.hits.is_empty());
+    cleanup(&backend, &[&fixture.generation]).await;
+}
+
+#[tokio::test]
+async fn bare_plain_words_are_left_to_lexical_search() {
+    for backend in backends("bare_plain_words_are_left_to_lexical_search") {
         let fixture = publish_command(&backend).await;
         let lead = fixture
             .kernel
@@ -395,11 +426,24 @@ async fn code_span_finds_bare_command_missed_by_identifier_payload() {
             "The ctm command repairs the local cache at ERR-042."
         );
 
-        let outcome = identifier_search(&fixture, "`ctm`").await;
-        assert_eq!(outcome.status, RouteStatus::Ok, "{}", backend.name);
-        assert_eq!(outcome.hits.len(), 1, "{}", backend.name);
-        assert_eq!(outcome.hits[0].chunk_id, "chunk-0-lead", "{}", backend.name);
-        assert!((outcome.hits[0].score - 1.0).abs() < f64::EPSILON);
+        let identifier = identifier_search(&fixture, "`ctm`").await;
+        assert_eq!(identifier.status, RouteStatus::Ok, "{}", backend.name);
+        assert!(identifier.hits.is_empty(), "{}", backend.name);
+        let lexical = search_bm25(&Query {
+            generation: &fixture.generation,
+            scopes: &fixture.kernel.scopes,
+            text: "ctm",
+            limit: 20,
+            version: None,
+            qdrant: &fixture.qdrant,
+        })
+        .await
+        .unwrap();
+        assert!(
+            lexical.iter().any(|hit| hit.chunk_id == "chunk-0-lead"),
+            "{}",
+            backend.name
+        );
         cleanup(&backend, &[&fixture.generation]).await;
     }
 }

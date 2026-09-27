@@ -1,4 +1,4 @@
-//! Exact identifier search from the Qdrant payload and prepared-input FTS.
+//! Exact identifier search from Qdrant payloads and the kernel identifier index.
 
 use super::{outcome::RouteOutcome, results::ScoredChunk};
 use crate::{
@@ -21,10 +21,13 @@ use std::{
 };
 use tokio::time::{self, Instant};
 
-/// Finds identifiers in a pinned generation using exact payloads and scoped FTS.
+/// Finds identifiers in a pinned generation using exact payloads and indexed scoped rows.
 ///
+/// Plain words are left to lexical search; this route indexes only identifiers
+/// recognized by the shared extractor.
 /// The two legs run concurrently. A completed leg's hits survive failure or
-/// timeout in the other; one Identifier route remains one fusion vote.
+/// timeout in the other; common kernel identifiers are reported as degraded.
+/// One Identifier route remains one fusion vote.
 pub async fn search_identifiers(
     query: &Query<'_>,
     database: Arc<Database>,
@@ -68,7 +71,12 @@ pub async fn search_identifiers(
         Err(reason) => reasons.push(format!("payload: {}", nonblank(&reason, "unavailable"))),
     }
     match kernel {
-        Ok(kernel) => extend_unique(&mut hits, &mut seen, kernel, limit),
+        Ok(kernel) => {
+            extend_unique(&mut hits, &mut seen, kernel.hits, limit);
+            if kernel.skipped_too_common {
+                reasons.push("kernel: identifier too common".to_owned());
+            }
+        }
         Err(reason) => reasons.push(format!("kernel: {}", nonblank(&reason, "unavailable"))),
     }
     if reasons.is_empty() {
@@ -218,6 +226,14 @@ fn payload_hit(point: &RetrievedPoint) -> Result<ScoredChunk, QdrantError> {
     })
 }
 
+/// The exact kernel hits and any high-frequency identifiers it skipped.
+struct KernelOutcome {
+    /// Ranked chunks returned by the kernel identifier leg.
+    hits: Vec<ScoredChunk>,
+    /// Whether the kernel skipped an identifier above the frequency threshold.
+    skipped_too_common: bool,
+}
+
 /// Reads an exact, scope-filtered kernel leg on a cancellable blocking worker.
 async fn kernel_leg(
     query: &Query<'_>,
@@ -225,7 +241,7 @@ async fn kernel_leg(
     identifiers: &[String],
     limit: usize,
     deadline: Instant,
-) -> Result<Vec<ScoredChunk>, String> {
+) -> Result<KernelOutcome, String> {
     let generation = query.generation.clone();
     let scopes = query.scopes.clone();
     let version = query.version.map(str::to_owned);
@@ -245,14 +261,18 @@ async fn kernel_leg(
     })
     .await
     {
-        Ok(Ok(hits)) => Ok(hits
-            .into_iter()
-            .map(|hit| ScoredChunk {
-                chunk_id: hit.chunk_id,
-                revision_id: hit.revision_id,
-                score: 1.0,
-            })
-            .collect()),
+        Ok(Ok(result)) => Ok(KernelOutcome {
+            hits: result
+                .hits
+                .into_iter()
+                .map(|hit| ScoredChunk {
+                    chunk_id: hit.chunk_id,
+                    revision_id: hit.revision_id,
+                    score: 1.0,
+                })
+                .collect(),
+            skipped_too_common: result.skipped_too_common,
+        }),
         Ok(Err(error)) => Err(retrieval_reason(&error)),
         Err(deadline::BlockingFailure::TimedOut) => {
             Err("kernel identifier search timed out".to_owned())
@@ -301,7 +321,9 @@ fn retrieval_reason(error: &retrieval::Error) -> String {
         retrieval::Error::ProjectionMissing => {
             "search projection missing; publish a new generation".to_owned()
         }
-        retrieval::Error::ProfileMismatch { .. } => "search projection profile mismatch".to_owned(),
+        retrieval::Error::ProfileMismatch { .. } => {
+            "search projection profile mismatch; publish a new generation".to_owned()
+        }
         retrieval::Error::TimedOut | retrieval::Error::Cancelled => {
             "kernel identifier search timed out".to_owned()
         }

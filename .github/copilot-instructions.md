@@ -291,7 +291,8 @@ in place.
 │   │   │   ├── 0007_chunk_sets.sql                                          # The guards of the chunk sets and their chunks: their states, moves and identity, and a complete set's chunks as counted
 │   │   │   ├── 0008_document_guards.sql                                     # The guards of the documents: each keeps its id, collection, source and source reference
 │   │   │   ├── 0009_model_cards.sql                                         # V2 cards, evaluations, selections and immutable triggers
-│   │   │   └── 0010_search.sql                                              # File: 0010 search
+│   │   │   ├── 0010_search.sql                                              # File: 0010 search
+│   │   │   └── 0011_exact_identifiers.sql                                   # Exact, publish-time identifier membership
 │   │   ├── src/                                                             # The crate's sources
 │   │   │   ├── artifact/                                                    # Content-addressed artifacts: immutable bytes stored, and read back, by their
 │   │   │   │   ├── digest.rs                                                # A SHA-256 digest: the name every artifact is stored under
@@ -472,9 +473,11 @@ in place.
 │   │   │   │   ├── tests/                                                   # Tests for exact identifier search inputs
 │   │   │   │   │   ├── deadlines.rs                                         # Cancellation and real-clock bounds on SQLite reads
 │   │   │   │   │   ├── errors.rs                                            # Nonblank retrieval refusals and preserved store error sources
+│   │   │   │   │   ├── identifier_scope.rs                                  # Rust source: identifier scope
 │   │   │   │   │   ├── identifiers.rs                                       # Literal identifier boundaries and shared whitespace normalization
 │   │   │   │   │   ├── inventory.rs                                         # Complete, pinned-generation inventory reads
 │   │   │   │   │   ├── mod.rs                                               # Tests for exact identifier search inputs
+│   │   │   │   │   ├── projection_storage.rs                                # Tests for search-member, readiness and generation projection storage
 │   │   │   │   │   ├── storage.rs                                           # Atomic derived-input, member and readiness writes
 │   │   │   │   │   ├── support.rs                                           # Shared scratch records for controlled search-reader tests
 │   │   │   │   │   └── versions.rs                                          # Exact version existence in a pinned, scoped generation
@@ -746,7 +749,7 @@ in place.
 │       │   │   ├── routes/                                                  # Independent route diagnostics
 │       │   │   │   ├── dense.rs                                             # Dense diagnostic search through the generation's own embedder and vector
 │       │   │   │   ├── error.rs                                             # Typed failures for the admission and diagnostic routes
-│       │   │   │   ├── identifier.rs                                        # Exact identifier search from the Qdrant payload and prepared-input FTS
+│       │   │   │   ├── identifier.rs                                        # Exact identifier search from Qdrant payloads and the kernel identifier index
 │       │   │   │   ├── lexical.rs                                           # BM25 diagnostic search, using the generation's recorded analyzer profile
 │       │   │   │   ├── mod.rs                                               # Independent route diagnostics
 │       │   │   │   ├── outcome.rs                                           # A route's hits and its independent availability status
@@ -820,7 +823,7 @@ in place.
 │       │       │   ├── search_routes/                                       # Dense and lexical routes against the shared fake and, when configured, real Qdrant
 │       │       │   │   ├── fused_search.rs                                  # The public search handoff fuses available routes when dense metadata is absent
 │       │       │   │   ├── fused_search_admission_pinning.rs                # Search admission and generation-pinning acceptance tests
-│       │       │   │   ├── identifier_route.rs                              # Exact identifiers combine payload equality with scoped prepared-input FTS
+│       │       │   │   ├── identifier_route.rs                              # Exact identifiers combine payload equality with the scoped kernel index
 │       │       │   │   ├── identifier_route_resilience.rs                   # Independent exact-identifier leg failures and empty results
 │       │       │   │   ├── mod.rs                                           # Dense and lexical routes against the shared fake and, when configured, real Qdrant
 │       │       │   │   ├── route_behavior.rs                                # Behavior of dense and lexical searches over the generation-pinned collection

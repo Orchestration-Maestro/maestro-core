@@ -15,6 +15,7 @@ use maestro_kernel::{
     evidence::{RequestBudget, RouteStatus},
     gateway::{FakeModels, ModelPort as _, Room},
     generation::{GenerationState, NewGeneration},
+    retrieval::IDENTIFIER_PROFILE,
 };
 use maestro_knowledge::{
     index::{Projection, Report},
@@ -265,7 +266,7 @@ async fn carries_its_payload_and_vectors(backend: &Backend) {
             "version": version,
             "source_kind": "guide",
             "identifiers": [],
-            "identifier_profile": "identifiers/1",
+            "identifier_profile": IDENTIFIER_PROFILE,
         });
         let payload = Value::from(Payload::from(point.payload));
         assert_eq!(payload, expected, "{} {id}", backend.name);

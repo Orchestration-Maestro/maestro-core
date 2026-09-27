@@ -11,6 +11,7 @@ use maestro_knowledge::{
     query::Family,
     search::{DEFAULT_DEPTH, Reranker, SearchContext, SearchError, SearchRequest, search},
 };
+use std::collections::HashSet;
 use tokio::time::Instant;
 
 pub(super) fn searchable_scheduler_kernel() -> Kernel {
@@ -18,25 +19,38 @@ pub(super) fn searchable_scheduler_kernel() -> Kernel {
         if guide == 0 {
             chunks[0].digest =
                 kernel.put(b"The scheduler runs job-0 in version 9.0.22 and reports ERR-042.");
+            let filler = kernel.put(b"unrelated frequency padding");
+            for index in 0..16 {
+                let mut chunk = chunks[0].clone();
+                chunk.id = format!("chunk-0-frequency-filler-{index}");
+                chunk.section_id = None;
+                chunk.digest = filler.clone();
+                chunks.push(chunk);
+            }
         }
         chunks
     });
-    let lead = kernel
-        .chunks()
-        .into_iter()
-        .find(|chunk| chunk.id == "chunk-0-lead")
-        .unwrap();
+    accept_all_revisions(&kernel);
     kernel
-        .database
-        .record_disposition(&Disposition {
-            revision_id: lead.revision_id,
-            outcome: Outcome::Accepted,
-            reasons: Vec::new(),
-            rule_ids: Vec::new(),
-            decided_by: "test".to_owned(),
-        })
-        .unwrap();
-    kernel
+}
+
+/// Marks each revision represented in the fixture as eligible for search.
+fn accept_all_revisions(kernel: &Kernel) {
+    let mut revisions = HashSet::new();
+    for chunk in kernel.chunks() {
+        if revisions.insert(chunk.revision_id.clone()) {
+            kernel
+                .database
+                .record_disposition(&Disposition {
+                    revision_id: chunk.revision_id,
+                    outcome: Outcome::Accepted,
+                    reasons: Vec::new(),
+                    rule_ids: Vec::new(),
+                    decided_by: "test".to_owned(),
+                })
+                .unwrap();
+        }
+    }
 }
 
 #[tokio::test]
@@ -292,23 +306,17 @@ async fn missing_embedder_degrades_dense_but_fuses_other_routes() {
             return chunks;
         }
         chunks[0].digest = kernel.put(b"The ctm command repairs the local cache.");
+        let filler = kernel.put(b"unrelated frequency padding");
+        for index in 0..16 {
+            let mut chunk = chunks[0].clone();
+            chunk.id = format!("chunk-0-frequency-filler-{index}");
+            chunk.section_id = None;
+            chunk.digest = filler.clone();
+            chunks.push(chunk);
+        }
         chunks
     });
-    let lead = kernel
-        .chunks()
-        .into_iter()
-        .find(|chunk| chunk.id == "chunk-0-lead")
-        .unwrap();
-    kernel
-        .database
-        .record_disposition(&Disposition {
-            revision_id: lead.revision_id,
-            outcome: Outcome::Accepted,
-            reasons: Vec::new(),
-            rule_ids: Vec::new(),
-            decided_by: "test".to_owned(),
-        })
-        .unwrap();
+    accept_all_revisions(&kernel);
     let card = models::embedder(3);
     let port = models::Embedder::default();
     let qdrant = backend.client();

@@ -4,6 +4,7 @@ use super::{backends::Backend, kernel::Kernel};
 use maestro_kernel::{
     gateway::ModelCard,
     generation::{Generation, GenerationState},
+    retrieval::IDENTIFIER_PROFILE,
     scope::{Right, ScopeSet},
 };
 use qdrant_client::{
@@ -130,7 +131,7 @@ pub(super) fn identifier_point(id: &str, chunk: &str, revision: &str, scope: &st
         "revision_id": revision,
         "scope_tags": [scope],
         "version": "9.0.22",
-        "identifier_profile": "identifiers/1",
+        "identifier_profile": IDENTIFIER_PROFILE,
         "identifiers": ["ERR-042"],
     }))
     .unwrap();
