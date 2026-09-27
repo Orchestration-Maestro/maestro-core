@@ -68,7 +68,4 @@ exclude_re = [
   '^crates/maestro-knowledge/src/query/language\.rs:30:26: replace < with <= in detect_language$',
   # <= visits an empty tail once; the first-hit guard exits without changing results.
   '^crates/maestro-knowledge/src/search/routes/results\.rs:57:23: replace < with <= in rank$',
-  # Normalized inventory filters have one separator space; serde_json accepts
-  # it as leading whitespace, so starting at the space or opening quote agrees.
-  '^crates/maestro-knowledge/src/search/inventory_query\.rs:68:45: replace == with != in parse_filtered$',
 ]

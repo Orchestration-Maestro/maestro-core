@@ -58,14 +58,11 @@ fn parse_filtered(
     folded_prefix: &str,
     versions: bool,
 ) -> Result<InventoryRequest, InventoryParseError> {
-    for (quote, _) in query
-        .char_indices()
-        .filter(|(_, character)| *character == '"')
-    {
-        if fold(query.get(..quote).unwrap_or_default().trim_end()) != folded_prefix {
+    for (offset, _) in query.char_indices() {
+        if fold(query.get(..offset).unwrap_or_default().trim_end()) != folded_prefix {
             continue;
         }
-        let set = serde_json::from_str::<String>(query.get(quote..).unwrap_or_default())
+        let set = serde_json::from_str::<String>(query.get(offset..).unwrap_or_default())
             .map_err(|_| InventoryParseError)?;
         if set.is_empty() {
             return Err(InventoryParseError);
