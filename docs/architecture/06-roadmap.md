@@ -81,7 +81,7 @@ cited passages from the full corpus, with measured quality.
 | --- | --- |
 | `maestro-kernel` | B1 scopes, B2 journal, B3 artifacts, B4 jobs, B5 documents, B6 generations, B7 evidence, B9 capability registry, B10 model gateway, B11 telemetry and health |
 | `maestro-knowledge` | Collections (`collection.json`), import (`maestro-corpus/1`), the corpus quality gate with explicit outcomes, prepare (exact + near-duplicate dedup, chunking through `TokenCounter`), `RouterTokenizer` with parity qualification, representations (dense + BM25 with an explicit French/English analyzer policy), Qdrant generations with alias switch, independent `search_dense` / `search_bm25` diagnostics, search (R1–R3 and R6, RRF, rerank, evidence assembly with span unions), `ask` with guards and validation before delivery, eval runner |
-| Journal | Per-stream sequences, durable cursors and acknowledgements; projections and telemetry consume them ([07 §7](07-extensibility.md#7-delivery-by-slice)) |
+| Journal | S1 ships and tests per-stream sequences, durable cursors and acknowledgements; built-in projection and telemetry consumers use them in S2 ([07 §7](07-extensibility.md#7-delivery-by-slice)) |
 | `maestro` binary | CLI (`knowledge …`, `eval …`, `status`, `doctor`, `setup`, `backup`, `restore`) and MCP stdio server (`knowledge_collections`, `knowledge_search`, `knowledge_get`, `knowledge_ask`) |
 | `ctm-collection` | Corpus exporter from the existing Python outputs, `collection.json`, the quality ledger, a 100+ question golden set (FR/EN, ~15 % unanswerable) validated by the owner on a stratified sample |
 | Bake-off round 1 | Embedder, reranker, answerer (see [05 §3](05-platform-and-operations.md#3-model-selection)) |

@@ -25,7 +25,7 @@ flowchart LR
   admit --> ops[Application operations]
   ops --> journal[(Kernel journal<br/>ordered, append-only)]
   journal -->|cursors| subs[Subscriptions]
-  subs --> builtin[Built-in consumers<br/>projections, telemetry]
+  subs --> builtin[Built-in consumers (S2)<br/>projections, telemetry]
   subs --> ext[Extension host<br/>sandboxed processes]
   subs --> hookout[Outbound webhooks]
   subs --> bridge[Broker bridge<br/>NATS JetStream, Kafka]
@@ -38,8 +38,8 @@ flowchart LR
    through the same admission (identity, scope, Cedar) and the same application
    operations. No entry point owns logic.
 2. **One way out.** Everything that happens is an event in the kernel journal.
-   Built-in projections (Qdrant, Neo4j), telemetry and third-party integrations
-   all consume the same stream the same way.
+   When wired, built-in projections (Qdrant, Neo4j), telemetry and third-party
+   integrations consume the same stream the same way.
 3. **Out of process first.** Third-party code never runs inside the core
    process. A crashing, slow or hostile extension cannot corrupt the kernel or
    block the core.
@@ -49,8 +49,8 @@ flowchart LR
    a machine. Publication never grants execution.
 5. **At-least-once, idempotent, ordered per subject.** Delivery survives
    restarts; consumers deduplicate by event ID; order holds per stream key.
-6. **The journal is the outbox.** The core commits an event once; delivery to
-   every consumer happens afterwards, from the journal. A failing consumer never
+6. **The journal is the outbox.** The core commits an event once; wired
+   consumers receive it afterwards, from the journal. A failing consumer never
    rolls back or delays a committed operation.
 
 ## 2. Entry points
@@ -262,7 +262,8 @@ The core never embeds a message broker; a broker is an exit point like any other
 
 | Slice | Delivers |
 | --- | --- |
-| S1 | Journal with per-stream sequences, durable cursors and acknowledgements; built-in consumers (projections, telemetry) use them; the event catalogue starts with knowledge events |
+| S1 | Journal with per-stream sequences, durable cursors and acknowledgements; the event catalogue starts with knowledge events |
+| S2 | Built-in projection and telemetry consumers use the tested S1 cursor primitive |
 | S4 | Extension host in the daemon, Maestro Extension Protocol, process extensions, outbound webhooks, local HTTP API with server-sent events, schedules; a reference `echo` extension in CI |
 | S5 | Capabilities use subscribers (for example notifications); a contributed extension ships through the catalog |
 | S6 | Source connectors as extensions; the private vendor connectors run this way |

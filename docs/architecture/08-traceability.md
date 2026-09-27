@@ -514,7 +514,7 @@ analysis converges on it.
 
 | ID | Recommendation | Where it already lives |
 | --- | --- | --- |
-| revtools.arch1 | Canonical immutable event store; agents submit events or proposals through one controlled write path, never rewriting canonical knowledge | B2 journal, [04 §3](04-intelligence-backend.md#3-the-kernel-building-blocks); [07 §1](07-extensibility.md#1-principles) |
+| revtools.arch1 | Canonical immutable event store; agents submit events or proposals through one controlled write path, never rewriting canonical knowledge | B2 journal, [04 §3](04-intelligence-backend.md#3-the-kernel-building-blocks); [07 §1](07-extensibility.md#1-principles). S1 ships/tests the durable cursor primitive; built-in projection and telemetry consumers are S2 ([07 §7](07-extensibility.md#7-delivery-by-slice)) |
 | revtools.arch2 | One graph model over code, memory, documents and operational state, with node and edge fields for source, validity, confidence, extraction method and security scope | [02 §8.2](02-retrieval-and-knowledge-graph.md#82-graph-model), B8 |
 | revtools.arch2-types | Node types (person, project, conversation, message, document, file, class, function, variable, decision, task, requirement, claim, event, agent) and relations (mentions, calls, imports, implements, depends on, derived from, decided in, supersedes, contradicts, assigned to, related to) | [02 §8.2](02-retrieval-and-knowledge-graph.md#82-graph-model) for knowledge; [04 §5](04-intelligence-backend.md#5-phase-i2--code-intelligence) for code; §19.3 adds the analysis types |
 | revtools.arch2-prov | Provenance mandatory: where a fact came from, when it was true, extracted or inferred | Invariant 2 of [README §6](README.md#6-invariants); B7 |

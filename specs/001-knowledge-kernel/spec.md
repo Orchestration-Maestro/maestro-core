@@ -244,8 +244,10 @@ collections and generations are ready and how to fix what is not.
   `knowledge_search`, `knowledge_get` and `knowledge_ask` over stdio with bounded
   responses.
 - **FR-S1-008a**: The kernel journal MUST keep per-stream sequences with durable
-  consumer cursors and acknowledgements, used by the projections and telemetry
-  ([07 §3.3](../../docs/architecture/07-extensibility.md#33-subscriptions-and-delivery)).
+  consumer cursors and acknowledgements. S1 ships and tests this cursor
+  primitive; built-in projection and telemetry consumers move to S2
+  ([07 §3.3](../../docs/architecture/07-extensibility.md#33-subscriptions-and-delivery),
+  [07 §7](../../docs/architecture/07-extensibility.md#7-delivery-by-slice)).
 - **FR-S1-008b**: The public event catalogue MUST start with the knowledge events
   of [07 §3.2](../../docs/architecture/07-extensibility.md#32-event-catalogue)
   (`import.completed`, `revision.held`, `generation.published`,
