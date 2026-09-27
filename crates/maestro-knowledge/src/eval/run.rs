@@ -10,10 +10,7 @@ use super::{
 use crate::suite::{ExpectedSection, Question, Resolved, Suite};
 use maestro_canonicalization::CanonicalDocument;
 use maestro_kernel::evidence::Bundle;
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    time::Instant,
-};
+use std::{collections::BTreeMap, time::Instant};
 
 /// The report of `suite` over the generation `header` names, which names the
 /// digest of the suite's text.
@@ -33,8 +30,8 @@ use std::{
 /// error; [`RunError::NoDocument`] for a `source_ref` the lookup does not
 /// find, [`RunError::Unresolved`] for a name that gives no one section, or no
 /// document without sections, and [`RunError::SameSection`] and
-/// [`RunError::SameDocument`] for a question that names one section, or one
-/// document, twice, all before any retrieval; and
+/// [`RunError::SameDocument`] for a question that names one section or
+/// document twice outside a group, or across groups, all before any retrieval; and
 /// [`RunError::OtherGeneration`] for a bundle of another collection or
 /// generation than the header's.
 pub fn run<E>(
@@ -157,26 +154,29 @@ fn resolve_name<E>(
     })
 }
 
-/// `expected`, the sections and documents `question` expects, unless two
-/// are one section or one document.
+/// `expected`, the sections and documents `question` expects, unless one is
+/// named twice outside a group or across groups.
 fn distinct<E>(question: &Question, expected: Vec<Expected>) -> Result<Vec<Expected>, RunError<E>> {
-    let mut seen = BTreeSet::new();
-    let repeated = expected
-        .iter()
-        .find(|expected| !seen.insert((&expected.document_id, &expected.section_id)));
-    let question = question.id.clone();
-    match repeated {
-        None => Ok(expected),
-        Some(Expected {
-            section_id: Some(section_id),
-            ..
-        }) => Err(RunError::SameSection {
-            question,
-            section_id: section_id.clone(),
-        }),
-        Some(Expected { document_id, .. }) => Err(RunError::SameDocument {
-            question,
-            document_id: document_id.clone(),
-        }),
+    let mut seen = BTreeMap::new();
+    for item in &expected {
+        let identity = (item.document_id.as_str(), item.section_id.as_deref());
+        let group = item.group.as_deref();
+        if let Some(previous) = seen.get(&identity) {
+            if group.is_some() && *previous == group {
+                continue;
+            }
+            return match &item.section_id {
+                Some(section_id) => Err(RunError::SameSection {
+                    question: question.id.clone(),
+                    section_id: section_id.clone(),
+                }),
+                None => Err(RunError::SameDocument {
+                    question: question.id.clone(),
+                    document_id: item.document_id.clone(),
+                }),
+            };
+        }
+        seen.insert(identity, group);
     }
+    Ok(expected)
 }

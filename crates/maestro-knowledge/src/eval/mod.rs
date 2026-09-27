@@ -9,8 +9,8 @@
 //! expects to its ID in that generation, and every document without sections
 //! it expects whole to the document's ID, looking each document up once, and
 //! refuses a name that gives no one section, or no document without
-//! sections, and a question that names one section, or one document, twice,
-//! before any retrieval. Then it retrieves each question in
+//! sections, and a question that names one section or document twice outside
+//! a group or across groups, before any retrieval. Then it retrieves each question in
 //! the suite's order, times the retrieval, refuses a bundle of another
 //! collection or generation, and judges it.
 //!

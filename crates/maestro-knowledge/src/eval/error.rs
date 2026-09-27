@@ -36,14 +36,14 @@ pub enum RunError<E> {
         /// Why it gives no one section.
         reason: Unresolved,
     },
-    /// Two names of expected sections of a question give one section.
+    /// Expected-section names outside one shared group give one section.
     SameSection {
         /// The question's id.
         question: String,
         /// The section's ID.
         section_id: String,
     },
-    /// Two names of a question give one document without sections, whole.
+    /// Expected-document names outside one shared group give one whole document.
     SameDocument {
         /// The question's id.
         question: String,

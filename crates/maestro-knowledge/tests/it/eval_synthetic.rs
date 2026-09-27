@@ -23,7 +23,7 @@ use maestro_knowledge::{
     suite::{Question, Resolved, Suite},
 };
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     convert::Infallible,
     env, error, fs,
     num::NonZeroU32,
@@ -179,9 +179,31 @@ fn evaluate(retrieve: impl Fn(&Question, &Documents) -> Bundle) -> Report {
 /// The oracle: each expected section in the suite's order, then a passage of
 /// no section.
 fn oracle(question: &Question, documents: &Documents) -> Bundle {
-    let mut sections: Vec<Option<String>> = question
-        .expected
-        .iter()
+    let mut seen_groups = BTreeSet::new();
+    let mut copies = BTreeSet::new();
+    let mut ordered = Vec::new();
+    for expected in &question.expected {
+        if let Some(group) = expected.group.as_deref()
+            && seen_groups.insert(group)
+        {
+            ordered.push(expected);
+        }
+    }
+    ordered.extend(
+        question
+            .expected
+            .iter()
+            .filter(|expected| expected.group.is_none()),
+    );
+    for expected in &question.expected {
+        if let Some(group) = expected.group.as_deref()
+            && !copies.insert(group)
+        {
+            ordered.push(expected);
+        }
+    }
+    let mut sections: Vec<Option<String>> = ordered
+        .into_iter()
         .map(|expected| {
             let document = &documents[&expected.source_ref];
             let Ok(Resolved::Section(section)) = expected.resolve(document) else {
@@ -201,13 +223,27 @@ fn an_oracle_retrieval_scores_every_metric_at_its_best() {
     let report = evaluate(oracle);
     assert_eq!(report.questions.len(), 56);
     for result in &report.questions {
-        let ranks: Vec<Option<u32>> = result
-            .expected
-            .iter()
-            .map(|expected| expected.rank.map(NonZeroU32::get))
-            .collect();
-        let first: Vec<Option<u32>> = (1..).map(Some).take(ranks.len()).collect();
-        assert_eq!(ranks, first, "{}", result.id);
+        let mut ranks = Vec::new();
+        let mut groups = BTreeMap::new();
+        for expected in &result.expected {
+            let rank = expected.rank.map(NonZeroU32::get).unwrap();
+            if let Some(group) = expected.group.as_deref() {
+                groups
+                    .entry(group)
+                    .and_modify(|best: &mut u32| *best = (*best).min(rank))
+                    .or_insert(rank);
+            } else {
+                ranks.push(rank);
+            }
+        }
+        ranks.extend(groups.into_values());
+        ranks.sort_unstable();
+        assert_eq!(
+            ranks,
+            (1..=u32::try_from(ranks.len()).unwrap()).collect::<Vec<_>>(),
+            "{}",
+            result.id
+        );
         assert_eq!(result.failures, [], "{}", result.id);
     }
     let metrics = report.metrics;

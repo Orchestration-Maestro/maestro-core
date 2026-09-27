@@ -1,10 +1,10 @@
 //! Expected section copies share one nDCG item while remaining visible in
 //! suite and report data.
 
-use super::support::{COLLECTION, GENERATION, bundle, close, hit};
+use super::support::{COLLECTION, GENERATION, bundle, close, hit, whole};
 use crate::{
     eval::{
-        Header, QuestionResult,
+        Header, QuestionResult, RunError,
         metric::{DISCOUNTS, measure},
         run,
     },
@@ -139,4 +139,166 @@ fn a_run_carries_the_suite_group_into_its_report() {
     .unwrap();
     let value = serde_json::to_value(report).unwrap();
     assert_eq!(value["questions"][0]["expected"][0]["group"], "same-answer");
+}
+
+fn suite_of_copy_names(first_group: Option<&str>, second_group: Option<&str>) -> Suite {
+    let mut first = json!({
+        "source_ref": "https://handbook.example.org/copy-a",
+        "heading_path": ["Handbook", "Answer"],
+    });
+    let mut second = json!({
+        "source_ref": "https://handbook.example.org/copy-b",
+        "heading_path": ["Handbook", "Answer"],
+    });
+    if let Some(group) = first_group {
+        first["group"] = json!(group);
+    }
+    if let Some(group) = second_group {
+        second["group"] = json!(group);
+    }
+    json!({
+        "schema": "maestro-suite/1",
+        "id": "copies",
+        "language": "en",
+        "question": "What answers this?",
+        "answerable": true,
+        "expected": [first, second],
+    })
+    .to_string()
+    .parse()
+    .unwrap()
+}
+
+#[test]
+fn names_in_one_group_may_resolve_to_the_same_section() {
+    const SOURCE: &str = "https://handbook.example.org/document";
+    let mut input =
+        CanonicalizeInput::new("# Handbook\n\n## Answer\n\nThe answer.\n", "handbook.md");
+    input.metadata.source_reference = Some(SOURCE.to_owned());
+    let document = canonicalize(input).unwrap();
+    let section_id = document.sections[0].section_id.clone().leak();
+    let suite = suite_of_copy_names(Some("glossary"), Some("glossary"));
+    let report = run(
+        Header {
+            suite: "groups".to_owned(),
+            collection: COLLECTION.to_owned(),
+            generation: GENERATION,
+            profiles: BTreeMap::new(),
+            seed: 1,
+        },
+        &suite,
+        |_| Ok::<_, Infallible>(Some(document.clone())),
+        |_| Ok::<_, Infallible>(bundle(&[hit(1, section_id, 1.0)])),
+    )
+    .unwrap();
+    let expected = &report.questions[0].expected;
+    assert_eq!(expected.len(), 2);
+    assert_eq!(expected[0].group.as_deref(), Some("glossary"));
+    assert_eq!(expected[1].group.as_deref(), Some("glossary"));
+    assert_eq!(expected[0].section_id, expected[1].section_id);
+    assert_eq!(expected[0].rank, expected[1].rank);
+}
+
+#[test]
+fn names_in_different_groups_may_not_resolve_to_the_same_section() {
+    const SOURCE: &str = "https://handbook.example.org/document";
+    let mut input =
+        CanonicalizeInput::new("# Handbook\n\n## Answer\n\nThe answer.\n", "handbook.md");
+    input.metadata.source_reference = Some(SOURCE.to_owned());
+    let document = canonicalize(input).unwrap();
+    let section_id = document.sections[0].section_id.clone().leak();
+    let suite = suite_of_copy_names(Some("glossary"), Some("another-answer"));
+    let error = run(
+        Header {
+            suite: "groups".to_owned(),
+            collection: COLLECTION.to_owned(),
+            generation: GENERATION,
+            profiles: BTreeMap::new(),
+            seed: 1,
+        },
+        &suite,
+        |_| Ok::<_, Infallible>(Some(document.clone())),
+        |_| Ok::<_, Infallible>(bundle(&[hit(1, section_id, 1.0)])),
+    )
+    .unwrap_err();
+    assert!(matches!(error, RunError::SameSection { question, .. } if question == "copies"));
+}
+
+#[test]
+fn a_grouped_and_ungrouped_name_of_one_section_are_refused() {
+    const SOURCE: &str = "https://handbook.example.org/document";
+    let mut input =
+        CanonicalizeInput::new("# Handbook\n\n## Answer\n\nThe answer.\n", "handbook.md");
+    input.metadata.source_reference = Some(SOURCE.to_owned());
+    let document = canonicalize(input).unwrap();
+    let section_id = document.sections[0].section_id.clone().leak();
+    let suite = suite_of_copy_names(None, Some("glossary"));
+    let error = run(
+        Header {
+            suite: "groups".to_owned(),
+            collection: COLLECTION.to_owned(),
+            generation: GENERATION,
+            profiles: BTreeMap::new(),
+            seed: 1,
+        },
+        &suite,
+        |_| Ok::<_, Infallible>(Some(document.clone())),
+        |_| Ok::<_, Infallible>(bundle(&[hit(1, section_id, 1.0)])),
+    )
+    .unwrap_err();
+    assert!(matches!(error, RunError::SameSection { question, .. } if question == "copies"));
+}
+
+#[test]
+fn names_in_one_group_may_resolve_to_the_same_document() {
+    const SOURCE: &str = "https://handbook.example.org/document";
+    let mut input = CanonicalizeInput::new("An unsectioned document.\n", "document.md");
+    input.metadata.source_reference = Some(SOURCE.to_owned());
+    let document = canonicalize(input).unwrap();
+    assert!(document.sections.is_empty());
+    let document_id: &'static str = document.document_id.clone().leak();
+    let suite: Suite = json!({
+        "schema": "maestro-suite/1",
+        "id": "copies",
+        "language": "en",
+        "question": "What answers this?",
+        "answerable": true,
+        "expected": [
+            {
+                "source_ref": "https://handbook.example.org/copy-a",
+                "heading_path": [],
+                "group": "glossary"
+            },
+            {
+                "source_ref": "https://handbook.example.org/copy-b",
+                "heading_path": [],
+                "group": "glossary"
+            },
+        ],
+    })
+    .to_string()
+    .parse()
+    .unwrap();
+    let report = run(
+        Header {
+            suite: "groups".to_owned(),
+            collection: COLLECTION.to_owned(),
+            generation: GENERATION,
+            profiles: BTreeMap::new(),
+            seed: 1,
+        },
+        &suite,
+        |_| Ok::<_, Infallible>(Some(document.clone())),
+        |_| Ok::<_, Infallible>(bundle(&[whole(1, document_id, 1.0)])),
+    )
+    .unwrap();
+    let expected = &report.questions[0].expected;
+    assert_eq!(expected.len(), 2);
+    assert!(expected.iter().all(|item| item.document_id == document_id));
+    assert!(
+        expected
+            .iter()
+            .all(|item| item.group.as_deref() == Some("glossary"))
+    );
+    assert_eq!(expected[0].rank, expected[1].rank);
 }
