@@ -4,10 +4,10 @@
 //! committed schema, a schema the index lists has lost its file, or the
 //! index lists a schema no public event has.
 //!
-//! It guards the documented command only. Deleting a schema and editing the
-//! index together still get past it: the full guard is a later CI step that
-//! compares each schema with the one committed on `main`, its released
-//! predecessor (FR-S1-008b).
+//! It guards the documented command only. The `event-schemas` workflow also
+//! runs the predecessor test against the exact base commit, comparing its
+//! index and physical schema files with the candidate independently of the
+//! candidate event catalogue.
 
 use super::{breaking::breaking_changes, support::Scratch};
 use crate::journal::{GenerationPublished, GenerationRetired, PublicEvent, knowledge::schema_of};

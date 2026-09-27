@@ -40,6 +40,7 @@ in place.
 ├── .github/                                                                 # GitHub metadata, templates and workflows
 │   ├── workflows/                                                           # GitHub Actions workflows
 │   │   ├── dependabot-auto-merge.yml                                        # Dependabot auto-merge
+│   │   ├── event-schemas.yml                                                # Released event schema compatibility
 │   │   ├── integration.yml                                                  # Qdrant integration: the projection's tests against a Qdrant 1.19 image pinned by digest
 │   │   └── scorecard.yml                                                    # OpenSSF Scorecard
 │   ├── CODEOWNERS                                                           # Who reviews each path
@@ -430,6 +431,7 @@ in place.
 │   │   │   │   │   ├── envelope.rs                                          # The envelope: an event read back from the journal as its CloudEvents 1.0 envelope
 │   │   │   │   │   ├── events.rs                                            # Events: the ID and the sequence recording gives them, the event it
 │   │   │   │   │   ├── mod.rs                                               # Tests of the journal: its events and their streams, its cursors, and what
+│   │   │   │   │   ├── predecessor.rs                                       # The public event schemas may add optional properties within a major, but
 │   │   │   │   │   ├── regeneration.rs                                      # The command that regenerates the committed event schemas and their index, tested on a scratch directory
 │   │   │   │   │   ├── schemas.rs                                           # The committed event schemas: generated from their types, never narrowed, followed by the data, and the command that regenerates them
 │   │   │   │   │   ├── subset.rs                                            # What the check and the validator read of a schema: the subset of JSON Schema schemars generates

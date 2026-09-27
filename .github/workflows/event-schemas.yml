@@ -1,0 +1,78 @@
+name: Released event schema compatibility
+"on":
+  pull_request:
+  merge_group:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      baseline_sha:
+        description: Exact commit whose event schemas this run must preserve
+        required: true
+        type: string
+permissions:
+  contents: read
+# A newer push to the same pull request supersedes the run in flight; other
+# runs finish.
+concurrency:
+  group: event-schemas-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  event-schemas:
+    name: Preserve the released public event schemas
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install the pinned Rust toolchain
+        run: |
+          set -euo pipefail
+          toolchain=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)
+          rustup toolchain install "$toolchain" --profile minimal
+          echo "RUSTUP_TOOLCHAIN=$toolchain" >> "$GITHUB_ENV"
+      - name: Extract schemas from the exact predecessor commit
+        env:
+          TRUSTED_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before || inputs.baseline_sha }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$TRUSTED_BASE_SHA" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "::error::An exact 40-character predecessor commit SHA is required"
+            exit 1
+          fi
+          if ! git cat-file -e "$TRUSTED_BASE_SHA^{commit}" 2>/dev/null; then
+            git fetch --no-tags --depth=1 origin "$TRUSTED_BASE_SHA"
+          fi
+          if ! git cat-file -e "$TRUSTED_BASE_SHA^{commit}" 2>/dev/null; then
+            echo "::error::The requested predecessor commit is unavailable"
+            exit 1
+          fi
+          baseline="$RUNNER_TEMP/maestro-event-schema-base"
+          baseline_schemas="$baseline/schemas/events"
+          mkdir -p "$baseline"
+          if git cat-file -e "$TRUSTED_BASE_SHA:schemas/events" 2>/dev/null; then
+            git archive "$TRUSTED_BASE_SHA" schemas/events | tar -x -C "$baseline"
+            if [[ ! -d "$baseline_schemas" ]]; then
+              echo "::error::The predecessor schemas/events path is not a directory"
+              exit 1
+            fi
+            echo "Extracted event schemas from exact predecessor $TRUSTED_BASE_SHA." \
+              >> "$GITHUB_STEP_SUMMARY"
+          else
+            mkdir -p "$baseline_schemas"
+            echo "The exact predecessor has no schemas/events tree; checking an empty first-release catalogue." \
+              >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "MAESTRO_EVENT_SCHEMAS_BASE=$baseline_schemas" >> "$GITHUB_ENV"
+      - name: Test current schemas and index
+        run: cargo test --locked -p maestro-kernel --lib
+      - name: Compare against released predecessor schemas
+        run: |
+          cargo test --locked -p maestro-kernel --lib \
+            journal::tests::predecessor::public_event_schemas_preserve_the_released_predecessor \
+            -- --ignored --exact

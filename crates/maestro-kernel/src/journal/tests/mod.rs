@@ -12,6 +12,7 @@ mod crash;
 mod cursors;
 mod envelope;
 mod events;
+mod predecessor;
 mod regeneration;
 mod schemas;
 mod subset;

@@ -35,7 +35,20 @@ has. A new public event's schema joins the index the first time the command
 writes it. A breaking change is a new major version: a new type, `.v2`, and
 a new file, `<name>/2.json`, beside the old ones.
 
-The command guards its own use only: deleting a schema and editing the
-index together still get past it. The full guard is a CI step, still to
-come, that compares each schema with the one committed on `main`, its
-released predecessor (FR-S1-008b).
+The repository-local `event-schemas` workflow also compares this catalogue
+with the exact predecessor commit: the base SHA for pull requests and merge
+groups, the prior commit for pushes to `main`, or a required explicit SHA for
+manual runs. It reads the predecessor's schema files as well as its index, so
+deleting both a released file and its index entry still fails. The only valid
+empty predecessor is an actual first-release catalogue; a missing or
+unreadable commit or catalogue fails the check.
+
+To run the predecessor check locally, point it at an extracted
+`schemas/events` directory from the exact base commit:
+
+```sh
+MAESTRO_EVENT_SCHEMAS_BASE=/path/to/schemas/events \
+  cargo test --locked -p maestro-kernel --lib \
+  journal::tests::predecessor::public_event_schemas_preserve_the_released_predecessor \
+  -- --ignored --exact
+```
