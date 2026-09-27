@@ -49,6 +49,19 @@ fn report() -> Report {
         degraded_searches: 1,
         metrics: measure(&questions, u64::MAX),
         questions,
+        run_id: None,
+        candidate_id: None,
+        card_id: None,
+        card_digest: None,
+        manifest_digest: None,
+        planned_repetitions: None,
+        planned_warm_ups: None,
+        corpus_digest: None,
+        input_digest: None,
+        mode: None,
+        integrity_violation: None,
+        cohorts: None,
+        subgroups: None,
     }
 }
 
@@ -185,8 +198,8 @@ fn a_key_given_twice_is_refused() {
 #[test]
 fn another_schema_is_refused() {
     let mut value = written();
-    value["schema"] = json!("maestro-eval-report/2");
-    assert!(refusal(&value).contains("maestro-eval-report/2"));
+    value["schema"] = json!("maestro-eval-report/3");
+    assert!(refusal(&value).contains("maestro-eval-report/3"));
     value["schema"] = json!({"maestro-eval-report/1": null});
     assert!(refusal(&value).contains("invalid type: map"));
 }

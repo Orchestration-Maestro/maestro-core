@@ -22,5 +22,5 @@ pub(crate) mod scratch;
 mod section_reader;
 mod stops;
 mod stub;
-mod support;
+pub(crate) mod support;
 mod synthetic;

@@ -134,6 +134,14 @@ path = "crates/maestro-kernel/src/chunk_set/mod.rs"
 item = "Chunk"
 reason = "the scoped search batch reader returns the existing public chunk record rather than copying its digest, span and token count"
 
+# TextFormat is a public member of the v2 card identity; ModelCard applies its
+# literal prefix/suffix at the tokenizer boundary.
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-kernel/src/gateway/card_v2/mod.rs"
+item = "TextFormat"
+reason = "TextFormat remains part of the public v2 card identity; ModelCard applies its literal input format"
+
 # InventoryCount is the strict wire item nested in evidence::Inventory; the
 # reader builds that wire answer without a duplicate projection type.
 [[exception]]

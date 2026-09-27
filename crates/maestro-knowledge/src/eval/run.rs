@@ -1,11 +1,11 @@
-//! A run: every question of a suite, resolved in the generation it
+//! A v1 run: every question of a suite, resolved in the generation it
 //! evaluates, then retrieved, timed and judged.
 
 use super::{
     error::RunError,
     judge::judge,
     metric::measure,
-    report::{Expected, Header, Report, Schema},
+    reports::{Expected, Header, Report, Schema},
 };
 use crate::suite::{ExpectedSection, Question, Resolved, Suite};
 use maestro_canonicalization::CanonicalDocument;
@@ -71,6 +71,19 @@ pub fn run<E>(
         questions,
         degraded_searches,
         metrics,
+        run_id: None,
+        candidate_id: None,
+        card_id: None,
+        card_digest: None,
+        manifest_digest: None,
+        planned_repetitions: None,
+        planned_warm_ups: None,
+        corpus_digest: None,
+        input_digest: None,
+        mode: None,
+        integrity_violation: None,
+        cohorts: None,
+        subgroups: None,
     })
 }
 
@@ -83,7 +96,7 @@ type Name<'suite> = (usize, usize, &'suite Question, &'suite ExpectedSection);
 /// in the suite's order, each resolved in the canonical document `documents`
 /// gives for its `source_ref`, which is looked up once and dropped once its
 /// names resolve.
-fn resolve<E>(
+pub(super) fn resolve<E>(
     suite: &Suite,
     documents: &mut impl FnMut(&str) -> Result<Option<CanonicalDocument>, E>,
 ) -> Result<Vec<Vec<Expected>>, RunError<E>> {

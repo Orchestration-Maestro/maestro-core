@@ -49,7 +49,7 @@ impl TokenCounter for Counting<'_> {
 
     fn token_ids(&self, input: &str) -> Result<Vec<u32>, Error> {
         self.tokenizer
-            .count(input)
+            .count_document(input)
             .map_err(|refusal| self.keep(refusal))
     }
 }

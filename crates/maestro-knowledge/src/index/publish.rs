@@ -111,6 +111,7 @@ impl<P: ModelPort> Projection<'_, P> {
     ) -> Result<Report, Error> {
         let dimensions = self.dimensions()?;
         let set = self.complete(chunk_set)?;
+        self.check_counter_contract(&set)?;
         let (generation, step) = self.generation(&set)?;
         let names = Names::of(&generation);
         if step == Step::Done {
@@ -179,6 +180,22 @@ impl<P: ModelPort> Projection<'_, P> {
             .publish_generation(generation.id)
             .map_err(Error::Generation)?;
         Ok(report(&set, &generation, &names, points, retired))
+    }
+
+    /// Prevents a v2 card from reusing chunks counted for another identity.
+    fn check_counter_contract(&self, set: &ChunkSet) -> Result<(), Error> {
+        if self.card.identity().is_none() {
+            return Ok(());
+        }
+        let expected = format!("router/1:sha256:{}", self.card.digest().as_str());
+        if set.counter_contract_id == expected {
+            Ok(())
+        } else {
+            Err(Error::CounterContractMismatch {
+                expected,
+                actual: set.counter_contract_id.clone(),
+            })
+        }
     }
 
     /// The card's dimensions, when it is an embedder's.

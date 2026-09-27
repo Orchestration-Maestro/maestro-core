@@ -174,6 +174,19 @@ pub(super) fn report_of(questions: Vec<QuestionResult>) -> Report {
         degraded_searches: questions.iter().filter(|result| result.degraded).count(),
         metrics: measure(&questions, 1),
         questions,
+        run_id: None,
+        candidate_id: None,
+        card_id: None,
+        card_digest: None,
+        manifest_digest: None,
+        planned_repetitions: None,
+        planned_warm_ups: None,
+        corpus_digest: None,
+        input_digest: None,
+        mode: None,
+        integrity_violation: None,
+        cohorts: None,
+        subgroups: None,
     }
 }
 

@@ -4,7 +4,7 @@
 use super::{
     backends::{Backend, fake},
     kernel::Kernel,
-    models::{Embedder, embedder},
+    models::{Embedder, embedder, v2_embedder},
     support::{alias_of, collection_of, point_id, projection, publish},
 };
 use maestro_kernel::generation::NewGeneration;
@@ -14,6 +14,38 @@ use maestro_knowledge::{
     publish::{Error, verify_generation},
 };
 use std::{error::Error as _, num::NonZeroUsize, ops::ControlFlow};
+
+#[tokio::test]
+async fn mismatched_v2_counter_stops_before_generation_model_or_qdrant_effects() {
+    let backend = fake();
+    let kernel = Kernel::with_guides(1);
+    let port = Embedder::default();
+    let card = v2_embedder();
+
+    let result = publish(&kernel, &backend, &port, &card).await;
+
+    assert!(matches!(
+        result,
+        Err(ProjectionError::CounterContractMismatch { .. })
+    ));
+    assert!(port.calls().is_empty());
+    assert_eq!(backend.fake.as_ref().unwrap().collection_count(), 0);
+    assert!(backend.fake.as_ref().unwrap().calls().is_empty());
+    assert!(
+        kernel
+            .database
+            .generations(&kernel.scopes, &kernel.collection)
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        kernel
+            .database
+            .published_generation(&kernel.scopes, &kernel.collection)
+            .unwrap()
+            .is_none()
+    );
+}
 
 #[tokio::test]
 async fn verification_names_missing_and_corrupt_artifacts_count_and_alias_findings() {

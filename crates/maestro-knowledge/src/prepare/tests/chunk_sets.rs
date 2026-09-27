@@ -11,7 +11,9 @@ use super::{
     },
     support::{BUILD, MODEL_FILE, OTHER_FILE, card},
 };
-use crate::prepare::{Error, RouterTokenizer, chunk_set_id, chunk_set_id_for_card, prepare};
+use crate::prepare::{
+    Error, RouterTokenizer, TokenizerQualification, chunk_set_id, chunk_set_id_for_card, prepare,
+};
 use maestro_canonicalization::{CHUNKER_VERSION, PREPARATION_PROFILE, TokenCounter as _};
 use maestro_kernel::{
     chunk_set::ChunkSetState,
@@ -132,6 +134,35 @@ fn each_chunks_prepared_input_is_stored_as_counted_and_pinned_by_its_chunk() {
         let first_word = excerpt.text.split_whitespace().next().unwrap();
         assert!(prepared.contains(first_word), "{first_word} in {prepared}");
     }
+}
+
+#[test]
+fn the_document_format_counts_toward_the_700_token_chunk_limit() {
+    let scratch = Scratch::new();
+    let markdown = format!("# {}\n\ntail\n", words("heading", 699));
+    scratch.corpus(&[("formatted.md", &markdown)]);
+    let database = scratch.database();
+    let scopes = scratch.import(&database);
+    decide_all(&database, &scopes, Outcome::Accepted);
+
+    let artifact = super::qualification::qualification_value(0, MODEL_FILE);
+    let profile = TokenizerQualification::parse(&serde_json::to_vec(&artifact).unwrap()).unwrap();
+    let card = super::qualification::v2_card(&profile, MODEL_FILE);
+    let port = Goldens::new();
+    let tokenizer = RouterTokenizer::qualify_with_profile(port.clone(), card, &profile).unwrap();
+    let report = prepare(&database, &scopes, COLLECTION, &tokenizer).unwrap();
+
+    assert_eq!(report.refused, 1);
+    assert!(
+        report.refusals[0]
+            .reason
+            .contains("does not fit in 700 tokens with its context")
+    );
+    assert!(port.texts().iter().any(|input| {
+        input.starts_with("doc: ")
+            && input.contains("tail")
+            && input.split_whitespace().count() > 700
+    }));
 }
 
 #[test]

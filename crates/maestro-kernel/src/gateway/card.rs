@@ -27,7 +27,7 @@
 //! separate records and never change a card digest.
 
 pub use super::card_types::{CardError, CardFields, Limits, Role, RouterEntry, SuiteResult};
-use super::card_v2::{CARD_SCHEMA_V2, CardIdentity, CardV2Json};
+use super::card_v2::{CARD_SCHEMA_V2, Capability, CardIdentity, CardV2Json, TextFormat};
 use crate::artifact::{Digest, Store};
 use serde::{Deserialize, Serialize};
 use std::{fmt, num::NonZeroUsize};
@@ -110,6 +110,30 @@ impl ModelCard {
         self.identity.as_ref()
     }
 
+    /// Applies the card's literal document prefix and suffix once. Legacy
+    /// cards and unsupported formats retain their input unchanged.
+    #[must_use]
+    pub fn format_document(&self, input: &str) -> String {
+        format_input(
+            self.identity
+                .as_ref()
+                .map(|identity| &identity.formats.document),
+            input,
+        )
+    }
+
+    /// Applies the card's literal query prefix and suffix once. Legacy cards
+    /// and unsupported formats retain their input unchanged.
+    #[must_use]
+    pub fn format_query(&self, input: &str) -> String {
+        format_input(
+            self.identity
+                .as_ref()
+                .map(|identity| &identity.formats.query),
+            input,
+        )
+    }
+
     /// The deterministic v2 bytes for registry persistence.
     pub(crate) fn card_json(&self) -> Result<Vec<u8>, CardError> {
         let identity = self
@@ -165,6 +189,19 @@ impl ModelCard {
             ))),
         }
     }
+}
+
+/// Applies one literal format, or preserves the raw v1/unsupported input.
+fn format_input(format: Option<&Capability<TextFormat>>, input: &str) -> String {
+    let Some(Capability::Supported(format)) = format else {
+        return input.to_owned();
+    };
+    let mut formatted =
+        String::with_capacity(format.prefix.len() + input.len() + format.suffix.len());
+    formatted.push_str(&format.prefix);
+    formatted.push_str(input);
+    formatted.push_str(&format.suffix);
+    formatted
 }
 
 /// A [`CardError::Invalid`] saying why.

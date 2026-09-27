@@ -5,10 +5,12 @@
 use maestro_kernel::{
     artifact::{Digest, Store},
     gateway::{
-        CardFields, ChatRequest, Error, FakeModels, Limits, ModelCard, ModelPort, Role, Room,
-        RouterEntry,
+        CardFields, CardIdentity, ChatRequest, Error, FakeModels, Limits, ModelCard, ModelPort,
+        Role, Room, RouterEntry,
+        card_v2::{Capability, TextFormat},
     },
 };
+use serde_json::Value;
 use std::{
     collections::BTreeMap,
     env, fs,
@@ -52,6 +54,39 @@ pub(super) fn card(role: Role, dimensions: usize) -> ModelCard {
 /// An embedder's card of `dimensions`.
 pub(super) fn embedder(dimensions: usize) -> ModelCard {
     card(Role::Embedder, dimensions)
+}
+
+/// A v2 card loaded from the public synthetic fixture.
+pub(super) fn v2_embedder() -> ModelCard {
+    v2_card_from_fixture(false)
+}
+
+/// The synthetic v2 card with a query instruction for dense-route tests.
+pub(super) fn v2_embedder_with_query_prefix() -> ModelCard {
+    v2_card_from_fixture(true)
+}
+
+fn v2_card_from_fixture(query_prefix: bool) -> ModelCard {
+    static NEXT: AtomicUsize = AtomicUsize::new(0);
+    let value: Value = serde_json::from_str(include_str!(
+        "../../fixtures/synthetic/evals/model-card-v2.json"
+    ))
+    .unwrap();
+    let mut identity: CardIdentity = serde_json::from_value(value["identity"].clone()).unwrap();
+    if query_prefix {
+        identity.formats.query = Capability::Supported(TextFormat {
+            prefix: "Instruct: retrieve relevant passages\nQuery: ".to_owned(),
+            suffix: String::new(),
+        });
+    }
+    let root = env::temp_dir().join(format!(
+        "maestro-knowledge-qdrant-v2-card-{}-{}",
+        process::id(),
+        NEXT.fetch_add(1, Ordering::Relaxed)
+    ));
+    let card = ModelCard::record_v2(&Store::new(&root), &identity).unwrap();
+    fs::remove_dir_all(root).unwrap();
+    card
 }
 
 /// How one embedding call goes wrong.

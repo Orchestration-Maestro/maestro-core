@@ -85,17 +85,24 @@ mod bootstrap;
 mod compare;
 mod error;
 mod judge;
+mod merge;
 mod metric;
 mod record;
-mod report;
+mod report_validation;
+mod reports;
 mod run;
+mod run_v2;
 #[cfg(test)]
 mod tests;
 
 pub use compare::{Comparison, compare};
-pub use error::{CompareError, RunError};
+pub use error::{AggregateError, CompareError, RunError};
+pub use merge::merge_v2_attempts;
 pub use record::{RecordError, record};
-pub use report::{
-    Estimate, Expected, Failure, FailureClass, Header, Metrics, QuestionResult, Report, Schema,
+pub use reports::{
+    CohortStatistics, Estimate, Expected, Failure, FailureClass, Header, HeaderV2, ItemStatus,
+    MeasurementCohort, Metrics, QuestionResult, Report, Schema, Subgroup, SubgroupStatistics,
+    TrialMode,
 };
 pub use run::run;
+pub use run_v2::{AttemptEvent, run_v2, run_v2_observed};

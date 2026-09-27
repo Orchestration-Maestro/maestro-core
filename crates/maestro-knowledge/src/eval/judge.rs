@@ -1,7 +1,7 @@
 //! Judging one question: ranking its bundle's passages, finding the sections
 //! it expects among them, and classifying its failures.
 
-use super::report::{Expected, Failure, FailureClass, QuestionResult};
+use super::reports::{Expected, Failure, FailureClass, QuestionResult};
 use crate::suite::Question;
 use maestro_kernel::evidence::{Bundle, Passage, RouteStatus};
 use std::{
@@ -50,6 +50,17 @@ pub(super) fn judge(
             .values()
             .any(|status| matches!(status, RouteStatus::Unavailable(_))),
         failures: Vec::new(),
+        attempt: None,
+        repetition: None,
+        retry_of: None,
+        seed: None,
+        route: None,
+        status: None,
+        elapsed_us: None,
+        cohort: None,
+        warm_up: None,
+        language: None,
+        cross_lingual: None,
     };
     if question.answerable {
         result.failures = failures(&result, bundle);

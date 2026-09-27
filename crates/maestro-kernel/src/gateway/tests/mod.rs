@@ -6,6 +6,7 @@ mod catalog;
 mod chat;
 mod fake;
 mod fixture;
+mod formatting;
 mod port;
 mod router;
 mod stub;

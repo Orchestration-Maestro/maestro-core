@@ -423,6 +423,9 @@ fn evaluation_failure(error: eval::RunError<Failure>, completed: usize) -> Failu
             &cause,
         ),
         eval::RunError::Retrieval { error, .. } => error,
+        eval::RunError::Recording { .. } => Failure::new("evaluation-recording"),
+        eval::RunError::InvalidV2Header { .. } => Failure::new("evaluation-v2-header"),
+        eval::RunError::InvalidV2Report { .. } => Failure::new("evaluation-v2-report"),
         eval::RunError::OtherGeneration { question, .. } => Failure::question_from_error(
             "evaluation-generation-mismatch",
             &question,

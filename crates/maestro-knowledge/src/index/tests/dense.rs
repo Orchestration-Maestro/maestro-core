@@ -2,6 +2,7 @@
 //! passes, and the batch has no vectors.
 
 use super::super::{Failure, dense::embed};
+use crate::prepare::tests::support::identity;
 use maestro_kernel::{
     artifact::{Digest, Store},
     gateway::{
@@ -14,7 +15,10 @@ use std::{
     future::{self, Future},
     num::{NonZeroU32, NonZeroUsize},
     process,
-    sync::atomic::{AtomicUsize, Ordering},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicUsize, Ordering},
+    },
     time::Duration,
 };
 
@@ -86,6 +90,62 @@ fn card() -> ModelCard {
     let card = ModelCard::record(&Store::new(&root), &fields).unwrap();
     fs::remove_dir_all(&root).unwrap();
     card
+}
+
+#[derive(Debug, Clone, Default)]
+struct RecordingEmbedder(Arc<Mutex<Vec<Vec<String>>>>);
+
+impl ModelPort for RecordingEmbedder {
+    async fn embed(
+        &self,
+        card: &ModelCard,
+        room: Room,
+        inputs: &[String],
+    ) -> Result<Vec<Vec<f32>>, Error> {
+        self.0.lock().unwrap().push(inputs.to_vec());
+        FakeModels.embed(card, room, inputs).await
+    }
+
+    async fn rerank(
+        &self,
+        card: &ModelCard,
+        room: Room,
+        query: &str,
+        documents: &[String],
+    ) -> Result<Vec<f64>, Error> {
+        FakeModels.rerank(card, room, query, documents).await
+    }
+
+    async fn tokenize(&self, card: &ModelCard, room: Room, text: &str) -> Result<Vec<u32>, Error> {
+        FakeModels.tokenize(card, room, text).await
+    }
+
+    async fn chat(
+        &self,
+        card: &ModelCard,
+        room: Room,
+        request: &ChatRequest,
+    ) -> Result<String, Error> {
+        FakeModels.chat(card, room, request).await
+    }
+}
+
+#[tokio::test]
+async fn indexing_formats_v2_documents_once_before_embedding() {
+    let root = env::temp_dir().join(format!(
+        "maestro-knowledge-dense-v2-{}-{}",
+        process::id(),
+        0
+    ));
+    let card =
+        ModelCard::record_v2(&Store::new(&root), &identity(Digest::of(b"qualification"))).unwrap();
+    fs::remove_dir_all(root).unwrap();
+    let port = RecordingEmbedder::default();
+    let inputs = ["raw passage".to_owned()];
+    embed(&port, &card, &inputs, Duration::from_secs(1))
+        .await
+        .unwrap();
+    assert_eq!(port.0.lock().unwrap().as_slice(), [["doc: raw passage"]]);
 }
 
 #[tokio::test]

@@ -14,3 +14,7 @@ mod ranking;
 mod report;
 mod run;
 mod support;
+mod v2;
+mod v2_comparison;
+mod v2_scoring;
+mod v2_statistics;

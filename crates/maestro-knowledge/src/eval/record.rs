@@ -1,7 +1,7 @@
 //! Recording a report in the kernel, under the collection, generation and
 //! suite it names itself.
 
-use super::report::Report;
+use super::reports::Report;
 use maestro_kernel::{
     eval::{self, NewReport},
     store::Database,

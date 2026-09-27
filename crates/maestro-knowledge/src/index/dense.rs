@@ -35,7 +35,11 @@ pub(super) async fn embed<P: ModelPort>(
     inputs: &[String],
     deadline: Duration,
 ) -> Result<Vec<Vec<f32>>, Failure> {
-    let vectors = time::timeout(deadline, port.embed(card, Room::Free, inputs))
+    let formatted: Vec<String> = inputs
+        .iter()
+        .map(|input| card.format_document(input))
+        .collect();
+    let vectors = time::timeout(deadline, port.embed(card, Room::Free, &formatted))
         .await
         .map_err(|_| Failure::TimedOut(deadline))?
         .map_err(Failure::Port)?;

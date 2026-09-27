@@ -43,6 +43,7 @@ mod left_out;
 pub(crate) mod manifest;
 mod near;
 mod parity;
+mod qualification;
 mod report;
 mod router_tokenizer;
 #[cfg(test)]
@@ -52,5 +53,6 @@ pub use collection::{chunk_set_id, chunk_set_id_for_card, prepare, prepare_obser
 pub use error::TokenizerError;
 pub use failure::Error;
 pub(crate) use manifest::search_members;
+pub use qualification::{QualificationError, QualificationMode, TokenizerQualification};
 pub use report::{Ineligibility, LeftOut, Refusal, Report};
 pub use router_tokenizer::RouterTokenizer;

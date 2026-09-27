@@ -57,6 +57,11 @@ impl FakeQdrant {
         self.fake.gate_next_scroll()
     }
 
+    /// How many physical collections the fake currently holds.
+    pub(in super::super) fn collection_count(&self) -> usize {
+        self.fake.state().collections.len()
+    }
+
     /// Makes it refuse the next call `call` with `code`: `upsert`, `count`,
     /// `get`, `create`, `collection_exists`, `collection_info` or
     /// `update_aliases`.

@@ -4,9 +4,15 @@
 
 use super::{
     bootstrap::{estimates, percentile},
-    report::{Estimate, Metrics, QuestionResult},
+    reports::{
+        CohortStatistics, Estimate, ItemStatus, MeasurementCohort, Metrics, QuestionResult,
+        Subgroup, SubgroupStatistics,
+    },
 };
-use std::{collections::BTreeMap, f64::consts::LOG10_2};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    f64::consts::LOG10_2,
+};
 
 /// The last rank MRR@10 and nDCG@10 read.
 const DEPTH: u32 = 10;
@@ -68,6 +74,11 @@ impl Metric {
     /// abstentions, the unanswerable ones for the no-answer accuracy, and
     /// those whose search was not degraded for the latencies.
     fn value(self, sample: &[&QuestionResult]) -> Option<f64> {
+        let sample: Vec<&QuestionResult> = sample
+            .iter()
+            .copied()
+            .filter(|result| !result.warm_up.unwrap_or(false))
+            .collect();
         let answerable = sample.iter().filter(|result| result.answerable);
         match self {
             Self::RecallAt5 => mean(answerable.map(|result| hit(result, 5))),
@@ -81,8 +92,8 @@ impl Metric {
                     .map(|result| abstained(result)),
             ),
             Self::FalseAbstentions => mean(answerable.map(|result| abstained(result))),
-            Self::LatencyP50 => latency(sample, 500),
-            Self::LatencyP95 => latency(sample, 950),
+            Self::LatencyP50 => latency(&sample, 500),
+            Self::LatencyP95 => latency(&sample, 950),
         }
     }
 }
@@ -99,6 +110,155 @@ pub(super) fn measure(results: &[QuestionResult], seed: u64) -> Metrics {
         values(&sample)
     });
     metrics(&found)
+}
+
+/// The metrics of repeated attempts, with bootstrap resamples drawing a
+/// question cluster and retaining every one of its attempts together.
+pub(super) fn measure_attempts(results: &[QuestionResult], seed: u64) -> Metrics {
+    let mut grouped: BTreeMap<&str, Vec<usize>> = BTreeMap::new();
+    for (index, result) in results.iter().enumerate() {
+        grouped.entry(&result.id).or_default().push(index);
+    }
+    let clusters: Vec<Vec<usize>> = grouped
+        .into_values()
+        .filter(|rows| {
+            rows.iter().any(|&index| {
+                results
+                    .get(index)
+                    .is_some_and(|row| !row.warm_up.unwrap_or(false))
+            })
+        })
+        .collect();
+    let answerable: Vec<bool> = clusters
+        .iter()
+        .filter_map(|rows| results.get(*rows.first()?).map(|result| result.answerable))
+        .collect();
+    let found = estimates(&answerable, seed, |sample| {
+        let rows: Vec<&QuestionResult> = sample
+            .iter()
+            .filter_map(|&cluster| clusters.get(cluster))
+            .flatten()
+            .filter_map(|&index| results.get(index))
+            .collect();
+        values(&rows)
+    });
+    metrics(&found)
+}
+
+/// The observed attempt costs grouped by their explicit latency cohort.
+pub(super) fn measure_subgroups(
+    results: &[QuestionResult],
+    seed: u64,
+) -> BTreeMap<Subgroup, SubgroupStatistics> {
+    [Subgroup::Fr, Subgroup::En, Subgroup::CrossLingual]
+        .into_iter()
+        .map(|subgroup| {
+            let rows: Vec<QuestionResult> = results
+                .iter()
+                .filter(|row| match subgroup {
+                    Subgroup::Fr => row.language.as_deref() == Some("fr"),
+                    Subgroup::En => row.language.as_deref() == Some("en"),
+                    Subgroup::CrossLingual => row.cross_lingual == Some(true),
+                })
+                .cloned()
+                .collect();
+            let mut questions = BTreeSet::new();
+            let mut answerable = BTreeSet::new();
+            let mut unanswerable = BTreeSet::new();
+            for row in &rows {
+                questions.insert(row.id.as_str());
+                if row.answerable {
+                    answerable.insert(row.id.as_str());
+                } else {
+                    unanswerable.insert(row.id.as_str());
+                }
+            }
+            let warm_up_attempts = rows.iter().filter(|row| row.warm_up == Some(true)).count();
+            let failed_attempts = rows
+                .iter()
+                .filter(|row| matches!(row.status, Some(ItemStatus::Failed { .. })))
+                .count();
+            let ranked_attempts = rows.len() - warm_up_attempts;
+            (
+                subgroup,
+                SubgroupStatistics {
+                    question_count: questions.len(),
+                    answerable_questions: answerable.len(),
+                    unanswerable_questions: unanswerable.len(),
+                    attempt_count: rows.len(),
+                    warm_up_attempts,
+                    failed_attempts,
+                    ranked_attempts,
+                    metrics: measure_attempts(&rows, seed),
+                },
+            )
+        })
+        .collect()
+}
+
+/// Calculates latency cohort counts, percentiles and successful throughput.
+pub(super) fn measure_cohorts(
+    results: &[QuestionResult],
+) -> BTreeMap<MeasurementCohort, CohortStatistics> {
+    let mut grouped: BTreeMap<MeasurementCohort, Vec<&QuestionResult>> = BTreeMap::new();
+    for result in results {
+        grouped
+            .entry(result.measurement_cohort())
+            .or_default()
+            .push(result);
+    }
+    grouped
+        .into_iter()
+        .map(|(cohort, rows)| {
+            let eligible: Vec<&QuestionResult> = rows
+                .iter()
+                .copied()
+                .filter(|row| {
+                    !row.warm_up.unwrap_or(false)
+                        && cohort != MeasurementCohort::Unavailable
+                        && !row.degraded
+                        && row.status == Some(ItemStatus::Succeeded)
+                        && row.elapsed_us.is_some()
+                })
+                .collect();
+            let mut sorted: Vec<u64> = eligible.iter().filter_map(|row| row.elapsed_us).collect();
+            sorted.sort_unstable();
+            let succeeded = rows
+                .iter()
+                .filter(|row| row.status == Some(ItemStatus::Succeeded))
+                .count();
+            let failed = rows
+                .iter()
+                .filter(|row| matches!(row.status, Some(ItemStatus::Failed { .. })))
+                .count();
+            let timed_successes = eligible.len();
+            let total_elapsed_us = rows
+                .iter()
+                .filter_map(|row| row.elapsed_us)
+                .fold(0_u64, u64::saturating_add);
+            let timed_elapsed_us = eligible
+                .iter()
+                .filter_map(|row| row.elapsed_us)
+                .fold(0_u64, u64::saturating_add);
+            let successful_per_second = (timed_elapsed_us > 0).then(|| {
+                usize_as_f64(timed_successes) * 1_000_000.0 / unsigned_as_f64(timed_elapsed_us)
+            });
+            (
+                cohort,
+                CohortStatistics {
+                    attempts: rows.len(),
+                    warm_up_attempts: rows.iter().filter(|row| row.warm_up == Some(true)).count(),
+                    succeeded,
+                    failed,
+                    timed_samples: sorted.len(),
+                    total_elapsed_us,
+                    p50_us: percentile(&sorted, 500),
+                    p95_us: percentile(&sorted, 950),
+                    successful_per_second,
+                },
+            )
+        })
+        .collect()
 }
 
 /// Every metric `sample` covers, with its value.
@@ -187,18 +347,35 @@ fn discount(rank: u32) -> f64 {
 
 /// 1 when the bundle of `result` holds no passage, else 0.
 fn abstained(result: &QuestionResult) -> f64 {
-    f64::from(u8::from(result.passages == 0))
+    let succeeded = !matches!(result.status, Some(ItemStatus::Failed { .. }));
+    f64::from(u8::from(succeeded && result.passages == 0))
+}
+
+/// Converts a row count to the floating-point representation used for rates.
+fn usize_as_f64(value: usize) -> f64 {
+    u64::try_from(value).map_or(f64::MAX, unsigned_as_f64)
+}
+
+/// Converts an integer into its nearest IEEE-754 f64 value without a lossy cast.
+fn unsigned_as_f64(value: u64) -> f64 {
+    let upper = u32::try_from(value >> 32).unwrap_or(u32::MAX);
+    let lower = u32::try_from(value & u64::from(u32::MAX)).unwrap_or(u32::MAX);
+    f64::from(upper) * 4_294_967_296.0 + f64::from(lower)
 }
 
 /// The latency at `per_mille` of the questions of `sample` whose search was
 /// not degraded, by nearest rank, if it holds any: a degraded search is
 /// counted apart, never in the percentiles (SC-S1-004).
 fn latency(sample: &[&QuestionResult], per_mille: usize) -> Option<f64> {
-    let mut latencies: Vec<u32> = sample
+    let mut latencies: Vec<u64> = sample
         .iter()
-        .filter(|result| !result.degraded)
-        .map(|result| result.latency_us)
+        .filter(|result| {
+            !result.degraded
+                && !matches!(result.status, Some(ItemStatus::Failed { .. }))
+                && matches!(result.cohort, None | Some(MeasurementCohort::Warm))
+        })
+        .map(|result| result.elapsed_us.unwrap_or(u64::from(result.latency_us)))
         .collect();
     latencies.sort_unstable();
-    percentile(&latencies, per_mille).map(f64::from)
+    percentile(&latencies, per_mille).map(unsigned_as_f64)
 }

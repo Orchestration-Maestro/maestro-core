@@ -2,7 +2,7 @@
 //! answerable and the unanswerable questions apart by a seeded generator, and
 //! the percentile intervals of a statistic over them.
 
-use super::report::Estimate;
+use super::reports::Estimate;
 use std::collections::BTreeMap;
 
 /// How many resamples an interval is drawn from.

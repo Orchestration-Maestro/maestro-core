@@ -101,6 +101,42 @@ async fn both_routes_apply_the_scope_filter_before_top_k() {
 }
 
 #[tokio::test]
+async fn dense_route_embeds_the_card_formatted_query() {
+    for backend in backends("dense_route_embeds_the_card_formatted_query") {
+        let kernel = Kernel::with_guides(1);
+        let card = models::v2_embedder_with_query_prefix();
+        let port = models::Embedder::default();
+        let scopes = collection_scopes(&kernel);
+        let qdrant = backend.client();
+        let generation = generation(
+            &kernel,
+            &card,
+            1,
+            GenerationState::Published,
+            lexical::PROFILE,
+        );
+        create_collection(&backend, &generation).await;
+        let query = Query {
+            generation: &generation,
+            scopes: &scopes,
+            text: TEXT,
+            limit: 1,
+            version: None,
+            qdrant: &qdrant,
+        };
+        let embedder = Embedder {
+            port: &port,
+            card: &card,
+        };
+
+        assert!(search_dense(&query, &embedder).await.unwrap().is_empty());
+        assert_eq!(port.calls(), [vec![card.format_query(TEXT)]]);
+        assert_ne!(port.calls()[0][0], TEXT);
+        cleanup(&backend, &[&generation]).await;
+    }
+}
+
+#[tokio::test]
 async fn a_second_source_grant_cannot_search_another_sources_duplicate() {
     for backend in backends("a_second_source_grant_cannot_search_another_sources_duplicate") {
         let kernel = Kernel::with_guides(1);

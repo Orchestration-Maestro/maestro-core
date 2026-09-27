@@ -29,6 +29,14 @@ pub enum Error {
     /// No chunk set of this id is recorded that the caller's scopes cover:
     /// nothing is published.
     UnknownChunkSet(String),
+    /// The chunk set was counted for another v2 card; no generation or
+    /// model/Qdrant call is started.
+    CounterContractMismatch {
+        /// The candidate card's required counter contract.
+        expected: String,
+        /// The chunk set's recorded counter contract.
+        actual: String,
+    },
     /// The chunk set is not complete, so nothing reads it as a whole: nothing
     /// is published.
     Incomplete {
@@ -103,6 +111,10 @@ impl fmt::Display for Error {
                 formatter,
                 "the chunk set {chunk_set} is {state}: only a complete chunk set is published"
             ),
+            Self::CounterContractMismatch { expected, actual } => write!(
+                formatter,
+                "the v2 card requires counter {expected}, but the chunk set records {actual}"
+            ),
             Self::Embedding { at, failure } => write!(
                 formatter,
                 "the batch from chunk {at} has no vectors, and the generation stays building: \
@@ -152,6 +164,7 @@ impl error::Error for Error {
             Self::NotAnEmbedder { .. }
             | Self::UnknownChunkSet(_)
             | Self::Incomplete { .. }
+            | Self::CounterContractMismatch { .. }
             | Self::Unreadable { .. }
             | Self::MissingCollection(_)
             | Self::Unverified { .. }

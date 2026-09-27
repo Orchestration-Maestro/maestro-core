@@ -4,6 +4,25 @@ use crate::suite::Unresolved;
 use maestro_kernel::artifact::Digest;
 use std::{error, fmt};
 
+/// Why v2 attempt reports could not be combined into one strict report.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AggregateError(String);
+
+impl AggregateError {
+    /// Wraps a reason that prevented v2 attempt aggregation.
+    pub(super) fn new(reason: impl Into<String>) -> Self {
+        Self(reason.into())
+    }
+}
+
+impl fmt::Display for AggregateError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(&self.0)
+    }
+}
+
+impl error::Error for AggregateError {}
+
 /// Why a run was refused: the caller's own error, a suite that does not fit
 /// the generation it evaluates, or a bundle of another generation. `E` is
 /// the error of the caller's lookup and retrieval.
@@ -56,6 +75,23 @@ pub enum RunError<E> {
         question: String,
         /// The retrieval's error.
         error: E,
+    },
+    /// Durable attempt recording failed; no further items may run.
+    Recording {
+        /// The question whose receipt could not be recorded.
+        question: String,
+        /// Persistence error.
+        reason: String,
+    },
+    /// A v2 header has no valid attempt identity or route.
+    InvalidV2Header {
+        /// Why the caller-provided header is invalid.
+        reason: String,
+    },
+    /// The generated v2 report failed its strict reader validation.
+    InvalidV2Report {
+        /// Why the serialized report was refused.
+        reason: String,
     },
     /// A question was answered from another collection or generation than
     /// the one the run evaluates.
@@ -121,6 +157,21 @@ impl<E: fmt::Display> fmt::Display for RunError<E> {
                 formatter,
                 "question {question} could not be retrieved: {error}"
             ),
+            Self::Recording { question, reason } => {
+                write!(
+                    formatter,
+                    "the attempt receipt for {question} could not be recorded: {reason}"
+                )
+            }
+            Self::InvalidV2Header { reason } => {
+                write!(formatter, "the v2 report header is invalid: {reason}")
+            }
+            Self::InvalidV2Report { reason } => {
+                write!(
+                    formatter,
+                    "the generated v2 report failed validation: {reason}"
+                )
+            }
             Self::OtherGeneration {
                 question,
                 collection,
@@ -142,6 +193,9 @@ impl<E: error::Error + 'static> error::Error for RunError<E> {
             Self::NoDocument { .. }
             | Self::SameSection { .. }
             | Self::SameDocument { .. }
+            | Self::Recording { .. }
+            | Self::InvalidV2Header { .. }
+            | Self::InvalidV2Report { .. }
             | Self::OtherGeneration { .. } => None,
         }
     }
@@ -159,6 +213,22 @@ pub enum CompareError {
     },
     /// A question is given twice in one run.
     Repeated {
+        /// The question's id.
+        id: String,
+    },
+    /// A question's attempt numbers, seeds or warm-up assignments differ.
+    Attempts {
+        /// The question's id.
+        id: String,
+    },
+    /// Candidate and baseline use different evaluation modes.
+    Mode,
+    /// Candidate and baseline belong to different frozen runs.
+    RunId,
+    /// Candidate and baseline measure different independent routes.
+    Route,
+    /// A question's frozen language/cross-lingual labels differ.
+    Labels {
         /// The question's id.
         id: String,
     },
@@ -180,6 +250,30 @@ pub enum CompareError {
         baseline: String,
         /// The candidate's collection.
         candidate: String,
+    },
+    /// The reports use different protocol versions, so their metrics are not
+    /// comparable without v2 frozen input identities.
+    Version,
+    /// The reports were produced under different frozen bake-off manifests.
+    ManifestDigest {
+        /// The baseline manifest digest.
+        baseline: Digest,
+        /// The candidate manifest digest.
+        candidate: Digest,
+    },
+    /// The corpus revisions or quality decisions differ.
+    CorpusDigest {
+        /// The baseline corpus digest.
+        baseline: Digest,
+        /// The candidate corpus digest.
+        candidate: Digest,
+    },
+    /// The canonical/original input freeze differs.
+    InputDigest {
+        /// The baseline input digest.
+        baseline: Digest,
+        /// The candidate input digest.
+        candidate: Digest,
     },
     /// The two runs read their suite from files of different digests: the
     /// suite changed between them.
@@ -229,9 +323,58 @@ impl fmt::Display for CompareError {
                     candidate.as_str()
                 );
             }
+            Self::Version => {
+                return formatter.write_str(
+                    "v1 and v2 reports cannot be paired without v2 frozen input digests",
+                );
+            }
+            Self::ManifestDigest {
+                baseline,
+                candidate,
+            } => {
+                return write!(
+                    formatter,
+                    "the baseline and candidate were produced under different manifests: {} and {}",
+                    baseline.as_str(),
+                    candidate.as_str()
+                );
+            }
+            Self::CorpusDigest {
+                baseline,
+                candidate,
+            } => {
+                return write!(
+                    formatter,
+                    "the baseline and candidate evaluated different frozen corpora: {} and {}",
+                    baseline.as_str(),
+                    candidate.as_str()
+                );
+            }
+            Self::InputDigest {
+                baseline,
+                candidate,
+            } => {
+                return write!(
+                    formatter,
+                    "the baseline and candidate evaluated different frozen inputs: {} and {}",
+                    baseline.as_str(),
+                    candidate.as_str()
+                );
+            }
+            Self::Attempts { id } => (id, "has a different attempt plan across runs"),
+            Self::Labels { id } => (id, "has different frozen subgroup labels across runs"),
             Self::Unpaired { id } => (id, "is in one run only"),
             Self::Repeated { id } => (id, "is given twice in one run"),
             Self::Answerability { id } => (id, "is answerable in one run only"),
+            Self::Mode => {
+                return formatter.write_str("the runs have different evaluation modes");
+            }
+            Self::RunId => {
+                return formatter.write_str("the runs have different frozen run IDs");
+            }
+            Self::Route => {
+                return formatter.write_str("the runs measure different independent routes");
+            }
         };
         write!(
             formatter,

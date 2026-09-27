@@ -1,13 +1,25 @@
 //! Reports: `maestro-eval-report/1`, what a run measured, question by
 //! question and metric by metric, read back as strictly as it is written.
 
+use super::{
+    metrics::Metrics,
+    v2::{
+        CohortStatistics, ItemStatus, MeasurementCohort, Subgroup, SubgroupStatistics, TrialMode,
+    },
+};
 use crate::shape;
 use maestro_kernel::artifact::Digest;
 use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
     de::{self, MapAccess, Visitor},
 };
-use std::{collections::BTreeMap, fmt, num::NonZeroU32, str::FromStr};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fmt,
+    marker::PhantomData,
+    num::NonZeroU32,
+    str::FromStr,
+};
 
 /// What a run evaluates, which its report names: the suite, the generation
 /// of a collection with its profiles, and the seed of its intervals.
@@ -25,6 +37,45 @@ pub struct Header {
     pub profiles: BTreeMap<String, String>,
     /// The seed the intervals' resamples are drawn with.
     pub seed: u64,
+}
+
+/// Frozen inputs for one v2 route attempt.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HeaderV2 {
+    /// The suite, collection, generation, profiles and bootstrap seed.
+    pub header: Header,
+    /// Stable run ID shared by all candidate/route attempts.
+    pub run_id: String,
+    /// Stable candidate label in the frozen manifest.
+    pub candidate_id: String,
+    /// Exact T030a card registration ULID.
+    pub card_id: String,
+    /// Exact v2 card artifact digest.
+    pub card_digest: Digest,
+    /// Exact frozen bake-off manifest digest.
+    pub manifest_digest: Digest,
+    /// Planned scored repetitions, 1 through this count.
+    pub planned_repetitions: u32,
+    /// Planned warm-up attempts before scored work.
+    pub planned_warm_ups: u32,
+    /// Digest of the frozen collection revisions and quality decisions.
+    pub corpus_digest: Digest,
+    /// Digest of the frozen canonical and original inputs.
+    pub input_digest: Digest,
+    /// One-based durable attempt number.
+    pub attempt: u32,
+    /// Scored repetition number, zero for warm-ups.
+    pub repetition: u32,
+    /// Original attempt if this is an explicitly authorized retry.
+    pub retry_of: Option<u32>,
+    /// Seed used for this route attempt.
+    pub attempt_seed: u64,
+    /// Independent route measured by this attempt.
+    pub route: String,
+    /// Warm-up work excluded from candidate ranking.
+    pub warm_up: bool,
+    /// Explicitly labelled cross-lingual question IDs from the frozen manifest.
+    pub cross_lingual_questions: BTreeSet<String>,
 }
 
 /// A run's report, `maestro-eval-report/1`. [`str::parse`] reads one from a
@@ -61,6 +112,53 @@ pub struct Report {
     /// The metrics over the questions, each with its interval.
     #[serde(deserialize_with = "shape::object")]
     pub metrics: Metrics,
+    /// Stable run ID shared by all candidate/route attempts in v2.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub run_id: Option<String>,
+    /// Stable candidate label in the frozen manifest.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub candidate_id: Option<String>,
+    /// Exact T030a card registration ULID.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub card_id: Option<String>,
+    /// Exact v2 card artifact digest.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub card_digest: Option<Digest>,
+    /// Exact frozen bake-off manifest digest.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub manifest_digest: Option<Digest>,
+    /// Planned scored repetitions, 1 through this count in v2.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub planned_repetitions: Option<u32>,
+    /// Planned warm-up attempts before scored work in v2.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub planned_warm_ups: Option<u32>,
+    /// Frozen corpus identity for v2; absent in legacy v1 reports.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub corpus_digest: Option<Digest>,
+    /// Frozen canonical/original input identity for v2.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub input_digest: Option<Digest>,
+    /// Synthetic or real provenance for v2.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<TrialMode>,
+    /// Whether any item violated collection/generation integrity.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub integrity_violation: Option<bool>,
+    /// Observed latency/cost summaries by measured cohort.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "distinct_cohorts"
+    )]
+    pub cohorts: Option<BTreeMap<MeasurementCohort, CohortStatistics>>,
+    /// Frozen FR, EN and explicitly labelled cross-lingual summaries.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "distinct_subgroups"
+    )]
+    pub subgroups: Option<BTreeMap<Subgroup, SubgroupStatistics>>,
 }
 
 impl FromStr for Report {
@@ -68,7 +166,9 @@ impl FromStr for Report {
 
     /// The report `text` holds: one JSON object and nothing after it.
     fn from_str(text: &str) -> Result<Self, serde_json::Error> {
-        shape::parse(text)
+        let report: Self = shape::parse(text)?;
+        report.validate_version()?;
+        Ok(report)
     }
 }
 
@@ -79,6 +179,9 @@ pub enum Schema {
     /// `maestro-eval-report/1`.
     #[serde(rename = "maestro-eval-report/1")]
     V1,
+    /// `maestro-eval-report/2`.
+    #[serde(rename = "maestro-eval-report/2")]
+    V2,
 }
 
 /// What one question got: the rank of each section and document it expects,
@@ -108,9 +211,48 @@ pub struct QuestionResult {
     /// ranks; an unanswerable question has none.
     #[serde(deserialize_with = "shape::objects")]
     pub failures: Vec<Failure>,
+    /// One-based attempt number, absent in v1.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub attempt: Option<u32>,
+    /// Scored repetition number, zero for warm-ups.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub repetition: Option<u32>,
+    /// Original attempt if this is an explicitly authorized retry.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub retry_of: Option<u32>,
+    /// Seed used for this attempt.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub seed: Option<u64>,
+    /// Independent route measured.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub route: Option<String>,
+    /// Typed item success or failure.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub status: Option<ItemStatus>,
+    /// Full elapsed microseconds, not saturated to the legacy u32 field.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub elapsed_us: Option<u64>,
+    /// Observed warm/cold/unknown/unavailable timing cohort.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cohort: Option<MeasurementCohort>,
+    /// Whether this was a declared warm-up, excluded from ranked samples.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub warm_up: Option<bool>,
+    /// Question language (`fr` or `en`) in v2; absent in v1.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub language: Option<String>,
+    /// Frozen-manifest cross-lingual subset membership.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cross_lingual: Option<bool>,
 }
 
 impl QuestionResult {
+    /// The item's observed cohort, treating legacy v1 timing as unknown.
+    #[must_use]
+    pub fn measurement_cohort(&self) -> MeasurementCohort {
+        self.cohort.unwrap_or(MeasurementCohort::Unknown)
+    }
+
     /// The best rank of an expected section, if the bundle holds any.
     #[must_use]
     pub fn best_rank(&self) -> Option<u32> {
@@ -178,72 +320,9 @@ pub enum FailureClass {
     Misranked,
 }
 
-/// The metrics of a run, or the differences of two: each an estimate with
-/// its interval, absent when it covers no question.
-#[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-#[non_exhaustive]
-pub struct Metrics {
-    /// The share of answerable questions with an expected section in the top
-    /// 5.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(deserialize_with = "estimate")]
-    pub recall_at_5: Option<Estimate>,
-    /// The share of answerable questions with an expected section in the top
-    /// 10.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(deserialize_with = "estimate")]
-    pub recall_at_10: Option<Estimate>,
-    /// The mean over answerable questions of the reciprocal rank of the
-    /// first expected section, 0 below the top 10.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(deserialize_with = "estimate")]
-    pub mrr_at_10: Option<Estimate>,
-    /// The mean over answerable questions of the normalized discounted
-    /// cumulative gain in the top 10, each answer item gaining 1: a group is
-    /// one item at its best member rank, and every ungrouped name is its own.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(deserialize_with = "estimate")]
-    pub ndcg_at_10: Option<Estimate>,
-    /// The share of unanswerable questions whose bundle holds no passage.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(deserialize_with = "estimate")]
-    pub no_answer_accuracy: Option<Estimate>,
-    /// The share of answerable questions whose bundle holds no passage.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(deserialize_with = "estimate")]
-    pub false_abstentions: Option<Estimate>,
-    /// The median latency of a retrieval, in microseconds.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(deserialize_with = "estimate")]
-    pub latency_p50_us: Option<Estimate>,
-    /// The 95th percentile of a retrieval's latency, in microseconds.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[serde(deserialize_with = "estimate")]
-    pub latency_p95_us: Option<Estimate>,
-}
-
-/// A metric's value over every question, and its 95 % interval.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Estimate {
-    /// The value over every question.
-    pub value: f64,
-    /// The interval's low end: the 2.5th percentile of the resamples.
-    pub low: f64,
-    /// The interval's high end: the 97.5th percentile of the resamples.
-    pub high: f64,
-}
-
 /// `digest` as its 64 hexadecimal characters.
 fn hexadecimal<S: Serializer>(digest: &Digest, serializer: S) -> Result<S::Ok, S::Error> {
     serializer.serialize_str(digest.as_str())
-}
-
-/// An estimate, from a JSON object only: a metric that covers no question is
-/// left out, never written `null`.
-fn estimate<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<Estimate>, D::Error> {
-    shape::object(deserializer).map(Some)
 }
 
 /// Texts by name, from a JSON object that names each once: a map alone would
@@ -252,6 +331,55 @@ fn distinct_texts<'de, D: Deserializer<'de>>(
     deserializer: D,
 ) -> Result<BTreeMap<String, String>, D::Error> {
     deserializer.deserialize_map(TextsVisitor)
+}
+
+/// Cohort statistics, from a JSON object that names each cohort once.
+fn distinct_cohorts<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<BTreeMap<MeasurementCohort, CohortStatistics>>, D::Error> {
+    distinct_map(deserializer).map(Some)
+}
+
+/// Subgroup statistics, from a JSON object that names each subgroup once.
+fn distinct_subgroups<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<BTreeMap<Subgroup, SubgroupStatistics>>, D::Error> {
+    distinct_map(deserializer).map(Some)
+}
+
+/// Reads a map without allowing duplicate keys to overwrite earlier evidence.
+fn distinct_map<'de, D, K, V>(deserializer: D) -> Result<BTreeMap<K, V>, D::Error>
+where
+    D: Deserializer<'de>,
+    K: Deserialize<'de> + Ord + fmt::Debug,
+    V: Deserialize<'de>,
+{
+    deserializer.deserialize_map(DistinctMap::<K, V>(PhantomData))
+}
+
+/// A visitor for a map whose keys may not repeat.
+struct DistinctMap<K, V>(PhantomData<(K, V)>);
+
+impl<'de, K, V> Visitor<'de> for DistinctMap<K, V>
+where
+    K: Deserialize<'de> + Ord + fmt::Debug,
+    V: Deserialize<'de>,
+{
+    type Value = BTreeMap<K, V>;
+
+    fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str("an object of unique keys and values")
+    }
+
+    fn visit_map<A: MapAccess<'de>>(self, mut access: A) -> Result<Self::Value, A::Error> {
+        let mut values = BTreeMap::new();
+        while let Some((key, value)) = access.next_entry::<K, V>()? {
+            if values.insert(key, value).is_some() {
+                return Err(de::Error::custom("a map key is given twice"));
+            }
+        }
+        Ok(values)
+    }
 }
 
 /// Reads texts by name from a JSON object, refusing a name given twice.

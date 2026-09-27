@@ -374,6 +374,7 @@ in place.
 │   │   │   │   │   ├── chat.rs                                              # Chat sends one bounded, non-streaming prompt and refuses unusable replies
 │   │   │   │   │   ├── fake.rs                                              # Tests of the deterministic fake: its outputs are fixed by its inputs, the
 │   │   │   │   │   ├── fixture.rs                                           # What the gateway's tests share: a scratch store, a card for each role, and
+│   │   │   │   │   ├── formatting.rs                                        # Model-card document and query formatting
 │   │   │   │   │   ├── mod.rs                                               # Tests of the model gateway: model cards, the router client against a stub
 │   │   │   │   │   ├── port.rs                                              # Tests of the port's refusals: each says what was refused and why
 │   │   │   │   │   ├── router.rs                                            # Tests of the router client against a stub router: every call is bound to
@@ -529,6 +530,11 @@ in place.
 │   └── maestro-knowledge/                                                   # Maestro knowledge
 │       ├── src/                                                             # The crate's sources
 │       │   ├── eval/                                                        # The evaluation runner (plan D13; FR-S1-009, SC-S1-008): every retrieval
+│       │   │   ├── reports/                                                 # Reports
+│       │   │   │   ├── base.rs                                              # Reports: maestro-eval-report/1, what a run measured, question by
+│       │   │   │   ├── metrics.rs                                           # Summary metrics shared by the v1 and v2 report contracts
+│       │   │   │   ├── mod.rs                                               # Strict versioned report contracts and their wire types
+│       │   │   │   └── v2.rs                                                # V2 report metadata and cohort/subgroup summaries
 │       │   │   ├── tests/                                                   # Tests of the evaluation runner: how it ranks and judges each question
 │       │   │   │   ├── compare.rs                                           # compare pairs two runs by question and gives, for each metric, the
 │       │   │   │   ├── degraded.rs                                          # A degraded search, one where a route or the reranker could not run, still
@@ -541,16 +547,22 @@ in place.
 │       │   │   │   ├── ranking.rs                                           # A bundle lists its passages in reading order, so the runner ranks them
 │       │   │   │   ├── report.rs                                            # A report is a strict JSON artifact, maestro-eval-report/1: it writes and
 │       │   │   │   ├── run.rs                                               # run resolves each expected section of a suite in the canonical document
-│       │   │   │   └── support.rs                                           # What the evaluation tests share: questions, bundles built from the hits a
+│       │   │   │   ├── support.rs                                           # What the evaluation tests share: questions, bundles built from the hits a
+│       │   │   │   ├── v2.rs                                                # Report v2 retains failed attempts and their timing cohort
+│       │   │   │   ├── v2_comparison.rs                                     # Report v2 paired comparison rules
+│       │   │   │   ├── v2_scoring.rs                                        # Hand-checked v2 ranking, subgroup and repeated-question metrics
+│       │   │   │   └── v2_statistics.rs                                     # Report v2 schedule, subgroup, and timing statistics
 │       │   │   ├── bootstrap.rs                                             # The bootstrap: resamples of a run's questions, drawn within the
 │       │   │   ├── compare.rs                                               # Comparing two runs of one suite, question by question
 │       │   │   ├── error.rs                                                 # Why a run or a comparison was refused
 │       │   │   ├── judge.rs                                                 # Judging one question: ranking its bundle's passages, finding the sections
+│       │   │   ├── merge.rs                                                 # Merging v2 attempt reports without dropping scheduled work
 │       │   │   ├── metric.rs                                                # The metrics of a run: each a value over a sample of its questions, drawn
 │       │   │   ├── mod.rs                                                   # The evaluation runner (plan D13; FR-S1-009, SC-S1-008): every retrieval
 │       │   │   ├── record.rs                                                # Recording a report in the kernel, under the collection, generation and suite it names
-│       │   │   ├── report.rs                                                # Reports: maestro-eval-report/1, what a run measured, question by
-│       │   │   └── run.rs                                                   # A run: every question of a suite, resolved in the generation it
+│       │   │   ├── report_validation.rs                                     # V1 and v2 report-reader rules, shared with the v2 writer
+│       │   │   ├── run.rs                                                   # A run: every question of a suite, resolved in the generation it
+│       │   │   └── run_v2.rs                                                # Strict v2 attempt execution and aggregation
 │       │   ├── import/                                                      # Importing a collection's corpus through its maestro-corpus/1 manifests
 │       │   │   ├── tests/                                                   # Tests of the import that reach inside it: its manifest lines, and its streaming, proven by an in-memory corpus
 │       │   │   │   ├── lines.rs                                             # A manifest read one numbered line at a time, until it ends
@@ -629,6 +641,7 @@ in place.
 │       │   │   ├── native-parity.json                                       # The native counter's ordered IDs for the 41 parity fixtures a router tokenizer must match to qualify
 │       │   │   ├── near.rs                                                  # Near duplicates: word 5-gram shingles, MinHash bands, exact Jaccard confirmation, groups that delete nothing
 │       │   │   ├── parity.rs                                                # The native profile's parity fixtures, native-parity.json: complete
+│       │   │   ├── qualification.rs                                         # Strict native token-ID evidence for one v2 model identity
 │       │   │   ├── report.rs                                                # What a preparation reports, as JSON: its chunk set, its counts and each refusal
 │       │   │   └── router_tokenizer.rs                                      # The router tokenizer: maestro-canonicalization's TokenCounter over the
 │       │   ├── quality/                                                     # The quality gate: one disposition per revision before indexing (01 §4, FR-S1-002a)
@@ -772,6 +785,10 @@ in place.
 │       │   ├── shape.rs                                                     # The JSON shapes the contracts name, and no other: an object where a
 │       │   └── suite.rs                                                     # An evaluation suite: maestro-suite/1, one JSON line per question, which
 │       ├── tests/                                                           # Integration tests
+│       │   ├── fixtures/                                                    # Test fixtures
+│       │   │   └── synthetic/                                               # Synthetic
+│       │   │       └── evals/                                               # Evals
+│       │   │           └── model-card-v2.json                               # JSON data: model card v2
 │       │   └── it/                                                          # It
 │       │       ├── import_contract/                                         # The import of corpus manifests (T019): refusals, holds, idempotency, identity, report, synthetic collection
 │       │       │   ├── declared_collections.rs                              # Declaring a collection records it and its sources, and nothing for a caller who cannot read them

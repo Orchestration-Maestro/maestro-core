@@ -58,7 +58,7 @@ pub async fn search_dense<P: ModelPort>(
         return Ok(Vec::new());
     }
 
-    let input = query.text.to_owned();
+    let input = embedder.card.format_query(query.text);
     let vectors = time::timeout(
         EMBEDDING_DEADLINE,
         embedder
