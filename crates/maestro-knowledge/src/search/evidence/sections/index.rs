@@ -2,7 +2,8 @@
 
 use super::super::spans::SpanUnion;
 use super::validation::{
-    block_span, contains, heading_level, validate_block_links, validate_section_links,
+    block_span, block_span_with_length, contains, heading_level, validate_block_links,
+    validate_section_links,
 };
 use maestro_canonicalization::{Block, BlockType, CanonicalDocument, Section};
 use maestro_kernel::evidence::Span;
@@ -104,7 +105,8 @@ struct RootRanges {
 /// Builds a block index while validating all canonical source spans.
 fn block_index<'a>(
     document: &'a CanonicalDocument,
-    markdown: &str,
+    source_length: usize,
+    markdown: Option<&str>,
 ) -> Result<BlockIndex<'a>, String> {
     let mut ranges = Vec::with_capacity(document.blocks.len());
     let mut blocks = BTreeMap::new();
@@ -112,7 +114,10 @@ fn block_index<'a>(
         if blocks.insert(block.block_id.clone(), block).is_some() {
             return Err("canonical block IDs are not unique".to_owned());
         }
-        let Some(span) = block_span(block, markdown)? else {
+        let Some(span) = (match markdown {
+            Some(markdown) => block_span(block, markdown)?,
+            None => block_span_with_length(block, source_length)?,
+        }) else {
             continue;
         };
         ranges.push(BlockRange {
@@ -280,7 +285,27 @@ fn root_ranges(ranges: &[BlockRange]) -> RootRanges {
 impl SectionIndex {
     /// Builds validated lexical ranges from canonical blocks and source bytes.
     pub(crate) fn new(document: &CanonicalDocument, markdown: &str) -> Result<Self, String> {
-        let blocks = block_index(document, markdown)?;
+        Self::from_source(document, markdown.len(), Some(markdown))
+    }
+
+    /// Builds extent ranges using source length before loading source text.
+    pub(crate) fn new_from_length(
+        document: &CanonicalDocument,
+        source_length: usize,
+    ) -> Result<Self, String> {
+        Self::from_source(document, source_length, None)
+    }
+
+    /// Builds lexical ranges, optionally checking UTF-8 boundaries in source text.
+    fn from_source(
+        document: &CanonicalDocument,
+        source_length: usize,
+        markdown: Option<&str>,
+    ) -> Result<Self, String> {
+        if markdown.is_some_and(|source| source.len() != source_length) {
+            return Err("canonical source length does not match Markdown".to_owned());
+        }
+        let blocks = block_index(document, source_length, markdown)?;
         validate_block_links(document, &blocks.blocks, &blocks.spans)?;
         let sections = section_ranges(document, &blocks)?;
         let root = root_ranges(&blocks.ranges);
@@ -441,4 +466,18 @@ fn extent_of(spans: &[Span]) -> Option<Span> {
     let start = spans.iter().map(|span| span.start).min()?;
     let end = spans.iter().map(|span| span.end).max()?;
     Some(Span { start, end })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SectionIndex;
+    use maestro_canonicalization::{CanonicalizeInput, canonicalize};
+
+    #[test]
+    fn from_source_rejects_a_length_that_disagrees_with_text() {
+        let markdown = "## Guide\n";
+        let document = canonicalize(CanonicalizeInput::new(markdown, "fixture.md")).unwrap();
+
+        assert!(SectionIndex::from_source(&document, markdown.len() + 1, Some(markdown)).is_err());
+    }
 }

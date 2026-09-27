@@ -6,4 +6,5 @@ mod chunks;
 mod guards;
 mod latest;
 mod lifecycle;
+mod section_revisions;
 mod support;

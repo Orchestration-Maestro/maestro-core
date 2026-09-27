@@ -2,7 +2,7 @@
 
 use maestro_canonicalization::TokenCounter;
 use maestro_kernel::evidence::Passage;
-use std::{fmt, sync::Arc};
+use std::{error, fmt, sync::Arc};
 
 /// The counter identity and estimate flag written into the bundle.
 #[derive(Debug, PartialEq, Eq)]
@@ -42,6 +42,26 @@ pub(crate) enum CounterError {
     Json(serde_json::Error),
     /// A local evidence-counting precondition was violated.
     Invalid(&'static str),
+}
+
+impl fmt::Display for CounterError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Counter(_) => formatter.write_str("exact evidence counter failed"),
+            Self::Json(_) => formatter.write_str("evidence passages could not be serialized"),
+            Self::Invalid(reason) => formatter.write_str(reason),
+        }
+    }
+}
+
+impl error::Error for CounterError {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        match self {
+            Self::Counter(error) => Some(error),
+            Self::Json(error) => Some(error),
+            Self::Invalid(_) => None,
+        }
+    }
 }
 
 /// Returns the wire identity and estimate status of a counter.

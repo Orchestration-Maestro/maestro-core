@@ -76,6 +76,42 @@ impl Database {
             params![chunk_set_id, scopes.parameter()],
         )?)
     }
+
+    /// At most two distinct, scoped document/revision pairs with chunks in
+    /// `chunk_set_id` whose section ID is `section_id`. Each tuple is
+    /// `(document_id, revision_id)`. A reader treats two pairs as ambiguous.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Store`] when the database cannot be read.
+    pub fn section_revisions(
+        &self,
+        scopes: &ScopeSet,
+        chunk_set_id: &str,
+        section_id: &str,
+    ) -> Result<Vec<(String, String)>, Error> {
+        let connection = self.reader()?;
+        let mut statement = connection.prepare(&format!(
+            "SELECT DISTINCT documents.id, revisions.id
+             FROM chunks
+             JOIN revisions ON revisions.id = chunks.revision_id
+             JOIN documents ON documents.id = revisions.document_id
+             JOIN quality_dispositions ON quality_dispositions.revision_id = revisions.id
+             WHERE chunks.chunk_set_id = ?1 AND chunks.section_id = ?2
+               AND revisions.status <> 'failed'
+               AND quality_dispositions.disposition IN ('accepted', 'accepted_with_warnings')
+               AND {}
+             LIMIT 2",
+            ScopeSet::source_condition("documents.collection_id", "documents.source_id", 3)
+        ))?;
+        let pairs = statement
+            .query_map(
+                params![chunk_set_id, section_id, scopes.parameter()],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        Ok(pairs)
+    }
 }
 
 /// Records `chunks`, every chunk of the revision `revision_id`, in the

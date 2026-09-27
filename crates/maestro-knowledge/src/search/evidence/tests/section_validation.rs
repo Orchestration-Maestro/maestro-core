@@ -22,7 +22,12 @@ fn nested_ids(document: &CanonicalDocument) -> (String, String) {
 }
 
 fn index_error(document: &CanonicalDocument, markdown: &str) -> String {
-    SectionIndex::new(document, markdown).unwrap_err()
+    let error = SectionIndex::new(document, markdown).unwrap_err();
+    assert_eq!(
+        SectionIndex::new_from_length(document, markdown.len()).unwrap_err(),
+        error
+    );
+    error
 }
 
 #[test]
@@ -221,4 +226,19 @@ fn additional_valid_block_spans_are_accepted() {
     block.source_spans.push(block.source_spans[0]);
 
     assert!(SectionIndex::new(&source_document, markdown).is_ok());
+}
+
+#[test]
+fn text_and_length_indexes_agree_for_every_canonical_section() {
+    let markdown = "# Guide\n\n## Parent\n\nText.\n\n### Child\n\nNested.\n\n## Last\n";
+    let document = document(markdown);
+    let text_index = SectionIndex::new(&document, markdown).unwrap();
+    let length_index = SectionIndex::new_from_length(&document, markdown.len()).unwrap();
+
+    for section in &document.sections {
+        assert_eq!(
+            text_index.section_extent(&section.section_id),
+            length_index.section_extent(&section.section_id)
+        );
+    }
 }

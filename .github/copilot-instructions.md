@@ -304,6 +304,7 @@ in place.
 │   │   │   │   │   ├── latest.rs                                            # The default set for publication is the latest complete set, ignoring
 │   │   │   │   │   ├── lifecycle.rs                                         # A chunk set's lifecycle: begun building, found again by a rerun, then complete or failed for good
 │   │   │   │   │   ├── mod.rs                                               # Tests of the chunk set records: their lifecycle and their chunks
+│   │   │   │   │   ├── section_revisions.rs                                 # Scoped section lookups stop after two distinct document/revision pairs
 │   │   │   │   │   └── support.rs                                           # What the chunk set tests share: a scratch database with revisions of two collections
 │   │   │   │   ├── chunk.rs                                                 # Chunks: a revision's passages in a chunk set, recorded at once, each pinning its prepared input
 │   │   │   │   ├── error.rs                                                 # Why the kernel refused to begin, move or fill a chunk set
@@ -603,6 +604,7 @@ in place.
 │       │   │   │   ├── refusals.rs                                          # The refusals: what each says, and the cause each keeps
 │       │   │   │   ├── router_client.rs                                     # The router client through a router tokenizer, against a stub router: from
 │       │   │   │   ├── scratch.rs                                           # What the preparation's tests share: a scratch corpus and kernel, a collection imported and decided
+│       │   │   │   ├── section_reader.rs                                    # The public reader returns only exact, bounded canonical section spans
 │       │   │   │   ├── stops.rs                                             # Why a preparation stops: what each stop says, and the cause each keeps
 │       │   │   │   ├── stub.rs                                              # A stub of the model router for the router client's tests: a loopback HTTP
 │       │   │   │   ├── support.rs                                           # What the router tokenizer's tests share: model cards, recorded in a
@@ -669,6 +671,9 @@ in place.
 │       │   │   │   │   ├── mutation_tests.rs                                # Regression checks for source offsets used by diversity signatures
 │       │   │   │   │   └── signatures.rs                                    # Computes case-sensitive shingles and source features for evidence ranking
 │       │   │   │   ├── sections/                                            # Derives validated section extents and bounded sibling windows
+│       │   │   │   │   ├── tests/                                           # Length-only block validation tests
+│       │   │   │   │   │   ├── mod.rs                                       # Length-only block validation tests
+│       │   │   │   │   │   └── validation.rs                                # The length-only path rejects the same malformed block spans as the text path
 │       │   │   │   │   ├── index.rs                                         # Derives validated section extents and bounded sibling windows
 │       │   │   │   │   ├── mod.rs                                           # Derives validated section extents and bounded sibling windows
 │       │   │   │   │   └── validation.rs                                    # Validates canonical block links and source spans before evidence expansion
@@ -686,6 +691,7 @@ in place.
 │       │   │   │   │   └── versions.rs                                      # Rust source: versions
 │       │   │   │   ├── budget.rs                                            # Token-counting helpers for compact serialized evidence
 │       │   │   │   ├── mod.rs                                               # Authoritative section reads and bounded evidence assembly
+│       │   │   │   ├── section_reader.rs                                    # Reads one authorized canonical section from a completed chunk set
 │       │   │   │   ├── signals.rs                                           # Rust source: signals
 │       │   │   │   ├── spans.rs                                             # Candidate source-span unions
 │       │   │   │   └── versions.rs                                          # Numeric release-label ordering

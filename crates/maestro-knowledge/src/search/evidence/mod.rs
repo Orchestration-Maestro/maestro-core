@@ -1,4 +1,12 @@
-//! Internal algorithms for assembling authoritative, bounded evidence.
+//! Authoritative section reads and bounded evidence assembly.
+
+#![cfg_attr(
+    not(test),
+    expect(
+        dead_code,
+        reason = "assembly helpers are wired by the next T032 commit"
+    )
+)]
 
 /// Counts compact serialized passages with the selected counter.
 mod budget;
@@ -6,7 +14,9 @@ mod budget;
 pub(super) mod conflicts;
 /// Computes case-sensitive shingles and material-difference signatures.
 mod features;
-/// Derives canonical section extents and sibling-safe windows.
+/// Reads one authorized canonical section from a completed chunk set.
+mod section_reader;
+/// Derives canonical section extents and sibling-safe evidence windows.
 mod sections;
 /// Orders passages and derives trace metadata and known gaps.
 mod signals;
@@ -17,3 +27,5 @@ mod spans;
 mod tests;
 /// Compares numeric version components without integer conversion.
 mod versions;
+
+pub use section_reader::{SectionExcerpt, SectionReadError, read_section};

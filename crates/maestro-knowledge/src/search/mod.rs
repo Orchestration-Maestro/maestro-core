@@ -3,12 +3,8 @@
 mod admission;
 mod candidates;
 mod deadline;
-/// Internal evidence helpers, wired to the public entry point in the next T032 commit.
-#[expect(
-    dead_code,
-    reason = "wired by the evidence entry point, the next T032 commit"
-)]
-pub(crate) mod evidence;
+/// Public evidence assembly for ranked T029c search handoffs.
+pub mod evidence;
 mod filter;
 mod fusion;
 mod inventory_query;

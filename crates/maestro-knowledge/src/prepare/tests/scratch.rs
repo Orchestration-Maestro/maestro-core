@@ -234,6 +234,100 @@ pub(super) fn manifest_of(database: &Database, set: &ChunkSet) -> Value {
     serde_json::from_slice(&database.get(digest).unwrap()).unwrap()
 }
 
+/// Changes every chunk in `chunk_set` to report the same section identity.
+pub(super) fn set_chunk_sections(scratch: &Scratch, chunk_set: &str, section_id: &str) {
+    let path = scratch.0.join("kernel").join("kernel.sqlite3");
+    let connection = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_WRITE).unwrap();
+    connection
+        .execute_batch("DROP TRIGGER chunks_never_change")
+        .unwrap();
+    connection
+        .execute(
+            "UPDATE chunks SET section_id = ?1 WHERE chunk_set_id = ?2",
+            [section_id, chunk_set],
+        )
+        .unwrap();
+}
+
+/// Replaces an artifact's bytes without changing the digest in the record.
+pub(super) fn corrupt_artifact(scratch: &Scratch, digest: &Digest) {
+    fs::write(artifact_path(scratch, digest), b"corrupt").unwrap();
+}
+
+/// Removes the file of a recorded artifact while retaining its metadata row.
+pub(super) fn remove_artifact(scratch: &Scratch, digest: &Digest) {
+    fs::remove_file(artifact_path(scratch, digest)).unwrap();
+}
+
+/// Moves one revision to the kernel's permitted failed status for reader tests.
+pub(super) fn fail_revision(scratch: &Scratch, revision_id: &str) {
+    let path = scratch.0.join("kernel").join("kernel.sqlite3");
+    let connection = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_WRITE).unwrap();
+    connection
+        .execute(
+            "UPDATE revisions SET status = 'failed' WHERE id = ?1",
+            [revision_id],
+        )
+        .unwrap();
+}
+
+/// Changes a revision's one-time disposition for eligibility reader tests.
+pub(super) fn quarantine_revision(scratch: &Scratch, revision_id: &str) {
+    let path = scratch.0.join("kernel").join("kernel.sqlite3");
+    let connection = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_WRITE).unwrap();
+    connection
+        .execute(
+            "UPDATE quality_dispositions SET disposition = 'quarantined' WHERE revision_id = ?1",
+            [revision_id],
+        )
+        .unwrap();
+}
+
+/// Repoints a revision to a newly stored canonical artifact for integrity tests.
+pub(super) fn replace_revision_canonical(
+    scratch: &Scratch,
+    database: &Database,
+    revision_id: &str,
+    bytes: &[u8],
+) {
+    let digest = database.put(bytes, "application/json").unwrap();
+    let path = scratch.0.join("kernel").join("kernel.sqlite3");
+    let connection = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_WRITE).unwrap();
+    connection
+        .execute_batch("DROP TRIGGER IF EXISTS revisions_are_immutable")
+        .unwrap();
+    connection
+        .execute(
+            "UPDATE revisions SET canonical_digest = ?1 WHERE id = ?2",
+            [digest.as_str(), revision_id],
+        )
+        .unwrap();
+}
+
+/// Locates the artifact `digest` in the scratch kernel's content-addressed tree.
+fn artifact_path(scratch: &Scratch, digest: &Digest) -> PathBuf {
+    let hex = digest.as_str();
+    let (first, rest) = hex.split_at(2);
+    let (second, _) = rest.split_at(2);
+    scratch
+        .0
+        .join("kernel")
+        .join("artifacts")
+        .join("sha256")
+        .join(first)
+        .join(second)
+        .join(hex)
+}
+
+/// Removes the chunk-set table so the next kernel lookup has a store error.
+pub(super) fn drop_chunk_sets_table(scratch: &Scratch) {
+    let path = scratch.0.join("kernel").join("kernel.sqlite3");
+    let connection = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_WRITE).unwrap();
+    connection
+        .execute_batch("PRAGMA foreign_keys = OFF; DROP TABLE chunk_sets")
+        .unwrap();
+}
+
 /// A paragraph of `words` distinct words, `<stem>1` first, each one token
 /// for the port's tokenizer.
 pub(super) fn words(stem: &str, words: usize) -> String {

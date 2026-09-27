@@ -5,10 +5,22 @@ use super::super::budget::{
 use maestro_canonicalization::{Error, TokenCounter};
 use maestro_kernel::artifact::Digest;
 use maestro_kernel::evidence::{Alternate, Passage, Span};
-use std::sync::{
-    Arc,
-    atomic::{AtomicBool, AtomicUsize, Ordering},
+use std::{
+    error::Error as StdError,
+    io::{self, Read},
+    sync::{
+        Arc,
+        atomic::{AtomicBool, AtomicUsize, Ordering},
+    },
 };
+
+struct FailingReader;
+
+impl Read for FailingReader {
+    fn read(&mut self, _buffer: &mut [u8]) -> io::Result<usize> {
+        Err(io::Error::other("test read failure"))
+    }
+}
 
 struct CharacterCounter {
     id: &'static str,
@@ -165,6 +177,41 @@ fn exact_counter_failures_keep_their_source_errors() {
             if message == "test counter tokenization failure"
     ));
     assert_eq!(counter.calls.load(Ordering::Relaxed), 1);
+}
+
+#[test]
+fn counter_error_displays_redacted_messages_and_follows_source_chains() {
+    let counter = CounterError::Counter(Error("private backend detail".to_owned()));
+    assert_eq!(counter.to_string(), "exact evidence counter failed");
+    assert_eq!(
+        StdError::source(&counter)
+            .map(ToString::to_string)
+            .as_deref(),
+        Some("private backend detail")
+    );
+
+    let json = serde_json::from_str::<Vec<String>>("[").unwrap_err();
+    let json_error = CounterError::Json(json);
+    assert_eq!(
+        json_error.to_string(),
+        "evidence passages could not be serialized"
+    );
+    assert!(StdError::source(&json_error).is_some());
+
+    let invalid = CounterError::Invalid("invalid evidence count");
+    assert_eq!(invalid.to_string(), "invalid evidence count");
+    assert!(StdError::source(&invalid).is_none());
+}
+
+#[test]
+fn counter_error_preserves_io_sources_from_json_failures() {
+    let json = serde_json::from_reader::<_, serde_json::Value>(FailingReader).unwrap_err();
+    let error = CounterError::Json(json);
+
+    assert_eq!(
+        StdError::source(&error).map(ToString::to_string).as_deref(),
+        Some("test read failure")
+    );
 }
 
 #[test]

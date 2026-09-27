@@ -1,8 +1,9 @@
 //! Canonical section indexing and sibling-safe evidence windows.
 
 mod index;
+#[cfg(test)]
+mod tests;
 mod validation;
 
-#[cfg(test)]
-pub(crate) use index::SectionIndex;
+pub(super) use index::SectionIndex;
 pub(super) use validation::{block_span, contains, valid_span};

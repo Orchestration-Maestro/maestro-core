@@ -11,35 +11,7 @@ pub(in crate::search::evidence) fn block_span(
     block: &Block,
     markdown: &str,
 ) -> Result<Option<Span>, String> {
-    let mut spans = block.source_spans.iter();
-    let Some(first) = spans.next() else {
-        return Ok(None);
-    };
-    if !valid_span(
-        Span {
-            start: first.start,
-            end: first.end,
-        },
-        markdown,
-    ) {
-        return Err("canonical block has an invalid source span".to_owned());
-    }
-    let mut start = first.start;
-    let mut end = first.end;
-    for span in spans {
-        if !valid_span(
-            Span {
-                start: span.start,
-                end: span.end,
-            },
-            markdown,
-        ) {
-            return Err("canonical block has an invalid source span".to_owned());
-        }
-        start = start.min(span.start);
-        end = end.max(span.end);
-    }
-    Ok(Some(Span { start, end }))
+    block_span_by(block, |span| valid_span(span, markdown))
 }
 
 /// Reads a heading's canonical level, rejecting malformed heading attributes.
@@ -144,6 +116,48 @@ pub(in crate::search::evidence) fn valid_span(span: Span, markdown: &str) -> boo
         end: span.end,
     }
     .is_valid(markdown)
+}
+
+/// Derives a block's source envelope after checking offsets against source length.
+pub(super) fn block_span_with_length(
+    block: &Block,
+    source_length: usize,
+) -> Result<Option<Span>, String> {
+    block_span_by(block, |span| {
+        span.start <= span.end && span.end <= source_length
+    })
+}
+
+/// Validates every source span and returns their envelope.
+fn block_span_by(
+    block: &Block,
+    mut is_valid: impl FnMut(Span) -> bool,
+) -> Result<Option<Span>, String> {
+    let mut spans = block.source_spans.iter();
+    let Some(first) = spans.next() else {
+        return Ok(None);
+    };
+    let first = Span {
+        start: first.start,
+        end: first.end,
+    };
+    if !is_valid(first) {
+        return Err("canonical block has an invalid source span".to_owned());
+    }
+    let mut start = first.start;
+    let mut end = first.end;
+    for span in spans {
+        let span = Span {
+            start: span.start,
+            end: span.end,
+        };
+        if !is_valid(span) {
+            return Err("canonical block has an invalid source span".to_owned());
+        }
+        start = start.min(span.start);
+        end = end.max(span.end);
+    }
+    Ok(Some(Span { start, end }))
 }
 
 /// Tests half-open source-span containment.
