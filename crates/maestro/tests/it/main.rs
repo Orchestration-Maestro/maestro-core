@@ -20,6 +20,7 @@ mod machine;
 mod mcp_stdio;
 mod publish_again;
 mod quality_gates;
+mod rebuild_drill;
 mod setup_installs;
 mod status_summaries;
 mod support;

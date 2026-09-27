@@ -12,7 +12,7 @@ use maestro_kernel::{
 };
 use serde_json::{Value, json};
 use std::{
-    collections::HashMap,
+    collections::{BTreeSet, HashMap},
     io::{BufRead, BufReader, Read, Write},
     iter,
     net::{TcpListener, TcpStream},
@@ -22,7 +22,7 @@ use std::{
 };
 
 /// A stored card of `role` in `home`, also recorded as a kernel artifact.
-fn card(home: &Home, role: Role) -> Digest {
+pub(super) fn card(home: &Home, role: Role) -> Digest {
     let (entry, dimensions) = match role {
         Role::Embedder => ("embed", Some(3)),
         Role::Reranker => ("rerank", None),
@@ -49,17 +49,41 @@ fn card(home: &Home, role: Role) -> Digest {
     recorded
 }
 
+/// T036's public synthetic embedder identity and native tokenizer canaries.
+pub(super) fn t036_embedder_card(home: &Home) -> Digest {
+    const IDENTITY: &str = "FakeModels synthetic protocol simulation/1";
+    let fields = CardFields {
+        role: Role::Embedder,
+        router_entry: RouterEntry::parse("synthetic").unwrap(),
+        file_digest: Digest::of(IDENTITY.as_bytes()),
+        template_digest: None,
+        server_build: "fake-models/1".to_owned(),
+        dimensions: NonZeroUsize::new(32),
+        limits: Limits {
+            context_tokens: NonZeroU32::new(8192).unwrap(),
+            output_tokens: None,
+        },
+        suite_results: Vec::new(),
+    };
+    let store = Store::new(home.data().join("artifacts"));
+    let card = ModelCard::record(&store, &fields).unwrap();
+    let bytes = store.get(card.digest()).unwrap();
+    let recorded = home.database().put(&bytes, "application/json").unwrap();
+    assert_eq!(&recorded, card.digest());
+    recorded
+}
+
 /// A digest not present in this home's artifact store.
 const MISSING: &str = "0000000000000000000000000000000000000000000000000000000000000000";
 
 /// A loopback model router serving the committed tokenizer parity fixtures.
-struct StubRouter {
+pub(super) struct StubRouter {
     url: String,
 }
 
 impl StubRouter {
-    /// Serves model props and tokenization on a new loopback port.
-    fn serve() -> Self {
+    /// Serves tokenizer, embedding and reranking endpoints on a new loopback port.
+    pub(super) fn serve() -> Self {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let url = format!("http://{}", listener.local_addr().unwrap());
         let goldens = parity_goldens();
@@ -71,7 +95,7 @@ impl StubRouter {
         Self { url }
     }
 
-    fn url(&self) -> &str {
+    pub(super) fn url(&self) -> &str {
         &self.url
     }
 }
@@ -95,12 +119,53 @@ fn reply(stream: TcpStream, goldens: &HashMap<String, Vec<u32>>) {
     }
     let mut body = vec![0; length];
     reader.read_exact(&mut body).unwrap();
-    let answer = if path == "/models/embed/props" {
-        json!({"build_info": "test-build"})
-    } else if path == "/models/embed/tokenize" {
+    let answer = if path.ends_with("/props") {
+        let build = if path.starts_with("/models/synthetic/") {
+            "fake-models/1"
+        } else {
+            "test-build"
+        };
+        json!({"build_info": build})
+    } else if path.ends_with("/tokenize") {
         let request: Value = serde_json::from_slice(&body).unwrap();
         let text = request["content"].as_str().unwrap();
-        json!({"tokens": goldens.get(text).cloned().unwrap_or_else(|| vec![0, 2])})
+        json!({"tokens": goldens.get(text).cloned().unwrap_or_else(|| fake_tokens(text))})
+    } else if path.ends_with("/v1/embeddings") {
+        let request: Value = serde_json::from_slice(&body).unwrap();
+        let dimensions = if path.starts_with("/models/synthetic/") {
+            32
+        } else {
+            3
+        };
+        let data = request["input"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .enumerate()
+            .map(|(index, input)| {
+                json!({
+                    "index": index,
+                    "embedding": fake_vector(input.as_str().unwrap(), dimensions)
+                })
+            })
+            .collect::<Vec<_>>();
+        json!({"data": data})
+    } else if path.ends_with("/v1/rerank") {
+        let request: Value = serde_json::from_slice(&body).unwrap();
+        let query = request["query"].as_str().unwrap();
+        let results = request["documents"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .enumerate()
+            .map(|(index, document)| {
+                json!({
+                    "index": index,
+                    "relevance_score": fake_rerank(query, document.as_str().unwrap())
+                })
+            })
+            .collect::<Vec<_>>();
+        json!({"results": results})
     } else {
         panic!("the test router has no route for {path}");
     }
@@ -113,6 +178,51 @@ fn reply(stream: TcpStream, goldens: &HashMap<String, Vec<u32>>) {
         answer.len()
     )
     .unwrap();
+}
+
+/// `FakeModels`' deterministic synthetic embedding used by the router stub.
+fn fake_vector(text: &str, dimensions: usize) -> Vec<f32> {
+    use sha2::{Digest as _, Sha256};
+
+    (0_u32..)
+        .flat_map(|block| {
+            let digest = Sha256::new()
+                .chain_update(text)
+                .chain_update(block.to_be_bytes())
+                .finalize();
+            let (low, high) = (digest.iter().step_by(2), digest.iter().skip(1).step_by(2));
+            low.zip(high)
+                .map(|(low, high)| f32::from(i16::from_le_bytes([*low, *high])) / 32768.0)
+                .collect::<Vec<_>>()
+        })
+        .take(dimensions)
+        .collect()
+}
+
+/// `FakeModels`' tokens used after the native-parity canaries pass.
+fn fake_tokens(text: &str) -> Vec<u32> {
+    use sha2::{Digest as _, Sha256};
+
+    text.split(|character: char| !character.is_alphanumeric())
+        .filter(|word| !word.is_empty())
+        .map(|word| {
+            let [first, second, third, fourth, ..]: [u8; 32] = Sha256::digest(word).into();
+            u32::from_le_bytes([first, second, third, fourth])
+        })
+        .collect()
+}
+
+/// `FakeModels`' word-overlap rerank score.
+fn fake_rerank(query: &str, document: &str) -> f64 {
+    let words = |text: &str| {
+        text.split(|character: char| !character.is_alphanumeric())
+            .filter(|word| !word.is_empty())
+            .map(str::to_lowercase)
+            .collect::<BTreeSet<_>>()
+    };
+    let wanted = words(query);
+    let held = words(document);
+    f64::from(u32::try_from(wanted.intersection(&held).count()).unwrap_or(u32::MAX))
 }
 
 /// The router qualification fixtures and their expected ordered token IDs.

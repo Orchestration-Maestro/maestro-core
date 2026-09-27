@@ -143,3 +143,60 @@ jobs:
             ${{ runner.temp }}/maestro-synthetic-gate/failure.json
             ${{ runner.temp }}/maestro-synthetic-gate-negative/failure.json
           if-no-files-found: warn
+  rebuild-drill:
+    name: Synthetic backup-loss rebuild drill
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    services:
+      qdrant:
+        # Separate job-owned, empty service; never shares T036's Qdrant.
+        image: qdrant/qdrant@sha256:12364fe851b9f17356fc88189fc06d1b521262e04659ec7345975b00c9246a10
+        env:
+          QDRANT__TELEMETRY_DISABLED: "true"
+        ports:
+          - 16533:6333
+          - 16534:6334
+    env:
+      MAESTRO_T033B_QDRANT_URL: http://127.0.0.1:16534
+      MAESTRO_T033B_QDRANT_OWNER: github-actions-service/qdrant
+      CARGO_BUILD_JOBS: 3
+    steps:
+      - name: Check out the revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Install the toolchain rust-toolchain.toml pins
+        run: |
+          set -euo pipefail
+          toolchain=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)
+          rustup toolchain install "$toolchain" --profile minimal
+          echo "RUSTUP_TOOLCHAIN=$toolchain" >> "$GITHUB_ENV"
+      - name: Wait for the disposable Qdrant service
+        run: |
+          set -euo pipefail
+          for _ in $(seq 60); do
+            if curl --silent --fail http://127.0.0.1:16533/readyz; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::The owned Qdrant service was not ready within 60 s"
+          exit 1
+      - name: Run the exact backup-loss rebuild drill
+        run: |
+          set -euo pipefail
+          log="$RUNNER_TEMP/t033b-drill.log"
+          cargo test --locked -p maestro --test it \
+            rebuild_drill::backup_loss_drill::backup_loss::backup_wipe_restore_rebuild_preserves_rankings \
+            -- --ignored --exact --nocapture | tee "$log"
+          grep -q '^T033B_ACCEPTED ' "$log"
+      - name: Upload drill evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: t033b-rebuild-drill-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/t033b-drill.log
+          if-no-files-found: warn

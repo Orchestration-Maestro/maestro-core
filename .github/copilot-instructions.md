@@ -150,6 +150,19 @@ in place.
 │   │   │       │   ├── mcp_and_authorization.rs                             # MCP parity, permission refresh, and exact-retrieval refusal cases
 │   │   │       │   ├── mod.rs                                               # CLI and MCP contracts for exact knowledge retrieval
 │   │   │       │   └── section_cases.rs                                     # Exact canonical-section retrieval across the CLI and MCP surfaces
+│   │   │       ├── rebuild_drill/                                           # An owned backup-loss-rebuild ranking drill and its safety/equality checks
+│   │   │       │   ├── backup_loss_drill/                                   # The opt-in real-service backup-loss and ranking-rebuild drill
+│   │   │       │   │   ├── backup_loss.rs                                   # The opt-in real-service backup, projection-loss, restore and ranking proof
+│   │   │       │   │   ├── mod.rs                                           # The opt-in real-service backup-loss and ranking-rebuild drill
+│   │   │       │   │   └── setup.rs                                         # Synthetic inputs and CLI commands that start the owned recovery drill
+│   │   │       │   ├── authority.rs                                         # Backup manifest, restored authority, retained work and projection assertions
+│   │   │       │   ├── fixture.rs                                           # Frozen public questions, profiles and actual T029c search capture
+│   │   │       │   ├── mod.rs                                               # An owned backup-loss-rebuild ranking drill and its safety/equality checks
+│   │   │       │   ├── qdrant.rs                                            # Official Qdrant inspection and cleanup, restricted to the empty owned service
+│   │   │       │   ├── ranking_oracle.rs                                    # Exact equality oracle for the synthetic T029c candidate rankings
+│   │   │       │   ├── ranking_oracle_tests.rs                              # Equality-oracle tests for ordered rankings and frozen search inputs
+│   │   │       │   ├── resume.rs                                            # A backed-up expired replacement attempt resumes against a new Qdrant target
+│   │   │       │   └── wipe_safety.rs                                       # Ownership checks for the destructive kernel and Qdrant portions
 │   │   │       ├── backup_restore.rs                                        # Backup and restore: online copies keep the database, artifacts and leased
 │   │   │       ├── backup_restore_targets.rs                                # Rust source: backup restore targets
 │   │   │       ├── cli_contract.rs                                          # JSON on stdout, diagnostics on stderr, exit codes 0, 1 and 2, the job ID first
