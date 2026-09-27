@@ -176,7 +176,7 @@ impl Points for Fake {
         &self,
         request: Request<ScrollPoints>,
     ) -> Result<Response<ScrollResponse>, Status> {
-        super::scroll::run(self, request)
+        super::scroll::run(self, request).await
     }
 
     async fn count(

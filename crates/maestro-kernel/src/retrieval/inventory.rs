@@ -235,13 +235,15 @@ fn supports(
 
 #[cfg(test)]
 mod bounds_tests {
-    use super::groups;
+    use super::{groups, selected_sql, total_documents};
     use crate::{
+        evidence::InventoryCount,
         generation::{Generation, GenerationState},
         retrieval::{Error, ReadControl, SearchRead},
-        scope::ScopeSet,
+        scope::{Scope, ScopeSet},
     };
     use rusqlite::Connection;
+    use std::collections::BTreeSet;
     use std::{
         sync::{Arc, atomic::AtomicBool},
         time::{Duration, Instant},
@@ -287,6 +289,97 @@ mod bounds_tests {
             groups(&transaction, &read, &selected(1001), None),
             Err(Error::TooLarge)
         ));
+    }
+
+    #[test]
+    fn inventory_filters_scope_before_group_limit_and_count() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        connection
+            .execute_batch(
+                "CREATE TABLE chunk_set_members (chunk_set_id TEXT, revision_id TEXT);
+                 CREATE TABLE revisions (
+                   id TEXT, document_id TEXT, status TEXT, metadata_json TEXT
+                 );
+                 CREATE TABLE documents (id TEXT, collection_id TEXT, source_id TEXT);
+                 CREATE TABLE quality_dispositions (revision_id TEXT, disposition TEXT);",
+            )
+            .unwrap();
+        connection
+            .execute_batch(
+                "INSERT INTO documents VALUES ('visible-doc', 'ctm', 'docs');
+                 INSERT INTO revisions VALUES (
+                   'visible-revision', 'visible-doc', 'valid', '{\"set\":\"visible\"}'
+                 );
+                 INSERT INTO quality_dispositions VALUES ('visible-revision', 'accepted');
+                 INSERT INTO chunk_set_members VALUES ('set-a', 'visible-revision');",
+            )
+            .unwrap();
+        for index in 0..1001 {
+            let document = format!("hidden-doc-{index}");
+            let revision = format!("hidden-revision-{index}");
+            let set = format!("hidden-{index:04}");
+            connection
+                .execute(
+                    "INSERT INTO documents VALUES (?1, 'ctm', 'hidden')",
+                    [&document],
+                )
+                .unwrap();
+            connection
+                .execute(
+                    "INSERT INTO revisions VALUES (?1, ?2, 'valid', ?3)",
+                    rusqlite::params![revision, document, format!("{{\"set\":\"{set}\"}}")],
+                )
+                .unwrap();
+            connection
+                .execute(
+                    "INSERT INTO quality_dispositions VALUES (?1, 'accepted')",
+                    [&revision],
+                )
+                .unwrap();
+            connection
+                .execute(
+                    "INSERT INTO chunk_set_members VALUES ('set-a', ?1)",
+                    [&revision],
+                )
+                .unwrap();
+        }
+        let scope: Scope = "workspace/default/collection/ctm/source/docs"
+            .parse()
+            .unwrap();
+        let scopes = ScopeSet::new(BTreeSet::from([scope]));
+        let generation = Generation {
+            id: 1,
+            collection_id: "ctm".to_owned(),
+            chunk_set_id: "set-a".to_owned(),
+            embedding_profile: "embed:test".to_owned(),
+            sparse_profile: "bm25-en-fr/1".to_owned(),
+            state: GenerationState::Building,
+            point_count: None,
+            published_at: None,
+        };
+        let control = ReadControl {
+            deadline: Instant::now() + Duration::from_secs(5),
+            cancelled: Arc::new(AtomicBool::new(false)),
+        };
+        let read = SearchRead {
+            generation: &generation,
+            scopes: &scopes,
+            version: None,
+            control: &control,
+        };
+        let transaction = connection.transaction().unwrap();
+        let selected = selected_sql("set");
+        assert_eq!(
+            total_documents(&transaction, &read, &selected, None).unwrap(),
+            1
+        );
+        assert_eq!(
+            groups(&transaction, &read, &selected, None).unwrap(),
+            [InventoryCount {
+                value: Some("visible".to_owned()),
+                documents: 1,
+            }]
+        );
     }
 
     fn selected(count: usize) -> String {

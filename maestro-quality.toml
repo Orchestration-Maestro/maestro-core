@@ -150,6 +150,18 @@ path = "crates/maestro-knowledge/src/query/mod.rs"
 item = "INVENTORY_FILTERS"
 reason = "understanding and inventory parsing must share suffixes to mask quoted set text consistently"
 
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-knowledge/src/query/mod.rs"
+item = "INVENTORY_DOCUMENT_FORMS"
+reason = "understanding and inventory parsing must share document forms to mask quoted set text consistently"
+
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-knowledge/src/query/mod.rs"
+item = "INVENTORY_VERSION_FORMS"
+reason = "understanding and inventory parsing must share version forms to mask quoted set text consistently"
+
 # Query understanding remains one rule-based contract passed unchanged to T032.
 [[exception]]
 rule = "ARC-005"

@@ -6,16 +6,14 @@ use maestro_kernel::{
     document::{Disposition, Outcome},
     evidence::{RequestBudget, RouteStatus},
     gateway::Role,
-    scope::{Right, Scope},
 };
 use maestro_knowledge::{
     query::Family,
     search::{DEFAULT_DEPTH, Reranker, SearchContext, SearchError, SearchRequest, search},
 };
-use qdrant_client::qdrant::{Distance, Modifier};
 use tokio::time::Instant;
 
-fn searchable_scheduler_kernel() -> Kernel {
+pub(super) fn searchable_scheduler_kernel() -> Kernel {
     let kernel = Kernel::with_changed_guides(1, &|kernel, guide, mut chunks| {
         if guide == 0 {
             chunks[0].digest =
@@ -176,30 +174,26 @@ async fn missing_explicit_version_is_reported_as_a_known_gap() {
 }
 
 #[tokio::test]
-async fn alias_movement_after_admission_keeps_identifier_inventory_and_candidates_pinned() {
+async fn malformed_inventory_filter_degrades_only_the_structured_route() {
     let backend = fake();
     let kernel = searchable_scheduler_kernel();
-    let publish_port = models::Embedder::default();
-    let embedder_card = models::embedder(3);
+    let card = models::embedder(3);
+    let port = models::Embedder::default();
     let qdrant = backend.client();
-    let report = projection(&kernel, &qdrant, &publish_port, &embedder_card)
+    let report = projection(&kernel, &qdrant, &port, &card)
         .publish(&kernel.chunk_set)
         .await
         .unwrap();
-    let (search_port, gate) = models::Embedder::gated();
     let context: SearchContext<'_, models::Embedder> = SearchContext {
         database: kernel.database.clone(),
         principal: "tester",
         qdrant: &qdrant,
-        embedder: Some(maestro_knowledge::search::routes::dense::Embedder {
-            port: &search_port,
-            card: &embedder_card,
-        }),
+        embedder: None,
         reranker: None,
     };
     let request = SearchRequest {
         collection: &kernel.collection,
-        text: "How many documents in set \"ERR-042\"?",
+        text: r#"how many documents in set "ERR-042" trailing"#,
         version: None,
         budget: RequestBudget {
             deadline_ms: 5000,
@@ -207,43 +201,20 @@ async fn alias_movement_after_admission_keeps_identifier_inventory_and_candidate
         },
         rerank_depth: DEFAULT_DEPTH,
     };
-    let search_future = search(&context, &request);
-    tokio::pin!(search_future);
-    tokio::select! {
-        result = &mut search_future => panic!(
-            "search completed before its embedder was released: {result:?}"
-        ),
-        () = gate.wait_started() => {}
-    }
 
-    let decoy_collection = format!("maestro-{}-g99", kernel.collection);
-    backend
-        .create(&decoy_collection, 3, Distance::Cosine, Some(Modifier::Idf))
-        .await;
-    backend
-        .fake
-        .as_ref()
-        .unwrap()
-        .alias_to(&super::super::support::alias_of(&kernel), &decoy_collection);
-    gate.release();
-
-    let result = search_future.await.unwrap();
-    assert_eq!(result.generation.id, report.generation);
+    let result = Box::pin(search(&context, &request)).await.unwrap();
+    assert_eq!(
+        result.routes.get("structured"),
+        Some(&RouteStatus::Unavailable(
+            "inventory set must be one nonempty JSON string".to_owned()
+        ))
+    );
     assert_eq!(result.routes.get("identifier"), Some(&RouteStatus::Ok));
-    assert_eq!(result.routes.get("structured"), Some(&RouteStatus::Ok));
     assert!(
         result
             .ranked
             .iter()
-            .any(|item| item.candidate.fused.chunk_id == "chunk-0-lead")
-    );
-    assert_eq!(
-        backend
-            .fake
-            .as_ref()
-            .unwrap()
-            .alias_target(&super::super::support::alias_of(&kernel)),
-        Some(decoy_collection.clone())
+            .any(|item| { item.candidate.fused.chunk_id == "chunk-0-lead" })
     );
     cleanup(
         &backend,
@@ -254,7 +225,6 @@ async fn alias_movement_after_admission_keeps_identifier_inventory_and_candidate
             .unwrap()],
     )
     .await;
-    backend.delete_collection(&decoy_collection).await;
 }
 
 #[tokio::test]
@@ -303,69 +273,6 @@ async fn mismatched_route_revision_is_refused_before_rerank() {
         Err(SearchError::EvidenceLoad { .. })
     ));
     assert_eq!(rerank_port.rerank_calls(), 0);
-    cleanup(
-        &backend,
-        &[&kernel
-            .database
-            .generation(&kernel.scopes, report.generation)
-            .unwrap()
-            .unwrap()],
-    )
-    .await;
-}
-
-#[tokio::test]
-async fn a_permission_revocation_during_a_slow_route_aborts_the_handoff() {
-    let backend = fake();
-    let kernel = searchable_scheduler_kernel();
-    let publish_port = models::Embedder::default();
-    let embedder_card = models::embedder(3);
-    let qdrant = backend.client();
-    let report = projection(&kernel, &qdrant, &publish_port, &embedder_card)
-        .publish(&kernel.chunk_set)
-        .await
-        .unwrap();
-    let (search_port, gate) = models::Embedder::gated();
-    let context: SearchContext<'_, models::Embedder> = SearchContext {
-        database: kernel.database.clone(),
-        principal: "tester",
-        qdrant: &qdrant,
-        embedder: Some(maestro_knowledge::search::routes::dense::Embedder {
-            port: &search_port,
-            card: &embedder_card,
-        }),
-        reranker: None,
-    };
-    let request = SearchRequest {
-        collection: &kernel.collection,
-        text: "`ctm`",
-        version: None,
-        budget: RequestBudget {
-            deadline_ms: 5000,
-            ..RequestBudget::default()
-        },
-        rerank_depth: DEFAULT_DEPTH,
-    };
-    let search_future = search(&context, &request);
-    tokio::pin!(search_future);
-    tokio::select! {
-        result = &mut search_future => panic!(
-            "search completed before its embedder was released: {result:?}"
-        ),
-        () = gate.wait_started() => {}
-    }
-    let workspace: Scope = "workspace/default".parse().unwrap();
-    kernel
-        .database
-        .revoke("tester", &workspace, Right::Read, "test")
-        .unwrap();
-    gate.release();
-
-    assert!(matches!(
-        search_future.await,
-        Err(SearchError::PermissionsChanged)
-    ));
-    assert_eq!(search_port.rerank_calls(), 0);
     cleanup(
         &backend,
         &[&kernel

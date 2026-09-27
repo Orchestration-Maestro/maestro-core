@@ -73,7 +73,7 @@ impl Kernel {
         kernel.record_chunk_set(&kernel.chunk_set, guides, change);
         kernel
             .database
-            .complete_chunk_set(&kernel.chunk_set, &kernel.manifest())
+            .complete_chunk_set(&kernel.chunk_set, &kernel.manifest(&kernel.chunk_set))
             .unwrap();
         kernel
     }
@@ -82,6 +82,19 @@ impl Kernel {
     /// and leaves it building.
     pub(super) fn begin_another(&self, id: &str, guides: usize) {
         self.record_chunk_set(id, guides, &|_, _, chunks| chunks);
+    }
+
+    /// Records and completes another set, after changing its chunks.
+    pub(super) fn complete_another(&self, id: &str, guides: usize, change: &Change) {
+        self.record_chunk_set(id, guides, change);
+        self.database
+            .complete_chunk_set(id, &self.manifest(id))
+            .unwrap();
+    }
+
+    /// The file backing this scratch kernel's database.
+    pub(super) fn database_path(&self) -> PathBuf {
+        self.scratch.0.join("kernel.sqlite3")
     }
 
     /// Every chunk of the complete chunk set, in record order.
@@ -306,7 +319,7 @@ impl Kernel {
     }
 
     /// A valid complete preparation manifest for this fixture's revisions and chunks.
-    fn manifest(&self) -> Digest {
+    fn manifest(&self, chunk_set_id: &str) -> Digest {
         let mut revisions: Vec<String> = self
             .database
             .revisions(&self.scopes, &self.collection)
@@ -315,11 +328,11 @@ impl Kernel {
             .map(|revision| revision.id)
             .collect();
         revisions.sort();
-        let chunks = self.database.chunks(&self.scopes, &self.chunk_set).unwrap();
+        let chunks = self.database.chunks(&self.scopes, chunk_set_id).unwrap();
         let manifest: Value = json!({
             "schema": "maestro-chunk-set/1",
             "collection": self.collection,
-            "chunk_set": self.chunk_set,
+            "chunk_set": chunk_set_id,
             "chunk_profile": "mapped-structural-chunks/2",
             "preparation_profile": maestro_canonicalization::PREPARATION_PROFILE,
             "counter": "router/1:sha256:test",

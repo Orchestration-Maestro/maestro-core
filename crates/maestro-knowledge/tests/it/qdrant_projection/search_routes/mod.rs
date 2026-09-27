@@ -3,7 +3,9 @@
 use super::{backends, kernel, models};
 
 mod fused_search;
+mod fused_search_admission_pinning;
 mod identifier_route;
+mod identifier_route_resilience;
 mod route_behavior;
 mod route_errors;
 mod scope_index;

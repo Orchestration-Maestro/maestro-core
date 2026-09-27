@@ -129,7 +129,7 @@ pub(super) fn identifier_point(id: &str, chunk: &str, revision: &str, scope: &st
         "chunk_id": chunk,
         "revision_id": revision,
         "scope_tags": [scope],
-        "version": null,
+        "version": "9.0.22",
         "identifier_profile": "identifiers/1",
         "identifiers": ["ERR-042"],
     }))

@@ -180,10 +180,8 @@ async fn payload_leg(
 }
 
 /// Sorts the bounded scroll prefix by route score and stable chunk ID.
-fn order_payload_hits(mut hits: Vec<ScoredChunk>, limit: usize) -> Vec<ScoredChunk> {
-    super::order::by_score_then_chunk_id(&mut hits);
-    hits.truncate(limit);
-    hits
+fn order_payload_hits(hits: Vec<ScoredChunk>, limit: usize) -> Vec<ScoredChunk> {
+    super::results::rank(hits, limit)
 }
 
 /// Validates the required string and string-array fields of a payload hit.
@@ -326,11 +324,11 @@ fn extend_unique(
     limit: usize,
 ) {
     for hit in incoming {
+        if hits.len() >= limit {
+            break;
+        }
         if seen.insert(hit.chunk_id.clone()) {
             hits.push(hit);
-            if hits.len() == limit {
-                break;
-            }
         }
     }
 }

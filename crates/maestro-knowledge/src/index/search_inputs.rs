@@ -78,7 +78,12 @@ impl<P: ModelPort> Projection<'_, P> {
         set: &ChunkSet,
         chunks: &[Chunk],
     ) -> Result<Result<(), Unverified>, Error> {
-        record_members(self.database, self.scopes, set)?;
+        if let Err(error) = record_members(self.database, self.scopes, set) {
+            return match verification_write_error(error) {
+                Ok(reason) => Ok(Err(reason)),
+                Err(error) => Err(error),
+            };
+        }
         let indexes = self
             .qdrant
             .payload_indexes(&super::collection_name(generation))
@@ -97,7 +102,12 @@ impl<P: ModelPort> Projection<'_, P> {
                 .iter()
                 .map(|chunk| self.input(chunk))
                 .collect::<Result<_, _>>()?;
-            record_batch(self.database, self.scopes, &set.id, batch, &inputs)?;
+            if let Err(error) = record_batch(self.database, self.scopes, &set.id, batch, &inputs) {
+                return match verification_write_error(error) {
+                    Ok(reason) => Ok(Err(reason)),
+                    Err(error) => Err(error),
+                };
+            }
             let expected: HashMap<String, (&Chunk, Vec<String>)> = batch
                 .iter()
                 .zip(&inputs)
@@ -124,6 +134,18 @@ impl<P: ModelPort> Projection<'_, P> {
                 .map_err(Error::Search)?;
         }
         Ok(Ok(()))
+    }
+}
+
+/// Maps immutable derivative conflicts to a verification failure, not a retry.
+fn verification_write_error(error: Error) -> Result<Unverified, Error> {
+    match error {
+        Error::Search(
+            error @ (RetrievalError::InputConflict | RetrievalError::MembershipConflict),
+        ) => Ok(Unverified::Search {
+            reason: error.to_string(),
+        }),
+        error => Err(error),
     }
 }
 
@@ -196,4 +218,22 @@ fn payload_identifiers(point: &RetrievedPoint) -> Option<Vec<String>> {
             _ => None,
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Error, RetrievalError, Unverified, verification_write_error};
+
+    #[test]
+    fn deterministic_search_write_conflicts_are_unverified() {
+        for error in [
+            RetrievalError::InputConflict,
+            RetrievalError::MembershipConflict,
+        ] {
+            assert!(matches!(
+                verification_write_error(Error::Search(error)),
+                Ok(Unverified::Search { .. })
+            ));
+        }
+    }
 }

@@ -2,20 +2,12 @@
 
 use crate::{
     lexical,
-    query::{INVENTORY_FILTERS, QueryKind, Understood},
+    query::{
+        INVENTORY_DOCUMENT_FORMS, INVENTORY_FILTERS, INVENTORY_VERSION_FORMS, QueryKind, Understood,
+    },
 };
 use maestro_kernel::{retrieval::InventoryRequest, retrieval::normalize_whitespace};
 use std::{error, fmt};
-
-/// Exact French and English phrases that request document counts or sets.
-const DOCUMENTS: &[&str] = &[
-    "how many documents",
-    "combien de documents",
-    "list all document sets",
-    "liste des lots de documents",
-];
-/// Exact French and English phrases that request documented versions.
-const VERSIONS: &[&str] = &["list all versions", "liste des versions"];
 
 /// Why an inventory-like Global query has malformed exact grammar.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -39,7 +31,10 @@ pub(crate) fn inventory_request(
     let normalized = normalize_whitespace(&understood.normalized);
     let query = normalized.strip_suffix('?').unwrap_or(&normalized);
     let folded = fold(query);
-    for (forms, versions) in [(DOCUMENTS, false), (VERSIONS, true)] {
+    for (forms, versions) in [
+        (INVENTORY_DOCUMENT_FORMS, false),
+        (INVENTORY_VERSION_FORMS, true),
+    ] {
         for form in forms {
             let form = fold(form);
             if folded == form {

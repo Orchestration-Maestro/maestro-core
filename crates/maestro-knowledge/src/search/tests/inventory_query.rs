@@ -73,6 +73,13 @@ fn json_set_words_do_not_change_inventory_classification() {
 }
 
 #[test]
+fn only_inventory_grammar_masks_quoted_text_from_classification() {
+    let understood = understand(r#"Why does the job fail in set "prod" with error ERR-042?"#);
+    assert_eq!(understood.kind, QueryKind::Troubleshooting);
+    assert_eq!(inventory_request(&understood).unwrap(), None);
+}
+
+#[test]
 fn malformed_quoted_set_words_do_not_override_global_classification() {
     let understood = understand(r#"how many documents in set"Error""#);
     assert_eq!(understood.kind, QueryKind::Global);

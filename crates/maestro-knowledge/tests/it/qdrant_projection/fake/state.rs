@@ -8,6 +8,7 @@ use std::{
     mem,
     sync::{Arc, Mutex, MutexGuard},
 };
+use tokio::sync::Notify;
 use tonic::{Code, Status};
 
 /// A collection the fake keeps.
@@ -32,6 +33,10 @@ pub(super) struct State {
     pub(super) aliases: BTreeMap<String, String>,
     /// Filters passed to payload scrolls, in call order.
     pub(super) scroll_filters: Vec<Filter>,
+    /// Every request admitted by a fake service, in call order.
+    pub(super) calls: Vec<String>,
+    /// The one payload-scroll gate a test requested.
+    scroll_gate: Option<Arc<Notify>>,
     /// The calls to refuse next, each with the code to refuse it with.
     refusals: Vec<(&'static str, Code)>,
     /// Whether to refuse the next `CreateAlias` action.
@@ -64,6 +69,21 @@ impl Fake {
         self.0.lock().unwrap()
     }
 
+    /// Blocks the next payload scroll until a test releases its gate.
+    pub(super) fn gate_next_scroll(&self) -> Arc<Notify> {
+        let gate = Arc::new(Notify::new());
+        self.state().scroll_gate = Some(Arc::clone(&gate));
+        gate
+    }
+
+    /// Waits for the next payload scroll's gate, if any.
+    pub(super) async fn wait_scroll_gate(&self) {
+        let gate = self.state().scroll_gate.take();
+        if let Some(gate) = gate {
+            gate.notified().await;
+        }
+    }
+
     /// Makes the next call `call` refuse with `code`.
     pub(super) fn refuse_next(&self, call: &'static str, code: Code) {
         self.state().refusals.push((call, code));
@@ -82,6 +102,7 @@ impl Fake {
     /// The call `call`, refused when a test asked for it, once.
     pub(super) fn admit(&self, call: &str) -> Result<(), Status> {
         let mut state = self.state();
+        state.calls.push(call.to_owned());
         let Some(at) = state
             .refusals
             .iter()

@@ -97,8 +97,8 @@ pub(super) fn ready_projection(
 }
 
 impl Database {
-    /// Whether the pinned chunk set contains an in-scope member with the exact
-    /// version filter. Legacy sets fall back to revisions that own chunks.
+    /// Whether an eligible, in-scope chunk owner in the pinned set has the
+    /// exact version filter.
     ///
     /// # Errors
     ///
@@ -112,22 +112,20 @@ impl Database {
         let scope = ScopeSet::source_condition("documents.collection_id", "documents.source_id", 4);
         let sql = format!(
             "SELECT EXISTS(
-               SELECT 1 FROM revisions
+               SELECT 1 FROM chunks
+               JOIN revisions ON revisions.id = chunks.revision_id
                JOIN documents ON documents.id = revisions.document_id
-               WHERE documents.collection_id = ?3 AND {scope}
+               JOIN quality_dispositions
+                 ON quality_dispositions.revision_id = revisions.id
+               WHERE chunks.chunk_set_id = ?2
+                 AND documents.collection_id = ?3 AND {scope}
                  AND CASE json_type(revisions.metadata_json, '$.version')
                    WHEN 'text' THEN json_extract(revisions.metadata_json, '$.version') END = ?5
+                 AND revisions.status <> 'failed'
+                 AND quality_dispositions.disposition IN ('accepted', 'accepted_with_warnings')
                  AND EXISTS (SELECT 1 FROM generations
                    WHERE generations.id = ?1 AND generations.chunk_set_id = ?2
                      AND generations.collection_id = ?3)
-                 AND (EXISTS (SELECT 1 FROM chunk_set_members
-                       WHERE chunk_set_members.chunk_set_id = ?2
-                         AND chunk_set_members.revision_id = revisions.id)
-                   OR (NOT EXISTS (SELECT 1 FROM chunk_set_members
-                       WHERE chunk_set_members.chunk_set_id = ?2)
-                     AND EXISTS (SELECT 1 FROM chunks
-                       WHERE chunks.chunk_set_id = ?2
-                         AND chunks.revision_id = revisions.id)))
              )"
         );
         let mut connection = controlled_reader(self, read.control)?;

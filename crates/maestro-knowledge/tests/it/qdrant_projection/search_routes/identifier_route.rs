@@ -23,17 +23,17 @@ use tokio::time::Instant;
 use tonic::Code;
 
 /// Published command input and the physical generation used by identifier tests.
-struct PublishedCommand {
+pub(super) struct PublishedCommand {
     /// Kernel data and its trusted read scope.
-    kernel: Kernel,
+    pub(super) kernel: Kernel,
     /// The Qdrant client of the test's backend.
-    qdrant: Qdrant,
+    pub(super) qdrant: Qdrant,
     /// The ready generation pinned by every test query.
-    generation: Generation,
+    pub(super) generation: Generation,
 }
 
 /// Publishes one accepted prepared input containing a bare command and error code.
-async fn publish_command(backend: &Backend) -> PublishedCommand {
+pub(super) async fn publish_command(backend: &Backend) -> PublishedCommand {
     let kernel = Kernel::with_changed_guides(1, &|kernel, guide, mut chunks| {
         if guide != 0 {
             return chunks;
@@ -77,7 +77,7 @@ async fn publish_command(backend: &Backend) -> PublishedCommand {
 }
 
 /// Searches one literal against the fixture's pinned physical collection.
-async fn identifier_search(fixture: &PublishedCommand, text: &str) -> RouteOutcome {
+pub(super) async fn identifier_search(fixture: &PublishedCommand, text: &str) -> RouteOutcome {
     identifier_search_with(fixture, text, 20, None).await
 }
 
@@ -87,6 +87,24 @@ async fn identifier_search_with(
     text: &str,
     limit: usize,
     version: Option<&str>,
+) -> RouteOutcome {
+    identifier_search_until(
+        fixture,
+        text,
+        limit,
+        version,
+        Instant::now() + Duration::from_secs(5),
+    )
+    .await
+}
+
+/// Searches one literal with the given limit, version and absolute deadline.
+pub(super) async fn identifier_search_until(
+    fixture: &PublishedCommand,
+    text: &str,
+    limit: usize,
+    version: Option<&str>,
+    deadline: Instant,
 ) -> RouteOutcome {
     let query = Query {
         generation: &fixture.generation,
@@ -100,7 +118,7 @@ async fn identifier_search_with(
         &query,
         fixture.kernel.database.clone(),
         &understand(text),
-        Instant::now() + Duration::from_secs(5),
+        deadline,
     )
     .await
 }
@@ -243,6 +261,29 @@ async fn filtered_scroll_finds_an_allowed_identifier_after_page_one() {
             .count(),
         1
     );
+    cleanup(&backend, &[&fixture.generation]).await;
+}
+
+#[tokio::test]
+async fn identifier_limit_applies_after_payload_and_kernel_legs_are_merged() {
+    let backend = fake();
+    let fixture = publish_command(&backend).await;
+    upsert(
+        &backend,
+        &fixture.generation,
+        vec![identifier_point(
+            "00000000-0000-4000-8000-000000000001",
+            "aaa-payload-only",
+            "payload-revision",
+            "workspace/default",
+        )],
+    )
+    .await;
+
+    let outcome = identifier_search_with(&fixture, "ERR-042", 1, None).await;
+    assert_eq!(outcome.status, RouteStatus::Ok);
+    assert_eq!(outcome.hits.len(), 1);
+    assert_eq!(outcome.hits[0].chunk_id, "aaa-payload-only");
     cleanup(&backend, &[&fixture.generation]).await;
 }
 

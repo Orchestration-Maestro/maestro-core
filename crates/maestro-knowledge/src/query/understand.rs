@@ -5,7 +5,17 @@ use super::identifiers::find;
 use super::kind::{QueryKind, classify};
 use super::language::{Language, detect_language};
 use super::normalize::normalize;
+use crate::lexical;
 
+/// Exact English and French phrases that request document counts or sets.
+pub(crate) const INVENTORY_DOCUMENT_FORMS: &[&str] = &[
+    "how many documents",
+    "combien de documents",
+    "list all document sets",
+    "liste des lots de documents",
+];
+/// Exact English and French phrases that request documented versions.
+pub(crate) const INVENTORY_VERSION_FORMS: &[&str] = &["list all versions", "liste des versions"];
 /// Exact suffixes introducing the inventory grammar's JSON set string.
 pub(crate) const INVENTORY_FILTERS: &[&str] = &[" in set", " dans le lot"];
 
@@ -30,19 +40,26 @@ fn classification_text(text: &str) -> String {
         if character != '"' {
             return None;
         }
-        let prefix = text.get(..index)?.trim_end();
-        INVENTORY_FILTERS
+        let prefix = fold_inventory_keywords(text.get(..index)?.trim_end());
+        INVENTORY_DOCUMENT_FORMS
             .iter()
-            .any(|suffix| {
-                prefix
-                    .get(prefix.len().saturating_sub(suffix.len())..)
-                    .is_some_and(|tail| tail.eq_ignore_ascii_case(suffix))
+            .chain(INVENTORY_VERSION_FORMS)
+            .any(|form| {
+                let form = fold_inventory_keywords(form);
+                INVENTORY_FILTERS
+                    .iter()
+                    .any(|suffix| prefix == format!("{form}{suffix}"))
             })
             .then_some(index)
     }) else {
         return text.to_owned();
     };
     text.get(..quote).unwrap_or_default().to_owned()
+}
+
+/// Folds only inventory keywords, preserving the exact filter string.
+fn fold_inventory_keywords(text: &str) -> String {
+    lexical::fold(text).to_lowercase()
 }
 
 /// Normalizes and classifies a query before retrieval routes consume it.

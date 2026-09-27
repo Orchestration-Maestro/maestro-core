@@ -37,7 +37,7 @@ pub async fn search_structured(
     .await
     {
         Ok(Ok(selection)) => {
-            let mut hits = selection
+            let hits = selection
                 .supports
                 .into_iter()
                 .map(|hit| super::results::ScoredChunk {
@@ -46,7 +46,8 @@ pub async fn search_structured(
                     score: 1.0,
                 })
                 .collect::<Vec<_>>();
-            super::order::by_score_then_chunk_id(&mut hits);
+            let limit = hits.len();
+            let hits = super::results::rank(hits, limit);
             StructuredOutcome {
                 route: RouteOutcome {
                     hits,

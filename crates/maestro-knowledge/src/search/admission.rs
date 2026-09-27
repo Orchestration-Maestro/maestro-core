@@ -17,8 +17,10 @@ use tokio::time::Instant;
 pub(super) struct AdmittedSearch {
     /// The deterministic interpretation of the original question.
     pub(super) understood: Understood,
-    /// A recognized inventory request, absent for non-Global queries.
+    /// A recognized inventory request, absent when parsing failed or is inapplicable.
     pub(super) structured_request: Option<InventoryRequest>,
+    /// The precise malformed-inventory reason, retained for the structured route.
+    pub(super) structured_error: Option<String>,
     /// The exact explicit version filter selected before any route starts.
     pub(super) version: Option<String>,
     /// Whether an explicit version occurs in the pinned, scoped generation.
@@ -40,10 +42,10 @@ pub(super) async fn admit_request<P: ModelPort>(
 ) -> Result<AdmittedSearch, SearchError> {
     let started = Instant::now();
     let understood = validate(request)?;
-    let structured_request =
-        inventory_request(&understood).map_err(|error| SearchError::InvalidRequest {
-            reason: error.to_string(),
-        })?;
+    let (structured_request, structured_error) = match inventory_request(&understood) {
+        Ok(request) => (request, None),
+        Err(error) => (None, Some(error.to_string())),
+    };
     let version = request.version.map(str::to_owned);
     let cutoffs = deadline::from_budget(started, request.budget);
     let (admission_scopes, generation, version_documented) = admit(
@@ -57,6 +59,7 @@ pub(super) async fn admit_request<P: ModelPort>(
     Ok(AdmittedSearch {
         understood,
         structured_request,
+        structured_error,
         version,
         version_documented,
         generation,

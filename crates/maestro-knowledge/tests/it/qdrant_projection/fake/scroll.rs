@@ -9,11 +9,12 @@ use qdrant_client::qdrant::{ScrollPoints, ScrollResponse};
 use tonic::{Request, Response, Status};
 
 /// Applies the filter before offset and limit, as Qdrant's payload scroll does.
-pub(super) fn run(
+pub(super) async fn run(
     fake: &Fake,
     request: Request<ScrollPoints>,
 ) -> Result<Response<ScrollResponse>, Status> {
     fake.admit("scroll")?;
+    fake.wait_scroll_gate().await;
     let scroll = request.into_inner();
     let payload = scroll
         .with_payload

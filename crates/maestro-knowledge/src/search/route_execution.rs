@@ -98,7 +98,7 @@ pub(super) fn route_error_reason(error: &RouteError) -> &'static str {
 pub(super) async fn structured_outcome(
     query: &Query<'_>,
     database: Arc<Database>,
-    request: Option<&InventoryRequest>,
+    request: Result<Option<&InventoryRequest>, &str>,
     enabled: bool,
     deadline: Instant,
 ) -> Option<StructuredOutcome> {
@@ -106,8 +106,12 @@ pub(super) async fn structured_outcome(
         return None;
     }
     match request {
-        Some(request) => Some(search_structured(query, database, request, deadline).await),
-        None => Some(StructuredOutcome {
+        Err(reason) => Some(StructuredOutcome {
+            route: unavailable(reason),
+            inventory: None,
+        }),
+        Ok(Some(request)) => Some(search_structured(query, database, request, deadline).await),
+        Ok(None) => Some(StructuredOutcome {
             route: unavailable(UNSUPPORTED_INVENTORY),
             inventory: None,
         }),

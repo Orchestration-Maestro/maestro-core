@@ -4,7 +4,6 @@ pub mod dense;
 pub mod error;
 pub mod identifier;
 pub mod lexical;
-pub mod order;
 pub mod outcome;
 pub mod results;
 pub mod structured;

@@ -9,6 +9,7 @@ use crate::{
     scope::{Right, ScopeSet},
     store::{self, Database},
 };
+use rusqlite::params;
 use serde_json::{Map, Value};
 use std::{
     collections::BTreeMap,
@@ -37,10 +38,28 @@ impl SearchDb {
 
     /// Records one or more prepared chunks in the pinned set.
     pub(super) fn with_inputs(prepared_inputs: &[&str]) -> Self {
+        Self::with_inputs_and_eligibility(prepared_inputs, RevisionStatus::Valid, "accepted")
+    }
+
+    /// Records a chunk owner with the requested status and quality disposition.
+    pub(super) fn with_eligibility(
+        prepared_input: &str,
+        status: RevisionStatus,
+        disposition: &str,
+    ) -> Self {
+        Self::with_inputs_and_eligibility(&[prepared_input], status, disposition)
+    }
+
+    /// Records prepared chunks for a revision with the requested eligibility.
+    fn with_inputs_and_eligibility(
+        prepared_inputs: &[&str],
+        status: RevisionStatus,
+        disposition: &str,
+    ) -> Self {
         assert!(!prepared_inputs.is_empty());
         let scratch = Scratch::new();
         let database = Database::open_in(&scratch.0).unwrap();
-        record_revision(&database);
+        record_revision(&database, status, disposition);
         record_chunk_set(&database, prepared_inputs);
         let generation = database
             .create_generation(&NewGeneration {
@@ -149,7 +168,7 @@ impl SearchDb {
 }
 
 /// Records the collection, source, document, accepted revision and disposition.
-fn record_revision(database: &Database) {
+fn record_revision(database: &Database, status: RevisionStatus, disposition: &str) {
     database
         .record_collection(&Collection {
             id: "ctm".to_owned(),
@@ -184,7 +203,7 @@ fn record_revision(database: &Database) {
             document_id: "doc-a".to_owned(),
             original_digest: original,
             canonical_digest: canonical,
-            status: RevisionStatus::Valid,
+            status,
             captured_at: None,
             metadata: Map::from_iter([
                 ("set".to_owned(), Value::from("guide")),
@@ -198,8 +217,8 @@ fn record_revision(database: &Database) {
                 .execute(
                     "INSERT INTO quality_dispositions
                      (revision_id, disposition, reasons_json, rule_ids, decided_by)
-                     VALUES ('rev-a', 'accepted', '[]', '[]', 'test')",
-                    [],
+                     VALUES ('rev-a', ?1, '[]', '[]', 'test')",
+                    params![disposition],
                 )
                 .map_err(store::Error::from)
         })

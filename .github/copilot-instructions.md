@@ -665,7 +665,6 @@ in place.
 │       │   │   │   ├── identifier.rs                                        # Exact identifier search from the Qdrant payload and prepared-input FTS
 │       │   │   │   ├── lexical.rs                                           # BM25 diagnostic search, using the generation's recorded analyzer profile
 │       │   │   │   ├── mod.rs                                               # Independent route diagnostics
-│       │   │   │   ├── order.rs                                             # Stable score ties for routes whose backend traversal is unordered
 │       │   │   │   ├── outcome.rs                                           # A route's hits and its independent availability status
 │       │   │   │   ├── results.rs                                           # Route-order results and the common first-hit deduplication rule
 │       │   │   │   ├── structured.rs                                        # Exact generation inventories and their separately bounded supports
@@ -732,7 +731,9 @@ in place.
 │       │       │   │   └── state.rs                                         # What the fake keeps, and the refusals and hollow answers a test asked for
 │       │       │   ├── search_routes/                                       # Dense and lexical routes against the shared fake and, when configured, real Qdrant
 │       │       │   │   ├── fused_search.rs                                  # The public search handoff fuses available routes when dense metadata is absent
+│       │       │   │   ├── fused_search_admission_pinning.rs                # Search admission and generation-pinning acceptance tests
 │       │       │   │   ├── identifier_route.rs                              # Exact identifiers combine payload equality with scoped prepared-input FTS
+│       │       │   │   ├── identifier_route_resilience.rs                   # Independent exact-identifier leg failures and empty results
 │       │       │   │   ├── mod.rs                                           # Dense and lexical routes against the shared fake and, when configured, real Qdrant
 │       │       │   │   ├── route_behavior.rs                                # Behavior of dense and lexical searches over the generation-pinned collection
 │       │       │   │   ├── route_errors.rs                                  # Refusals from admission, profiles and dense embedding

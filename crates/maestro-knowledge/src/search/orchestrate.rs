@@ -71,6 +71,10 @@ async fn execute_routes<P: ModelPort>(
         version: admitted.version.as_deref(),
         qdrant: context.qdrant,
     };
+    let structured_request = match admitted.structured_error.as_deref() {
+        Some(error) => Err(error),
+        None => Ok(admitted.structured_request.as_ref()),
+    };
     let (dense, lexical, identifier, structured) = join_route_futures(
         dense_outcome(&query, context.embedder.as_ref(), admitted.cutoffs.routes),
         lexical_outcome(&query, admitted.cutoffs.routes),
@@ -83,7 +87,7 @@ async fn execute_routes<P: ModelPort>(
         structured_outcome(
             &query,
             context.database.clone(),
-            admitted.structured_request.as_ref(),
+            structured_request,
             admitted.understood.kind == QueryKind::Global,
             admitted.cutoffs.routes,
         ),

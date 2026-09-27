@@ -6,6 +6,8 @@ use qdrant_client::qdrant::{
     Filter, PointId, Value, collections_server::CollectionsServer, points_server::PointsServer,
     value::Kind,
 };
+use std::sync::Arc;
+use tokio::sync::Notify;
 use tonic::{
     Code,
     transport::{Server, server::TcpIncoming},
@@ -50,6 +52,11 @@ impl FakeQdrant {
             .insert(alias.to_owned(), collection.to_owned());
     }
 
+    /// Blocks the next payload scroll until a test releases its gate.
+    pub(in super::super) fn gate_next_scroll(&self) -> Arc<Notify> {
+        self.fake.gate_next_scroll()
+    }
+
     /// Makes it refuse the next call `call` with `code`: `upsert`, `count`,
     /// `get`, `create`, `collection_exists`, `collection_info` or
     /// `update_aliases`.
@@ -78,6 +85,11 @@ impl FakeQdrant {
     /// Returns the exact filters sent to payload scrolls, in call order.
     pub(in super::super) fn scroll_filters(&self) -> Vec<Filter> {
         self.fake.state().scroll_filters.clone()
+    }
+
+    /// Returns every fake-service request, in call order.
+    pub(in super::super) fn calls(&self) -> Vec<String> {
+        self.fake.state().calls.clone()
     }
 
     /// Replaces one string payload field on a stored point.

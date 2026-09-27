@@ -14,10 +14,7 @@ use std::{
 
 use crate::search::{
     filter::{query_filter, scope_filter},
-    routes::{
-        order::by_score_then_chunk_id,
-        results::{ScoredChunk, deduplicate},
-    },
+    routes::results::{ScoredChunk, deduplicate, rank},
 };
 
 struct Scratch(PathBuf);
@@ -86,9 +83,11 @@ fn search_filter_adds_exact_version_after_scope_authorization() {
 }
 
 #[test]
-fn tied_hits_sort_by_chunk_id_after_score() {
-    let mut hits = vec![hit("z", "z", 0.9), hit("a", "a", 0.9), hit("b", "b", 0.8)];
-    by_score_then_chunk_id(&mut hits);
+fn tied_hits_rank_by_chunk_id_after_score() {
+    let hits = rank(
+        vec![hit("z", "z", 0.9), hit("a", "a", 0.9), hit("b", "b", 0.8)],
+        3,
+    );
     assert_eq!(
         hits,
         vec![hit("a", "a", 0.9), hit("z", "z", 0.9), hit("b", "b", 0.8)]
