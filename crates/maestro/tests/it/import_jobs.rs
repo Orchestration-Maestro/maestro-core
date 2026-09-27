@@ -8,7 +8,8 @@
 
 use super::support::{
     Home, IMPORT, bind_synthetic_corpus, local, stream, submit_other_import,
-    submit_synthetic_import, submit_synthetic_import_with_manifest, synthetic_inputs, types,
+    submit_synthetic_import, submit_synthetic_import_with_manifest, synthetic_inputs,
+    synthetic_inputs_with_manifest, types,
 };
 use maestro_kernel::job::JobState;
 use serde_json::{Value, json};
@@ -23,6 +24,18 @@ fn imported_everything() -> Value {
     json!({
         "collection": "synthetic",
         "imported": 28,
+        "unchanged": 0,
+        "held": 0,
+        "refused": 0,
+        "refusals": [],
+    })
+}
+
+/// The report of an import of the test's one-document corpus.
+fn imported_one_document() -> Value {
+    json!({
+        "collection": "synthetic",
+        "imported": 1,
         "unchanged": 0,
         "held": 0,
         "refused": 0,
@@ -99,6 +112,7 @@ fn the_synthetic_collection_imports_end_to_end_through_the_binary() {
 fn rerunning_an_import_returns_its_job_and_imports_nothing_again() {
     let home = Home::new();
     home.add_synthetic();
+    bind_synthetic_corpus(&home, &["en/glossary.md"]);
     let arguments = ["knowledge", "import", "--collection", "synthetic", "--json"];
     let first = home.run(&arguments);
     let second = home.run(&arguments);
@@ -207,6 +221,8 @@ fn an_import_whose_resource_a_live_lease_holds_is_refused_naming_its_job() {
 fn an_import_supersedes_the_job_of_other_inputs_whose_lease_expired() {
     let home = Home::new();
     home.add_synthetic();
+    let root = bind_synthetic_corpus(&home, &["en/glossary.md"]);
+    let manifest = root.join("corpus/maestro-corpus.jsonl");
     let database = home.database();
     let stale = submit_other_import(&database);
     let long_ago = SystemTime::now() - Duration::from_secs(120);
@@ -219,14 +235,16 @@ fn an_import_supersedes_the_job_of_other_inputs_whose_lease_expired() {
     assert_ne!(document["job"], stale.id.to_string(), "a job of its own");
     assert_eq!(
         (&document["state"], &document["outcome"]),
-        (&json!("succeeded"), &imported_everything())
+        (&json!("succeeded"), &imported_one_document())
     );
     let superseded = database.job(&local(&database), stale.id).unwrap().unwrap();
     assert_eq!(
         (superseded.state, superseded.outcome),
         (
             JobState::Cancelled,
-            Some(json!({ "superseded_by": { "inputs": synthetic_inputs() } }))
+            Some(json!({
+                "superseded_by": { "inputs": synthetic_inputs_with_manifest(&manifest) }
+            }))
         )
     );
     assert_eq!(
@@ -277,8 +295,10 @@ fn a_rerun_follows_the_job_another_process_holds_to_its_end() {
 fn an_expired_lease_is_taken_over_and_the_import_run_again() {
     let home = Home::new();
     home.add_synthetic();
+    let root = bind_synthetic_corpus(&home, &["en/glossary.md"]);
+    let manifest = root.join("corpus/maestro-corpus.jsonl");
     let database = home.database();
-    let job = submit_synthetic_import(&database);
+    let job = submit_synthetic_import_with_manifest(&database, &manifest);
     let long_ago = SystemTime::now() - Duration::from_secs(120);
     database
         .take_job(job.id, "crashed", long_ago, Duration::from_secs(60))
@@ -288,7 +308,7 @@ fn an_expired_lease_is_taken_over_and_the_import_run_again() {
     let document = import.json();
     assert_eq!(document["job"], job.id.to_string());
     assert_eq!(document["attempt"], 1);
-    assert_eq!(document["outcome"], imported_everything());
+    assert_eq!(document["outcome"], imported_one_document());
     let events = stream(&database, &format!("job/{}", job.id));
     assert!(
         types(&events).contains(&"maestro.job.taken_over.v1"),
@@ -315,14 +335,7 @@ fn a_rerun_takes_over_a_lease_that_expires_while_it_follows() {
     running.line_with("maestro.job.taken.v1");
     let ended = running.finish();
     assert_eq!(ended.code, Some(0), "{ended:?}");
-    let outcome = json!({
-        "collection": "synthetic",
-        "imported": 1,
-        "unchanged": 0,
-        "held": 0,
-        "refused": 0,
-        "refusals": [],
-    });
+    let outcome = imported_one_document();
     assert!(
         ended.stdout.ends_with(&format!("succeeded {outcome}\n")),
         "{ended:?}"
