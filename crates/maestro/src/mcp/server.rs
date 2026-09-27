@@ -3,10 +3,10 @@
 use crate::{
     failure::Failure,
     kernel::Kernel,
-    knowledge::{
-        CollectionsData, GetData, GetRequest, KnowledgeError, RESPONSE_LIMIT_BYTES, RequestError,
-        collections_with, ensure_current_scopes, get_with,
+    knowledge::operations::{
+        CollectionsData, GetData, KnowledgeError, collections_with, ensure_current_scopes, get_with,
     },
+    knowledge::{GetRequest, RESPONSE_LIMIT_BYTES, RequestError},
 };
 use rmcp::{
     ErrorData as McpError, ServerHandler,
@@ -132,7 +132,7 @@ impl ServerHandler for KnowledgeServer {
         ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
             .with_server_info(Implementation::new("maestro", env!("CARGO_PKG_VERSION")))
             .with_instructions(concat!(
-                "Read collection metadata or exact source-backed chunks granted ",
+                "Read collection metadata or exact source-backed chunks and sections granted ",
                 "to the local principal.",
             ))
     }
@@ -223,9 +223,16 @@ impl ServerHandler for KnowledgeServer {
 fn tool_definitions() -> Result<Vec<Tool>, McpError> {
     let mut collections_input = schema_for_input::<CollectionsRequest>()
         .map_err(|_| McpError::internal_error("tool schema unavailable", None))?;
-    let get_input = schema_for_input::<GetRequest>()
+    let mut get_input = schema_for_input::<GetRequest>()
         .map_err(|_| McpError::internal_error("tool schema unavailable", None))?;
     Arc::make_mut(&mut collections_input).insert("properties".to_owned(), json!({}));
+    Arc::make_mut(&mut get_input).insert(
+        "oneOf".to_owned(),
+        json!([
+            { "required": ["chunk_id"], "not": { "required": ["section_id"] } },
+            { "required": ["section_id"], "not": { "required": ["chunk_id"] } },
+        ]),
+    );
     let collections = Tool::new(
         "knowledge_collections",
         "List collection titles and published generations visible to the local principal.",
@@ -241,7 +248,10 @@ fn tool_definitions() -> Result<Vec<Tool>, McpError> {
     );
     let get = Tool::new(
         "knowledge_get",
-        "Read an exact source-backed chunk from a visible published or retained generation.",
+        concat!(
+            "Read an exact source-backed chunk or section from a visible ",
+            "published or retained generation.",
+        ),
         get_input,
     )
     .with_raw_output_schema(schema_for_output::<GetData>())
@@ -259,7 +269,7 @@ fn tool_definitions() -> Result<Vec<Tool>, McpError> {
 enum Operation {
     /// List local collection metadata.
     Collections,
-    /// Retrieve one exact source-backed chunk.
+    /// Retrieve one exact source-backed chunk or section.
     Get(GetRequest),
 }
 
@@ -340,12 +350,7 @@ fn run_operation(
             }
             Err(error) => (Ok(operation_error(error)), None),
         },
-        Operation::Get(request) => match get_with(
-            || open_kernel(),
-            &request.chunk_id,
-            request.collection.as_deref(),
-            request.generation,
-        ) {
+        Operation::Get(request) => match get_with(|| open_kernel(), &request) {
             Ok(scoped) => (
                 get_result(scoped.data),
                 Some((scoped.kernel, scoped.scopes)),
@@ -438,7 +443,13 @@ pub(super) fn bounded_collections_result(
 fn operation_error(error: KnowledgeError) -> CallToolResult {
     match error {
         KnowledgeError::Refused { code, message } | KnowledgeError::Failed { code, message } => {
-            tool_error(code, message, false, Vec::new())
+            let truncated = code == "response_too_large";
+            let omitted = if truncated {
+                vec!["excerpt"]
+            } else {
+                Vec::new()
+            };
+            tool_error(code, message, truncated, omitted)
         }
     }
 }

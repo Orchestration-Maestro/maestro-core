@@ -119,8 +119,8 @@ pub(super) enum KnowledgeCommand {
         /// The chunk's stable ID.
         #[arg(long, group = "get_selector", required = true)]
         chunk_id: Option<String>,
-        /// Deferred until the kernel exposes its authoritative section reader.
-        #[arg(long, group = "get_selector", hide = true)]
+        /// The canonical section ID.
+        #[arg(long, group = "get_selector")]
         section_id: Option<String>,
         /// Restrict lookup to this collection.
         #[arg(long)]

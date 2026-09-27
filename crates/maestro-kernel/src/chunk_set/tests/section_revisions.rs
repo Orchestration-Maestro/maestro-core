@@ -4,6 +4,7 @@ use super::support::{Scratch, chunk, new_set, prepared, reading};
 use crate::{
     chunk_set::Chunk,
     document::{Disposition, Document, Outcome, Revision, RevisionStatus},
+    scope::Right,
     store::Database,
 };
 use serde_json::Map;
@@ -19,6 +20,46 @@ fn decide(database: &Database, revision_id: &str, outcome: Outcome) {
             decided_by: "test".to_owned(),
         })
         .unwrap();
+}
+
+#[test]
+fn source_only_readers_find_sets_through_visible_revision_membership() {
+    let scratch = Scratch::new();
+    let database = scratch.open();
+    database.begin_chunk_set(&new_set("set-a", "ctm")).unwrap();
+    let input = prepared(&database, "section source");
+    database
+        .record_chunks(
+            "set-a",
+            "rev-a",
+            &[chunk("chunk-a", "rev-a", &input, 1, [0, 1])],
+        )
+        .unwrap();
+    let source = "workspace/default/collection/ctm/source/docs"
+        .parse()
+        .unwrap();
+    database
+        .grant("source-reader", &source, Right::Read, "test")
+        .unwrap();
+    let scopes = database.visible("source-reader").unwrap();
+
+    let found = database
+        .chunk_set_for_revision(&scopes, "set-a", "rev-a")
+        .unwrap()
+        .expect("source-visible set member");
+    assert_eq!(found.id, "set-a");
+    assert!(
+        database
+            .chunk_set_for_revision(&scopes, "set-a", "rev-b")
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        database
+            .chunk_set_for_revision(&scopes, "set-a", "rev-z")
+            .unwrap()
+            .is_none()
+    );
 }
 
 #[test]

@@ -11,7 +11,11 @@ use crate::{
 };
 use maestro_canonicalization::CanonicalDocument;
 use maestro_kernel::{
-    artifact::Digest, chunk_set::NewChunkSet, document::Outcome, scope::ScopeSet, store::Database,
+    artifact::Digest,
+    chunk_set::NewChunkSet,
+    document::Outcome,
+    scope::{Right, Scope, ScopeSet},
+    store::Database,
 };
 use std::{error::Error as StdError, io::Error as IoError};
 
@@ -78,11 +82,39 @@ fn returns_the_nested_non_ascii_section_with_original_byte_offsets() {
     assert_eq!(excerpt.section_id, parent_id);
     assert_eq!(excerpt.source_ref, "https://example.org/guide.md");
     assert_eq!(excerpt.title, "Notes");
-    assert_eq!(excerpt.heading_path, ["Guide", "Parent"]);
+    assert_eq!(excerpt.section_path, ["Guide", "Parent"]);
     assert_eq!(excerpt.version, None);
     assert_eq!(excerpt.span, [start, end]);
     assert_eq!(excerpt.digest, Digest::of(expected.as_bytes()));
     assert_eq!(excerpt.text, expected);
+}
+
+#[test]
+fn returns_a_section_to_its_source_only_grant() {
+    let scratch = Scratch::new();
+    let (database, scopes, report) = prepared(&scratch, &[("guide.md", NESTED)]);
+    let canonical = canonical_of(&database, &scopes, "guide.md");
+    let parent_id = section_id(&canonical, "Parent");
+    let source: Scope = "workspace/default/collection/notes/source/docs"
+        .parse()
+        .unwrap();
+    database
+        .grant("source-reader", &source, Right::Read, "test")
+        .unwrap();
+    let source_scopes = database.visible("source-reader").unwrap();
+    let start = NESTED.find("## Parent").unwrap();
+    let end = NESTED.find("## Sibling").unwrap();
+
+    let excerpt = read_section(
+        &database,
+        &source_scopes,
+        &report.chunk_set,
+        &parent_id,
+        end - start,
+    )
+    .unwrap();
+
+    assert_eq!(excerpt.text, &NESTED[start..end]);
 }
 
 #[test]
@@ -150,7 +182,7 @@ fn returns_a_nested_child_section_only_through_the_next_parent_sibling() {
 
     assert_eq!(excerpt.span, [start, end]);
     assert_eq!(excerpt.text, &NESTED[start..end]);
-    assert_eq!(excerpt.heading_path, ["Guide", "Parent", "Child"]);
+    assert_eq!(excerpt.section_path, ["Guide", "Parent", "Child"]);
 }
 
 #[test]

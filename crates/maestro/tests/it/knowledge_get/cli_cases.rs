@@ -4,7 +4,7 @@ use super::super::support::{Ended, Home, bind_synthetic_corpus, local, synthetic
 use maestro_kernel::{
     artifact::Digest,
     chunk_set::{Chunk, NewChunkSet},
-    document::Revision,
+    document::{Disposition, Outcome, Revision},
     evidence::Span,
     generation::NewGeneration,
     store::Database,
@@ -14,7 +14,7 @@ use std::{fs, path::PathBuf};
 
 pub(super) const CHUNK_ID: &str = "chunk-glossary";
 pub(super) const SET_ID: &str = "set-glossary";
-const SOURCE_REF: &str = "https://handbook.example.org/4.2/glossary";
+pub(super) const SOURCE_REF: &str = "https://handbook.example.org/4.2/glossary";
 
 #[test]
 fn an_unknown_or_inaccessible_chunk_has_one_privacy_safe_refusal() {
@@ -36,22 +36,10 @@ fn an_unknown_or_inaccessible_chunk_has_one_privacy_safe_refusal() {
 }
 
 #[test]
-fn section_get_is_refused_as_unavailable_and_not_advertised() {
-    let home = Home::bare();
-    let refused = home.run(&["knowledge", "get", "--section-id", "section-1"]);
-    assert_eq!(refused.code, Some(2), "{refused:?}");
-    assert_eq!(refused.stdout, "", "{refused:?}");
-    assert_eq!(refused.stderr.trim(), "section_id is not available yet");
-
-    let help = home.run(&["knowledge", "get", "--help"]);
-    assert_eq!(help.code, Some(0), "{help:?}");
-    assert!(!help.stdout.contains("section"), "{help:?}");
-}
-
-#[test]
 fn human_get_refuses_oversized_metadata_to_stderr() {
     let home = Home::new();
-    let (source_ref, generation) = oversized_source_ref_generation(&home);
+    let source = fs::read(synthetic().join("corpus/en/glossary.md")).unwrap();
+    let (source_ref, generation, _) = oversized_source_ref_generation(&home, &source);
     let generation = generation.to_string();
     let result = home.run(&[
         "knowledge",
@@ -70,6 +58,31 @@ fn human_get_refuses_oversized_metadata_to_stderr() {
         "response_too_large: the exact excerpt exceeds the response limit"
     );
     assert!(!result.stderr.contains(&source_ref));
+}
+
+#[test]
+fn oversized_sections_return_a_bounded_typed_refusal() {
+    let home = Home::new();
+    let source = format!("# Glossary\n\n{}", "x".repeat(65_536)).into_bytes();
+    let (source_ref, generation, section_id) = oversized_source_ref_generation(&home, &source);
+    let generation = generation.to_string();
+    let result = home.run(&[
+        "--json",
+        "knowledge",
+        "get",
+        "--collection",
+        "synthetic",
+        "--generation",
+        &generation,
+        "--section-id",
+        &section_id,
+    ]);
+    assert_eq!(result.code, Some(2), "{result:?}");
+    assert_eq!(result.json()["error"]["code"], "response_too_large");
+    assert_eq!(result.json()["truncated"], true);
+    assert_eq!(result.json()["omitted"], json!(["excerpt"]));
+    assert!(result.stdout.len() <= 65_536);
+    assert!(!result.stdout.contains(&source_ref));
 }
 
 #[test]
@@ -106,7 +119,7 @@ fn get_returns_exact_source_bytes_from_the_admitted_generation() {
                     "chunk_id": CHUNK_ID,
                     "document_id": document_id(&home.database()),
                     "revision_id": revision(&home.database()).id,
-                    "section_id": "sec-glossary",
+                    "section_id": canonical_section_id(&home.database()),
                     "source_ref": SOURCE_REF,
                     "title": "Glossary",
                     "version": "4.2",
@@ -189,17 +202,16 @@ fn generation_requires_a_collection_and_must_be_positive() {
     );
 }
 
-fn oversized_source_ref_generation(home: &Home) -> (String, i64) {
+fn oversized_source_ref_generation(home: &Home, source: &[u8]) -> (String, i64, String) {
     home.add_synthetic();
     let root = home.root().join("oversized-ref-corpus");
-    let source = fs::read(synthetic().join("corpus/en/glossary.md")).unwrap();
     fs::create_dir_all(root.join("corpus/en")).unwrap();
-    fs::write(root.join("corpus/en/glossary.md"), &source).unwrap();
+    fs::write(root.join("corpus/en/glossary.md"), source).unwrap();
     let source_ref = format!("https://handbook.example.org/{}", "x".repeat(65_536));
     let entry = json!({
         "schema": "maestro-corpus/1",
         "path": "en/glossary.md",
-        "sha256": Digest::of(&source).as_str(),
+        "sha256": Digest::of(source).as_str(),
         "bytes": source.len(),
         "source_ref": source_ref.clone(),
         "title": "Glossary",
@@ -233,7 +245,17 @@ fn oversized_source_ref_generation(home: &Home) -> (String, i64) {
                 .is_some_and(|document| document.source_ref == source_ref)
         })
         .expect("large source reference revision");
-    let digest = database.put(&source, "text/markdown").unwrap();
+    database
+        .record_disposition(&Disposition {
+            revision_id: revision.id.clone(),
+            outcome: Outcome::Accepted,
+            reasons: Vec::new(),
+            rule_ids: Vec::new(),
+            decided_by: "test".to_owned(),
+        })
+        .unwrap();
+    let section_id = canonical_section_id_for_revision(&database, &revision);
+    let digest = database.put(source, "text/markdown").unwrap();
     let set_id = "set-oversized-source-ref";
     database
         .begin_chunk_set(&NewChunkSet {
@@ -250,7 +272,7 @@ fn oversized_source_ref_generation(home: &Home) -> (String, i64) {
             &[Chunk {
                 id: CHUNK_ID.to_owned(),
                 revision_id: revision.id.clone(),
-                section_id: Some("sec-glossary".to_owned()),
+                section_id: Some(section_id.clone()),
                 digest,
                 token_count: 1,
                 span: Span {
@@ -272,7 +294,7 @@ fn oversized_source_ref_generation(home: &Home) -> (String, i64) {
         .unwrap();
     database.verify_generation(generation.id, 1).unwrap();
     database.publish_generation(generation.id).unwrap();
-    (source_ref, generation.id)
+    (source_ref, generation.id, section_id)
 }
 
 pub(super) fn published_glossary(home: &Home, set_id: &str, span: (usize, Option<usize>)) -> i64 {
@@ -304,6 +326,15 @@ fn glossary_generation(
     assert_eq!(imported.code, Some(0), "{imported:?}");
     let database = home.database();
     let revision = revision_in(&database, collection);
+    database
+        .record_disposition(&Disposition {
+            revision_id: revision.id.clone(),
+            outcome: Outcome::Accepted,
+            reasons: Vec::new(),
+            rule_ids: Vec::new(),
+            decided_by: "test".to_owned(),
+        })
+        .unwrap();
     let text = fs::read_to_string(synthetic().join("corpus/en/glossary.md")).unwrap();
     let end = span.1.unwrap_or(text.len());
     let content = text.get(span.0..end).unwrap();
@@ -323,7 +354,7 @@ fn glossary_generation(
             &[Chunk {
                 id: CHUNK_ID.to_owned(),
                 revision_id: revision.id.clone(),
-                section_id: Some("sec-glossary".to_owned()),
+                section_id: Some(canonical_section_id(&database)),
                 digest: prepared,
                 token_count: 1,
                 span: Span { start: span.0, end },
@@ -369,7 +400,7 @@ fn add_glossary_collection(home: &Home, collection: &str) {
     assert_eq!(added.code, Some(0), "{added:?}");
 }
 
-fn revision(database: &Database) -> Revision {
+pub(super) fn revision(database: &Database) -> Revision {
     revision_in(database, "synthetic")
 }
 
@@ -388,8 +419,30 @@ fn revision_in(database: &Database, collection: &str) -> Revision {
         .unwrap()
 }
 
-fn document_id(database: &Database) -> String {
+pub(super) fn document_id(database: &Database) -> String {
     revision(database).document_id
+}
+
+pub(super) fn canonical_section_id(database: &Database) -> String {
+    canonical_section_id_for_revision(database, &revision(database))
+}
+
+pub(super) fn canonical_section_id_for_revision(
+    database: &Database,
+    revision: &Revision,
+) -> String {
+    let canonical: Value =
+        serde_json::from_slice(&database.get(&revision.canonical_digest).unwrap()).unwrap();
+    canonical["sections"]
+        .as_array()
+        .and_then(|sections| {
+            sections
+                .iter()
+                .find(|section| section["heading_path"] == json!(["Glossary"]))
+        })
+        .and_then(|section| section["section_id"].as_str())
+        .expect("canonical Glossary section")
+        .to_owned()
 }
 
 pub(super) fn mcp_tool_error(response: &Value) -> Value {

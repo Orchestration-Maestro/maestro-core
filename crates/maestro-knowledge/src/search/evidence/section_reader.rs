@@ -4,7 +4,7 @@ use super::sections::SectionIndex;
 use maestro_canonicalization::{CanonicalDocument, Section, ValidationStatus};
 use maestro_kernel::{
     artifact::{Digest, Error as ArtifactError},
-    chunk_set::{self, ChunkSet, ChunkSetState},
+    chunk_set::{self, ChunkSetState},
     document::{self, Document, Outcome, Revision, RevisionStatus},
     evidence::Span,
     scope::ScopeSet,
@@ -26,8 +26,8 @@ pub struct SectionExcerpt {
     pub source_ref: String,
     /// The canonical title, or an empty string when unknown.
     pub title: String,
-    /// The section's canonical heading path.
-    pub heading_path: Vec<String>,
+    /// The section's canonical path of ancestor headings.
+    pub section_path: Vec<String>,
     /// The literal version metadata, if it is text.
     pub version: Option<String>,
     /// Half-open UTF-8 byte offsets in the original Markdown.
@@ -104,14 +104,11 @@ pub fn read_section(
     section_id: &str,
     max_bytes: usize,
 ) -> Result<SectionExcerpt, SectionReadError> {
-    let chunk_set = database
-        .chunk_set(scopes, chunk_set_id)
-        .map_err(map_chunk_set_error)?
-        .ok_or(SectionReadError::NotFound)?;
+    let (chunk_set, revision, document) =
+        find_section_document(database, scopes, chunk_set_id, section_id)?;
     let (ChunkSetState::Complete, Some(_)) = (chunk_set.state, &chunk_set.manifest_digest) else {
         return Err(SectionReadError::NotFound);
     };
-    let (revision, document) = find_section_document(database, scopes, &chunk_set, section_id)?;
     let disposition = database
         .disposition(scopes, &revision.id)
         .map_err(map_document_error)?
@@ -132,7 +129,7 @@ pub fn read_section(
         section_id: bounded.section.section_id.clone(),
         source_ref: document.source_ref,
         title: canonical.source_metadata.title.clone().unwrap_or_default(),
-        heading_path: bounded.section.heading_path.clone(),
+        section_path: bounded.section.heading_path.clone(),
         version: revision
             .metadata
             .get("version")
@@ -154,11 +151,11 @@ fn section_is_eligible(status: RevisionStatus, outcome: Outcome) -> bool {
 fn find_section_document(
     database: &Database,
     scopes: &ScopeSet,
-    chunk_set: &ChunkSet,
+    chunk_set_id: &str,
     section_id: &str,
-) -> Result<(Revision, Document), SectionReadError> {
+) -> Result<(chunk_set::ChunkSet, Revision, Document), SectionReadError> {
     let pairs = database
-        .section_revisions(scopes, &chunk_set.id, section_id)
+        .section_revisions(scopes, chunk_set_id, section_id)
         .map_err(map_chunk_set_error)?;
     let [(document_id, revision_id)] = pairs.as_slice() else {
         return Err(if pairs.is_empty() {
@@ -167,6 +164,10 @@ fn find_section_document(
             SectionReadError::Ambiguous
         });
     };
+    let chunk_set = database
+        .chunk_set_for_revision(scopes, chunk_set_id, revision_id)
+        .map_err(map_chunk_set_error)?
+        .ok_or(SectionReadError::NotFound)?;
     let revision = database
         .revision(scopes, revision_id)
         .map_err(map_document_error)?
@@ -181,7 +182,7 @@ fn find_section_document(
     if document.collection_id != chunk_set.collection_id {
         return Err(SectionReadError::Integrity);
     }
-    Ok((revision, document))
+    Ok((chunk_set, revision, document))
 }
 
 /// Loads the canonical record only when its identity and content hash agree.

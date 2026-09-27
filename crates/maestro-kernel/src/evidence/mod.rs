@@ -41,7 +41,7 @@ mod tests;
 pub use bundle::{Budget, Bundle, Conflict, RouteStatus, Schema, Trace};
 pub use error::Error;
 pub use inventory::{Inventory, InventoryCount};
-pub use lookup::ChunkLocation;
+pub use lookup::{ChunkLocation, SectionLocation};
 pub use passage::{Alternate, Passage, Span};
 pub use request_budget::RequestBudget;
 pub use resolve::Excerpt;

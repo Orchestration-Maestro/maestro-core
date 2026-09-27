@@ -216,15 +216,14 @@
 //!
 //! # `knowledge get`
 //!
-//! Reads an exact chunk from a visible published generation, or from a
-//! published/retired generation when `--collection` and `--generation` pin
-//! it. Without those selectors, multiple visible published matches are
-//! refused as ambiguous. `--generation` requires `--collection`. The result
-//! is `maestro-cli/knowledge-get/1` around
+//! Reads an exact chunk or canonical section from a visible published
+//! generation, or from a published/retired generation when `--collection`
+//! and `--generation` pin it. Without those selectors, multiple visible
+//! published matches are refused as ambiguous. `--generation` requires
+//! `--collection`. The result is `maestro-cli/knowledge-get/1` around
 //! `maestro-knowledge-get/1`, preserving the source bytes, span and digest;
-//! an excerpt that cannot fit the JSON limit is refused whole. `section_id`
-//! is not available yet and is hidden from help until its authoritative
-//! kernel reader exists.
+//! section results include the canonical section path. An excerpt that cannot
+//! fit the JSON limit is refused whole.
 //!
 //! # `mcp`
 //!
@@ -236,7 +235,7 @@
 //! bytes, string request IDs at 256 bytes, and active calls at four. Collections
 //! omit complete trailing entries with `maestro/truncation` metadata and a
 //! text warning; exact oversized excerpts return `response_too_large` without
-//! a shortened body. Section retrieval and search are not advertised yet.
+//! a shortened body. Section retrieval is available; search is not advertised yet.
 //!
 //! # `setup`
 //!

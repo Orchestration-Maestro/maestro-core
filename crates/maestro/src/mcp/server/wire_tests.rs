@@ -2,7 +2,8 @@
 
 use super::{CollectionsOutput, bounded_collections_result, response_fits, response_size};
 use crate::{
-    knowledge::{CollectionItem, CollectionsData, RESPONSE_LIMIT_BYTES},
+    knowledge::RESPONSE_LIMIT_BYTES,
+    knowledge::operations::{CollectionItem, CollectionsData},
     mcp::transport::BoundedStdio,
 };
 use rmcp::{

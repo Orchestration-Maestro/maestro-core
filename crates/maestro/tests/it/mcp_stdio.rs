@@ -60,6 +60,7 @@ fn assert_collections_tool(collections: &Value) {
 fn assert_get_tool(get: &Value) {
     assert_eq!(get["inputSchema"]["type"], "object");
     assert_eq!(get["inputSchema"]["additionalProperties"], false);
+    assert_eq!(get["inputSchema"]["oneOf"].as_array().unwrap().len(), 2);
     assert_eq!(get["outputSchema"]["type"], "object");
     assert_eq!(
         get["inputSchema"]["properties"]["generation"]["minimum"],
@@ -67,6 +68,11 @@ fn assert_get_tool(get: &Value) {
     );
     assert!(
         get["inputSchema"]["properties"]["chunk_id"]["description"]
+            .as_str()
+            .is_some_and(|description| description.contains("UTF-8 bytes"))
+    );
+    assert!(
+        get["inputSchema"]["properties"]["section_id"]["description"]
             .as_str()
             .is_some_and(|description| description.contains("UTF-8 bytes"))
     );
@@ -135,7 +141,8 @@ fn mcp_returns_bounded_tool_errors_and_protocol_errors_for_invalid_requests() {
                 "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/call\",\"params\":{",
                 "\"name\":\"knowledge_collections\",\"arguments\":{}}}\n",
                 "{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/call\",\"params\":{",
-                "\"name\":\"knowledge_get\",\"arguments\":{\"section_id\":\"s1\"}}}\n",
+                "\"name\":\"knowledge_get\",\"arguments\":{\"chunk_id\":\"x\",",
+                "\"section_id\":\"s1\"}}}\n",
                 "{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"tools/call\",\"params\":{",
                 "\"name\":\"knowledge_get\",\"arguments\":{\"chunk_id\":\"x\",",
                 "\"principal\":\"other\"}}}\n",
@@ -193,8 +200,8 @@ fn assert_bounded_tool_errors(responses: &[Value]) {
         json!({
             "schema": "maestro-mcp-error/1",
             "error": {
-                "code": "section_id_unavailable",
-                "message": concat!("section_id is not available ", "yet")
+                "code": "invalid_arguments",
+                "message": concat!("arguments do not match the ", "knowledge tool schema")
             },
             "truncated": false,
             "limit_bytes": 65536

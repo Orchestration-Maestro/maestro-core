@@ -126,6 +126,40 @@ impl Database {
         Ok(find(&self.reader()?, Some(scopes), id)?)
     }
 
+    /// The chunk set `id`, if `revision_id` belongs to it in a source readable
+    /// through `scopes`.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Store`] when the database cannot be read.
+    pub fn chunk_set_for_revision(
+        &self,
+        scopes: &ScopeSet,
+        id: &str,
+        revision_id: &str,
+    ) -> Result<Option<ChunkSet>, Error> {
+        let reader = self.reader()?;
+        Ok(reader
+            .query_row(
+                &format!(
+                    "SELECT {COLUMNS} FROM chunk_sets
+                     WHERE chunk_sets.id = ?1 AND EXISTS (
+                       SELECT 1 FROM chunks
+                       JOIN revisions ON revisions.id = chunks.revision_id
+                       JOIN documents ON documents.id = revisions.document_id
+                       WHERE chunks.chunk_set_id = chunk_sets.id
+                         AND revisions.id = ?2
+                         AND documents.collection_id = chunk_sets.collection_id
+                         AND {}
+                     )",
+                    ScopeSet::source_condition("documents.collection_id", "documents.source_id", 3)
+                ),
+                params![id, revision_id, scopes.parameter()],
+                chunk_set_row,
+            )
+            .optional()?)
+    }
+
     /// The latest complete chunk set of `collection_id`, if one is recorded
     /// and `scopes` covers its collection.
     ///

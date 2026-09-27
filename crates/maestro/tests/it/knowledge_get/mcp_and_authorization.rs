@@ -5,8 +5,8 @@ use super::super::{
     support::{Home, synthetic},
 };
 use super::cli_cases::{
-    CHUNK_ID, SET_ID, assert_refusal, building_glossary, mcp_tool_error, published_glossary,
-    published_glossary_in, stored_artifact, two_published_glossaries,
+    CHUNK_ID, SET_ID, assert_refusal, building_glossary, canonical_section_id, mcp_tool_error,
+    published_glossary, published_glossary_in, stored_artifact, two_published_glossaries,
 };
 use maestro_kernel::artifact::Digest;
 use serde_json::{Value, json};
@@ -66,6 +66,77 @@ fn mcp_get_returns_the_same_data_as_cli_for_the_admitted_generation() {
         .iter()
         .find(|response| response["id"] == 2)
         .expect("tool-list response");
+    assert_output_schema(
+        &response["result"]["structuredContent"],
+        &tools["result"]["tools"][1]["outputSchema"],
+    );
+}
+
+#[test]
+fn mcp_section_get_matches_cli_and_returns_the_authoritative_section_path() {
+    let home = Home::new();
+    let generation = published_glossary(&home, SET_ID, (0, None));
+    let section_id = canonical_section_id(&home.database());
+    home.configure("[access]\nread = ['workspace/default/collection/synthetic/source/handbook']\n");
+    let generation_arg = generation.to_string();
+    let cli = home.run(&[
+        "--json",
+        "knowledge",
+        "get",
+        "--collection",
+        "synthetic",
+        "--generation",
+        &generation_arg,
+        "--section-id",
+        &section_id,
+    ]);
+    assert_eq!(cli.code, Some(0), "{cli:?}");
+
+    let (server, mut input) = home.start_with_stdin(&["--json", "mcp"]);
+    let requests = format!(
+        concat!(
+            "{{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{{",
+            "\"protocolVersion\":\"2025-11-25\",\"capabilities\":{{}},",
+            "\"clientInfo\":{{\"name\":\"test\",\"version\":\"1\"}}}}}}\n",
+            "{{\"jsonrpc\":\"2.0\",\"method\":\"notifications/initialized\"}}\n",
+            "{{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\",\"params\":{{}}}}\n",
+            "{{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/call\",\"params\":{{",
+            "\"name\":\"knowledge_get\",\"arguments\":{{\"section_id\":\"{}\",",
+            "\"collection\":\"synthetic\",\"generation\":{}}}}}}}\n"
+        ),
+        section_id, generation
+    );
+    input
+        .write_all(requests.as_bytes())
+        .expect("write MCP request");
+    drop(input);
+    let output = server.finish();
+    assert_eq!(output.code, Some(0), "{output:?}");
+    assert_eq!(output.stderr, "");
+    let responses = output
+        .stdout
+        .lines()
+        .map(|line| serde_json::from_str::<Value>(line).expect("parse MCP response"))
+        .collect::<Vec<_>>();
+    let response = responses
+        .iter()
+        .find(|response| response["id"] == 3)
+        .expect("section get response");
+    assert_eq!(response["result"]["isError"], false);
+    assert_eq!(response["result"]["structuredContent"], cli.json()["data"]);
+    assert_eq!(
+        response["result"]["structuredContent"]["excerpt"]["section_path"],
+        json!(["Glossary"])
+    );
+    let tools = responses
+        .iter()
+        .find(|response| response["id"] == 2)
+        .expect("tool-list response");
+    assert!(
+        tools["result"]["tools"][1]["inputSchema"]["properties"]["section_id"]["description"]
+            .as_str()
+            .is_some_and(|description| description.contains("UTF-8 bytes"))
+    );
     assert_output_schema(
         &response["result"]["structuredContent"],
         &tools["result"]["tools"][1]["outputSchema"],
@@ -236,6 +307,22 @@ fn ambiguous_chunk_ids_are_refused_with_an_exact_privacy_safe_message() {
         2,
         concat!(
             "chunk matches more than one visible published generation; ",
+            "specify collection and generation"
+        ),
+    );
+}
+
+#[test]
+fn ambiguous_section_ids_are_refused_with_an_exact_privacy_safe_message() {
+    let home = Home::new();
+    two_published_glossaries(&home);
+    let section_id = canonical_section_id(&home.database());
+    let ambiguous = home.run(&["knowledge", "get", "--section-id", &section_id]);
+    assert_refusal(
+        &ambiguous,
+        2,
+        concat!(
+            "section matches more than one visible published generation; ",
             "specify collection and generation"
         ),
     );

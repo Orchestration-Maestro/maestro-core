@@ -8,7 +8,12 @@ use super::{
     output::{Output, diagnose},
     prepare, publish, quality, retrieve, setup, status, verify, wait,
 };
-use crate::{failure::Failure, kernel::Kernel, mcp::run::run as run_mcp};
+use crate::{
+    failure::Failure,
+    kernel::Kernel,
+    knowledge::{GetRequest, RequestError},
+    mcp::run::run as run_mcp,
+};
 use clap::Parser as _;
 use std::process::ExitCode;
 
@@ -105,7 +110,7 @@ fn knowledge(
     }
 }
 
-/// Refuses the deferred section selector before opening or querying the kernel.
+/// Reads the selected exact chunk or canonical section from its source.
 fn get_command(
     output: Output,
     chunk_id: Option<&str>,
@@ -113,17 +118,12 @@ fn get_command(
     collection: Option<&str>,
     generation: Option<i64>,
 ) -> Result<ExitCode, Failure> {
-    if section_id.is_some() {
-        return Err(Failure::refused("section_id is not available yet"));
-    }
-    let Some(chunk_id) = chunk_id else {
-        return Err(Failure::refused("knowledge get requires a chunk_id"));
-    };
-    retrieve::get_chunk(
-        output,
-        chunk_id.to_owned(),
+    let request = GetRequest::from_cli(
+        chunk_id.map(str::to_owned),
+        section_id.map(str::to_owned),
         collection.map(str::to_owned),
         generation,
-        Kernel::open,
     )
+    .map_err(|error: RequestError| Failure::refused(error.message()))?;
+    retrieve::get_exact(output, &request, Kernel::open)
 }

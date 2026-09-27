@@ -94,6 +94,7 @@ impl Database {
         let mut statement = connection.prepare(&format!(
             "SELECT DISTINCT documents.id, revisions.id
              FROM chunks
+             JOIN chunk_sets ON chunk_sets.id = chunks.chunk_set_id
              JOIN revisions ON revisions.id = chunks.revision_id
              JOIN documents ON documents.id = revisions.document_id
              JOIN quality_dispositions ON quality_dispositions.revision_id = revisions.id

@@ -111,8 +111,11 @@ in place.
 │   │   │   │   ├── verify.rs                                                # knowledge verify: checks a published generation as a leased job
 │   │   │   │   └── wait.rs                                                  # job wait: a job's stream followed to its end, the command exiting with its outcome; the follower
 │   │   │   ├── knowledge/                                                   # Scoped knowledge operations shared by the CLI and stdio MCP server
+│   │   │   │   ├── operations/                                              # Source-scoped kernel operations for the CLI and MCP read surfaces
+│   │   │   │   │   ├── implementation.rs                                    # Scoped application operations shared by CLI and MCP
+│   │   │   │   │   ├── mod.rs                                               # Source-scoped kernel operations for the CLI and MCP read surfaces
+│   │   │   │   │   └── tests.rs                                             # Rust source: tests
 │   │   │   │   ├── mod.rs                                                   # Scoped knowledge operations shared by the CLI and stdio MCP server
-│   │   │   │   ├── operations.rs                                            # Scoped application operations shared by CLI and MCP
 │   │   │   │   ├── output.rs                                                # Shared wire limit for complete serialized knowledge responses
 │   │   │   │   └── requests.rs                                              # Strict arguments shared by the CLI and MCP tools
 │   │   │   ├── mcp/                                                         # Bounded local stdio MCP transport and tools
@@ -133,7 +136,8 @@ in place.
 │   │   │       ├── knowledge_get/                                           # CLI and MCP contracts for exact knowledge retrieval
 │   │   │       │   ├── cli_cases.rs                                         # Exact knowledge get CLI behavior
 │   │   │       │   ├── mcp_and_authorization.rs                             # MCP parity, permission refresh, and exact-retrieval refusal cases
-│   │   │       │   └── mod.rs                                               # CLI and MCP contracts for exact knowledge retrieval
+│   │   │       │   ├── mod.rs                                               # CLI and MCP contracts for exact knowledge retrieval
+│   │   │       │   └── section_cases.rs                                     # Exact canonical-section retrieval across the CLI and MCP surfaces
 │   │   │       ├── backup_restore.rs                                        # Backup and restore: online copies keep the database, artifacts and leased
 │   │   │       ├── backup_restore_targets.rs                                # Rust source: backup restore targets
 │   │   │       ├── cli_contract.rs                                          # JSON on stdout, diagnostics on stderr, exit codes 0, 1 and 2, the job ID first

@@ -1,10 +1,10 @@
 //! CLI adapters for the shared, permission-scoped read operations.
 
 use super::output::Output;
-use crate::knowledge::{
-    CollectionsData, GetData, GetRequest, KnowledgeError, RESPONSE_LIMIT_BYTES, RequestError,
-    collections_with, ensure_current_scopes, get_with,
+use crate::knowledge::operations::{
+    CollectionsData, GetData, KnowledgeError, collections_with, ensure_current_scopes, get_with,
 };
+use crate::knowledge::{GetRequest, RESPONSE_LIMIT_BYTES};
 use crate::{failure::Failure, kernel::Kernel};
 use serde::Serialize;
 use serde_json::Value;
@@ -23,23 +23,26 @@ pub(super) fn collections(
     Ok(ExitCode::SUCCESS)
 }
 
-/// Gets an exact chunk from the collection and generation admitted by the request.
-pub(super) fn get_chunk(
+/// Gets an exact chunk or canonical section from the admitted generation.
+pub(super) fn get_exact(
     output: Output,
-    chunk_id: String,
-    collection: Option<String>,
-    generation: Option<i64>,
+    request: &GetRequest,
     open_kernel: impl FnOnce() -> Result<Kernel, Failure>,
 ) -> Result<ExitCode, Failure> {
-    let request = GetRequest::from_cli(chunk_id, collection, generation)
-        .map_err(|error: RequestError| Failure::refused(error.message()))?;
-    let mut scoped = get_with(
-        open_kernel,
-        &request.chunk_id,
-        request.collection.as_deref(),
-        request.generation,
-    )
-    .map_err(failure)?;
+    let mut scoped = match get_with(open_kernel, request) {
+        Ok(scoped) => scoped,
+        Err(KnowledgeError::Refused {
+            code: "response_too_large",
+            ..
+        }) => {
+            output.refusal(
+                &response_too_large(),
+                "response_too_large: the exact excerpt exceeds the response limit",
+            )?;
+            return Ok(ExitCode::from(2));
+        }
+        Err(error) => return Err(failure(error)),
+    };
     let data = &scoped.data;
     let (document, too_large) = get_document(data).map_err(failure)?;
     let text = if too_large {
@@ -222,7 +225,10 @@ fn format_failure() -> KnowledgeError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::knowledge::{CollectionItem, GetExcerpt, RefreshScratch};
+    use crate::knowledge::{
+        RefreshScratch,
+        operations::{CollectionItem, GetExcerpt},
+    };
 
     #[test]
     fn collections_refuses_access_revoked_before_cli_delivery() {
@@ -238,13 +244,14 @@ mod tests {
     #[test]
     fn get_refuses_access_revoked_before_cli_delivery() {
         let scratch = RefreshScratch::new();
-        let result = get_chunk(
-            Output::new(true),
-            "chunk".to_owned(),
+        let request = GetRequest::from_cli(
+            Some("chunk".to_owned()),
+            None,
             Some("collection".to_owned()),
             None,
-            || scratch.kernel(Some(2)),
-        );
+        )
+        .expect("valid exact request");
+        let result = get_exact(Output::new(true), &request, || scratch.kernel(Some(2)));
         assert!(matches!(
             result,
             Err(Failure::Refused(message))
@@ -298,13 +305,14 @@ mod tests {
             collection: "collection".to_owned(),
             generation: 1,
             excerpt: GetExcerpt {
-                chunk_id: "chunk".to_owned(),
+                chunk_id: Some("chunk".to_owned()),
                 document_id: "document".to_owned(),
                 revision_id: "revision".to_owned(),
                 section_id: None,
                 source_ref: "source".to_owned(),
                 title: None,
                 version: None,
+                section_path: None,
                 span: [0, 70_000],
                 digest: "sha256:digest".to_owned(),
                 text: "x".repeat(70_000),

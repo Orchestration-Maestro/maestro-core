@@ -1,7 +1,8 @@
-use super::{CollectionsRequest, KnowledgeServer, get_result};
+use super::{CollectionsRequest, KnowledgeServer, get_result, operation_error};
 use crate::{
     kernel::Kernel,
-    knowledge::{GetData, GetExcerpt, RESPONSE_LIMIT_BYTES, RefreshScratch, RequestError},
+    knowledge::operations::{GetData, GetExcerpt, KnowledgeError},
+    knowledge::{RESPONSE_LIMIT_BYTES, RefreshScratch, RequestError},
     mcp::transport::BoundedStdio,
 };
 use rmcp::{ServerHandler, ServiceExt, model::ProtocolVersion};
@@ -83,13 +84,14 @@ fn get_result_keeps_exact_source_data_in_structured_content() {
         collection: "collection".to_owned(),
         generation: 7,
         excerpt: GetExcerpt {
-            chunk_id: "chunk".to_owned(),
+            chunk_id: Some("chunk".to_owned()),
             document_id: "document".to_owned(),
             revision_id: "revision".to_owned(),
             section_id: Some("section".to_owned()),
             source_ref: "corpus-path:source.md".to_owned(),
             title: Some("Source".to_owned()),
             version: Some("1".to_owned()),
+            section_path: None,
             span: [0, 5],
             digest: "sha256:digest".to_owned(),
             text: "exact".to_owned(),
@@ -108,7 +110,24 @@ fn get_result_keeps_exact_source_data_in_structured_content() {
         value["structuredContent"]["excerpt"]["digest"],
         "sha256:digest"
     );
-    assert!(value["structuredContent"]["excerpt"]["path"].is_null());
+    assert!(value["structuredContent"]["excerpt"]["section_path"].is_null());
+}
+
+#[test]
+fn operation_error_marks_an_over_limit_section_as_truncated_without_excerpt_data() {
+    let result = operation_error(KnowledgeError::Refused {
+        code: "response_too_large",
+        message: "the exact excerpt exceeds the response limit",
+    });
+    let value = serde_json::to_value(result).expect("tool error JSON");
+    assert_eq!(value["isError"], true);
+    assert!(value["structuredContent"].is_null());
+    let text = value["content"][0]["text"]
+        .as_str()
+        .expect("tool error text");
+    let error: Value = serde_json::from_str(text).expect("structured tool error");
+    assert_eq!(error["truncated"], true);
+    assert_eq!(error["omitted"], json!(["excerpt"]));
 }
 
 #[test]
@@ -122,13 +141,14 @@ fn get_result_refuses_only_text_over_the_indivisible_excerpt_limit() {
             collection: "collection".to_owned(),
             generation: 7,
             excerpt: GetExcerpt {
-                chunk_id: "chunk".to_owned(),
+                chunk_id: Some("chunk".to_owned()),
                 document_id: "document".to_owned(),
                 revision_id: "revision".to_owned(),
                 section_id: None,
                 source_ref: "source".to_owned(),
                 title: None,
                 version: None,
+                section_path: None,
                 span: [0, text_len],
                 digest: "sha256:digest".to_owned(),
                 text: "x".repeat(text_len),
