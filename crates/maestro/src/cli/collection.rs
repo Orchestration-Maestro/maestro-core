@@ -4,7 +4,8 @@
 //! as `maestro.knowledge.collection.added.v1`; and the declaration a later
 //! command finds for a collection, the one added last.
 
-use super::{failure::Failure, kernel::Kernel, output::Output};
+use super::output::Output;
+use crate::{failure::Failure, kernel::Kernel};
 use maestro_kernel::{
     artifact::Digest,
     journal::{self, Filter, NewEvent},

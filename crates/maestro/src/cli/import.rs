@@ -14,12 +14,14 @@
 
 use super::{
     collection::{self, Declared},
-    failure::{Failure, chain},
     foreground,
-    kernel::Kernel,
     lease::Holder,
     output::Output,
     wait::{self, Printing},
+};
+use crate::{
+    failure::{Failure, chain},
+    kernel::Kernel,
 };
 use maestro_kernel::{
     artifact::Digest,

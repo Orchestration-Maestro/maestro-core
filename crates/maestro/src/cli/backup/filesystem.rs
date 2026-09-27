@@ -1,6 +1,6 @@
 //! Filesystem operations for private backup and restore files.
 
-use super::super::failure::Failure;
+use crate::failure::Failure;
 use sha2::{Digest as _, Sha256};
 use std::{
     fs,

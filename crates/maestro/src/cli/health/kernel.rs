@@ -6,7 +6,7 @@
 //! principal, as every command does.
 
 use super::check::Check;
-use crate::cli::failure::chain;
+use crate::failure::chain;
 use maestro_kernel::{
     binding::{self, Bindings},
     scope::{CONFIG_FILE, Config, LOCAL, ScopeSet},

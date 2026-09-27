@@ -1,7 +1,6 @@
 //! The `backup` and `restore` command handlers and backup writer.
 
 use super::{
-    super::failure::Failure,
     filesystem::{
         copy_hash, create_destination, create_private_dir, create_private_dir_all,
         create_private_file, directory_problem, failed_io, hash_file, source_file, timestamp,
@@ -14,6 +13,7 @@ use super::{
     names::{ARTIFACTS, DATABASE, MANIFEST},
     restore::restore_files,
 };
+use crate::failure::Failure;
 use maestro_kernel::{
     artifact::Digest,
     paths::{self, Environment},

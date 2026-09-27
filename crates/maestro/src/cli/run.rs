@@ -4,13 +4,11 @@
 
 use super::{
     args::{Arguments, CollectionCommand, JobCommand, KnowledgeCommand, Noun},
-    backup, collection,
-    failure::Failure,
-    health, import,
-    kernel::Kernel,
+    backup, collection, health, import,
     output::{Output, diagnose},
-    prepare, publish, quality, setup, status, verify, wait,
+    prepare, publish, quality, retrieve, setup, status, verify, wait,
 };
+use crate::{failure::Failure, kernel::Kernel, mcp::run::run as run_mcp};
 use clap::Parser as _;
 use std::process::ExitCode;
 
@@ -48,7 +46,26 @@ fn run(arguments: &Arguments) -> ExitCode {
 /// kernel for writing, and `status` and `doctor` never create or migrate it.
 fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> {
     match &arguments.noun {
+        Noun::Knowledge(KnowledgeCommand::Collections) => {
+            retrieve::collections(output, Kernel::open)
+        }
+        Noun::Knowledge(KnowledgeCommand::Get {
+            chunk_id,
+            section_id,
+            collection,
+            generation,
+        }) => get_command(
+            output,
+            chunk_id.as_deref(),
+            section_id.as_deref(),
+            collection.as_deref(),
+            *generation,
+        ),
         Noun::Knowledge(command) => knowledge(&Kernel::open()?, output, command),
+        Noun::Mcp => {
+            run_mcp()?;
+            Ok(ExitCode::SUCCESS)
+        }
         Noun::Job(JobCommand::Wait { id }) => wait::run(&Kernel::open()?, output, *id),
         Noun::Setup { yes } => setup::run(output, *yes),
         Noun::Status => health::status::run(output),
@@ -82,5 +99,31 @@ fn knowledge(
         } => publish::run(kernel, output, collection, card, chunk_set.as_deref()),
         KnowledgeCommand::Verify { collection } => verify::run(kernel, output, collection),
         KnowledgeCommand::Status { collection } => status::run(kernel, output, collection),
+        KnowledgeCommand::Collections | KnowledgeCommand::Get { .. } => Err(Failure::failed(
+            "knowledge retrieval bypassed its scoped dispatch path",
+        )),
     }
+}
+
+/// Refuses the deferred section selector before opening or querying the kernel.
+fn get_command(
+    output: Output,
+    chunk_id: Option<&str>,
+    section_id: Option<&str>,
+    collection: Option<&str>,
+    generation: Option<i64>,
+) -> Result<ExitCode, Failure> {
+    if section_id.is_some() {
+        return Err(Failure::refused("section_id is not available yet"));
+    }
+    let Some(chunk_id) = chunk_id else {
+        return Err(Failure::refused("knowledge get requires a chunk_id"));
+    };
+    retrieve::get_chunk(
+        output,
+        chunk_id.to_owned(),
+        collection.map(str::to_owned),
+        generation,
+        Kernel::open,
+    )
 }

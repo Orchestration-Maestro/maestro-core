@@ -1,7 +1,7 @@
 //! A new publication attempt resumes from the last step of its predecessor.
 
 use super::support::{Scratch, everything};
-use crate::cli::{kernel::Kernel, publish::last_progress};
+use crate::{cli::publish::last_progress, kernel::Kernel};
 use maestro_kernel::{
     artifact::Store,
     job::{JobState, NewJob},
@@ -24,6 +24,7 @@ fn a_retry_uses_the_latest_journaled_step_until_it_records_a_new_one() {
         artifacts: Store::new("unused-artifact-store"),
         scopes,
         config_dir: PathBuf::new(),
+        test_refresh_hook: None,
     };
     let inputs = json!({"collection": "synthetic", "chunk_set": "set"});
     let scope: Scope = "workspace/default/collection/synthetic".parse().unwrap();

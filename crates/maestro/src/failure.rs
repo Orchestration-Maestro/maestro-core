@@ -5,39 +5,37 @@ use std::{error::Error, fmt, process::ExitCode};
 
 /// Why a command stopped short.
 #[derive(Debug)]
-pub(super) enum Failure {
-    /// The input was refused, before any work: an unknown collection or job,
-    /// a declaration, binding, manifest or configuration that is not what it
-    /// must be, or a resource another job holds. Exit code 2, as clap's own
-    /// usage errors.
+pub(crate) enum Failure {
+    /// The input was refused before work: an unknown record, invalid request,
+    /// or resource held by another job. Exit code 2, as clap's usage errors.
     Refused(String),
-    /// The operation failed: the kernel or the file system did. Exit code 1.
+    /// The operation failed because the kernel or file system did. Exit code 1.
     Failed(String),
 }
 
 impl Failure {
     /// A refusal, for `reason`.
-    pub(super) fn refused(reason: impl fmt::Display) -> Self {
+    pub(crate) fn refused(reason: impl fmt::Display) -> Self {
         Self::Refused(reason.to_string())
     }
 
     /// A failure, for `reason`.
-    pub(super) fn failed(reason: impl fmt::Display) -> Self {
+    pub(crate) fn failed(reason: impl fmt::Display) -> Self {
         Self::Failed(reason.to_string())
     }
 
     /// A refusal, for `error` and its causes.
-    pub(super) fn refused_by(error: &dyn Error) -> Self {
+    pub(crate) fn refused_by(error: &dyn Error) -> Self {
         Self::Refused(chain(error))
     }
 
     /// A failure, for `error` and its causes.
-    pub(super) fn failed_by(error: &dyn Error) -> Self {
+    pub(crate) fn failed_by(error: &dyn Error) -> Self {
         Self::Failed(chain(error))
     }
 
     /// The exit code that says why: 2 for a refusal, 1 for a failure.
-    pub(super) fn code(&self) -> ExitCode {
+    pub(crate) fn code(&self) -> ExitCode {
         match self {
             Self::Refused(_) => ExitCode::from(2),
             Self::Failed(_) => ExitCode::from(1),
@@ -53,10 +51,8 @@ impl fmt::Display for Failure {
     }
 }
 
-/// The message of `error`, followed by that of each of its causes it does
-/// not give already: some errors of the kernel repeat their cause's message,
-/// others leave it to their source.
-pub(super) fn chain(error: &dyn Error) -> String {
+/// The message of `error`, followed by any cause message not already present.
+pub(crate) fn chain(error: &dyn Error) -> String {
     let mut message = error.to_string();
     let mut cause = error.source();
     while let Some(each) = cause {

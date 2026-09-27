@@ -22,6 +22,11 @@ url = "https://raw.githubusercontent.com/Orchestration-Maestro/rust-workflows/ma
 [imports.zcash]
 url = "https://raw.githubusercontent.com/zcash/rust-ecosystem/main/supply-chain/audits.toml"
 
+[[exemptions.android_system_properties]]
+version = "0.1.6"
+criteria = "safe-to-deploy"
+notes = "rmcp 3.4.1 graph for T034 (ADR-0020)"
+
 [[exemptions.anstyle]]
 version = "1.0.14"
 criteria = "safe-to-deploy"
@@ -33,6 +38,11 @@ criteria = "safe-to-deploy"
 [[exemptions.async-trait]]
 version = "0.1.92"
 criteria = "safe-to-deploy"
+
+[[exemptions.autocfg]]
+version = "1.5.1"
+criteria = "safe-to-deploy"
+notes = "rmcp 3.4.1 graph for T034 (ADR-0020)"
 
 [[exemptions.axum]]
 version = "0.8.9"
@@ -69,6 +79,11 @@ criteria = "safe-to-deploy"
 [[exemptions.chacha20]]
 version = "0.10.2"
 criteria = "safe-to-deploy"
+
+[[exemptions.chrono]]
+version = "0.4.45"
+criteria = "safe-to-deploy"
+notes = "rmcp 3.4.1 graph for T034 (ADR-0020)"
 
 [[exemptions.clap]]
 version = "4.6.7"
@@ -238,6 +253,11 @@ criteria = "safe-to-deploy"
 version = "0.1.21"
 criteria = "safe-to-deploy"
 
+[[exemptions.iana-time-zone]]
+version = "0.1.65"
+criteria = "safe-to-deploy"
+notes = "rmcp 3.4.1 graph for T034 (ADR-0020)"
+
 [[exemptions.ident_case]]
 version = "1.0.1"
 criteria = "safe-to-deploy"
@@ -330,6 +350,11 @@ criteria = "safe-to-deploy"
 version = "0.9.12"
 criteria = "safe-to-deploy"
 
+[[exemptions.pastey]]
+version = "0.2.3"
+criteria = "safe-to-deploy"
+notes = "rmcp 3.4.1 graph for T034 (ADR-0020)"
+
 [[exemptions.pin-project]]
 version = "1.1.13"
 criteria = "safe-to-deploy"
@@ -401,6 +426,11 @@ criteria = "safe-to-deploy"
 [[exemptions.ring]]
 version = "0.17.14"
 criteria = "safe-to-deploy"
+
+[[exemptions.rmcp]]
+version = "3.4.1"
+criteria = "safe-to-deploy"
+notes = "rmcp 3.4.1 graph for T034 (ADR-0020)"
 
 [[exemptions.rusqlite]]
 version = "0.40.2"
@@ -673,6 +703,31 @@ criteria = "safe-to-deploy"
 [[exemptions.winapi-util]]
 version = "0.1.11"
 criteria = "safe-to-deploy"
+
+[[exemptions.windows-core]]
+version = "0.62.2"
+criteria = "safe-to-deploy"
+notes = "rmcp 3.4.1 graph for T034 (ADR-0020)"
+
+[[exemptions.windows-implement]]
+version = "0.60.2"
+criteria = "safe-to-deploy"
+notes = "rmcp 3.4.1 graph for T034 (ADR-0020)"
+
+[[exemptions.windows-interface]]
+version = "0.59.3"
+criteria = "safe-to-deploy"
+notes = "rmcp 3.4.1 graph for T034 (ADR-0020)"
+
+[[exemptions.windows-result]]
+version = "0.4.1"
+criteria = "safe-to-deploy"
+notes = "rmcp 3.4.1 graph for T034 (ADR-0020)"
+
+[[exemptions.windows-strings]]
+version = "0.5.1"
+criteria = "safe-to-deploy"
+notes = "rmcp 3.4.1 graph for T034 (ADR-0020)"
 
 [[exemptions.windows-sys]]
 version = "0.52.0"

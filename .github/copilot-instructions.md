@@ -95,23 +95,43 @@ in place.
 │   │   │   │   │   └── verify_outcome.rs                                    # Verification findings make the verify job fail without dropping its report
 │   │   │   │   ├── args.rs                                                  # The grammar, noun then verb, as clap derives it; the comments are the help
 │   │   │   │   ├── collection.rs                                            # knowledge collection add, and the declaration a later command finds for a collection
-│   │   │   │   ├── failure.rs                                               # Why a command stopped short: refused (exit 2) or failed (exit 1)
 │   │   │   │   ├── foreground.rs                                            # A job run in the foreground: submitted or found by its key, taken or followed, a stale holder superseded
 │   │   │   │   ├── import.rs                                                # knowledge import: a leased job in the foreground, its ID first; a rerun follows, takes over or supersedes
-│   │   │   │   ├── kernel.rs                                                # The kernel every command opens: paths, database, config.toml applied, the local principal's scopes
 │   │   │   │   ├── lease.rs                                                 # The lease of a job run in the foreground: Holder::run's heartbeat thread and each step renew it
 │   │   │   │   ├── mod.rs                                                   # The commands' door: declarations only
 │   │   │   │   ├── output.rs                                                # How a command prints: text, or one JSON document under --json; diagnostics on stderr
 │   │   │   │   ├── prepare.rs                                               # knowledge prepare: T023's chunking as a leased job
 │   │   │   │   ├── publish.rs                                               # knowledge publish: T026's verified Qdrant projection as a leased job
 │   │   │   │   ├── quality.rs                                               # knowledge quality: the gate as a leased job; its inputs the ledger beside the declaration and the revisions
+│   │   │   │   ├── retrieve.rs                                              # CLI adapters for the shared, permission-scoped read operations
 │   │   │   │   ├── run.rs                                                   # Parses the arguments, opens the kernel, runs the command, returns its exit code
 │   │   │   │   ├── status.rs                                                # knowledge status: documents, revisions by status and disposition, generations
 │   │   │   │   ├── verify.rs                                                # knowledge verify: checks a published generation as a leased job
 │   │   │   │   └── wait.rs                                                  # job wait: a job's stream followed to its end, the command exiting with its outcome; the follower
+│   │   │   ├── knowledge/                                                   # Scoped knowledge operations shared by the CLI and stdio MCP server
+│   │   │   │   ├── mod.rs                                                   # Scoped knowledge operations shared by the CLI and stdio MCP server
+│   │   │   │   ├── operations.rs                                            # Scoped application operations shared by CLI and MCP
+│   │   │   │   ├── output.rs                                                # Shared wire limit for complete serialized knowledge responses
+│   │   │   │   └── requests.rs                                              # Strict arguments shared by the CLI and MCP tools
+│   │   │   ├── mcp/                                                         # Bounded local stdio MCP transport and tools
+│   │   │   │   ├── server/                                                  # Read-only MCP tools backed by fresh, local-principal kernel operations
+│   │   │   │   │   ├── tests.rs                                             # Rust source: tests
+│   │   │   │   │   └── wire_tests.rs                                        # Wire-size and output-shaping tests for the MCP handler
+│   │   │   │   ├── transport/                                               # Stdio JSON-RPC framing with complete-line and complete-response byte bounds
+│   │   │   │   │   └── tests.rs                                             # Rust source: tests
+│   │   │   │   ├── mod.rs                                                   # Bounded local stdio MCP transport and tools
+│   │   │   │   ├── run.rs                                                   # Runs the stdio MCP server without sending diagnostics to stdout
+│   │   │   │   ├── server.rs                                                # Read-only MCP tools backed by fresh, local-principal kernel operations
+│   │   │   │   └── transport.rs                                             # Stdio JSON-RPC framing with complete-line and complete-response byte bounds
+│   │   │   ├── failure.rs                                                   # Failures at the CLI and local-kernel boundary
+│   │   │   ├── kernel.rs                                                    # The kernel opened for the local principal and its configured scopes
 │   │   │   └── main.rs                                                      # The binary root: the commands, their output, exit codes and JSON schemas documented
 │   │   ├── tests/                                                           # Integration tests
 │   │   │   └── it/                                                          # The contract tests: the built binary run in a scratch home
+│   │   │       ├── knowledge_get/                                           # CLI and MCP contracts for exact knowledge retrieval
+│   │   │       │   ├── cli_cases.rs                                         # Exact knowledge get CLI behavior
+│   │   │       │   ├── mcp_and_authorization.rs                             # MCP parity, permission refresh, and exact-retrieval refusal cases
+│   │   │       │   └── mod.rs                                               # CLI and MCP contracts for exact knowledge retrieval
 │   │   │       ├── backup_restore.rs                                        # Backup and restore: online copies keep the database, artifacts and leased
 │   │   │       ├── backup_restore_targets.rs                                # Rust source: backup restore targets
 │   │   │       ├── cli_contract.rs                                          # JSON on stdout, diagnostics on stderr, exit codes 0, 1 and 2, the job ID first
@@ -120,10 +140,12 @@ in place.
 │   │   │       ├── fakes.rs                                                 # Fake curl and systemctl for the binary's tests, found first on the PATH, logging each call
 │   │   │       ├── import_jobs.rs                                           # knowledge import end to end, rerun, live holder refused, stale one superseded, leases taken over
 │   │   │       ├── job_waits.rs                                             # job wait follows a job to its end and exits with its outcome; an unreadable job is unknown
+│   │   │       ├── knowledge_collections.rs                                 # Visible metadata returned by knowledge collections
 │   │   │       ├── knowledge_publish.rs                                     # knowledge prepare and knowledge publish refuse missing or unsuitable
 │   │   │       ├── knowledge_verify_recheck.rs                              # knowledge verify must read its artifacts again on every invocation
 │   │   │       ├── machine.rs                                               # How doctor and status tests run the binary: a router where nothing answers, the fakes on the PATH
 │   │   │       ├── main.rs                                                  # The one integration-test crate of the binary
+│   │   │       ├── mcp_stdio.rs                                             # The stdio MCP server's process boundary and advertised tools
 │   │   │       ├── quality_gates.rs                                         # knowledge quality: its report, a rerun, a gate after an import, the ledger first, failures and refusals
 │   │   │       ├── setup_installs.rs                                        # maestro setup: the preview writes nothing, a wrong download is refused; elsewhere manual steps, exit 2
 │   │   │       ├── status_summaries.rs                                      # maestro status: services ready or down, the readable collections, nothing created on a fresh machine
@@ -319,6 +341,7 @@ in place.
 │   │   │   ├── evidence/                                                    # Evidence (building block B7; docs/architecture/02 §6, plan D10): what a
 │   │   │   │   ├── tests/                                                   # Tests of evidence: resolving a chunk from the authority, and bundles as
 │   │   │   │   │   ├── bundle.rs                                            # Bundles: maestro-evidence/1 as JSON, its evidence apart from its trace
+│   │   │   │   │   ├── lookup.rs                                            # Rust source: lookup
 │   │   │   │   │   ├── mod.rs                                               # Tests of evidence: resolving a chunk from the authority, and bundles as
 │   │   │   │   │   ├── resolve.rs                                           # Resolving a chunk: the exact bytes its span covers in its revision's
 │   │   │   │   │   ├── search_wire.rs                                       # Backwards-readable search inventory and request-budget fields
@@ -326,6 +349,7 @@ in place.
 │   │   │   │   ├── bundle.rs                                                # Bundles: maestro-evidence/1, the search response contract, checked whole
 │   │   │   │   ├── error.rs                                                 # Why the kernel refused to resolve a chunk
 │   │   │   │   ├── inventory.rs                                             # Exact, bounded S1 search inventories, separate from supporting passages
+│   │   │   │   ├── lookup.rs                                                # Scoped chunk membership in retained, readable generations
 │   │   │   │   ├── mod.rs                                                   # Evidence (building block B7; docs/architecture/02 §6, plan D10): what a
 │   │   │   │   ├── passage.rs                                               # The passages a bundle cites: the source text of a span of one revision
 │   │   │   │   ├── request_budget.rs                                        # The transport-safe echo of the accepted search budget

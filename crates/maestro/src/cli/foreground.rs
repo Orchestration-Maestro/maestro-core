@@ -12,12 +12,11 @@
 //! once. One a live lease holds refuses this job, naming it.
 
 use super::{
-    failure::Failure,
-    kernel::Kernel,
     lease::{Holder, TIMING, Timing, holder},
     output::Output,
     wait::{self, Follower, POLL, Printing},
 };
+use crate::{failure::Failure, kernel::Kernel};
 use maestro_kernel::{
     job::{self, Job, JobState, Lease, NewJob},
     store::Database,

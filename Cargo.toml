@@ -31,6 +31,7 @@ qdrant-client = { version = "1.19.0", default-features = false, features = [
 # Cargo.lock pins idna_adapter to 1.1.0 for MSRV 1.85; that reason is gone
 # at 1.88. Lift the pin in the polish batch with `cargo update -p idna_adapter`.
 reqwest = { version = "0.13.5", default-features = false, features = ["json"] }
+rmcp = { version = "=3.4.1", default-features = false, features = ["server"] }
 rusqlite = { version = "0.40.2", default-features = false, features = [
   "bundled",
   "hooks",

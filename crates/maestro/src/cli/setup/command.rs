@@ -7,7 +7,7 @@ use super::{
     service::{Layout, Step, apply, survey, user_manager},
     tools::Tools,
 };
-use crate::cli::{failure::Failure, output::Output};
+use crate::{cli::output::Output, failure::Failure};
 use maestro_kernel::paths::{self, Environment};
 use serde::Serialize;
 use std::{env::consts, path::Path, process::ExitCode};

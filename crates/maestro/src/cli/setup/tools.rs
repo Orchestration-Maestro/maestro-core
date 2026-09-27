@@ -3,7 +3,7 @@
 //! from it, still in memory, and `systemctl --user` manages the unit. Each is
 //! found on the `PATH` by its name, or where a test puts a fake of it.
 
-use crate::cli::failure::Failure;
+use crate::failure::Failure;
 use std::{
     io::Write as _,
     path::PathBuf,

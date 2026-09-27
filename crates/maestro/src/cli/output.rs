@@ -3,7 +3,7 @@
 //! to stderr only, and a long command's job ID comes before anything else:
 //! stdout's first line in text, stderr's under `--json`.
 
-use super::failure::Failure;
+use crate::failure::Failure;
 use serde::Serialize;
 use std::io::{self, Write as _};
 use ulid::Ulid;
@@ -44,6 +44,20 @@ impl Output {
     /// [`Failure::Failed`] when stdout cannot be written to.
     pub(super) fn text(self, line: &str) -> Result<(), Failure> {
         if self.json { Ok(()) } else { print(line) }
+    }
+
+    /// Prints a refusal document as JSON, or its diagnostic on stderr for people.
+    pub(super) fn refusal(
+        self,
+        document: &impl Serialize,
+        diagnostic: &str,
+    ) -> Result<(), Failure> {
+        if self.json {
+            self.result(document, "")
+        } else {
+            diagnose(diagnostic);
+            Ok(())
+        }
     }
 
     /// Prints the command's result: `document` under `--json`, else `text`.

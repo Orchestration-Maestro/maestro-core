@@ -2,7 +2,8 @@
 //! canonicalization's status and by quality disposition, and its
 //! generations, as the local principal reads them.
 
-use super::{failure::Failure, kernel::Kernel, output::Output};
+use super::output::Output;
+use crate::{failure::Failure, kernel::Kernel};
 use maestro_kernel::{document::Counts, generation::Generation};
 use serde::Serialize;
 use std::{collections::BTreeMap, fmt::Display, process::ExitCode};

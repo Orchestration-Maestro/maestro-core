@@ -1,4 +1,3 @@
-use super::super::failure::Failure;
 use super::{
     filesystem::{
         create_destination, create_private_dir_all, directory_problem, source_file, timestamp_for,
@@ -7,6 +6,7 @@ use super::{
     restore::commit_staged,
     test_support::Scratch,
 };
+use crate::failure::Failure;
 use std::{fs, io, time::Duration};
 
 #[test]

@@ -10,7 +10,7 @@ use super::{
     release::{GRPC_PORT, HOST, HTTP_PORT, Release, SERVICE},
     tools::Tools,
 };
-use crate::cli::failure::Failure;
+use crate::failure::Failure;
 use maestro_kernel::artifact::Digest;
 use std::{
     fs::{self, DirBuilder, File, OpenOptions},

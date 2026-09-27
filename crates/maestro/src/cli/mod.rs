@@ -5,16 +5,15 @@
 mod args;
 mod backup;
 mod collection;
-mod failure;
 mod foreground;
 mod health;
 mod import;
-mod kernel;
 mod lease;
 mod output;
 mod prepare;
 mod publish;
 mod quality;
+mod retrieve;
 mod run;
 mod setup;
 mod status;

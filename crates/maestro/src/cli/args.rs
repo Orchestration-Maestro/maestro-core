@@ -39,6 +39,8 @@ pub(super) enum Noun {
     /// Check the kernel, the search service, the model router and each
     /// role's model card, naming the next action for every failure.
     Doctor,
+    /// Serve the local knowledge tools over stdio MCP.
+    Mcp,
     /// Back up the kernel to a new or empty directory.
     Backup {
         /// The directory to write.
@@ -109,6 +111,23 @@ pub(super) enum KnowledgeCommand {
         /// The collection's ID, as its declaration names it.
         #[arg(long)]
         collection: String,
+    },
+    /// List collection metadata visible to the local principal.
+    Collections,
+    /// Retrieve an exact chunk from its visible published or retained generation.
+    Get {
+        /// The chunk's stable ID.
+        #[arg(long, group = "get_selector", required = true)]
+        chunk_id: Option<String>,
+        /// Deferred until the kernel exposes its authoritative section reader.
+        #[arg(long, group = "get_selector", hide = true)]
+        section_id: Option<String>,
+        /// Restrict lookup to this collection.
+        #[arg(long)]
+        collection: Option<String>,
+        /// Pin a published or retained generation; requires --collection.
+        #[arg(long, requires = "collection")]
+        generation: Option<i64>,
     },
 }
 

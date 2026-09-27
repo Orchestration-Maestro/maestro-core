@@ -10,9 +10,9 @@ use super::{
     },
     support::{detail, failure, nothing_at, serve, serve_qdrant},
 };
-use crate::cli::{
+use crate::{
+    cli::setup::{Readiness, Step},
     failure::Failure,
-    setup::{Readiness, Step},
 };
 use std::ffi::OsStr;
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]

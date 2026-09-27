@@ -3,7 +3,8 @@
 //! exits 0 when it succeeded and 1 when it failed or was cancelled. A job
 //! the local principal cannot read is unknown to it.
 
-use super::{failure::Failure, kernel::Kernel, output::Output};
+use super::output::Output;
+use crate::{failure::Failure, kernel::Kernel};
 use maestro_kernel::{
     job::{self, Job, JobState},
     journal::Filter,

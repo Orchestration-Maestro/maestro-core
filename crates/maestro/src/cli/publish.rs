@@ -1,13 +1,14 @@
 //! `knowledge publish`: T026's verified Qdrant projection as a leased job.
 
 use super::{
-    collection,
-    failure::{Failure, chain},
-    foreground, health,
-    kernel::Kernel,
+    collection, foreground, health,
     lease::Holder,
     output::Output,
     wait::{self, Printing},
+};
+use crate::{
+    failure::{Failure, chain},
+    kernel::Kernel,
 };
 use maestro_kernel::{
     chunk_set::ChunkSetState,

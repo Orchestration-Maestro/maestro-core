@@ -2,7 +2,7 @@
 //! before any step, naming the setting that starts one on WSL.
 
 use super::{super::service::user_manager, support::Home};
-use crate::cli::failure::Failure;
+use crate::failure::Failure;
 
 /// How setup asks whether a user manager runs.
 const ASKED: &str = "systemctl --user show-environment";

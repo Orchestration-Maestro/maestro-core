@@ -5,11 +5,13 @@
 //! that lease, never without its heartbeats.
 
 use super::support::{Scratch, everything, leased, lost, recorded};
-use crate::cli::{
-    foreground,
+use crate::{
+    cli::{
+        foreground,
+        lease::{Holder, TIMING, Timing, ticks},
+        output::Output,
+    },
     kernel::Kernel,
-    lease::{Holder, TIMING, Timing, ticks},
-    output::Output,
 };
 use maestro_kernel::{
     artifact::Store,
@@ -143,6 +145,7 @@ fn a_command_runs_its_work_under_the_heartbeats_of_its_lease() {
             artifacts: Store::new("unused-artifact-store"),
             scopes,
             config_dir: PathBuf::new(),
+            test_refresh_hook: None,
         };
         let expires = || {
             let job = kernel.database.job(&kernel.scopes, submitted.id).unwrap();

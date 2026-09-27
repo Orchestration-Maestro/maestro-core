@@ -18,6 +18,12 @@
 //!   generation as a job, under `maestro-cli/knowledge-verify/1`;
 //! - `maestro knowledge status --collection <id>` reports its documents, its
 //!   revisions by status and by disposition, and its generations;
+//! - `maestro knowledge collections` lists collection metadata the local
+//!   principal may read;
+//! - `maestro knowledge get --chunk-id <id> [--collection <id>]
+//!   [--generation <id>]` reads an exact source-backed chunk;
+//! - `maestro mcp` serves the implemented collection and chunk tools over
+//!   stdio JSON-RPC;
 //! - `maestro job wait <id>` follows a job until it ends, and exits with its
 //!   outcome;
 //! - `maestro setup` previews the search service Maestro needs, and installs
@@ -198,6 +204,39 @@
 //!   "published_at":"…"}]}
 //! ```
 //!
+//! # `knowledge collections`
+//!
+//! Lists only the collection metadata the local principal may read, in ID
+//! order. A source-only grant can read source-backed chunks without exposing
+//! the parent collection title. Its JSON envelope is
+//! `maestro-cli/knowledge-collections/1`, around
+//! `maestro-knowledge-collections/1`; a complete trailing collection entry
+//! is omitted rather than slicing JSON when the 65536-byte limit is reached.
+//!
+//! # `knowledge get`
+//!
+//! Reads an exact chunk from a visible published generation, or from a
+//! published/retired generation when `--collection` and `--generation` pin
+//! it. Without those selectors, multiple visible published matches are
+//! refused as ambiguous. `--generation` requires `--collection`. The result
+//! is `maestro-cli/knowledge-get/1` around
+//! `maestro-knowledge-get/1`, preserving the source bytes, span and digest;
+//! an excerpt that cannot fit the JSON limit is refused whole. `section_id`
+//! is not available yet and is hidden from help until its authoritative
+//! kernel reader exists.
+//!
+//! # `mcp`
+//!
+//! Serves stdio JSON-RPC only; protocol messages go to stdout and diagnostics
+//! go to stderr. It advertises `knowledge_collections` and `knowledge_get`,
+//! with strict object arguments and output schemas. Tool identity is always
+//! the local principal; request metadata cannot select a different principal.
+//! Input lines and complete responses are capped at 65536 serialized UTF-8
+//! bytes, string request IDs at 256 bytes, and active calls at four. Collections
+//! omit complete trailing entries with `maestro/truncation` metadata and a
+//! text warning; exact oversized excerpts return `response_too_large` without
+//! a shortened body. Section retrieval and search are not advertised yet.
+//!
 //! # `setup`
 //!
 //! Installs Qdrant 1.19.1, the search service, as the systemd user unit
@@ -282,6 +321,10 @@
 //! ```
 
 mod cli;
+mod failure;
+mod kernel;
+mod knowledge;
+mod mcp;
 
 use std::process::ExitCode;
 

@@ -4,9 +4,9 @@
 //! Each waits at most [`PATIENCE`] for an answer.
 
 use super::check::Check;
-use crate::cli::{
+use crate::{
+    cli::setup::{QDRANT, Readiness, SERVICE},
     failure::{Failure, chain},
-    setup::{QDRANT, Readiness, SERVICE},
 };
 use maestro_kernel::gateway::{Role, RouterClient, Url};
 use maestro_knowledge::index::Qdrant as QdrantClient;

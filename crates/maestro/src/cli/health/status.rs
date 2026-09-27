@@ -11,7 +11,10 @@ use super::{
         QDRANT_VARIABLE, ROUTER_VARIABLE, qdrant_check, qdrant_url, router_check, router_url,
     },
 };
-use crate::cli::{failure::Failure, output::Output, setup};
+use crate::{
+    cli::{output::Output, setup},
+    failure::Failure,
+};
 use maestro_kernel::{
     generation::GenerationState,
     paths::{self, Environment},

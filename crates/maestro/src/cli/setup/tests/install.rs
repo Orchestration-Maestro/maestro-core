@@ -13,7 +13,7 @@ use super::{
     },
     support::{Fixture, Home, mode},
 };
-use crate::cli::failure::Failure;
+use crate::failure::Failure;
 use maestro_kernel::artifact::Digest;
 use std::{
     fs::{self, Permissions},

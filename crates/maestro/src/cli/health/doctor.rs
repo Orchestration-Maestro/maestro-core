@@ -13,7 +13,10 @@ use super::{
         router_url,
     },
 };
-use crate::cli::{failure::Failure, output::Output, setup};
+use crate::{
+    cli::{output::Output, setup},
+    failure::Failure,
+};
 use maestro_kernel::paths::{self, Environment};
 use serde::Serialize;
 use std::{env, process::ExitCode};

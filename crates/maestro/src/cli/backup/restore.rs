@@ -1,11 +1,11 @@
 //! Staged restore checks and the database-last install.
 
 use super::{
-    super::failure::Failure,
     filesystem::{copy_hash, create_private_dir, create_private_dir_all, failed_io},
     manifest::Manifest,
     names::{ARTIFACTS, DATABASE},
 };
+use crate::failure::Failure;
 use std::{
     fs, io, iter,
     path::{Path, PathBuf},

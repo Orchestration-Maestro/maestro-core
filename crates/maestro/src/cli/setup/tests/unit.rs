@@ -6,7 +6,7 @@ use super::super::{
     release::QDRANT,
     service::{Layout, unit_text},
 };
-use crate::cli::failure::Failure;
+use crate::failure::Failure;
 use std::{ffi::OsStr, os::unix::ffi::OsStrExt as _, path::Path};
 
 /// The layout of a kernel whose data directory is `data`, under the

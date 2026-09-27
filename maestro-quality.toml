@@ -197,6 +197,14 @@ rule = "DEP-001"
 path = "hashbrown@0.15.5"
 reason = "whatlang 0.18 requires it (ADR-0020); remove when whatlang moves to hashbrown 0.17"
 
+# The MCP module owns its transport and service startup; CLI dispatch selects
+# its one public protocol entry point.
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro/src/mcp/mod.rs"
+item = "run"
+reason = "the MCP module owns bounded transport and server startup; the CLI dispatcher selects its single stdio entry point"
+
 # The words this repository means that the spell checker reads as mistakes:
 # Exemple, French test input for the canonicalizer; RTO, the recovery time
 # objective beside RPO; WRONLY, the POSIX open flag as rustix names it;

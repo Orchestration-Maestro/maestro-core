@@ -1,12 +1,13 @@
 //! `knowledge prepare`: T023's chunking as a leased job.
 
 use super::{
-    collection,
-    failure::{Failure, chain},
-    foreground, health,
-    kernel::Kernel,
+    collection, foreground, health,
     output::Output,
     wait::{self, Printing},
+};
+use crate::{
+    failure::{Failure, chain},
+    kernel::Kernel,
 };
 use maestro_kernel::{
     gateway::RouterClient,
