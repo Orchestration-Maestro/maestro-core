@@ -19,6 +19,7 @@ pub(crate) mod qdrant_projection;
 mod quality_gate;
 mod quality_ledger;
 mod router_parity;
+mod search_live;
 mod suite_check;
 mod suite_contract;
 mod suite_resolution;

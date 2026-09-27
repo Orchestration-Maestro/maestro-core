@@ -801,6 +801,7 @@ in place.
 │       │       ├── publish_live.rs                                          # A chunk set of this machine's kernel published into Qdrant as a leased job, live: the embed and upsert rates
 │       │       ├── quality_ledger.rs                                        # maestro-quality-ledger/1: strict rules a line; a missing ledger is empty
 │       │       ├── router_parity.rs                                         # The router tokenizer's parity with the native counter, live: an explicit
+│       │       ├── search_live.rs                                           # Search this machine's published collection against its live Qdrant and model
 │       │       ├── suite_contract.rs                                        # maestro-suite/1: a suite, one JSON line per question, parses into typed
 │       │       ├── suite_resolution.rs                                      # Resolving an expected section in its canonicalized document: a heading path
 │       │       └── synthetic_collection.rs                                  # The public synthetic collection, tests/fixtures/synthetic, which stands in

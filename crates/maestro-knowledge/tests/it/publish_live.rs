@@ -104,7 +104,7 @@ fn rate(count: usize, seconds: f64) -> f64 {
 /// The kernel as the command line opens it, in the directories the
 /// environment names, and what the local principal reads once `config.toml`
 /// is applied, with the kernel's data directory.
-fn kernel() -> (Database, ScopeSet, PathBuf) {
+pub(super) fn kernel() -> (Database, ScopeSet, PathBuf) {
     let environment = Environment::current();
     let data = paths::data_dir(&environment).unwrap();
     let config = Config::load(&paths::config_dir(&environment).unwrap()).unwrap();
@@ -116,7 +116,7 @@ fn kernel() -> (Database, ScopeSet, PathBuf) {
 
 /// The embedder's card the counter of `set` names, from the artifact store
 /// of the kernel in `data`.
-fn card_of(set: &ChunkSet, data: &Path) -> ModelCard {
+pub(super) fn card_of(set: &ChunkSet, data: &Path) -> ModelCard {
     let digest = set
         .counter_contract_id
         .strip_prefix("router/1:sha256:")
