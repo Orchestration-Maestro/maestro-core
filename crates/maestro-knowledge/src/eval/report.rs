@@ -135,6 +135,9 @@ pub struct Expected {
     /// document has no section and is expected whole.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub section_id: Option<String>,
+    /// The other expected sections that are copies of this answer, if any.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group: Option<String>,
     /// The rank of its best passage, from 1, absent when no passage holds
     /// it: a report that gives 0 is refused.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -197,7 +200,8 @@ pub struct Metrics {
     #[serde(deserialize_with = "estimate")]
     pub mrr_at_10: Option<Estimate>,
     /// The mean over answerable questions of the normalized discounted
-    /// cumulative gain in the top 10, each expected section gaining 1.
+    /// cumulative gain in the top 10, each answer item gaining 1: a group is
+    /// one item at its best member rank, and every ungrouped name is its own.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(deserialize_with = "estimate")]
     pub ndcg_at_10: Option<Estimate>,

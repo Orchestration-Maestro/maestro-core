@@ -1,5 +1,6 @@
 //! The metrics of a run: each a value over a sample of its questions, drawn
-//! again and again for its interval.
+//! again and again for its interval. nDCG counts each expected group as one
+//! answer item at its best rank; ungrouped names remain separate items.
 
 use super::{
     bootstrap::{estimates, percentile},
@@ -145,18 +146,30 @@ fn reciprocal_rank(result: &QuestionResult) -> f64 {
 }
 
 /// The normalized discounted cumulative gain of `result` within [`DEPTH`]:
-/// each expected section gains 1 at its best rank, discounted by the
-/// logarithm of that rank plus one, over the gain of the ideal ranking, with
-/// every expected section first, retrieved or not; 0 for a question that
-/// expects none.
+/// each group gains 1 at the best member rank, while each ungrouped name is
+/// its own item; the ideal ranking puts every item first, retrieved or not.
+/// 0 for a question that expects none.
 fn ndcg(result: &QuestionResult) -> f64 {
-    let gained: f64 = result
-        .expected
-        .iter()
-        .filter_map(|expected| expected.rank)
+    let mut grouped = BTreeMap::new();
+    let mut ungrouped = Vec::new();
+    for expected in &result.expected {
+        if let Some(group) = expected.group.as_deref() {
+            let best = grouped.entry(group).or_insert(expected.rank);
+            if let Some(rank) = expected.rank {
+                *best = Some((*best).map_or(rank, |best| best.min(rank)));
+            }
+        } else {
+            ungrouped.push(expected.rank);
+        }
+    }
+    let item_count = grouped.len() + ungrouped.len();
+    let gained: f64 = ungrouped
+        .into_iter()
+        .chain(grouped.into_values())
+        .flatten()
         .map(|rank| discount(rank.get()))
         .sum();
-    let ideal: f64 = DISCOUNTS.iter().take(result.expected.len()).sum();
+    let ideal: f64 = DISCOUNTS.iter().take(item_count).sum();
     if ideal > 0.0 { gained / ideal } else { 0.0 }
 }
 

@@ -7,6 +7,7 @@ mod compare;
 mod degraded;
 mod documents;
 mod failures;
+mod groups;
 mod intervals;
 mod metrics;
 mod ranking;

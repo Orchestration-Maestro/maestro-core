@@ -457,6 +457,7 @@ in place.
 │       │   │   │   ├── degraded.rs                                          # A degraded search, one where a route or the reranker could not run, still
 │       │   │   │   ├── documents.rs                                         # A question may expect a document without sections whole: any passage of
 │       │   │   │   ├── failures.rs                                          # Each failure of an answerable question gets its class at each cut-off it
+│       │   │   │   ├── groups.rs                                            # Expected section copies share one nDCG item while remaining visible in
 │       │   │   │   ├── intervals.rs                                         # The intervals: 95 % percentile intervals of 2,000 bootstrap resamples
 │       │   │   │   ├── metrics.rs                                           # Each metric of a run against values computed by hand on a small suite
 │       │   │   │   ├── mod.rs                                               # Tests of the evaluation runner: how it ranks and judges each question

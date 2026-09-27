@@ -152,6 +152,7 @@ fn resolve_name<E>(
     Ok(Expected {
         document_id: document.document_id.clone(),
         section_id,
+        group: name.group.clone(),
         rank: None,
     })
 }

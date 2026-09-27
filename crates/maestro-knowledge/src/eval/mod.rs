@@ -28,9 +28,10 @@
 //!   expected section in the top 5, or 10 (02 §10);
 //! - MRR@10: the mean reciprocal rank of the first expected section, 0 below
 //!   the top 10;
-//! - nDCG@10: each expected section gains 1 at its best rank within the top
-//!   10, discounted by log2(rank + 1), over the gain of the ideal ranking,
-//!   which holds every expected section, retrieved or not;
+//! - nDCG@10: each expected answer item gains 1 at its best rank within the
+//!   top 10, discounted by log2(rank + 1), over the ideal ranking, which holds
+//!   every item retrieved or not; names in one group are one item, and each
+//!   ungrouped name is its own; recall and MRR still count any member;
 //! - no-answer accuracy: the share of unanswerable questions whose bundle
 //!   holds no passage (02 §10), and apart from it the false abstentions, the
 //!   share of answerable questions whose bundle holds none. The decision to

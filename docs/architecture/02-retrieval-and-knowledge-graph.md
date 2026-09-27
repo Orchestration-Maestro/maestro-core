@@ -421,12 +421,16 @@ blocks regressions.
 | --- | --- |
 | Recall@k | Share of answerable questions with at least one expected section in the top k (k = 5, 10) |
 | MRR@10 | Mean reciprocal rank of the first expected section |
-| nDCG@10 | Binary relevance: each expected section, or document named whole, gains 1 at its best rank, over the ideal ranking of every expected one |
+| nDCG@10 | Each expected answer item (one name or one `group`) gains 1 at its best rank, over the ideal ranking of every item |
 | No-answer accuracy | Share of unanswerable questions correctly refused |
 | Citation precision / recall | Cited passages that support the answer / required passages cited |
 | Command exactness | Share of answers whose commands all appear verbatim in evidence (must be 100 %) |
 | Faithfulness | Judge-assessed entailment of cited sentences (judge qualified against human labels) |
 | Latency | p50 / p95 per stage and end to end |
+
+An expected section may name a non-blank `group` when it is a copy of another
+expected answer for the same question. Recall@k and MRR@10 continue to count any
+member; nDCG@10 uses each group's best member rank and counts the group once.
 
 **Ladder protocol:** each capability must beat the previous rung on the same
 generation and questions: BM25 → dense → hybrid → + identifier route → + rerank →

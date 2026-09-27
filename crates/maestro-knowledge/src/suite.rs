@@ -17,7 +17,9 @@
 //! ([`ExpectedSection::resolve`]), which refuses a name that matches no
 //! section, several without an occurrence, an occurrence where the path does
 //! not repeat or repeats fewer times, and an empty path in a document with
-//! sections.
+//! sections. Names that are copies of one answer may share a non-blank
+//! `group`; nDCG counts that group once at its best rank, while recall and MRR
+//! still count any member as a hit.
 //!
 //! A suite is strict as a corpus manifest is: every line is one JSON object,
 //! never an array of its values; every key is one the contract names and
@@ -29,7 +31,7 @@
 use crate::shape;
 use maestro_canonicalization::{CanonicalDocument, Section};
 use maestro_kernel::artifact::Digest;
-use serde::Deserialize;
+use serde::{Deserialize, de};
 use std::{collections::BTreeMap, error, fmt, num::NonZeroU32, str::FromStr};
 
 /// A suite's questions. [`str::parse`] reads them from a text of one JSON
@@ -127,6 +129,21 @@ pub struct ExpectedSection {
     /// Which of the sections under that heading path it is, counted from 1 in
     /// the document's order; given only when the path repeats.
     pub occurrence: Option<NonZeroU32>,
+    /// The other names of this same answer, if any, share this non-blank group.
+    #[serde(default, deserialize_with = "non_blank")]
+    pub group: Option<String>,
+}
+
+/// Deserialize an optional group, refusing a value that is only whitespace.
+fn non_blank<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let group = Option::<String>::deserialize(deserializer)?;
+    if group.as_ref().is_some_and(|group| group.trim().is_empty()) {
+        return Err(de::Error::custom("group must not be blank"));
+    }
+    Ok(group)
 }
 
 impl ExpectedSection {

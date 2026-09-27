@@ -178,6 +178,7 @@ pub(super) fn sections(expected: &[&str]) -> Vec<Expected> {
     let section = |section: &str| Expected {
         document_id: DOCUMENT.to_owned(),
         section_id: Some(section.to_owned()),
+        group: None,
         rank: None,
     };
     expected.iter().map(|&id| section(id)).collect()
@@ -189,6 +190,7 @@ pub(super) fn documents(expected: &[&str]) -> Vec<Expected> {
     let document = |document: &str| Expected {
         document_id: document.to_owned(),
         section_id: None,
+        group: None,
         rank: None,
     };
     expected.iter().map(|&id| document(id)).collect()

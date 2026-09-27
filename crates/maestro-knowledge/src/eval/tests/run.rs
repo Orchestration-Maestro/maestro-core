@@ -245,11 +245,13 @@ fn a_document_without_sections_is_expected_whole_and_held_by_its_passages() {
     let whole = Expected {
         document_id: notes.to_owned(),
         section_id: None,
+        group: None,
         rank: NonZeroU32::new(2),
     };
     let restore = Expected {
         document_id: document_id(BACKUPS).to_owned(),
         section_id: Some(section_id(BACKUPS, &["Backups", "Restore"], 1).to_owned()),
+        group: None,
         rank: None,
     };
     assert_eq!(report.questions[0].expected, [whole, restore]);
@@ -274,6 +276,7 @@ fn two_documents_without_sections_expected_by_one_question_are_each_ranked() {
     let whole = |document_id: &str, rank| Expected {
         document_id: document_id.to_owned(),
         section_id: None,
+        group: None,
         rank: NonZeroU32::new(rank),
     };
     assert_eq!(

@@ -95,6 +95,14 @@ fn a_report_writes_and_reads_back_equal() {
 }
 
 #[test]
+fn expected_groups_round_trip_in_v1_reports() {
+    let mut value = written();
+    value["questions"][0]["expected"][0]["group"] = json!("same-answer");
+    let report: Report = serde_json::from_value(value.clone()).unwrap();
+    assert_eq!(serde_json::to_value(report).unwrap(), value);
+}
+
+#[test]
 fn a_document_expected_whole_is_written_without_a_section() {
     let mut report = report();
     report.questions[0] = judge(
