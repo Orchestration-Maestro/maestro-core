@@ -3,7 +3,8 @@
 //!
 //! It provides the content-addressed artifact store, database, journal, scopes,
 //! jobs, document and generation records, evidence, retrieval, model gateway,
-//! telemetry and capability registry for higher-level workflows.
+//! model-card/evaluation/selection registry, telemetry and capability registry
+//! for higher-level workflows.
 
 pub mod artifact;
 pub mod binding;

@@ -12,7 +12,8 @@ Build the first product slice: a Rust knowledge kernel and evaluated hybrid
 retrieval over the owner's private product collection, reachable from Pi,
 Codex, Claude Code and Copilot CLI through MCP. The workspace contains
 `maestro-kernel` (building blocks B1–B7, B9–B11 on SQLite and content-addressed
-artifacts), `maestro-knowledge` (collections, import, quality, preparation,
+artifacts, including the model-card/evaluation/selection registry),
+`maestro-knowledge` (collections, import, quality, preparation,
 representations, Qdrant generations, search, `ask` and evaluation), and
 `maestro` (the CLI and MCP server). The canonicalization crate exposes the
 `TokenCounter` seam for native and router counters. The router supports loading
@@ -359,7 +360,8 @@ They do not describe the current branch, pull-request or ownership workflow.
 Follow [the current S1 integration workflow](tasks.md#current-s1-integration-workflow)
 for the single integration pull request, targeted task gates, current dependency
 and ownership table, and migration reservations. Migration `0010` was reserved
-to T029c and integrated as `fd73c13`; T030a owns `0009`.
+to T029c and integrated as `fd73c13`; T030a's `0009` migration and model
+registry are integrated as `bf58adb`.
 
 `integration.yml` runs the Qdrant tests against the `qdrant/qdrant` 1.19 image
 pinned by digest; `ci.yml` runs everything else through rust-workflows.
