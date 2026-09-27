@@ -37,7 +37,7 @@ each, because pull-request review, not code, is the limit.
 | 4 | T015 public events · T016 jobs · T017 evidence · T018 router tokenizer · T019 import | Their After lines |
 | 5 | T020 quality and real import · T021 evaluation runner · T022 the binary | Their After lines |
 | 6 | T023 prepare · T024 golden set · T025 setup and doctor | Their After lines |
-| 7 | T026 Qdrant projection · T027 the owner's 30 questions | Their After lines |
+| 7 | T026 Qdrant projection · T027 the reviewed questions | Their After lines |
 | 8 | T028 publish · T029 routes and fusion · T030 bake-off | Their After lines |
 | 9 | T031 reranking · T032 evidence assembly · T033 backup and restore | Their After lines |
 | 10 | T034 MCP and search · T035 `ask` · T036 the synthetic gate | Their After lines |
@@ -50,7 +50,7 @@ T026 → T029 → T031 → T037 → T038 → T039. The other 28 tasks run beside
 T023 also waits on the counting seam, T013, which can start at once: #14,
 what it waited for, has merged.
 
-**Waits outside the code:** the owner's go to redeploy the router (T002), check of 30 questions (T027) and approval of model downloads
+**Waits outside the code:** the owner's go to redeploy the router (T002), decisions on the reviewed questions (T027) and approval of model downloads
 (T030); the workstation's GPU for the measurements (T008, T030, T037).
 
 ### Rules that keep parallel work from colliding
@@ -540,15 +540,16 @@ FR-S1-013.
 - [ ] **Step 4: Gate and pull request** `feat: publish search generations in
   Qdrant`.
 
-### T027 [P] The owner checks 30 questions [US3]
+### T027 [P] An independent review; the owner decides [US3]
 
-**After:** T024. **Files:** `PRIVATE`: `evals/ctm/validation.jsonl`.
+**After:** T024. **Files:** `PRIVATE`: `evals/ctm/review/`.
 **Requirements:** FR-S1-013.
 
-- [ ] **Step 1: The owner validates** a sample of 30 stratified by topic,
-  language and answerability.
-- [ ] **Step 2: Apply** every correction; a rejected question is fixed or
-  removed.
+- [ ] **Step 1: Review** every question against the corpus with a model other
+  than the drafter's; the owner decides each change it proposes to wording or
+  answerability.
+- [ ] **Step 2: Apply** the decisions; a change to expected sections lands only
+  when the corpus confirms it and the suite check accepts it.
 - [ ] **Step 3: Freeze** the set with its digest for the bake-off.
 
 ## Phase 8: Wave 8 — publish, search, choose

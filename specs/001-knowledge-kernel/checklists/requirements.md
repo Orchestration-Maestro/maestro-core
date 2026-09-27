@@ -40,3 +40,6 @@
 - Clarified 2026-09-25: FR-S1-013 now fixes the owner's validation sample at 30,
   and SC-S1-004 measures latency with the search models loaded, reporting the
   other searches separately (FR-S1-015a).
+- Clarified 2026-09-26: FR-S1-013 replaces the owner's sample of 30 with an
+  independent review of every question; the owner decides the changes to
+  wording and answerability it proposes.

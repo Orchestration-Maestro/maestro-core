@@ -35,6 +35,13 @@ in [`docs/standards/`](../../docs/standards/engineering.md)
   gives way? → A: The search. Its models load on demand and chat models keep the
   card; the latency target applies with the search models loaded.
 
+### Session 2026-09-26
+
+- Q: Who checks the evaluation set's questions? → A: An independent review,
+  by a model other than the drafter's, checks every question against the
+  corpus; the owner decides each change it proposes to a question's wording or
+  answerability. This replaces the owner's sample of 30.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Ask Control-M from my agent (Priority: P1) 🎯 MVP
@@ -255,9 +262,12 @@ collections and generations are ready and how to fix what is not.
   and the exit codes 0, 1, 2.
 - **FR-S1-013**: An evaluation set of at least 100 Control-M questions MUST exist
   before any model is selected: drafted by agents from the corpus, French and
-  English, about 15 % unanswerable, each with its expected sections. The owner
-  validates a sample of 30 stratified by topic, language and answerability; a
-  question the owner rejects is corrected or removed, never kept as drafted.
+  English, about 15 % unanswerable, each with its expected sections. An
+  independent review, by a model other than the drafter's, checks every
+  question against the corpus. A change it proposes to a question's wording or
+  answerability is the owner's decision; a change to its expected sections
+  lands only when the corpus confirms it and the suite check accepts it. No
+  question found wrong is kept as drafted.
 - **FR-S1-014**: Each model role (embedder, reranker, answerer) MUST be filled by
   a recorded bake-off whose winner is a model card
   ([ADR-0011](../../docs/adr/0011-models-chosen-by-bake-off.md)); no model is
