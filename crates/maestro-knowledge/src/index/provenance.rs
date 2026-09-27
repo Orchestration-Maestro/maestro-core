@@ -1,6 +1,6 @@
 //! What the kernel says of a chunk's revision that the chunk's point
-//! carries: its version and source kind, the scopes of every place its
-//! content occurs, and the heading path of each of its sections.
+//! carries: its version and source kind, the scope of its owning document,
+//! and the heading path of each of its sections.
 
 use super::error::Error;
 use maestro_canonicalization::Section;
@@ -11,7 +11,7 @@ use maestro_kernel::{
 };
 use serde::Deserialize;
 use serde_json::{Map, Value};
-use std::collections::{BTreeSet, HashMap};
+use std::collections::HashMap;
 
 /// What a chunk's point carries of its revision.
 #[derive(Debug)]
@@ -22,9 +22,8 @@ pub(super) struct Provenance {
     pub(super) version: Option<String>,
     /// Its `source_kind` metadata, when it is text.
     pub(super) source_kind: Option<String>,
-    /// The scope of each source its content occurs in, its own document's
-    /// and every occurrence's, with every scope above it, in order: a caller
-    /// may read the point when a scope granted to it is among them.
+    /// The scope of its owning document's source and every scope above it:
+    /// a caller may read the point when a scope granted to it is among them.
     pub(super) scope_tags: Vec<String>,
     /// The heading path of each section of its canonical document, by
     /// section id.
@@ -67,9 +66,6 @@ impl Provenance {
                     revision.document_id
                 ))
             })?;
-        let occurrences = database
-            .occurrences(scopes, &revision.id)
-            .map_err(Error::Records)?;
         let canonical = database
             .get(&revision.canonical_digest)
             .map_err(Error::Artifacts)?;
@@ -78,14 +74,10 @@ impl Provenance {
                 "its revision's canonical document has no sections to read: {error}"
             ))
         })?;
-        let places = occurrences
-            .iter()
-            .map(|place| (place.collection_id.as_str(), place.source_id.as_str()))
-            .chain([(document.collection_id.as_str(), document.source_id.as_str())]);
         Ok(Self {
             version: text(&revision.metadata, "version"),
             source_kind: text(&revision.metadata, "source_kind"),
-            scope_tags: scope_tags(places),
+            scope_tags: scope_tags(&document.collection_id, &document.source_id),
             sections: sectioned
                 .sections
                 .into_iter()
@@ -118,17 +110,13 @@ impl Provenance {
     }
 }
 
-/// The scope of each of `places`, a collection and a source, and every scope
-/// above it: the workspace's, the collection's, then the source's, all in
-/// order and each once.
-fn scope_tags<'a>(places: impl Iterator<Item = (&'a str, &'a str)>) -> Vec<String> {
-    let mut tags = BTreeSet::new();
-    for (collection, source) in places {
-        tags.insert(source_path(collection, source));
-        tags.insert(collection_path(collection));
-        tags.insert(WORKSPACE.to_owned());
-    }
-    tags.into_iter().collect()
+/// The scope of the owning source and every scope above it, in order.
+fn scope_tags(collection: &str, source: &str) -> Vec<String> {
+    vec![
+        WORKSPACE.to_owned(),
+        collection_path(collection),
+        source_path(collection, source),
+    ]
 }
 
 /// The value of `metadata` under `key`, when it is text.

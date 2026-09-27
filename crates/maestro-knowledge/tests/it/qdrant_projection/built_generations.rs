@@ -125,18 +125,17 @@ async fn carries_its_payload_and_vectors(backend: &Backend) {
     let average = AverageLength::new(terms / passages).unwrap();
     let scope = kernel.collection_scope();
     let docs = format!("{scope}/source/docs");
-    let mirror = format!("{scope}/source/mirror");
     let cases = [
         (
             "chunk-0-lead",
             json!([]),
-            json!(["workspace/default", scope, docs, mirror]),
+            json!(["workspace/default", scope, docs]),
             json!(VERSION),
         ),
         (
             "chunk-0-1",
             json!(["Guide 0", "Retries"]),
-            json!(["workspace/default", scope, docs, mirror]),
+            json!(["workspace/default", scope, docs]),
             json!(VERSION),
         ),
         (

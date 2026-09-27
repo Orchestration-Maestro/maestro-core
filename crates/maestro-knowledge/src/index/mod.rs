@@ -29,10 +29,10 @@
 //!
 //! A point's payload carries the chunk's and its revision's IDs, its
 //! section's heading path, its scope tags, and its revision's version and
-//! source kind. Its scope tags are the scope of every source its content
-//! occurs in, its document's and its occurrences', with every scope above
-//! each: a search shows a caller the points one of whose tags is a scope
-//! granted to it.
+//! source kind. Its scope tags are its owning document's source and every
+//! scope above it: a search shows a caller the points one of whose tags is a
+//! scope granted to it. An exact duplicate held in two sources is found only
+//! through its representative's source.
 //!
 //! Points are written in batches, each shown to the caller once Qdrant has
 //! applied it: a job journals it as a step of its progress (T016), and a
