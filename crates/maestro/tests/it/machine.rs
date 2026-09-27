@@ -14,11 +14,16 @@ pub(crate) fn nothing_at() -> String {
     format!("http://{}", listener.local_addr().unwrap())
 }
 
+/// An address no service can serve: port zero is never a listening port.
+const NO_QDRANT: &str = "http://127.0.0.1:0";
+
 /// Runs the binary with `arguments` in `home`, the router looked for at
-/// `router`.
+/// `router`, and Qdrant intentionally unreachable.
 pub(crate) fn checked_with(home: &Home, router: &str, arguments: &[&str]) -> Ended {
     let mut command = home.command(arguments);
-    command.env("MAESTRO_ROUTER_URL", router);
+    command
+        .env("MAESTRO_ROUTER_URL", router)
+        .env("MAESTRO_QDRANT_URL", NO_QDRANT);
     #[cfg(unix)]
     command.env("PATH", Fakes::in_home(home).path());
     Running::of(command).finish()

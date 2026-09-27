@@ -68,10 +68,7 @@ fn every_failed_check_names_its_next_action() {
         check(&document, "database")["detail"],
         "no kernel database yet"
     );
-    assert_eq!(
-        check(&document, "qdrant")["target"],
-        "http://127.0.0.1:6333"
-    );
+    assert_eq!(check(&document, "qdrant")["target"], "http://127.0.0.1:0");
     assert!(
         !home.data().join("kernel.sqlite3").exists(),
         "doctor never creates the kernel's database"

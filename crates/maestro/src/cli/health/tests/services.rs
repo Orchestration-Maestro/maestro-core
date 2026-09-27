@@ -4,8 +4,11 @@
 //! what setup would still do, asked of the user manager and nothing more.
 
 use super::{
-    super::services::{DEFAULT_ROUTER, card_checks, qdrant_check, router_check, router_url},
-    support::{detail, failure, nothing_at, serve},
+    super::services::{
+        DEFAULT_QDRANT, DEFAULT_ROUTER, card_checks, qdrant_check, qdrant_url, router_check,
+        router_url,
+    },
+    support::{detail, failure, nothing_at, serve, serve_qdrant},
 };
 use crate::cli::{
     failure::Failure,
@@ -15,21 +18,10 @@ use std::ffi::OsStr;
 #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
 use {crate::cli::setup, maestro_kernel::paths::Environment};
 
-/// What Qdrant 1.19.1 answers `GET /` with.
-const ROOT: &str = concat!(
-    r#"{"title":"qdrant - vector search engine","version":"1.19.1","#,
-    r#""commit":"6ab21cac18ebb6f4ae29102c7f8f5cc11affd5de"}"#
-);
-
-/// A readiness never asked for, as when Qdrant answers.
-fn unasked() -> Result<Readiness, Failure> {
-    panic!("asked what setup would do, though Qdrant answered")
-}
-
 #[test]
-fn qdrant_passes_when_the_pinned_version_answers() {
-    let address = serve(200, ROOT);
-    let check = qdrant_check(&address, unasked);
+fn qdrant_passes_when_the_pinned_version_answers_over_grpc() {
+    let address = serve_qdrant("1.19.1");
+    let check = qdrant_check(&address, || Ok(Readiness::Steps(vec![Step::Install])));
     assert_eq!(check.name, "qdrant");
     assert_eq!(check.target, address);
     assert_eq!(detail(&check), "Qdrant 1.19.1 answers");
@@ -37,29 +29,21 @@ fn qdrant_passes_when_the_pinned_version_answers() {
 
 #[test]
 fn another_version_of_qdrant_fails_and_setup_installs_the_pinned_one() {
-    let address = serve(
-        200,
-        r#"{"title":"qdrant - vector search engine","version":"1.18.0"}"#,
-    );
-    let check = qdrant_check(&address, unasked);
+    let address = serve_qdrant("1.18.0");
+    let check = qdrant_check(&address, || Ok(Readiness::Steps(vec![Step::Install])));
     let (problem, next) = failure(&check);
     assert_eq!(problem, "Qdrant 1.18.0 answers, not the pinned 1.19.1");
     assert!(next.contains("maestro setup --yes"), "{next}");
 }
 
 #[test]
-fn a_server_that_is_not_qdrant_fails_naming_what_answered() {
-    for (status, body) in [
-        (200, "<html>a web page</html>"),
-        (404, "{}"),
-        (500, r#"{"version":"1.19.1"}"#),
-    ] {
-        let address = serve(status, body);
-        let check = qdrant_check(&address, unasked);
-        let (problem, next) = failure(&check);
-        assert!(problem.contains("not as Qdrant"), "{status}: {problem}");
-        assert!(next.contains("port 6333"), "{next}");
-    }
+fn qdrant_uses_its_grpc_default_unless_the_environment_names_another_address() {
+    assert_eq!(DEFAULT_QDRANT, "http://127.0.0.1:6334");
+    assert_eq!(qdrant_url(None), DEFAULT_QDRANT);
+    assert_eq!(
+        qdrant_url(Some(OsStr::new("http://127.0.0.1:16734"))),
+        "http://127.0.0.1:16734"
+    );
 }
 
 #[test]

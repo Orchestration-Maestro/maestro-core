@@ -8,7 +8,7 @@ use std::{error, fmt, path::Path};
 
 /// The address the service listens on: the loopback only.
 pub(in crate::cli) const HOST: &str = "127.0.0.1";
-/// The port of its HTTP API, which Maestro calls.
+/// The port of its HTTP API, which setup configures for Qdrant to serve.
 pub(in crate::cli) const HTTP_PORT: u16 = 6333;
 /// The port of its gRPC API, bound to the loopback too.
 pub(super) const GRPC_PORT: u16 = 6334;

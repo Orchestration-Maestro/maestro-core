@@ -57,6 +57,19 @@ impl Qdrant {
         Ok(Self { client })
     }
 
+    /// Qdrant's version, returned by its gRPC health check.
+    ///
+    /// # Errors
+    ///
+    /// [`QdrantError::Client`] when Qdrant refuses or cannot answer.
+    pub async fn version(&self) -> Result<String, QdrantError> {
+        self.client
+            .health_check()
+            .await
+            .map(|answer| answer.version)
+            .map_err(QdrantError::Client)
+    }
+
     /// Whether the collection `collection` exists.
     pub(super) async fn exists(&self, collection: &str) -> Result<bool, QdrantError> {
         self.client

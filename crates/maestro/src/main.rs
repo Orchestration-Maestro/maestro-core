@@ -228,13 +228,15 @@
 //! # `status`
 //!
 //! Reports the kernel, Qdrant and the model router, each ready or not with
-//! what its check saw, and each collection the local principal reads with
-//! its documents and its published generation. It exits 0 whatever is down.
+//! what its check saw. Qdrant's gRPC API is at `MAESTRO_QDRANT_URL` or else
+//! `http://127.0.0.1:6334`. It also reports each collection the local
+//! principal reads with its documents and its published generation. It exits
+//! 0 whatever is down.
 //!
 //! ```json
 //! {"schema":"maestro-cli/status/1",
 //!  "services":[{"name":"kernel","target":"/…/kernel.sqlite3","ready":true,"detail":"intact"},
-//!   {"name":"qdrant","target":"http://127.0.0.1:6333","ready":true,
+//!   {"name":"qdrant","target":"http://127.0.0.1:6334","ready":true,
 //!    "detail":"Qdrant 1.19.1 answers"},
 //!   {"name":"router","target":"http://127.0.0.1:8080/","ready":true,
 //!    "detail":"16 entries in its catalog"}],
@@ -248,8 +250,9 @@
 //! kernel's database, which must exist, lack no migration this build carries
 //! (a missing one is named, never applied), open, pass SQLite's quick check
 //! and take `config.toml`'s grants; the artifact tree, each recorded artifact
-//! present and intact; Qdrant answering as the pinned version; the model
-//! router, at `MAESTRO_ROUTER_URL` or else `http://127.0.0.1:8080`, listing
+//! present and intact; Qdrant's gRPC health check, at `MAESTRO_QDRANT_URL`
+//! or else `http://127.0.0.1:6334`, answering as the pinned version; the
+//! model router, at `MAESTRO_ROUTER_URL` or else `http://127.0.0.1:8080`, listing
 //! its catalog, which starts no model; and each role's model card. A failed
 //! check names its next action. It then lists what it found but must not
 //! touch: the entries of the data directory the kernel does not own, as the

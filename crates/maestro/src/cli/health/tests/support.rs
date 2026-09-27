@@ -3,6 +3,10 @@
 //! nothing answers at, and a failed check's parts.
 
 use super::super::check::{Check, Outcome};
+use qdrant_client::qdrant::{
+    HealthCheckReply, HealthCheckRequest,
+    qdrant_server::{Qdrant as QdrantService, QdrantServer},
+};
 use std::{
     env, fs,
     io::{BufRead as _, BufReader, Write as _},
@@ -11,6 +15,11 @@ use std::{
     process,
     sync::atomic::{AtomicUsize, Ordering},
     thread,
+};
+use tokio::runtime::Builder;
+use tonic::{
+    Request, Response, Status,
+    transport::{Server, server::TcpIncoming},
 };
 
 /// A new empty directory under the platform's temporary directory, removed
@@ -50,6 +59,37 @@ impl Scratch {
 impl Drop for Scratch {
     fn drop(&mut self) {
         fs::remove_dir_all(&self.0).unwrap();
+    }
+}
+
+/// A stub Qdrant health service on a new loopback port, on a thread of its
+/// own, that answers with `version`; returns its gRPC address.
+pub(super) fn serve_qdrant(version: &str) -> String {
+    let runtime = Builder::new_current_thread().enable_all().build().unwrap();
+    let incoming =
+        runtime.block_on(async { TcpIncoming::bind("127.0.0.1:0".parse().unwrap()).unwrap() });
+    let address = format!("http://{}", incoming.local_addr().unwrap());
+    let server = Server::builder()
+        .add_service(QdrantServer::new(StubQdrant(version.to_owned())))
+        .serve_with_incoming(incoming);
+    thread::spawn(move || drop(runtime.block_on(server)));
+    address
+}
+
+/// The health reply from the stub Qdrant.
+struct StubQdrant(String);
+
+#[tonic::async_trait]
+impl QdrantService for StubQdrant {
+    async fn health_check(
+        &self,
+        _request: Request<HealthCheckRequest>,
+    ) -> Result<Response<HealthCheckReply>, Status> {
+        Ok(Response::new(HealthCheckReply {
+            title: "qdrant - vector search engine".to_owned(),
+            version: self.0.clone(),
+            commit: None,
+        }))
     }
 }
 

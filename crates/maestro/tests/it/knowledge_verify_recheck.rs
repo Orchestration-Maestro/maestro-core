@@ -10,8 +10,14 @@ use maestro_kernel::{
     job::NewJob,
     scope::Scope,
 };
-use reqwest::{Client, Method, StatusCode};
-use serde_json::{Value, json};
+use qdrant_client::{
+    Qdrant as Client,
+    qdrant::{
+        CreateAliasBuilder, CreateCollectionBuilder, DeleteCollectionBuilder, Distance,
+        PointStruct, UpsertPointsBuilder, VectorParamsBuilder, VectorsConfigBuilder,
+    },
+};
+use serde_json::json;
 use std::{
     collections::BTreeMap,
     env, fs, process,
@@ -19,8 +25,6 @@ use std::{
 };
 use tokio::runtime::Builder;
 
-/// The scratch Qdrant's HTTP API, never the real kernel's ports.
-const SCRATCH_QDRANT_HTTP: &str = "http://127.0.0.1:16733";
 /// The scratch Qdrant's gRPC API, never the real kernel's ports.
 const SCRATCH_QDRANT_GRPC: &str = "http://127.0.0.1:16734";
 
@@ -39,7 +43,7 @@ fn verify_checks_artifacts_again_on_every_run() {
     let generation = generation_id.to_string();
     let qdrant_collection = ["maestro-", &collection_id, "-g", &generation].concat();
     let qdrant_alias = ["maestro-", &collection_id].concat();
-    let path = create_qdrant_generation(&qdrant_collection, &qdrant_alias);
+    create_qdrant_generation(&qdrant_collection, &qdrant_alias);
 
     let first = run_verify(&home, &collection_id);
     let digest = prepared.as_str();
@@ -54,7 +58,7 @@ fn verify_checks_artifacts_again_on_every_run() {
         .join(digest);
     fs::write(artifact, b"corrupted input").unwrap();
     let second = run_verify(&home, &collection_id);
-    let _ = qdrant_http(Method::DELETE, &path, None);
+    delete_qdrant_generation(&qdrant_collection);
 
     assert_eq!(first.code, Some(0), "{first:?}");
     assert_eq!(second.code, Some(1), "{second:?}");
@@ -184,46 +188,59 @@ fn published_generation(home: &Home, collection_id: &str) -> (i64, Digest) {
 }
 
 /// Creates a Qdrant collection with one point and its expected alias.
-fn create_qdrant_generation(collection: &str, alias: &str) -> String {
-    let path = format!("/collections/{collection}");
-    let _ = qdrant_http(Method::DELETE, &path, None);
-    assert!(
-        qdrant_http(
-            Method::PUT,
-            &path,
-            Some(json!({"vectors": {"size": 1, "distance": "Cosine"}})),
-        )
-        .is_success()
-    );
-    assert!(
-        qdrant_http(
-            Method::PUT,
-            &format!("{path}/points?wait=true"),
-            Some(json!({
-                "points": [{
-                    "id": "00000000-0000-0000-0000-000000000001",
-                    "vector": [0.1],
-                }],
-            })),
-        )
-        .is_success()
-    );
-    assert!(
-        qdrant_http(
-            Method::POST,
-            "/collections/aliases",
-            Some(json!({
-                "actions": [{
-                    "create_alias": {
-                        "collection_name": collection,
-                        "alias_name": alias,
-                    },
-                }],
-            })),
-        )
-        .is_success()
-    );
-    path
+fn create_qdrant_generation(collection: &str, alias: &str) {
+    let client = Client::from_url(SCRATCH_QDRANT_GRPC)
+        .skip_compatibility_check()
+        .build()
+        .unwrap();
+    let mut vectors = VectorsConfigBuilder::default();
+    vectors.add_vector_params(VectorParamsBuilder::new(1, Distance::Cosine));
+    Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(async {
+            client
+                .create_collection(CreateCollectionBuilder::new(collection).vectors_config(vectors))
+                .await
+                .unwrap();
+            client
+                .upsert_points(
+                    UpsertPointsBuilder::new(
+                        collection,
+                        vec![PointStruct::new(
+                            "00000000-0000-0000-0000-000000000001",
+                            vec![0.1],
+                            serde_json::Map::new(),
+                        )],
+                    )
+                    .wait(true),
+                )
+                .await
+                .unwrap();
+            client
+                .create_alias(CreateAliasBuilder::new(collection, alias))
+                .await
+                .unwrap();
+        });
+}
+
+/// Deletes the scratch generation after verification.
+fn delete_qdrant_generation(collection: &str) {
+    let client = Client::from_url(SCRATCH_QDRANT_GRPC)
+        .skip_compatibility_check()
+        .build()
+        .unwrap();
+    Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(async {
+            client
+                .delete_collection(DeleteCollectionBuilder::new(collection))
+                .await
+                .unwrap();
+        });
 }
 
 /// Runs `knowledge verify` against the required scratch Qdrant.
@@ -237,20 +254,4 @@ fn run_verify(home: &Home, collection_id: &str) -> Ended {
     ]);
     command.env("MAESTRO_QDRANT_URL", SCRATCH_QDRANT_GRPC);
     Running::of(command).finish()
-}
-
-/// Sends a request to the required scratch Qdrant's HTTP API.
-fn qdrant_http(method: Method, path: &str, body: Option<Value>) -> StatusCode {
-    Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .unwrap()
-        .block_on(async move {
-            let client = Client::new();
-            let mut request = client.request(method, format!("{SCRATCH_QDRANT_HTTP}{path}"));
-            if let Some(body) = body {
-                request = request.json(&body);
-            }
-            request.send().await.unwrap().status()
-        })
 }

@@ -7,7 +7,9 @@
 use super::{
     check::Check,
     kernel::{Opened, config_check, database_check},
-    services::{ROUTER_VARIABLE, qdrant_address, qdrant_check, router_check, router_url},
+    services::{
+        QDRANT_VARIABLE, ROUTER_VARIABLE, qdrant_check, qdrant_url, router_check, router_url,
+    },
 };
 use crate::cli::{failure::Failure, output::Output, setup};
 use maestro_kernel::{
@@ -89,7 +91,7 @@ pub(in crate::cli) fn run(output: Output) -> Result<ExitCode, Failure> {
     };
     let services = [
         kernel,
-        qdrant_check(&qdrant_address(), || {
+        qdrant_check(&qdrant_url(env::var_os(QDRANT_VARIABLE).as_deref()), || {
             setup::readiness(&environment, &setup::Tools::on_path())
         }),
         router_check(router_url(env::var_os(ROUTER_VARIABLE).as_deref())),

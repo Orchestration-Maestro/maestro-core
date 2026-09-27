@@ -1,4 +1,4 @@
-//! The services' checks: Qdrant, where setup installs it, answering as the
+//! The services' checks: Qdrant answering its gRPC health check as the
 //! pinned version; the model router listing its catalog, which starts no
 //! model; and each role's model card, which the bake-off records (T030).
 //! Each waits at most [`PATIENCE`] for an answer.
@@ -6,11 +6,10 @@
 use super::check::Check;
 use crate::cli::{
     failure::{Failure, chain},
-    setup::{HOST, HTTP_PORT, QDRANT, Readiness, SERVICE},
+    setup::{QDRANT, Readiness, SERVICE},
 };
 use maestro_kernel::gateway::{Role, RouterClient, Url};
-use reqwest::Client;
-use serde::Deserialize;
+use maestro_knowledge::index::Qdrant as QdrantClient;
 use std::{borrow::Cow, ffi::OsStr, future::Future, time::Duration};
 use tokio::{runtime::Builder, time};
 
@@ -26,71 +25,46 @@ pub(crate) const QDRANT_VARIABLE: &str = "MAESTRO_QDRANT_URL";
 /// How long a check waits for a service to answer.
 const PATIENCE: Duration = Duration::from_secs(5);
 
-/// What Qdrant answers `GET /` with, in part.
-#[derive(Deserialize)]
-struct Root {
-    /// Its version, such as `1.19.1`.
-    version: String,
+/// Where Qdrant's gRPC API answers: `variable`, the value of
+/// [`QDRANT_VARIABLE`], when set; else [`DEFAULT_QDRANT`].
+pub(crate) fn qdrant_url(variable: Option<&OsStr>) -> String {
+    variable
+        .map_or(Cow::Borrowed(DEFAULT_QDRANT), OsStr::to_string_lossy)
+        .into_owned()
 }
 
-/// Where the Qdrant setup installs answers.
-pub(super) fn qdrant_address() -> String {
-    format!("http://{HOST}:{HTTP_PORT}")
-}
-
-/// The check of the Qdrant answering at `address`: it must answer as the
-/// pinned version. When it does not answer, `readiness` says what setup
-/// would still do, which gives the next action.
+/// The check of Qdrant's gRPC API at `address`: it must answer as the pinned
+/// version. When it does not answer, `readiness` says what setup would still
+/// do, which gives the next action.
 pub(super) fn qdrant_check(
     address: &str,
     readiness: impl FnOnce() -> Result<Readiness, Failure>,
 ) -> Check {
-    let answer = block_on(async {
-        let client = Client::builder()
-            .no_proxy()
-            .timeout(PATIENCE)
-            .build()
-            .map_err(|error| chain(&error))?;
-        let response = client
-            .get(address)
-            .send()
+    let version = block_on(async {
+        let qdrant = QdrantClient::new(address).map_err(|error| chain(&error))?;
+        time::timeout(PATIENCE, qdrant.version())
             .await
-            .map_err(|error| chain(&error))?;
-        let status = response.status();
-        let body = response.bytes().await.map_err(|error| chain(&error))?;
-        Ok((status, body))
+            .map_err(|_| format!("no answer within {PATIENCE:?}"))?
+            .map_err(|error| chain(&error))
     });
-    let (status, body) = match answer {
-        Ok(answer) => answer,
-        Err(reason) => {
-            return Check::failed(
-                "qdrant",
-                address,
-                format!("no answer: {reason}"),
-                unanswered(readiness()),
-            );
+    match version {
+        Ok(version) if version == QDRANT.version => {
+            Check::passed("qdrant", address, format!("Qdrant {version} answers"))
         }
-    };
-    match serde_json::from_slice::<Root>(&body) {
-        Ok(root) if status.is_success() && root.version == QDRANT.version => Check::passed(
-            "qdrant",
-            address,
-            format!("Qdrant {} answers", root.version),
-        ),
-        Ok(root) if status.is_success() => Check::failed(
+        Ok(version) => Check::failed(
             "qdrant",
             address,
             format!(
-                "Qdrant {} answers, not the pinned {}",
-                root.version, QDRANT.version
+                "Qdrant {version} answers, not the pinned {}",
+                QDRANT.version
             ),
             "install the pinned version: `maestro setup --yes`",
         ),
-        _ => Check::failed(
+        Err(reason) => Check::failed(
             "qdrant",
             address,
-            format!("{address} answers {status}, but not as Qdrant"),
-            format!("free port {HTTP_PORT} for Qdrant, then run `maestro setup --yes`"),
+            format!("no answer: {reason}"),
+            unanswered(readiness()),
         ),
     }
 }
