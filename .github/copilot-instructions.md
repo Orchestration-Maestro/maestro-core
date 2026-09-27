@@ -319,11 +319,14 @@ in place.
 │   │   │   │   │   ├── bundle.rs                                            # Bundles: maestro-evidence/1 as JSON, its evidence apart from its trace
 │   │   │   │   │   ├── mod.rs                                               # Tests of evidence: resolving a chunk from the authority, and bundles as
 │   │   │   │   │   ├── resolve.rs                                           # Resolving a chunk: the exact bytes its span covers in its revision's
+│   │   │   │   │   ├── search_wire.rs                                       # Backwards-readable search inventory and request-budget fields
 │   │   │   │   │   └── support.rs                                           # What the evidence tests share: a scratch database holding one revision of
 │   │   │   │   ├── bundle.rs                                                # Bundles: maestro-evidence/1, the search response contract, checked whole
 │   │   │   │   ├── error.rs                                                 # Why the kernel refused to resolve a chunk
+│   │   │   │   ├── inventory.rs                                             # Exact, bounded S1 search inventories, separate from supporting passages
 │   │   │   │   ├── mod.rs                                                   # Evidence (building block B7; docs/architecture/02 §6, plan D10): what a
 │   │   │   │   ├── passage.rs                                               # The passages a bundle cites: the source text of a span of one revision
+│   │   │   │   ├── request_budget.rs                                        # The transport-safe echo of the accepted search budget
 │   │   │   │   └── resolve.rs                                               # Resolving a chunk: the exact source text its span covers, read from the
 │   │   │   ├── gateway/                                                     # The model gateway (building block B10): every model, embedder, reranker
 │   │   │   │   ├── tests/                                                   # Tests of the model gateway: model cards, the router client against a stub
@@ -398,6 +401,12 @@ in place.
 │   │   │   │   ├── event.rs                                                 # Events: recorded with a new ID and the next sequence of their stream
 │   │   │   │   ├── knowledge.rs                                             # The public knowledge events: the data of each, and the catalogue naming the schema each follows
 │   │   │   │   └── mod.rs                                                   # The journal: every change the kernel makes, recorded as an event in one
+│   │   │   ├── retrieval/                                                   # Controlled, scope-bound retrieval and its shared literal search rules
+│   │   │   │   ├── tests/                                                   # Tests for exact identifier search inputs
+│   │   │   │   │   ├── identifiers.rs                                       # Literal identifier boundaries and shared whitespace normalization
+│   │   │   │   │   └── mod.rs                                               # Tests for exact identifier search inputs
+│   │   │   │   ├── identifiers.rs                                           # Shared literal identifier matching and query-whitespace normalization
+│   │   │   │   └── mod.rs                                                   # Controlled, scope-bound retrieval and its shared literal search rules
 │   │   │   ├── scope/                                                       # Scopes and grants: who may see what (docs/architecture/04 §3, building
 │   │   │   │   ├── tests/                                                   # Tests of scopes: their paths and names, what a grant covers, the grants
 │   │   │   │   │   ├── config.rs                                            # config.toml: the local principal's grants, checked whole when read, and

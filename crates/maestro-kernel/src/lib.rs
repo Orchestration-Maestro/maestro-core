@@ -18,6 +18,7 @@ pub mod generation;
 pub mod job;
 pub mod journal;
 pub mod paths;
+pub mod retrieval;
 pub mod scope;
 pub mod store;
 pub mod telemetry;

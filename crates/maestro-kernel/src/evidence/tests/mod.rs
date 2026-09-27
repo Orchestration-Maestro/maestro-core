@@ -3,4 +3,5 @@
 
 mod bundle;
 mod resolve;
+mod search_wire;
 mod support;

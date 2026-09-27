@@ -30,12 +30,16 @@
 
 mod bundle;
 mod error;
+mod inventory;
 mod passage;
+mod request_budget;
 mod resolve;
 #[cfg(test)]
 mod tests;
 
 pub use bundle::{Budget, Bundle, Conflict, RouteStatus, Schema, Trace};
 pub use error::Error;
+pub use inventory::{Inventory, InventoryCount};
 pub use passage::{Alternate, Passage, Span};
+pub use request_budget::RequestBudget;
 pub use resolve::Excerpt;

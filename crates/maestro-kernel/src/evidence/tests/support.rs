@@ -244,6 +244,8 @@ pub(super) fn bundle() -> Bundle {
             evidence_tokens: 41,
             limit: 6000,
         },
+        request_budget: None,
+        inventory: None,
         trace: vec![
             Trace {
                 n: 1,

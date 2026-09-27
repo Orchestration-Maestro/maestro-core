@@ -1,6 +1,7 @@
 //! Regression tests for deterministic query understanding.
 
 use super::{Family, Identifier, Language, QueryKind, understand};
+use maestro_kernel::retrieval::{contains_identifier, normalize_whitespace};
 
 fn assert_family_found(text: &str, family: Family, expected: &str) {
     let matching = understand(text)
@@ -384,6 +385,44 @@ fn normalization_keeps_case_collapses_whitespace_and_is_deterministic() {
     let understood = understand(text);
     assert_eq!(understood.normalized, "How To Configure THE route?");
     assert_eq!(understood, understand(text));
+}
+
+#[test]
+fn query_normalization_and_literal_search_share_the_kernel_rules() {
+    for (text, identifier, expected_normalized, matches) in [
+        ("  ERR-042.\n", "ERR-042", "ERR-042.", true),
+        ("XERR-042", "ERR-042", "XERR-042", false),
+        ("--forceful", "--force", "--forceful", false),
+        ("1.2.3", "1.2", "1.2.3", false),
+        ("ERR-042.,", "ERR-042", "ERR-042.,", true),
+        (
+            "Use tool run --force --quiet",
+            "tool run --force",
+            "Use tool run --force --quiet",
+            true,
+        ),
+        (
+            "/prefix/config.xml",
+            "config.xml",
+            "/prefix/config.xml",
+            false,
+        ),
+        ("err-042", "ERR-042", "err-042", false),
+        ("café", "cafe", "café", false),
+        ("APP=config.xml", "config.xml", "APP=config.xml", false),
+    ] {
+        assert_eq!(
+            normalize_whitespace(text),
+            expected_normalized,
+            "query text: {text:?}"
+        );
+        assert_eq!(understand(text).normalized, expected_normalized);
+        assert_eq!(
+            contains_identifier(text, identifier),
+            matches,
+            "identifier {identifier:?} in {text:?}"
+        );
+    }
 }
 
 #[test]

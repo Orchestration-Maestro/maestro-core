@@ -1,7 +1,7 @@
 //! Bundles: `maestro-evidence/1`, the search response contract, checked whole
 //! when written and when read.
 
-use super::passage::Passage;
+use super::{inventory::Inventory, passage::Passage, request_budget::RequestBudget};
 use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
     de::{self, MapAccess, Visitor},
@@ -39,6 +39,10 @@ pub struct Bundle {
     pub known_gaps: Vec<String>,
     /// The tokens its passages take, and the most they could.
     pub budget: Budget,
+    /// The accepted request bounds, when this bundle came from a search.
+    pub request_budget: Option<RequestBudget>,
+    /// Exact search counts, separate from supporting passages.
+    pub inventory: Option<Inventory>,
     /// How each passage was found and ranked, apart from the evidence.
     pub trace: Vec<Trace>,
 }
@@ -121,6 +125,8 @@ impl Serialize for Bundle {
             conflicts,
             known_gaps,
             budget,
+            request_budget,
+            inventory,
             trace,
         } = self;
         Written {
@@ -134,6 +140,8 @@ impl Serialize for Bundle {
             conflicts,
             known_gaps,
             budget,
+            request_budget: request_budget.as_ref(),
+            inventory: inventory.as_ref(),
             trace,
         }
         .serialize(serializer)
@@ -164,6 +172,12 @@ struct Written<'bundle> {
     known_gaps: &'bundle [String],
     /// [`Bundle::budget`].
     budget: &'bundle Budget,
+    /// [`Bundle::request_budget`].
+    #[serde(skip_serializing_if = "Option::is_none")]
+    request_budget: Option<&'bundle RequestBudget>,
+    /// [`Bundle::inventory`].
+    #[serde(skip_serializing_if = "Option::is_none")]
+    inventory: Option<&'bundle Inventory>,
     /// [`Bundle::trace`].
     trace: &'bundle [Trace],
 }
@@ -194,6 +208,12 @@ struct Unchecked {
     known_gaps: Vec<String>,
     /// [`Bundle::budget`].
     budget: Budget,
+    /// [`Bundle::request_budget`].
+    #[serde(default)]
+    request_budget: Option<RequestBudget>,
+    /// [`Bundle::inventory`].
+    #[serde(default)]
+    inventory: Option<Inventory>,
     /// [`Bundle::trace`].
     trace: Vec<Trace>,
 }
@@ -214,6 +234,8 @@ impl TryFrom<Unchecked> for Bundle {
             conflicts: unchecked.conflicts,
             known_gaps: unchecked.known_gaps,
             budget: unchecked.budget,
+            request_budget: unchecked.request_budget,
+            inventory: unchecked.inventory,
             trace: unchecked.trace,
         };
         check(&bundle)?;
@@ -242,7 +264,28 @@ fn check(bundle: &Bundle) -> Result<(), String> {
     for conflict in &bundle.conflicts {
         check_conflict(conflict, &numbers)?;
     }
-    check_trace(&bundle.trace, &numbers)
+    check_trace(&bundle.trace, &numbers)?;
+    if let Some(request_budget) = &bundle.request_budget {
+        request_budget.validate()?;
+        if bundle.budget.limit != request_budget.max_tokens {
+            return Err("bundle budget limit does not match request max_tokens".to_owned());
+        }
+        if bundle.budget.evidence_tokens > bundle.budget.limit {
+            return Err("bundle evidence_tokens exceeds its budget limit".to_owned());
+        }
+        let passage_count = u32::try_from(bundle.passages.len())
+            .map_err(|_| "bundle passage count exceeds request budget k".to_owned())?;
+        if passage_count > request_budget.k {
+            return Err("bundle passage count exceeds request budget k".to_owned());
+        }
+    }
+    if let Some(inventory) = &bundle.inventory {
+        if !matches!(bundle.routes.get("structured"), Some(RouteStatus::Ok)) {
+            return Err("an inventory requires the structured route to be ok".to_owned());
+        }
+        inventory.validate()?;
+    }
+    Ok(())
 }
 
 /// The numbers of `passages`, each from 1 and given once.

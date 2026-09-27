@@ -116,6 +116,8 @@ pub(super) fn bundle_with(hits: &[Hit], routes: &[(&str, Option<&str>)]) -> Bund
             evidence_tokens: 0,
             limit: 6000,
         },
+        request_budget: None,
+        inventory: None,
         trace: hits
             .iter()
             .map(|hit| Trace {

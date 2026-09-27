@@ -139,6 +139,8 @@ fn bundle(sections: &[Option<String>]) -> Bundle {
             evidence_tokens: 0,
             limit: 6000,
         },
+        request_budget: None,
+        inventory: None,
         trace: numbered
             .map(|(n, _)| Trace {
                 n,
