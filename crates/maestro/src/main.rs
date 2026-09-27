@@ -16,7 +16,11 @@
 //! - `maestro status` summarizes which services and collections are ready;
 //! - `maestro doctor` checks the kernel, the search service, the model
 //!   router and each role's model card, naming the next action for every
-//!   failure.
+//!   failure;
+//! - `maestro backup --to <dir>` backs up the kernel with SQLite's online
+//!   backup API and a digest manifest, without creating or migrating it;
+//! - `maestro restore --from <dir>` checks a backup and restores it only when
+//!   the data directory has no kernel database or artifact tree.
 //!
 //! # Output and exit codes
 //!
@@ -34,14 +38,17 @@
 //! line, or under `--json` stderr's, and the document's first member after
 //! `schema`.
 //!
-//! Every command opens the kernel of the directories the environment names
-//! (`maestro_kernel::paths`), applies `config.toml` to the local principal,
-//! and reads through what that principal may read: a collection or a job
-//! outside its grants is unknown. `setup` opens no kernel, and `status` and
-//! `doctor` open it only when its database exists and lacks no migration
-//! this build carries, never creating or migrating it. In the data directory
-//! a command touches only `kernel.sqlite3`, `artifacts/` and, for `setup`,
-//! `qdrant/`, never the files maestro v1 left there.
+//! Commands that query the kernel open the one the directories the environment
+//! names (`maestro_kernel::paths`), apply `config.toml` to the local principal,
+//! and read through what that principal may read: a collection or a job
+//! outside its grants is unknown. `setup`, `backup` and `restore` open no
+//! kernel for writing; `status` and `doctor` open it only when its database
+//! exists and lacks no migration this build carries, never creating or
+//! migrating it. `backup` uses SQLite's online backup API and records each
+//! migration and artifact's digest and size in `maestro-backup/1`;
+//! `restore` verifies that manifest, the database and every artifact before
+//! staging files beside the data directory and installing the database last.
+//! Neither command touches the files maestro v1 left there.
 //!
 //! # `knowledge collection add`
 //!

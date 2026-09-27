@@ -49,6 +49,15 @@ in place.
 │   ├── maestro/                                                             # The maestro binary: the command line (CLI) over the knowledge library and the kernel
 │   │   ├── src/                                                             # The crate's sources
 │   │   │   ├── cli/                                                         # The commands, a module each, and what they share
+│   │   │   │   ├── backup/                                                  # Back up and restore the kernel
+│   │   │   │   │   ├── command.rs                                           # The backup and restore command handlers and backup writer
+│   │   │   │   │   ├── filesystem.rs                                        # Rust source: filesystem
+│   │   │   │   │   ├── manifest.rs                                          # Rust source: manifest
+│   │   │   │   │   ├── mod.rs                                               # Back up and restore the kernel
+│   │   │   │   │   ├── names.rs                                             # Rust source: names
+│   │   │   │   │   ├── restore.rs                                           # Rust source: restore
+│   │   │   │   │   ├── test_support.rs                                      # Rust source: test support
+│   │   │   │   │   └── tests.rs                                             # Rust source: tests
 │   │   │   │   ├── health/                                                  # maestro doctor and status: the checks of the kernel, the search service, the router and each role's card
 │   │   │   │   │   ├── tests/                                               # Unit tests of the checks: the kernel's files, the services, the cards, what doctor must not touch
 │   │   │   │   │   │   ├── findings.rs                                      # Foreign entries of the data directory listed and left untouched; grants that reach no known scope
@@ -98,6 +107,8 @@ in place.
 │   │   │   └── main.rs                                                      # The binary root: the commands, their output, exit codes and JSON schemas documented
 │   │   ├── tests/                                                           # Integration tests
 │   │   │   └── it/                                                          # The contract tests: the built binary run in a scratch home
+│   │   │       ├── backup_restore.rs                                        # Backup and restore: online copies keep the database, artifacts and leased
+│   │   │       ├── backup_restore_targets.rs                                # Rust source: backup restore targets
 │   │   │       ├── cli_contract.rs                                          # JSON on stdout, diagnostics on stderr, exit codes 0, 1 and 2, the job ID first
 │   │   │       ├── collection_status.rs                                     # knowledge status of the synthetic collection: counts, dispositions and a generation
 │   │   │       ├── doctor_checks.rs                                         # maestro doctor: each failure names its next action, the router its address; v1 files listed, untouched

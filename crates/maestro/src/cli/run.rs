@@ -4,7 +4,7 @@
 
 use super::{
     args::{Arguments, CollectionCommand, JobCommand, KnowledgeCommand, Noun},
-    collection,
+    backup, collection,
     failure::Failure,
     health, import,
     kernel::Kernel,
@@ -44,9 +44,8 @@ fn run(arguments: &Arguments) -> ExitCode {
     }
 }
 
-/// Runs the command `arguments` name, in the kernel it opens; `setup`,
-/// `status` and `doctor` open none, since the first installs beside the
-/// kernel and the others look at it without creating or migrating it.
+/// Runs the command `arguments` name; `setup`, `backup` and `restore` open no
+/// kernel for writing, and `status` and `doctor` never create or migrate it.
 fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> {
     match &arguments.noun {
         Noun::Knowledge(command) => knowledge(&Kernel::open()?, output, command),
@@ -54,6 +53,8 @@ fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> 
         Noun::Setup { yes } => setup::run(output, *yes),
         Noun::Status => health::status::run(output),
         Noun::Doctor => health::doctor::run(output),
+        Noun::Backup { to } => backup::run_backup(output, to),
+        Noun::Restore { from } => backup::run_restore(output, from),
     }
 }
 

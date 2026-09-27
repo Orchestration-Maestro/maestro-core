@@ -3,6 +3,7 @@
 //! and a job run in the foreground, its loop and its lease.
 
 mod args;
+mod backup;
 mod collection;
 mod failure;
 mod foreground;

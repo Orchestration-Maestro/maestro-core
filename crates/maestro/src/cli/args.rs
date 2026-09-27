@@ -39,6 +39,18 @@ pub(super) enum Noun {
     /// Check the kernel, the search service, the model router and each
     /// role's model card, naming the next action for every failure.
     Doctor,
+    /// Back up the kernel to a new or empty directory.
+    Backup {
+        /// The directory to write.
+        #[arg(long, value_name = "DIR")]
+        to: PathBuf,
+    },
+    /// Restore a checked backup into a data directory without a kernel.
+    Restore {
+        /// The backup directory.
+        #[arg(long, value_name = "DIR")]
+        from: PathBuf,
+    },
 }
 
 /// What to do with the knowledge of a collection.

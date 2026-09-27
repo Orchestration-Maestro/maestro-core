@@ -15,10 +15,12 @@ clap.workspace = true
 maestro-kernel.workspace = true
 maestro-knowledge.workspace = true
 reqwest.workspace = true
+rusqlite = { workspace = true, features = ["backup"] }
 serde.workspace = true
 serde_json.workspace = true
+sha2.workspace = true
 tokio = { workspace = true, features = ["rt", "time"] }
 ulid.workspace = true
 
-[dev-dependencies]
-rusqlite.workspace = true
+[target.'cfg(windows)'.dependencies]
+winapi-util.workspace = true

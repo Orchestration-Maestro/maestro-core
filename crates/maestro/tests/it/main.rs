@@ -3,6 +3,8 @@
 //! and their agents do.
 #![cfg(test)]
 
+mod backup_restore;
+mod backup_restore_targets;
 mod cli_contract;
 mod collection_status;
 mod doctor_checks;
