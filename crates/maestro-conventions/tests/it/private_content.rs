@@ -8,20 +8,20 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-const CANARY: &str = "quartz zephyr lantern cobalt apricot meadow orbit ember nebula";
+pub(super) const CANARY: &str = "quartz zephyr lantern cobalt apricot meadow orbit ember nebula";
 const REMOTE_CANARY: &str = "violet geode compass willow tinsel delta crater mango";
 
-struct Scratch(PathBuf);
+pub(super) struct Scratch(PathBuf);
 
 impl Scratch {
-    fn new() -> Result<Self, Box<dyn Error>> {
+    pub(super) fn new() -> Result<Self, Box<dyn Error>> {
         let nonce = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos();
         let path = env::temp_dir().join(format!("maestro-privacy-{}-{nonce}", process::id()));
         fs::create_dir_all(&path)?;
         Ok(Self(path))
     }
 
-    fn path(&self, child: &str) -> PathBuf {
+    pub(super) fn path(&self, child: &str) -> PathBuf {
         self.0.join(child)
     }
 }
@@ -33,7 +33,7 @@ impl Drop for Scratch {
 }
 
 #[derive(Clone)]
-struct TestBank {
+pub(super) struct TestBank {
     path: PathBuf,
     digest_path: PathBuf,
     key: PathBuf,
@@ -46,7 +46,7 @@ struct TestBank {
 }
 
 impl TestBank {
-    fn build(
+    pub(super) fn build(
         binary: &str,
         scratch: &Scratch,
         shingle_texts: &[&str],
@@ -147,7 +147,7 @@ impl TestBank {
         self.scan_with_remote(binary, repo, refspec, "origin")
     }
 
-    fn scan_with_remote(
+    pub(super) fn scan_with_remote(
         &self,
         binary: &str,
         repo: &Path,
@@ -173,12 +173,12 @@ impl TestBank {
     }
 }
 
-fn privacy_binary() -> Result<&'static str, io::Error> {
+pub(super) fn privacy_binary() -> Result<&'static str, io::Error> {
     option_env!("CARGO_BIN_EXE_maestro-privacy")
         .ok_or_else(|| io::Error::other("the maestro-privacy binary is missing"))
 }
 
-fn git(repo: &Path, arguments: &[&str]) -> Result<Output, Box<dyn Error>> {
+pub(super) fn git(repo: &Path, arguments: &[&str]) -> Result<Output, Box<dyn Error>> {
     Ok(Command::new("git")
         .arg("-C")
         .arg(repo)
@@ -186,7 +186,7 @@ fn git(repo: &Path, arguments: &[&str]) -> Result<Output, Box<dyn Error>> {
         .output()?)
 }
 
-fn init_repo(repo: &Path, branch: &str) -> Result<(), Box<dyn Error>> {
+pub(super) fn init_repo(repo: &Path, branch: &str) -> Result<(), Box<dyn Error>> {
     fs::create_dir_all(repo)?;
     let initial_branch = format!("--initial-branch={branch}");
     require_success(&git(repo, &["init", "--quiet", &initial_branch])?);
@@ -207,7 +207,7 @@ fn init_repo(repo: &Path, branch: &str) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn commit(repo: &Path, message: &str) -> Result<String, Box<dyn Error>> {
+pub(super) fn commit(repo: &Path, message: &str) -> Result<String, Box<dyn Error>> {
     require_success(&git(repo, &["add", "--all"])?);
     require_success(&git(repo, &["commit", "--quiet", "-m", message])?);
     let output = git(repo, &["rev-parse", "HEAD"])?;
@@ -215,7 +215,7 @@ fn commit(repo: &Path, message: &str) -> Result<String, Box<dyn Error>> {
     Ok(String::from_utf8(output.stdout)?.trim().to_owned())
 }
 
-fn require_success(output: &Output) {
+pub(super) fn require_success(output: &Output) {
     assert!(
         output.status.success(),
         "command failed without a useful diagnostic"
@@ -233,7 +233,7 @@ fn set_private_mode(path: &Path) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn text(output: &Output) -> String {
+pub(super) fn text(output: &Output) -> String {
     format!(
         "{}{}",
         String::from_utf8_lossy(&output.stdout),

@@ -28,6 +28,8 @@ pub(super) struct Object {
 /// Blob ID and byte-preserving path from a committed tree.
 #[derive(Debug)]
 pub(super) struct TreeEntry {
+    /// Full blob object ID.
+    pub(super) oid: String,
     /// Raw tree path bytes.
     pub(super) path: Vec<u8>,
 }
@@ -219,6 +221,7 @@ pub(super) fn tree_entries(repository: &Path, commit: &str) -> Result<Vec<TreeEn
             return Err(invalid().into());
         }
         entries.push(TreeEntry {
+            oid,
             path: path.to_vec(),
         });
     }

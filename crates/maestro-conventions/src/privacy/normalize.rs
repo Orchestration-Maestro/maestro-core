@@ -126,20 +126,24 @@ pub(super) fn key_id(key: &[u8; 32]) -> String {
     hex(&hmac_sha256(key, b"maestro-privacy-key-id-v1\0"))
 }
 
-/// Validates JSON streams and decodes every string literal, including keys.
-pub(super) fn json_strings(bytes: &[u8]) -> Result<Vec<String>, io::Error> {
-    let Some(first) = bytes
-        .iter()
-        .copied()
-        .find(|byte| !byte.is_ascii_whitespace())
-    else {
-        return Ok(Vec::new());
-    };
-    if !matches!(first, b'{' | b'[' | b'\"') {
-        return Ok(Vec::new());
-    }
-    for value in serde_json::Deserializer::from_slice(bytes).into_iter::<serde_json::Value>() {
-        value.map_err(|_| io::Error::other("invalid encoded JSON"))?;
+/// Validates JSON documents or one-value-per-line JSONL and decodes strings.
+pub(super) fn json_strings(bytes: &[u8], jsonl: bool) -> Result<Vec<String>, io::Error> {
+    if jsonl {
+        for line in bytes.split(|byte| *byte == b'\n') {
+            if !line.iter().all(u8::is_ascii_whitespace) {
+                serde_json::from_slice::<serde_json::Value>(line)
+                    .map_err(|_| io::Error::other("invalid JSONL record"))?;
+            }
+        }
+    } else {
+        let mut values = 0_usize;
+        for value in serde_json::Deserializer::from_slice(bytes).into_iter::<serde_json::Value>() {
+            value.map_err(|_| io::Error::other("invalid encoded JSON"))?;
+            values += 1;
+        }
+        if values != 1 {
+            return Err(io::Error::other("invalid JSON document"));
+        }
     }
     let mut strings = Vec::new();
     let mut start = None;
@@ -208,7 +212,7 @@ fn normalized_content(words: &[Token]) -> Vec<u8> {
 /// Unicode and shingle normalization tests.
 #[cfg(test)]
 mod tests {
-    use super::{SHINGLE_SIZE, tokens};
+    use super::{SHINGLE_SIZE, json_strings, tokens};
 
     #[test]
     /// Applies compatibility normalization, lowercase and token boundaries.
@@ -239,5 +243,21 @@ mod tests {
         assert_eq!(SHINGLE_SIZE, 8);
         assert_eq!(tokens("one two three four five six seven").len(), 7);
         assert_eq!(tokens("one two three four five six seven eight").len(), 8);
+    }
+
+    #[test]
+    /// Refuses malformed JSON arrays instead of skipping decoded strings.
+    fn malformed_json_arrays_fail_closed() {
+        assert!(json_strings(br#"["synthetic private", ]"#, false).is_err());
+    }
+
+    #[test]
+    /// Decodes each JSON value from a JSONL stream and rejects multiple values per line.
+    fn jsonl_streams_decode_each_value() {
+        assert_eq!(
+            json_strings(b"{\"field\":\"one\"}\n{\"field\":\"two\"}", true).unwrap(),
+            ["field", "one", "field", "two"]
+        );
+        assert!(json_strings(b"{\"field\":1} {\"field\":2}\n", true).is_err());
     }
 }

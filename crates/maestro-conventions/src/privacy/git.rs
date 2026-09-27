@@ -9,7 +9,7 @@ use super::{
         short_unit_tag, tag, tokens,
     },
 };
-use std::{error::Error, path::Path, result::Result as StdResult};
+use std::{collections::BTreeMap, error::Error, path::Path, result::Result as StdResult};
 
 /// Kind tag for exact source-file fingerprints.
 const FILE_TAG: u8 = 1;
@@ -75,6 +75,16 @@ pub(super) struct Finding {
     pub end: usize,
 }
 
+/// JSON parsing mode selected from an outgoing blob's path.
+/// Variant order makes shared blobs prefer strict `.json` validation.
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum JsonMode {
+    /// A JSON value stream in a `.jsonl` file.
+    Lines,
+    /// One JSON value in a `.json` file.
+    Document,
+}
+
 /// Half-open byte range of one candidate match.
 #[derive(Clone, Copy)]
 struct Span {
@@ -86,8 +96,6 @@ struct Span {
 
 /// State shared while one explicit outgoing ref is scanned.
 struct Scanner<'scan, 'connection> {
-    /// Repository used for Git plumbing calls.
-    repository: &'scan Path,
     /// One-based refspec index used in findings.
     reference: usize,
     /// Reusable prepared lookups into the authenticated bank.
@@ -180,8 +188,25 @@ fn scan_reference(
         .filter(|object| object.kind == "commit")
         .map(|object| object.oid.clone())
         .collect();
+    let trees: Vec<_> = commits
+        .iter()
+        .map(|commit| {
+            Ok((
+                commit.clone(),
+                git_objects::tree_entries(repository, commit)?,
+            ))
+        })
+        .collect::<Result<_>>()?;
+    let mut json_modes = BTreeMap::new();
+    for (_, entries) in &trees {
+        for entry in entries {
+            if let Some(mode) = json_mode(&entry.path) {
+                let current = json_modes.entry(entry.oid.clone()).or_insert(mode);
+                *current = (*current).max(mode);
+            }
+        }
+    }
     let mut scanner = Scanner {
-        repository,
         reference: index,
         lookups,
         report,
@@ -189,32 +214,44 @@ fn scan_reference(
     for object in &objects {
         scanner.report.objects = scanner.report.objects.saturating_add(1);
         match object.kind.as_str() {
-            "blob" => scanner.scan_blob(&object.oid, &object.bytes)?,
+            "blob" => scanner.scan_blob(
+                &object.oid,
+                &object.bytes,
+                json_modes.get(&object.oid).copied(),
+            )?,
             "commit" | "tag" => scanner.scan_message(object)?,
             _ => return Err(git_objects::invalid().into()),
         }
     }
-    for commit_id in &commits {
-        scanner.scan_tree(commit_id)?;
+    for (commit_id, entries) in &trees {
+        scanner.scan_tree(commit_id, entries)?;
     }
     Ok(())
 }
 
+/// Selects strict JSON decoding only for JSON and JSONL paths.
+fn json_mode(path: &[u8]) -> Option<JsonMode> {
+    if path.ends_with(b".jsonl") {
+        Some(JsonMode::Lines)
+    } else if path.ends_with(b".json") {
+        Some(JsonMode::Document)
+    } else {
+        None
+    }
+}
+
 impl Scanner<'_, '_> {
     /// Scans paths in a commit introduced by the outgoing ref.
-    fn scan_tree(&mut self, commit: &str) -> Result<()> {
-        for (ordinal, entry) in git_objects::tree_entries(self.repository, commit)?
-            .iter()
-            .enumerate()
-        {
+    fn scan_tree(&mut self, commit: &str, entries: &[git_objects::TreeEntry]) -> Result<()> {
+        for (ordinal, entry) in entries.iter().enumerate() {
             let name = String::from_utf8_lossy(&entry.path);
             self.scan_text(commit, &format!("path-{ordinal}"), &name, false)?;
         }
         Ok(())
     }
 
-    /// Checks an exact blob fingerprint, then scans text and decoded JSON strings.
-    fn scan_blob(&mut self, oid: &str, bytes: &[u8]) -> Result<()> {
+    /// Checks an exact blob, then scans raw text and path-selected JSON strings.
+    fn scan_blob(&mut self, oid: &str, bytes: &[u8], json_mode: Option<JsonMode>) -> Result<()> {
         if bytes.starts_with(b"version https://git-lfs.github.com/spec/v1\n") {
             return Err(git_objects::invalid().into());
         }
@@ -233,8 +270,13 @@ impl Scanner<'_, '_> {
             return Ok(());
         }
         self.scan_text(oid, "blob", &String::from_utf8_lossy(bytes), true)?;
-        for (unit, value) in json_strings(bytes)?.iter().enumerate() {
-            self.scan_text(oid, &format!("json-{unit}"), value, false)?;
+        if let Some(mode) = json_mode {
+            for (unit, value) in json_strings(bytes, mode == JsonMode::Lines)?
+                .iter()
+                .enumerate()
+            {
+                self.scan_text(oid, &format!("json-{unit}"), value, false)?;
+            }
         }
         Ok(())
     }

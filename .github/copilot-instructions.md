@@ -283,6 +283,7 @@ in place.
 │   │   │   │   └── test_support.rs                                          # Shared scratch-directory helpers for unit tests
 │   │   │   ├── privacy/                                                     # Private-content fingerprinting and outgoing Git-object scanning
 │   │   │   │   ├── bank.rs                                                  # Builds, authenticates and queries the private fingerprint bank
+│   │   │   │   ├── bank_build.rs                                            # Constructs the keyed SQLite fingerprint bank from private source snapshots
 │   │   │   │   ├── cli.rs                                                   # Parses privacy CLI arguments and returns location-only output
 │   │   │   │   ├── git.rs                                                   # Scans explicit outgoing Git objects against authenticated fingerprints
 │   │   │   │   ├── git_objects.rs                                           # Reads Git object graphs without checking out candidate content
@@ -293,6 +294,7 @@ in place.
 │   │   │   └── lib.rs                                                       # Helpers for the repository's policy tests: the files the repository holds
 │   │   ├── tests/                                                           # Integration tests
 │   │   │   └── it/                                                          # It
+│   │   │       ├── json_files.rs                                            # Integration tests for path-selected JSON decoding
 │   │   │       ├── main.rs                                                  # Integration tests for the conventions crate
 │   │   │       ├── policy_invariants.rs                                     # The repository's policies, checked on every pull request by cargo test
 │   │   │       └── private_content.rs                                       # The privacy CLI refuses invented private content without disclosing it
