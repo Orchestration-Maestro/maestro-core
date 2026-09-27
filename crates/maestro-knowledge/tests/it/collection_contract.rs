@@ -430,6 +430,23 @@ fn every_id_a_declaration_accepts_forms_a_segment_of_a_scope() {
 }
 
 #[test]
+fn a_collection_id_reserves_generation_suffixes_but_a_source_id_does_not() {
+    for id in ["ctm-g1", "ctm-g007", "ctm-g1-g2"] {
+        let mut declared = declaration();
+        declared["id"] = json!(id);
+        let reason = json_refusal(&declared.to_string());
+        assert!(reason.contains(id), "{id}: {reason}");
+    }
+
+    let mut declared = declaration();
+    declared["sources"][0]["id"] = json!("ctm-g1");
+    assert_eq!(
+        parse(&declared.to_string()).unwrap().sources[0].id,
+        "ctm-g1"
+    );
+}
+
+#[test]
 fn an_id_that_is_no_scope_name_is_refused_naming_it() {
     for (pointer, id) in [
         ("/id", ""),

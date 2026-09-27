@@ -7,8 +7,9 @@
 //! values; every key is one the contract names and appears once in its object;
 //! every value is one the contract allows, a named one written as a string;
 //! every path stays inside its directory ([`RelativePath`]); every id is a
-//! scope name ([`maestro_kernel::scope::check_name`]), so the collection and
-//! each source form a scope path; and no two sources share an id. The files a
+//! name ([`maestro_kernel::scope::check_collection_name`] for the collection,
+//! [`maestro_kernel::scope::check_name`] for each source), so they form scope
+//! paths; and no two sources share an id. The files a
 //! declaration names, its quality ledger and the directory of its evaluation
 //! suites, are checked when first read, so they may not exist yet.
 //!
@@ -34,8 +35,8 @@ pub struct Declaration {
     /// The contract the declaration follows.
     #[serde(deserialize_with = "shape::name")]
     pub schema: Schema,
-    /// The collection's id, such as `ctm`: a scope name.
-    #[serde(deserialize_with = "shape::id")]
+    /// The collection's id, such as `ctm`: a collection name.
+    #[serde(deserialize_with = "shape::collection_id")]
     pub id: String,
     /// What the collection holds, for people.
     pub title: String,

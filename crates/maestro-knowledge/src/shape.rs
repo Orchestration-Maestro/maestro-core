@@ -54,15 +54,25 @@ where
     T::deserialize(StringDeserializer::new(text))
 }
 
-/// An id, of a collection or of one of its sources, from a JSON string that
-/// is a scope name ([`scope::check_name`]), so that it forms a segment of the
-/// path of the scope it names.
+/// A source id from a JSON string that is a scope name
+/// ([`scope::check_name`]), so that it forms a segment of its scope path.
 pub(crate) fn id<'de, D>(deserializer: D) -> Result<String, D::Error>
 where
     D: Deserializer<'de>,
 {
     let id = String::deserialize(deserializer)?;
     scope::check_name(&id).map_err(de::Error::custom)?;
+    Ok(id)
+}
+
+/// A collection id from a JSON string that follows the collection-name rule
+/// ([`scope::check_collection_name`]).
+pub(crate) fn collection_id<'de, D>(deserializer: D) -> Result<String, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let id = String::deserialize(deserializer)?;
+    scope::check_collection_name(&id).map_err(de::Error::custom)?;
     Ok(id)
 }
 

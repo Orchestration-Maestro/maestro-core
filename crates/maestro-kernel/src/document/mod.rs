@@ -4,9 +4,12 @@
 //! disposition of each revision.
 //!
 //! A collection and a source follow their declaration: recording one again
-//! takes its new values. Their ids are scope names
-//! ([`check_name`](crate::scope::check_name)), and the kernel refuses any
-//! other before it writes, so each id forms one segment of its scope's path
+//! takes its new values. Source ids are scope names
+//! ([`check_name`](crate::scope::check_name)); collection ids additionally
+//! cannot end in `-g<digits>`
+//! ([`check_collection_name`](crate::scope::check_collection_name)). The kernel
+//! refuses any other before it writes, so each id forms one segment of its
+//! scope's path
 //! and no record reaches into another's scope.
 //!
 //! A document keeps the id, collection, source and source reference it was

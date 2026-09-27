@@ -3,7 +3,7 @@
 
 use super::error::Error;
 use crate::{
-    scope::{ScopeSet, check_name},
+    scope::{ScopeSet, check_collection_name, check_name},
     store::Database,
 };
 use rusqlite::{Connection, OptionalExtension as _, Row, Transaction, params, types::Type};
@@ -14,7 +14,7 @@ use std::collections::BTreeMap;
 /// A collection: a logical body of knowledge, as its declaration names it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Collection {
-    /// Its id, such as `ctm`: a scope name.
+    /// Its id, such as `ctm`: a collection name.
     pub id: String,
     /// What it holds, for people.
     pub title: String,
@@ -64,10 +64,11 @@ impl Database {
     ///
     /// # Errors
     ///
-    /// [`Error::InvalidId`] when its id is not a scope name, before anything
-    /// is written, and [`Error::Store`] when the database cannot record it.
+    /// [`Error::InvalidId`] when its id is not a collection name, before
+    /// anything is written, and [`Error::Store`] when the database cannot
+    /// record it.
     pub fn record_collection(&self, collection: &Collection) -> Result<(), Error> {
-        check_name(&collection.id).map_err(Error::InvalidId)?;
+        check_collection_name(&collection.id).map_err(Error::InvalidId)?;
         self.write(|transaction| {
             transaction.execute(
                 "INSERT INTO collections (id, title, visibility, profiles_json)
@@ -130,11 +131,12 @@ impl Database {
     ///
     /// # Errors
     ///
-    /// [`Error::InvalidId`] when its id or its collection's is not a scope
-    /// name, before anything is written, and [`Error::Store`] when its
-    /// collection is not recorded or the database cannot record it.
+    /// [`Error::InvalidId`] when its id is not a scope name or its collection
+    /// is not a collection name, before anything is written, and
+    /// [`Error::Store`] when its collection is not recorded or the database
+    /// cannot record it.
     pub fn record_source(&self, source: &Source) -> Result<(), Error> {
-        check_name(&source.collection_id).map_err(Error::InvalidId)?;
+        check_collection_name(&source.collection_id).map_err(Error::InvalidId)?;
         check_name(&source.id).map_err(Error::InvalidId)?;
         self.write(|transaction| {
             transaction.execute(

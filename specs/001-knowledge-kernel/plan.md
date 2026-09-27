@@ -269,8 +269,10 @@ search flags (FR-S1-015a).
 ### D9 Representations and generations (B6)
 
 One Qdrant collection per generation (`maestro-<collection>-g<n>`), behind the
-alias `maestro-<collection>`. Points carry a dense vector (dimension from the
-embedder's card) and a sparse vector that maestro computes with the
+alias `maestro-<collection>`. Collection IDs may not end in `-g` followed by
+one or more ASCII digits, so an alias cannot share a name with a generation.
+Points carry a dense vector (dimension from the embedder's card) and a sparse
+vector that maestro computes with the
 `bm25-en-fr/1` analyzer and Qdrant weights with `modifier: idf` (R7), with the
 chunk ID, revision ID, section path, scope tags, version and source kind as
 payload. Qdrant neither stores nor checks an analyzer policy, so the

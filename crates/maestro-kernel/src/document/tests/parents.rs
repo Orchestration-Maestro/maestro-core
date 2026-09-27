@@ -181,6 +181,27 @@ fn an_id_that_is_no_scope_name_is_refused_before_anything_is_recorded() {
 }
 
 #[test]
+fn collection_writes_reserve_generation_suffixes_but_source_ids_do_not() {
+    let scratch = Scratch::new();
+    let database = scratch.empty();
+    for id in ["ctm-g1", "ctm-g007", "ctm-g1-g2"] {
+        assert!(matches!(
+            database.record_collection(&collection(id)),
+            Err(Error::InvalidId(_))
+        ));
+    }
+
+    database.record_collection(&collection("ctm")).unwrap();
+    database.record_source(&source("ctm", "ctm-g1")).unwrap();
+    for id in ["ctm-g1", "ctm-g007", "ctm-g1-g2"] {
+        assert!(matches!(
+            database.record_source(&source(id, "docs")),
+            Err(Error::InvalidId(_))
+        ));
+    }
+}
+
+#[test]
 fn a_source_of_an_unrecorded_collection_is_refused() {
     let scratch = Scratch::new();
     let database = scratch.empty();

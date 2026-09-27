@@ -564,7 +564,7 @@ is settled with the publish command.
 
 | Aspect | Design |
 | --- | --- |
-| Naming | Generation collection `maestro-<collection>-g<id>`; alias `maestro-<collection>` points at the published generation |
+| Naming | Generation collection `maestro-<collection>-g<id>`; alias `maestro-<collection>` points at the published generation; collection IDs may not end in `-g` followed by one or more ASCII digits |
 | Atomic switch | One `update_collection_aliases` call swaps the alias; readers never see a partial generation |
 | Vectors | Named `dense` (size = measured dimensions, cosine, HNSW m=16, ef_construct=200, in RAM); sparse `bm25` (IDF modifier); optional `late` multivector (MaxSim, on disk, no HNSW) |
 | Statistics scope | One Qdrant collection per generation isolates BM25 statistics; where several scopes share one, the Qdrant 1.19 IDF corpus filter scopes term rarity. Neither is an authorization mechanism |

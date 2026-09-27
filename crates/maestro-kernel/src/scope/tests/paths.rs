@@ -121,6 +121,23 @@ fn a_name_is_lowercase_ascii_letters_digits_and_three_marks() {
 }
 
 #[test]
+fn collection_names_reserve_generation_suffixes_but_source_names_do_not() {
+    for id in ["ctm-g1", "ctm-g007", "ctm-g1-g2"] {
+        let path = format!("workspace/default/collection/{id}");
+        assert!(path.parse::<Scope>().is_err(), "{path}");
+    }
+    for id in ["ctm", "ctm-g", "ctm-gx"] {
+        let path = format!("workspace/default/collection/{id}");
+        assert!(path.parse::<Scope>().is_ok(), "{path}");
+    }
+    assert!(
+        "workspace/default/collection/ctm/source/ctm-g1"
+            .parse::<Scope>()
+            .is_ok()
+    );
+}
+
+#[test]
 fn a_scope_covers_itself_and_its_descendants_by_whole_segments() {
     let workspace = scope("workspace/default");
     let ct = scope("workspace/default/collection/ct");
