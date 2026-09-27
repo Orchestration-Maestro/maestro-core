@@ -1,8 +1,7 @@
-//! Importing the manifest of one source: a first pass finds the
-//! `source_ref`s its lines give different digests, keeping one digest per
-//! `source_ref` and no line, then each line is imported in turn, one line and
-//! one document at a time, the caller's observer shown the report every
-//! hundred lines and after the last.
+//! Importing the manifest of one source: a first pass keeps one digest or
+//! conflict marker per distinct `source_ref` and no line, then each line is
+//! imported in turn, one line and one document at a time, the caller's
+//! observer shown the report every hundred lines and after the last.
 
 use super::{
     corpus::Corpus,
@@ -13,7 +12,7 @@ use super::{
 use crate::corpus::{self, Entry};
 use maestro_kernel::artifact::Digest;
 use std::{
-    collections::{BTreeSet, HashMap},
+    collections::HashMap,
     io::{self, BufRead},
     ops::ControlFlow,
     str,
@@ -88,24 +87,26 @@ fn import_line(
     target: &Target<'_>,
     corpus: &impl Corpus,
     text: &str,
-    shared: &BTreeSet<String>,
+    references: &HashMap<String, Option<Digest>>,
 ) -> Result<Imported, NotImported> {
     let entry: Entry = text
         .parse()
         .map_err(|error: corpus::Error| Reason::Malformed {
             message: error.to_string(),
         })?;
-    entry::import(target, corpus, &entry, shared.contains(&entry.source_ref))
+    let shared = references
+        .get(&entry.source_ref)
+        .is_some_and(Option::is_none);
+    entry::import(target, corpus, &entry, shared)
 }
 
-/// The `source_ref`s that lines of the manifest of `corpus` give different
-/// digests. A line that is no entry names none; the second pass refuses it.
+/// One entry per distinct `source_ref`: its digest, or `None` when lines
+/// disagree. A line that is no entry names none; the second pass refuses it.
 fn shared_source_refs(
     target: &Target<'_>,
     corpus: &impl Corpus,
-) -> Result<BTreeSet<String>, Error> {
-    let mut digests: HashMap<String, Digest> = HashMap::new();
-    let mut shared = BTreeSet::new();
+) -> Result<HashMap<String, Option<Digest>>, Error> {
+    let mut digests: HashMap<String, Option<Digest>> = HashMap::new();
     let mut lines = Lines::new(
         corpus
             .manifest()
@@ -115,17 +116,17 @@ fn shared_source_refs(
         let Some(entry) = line.text.ok().and_then(|text| text.parse::<Entry>().ok()) else {
             continue;
         };
-        match digests.get(&entry.source_ref) {
-            Some(first) if *first != entry.sha256 => {
-                shared.insert(entry.source_ref);
+        match digests.get_mut(&entry.source_ref) {
+            Some(first) if first.as_ref().is_some_and(|first| first != &entry.sha256) => {
+                *first = None;
             }
             Some(_) => {}
             None => {
-                digests.insert(entry.source_ref, entry.sha256);
+                digests.insert(entry.source_ref, Some(entry.sha256));
             }
         }
     }
-    Ok(shared)
+    Ok(digests)
 }
 
 /// The failure to read the manifest of `target`'s source.
@@ -184,5 +185,109 @@ impl<R: BufRead> Lines<R> {
             number: self.number,
             text,
         }))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use maestro_kernel::{
+        scope::{Right, ScopeSet},
+        store::Database,
+    };
+    use std::{
+        env, fs,
+        io::Cursor,
+        path::PathBuf,
+        process,
+        sync::atomic::{AtomicUsize, Ordering},
+    };
+
+    /// Distinct synthetic references, each repeated once in the manifest.
+    const REFERENCES: usize = 2_048;
+
+    /// Temporary kernel storage for the scale test.
+    #[derive(Debug)]
+    struct Scratch(PathBuf);
+
+    impl Scratch {
+        /// Creates a fresh test directory.
+        fn new() -> Self {
+            static NEXT: AtomicUsize = AtomicUsize::new(0);
+            let path = env::temp_dir().join(format!(
+                "maestro-import-bookkeeping-{}-{}",
+                process::id(),
+                NEXT.fetch_add(1, Ordering::Relaxed)
+            ));
+            fs::create_dir(&path).unwrap();
+            Self(path)
+        }
+    }
+
+    impl Drop for Scratch {
+        fn drop(&mut self) {
+            fs::remove_dir_all(&self.0).unwrap();
+        }
+    }
+
+    /// A synthetic manifest whose document reads are deliberately refused.
+    #[derive(Debug)]
+    struct Manifests(Vec<u8>);
+
+    impl Corpus for Manifests {
+        fn manifest(&self) -> io::Result<impl BufRead> {
+            Ok(Cursor::new(self.0.as_slice()))
+        }
+
+        fn document(&self, _path: &crate::RelativePath) -> io::Result<Vec<u8>> {
+            Err(io::Error::from(io::ErrorKind::Unsupported))
+        }
+    }
+
+    /// Each identity gets one bookkeeping slot and each refused line one record.
+    #[test]
+    fn bookkeeping_scales_with_distinct_references_and_refusals() {
+        let mut manifest = Vec::new();
+        for index in 0..REFERENCES {
+            let body = format!("synthetic body {index}");
+            let line = serde_json::json!({
+                "schema": "maestro-corpus/1",
+                "path": format!("pages/{index}.md"),
+                "sha256": Digest::of(body.as_bytes()).as_str(),
+                "bytes": body.len(),
+                "source_ref": format!("https://example.org/pages/{index}"),
+                "title": format!("Synthetic page {index}"),
+                "source_kind": "guide",
+            })
+            .to_string();
+            manifest.extend_from_slice(line.as_bytes());
+            manifest.push(b'\n');
+            manifest.extend_from_slice(line.as_bytes());
+            manifest.push(b'\n');
+        }
+        let corpus = Manifests(manifest);
+        let scratch = Scratch::new();
+        let database = Database::open_in(&scratch.0).unwrap();
+        let workspace = "workspace/default".parse().unwrap();
+        database
+            .grant("tester", &workspace, Right::Read, "test")
+            .unwrap();
+        let scopes: ScopeSet = database.visible("tester").unwrap();
+        let target = Target {
+            database: &database,
+            scopes: &scopes,
+            collection: "pages",
+            source: "web",
+        };
+
+        let references = shared_source_refs(&target, &corpus).unwrap();
+        assert_eq!(references.len(), REFERENCES);
+
+        let mut report = Report::new("synthetic");
+        let mut observer = |_: &Report| ControlFlow::Continue(());
+        import_source(&target, &corpus, &mut report, &mut observer).unwrap();
+        let refusals = REFERENCES * 2;
+        assert_eq!(report.refused, u64::try_from(refusals).unwrap());
+        assert_eq!(report.refusals.len(), refusals);
     }
 }

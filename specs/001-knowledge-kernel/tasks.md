@@ -423,7 +423,9 @@ SC-S1-001.
   different digests are both held with the reason, never one silently
   replacing the other; `path` resolves against the manifest's directory; a
   second import reports every revision `unchanged` and writes nothing;
-  memory stays bounded by the largest document.
+  document bodies are read one at a time, with one digest/conflict entry per
+  distinct `source_ref` and one refusal record per refused entry; a scale test
+  covers many distinct references and refusals.
 - [ ] **Step 2: Implement** the streaming import: record the collection, its
   sources and scope tags; parse, verify and canonicalize each line; store
   originals and canonical documents as artifacts; record revisions.

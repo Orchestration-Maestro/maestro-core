@@ -69,7 +69,9 @@ under WSL2, with an RTX 5090).
 server).
 
 **Performance Goals**: `knowledge_search` p95 < 1.5 s with the search models
-loaded (SC-S1-004); import streams with memory bounded by the largest document.
+loaded (SC-S1-004). Import reads one document body at a time; retained
+bookkeeping includes one digest/conflict entry per distinct `source_ref` and
+one refusal record per refused entry.
 
 **Constraints**: public repository, so no Control-M content, personal path or
 secret (ADR-0009, ENF-001, SEC-001); a search never unloads a chat model
