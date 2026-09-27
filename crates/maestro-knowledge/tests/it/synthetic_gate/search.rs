@@ -361,12 +361,14 @@ fn evidence_bundle(
             span: excerpt.span,
             digest: excerpt.digest,
             text: excerpt.text,
+            windowed: false,
             alternates: Vec::new(),
         });
         trace.push(Trace {
             n: number,
             score: Some(hit.score),
             routes,
+            chunk_ids: vec![chunk.id.clone()],
             procedural: false,
         });
     }
@@ -407,6 +409,8 @@ fn test_bundle(
         budget: Budget {
             evidence_tokens: budget,
             limit: u32::try_from(MAX_BYTES).unwrap_or(u32::MAX),
+            counter: None,
+            estimated: false,
         },
         request_budget: Some(RequestBudget {
             k: u32::try_from(PASSAGE_LIMIT).unwrap_or(u32::MAX),

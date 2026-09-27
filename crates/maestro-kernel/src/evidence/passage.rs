@@ -40,6 +40,9 @@ pub struct Passage {
     pub digest: Digest,
     /// Its text, verbatim.
     pub text: String,
+    /// Whether this passage contains a bounded window of its section.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub windowed: bool,
     /// The same section in other versions: listed, not ranked.
     pub alternates: Vec<Alternate>,
 }

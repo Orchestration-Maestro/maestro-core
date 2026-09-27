@@ -37,9 +37,10 @@
 //! The preparation (01 §6) records where each revision's content occurs: an
 //! exact duplicate is prepared once, as the revision its occurrences name,
 //! and every place it occurs keeps its own source and source reference. It
-//! also records the groups of near duplicates, each member with the confirmed
-//! Jaccard that holds it there: grouped, never deleted. Both are recorded
-//! once, a batch in one write.
+//! also records complete groups of near duplicates, each member with the
+//! confirmed Jaccard that holds it there: grouped, never deleted. A group ID
+//! must always name the same complete membership, and a conflict refuses the
+//! whole batch. Both are recorded once, a batch in one write.
 //!
 //! Every reader takes the caller's [`ScopeSet`](crate::scope::ScopeSet) and
 //! reads only what it covers: a collection has the scope

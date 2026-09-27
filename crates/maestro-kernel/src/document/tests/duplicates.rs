@@ -175,6 +175,135 @@ fn a_near_duplicate_group_is_recorded_once_and_read_whole_from_any_member() {
 }
 
 #[test]
+fn an_existing_near_duplicate_group_requires_its_complete_membership() {
+    let expected = [
+        member("near-1", "rev-a", 0.9),
+        member("near-1", "rev-b", 0.875),
+    ];
+    let changed = [
+        member("near-1", "rev-a", 0.95),
+        member("near-1", "rev-b", 0.875),
+    ];
+    let extra = [
+        member("near-1", "rev-a", 0.9),
+        member("near-1", "rev-b", 0.875),
+        member("near-1", "rev-m", 0.875),
+    ];
+    let missing = [member("near-1", "rev-a", 0.9)];
+
+    for attempted in [changed.as_slice(), extra.as_slice(), missing.as_slice()] {
+        let scratch = Scratch::new();
+        let database = opened(&scratch);
+        database.record_near_duplicates(&expected).unwrap();
+        let error = database.record_near_duplicates(attempted).unwrap_err();
+        assert!(
+            matches!(error, Error::NearDuplicateConflict(ref group) if group == "near-1"),
+            "unexpected error for {attempted:?}: {error}"
+        );
+        assert_eq!(
+            database
+                .near_duplicates(&ScopeSet::default_workspace(), "rev-a")
+                .unwrap(),
+            expected
+        );
+    }
+}
+
+#[test]
+fn one_member_cannot_have_two_jaccards_in_one_batch() {
+    let scratch = Scratch::new();
+    let database = opened(&scratch);
+    let conflict = [
+        member("near-1", "rev-a", 0.9),
+        member("near-1", "rev-a", 0.95),
+    ];
+
+    assert!(matches!(
+        database.record_near_duplicates(&conflict),
+        Err(Error::NearDuplicateConflict(group)) if group == "near-1"
+    ));
+    assert_eq!(
+        database
+            .near_duplicates(&ScopeSet::default_workspace(), "rev-a")
+            .unwrap(),
+        []
+    );
+}
+
+#[test]
+fn a_group_conflict_rolls_back_other_new_groups_in_the_same_call() {
+    let scratch = Scratch::new();
+    let database = opened(&scratch);
+    let existing = [
+        member("near-1", "rev-a", 0.9),
+        member("near-1", "rev-b", 0.875),
+    ];
+    database.record_near_duplicates(&existing).unwrap();
+
+    let result = database.record_near_duplicates(&[
+        member("near-0-new", "rev-m", 0.4),
+        member("near-1", "rev-a", 0.95),
+        member("near-1", "rev-b", 0.875),
+    ]);
+
+    assert!(result.is_err(), "accepted a changed existing group");
+    let all = ScopeSet::default_workspace();
+    assert_eq!(database.near_duplicates(&all, "rev-m").unwrap(), []);
+    assert_eq!(database.near_duplicates(&all, "rev-a").unwrap(), existing);
+}
+
+#[test]
+fn direct_sql_writes_are_outside_the_method_level_membership_guard() {
+    let scratch = Scratch::new();
+    let database = opened(&scratch);
+    let expected = [
+        member("near-1", "rev-a", 0.9),
+        member("near-1", "rev-b", 0.875),
+    ];
+    database.record_near_duplicates(&expected).unwrap();
+
+    database
+        .write(|transaction| {
+            transaction.execute(
+                "INSERT INTO near_dup_groups (group_id, revision_id, jaccard)
+                 VALUES ('near-1', 'rev-m', 0.8)",
+                [],
+            )?;
+            Ok::<_, Error>(())
+        })
+        .unwrap();
+
+    assert!(matches!(
+        database.record_near_duplicates(&expected),
+        Err(Error::NearDuplicateConflict(group)) if group == "near-1"
+    ));
+}
+
+#[test]
+fn identical_reordered_group_rows_are_a_no_op() {
+    let scratch = Scratch::new();
+    let database = opened(&scratch);
+    let expected = [
+        member("near-1", "rev-a", 0.9),
+        member("near-1", "rev-b", 0.875),
+    ];
+    database.record_near_duplicates(&expected).unwrap();
+    database
+        .record_near_duplicates(&[
+            expected[1].clone(),
+            expected[0].clone(),
+            expected[0].clone(),
+        ])
+        .unwrap();
+    assert_eq!(
+        database
+            .near_duplicates(&ScopeSet::default_workspace(), "rev-a")
+            .unwrap(),
+        expected
+    );
+}
+
+#[test]
 fn a_near_duplicate_is_read_only_inside_the_scopes_that_cover_its_source() {
     let scratch = Scratch::new();
     let database = opened(&scratch);

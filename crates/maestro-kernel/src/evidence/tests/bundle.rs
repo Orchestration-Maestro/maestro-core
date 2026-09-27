@@ -96,6 +96,82 @@ fn a_bundle_writes_maestro_evidence_1_and_reads_back_equal() {
 }
 
 #[test]
+fn optional_assembly_fields_preserve_old_json_and_round_trip() {
+    let original = serde_json::to_value(bundle()).unwrap();
+    assert!(original["passages"][0].get("windowed").is_none());
+    assert!(original["trace"][0].get("chunk_ids").is_none());
+    assert!(original["budget"].get("counter").is_none());
+    assert!(original["budget"].get("estimated").is_none());
+    assert_eq!(
+        serde_json::to_value(read(&original).unwrap()).unwrap(),
+        original
+    );
+
+    let mut extended = original;
+    extended["passages"][0]["windowed"] = json!(true);
+    extended["trace"][0]["chunk_ids"] = json!(["chunk-a", "chunk-b"]);
+    extended["budget"]["counter"] = json!("evidence-utf8-bytes/1");
+    extended["budget"]["estimated"] = json!(true);
+    let decoded = read(&extended).unwrap();
+    assert_eq!(serde_json::to_value(decoded).unwrap(), extended);
+}
+
+#[test]
+fn malformed_optional_assembly_fields_are_refused() {
+    let original = serde_json::to_value(bundle()).unwrap();
+    let mut invalid = Vec::new();
+    for chunk_ids in [json!([]), json!([" "]), json!(["chunk-a", "chunk-a"])] {
+        let mut value = original.clone();
+        value["trace"][0]["chunk_ids"] = chunk_ids;
+        invalid.push(value);
+    }
+    let mut blank_counter = original.clone();
+    blank_counter["budget"]["counter"] = json!(" ");
+    invalid.push(blank_counter);
+    let mut estimated_without_counter = original.clone();
+    estimated_without_counter["budget"]["estimated"] = json!(true);
+    invalid.push(estimated_without_counter);
+    let mut over_budget = original.clone();
+    over_budget["budget"]["evidence_tokens"] = json!(6001);
+    invalid.push(over_budget);
+    let mut reversed_window = original;
+    reversed_window["passages"][0]["windowed"] = json!(true);
+    reversed_window["passages"][0]["span"] = json!([30, 20]);
+    invalid.push(reversed_window);
+
+    for value in invalid {
+        assert!(read(&value).is_err(), "accepted invalid bundle: {value}");
+    }
+}
+
+#[test]
+fn invalid_assembly_fields_are_refused_before_a_bundle_is_written() {
+    let mut invalid = Vec::new();
+    let mut blank_counter = bundle();
+    blank_counter.budget.counter = Some(" ".to_owned());
+    invalid.push(blank_counter);
+    let mut estimate_without_counter = bundle();
+    estimate_without_counter.budget.estimated = true;
+    invalid.push(estimate_without_counter);
+    let mut over_budget = bundle();
+    over_budget.budget.evidence_tokens = over_budget.budget.limit + 1;
+    invalid.push(over_budget);
+    for chunk_ids in [vec![" ".to_owned()], vec!["chunk-a".to_owned(); 2]] {
+        let mut bad_trace = bundle();
+        bad_trace.trace[0].chunk_ids = chunk_ids;
+        invalid.push(bad_trace);
+    }
+    let mut reversed_window = bundle();
+    reversed_window.passages[0].windowed = true;
+    reversed_window.passages[0].span = Span { start: 30, end: 20 };
+    invalid.push(reversed_window);
+
+    for bundle in invalid {
+        assert!(write(&bundle).is_err(), "wrote invalid bundle: {bundle:?}");
+    }
+}
+
+#[test]
 fn a_bundle_names_an_unavailable_route_with_its_reason_and_its_known_gaps() {
     let value = serde_json::to_value(bundle()).unwrap();
     assert_eq!(

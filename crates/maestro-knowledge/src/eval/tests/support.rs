@@ -115,6 +115,8 @@ pub(super) fn bundle_with(hits: &[Hit], routes: &[(&str, Option<&str>)]) -> Bund
         budget: Budget {
             evidence_tokens: 0,
             limit: 6000,
+            counter: None,
+            estimated: false,
         },
         request_budget: None,
         inventory: None,
@@ -124,6 +126,7 @@ pub(super) fn bundle_with(hits: &[Hit], routes: &[(&str, Option<&str>)]) -> Bund
                 n: hit.n,
                 score: hit.score,
                 routes: hit.routes.iter().map(|&route| route.to_owned()).collect(),
+                chunk_ids: Vec::new(),
                 procedural: false,
             })
             .collect(),
@@ -148,6 +151,7 @@ fn passage(hit: &Hit) -> Passage {
         },
         digest: Digest::of(text.as_bytes()),
         text,
+        windowed: false,
         alternates: Vec::new(),
     }
 }

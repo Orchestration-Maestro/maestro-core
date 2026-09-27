@@ -81,14 +81,21 @@ pub struct Conflict {
     pub passages: Vec<u32>,
 }
 
-/// A search's evidence budget, in tokens of the answerer's tokenizer.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// A search's evidence size under its recorded counter; estimates use
+/// UTF-8 bytes and do not promise the answerer's token count.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Budget {
-    /// The tokens its passages take.
+    /// The evidence size in the recorded counter's units; UTF-8 bytes when estimated.
     pub evidence_tokens: u32,
     /// The most they could take.
     pub limit: u32,
+    /// The stable contract ID of the counter, if one was used.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub counter: Option<String>,
+    /// Whether the count is a proxy rather than an exact tokenizer count.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub estimated: bool,
 }
 
 /// How one passage was found and ranked: signals about the evidence, kept
@@ -105,6 +112,13 @@ pub struct Trace {
     pub score: Option<f64>,
     /// The routes that found the passage.
     pub routes: Vec<String>,
+    /// The source chunks covered by the passage, when supplied.
+    #[serde(
+        default,
+        skip_serializing_if = "Vec::is_empty",
+        deserialize_with = "read_chunk_ids"
+    )]
+    pub chunk_ids: Vec<String>,
     /// Whether the passage is a procedure.
     pub procedural: bool,
 }
@@ -244,14 +258,28 @@ impl TryFrom<Unchecked> for Bundle {
 }
 
 /// Why the parts of `bundle` disagree, if they do, the checks it passes when
-/// written and when read: no span starts after it ends; its passages are
-/// numbered from 1, each number given once; each route that could not run
-/// says why; each conflict names at least two of its passages and no other;
-/// and its trace names each of its passages at most once, and no other, with
-/// a finite score if any.
+/// written and when read: passage spans are valid and numbers are positive and
+/// unique; evidence size is within the named counter's limit; request bounds
+/// and passage count agree; unavailable routes give reasons; conflicts and
+/// traces refer only to held passages, with valid scores; and an inventory is
+/// valid and backed by a successful structured route.
 fn check(bundle: &Bundle) -> Result<(), String> {
     for passage in &bundle.passages {
         passage.span.checked()?;
+    }
+    if bundle.budget.evidence_tokens > bundle.budget.limit {
+        return Err("bundle evidence_tokens exceeds its budget limit".to_owned());
+    }
+    if bundle
+        .budget
+        .counter
+        .as_ref()
+        .is_some_and(|counter| counter.trim().is_empty())
+    {
+        return Err("bundle counter name is blank".to_owned());
+    }
+    if bundle.budget.estimated && bundle.budget.counter.is_none() {
+        return Err("an estimated budget requires a counter name".to_owned());
     }
     let numbers = numbers(&bundle.passages)?;
     for (name, status) in &bundle.routes {
@@ -269,9 +297,6 @@ fn check(bundle: &Bundle) -> Result<(), String> {
         request_budget.validate()?;
         if bundle.budget.limit != request_budget.max_tokens {
             return Err("bundle budget limit does not match request max_tokens".to_owned());
-        }
-        if bundle.budget.evidence_tokens > bundle.budget.limit {
-            return Err("bundle evidence_tokens exceeds its budget limit".to_owned());
         }
         let passage_count = u32::try_from(bundle.passages.len())
             .map_err(|_| "bundle passage count exceeds request budget k".to_owned())?;
@@ -342,8 +367,34 @@ fn check_trace(trace: &[Trace], numbers: &BTreeSet<u32>) -> Result<(), String> {
                 entry.n
             ));
         }
+        let mut chunk_ids = BTreeSet::new();
+        for id in &entry.chunk_ids {
+            if id.trim().is_empty() {
+                return Err(format!(
+                    "the trace for passage {} has a blank chunk ID",
+                    entry.n
+                ));
+            }
+            if !chunk_ids.insert(id) {
+                return Err(format!(
+                    "the trace for passage {} names chunk {id} twice",
+                    entry.n
+                ));
+            }
+        }
     }
     Ok(())
+}
+
+/// Reads chunk references, requiring a nonempty list when the field is present.
+fn read_chunk_ids<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<String>, D::Error> {
+    let ids = Vec::<String>::deserialize(deserializer)?;
+    if ids.is_empty() {
+        return Err(de::Error::custom(
+            "chunk_ids must not be empty when supplied",
+        ));
+    }
+    Ok(ids)
 }
 
 /// The routes of a bundle, each named once, from a JSON object: a map alone

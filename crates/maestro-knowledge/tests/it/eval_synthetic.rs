@@ -129,6 +129,7 @@ fn bundle(sections: &[Option<String>]) -> Bundle {
                     },
                     digest: Digest::of(text.as_bytes()),
                     text,
+                    windowed: false,
                     alternates: Vec::new(),
                 }
             })
@@ -138,6 +139,8 @@ fn bundle(sections: &[Option<String>]) -> Bundle {
         budget: Budget {
             evidence_tokens: 0,
             limit: 6000,
+            counter: None,
+            estimated: false,
         },
         request_budget: None,
         inventory: None,
@@ -146,6 +149,7 @@ fn bundle(sections: &[Option<String>]) -> Bundle {
                 n,
                 score: Some(1.0 / f64::from(n)),
                 routes: vec!["bm25".to_owned(), "dense".to_owned()],
+                chunk_ids: Vec::new(),
                 procedural: false,
             })
             .collect(),

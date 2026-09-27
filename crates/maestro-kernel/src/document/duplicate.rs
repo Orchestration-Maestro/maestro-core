@@ -5,6 +5,7 @@
 use super::error::Error;
 use crate::{scope::ScopeSet, store::Database};
 use rusqlite::params;
+use std::{cmp::Ordering, collections::BTreeMap};
 
 /// A place a revision's content occurs: exact duplicates keep every one.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -93,23 +94,30 @@ impl Database {
         Ok(occurrences)
     }
 
-    /// Records `members` of groups of near duplicates in one write; one
-    /// recorded before is left as it is.
+    /// Records complete group memberships in one write. Identical repeats are
+    /// no-ops; a group already recorded with different members or Jaccards is
+    /// refused. This guards calls through this method, not direct SQL writes.
     ///
     /// # Errors
     ///
-    /// [`Error::Store`] when a revision is not recorded, a Jaccard is not a
-    /// number from 0 to 1, or the database cannot record them: nothing is
-    /// recorded then.
+    /// [`Error::NearDuplicateConflict`] when a group disagrees with its
+    /// recorded complete membership, or [`Error::Store`] when a revision is
+    /// not recorded, a Jaccard is not a number from 0 to 1, or the database
+    /// cannot record them: nothing is recorded then.
     pub fn record_near_duplicates(&self, members: &[NearDuplicate]) -> Result<(), Error> {
+        let mut groups = BTreeMap::<String, BTreeMap<String, f64>>::new();
+        for member in members {
+            let rows = groups.entry(member.group_id.clone()).or_default();
+            if rows.get(&member.revision_id).is_some_and(|jaccard| {
+                !matches!(jaccard.partial_cmp(&member.jaccard), Some(Ordering::Equal))
+            }) {
+                return Err(Error::NearDuplicateConflict(member.group_id.clone()));
+            }
+            rows.insert(member.revision_id.clone(), member.jaccard);
+        }
         self.write(|transaction| {
-            for member in members {
-                transaction.execute(
-                    "INSERT INTO near_dup_groups (group_id, revision_id, jaccard)
-                     VALUES (?1, ?2, ?3)
-                     ON CONFLICT DO NOTHING",
-                    params![member.group_id, member.revision_id, member.jaccard],
-                )?;
+            for (group_id, rows) in groups {
+                record_near_duplicate_group(transaction, group_id, rows)?;
             }
             Ok(())
         })
@@ -155,4 +163,44 @@ impl Database {
             .collect::<Result<_, _>>()?;
         Ok(members)
     }
+}
+
+/// Records the complete membership of a new `group_id` or checks its repeat.
+fn record_near_duplicate_group(
+    transaction: &rusqlite::Transaction<'_>,
+    group_id: String,
+    rows: BTreeMap<String, f64>,
+) -> Result<(), Error> {
+    let stored = stored_near_duplicate_rows(transaction, &group_id)?;
+    let incoming: Vec<(String, f64)> = rows.into_iter().collect();
+    if stored == incoming {
+        return Ok(());
+    }
+    if !stored.is_empty() {
+        return Err(Error::NearDuplicateConflict(group_id));
+    }
+    for (revision_id, jaccard) in incoming {
+        transaction.execute(
+            "INSERT INTO near_dup_groups (group_id, revision_id, jaccard)
+             VALUES (?1, ?2, ?3)",
+            params![group_id, revision_id, jaccard],
+        )?;
+    }
+    Ok(())
+}
+
+/// Rows already recorded for `group_id`, ordered by revision ID.
+fn stored_near_duplicate_rows(
+    transaction: &rusqlite::Transaction<'_>,
+    group_id: &str,
+) -> Result<Vec<(String, f64)>, Error> {
+    let mut statement = transaction.prepare(
+        "SELECT revision_id, jaccard FROM near_dup_groups
+         WHERE group_id = ?1 ORDER BY revision_id",
+    )?;
+    Ok(statement
+        .query_map([group_id], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, f64>(1)?))
+        })?
+        .collect::<Result<Vec<_>, _>>()?)
 }

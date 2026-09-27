@@ -68,9 +68,9 @@ impl From<document::Error> for NotImported {
             | document::Error::RevisionConflict(_) => Self::Refused(Reason::Conflict {
                 message: error.to_string(),
             }),
-            document::Error::InvalidId(_) | document::Error::Store(_) => {
-                Self::Failed(Error::Records(error))
-            }
+            document::Error::InvalidId(_)
+            | document::Error::NearDuplicateConflict(_)
+            | document::Error::Store(_) => Self::Failed(Error::Records(error)),
         }
     }
 }
