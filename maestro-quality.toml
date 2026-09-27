@@ -136,6 +136,14 @@ path = "crates/maestro-kernel/src/evidence/mod.rs"
 item = "InventoryCount"
 reason = "InventoryCount is the public strict wire item nested in Inventory, which the controlled kernel reader assembles directly"
 
+# The search handoff carries the query module's interpretation to T032
+# unchanged; it must not invent a search-local copy of those fields.
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-knowledge/src/query/mod.rs"
+item = "Understood"
+reason = "EvidenceInput carries the public query interpretation unchanged to T032 instead of duplicating its fields as a search-local type"
+
 # The quality gate's reader of the revisions it lets through: the gate owns
 # eligibility, so the preparation (T023) reads it rather than deciding again,
 # and the gate's contract tests call it from outside the crate's sources.
