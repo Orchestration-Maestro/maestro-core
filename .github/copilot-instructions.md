@@ -262,6 +262,7 @@ in place.
 │   │   │   ├── 0006_eval_reports.sql                                        # The evaluation reports: each run's collection, generation, suite and report artifact, and the triggers that keep it as recorded
 │   │   │   ├── 0007_chunk_sets.sql                                          # The guards of the chunk sets and their chunks: their states, moves and identity, and a complete set's chunks as counted
 │   │   │   ├── 0008_document_guards.sql                                     # The guards of the documents: each keeps its id, collection, source and source reference
+│   │   │   ├── 0009_model_cards.sql                                         # V2 cards, evaluations, selections and immutable triggers
 │   │   │   └── 0010_search.sql                                              # File: 0010 search
 │   │   ├── src/                                                             # The crate's sources
 │   │   │   ├── artifact/                                                    # Content-addressed artifacts: immutable bytes stored, and read back, by their
@@ -330,6 +331,12 @@ in place.
 │   │   │   │   ├── request_budget.rs                                        # The transport-safe echo of the accepted search budget
 │   │   │   │   └── resolve.rs                                               # Resolving a chunk: the exact source text its span covers, read from the
 │   │   │   ├── gateway/                                                     # The model gateway (building block B10): every model, embedder, reranker
+│   │   │   │   ├── card_v2/                                                 # Strict v2 model-card identity encoding and validation
+│   │   │   │   │   ├── mod.rs                                               # Strict v2 model-card identity encoding and validation
+│   │   │   │   │   ├── paths.rs                                             # Local-path recognition shared by card identity validation
+│   │   │   │   │   ├── runtime.rs                                           # Canonical runtime-flag checks for values also held in typed identity fields
+│   │   │   │   │   ├── types.rs                                             # Strict typed identity recorded by maestro-model-card/2
+│   │   │   │   │   └── validation.rs                                        # Semantic validation and legacy gateway projection for v2 identities
 │   │   │   │   ├── tests/                                                   # Tests of the model gateway: model cards, the router client against a stub
 │   │   │   │   │   ├── card.rs                                              # Tests of model cards: strict JSON artifacts whose digest is their
 │   │   │   │   │   ├── catalog.rs                                           # The router's catalog: GET /v1/models in no room; refusals kept, a bad entry name an invalid answer
@@ -338,8 +345,14 @@ in place.
 │   │   │   │   │   ├── mod.rs                                               # Tests of the model gateway: model cards, the router client against a stub
 │   │   │   │   │   ├── port.rs                                              # Tests of the port's refusals: each says what was refused and why
 │   │   │   │   │   ├── router.rs                                            # Tests of the router client against a stub router: every call is bound to
-│   │   │   │   │   └── stub.rs                                              # A stub of the model router: a loopback HTTP server, on a thread of its
+│   │   │   │   │   ├── stub.rs                                              # A stub of the model router: a loopback HTTP server, on a thread of its
+│   │   │   │   │   ├── v2.rs                                                # V2 model-card identity contract
+│   │   │   │   │   ├── v2_golden.rs                                         # Canonical model-card JSON fixtures with pinned wire bytes
+│   │   │   │   │   ├── v2_validation.rs                                     # V2 card schema, weight, and runtime flag validation tests
+│   │   │   │   │   ├── v2_validation_more.rs                                # V2 card resource, provenance, role, sampling, and canonical-load validation tests
+│   │   │   │   │   └── v2_validation_paths.rs                               # Machine-path checks for v2 provenance fields
 │   │   │   │   ├── card.rs                                                  # Model cards: what was evaluated of a model filling a role (D8), kept as
+│   │   │   │   ├── card_types.rs                                            # Shared model-card vocabulary, independent of v1 and v2 encodings
 │   │   │   │   ├── fake.rs                                                  # The deterministic fake behind the model port, which public CI uses since it
 │   │   │   │   ├── mod.rs                                                   # The model gateway (building block B10): every model, embedder, reranker
 │   │   │   │   ├── port.rs                                                  # The model port: the calls every way of reaching a model answers, each
@@ -402,6 +415,25 @@ in place.
 │   │   │   │   ├── event.rs                                                 # Events: recorded with a new ID and the next sequence of their stream
 │   │   │   │   ├── knowledge.rs                                             # The public knowledge events: the data of each, and the catalogue naming the schema each follows
 │   │   │   │   └── mod.rs                                                   # The journal: every change the kernel makes, recorded as an event in one
+│   │   │   ├── model/                                                       # Scoped model-card registry: cards, evaluations and selections
+│   │   │   │   ├── tests/                                                   # Contracts for registry identity, writes, reads, scopes and SQL guards
+│   │   │   │   │   ├── concurrency.rs                                       # Concurrent model registry writes stay idempotent
+│   │   │   │   │   ├── errors.rs                                            # Model-registry error text and source chaining
+│   │   │   │   │   ├── guards.rs                                            # Model registry write preconditions, eligibility, and transaction rollback tests
+│   │   │   │   │   ├── history.rs                                           # Exact evaluation-selection joins, insertion ordering, and selection history
+│   │   │   │   │   ├── journal.rs                                           # Transactional model-registry journal event contents and rollback
+│   │   │   │   │   ├── mod.rs                                               # Model registry tests for identities, persistence, eligibility, scopes, and guards
+│   │   │   │   │   ├── reads.rs                                             # Integrity checks for scoped model registry reads
+│   │   │   │   │   ├── records.rs                                           # Model card, evaluation, and selection record/read contract tests
+│   │   │   │   │   ├── scopes.rs                                            # Scope-bound visibility tests for model cards, evaluations, and selections
+│   │   │   │   │   ├── support.rs                                           # Scratch databases and v2 card fixtures for model persistence tests
+│   │   │   │   │   ├── triggers.rs                                          # Direct tests for immutable model-registry row guards
+│   │   │   │   │   └── writes.rs                                            # Transactional model-registry write preconditions and rollback tests
+│   │   │   │   ├── error.rs                                                 # Why the kernel refused a model-card, evaluation, or selection operation
+│   │   │   │   ├── mod.rs                                                   # Scoped model-card, evaluation and selection persistence
+│   │   │   │   ├── read.rs                                                  # Scoped model registry readers with artifact and row-metadata verification
+│   │   │   │   ├── records.rs                                               # Public metadata for immutable model registrations, evaluations and selections
+│   │   │   │   └── write.rs                                                 # Scoped transactional model registry writers
 │   │   │   ├── retrieval/                                                   # Controlled, scope-bound retrieval and its shared literal search rules
 │   │   │   │   ├── tests/                                                   # Tests for exact identifier search inputs
 │   │   │   │   │   ├── deadlines.rs                                         # Cancellation and real-clock bounds on SQLite reads

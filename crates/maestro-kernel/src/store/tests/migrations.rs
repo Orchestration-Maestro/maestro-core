@@ -116,6 +116,62 @@ fn adding_search_storage_to_an_existing_database_leaves_it_empty() {
 }
 
 #[test]
+fn model_card_migration_applies_after_0008_and_after_0010_search() {
+    assert!(
+        MIGRATIONS
+            .iter()
+            .any(|(name, _)| *name == "0009_model_cards"),
+        "0009_model_cards is registered"
+    );
+
+    let preceding: Vec<_> = MIGRATIONS
+        .iter()
+        .filter(|(name, _)| *name < "0009_model_cards")
+        .copied()
+        .collect();
+    let scratch = Scratch::new();
+    drop(scratch.open_with(&preceding).unwrap());
+    drop(scratch.open_with(MIGRATIONS).unwrap());
+    let reader = scratch.outside();
+    assert!(names(&reader).contains(&"0009_model_cards".to_owned()));
+    assert_eq!(
+        reader
+            .query_row(
+                "SELECT count(*) FROM sqlite_schema WHERE type = 'table' AND name = 'model_cards'",
+                [],
+                |row| row.get::<_, i64>(0),
+            )
+            .unwrap(),
+        1
+    );
+    drop(reader);
+
+    let without_model_cards: Vec<_> = MIGRATIONS
+        .iter()
+        .filter(|(name, _)| *name != "0009_model_cards")
+        .copied()
+        .collect();
+    let scratch = Scratch::new();
+    drop(scratch.open_with(&without_model_cards).unwrap());
+    assert_eq!(
+        pending_migrations(&scratch.0).unwrap(),
+        ["0009_model_cards"]
+    );
+    drop(scratch.open_with(MIGRATIONS).unwrap());
+    let outside = scratch.outside();
+    let applied = names(&outside);
+    assert!(applied.contains(&"0009_model_cards".to_owned()));
+    assert!(applied.contains(&"0010_search".to_owned()));
+    assert_eq!(
+        outside
+            .query_row("SELECT count(*) FROM model_cards", [], |row| row
+                .get::<_, i64>(0))
+            .unwrap(),
+        0
+    );
+}
+
+#[test]
 fn reopening_a_database_applies_nothing_again() {
     let scratch = Scratch::new();
     drop(scratch.open());

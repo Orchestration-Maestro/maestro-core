@@ -39,6 +39,10 @@ pub(super) const MIGRATIONS: &[(&str, &str)] = &[
         include_str!("../../migrations/0008_document_guards.sql"),
     ),
     (
+        "0009_model_cards",
+        include_str!("../../migrations/0009_model_cards.sql"),
+    ),
+    (
         "0010_search",
         include_str!("../../migrations/0010_search.sql"),
     ),
