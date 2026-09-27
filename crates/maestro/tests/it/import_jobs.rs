@@ -7,14 +7,13 @@
 //! the rerun starts or while it follows.
 
 use super::support::{
-    Home, IMPORT, local, stream, submit_other_import, submit_synthetic_import, synthetic,
-    synthetic_inputs, types,
+    Home, IMPORT, bind_synthetic_corpus, local, stream, submit_other_import,
+    submit_synthetic_import, submit_synthetic_import_with_manifest, synthetic_inputs, types,
 };
 use maestro_kernel::job::JobState;
 use serde_json::{Value, json};
 use std::{
     fs,
-    path::Path,
     time::{Duration, SystemTime},
 };
 
@@ -123,30 +122,17 @@ fn rerunning_an_import_returns_its_job_and_imports_nothing_again() {
     );
 }
 
-/// Copies the directory `from`, with everything in it, to `to`.
-fn copy_tree(from: &Path, to: &Path) {
-    fs::create_dir_all(to).unwrap();
-    for entry in fs::read_dir(from).unwrap() {
-        let path = entry.unwrap().path();
-        let target = to.join(path.file_name().unwrap());
-        if path.is_dir() {
-            copy_tree(&path, &target);
-        } else {
-            fs::copy(&path, &target).unwrap();
-        }
-    }
-}
-
 #[test]
 fn an_import_again_is_a_new_job_that_imports_what_the_first_refused() {
     let home = Home::new();
     home.add_synthetic();
-    // A copy of the synthetic corpus, bound in place of the fixture, whose
-    // backup policy is missing at the first import.
-    let root = home.root().join("root");
-    copy_tree(&synthetic().join("corpus"), &root.join("corpus"));
-    let binding = format!("synthetic_root = '{}'\n", root.display());
-    fs::write(home.config().join("bindings.toml"), binding).unwrap();
+    let root = bind_synthetic_corpus(
+        &home,
+        &[
+            "en/backups/backup-policy.md",
+            "en/backups/restoring-a-database.md",
+        ],
+    );
     let policy = root.join("corpus/en/backups/backup-policy.md");
     let kept = fs::read(&policy).unwrap();
     fs::remove_file(&policy).unwrap();
@@ -154,7 +140,7 @@ fn an_import_again_is_a_new_job_that_imports_what_the_first_refused() {
     let first = home.run(&arguments).json();
     assert_eq!(
         [&first["outcome"]["imported"], &first["outcome"]["refused"]],
-        [27, 1]
+        [1, 1]
     );
     fs::write(&policy, kept).unwrap();
     let same = home.run(&arguments).json();
@@ -174,7 +160,7 @@ fn an_import_again_is_a_new_job_that_imports_what_the_first_refused() {
             &outcome["unchanged"],
             &outcome["refused"]
         ],
-        [1, 27, 0],
+        [1, 1, 0],
         "{document}"
     );
     let database = home.database();
@@ -189,7 +175,7 @@ fn an_import_again_is_a_new_job_that_imports_what_the_first_refused() {
         once_more["job"], document["job"],
         "each --again its own job"
     );
-    assert_eq!(once_more["outcome"]["unchanged"], 28, "{once_more}");
+    assert_eq!(once_more["outcome"]["unchanged"], 2, "{once_more}");
 }
 
 #[test]
@@ -315,10 +301,12 @@ fn an_expired_lease_is_taken_over_and_the_import_run_again() {
 fn a_rerun_takes_over_a_lease_that_expires_while_it_follows() {
     let home = Home::new();
     home.add_synthetic();
+    let root = bind_synthetic_corpus(&home, &["en/glossary.md"]);
+    let manifest = root.join("corpus/maestro-corpus.jsonl");
     let database = home.database();
-    let job = submit_synthetic_import(&database);
-    // Live for five more seconds: the rerun follows it, then takes it over.
-    let taken = SystemTime::now() - Duration::from_secs(55);
+    let job = submit_synthetic_import_with_manifest(&database, &manifest);
+    // Live for two more seconds: the rerun follows it, then takes it over.
+    let taken = SystemTime::now() - Duration::from_secs(58);
     database
         .take_job(job.id, "crashed", taken, Duration::from_secs(60))
         .unwrap();
@@ -327,10 +315,16 @@ fn a_rerun_takes_over_a_lease_that_expires_while_it_follows() {
     running.line_with("maestro.job.taken.v1");
     let ended = running.finish();
     assert_eq!(ended.code, Some(0), "{ended:?}");
+    let outcome = json!({
+        "collection": "synthetic",
+        "imported": 1,
+        "unchanged": 0,
+        "held": 0,
+        "refused": 0,
+        "refusals": [],
+    });
     assert!(
-        ended
-            .stdout
-            .ends_with(&format!("succeeded {}\n", imported_everything())),
+        ended.stdout.ends_with(&format!("succeeded {outcome}\n")),
         "{ended:?}"
     );
     assert_eq!(

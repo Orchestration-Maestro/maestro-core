@@ -166,21 +166,64 @@ pub(crate) fn synthetic() -> PathBuf {
 /// job with: the collection, the digest of its declaration and that of its
 /// one source's manifest, as the crate's documentation gives them.
 pub(crate) fn synthetic_inputs() -> Value {
-    let digest = |path: PathBuf| Digest::of(&fs::read(path).unwrap()).as_str().to_owned();
+    synthetic_inputs_with_manifest(&synthetic().join("corpus/maestro-corpus.jsonl"))
+}
+
+/// The frozen inputs of `knowledge import --collection synthetic` for `manifest`.
+pub(crate) fn synthetic_inputs_with_manifest(manifest: &Path) -> Value {
+    let digest = |path: &Path| Digest::of(&fs::read(path).unwrap()).as_str().to_owned();
     let fixture = synthetic();
     json!({
         "collection": "synthetic",
-        "declaration": digest(fixture.join("collection.json")),
+        "declaration": digest(&fixture.join("collection.json")),
         "manifests": {
-            "handbook": digest(fixture.join("corpus").join("maestro-corpus.jsonl")),
+            "handbook": digest(manifest),
         },
     })
+}
+
+/// Binds selected public synthetic documents as the `synthetic` source.
+pub(crate) fn bind_synthetic_corpus(home: &Home, paths: &[&str]) -> PathBuf {
+    let fixture = synthetic().join("corpus");
+    let root = home.root().join("small-corpus");
+    let corpus = root.join("corpus");
+    let mut entries = Vec::new();
+    for path in paths {
+        let source = fixture.join(path);
+        let target = corpus.join(path);
+        fs::create_dir_all(target.parent().unwrap()).unwrap();
+        fs::copy(source, target).unwrap();
+    }
+    let manifest = fs::read_to_string(fixture.join("maestro-corpus.jsonl")).unwrap();
+    for line in manifest.lines() {
+        let entry: Value = serde_json::from_str(line).unwrap();
+        if paths.contains(&entry["path"].as_str().unwrap()) {
+            entries.push(line);
+        }
+    }
+    assert_eq!(entries.len(), paths.len());
+    fs::write(
+        corpus.join("maestro-corpus.jsonl"),
+        format!("{}\n", entries.join("\n")),
+    )
+    .unwrap();
+    fs::write(
+        home.config().join("bindings.toml"),
+        format!("synthetic_root = '{}'\n", root.display()),
+    )
+    .unwrap();
+    root
 }
 
 /// Submits, in `database`, the job `knowledge import --collection synthetic`
 /// would submit, as another process of the same command would.
 pub(crate) fn submit_synthetic_import(database: &Database) -> Job {
     submit_import(database, &synthetic_inputs())
+}
+
+/// Submits the same job for an import bound to `manifest`.
+pub(crate) fn submit_synthetic_import_with_manifest(database: &Database, manifest: &Path) -> Job {
+    submit_import(database, &synthetic_inputs_with_manifest(manifest))
 }
 
 /// Submits, in `database`, an import of `synthetic` from other inputs, as

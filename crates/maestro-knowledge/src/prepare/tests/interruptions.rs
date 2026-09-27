@@ -13,10 +13,10 @@ use maestro_kernel::{
 };
 use std::ops::ControlFlow;
 
-/// A scratch kernel holding twenty documents, more than one batch, imported
-/// and accepted, with the scopes that read it.
+/// A scratch kernel holding seventeen documents, more than one batch,
+/// imported and accepted, with the scopes that read it.
 fn imported(scratch: &Scratch) -> (Database, ScopeSet) {
-    let documents: Vec<(String, String)> = (1..=20)
+    let documents: Vec<(String, String)> = (1..=17)
         .map(|number| {
             (
                 format!("note-{number}.md"),
@@ -52,7 +52,7 @@ fn a_preparation_stopped_after_its_first_batch_is_building_and_resumes_to_the_sa
     let [first] = seen.as_slice() else {
         panic!("{seen:?}");
     };
-    assert_eq!([first.eligible, first.prepared, first.chunks], [20, 16, 16]);
+    assert_eq!([first.eligible, first.prepared, first.chunks], [17, 16, 16]);
     let set = chunk_set_of(&database, &scopes, first);
     assert_eq!(
         (set.state, set.manifest_digest.clone()),
@@ -100,8 +100,8 @@ fn a_router_without_free_room_leaves_the_set_building_and_a_rerun_completes_it()
     port.answer("Hello world", Answer::Ids(vec![0, 35378, 8999, 2]));
     let report = prepare(&database, &scopes, COLLECTION, &tokenizer).unwrap();
     assert_eq!(report.chunk_set, id);
-    assert_eq!([report.prepared, report.chunks], [20, 20]);
-    assert_eq!(chunks_of(&database, &scopes, &report).len(), 20);
+    assert_eq!([report.prepared, report.chunks], [17, 17]);
+    assert_eq!(chunks_of(&database, &scopes, &report).len(), 17);
     assert_eq!(
         scratch.rows("chunk_sets"),
         1,

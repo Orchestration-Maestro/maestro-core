@@ -4,7 +4,9 @@
 //! (a usage error or a refused input); and a long command's job ID printed
 //! before anything else, while its job still runs.
 
-use super::support::{Home, stream, submit_synthetic_import, synthetic, types};
+use super::support::{
+    Home, bind_synthetic_corpus, stream, submit_synthetic_import, synthetic, types,
+};
 use maestro_kernel::{artifact::Digest, job::JobState};
 use serde_json::json;
 use std::{
@@ -185,6 +187,7 @@ fn an_operation_that_fails_exits_one_with_its_diagnostic_on_stderr_only() {
 fn a_long_command_prints_its_job_id_before_anything_else() {
     let home = Home::new();
     home.add_synthetic();
+    bind_synthetic_corpus(&home, &["en/glossary.md"]);
     let mut running = home.start(&["knowledge", "import", "--collection", "synthetic"]);
     let first = running.line();
     let id = first.strip_prefix("job ").unwrap();

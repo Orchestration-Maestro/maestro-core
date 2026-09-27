@@ -3,12 +3,12 @@
 //! collection's alias.
 
 use super::{
-    batches::Target,
+    batches::{BATCH, Target},
     dense::embedding_profile,
     error::{Error, Unverified},
     names::collection_name,
     progress::{Progress, Report},
-    projection::Projection,
+    projection::{Projection, ProjectionWithBatchSize},
     search_inputs,
     verify::{vectors, verify},
 };
@@ -97,6 +97,18 @@ impl<P: ModelPort> Projection<'_, P> {
         resume: Option<&Progress>,
         observer: &mut impl FnMut(&Progress) -> ControlFlow<()>,
     ) -> Result<Report, Error> {
+        self.publish_observed_with_batch_size(chunk_set, resume, observer, BATCH)
+            .await
+    }
+
+    /// Publishes the set in batches of `batch_size` chunks.
+    pub(super) async fn publish_observed_with_batch_size(
+        &self,
+        chunk_set: &str,
+        resume: Option<&Progress>,
+        observer: &mut impl FnMut(&Progress) -> ControlFlow<()>,
+        batch_size: usize,
+    ) -> Result<Report, Error> {
         let dimensions = self.dimensions()?;
         let set = self.complete(chunk_set)?;
         let (generation, step) = self.generation(&set)?;
@@ -134,7 +146,7 @@ impl<P: ModelPort> Projection<'_, P> {
                 chunk_set_id: &set.id,
                 chunks: &chunks,
             };
-            self.index(&target, start, observer).await?;
+            self.index(&target, start, batch_size, observer).await?;
         }
         let rollback = if step == Step::Check {
             self.database
@@ -324,6 +336,37 @@ impl<P: ModelPort> Projection<'_, P> {
                 .map_err(Error::Qdrant)?;
         }
         Err(Error::Unverified { generation, reason })
+    }
+}
+
+impl<P: ModelPort> ProjectionWithBatchSize<'_, P> {
+    /// Publishes `chunk_set` with the test-selected batch size, without
+    /// observing progress.
+    ///
+    /// # Errors
+    ///
+    /// As [`Projection::publish`].
+    pub async fn publish(&self, chunk_set: &str) -> Result<Report, Error> {
+        let mut unobserved = |_: &Progress| ControlFlow::Continue(());
+        self.publish_observed(chunk_set, None, &mut unobserved)
+            .await
+    }
+
+    /// Publishes `chunk_set` with the test-selected batch size and observes
+    /// progress after each written batch.
+    ///
+    /// # Errors
+    ///
+    /// As [`Projection::publish_observed`].
+    pub async fn publish_observed(
+        &self,
+        chunk_set: &str,
+        resume: Option<&Progress>,
+        observer: &mut impl FnMut(&Progress) -> ControlFlow<()>,
+    ) -> Result<Report, Error> {
+        self.projection
+            .publish_observed_with_batch_size(chunk_set, resume, observer, self.batch_size.get())
+            .await
     }
 }
 

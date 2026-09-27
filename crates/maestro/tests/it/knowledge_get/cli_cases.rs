@@ -1,6 +1,6 @@
 //! Exact `knowledge get` CLI behavior.
 
-use super::super::support::{Ended, Home, local, synthetic};
+use super::super::support::{Ended, Home, bind_synthetic_corpus, local, synthetic};
 use maestro_kernel::{
     artifact::Digest,
     chunk_set::{Chunk, NewChunkSet},
@@ -299,6 +299,7 @@ fn glossary_generation(
     } else {
         add_glossary_collection(home, collection);
     }
+    bind_synthetic_corpus(home, &["en/glossary.md"]);
     let imported = home.run(&["knowledge", "import", "--collection", collection]);
     assert_eq!(imported.code, Some(0), "{imported:?}");
     let database = home.database();

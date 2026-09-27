@@ -13,7 +13,7 @@ use maestro_knowledge::{
     lexical::PROFILE as SPARSE_PROFILE,
     publish::{Error, verify_generation},
 };
-use std::{error::Error as _, ops::ControlFlow};
+use std::{error::Error as _, num::NonZeroUsize, ops::ControlFlow};
 
 #[tokio::test]
 async fn verification_names_missing_and_corrupt_artifacts_count_and_alias_findings() {
@@ -209,26 +209,37 @@ async fn qdrant_returns_the_target_of_the_named_alias_when_others_exist() {
 }
 
 /// Builds the first batch of `guides`, leaving its generation building.
-async fn stopped_after_first_batch(guides: usize) -> (Backend, Kernel, Progress) {
+async fn stopped_after_first_batch(
+    guides: usize,
+    batch_size: Option<NonZeroUsize>,
+) -> (Backend, Kernel, Progress) {
     let backend = fake();
     let kernel = Kernel::with_guides(guides);
     let (card, embedder) = (embedder(8), Embedder::default());
     let qdrant = backend.client();
     let projection = projection(&kernel, &qdrant, &embedder, &card);
     let mut progress = None;
-    let stopped = projection
-        .publish_observed(&kernel.chunk_set, None, &mut |step| {
-            progress = Some(step.clone());
-            ControlFlow::Break(())
-        })
-        .await;
+    let mut stop_after_batch = |step: &Progress| {
+        progress = Some(step.clone());
+        ControlFlow::Break(())
+    };
+    let stopped = if let Some(batch_size) = batch_size {
+        projection
+            .with_batch_size(batch_size)
+            .publish_observed(&kernel.chunk_set, None, &mut stop_after_batch)
+            .await
+    } else {
+        projection
+            .publish_observed(&kernel.chunk_set, None, &mut stop_after_batch)
+            .await
+    };
     assert!(matches!(stopped, Err(ProjectionError::Stopped)));
     (backend, kernel, progress.unwrap())
 }
 
 #[tokio::test]
 async fn generation_count_mismatch_is_reported_when_qdrant_and_chunks_agree() {
-    let (backend, kernel, step) = stopped_after_first_batch(1).await;
+    let (backend, kernel, step) = stopped_after_first_batch(1, None).await;
     assert_eq!(step.indexed, step.chunks);
     kernel
         .database
@@ -252,8 +263,9 @@ async fn generation_count_mismatch_is_reported_when_qdrant_and_chunks_agree() {
 
 #[tokio::test]
 async fn qdrant_count_mismatch_is_reported_when_the_generation_agrees_with_qdrant() {
-    let (backend, kernel, step) = stopped_after_first_batch(50).await;
-    assert_eq!(step.indexed, 64);
+    let (backend, kernel, step) =
+        stopped_after_first_batch(1, Some(NonZeroUsize::new(3).unwrap())).await;
+    assert_eq!(step.indexed, 3);
     assert!(step.indexed < step.chunks);
     kernel
         .database

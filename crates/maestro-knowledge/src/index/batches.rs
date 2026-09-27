@@ -12,8 +12,8 @@ use maestro_kernel::{chunk_set::Chunk, gateway::ModelPort};
 use qdrant_client::qdrant::PointStruct;
 use std::{ops::ControlFlow, time::Duration};
 
-/// How many chunks one batch represents and writes.
-const BATCH: usize = 64;
+/// The production number of chunks one batch represents and writes.
+pub(super) const BATCH: usize = 64;
 
 /// How long the embedder may take to answer one batch: long enough to load
 /// into free room from cold, then embed it.
@@ -34,7 +34,7 @@ pub(super) struct Target<'a> {
 
 impl<P: ModelPort> Projection<'_, P> {
     /// Writes the points of the chunks of `target` after its first `start`,
-    /// in batches of [`BATCH`], and shows `observer` the progress once each
+    /// in batches of `batch_size`, and shows `observer` the progress once each
     /// batch is written. The sparse vectors are weighed against the average
     /// term count of every chunk of the set, which a first pass counts,
     /// unless no chunk is left to write.
@@ -47,6 +47,7 @@ impl<P: ModelPort> Projection<'_, P> {
         &self,
         target: &Target<'_>,
         start: u64,
+        batch_size: usize,
         observer: &mut impl FnMut(&Progress) -> ControlFlow<()>,
     ) -> Result<(), Error> {
         let left = usize::try_from(start)
@@ -61,7 +62,7 @@ impl<P: ModelPort> Projection<'_, P> {
             lengths.add(&self.input(chunk)?);
         }
         let mut indexed = start;
-        for batch in left.chunks(BATCH) {
+        for batch in left.chunks(batch_size) {
             let inputs = batch
                 .iter()
                 .map(|chunk| self.input(chunk))

@@ -9,7 +9,7 @@ use super::{
     kernel::{Kernel, VERSION},
     models::{Embedder, embedder},
     search_routes::support::create_collection,
-    support::{alias_of, collection_of, point_id, publish},
+    support::{alias_of, collection_of, point_id, projection, publish},
 };
 use maestro_kernel::{
     evidence::{RequestBudget, RouteStatus},
@@ -26,7 +26,7 @@ use qdrant_client::{
     qdrant::{Distance, Modifier, vector_output::Vector, vectors_config::Config},
 };
 use serde_json::{Value, json};
-use std::{collections::BTreeSet, ops::ControlFlow, slice};
+use std::{collections::BTreeSet, num::NonZeroUsize, ops::ControlFlow, slice};
 
 #[tokio::test]
 async fn a_markerless_published_generation_degrades_then_republishes_without_early_alias_move() {
@@ -134,11 +134,14 @@ async fn a_generation_builds_in_its_own_collection_then_takes_the_alias() {
     }
 }
 
-/// 30 guides give 91 chunks: two batches, of 64 and 27.
+/// One guide gives four chunks: two batches, of 3 and 1.
 async fn builds_in_its_own_collection(backend: &Backend) {
-    let kernel = Kernel::with_guides(30);
+    let kernel = Kernel::with_guides(1);
     let (card, port) = (embedder(8), Embedder::default());
-    let report = publish(&kernel, backend, &port, &card).await.unwrap();
+    let qdrant = backend.client();
+    let projection =
+        projection(&kernel, &qdrant, &port, &card).with_batch_size(NonZeroUsize::new(3).unwrap());
+    let report = projection.publish(&kernel.chunk_set).await.unwrap();
     let collection = collection_of(&kernel, 1);
     let profile = format!("dense/1:sha256:{}", card.digest().as_str());
     let expected = Report {
@@ -147,7 +150,7 @@ async fn builds_in_its_own_collection(backend: &Backend) {
         generation: 1,
         qdrant_collection: collection.clone(),
         alias: alias_of(&kernel),
-        points: 91,
+        points: 4,
         embedding_profile: profile.clone(),
         sparse_profile: "bm25-en-fr/1".to_owned(),
         retired: None,
@@ -156,14 +159,14 @@ async fn builds_in_its_own_collection(backend: &Backend) {
     holds_its_points_behind_the_alias(backend, &kernel, &collection).await;
     records_its_profiles(&kernel, &profile);
     let batches: Vec<usize> = port.calls().iter().map(Vec::len).collect();
-    assert_eq!(batches, [64, 27]);
+    assert_eq!(batches, [3, 1]);
     assert_eq!(port.rooms(), [Room::Free, Room::Free]);
     backend.cleanup(&kernel.collection, 1..=1).await;
 }
 
 /// `collection`, the first generation of `kernel`, has a dense vector of 8
 /// dimensions compared by cosine and a sparse vector weighted by IDF, holds
-/// its 91 points, and takes the alias.
+/// its 4 points, and takes the alias.
 async fn holds_its_points_behind_the_alias(backend: &Backend, kernel: &Kernel, collection: &str) {
     let parameters = backend.parameters(collection).await;
     let vectors = parameters.vectors_config.and_then(|config| config.config);
@@ -178,12 +181,12 @@ async fn holds_its_points_behind_the_alias(backend: &Backend, kernel: &Kernel, c
     let sparse = &parameters.sparse_vectors_config.unwrap().map["bm25"];
     assert_eq!(sparse.modifier, Some(i32::from(Modifier::Idf)));
     assert_eq!(backend.ef_construct(collection).await, Some(200));
-    assert_eq!(backend.count(collection).await, 91);
+    assert_eq!(backend.count(collection).await, 4);
     let alias = backend.alias(&alias_of(kernel)).await;
     assert_eq!(alias.as_deref(), Some(collection));
 }
 
-/// The first generation of `kernel` is published, with its 91 points, the
+/// The first generation of `kernel` is published, with its 4 points, the
 /// dense profile `profile` and the analyzer's sparse profile.
 fn records_its_profiles(kernel: &Kernel, profile: &str) {
     let recorded = kernel
@@ -192,7 +195,7 @@ fn records_its_profiles(kernel: &Kernel, profile: &str) {
         .unwrap()
         .unwrap();
     assert_eq!(recorded.state, GenerationState::Published);
-    assert_eq!(recorded.point_count, Some(91));
+    assert_eq!(recorded.point_count, Some(4));
     assert_eq!(recorded.embedding_profile, profile);
     assert_eq!(recorded.sparse_profile, "bm25-en-fr/1");
     let published = kernel

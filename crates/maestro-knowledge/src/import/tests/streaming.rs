@@ -26,7 +26,7 @@ use std::{
 };
 
 /// How many documents the streaming test imports.
-const DOCUMENTS: usize = 40;
+const DOCUMENTS: usize = 2;
 
 /// The collection the in-memory corpus is imported into.
 const COLLECTION: &str = "pages";

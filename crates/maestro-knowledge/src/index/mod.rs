@@ -71,5 +71,5 @@ pub use dense::{Failure, Refusal};
 pub use error::{Error, Unverified};
 pub(crate) use names::{alias_name, collection_name};
 pub use progress::{Progress, Report};
-pub use projection::Projection;
+pub use projection::{Projection, ProjectionWithBatchSize};
 pub use qdrant::{Qdrant, QdrantError};

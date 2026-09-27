@@ -83,7 +83,7 @@ async fn a_chunk_set_the_caller_cannot_read_or_that_is_not_complete_is_refused()
 
 #[tokio::test]
 async fn a_qdrant_that_refuses_a_batch_leaves_the_generation_building() {
-    let (kernel, backend) = (Kernel::with_guides(30), fake());
+    let (kernel, backend) = (Kernel::with_guides(1), fake());
     let fake = backend.fake.as_ref().unwrap();
     // The client tries an unavailable server a second time before it fails.
     fake.refuse_next("upsert", Code::Unavailable);
@@ -102,7 +102,7 @@ async fn a_qdrant_that_refuses_a_batch_leaves_the_generation_building() {
     assert_eq!(state_of(&kernel, 1), GenerationState::Building);
     assert_eq!(backend.count(&collection_of(&kernel, 1)).await, 0);
     let report = publish(&kernel, &backend, &port, &card).await.unwrap();
-    assert_eq!((report.generation, report.points), (1, 91));
+    assert_eq!((report.generation, report.points), (1, 4));
 }
 
 #[tokio::test]

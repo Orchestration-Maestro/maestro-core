@@ -23,6 +23,7 @@ use maestro_knowledge::{
 use qdrant_client::qdrant::vector_output::Vector;
 use serde_json::json;
 use std::{
+    num::NonZeroUsize,
     ops::ControlFlow,
     time::{Duration, SystemTime},
 };
@@ -37,34 +38,45 @@ async fn an_interrupted_build_resumes_at_its_last_journaled_batch() {
     }
 }
 
-/// 50 guides give 151 chunks: batches of 64, 64 and 23. The first run
+/// One guide supplies 130 chunks: batches of 64, 64 and 2. The first run
 /// journals its first batch, then stops, as a job whose lease is lost does;
 /// a rerun takes the lease over once it expired and resumes after it.
 async fn resumes_at_its_last_journaled_batch(backend: &Backend) {
-    let kernel = Kernel::with_guides(50);
+    let kernel = Kernel::with_changed_guides(1, &|_, _, original| {
+        let mut chunks = Vec::with_capacity(130);
+        for index in 0..129 {
+            let mut chunk = original[0].clone();
+            chunk.id = format!("chunk-extra-{index}");
+            chunks.push(chunk);
+        }
+        let mut last = original[0].clone();
+        last.id = "chunk-49-2".to_owned();
+        chunks.push(last);
+        chunks
+    });
     let (qdrant, card, port) = (backend.client(), embedder(8), Embedder::default());
     let (average, passage_average) = whole_set_average(&kernel);
     let publication = projection(&kernel, &qdrant, &port, &card);
     let (job, resume) = interrupt_after_first_batch(&kernel, backend, &publication).await;
     assert_eq!(
         (resume.generation, resume.indexed, resume.chunks),
-        (1, 64, 151)
+        (1, 64, 130)
     );
     let (report, journaled, indexed) =
         resume_and_complete(&kernel, &publication, job, resume).await;
-    assert_eq!(indexed, [128, 151]);
+    assert_eq!(indexed, [128, 130]);
     assert_journaled_average(&journaled, average);
     assert_last_batch_sparse(backend, &kernel, &report.qdrant_collection, passage_average).await;
     let batches: Vec<usize> = port.calls().iter().map(Vec::len).collect();
-    assert_eq!(batches, [64, 64, 23], "the rerun embeds from chunk 64 on");
+    assert_eq!(batches, [64, 64, 2], "the rerun embeds from chunk 64 on");
     let chunks = kernel.chunks();
     let rerun: Vec<String> = chunks[64..]
         .iter()
         .map(|chunk| kernel.input(chunk))
         .collect();
     assert_eq!(port.calls()[1..].concat(), rerun);
-    assert_eq!((report.generation, report.points), (1, 151));
-    assert_eq!(backend.count(&report.qdrant_collection).await, 151);
+    assert_eq!((report.generation, report.points), (1, 130));
+    assert_eq!(backend.count(&report.qdrant_collection).await, 130);
     assert_eq!(state_of(&kernel, 1), GenerationState::Published);
     backend.cleanup(&kernel.collection, 1..=1).await;
 }
@@ -205,12 +217,13 @@ async fn an_embedder_without_free_room_leaves_the_generation_building() {
     }
 }
 
-/// 30 guides give 91 chunks, whose second batch finds no free room.
+/// One guide gives four chunks; the second batch finds no free room.
 async fn leaves_the_generation_building(backend: &Backend) {
-    let kernel = Kernel::with_guides(30);
+    let kernel = Kernel::with_guides(1);
     let (qdrant, card, port) = (backend.client(), embedder(8), Embedder::default());
     port.fail(1, Fault::Unavailable);
-    let publication = projection(&kernel, &qdrant, &port, &card);
+    let publication =
+        projection(&kernel, &qdrant, &port, &card).with_batch_size(NonZeroUsize::new(3).unwrap());
     let mut last = None;
     let error = publication
         .publish_observed(&kernel.chunk_set, None, &mut |progress: &Progress| {
@@ -223,14 +236,14 @@ async fn leaves_the_generation_building(backend: &Backend) {
         matches!(
             &error,
             Error::Embedding {
-                at: 64,
+                at: 3,
                 failure: Failure::Port(gateway::Error::Unavailable { .. })
             }
         ),
         "{error}"
     );
     assert_eq!(state_of(&kernel, 1), GenerationState::Building);
-    assert_eq!(backend.count(&collection_of(&kernel, 1)).await, 64);
+    assert_eq!(backend.count(&collection_of(&kernel, 1)).await, 3);
     assert_eq!(backend.alias(&alias_of(&kernel)).await, None);
     let report = publication
         .publish_observed(&kernel.chunk_set, last.as_ref(), &mut |_: &Progress| {
@@ -239,8 +252,8 @@ async fn leaves_the_generation_building(backend: &Backend) {
         .await
         .unwrap();
     let batches: Vec<usize> = port.calls().iter().map(Vec::len).collect();
-    assert_eq!(batches, [64, 27, 27]);
-    assert_eq!((report.generation, report.points), (1, 91));
+    assert_eq!(batches, [3, 1, 1]);
+    assert_eq!((report.generation, report.points), (1, 4));
     assert_eq!(state_of(&kernel, 1), GenerationState::Published);
     backend.cleanup(&kernel.collection, 1..=1).await;
 }
@@ -248,9 +261,10 @@ async fn leaves_the_generation_building(backend: &Backend) {
 #[tokio::test]
 async fn a_step_of_another_generation_resumes_nothing() {
     let backend = fake();
-    let kernel = Kernel::with_guides(30);
+    let kernel = Kernel::with_guides(1);
     let (qdrant, card, port) = (backend.client(), embedder(8), Embedder::default());
-    let publication = projection(&kernel, &qdrant, &port, &card);
+    let publication =
+        projection(&kernel, &qdrant, &port, &card).with_batch_size(NonZeroUsize::new(3).unwrap());
     let stopped = publication
         .publish_observed(&kernel.chunk_set, None, &mut |_: &Progress| {
             ControlFlow::Break(())
@@ -260,8 +274,8 @@ async fn a_step_of_another_generation_resumes_nothing() {
     assert!(matches!(stopped, Error::Stopped), "{stopped}");
     let elsewhere = Progress {
         generation: 7,
-        indexed: 64,
-        chunks: 91,
+        indexed: 3,
+        chunks: 4,
         average_length: 20.0,
     };
     let report = publication
@@ -271,17 +285,18 @@ async fn a_step_of_another_generation_resumes_nothing() {
         .await
         .unwrap();
     let batches: Vec<usize> = port.calls().iter().map(Vec::len).collect();
-    assert_eq!(batches, [64, 64, 27], "the rerun writes every chunk again");
-    assert_eq!((report.generation, report.points), (1, 91));
+    assert_eq!(batches, [3, 3, 1], "the rerun writes every chunk again");
+    assert_eq!((report.generation, report.points), (1, 4));
     backend.cleanup(&kernel.collection, 1..=1).await;
 }
 
 #[tokio::test]
 async fn a_recreated_collection_starts_at_the_first_chunk() {
     let backend = fake();
-    let kernel = Kernel::with_guides(30);
+    let kernel = Kernel::with_guides(1);
     let (qdrant, card, port) = (backend.client(), embedder(8), Embedder::default());
-    let publication = projection(&kernel, &qdrant, &port, &card);
+    let publication =
+        projection(&kernel, &qdrant, &port, &card).with_batch_size(NonZeroUsize::new(3).unwrap());
     let mut resume = None;
     let stopped = publication
         .publish_observed(&kernel.chunk_set, None, &mut |progress: &Progress| {
@@ -300,10 +315,10 @@ async fn a_recreated_collection_starts_at_the_first_chunk() {
         })
         .await
         .unwrap();
-    assert_eq!((report.generation, report.points), (1, 91));
-    assert_eq!(backend.count(&collection).await, 91);
+    assert_eq!((report.generation, report.points), (1, 4));
+    assert_eq!(backend.count(&collection).await, 4);
     let batches: Vec<usize> = port.calls().iter().map(Vec::len).collect();
-    assert_eq!(batches, [64, 64, 27]);
+    assert_eq!(batches, [3, 3, 1]);
     backend.cleanup(&kernel.collection, 1..=1).await;
 }
 

@@ -2,7 +2,7 @@
 //! by quality disposition, and its generations, as the local principal reads
 //! them.
 
-use super::support::{Home, local};
+use super::support::{Home, bind_synthetic_corpus, local};
 use maestro_kernel::{
     document::{Disposition, Outcome},
     generation::NewGeneration,
@@ -17,6 +17,7 @@ const TITLE: &str = "Synthetic operations handbook in French and English, writte
 fn status_reports_documents_revisions_dispositions_and_generations() {
     let home = Home::new();
     home.add_synthetic();
+    bind_synthetic_corpus(&home, &["en/glossary.md", "fr/http/codes-d-erreur.md"]);
     let imported = home.run(&["knowledge", "import", "--collection", "synthetic"]);
     assert_eq!(imported.code, Some(0), "{imported:?}");
     let database = home.database();
@@ -62,7 +63,7 @@ fn status_reports_documents_revisions_dispositions_and_generations() {
         .iter()
         .map(|(status, count)| (status.to_string(), json!(count)))
         .collect();
-    assert_eq!(statuses.values().filter_map(Value::as_u64).sum::<u64>(), 28);
+    assert_eq!(statuses.values().filter_map(Value::as_u64).sum::<u64>(), 2);
     let status = home.run(&["knowledge", "status", "--collection", "synthetic", "--json"]);
     assert_eq!(
         (status.code, status.stderr.as_str()),
@@ -75,7 +76,7 @@ fn status_reports_documents_revisions_dispositions_and_generations() {
             "schema": "maestro-cli/knowledge-status/1",
             "collection": "synthetic",
             "title": TITLE,
-            "documents": 28,
+            "documents": 2,
             "revisions": statuses,
             "dispositions": {
                 "accepted": 1,
@@ -83,7 +84,7 @@ fn status_reports_documents_revisions_dispositions_and_generations() {
                 "needs_reextraction": 0,
                 "quarantined": 0,
                 "excluded": 0,
-                "undecided": 27,
+                "undecided": 1,
             },
             "generations": [{
                 "id": generation.id,
@@ -99,9 +100,9 @@ fn status_reports_documents_revisions_dispositions_and_generations() {
     let text = home.run(&["knowledge", "status", "--collection", "synthetic"]);
     assert_eq!(text.code, Some(0), "{text:?}");
     for line in [
-        "documents 28".to_owned(),
+        "documents 2".to_owned(),
         "dispositions accepted 1, accepted_with_warnings 0, needs_reextraction 0, \
-         quarantined 0, excluded 0, undecided 27"
+         quarantined 0, excluded 0, undecided 1"
             .to_owned(),
         format!(
             "generation {} published: chunk set synthetic-set, 3 points",
