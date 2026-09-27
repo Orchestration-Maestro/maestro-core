@@ -18,6 +18,7 @@ pub mod routes;
 #[cfg(test)]
 mod tests;
 
+pub use evidence::{EvidenceCounter, EvidenceError, assemble_evidence};
 pub use fusion::{Fused, Hit, Route, RouteList, fuse};
 pub use orchestrate::search;
 pub use pin::pin;

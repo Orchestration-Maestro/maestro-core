@@ -6,6 +6,7 @@ mod signatures;
 
 pub(super) use signatures::has_condition_or_negation;
 #[cfg(test)]
+pub(super) use signatures::word_shingles;
 pub(super) use signatures::{
-    DiversityFeatures, diversity_features, diversity_similarity, mmr_score, word_shingles,
+    DiversityFeatures, diversity_features, diversity_similarity, mmr_score,
 };

@@ -1,6 +1,49 @@
-//! Numeric release-label ordering.
+//! Numeric release ordering and exact-section version collapse.
 
-use std::cmp::Ordering;
+use super::families::{CandidateFamily, corresponds};
+use maestro_kernel::evidence::Alternate;
+use std::{
+    cmp::Ordering,
+    collections::{BTreeMap, BTreeSet},
+};
+
+/// One loaded candidate considered for documentary-version collapse.
+#[derive(Debug, Clone)]
+pub(crate) struct VersionCandidate {
+    /// Manifest-authorized correspondence family and canonical section location.
+    pub(crate) family: CandidateFamily,
+    /// Original reranker position for deterministic mirror selection.
+    pub(crate) input_position: usize,
+    /// Candidate source revision.
+    pub(crate) revision_id: String,
+    /// Canonical section that supplied the candidate, if any.
+    pub(crate) section_id: Option<String>,
+    /// Effective literal version, if present.
+    pub(crate) version: Option<String>,
+    /// Exact full section bytes used for conservative equality.
+    pub(crate) section_text: String,
+    /// Conflicting evidence is retained independently.
+    pub(crate) conflict_member: bool,
+}
+
+/// Candidates to suppress and provenance to attach to each retained primary.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub(crate) struct VersionCollapse {
+    /// Indices whose text is represented only as a retained section alternate.
+    pub(crate) suppressed: BTreeSet<usize>,
+    /// Older versions, keyed by the stable retained candidate index.
+    pub(crate) alternates: BTreeMap<usize, Vec<Alternate>>,
+    /// At least one otherwise-collapsible class has no numeric ordering.
+    pub(crate) latest_undetermined: bool,
+}
+
+/// The numeric latest candidates and their strictly older members.
+struct VersionPartition {
+    /// Winning candidates, including same-version mirrors.
+    winners: Vec<usize>,
+    /// Candidates represented as alternates of the stable winner.
+    older: Vec<usize>,
+}
 
 /// Compares dot-separated ASCII integer components without integer overflow.
 pub(crate) fn compare_numeric_versions(left: &str, right: &str) -> Option<Ordering> {
@@ -15,6 +58,266 @@ pub(crate) fn compare_numeric_versions(left: &str, right: &str) -> Option<Orderi
         }
     }
     Some(Ordering::Equal)
+}
+
+/// Collapses only identical, same-location sections with a provable numeric latest.
+pub(crate) fn collapse_versions(
+    candidates: &[VersionCandidate],
+    enabled: bool,
+) -> Result<VersionCollapse, String> {
+    if !enabled {
+        return Ok(VersionCollapse::default());
+    }
+    validate_candidates(candidates)?;
+    let mut result = VersionCollapse::default();
+    for group in equivalent_groups(candidates)? {
+        collapse_group(candidates, &group, &mut result)?;
+    }
+    Ok(result)
+}
+
+/// Validates source identities before the bounded pairwise family comparison.
+fn validate_candidates(candidates: &[VersionCandidate]) -> Result<(), String> {
+    if candidates.iter().any(|candidate| {
+        candidate.revision_id.trim().is_empty()
+            || candidate.family.document_id.trim().is_empty()
+            || candidate
+                .family
+                .near_group_ids
+                .iter()
+                .any(|group| group.trim().is_empty())
+            || candidate
+                .section_id
+                .as_ref()
+                .is_some_and(|section| section.trim().is_empty())
+    }) {
+        return Err("version candidate identity is invalid".to_owned());
+    }
+    Ok(())
+}
+
+/// Builds exact-text family classes; the query is capped at 120 candidates.
+fn equivalent_groups(candidates: &[VersionCandidate]) -> Result<Vec<Vec<usize>>, String> {
+    // ponytail: O(n²) for the 120-candidate request cap; partition first if that cap rises.
+    let mut remaining: BTreeSet<_> = (0..candidates.len()).collect();
+    let mut groups = Vec::new();
+    while let Some(start) = remaining.iter().next().copied() {
+        remaining.remove(&start);
+        let first = candidates
+            .get(start)
+            .ok_or_else(|| "version candidate index is invalid".to_owned())?;
+        if first.conflict_member || first.section_id.is_none() {
+            continue;
+        }
+        let mut group = vec![start];
+        let mut pending = vec![start];
+        while let Some(current_index) = pending.pop() {
+            let current = candidates
+                .get(current_index)
+                .ok_or_else(|| "version candidate index is invalid".to_owned())?;
+            let matching = matching_candidates(candidates, current, &remaining)?;
+            for index in matching {
+                remaining.remove(&index);
+                pending.push(index);
+                group.push(index);
+            }
+        }
+        groups.push(group);
+    }
+    Ok(groups)
+}
+
+/// Returns unvisited candidates with the current section's exact family identity.
+fn matching_candidates(
+    candidates: &[VersionCandidate],
+    current: &VersionCandidate,
+    remaining: &BTreeSet<usize>,
+) -> Result<Vec<usize>, String> {
+    let mut matching = Vec::new();
+    for index in remaining {
+        let candidate = candidates
+            .get(*index)
+            .ok_or_else(|| "version candidate index is invalid".to_owned())?;
+        if !candidate.conflict_member
+            && candidate.section_id.is_some()
+            && candidate.section_text == current.section_text
+            && corresponds(&current.family, &candidate.family)
+        {
+            matching.push(*index);
+        }
+    }
+    Ok(matching)
+}
+
+/// Suppresses only strictly older numerically ordered sections in one exact class.
+fn collapse_group(
+    candidates: &[VersionCandidate],
+    group: &[usize],
+    result: &mut VersionCollapse,
+) -> Result<(), String> {
+    let Some((first_index, rest)) = group.split_first() else {
+        return Ok(());
+    };
+    if !spans_multiple_revisions(candidates, *first_index, rest)? {
+        return Ok(());
+    }
+    let Some(latest) = latest_version(candidates, group, result)? else {
+        return Ok(());
+    };
+    let Some(partition) = partition_versions(candidates, group, latest, result)? else {
+        return Ok(());
+    };
+    if partition.older.is_empty() {
+        return Ok(());
+    }
+    let primary = primary_candidate(candidates, partition.winners)?;
+    let alternates = older_alternates(candidates, partition.older, result)?;
+    result.alternates.insert(primary, alternates);
+    Ok(())
+}
+
+/// Whether the class represents more than one distinct revision.
+fn spans_multiple_revisions(
+    candidates: &[VersionCandidate],
+    first_index: usize,
+    rest: &[usize],
+) -> Result<bool, String> {
+    let first_revision = candidates
+        .get(first_index)
+        .ok_or_else(|| "version candidate index is invalid".to_owned())?
+        .revision_id
+        .as_str();
+    for index in rest {
+        let candidate = candidates
+            .get(*index)
+            .ok_or_else(|| "version candidate index is invalid".to_owned())?;
+        if candidate.revision_id != first_revision {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+/// The greatest valid numeric version, or `None` when a class is unorderable.
+fn latest_version<'a>(
+    candidates: &'a [VersionCandidate],
+    group: &[usize],
+    result: &mut VersionCollapse,
+) -> Result<Option<&'a str>, String> {
+    let mut latest: Option<&str> = None;
+    for index in group {
+        let candidate = candidates
+            .get(*index)
+            .ok_or_else(|| "version candidate index is invalid".to_owned())?;
+        let Some(version) = candidate.version.as_deref() else {
+            result.latest_undetermined = true;
+            return Ok(None);
+        };
+        match latest {
+            None if compare_numeric_versions(version, version).is_some() => {
+                latest = Some(version);
+            }
+            None => {
+                result.latest_undetermined = true;
+                return Ok(None);
+            }
+            Some(current) => match compare_numeric_versions(version, current) {
+                Some(Ordering::Greater) => latest = Some(version),
+                Some(Ordering::Less | Ordering::Equal) => {}
+                None => {
+                    result.latest_undetermined = true;
+                    return Ok(None);
+                }
+            },
+        }
+    }
+    Ok(latest)
+}
+
+/// Partitions a version class into numerically latest and strictly older members.
+fn partition_versions(
+    candidates: &[VersionCandidate],
+    group: &[usize],
+    latest: &str,
+    result: &mut VersionCollapse,
+) -> Result<Option<VersionPartition>, String> {
+    let mut winners = Vec::new();
+    let mut older = Vec::new();
+    for index in group {
+        let candidate = candidates
+            .get(*index)
+            .ok_or_else(|| "version candidate index is invalid".to_owned())?;
+        let Some(version) = candidate.version.as_deref() else {
+            result.latest_undetermined = true;
+            return Ok(None);
+        };
+        match compare_numeric_versions(version, latest) {
+            Some(Ordering::Equal) => winners.push(*index),
+            Some(Ordering::Less) => older.push(*index),
+            Some(Ordering::Greater) => {
+                return Err("latest version selection is inconsistent".to_owned());
+            }
+            None => {
+                result.latest_undetermined = true;
+                return Ok(None);
+            }
+        }
+    }
+    Ok(Some(VersionPartition { winners, older }))
+}
+
+/// Chooses the stable representative among numerically latest mirrors.
+fn primary_candidate(
+    candidates: &[VersionCandidate],
+    mut winners: Vec<usize>,
+) -> Result<usize, String> {
+    winners.sort_by_key(|index| {
+        candidates.get(*index).map(|candidate| {
+            (
+                candidate.input_position,
+                candidate.revision_id.as_str(),
+                candidate.section_id.as_deref().unwrap_or_default(),
+            )
+        })
+    });
+    winners
+        .first()
+        .copied()
+        .ok_or_else(|| "latest version has no retained candidate".to_owned())
+}
+
+/// Records suppressed provenance as sorted, distinct alternates.
+fn older_alternates(
+    candidates: &[VersionCandidate],
+    older: Vec<usize>,
+    result: &mut VersionCollapse,
+) -> Result<Vec<Alternate>, String> {
+    let mut alternates = Vec::new();
+    for index in older {
+        let candidate = candidates
+            .get(index)
+            .ok_or_else(|| "version candidate index is invalid".to_owned())?;
+        let version = candidate
+            .version
+            .clone()
+            .ok_or_else(|| "older version is missing its label".to_owned())?;
+        let section_id = candidate
+            .section_id
+            .clone()
+            .ok_or_else(|| "older version is missing its section".to_owned())?;
+        result.suppressed.insert(index);
+        alternates.push(Alternate {
+            version: Some(version),
+            section_id,
+        });
+    }
+    alternates.sort_by(|left, right| {
+        left.version
+            .cmp(&right.version)
+            .then_with(|| left.section_id.cmp(&right.section_id))
+    });
+    alternates.dedup();
+    Ok(alternates)
 }
 
 /// Splits a valid nonempty dot-separated numeric version.

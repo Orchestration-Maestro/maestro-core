@@ -1,12 +1,12 @@
 //! Reads explicit entity/attribute/value facts from supported Markdown tables.
 
-use maestro_canonicalization::{
-    Block, BlockAttributes, BlockType, CanonicalDocument, ContentNode, Section,
-};
+use maestro_canonicalization::{Block, BlockAttributes, BlockType, CanonicalDocument, ContentNode};
 use maestro_kernel::evidence::Span;
 use std::collections::BTreeMap;
 
-use super::super::{features::has_condition_or_negation, sections::block_span};
+use super::super::{
+    families::section_occurrences, features::has_condition_or_negation, sections::block_span,
+};
 
 /// Canonical identity for one row observation.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
@@ -66,7 +66,7 @@ pub(super) fn table_facts(
     if blocks.len() != document.blocks.len() {
         return Err("canonical block IDs are not unique".to_owned());
     }
-    let sections = section_occurrences(document.sections.iter())?;
+    let sections = section_occurrences(document)?;
     let mut facts = Vec::new();
     for table in &document.blocks {
         if !matches!(
@@ -78,10 +78,12 @@ pub(super) fn table_facts(
         let span = block_span(table, markdown)?
             .ok_or_else(|| "canonical table has no source span".to_owned())?;
         let (section_path, occurrence) = match table.parent_section_id.as_deref() {
-            Some(section_id) => sections
-                .get(section_id)
-                .cloned()
-                .ok_or_else(|| "canonical table names a missing section".to_owned())?,
+            Some(section_id) => {
+                let section = sections
+                    .get(section_id)
+                    .ok_or_else(|| "canonical table names a missing section".to_owned())?;
+                (section.section_path.clone(), section.occurrence)
+            }
             None => (Vec::new(), 1),
         };
         if let Some(rows) = parse_table(table, &blocks)? {
@@ -104,30 +106,6 @@ pub(super) fn table_facts(
         }
     }
     Ok(facts)
-}
-
-/// Assigns each canonical heading path its one-based occurrence number.
-fn section_occurrences<'a>(
-    sections: impl Iterator<Item = &'a Section>,
-) -> Result<BTreeMap<String, (Vec<String>, usize)>, String> {
-    let mut counts: BTreeMap<Vec<String>, usize> = BTreeMap::new();
-    let mut output = BTreeMap::new();
-    for section in sections {
-        let count = counts.entry(section.heading_path.clone()).or_default();
-        *count = count
-            .checked_add(1)
-            .ok_or_else(|| "section occurrence exceeds usize".to_owned())?;
-        if output
-            .insert(
-                section.section_id.clone(),
-                (section.heading_path.clone(), *count),
-            )
-            .is_some()
-        {
-            return Err("canonical section IDs are not unique".to_owned());
-        }
-    }
-    Ok(output)
 }
 
 /// Parses one exact supported table shape and its well-formed rows.

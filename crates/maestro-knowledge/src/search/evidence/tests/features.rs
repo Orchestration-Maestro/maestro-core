@@ -104,6 +104,35 @@ fn fenced_code_and_negation_differences_disable_redundancy_penalties() {
 }
 
 #[test]
+fn conditional_list_items_do_not_protect_unrelated_siblings() {
+    let features_for = |markdown: &str, title: &str| {
+        let source_document = document(markdown);
+        let section = source_document
+            .sections
+            .iter()
+            .find(|section| section.title == title)
+            .unwrap();
+        let extent = SectionIndex::new(&source_document, markdown)
+            .unwrap()
+            .section_extent(&section.section_id)
+            .unwrap();
+        diversity_features(markdown, &source_document, extent, None).unwrap()
+    };
+    let left = concat!(
+        "# Guide\n\n## A\n\n",
+        "1. If Linux, use mode Alpha.\n2. Output is Alpha.\n",
+    );
+    let right = concat!(
+        "# Guide\n\n## B\n\n",
+        "1. If Linux, use mode Alpha.\n2. Output is Beta.\n",
+    );
+
+    assert!(
+        diversity_similarity(&features_for(left, "A"), &features_for(right, "B")).unwrap() > 0.0
+    );
+}
+
+#[test]
 fn numeric_token_positions_use_absolute_offsets_for_nonzero_extents() {
     let prefix = "## Intro\n\nLead text.\n\n## Guide\n\n";
     let code_first = format!("{prefix}Run `tool` then 7005.\n");

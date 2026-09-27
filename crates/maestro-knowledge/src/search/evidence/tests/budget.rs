@@ -1,6 +1,9 @@
-use super::super::budget::{
-    CounterError, CounterInfo, EvidenceCounter, count_passages, counter_info, serialized_passages,
-    verify_counter,
+use super::super::{
+    budget::{
+        CounterError, CounterInfo, count_passages, counter_info, serialized_passages,
+        verify_counter,
+    },
+    types::EvidenceCounter,
 };
 use maestro_canonicalization::{Error, TokenCounter};
 use maestro_kernel::artifact::Digest;

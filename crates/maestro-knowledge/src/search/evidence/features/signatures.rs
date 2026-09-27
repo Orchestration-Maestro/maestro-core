@@ -27,7 +27,7 @@ struct PositionedPart {
 }
 
 /// Precomputed features used to score evidence diversity.
-#[derive(Debug, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(crate) struct DiversityFeatures {
     /// Case-sensitive consecutive word shingles.
     shingles: BTreeSet<Vec<String>>,
@@ -75,11 +75,11 @@ pub(crate) fn diversity_similarity(
     if left.version != right.version || left.signature != right.signature {
         return Ok(0.0);
     }
-    let union = left.shingles.union(&right.shingles).count();
+    let intersection = left.shingles.intersection(&right.shingles).count();
+    let union = left.shingles.len() + right.shingles.len() - intersection;
     if union == 0 {
         return Ok(0.0);
     }
-    let intersection = left.shingles.intersection(&right.shingles).count();
     let numerator = u32::try_from(intersection)
         .map_err(|_| "shingle intersection exceeds supported count".to_owned())?;
     let denominator =
@@ -124,7 +124,7 @@ fn protected_signature(
                 part: SignaturePart::Code(source.to_owned()),
             });
         }
-        if has_condition_or_negation(source) {
+        if !matches!(&block.block_type, BlockType::List) && has_condition_or_negation(source) {
             parts.push(PositionedPart {
                 start: span.start,
                 part: SignaturePart::ConditionalBlock(source.to_owned()),

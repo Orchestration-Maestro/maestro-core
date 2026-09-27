@@ -307,12 +307,12 @@ fn known_gaps_use_inventory_wording_and_exact_identifier_boundaries() {
     returned.windowed = true;
     let passages = [returned];
     let identifiers = [
-        "ERR_7".to_owned(),
-        "ERR_70".to_owned(),
         "missing".to_owned(),
+        "ERR_70".to_owned(),
+        "ERR_7".to_owned(),
     ];
     let candidates = ["Earlier candidate used ERR_7.".to_owned()];
-    let reasons = ["accepted-with-warnings".to_owned()];
+    let reasons = [r#"warning "quoted""#.to_owned()];
     let rule_ids = ["rule-1".to_owned()];
     let warning_codes = ["canonical-warning".to_owned()];
     let conflicts = [WithinPassageConflict {
@@ -359,7 +359,7 @@ fn known_gaps_use_inventory_wording_and_exact_identifier_boundaries() {
                 "evidence or passage budget."
             ),
             "Passage 1 contains different explicit values for \"Agent\" / \"Port\".",
-            "Passage 1 source warning: accepted-with-warnings",
+            r#"Passage 1 source warning: "warning \"quoted\"""#,
             "Passage 1 source warning: rule-1",
             "Passage 1 source warning: canonical-warning",
         ]

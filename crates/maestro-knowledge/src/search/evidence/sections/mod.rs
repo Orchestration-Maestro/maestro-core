@@ -5,5 +5,5 @@ mod index;
 mod tests;
 mod validation;
 
-pub(super) use index::SectionIndex;
+pub(super) use index::{Expansion, SectionIndex};
 pub(super) use validation::{block_span, contains, valid_span};

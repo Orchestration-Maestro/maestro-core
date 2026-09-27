@@ -295,6 +295,19 @@ design's 80–120 and set by measurement. Evidence assembly follows
 into a `maestro-evidence/1` bundle, with a trace kept apart. A route or the
 reranker that could not run is named in the bundle with its reason.
 
+Assembly runs once after reranking, on the admission-pinned generation and
+inherited deadline; it makes no new route call. It reads authorized original
+Markdown, unions overlapping or adjacent source spans, and windows only at
+whole lexical siblings. MMR uses ordinal input rank and exact case-sensitive
+word-shingle Jaccard (λ = 0.7). Version collapse is limited to byte-identical
+sections at the same path occurrence and context in one document or an
+allowed near-duplicate family; comparisons and version inventories remain
+unmerged. S1 flags only explicit differing values in supported canonical
+tables. Evidence counts the complete compact passage JSON: the default UTF-8
+byte counter is explicitly estimated, while an answerer-bound exact counter
+records its contract. The request budget and any exact inventory are echoed
+unchanged; an inventory is independent of selected supporting passages.
+
 ### D11 `ask`
 
 The generator answers from the bundle with structured output. Every command,

@@ -276,12 +276,14 @@ pub(crate) fn build_known_gaps(mut input: GapInput<'_>) -> Result<Vec<String>, S
     let mut warnings: Vec<_> = input.source_warnings.iter().collect();
     warnings.sort_by_key(|warning| warning.passage_number);
     for warning in warnings {
-        for detail in warning
-            .disposition_reasons
-            .iter()
-            .chain(warning.rule_ids)
-            .chain(warning.warning_codes)
-        {
+        for reason in warning.disposition_reasons {
+            additions.push(format!(
+                "Passage {} source warning: {}",
+                warning.passage_number,
+                quote(reason)?
+            ));
+        }
+        for detail in warning.rule_ids.iter().chain(warning.warning_codes) {
             additions.push(format!(
                 "Passage {} source warning: {detail}",
                 warning.passage_number
@@ -294,13 +296,16 @@ pub(crate) fn build_known_gaps(mut input: GapInput<'_>) -> Result<Vec<String>, S
 
 /// Adds identifier omissions when candidates or final passages cannot support them.
 fn append_identifier_gaps(input: &GapInput<'_>, additions: &mut Vec<String>) -> Result<(), String> {
-    let mut seen_identifiers = BTreeSet::new();
-    for identifier in input.identifiers {
-        if !seen_identifiers.insert(identifier.as_str())
-            || input
-                .passages
-                .iter()
-                .any(|passage| contains_identifier(&passage.text, identifier))
+    for identifier in input
+        .identifiers
+        .iter()
+        .map(String::as_str)
+        .collect::<BTreeSet<_>>()
+    {
+        if input
+            .passages
+            .iter()
+            .any(|passage| contains_identifier(&passage.text, identifier))
         {
             continue;
         }

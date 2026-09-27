@@ -57,7 +57,7 @@ pub(crate) struct SectionIndex {
 }
 
 /// Full section or root-content extent selected for a seed union.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct Expansion {
     /// Chosen canonical section, absent for document-level evidence.
     pub(crate) section_id: Option<String>,
@@ -392,6 +392,15 @@ impl SectionIndex {
 }
 
 impl Expansion {
+    /// Whether a final source span omits any sibling in the chosen expansion.
+    pub(crate) fn is_windowed(&self, span: Span) -> bool {
+        span != self.extent
+            || self
+                .siblings
+                .iter()
+                .any(|sibling| !contains(span, *sibling))
+    }
+
     /// Builds a mandatory whole-sibling run and at most four neighbors.
     pub(crate) fn window_plan(&self, seed: Span) -> Result<WindowPlan, String> {
         if seed.start >= seed.end || !contains(self.extent, seed) {

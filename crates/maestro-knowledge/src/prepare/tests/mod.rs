@@ -18,7 +18,7 @@ mod port;
 mod qualification;
 mod refusals;
 mod router_client;
-mod scratch;
+pub(crate) mod scratch;
 mod section_reader;
 mod stops;
 mod stub;

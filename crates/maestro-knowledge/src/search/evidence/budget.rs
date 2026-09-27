@@ -1,8 +1,8 @@
 //! Token-counting helpers for compact serialized evidence.
 
-use maestro_canonicalization::TokenCounter;
+use super::types::{EvidenceCounter, EvidenceError};
 use maestro_kernel::evidence::Passage;
-use std::{error, fmt, sync::Arc};
+use std::{error, fmt};
 
 /// The counter identity and estimate flag written into the bundle.
 #[derive(Debug, PartialEq, Eq)]
@@ -11,26 +11,6 @@ pub(crate) struct CounterInfo {
     pub(crate) counter: Option<String>,
     /// Whether the count is a conservative UTF-8 byte estimate.
     pub(crate) estimated: bool,
-}
-
-/// A token-counting strategy for evidence passages.
-pub(crate) enum EvidenceCounter {
-    /// Count UTF-8 bytes as the explicit no-model estimate.
-    Utf8Bytes,
-    /// Count exact token IDs from the selected tokenizer contract.
-    Exact(Arc<dyn TokenCounter + Send + Sync>),
-}
-
-impl fmt::Debug for EvidenceCounter {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Utf8Bytes => formatter.write_str("Utf8Bytes"),
-            Self::Exact(counter) => formatter
-                .debug_tuple("Exact")
-                .field(&counter.contract_id())
-                .finish(),
-        }
-    }
 }
 
 /// Why counting, serialization, or a helper precondition failed.
@@ -60,6 +40,16 @@ impl error::Error for CounterError {
             Self::Counter(error) => Some(error),
             Self::Json(error) => Some(error),
             Self::Invalid(_) => None,
+        }
+    }
+}
+
+impl From<CounterError> for EvidenceError {
+    fn from(error: CounterError) -> Self {
+        match error {
+            CounterError::Counter(error) => Self::Counter(error),
+            CounterError::Json(error) => Self::Json(error),
+            CounterError::Invalid(reason) => Self::InvalidRequest(reason.to_owned()),
         }
     }
 }

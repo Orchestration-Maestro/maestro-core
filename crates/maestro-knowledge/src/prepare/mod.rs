@@ -40,13 +40,13 @@ mod error;
 mod exact;
 mod failure;
 mod left_out;
-mod manifest;
+pub(crate) mod manifest;
 mod near;
 mod parity;
 mod report;
 mod router_tokenizer;
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 
 pub use collection::{chunk_set_id, chunk_set_id_for_card, prepare, prepare_observed};
 pub use error::TokenizerError;

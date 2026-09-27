@@ -669,8 +669,18 @@ in place.
 │       │   │   └── understand.rs                                            # Public query-understanding result and entry point
 │       │   ├── search/                                                      # Search
 │       │   │   ├── evidence/                                                # Internal algorithms for assembling authoritative, bounded evidence
+│       │   │   │   ├── assemble/                                            # Runs evidence assembly under the handoff's absolute deadline
+│       │   │   │   │   ├── candidates.rs                                    # Builds source candidates and derives their version/conflict membership
+│       │   │   │   │   ├── deadline.rs                                      # Runs evidence assembly under the handoff's absolute deadline
+│       │   │   │   │   ├── engine.rs                                        # Loads the pinned candidate pool and drives source selection
+│       │   │   │   │   ├── ledger.rs                                        # The duplicate facts a complete chunk set's manifest permits T032 to use
+│       │   │   │   │   ├── mod.rs                                           # Runs evidence assembly under the handoff's absolute deadline
+│       │   │   │   │   ├── output.rs                                        # Builds trace and gaps, validates the bundle, and rechecks authority
+│       │   │   │   │   ├── types.rs                                         # Owned intermediate records shared by the assembly worker's small modules
+│       │   │   │   │   └── validate.rs                                      # Validates the bounded T029c handoff before any blocking work starts
 │       │   │   │   ├── conflicts/                                           # Conflicts
 │       │   │   │   │   ├── detect.rs                                        # Rust source: detect
+│       │   │   │   │   ├── emit.rs                                          # Converts selected conflict facts into passage-numbered bundle signals
 │       │   │   │   │   ├── mod.rs                                           # Rust source: mod
 │       │   │   │   │   └── tables.rs                                        # Rust source: tables
 │       │   │   │   ├── features/                                            # Computes case-sensitive shingles and source features for evidence ranking
@@ -679,13 +689,25 @@ in place.
 │       │   │   │   │   └── signatures.rs                                    # Computes case-sensitive shingles and source features for evidence ranking
 │       │   │   │   ├── sections/                                            # Derives validated section extents and bounded sibling windows
 │       │   │   │   │   ├── tests/                                           # Length-only block validation tests
+│       │   │   │   │   │   ├── index.rs                                     # Rust source: index
 │       │   │   │   │   │   ├── mod.rs                                       # Length-only block validation tests
 │       │   │   │   │   │   └── validation.rs                                # The length-only path rejects the same malformed block spans as the text path
 │       │   │   │   │   ├── index.rs                                         # Derives validated section extents and bounded sibling windows
 │       │   │   │   │   ├── mod.rs                                           # Derives validated section extents and bounded sibling windows
 │       │   │   │   │   └── validation.rs                                    # Validates canonical block links and source spans before evidence expansion
+│       │   │   │   ├── selection/                                           # Budgeted MMR selection over validated source windows
+│       │   │   │   │   ├── algorithm.rs                                     # MMR ordering, atomic conflict units and budget-driven source windows
+│       │   │   │   │   ├── mod.rs                                           # Budgeted MMR selection over validated source windows
+│       │   │   │   │   ├── render.rs                                        # Renders trial spans as normalized, validated passages
+│       │   │   │   │   └── types.rs                                         # Candidate metadata and final selection result
 │       │   │   │   ├── tests/                                               # Integration tests
+│       │   │   │   │   ├── assembly.rs                                      # Rust source: assembly
+│       │   │   │   │   ├── assembly_authority.rs                            # Rust source: assembly authority
+│       │   │   │   │   ├── assembly_entry.rs                                # Rust source: assembly entry
+│       │   │   │   │   ├── assembly_output.rs                               # Rust source: assembly output
+│       │   │   │   │   ├── assembly_versions.rs                             # Rust source: assembly versions
 │       │   │   │   │   ├── budget.rs                                        # Rust source: budget
+│       │   │   │   │   ├── conflict_emission.rs                             # Rust source: conflict emission
 │       │   │   │   │   ├── conflict_structures.rs                           # Rust source: conflict structures
 │       │   │   │   │   ├── conflicts.rs                                     # Rust source: conflicts
 │       │   │   │   │   ├── features.rs                                      # Rust source: features
@@ -693,14 +715,20 @@ in place.
 │       │   │   │   │   ├── section_selection.rs                             # Rust source: section selection
 │       │   │   │   │   ├── section_validation.rs                            # Rust source: section validation
 │       │   │   │   │   ├── sections.rs                                      # Rust source: sections
+│       │   │   │   │   ├── selection.rs                                     # Rust source: selection
 │       │   │   │   │   ├── signals.rs                                       # Rust source: signals
+│       │   │   │   │   ├── source.rs                                        # Rust source: source
 │       │   │   │   │   ├── spans.rs                                         # Rust source: spans
+│       │   │   │   │   ├── support.rs                                       # A prepared chunk set and generation for evidence-path tests
 │       │   │   │   │   └── versions.rs                                      # Rust source: versions
 │       │   │   │   ├── budget.rs                                            # Token-counting helpers for compact serialized evidence
+│       │   │   │   ├── families.rs                                          # Shared candidate-family identity for conflicts and documentary versions
 │       │   │   │   ├── mod.rs                                               # Authoritative section reads and bounded evidence assembly
 │       │   │   │   ├── section_reader.rs                                    # Reads one authorized canonical section from a completed chunk set
 │       │   │   │   ├── signals.rs                                           # Rust source: signals
+│       │   │   │   ├── source.rs                                            # Loads and caches authoritative source records for one assembly request
 │       │   │   │   ├── spans.rs                                             # Candidate source-span unions
+│       │   │   │   ├── types.rs                                             # Public evidence request types and their stable error boundary
 │       │   │   │   └── versions.rs                                          # Numeric release-label ordering
 │       │   │   ├── routes/                                                  # Independent route diagnostics
 │       │   │   │   ├── dense.rs                                             # Dense diagnostic search through the generation's own embedder and vector

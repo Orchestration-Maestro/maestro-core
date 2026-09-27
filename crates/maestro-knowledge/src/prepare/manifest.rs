@@ -24,36 +24,36 @@ use serde_json::json;
 use std::collections::{BTreeMap, HashSet};
 
 /// The manifest's schema.
-const SCHEMA: &str = "maestro-chunk-set/1";
+pub(crate) const SCHEMA: &str = "maestro-chunk-set/1";
 
 /// What a complete chunk set was cut from and what became of each eligible
 /// revision: the manifest it pins.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(super) struct Manifest {
+pub(crate) struct Manifest {
     /// Always [`SCHEMA`].
-    pub(super) schema: String,
+    pub(crate) schema: String,
     /// The collection prepared.
-    pub(super) collection: String,
+    pub(crate) collection: String,
     /// The chunk set.
-    pub(super) chunk_set: String,
+    pub(crate) chunk_set: String,
     /// The chunker's profile.
-    pub(super) chunk_profile: String,
+    pub(crate) chunk_profile: String,
     /// The chunker's preparation profile, which shapes each prepared input.
     pub(super) preparation_profile: String,
     /// The contract ID of the counter.
-    pub(super) counter: String,
+    pub(crate) counter: String,
     /// The eligible revisions, in ID order.
-    pub(super) revisions: Vec<String>,
+    pub(crate) revisions: Vec<String>,
     /// Each eligible revision left as an exact duplicate, with its group's
     /// smallest revision, which is prepared once for the group, unless it is
     /// refused: then `refusals` names it, and no revision of the group is
     /// prepared.
-    pub(super) duplicates: BTreeMap<String, String>,
+    pub(crate) duplicates: BTreeMap<String, String>,
     /// The groups of near duplicates among the smallest revisions of the
     /// groups of the same content, found before chunking: a member may be
     /// refused.
-    pub(super) near_duplicate_groups: Vec<String>,
+    pub(crate) near_duplicate_groups: Vec<String>,
     /// The revisions refused, in revision order.
     pub(super) refusals: Vec<Refusal>,
     /// The documents left out, as they were when the set was built, in
@@ -69,7 +69,7 @@ impl Manifest {
     /// The manifest of the chunk set `chunk_set` of `collection`, counted by
     /// `counter`, from the IDs of the eligible `revisions`, sorted, with
     /// nothing prepared yet.
-    pub(super) fn new(
+    pub(crate) fn new(
         collection: &str,
         chunk_set: &str,
         counter: &str,
@@ -129,7 +129,7 @@ impl Manifest {
     }
 
     /// The manifest stored as the artifact `digest`.
-    pub(super) fn read(database: &Database, digest: &Digest) -> Result<Self, Error> {
+    pub(crate) fn read(database: &Database, digest: &Digest) -> Result<Self, Error> {
         let json = database.get(digest).map_err(Error::Artifacts)?;
         serde_json::from_slice(&json).map_err(Error::Manifest)
     }

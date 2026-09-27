@@ -2,23 +2,17 @@
 
 use maestro_canonicalization::CanonicalDocument;
 use maestro_kernel::evidence::Span;
-use std::collections::{BTreeMap, BTreeSet};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    ptr,
+};
 
-use super::super::sections::{contains, valid_span};
+pub(crate) use super::super::families::ConflictContext;
+use super::super::{
+    families::{CandidateFamily, corresponds},
+    sections::{contains, valid_span},
+};
 use super::tables::{FactKey, TableFact, table_facts};
-
-/// Exact product context required for two facts to correspond.
-#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
-pub(crate) struct ConflictContext {
-    /// Product metadata, if present on both revisions.
-    pub(crate) product: Option<String>,
-    /// Component metadata, if present on both revisions.
-    pub(crate) component: Option<String>,
-    /// Platform metadata, if present on both revisions.
-    pub(crate) platform: Option<String>,
-    /// Language metadata, if present on both revisions.
-    pub(crate) lang: Option<String>,
-}
 
 /// Authorized candidate source supplied to structured conflict detection.
 pub(crate) struct ConflictSource<'a> {
@@ -53,6 +47,8 @@ pub(crate) struct ConflictFinding {
     pub(crate) candidate_indices: BTreeSet<usize>,
     /// Full table spans by candidate index.
     pub(crate) table_spans: BTreeMap<usize, Vec<Span>>,
+    /// Explicit values grouped by candidate and exact source table span.
+    pub(crate) values_by_table_span: BTreeMap<usize, Vec<(Span, BTreeSet<String>)>>,
 }
 
 /// Candidate identity and correspondence metadata for one table observation.
@@ -60,12 +56,8 @@ pub(crate) struct ConflictFinding {
 struct CandidateLink {
     /// Stable index in the candidate pool.
     candidate_index: usize,
-    /// Owning canonical document ID.
-    document_id: String,
-    /// Manifest-allowed duplicate groups.
-    near_group_ids: BTreeSet<String>,
-    /// Exact family context.
-    context: ConflictContext,
+    /// Shared document, manifest group, context and section identity.
+    family: CandidateFamily,
 }
 
 /// One canonical table row observed through one or more candidates.
@@ -97,8 +89,8 @@ struct PartitionKey {
 struct ConflictGraph {
     /// Undirected edges connecting candidates with differing values.
     edges: BTreeMap<usize, BTreeSet<usize>>,
-    /// Differing values observed for each candidate.
-    values: BTreeMap<usize, BTreeSet<String>>,
+    /// Differing values observed for each candidate and source table.
+    values_by_table_span: BTreeMap<usize, BTreeMap<(usize, usize), BTreeSet<String>>>,
     /// Full supporting table spans for each candidate.
     table_spans: BTreeMap<usize, Vec<Span>>,
 }
@@ -139,7 +131,7 @@ pub(crate) fn detect_conflicts(
             let key = PartitionKey {
                 section_path: observation.fact.section_path.clone(),
                 occurrence: observation.fact.occurrence,
-                context: candidate.context.clone(),
+                context: candidate.family.context.clone(),
                 entity: observation.fact.entity.clone(),
                 attribute: observation.fact.attribute.clone(),
             };
@@ -154,11 +146,11 @@ pub(crate) fn detect_conflicts(
     for (partition, facts) in partitions {
         let graph = conflict_graph(&facts);
         for component in components(&graph.edges) {
-            let values: BTreeSet<_> = component
-                .iter()
-                .filter_map(|index| graph.values.get(index))
+            let values_by_table_span = component_table_values(&graph, &component);
+            let values = values_by_table_span
+                .values()
                 .flatten()
-                .cloned()
+                .flat_map(|(_, values)| values.iter().cloned())
                 .collect();
             findings.push(ConflictFinding {
                 entity: partition.entity.clone(),
@@ -174,10 +166,36 @@ pub(crate) fn detect_conflicts(
                             .map(|spans| (*index, spans.clone()))
                     })
                     .collect(),
+                values_by_table_span,
             });
         }
     }
     Ok(findings)
+}
+
+/// Restores each candidate's exact table-span values from the conflict graph.
+fn component_table_values(
+    graph: &ConflictGraph,
+    component: &BTreeSet<usize>,
+) -> BTreeMap<usize, Vec<(Span, BTreeSet<String>)>> {
+    let mut by_candidate = BTreeMap::new();
+    for index in component {
+        let Some(tables) = graph.values_by_table_span.get(index) else {
+            continue;
+        };
+        let mut values_by_span = Vec::with_capacity(tables.len());
+        for ((start, end), values) in tables {
+            values_by_span.push((
+                Span {
+                    start: *start,
+                    end: *end,
+                },
+                values.clone(),
+            ));
+        }
+        by_candidate.insert(*index, values_by_span);
+    }
+    by_candidate
 }
 
 /// Connects each pair of candidates with differing corresponding values.
@@ -197,7 +215,9 @@ fn add_conflict_edge(
     left: &FactCandidate<'_>,
     right: &FactCandidate<'_>,
 ) {
-    if left.fact.value == right.fact.value || !corresponds(left.candidate, right.candidate) {
+    if left.fact.value == right.fact.value
+        || !corresponds(&left.candidate.family, &right.candidate.family)
+    {
         return;
     }
     graph
@@ -234,8 +254,8 @@ fn load_revision_tables<'a>(
             if previous.document_id != source.document_id
                 || previous.near_group_ids != source.near_group_ids
                 || previous.context != source.context
-                || previous.document != source.document
-                || previous.markdown != source.markdown
+                || !ptr::eq(previous.document, source.document)
+                || !ptr::eq(previous.markdown, source.markdown)
             {
                 return Err("one revision has inconsistent canonical source data".to_owned());
             }
@@ -272,9 +292,13 @@ fn observations<'a>(
             }
             let link = CandidateLink {
                 candidate_index: source.candidate_index,
-                document_id: source.document_id.to_owned(),
-                near_group_ids: source.near_group_ids.clone(),
-                context: source.context.clone(),
+                family: CandidateFamily {
+                    document_id: source.document_id.to_owned(),
+                    near_group_ids: source.near_group_ids.clone(),
+                    section_path: fact.section_path.clone(),
+                    occurrence: fact.occurrence,
+                    context: source.context.clone(),
+                },
             };
             let observation = observations
                 .entry(fact.key.clone())
@@ -297,22 +321,14 @@ fn observations<'a>(
     Ok(observations)
 }
 
-/// Tests whether candidates share a document or an allowed near group.
-fn corresponds(left: &CandidateLink, right: &CandidateLink) -> bool {
-    left.document_id == right.document_id
-        || left
-            .near_group_ids
-            .intersection(&right.near_group_ids)
-            .next()
-            .is_some()
-}
-
 /// Adds one side of a conflict edge and its table provenance.
 fn add_observation(graph: &mut ConflictGraph, fact: &FactCandidate<'_>) {
     let index = fact.candidate.candidate_index;
     graph
-        .values
+        .values_by_table_span
         .entry(index)
+        .or_default()
+        .entry((fact.fact.table_span.start, fact.fact.table_span.end))
         .or_default()
         .insert(fact.fact.value.clone());
     let spans = graph.table_spans.entry(index).or_default();

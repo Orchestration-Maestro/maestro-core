@@ -1,6 +1,6 @@
 //! Candidate source-span unions.
 
-use crate::search::Route;
+use super::super::fusion::Route;
 use maestro_kernel::evidence::Span;
 use std::collections::BTreeSet;
 

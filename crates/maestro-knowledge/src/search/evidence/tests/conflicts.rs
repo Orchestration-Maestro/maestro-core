@@ -326,6 +326,25 @@ fn one_revision_rejects_inconsistent_context_and_group_membership() {
 }
 
 #[test]
+fn same_revision_requires_the_request_cached_canonical_references() {
+    let markdown = table("Agent", "Port", "7005");
+    let copied_markdown = markdown.clone();
+    let canonical = document(&markdown, "same-revision.md");
+    let copied_canonical = canonical.clone();
+    let groups = BTreeSet::new();
+    let context = ConflictContext::default();
+
+    assert_eq!(
+        detect_conflicts(&[
+            source(0, &canonical, &markdown, &groups, &context),
+            source(1, &copied_canonical, &copied_markdown, &groups, &context),
+        ])
+        .unwrap_err(),
+        "one revision has inconsistent canonical source data"
+    );
+}
+
+#[test]
 fn invalid_conflict_sources_are_refused_one_condition_at_a_time() {
     let markdown = table("Agent", "Port", "7005");
     let source_document = document(&markdown, "doc-a.md");

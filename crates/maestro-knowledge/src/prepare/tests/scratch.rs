@@ -29,15 +29,15 @@ use std::{
 };
 
 /// The collection every test prepares.
-pub(super) const COLLECTION: &str = "notes";
+pub(crate) const COLLECTION: &str = "notes";
 
 /// A new empty directory under the platform's temporary directory, removed
 /// with everything in it when dropped: `corpus/` holds the documents and
 /// their manifest, and `kernel/` the kernel's data.
-pub(super) struct Scratch(PathBuf);
+pub(crate) struct Scratch(PathBuf);
 
 impl Scratch {
-    pub(super) fn new() -> Self {
+    pub(crate) fn new() -> Self {
         static NEXT: AtomicUsize = AtomicUsize::new(0);
         let path = env::temp_dir().join(format!(
             "maestro-knowledge-preparation-{}-{}",
@@ -49,7 +49,7 @@ impl Scratch {
     }
 
     /// The kernel's database, in `kernel/`.
-    pub(super) fn database(&self) -> Database {
+    pub(crate) fn database(&self) -> Database {
         Database::open_in(&self.0.join("kernel")).unwrap()
     }
 
@@ -71,7 +71,7 @@ impl Scratch {
     /// directory and its Markdown, and the manifest `manifest.jsonl` that
     /// declares them in that order, each titled `Notes` and from the
     /// `source_ref` `https://example.org/<path>`.
-    pub(super) fn corpus(&self, documents: &[(&str, &str)]) {
+    pub(crate) fn corpus(&self, documents: &[(&str, &str)]) {
         let titled: Vec<_> = documents
             .iter()
             .map(|(path, markdown)| (*path, "Notes", *markdown))
@@ -104,7 +104,7 @@ impl Scratch {
     /// Imports the corpus as the collection [`COLLECTION`], whose one source
     /// `docs` reads `manifest.jsonl`, and returns what a principal granted
     /// the whole default workspace reads.
-    pub(super) fn import(&self, database: &Database) -> ScopeSet {
+    pub(crate) fn import(&self, database: &Database) -> ScopeSet {
         let declaration: Declaration = json!({
             "schema": "maestro-collection/1",
             "id": COLLECTION,
@@ -155,7 +155,7 @@ pub(super) fn everything(database: &Database) -> ScopeSet {
 
 /// The latest revision, in record order, of the document whose `path` the
 /// corpus holds, as the import recorded it.
-pub(super) fn revision_of(database: &Database, scopes: &ScopeSet, path: &str) -> String {
+pub(crate) fn revision_of(database: &Database, scopes: &ScopeSet, path: &str) -> String {
     revisions_of(database, scopes, path).pop().unwrap()
 }
 
@@ -187,7 +187,7 @@ pub(super) fn document_of(database: &Database, scopes: &ScopeSet, path: &str) ->
 
 /// Gives every revision of [`COLLECTION`] that has none the disposition
 /// `outcome`, as the quality gate would.
-pub(super) fn decide_all(database: &Database, scopes: &ScopeSet, outcome: Outcome) {
+pub(crate) fn decide_all(database: &Database, scopes: &ScopeSet, outcome: Outcome) {
     for revision in database.eligible_revisions(scopes, COLLECTION).unwrap() {
         decide(database, &revision.id, outcome);
     }
@@ -213,6 +213,11 @@ pub(super) fn tokenizer() -> (Goldens, RouterTokenizer) {
     let port = Goldens::new();
     let tokenizer = RouterTokenizer::qualify(port.clone(), embedder()).unwrap();
     (port, tokenizer)
+}
+
+/// A qualified deterministic test counter for cross-module evidence tests.
+pub(crate) fn router_tokenizer() -> RouterTokenizer {
+    tokenizer().1
 }
 
 /// The chunk set `report` names, as the kernel records it.
@@ -250,7 +255,7 @@ pub(super) fn set_chunk_sections(scratch: &Scratch, chunk_set: &str, section_id:
 }
 
 /// Replaces an artifact's bytes without changing the digest in the record.
-pub(super) fn corrupt_artifact(scratch: &Scratch, digest: &Digest) {
+pub(crate) fn corrupt_artifact(scratch: &Scratch, digest: &Digest) {
     fs::write(artifact_path(scratch, digest), b"corrupt").unwrap();
 }
 
@@ -260,7 +265,7 @@ pub(super) fn remove_artifact(scratch: &Scratch, digest: &Digest) {
 }
 
 /// Moves one revision to the kernel's permitted failed status for reader tests.
-pub(super) fn fail_revision(scratch: &Scratch, revision_id: &str) {
+pub(crate) fn fail_revision(scratch: &Scratch, revision_id: &str) {
     let path = scratch.0.join("kernel").join("kernel.sqlite3");
     let connection = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_WRITE).unwrap();
     connection
@@ -272,7 +277,7 @@ pub(super) fn fail_revision(scratch: &Scratch, revision_id: &str) {
 }
 
 /// Changes a revision's one-time disposition for eligibility reader tests.
-pub(super) fn quarantine_revision(scratch: &Scratch, revision_id: &str) {
+pub(crate) fn quarantine_revision(scratch: &Scratch, revision_id: &str) {
     let path = scratch.0.join("kernel").join("kernel.sqlite3");
     let connection = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_WRITE).unwrap();
     connection
@@ -283,8 +288,47 @@ pub(super) fn quarantine_revision(scratch: &Scratch, revision_id: &str) {
         .unwrap();
 }
 
+/// Gives a revision an accepted-with-warnings disposition for evidence tests.
+pub(crate) fn accept_with_warnings(scratch: &Scratch, revision_id: &str) {
+    let path = scratch.0.join("kernel").join("kernel.sqlite3");
+    let connection = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_WRITE).unwrap();
+    connection
+        .execute(
+            "UPDATE quality_dispositions
+             SET disposition = 'accepted_with_warnings',
+                 reasons_json = '[\"approved warning\"]', rule_ids = '[\"test.warning\"]'
+             WHERE revision_id = ?1",
+            [revision_id],
+        )
+        .unwrap();
+}
+
+/// Adds one literal metadata field to a revision for reader tests.
+pub(crate) fn set_revision_metadata(scratch: &Scratch, revision_id: &str, key: &str, value: &str) {
+    let path = scratch.0.join("kernel").join("kernel.sqlite3");
+    let connection = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_WRITE).unwrap();
+    connection
+        .execute_batch("DROP TRIGGER IF EXISTS revisions_are_immutable")
+        .unwrap();
+    let stored: String = connection
+        .query_row(
+            "SELECT metadata_json FROM revisions WHERE id = ?1",
+            [revision_id],
+            |row| row.get(0),
+        )
+        .unwrap();
+    let mut metadata: serde_json::Map<String, Value> = serde_json::from_str(&stored).unwrap();
+    metadata.insert(key.to_owned(), Value::String(value.to_owned()));
+    connection
+        .execute(
+            "UPDATE revisions SET metadata_json = ?1 WHERE id = ?2",
+            [Value::Object(metadata).to_string(), revision_id.to_owned()],
+        )
+        .unwrap();
+}
+
 /// Repoints a revision to a newly stored canonical artifact for integrity tests.
-pub(super) fn replace_revision_canonical(
+pub(crate) fn replace_revision_canonical(
     scratch: &Scratch,
     database: &Database,
     revision_id: &str,
@@ -325,6 +369,21 @@ pub(super) fn drop_chunk_sets_table(scratch: &Scratch) {
     let connection = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_WRITE).unwrap();
     connection
         .execute_batch("PRAGMA foreign_keys = OFF; DROP TABLE chunk_sets")
+        .unwrap();
+}
+
+/// Clears a complete set's manifest reference to exercise the reader refusal.
+pub(crate) fn clear_chunk_set_manifest(scratch: &Scratch, chunk_set: &str) {
+    let path = scratch.0.join("kernel").join("kernel.sqlite3");
+    let connection = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_WRITE).unwrap();
+    connection
+        .execute_batch("DROP TRIGGER chunk_sets_move_only_from_building")
+        .unwrap();
+    connection
+        .execute(
+            "UPDATE chunk_sets SET manifest_digest = NULL WHERE id = ?1",
+            [chunk_set],
+        )
         .unwrap();
 }
 

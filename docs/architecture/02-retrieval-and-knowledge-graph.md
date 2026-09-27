@@ -197,6 +197,40 @@ chunk: technical procedures lose meaning when cut.
    passage is procedural live in a `trace` section, separate from the evidence
    itself, which carries the version.
 
+S1 assembles evidence after reranking, using only the pinned generation and its
+named, currently authorized candidates. It inherits the request's absolute
+deadline and does not call a route or model. Overlapping and adjacent seed
+spans become one half-open source slice; gaps and revisions remain separate.
+Sections come from canonical heading blocks. A window contains whole lexical
+siblings only. `windowed: true` means the passage does not cover its chosen
+section/content extent; it never changes the verbatim text, span or digest.
+
+Selection uses ordinal input rank and case-sensitive word-shingle Jaccard with
+λ = 0.7. A protected signature disables the redundancy penalty when source
+numbers, code, conditional/negation blocks or version metadata differ. S1
+version collapse is conservative: only byte-identical complete section text
+with matching path occurrence and product context in one document or
+manifest-allowed near-duplicate group may collapse to numeric latest; comparison
+queries and version inventories keep versions distinct. S1 conflict flags come
+only from exact differing values in supported canonical tables, within the
+same authorized correspondence family. These are possible structured
+conflicts, not semantic contradiction detection. Graph support paths and
+arbitrary support groups remain outside S1.
+
+`request_budget` echoes the accepted request limits unchanged. An optional
+`inventory` is the exact structured result from the pinned generation; it is
+independent of supporting passages, so an inventory may be present when no
+passage fits. Neither a missing inventory nor missing passages assert corpus-
+wide absence. The evidence budget counts only the compact JSON array of final
+passages, including citation metadata and window markers. The default
+`evidence-utf8-bytes/1` counter records `estimated: true`; it is a conservative
+byte proxy, not a guarantee about an unselected answerer's tokenizer. An exact
+answerer-bound counter records its contract ID and `estimated: false`; its
+failures never fall back to bytes. Trace chunk IDs, scores and routes refer only
+to retained primary seeds, not alternates; alternate sections are not extra
+votes. Final reading order groups by document/revision in best input-rank order,
+then by source span.
+
 The bundle also carries the claims and paths used (S2), the **known gaps**
 (required evidence not found or not accessible) and, when `ask` is used, an
 **answer-support plan** that maps each planned statement to its evidence before
@@ -206,8 +240,11 @@ any text is drafted, so an unsupported conclusion is caught before generation.
 {
   "schema": "maestro-evidence/1",
   "collection": "ctm", "generation": 7, "query": "…", "lang": "fr",
-  "routes": {"dense": "ok", "bm25": "ok", "identifier": "ok", "graph": "ok", "rerank": "ok"},
+  "routes": {"dense": "ok", "lexical": "ok", "identifier": "ok", "structured": "ok", "rerank": "ok"},
+  "request_budget": {"k": 10, "max_tokens": 6000, "deadline_ms": 1500},
+  "inventory": {"kind": "documents_by_set", "set_filter": null, "total_documents": 12, "sets": [{"value": "ctm", "documents": 12}]},
   "passages": [{
+    "windowed": true,
     "n": 1, "section_id": "…", "doc_id": "…", "revision_id": "…",
     "title": "Installing Control-M/Agent on UNIX", "section_path": ["Installation", "Prerequisites"],
     "version": "9.0.22", "source_ref": "https://…", "span": [18230, 20411], "digest": "sha256:…",
@@ -220,10 +257,10 @@ any text is drafted, so an unsupported conclusion is caught before generation.
   }],
   "conflicts": [{"entity": "…", "attribute": "default port", "passages": [1, 2]}],
   "known_gaps": ["…"],
-  "budget": {"evidence_tokens": 5870, "limit": 6000},
+  "budget": {"evidence_tokens": 5870, "limit": 6000, "counter": "evidence-utf8-bytes/1", "estimated": true},
   "trace": [
-    {"n": 1, "score": 0.83, "routes": ["dense", "bm25"], "procedural": true},
-    {"n": 2, "score": 0.61, "routes": ["bm25"], "procedural": false}
+    {"n": 1, "score": 0.83, "routes": ["dense", "lexical"], "chunk_ids": ["chunk-a"], "procedural": true},
+    {"n": 2, "score": 0.61, "routes": ["lexical"], "chunk_ids": ["chunk-b"], "procedural": false}
   ]
 }
 ```
