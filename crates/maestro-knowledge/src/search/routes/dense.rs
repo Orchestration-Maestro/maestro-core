@@ -6,7 +6,7 @@ use super::{
 };
 use crate::{
     index::embedding_profile,
-    search::{filter::scope_filter, query::Query},
+    search::{filter::query_filter, query::Query},
 };
 use maestro_kernel::gateway::{ModelCard, ModelPort, Role, Room};
 use std::{num::NonZeroUsize, slice, time::Duration};
@@ -88,7 +88,7 @@ pub async fn search_dense<P: ModelPort>(
             &query.collection(),
             vector.clone(),
             query.limit.saturating_mul(2),
-            scope_filter(query.scopes),
+            query_filter(query.scopes, query.version),
         )
         .await
         .map_err(RouteError::Qdrant)?;

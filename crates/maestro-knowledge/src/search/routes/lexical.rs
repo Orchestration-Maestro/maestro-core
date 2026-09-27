@@ -6,7 +6,7 @@ use super::{
 };
 use crate::{
     lexical,
-    search::{filter::scope_filter, query::Query},
+    search::{filter::query_filter, query::Query},
 };
 use qdrant_client::qdrant::SparseVector;
 
@@ -40,7 +40,7 @@ pub async fn search_bm25(query: &Query<'_>) -> Result<Vec<ScoredChunk>, RouteErr
                 values: vector.values().to_vec(),
             },
             query.limit.saturating_mul(2),
-            scope_filter(query.scopes),
+            query_filter(query.scopes, query.version),
         )
         .await
         .map_err(RouteError::Qdrant)?;

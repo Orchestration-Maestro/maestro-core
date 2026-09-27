@@ -1,6 +1,6 @@
 //! Regression tests for deterministic query understanding.
 
-use super::{Family, Identifier, Language, QueryKind, understand};
+use super::{Family, Identifier, Language, QueryKind, index_identifiers, understand};
 use maestro_kernel::retrieval::{contains_identifier, normalize_whitespace};
 
 fn assert_family_found(text: &str, family: Family, expected: &str) {
@@ -291,6 +291,32 @@ fn identifiers_are_unique_and_sorted_by_appearance() {
                 text: "/etc/app.conf".to_owned(),
             },
         ]
+    );
+}
+
+#[test]
+fn publication_keeps_nested_identifier_families_as_exact_sorted_values() {
+    assert_eq!(
+        index_identifiers("  `ctm run --force ERR-042 /etc/app.conf port:8443 v2.4`  "),
+        vec![
+            "--force",
+            "/etc/app.conf",
+            "8443",
+            "ERR-042",
+            "app.conf",
+            "ctm run --force",
+            "ctm run --force ERR-042 /etc/app.conf port:8443 v2.4",
+            "run --force",
+            "v2.4",
+        ]
+    );
+    assert_eq!(
+        index_identifiers("`config.xml` config.xml"),
+        vec!["config.xml"]
+    );
+    assert_eq!(
+        index_identifiers("`ERR-042` `err-042`"),
+        vec!["ERR-042", "err-042"]
     );
 }
 

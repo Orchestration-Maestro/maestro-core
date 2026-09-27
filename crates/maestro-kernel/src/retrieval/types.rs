@@ -6,6 +6,9 @@ use std::{
     time::Instant,
 };
 
+/// The exact identifier payload and kernel-search projection profile.
+pub const IDENTIFIER_PROFILE: &str = "identifiers/1";
+
 /// One exact prepared input to index for identifier search.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SearchInput {

@@ -18,6 +18,7 @@ use std::{
     env, fs,
     path::PathBuf,
     process,
+    sync::Arc,
     sync::atomic::{AtomicUsize, Ordering},
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -45,7 +46,7 @@ impl Drop for Scratch {
 /// A kernel with a collection of guides and their complete chunk set.
 pub(super) struct Kernel {
     /// The kernel's database, closed before its directory is removed.
-    pub(super) database: Database,
+    pub(super) database: Arc<Database>,
     /// What a principal granted the whole default workspace reads.
     pub(super) scopes: ScopeSet,
     /// The collection, a name no other test takes, in this run or another.
@@ -138,7 +139,7 @@ impl Kernel {
         );
         let directory = env::temp_dir().join(format!("maestro-knowledge-qdrant-{collection}"));
         fs::create_dir_all(&directory).unwrap();
-        let database = Database::open_in(&directory).unwrap();
+        let database = Arc::new(Database::open_in(&directory).unwrap());
         let workspace = "workspace/default".parse().unwrap();
         database
             .grant("tester", &workspace, Right::Read, "test")
@@ -304,9 +305,32 @@ impl Kernel {
             .unwrap()
     }
 
-    /// A manifest to complete a chunk set with.
+    /// A valid complete preparation manifest for this fixture's revisions and chunks.
     fn manifest(&self) -> Digest {
-        let manifest: Value = json!({ "schema": "maestro-chunk-set/1", "test": true });
+        let mut revisions: Vec<String> = self
+            .database
+            .revisions(&self.scopes, &self.collection)
+            .unwrap()
+            .into_iter()
+            .map(|revision| revision.id)
+            .collect();
+        revisions.sort();
+        let chunks = self.database.chunks(&self.scopes, &self.chunk_set).unwrap();
+        let manifest: Value = json!({
+            "schema": "maestro-chunk-set/1",
+            "collection": self.collection,
+            "chunk_set": self.chunk_set,
+            "chunk_profile": "mapped-structural-chunks/2",
+            "preparation_profile": maestro_canonicalization::PREPARATION_PROFILE,
+            "counter": "router/1:sha256:test",
+            "revisions": revisions,
+            "duplicates": {},
+            "near_duplicate_groups": [],
+            "refusals": [],
+            "left_out": [],
+            "chunks": chunks.len(),
+            "tokens": chunks.iter().map(|chunk| chunk.token_count).sum::<u64>(),
+        });
         self.database
             .put(manifest.to_string().as_bytes(), "application/json")
             .unwrap()

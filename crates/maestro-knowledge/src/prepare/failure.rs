@@ -5,7 +5,7 @@
 //! set, unless the counter changed under its card, which fails the set.
 
 use super::error::TokenizerError;
-use maestro_kernel::{chunk_set, document, store};
+use maestro_kernel::{chunk_set, document, retrieval, store};
 use std::{error, fmt};
 
 /// Why a preparation stopped.
@@ -33,6 +33,8 @@ pub enum Error {
     Artifacts(store::Error),
     /// The chunk set's manifest could not be written or read back.
     Manifest(serde_json::Error),
+    /// Search members could not be validated or recorded.
+    Search(retrieval::Error),
 }
 
 impl fmt::Display for Error {
@@ -59,6 +61,7 @@ impl fmt::Display for Error {
             Self::Manifest(error) => {
                 write!(formatter, "the chunk set's manifest is not valid: {error}")
             }
+            Self::Search(error) => write!(formatter, "the search projection failed: {error}"),
         }
     }
 }
@@ -71,6 +74,7 @@ impl error::Error for Error {
             Self::ChunkSet(error) => Some(error),
             Self::Artifacts(error) => Some(error),
             Self::Manifest(error) => Some(error),
+            Self::Search(error) => Some(error),
             Self::NotVisible(_) | Self::Failed(_) | Self::Stopped => None,
         }
     }

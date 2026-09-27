@@ -174,7 +174,8 @@
 //! job kind `knowledge.publish`, resource `collection/<id>/publish`, on
 //! `MAESTRO_QDRANT_URL` or else `http://127.0.0.1:6334`; its batch progress is
 //! journaled, so a rerun resumes after the last step. Its frozen inputs are
-//! the collection, chunk set, card digest and sparse profile. Its document is
+//! the collection, chunk set, card digest, sparse profile and identifier
+//! profile, so projection upgrades submit a new publication job. Its document is
 //! `maestro-cli/knowledge-publish/1`.
 //!
 //! # `knowledge verify`

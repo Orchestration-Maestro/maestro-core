@@ -1,7 +1,7 @@
 //! What the fake keeps, and the refusals and hollow answers a test asked for.
 
 use qdrant_client::qdrant::{
-    CollectionParams, HnswConfigDiff, PointId, RetrievedPoint, point_id::PointIdOptions,
+    CollectionParams, Filter, HnswConfigDiff, PointId, RetrievedPoint, point_id::PointIdOptions,
 };
 use std::{
     collections::BTreeMap,
@@ -30,6 +30,8 @@ pub(super) struct State {
     pub(super) collections: BTreeMap<String, Collection>,
     /// The aliases, each with its collection.
     pub(super) aliases: BTreeMap<String, String>,
+    /// Filters passed to payload scrolls, in call order.
+    pub(super) scroll_filters: Vec<Filter>,
     /// The calls to refuse next, each with the code to refuse it with.
     refusals: Vec<(&'static str, Code)>,
     /// Whether to refuse the next `CreateAlias` action.

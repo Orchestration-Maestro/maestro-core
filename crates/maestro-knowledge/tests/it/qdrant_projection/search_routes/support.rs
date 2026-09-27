@@ -63,7 +63,7 @@ pub(super) fn client(backend: &Backend) -> Client {
 }
 
 /// Creates a dense and sparse test collection and its scope keyword index.
-pub(super) async fn create_collection(backend: &Backend, generation: &Generation) {
+pub(in super::super) async fn create_collection(backend: &Backend, generation: &Generation) {
     let name = collection(generation);
     let mut dense = VectorsConfigBuilder::default();
     dense.add_named_vector_params("dense", VectorParamsBuilder::new(3, Distance::Cosine));
@@ -118,6 +118,23 @@ pub(super) fn point(
         vectors,
         payload,
     )
+}
+
+/// A payload-only exact-identifier match for filtered-scroll tests.
+pub(super) fn identifier_point(id: &str, chunk: &str, revision: &str, scope: &str) -> PointStruct {
+    let vectors = NamedVectors::default()
+        .add_vector("dense", vec![1.0, 0.0, 0.0])
+        .add_vector("bm25", Vector::new_sparse([], []));
+    let payload = Payload::try_from(json!({
+        "chunk_id": chunk,
+        "revision_id": revision,
+        "scope_tags": [scope],
+        "version": null,
+        "identifier_profile": "identifiers/1",
+        "identifiers": ["ERR-042"],
+    }))
+    .unwrap();
+    PointStruct::new(id, vectors, payload)
 }
 
 /// Writes `points` to the generation's own collection.

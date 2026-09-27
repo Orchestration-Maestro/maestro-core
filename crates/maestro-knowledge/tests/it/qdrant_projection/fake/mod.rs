@@ -7,8 +7,11 @@
 //! its result.
 
 mod collections;
+mod filter;
 mod points;
 mod query;
+mod response;
+mod scroll;
 mod server;
 mod state;
 

@@ -12,10 +12,16 @@ use super::{
     report::{LeftOut, Refusal, Report},
 };
 use maestro_canonicalization::{CHUNKER_VERSION, PREPARATION_PROFILE};
-use maestro_kernel::{artifact::Digest, store::Database};
+use maestro_kernel::{
+    artifact::Digest,
+    chunk_set::{ChunkSet, ChunkSetState},
+    retrieval::{Error as SearchError, SearchMember},
+    scope::ScopeSet,
+    store::Database,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 
 /// The manifest's schema.
 const SCHEMA: &str = "maestro-chunk-set/1";
@@ -127,6 +133,91 @@ impl Manifest {
         let json = database.get(digest).map_err(Error::Artifacts)?;
         serde_json::from_slice(&json).map_err(Error::Manifest)
     }
+}
+
+/// The successful document members of a complete chunk set, including
+/// exact duplicates represented by another revision's chunks.
+pub(crate) fn search_members(
+    database: &Database,
+    scopes: &ScopeSet,
+    set: &ChunkSet,
+) -> Result<Vec<SearchMember>, Error> {
+    let digest = set.manifest_digest.as_ref().ok_or_else(|| {
+        Error::Search(SearchError::InvalidInput(
+            "a complete chunk set has no manifest digest".to_owned(),
+        ))
+    })?;
+    let manifest = Manifest::read(database, digest)?;
+    let invalid = || {
+        Error::Search(SearchError::InvalidInput(
+            "the chunk-set manifest has invalid search membership".to_owned(),
+        ))
+    };
+    if set.state != ChunkSetState::Complete
+        || manifest.chunk_set != set.id
+        || manifest.collection != set.collection_id
+    {
+        return Err(invalid());
+    }
+
+    let revision_ids: HashSet<&str> = manifest.revisions.iter().map(String::as_str).collect();
+    if revision_ids.len() != manifest.revisions.len()
+        || manifest
+            .duplicates
+            .iter()
+            .any(|(duplicate, representative)| {
+                duplicate == representative
+                    || !revision_ids.contains(duplicate.as_str())
+                    || !revision_ids.contains(representative.as_str())
+                    || manifest.duplicates.contains_key(representative)
+            })
+        || manifest
+            .refusals
+            .iter()
+            .any(|refusal| !revision_ids.contains(refusal.revision.as_str()))
+    {
+        return Err(invalid());
+    }
+
+    let chunks = database.chunks(scopes, &set.id).map_err(Error::ChunkSet)?;
+    let chunked: HashSet<&str> = chunks
+        .iter()
+        .map(|chunk| chunk.revision_id.as_str())
+        .collect();
+    let refused: HashSet<&str> = manifest
+        .refusals
+        .iter()
+        .map(|refusal| refusal.revision.as_str())
+        .collect();
+    let mut members = Vec::new();
+    for revision_id in &manifest.revisions {
+        if refused.contains(revision_id.as_str()) {
+            continue;
+        }
+        let representative = manifest
+            .duplicates
+            .get(revision_id)
+            .map_or(revision_id.as_str(), String::as_str);
+        if refused.contains(representative) || !chunked.contains(representative) {
+            continue;
+        }
+        let revision = database
+            .revision(scopes, revision_id)
+            .map_err(Error::Records)?
+            .ok_or_else(invalid)?;
+        let document = database
+            .document(scopes, &revision.document_id)
+            .map_err(Error::Records)?
+            .ok_or_else(invalid)?;
+        if document.collection_id != set.collection_id {
+            return Err(invalid());
+        }
+        members.push(SearchMember {
+            revision_id: revision.id,
+            representative_revision_id: representative.to_owned(),
+        });
+    }
+    Ok(members)
 }
 
 /// The id of the chunk set of `collection` counted by `counter` from the

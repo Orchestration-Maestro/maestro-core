@@ -467,7 +467,8 @@ in place.
 │   │   │   │   │   ├── inventory.rs                                         # Complete, pinned-generation inventory reads
 │   │   │   │   │   ├── mod.rs                                               # Tests for exact identifier search inputs
 │   │   │   │   │   ├── storage.rs                                           # Atomic derived-input, member and readiness writes
-│   │   │   │   │   └── support.rs                                           # Shared scratch records for controlled search-reader tests
+│   │   │   │   │   ├── support.rs                                           # Shared scratch records for controlled search-reader tests
+│   │   │   │   │   └── versions.rs                                          # Exact version existence in a pinned, scoped generation
 │   │   │   │   ├── error.rs                                                 # Errors from exact, scoped search storage and reads
 │   │   │   │   ├── identifiers.rs                                           # Shared literal identifier matching and query-whitespace normalization
 │   │   │   │   ├── inventory.rs                                             # Exact, bounded inventories over a pinned generation's own member revisions
@@ -573,6 +574,7 @@ in place.
 │       │   │   ├── provenance.rs                                            # What a chunk's point carries of its revision: version, source kind, scope tags, sections
 │       │   │   ├── publish.rs                                               # Publishing a chunk set as a generation: built or resumed, checked, then behind the alias
 │       │   │   ├── qdrant.rs                                                # Qdrant through its official Rust client, qdrant-client 1.19, over gRPC
+│       │   │   ├── search_inputs.rs                                         # The kernel-owned search derivatives of one published generation
 │       │   │   ├── sparse.rs                                                # Sparse vectors: BM25 weights against the chunk set's average passage length
 │       │   │   └── verify.rs                                                # The structural check of a generation's collection before its alias moves
 │       │   ├── lexical/                                                     # The lexical analyzer of the BM25 route, profile bm25-en-fr/1: it turns a
@@ -649,6 +651,7 @@ in place.
 │       │   │   ├── identifier_patterns.rs                                   # Parameter, command and path identifier patterns
 │       │   │   ├── identifier_types.rs                                      # Public identifier data and internal source-span candidates
 │       │   │   ├── identifiers.rs                                           # Identifier detection and overlap resolution
+│       │   │   ├── index.rs                                                 # Exact identifiers to store beside published prepared inputs
 │       │   │   ├── kind.rs                                                  # Rule-based query-kind classification in English and French
 │       │   │   ├── language.rs                                              # Language detection for normalized queries
 │       │   │   ├── mod.rs                                                   # Rust source: mod
@@ -659,22 +662,38 @@ in place.
 │       │   │   ├── routes/                                                  # Independent route diagnostics
 │       │   │   │   ├── dense.rs                                             # Dense diagnostic search through the generation's own embedder and vector
 │       │   │   │   ├── error.rs                                             # Typed failures for the admission and diagnostic routes
+│       │   │   │   ├── identifier.rs                                        # Exact identifier search from the Qdrant payload and prepared-input FTS
 │       │   │   │   ├── lexical.rs                                           # BM25 diagnostic search, using the generation's recorded analyzer profile
 │       │   │   │   ├── mod.rs                                               # Independent route diagnostics
-│       │   │   │   └── results.rs                                           # Route-order results and the common first-hit deduplication rule
+│       │   │   │   ├── order.rs                                             # Stable score ties for routes whose backend traversal is unordered
+│       │   │   │   ├── outcome.rs                                           # A route's hits and its independent availability status
+│       │   │   │   ├── results.rs                                           # Route-order results and the common first-hit deduplication rule
+│       │   │   │   ├── structured.rs                                        # Exact generation inventories and their separately bounded supports
+│       │   │   │   └── tests.rs                                             # Rust source: tests
 │       │   │   ├── tests/                                                   # Integration tests
+│       │   │   │   ├── admission.rs                                         # Request-boundary checks before generation admission
+│       │   │   │   ├── deadlines.rs                                         # Rust source: deadlines
 │       │   │   │   ├── fusion.rs                                            # Rust source: fusion
+│       │   │   │   ├── handoff.rs                                           # Route joining and rerank handoff boundaries
+│       │   │   │   ├── inventory_query.rs                                   # Exact English and French inventory-query grammar
 │       │   │   │   ├── mod.rs                                               # Rust source: mod
 │       │   │   │   ├── rerank.rs                                            # Rust source: rerank
 │       │   │   │   ├── routes.rs                                            # Pure route helpers: Qdrant scope filters and ranked-hit cleanup
+│       │   │   │   ├── support.rs                                           # Scratch kernel records for the bounded candidate handoff
 │       │   │   │   └── window_boundaries.rs                                 # Rust source: window boundaries
+│       │   │   ├── admission.rs                                             # Request bounds, scope snapshots and generation admission
+│       │   │   ├── candidates.rs                                            # Scoped prepared-input loading for the fused candidate IDs only
+│       │   │   ├── deadline.rs                                              # Absolute cutoffs shared by routes, candidate loading and T032 handoff
 │       │   │   ├── filter.rs                                                # Qdrant's in-route filter for the scopes admitted to one request
 │       │   │   ├── fusion.rs                                                # Reciprocal rank fusion over independent retrieval routes
+│       │   │   ├── inventory_query.rs                                       # Exact natural-language grammar for S1 document and version inventories
 │       │   │   ├── mod.rs                                                   # Rust source: mod
+│       │   │   ├── orchestrate.rs                                           # Admission, parallel route execution, fusion and the bounded T032 handoff
 │       │   │   ├── pin.rs                                                   # Pins the published generation before any route touches Qdrant
 │       │   │   ├── query.rs                                                 # The scopes and generation admitted for a search
 │       │   │   ├── request.rs                                               # Retrieval results handed to T032 without assembling an evidence bundle
-│       │   │   └── rerank.rs                                                # Reranks the head of a fused list without truncating candidate text
+│       │   │   ├── rerank.rs                                                # Reranks the head of a fused list without truncating candidate text
+│       │   │   └── route_execution.rs                                       # Deadline-bounded leaf-route calls and their independent public statuses
 │       │   ├── collection.rs                                                # A collection's declaration: maestro-collection/1, the strict JSON that
 │       │   ├── corpus.rs                                                    # A corpus manifest: maestro-corpus/1, one JSON line per document, through
 │       │   ├── lib.rs                                                       # The knowledge pipeline of Maestro (docs/architecture/01): collections, their
@@ -703,16 +722,23 @@ in place.
 │       │       ├── qdrant_projection/                                       # The Qdrant projection (T026), against a fake Qdrant and a real one when named
 │       │       │   ├── fake/                                                # A fake Qdrant: a gRPC server in memory, on a loopback port
 │       │       │   │   ├── collections.rs                                   # The fake's collections: creation, existence, parameters and aliases
+│       │       │   │   ├── filter.rs                                        # The fake's exact keyword-condition evaluation shared by query and scroll
 │       │       │   │   ├── mod.rs                                           # A fake Qdrant: a gRPC server in memory, on a loopback port
 │       │       │   │   ├── points.rs                                        # The fake's points: written, checked and normalized as Qdrant does, found and counted
 │       │       │   │   ├── query.rs                                         # Qdrant's filtered nearest-vector query, as the projection tests' fake serves it
+│       │       │   │   ├── response.rs                                      # Qdrant point responses filtered by requested payload and vectors
+│       │       │   │   ├── scroll.rs                                        # Filtered, point-ID-ordered pages for the fake's Qdrant scroll API
 │       │       │   │   ├── server.rs                                        # The fake's server: its two services on a loopback port, in the test's runtime
 │       │       │   │   └── state.rs                                         # What the fake keeps, and the refusals and hollow answers a test asked for
 │       │       │   ├── search_routes/                                       # Dense and lexical routes against the shared fake and, when configured, real Qdrant
+│       │       │   │   ├── fused_search.rs                                  # The public search handoff fuses available routes when dense metadata is absent
+│       │       │   │   ├── identifier_route.rs                              # Exact identifiers combine payload equality with scoped prepared-input FTS
 │       │       │   │   ├── mod.rs                                           # Dense and lexical routes against the shared fake and, when configured, real Qdrant
 │       │       │   │   ├── route_behavior.rs                                # Behavior of dense and lexical searches over the generation-pinned collection
 │       │       │   │   ├── route_errors.rs                                  # Refusals from admission, profiles and dense embedding
 │       │       │   │   ├── scope_index.rs                                   # A new generation indexes the scope payload it searches by
+│       │       │   │   ├── search_projection.rs                             # Publication's identifier payload and readiness marker
+│       │       │   │   ├── structured_route.rs                              # Exact document inventories stay separate from their supporting chunks
 │       │       │   │   └── support.rs                                       # Qdrant points and pinned generations shared by route tests
 │       │       │   ├── alias_moves.rs                                       # The alias moves only to a generation whose collection passes its checks
 │       │       │   ├── backends.rs                                          # The Qdrant servers a test runs against, and what it reads back from them

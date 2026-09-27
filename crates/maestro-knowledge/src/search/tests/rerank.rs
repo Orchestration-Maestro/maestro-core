@@ -46,6 +46,10 @@ impl FakePort {
         Self::new(Reply::Scores(scores), Duration::ZERO)
     }
 
+    pub(super) fn delayed_scores(scores: Vec<f64>, delay: Duration) -> Self {
+        Self::new(Reply::Scores(scores), delay)
+    }
+
     fn new(reply: Reply, delay: Duration) -> Self {
         Self {
             reply,

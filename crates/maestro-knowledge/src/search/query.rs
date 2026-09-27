@@ -14,6 +14,8 @@ pub struct Query<'a> {
     pub text: &'a str,
     /// The maximum number of chunks to return.
     pub limit: usize,
+    /// The exact version filter selected for this request.
+    pub version: Option<&'a str>,
     /// The Qdrant server holding the generation's collection.
     pub qdrant: &'a Qdrant,
 }

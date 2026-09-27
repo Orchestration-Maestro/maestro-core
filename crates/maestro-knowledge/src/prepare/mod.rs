@@ -51,5 +51,6 @@ mod tests;
 pub use collection::{chunk_set_id, chunk_set_id_for_card, prepare, prepare_observed};
 pub use error::TokenizerError;
 pub use failure::Error;
+pub(crate) use manifest::search_members;
 pub use report::{Ineligibility, LeftOut, Refusal, Report};
 pub use router_tokenizer::RouterTokenizer;

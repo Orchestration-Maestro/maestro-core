@@ -4,6 +4,7 @@
 
 use super::{
     collections::unserved,
+    response::shown,
     state::{Fake, key},
 };
 use qdrant_client::qdrant::{
@@ -21,7 +22,7 @@ use qdrant_client::qdrant::{
     SetPayloadPoints, UpdateBatchPoints, UpdateBatchResponse, UpdatePointVectors, UpdateResult,
     UpdateStatus, UpsertPoints, VectorOutput, VectorsOutput, points_selector::PointsSelectorOneOf,
     points_server::Points, vector, vector_output, vectors::VectorsOptions, vectors_config::Config,
-    vectors_output, with_payload_selector, with_vectors_selector,
+    vectors_output,
 };
 use std::collections::HashMap;
 use tonic::{Request, Response, Status};
@@ -106,34 +107,6 @@ fn stored(point: PointStruct, params: &CollectionParams) -> Result<RetrievedPoin
     })
 }
 
-/// `point` with its payload when `payload` asks for it, and its vectors when
-/// `vectors` does.
-fn shown(
-    point: &RetrievedPoint,
-    payload: Option<&with_payload_selector::SelectorOptions>,
-    vectors: Option<&with_vectors_selector::SelectorOptions>,
-) -> RetrievedPoint {
-    let payload = matches!(
-        payload,
-        Some(with_payload_selector::SelectorOptions::Enable(true))
-    );
-    let vectors = matches!(
-        vectors,
-        Some(with_vectors_selector::SelectorOptions::Enable(true))
-    );
-    RetrievedPoint {
-        id: point.id.clone(),
-        payload: if payload {
-            point.payload.clone()
-        } else {
-            HashMap::new()
-        },
-        vectors: if vectors { point.vectors.clone() } else { None },
-        shard_key: None,
-        order_value: None,
-    }
-}
-
 #[tonic::async_trait]
 impl Points for Fake {
     async fn upsert(
@@ -203,26 +176,7 @@ impl Points for Fake {
         &self,
         request: Request<ScrollPoints>,
     ) -> Result<Response<ScrollResponse>, Status> {
-        let scroll = request.into_inner();
-        let mut state = self.state();
-        let collection = state.collection(&scroll.collection_name)?;
-        let payload = scroll
-            .with_payload
-            .and_then(|selector| selector.selector_options);
-        let vectors = scroll
-            .with_vectors
-            .and_then(|selector| selector.selector_options);
-        let result = collection
-            .points
-            .values()
-            .map(|point| shown(point, payload.as_ref(), vectors.as_ref()))
-            .collect();
-        Ok(Response::new(ScrollResponse {
-            next_page_offset: None,
-            result,
-            time: 0.0,
-            usage: None,
-        }))
+        super::scroll::run(self, request)
     }
 
     async fn count(

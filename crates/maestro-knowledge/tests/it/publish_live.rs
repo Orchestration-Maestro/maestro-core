@@ -29,6 +29,7 @@ use maestro_kernel::{
     gateway::{Error, Message, ModelCard, ModelPort, Room, RouterClient, Url},
     job::{JobState, Lease, NewJob},
     paths::{self, Environment},
+    retrieval::IDENTIFIER_PROFILE,
     scope::{Config, LOCAL, Scope, ScopeSet},
     store::Database,
 };
@@ -134,7 +135,10 @@ fn lease(
     let scope: Scope = format!("workspace/default/collection/{}", set.collection_id)
         .parse()
         .unwrap();
-    let inputs = json!({ "chunk_set": set.id });
+    let inputs = json!({
+        "chunk_set": set.id,
+        "identifier_profile": IDENTIFIER_PROFILE,
+    });
     let resource = format!("collection/{}/publish", set.collection_id);
     let new = NewJob {
         kind: "knowledge.publish",

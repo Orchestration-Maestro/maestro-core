@@ -4,8 +4,8 @@ use super::identifier_numbers::{error_code_candidates, port_candidates, version_
 use super::identifier_patterns::{command_candidates, parameter_candidates, path_candidates};
 use super::identifier_types::{Candidate, Identifier, overlaps, priority};
 
-/// Finds non-overlapping identifier spans and returns them in source order.
-pub(super) fn find(text: &str) -> Vec<Identifier> {
+/// Collects every family candidate before overlap arbitration.
+pub(super) fn candidates(text: &str) -> Vec<Candidate> {
     let parameters = parameter_candidates(text);
     let mut candidates = command_candidates(text, &parameters);
     candidates.extend(path_candidates(text));
@@ -13,6 +13,12 @@ pub(super) fn find(text: &str) -> Vec<Identifier> {
     candidates.extend(port_candidates(text));
     candidates.extend(error_code_candidates(text));
     candidates.extend(parameters);
+    candidates
+}
+
+/// Finds non-overlapping identifier spans and returns them in source order.
+pub(super) fn find(text: &str) -> Vec<Identifier> {
+    let mut candidates = candidates(text);
     candidates.sort_by(|left, right| {
         priority(left.family)
             .cmp(&priority(right.family))

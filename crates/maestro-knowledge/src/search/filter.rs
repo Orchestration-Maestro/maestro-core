@@ -13,3 +13,14 @@ pub(super) fn scope_filter(scopes: &ScopeSet) -> Filter {
             .collect::<Vec<_>>(),
     )])
 }
+
+/// Adds an exact metadata version to the in-Qdrant authorization filter.
+pub(super) fn query_filter(scopes: &ScopeSet, version: Option<&str>) -> Filter {
+    let mut filter = scope_filter(scopes);
+    if let Some(version) = version {
+        filter
+            .must
+            .push(Condition::matches("version", version.to_owned()));
+    }
+    filter
+}

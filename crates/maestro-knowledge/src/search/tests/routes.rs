@@ -13,8 +13,11 @@ use std::{
 };
 
 use crate::search::{
-    filter::scope_filter,
-    routes::results::{ScoredChunk, deduplicate},
+    filter::{query_filter, scope_filter},
+    routes::{
+        order::by_score_then_chunk_id,
+        results::{ScoredChunk, deduplicate},
+    },
 };
 
 struct Scratch(PathBuf);
@@ -62,6 +65,34 @@ fn scope_filter_matches_any_granted_scope_tag() {
         field.r#match.as_ref().and_then(|matched| matched.match_value.as_ref()),
         Some(MatchValue::Keywords(scopes)) if scopes.strings == ["workspace/default/collection/ctm"]
     ));
+}
+
+#[test]
+fn search_filter_adds_exact_version_after_scope_authorization() {
+    let (_scratch, _database, scopes) = scopes();
+    let filter = query_filter(&scopes, Some("v1.2"));
+    assert_eq!(filter.must.len(), 2);
+    let Some(ConditionOneOf::Field(version)) = filter.must[1].condition_one_of.as_ref() else {
+        panic!(
+            "the version filter must use a field condition: {:?}",
+            filter.must[1]
+        );
+    };
+    assert_eq!(version.key, "version");
+    assert!(matches!(
+        version.r#match.as_ref().and_then(|matched| matched.match_value.as_ref()),
+        Some(MatchValue::Keyword(value)) if value == "v1.2"
+    ));
+}
+
+#[test]
+fn tied_hits_sort_by_chunk_id_after_score() {
+    let mut hits = vec![hit("z", "z", 0.9), hit("a", "a", 0.9), hit("b", "b", 0.8)];
+    by_score_then_chunk_id(&mut hits);
+    assert_eq!(
+        hits,
+        vec![hit("a", "a", 0.9), hit("z", "z", 0.9), hit("b", "b", 0.8)]
+    );
 }
 
 #[test]

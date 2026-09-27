@@ -2,7 +2,10 @@
 //! runtime of the test that starts it.
 
 use super::state::Fake;
-use qdrant_client::qdrant::{collections_server::CollectionsServer, points_server::PointsServer};
+use qdrant_client::qdrant::{
+    Filter, PointId, Value, collections_server::CollectionsServer, points_server::PointsServer,
+    value::Kind,
+};
 use tonic::{
     Code,
     transport::{Server, server::TcpIncoming},
@@ -54,6 +57,13 @@ impl FakeQdrant {
         self.fake.refuse_next(call, code);
     }
 
+    /// Makes the next `count` calls of one kind refuse with `code`.
+    pub(in super::super) fn refuse_next_n(&self, call: &'static str, code: Code, count: usize) {
+        for _ in 0..count {
+            self.fake.refuse_next(call, code);
+        }
+    }
+
     /// Makes the next `CreateAlias` action refuse.
     pub(in super::super) fn refuse_create_alias_next(&self) {
         self.fake.refuse_create_alias_next();
@@ -63,5 +73,38 @@ impl FakeQdrant {
     /// without its result.
     pub(in super::super) fn hollow_next(&self, call: &'static str) {
         self.fake.hollow_next(call);
+    }
+
+    /// Returns the exact filters sent to payload scrolls, in call order.
+    pub(in super::super) fn scroll_filters(&self) -> Vec<Filter> {
+        self.fake.state().scroll_filters.clone()
+    }
+
+    /// Replaces one string payload field on a stored point.
+    pub(in super::super) fn set_payload_text(
+        &self,
+        collection: &str,
+        point_id: &str,
+        field: &str,
+        value: &str,
+    ) {
+        let mut state = self.fake.state();
+        let point = state
+            .collection(collection)
+            .unwrap()
+            .points
+            .get_mut(&super::state::key(&PointId::from(point_id)))
+            .unwrap();
+        point.payload.insert(
+            field.to_owned(),
+            Value {
+                kind: Some(Kind::StringValue(value.to_owned())),
+            },
+        );
+    }
+
+    /// The target of `alias` in the fake's current state.
+    pub(in super::super) fn alias_target(&self, alias: &str) -> Option<String> {
+        self.fake.state().aliases.get(alias).cloned()
     }
 }

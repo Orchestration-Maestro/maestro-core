@@ -15,6 +15,7 @@ use maestro_kernel::{
     gateway::{ModelCard, RouterClient, Url},
     job::{self, JobState, NewJob},
     journal::Filter,
+    retrieval::IDENTIFIER_PROFILE,
 };
 use maestro_knowledge::{
     index::{Progress, Projection, Qdrant},
@@ -34,6 +35,17 @@ const PRINTING: Printing = Printing {
     schema: SCHEMA,
     text: wait::line,
 };
+
+/// The frozen publication identity across sparse and identifier profiles.
+pub(super) fn frozen_inputs(card: &str, chunk_set: &str, collection: &str) -> Value {
+    json!({
+        "card": card,
+        "chunk_set": chunk_set,
+        "collection": collection,
+        "identifier_profile": IDENTIFIER_PROFILE,
+        "sparse_profile": lexical::PROFILE,
+    })
+}
 
 /// Publishes `chunk_set` of `collection` with the recorded embedder card
 /// `card_digest`, or finds the job with the same frozen inputs.
@@ -79,12 +91,7 @@ pub(super) fn run(
         env::var(health::QDRANT_VARIABLE).unwrap_or_else(|_| health::DEFAULT_QDRANT.to_owned());
     let qdrant = Qdrant::new(&qdrant_url).map_err(|error| Failure::refused_by(&error))?;
     let chunk_set = set.id;
-    let inputs = json!({
-        "card": card.digest().as_str(),
-        "chunk_set": chunk_set,
-        "collection": collection_id,
-        "sparse_profile": lexical::PROFILE,
-    });
+    let inputs = frozen_inputs(card.digest().as_str(), &chunk_set, collection_id);
     let scope = collection::collection_scope(collection_id)?;
     let resource = format!("collection/{collection_id}/publish");
     let new = NewJob {

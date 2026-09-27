@@ -6,12 +6,13 @@
 //! the generation for good.
 
 use super::{dense::Failure, qdrant::QdrantError};
+use crate::prepare;
 use maestro_kernel::{
     artifact::Digest,
     chunk_set::{self, ChunkSetState},
     document,
     gateway::Role,
-    generation, store,
+    generation, retrieval, store,
 };
 use std::{error, fmt};
 
@@ -79,6 +80,10 @@ pub enum Error {
     Records(document::Error),
     /// The kernel failed to read an artifact.
     Artifacts(store::Error),
+    /// The preparation manifest could not supply search members.
+    Preparation(prepare::Error),
+    /// The kernel's derived-search storage failed.
+    Search(retrieval::Error),
 }
 
 impl fmt::Display for Error {
@@ -125,6 +130,10 @@ impl fmt::Display for Error {
             Self::ChunkSet(error) => write!(formatter, "the chunk set failed: {error}"),
             Self::Records(error) => write!(formatter, "the kernel's records failed: {error}"),
             Self::Artifacts(error) => write!(formatter, "the artifact store failed: {error}"),
+            Self::Preparation(error) => {
+                write!(formatter, "the preparation manifest failed: {error}")
+            }
+            Self::Search(error) => write!(formatter, "the search projection failed: {error}"),
         }
     }
 }
@@ -138,6 +147,8 @@ impl error::Error for Error {
             Self::ChunkSet(error) => Some(error),
             Self::Records(error) => Some(error),
             Self::Artifacts(error) => Some(error),
+            Self::Preparation(error) => Some(error),
+            Self::Search(error) => Some(error),
             Self::NotAnEmbedder { .. }
             | Self::UnknownChunkSet(_)
             | Self::Incomplete { .. }
@@ -175,6 +186,11 @@ pub enum Unverified {
         /// The chunk's id.
         chunk: String,
     },
+    /// Its search payload, readiness or supporting index is inconsistent.
+    Search {
+        /// The deterministic projection mismatch.
+        reason: String,
+    },
 }
 
 impl fmt::Display for Unverified {
@@ -195,6 +211,9 @@ impl fmt::Display for Unverified {
                 formatter,
                 "its collection holds no point of the chunk {chunk}"
             ),
+            Self::Search { reason } => {
+                write!(formatter, "its search projection is invalid: {reason}")
+            }
         }
     }
 }

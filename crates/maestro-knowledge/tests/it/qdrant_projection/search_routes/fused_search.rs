@@ -1,0 +1,466 @@
+//! The public search handoff fuses available routes when dense metadata is absent.
+
+use super::super::support::projection;
+use super::{backends::fake, kernel::Kernel, models, support::cleanup};
+use maestro_kernel::{
+    document::{Disposition, Outcome},
+    evidence::{RequestBudget, RouteStatus},
+    gateway::Role,
+    scope::{Right, Scope},
+};
+use maestro_knowledge::{
+    query::Family,
+    search::{DEFAULT_DEPTH, Reranker, SearchContext, SearchError, SearchRequest, search},
+};
+use qdrant_client::qdrant::{Distance, Modifier};
+use tokio::time::Instant;
+
+fn searchable_scheduler_kernel() -> Kernel {
+    let kernel = Kernel::with_changed_guides(1, &|kernel, guide, mut chunks| {
+        if guide == 0 {
+            chunks[0].digest =
+                kernel.put(b"The scheduler runs job-0 in version 9.0.22 and reports ERR-042.");
+        }
+        chunks
+    });
+    let lead = kernel
+        .chunks()
+        .into_iter()
+        .find(|chunk| chunk.id == "chunk-0-lead")
+        .unwrap();
+    kernel
+        .database
+        .record_disposition(&Disposition {
+            revision_id: lead.revision_id,
+            outcome: Outcome::Accepted,
+            reasons: Vec::new(),
+            rule_ids: Vec::new(),
+            decided_by: "test".to_owned(),
+        })
+        .unwrap();
+    kernel
+}
+
+#[tokio::test]
+async fn undocumented_question_version_does_not_filter_search_results() {
+    for backend in
+        super::backends::backends("undocumented_question_version_does_not_filter_search_results")
+    {
+        let kernel = searchable_scheduler_kernel();
+        let card = models::embedder(3);
+        let port = models::Embedder::default();
+        let qdrant = backend.client();
+        let report = projection(&kernel, &qdrant, &port, &card)
+            .publish(&kernel.chunk_set)
+            .await
+            .unwrap();
+        let context: SearchContext<'_, models::Embedder> = SearchContext {
+            database: kernel.database.clone(),
+            principal: "tester",
+            qdrant: &qdrant,
+            embedder: None,
+            reranker: None,
+        };
+        let request = SearchRequest {
+            collection: &kernel.collection,
+            text: "scheduler 9.0.22.100",
+            version: None,
+            budget: RequestBudget {
+                deadline_ms: 5000,
+                ..RequestBudget::default()
+            },
+            rerank_depth: DEFAULT_DEPTH,
+        };
+        let result = Box::pin(search(&context, &request)).await.unwrap();
+        assert_eq!(result.understood.version.as_deref(), Some("9.0.22.100"));
+        assert_eq!(result.version, None);
+        assert!(!result.routes.contains_key("structured"));
+        assert!(!result.ranked.is_empty(), "{}", backend.name);
+        cleanup(
+            &backend,
+            &[&kernel
+                .database
+                .generation(&kernel.scopes, report.generation)
+                .unwrap()
+                .unwrap()],
+        )
+        .await;
+    }
+}
+
+#[tokio::test]
+async fn explicit_version_overrides_question_version() {
+    for backend in super::backends::backends("explicit_version_overrides_question_version") {
+        let kernel = searchable_scheduler_kernel();
+        let card = models::embedder(3);
+        let port = models::Embedder::default();
+        let qdrant = backend.client();
+        let report = projection(&kernel, &qdrant, &port, &card)
+            .publish(&kernel.chunk_set)
+            .await
+            .unwrap();
+        let context: SearchContext<'_, models::Embedder> = SearchContext {
+            database: kernel.database.clone(),
+            principal: "tester",
+            qdrant: &qdrant,
+            embedder: None,
+            reranker: None,
+        };
+        let request = SearchRequest {
+            collection: &kernel.collection,
+            text: "scheduler 9.0.22.100",
+            version: Some("9.0.22"),
+            budget: RequestBudget {
+                deadline_ms: 5000,
+                ..RequestBudget::default()
+            },
+            rerank_depth: DEFAULT_DEPTH,
+        };
+        let result = Box::pin(search(&context, &request)).await.unwrap();
+        assert_eq!(result.understood.version.as_deref(), Some("9.0.22.100"));
+        assert_eq!(result.version.as_deref(), Some("9.0.22"));
+        assert!(!result.ranked.is_empty(), "{}", backend.name);
+        cleanup(
+            &backend,
+            &[&kernel
+                .database
+                .generation(&kernel.scopes, report.generation)
+                .unwrap()
+                .unwrap()],
+        )
+        .await;
+    }
+}
+
+#[tokio::test]
+async fn missing_explicit_version_is_reported_as_a_known_gap() {
+    let backend = fake();
+    let kernel = searchable_scheduler_kernel();
+    let card = models::embedder(3);
+    let port = models::Embedder::default();
+    let qdrant = backend.client();
+    let report = projection(&kernel, &qdrant, &port, &card)
+        .publish(&kernel.chunk_set)
+        .await
+        .unwrap();
+    let context: SearchContext<'_, models::Embedder> = SearchContext {
+        database: kernel.database.clone(),
+        principal: "tester",
+        qdrant: &qdrant,
+        embedder: None,
+        reranker: None,
+    };
+    let request = SearchRequest {
+        collection: &kernel.collection,
+        text: "scheduler 9.0.22",
+        version: Some("99.99"),
+        budget: RequestBudget {
+            deadline_ms: 5000,
+            ..RequestBudget::default()
+        },
+        rerank_depth: DEFAULT_DEPTH,
+    };
+    let result = Box::pin(search(&context, &request)).await.unwrap();
+    assert!(result.ranked.is_empty());
+    assert_eq!(result.version.as_deref(), Some("99.99"));
+    assert!(result.known_gaps.iter().any(|gap| gap.contains("99.99")));
+    cleanup(
+        &backend,
+        &[&kernel
+            .database
+            .generation(&kernel.scopes, report.generation)
+            .unwrap()
+            .unwrap()],
+    )
+    .await;
+}
+
+#[tokio::test]
+async fn alias_movement_after_admission_keeps_identifier_inventory_and_candidates_pinned() {
+    let backend = fake();
+    let kernel = searchable_scheduler_kernel();
+    let publish_port = models::Embedder::default();
+    let embedder_card = models::embedder(3);
+    let qdrant = backend.client();
+    let report = projection(&kernel, &qdrant, &publish_port, &embedder_card)
+        .publish(&kernel.chunk_set)
+        .await
+        .unwrap();
+    let (search_port, gate) = models::Embedder::gated();
+    let context: SearchContext<'_, models::Embedder> = SearchContext {
+        database: kernel.database.clone(),
+        principal: "tester",
+        qdrant: &qdrant,
+        embedder: Some(maestro_knowledge::search::routes::dense::Embedder {
+            port: &search_port,
+            card: &embedder_card,
+        }),
+        reranker: None,
+    };
+    let request = SearchRequest {
+        collection: &kernel.collection,
+        text: "How many documents in set \"ERR-042\"?",
+        version: None,
+        budget: RequestBudget {
+            deadline_ms: 5000,
+            ..RequestBudget::default()
+        },
+        rerank_depth: DEFAULT_DEPTH,
+    };
+    let search_future = search(&context, &request);
+    tokio::pin!(search_future);
+    tokio::select! {
+        result = &mut search_future => panic!(
+            "search completed before its embedder was released: {result:?}"
+        ),
+        () = gate.wait_started() => {}
+    }
+
+    let decoy_collection = format!("maestro-{}-g99", kernel.collection);
+    backend
+        .create(&decoy_collection, 3, Distance::Cosine, Some(Modifier::Idf))
+        .await;
+    backend
+        .fake
+        .as_ref()
+        .unwrap()
+        .alias_to(&super::super::support::alias_of(&kernel), &decoy_collection);
+    gate.release();
+
+    let result = search_future.await.unwrap();
+    assert_eq!(result.generation.id, report.generation);
+    assert_eq!(result.routes.get("identifier"), Some(&RouteStatus::Ok));
+    assert_eq!(result.routes.get("structured"), Some(&RouteStatus::Ok));
+    assert!(
+        result
+            .ranked
+            .iter()
+            .any(|item| item.candidate.fused.chunk_id == "chunk-0-lead")
+    );
+    assert_eq!(
+        backend
+            .fake
+            .as_ref()
+            .unwrap()
+            .alias_target(&super::super::support::alias_of(&kernel)),
+        Some(decoy_collection.clone())
+    );
+    cleanup(
+        &backend,
+        &[&kernel
+            .database
+            .generation(&kernel.scopes, report.generation)
+            .unwrap()
+            .unwrap()],
+    )
+    .await;
+    backend.delete_collection(&decoy_collection).await;
+}
+
+#[tokio::test]
+async fn mismatched_route_revision_is_refused_before_rerank() {
+    let backend = fake();
+    let kernel = searchable_scheduler_kernel();
+    let publish_port = models::Embedder::default();
+    let embedder_card = models::embedder(3);
+    let qdrant = backend.client();
+    let report = projection(&kernel, &qdrant, &publish_port, &embedder_card)
+        .publish(&kernel.chunk_set)
+        .await
+        .unwrap();
+    let collection = super::super::support::collection_of(&kernel, report.generation);
+    let fake = backend.fake.as_ref().unwrap();
+    fake.set_payload_text(
+        &collection,
+        super::super::support::point_id("chunk-0-lead"),
+        "revision_id",
+        "foreign-revision",
+    );
+    let rerank_port = models::Embedder::default();
+    let reranker_card = models::card(Role::Reranker, 0);
+    let context: SearchContext<'_, models::Embedder> = SearchContext {
+        database: kernel.database.clone(),
+        principal: "tester",
+        qdrant: &qdrant,
+        embedder: None,
+        reranker: Some(Reranker {
+            port: &rerank_port,
+            card: &reranker_card,
+        }),
+    };
+    let request = SearchRequest {
+        collection: &kernel.collection,
+        text: "`ctm`",
+        version: None,
+        budget: RequestBudget {
+            deadline_ms: 5000,
+            ..RequestBudget::default()
+        },
+        rerank_depth: DEFAULT_DEPTH,
+    };
+    assert!(matches!(
+        Box::pin(search(&context, &request)).await,
+        Err(SearchError::EvidenceLoad { .. })
+    ));
+    assert_eq!(rerank_port.rerank_calls(), 0);
+    cleanup(
+        &backend,
+        &[&kernel
+            .database
+            .generation(&kernel.scopes, report.generation)
+            .unwrap()
+            .unwrap()],
+    )
+    .await;
+}
+
+#[tokio::test]
+async fn a_permission_revocation_during_a_slow_route_aborts_the_handoff() {
+    let backend = fake();
+    let kernel = searchable_scheduler_kernel();
+    let publish_port = models::Embedder::default();
+    let embedder_card = models::embedder(3);
+    let qdrant = backend.client();
+    let report = projection(&kernel, &qdrant, &publish_port, &embedder_card)
+        .publish(&kernel.chunk_set)
+        .await
+        .unwrap();
+    let (search_port, gate) = models::Embedder::gated();
+    let context: SearchContext<'_, models::Embedder> = SearchContext {
+        database: kernel.database.clone(),
+        principal: "tester",
+        qdrant: &qdrant,
+        embedder: Some(maestro_knowledge::search::routes::dense::Embedder {
+            port: &search_port,
+            card: &embedder_card,
+        }),
+        reranker: None,
+    };
+    let request = SearchRequest {
+        collection: &kernel.collection,
+        text: "`ctm`",
+        version: None,
+        budget: RequestBudget {
+            deadline_ms: 5000,
+            ..RequestBudget::default()
+        },
+        rerank_depth: DEFAULT_DEPTH,
+    };
+    let search_future = search(&context, &request);
+    tokio::pin!(search_future);
+    tokio::select! {
+        result = &mut search_future => panic!(
+            "search completed before its embedder was released: {result:?}"
+        ),
+        () = gate.wait_started() => {}
+    }
+    let workspace: Scope = "workspace/default".parse().unwrap();
+    kernel
+        .database
+        .revoke("tester", &workspace, Right::Read, "test")
+        .unwrap();
+    gate.release();
+
+    assert!(matches!(
+        search_future.await,
+        Err(SearchError::PermissionsChanged)
+    ));
+    assert_eq!(search_port.rerank_calls(), 0);
+    cleanup(
+        &backend,
+        &[&kernel
+            .database
+            .generation(&kernel.scopes, report.generation)
+            .unwrap()
+            .unwrap()],
+    )
+    .await;
+}
+
+#[tokio::test]
+async fn missing_embedder_degrades_dense_but_fuses_other_routes() {
+    let backend = fake();
+    let kernel = Kernel::with_changed_guides(1, &|kernel, guide, mut chunks| {
+        if guide != 0 {
+            return chunks;
+        }
+        chunks[0].digest = kernel.put(b"The ctm command repairs the local cache.");
+        chunks
+    });
+    let lead = kernel
+        .chunks()
+        .into_iter()
+        .find(|chunk| chunk.id == "chunk-0-lead")
+        .unwrap();
+    kernel
+        .database
+        .record_disposition(&Disposition {
+            revision_id: lead.revision_id,
+            outcome: Outcome::Accepted,
+            reasons: Vec::new(),
+            rule_ids: Vec::new(),
+            decided_by: "test".to_owned(),
+        })
+        .unwrap();
+    let card = models::embedder(3);
+    let port = models::Embedder::default();
+    let qdrant = backend.client();
+    let report = projection(&kernel, &qdrant, &port, &card)
+        .publish(&kernel.chunk_set)
+        .await
+        .unwrap();
+    let calls_before_search = port.calls().len();
+    let context: SearchContext<'_, models::Embedder> = SearchContext {
+        database: kernel.database.clone(),
+        principal: "tester",
+        qdrant: &qdrant,
+        embedder: None,
+        reranker: None,
+    };
+    let request = SearchRequest {
+        collection: &kernel.collection,
+        text: "`ctm`",
+        version: None,
+        budget: RequestBudget {
+            deadline_ms: 5000,
+            ..RequestBudget::default()
+        },
+        rerank_depth: DEFAULT_DEPTH,
+    };
+    let result = Box::pin(search(&context, &request)).await.unwrap();
+    assert_eq!(result.understood.identifiers[0].family, Family::Command);
+    assert!(matches!(
+        result.routes.get("dense"),
+        Some(RouteStatus::Unavailable(reason))
+            if reason == "no embedder card for the published generation's profile"
+    ));
+    assert_eq!(result.routes.get("identifier"), Some(&RouteStatus::Ok));
+    assert_eq!(result.routes.get("lexical"), Some(&RouteStatus::Ok));
+    assert!(matches!(
+        result.routes.get("rerank"),
+        Some(RouteStatus::Unavailable(reason)) if reason == "no reranker configured"
+    ));
+    assert_eq!(
+        port.calls().len(),
+        calls_before_search,
+        "dense was disabled"
+    );
+    assert!(!result.ranked.is_empty());
+    assert!(
+        result
+            .ranked
+            .iter()
+            .any(|ranked| { ranked.candidate.text == "The ctm command repairs the local cache." })
+    );
+    assert_eq!(result.budget.deadline_ms, 5000);
+    assert!(result.deadline > Instant::now());
+    cleanup(
+        &backend,
+        &[&kernel
+            .database
+            .generation(&kernel.scopes, report.generation)
+            .unwrap()
+            .unwrap()],
+    )
+    .await;
+}

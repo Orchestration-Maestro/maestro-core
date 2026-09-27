@@ -5,8 +5,9 @@
 
 use super::{
     dense::embed, error::Error, point::point, progress::Progress, projection::Projection,
-    provenance::Provenance, sparse::Lengths,
+    provenance::Provenance, search_inputs, sparse::Lengths,
 };
+use crate::query::index_identifiers;
 use maestro_kernel::{chunk_set::Chunk, gateway::ModelPort};
 use qdrant_client::qdrant::PointStruct;
 use std::{ops::ControlFlow, time::Duration};
@@ -25,6 +26,8 @@ pub(super) struct Target<'a> {
     pub(super) collection: &'a str,
     /// Its id.
     pub(super) generation: i64,
+    /// The complete chunk set whose inputs this generation projects.
+    pub(super) chunk_set_id: &'a str,
     /// Every chunk of its chunk set, in record order.
     pub(super) chunks: &'a [Chunk],
 }
@@ -63,6 +66,13 @@ impl<P: ModelPort> Projection<'_, P> {
                 .iter()
                 .map(|chunk| self.input(chunk))
                 .collect::<Result<Vec<_>, _>>()?;
+            search_inputs::record_batch(
+                self.database,
+                self.scopes,
+                target.chunk_set_id,
+                batch,
+                &inputs,
+            )?;
             let dense = embed(self.port, self.card, &inputs, DEADLINE)
                 .await
                 .map_err(|failure| Error::Embedding {
@@ -90,7 +100,7 @@ impl<P: ModelPort> Projection<'_, P> {
 
     /// The prepared input of `chunk`, the text its chunk set counted, read
     /// from the artifact its digest names.
-    fn input(&self, chunk: &Chunk) -> Result<String, Error> {
+    pub(super) fn input(&self, chunk: &Chunk) -> Result<String, Error> {
         let bytes = self.database.get(&chunk.digest).map_err(Error::Artifacts)?;
         String::from_utf8(bytes).map_err(|_| Error::Unreadable {
             chunk: chunk.id.clone(),
@@ -122,7 +132,14 @@ impl<P: ModelPort> Projection<'_, P> {
             let provenance = Provenance::read(self.database, self.scopes, first)?;
             for (chunk, (text, vector)) in run.iter().zip(represented.by_ref()) {
                 let sparse = lengths.vector(text);
-                points.push(point(chunk, &provenance, vector, sparse.as_ref())?);
+                let identifiers = index_identifiers(text);
+                points.push(point(
+                    chunk,
+                    &provenance,
+                    vector,
+                    sparse.as_ref(),
+                    &identifiers,
+                )?);
             }
         }
         Ok(points)

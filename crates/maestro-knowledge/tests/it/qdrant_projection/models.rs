@@ -19,6 +19,7 @@ use std::{
         atomic::{AtomicUsize, Ordering},
     },
 };
+use tokio::sync::Notify;
 
 /// The card of a model filling `role` from the router's entry `embed`, of
 /// `dimensions` when it is an embedder, recorded in a store that is gone
@@ -79,6 +80,8 @@ struct Script {
     rooms: Vec<Room>,
     /// The fault of the call of each number, counted from 0.
     faults: BTreeMap<usize, Fault>,
+    /// Number of calls the fake reranker received.
+    rerank_calls: usize,
 }
 
 /// The fake models, with each embedding call recorded, and a fault for the
@@ -87,9 +90,48 @@ struct Script {
 pub(super) struct Embedder {
     /// What it saw and was told.
     script: Arc<Mutex<Script>>,
+    /// A gate that can pause a retrieval embedding call.
+    gate: Option<Arc<Gate>>,
+}
+
+#[derive(Debug, Default)]
+struct Gate {
+    started: Notify,
+    release: Notify,
+}
+
+/// Controls one embedding call held by a test.
+#[derive(Debug, Clone)]
+pub(super) struct EmbedGate(Arc<Gate>);
+
+impl EmbedGate {
+    pub(super) async fn wait_started(&self) {
+        self.0.started.notified().await;
+    }
+
+    pub(super) fn release(&self) {
+        self.0.release.notify_one();
+    }
 }
 
 impl Embedder {
+    /// Creates a port that pauses its next embedding call until released.
+    pub(super) fn gated() -> (Self, EmbedGate) {
+        let gate = Arc::new(Gate::default());
+        (
+            Self {
+                script: Arc::new(Mutex::new(Script::default())),
+                gate: Some(gate.clone()),
+            },
+            EmbedGate(gate),
+        )
+    }
+
+    /// The number of rerank calls made so far.
+    pub(super) fn rerank_calls(&self) -> usize {
+        self.script.lock().unwrap().rerank_calls
+    }
+
     /// Makes the embedding call `call`, counted from 0 over the port's life,
     /// go wrong as `fault` says.
     pub(super) fn fail(&self, call: usize, fault: Fault) {
@@ -122,6 +164,10 @@ impl ModelPort for Embedder {
             script.faults.get(&call).copied()
         };
         let mut vectors = FakeModels.embed(card, room, inputs).await?;
+        if let Some(gate) = &self.gate {
+            gate.started.notify_one();
+            gate.release.notified().await;
+        }
         match fault {
             None => {}
             Some(Fault::Unavailable) => {
@@ -145,6 +191,7 @@ impl ModelPort for Embedder {
         query: &str,
         documents: &[String],
     ) -> Result<Vec<f64>, Error> {
+        self.script.lock().unwrap().rerank_calls += 1;
         FakeModels.rerank(card, room, query, documents).await
     }
 

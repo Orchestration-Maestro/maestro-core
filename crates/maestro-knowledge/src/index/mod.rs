@@ -60,6 +60,7 @@ mod projection;
 mod provenance;
 mod publish;
 mod qdrant;
+mod search_inputs;
 mod sparse;
 #[cfg(test)]
 mod tests;

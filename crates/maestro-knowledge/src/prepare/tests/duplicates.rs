@@ -6,12 +6,18 @@ use super::scratch::{
     COLLECTION, Scratch, chunk_set_of, chunks_of, decide_all, manifest_of, revision_of, tokenizer,
     words,
 };
-use crate::prepare::prepare;
+use crate::prepare::{
+    Error as PreparationError, Refusal,
+    manifest::{Manifest, search_members},
+    prepare,
+};
 use maestro_canonicalization::{
     CanonicalDocument, DedupInput, DedupScope, RevisionKey, WarningPolicy, group_exact,
 };
 use maestro_kernel::{
+    chunk_set::{ChunkSet, ChunkSetState},
     document::{NearDuplicate, Occurrence, Outcome},
+    retrieval::{Error as SearchError, SearchMember},
     scope::ScopeSet,
     store::Database,
 };
@@ -88,6 +94,161 @@ fn exact_duplicates_are_prepared_once_as_the_smallest_revision_and_keep_every_oc
     );
     let manifest = manifest_of(&database, &chunk_set_of(&database, &scopes, &report));
     assert_eq!(manifest["duplicates"], json!({ duplicate: chunked }));
+}
+
+#[test]
+fn manifest_members_keep_duplicate_documents_with_their_representative() {
+    let scratch = Scratch::new();
+    let text = format!("# Topic\n\n{}\n", words("alpha", 60));
+    scratch.corpus(&[("a.md", &text), ("copy.md", &text)]);
+    let database = scratch.database();
+    let scopes = scratch.import(&database);
+    decide_all(&database, &scopes, Outcome::Accepted);
+    let (_, tokenizer) = tokenizer();
+    let report = prepare(&database, &scopes, COLLECTION, &tokenizer).unwrap();
+    let set = chunk_set_of(&database, &scopes, &report);
+    let [first, copy] = ["a.md", "copy.md"].map(|path| revision_of(&database, &scopes, path));
+    let representative = first.clone().min(copy.clone());
+    let duplicate = if representative == first { copy } else { first };
+
+    let mut expected = vec![
+        SearchMember {
+            revision_id: duplicate,
+            representative_revision_id: representative.clone(),
+        },
+        SearchMember {
+            revision_id: representative.clone(),
+            representative_revision_id: representative,
+        },
+    ];
+    expected.sort_by(|left, right| left.revision_id.cmp(&right.revision_id));
+    assert_eq!(search_members(&database, &scopes, &set).unwrap(), expected);
+}
+
+#[test]
+fn search_members_rejects_malformed_manifest_identity_and_references() {
+    let scratch = Scratch::new();
+    let text = format!("# Topic\n\n{}\n", words("alpha", 60));
+    scratch.corpus(&[("a.md", &text), ("copy.md", &text)]);
+    let database = scratch.database();
+    let scopes = scratch.import(&database);
+    decide_all(&database, &scopes, Outcome::Accepted);
+    let (_, tokenizer) = tokenizer();
+    let report = prepare(&database, &scopes, COLLECTION, &tokenizer).unwrap();
+    let set = chunk_set_of(&database, &scopes, &report);
+    let manifest = Manifest::read(&database, set.manifest_digest.as_ref().unwrap()).unwrap();
+    let representative = manifest.duplicates.values().next().unwrap().clone();
+    let duplicate = manifest.duplicates.keys().next().unwrap().clone();
+
+    let mut invalid = Vec::new();
+    let mut changed = manifest.clone();
+    changed.chunk_set.push_str("-wrong");
+    invalid.push(("chunk-set identity", changed));
+    let mut changed = manifest.clone();
+    changed.collection.push_str("-wrong");
+    invalid.push(("collection identity", changed));
+    let mut changed = manifest.clone();
+    changed.revisions.push(representative.clone());
+    invalid.push(("duplicate revision", changed));
+    let mut changed = manifest.clone();
+    changed
+        .duplicates
+        .insert(representative.clone(), representative.clone());
+    invalid.push(("self duplicate", changed));
+    let mut changed = manifest.clone();
+    changed
+        .duplicates
+        .insert("missing-duplicate".to_owned(), representative.clone());
+    invalid.push(("missing duplicate revision", changed));
+    let mut changed = manifest.clone();
+    changed
+        .duplicates
+        .insert(duplicate.clone(), "missing-representative".to_owned());
+    invalid.push(("missing representative revision", changed));
+    let mut changed = manifest.clone();
+    changed
+        .duplicates
+        .insert(representative.clone(), duplicate.clone());
+    invalid.push(("duplicate chain", changed));
+    let mut changed = manifest.clone();
+    changed.refusals.push(Refusal {
+        revision: "missing-refusal".to_owned(),
+        document: "missing-document".to_owned(),
+        source_ref: "https://example.org/missing".to_owned(),
+        reason: "test".to_owned(),
+    });
+    invalid.push(("missing refusal revision", changed));
+
+    for (label, manifest) in invalid {
+        let digest = manifest.store(&database).unwrap();
+        let changed_set = ChunkSet {
+            manifest_digest: Some(digest),
+            ..set.clone()
+        };
+        assert!(
+            matches!(
+                search_members(&database, &scopes, &changed_set),
+                Err(PreparationError::Search(SearchError::InvalidInput(_)))
+            ),
+            "{label}"
+        );
+    }
+
+    let mut unready = set.clone();
+    unready.state = ChunkSetState::Building;
+    assert!(matches!(
+        search_members(&database, &scopes, &unready),
+        Err(PreparationError::Search(SearchError::InvalidInput(_)))
+    ));
+}
+
+#[test]
+fn search_members_omits_refused_and_unchunked_representatives() {
+    let scratch = Scratch::new();
+    let text = format!("# Topic\n\n{}\n", words("alpha", 60));
+    scratch.corpus(&[("a.md", &text), ("copy.md", &text)]);
+    let database = scratch.database();
+    let scopes = scratch.import(&database);
+    decide_all(&database, &scopes, Outcome::Accepted);
+    let (_, tokenizer) = tokenizer();
+    let report = prepare(&database, &scopes, COLLECTION, &tokenizer).unwrap();
+    let set = chunk_set_of(&database, &scopes, &report);
+    let mut manifest = Manifest::read(&database, set.manifest_digest.as_ref().unwrap()).unwrap();
+    let representative = manifest.duplicates.values().next().unwrap().clone();
+    let duplicate = manifest.duplicates.keys().next().unwrap().clone();
+
+    manifest.refusals.push(Refusal {
+        revision: representative.clone(),
+        document: "doc".to_owned(),
+        source_ref: "https://example.org/doc".to_owned(),
+        reason: "refused representative".to_owned(),
+    });
+    let digest = manifest.store(&database).unwrap();
+    let refused_representative = ChunkSet {
+        manifest_digest: Some(digest),
+        ..set.clone()
+    };
+    assert!(
+        search_members(&database, &scopes, &refused_representative)
+            .unwrap()
+            .is_empty()
+    );
+
+    manifest.refusals.clear();
+    manifest.duplicates.clear();
+    manifest
+        .duplicates
+        .insert(representative.clone(), duplicate);
+    let digest = manifest.store(&database).unwrap();
+    let unchunked_representative = ChunkSet {
+        manifest_digest: Some(digest),
+        ..set
+    };
+    assert!(
+        search_members(&database, &scopes, &unchunked_representative)
+            .unwrap()
+            .is_empty()
+    );
 }
 
 #[test]

@@ -2,7 +2,7 @@
 
 use super::{
     error::Error,
-    types::{ReadControl, SearchRead},
+    types::{IDENTIFIER_PROFILE, ReadControl, SearchRead},
 };
 use crate::{
     chunk_set::{self, Chunk},
@@ -84,9 +84,9 @@ pub(super) fn ready_projection(
         .optional()
         .map_err(|error| classify(error, read.control))?
         .ok_or(Error::ProjectionMissing)?;
-    if projection.0 != "identifiers/1" {
+    if projection.0 != IDENTIFIER_PROFILE {
         return Err(Error::ProfileMismatch {
-            expected: "identifiers/1".to_owned(),
+            expected: IDENTIFIER_PROFILE.to_owned(),
             found: projection.0,
         });
     }
@@ -97,6 +97,64 @@ pub(super) fn ready_projection(
 }
 
 impl Database {
+    /// Whether the pinned chunk set contains an in-scope member with the exact
+    /// version filter. Legacy sets fall back to revisions that own chunks.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Cancelled`] or [`Error::TimedOut`] when the controlled read
+    /// stops; [`Error::Store`] on SQL failure.
+    pub fn version_exists(&self, read: &SearchRead<'_>) -> Result<bool, Error> {
+        read.control.check()?;
+        let Some(version) = read.version else {
+            return Ok(true);
+        };
+        let scope = ScopeSet::source_condition("documents.collection_id", "documents.source_id", 4);
+        let sql = format!(
+            "SELECT EXISTS(
+               SELECT 1 FROM revisions
+               JOIN documents ON documents.id = revisions.document_id
+               WHERE documents.collection_id = ?3 AND {scope}
+                 AND CASE json_type(revisions.metadata_json, '$.version')
+                   WHEN 'text' THEN json_extract(revisions.metadata_json, '$.version') END = ?5
+                 AND EXISTS (SELECT 1 FROM generations
+                   WHERE generations.id = ?1 AND generations.chunk_set_id = ?2
+                     AND generations.collection_id = ?3)
+                 AND (EXISTS (SELECT 1 FROM chunk_set_members
+                       WHERE chunk_set_members.chunk_set_id = ?2
+                         AND chunk_set_members.revision_id = revisions.id)
+                   OR (NOT EXISTS (SELECT 1 FROM chunk_set_members
+                       WHERE chunk_set_members.chunk_set_id = ?2)
+                     AND EXISTS (SELECT 1 FROM chunks
+                       WHERE chunks.chunk_set_id = ?2
+                         AND chunks.revision_id = revisions.id)))
+             )"
+        );
+        let mut connection = controlled_reader(self, read.control)?;
+        let transaction = connection
+            .transaction_with_behavior(TransactionBehavior::Deferred)
+            .map_err(|error| classify(error, read.control))?;
+        let exists = transaction
+            .query_row(
+                &sql,
+                params![
+                    read.generation.id,
+                    read.generation.chunk_set_id,
+                    read.generation.collection_id,
+                    read.scopes.parameter(),
+                    version,
+                ],
+                |row| row.get::<_, bool>(0),
+            )
+            .map_err(|error| classify(error, read.control))?;
+        read.control.check()?;
+        transaction
+            .commit()
+            .map_err(|error| classify(error, read.control))?;
+        read.control.check()?;
+        Ok(exists)
+    }
+
     /// Loads only the requested chunk IDs from the pinned generation, filtered
     /// by owner-source scope, collection, version and current eligibility.
     ///

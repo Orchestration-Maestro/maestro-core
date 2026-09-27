@@ -9,9 +9,10 @@ use super::{
     names::collection_name,
     progress::{Progress, Report},
     projection::Projection,
+    search_inputs,
     verify::{vectors, verify},
 };
-use crate::lexical;
+use crate::{lexical, query::PROFILE};
 use maestro_kernel::{
     chunk_set::{Chunk, ChunkSet, ChunkSetState},
     gateway::{ModelPort, Role},
@@ -117,8 +118,10 @@ impl<P: ModelPort> Projection<'_, P> {
             .chunks(self.scopes, &set.id)
             .map_err(Error::ChunkSet)?;
         if step == Step::Build {
+            let new_search_profile = search_inputs::begin(self.database, self.scopes, &generation)?;
+            search_inputs::record_members(self.database, self.scopes, &set)?;
             let created = self.ensure(&names, dimensions).await?;
-            let start = if created {
+            let start = if created || new_search_profile {
                 0
             } else {
                 resume
@@ -128,6 +131,7 @@ impl<P: ModelPort> Projection<'_, P> {
             let target = Target {
                 collection: &names.collection,
                 generation: generation.id,
+                chunk_set_id: &set.id,
                 chunks: &chunks,
             };
             self.index(&target, start, observer).await?;
@@ -143,6 +147,12 @@ impl<P: ModelPort> Projection<'_, P> {
         let points = self
             .check(&names, dimensions, &chunks, rollback.as_deref())
             .await?;
+        if let Err(reason) = self.verify_search(&generation, &set, &chunks).await? {
+            let rollback = rollback
+                .as_deref()
+                .map(|collection| (names.alias.as_str(), collection));
+            return self.fail(names.generation, reason, rollback).await;
+        }
         if step == Step::Build {
             self.database
                 .verify_generation(generation.id, points)
@@ -193,20 +203,33 @@ impl<P: ModelPort> Projection<'_, P> {
     /// that is not retired or failed, or a new one, building.
     fn generation(&self, set: &ChunkSet) -> Result<(Generation, Step), Error> {
         let embedding = embedding_profile(self.card);
-        let found = self
+        let generations = self
             .database
             .generations(self.scopes, &set.collection_id)
-            .map_err(Error::Generation)?
-            .into_iter()
-            .rev()
-            .filter(|generation| {
-                generation.chunk_set_id == set.id
-                    && generation.embedding_profile == embedding
-                    && generation.sparse_profile == lexical::PROFILE
-            })
-            .find_map(|generation| Some((Step::of(generation.state)?, generation)));
-        if let Some((step, generation)) = found {
-            return Ok((generation, step));
+            .map_err(Error::Generation)?;
+        for generation in generations.into_iter().rev().filter(|generation| {
+            generation.chunk_set_id == set.id
+                && generation.embedding_profile == embedding
+                && generation.sparse_profile == lexical::PROFILE
+        }) {
+            let Some(step) = Step::of(generation.state) else {
+                continue;
+            };
+            let projection = self
+                .database
+                .generation_search(self.scopes, generation.id)
+                .map_err(Error::Search)?;
+            let reusable = match step {
+                Step::Build => projection
+                    .as_ref()
+                    .is_none_or(|projection| projection.identifier_profile == PROFILE),
+                Step::Check | Step::Done => projection.as_ref().is_some_and(|projection| {
+                    projection.identifier_profile == PROFILE && projection.ready
+                }),
+            };
+            if reusable {
+                return Ok((generation, step));
+            }
         }
         let created = self
             .database
@@ -248,7 +271,7 @@ impl<P: ModelPort> Projection<'_, P> {
             true
         };
         self.qdrant
-            .index_scope_tags(collection)
+            .index_search_fields(collection)
             .await
             .map_err(Error::Qdrant)?;
         Ok(created)

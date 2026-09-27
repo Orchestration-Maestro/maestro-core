@@ -91,6 +91,22 @@ fn empty_identifier_calls_need_no_marker_and_sixty_four_ids_are_allowed() {
 }
 
 #[test]
+fn fts_hits_keep_rank_then_chunk_id_order() {
+    let search = SearchDb::with_inputs(&[
+        "rare appears among many unrelated words in this long prepared input",
+        "rare",
+    ]);
+    search.ready();
+    assert_eq!(
+        search_hits(&search, &["rare"])
+            .iter()
+            .map(|hit| hit.chunk_id.as_str())
+            .collect::<Vec<_>>(),
+        ["chunk-b", "chunk-a"]
+    );
+}
+
+#[test]
 fn identifier_hits_stops_at_the_requested_unique_chunk_limit() {
     let search = SearchDb::with_inputs(&[
         "Install the tool with --force.",
@@ -98,6 +114,13 @@ fn identifier_hits_stops_at_the_requested_unique_chunk_limit() {
     ]);
     search.ready();
     assert_eq!(search_hits_limit(&search, &["--force"], 1).len(), 1);
+}
+
+#[test]
+fn bare_command_code_span_finds_a_plain_prepared_input() {
+    let search = SearchDb::new("The ctm command repairs the local cache.");
+    search.ready();
+    assert_eq!(search_hits(&search, &["ctm"]).len(), 1);
 }
 
 #[test]

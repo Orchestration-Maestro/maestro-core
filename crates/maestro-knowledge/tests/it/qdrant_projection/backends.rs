@@ -145,6 +145,11 @@ impl Backend {
         found.remove(0)
     }
 
+    /// The fake's current alias target without making an RPC.
+    pub(super) fn cached_alias(&self, alias: &str) -> Option<String> {
+        self.fake.as_ref().and_then(|fake| fake.alias_target(alias))
+    }
+
     /// The collection the alias `alias` points at, if it exists.
     pub(super) async fn alias(&self, alias: &str) -> Option<String> {
         let aliases = self.inspector().list_aliases().await.unwrap().aliases;

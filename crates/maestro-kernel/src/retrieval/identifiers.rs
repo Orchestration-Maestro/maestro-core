@@ -167,7 +167,7 @@ fn exact_hits(
                    WHEN 'text' THEN json_extract(revisions.metadata_json, '$.version') END = ?5)
                AND revisions.status <> 'failed'
                AND quality_dispositions.disposition IN ('accepted', 'accepted_with_warnings')
-             ORDER BY chunks.id"
+             ORDER BY bm25(chunk_search_fts), chunks.id"
         )
     } else {
         format!(

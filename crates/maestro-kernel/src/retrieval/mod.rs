@@ -12,6 +12,6 @@ mod write;
 pub use error::Error;
 pub use identifiers::{contains_identifier, normalize_whitespace};
 pub use types::{
-    ChunkHit, InventoryRequest, InventorySelection, ReadControl, SearchInput, SearchMember,
-    SearchProjection, SearchRead,
+    ChunkHit, IDENTIFIER_PROFILE, InventoryRequest, InventorySelection, ReadControl, SearchInput,
+    SearchMember, SearchProjection, SearchRead,
 };

@@ -1,10 +1,10 @@
 //! Qdrant's filtered nearest-vector query, as the projection tests' fake serves it.
 
-use super::state::Fake;
+use super::{filter::matches_filter, state::Fake};
 use qdrant_client::qdrant::{
-    Filter, QueryPoints, QueryResponse, RetrievedPoint, ScoredPoint, condition::ConditionOneOf,
-    r#match::MatchValue, query, value::Kind, vector_input::Variant as VectorInputVariant,
-    vector_output, vectors_output, with_payload_selector,
+    QueryPoints, QueryResponse, RetrievedPoint, ScoredPoint, query,
+    vector_input::Variant as VectorInputVariant, vector_output, vectors_output,
+    with_payload_selector,
 };
 use std::collections::HashMap;
 use tonic::{Request, Response, Status};
@@ -89,42 +89,6 @@ pub(super) fn run(
         time: 0.0,
         usage: None,
     }))
-}
-
-fn matches_filter(point: &RetrievedPoint, filter: &Filter) -> bool {
-    filter.must.iter().all(|condition| {
-        let Some(ConditionOneOf::Field(field)) = condition.condition_one_of.as_ref() else {
-            return false;
-        };
-        if field.key != "scope_tags" {
-            return false;
-        }
-        let Some(value) = field
-            .r#match
-            .as_ref()
-            .and_then(|value| value.match_value.as_ref())
-        else {
-            return false;
-        };
-        let granted: Vec<&str> = match value {
-            MatchValue::Keyword(scope) => vec![scope],
-            MatchValue::Keywords(scopes) => scopes.strings.iter().map(String::as_str).collect(),
-            _ => return false,
-        };
-        let Some(Kind::ListValue(tags)) = point
-            .payload
-            .get("scope_tags")
-            .and_then(|value| value.kind.as_ref())
-        else {
-            return false;
-        };
-        tags.values.iter().any(|tag| {
-            matches!(
-                tag.kind.as_ref(),
-                Some(Kind::StringValue(tag)) if granted.contains(&tag.as_str())
-            )
-        })
-    })
 }
 
 fn score(point: &RetrievedPoint, name: &str, query: &SearchVector) -> Option<f32> {

@@ -136,13 +136,45 @@ path = "crates/maestro-kernel/src/evidence/mod.rs"
 item = "InventoryCount"
 reason = "InventoryCount is the public strict wire item nested in Inventory, which the controlled kernel reader assembles directly"
 
-# The search handoff carries the query module's interpretation to T032
-# unchanged; it must not invent a search-local copy of those fields.
+# The manifest owns duplicate/refusal mapping; publication records its exact member list.
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-knowledge/src/prepare/mod.rs"
+item = "search_members"
+reason = "manifest membership owns duplicate/refusal mapping; publication records its exact member list"
+
+# Query understanding and inventory parsing share one exact set-filter grammar.
 [[exception]]
 rule = "ARC-005"
 path = "crates/maestro-knowledge/src/query/mod.rs"
-item = "Understood"
-reason = "EvidenceInput carries the public query interpretation unchanged to T032 instead of duplicating its fields as a search-local type"
+item = "INVENTORY_FILTERS"
+reason = "understanding and inventory parsing must share suffixes to mask quoted set text consistently"
+
+# Query understanding remains one rule-based contract passed unchanged to T032.
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-knowledge/src/query/mod.rs"
+item = "understand"
+reason = "the query module owns the rule-based interpretation contract passed unchanged through search to T032"
+
+# Independent retrieval routes stay separate from orchestration and one another.
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-knowledge/src/search/routes/mod.rs"
+item = "identifier"
+reason = "the identifier route combines its exact payload and scoped FTS legs behind one route API"
+
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-knowledge/src/search/routes/mod.rs"
+item = "lexical"
+reason = "the lexical route remains an independent R2 implementation, invoked once by fused search"
+
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-knowledge/src/search/routes/mod.rs"
+item = "structured"
+reason = "the structured route owns exact Global inventories and their bounded kernel read"
 
 # The quality gate's reader of the revisions it lets through: the gate owns
 # eligibility, so the preparation (T023) reads it rather than deciding again,

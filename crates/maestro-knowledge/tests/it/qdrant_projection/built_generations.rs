@@ -5,25 +5,127 @@
 //! chunk set gives the same point IDs.
 
 use super::{
-    backends::{Backend, backends},
+    backends::{Backend, backends, fake},
     kernel::{Kernel, VERSION},
     models::{Embedder, embedder},
+    search_routes::support::create_collection,
     support::{alias_of, collection_of, point_id, publish},
 };
 use maestro_kernel::{
+    evidence::{RequestBudget, RouteStatus},
     gateway::{FakeModels, ModelPort as _, Room},
-    generation::GenerationState,
+    generation::{GenerationState, NewGeneration},
 };
 use maestro_knowledge::{
-    index::Report,
+    index::{Projection, Report},
     lexical::{AverageLength, Passage},
+    search::{DEFAULT_DEPTH, SearchContext, SearchRequest, search},
 };
 use qdrant_client::{
     Payload,
     qdrant::{Distance, Modifier, vector_output::Vector, vectors_config::Config},
 };
 use serde_json::{Value, json};
-use std::{collections::BTreeSet, slice};
+use std::{collections::BTreeSet, ops::ControlFlow, slice};
+
+#[tokio::test]
+async fn a_markerless_published_generation_degrades_then_republishes_without_early_alias_move() {
+    let backend = fake();
+    let kernel = Kernel::with_guides(1);
+    let card = embedder(8);
+    let port = Embedder::default();
+    let profile = format!("dense/1:sha256:{}", card.digest().as_str());
+    let legacy = kernel
+        .database
+        .create_generation(&NewGeneration {
+            collection_id: kernel.collection.clone(),
+            chunk_set_id: kernel.chunk_set.clone(),
+            embedding_profile: profile,
+            sparse_profile: "bm25-en-fr/1".to_owned(),
+        })
+        .unwrap();
+    kernel.database.verify_generation(legacy.id, 0).unwrap();
+    kernel.database.publish_generation(legacy.id).unwrap();
+    let legacy = kernel
+        .database
+        .generation(&kernel.scopes, legacy.id)
+        .unwrap()
+        .unwrap();
+    let qdrant = backend.client();
+    create_collection(&backend, &legacy).await;
+    let alias = alias_of(&kernel);
+    let old_collection = collection_of(&kernel, legacy.id);
+    backend.point_alias(&alias, &old_collection).await;
+
+    let context: SearchContext<'_, Embedder> = SearchContext {
+        database: kernel.database.clone(),
+        principal: "tester",
+        qdrant: &qdrant,
+        embedder: None,
+        reranker: None,
+    };
+    let identifier = SearchRequest {
+        collection: &kernel.collection,
+        text: "ERR-042",
+        version: None,
+        budget: RequestBudget::default(),
+        rerank_depth: DEFAULT_DEPTH,
+    };
+    let identifier_result = Box::pin(search(&context, &identifier)).await.unwrap();
+    assert_eq!(
+        identifier_result.routes.get("identifier"),
+        Some(&RouteStatus::Unavailable(
+            "search projection missing; publish a new generation".to_owned()
+        ))
+    );
+    assert!(identifier_result.ranked.is_empty());
+    assert!(identifier_result.inventory.is_none());
+
+    let inventory = SearchRequest {
+        text: "how many documents",
+        ..identifier
+    };
+    let inventory_result = Box::pin(search(&context, &inventory)).await.unwrap();
+    assert_eq!(
+        inventory_result.routes.get("structured"),
+        Some(&RouteStatus::Unavailable(
+            "search projection missing; publish a new generation".to_owned()
+        ))
+    );
+    assert!(inventory_result.ranked.is_empty());
+    assert!(inventory_result.inventory.is_none());
+
+    let mut saw_batch = false;
+    let report = Projection {
+        database: &kernel.database,
+        scopes: &kernel.scopes,
+        qdrant: &qdrant,
+        port: &port,
+        card: &card,
+    }
+    .publish_observed(&kernel.chunk_set, None, &mut |progress| {
+        assert_eq!(progress.generation, 2);
+        assert_eq!(
+            backend.cached_alias(&alias).as_deref(),
+            Some(old_collection.as_str())
+        );
+        saw_batch = true;
+        ControlFlow::Continue(())
+    })
+    .await
+    .unwrap();
+    assert!(saw_batch);
+    assert_eq!(report.generation, 2);
+    assert_eq!(report.retired, Some(legacy.id));
+    assert_eq!(
+        backend.alias(&alias).await.as_deref(),
+        Some(report.qdrant_collection.as_str())
+    );
+    assert!(backend.exists(&old_collection).await);
+    backend
+        .cleanup(&kernel.collection, [legacy.id, report.generation])
+        .await;
+}
 
 #[tokio::test]
 async fn a_generation_builds_in_its_own_collection_then_takes_the_alias() {
@@ -159,6 +261,8 @@ async fn carries_its_payload_and_vectors(backend: &Backend) {
             "scope_tags": scope_tags,
             "version": version,
             "source_kind": "guide",
+            "identifiers": [],
+            "identifier_profile": "identifiers/1",
         });
         let payload = Value::from(Payload::from(point.payload));
         assert_eq!(payload, expected, "{} {id}", backend.name);

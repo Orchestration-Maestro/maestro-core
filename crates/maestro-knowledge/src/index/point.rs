@@ -6,7 +6,7 @@ use super::{
     provenance::Provenance,
     qdrant::{DENSE, SPARSE},
 };
-use crate::lexical::SparseVector;
+use crate::{lexical::SparseVector, query::PROFILE as IDENTIFIER_PROFILE};
 use maestro_kernel::chunk_set::Chunk;
 use qdrant_client::{
     Payload,
@@ -52,6 +52,7 @@ pub(super) fn point(
     provenance: &Provenance,
     dense: &[f32],
     sparse: Option<&SparseVector>,
+    identifiers: &[String],
 ) -> Result<PointStruct, Error> {
     let (indices, values) = sparse.map_or((&[][..], &[][..]), |vector| {
         (vector.indices(), vector.values())
@@ -66,6 +67,8 @@ pub(super) fn point(
         ("scope_tags", json!(provenance.scope_tags)),
         ("version", json!(provenance.version)),
         ("source_kind", json!(provenance.source_kind)),
+        ("identifiers", json!(identifiers)),
+        ("identifier_profile", json!(IDENTIFIER_PROFILE)),
     ]
     .into_iter()
     .map(|(field, value)| (field.to_owned(), value))
