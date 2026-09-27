@@ -303,10 +303,12 @@ closest passages. The answer takes the question's language.
 ### D12 CLI and MCP
 
 `clap` noun-then-verb commands with `--json` output under versioned schemas,
-exit codes 0, 1, 2, and the job ID printed first for long commands. The MCP
-server uses `rmcp` 3.4.1 over stdio: `knowledge_collections`,
-`knowledge_search`, `knowledge_get`, `knowledge_ask`, each with a JSON Schema,
-a scope check per call and a 64 KiB response limit that reports truncation.
+exit codes 0, 1, 2, and the job ID printed first for long commands. The planned
+MCP surface uses `rmcp` 3.4.1 over stdio, with a JSON Schema, per-call scope
+check and bounded responses. T034's first server part is integrated at
+`750e7d6`; it advertises `knowledge_collections` and chunk-only
+`knowledge_get`. MCP search and section reads remain in T034;
+`knowledge_ask` is T035.
 
 ### D13 Evaluation and the bake-off
 

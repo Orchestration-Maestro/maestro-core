@@ -110,7 +110,7 @@ sequence and ownership, not per-task pull requests.
 | --- | --- | --- |
 | T029c | Search inputs, readiness and scoped retrieval | Reserved migration `0010`; integrated at `fd73c13`. |
 | T030a / T030b | Model-card identity, registry and qualification | T030a's `0009` migration and model registry are integrated at `bf58adb`; T030b follows and preserves `0010`. |
-| T032 / T034 | Evidence assembly and MCP reads | T032 consumes T029c's evidence seams; T034's section read depends on T032's public reader. |
+| T032 / T034 | Evidence assembly and MCP reads | T032 consumes T029c's evidence seams; T034's first bounded stdio server (`knowledge_collections`, chunk-only `knowledge_get`) is integrated at `750e7d6`; MCP search and section reads remain. |
 | T036 | Synthetic retrieval regression gate | Consumes the integrated retrieval route; gate code is in `d30573d`. |
 | T039 | Final measurement, traceability and release | Waits for S1 exit evidence; the owner approves exact traceability keys before T039 maps them. |
 

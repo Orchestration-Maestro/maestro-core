@@ -372,6 +372,11 @@ Each is a kernel-authoritative fact set with its own generation stamp.
 
 ## 9. MCP tools (knowledge)
 
+T034's first bounded local stdio server is integrated at `750e7d6`; it currently
+advertises `knowledge_collections` and chunk-only `knowledge_get`. MCP search, section
+reads and `knowledge_ask` are not yet exposed. The table and resource
+URIs below describe the planned surface by slice.
+
 | Tool | Input | Output | Slice |
 | --- | --- | --- | --- |
 | `knowledge_collections` | — | Collections visible to the caller with their published generation | S1 |
