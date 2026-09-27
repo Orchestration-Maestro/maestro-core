@@ -43,7 +43,7 @@ use std::{
 
 /// How long the job's lease lasts between two steps: the first pass reads
 /// every chunk's prepared input before the first step.
-const TERM: Duration = Duration::from_secs(1800);
+const TERM: Duration = Duration::from_mins(30);
 
 /// One embedding call: its inputs, when it started and when it answered.
 type Call = (usize, Instant, Instant);

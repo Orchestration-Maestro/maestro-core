@@ -276,7 +276,7 @@ fn a_time_the_kernel_cannot_record_is_refused_before_anything_changes() {
         .unwrap();
     let created = journaled(&database, queued.id);
     let before_1970 = UNIX_EPOCH - Duration::from_millis(1);
-    let after_9999 = UNIX_EPOCH + Duration::from_secs(253_402_300_800);
+    let after_9999 = UNIX_EPOCH + Duration::from_hours(70_389_528);
     let last_moment = after_9999 - Duration::from_millis(1);
     let cases = [
         (before_1970, TERM),

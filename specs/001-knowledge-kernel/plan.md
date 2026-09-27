@@ -26,9 +26,10 @@ and the published generation uses its winners. The work runs as 40 tasks in
 ## Technical Context
 
 **Language/Version**: Rust 1.98.1 (edition 2024) from `rust-toolchain.toml`.
-The workspace MSRV is 1.85 until `qdrant-client` enters in T026: its gRPC
-stack, `tonic` 0.14, needs **1.88**, as `rmcp` does in T034; the MSRV job
-checks the dependencies that declare none.
+The workspace MSRV is **1.98** (owner, 2026-09-27): Maestro is an
+application, so its floor follows the toolchain. It was 1.85, then 1.88 when
+`qdrant-client` entered in T026 (its gRPC stack, `tonic` 0.14, needs 1.88, as
+`rmcp` does in T034); the MSRV job checks the dependencies that declare none.
 
 **Primary Dependencies** (latest on crates.io, checked 2026-09-25; each enters
 with the task that first needs it): `rusqlite` 0.40.2 (bundled), `qdrant-client`
@@ -94,7 +95,7 @@ local user.
 | Corpus of record | 7,988 manifest lines, 31.3 MiB; every line carries the same 7 keys (`path`, `title`, `source_url`, `collection`, `source_tree`, `bytes`, `sha256`), fewer than `maestro-corpus/1` names; `source_tree` takes 6 values and `collection` 30 |
 | Router | Dedicated endpoints forward any path (`/models/<id>/tokenize` reaches the model); entries `embed` (bge-m3 Q8) and `rerank` (bge-reranker-v2-m3 Q8), 1,280 MiB each, on demand; the largest chat entries estimate 28,928–30,464 MiB of the 32 GiB card; when room is short, admission unloads the coldest idle model, and no request option forbids it |
 | Reranking cost | 12 ms per pair on the card, from the router catalogue's note (about a quarter of a second for twenty pairs); the cost at 80–120 pairs is unmeasured |
-| MSRV | Workspace 1.85; `rmcp` 3.4.1 needs 1.88 |
+| MSRV | Workspace 1.85 at the time, 1.98 since 2026-09-27; `rmcp` 3.4.1 needs 1.88 |
 | Merged since | maestro-core #14 (rust-workflows v2.5.1 and its lints), #17, #20 and #21 (Linux, macOS and Windows, ADR-0018), then the moves to rust-workflows v4.x, where `just check` became `rust-gate ci --local`; the S1 branches rebased on them on 2026-09-26 |
 
 ## Constitution Check
@@ -410,7 +411,7 @@ Kernel tables, beside the document tables of
 | --- | --- | --- | --- | --- |
 | R1 | Does the router pass `/tokenize` to a model? | Yes, through `/models/<id>/tokenize` | Its dedicated endpoints forward any path (router `main`, `eddeb59`) | A router change, not needed |
 | R2 | Can the router load a model without unloading another? | Not today; add `X-Model-Router-Room: free`, and unload what it loads first | Admission picks the coldest idle model to unload; only the router knows the room, so only it can refuse honestly | Checking `/metrics` first: racy, and still unloads when wrong |
-| R3 | Which MSRV? | 1.88, raised in T026 when `qdrant-client` enters | `tonic` 0.14.6, under `qdrant-client` 1.19, and `rmcp` 3.4.1 declare it; the other crates declare less or nothing, and the MSRV job checks those | Keeping 1.85 with a hand-written Qdrant client and without MCP |
+| R3 | Which MSRV? | 1.88, raised in T026 when `qdrant-client` enters; 1.98 since 2026-09-27 (owner) | `tonic` 0.14.6, under `qdrant-client` 1.19, and `rmcp` 3.4.1 declare it; the other crates declare less or nothing, and the MSRV job checks those | Keeping 1.85 with a hand-written Qdrant client and without MCP |
 | R4 | Where does the corpus mapping live? | `export.jq` in the private repository, run with `jaq` from the toolbelt | Seven keys to rename and three to leave out; no program needed | A Rust exporter; a Python script |
 | R5 | How can a chunk profile depend on a model the bake-off has not chosen? | Each candidate has its own chunk profile inside the bake-off | ADR-0008 counts chunks in the embedder's tokens; the golden set judges sections, which every profile shares | One neutral profile for all: breaks ADR-0008 |
 | R6 | Where do Qdrant tests run? | A CI job with a pinned Qdrant service | Reusable workflows take no service containers; the adapter must still be tested in CI | Local only: breaks ENF-006 |

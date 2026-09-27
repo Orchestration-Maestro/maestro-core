@@ -616,6 +616,7 @@ in place.
 │       │   │   ├── mod.rs                                                   # Rust source: mod
 │       │   │   ├── pin.rs                                                   # Pins the published generation before any route touches Qdrant
 │       │   │   ├── query.rs                                                 # The scopes and generation admitted for a search
+│       │   │   ├── request.rs                                               # Retrieval results handed to T032 without assembling an evidence bundle
 │       │   │   └── rerank.rs                                                # Reranks the head of a fused list without truncating candidate text
 │       │   ├── collection.rs                                                # A collection's declaration: maestro-collection/1, the strict JSON that
 │       │   ├── corpus.rs                                                    # A corpus manifest: maestro-corpus/1, one JSON line per document, through

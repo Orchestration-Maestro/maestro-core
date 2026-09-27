@@ -39,7 +39,7 @@ use std::{
 
 /// How long the job's lease lasts between two steps: the deduplication
 /// reads every eligible revision before the first step.
-const TERM: Duration = Duration::from_secs(1800);
+const TERM: Duration = Duration::from_mins(30);
 
 /// The router client, counting the texts it tokenizes.
 #[derive(Debug)]
