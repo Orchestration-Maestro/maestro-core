@@ -548,9 +548,12 @@ in place.
 │       │   ├── search/                                                      # Search
 │       │   │   ├── tests/                                                   # Integration tests
 │       │   │   │   ├── fusion.rs                                            # Rust source: fusion
-│       │   │   │   └── mod.rs                                               # Rust source: mod
+│       │   │   │   ├── mod.rs                                               # Rust source: mod
+│       │   │   │   ├── rerank.rs                                            # Rust source: rerank
+│       │   │   │   └── window_boundaries.rs                                 # Rust source: window boundaries
 │       │   │   ├── fusion.rs                                                # Reciprocal rank fusion over independent retrieval routes
-│       │   │   └── mod.rs                                                   # Rust source: mod
+│       │   │   ├── mod.rs                                                   # Rust source: mod
+│       │   │   └── rerank.rs                                                # Reranks the head of a fused list without truncating candidate text
 │       │   ├── collection.rs                                                # A collection's declaration: maestro-collection/1, the strict JSON that
 │       │   ├── corpus.rs                                                    # A corpus manifest: maestro-corpus/1, one JSON line per document, through
 │       │   ├── lib.rs                                                       # The knowledge pipeline of Maestro (docs/architecture/01): collections, their
