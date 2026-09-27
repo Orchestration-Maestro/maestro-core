@@ -223,6 +223,7 @@ fn route_names_are_stable() {
 }
 
 #[test]
+#[cfg(debug_assertions)]
 #[should_panic(expected = "one list per route is expected")]
 fn debug_asserts_that_each_route_has_one_list() {
     let _unused = fuse(
