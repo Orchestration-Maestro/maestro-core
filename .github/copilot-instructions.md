@@ -756,6 +756,7 @@ in place.
 │       │   │   │   │   ├── conflicts.rs                                     # Rust source: conflicts
 │       │   │   │   │   ├── features.rs                                      # Rust source: features
 │       │   │   │   │   ├── mod.rs                                           # Rust source: mod
+│       │   │   │   │   ├── section_expansion.rs                             # Rust source: section expansion
 │       │   │   │   │   ├── section_selection.rs                             # Rust source: section selection
 │       │   │   │   │   ├── section_validation.rs                            # Rust source: section validation
 │       │   │   │   │   ├── sections.rs                                      # Rust source: sections

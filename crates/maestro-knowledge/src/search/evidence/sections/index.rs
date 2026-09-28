@@ -336,15 +336,13 @@ impl SectionIndex {
         {
             return Err("seed union is invalid".to_owned());
         }
+        // A chunk's source envelope can include a reference definition outside its section.
         for seed in &union.seeds {
             let Some(section_id) = &seed.section_id else {
                 continue;
             };
-            let extent = self
-                .section_extent(section_id)
-                .ok_or_else(|| "candidate names a missing canonical section".to_owned())?;
-            if !contains(extent, seed.span) {
-                return Err("candidate section does not contain its seed".to_owned());
+            if self.section_extent(section_id).is_none() {
+                return Err("candidate names a missing canonical section".to_owned());
             }
         }
 

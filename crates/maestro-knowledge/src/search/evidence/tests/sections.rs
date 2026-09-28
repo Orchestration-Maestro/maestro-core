@@ -181,13 +181,18 @@ fn the_deepest_containing_section_wins() {
 }
 
 #[test]
-fn a_named_section_must_contain_its_seed() {
+fn source_span_selects_an_enclosing_section_when_the_named_section_does_not_contain_it() {
     let markdown = "## First\n\nFirst body.\n\n## Second\n\nSecond body.\n";
     let document = document(markdown);
     let first = document
         .sections
         .iter()
         .find(|section| section.title == "First")
+        .unwrap();
+    let second = document
+        .sections
+        .iter()
+        .find(|section| section.title == "Second")
         .unwrap();
     let seed = union(
         &document,
@@ -196,14 +201,16 @@ fn a_named_section_must_contain_its_seed() {
         "Second body.",
         Some(&first.section_id),
     );
+    let expansion = SectionIndex::new(&document, markdown)
+        .unwrap()
+        .expand(&seed)
+        .unwrap();
 
     assert_eq!(
-        SectionIndex::new(&document, markdown)
-            .unwrap()
-            .expand(&seed)
-            .unwrap_err(),
-        "candidate section does not contain its seed"
+        expansion.section_id.as_deref(),
+        Some(second.section_id.as_str())
     );
+    assert_eq!(expansion.section_path, ["Second"]);
 }
 
 #[test]
@@ -494,5 +501,7 @@ fn a_chunk_without_a_section_uses_the_root_preamble_without_inventing_an_id() {
     assert_eq!(expansion.extent.end, markdown.find("## Heading").unwrap());
 }
 
+#[path = "section_expansion.rs"]
+mod expansion;
 #[path = "section_selection.rs"]
 mod selection;

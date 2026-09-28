@@ -1,7 +1,12 @@
-use super::super::sections::SectionIndex;
+use super::super::{
+    sections::SectionIndex,
+    spans::{SeedSpan, SpanUnion},
+};
 use maestro_canonicalization::{
     CanonicalDocument, CanonicalizeInput, ContentNode, SourceSpan, canonicalize,
 };
+use maestro_kernel::evidence::Span;
+use std::collections::BTreeSet;
 
 const MARKDOWN: &str = "## Guide\n\n> Quoted text.\n";
 
@@ -165,6 +170,55 @@ fn a_section_refuses_a_sibling_that_crosses_its_end() {
     assert_eq!(
         index_error(&malformed, markdown),
         "canonical section extent is invalid"
+    );
+}
+
+#[test]
+fn a_reference_origin_in_a_sibling_section_expands_to_the_enclosing_section() {
+    let markdown = concat!(
+        "# Guide\n\n## First\n\n![icon][image]\n\n",
+        "## Second\n\nSecond body.\n\n",
+        "[image]: https://example.org/icon.png\n"
+    );
+    let document = document(markdown);
+    let section_id = |title: &str| {
+        document
+            .sections
+            .iter()
+            .find(|section| section.title == title)
+            .unwrap()
+            .section_id
+            .clone()
+    };
+    let child_id = section_id("First");
+    let parent_id = section_id("Guide");
+    let section_index = SectionIndex::new(&document, markdown).unwrap();
+    let span = Span {
+        start: markdown.find("![icon][image]").unwrap(),
+        end: markdown.trim_end().len(),
+    };
+    assert!(span.end > section_index.section_extent(&child_id).unwrap().end);
+    assert!(section_index.section_extent(&parent_id).unwrap().end >= span.end);
+    let union = SpanUnion {
+        revision_id: "revision".to_owned(),
+        span,
+        seeds: vec![SeedSpan {
+            chunk_id: "chunk".to_owned(),
+            revision_id: "revision".to_owned(),
+            section_id: Some(child_id),
+            span,
+            input_position: 0,
+            score: None,
+            routes: BTreeSet::new(),
+        }],
+    };
+
+    let expansion = section_index.expand(&union).unwrap();
+
+    assert_eq!(expansion.section_id.as_deref(), Some(parent_id.as_str()));
+    assert_eq!(
+        expansion.extent,
+        section_index.section_extent(&parent_id).unwrap()
     );
 }
 
