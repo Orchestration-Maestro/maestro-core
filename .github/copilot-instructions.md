@@ -197,6 +197,15 @@ in place.
 │   │   │   └── main.rs                                                      # The binary root: the commands, their output, exit codes and JSON schemas documented
 │   │   ├── tests/                                                           # Integration tests
 │   │   │   └── it/                                                          # The contract tests: the built binary run in a scratch home
+│   │   │       ├── catalog_host_probe/                                      # The catalog host format probe (S3 C01): runs the pinned, already
+│   │   │       │   ├── code_digests.rs                                      # The digest of the code a pinned host runs, not of its launcher: a native
+│   │   │       │   ├── copilot_formats.rs                                   # GitHub Copilot CLI 1.0.88 on both authoring shapes of ADR-0005: an agent
+│   │   │       │   ├── host_pins.rs                                         # The pinned hosts of owner approval OA2 and the sandbox each probe runs
+│   │   │       │   ├── host_sandbox.rs                                      # The sandbox a probe runs a host in: a cleared environment holding only
+│   │   │       │   ├── mcp_hosts.rs                                         # Claude Code 2.1.283 and codex-cli 0.150.1 receive MCP registration
+│   │   │       │   ├── mod.rs                                               # The catalog host format probe (S3 C01): runs the pinned, already
+│   │   │       │   ├── pi_projection.rs                                     # Pi 0.87.1 with its installed agent and MCP providers, pi-subagents 0.64.0
+│   │   │       │   └── provider.rs                                          # A scripted OpenAI-compatible model endpoint on the loopback interface
 │   │   │       ├── knowledge_get/                                           # CLI and MCP contracts for exact knowledge retrieval
 │   │   │       │   ├── cli_cases.rs                                         # Exact knowledge get CLI behavior
 │   │   │       │   ├── knowledge_search.rs                                  # CLI and MCP search through the shared scoped evidence pipeline
@@ -1100,6 +1109,8 @@ in place.
 │   │   ├── spec.md                                                          # Feature Specification: Knowledge kernel and hybrid RAG
 │   │   └── tasks.md                                                         # Knowledge Kernel and Hybrid RAG Implementation Tasks
 │   └── 003-catalog/                                                         # 003 catalog
+│       ├── research/                                                        # Research
+│       │   └── hosts.md                                                     # Catalog host format probe (C01)
 │       ├── plan.md                                                          # Implementation Plan: Catalog
 │       ├── spec.md                                                          # Feature Specification: Catalog
 │       ├── tasks.md                                                         # Catalog Implementation Tasks
@@ -1110,6 +1121,12 @@ in place.
 │   └── imports.lock                                                         # The audits cargo-vet imports, locked
 ├── tests/                                                                   # Test data shared by the workspace's crates
 │   └── fixtures/                                                            # Test fixtures
+│       ├── catalog/                                                         # Catalog
+│       │   └── hosts/                                                       # Hosts
+│       │       ├── metadata.agent.md                                        # Synthetic agent for the catalog host format probe
+│       │       ├── pi.md                                                    # Synthetic agent for the catalog host format probe
+│       │       ├── sidecar.agent.md                                         # Synthetic agent for the catalog host format probe
+│       │       └── sidecar.maestro.toml                                     # TOML settings: sidecar.maestro
 │       └── synthetic/                                                       # The public synthetic collection and its suite, which stand in for the private corpus in public CI (ADR-0009)
 │           ├── corpus/                                                      # The collection's one source: its maestro-corpus/1 manifest beside the Markdown documents it names
 │           │   ├── en/                                                      # The documents written in English
