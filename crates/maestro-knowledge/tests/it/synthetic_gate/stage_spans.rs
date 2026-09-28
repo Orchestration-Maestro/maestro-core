@@ -4,6 +4,8 @@
 //! they record (MR-04).
 #![cfg(test)]
 
+use maestro_knowledge::search::evidence::EvidenceSettings;
+
 use super::{
     pipeline::published::{PRINCIPAL, Published, publish_fake},
     span_recorder::Recording,
@@ -297,6 +299,7 @@ async fn traced_search(
         }),
     };
     let request = SearchRequest {
+        evidence: EvidenceSettings::default(),
         collection,
         text,
         version: None,

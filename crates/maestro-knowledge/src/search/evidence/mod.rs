@@ -33,6 +33,7 @@ pub(crate) use sections::SectionIndex;
 /// Compares numeric version components without integer conversion.
 mod versions;
 
+pub use super::assembly_settings::{CounterMode, EvidenceSettings, ExpansionMode};
 pub use assemble::deadline::assemble_evidence;
 pub use chunk_set_documents::ChunkSetDocuments;
 pub use section_reader::{SectionExcerpt, SectionReadError, read_section};

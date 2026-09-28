@@ -1,6 +1,7 @@
 //! Bounded search requests and retrieval handoffs for T032.
 
 use super::{
+    assembly_settings::EvidenceSettings,
     fusion::Route,
     rerank::{DEFAULT_DEPTH, Ranked, Reranker},
     routes::{dense::Embedder, error::RouteError},
@@ -34,6 +35,8 @@ pub struct SearchRequest<'a> {
     pub budget: RequestBudget,
     /// Search route, fusion and rerank settings; defaults preserve the current pipeline.
     pub configuration: SearchConfiguration,
+    /// Assembly policy carried beside the request budget and ranking settings.
+    pub evidence: EvidenceSettings,
 }
 
 /// Bounded knobs for one search execution.
@@ -160,6 +163,7 @@ impl<'a> SearchRequest<'a> {
             version,
             budget,
             configuration: SearchConfiguration::default(),
+            evidence: EvidenceSettings::default(),
         }
     }
 }
@@ -257,6 +261,8 @@ impl error::Error for SearchError {
 /// Retrieval results handed to T032 without assembling an evidence bundle.
 #[derive(Debug, Clone)]
 pub struct EvidenceInput {
+    /// Request-scoped assembly policy; the budget remains in `budget`.
+    pub evidence: EvidenceSettings,
     /// The single generation pinned at admission.
     pub generation: Generation,
     /// The original question.

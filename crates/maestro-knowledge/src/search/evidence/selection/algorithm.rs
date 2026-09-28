@@ -1,5 +1,6 @@
 //! MMR ordering, atomic conflict units and budget-driven source windows.
 
+use super::super::super::assembly_settings::ExpansionMode;
 use super::super::{
     budget::count_passages,
     features::{diversity_similarity, mmr_score},
@@ -7,6 +8,7 @@ use super::super::{
     types::EvidenceError,
 };
 use super::{
+    relevant::{relevant_span, table_prefixes},
     render::{RenderedTrial, include_span, render_trial},
     types::{SelectionBudget, SelectionCandidate, SelectionResult},
 };
@@ -34,6 +36,7 @@ pub(crate) fn select(
         ..SelectionState::default()
     };
     let mut omissions = OmissionStatus::default();
+    let mut accepted = Vec::new();
 
     while !pending.is_empty() {
         check(budget.control)?;
@@ -64,21 +67,27 @@ pub(crate) fn select(
             return Err(integrity("a conflict unit was only partly covered"));
         }
 
-        let full = candidate_spans(candidates, &unit.candidates, |candidate| {
-            Ok(candidate.expansion.extent)
-        })?;
-        let mut trial_spans = selected.spans.clone();
-        trial_spans.extend(full);
-        let (fits, rendered) = fits_trial(candidates, &trial_spans, budget)?;
-        if fits {
-            accept_trial(
-                candidates,
-                &mut selected,
-                trial_spans,
-                rendered,
-                budget.control,
-            )?;
-            continue;
+        if budget.expansion == ExpansionMode::FullSection {
+            let full = candidate_spans(candidates, &unit.candidates, |candidate| {
+                Ok(candidate.expansion.extent)
+            })?;
+            let mut trial_spans = selected.spans.clone();
+            trial_spans.extend(full);
+            if try_spans(candidates, &mut selected, trial_spans, budget)? {
+                continue;
+            }
+        }
+
+        if budget.expansion == ExpansionMode::RelevantBlocks {
+            let mut trial_spans = selected.spans.clone();
+            let relevant = candidate_spans(candidates, &unit.candidates, relevant_span)?;
+            let prefixes = table_prefixes(candidates, &relevant);
+            trial_spans.extend(relevant);
+            if try_spans(candidates, &mut selected, trial_spans, budget)? {
+                accepted.extend_from_slice(&unit.candidates);
+                continue;
+            }
+            omissions.table_prefix_fallbacks += prefixes;
         }
 
         let mandatory = candidate_spans(candidates, &unit.candidates, |candidate| {
@@ -104,17 +113,39 @@ pub(crate) fn select(
             rendered,
             budget.control,
         )?;
-        for index in &unit.candidates {
-            add_optional_siblings(candidates, *index, &mut selected, budget)?;
+        accepted.extend_from_slice(&unit.candidates);
+        if budget.expansion == ExpansionMode::FullSection {
+            for index in &unit.candidates {
+                add_optional_siblings(candidates, *index, &mut selected, budget)?;
+            }
         }
     }
 
+    if budget.expansion == ExpansionMode::RelevantBlocks {
+        for index in accepted {
+            add_optional_siblings(candidates, index, &mut selected, budget)?;
+        }
+    }
     check(budget.control)?;
     Ok(SelectionResult {
         passages: selected.passages,
         selected_candidates: selected.candidates,
         omissions,
     })
+}
+
+/// Accepts a complete trial only when both passage and representation limits fit.
+fn try_spans(
+    candidates: &[SelectionCandidate<'_>],
+    selected: &mut SelectionState,
+    spans: BTreeMap<usize, Span>,
+    budget: &SelectionBudget<'_>,
+) -> Result<bool, EvidenceError> {
+    let (fits, rendered) = fits_trial(candidates, &spans, budget)?;
+    if fits {
+        accept_trial(candidates, selected, spans, rendered, budget.control)?;
+    }
+    Ok(fits)
 }
 
 /// A conflict-atomic group or one ordinary candidate.

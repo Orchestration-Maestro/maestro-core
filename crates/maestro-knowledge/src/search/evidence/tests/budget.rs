@@ -109,6 +109,29 @@ fn utf8_counter_counts_compact_non_ascii_passage_json_and_echoes_its_identity() 
 }
 
 #[test]
+fn answer_bound_utf8_counter_excludes_provenance_from_budget_count() {
+    let passages = vec![passage()];
+    let identity = counter_info(&EvidenceCounter::AnswerBoundUtf8Bytes).unwrap();
+    let answer_bound = serde_json::to_string(&serde_json::json!([{
+        "n": 1,
+        "title": "Title",
+        "section_path": ["Title"],
+        "text": "text",
+    }]))
+    .unwrap();
+
+    assert_eq!(
+        identity.counter.as_deref(),
+        Some("evidence-answer-bound-utf8-bytes/1")
+    );
+    assert_eq!(
+        count_passages(&passages, &EvidenceCounter::AnswerBoundUtf8Bytes, &identity).unwrap(),
+        u32::try_from(answer_bound.len()).unwrap()
+    );
+    assert!(answer_bound.len() < serialized_passages(&passages).unwrap().len());
+}
+
+#[test]
 fn counter_debug_shows_the_strategy_and_exact_contract() {
     let utf8 = EvidenceCounter::Utf8Bytes;
     assert_eq!(format!("{utf8:?}"), "Utf8Bytes");
@@ -233,4 +256,30 @@ fn exact_counter_contract_ids_must_not_be_blank() {
             estimated: true,
         })
     ));
+}
+
+#[test]
+fn answer_bound_wire_overflow_rejects_trial_without_aborting_selection() {
+    let mut passage = passage();
+    passage.source_ref = "x".repeat(12_001);
+    let counter = EvidenceCounter::AnswerBoundUtf8Bytes;
+    let info = counter_info(&counter).unwrap();
+    assert_eq!(
+        count_passages(&[passage], &counter, &info).unwrap(),
+        u32::MAX
+    );
+}
+
+#[test]
+fn answer_bound_counter_charges_prompt_control_token_escaping() {
+    let mut passage = passage();
+    passage.text = "<|system|>".to_owned();
+    let counter = EvidenceCounter::AnswerBoundUtf8Bytes;
+    let info = counter_info(&counter).unwrap();
+    let expected =
+        r#"[{"n":1,"section_path":["Title"],"text":"\u003c|system|\u003e","title":"Title"}]"#;
+    assert_eq!(
+        count_passages(&[passage], &counter, &info).unwrap(),
+        u32::try_from(expected.len()).unwrap()
+    );
 }

@@ -10,6 +10,7 @@ use maestro_kernel::{
     evidence::RouteStatus,
     gateway::{ModelCard, Role},
 };
+use maestro_knowledge::search::evidence::EvidenceSettings;
 use maestro_knowledge::{
     index::Qdrant,
     search::{
@@ -72,6 +73,7 @@ fn request<'a>(
     configuration: SearchConfiguration,
 ) -> SearchRequest<'a> {
     SearchRequest {
+        evidence: EvidenceSettings::default(),
         collection: &fixture.kernel.collection,
         text,
         version: None,

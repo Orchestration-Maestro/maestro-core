@@ -337,6 +337,7 @@ fn known_gaps_use_inventory_wording_and_exact_identifier_boundaries() {
             requested_version: Some("2"),
             latest_undetermined: true,
             omissions: OmissionStatus {
+                table_prefix_fallbacks: 0,
                 evidence: true,
                 conflict: true,
             },

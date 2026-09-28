@@ -12,6 +12,7 @@ use super::{
     reports::{BINARY, runs, to_json},
     support::{FakeEngine, RERANKER, rung, suite},
 };
+use maestro_knowledge::search::evidence::{CounterMode, ExpansionMode};
 use maestro_knowledge::{
     answer::PromptVersion,
     eval::{Measure, score_ladder},
@@ -96,6 +97,8 @@ fn the_comparison_names_each_rungs_ask_settings() {
     let mut runs = runs();
     runs[0].rung.ask = None;
     runs[1].rung.ask = Some(AskSettings {
+        expansion: ExpansionMode::FullSection,
+        evidence_counter: CounterMode::Utf8,
         k: Some(8),
         max_tokens: Some(9000),
         output_tokens: Some(900),
@@ -114,6 +117,7 @@ fn the_comparison_names_each_rungs_ask_settings() {
             "max_tokens": 9000,
             "output_tokens": 900,
             "prompt": "v2",
+            "evidence": {"expansion":"full_section", "evidence_counter":"utf8"},
             "search_deadline_ms": 30_000
         })
     );

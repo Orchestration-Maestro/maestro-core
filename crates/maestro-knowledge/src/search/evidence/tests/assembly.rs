@@ -3,7 +3,7 @@ use super::super::assemble::{
     ledger::{DuplicateLedgerError, duplicate_ledger},
 };
 use super::super::{EvidenceCounter, EvidenceError, assemble_evidence};
-use super::support::{control, evidence_input, fixture};
+use super::support::{control, evidence_input, exact_evidence_input, fixture};
 use crate::prepare::tests::scratch::{
     clear_chunk_set_manifest, corrupt_artifact, replace_chunk_set_manifest,
 };
@@ -258,7 +258,7 @@ async fn expired_deadlines_and_inconsistent_understanding_are_rejected() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn caller_cancellation_stops_after_a_blocking_counter_returns() {
     let fixture = fixture(&[("guide.md", "# Guide\n\nSource passage.\n")]);
-    let input = evidence_input(&fixture, "What is in the guide?");
+    let input = exact_evidence_input(&fixture, "What is in the guide?");
     let database = Arc::new(fixture.database);
     let blocked = blocking_counter();
     let task = tokio::spawn(assemble_evidence(database, input, blocked.counter));
@@ -277,7 +277,7 @@ async fn caller_cancellation_stops_after_a_blocking_counter_returns() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn a_blocked_counter_cannot_outlive_the_inherited_deadline() {
     let fixture = fixture(&[("guide.md", "# Guide\n\nSource passage.\n")]);
-    let mut input = evidence_input(&fixture, "What is in the guide?");
+    let mut input = exact_evidence_input(&fixture, "What is in the guide?");
     input.deadline = TokioInstant::now() + Duration::from_secs(2);
     let database = Arc::new(fixture.database);
     let blocked = blocking_counter();

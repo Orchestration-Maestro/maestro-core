@@ -9,6 +9,7 @@ use maestro_kernel::{
     evidence::{RequestBudget, RouteStatus},
     gateway::Role,
 };
+use maestro_knowledge::search::evidence::EvidenceSettings;
 use maestro_knowledge::search::{
     DEADLINE_EXCEEDED, SearchConfiguration, SearchRequest,
     evidence::{EvidenceCounter, assemble_evidence},
@@ -30,6 +31,7 @@ async fn search_with_slow_reranker(slow: SlowReranker) -> (RouteStatus, usize, D
     let reranker_card = models::card(Role::Reranker, 3);
     let search_context = context(&fixture, Some(&reranker_card));
     let request = SearchRequest {
+        evidence: EvidenceSettings::default(),
         collection: &fixture.kernel.collection,
         text: "scheduler",
         version: None,

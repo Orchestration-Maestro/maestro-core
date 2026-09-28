@@ -8,6 +8,7 @@ use super::{
 };
 use crate::failure::Failure;
 use maestro_kernel::{artifact::Digest, evidence::RequestBudget};
+use maestro_knowledge::search::evidence::EvidenceSettings;
 use maestro_knowledge::{
     answer::RefusalCode,
     eval::{AskOutcome, LadderQuestion, LadderScore, SearchOutcome},
@@ -187,6 +188,8 @@ pub(super) struct AskReport {
     output_tokens: u32,
     /// The answer prompt: its version, or `file`.
     prompt: &'static str,
+    /// Resolved packing settings.
+    evidence: EvidenceSettings,
     /// The deadline of each ask's search, in milliseconds.
     search_deadline_ms: u32,
 }
@@ -200,6 +203,7 @@ impl AskReport {
             max_tokens: budget.max_tokens,
             output_tokens: budget.output_tokens,
             prompt: settings.prompt.name(),
+            evidence: settings.evidence(),
             search_deadline_ms: budget.search_deadline_ms,
         }
     }

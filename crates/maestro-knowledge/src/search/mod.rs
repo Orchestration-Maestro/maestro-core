@@ -1,6 +1,7 @@
 //! Independent retrieval routes, fusion and reranking for knowledge search.
 
 mod admission;
+mod assembly_settings;
 mod candidates;
 mod deadline;
 pub use deadline::{DEADLINE_EXCEEDED, DISABLED_BY_CONFIGURATION};

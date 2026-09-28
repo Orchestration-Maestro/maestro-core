@@ -15,7 +15,7 @@ use maestro_knowledge::{
     index::Qdrant,
     search::{
         Reranker, SearchContext, SearchError, SearchRequest as PipelineRequest,
-        evidence::{EvidenceCounter, EvidenceError, assemble_evidence},
+        evidence::{EvidenceError, assemble_evidence},
         routes::{dense::Embedder, error::RouteError},
         search,
     },
@@ -98,7 +98,11 @@ pub(crate) async fn search_with<P: ModelPort>(
         return Err(access_changed());
     }
     let deadline = input.deadline;
-    let bundle = assemble_evidence(database, input, EvidenceCounter::Utf8Bytes)
+    let counter = input
+        .evidence
+        .counter()
+        .map_err(|error| evidence_failure(&error))?;
+    let bundle = assemble_evidence(database, input, counter)
         .await
         .map_err(|error| evidence_failure(&error))?;
     let check_scopes = scopes.clone();

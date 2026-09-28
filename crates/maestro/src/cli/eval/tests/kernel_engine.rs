@@ -17,10 +17,12 @@ use crate::{
     failure::Failure,
     knowledge::operations::{ask::tests::register_card, tests::Scratch},
 };
+use maestro_kernel::evidence::RequestBudget;
 use maestro_kernel::{
     gateway::{Error as GatewayError, Role, RouterClient, Url},
     retrieval,
 };
+use maestro_knowledge::search::evidence::{CounterMode, ExpansionMode};
 use maestro_knowledge::{
     answer::{AskBudget, AskError, AskRequest, DEFAULT_MODEL, PromptVersion},
     eval::{AskOutcome, RunError, SearchOutcome},
@@ -80,6 +82,8 @@ fn a_search_and_an_ask_carry_the_rungs_configuration_budget_and_prompt() {
     let engine =
         KernelEngine::new(&kernel, "collection", port, Qdrant::new(NOWHERE).unwrap()).unwrap();
     let settings = AskSettings {
+        expansion: ExpansionMode::FullSection,
+        evidence_counter: CounterMode::Utf8,
         k: Some(8),
         max_tokens: Some(9000),
         output_tokens: Some(900),
@@ -110,10 +114,35 @@ fn a_search_and_an_ask_carry_the_rungs_configuration_budget_and_prompt() {
         .unwrap();
     assert_eq!(default.budget, AskBudget::default());
     assert_eq!(default_prompt, PromptVersion::V2.into());
-    let candidate = rung("r0");
+    let mut candidate = rung("r0");
+    candidate.ask = None;
     let search = engine.search_request(&candidate, "question");
     assert_eq!(search.configuration, candidate.configuration.search());
     assert_eq!((search.collection, search.text), ("collection", "question"));
+    assert_eq!(search.budget, RequestBudget::default());
+    candidate.ask = Some(AskSettings {
+        expansion: ExpansionMode::RelevantBlocks,
+        evidence_counter: CounterMode::Utf8AnswerBound,
+        ..settings
+    });
+    let search = engine.search_request(&candidate, "question");
+    assert_eq!(search.evidence.expansion, ExpansionMode::RelevantBlocks);
+    assert_eq!(
+        search.evidence.evidence_counter,
+        CounterMode::Utf8AnswerBound
+    );
+    assert_eq!((search.budget.k, search.budget.max_tokens), (8, 9000));
+    candidate.ask = Some(AskSettings::default());
+    let search = engine.search_request(&candidate, "question");
+    let asked = AskBudget::default();
+    assert_eq!(
+        (
+            search.budget.k,
+            search.budget.max_tokens,
+            search.budget.deadline_ms
+        ),
+        (asked.k, asked.max_tokens, asked.search_deadline_ms)
+    );
 }
 
 #[test]

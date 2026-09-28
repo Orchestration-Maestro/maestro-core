@@ -8,6 +8,7 @@ use maestro_kernel::{
     evidence::{RequestBudget, RouteStatus},
     gateway::{RouterClient, Url},
 };
+use maestro_knowledge::search::evidence::EvidenceSettings;
 use maestro_knowledge::search::{
     SearchConfiguration, SearchContext, SearchRequest, routes::dense::Embedder, search,
 };
@@ -123,6 +124,7 @@ async fn dense_runs_after_the_router_unloads_its_model_between_two_searches() {
         reranker: None,
     };
     let request = SearchRequest {
+        evidence: EvidenceSettings::default(),
         collection: &fixture.kernel.collection,
         text: "scheduler",
         version: None,

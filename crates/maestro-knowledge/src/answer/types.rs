@@ -75,6 +75,18 @@ impl Default for AskBudget {
     }
 }
 
+impl From<AskBudget> for RequestBudget {
+    /// The search bounds of an ask: its passages, evidence budget and search
+    /// deadline.
+    fn from(budget: AskBudget) -> Self {
+        Self {
+            k: budget.k,
+            max_tokens: budget.max_tokens,
+            deadline_ms: budget.search_deadline_ms,
+        }
+    }
+}
+
 impl AskBudget {
     /// Whether every bound is within what `ask` accepts: 1 to 50 passages,
     /// 1 to 12,000 evidence bytes, 1 to 30,000 ms of search and 1 to
@@ -99,6 +111,9 @@ pub enum PromptVersion {
     /// directly. The default: the T037 ladder measured it best.
     #[default]
     V2,
+    /// Selects the directly applicable procedure before contextual passages.
+    #[serde(rename = "procedure_first")]
+    ProcedureFirst,
 }
 
 impl PromptVersion {
@@ -108,6 +123,7 @@ impl PromptVersion {
         match self {
             Self::V1 => "v1",
             Self::V2 => "v2",
+            Self::ProcedureFirst => "procedure_first",
         }
     }
 }

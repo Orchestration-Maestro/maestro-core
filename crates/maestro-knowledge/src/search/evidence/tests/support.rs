@@ -1,5 +1,6 @@
 //! A prepared chunk set and generation for evidence-path tests.
 
+use crate::search::evidence::{CounterMode, EvidenceSettings};
 use crate::{
     prepare::{
         prepare,
@@ -65,6 +66,13 @@ pub(super) fn fixture(documents: &[(&str, &str)]) -> Fixture {
     }
 }
 
+/// As [`evidence_input`], configured for an exact token counter.
+pub(super) fn exact_evidence_input(fixture: &Fixture, query: &str) -> EvidenceInput {
+    let mut input = evidence_input(fixture, query);
+    input.evidence.evidence_counter = CounterMode::Exact;
+    input
+}
+
 /// Builds a bounded search handoff from every chunk in the fixture generation.
 pub(super) fn evidence_input(fixture: &Fixture, query: &str) -> EvidenceInput {
     let chunks = fixture
@@ -96,6 +104,7 @@ pub(super) fn evidence_input(fixture: &Fixture, query: &str) -> EvidenceInput {
         })
         .collect();
     EvidenceInput {
+        evidence: EvidenceSettings::default(),
         generation: fixture.generation.clone(),
         query: query.to_owned(),
         understood: understand(query),

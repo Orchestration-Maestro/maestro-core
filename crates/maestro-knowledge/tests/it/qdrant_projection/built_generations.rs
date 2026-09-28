@@ -17,6 +17,7 @@ use maestro_kernel::{
     generation::{GenerationState, NewGeneration},
     retrieval::IDENTIFIER_PROFILE,
 };
+use maestro_knowledge::search::evidence::EvidenceSettings;
 use maestro_knowledge::{
     index::{Projection, Report},
     lexical::{AverageLength, Passage},
@@ -82,6 +83,7 @@ async fn a_markerless_published_generation_degrades_then_republishes_without_ear
     assert!(identifier_result.inventory.is_none());
 
     let inventory = SearchRequest {
+        evidence: EvidenceSettings::default(),
         text: "how many documents",
         ..identifier
     };

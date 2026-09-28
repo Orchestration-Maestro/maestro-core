@@ -1,5 +1,6 @@
 //! Request-boundary checks before generation admission.
 
+use crate::search::evidence::EvidenceSettings;
 use crate::search::{
     admission::{ensure_permissions, validate},
     request::{SearchConfiguration, SearchError, SearchRequest},
@@ -24,6 +25,7 @@ fn request<'a>(
     version: Option<&'a str>,
 ) -> SearchRequest<'a> {
     SearchRequest {
+        evidence: EvidenceSettings::default(),
         collection: "collection",
         text,
         version,

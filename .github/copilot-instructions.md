@@ -838,6 +838,7 @@ in place.
 │       │   │   │   ├── selection/                                           # Budgeted MMR selection over validated source windows
 │       │   │   │   │   ├── algorithm.rs                                     # MMR ordering, atomic conflict units and budget-driven source windows
 │       │   │   │   │   ├── mod.rs                                           # Budgeted MMR selection over validated source windows
+│       │   │   │   │   ├── relevant.rs                                      # Whole matched-block windows and contiguous table-header prefixes
 │       │   │   │   │   ├── render.rs                                        # Renders trial spans as normalized, validated passages
 │       │   │   │   │   └── types.rs                                         # Candidate metadata and final selection result
 │       │   │   │   ├── tests/                                               # Integration tests
@@ -852,6 +853,7 @@ in place.
 │       │   │   │   │   ├── conflicts.rs                                     # Rust source: conflicts
 │       │   │   │   │   ├── features.rs                                      # Rust source: features
 │       │   │   │   │   ├── mod.rs                                           # Rust source: mod
+│       │   │   │   │   ├── packing.rs                                       # Rust source: packing
 │       │   │   │   │   ├── section_expansion.rs                             # Rust source: section expansion
 │       │   │   │   │   ├── section_selection.rs                             # Rust source: section selection
 │       │   │   │   │   ├── section_validation.rs                            # Rust source: section validation
@@ -897,6 +899,7 @@ in place.
 │       │   │   │   ├── top_scores.rs                                        # Rust source: top scores
 │       │   │   │   └── window_boundaries.rs                                 # Rust source: window boundaries
 │       │   │   ├── admission.rs                                             # Request bounds, scope snapshots and generation admission
+│       │   │   ├── assembly_settings.rs                                     # Per-request evidence assembly knobs, separate from copyable search ranking
 │       │   │   ├── candidates.rs                                            # Scoped prepared-input loading for the fused candidate IDs only
 │       │   │   ├── deadline.rs                                              # Absolute cutoffs shared by routes, candidate loading and T032 handoff
 │       │   │   ├── filter.rs                                                # Qdrant's in-route filter for the scopes admitted to one request

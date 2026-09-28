@@ -1,4 +1,3 @@
-use super::super::generate::request_budget;
 use super::*;
 use maestro_kernel::gateway::MAX_CHAT_OUTPUT_TOKENS;
 use std::error::Error as _;
@@ -230,7 +229,7 @@ fn the_search_budget_copies_the_ask_budget() {
         output_tokens: 5,
     };
     assert_eq!(
-        request_budget(budget),
+        RequestBudget::from(budget),
         RequestBudget {
             k: 7,
             max_tokens: 900,

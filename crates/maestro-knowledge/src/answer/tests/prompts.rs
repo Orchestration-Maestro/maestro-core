@@ -251,3 +251,29 @@ async fn v2_strips_a_think_block_and_answers_not_found() {
     assert_eq!(answer.answer, "");
     assert_eq!(answer.refusal.expect("refusal").code, RefusalCode::NotFound);
 }
+
+#[test]
+fn procedure_first_looks_at_all_passages_without_requiring_all_citations() {
+    let messages = prompt_of(PromptVersion::ProcedureFirst);
+    assert!(messages[0].content.contains("Examine every passage"));
+    assert!(messages[0].content.contains("platform and state"));
+    assert!(
+        messages[0]
+            .content
+            .contains("not every passage needs a citation")
+    );
+    assert!(
+        messages[1]
+            .content
+            .contains("directly applicable procedure first")
+    );
+    assert_eq!(PromptVersion::ProcedureFirst.name(), "procedure_first");
+}
+
+#[test]
+fn procedure_first_preserves_v2_citation_grammar_and_refusal_contract() {
+    let messages = prompt_of(PromptVersion::ProcedureFirst);
+    assert!(messages[0].content.starts_with(V2_SYSTEM));
+    assert!(messages[1].content.contains("such as [1] or [1, 2]"));
+    assert!(messages[1].content.contains("reply exactly NOT_FOUND"));
+}

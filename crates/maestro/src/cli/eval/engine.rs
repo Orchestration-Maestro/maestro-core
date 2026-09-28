@@ -29,7 +29,7 @@ use maestro_knowledge::{
     index::Qdrant,
     search::{
         SearchConfiguration, SearchContext, SearchRequest,
-        evidence::{ChunkSetDocuments, EvidenceCounter, assemble_evidence},
+        evidence::{ChunkSetDocuments, assemble_evidence},
         search, top_fused_score, top_rerank_score,
     },
     suite::Suite,
@@ -190,6 +190,15 @@ impl<'kernel> KernelEngine<'kernel> {
     ) -> SearchRequest<'a> {
         SearchRequest {
             configuration: rung.configuration.search(),
+            evidence: rung
+                .ask
+                .as_ref()
+                .map(AskSettings::evidence)
+                .unwrap_or_default(),
+            budget: rung
+                .ask
+                .as_ref()
+                .map_or_else(RequestBudget::default, |settings| settings.budget().into()),
             ..SearchRequest::new(&self.collection, question, None, RequestBudget::default())
         }
     }
@@ -283,7 +292,10 @@ impl Engine for KernelEngine<'_> {
             let bundle = Box::pin(assemble_evidence(
                 database,
                 input,
-                EvidenceCounter::Utf8Bytes,
+                request
+                    .evidence
+                    .counter()
+                    .map_err(|error| evidence_failure(&error))?,
             ))
             .await
             .map_err(|error| evidence_failure(&error))?;
@@ -330,6 +342,7 @@ impl Engine for KernelEngine<'_> {
             &context,
             &request,
             configuration,
+            settings.evidence(),
             &prompt,
         )));
         match asked {

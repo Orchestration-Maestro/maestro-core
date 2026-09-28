@@ -135,6 +135,7 @@ fn a_rung_report_records_its_resolved_ask_settings_and_prompt() {
             "max_tokens": 6000,
             "output_tokens": 900,
             "prompt": "v2",
+            "evidence": {"expansion":"full_section", "evidence_counter":"utf8"},
             "search_deadline_ms": 30_000
         })
     );
@@ -151,4 +152,28 @@ fn a_rung_report_records_its_resolved_ask_settings_and_prompt() {
     assert_eq!(to_json(&unasked)["ask"], json!(false));
     assert_eq!(to_json(&unasked)["ask_settings"], Value::Null);
     assert!(!unasked.to_markdown().contains("Ask settings"));
+}
+
+#[test]
+fn packing_knobs_are_typed_and_exact_refuses_without_silent_estimation() {
+    let settings = parsed(&json!({
+        "expansion": "relevant_blocks", "evidence_counter": "utf8_answer_bound",
+        "answer_prompt": "procedure_first", "max_tokens": 9000
+    }))
+    .unwrap()
+    .unwrap();
+    assert_eq!(
+        serde_json::to_value(settings.evidence()).unwrap(),
+        json!({
+            "expansion": "relevant_blocks", "evidence_counter": "utf8_answer_bound"
+        })
+    );
+    assert_eq!(settings.prompt.name(), "procedure_first");
+    assert_eq!(settings.budget().max_tokens, 9000);
+    assert!(
+        refusal(&json!({"evidence_counter":"exact"}))
+            .contains("resolved answerer's tokenizer must be qualified")
+    );
+    assert!(refusal(&json!({"expansion":"truncate"})).contains("unknown variant"));
+    assert!(refusal(&json!({"evidence_counter":"approximate"})).contains("unknown variant"));
 }

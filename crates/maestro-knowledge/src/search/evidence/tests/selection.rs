@@ -1,4 +1,8 @@
+#[path = "packing.rs"]
+mod packing;
+
 use super::super::{
+    ExpansionMode,
     budget::{count_passages, counter_info},
     features::diversity_features,
     sections::SectionIndex,
@@ -118,6 +122,7 @@ fn run_selection(
         candidates,
         conflict_units,
         &SelectionBudget {
+            expansion: ExpansionMode::default(),
             max_passages,
             max_tokens,
             counter: &counter,
@@ -377,6 +382,7 @@ fn mandatory_whole_sibling_window_adds_before_then_stops_at_budget() {
         &[candidate],
         &[],
         &SelectionBudget {
+            expansion: ExpansionMode::default(),
             max_passages: 1,
             max_tokens,
             counter: &counter,
@@ -422,6 +428,7 @@ fn a_failed_near_sibling_does_not_close_a_non_monotonic_farther_window() {
         &[candidate],
         &[],
         &SelectionBudget {
+            expansion: ExpansionMode::default(),
             max_passages: 1,
             max_tokens: 2,
             counter: &counter,
@@ -464,6 +471,7 @@ fn selection_refuses_an_already_cancelled_control() {
             &[candidate],
             &[],
             &SelectionBudget {
+                expansion: ExpansionMode::default(),
                 max_passages: 1,
                 max_tokens: u32::MAX,
                 counter: &counter,

@@ -6,7 +6,13 @@
 use super::rung_prompt::RungPrompt;
 use crate::failure::Failure;
 use maestro_kernel::artifact::Digest;
-use maestro_knowledge::{answer::AskBudget, search::SearchConfiguration};
+use maestro_knowledge::{
+    answer::AskBudget,
+    search::{
+        SearchConfiguration,
+        evidence::{CounterMode, EvidenceSettings, ExpansionMode},
+    },
+};
 use serde::{Deserialize, Deserializer, Serialize, de};
 use serde_json::Value;
 use std::{
@@ -75,7 +81,12 @@ pub(super) struct AskSettings {
     /// The most tokens each answerer reply generates.
     pub(super) output_tokens: Option<u32>,
     /// The answer prompt: a version, or a private prompt file.
+    #[serde(alias = "answer_prompt")]
     pub(super) prompt: RungPrompt,
+    /// Source-window allocation policy.
+    pub(super) expansion: ExpansionMode,
+    /// Representation charged against `max_tokens`.
+    pub(super) evidence_counter: CounterMode,
     /// The SHA-256 digest, in hexadecimal, of the registered answerer card
     /// the rung asks with; absent, the latest registered answerer of the
     /// default model.
@@ -83,6 +94,13 @@ pub(super) struct AskSettings {
 }
 
 impl AskSettings {
+    /// Assembly settings carried alongside the search configuration and budget.
+    pub(super) fn evidence(&self) -> EvidenceSettings {
+        EvidenceSettings {
+            expansion: self.expansion,
+            evidence_counter: self.evidence_counter,
+        }
+    }
     /// The budget `ask` runs under: [`AskBudget::default`] with these
     /// settings.
     pub(super) fn budget(&self) -> AskBudget {
@@ -362,6 +380,10 @@ fn check_rung(rung: &Rung) -> Result<(), Failure> {
             )));
         }
         settings.answerer_card()?;
+        settings
+            .evidence()
+            .counter()
+            .map_err(|error| Failure::refused(error.to_string()))?;
     }
     configuration.reranker().map(drop)
 }

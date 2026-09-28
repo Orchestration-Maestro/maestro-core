@@ -4,8 +4,8 @@ use super::{
     prompt::{chat_request, prompt},
     types::{
         ANSWER_SCHEMA, Answer, AnswerCitation, AnswerContext, AnswerModel, AnswerPrompt,
-        AnswerRefusal, AskBudget, AskError, AskRequest, CHAT_DEADLINE, CLOSEST_LIMIT,
-        PromptVersion, RefusalCode, RegisteredAnswerer, Rejection, ResponseLanguage,
+        AnswerRefusal, AskError, AskRequest, CHAT_DEADLINE, CLOSEST_LIMIT, PromptVersion,
+        RefusalCode, RegisteredAnswerer, Rejection, ResponseLanguage,
     },
     validate::{Invalid, Reply, ValidReply, ValidationFailure, validate_reply},
 };
@@ -13,12 +13,12 @@ use crate::{
     query::{Language, understand},
     search::{
         SearchConfiguration, SearchRequest,
-        evidence::{EvidenceCounter, assemble_evidence},
+        evidence::{EvidenceSettings, assemble_evidence},
         search, top_rerank_score,
     },
 };
 use maestro_kernel::{
-    evidence::{Bundle, RequestBudget},
+    evidence::Bundle,
     gateway::{Error as GatewayError, Message, ModelPort, Role, Room, RouterEntry, Speaker},
 };
 use std::collections::BTreeMap;
@@ -38,6 +38,7 @@ pub async fn ask<P: ModelPort + Sync>(
         context,
         request,
         SearchConfiguration::default(),
+        EvidenceSettings::default(),
         &PromptVersion::default().into(),
     )
     .await
@@ -52,16 +53,19 @@ pub async fn ask_configured<P: ModelPort + Sync>(
     context: &AnswerContext<'_, P>,
     request: &AskRequest,
     configuration: SearchConfiguration,
+    evidence: EvidenceSettings,
     answer_prompt: &AnswerPrompt,
 ) -> Result<Answer, AskError> {
     validate_request(request)?;
+    let counter = evidence.counter().map_err(AskError::Evidence)?;
     let search_request = SearchRequest {
         configuration,
+        evidence,
         ..SearchRequest::new(
             &request.collection,
             &request.question,
             request.version.as_deref(),
-            request_budget(request.budget),
+            request.budget.into(),
         )
     };
     let input = search(&context.search, &search_request)
@@ -72,13 +76,9 @@ pub async fn ask_configured<P: ModelPort + Sync>(
         top_rerank_score: top_rerank_score(&input.ranked),
         answer_prompt,
     };
-    let bundle = assemble_evidence(
-        context.search.database.clone(),
-        input,
-        EvidenceCounter::Utf8Bytes,
-    )
-    .await
-    .map_err(AskError::Evidence)?;
+    let bundle = assemble_evidence(context.search.database.clone(), input, counter)
+        .await
+        .map_err(AskError::Evidence)?;
     answer_relevant(
         context.port,
         request,
@@ -162,15 +162,6 @@ fn response_language(request: &AskRequest) -> ResponseLanguage {
     match understand(&request.question).language {
         Language::French => ResponseLanguage::French,
         Language::English | Language::Unknown => ResponseLanguage::English,
-    }
-}
-
-/// Converts the public answer budget into the shared search bounds.
-pub(super) fn request_budget(budget: AskBudget) -> RequestBudget {
-    RequestBudget {
-        k: budget.k,
-        max_tokens: budget.max_tokens,
-        deadline_ms: budget.search_deadline_ms,
     }
 }
 

@@ -435,6 +435,7 @@ fn evidence_input(
     ranked: Vec<Ranked>,
 ) -> EvidenceInput {
     EvidenceInput {
+        evidence: request.evidence,
         generation: admitted.generation,
         query: request.text.to_owned(),
         understood: admitted.understood,
