@@ -606,9 +606,8 @@ of the missing work; **Measured, below target, owner-accepted for M1** means a
 measured value misses its preregistered floor and the owner accepted it for M1
 as a tuning target after S1 (2026-09-28). Private receipts (corpus accounting,
 golden set, model evaluations, ladder runs) live in the private collection
-(ADR-0009) and are cited by name and counts only. The owner-approved exact row
-inventory of the other sections (T039 step 3) is still to come; this section
-does not claim it.
+(ADR-0009) and are cited by name and counts only. §20.4 maps the
+owner-approved exact rows of the other sections (T039 step 3).
 
 Test paths are relative to the repository root.
 
@@ -667,9 +666,123 @@ The S1 merge-readiness audit (2026-09-27) raised MR-01 to MR-12. State at
 | MR-04 | Stage instrumentation and load-wait evidence | Closed | Spans `3af7d66`; the ladder warms the models up and counts timed-out searches apart (`80a7ad1`); SC-S1-004 |
 | MR-05 | Import memory bound | Closed | `7d1ff9a` |
 | MR-06 | Content check for private vendor material | OPEN | Owner paused it until after M1; `AGENTS.md` now states what the checks do today |
-| MR-07 | Exact 08 row inventory and delivery map | OPEN | The proposed row-key list awaits the owner's approval; T039 then maps each key and adds the test |
+| MR-07 | Exact 08 row inventory and delivery map | Closed | Owner approved the 94 keys (2026-09-28); §20.4 maps them and `crates/maestro-conventions/tests/s1_traceability/` checks them |
 | MR-08 | Delivery instructions against the S1 workflow | Closed | `da92520` |
 | MR-09 | Corpus and question-review descriptions | Closed | `da92520` |
 | MR-10 | Architecture tables and operator examples | Closed | `da92520` |
 | MR-11 | Entry documentation still describing S0 | Closed | `da92520` |
 | MR-12 | Task checkboxes against landings | Closed | The landed steps of [tasks.md](../../specs/001-knowledge-kernel/tasks.md) are ticked; open steps name their owner here |
+
+### 20.4 Approved S1 row keys
+
+The owner approved these 94 keys on 2026-09-28 (MR-07) as the 08 rows S1
+answers for: 93 delivered in whole or in part, and row 53 kept as a visible
+deferral. The [S1 spec](../../specs/001-knowledge-kernel/spec.md#traceability)
+lists the same keys. **Whole** means S1 delivers the row; **Part** names what
+S1 delivers, and the last column names the rest and its slice. No row changes
+its status above. Commits are on `feat/s1-integration` at `7b15845` unless
+another repository or branch is named; a task named `All` is carried by every
+S1 commit. `crates/maestro-conventions/tests/s1_traceability/` refuses a
+missing, duplicate or extra key here or in the spec, a key that is not exactly
+one row of its section above, an empty cell, an unknown task and a cited test
+path that does not exist. Whole and Part rows need a task, a commit hash,
+`Every S1 commit` or a named receipt, and an existing test path or named
+receipt; Part rows also need a non-placeholder remainder. A fully deferred
+row must name its later slice.
+
+| Section | Row | S1 portion | Tasks | Commits | Tests | Remainder and slice |
+| --- | --- | --- | --- | --- | --- | --- |
+| §3 | `owner.m001.llamacpp` | Part: embedder, reranker and answerer through the llama.cpp router | T002, T006, T018 | `8f75d8e` in maestro-model-router, `b738975`, `fed0d24` | `crates/maestro-kernel/src/gateway/tests/router.rs`, `crates/maestro-knowledge/tests/it/router_parity.rs`, the free-room admission tests of maestro-model-router | Agent sessions on llama.cpp: S4 |
+| §3 | `owner.m058` | Part: knowledge telemetry, spans and the ladder benchmark | T007, T021, T037 | `0c69714`, `3af7d66`, `6a6df77`, `c1ecb3b`, `90e8e56`, `46e1dec`, `80a7ad1`, `dac543c` | `crates/maestro-kernel/src/telemetry/tests`, `crates/maestro-knowledge/src/eval/tests`, `crates/maestro-knowledge/src/eval/tests/ladder.rs` | Copilot provider, run telemetry: S4 |
+| §3 | `owner.n007` | Part: local chain from prepared Markdown to answer | T019–T037 | `e634ff8`, `02c806e`, `73faa04`, `2144186`, `6bc3ee5`, `f0cfc95` | `crates/maestro-knowledge/tests/it/synthetic_gate/pipeline`, `crates/maestro/tests/it/knowledge_ask.rs` | Native crawl and extraction: S6 |
+| §3 | `owner.n020` | Part: Qdrant with fusion | T026, T029 | `fd9414e`, `5e3769e`, `17bfa42`, `db14f92`, `6bc3ee5` | `crates/maestro-knowledge/tests/it/qdrant_projection`, `crates/maestro-knowledge/tests/it/qdrant_projection/search_routes` | Neo4j and graph fusion: S2 |
+| §3 | `owner.n029, n065` | Whole: BM25 and dense at their layers | T004, T040, T026, T029 | `1c081c5`, `fd9414e`, `5e3769e`, `17bfa42`, `db14f92`, `6bc3ee5` | `crates/maestro-knowledge/tests/it/lexical_golden.rs`, `crates/maestro-knowledge/tests/it/qdrant_projection`, `crates/maestro-knowledge/tests/it/qdrant_projection/search_routes` | None |
+| §3 | `owner.n031` | Whole: source to answer with fusion, reranking, deduplication | T023, T029, T031, T032, T035 | `73faa04`, `5e3769e`, `17bfa42`, `db14f92`, `6bc3ee5`, `cb9b200`, `b1bc8bb`, `887b612`, `311eb85`, `f0cfc95`, `0319633` | `crates/maestro-knowledge/src/prepare/tests/duplicates.rs`, `crates/maestro-knowledge/tests/it/qdrant_projection/search_routes`, `crates/maestro-knowledge/src/search/tests/rerank.rs`, `crates/maestro-knowledge/src/search/evidence/tests`, `crates/maestro-knowledge/src/answer/tests/guardrails.rs` | None |
+| §3 | `owner.n047, n053` | Whole: the step after Markdown (import, quality, prepare, publish) | T019, T020, T023, T028 | `e634ff8`, `7d1ff9a`, `02c806e`, `73faa04`, `2144186` | `crates/maestro-knowledge/tests/it/import_contract`, `crates/maestro-knowledge/tests/it/quality_gate`, `crates/maestro-knowledge/src/prepare/tests/duplicates.rs`, `crates/maestro/tests/it/knowledge_publish.rs`, `crates/maestro-kernel/src/generation/tests/publication_events.rs` | None |
+| §3 | `owner.n062` | Whole, as adapted (§15 A6): the router tokenizer contract | T013, T018 | `2f83cbc`, `fed0d24` | `crates/maestro-knowledge/src/prepare/tests/counting.rs`, `crates/maestro-knowledge/tests/it/router_parity.rs` | None |
+| §3 | `owner.session` | Part: canonicalization carried over, a value slice, public core | T001, T009 | `b771872`, `9405140` | `crates/maestro-kernel/src/artifact/tests.rs`, `crates/maestro-knowledge/tests/it/collection_contract.rs` | Copilot-native formats: S3 |
+| §10 | `chat.M048, M057 layers, delivery.§6.1` | Part: deterministic and real-service layers for knowledge | T014, T026, T036 | `a6a27e5`, `fd9414e`, `d30573d`, `e6bb538` | `crates/maestro-knowledge/tests/it/synthetic_collection.rs`, `crates/maestro-knowledge/tests/it/qdrant_projection`, `crates/maestro-knowledge/tests/it/synthetic_gate` | SDK transport and scripted-model layers: S4 |
+| §10 | `chat.M048 tools` | Part: Tokio tests under nextest, cargo-mutants | All | `8bf9636`, `ce2ef79` on main | Tokio tests under nextest (`.cargo/mutants.toml`) in every crate; `crates/maestro-knowledge/tests/it/synthetic_gate` | insta snapshots for prompts and exposed tools (§15 A20): post-M1 queue |
+| §10 | `chat.M057 CI` | Part: the synthetic suite gates pull requests with a frozen baseline | T036 | `d30573d`, `e6bb538` | `crates/maestro-knowledge/tests/it/synthetic_gate` | Scenario suites for workflows: S4 |
+| §10 | `chat.M059 streams` | Part: journal, spans and eval reports kept apart | T007, T010, T021 | `0c69714`, `3af7d66`, `852c4e7`, `6a6df77`, `c1ecb3b` | `crates/maestro-kernel/src/telemetry/tests`, `crates/maestro-kernel/src/journal/tests`, `crates/maestro-knowledge/src/eval/tests` | Workflow execution audit: S4 |
+| §10 | `chat.M059 provenance` | Part: observed, estimated and unavailable in tokens, floors and cards | T013, T021, T037 | `2f83cbc`, `6a6df77`, `c1ecb3b`, `90e8e56`, `46e1dec`, `80a7ad1`, `dac543c` | `crates/maestro-knowledge/src/prepare/tests/counting.rs`, `crates/maestro-knowledge/src/eval/tests`, `crates/maestro-knowledge/src/eval/tests/ladder.rs` | Provider usage accounting: S4 |
+| §10 | `chat.M059 pitfalls` | Part: distinct latencies; timed-out searches counted apart | T021, T037 | `6a6df77`, `c1ecb3b`, `90e8e56`, `46e1dec`, `80a7ad1`, `dac543c` | `crates/maestro-knowledge/src/eval/tests`, `crates/maestro-knowledge/src/eval/tests/ladder.rs` | Credits and shared counters: S4 |
+| §10 | `chat.M059 tracing` | Part: OpenTelemetry spans for knowledge stages | T007 (MR-04) | `3af7d66` | `crates/maestro-kernel/src/telemetry/tests/stages.rs`, `crates/maestro-knowledge/tests/it/synthetic_gate/stage_spans.rs` | Copilot runtime export: S4 |
+| §10 | `chat.M059 benchmarks` | Part: engine-level knowledge benchmark (the ladder, bake-off round 1) | T030, T037 | `bf58adb`, `bdf52ca`, `90e8e56`, `46e1dec`, `80a7ad1`, `dac543c` | `crates/maestro-kernel/src/model/tests`, `crates/maestro-knowledge/src/eval/tests/ladder.rs` | Provider and workflow levels: S4 |
+| §10 | `chat.M059 capitalize B–H` | Part: organizational corpus, golden set, failure classes | T024, T027, T021 | `a070e11`, `3b5eaac`, `8465a42`, `6a6df77`, `c1ecb3b` | `crates/maestro-knowledge/tests/it/suite_check`, `crates/maestro-knowledge/src/eval/tests`, Private: the golden-set review receipt | Skill and agent ablations: S4, S5 |
+| §11.1 | `rag.N011 two circuits` | Whole: import is separate from question answering | T019, T034 | `e634ff8`, `7d1ff9a`, `750e7d6`, `2410855`, `56eae40` | `crates/maestro-knowledge/tests/it/import_contract`, `crates/maestro/tests/it/mcp_stdio.rs` | None |
+| §11.1 | `ingest scope` | Whole: source rules and inventory stay private | T003 | Private: the corpus mapping (ADR-0009) | Private: the mapping checks (ADR-0009); public contract `crates/maestro-knowledge/tests/it/corpus_contract.rs` | None |
+| §11.1 | `rag.N046 filter` | Whole: no query-specific filtering at import | T019 | `e634ff8`, `7d1ff9a` | `crates/maestro-knowledge/tests/it/import_contract` | None |
+| §11.1 | `product.CD2` | Part: one-off manual import per source | T019 | `e634ff8`, `7d1ff9a` | `crates/maestro-knowledge/tests/it/import_contract` | Per-source synchronization: S6 |
+| §11.2 | `rag.N052 quality` | Whole: accept, warn, re-extract, quarantine | T020 | `02c806e` | `crates/maestro-knowledge/src/quality/tests`, `crates/maestro-knowledge/tests/it/quality_gate` | None |
+| §11.3 | `rag.N054–N056` | Whole: the canonical document contract | T013, T023 | `2f83cbc`, `73faa04` | S0 gate still run in S1: `crates/maestro-canonicalization/tests/it/document_contract.rs`; the counter seam and prepare preserve the canonical contract | None |
+| §11.3 | `rag.N060 A01–A34` | Whole: gates re-verified on the migrated crate | T013, T023 | `2f83cbc`, `73faa04` | S0 gate still run in S1: `crates/maestro-canonicalization/tests/it/phase_a_acceptance.rs`; the counter seam and prepare preserve these acceptance fixtures | None |
+| §11.3 | `rag.N038 dedup` | Whole: exact and prepared-input fingerprints, near grouping | T023 | `73faa04` | `crates/maestro-knowledge/src/prepare/tests/duplicates.rs` | Release-copy storage dedup: after M1 |
+| §11.3 | `rag.N060 near-dup` | Whole, as adapted (§15 A22): non-destructive grouping | T023 | `73faa04` | `crates/maestro-knowledge/src/prepare/tests/near.rs` | None |
+| §11.3 | `rag.N060 B01–B13` | Whole: chunking gates, records, manifests | T023 | `73faa04` | `crates/maestro-knowledge/src/prepare/tests/chunk_sets.rs`, `crates/maestro-canonicalization/tests/it/chunk_contract.rs` | None |
+| §11.3 | `rag.N052 chunk policy` | Whole: the existing chunker's policy | T023 | `73faa04` | `crates/maestro-canonicalization/tests/it/chunk_contract.rs` | None |
+| §11.3 | `rag.N011 sizes` | Whole, as adapted (§15 A9) | T023 | `73faa04` | `crates/maestro-knowledge/src/prepare/tests/oversized.rs` | None |
+| §11.3 | `rag.N064 tokenizer` | Whole, as adapted (§15 A6): ordered-ID parity | T018 | `fed0d24` | `crates/maestro-knowledge/tests/it/router_parity.rs` | None |
+| §11.3 | `rag.N067 contracts` | Whole: embedding tokenizer and BM25 analyzer apart | T018, T040 | `fed0d24`, `1c081c5` | `crates/maestro-knowledge/tests/it/router_parity.rs`, `crates/maestro-knowledge/tests/it/lexical_golden.rs` | None |
+| §11.4 | `rag.N070 EmbeddingProfile` | Whole | T006, T026 | `b738975`, `fd9414e` | `crates/maestro-kernel/src/gateway/tests`, `crates/maestro-knowledge/tests/it/qdrant_projection` | None |
+| §11.4 | `rag.N070 Bm25Profile` | Whole | T040 | `1c081c5` | `crates/maestro-knowledge/tests/it/lexical_golden.rs` | None |
+| §11.4 | `rag.N070 index` | Whole | T026 | `fd9414e` | `crates/maestro-knowledge/tests/it/qdrant_projection` | None |
+| §11.4 | `rag.N070 publication` | Whole | T028 | `2144186` | `crates/maestro-knowledge/tests/it/qdrant_projection/publication_verification.rs`, `crates/maestro/src/cli/tests/publication_resume.rs` | None |
+| §11.4 | `rag.N070 diagnostics` | Whole: dense and BM25 searched apart before fusion | T029 | `5e3769e`, `17bfa42`, `db14f92`, `6bc3ee5` | `crates/maestro-knowledge/tests/it/qdrant_projection/search_routes/route_behavior.rs` | None |
+| §11.4 | `rag.N038 statistics` | Whole: IDF per generation | T026, T040 | `fd9414e`, `1c081c5` | `crates/maestro-knowledge/tests/it/qdrant_projection/alias_moves.rs`, `crates/maestro-knowledge/tests/it/lexical_sample.rs` | None |
+| §11.4 | `rag.N011, N016 automation` | Part: durable jobs, leases, resume, separate budgets | T016, T028 | `6379c7a`, `2144186` | `crates/maestro-kernel/src/job/tests`, `crates/maestro/tests/it/knowledge_publish.rs`, `crates/maestro/src/cli/tests/publication_resume.rs` | Change-driven jobs, deletion propagation: S6; interactive work has priority over ingestion (01 §10): post-M1 |
+| §11.4 | `rag.N052 recompute` | Part: a new generation recomputes everything | T012, T028 | `e24a02b`, `2144186` | `crates/maestro-kernel/src/generation/tests/lifecycle.rs` (a new generation starts without points or publication), `crates/maestro-kernel/src/generation/tests/publication_events.rs` | Dependency-driven recomputation: S6 |
+| §11.4 | `rag.N075 first deliverable` | Whole | T019, T023, T028 | `e634ff8`, `7d1ff9a`, `73faa04`, `2144186` | `crates/maestro-knowledge/tests/it/import_contract`, `crates/maestro-knowledge/src/prepare/tests/duplicates.rs`, `crates/maestro/tests/it/knowledge_publish.rs`, `crates/maestro-kernel/src/generation/tests/publication_events.rs` | None |
+| §11.5 | `rag.N038 context` | Whole: trusted scope, routes, identifier route | T011, T029 | `8dcab4b`, `5e3769e`, `17bfa42`, `db14f92`, `6bc3ee5` | `crates/maestro-kernel/src/scope/tests`, `crates/maestro-knowledge/tests/it/qdrant_projection/search_routes` | None |
+| §11.5 | `rag.N038 identity dedup` | Whole | T029 | `5e3769e`, `17bfa42`, `db14f92`, `6bc3ee5` | `crates/maestro-knowledge/tests/it/qdrant_projection/search_routes/route_behavior.rs`, `crates/maestro-knowledge/src/search/tests/fusion.rs` | None |
+| §11.5 | `rag.N038 RRF` | Whole | T029 | `5e3769e`, `17bfa42`, `db14f92`, `6bc3ee5` | `crates/maestro-knowledge/src/search/tests/fusion.rs` | None |
+| §11.5 | `rag.N038 budgets` | Part: dense, BM25, rerank and final budgets | T029, T031 | `5e3769e`, `17bfa42`, `db14f92`, `6bc3ee5`, `cb9b200` | `crates/maestro-knowledge/tests/it/qdrant_projection/search_routes`, `crates/maestro-knowledge/src/search/tests/rerank.rs` | Graph items: S2 |
+| §11.5 | `rag.N038 rerank` | Whole | T031 | `cb9b200` | `crates/maestro-knowledge/src/search/tests/rerank.rs` | None |
+| §11.5 | `rag.N038 context dedup` | Part: mirrors once, span unions, redundancy | T032 | `b1bc8bb`, `887b612` | `crates/maestro-knowledge/src/search/evidence/tests` | Support groups for graph paths: S2 |
+| §11.5 | `rag.N038 EvidenceBundle` | Part: passages, conflicts, known gaps, trace | T017, T032 | `0495f5f`, `b1bc8bb`, `887b612` | `crates/maestro-kernel/src/evidence/tests`, `crates/maestro-knowledge/src/search/evidence/tests` | Claims and paths: S2 |
+| §11.5 | `rag.N038 answer` | Whole: cited, validated answers | T035 | `311eb85`, `f0cfc95`, `0319633` | `crates/maestro-knowledge/src/answer/tests/guardrails.rs` | None |
+| §11.5 | `rag.N038 degradation` | Whole: explicit route status, rerank fallback | T029, T031 | `5e3769e`, `17bfa42`, `db14f92`, `6bc3ee5`, `cb9b200` | `crates/maestro-knowledge/tests/it/qdrant_projection/search_routes/route_errors.rs`, `crates/maestro-knowledge/src/search/tests/rerank.rs` | None |
+| §11.5 | `rag.N016 interfaces` | Part: Rust functions, CLI, MCP | T034 | `750e7d6`, `2410855`, `56eae40` | `crates/maestro/tests/it/mcp_stdio.rs` | Local HTTP API: S4 |
+| §11.5 | `rag.N016 tools` | Part: search, get, ask | T034, T035 | `750e7d6`, `2410855`, `56eae40`, `311eb85`, `f0cfc95`, `0319633` | `crates/maestro/tests/it/mcp_stdio.rs`, `crates/maestro-knowledge/src/answer/tests/guardrails.rs` | Entity resolve, graph expand, evidence trace, research: S2 |
+| §11.5 | `rag.N016 agent` | None delivered; kept as a key so the deferral is visible | None | None | None | Research loop: S2 |
+| §11.5 | `rag.N016 local` | Whole: the strict local chain | T002, T006, T035 | `8f75d8e` in maestro-model-router, `b738975`, `311eb85`, `f0cfc95`, `0319633` | `crates/maestro-kernel/src/gateway/tests/router.rs`, `crates/maestro-knowledge/src/answer/tests/guardrails.rs`, the free-room admission tests of maestro-model-router | None |
+| §11.5 | `rag.N016 permissions` | Part: checked at search, read and output | T011, T034 | `8dcab4b`, `750e7d6`, `2410855`, `56eae40` | `crates/maestro-kernel/src/scope/tests`, `crates/maestro/tests/it/mcp_stdio.rs` | Traversal, communities: S2 |
+| §11.5 | `rag.N011 evaluation` | Whole: 100 questions, the ladder, failure classes | T021, T024, T037 | `6a6df77`, `c1ecb3b`, `a070e11`, `3b5eaac`, `90e8e56`, `46e1dec`, `80a7ad1`, `dac543c` | `crates/maestro-knowledge/src/eval/tests`, `crates/maestro-knowledge/src/eval/tests/ladder.rs` | None |
+| §11.5 | `product.CD3` | Part: scoped search with grants | T011 | `8dcab4b` | `crates/maestro-kernel/src/scope/tests` | Project default scope: S3 |
+| §12 | `delivery.U03 (F7–F8)` | Part: tokenizer parity | T018 | `fed0d24` | `crates/maestro-knowledge/tests/it/router_parity.rs` | Binding done in S0 |
+| §12 | `delivery.U11 (D2–D3)` | Part: local prepared-document operation, knowledge CLI | T019, T022 | `e634ff8`, `7d1ff9a`, `dc7d3c9`, `87b2aeb` | `crates/maestro-knowledge/tests/it/import_contract`, `crates/maestro/tests/it/cli_contract.rs` | Durable native ingestion: S6 |
+| §12 | `delivery.U13` | Part: Qdrant adapter, embedding bake-off | T026, T030 | `fd9414e`, `bf58adb`, `bdf52ca` | `crates/maestro-knowledge/tests/it/qdrant_projection`, `crates/maestro-kernel/src/model/tests` | Workflow discovery: S3 |
+| §12 | `delivery.U14` | Part: scoped knowledge retrieval | T029 | `5e3769e`, `17bfa42`, `db14f92`, `6bc3ee5` | `crates/maestro-knowledge/tests/it/qdrant_projection/search_routes` | Memory gate: S7-I1 |
+| §12 | `delivery.U15` | Part: knowledge stage telemetry | T007 | `0c69714`, `3af7d66` | `crates/maestro-kernel/src/telemetry/tests` | S4–S5 |
+| §12 | `delivery.U16` | Part: bake-off round 1 on the private corpus | T030, T037 | `bf58adb`, `bdf52ca`, `90e8e56`, `46e1dec`, `80a7ad1`, `dac543c` | `crates/maestro-kernel/src/model/tests`, `crates/maestro-knowledge/src/eval/tests/ladder.rs` | Runner and providers: S4 |
+| §12 | `delivery.C03 Rust-first, explicit native dependencies, justified Python` | Whole for S1 code | All | Every S1 commit: Rust only, no Python adapter | The gate: dependency and licence checks (`maestro-quality.toml`) | None |
+| §12 | `delivery.C14–C16 catalog MCP, shared Qdrant, separate knowledge ACLs` | Part: shared Qdrant, knowledge ACLs | T011, T026 | `8dcab4b`, `fd9414e` | `crates/maestro-kernel/src/scope/tests`, `crates/maestro-knowledge/tests/it/qdrant_projection` | Catalog MCP: S3 |
+| §12 | `delivery.C18–C21 layered tests, runner, real controls, honest tiers` | Part: knowledge test layers | T014, T036 | `a6a27e5`, `d30573d`, `e6bb538` | `crates/maestro-knowledge/tests/it/synthetic_collection.rs`, `crates/maestro-knowledge/tests/it/synthetic_gate` | Workflow runner: S4 |
+| §12 | `delivery.C22–C24 telemetry streams, coverage, units` | Part: knowledge streams, 90 % coverage | T007, T036 | `0c69714`, `3af7d66`, `d30573d`, `e6bb538` | `crates/maestro-kernel/src/telemetry/tests`, `crates/maestro-knowledge/tests/it/synthetic_gate` | Run telemetry: S4 |
+| §12 | `delivery.C25–C29 provider qualification, benchmarks, corpus, taxonomy, promotion loop` | Part: knowledge-role qualification, corpus, failure taxonomy | T006, T030, T037 | `b738975`, `bf58adb`, `bdf52ca`, `90e8e56`, `46e1dec`, `80a7ad1`, `dac543c` | `crates/maestro-kernel/src/gateway/tests`, `crates/maestro-kernel/src/model/tests`, `crates/maestro-knowledge/src/eval/tests/ladder.rs` | Provider qualification, promotion loop: S4 |
+| §6 | `chat.M059 model profile` | Part: model cards for knowledge roles | T006, T030 | `b738975`, `bf58adb`, `bdf52ca` | `crates/maestro-kernel/src/gateway/tests`, `crates/maestro-kernel/src/model/tests` | Agent model profiles: S4 |
+| §6 | `chat.M059 capitalize A` | Part: qualification by knowledge role | T006, T030 | `b738975`, `bf58adb`, `bdf52ca` | `crates/maestro-kernel/src/gateway/tests`, `crates/maestro-kernel/src/model/tests` | Agent roles: S4 |
+| §6 | `rag.N075 profiles` | Part: strict local only | T035 | `311eb85`, `f0cfc95`, `0319633` | `crates/maestro-knowledge/src/answer/tests/guardrails.rs` | Managed Copilot profile: S4 |
+| §7 | `chat.M006 audit` | Part: the journal as audit for knowledge | T010, T015 | `852c4e7`, `4826626` | `crates/maestro-kernel/src/journal/tests`, `crates/maestro-kernel/src/journal/tests/schemas.rs` | Broker path: S4 |
+| §8 | `chat.M031 separation` | Part: knowledge collections, pipelines and scopes | T009, T011 | `9405140`, `8dcab4b` | `crates/maestro-knowledge/tests/it/collection_contract.rs`, `crates/maestro-kernel/src/scope/tests` | Catalog discovery: S3 |
+| §9 | `chat.M006 CLI` | Part: noun-verb `maestro knowledge`, `eval`, `backup` commands | T022, T025, T033, T034, T037 | `dc7d3c9`, `87b2aeb`, `86b9580`, `0146bf9`, `750e7d6`, `2410855`, `56eae40`, `80a7ad1` | `crates/maestro/tests/it/cli_contract.rs`, `crates/maestro/tests/it/doctor_checks.rs`, `crates/maestro/tests/it/backup_restore.rs`, `crates/maestro/tests/it/mcp_stdio.rs`, `crates/maestro/src/cli/eval/tests` | `init`, `run`, `explain`: S3, S4 |
+| §9 | `product.GD2, GD4, GD5` | Part: knowledge MCP in four clients, local only | T034, T038 | `750e7d6`, `2410855`, `56eae40`, `1dcea41` | `crates/maestro/tests/it/mcp_stdio.rs`, `crates/maestro/tests/it/mcp_clients.rs` | Hook administration: S4 |
+| §11.6 | `rag.N023 roles` | Part: Qdrant for passages, Rust fusion | T026, T029 | `fd9414e`, `5e3769e`, `17bfa42`, `db14f92`, `6bc3ee5` | `crates/maestro-knowledge/tests/it/qdrant_projection`, `crates/maestro-knowledge/tests/it/qdrant_projection/search_routes` | Neo4j relations: S2 |
+| §11.6 | `rag.N052 publication` | Part: index generations published atomically | T012, T028 | `e24a02b`, `2144186` | `crates/maestro-kernel/src/generation/tests/publication.rs`, `crates/maestro-kernel/src/generation/tests/publication_events.rs` | Graph published with them: S2 |
+| §13.2 | `product.CD2` | Part: one-off import | T019 | `e634ff8`, `7d1ff9a` | `crates/maestro-knowledge/tests/it/import_contract` | Per-source synchronization, multimedia: S6 |
+| §13.2 | `product.CD3` | Part: scoped retrieval | T011 | `8dcab4b` | `crates/maestro-kernel/src/scope/tests` | Project default scope: S3 |
+| §13.2 | `product.GD1–GD5` | Part: four initial clients for knowledge | T038 | `1dcea41` | `crates/maestro/tests/it/mcp_clients.rs` | Provider configuration, graph advice, hooks: S2, S4 |
+| §14 | `core storage` | Whole for the kernel's artifact store | T001 | `b771872` | `crates/maestro-kernel/src/artifact/tests.rs` | None |
+| §14 | `core scale` | Whole for import and publication | T016, T019, T028 | `6379c7a`, `e634ff8`, `7d1ff9a`, `2144186` | `crates/maestro-kernel/src/job/tests`, `crates/maestro-knowledge/tests/it/import_contract`, `crates/maestro/tests/it/knowledge_publish.rs`, `crates/maestro/src/cli/tests/publication_resume.rs` | None |
+| §14 | `core native` | Whole: tokenizer qualification separate from binding | T018 | `fed0d24` | `crates/maestro-knowledge/tests/it/router_parity.rs` | None |
+| §14 | `core baseline` | Whole for S1: gates, 90 % coverage, hooks | T036 | `8bf9636`, `d30573d`, `e6bb538`, `ce2ef79` on main | `.github/workflows/integration.yml`, `crates/maestro-knowledge/tests/it/synthetic_gate` | Zero missed mutants before the merge (MR-01) |
+| §15 | `A1` | Whole: the kernel holds jobs and publication metadata | T005, T012, T016, T028 | `9c4463e`, `e24a02b`, `6379c7a`, `2144186` | `crates/maestro-kernel/src/store/tests/migrations.rs`, `crates/maestro-kernel/src/job/tests`, `crates/maestro-kernel/src/generation/tests/publication.rs`, `crates/maestro-kernel/src/generation/tests/publication_events.rs` | Claims: S2 |
+| §15 | `A4` | Whole: candidates in a recorded bake-off | T030, T037 | `bf58adb`, `bdf52ca`, `90e8e56`, `46e1dec`, `80a7ad1`, `dac543c` | `crates/maestro-kernel/src/model/tests`, `crates/maestro-knowledge/src/eval/tests/ladder.rs` | None |
+| §15 | `A5` | Whole: the existing chunker | T023 | `73faa04` | `crates/maestro-canonicalization/tests/it/chunk_contract.rs`, `crates/maestro-knowledge/src/prepare/tests/chunk_sets.rs` | None |
+| §15 | `A6` | Whole: the router's tokenizer | T018 | `fed0d24` | `crates/maestro-knowledge/tests/it/router_parity.rs` | None |
+| §15 | `A7` | Whole: the llama.cpp router first | T002, T006 | `8f75d8e` in maestro-model-router, `b738975` | `crates/maestro-kernel/src/gateway/tests/router.rs`, the free-room admission tests of maestro-model-router | None |
+| §15 | `A9` | Whole: target 500, maximum 700 | T023 | `73faa04` | `crates/maestro-knowledge/src/prepare/tests/oversized.rs` | None |
+| §15 | `A14` | Whole: Qdrant sparse vectors from `bm25-en-fr/1` | T040, T026 | `1c081c5`, `fd9414e` | `crates/maestro-knowledge/tests/it/lexical_golden.rs`, `crates/maestro-knowledge/tests/it/qdrant_projection` | None |
+| §15 | `A22` | Whole: near-duplicate grouping built in S1 | T023 | `73faa04` | `crates/maestro-knowledge/src/prepare/tests/near.rs` | None |
+| §15 | `A26` | Whole: knowledge kernel and Control-M RAG first | All | Every S1 commit | `crates/maestro-knowledge/tests/it/synthetic_gate`, `crates/maestro-knowledge/src/eval/tests/ladder.rs` | None |
+| §17 | `Operational bindings: endpoints, accounts, data scopes, exclusion registries, budgets` | Part: supplied as machine configuration for import | T003, T019 | Private: the corpus mapping (ADR-0009), `e634ff8`, `7d1ff9a` | `crates/maestro-knowledge/tests/it/corpus_contract.rs`, `crates/maestro-knowledge/tests/it/import_contract` | Live bindings: S6 |

@@ -364,6 +364,10 @@ in place.
 │   │   ├── src/                                                             # The crate's sources
 │   │   │   └── lib.rs                                                       # Helpers for the repository's policy tests: the files the repository holds
 │   │   ├── tests/                                                           # Integration tests
+│   │   │   ├── s1_traceability/                                             # MR-07: the owner-approved S1 row keys and their delivery map
+│   │   │   │   ├── keys.rs                                                  # The 08 row keys the owner approved for S1 on 2026-09-28 (MR-07)
+│   │   │   │   ├── mod.rs                                                   # MR-07: the owner-approved S1 row keys and their delivery map
+│   │   │   │   └── row_key_checks.rs                                        # The spec and 08 §20.4 carry exactly the approved keys, each an 08 row
 │   │   │   └── policies.rs                                                  # The repository's policies, checked on every pull request by cargo test
 │   │   └── Cargo.toml                                                       # Crate manifest: Tests that hold the maestro-core repository to its own policies
 │   ├── maestro-kernel/                                                      # Maestro kernel

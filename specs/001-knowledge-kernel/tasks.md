@@ -766,7 +766,7 @@ SC-S1-001 to SC-S1-009.
 - [ ] **Step 1: Measure p95** of `knowledge_search` on the workstation with
   the search models loaded; report waits and missing routes apart.
 - [ ] **Step 2: Check every success criterion** with its evidence.
-- [ ] **Step 3: Obtain** the owner-approved exact 08 row keys; map each to its
+- [x] **Step 3: Obtain** the owner-approved exact 08 row keys; map each to its
   delivered portion, task, integrated code/test evidence and named remaining
   slice. Test for missing, duplicate and extra keys; reconcile the reported
   aggregate rather than assuming 94.
