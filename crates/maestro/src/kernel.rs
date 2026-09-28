@@ -13,7 +13,10 @@ use maestro_kernel::{
     scope::{Config, LOCAL, ScopeSet},
     store::Database,
 };
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 /// One-shot callback used by tests to revoke access during a read.
 #[cfg(test)]
@@ -23,7 +26,7 @@ pub(crate) type RefreshHook = fn(&Kernel);
 #[derive(Debug)]
 pub(crate) struct Kernel {
     /// Its database, with the artifacts it records.
-    pub(crate) database: Database,
+    pub(crate) database: Arc<Database>,
     /// The same artifact store, for strict model-card loading.
     pub(crate) artifacts: Store,
     /// What the local principal reads: every read goes through it.
@@ -55,7 +58,8 @@ impl Kernel {
     /// Opens a kernel at explicit data and configuration directories.
     pub(crate) fn open_at(data: &Path, config_dir: &Path) -> Result<Self, Failure> {
         let config = Config::load(config_dir).map_err(|error| Failure::refused_by(&error))?;
-        let database = Database::open_in(data).map_err(|error| Failure::failed_by(&error))?;
+        let database =
+            Arc::new(Database::open_in(data).map_err(|error| Failure::failed_by(&error))?);
         let artifacts = Store::new(data.join("artifacts"));
         database
             .apply_config(&config)

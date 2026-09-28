@@ -377,7 +377,25 @@ async fn every_failure_falls_back_in_fused_order_with_a_reason() {
         Duration::from_secs(1),
     )
     .await;
-    assert_unavailable(&result, &["first", "second"]);
+    let reason = assert_unavailable(&result, &["first", "second"]);
+    assert_eq!(reason, "model_unavailable");
+    assert!(!reason.contains("no free room"));
+
+    let port = FakePort::scores(vec![1.0, 0.0]);
+    let small_context_card = card(Role::Reranker, 1);
+    let result = rerank(
+        "q",
+        candidates(),
+        &Reranker {
+            port: &port,
+            card: &small_context_card,
+        },
+        depth,
+        Duration::from_secs(1),
+    )
+    .await;
+    let reason = assert_unavailable(&result, &["first", "second"]);
+    assert_eq!(reason, "context_limit");
 
     let port = FakePort::scores(vec![1.0, 0.0]);
     let embedder_card = card(Role::Embedder, 128);
@@ -392,7 +410,8 @@ async fn every_failure_falls_back_in_fused_order_with_a_reason() {
         Duration::from_secs(1),
     )
     .await;
-    assert_unavailable(&result, &["first", "second"]);
+    let reason = assert_unavailable(&result, &["first", "second"]);
+    assert_eq!(reason, "invalid_model_card");
     assert!(port.calls.lock().unwrap().is_empty());
 
     let port = FakePort::delayed_scores(vec![1.0, 0.0], Duration::from_millis(25));
@@ -408,7 +427,7 @@ async fn every_failure_falls_back_in_fused_order_with_a_reason() {
     )
     .await;
     let reason = assert_unavailable(&result, &["first", "second"]);
-    assert_eq!(reason, "rerank timed out after 1 ms");
+    assert_eq!(reason, "deadline_exceeded");
 
     for scores in [vec![1.0], vec![f64::NAN, 0.0]] {
         let port = FakePort::scores(scores);
@@ -423,7 +442,8 @@ async fn every_failure_falls_back_in_fused_order_with_a_reason() {
             Duration::from_secs(1),
         )
         .await;
-        assert_unavailable(&result, &["first", "second"]);
+        let reason = assert_unavailable(&result, &["first", "second"]);
+        assert_eq!(reason, "invalid_response");
     }
 }
 

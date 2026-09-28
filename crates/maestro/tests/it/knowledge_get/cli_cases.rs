@@ -361,7 +361,23 @@ fn glossary_generation(
             }],
         )
         .unwrap();
-    let manifest = database.put(b"{}", "application/json").unwrap();
+    let manifest = json!({
+        "schema": "maestro-chunk-set/1",
+        "collection": collection,
+        "chunk_set": set_id,
+        "chunk_profile": "structural-500-700/1",
+        "preparation_profile": "canonicalization/1",
+        "counter": "test",
+        "revisions": [revision.id],
+        "duplicates": {},
+        "near_duplicate_groups": [],
+        "refusals": [],
+        "left_out": [],
+        "chunks": 1,
+        "tokens": 1,
+    });
+    let manifest_bytes = serde_json::to_vec(&manifest).unwrap();
+    let manifest = database.put(&manifest_bytes, "application/json").unwrap();
     database.complete_chunk_set(set_id, &manifest).unwrap();
     let generation = database
         .create_generation(&NewGeneration {

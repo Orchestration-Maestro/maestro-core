@@ -40,7 +40,7 @@ mod tests;
 
 pub use bundle::{Budget, Bundle, Conflict, RouteStatus, Schema, Trace};
 pub use error::Error;
-pub use inventory::{Inventory, InventoryCount};
+pub use inventory::{Inventory, InventoryCount, TRUNCATED_INVENTORY_GAP_PREFIX};
 pub use lookup::{ChunkLocation, SectionLocation};
 pub use passage::{Alternate, Passage, Span};
 pub use request_budget::RequestBudget;

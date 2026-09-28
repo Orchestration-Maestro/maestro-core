@@ -1,6 +1,8 @@
 //! Wire-size and output-shaping tests for the MCP handler.
 
-use super::{CollectionsOutput, bounded_collections_result, response_fits, response_size};
+use super::response::{
+    CollectionsOutput, bounded_collections_result, response_fits, response_size,
+};
 use crate::{
     knowledge::RESPONSE_LIMIT_BYTES,
     knowledge::operations::{CollectionItem, CollectionsData},

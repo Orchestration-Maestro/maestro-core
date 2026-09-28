@@ -18,6 +18,7 @@ mod publish_report;
 mod quality;
 mod retrieve;
 mod run;
+mod search;
 mod setup;
 mod status;
 #[cfg(test)]

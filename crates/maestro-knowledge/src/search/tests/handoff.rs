@@ -94,10 +94,10 @@ async fn rerank_handoff_uses_only_the_remaining_request_time() {
     )
     .await;
 
-    assert!(matches!(
+    assert_eq!(
         status,
-        RouteStatus::Unavailable(reason) if reason == "rerank timed out after 10 ms"
-    ));
+        RouteStatus::Unavailable("deadline_exceeded".to_owned())
+    );
     assert_eq!(ranked.len(), 1);
     assert_eq!(ranked[0].score, None);
 }

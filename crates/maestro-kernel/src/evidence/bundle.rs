@@ -1,13 +1,19 @@
 //! Bundles: `maestro-evidence/1`, the search response contract, checked whole
 //! when written and when read.
 
-use super::{inventory::Inventory, passage::Passage, request_budget::RequestBudget};
+use super::{
+    inventory::{Inventory, TRUNCATED_INVENTORY_GAP_PREFIX},
+    passage::Passage,
+    request_budget::RequestBudget,
+};
+use schemars::{JsonSchema, Schema as JsonSchemaSchema, SchemaGenerator};
 use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
     de::{self, MapAccess, Visitor},
     ser,
 };
 use std::{
+    borrow::Cow,
     collections::{BTreeMap, BTreeSet},
     fmt,
 };
@@ -49,7 +55,7 @@ pub struct Bundle {
 
 /// The contract a bundle follows; this version writes and reads the first
 /// only.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, JsonSchema, Serialize, Deserialize)]
 pub enum Schema {
     /// `maestro-evidence/1`.
     #[serde(rename = "maestro-evidence/1")]
@@ -57,7 +63,7 @@ pub enum Schema {
 }
 
 /// Whether a route or the reranker ran for a search.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, JsonSchema, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RouteStatus {
     /// It ran, written `"ok"`.
@@ -70,7 +76,7 @@ pub enum RouteStatus {
 /// Passages that state different values of one attribute of one entity,
 /// such as a default port that changed between versions: each is kept, and
 /// flagged here.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, JsonSchema, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Conflict {
     /// What the values are of, such as `agent`.
@@ -83,7 +89,7 @@ pub struct Conflict {
 
 /// A search's evidence size under its recorded counter; estimates use
 /// UTF-8 bytes and do not promise the answerer's token count.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, JsonSchema, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Budget {
     /// The evidence size in the recorded counter's units; UTF-8 bytes when estimated.
@@ -100,7 +106,7 @@ pub struct Budget {
 
 /// How one passage was found and ranked: signals about the evidence, kept
 /// apart from it.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, JsonSchema, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Trace {
     /// The number of the passage it traces.
@@ -164,7 +170,7 @@ impl Serialize for Bundle {
 
 /// A bundle as its JSON writes it, borrowed once its checks passed; each
 /// field is the [`Bundle`] field of its name.
-#[derive(Serialize)]
+#[derive(JsonSchema, Serialize)]
 struct Written<'bundle> {
     /// [`Bundle::schema`].
     schema: &'bundle Schema,
@@ -194,6 +200,16 @@ struct Written<'bundle> {
     inventory: Option<&'bundle Inventory>,
     /// [`Bundle::trace`].
     trace: &'bundle [Trace],
+}
+
+impl JsonSchema for Bundle {
+    fn schema_name() -> Cow<'static, str> {
+        Written::schema_name()
+    }
+
+    fn json_schema(generator: &mut SchemaGenerator) -> JsonSchemaSchema {
+        Written::json_schema(generator)
+    }
 }
 
 /// A bundle as its JSON holds it, before the checks across its parts; each
@@ -308,7 +324,11 @@ fn check(bundle: &Bundle) -> Result<(), String> {
         if !matches!(bundle.routes.get("structured"), Some(RouteStatus::Ok)) {
             return Err("an inventory requires the structured route to be ok".to_owned());
         }
-        inventory.validate()?;
+        let partial = bundle
+            .known_gaps
+            .iter()
+            .any(|gap| gap.starts_with(TRUNCATED_INVENTORY_GAP_PREFIX));
+        inventory.validate_partial(partial)?;
     }
     Ok(())
 }

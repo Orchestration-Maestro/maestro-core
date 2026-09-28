@@ -1,5 +1,6 @@
 //! Exact, bounded S1 search inventories, separate from supporting passages.
 
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 
@@ -8,8 +9,11 @@ const MAX_GROUPS: usize = 1000;
 /// Maximum serialized JSON size of an inventory response.
 const MAX_JSON_BYTES: usize = 32_768;
 
+/// Prefix that marks a transport-truncated inventory listing in bundle gaps.
+pub const TRUNCATED_INVENTORY_GAP_PREFIX: &str = "Search inventory truncated:";
+
 /// An exact document count grouped by set or documented version.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, JsonSchema, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Inventory {
     /// The pinned generation's documents, grouped by `metadata.set`.
@@ -33,7 +37,7 @@ pub enum Inventory {
 }
 
 /// The count for one exact metadata value, with `None` for an unlabelled row.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, JsonSchema, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct InventoryCount {
     /// The exact text value, or `None` when the metadata is not text.
@@ -45,6 +49,11 @@ pub struct InventoryCount {
 impl Inventory {
     /// Whether the groups agree with the exact total and wire bounds.
     pub(crate) fn validate(&self) -> Result<(), String> {
+        self.validate_partial(false)
+    }
+
+    /// Checks that incomplete groups are explicit and never exceed the total.
+    pub(crate) fn validate_partial(&self, partial: bool) -> Result<(), String> {
         let (total_documents, groups) = match self {
             Self::DocumentsBySet {
                 total_documents,
@@ -75,8 +84,8 @@ impl Inventory {
                 .checked_add(group.documents)
                 .ok_or_else(|| "inventory group total overflows".to_owned())?;
         }
-        if sum != *total_documents {
-            return Err("inventory group counts do not equal total_documents".to_owned());
+        if (!partial && sum != *total_documents) || (partial && sum > *total_documents) {
+            return Err("inventory group counts disagree with total_documents".to_owned());
         }
         let encoded =
             serde_json::to_vec(self).map_err(|_| "inventory could not be encoded".to_owned())?;

@@ -202,13 +202,11 @@ path = "crates/maestro-knowledge/src/search/routes/mod.rs"
 item = "structured"
 reason = "the structured route owns exact Global inventories and their bounded kernel read"
 
-# The evidence assembly is a public search entry point. T034 part 2 (MCP and
-# CLI search) and T035 (ask) are its next callers; remove this when they land.
 [[exception]]
 rule = "ARC-005"
 path = "crates/maestro-knowledge/src/search/evidence/mod.rs"
 item = "assemble_evidence"
-reason = "public entry point; T034 part 2 (MCP and CLI search) and T035 (ask) are its next callers"
+reason = "public API of maestro-knowledge, called from the maestro crate; ARC-005 does not count cross-crate callers"
 
 # The quality gate's reader of the revisions it lets through: the gate owns
 # eligibility, so the preparation (T023) reads it rather than deciding again,

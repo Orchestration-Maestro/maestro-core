@@ -13,4 +13,6 @@ pub(super) mod status;
 #[cfg(test)]
 mod tests;
 
-pub(crate) use services::{DEFAULT_QDRANT, QDRANT_VARIABLE, ROUTER_VARIABLE, router_url};
+pub(crate) use services::{
+    DEFAULT_QDRANT, QDRANT_VARIABLE, ROUTER_VARIABLE, qdrant_url, router_url,
+};

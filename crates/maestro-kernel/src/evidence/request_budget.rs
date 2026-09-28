@@ -1,10 +1,11 @@
 //! The transport-safe echo of the accepted search budget.
 
+use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// The request limits accepted for a search, echoed without exposing a clock
 /// instant.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, JsonSchema, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 #[expect(
     clippy::min_ident_chars,

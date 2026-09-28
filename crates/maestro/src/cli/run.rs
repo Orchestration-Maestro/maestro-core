@@ -6,15 +6,16 @@ use super::{
     args::{Arguments, CollectionCommand, JobCommand, KnowledgeCommand, Noun},
     backup, collection, health, import,
     output::{Output, diagnose},
-    prepare, publish, quality, retrieve, setup, status, verify, wait,
+    prepare, publish, quality, retrieve, search, setup, status, verify, wait,
 };
 use crate::{
     failure::Failure,
     kernel::Kernel,
-    knowledge::{GetRequest, RequestError},
+    knowledge::{GetRequest, RequestError, SearchRequest},
     mcp::run::run as run_mcp,
 };
 use clap::Parser as _;
+use maestro_kernel::evidence::RequestBudget;
 use std::process::ExitCode;
 
 /// Runs the command the process's arguments name, and returns its exit code.
@@ -66,9 +67,32 @@ fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> 
             collection.as_deref(),
             *generation,
         ),
+        Noun::Knowledge(KnowledgeCommand::Search {
+            collection,
+            query,
+            version,
+            max_passages,
+            max_tokens,
+            deadline_ms,
+        }) => {
+            let defaults = RequestBudget::default();
+            let request = SearchRequest {
+                collection: collection.clone(),
+                query: query.clone(),
+                version: version.clone(),
+                max_passages: max_passages.unwrap_or(defaults.k),
+                max_tokens: max_tokens.unwrap_or(defaults.max_tokens),
+                deadline_ms: deadline_ms.unwrap_or(defaults.deadline_ms),
+            };
+            match SearchRequest::from_cli(request) {
+                Ok(request) => search::run(output, &request),
+                Err(error) => search::invalid_request(output, error),
+            }
+        }
         Noun::Knowledge(command) => knowledge(&Kernel::open()?, output, command),
         Noun::Mcp => {
-            run_mcp()?;
+            let (model_port, qdrant) = search::ports()?;
+            run_mcp(model_port, qdrant)?;
             Ok(ExitCode::SUCCESS)
         }
         Noun::Job(JobCommand::Wait { id }) => wait::run(&Kernel::open()?, output, *id),
@@ -100,7 +124,9 @@ fn knowledge(
         KnowledgeCommand::Publish { arguments } => publish::run(kernel, output, arguments),
         KnowledgeCommand::Verify { collection } => verify::run(kernel, output, collection),
         KnowledgeCommand::Status { collection } => status::run(kernel, output, collection),
-        KnowledgeCommand::Collections | KnowledgeCommand::Get { .. } => Err(Failure::failed(
+        KnowledgeCommand::Collections
+        | KnowledgeCommand::Get { .. }
+        | KnowledgeCommand::Search { .. } => Err(Failure::failed(
             "knowledge retrieval bypassed its scoped dispatch path",
         )),
     }

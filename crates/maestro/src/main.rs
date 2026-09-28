@@ -20,9 +20,14 @@
 //!   revisions by status and by disposition, and its generations;
 //! - `maestro knowledge collections` lists collection metadata the local
 //!   principal may read;
-//! - `maestro knowledge get --chunk-id <id> [--collection <id>]
-//!   [--generation <id>]` reads an exact source-backed chunk;
-//! - `maestro mcp` serves the implemented collection and chunk tools over
+//! - `maestro knowledge search --collection <id> --query <text>
+//!   [--version <version>] [--k <n>] [--max-tokens <n>]
+//!   [--deadline-ms <n>]` returns bounded `maestro-evidence/1` data under
+//!   `maestro-cli/knowledge-search/1`;
+//! - `maestro knowledge get (--chunk-id <id> | --section-id <id>)
+//!   [--collection <id>] [--generation <id>]` reads an exact source-backed
+//!   chunk or section;
+//! - `maestro mcp` serves the collection, search and exact-retrieval tools over
 //!   stdio JSON-RPC;
 //! - `maestro job wait <id>` follows a job until it ends, and exits with its
 //!   outcome;

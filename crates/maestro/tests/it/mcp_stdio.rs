@@ -37,10 +37,11 @@ fn mcp_initializes_and_lists_only_implemented_tools_without_cli_wrapping() {
             .iter()
             .map(|tool| tool["name"].as_str().unwrap())
             .collect::<Vec<_>>(),
-        ["knowledge_collections", "knowledge_get"]
+        ["knowledge_collections", "knowledge_get", "knowledge_search"]
     );
     assert_collections_tool(&tools[0]);
     assert_get_tool(&tools[1]);
+    assert_search_tool(&tools[2]);
 }
 
 fn assert_collections_tool(collections: &Value) {
@@ -55,6 +56,39 @@ fn assert_collections_tool(collections: &Value) {
         collections["outputSchema"]["properties"]["collections"]["type"],
         "array"
     );
+}
+
+fn assert_search_tool(search: &Value) {
+    assert_eq!(search["inputSchema"]["type"], "object");
+    assert_eq!(search["inputSchema"]["additionalProperties"], false);
+    assert_eq!(search["inputSchema"]["properties"]["k"]["minimum"], 1);
+    assert_eq!(search["inputSchema"]["properties"]["k"]["maximum"], 50);
+    assert_eq!(search["inputSchema"]["properties"]["k"]["default"], 10);
+    assert_eq!(
+        search["inputSchema"]["properties"]["max_tokens"]["maximum"],
+        12_000
+    );
+    assert_eq!(
+        search["inputSchema"]["properties"]["max_tokens"]["default"],
+        6000
+    );
+    assert_eq!(
+        search["inputSchema"]["properties"]["deadline_ms"]["maximum"],
+        10_000
+    );
+    assert_eq!(
+        search["inputSchema"]["properties"]["deadline_ms"]["default"],
+        1500
+    );
+    assert_eq!(search["outputSchema"]["type"], "object");
+    assert!(
+        search["outputSchema"]
+            .to_string()
+            .contains("maestro-evidence/1")
+    );
+    assert_eq!(search["annotations"]["readOnlyHint"], true);
+    assert_eq!(search["annotations"]["destructiveHint"], false);
+    assert_eq!(search["annotations"]["openWorldHint"], true);
 }
 
 fn assert_get_tool(get: &Value) {
@@ -122,7 +156,7 @@ fn initialize_negotiates_rmcp_versions_and_accepts_a_follow_up_tools_list() {
             .iter()
             .find(|response| response["id"] == 2)
             .unwrap();
-        assert_eq!(tools["result"]["tools"].as_array().unwrap().len(), 2);
+        assert_eq!(tools["result"]["tools"].as_array().unwrap().len(), 3);
     }
 }
 

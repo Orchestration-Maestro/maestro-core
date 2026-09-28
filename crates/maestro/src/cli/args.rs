@@ -125,7 +125,28 @@ pub(super) enum KnowledgeCommand {
     },
     /// List collection metadata visible to the local principal.
     Collections,
-    /// Retrieve an exact chunk from its visible published or retained generation.
+    /// Search a published generation and return bounded source-backed evidence.
+    Search {
+        /// The collection whose current published generation is searched.
+        #[arg(long)]
+        collection: String,
+        /// The original question to search for.
+        #[arg(long)]
+        query: String,
+        /// Restrict results to this exact documented version.
+        #[arg(long)]
+        version: Option<String>,
+        /// Maximum final passage count (1..=50, default 10).
+        #[arg(long = "k")]
+        max_passages: Option<u32>,
+        /// Maximum evidence tokens (1..=12000, default 6000).
+        #[arg(long)]
+        max_tokens: Option<u32>,
+        /// Search deadline in milliseconds (1..=10000, default 1500).
+        #[arg(long)]
+        deadline_ms: Option<u32>,
+    },
+    /// Retrieve an exact chunk or section from its visible published or retained generation.
     Get {
         /// The chunk's stable ID.
         #[arg(long, group = "get_selector", required = true)]

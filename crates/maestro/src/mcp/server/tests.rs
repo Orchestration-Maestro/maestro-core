@@ -1,4 +1,8 @@
-use super::{CollectionsRequest, KnowledgeServer, get_result, operation_error};
+use super::{
+    knowledge_server::KnowledgeServer,
+    operations::{CollectionsRequest, InputFailure, parse_operation},
+    response::{get_result, operation_error},
+};
 use crate::{
     kernel::Kernel,
     knowledge::operations::{GetData, GetExcerpt, KnowledgeError},
@@ -25,6 +29,8 @@ use tokio::{
     time::timeout,
 };
 
+mod search_workers;
+
 /// A bound that only stops a hung test; it is generous so a loaded
 /// machine cannot fail a correct run.
 const HANG_GUARD: Duration = Duration::from_secs(30);
@@ -39,13 +45,25 @@ fn empty_collection_arguments_are_strict_and_refuse_identity_fields() {
 }
 
 #[test]
+fn malformed_search_arguments_are_tool_errors_before_worker_admission() {
+    let error = match parse_operation(
+        "knowledge_search",
+        json!({"collection": "collection", "query": "question", "principal": "other"}),
+    ) {
+        Err(InputFailure::Tool { code, .. }) => code,
+        Err(InputFailure::Protocol(_)) | Ok(_) => panic!("malformed search arguments refused"),
+    };
+    assert_eq!(error, "invalid_arguments");
+}
+
+#[test]
 fn server_info_and_tool_lookup_match_the_read_only_contract() {
-    let server = KnowledgeServer::new();
+    let server = KnowledgeServer::for_tests();
     let info = server.get_info();
     assert_eq!(info.server_info.name, "maestro");
     assert!(info.instructions.is_some());
 
-    for name in ["knowledge_collections", "knowledge_get"] {
+    for name in ["knowledge_collections", "knowledge_get", "knowledge_search"] {
         let tool = server.get_tool(name).expect("known tool");
         assert_eq!(tool.name.as_ref(), name);
     }
@@ -54,7 +72,7 @@ fn server_info_and_tool_lookup_match_the_read_only_contract() {
 
 #[test]
 fn protocol_versions_match_rmcp_defaults() {
-    let server = KnowledgeServer::new();
+    let server = KnowledgeServer::for_tests();
     assert_eq!(
         server.supported_protocol_versions().as_ref(),
         ProtocolVersion::KNOWN_VERSIONS
@@ -373,6 +391,10 @@ fn handshake_and_tool_call(id: i64, name: &str, arguments: &Value) -> Vec<u8> {
 }
 
 fn cancel_and_call(cancelled_id: i64, busy_id: i64) -> Vec<u8> {
+    cancel_and_tool_call(cancelled_id, busy_id, "knowledge_collections", &json!({}))
+}
+
+fn cancel_and_tool_call(cancelled_id: i64, next_id: i64, name: &str, arguments: &Value) -> Vec<u8> {
     let lines = [
         json!({
             "jsonrpc": "2.0",
@@ -381,9 +403,9 @@ fn cancel_and_call(cancelled_id: i64, busy_id: i64) -> Vec<u8> {
         }),
         json!({
             "jsonrpc": "2.0",
-            "id": busy_id,
+            "id": next_id,
             "method": "tools/call",
-            "params": {"name": "knowledge_collections", "arguments": {}}
+            "params": {"name": name, "arguments": arguments}
         }),
     ];
     format!(

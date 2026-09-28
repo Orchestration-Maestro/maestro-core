@@ -76,7 +76,7 @@ fn fixture() -> Fixture {
     let card_json = artifacts.get(card.digest()).unwrap();
     database.put(&card_json, "application/json").unwrap();
     let kernel = Kernel {
-        database,
+        database: database.into(),
         artifacts,
         scopes,
         config_dir: PathBuf::new(),

@@ -115,6 +115,21 @@ fn inventories_require_exact_ordered_groups_and_structured_success() {
 }
 
 #[test]
+fn partial_inventory_counts_require_an_explicit_truncation_gap() {
+    let mut partial = valid_wire();
+    partial["inventory"]["sets"] = json!([{"value": "cli", "documents": 1}]);
+    assert_invalid(partial.clone());
+
+    partial["known_gaps"] = json!([
+        "Search inventory truncated: 1 groups were omitted; remaining entries are incomplete."
+    ]);
+    assert!(serde_json::from_value::<Bundle>(partial.clone()).is_ok());
+
+    partial["inventory"]["sets"][0]["documents"] = json!(3);
+    assert_invalid(partial);
+}
+
+#[test]
 fn inventories_accept_the_exact_response_bounds_and_refuse_overflow() {
     let mut max_groups = valid_wire();
     max_groups["inventory"]["sets"] = Value::Array(

@@ -94,7 +94,7 @@ fn fixture(generation: Option<(&str, &str, &str)>, search: Option<(&str, bool)>)
     let scopes = database.visible("report-test").unwrap();
     complete_set(&database, CHUNK_SET);
     let kernel = Kernel {
-        database,
+        database: database.into(),
         artifacts,
         scopes,
         config_dir: PathBuf::new(),

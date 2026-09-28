@@ -1,13 +1,17 @@
+use super::search::search_with;
 use super::{KnowledgeError, collections_with, get_with, section_read_failure};
+use crate::knowledge::SearchRequest;
 use crate::{failure::Failure, kernel::Kernel, knowledge::GetRequest};
+use maestro_kernel::gateway::{RouterClient, Url};
 use maestro_kernel::{
     chunk_set::{Chunk, NewChunkSet},
     document::{Collection, Document, Revision, RevisionStatus, Source},
     evidence::Span,
     generation::NewGeneration,
+    scope::Config,
     store::Database,
 };
-use maestro_knowledge::search::evidence::SectionReadError;
+use maestro_knowledge::{index::Qdrant, search::evidence::SectionReadError};
 use serde_json::Map;
 use std::{
     collections::BTreeMap,
@@ -224,6 +228,41 @@ fn section_get_refuses_access_revoked_after_source_read_error() {
 fn get_refuses_access_revoked_after_source_resolution() {
     let scratch = Scratch::new();
     let result = get_with(|| scratch.kernel(Some(1)), &chunk_request());
+    assert!(matches!(result, Err(ACCESS_CHANGED)));
+}
+
+#[tokio::test]
+async fn search_refuses_a_temporary_grant_revoked_before_delivery() {
+    let scratch = Scratch::new();
+    fs::write(
+        scratch.config().join("config.toml"),
+        "[access]\nread = []\n",
+    )
+    .expect("remove the initial grant");
+    let kernel = scratch
+        .kernel(None)
+        .expect("open without collection access")
+        .with_test_refresh_hook(0, revoke_access);
+    fs::write(
+        scratch.config().join("config.toml"),
+        "[access]\nread = ['workspace/default']\n",
+    )
+    .expect("grant collection access during search");
+    kernel
+        .database
+        .apply_config(&Config::load(&scratch.config()).expect("load temporary grant"))
+        .expect("apply temporary grant");
+    let request = SearchRequest::parse(serde_json::json!({
+        "collection": "collection",
+        "query": "question",
+        "deadline_ms": 1000
+    }))
+    .expect("valid search request");
+    let model_port = RouterClient::new(Url::parse("http://127.0.0.1:8080").unwrap()).unwrap();
+    let qdrant = Qdrant::new("http://127.0.0.1:1").unwrap();
+
+    let result = Box::pin(search_with(kernel, &request, &model_port, &qdrant)).await;
+
     assert!(matches!(result, Err(ACCESS_CHANGED)));
 }
 

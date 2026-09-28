@@ -11,6 +11,37 @@ use tokio::time::timeout;
 /// Reserved model tokens for the query and document's special tokens.
 const SPECIAL_TOKENS: usize = 16;
 
+/// Fixed public reranker failure categories; backend text never leaves the route.
+#[derive(Clone, Copy)]
+enum RerankFailure {
+    /// The selected card does not have the reranker role.
+    InvalidModelCard,
+    /// The router refused tokenization or scoring.
+    ModelUnavailable,
+    /// The router returned the wrong number or a non-finite score.
+    InvalidResponse,
+    /// Tokenization or scoring exceeded the accepted deadline.
+    DeadlineExceeded,
+    /// The query or document cannot fit the card's context window.
+    ContextLimit,
+    /// Candidate window boundaries violate UTF-8 invariants.
+    InvalidCandidate,
+}
+
+impl RerankFailure {
+    /// Stable code exposed in the evidence bundle.
+    fn code(self) -> &'static str {
+        match self {
+            Self::InvalidModelCard => "invalid_model_card",
+            Self::ModelUnavailable => "model_unavailable",
+            Self::InvalidResponse => "invalid_response",
+            Self::DeadlineExceeded => "deadline_exceeded",
+            Self::ContextLimit => "context_limit",
+            Self::InvalidCandidate => "invalid_candidate",
+        }
+    }
+}
+
 /// The initial reranking depth measured by T008.
 pub const DEFAULT_DEPTH: NonZeroUsize = NonZeroUsize::new(80).expect("default depth is nonzero");
 
@@ -53,7 +84,7 @@ pub struct Reranked {
 /// Reranks the first `depth` fused candidates, keeping the rest in fused order.
 ///
 /// A deadline, port failure or invalid response returns all candidates in
-/// their original fused order with no rerank scores.
+/// their original fused order with no rerank scores and a fixed safe reason.
 pub async fn rerank<P: ModelPort>(
     query: &str,
     candidates: Vec<Candidate>,
@@ -62,13 +93,7 @@ pub async fn rerank<P: ModelPort>(
     deadline: Duration,
 ) -> Reranked {
     if reranker.card.fields().role != Role::Reranker {
-        return unavailable(
-            candidates,
-            format!(
-                "the model card is a {}, not a reranker's",
-                reranker.card.fields().role
-            ),
-        );
+        return unavailable(candidates, RerankFailure::InvalidModelCard);
     }
 
     let rerank_count = depth.get().min(candidates.len());
@@ -89,22 +114,15 @@ pub async fn rerank<P: ModelPort>(
             .port
             .rerank(reranker.card, Room::Free, query, &prepared.documents)
             .await
-            .map_err(|error| error.to_string())?;
-        if scores.len() != prepared.owners.len() {
-            return Err(format!(
-                "the reranker returned {} scores for {} documents",
-                scores.len(),
-                prepared.owners.len()
-            ));
-        }
-        if scores.iter().any(|score| !score.is_finite()) {
-            return Err("the reranker returned a non-finite score".to_owned());
+            .map_err(|_| RerankFailure::ModelUnavailable)?;
+        if scores.len() != prepared.owners.len() || scores.iter().any(|score| !score.is_finite()) {
+            return Err(RerankFailure::InvalidResponse);
         }
 
         let mut best_scores = vec![None; rerank_count];
         for (owner, score) in prepared.owners.into_iter().zip(scores) {
             let Some(best) = best_scores.get_mut(owner) else {
-                return Err("the reranker score had no candidate".to_owned());
+                return Err(RerankFailure::InvalidResponse);
             };
             *best = Some(best.map_or(score, |current: f64| current.max(score)));
         }
@@ -115,12 +133,7 @@ pub async fn rerank<P: ModelPort>(
     let scores = match response {
         Ok(Ok(scores)) => scores,
         Ok(Err(reason)) => return unavailable(candidates, reason),
-        Err(_) => {
-            return unavailable(
-                candidates,
-                format!("rerank timed out after {} ms", deadline.as_millis()),
-            );
-        }
+        Err(_) => return unavailable(candidates, RerankFailure::DeadlineExceeded),
     };
 
     let mut ranked = candidates
@@ -164,9 +177,9 @@ async fn prepare_documents<P: ModelPort>(
     candidates: &[Candidate],
     rerank_count: usize,
     reranker: &Reranker<'_, P>,
-) -> Result<PreparedDocuments, String> {
+) -> Result<PreparedDocuments, RerankFailure> {
     let context_tokens = usize::try_from(reranker.card.fields().limits.context_tokens.get())
-        .map_err(|error| error.to_string())?;
+        .map_err(|_| RerankFailure::ContextLimit)?;
     let mut query_tokens = None;
     let mut prepared = PreparedDocuments {
         documents: Vec::new(),
@@ -191,19 +204,19 @@ async fn prepare_documents<P: ModelPort>(
                 .port
                 .tokenize(reranker.card, Room::Free, query)
                 .await
-                .map_err(|error| error.to_string())?
+                .map_err(|_| RerankFailure::ModelUnavailable)?
                 .len();
             query_tokens = Some(count);
             count
         };
         let text_budget = context_tokens
             .checked_sub(count.saturating_add(SPECIAL_TOKENS))
-            .ok_or_else(|| "the query exceeds the reranker's context limit".to_owned())?;
+            .ok_or(RerankFailure::ContextLimit)?;
         let text_tokens = reranker
             .port
             .tokenize(reranker.card, Room::Free, &candidate.text)
             .await
-            .map_err(|error| error.to_string())?
+            .map_err(|_| RerankFailure::ModelUnavailable)?
             .len();
         if text_tokens <= text_budget {
             add_document(&mut prepared, owner, candidate.text.clone());
@@ -228,13 +241,13 @@ async fn split_text<P: ModelPort>(
     text: &str,
     token_budget: usize,
     reranker: &Reranker<'_, P>,
-) -> Result<Vec<String>, String> {
+) -> Result<Vec<String>, RerankFailure> {
     let mut windows = Vec::new();
     let mut start = 0;
     while start < text.len() {
         let ends = text
             .get(start..)
-            .ok_or_else(|| "document window was not on a character boundary".to_owned())?
+            .ok_or(RerankFailure::InvalidCandidate)?
             .char_indices()
             .map(|(offset, character)| start + offset + character.len_utf8())
             .collect::<Vec<_>>();
@@ -245,15 +258,15 @@ async fn split_text<P: ModelPort>(
             let end = ends
                 .get(middle)
                 .copied()
-                .ok_or_else(|| "document window boundary was missing".to_owned())?;
+                .ok_or(RerankFailure::InvalidCandidate)?;
             let window = text
                 .get(start..end)
-                .ok_or_else(|| "document window was not on a character boundary".to_owned())?;
+                .ok_or(RerankFailure::InvalidCandidate)?;
             let count = reranker
                 .port
                 .tokenize(reranker.card, Room::Free, window)
                 .await
-                .map_err(|error| error.to_string())?
+                .map_err(|_| RerankFailure::ModelUnavailable)?
                 .len();
             if count <= token_budget {
                 low = middle + 1;
@@ -266,12 +279,10 @@ async fn split_text<P: ModelPort>(
             .checked_sub(1)
             .and_then(|index| ends.get(index))
             .copied()
-            .ok_or_else(|| {
-                "no character of the document fits the reranker's context window".to_owned()
-            })?;
+            .ok_or(RerankFailure::ContextLimit)?;
         let fitting = text
             .get(start..end)
-            .ok_or_else(|| "document window was not on a character boundary".to_owned())?;
+            .ok_or(RerankFailure::InvalidCandidate)?;
         if let Some(whitespace_end) = fitting
             .char_indices()
             .filter_map(|(offset, character)| {
@@ -286,34 +297,30 @@ async fn split_text<P: ModelPort>(
 
         let mut window = text
             .get(start..end)
-            .ok_or_else(|| "document window was not on a character boundary".to_owned())?;
+            .ok_or(RerankFailure::InvalidCandidate)?;
         let mut count = reranker
             .port
             .tokenize(reranker.card, Room::Free, window)
             .await
-            .map_err(|error| error.to_string())?
+            .map_err(|_| RerankFailure::ModelUnavailable)?
             .len();
         if count > token_budget {
             end = low
                 .checked_sub(1)
                 .and_then(|index| ends.get(index))
                 .copied()
-                .ok_or_else(|| {
-                    "no character of the document fits the reranker's context window".to_owned()
-                })?;
+                .ok_or(RerankFailure::ContextLimit)?;
             window = text
                 .get(start..end)
-                .ok_or_else(|| "document window was not on a character boundary".to_owned())?;
+                .ok_or(RerankFailure::InvalidCandidate)?;
             count = reranker
                 .port
                 .tokenize(reranker.card, Room::Free, window)
                 .await
-                .map_err(|error| error.to_string())?
+                .map_err(|_| RerankFailure::ModelUnavailable)?
                 .len();
             if count > token_budget {
-                return Err(
-                    "no character of the document fits the reranker's context window".to_owned(),
-                );
+                return Err(RerankFailure::ContextLimit);
             }
         }
         windows.push(window.to_owned());
@@ -324,7 +331,7 @@ async fn split_text<P: ModelPort>(
 }
 
 /// Returns every candidate in fused order when reranking cannot complete.
-fn unavailable(candidates: Vec<Candidate>, reason: String) -> Reranked {
+fn unavailable(candidates: Vec<Candidate>, reason: RerankFailure) -> Reranked {
     Reranked {
         ranked: candidates
             .into_iter()
@@ -333,6 +340,6 @@ fn unavailable(candidates: Vec<Candidate>, reason: String) -> Reranked {
                 score: None,
             })
             .collect(),
-        status: RouteStatus::Unavailable(reason),
+        status: RouteStatus::Unavailable(reason.code().to_owned()),
     }
 }

@@ -74,14 +74,19 @@ in place.
 │   │   │   │   │   ├── mod.rs                                               # The checks' door: declarations only
 │   │   │   │   │   ├── services.rs                                          # Qdrant answering as the pinned version, the router listing its catalog, each role's model card
 │   │   │   │   │   └── status.rs                                            # maestro status: the kernel, Qdrant and the router ready or not, and each readable collection; exits 0
-│   │   │   │   ├── publish/                                                 # Publish
-│   │   │   │   │   ├── mod.rs                                               # Rust source: mod
+│   │   │   │   ├── publish/                                                 # Explicit replacement of a lost projection and frozen resume identity
+│   │   │   │   │   ├── mod.rs                                               # Explicit replacement of a lost projection and frozen resume identity
 │   │   │   │   │   ├── recovery.rs                                          # Frozen identity and restart selection for explicit projection recovery
 │   │   │   │   │   └── run.rs                                               # knowledge publish: a verified Qdrant projection as a leased job
-│   │   │   │   ├── publish_report/                                          # Publish report
-│   │   │   │   │   ├── mod.rs                                               # Rust source: mod
+│   │   │   │   ├── publish_report/                                          # Historical publication and current projection readiness reporting
+│   │   │   │   │   ├── mod.rs                                               # Historical publication and current projection readiness reporting
 │   │   │   │   │   ├── render.rs                                            # Reconciled output for the historical publication and current projection
 │   │   │   │   │   └── tests.rs                                             # Pure report formatting and database-to-Qdrant reconciliation checks
+│   │   │   │   ├── search/                                                  # CLI presentation for scoped search bundles
+│   │   │   │   │   ├── execution.rs                                         # CLI setup, scoped execution and exit-code mapping for search
+│   │   │   │   │   ├── mod.rs                                               # CLI presentation for scoped search bundles
+│   │   │   │   │   ├── presentation.rs                                      # The CLI's bounded evidence document and text view
+│   │   │   │   │   └── tests.rs                                             # Rust source: tests
 │   │   │   │   ├── setup/                                                   # maestro setup: Qdrant 1.19.1 pinned by digest, a systemd user unit on 127.0.0.1; a preview, then --yes
 │   │   │   │   │   ├── tests/                                               # Unit tests of setup: the pin and the platforms everywhere; the unit and the install with fake tools on Unix
 │   │   │   │   │   │   ├── install.rs                                       # A preview and a second run change nothing, a digest mismatch writes nothing, each failure is named
@@ -126,19 +131,36 @@ in place.
 │   │   │   │   ├── operations/                                              # Source-scoped kernel operations for the CLI and MCP read surfaces
 │   │   │   │   │   ├── implementation.rs                                    # Scoped application operations shared by CLI and MCP
 │   │   │   │   │   ├── mod.rs                                               # Source-scoped kernel operations for the CLI and MCP read surfaces
+│   │   │   │   │   ├── search.rs                                            # Scoped search followed by the approved evidence assembly handoff
+│   │   │   │   │   └── tests.rs                                             # Rust source: tests
+│   │   │   │   ├── output/                                                  # Shared response bounds and semantic search truncation for CLI and MCP
+│   │   │   │   │   ├── mod.rs                                               # Shared response bounds and semantic search truncation for CLI and MCP
+│   │   │   │   │   ├── policy.rs                                            # Shared response bounds and semantic search truncation for CLI and MCP
 │   │   │   │   │   └── tests.rs                                             # Rust source: tests
 │   │   │   │   ├── mod.rs                                                   # Scoped knowledge operations shared by the CLI and stdio MCP server
-│   │   │   │   ├── output.rs                                                # Shared wire limit for complete serialized knowledge responses
 │   │   │   │   └── requests.rs                                              # Strict arguments shared by the CLI and MCP tools
 │   │   │   ├── mcp/                                                         # Bounded local stdio MCP transport and tools
 │   │   │   │   ├── server/                                                  # Read-only MCP tools backed by fresh, local-principal kernel operations
+│   │   │   │   │   ├── search/                                              # Async MCP dispatch and complete-response bounds for search
+│   │   │   │   │   │   └── tests.rs                                         # Rust source: tests
+│   │   │   │   │   ├── tests/                                               # Integration tests
+│   │   │   │   │   │   └── search_workers.rs                                # Rust source: search workers
+│   │   │   │   │   ├── warmup/                                              # Background startup warming for visible published embedder cards
+│   │   │   │   │   │   └── tests.rs                                         # Rust source: tests
+│   │   │   │   │   ├── handler.rs                                           # MCP protocol handler and advertised knowledge tool schemas
+│   │   │   │   │   ├── knowledge_server.rs                                  # The configured local knowledge server and its startup warm-up task
+│   │   │   │   │   ├── mod.rs                                               # Read-only MCP tools backed by fresh, local-principal kernel operations
+│   │   │   │   │   ├── operations.rs                                        # Strict MCP request parsing and bounded kernel workers
+│   │   │   │   │   ├── response.rs                                          # Bounded MCP response shapes, errors and wire-size checks
+│   │   │   │   │   ├── search.rs                                            # Async MCP dispatch and complete-response bounds for search
 │   │   │   │   │   ├── tests.rs                                             # Rust source: tests
+│   │   │   │   │   ├── types.rs                                             # Shared limits and kernel-open seam for the MCP server
+│   │   │   │   │   ├── warmup.rs                                            # Background startup warming for visible published embedder cards
 │   │   │   │   │   └── wire_tests.rs                                        # Wire-size and output-shaping tests for the MCP handler
 │   │   │   │   ├── transport/                                               # Stdio JSON-RPC framing with complete-line and complete-response byte bounds
 │   │   │   │   │   └── tests.rs                                             # Rust source: tests
 │   │   │   │   ├── mod.rs                                                   # Bounded local stdio MCP transport and tools
 │   │   │   │   ├── run.rs                                                   # Runs the stdio MCP server without sending diagnostics to stdout
-│   │   │   │   ├── server.rs                                                # Read-only MCP tools backed by fresh, local-principal kernel operations
 │   │   │   │   └── transport.rs                                             # Stdio JSON-RPC framing with complete-line and complete-response byte bounds
 │   │   │   ├── failure.rs                                                   # Failures at the CLI and local-kernel boundary
 │   │   │   ├── kernel.rs                                                    # The kernel opened for the local principal and its configured scopes
@@ -147,8 +169,11 @@ in place.
 │   │   │   └── it/                                                          # The contract tests: the built binary run in a scratch home
 │   │   │       ├── knowledge_get/                                           # CLI and MCP contracts for exact knowledge retrieval
 │   │   │       │   ├── cli_cases.rs                                         # Exact knowledge get CLI behavior
+│   │   │       │   ├── knowledge_search.rs                                  # CLI and MCP search through the shared scoped evidence pipeline
 │   │   │       │   ├── mcp_and_authorization.rs                             # MCP parity, permission refresh, and exact-retrieval refusal cases
 │   │   │       │   ├── mod.rs                                               # CLI and MCP contracts for exact knowledge retrieval
+│   │   │       │   ├── search_cli_failures.rs                               # CLI search failures retain their documented process exit codes
+│   │   │       │   ├── search_mcp_contract.rs                               # MCP search advertises only the strict read-only search arguments
 │   │   │       │   └── section_cases.rs                                     # Exact canonical-section retrieval across the CLI and MCP surfaces
 │   │   │       ├── rebuild_drill/                                           # An owned backup-loss-rebuild ranking drill and its safety/equality checks
 │   │   │       │   ├── backup_loss_drill/                                   # The opt-in real-service backup-loss and ranking-rebuild drill
@@ -849,9 +874,9 @@ in place.
 │       │       │   │   ├── scroll.rs                                        # Filtered, point-ID-ordered pages for the fake's Qdrant scroll API
 │       │       │   │   ├── server.rs                                        # The fake's server: its two services on a loopback port, in the test's runtime
 │       │       │   │   └── state.rs                                         # What the fake keeps, and the refusals and hollow answers a test asked for
-│       │       │   ├── projection_rebuild/                                  # Projection rebuild
+│       │       │   ├── projection_rebuild/                                  # Crash recovery assertions for lost or partially published projections
 │       │       │   │   ├── crash_boundaries.rs                              # Crash boundaries around alias and kernel publication
-│       │       │   │   ├── mod.rs                                           # Rust source: mod
+│       │       │   │   ├── mod.rs                                           # Crash recovery assertions for lost or partially published projections
 │       │       │   │   └── rebuild_tests.rs                                 # Explicit replacement of a lost published projection
 │       │       │   ├── search_routes/                                       # Dense and lexical routes against the shared fake and, when configured, real Qdrant
 │       │       │   │   ├── fused_search.rs                                  # The public search handoff fuses available routes when dense metadata is absent

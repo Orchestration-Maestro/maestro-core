@@ -1,9 +1,26 @@
 //! Strict arguments shared by the CLI and MCP tools.
 
-use maestro_kernel::scope::check_name;
+use maestro_kernel::{evidence::RequestBudget, scope::check_name};
+use maestro_knowledge::query::understand;
 use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::Value;
+use std::collections::BTreeSet;
+
+/// Returns the evidence contract's default passage count for the wire schema.
+fn default_k() -> u32 {
+    RequestBudget::default().k
+}
+
+/// Returns the evidence contract's default token budget for the wire schema.
+fn default_max_tokens() -> u32 {
+    RequestBudget::default().max_tokens
+}
+
+/// Returns the evidence contract's default deadline for the wire schema.
+fn default_deadline_ms() -> u32 {
+    RequestBudget::default().deadline_ms
+}
 
 /// The arguments for exact retrieval through one scoped identifier.
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -24,6 +41,100 @@ pub(crate) struct GetRequest {
     /// Pin this published or retained generation; requires `collection`.
     #[schemars(range(min = 1))]
     pub(crate) generation: Option<i64>,
+}
+
+/// The arguments for a scoped search through the evidence pipeline.
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct SearchRequest {
+    /// The collection whose current published generation is searched.
+    #[schemars(regex(pattern = r"^[a-z0-9][a-z0-9._-]{0,63}$"))]
+    #[schemars(length(min = 1, max = 64))]
+    pub(crate) collection: String,
+    /// The original question, at most 8192 UTF-8 bytes.
+    #[schemars(length(min = 1))]
+    #[schemars(description = "Nonblank question, at most 8192 UTF-8 bytes.")]
+    pub(crate) query: String,
+    /// Restrict results to this exact documented version.
+    #[schemars(length(min = 1, max = 256))]
+    pub(crate) version: Option<String>,
+    /// Maximum final passage count, default 10.
+    #[serde(rename = "k", default = "default_k")]
+    #[schemars(range(min = 1, max = 50))]
+    pub(crate) max_passages: u32,
+    /// Maximum evidence tokens, default 6000.
+    #[serde(default = "default_max_tokens")]
+    #[schemars(range(min = 1, max = 12_000))]
+    pub(crate) max_tokens: u32,
+    /// Search deadline in milliseconds, default 1500.
+    #[serde(default = "default_deadline_ms")]
+    #[schemars(range(min = 1, max = 10_000))]
+    pub(crate) deadline_ms: u32,
+}
+
+impl SearchRequest {
+    /// A CLI request, validated by the same rules as MCP input.
+    pub(crate) fn from_cli(request: Self) -> Result<Self, RequestError> {
+        request.validate()?;
+        Ok(request)
+    }
+
+    /// Parses a strict MCP object, refusing unknown fields before any kernel work.
+    pub(crate) fn parse(value: Value) -> Result<Self, RequestError> {
+        let request: Self =
+            serde_json::from_value(value).map_err(|_| RequestError::InvalidArguments)?;
+        request.validate()?;
+        Ok(request)
+    }
+
+    /// The accepted bounds echoed into `maestro-evidence/1`.
+    pub(crate) fn budget(&self) -> RequestBudget {
+        RequestBudget {
+            k: self.max_passages,
+            max_tokens: self.max_tokens,
+            deadline_ms: self.deadline_ms,
+        }
+    }
+
+    /// Applies public bounds before model or index work.
+    fn validate(&self) -> Result<(), RequestError> {
+        check_name(&self.collection).map_err(|_| RequestError::InvalidCollection)?;
+        if self.query.len() > 8192 {
+            return Err(RequestError::InvalidQuery);
+        }
+        let understood = understand(&self.query);
+        if understood.normalized.is_empty() {
+            return Err(RequestError::InvalidQuery);
+        }
+        if BTreeSet::from_iter(
+            understood
+                .identifiers
+                .iter()
+                .map(|identifier| identifier.text.as_str()),
+        )
+        .len()
+            > 64
+        {
+            return Err(RequestError::TooManyIdentifiers);
+        }
+        if self
+            .version
+            .as_deref()
+            .is_some_and(|version| version.trim().is_empty() || version.len() > 256)
+        {
+            return Err(RequestError::InvalidVersion);
+        }
+        if !(1..=50).contains(&self.max_passages) {
+            return Err(RequestError::InvalidK);
+        }
+        if !(1..=12_000).contains(&self.max_tokens) {
+            return Err(RequestError::InvalidMaxTokens);
+        }
+        if !(1..=10_000).contains(&self.deadline_ms) {
+            return Err(RequestError::InvalidDeadline);
+        }
+        Ok(())
+    }
 }
 
 /// Which exact identifier the request selected.
@@ -50,6 +161,18 @@ pub(crate) enum RequestError {
     InvalidGeneration,
     /// A generation selector requires its collection.
     GenerationNeedsCollection,
+    /// The query is blank or exceeds 8192 UTF-8 bytes.
+    InvalidQuery,
+    /// The query identifies more than 64 distinct values.
+    TooManyIdentifiers,
+    /// The explicit version is blank or exceeds 256 UTF-8 bytes.
+    InvalidVersion,
+    /// `k` is outside 1..=50.
+    InvalidK,
+    /// `max_tokens` is outside 1..=12000.
+    InvalidMaxTokens,
+    /// `deadline_ms` is outside 1..=10000.
+    InvalidDeadline,
 }
 
 impl RequestError {
@@ -62,6 +185,12 @@ impl RequestError {
             Self::InvalidCollection => "invalid_collection",
             Self::InvalidGeneration => "invalid_generation",
             Self::GenerationNeedsCollection => "generation_needs_collection",
+            Self::InvalidQuery => "invalid_query",
+            Self::TooManyIdentifiers => "too_many_identifiers",
+            Self::InvalidVersion => "invalid_version",
+            Self::InvalidK => "invalid_k",
+            Self::InvalidMaxTokens => "invalid_max_tokens",
+            Self::InvalidDeadline => "invalid_deadline_ms",
         }
     }
 
@@ -74,6 +203,12 @@ impl RequestError {
             Self::InvalidCollection => "collection is not a valid kernel name",
             Self::InvalidGeneration => "generation must be positive",
             Self::GenerationNeedsCollection => "generation requires collection",
+            Self::InvalidQuery => "query must be nonblank and at most 8192 UTF-8 bytes",
+            Self::TooManyIdentifiers => "query must contain at most 64 distinct identifiers",
+            Self::InvalidVersion => "version must contain 1 to 256 UTF-8 bytes",
+            Self::InvalidK => "k must be between 1 and 50",
+            Self::InvalidMaxTokens => "max_tokens must be between 1 and 12000",
+            Self::InvalidDeadline => "deadline_ms must be between 1 and 10000",
         }
     }
 }
@@ -138,7 +273,8 @@ impl GetRequest {
 
 #[cfg(test)]
 mod tests {
-    use super::{GetRequest, RequestError};
+    use super::{GetRequest, RequestError, SearchRequest};
+    use maestro_kernel::evidence::RequestBudget;
     use serde_json::json;
 
     #[test]
@@ -192,5 +328,141 @@ mod tests {
             GetRequest::parse(json!({"principal": "other"})).expect_err("unknown identity field"),
             RequestError::InvalidArguments
         );
+    }
+
+    fn search(
+        query: impl Into<String>,
+        version: Option<String>,
+        max_passages: Option<u32>,
+        max_tokens: Option<u32>,
+        deadline_ms: Option<u32>,
+    ) -> Result<SearchRequest, RequestError> {
+        let defaults = RequestBudget::default();
+        SearchRequest::from_cli(SearchRequest {
+            collection: "collection".to_owned(),
+            query: query.into(),
+            version,
+            max_passages: max_passages.unwrap_or(defaults.k),
+            max_tokens: max_tokens.unwrap_or(defaults.max_tokens),
+            deadline_ms: deadline_ms.unwrap_or(defaults.deadline_ms),
+        })
+    }
+
+    #[test]
+    fn search_request_uses_defaults_and_accepts_each_inclusive_budget_boundary() {
+        assert_eq!(
+            search("query", None, None, None, None)
+                .expect("defaults")
+                .budget(),
+            RequestBudget::default()
+        );
+        assert!(search("query", Some("v".repeat(256)), Some(1), Some(1), Some(1)).is_ok());
+        assert!(
+            search(
+                "query",
+                Some("v".repeat(256)),
+                Some(50),
+                Some(12_000),
+                Some(10_000)
+            )
+            .is_ok()
+        );
+    }
+
+    #[test]
+    fn search_request_refuses_blank_and_oversized_utf8_queries_and_versions() {
+        assert_eq!(
+            search(" \t ", None, None, None, None).expect_err("blank question"),
+            RequestError::InvalidQuery
+        );
+        assert!(search("é".repeat(4096), None, None, None, None).is_ok());
+        assert_eq!(
+            search("é".repeat(4097), None, None, None, None).expect_err("query byte bound"),
+            RequestError::InvalidQuery
+        );
+        assert_eq!(
+            search("query", Some("v".repeat(257)), None, None, None)
+                .expect_err("version byte bound"),
+            RequestError::InvalidVersion
+        );
+        assert_eq!(
+            search("query", Some(" \t ".to_owned()), None, None, None).expect_err("blank version"),
+            RequestError::InvalidVersion
+        );
+    }
+
+    #[test]
+    fn search_request_refuses_more_than_64_distinct_identifiers() {
+        let query = (0..65)
+            .map(|number| format!("${{ITEM_{number}}}"))
+            .collect::<Vec<_>>()
+            .join(" ");
+        assert_eq!(
+            search(&query, None, None, None, None).expect_err("identifier bound"),
+            RequestError::TooManyIdentifiers
+        );
+    }
+
+    #[test]
+    fn search_request_refuses_values_outside_each_budget_bound() {
+        for (max_passages, max_tokens, deadline_ms, expected) in [
+            (Some(0), None, None, RequestError::InvalidK),
+            (Some(51), None, None, RequestError::InvalidK),
+            (None, Some(0), None, RequestError::InvalidMaxTokens),
+            (None, Some(12_001), None, RequestError::InvalidMaxTokens),
+            (None, None, Some(0), RequestError::InvalidDeadline),
+            (None, None, Some(10_001), RequestError::InvalidDeadline),
+        ] {
+            assert_eq!(
+                search("query", None, max_passages, max_tokens, deadline_ms)
+                    .expect_err("out of bounds"),
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn strict_search_parser_refuses_unknown_fields_and_invalid_collections() {
+        assert!(
+            SearchRequest::parse(json!({
+                "collection": "collection",
+                "query": "question"
+            }))
+            .is_ok()
+        );
+        assert_eq!(
+            SearchRequest::parse(
+                json!({"collection": "collection", "query": "question", "principal": "other"})
+            )
+            .expect_err("identity injection"),
+            RequestError::InvalidArguments
+        );
+        assert_eq!(
+            SearchRequest::from_cli(SearchRequest {
+                collection: "bad/name".to_owned(),
+                query: "query".to_owned(),
+                version: None,
+                max_passages: RequestBudget::default().k,
+                max_tokens: RequestBudget::default().max_tokens,
+                deadline_ms: RequestBudget::default().deadline_ms,
+            })
+            .expect_err("invalid collection"),
+            RequestError::InvalidCollection
+        );
+    }
+
+    #[test]
+    fn search_schema_has_a_strict_object_root_and_bounds() {
+        let schema = serde_json::to_value(schemars::schema_for!(SearchRequest))
+            .expect("search argument schema");
+        assert_eq!(schema["type"], "object");
+        assert_eq!(schema["additionalProperties"], false);
+        assert_eq!(schema["properties"]["k"]["minimum"], 1);
+        assert_eq!(schema["properties"]["k"]["maximum"], 50);
+        assert_eq!(schema["properties"]["k"]["default"], 10);
+        assert_eq!(schema["properties"]["max_tokens"]["maximum"], 12_000);
+        assert_eq!(schema["properties"]["max_tokens"]["default"], 6000);
+        assert_eq!(schema["properties"]["deadline_ms"]["maximum"], 10_000);
+        assert_eq!(schema["properties"]["deadline_ms"]["default"], 1500);
     }
 }

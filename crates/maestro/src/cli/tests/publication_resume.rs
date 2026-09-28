@@ -15,6 +15,7 @@ use maestro_knowledge::{index::Progress, lexical};
 use serde_json::json;
 use std::{
     path::PathBuf,
+    sync::Arc,
     time::{Duration, SystemTime},
 };
 
@@ -24,7 +25,7 @@ fn publication_profile_changes_the_job_key_but_identical_inputs_reuse_it() {
     let database = scratch.database();
     let scopes = everything(&database);
     let kernel = Kernel {
-        database,
+        database: Arc::new(database),
         artifacts: Store::new("unused-artifact-store"),
         scopes,
         config_dir: PathBuf::new(),
@@ -98,7 +99,7 @@ fn a_retry_uses_the_latest_journaled_step_until_it_records_a_new_one() {
     let database = scratch.database();
     let scopes = everything(&database);
     let kernel = Kernel {
-        database,
+        database: Arc::new(database),
         artifacts: Store::new("unused-artifact-store"),
         scopes,
         config_dir: PathBuf::new(),

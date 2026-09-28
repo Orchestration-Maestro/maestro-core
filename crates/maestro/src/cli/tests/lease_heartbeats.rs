@@ -20,7 +20,7 @@ use maestro_kernel::{
 use serde_json::json;
 use std::{
     path::PathBuf,
-    sync::mpsc,
+    sync::{Arc, mpsc},
     thread,
     time::{Duration, Instant, SystemTime},
 };
@@ -141,7 +141,7 @@ fn a_command_runs_its_work_under_the_heartbeats_of_its_lease() {
         // The same key, so the foreground loop runs this job.
         let submitted = database.submit_job(&new, SystemTime::now()).unwrap();
         let kernel = Kernel {
-            database,
+            database: Arc::new(database),
             artifacts: Store::new("unused-artifact-store"),
             scopes,
             config_dir: PathBuf::new(),

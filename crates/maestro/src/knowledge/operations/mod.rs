@@ -1,6 +1,7 @@
 //! Source-scoped kernel operations for the CLI and MCP read surfaces.
 
 mod implementation;
+mod search;
 #[cfg(test)]
 pub(crate) mod tests;
 
@@ -11,3 +12,4 @@ pub(crate) use implementation::{CollectionItem, GetExcerpt};
 pub(crate) use implementation::{
     CollectionsData, GetData, KnowledgeError, collections_with, ensure_current_scopes, get_with,
 };
+pub(crate) use search::search_with;
