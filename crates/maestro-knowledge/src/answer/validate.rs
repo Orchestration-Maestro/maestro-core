@@ -268,13 +268,17 @@ fn unescaped(text: &str) -> String {
     .fold(text.to_owned(), |text, (entity, character)| {
         text.replace(entity, character)
     });
-    loop {
+    // Each pass that changes the text drops a backslash, so the backslash
+    // count bounds the passes.
+    let passes = current.matches('\\').count();
+    for _ in 0..passes {
         let next = without_escapes(&current);
         if next == current {
-            return next;
+            break;
         }
         current = next;
     }
+    current
 }
 
 /// Drops each backslash that escapes an ASCII punctuation character, once.
@@ -326,30 +330,19 @@ fn answer_tokens(text: &str) -> Vec<&str> {
 
 /// Removes surrounding punctuation while preserving characters inside literals.
 fn trim_token_edges(token: &str) -> &str {
-    let mut start = 0;
-    let mut end = token.len();
-    while start < end {
-        let Some(character) = token.get(start..end).and_then(|tail| tail.chars().next()) else {
-            break;
-        };
-        if !edge_punctuation(character, token.get(start..end).unwrap_or_default(), true) {
-            break;
-        }
-        start += character.len_utf8();
-    }
-    while start < end {
-        let Some(character) = token
-            .get(start..end)
-            .and_then(|tail| tail.chars().next_back())
-        else {
-            break;
-        };
-        if !edge_punctuation(character, token.get(start..end).unwrap_or_default(), false) {
-            break;
-        }
-        end -= character.len_utf8();
-    }
-    token.get(start..end).unwrap_or_default()
+    let start = token
+        .char_indices()
+        .find(|(index, character)| {
+            !edge_punctuation(*character, token.get(*index..).unwrap_or_default(), true)
+        })
+        .map_or(token.len(), |(index, _)| index);
+    let rest = token.get(start..).unwrap_or_default();
+    let end = rest
+        .char_indices()
+        .rev()
+        .find(|(_, character)| !edge_punctuation(*character, rest, false))
+        .map_or(0, |(index, character)| index + character.len_utf8());
+    rest.get(..end).unwrap_or_default()
 }
 
 /// Keeps path and option syntax but drops quotes, brackets and sentence marks.
@@ -432,52 +425,36 @@ fn backtick_literals(text: &str) -> Vec<String> {
 
 /// Extracts complete inline spans delimited by equal runs of one or two backticks.
 fn inline_backtick_literals(line: &str) -> Vec<String> {
+    let runs = backtick_runs(line);
     let mut literals = Vec::new();
-    let mut cursor = 0;
-    while let Some(relative_start) = line.get(cursor..).and_then(|tail| tail.find('`')) {
-        let Some(start) = cursor.checked_add(relative_start) else {
-            break;
-        };
-        let delimiter_length = line
-            .get(start..)
-            .unwrap_or_default()
-            .chars()
-            .take_while(|character| *character == '`')
-            .count();
-        let Some(content_start) = start.checked_add(delimiter_length) else {
-            break;
-        };
-        let mut search = content_start;
-        let mut close = None;
-        while let Some(relative_close) = line.get(search..).and_then(|tail| tail.find('`')) {
-            let Some(close_start) = search.checked_add(relative_close) else {
-                break;
-            };
-            let close_length = line
-                .get(close_start..)
-                .unwrap_or_default()
-                .chars()
-                .take_while(|character| *character == '`')
-                .count();
-            let Some(close_end) = close_start.checked_add(close_length) else {
-                break;
-            };
-            if close_length == delimiter_length {
-                close = Some((close_start, close_end));
-                break;
+    let mut remaining = runs.as_slice();
+    while let Some((&(open_start, open_end), rest)) = remaining.split_first() {
+        let length = open_end.saturating_sub(open_start);
+        remaining = match rest
+            .iter()
+            .position(|&(start, end)| end.saturating_sub(start) == length)
+        {
+            Some(close) => {
+                let close_start = rest.get(close).map_or(open_end, |&(start, _)| start);
+                literals.extend(line.get(open_end..close_start).map(str::to_owned));
+                rest.get(close + 1..).unwrap_or_default()
             }
-            search = close_end;
-        }
-        if let Some((close_start, close_end)) = close {
-            if let Some(literal) = line.get(content_start..close_start) {
-                literals.push(literal.to_owned());
-            }
-            cursor = close_end;
-        } else {
-            cursor = content_start;
-        }
+            None => rest,
+        };
     }
     literals
+}
+
+/// The byte ranges of `line`'s maximal backtick runs, in order.
+fn backtick_runs(line: &str) -> Vec<(usize, usize)> {
+    let mut runs: Vec<(usize, usize)> = Vec::new();
+    for (index, _) in line.match_indices('`') {
+        match runs.last_mut() {
+            Some((_, end)) if *end == index => *end = index + 1,
+            _ => runs.push((index, index + 1)),
+        }
+    }
+    runs
 }
 
 /// Checks a literal as the same whole-token sequence used on answer and evidence.

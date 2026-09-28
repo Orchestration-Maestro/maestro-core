@@ -621,7 +621,8 @@ in place.
 │       │   ├── answer/                                                      # Evidence-grounded answering with bounded generation and one validation retry
 │       │   │   ├── tests/                                                   # Integration tests
 │       │   │   │   ├── explain.rs                                           # Rust source: explain
-│       │   │   │   └── guardrails.rs                                        # Rust source: guardrails
+│       │   │   │   ├── guardrails.rs                                        # Rust source: guardrails
+│       │   │   │   └── requests.rs                                          # Rust source: requests
 │       │   │   ├── validate/                                                # Deterministic support checks for buffered answerer replies
 │       │   │   │   └── tests.rs                                             # Rust source: tests
 │       │   │   ├── generate.rs                                              # The bounded search-to-answer state machine and refusal handling

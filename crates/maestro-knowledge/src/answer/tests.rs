@@ -140,10 +140,15 @@ struct Scratch(PathBuf);
 
 impl Scratch {
     fn answerer(&self) -> RegisteredAnswerer {
+        self.answerer_with_output_limit(1024)
+    }
+
+    /// An answerer whose card allows `limit` output tokens.
+    fn answerer_with_output_limit(&self, limit: u32) -> RegisteredAnswerer {
         let mut card_json: serde_json::Value =
             serde_json::from_str(v2_golden::CANONICAL_ANSWERER_CARD)
                 .expect("canonical v2 answerer card");
-        card_json["identity"]["invocation"]["limits"]["output_tokens"] = serde_json::json!(1024);
+        card_json["identity"]["invocation"]["limits"]["output_tokens"] = serde_json::json!(limit);
         let mut identity: CardIdentity =
             serde_json::from_value(card_json["identity"].take()).expect("v2 identity");
         identity.router_entry = RouterEntry::parse("qwen3-4b").expect("router entry");
@@ -436,3 +441,5 @@ async fn i2_short_undetected_question_reaches_the_answerer() {
 mod explain;
 #[path = "tests/guardrails.rs"]
 mod guardrails;
+#[path = "tests/requests.rs"]
+mod requests;

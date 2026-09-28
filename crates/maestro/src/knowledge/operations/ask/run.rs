@@ -84,7 +84,7 @@ pub(crate) fn ask_with(
 }
 
 /// Loads the generation-matched selected reranker, if one is selected.
-fn reranker_card(
+pub(super) fn reranker_card(
     kernel: &Kernel,
     scopes: &ScopeSet,
     collection: &str,

@@ -114,8 +114,53 @@ fn explanation(rejections: &[Rejection]) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::explanation;
-    use maestro_knowledge::answer::Rejection;
+    use super::{answer_text, explanation};
+    use maestro_knowledge::answer::{
+        Answer, AnswerCitation, AnswerModel, AnswerRefusal, RefusalCode, Rejection,
+    };
+    use std::collections::BTreeMap;
+
+    #[test]
+    fn answer_text_lists_each_citation_or_prints_only_the_refusal() {
+        let mut answer = Answer {
+            schema: "maestro-answer/1".to_owned(),
+            collection: "docs".to_owned(),
+            generation: 1,
+            question: "How is it configured?".to_owned(),
+            lang: "en".to_owned(),
+            answer: "Use the documented defaults [1].".to_owned(),
+            citations: vec![AnswerCitation {
+                n: 1,
+                chunk_id: "chunk".to_owned(),
+                section_id: None,
+                source_ref: "https://example.org/docs".to_owned(),
+                title: "Defaults".to_owned(),
+                section_path: Vec::new(),
+                span: [0, 1],
+            }],
+            model: AnswerModel {
+                router_entry: "qwen3-4b".to_owned(),
+                card_id: None,
+            },
+            uncalibrated: true,
+            refusal: None,
+            closest: Vec::new(),
+            rejections: Vec::new(),
+            routes: BTreeMap::new(),
+        };
+        assert_eq!(
+            answer_text(&answer).ok().as_deref(),
+            Some("Use the documented defaults [1].\n\n[1] Defaults — https://example.org/docs")
+        );
+        answer.refusal = Some(AnswerRefusal {
+            code: RefusalCode::NotFound,
+            message: "No passage answers it.".to_owned(),
+        });
+        assert_eq!(
+            answer_text(&answer).ok().as_deref(),
+            Some("No passage answers it.")
+        );
+    }
 
     #[test]
     fn explanation_names_each_rejected_attempt_check_and_tokens() {

@@ -115,7 +115,7 @@ fn response_language(request: &AskRequest) -> ResponseLanguage {
 }
 
 /// Converts the public answer budget into the shared search bounds.
-fn request_budget(budget: AskBudget) -> RequestBudget {
+pub(super) fn request_budget(budget: AskBudget) -> RequestBudget {
     RequestBudget {
         k: budget.k,
         max_tokens: budget.max_tokens,

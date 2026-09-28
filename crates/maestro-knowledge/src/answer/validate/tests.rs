@@ -1,4 +1,7 @@
-use super::{Invalid, Reply, ValidationFailure, unescaped, unsupported_literals, validate_reply};
+use super::{
+    Invalid, Reply, ValidationFailure, inline_backtick_literals, trim_token_edges, unescaped,
+    unsupported_literals, validate_reply,
+};
 use crate::answer::{AskBudget, AskRequest};
 use maestro_kernel::{
     artifact::Digest,
@@ -189,17 +192,19 @@ fn i8_thinking_markup_is_stripped_or_rejected_before_output() {
             ..
         })
     ));
-    assert!(matches!(
-        validate_reply(
-            "The service uses documented defaults [1]. <think>hidden</think>",
-            &request,
-            &evidence,
-        ),
-        Err(Invalid {
-            failure: ValidationFailure::ThinkMarkup,
-            ..
-        })
-    ));
+    for leaked in ["<think>hidden</think>", "<think>", "</think>"] {
+        assert!(matches!(
+            validate_reply(
+                &format!("The service uses documented defaults [1]. {leaked}"),
+                &request,
+                &evidence,
+            ),
+            Err(Invalid {
+                failure: ValidationFailure::ThinkMarkup,
+                ..
+            })
+        ));
+    }
 }
 
 #[test]
@@ -402,4 +407,50 @@ fn a_bracket_with_a_number_is_a_citation_and_bracket_words_are_not_the_answer() 
         ),
         Ok(Reply::Answer(_))
     ));
+}
+
+#[test]
+fn each_literal_source_is_checked_once_in_its_own_region() {
+    // `understand` joins the lines of case 4 and pairs its stray backtick
+    // with the one before `halt`; this evidence supports that span.
+    let evidence = bundle("Press the backtick key. Then type the command.");
+    let cases: [(&str, &[&str]); 8] = [
+        (
+            "Run tool remove --all now.",
+            &["--all", "remove", "tool remove --all"],
+        ),
+        (
+            "List them with the command below.\n```\ntool list all\n```",
+            &["tool list all"],
+        ),
+        (
+            "Run the command below\n```\n--all\n```",
+            &["--all", "below"],
+        ),
+        ("Press ` key.\nThen type `halt` now.", &["halt"]),
+        ("Type ``a`b`` now.", &["a`b"]),
+        ("Type `` `halt` `` now `x", &[" `halt` "]),
+        ("Type `halt` then `x", &["halt"]),
+        ("Start it with ./run.", &["./run"]),
+    ];
+    for (reply, expected) in cases {
+        assert_eq!(
+            unsupported_literals(reply, "How?", &evidence),
+            expected,
+            "{reply:?}"
+        );
+    }
+}
+
+#[test]
+fn backtick_spans_and_token_edges_are_cut_on_character_boundaries() {
+    assert_eq!(
+        inline_backtick_literals("Type `` then `halt` now."),
+        ["halt"]
+    );
+    assert_eq!(inline_backtick_literals("é`ü` ``a`b``"), ["ü", "a`b"]);
+    assert_eq!(trim_token_edges("“/opt/café”."), "/opt/café");
+    assert_eq!(trim_token_edges("‘./é’"), "./é");
+    assert_eq!(trim_token_edges("—“”–"), "");
+    assert_eq!(trim_token_edges(""), "");
 }
