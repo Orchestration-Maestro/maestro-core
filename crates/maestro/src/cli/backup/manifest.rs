@@ -39,7 +39,7 @@ pub(super) struct Manifest {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct FileRecord {
-    /// Relative path within the backup.
+    /// Relative path within the backup, `/`-separated on every host.
     pub(super) path: String,
     /// Lowercase SHA-256 digest.
     pub(super) sha256: String,
@@ -84,7 +84,7 @@ pub(super) fn validate_backup(source: &Path) -> Result<Manifest, Failure> {
         let relative = safe_relative_path(&artifact.path)?;
         let digest =
             Digest::parse(&artifact.sha256).map_err(|error| Failure::refused_by(&error))?;
-        if relative != artifact_relative_path(&digest) {
+        if artifact.path != artifact_manifest_path(&digest) {
             return Err(Failure::refused(format!(
                 "artifact path {} does not match its digest",
                 artifact.path
@@ -110,7 +110,11 @@ pub(super) fn validate_backup(source: &Path) -> Result<Manifest, Failure> {
     }
 
     for record in iter::once(&manifest.database).chain(&manifest.artifacts) {
-        verify_file(&source.join(&record.path), &record.sha256, record.size)?;
+        verify_file(
+            &source.join(native_path(&record.path)),
+            &record.sha256,
+            record.size,
+        )?;
     }
     let connection =
         Connection::open_with_flags(source.join(DATABASE), OpenFlags::SQLITE_OPEN_READ_ONLY)
@@ -186,7 +190,12 @@ fn safe_relative_path(text: &str) -> Result<PathBuf, Failure> {
     {
         return Err(Failure::refused(format!("unsafe backup path {text:?}")));
     }
-    Ok(Path::new(text).to_path_buf())
+    Ok(native_path(text))
+}
+
+/// Converts a checked `/`-separated manifest path to a native relative path.
+pub(super) fn native_path(manifest_path: &str) -> PathBuf {
+    manifest_path.split('/').collect()
 }
 
 /// Checks that `path` is a standalone file with the recorded digest and size.
@@ -272,16 +281,13 @@ fn require_file(path: &Path) -> Result<(), Failure> {
     Ok(())
 }
 
-/// Returns the artifact store path for `digest`.
-pub(super) fn artifact_relative_path(digest: &Digest) -> PathBuf {
-    let mut characters = digest.as_str().chars();
+/// Returns the manifest path for `digest`, `/`-separated on every host.
+pub(super) fn artifact_manifest_path(digest: &Digest) -> String {
+    let text = digest.as_str();
+    let mut characters = text.chars();
     let first: String = characters.by_ref().take(2).collect();
     let second: String = characters.by_ref().take(2).collect();
-    Path::new(ARTIFACTS)
-        .join("sha256")
-        .join(first)
-        .join(second)
-        .join(digest.as_str())
+    format!("{ARTIFACTS}/sha256/{first}/{second}/{text}")
 }
 
 /// Reads the migration names recorded by a database in name order.
@@ -316,6 +322,63 @@ mod tests {
         assert_eq!(
             safe_relative_path("artifacts/sha256/ab/cd/digest").unwrap(),
             Path::new("artifacts/sha256/ab/cd/digest")
+        );
+    }
+
+    #[test]
+    fn safe_relative_path_rejects_windows_prefixes_and_separators() {
+        let invalid = [
+            r"C:\artifacts\digest",
+            "c:artifacts/digest",
+            r"\\server\share\artifacts",
+            "//server/share/artifacts",
+            r"\\?\C:\artifacts",
+            r"\artifacts\digest",
+            r"artifacts/sha256\ab/digest",
+            r"artifacts/..\outside",
+        ];
+        for path in invalid {
+            assert!(safe_relative_path(path).is_err(), "{path:?}");
+        }
+    }
+
+    #[test]
+    fn artifact_manifest_path_is_slash_separated_on_every_host() {
+        let digest = Digest::of(b"portable");
+        let text = digest.as_str();
+        assert_eq!(
+            artifact_manifest_path(&digest),
+            format!("artifacts/sha256/{}/{}/{text}", &text[..2], &text[2..4])
+        );
+    }
+
+    #[test]
+    fn native_path_splits_manifest_components() {
+        let native = native_path("artifacts/sha256/ab/cd/digest");
+        let components: Vec<_> = native.iter().collect();
+        assert_eq!(components, ["artifacts", "sha256", "ab", "cd", "digest"]);
+        assert_eq!(
+            native,
+            Path::new("artifacts")
+                .join("sha256")
+                .join("ab")
+                .join("cd")
+                .join("digest")
+        );
+        assert_eq!(native_path(DATABASE), Path::new(DATABASE));
+    }
+
+    #[test]
+    fn safe_relative_path_accepts_the_artifact_manifest_path() {
+        let digest = Digest::of(b"portable");
+        let text = digest.as_str();
+        assert_eq!(
+            safe_relative_path(&artifact_manifest_path(&digest)).unwrap(),
+            Path::new(ARTIFACTS)
+                .join("sha256")
+                .join(&text[..2])
+                .join(&text[2..4])
+                .join(text)
         );
     }
 

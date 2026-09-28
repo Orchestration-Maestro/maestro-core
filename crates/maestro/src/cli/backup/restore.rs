@@ -4,7 +4,7 @@ use super::{
     filesystem::{
         copy_hash, create_private_dir, create_private_dir_all, failed_io, normalize_path_error,
     },
-    manifest::Manifest,
+    manifest::{Manifest, native_path},
     names::{ARTIFACTS, DATABASE},
 };
 use crate::failure::Failure;
@@ -44,8 +44,9 @@ fn stage_restore(
     create_private_dir(&stage_artifacts)
         .map_err(|error| failed_io(&stage_artifacts, "create", &error))?;
     for record in iter::once(&manifest.database).chain(&manifest.artifacts) {
-        let source_path = source.join(&record.path);
-        let stage_path = stage.join(&record.path);
+        let relative = native_path(&record.path);
+        let source_path = source.join(&relative);
+        let stage_path = stage.join(&relative);
         create_private_dir_all(stage_path.parent().unwrap_or(stage))
             .map_err(|error| failed_io(&stage_path, "create its directory", &error))?;
         let (digest, size) = copy_hash(&source_path, &stage_path)
@@ -216,7 +217,9 @@ mod tests {
         fs::write(source.join(DATABASE), database_bytes).unwrap();
         let database_digest = Digest::of(database_bytes);
         let artifact_digest = Digest::of(b"right");
-        let artifact_path = super::super::manifest::artifact_relative_path(&artifact_digest);
+        let artifact_manifest_path =
+            super::super::manifest::artifact_manifest_path(&artifact_digest);
+        let artifact_path = native_path(&artifact_manifest_path);
         fs::create_dir_all(source.join(artifact_path.parent().unwrap())).unwrap();
         fs::write(source.join(&artifact_path), b"wrong").unwrap();
         let manifest = Manifest {
@@ -230,7 +233,7 @@ mod tests {
                 size: u64::try_from(database_bytes.len()).unwrap(),
             },
             artifacts: vec![super::super::manifest::FileRecord {
-                path: artifact_path.to_string_lossy().into_owned(),
+                path: artifact_manifest_path,
                 sha256: artifact_digest.as_str().to_owned(),
                 size: 5,
             }],

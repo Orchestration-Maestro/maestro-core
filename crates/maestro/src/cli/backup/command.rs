@@ -7,8 +7,8 @@ use super::{
         write_private,
     },
     manifest::{
-        BACKUP_SCHEMA, FileRecord, Manifest, artifact_relative_path, recorded_migrations,
-        validate_backup,
+        BACKUP_SCHEMA, FileRecord, Manifest, artifact_manifest_path, native_path,
+        recorded_migrations, validate_backup,
     },
     names::{ARTIFACTS, DATABASE, MANIFEST},
     restore::restore_files,
@@ -164,7 +164,8 @@ fn copy_artifacts(
     let mut artifacts = Vec::with_capacity(entries.len());
     for (text, recorded_size) in entries {
         let digest = Digest::parse(&text).map_err(|error| Failure::failed_by(&error))?;
-        let relative = artifact_relative_path(&digest);
+        let manifest_path = artifact_manifest_path(&digest);
+        let relative = native_path(&manifest_path);
         let source_path = data.join(&relative);
         let destination_path = destination.join(&relative);
         source_file(&source_path)?;
@@ -178,7 +179,7 @@ fn copy_artifacts(
             )));
         }
         artifacts.push(FileRecord {
-            path: relative.to_string_lossy().into_owned(),
+            path: manifest_path,
             sha256: found,
             size,
         });
@@ -200,7 +201,7 @@ mod tests {
         fs::create_dir_all(&data).unwrap();
 
         let digest = Digest::of(b"right");
-        let relative = artifact_relative_path(&digest);
+        let relative = native_path(&artifact_manifest_path(&digest));
         let source = data.join(&relative);
         fs::create_dir_all(source.parent().unwrap()).unwrap();
         fs::write(&source, b"wrong").unwrap();
