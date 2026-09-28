@@ -408,6 +408,9 @@ fn recovery_reads_absent_and_present_expected_pointers_and_requires_a_nonnegativ
     let mut negative_expected = present.clone();
     negative_expected["expected_published"] = json!(-1);
     assert!(publish::recovery(&negative_expected).is_err());
+    let mut zero_expected = present.clone();
+    zero_expected["expected_published"] = json!(0);
+    assert!(publish::recovery(&zero_expected).is_err());
     let mut missing = present.clone();
     missing
         .as_object_mut()

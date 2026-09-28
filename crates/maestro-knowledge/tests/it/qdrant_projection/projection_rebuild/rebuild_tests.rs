@@ -133,7 +133,7 @@ pub(super) async fn resume_fixture(backend: Backend) -> ResumeFixture {
 }
 
 /// Leaves a replacement partly indexed, with the original alias intact.
-async fn interrupt_rebuild(fixture: &ResumeFixture) -> Progress {
+pub(super) async fn interrupt_rebuild(fixture: &ResumeFixture) -> Progress {
     let mut interrupted = Vec::new();
     let stopped = projection(
         &fixture.kernel,

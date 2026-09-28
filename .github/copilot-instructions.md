@@ -905,7 +905,8 @@ in place.
 │       │       │   ├── projection_rebuild/                                  # Crash recovery assertions for lost or partially published projections
 │       │       │   │   ├── crash_boundaries.rs                              # Crash boundaries around alias and kernel publication
 │       │       │   │   ├── mod.rs                                           # Crash recovery assertions for lost or partially published projections
-│       │       │   │   └── rebuild_tests.rs                                 # Explicit replacement of a lost published projection
+│       │       │   │   ├── rebuild_tests.rs                                 # Explicit replacement of a lost published projection
+│       │       │   │   └── rebuild_validation.rs                            # Refusals for malformed journaled projection rebuild state
 │       │       │   ├── search_routes/                                       # Dense and lexical routes against the shared fake and, when configured, real Qdrant
 │       │       │   │   ├── fused_search.rs                                  # The public search handoff fuses available routes when dense metadata is absent
 │       │       │   │   ├── fused_search_admission_pinning.rs                # Search admission and generation-pinning acceptance tests

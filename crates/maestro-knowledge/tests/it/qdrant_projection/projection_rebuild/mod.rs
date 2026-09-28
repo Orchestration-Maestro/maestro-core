@@ -2,3 +2,4 @@
 
 mod crash_boundaries;
 mod rebuild_tests;
+mod rebuild_validation;

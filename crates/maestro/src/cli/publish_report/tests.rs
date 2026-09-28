@@ -255,6 +255,18 @@ fn text_report_names_the_recovery_command_only_for_a_succeeded_missing_projectio
     let outcome = json!({"generation": 4});
     let succeeded = job(JobState::Succeeded, outcome.clone());
     let next = recovery_command(COLLECTION, CHUNK_SET, &card);
+    assert_eq!(
+        next,
+        format!(
+            concat!(
+                "maestro knowledge publish --collection {} ",
+                "--chunk-set {} --card {} --again"
+            ),
+            COLLECTION,
+            CHUNK_SET,
+            card.digest().as_str()
+        )
+    );
     let missing = text_document(&succeeded, &outcome, Some(5), false, true);
     let line = publish_line(
         &succeeded,
@@ -281,6 +293,38 @@ fn text_report_names_the_recovery_command_only_for_a_succeeded_missing_projectio
     let line = publish_line(&failed, &document, &json!({}), &card);
     assert!(line.contains("outcome {\"error\":\"unavailable\"}"));
     assert!(!line.contains("next: run"));
+}
+
+#[test]
+fn projection_readiness_requires_the_collection_and_its_matching_alias() {
+    assert!(render::projection_is_ready(
+        true,
+        Some("collection"),
+        "collection"
+    ));
+    assert!(!render::projection_is_ready(
+        false,
+        Some("collection"),
+        "collection"
+    ));
+    assert!(!render::projection_is_ready(true, None, "collection"));
+    assert!(!render::projection_is_ready(
+        true,
+        Some("other"),
+        "collection"
+    ));
+    assert_eq!(
+        render::report_exit_code(JobState::Succeeded, true),
+        ExitCode::SUCCESS
+    );
+    assert_eq!(
+        render::report_exit_code(JobState::Succeeded, false),
+        ExitCode::from(1)
+    );
+    assert_eq!(
+        render::report_exit_code(JobState::Failed, true),
+        ExitCode::from(1)
+    );
 }
 
 #[test]

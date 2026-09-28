@@ -101,14 +101,17 @@ pub(in crate::cli) fn render(
             .map_err(|error| Failure::failed_by(&error))?;
         // The publication runtime is gone, so do not reuse its tonic channel.
         let qdrant = Qdrant::new(qdrant_url).map_err(|error| Failure::failed_by(&error))?;
-        runtime
+        let exists = runtime
             .block_on(qdrant.exists(&collection))
-            .map_err(|error| Failure::failed_by(&error))?
-            && runtime
+            .map_err(|error| Failure::failed_by(&error))?;
+        if exists {
+            let alias = runtime
                 .block_on(qdrant.alias_collection(&generation_alias(generation)))
-                .map_err(|error| Failure::failed_by(&error))?
-                .as_deref()
-                == Some(collection.as_str())
+                .map_err(|error| Failure::failed_by(&error))?;
+            projection_is_ready(true, alias.as_deref(), &collection)
+        } else {
+            false
+        }
     } else {
         false
     };
@@ -128,11 +131,21 @@ pub(in crate::cli) fn render(
     };
     let text = publish_line(job, &document, inputs, card);
     output.result(&document, &text)?;
-    Ok(if job.state == JobState::Succeeded && projection_ready {
+    Ok(report_exit_code(job.state, projection_ready))
+}
+
+/// Whether the collection exists and its alias points to that collection.
+pub(super) fn projection_is_ready(exists: bool, alias: Option<&str>, collection: &str) -> bool {
+    exists && alias == Some(collection)
+}
+
+/// Whether the historical job and current projection constitute success.
+pub(super) fn report_exit_code(state: JobState, projection_ready: bool) -> ExitCode {
+    if state == JobState::Succeeded && projection_ready {
         ExitCode::SUCCESS
     } else {
         ExitCode::from(1)
-    })
+    }
 }
 
 /// The text equivalent of the JSON reconciliation fields.
