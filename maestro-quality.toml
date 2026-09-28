@@ -268,6 +268,11 @@ rule = "DEP-001"
 path = "hashbrown@0.15.5"
 reason = "whatlang 0.18 requires it (ADR-0020); remove when whatlang moves to hashbrown 0.17"
 
+[[exception]]
+rule = "DEP-001"
+path = "foldhash@0.1.5"
+reason = "whatlang 0.18 requires it through hashbrown 0.15 while lbug 0.20.4's cxx uses foldhash 0.2 (S2 G25 spike; ADR-0020); remove when whatlang moves to hashbrown 0.17"
+
 # The MCP module owns its transport and service startup; CLI dispatch selects
 # its one public protocol entry point.
 [[exception]]

@@ -1,0 +1,5 @@
+# S2 G25 spike: lbug's build script otherwise downloads an unpinned, unchecked
+# prebuilt liblbug (and a helper script from LadybugDB's main branch) at build
+# time. Build the pinned bundled C++ sources instead, everywhere.
+[env]
+LBUG_BUILD_FROM_SOURCE = "1"
