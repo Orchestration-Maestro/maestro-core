@@ -175,6 +175,51 @@ fn a_near_duplicate_group_is_recorded_once_and_read_whole_from_any_member() {
 }
 
 #[test]
+fn batched_near_duplicates_match_the_ordered_union_of_per_revision_reads() {
+    let scratch = Scratch::new();
+    let database = opened(&scratch);
+    database
+        .record_near_duplicates(&[
+            member("near-1", "rev-a", 0.9),
+            member("near-1", "rev-b", 0.875),
+            member("near-1", "rev-m", 0.875),
+            member("near-2", "rev-a", 0.95),
+            member("near-2", "rev-m", 0.95),
+        ])
+        .unwrap();
+    let revisions = ["rev-b", "rev-a", "rev-m", "rev-a", "unknown"];
+    let everything = ScopeSet::default_workspace();
+    let batched = database
+        .near_duplicates_for_revisions(&everything, &revisions.map(str::to_owned))
+        .unwrap();
+    let mut per_revision = Vec::new();
+    for revision in revisions {
+        per_revision.extend(database.near_duplicates(&everything, revision).unwrap());
+    }
+    per_revision.sort_by(|left, right| {
+        left.group_id
+            .cmp(&right.group_id)
+            .then_with(|| left.revision_id.cmp(&right.revision_id))
+    });
+    per_revision.dedup_by(|left, right| {
+        left.group_id == right.group_id && left.revision_id == right.revision_id
+    });
+    assert_eq!(batched, per_revision);
+
+    let documents = reading(&database, "docs");
+    assert_eq!(
+        database
+            .near_duplicates_for_revisions(&documents, &revisions.map(str::to_owned))
+            .unwrap(),
+        vec![
+            member("near-1", "rev-a", 0.9),
+            member("near-1", "rev-b", 0.875),
+            member("near-2", "rev-a", 0.95),
+        ]
+    );
+}
+
+#[test]
 fn an_existing_near_duplicate_group_requires_its_complete_membership() {
     let expected = [
         member("near-1", "rev-a", 0.9),

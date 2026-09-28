@@ -7,3 +7,6 @@ pub(super) mod ledger;
 mod output;
 mod types;
 mod validate;
+
+#[cfg(test)]
+pub(super) use engine::{assemble_blocking, assemble_blocking_sequential};

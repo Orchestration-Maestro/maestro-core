@@ -49,14 +49,40 @@ pub(super) struct AssemblyWorker<'a> {
     pub(super) sources: SourceCache<'a>,
     /// Whether any named candidate was omitted by scoped current eligibility.
     pub(super) unresolved_candidate: bool,
+    /// The bounded source-load worker count; tests also run the sequential baseline.
+    source_load_workers: usize,
 }
 
+/// Maximum number of scoped source reads per evidence assembly.
+const SOURCE_LOAD_WORKERS: usize = 4;
+
 /// Runs the bounded request on a blocking thread, away from async runtimes.
-pub(super) fn assemble_blocking(
+pub(in crate::search::evidence) fn assemble_blocking(
     database: &Database,
     input: &EvidenceInput,
     counter: &EvidenceCounter,
     control: &ReadControl,
+) -> Result<Bundle, EvidenceError> {
+    assemble_blocking_with_source_workers(database, input, counter, control, SOURCE_LOAD_WORKERS)
+}
+
+#[cfg(test)]
+pub(in crate::search::evidence) fn assemble_blocking_sequential(
+    database: &Database,
+    input: &EvidenceInput,
+    counter: &EvidenceCounter,
+    control: &ReadControl,
+) -> Result<Bundle, EvidenceError> {
+    assemble_blocking_with_source_workers(database, input, counter, control, 1)
+}
+
+/// Revalidates and assembles with the requested source-load concurrency.
+fn assemble_blocking_with_source_workers(
+    database: &Database,
+    input: &EvidenceInput,
+    counter: &EvidenceCounter,
+    control: &ReadControl,
+    source_load_workers: usize,
 ) -> Result<Bundle, EvidenceError> {
     check(control)?;
     let counter_info = budget::counter_info(counter).map_err(EvidenceError::from)?;
@@ -88,6 +114,7 @@ pub(super) fn assemble_blocking(
         generation,
         ledger,
         unresolved_candidate: false,
+        source_load_workers,
     };
     worker.assemble(counter_info)
 }
@@ -198,24 +225,28 @@ impl AssemblyWorker<'_> {
             .map(|candidate| candidate.chunk.revision_id.as_str())
             .collect();
         let loaded_revisions: BTreeSet<_> = revisions.iter().copied().collect();
+        check(self.control)?;
+        let members = self
+            .database
+            .near_duplicates_for_revisions(
+                self.input.scopes.as_ref(),
+                &revisions
+                    .iter()
+                    .map(|revision| (*revision).to_owned())
+                    .collect::<Vec<_>>(),
+            )
+            .map_err(EvidenceError::Records)?;
+        check(self.control)?;
         let mut groups = BTreeMap::<String, BTreeSet<String>>::new();
-        for revision in revisions {
-            check(self.control)?;
-            let members = self
-                .database
-                .near_duplicates(self.input.scopes.as_ref(), revision)
-                .map_err(EvidenceError::Records)?;
-            check(self.control)?;
-            for member in members.into_iter().filter(|member| {
-                self.ledger.near_duplicate_groups.contains(&member.group_id)
-                    && self.ledger.revisions.contains(&member.revision_id)
-                    && loaded_revisions.contains(member.revision_id.as_str())
-            }) {
-                groups
-                    .entry(member.revision_id)
-                    .or_default()
-                    .insert(member.group_id);
-            }
+        for member in members.into_iter().filter(|member| {
+            self.ledger.near_duplicate_groups.contains(&member.group_id)
+                && self.ledger.revisions.contains(&member.revision_id)
+                && loaded_revisions.contains(member.revision_id.as_str())
+        }) {
+            groups
+                .entry(member.revision_id)
+                .or_default()
+                .insert(member.group_id);
         }
         Ok(groups)
     }
@@ -225,12 +256,22 @@ impl AssemblyWorker<'_> {
         &mut self,
         loaded: &[LoadedCandidate],
     ) -> Result<Vec<SeedSpan>, EvidenceError> {
+        let revisions = loaded
+            .iter()
+            .map(|candidate| candidate.chunk.revision_id.clone())
+            .collect::<Vec<_>>();
+        self.sources.load_many_with_workers(
+            &revisions,
+            &self.generation,
+            self.source_load_workers,
+        )?;
         let mut seeds = Vec::with_capacity(loaded.len());
         for candidate in loaded {
             check(self.control)?;
             let source = self
                 .sources
-                .load(&candidate.chunk.revision_id, &self.generation)?;
+                .get(&candidate.chunk.revision_id)
+                .ok_or(EvidenceError::WorkerFailed)?;
             if source.revision.id != candidate.chunk.revision_id {
                 return Err(integrity("chunk and revision identities do not match"));
             }

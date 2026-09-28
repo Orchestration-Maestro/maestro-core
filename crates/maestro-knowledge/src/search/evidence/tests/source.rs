@@ -1,9 +1,13 @@
 use super::support::{control, fixture};
 use crate::{
-    prepare::tests::scratch::{fail_revision, quarantine_revision, revision_of},
+    prepare::tests::scratch::{corrupt_artifact, fail_revision, quarantine_revision, revision_of},
     search::evidence::{source::SourceCache, types::EvidenceError},
 };
-use maestro_kernel::evidence::Span;
+use maestro_kernel::{evidence::Span, retrieval::ReadControl};
+use std::{
+    sync::{Arc, atomic::AtomicBool},
+    time::{Duration, Instant},
+};
 
 #[test]
 fn reads_authoritative_original_and_canonical_once_per_revision() {
@@ -109,4 +113,93 @@ fn refuses_a_revision_outside_the_permission_snapshot() {
         cache.load(&revision, &fixture.generation),
         Err(EvidenceError::NotVisible)
     ));
+}
+
+#[test]
+fn parallel_source_loads_cache_each_unique_authorized_revision_once() {
+    let fixture = fixture(&[
+        ("first.md", "# First\n\nThe first source.\n"),
+        ("second.md", "# Second\n\nThe second source.\n"),
+    ]);
+    let first = revision_of(&fixture.database, &fixture.scopes, "first.md");
+    let second = revision_of(&fixture.database, &fixture.scopes, "second.md");
+    let revisions = vec![second.clone(), first.clone(), second.clone()];
+    let read_control = control();
+    let mut cache = SourceCache::new(&fixture.database, &fixture.scopes, &read_control);
+
+    cache
+        .load_many_with_workers(&revisions, &fixture.generation, 4)
+        .unwrap();
+
+    assert_eq!(
+        cache.get(&first).unwrap().markdown,
+        "# First\n\nThe first source.\n"
+    );
+    assert_eq!(
+        cache.get(&second).unwrap().markdown,
+        "# Second\n\nThe second source.\n"
+    );
+    assert_eq!(cache.load_counts(&first), Some((1, 1)));
+    assert_eq!(cache.load_counts(&second), Some((1, 1)));
+}
+
+#[test]
+fn parallel_source_load_errors_follow_candidate_order_not_completion_order() {
+    let fixture = fixture(&[("guide.md", "# Guide\n\nPrivate source.\n")]);
+    let first = revision_of(&fixture.database, &fixture.scopes, "guide.md");
+    let digest = fixture
+        .database
+        .revision(&fixture.scopes, &first)
+        .unwrap()
+        .unwrap()
+        .original_digest;
+    corrupt_artifact(&fixture.scratch, &digest);
+    let revisions = vec![first, "missing-revision".to_owned()];
+    let read_control = control();
+    let mut cache = SourceCache::new(&fixture.database, &fixture.scopes, &read_control);
+
+    assert!(matches!(
+        cache.load_many_with_workers(&revisions, &fixture.generation, 4),
+        Err(EvidenceError::Store(_))
+    ));
+}
+
+#[test]
+fn parallel_source_loads_refuse_expiry_during_a_batch() {
+    let documents: Vec<_> = (0..16)
+        .map(|index| {
+            (
+                format!("doc-{index}.md"),
+                format!("# Guide {index}\n\nSource {index} with enough text to prepare.\n"),
+            )
+        })
+        .collect();
+    let refs: Vec<_> = documents
+        .iter()
+        .map(|(path, text)| (path.as_str(), text.as_str()))
+        .collect();
+    let fixture = fixture(&refs);
+    let revisions: Vec<_> = documents
+        .iter()
+        .map(|(path, _)| revision_of(&fixture.database, &fixture.scopes, path))
+        .collect();
+    let deadline = Instant::now() + Duration::from_millis(5);
+    let read_control = ReadControl {
+        deadline,
+        cancelled: Arc::new(AtomicBool::new(false)),
+    };
+    let mut cache = SourceCache::new(&fixture.database, &fixture.scopes, &read_control);
+
+    let result = cache.load_many_with_workers(&revisions, &fixture.generation, 4);
+
+    assert!(
+        Instant::now() >= deadline,
+        "deadline did not expire mid-batch"
+    );
+    assert!(matches!(result, Err(EvidenceError::TimedOut)));
+    assert!(
+        revisions
+            .iter()
+            .all(|revision| cache.get(revision).is_none())
+    );
 }

@@ -4,8 +4,14 @@
 
 use super::error::Error;
 use crate::{scope::ScopeSet, store::Database};
-use rusqlite::params;
-use std::{cmp::Ordering, collections::BTreeMap};
+use rusqlite::{params, params_from_iter, types::Value};
+use std::{
+    cmp::Ordering,
+    collections::{BTreeMap, BTreeSet},
+};
+
+/// Leaves one parameter for the scope JSON within SQLite's 500-parameter batch.
+const MAX_REVISION_IDS_PER_QUERY: usize = 499;
 
 /// A place a revision's content occurs: exact duplicates keep every one.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -162,6 +168,75 @@ impl Database {
             })?
             .collect::<Result<_, _>>()?;
         Ok(members)
+    }
+
+    /// The ordered union of every visible near-duplicate group touched by
+    /// `revision_ids`, with each visible member returned once.
+    ///
+    /// Revision IDs are bound in batches of at most 499, leaving one SQLite
+    /// parameter for the caller's scope set.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Store`] when the database cannot be read.
+    pub fn near_duplicates_for_revisions(
+        &self,
+        scopes: &ScopeSet,
+        revision_ids: &[String],
+    ) -> Result<Vec<NearDuplicate>, Error> {
+        let revisions: Vec<_> = revision_ids
+            .iter()
+            .cloned()
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect();
+        if revisions.is_empty() {
+            return Ok(Vec::new());
+        }
+        let reader = self.reader()?;
+        let mut members = BTreeMap::<(String, String), NearDuplicate>::new();
+        for batch in revisions.chunks(MAX_REVISION_IDS_PER_QUERY) {
+            let placeholders = (1..=batch.len())
+                .map(|index| format!("?{index}"))
+                .collect::<Vec<_>>()
+                .join(", ");
+            let scope_parameter = batch.len() + 1;
+            let visible = ScopeSet::source_condition(
+                "documents.collection_id",
+                "documents.source_id",
+                scope_parameter,
+            );
+            let sql = format!(
+                "SELECT near_dup_groups.group_id, near_dup_groups.revision_id, jaccard
+                 FROM near_dup_groups
+                 JOIN revisions ON revisions.id = near_dup_groups.revision_id
+                 JOIN documents ON documents.id = revisions.document_id
+                 WHERE {visible} AND near_dup_groups.group_id IN (
+                   SELECT near_dup_groups.group_id FROM near_dup_groups
+                   JOIN revisions ON revisions.id = near_dup_groups.revision_id
+                   JOIN documents ON documents.id = revisions.document_id
+                   WHERE near_dup_groups.revision_id IN ({placeholders}) AND {visible})
+                 ORDER BY near_dup_groups.group_id, near_dup_groups.revision_id"
+            );
+            let mut parameters: Vec<_> = batch.iter().cloned().map(Value::Text).collect();
+            parameters.push(Value::Text(scopes.parameter()));
+            let mut statement = reader.prepare(&sql)?;
+            let rows = statement.query_map(params_from_iter(parameters.iter()), |row| {
+                Ok(NearDuplicate {
+                    group_id: row.get(0)?,
+                    revision_id: row.get(1)?,
+                    jaccard: row.get(2)?,
+                })
+            })?;
+            for member in rows {
+                let member = member?;
+                members.insert(
+                    (member.group_id.clone(), member.revision_id.clone()),
+                    member,
+                );
+            }
+        }
+        Ok(members.into_values().collect())
     }
 }
 

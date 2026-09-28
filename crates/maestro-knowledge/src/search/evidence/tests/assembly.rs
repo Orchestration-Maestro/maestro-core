@@ -1,4 +1,7 @@
-use super::super::assemble::ledger::{DuplicateLedgerError, duplicate_ledger};
+use super::super::assemble::{
+    assemble_blocking, assemble_blocking_sequential,
+    ledger::{DuplicateLedgerError, duplicate_ledger},
+};
 use super::super::{EvidenceCounter, EvidenceError, assemble_evidence};
 use super::support::{control, evidence_input, fixture};
 use crate::prepare::tests::scratch::clear_chunk_set_manifest;
@@ -19,6 +22,37 @@ use std::{
     time::{Duration, Instant},
 };
 use tokio::{task::spawn_blocking, time::Instant as TokioInstant};
+
+#[test]
+fn parallel_source_loads_emit_the_same_bundle_bytes_as_sequential_loads() {
+    let fixture = fixture(&[
+        ("first.md", "# First\n\nA distinct first source passage.\n"),
+        (
+            "second.md",
+            "# Second\n\nA different second source passage.\n",
+        ),
+    ]);
+    let input = evidence_input(&fixture, "What do the source documents contain?");
+    let sequential = assemble_blocking_sequential(
+        &fixture.database,
+        &input,
+        &EvidenceCounter::Utf8Bytes,
+        &control(),
+    )
+    .unwrap();
+    let parallel = assemble_blocking(
+        &fixture.database,
+        &input,
+        &EvidenceCounter::Utf8Bytes,
+        &control(),
+    )
+    .unwrap();
+
+    assert_eq!(
+        serde_json::to_vec(&parallel).unwrap(),
+        serde_json::to_vec(&sequential).unwrap()
+    );
+}
 
 struct BlockingCounter {
     entered: Sender<()>,

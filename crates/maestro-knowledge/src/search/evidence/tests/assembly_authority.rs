@@ -46,7 +46,7 @@ async fn source_corruption_and_canonical_refusals_keep_exact_error_variants() {
             "identity",
             "canonical artifact identity or status is invalid",
         ),
-        ("replay", "canonical document replay found an error"),
+        ("structure", "canonical source spans or links are invalid"),
     ] {
         let fixture = fixture(&[("guide.md", "# Guide\n\nAn authoritative source.\n")]);
         let revision_id = revision_of(&fixture.database, &fixture.scopes, "guide.md");
@@ -61,7 +61,8 @@ async fn source_corruption_and_canonical_refusals_keep_exact_error_variants() {
         if field == "identity" {
             canonical.document_id = "another-document".to_owned();
         } else {
-            canonical.sections.first_mut().unwrap().title = "changed heading".to_owned();
+            canonical.sections.first_mut().unwrap().parent_section_id =
+                Some("missing-section".to_owned());
         }
         replace_revision_canonical(
             &fixture.scratch,

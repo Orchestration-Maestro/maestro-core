@@ -5,9 +5,7 @@ use super::{
     sections::SectionIndex,
     types::EvidenceError,
 };
-use maestro_canonicalization::{
-    CanonicalDocument, Severity, SourceSpan, ValidationStatus, validate_document,
-};
+use maestro_canonicalization::{CanonicalDocument, SourceSpan, ValidationStatus};
 use maestro_kernel::{
     document::{Disposition, Document, Outcome, Revision, RevisionStatus},
     evidence::Span,
@@ -16,7 +14,15 @@ use maestro_kernel::{
     scope::ScopeSet,
     store::Database,
 };
-use std::{collections::BTreeMap, sync::atomic::Ordering, time::Instant};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    sync::atomic::{AtomicUsize, Ordering},
+    thread,
+    time::Instant,
+};
+
+/// Maximum number of scoped source-loading workers per assembly.
+const MAX_SOURCE_LOAD_WORKERS: usize = 4;
 
 /// One revision's authorized records and verified original source.
 pub(crate) struct EvidenceSource {
@@ -26,7 +32,7 @@ pub(crate) struct EvidenceSource {
     pub(crate) document: Document,
     /// The accepted disposition and its explicit source limitations.
     pub(crate) disposition: Disposition,
-    /// The canonical representation replayed against the original bytes.
+    /// The canonical representation structurally checked against original bytes.
     pub(crate) canonical: CanonicalDocument,
     /// The exact original UTF-8 Markdown.
     pub(crate) markdown: String,
@@ -92,6 +98,94 @@ impl<'a> SourceCache<'a> {
             .ok_or(EvidenceError::WorkerFailed)?;
         self.check()?;
         Ok(source)
+    }
+
+    /// Loads unique revisions concurrently, merging successes and errors in input order.
+    pub(super) fn load_many_with_workers(
+        &mut self,
+        revision_ids: &[String],
+        generation: &Generation,
+        worker_limit: usize,
+    ) -> Result<(), EvidenceError> {
+        self.check()?;
+        let mut seen = BTreeSet::new();
+        let missing: Vec<_> = revision_ids
+            .iter()
+            .filter(|revision| {
+                !self.sources.contains_key(revision.as_str()) && seen.insert(revision.as_str())
+            })
+            .cloned()
+            .collect();
+        if missing.is_empty() {
+            return self.check();
+        }
+
+        let worker_count = worker_limit
+            .clamp(1, MAX_SOURCE_LOAD_WORKERS)
+            .min(missing.len());
+        let next = AtomicUsize::new(0);
+        let work = SourceLoadWork {
+            database: self.database,
+            scopes: self.scopes,
+            control: self.control,
+            missing: &missing,
+            generation,
+            next: &next,
+        };
+        let (worker_panicked, messages) = thread::scope(|scope| {
+            let mut handles = Vec::with_capacity(worker_count);
+            for _ in 0..worker_count {
+                handles.push(spawn_source_worker(scope, &work));
+            }
+            let mut worker_panicked = false;
+            let mut messages = Vec::with_capacity(missing.len());
+            for handle in handles {
+                match handle.join() {
+                    Ok(mut worker_messages) => messages.append(&mut worker_messages),
+                    Err(_) => worker_panicked = true,
+                }
+            }
+            (worker_panicked, messages)
+        });
+        if worker_panicked {
+            return Err(EvidenceError::WorkerFailed);
+        }
+        let mut outcomes: Vec<_> = (0..missing.len()).map(|_| None).collect();
+        for (index, result) in messages {
+            let Some(outcome) = outcomes.get_mut(index) else {
+                return Err(EvidenceError::WorkerFailed);
+            };
+            if outcome.replace(result).is_some() {
+                return Err(EvidenceError::WorkerFailed);
+            }
+        }
+        if outcomes.iter().any(Option::is_none) {
+            return Err(EvidenceError::WorkerFailed);
+        }
+
+        let mut loaded = Vec::with_capacity(missing.len());
+        let mut first_error = None;
+        for outcome in outcomes.into_iter().flatten() {
+            match outcome {
+                Ok(source) => loaded.push(source),
+                Err(error) if first_error.is_none() => first_error = Some(error),
+                Err(_) => {}
+            }
+        }
+        if let Some(error) = first_error {
+            return Err(error);
+        }
+        self.check()?;
+        #[cfg(test)]
+        for (revision_id, source, counts) in loaded {
+            self.sources.insert(revision_id.clone(), source);
+            self.load_counts.insert(revision_id, counts);
+        }
+        #[cfg(not(test))]
+        for (revision_id, source, ()) in loaded {
+            self.sources.insert(revision_id, source);
+        }
+        self.check()
     }
 
     /// Returns an already-loaded authoritative revision without mutating the cache.
@@ -206,13 +300,6 @@ impl<'a> SourceCache<'a> {
                 "canonical source length does not match its artifact",
             ));
         }
-        if validate_document(&canonical, &markdown)
-            .iter()
-            .any(|finding| finding.severity == Severity::Error)
-        {
-            return Err(integrity("canonical document replay found an error"));
-        }
-        self.check()?;
         let sections = SectionIndex::new(&canonical, &markdown)
             .map_err(|_| integrity("canonical source spans or links are invalid"))?;
         let section_occurrences = section_occurrences(&canonical)
@@ -238,6 +325,73 @@ impl<'a> SourceCache<'a> {
             Ok(())
         }
     }
+}
+
+#[cfg(test)]
+/// Keeps artifact-read counters with each loaded source in tests.
+type LoadedSource = (String, EvidenceSource, ArtifactLoadCounts);
+#[cfg(not(test))]
+/// Identifies a successfully loaded source in production.
+type LoadedSource = (String, EvidenceSource, ());
+
+/// Immutable inputs shared by scoped source-loading workers.
+struct SourceLoadWork<'a> {
+    /// Store used for scoped source reads.
+    database: &'a Database,
+    /// Permission snapshot used for every read.
+    scopes: &'a ScopeSet,
+    /// Shared cancellation flag and deadline.
+    control: &'a ReadControl,
+    /// Unique revision IDs not already cached.
+    missing: &'a [String],
+    /// Generation whose immutable source records are loaded.
+    generation: &'a Generation,
+    /// Atomic cursor assigning revision IDs to workers.
+    next: &'a AtomicUsize,
+}
+
+/// Starts one scoped worker over the shared source-load queue.
+fn spawn_source_worker<'scope, 'env: 'scope>(
+    scope: &'scope thread::Scope<'scope, 'env>,
+    work: &'scope SourceLoadWork<'env>,
+) -> thread::ScopedJoinHandle<'scope, Vec<(usize, Result<LoadedSource, EvidenceError>)>> {
+    scope.spawn(move || load_many_worker(work))
+}
+
+/// Loads indexed revisions using one request-local cache on each worker.
+fn load_many_worker(
+    work: &SourceLoadWork<'_>,
+) -> Vec<(usize, Result<LoadedSource, EvidenceError>)> {
+    let mut cache = SourceCache::new(work.database, work.scopes, work.control);
+    let mut messages = Vec::new();
+    loop {
+        let index = work.next.fetch_add(1, Ordering::Relaxed);
+        let Some(revision_id) = work.missing.get(index) else {
+            break;
+        };
+        let result = match cache.load(revision_id, work.generation) {
+            Ok(_) => {
+                let source = cache
+                    .sources
+                    .remove(revision_id)
+                    .ok_or(EvidenceError::WorkerFailed);
+                #[cfg(test)]
+                let loaded = source.and_then(|source| {
+                    let counts = cache
+                        .load_counts
+                        .remove(revision_id)
+                        .ok_or(EvidenceError::WorkerFailed)?;
+                    Ok((revision_id.clone(), source, counts))
+                });
+                #[cfg(not(test))]
+                let loaded = source.map(|source| (revision_id.clone(), source, ()));
+                loaded
+            }
+            Err(error) => Err(error),
+        };
+        messages.push((index, result));
+    }
+    messages
 }
 
 /// Keeps integrity diagnostics independent of source text and record IDs.

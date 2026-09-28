@@ -2,9 +2,11 @@
 
 use super::support::SearchDb;
 use crate::{
-    retrieval::{Error, SearchInput},
+    retrieval::{Error, SearchInput, read::search_chunks_sql},
     store::{self, Database},
 };
+use rusqlite::params;
+use serde_json::to_string;
 use std::slice;
 
 #[test]
@@ -274,6 +276,63 @@ fn search_input_batch_is_limited_to_sixty_four() {
         Err(Error::TooLarge)
     ));
     assert_eq!(input_count(&search.database), 0);
+}
+
+#[test]
+fn search_chunks_uses_the_chunk_id_index_for_requested_ids() {
+    let search = SearchDb::new("Install the tool with --force.");
+    search
+        .database
+        .write(|transaction| {
+            // Model the corpus-scale chunk set without inserting 50K fixture rows.
+            transaction
+                .execute_batch("ANALYZE chunks;")
+                .map_err(store::Error::from)?;
+            let updated = transaction
+                .execute(
+                    "UPDATE sqlite_stat1 SET stat = '50799 50799 1'
+                     WHERE tbl = 'chunks' AND idx = (
+                       SELECT name FROM sqlite_master
+                       WHERE type = 'index' AND tbl_name = 'chunks' AND sql IS NULL
+                     )",
+                    [],
+                )
+                .map_err(store::Error::from)?;
+            assert_eq!(updated, 1);
+            transaction
+                .execute_batch("ANALYZE sqlite_schema;")
+                .map_err(store::Error::from)?;
+            Ok::<(), store::Error>(())
+        })
+        .unwrap();
+    let sql = format!("EXPLAIN QUERY PLAN {}", search_chunks_sql());
+    let reader = search.database.reader().unwrap();
+    let plan = reader
+        .prepare(&sql)
+        .unwrap()
+        .query_map(
+            params![
+                to_string(slice::from_ref(&search.chunk_id)).unwrap(),
+                search.generation.chunk_set_id,
+                search.generation.collection_id,
+                search.scopes.parameter(),
+                None::<String>,
+            ],
+            |row| row.get::<_, String>(3),
+        )
+        .unwrap()
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+    assert!(
+        plan.iter().any(|detail| {
+            detail.starts_with("SEARCH chunks USING INDEX") && detail.contains(" AND id=?")
+        }),
+        "chunks lookup must use its chunk ID index: {plan:?}"
+    );
+    assert!(
+        !plan.iter().any(|detail| detail.starts_with("SCAN chunks")),
+        "chunks lookup must not scan the chunk set: {plan:?}"
+    );
 }
 
 pub(super) fn input_count(database: &Database) -> i64 {

@@ -179,22 +179,7 @@ impl Database {
             .transaction_with_behavior(TransactionBehavior::Deferred)
             .map_err(|error| classify(error, read.control))?;
         let version = read.version;
-        let sql = format!(
-            "SELECT DISTINCT {} FROM chunks
-             JOIN json_each(?1) AS requested ON requested.value = chunks.id
-             JOIN revisions ON revisions.id = chunks.revision_id
-             JOIN documents ON documents.id = revisions.document_id
-             JOIN quality_dispositions ON quality_dispositions.revision_id = revisions.id
-             WHERE chunks.chunk_set_id = ?2 AND documents.collection_id = ?3 AND {}
-               AND (?5 IS NULL OR
-                 CASE json_type(revisions.metadata_json, '$.version')
-                   WHEN 'text' THEN json_extract(revisions.metadata_json, '$.version') END = ?5)
-               AND revisions.status <> 'failed'
-               AND quality_dispositions.disposition IN ('accepted', 'accepted_with_warnings')
-             ORDER BY chunks.id",
-            chunk_set::COLUMNS,
-            ScopeSet::source_condition("documents.collection_id", "documents.source_id", 4,)
-        );
+        let sql = search_chunks_sql();
         let result: Result<Vec<Chunk>, Error> = (|| {
             read.control.check()?;
             let mut statement = transaction
@@ -227,6 +212,27 @@ impl Database {
         read.control.check()?;
         Ok(chunks)
     }
+}
+
+/// Builds the scoped chunk-selection SQL shared with its query-plan test.
+pub(super) fn search_chunks_sql() -> String {
+    format!(
+        "SELECT DISTINCT {} FROM json_each(?1) AS requested
+         CROSS JOIN chunks
+         JOIN revisions ON revisions.id = chunks.revision_id
+         JOIN documents ON documents.id = revisions.document_id
+         JOIN quality_dispositions ON quality_dispositions.revision_id = revisions.id
+         WHERE requested.value = chunks.id
+           AND chunks.chunk_set_id = ?2 AND documents.collection_id = ?3 AND {}
+           AND (?5 IS NULL OR
+             CASE json_type(revisions.metadata_json, '$.version')
+               WHEN 'text' THEN json_extract(revisions.metadata_json, '$.version') END = ?5)
+           AND revisions.status <> 'failed'
+           AND quality_dispositions.disposition IN ('accepted', 'accepted_with_warnings')
+         ORDER BY chunks.id",
+        chunk_set::COLUMNS,
+        ScopeSet::source_condition("documents.collection_id", "documents.source_id", 4)
+    )
 }
 
 /// Maps an interrupted SQLite operation to cancellation or timeout when the
