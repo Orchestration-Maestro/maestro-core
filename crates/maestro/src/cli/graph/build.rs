@@ -300,12 +300,17 @@ fn rejection(revision: &Revision, error: &SourceError) -> Rejection {
 pub(super) fn claim_failure(error: &facts::Error) -> Failure {
     match error {
         facts::Error::Store(_)
+        | facts::Error::Job(_)
         | facts::Error::DigestMismatch { .. }
         | facts::Error::SpanOutOfRange { .. }
         | facts::Error::SpanOffBoundary { .. }
         | facts::Error::QuoteMismatch { .. } => Failure::failed_by(error),
         facts::Error::Unauthorized
         | facts::Error::Invalid(_)
+        | facts::Error::UnknownBuild(_)
+        | facts::Error::Unfinished { .. }
+        | facts::Error::OverBudget { .. }
+        | facts::Error::Conflict(_)
         | facts::Error::UnknownRevision { .. }
         | facts::Error::IneligibleRevision { .. } => Failure::refused_by(error),
     }

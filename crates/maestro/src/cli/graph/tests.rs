@@ -3,7 +3,9 @@
 
 use super::build::claim_failure;
 use crate::failure::Failure;
-use maestro_kernel::{artifact::Digest, evidence::Span, facts::Error};
+use maestro_kernel::{artifact::Digest, evidence::Span, facts::Error, job};
+use std::process::ExitCode;
+use ulid::Ulid;
 
 /// A revision id the errors name.
 const REVISION: &str = "rev-graph";
@@ -87,4 +89,24 @@ fn object_documents_keep_literal_bytes_and_name_entity_endpoints() {
             expected
         );
     }
+}
+
+#[test]
+fn durable_build_refusals_exit_two_and_lease_failures_exit_one() {
+    for error in [
+        Error::UnknownBuild(Ulid::nil()),
+        Error::Unfinished {
+            recorded: 1,
+            expected: 2,
+        },
+        Error::OverBudget {
+            limit: 1,
+            needed: 2,
+        },
+        Error::Conflict("batch replay differs".into()),
+    ] {
+        assert_eq!(claim_failure(&error).code(), ExitCode::from(2), "{error:?}");
+    }
+    let error = Error::Job(job::Error::Time);
+    assert_eq!(claim_failure(&error).code(), ExitCode::from(1));
 }

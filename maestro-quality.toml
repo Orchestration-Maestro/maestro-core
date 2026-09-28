@@ -101,9 +101,9 @@ reason = "the scope module owns the public name rule: maestro-knowledge's parser
 
 [[exception]]
 rule = "ARC-005"
-path = "crates/maestro-kernel/src/scope/mod.rs"
-item = "check_collection_name"
-reason = "the scope module owns the collection name rule: maestro-knowledge's declaration parser and the kernel's record writers apply it"
+path = "crates/maestro-kernel/src/job/mod.rs"
+item = "LeaseTiming"
+reason = "the lease module owns the shared timing contract; used by graph batch and finish now, and by G09b's resumable job runner next"
 
 [[exception]]
 rule = "ARC-005"

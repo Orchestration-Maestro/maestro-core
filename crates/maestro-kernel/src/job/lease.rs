@@ -131,7 +131,7 @@ pub(super) fn lease_data(lease: &Lease) -> Value {
 ///
 /// [`Error::Lost`] when another took the lease over or the job ended,
 /// [`Error::UnknownJob`], and [`Error::Store`].
-pub(super) fn held(transaction: &Transaction<'_>, lease: &Lease) -> Result<Job, Error> {
+pub(crate) fn held(transaction: &Transaction<'_>, lease: &Lease) -> Result<Job, Error> {
     let job = find(transaction, None, lease.job)?.ok_or(Error::UnknownJob(lease.job))?;
     if job
         .lease

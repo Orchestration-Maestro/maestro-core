@@ -9,10 +9,11 @@ use super::{
 };
 use crate::{
     artifact::Digest,
-    scope::{Scope, ScopeSet, collection_path},
+    scope::{Scope, ScopeSet, check_collection_name, collection_path},
     store::Database,
 };
 use rusqlite::{OptionalExtension as _, Transaction, params};
+use serde::Serialize;
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, BTreeSet, btree_map::Entry};
 
@@ -49,6 +50,16 @@ impl Database {
         scopes: &ScopeSet,
         set: &ClaimSet,
     ) -> Result<ClaimSetRecord, Error> {
+        let prepared = self.prepare_claims(scopes, set)?;
+        self.write(|transaction| prepared.record_set(transaction, scopes))
+    }
+
+    /// Validate claim form and original bytes without holding a write transaction.
+    pub(super) fn prepare_claims<'c>(
+        &self,
+        scopes: &ScopeSet,
+        set: &'c ClaimSet,
+    ) -> Result<Prepared<'c>, Error> {
         authorize(scopes, &set.collection_id)?;
         let admitted = admit(set)?;
         let mut originals = BTreeMap::new();
@@ -63,34 +74,64 @@ impl Database {
             };
             original.check_quote(support.span, &support.quote_digest)?;
         }
-        let id = set_digest(
-            &set.collection_id,
-            &admitted
-                .iter()
-                .map(|claim| claim.id.clone())
-                .collect::<Vec<_>>(),
-        );
-        self.write(|transaction| {
-            for revision in originals.keys() {
-                eligible(transaction, revision)?;
-            }
-            let recorded = transaction
-                .query_row(
-                    "SELECT 1 FROM claim_sets WHERE id = ?1",
-                    [id.as_str()],
-                    |_| Ok(()),
-                )
-                .optional()?;
-            if recorded.is_none() {
-                insert(transaction, &id, &set.collection_id, &admitted)?;
-            }
-            load_set(transaction, scopes, &id)?.ok_or(Error::Unauthorized)
+        Ok(Prepared {
+            collection: &set.collection_id,
+            admitted,
         })
     }
 }
 
+/// Claims whose form and original bytes have been verified outside the write lock.
+pub(super) struct Prepared<'c> {
+    /// Collection owning every claim.
+    collection: &'c str,
+    /// Claims in caller order with canonical identities.
+    admitted: Vec<Admitted<'c>>,
+}
+
+impl Prepared<'_> {
+    /// Stable identities in batch order.
+    pub(super) fn ids(&self) -> Vec<&str> {
+        self.admitted
+            .iter()
+            .map(|claim| claim.id.as_str())
+            .collect()
+    }
+
+    /// Recheck mutable eligibility and record claims without creating a set.
+    pub(super) fn record_claims(&self, transaction: &Transaction<'_>) -> Result<(), Error> {
+        for admitted in &self.admitted {
+            for support in &admitted.supports {
+                eligible(transaction, &support.revision_id)?;
+            }
+            let recorded = transaction
+                .query_row(
+                    "SELECT 1 FROM claims WHERE id = ?1",
+                    [admitted.id.as_str()],
+                    |_| Ok(()),
+                )
+                .optional()?;
+            if recorded.is_none() {
+                insert_claim(transaction, self.collection, admitted)?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Record the complete set and hydrate its receipt before committing.
+    pub(super) fn record_set(
+        &self,
+        transaction: &Transaction<'_>,
+        scopes: &ScopeSet,
+    ) -> Result<ClaimSetRecord, Error> {
+        self.record_claims(transaction)?;
+        freeze_set(transaction, scopes, self.collection, &self.ids())
+    }
+}
+
 /// Refuses a collection `scopes` does not cover.
-fn authorize(scopes: &ScopeSet, collection: &str) -> Result<(), Error> {
+pub(super) fn authorize(scopes: &ScopeSet, collection: &str) -> Result<(), Error> {
+    check_collection_name(collection).map_err(|_| Error::Unauthorized)?;
     let scope: Scope = collection_path(collection)
         .parse()
         .map_err(|_| Error::Unauthorized)?;
@@ -199,12 +240,8 @@ pub(super) fn claim_digest(
 }
 
 /// The G02 canonical identity of an ordered collection of claim ids.
-pub(super) fn set_digest(collection: &str, ids: &[Digest]) -> Digest {
-    canonical_digest(&json!([
-        "maestro-claim-set/1",
-        collection,
-        ids.iter().map(Digest::as_str).collect::<Vec<_>>()
-    ]))
+pub(super) fn set_digest(collection: &str, ids: &[impl Serialize]) -> Digest {
+    canonical_digest(&json!(["maestro-claim-set/1", collection, ids]))
 }
 
 /// Refuses a claim whose predicate is `ALIAS_OF`, or whose object is not the
@@ -282,37 +319,35 @@ fn canonical_digest(value: &Value) -> Digest {
     Digest::of(value.to_string().as_bytes())
 }
 
-/// Records the set `id` of `collection` with `claims`, and every claim not
-/// recorded yet with its supports.
-fn insert(
+/// Freeze already admitted claims in a canonical, ordered set.
+pub(super) fn freeze_set(
     transaction: &Transaction<'_>,
-    id: &Digest,
+    scopes: &ScopeSet,
     collection: &str,
-    claims: &[Admitted<'_>],
-) -> Result<(), Error> {
-    for admitted in claims {
-        let recorded = transaction
-            .query_row(
-                "SELECT 1 FROM claims WHERE id = ?1",
-                [admitted.id.as_str()],
-                |_| Ok(()),
-            )
-            .optional()?;
-        if recorded.is_none() {
-            insert_claim(transaction, collection, admitted)?;
+    ids: &[&str],
+) -> Result<ClaimSetRecord, Error> {
+    let id = set_digest(collection, ids);
+    let recorded = transaction
+        .query_row(
+            "SELECT 1 FROM claim_sets WHERE id = ?1",
+            [id.as_str()],
+            |_| Ok(()),
+        )
+        .optional()?;
+    if recorded.is_none() {
+        transaction.execute(
+            "INSERT INTO claim_sets (id, collection_id, member_count) VALUES (?1, ?2, ?3)",
+            params![id.as_str(), collection, integer(ids.len())],
+        )?;
+        for (ordinal, claim) in ids.iter().enumerate() {
+            transaction.execute(
+                "INSERT INTO claim_set_members (claim_set_id, ordinal, claim_id)
+                 VALUES (?1, ?2, ?3)",
+                params![id.as_str(), integer(ordinal), claim],
+            )?;
         }
     }
-    transaction.execute(
-        "INSERT INTO claim_sets (id, collection_id, member_count) VALUES (?1, ?2, ?3)",
-        params![id.as_str(), collection, integer(claims.len())],
-    )?;
-    for (ordinal, admitted) in claims.iter().enumerate() {
-        transaction.execute(
-            "INSERT INTO claim_set_members (claim_set_id, ordinal, claim_id) VALUES (?1, ?2, ?3)",
-            params![id.as_str(), integer(ordinal), admitted.id.as_str()],
-        )?;
-    }
-    Ok(())
+    load_set(transaction, scopes, &id)?.ok_or(Error::Unauthorized)
 }
 
 /// Records `admitted` of `collection`, unreviewed, with its supports.

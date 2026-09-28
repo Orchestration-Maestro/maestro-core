@@ -240,7 +240,11 @@ fn graph_claim_migration_adds_empty_claim_tables_and_keeps_existing_records() {
         .unwrap();
     assert_eq!(
         pending_migrations(&scratch.0).unwrap(),
-        ["0012_graph_claims", "0013_graph_claim_vocabulary"]
+        [
+            "0012_graph_claims",
+            "0013_graph_claim_vocabulary",
+            "0014_graph_builds"
+        ]
     );
 
     drop(scratch.open());
@@ -432,4 +436,39 @@ fn a_database_a_newer_binary_migrated_is_named_and_a_missing_one_never_created()
         matches!(&newer, Error::UnknownMigration(name) if name == "9999_future"),
         "{newer}"
     );
+}
+
+#[test]
+fn graph_build_migration_upgrades_claim_storage_once_without_backfilling() {
+    let scratch = Scratch::new();
+    let preceding: Vec<_> = MIGRATIONS
+        .iter()
+        .copied()
+        .filter(|(name, _)| *name < "0014_graph_builds")
+        .collect();
+    drop(scratch.open_with(&preceding).unwrap());
+    assert_eq!(
+        pending_migrations(&scratch.0).unwrap(),
+        ["0014_graph_builds"]
+    );
+    drop(scratch.open());
+    let reader = scratch.outside();
+    let applied = recorded(&reader);
+    for table in [
+        "graph_builds",
+        "graph_build_batches",
+        "graph_build_claims",
+        "graph_build_rejections",
+        "graph_attachments",
+    ] {
+        let count: i64 = reader
+            .query_row(&format!("SELECT count(*) FROM {table}"), [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(count, 0, "{table}");
+    }
+    drop(reader);
+    drop(scratch.open());
+    assert_eq!(recorded(&scratch.outside()), applied);
 }

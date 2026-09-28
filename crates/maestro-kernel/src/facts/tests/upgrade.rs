@@ -112,7 +112,7 @@ fn assert_refused_without_changes(mode: &str) {
     assert_eq!(fs::read(scratch.0.join("kernel.sqlite3")).unwrap(), bytes);
     assert_eq!(
         pending_migrations(&scratch.0).unwrap(),
-        ["0013_graph_claim_vocabulary"]
+        ["0013_graph_claim_vocabulary", "0014_graph_builds"]
     );
 }
 

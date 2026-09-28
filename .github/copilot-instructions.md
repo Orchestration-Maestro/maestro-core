@@ -383,7 +383,8 @@ in place.
 │   │   │   ├── 0010_search.sql                                              # File: 0010 search
 │   │   │   ├── 0011_exact_identifiers.sql                                   # Exact, publish-time identifier membership
 │   │   │   ├── 0012_graph_claims.sql                                        # File: 0012 graph claims
-│   │   │   └── 0013_graph_claim_vocabulary.sql                              # File: 0013 graph claim vocabulary
+│   │   │   ├── 0013_graph_claim_vocabulary.sql                              # File: 0013 graph claim vocabulary
+│   │   │   └── 0014_graph_builds.sql                                        # File: 0013 graph builds
 │   │   ├── src/                                                             # The crate's sources
 │   │   │   ├── artifact/                                                    # Content-addressed artifacts: immutable bytes stored, and read back, by their
 │   │   │   │   ├── digest.rs                                                # A SHA-256 digest: the name every artifact is stored under
@@ -455,6 +456,9 @@ in place.
 │   │   │   │   └── resolve.rs                                               # Resolving a chunk: the exact source text its span covers, read from the
 │   │   │   ├── facts/                                                       # The knowledge graph's authority (specs/002-knowledge-graph, FR-S2-002 and
 │   │   │   │   ├── tests/                                                   # Tests of claims: admitting a verified set or nothing, reading it back
+│   │   │   │   │   ├── attachments.rs                                       # Graph attachments: a finished build's frozen claim set bound to one
+│   │   │   │   │   ├── build_atomicity.rs                                   # Transaction boundaries, restart receipts, concurrent replay and frozen job identity
+│   │   │   │   │   ├── builds.rs                                            # Graph builds: batches recorded in order under the job's lease, each with
 │   │   │   │   │   ├── claims.rs                                            # Admitting claims: a whole set or nothing, unreviewed, recorded once by
 │   │   │   │   │   ├── mod.rs                                               # Tests of claims: admitting a verified set or nothing, reading it back
 │   │   │   │   │   ├── schema.rs                                            # What the schema refuses whoever writes: replacing, changing or deleting
@@ -462,6 +466,10 @@ in place.
 │   │   │   │   │   ├── supports.rs                                          # Verifying supports: the kernel reads the quoted bytes from the revision's
 │   │   │   │   │   ├── upgrade.rs                                           # Legacy claim records survive the vocabulary migration unchanged
 │   │   │   │   │   └── vocabulary.rs                                        # Closed vocabulary, entity endpoints and the existing scoped support authority
+│   │   │   │   ├── attachment.rs                                            # Immutable generation attachments, scoped to the build's collection
+│   │   │   │   ├── build.rs                                                 # Leased build writes: claims, receipts, renewal and progress commit together
+│   │   │   │   ├── build_read.rs                                            # Scoped, transaction-consistent hydration of durable graph builds
+│   │   │   │   ├── build_types.rs                                           # Frozen build inputs and durable receipts
 │   │   │   │   ├── error.rs                                                 # Why the kernel refused to admit or read claims
 │   │   │   │   ├── mod.rs                                                   # The knowledge graph's authority (specs/002-knowledge-graph, FR-S2-002 and
 │   │   │   │   ├── quote.rs                                                 # Verifying a claim's support from the authority: the revision is one the

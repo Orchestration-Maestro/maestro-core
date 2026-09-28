@@ -1,6 +1,6 @@
 //! Why the kernel refused to admit or read claims.
 
-use crate::{artifact::Digest, evidence::Span, store};
+use crate::{artifact::Digest, evidence::Span, job, store};
 use std::{error, fmt};
 
 /// Why the kernel refused to admit or read claims. A refused write records
@@ -61,6 +61,26 @@ pub enum Error {
         /// The digest of the bytes of the span.
         found: Digest,
     },
+    /// The caller names an unknown build.
+    UnknownBuild(ulid::Ulid),
+    /// The build's required batches are not all recorded.
+    Unfinished {
+        /// Number of batches recorded.
+        recorded: usize,
+        /// Number of batches required.
+        expected: usize,
+    },
+    /// The build budget would be exceeded.
+    OverBudget {
+        /// Configured limit.
+        limit: usize,
+        /// Required total.
+        needed: usize,
+    },
+    /// A durable graph build conflicts with its frozen plan or receipt.
+    Conflict(String),
+    /// A lease operation failed.
+    Job(job::Error),
     /// The kernel's database or artifact store refused.
     Store(store::Error),
 }
@@ -114,6 +134,16 @@ impl fmt::Display for Error {
                 found.as_str(),
                 expected.as_str()
             ),
+            Self::UnknownBuild(id) => write!(formatter, "unknown graph build {id}"),
+            Self::Unfinished { recorded, expected } => write!(
+                formatter,
+                "graph build has {recorded} of {expected} batches"
+            ),
+            Self::OverBudget { limit, needed } => {
+                write!(formatter, "graph build budget {limit} exceeded by {needed}")
+            }
+            Self::Conflict(reason) => write!(formatter, "graph build conflict: {reason}"),
+            Self::Job(error) => fmt::Display::fmt(error, formatter),
             Self::Store(error) => fmt::Display::fmt(error, formatter),
         }
     }
@@ -123,6 +153,7 @@ impl error::Error for Error {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match self {
             Self::Store(error) => Some(error),
+            Self::Job(error) => Some(error),
             Self::Unauthorized
             | Self::Invalid(_)
             | Self::UnknownRevision { .. }
@@ -130,7 +161,11 @@ impl error::Error for Error {
             | Self::DigestMismatch { .. }
             | Self::SpanOutOfRange { .. }
             | Self::SpanOffBoundary { .. }
-            | Self::QuoteMismatch { .. } => None,
+            | Self::QuoteMismatch { .. }
+            | Self::UnknownBuild(_)
+            | Self::Unfinished { .. }
+            | Self::OverBudget { .. }
+            | Self::Conflict(_) => None,
         }
     }
 }
@@ -138,6 +173,12 @@ impl error::Error for Error {
 impl From<store::Error> for Error {
     fn from(error: store::Error) -> Self {
         Self::Store(error)
+    }
+}
+
+impl From<job::Error> for Error {
+    fn from(error: job::Error) -> Self {
+        Self::Job(error)
     }
 }
 

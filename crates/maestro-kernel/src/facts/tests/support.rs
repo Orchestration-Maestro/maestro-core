@@ -7,20 +7,22 @@ use crate::{
     document::{Collection, Disposition, Document, Outcome, Revision, RevisionStatus, Source},
     evidence::Span,
     facts::{
-        Claim, ClaimSet, EntityKind, EntityName, Literal, LiteralKind, Object, Predicate,
-        Provenance, Support, Validity,
+        Budget, BuildPlan, Claim, ClaimSet, EntityKind, EntityName, Literal, LiteralKind, Object,
+        Predicate, Provenance, Support, Validity,
     },
-    scope::{Right, ScopeSet},
+    job::{Job, Lease, LeaseTiming, NewJob},
+    scope::{Right, ScopeSet, collection_path},
     store::{self, Database},
 };
 use rusqlite::{Connection, params};
-use serde_json::Map;
+use serde_json::{Map, json};
 use std::{
     collections::BTreeMap,
     env, fs,
     path::PathBuf,
     process,
     sync::atomic::{AtomicUsize, Ordering},
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 /// The original Markdown of every revision: a table whose first row holds a
@@ -361,4 +363,91 @@ pub(super) fn legacy(scratch: &Scratch, invalid_kind: Option<&str>) -> (Digest, 
         })
         .unwrap();
     (set, ids)
+}
+
+/// How long a build's lease lasts in the build tests.
+pub(super) const TERM: Duration = Duration::from_secs(60);
+
+/// `seconds` after a fixed instant of the tests' clock.
+pub(super) fn at(seconds: u64) -> SystemTime {
+    UNIX_EPOCH + Duration::from_secs(1_800_000_000 + seconds)
+}
+
+/// The provenance every test claim carries.
+pub(super) fn provenance() -> Provenance {
+    label().provenance
+}
+
+/// A build of the collection `graph` from `sources`, in order, with the
+/// test claims' provenance and budgets of `max_claims` claims and
+/// `max_rejections` kept rejections.
+pub(super) fn plan(sources: &[&str], max_claims: usize, max_rejections: usize) -> BuildPlan {
+    BuildPlan {
+        collection_id: COLLECTION.to_owned(),
+        provenance: provenance(),
+        sources: sources.iter().map(|&source| source.to_owned()).collect(),
+        budget: Budget {
+            max_claims,
+            max_rejections,
+        },
+    }
+}
+
+/// The lease of a new build job for `plan`, taken by `holder` at `at(0)`;
+/// the build is not begun.
+pub(super) fn build_job(database: &Database, plan: &BuildPlan, holder: &str) -> Lease {
+    let job = submit_build(database, plan);
+    database.take_job(job.id, holder, at(0), TERM).unwrap()
+}
+
+/// Submit a job using every frozen plan field, without taking its lease.
+pub(super) fn submit_build(database: &Database, plan: &BuildPlan) -> Job {
+    let scope = collection_path(&plan.collection_id).parse().unwrap();
+    let inputs = json!({ "collection": plan.collection_id,
+        "extractor": plan.provenance.extractor, "profile": plan.provenance.profile.as_str(),
+        "sources": plan.sources, "max_claims": plan.budget.max_claims,
+        "max_rejections": plan.budget.max_rejections });
+    let new = NewJob {
+        kind: "knowledge.graph.build",
+        inputs: &inputs,
+        scope: &scope,
+        resource: None,
+    };
+    database.submit_job(&new, at(0)).unwrap()
+}
+
+/// Records the accepted revision `rev-b` of [`ORIGINAL`] in the new document
+/// `doc-b` of the collection `graph`.
+pub(super) fn second_revision(database: &Database) {
+    database
+        .record_document(&Document {
+            id: "doc-b".to_owned(),
+            collection_id: COLLECTION.to_owned(),
+            source_id: "docs".to_owned(),
+            source_ref: "corpus-path:doc-b.md".to_owned(),
+        })
+        .unwrap();
+    revise(
+        database,
+        "doc-b",
+        "rev-b",
+        RevisionStatus::Valid,
+        Some(Outcome::Accepted),
+    );
+}
+
+/// `claim` with every support quoting the revision `revision`.
+pub(super) fn on(revision: &str, mut claim: Claim) -> Claim {
+    for support in &mut claim.supports {
+        revision.clone_into(&mut support.revision_id);
+    }
+    claim
+}
+
+/// A renewal at the fixture clock's second, for its standard term.
+pub(super) fn timing(seconds: u64) -> LeaseTiming {
+    LeaseTiming {
+        now: at(seconds),
+        term: TERM,
+    }
 }

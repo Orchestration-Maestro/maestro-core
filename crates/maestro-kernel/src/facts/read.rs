@@ -180,3 +180,23 @@ fn named<T>(row: &Row<'_>, index: usize, parse: fn(&str) -> Option<T>) -> rusqli
 fn conversion(index: usize, error: impl error::Error + Send + Sync + 'static) -> rusqlite::Error {
     rusqlite::Error::FromSqlConversionFailure(index, Type::Text, Box::new(error))
 }
+
+/// Hydrate a batch's immutable claims, in the order its receipt recorded.
+pub(super) fn batch_claims(
+    connection: &Connection,
+    job: &str,
+    ordinal: i64,
+) -> Result<Vec<ClaimRecord>, Error> {
+    let mut statement = connection.prepare(&format!(
+        "SELECT {CLAIM_COLUMNS} FROM graph_build_claims b
+         JOIN claims ON claims.id = b.claim_id
+         WHERE b.job_id = ?1 AND b.ordinal = ?2 ORDER BY b.position"
+    ))?;
+    let mut claims = statement
+        .query_map(params![job, ordinal], claim_row)?
+        .collect::<Result<Vec<_>, _>>()?;
+    for claim in &mut claims {
+        claim.claim.supports = supports(connection, &claim.id)?;
+    }
+    Ok(claims)
+}
