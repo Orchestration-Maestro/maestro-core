@@ -81,6 +81,22 @@ pub(super) const fn ranking_limit(documents: usize) -> usize {
         .saturating_add(ENVELOPE_BYTES)
 }
 
+/// The most bytes JSON escaping writes for one byte of text: `\u001f`.
+const ESCAPED_BYTES: usize = 6;
+
+/// Maximum `/apply-template` body for messages of `content_bytes` bytes:
+/// `content_bytes` × [`ESCAPED_BYTES`] + [`MAX_PROPS_BODY_BYTES`].
+///
+/// The rendered prompt repeats the messages, each byte escaped at most to
+/// [`ESCAPED_BYTES`], inside the framing the chat template adds: role markers
+/// and fixed instructions, which come from the template's own text and fit
+/// the bound on a whole `/props` answer, templates included.
+pub(super) const fn render_limit(content_bytes: usize) -> usize {
+    content_bytes
+        .saturating_mul(ESCAPED_BYTES)
+        .saturating_add(MAX_PROPS_BODY_BYTES)
+}
+
 /// Reads the body of `response`, refusing it once it would exceed `limit`
 /// bytes: at once when it declares a longer length, otherwise at the chunk
 /// that crosses the limit.

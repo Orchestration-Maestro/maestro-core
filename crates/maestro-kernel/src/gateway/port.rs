@@ -55,6 +55,18 @@ pub trait ModelPort {
         text: &str,
     ) -> impl Future<Output = Result<Vec<u32>, Error>> + Send;
 
+    /// Render the complete chat template, including the assistant generation prefix.
+    /// Adapters without template rendering refuse rather than approximate token counts.
+    fn render_chat(
+        &self,
+        card: &ModelCard,
+        room: Room,
+        request: &ChatRequest,
+    ) -> impl Future<Output = Result<String, Error>> + Send {
+        let _ = (card, room, request);
+        async { Err(Error::Unsupported) }
+    }
+
     /// One buffered reply to an explicitly bounded prompt.
     fn chat(
         &self,
@@ -148,6 +160,8 @@ pub enum Error {
         /// refusal.
         message: String,
     },
+    /// This adapter does not support exact chat-template rendering.
+    Unsupported,
     /// The caller's chat request violates the bounded request contract.
     InvalidRequest {
         /// How the request differs.
@@ -203,6 +217,7 @@ impl fmt::Display for Error {
                 code: None,
                 message,
             } => write!(formatter, "refused with {status}: {message}"),
+            Self::Unsupported => formatter.write_str("chat-template rendering is unsupported"),
             Self::InvalidRequest { reason } => {
                 write!(formatter, "invalid chat request: {reason}")
             }

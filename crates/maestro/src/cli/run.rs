@@ -131,6 +131,9 @@ fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> 
             Ok(ExitCode::SUCCESS)
         }
         Noun::Eval(EvalCommand::Ladder { manifest }) => eval::run(output, manifest),
+        Noun::Eval(EvalCommand::Graph(GraphEvalCommand::Draft { manifest })) => {
+            eval::draft_graph(output, manifest)
+        }
         Noun::Eval(EvalCommand::Graph(GraphEvalCommand::Check { manifest })) => {
             eval::check_graph(output, manifest)
         }

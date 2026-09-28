@@ -5,8 +5,12 @@ mod command;
 mod comparison;
 mod delivered;
 mod documents;
+mod draft_io;
+mod draft_journal;
+mod draft_manifest;
 mod engine;
 mod graph;
+mod graph_draft;
 mod graph_ladder;
 mod graph_manifest;
 mod graph_output;
@@ -24,3 +28,5 @@ mod tests;
 pub(super) use command::run;
 
 pub(super) use graph::run as check_graph;
+
+pub(super) use graph_draft::run as draft_graph;

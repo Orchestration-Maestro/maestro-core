@@ -14,6 +14,7 @@ pub(crate) mod card_types;
 pub mod card_v2;
 mod fake;
 mod port;
+mod render;
 mod router;
 #[cfg(test)]
 mod tests;

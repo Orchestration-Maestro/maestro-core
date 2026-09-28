@@ -4,7 +4,7 @@
 use super::{
     body::{
         MAX_CATALOG_BODY_BYTES, MAX_CHAT_BODY_BYTES, MAX_ERROR_BODY_BYTES, MAX_PROPS_BODY_BYTES,
-        embeddings_limit, ranking_limit, read_bounded, tokens_limit,
+        embeddings_limit, ranking_limit, read_bounded, render_limit, tokens_limit,
     },
     card::{ModelCard, Role, RouterEntry},
     port::{ChatRequest, Error, ModelPort, Room, embedder_dimensions, require},
@@ -226,6 +226,25 @@ impl ModelPort for RouterClient {
         let limit = tokens_limit(text.len());
         let answer: Tokens = self.call(card, room, ("tokenize", limit), &body).await?;
         Ok(answer.tokens)
+    }
+
+    async fn render_chat(
+        &self,
+        card: &ModelCard,
+        room: Room,
+        request: &ChatRequest,
+    ) -> Result<String, Error> {
+        let content = request.messages.iter().map(|message| message.content.len());
+        let limit = render_limit(content.sum());
+        let response: super::render::Rendered = self
+            .call(
+                card,
+                room,
+                ("apply-template", limit),
+                &super::render::body(card, request)?,
+            )
+            .await?;
+        response.into_prompt()
     }
 
     async fn chat(

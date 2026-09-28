@@ -80,8 +80,12 @@ in place.
 │   │   │   │   │   ├── comparison.rs                                        # The comparison across a ladder's rungs, maestro-eval-ladder-comparison/1
 │   │   │   │   │   ├── delivered.rs                                         # Adapter from delivered evidence to the graph scorer's source coordinates
 │   │   │   │   │   ├── documents.rs                                         # The documents a ladder row scores: a search's ranked documents, the first
+│   │   │   │   │   ├── draft_io.rs                                          # Allocation-bounded reads for private drafting inputs
+│   │   │   │   │   ├── draft_journal.rs                                     # Private receipt files with an OS-held lock; crashes retain consumed reservations
+│   │   │   │   │   ├── draft_manifest.rs                                    # Frozen acceptance inventory and local drafting settings, admitted before private source reads
 │   │   │   │   │   ├── engine.rs                                            # The ladder's engine on this machine: the kernel opened for the local
 │   │   │   │   │   ├── graph.rs                                             # Inference-free graph checks using only the scoped scratch authority
+│   │   │   │   │   ├── graph_draft.rs                                       # Bounded, resumable local drafting; only aggregate counters cross the CLI boundary
 │   │   │   │   │   ├── graph_ladder.rs                                      # Graph metrics on the existing ladder; no second execution engine or raw public output
 │   │   │   │   │   ├── graph_manifest.rs                                    # Versioned, strict manifest shared by inference-free check and private ladder scoring
 │   │   │   │   │   ├── graph_output.rs                                      # Private evaluation's single public error boundary; raw causes stay on disk
@@ -248,6 +252,9 @@ in place.
 │   │   │       ├── doctor_checks.rs                                         # maestro doctor: each failure names its next action, the router its address; v1 files listed, untouched
 │   │   │       ├── fakes.rs                                                 # Fake curl and systemctl for the binary's tests, found first on the PATH, logging each call
 │   │   │       ├── graph_build.rs                                           # knowledge graph build: the frozen synthetic defaults table (plan A0)
+│   │   │       ├── graph_draft.rs                                           # Draft commands share the private refusal boundary before any default kernel open
+│   │   │       ├── graph_draft_bounds.rs                                    # Private drafting file bounds and receipt schema regressions
+│   │   │       ├── graph_draft_redirect.rs                                  # A drafting endpoint that redirects fails the window, and the redirect's
 │   │   │       ├── graph_eval.rs                                            # Graph evaluation refuses unsafe input without opening a default kernel
 │   │   │       ├── graph_resume.rs                                          # Durable CLI resume and separate attachment, using real authority and rule artifacts
 │   │   │       ├── import_jobs.rs                                           # knowledge import end to end, rerun, live holder refused, stale one superseded, leases taken over
@@ -532,6 +539,7 @@ in place.
 │   │   │   │   │   ├── formatting.rs                                        # Model-card document and query formatting
 │   │   │   │   │   ├── mod.rs                                               # Tests of the model gateway: model cards, the router client against a stub
 │   │   │   │   │   ├── port.rs                                              # Tests of the port's refusals: each says what was refused and why
+│   │   │   │   │   ├── render.rs                                            # Rendering preserves generation framing and refuses unsupported adapters
 │   │   │   │   │   ├── router.rs                                            # Tests of the router client against a stub router: every call is bound to
 │   │   │   │   │   ├── safety.rs                                            # The router client against a misbehaving router: it never follows a
 │   │   │   │   │   ├── stub.rs                                              # A stub of the model router: a loopback HTTP server, on a thread of its
@@ -546,6 +554,7 @@ in place.
 │   │   │   │   ├── fake.rs                                                  # The deterministic fake behind the model port, which public CI uses since it
 │   │   │   │   ├── mod.rs                                                   # The model gateway (building block B10): every model, embedder, reranker
 │   │   │   │   ├── port.rs                                                  # The model port: the calls every way of reaching a model answers, each
+│   │   │   │   ├── render.rs                                                # Exact chat framing through the pinned model's template endpoint
 │   │   │   │   └── router.rs                                                # The router client: the model port over maestro-model-router's dedicated
 │   │   │   ├── generation/                                                  # The search generations of a collection (building block B6; plan D9): each
 │   │   │   │   ├── tests/                                                   # Tests of the generation records: their lifecycle and their publication
@@ -717,11 +726,15 @@ in place.
 │   │   │   ├── eval/                                                        # The evaluation runner (plan D13; FR-S1-009, SC-S1-008): every retrieval
 │   │   │   │   ├── graph/                                                   # Digest-bound graph evaluation labels and construction/proof scoring
 │   │   │   │   │   ├── tests/                                               # Tests of graph evaluation: the strict proof labels and their checker, the
+│   │   │   │   │   │   ├── draft.rs                                         # Draft candidates stay unreviewed and bounded by approved source windows
+│   │   │   │   │   │   ├── draft_replay.rs                                  # Durable reservations prevent duplicate calls and budget resets after interruption
 │   │   │   │   │   │   ├── gates.rs                                         # The gate rules of the spec's table: pairing against same-run
 │   │   │   │   │   │   ├── labels.rs                                        # The label checker: a frozen set passes with only aggregates, IDs and
 │   │   │   │   │   │   ├── mod.rs                                           # Tests of graph evaluation: the strict proof labels and their checker, the
 │   │   │   │   │   │   ├── score.rs                                         # The scores: a proof counts only when every anchor of one allowed proof is
 │   │   │   │   │   │   └── support.rs                                       # What the graph evaluation tests share: a synthetic source, a suite of its
+│   │   │   │   │   ├── draft.rs                                             # One bounded local drafting call; model text never grants evidence authority
+│   │   │   │   │   ├── draft_progress.rs                                    # Durable per-window reservations: an interrupted model call is never silently repeated
 │   │   │   │   │   ├── gates.rs                                             # Frozen evaluation run gates over construction, proof, retrieval and latency evidence
 │   │   │   │   │   ├── label_format.rs                                      # Closed deserialization model for the graph-label JSONL format
 │   │   │   │   │   ├── label_proofs.rs                                      # Validate every link and exact authority anchor in each alternative

@@ -268,6 +268,12 @@ pub(super) enum EvalCommand {
 /// Graph evaluation operations; comparisons remain on the existing ladder.
 #[derive(Debug, Subcommand)]
 pub(super) enum GraphEvalCommand {
+    /// Draft unreviewed questions with a pinned local model and private receipts.
+    Draft {
+        /// The maestro-graph-draft/1 private manifest.
+        #[arg(long, value_name = "PATH")]
+        manifest: PathBuf,
+    },
     /// Validate frozen source anchors without inference.
     Check {
         /// The strict maestro-graph-check/1 manifest.

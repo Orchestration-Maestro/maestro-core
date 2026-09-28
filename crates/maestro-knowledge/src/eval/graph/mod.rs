@@ -1,5 +1,7 @@
 //! Digest-bound graph evaluation labels and construction/proof scoring.
 
+pub mod draft;
+pub mod draft_progress;
 mod gates;
 mod label_format;
 mod label_proofs;

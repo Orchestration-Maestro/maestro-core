@@ -9,6 +9,7 @@ mod fake;
 mod fixture;
 mod formatting;
 mod port;
+mod render;
 mod router;
 mod safety;
 mod stub;

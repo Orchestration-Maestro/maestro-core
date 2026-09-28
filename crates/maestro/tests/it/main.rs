@@ -31,3 +31,7 @@ mod rebuild_drill;
 mod setup_installs;
 mod status_summaries;
 mod support;
+
+mod graph_draft;
+mod graph_draft_bounds;
+mod graph_draft_redirect;
