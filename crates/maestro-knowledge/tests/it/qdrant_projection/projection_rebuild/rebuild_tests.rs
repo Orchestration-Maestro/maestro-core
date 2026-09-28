@@ -12,6 +12,7 @@ use maestro_kernel::{
     store::Database,
 };
 use maestro_knowledge::index::{Error, Progress, Qdrant, RebuildGuard, Report};
+use qdrant_client::{Qdrant as Client, qdrant::CreateAliasBuilder};
 use std::{collections::BTreeSet, ops::ControlFlow, sync::Arc};
 
 #[tokio::test]
@@ -250,6 +251,7 @@ async fn assert_resumed_replacement(
 /// Stops after the replacement alias moves but before the kernel pointer changes.
 pub(super) async fn stop_after_alias(fixture: &mut ResumeFixture, current: i64) -> Progress {
     let mut verified = Vec::new();
+    let mut alias_move = None;
     let stopped = projection(
         &fixture.kernel,
         &fixture.qdrant,
@@ -273,10 +275,16 @@ pub(super) async fn stop_after_alias(fixture: &mut ResumeFixture, current: i64) 
                     .database
                     .verify_generation(step.generation, step.chunks)
                     .unwrap();
-                fixture.backend.fake.as_ref().unwrap().alias_to(
-                    &fixture.old.alias,
-                    &collection_of(&fixture.kernel, step.generation),
-                );
+                let collection = collection_of(&fixture.kernel, step.generation);
+                if let Some(fake) = fixture.backend.fake.as_ref() {
+                    fake.alias_to(&fixture.old.alias, &collection);
+                } else {
+                    alias_move = Some(tokio::spawn(move_alias(
+                        fixture.backend.url.clone(),
+                        collection,
+                        fixture.old.alias.clone(),
+                    )));
+                }
                 ControlFlow::Break(())
             } else {
                 ControlFlow::Continue(())
@@ -285,6 +293,9 @@ pub(super) async fn stop_after_alias(fixture: &mut ResumeFixture, current: i64) 
     )
     .await
     .unwrap_err();
+    if let Some(alias_move) = alias_move {
+        alias_move.await.unwrap();
+    }
     assert!(matches!(stopped, Error::Stopped));
     let saved = verified.last().unwrap().clone();
     assert_eq!(
@@ -415,4 +426,15 @@ async fn again_refuses_when_the_published_pointer_changed_before_rebuild() {
     backend
         .cleanup(&kernel.collection, [old.generation, second.id])
         .await;
+}
+
+/// Points `alias` at `collection` on the real Qdrant at `url`.
+async fn move_alias(url: String, collection: String, alias: String) {
+    Client::from_url(&url)
+        .skip_compatibility_check()
+        .build()
+        .unwrap()
+        .create_alias(CreateAliasBuilder::new(collection, alias))
+        .await
+        .unwrap();
 }
