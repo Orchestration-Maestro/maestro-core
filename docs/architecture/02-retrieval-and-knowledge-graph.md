@@ -5,8 +5,9 @@ grounded answer. Layers L8–L10 of the [layer map](README.md#4-layer-map). The
 knowledge graph is planned in S2 on the integrated kernel of S1.
 [The S2 specification](../../specs/002-knowledge-graph/spec.md) and
 [ADR-0021](../adr/0021-embedded-ladybug-graph-projection.md) govern this design;
-G25 qualification and G24 release evidence are still required. The G01–G05
-rule-only SQLite neighbors pilot is not M2.
+G25 qualification and G24 release evidence are still required. The rule-only
+pilot reads LadybugDB neighbors through G27/G28, never SQLite graph queries;
+pilot success is not M2.
 
 ```mermaid
 sequenceDiagram
@@ -326,14 +327,18 @@ Only `DEFAULTS_TO` is a pilot predicate. `ALIAS_OF` names alias identity, not an
 extractable S2 claim or projection edge: aliases are authoritative, reviewed,
 reversible records ([S2 plan A2](../../specs/002-knowledge-graph/plan.md#a2-claims-and-source-verification)),
 not knowledge proofs. Later extractors use only the permitted claim predicates;
-they cannot expand either vocabulary without an ADR.
+they cannot expand either vocabulary without an ADR. S2 FR-S2-024 binds G18's
+closed schema, G19's refusal tests and plan A4's queries to these lists and
+specifies M2's source-backed subsets for each answerable question class. G31
+upgrades landed G02's literal-only authority to closed subject/object kinds
+and entity-valued predicates; G11/G19/G27 depend on that task.
 
 | Element | S2 boundary |
 | --- | --- |
 | Entity | Typed application ID, collection, normalized name and exact source spelling; the pilot uses `Parameter`. |
 | Claim | Typed subject/predicate/object, conditions/environment, known half-open version/world-time bounds or explicit unknown validity, record time, profile and review state. |
 | Support | Nonempty original source span, revision/block ID and exact quote digest; independent kernel authority and byte checks. |
-| Literal default | `DEFAULTS_TO` has a typed text/boolean/integer/decimal object with its source lexeme preserved, not an invented entity. |
+| Literal default | `DEFAULTS_TO` projects as a typed fact record on its subject, keyed by claim application ID with predicate, literal type/lexeme and generation plus claim qualifiers/support references. G27's scoped `entity_facts` reads it; no literal node or edge is made. |
 | Structure | Reuse canonical block/source references; no literal, Document or Section projection nodes. Literal defaults cannot create entity-to-entity proof paths. |
 
 Knowledge relations are **claims with evidence**, not guaranteed facts. An
@@ -359,12 +364,18 @@ candidates stay in their receipts. Catalog edges use their own authority (§8.6)
 | D. Entity resolution | Same exact spelling, normalized name, kind and collection joins across documents reversibly; colliding spellings/kinds stay ambiguous | Deterministic names and sourced reviewed aliases, no fuzzy/vector linking | Source-backed identities and review history |
 | E. Temporal and conflict | Preserve contradictory values, conditions, unknown validity and supersession under frozen generation membership | No newest-record-wins overwrite | Version-aware claims and complete supporting evidence |
 
-Only pilot/synthetic development failures guide extraction windows or tuning;
-held-out acceptance labels and failures never do. Rule/profile changes require
-new frozen inputs. Vendor rule packs, prompts and receipts stay in the private
-collection. The public table is synthetic; plan A0 names the planned private
-receipt binding and its unconfirmed scope. G05 must independently check every
-private pilot claim before expanding. No pilot result declares M2.
+Only pilot/synthetic development failures tune the bounded window policy;
+apply it to the separately approved acceptance scope, never choose windows from
+held-out labels/failures. Rule/profile changes require new frozen inputs.
+Vendor rule packs, prompts and receipts stay private. U2 was approved at 12:53:
+the whole published `ctm` generation locally for acceptance, and one 9.0.22
+pilot parameter table picked by a local deterministic script, with digests
+frozen before extraction/review reads. Plan A0 still requires separate receipts.
+G32 captures pilot results and reviews claims/chains locally, G33 supplies the
+owner's static page/decision import and G34 drafts privately. G06 and these
+tools expose only aggregates, IDs, digests and fixed error codes on both output
+channels; no private names/quotes or raw model/parser errors enter hosted context. No pilot result
+declares M2.
 
 ### 8.4 Authority and projection
 
@@ -381,13 +392,18 @@ projection used for traversal and algorithms, rebuildable at any time.
 | Loading | One resumable parameterized-batch loader from the complete frozen kernel snapshot; no CSV/COPY or second incremental loader. Native I/O stays outside SQLite transactions. |
 | Readiness | Flush/close/reopen and verify schema, indexes, IDs, counts and digests before kernel-controlled publication. Reader-safe cleanup preserves other collections and retained generations. |
 | Algorithms | Bounded admissible neighbors/paths only. Leiden, PageRank, Personalized PageRank, node similarity and global analytics remain deferred; no GDS or petgraph fallback. |
-| Variants compared | Same-run Qdrant-only, LadybugDB-only and pairing on frozen inputs with the same at-most-4B answerer; no duplicate embeddings. D3's quality gates decide M2, not a working import. |
+| Variants compared | Same-run passage-only (S1 default routes/weights/reranker, graph `none`), LadybugDB-only and pairing on G20's one digest-frozen graph with the same at-most-4B answerer; no re-extraction between repeats or duplicate embeddings. D3's gates decide M2, not a working import. |
 | Later selected Neo4j | Separate adapter behind deployment-modes D07's later `GraphStore`; not conditional on lbug failure and never a runtime fallback. G25 failure instead requires an S2 re-plan ruling before substitution. |
 | Disabled/unavailable | Graph `none` makes zero calls. A selected absent/stale/locked/rebuilding graph reports `unavailable`; passage retrieval continues, unsupported graph conclusions refuse. |
 
-G01–G05 may use indexed SQLite one-hop neighbors while G25 runs. G11 removes
-that temporary traversal branch; SQLite retains claim/export/evidence reads,
-not recursive traversal. G25 pins versions/features and measures native build,
+G04 reads pilot subject facts through `entity_facts`, plus typed neighbors when
+present, only from LadybugDB through G27's projection port after G25/G28.
+G28 loads/verifies both literal fact records and entity edges; literal records
+never add a node or edge. G11 extends the engine with bounded paths counting
+only entity-to-entity claim hops;
+SQLite retains claim authority/export and evidence checks, never graph queries.
+Public construction can run alongside qualification. G25 pins versions/features
+and measures native build,
 cache, packaging and process behavior on Linux, Windows and macOS. G30/G22 must
 prove ordered semantic equality after actual graph-file deletion/rebuild and
 authoritative backup/restore. These are planned obligations, not passed gates.
@@ -532,16 +548,26 @@ misranked* (fix fusion, reranking, context selection) or *present but wrong*
 reranking cannot recover it. Functional indexing acceptance is not corpus-wide
 relevance quality.
 
-**S2 graph evaluation** scores construction, complete retrieved proofs and
-answers separately through the existing `eval ladder --manifest`. Its fixed
+**S2 graph evaluation** scores construction, complete delivered proofs and
+answers separately through the existing `eval ladder --manifest`. A proof
+counts only when every required anchor is in the delivered evidence bundle
+under the shared context budget after the wire limit; route/pre-fusion recall
+is diagnostic only. Its fixed
 [D3 gates](../../specs/002-knowledge-graph/spec.md#gate-decision-rules) supersede
 the general two-point tolerance above: pairing needs at least five points of
 complete-proof recall gain with a strictly positive paired 95% interval, no
 Recall@10/MRR@10/supported-answer loss, at least 95% relation precision, exact
 spans/quotes/commands and at least 16/20 correct refusals, in each of three runs.
-All rungs freeze the same answerer/card/settings/context; same-run Qdrant-only
-is the comparator, G08's S1 result only a drift check. Suite size and the
-independent precision-review protocol remain pending owner confirmation.
+All rungs freeze the same answerer/card/settings/context; same-run passage-only
+keeps S1's Dense/Lexical/Identifier/Structured routes, weights and reranker with
+graph `none`; G08's S1 result is only a drift check. G20 freezes one verified M2
+graph by preregistered selection/digests; G23 reuses it without re-extraction.
+Every run also gates unchanged `ctm-retrieval` on nonnegative Recall@10/MRR@10
+point deltas versus that comparator; seeded paired 95% intervals are diagnostic
+only for non-regression. Suite size and the independent local reviewer protocol
+remain pending owner confirmation. U2's scopes and I1's development-only 8B
+trigger were approved at 12:53: try 8B only if 4B misses 95% precision or finds
+under 80% of gold claims on pilot/synthetic development data, never held-out data.
 
 ## 11. Performance budgets
 

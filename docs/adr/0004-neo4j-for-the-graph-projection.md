@@ -12,8 +12,8 @@ this amendment is not engine adoption or M2 evidence.
 ## Historical decision
 
 The following options, versions and fallbacks record the original decision,
-not S2 implementation instructions. In particular, S2 retains no SQLite or
-petgraph traversal fallback after its one-hop pilot is replaced by G11.
+not S2 implementation instructions. S2 has no SQLite or petgraph traversal;
+its pilot reads LadybugDB (ADR-0021, amended 2026-09-28), and G11 extends it.
 
 The knowledge graph's facts live in the kernel; Neo4j 2026.x Community Edition,
 a separate local service reached over Bolt through neo4rs, is the projection used

@@ -1,6 +1,7 @@
 # Embedded LadybugDB for the graph projection
 
-Status: accepted, 2026-09-28. Owner direction recorded on 2026-09-27 at 21:27;
+Status: accepted, 2026-09-28; amended 2026-09-28 (owner ruling 11:25/11:30).
+Owner direction recorded on 2026-09-27 at 21:27;
 all remaining S2 recommendations approved on 2026-09-28 at 01:56.
 Amends [ADR-0004](0004-neo4j-for-the-graph-projection.md).
 This status accepts the direction, not technical qualification or delivery.
@@ -13,8 +14,9 @@ S2 uses **LadybugDB through the Rust `lbug` crate, embedded in process**, as
 its graph traversal projection. The owner prefers an embedded graph before a
 Neo4j service. The choice is approved; technical adoption still requires the
 qualification defined by **G25**, first in the
-[S2 task list](../../specs/002-knowledge-graph/tasks.md), but independent of the
-SQLite pilot. S1 and that pilot can proceed while qualification runs.
+[S2 task list](../../specs/002-knowledge-graph/tasks.md). Public claim/rule work
+can proceed alongside qualification; pilot graph reads wait for it under the
+2026-09-28 amendment below.
 
 SQLite in WAL mode plus the content-addressed artifact store remain the only
 authority, as [ADR-0002](0002-one-authority-many-projections.md) requires.
@@ -24,21 +26,35 @@ those records. Application collection, generation, entity and claim IDs are
 keys; engine-internal IDs are never stable identities or evidence.
 
 S2 uses one engine and no new daemon, network port, Docker or JVM. Package the
-qualified native runtime without first-use downloads. The rule-only pilot may
-use indexed SQLite one-hop neighbors; G11 replaces that temporary traversal
-path with Cypher. SQLite keeps claims, export and evidence verification, not a
-second recursive graph engine. A configured graph `none` is disabled with
-zero calls, including opens/probes. A selected but absent, stale, locked or
+qualified native runtime without first-use downloads. Under the 2026-09-28
+amendment below, the rule-only pilot reads LadybugDB through G27/G28; G11
+extends that engine with bounded paths. SQLite keeps claim authority/export
+and evidence verification, never graph queries. A configured graph `none` is
+disabled with zero calls, including opens/probes. A selected but absent, stale, locked or
 rebuilding graph reports R4 `unavailable`; passage retrieval continues and
 graph-dependent conclusions are refused when their proof is missing.
 
 All lbug calls stay in knowledge's `graph/projection/` and `graph/cypher.rs`,
 behind application-ID operations. G27 owns the public typed-edge API at
 `crates/maestro-knowledge/src/graph/projection/port.rs`: slices write/read their
-own authoritative edge families without raw Cypher or engine IDs. S3 C27a's
+own authoritative edge families without raw Cypher or engine IDs. Its scoped
+`entity_facts` read also returns literal-valued claim records on their subjects,
+keyed by claim application ID with predicate, literal type/lexeme and generation;
+these create no literal node or edge and never count toward path length. S3 C27a's
 catalog dependency edges never become documentary evidence-span claims.
 The supervisor accepts this seam for D07, which later wraps it in `GraphStore`
 for backend choice. This does not add a second engine or backend trait to S2.
+
+## Amendment (2026-09-28, owner ruling 11:25/11:30)
+
+LadybugDB stays the graph engine from the pilot onward. SQLite holds only claim
+authority and evidence checks, not neighbor/path queries. Pilot neighbors and
+all paths read LadybugDB behind G27's projection port, using G28's single loader;
+there is no temporary SQLite graph engine or postponed native graph delivery.
+G04 follows G25/G28/G03, and G11 extends its reads with bounded Cypher paths.
+G10 follows G02; G05 is a later private pilot-review checkpoint that gates
+private acceptance, not public graph construction. This amends the earlier
+SQLite-pilot sequencing without changing the embedded engine choice.
 
 ## Qualification and safety conditions
 
@@ -54,13 +70,14 @@ record. Measure real-cache shard/coverage cost: shards still fit 30 minutes,
 local builds 8 GiB with three jobs. Binary delta/warm times are measured, not
 given invented ceilings. No blanket exception or additional library approval.
 
-Linux evidence plus a supervisor-approved dated Windows/macOS CI plan permits
-implementation, not M2 acceptance. Actual native three-OS builds/tests,
-C++20/CMake and supported compilers (GCC at least 13 on Linux), and both local
-cross-Clippy recipes remain required. A supported feature/prebuilt recipe may
+Linux evidence, working gate-preserving local cross-Clippy recipes for both
+targets and native Windows/macOS evidence or a supervisor-approved dated CI
+plan permit implementation, not M2 acceptance. Actual native three-OS builds/
+tests, C++20/CMake and supported compilers (GCC at least 13 on Linux) remain
+required. A supported feature/prebuilt recipe may
 preserve a gate; native all-feature CI must still cover every shipped path.
 A platform plan is never described as a passed test. Other missing evidence
-fails/blocks; there is no waiver.
+fails/blocks; no gate is weakened.
 
 Test types, parameters, rollback, the single parameterized-batch loader,
 per-hop filtered bounded paths and native cancellation. Test actual independent processes: a
@@ -91,16 +108,17 @@ model rerun, Qdrant claim source or graph backup is needed.
   Separately, approved deployment-modes work adds a later user-selected
   external Neo4j adapter behind D07's graph port; that work does not require
   lbug to fail. Neither is a runtime fallback or dependency of S2's lbug path.
-- **SQLite edges as the final graph:** sufficient for the thin pilot, but not
-  the approved S2 traversal engine. Retaining both would duplicate path,
-  authorization and recovery behavior.
+- **SQLite graph queries:** rejected for the pilot as well as the final graph
+  by the 2026-09-28 amendment above. A second traversal engine would duplicate
+  path, authorization and recovery behavior.
 - **Multiple graph adapters now:** defer backend selection to D07; S2 owns
   only the typed-edge application-ID port and one lbug implementation.
 
 ## Consequences
 
 The graph needs native C++ build and packaging evidence and a supported
-multi-process file-ownership model; G25 can block engine adoption, not the pilot.
+multi-process file-ownership model; G25 can block engine adoption, including
+pilot graph reads under the 2026-09-28 amendment.
 An approved crate is not a qualified crate. If no supported safe mode passes,
 stop for the fallback ruling rather than weaken isolation or platform gates.
 

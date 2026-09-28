@@ -26,6 +26,26 @@ Rules: the organization's golden rules come first, as
 [the repository rule map](../../docs/standards/engineering.md) records them.
 Implementation: [plan.md](plan.md). Execution: [tasks.md](tasks.md).
 
+## Rules touched
+
+The plan's ID-keyed Constitution Check assigns the holding test, gate or review;
+these are obligations, not passing evidence. Security IDs also follow the
+[security rule map](../../docs/standards/security.md).
+
+| Rule IDs | S2 concern |
+| --- | --- |
+| C-001, C-006 | Requirement/rule ownership and scoped, expiring dependency exceptions. |
+| FND-002, FND-003, P-001, P-002, P-004, P-005 | Rules-first scope, reuse and the minimal shared projection port. |
+| P-011, P-012, P-013, P-014 | Closed typed boundaries, explicit unavailable states and scoped authority. |
+| SEC-001, SEC-005 | Private local processing and explicit sensitive-approval receipts. |
+| SEC-002, SEC-003 | Source instructions remain data; paths, scopes and quotes are checked. |
+| SEC-008, SEC-009 | Retained failures, honest blocked states and evidence before acceptance. |
+| ENF-001, ENF-002 | Bound paths and actual Linux/Windows/macOS evidence. |
+| ENF-005, ENF-006, ENF-008 | Failing tests first, hooks and required CI gates; no weakened checks. |
+| ENF-012, DEP-001 | Pinned engine/model/profile inputs and measured dependency cost. |
+| TST-001, TST-003, COV-001, COV-002 | Deterministic tests, one integration binary and total/changed-line coverage. |
+| HYG-003, ARC-001, ARC-002, ARC-005, SIZE-002 | No large committed fixtures; acyclic, small, correctly owned modules. |
+
 ## Clarifications
 
 ### Owner decisions, 2026-09-27 and 2026-09-28
@@ -37,7 +57,8 @@ Implementation: [plan.md](plan.md). Execution: [tasks.md](tasks.md).
   adapter. Neither choice authorizes a runtime fallback.
 - **D2 — Decided:** rules first, then Qwen3-4B as the first offline extractor
   candidate. The conditional larger candidate is **Qwen3-8B**, a new download,
-  only after recall failure at the same precision floor and a revised estimate.
+  only under I1's approved development-data trigger below and a revised
+  estimate; no held-out result triggers selection.
   It is not the router's `qwen38` entry (Qwen3.8-27B). The answerer stays at or
   below 4B. A candidate approval is not selection; record exact assets,
   licences and GPU costs before use. Answerer card/reasoning settings are
@@ -52,25 +73,52 @@ Implementation: [plan.md](plan.md). Execution: [tasks.md](tasks.md).
   and measured, named DEP-001 exceptions and removal conditions. Other new
   libraries still need approval. Approval is not a passing G25 verdict.
 
+### Owner approvals, 2026-09-28 at 12:53
+
+- **U2 — Approved:** acceptance scope is the whole published `ctm` generation,
+  local processing only. The pilot is one **9.0.22** parameter table selected
+  by a local deterministic script; input/window digests are frozen before its
+  text is read for extraction/review. Bind separate pilot and acceptance
+  receipts; no S1 receipt applies and scope approval does not invent a receipt.
+- **I1 — Approved:** try Qwen3-8B only if 4B misses the precision floor (95%)
+  or finds under 80% of gold claims on pilot and synthetic development data.
+  Preregister the development gold set and trigger before runs. The recorded
+  failed-4B result, exact assets/licences and revised estimate precede a trial;
+  held-out construction or question results never select the extractor.
+
 ## Needs owner action
 
 | Action | Trigger / blocked work | Recommendation |
 | --- | --- | --- |
 | Confirm the 100-question suite | Before G07/G08 freeze; pending owner confirmation | Twenty per type, all 100 held out, 80 answerable independent families; development uses pilot/synthetic cases only. |
-| Confirm the precision reviewer | Before G20/G23 acceptance; pending owner confirmation | A model other than the extractor checks every accepted held-out claim; owner rules on flagged claims. |
-| Confirm private source coverage | Before G05/G07 private reads | Approve the proposed scope in plan A0 and bind `PRIVATE/graph/receipts/pilot-inputs.json`; no S1 receipt applies. The binding is planned and unverified, not authorization. |
+| Confirm the precision reviewer | Before G05 pilot review and G08/G20/G23 acceptance review; pending owner confirmation | A different local model family from the router catalog checks every accepted claim/chain, including rule-made claims. Pin its card and record claim/chain ID, disposition and reason; owner resolves flags on a local review page. |
+| Record the approved pilot receipt | Before G05 private reads; G05 gates private acceptance, not public engine construction | Bind `PRIVATE/graph/receipts/pilot-inputs.json` to U2's one deterministically selected 9.0.22 table, script/window/input digests and 12:53 approval evidence. No additional scope decision is pending. |
+| Record the approved acceptance receipt | Before G07/G08 freeze or any acceptance-source read | Bind `PRIVATE/graph/receipts/acceptance-inputs.json` to the approved whole published `ctm` generation, document/version inventory, digests and bounded window policy, local-only. Pilot permission alone is insufficient. |
 | Rule on flagged review changes | G08 wording/answerability; G20/G23 flagged claims | Resolve flags before freeze or acceptance; no automatic model approval. |
 | Upgrade the live installation | G24, after S2 lands | Owner takes a named backup, updates `maestro-s1` and its clients, then authorizes the live-kernel migration. All earlier runs use scratch restores. |
 | Approve an additional client | Only if Copilot smoke is requested | Pi and Claude Code are the current acceptance clients. Install/use Copilot only after approval; it does not block their S2 acceptance. |
 
+Every sensitive approval receipt records its scope, target, expiry and approval
+evidence (SEC-005), including pilot/acceptance inputs, additional-client use and
+the live upgrade. Missing, expired or out-of-scope approval blocks that action.
+
+For G05, G07, G08, G20 and G23, a lane runs Maestro commands with only aggregate
+metrics, IDs and digests in their visible output; standard error carries only
+fixed codes, IDs and digests, never raw parser/model/router error text. No
+private text enters a hosted model's context. Extraction and review use local models through the
+router; the independent reviewer is a different local model family from its
+catalog. G32 owns the local review/capture runner, G33 the owner's local review
+page and decision import, and G34 the local drafting runner. G05's full neighbor
+JSON is written directly to PRIVATE; the lane sees only counts and digests.
+Only the owner reads flagged text on the local review page.
+
 ## Open questions
 
-The two provisional items are **pending owner confirmation**: the 100-question
-acceptance suite and the independent-model precision review with owner rulings.
-Their task gates stay blocked until confirmed; none lowers D3's thresholds.
-Private receipt coverage and any flagged review decisions also need the actions
-above. A future conditional Qwen3-8B trial needs a recorded failed-4B result,
-exact asset/licence receipt and revised estimate before the new download.
+The suite and independent local reviewer protocol remain **pending owner
+confirmation**. U2's scopes and I1's trigger are approved; their actual private
+receipts still must be recorded and verified before use. No approval lowers
+D3's thresholds. A conditional Qwen3-8B trial still needs the development-only
+failed-4B result, exact asset/licence receipt and revised estimate.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -99,12 +147,15 @@ one approved subset/version; independently review every accepted claim.
 4. **Given** no graph relation for a name, **When** neighbors are requested,
    **Then** the response describes coverage, not corpus-wide absence.
 
-The G01–G05 pilot may use indexed SQLite one-hop reads. It is not M2 and is
-not a second traversal engine retained after G11. G01 freezes the public
+The rule-only pilot reads neighbors only through qualified LadybugDB and G27's
+projection port, using G28's single loader. SQLite holds claim authority and
+evidence checks, never graph queries. G04 waits for G25/G28; G11 extends the
+same engine with bounded paths. This pilot is not M2. G01 freezes the public
 [synthetic source](../../tests/fixtures/synthetic/graph/defaults.md) and
 [rule/oracle fixture](../../tests/fixtures/synthetic/graph/defaults.json).
-Plan A0 specifies this single table contract and the separate, unapproved
-private-scope proposal; synthetic evidence never substitutes for a private run.
+Plan A0 specifies this single table contract and the separately approved
+private scopes/receipt obligations; synthetic evidence never substitutes for
+an actual private run.
 
 ### User Story 2 - Follow a permitted path (Priority: P1)
 
@@ -175,8 +226,9 @@ answerer, context budget, sampling and input snapshot for every variant. Rerun
 
 1. **Given** the provisional 100 FR/EN questions, twenty each for relationships,
    dependencies, version differences, multi-hop and unanswerable cases, **When**
-   frozen after owner confirmation, **Then** a different model has reviewed
-   every chain and the owner has ruled on flagged wording or answerability.
+   frozen after owner confirmation, **Then** a different local model family
+   has reviewed every chain and the owner has ruled on flagged wording or
+   answerability on a local review page.
 2. **Given** all 100 acceptance questions are held out, **When** rules, windows
    or prompts are tuned, **Then** only pilot and synthetic development cases
    may guide changes. Each acceptance question has one independent family;
@@ -201,8 +253,8 @@ paths, claims, evidence and coverage. Repeat after authoritative backup/restore.
 
 **Acceptance Scenarios**:
 
-1. **Given** the qualified build, **When** a writer builds an unpublished
-   generation while separate CLI and MCP processes read, **Then** old pinned
+1. **Given** the qualified build, **When** a writer fills an unpublished
+   projection build while separate CLI and MCP processes read, **Then** old pinned
    readers stay stable, a second writer is refused and publication is atomic.
 2. **Given** a kill, disk-full error or uncertain native commit, **When** work
    resumes, **Then** partial data stays invisible and durable batches are not
@@ -234,11 +286,12 @@ paths, claims, evidence and coverage. Repeat after authoritative backup/restore.
 
 ### Functional Requirements
 
-- **FR-S2-001**: G25 MUST precede engine adoption, not the SQLite pilot.
+- **FR-S2-001**: G25 MUST precede engine adoption, including G04's pilot reads.
   Apply plan A1's six-row pass bar and native behavior/cost checks. Linux
   evidence plus a supervisor-approved dated Windows/macOS CI plan can permit
-  implementation; M2 requires actual three-OS builds/tests, cross-target
-  Clippy, cancellation, independent processes and recovery evidence.
+  implementation only with working gate-preserving cross-target Clippy recipes.
+  M2 requires actual three-OS builds/tests, cross-target Clippy, cancellation,
+  independent processes and recovery evidence.
 - **FR-S2-002**: The kernel MUST own immutable entities, qualified claims,
   supports, aliases, mentions and review records. Claims carry typed endpoints
   and predicates, conditions/environment, version/world validity (unknown is
@@ -263,13 +316,21 @@ paths, claims, evidence and coverage. Repeat after authoritative backup/restore.
   kinds, remain distinct/ambiguous for review. Keep sourced aliases, reviewed
   decisions, supersession and version/condition boundaries; never overwrite
   contradictions or unknown validity.
-- **FR-S2-007**: LadybugDB MUST be one disposable in-process projection, using
-  collection, generation and application IDs, never engine IDs. Its file
-  ownership and reader model MUST match G25; no unsafe lock bypass or daemon.
+- **FR-S2-007**: LadybugDB MUST be the only graph-read engine, including pilot
+  neighbors and all paths, behind G27's projection port. SQLite serves claim
+  authority and evidence checks only, never graph queries. The disposable
+  in-process projection uses collection, generation and application IDs, never
+  engine IDs. A literal-valued claim is a typed fact record on its subject,
+  keyed by claim application ID with predicate, literal type/lexeme, generation
+  and the claim's qualifiers/support references; `entity_facts` reads it through
+  the port. It creates no literal node or edge and grants no semantic truth.
+  Entity-to-entity claims alone create edges and count toward path length.
+  Its file ownership and reader model MUST match G25; no unsafe lock bypass
+  or daemon.
 - **FR-S2-008**: One G25-qualified parameterized-batch loader MUST fill a fresh
-  unpublished build from the frozen snapshot. Close/reopen, counts, IDs,
-  digests, schema and indexes MUST pass verification before kernel readiness
-  exposes it. Resuming that loader is not a second incremental engine.
+  unpublished projection build from the frozen kernel snapshot. Close/reopen,
+  counts, IDs, digests, schema and indexes MUST pass verification before kernel
+  readiness exposes it. Resuming that loader is not a second incremental engine.
   Retained generations and other collections remain untouched.
 - **FR-S2-009**: Cypher MUST apply scope, eligibility, generation, version and
   conditions at every hop before selection or limits. Local depth is at most
@@ -282,7 +343,8 @@ paths, claims, evidence and coverage. Repeat after authoritative backup/restore.
   deterministic, one-based RRF and ties. It MUST not add echo votes or regress
   graph-disabled search. A configured graph `none` is disabled with zero calls,
   not unavailable. A selected but missing/stale/locked/rebuilding graph means
-  R4 `unavailable`, not SQL or Neo4j fallback.
+  R4 `unavailable`, not SQL or Neo4j fallback. Stale means its attachment's
+  generation is not the published generation at request admission.
 - **FR-S2-012**: Graph evidence MUST use `maestro-evidence/2`, carried through
   `EvidenceInput`; non-graph `/1` remains compatible and rejects unknown graph
   fields. Graph contracts carry generation, claims, paths, supports and coverage.
@@ -293,32 +355,41 @@ paths, claims, evidence and coverage. Repeat after authoritative backup/restore.
 - **FR-S2-014**: CLI and MCP MUST share scoped operations for neighbors, path,
   entity resolve and evidence trace, with versioned JSON, deadlines, explicit
   ambiguity/coverage and bounded complete responses. No generic SQL/Cypher tool.
-- **FR-S2-015**: Graph answers MUST use the frozen at-most-4B local answerer
-  card, one retry and the S1 command guards. Every conclusion needs complete
-  cited proof; no inferred transitivity, invented links or absence claims.
+- **FR-S2-015**: Graph answers MUST use an at-most-4B local answerer, at most
+  one retry and the S1 command guards. Acceptance runs pin G08's frozen card.
+  Every conclusion needs complete cited proof; no inferred transitivity,
+  invented links or absence claims.
 - **FR-S2-016**: The model registry and gateway MUST distinguish the extractor
   role, qualification and selection. Constrained extraction uses a closed JSON
   schema, card-bound sampling and `Room::Free`. Output is limited to 1,024
   tokens. Refuse cards for another role and malformed JSON: duplicate keys,
   unknown fields or incomplete output.
-- **FR-S2-017**: Offline model extraction MUST use bounded source windows
-  chosen from pilot/synthetic development failures only, never held-out labels
-  or failures. Use the same quote checks as rules, resumable budgets and
-  retained rejections. Model output is a candidate, not self-authorizing evidence.
+- **FR-S2-017**: Offline model extraction MUST use a bounded window policy
+  tuned only on pilot/synthetic development failures, never held-out labels or
+  failures, then apply it to the separately approved acceptance scope. Use the
+  same quote checks as rules, resumable budgets and retained rejections. Model
+  output is a candidate, not self-authorizing evidence.
 - **FR-S2-018**: Evaluation MUST freeze input/profile/suite digests and reviewed
   proof labels. All acceptance questions stay held out from development. Use
-  the existing ladder runner for Qdrant-only, LadybugDB-only and pairing,
-  without duplicated embeddings. Score construction, retrieval and answers
-  separately; compare with same-run Qdrant-only and keep G08 as a drift check.
-  Retain every attempt and rerun `ctm-retrieval`.
+  the existing ladder runner for passage-only, LadybugDB-only and pairing,
+  without duplicated embeddings. Passage-only keeps S1's default Dense,
+  Lexical, Identifier and Structured routes with graph `none`, unchanged
+  weights and the same reranker. Freeze that definition before G07/G08.
+  Score construction, retrieval and answers separately; compare with same-run
+  passage-only and keep G08 as a drift check. Retain every attempt; rerun
+  `ctm-retrieval` with its non-regression gate in every run. Local drafting,
+  review and owner-page/decision commands MUST have owning tasks and private
+  outputs; `eval graph check` remains inference-free.
 - **FR-S2-019**: Rebuild MUST use SQLite/artifacts only and pass ordered result
   equality after deleting disposable graph files and after backup/restore.
 - **FR-S2-020**: Foreground projection and local telemetry consumers MUST reuse
   S1 durable cursors, deduplicate effects and acknowledge only durable work.
   No background daemon or OTLP exporter is introduced.
 - **FR-S2-021**: Vendor data MUST remain in the approved private collection.
-  Public tests and CI use synthetic material only. Existing privacy checks
-  are not assumed to be a complete vendor-content scanner.
+  Public tests and CI use synthetic material only. Private commands MUST write
+  raw results/reviews directly under the approved private root; both successful
+  output and error paths expose only aggregates, fixed codes, IDs and digests.
+  Existing privacy checks are not a complete vendor-content scanner.
 - **FR-S2-022**: Setup and read-only health MUST cover the qualified embedded
   runtime, owned directories, relocation, locks, permissions and corruption.
   Measure install/open/reopen time, binary size, RSS and disk; document offline
@@ -326,10 +397,33 @@ paths, claims, evidence and coverage. Repeat after authoritative backup/restore.
 - **FR-S2-023**: G27 MUST expose a public typed-edge projection port at
   `crates/maestro-knowledge/src/graph/projection/port.rs`, using application IDs,
   pinned generations, scopes and authoritative edge-family records only.
-  Other slices use it to write/read their own typed edges. S3 catalog dependency
+  Alongside entity-to-entity edges it MUST expose scoped `entity_facts` for
+  literal-valued subject claim records; G04 neighbors returns these records and
+  typed neighbors when present. Other slices use the port for their own typed
+  edges. S3 catalog dependency
   edges remain distinct from knowledge claims and never become evidence-span
   claims. No raw Cypher or engine IDs cross this API; deployment-modes D07 later
   wraps it in `GraphStore` for backend choice.
+- **FR-S2-024**: S2 MUST use the closed entity-kind and relation-type lists in
+  [architecture 02 §8.2](../../docs/architecture/02-retrieval-and-knowledge-graph.md#82-graph-model).
+  All listed entity kinds are eligible; extraction accepts the listed claim
+  predicates except `ALIAS_OF`, which remains a reviewed identity record.
+  G31 upgrades G02's literal-only authority to this closed vocabulary; G11,
+  G19 and G27 wait for it. G18's schema, G19's refusals and plan A4's queries
+  use the same list;
+  no candidate extends it. M2's source-backed graph must cover these subsets
+  for the corresponding answerable question classes, without inferred edges:
+
+  | Question class | Required supported vocabulary |
+  | --- | --- |
+  | Dependencies | `DEPENDS_ON`, `REQUIRES` between listed entity kinds. |
+  | Multi-hop | Complete entity-to-entity chains using `DEPENDS_ON`, `REQUIRES` or `PART_OF`; literal defaults never supply a hop. |
+  | Relationships, including defaults | Listed entity relations; `DEFAULTS_TO` from `Parameter` to a typed literal supplies defaults. |
+  | Version differences | Version-qualified claims, including `INTRODUCED_IN`, `DEPRECATED_IN`, `REPLACES` or `APPLIES_TO`; `Version` is an eligible entity kind. |
+
+  G07 checks this coverage against approved source anchors before suite freeze;
+  absent source support blocks the affected suite coverage, never licenses
+  invented claims. Unanswerable items require no fabricated graph link.
 
 ### Key Entities
 
@@ -352,7 +446,7 @@ paths, claims, evidence and coverage. Repeat after authoritative backup/restore.
   without a model/service; every private pilot claim is independently checked,
   with failures retained. Pilot success alone never closes M2.
 - **SC-S2-002**: Pairing improves complete-proof recall by at least **five
-  percentage points** over **same-run Qdrant-only**, with the paired 95%
+  percentage points** over **same-run passage-only**, with the paired 95%
   interval strictly above zero. The provisional suite has **100 held-out
   questions**, twenty per type: **80 answerable**, twenty unanswerable, one
   independent family per item. All 100 are acceptance-only; development uses
@@ -368,8 +462,8 @@ paths, claims, evidence and coverage. Repeat after authoritative backup/restore.
   at-most-4B answerer; correct refusal on all twenty unanswerable questions is
   at least **80%** (at least 16/20), in every run.
 - **SC-S2-005**: On the reference workstation's private graph, warm p95 graph
-  time is at most **500 ms**, graph search is **under 2.5 s**, and complete ask
-  is **under 10 s**. Cold/loading and unavailable cohorts are reported apart.
+  time is at most **500 ms**, p95 graph search is **under 2.5 s**, and p95 complete
+  ask is **under 10 s**. Cold/loading and unavailable cohorts are reported apart.
   Synthetic 10,000/100,000-edge profiling is a separate explicit benchmark.
 - **SC-S2-006**: Delete/rebuild and authoritative backup/restore produce
   identical ordered neighbors, paths, claims, evidence and coverage, excluding
@@ -387,14 +481,21 @@ paths, claims, evidence and coverage. Repeat after authoritative backup/restore.
 ### Gate decision rules
 
 Freeze these rules before G07/G08; never change them after a failed run.
-Pairing must qualify in all three repeats. The Qdrant-only and LadybugDB-only
-rungs supply the comparator and diagnostic; they need not each earn graph gain.
+Pairing must qualify in all three repeats. Passage-only (S1's default routes,
+weights and reranker with graph `none`) and LadybugDB-only supply the comparator
+and diagnostic; they need not each earn graph gain. Before any extraction run,
+preregister the M2 graph selection rule: use the development-selected extractor
+card's first complete run on the approved acceptance scope, with its frozen
+rules/profile. G20 builds, verifies and freezes that graph by digest. G23 reuses
+it for every rung/repeat; stochastic repeats never re-extract or choose a better
+graph from held-out results.
 
 | Gate | Population and pass decision |
 | --- | --- |
-| Complete-proof gain | Each of the 80 independent answerable families contributes one paired 0/1 complete-proof result. Draw 2,000 paired resamples with replacement, seed 0, using S1's generator; keep answerable/unanswerable strata separate. Sort deltas; the two-sided 95% percentile interval uses the 50th and 1,950th ordered values (one-based). Pass only when the observed delta is at least 0.05 and the 50th value is strictly positive. G06 tests 4 wins/0 losses and 3 wins/0 losses. Duplicate families are rejected, not counted as independent samples. |
-| Relation precision | A model other than the extractor checks every accepted held-out claim's semantics; the owner rules on flagged claims. The point estimate must be at least 0.95. No unresolved reviews or empty denominator passes. This reviewer protocol is pending owner confirmation. |
-| Retrieval and supported answers | In every run, Recall@10, MRR@10 and supported-answer point estimates for pairing must each be at least the same-run Qdrant-only value. G08 drift is reported separately; S1 tuning is not credited as graph gain. |
+| Complete-proof gain | Each of the 80 independent answerable families contributes one paired 0/1 result: one allowed proof counts only when every required anchor is in the delivered evidence bundle under the shared context budget, after the wire limit. Route, pre-fusion and pre-delivery recall are diagnostic only. Draw 2,000 paired resamples with replacement, seed 0, using S1's generator. Sort deltas; the two-sided 95% percentile interval uses the 50th and 1,950th ordered values (one-based). Pass only when the observed delta is at least 0.05 and the 50th value is strictly positive. G06 tests 4 wins/0 losses and 3 wins/0 losses. Duplicate families are rejected, not counted as independent samples. |
+| Relation precision | An independent different local model family from the router catalog checks every accepted held-out claim's semantics, including rule-made claims; the owner rules on flagged claims on a local review page. Pin the reviewer card independently of the extractor. The point estimate must be at least 0.95. No unresolved reviews or empty denominator passes. This reviewer protocol is pending owner confirmation. |
+| Retrieval and supported answers | In every run, `ctm-graph` Recall@10, MRR@10 and supported-answer point estimates for pairing must each be at least the same-run passage-only value. G08 drift is reported separately; S1 tuning is not credited as graph gain. |
+| `ctm-retrieval` non-regression | In every run, pairing-minus-same-run-passage-only point deltas for both Recall@10 and MRR@10 must be ≥0 on the unchanged suite. A negative delta blocks M2 and disables losing fusion (US4 AS4). Report the seeded paired 95% interval using the same 2,000-resample/seed-0 method; the interval is diagnostic only, not a gate. |
 | Refusal and validity | At least 16 of all 20 unanswerable questions are correctly refused per run; errors/timeouts earn no refusal credit. Every accepted span, quote and command must pass exactness, not a sample. |
 | Latency and repetitions | Warm runs use the frozen private graph with models loaded. Measure `retrieval.route.graph` and each graph tool's server time against 500 ms; end-to-end search/ask use their own limits. Use nearest-rank p95 over every predeclared warm attempt, retaining failures/timeouts as failed attempts. All three stochastic runs must pass every applicable gate independently; do not average away a failing run or pool repeats as extra questions. Missing or inconclusive evidence blocks acceptance. |
 
@@ -424,10 +525,14 @@ receipts for every FR-S2 and SC-S2 item before declaring M2.
 ## Assumptions
 
 - The integrated S1 APIs are the starting point; S1 finishes in parallel.
-  G01–G05 wait for neither M1 release nor G25. Only engine tasks need G25.
-- No S1 receipt applies to the pilot. The planned private binding
-  `PRIVATE/graph/receipts/pilot-inputs.json` remains unverified; G05/G07 are
-  blocked until the owner confirms the subset, exact version and windows.
+  No S2 task waits for M1 release. Public claims/rules/model-role work can
+  start alongside G25, but G04 pilot neighbors need G25/G27/G28 first; no
+  temporary SQLite graph queries or postponed LadybugDB delivery.
+- No S1 receipt applies to the pilot. U2 approves one deterministically
+  selected 9.0.22 table and the whole published acceptance generation locally;
+  G05/G07/G08 still need verified separate `pilot-inputs.json` and
+  `acceptance-inputs.json` under `PRIVATE/graph/receipts/`, with frozen digests,
+  scope/target/expiry and approval evidence.
   Private runs restore a named backup into an isolated scratch kernel, never
   the live kernel that `maestro-s1` uses. G01 reads no private material.
 - `lbug` version, minimum features, native packaging and safe multi-process

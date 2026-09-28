@@ -15,7 +15,7 @@ that mapping before it starts.
 | --- | --- | --- | --- | --- |
 | **S0 Foundation** | Clean `maestro-core` (canonicalization only) under org gates; the repositories S1 needs published; Spec Kit | 4–6 days (measured scope) | — | — |
 | **S1 Knowledge kernel + hybrid RAG** | Kernel building blocks; Control-M collection imported, published and searchable through MCP; eval suites; first model bake-off | 12–15 days | S0 | **M1 "Ask Control-M"** |
-| **S2 Knowledge graph** | Rule-only neighbors pilot, sourced claims, qualified embedded LadybugDB, whole-proof graph route and measured gain | 9–12 working days; pilot 3–4 | Integrated S1 seams, not M1 release; engine tasks also need G25 | **M2 "Relationships answered"** |
+| **S2 Knowledge graph** | Rule-only neighbors pilot, sourced claims, qualified embedded LadybugDB, whole-proof graph route and measured gain | 9–12 working days; pilot ≥5.25 plus waits | Integrated S1 seams, not M1 release; engine tasks also need G25 | **M2 "Relationships answered"** |
 | **S3 Catalog** | Copilot-native catalog v1, settings classes and overrides, compile/release/install/update with freshness and revocation, `maestro init` with presets and language overlays, host projection, intent routing, policies | 10–13 days | S1 (S2 for impact queries) | **M3 "Catalog installable"** |
 | **S4 Orchestration runtime** | Workflow graphs, durable engine, daemon, Copilot SDK + llama.cpp sessions, Cedar broker, sandbox, contracts, interrupts, extension host and event stream, test kit | 18–24 days | S3 | **M4 "First governed workflow"** |
 | **S5 Capabilities + InnerSource** | Monitoring, Product Owner and Control-M orchestration-planning capabilities; scaffolder; scenario runner; a contributed capability | 10–15 days | S4 | **M5 "First contributed capability"** |
@@ -107,20 +107,26 @@ cited passages from the full corpus, with measured quality.
 
 Approved direction, implementation/qualification pending: [spec and fixed
 exits](../../specs/002-knowledge-graph/spec.md), [plan](../../specs/002-knowledge-graph/plan.md)
-and [29 tasks](../../specs/002-knowledge-graph/tasks.md). G25 qualification runs
-beside the 18-lane-hour SQLite pilot; neither waits for M1 release.
+and [33 tasks](../../specs/002-knowledge-graph/tasks.md), totaling 124 lane-hours.
+G25 runs beside public construction, but G04 pilot reads wait for G25/G27/G28;
+SQLite never answers graph queries. G31 supplies entity-valued claims; G32–G34
+supply local review, owner pages and drafting. The pilot and its prerequisites
+total 61 lane-hours (42-hour dependency path); the full critical path is 59
+hours. G06 follows G03, not G04; G09/G31 precede G10 and G34 precedes G32 for
+shared-file ownership. No task waits for M1 release.
 
 | Deliverable | Detail |
 | --- | --- |
-| Pilot | G01 freezes one synthetic `DEFAULTS_TO` table rule; G02–G04 add verified claims and scoped one-hop neighbors without a model/service. G05 independently reviews every approved private claim. The planned private scope receipt is unverified and blocks private work. Pilot success is not M2. |
+| Pilot | G01's synthetic `DEFAULTS_TO` rule uses G02/G03 authority, G31 vocabulary and G09/G10/G26/G27/G28 projection prerequisites. G04 reads literal subject facts through `entity_facts`, plus typed neighbors, without an extraction model/service. G32/G33 provide actual local review/capture/page tools before G05, which gates private acceptance. U2's scopes are approved; separate receipts must still be recorded. Pilot success is not M2. |
 | B8 authority | Immutable entities/claims/supports, source block/original spans, typed literal defaults, version/conditions and review history; no literal/Document/Section projection nodes. |
-| Construction | Rule-first; exact spelling/name/kind/collection resolution with reversible sourced decisions; then qualified bounded offline Qwen3-4B extraction. No fuzzy/vector linking or held-out tuning. |
+| Construction | Rule-first; G31 adds closed entity-valued claims beyond landed G02's literal-only schema. G10 extends G03's resolver with reversible sourced decisions; then qualified offline Qwen3-4B extraction. I1's approved 8B trigger uses pilot/synthetic development only. No fuzzy/vector linking or held-out tuning. |
 | Projection | G25-qualified embedded LadybugDB; one resumable parameterized-batch loader, immutable pinned generations and verified readiness. G27 exposes the minimal typed-edge port for S3; deployment-modes D07 adds backend choice and later selected Neo4j separately. |
-| Retrieval | G11 replaces temporary pilot SQL traversal; question-only R4, bounded admissible neighbors/paths, whole-proof `/2` evidence and four scoped CLI/MCP reads. Missing selected graph means unavailable, never runtime fallback. |
-| Comparison | Same-run Qdrant-only, LadybugDB-only and pairing; frozen at-most-4B answerer/card/settings, held-out private labels, all attempts retained and `ctm-retrieval` rerun. |
+| Retrieval | G11 extends G04's LadybugDB neighbors with bounded Cypher paths; question-only R4, whole-proof `/2` evidence and four scoped CLI/MCP reads use the projection port. SQLite holds claim authority/evidence checks only. Missing selected graph means unavailable, never runtime fallback. |
+| Comparison | Same-run passage-only (S1 default routes/weights/reranker, graph `none`), LadybugDB-only and pairing reuse G20's digest-frozen graph without re-extraction; fixed at-most-4B answerer, held-out labels, all attempts retained. `ctm-retrieval` Recall@10/MRR@10 non-regression is a per-run point-estimate gate; seeded intervals are diagnostic. |
 
 **M2 exits:** all D3 gates in the spec pass in each of three runs: at least
-five-point complete-proof gain with a positive paired interval, no retrieval
+five-point complete-proof gain at the delivered evidence bundle after context/
+wire budgets with a positive paired interval, no retrieval
 or supported-answer loss, ≥95% relation precision, exact spans/quotes/commands,
 ≥16/20 correct refusals and the warm graph/search/ask latency limits. The
 100-question suite and precision-review protocol need owner confirmation.

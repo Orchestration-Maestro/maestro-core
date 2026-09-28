@@ -21,12 +21,16 @@ it is not a prerequisite to writing these documents or a result assumed here.
 ## Format and path conventions
 
 Stable IDs preserve the draft's references; G29's second loader is removed.
-**G25 is first**, but the pilot starts beside it. Tasks are dependency-ordered,
-not numeric. There are **29 tasks, 108 lane-hours**, each at most four hours
+**G25 is first**; public construction starts beside it, but pilot reads wait.
+Tasks are dependency-ordered, not numeric. There are **33 tasks, 124 lane-hours**, each at most four hours
 including targeted gates.
 Every task has a failing check, exact file targets and acceptance criteria.
 Split an overrun before dispatch rather than omit a check. Native CI waits are
 reported separately; a four-hour timebox does not turn pending CI into a pass.
+`[P]` after the story tag marks a task eligible for a parallel lane after its
+inputs land. It does not authorize concurrent edits: G09 precedes G10; other
+migration/CLI registration hunks are supervisor-rebased exceptions, and all
+remaining shared files have serialized ownership.
 
 Paths below use these exact directory bindings, with no wildcard ownership:
 
@@ -99,16 +103,22 @@ A changed lock also requires `capped cargo vet --locked`. Dependencies belong
 in root `[workspace.dependencies]`; exceptions belong in
 `maestro-quality.toml`, never a hand-edited generated policy. No local full
 `just check` or mutation run. A documentation-only task runs the document and
-repository hooks, not unrelated Rust builds.
+repository hooks, conventions tests, conventions-crate Clippy on all three
+targets, architecture, duplication and licences, not unrelated Rust builds.
 
 All public examples and process fixtures are synthetic. Keep vendor rules,
 quotes, questions, prompts and reports private; use the approved local model
-profile. No automatic egress, new version or unapproved dependency. A search,
-answer or extraction call uses `Room::Free` and never evicts a chat model.
+profile. In private tasks, lanes run commands exposing only aggregate metrics,
+IDs and digests; no private text enters a hosted model context. Extraction and
+independent review run locally through the router; the reviewer is a different
+local model family from its catalog, and the owner rules on flags on a local
+review page (plan Validation). No automatic egress, new version or unapproved
+dependency. A search, answer or extraction call uses `Room::Free` and never
+evicts a chat model.
 
 ## Phase 1: Qualification gate
 
-### G25 [US5] Qualify lbug before adopting it
+### G25 [US5] [P] Qualify lbug before adopting it
 
 **Time:** 4 h. **After:** none; the separate qualification lane owns this work.
 **Files:** `N/tests/it/lbug_qualification.rs`, `S2/research.md`, root
@@ -117,7 +127,7 @@ answer or extraction call uses `Room::Free` and never evicts a chat model.
 `.github/workflows/lbug-qualification.yml` (in maestro-core).
 **Test:** `capped cargo nextest run -p maestro-knowledge --test it lbug_qualification`.
 **Acceptance:** FR-S2-001, SC-S2-007; the six-row adoption bar in plan A1,
-with actual versus planned platform evidence distinguished. No silent waiver.
+with actual versus planned platform evidence distinguished. No weakened gate.
 
 - [ ] **Red.** Assert types/parameters, rollback, the single batch loader,
   per-hop filtered bounded paths and native cancellation. Spawn independent
@@ -129,18 +139,24 @@ with actual versus planned platform evidence distinguished. No silent waiver.
   real-cache cost per mutation shard/coverage run and peak capped memory.
 - [ ] **Check.** Apply the six-row bar: clean CI delta ≤15 minutes, unrelated
   changes never rebuild liblbug; shards fit 30 minutes and local builds 8 GiB
-  at three jobs. Linux evidence plus a supervisor-approved dated Windows/macOS
-  CI plan permits implementation; real native evidence and both cross-Clippy
-  recipes still gate M2. Put the probe in core; any reusable toolchain release/
-  re-pin is a supervisor step with its wait recorded. Publish the result in
-  `S2/research.md` and the supervisor's G25 report, never infer a passed test.
+  at three jobs. Linux evidence and working gate-preserving recipes for both
+  cross-Clippy targets, plus native Windows/macOS evidence or a supervisor-
+  approved dated CI plan, permit implementation. A missing cross-Clippy recipe
+  is blocked; real native evidence still gates M2. Put the probe in core; any
+  reusable toolchain release/re-pin is a supervisor step with its wait recorded.
+  Publish the result in `S2/research.md` and the supervisor's G25 report, never
+  infer a passed test. Dependency/lock/vet/probe edits integrate only on a
+  reviewed pass; otherwise land only `research.md` and the report. Recheck the
+  ID-keyed Constitution Check against the actual verdict now, recording rule
+  evidence/blockers in `research.md`; G24 performs the final acceptance recheck.
 
-**Checkpoint:** G25 gates engine tasks G11, G21, G22, G26, G27, G28 and G30.
-The SQLite pilot and model/evaluation groundwork do not wait for G25 or M1.
+**Checkpoint:** G25 gates pilot reads G04 and engine tasks G11, G21, G22,
+G26, G27, G28 and G30. Public claims/rules and model-role groundwork can
+start beside it. No task waits for M1 release; SQLite never answers graph queries.
 
 ## Phase 2: User Story 1 — the rule-only pilot
 
-### G01 [US1] Freeze the pilot and reconcile the design
+### G01 [US1] [P] Freeze the pilot and reconcile the design
 
 **Time:** 3 h. **After:** decided D3 and the integrated S1 head; no task dependency.
 **Files:** `S2/spec.md`, `S2/plan.md`, `S2/tasks.md`,
@@ -175,22 +191,30 @@ reviewed requirements and a private scope receipt reference, no vendor text.
 
 G01's frozen public rule/oracle and dispatch inspection are in plan A0 and
 Starting point. The private reference `PRIVATE/graph/receipts/pilot-inputs.json`
-is planned and unverified; no S1 receipt applies. G05/G07 private reads remain
-blocked pending owner scope confirmation. The `graph_fixture` test checks this
+remains unverified here; no S1 receipt applies. The owner approved the pilot
+and acceptance scopes at 12:53. G05 still needs its recorded 9.0.22-table receipt;
+G07 needs separate `PRIVATE/graph/receipts/acceptance-inputs.json` for the whole
+published generation, inventory and window policy, processed locally. The `graph_fixture` test checks this
 fixture and the requirement map below; it does not implement G02–G04 or prove
 private pilot success. Checkboxes remain for supervisor integration evidence.
 
-### G02 [US1] Store verified immutable claims
+### G02 [US1] [P] Store verified immutable claims
 
 **Time:** 4 h. **After:** G01.
 **Files:** `K/src/facts/types.rs`, `K/src/facts/write.rs`,
-`K/src/facts/error.rs`, `K/src/facts/tests/claims.rs`,
-`K/src/facts/tests/supports.rs`, `K/src/evidence/claim_support.rs`,
-`K/migrations/NNNN_graph_claims.sql`, `K/src/store/migration.rs`,
+`K/src/facts/error.rs`, `K/src/facts/read.rs`, `K/src/facts/quote.rs`,
+`K/src/facts/tests/claims.rs`, `K/src/facts/tests/support.rs`,
+`K/src/facts/tests/supports.rs`, `K/src/facts/tests/schema.rs`,
+`K/migrations/0012_graph_claims.sql`, `K/src/store/migration.rs`,
 `K/src/store/tests/migrations.rs`.
 **Test:** `capped cargo nextest run -p maestro-kernel facts`.
-**Acceptance:** FR-S2-002, FR-S2-003; scoped claims with typed endpoints,
+**Acceptance:** FR-S2-002, FR-S2-003; scoped literal `DEFAULTS_TO` claims,
 conditions/time/profile/review fields and immutable verified supports.
+
+Landed at `a176f26`: kinds are nonempty strings and objects are literals only.
+G31, not this historical task, adds the closed kinds and entity-valued claims.
+Quote checks live in `facts/quote.rs`; moving them under evidence would create
+an import cycle. G04 reuses these authority reads, not a graph query in SQLite.
 
 - [ ] **Red.** Reject missing/empty anchors, wrong revision/digest, out-of-range
   or split-UTF-8 spans, denied grants and replacement writes. Force rollback
@@ -204,22 +228,28 @@ conditions/time/profile/review fields and immutable verified supports.
   Failed writes leave no accepted relation, fresh/reopened stores agree, and
   valid quotes never automatically promote semantic truth/review state.
 
-### G03 [US1] Extract the first table rule
+### G03 [US1] [P] Extract the first table rule
 
 **Time:** 4 h. **After:** G02.
 **Files:** `G/rules.rs`, `G/verify.rs`, `G/structure.rs`,
-`G/tests/rules.rs`, `G/tests/verify.rs`, `C/src/cli/graph/build.rs`,
+`G/tests/rules.rs`, `G/tests/verify.rs`, `G/tests/support.rs`,
+`K/src/facts/types.rs`, `C/src/cli/graph/build.rs`,
 `C/src/cli/args.rs`, `C/src/cli/run.rs`, `C/tests/it/graph_build.rs`.
 **Test:** `capped cargo nextest run -p maestro-knowledge graph` and
 `capped cargo nextest run -p maestro graph_build`.
 **Acceptance:** FR-S2-003, FR-S2-004; synthetic import → rule build produces
 only correctly located `DEFAULTS_TO` claims through G02.
 
+Integrated as `79b6502` on top of `a176f26`: `rules.rs` exposes the `Extractor`
+port; its `resolve` groups subjects across documents and reports spelling/kind
+collisions.
+G10 preserves and extends that resolver; it does not introduce a second one.
+
 - [ ] **Red.** Refuse duplicate/unknown keys, changed digests, executable
-  fields, misleading headings and invalid/ambiguous quotes. Identical spelling,
-  normalized name, kind and collection resolves across documents; different
-  colliding spellings or kinds remain ambiguous. Assert `DEFAULTS_TO` has a
-  typed literal object and creates no literal/Document/Section nodes.
+  fields, misleading headings and invalid/ambiguous quotes. Keep G03's existing
+  cross-document identity/collision tests as the baseline G10 extends. Assert
+  `DEFAULTS_TO` has a typed literal object and creates no literal/Document/
+  Section nodes.
 - [ ] **Green.** Parse the standalone closed `rule` object defined in plan A0:
   `id`, its bound `source_sha256` and explicit subject/type/lexeme columns;
   never accept the test envelope or its `expected` oracle as rule input. Build
@@ -232,65 +262,15 @@ only correctly located `DEFAULTS_TO` claims through G02.
   byte-for-byte with the original. A rule/profile change changes the frozen
   inputs. The build runs without a model, script or graph service.
 
-### G04 [US1] Return scoped neighbors from the pilot
+### G06 [US4] [P] Score construction, complete proofs and answers
 
-**Time:** 4 h. **After:** G03.
-**Files:** `K/src/facts/read.rs`, `K/src/facts/tests/neighbors.rs`,
-`G/query.rs`, `G/tests/neighbors.rs`, `C/src/cli/graph/read.rs`,
-`C/src/cli/args.rs`, `C/src/cli/run.rs`, `C/tests/it/graph_neighbors.rs`.
-**Test:** `capped cargo nextest run -p maestro-kernel neighbors` and
-`capped cargo nextest run -p maestro graph_neighbors`.
-**Acceptance:** FR-S2-010, FR-S2-014, SC-S2-001; versioned CLI neighbors carry
-relation, revision, original span/quote and explicit ambiguity/coverage.
-
-- [ ] **Red.** Assert hidden/unknown ID parity, current grants, version
-  selection, ambiguous names, deterministic ties, bounded work and cancellation
-  in CLI JSON and kernel reads. No result must mean no documented graph link,
-  not no relation in the corpus.
-- [ ] **Green.** Add indexed SQLite one-hop reads and the CLI operation over
-  frozen verified pilot claims. Keep authoritative evidence checks in the
-  kernel. This is the temporary pilot path that G11 replaces, not recursion.
-- [ ] **Check.** Run both Test commands and query the G01 fixture after import
-  and build with plan A0's temporary declaration/manifest and version `1.0`.
-  Confirm every emitted byte span/quote and no hidden title/count.
-
-### G05 [US1] Independently check the private pilot
-
-**Time:** 3 h. **After:** G03, G04; decided D4 and the approved private receipt.
-**Files:** `PRIVATE/graph/rules/defaults.json`,
-`PRIVATE/graph/receipts/pilot-inputs.json`,
-`PRIVATE/graph/receipts/pilot-review.jsonl`,
-`PRIVATE/graph/receipts/pilot-results.json`,
-`PRIVATE/graph/receipts/scratch.json`.
-**Test:** `maestro knowledge graph neighbors --collection ctm --entity "$ENTITY" --json`
-for each frozen pilot entity, with plan Validation's explicit scratch bindings.
-**Acceptance:** SC-S2-001, FR-S2-021; every accepted claim and its quote has an
-independent review disposition; no private material is copied to core or CI.
-
-- [ ] **Red.** Refuse missing/overlapping scratch bindings, wrong backup
-  digest, changed receipt, unapproved version and a deliberately false relation.
-- [ ] **Green.** Confirm the owner-approved receipt covers the subset/version/
-  windows, restore a named backup into an isolated scratch kernel with private
-  Qdrant ports/name pairs, then import/build there. Never open the live kernel.
-  Independently check every relation, condition, revision, block, span and
-  quote; retain all failures in the private receipts.
-- [ ] **Check.** Run the Test query matrix, including denied/unknown and
-  ambiguous names. Reconcile every input/candidate/output with its private
-  receipt. Report defects rather than changing source truth to fit the rule.
-
-**Checkpoint:** the 18-hour SQLite pilot is independently usable while G25
-runs. Inspect its failures before expanding; it is not M2 acceptance.
-
-## Phase 3: User Story 4 — freeze measurement early
-
-### G06 [US4] Score construction, complete proofs and answers
-
-**Time:** 4 h. **After:** G01.
+**Time:** 4 h. **After:** G01, G03.
 **Files:** `N/src/eval/graph/labels.rs`, `N/src/eval/graph/score.rs`,
 `N/src/eval/graph/tests.rs`, `N/src/eval/ladder.rs`,
 `N/src/eval/bootstrap.rs`, `C/src/cli/eval/graph.rs`,
 `C/src/cli/eval/runner.rs`, `C/src/cli/eval/manifest.rs`,
-`C/src/cli/args.rs`, `C/src/cli/run.rs`,
+`C/src/cli/eval/command.rs`, `C/src/cli/eval/graph_output.rs`,
+`C/src/cli/eval/tests/reports.rs`, `C/src/cli/args.rs`, `C/src/cli/run.rs`,
 `tests/fixtures/synthetic/graph/eval.jsonl`, `C/tests/it/graph_eval.rs`.
 **Test:** `capped cargo nextest run -p maestro-knowledge eval::graph` and
 `capped cargo nextest run -p maestro graph_eval`.
@@ -298,70 +278,94 @@ runs. Inspect its failures before expanding; it is not M2 acceptance.
 labels and hand-computed stage scores, using S1 statistics rather than a second
 runner. Add only `eval graph check`; runs/comparisons use `eval ladder`.
 
-- [ ] **Red.** Partial chains score zero, a complete alternative once. Reject
+- [ ] **Red.** Partial chains score zero, a complete alternative once. A proof
+  lost to evidence/wire budgets scores zero: every required anchor must survive
+  in the delivered evidence bundle under the shared context budget. Reject
   duplicate families, false exact quotes, missing reviews and digest mismatch.
+  Assert `eval graph check` never opens the default kernel; missing/overlapping
+  scratch bindings refuse before any open, with a default-kernel open spy.
+  Invalid questions, labels, quotes and nested error sources never appear on
+  standard output or standard error: only fixed error codes, item IDs and digests.
+  Test the private ladder path too, not only graph check. G32/G33/G34 reuse
+  these refusal/output checks for review, owner pages and drafting.
   With 80 independent answerable items, seed-0/2,000 paired resamples accept
   4 wins/0 losses at five points and reject 3 wins; assert 50th/1,950th bounds.
 - [ ] **Green.** Add strict labels, one construction scorer and graph metrics
   to the existing ladder. `eval graph check --manifest` validates without
   inference; existing ladder rungs run and compare, keeping every attempt.
-  Implement the spec's gate-rule table, not a second runner.
-- [ ] **Check.** Run both Test commands. Assert same-run Qdrant-only comparison,
-  all-three-runs pass logic, 95% precision point estimate, all-unanswerable
-  refusal denominator and warm cohort limits. Historical G08 drift is separate.
+  Own shared `graph_output` emission for private eval success/errors, including
+  existing ladder entry points; raw diagnostics go only to approved private
+  files. Implement the spec's gate-rule table, not a second ladder runner.
+- [ ] **Check.** Run both Test commands. Assert same-run passage-only comparison
+  (S1 default routes/weights/reranker, graph `none`), all-three-runs pass logic,
+  95% precision point estimate, all-unanswerable refusal denominator and warm
+  cohort limits. `ctm-retrieval` Recall@10/MRR@10 deltas below zero fail each run;
+  a nonnegative delta passes even if the diagnostic seeded interval crosses zero.
+  Historical G08 drift and route/pre-fusion recall are separate diagnostics.
 
-### G07 [US4] Draft the private graph questions
+### G34 [US4] [P] Draft private questions with a bounded local runner
 
-**Time:** 4 h. **After:** G06; owner confirmation of suite size and source coverage.
-**Files:** `PRIVATE/evals/ctm/ctm-graph.jsonl`,
-`PRIVATE/evals/ctm/ctm-graph-splits.json`,
-`PRIVATE/evals/ctm/ctm-graph-manifest.json`.
-**Test:** `maestro eval graph check --manifest "$PRIVATE/evals/ctm/ctm-graph-manifest.json"`.
-**Acceptance:** FR-S2-018, FR-S2-021; provisionally 100 FR/EN questions,
-twenty per type, all held out, 80 answerable independent families. Suite size
-is pending owner confirmation; pilot/synthetic development cases are separate.
+**Time:** 4 h. **After:** G06.
+**Files:** `N/src/eval/graph/draft.rs`, `N/src/eval/graph/tests/draft.rs`,
+`C/src/cli/eval/graph_draft.rs`, `C/src/cli/eval/manifest.rs`,
+`C/src/cli/args.rs`, `C/src/cli/run.rs`, `C/tests/it/graph_draft.rs`.
+**Test:** `capped cargo nextest run -p maestro-knowledge eval::graph` and
+`capped cargo nextest run -p maestro graph_draft`.
+**Acceptance:** FR-S2-018, FR-S2-021; locally drafted, source-anchored private
+questions remain unreviewed until the independent reviewer and owner act.
 
-- [ ] **Red.** Reject missing anchors, wrong quotes, duplicate acceptance
-  families, overlap with pilot/synthetic development and missing complete proof.
-- [ ] **Green.** After owner confirmation, draft twenty questions per required
-  type from approved official sources. All 100 stay acceptance-only; no label
-  or failure guides tuning. Label truth, conditions and alternate chains;
-  require one independent family per item. Extra source versions need approval.
-- [ ] **Check.** Run Test; confirm type counts, both languages, all source
-  anchors and unanswerable rationales. Hand off the draft digest for G08,
-  without calling the unreviewed set a golden set.
+- [ ] **Red.** Refuse missing/expired scope, overlapping scratch bindings,
+  nonlocal/unpinned cards, insufficient room, invented anchors, budget/output
+  overflow and duplicate families. Question/label/quote text and nested errors
+  never reach stdout/stderr; replay does not duplicate draft items.
+- [ ] **Green.** Add `maestro eval graph draft --manifest` over the existing
+  local gateway with `Room::Free`, pinned card/prompt/input digests and bounded
+  per-window/token work. Read only the approved acceptance inventory/windows;
+  write draft labels, provenance and every failed attempt directly under
+  PRIVATE, without treating model text as verified source evidence. Reuse
+  G06's label checker and safe aggregate/ID/digest output; add no second ladder.
+- [ ] **Check.** Run both Test commands with synthetic sources and fake local
+  inference. Revalidate anchors against the approved inputs before saving a
+  candidate; keep its unreviewed state. G07 executes this runner; G08 reviews
+  all its outputs with G32 and obtains flagged rulings through G33.
 
-### G08 [US4] Review every chain and record the S1 baseline
+### G31 [US2, US4] [P] Admit entity-to-entity claims from the closed vocabulary
 
-**Time:** 4 h. **After:** G07; integrated S1 search/ask and eligible local card.
-**Files:** `PRIVATE/evals/ctm/ctm-graph-review.jsonl`,
-`PRIVATE/evals/ctm/ctm-graph-manifest.json`,
-`PRIVATE/graph/receipts/baseline.json`, `PRIVATE/graph/receipts/baseline.md`.
-**Test:** `maestro eval ladder --manifest "$PRIVATE/evals/ctm/ctm-graph-manifest.json"`,
-with plan Validation's scratch environment.
-**Acceptance:** FR-S2-018, SC-S2-002, SC-S2-004; frozen reviewed labels,
-profile/input digests and S1 baseline with a fixed at-most-4B answerer.
+**Time:** 4 h. **After:** G02, G03.
+**Files:** `K/src/facts/types.rs`, `K/src/facts/write.rs`,
+`K/src/facts/read.rs`, `K/src/facts/error.rs`, `K/src/facts/tests/claims.rs`,
+`K/migrations/NNNN_graph_claim_vocabulary.sql`, `K/src/store/migration.rs`,
+`K/src/store/tests/migrations.rs`, `G/rules.rs`, `G/tests/rules.rs`.
+**Test:** `capped cargo nextest run -p maestro-kernel facts` and
+`capped cargo nextest run -p maestro-kernel store::tests::migrations`.
+**Acceptance:** FR-S2-002, FR-S2-003, FR-S2-024; closed subject/object kinds and
+predicates, entity or literal endpoints with exact existing support checks.
 
-- [ ] **Red.** Refuse a freeze with an unreviewed chain, unresolved flagged
-  wording/answerability change, changed input digest or missing failed attempt.
-- [ ] **Green.** Restore the named backup into the isolated scratch kernel;
-  validate private Qdrant bindings and never use the live kernel. A different
-  model reviews every chain; owner rulings resolve flags. Freeze source/suite
-  digests and the S1 default at-most-4B answerer card by digest, including its
-  current reasoning/sampling settings. Record S1 passages as the drift baseline.
-- [ ] **Check.** Run Test on that scratch restore, retaining every failure.
-  Neither the held-out labels nor baseline failures may guide tuning. G23 uses
-  this exact answerer card but compares gain with its same-run Qdrant-only rung.
+- [ ] **Red.** Reject kinds/predicates outside architecture 02 §8.2, `ALIAS_OF`
+  claims, `DEFAULTS_TO` with an entity object and entity predicates with a
+  literal object. Reject unauthorized object endpoints. Upgrade a populated
+  0012 database; valid rows, claim/set digests, supports and history survive.
+  An out-of-vocabulary legacy row refuses the whole upgrade with a clear
+  ID-only diagnostic and no database change; invent no mapping or new claim.
+- [ ] **Green.** Add typed subject/object kinds and entity-to-entity predicates
+  through the existing authoritative write/read paths. Rebuild the claims
+  table in the next-free forward migration, preserving immutability, scope,
+  frozen membership and old valid literal identities. Adapt G03's literal
+  construction to the typed API without changing its source bytes or digests.
+  SQLite remains authority only, never a neighbor/path implementation.
+- [ ] **Check.** Run both Test commands and
+  `capped cargo nextest run -p maestro-knowledge graph`. Reopen upgraded stores,
+  verify identical valid legacy records and round-trip supported entity claims.
+  G11, G19 and G27 cannot start before this contract lands.
 
-## Phase 4: User Stories 1 and 2 — finish authoritative construction
-
-### G09 [US1, US2] Make builds resumable and attachments immutable
+### G09 [US1, US2] [P] Make builds resumable and attachments immutable
 
 **Time:** 4 h. **After:** G03.
 **Files:** `G/build/run.rs`, `G/build/checkpoint.rs`, `G/build/tests.rs`,
 `K/src/facts/build.rs`, `K/src/facts/tests/builds.rs`,
 `K/migrations/NNNN_graph_builds.sql`, `K/src/store/migration.rs`,
-`C/src/cli/graph/build.rs`, `C/tests/it/graph_resume.rs`.
+`K/src/store/tests/migrations.rs`, `C/src/cli/graph/build.rs`,
+`C/tests/it/graph_resume.rs`.
 **Test:** `capped cargo nextest run -p maestro-knowledge graph::build` and
 `capped cargo nextest run -p maestro graph_resume`.
 **Acceptance:** FR-S2-005; one frozen claim/profile attachment per generation,
@@ -373,36 +377,39 @@ leased checkpoints and bounded durable acceptance/rejection receipts.
 - [ ] **Green.** Reuse kernel jobs/resources and journal progress. Separate
   extraction/verification I/O from transactional receipt writes. Attach only a
   verified frozen claim set, once; new inputs require a new generation.
-- [ ] **Check.** Run Test plus `capped cargo nextest run -p maestro-kernel facts`.
+- [ ] **Check.** Run Test plus `capped cargo nextest run -p maestro-kernel facts`
+  and `capped cargo nextest run -p maestro-kernel store::tests::migrations`.
   Resume produces the same claims/rejections as a clean build and rejects late
   writes by an expired worker. Limits survive restart rather than resetting.
 
 ### G10 [US2] Resolve sourced identities, versions and contradictions
 
-**Time:** 4 h. **After:** G02, G05.
-**Files:** `G/resolve.rs`, `G/tests/resolve.rs`, `K/src/facts/resolve.rs`,
+**Time:** 4 h. **After:** G02, G03, G09, G31.
+**Files:** `G/rules.rs`, `G/tests/rules.rs`, `G/resolve.rs`, `G/tests/resolve.rs`,
+`K/src/facts/resolve.rs`,
 `K/src/facts/tests/resolution.rs`, `K/migrations/NNNN_graph_resolution.sql`,
-`K/src/store/migration.rs`.
+`K/src/store/migration.rs`, `K/src/store/tests/migrations.rs`.
 **Test:** `capped cargo nextest run -p maestro-knowledge graph::tests::resolve`
 and `capped cargo nextest run -p maestro-kernel facts::tests::resolution`.
-**Acceptance:** FR-S2-006; scoped sourced aliases/mentions, reviewed reversible
+**Acceptance:** FR-S2-002, FR-S2-006; scoped sourced aliases/mentions, reviewed reversible
 resolution and preserved temporal/conditional contradictions.
+G05 is a later private pilot-review checkpoint, not a construction prerequisite.
 
-- [ ] **Red.** Same spelling/normalized name/kind/collection joins across
-  documents reversibly; different colliding spellings, kinds or collections do
-  not auto-merge. Test typed literals remain claim properties with no literal/
+- [ ] **Red.** Preserve G03's `rules::resolve` identity/collision cases, then
+  add sourced reversible decisions across documents and collections. Different
+  colliding spellings, kinds or collections do not auto-merge. Test typed literals remain claim properties with no literal/
   Document/Section nodes; also conflicting defaults, version bounds, unknown
   validity and superseded claims under old pins.
-- [ ] **Green.** Implement that identity rule with sourced reversible review
-  decisions. Do not add fuzzy/vector linking or turn literal values into
-  entities. Duplicate supporting copies are one group, not corroboration.
-- [ ] **Check.** Run both Test commands; known bounds are half-open, record
-  time never supplies unknown world time and current grants protect aliases
-  and review records as well as claims.
+- [ ] **Green.** Move and extend G03's existing resolver in `G/resolve.rs`,
+  preserving its public re-export and tests; add sourced reversible review
+  decisions, not a duplicate algorithm. Do not add fuzzy/vector linking or
+  turn literal values into entities. Duplicate supporting copies are one group, not corroboration.
+- [ ] **Check.** Run both Test commands and
+  `capped cargo nextest run -p maestro-kernel store::tests::migrations`;
+  known bounds are half-open, record time never supplies unknown world time and
+  current grants protect aliases and review records as well as claims.
 
-## Phase 5: User Story 5 — embedded files and publication
-
-### G26 [US5] Package and diagnose local embedded operation
+### G26 [US5] [P] Package and diagnose local embedded operation
 
 **Time:** 3 h. **After:** G01, G25.
 **Files:** `C/src/cli/setup/graph.rs`, `C/src/cli/setup/command.rs`,
@@ -415,7 +422,8 @@ server, port, Docker, JVM or first-use download; health never mutates a graph.
 
 - [ ] **Red.** Graph `none` is disabled with zero opens/probes, unlike an
   unavailable selected graph. Relocate data and simulate permissions, locks
-  and corruption. Cleanup refuses live readers and non-owned/authority files.
+  and corruption. Refuse caller-supplied engine paths before opening a handle.
+  Cleanup refuses live readers and non-owned/authority files.
 - [ ] **Green.** Extend existing setup/health with previewed owned directories
   and read-only diagnostics. Document qualified reader/writer ownership and
   offline rebuild/removal. Do not add a graph service manager.
@@ -423,30 +431,41 @@ server, port, Docker, JVM or first-use download; health never mutates a graph.
   time, binary size, RSS and disk from the qualified runtime; diagnostics name
   actionable repairs without deleting files or fetching assets.
 
-### G27 [US2, US5] Expose the typed-edge port and verify unpublished projections
+### G27 [US2, US5] Expose the typed-edge port and verify unpublished projection builds
 
-**Time:** 4 h. **After:** G25, G09, G10.
+**Time:** 4 h. **After:** G25, G09, G10, G31.
 **Files:** `P/port.rs`, `P/writer.rs`, `P/schema.rs`, `P/tests/writer.rs`,
 `P/tests/port.rs`, `K/src/facts/projection.rs`,
 `K/src/facts/tests/projection.rs`, `K/migrations/NNNN_graph_projection.sql`,
-`K/src/store/migration.rs`.
+`K/src/store/migration.rs`, `K/src/store/tests/migrations.rs`.
 **Test:** `capped cargo nextest run -p maestro-knowledge graph::projection` and
 `capped cargo nextest run -p maestro-kernel facts::tests::projection`.
 **Acceptance:** FR-S2-007, FR-S2-008, FR-S2-023; public application-ID
 write/read operations at `crates/maestro-knowledge/src/graph/projection/port.rs`,
 edge-family separation and kernel-controlled readiness. S3 C27a depends on this
 port for catalog dependency edges, which never become evidence-span claims.
+The same port's `entity_facts` reads literal-valued claim records on subjects;
+only entity-to-entity claims produce edges.
 
-- [ ] **Red.** Test partial writes, wrong IDs/stamps/counts, expired leases,
+- [ ] **Red.** Round-trip a `DEFAULTS_TO` subject fact record with its claim
+  application ID, predicate, literal type/lexeme and generation. Assert no
+  literal node or edge is created; denied/unknown subjects remain identical.
+  Test partial writes, wrong IDs/stamps/counts, expired leases,
   two writers and publication races. Round-trip another slice's authoritative
   typed edges without source spans; those edges must never become knowledge
   claims/proofs or cross family/scope boundaries.
-- [ ] **Green.** Expose typed-edge operations on application IDs, frozen
-  generations and explicit families, never engine IDs/raw Cypher. Keep lbug
+- [ ] **Green.** Expose typed-edge operations and scoped `entity_facts` on
+  application IDs, frozen generations and explicit families. A literal-valued
+  claim is a typed fact record on its subject, keyed by claim application ID,
+  with predicate, literal type/lexeme and generation; preserve the claim's
+  qualifiers and support references for kernel rechecks. It is not a node,
+  an edge or a truth guarantee. No engine IDs/raw Cypher cross the port. Keep lbug
   calls in `G/projection/` and `G/cypher.rs`; deployment-modes D07 later wraps
-  this API in `GraphStore`. Write unpublished files only; verify IDs/families/
-  digests/counts/schema/indexes after flush/close/reopen before kernel readiness.
-- [ ] **Check.** Run both Test commands and a public-API consumer test. No
+  this API in `GraphStore`. Write an unpublished projection build only; verify
+  IDs/families/digests/counts/schema/indexes after flush/close/reopen before
+  kernel readiness.
+- [ ] **Check.** Run both Test commands, a public-API consumer test and
+  `capped cargo nextest run -p maestro-kernel store::tests::migrations`. No
   engine I/O in SQLite transactions, lbug types in the public port, or changed
   pinned reads. Catalog edges require catalog authority, not evidence spans.
 
@@ -459,30 +478,237 @@ port for catalog dependency edges, which never become evidence-span claims.
 **Test:** `capped cargo nextest run -p maestro-knowledge graph::projection::tests::import`
 and `capped cargo nextest run -p maestro graph_rebuild`.
 **Acceptance:** FR-S2-008, FR-S2-019; the single G25-qualified parameterized
-batch loader fills a fresh unpublished snapshot; no COPY/CSV or second loader.
+batch loader fills an unpublished projection build; no COPY/CSV or second loader.
 
 - [ ] **Red.** Test Unicode, quotes/newlines and malicious-looking bound
-  values. Inject disk-full, repeat a batch, kill after native commit/before
+  values. Load literal subject facts and entity edges in the same snapshot,
+  checking separate counts/digests and that literal facts add no node or edge.
+  Inject disk-full, repeat a batch, kill after native commit/before
   receipt, change the snapshot and restart before readiness; old pins survive.
 - [ ] **Green.** Load the complete frozen snapshot in bounded parameterized
   transactions. Checkpoint verified IDs/digests, not blind counters; uncertain
-  commits recheck durable content. Verify G27 schema/indexes/readiness and
+  commits recheck durable content. Load G27's subject fact records as well as
+  entity edges; verify both families' schema/counts/digests and readiness, and
   preserve withdrawal/retirement membership without changing published files.
 - [ ] **Check.** Run both Test commands; clean/resumed IDs/digests/counts
-  match. Record full rebuild time and peak disk, including G11's explicit
-  scale benchmark. No model inference, Qdrant claim source or live-file copy.
+  match. Record this loader's rebuild time and peak disk; G11 alone records its
+  later explicit scale benchmark. No model, Qdrant claim source or live-file copy.
 
 G29 is removed: resuming G28 is not a separate incremental implementation.
 A second loader is outside S2; proposing it later requires a supervisor-set
 100,000-edge build-time ceiling registered before the measurement, and a miss.
 
-## Phase 6: User Stories 2 and 3 — admissible paths and complete evidence
+### G04 [US1] Return scoped neighbors from the pilot
 
-### G11 [US2] Replace pilot traversal with bounded Cypher paths
+**Time:** 4 h. **After:** G03, G25, G28.
+**Files:** `P/read.rs`, `P/tests/neighbors.rs`, `G/query.rs`,
+`G/tests/neighbors.rs`, `K/src/facts/read.rs`, `K/src/facts/quote.rs`,
+`C/src/cli/graph/read.rs`, `C/src/cli/args.rs`, `C/src/cli/run.rs`,
+`C/tests/it/graph_neighbors.rs`.
+**Test:** `capped cargo nextest run -p maestro-knowledge neighbors` and
+`capped cargo nextest run -p maestro graph_neighbors`.
+**Acceptance:** FR-S2-007, FR-S2-010, FR-S2-014, SC-S2-001; versioned CLI
+neighbors read through LadybugDB's projection port and carry claims, revision,
+original span/quote and explicit ambiguity/coverage.
 
-**Time:** 4 h. **After:** G04, G25, G28.
+- [ ] **Red.** Assert hidden/unknown ID parity, current grants, version
+  selection, ambiguous names, deterministic ties, bounded work and cancellation
+  in CLI JSON, projection reads and kernel evidence checks. No result means
+  no documented graph link,
+  not no relation in the corpus.
+- [ ] **Green.** Project frozen verified pilot claims through G27/G28. Return
+  the subject's `entity_facts` plus typed neighbors when entity edges exist,
+  only from LadybugDB behind G27's port. The literal-only pilot returns fact
+  records with no invented object entity; path length counts entity edges only. Keep claim authority
+  and final evidence checks in the kernel, never a SQLite graph query. Missing
+  or locked LadybugDB is unavailable, not a fallback; G11 extends this engine
+  with paths rather than replacing a temporary traversal implementation.
+- [ ] **Check.** Run both Test commands and query the G01 fixture after import
+  and build with plan A0's temporary declaration/manifest and version `1.0`.
+  Confirm every emitted byte span/quote and no hidden title/count. Assert
+  absent LadybugDB never dispatches a SQLite neighbor/path query.
+
+### G32 [US1, US4] [P] Run independent local review with private capture
+
+**Time:** 4 h. **After:** G04, G06, G34.
+**Files:** `N/src/eval/graph/review.rs`, `N/src/eval/graph/tests/review.rs`,
+`C/src/cli/eval/graph_review.rs`, `C/src/cli/eval/manifest.rs`,
+`C/src/cli/args.rs`, `C/src/cli/run.rs`, `C/tests/it/graph_review.rs`.
+**Test:** `capped cargo nextest run -p maestro-knowledge eval::graph` and
+`capped cargo nextest run -p maestro graph_review`.
+**Acceptance:** FR-S2-018, FR-S2-021, SC-S2-001, SC-S2-003; one bounded local
+review runner writes private dispositions without exposing source text.
+
+- [ ] **Red.** Refuse nonlocal/unpinned cards, reviewer family matching the
+  extractor/drafter, insufficient `Room::Free`, missing approval/scratch
+  bindings, a private destination outside its approved root, malformed review
+  output and mismatched input digests. Capture
+  standard output and standard error on success, malformed input, timeout and
+  nested failures: only aggregates, fixed codes, item IDs and digests escape.
+- [ ] **Green.** Add `maestro eval graph review --manifest` over the existing
+  gateway/router and graph-read ports, with pinned local card/family, prompt,
+  input and receipt digests, per-item budgets and resumable progress. In pilot
+  mode read entity IDs internally from the frozen receipt, invoke G04's reads
+  and write their full JSON to `pilot-results.json` under the approved PRIVATE
+  root before review. For claims/chains, consume manifest-bound private inputs.
+  Write every review/flag/failure to private JSONL; stdout/stderr never contain
+  names, labels, quotes or raw model/router errors. No private file is read
+  back into lane context. A model disposition is not an owner's ruling.
+- [ ] **Check.** Run both Test commands with synthetic inputs and the fake
+  gateway. Every input ID has a disposition or retained failure; retries do
+  not lose/duplicate items. Rule-made claims use the separately pinned local
+  reviewer; where extraction/drafting used a model, its family must differ.
+  Rerun G06's default-kernel and sanitized-error checks. No new runner library.
+
+### G33 [US1, US4] [P] Render the owner's local review page
+
+**Time:** 4 h. **After:** G32.
+**Files:** `C/src/cli/eval/graph_review_page.rs`,
+`C/src/cli/eval/tests/graph_review_page.rs`, `C/src/cli/args.rs`,
+`C/src/cli/run.rs`, `C/tests/it/graph_review_page.rs`.
+**Test:** `capped cargo nextest run -p maestro graph_review_page`.
+**Acceptance:** FR-S2-018, FR-S2-021, SC-S2-001, SC-S2-003; T027-style local
+owner rulings on flagged claims/chains, without a service or hosted review.
+
+- [ ] **Red.** Escape hostile source/quote/model text in HTML and decision
+  exports. Refuse stale input/card digests, unknown item IDs, duplicate rulings
+  and decisions outside the approved scope. Unresolved flags cannot freeze.
+  Verify no private text reaches stdout/stderr or any network resource.
+- [ ] **Green.** Add `maestro eval graph review-page --manifest`, consuming
+  G32's private receipts and writing a self-contained static page under PRIVATE.
+  The owner reads flags locally and exports a local decision JSON file; the
+  same command with `--decisions` validates and records those rulings by item
+  ID/input digest. Preserve original model dispositions and owner history.
+  No HTTP server, external assets, automatic approval or new UI framework.
+- [ ] **Check.** Run Test with synthetic flagged claims and chains. A complete
+  owner disposition survives export/import; changed inputs invalidate it.
+  Only counts, IDs and digests leave the local review workflow. G05/G08/G20/G23
+  use this page rather than asking a hosted lane to inspect private text.
+
+### G05 [US1] Independently check the private pilot
+
+**Time:** 3 h. **After:** G03, G04, G32, G33; approved pilot scope/receipt and
+owner-confirmed local reviewer protocol.
+**Files:** `PRIVATE/graph/select-pilot.py`, `PRIVATE/graph/rules/defaults.json`,
+`PRIVATE/graph/receipts/pilot-inputs.json`,
+`PRIVATE/graph/receipts/pilot-review.jsonl`,
+`PRIVATE/graph/receipts/pilot-results.json`,
+`PRIVATE/graph/receipts/pilot-review-manifest.json`,
+`PRIVATE/graph/receipts/pilot-review.html`,
+`PRIVATE/graph/receipts/pilot-decisions.json`, `PRIVATE/graph/receipts/scratch.json`.
+**Test:** `maestro eval graph review --manifest "$PRIVATE/graph/receipts/pilot-review-manifest.json"`
+in pilot-capture mode, with plan Validation's explicit scratch bindings;
+`maestro eval graph review-page --manifest "$PRIVATE/graph/receipts/pilot-review-manifest.json"`
+writes the owner-only local page. Only aggregates, IDs and digests are printed.
+**Acceptance:** SC-S2-001, FR-S2-021; every accepted claim and its quote has an
+independent review disposition; no private material is copied to core or CI.
+**Executor / inference:** lane-run Maestro commands expose aggregate metrics,
+IDs and digests only; no private text enters hosted context. A different local
+model family from the router catalog reviews every rule-made claim; the owner
+rules on flags on a local review page. No extraction model runs in the pilot.
+
+- [ ] **Red.** Refuse missing/overlapping scratch bindings, wrong backup
+  digest, changed/expired approval, missing scope/target/expiry/evidence fields,
+  unapproved version and a deliberately false relation.
+- [ ] **Green.** Apply the 12:53 approved pilot scope: one 9.0.22 parameter
+  table selected by the local deterministic script. Freeze script/input/window
+  digests in the scope/target/expiry/evidence receipt before reading its text
+  for extraction/review. Restore a named backup with isolated kernel/Qdrant
+  bindings, then import/build/project there through G09/G28. Redirect both
+  output streams of these prerequisite commands to private receipt files;
+  never read them in lane context or open the live kernel. G32 reads
+  entity IDs internally from the frozen receipt and writes full neighbors
+  JSON directly to private `pilot-results.json`, never the lane's terminal.
+  Run its independent local review and G33's owner-page/decision import.
+- [ ] **Check.** Run the Test query matrix, including denied/unknown and
+  ambiguous cases. Reconcile counts and input/candidate/output digests using
+  G32's sanitized summary; the lane never opens raw result or review files.
+  Require every claim's disposition and owner flag ruling. Retain failures
+  privately rather than changing source truth to fit the rule.
+
+**Checkpoint:** the rule-only LadybugDB pilot and its prerequisites total
+61 lane-hours (42-hour dependency path), including G06/G31/G32/G33/G34.
+G05 gates G07/G08/
+G20/G23, not public G10 implementation. Inspect failures before private
+acceptance; pilot success is not M2.
+
+## Phase 3: User Story 4 — freeze measurement early
+
+### G07 [US4] Draft the private graph questions
+
+**Time:** 4 h. **After:** G05, G06, G34; owner-confirmed suite size and recorded
+receipt for the approved whole published `ctm` generation, local-only.
+**Files:** `PRIVATE/evals/ctm/ctm-graph.jsonl`,
+`PRIVATE/evals/ctm/ctm-graph-splits.json`,
+`PRIVATE/evals/ctm/ctm-graph-manifest.json`,
+`PRIVATE/graph/receipts/acceptance-inputs.json`.
+**Test:** `maestro eval graph draft --manifest "$PRIVATE/evals/ctm/ctm-graph-manifest.json"`
+then `maestro eval graph check --manifest "$PRIVATE/evals/ctm/ctm-graph-manifest.json"`,
+with plan Validation's scratch environment and default-kernel refusal check;
+standard output/error contain only aggregates, IDs, digests and fixed codes.
+**Acceptance:** FR-S2-018, FR-S2-021, FR-S2-024; provisionally 100 FR/EN
+questions, twenty per type, all held out, 80 answerable independent families.
+Suite size is pending owner confirmation; pilot/synthetic cases are separate.
+**Executor / inference:** lane-run Maestro commands expose aggregate metrics,
+IDs and digests only. Drafting/source reads use local models through the router,
+never hosted context; G08's different-local-family review and owner local flag
+rulings precede freeze.
+
+- [ ] **Red.** Reject missing anchors, wrong quotes, duplicate acceptance
+  families, overlap with pilot/synthetic development and missing complete proof.
+  Reject pilot-only permission, missing scope/target/expiry/evidence fields,
+  expired approval and missing/overlapping scratch bindings. Prove the check
+  never opens the default kernel, using G06's synthetic refusal test.
+- [ ] **Green.** Record the 12:53 whole-published-generation/local-only approval
+  and restore the named backup under plan Validation. Freeze generation/document/
+  version inventory, digests and window policy in `acceptance-inputs.json`.
+  Freeze the passage-only route/weight/reranker definition, then use G34's
+  local drafting runner to write twenty questions per type directly to PRIVATE.
+  All 100 stay acceptance-only; no label/failure guides tuning. Label truth,
+  conditions and alternate chains; require one independent family per item.
+  Extra source versions need approval.
+- [ ] **Check.** Run Test; read only its counts/IDs/digests, never draft text.
+  G06's local checker verifies languages, anchors, unanswerable rationales and
+  FR-S2-024's supported vocabulary subsets. Missing
+  source-backed coverage blocks freeze, not permission to invent claims. Hand
+  off the draft digest for G08 without calling an unreviewed set a golden set.
+
+### G08 [US4] Review every chain and record the S1 baseline
+
+**Time:** 4 h. **After:** G05, G07, G32, G33; integrated S1 search/ask, eligible local card and
+owner-confirmed local reviewer protocol.
+**Files:** `PRIVATE/evals/ctm/ctm-graph-review.jsonl`,
+`PRIVATE/evals/ctm/ctm-graph-manifest.json`,
+`PRIVATE/graph/receipts/baseline.json`, `PRIVATE/graph/receipts/baseline.md`.
+**Test:** `maestro eval ladder --manifest "$PRIVATE/evals/ctm/ctm-graph-manifest.json"`,
+with plan Validation's scratch environment.
+**Acceptance:** FR-S2-018, FR-S2-021, SC-S2-002, SC-S2-004; frozen reviewed labels,
+profile/input digests and S1 baseline with a fixed at-most-4B answerer.
+**Executor / inference:** lane-run Maestro commands expose aggregate metrics,
+IDs and digests only; a different local model family from the router catalog
+reviews every chain and the owner rules on flags on a local review page.
+Answering runs locally through the router; no private text enters hosted context.
+
+- [ ] **Red.** Refuse a freeze with an unreviewed chain, unresolved flagged
+  wording/answerability change, changed input digest or missing failed attempt.
+- [ ] **Green.** Restore the named backup into the isolated scratch kernel;
+  validate private Qdrant bindings and never use the live kernel. The pinned
+  G32 runner checks every chain locally; G33's page/import records owner flag
+  rulings. Only aggregate metrics, IDs and digests reach either output channel.
+  Freeze source/suite and passage-only route/weight/reranker digests plus the
+  S1 default at-most-4B answerer card by digest, including its
+  current reasoning/sampling settings. Record S1 passages as the drift baseline.
+- [ ] **Check.** Run Test on that scratch restore, retaining every failure.
+  Neither the held-out labels nor baseline failures may guide tuning. G23 uses
+  this exact answerer card but compares gain with its same-run passage-only rung.
+
+## Phase 4: User Stories 2 and 3 — admissible paths and complete evidence
+
+### G11 [US2] [P] Extend LadybugDB neighbors with bounded Cypher paths
+
+**Time:** 4 h. **After:** G04, G25, G28, G31.
 **Files:** `G/query.rs`, `G/cypher.rs`, `G/tests/cypher.rs`,
-`G/tests/paths.rs`, `K/src/facts/recheck.rs`, `K/src/facts/read.rs`,
+`G/tests/paths.rs`, `P/port.rs`, `P/read.rs`, `K/src/facts/recheck.rs`,
 `K/src/facts/tests/recheck.rs`, `C/src/cli/graph/read.rs`,
 `N/tests/it/graph_scale.rs`, `S2/research.md`.
 **Test:** `capped cargo nextest run -p maestro-knowledge graph::tests` and
@@ -498,16 +724,18 @@ shortest admissible paths, every result rechecked in the kernel.
 - [ ] **Green.** Bind fixed Cypher templates; filter scope/eligibility/
   generation/version/conditions at every hop before ranking and limits. Bound
   native expansion and time as well as output. Recheck every entity, claim and
-  support against current kernel grants/eligibility. Remove the pilot SQL
-  traversal branch; retain SQLite claim/export/evidence reads only.
+  support against current kernel grants/eligibility. Extend G04's LadybugDB
+  reads behind the same projection port; SQLite supplies only claim authority/
+  export and evidence checks, never neighbor/path queries.
 - [ ] **Check.** Run Test on small fixtures. Run the ignored 10,000/100,000-edge
   profile explicitly, outside per-mutant runs:
   `capped cargo nextest run -p maestro-knowledge --test it --run-ignored only graph_scale`.
-  Mark that test `#[ignore]`; record build time, expansion caps and cleanup.
+  Generate these fixtures at test time, never commit them (HYG-003). Mark the
+  test `#[ignore]`; record build time, expansion caps and cleanup.
   Inaccessible and unknown responses match; no graph failure enables SQL or
   Neo4j fallback, and limited traversal never claims corpus-wide absence.
 
-### G12 [US3] Version graph evidence without weakening S1
+### G12 [US3] [P] Version graph evidence without weakening S1
 
 **Time:** 3 h. **After:** G04, G06.
 **Files:** `K/src/evidence/graph.rs`, `K/src/evidence/tests/graph.rs`,
@@ -553,7 +781,7 @@ metadata survive assembly or become explicit sanitized gaps.
   Every passage/claim reference resolves and no high-scoring endpoint replaces
   an omitted intermediate link. Non-graph assembly retains its baseline.
 
-### G14 [US3] Add question-seeded R4 to the existing fusion
+### G14 [US3] [P] Add question-seeded R4 to the existing fusion
 
 **Time:** 4 h. **After:** G13.
 **Files:** `N/src/query/understand.rs`, `G/seeds.rs`,
@@ -561,7 +789,8 @@ metadata survive assembly or become explicit sanitized gaps.
 `N/src/search/request.rs`, `N/src/search/admission.rs`,
 `N/src/search/route_execution.rs`, `N/src/search/orchestrate.rs`,
 `N/src/search/tests/graph.rs`, `N/src/search/tests/fusion.rs`,
-`C/src/cli/eval/manifest.rs`, `C/src/cli/eval/graph.rs`.
+`C/src/cli/eval/manifest.rs`, `C/src/cli/eval/tests/manifest.rs`,
+`C/src/cli/eval/graph.rs`.
 **Test:** `capped cargo nextest run -p maestro-knowledge search::tests` and
 `capped cargo nextest run -p maestro cli::eval::tests::manifest`.
 **Acceptance:** FR-S2-011, SC-S2-002, SC-S2-005; FR/EN question-only seeds,
@@ -570,7 +799,8 @@ complete support handoff, deterministic fusion and graph-disabled parity.
 - [ ] **Red.** Assert one-based RRF/ties, no duplicate echo vote, no seed from
   dense/BM25 hits, exact disabled-search parity and unavailable/deadline
   behavior without suppressing passage routes. Graph `none` makes zero calls,
-  including opens/probes, and is not reported unavailable. Record pre-fusion recall.
+  including opens/probes, and is not reported unavailable. Pre-fusion recall is
+  diagnostic only; complete-proof gain uses the delivered evidence bundle.
 - [ ] **Green.** Add Graph once to the route/configuration/observation seams.
   Use exact names/identifiers/reviewed aliases; preserve proof groups through
   the existing fusion/rerank path. Simple search remains simple.
@@ -578,7 +808,7 @@ complete support handoff, deterministic fusion and graph-disabled parity.
   yields a named unavailable reason and no hidden fallback. The existing
   retrieval fixture baseline does not regress when graph is disabled.
 
-### G15 [US2, US3] Expose graph reads with whole-proof transport limits
+### G15 [US2, US3] [P] Expose graph reads with whole-proof transport limits
 
 **Time:** 4 h. **After:** G11, G13.
 **Files:** `C/src/knowledge/requests.rs`,
@@ -588,7 +818,8 @@ complete support handoff, deterministic fusion and graph-disabled parity.
 `C/src/cli/args.rs`, `C/tests/it/graph_mcp.rs`, `docs/how-to/knowledge-graph.md`.
 **Test:** `capped cargo nextest run -p maestro graph_mcp` and
 `capped cargo nextest run -p maestro knowledge::output`.
-**Acceptance:** FR-S2-014, SC-S2-008; neighbors/path/entity-resolve/evidence-trace
+**Acceptance:** FR-S2-010, FR-S2-013, FR-S2-014, SC-S2-008;
+neighbors/path/entity-resolve/evidence-trace
 share one scoped operation across CLI/MCP and return no SQL/Cypher interface.
 
 - [ ] **Red.** Test ambiguous names, explicit version/generation, current
@@ -602,7 +833,7 @@ share one scoped operation across CLI/MCP and return no SQL/Cypher interface.
   Pi/Claude Code smoke evidence; Copilot needs owner approval. Private
   responses never enter public receipts.
 
-## Phase 7: User Stories 3 and 4 — small-model answers and extraction
+## Phase 5: User Stories 3 and 4 — small-model answers and extraction
 
 ### G16 [US3] Answer only from complete cited graph proofs
 
@@ -613,8 +844,8 @@ share one scoped operation across CLI/MCP and return no SQL/Cypher interface.
 `C/tests/it/knowledge_ask.rs`.
 **Test:** `capped cargo nextest run -p maestro-knowledge answer` and
 `capped cargo nextest run -p maestro knowledge_ask`.
-**Acceptance:** FR-S2-015, SC-S2-003, SC-S2-004; frozen at-most-4B local
-answerer card/settings, uncalibrated scores and at most one retry.
+**Acceptance:** FR-S2-015, SC-S2-003, SC-S2-004; at-most-4B local answerer,
+card/settings frozen for acceptance runs, uncalibrated scores and at most one retry.
 
 - [ ] **Red.** Reject invented commands/links, incomplete citations, inferred
   transitivity, unavailable required graph proof and unresolved contradictory
@@ -626,7 +857,7 @@ answerer card/settings, uncalibrated scores and at most one retry.
   answer before or after wire limits. Report local answer latency and refusal
   results in later frozen evaluation; do not claim general calibration here.
 
-### G17 [US4] Add the qualified extractor role to the model registry
+### G17 [US4] [P] Add the qualified extractor role to the model registry
 
 **Time:** 4 h. **After:** G01; decided D2.
 **Files:** `K/src/gateway/card_types.rs`,
@@ -655,36 +886,39 @@ selection while existing role histories, pinned cards and guards survive.
 `K/src/gateway/router.rs`, `K/src/gateway/fake.rs`,
 `K/src/gateway/tests/extract.rs`, `K/src/gateway/tests/chat.rs`.
 **Test:** `capped cargo nextest run -p maestro-kernel gateway`.
-**Acceptance:** FR-S2-016; closed-schema extraction, pinned card/sampling,
+**Acceptance:** FR-S2-016, FR-S2-024; closed-schema extraction, pinned card/sampling,
 `Room::Free` and at most 1,024 output tokens without weakening Answerer chat.
 
 - [ ] **Red.** Inspect stub-router wire JSON and refusal paths: wrong role,
   card mismatch, invalid/partial JSON, duplicate/unknown keys, unsupported
   sampling/template controls, output overflow and insufficient room.
 - [ ] **Green.** Add the constrained extraction request through the existing
-  port/router and deterministic fake. The schema allows typed candidates only,
-  not tools, arbitrary JSON instructions or caller-chosen authority fields.
+  port/router and deterministic fake. Derive typed candidates from architecture
+  02 §8.2's closed lists and FR-S2-024, excluding `ALIAS_OF` claims; no tools,
+  arbitrary JSON instructions or caller-chosen authority fields.
 - [ ] **Check.** Run Test; no room means no unload, invalid output admits no
   partial claims, and all existing embed/rerank/tokenize/chat tests still pass.
 
-### G19 [US1, US4] Extract offline through the verified build pipeline
+### G19 [US4] [P] Extract offline through the verified build pipeline
 
-**Time:** 4 h. **After:** G09, G10, G18.
+**Time:** 4 h. **After:** G09, G10, G18, G31.
 **Files:** `G/extract/windows.rs`, `G/extract/run.rs`,
 `G/extract/tests.rs`, `G/build/run.rs`, `C/src/cli/graph/build.rs`,
 `C/tests/it/graph_extract.rs`, `PRIVATE/graph/prompts/extract.md`.
 **Test:** `capped cargo nextest run -p maestro-knowledge graph::extract` and
 `capped cargo nextest run -p maestro graph_extract`.
-**Acceptance:** FR-S2-017, FR-S2-003, FR-S2-005; bounded offline candidates use
+**Acceptance:** FR-S2-017, FR-S2-003, FR-S2-005, FR-S2-024; bounded offline candidates use
 G03's block/quote checks and G02's authoritative write, with retained rejections.
 
 - [ ] **Red.** Test negation, Unicode, repeated ambiguous quotes, misleading
   source instructions, window/output/token overflow and retry after a crash.
-  Rejected JSON or unsupported relation types cannot create accepted claims.
-  A held-out label/failure must never influence window selection.
-- [ ] **Green.** Choose windows from pilot/synthetic development failures
-  only; selection receives no held-out labels/results. Freeze prompt/card/
-  window/profile digests in G09 jobs. Call G18 outside transactions and retain
+  Rejected JSON, unknown kinds/predicates or `ALIAS_OF` claims outside
+  architecture 02 §8.2 / FR-S2-024 cannot be accepted.
+  A held-out label/failure must never influence window-policy tuning.
+- [ ] **Green.** Tune the bounded window policy on pilot/synthetic development
+  failures only, then apply it across the separately approved acceptance scope;
+  tuning receives no held-out labels/results. Freeze prompt/card/window/profile
+  digests in G09 jobs. Call G18 outside transactions and retain
   candidates/rejections before advancing durable progress.
 - [ ] **Check.** Run both Test commands; clean and resumed runs respect the
   same cumulative work/token budget. Public tests use synthetic prompts only;
@@ -692,36 +926,54 @@ G03's block/quote checks and G02's authoritative write, with retained rejections
 
 ### G20 [US4] Compare rules with rules plus the 4B extractor
 
-**Time:** 3 h. **After:** G08, G19; D2/D4, private inputs and owner-confirmed
-precision reviewer protocol.
+**Time:** 3 h. **After:** G05, G08, G19, G28, G32, G33; approved acceptance scope
+and development-only 8B trigger, owner-confirmed local precision reviewer.
 **Files:** `PRIVATE/graph/receipts/extractor-manifest.json`,
 `PRIVATE/graph/receipts/extractor-attempts.jsonl`,
 `PRIVATE/graph/receipts/extractor-comparison.md`,
-`PRIVATE/graph/receipts/extractor-card.json`.
+`PRIVATE/graph/receipts/extractor-card.json`,
+`PRIVATE/graph/receipts/m2-graph.json`.
 **Test:** `maestro eval ladder --manifest "$PRIVATE/graph/receipts/extractor-manifest.json"`,
 with plan Validation's scratch environment and G06's construction scorer.
-**Acceptance:** SC-S2-003, FR-S2-016, FR-S2-018; three retained runs with
+**Acceptance:** SC-S2-003, FR-S2-016, FR-S2-018, FR-S2-021; three retained runs with
 independent-model semantic precision/recall, owner rulings on flags, quote
 validity and tokens/throughput/VRAM. The review protocol is pending owner confirmation.
+**Executor / inference:** lane-run Maestro commands expose aggregate metrics,
+IDs and digests only; extraction runs locally through the router. A different
+local model family from the router catalog reviews every claim, including
+rule-made claims; owner flag rulings use a local review page. No private text
+enters hosted context.
 
 - [ ] **Red.** Refuse comparison when suite/profile/corpus digests differ,
   failed attempts are missing, synthetic evidence is called real or a candidate
-  violates the precision floor despite exact quotes.
-- [ ] **Green.** Restore the named backup into an isolated scratch kernel
-  with private Qdrant bindings; never open the live kernel. Compare rules with
-  rules-plus-Qwen3-4B there. A different model reviews every accepted held-out
-  claim, and the owner resolves flags. All three precision point estimates
-  must reach 95%; development tuning never sees held-out labels or failures.
-- [ ] **Check.** Run Test; keep every rejection/failed attempt and select a
-  card only on real eligible evidence. A recall miss at fixed precision may
-  trigger a newly estimated Qwen3-8B download, not the router's Qwen3.8-27B,
-  a larger answerer, targeted held-out window tuning or a lower floor.
+  violates the precision floor despite exact quotes. Reject missing graph
+  selection rules, graph digest mismatch and extractor selection on held-out data.
+- [ ] **Green.** Before use, record the exact Qwen3-4B asset/card digests,
+  licences and GPU costs in `extractor-card.json` (D2, ENF-012). Restore the named
+  backup with private Qdrant bindings; never open the live kernel. Preregister
+  the development gold set/trigger and graph selection rule before any run.
+  Select a card on real eligible pilot development evidence with synthetic
+  checks, not held-out data. I1's 12:53 approved 8B trigger is 4B precision <95%
+  or gold-claim recall <80% on pilot/synthetic development only; a trial still
+  needs the recorded failed-4B evidence and revised download/asset estimate.
+  Compare rules with rules-plus-selected-card on the approved acceptance scope.
+  G32 reviews every accepted held-out claim locally; G33 records owner flag
+  rulings. Only its sanitized summaries reach the lane; all three precision
+  point estimates must reach 95%.
+- [ ] **Check.** Run Test; retain every rejection/failed attempt. Under the
+  preregistered rule, use the development-selected card's first complete run
+  and frozen rules/profile, not the best acceptance result. Attach that claim
+  set in scratch, build with G28, verify G27 readiness, then freeze the M2 graph
+  in `m2-graph.json`: collection/generation, source/profile/card/claim-set and
+  projection-content digests plus a named authoritative scratch backup receipt.
+  A failed gate blocks; do not choose a later graph. G23 reuses this graph for
+  every rung/repeat; never re-extract for repeated stochastic measurements.
 
-## Phase 8: User Story 5 — recovery and native proof
+## Phase 6: User Story 5 — recovery and native proof
 
 ### G21 [US5] Consume projection events durably in the foreground
 
-**Time:** 4 h. **After:** G09, G25, G28.
+**Time:** 4 h. **After:** G09, G19, G25, G28; G19's shared build-command edit lands first.
 **Files:** `G/consumer.rs`, `G/tests/consumer.rs`,
 `K/src/telemetry/span.rs`, `K/src/telemetry/tests/stages.rs`,
 `C/src/cli/graph/build.rs`, `C/tests/it/graph_consumer.rs`.
@@ -788,41 +1040,59 @@ G30 rebuild → evidence equality, plus native writer/CLI/MCP process CI.
   Observe native CI, crash/reader-drain evidence and unchanged authority after
   S1 refusal. Queued jobs are not passes; public CI uses no vendor fixtures.
 
-## Phase 9: User Story 4 — M2 acceptance, then release
+## Phase 7: User Story 4 — M2 acceptance, then release
 
-### G23 [US4] Measure the three retrieval variants against fixed gates
+### G23 [US4] [P] Measure the three retrieval variants against fixed gates
 
-**Time:** 3 h. **After:** G08, G16, G20; owner confirmation of both provisional gates.
+**Time:** 3 h. **After:** G05, G08, G16, G20, G32, G33; owner-confirmed suite, local
+reviewer protocol and acceptance scope.
 **Files:** `PRIVATE/graph/receipts/m2-manifest.json`,
 `PRIVATE/graph/receipts/m2-attempts.jsonl`,
 `PRIVATE/graph/receipts/m2-comparison.md`,
 `PRIVATE/graph/receipts/ctm-retrieval-regression.json`.
 **Test:** `maestro eval ladder --manifest "$PRIVATE/graph/receipts/m2-manifest.json"`,
 with plan Validation's scratch environment.
-**Acceptance:** FR-S2-018, SC-S2-002, SC-S2-003, SC-S2-004, SC-S2-005;
-Qdrant-only, LadybugDB-only and pairing on frozen inputs without duplicate
+**Acceptance:** FR-S2-018, FR-S2-021, SC-S2-002, SC-S2-003, SC-S2-004, SC-S2-005;
+passage-only, LadybugDB-only and pairing on frozen inputs without duplicate
 embeddings. Every D3 floor is a gate, not a report-only aspiration.
+**Executor / inference:** lane-run Maestro commands expose aggregate metrics,
+IDs and digests only; answering runs locally through the router. Claim review
+uses the pinned different local model family from its catalog, with owner flag
+rulings on a local review page. No private text enters hosted context.
 
-- [ ] **Red.** Refuse mismatched generator/card/context/sampling/suite inputs,
-  omitted failures and a manifest that tunes on held-out families. Keep cold,
-  warm and unavailable latency cohorts separate.
-- [ ] **Green.** Restore the named backup into the isolated scratch kernel,
-  validate private Qdrant bindings and run all rungs on that same binary/input.
-  Use G08's frozen at-most-4B card/settings; repeat stochastic work three times
-  and retain every attempt. Compare pairing with same-run Qdrant-only; G08 is
-  only a drift check. Rerun `ctm-retrieval` on these same-run rungs.
+- [ ] **Red.** Refuse mismatched generator/card/context/sampling/suite/graph
+  digests, missing G20 graph receipts, omitted failures and held-out tuning.
+  Keep cold, warm and unavailable latency cohorts separate.
+- [ ] **Green.** Restore G20's named digest-frozen authoritative scratch backup
+  containing the M2 claims; validate private Qdrant bindings. Verify/rebuild
+  exactly that frozen projection through G28 and match its semantic digests,
+  not an empty S1-only graph. Run every rung on this same binary/input graph.
+  Use G08's frozen at-most-4B card/settings; repeat retrieval/answer stochastic
+  work three times, never re-extract. Keep every attempt. Compare pairing with
+  same-run passage-only (S1 default routes/weights/reranker, graph `none`);
+  G08 is drift only. Rerun unchanged `ctm-retrieval` on the same-run rungs.
+  G32/G33 supply any review/ruling evidence; all commands write raw reports
+  privately and expose only aggregates, IDs and digests, including on failure.
 - [ ] **Check.** Run Test; every run must independently pass: ≥5-point proof
-  gain with the seed-0/2,000-resample 50th delta strictly above zero, no
-  Recall@10/MRR@10/supported-answer point-estimate loss, relation precision
-  ≥95%, exact spans/quotes/commands and ≥16/20 correct refusals. Warm private
-  p95: graph span/tools ≤500 ms, search <2.5 s, ask <10 s. Missing, failing or
-  inconclusive evidence blocks M2. Do not average away a failure or retune.
+  gain measured at the delivered evidence bundle after context/wire budgets,
+  with the seed-0/2,000-resample 50th delta strictly above zero; no `ctm-graph`
+  Recall@10/MRR@10/supported-answer point-estimate loss; no `ctm-retrieval`
+  Recall@10/MRR@10 point delta below zero (seeded intervals diagnostic only);
+  relation precision ≥95%, exact spans/quotes/commands and ≥16/20 refusals.
+  Warm private p95: graph span/tools ≤500 ms, search <2.5 s, ask <10 s.
+  Missing, failing or inconclusive evidence blocks M2; negative retrieval
+  deltas disable losing fusion. Do not average away a failure or retune.
 
 ### G24 [US1, US2, US3, US4, US5] Map evidence and release M2
 
 **Time:** 3 h. **After:** G23; every other task integrated and CI fixes complete.
-**Files:** `S2/acceptance.md`, `S2/tasks.md`, `S2/research.md`,
-`docs/architecture/08-traceability.md`, `docs/how-to/knowledge-graph.md`,
+**Files:** `S2/acceptance.md`, `S2/spec.md`, `S2/plan.md`, `S2/tasks.md`,
+`S2/research.md`, `CONTEXT.md`, `docs/architecture/README.md`,
+`docs/architecture/02-retrieval-and-knowledge-graph.md`,
+`docs/architecture/04-intelligence-backend.md`,
+`docs/architecture/05-platform-and-operations.md`,
+`docs/architecture/06-roadmap.md`, `docs/architecture/08-traceability.md`,
+`docs/how-to/knowledge-graph.md`,
 `docs/adr/0021-embedded-ladybug-graph-projection.md`,
 `docs/adr/0004-neo4j-for-the-graph-projection.md`, `docs/adr/README.md`.
 **Test:** requirement-by-requirement evidence check plus the final CI gate and
@@ -832,13 +1102,19 @@ SC-S2-006, SC-S2-007, SC-S2-008; supervisor-approved release evidence.
 
 - [ ] **Red.** Acceptance check rejects a missing requirement, duplicate map,
   pending/failed G25 or native run, stale commit receipt, lowered target,
-  unproved equality or any unmet M2 exit. Design status is not code evidence.
+  unproved equality, unmapped rule ID or any unmet M2 exit. Design status is not
+  code evidence. G25's Check records the interim rule-table recheck against its
+  qualification verdict; this task owns the final pre-acceptance recheck.
 - [ ] **Green.** Map every FR-S2/SC-S2 and its architecture portion to an
   integrated commit/test/receipt or an explicit blocker; keep private content
   and receipt bodies private. Record packaging, process, rebuild and client
   evidence and remaining named deferrals. Finalize ADR-0021 against G25's
-  actual evidence here, not in G01.
-- [ ] **Check.** Verify final CI coverage/mutation/three-OS gates and G25
+  actual evidence here, not in G01. Reconcile CONTEXT's projection/graph terms
+  and architecture index/status rows with that evidence. The supervisor opens
+  a separate organization `.github` PR for the constitution's stack row once
+  ADR-0021 is final; this core task does not edit another repository.
+- [ ] **Check.** Recheck the ID-keyed Constitution Check, final CI
+  coverage/mutation/three-OS gates and G25
   against the release commit. Owner authorizes live migration only after a
   named backup and the `maestro-s1`/client update. Obtain supervisor release
   approval; lanes never merge, deploy or upgrade the owner's kernel.
@@ -853,16 +1129,23 @@ G24 waits for every task, not only the quality report.
 
 | Once these land | Independent work, subject to shared-file ownership |
 | --- | --- |
-| G01 | G02 claims, G06 scoring and G17 model role start beside G25; G26 alone also needs G25. |
-| G03 | G04 pilot reads and G09 resumable builds; do not edit CLI registration concurrently. |
-| G06 | G07/G08 private suite and baseline can proceed beside public construction. |
+| G01 | G02 claims and G17 model role start beside G25; G26 also needs G25. |
+| G03 | G06 scoring, G09 builds and G31 vocabulary are `[P]`; shared registration hunks are supervisor-rebased, not concurrent writes. G10 waits for G09/G31 so resolver edits serialize too. |
+| G06 | G34 local drafting tooling can run beside public native work; actual private drafting still waits for G05 and the frozen receipt. |
+| G04 and G34 | G32 reviewer/capture, then G33 owner page, unblock G05; G11/G12 proof work can proceed beside these tools. G34 precedes G32 for their shared manifest. |
+| G28 and G25 | G04 pilot neighbors can start immediately (G03 already landed); G11 adds paths after G04. |
+| G05 and G34 | G07/G08 private suite and baseline can proceed beside public graph work, with recorded receipts and suite/reviewer confirmation. |
 | G27 | G28's single loader and S3 C27a's catalog-edge consumer use the shared typed-edge port; coordinate its public contract. |
 | G13 | G14 R4 and G15 tools can proceed with a shared contract, then G16. |
 
 These are opportunities, not permission to write shared files in parallel.
 The supervisor assigns at most six lanes and owns common module, manifest,
-lockfile, migration and CLI-registration conflicts. Model/GPU measurements and
-writers serialize on their actual resources. Each task is one reviewable
+lockfile, migration and CLI-registration conflicts. G09/G31 → G10 and
+G34 → G32 serialize the migration/resolver and private-manifest work;
+other migration/CLI registration hunks are supervisor-rebased exceptions, not
+permission to race shared edits. G06 waits for G03, not the native pilot.
+G19's shared build-command edit precedes G21's (explicit dependency).
+Model/GPU measurements and writers serialize on their actual resources. Each task is one reviewable
 behavior, not a framework assembled before the first useful result.
 
 ## Requirement coverage
@@ -877,31 +1160,32 @@ replaces planning claims with integrated evidence/blockers before release.
 | Requirement | Tasks |
 | --- | --- |
 | FR-S2-001 | G25 |
-| FR-S2-002 | G02 |
-| FR-S2-003 | G02, G03, G19 |
+| FR-S2-002 | G02, G31, G10 |
+| FR-S2-003 | G02, G03, G31, G19 |
 | FR-S2-004 | G01, G03 |
 | FR-S2-005 | G09, G19 |
 | FR-S2-006 | G10 |
-| FR-S2-007 | G27 |
+| FR-S2-007 | G27, G04 |
 | FR-S2-008 | G27, G28 |
 | FR-S2-009 | G11 |
-| FR-S2-010 | G04, G11 |
+| FR-S2-010 | G04, G11, G15 |
 | FR-S2-011 | G14 |
 | FR-S2-012 | G12 |
-| FR-S2-013 | G13 |
+| FR-S2-013 | G13, G15 |
 | FR-S2-014 | G04, G15 |
 | FR-S2-015 | G16 |
 | FR-S2-016 | G17, G18, G20 |
 | FR-S2-017 | G19 |
-| FR-S2-018 | G06, G07, G08, G20, G23 |
+| FR-S2-018 | G06, G34, G32, G33, G07, G08, G20, G23 |
 | FR-S2-019 | G28, G30, G22 |
 | FR-S2-020 | G21 |
-| FR-S2-021 | G01, G05, G07 |
+| FR-S2-021 | G01, G34, G32, G33, G05, G07, G08, G20, G23 |
 | FR-S2-022 | G26 |
 | FR-S2-023 | G27 |
-| SC-S2-001 | G01, G04, G05, G24 |
+| FR-S2-024 | G31, G07, G18, G19 |
+| SC-S2-001 | G01, G04, G32, G33, G05, G24 |
 | SC-S2-002 | G06, G08, G14, G23, G24 |
-| SC-S2-003 | G06, G16, G20, G23, G24 |
+| SC-S2-003 | G06, G32, G33, G16, G20, G23, G24 |
 | SC-S2-004 | G06, G08, G16, G23, G24 |
 | SC-S2-005 | G11, G14, G23, G24 |
 | SC-S2-006 | G30, G22, G24 |
@@ -910,9 +1194,9 @@ replaces planning claims with integrated evidence/blockers before release.
 
 ## Minimal-first delivery strategy
 
-1. Run qualification beside the SQLite pilot; inspect exact-source failures.
+1. Run qualification beside public construction; pilot graph reads use LadybugDB.
 2. Freeze measurement before tuning; finish immutable claims and safe files.
-3. Replace pilot traversal; carry whole proofs to tools before graph answers.
+3. Extend LadybugDB neighbors with paths and whole proofs before graph answers.
 4. Add only bounded offline extraction, then prove recovery and measured gain.
 5. Release only on the evidence map and fixed M2 gates. Edge, fuzzy linking,
    communities, general calibration and other slices remain separate.

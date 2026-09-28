@@ -316,7 +316,7 @@ portion, integrated code or test evidence, and remaining work.
 | rag.N052 layers | Structural graph first, extracted knowledge later; claims anchored to spans; coverage visible | Adapted (§15 A29): reuse block references, no Document/Section projection nodes | [02 §8.2–8.3](02-retrieval-and-knowledge-graph.md#82-graph-model), §22 |
 | rag.N023 roles | Qdrant for passages, Neo4j for relations, Rust for fusion; graph results mapped to passages before fusion | Adapted (§15 A29): LadybugDB in S2, whole source proofs | [02 §8.4–8.5](02-retrieval-and-knowledge-graph.md#84-authority-and-projection), §22 |
 | rag.N023 access | neo4rs or the official HTTP Query API behind a graph interface; application IDs | Adapted (§15 A29): G27 typed-edge port; selected Neo4j later via deployment-modes D07 | [02 §8.4](02-retrieval-and-knowledge-graph.md#84-authority-and-projection), §22 |
-| rag.N023 variants | Compare Qdrant only, Neo4j only and the pairing | Adapted (§15 A29): same-run Qdrant-only, LadybugDB-only and pairing | [02 §10](02-retrieval-and-knowledge-graph.md#10-evaluation), §22 |
+| rag.N023 variants | Compare Qdrant only, Neo4j only and the pairing | Adapted (§15 A29): same-run passage-only (all S1 default routes, graph `none`), LadybugDB-only and pairing | [02 §10](02-retrieval-and-knowledge-graph.md#10-evaluation), §22 |
 | rag.N023 editions | Community single instance, GPL, GDS limits; no global analytics interactively | Deferred: requalify for the later selected Neo4j adapter, not S2 | ADR-0021, §22 |
 | rag.N016 methods | GraphRAG global and DRIFT, HippoRAG 2, LightRAG, LazyGraphRAG, HyperGraphRAG, in order and on evidence | Deferred: measured gain and a later plan required; S2 is bounded traversal only | [02 §8.5](02-retrieval-and-knowledge-graph.md#85-graph-retrieval-route-r4), §22 |
 | rag.N052 publication | Graph and indexes published together; claims in later publications | Kept | [01 §9](01-knowledge-pipeline.md#9-l7-indexing-and-publication), [02 §8.4](02-retrieval-and-knowledge-graph.md#84-authority-and-projection) |
@@ -455,7 +455,7 @@ first slice; the earlier plan's first governed workflow (U08) moves to S4.
 | A24 | A separately deployable catalog MCP service (chat.M031) | The same `maestro` MCP server; a service deployment waits for a team profile | Laptop first |
 | A25 | Recopy 43 reviewed migration candidates (core) | The crate stays as is with its fixtures; S0 only brings it to the gates | Already present; delivery.§7.2 |
 | A26 | First governed workflow first (delivery.U08) | Knowledge kernel and Control-M RAG first (S1) | Owner decision |
-| A29 | Neo4j-first S2, structural nodes, vector linking and global algorithms in the first graph | Rule-only pilot, then G25-qualified embedded LadybugDB, source-referenced claims and bounded whole proofs; later selected Neo4j and named algorithm deferrals | Owner D1–D5, 2026-09-28, ADR-0021; fewer services and a useful pilot before expansion. G01 reconciles design only; G24 supplies delivery evidence. |
+| A29 | Neo4j-first S2, structural nodes, vector linking and global algorithms in the first graph | Rule-only pilot and full graph both read G25-qualified LadybugDB through G27/G28; SQLite holds claim authority/evidence checks, not graph queries. Source-referenced claims and bounded whole proofs; later selected Neo4j and named algorithm deferrals | Owner D1–D5 and 11:25/11:30 ruling, 2026-09-28, ADR-0021 amendment; fewer services and one graph engine from the pilot onward. G01 reconciles design only; G24 supplies delivery evidence. |
 
 ## 16. Dropped
 
@@ -484,7 +484,7 @@ first slice; the earlier plan's first governed workflow (U08) moves to S4.
 | Publisher identities, trust roots, key rotation procedure | S3 | Manifests release workflow identity; documented rotation |
 | Product decisions D01, D03–D05, D07–D08, D10–D11 | S7 phases | [04 §12](04-intelligence-backend.md#12-decisions-still-open) |
 | egui/eframe as the workbench toolkit | I4 start | egui/eframe |
-| S2 private scope, provisional suite size and precision-review protocol | Before G05/G07 private reads and G08/G20/G23 acceptance | Owner confirmation required; the embedded-first engine direction itself is decided by ADR-0021, with G25 qualification still pending. |
+| S2 suite size, local precision reviewer and recorded private receipts | Before private execution/freeze in G05/G07/G08/G20/G23 | Suite/reviewer confirmation remains pending. U2's scopes and I1's development-only 8B trigger were approved at 12:53; receipt existence/digests still require verification. Engine direction is decided; G25 qualification remains pending. |
 | Qdrant server versus Qdrant Edge on laptops | Before laptop rollout | Server (ADR-0003) |
 
 ## 18. Source limits
@@ -684,12 +684,12 @@ FR-S2/SC-S2 requirement; G01 neither completes M1 nor declares the pilot M2.
 | --- | --- | --- |
 | Architecture README diagram/layer L8/technology matrix, 01 entity vectors, 04 B6/D02 | Embedded-first stack, entity vectors deferred and ADR-0021 graph amendment; G01, G25, G24 | The S2 spec governs older architecture wording; engine qualification and release evidence remain pending. |
 | `owner.n012`, `owner.n020`, `rag.N023 roles`, `rag.N023 access`, `rag.N023 editions` | Embedded-first projection and minimal application-ID typed-edge seam; G25, G26–G28, G11 | Qualification pending; G24 finalizes ADR-0021. Deployment-modes D07 later wraps the seam for selected Neo4j; no runtime fallback. |
-| `rag.N016 claims`, `rag.N052 layers`, `rag.N011 mining` | Verified immutable claims and original source references; one `DEFAULTS_TO` table first; G01–G05, G09, G19 | G01's synthetic fixture is not production claim/extraction/CLI or private pilot evidence; no structural/literal nodes. |
+| `rag.N016 claims`, `rag.N052 layers`, `rag.N011 mining` | Verified immutable claims and original source references; one `DEFAULTS_TO` table first, G31 adds the closed entity-claim vocabulary; G01–G05, G09, G19, G31 | G01's synthetic fixture is not production claim/extraction/CLI or private pilot evidence; no structural/literal nodes. |
 | `rag.N016 resolution` | Exact spelling/name/kind/collection identity, reviewed reversible aliases and contradictions; G10 | Fuzzy/vector linking deferred. |
 | `rag.N052 publication`, `rag.N016, N052 authority` | Kernel claim/profile attachment, immutable pins, one loader and durable foreground effects; G09, G27, G28, G21 | Graph files never authority; process safety and ordered deletion/rebuild/restore equality pending G25, G30, G22. |
 | `rag.N038 identity dedup`, `rag.N038 RRF`, `rag.N038 budgets`, `rag.N038 context dedup`, `rag.N038 EvidenceBundle` | Question-only R4, no echo vote, complete `/2` proofs through fusion and budgets; G11–G14 | S1 `/1` unchanged; general release-delta deduplication and calibration stay outside S2. |
 | `rag.N038 answer`, `rag.N038 degradation`, `rag.N016 permissions`, `rag.N016 tools` | Per-hop eligibility/current grants, explicit coverage/unavailable, four CLI/MCP reads, guarded local ≤4B answers; G11, G15, G16 | Real-client smoke and whole-proof transport evidence pending; HTTP/research loops remain S4. |
-| `rag.N023 variants`, `rag.N011 evaluation`, `owner.n057` | Construction/proof/answer scores, frozen private suite and same-run three-rung comparison; G06–G08, G20, G23 | D3 gates stay fixed; private scope, suite size and review protocol need owner confirmation. |
+| `rag.N023 variants`, `rag.N011 evaluation`, `owner.n057` | Construction/proof/answer scores, frozen private suite and same-run three-rung comparison; G06–G08, G20, G23; G32/G33/G34 supply local review, owner page and drafting | D3 gates stay fixed. U2/I1 are approved; receipts, suite size and reviewer protocol still gate execution. |
 | `rag.N016 methods` | Bounded local/path traversal only; G11 | Leiden, PageRank/PPR, node similarity, global/DRIFT search, community summaries, incremental graph algorithms and dense-seeded expansion deferred until measured gain and a later plan. |
 | `core native`, `product.NP` | Linux/Windows/macOS and supported cross-Clippy gates; G25, G22 | A dated CI plan may permit implementation, never M2 acceptance; no platform deferral until after S4. |
 
@@ -700,8 +700,11 @@ canonical row and literal-default checks. The dispatch source inspection at
 ([plan Starting point](../../specs/002-knowledge-graph/plan.md#starting-point));
 it is not a new native or live-client receipt. G01 assigns no migration number.
 
-**Private boundary:** `PRIVATE/graph/receipts/pilot-inputs.json` is a planned,
-unverified reference only; no S1 receipt applies. Plan A0 proposes one official
-parameter-reference document, one release in 9.0.22+, one table plus heading
-window. G05/G07 remain blocked until owner scope confirmation. No vendor source,
-quote, rule pack or receipt body is copied here.
+**Private boundary:** U2's 12:53 approval fixes the pilot at one 9.0.22 parameter
+table chosen by a local deterministic script, digests frozen before text reads
+for extraction/review; acceptance uses the whole published `ctm` generation,
+local-only. `PRIVATE/graph/receipts/pilot-inputs.json` and separate
+`acceptance-inputs.json` still need recorded scope/target/expiry/evidence,
+generation, inventory, digests and window policy. No S1 receipt applies.
+G32/G33/G34 keep capture/review/pages/drafts local with sanitized output and
+errors. No vendor source, quote, rule pack or receipt body is copied here.

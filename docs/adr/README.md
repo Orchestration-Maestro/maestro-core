@@ -25,4 +25,4 @@ order; a superseded record stays and names its successor.
 | [0018](0018-rustix-on-unix-and-win32-flags-on-windows.md) | The snapshot store uses rustix on Unix and the standard library's Win32 flags on Windows |
 | [0019](0019-reverse-engineering-is-analysis-behind-a-clean-room.md) | Reverse engineering produces knowledge only, behind a clean-room boundary |
 | [0020](0020-rust-libraries-with-named-dependency-exceptions.md) | Rust libraries join the stack; the duplicates they force are named exceptions |
-| [0021](0021-embedded-ladybug-graph-projection.md) | Embedded-first S2 direction; G25 qualification pending, G24 finalizes; typed-edge port for later selected backends |
+| [0021](0021-embedded-ladybug-graph-projection.md) | Embedded-first S2, amended 2026-09-28: LadybugDB reads from the pilot onward; G25 qualification pending, G24 finalizes; shared projection port |
