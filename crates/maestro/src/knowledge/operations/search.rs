@@ -120,7 +120,7 @@ pub(crate) async fn search_with<P: ModelPort>(
 }
 
 /// Freezes the configured real reranker once for this request.
-fn selected_reranker(
+pub(super) fn selected_reranker(
     database: &Database,
     scopes: &ScopeSet,
     collection: &str,

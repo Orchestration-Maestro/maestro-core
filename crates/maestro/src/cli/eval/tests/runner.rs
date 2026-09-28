@@ -210,12 +210,14 @@ fn a_rung_that_cannot_run_is_refused_before_any_search() {
 }
 
 #[test]
-fn more_warm_ups_than_questions_are_refused() {
+fn more_warm_ups_than_questions_are_refused_and_as_many_are_not() {
     let mut engine = FakeEngine::default();
     let result = run_ladder(&mut engine, &suite(2, 1), 4, &[rung("r0")], |_| Ok(()));
 
     assert!(matches!(result, Err(Failure::Refused(reason)) if reason.contains("warm-ups")));
     assert!(engine.calls.borrow().is_empty());
+    let every = run_ladder(&mut engine, &suite(2, 1), 3, &[rung("r0")], |_| Ok(()));
+    assert_eq!(every.unwrap()[0].warm_ups, 3);
 }
 
 #[test]

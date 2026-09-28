@@ -7,7 +7,7 @@
 use super::{
     manifest::{AskSettings, Rung},
     runner::{Asked, Engine, Provenance, RejectedCheck, SearchDiagnostic, Searched},
-    stages::{StageFailure, stage_failure},
+    stages::{StageFailure, ask_failure, evidence_failure, search_failure, stage_failure},
 };
 use crate::{
     failure::Failure,
@@ -22,19 +22,19 @@ use maestro_kernel::{
 };
 use maestro_knowledge::{
     answer::{
-        Answer, AnswerContext, AnswerPrompt, AskBudget, AskError, AskRequest, DEFAULT_MODEL,
+        Answer, AnswerContext, AnswerPrompt, AskBudget, AskRequest, DEFAULT_MODEL,
         RegisteredAnswerer, ask_configured,
     },
     eval::{AskOutcome, RunError, SearchOutcome, SectionRef, resolve_expected},
     index::Qdrant,
     search::{
-        SearchConfiguration, SearchContext, SearchError, SearchRequest,
-        evidence::{ChunkSetDocuments, EvidenceCounter, EvidenceError, assemble_evidence},
+        SearchConfiguration, SearchContext, SearchRequest,
+        evidence::{ChunkSetDocuments, EvidenceCounter, assemble_evidence},
         search, top_fused_score, top_rerank_score,
     },
     suite::Suite,
 };
-use std::{collections::BTreeMap, sync::Arc};
+use std::{collections::BTreeMap, error::Error, sync::Arc};
 use tokio::runtime::{Builder, Runtime};
 
 /// The engine of the kernel, the router and the search service.
@@ -181,6 +181,19 @@ impl<'kernel> KernelEngine<'kernel> {
         Some((self.ask_request(question, model, settings.budget()), prompt))
     }
 
+    /// The search of `question` in the collection under `rung`'s
+    /// configuration.
+    pub(super) fn search_request<'a>(
+        &'a self,
+        rung: &Rung,
+        question: &'a str,
+    ) -> SearchRequest<'a> {
+        SearchRequest {
+            configuration: rung.configuration.search(),
+            ..SearchRequest::new(&self.collection, question, None, RequestBudget::default())
+        }
+    }
+
     /// The search context of the started rung's cards, none before a rung
     /// started.
     pub(super) fn search_context(&self) -> Option<SearchContext<'_, RouterClient>> {
@@ -192,6 +205,16 @@ impl<'kernel> KernelEngine<'kernel> {
             cards.embedder.as_ref(),
             cards.reranker.as_ref(),
         ))
+    }
+}
+
+/// How a suite's expected sections that cannot be resolved end the rung: a
+/// failed document lookup fails it, and anything else the suite names that
+/// the generation does not hold refuses it.
+pub(super) fn expected_failure<E: Error + 'static>(error: &RunError<E>) -> Failure {
+    match error {
+        RunError::Documents { .. } => Failure::failed_by(error),
+        _ => Failure::refused_by(error),
     }
 }
 
@@ -233,10 +256,7 @@ impl Engine for KernelEngine<'_> {
         let expected = resolve_expected(suite, |source_ref| {
             documents.canonical(database, source_ref)
         })
-        .map_err(|error| match error {
-            RunError::Documents { .. } => Failure::failed_by(&error),
-            _ => Failure::refused_by(&error),
-        })?;
+        .map_err(|error| expected_failure(&error))?;
         let provenance = cards.provenance();
         self.held = Some(Held { cards, documents });
         Ok((provenance, expected))
@@ -249,11 +269,8 @@ impl Engine for KernelEngine<'_> {
                 diagnostic: SearchDiagnostic::default(),
             };
         };
-        let configuration = rung.configuration.search();
-        let request = SearchRequest {
-            configuration,
-            ..SearchRequest::new(&self.collection, question, None, RequestBudget::default())
-        };
+        let request = self.search_request(rung, question);
+        let configuration = request.configuration;
         let mut diagnostic = SearchDiagnostic::default();
         let searched = self.runtime.block_on(async {
             let input = Box::pin(search(&context, &request))
@@ -538,44 +555,5 @@ pub(super) fn answer_outcome(
             })
             .collect(),
         invented_literals: 0,
-    }
-}
-
-/// How a search that returned `error` ended: out of time when its admission
-/// or a permission check ran out of time, failed otherwise.
-pub(super) const fn search_failure(error: &SearchError) -> StageFailure {
-    match error {
-        SearchError::AdmissionTimedOut | SearchError::PermissionCheckTimedOut => {
-            StageFailure::TimedOut
-        }
-        SearchError::InvalidRequest { .. }
-        | SearchError::Admission(_)
-        | SearchError::Kernel(_)
-        | SearchError::EvidenceLoad { .. }
-        | SearchError::PermissionsChanged
-        | SearchError::WorkerFailed => StageFailure::Failed,
-    }
-}
-
-/// How evidence assembly that returned `error` ended.
-pub(super) const fn evidence_failure(error: &EvidenceError) -> StageFailure {
-    if matches!(error, EvidenceError::TimedOut) {
-        StageFailure::TimedOut
-    } else {
-        StageFailure::Failed
-    }
-}
-
-/// How an `ask` that returned `error` ended: out of time when its search,
-/// its evidence or its answerer ran out of time, failed otherwise.
-pub(super) const fn ask_failure(error: &AskError) -> StageFailure {
-    match error {
-        AskError::TimedOut => StageFailure::TimedOut,
-        AskError::Search(error) => search_failure(error),
-        AskError::Evidence(error) => evidence_failure(error),
-        AskError::InvalidRequest(_)
-        | AskError::Backend(_)
-        | AskError::EvidenceIntegrity
-        | AskError::Json(_) => StageFailure::Failed,
     }
 }

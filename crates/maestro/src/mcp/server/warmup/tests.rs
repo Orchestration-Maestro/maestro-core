@@ -1,7 +1,11 @@
-use super::{super::KnowledgeServer, published_model_cards, warm_cards};
+use super::{super::KnowledgeServer, DENSE_PROFILE_PREFIX, published_model_cards, warm_cards};
 use crate::{
     failure::Failure,
-    knowledge::operations::{ask::tests::select_reranker, tests::Scratch},
+    kernel::Kernel,
+    knowledge::operations::{
+        ask::tests::{register_card, select_reranker},
+        tests::Scratch,
+    },
     mcp::transport::BoundedStdio,
 };
 use maestro_kernel::{
@@ -9,6 +13,7 @@ use maestro_kernel::{
     gateway::{
         CardFields, ChatRequest, Error, Limits, ModelCard, ModelPort, Role, Room, RouterEntry,
     },
+    generation::NewGeneration,
 };
 use maestro_knowledge::index::Qdrant;
 use rmcp::{ServerHandler, ServiceExt};
@@ -59,6 +64,39 @@ fn card_discovery_finds_the_selected_reranker_of_a_published_collection() {
         cards.iter().map(ModelCard::digest).collect::<Vec<_>>(),
         [reranker.digest()]
     );
+}
+
+#[test]
+fn card_discovery_warms_no_card_of_another_role_that_a_dense_profile_names() {
+    let scratch = Arc::new(Scratch::new());
+    let kernel = scratch.kernel(None).expect("open test kernel");
+    let (_, reranker) = register_card(&kernel, "collection", Role::Reranker, "rerank", b"r");
+    publish_dense_profile(&kernel, &reranker);
+    let opener: super::super::types::KernelOpener = Arc::new(move || scratch.kernel(None));
+
+    assert_eq!(published_model_cards(&opener), Ok(Vec::new()));
+}
+
+/// Publishes a new generation of the scratch chunk set whose dense profile
+/// names `card`.
+fn publish_dense_profile(kernel: &Kernel, card: &ModelCard) {
+    let generation = kernel
+        .database
+        .create_generation(&NewGeneration {
+            collection_id: "collection".to_owned(),
+            chunk_set_id: "chunk-set".to_owned(),
+            embedding_profile: format!("{DENSE_PROFILE_PREFIX}{}", card.digest().as_str()),
+            sparse_profile: "bm25-en-fr/1".to_owned(),
+        })
+        .expect("create generation");
+    kernel
+        .database
+        .verify_generation(generation.id, 1)
+        .expect("verify generation");
+    kernel
+        .database
+        .publish_generation(generation.id)
+        .expect("publish generation");
 }
 
 #[test]

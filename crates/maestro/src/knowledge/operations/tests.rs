@@ -1,4 +1,5 @@
-use super::search::search_with;
+use super::ask::tests::select_reranker;
+use super::search::{search_with, selected_reranker};
 use super::{KnowledgeError, collections_with, get_with, section_read_failure};
 use crate::knowledge::SearchRequest;
 use crate::{
@@ -301,6 +302,26 @@ fn collections_opens_the_kernel_once() {
     });
     assert!(result.is_ok());
     assert_eq!(opens, 1);
+}
+
+#[test]
+fn a_search_freezes_the_reranker_selected_for_its_collection() {
+    let scratch = Scratch::new();
+    let kernel = scratch.kernel(None).expect("open test kernel");
+    let generation = kernel
+        .database
+        .published_generation(&kernel.scopes, "collection")
+        .expect("read published generation")
+        .expect("published generation");
+    let selected = |kernel: &Kernel| {
+        selected_reranker(&kernel.database, &kernel.scopes, "collection")
+            .expect("read selected reranker")
+            .map(|card| card.digest().clone())
+    };
+
+    assert_eq!(selected(&kernel), None);
+    let card = select_reranker(&kernel, &generation);
+    assert_eq!(selected(&kernel), Some(card.digest().clone()));
 }
 
 #[test]

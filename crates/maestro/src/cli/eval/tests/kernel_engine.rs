@@ -5,25 +5,29 @@
 
 use super::{
     super::{
-        engine::{KernelEngine, ask_failure, evidence_failure, search_failure},
+        engine::{KernelEngine, expected_failure},
         manifest::AskSettings,
         rung_prompt::RungPrompt,
         runner::Engine as _,
-        stages::StageFailure,
+        stages::{StageFailure, ask_failure, evidence_failure, search_failure},
     },
     support::{rung, suite},
 };
-use crate::knowledge::operations::{ask::tests::register_card, tests::Scratch};
+use crate::{
+    failure::Failure,
+    knowledge::operations::{ask::tests::register_card, tests::Scratch},
+};
 use maestro_kernel::{
     gateway::{Error as GatewayError, Role, RouterClient, Url},
     retrieval,
 };
 use maestro_knowledge::{
     answer::{AskBudget, AskError, AskRequest, DEFAULT_MODEL, PromptVersion},
-    eval::{AskOutcome, SearchOutcome},
+    eval::{AskOutcome, RunError, SearchOutcome},
     index::Qdrant,
     search::{SearchError, evidence::EvidenceError, routes::error::RouteError},
 };
+use std::io;
 
 /// An address where nothing listens.
 const NOWHERE: &str = "http://127.0.0.1:1";
@@ -69,7 +73,7 @@ fn the_engine_names_the_generation_chunk_set_and_every_card_and_sees_drift() {
 }
 
 #[test]
-fn an_ask_carries_the_rungs_budget_and_prompt() {
+fn a_search_and_an_ask_carry_the_rungs_configuration_budget_and_prompt() {
     let scratch = Scratch::new();
     let kernel = scratch.kernel(None).unwrap();
     let port = RouterClient::new(Url::parse(NOWHERE).unwrap()).unwrap();
@@ -106,6 +110,25 @@ fn an_ask_carries_the_rungs_budget_and_prompt() {
         .unwrap();
     assert_eq!(default.budget, AskBudget::default());
     assert_eq!(default_prompt, PromptVersion::V2.into());
+    let candidate = rung("r0");
+    let search = engine.search_request(&candidate, "question");
+    assert_eq!(search.configuration, candidate.configuration.search());
+    assert_eq!((search.collection, search.text), ("collection", "question"));
+}
+
+#[test]
+fn only_a_failed_document_lookup_fails_the_start_of_a_rung() {
+    let lookup = RunError::Documents {
+        source_ref: "a.md".to_owned(),
+        error: io::Error::other("disk"),
+    };
+    let absent = RunError::<io::Error>::NoDocument {
+        question: "q1".to_owned(),
+        source_ref: "a.md".to_owned(),
+    };
+
+    assert!(matches!(expected_failure(&lookup), Failure::Failed(_)));
+    assert!(matches!(expected_failure(&absent), Failure::Refused(_)));
 }
 
 #[test]

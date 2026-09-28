@@ -1,10 +1,10 @@
 //! The manifest: what it holds, where its paths lead, and each refusal.
 
 use super::{
-    super::manifest::Manifest,
+    super::{command, manifest::Manifest},
     support::{RERANKER, rung, rung_json},
 };
-use crate::failure::Failure;
+use crate::{cli::output::Output, failure::Failure};
 use maestro_knowledge::search::SearchConfiguration;
 use serde_json::{Value, json};
 use std::{env, fs, num::NonZeroU32, path::Path, process};
@@ -169,6 +169,30 @@ fn each_rung_search_would_refuse_is_refused() {
 }
 
 #[test]
+fn a_rung_that_runs_any_one_route_or_reranks_the_most_candidates_is_accepted() {
+    for route in ["dense", "lexical", "identifier", "structured"] {
+        let mut one_route = manifest();
+        let mut routes =
+            json!({"dense": false, "lexical": false, "identifier": false, "structured": false});
+        routes[route] = json!(true);
+        one_route["rungs"][0]["configuration"]["routes"] = routes;
+        assert!(
+            parse(&one_route).is_ok(),
+            "{route}: {}",
+            refusal(&one_route)
+        );
+    }
+    let mut deepest = manifest();
+    deepest["rungs"][1]["configuration"]["rerank"]["depth"] = json!(120);
+
+    let rerank = parse(&deepest).unwrap().rungs[1]
+        .configuration
+        .rerank
+        .clone();
+    assert_eq!(rerank.unwrap().depth.get(), 120);
+}
+
+#[test]
 fn a_rung_sets_a_relevance_threshold_and_parsing_refuses_one_beyond_f32() {
     let mut threshold = manifest();
     threshold["rungs"][1]["configuration"]["min_rerank_score"] = json!(0.25);
@@ -226,4 +250,14 @@ fn an_output_directory_that_holds_files_is_refused() {
         Err(Failure::Refused(reason)) if reason.contains("cannot read the manifest")
     ));
     fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn the_ladder_command_refuses_a_manifest_it_cannot_read_before_any_search() {
+    let absent = env::temp_dir().join(format!("maestro-ladder-absent-{}.json", process::id()));
+
+    assert!(matches!(
+        command::run(Output::new(true), &absent),
+        Err(Failure::Refused(reason)) if reason.contains("cannot read the manifest")
+    ));
 }
