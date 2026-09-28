@@ -10,6 +10,7 @@ mod collection_status;
 mod doctor_checks;
 #[cfg(unix)]
 mod fakes;
+mod graph_build;
 mod import_jobs;
 mod job_waits;
 mod knowledge_ask;

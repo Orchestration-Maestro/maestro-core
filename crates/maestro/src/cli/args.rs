@@ -85,6 +85,9 @@ pub(super) enum KnowledgeCommand {
     /// Collections and their declarations.
     #[command(subcommand)]
     Collection(CollectionCommand),
+    /// The knowledge graph: claims built from a collection's sources.
+    #[command(subcommand)]
+    Graph(GraphCommand),
     /// Import a collection's corpus manifests as a job, printing its ID first.
     Import {
         /// The collection's ID, as its declaration names it.
@@ -198,6 +201,21 @@ pub(super) enum KnowledgeCommand {
         /// offending tokens.
         #[arg(long)]
         explain: bool,
+    },
+}
+
+/// What to do with a collection's knowledge graph.
+#[derive(Debug, Subcommand)]
+pub(super) enum GraphCommand {
+    /// Build a collection's claims with a strict table rule, and admit them
+    /// as one claim set; print what was admitted and what was rejected.
+    Build {
+        /// The collection's ID, as its declaration names it.
+        #[arg(long)]
+        collection: String,
+        /// The rule: a standalone `maestro-graph-table-rule/1` file.
+        #[arg(long, value_name = "PATH")]
+        rule: PathBuf,
     },
 }
 

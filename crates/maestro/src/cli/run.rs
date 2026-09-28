@@ -3,8 +3,10 @@
 //! when the operation failed and 2 for a usage error or a refused input.
 
 use super::{
-    args::{Arguments, CollectionCommand, EvalCommand, JobCommand, KnowledgeCommand, Noun},
-    ask, backup, collection, eval, health, import,
+    args::{
+        Arguments, CollectionCommand, EvalCommand, GraphCommand, JobCommand, KnowledgeCommand, Noun,
+    },
+    ask, backup, collection, eval, graph, health, import,
     output::{Output, diagnose},
     prepare, publish, quality, retrieve, search, setup, status, verify, wait,
 };
@@ -146,6 +148,9 @@ fn knowledge(
     match command {
         KnowledgeCommand::Collection(CollectionCommand::Add { declaration }) => {
             collection::add(kernel, output, declaration)
+        }
+        KnowledgeCommand::Graph(GraphCommand::Build { collection, rule }) => {
+            graph::build::run(kernel, output, collection, rule)
         }
         KnowledgeCommand::Import { collection, again } => {
             import::run(kernel, output, collection, *again)

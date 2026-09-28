@@ -82,6 +82,10 @@ in place.
 │   │   │   │   │   ├── rung_prompt.rs                                       # A rung's answer prompt: a prompt version, or a private prompt file of
 │   │   │   │   │   ├── runner.rs                                            # The ladder's run: every rung's cards checked first, then each rung in
 │   │   │   │   │   └── stages.rs                                            # Whether a search ran every stage its rung enables
+│   │   │   │   ├── graph/                                                   # knowledge graph: the commands over a collection's knowledge graph
+│   │   │   │   │   ├── build.rs                                             # knowledge graph build: a collection's claims built with one strict
+│   │   │   │   │   ├── mod.rs                                               # knowledge graph: the commands over a collection's knowledge graph
+│   │   │   │   │   └── tests.rs                                             # How knowledge graph build classifies the kernel's refusals of a claim
 │   │   │   │   ├── health/                                                  # maestro doctor and status: the checks of the kernel, the search service, the router and each role's card
 │   │   │   │   │   ├── tests/                                               # Unit tests of the checks: the kernel's files, the services, the cards, what doctor must not touch
 │   │   │   │   │   │   ├── findings.rs                                      # Foreign entries of the data directory listed and left untouched; grants that reach no known scope
@@ -224,6 +228,7 @@ in place.
 │   │   │       ├── collection_status.rs                                     # knowledge status of the synthetic collection: counts, dispositions and a generation
 │   │   │       ├── doctor_checks.rs                                         # maestro doctor: each failure names its next action, the router its address; v1 files listed, untouched
 │   │   │       ├── fakes.rs                                                 # Fake curl and systemctl for the binary's tests, found first on the PATH, logging each call
+│   │   │       ├── graph_build.rs                                           # knowledge graph build: the frozen synthetic defaults table (plan A0)
 │   │   │       ├── import_jobs.rs                                           # knowledge import end to end, rerun, live holder refused, stale one superseded, leases taken over
 │   │   │       ├── job_waits.rs                                             # job wait follows a job to its end and exits with its outcome; an unreadable job is unknown
 │   │   │       ├── knowledge_ask.rs                                         # The public CLI refuses an invalid ask model before contacting a backend
@@ -692,6 +697,16 @@ in place.
 │       │   │   ├── report_validation.rs                                     # V1 and v2 report-reader rules, shared with the v2 writer
 │       │   │   ├── run.rs                                                   # A run: every question of a suite, resolved in the generation it
 │       │   │   └── run_v2.rs                                                # Strict v2 attempt execution and aggregation
+│       │   ├── graph/                                                       # The knowledge graph's construction (specs/002-knowledge-graph): claims
+│       │   │   ├── tests/                                                   # Tests of the first table rule: its closed form, the claims it extracts
+│       │   │   │   ├── mod.rs                                               # Tests of the first table rule: its closed form, the claims it extracts
+│       │   │   │   ├── rules.rs                                             # The closed table rule: what it refuses to read, the DEFAULTS_TO claims
+│       │   │   │   ├── support.rs                                           # What the graph tests share: the frozen synthetic defaults table of plan
+│       │   │   │   └── verify.rs                                            # Locating a row's quote: the row belongs to its table and its cells to the
+│       │   │   ├── mod.rs                                                   # The knowledge graph's construction (specs/002-knowledge-graph): claims
+│       │   │   ├── rules.rs                                                 # The first table rule (FR-S2-004, plan A0): maestro-graph-table-rule/1
+│       │   │   ├── structure.rs                                             # The tables of a canonical document as canonicalization gives them: each
+│       │   │   └── verify.rs                                                # Locating a quote before a claim cites it (FR-S2-003): the canonical
 │       │   ├── import/                                                      # Importing a collection's corpus through its maestro-corpus/1 manifests
 │       │   │   ├── tests/                                                   # Tests of the import that reach inside it: its manifest lines, and its streaming, proven by an in-memory corpus
 │       │   │   │   ├── lines.rs                                             # A manifest read one numbered line at a time, until it ends

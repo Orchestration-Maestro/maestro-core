@@ -1,0 +1,62 @@
+//! How `knowledge graph build` classifies the kernel's refusals of a claim
+//! set: a refused input exits 2, a kernel or integrity failure exits 1.
+
+use super::build::claim_failure;
+use crate::failure::Failure;
+use maestro_kernel::{artifact::Digest, evidence::Span, facts::Error};
+
+/// A revision id the errors name.
+const REVISION: &str = "rev-graph";
+
+/// Whether the kernel's `error` makes the build fail, exit 1, rather than
+/// refuse, exit 2.
+fn fails(error: &Error) -> bool {
+    matches!(claim_failure(error), Failure::Failed(_))
+}
+
+#[test]
+fn integrity_and_store_errors_fail() {
+    let span = Span { start: 0, end: 1 };
+    let (expected, found) = (Digest::of(b"recorded"), Digest::of(b"stored"));
+    for error in [
+        Error::from(rusqlite::Error::QueryReturnedNoRows),
+        Error::DigestMismatch {
+            revision_id: REVISION.to_owned(),
+            expected: expected.clone(),
+            found: found.clone(),
+        },
+        Error::SpanOutOfRange {
+            revision_id: REVISION.to_owned(),
+            span,
+            length: 0,
+        },
+        Error::SpanOffBoundary {
+            revision_id: REVISION.to_owned(),
+            span,
+        },
+        Error::QuoteMismatch {
+            revision_id: REVISION.to_owned(),
+            span,
+            expected,
+            found,
+        },
+    ] {
+        assert!(fails(&error), "{error:?}");
+    }
+}
+
+#[test]
+fn refused_inputs_are_refused() {
+    for error in [
+        Error::Unauthorized,
+        Error::Invalid("a claim set holds no claim".to_owned()),
+        Error::UnknownRevision {
+            revision_id: REVISION.to_owned(),
+        },
+        Error::IneligibleRevision {
+            revision_id: REVISION.to_owned(),
+        },
+    ] {
+        assert!(!fails(&error), "{error:?}");
+    }
+}

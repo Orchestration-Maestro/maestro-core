@@ -162,7 +162,8 @@ pub struct ClaimSetRecord {
 
 impl Predicate {
     /// Its name, as the `predicate` column holds it.
-    pub(super) fn as_str(self) -> &'static str {
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
         match self {
             Self::DefaultsTo => "DEFAULTS_TO",
         }
@@ -176,7 +177,8 @@ impl Predicate {
 
 impl LiteralKind {
     /// Its name, as the `object_type` column holds it.
-    pub(super) fn as_str(self) -> &'static str {
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
         match self {
             Self::Text => "text",
             Self::Boolean => "boolean",
@@ -185,8 +187,10 @@ impl LiteralKind {
         }
     }
 
-    /// The type named `name`.
-    pub(super) fn parse(name: &str) -> Option<Self> {
+    /// The type named `name`, as a table's type column or the
+    /// `object_type` column spells it.
+    #[must_use]
+    pub fn parse(name: &str) -> Option<Self> {
         match name {
             "text" => Some(Self::Text),
             "boolean" => Some(Self::Boolean),
@@ -196,8 +200,10 @@ impl LiteralKind {
         }
     }
 
-    /// Whether `lexeme` has the form of this type.
-    pub(super) fn admits(self, lexeme: &str) -> bool {
+    /// Whether `lexeme` has the form of this type: the check a claim's
+    /// object passes before it is admitted.
+    #[must_use]
+    pub fn admits(self, lexeme: &str) -> bool {
         let digits =
             |text: &str| !text.is_empty() && text.bytes().all(|byte| byte.is_ascii_digit());
         let unsigned = lexeme.strip_prefix('-').unwrap_or(lexeme);

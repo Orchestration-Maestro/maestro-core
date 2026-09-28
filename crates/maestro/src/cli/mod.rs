@@ -8,6 +8,7 @@ mod backup;
 mod collection;
 mod eval;
 mod foreground;
+mod graph;
 pub(crate) mod health;
 mod import;
 mod lease;
