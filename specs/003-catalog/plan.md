@@ -83,7 +83,7 @@ The fresh planning clone starts at
 | Host proof | `docs/how-to/knowledge-mcp.md` and `crates/maestro/tests/it/mcp_clients.rs` exist; client-like stdio tests do not prove real Pi/Copilot loading or T038 completion |
 | Retrieval | `crates/maestro-knowledge/src/search/filter.rs` filters scope/version only; C26 must add eligible-ID filtering before every branch's limit |
 | Evaluation | `crates/maestro-knowledge/src/eval/` scores sections, not workflow IDs; reuse statistical methods, not section labels masquerading as intent labels |
-| Kernel | Scoped records, artifacts, journal, jobs and backup exist. Migrations end at `0011_exact_identifiers.sql`; catalog numbering must exceed every landed/reserved number on main and both S2/S3 integration branches |
+| Kernel | Scoped records, artifacts, journal, jobs and backup exist. Migrations end at `0011_exact_identifiers.sql`; catalog numbering must exceed every landed/reserved number on main and S1/S2/S3 integration branches |
 | Filesystem | `crates/maestro-canonicalization/src/filesystem/{mod.rs,root.rs,unix.rs,windows.rs}` owns ADR-0018 held handles and no-follow opens; C04a moves it, not copies it |
 | Hosts and content | The draft recorded Pi 0.87.1, MCP adapter 2.37.0 and subagents 0.64.0; Copilot was absent from PATH and `maestro-manifests` did not exist. These are historical observations, not refreshed approvals or qualification |
 
@@ -111,7 +111,8 @@ repository's [rule map](../../docs/standards/engineering.md). No rule is waived.
 | SEC-008 | Declared/effective/observed views; blocked, unsupported, not-run and passed remain distinct |
 | ADR-0018, ADR-0020 | Handle-based filesystem safety, measured library adoption, named duplicate exceptions and vet evidence |
 
-Recheck this table at C00, after C09's measurements and at C28. A dependency
+Rechecked at C00 (2026-09-28 review amend): no change to the constitution table.
+Recheck this table after C09's measurements and at C28. A dependency
 exception names the exact crate/version and removal condition in
 `maestro-quality.toml`; it is not permission to relax the whole gate.
 
@@ -123,12 +124,18 @@ exception names the exact crate/version and removal condition in
 specs/003-catalog/
 ├── spec.md                    # requirements and observable outcomes
 ├── plan.md                    # design, contracts, decisions and owner actions
-└── tasks.md                   # bounded, test-first implementation tasks
+├── tasks.md                   # bounded, test-first implementation tasks
+└── traceability.json          # C00 inventory approved by the owner, 2026-09-28
 ```
 
 C01/C09 later add measured research under `specs/003-catalog/research/`.
-C00/C28 maintain architecture 03/06/08 and the exact delivery map. This commit
-creates specifications only; it does not claim those implementation tasks done.
+C00/C28 maintain architecture 03/06/08 and the exact delivery map.
+`catalog_traceability` derives source candidates from architecture 08's catalog
+links and S3 statuses, then checks the 85 included keys, six reasoned exclusions,
+this spec's portions and the task headings, including negative mutations.
+C00 fixture consistency is not delivery evidence or owner approval.
+The frozen inventory is approved by the owner, 2026-09-28 (OA7); M3 acceptance
+remains pending.
 
 ### Source code (planned)
 
@@ -192,12 +199,13 @@ admission before init, projection or catalog consultation. Explicit resource
 selection works before routing; no code depends on an engine merely to install
 or remove an agent profile.
 
-C00 synchronizes architecture 03/06/08: graph checks needed to safely compile
-S3 bundles land in C22a/C22b; S4 still owns general runtime execution. OA7
-approves the frozen exact row-key inventory and remaining portions, including
+C00 records the contract in architecture 03/06/08: graph checks needed to safely
+compile S3 bundles belong to C22a/C22b; S4 still owns general runtime execution.
+The frozen exact row-key inventory and S3/remaining portions, including
 GD4's Copilot-only S3 hook and S4 host-adapter qualification for the other
-clients. Do not quietly implement a smaller graph language. A supported
-construct passes all applicable checks; unsupported means not executable.
+clients, are approved by the owner, 2026-09-28 (OA7). Do not quietly implement
+a smaller graph language. A supported construct passes all applicable checks;
+unsupported means not executable.
 
 ### D2 Trust, publication and installation
 
@@ -353,8 +361,8 @@ Use S1's statistical methods for paired results; adapt scoring to workflow IDs,
 not document sections. Hybrid's paired improvement must exclude zero before it
 is enabled. Keep all failed comparisons and missing-route markers.
 
-C00 amends architecture 06's old unconditional hybrid-win exit to the approved
-conditional rule and reconciles architecture 03/08. Top-3 ≥ 90 % remains the
+Architecture 03/06/08 now records D5's conditional rule in place of the old
+unconditional hybrid-win exit. Top-3 ≥ 90 % remains the
 M3 threshold on that synthetic snapshot; no-match, clarification, top-1 and
 unnecessary context are reported separately. A real M3 install returns
 `incompatible` ("not qualified until S4") for executable workflows. C28 and
@@ -460,10 +468,13 @@ import or silent rewriting of imported approval obligations.
 
 Reuse kernel artifacts, scopes, journal and transactions; do not duplicate
 collection or model registries. C12's migration is next free at landing, above
-every migration landed or reserved on `main`, `feat/s2-integration` and
-`feat/s3-integration`. The supervisor checks all three heads and moves S2's
-fixed reservations under the same allocation rule before either slice lands.
-`NNNN_catalog.sql` is the assigned number, not a fixed/gapped reservation.
+every migration landed or reserved on `main`, `feat/s1-integration`,
+`feat/s2-integration` and `feat/s3-integration`. C00's coordination check on
+2026-09-28 found main ending at 0005 and S2/S3 at 0011; the supervisor confirmed
+S1 also ends at 0011 and no outstanding reservations exist. S2 already uses
+the same next-free rule. Recheck these moving heads and lane reservations at
+every landing. C00 allocates no number; `NNNN_catalog.sql` is the number
+assigned at landing, never a fixed/gapped reservation.
 C14/C25 use the same record seam; later schema changes get newly allocated
 numbers, never edits to applied migrations.
 
@@ -538,6 +549,8 @@ in sequence, not from M3 scope.
 These are external operations, not actions for a coding lane to perform.
 D1–D5 approval does not constitute credentials or permission to execute them.
 Wait time is outside task budgets; mark blocked when evidence is unavailable.
+OA7's frozen inventory and hook deferral are approved by the owner, 2026-09-28.
+Only OA7's remaining actions appear below.
 
 | ID | Owner action | Needed by |
 | --- | --- | --- |
@@ -546,7 +559,7 @@ Wait time is outside task budgets; mark blocked when evidence is unavailable.
 | OA4 | Bind separate catalog/runtime repository/workflow/issuer identities, protected environments and emergency/rotation authority. Supply checksum-verified standalone pinned `gh` and approved `gh` login or `GH_TOKEN`; authorize any unlisted-licence organization allowlist change, not a second D4 library approval | C09's owned 08 §17 closure and C28 live trust proof; no C09/C13 implementation-start gate |
 | OA5 | Publish checksum-pinned compiler and catalog canary/stable bundles/attestations. Enable the catalog publisher's six-hour trust schedule with protected `id-token: write`/`attestations: write` permissions and minimum publication access; enable hourly missed-refresh alerts to maintainer/backup. Perform withdrawal/rotation/missed-run drills. Supply C28's clean WSL user/container with released `maestro`, pinned `gh`, basic shell utilities and read authentication, but no checkout/Rust/Python | C28 release/clean-environment proof; C15 workflow code and C16 fixture tests do not wait |
 | OA6 | Grant private-data use per exact client/provider/account/scope, private receipt location and approved model downloads/access. Without it use synthetic data; do not infer permission from T038 code or a logged-in client | C08, C23, C26, C28 only for the corresponding private/model access |
-| OA7 | Approve C00's frozen exact key inventory and S3/remaining portions, including four-client MCP with Copilot-only hook administration in S3 and Pi/Codex/Claude Code hook qualification in S4. Accept M3 evidence and eventual main release. Any S2 fallback needs a separate explicit approval and 08 disposition | C00 inventory acceptance and C28 exit; not a new product-choice gate |
+| OA7 | Accept M3 evidence and eventual main release. Any S2 fallback needs a separate explicit approval and 08 disposition | C28 exit; not a new product-choice gate |
 | OA8 | After M3, grant access to the earlier catalog and approve any recovery work, provenance/licence obligations and separate publication PRs | C29 and later recovery tasks |
 
 The lane's authorized signed push to its own branch is not a product release.
@@ -565,7 +578,7 @@ publish a tag, install clients or send private data to a provider.
 | Privacy or missing qualification | Synthetic default, exact approvals; S4-only roles yield real `incompatible`, not a vacuous measured routing success |
 | Trivial routing scores | Frozen synthetic eligibility digest, nonempty denominator, independent distractor labels and paired held-out comparison |
 | S2 G25/G27 late or incompatible | C27a owns catalog schema/adapters; S2 owns the public port. Block impact/M3 until qualified; no fabricated evidence claims or implicit fallback |
-| Migration collision across slices | Supervisor allocates above all landed/reserved numbers on main and both integration branches |
+| Migration collision across slices | Supervisor allocates above all landed/reserved numbers on main and S1/S2/S3 integration branches |
 
 The revised **36 tasks total 118 lane-hours**: 29 to the owner-loop checkpoint,
 86 more to M3 and 3 for the post-M3 comparison; allow **134–142 lane-hours**

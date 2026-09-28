@@ -1,9 +1,15 @@
 //! The repository's policies, checked on every pull request by `cargo test`.
 #![cfg(test)]
+
+mod catalog_traceability;
+
 use maestro_conventions::{
     broken_links, counted_lines, names_a_personal_directory, repository_files, root,
 };
-use std::{fs, path::PathBuf};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 /// Every repository file that reads as UTF-8 text, with its contents.
 fn text_files() -> Vec<(PathBuf, String)> {
@@ -16,6 +22,40 @@ fn text_files() -> Vec<(PathBuf, String)> {
             Some((file, text))
         })
         .collect()
+}
+
+#[test]
+fn every_conventions_test_file_is_registered() {
+    let tests = root().join("crates/maestro-conventions/tests");
+    for file in repository_files(&tests).unwrap() {
+        if file.extension().is_none_or(|extension| extension != "rs")
+            || file == Path::new("policies.rs")
+        {
+            continue;
+        }
+        let module_path = if file.file_name().unwrap() == "mod.rs" {
+            file.parent().unwrap().to_path_buf()
+        } else {
+            file.with_extension("")
+        };
+        let parent = module_path.parent().unwrap();
+        // Root modules belong to the one test binary; nested modules to their parent.
+        let declaring = if parent.as_os_str().is_empty() {
+            PathBuf::from("policies.rs")
+        } else {
+            parent.join("mod.rs")
+        };
+        let source = fs::read_to_string(tests.join(&declaring)).unwrap();
+        let module = module_path.file_name().unwrap().to_str().unwrap();
+        assert!(
+            source
+                .lines()
+                .any(|line| line.trim() == format!("mod {module};")),
+            "{} must be declared as a module in {}",
+            file.display(),
+            declaring.display()
+        );
+    }
 }
 
 #[test]

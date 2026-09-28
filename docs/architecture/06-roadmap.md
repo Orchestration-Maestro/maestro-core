@@ -9,6 +9,11 @@ foundation, qualification and delivery obligations maps to a slice in
 [08 §12](08-traceability.md#12-delivery-mapping); each slice's spec re-checks
 that mapping before it starts.
 
+**Exception (owner, 2026-09-28 08:12):** S2 and S3 start while S1 finishes;
+for them, unfinished S1 prerequisites gate the affected live checks and exits,
+not fixture work. This scoped exception is recorded in
+[ADR-0010](../adr/0010-spec-kit-and-executable-gates.md#amendment-2026-09-28).
+
 ## 1. Slices at a glance
 
 | Slice | Delivers | Estimate* | Depends on | Milestone |
@@ -16,7 +21,7 @@ that mapping before it starts.
 | **S0 Foundation** | Clean `maestro-core` (canonicalization only) under org gates; the repositories S1 needs published; Spec Kit | 4–6 days (measured scope) | — | — |
 | **S1 Knowledge kernel + hybrid RAG** | Kernel building blocks; Control-M collection imported, published and searchable through MCP; eval suites; first model bake-off | 12–15 days | S0 | **M1 "Ask Control-M"** |
 | **S2 Knowledge graph** | Fact store, extraction, entity resolution, Neo4j projection, graph route, graph evals | 10–15 days | S1 | **M2 "Relationships answered"** |
-| **S3 Catalog** | Copilot-native catalog v1, settings classes and overrides, compile/release/install/update with freshness and revocation, `maestro init` with presets and language overlays, host projection, intent routing, policies | 10–13 days | S1 (S2 for impact queries) | **M3 "Catalog installable"** |
+| **S3 Catalog** | Copilot-native catalog v1, settings classes and overrides, compile/release/install/update with freshness and revocation, `maestro init`, host projection, intent routing, policies and static graph checks | 118 lane-hours plus review/CI reserve ([plan](../../specs/003-catalog/plan.md#risks-and-estimates)) | S1 live evidence for C08/C28 and M1 release for M3 exit; S2 G25/G27 for impact | **M3 "Catalog installable"** |
 | **S4 Orchestration runtime** | Workflow graphs, durable engine, daemon, Copilot SDK + llama.cpp sessions, Cedar broker, sandbox, contracts, interrupts, extension host and event stream, test kit | 18–24 days | S3 | **M4 "First governed workflow"** |
 | **S5 Capabilities + InnerSource** | Monitoring, Product Owner and Control-M orchestration-planning capabilities; scaffolder; scenario runner; a contributed capability | 10–15 days | S4 | **M5 "First contributed capability"** |
 | **S6 Native acquisition** | Frontier, fetchers, extraction, policy; private BMC connectors; Python retired source by source | 15–25 days | S1 | **M6 "Python retired"** |
@@ -27,6 +32,10 @@ that mapping before it starts.
 for external approvals. Estimates are replaced by measured velocity after S1.
 
 ### Two schedules
+
+The 08:12 decision above supersedes only the S2/S3 implementation-start dates
+in these estimates. The evidence prerequisite remains for every other slice;
+the dates are not delivery commitments.
 
 | Week | Sequential (one writer) | Two tracks after S1 (knowledge ∥ agents) |
 | --- | --- | --- |
@@ -121,30 +130,61 @@ identical query results; the LadybugDB spike has a written verdict.
 
 ### S3 Catalog → M3
 
+D1–D5 are decided in the [S3 spec](../../specs/003-catalog/spec.md#clarifications).
+C00's [exact inventory](../../specs/003-catalog/traceability.json) is a planned
+disposition, approved by the owner, 2026-09-28 (OA7), not delivery evidence.
+
+**D1 checkpoints:** C02 first supplies a small reviewed-source knowledge seed;
+C08 proves init → Copilot/Pi projection → knowledge search/get/ask → remove.
+They are authoring convenience, not verified installation or governed execution.
+`--catalog-dir` cannot mint an attested install or bypass install/update trust.
+Integrated T034/T035 and T038 live evidence gate C08 and C28; the M1 release
+gates M3 exit. C00 needs only the decided D1–D5 to start. No checkpoint removes
+an M3 exit criterion, and no S3 task executes a workflow graph.
+
 | Deliverable | Detail |
 | --- | --- |
 | `maestro-catalog` | Parse, check, compile, verify (attestation, freshness, revocation, version floor), install, update, project, route, resolve, search, impact, explain; settings classes and override resolution; project lock |
 | Bootstrap | `maestro init` with presets, base template and language overlays (Rust first; others as projects need them), preview, stop-on-collision apply, composed-output tests |
 | Catalog v1 content | Written from zero ([03 §1.8](03-agent-orchestration.md#18-writing-the-first-catalog)): the `feature-delivery` and `ctm-question` workflows, the Maestro orchestrator and the owner's roles they need (coder, tester, reviewer; builder as a step), and only the skills, instructions, contracts, Cedar policies (default deny, destructive operations, protected paths, egress, each with allowed and denied fixtures), model profiles (`fast`, `balanced`, `deep`) for both providers, MCP server descriptors and discovery cards those workflows use; every file's pull request names its 08 rows |
 | Release | Manifests CI: check, policy tests, attested bundle |
-| Hosts | Projection to Copilot and Pi (dry run, apply, remove); native `preToolUse` hook → `maestro policy check` |
-| Routing | Discovery cards as the `catalog` collection; `catalog_route`, `catalog_impact`; labelled intent suite |
-| Spike | Copilot's tolerance of `metadata:` in `.agent.md` (decides sidecar or frontmatter) |
+| Hosts | Copilot/Pi projection (preview, apply, owned removal); four-client local MCP registration (Pi, Codex, Claude Code, Copilot CLI); only Copilot `preToolUse` → `maestro policy check` in S3. Other hooks wait for S4 trusted event/identity adapter qualification |
+| Static graph checks | C22a/C22b check all twelve [03 §2.3](03-agent-orchestration.md#23-compile-time-validation) rules; unsupported constructs are refused. Execution and live role qualification remain S4 |
+| Routing | Exact-ID/local lexical baseline, scoped discovery cards, conditional measured hybrid; C27a's separate catalog edge schema/adapters over S2 G27's public typed-edge port after G25 qualification, then C27 exact impact. No evidence-span claims or implicit closure fallback |
+| Spike | C01 probes Copilot's tolerance of `metadata:` in `.agent.md`; without C01 evidence when C03 starts, C03 freezes sidecars for v1 |
 | Comparison pass (after M3) | The earlier catalog read once against the new one; each recovered item its own pull request citing it; the rest listed with the reason |
 
 **Exit criteria:** a tagged bundle is attested by manifests CI and verified by
-`maestro catalog install`, and a revoked or expired one is refused; an
-unclassified setting is rejected; `maestro init` previews and applies every
-language composition cleanly and stops on collisions; projection is idempotent
-and removes only owned files; routing beats the structured baseline and reaches
-top-3 accuracy ≥ 90 % on the intent suite (initial target); every policy rule
-has passing allow and deny tests.
+pinned `gh` through `maestro catalog install`; revoked, expired or replayed
+bundles are refused. D2 requires refresh within five minutes during use and
+offline expiry within 24 hours. An unclassified setting is rejected;
+`maestro init` previews and applies the base and base-plus-Rust compositions
+cleanly and stops on collisions. Projection is idempotent and removes only
+unchanged owned content. Every policy and static graph rule
+has passing allowed and denied neighbours. C28 requires M1 release, S2 impact,
+live host/release evidence and the final three-platform CI gates.
+
+**D5 routing exit (owner, 2026-09-28):** top-3 accuracy remains ≥ 90 % on the
+frozen 100+ independently reviewed public/synthetic intents and synthetic
+eligibility snapshot, with both digests and a nonempty matchable denominator.
+Required dependency completeness is 100 %. Report top-1, correct no-match,
+clarification, unnecessary context and synthetic distractors separately.
+Hybrid ships only if paired held-out gain excludes zero; otherwise ship the
+baseline and retain the failed comparison. This explicitly replaces the older
+unconditional "routing beats the structured baseline" exit. A real M3 install
+returns `incompatible` (not qualified until S4) for executable workflows;
+synthetic success does not qualify a live role or model.
+
+**Shared migrations:** the supervisor allocates each next-free number at
+landing above every landed or reserved number on main and S1/S2/S3 integration
+branches. C00 reserves no number or gapped block; later schema changes receive
+new numbers, never edits to applied migrations.
 
 ### S4 Orchestration runtime → M4
 
 | Deliverable | Detail |
 | --- | --- |
-| Graph compiler | The twelve rules of [03 §2.3](03-agent-orchestration.md#23-compile-time-validation) |
+| Graph execution | Execute S3-validated graphs and enforce the twelve [03 §2.3](03-agent-orchestration.md#23-compile-time-validation) rules at runtime; static compilation belongs to S3 C22a/C22b |
 | Engine + daemon | Event-sourced state, scheduler, recovery with uncertain-effect handling, interrupts, budgets, cancellation; systemd user unit; Unix-socket JSON-RPC |
 | Sessions | Copilot SDK 1.0.14 with `copilot` and `llamacpp` providers, hooks, permission handler, `submit_result`, context assembler |
 | Broker + sandbox | Cedar decisions on normalized arguments, approvals, Landlock + seccomp + network namespace + cgroups, worktrees |

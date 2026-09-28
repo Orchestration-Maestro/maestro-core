@@ -1,0 +1,541 @@
+{
+  "status": "planned",
+  "rows": [
+    {
+      "source_row": "owner.catalog",
+      "s3_portion": "Fresh content and later comparison",
+      "tasks": ["C02", "C21", "C21b", "C29"],
+      "remaining": "S3: implement fresh content and C28 evidence, then C29 comparison after M3 and OA8 access"
+    },
+    {
+      "source_row": "owner.m001.manifest",
+      "s3_portion": "Catalog definitions; InnerSource operation stays S5",
+      "tasks": ["C03", "C21", "C21b"],
+      "remaining": "S3: definitions and C28 evidence; S5: InnerSource operation"
+    },
+    {
+      "source_row": "owner.m001.team",
+      "s3_portion": "Role declarations; execution stays S4",
+      "tasks": ["C21b", "C22a", "C22b"],
+      "remaining": "S3: declarations and static checks; S4: qualified role execution"
+    },
+    {
+      "source_row": "owner.m001.cli",
+      "s3_portion": "Project bootstrap",
+      "tasks": ["C04a", "C04", "C05"],
+      "remaining": "S3: bootstrap implementation and C28 evidence"
+    },
+    {
+      "source_row": "owner.m001.load",
+      "s3_portion": "Bootstrap/preferences; human approvals remain",
+      "tasks": ["C05", "C17", "C18"],
+      "remaining": "S3: bootstrap and preference resolution without removing human approvals; S4: governed approval execution"
+    },
+    {
+      "source_row": "owner.m001.laptop",
+      "s3_portion": "Detached install/native projection",
+      "tasks": ["C06", "C07", "C16", "C28"],
+      "remaining": "S3: clean laptop install and live native projection evidence"
+    },
+    {
+      "source_row": "owner.m001.guardrails",
+      "s3_portion": "Policy and Copilot hook; broker stays S4",
+      "tasks": ["C19", "C20"],
+      "remaining": "S3: Cedar policies and Copilot hook evidence; S4: authoritative broker and other host-adapter qualification"
+    },
+    {
+      "source_row": "owner.m024",
+      "s3_portion": "Separate catalog and runtime releases",
+      "tasks": ["C15", "C28"],
+      "remaining": "S3: separate publisher bindings and released install evidence"
+    },
+    {
+      "source_row": "owner.m028",
+      "s3_portion": "Workflow discovery and exact impact",
+      "tasks": ["C23", "C24a", "C24", "C25", "C26", "C27a", "C27"],
+      "remaining": "S3: measured discovery and C27a catalog schema/adapters; S2: G25 qualification and G27 public typed-edge port"
+    },
+    {
+      "source_row": "owner.m032",
+      "s3_portion": "Restrictive settings; governed enforcement stays S4",
+      "tasks": ["C17", "C18", "C19"],
+      "remaining": "S3: settings and policy checks; S4: governed enforcement and handoff validation"
+    },
+    {
+      "source_row": "chat.M006 layers",
+      "s3_portion": "Definitions through verified install; enforcement stays S4",
+      "tasks": ["C03", "C10", "C16"],
+      "remaining": "S3: compiler and verified install evidence; S4: runtime enforcement and execution evidence"
+    },
+    {
+      "source_row": "chat.M006 layout, M023 layout",
+      "s3_portion": "Required v1 content only; capability expansion stays S5",
+      "tasks": ["C02", "C21", "C21b"],
+      "remaining": "S3: required v1 content; S5: demand-driven capability expansion"
+    },
+    {
+      "source_row": "chat.M006 compiler",
+      "s3_portion": "Strict definitions and static graph checks",
+      "tasks": ["C03", "C22a", "C22b"],
+      "remaining": "S3: all twelve static graph rules and rejection of unsupported constructs; S4: runtime execution of validated graphs"
+    },
+    {
+      "source_row": "chat.M006 explain",
+      "s3_portion": "Every effective setting's provenance",
+      "tasks": ["C17", "C18"],
+      "remaining": "S3: effective setting provenance; S4: observed governed-run evidence"
+    },
+    {
+      "source_row": "chat.M006 lockfile",
+      "s3_portion": "Exact pins; live execution qualification stays S4",
+      "tasks": ["C18"],
+      "remaining": "S3: explicit pins and unsupported states; S4: live execution qualification"
+    },
+    {
+      "source_row": "chat.M006 project file",
+      "s3_portion": "Small non-authoritative descriptor",
+      "tasks": ["C05"],
+      "remaining": "S3: descriptor implementation and bootstrap evidence"
+    },
+    {
+      "source_row": "chat.M006 transparency",
+      "s3_portion": "Declared/effective/observed; external export stays S5",
+      "tasks": ["C18"],
+      "remaining": "S3: honest declared/effective/observed views; S4: governed-run observations; S5: sanitized external export"
+    },
+    {
+      "source_row": "chat.M006 release",
+      "s3_portion": "Trusted catalog lifecycle",
+      "tasks": ["C13", "C14", "C15", "C16", "C16b"],
+      "remaining": "S3: verified lifecycle, rotation, revocation and C28 live evidence"
+    },
+    {
+      "source_row": "chat.M019 maturity, M023 step 4",
+      "s3_portion": "Evidence checks; role qualification stays S4",
+      "tasks": ["C03", "C21", "C21b", "C24a"],
+      "remaining": "S3: maturity checks and ineligible unqualified closures; S4: role qualification"
+    },
+    {
+      "source_row": "chat.M019 descriptor",
+      "s3_portion": "Native format or fixed v1 sidecar fallback",
+      "tasks": ["C01", "C03"],
+      "remaining": "S3: real parser probe or final v1 sidecars when C03 starts without C01 evidence"
+    },
+    {
+      "source_row": "chat.M019 ownership",
+      "s3_portion": "Required owners/CODEOWNERS; dual-approval operation stays S5",
+      "tasks": ["C02", "C21", "C21b"],
+      "remaining": "S3: one ownership model and generated CODEOWNERS; S5: dual-approval operating check"
+    },
+    {
+      "source_row": "chat.M027 detached",
+      "s3_portion": "No checkout or toolchain on the laptop",
+      "tasks": ["C16", "C28"],
+      "remaining": "S3: detached released installation in the OA5 clean environment"
+    },
+    {
+      "source_row": "chat.M027 validation split",
+      "s3_portion": "Author/load validation; governed enforcement stays S4",
+      "tasks": ["C03", "C11", "C13"],
+      "remaining": "S3: independent authoring and load validation; S4: governed runtime enforcement"
+    },
+    {
+      "source_row": "chat.M027 invariants",
+      "s3_portion": "No verification bypass or fake receipts; broker stays S4",
+      "tasks": ["C14", "C16b", "C18"],
+      "remaining": "S3: admission and honest receipts; S4: authoritative broker and runtime identity"
+    },
+    {
+      "source_row": "chat.M027 contract crate",
+      "s3_portion": "In-workspace schemas, no separate contract crate",
+      "tasks": ["C03", "C10", "C11"],
+      "remaining": "S3: checked schemas through the released pinned compiler"
+    },
+    {
+      "source_row": "chat.M027 versions",
+      "s3_portion": "Runtime/bundle/tool compatibility",
+      "tasks": ["C10", "C11", "C18"],
+      "remaining": "S3: compatibility checks and pins; S4: qualification of runtime execution features"
+    },
+    {
+      "source_row": "chat.M027 pipelines",
+      "s3_portion": "Separate publishers, unprivileged PR checks",
+      "tasks": ["C09", "C15"],
+      "remaining": "S3: measured verifier, protected publishing and unprivileged PR evidence"
+    },
+    {
+      "source_row": "chat.M027 TUF",
+      "s3_portion": "Freshness, revocation, floors and offline expiry",
+      "tasks": ["C09", "C14", "C15", "C16b"],
+      "remaining": "S3: authenticated records, bounded refresh/offline use and rollback refusal evidence"
+    },
+    {
+      "source_row": "chat.M036 classes, M039 policy",
+      "s3_portion": "Restrictive override classes",
+      "tasks": ["C03", "C17"],
+      "remaining": "S3: exactly one class per setting and restrictive resolution evidence"
+    },
+    {
+      "source_row": "chat.M036 defaults",
+      "s3_portion": "Authored defaults; runtime application stays S4",
+      "tasks": ["C17", "C21", "C21b"],
+      "remaining": "S3: authored defaults and resolution; S4: runtime application and enforcement"
+    },
+    {
+      "source_row": "chat.M006 roles, M023 step 12",
+      "s3_portion": "Required v1 roles only; later capabilities stay S5",
+      "tasks": ["C21", "C21b"],
+      "remaining": "S3: required v1 declarations; S4: qualified execution; S5: later capabilities"
+    },
+    {
+      "source_row": "chat.M006 change workflow",
+      "s3_portion": "Declarative development workflow; execution stays S4",
+      "tasks": ["C21b", "C22a", "C22b"],
+      "remaining": "S3: declarations and static checks; S4: approval-bound workflow execution"
+    },
+    {
+      "source_row": "chat.M019 machine contracts",
+      "s3_portion": "Static schema validation; acceptance stays S4",
+      "tasks": ["C19", "C21", "C21b", "C22b"],
+      "remaining": "S3: static schema and policy validation; S4: trusted handoffs and runtime acceptance"
+    },
+    {
+      "source_row": "chat.M039 superpowers",
+      "s3_portion": "Explicit stages and preserved approval obligations",
+      "tasks": ["C21b", "C29"],
+      "remaining": "S3: stage declarations and post-M3 comparison with obligations preserved; S4: governed stage execution"
+    },
+    {
+      "source_row": "delivery.R08",
+      "s3_portion": "Independent review declarations; runtime contexts stay S4",
+      "tasks": ["C21b", "C22a"],
+      "remaining": "S3: independent review declarations; S4: separate qualified review sessions"
+    },
+    {
+      "source_row": "chat.M036 models",
+      "s3_portion": "Profile declarations; provider qualification stays S4",
+      "tasks": ["C21", "C21b"],
+      "remaining": "S3: bounded profile declarations and unsupported diagnostics; S4: provider/role qualification"
+    },
+    {
+      "source_row": "chat.M059 model profile",
+      "s3_portion": "Profile identities and pins; live evidence stays S4",
+      "tasks": ["C18", "C21", "C21b"],
+      "remaining": "S3: distinct profile identities and pins; S4: live qualification evidence"
+    },
+    {
+      "source_row": "chat.M006 broker",
+      "s3_portion": "Shared native evaluator only; authoritative broker stays S4",
+      "tasks": ["C19", "C20"],
+      "remaining": "S3: real Cedar evaluator and Copilot hook; S4: authoritative typed broker and permission handler"
+    },
+    {
+      "source_row": "chat.M006, M023 step 8",
+      "s3_portion": "Normalize supported native operations",
+      "tasks": ["C20"],
+      "remaining": "S3: supported native normalization and opaque-operation denial; S4: typed broker operations"
+    },
+    {
+      "source_row": "chat.M006 destructive",
+      "s3_portion": "Real policy fixtures by effect/scope",
+      "tasks": ["C19", "C21"],
+      "remaining": "S3: destructive-operation policies with allowed and denied neighbours; S4: authoritative effect enforcement"
+    },
+    {
+      "source_row": "chat.M006 approvals",
+      "s3_portion": "No model-supplied approval; bound approval execution stays S4",
+      "tasks": ["C19", "C20"],
+      "remaining": "S3: deny missing trusted facts and model-supplied approvals; S4: bound single-use approval execution"
+    },
+    {
+      "source_row": "chat.M023 step 7",
+      "s3_portion": "Real Cedar and fail-closed facts/errors",
+      "tasks": ["C19"],
+      "remaining": "S3: real Cedar checks and zero-executor denial fixtures; S4: broker integration"
+    },
+    {
+      "source_row": "chat.M031 principle",
+      "s3_portion": "Definitions remain authority, evidence gates eligibility",
+      "tasks": ["C24a", "C24"],
+      "remaining": "S3: exact definitions and eligibility checks; S4: live role qualification and execution admission"
+    },
+    {
+      "source_row": "chat.M031 workflow first",
+      "s3_portion": "Exact declared closure after workflow selection",
+      "tasks": ["C24a", "C24"],
+      "remaining": "S3: workflow-first selection and complete exact dependencies; S4: execution admission"
+    },
+    {
+      "source_row": "chat.M031 API",
+      "s3_portion": "Typed local CLI/MCP routes and caller context",
+      "tasks": ["C24a", "C24"],
+      "remaining": "S3: typed statuses and host-bound caller context in the existing server"
+    },
+    {
+      "source_row": "chat.M031 cards",
+      "s3_portion": "One replaceable card per resource",
+      "tasks": ["C25"],
+      "remaining": "S3: deterministic cards with exact dependencies and generation evidence"
+    },
+    {
+      "source_row": "chat.M031 hybrid",
+      "s3_portion": "Pre-limit eligibility and measured conditional hybrid",
+      "tasks": ["C26"],
+      "remaining": "S3: paired synthetic comparison and hybrid enablement only on demonstrated gain; S4: live executable-role qualification"
+    },
+    {
+      "source_row": "chat.M031 optimal",
+      "s3_portion": "Smallest qualified workflow; no automatic feedback rewrite",
+      "tasks": ["C24", "C26"],
+      "remaining": "S3: smallest eligible closure on synthetic evidence and honest real incompatibility; S4: live executable qualification"
+    },
+    {
+      "source_row": "chat.M031 separation",
+      "s3_portion": "Catalog/knowledge collection and scope separation",
+      "tasks": ["C25"],
+      "remaining": "S3: isolated catalog projection and scope-leakage tests"
+    },
+    {
+      "source_row": "chat.M031 offline",
+      "s3_portion": "Valid exact-ID/local lexical fallback",
+      "tasks": ["C14", "C24"],
+      "remaining": "S3: authorized offline fallback with explicit degraded state and expiry refusal"
+    },
+    {
+      "source_row": "chat.M031 publication",
+      "s3_portion": "Verified generation/snapshot identity",
+      "tasks": ["C25"],
+      "remaining": "S3: complete verified generation publication and snapshot-bound responses"
+    },
+    {
+      "source_row": "chat.M031 security",
+      "s3_portion": "Local caller context/cache isolation; HTTP remains out of scope",
+      "tasks": ["C24a", "C24", "C26"],
+      "remaining": "S3: local admission and cache isolation; S4: HTTP hardening before any remote profile"
+    },
+    {
+      "source_row": "chat.M031 delivery",
+      "s3_portion": "Frozen baseline before hybrid",
+      "tasks": ["C23", "C24", "C26"],
+      "remaining": "S3: independently reviewed frozen labels, eligibility snapshot and paired held-out comparison"
+    },
+    {
+      "source_row": "chat.M031 service",
+      "s3_portion": "Existing server, no separate catalog service",
+      "tasks": ["C24a", "C24"],
+      "remaining": "S3: catalog tools in the existing local MCP server, with separate deployment still unscheduled and conditional on a team profile"
+    },
+    {
+      "source_row": "chat.M019 bootstrap, M023 step 13",
+      "s3_portion": "Inspect/preview/apply/validate/ownership",
+      "tasks": ["C04", "C05"],
+      "remaining": "S3: deterministic bootstrap, crash/race refusal and owned-only removal evidence"
+    },
+    {
+      "source_row": "chat.M019 overlays",
+      "s3_portion": "Base plus Rust composed output",
+      "tasks": ["C02", "C05"],
+      "remaining": "S3: base and Rust composition checks, with additional overlays unscheduled until project demand"
+    },
+    {
+      "source_row": "chat.M006 native",
+      "s3_portion": "Convenience projection, drift and owned removal",
+      "tasks": ["C06", "C07", "C20"],
+      "remaining": "S3: native convenience and Copilot hook evidence; S4: governed engine and other host hook qualification"
+    },
+    {
+      "source_row": "product.GD2, GD4, GD5",
+      "s3_portion": "Four MCP clients, local access and Copilot hook; other hooks stay S4",
+      "tasks": ["C00", "C06", "C07", "C08", "C20", "C28"],
+      "remaining": "S3: Pi/Codex/Claude Code/Copilot MCP and Copilot preToolUse evidence; S4: Pi/Codex/Claude Code hooks after trusted event/identity adapter qualification"
+    },
+    {
+      "source_row": "chat.M048 real controls",
+      "s3_portion": "Real verification/Cedar and allow/deny neighbours",
+      "tasks": ["C09", "C13", "C19", "C28"],
+      "remaining": "S3: real verifier and Cedar evidence; S4: real broker, acceptance and containment controls"
+    },
+    {
+      "source_row": "chat.M057 CI",
+      "s3_portion": "Zero relevant tests cannot pass; honest statuses",
+      "tasks": ["C15", "C28"],
+      "remaining": "S3: non-vacuous CI and distinct qualification statuses; S4: trusted runtime scenario suites"
+    },
+    {
+      "source_row": "chat.M059 provenance",
+      "s3_portion": "Observed/unsupported/not-run kept distinct",
+      "tasks": ["C08", "C18", "C28"],
+      "remaining": "S3: honest catalog and host receipts; S4: governed execution observations"
+    },
+    {
+      "source_row": "delivery.U02",
+      "s3_portion": "Catalog consistency; translation comparison after M3",
+      "tasks": ["C03", "C21", "C21b", "C29"],
+      "remaining": "S3: catalog consistency and separately approved post-M3 comparison"
+    },
+    {
+      "source_row": "delivery.U05",
+      "s3_portion": "Consumption, compiler, closure and overrides",
+      "tasks": ["C10", "C11", "C17", "C22a", "C22b"],
+      "remaining": "S3: consumption contract, static compiler, closure and override checks"
+    },
+    {
+      "source_row": "delivery.U09",
+      "s3_portion": "Deterministic bootstrap and projection",
+      "tasks": ["C04a", "C04", "C05", "C06", "C07"],
+      "remaining": "S3: shared safe owned writes and deterministic bootstrap/projection evidence"
+    },
+    {
+      "source_row": "delivery.U13",
+      "s3_portion": "Catalog routing; S1 retains retrieval/model qualification",
+      "tasks": ["C23", "C24a", "C24", "C25", "C26"],
+      "remaining": "S3: measured catalog routing; S1: retrieval and embedding/model qualification; S4: executable-role qualification"
+    },
+    {
+      "source_row": "delivery.U17",
+      "s3_portion": "Bundle trust/lifecycle; general InnerSource stays S5",
+      "tasks": ["C09", "C15", "C16", "C16b", "C28"],
+      "remaining": "S3: trusted bundle lifecycle evidence; S5: general InnerSource operation"
+    },
+    {
+      "source_row": "core storage",
+      "s3_portion": "Scoped kernel authority, rebuildable projections",
+      "tasks": ["C12", "C25", "C27a"],
+      "remaining": "S3: kernel catalog records and rebuildable scoped projections; S2: G25 qualification and G27 public port"
+    },
+    {
+      "source_row": "core verification",
+      "s3_portion": "Organization gates, not waived for S3",
+      "tasks": ["C28"],
+      "remaining": "S3: fresh independent review, three-platform CI, coverage and mutation evidence"
+    },
+    {
+      "source_row": "delivery.§1.5",
+      "s3_portion": "Exact S3 delivery evidence; other slices retain their portions",
+      "tasks": ["C00", "C28"],
+      "remaining": "S3: C28 delivery map and post-M3 catalog comparison"
+    },
+    {
+      "source_row": "chat.M006 CLI",
+      "s3_portion": "Bootstrap, projection, doctor, catalog lifecycle, settings and policy CLI; other commands stay S4/S5",
+      "tasks": ["C05", "C06", "C07", "C13", "C16", "C16b", "C17", "C18", "C19"],
+      "remaining": "S3: checked catalog CLI and C28 evidence; S4: run, session and governed lifecycle commands; S5: capability scaffolding and contribution commands"
+    },
+    {
+      "source_row": "chat.M036 objects",
+      "s3_portion": "Catalog resource kinds and declarative references; runtime objects stay S4",
+      "tasks": ["C03", "C21", "C21b"],
+      "remaining": "S3: strict resource kinds and required declarations; S4: runtime sessions, handoffs and execution objects"
+    },
+    {
+      "source_row": "delivery.§2.2",
+      "s3_portion": "Catalog-release contract; runtime envelopes stay S4 and ingestion policy stays S6",
+      "tasks": ["C10", "C11"],
+      "remaining": "S3: independent catalog-release validation without conflating existing completion manifests; S4: trusted runtime envelopes; S6: ingestion-policy qualification"
+    },
+    {
+      "source_row": "chat.M019 roles",
+      "s3_portion": "Earlier roles deferred to C29 comparison after M3, not seeded",
+      "tasks": ["C29"],
+      "remaining": "S3: owner-approved post-M3 comparison and separate decisions for any earlier role recovery"
+    },
+    {
+      "source_row": "chat.M023 step 13",
+      "s3_portion": "Stop-on-collision owned writes; three-way merge remains separately specified",
+      "tasks": ["C04", "C05"],
+      "remaining": "S3: checked collision refusal and ownership, with the three-way updater deferred until separately specified"
+    },
+    {
+      "source_row": "delivery.C01 transparent platform, minimal plumbing",
+      "s3_portion": "Bootstrap and preferences remove plumbing, not human judgement",
+      "tasks": ["C05", "C17", "C18"],
+      "remaining": "S3: deterministic setup and explainable settings; S4: governed approvals remain human-controlled"
+    },
+    {
+      "source_row": "delivery.C02 detached two-repository releases",
+      "s3_portion": "Separate catalog/runtime publishers and detached install",
+      "tasks": ["C09", "C15", "C16", "C28"],
+      "remaining": "S3: publisher binding, release and clean laptop installation evidence"
+    },
+    {
+      "source_row": "delivery.C04 readiness, owners, dependencies without invalid frontmatter",
+      "s3_portion": "Strict descriptors, owners and readiness evidence; role qualification stays S4",
+      "tasks": ["C01", "C02", "C03", "C21", "C21b"],
+      "remaining": "S3: fixed v1 format, owners and exact dependencies; S4: executable-role qualification"
+    },
+    {
+      "source_row": "delivery.C06 closure, merge, explanation, one override class",
+      "s3_portion": "Exact closure, restrictive resolution and one explained override class",
+      "tasks": ["C03", "C17", "C18", "C22a", "C22b"],
+      "remaining": "S3: closure and override validation evidence; S4: runtime enforcement of effective settings"
+    },
+    {
+      "source_row": "delivery.C08 explicit instructions and skills with provenance",
+      "s3_portion": "Required skills/instructions and native projection provenance; session composition stays S4",
+      "tasks": ["C02", "C06", "C07", "C21", "C21b"],
+      "remaining": "S3: explicit resources and projection provenance; S4: qualified runtime session composition"
+    },
+    {
+      "source_row": "delivery.C12 preview/apply bootstrap",
+      "s3_portion": "Safe deterministic preview/apply bootstrap",
+      "tasks": ["C04a", "C04", "C05"],
+      "remaining": "S3: shared owned writes, collision refusal and composed-output checks"
+    },
+    {
+      "source_row": "delivery.C13 native projection",
+      "s3_portion": "Copilot/Pi convenience projection and Copilot policy hook",
+      "tasks": ["C06", "C07", "C20"],
+      "remaining": "S3: native projection, drift and unchanged-owned removal evidence; S4: governed execution and other-client hooks"
+    },
+    {
+      "source_row": "delivery.C14–C16 catalog MCP, shared Qdrant, separate knowledge ACLs",
+      "s3_portion": "Local catalog MCP and scoped cards through the shared knowledge pipeline",
+      "tasks": ["C24a", "C24", "C25", "C26"],
+      "remaining": "S3: catalog routing and independently scoped discovery with no knowledge ACL leakage"
+    },
+    {
+      "source_row": "delivery.C17 signed releases, freshness, revocation, transparency",
+      "s3_portion": "Verified catalog lifecycle, current trust and honest transparency",
+      "tasks": ["C09", "C13", "C14", "C15", "C16", "C16b", "C18"],
+      "remaining": "S3: release, trust refresh, revocation, restore and explain evidence"
+    },
+    {
+      "source_row": "delivery.R01–R11 corrections",
+      "s3_portion": "R05 workflow-first routing and R09 trust; other corrections stay S4/S5/S7",
+      "tasks": ["C14", "C16b", "C24a", "C24"],
+      "remaining": "S3: routing and trust correction evidence; S4: runtime controls, replay, hooks, telemetry and qualification; S5: capability scaffolding and integration ladder; S7: qualified cross-project memory"
+    },
+    {
+      "source_row": "product.GD1–GD5",
+      "s3_portion": "Four-client local MCP and Copilot hook; GD1 registry keeps its existing §6/05 ownership",
+      "tasks": ["C00", "C06", "C07", "C08", "C20", "C28"],
+      "remaining": "S3: four-client MCP and Copilot hook evidence; S4: other-client hook qualification; S7: non-blocking context graph advice"
+    }
+  ],
+  "excluded": [
+    {
+      "source_row": "owner.m001.capabilities",
+      "reason": "S5-only capability agents and contributions; selected by the broad #1 prefix because §10 is InnerSource, not catalog §1"
+    },
+    {
+      "source_row": "chat.M027 change impact",
+      "reason": "S5-only contribution integration ladder deciding when a change needs a runtime release; §10 is not catalog §1"
+    },
+    {
+      "source_row": "chat.M023 operating model",
+      "reason": "S5-only InnerSource operating model and contribution path; §10 is not catalog §1"
+    },
+    {
+      "source_row": "chat.M006 capability package",
+      "reason": "S5-only capability package and scaffolder; §10 is not catalog §1"
+    },
+    {
+      "source_row": "chat.M027 ladder, delivery.R10",
+      "reason": "S5-only capability contribution integration ladder; §10 is not catalog §1"
+    },
+    {
+      "source_row": "delivery.C05 InnerSource and domain capabilities",
+      "reason": "S5-only InnerSource and domain capabilities; §10 is not catalog §1"
+    }
+  ]
+}

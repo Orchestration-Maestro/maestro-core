@@ -424,10 +424,15 @@ invalid graph rule and policy fixture through the real checks.
 
 ## Traceability
 
-Architecture 08 statuses are design dispositions, not proof of delivery. C00
-freezes the exact row-key inventory and S3 portions before implementation;
-C28 adds integrated evidence. Preserve combined row keys verbatim rather than
-inventing a count or splitting identifiers differently from their source.
+Architecture 08 statuses are design dispositions, not proof of delivery.
+C00's [machine-checked inventory](traceability.json) records the 85 exact keys
+below, their S3 portions, tasks and named remaining slices, plus six explicit
+S5-only exclusions. All included portions are planned; C28 adds integrated
+evidence. Combined keys remain verbatim. The frozen exact inventory at
+`cbf1abdb239c0b7678c157eb7aece6f46de8c5dd` is approved by the owner, 2026-09-28
+(OA7). The conventions check
+derives candidates from 08's catalog/S3 links and S3 statuses, rejects an
+unmapped candidate, and checks both this table and the JSON with negative cases.
 
 | Exact 08 row key | S3 portion; remaining boundary | Tasks |
 | --- | --- | --- |
@@ -500,15 +505,32 @@ inventing a count or splitting identifiers differently from their source.
 | `core storage` | Scoped kernel authority, rebuildable projections | C12, C25, C27a |
 | `core verification` | Organization gates, not waived for S3 | C28 |
 | `delivery.§1.5` | Exact S3 delivery evidence; other slices retain their portions | C00, C28 |
+| `chat.M006 CLI` | Bootstrap, projection, doctor, catalog lifecycle, settings and policy CLI; other commands stay S4/S5 | C05, C06, C07, C13, C16, C16b, C17, C18, C19 |
+| `chat.M036 objects` | Catalog resource kinds and declarative references; runtime objects stay S4 | C03, C21, C21b |
+| `delivery.§2.2` | Catalog-release contract; runtime envelopes stay S4 and ingestion policy stays S6 | C10, C11 |
+| `chat.M019 roles` | Earlier roles deferred to C29 comparison after M3, not seeded | C29 |
+| `chat.M023 step 13` | Stop-on-collision owned writes; three-way merge remains separately specified | C04, C05 |
+| `delivery.C01 transparent platform, minimal plumbing` | Bootstrap and preferences remove plumbing, not human judgement | C05, C17, C18 |
+| `delivery.C02 detached two-repository releases` | Separate catalog/runtime publishers and detached install | C09, C15, C16, C28 |
+| `delivery.C04 readiness, owners, dependencies without invalid frontmatter` | Strict descriptors, owners and readiness evidence; role qualification stays S4 | C01, C02, C03, C21, C21b |
+| `delivery.C06 closure, merge, explanation, one override class` | Exact closure, restrictive resolution and one explained override class | C03, C17, C18, C22a, C22b |
+| `delivery.C08 explicit instructions and skills with provenance` | Required skills/instructions and native projection provenance; session composition stays S4 | C02, C06, C07, C21, C21b |
+| `delivery.C12 preview/apply bootstrap` | Safe deterministic preview/apply bootstrap | C04a, C04, C05 |
+| `delivery.C13 native projection` | Copilot/Pi convenience projection and Copilot policy hook | C06, C07, C20 |
+| `delivery.C14–C16 catalog MCP, shared Qdrant, separate knowledge ACLs` | Local catalog MCP and scoped cards through the shared knowledge pipeline | C24a, C24, C25, C26 |
+| `delivery.C17 signed releases, freshness, revocation, transparency` | Verified catalog lifecycle, current trust and honest transparency | C09, C13, C14, C15, C16, C16b, C18 |
+| `delivery.R01–R11 corrections` | R05 workflow-first routing and R09 trust; other corrections stay S4/S5/S7 | C14, C16b, C24a, C24 |
+| `product.GD1–GD5` | Four-client local MCP and Copilot hook; GD1 registry keeps its existing §6/05 ownership | C00, C06, C07, C08, C20, C28 |
 
-C00 obtains OA7 approval of the frozen key inventory and records D1/D5,
-concurrent S1/S2/S3 starts, the S3/S4 compiler boundary, the `product.GD2, GD4,
-GD5` hook disposition and C27a's S2 G27 seam in architecture 03/06/08. C09 owns
-closure of 08 §17's "Publisher identities, trust roots, key rotation procedure"
-row with D2 and OA4 evidence; without that evidence C28 remains blocked. These
-are future edits, not a claim they have landed. Runtime enforcement, general
-qualification and InnerSource keep their named later slice. No similarity or
-unapproved closure fallback replaces C27a/C27.
+Architecture [08 §21](../../docs/architecture/08-traceability.md#21-s3-contract-inventory-c00-not-delivery-evidence)
+records D1/D5, concurrent S1/S2/S3 starts, the S3/S4 compiler boundary, the
+`product.GD2, GD4, GD5` hook disposition and C27a's S2 G27 seam, consistent with
+03/06. This is contract evidence only; the inventory is approved by the owner,
+2026-09-28 (OA7). C09 owns closure of 08 §17's "Publisher identities, trust roots,
+key rotation procedure" row with D2 and OA4 evidence; without that evidence
+C28 remains blocked.
+Runtime enforcement, general qualification and InnerSource keep their named
+later slice. No similarity or unapproved closure fallback replaces C27a/C27.
 
 ## Assumptions
 

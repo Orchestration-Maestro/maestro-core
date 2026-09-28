@@ -362,6 +362,10 @@ in place.
 │   │   ├── src/                                                             # The crate's sources
 │   │   │   └── lib.rs                                                       # Helpers for the repository's policy tests: the files the repository holds
 │   │   ├── tests/                                                           # Integration tests
+│   │   │   ├── catalog_traceability/                                        # C00 inventory checks and independent review regressions
+│   │   │   │   ├── field_regressions.rs                                     # Review regressions for source completeness and independent field guards
+│   │   │   │   ├── inventory_checks.rs                                      # C00's exact S3 inventory: design dispositions, never delivery evidence
+│   │   │   │   └── mod.rs                                                   # C00 inventory checks and independent review regressions
 │   │   │   └── policies.rs                                                  # The repository's policies, checked on every pull request by cargo test
 │   │   └── Cargo.toml                                                       # Crate manifest: Tests that hold the maestro-core repository to its own policies
 │   ├── maestro-kernel/                                                      # Maestro kernel
@@ -1098,7 +1102,8 @@ in place.
 │   └── 003-catalog/                                                         # 003 catalog
 │       ├── plan.md                                                          # Implementation Plan: Catalog
 │       ├── spec.md                                                          # Feature Specification: Catalog
-│       └── tasks.md                                                         # Catalog Implementation Tasks
+│       ├── tasks.md                                                         # Catalog Implementation Tasks
+│       └── traceability.json                                                # JSON data: traceability
 ├── supply-chain/                                                            # cargo-vet audits, configuration and imports
 │   ├── audits.toml                                                          # cargo-vet audits file
 │   ├── config.toml                                                          # cargo-vet config file

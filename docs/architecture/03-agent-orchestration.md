@@ -38,6 +38,14 @@ broker refusing an effect). The manifest describes all three; only the last is
 enforcement, and every locked value names the component that enforces it and the
 test proving it cannot be bypassed.
 
+**S3 boundary** (owner decisions, 2026-09-28). D1–D5 are decided in the
+[S3 spec](../../specs/003-catalog/spec.md#clarifications). The 08:12 decision
+starts S2/S3 while S1 finishes; M1 is not an implementation-start gate.
+Integrated T034/T035 and T038 live evidence gate C08/C28, and the M1 release
+remains an M3 exit dependency. S3 compiles and checks declarations; S4 owns
+graph execution, the authoritative broker, sandbox and runtime acceptance.
+These are design boundaries, not claims that the diagram above is delivered.
+
 ## 1. The catalog (`maestro-manifests`)
 
 ### 1.1 Layout
@@ -67,7 +75,7 @@ CODEOWNERS                                   # generated from one ownership mode
 
 | Resource | Format | Maestro additions |
 | --- | --- | --- |
-| Agent | Copilot custom agent profile `.agent.md`: YAML frontmatter (`name`, `description`, `tools`, `mcp-servers`, optional `model`) + Markdown body | `metadata:` in frontmatter if the Copilot parser tolerates it (verified by an S3 spike), otherwise a sidecar `<name>.maestro.toml`: `id`, `version`, `owner`, `maturity`, required skills and instructions, policies, contracts, allowed profiles, discovery card |
+| Agent | Copilot custom agent profile `.agent.md`: YAML frontmatter (`name`, `description`, `tools`, `mcp-servers`, optional `model`) + Markdown body | `metadata:` only with C01 parser evidence; without C01 evidence when C03 starts, C03 freezes sidecars `<name>.maestro.toml` for v1: `id`, `version`, `owner`, `maturity`, required skills and instructions, policies, contracts, allowed profiles, discovery card |
 | Skill | Agent Skills `SKILL.md`: frontmatter `name`, `description`, optional `license`, `metadata`, `allowed-tools` | Same metadata keys as agents |
 | Instructions | Copilot `.instructions.md` with `applyTo` globs | — |
 | Prompt | Copilot `.prompt.md` | — |
@@ -111,6 +119,14 @@ trust). A bundle can never disable signature verification, invent an identity,
 bypass the broker or turn agent text into a host receipt: those mechanisms are
 not settings.
 
+**Authoring checkpoints (D1).** C02's small reviewed-source seed and C08's
+init → project → knowledge search/get/ask → remove loop come before M3.
+`--catalog-dir` is explicitly labelled authoring convenience: bounded checked
+data, source digests and an authoring lock, never an attested install record or
+an unsigned install/update option. Copied workflows, scripts and hooks remain
+inert. The normal M3 path admits only verified installed bundles; neither
+checkpoint removes an M3 exit criterion.
+
 **Trust and freshness** (ADR-0015). An attestation proves who built a bundle;
 governed use also requires a current timestamp record, a revocation list
 checked before every load and consult (fetched frequently, applied atomically)
@@ -120,6 +136,10 @@ shown. Revocation stops new loads; it cannot unload instructions already in a
 session or code already running, and the documentation says so. Catalog and
 runtime have separate publisher identities; signing keys have rotation and
 emergency procedures; rollback and resume never restore a revoked version.
+D2 fixes verification through pinned `gh`, refresh at most five minutes apart
+during use and offline expiry within 24 hours. C09 records the exact OA4
+publisher bindings and rotation evidence; pending external evidence is not an
+open choice about this trust design.
 
 **Project lock.** `.maestro/platform.lock.json` pins, for one project, the
 bundle and component digests, the runtime and SDK/CLI versions, the model
@@ -158,20 +178,30 @@ authorizes and executes; evidence decides completion.
    within the caller's permissions, runtime capabilities and budget. Scores are
    not probabilities. Outcomes are recorded as feedback, and misses become an
    InnerSource backlog; feedback never rewrites routing policy automatically.
-6. **Baseline first**: exact-ID and structured lexical routing over the labelled
-   intent set is built before dense and hybrid retrieval, which must beat it.
-   Offline, the runtime falls back to exact-ID and local lexical search over the
+6. **Baseline first (D5)**: exact-ID and local lexical routing precede hybrid.
+   Enable hybrid only if its paired held-out gain excludes zero; otherwise ship
+   the baseline and retain the failed comparison. Offline fallback uses only a
    cached, authorized, still-valid bundle; a resolved run never queries the
-   index per step. Response caches are keyed by visibility, snapshot, policy
-   freshness, runtime constraints and retrieval profile.
-7. The **catalog dependency graph** (the S2 projection infrastructure) answers
-   `catalog_impact(resource)`: every workflow a skill, policy or contract change
-   affects.
-8. Evaluation: a labelled intent set (100+ intents, several valid answers where
-   appropriate) scores top-1 and top-3 accuracy, dependency completeness,
-   unnecessary context and correct no-match; adversarial cases include forged
-   authority in the prompt, a revoked capability, contradictory skills, a stale
-   index, an unavailable embedder and a mandatory reviewer with low similarity.
+   index per step. Response caches are keyed by visibility, snapshot, trust and
+   policy freshness, runtime constraints and retrieval profile.
+7. The **catalog dependency graph** answers `catalog_impact(resource)` with
+   exact transitive dependants and the consulted snapshot. S3 C27a owns its
+   catalog edge schema and read/write adapters over S2 G27's public typed-edge
+   port, after S2 G25 qualification. C12's scoped kernel records are authority;
+   this separate rebuildable projection never fabricates evidence-span claims.
+   Missing G25/G27 blocks impact and that M3 exit; no similarity or unapproved
+   in-memory closure fallback substitutes for them.
+8. Evaluation (D5): freeze 100+ independently reviewed public/synthetic intents,
+   with several valid answers where appropriate, and a synthetic eligibility
+   snapshot before comparison, recording both digests and a nonempty matchable
+   denominator. Top-3 accuracy remains ≥ 90 %; report top-1, correct no-match,
+   clarification, unnecessary context and synthetic distractors separately so
+   two workflows do not make top-3 trivial. Required dependency
+   completeness is 100 %. Adversarial cases include forged authority, revoked
+   resources, contradictory skills, stale indexes, unavailable embedders and
+   low-similarity mandatory reviewers. Synthetic eligibility never qualifies a
+   live role: a real M3 install returns `incompatible` (not qualified until S4)
+   for executable workflows.
 
 Ranking can suggest; only the exact closure from the verified bundle and the
 broker's admission allow execution.
@@ -185,15 +215,19 @@ ownership manifest (paths and digests), refuses to overwrite files it does not
 own, and `--remove` deletes only what it wrote. It previews before writing,
 detects same-name user resources that would shadow project ones and drift from
 what it installed, and reports registered, observed-working, stale and failed
-states honestly. MCP registration and hook administration cover the four
-initial clients chosen by the owner: Pi, Codex, Claude Code and GitHub Copilot
-CLI; other clients are not in scope until requested.
+states honestly. Local MCP registration covers the four initial clients: Pi,
+Codex, Claude Code and GitHub Copilot CLI. S3 hook administration covers only
+Copilot `preToolUse`. Pi, Codex and Claude Code hooks wait for S4 host-adapter
+qualification because their trusted event/identity adapters are unqualified;
+this does not defer their MCP registration. Other clients remain out of scope.
 
 A native Copilot `preToolUse` hook calls `maestro policy check --stdin`, which
 evaluates **the same Cedar policies** as the broker. Developers using Copilot CLI
 directly therefore get the organization's guardrails as defence in depth. This
 mode is labelled *convenience*: it has no contracts, no acceptance and no
-journal. Governed work runs through the engine.
+journal. Missing hooks are reported as unprotected; unknown tools, opaque
+shell, missing trusted facts, errors and timeouts deny. Model text supplies
+neither identity nor approval. Governed work runs through the S4 engine.
 
 ### 1.6 Configuration and overrides
 
@@ -340,7 +374,10 @@ policies: [destructive-operations, protected-paths, egress-deny-by-default]
 
 ### 2.3 Compile-time validation
 
-A graph that fails any rule is not part of a bundle:
+S3 C22a/C22b statically check all twelve rules below before bundling. A graph
+that fails a rule is not part of a bundle; unsupported constructs are rejected,
+never silently omitted. S4 executes validated graphs and enforces these
+requirements at runtime; static success supplies no execution qualification.
 
 1. Every referenced agent, skill, contract, policy and subgraph resolves in the
    bundle, at an eligible maturity.

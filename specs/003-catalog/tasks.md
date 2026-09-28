@@ -19,11 +19,12 @@ owner-approved D1–D5 decisions. The 08:12 decision starts S3 beside unfinished
 S1. Only C08/C28 require integrated T034/T035 and T038 live evidence; M1 release
 is an M3 exit dependency. Research, data model and contracts are in the plan.
 
-**Format:** `Cnn [USn] title (hours)`, with red/green/check steps. IDs preserve the
-approved draft, with explicit review splits. Physical order below is dependency
-order, not numeric order. **36 tasks, 118 lane-hours**, each at most four hours including
-local checks; review/CI reserve is separate. All checkboxes start open: a plan
-is not implementation evidence. Only the supervisor ticks integrated work.
+**Format:** `Cnn [USn] title (hours)`, with red/green/check steps. IDs preserve
+the approved draft, with explicit review splits. Physical order below is
+dependency order, not numeric order. **36 tasks, 118 lane-hours**, each at most
+four hours including local checks; review/CI reserve is separate. All checkboxes
+start open: a plan is not implementation evidence. Only the supervisor ticks
+integrated work.
 
 ## Global Constraints
 
@@ -76,30 +77,45 @@ a new command/module before its first working behaviour.
 ### C00 Contract and traceability [US1, US2, US3, US4, US5] (2 h)
 
 **After:** D1–D5 already decided; no M1 start gate.
-**Files:** `crates/maestro-conventions/tests/catalog_traceability.rs`,
+**Files:**
+`crates/maestro-conventions/tests/catalog_traceability/mod.rs` and its
+`inventory_checks.rs` and `field_regressions.rs` modules,
+`crates/maestro-conventions/{Cargo.toml,tests/policies.rs}` (supervisor-approved
+existing `serde_json` test use and one integration-test binary),
 `specs/003-catalog/{spec.md,plan.md,tasks.md,traceability.json}`,
-`docs/architecture/{03-agent-orchestration.md,06-roadmap.md,08-traceability.md}`.
+`docs/architecture/{03-agent-orchestration.md,06-roadmap.md,08-traceability.md}`,
+`docs/adr/0010-spec-kit-and-executable-gates.md` (approved scoped amendment).
+The supervisor serializes `Cargo.lock` and `.github/copilot-instructions.md`
+for the existing dependency edge and generated-guide registration.
 **Requirements:** FR-S3-001, FR-S3-019, FR-S3-024, SC-S3-009.
 
-- [ ] **Step 1: Red.** Write an inventory check that fails on a missing,
-  duplicate or extra exact 08 row key and on a row lacking its S3 portion,
-  task or named remaining slice; prove each mutation fails.
-- [ ] **Step 2: Green.** Freeze exact keys/S3 portions with OA7 inventory
-  approval. In 03/06/08 record D1's authoring boundary, D5's synthetic conditional
-  hybrid result, the 08:12 parallel start and S3 static/S4 runtime split. For
+- [ ] **Step 1: Red.** Derive S3 candidates from 08 source tables; fail if a
+  candidate is neither included nor explicitly excluded with a reason. Reject
+  missing, duplicate or extra exact keys in the JSON and spec, missing/different
+  portions or tasks, and lost/unnamed remaining slices; prove each mutation
+  fails its own check. Task IDs must match actual C-number task headings.
+- [x] **Step 2: Green.** Freeze exact keys/S3 portions, approved by the owner,
+  2026-09-28 (OA7). In 03/06/08 record D1's authoring boundary, D5's synthetic
+  conditional hybrid result, the 08:12 parallel start and S3 static/S4 runtime split. For
   `product.GD2, GD4, GD5`, keep four-client MCP and Copilot `preToolUse` in S3;
   defer Pi/Codex/Claude Code hooks to S4 host-adapter qualification because their
   trusted event/identity adapters are unqualified. Name C27a's catalog schema/
   adapters and S2 G27's public port. Coordinate next-free migrations above all
-  landed/reserved numbers across main and S2/S3, never a fixed/gapped block.
+  landed/reserved numbers across main and S1/S2/S3, never a fixed/gapped block.
 - [ ] **Step 3: Check.** Run
   `~/.local/bin/capped cargo nextest run -p maestro-conventions catalog_traceability`,
   `rumdl check specs/003-catalog`, and offline links for the edited Markdown.
 
 **Acceptance:** every exact row has a disposition, no false delivered status,
 no open D1–D5 choice, and architecture agrees on routing, hook scope, impact
-ownership and checkpoints. OA7 approves the frozen inventory; unavailable
-approval blocks acceptance, not fixture work. External operations are not run.
+ownership and checkpoints. The frozen inventory is approved by the owner,
+2026-09-28 (OA7). External operations are not run.
+
+**C00 evidence boundary:** [traceability.json](traceability.json) and the
+conventions check contain 85 included exact rows with planned portions and
+named remainders, plus six explicit S5-only exclusions. This inventory is
+approved by the owner, 2026-09-28 (OA7); fixture checks are not M3 delivery
+evidence. Architecture 03/06/08 records the decided contract.
 
 ### C01 Real host format probe [US1, US5] (3 h)
 
@@ -117,9 +133,14 @@ approval blocks acceptance, not fixture work. External operations are not run.
   skill mapping. If C03 already fixed sidecars for v1, qualify that shape without
   silently switching it; a later metadata migration is a separate reviewed task.
   Do not mask unsupported fields.
-- [ ] **Step 3: Check.** Run the explicit live `catalog_host_probe` cases using
-  `~/.local/bin/capped cargo test -p maestro --test it catalog_host_probe -- --ignored --nocapture`;
-  keep synthetic receipts in the research note, with unsupported/not-run distinct.
+- [ ] **Step 3: Check.** Run the explicit live `catalog_host_probe` cases:
+
+  ```sh
+  ~/.local/bin/capped cargo test -p maestro --test it catalog_host_probe -- \
+    --ignored --nocapture
+  ```
+
+  Keep synthetic receipts in the research note, with unsupported/not-run distinct.
 
 **Acceptance:** one evidence-backed authoring shape and both host mappings;
 a missing client/provider/account blocks the probe, not the rest of the plan.
@@ -547,8 +568,9 @@ or writes outside staging; compatibility fails before activation.
 ### C12 Scoped install records [US2] (4 h)
 
 **After:** C11; migration numbers above every migration landed or reserved
-on `main`, `feat/s2-integration` and `feat/s3-integration`, assigned next free
-at landing by the supervisor in coordination with S2.
+on `main`, `feat/s1-integration`, `feat/s2-integration` and
+`feat/s3-integration`, assigned next free at landing by the supervisor in
+coordination with the other slices.
 **Files:** `crates/maestro-kernel/src/catalog/{mod.rs,records.rs,store.rs}`,
 `crates/maestro-kernel/src/catalog/tests/{mod.rs,installs.rs,pins.rs}`,
 `crates/maestro-kernel/migrations/NNNN_catalog.sql`,
@@ -1052,6 +1074,8 @@ C27, OA4/OA5/OA7 and final CI. C29 starts only after accepted M3.
 
 The [plan's owner-action register](plan.md#needs-owner-action) is authoritative;
 these are blockers or handoffs, never permissions for a lane to act outwardly.
+OA7's frozen keys/S3 portions and hook deferral are approved by the owner,
+2026-09-28. Only its later actions remain in the table.
 
 | Action group | Register | Tasks waiting |
 | --- | --- | --- |
@@ -1059,7 +1083,7 @@ these are blockers or handoffs, never permissions for a lane to act outwardly.
 | Supply host pins/accounts/MCP policy and authorize host operations | OA2 | Live C01, C06, C07, C08, C20, C28; not checker/bootstrap/routing code |
 | Bind publishers, standalone pinned `gh`/authentication; authorized maintainer handles any unlisted licence | OA4 | C09's publisher-row evidence closure and C28, not verifier/dependency implementation |
 | Publish compiler/catalog; enable six-hour trust attestations/hourly alerts; supply clean environment and drills; authorize private/model access | OA5, OA6 | C28 release proof; C08/C23/C26 only for the requested private/model access |
-| Approve frozen keys/S3 portions, hook deferral and M3; later comparison access; any S2 fallback separately | OA7, OA8 | C00 inventory acceptance, C28, C29 |
+| Accept M3 and eventual main release; later comparison access; any S2 fallback separately | OA7, OA8 | C28, C29 |
 
 Record blocked/not-run when any input or external proof is absent. Do not
 create a repository, change organization settings, publish, enable workflows,
