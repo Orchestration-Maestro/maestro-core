@@ -147,6 +147,7 @@ mod tests {
             closest: Vec::new(),
             rejections: Vec::new(),
             routes: BTreeMap::new(),
+            delivered: Vec::new(),
         };
         assert_eq!(
             answer_text(&answer).ok().as_deref(),

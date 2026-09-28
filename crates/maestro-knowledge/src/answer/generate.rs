@@ -13,7 +13,7 @@ use crate::{
     query::{Language, understand},
     search::{
         SearchConfiguration, SearchRequest,
-        evidence::{EvidenceSettings, assemble_evidence},
+        evidence::{Anchor, EvidenceSettings, assemble_evidence},
         search, top_rerank_score,
     },
 };
@@ -330,6 +330,7 @@ impl<'a> ResponseContext<'a> {
             closest: self.closest.clone(),
             rejections: Vec::new(),
             routes: self.bundle.routes.clone(),
+            delivered: self.bundle.passages.iter().map(Anchor::from).collect(),
         }
     }
 
@@ -359,6 +360,7 @@ impl<'a> ResponseContext<'a> {
             closest: Vec::new(),
             rejections: Vec::new(),
             routes: self.bundle.routes.clone(),
+            delivered: self.bundle.passages.iter().map(Anchor::from).collect(),
         })
     }
 }

@@ -1,6 +1,9 @@
 //! Typed ask requests, results, refusals, and trusted dependencies.
 
-use crate::search::{SearchContext, SearchError, evidence::EvidenceError};
+use crate::search::{
+    SearchContext, SearchError,
+    evidence::{Anchor, EvidenceError},
+};
 use maestro_kernel::{
     evidence::{RequestBudget, RouteStatus},
     gateway::{Error as GatewayError, MAX_CHAT_OUTPUT_TOKENS, ModelCard},
@@ -310,6 +313,10 @@ pub struct Answer {
     /// for evaluation only: never serialized.
     #[serde(skip)]
     pub routes: BTreeMap<String, RouteStatus>,
+    /// The anchors of the bundle the answer was given, in passage order, for
+    /// evaluation only: never serialized.
+    #[serde(skip)]
+    pub delivered: Vec<Anchor>,
 }
 
 /// One answerer reply the host checks rejected.

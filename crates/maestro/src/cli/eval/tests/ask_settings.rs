@@ -144,6 +144,11 @@ fn a_rung_report_records_its_resolved_ask_settings_and_prompt() {
          search deadline 30000 ms\n"
     ));
     assert_eq!(to_json(&unasked)["search_deadline_ms"], json!(30_000));
+    let unasked_markdown = unasked.to_markdown();
+    assert!(unasked_markdown.contains(concat!(
+        "- Scored bundle: each search's evidence, assembled under the default ask budget: ",
+        "at most 5 passages, 6000 evidence bytes\n"
+    )));
     assert!(
         unasked
             .to_markdown()

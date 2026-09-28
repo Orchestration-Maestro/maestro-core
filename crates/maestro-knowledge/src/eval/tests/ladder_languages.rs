@@ -47,6 +47,7 @@ fn rows() -> Vec<LadderQuestion> {
         },
         search: ranked_at(rank),
         ask,
+        delivered: Vec::new(),
     };
     vec![
         row("a0", Some(1), answered(vec![right_section()], 0)),

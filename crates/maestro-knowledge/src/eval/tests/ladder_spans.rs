@@ -10,6 +10,7 @@ fn citation(document: &str, revision: &str, span: [usize; 2]) -> SectionRef {
         chunk_id: Some("chunk".to_owned()),
         section_id: None,
         span: Some(span),
+        component: None,
     }
 }
 

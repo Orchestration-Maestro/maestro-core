@@ -39,7 +39,7 @@ pub(super) struct RungEvidence<'a> {
     pub(super) reason: &'a str,
 }
 
-/// The parts of a `maestro-eval-ladder-rung/1` report a selection checks.
+/// The parts of a `maestro-eval-ladder-rung/1` or `/2` report a selection checks.
 #[derive(Deserialize)]
 struct RungReport {
     /// Its contract.
@@ -175,7 +175,10 @@ pub(super) fn select_reranker(
 /// Refuses a report that is not a valid measurement of the card on the
 /// published generation, or whose retrieval floors do not all pass.
 fn check_rung(report: &RungReport, evidence: &RungEvidence<'_>) -> Result<(), io::Error> {
-    if report.schema != "maestro-eval-ladder-rung/1" {
+    if !matches!(
+        report.schema.as_str(),
+        "maestro-eval-ladder-rung/1" | "maestro-eval-ladder-rung/2"
+    ) {
         return Err(refused("not a ladder rung report"));
     }
     if report.collection != evidence.collection {

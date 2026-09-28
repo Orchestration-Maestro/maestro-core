@@ -467,6 +467,8 @@ async fn i2_short_undetected_question_reaches_the_answerer() {
     assert!(answer.refusal.is_none());
 }
 
+#[path = "tests/delivered.rs"]
+mod delivered;
 #[path = "tests/explain.rs"]
 mod explain;
 #[path = "tests/guardrails.rs"]

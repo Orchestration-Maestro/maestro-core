@@ -26,6 +26,7 @@ fn each_question_expects_its_resolved_sections_in_the_suites_order() {
                 chunk_id: None,
                 section_id: Some(section_id(BACKUPS, &["Backups", "Retention"], 1).to_owned()),
                 span: Some([31, 59]),
+                component: None,
             }],
             vec![SectionRef {
                 document_id: document_id(QUEUES).to_owned(),
@@ -33,6 +34,7 @@ fn each_question_expects_its_resolved_sections_in_the_suites_order() {
                 chunk_id: None,
                 section_id: Some(section_id(QUEUES, &["Queues", "Retries"], 2).to_owned()),
                 span: Some([36, 71]),
+                component: None,
             }],
             vec![],
         ]
@@ -53,6 +55,7 @@ fn a_document_without_sections_is_expected_whole() {
             chunk_id: None,
             section_id: None,
             span: None,
+            component: None,
         }]]
     );
 }
@@ -97,4 +100,40 @@ fn a_name_its_document_lacks_is_refused() {
         resolve_expected(&unknown, lookup()),
         Err(RunError::NoDocument { question, .. }) if question == "missing"
     ));
+}
+
+#[test]
+fn each_expected_section_keeps_the_component_its_name_gives_in_order() {
+    let composed = suite(&[line(
+        "composed",
+        &json!([
+            {
+                "source_ref": BACKUPS,
+                "heading_path": ["Backups", "Retention"],
+                "component": "condition",
+            },
+            {"source_ref": NOTES, "heading_path": []},
+            {
+                "source_ref": QUEUES,
+                "heading_path": ["Queues", "Retries"],
+                "occurrence": 2,
+                "component": "action",
+            },
+        ]),
+    )]);
+
+    let resolved = resolve_expected(&composed, lookup()).unwrap();
+    let components: Vec<(&str, Option<&str>)> = resolved[0]
+        .iter()
+        .map(|expected| (expected.document_id.as_str(), expected.component.as_deref()))
+        .collect();
+
+    assert_eq!(
+        components,
+        [
+            (document_id(BACKUPS), Some("condition")),
+            (document_id(NOTES), None),
+            (document_id(QUEUES), Some("action")),
+        ]
+    );
 }

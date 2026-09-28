@@ -3,7 +3,7 @@
 
 use super::{
     super::runner::{Verdict, run_ladder},
-    support::{FakeEngine, rung, suite},
+    support::{FakeEngine, anchor, rung, suite},
 };
 use crate::failure::Failure;
 use maestro_knowledge::eval::{Floor, FloorStatus, Measure};
@@ -188,7 +188,47 @@ fn a_rung_that_does_not_ask_shows_its_ask_floors_not_run() {
     );
     assert_eq!(runs[0].score.failed_asks, 0);
     assert!(!runs[0].score.asked);
+    assert!(
+        runs[0]
+            .score
+            .to_markdown()
+            .contains("\nSupported answers: not run\nFalse refusals: not run\n")
+    );
     assert_eq!(runs[0].verdict(), Verdict::Fail);
+}
+
+#[test]
+fn the_delivery_score_reads_the_bundle_the_answerer_received() {
+    let mut engine = FakeEngine::default();
+    let mut retrieval = rung("search-only");
+    retrieval.ask = None;
+    let runs = run_ladder(
+        &mut engine,
+        &suite(2, 1),
+        0,
+        &[rung("asks"), retrieval],
+        |_| Ok(()),
+    )
+    .unwrap();
+
+    let (asks, search_only) = (&runs[0], &runs[1]);
+    assert_eq!(asks.rows[1].delivered, [anchor("doc-a1", "section-a1")]);
+    assert!(asks.rows[2].delivered.is_empty());
+    assert_eq!(
+        (asks.delivery.delivered, asks.delivery.fully_delivered),
+        (2, 2)
+    );
+    assert_eq!(
+        search_only.rows[1].delivered,
+        [anchor("doc-other", "section-other")]
+    );
+    assert_eq!(
+        (
+            search_only.delivery.answerable,
+            search_only.delivery.delivered
+        ),
+        (2, 0)
+    );
 }
 
 #[test]

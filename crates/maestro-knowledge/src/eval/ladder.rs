@@ -41,7 +41,7 @@
 //! refusals, and the failed searches and asks.
 
 use super::{bootstrap::percentile, error::RunError, run::resolve_details};
-use crate::{answer::RefusalCode, suite::Suite};
+use crate::{answer::RefusalCode, search::evidence::Anchor, suite::Suite};
 use maestro_canonicalization::CanonicalDocument;
 use serde::Serialize;
 use std::{
@@ -63,6 +63,9 @@ pub struct SectionRef {
     /// The half-open byte range in the document's source: on a citation, the
     /// cited passage's span; on an expected section, the section's extent.
     pub span: Option<[usize; 2]>,
+    /// The part of a composed answer an expected section gives, as the suite
+    /// names it; always absent on a citation.
+    pub component: Option<String>,
 }
 
 impl SectionRef {
@@ -75,6 +78,7 @@ impl SectionRef {
             chunk_id: None,
             section_id: Some(section_id.to_owned()),
             span: None,
+            component: None,
         }
     }
 
@@ -87,6 +91,7 @@ impl SectionRef {
             chunk_id: None,
             section_id: None,
             span: None,
+            component: None,
         }
     }
 
@@ -117,6 +122,11 @@ pub struct LadderQuestion {
     pub search: Search,
     /// Its `ask`.
     pub ask: Ask,
+    /// The anchors of the evidence the answerer received: the bundle its
+    /// `ask` answered from, or, when the configuration does not ask, the one
+    /// its search assembled under the ask budget. Scored apart from the
+    /// floors.
+    pub delivered: Vec<Anchor>,
 }
 
 /// A search and the time it took, from request to result.
@@ -350,6 +360,7 @@ pub fn resolve_expected<E>(
                     chunk_id: None,
                     section_id: item.expected.section_id,
                     span: item.span,
+                    component: item.component,
                 })
                 .collect()
         })
@@ -458,7 +469,7 @@ pub(super) fn score_floors(suite: &Suite, rows: &[LadderQuestion]) -> LadderScor
 
 /// The rows of `rows` by the ID of their question in `suite`, and the IDs of
 /// the rows it does not know or that repeat an earlier row's question.
-fn index<'row>(
+pub(super) fn index<'row>(
     suite: &Suite,
     rows: &'row [LadderQuestion],
 ) -> (BTreeMap<&'row str, &'row LadderQuestion>, Vec<String>) {

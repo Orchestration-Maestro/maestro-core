@@ -83,6 +83,7 @@
 
 mod bootstrap;
 mod compare;
+mod delivered;
 mod error;
 mod judge;
 mod ladder;
@@ -99,6 +100,7 @@ mod run_v2;
 mod tests;
 
 pub use compare::{Comparison, compare};
+pub use delivered::{DeliveryScore, score_delivery};
 pub use error::{AggregateError, CompareError, RunError};
 pub use ladder::{
     ANSWERED_PERCENT, Ask, AskOutcome, Floor, FloorResult, FloorStatus, LadderQuestion,

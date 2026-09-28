@@ -8,9 +8,10 @@ use super::manifest::Rung;
 use crate::failure::Failure;
 use maestro_knowledge::{
     eval::{
-        Ask, AskOutcome, LadderQuestion, LadderScore, Search, SearchOutcome, SectionRef,
-        score_ladder,
+        Ask, AskOutcome, DeliveryScore, LadderQuestion, LadderScore, Search, SearchOutcome,
+        SectionRef, score_delivery, score_ladder,
     },
+    search::evidence::Anchor,
     suite::Suite,
 };
 use serde::Serialize;
@@ -53,6 +54,9 @@ pub(super) struct Searched {
     /// How it ended: when ranked, the distinct documents of its final ranked
     /// chunks, before evidence assembly, the first 10, which the floors score.
     pub(super) outcome: SearchOutcome,
+    /// The anchors of its evidence, assembled under the rung's ask budget:
+    /// scored when the rung does not ask.
+    pub(super) delivered: Vec<Anchor>,
     /// What else it gave, never scored.
     pub(super) diagnostic: SearchDiagnostic,
 }
@@ -73,6 +77,9 @@ pub(super) struct SearchDiagnostic {
 pub(super) struct Asked {
     /// How it ended.
     pub(super) outcome: AskOutcome,
+    /// The anchors of the bundle its answerer was given, none when it
+    /// failed before one was assembled.
+    pub(super) delivered: Vec<Anchor>,
     /// The attempts the answer check refused before it ended, never scored.
     pub(super) rejections: Vec<RejectedCheck>,
 }
@@ -140,6 +147,8 @@ pub(super) struct RungRun {
     pub(super) rejections: Vec<Vec<RejectedCheck>>,
     /// The floors.
     pub(super) score: LadderScore,
+    /// What the evidence the answerer received delivered, beside the floors.
+    pub(super) delivery: DeliveryScore,
 }
 
 /// A rung's verdict.
@@ -276,6 +285,7 @@ fn run_rung(
             } else {
                 let unasked = Asked {
                     outcome: AskOutcome::Failed,
+                    delivered: searched.delivered,
                     rejections: Vec::new(),
                 };
                 (unasked, Duration::ZERO)
@@ -287,6 +297,7 @@ fn run_rung(
                 expected,
                 search,
                 ask: Ask { outcome, elapsed },
+                delivered: asked.delivered,
             };
             (row, searched.diagnostic)
         })
@@ -296,6 +307,7 @@ fn run_rung(
         Err(failure) => (None, Some(failure)),
     };
     let score = score_ladder(suite, &rows);
+    let delivery = score_delivery(suite, &rows, rung.ask.is_some());
     let score = if rung.ask.is_some() {
         score
     } else {
@@ -311,6 +323,7 @@ fn run_rung(
         diagnostics,
         rejections,
         score,
+        delivery,
     };
     Ok((run, end_failure))
 }

@@ -101,12 +101,14 @@ pub(super) fn passing() -> Vec<LadderQuestion> {
         expected: vec![right_section()],
         search: ranked_at(Some(1)),
         ask: answered(vec![right_section()], 0),
+        delivered: Vec::new(),
     });
     let unanswerable = (0..16).map(|index| LadderQuestion {
         id: format!("u{index}"),
         expected: Vec::new(),
         search: ranked_at(None),
         ask: ask_ending(REFUSED),
+        delivered: Vec::new(),
     });
     answerable.chain(unanswerable).collect()
 }

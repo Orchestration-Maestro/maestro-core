@@ -86,6 +86,37 @@ fn a_rung_whose_retrieval_floors_pass_selects_its_reranker_whatever_its_answer_f
 }
 
 #[test]
+fn a_v2_rung_report_is_accepted_alongside_existing_v1_reports() {
+    let fixture = Fixture::new();
+    let mut inputs = fixture.inputs();
+    let report = &mut inputs["report"];
+    report["schema"] = json!("maestro-eval-ladder-rung/2");
+    report["ask"] = json!(false);
+    report["ask_settings"] = Value::Null;
+    report["warm_ups"] = json!(1);
+    report["ladder"] = report["provenance"].clone();
+    report["search_deadline_ms"] = json!(30_000);
+    report["suite_digest"] = json!("c".repeat(64));
+    report["binary"] = json!({"version": "0.1.0", "commit": null});
+    report["delivery"] = json!({
+        "answerable": 30,
+        "delivered": 26,
+        "fully_delivered": 20,
+        "median_coverage_permille": 1000,
+        "composition_cases": 1,
+        "compositions_delivered": 0,
+        "uncredited": 0
+    });
+    report["rejected_checks"] = json!({});
+
+    assert!(
+        fixture
+            .select(&inputs, &fixture.card, fixture.generation)
+            .is_ok()
+    );
+}
+
+#[test]
 fn each_refusal_names_its_cause_and_records_nothing() {
     let other = "b".repeat(64);
     let cases: [(&str, Value, &str); 20] = [
@@ -93,7 +124,7 @@ fn each_refusal_names_its_cause_and_records_nothing() {
         ("/reason", json!(""), "who selects and why"),
         (
             "/report/schema",
-            json!("maestro-eval-ladder-rung/2"),
+            json!("maestro-eval-ladder-rung/3"),
             "not a ladder rung report",
         ),
         (

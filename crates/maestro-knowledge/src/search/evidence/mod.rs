@@ -1,5 +1,7 @@
 //! Authoritative section reads and bounded evidence assembly.
 
+/// Anchors each passage of an assembled bundle in its source.
+mod anchor;
 /// Runs authoritative assembly under the inherited deadline.
 mod assemble;
 /// Counts compact serialized passages with the selected counter.
@@ -34,6 +36,7 @@ pub(crate) use sections::SectionIndex;
 mod versions;
 
 pub use super::assembly_settings::{CounterMode, EvidenceSettings, ExpansionMode};
+pub use anchor::Anchor;
 pub use assemble::deadline::assemble_evidence;
 pub use chunk_set_documents::ChunkSetDocuments;
 pub use section_reader::{SectionExcerpt, SectionReadError, read_section};

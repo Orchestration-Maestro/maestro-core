@@ -74,14 +74,10 @@ fn the_engine_names_the_generation_chunk_set_and_every_card_and_sees_drift() {
     assert_ne!(end, start);
 }
 
-#[test]
-fn a_search_and_an_ask_carry_the_rungs_configuration_budget_and_prompt() {
-    let scratch = Scratch::new();
-    let kernel = scratch.kernel(None).unwrap();
-    let port = RouterClient::new(Url::parse(NOWHERE).unwrap()).unwrap();
-    let engine =
-        KernelEngine::new(&kernel, "collection", port, Qdrant::new(NOWHERE).unwrap()).unwrap();
-    let settings = AskSettings {
+/// Full-section, UTF-8 ask settings with k 8, 9,000 evidence bytes, 900
+/// output tokens and prompt v1.
+fn v1_settings() -> AskSettings {
+    AskSettings {
         expansion: ExpansionMode::FullSection,
         evidence_counter: CounterMode::Utf8,
         k: Some(8),
@@ -89,7 +85,17 @@ fn a_search_and_an_ask_carry_the_rungs_configuration_budget_and_prompt() {
         output_tokens: Some(900),
         prompt: RungPrompt::Version(PromptVersion::V1),
         card: None,
-    };
+    }
+}
+
+#[test]
+fn a_search_and_an_ask_carry_the_rungs_configuration_budget_and_prompt() {
+    let scratch = Scratch::new();
+    let kernel = scratch.kernel(None).unwrap();
+    let port = RouterClient::new(Url::parse(NOWHERE).unwrap()).unwrap();
+    let engine =
+        KernelEngine::new(&kernel, "collection", port, Qdrant::new(NOWHERE).unwrap()).unwrap();
+    let settings = v1_settings();
 
     let (request, prompt) = engine.ask_call("question", &settings, None).unwrap();
 
@@ -114,12 +120,32 @@ fn a_search_and_an_ask_carry_the_rungs_configuration_budget_and_prompt() {
         .unwrap();
     assert_eq!(default.budget, AskBudget::default());
     assert_eq!(default_prompt, PromptVersion::V2.into());
+}
+
+#[test]
+fn a_search_carries_the_asks_budget_and_evidence_settings() {
+    let scratch = Scratch::new();
+    let kernel = scratch.kernel(None).unwrap();
+    let port = RouterClient::new(Url::parse(NOWHERE).unwrap()).unwrap();
+    let engine =
+        KernelEngine::new(&kernel, "collection", port, Qdrant::new(NOWHERE).unwrap()).unwrap();
+    let settings = v1_settings();
+
     let mut candidate = rung("r0");
-    candidate.ask = None;
     let search = engine.search_request(&candidate, "question");
     assert_eq!(search.configuration, candidate.configuration.search());
     assert_eq!((search.collection, search.text), ("collection", "question"));
-    assert_eq!(search.budget, RequestBudget::default());
+    assert_eq!(search.budget, RequestBudget::from(AskBudget::default()));
+    candidate.ask = Some(settings.clone());
+    let asking = engine.search_request(&candidate, "question").budget;
+    assert_eq!((asking.k, asking.max_tokens), (8, 9000));
+    candidate.ask = None;
+    let unasked = engine.search_request(&candidate, "question").budget;
+    assert_eq!(unasked, RequestBudget::from(AskBudget::default()));
+    let search = engine.search_request(&candidate, "question");
+    assert_eq!(search.configuration, candidate.configuration.search());
+    assert_eq!((search.collection, search.text), ("collection", "question"));
+    assert_eq!(search.budget, RequestBudget::from(AskBudget::default()));
     candidate.ask = Some(AskSettings {
         expansion: ExpansionMode::RelevantBlocks,
         evidence_counter: CounterMode::Utf8AnswerBound,

@@ -632,6 +632,7 @@ in place.
 │       ├── src/                                                             # The crate's sources
 │       │   ├── answer/                                                      # Evidence-grounded answering with bounded generation and one validation retry
 │       │   │   ├── tests/                                                   # Integration tests
+│       │   │   │   ├── delivered.rs                                         # Every answer and refusal keeps, for evaluation only, the anchors of the
 │       │   │   │   ├── explain.rs                                           # Rust source: explain
 │       │   │   │   ├── guardrails.rs                                        # Rust source: guardrails
 │       │   │   │   ├── prompt_text.rs                                       # A prompt a ladder rung supplies as text: its {data} slot holds the
@@ -654,6 +655,7 @@ in place.
 │       │   │   ├── tests/                                                   # Tests of the evaluation runner: how it ranks and judges each question
 │       │   │   │   ├── compare.rs                                           # compare pairs two runs by question and gives, for each metric, the
 │       │   │   │   ├── degraded.rs                                          # A degraded search, one where a route or the reranker could not run, still
+│       │   │   │   ├── delivered.rs                                         # Tests of the delivery score: which anchors deliver a section, how much of
 │       │   │   │   ├── documents.rs                                         # A question may expect a document without sections whole: any passage of
 │       │   │   │   ├── failures.rs                                          # Each failure of an answerable question gets its class at each cut-off it
 │       │   │   │   ├── groups.rs                                            # Expected section copies share one nDCG item while remaining visible in
@@ -677,6 +679,7 @@ in place.
 │       │   │   │   └── v2_validation.rs                                     # Rust source: v2 validation
 │       │   │   ├── bootstrap.rs                                             # The bootstrap: resamples of a run's questions, drawn within the
 │       │   │   ├── compare.rs                                               # Comparing two runs of one suite, question by question
+│       │   │   ├── delivered.rs                                             # The ladder's delivery score: whether the sections a question accepts
 │       │   │   ├── error.rs                                                 # Why a run or a comparison was refused
 │       │   │   ├── judge.rs                                                 # Judging one question: ranking its bundle's passages, finding the sections
 │       │   │   ├── ladder.rs                                                # The ladder's scorer (T037): the M1 floors of one configuration, each PASS
@@ -865,6 +868,7 @@ in place.
 │       │   │   │   │   ├── spans.rs                                         # Rust source: spans
 │       │   │   │   │   ├── support.rs                                       # A prepared chunk set and generation for evidence-path tests
 │       │   │   │   │   └── versions.rs                                      # Rust source: versions
+│       │   │   │   ├── anchor.rs                                            # The source anchor of each passage of an assembled bundle: where its text
 │       │   │   │   ├── budget.rs                                            # Token-counting helpers for compact serialized evidence
 │       │   │   │   ├── chunk_set_documents.rs                               # The documents of a chunk set by source_ref: the ladder resolves its
 │       │   │   │   ├── families.rs                                          # Shared candidate-family identity for conflicts and documentary versions

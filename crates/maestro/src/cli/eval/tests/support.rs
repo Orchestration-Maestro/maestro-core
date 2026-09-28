@@ -8,7 +8,7 @@ use crate::failure::Failure;
 use maestro_knowledge::{
     answer::RefusalCode,
     eval::{AskOutcome, SearchOutcome, SectionRef},
-    search::SearchConfiguration,
+    search::{SearchConfiguration, evidence::Anchor},
     suite::Suite,
 };
 use serde_json::{Value, json};
@@ -99,9 +99,10 @@ pub(super) struct Call {
     pub(super) configuration: SearchConfiguration,
 }
 
-/// An engine whose searches rank each answerable question's document first
-/// and whose asks cite its section, after one attempt the answer check
-/// refused, and refuse the others.
+/// An engine whose searches rank each answerable question's document first,
+/// with evidence of another document, and whose asks cite its section, pinned,
+/// from a bundle that holds it, after one attempt the answer check refused,
+/// and refuse the others.
 #[derive(Debug, Default)]
 pub(super) struct FakeEngine {
     /// Every search and ask, in order.
@@ -159,6 +160,22 @@ fn diagnostic(rung: &Rung, bundle_documents: Vec<String>) -> SearchDiagnostic {
     }
 }
 
+/// The pinned revision of every section the fake engine expects.
+const REVISION: &str = "rev";
+
+/// An anchor of `document`, pinned, over the bytes 0 to 10 of its section
+/// `section`.
+pub(super) fn anchor(document: &str, section: &str) -> Anchor {
+    Anchor {
+        source_ref: format!("doc:{document}"),
+        doc_id: document.to_owned(),
+        revision_id: REVISION.to_owned(),
+        section_id: Some(section.to_owned()),
+        span: [0, 10],
+        digest: format!("sha256:{}", "0".repeat(64)),
+    }
+}
+
 /// The index of an answerable question from its text, if it is one.
 fn answerable_index(question: &str) -> Option<String> {
     question
@@ -207,10 +224,14 @@ impl Engine for FakeEngine {
             .iter()
             .map(|question| {
                 if question.answerable {
-                    vec![SectionRef::section(
-                        &format!("doc-{}", question.id),
-                        &format!("section-{}", question.id),
-                    )]
+                    vec![SectionRef {
+                        revision_id: Some(REVISION.to_owned()),
+                        span: Some([0, 10]),
+                        ..SectionRef::section(
+                            &format!("doc-{}", question.id),
+                            &format!("section-{}", question.id),
+                        )
+                    }]
                 } else {
                     Vec::new()
                 }
@@ -235,11 +256,13 @@ impl Engine for FakeEngine {
             ranked.extend_from_slice(&others[6..]);
             return Searched {
                 outcome: SearchOutcome::Ranked(ranked),
+                delivered: Vec::new(),
                 diagnostic: diagnostic(rung, others[..3].to_vec()),
             };
         }
         Searched {
             outcome: SearchOutcome::Ranked(vec![right.clone()]),
+            delivered: vec![anchor("doc-other", "section-other")],
             diagnostic: diagnostic(rung, vec![right]),
         }
     }
@@ -249,16 +272,24 @@ impl Engine for FakeEngine {
         answerable_index(question).map_or_else(
             || Asked {
                 outcome: AskOutcome::Refused(RefusalCode::NotFound),
+                delivered: Vec::new(),
                 rejections: Vec::new(),
             },
             |index| Asked {
                 outcome: AskOutcome::Answered {
-                    citations: vec![SectionRef::section(
-                        &format!("doc-a{index}"),
-                        &format!("section-a{index}"),
-                    )],
+                    citations: vec![SectionRef {
+                        revision_id: Some(REVISION.to_owned()),
+                        ..SectionRef::section(
+                            &format!("doc-a{index}"),
+                            &format!("section-a{index}"),
+                        )
+                    }],
                     invented_literals: 0,
                 },
+                delivered: vec![anchor(
+                    &format!("doc-a{index}"),
+                    &format!("section-a{index}"),
+                )],
                 rejections: vec![RejectedCheck {
                     attempt: 1,
                     check: "unsupported_literal",

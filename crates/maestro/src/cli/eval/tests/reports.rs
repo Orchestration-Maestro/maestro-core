@@ -76,6 +76,7 @@ fn a_private_row_holds_ids_ranks_citations_refusals_and_timings() {
             "bundle_documents",
             "bundle_rank",
             "citations",
+            "delivered",
             "expected_rank",
             "id",
             "ranked_documents",
@@ -204,7 +205,7 @@ fn a_rung_report_names_its_provenance_and_scores_its_floors() {
     assert_eq!(
         json,
         json!({
-            "schema": "maestro-eval-ladder-rung/1",
+            "schema": "maestro-eval-ladder-rung/2",
             "rung": "r0",
             "verdict": "PASS",
             "ask": true,
@@ -225,6 +226,15 @@ fn a_rung_report_names_its_provenance_and_scores_its_floors() {
             "search_deadline_ms": 30_000,
             "suite_digest": suite.digest.as_str(),
             "binary": {"version": "0.1.0", "commit": "abc123"},
+            "delivery": {
+                "answerable": 2,
+                "delivered": 2,
+                "fully_delivered": 2,
+                "median_coverage_permille": 1000,
+                "composition_cases": 0,
+                "compositions_delivered": 0,
+                "uncredited": 0
+            },
             "rejected_checks": {"unsupported_literal": 2},
         })
     );
@@ -250,6 +260,12 @@ fn a_rung_report_in_markdown_names_its_provenance_then_its_floors() {
         "citation of that revision.\n"
     )));
     assert!(markdown.contains("| Right document top-10 | 2/2 (100.0%) |"));
+    assert!(markdown.contains(concat!(
+        "- Scored bundle: the evidence each ask gave its answerer, under the ask settings\n",
+        "- Delivered-section recall: 2/2 (same document"
+    )));
+    assert!(markdown.contains("- Fully delivered sections: 2/2 ("));
+    assert!(markdown.contains("- Required-composition coverage: 0/0\n"));
     assert!(markdown.contains(concat!(
         "- Rejected answer attempts: unsupported_literal 2; the invented-literals floor ",
         "counts delivered answers only\n"

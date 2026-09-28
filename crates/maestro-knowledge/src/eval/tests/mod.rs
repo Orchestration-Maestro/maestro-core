@@ -5,6 +5,7 @@
 
 mod compare;
 mod degraded;
+mod delivered;
 mod documents;
 mod failures;
 mod groups;

@@ -168,6 +168,7 @@ fn answer(citations: &[(&str, &str)], refusal: Option<RefusalCode>) -> Answer {
         closest: Vec::new(),
         rejections: Vec::new(),
         routes: BTreeMap::new(),
+        delivered: Vec::new(),
     }
 }
 
@@ -202,6 +203,7 @@ fn an_answer_gives_its_citations_documents_or_its_refusal() {
                     chunk_id: Some("chunk-1".to_owned()),
                     section_id: Some("section".to_owned()),
                     span: Some([1, 2]),
+                    component: None,
                 },
                 SectionRef {
                     document_id: String::new(),
@@ -209,6 +211,7 @@ fn an_answer_gives_its_citations_documents_or_its_refusal() {
                     chunk_id: Some("chunk-2".to_owned()),
                     section_id: Some("s".to_owned()),
                     span: Some([2, 3]),
+                    component: None,
                 },
             ],
             invented_literals: 0,

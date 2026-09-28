@@ -19,7 +19,11 @@
 //! not repeat or repeats fewer times, and an empty path in a document with
 //! sections. Names that are copies of one answer may share a non-blank
 //! `group`; nDCG counts that group once at its best rank, while recall and MRR
-//! still count any member as a hit.
+//! still count any member as a hit. A question whose answer needs several
+//! parts, such as a condition and the action it triggers, names the part each
+//! section gives in a non-blank `component`: sections that share a component
+//! are alternatives for it, and a question naming two or more components is
+//! answered only when each of them is. A `group` never makes a component.
 //!
 //! A suite is strict as a corpus manifest is: every line is one JSON object,
 //! never an array of its values; every key is one the contract names and
@@ -130,20 +134,42 @@ pub struct ExpectedSection {
     /// the document's order; given only when the path repeats.
     pub occurrence: Option<NonZeroU32>,
     /// The other names of this same answer, if any, share this non-blank group.
-    #[serde(default, deserialize_with = "non_blank")]
+    #[serde(default, deserialize_with = "non_blank_group")]
     pub group: Option<String>,
+    /// The part of a composed answer this section gives, if the answer has
+    /// several; the sections of one component are alternatives for it.
+    #[serde(default, deserialize_with = "non_blank_component")]
+    pub component: Option<String>,
 }
 
 /// Deserialize an optional group, refusing a value that is only whitespace.
-fn non_blank<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+fn non_blank_group<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
-    let group = Option::<String>::deserialize(deserializer)?;
-    if group.as_ref().is_some_and(|group| group.trim().is_empty()) {
-        return Err(de::Error::custom("group must not be blank"));
+    non_blank(deserializer, "group")
+}
+
+/// Deserialize an optional component, refusing a value that is only
+/// whitespace.
+fn non_blank_component<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    non_blank(deserializer, "component")
+}
+
+/// Deserialize the optional `field`, refusing a value that is only
+/// whitespace.
+fn non_blank<'de, D>(deserializer: D, field: &str) -> Result<Option<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = Option::<String>::deserialize(deserializer)?;
+    if value.as_ref().is_some_and(|value| value.trim().is_empty()) {
+        return Err(de::Error::custom(format!("{field} must not be blank")));
     }
-    Ok(group)
+    Ok(value)
 }
 
 impl ExpectedSection {

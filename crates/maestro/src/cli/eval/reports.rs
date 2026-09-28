@@ -10,14 +10,15 @@ use crate::failure::Failure;
 use maestro_kernel::{artifact::Digest, evidence::RequestBudget};
 use maestro_knowledge::search::evidence::EvidenceSettings;
 use maestro_knowledge::{
-    answer::RefusalCode,
-    eval::{AskOutcome, LadderQuestion, LadderScore, SearchOutcome},
+    answer::{AskBudget, RefusalCode},
+    eval::{AskOutcome, DeliveryScore, LadderQuestion, LadderScore, SearchOutcome},
+    search::evidence::Anchor,
 };
 use serde::Serialize;
 use std::{collections::BTreeMap, fmt::Write as _, fs, path::Path, time::Duration};
 
 /// The contract of a rung's public report.
-const RUNG_SCHEMA: &str = "maestro-eval-ladder-rung/1";
+const RUNG_SCHEMA: &str = "maestro-eval-ladder-rung/2";
 /// The directory, under the output directory, of the private rows.
 const PRIVATE: &str = "private";
 
@@ -41,7 +42,7 @@ impl Binary {
     }
 }
 
-/// A rung's public report, `maestro-eval-ladder-rung/1`.
+/// A rung's public report, `maestro-eval-ladder-rung/2`.
 #[derive(Debug, Serialize)]
 pub(super) struct RungReport<'run> {
     /// Its contract.
@@ -76,6 +77,11 @@ pub(super) struct RungReport<'run> {
     binary: Binary,
     /// Its floors.
     score: &'run LadderScore,
+    /// What the evidence the answerer received delivered: the answerable
+    /// questions with an accepted section delivered, delivered whole, the
+    /// median coverage, the composition cases and those complete, and the
+    /// questions credited with nothing.
+    delivery: &'run DeliveryScore,
     /// How many attempts each answer check refused, over every row.
     rejected_checks: BTreeMap<&'static str, usize>,
 }
@@ -104,6 +110,7 @@ impl<'run> RungReport<'run> {
             suite_digest: suite_digest.as_str(),
             binary,
             score: &run.score,
+            delivery: &run.delivery,
             rejected_checks: run.rejections.iter().flatten().fold(
                 BTreeMap::new(),
                 |mut counts, rejection| {
@@ -147,6 +154,8 @@ impl<'run> RungReport<'run> {
         if let Some(settings) = &self.ask_settings {
             let _ = writeln!(text, "- Ask settings: {}", settings.describe());
         }
+        let _ = writeln!(text, "- Scored bundle: {}", self.scored_bundle());
+        text.push_str(&self.delivery.to_markdown());
         let _ = writeln!(
             text,
             "- Rejected answer attempts: {}; the invented-literals floor counts delivered \
@@ -170,6 +179,21 @@ impl<'run> RungReport<'run> {
         text.push('\n');
         text.push_str(&self.score.to_markdown());
         text
+    }
+
+    /// The bundle the delivery score reads, in words: what each ask's
+    /// answerer received, or each search's evidence under the default ask
+    /// budget when the rung did not ask.
+    fn scored_bundle(&self) -> String {
+        if self.ask {
+            return "the evidence each ask gave its answerer, under the ask settings".to_owned();
+        }
+        let budget = AskBudget::default();
+        format!(
+            "each search's evidence, assembled under the default ask budget: at most {} \
+             passages, {} evidence bytes",
+            budget.k, budget.max_tokens
+        )
     }
 }
 
@@ -234,9 +258,13 @@ pub(super) struct PrivateRow<'run> {
     ranked_documents: &'run [String],
     /// The first of them, from 1, that is an expected document.
     expected_rank: Option<usize>,
-    /// The documents of the assembled evidence, in rank order: a diagnostic,
-    /// assembled under the search's default budget, not the rung's `ask`
-    /// settings.
+    /// The anchors of the evidence the answerer received, which the delivery
+    /// score reads: the bundle `ask` answered from, or, when the rung does not
+    /// ask, the search's evidence under the default ask budget; kept even when
+    /// the row is credited with nothing.
+    delivered: &'run [Anchor],
+    /// The documents of the search's assembled evidence, in rank order: a
+    /// diagnostic, assembled under the rung's ask budget.
     bundle_documents: &'run [String],
     /// The first of them, from 1, that is an expected document.
     bundle_rank: Option<usize>,
@@ -309,6 +337,7 @@ impl<'run> PrivateRow<'run> {
         };
         Self {
             id: &row.id,
+            delivered: &row.delivered,
             search,
             search_us: micros(row.search.elapsed),
             ranked_documents,

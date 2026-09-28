@@ -16,7 +16,7 @@ use crate::{
 };
 use maestro_kernel::{
     artifact::Digest,
-    evidence::{Bundle, RequestBudget},
+    evidence::Bundle,
     gateway::{ModelCard, Role, RouterClient},
     generation::Generation,
 };
@@ -29,7 +29,7 @@ use maestro_knowledge::{
     index::Qdrant,
     search::{
         SearchConfiguration, SearchContext, SearchRequest,
-        evidence::{ChunkSetDocuments, assemble_evidence},
+        evidence::{Anchor, ChunkSetDocuments, assemble_evidence},
         search, top_fused_score, top_rerank_score,
     },
     suite::Suite,
@@ -182,12 +182,17 @@ impl<'kernel> KernelEngine<'kernel> {
     }
 
     /// The search of `question` in the collection under `rung`'s
-    /// configuration.
+    /// configuration, with the budget its asks assemble evidence under: its
+    /// ask settings', or the default ask budget when it does not ask.
     pub(super) fn search_request<'a>(
         &'a self,
         rung: &Rung,
         question: &'a str,
     ) -> SearchRequest<'a> {
+        let budget = rung
+            .ask
+            .as_ref()
+            .map_or_else(AskBudget::default, AskSettings::budget);
         SearchRequest {
             configuration: rung.configuration.search(),
             evidence: rung
@@ -195,11 +200,7 @@ impl<'kernel> KernelEngine<'kernel> {
                 .as_ref()
                 .map(AskSettings::evidence)
                 .unwrap_or_default(),
-            budget: rung
-                .ask
-                .as_ref()
-                .map_or_else(RequestBudget::default, |settings| settings.budget().into()),
-            ..SearchRequest::new(&self.collection, question, None, RequestBudget::default())
+            ..SearchRequest::new(&self.collection, question, None, budget.into())
         }
     }
 
@@ -275,12 +276,14 @@ impl Engine for KernelEngine<'_> {
         let (Some(context), Some(held)) = (self.search_context(), &self.held) else {
             return Searched {
                 outcome: SearchOutcome::Failed,
+                delivered: Vec::new(),
                 diagnostic: SearchDiagnostic::default(),
             };
         };
         let request = self.search_request(rung, question);
         let configuration = request.configuration;
         let mut diagnostic = SearchDiagnostic::default();
+        let mut delivered = Vec::new();
         let searched = self.runtime.block_on(async {
             let input = Box::pin(search(&context, &request))
                 .await
@@ -299,6 +302,7 @@ impl Engine for KernelEngine<'_> {
             ))
             .await
             .map_err(|error| evidence_failure(&error))?;
+            delivered = bundle.passages.iter().map(Anchor::from).collect();
             diagnostic.bundle_documents = bundle_documents(&bundle, &order);
             match stage_failure(&configuration, &bundle.routes) {
                 Some(failure) => Err(failure),
@@ -313,6 +317,7 @@ impl Engine for KernelEngine<'_> {
                 Err(StageFailure::TimedOut) => SearchOutcome::TimedOut,
                 Err(StageFailure::Failed) => SearchOutcome::Failed,
             },
+            delivered,
             diagnostic,
         }
     }
@@ -320,6 +325,7 @@ impl Engine for KernelEngine<'_> {
     fn ask(&self, rung: &Rung, question: &str) -> Asked {
         let failed = || Asked {
             outcome: AskOutcome::Failed,
+            delivered: Vec::new(),
             rejections: Vec::new(),
         };
         let (Some(search), Some(held), Some(settings)) =
@@ -354,12 +360,14 @@ impl Engine for KernelEngine<'_> {
                     &configuration,
                 ),
                 rejections: rejected_checks(&answer),
+                delivered: answer.delivered,
             },
             Err(error) => Asked {
                 outcome: match ask_failure(&error) {
                     StageFailure::TimedOut => AskOutcome::TimedOut,
                     StageFailure::Failed => AskOutcome::Failed,
                 },
+                delivered: Vec::new(),
                 rejections: Vec::new(),
             },
         }
@@ -565,6 +573,7 @@ pub(super) fn answer_outcome(
                 chunk_id: Some(citation.chunk_id.clone()),
                 section_id: citation.section_id.clone(),
                 span: Some(citation.span),
+                component: None,
             })
             .collect(),
         invented_literals: 0,
