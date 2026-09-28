@@ -2,7 +2,7 @@
 //! turn, its warm-ups unscored, each question searched then asked, each whole
 //! operation timed, and the rung scored. A rung whose generation or cards
 //! differ between its start and its end, or from the first rung's start, the
-//! reranker aside, is INVALID.
+//! reranker, the answerer and the prompt aside, is INVALID.
 
 use super::manifest::Rung;
 use crate::failure::Failure;
@@ -28,18 +28,22 @@ pub(super) struct Provenance {
     pub(super) embedder: Option<String>,
     /// The digest of the rung's reranker card, absent when reranking is off.
     pub(super) reranker: Option<String>,
-    /// The digest of the answerer's card, absent when none is registered.
+    /// The digest of the rung's answerer card, absent when none is
+    /// registered.
     pub(super) answerer: Option<String>,
+    /// The SHA-256 of the rung's prompt file, absent when it asks with a
+    /// prompt version or does not ask.
+    pub(super) prompt: Option<String>,
 }
 
 impl Provenance {
-    /// Whether it runs against the same generation, chunk set, embedder and
-    /// answerer as `other`: rungs differ in their rerankers only.
+    /// Whether it runs against the same generation, chunk set and embedder
+    /// as `other`: rungs differ in their rerankers, answerers and prompts
+    /// only.
     pub(super) fn matches(&self, other: &Self) -> bool {
         self.generation == other.generation
             && self.chunk_set == other.chunk_set
             && self.embedder == other.embedder
-            && self.answerer == other.answerer
     }
 }
 

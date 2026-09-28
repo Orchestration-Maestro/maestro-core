@@ -10,7 +10,10 @@ use crate::{
     kernel::{Kernel, pinned_embedder},
 };
 use maestro_kernel::{
-    gateway::{ModelCard, Role, RouterClient},
+    gateway::{
+        ModelCard, Role, RouterClient,
+        card_v2::{Capability, ControlValue},
+    },
     generation::Generation,
     scope::{LOCAL, ScopeSet},
 };
@@ -102,7 +105,9 @@ pub(super) fn reranker_card(
         .map(|selected| selected.card))
 }
 
-/// Resolves the latest registered answerer with the requested router entry.
+/// Resolves the latest registered answerer with the requested router entry
+/// whose reasoning controls do not enable thinking: a thinking card answers
+/// only where a ladder rung names it.
 pub(crate) fn registered_answerer(
     kernel: &Kernel,
     scopes: &ScopeSet,
@@ -116,7 +121,7 @@ pub(crate) fn registered_answerer(
     for record in records {
         let card =
             ModelCard::load(&kernel.artifacts, &record.digest).map_err(|_| kernel_failure())?;
-        if card.fields().router_entry.as_str() == request.model {
+        if card.fields().router_entry.as_str() == request.model && !enables_thinking(&card) {
             found = Some(RegisteredAnswerer {
                 id: record.id.to_string(),
                 card,
@@ -124,6 +129,17 @@ pub(crate) fn registered_answerer(
         }
     }
     Ok(found)
+}
+
+/// Whether `card`'s reasoning controls set `enable_thinking`.
+fn enables_thinking(card: &ModelCard) -> bool {
+    card.identity().is_some_and(|identity| {
+        matches!(
+            &identity.invocation.reasoning,
+            Capability::Supported(controls)
+                if controls.get("enable_thinking") == Some(&ControlValue::Boolean(true))
+        )
+    })
 }
 
 /// Keeps input and admission refusals distinct from local execution failures.

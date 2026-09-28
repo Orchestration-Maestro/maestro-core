@@ -7,11 +7,11 @@ use maestro_kernel::{
     gateway::{
         CardIdentity, Error as GatewayError, Limits, ModelCard, Role, RouterEntry,
         card_v2::{
-            Backend, CachePolicy, Capability, CardFormats, Dimensions, EmbeddingFormat, FlagValue,
-            HardwareIdentity, KvCache, KvCacheType, MemoryEstimate, Observation, OffloadMode,
-            OffloadPolicy, Provenance, QualificationMethod, QualifiedLimits, Quantization,
-            Resources, RuntimeLimits, Sampling, SamplingParameters, Template, TokenizerDerivation,
-            WeightIdentity,
+            Backend, CachePolicy, Capability, CardFormats, ControlValue, Dimensions,
+            EmbeddingFormat, FlagValue, HardwareIdentity, KvCache, KvCacheType, MemoryEstimate,
+            Observation, OffloadMode, OffloadPolicy, Provenance, QualificationMethod,
+            QualifiedLimits, Quantization, Resources, RuntimeLimits, Sampling, SamplingParameters,
+            Template, TokenizerDerivation, WeightIdentity,
         },
     },
     generation::Generation,
@@ -84,6 +84,49 @@ fn i7_latest_matching_card_is_selected_and_other_entries_are_ignored() {
             .expect("latest answerer")
             .id,
         latest
+    );
+}
+
+/// An ask of the default router entry in `collection`.
+fn default_request() -> AskRequest {
+    AskRequest {
+        collection: "collection".to_owned(),
+        question: "How can I configure the service?".to_owned(),
+        model: "qwen3-4b".to_owned(),
+        version: None,
+        budget: AskBudget::default(),
+    }
+}
+
+#[test]
+fn default_resolution_skips_a_thinking_card_registered_later() {
+    let scratch = Scratch::new();
+    let kernel = scratch.kernel(None).expect("open test kernel");
+    let request = default_request();
+    register_answerer(&kernel, "qwen3-4b", b"older answerer");
+    let (plain, _) = register_reasoning_answerer(&kernel, b"plain answerer", false);
+
+    let (thinking, _) = register_reasoning_answerer(&kernel, b"thinking answerer", true);
+
+    let resolved = registered_answerer(&kernel, &kernel.scopes, &request)
+        .expect("read scoped card registry")
+        .expect("the plain answerer");
+    assert_eq!(resolved.id, plain);
+    assert_ne!(resolved.id, thinking);
+}
+
+#[test]
+fn only_a_thinking_card_leaves_the_default_unresolved() {
+    let scratch = Scratch::new();
+    let kernel = scratch.kernel(None).expect("open test kernel");
+    let request = default_request();
+
+    register_reasoning_answerer(&kernel, b"thinking answerer", true);
+
+    assert!(
+        registered_answerer(&kernel, &kernel.scopes, &request)
+            .expect("read scoped card registry")
+            .is_none()
     );
 }
 
@@ -231,10 +274,6 @@ fn register_answerer(kernel: &Kernel, entry: &str, weights: &[u8]) -> String {
 
 /// Registers a small v2 card of `role` in `collection` and returns its
 /// immutable registry ID and the card.
-#[expect(
-    clippy::too_many_lines,
-    reason = "the fixture needs one complete v2 identity"
-)]
 pub(crate) fn register_card(
     kernel: &Kernel,
     collection: &str,
@@ -242,6 +281,59 @@ pub(crate) fn register_card(
     entry: &str,
     weights: &[u8],
 ) -> (String, ModelCard) {
+    register_identity(
+        kernel,
+        collection,
+        &card_identity(kernel, role, entry, weights),
+    )
+}
+
+/// Registers a small v2 answerer card in `collection` whose reasoning
+/// controls set `enable_thinking` to `thinking`, and returns its registry ID
+/// and the card.
+pub(crate) fn register_reasoning_answerer(
+    kernel: &Kernel,
+    weights: &[u8],
+    thinking: bool,
+) -> (String, ModelCard) {
+    let mut identity = card_identity(kernel, Role::Answerer, "qwen3-4b", weights);
+    identity.invocation.reasoning = Capability::Supported(BTreeMap::from([(
+        "enable_thinking".to_owned(),
+        ControlValue::Boolean(thinking),
+    )]));
+    register_identity(kernel, "collection", &identity)
+}
+
+/// Records `identity` as a v2 card in `collection` and returns its registry
+/// ID and the card.
+fn register_identity(
+    kernel: &Kernel,
+    collection: &str,
+    identity: &CardIdentity,
+) -> (String, ModelCard) {
+    let card = ModelCard::record_v2(&kernel.artifacts, identity).expect("record v2 card");
+    let id = kernel
+        .database
+        .record_model_card(
+            &kernel.scopes,
+            &NewModelCard {
+                collection_id: collection,
+                card: &card,
+            },
+        )
+        .expect("register v2 card")
+        .id
+        .to_string();
+    (id, card)
+}
+
+/// A small v2 identity of `role` whose weights are `weights`, stored in the
+/// kernel.
+#[expect(
+    clippy::too_many_lines,
+    reason = "the fixture needs one complete v2 identity"
+)]
+fn card_identity(kernel: &Kernel, role: Role, entry: &str, weights: &[u8]) -> CardIdentity {
     let answerer = role == Role::Answerer;
     let weight_digest = kernel
         .database
@@ -255,7 +347,7 @@ pub(crate) fn register_card(
         .database
         .put(b"qualification", "application/json")
         .expect("store qualification evidence");
-    let identity = CardIdentity {
+    CardIdentity {
         role,
         router_entry: RouterEntry::parse(entry).expect("router entry"),
         weights: WeightIdentity {
@@ -371,19 +463,5 @@ pub(crate) fn register_card(
             tool_versions: BTreeMap::from([("llama.cpp".to_owned(), "b1234".to_owned())]),
             artifacts: BTreeMap::from([("native-qualification".to_owned(), qualification_digest)]),
         },
-    };
-    let card = ModelCard::record_v2(&kernel.artifacts, &identity).expect("record v2 card");
-    let id = kernel
-        .database
-        .record_model_card(
-            &kernel.scopes,
-            &NewModelCard {
-                collection_id: collection,
-                card: &card,
-            },
-        )
-        .expect("register v2 card")
-        .id
-        .to_string();
-    (id, card)
+    }
 }

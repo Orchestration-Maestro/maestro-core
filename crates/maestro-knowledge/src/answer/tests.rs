@@ -1,6 +1,6 @@
 use super::{
-    AnswerCitation, AskBudget, AskError, AskRequest, PromptVersion, RefusalCode,
-    RegisteredAnswerer, Rejection,
+    AnswerCitation, AnswerPrompt, AskBudget, AskError, AskRequest, PromptText, PromptVersion,
+    RefusalCode, RegisteredAnswerer, Rejection,
 };
 use super::{
     generate::{Relevance, answer_bundle, answer_relevant},
@@ -262,9 +262,15 @@ async fn unsupported_command_is_retried_once_then_refused() {
     let bad = "Run `maestro collection remove --all` to remove every source. [1]";
     let port = ScriptedPort::new(&[bad, bad]);
 
-    let answer = answer_bundle(&port, &request, Some(&answerer), bundle, PromptVersion::V1)
-        .await
-        .expect("safe unsupported refusal");
+    let answer = answer_bundle(
+        &port,
+        &request,
+        Some(&answerer),
+        bundle,
+        &PromptVersion::V1.into(),
+    )
+    .await
+    .expect("safe unsupported refusal");
 
     assert_eq!(port.calls.load(Ordering::Relaxed), 2);
     assert_eq!(answer.answer, "");
@@ -283,9 +289,15 @@ async fn i5_not_found_marker_returns_not_found_with_closest_passage_metadata() {
     let passage = bundle(&request.question, "en", "The docs list model entries.");
     let port = ScriptedPort::new(&["NOT_FOUND"]);
 
-    let answer = answer_bundle(&port, &request, Some(&answerer), passage, PromptVersion::V1)
-        .await
-        .expect("safe no-evidence refusal");
+    let answer = answer_bundle(
+        &port,
+        &request,
+        Some(&answerer),
+        passage,
+        &PromptVersion::V1.into(),
+    )
+    .await
+    .expect("safe no-evidence refusal");
 
     assert_eq!(port.calls.load(Ordering::Relaxed), 1);
     assert_eq!(answer.answer, "");
@@ -312,9 +324,15 @@ async fn numeric_prefix_inside_a_different_number_is_rejected_after_one_retry() 
     let unsupported = "The service listens on port 80 by default. [1]";
     let port = ScriptedPort::new(&[unsupported, unsupported]);
 
-    let answer = answer_bundle(&port, &request, Some(&answerer), passage, PromptVersion::V1)
-        .await
-        .expect("safe unsupported refusal");
+    let answer = answer_bundle(
+        &port,
+        &request,
+        Some(&answerer),
+        passage,
+        &PromptVersion::V1.into(),
+    )
+    .await
+    .expect("safe unsupported refusal");
 
     assert_eq!(port.calls.load(Ordering::Relaxed), 2);
     assert_eq!(answer.answer, "");
@@ -336,9 +354,15 @@ async fn citations_are_host_resolved_without_a_language_check() {
     );
     let port = ScriptedPort::new(&["The service uses port 8080 by default. [1]"]);
 
-    let answer = answer_bundle(&port, &request, Some(&answerer), passage, PromptVersion::V1)
-        .await
-        .expect("validated answer");
+    let answer = answer_bundle(
+        &port,
+        &request,
+        Some(&answerer),
+        passage,
+        &PromptVersion::V1.into(),
+    )
+    .await
+    .expect("validated answer");
 
     assert_eq!(port.calls.load(Ordering::Relaxed), 1);
     assert_eq!(answer.model.card_id.as_deref(), Some(answerer.id.as_str()));
@@ -411,7 +435,7 @@ async fn i5_empty_search_result_refuses_without_generation() {
         &request,
         Some(&answerer),
         empty_bundle(&request.question),
-        PromptVersion::V1,
+        &PromptVersion::V1.into(),
     )
     .await
     .expect("safe refusal");
@@ -434,7 +458,7 @@ async fn i2_short_undetected_question_reaches_the_answerer() {
         &request,
         Some(&answerer),
         bundle("x", "en", "The local service uses verified instructions."),
-        PromptVersion::V1,
+        &PromptVersion::V1.into(),
     )
     .await
     .expect("short question answer");
@@ -447,6 +471,8 @@ async fn i2_short_undetected_question_reaches_the_answerer() {
 mod explain;
 #[path = "tests/guardrails.rs"]
 mod guardrails;
+#[path = "tests/prompt_text.rs"]
+mod prompt_text;
 #[path = "tests/prompts.rs"]
 mod prompts;
 #[path = "tests/requests.rs"]

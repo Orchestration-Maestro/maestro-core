@@ -7,7 +7,7 @@ const REPLY: &str = "The local service uses verified instructions. [1]";
 
 /// Answers `question` over one passage, with `relevance`, and counts the
 /// chat calls.
-async fn answer_with(question: &str, relevance: Relevance) -> (super::super::Answer, usize) {
+async fn answer_with(question: &str, relevance: Relevance<'_>) -> (super::super::Answer, usize) {
     let scratch = Scratch::new();
     let answerer = scratch.answerer();
     let request = request(question);
@@ -24,11 +24,14 @@ async fn answer_with(question: &str, relevance: Relevance) -> (super::super::Ans
     (answer, port.calls.load(Ordering::Relaxed))
 }
 
-const fn relevance(min_rerank_score: Option<f32>, top_rerank_score: Option<f64>) -> Relevance {
+/// The v1 prompt every threshold case answers with.
+static V1: AnswerPrompt = AnswerPrompt::Version(PromptVersion::V1);
+
+fn relevance(min_rerank_score: Option<f32>, top_rerank_score: Option<f64>) -> Relevance<'static> {
     Relevance {
         min_rerank_score,
         top_rerank_score,
-        prompt_version: PromptVersion::V1,
+        answer_prompt: &V1,
     }
 }
 

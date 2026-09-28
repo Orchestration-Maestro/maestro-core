@@ -69,6 +69,7 @@ in place.
 │   │   │   │   │   │   ├── manifest.rs                                      # The manifest: what it holds, where its paths lead, and each refusal
 │   │   │   │   │   │   ├── mod.rs                                           # Tests of the ladder command: its manifest, its run over a fake engine, its
 │   │   │   │   │   │   ├── reports.rs                                       # What a ladder writes: private rows with IDs, ranks, citations, refusal
+│   │   │   │   │   │   ├── rung_answerer.rs                                 # A rung's answerer and prompt: ask.card names a registered answerer card
 │   │   │   │   │   │   ├── runner.rs                                        # The ladder's run: warm-ups unscored, the rung's configuration in every
 │   │   │   │   │   │   ├── stages.rs                                        # A search fails when a stage its rung enables did not run: out of time for
 │   │   │   │   │   │   └── support.rs                                       # A synthetic suite, rungs, and a fake engine that records what it is asked
@@ -78,6 +79,7 @@ in place.
 │   │   │   │   │   ├── manifest.rs                                          # The ladder's manifest, maestro-ladder-manifest/1: the suite, the
 │   │   │   │   │   ├── mod.rs                                               # maestro eval ladder: the M1 ladder, every question of a suite searched
 │   │   │   │   │   ├── reports.rs                                           # What a ladder writes: for each rung, its private rows, one JSON line per
+│   │   │   │   │   ├── rung_prompt.rs                                       # A rung's answer prompt: a prompt version, or a private prompt file of
 │   │   │   │   │   ├── runner.rs                                            # The ladder's run: every rung's cards checked first, then each rung in
 │   │   │   │   │   └── stages.rs                                            # Whether a search ran every stage its rung enables
 │   │   │   │   ├── health/                                                  # maestro doctor and status: the checks of the kernel, the search service, the router and each role's card
@@ -623,6 +625,7 @@ in place.
 │       │   │   ├── tests/                                                   # Integration tests
 │       │   │   │   ├── explain.rs                                           # Rust source: explain
 │       │   │   │   ├── guardrails.rs                                        # Rust source: guardrails
+│       │   │   │   ├── prompt_text.rs                                       # A prompt a ladder rung supplies as text: its {data} slot holds the
 │       │   │   │   ├── prompts.rs                                           # The prompt versions: v1 stays today's text, v2 asks for every supporting
 │       │   │   │   ├── requests.rs                                          # Rust source: requests
 │       │   │   │   └── threshold.rs                                         # The reranker relevance threshold: below it, ask refuses without chat

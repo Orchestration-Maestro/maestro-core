@@ -161,6 +161,7 @@ fn a_rung_report_names_its_provenance_and_scores_its_floors() {
         "embedder": "e".repeat(64),
         "reranker": RERANKER,
         "answerer": "a".repeat(64),
+        "prompt": null,
     });
 
     assert_eq!(
@@ -194,6 +195,7 @@ fn a_rung_report_in_markdown_names_its_provenance_then_its_floors() {
     assert!(markdown.starts_with("# Ladder rung `r0`: PASS\n"));
     assert!(markdown.contains("- Generation: 0\n"));
     assert!(markdown.contains(&format!("- Reranker card: {RERANKER}\n")));
+    assert!(markdown.contains("- Prompt file: none\n"));
     assert!(markdown.contains("- Binary: 0.1.0 (abc123)\n"));
     assert!(markdown.contains(concat!(
         "- Citation scoring: same document and pinned revision; exact section ID or a cited ",

@@ -1,7 +1,8 @@
 //! The ladder's engine on this machine: the kernel opened for the local
 //! principal, the model router and the search service. A rung's reranker is
 //! the card its manifest names by digest, registered in the collection with
-//! the reranker role, and used without being selected.
+//! the reranker role, and used without being selected; so is a rung's
+//! answerer, when its manifest names one.
 
 use super::{
     manifest::{AskSettings, Rung},
@@ -22,7 +23,7 @@ use maestro_kernel::{
 };
 use maestro_knowledge::{
     answer::{
-        Answer, AnswerContext, AskBudget, AskError, AskRequest, DEFAULT_MODEL, PromptVersion,
+        Answer, AnswerContext, AnswerPrompt, AskBudget, AskError, AskRequest, DEFAULT_MODEL,
         RegisteredAnswerer, ask_configured,
     },
     eval::{AskOutcome, RunError, SearchOutcome, SectionRef, resolve_expected},
@@ -70,8 +71,11 @@ struct Cards {
     embedder: Option<ModelCard>,
     /// The rung's reranker, when it reranks.
     reranker: Option<ModelCard>,
-    /// The answerer registered for the default model, if any.
+    /// The answerer the rung names, or else the one registered for the
+    /// default model, if any.
     answerer: Option<RegisteredAnswerer>,
+    /// The SHA-256 of the rung's prompt file, when it asks with one.
+    prompt: Option<String>,
 }
 
 impl<'kernel> KernelEngine<'kernel> {
@@ -111,43 +115,71 @@ impl<'kernel> KernelEngine<'kernel> {
         let embedder = pinned_embedder(&kernel.artifacts, Some(&generation.embedding_profile));
         let reranker =
             candidate_reranker(kernel, &self.collection, rung.configuration.reranker()?)?;
-        let answerer = registered_answerer(
-            kernel,
-            &kernel.scopes,
-            &self.ask_request("", AskBudget::default()),
-        )
-        .map_err(|_| Failure::failed("the answerer's card cannot be read"))?;
+        let answerer = self.answerer(rung)?;
+        let prompt = rung
+            .ask
+            .as_ref()
+            .and_then(|settings| settings.prompt.digest());
         Ok(Cards {
             generation,
             embedder,
             reranker,
             answerer,
+            prompt,
         })
     }
 
-    /// The `ask` of `question` in the collection, with the default model and
-    /// `budget`.
-    fn ask_request(&self, question: &str, budget: AskBudget) -> AskRequest {
+    /// The answerer `rung` asks with: the card it names, or else the latest
+    /// registered non-thinking answerer of the default model, if any.
+    ///
+    /// # Errors
+    ///
+    /// As [`candidate_answerer`], and [`Failure::Failed`] when the default
+    /// answerer's card cannot be read.
+    pub(super) fn answerer(&self, rung: &Rung) -> Result<Option<RegisteredAnswerer>, Failure> {
+        let named = rung
+            .ask
+            .as_ref()
+            .map(AskSettings::answerer_card)
+            .transpose()?
+            .flatten();
+        if let Some(digest) = named {
+            return candidate_answerer(self.kernel, &self.collection, &digest).map(Some);
+        }
+        registered_answerer(
+            self.kernel,
+            &self.kernel.scopes,
+            &self.ask_request("", DEFAULT_MODEL, AskBudget::default()),
+        )
+        .map_err(|_| Failure::failed("the answerer's card cannot be read"))
+    }
+
+    /// The `ask` of `question` in the collection, with `model` and `budget`.
+    fn ask_request(&self, question: &str, model: &str, budget: AskBudget) -> AskRequest {
         AskRequest {
             collection: self.collection.clone(),
             question: question.to_owned(),
-            model: DEFAULT_MODEL.to_owned(),
+            model: model.to_owned(),
             version: None,
             budget,
         }
     }
 
-    /// The `ask` of `question` under a rung's `settings`: its request, with
-    /// their budget, and their prompt.
+    /// The `ask` of `question` under a rung's `settings` with `answerer`:
+    /// its request, with their budget and the answerer's router entry, or
+    /// the default model without one, and their prompt; none for a prompt
+    /// file not read.
     pub(super) fn ask_call(
         &self,
         question: &str,
-        settings: AskSettings,
-    ) -> (AskRequest, PromptVersion) {
-        (
-            self.ask_request(question, settings.budget()),
-            settings.prompt,
-        )
+        settings: &AskSettings,
+        answerer: Option<&RegisteredAnswerer>,
+    ) -> Option<(AskRequest, AnswerPrompt)> {
+        let model = answerer.map_or(DEFAULT_MODEL, |answerer| {
+            answerer.card.fields().router_entry.as_str()
+        });
+        let prompt = settings.prompt.answer_prompt()?;
+        Some((self.ask_request(question, model, settings.budget()), prompt))
     }
 
     /// The search context of the started rung's cards, none before a rung
@@ -249,7 +281,12 @@ impl Engine for KernelEngine<'_> {
 
     fn ask(&self, rung: &Rung, question: &str) -> AskOutcome {
         let (Some(search), Some(held), Some(settings)) =
-            (self.search_context(), &self.held, rung.ask)
+            (self.search_context(), &self.held, &rung.ask)
+        else {
+            return AskOutcome::Failed;
+        };
+        let Some((request, prompt)) =
+            self.ask_call(question, settings, held.cards.answerer.as_ref())
         else {
             return AskOutcome::Failed;
         };
@@ -258,13 +295,12 @@ impl Engine for KernelEngine<'_> {
             port: &self.port,
             answerer: held.cards.answerer.clone(),
         };
-        let (request, prompt) = self.ask_call(question, settings);
         let configuration = rung.configuration.search();
         let asked = self.runtime.block_on(Box::pin(ask_configured(
             &context,
             &request,
             configuration,
-            prompt,
+            &prompt,
         )));
         match asked {
             Ok(answer) => answer_outcome(
@@ -293,6 +329,7 @@ impl Cards {
                 .answerer
                 .as_ref()
                 .map(|answerer| card_digest(&answerer.card)),
+            prompt: self.prompt.clone(),
         }
     }
 }
@@ -331,6 +368,45 @@ pub(super) fn candidate_reranker(
         ));
     }
     Ok(Some(card))
+}
+
+/// The answerer card of `digest`, registered in `collection` with the
+/// answerer role, without selecting it.
+///
+/// # Errors
+///
+/// [`Failure::Refused`] for a card the collection has not registered, or
+/// whose role is not answerer; [`Failure::Failed`] when the kernel or the
+/// card cannot be read.
+pub(super) fn candidate_answerer(
+    kernel: &Kernel,
+    collection: &str,
+    digest: &Digest,
+) -> Result<RegisteredAnswerer, Failure> {
+    let answerers = kernel
+        .database
+        .model_cards(&kernel.scopes, collection, Role::Answerer)
+        .map_err(|error| Failure::failed_by(&error))?;
+    if let Some(record) = answerers
+        .into_iter()
+        .find(|record| record.digest == *digest)
+    {
+        let card = ModelCard::load(&kernel.artifacts, &record.digest)
+            .map_err(|error| Failure::failed_by(&error))?;
+        return Ok(RegisteredAnswerer {
+            id: record.id.to_string(),
+            card,
+        });
+    }
+    let registered = kernel
+        .database
+        .model_card(&kernel.scopes, collection, digest)
+        .map_err(|error| Failure::failed_by(&error))?;
+    Err(Failure::refused(if registered.is_some() {
+        "a rung's answerer card does not have the answerer role"
+    } else {
+        "a rung's answerer card is not registered in the collection"
+    }))
 }
 
 /// The most documents a search's ranked list holds: the floors score its

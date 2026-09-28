@@ -3,12 +3,10 @@
 //! search configuration and whether `ask` runs, with which settings. It is private: it names the
 //! owner's files. Relative paths resolve from the manifest's directory.
 
+use super::rung_prompt::RungPrompt;
 use crate::failure::Failure;
 use maestro_kernel::artifact::Digest;
-use maestro_knowledge::{
-    answer::{AskBudget, PromptVersion},
-    search::SearchConfiguration,
-};
+use maestro_knowledge::{answer::AskBudget, search::SearchConfiguration};
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 use serde_json::Value;
 use std::{
@@ -60,7 +58,7 @@ pub(super) struct Rung {
 }
 
 /// A rung's `ask` settings; each one absent is `ask`'s default.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
 #[expect(
     clippy::min_ident_chars,
@@ -73,8 +71,12 @@ pub(super) struct AskSettings {
     pub(super) max_tokens: Option<u32>,
     /// The most tokens each answerer reply generates.
     pub(super) output_tokens: Option<u32>,
-    /// The answer prompt.
-    pub(super) prompt: PromptVersion,
+    /// The answer prompt: a version, or a private prompt file.
+    pub(super) prompt: RungPrompt,
+    /// The SHA-256 digest, in hexadecimal, of the registered answerer card
+    /// the rung asks with; absent, the latest registered non-thinking
+    /// answerer of the default model.
+    pub(super) card: Option<String>,
 }
 
 impl AskSettings {
@@ -88,6 +90,21 @@ impl AskSettings {
             output_tokens: self.output_tokens.unwrap_or(default.output_tokens),
             ..default
         }
+    }
+
+    /// The digest of the answerer card the rung names, if any.
+    ///
+    /// # Errors
+    ///
+    /// [`Failure::Refused`] for a card that is not a SHA-256 digest.
+    pub(super) fn answerer_card(&self) -> Result<Option<Digest>, Failure> {
+        self.card
+            .as_deref()
+            .map(|card| {
+                Digest::parse(card)
+                    .map_err(|_| Failure::refused("a rung's answerer card is not a SHA-256 digest"))
+            })
+            .transpose()
     }
 }
 
@@ -245,13 +262,23 @@ impl Manifest {
     /// # Errors
     ///
     /// [`Failure::Refused`] for text that is not a `maestro-ladder-manifest/1`
-    /// manifest.
+    /// manifest, and for a rung's prompt file that cannot be read or is not
+    /// a prompt.
     pub(super) fn parse(text: &str, base: &Path) -> Result<Self, Failure> {
         let mut manifest: Self = serde_json::from_str(text)
             .map_err(|error| Failure::refused(format!("the manifest is not {SCHEMA}: {error}")))?;
         manifest.check()?;
         manifest.suite = base.join(&manifest.suite);
         manifest.output = base.join(&manifest.output);
+        for rung in &mut manifest.rungs {
+            if let Some(AskSettings {
+                prompt: RungPrompt::File(file),
+                ..
+            }) = &mut rung.ask
+            {
+                file.read(base, &rung.name)?;
+            }
+        }
         Ok(manifest)
     }
 
@@ -320,14 +347,14 @@ fn check_rung(rung: &Rung) -> Result<(), Failure> {
             rung.name
         )));
     }
-    if rung
-        .ask
-        .is_some_and(|settings| !settings.budget().is_within_limits())
-    {
-        return Err(Failure::refused(format!(
-            "the rung `{}` has ask settings outside ask's limits",
-            rung.name
-        )));
+    if let Some(settings) = &rung.ask {
+        if !settings.budget().is_within_limits() {
+            return Err(Failure::refused(format!(
+                "the rung `{}` has ask settings outside ask's limits",
+                rung.name
+            )));
+        }
+        settings.answerer_card()?;
     }
     configuration.reranker().map(drop)
 }

@@ -7,6 +7,7 @@ use super::{
     super::{
         engine::{KernelEngine, ask_failure, evidence_failure, search_failure},
         manifest::AskSettings,
+        rung_prompt::RungPrompt,
         runner::Engine as _,
         stages::StageFailure,
     },
@@ -78,10 +79,11 @@ fn an_ask_carries_the_rungs_budget_and_prompt() {
         k: Some(8),
         max_tokens: Some(9000),
         output_tokens: Some(900),
-        prompt: PromptVersion::V2,
+        prompt: RungPrompt::Version(PromptVersion::V2),
+        card: None,
     };
 
-    let (request, prompt) = engine.ask_call("question", settings);
+    let (request, prompt) = engine.ask_call("question", &settings, None).unwrap();
 
     assert_eq!(
         request,
@@ -98,10 +100,12 @@ fn an_ask_carries_the_rungs_budget_and_prompt() {
             },
         }
     );
-    assert_eq!(prompt, PromptVersion::V2);
-    let (default, v1) = engine.ask_call("question", AskSettings::default());
+    assert_eq!(prompt, PromptVersion::V2.into());
+    let (default, v1) = engine
+        .ask_call("question", &AskSettings::default(), None)
+        .unwrap();
     assert_eq!(default.budget, AskBudget::default());
-    assert_eq!(v1, PromptVersion::V1);
+    assert_eq!(v1, PromptVersion::V1.into());
 }
 
 #[test]

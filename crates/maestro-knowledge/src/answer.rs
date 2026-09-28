@@ -13,7 +13,7 @@ mod validate;
 
 pub use generate::{ask, ask_configured};
 pub use types::{
-    Answer, AnswerCitation, AnswerContext, AnswerModel, AnswerRefusal, AskBudget, AskError,
-    AskRequest, CHAT_DEADLINE, DEFAULT_MODEL, PromptVersion, RefusalCode, RegisteredAnswerer,
-    Rejection,
+    Answer, AnswerCitation, AnswerContext, AnswerModel, AnswerPrompt, AnswerRefusal, AskBudget,
+    AskError, AskRequest, CHAT_DEADLINE, DATA_SLOT, DEFAULT_MODEL, PromptText, PromptVersion,
+    RefusalCode, RegisteredAnswerer, Rejection,
 };

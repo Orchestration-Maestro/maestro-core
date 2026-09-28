@@ -9,7 +9,7 @@ use super::{
 use crate::failure::Failure;
 use maestro_kernel::artifact::Digest;
 use maestro_knowledge::{
-    answer::{PromptVersion, RefusalCode},
+    answer::RefusalCode,
     eval::{AskOutcome, LadderQuestion, LadderScore, SearchOutcome},
 };
 use serde::Serialize;
@@ -107,6 +107,7 @@ impl<'run> RungReport<'run> {
             ("Embedder card", &self.provenance.embedder),
             ("Reranker card", &self.provenance.reranker),
             ("Answerer card", &self.provenance.answerer),
+            ("Prompt file", &self.provenance.prompt),
         ];
         let _ = writeln!(text, "- Collection: {}", self.collection);
         let _ = writeln!(text, "- Generation: {}", self.provenance.generation);
@@ -164,8 +165,8 @@ pub(super) struct AskReport {
     max_tokens: u32,
     /// The most tokens each answerer reply generates.
     output_tokens: u32,
-    /// The answer prompt.
-    prompt: PromptVersion,
+    /// The answer prompt: its version, or `file`.
+    prompt: &'static str,
 }
 
 impl AskReport {
@@ -176,7 +177,7 @@ impl AskReport {
             k: budget.k,
             max_tokens: budget.max_tokens,
             output_tokens: budget.output_tokens,
-            prompt: settings.prompt,
+            prompt: settings.prompt.name(),
         }
     }
 
@@ -185,10 +186,7 @@ impl AskReport {
     pub(super) fn describe(&self) -> String {
         format!(
             "{} passages, {} evidence bytes, {} output tokens, prompt {}",
-            self.k,
-            self.max_tokens,
-            self.output_tokens,
-            self.prompt.name()
+            self.k, self.max_tokens, self.output_tokens, self.prompt
         )
     }
 }

@@ -42,7 +42,7 @@ async fn ask_runs_its_search_with_the_given_configuration() {
         &answer_context,
         &request,
         lexical_only,
-        PromptVersion::V2,
+        &PromptVersion::V2.into(),
     ))
     .await
     .unwrap();
@@ -97,7 +97,7 @@ async fn ask_refuses_below_the_relevance_threshold_only_when_rerank_ran() {
                 answer_context,
                 request,
                 configuration,
-                PromptVersion::V1,
+                &PromptVersion::V1.into(),
             ))
             .await
             .unwrap()

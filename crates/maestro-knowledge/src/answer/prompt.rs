@@ -1,6 +1,8 @@
 //! The evidence-only prompt and registered chat-template controls.
 
-use super::types::{AskError, AskRequest, PromptVersion, RegisteredAnswerer};
+use super::types::{
+    AnswerPrompt, AskError, AskRequest, DATA_SLOT, PromptVersion, RegisteredAnswerer,
+};
 use maestro_kernel::{
     evidence::Bundle,
     gateway::{ChatRequest, Message, Speaker, card_v2::Capability},
@@ -47,12 +49,13 @@ const V2_USER: &str = "Answer the question from the passages, in full sentences.
                        [1] or [1, 2]. When the passages do not directly answer the question, \
                        reply exactly NOT_FOUND.";
 
-/// Constructs the one system instruction of `prompt_version` and one
-/// JSON-delimited question/evidence message.
+/// Constructs the one system instruction of `answer_prompt` and one
+/// JSON-delimited question/evidence message: after a version's user
+/// instruction, or in the data slot of a prompt text.
 pub(super) fn prompt(
     request: &AskRequest,
     bundle: &Bundle,
-    prompt_version: PromptVersion,
+    answer_prompt: &AnswerPrompt,
 ) -> Result<Vec<Message>, AskError> {
     let passages = bundle
         .passages
@@ -73,9 +76,18 @@ pub(super) fn prompt(
     .map_err(AskError::Json)?
     .replace('<', "\\u003c")
     .replace('>', "\\u003e");
-    let (system, user) = match prompt_version {
-        PromptVersion::V1 => (V1_SYSTEM, V1_USER),
-        PromptVersion::V2 => (V2_SYSTEM, V2_USER),
+    let (system, user) = match answer_prompt {
+        AnswerPrompt::Version(version) => {
+            let (system, user) = match version {
+                PromptVersion::V1 => (V1_SYSTEM, V1_USER),
+                PromptVersion::V2 => (V2_SYSTEM, V2_USER),
+            };
+            (
+                system,
+                format!("{user}\nQuestion and evidence data (JSON):\n{data}"),
+            )
+        }
+        AnswerPrompt::Text(text) => (text.system(), text.user().replacen(DATA_SLOT, &data, 1)),
     };
     Ok(vec![
         Message {
@@ -84,7 +96,7 @@ pub(super) fn prompt(
         },
         Message {
             speaker: Speaker::User,
-            content: format!("{user}\nQuestion and evidence data (JSON):\n{data}"),
+            content: user,
         },
     ])
 }

@@ -167,6 +167,7 @@ impl Engine for FakeEngine {
                 .as_ref()
                 .map(|rerank| rerank.card.clone()),
             answerer: (!self.no_answerer).then(|| "a".repeat(64)),
+            prompt: None,
         })
     }
 

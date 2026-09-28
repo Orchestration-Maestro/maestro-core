@@ -6,6 +6,7 @@ use super::{
     super::{
         manifest::{AskSettings, Manifest},
         reports::RungReport,
+        rung_prompt::RungPrompt,
     },
     reports::{BINARY, runs, to_json},
     support::{rung, suite},
@@ -16,7 +17,7 @@ use serde_json::{Value, json};
 use std::path::Path;
 
 /// A manifest of one rung whose `ask` is `ask`.
-fn manifest(ask: &Value) -> Value {
+pub(super) fn manifest(ask: &Value) -> Value {
     let mut rung = serde_json::to_value(rung("r0")).unwrap();
     rung["ask"] = ask.clone();
     json!({
@@ -32,7 +33,7 @@ fn manifest(ask: &Value) -> Value {
 /// The settings of the rung whose `ask` is `ask`.
 fn parsed(ask: &Value) -> Result<Option<AskSettings>, Failure> {
     Manifest::parse(&manifest(ask).to_string(), Path::new("/ladder"))
-        .map(|manifest| manifest.rungs[0].ask)
+        .map(|manifest| manifest.rungs[0].ask.clone())
 }
 
 /// The reason the rung whose `ask` is `ask` is refused.
@@ -50,7 +51,7 @@ fn true_and_false_still_parse_and_true_asks_as_ask_does_by_default() {
     assert_eq!(parsed(&json!(false)).unwrap(), None);
     assert_eq!(asks, AskSettings::default());
     assert_eq!(asks.budget(), AskBudget::default());
-    assert_eq!(asks.prompt, PromptVersion::V1);
+    assert_eq!(asks.prompt, RungPrompt::Version(PromptVersion::V1));
     assert_eq!(parsed(&json!({})).unwrap(), Some(AskSettings::default()));
 }
 
@@ -72,7 +73,7 @@ fn an_object_sets_each_ask_setting_and_leaves_the_rest_at_their_defaults() {
             ..AskBudget::default()
         }
     );
-    assert_eq!(settings.prompt, PromptVersion::V2);
+    assert_eq!(settings.prompt, RungPrompt::Version(PromptVersion::V2));
     assert_eq!(
         only_k.budget(),
         AskBudget {
@@ -80,7 +81,7 @@ fn an_object_sets_each_ask_setting_and_leaves_the_rest_at_their_defaults() {
             ..AskBudget::default()
         }
     );
-    assert_eq!(only_k.prompt, PromptVersion::V1);
+    assert_eq!(only_k.prompt, RungPrompt::Version(PromptVersion::V1));
 }
 
 #[test]
@@ -118,7 +119,7 @@ fn an_unknown_prompt_or_setting_is_refused() {
 fn a_rung_writes_its_ask_as_true_false_or_its_settings() {
     let settings = AskSettings {
         k: Some(8),
-        prompt: PromptVersion::V2,
+        prompt: RungPrompt::Version(PromptVersion::V2),
         ..AskSettings::default()
     };
     let mut asks = rung("r0");
@@ -131,7 +132,9 @@ fn a_rung_writes_its_ask_as_true_false_or_its_settings() {
     assert_eq!(to_json(&quiet)["ask"], json!(false));
     assert_eq!(
         to_json(&set)["ask"],
-        json!({"k": 8, "max_tokens": null, "output_tokens": null, "prompt": "v2"})
+        json!({
+            "k": 8, "max_tokens": null, "output_tokens": null, "prompt": "v2", "card": null,
+        })
     );
     asks.ask = parsed(&to_json(&set)["ask"]).unwrap();
     assert_eq!(asks, set);
@@ -143,7 +146,7 @@ fn a_rung_report_records_its_resolved_ask_settings_and_prompt() {
     let suite = suite(2, 1);
     runs[1].rung.ask = Some(AskSettings {
         output_tokens: Some(900),
-        prompt: PromptVersion::V2,
+        prompt: RungPrompt::Version(PromptVersion::V2),
         ..AskSettings::default()
     });
     runs[0].rung.ask = None;

@@ -6,6 +6,7 @@ mod comparison;
 mod engine;
 mod manifest;
 mod reports;
+mod rung_prompt;
 mod runner;
 mod stages;
 #[cfg(test)]

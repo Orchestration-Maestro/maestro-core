@@ -107,6 +107,65 @@ impl PromptVersion {
     }
 }
 
+/// The slot of a [`PromptText`]'s user text that the question and evidence
+/// data fill.
+pub const DATA_SLOT: &str = "{data}";
+
+/// An answer prompt's own texts, as a ladder rung's prompt file holds them;
+/// the user text holds [`DATA_SLOT`] exactly once.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PromptText {
+    /// The system instruction.
+    system: String,
+    /// The user instruction, holding the data slot once.
+    user: String,
+}
+
+impl PromptText {
+    /// The prompt of `system` and `user`.
+    ///
+    /// # Errors
+    ///
+    /// [`AskError::InvalidRequest`] when `user` does not hold [`DATA_SLOT`]
+    /// exactly once.
+    pub fn new(system: String, user: String) -> Result<Self, AskError> {
+        if user.matches(DATA_SLOT).count() != 1 {
+            return Err(AskError::InvalidRequest(
+                "the prompt's user text must hold the {data} slot exactly once",
+            ));
+        }
+        Ok(Self { system, user })
+    }
+
+    /// The system instruction.
+    #[must_use]
+    pub fn system(&self) -> &str {
+        &self.system
+    }
+
+    /// The user instruction, holding the data slot once.
+    #[must_use]
+    pub fn user(&self) -> &str {
+        &self.user
+    }
+}
+
+/// The prompt the answerer is given: a version's constant texts, or a
+/// ladder rung's own. The host checks of a reply are the same for both.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AnswerPrompt {
+    /// The constant texts of a prompt version.
+    Version(PromptVersion),
+    /// A ladder rung's own texts.
+    Text(PromptText),
+}
+
+impl From<PromptVersion> for AnswerPrompt {
+    fn from(version: PromptVersion) -> Self {
+        Self::Version(version)
+    }
+}
+
 /// One bounded ask request shared by CLI and MCP.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]

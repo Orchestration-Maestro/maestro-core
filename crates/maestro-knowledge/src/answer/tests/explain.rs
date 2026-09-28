@@ -20,7 +20,7 @@ async fn each_rejected_attempt_is_explained_but_never_serialized() {
         &request,
         Some(&answerer),
         evidence,
-        PromptVersion::V1,
+        &PromptVersion::V1.into(),
     )
     .await
     .expect("safe unsupported refusal");
@@ -70,7 +70,7 @@ async fn an_answer_after_a_rejected_attempt_keeps_its_explanation() {
         &request,
         Some(&answerer),
         evidence,
-        PromptVersion::V1,
+        &PromptVersion::V1.into(),
     )
     .await
     .expect("answer");
@@ -90,7 +90,7 @@ async fn an_answer_after_a_rejected_attempt_keeps_its_explanation() {
 fn the_prompt_asks_for_sentences_not_a_bare_marker() {
     let request = request("How do I list the registered sources?");
     let evidence = bundle(&request.question, "en", "Sources are listed.");
-    let messages = prompt(&request, &evidence, PromptVersion::V1).expect("bounded prompt");
+    let messages = prompt(&request, &evidence, &PromptVersion::V1.into()).expect("bounded prompt");
 
     assert!(
         messages[0]

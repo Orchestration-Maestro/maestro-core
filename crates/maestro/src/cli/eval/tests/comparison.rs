@@ -6,6 +6,7 @@ use super::{
     super::{
         comparison::Comparison,
         manifest::AskSettings,
+        rung_prompt::RungPrompt,
         runner::{RungRun, run_ladder},
     },
     reports::{BINARY, runs, to_json},
@@ -98,7 +99,8 @@ fn the_comparison_names_each_rungs_ask_settings() {
         k: Some(8),
         max_tokens: Some(9000),
         output_tokens: Some(900),
-        prompt: PromptVersion::V2,
+        prompt: RungPrompt::Version(PromptVersion::V2),
+        card: None,
     });
     let suite = suite(2, 1);
     let comparison = Comparison::new(&runs, "docs", &suite.digest, BINARY);

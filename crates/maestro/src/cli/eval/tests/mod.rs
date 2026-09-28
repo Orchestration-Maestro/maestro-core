@@ -7,6 +7,7 @@ mod engine;
 mod kernel_engine;
 mod manifest;
 mod reports;
+mod rung_answerer;
 mod runner;
 mod stages;
 mod support;

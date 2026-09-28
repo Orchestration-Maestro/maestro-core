@@ -14,7 +14,7 @@ async fn bound_error(request: &AskRequest) -> Option<String> {
         request,
         None,
         empty_bundle(&request.question),
-        PromptVersion::V1,
+        &PromptVersion::V1.into(),
     )
     .await
     {
@@ -116,7 +116,7 @@ async fn answerer_outcome(model: &str, output_tokens: u32, limit: u32) -> Result
         &request,
         Some(&answerer),
         evidence,
-        PromptVersion::V1,
+        &PromptVersion::V1.into(),
     )
     .await
     .map(|answer| assert!(answer.refusal.is_none()))
@@ -156,7 +156,7 @@ async fn the_retry_carries_the_rejected_reply_and_its_repair_code() {
         &request,
         Some(&answerer),
         evidence,
-        PromptVersion::V1,
+        &PromptVersion::V1.into(),
     )
     .await
     .expect("answer after one repair");
@@ -193,7 +193,7 @@ async fn the_answer_language_follows_the_question() {
             &request,
             None,
             empty_bundle(question),
-            PromptVersion::V1,
+            &PromptVersion::V1.into(),
         )
         .await
         .expect("no-evidence refusal");
