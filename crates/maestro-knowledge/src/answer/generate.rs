@@ -4,7 +4,7 @@ use super::{
     prompt::{chat_request, prompt},
     types::{
         ANSWER_SCHEMA, Answer, AnswerCitation, AnswerContext, AnswerModel, AnswerRefusal,
-        AskBudget, AskError, AskRequest, CHAT_DEADLINE, CLOSEST_LIMIT, RefusalCode,
+        AskBudget, AskError, AskRequest, CHAT_DEADLINE, CLOSEST_LIMIT, PromptVersion, RefusalCode,
         RegisteredAnswerer, Rejection, ResponseLanguage,
     },
     validate::{Invalid, Reply, ValidReply, ValidationFailure, validate_reply},
@@ -19,10 +19,7 @@ use crate::{
 };
 use maestro_kernel::{
     evidence::{Bundle, RequestBudget},
-    gateway::{
-        Error as GatewayError, MAX_CHAT_OUTPUT_TOKENS, Message, ModelPort, Role, Room, RouterEntry,
-        Speaker,
-    },
+    gateway::{Error as GatewayError, Message, ModelPort, Role, Room, RouterEntry, Speaker},
 };
 use std::collections::BTreeMap;
 use tokio::time::timeout;
@@ -37,10 +34,17 @@ pub async fn ask<P: ModelPort + Sync>(
     context: &AnswerContext<'_, P>,
     request: &AskRequest,
 ) -> Result<Answer, AskError> {
-    ask_configured(context, request, SearchConfiguration::default()).await
+    ask_configured(
+        context,
+        request,
+        SearchConfiguration::default(),
+        PromptVersion::default(),
+    )
+    .await
 }
 
-/// As [`ask`], with its search run under `configuration`.
+/// As [`ask`], with its search run under `configuration` and its answerer
+/// given the prompt of `prompt_version`.
 ///
 /// # Errors
 /// As [`ask`].
@@ -48,6 +52,7 @@ pub async fn ask_configured<P: ModelPort + Sync>(
     context: &AnswerContext<'_, P>,
     request: &AskRequest,
     configuration: SearchConfiguration,
+    prompt_version: PromptVersion,
 ) -> Result<Answer, AskError> {
     validate_request(request)?;
     let search_request = SearchRequest {
@@ -65,6 +70,7 @@ pub async fn ask_configured<P: ModelPort + Sync>(
     let relevance = Relevance {
         min_rerank_score: configuration.min_rerank_score,
         top_rerank_score: top_rerank_score(&input.ranked),
+        prompt_version,
     };
     let bundle = assemble_evidence(
         context.search.database.clone(),
@@ -83,14 +89,16 @@ pub async fn ask_configured<P: ModelPort + Sync>(
     .await
 }
 
-/// The reranker's top score for one search and the least one `ask` answers
-/// from.
+/// The reranker's top score for one search, the least one `ask` answers
+/// from, and the prompt it answers with.
 #[derive(Debug, Clone, Copy)]
 pub(super) struct Relevance {
     /// The configured threshold, when one is set.
     pub(super) min_rerank_score: Option<f32>,
     /// The top reranker score, absent when rerank did not run.
     pub(super) top_rerank_score: Option<f64>,
+    /// The prompt the answerer is given above the threshold.
+    pub(super) prompt_version: PromptVersion,
 }
 
 impl Relevance {
@@ -116,7 +124,7 @@ pub(super) async fn answer_relevant<P: ModelPort + Sync>(
         let response = ResponseContext::new(request, &bundle, answerer, language)?;
         return Ok(response.refused(RefusalCode::NoEvidence, below_threshold_message(language)));
     }
-    answer_bundle(port, request, answerer, bundle).await
+    answer_bundle(port, request, answerer, bundle, relevance.prompt_version).await
 }
 
 /// Validates caller bounds without imposing language-detection rules.
@@ -141,11 +149,7 @@ fn validate_request(request: &AskRequest) -> Result<(), AskError> {
     if RouterEntry::parse(&request.model).is_err() {
         return Err(AskError::InvalidRequest("model must be one router entry"));
     }
-    if !(1..=50).contains(&request.budget.k)
-        || !(1..=12_000).contains(&request.budget.max_tokens)
-        || !(1..=10_000).contains(&request.budget.search_deadline_ms)
-        || !(1..=MAX_CHAT_OUTPUT_TOKENS).contains(&request.budget.output_tokens)
-    {
+    if !request.budget.is_within_limits() {
         return Err(AskError::InvalidRequest(
             "ask budget is outside accepted limits",
         ));
@@ -170,12 +174,14 @@ pub(super) fn request_budget(budget: AskBudget) -> RequestBudget {
     }
 }
 
-/// Runs answer generation over one already-verified evidence bundle.
+/// Runs answer generation over one already-verified evidence bundle, with
+/// the prompt of `prompt_version`.
 pub(super) async fn answer_bundle<P: ModelPort + Sync>(
     port: &P,
     request: &AskRequest,
     answerer: Option<&RegisteredAnswerer>,
     bundle: Bundle,
+    prompt_version: PromptVersion,
 ) -> Result<Answer, AskError> {
     validate_request(request)?;
     let language = response_language(request);
@@ -188,7 +194,7 @@ pub(super) async fn answer_bundle<P: ModelPort + Sync>(
     };
     check_answerer(request, answerer)?;
 
-    let mut messages = prompt(request, &bundle)?;
+    let mut messages = prompt(request, &bundle, prompt_version)?;
     let mut rejections = Vec::new();
     for attempt in 1..=2 {
         let chat = chat_request(request, answerer, messages.clone());

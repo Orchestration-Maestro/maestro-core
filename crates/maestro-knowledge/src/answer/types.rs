@@ -3,7 +3,7 @@
 use crate::search::{SearchContext, SearchError, evidence::EvidenceError};
 use maestro_kernel::{
     evidence::RouteStatus,
-    gateway::{Error as GatewayError, ModelCard},
+    gateway::{Error as GatewayError, MAX_CHAT_OUTPUT_TOKENS, ModelCard},
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -66,6 +66,43 @@ impl Default for AskBudget {
             max_tokens: 6000,
             search_deadline_ms: 6000,
             output_tokens: DEFAULT_OUTPUT_TOKENS,
+        }
+    }
+}
+
+impl AskBudget {
+    /// Whether every bound is within what `ask` accepts: 1 to 50 passages,
+    /// 1 to 12,000 evidence bytes, 1 to 10,000 ms of search and 1 to
+    /// [`MAX_CHAT_OUTPUT_TOKENS`] output tokens.
+    #[must_use]
+    pub fn is_within_limits(&self) -> bool {
+        (1..=50).contains(&self.k)
+            && (1..=12_000).contains(&self.max_tokens)
+            && (1..=10_000).contains(&self.search_deadline_ms)
+            && (1..=MAX_CHAT_OUTPUT_TOKENS).contains(&self.output_tokens)
+    }
+}
+
+/// The version of the answer prompt.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum PromptVersion {
+    /// The first prompt: a marker after each supported sentence.
+    #[default]
+    V1,
+    /// After each sentence, the passages that state it, the specific one
+    /// over a general one, and `NOT_FOUND` unless the passages answer
+    /// directly.
+    V2,
+}
+
+impl PromptVersion {
+    /// Its name, as manifests and reports write it.
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::V1 => "v1",
+            Self::V2 => "v2",
         }
     }
 }

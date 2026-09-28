@@ -139,7 +139,7 @@ fn an_asking_rung_without_an_answerer_card_is_refused_before_any_search() {
         ..FakeEngine::default()
     };
     let mut retrieval = rung("r0");
-    retrieval.ask = false;
+    retrieval.ask = None;
     let result = run_ladder(
         &mut engine,
         &suite(2, 1),
@@ -160,7 +160,7 @@ fn an_asking_rung_without_an_answerer_card_is_refused_before_any_search() {
 fn a_rung_that_does_not_ask_shows_its_ask_floors_not_run() {
     let mut engine = FakeEngine::default();
     let mut retrieval = rung("r0");
-    retrieval.ask = false;
+    retrieval.ask = None;
     let runs = run_ladder(&mut engine, &suite(2, 1), 1, &[retrieval], |_| Ok(())).unwrap();
 
     assert!(engine.questions("ask").is_empty());

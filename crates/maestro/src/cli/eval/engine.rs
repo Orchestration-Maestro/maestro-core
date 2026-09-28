@@ -4,7 +4,7 @@
 //! the reranker role, and used without being selected.
 
 use super::{
-    manifest::Rung,
+    manifest::{AskSettings, Rung},
     runner::{Engine, Provenance, SearchDiagnostic, Searched},
     stages::{StageFailure, stage_failure},
 };
@@ -22,8 +22,8 @@ use maestro_kernel::{
 };
 use maestro_knowledge::{
     answer::{
-        Answer, AnswerContext, AskBudget, AskError, AskRequest, DEFAULT_MODEL, RegisteredAnswerer,
-        ask_configured,
+        Answer, AnswerContext, AskBudget, AskError, AskRequest, DEFAULT_MODEL, PromptVersion,
+        RegisteredAnswerer, ask_configured,
     },
     eval::{AskOutcome, RunError, SearchOutcome, SectionRef, resolve_expected},
     index::Qdrant,
@@ -111,8 +111,12 @@ impl<'kernel> KernelEngine<'kernel> {
         let embedder = pinned_embedder(&kernel.artifacts, Some(&generation.embedding_profile));
         let reranker =
             candidate_reranker(kernel, &self.collection, rung.configuration.reranker()?)?;
-        let answerer = registered_answerer(kernel, &kernel.scopes, &self.ask_request(""))
-            .map_err(|_| Failure::failed("the answerer's card cannot be read"))?;
+        let answerer = registered_answerer(
+            kernel,
+            &kernel.scopes,
+            &self.ask_request("", AskBudget::default()),
+        )
+        .map_err(|_| Failure::failed("the answerer's card cannot be read"))?;
         Ok(Cards {
             generation,
             embedder,
@@ -122,15 +126,28 @@ impl<'kernel> KernelEngine<'kernel> {
     }
 
     /// The `ask` of `question` in the collection, with the default model and
-    /// budget.
-    fn ask_request(&self, question: &str) -> AskRequest {
+    /// `budget`.
+    fn ask_request(&self, question: &str, budget: AskBudget) -> AskRequest {
         AskRequest {
             collection: self.collection.clone(),
             question: question.to_owned(),
             model: DEFAULT_MODEL.to_owned(),
             version: None,
-            budget: AskBudget::default(),
+            budget,
         }
+    }
+
+    /// The `ask` of `question` under a rung's `settings`: its request, with
+    /// their budget, and their prompt.
+    pub(super) fn ask_call(
+        &self,
+        question: &str,
+        settings: AskSettings,
+    ) -> (AskRequest, PromptVersion) {
+        (
+            self.ask_request(question, settings.budget()),
+            settings.prompt,
+        )
     }
 
     /// The search context of the started rung's cards, none before a rung
@@ -231,7 +248,9 @@ impl Engine for KernelEngine<'_> {
     }
 
     fn ask(&self, rung: &Rung, question: &str) -> AskOutcome {
-        let (Some(search), Some(held)) = (self.search_context(), &self.held) else {
+        let (Some(search), Some(held), Some(settings)) =
+            (self.search_context(), &self.held, rung.ask)
+        else {
             return AskOutcome::Failed;
         };
         let context = AnswerContext {
@@ -239,11 +258,14 @@ impl Engine for KernelEngine<'_> {
             port: &self.port,
             answerer: held.cards.answerer.clone(),
         };
-        let request = self.ask_request(question);
+        let (request, prompt) = self.ask_call(question, settings);
         let configuration = rung.configuration.search();
-        let asked =
-            self.runtime
-                .block_on(Box::pin(ask_configured(&context, &request, configuration)));
+        let asked = self.runtime.block_on(Box::pin(ask_configured(
+            &context,
+            &request,
+            configuration,
+            prompt,
+        )));
         match asked {
             Ok(answer) => answer_outcome(
                 &answer,

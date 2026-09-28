@@ -6,6 +6,7 @@
 use super::{
     super::{
         engine::{KernelEngine, ask_failure, evidence_failure, search_failure},
+        manifest::AskSettings,
         runner::Engine as _,
         stages::StageFailure,
     },
@@ -17,7 +18,7 @@ use maestro_kernel::{
     retrieval,
 };
 use maestro_knowledge::{
-    answer::AskError,
+    answer::{AskBudget, AskError, AskRequest, DEFAULT_MODEL, PromptVersion},
     eval::{AskOutcome, SearchOutcome},
     index::Qdrant,
     search::{SearchError, evidence::EvidenceError, routes::error::RouteError},
@@ -64,6 +65,43 @@ fn the_engine_names_the_generation_chunk_set_and_every_card_and_sees_drift() {
     let end = engine.provenance(&candidate).unwrap();
     assert_eq!(end.answerer.as_deref(), Some(later.digest().as_str()));
     assert_ne!(end, start);
+}
+
+#[test]
+fn an_ask_carries_the_rungs_budget_and_prompt() {
+    let scratch = Scratch::new();
+    let kernel = scratch.kernel(None).unwrap();
+    let port = RouterClient::new(Url::parse(NOWHERE).unwrap()).unwrap();
+    let engine =
+        KernelEngine::new(&kernel, "collection", port, Qdrant::new(NOWHERE).unwrap()).unwrap();
+    let settings = AskSettings {
+        k: Some(8),
+        max_tokens: Some(9000),
+        output_tokens: Some(900),
+        prompt: PromptVersion::V2,
+    };
+
+    let (request, prompt) = engine.ask_call("question", settings);
+
+    assert_eq!(
+        request,
+        AskRequest {
+            collection: "collection".to_owned(),
+            question: "question".to_owned(),
+            model: DEFAULT_MODEL.to_owned(),
+            version: None,
+            budget: AskBudget {
+                k: 8,
+                max_tokens: 9000,
+                output_tokens: 900,
+                ..AskBudget::default()
+            },
+        }
+    );
+    assert_eq!(prompt, PromptVersion::V2);
+    let (default, v1) = engine.ask_call("question", AskSettings::default());
+    assert_eq!(default.budget, AskBudget::default());
+    assert_eq!(v1, PromptVersion::V1);
 }
 
 #[test]

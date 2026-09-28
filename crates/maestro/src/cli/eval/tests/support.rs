@@ -1,7 +1,7 @@
 //! A synthetic suite, rungs, and a fake engine that records what it is asked.
 
 use super::super::{
-    manifest::{Rerank, Routes, Rung, RungConfiguration, Weights},
+    manifest::{AskSettings, Rerank, Routes, Rung, RungConfiguration, Weights},
     runner::{Engine, Provenance, SearchDiagnostic, Searched},
 };
 use crate::failure::Failure;
@@ -72,7 +72,7 @@ pub(super) fn rung(name: &str) -> Rung {
             }),
             min_rerank_score: None,
         },
-        ask: true,
+        ask: Some(AskSettings::default()),
     }
 }
 

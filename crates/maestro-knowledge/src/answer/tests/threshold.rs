@@ -28,6 +28,7 @@ const fn relevance(min_rerank_score: Option<f32>, top_rerank_score: Option<f64>)
     Relevance {
         min_rerank_score,
         top_rerank_score,
+        prompt_version: PromptVersion::V1,
     }
 }
 

@@ -5,12 +5,16 @@
 use super::{
     super::{
         comparison::Comparison,
+        manifest::AskSettings,
         runner::{RungRun, run_ladder},
     },
     reports::{BINARY, runs, to_json},
     support::{FakeEngine, RERANKER, rung, suite},
 };
-use maestro_knowledge::eval::{Measure, score_ladder};
+use maestro_knowledge::{
+    answer::PromptVersion,
+    eval::{Measure, score_ladder},
+};
 use serde_json::{Value, json};
 use std::time::Duration;
 
@@ -76,12 +80,45 @@ fn the_comparison_names_the_provenance_of_every_rung() {
     let answerer = "a".repeat(64);
     assert!(markdown.contains(&format!(
         "- `r0`: generation 0, chunk set chunk-set, embedder card {embedder}, reranker card \
-         {RERANKER}, answerer card {answerer}\n"
+         {RERANKER}, answerer card {answerer}; ask: 5 passages, 6000 evidence bytes, 700 \
+         output tokens, prompt v1\n"
     )));
     assert!(markdown.contains(&format!(
         "- `r1`: generation 0, chunk set chunk-set, embedder card {embedder}, reranker card \
-         none, answerer card {answerer}\n"
+         none, answerer card {answerer}; ask: 5 passages, 6000 evidence bytes, 700 output \
+         tokens, prompt v1\n"
     )));
+}
+
+#[test]
+fn the_comparison_names_each_rungs_ask_settings() {
+    let mut runs = runs();
+    runs[0].rung.ask = None;
+    runs[1].rung.ask = Some(AskSettings {
+        k: Some(8),
+        max_tokens: Some(9000),
+        output_tokens: Some(900),
+        prompt: PromptVersion::V2,
+    });
+    let suite = suite(2, 1);
+    let comparison = Comparison::new(&runs, "docs", &suite.digest, BINARY);
+    let json = to_json(&comparison);
+
+    assert_eq!(json["rungs"][0]["ask_settings"], Value::Null);
+    assert_eq!(
+        json["rungs"][1]["ask_settings"],
+        json!({"k": 8, "max_tokens": 9000, "output_tokens": 900, "prompt": "v2"})
+    );
+    let markdown = comparison.to_markdown();
+    let embedder = "e".repeat(64);
+    let answerer = "a".repeat(64);
+    assert!(markdown.contains(&format!(
+        "- `r0`: generation 0, chunk set chunk-set, embedder card {embedder}, reranker card \
+         {RERANKER}, answerer card {answerer}; no ask\n"
+    )));
+    assert!(
+        markdown.contains("; ask: 8 passages, 9000 evidence bytes, 900 output tokens, prompt v2\n")
+    );
 }
 
 #[test]
@@ -141,7 +178,7 @@ fn a_rung_on_another_generation_is_invalid_and_has_no_change() {
 fn a_rung_that_does_not_ask_shows_not_run_and_no_change() {
     let mut engine = FakeEngine::default();
     let mut retrieval = rung("r1");
-    retrieval.ask = false;
+    retrieval.ask = None;
     let runs = run_ladder(
         &mut engine,
         &suite(2, 1),

@@ -9,7 +9,15 @@ type BoundCase = (fn(&mut AskRequest), Option<&'static str>);
 /// the request passes its bounds and reaches the empty-bundle refusal.
 async fn bound_error(request: &AskRequest) -> Option<String> {
     let port = ScriptedPort::new(&[]);
-    match answer_bundle(&port, request, None, empty_bundle(&request.question)).await {
+    match answer_bundle(
+        &port,
+        request,
+        None,
+        empty_bundle(&request.question),
+        PromptVersion::V1,
+    )
+    .await
+    {
         Ok(answer) => {
             assert_eq!(
                 answer.refusal.expect("refusal").code,
@@ -66,6 +74,30 @@ async fn request_bounds_accept_their_limits_and_refuse_one_past_them() {
     }
 }
 
+#[test]
+fn an_ask_budget_is_within_limits_up_to_each_bound_and_not_past_it() {
+    let at_bounds = AskBudget {
+        k: 50,
+        max_tokens: 12_000,
+        search_deadline_ms: 10_000,
+        output_tokens: 1024,
+    };
+    let past: [fn(&mut AskBudget); 4] = [
+        |budget| budget.k = 51,
+        |budget| budget.max_tokens = 12_001,
+        |budget| budget.search_deadline_ms = 10_001,
+        |budget| budget.output_tokens = 1025,
+    ];
+
+    assert!(AskBudget::default().is_within_limits());
+    assert!(at_bounds.is_within_limits());
+    for (index, change) in past.into_iter().enumerate() {
+        let mut budget = at_bounds;
+        change(&mut budget);
+        assert!(!budget.is_within_limits(), "case {index}");
+    }
+}
+
 /// The outcome of one ask whose answerer card allows `limit` output tokens.
 async fn answerer_outcome(model: &str, output_tokens: u32, limit: u32) -> Result<(), String> {
     let scratch = Scratch::new();
@@ -79,10 +111,16 @@ async fn answerer_outcome(model: &str, output_tokens: u32, limit: u32) -> Result
         "en",
         "The service uses verified instructions.",
     );
-    answer_bundle(&port, &request, Some(&answerer), evidence)
-        .await
-        .map(|answer| assert!(answer.refusal.is_none()))
-        .map_err(|error| error.to_string())
+    answer_bundle(
+        &port,
+        &request,
+        Some(&answerer),
+        evidence,
+        PromptVersion::V1,
+    )
+    .await
+    .map(|answer| assert!(answer.refusal.is_none()))
+    .map_err(|error| error.to_string())
 }
 
 #[tokio::test]
@@ -113,9 +151,15 @@ async fn the_retry_carries_the_rejected_reply_and_its_repair_code() {
     );
     let port = ScriptedPort::new(&["[1]", "The service uses verified instructions. [1]"]);
 
-    answer_bundle(&port, &request, Some(&answerer), evidence)
-        .await
-        .expect("answer after one repair");
+    answer_bundle(
+        &port,
+        &request,
+        Some(&answerer),
+        evidence,
+        PromptVersion::V1,
+    )
+    .await
+    .expect("answer after one repair");
 
     let calls = port.chat_calls.lock().expect("chat-call lock");
     let (first, retry) = (&calls[0].2.messages, &calls[1].2.messages);
@@ -149,6 +193,7 @@ async fn the_answer_language_follows_the_question() {
             &request,
             None,
             empty_bundle(question),
+            PromptVersion::V1,
         )
         .await
         .expect("no-evidence refusal");

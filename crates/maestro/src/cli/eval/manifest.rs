@@ -1,12 +1,16 @@
 //! The ladder's manifest, `maestro-ladder-manifest/1`: the suite, the
 //! collection, the warm-ups, the output directory and the rungs, each a named
-//! search configuration and whether `ask` runs. It is private: it names the
+//! search configuration and whether `ask` runs, with which settings. It is private: it names the
 //! owner's files. Relative paths resolve from the manifest's directory.
 
 use crate::failure::Failure;
 use maestro_kernel::artifact::Digest;
-use maestro_knowledge::search::SearchConfiguration;
-use serde::{Deserialize, Serialize};
+use maestro_knowledge::{
+    answer::{AskBudget, PromptVersion},
+    search::SearchConfiguration,
+};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
+use serde_json::Value;
 use std::{
     collections::BTreeSet,
     fs,
@@ -48,8 +52,67 @@ pub(super) struct Rung {
     pub(super) name: String,
     /// How its searches, and the searches of its asks, run.
     pub(super) configuration: RungConfiguration,
-    /// Whether each question also runs through `ask`.
-    pub(super) ask: bool,
+    /// How each question also runs through `ask`; `None` when it does not.
+    /// The manifest writes `false`, `true` for the default settings, or the
+    /// settings.
+    #[serde(serialize_with = "write_ask", deserialize_with = "read_ask")]
+    pub(super) ask: Option<AskSettings>,
+}
+
+/// A rung's `ask` settings; each one absent is `ask`'s default.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(default, deny_unknown_fields)]
+#[expect(
+    clippy::min_ident_chars,
+    reason = "ask's budget names this limit k, as the manifest does"
+)]
+pub(super) struct AskSettings {
+    /// The passages given to the answerer.
+    pub(super) k: Option<u32>,
+    /// The evidence budget, in UTF-8 bytes.
+    pub(super) max_tokens: Option<u32>,
+    /// The most tokens each answerer reply generates.
+    pub(super) output_tokens: Option<u32>,
+    /// The answer prompt.
+    pub(super) prompt: PromptVersion,
+}
+
+impl AskSettings {
+    /// The budget `ask` runs under: [`AskBudget::default`] with these
+    /// settings.
+    pub(super) fn budget(&self) -> AskBudget {
+        let default = AskBudget::default();
+        AskBudget {
+            k: self.k.unwrap_or(default.k),
+            max_tokens: self.max_tokens.unwrap_or(default.max_tokens),
+            output_tokens: self.output_tokens.unwrap_or(default.output_tokens),
+            ..default
+        }
+    }
+}
+
+/// Reads a rung's `ask`: `false`, `true` for the default settings, or its
+/// settings.
+fn read_ask<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<AskSettings>, D::Error> {
+    match Value::deserialize(deserializer)? {
+        Value::Bool(asks) => Ok(asks.then(AskSettings::default)),
+        value => AskSettings::deserialize(value)
+            .map(Some)
+            .map_err(de::Error::custom),
+    }
+}
+
+/// Writes a rung's `ask` as [`read_ask`] reads it.
+#[expect(
+    clippy::ref_option,
+    reason = "serde's `serialize_with` passes the field by reference"
+)]
+fn write_ask<S: Serializer>(ask: &Option<AskSettings>, serializer: S) -> Result<S::Ok, S::Error> {
+    match ask {
+        None => serializer.serialize_bool(false),
+        Some(settings) if *settings == AskSettings::default() => serializer.serialize_bool(true),
+        Some(settings) => settings.serialize(serializer),
+    }
 }
 
 /// A rung's search configuration, as the manifest writes it.
@@ -254,6 +317,15 @@ fn check_rung(rung: &Rung) -> Result<(), Failure> {
     {
         return Err(Failure::refused(format!(
             "the rung `{}` reranks more than {MAX_RERANK_DEPTH} candidates",
+            rung.name
+        )));
+    }
+    if rung
+        .ask
+        .is_some_and(|settings| !settings.budget().is_within_limits())
+    {
+        return Err(Failure::refused(format!(
+            "the rung `{}` has ask settings outside ask's limits",
             rung.name
         )));
     }

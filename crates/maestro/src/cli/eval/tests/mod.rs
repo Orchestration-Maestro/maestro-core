@@ -1,6 +1,7 @@
 //! Tests of the ladder command: its manifest, its run over a fake engine, its
 //! reports, and the engine's pieces that need no search service.
 
+mod ask_settings;
 mod comparison;
 mod engine;
 mod kernel_engine;

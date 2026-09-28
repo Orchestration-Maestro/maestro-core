@@ -5,7 +5,8 @@ use super::models;
 use maestro_kernel::gateway::Role;
 use maestro_knowledge::{
     answer::{
-        AnswerContext, AskBudget, AskRequest, DEFAULT_MODEL, RefusalCode, ask, ask_configured,
+        AnswerContext, AskBudget, AskRequest, DEFAULT_MODEL, PromptVersion, RefusalCode, ask,
+        ask_configured,
     },
     search::SearchConfiguration,
 };
@@ -37,9 +38,14 @@ async fn ask_runs_its_search_with_the_given_configuration() {
     };
 
     let before = fixture.port.calls().len();
-    let answer = Box::pin(ask_configured(&answer_context, &request, lexical_only))
-        .await
-        .unwrap();
+    let answer = Box::pin(ask_configured(
+        &answer_context,
+        &request,
+        lexical_only,
+        PromptVersion::V2,
+    ))
+    .await
+    .unwrap();
     assert_eq!(fixture.port.calls().len(), before);
     assert_eq!(
         answer.refusal.map(|refusal| refusal.code),
@@ -87,11 +93,16 @@ async fn ask_refuses_below_the_relevance_threshold_only_when_rerank_ran() {
         let answer_context = &answer_context;
         let request = &request;
         async move {
-            Box::pin(ask_configured(answer_context, request, configuration))
-                .await
-                .unwrap()
-                .refusal
-                .map(|refusal| (refusal.code, refusal.message))
+            Box::pin(ask_configured(
+                answer_context,
+                request,
+                configuration,
+                PromptVersion::V1,
+            ))
+            .await
+            .unwrap()
+            .refusal
+            .map(|refusal| (refusal.code, refusal.message))
         }
     };
 

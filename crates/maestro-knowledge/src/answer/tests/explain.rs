@@ -15,9 +15,15 @@ async fn each_rejected_attempt_is_explained_but_never_serialized() {
         "Run `maestro collection remove --all` to remove every source. [1]",
     ]);
 
-    let answer = answer_bundle(&port, &request, Some(&answerer), evidence)
-        .await
-        .expect("safe unsupported refusal");
+    let answer = answer_bundle(
+        &port,
+        &request,
+        Some(&answerer),
+        evidence,
+        PromptVersion::V1,
+    )
+    .await
+    .expect("safe unsupported refusal");
 
     assert_eq!(
         answer.rejections,
@@ -59,9 +65,15 @@ async fn an_answer_after_a_rejected_attempt_keeps_its_explanation() {
         Ok("Run `maestro knowledge collections` to see registered sources [1].".to_owned()),
     ]);
 
-    let answer = answer_bundle(&port, &request, Some(&answerer), evidence)
-        .await
-        .expect("answer");
+    let answer = answer_bundle(
+        &port,
+        &request,
+        Some(&answerer),
+        evidence,
+        PromptVersion::V1,
+    )
+    .await
+    .expect("answer");
 
     assert!(answer.refusal.is_none());
     assert_eq!(
@@ -78,7 +90,7 @@ async fn an_answer_after_a_rejected_attempt_keeps_its_explanation() {
 fn the_prompt_asks_for_sentences_not_a_bare_marker() {
     let request = request("How do I list the registered sources?");
     let evidence = bundle(&request.question, "en", "Sources are listed.");
-    let messages = prompt(&request, &evidence).expect("bounded prompt");
+    let messages = prompt(&request, &evidence, PromptVersion::V1).expect("bounded prompt");
 
     assert!(
         messages[0]

@@ -196,7 +196,7 @@ fn check_cards(rung: &Rung, provenance: &Provenance) -> Result<(), Failure> {
             rung.name
         )));
     }
-    if rung.ask && provenance.answerer.is_none() {
+    if rung.ask.is_some() && provenance.answerer.is_none() {
         return Err(Failure::refused(format!(
             "the rung `{}` asks, but the collection has no registered answerer card",
             rung.name
@@ -216,7 +216,7 @@ fn run_rung(
     let (start, expected) = engine.start(rung, suite)?;
     for question in suite.questions.iter().take(warm_ups) {
         engine.search(rung, &question.question);
-        if rung.ask {
+        if rung.ask.is_some() {
             engine.ask(rung, &question.question);
         }
     }
@@ -230,7 +230,7 @@ fn run_rung(
                 outcome: searched.outcome,
                 elapsed,
             };
-            let (outcome, elapsed) = if rung.ask {
+            let (outcome, elapsed) = if rung.ask.is_some() {
                 timed(|| engine.ask(rung, &question.question))
             } else {
                 (AskOutcome::Failed, Duration::ZERO)
@@ -246,7 +246,7 @@ fn run_rung(
         .unzip();
     let end = engine.provenance(rung)?;
     let score = score_ladder(suite, &rows);
-    let score = if rung.ask {
+    let score = if rung.ask.is_some() {
         score
     } else {
         score.without_asks()

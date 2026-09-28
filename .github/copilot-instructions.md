@@ -62,6 +62,7 @@ in place.
 │   │   │   │   │   └── tests.rs                                             # Rust source: tests
 │   │   │   │   ├── eval/                                                    # maestro eval ladder: the M1 ladder, every question of a suite searched
 │   │   │   │   │   ├── tests/                                               # Tests of the ladder command: its manifest, its run over a fake engine, its
+│   │   │   │   │   │   ├── ask_settings.rs                                  # A rung's ask: true asks as ask does by default, false does not
 │   │   │   │   │   │   ├── comparison.rs                                    # The comparison across rungs: each floor per rung and its change, the
 │   │   │   │   │   │   ├── engine.rs                                        # The engine's pieces that need no search service: a rung's reranker taken
 │   │   │   │   │   │   ├── kernel_engine.rs                                 # The engine on a real kernel, with the router and the search service
@@ -622,6 +623,7 @@ in place.
 │       │   │   ├── tests/                                                   # Integration tests
 │       │   │   │   ├── explain.rs                                           # Rust source: explain
 │       │   │   │   ├── guardrails.rs                                        # Rust source: guardrails
+│       │   │   │   ├── prompts.rs                                           # The prompt versions: v1 stays today's text, v2 asks for every supporting
 │       │   │   │   ├── requests.rs                                          # Rust source: requests
 │       │   │   │   └── threshold.rs                                         # The reranker relevance threshold: below it, ask refuses without chat
 │       │   │   ├── validate/                                                # Deterministic support checks for buffered answerer replies

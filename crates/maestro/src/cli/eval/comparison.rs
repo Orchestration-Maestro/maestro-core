@@ -1,10 +1,10 @@
 //! The comparison across a ladder's rungs, `maestro-eval-ladder-comparison/1`,
 //! in JSON and Markdown: each floor per rung and its change from the rung
-//! before, with the provenance every rung report names. No change is computed
+//! before, with the provenance and ask settings every rung report names. No change is computed
 //! to or from an INVALID rung, and a floor a rung did not run shows "not run".
 
 use super::{
-    reports::{Binary, write},
+    reports::{AskReport, Binary, write},
     runner::{Provenance, RungRun, Verdict},
 };
 use crate::failure::Failure;
@@ -42,6 +42,8 @@ struct ComparedRung<'run> {
     provenance: &'run Provenance,
     /// What it ran against at its end.
     end: &'run Provenance,
+    /// The settings its asks ran with, absent when it did not ask.
+    ask_settings: Option<AskReport>,
     /// Each floor, and its change from the previous rung.
     floors: Vec<ComparedFloor>,
     /// Its supported answers, absent when it did not ask.
@@ -109,7 +111,11 @@ impl<'run> Comparison<'run> {
                     }
                 })
                 .collect();
-            let supported_answers = run.rung.ask.then_some(run.score.supported_answers);
+            let supported_answers = run
+                .rung
+                .ask
+                .is_some()
+                .then_some(run.score.supported_answers);
             let before = previous
                 .filter(|rung| rung.verdict != Verdict::Invalid)
                 .and_then(|rung| rung.supported_answers);
@@ -118,6 +124,7 @@ impl<'run> Comparison<'run> {
                 verdict,
                 provenance: &run.start,
                 end: &run.end,
+                ask_settings: run.rung.ask.as_ref().map(AskReport::new),
                 floors,
                 supported_answers,
                 supported_change: supported_answers
@@ -169,13 +176,17 @@ impl<'run> Comparison<'run> {
             let _ = writeln!(
                 table,
                 "- `{}`: generation {}, chunk set {}, embedder card {}, reranker card {}, \
-                 answerer card {}{}",
+                 answerer card {}; {}{}",
                 rung.rung,
                 start.generation,
                 start.chunk_set,
                 card(start.embedder.as_deref()),
                 card(start.reranker.as_deref()),
                 card(start.answerer.as_deref()),
+                rung.ask_settings.as_ref().map_or_else(
+                    || "no ask".to_owned(),
+                    |settings| format!("ask: {}", settings.describe())
+                ),
                 if start == rung.end {
                     ""
                 } else {

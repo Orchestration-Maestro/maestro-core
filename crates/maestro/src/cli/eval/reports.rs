@@ -3,13 +3,13 @@
 //! question's or an answer's text; the public files hold no row either.
 
 use super::{
-    manifest::RungConfiguration,
+    manifest::{AskSettings, RungConfiguration},
     runner::{Provenance, RungRun, SearchDiagnostic, Verdict},
 };
 use crate::failure::Failure;
 use maestro_kernel::artifact::Digest;
 use maestro_knowledge::{
-    answer::RefusalCode,
+    answer::{PromptVersion, RefusalCode},
     eval::{AskOutcome, LadderQuestion, LadderScore, SearchOutcome},
 };
 use serde::Serialize;
@@ -51,6 +51,8 @@ pub(super) struct RungReport<'run> {
     verdict: Verdict,
     /// Whether it asked.
     ask: bool,
+    /// The settings its asks ran with, absent when it did not ask.
+    ask_settings: Option<AskReport>,
     /// The questions it ran first, unscored.
     warm_ups: usize,
     /// The collection it searched.
@@ -84,7 +86,8 @@ impl<'run> RungReport<'run> {
             schema: RUNG_SCHEMA,
             rung: &run.rung.name,
             verdict: run.verdict(),
-            ask: run.rung.ask,
+            ask: run.rung.ask.is_some(),
+            ask_settings: run.rung.ask.as_ref().map(AskReport::new),
             warm_ups: run.warm_ups,
             collection,
             provenance: &run.start,
@@ -125,6 +128,9 @@ impl<'run> RungReport<'run> {
                 "citation of that revision."
             )
         );
+        if let Some(settings) = &self.ask_settings {
+            let _ = writeln!(text, "- Ask settings: {}", settings.describe());
+        }
         let _ = writeln!(text, "- Warm-ups: {}", self.warm_ups);
         let _ = writeln!(text, "- Suite digest: {}", self.suite_digest);
         let _ = writeln!(
@@ -142,6 +148,48 @@ impl<'run> RungReport<'run> {
         text.push('\n');
         text.push_str(&self.score.to_markdown());
         text
+    }
+}
+
+/// The settings a rung's asks ran with, each resolved.
+#[derive(Debug, Serialize)]
+#[expect(
+    clippy::min_ident_chars,
+    reason = "ask's budget names this limit k, as the manifest does"
+)]
+pub(super) struct AskReport {
+    /// The passages given to the answerer.
+    k: u32,
+    /// The evidence budget, in UTF-8 bytes.
+    max_tokens: u32,
+    /// The most tokens each answerer reply generates.
+    output_tokens: u32,
+    /// The answer prompt.
+    prompt: PromptVersion,
+}
+
+impl AskReport {
+    /// The resolved `settings`.
+    pub(super) fn new(settings: &AskSettings) -> Self {
+        let budget = settings.budget();
+        Self {
+            k: budget.k,
+            max_tokens: budget.max_tokens,
+            output_tokens: budget.output_tokens,
+            prompt: settings.prompt,
+        }
+    }
+
+    /// The settings in words: passages, evidence bytes, output tokens and
+    /// prompt.
+    pub(super) fn describe(&self) -> String {
+        format!(
+            "{} passages, {} evidence bytes, {} output tokens, prompt {}",
+            self.k,
+            self.max_tokens,
+            self.output_tokens,
+            self.prompt.name()
+        )
     }
 }
 
@@ -260,7 +308,7 @@ pub(super) fn write_rung(
     fs::create_dir_all(&private).map_err(|error| Failure::failed_by(&error))?;
     let mut rows = String::new();
     for (row, diagnostic) in run.rows.iter().zip(&run.diagnostics) {
-        let line = serde_json::to_string(&PrivateRow::new(row, diagnostic, run.rung.ask))
+        let line = serde_json::to_string(&PrivateRow::new(row, diagnostic, run.rung.ask.is_some()))
             .map_err(|error| Failure::failed_by(&error))?;
         rows.push_str(&line);
         rows.push('\n');
