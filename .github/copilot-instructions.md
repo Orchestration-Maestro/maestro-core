@@ -43,6 +43,7 @@ in place.
 │   ├── workflows/                                                           # GitHub Actions workflows
 │   │   ├── dependabot-auto-merge.yml                                        # Dependabot auto-merge
 │   │   ├── event-schemas.yml                                                # Released event schema compatibility
+│   │   ├── g25-portability.yml                                              # G25 portability legs (temporary)
 │   │   ├── integration.yml                                                  # Qdrant integration: the projection's tests against a Qdrant 1.19 image pinned by digest
 │   │   └── scorecard.yml                                                    # OpenSSF Scorecard
 │   ├── CODEOWNERS                                                           # Who reviews each path
