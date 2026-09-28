@@ -11,7 +11,7 @@ mod types;
 /// Check citations, language and supported literals in a buffered reply.
 mod validate;
 
-pub use generate::ask;
+pub use generate::{ask, ask_configured};
 pub use types::{
     Answer, AnswerCitation, AnswerContext, AnswerModel, AnswerRefusal, AskBudget, AskError,
     AskRequest, CHAT_DEADLINE, DEFAULT_MODEL, RefusalCode, RegisteredAnswerer, Rejection,

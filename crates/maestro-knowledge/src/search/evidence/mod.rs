@@ -4,6 +4,8 @@
 mod assemble;
 /// Counts compact serialized passages with the selected counter.
 mod budget;
+/// Finds the documents of a chunk set by `source_ref`.
+mod chunk_set_documents;
 /// Detects explicit structured disagreements in candidate tables.
 pub(super) mod conflicts;
 /// Shares manifest-authorized identity and section occurrence across helpers.
@@ -31,5 +33,6 @@ mod types;
 mod versions;
 
 pub use assemble::deadline::assemble_evidence;
+pub use chunk_set_documents::ChunkSetDocuments;
 pub use section_reader::{SectionExcerpt, SectionReadError, read_section};
 pub use types::{EvidenceCounter, EvidenceError};

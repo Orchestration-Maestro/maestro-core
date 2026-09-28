@@ -38,8 +38,9 @@
 //! answered with a right citation and no invented literal, the false
 //! refusals, and the failed searches and asks.
 
-use super::bootstrap::percentile;
+use super::{bootstrap::percentile, error::RunError, run::resolve};
 use crate::{answer::RefusalCode, suite::Suite};
+use maestro_canonicalization::CanonicalDocument;
 use serde::Serialize;
 use std::{
     collections::{BTreeMap, BTreeSet, btree_map::Entry},
@@ -213,6 +214,11 @@ pub enum Measure {
         /// The most the p95 may be, in microseconds.
         limit_us: u64,
     },
+    /// Nothing: the operation it measures did not run.
+    NotRun {
+        /// Always false.
+        ran: bool,
+    },
 }
 
 /// A floor, what it measured and whether it holds.
@@ -245,8 +251,10 @@ pub struct LadderScore {
     pub false_refusals: usize,
     /// The questions whose search failed, timed out or has no row.
     pub failed_searches: usize,
+    /// Whether `ask` ran; when it did not, its floors are not run.
+    pub asked: bool,
     /// The questions whose `ask` failed, timed out, found no answerer or has
-    /// no row.
+    /// no row; 0 when `ask` did not run.
     pub failed_asks: usize,
     /// The questions without a row.
     pub missing: usize,
@@ -271,6 +279,31 @@ pub const ANSWERED_PERCENT: usize = 80;
 const SEARCH_P95_LIMIT: Duration = Duration::from_millis(1500);
 /// The most the p95 of `ask` may be.
 const ASK_P95_LIMIT: Duration = Duration::from_secs(10);
+
+/// The sections and documents each question of `suite` expects, in the
+/// suite's order, resolved in the canonical documents `documents` gives by
+/// `source_ref`, as [`run()`](super::run()) resolves them.
+///
+/// # Errors
+///
+/// The errors of [`run()`](super::run()) before any retrieval.
+pub fn resolve_expected<E>(
+    suite: &Suite,
+    mut documents: impl FnMut(&str) -> Result<Option<CanonicalDocument>, E>,
+) -> Result<Vec<Vec<SectionRef>>, RunError<E>> {
+    Ok(resolve(suite, &mut documents)?
+        .into_iter()
+        .map(|expected| {
+            expected
+                .into_iter()
+                .map(|item| SectionRef {
+                    document_id: item.document_id,
+                    section_id: item.section_id,
+                })
+                .collect()
+        })
+        .collect())
+}
 
 /// One question of the suite and its row, if any.
 #[derive(Debug, Clone, Copy)]
@@ -364,9 +397,38 @@ pub fn score_ladder(suite: &Suite, rows: &[LadderQuestion]) -> LadderScore {
         answerable: answerable.len(),
         false_refusals: count(&answerable, Scored::refused),
         failed_searches: count(&entries, Scored::search_failed),
+        asked: true,
         failed_asks: count(&entries, Scored::ask_failed),
         missing: count(&entries, |entry| entry.row.is_none()),
         rejected_ids,
+    }
+}
+
+/// The floors `ask` measures.
+const ASK_FLOORS: [Floor; 5] = [
+    Floor::Refused,
+    Floor::Citation,
+    Floor::Answered,
+    Floor::Literals,
+    Floor::AskP95,
+];
+
+impl LadderScore {
+    /// The score of a configuration that ran search alone: every floor
+    /// `ask` measures is not run, so the score cannot pass, and no `ask`
+    /// counts as failed.
+    #[must_use]
+    pub fn without_asks(mut self) -> Self {
+        for result in &mut self.floors {
+            if ASK_FLOORS.contains(&result.floor) {
+                result.status = FloorStatus::Unavailable;
+                result.measure = Measure::NotRun { ran: false };
+            }
+        }
+        self.passed = false;
+        self.asked = false;
+        self.failed_asks = 0;
+        self
     }
 }
 

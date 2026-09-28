@@ -131,7 +131,7 @@ pub(super) fn count(score: &LadderScore, which: Floor) -> (usize, usize, FloorSt
             answers,
             result.status,
         ),
-        Measure::Latency { .. } => panic!("{which:?} is a share"),
+        Measure::Latency { .. } | Measure::NotRun { .. } => panic!("{which:?} is a share"),
     }
 }
 

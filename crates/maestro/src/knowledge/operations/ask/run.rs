@@ -103,7 +103,7 @@ fn reranker_card(
 }
 
 /// Resolves the latest registered answerer with the requested router entry.
-pub(super) fn registered_answerer(
+pub(crate) fn registered_answerer(
     kernel: &Kernel,
     scopes: &ScopeSet,
     request: &AskRequest,

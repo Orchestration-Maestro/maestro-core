@@ -1,0 +1,223 @@
+//! A synthetic suite, rungs, and a fake engine that records what it is asked.
+
+use super::super::{
+    manifest::{Rerank, Routes, Rung, RungConfiguration, Weights},
+    runner::{Engine, Provenance, Searched},
+};
+use crate::failure::Failure;
+use maestro_knowledge::{
+    answer::RefusalCode,
+    eval::{AskOutcome, SearchOutcome, SectionRef},
+    search::SearchConfiguration,
+    suite::Suite,
+};
+use serde_json::json;
+use std::{
+    cell::{Cell, RefCell},
+    num::{NonZeroU32, NonZeroUsize},
+};
+
+/// A reranker card digest.
+pub(super) const RERANKER: &str =
+    "1111111111111111111111111111111111111111111111111111111111111111";
+
+/// A suite of `answerable` answerable questions, `a0`, `a1`..., then
+/// `unanswerable` unanswerable ones, `u0`, `u1`...
+pub(super) fn suite(answerable: usize, unanswerable: usize) -> Suite {
+    let answerable = (0..answerable).map(|index| {
+        json!({
+            "schema": "maestro-suite/1", "id": format!("a{index}"), "language": "en",
+            "question": format!("What is secret {index}?"), "answerable": true,
+            "expected": [{"source_ref": format!("doc:a{index}"), "heading_path": ["Title"]}],
+        })
+    });
+    let unanswerable = (0..unanswerable).map(|index| {
+        json!({
+            "schema": "maestro-suite/1", "id": format!("u{index}"), "language": "fr",
+            "question": format!("Quel est le secret {index} ?"), "answerable": false,
+            "expected": [],
+        })
+    });
+    answerable
+        .chain(unanswerable)
+        .map(|line| line.to_string())
+        .collect::<Vec<_>>()
+        .join("\n")
+        .parse()
+        .unwrap()
+}
+
+/// A rung named `name` that runs every route, reranks with [`RERANKER`] and
+/// asks.
+pub(super) fn rung(name: &str) -> Rung {
+    Rung {
+        name: name.to_owned(),
+        configuration: RungConfiguration {
+            routes: Routes {
+                dense: true,
+                lexical: true,
+                identifier: true,
+                structured: false,
+            },
+            rrf_k: NonZeroU32::new(20).unwrap(),
+            weights: Weights {
+                dense: 2.0,
+                lexical: 1.0,
+                identifier: 1.0,
+                structured: 1.0,
+            },
+            rerank: Some(Rerank {
+                card: RERANKER.to_owned(),
+                depth: NonZeroUsize::new(30).unwrap(),
+            }),
+        },
+        ask: true,
+    }
+}
+
+/// One call to the fake engine.
+#[derive(Debug, Clone, PartialEq)]
+pub(super) struct Call {
+    /// `search` or `ask`.
+    pub(super) operation: &'static str,
+    /// The rung's name.
+    pub(super) rung: String,
+    /// The question.
+    pub(super) question: String,
+    /// The configuration it ran under.
+    pub(super) configuration: SearchConfiguration,
+}
+
+/// An engine whose searches rank each answerable question's document first
+/// and whose asks cite its section and refuse the others.
+#[derive(Debug, Default)]
+pub(super) struct FakeEngine {
+    /// Every search and ask, in order.
+    pub(super) calls: RefCell<Vec<Call>>,
+    /// The published generation.
+    pub(super) generation: Cell<i64>,
+    /// After this many searches, the generation changes.
+    pub(super) drift_after: Option<usize>,
+    /// The rung whose cards cannot run.
+    pub(super) refused_rung: Option<String>,
+    /// The rung at whose start the generation changes.
+    pub(super) drift_at_start_of: Option<String>,
+    /// Whether the generation has no embedder card.
+    pub(super) no_embedder: bool,
+    /// Whether each search ranks the right document 7th, and its evidence
+    /// holds 3 other documents only.
+    pub(super) right_document_at_7: bool,
+    /// Whether the collection has no answerer card.
+    pub(super) no_answerer: bool,
+}
+
+impl FakeEngine {
+    /// The questions of the calls of `operation`, in order.
+    pub(super) fn questions(&self, operation: &str) -> Vec<String> {
+        self.calls
+            .borrow()
+            .iter()
+            .filter(|call| call.operation == operation)
+            .map(|call| call.question.clone())
+            .collect()
+    }
+
+    /// Records a call.
+    fn record(&self, operation: &'static str, rung: &Rung, question: &str) {
+        self.calls.borrow_mut().push(Call {
+            operation,
+            rung: rung.name.clone(),
+            question: question.to_owned(),
+            configuration: rung.configuration.search(),
+        });
+    }
+}
+
+/// The index of an answerable question from its text, if it is one.
+fn answerable_index(question: &str) -> Option<String> {
+    question
+        .strip_prefix("What is secret ")
+        .and_then(|rest| rest.strip_suffix('?'))
+        .map(str::to_owned)
+}
+
+impl Engine for FakeEngine {
+    fn provenance(&self, rung: &Rung) -> Result<Provenance, Failure> {
+        if self.refused_rung.as_deref() == Some(rung.name.as_str()) {
+            return Err(Failure::refused("the reranker card is not registered"));
+        }
+        Ok(Provenance {
+            generation: self.generation.get(),
+            chunk_set: "chunk-set".to_owned(),
+            embedder: (!self.no_embedder).then(|| "e".repeat(64)),
+            reranker: rung
+                .configuration
+                .rerank
+                .as_ref()
+                .map(|rerank| rerank.card.clone()),
+            answerer: (!self.no_answerer).then(|| "a".repeat(64)),
+        })
+    }
+
+    fn start(
+        &mut self,
+        rung: &Rung,
+        suite: &Suite,
+    ) -> Result<(Provenance, Vec<Vec<SectionRef>>), Failure> {
+        if self.drift_at_start_of.as_deref() == Some(rung.name.as_str()) {
+            self.generation.set(self.generation.get() + 1);
+        }
+        let expected = suite
+            .questions
+            .iter()
+            .map(|question| {
+                if question.answerable {
+                    vec![SectionRef::section(
+                        &format!("doc-{}", question.id),
+                        &format!("section-{}", question.id),
+                    )]
+                } else {
+                    Vec::new()
+                }
+            })
+            .collect();
+        Ok((self.provenance(rung)?, expected))
+    }
+
+    fn search(&self, rung: &Rung, question: &str) -> Searched {
+        self.record("search", rung, question);
+        let searches = self.questions("search").len();
+        if self.drift_after == Some(searches) {
+            self.generation.set(self.generation.get() + 1);
+        }
+        let right = answerable_index(question)
+            .map_or_else(|| "doc-other".to_owned(), |index| format!("doc-a{index}"));
+        if self.right_document_at_7 {
+            let others: Vec<String> = (0..9).map(|index| format!("doc-other-{index}")).collect();
+            let mut ranked = others[..6].to_vec();
+            ranked.push(right);
+            ranked.extend_from_slice(&others[6..]);
+            return Searched {
+                outcome: SearchOutcome::Ranked(ranked),
+                bundle_documents: others[..3].to_vec(),
+            };
+        }
+        Searched {
+            outcome: SearchOutcome::Ranked(vec![right.clone()]),
+            bundle_documents: vec![right],
+        }
+    }
+
+    fn ask(&self, rung: &Rung, question: &str) -> AskOutcome {
+        self.record("ask", rung, question);
+        answerable_index(question).map_or(AskOutcome::Refused(RefusalCode::NotFound), |index| {
+            AskOutcome::Answered {
+                citations: vec![SectionRef::section(
+                    &format!("doc-a{index}"),
+                    &format!("section-a{index}"),
+                )],
+                invented_literals: 0,
+            }
+        })
+    }
+}

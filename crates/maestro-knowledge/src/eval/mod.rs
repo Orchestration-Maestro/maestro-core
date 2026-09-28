@@ -101,7 +101,7 @@ pub use compare::{Comparison, compare};
 pub use error::{AggregateError, CompareError, RunError};
 pub use ladder::{
     ANSWERED_PERCENT, Ask, AskOutcome, Floor, FloorResult, FloorStatus, LadderQuestion,
-    LadderScore, Measure, Search, SearchOutcome, SectionRef, score_ladder,
+    LadderScore, Measure, Search, SearchOutcome, SectionRef, resolve_expected, score_ladder,
 };
 pub use merge::merge_v2_attempts;
 pub use record::{RecordError, record};

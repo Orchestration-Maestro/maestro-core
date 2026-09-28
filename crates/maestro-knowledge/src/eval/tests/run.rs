@@ -24,16 +24,16 @@ use std::{
 };
 
 /// A document of two sections under its title.
-const BACKUPS: &str = "https://handbook.example.org/backups";
+pub(super) const BACKUPS: &str = "https://handbook.example.org/backups";
 /// A document whose heading path `Queues › Retries` repeats.
-const QUEUES: &str = "corpus-path:queues.md";
+pub(super) const QUEUES: &str = "corpus-path:queues.md";
 /// A document without a heading, so without a section.
-const NOTES: &str = "corpus-path:notes.md";
+pub(super) const NOTES: &str = "corpus-path:notes.md";
 /// Another document without a section.
 const LOGS: &str = "corpus-path:logs.md";
 
 /// The canonical document of `source_ref`, if the tests hold one.
-fn document(source_ref: &str) -> Option<CanonicalDocument> {
+pub(super) fn document(source_ref: &str) -> Option<CanonicalDocument> {
     let markdown = match source_ref {
         BACKUPS => {
             "# Backups\n\nWhat backups keep.\n\n## Retention\n\nThirty days.\n\n\
@@ -52,7 +52,7 @@ fn document(source_ref: &str) -> Option<CanonicalDocument> {
 }
 
 /// The ID of the `occurrence`th section of `source_ref` under `path`.
-fn section_id(source_ref: &str, path: &[&str], occurrence: usize) -> &'static str {
+pub(super) fn section_id(source_ref: &str, path: &[&str], occurrence: usize) -> &'static str {
     let document = document(source_ref).unwrap();
     let section = document
         .sections
@@ -64,12 +64,12 @@ fn section_id(source_ref: &str, path: &[&str], occurrence: usize) -> &'static st
 }
 
 /// The ID of the document of `source_ref`.
-fn document_id(source_ref: &str) -> &'static str {
+pub(super) fn document_id(source_ref: &str) -> &'static str {
     document(source_ref).unwrap().document_id.leak()
 }
 
 /// The suite line of the question `id`, answerable when it expects sections.
-fn line(id: &str, expected: &Value) -> String {
+pub(super) fn line(id: &str, expected: &Value) -> String {
     json!({
         "schema": "maestro-suite/1", "id": id, "language": "en",
         "question": format!("What about {id}?"),
@@ -79,13 +79,13 @@ fn line(id: &str, expected: &Value) -> String {
 }
 
 /// The suite of `lines`.
-fn suite(lines: &[String]) -> Suite {
+pub(super) fn suite(lines: &[String]) -> Suite {
     lines.join("\n").parse().unwrap()
 }
 
 /// A suite of three questions: one found first, one expecting the second of
 /// two sections with one heading path, one unanswerable.
-fn three() -> Suite {
+pub(super) fn three() -> Suite {
     suite(&[
         line(
             "retention",
@@ -136,7 +136,7 @@ fn answers() -> impl FnMut(&Question) -> Result<Bundle, Infallible> {
 }
 
 /// The lookup of the tests' documents, which never fails.
-fn lookup() -> impl FnMut(&str) -> Result<Option<CanonicalDocument>, Infallible> {
+pub(super) fn lookup() -> impl FnMut(&str) -> Result<Option<CanonicalDocument>, Infallible> {
     |source_ref| Ok(document(source_ref))
 }
 

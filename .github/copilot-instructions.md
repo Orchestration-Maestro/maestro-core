@@ -60,6 +60,25 @@ in place.
 │   │   │   │   │   ├── restore.rs                                           # Rust source: restore
 │   │   │   │   │   ├── test_support.rs                                      # Rust source: test support
 │   │   │   │   │   └── tests.rs                                             # Rust source: tests
+│   │   │   │   ├── eval/                                                    # maestro eval ladder: the M1 ladder, every question of a suite searched
+│   │   │   │   │   ├── tests/                                               # Tests of the ladder command: its manifest, its run over a fake engine, its
+│   │   │   │   │   │   ├── comparison.rs                                    # The comparison across rungs: each floor per rung and its change, the
+│   │   │   │   │   │   ├── engine.rs                                        # The engine's pieces that need no search service: a rung's reranker taken
+│   │   │   │   │   │   ├── kernel_engine.rs                                 # The engine on a real kernel, with the router and the search service
+│   │   │   │   │   │   ├── manifest.rs                                      # The manifest: what it holds, where its paths lead, and each refusal
+│   │   │   │   │   │   ├── mod.rs                                           # Tests of the ladder command: its manifest, its run over a fake engine, its
+│   │   │   │   │   │   ├── reports.rs                                       # What a ladder writes: private rows with IDs, ranks, citations, refusal
+│   │   │   │   │   │   ├── runner.rs                                        # The ladder's run: warm-ups unscored, the rung's configuration in every
+│   │   │   │   │   │   ├── stages.rs                                        # A search fails when a stage its rung enables did not run: out of time for
+│   │   │   │   │   │   └── support.rs                                       # A synthetic suite, rungs, and a fake engine that records what it is asked
+│   │   │   │   │   ├── command.rs                                           # Running the ladder a manifest describes, on this machine
+│   │   │   │   │   ├── comparison.rs                                        # The comparison across a ladder's rungs, maestro-eval-ladder-comparison/1
+│   │   │   │   │   ├── engine.rs                                            # The ladder's engine on this machine: the kernel opened for the local
+│   │   │   │   │   ├── manifest.rs                                          # The ladder's manifest, maestro-ladder-manifest/1: the suite, the
+│   │   │   │   │   ├── mod.rs                                               # maestro eval ladder: the M1 ladder, every question of a suite searched
+│   │   │   │   │   ├── reports.rs                                           # What a ladder writes: for each rung, its private rows, one JSON line per
+│   │   │   │   │   ├── runner.rs                                            # The ladder's run: every rung's cards checked first, then each rung in
+│   │   │   │   │   └── stages.rs                                            # Whether a search ran every stage its rung enables
 │   │   │   │   ├── health/                                                  # maestro doctor and status: the checks of the kernel, the search service, the router and each role's card
 │   │   │   │   │   ├── tests/                                               # Unit tests of the checks: the kernel's files, the services, the cards, what doctor must not touch
 │   │   │   │   │   │   ├── findings.rs                                      # Foreign entries of the data directory listed and left untouched; grants that reach no known scope
@@ -623,6 +642,7 @@ in place.
 │       │   │   │   ├── groups.rs                                            # Expected section copies share one nDCG item while remaining visible in
 │       │   │   │   ├── intervals.rs                                         # The intervals: 95 % percentile intervals of 2,000 bootstrap resamples
 │       │   │   │   ├── ladder.rs                                            # Tests of the ladder's floors: each count at its exact boundary, the
+│       │   │   │   ├── ladder_resolve.rs                                    # resolve_expected gives the ladder's scorer each question's expected
 │       │   │   │   ├── ladder_rows.rs                                       # Tests of what the ladder's rows may not hide: answerable questions left
 │       │   │   │   ├── metrics.rs                                           # Each metric of a run against values computed by hand on a small suite
 │       │   │   │   ├── mod.rs                                               # Tests of the evaluation runner: how it ranks and judges each question
@@ -824,6 +844,7 @@ in place.
 │       │   │   │   │   ├── support.rs                                       # A prepared chunk set and generation for evidence-path tests
 │       │   │   │   │   └── versions.rs                                      # Rust source: versions
 │       │   │   │   ├── budget.rs                                            # Token-counting helpers for compact serialized evidence
+│       │   │   │   ├── chunk_set_documents.rs                               # The documents of a chunk set by source_ref: the ladder resolves its
 │       │   │   │   ├── families.rs                                          # Shared candidate-family identity for conflicts and documentary versions
 │       │   │   │   ├── mod.rs                                               # Authoritative section reads and bounded evidence assembly
 │       │   │   │   ├── section_reader.rs                                    # Reads one authorized canonical section from a completed chunk set
@@ -915,6 +936,8 @@ in place.
 │       │       │   │   ├── rebuild_tests.rs                                 # Explicit replacement of a lost published projection
 │       │       │   │   └── rebuild_validation.rs                            # Refusals for malformed journaled projection rebuild state
 │       │       │   ├── search_routes/                                       # Dense and lexical routes against the shared fake and, when configured, real Qdrant
+│       │       │   │   ├── chunk_set_documents.rs                           # The ladder reads the documents of a chunk set by source_ref
+│       │       │   │   ├── configured_ask.rs                                # ask searches with the configuration its caller gives
 │       │       │   │   ├── configured_search.rs                             # Request configuration controls the real fused search pipeline
 │       │       │   │   ├── fused_search.rs                                  # The public search handoff fuses available routes when dense metadata is absent
 │       │       │   │   ├── fused_search_admission_pinning.rs                # Search admission and generation-pinning acceptance tests

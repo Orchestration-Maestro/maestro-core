@@ -186,7 +186,7 @@ fn find_section_document(
 }
 
 /// Loads the canonical record only when its identity and content hash agree.
-fn read_canonical_document(
+pub(super) fn read_canonical_document(
     database: &Database,
     revision: &Revision,
     document: &Document,
@@ -288,12 +288,12 @@ fn read_verified_markdown(
 }
 
 /// Keeps a chunk-set query error attached to the public Store variant.
-fn map_chunk_set_error(error: chunk_set::Error) -> SectionReadError {
+pub(super) fn map_chunk_set_error(error: chunk_set::Error) -> SectionReadError {
     SectionReadError::Store(Box::new(error))
 }
 
 /// Keeps a scoped record-read error attached to the public Store variant.
-fn map_document_error(error: document::Error) -> SectionReadError {
+pub(super) fn map_document_error(error: document::Error) -> SectionReadError {
     SectionReadError::Store(Box::new(error))
 }
 

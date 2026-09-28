@@ -28,6 +28,9 @@ pub(super) enum Noun {
     /// Jobs: long work run under a lease.
     #[command(subcommand)]
     Job(JobCommand),
+    /// Evaluations of a collection's search and answers.
+    #[command(subcommand)]
+    Eval(EvalCommand),
     /// Preview the search service Maestro needs, or install it with --yes.
     Setup {
         /// Take the steps the preview lists, rather than only print them.
@@ -205,6 +208,18 @@ pub(super) enum CollectionCommand {
     Add {
         /// The declaration: a `maestro-collection/1` file.
         declaration: PathBuf,
+    },
+}
+
+/// Which evaluation to run.
+#[derive(Debug, Subcommand)]
+pub(super) enum EvalCommand {
+    /// Run the M1 ladder a private manifest describes: each rung searches and
+    /// asks every question of the suite, and its floors are scored.
+    Ladder {
+        /// The `maestro-ladder-manifest/1` file.
+        #[arg(long, value_name = "PATH")]
+        manifest: PathBuf,
     },
 }
 

@@ -6,6 +6,7 @@ mod args;
 mod ask;
 mod backup;
 mod collection;
+mod eval;
 mod foreground;
 pub(crate) mod health;
 mod import;

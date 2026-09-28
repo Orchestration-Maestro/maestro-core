@@ -163,11 +163,25 @@ fn i4_answerer_and_evidence_failures_keep_their_public_codes() {
 }
 
 /// Registers a small v2 answerer card and returns its immutable registry ID.
+fn register_answerer(kernel: &Kernel, entry: &str, weights: &[u8]) -> String {
+    let (id, _) = register_card(kernel, "collection", Role::Answerer, entry, weights);
+    id
+}
+
+/// Registers a small v2 card of `role` in `collection` and returns its
+/// immutable registry ID and the card.
 #[expect(
     clippy::too_many_lines,
     reason = "the fixture needs one complete v2 identity"
 )]
-fn register_answerer(kernel: &Kernel, entry: &str, weights: &[u8]) -> String {
+pub(crate) fn register_card(
+    kernel: &Kernel,
+    collection: &str,
+    role: Role,
+    entry: &str,
+    weights: &[u8],
+) -> (String, ModelCard) {
+    let answerer = role == Role::Answerer;
     let weight_digest = kernel
         .database
         .put(weights, "application/octet-stream")
@@ -181,7 +195,7 @@ fn register_answerer(kernel: &Kernel, entry: &str, weights: &[u8]) -> String {
         .put(b"qualification", "application/json")
         .expect("store qualification evidence");
     let identity = CardIdentity {
-        role: Role::Answerer,
+        role,
         router_entry: RouterEntry::parse(entry).expect("router entry"),
         weights: WeightIdentity {
             upstream_model_id: "test/answerer".to_owned(),
@@ -210,21 +224,29 @@ fn register_answerer(kernel: &Kernel, entry: &str, weights: &[u8]) -> String {
         invocation: RuntimeLimits {
             limits: Limits {
                 context_tokens: NonZeroU32::new(4096).expect("nonzero context"),
-                output_tokens: Some(NonZeroU32::new(128).expect("nonzero output")),
+                output_tokens: answerer.then(|| NonZeroU32::new(128).expect("nonzero output")),
             },
             dimensions: Dimensions::NotApplicable,
-            sampling: Sampling::Configured(SamplingParameters {
-                temperature: 0.1,
-                top_p: 0.9,
-                top_k: 40,
-                min_p: 0.0,
-                typical_p: 1.0,
-                repeat_penalty: 1.0,
-                frequency_penalty: 0.0,
-                presence_penalty: 0.0,
-                seed: Some(1),
-            }),
-            reasoning: Capability::Unsupported,
+            sampling: if answerer {
+                Sampling::Configured(SamplingParameters {
+                    temperature: 0.1,
+                    top_p: 0.9,
+                    top_k: 40,
+                    min_p: 0.0,
+                    typical_p: 1.0,
+                    repeat_penalty: 1.0,
+                    frequency_penalty: 0.0,
+                    presence_penalty: 0.0,
+                    seed: Some(1),
+                })
+            } else {
+                Sampling::NotApplicable
+            },
+            reasoning: if answerer {
+                Capability::Unsupported
+            } else {
+                Capability::NotApplicable
+            },
             llama_cpp_build: "b1234-abcdef".to_owned(),
             runtime_binary_digest: runtime_digest,
             backend: Backend::Cuda,
@@ -290,16 +312,17 @@ fn register_answerer(kernel: &Kernel, entry: &str, weights: &[u8]) -> String {
         },
     };
     let card = ModelCard::record_v2(&kernel.artifacts, &identity).expect("record v2 card");
-    kernel
+    let id = kernel
         .database
         .record_model_card(
             &kernel.scopes,
             &NewModelCard {
-                collection_id: "collection",
+                collection_id: collection,
                 card: &card,
             },
         )
         .expect("register v2 card")
         .id
-        .to_string()
+        .to_string();
+    (id, card)
 }

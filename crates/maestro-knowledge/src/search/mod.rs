@@ -3,7 +3,7 @@
 mod admission;
 mod candidates;
 mod deadline;
-pub use deadline::DISABLED_BY_CONFIGURATION;
+pub use deadline::{DEADLINE_EXCEEDED, DISABLED_BY_CONFIGURATION};
 /// Public evidence assembly for ranked T029c search handoffs.
 pub mod evidence;
 mod filter;
@@ -20,7 +20,7 @@ pub mod routes;
 mod tests;
 
 pub use fusion::{Fused, Hit, Route, RouteList, fuse, fuse_weighted};
-pub use orchestrate::search;
+pub use orchestrate::{NO_FUSED_CANDIDATES, search};
 pub use pin::pin;
 pub use query::Query;
 pub use request::{

@@ -1,10 +1,13 @@
 //! Typed ask requests, results, refusals, and trusted dependencies.
 
 use crate::search::{SearchContext, SearchError, evidence::EvidenceError};
-use maestro_kernel::gateway::{Error as GatewayError, ModelCard};
+use maestro_kernel::{
+    evidence::RouteStatus,
+    gateway::{Error as GatewayError, ModelCard},
+};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::{error, fmt, time::Duration};
+use std::{collections::BTreeMap, error, fmt, time::Duration};
 
 /// Default local answerer router entry.
 pub const DEFAULT_MODEL: &str = "qwen3-4b";
@@ -185,6 +188,10 @@ pub struct Answer {
     /// only: never serialized.
     #[serde(skip)]
     pub rejections: Vec<Rejection>,
+    /// The status of each stage of the search the answer was assembled from,
+    /// for evaluation only: never serialized.
+    #[serde(skip)]
+    pub routes: BTreeMap<String, RouteStatus>,
 }
 
 /// One answerer reply the host checks rejected.

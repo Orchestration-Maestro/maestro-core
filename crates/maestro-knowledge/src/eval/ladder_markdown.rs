@@ -22,7 +22,7 @@ impl LadderScore {
         }
         let questions = self.floors.iter().find_map(|result| match result.measure {
             Measure::Latency { of, .. } => Some(of),
-            Measure::Share { .. } | Measure::Literals { .. } => None,
+            Measure::Share { .. } | Measure::Literals { .. } | Measure::NotRun { .. } => None,
         });
         let questions = questions.unwrap_or_default();
         let rejected = if self.rejected_ids.is_empty() {
@@ -30,17 +30,21 @@ impl LadderScore {
         } else {
             self.rejected_ids.join(", ")
         };
+        let failed_asks = if self.asked {
+            format!("{}/{questions}", self.failed_asks)
+        } else {
+            "not run".to_owned()
+        };
         let _ = write!(
             table,
             "\nSupported answers: {}/{}\nFalse refusals: {}/{}\n\
-             Failed searches: {}/{questions}\nFailed asks: {}/{questions}\n\
+             Failed searches: {}/{questions}\nFailed asks: {failed_asks}\n\
              Missing rows: {}\nRejected rows: {rejected}\nAll floors: {}\n",
             self.supported_answers,
             self.answerable,
             self.false_refusals,
             self.answerable,
             self.failed_searches,
-            self.failed_asks,
             self.missing,
             if self.passed { "PASS" } else { "FAIL" }
         );
@@ -88,6 +92,7 @@ fn describe(result: &FloorResult) -> (String, String) {
             (measured, format!(">= {percent}% ({required}/{of})"))
         }
         Measure::Literals { invented, .. } => (invented.to_string(), "0".to_owned()),
+        Measure::NotRun { .. } => ("not run".to_owned(), "not run".to_owned()),
         Measure::Latency {
             p95_us, limit_us, ..
         } => (

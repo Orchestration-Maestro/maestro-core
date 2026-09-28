@@ -38,6 +38,9 @@ use tokio::time::Instant;
 const DENSE_LIMIT: usize = 100;
 /// The single reciprocal-rank fusion pool limit.
 const FUSION_POOL: usize = 120;
+/// The rerank status reason when fusion gave no candidate to rerank.
+pub const NO_FUSED_CANDIDATES: &str = "no fused candidates";
+
 /// Retrieves a pinned, scoped and deadline-bounded evidence handoff for T032.
 ///
 /// The search is traced as a `retrieval.search` stage, whose routes, fusion
@@ -472,7 +475,7 @@ pub(super) async fn rerank_candidates<P: ModelPort>(
     if candidates.is_empty() {
         return (
             Vec::new(),
-            RouteStatus::Unavailable("no fused candidates".to_owned()),
+            RouteStatus::Unavailable(NO_FUSED_CANDIDATES.to_owned()),
         );
     }
     let Some(depth) = depth else {

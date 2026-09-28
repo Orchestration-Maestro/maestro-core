@@ -150,3 +150,42 @@ fn a_negative_citing_its_rows_expected_section_is_not_right() {
     assert_eq!(count(&score, Floor::Citation), (84, 85, FloorStatus::Pass));
     assert_eq!(count(&score, Floor::Refused), (15, 16, FloorStatus::Pass));
 }
+
+#[test]
+fn a_score_without_asks_shows_its_ask_floors_not_run() {
+    let mut questions = passing();
+    for question in &mut questions {
+        question.ask = ask_ending(AskOutcome::Failed);
+    }
+    let score = score(&questions).without_asks();
+
+    let not_run: Vec<Floor> = score
+        .floors
+        .iter()
+        .filter(|result| result.measure == Measure::NotRun { ran: false })
+        .inspect(|result| assert_eq!(result.status, FloorStatus::Unavailable))
+        .map(|result| result.floor)
+        .collect();
+    assert_eq!(
+        not_run,
+        [
+            Floor::Refused,
+            Floor::Citation,
+            Floor::Answered,
+            Floor::Literals,
+            Floor::AskP95
+        ]
+    );
+    assert_eq!(count(&score, Floor::Top10), (84, 84, FloorStatus::Pass));
+    assert!(!score.passed && !score.asked);
+    assert_eq!(score.failed_asks, 0);
+    let markdown = score.to_markdown();
+    assert!(markdown.contains("| Ask p95 | not run | not run | UNAVAILABLE |\n"));
+    assert!(markdown.contains("Failed asks: not run\n"));
+    let json = serde_json::to_value(&score).unwrap();
+    assert_eq!(json["asked"], false);
+    assert_eq!(
+        json["floors"][7],
+        serde_json::json!({"floor": "ask_p95", "status": "unavailable", "ran": false})
+    );
+}

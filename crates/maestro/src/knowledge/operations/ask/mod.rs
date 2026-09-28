@@ -5,4 +5,4 @@ use self::run::{answer_failure, registered_answerer};
 /// Executes the ask operation for the CLI and MCP.
 pub(crate) mod run;
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;

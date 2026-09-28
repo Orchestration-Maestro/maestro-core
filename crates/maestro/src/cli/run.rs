@@ -3,8 +3,8 @@
 //! when the operation failed and 2 for a usage error or a refused input.
 
 use super::{
-    args::{Arguments, CollectionCommand, JobCommand, KnowledgeCommand, Noun},
-    ask, backup, collection, health, import,
+    args::{Arguments, CollectionCommand, EvalCommand, JobCommand, KnowledgeCommand, Noun},
+    ask, backup, collection, eval, health, import,
     output::{Output, diagnose},
     prepare, publish, quality, retrieve, search, setup, status, verify, wait,
 };
@@ -127,6 +127,7 @@ fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> 
             run_mcp(model_port, qdrant)?;
             Ok(ExitCode::SUCCESS)
         }
+        Noun::Eval(EvalCommand::Ladder { manifest }) => eval::run(output, manifest),
         Noun::Job(JobCommand::Wait { id }) => wait::run(&Kernel::open()?, output, *id),
         Noun::Setup { yes } => setup::run(output, *yes),
         Noun::Status => health::status::run(output),

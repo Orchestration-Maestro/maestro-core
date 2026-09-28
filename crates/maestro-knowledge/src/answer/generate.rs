@@ -12,7 +12,7 @@ use super::{
 use crate::{
     query::{Language, understand},
     search::{
-        SearchRequest,
+        SearchConfiguration, SearchRequest,
         evidence::{EvidenceCounter, assemble_evidence},
         search,
     },
@@ -27,7 +27,8 @@ use maestro_kernel::{
 use std::collections::BTreeMap;
 use tokio::time::timeout;
 
-/// Searches once, assembles verified passages and validates at most two chat replies.
+/// Searches once with the default configuration, assembles verified passages
+/// and validates at most two chat replies.
 ///
 /// # Errors
 /// Returns an error for invalid bounds, failed search or evidence integrity,
@@ -36,13 +37,28 @@ pub async fn ask<P: ModelPort + Sync>(
     context: &AnswerContext<'_, P>,
     request: &AskRequest,
 ) -> Result<Answer, AskError> {
+    ask_configured(context, request, SearchConfiguration::default()).await
+}
+
+/// As [`ask`], with its search run under `configuration`.
+///
+/// # Errors
+/// As [`ask`].
+pub async fn ask_configured<P: ModelPort + Sync>(
+    context: &AnswerContext<'_, P>,
+    request: &AskRequest,
+    configuration: SearchConfiguration,
+) -> Result<Answer, AskError> {
     validate_request(request)?;
-    let search_request = SearchRequest::new(
-        &request.collection,
-        &request.question,
-        request.version.as_deref(),
-        request_budget(request.budget),
-    );
+    let search_request = SearchRequest {
+        configuration,
+        ..SearchRequest::new(
+            &request.collection,
+            &request.question,
+            request.version.as_deref(),
+            request_budget(request.budget),
+        )
+    };
     let input = search(&context.search, &search_request)
         .await
         .map_err(AskError::Search)?;
@@ -264,6 +280,7 @@ impl<'a> ResponseContext<'a> {
             }),
             closest: self.closest.clone(),
             rejections: Vec::new(),
+            routes: self.bundle.routes.clone(),
         }
     }
 
@@ -292,6 +309,7 @@ impl<'a> ResponseContext<'a> {
             refusal: None,
             closest: Vec::new(),
             rejections: Vec::new(),
+            routes: self.bundle.routes.clone(),
         })
     }
 }

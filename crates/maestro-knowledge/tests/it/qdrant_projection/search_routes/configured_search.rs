@@ -18,16 +18,16 @@ use maestro_knowledge::{
     },
 };
 
-struct Published {
+pub(super) struct Published {
     backend: super::backends::Backend,
-    kernel: Kernel,
+    pub(super) kernel: Kernel,
     qdrant: Qdrant,
     embedder_card: ModelCard,
-    port: models::Embedder,
+    pub(super) port: models::Embedder,
     generation: i64,
 }
 
-async fn published() -> Published {
+pub(super) async fn published() -> Published {
     let backend = fake();
     let kernel = searchable_scheduler_kernel();
     let embedder_card = models::embedder(3);
@@ -47,7 +47,7 @@ async fn published() -> Published {
     }
 }
 
-fn context<'a>(
+pub(super) fn context<'a>(
     fixture: &'a Published,
     reranker_card: Option<&'a ModelCard>,
 ) -> SearchContext<'a, models::Embedder> {
@@ -101,7 +101,7 @@ async fn run(fixture: &Published, text: &str, configuration: SearchConfiguration
         .unwrap()
 }
 
-async fn clean(fixture: &Published) {
+pub(super) async fn clean(fixture: &Published) {
     let generation = fixture
         .kernel
         .database

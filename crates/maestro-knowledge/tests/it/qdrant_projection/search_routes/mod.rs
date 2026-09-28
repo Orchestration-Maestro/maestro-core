@@ -2,6 +2,8 @@
 
 use super::{backends, kernel, models};
 
+mod chunk_set_documents;
+mod configured_ask;
 mod configured_search;
 mod fused_search;
 mod fused_search_admission_pinning;
