@@ -222,6 +222,50 @@ fn model_card_migration_applies_after_0008_and_after_0010_search() {
 }
 
 #[test]
+fn graph_claim_migration_adds_empty_claim_tables_and_keeps_existing_records() {
+    let without_claims: Vec<_> = MIGRATIONS
+        .iter()
+        .copied()
+        .filter(|(name, _)| *name != "0012_graph_claims")
+        .collect();
+    let scratch = Scratch::new();
+    drop(scratch.open_with(&without_claims).unwrap());
+    scratch
+        .outside()
+        .execute(
+            "INSERT INTO collections (id, title, visibility, profiles_json)
+             VALUES ('graph', 'Graph', 'public', '{}')",
+            [],
+        )
+        .unwrap();
+    assert_eq!(
+        pending_migrations(&scratch.0).unwrap(),
+        ["0012_graph_claims"]
+    );
+
+    drop(scratch.open());
+    let reader = scratch.outside();
+    for table in [
+        "claims",
+        "claim_supports",
+        "claim_sets",
+        "claim_set_members",
+    ] {
+        let count: i64 = reader
+            .query_row(&format!("SELECT count(*) FROM {table}"), [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(count, 0, "{table}");
+    }
+    let collections: i64 = reader
+        .query_row("SELECT count(*) FROM collections", [], |row| row.get(0))
+        .unwrap();
+    assert_eq!(collections, 1);
+    assert_eq!(names(&reader), sorted(MIGRATIONS));
+}
+
+#[test]
 fn reopening_a_database_applies_nothing_again() {
     let scratch = Scratch::new();
     drop(scratch.open());

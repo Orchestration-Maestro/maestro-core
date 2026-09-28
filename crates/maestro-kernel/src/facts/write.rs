@@ -1,0 +1,333 @@
+//! Admitting a claim set: its form checked, every support verified from the
+//! authority, then the whole set recorded in one write, or nothing.
+
+use super::{
+    error::Error,
+    quote::eligible,
+    read::load_set,
+    types::{Claim, ClaimSet, ClaimSetRecord, Support, Validity},
+};
+use crate::{
+    artifact::Digest,
+    scope::{Scope, ScopeSet, collection_path},
+    store::Database,
+};
+use rusqlite::{OptionalExtension as _, Transaction, params};
+use serde_json::{Value, json};
+use std::collections::{BTreeMap, BTreeSet, btree_map::Entry};
+
+/// A claim ready to record: its id and its content, supports in their
+/// canonical order.
+struct Admitted<'c> {
+    /// The SHA-256 of its canonical form.
+    id: Digest,
+    /// Its content.
+    claim: &'c Claim,
+    /// Its supports, ordered by revision, block and span.
+    supports: Vec<&'c Support>,
+}
+
+impl Database {
+    /// Admits `set`: checks the form of every claim, verifies every support
+    /// against its revision's original bytes, then records the claims, their
+    /// supports and the ordered set in one write. Every claim is recorded
+    /// unreviewed. A claim recorded before, by content, is shared; a set
+    /// recorded before is returned as it is, and nothing more is recorded.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Unauthorized`] when `scopes` does not cover the collection,
+    /// [`Error::Invalid`] for a claim of the wrong form,
+    /// [`Error::UnknownRevision`] for a revision of another collection or one
+    /// `scopes` does not cover, [`Error::IneligibleRevision`],
+    /// [`Error::DigestMismatch`], [`Error::SpanOutOfRange`],
+    /// [`Error::SpanOffBoundary`] and [`Error::QuoteMismatch`] for a support
+    /// that fails verification, and [`Error::Store`] when the database or
+    /// the artifact store refuses. Nothing is recorded then.
+    pub fn record_claim_set(
+        &self,
+        scopes: &ScopeSet,
+        set: &ClaimSet,
+    ) -> Result<ClaimSetRecord, Error> {
+        authorize(scopes, &set.collection_id)?;
+        let admitted = admit(set)?;
+        let mut originals = BTreeMap::new();
+        for support in admitted.iter().flat_map(|claim| &claim.supports) {
+            let original = match originals.entry(support.revision_id.as_str()) {
+                Entry::Occupied(entry) => entry.into_mut(),
+                Entry::Vacant(entry) => entry.insert(self.claim_original(
+                    scopes,
+                    &set.collection_id,
+                    &support.revision_id,
+                )?),
+            };
+            original.check_quote(support.span, &support.quote_digest)?;
+        }
+        let id = canonical_digest(&json!([
+            "maestro-claim-set/1",
+            set.collection_id,
+            admitted
+                .iter()
+                .map(|claim| claim.id.as_str())
+                .collect::<Vec<_>>()
+        ]));
+        self.write(|transaction| {
+            for revision in originals.keys() {
+                eligible(transaction, revision)?;
+            }
+            let recorded = transaction
+                .query_row(
+                    "SELECT 1 FROM claim_sets WHERE id = ?1",
+                    [id.as_str()],
+                    |_| Ok(()),
+                )
+                .optional()?;
+            if recorded.is_none() {
+                insert(transaction, &id, &set.collection_id, &admitted)?;
+            }
+            load_set(transaction, scopes, &id)?.ok_or(Error::Unauthorized)
+        })
+    }
+}
+
+/// Refuses a collection `scopes` does not cover.
+fn authorize(scopes: &ScopeSet, collection: &str) -> Result<(), Error> {
+    let scope: Scope = collection_path(collection)
+        .parse()
+        .map_err(|_| Error::Unauthorized)?;
+    if scopes.covers(&scope) {
+        Ok(())
+    } else {
+        Err(Error::Unauthorized)
+    }
+}
+
+/// The claims of `set` with their ids, once each has the right form and
+/// none is there twice.
+fn admit(set: &ClaimSet) -> Result<Vec<Admitted<'_>>, Error> {
+    if set.claims.is_empty() {
+        return Err(Error::Invalid("a claim set holds no claim".to_owned()));
+    }
+    let mut seen = BTreeSet::new();
+    let mut admitted = Vec::with_capacity(set.claims.len());
+    for claim in &set.claims {
+        let claim = admit_claim(&set.collection_id, claim)?;
+        if !seen.insert(claim.id.clone()) {
+            return Err(Error::Invalid(format!(
+                "the claim {} is in the set twice",
+                claim.id.as_str()
+            )));
+        }
+        admitted.push(claim);
+    }
+    Ok(admitted)
+}
+
+/// `claim` with its id and ordered supports, once it has the right form.
+fn admit_claim<'c>(collection: &str, claim: &'c Claim) -> Result<Admitted<'c>, Error> {
+    let invalid = |reason: &str| Err(Error::Invalid(reason.to_owned()));
+    if claim.subject.kind.is_empty() {
+        return invalid("a claim's subject kind is empty");
+    }
+    if claim.subject.name.is_empty() {
+        return invalid("a claim's subject name is empty");
+    }
+    if claim.provenance.extractor.is_empty() {
+        return invalid("a claim's extractor is empty");
+    }
+    if claim.conditions.contains_key("") {
+        return invalid("a claim's condition has an empty name");
+    }
+    if !(bounded(&claim.version) && bounded(&claim.world)) {
+        return invalid("a claim's validity has an empty bound");
+    }
+    if !claim.object.kind.admits(&claim.object.lexeme) {
+        return Err(Error::Invalid(format!(
+            "the lexeme {:?} is not a {}",
+            claim.object.lexeme,
+            claim.object.kind.as_str()
+        )));
+    }
+    if claim.supports.is_empty() {
+        return invalid("a claim has no support");
+    }
+    let mut supports: Vec<&Support> = claim.supports.iter().collect();
+    supports.sort_by(|left, right| location(left).cmp(&location(right)));
+    let locations: BTreeSet<_> = supports.iter().map(|support| location(support)).collect();
+    if locations.len() < supports.len() {
+        return invalid("a claim cites one support twice");
+    }
+    if supports.iter().any(|support| support.block_id.is_empty()) {
+        return invalid("a claim's support names no block");
+    }
+    if supports
+        .iter()
+        .any(|support| support.span.start >= support.span.end)
+    {
+        return invalid("a claim's support has an empty span");
+    }
+    let id = canonical_digest(&json!([
+        "maestro-claim/1",
+        collection,
+        claim.subject.kind,
+        claim.subject.name,
+        claim.predicate.as_str(),
+        claim.object.kind.as_str(),
+        claim.object.lexeme,
+        claim.conditions.iter().collect::<Vec<_>>(),
+        validity(&claim.version),
+        validity(&claim.world),
+        claim.provenance.extractor,
+        claim.provenance.profile.as_str(),
+        supports
+            .iter()
+            .map(|support| json!([
+                support.revision_id,
+                support.block_id,
+                support.span.start,
+                support.span.end,
+                support.quote_digest.as_str()
+            ]))
+            .collect::<Vec<_>>()
+    ]));
+    Ok(Admitted {
+        id,
+        claim,
+        supports,
+    })
+}
+
+/// Where a support lies: what identifies it within its claim.
+fn location(support: &Support) -> (&str, &str, usize, usize) {
+    (
+        &support.revision_id,
+        &support.block_id,
+        support.span.start,
+        support.span.end,
+    )
+}
+
+/// Whether `validity` has no empty bound.
+fn bounded(validity: &Validity) -> bool {
+    match validity {
+        Validity::Unknown => true,
+        Validity::Bounded { start, end } => {
+            start.as_deref() != Some("") && end.as_deref() != Some("")
+        }
+    }
+}
+
+/// `validity` in a claim's canonical form: null when unknown.
+fn validity(validity: &Validity) -> Value {
+    match validity {
+        Validity::Unknown => Value::Null,
+        Validity::Bounded { start, end } => json!([start, end]),
+    }
+}
+
+/// The SHA-256 of `value`'s compact JSON: arrays only, so its order is its
+/// own whatever the JSON library orders objects by.
+fn canonical_digest(value: &Value) -> Digest {
+    Digest::of(value.to_string().as_bytes())
+}
+
+/// Records the set `id` of `collection` with `claims`, and every claim not
+/// recorded yet with its supports.
+fn insert(
+    transaction: &Transaction<'_>,
+    id: &Digest,
+    collection: &str,
+    claims: &[Admitted<'_>],
+) -> Result<(), Error> {
+    for admitted in claims {
+        let recorded = transaction
+            .query_row(
+                "SELECT 1 FROM claims WHERE id = ?1",
+                [admitted.id.as_str()],
+                |_| Ok(()),
+            )
+            .optional()?;
+        if recorded.is_none() {
+            insert_claim(transaction, collection, admitted)?;
+        }
+    }
+    transaction.execute(
+        "INSERT INTO claim_sets (id, collection_id, member_count) VALUES (?1, ?2, ?3)",
+        params![id.as_str(), collection, integer(claims.len())],
+    )?;
+    for (ordinal, admitted) in claims.iter().enumerate() {
+        transaction.execute(
+            "INSERT INTO claim_set_members (claim_set_id, ordinal, claim_id) VALUES (?1, ?2, ?3)",
+            params![id.as_str(), integer(ordinal), admitted.id.as_str()],
+        )?;
+    }
+    Ok(())
+}
+
+/// Records `admitted` of `collection`, unreviewed, with its supports.
+fn insert_claim(
+    transaction: &Transaction<'_>,
+    collection: &str,
+    admitted: &Admitted<'_>,
+) -> Result<(), Error> {
+    let claim = admitted.claim;
+    let (version_known, version_start, version_end) = columns(&claim.version);
+    let (world_known, world_start, world_end) = columns(&claim.world);
+    let conditions = json!(claim.conditions).to_string();
+    transaction.execute(
+        "INSERT INTO claims (id, collection_id, subject_kind, subject_name, predicate,
+           object_type, object_lexeme, conditions_json, version_known, version_start,
+           version_end, world_known, world_start, world_end, extractor, profile_digest,
+           support_count)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
+        params![
+            admitted.id.as_str(),
+            collection,
+            claim.subject.kind,
+            claim.subject.name,
+            claim.predicate.as_str(),
+            claim.object.kind.as_str(),
+            claim.object.lexeme,
+            conditions,
+            version_known,
+            version_start,
+            version_end,
+            world_known,
+            world_start,
+            world_end,
+            claim.provenance.extractor,
+            claim.provenance.profile.as_str(),
+            integer(admitted.supports.len()),
+        ],
+    )?;
+    for support in &admitted.supports {
+        transaction.execute(
+            "INSERT INTO claim_supports (claim_id, revision_id, block_id, span_start, span_end,
+               quote_digest)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![
+                admitted.id.as_str(),
+                support.revision_id,
+                support.block_id,
+                integer(support.span.start),
+                integer(support.span.end),
+                support.quote_digest.as_str(),
+            ],
+        )?;
+    }
+    Ok(())
+}
+
+/// The `known`, `start` and `end` columns of `validity`.
+fn columns(validity: &Validity) -> (bool, Option<&str>, Option<&str>) {
+    match validity {
+        Validity::Unknown => (false, None, None),
+        Validity::Bounded { start, end } => (true, start.as_deref(), end.as_deref()),
+    }
+}
+
+/// `value` as SQLite stores it. Nothing held in memory counts past
+/// `i64::MAX`, and a span past it was refused as out of range already.
+fn integer(value: usize) -> i64 {
+    i64::try_from(value).unwrap_or(i64::MAX)
+}

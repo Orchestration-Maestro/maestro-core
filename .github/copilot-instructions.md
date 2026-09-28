@@ -376,7 +376,8 @@ in place.
 │   │   │   ├── 0008_document_guards.sql                                     # The guards of the documents: each keeps its id, collection, source and source reference
 │   │   │   ├── 0009_model_cards.sql                                         # V2 cards, evaluations, selections and immutable triggers
 │   │   │   ├── 0010_search.sql                                              # File: 0010 search
-│   │   │   └── 0011_exact_identifiers.sql                                   # Exact, publish-time identifier membership
+│   │   │   ├── 0011_exact_identifiers.sql                                   # Exact, publish-time identifier membership
+│   │   │   └── 0012_graph_claims.sql                                        # File: 0012 graph claims
 │   │   ├── src/                                                             # The crate's sources
 │   │   │   ├── artifact/                                                    # Content-addressed artifacts: immutable bytes stored, and read back, by their
 │   │   │   │   ├── digest.rs                                                # A SHA-256 digest: the name every artifact is stored under
@@ -446,6 +447,19 @@ in place.
 │   │   │   │   ├── passage.rs                                               # The passages a bundle cites: the source text of a span of one revision
 │   │   │   │   ├── request_budget.rs                                        # The transport-safe echo of the accepted search budget
 │   │   │   │   └── resolve.rs                                               # Resolving a chunk: the exact source text its span covers, read from the
+│   │   │   ├── facts/                                                       # The knowledge graph's authority (specs/002-knowledge-graph, FR-S2-002 and
+│   │   │   │   ├── tests/                                                   # Tests of claims: admitting a verified set or nothing, reading it back
+│   │   │   │   │   ├── claims.rs                                            # Admitting claims: a whole set or nothing, unreviewed, recorded once by
+│   │   │   │   │   ├── mod.rs                                               # Tests of claims: admitting a verified set or nothing, reading it back
+│   │   │   │   │   ├── schema.rs                                            # What the schema refuses whoever writes: replacing, changing or deleting
+│   │   │   │   │   ├── support.rs                                           # What the claim tests share: a scratch database holding revisions of a
+│   │   │   │   │   └── supports.rs                                          # Verifying supports: the kernel reads the quoted bytes from the revision's
+│   │   │   │   ├── error.rs                                                 # Why the kernel refused to admit or read claims
+│   │   │   │   ├── mod.rs                                                   # The knowledge graph's authority (specs/002-knowledge-graph, FR-S2-002 and
+│   │   │   │   ├── quote.rs                                                 # Verifying a claim's support from the authority: the revision is one the
+│   │   │   │   ├── read.rs                                                  # Reading a claim set: whole, or not at all when the caller's scopes do not
+│   │   │   │   ├── types.rs                                                 # What a claim says, the source locations that support it, and the records
+│   │   │   │   └── write.rs                                                 # Admitting a claim set: its form checked, every support verified from the
 │   │   │   ├── gateway/                                                     # The model gateway (building block B10): every model, embedder, reranker
 │   │   │   │   ├── card_v2/                                                 # Strict v2 model-card identity encoding and validation
 │   │   │   │   │   ├── mod.rs                                               # Strict v2 model-card identity encoding and validation

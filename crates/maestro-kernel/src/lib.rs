@@ -13,6 +13,7 @@ pub mod chunk_set;
 pub mod document;
 pub mod eval;
 pub mod evidence;
+pub mod facts;
 mod filesystem;
 pub mod gateway;
 pub mod generation;
