@@ -27,9 +27,9 @@ extractor blocks. The Control-M corpus it will serve stays in the private
 | SEC-003 Validate boundaries | Test: snapshots refuse traversal and symlinks through directory handles; an asset outside the input's directory is reported, not read |
 | SEC-004 Use real authority | Organization: rulesets, workflow permissions and the organization bot's own App identity; automation borrows no person's credentials |
 | SEC-005 Scope sensitive approvals | Review: a publication, release or settings change is approved in its own pull request |
-| SEC-006 Inspect code safely | Code and test: the tokenizer runs one pinned executable, verified before each launch, with a cleared environment, bounded output and a timeout |
+| SEC-006 Inspect code safely | Code and test: the tokenizer's pinned executable is verified before each launch, with cleared environment, bounded output and timeout. S3 C13 must hold the same per-launch check for kernel-authorized gh, with substitution/time/output refusal tests; C28 supplies live evidence |
 | SEC-007 Stop and escalate incidents | Review: a suspected exposure stops the work and goes to SECURITY.md's private channel; a leaked secret is revoked and rotated |
 | SEC-008 Keep truthful evidence | Review: results are reported as run, with what was not checked |
 | SEC-009 Preserve safe progress | Review: blocked work is reported as partial, never as done |
 | SEC-010 Report vulnerabilities privately | Organization: private vulnerability reporting is on (`maestrolabs-baseline`), and SECURITY.md routes reports to it |
-| SEC-011 Sign every release | Not applicable: no release is published yet |
+| SEC-011 Sign every release | Applicable to S3 catalog releases: C15 must generate an SPDX JSON SBOM from the pinned component closure/digests, checksum every payload asset, attest bundle/SBOM and document verification. C15 fixture/workflow checks and C28 real-asset evidence are required before release; not yet delivery evidence |

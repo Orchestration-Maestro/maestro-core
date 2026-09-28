@@ -1,6 +1,6 @@
 # Feature Specification: Catalog
 
-**Feature Branch**: `docs/s3-workspace-config`, from `feat/s3-integration`
+**Feature Branch**: `docs/s3-analyze-fixes`, from `feat/s3-integration` at `0be954b`
 
 **Created**: 2026-09-28
 
@@ -18,6 +18,29 @@ Architecture: [03](../../docs/architecture/03-agent-orchestration.md),
 [ADR-0015](../../docs/adr/0015-bundle-freshness-and-revocation.md).
 Rules: [engineering](../../docs/standards/engineering.md) and the organization's
 golden rules come first. Implementation: [plan.md](plan.md), [tasks.md](tasks.md).
+
+## Rules touched
+
+The [plan's holders](plan.md#constitution-check) name each gate, test or review;
+planned holders are obligations, not implementation evidence.
+
+| Rule IDs | S3 obligation |
+| --- | --- |
+| C-001, C-005 | Maintain both repository rule maps and durable acceptance evidence |
+| FND-002, FND-003, P-001, P-004, P-005 | Required content only; reuse existing seams and small replaceable adapters |
+| P-011, P-013, SEC-003 | Strict typed parsing and bounded hostile-input refusal |
+| P-012, P-014 | One scoped admission path; least-privilege credentials and effects |
+| ENF-001, ENF-003, SEC-001 | Runtime-derived paths, English artifacts/logs and synthetic public data |
+| ENF-002, ENF-005, ENF-006 | Three-platform checks, red-first tests and unchanged quality bars |
+| ENF-008, ENF-012 | Commit hooks, layered gates and pinned inputs |
+| ENF-009 | Exact, current mutation exclusions and dependency/architecture exceptions |
+| ENF-011, SEC-002, SEC-004, SEC-005 | Input grants no authority; trusted identity and scoped human approval |
+| ENF-013 | No secrets in files, logs or history |
+| SEC-006 | Verify the pinned executable before every bounded subprocess launch |
+| SEC-008 | Separate declared, observed, unsupported and not-run evidence |
+| SEC-011 | Attestation, per-asset checksums, SPDX JSON SBOM and verification instructions |
+| ADR-0005, ADR-0007, ADR-0015 | Host probe decides formats; real Cedar; authenticated freshness/revocation |
+| ADR-0018, ADR-0020 | One held-handle filesystem implementation; measured approved libraries |
 
 ## Clarifications
 
@@ -176,6 +199,31 @@ the initial amendment.
 
 ### Execution rulings, 2026-09-28
 
+The 12:00 analyze ruling keeps ADR-0005. C01's integrated
+[host report](research/hosts.md) at `0be954b` and the supervisor's subsequent
+ruling confirm agent `<stem>.maestro.toml` sidecars, with each catalog agent's
+file stem equal to its `name:`. Copilot CLI 1.0.88 warns
+`unknown field ignored: metadata` on agents. Skills use `metadata:` under the
+[Agent Skills specification](https://agentskills.io/specification): C01's
+unknown-key control also loads silently, so silence proves no field support.
+A host warning on skill metadata reopens the ADR-0005 sidecar decision;
+there is no automatic sidecar default. C03 consumes this integrated outcome.
+Reload inside a running session remains not run, an explicit C06/C07 input.
+CORE fixture implementation does not depend on MAN content or publication;
+C08/C28 retain the live evidence gates.
+The workspace-config amendment already resolves the old settings-layer finding:
+`.maestro/project.toml` is a descriptor, `.maestro/config.toml` holds workspace
+preferences, and platform-derived user `preferences.toml` supplies the lower
+layer. No five-layer resolver or settings fields in the descriptor are restored.
+
+**D5 metric proposal — owner-pending, supervisor ruling 2026-09-28:** replace
+held-out matchable top-3 ≥ 90 % with top-1 ≥ 90 %. Recommend top-1 because it
+requires a correct first selection, not merely shortlist inclusion. This is a
+stricter quality target, not a clarification of the dated owner decision above.
+Report both metrics; top-3 remains the approved bar until OA10 records the
+owner's decision. D5's seeded paired top-1 gain protocol still governs whether
+hybrid improves on the baseline; it does not authorize a new absolute target.
+
 The supervisor approved a pure move of ADR-0018's existing filesystem code and
 tests into `maestro-filesystem` (C04a), and the S2 G27 public typed-edge port for
 S3's separate catalog dependency projection (C27a). S3 supplies the edge schema
@@ -268,9 +316,10 @@ install or losing user files.
 2. **Given** changed bytes, a wrong signer or unsupported runtime requirements,
    **When** installed, **Then** installation fails closed with no partial switch.
 3. **Given** expired records, a replay below the version floor, or a revoked
-   entry or bundle, **When** installed, updated, used by init, resolved, searched,
-   routed, explained, analysed for impact or projected, **Then** the same admission
-   check refuses it, caches included.
+   entry or bundle, **When** a bundle is installed/updated or an installed bundle
+   is used by init, resolve, search, route, explain, impact or projection,
+   **Then** the same admission check refuses it, caches included. Labelled
+   authoring-source convenience is separate, never an unsigned installation.
 4. **Given** still-valid offline records, **When** resolving from the cache,
    **Then** the remaining validity window is shown; at expiry it is refused.
 5. **Given** interrupted installation or an old backup, **When** recovered,
@@ -421,7 +470,7 @@ invalid graph rule and policy fixture through the real checks.
 
 1. **Given** a new resource, **When** checked, **Then** its owner, maturity,
    dependencies and architecture 08 rows resolve; an unused speculative role
-   or a draft in an executable closure is refused.
+   or a placeholder/authored/retired resource in a compiled closure is refused.
 2. **Given** `feature-delivery` and `ctm-question`, **When** compiled,
    **Then** all twelve architecture 03 §2.3 rules hold for supported constructs;
    the builder is a deterministic step and reviews remain independent.
@@ -466,9 +515,27 @@ invalid graph rule and policy fixture through the real checks.
 - **FR-S3-002**: Parse Copilot-native Markdown/frontmatter, TOML and JSON as
   bounded, strict typed data. Reject duplicate/unknown keys, duplicate IDs,
   unsupported kinds, missing body sections, dangling references and dependency
-  cycles. Prove `metadata:` support or use the approved sidecar alternative.
-- **FR-S3-003**: Check owner and maturity evidence; a label alone MUST NOT qualify
-  a resource. Drafts may be discoverable but never enter an executable closure.
+  cycles. Enforce [D2's numeric limits](plan.md#security-limits) before unbounded
+  allocation. Follow C01's evidence-backed ADR-0005 decision: agent sidecars,
+  with `<stem>.agent.md`'s `name:` equal to `<stem>` so each
+  `<stem>.maestro.toml` pairs with exactly one agent. Skills use the Agent
+  Skills specification's `metadata` field, not inferred support from C01's
+  silent unknown-key control. A host warning on skill metadata reopens the
+  ADR-0005 sidecar decision; no automatic sidecar default or hidden diagnostic.
+- **FR-S3-003**: Check owner and maturity evidence; use only `placeholder`,
+  `authored`, `reviewed`, `qualified`, `retired`. S3 compiles declared closures
+  whose members are `reviewed`, the highest pre-S4 stage: the declared stage
+  plus a named owner on content admitted through OA1's protected-branch
+  CODEOWNERS review. C03 checks stage and nonempty owner; C15 enforces protected
+  publication. A local authoring check validates a declaration, not completion
+  of remote review; no new review-reference field is required. Record each stage
+  and owner in the lock and show them in preview/explain. `qualified` requires
+  S4 evidence, never a changed label.
+  Placeholder/authored resources may be discovered, not compiled into a closure;
+  retired resources cannot enter one. A **projectable** reviewed resource has a
+  supported native mapping; a **route-eligible** executable closure additionally
+  requires every member's S4 qualification and all caller/runtime/trust checks.
+  Projecting instructions in convenience mode is not workflow execution.
 - **FR-S3-004**: `maestro init` MUST inspect without scripts, compose base plus
   Rust, preview all files including dotfiles, require explicit apply, validate
   composed output and write only the small descriptor, workspace config, lock
@@ -486,24 +553,43 @@ invalid graph rule and policy fixture through the real checks.
 - **FR-S3-008**: Compile deterministic sorted tar plus `bundle.json`, including
   entry digests, owners, maturity, source commit, exact workflow closures,
   policy digest, entry points, runtime range, features and tool contracts.
-  Compilation MUST NOT execute catalog content.
+  Compilation MUST NOT execute catalog content or publish a bundle exceeding
+  any C11 archive entry/count/size/stream/nesting limit. Source validity alone
+  does not guarantee the closure fits; writer and reader share D2's `Limits`.
 - **FR-S3-009**: Revalidate the bundle schema, every byte digest and compatibility
   on load. Reject undeclared, duplicate, unsafe, oversized or truncated entries
   before any installation becomes current.
 - **FR-S3-010**: Verify with pinned `gh`, fixed arguments and bounded time/output;
   bind exact bytes to the expected repository, workflow, issuer, source and
-  digest. Missing, wrong, failing or hung verifiers MUST fail closed.
+  digest. Trust-root bindings and the version/digest/executable pin are kernel
+  authority records, not settings, catalog metadata or PATH discovery. Check
+  the pinned executable's digest before every verification launch, even after
+  doctor succeeds. `maestro catalog authority set` provisions/rotates these
+  records only with D2's terminal or exact `--confirm` proposal approval and a
+  journal receipt, never `--yes`, preferences or MCP. Missing, substituted,
+  failing or hung verifiers MUST fail closed.
 - **FR-S3-011**: Authenticate timestamp, revocation and version-floor records;
   refresh within five minutes during use, expire offline use within 24 hours,
-  apply records atomically and resist clock rollback and replay. Consult them
-  before every install, update, init, resolve, search, route, explain, impact
-  and projection.
+  apply records atomically and resist clock rollback and replay. Offline
+  validity ends at `min(signed expiry, issued_at + 24 hours)`; cap longer signed
+  expiry and never restart the clock at download/verification. Consult records
+  before every install/update and every installed-bundle init, resolve, search,
+  route, explain, impact and projection. D1's explicitly labelled authoring mode is
+  separate, never an unsigned install.
 - **FR-S3-012**: Store scoped installs, components, closures, pins and trust
   state in the kernel with content-addressed artifacts. Installation and update
   MUST switch atomically; a failed update retains the prior valid install.
-  Backup/restore MUST NOT restore authority to use old trust records.
+  Backup/restore MUST NOT restore authority to use old trust records. Keep the
+  destination's current publisher roots, gh pin and approval receipt; if absent,
+  refuse until explicitly reprovisioned. A pre-rotation backup never replaces
+  current authority or reinstates a rotated-out root.
 - **FR-S3-013**: Publish from protected manifests CI using the released,
-  checksum-pinned compiler, policy tests, bundle checksums and attestation.
+  checksum-pinned compiler, policy tests, per-asset checksums and attestation.
+  Every release MUST include an SPDX JSON SBOM generated from the pinned
+  component closure and digests, plus instructions to verify all release assets;
+  use checksum-pinned toolbelt jaq 3.1.1, with no new library. D2 and the
+  release-assets contract fix asset names, tag mapping, checksums/subjects and
+  deterministic SBOM time/namespace from source commit time and bundle digest.
   Separate catalog/runtime publisher identities, rotation and emergency
   revocation MUST be tested. The catalog publisher's scheduled trust workflow
   MUST re-issue attested records every six hours independently of content tags;
@@ -535,7 +621,7 @@ invalid graph rule and policy fixture through the real checks.
   Four-client MCP registration remains in S3.
 - **FR-S3-018**: Declare `feature-delivery`, `ctm-question`, Maestro, planner,
   coder, tester and reviewer, builder as a step, and only their needed resources.
-  Provide `fast`, `balanced` and `deep` profiles for both providers; only
+  Provide `fast`, `balanced` and `deep` profiles for `copilot` and `llamacpp`; only
   evidence-qualified role/profile combinations become eligible.
 - **FR-S3-019**: Statically check all twelve architecture 03 §2.3 graph rules:
   closure/maturity, reachability, bounded cycles, typed conditions, exact router
@@ -668,8 +754,9 @@ invalid graph rule and policy fixture through the real checks.
 
 ### Key Entities
 
-- **Resource**: stable ID, kind, version, owner, maturity evidence, content digest
-  and exact references; never an authority grant.
+- **Resource**: stable ID, kind, version, named owner, declared maturity, content
+  digest and exact references. S3 review assurance is protected-branch CODEOWNERS
+  review as defined in FR-S3-003, not a synthetic evidence field or authority grant.
 - **Bundle**: immutable compiled entries and closures, compatibility contract and
   source identity, verified independently of authoring checks.
 - **Install and trust snapshot**: scoped kernel records tying artifacts and pins
@@ -710,14 +797,21 @@ invalid graph rule and policy fixture through the real checks.
 - **SC-S3-005**: Every setting has one class, every policy has passing allow/deny
   neighbours, and every graph validation rule has a passing and failing case.
   Denial tests reach the real control and observe zero executor calls.
-- **SC-S3-006**: On the frozen 100+ intent suite and frozen synthetic eligibility
-  snapshot, top-3 accuracy is at least 90 % on matchable cases. C23 records both
-  digests and a nonempty matchable denominator. Report top-1, correct no-match,
-  clarification, exact dependency completeness, unnecessary context and
-  distractor results separately. Required closure completeness is 100 %. Hybrid
-  ships only if its paired gain is demonstrated; otherwise the baseline is the
-  shipped route. C28 also verifies a real M3 install returns `incompatible`
-  ("not qualified until S4"), without claiming synthetic results qualify it.
+- **SC-S3-006**: On C23's frozen 100+ intent suite and digest-pinned synthetic
+  bundle/eligibility fixture, the owner-approved held-out matchable top-3 bar
+  is at least 90 %. Its proposed top-1 ≥ 90 % replacement is owner-pending
+  (OA10); report both and record the decision before final M3 acceptance.
+  Freeze at least 20 tuning and 80 held-out cases, including at least
+  60 held-out matchable cases and ten route-eligible synthetic workflow
+  candidates. Record exact cohort sizes and all input digests before scoring.
+  Report top-1/top-3, correct no-match, clarification, exact dependency completeness,
+  unnecessary context, distractors and per-route p50/p95 latency separately.
+  Required closure completeness is 100 %. Under the [D5 protocol](plan.md#d5-baseline-routing-and-measured-hybrid),
+  hybrid ships only if the seeded 95 % paired-bootstrap interval for its
+  held-out top-1 difference over baseline has a lower bound strictly above zero;
+  otherwise ship the passing baseline and retain the comparison. C28 also
+  verifies a real M3 install returns `incompatible` ("not qualified until S4");
+  synthetic results never qualify it.
 - **SC-S3-007**: Catalog discovery and impact rebuilds preserve scoped results
   and snapshot identity; no catalog/knowledge scope leakage is observed.
 - **SC-S3-008**: Final CI passes on Linux, macOS and Windows, with line coverage
@@ -785,8 +879,8 @@ C00's [machine-checked inventory](traceability.json) records the 85 exact keys
 below, their S3 portions, tasks and named remaining slices, plus six explicit
 S5-only exclusions. All included portions are planned; C28 adds integrated
 evidence. Combined keys remain verbatim. The frozen exact inventory at
-`cbf1abdb239c0b7678c157eb7aece6f46de8c5dd` is approved by the owner, 2026-09-28
-(OA7). The conventions check
+`746df13` is approved by the owner, 2026-09-28 (C00 inventory approval).
+This ruling refines portions, never the approved key set. The conventions check
 derives candidates from 08's catalog/S3 links and S3 statuses, rejects an
 unmapped candidate, and checks both this table and the JSON with negative cases.
 
@@ -809,12 +903,12 @@ unmapped candidate, and checks both this table and the JSON with negative cases.
 | `chat.M006 lockfile` | Exact pins; live execution qualification stays S4 | C18 |
 | `chat.M006 project file` | Small non-authoritative descriptor | C05 |
 | `chat.M006 transparency` | Declared/effective/observed; external export stays S5 | C18 |
-| `chat.M006 release` | Trusted catalog lifecycle | C13, C14, C15, C16, C16b |
+| `chat.M006 release` | Trusted catalog lifecycle | C13, C13a, C14, C15, C16, C16b |
 | `chat.M019 maturity, M023 step 4` | Evidence checks; role qualification stays S4 | C03, C21, C21b, C24a |
-| `chat.M019 descriptor` | Native format or fixed v1 sidecar fallback | C01, C03 |
+| `chat.M019 descriptor` | C01 agent sidecars and specification-backed skill metadata | C01, C03 |
 | `chat.M019 ownership` | Required owners/CODEOWNERS; dual-approval operation stays S5 | C02, C21, C21b |
 | `chat.M027 detached` | No checkout or toolchain on the laptop | C16, C28 |
-| `chat.M027 validation split` | Author/load validation; governed enforcement stays S4 | C03, C11, C13 |
+| `chat.M027 validation split` | Author/load validation; governed enforcement stays S4 | C03, C11, C13, C13a |
 | `chat.M027 invariants` | No verification bypass or fake receipts; broker stays S4 | C14, C16b, C18 |
 | `chat.M027 contract crate` | In-workspace schemas, no separate contract crate | C03, C10, C11 |
 | `chat.M027 versions` | Runtime/bundle/tool compatibility | C10, C11, C18 |
@@ -850,7 +944,7 @@ unmapped candidate, and checks both this table and the JSON with negative cases.
 | `chat.M019 overlays` | Base plus Rust composed output | C02, C05 |
 | `chat.M006 native` | Convenience projection, drift and owned removal | C06, C07, C20 |
 | `product.GD2, GD4, GD5` | Four MCP clients, local access and Copilot hook; other hooks stay S4 | C00, C06, C07, C08, C20, C28 |
-| `chat.M048 real controls` | Real verification/Cedar and allow/deny neighbours | C09, C13, C19, C28 |
+| `chat.M048 real controls` | Real verification/Cedar and allow/deny neighbours | C09, C13, C13a, C19, C28 |
 | `chat.M057 CI` | Zero relevant tests cannot pass; honest statuses | C15, C28 |
 | `chat.M059 provenance` | Observed/unsupported/not-run kept distinct | C08, C18, C28 |
 | `delivery.U02` | Catalog consistency; translation comparison after M3 | C03, C21, C21b, C29 |
@@ -859,9 +953,9 @@ unmapped candidate, and checks both this table and the JSON with negative cases.
 | `delivery.U13` | Catalog routing; S1 retains retrieval/model qualification | C23, C24a, C24, C25, C26 |
 | `delivery.U17` | Bundle trust/lifecycle; general InnerSource stays S5 | C09, C15, C16, C16b, C28 |
 | `core storage` | Scoped kernel authority, rebuildable projections | C12, C25, C27a |
-| `core verification` | Organization gates, not waived for S3 | C28 |
+| `core verification` | Organization gates, no S3 exception | C28 |
 | `delivery.§1.5` | Exact S3 delivery evidence; other slices retain their portions | C00, C28 |
-| `chat.M006 CLI` | Bootstrap, projection, doctor, catalog lifecycle, settings and policy CLI; other commands stay S4/S5 | C05, C06, C07, C13, C16, C16b, C17, C18, C19 |
+| `chat.M006 CLI` | Bootstrap, projection, doctor, catalog lifecycle, settings and policy CLI; other commands stay S4/S5 | C05, C06, C07, C13, C13a, C16, C16b, C17, C18, C19 |
 | `chat.M036 objects` | Catalog resource kinds and declarative references; runtime objects stay S4 | C03, C21, C21b |
 | `delivery.§2.2` | Catalog-release contract; runtime envelopes stay S4 and ingestion policy stays S6 | C10, C11 |
 | `chat.M019 roles` | Earlier roles deferred to C29 comparison after M3, not seeded | C29 |
@@ -874,7 +968,7 @@ unmapped candidate, and checks both this table and the JSON with negative cases.
 | `delivery.C12 preview/apply bootstrap` | Safe deterministic preview/apply bootstrap | C04a, C04, C05 |
 | `delivery.C13 native projection` | Copilot/Pi convenience projection and Copilot policy hook | C06, C07, C20 |
 | `delivery.C14–C16 catalog MCP, shared Qdrant, separate knowledge ACLs` | Local catalog MCP and scoped cards through the shared knowledge pipeline | C24a, C24, C25, C26 |
-| `delivery.C17 signed releases, freshness, revocation, transparency` | Verified catalog lifecycle, current trust and honest transparency | C09, C13, C14, C15, C16, C16b, C18 |
+| `delivery.C17 signed releases, freshness, revocation, transparency` | Verified catalog lifecycle, current trust and honest transparency | C09, C13, C13a, C14, C15, C16, C16b, C18 |
 | `delivery.R01–R11 corrections` | R05 workflow-first routing and R09 trust; other corrections stay S4/S5/S7 | C14, C16b, C24a, C24 |
 | `product.GD1–GD5` | Four-client local MCP and Copilot hook; GD1 registry keeps its existing §6/05 ownership | C00, C06, C07, C08, C20, C28 |
 
@@ -882,8 +976,9 @@ Architecture [08 §21](../../docs/architecture/08-traceability.md#21-s3-contract
 records D1/D5, concurrent S1/S2/S3 starts, the S3/S4 compiler boundary, the
 `product.GD2, GD4, GD5` hook disposition and C27a's S2 G27 seam, consistent with
 03/06. This is contract evidence only; the inventory is approved by the owner,
-2026-09-28 (OA7). C09 owns closure of 08 §17's "Publisher identities, trust roots,
-key rotation procedure" row with D2 and OA4 evidence; without that evidence
+2026-09-28 (C00 inventory approval). C09 owns closure of 08 §17's "Publisher
+identities, trust roots, key rotation procedure" row with D2 and OA4 evidence;
+without that evidence
 C28 remains blocked.
 Runtime enforcement, general qualification and InnerSource keep their named
 later slice. No similarity or unapproved closure fallback replaces C27a/C27.

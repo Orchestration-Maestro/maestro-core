@@ -195,7 +195,7 @@ portion, integrated code or test evidence, and remaining work.
 | chat.M023 operating model | Platform, security, capability maintainers and application teams; contribution path | Kept | [03 §10](03-agent-orchestration.md#10-innersource-flow-s5) |
 | chat.M006 capability package | Maintainer, backup, maturity, environments, evaluations, deprecation, limitations; scaffolder | Kept | [03 §10](03-agent-orchestration.md#10-innersource-flow-s5) |
 | chat.M027 ladder, delivery.R10 | Compose tools → out-of-process tool or extension → core release | Kept | [03 §10](03-agent-orchestration.md#10-innersource-flow-s5), [07](07-extensibility.md) |
-| product.GD2, GD4, GD5 | Four initial clients; hook administration; local-only access | Kept: four-client MCP and Copilot preToolUse in S3; Deferred: Pi/Codex/Claude Code hooks to S4 host-adapter qualification, approved by the owner, 2026-09-28 (OA7; A28, §21) | [03 §1.5](03-agent-orchestration.md#15-native-projection-convenience-mode), [04 §1](04-intelligence-backend.md#1-scope-and-stance) |
+| product.GD2, GD4, GD5 | Four initial clients; hook administration; local-only access | Kept: four-client MCP and Copilot preToolUse in S3; Deferred: Pi/Codex/Claude Code hooks to S4 host-adapter qualification, approved by the owner, 2026-09-28 (C00 inventory approval; A28, §21) | [03 §1.5](03-agent-orchestration.md#15-native-projection-convenience-mode), [04 §1](04-intelligence-backend.md#1-scope-and-stance) |
 
 ## 10. Testing, observability, benchmarks and improvement
 
@@ -405,7 +405,7 @@ first slice; the earlier plan's first governed workflow (U08) moves to S4.
 | product.CD6 | Adaptive L1 budget under a ceiling; L0 never truncated; optional model-traffic relay | Kept | [04 §4](04-intelligence-backend.md#4-phase-i1--memory-and-continuity), [§7](04-intelligence-backend.md#7-context-management-the-undecided-489-surfaces) |
 | product.CD7 | Views keep manual adjustments; frozen snapshots | Kept | [04 §8](04-intelligence-backend.md#8-phase-i4--workbench) |
 | product.CD8 | Graceful shutdown by default, real stop-all, forced termination | Kept | [04 §9](04-intelligence-backend.md#9-operating-model), [07 §4.3](07-extensibility.md#43-the-extension-host) |
-| product.GD1–GD5 | Provider configuration, four initial clients, non-blocking graph advice, hook administration, local access | Kept (GD4 hooks: Copilot in S3, others Deferred to S4, approved by the owner, 2026-09-28 (OA7); §9, A28) | §6, §9, [04 §7](04-intelligence-backend.md#7-context-management-the-undecided-489-surfaces) |
+| product.GD1–GD5 | Provider configuration, four initial clients, non-blocking graph advice, hook administration, local access | Kept (GD4 hooks: Copilot in S3, others Deferred to S4, approved by the owner, 2026-09-28 (C00 inventory approval); §9, A28) | §6, §9, [04 §7](04-intelligence-backend.md#7-context-management-the-undecided-489-surfaces) |
 | product.NP | Native Rust desktop; Rust wherever feasible; justified Python exceptions; no framework reuse; one backend; three platforms | Kept | ADR-0016, [04 §1](04-intelligence-backend.md#1-scope-and-stance), [§8](04-intelligence-backend.md#8-phase-i4--workbench) |
 
 ## 14. Foundation and engineering
@@ -439,7 +439,7 @@ first slice; the earlier plan's first governed workflow (U08) moves to S4.
 | A8 | mistral.rs for generation (rag) | The router first; mistral.rs an alternative | Same |
 | A9 | Child 512 / parent 1,500 tokens, 0–15 % overlap (rag.N011) | Target 500, maximum 700, zero primary overlap; parents are section objects | The canonicalization contract (rag.N060) supersedes the first study |
 | A10 | YAML platform and capability manifests, `org-agent` names (chat) | Copilot-native Markdown, TOML sidecars, JSON policies, `maestro` noun-verb commands | ADR-0005, ADR-0014 |
-| A11 | Empty agent metadata with a separate descriptor (chat.M019) | C01 parser evidence permits frontmatter `metadata:`; without C01 evidence, C03 freezes sidecars for v1 | D4 execution rule; later format changes need a separate reviewed task |
+| A11 | Empty agent metadata with a separate descriptor (chat.M019) | Agent sidecars confirmed; skills use specification-backed `metadata`, not support inferred from a silent unknown-key control; a host warning reopens ADR-0005's sidecar decision | ADR-0005 retained; integrated [C01 report](../../specs/003-catalog/research/hosts.md) at `0be954b` |
 | A12 | Ordered workflow steps (chat) | Workflow graphs with bounded loops and joins (ADR-0006) | Expresses reviews, repairs and fan-out |
 | A13 | Rig as the agent abstraction (rag.N016) | The in-house engine and sessions | Semantics are host-specific |
 | A14 | Tantivy for lexical search (rag.N011) | Qdrant sparse vectors from maestro's `bm25-en-fr/1` analyzer (R7); Tantivy only if tests show gaps | One engine |
@@ -455,8 +455,8 @@ first slice; the earlier plan's first governed workflow (U08) moves to S4.
 | A24 | A separately deployable catalog MCP service (chat.M031) | The same `maestro` MCP server; a service deployment waits for a team profile | Laptop first |
 | A25 | Recopy 43 reviewed migration candidates (core) | The crate stays as is with its fixtures; S0 only brings it to the gates | Already present; delivery.§7.2 |
 | A26 | First governed workflow first (delivery.U08) | Knowledge kernel and Control-M RAG first (S1) | Owner decision |
-| A27 | Unconditional hybrid win for M3 (chat.M031 hybrid) | Baseline ships unless hybrid demonstrates paired held-out gain; synthetic top-3 ≥ 90 % still required | Owner D5, 2026-09-28 (§21) |
-| A28 | Four-client hook administration in S3 (product.GD2, GD4, GD5) | Four-client MCP and Copilot preToolUse stay S3; other hooks are deferred to S4 host-adapter qualification | Supervisor ruling 2026-09-28; approved by the owner, 2026-09-28 (OA7, §21). Trusted event/identity adapters are unqualified in S3; no reduction of MCP scope |
+| A27 | Unconditional hybrid win for M3 (chat.M031 hybrid) | Baseline ships unless hybrid's seeded 95 % paired-bootstrap top-1 gain interval is strictly positive; approved held-out matchable top-3 ≥ 90 % remains the absolute gate | Owner D5; supervisor's 2026-09-28 stricter top-1 ≥ 90 % proposal is owner-pending under OA10 (§21), not an approved replacement |
+| A28 | Four-client hook administration in S3 (product.GD2, GD4, GD5) | Four-client MCP and Copilot preToolUse stay S3; other hooks are deferred to S4 host-adapter qualification | Supervisor ruling 2026-09-28; approved by the owner, 2026-09-28 (C00 inventory approval, §21). Trusted event/identity adapters are unqualified in S3; no reduction of MCP scope |
 
 ## 16. Dropped
 
@@ -680,7 +680,7 @@ Every included row names its S3 portion, implementation tasks and remaining work
 by slice. All rows are **planned**, not delivered;
 C28 supplies integrated evidence. This frozen inventory, with its exact keys,
 S3 and remaining portions and exclusions, is approved by the owner, 2026-09-28
-(OA7). This does not approve S1's separate T039 inventory or waive any M3 exit.
+(C00 inventory approval). This does not approve S1's separate T039 inventory or waive any M3 exit.
 
 The runnable check is
 `crates/maestro-conventions/tests/catalog_traceability/`. It compares the
@@ -698,12 +698,12 @@ prove consistency and candidate coverage, not owner approval or runtime delivery
 | --- | --- |
 | D1 authoring boundary | C02 small reviewed-source content and C08 owner loop precede M3 as authoring convenience only. Source digests/authoring locks cannot become attested installs; workflows stay inert and normal install/update keeps verification. No M3 criterion is removed |
 | D2–D4 decided inputs | Pinned gh with separate publishers, ≤5-minute refresh and ≤24-hour offline validity; synthetic public data with exact approval for private use; installed parsers plus the approved measured libraries. OA1/OA2/OA4/OA5/OA6 supply external operations and qualification evidence, not new D1–D5 choices |
-| D5 routing | Freeze 100+ reviewed public/synthetic intents, with several valid answers where appropriate, and a synthetic eligibility snapshot with digests and a nonempty matchable denominator. Top-3 ≥ 90 % and exact closure completeness 100 % remain; report top-1, no-match, clarification, unnecessary context and distractors separately. Enable hybrid only when paired held-out gain excludes zero, else ship lexical and retain the failed comparison. Real executable workflows remain incompatible until S4 |
+| D5 routing | C23 freezes 100+ reviewed CORE synthetic/public cases: ≥20 tuning, ≥80 held-out, ≥60 held-out matchable, ten eligible synthetic workflows and a digest-pinned compiled bundle/eligibility fixture. Approved held-out matchable top-3 ≥ 90 % remains the gate; the stricter top-1 ≥ 90 % proposal is owner-pending under OA10, recommended for first-selection correctness. Exact closure completeness is 100 %. Report both top-1/top-3, negative cohorts, unnecessary context, distractors and latency. S3 D5 uses the 95 % paired top-1 bootstrap (seed 42, S1's 2,000 resamples); C26 exposes that seam without changing S1 results. Hybrid needs a strictly positive gain interval, else ship the passing baseline and retain the comparison. Real executable workflows remain incompatible until S4 |
 | Parallel start, 2026-09-28 08:12 | S2/S3 start while S1 finishes. Integrated T034/T035 and T038 live evidence gate C08/C28; M1 release gates M3 exit, not C00 or independent fixture work |
-| Static versus runtime | S3 C22a/C22b check all twelve 03 §2.3 rules and refuse unsupported constructs. S4 owns graph execution, authoritative broker, sandbox, acceptance and general role/provider qualification |
-| Hook scope | The exact product row above keeps local four-client MCP in S3, plus Copilot preToolUse calling the real Cedar checker. Pi/Codex/Claude Code hooks wait for S4 because trusted event/identity adapters are unqualified. Missing hooks are unprotected, never evidence of enforcement |
+| Static versus runtime | S3 C22a/C22b check all twelve 03 §2.3 rules. Reviewed means declared stage plus named owner on OA1 protected-branch CODEOWNERS-reviewed content; C03 validates declaration/owner, C15 protected publication. Record/show each compiled member's maturity/owner in lock and preview/explain; local checks do not prove a remote review. S4 raises executable admission to qualified and owns execution, broker, sandbox, acceptance and general role/provider qualification; projectable is not route-eligible |
+| Hook scope | The exact product row above keeps local four-client MCP in S3, plus Copilot preToolUse calling the real Cedar checker. C28 requires live allow, deny and hook-error-to-deny receipts in the OA2 host stage. Pi/Codex/Claude Code hooks wait for S4 because trusted event/identity adapters are unqualified. Missing hooks are unprotected, never evidence of enforcement |
 | Impact ownership | C12 scoped kernel records are authority. S3 C27a owns catalog edge schema, read/write adapters and snapshot bindings over S2 G27's public typed-edge port after G25 qualification; C27 traverses that separate rebuildable projection. No fabricated evidence-span claims, similarity edges or implicit in-memory fallback. Missing S2 evidence blocks impact/M3 |
-| Migration allocation | C00 reserves no number. The supervisor rechecks every landed/reserved number on main and S1/S2/S3 at each landing, then allocates the next free one above them. Never a fixed/gapped block or a rewrite of an applied migration; dated observations belong in the S3 plan, not this rule |
+| Migration allocation | C00 reserves no number. The supervisor rechecks every landed/reserved number on main, S1/S2/S3 and deployment-modes at each landing, then allocates the next free one above them. Never a fixed/gapped block or a rewrite of an applied migration; dated observations belong in the S3 plan, not this rule |
 
 Architecture [03](03-agent-orchestration.md) and
 [06 S3](06-roadmap.md#s3-catalog--m3) carry the same boundaries. C00 performs

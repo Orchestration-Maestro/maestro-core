@@ -75,8 +75,8 @@ CODEOWNERS                                   # generated from one ownership mode
 
 | Resource | Format | Maestro additions |
 | --- | --- | --- |
-| Agent | Copilot custom agent profile `.agent.md`: YAML frontmatter (`name`, `description`, `tools`, `mcp-servers`, optional `model`) + Markdown body | `metadata:` only with C01 parser evidence; without C01 evidence when C03 starts, C03 freezes sidecars `<name>.maestro.toml` for v1: `id`, `version`, `owner`, `maturity`, required skills and instructions, policies, contracts, allowed profiles, discovery card |
-| Skill | Agent Skills `SKILL.md`: frontmatter `name`, `description`, optional `license`, `metadata`, `allowed-tools` | Same metadata keys as agents |
+| Agent | Copilot custom agent profile `.agent.md`: YAML frontmatter (`name`, `description`, `tools`, `mcp-servers`, optional `model`) + Markdown body | Integrated [C01 evidence](../../specs/003-catalog/research/hosts.md) (`0be954b`) confirms `<stem>.maestro.toml` sidecars: Copilot CLI 1.0.88 warns and ignores agent `metadata:`. Each catalog agent's stem must equal its `name:` for one-to-one pairing. Keys: `id`, `version`, `owner`, `maturity`, required skills and instructions, policies, contracts, allowed profiles, discovery card |
+| Skill | Agent Skills `SKILL.md`: frontmatter `name`, `description`, optional `license`, `metadata`, `allowed-tools` | Same keys under the Agent Skills specification's `metadata` field; C01's unknown-key control is silent, not proof of support. A host warning on skill metadata reopens the ADR-0005 sidecar decision |
 | Instructions | Copilot `.instructions.md` with `applyTo` globs | — |
 | Prompt | Copilot `.prompt.md` | — |
 | Workflow graph | `workflow.md`: graph spec in YAML frontmatter, human documentation in the body | Maestro-specific (§2) |
@@ -93,10 +93,17 @@ it may do; the workflow says when it acts.
 `authored` → `reviewed` → `qualified` → `retired`. Qualification binds evidence
 (an assigned owner, resolved references, compatible contracts, passing
 evaluations, support in the selected runtime and model profile) to the exact
-component. Only `qualified` resources enter an executable closure; a label
-change alone qualifies nothing, and placeholders can be published for
-discovery but never run. Imported skills keep their obligations (approvals,
-gates); a simplified version is a named, versioned, reviewed Maestro variant,
+component. S3 compiles declared closures at `reviewed`, the highest pre-S4
+stage: the declared stage plus a named owner on content admitted through OA1's
+protected-branch CODEOWNERS review. C03 checks the declaration/owner, C15 the
+protected publication; a local check is not proof of completed remote review.
+Every member must meet that threshold; placeholder/authored/retired members refuse. Bundle, lock and preview/explain record/show each stage. S4
+raises execution admission to `qualified`; a label alone qualifies nothing.
+A reviewed resource with a supported native mapping is **projectable**, not
+necessarily **route-eligible**: executable routing also requires the whole
+closure's S4 qualification and caller/runtime/trust checks. Placeholders may
+be discovered but never compiled into a closure or run. Imported skills keep
+their obligations (approvals, gates); a simplified version is a named, versioned, reviewed Maestro variant,
 never a hidden rewrite. Every imported skill is pinned like a dependency, with
 licence, attribution and a review of any script it carries.
 
@@ -104,9 +111,9 @@ licence, attribution and a review of any script it carries.
 
 | Command | Does |
 | --- | --- |
-| `maestro catalog check` | Parses every file; validates frontmatter, JSON Schemas and Cedar policies against the Cedar schema; resolves every reference; rejects cycles, duplicate IDs and dangling references; compiles every workflow graph (§2.3); lints descriptions and sizes; excludes drafts from execution sets |
+| `maestro catalog check` | Parses every file; validates frontmatter, JSON Schemas and Cedar policies against the Cedar schema; resolves every reference; rejects cycles, duplicate IDs and dangling references; compiles every workflow graph (§2.3); lints descriptions and sizes; requires reviewed evidence for S3 declared closures and S4 qualification for execution sets |
 | `maestro catalog compile` | Deterministic bundle: sorted tar with fixed metadata + `bundle.json` (`bundle_id`, `version`, `source_commit`, entries with kind, path, digest, owner, maturity, requirements; the exact dependency closure of every workflow; the policy-set digest; `requires`: the runtime version range, required **features** such as `task-grants.v1` or `evidence-receipts.v1`, and tool contracts with versions; entry points). The same inputs give the same digest. Compilation never executes content: hooks, skill scripts and templates are data |
-| Release (manifests CI) | On a tag: compile with the **released, pinned** `maestro` binary (checksum verified), upload the bundle and `SHA256SUMS`, attest build provenance (GitHub artifact attestations, as rust-workflows does for binaries) |
+| Release (manifests CI) | On a tag: compile with the **released, pinned** `maestro` binary (checksum verified), generate an SPDX 2.3 JSON SBOM from the pinned component closure/digests using checksum-pinned toolbelt jaq 3.1.1, commit-time `creationInfo.created` and bundle-digest `documentNamespace`; follow the [S3 release-assets contract](../../specs/003-catalog/plan.md#contracts) for tag/names, `SHA256SUMS` and both attestation subjects; document verification (SEC-011) |
 | `maestro catalog install <version>` | Downloads, verifies SHA-256 and the attestation (signer = the manifests release workflow), unpacks into the kernel's artifact store, records the install, indexes discovery cards (§1.4), and optionally projects to hosts (§1.5) |
 | `maestro catalog update` | Same as install for the newest compatible version; refuses a bundle whose runtime contract range excludes the installed `maestro` or that requires a feature it lacks |
 | `maestro catalog explain` | Declared, effective and observed views: what a resource is meant to do; what applies to this project after resolution, with the source of every setting; what a run actually did |
@@ -139,7 +146,10 @@ emergency procedures; rollback and resume never restore a revoked version.
 D2 fixes verification through pinned `gh`, refresh at most five minutes apart
 during use and offline expiry within 24 hours. C09 records the exact OA4
 publisher bindings and rotation evidence; pending external evidence is not an
-open choice about this trust design.
+open choice about this trust design. C13a's `maestro catalog authority set`
+provisions/rotates the separate roots and gh pin with exact explicit confirmation
+and a journal receipt, never through `--yes` or MCP. Restore preserves current
+authority or refuses pending explicit reprovisioning, never restores an old root.
 
 **Project lock.** `.maestro/platform.lock.json` pins, for one project, the
 bundle and component digests, the runtime and SDK/CLI versions, the model
@@ -195,7 +205,8 @@ authorizes and executes; evidence decides completion.
    not probabilities. Outcomes are recorded as feedback, and misses become an
    InnerSource backlog; feedback never rewrites routing policy automatically.
 6. **Baseline first (D5)**: exact-ID and local lexical routing precede hybrid.
-   Enable hybrid only if its paired held-out gain excludes zero; otherwise ship
+   Enable hybrid only if the seeded 95 % paired-bootstrap interval for held-out
+   matchable top-1 gain has a strictly positive lower bound; otherwise ship
    the baseline and retain the failed comparison. Offline fallback uses only a
    cached, authorized, still-valid bundle; a resolved run never queries the
    index per step. Response caches are keyed by visibility, snapshot, trust and
@@ -209,12 +220,17 @@ authorizes and executes; evidence decides completion.
    in-memory closure fallback substitutes for them.
 8. Evaluation (D5): freeze 100+ independently reviewed public/synthetic intents,
    with several valid answers where appropriate, and a synthetic eligibility
-   snapshot before comparison, recording both digests and a nonempty matchable
-   denominator. Top-3 accuracy remains ≥ 90 %; report top-1, correct no-match,
-   clarification, unnecessary context and synthetic distractors separately so
-   two workflows do not make top-3 trivial. Required dependency
-   completeness is 100 %. Adversarial cases include forged authority, revoked
-   resources, contradictory skills, stale indexes, unavailable embedders and
+   fixture with a compiled bundle before comparison, pinning all input digests.
+   The owner's approved absolute gate remains **held-out matchable top-3 ≥ 90 %**.
+   The supervisor's 2026-09-28 top-1 ≥ 90 % replacement is **owner-pending**
+   (OA10), recommended because it measures the first selection rather than
+   shortlist inclusion. Freeze at least 20 tuning/80 held-out cases, 60 held-out
+   matchable cases and ten eligible synthetic workflows. Report both top-1/top-3,
+   correct no-match, clarification, unnecessary context, distractors and latency
+   separately. Required dependency completeness is 100 %; formulas, seed 42 and
+   S1's 2,000 resamples are fixed in [S3 D5](../../specs/003-catalog/plan.md#d5-baseline-routing-and-measured-hybrid).
+   C26 exposes the paired-difference entry point without changing S1's results.
+   Adversarial cases include forged authority, revoked resources, contradictory skills, stale indexes, unavailable embedders and
    low-similarity mandatory reviewers. Synthetic eligibility never qualifies a
    live role: a real M3 install returns `incompatible` (not qualified until S4)
    for executable workflows.
@@ -224,7 +240,7 @@ broker's admission allow execution.
 
 ### 1.5 Native projection (convenience mode)
 
-`maestro catalog project --host copilot|pi [--dry-run]` writes the eligible
+`maestro catalog project --host copilot|pi` previews; `--apply` writes projectable
 agents, skills, instructions, prompts and the Maestro MCP server entry into the
 host's user directories (`~/.copilot/…`, Pi's agent directories). It records an
 ownership manifest (paths and digests), refuses to overwrite files it does not
@@ -243,7 +259,9 @@ directly therefore get the organization's guardrails as defence in depth. This
 mode is labelled *convenience*: it has no contracts, no acceptance and no
 journal. Missing hooks are reported as unprotected; unknown tools, opaque
 shell, missing trusted facts, errors and timeouts deny. Model text supplies
-neither identity nor approval. Governed work runs through the S4 engine.
+neither identity nor approval. C28 requires live allow, deny and hook-error-to-deny
+receipts from the OA2 host stage, not just synthetic event tests. Governed work
+runs through the S4 engine.
 
 ### 1.6 Configuration and overrides
 
@@ -485,7 +503,8 @@ never silently omitted. S4 executes validated graphs and enforces these
 requirements at runtime; static success supplies no execution qualification.
 
 1. Every referenced agent, skill, contract, policy and subgraph resolves in the
-   bundle, at an eligible maturity.
+   bundle with reviewed evidence for S3 compilation; S4 execution raises the
+   threshold to qualified (§1.2).
 2. Every node is reachable from the start and can reach a terminal node.
 3. Every cycle contains a back-edge with `max_iterations`.
 4. Every condition parses and type-checks against the source node's contract

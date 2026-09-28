@@ -106,7 +106,7 @@
     {
       "source_row": "chat.M006 release",
       "s3_portion": "Trusted catalog lifecycle",
-      "tasks": ["C13", "C14", "C15", "C16", "C16b"],
+      "tasks": ["C13", "C13a", "C14", "C15", "C16", "C16b"],
       "remaining": "S3: verified lifecycle, rotation, revocation and C28 live evidence"
     },
     {
@@ -117,9 +117,9 @@
     },
     {
       "source_row": "chat.M019 descriptor",
-      "s3_portion": "Native format or fixed v1 sidecar fallback",
+      "s3_portion": "C01 agent sidecars and specification-backed skill metadata",
       "tasks": ["C01", "C03"],
-      "remaining": "S3: real parser probe or final v1 sidecars when C03 starts without C01 evidence"
+      "remaining": "S3: implement C03's per-kind checker from integrated C01 evidence and the Agent Skills specification, and re-probe changed host pins"
     },
     {
       "source_row": "chat.M019 ownership",
@@ -136,7 +136,7 @@
     {
       "source_row": "chat.M027 validation split",
       "s3_portion": "Author/load validation; governed enforcement stays S4",
-      "tasks": ["C03", "C11", "C13"],
+      "tasks": ["C03", "C11", "C13", "C13a"],
       "remaining": "S3: independent authoring and load validation; S4: governed runtime enforcement"
     },
     {
@@ -352,7 +352,7 @@
     {
       "source_row": "chat.M048 real controls",
       "s3_portion": "Real verification/Cedar and allow/deny neighbours",
-      "tasks": ["C09", "C13", "C19", "C28"],
+      "tasks": ["C09", "C13", "C13a", "C19", "C28"],
       "remaining": "S3: real verifier and Cedar evidence; S4: real broker, acceptance and containment controls"
     },
     {
@@ -405,7 +405,7 @@
     },
     {
       "source_row": "core verification",
-      "s3_portion": "Organization gates, not waived for S3",
+      "s3_portion": "Organization gates, no S3 exception",
       "tasks": ["C28"],
       "remaining": "S3: fresh independent review, three-platform CI, coverage and mutation evidence"
     },
@@ -418,7 +418,7 @@
     {
       "source_row": "chat.M006 CLI",
       "s3_portion": "Bootstrap, projection, doctor, catalog lifecycle, settings and policy CLI; other commands stay S4/S5",
-      "tasks": ["C05", "C06", "C07", "C13", "C16", "C16b", "C17", "C18", "C19"],
+      "tasks": ["C05", "C06", "C07", "C13", "C13a", "C16", "C16b", "C17", "C18", "C19"],
       "remaining": "S3: checked catalog CLI and C28 evidence; S4: run, session and governed lifecycle commands; S5: capability scaffolding and contribution commands"
     },
     {
@@ -496,7 +496,7 @@
     {
       "source_row": "delivery.C17 signed releases, freshness, revocation, transparency",
       "s3_portion": "Verified catalog lifecycle, current trust and honest transparency",
-      "tasks": ["C09", "C13", "C14", "C15", "C16", "C16b", "C18"],
+      "tasks": ["C09", "C13", "C13a", "C14", "C15", "C16", "C16b", "C18"],
       "remaining": "S3: release, trust refresh, revocation, restore and explain evidence"
     },
     {

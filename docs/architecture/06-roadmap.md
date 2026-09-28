@@ -132,7 +132,8 @@ identical query results; the LadybugDB spike has a written verdict.
 
 D1–D5 are decided in the [S3 spec](../../specs/003-catalog/spec.md#clarifications).
 C00's [exact inventory](../../specs/003-catalog/traceability.json) is a planned
-disposition, approved by the owner, 2026-09-28 (OA7), not delivery evidence.
+disposition, approved by the owner, 2026-09-28 (C00 inventory approval), not
+delivery evidence.
 
 **D1 checkpoints:** C02 first supplies a small reviewed-source knowledge seed;
 C08 proves init → Copilot/Pi projection → knowledge search/get/ask → remove.
@@ -148,12 +149,12 @@ an M3 exit criterion, and no S3 task executes a workflow graph.
 | Bootstrap | Branded, keyboard/plain/no-color `maestro init`; strict workspace config, language/tone, user-approved canonical folder trust, updates and documented overrides; scripted flags plus `--yes`, explicit apply, base/Rust composition and owned-file safety |
 | Session preferences and trust | Free flags > safely discovered workspace > user preferences > defaults; updates/budgets only narrow. Bounded canonical BCP 47 subset; question-language answers when unset, evaluation unchanged. en/fr/es interface, English fallback otherwise; English artifacts/logs. MCP --workspace or user-only snapshot, path-free source; static native English rules. Kernel-only path trust, immutable secret deny data |
 | Startup updates | Off or daily offline-safe verified discovery; default propose, user-only catalog auto before work, mandatory widening/hook consent, receipts and trusted catalog rollback. Runtime propose-only; MCP never applies, fixed ID/target/version notice only. Never update trusted roots |
-| Catalog v1 content | Written from zero ([03 §1.8](03-agent-orchestration.md#18-writing-the-first-catalog)): the `feature-delivery` and `ctm-question` workflows, the Maestro orchestrator and the owner's roles they need (coder, tester, reviewer; builder as a step), and only the skills, instructions, contracts, Cedar policies (default deny, destructive operations, protected paths, egress, each with allowed and denied fixtures), model profiles (`fast`, `balanced`, `deep`) for both providers, MCP server descriptors and discovery cards those workflows use; every file's pull request names its 08 rows |
-| Release | Manifests CI: check, policy tests, attested bundle |
+| Catalog v1 content | Written from zero ([03 §1.8](03-agent-orchestration.md#18-writing-the-first-catalog)): the `feature-delivery` and `ctm-question` workflows, the Maestro orchestrator and the owner's roles they need (planner, coder, tester, reviewer; builder as a step), and only the skills, instructions, contracts, Cedar policies (default deny, destructive operations, protected paths, egress, MCP allowlist, each with allowed and denied fixtures), model profiles (`fast`, `balanced`, `deep`) for `copilot` and `llamacpp`, MCP server descriptors and discovery cards those workflows use; every file's pull request names its 08 rows |
+| Release | Manifests CI: check, policy tests, bundle plus SPDX JSON SBOM of pinned components/digests, per-asset checksums, attestations and verification instructions (SEC-011) |
 | Hosts | Copilot/Pi projection (preview, apply, owned removal); four-client local MCP registration (Pi, Codex, Claude Code, Copilot CLI); only Copilot `preToolUse` → `maestro policy check` in S3. Other hooks wait for S4 trusted event/identity adapter qualification |
 | Static graph checks | C22a/C22b check all twelve [03 §2.3](03-agent-orchestration.md#23-compile-time-validation) rules; unsupported constructs are refused. Execution and live role qualification remain S4 |
 | Routing | Exact-ID/local lexical baseline, scoped discovery cards, conditional measured hybrid; C27a's separate catalog edge schema/adapters over S2 G27's public typed-edge port after G25 qualification, then C27 exact impact. No evidence-span claims or implicit closure fallback |
-| Spike | C01 probes Copilot's tolerance of `metadata:` in `.agent.md`; without C01 evidence when C03 starts, C03 freezes sidecars for v1 |
+| Spike | ADR-0005 retained; C03 uses integrated [C01 evidence](../../specs/003-catalog/research/hosts.md) (`0be954b`). Agent sidecars confirmed (Copilot 1.0.88 ignores agent metadata); skills use specification-backed `metadata`, not support inferred from the silent unknown-key control. A host warning reopens ADR-0005's sidecar decision |
 | Comparison pass (after M3) | The earlier catalog read once against the new one; each recovered item its own pull request citing it; the rest listed with the reason |
 
 **Exit criteria:** a tagged bundle is attested by manifests CI and verified by
@@ -164,23 +165,30 @@ offline expiry within 24 hours. An unclassified setting is rejected;
 cleanly and stops on collisions. Projection is idempotent and removes only
 unchanged owned content. Every policy and static graph rule
 has passing allowed and denied neighbours. C28 requires M1 release, S2 impact,
-live host/release evidence and the final three-platform CI gates.
+live host/release evidence (including Copilot `preToolUse` allow, deny and
+hook-error-to-deny receipts in the OA2 host stage) and final three-platform CI.
 
-**D5 routing exit (owner, 2026-09-28):** top-3 accuracy remains ≥ 90 % on the
-frozen 100+ independently reviewed public/synthetic intents and synthetic
-eligibility snapshot, with both digests and a nonempty matchable denominator.
-Required dependency completeness is 100 %. Report top-1, correct no-match,
-clarification, unnecessary context and synthetic distractors separately.
-Hybrid ships only if paired held-out gain excludes zero; otherwise ship the
-baseline and retain the failed comparison. This explicitly replaces the older
-unconditional "routing beats the structured baseline" exit. A real M3 install
+**D5 routing exit (owner decision; pending proposal, 2026-09-28):**
+held-out matchable **top-3 ≥ 90 %** remains approved. The supervisor recommends
+**top-1 ≥ 90 %** instead because first-selection correctness is stricter than
+shortlist inclusion; this replacement is **owner-pending** under OA10, not an
+approved clarification. C23 freezes
+100+ independently reviewed CORE public/synthetic cases (at least 20 tuning,
+80 held-out, 60 held-out matchable), ten eligible synthetic workflow candidates
+and a digest-pinned compiled bundle/eligibility fixture. Required dependency
+completeness is 100 %. Report top-1/top-3, correct no-match, clarification, unnecessary
+context, distractors and latency separately. Under [S3 D5's protocol](../../specs/003-catalog/plan.md#d5-baseline-routing-and-measured-hybrid),
+hybrid ships only if its held-out top-1 difference has a strictly positive
+lower bound in the seeded 95 % paired-bootstrap interval; otherwise ship the
+passing baseline and retain the failed comparison. This explicitly replaces
+the older unconditional "routing beats the structured baseline" exit. A real M3 install
 returns `incompatible` (not qualified until S4) for executable workflows;
 synthetic success does not qualify a live role or model.
 
 **Shared migrations:** the supervisor allocates each next-free number at
-landing above every landed or reserved number on main and S1/S2/S3 integration
-branches. C00 reserves no number or gapped block; later schema changes receive
-new numbers, never edits to applied migrations.
+landing above every landed or reserved number on main, S1/S2/S3 integration
+branches and the deployment-modes track. C00 reserves no number or gapped block;
+later schema changes receive new numbers, never edits to applied migrations.
 
 The 11:25–12:05 owner amendments add S3 exit evidence for config discovery/
 precedence, conversational/artifact separation, four-client instruction delivery,
@@ -188,7 +196,7 @@ menu accessibility/visual acceptance, trust-backed real file denials, and startu
 off/propose/catalog-auto/approval/rollback/offline cases. Plain init serves C08
 without TUI/OA9; branded visual acceptance is required before M3, not the first
 owner loop. The revised task set is
-[53 tasks / 177 lane-hours](../../specs/003-catalog/tasks.md); the older calendar
+[54 tasks / 180 lane-hours](../../specs/003-catalog/tasks.md); the older calendar
 estimate is not a commitment for this expanded scope. Configuration, path trust,
 release sources and client delivery remain small modules with explicit ports;
 new adapters do not change callers or weaken mandatory controls.
