@@ -211,6 +211,7 @@ fn cohort_latency_excludes_failed_and_degraded_attempts_but_keeps_their_costs() 
     let statistics =
         &measure_cohorts(&[success, large_success, failed, degraded])[&MeasurementCohort::Warm];
     assert_eq!(statistics.attempts, 4);
+    assert_eq!(statistics.warm_up_attempts, 0);
     assert_eq!(statistics.succeeded, 3);
     assert_eq!(statistics.failed, 1);
     assert_eq!(statistics.timed_samples, 2);

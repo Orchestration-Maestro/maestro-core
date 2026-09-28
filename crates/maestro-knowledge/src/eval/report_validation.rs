@@ -47,10 +47,6 @@ impl Report {
                     self.planned_warm_ups,
                 ) && self.integrity_violation.is_some()
                     && self.cohorts.is_some()
-                    && self
-                        .subgroups
-                        .as_ref()
-                        .is_some_and(SubgroupStatistics::complete)
                     && self.questions.iter().all(QuestionResult::is_v2)
                     && self.v2_questions_are_consistent()
                     && self.v2_derived_fields_are_consistent() =>

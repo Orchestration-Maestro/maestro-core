@@ -32,6 +32,21 @@ fn public_v2_runner_always_records_synthetic_mode() {
 }
 
 #[test]
+fn v2_runner_accepts_cross_lingual_label_for_its_only_question() {
+    let mut header = header_v2();
+    header.cross_lingual_questions.insert("question".to_owned());
+    let report = run_v2(
+        header,
+        &suite(&["question"]),
+        |_| Ok::<_, &str>(None),
+        |_| Ok(bundle(&[])),
+    )
+    .unwrap();
+
+    assert_eq!(report.questions[0].cross_lingual, Some(true));
+}
+
+#[test]
 fn synthetic_qualification_cannot_authorize_real_report_evidence() {
     let refused =
         TrialEvidence::authorized(QualificationMode::Synthetic, TrialMode::Real).unwrap_err();
@@ -40,6 +55,14 @@ fn synthetic_qualification_cannot_authorize_real_report_evidence() {
         refused,
         "real evaluation requires native tokenizer qualification"
     );
+}
+
+#[test]
+fn synthetic_qualification_authorizes_synthetic_evidence() {
+    let evidence =
+        TrialEvidence::authorized(QualificationMode::Synthetic, TrialMode::Synthetic).unwrap();
+
+    assert_eq!(evidence.mode(), TrialMode::Synthetic);
 }
 
 #[test]
@@ -207,11 +230,20 @@ fn v2_writer_refuses_reader_invalid_headers_before_any_observation() {
         .insert(String::new(), "value".to_owned());
     headers.push(header);
     let mut header = header_v2();
+    header
+        .header
+        .profiles
+        .insert("chunk".to_owned(), String::new());
+    headers.push(header);
+    let mut header = header_v2();
     header.warm_up = true;
     header.repetition = 1;
     headers.push(header);
     let mut header = header_v2();
     header.repetition = 0;
+    headers.push(header);
+    let mut header = header_v2();
+    header.attempt = 0;
     headers.push(header);
     let mut header = header_v2();
     header.retry_of = Some(0);

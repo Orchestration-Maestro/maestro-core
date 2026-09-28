@@ -605,8 +605,10 @@ in place.
 │       │   │   │   ├── support.rs                                           # What the evaluation tests share: questions, bundles built from the hits a
 │       │   │   │   ├── v2.rs                                                # Report v2 retains failed attempts and their timing cohort
 │       │   │   │   ├── v2_comparison.rs                                     # Report v2 paired comparison rules
+│       │   │   │   ├── v2_merge_validation.rs                               # Rust source: v2 merge validation
 │       │   │   │   ├── v2_scoring.rs                                        # Hand-checked v2 ranking, subgroup and repeated-question metrics
-│       │   │   │   └── v2_statistics.rs                                     # Report v2 schedule, subgroup, and timing statistics
+│       │   │   │   ├── v2_statistics.rs                                     # Report v2 schedule, subgroup, and timing statistics
+│       │   │   │   └── v2_validation.rs                                     # Rust source: v2 validation
 │       │   │   ├── bootstrap.rs                                             # The bootstrap: resamples of a run's questions, drawn within the
 │       │   │   ├── compare.rs                                               # Comparing two runs of one suite, question by question
 │       │   │   ├── error.rs                                                 # Why a run or a comparison was refused

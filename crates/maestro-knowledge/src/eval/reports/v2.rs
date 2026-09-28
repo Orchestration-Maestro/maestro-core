@@ -2,8 +2,6 @@
 
 use super::metrics::Metrics;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
-
 /// Whether an item succeeded or failed, retaining the typed failure reason.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "state", rename_all = "snake_case", deny_unknown_fields)]
@@ -90,16 +88,6 @@ pub struct SubgroupStatistics {
     pub ranked_attempts: usize,
     /// Clustered metrics; empty subgroup estimates remain unavailable.
     pub metrics: Metrics,
-}
-
-impl SubgroupStatistics {
-    /// Whether every required subgroup is present, even when its sample is empty.
-    pub(in crate::eval) fn complete(subgroups: &BTreeMap<Subgroup, Self>) -> bool {
-        subgroups.len() == 3
-            && [Subgroup::Fr, Subgroup::En, Subgroup::CrossLingual]
-                .iter()
-                .all(|subgroup| subgroups.contains_key(subgroup))
-    }
 }
 
 /// Evaluation provenance attached to the v2 report.
