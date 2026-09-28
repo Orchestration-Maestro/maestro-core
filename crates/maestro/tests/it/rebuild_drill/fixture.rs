@@ -11,6 +11,7 @@ use maestro_kernel::{
     document::{Document, Revision},
     gateway::{ModelCard, RouterClient, Url},
     generation::GenerationState,
+    retrieval::IDENTIFIER_PROFILE,
     scope::{LOCAL, ScopeSet},
     store::Database,
 };
@@ -104,7 +105,7 @@ pub(super) fn frozen_template(input: FrozenInputs<'_>) -> Frozen {
         ("counter".to_owned(), set.counter_contract_id),
         ("embedding".to_owned(), generation.embedding_profile),
         ("sparse".to_owned(), generation.sparse_profile),
-        ("identifier".to_owned(), "identifiers/1".to_owned()),
+        ("identifier".to_owned(), IDENTIFIER_PROFILE.to_owned()),
         ("embedder_card".to_owned(), card.to_owned()),
         ("reranker_card".to_owned(), reranker.to_owned()),
     ]);

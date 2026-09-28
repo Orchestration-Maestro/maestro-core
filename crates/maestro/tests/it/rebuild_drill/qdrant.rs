@@ -1,7 +1,9 @@
 //! Official Qdrant inspection and cleanup, restricted to the empty owned service.
 
 use super::wipe_safety::QdrantOwner;
-use maestro_kernel::{chunk_set::Chunk, document::Revision, generation::Generation};
+use maestro_kernel::{
+    chunk_set::Chunk, document::Revision, generation::Generation, retrieval::IDENTIFIER_PROFILE,
+};
 use qdrant_client::{
     Payload, Qdrant as Client,
     qdrant::{DeleteAlias, DeleteCollection, ScrollPointsBuilder, point_id::PointIdOptions},
@@ -250,7 +252,7 @@ pub(super) fn point_ids(
             let chunk_id = payload["chunk_id"].as_str().unwrap();
             let chunk = chunks.get(chunk_id).unwrap();
             assert_eq!(payload["revision_id"], chunk.revision_id);
-            assert_eq!(payload["identifier_profile"], "identifiers/1");
+            assert_eq!(payload["identifier_profile"], IDENTIFIER_PROFILE);
             assert_eq!(payload["scope_tags"], json!(SCOPE_TAGS));
             assert!(revisions.contains_key(&chunk.revision_id));
             point_id

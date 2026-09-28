@@ -7,6 +7,7 @@ use maestro_kernel::{
     chunk_set::ChunkSetState,
     generation::GenerationState,
     job::JobState,
+    retrieval::IDENTIFIER_PROFILE,
     scope::LOCAL,
 };
 use maestro_knowledge::lexical;
@@ -238,7 +239,7 @@ pub(super) fn assert_projection_is_ready(expectation: ProjectionExpectation<'_>)
         .unwrap()
         .unwrap();
     assert!(marker.ready);
-    assert_eq!(marker.identifier_profile, "identifiers/1");
+    assert_eq!(marker.identifier_profile, IDENTIFIER_PROFILE);
     let aliases = qdrant.aliases().unwrap();
     assert_eq!(
         aliases.get(ALIAS),
@@ -285,7 +286,7 @@ pub(super) fn assert_point_payloads(
         let chunk = chunks.get(chunk_id).unwrap();
         assert_eq!(payload["revision_id"], chunk.revision_id);
         assert_eq!(payload["scope_tags"], json!(SCOPE_TAGS));
-        assert_eq!(payload["identifier_profile"], "identifiers/1");
+        assert_eq!(payload["identifier_profile"], IDENTIFIER_PROFILE);
         assert!(revisions.contains_key(&chunk.revision_id));
     }
 }
