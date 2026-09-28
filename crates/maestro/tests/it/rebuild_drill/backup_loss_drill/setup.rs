@@ -6,6 +6,7 @@ use crate::{
     support::{Ended, Home, Running, synthetic},
 };
 use maestro_kernel::{artifact::Digest, gateway::Role, scope::LOCAL};
+use maestro_knowledge::prepare::ChunkProfile;
 use serde_json::Value;
 use std::fs;
 use ulid::Ulid;
@@ -96,7 +97,11 @@ pub(super) fn publish_initial(
     let database = home.database();
     let scopes = database.visible(LOCAL).unwrap();
     let set_id = database
-        .latest_complete_chunk_set(&scopes, COLLECTION)
+        .latest_complete_chunk_set(
+            &scopes,
+            COLLECTION,
+            ChunkProfile::default().chunker_version(),
+        )
         .unwrap()
         .unwrap()
         .id;

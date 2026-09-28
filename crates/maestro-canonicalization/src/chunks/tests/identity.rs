@@ -43,6 +43,7 @@ fn check_order_does_not_change_the_batch<'a>(
         scope,
         &[first, second],
         WarningPolicy::Preserve,
+        ChunkProfile::Structural,
         &TestCounter::new("test/unqualified"),
     )
     .unwrap();
@@ -50,6 +51,7 @@ fn check_order_does_not_change_the_batch<'a>(
         scope,
         &[second, first],
         WarningPolicy::Preserve,
+        ChunkProfile::Structural,
         &TestCounter::new("test/unqualified"),
     )
     .unwrap();
@@ -78,6 +80,7 @@ fn check_a_subset_keeps_group_and_chunk_identities<'a>(
         scope,
         &[first],
         WarningPolicy::Preserve,
+        ChunkProfile::Structural,
         &TestCounter::new("test/unqualified"),
     )
     .unwrap();
@@ -106,6 +109,7 @@ fn check_scope_changes_change_the_identities(
         &changed_scope,
         &[first],
         WarningPolicy::Preserve,
+        ChunkProfile::Structural,
         &TestCounter::new("test/unqualified"),
     )
     .unwrap();
@@ -120,6 +124,7 @@ fn check_scope_changes_change_the_identities(
         &changed_scope,
         &[first],
         WarningPolicy::Preserve,
+        ChunkProfile::Structural,
         &TestCounter::new("test/unqualified"),
     )
     .unwrap();
@@ -133,6 +138,7 @@ fn check_scope_changes_change_the_identities(
             &changed_scope,
             &[first],
             WarningPolicy::Preserve,
+            ChunkProfile::Structural,
             &TestCounter::new("test/unqualified")
         )
         .is_err()
@@ -158,6 +164,7 @@ fn context_revisions_and_counter_profiles_are_not_false_equalities() {
         &scope,
         &[first, second],
         WarningPolicy::Preserve,
+        ChunkProfile::Structural,
         &TestCounter::new("test/unqualified"),
     )
     .unwrap();
@@ -167,6 +174,7 @@ fn context_revisions_and_counter_profiles_are_not_false_equalities() {
         &scope,
         &[first],
         WarningPolicy::Preserve,
+        ChunkProfile::Structural,
         &TestCounter::new("test/changed"),
     )
     .unwrap();
@@ -200,6 +208,7 @@ fn operational_metadata_does_not_change_chunk_or_prepared_identity() {
             markdown,
         }],
         WarningPolicy::Preserve,
+        ChunkProfile::Structural,
         &TestCounter::new("test/unqualified"),
     )
     .unwrap();
@@ -210,6 +219,7 @@ fn operational_metadata_does_not_change_chunk_or_prepared_identity() {
             markdown,
         }],
         WarningPolicy::Preserve,
+        ChunkProfile::Structural,
         &TestCounter::new("test/unqualified"),
     )
     .unwrap();

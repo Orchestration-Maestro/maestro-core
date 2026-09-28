@@ -210,6 +210,7 @@ fn arguments(fixture: &Fixture, again: bool) -> PublishArguments {
         collection: COLLECTION.to_owned(),
         card: fixture.card.digest().as_str().to_owned(),
         chunk_set: Some(CHUNK_SET.to_owned()),
+        chunk_profile: None,
         again,
     }
 }
@@ -358,11 +359,13 @@ fn publish_preflight_refuses_missing_unknown_and_incomplete_chunk_sets() {
         collection: "empty".to_owned(),
         card: fixture.card.digest().as_str().to_owned(),
         chunk_set: None,
+        chunk_profile: None,
         again: false,
     };
     assert!(matches!(
         publish::run(&fixture.kernel, Output::new(true), &empty),
-        Err(Failure::Refused(message)) if message.contains("has no complete chunk set")
+        Err(Failure::Refused(message))
+            if message == "collection empty has no complete chunk set of mapped-structural-chunks/2"
     ));
 }
 

@@ -131,7 +131,7 @@ fn every_piece_counts_at_most_the_maximum_when_counted_again() {
             MAX_TOKENS + 1
         })
     };
-    let chunks = build_drafts(&doc, &markdown, &mapped, &mut at_most).unwrap();
+    let chunks = build_drafts(&structural(&doc, &markdown, &mapped), &mut at_most).unwrap();
     assert!(chunks.iter().all(|chunk| chunk.token_count == MAX_TOKENS));
     // A counter that grows when it sees the same text again: the final recount refuses the piece.
     let mut seen = BTreeSet::new();
@@ -142,7 +142,7 @@ fn every_piece_counts_at_most_the_maximum_when_counted_again() {
             MAX_TOKENS + 100
         })
     };
-    assert!(build_drafts(&doc, &markdown, &mapped, &mut unstable).is_err());
+    assert!(build_drafts(&structural(&doc, &markdown, &mapped), &mut unstable).is_err());
 }
 
 #[test]
@@ -159,7 +159,11 @@ fn a_cut_inside_a_word_stays_when_the_whitespace_before_it_does_not_fit() {
             MAX_TOKENS
         })
     };
-    let chunks = build_drafts(&doc, &markdown, &mapped, &mut no_trailing_space).unwrap();
+    let chunks = build_drafts(
+        &structural(&doc, &markdown, &mapped),
+        &mut no_trailing_space,
+    )
+    .unwrap();
     let first = &chunks[0].fragments[0];
     assert_eq!(
         (first.contribution.range.end, first.split),

@@ -4,15 +4,27 @@ use super::{
     source::{EvidenceSource, SourceCache},
     spans::{SeedSpan, SpanUnion},
 };
+use maestro_canonicalization::{ChunkProfile, SourceSpan, indexed_title};
 use maestro_kernel::{chunk_set::Chunk, evidence::Span};
 use std::collections::BTreeSet;
 
-/// Returns the section heading path and optional whole-unit bounded source text.
+/// What the chunk set a candidate comes from left out of its indexed text.
+#[derive(Clone, Copy)]
+pub(in crate::search) struct Indexing<'a> {
+    /// The chunking profile, whose heading titles leave their labels out.
+    pub(in crate::search) profile: ChunkProfile,
+    /// The source's page chrome under that profile, sorted.
+    pub(in crate::search) chrome: &'a [SourceSpan],
+}
+
+/// Returns the section heading path and optional whole-unit bounded source text,
+/// both as `indexing`'s profile indexed them, without their page chrome.
 /// An absent text means the original prepared chunk must be retained.
 pub(in crate::search) fn context(
     source: &EvidenceSource,
     chunk: &Chunk,
     max_bytes: Option<usize>,
+    indexing: Indexing<'_>,
 ) -> Result<(String, Option<String>), String> {
     SourceCache::validate_chunk_span(source, chunk.span)
         .map_err(|_| "invalid candidate span".to_owned())?;
@@ -30,7 +42,12 @@ pub(in crate::search) fn context(
         }],
     };
     let expansion = source.sections.expand(&union)?;
-    let path = expansion.section_path.join(" / ");
+    let path = expansion
+        .section_path
+        .iter()
+        .map(|title| indexed_title(indexing.profile, title))
+        .collect::<Vec<_>>()
+        .join(" / ");
     let Some(max_bytes) = max_bytes else {
         return Ok((path, None));
     };
@@ -57,9 +74,23 @@ pub(in crate::search) fn context(
             }
         }
     }
-    let text = source
-        .markdown
-        .get(span.start..span.end)
+    let text = without_chrome(&source.markdown, span, indexing.chrome)
         .ok_or_else(|| "invalid context span".to_owned())?;
     Ok((path, Some(format!("{prefix}{text}"))))
+}
+
+/// The text of `span` in `markdown` with the parts of `chrome`, sorted, it
+/// holds cut out; none for a span that is not in `markdown`.
+fn without_chrome(markdown: &str, span: Span, chrome: &[SourceSpan]) -> Option<String> {
+    let mut text = String::new();
+    let mut cursor = span.start;
+    for cut in chrome {
+        let (start, end) = (cut.start.max(cursor), cut.end.min(span.end));
+        if start < end {
+            text.push_str(markdown.get(cursor..start)?);
+            cursor = end;
+        }
+    }
+    text.push_str(markdown.get(cursor..span.end)?);
+    Some(text)
 }

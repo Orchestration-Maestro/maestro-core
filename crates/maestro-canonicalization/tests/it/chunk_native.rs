@@ -1,9 +1,9 @@
 //! Explicit local acceptance: never treat an ignored native test as a pass.
 #![cfg(test)]
 use maestro_canonicalization::{
-    CanonicalDocument, CanonicalizeInput, ChunkBatch, DedupInput, DedupScope, InputRole,
-    NativeTokenizer, RetrievalChunk, RevisionKey, SplitKind, TokenCounter, WarningPolicy,
-    canonicalize, chunk_documents,
+    CanonicalDocument, CanonicalizeInput, ChunkBatch, ChunkProfile, DedupInput, DedupScope,
+    InputRole, NativeTokenizer, RetrievalChunk, RevisionKey, SplitKind, TokenCounter,
+    WarningPolicy, canonicalize, chunk_documents,
 };
 use serde::Deserialize;
 use std::iter;
@@ -31,6 +31,7 @@ fn public_chunk_example_uses_native_complete_input() {
             markdown,
         }],
         WarningPolicy::Preserve,
+        ChunkProfile::Structural,
         &tokenizer,
     )
     .unwrap();
@@ -103,7 +104,14 @@ fn native_structures_boundaries_and_zero_overlap() {
         .zip(&cases)
         .map(|(document, (_, markdown))| DedupInput { document, markdown })
         .collect();
-    let batch = chunk_documents(&scope, &inputs, WarningPolicy::Preserve, &tokenizer).unwrap();
+    let batch = chunk_documents(
+        &scope,
+        &inputs,
+        WarningPolicy::Preserve,
+        ChunkProfile::Structural,
+        &tokenizer,
+    )
+    .unwrap();
     check_native_batch(&batch, &tokenizer);
     for ((name, _), document) in cases.iter().zip(&documents) {
         let index = occurrence_of(&batch, document);
@@ -385,6 +393,7 @@ fn native_mandatory_context_is_not_clipped() {
                 markdown: &markdown,
             }],
             WarningPolicy::Preserve,
+            ChunkProfile::Structural,
             &tokenizer,
         )
         .unwrap_err();

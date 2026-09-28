@@ -3,7 +3,7 @@
 use crate::search::evidence::{CounterMode, EvidenceSettings};
 use crate::{
     prepare::{
-        prepare,
+        ChunkProfile, Preparation, prepare_observed,
         tests::scratch::{COLLECTION, Scratch, decide_all, router_tokenizer},
     },
     query::understand,
@@ -19,6 +19,7 @@ use maestro_kernel::{
 };
 use std::{
     collections::BTreeMap,
+    ops::ControlFlow,
     sync::{Arc, atomic::AtomicBool},
     time::{Duration, Instant},
 };
@@ -39,13 +40,24 @@ pub(super) struct Fixture {
 
 /// Imports, accepts, prepares and publishes a synthetic corpus.
 pub(super) fn fixture(documents: &[(&str, &str)]) -> Fixture {
+    fixture_under(documents, ChunkProfile::Structural)
+}
+
+/// [`fixture`], its chunk set cut under `profile`.
+pub(super) fn fixture_under(documents: &[(&str, &str)], profile: ChunkProfile) -> Fixture {
     let scratch = Scratch::new();
     scratch.corpus(documents);
     let database = scratch.database();
     let scopes = scratch.import(&database);
     decide_all(&database, &scopes, Outcome::Accepted);
     let counter = router_tokenizer();
-    let report = prepare(&database, &scopes, COLLECTION, &counter).unwrap();
+    let preparation = Preparation {
+        collection: COLLECTION,
+        profile,
+    };
+    let mut unobserved = |_: &_| ControlFlow::Continue(());
+    let report =
+        prepare_observed(&database, &scopes, preparation, &counter, &mut unobserved).unwrap();
     let building = database
         .create_generation(&NewGeneration {
             collection_id: COLLECTION.to_owned(),

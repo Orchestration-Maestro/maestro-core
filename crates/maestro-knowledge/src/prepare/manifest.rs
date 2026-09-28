@@ -9,9 +9,9 @@
 
 use super::{
     failure::Error,
-    report::{LeftOut, Refusal, Report},
+    report::{Chrome, LeftOut, Refusal, Report},
 };
-use maestro_canonicalization::{CHUNKER_VERSION, PREPARATION_PROFILE};
+use maestro_canonicalization::ChunkProfile;
 use maestro_kernel::{
     artifact::Digest,
     chunk_set::{ChunkSet, ChunkSetState},
@@ -63,15 +63,21 @@ pub(crate) struct Manifest {
     pub(super) chunks: u64,
     /// The tokens of their prepared inputs.
     pub(super) tokens: u64,
+    /// The page chrome the chunker's profile left out of the prepared
+    /// inputs, per rule; absent when it left none out, as under the default
+    /// profile.
+    #[serde(default, skip_serializing_if = "Chrome::is_empty")]
+    pub(super) chrome: Chrome,
 }
 
 impl Manifest {
-    /// The manifest of the chunk set `chunk_set` of `collection`, counted by
-    /// `counter`, from the IDs of the eligible `revisions`, sorted, with
-    /// nothing prepared yet.
+    /// The manifest of the chunk set `chunk_set` of `collection`, cut under
+    /// `profile` and counted by `counter`, from the IDs of the eligible
+    /// `revisions`, sorted, with nothing prepared yet.
     pub(crate) fn new(
         collection: &str,
         chunk_set: &str,
+        profile: ChunkProfile,
         counter: &str,
         revisions: Vec<String>,
     ) -> Self {
@@ -79,8 +85,8 @@ impl Manifest {
             schema: SCHEMA.to_owned(),
             collection: collection.to_owned(),
             chunk_set: chunk_set.to_owned(),
-            chunk_profile: CHUNKER_VERSION.to_owned(),
-            preparation_profile: PREPARATION_PROFILE.to_owned(),
+            chunk_profile: profile.chunker_version().to_owned(),
+            preparation_profile: profile.preparation_profile().to_owned(),
             counter: counter.to_owned(),
             revisions,
             duplicates: BTreeMap::new(),
@@ -89,6 +95,7 @@ impl Manifest {
             left_out: Vec::new(),
             chunks: 0,
             tokens: 0,
+            chrome: Chrome::new(),
         }
     }
 
@@ -106,6 +113,7 @@ impl Manifest {
             near_duplicate_groups: count(self.near_duplicate_groups.len()),
             chunks: self.chunks,
             tokens: self.tokens,
+            chrome: self.chrome.clone(),
             refused: count(self.refusals.len()),
             refusals: self.refusals.clone(),
             left_out_documents: self.left_out.clone(),
@@ -220,14 +228,19 @@ pub(crate) fn search_members(
     Ok(members)
 }
 
-/// The id of the chunk set of `collection` counted by `counter` from the
-/// eligible `revisions`, in ID order.
-pub(super) fn id_of(collection: &str, counter: &str, revisions: &[String]) -> String {
+/// The id of the chunk set of `collection` cut under `profile` and counted
+/// by `counter` from the eligible `revisions`, in ID order.
+pub(super) fn id_of(
+    collection: &str,
+    profile: ChunkProfile,
+    counter: &str,
+    revisions: &[String],
+) -> String {
     let identity = json!([
         SCHEMA,
         collection,
-        CHUNKER_VERSION,
-        PREPARATION_PROFILE,
+        profile.chunker_version(),
+        profile.preparation_profile(),
         counter,
         revisions
     ]);

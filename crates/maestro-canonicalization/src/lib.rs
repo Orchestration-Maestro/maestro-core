@@ -12,6 +12,7 @@
 mod accounting;
 mod assemble;
 mod chunk_mapping;
+mod chunk_profile;
 mod chunk_split;
 mod chunks;
 mod content;
@@ -30,6 +31,7 @@ mod source_units;
 mod store;
 mod tokenizer;
 mod validate;
+pub use chunk_profile::{ChromeRule, ChunkProfile};
 pub use chunks::*;
 pub use content::*;
 pub use dedup::*;

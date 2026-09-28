@@ -201,12 +201,14 @@ fn check(control: &ReadControl) -> Result<(), DuplicateLedgerError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use maestro_canonicalization::ChunkProfile;
     use std::error::Error as _;
 
     fn manifest() -> Manifest {
         Manifest::new(
             "notes",
             "set",
+            ChunkProfile::Structural,
             "counter",
             vec!["rev-a".to_owned(), "rev-b".to_owned(), "rev-c".to_owned()],
         )

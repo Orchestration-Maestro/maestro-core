@@ -18,7 +18,8 @@ use super::{
     report::Refusal,
 };
 use maestro_canonicalization::{
-    CanonicalDocument, DedupInput, DedupScope, RevisionKey, WarningPolicy, group_exact,
+    CanonicalDocument, ChunkProfile, DedupInput, DedupScope, RevisionKey, WarningPolicy,
+    group_exact,
 };
 use maestro_kernel::{
     document::{Document, Occurrence, Revision},
@@ -72,6 +73,8 @@ pub(super) struct Kernel<'a> {
     pub(super) scopes: &'a ScopeSet,
     /// The collection.
     pub(super) collection: &'a str,
+    /// The chunking profile its revisions are cut under.
+    pub(super) profile: ChunkProfile,
 }
 
 impl Kernel<'_> {

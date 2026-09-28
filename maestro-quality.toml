@@ -17,12 +17,6 @@ platforms = "macos windows"
 # subsystem, and its one outside caller is the stage that composes it.
 [[exception]]
 rule = "ARC-005"
-path = "crates/maestro-canonicalization/src/chunk_mapping/mod.rs"
-item = "map_document"
-reason = "the chunker maps each document through the source mapper"
-
-[[exception]]
-rule = "ARC-005"
 path = "crates/maestro-canonicalization/src/chunk_split/mod.rs"
 item = "build_drafts"
 reason = "the chunker packs a mapped document through the structural splitter"

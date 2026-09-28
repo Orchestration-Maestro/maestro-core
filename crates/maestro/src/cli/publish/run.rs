@@ -6,6 +6,7 @@ use crate::cli::{
     collection, foreground, health,
     lease::{self, Holder},
     output::Output,
+    prepare::chunk_profile,
     publish_report,
 };
 use crate::{
@@ -36,24 +37,26 @@ pub(in crate::cli) fn run(
     }
     collection::declared(kernel, collection_id)?;
     let card = kernel.embedder_card(&arguments.card)?;
-    let set = match arguments.chunk_set.as_deref() {
-        Some(id) => kernel
+    let set = if let Some(id) = arguments.chunk_set.as_deref() {
+        kernel
             .database
             .chunk_set(&kernel.scopes, id)
             .map_err(|error| Failure::failed_by(&error))?
             .filter(|set| set.collection_id == collection_id)
             .ok_or_else(|| {
                 Failure::refused(format!("no chunk set {id} belongs to {collection_id}"))
-            })?,
-        None => kernel
+            })?
+    } else {
+        let profile = chunk_profile(arguments.chunk_profile.as_deref())?.chunker_version();
+        kernel
             .database
-            .latest_complete_chunk_set(&kernel.scopes, collection_id)
+            .latest_complete_chunk_set(&kernel.scopes, collection_id, profile)
             .map_err(|error| Failure::failed_by(&error))?
             .ok_or_else(|| {
                 Failure::refused(format!(
-                    "collection {collection_id} has no complete chunk set"
+                    "collection {collection_id} has no complete chunk set of {profile}"
                 ))
-            })?,
+            })?
     };
     if set.state != ChunkSetState::Complete {
         return Err(Failure::refused(format!(

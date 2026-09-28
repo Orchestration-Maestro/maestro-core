@@ -1,5 +1,6 @@
 //! The context a chunk repeats: headings, parent items, task markers and table headers.
-use super::prepare::{formatting, normalized_range};
+use super::prepare::formatting;
+use super::ranges::normalized_range;
 use super::refusal::structure_error;
 use super::structure::{Body, ContextEntry, Layout};
 use crate::{
@@ -30,7 +31,7 @@ impl Layout<'_> {
                 .units
                 .iter()
                 .copied()
-                .filter(|&unit| self.is_primary(unit))
+                .filter(|&unit| self.indexed(unit))
                 .collect();
             primary.is_empty() || !primary.iter().all(|&unit| self.full(unit, body))
         });
@@ -74,7 +75,7 @@ impl Layout<'_> {
             let units = self
                 .owned_units(id)
                 .into_iter()
-                .filter(|&unit| self.is_primary(unit))
+                .filter(|&unit| self.indexed(unit))
                 .collect();
             entries.push(ContextEntry {
                 role: InputRole::HeadingContext,
@@ -364,24 +365,22 @@ impl Layout<'_> {
         let mut result = Vec::new();
         let mut previous: Option<usize> = None;
         for &index in &entry.units {
-            let unit = self.unit(index)?;
+            // Page chrome is repeated as no context.
+            let Some(range) = self.kept(index) else {
+                self.unit(index)?;
+                continue;
+            };
             if let Some(previous) = previous {
                 self.context_separator(&mut result, previous, index)?;
             } else if entry.role == InputRole::ParentListContext {
                 let depth = self.list_depth(index);
                 formatting(&mut result, "  ".repeat(depth.saturating_sub(1)), false);
             }
-            self.append_source(
-                &mut result,
-                Contribution {
-                    unit_index: index,
-                    range: TextRange {
-                        start: 0,
-                        end: unit.text.len(),
-                    },
-                },
-                entry.role,
-            )?;
+            let contribution = Contribution {
+                unit_index: index,
+                range,
+            };
+            self.append_source(&mut result, contribution, entry.role)?;
             previous = Some(index);
         }
         Ok(result)

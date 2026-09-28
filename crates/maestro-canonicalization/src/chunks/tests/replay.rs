@@ -11,22 +11,30 @@ fn primary_ranges_not_broad_origins_prove_coverage() {
     let markdown = "`alpha beta`\n";
     let doc = canonicalize(CanonicalizeInput::new(markdown, "coverage")).unwrap();
     let mapped = map_document(&doc, markdown).unwrap();
-    let drafts = build_drafts(&doc, markdown, &mapped, &mut |input| Ok(fake_count(input))).unwrap();
-    assert_eq!(validate_coverage(&mapped, &drafts).unwrap().len(), 1);
+    let drafts = build_drafts(&structural(&doc, markdown, &mapped), &mut |input| {
+        Ok(fake_count(input))
+    })
+    .unwrap();
+    assert_eq!(
+        validate_coverage(&structural(&doc, markdown, &mapped), &drafts)
+            .unwrap()
+            .len(),
+        1
+    );
     assert_eq!(
         mapped.units[0].mappings[0].mode,
         OriginMode::CanonicalTransformation
     );
     let mut missing = drafts.clone();
     missing[0].fragments.clear();
-    assert!(validate_coverage(&mapped, &missing).is_err());
+    assert!(validate_coverage(&structural(&doc, markdown, &mapped), &missing).is_err());
     let mut overlap = drafts.clone();
     let repeated = overlap[0].fragments[0].clone();
     overlap[0].fragments.push(repeated);
-    assert!(validate_coverage(&mapped, &overlap).is_err());
+    assert!(validate_coverage(&structural(&doc, markdown, &mapped), &overlap).is_err());
     let mut clipped = drafts.clone();
     clipped[0].fragments[0].contribution.range.end = 1;
-    assert!(validate_coverage(&mapped, &clipped).is_err());
+    assert!(validate_coverage(&structural(&doc, markdown, &mapped), &clipped).is_err());
 }
 
 #[test]
@@ -37,11 +45,15 @@ fn prepared_parts_counts_and_table_header_associations_are_validated() {
     );
     let doc = canonicalize(CanonicalizeInput::new(&markdown, "parts")).unwrap();
     let mapped = map_document(&doc, &markdown).unwrap();
-    let drafts =
-        build_drafts(&doc, &markdown, &mapped, &mut |input| Ok(fake_count(input))).unwrap();
-    validate_chunks(&doc, &markdown, &mapped, &drafts, &mut |input| {
+    let drafts = build_drafts(&structural(&doc, &markdown, &mapped), &mut |input| {
         Ok(fake_count(input))
     })
+    .unwrap();
+    validate_chunks(
+        &structural(&doc, &markdown, &mapped),
+        &drafts,
+        &mut |input| Ok(fake_count(input)),
+    )
     .unwrap();
     let target = drafts
         .iter()
@@ -55,30 +67,41 @@ fn prepared_parts_counts_and_table_header_associations_are_validated() {
     let mut broken = drafts.clone();
     broken[target].input_parts[0].text.push('!');
     assert!(
-        validate_chunks(&doc, &markdown, &mapped, &broken, &mut |input| Ok(
-            fake_count(input)
-        ))
+        validate_chunks(
+            &structural(&doc, &markdown, &mapped),
+            &broken,
+            &mut |input| Ok(fake_count(input))
+        )
         .is_err()
     );
     let mut broken = drafts.clone();
     for chunk in &mut broken {
         chunk.token_count = 701;
     }
-    assert!(validate_chunks(&doc, &markdown, &mapped, &broken, &mut |_| Ok(701)).is_err());
+    assert!(
+        validate_chunks(&structural(&doc, &markdown, &mapped), &broken, &mut |_| Ok(
+            701
+        ))
+        .is_err()
+    );
     let mut missing_ledger = mapped.clone();
     missing_ledger.accounting.pop();
     assert!(
-        validate_chunks(&doc, &markdown, &missing_ledger, &drafts, &mut |input| Ok(
-            fake_count(input)
-        ))
+        validate_chunks(
+            &structural(&doc, &markdown, &missing_ledger),
+            &drafts,
+            &mut |input| Ok(fake_count(input))
+        )
         .is_err()
     );
     let mut broken = drafts.clone();
     broken[target].table_windows[0].columns = vec![99];
     assert!(
-        validate_chunks(&doc, &markdown, &mapped, &broken, &mut |input| Ok(
-            fake_count(input)
-        ))
+        validate_chunks(
+            &structural(&doc, &markdown, &mapped),
+            &broken,
+            &mut |input| Ok(fake_count(input))
+        )
         .is_err()
     );
     let mut broken = drafts.clone();
@@ -89,17 +112,21 @@ fn prepared_parts_counts_and_table_header_associations_are_validated() {
         .unwrap();
     header.role = InputRole::HeadingContext;
     assert!(
-        validate_chunks(&doc, &markdown, &mapped, &broken, &mut |input| Ok(
-            fake_count(input)
-        ))
+        validate_chunks(
+            &structural(&doc, &markdown, &mapped),
+            &broken,
+            &mut |input| Ok(fake_count(input))
+        )
         .is_err()
     );
     let mut broken = drafts.clone();
     broken[target].prepared_input.push('!');
     assert!(
-        validate_chunks(&doc, &markdown, &mapped, &broken, &mut |input| Ok(
-            fake_count(input)
-        ))
+        validate_chunks(
+            &structural(&doc, &markdown, &mapped),
+            &broken,
+            &mut |input| Ok(fake_count(input))
+        )
         .is_err()
     );
 }
@@ -108,7 +135,10 @@ fn prepared_parts_counts_and_table_header_associations_are_validated() {
 fn drafted(markdown: &str) -> (CanonicalDocument, MappedDocument, Vec<ChunkContent>) {
     let doc = canonicalize(CanonicalizeInput::new(markdown, "tamper")).unwrap();
     let mapped = map_document(&doc, markdown).unwrap();
-    let drafts = build_drafts(&doc, markdown, &mapped, &mut |input| Ok(fake_count(input))).unwrap();
+    let drafts = build_drafts(&structural(&doc, markdown, &mapped), &mut |input| {
+        Ok(fake_count(input))
+    })
+    .unwrap();
     (doc, mapped, drafts)
 }
 
@@ -119,7 +149,7 @@ fn refusal(
     mapped: &MappedDocument,
     chunks: &[ChunkContent],
 ) -> Option<String> {
-    validate_chunks(doc, markdown, mapped, chunks, &mut |input| {
+    validate_chunks(&structural(doc, markdown, mapped), chunks, &mut |input| {
         Ok(fake_count(input))
     })
     .err()
@@ -128,7 +158,8 @@ fn refusal(
 
 #[test]
 fn each_coverage_fault_is_refused_and_a_split_unit_is_accepted() {
-    let (_, mapped, drafts) = drafted("é alpha beta\n\nSecond paragraph.\n");
+    let markdown = "é alpha beta\n\nSecond paragraph.\n";
+    let (doc, mapped, drafts) = drafted(markdown);
     let whole = drafts[0].fragments[0].clone();
     let end = whole.contribution.range.end;
     let piece = |start, end, part_ordinal| {
@@ -140,7 +171,7 @@ fn each_coverage_fault_is_refused_and_a_split_unit_is_accepted() {
     let covered = |pieces: Vec<Fragment>| {
         let mut chunks = drafts.clone();
         chunks[0].fragments.splice(0..1, pieces);
-        validate_coverage(&mapped, &chunks).is_ok()
+        validate_coverage(&structural(&doc, markdown, &mapped), &chunks).is_ok()
     };
     // `é ` is three bytes: a split there is two valid parts of one unit.
     assert!(covered(vec![piece(0, 3, 0), piece(3, end, 1)]));
@@ -155,9 +186,14 @@ fn a_chunk_of_exactly_the_maximum_tokens_is_valid() {
     let doc = canonicalize(CanonicalizeInput::new(markdown, "maximum")).unwrap();
     let mapped = map_document(&doc, markdown).unwrap();
     let mut at_maximum = |_: &str| Ok(MAX_TOKENS);
-    let drafts = build_drafts(&doc, markdown, &mapped, &mut at_maximum).unwrap();
+    let drafts = build_drafts(&structural(&doc, markdown, &mapped), &mut at_maximum).unwrap();
     assert_eq!(drafts[0].token_count, MAX_TOKENS);
-    validate_chunks(&doc, markdown, &mapped, &drafts, &mut at_maximum).unwrap();
+    validate_chunks(
+        &structural(&doc, markdown, &mapped),
+        &drafts,
+        &mut at_maximum,
+    )
+    .unwrap();
 }
 
 #[test]

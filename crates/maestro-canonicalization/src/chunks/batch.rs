@@ -1,16 +1,26 @@
 //! Batch records: per-occurrence evidence, retrieval chunks and prepared-input groups.
+use crate::chunk_profile::ChromeRule;
 use crate::dedup::Deduplication;
 use crate::prepared_inputs::ChunkContent;
 use crate::source_units::{MappedDocument, TextRange};
 use serde::Serialize;
 
-/// Exactly-once primary coverage in one mapped unit.
+/// Exactly-once primary coverage in one mapped unit, with the chrome its profile left out.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct UnitCoverage {
     /// Index into the document's mapped units.
     pub unit_index: usize,
-    /// Ordered, disjoint ranges covering the full eligible text.
+    /// Ordered, disjoint ranges covering the unit's text the profile indexes.
     pub primary_ranges: Vec<TextRange>,
+    /// Ordered page-chrome ranges the profile left out of every chunk; with the primary ranges
+    /// they cover the full eligible text. Empty, and not serialized, under a profile that indexes
+    /// every unit whole.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub chrome_ranges: Vec<TextRange>,
+    /// The chrome rule that left those ranges out; none, and not serialized, when the unit is
+    /// indexed whole.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub chrome_rule: Option<ChromeRule>,
 }
 
 /// Source mapping and dual coverage evidence for one retained occurrence.

@@ -7,7 +7,9 @@ use super::{
     port::Answer,
     scratch::{COLLECTION, Scratch, chunk_set_of, chunks_of, decide_all, tokenizer, words},
 };
-use crate::prepare::{Error, TokenizerError, chunk_set_id, prepare, prepare_observed};
+use crate::prepare::{
+    ChunkProfile, Error, Preparation, TokenizerError, chunk_set_id, prepare, prepare_observed,
+};
 use maestro_kernel::{
     chunk_set::ChunkSetState, document::Outcome, scope::ScopeSet, store::Database,
 };
@@ -16,12 +18,17 @@ use std::ops::ControlFlow;
 /// A scratch kernel holding seventeen documents, more than one batch,
 /// imported and accepted, with the scopes that read it.
 fn imported(scratch: &Scratch) -> (Database, ScopeSet) {
+    imported_with(scratch, "")
+}
+
+/// [`imported`], each heading ending with `label`.
+fn imported_with(scratch: &Scratch, label: &str) -> (Database, ScopeSet) {
     let documents: Vec<(String, String)> = (1..=17)
         .map(|number| {
             (
                 format!("note-{number}.md"),
                 format!(
-                    "# Note {number}\n\n{}\n",
+                    "# Note {number}{label}\n\n{}\n",
                     words(&format!("note{number}x"), 30)
                 ),
             )
@@ -44,10 +51,16 @@ fn a_preparation_stopped_after_its_first_batch_is_building_and_resumes_to_the_sa
     let (database, scopes) = imported(&stopped);
     let (_, tokenizer) = tokenizer();
     let mut seen = Vec::new();
-    let result = prepare_observed(&database, &scopes, COLLECTION, &tokenizer, &mut |report| {
-        seen.push(report.clone());
-        ControlFlow::Break(())
-    });
+    let result = prepare_observed(
+        &database,
+        &scopes,
+        Preparation::of(COLLECTION),
+        &tokenizer,
+        &mut |report| {
+            seen.push(report.clone());
+            ControlFlow::Break(())
+        },
+    );
     assert!(matches!(result, Err(Error::Stopped)), "{result:?}");
     let [first] = seen.as_slice() else {
         panic!("{seen:?}");
@@ -79,6 +92,36 @@ fn a_preparation_stopped_after_its_first_batch_is_building_and_resumes_to_the_sa
 }
 
 #[test]
+fn a_resumed_preparation_counts_the_chrome_of_the_revisions_chunked_before() {
+    let (stopped, uninterrupted) = (Scratch::new(), Scratch::new());
+    let label = " Link copied to clipboard";
+    let (database, scopes) = imported_with(&stopped, label);
+    let (_, tokenizer) = tokenizer();
+    let ideas = Preparation {
+        collection: COLLECTION,
+        profile: ChunkProfile::CompleteIdeas,
+    };
+    let mut stop = |_: &_| ControlFlow::Break(());
+    let result = prepare_observed(&database, &scopes, ideas, &tokenizer, &mut stop);
+    assert!(matches!(result, Err(Error::Stopped)), "{result:?}");
+    let mut unobserved = |_: &_| ControlFlow::Continue(());
+    let resumed = prepare_observed(&database, &scopes, ideas, &tokenizer, &mut unobserved).unwrap();
+    let (other, other_scopes) = imported_with(&uninterrupted, label);
+    let whole =
+        prepare_observed(&other, &other_scopes, ideas, &tokenizer, &mut unobserved).unwrap();
+    assert_eq!(resumed, whole);
+    assert_eq!(
+        serde_json::to_value(&resumed.chrome).unwrap(),
+        serde_json::json!({"heading_suffix": {"units": 17, "bytes": 17 * label.len()}})
+    );
+    let error = maestro_canonicalization::Error("no unit".to_owned());
+    assert_eq!(
+        Error::Chrome(error).to_string(),
+        "the chrome of a revision chunked before cannot be counted again: no unit"
+    );
+}
+
+#[test]
 fn a_router_without_free_room_leaves_the_set_building_and_a_rerun_completes_it() {
     let scratch = Scratch::new();
     let (database, scopes) = imported(&scratch);
@@ -90,7 +133,7 @@ fn a_router_without_free_room_leaves_the_set_building_and_a_rerun_completes_it()
         panic!("the preparation counted without room");
     };
     assert_eq!(reason, "no free room for 1280 MiB");
-    let id = chunk_set_id(&database, &scopes, COLLECTION, &tokenizer).unwrap();
+    let id = chunk_set_id(&database, &scopes, Preparation::of(COLLECTION), &tokenizer).unwrap();
     let set = database.chunk_set(&scopes, &id).unwrap().unwrap();
     assert_eq!(
         (set.state, set.manifest_digest),

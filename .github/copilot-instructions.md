@@ -233,6 +233,7 @@ in place.
 │   │   │       ├── job_waits.rs                                             # job wait follows a job to its end and exits with its outcome; an unreadable job is unknown
 │   │   │       ├── knowledge_ask.rs                                         # The public CLI refuses an invalid ask model before contacting a backend
 │   │   │       ├── knowledge_collections.rs                                 # Visible metadata returned by knowledge collections
+│   │   │       ├── knowledge_prepare_profiles.rs                            # knowledge prepare --chunk-profile builds the chunk set of the chunking
 │   │   │       ├── knowledge_prepare_v2.rs                                  # knowledge prepare qualifies a v2 embedder card against the tokenizer
 │   │   │       ├── knowledge_publish.rs                                     # knowledge prepare and knowledge publish refuse missing or unsuitable
 │   │   │       ├── knowledge_verify_recheck.rs                              # knowledge verify must read its artifacts again on every invocation
@@ -266,17 +267,22 @@ in place.
 │   │   │   ├── chunk_split/                                                 # Structural preparation and packing; only chunk_documents, through a verified TokenCounter, certifies counts
 │   │   │   │   ├── tests/                                                   # Tests of structural preparation and packing
 │   │   │   │   │   ├── boundaries.rs                                        # The pure preparation helpers: cut points, fitting prefixes and delimiter-safe ranges
+│   │   │   │   │   ├── chrome.rs                                            # Page chrome under the complete-ideas profile: only a label or markup of known HTML elements
 │   │   │   │   │   ├── context.rs                                           # Context, characterized on small documents: the exact prepared input of each chunk
+│   │   │   │   │   ├── ideas.rs                                             # The complete-ideas profile: page chrome left out of the indexed text, and a section's blocks
 │   │   │   │   │   ├── mod.rs                                               # Tests of structural preparation and packing
 │   │   │   │   │   ├── oversized.rs                                         # Oversized units: refused by name, with their block and its span, never by their text
 │   │   │   │   │   ├── packing.rs                                           # Packing and preparation: shared chunks, context text, containers, part numbers and the table
 │   │   │   │   │   └── splitting.rs                                         # Splitting, characterized on small documents: where oversized units and rows are cut
+│   │   │   │   ├── chrome.rs                                                # Page chrome: interface labels an HTML export keeps around a page's content, which the
 │   │   │   │   ├── context.rs                                               # The context a chunk repeats: headings, parent items, task markers and table headers
 │   │   │   │   ├── drafts.rs                                                # Packing a document's atoms into drafts: combined up to the target, refined or split past the
+│   │   │   │   ├── ideas.rs                                                 # Ideas: the atoms that belong in one chunk
 │   │   │   │   ├── layout.rs                                                # The layout's structural queries: owners, sections, table windows and packing atoms
 │   │   │   │   ├── limits.rs                                                # The token budgets drafts grow toward and never exceed
 │   │   │   │   ├── mod.rs                                                   # Structural preparation and packing; only chunk_documents, through a verified TokenCounter, certifies counts
 │   │   │   │   ├── prepare.rs                                               # The prepared input: body parts, formatting, sentence boundaries and fitting prefixes
+│   │   │   │   ├── ranges.rs                                                # Unit ranges a chunk may hold: never starting or ending inside an inline delimiter
 │   │   │   │   ├── refusal.rs                                               # The refusal every structural check returns
 │   │   │   │   ├── replay.rs                                                # Replaying a chunk's preparation: its table windows against its fragments, then the chunk
 │   │   │   │   └── structure.rs                                             # A document's structure indexed for chunking, the bodies packed from it and the context they
@@ -285,9 +291,11 @@ in place.
 │   │   │   │   │   ├── counter.rs                                           # Tests of the counting seam: any TokenCounter chunks, verified around its batch
 │   │   │   │   │   ├── identity.rs                                          # Identities: chunk and prepared-input identities follow scope and content alone
 │   │   │   │   │   ├── mod.rs                                               # Tests of chunk assembly, prepared-input groups and replay validation
+│   │   │   │   │   ├── profiles.rs                                          # Profiles: the pinned default batch and what each profile names
 │   │   │   │   │   └── replay.rs                                            # Replay validation: coverage and prepared parts must rebuild from the mapped source
 │   │   │   │   ├── batch.rs                                                 # Batch records: per-occurrence evidence, retrieval chunks and prepared-input groups
 │   │   │   │   ├── build.rs                                                 # Batch assembly: map, split, replay and identify every authorized occurrence
+│   │   │   │   ├── chrome.rs                                                # The page chrome a profile leaves out of a document's indexed text, counted per rule
 │   │   │   │   ├── identity.rs                                              # Prepared-input groups: identical prepared inputs share one identity
 │   │   │   │   ├── mod.rs                                                   # Phase B chunk batches: assembly, prepared-input identities and replay validation
 │   │   │   │   └── validation.rs                                            # Replay checks: coverage and every prepared part must rebuild from the mapped source
@@ -318,6 +326,7 @@ in place.
 │   │   │   │   └── tests.rs                                                 # Structural checks against documents altered one field at a time: each fault is reported
 │   │   │   ├── accounting.rs                                                # A deterministic, unique byte partition; nested block spans remain independently valid
 │   │   │   ├── assemble.rs                                                  # Build natural blocks and lexical heading context from the offset-aware tree
+│   │   │   ├── chunk_profile.rs                                             # Chunking profiles: which blocks share a chunk and what its prepared input leaves out
 │   │   │   ├── cli.rs                                                       # The command line: its usage, its flags, the metadata sidecar and the run that canonicalizes
 │   │   │   ├── content.rs                                                   # Typed natural blocks and nested inline content
 │   │   │   ├── dedup.rs                                                     # Pure, scoped exact grouping; equality never merges identity or grants access

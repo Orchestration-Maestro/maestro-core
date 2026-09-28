@@ -13,7 +13,9 @@ use maestro_kernel::{
     gateway::{ModelCard, RouterClient},
     job::{JobState, NewJob},
 };
-use maestro_knowledge::prepare::{self, RouterTokenizer, TokenizerQualification};
+use maestro_knowledge::prepare::{
+    self, ChunkProfile, Preparation, RouterTokenizer, TokenizerQualification,
+};
 use serde_json::json;
 use std::{env, ops::ControlFlow, process::ExitCode};
 
@@ -27,18 +29,24 @@ const PRINTING: Printing = Printing {
     text: wait::line,
 };
 
-/// Prepares `collection` with the recorded embedder card `card_digest` as a
-/// job, or finds the job with the same frozen inputs.
+/// Prepares `collection` with the recorded embedder card `card_digest` under
+/// the chunking profile `profile_name`, the default one when none is named,
+/// as a job, or finds the job with the same frozen inputs.
 pub(super) fn run(
     kernel: &Kernel,
     output: Output,
     collection_id: &str,
     card_digest: &str,
+    profile_name: Option<&str>,
 ) -> Result<ExitCode, Failure> {
+    let preparation = Preparation {
+        collection: collection_id,
+        profile: chunk_profile(profile_name)?,
+    };
     collection::declared(kernel, collection_id)?;
     let card = kernel.embedder_card(card_digest)?;
     let chunk_set =
-        prepare::chunk_set_id_for_card(&kernel.database, &kernel.scopes, collection_id, &card)
+        prepare::chunk_set_id_for_card(&kernel.database, &kernel.scopes, preparation, &card)
             .map_err(|error| Failure::failed_by(&error))?;
     let router_url =
         health::router_url(env::var_os(health::ROUTER_VARIABLE).as_deref()).map_err(|text| {
@@ -74,7 +82,7 @@ pub(super) fn run(
             let prepared = prepare::prepare_observed(
                 &kernel.database,
                 &kernel.scopes,
-                collection_id,
+                preparation,
                 &tokenizer,
                 &mut |report| {
                     let data = match serde_json::to_value(report) {
@@ -100,6 +108,24 @@ pub(super) fn run(
         },
         PRINTING,
     )
+}
+
+/// The chunking profile whose chunker version is `name`, the default one when
+/// none is named; refused, naming the known profiles, when it is unknown.
+pub(super) fn chunk_profile(name: Option<&str>) -> Result<ChunkProfile, Failure> {
+    let Some(name) = name else {
+        return Ok(ChunkProfile::default());
+    };
+    ChunkProfile::named(name).ok_or_else(|| {
+        let known: Vec<_> = ChunkProfile::ALL
+            .iter()
+            .map(|profile| profile.chunker_version())
+            .collect();
+        Failure::refused(format!(
+            "no chunking profile is named {name}; the profiles are {}",
+            known.join(", ")
+        ))
+    })
 }
 
 /// Qualifies a legacy card through its original path or loads and checks v2 evidence.

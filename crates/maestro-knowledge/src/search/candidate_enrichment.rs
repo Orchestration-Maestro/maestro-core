@@ -4,15 +4,16 @@
 //! the enrichment cutoff, keeps the indexed chunk text and no penalty.
 
 use super::{
-    evidence::{self, SourceCache},
+    evidence::{self, Indexing, SourceCache},
     request::{CandidateContext, SearchConfiguration},
 };
+use maestro_canonicalization::{ChunkProfile, SourceSpan, chrome_spans};
 use maestro_kernel::{
     chunk_set::Chunk, generation::Generation, retrieval::ReadControl, scope::ScopeSet,
     store::Database,
 };
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet},
     sync::atomic::Ordering,
     time::{Duration, Instant},
 };
@@ -72,6 +73,8 @@ pub(super) fn enrich(
         deadline: control.deadline.min(settings.deadline),
         cancelled: control.cancelled.clone(),
     };
+    let profile = chunk_profile(database, scopes, settings.generation).unwrap_or_default();
+    let mut chrome: BTreeMap<String, Option<Vec<SourceSpan>>> = BTreeMap::new();
     let mut cache = SourceCache::new(database, scopes, &control);
     let revisions = candidates
         .iter()
@@ -83,7 +86,18 @@ pub(super) fn enrich(
             .then(|| cache.get(&chunk.revision_id))
             .flatten()
             .and_then(|source| {
-                let (path, expanded) = evidence::context(source, chunk, max_bytes).ok()?;
+                let spans = chrome
+                    .entry(chunk.revision_id.clone())
+                    .or_insert_with(|| {
+                        chrome_spans(&source.canonical, &source.markdown, profile).ok()
+                    })
+                    .as_deref()?;
+                let indexing = Indexing {
+                    profile,
+                    chrome: spans,
+                };
+                let (path, expanded) =
+                    evidence::context(source, chunk, max_bytes, indexing).ok()?;
                 Some((format!("{} / {path}", source.document.source_ref), expanded))
             });
         let Some((path, expanded)) = context else {
@@ -104,6 +118,21 @@ pub(super) fn enrich(
     }
     enriched.micros = micros(started.elapsed());
     enriched
+}
+
+/// The chunking profile of the generation's chunk set, whose page chrome a
+/// bounded context leaves out; none when it cannot be read or this build does
+/// not know it, and the default profile, which leaves nothing out, applies.
+fn chunk_profile(
+    database: &Database,
+    scopes: &ScopeSet,
+    generation: &Generation,
+) -> Option<ChunkProfile> {
+    let set = database
+        .chunk_set(scopes, &generation.chunk_set_id)
+        .ok()
+        .flatten()?;
+    ChunkProfile::named(&set.chunk_profile)
 }
 
 /// Whether enrichment may still read: neither cancelled nor past its cutoff.

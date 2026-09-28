@@ -25,7 +25,7 @@ mod selection;
 mod signals;
 /// Loads and caches authorized canonical source records.
 mod source;
-pub(super) use candidate_context::context;
+pub(super) use candidate_context::{Indexing, context};
 pub(super) use source::SourceCache;
 /// Unions candidate source spans without crossing revisions.
 mod spans;

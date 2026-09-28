@@ -26,7 +26,7 @@ use maestro_kernel::{
     scope::{Config, LOCAL, Scope},
     store::Database,
 };
-use maestro_knowledge::prepare::{self, Report, RouterTokenizer};
+use maestro_knowledge::prepare::{self, Preparation, Report, RouterTokenizer};
 use serde_json::json;
 use std::{
     ops::ControlFlow,
@@ -104,7 +104,9 @@ fn the_collection_prepares_as_a_leased_job() {
         tokenized: Arc::clone(&tokenized),
     };
     let tokenizer = RouterTokenizer::qualify(port, card).unwrap();
-    let chunk_set = prepare::chunk_set_id(&database, &scopes, &collection, &tokenizer).unwrap();
+    let chunk_set =
+        prepare::chunk_set_id(&database, &scopes, Preparation::of(&collection), &tokenizer)
+            .unwrap();
     let scope: Scope = format!("workspace/default/collection/{collection}")
         .parse()
         .unwrap();
@@ -129,8 +131,12 @@ fn the_collection_prepares_as_a_leased_job() {
         .unwrap();
     let (started, before) = (Instant::now(), tokenized.load(Ordering::Relaxed));
     let mut first_step = None;
-    let report =
-        prepare::prepare_observed(&database, &scopes, &collection, &tokenizer, &mut |report| {
+    let report = prepare::prepare_observed(
+        &database,
+        &scopes,
+        Preparation::of(&collection),
+        &tokenizer,
+        &mut |report| {
             first_step.get_or_insert_with(|| started.elapsed());
             let step = json!({
                 "prepared": report.prepared,
@@ -141,7 +147,8 @@ fn the_collection_prepares_as_a_leased_job() {
                 Ok(_) => ControlFlow::Continue(()),
                 Err(_) => ControlFlow::Break(()),
             }
-        });
+        },
+    );
     let elapsed = started.elapsed();
     let calls = tokenized.load(Ordering::Relaxed) - before;
     let report: Report = report.unwrap();
