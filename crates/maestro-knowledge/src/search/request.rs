@@ -1,7 +1,7 @@
 //! Bounded search requests and retrieval handoffs for T032.
 
 use super::{
-    rerank::{Ranked, Reranker},
+    rerank::{DEFAULT_DEPTH, Ranked, Reranker},
     routes::{dense::Embedder, error::RouteError},
 };
 use crate::{index::Qdrant, query::Understood};
@@ -28,6 +28,25 @@ pub struct SearchRequest<'a> {
     pub budget: RequestBudget,
     /// The number of fused candidates passed to T031, at most 120.
     pub rerank_depth: NonZeroUsize,
+}
+
+impl<'a> SearchRequest<'a> {
+    /// Creates a request with the measured default rerank depth.
+    #[must_use]
+    pub fn new(
+        collection: &'a str,
+        text: &'a str,
+        version: Option<&'a str>,
+        budget: RequestBudget,
+    ) -> Self {
+        Self {
+            collection,
+            text,
+            version,
+            budget,
+            rerank_depth: DEFAULT_DEPTH,
+        }
+    }
 }
 
 /// Trusted dependencies and caller identity for one search.

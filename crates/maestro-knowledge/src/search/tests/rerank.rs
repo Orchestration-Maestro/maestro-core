@@ -1,4 +1,5 @@
-use crate::search::{Candidate, DEFAULT_DEPTH, Fused, Ranked, Reranked, Reranker, rerank};
+use crate::search::rerank::DEFAULT_DEPTH;
+use crate::search::{Candidate, Fused, Ranked, Reranked, Reranker, rerank};
 use maestro_kernel::{
     artifact::{Digest, Store},
     evidence::RouteStatus,

@@ -176,13 +176,6 @@ path = "crates/maestro-knowledge/src/query/mod.rs"
 item = "INVENTORY_VERSION_FORMS"
 reason = "understanding and inventory parsing must share version forms to mask quoted set text consistently"
 
-# Query understanding remains one rule-based contract passed unchanged to T032.
-[[exception]]
-rule = "ARC-005"
-path = "crates/maestro-knowledge/src/query/mod.rs"
-item = "understand"
-reason = "the query module owns the rule-based interpretation contract passed unchanged through search to T032"
-
 # Independent retrieval routes stay separate from orchestration and one another.
 [[exception]]
 rule = "ARC-005"
@@ -207,6 +200,14 @@ rule = "ARC-005"
 path = "crates/maestro-knowledge/src/search/evidence/mod.rs"
 item = "assemble_evidence"
 reason = "public API of maestro-knowledge, called from the maestro crate; ARC-005 does not count cross-crate callers"
+
+# The public search module keeps the shared retrieval and evidence seams
+# together; standalone search and ask use the same APIs.
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-knowledge/src/search/mod.rs"
+item = "search"
+reason = "ask is its only in-crate caller; CLI, MCP and integration-test consumers are in other crates"
 
 # The quality gate's reader of the revisions it lets through: the gate owns
 # eligibility, so the preparation (T023) reads it rather than deciding again,

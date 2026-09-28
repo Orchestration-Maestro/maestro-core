@@ -9,7 +9,7 @@ use maestro_kernel::{
 };
 use maestro_knowledge::{
     query::Family,
-    search::{DEFAULT_DEPTH, Reranker, SearchContext, SearchError, SearchRequest, search},
+    search::{Reranker, SearchContext, SearchError, SearchRequest, search},
 };
 use std::collections::HashSet;
 use tokio::time::Instant;
@@ -73,16 +73,15 @@ async fn undocumented_question_version_does_not_filter_search_results() {
             embedder: None,
             reranker: None,
         };
-        let request = SearchRequest {
-            collection: &kernel.collection,
-            text: "scheduler 9.0.22.100",
-            version: None,
-            budget: RequestBudget {
+        let request = SearchRequest::new(
+            &kernel.collection,
+            "scheduler 9.0.22.100",
+            None,
+            RequestBudget {
                 deadline_ms: 5000,
                 ..RequestBudget::default()
             },
-            rerank_depth: DEFAULT_DEPTH,
-        };
+        );
         let result = Box::pin(search(&context, &request)).await.unwrap();
         assert_eq!(result.understood.version.as_deref(), Some("9.0.22.100"));
         assert_eq!(result.version, None);
@@ -118,16 +117,15 @@ async fn explicit_version_overrides_question_version() {
             embedder: None,
             reranker: None,
         };
-        let request = SearchRequest {
-            collection: &kernel.collection,
-            text: "scheduler 9.0.22.100",
-            version: Some("9.0.22"),
-            budget: RequestBudget {
+        let request = SearchRequest::new(
+            &kernel.collection,
+            "scheduler 9.0.22.100",
+            Some("9.0.22"),
+            RequestBudget {
                 deadline_ms: 5000,
                 ..RequestBudget::default()
             },
-            rerank_depth: DEFAULT_DEPTH,
-        };
+        );
         let result = Box::pin(search(&context, &request)).await.unwrap();
         assert_eq!(result.understood.version.as_deref(), Some("9.0.22.100"));
         assert_eq!(result.version.as_deref(), Some("9.0.22"));
@@ -162,16 +160,15 @@ async fn missing_explicit_version_is_reported_as_a_known_gap() {
         embedder: None,
         reranker: None,
     };
-    let request = SearchRequest {
-        collection: &kernel.collection,
-        text: "scheduler 9.0.22",
-        version: Some("99.99"),
-        budget: RequestBudget {
+    let request = SearchRequest::new(
+        &kernel.collection,
+        "scheduler 9.0.22",
+        Some("99.99"),
+        RequestBudget {
             deadline_ms: 5000,
             ..RequestBudget::default()
         },
-        rerank_depth: DEFAULT_DEPTH,
-    };
+    );
     let result = Box::pin(search(&context, &request)).await.unwrap();
     assert!(result.ranked.is_empty());
     assert_eq!(result.version.as_deref(), Some("99.99"));
@@ -205,16 +202,15 @@ async fn malformed_inventory_filter_degrades_only_the_structured_route() {
         embedder: None,
         reranker: None,
     };
-    let request = SearchRequest {
-        collection: &kernel.collection,
-        text: r#"how many documents in set "ERR-042" trailing"#,
-        version: None,
-        budget: RequestBudget {
+    let request = SearchRequest::new(
+        &kernel.collection,
+        r#"how many documents in set "ERR-042" trailing"#,
+        None,
+        RequestBudget {
             deadline_ms: 5000,
             ..RequestBudget::default()
         },
-        rerank_depth: DEFAULT_DEPTH,
-    };
+    );
 
     let result = Box::pin(search(&context, &request)).await.unwrap();
     assert_eq!(
@@ -272,16 +268,15 @@ async fn mismatched_route_revision_is_refused_before_rerank() {
             card: &reranker_card,
         }),
     };
-    let request = SearchRequest {
-        collection: &kernel.collection,
-        text: "`ctm`",
-        version: None,
-        budget: RequestBudget {
+    let request = SearchRequest::new(
+        &kernel.collection,
+        "`ctm`",
+        None,
+        RequestBudget {
             deadline_ms: 5000,
             ..RequestBudget::default()
         },
-        rerank_depth: DEFAULT_DEPTH,
-    };
+    );
     assert!(matches!(
         Box::pin(search(&context, &request)).await,
         Err(SearchError::EvidenceLoad { .. })
@@ -332,16 +327,15 @@ async fn missing_embedder_degrades_dense_but_fuses_other_routes() {
         embedder: None,
         reranker: None,
     };
-    let request = SearchRequest {
-        collection: &kernel.collection,
-        text: "`ctm`",
-        version: None,
-        budget: RequestBudget {
+    let request = SearchRequest::new(
+        &kernel.collection,
+        "`ctm`",
+        None,
+        RequestBudget {
             deadline_ms: 5000,
             ..RequestBudget::default()
         },
-        rerank_depth: DEFAULT_DEPTH,
-    };
+    );
     let result = Box::pin(search(&context, &request)).await.unwrap();
     assert_eq!(result.understood.identifiers[0].family, Family::Command);
     assert!(matches!(

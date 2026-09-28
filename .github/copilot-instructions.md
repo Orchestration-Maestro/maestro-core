@@ -114,6 +114,7 @@ in place.
 │   │   │   │   │   ├── support.rs                                           # What the unit tests share: a scratch kernel and a job leased in it, held or lost
 │   │   │   │   │   └── verify_outcome.rs                                    # Verification findings make the verify job fail without dropping its report
 │   │   │   │   ├── args.rs                                                  # The grammar, noun then verb, as clap derives it; the comments are the help
+│   │   │   │   ├── ask.rs                                                   # CLI adapter for evidence-grounded knowledge answers
 │   │   │   │   ├── collection.rs                                            # knowledge collection add, and the declaration a later command finds for a collection
 │   │   │   │   ├── foreground.rs                                            # A job run in the foreground: submitted or found by its key, taken or followed, a stale holder superseded
 │   │   │   │   ├── import.rs                                                # knowledge import: a leased job in the foreground, its ID first; a rerun follows, takes over or supersedes
@@ -129,6 +130,10 @@ in place.
 │   │   │   │   └── wait.rs                                                  # job wait: a job's stream followed to its end, the command exiting with its outcome; the follower
 │   │   │   ├── knowledge/                                                   # Scoped knowledge operations shared by the CLI and stdio MCP server
 │   │   │   │   ├── operations/                                              # Source-scoped kernel operations for the CLI and MCP read surfaces
+│   │   │   │   │   ├── ask/                                                 # Ask
+│   │   │   │   │   │   ├── mod.rs                                           # The shared knowledge ask operation
+│   │   │   │   │   │   ├── run.rs                                           # One local ask operation shared by CLI and MCP
+│   │   │   │   │   │   └── tests.rs                                         # Rust source: tests
 │   │   │   │   │   ├── implementation.rs                                    # Scoped application operations shared by CLI and MCP
 │   │   │   │   │   ├── mod.rs                                               # Source-scoped kernel operations for the CLI and MCP read surfaces
 │   │   │   │   │   ├── search.rs                                            # Scoped search followed by the approved evidence assembly handoff
@@ -159,6 +164,7 @@ in place.
 │   │   │   │   │   └── wire_tests.rs                                        # Wire-size and output-shaping tests for the MCP handler
 │   │   │   │   ├── transport/                                               # Stdio JSON-RPC framing with complete-line and complete-response byte bounds
 │   │   │   │   │   └── tests.rs                                             # Rust source: tests
+│   │   │   │   ├── ask_tool.rs                                              # MCP input and schema for knowledge_ask
 │   │   │   │   ├── mod.rs                                                   # Bounded local stdio MCP transport and tools
 │   │   │   │   ├── run.rs                                                   # Runs the stdio MCP server without sending diagnostics to stdout
 │   │   │   │   └── transport.rs                                             # Stdio JSON-RPC framing with complete-line and complete-response byte bounds
@@ -196,6 +202,7 @@ in place.
 │   │   │       ├── fakes.rs                                                 # Fake curl and systemctl for the binary's tests, found first on the PATH, logging each call
 │   │   │       ├── import_jobs.rs                                           # knowledge import end to end, rerun, live holder refused, stale one superseded, leases taken over
 │   │   │       ├── job_waits.rs                                             # job wait follows a job to its end and exits with its outcome; an unreadable job is unknown
+│   │   │       ├── knowledge_ask.rs                                         # The public CLI refuses an invalid ask model before contacting a backend
 │   │   │       ├── knowledge_collections.rs                                 # Visible metadata returned by knowledge collections
 │   │   │       ├── knowledge_publish.rs                                     # knowledge prepare and knowledge publish refuse missing or unsuitable
 │   │   │       ├── knowledge_verify_recheck.rs                              # knowledge verify must read its artifacts again on every invocation
@@ -584,6 +591,16 @@ in place.
 │   │   └── Cargo.toml                                                       # Crate manifest: The single authoritative store of Maestro, starting with its content-addressed artifacts
 │   └── maestro-knowledge/                                                   # Maestro knowledge
 │       ├── src/                                                             # The crate's sources
+│       │   ├── answer/                                                      # Evidence-grounded answering with bounded generation and one validation retry
+│       │   │   ├── tests/                                                   # Integration tests
+│       │   │   │   └── guardrails.rs                                        # Rust source: guardrails
+│       │   │   ├── validate/                                                # Deterministic support checks for buffered answerer replies
+│       │   │   │   └── tests.rs                                             # Rust source: tests
+│       │   │   ├── generate.rs                                              # The bounded search-to-answer state machine and refusal handling
+│       │   │   ├── prompt.rs                                                # The evidence-only prompt and registered chat-template controls
+│       │   │   ├── tests.rs                                                 # Rust source: tests
+│       │   │   ├── types.rs                                                 # Typed ask requests, results, refusals, and trusted dependencies
+│       │   │   └── validate.rs                                              # Deterministic support checks for buffered answerer replies
 │       │   ├── eval/                                                        # The evaluation runner (plan D13; FR-S1-009, SC-S1-008): every retrieval
 │       │   │   ├── reports/                                                 # Reports
 │       │   │   │   ├── base.rs                                              # Reports: maestro-eval-report/1, what a run measured, question by
@@ -837,6 +854,7 @@ in place.
 │       │   │   ├── request.rs                                               # Retrieval results handed to T032 without assembling an evidence bundle
 │       │   │   ├── rerank.rs                                                # Reranks the head of a fused list without truncating candidate text
 │       │   │   └── route_execution.rs                                       # Deadline-bounded leaf-route calls and their independent public statuses
+│       │   ├── answer.rs                                                    # Evidence-grounded answering with bounded generation and one validation retry
 │       │   ├── collection.rs                                                # A collection's declaration: maestro-collection/1, the strict JSON that
 │       │   ├── corpus.rs                                                    # A corpus manifest: maestro-corpus/1, one JSON line per document, through
 │       │   ├── lib.rs                                                       # The knowledge pipeline of Maestro (docs/architecture/01): collections, their
@@ -939,6 +957,7 @@ in place.
 │       │       │   ├── real_qdrant.rs                                       # Exercises the mandatory synthetic pipeline against the pinned Qdrant service
 │       │       │   ├── search.rs                                            # Test-only bridge from the integrated dense/lexical routes and fusion to T021
 │       │       │   └── support.rs                                           # Owns private scratch directories used by synthetic-gate tests
+│       │       ├── answer_live.rs                                           # A single buffered ask against a registered answerer, live: an explicit
 │       │       ├── collection_contract.rs                                   # maestro-collection/1: a strict declaration parses into typed values; an
 │       │       ├── corpus_contract.rs                                       # maestro-corpus/1: one line per document parses into typed values; an
 │       │       ├── eval_synthetic.rs                                        # The evaluation runner over the public synthetic suite (T014), end to end

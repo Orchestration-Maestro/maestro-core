@@ -63,7 +63,12 @@ fn server_info_and_tool_lookup_match_the_read_only_contract() {
     assert_eq!(info.server_info.name, "maestro");
     assert!(info.instructions.is_some());
 
-    for name in ["knowledge_collections", "knowledge_get", "knowledge_search"] {
+    for name in [
+        "knowledge_collections",
+        "knowledge_get",
+        "knowledge_search",
+        "knowledge_ask",
+    ] {
         let tool = server.get_tool(name).expect("known tool");
         assert_eq!(tool.name.as_ref(), name);
     }

@@ -12,6 +12,7 @@ mod doctor_checks;
 mod fakes;
 mod import_jobs;
 mod job_waits;
+mod knowledge_ask;
 mod knowledge_collections;
 mod knowledge_get;
 mod knowledge_publish;

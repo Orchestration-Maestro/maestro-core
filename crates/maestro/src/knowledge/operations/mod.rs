@@ -1,5 +1,7 @@
 //! Source-scoped kernel operations for the CLI and MCP read surfaces.
 
+/// Ask operation shared by the CLI and MCP surfaces.
+pub(crate) mod ask;
 mod implementation;
 mod search;
 #[cfg(test)]

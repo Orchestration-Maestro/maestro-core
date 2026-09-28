@@ -27,8 +27,10 @@
 //! - `maestro knowledge get (--chunk-id <id> | --section-id <id>)
 //!   [--collection <id>] [--generation <id>]` reads an exact source-backed
 //!   chunk or section;
-//! - `maestro mcp` serves the collection, search and exact-retrieval tools over
-//!   stdio JSON-RPC;
+//! - `maestro knowledge ask --collection <id> --question <text>` answers from
+//!   verified evidence or returns a safe refusal;
+//! - `maestro mcp` serves collection, search, exact-retrieval and answer tools
+//!   over stdio JSON-RPC;
 //! - `maestro job wait <id>` follows a job until it ends, and exits with its
 //!   outcome;
 //! - `maestro setup` previews the search service Maestro needs, and installs
@@ -230,17 +232,31 @@
 //! section results include the canonical section path. An excerpt that cannot
 //! fit the JSON limit is refused whole.
 //!
+//! # `knowledge ask`
+//!
+//! Searches the visible collection once, assembles bounded evidence, and calls
+//! the registered answerer in free room. The default router entry is
+//! `qwen3-4b`; `--model` selects another registered answerer. `--version`,
+//! `--k`, `--max-tokens`, `--search-deadline-ms`, and `--output-tokens` bound
+//! retrieval and generation.
+//! Answers cite only host-resolved passage metadata; the host checks citation
+//! numbers and command/path/version-like literals, retries one invalid reply,
+//! then refuses. `--json` emits the same `maestro-answer/1` object as MCP,
+//! always marked `uncalibrated: true` until T037. A validated answer or safe
+//! refusal exits 0, invalid/admission refusals exit 2, and execution failures
+//! exit 1.
+//!
 //! # `mcp`
 //!
 //! Serves stdio JSON-RPC only; protocol messages go to stdout and diagnostics
-//! go to stderr. It advertises `knowledge_collections` and `knowledge_get`,
-//! with strict object arguments and output schemas. Tool identity is always
-//! the local principal; request metadata cannot select a different principal.
-//! Input lines and complete responses are capped at 65536 serialized UTF-8
-//! bytes, string request IDs at 256 bytes, and active calls at four. Collections
-//! omit complete trailing entries with `maestro/truncation` metadata and a
-//! text warning; exact oversized excerpts return `response_too_large` without
-//! a shortened body. Section retrieval is available; search is not advertised yet.
+//! go to stderr. It advertises `knowledge_collections`, `knowledge_get` and
+//! `knowledge_ask`, with strict object arguments and output schemas. Tool
+//! identity is always the local principal; request metadata cannot select a
+//! different principal. Input lines and complete responses are capped at
+//! 65536 serialized UTF-8 bytes, string request IDs at 256 bytes, and active
+//! calls at four. Collections omit complete trailing entries with
+//! `maestro/truncation` metadata and a text warning; exact oversized excerpts
+//! return `response_too_large` without a shortened body.
 //!
 //! # `setup`
 //!

@@ -37,7 +37,12 @@ fn mcp_advertises_search_with_strict_object_arguments() {
             .iter()
             .map(|tool| tool["name"].as_str().expect("tool name"))
             .collect::<Vec<_>>(),
-        ["knowledge_collections", "knowledge_get", "knowledge_search"]
+        [
+            "knowledge_collections",
+            "knowledge_get",
+            "knowledge_search",
+            "knowledge_ask",
+        ]
     );
     let search = &tools[2];
     assert_eq!(search["inputSchema"]["type"], "object");

@@ -1,0 +1,345 @@
+//! The bounded search-to-answer state machine and refusal handling.
+
+use super::{
+    prompt::{chat_request, prompt},
+    types::{
+        ANSWER_SCHEMA, Answer, AnswerCitation, AnswerContext, AnswerModel, AnswerRefusal,
+        AskBudget, AskError, AskRequest, CHAT_DEADLINE, CLOSEST_LIMIT, RefusalCode,
+        RegisteredAnswerer, ResponseLanguage,
+    },
+    validate::{Reply, ValidReply, ValidationFailure, validate_reply},
+};
+use crate::{
+    query::{Language, understand},
+    search::{
+        SearchRequest,
+        evidence::{EvidenceCounter, assemble_evidence},
+        search,
+    },
+};
+use maestro_kernel::{
+    evidence::{Bundle, RequestBudget},
+    gateway::{
+        Error as GatewayError, MAX_CHAT_OUTPUT_TOKENS, Message, ModelPort, Role, Room, RouterEntry,
+        Speaker,
+    },
+};
+use std::collections::BTreeMap;
+use tokio::time::timeout;
+
+/// Searches once, assembles verified passages and validates at most two chat replies.
+///
+/// # Errors
+/// Returns an error for invalid bounds, failed search or evidence integrity,
+/// unavailable chat, or an expired chat deadline.
+pub async fn ask<P: ModelPort + Sync>(
+    context: &AnswerContext<'_, P>,
+    request: &AskRequest,
+) -> Result<Answer, AskError> {
+    validate_request(request)?;
+    let search_request = SearchRequest::new(
+        &request.collection,
+        &request.question,
+        request.version.as_deref(),
+        request_budget(request.budget),
+    );
+    let input = search(&context.search, &search_request)
+        .await
+        .map_err(AskError::Search)?;
+    let bundle = assemble_evidence(
+        context.search.database.clone(),
+        input,
+        EvidenceCounter::Utf8Bytes,
+    )
+    .await
+    .map_err(AskError::Evidence)?;
+    answer_bundle(context.port, request, context.answerer.as_ref(), bundle).await
+}
+
+/// Validates caller bounds without imposing language-detection rules.
+fn validate_request(request: &AskRequest) -> Result<(), AskError> {
+    if request.collection.trim().is_empty() {
+        return Err(AskError::InvalidRequest("collection must not be blank"));
+    }
+    if request.question.trim().is_empty() || request.question.len() > 8192 {
+        return Err(AskError::InvalidRequest(
+            "question must contain 1 to 8192 UTF-8 bytes",
+        ));
+    }
+    if request
+        .version
+        .as_ref()
+        .is_some_and(|version| version.is_empty() || version.len() > 256)
+    {
+        return Err(AskError::InvalidRequest(
+            "version must contain 1 to 256 UTF-8 bytes",
+        ));
+    }
+    if RouterEntry::parse(&request.model).is_err() {
+        return Err(AskError::InvalidRequest("model must be one router entry"));
+    }
+    if !(1..=50).contains(&request.budget.k)
+        || !(1..=12_000).contains(&request.budget.max_tokens)
+        || !(1..=10_000).contains(&request.budget.search_deadline_ms)
+        || !(1..=MAX_CHAT_OUTPUT_TOKENS).contains(&request.budget.output_tokens)
+    {
+        return Err(AskError::InvalidRequest(
+            "ask budget is outside accepted limits",
+        ));
+    }
+    Ok(())
+}
+
+/// Best-effort response metadata; an unknown question language is not a refusal.
+fn response_language(request: &AskRequest) -> ResponseLanguage {
+    match understand(&request.question).language {
+        Language::French => ResponseLanguage::French,
+        Language::English | Language::Unknown => ResponseLanguage::English,
+    }
+}
+
+/// Converts the public answer budget into the shared search bounds.
+fn request_budget(budget: AskBudget) -> RequestBudget {
+    RequestBudget {
+        k: budget.k,
+        max_tokens: budget.max_tokens,
+        deadline_ms: budget.search_deadline_ms,
+    }
+}
+
+/// Runs answer generation over one already-verified evidence bundle.
+pub(super) async fn answer_bundle<P: ModelPort + Sync>(
+    port: &P,
+    request: &AskRequest,
+    answerer: Option<&RegisteredAnswerer>,
+    bundle: Bundle,
+) -> Result<Answer, AskError> {
+    validate_request(request)?;
+    let language = response_language(request);
+    let response = ResponseContext::new(request, &bundle, answerer, language)?;
+    if bundle.passages.is_empty() {
+        return Ok(response.refusal(RefusalCode::NoEvidence));
+    }
+    let Some(answerer) = answerer else {
+        return Ok(response.refusal(RefusalCode::AnswererUnavailable));
+    };
+    check_answerer(request, answerer)?;
+
+    let mut messages = prompt(request, &bundle)?;
+    for attempt in 0..=1 {
+        let chat = chat_request(request, answerer, messages.clone());
+        let result = timeout(CHAT_DEADLINE, port.chat(&answerer.card, Room::Free, &chat))
+            .await
+            .map_err(|_| AskError::TimedOut)?;
+        let reply = match result {
+            Ok(reply) => reply,
+            Err(GatewayError::InvalidAnswer { .. }) if attempt == 0 => {
+                repair(
+                    &mut messages,
+                    String::new(),
+                    ValidationFailure::InvalidAnswer,
+                );
+                continue;
+            }
+            Err(GatewayError::InvalidAnswer { .. }) => {
+                return Ok(response.refusal(RefusalCode::Unsupported));
+            }
+            Err(error) => return Err(AskError::Backend(error)),
+        };
+        match validate_reply(&reply, request, &bundle) {
+            Ok(Reply::NotFound) => return Ok(response.refusal(RefusalCode::NotFound)),
+            Ok(Reply::Answer(valid)) => return response.answer(valid),
+            Err(failure) if attempt == 0 => repair(&mut messages, reply, failure),
+            Err(_) => return Ok(response.refusal(RefusalCode::Unsupported)),
+        }
+    }
+    Ok(response.refusal(RefusalCode::Unsupported))
+}
+
+/// Adds one typed repair message without rerunning retrieval or changing evidence.
+fn repair(messages: &mut Vec<Message>, reply: String, failure: ValidationFailure) {
+    messages.push(Message {
+        speaker: Speaker::Assistant,
+        content: reply,
+    });
+    messages.push(Message {
+        speaker: Speaker::User,
+        content: format!(
+            "Repair the answer once. Validation code: {}. Follow the original \
+             evidence-only instructions.",
+            failure.code()
+        ),
+    });
+}
+
+/// Checks the registry identity and card output ceiling before chat.
+fn check_answerer(request: &AskRequest, answerer: &RegisteredAnswerer) -> Result<(), AskError> {
+    if answerer.card.fields().role != Role::Answerer
+        || answerer.card.fields().router_entry.as_str() != request.model
+    {
+        return Err(AskError::InvalidRequest(
+            "registered answerer does not match the requested model entry",
+        ));
+    }
+    if answerer
+        .card
+        .fields()
+        .limits
+        .output_tokens
+        .is_some_and(|limit| request.budget.output_tokens > limit.get())
+    {
+        return Err(AskError::InvalidRequest(
+            "output limit exceeds the registered answerer card",
+        ));
+    }
+    Ok(())
+}
+
+/// Host-resolved metadata used to render a validated answer or refusal.
+struct ResponseContext<'a> {
+    /// The original request, copied into the public answer.
+    request: &'a AskRequest,
+    /// The verified evidence bundle that bounds the answer.
+    bundle: &'a Bundle,
+    /// The checked response language.
+    language: ResponseLanguage,
+    /// The registered answerer identity, when one is available.
+    answerer: Option<&'a RegisteredAnswerer>,
+    /// Source-resolved citation metadata indexed by passage number.
+    passages: BTreeMap<u32, AnswerCitation>,
+    /// Host-selected nearby passage metadata for a refusal.
+    closest: Vec<AnswerCitation>,
+}
+
+impl<'a> ResponseContext<'a> {
+    /// Builds citation and closest-passage metadata from the assembled bundle.
+    fn new(
+        request: &'a AskRequest,
+        bundle: &'a Bundle,
+        answerer: Option<&'a RegisteredAnswerer>,
+        language: ResponseLanguage,
+    ) -> Result<Self, AskError> {
+        let passages = citation_metadata(bundle)?;
+        let closest = passages.values().take(CLOSEST_LIMIT).cloned().collect();
+        Ok(Self {
+            request,
+            bundle,
+            language,
+            answerer,
+            passages,
+            closest,
+        })
+    }
+
+    /// Builds a host-written refusal without returning passage text.
+    fn refusal(&self, code: RefusalCode) -> Answer {
+        Answer {
+            schema: ANSWER_SCHEMA.to_owned(),
+            collection: self.bundle.collection.clone(),
+            generation: self.bundle.generation,
+            question: self.request.question.clone(),
+            lang: self.language.code().to_owned(),
+            answer: String::new(),
+            citations: Vec::new(),
+            model: model_metadata(self.request, self.answerer),
+            uncalibrated: true,
+            refusal: Some(AnswerRefusal {
+                code,
+                message: refusal_message(code, self.language).to_owned(),
+            }),
+            closest: self.closest.clone(),
+        }
+    }
+
+    /// Resolves validated passage numbers to source-owned citation metadata.
+    fn answer(&self, valid: ValidReply) -> Result<Answer, AskError> {
+        let citations = valid
+            .citations
+            .iter()
+            .map(|number| {
+                self.passages
+                    .get(number)
+                    .cloned()
+                    .ok_or(AskError::EvidenceIntegrity)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(Answer {
+            schema: ANSWER_SCHEMA.to_owned(),
+            collection: self.bundle.collection.clone(),
+            generation: self.bundle.generation,
+            question: self.request.question.clone(),
+            lang: self.language.code().to_owned(),
+            answer: valid.text,
+            citations,
+            model: model_metadata(self.request, self.answerer),
+            uncalibrated: true,
+            refusal: None,
+            closest: Vec::new(),
+        })
+    }
+}
+
+/// Copies citation metadata from the exact passages and their assembly trace.
+fn citation_metadata(bundle: &Bundle) -> Result<BTreeMap<u32, AnswerCitation>, AskError> {
+    bundle
+        .passages
+        .iter()
+        .map(|passage| {
+            let chunk_id = bundle
+                .trace
+                .iter()
+                .find(|trace| trace.n == passage.n)
+                .and_then(|trace| trace.chunk_ids.first())
+                .cloned()
+                .ok_or(AskError::EvidenceIntegrity)?;
+            Ok((
+                passage.n,
+                AnswerCitation {
+                    n: passage.n,
+                    chunk_id,
+                    section_id: passage.section_id.clone(),
+                    source_ref: passage.source_ref.clone(),
+                    title: passage.title.clone(),
+                    section_path: passage.section_path.clone(),
+                    span: [passage.span.start, passage.span.end],
+                },
+            ))
+        })
+        .collect()
+}
+
+/// Associates the response with the registered card, never model output.
+fn model_metadata(request: &AskRequest, answerer: Option<&RegisteredAnswerer>) -> AnswerModel {
+    AnswerModel {
+        router_entry: request.model.clone(),
+        card_id: answerer.map(|registered| registered.id.clone()),
+    }
+}
+
+/// Host-owned refusal text in the response language.
+fn refusal_message(code: RefusalCode, language: ResponseLanguage) -> &'static str {
+    match (code, language) {
+        (RefusalCode::NotFound, ResponseLanguage::English) => {
+            "The available passages do not answer the question."
+        }
+        (RefusalCode::NotFound, ResponseLanguage::French) => {
+            "Les passages disponibles ne répondent pas à la question."
+        }
+        (RefusalCode::Unsupported, ResponseLanguage::English) => {
+            "The answer could not be verified against the available evidence."
+        }
+        (RefusalCode::Unsupported, ResponseLanguage::French) => {
+            "La réponse n’a pas pu être vérifiée à partir des éléments disponibles."
+        }
+        (RefusalCode::AnswererUnavailable, ResponseLanguage::English) => {
+            "No registered answerer is available for the requested model."
+        }
+        (RefusalCode::AnswererUnavailable, ResponseLanguage::French) => {
+            "Aucun modèle de réponse enregistré n’est disponible pour ce modèle."
+        }
+        (RefusalCode::NoEvidence, ResponseLanguage::English) => "No passage matched the question.",
+        (RefusalCode::NoEvidence, ResponseLanguage::French) => {
+            "Aucun passage ne correspond à la question."
+        }
+    }
+}

@@ -3,10 +3,11 @@
 //! and a job run in the foreground, its loop and its lease.
 
 mod args;
+mod ask;
 mod backup;
 mod collection;
 mod foreground;
-mod health;
+pub(crate) mod health;
 mod import;
 mod lease;
 mod output;

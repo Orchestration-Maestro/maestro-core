@@ -281,7 +281,7 @@ pub(crate) fn get_with(
 }
 
 /// Maps local kernel construction and refresh failures to safe public errors.
-fn kernel_open_failure(failure: &Failure) -> KnowledgeError {
+pub(crate) fn kernel_open_failure(failure: &Failure) -> KnowledgeError {
     match failure {
         Failure::Refused(_) => KnowledgeError::Refused {
             code: "invalid_configuration",
@@ -331,7 +331,7 @@ fn unknown_section() -> KnowledgeError {
 }
 
 /// A generic kernel failure that never exposes the backend's source chain.
-fn kernel_failure() -> KnowledgeError {
+pub(crate) fn kernel_failure() -> KnowledgeError {
     KnowledgeError::Failed {
         code: "kernel_unavailable",
         message: "the local knowledge store is unavailable",

@@ -20,7 +20,7 @@ use maestro_kernel::{
 use maestro_knowledge::{
     index::{Projection, Report},
     lexical::{AverageLength, Passage},
-    search::{DEFAULT_DEPTH, SearchContext, SearchRequest, search},
+    search::{SearchContext, SearchRequest, search},
 };
 use qdrant_client::{
     Payload,
@@ -65,13 +65,12 @@ async fn a_markerless_published_generation_degrades_then_republishes_without_ear
         embedder: None,
         reranker: None,
     };
-    let identifier = SearchRequest {
-        collection: &kernel.collection,
-        text: "ERR-042",
-        version: None,
-        budget: RequestBudget::default(),
-        rerank_depth: DEFAULT_DEPTH,
-    };
+    let identifier = SearchRequest::new(
+        &kernel.collection,
+        "ERR-042",
+        None,
+        RequestBudget::default(),
+    );
     let identifier_result = Box::pin(search(&context, &identifier)).await.unwrap();
     assert_eq!(
         identifier_result.routes.get("identifier"),

@@ -18,11 +18,10 @@ pub mod routes;
 #[cfg(test)]
 mod tests;
 
-pub use evidence::{EvidenceCounter, EvidenceError, assemble_evidence};
 pub use fusion::{Fused, Hit, Route, RouteList, fuse};
 pub use orchestrate::search;
 pub use pin::pin;
 pub use query::Query;
 pub use request::{EvidenceInput, SearchContext, SearchError, SearchRequest};
-pub use rerank::{Candidate, DEFAULT_DEPTH, Ranked, Reranked, Reranker, rerank};
+pub use rerank::{Candidate, Ranked, Reranked, Reranker, rerank};
 pub use routes::outcome::{RouteOutcome, StructuredOutcome};

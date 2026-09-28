@@ -43,7 +43,8 @@ impl RerankFailure {
 }
 
 /// The initial reranking depth measured by T008.
-pub const DEFAULT_DEPTH: NonZeroUsize = NonZeroUsize::new(80).expect("default depth is nonzero");
+pub(super) const DEFAULT_DEPTH: NonZeroUsize =
+    NonZeroUsize::new(80).expect("default depth is nonzero");
 
 /// A fused candidate and the prepared text read by the reranker.
 #[derive(Clone, Debug, PartialEq)]

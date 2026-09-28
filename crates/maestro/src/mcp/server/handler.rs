@@ -1,12 +1,14 @@
 //! MCP protocol handler and advertised knowledge tool schemas.
 
 use super::{
+    super::ask_tool as ask,
     knowledge_server::KnowledgeServer,
     operations::{
         BlockingOperation, InputFailure, Operation, call_blocking_operation, parse_operation,
     },
     response::tool_error,
     search,
+    types::ASK_CALL_DEADLINE,
 };
 use crate::knowledge::{
     GetRequest, SearchRequest,
@@ -30,8 +32,8 @@ impl<P: ModelPort + Send + Sync + 'static> ServerHandler for KnowledgeServer<P> 
         ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
             .with_server_info(Implementation::new("maestro", env!("CARGO_PKG_VERSION")))
             .with_instructions(concat!(
-                "Search visible published collections or read their exact source-backed chunks ",
-                "and sections granted to the local principal.",
+                "Search visible published collections, read their exact source-backed chunks ",
+                "and sections, or answer from passages granted to the local principal.",
             ))
     }
 
@@ -80,6 +82,16 @@ impl<P: ModelPort + Send + Sync + 'static> ServerHandler for KnowledgeServer<P> 
 
         match operation {
             Operation::Search(request) => search::call_search(self, request, permit, context).await,
+            Operation::Ask(request) => {
+                call_blocking_operation(
+                    BlockingOperation::Ask(request),
+                    permit,
+                    self.open_kernel.clone(),
+                    ASK_CALL_DEADLINE,
+                    context,
+                )
+                .await
+            }
             Operation::Collections => {
                 call_blocking_operation(
                     BlockingOperation::Collections,
@@ -162,5 +174,6 @@ fn tool_definitions() -> Result<Vec<Tool>, McpError> {
             .open_world(false)
             .idempotent(true),
     );
-    Ok(vec![collections, get, search])
+    let ask = ask::definition()?;
+    Ok(vec![collections, get, search, ask])
 }

@@ -37,11 +37,17 @@ fn mcp_initializes_and_lists_only_implemented_tools_without_cli_wrapping() {
             .iter()
             .map(|tool| tool["name"].as_str().unwrap())
             .collect::<Vec<_>>(),
-        ["knowledge_collections", "knowledge_get", "knowledge_search"]
+        [
+            "knowledge_collections",
+            "knowledge_get",
+            "knowledge_search",
+            "knowledge_ask",
+        ]
     );
     assert_collections_tool(&tools[0]);
     assert_get_tool(&tools[1]);
     assert_search_tool(&tools[2]);
+    assert_ask_tool(&tools[3]);
 }
 
 fn assert_collections_tool(collections: &Value) {
@@ -114,6 +120,32 @@ fn assert_get_tool(get: &Value) {
     assert_eq!(get["annotations"]["openWorldHint"], false);
 }
 
+fn assert_ask_tool(ask: &Value) {
+    assert_eq!(ask["inputSchema"]["type"], "object");
+    assert_eq!(ask["inputSchema"]["additionalProperties"], false);
+    let required = ask["inputSchema"]["required"].as_array().unwrap();
+    assert!(required.contains(&json!("collection")));
+    assert!(required.contains(&json!("question")));
+    assert_eq!(ask["outputSchema"]["type"], "object");
+    assert_eq!(ask["annotations"]["destructiveHint"], false);
+    assert_eq!(ask["annotations"]["openWorldHint"], false);
+    assert_eq!(ask["annotations"]["readOnlyHint"], true);
+    let refusal = json!({
+        "schema": "maestro-answer/1",
+        "collection": "docs",
+        "generation": 1,
+        "question": "How is the service configured?",
+        "lang": "en",
+        "answer": "",
+        "citations": [],
+        "model": {"router_entry": "qwen3-4b", "card_id": null},
+        "uncalibrated": true,
+        "refusal": {"code": "no_evidence", "message": "The passages do not answer the question."},
+        "closest": [],
+    });
+    assert_output_schema(&refusal, &ask["outputSchema"]);
+}
+
 #[test]
 fn initialize_negotiates_rmcp_versions_and_accepts_a_follow_up_tools_list() {
     let home = Home::bare();
@@ -156,7 +188,7 @@ fn initialize_negotiates_rmcp_versions_and_accepts_a_follow_up_tools_list() {
             .iter()
             .find(|response| response["id"] == 2)
             .unwrap();
-        assert_eq!(tools["result"]["tools"].as_array().unwrap().len(), 3);
+        assert_eq!(tools["result"]["tools"].as_array().unwrap().len(), 4);
     }
 }
 

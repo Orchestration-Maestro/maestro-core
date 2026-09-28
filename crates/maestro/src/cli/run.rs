@@ -4,7 +4,7 @@
 
 use super::{
     args::{Arguments, CollectionCommand, JobCommand, KnowledgeCommand, Noun},
-    backup, collection, health, import,
+    ask, backup, collection, health, import,
     output::{Output, diagnose},
     prepare, publish, quality, retrieve, search, setup, status, verify, wait,
 };
@@ -16,6 +16,7 @@ use crate::{
 };
 use clap::Parser as _;
 use maestro_kernel::evidence::RequestBudget;
+use maestro_knowledge::answer::{AskBudget, AskRequest, DEFAULT_MODEL};
 use std::process::ExitCode;
 
 /// Runs the command the process's arguments name, and returns its exit code.
@@ -89,6 +90,35 @@ fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> 
                 Err(error) => search::invalid_request(output, error),
             }
         }
+        Noun::Knowledge(KnowledgeCommand::Ask {
+            collection,
+            question,
+            model,
+            version,
+            k: max_passages,
+            max_tokens,
+            search_deadline_ms,
+            output_tokens,
+        }) => {
+            let defaults = AskBudget::default();
+            ask::run(
+                output,
+                &AskRequest {
+                    collection: collection.clone(),
+                    question: question.clone(),
+                    model: model.clone().unwrap_or_else(|| DEFAULT_MODEL.to_owned()),
+                    version: version.clone(),
+                    budget: AskBudget {
+                        k: max_passages.unwrap_or(defaults.k),
+                        max_tokens: max_tokens.unwrap_or(defaults.max_tokens),
+                        search_deadline_ms: search_deadline_ms
+                            .unwrap_or(defaults.search_deadline_ms),
+                        output_tokens: output_tokens.unwrap_or(defaults.output_tokens),
+                    },
+                },
+                Kernel::open,
+            )
+        }
         Noun::Knowledge(command) => knowledge(&Kernel::open()?, output, command),
         Noun::Mcp => {
             let (model_port, qdrant) = search::ports()?;
@@ -126,7 +156,8 @@ fn knowledge(
         KnowledgeCommand::Status { collection } => status::run(kernel, output, collection),
         KnowledgeCommand::Collections
         | KnowledgeCommand::Get { .. }
-        | KnowledgeCommand::Search { .. } => Err(Failure::failed(
+        | KnowledgeCommand::Search { .. }
+        | KnowledgeCommand::Ask { .. } => Err(Failure::failed(
             "knowledge retrieval bypassed its scoped dispatch path",
         )),
     }

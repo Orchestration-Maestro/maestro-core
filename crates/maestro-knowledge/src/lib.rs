@@ -19,6 +19,11 @@
 //! A complete chunk set is then published as a search generation in Qdrant,
 //! each chunk represented by a dense and a sparse vector ([`index`]).
 
+#[expect(
+    clippy::self_named_module_files,
+    reason = "keep the public answer entry point in answer.rs beside answer/ siblings"
+)]
+pub mod answer;
 pub mod collection;
 pub mod corpus;
 pub mod eval;

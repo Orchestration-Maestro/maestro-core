@@ -9,9 +9,7 @@ use maestro_kernel::{
 };
 use maestro_knowledge::{
     index::Qdrant,
-    search::{
-        self, DEFAULT_DEPTH, Reranker, SearchContext, SearchRequest, routes::dense::Embedder,
-    },
+    search::{self, Reranker, SearchContext, SearchRequest, routes::dense::Embedder},
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -108,13 +106,12 @@ pub(super) async fn capture_question<P: ModelPort>(
         .database
         .visible(capture.principal)
         .map_err(|error| error.to_string())?;
-    let request = SearchRequest {
-        collection: capture.collection,
-        text: &question.question,
-        version: None,
-        budget: RequestBudget::default(),
-        rerank_depth: DEFAULT_DEPTH,
-    };
+    let request = SearchRequest::new(
+        capture.collection,
+        &question.question,
+        None,
+        RequestBudget::default(),
+    );
     let context = SearchContext {
         database: Arc::clone(&capture.database),
         principal: capture.principal,

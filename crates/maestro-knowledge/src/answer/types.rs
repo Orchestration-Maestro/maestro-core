@@ -1,0 +1,239 @@
+//! Typed ask requests, results, refusals, and trusted dependencies.
+
+use crate::search::{SearchContext, SearchError, evidence::EvidenceError};
+use maestro_kernel::gateway::{Error as GatewayError, ModelCard};
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+use std::{error, fmt, time::Duration};
+
+/// Default local answerer router entry.
+pub const DEFAULT_MODEL: &str = "qwen3-4b";
+/// Maximum time allowed for each buffered chat call.
+pub const CHAT_DEADLINE: Duration = Duration::from_secs(10);
+/// System-enforced output ceiling for one generation attempt.
+pub(super) const DEFAULT_OUTPUT_TOKENS: u32 = 700;
+/// Number of closest passages retained in a refusal.
+pub(super) const CLOSEST_LIMIT: usize = 3;
+/// Result schema identifier.
+pub(super) const ANSWER_SCHEMA: &str = "maestro-answer/1";
+
+/// Language used for host-owned response metadata when detection is confident.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum ResponseLanguage {
+    /// English response text.
+    English,
+    /// French response text.
+    French,
+}
+
+impl ResponseLanguage {
+    /// The short language code used in the public answer.
+    pub(super) fn code(self) -> &'static str {
+        match self {
+            Self::English => "en",
+            Self::French => "fr",
+        }
+    }
+}
+
+/// Bounded limits accepted for one ask.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[serde(default, deny_unknown_fields)]
+#[expect(
+    clippy::min_ident_chars,
+    reason = "the shared maestro-evidence search-budget contract names this limit k"
+)]
+pub struct AskBudget {
+    /// Maximum passages assembled from search.
+    pub k: u32,
+    /// UTF-8-byte evidence budget used by the deliberately uncalibrated flow.
+    pub max_tokens: u32,
+    /// Search and evidence-assembly deadline in milliseconds.
+    pub search_deadline_ms: u32,
+    /// Maximum generated tokens per chat call.
+    pub output_tokens: u32,
+}
+
+impl Default for AskBudget {
+    fn default() -> Self {
+        Self {
+            k: 5,
+            max_tokens: 6000,
+            search_deadline_ms: 1500,
+            output_tokens: DEFAULT_OUTPUT_TOKENS,
+        }
+    }
+}
+
+/// One bounded ask request shared by CLI and MCP.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AskRequest {
+    /// Visible collection to search.
+    pub collection: String,
+    /// Original user question.
+    pub question: String,
+    /// Registered answerer router entry; omitted requests use `qwen3-4b`.
+    #[serde(default = "default_model")]
+    pub model: String,
+    /// Exact version filter, when supplied.
+    #[serde(default)]
+    pub version: Option<String>,
+    /// Accepted passage, evidence, search and output bounds.
+    #[serde(default)]
+    pub budget: AskBudget,
+}
+
+/// Supplies the bounded local answerer when a request omits `model`.
+fn default_model() -> String {
+    DEFAULT_MODEL.to_owned()
+}
+
+/// One answerer card loaded from the collection's scoped model registry.
+#[derive(Debug, Clone)]
+pub struct RegisteredAnswerer {
+    /// The immutable registration ID, not a model-supplied value.
+    pub id: String,
+    /// The registered answerer's immutable card.
+    pub card: ModelCard,
+}
+
+/// Trusted dependencies for one ask operation.
+#[derive(Debug)]
+pub struct AnswerContext<'a, P> {
+    /// Shared bounded retrieval context.
+    pub search: SearchContext<'a, P>,
+    /// The gateway used for search and answer generation.
+    pub port: &'a P,
+    /// The registered answerer for `AskRequest::model`, when available.
+    pub answerer: Option<RegisteredAnswerer>,
+}
+
+/// A host-owned refusal category.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum RefusalCode {
+    /// The available passages do not answer the question.
+    NotFound,
+    /// The generated response failed deterministic support checks.
+    Unsupported,
+    /// No registered answerer is available for the requested router entry.
+    AnswererUnavailable,
+    /// Search returned no matching passage.
+    NoEvidence,
+}
+
+/// A checked refusal with a host-written reason.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AnswerRefusal {
+    /// Stable public refusal code.
+    pub code: RefusalCode,
+    /// Host-owned message in the checked response language.
+    pub message: String,
+}
+
+/// A source-resolved citation copied from an assembled passage.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AnswerCitation {
+    /// The evidence bundle's citation number.
+    pub n: u32,
+    /// One source chunk supporting this passage.
+    pub chunk_id: String,
+    /// The section identity, when present.
+    pub section_id: Option<String>,
+    /// Source-owned reference, never model output.
+    pub source_ref: String,
+    /// Source-owned title.
+    pub title: String,
+    /// Source-owned heading path.
+    pub section_path: Vec<String>,
+    /// Half-open byte span in the original source.
+    pub span: [usize; 2],
+}
+
+/// A locally rendered answer or an intentional evidence/model refusal.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct Answer {
+    /// Result schema identifier.
+    pub schema: String,
+    /// Collection searched.
+    pub collection: String,
+    /// Pinned generation searched.
+    pub generation: i64,
+    /// Original question.
+    pub question: String,
+    /// Checked response language code.
+    pub lang: String,
+    /// Validated answer text; empty on full refusal.
+    pub answer: String,
+    /// Source metadata for cited passage numbers only.
+    pub citations: Vec<AnswerCitation>,
+    /// Host-resolved answerer identity.
+    pub model: AnswerModel,
+    /// True until T037 records a calibrated shipping profile.
+    pub uncalibrated: bool,
+    /// Host-owned safe refusal, when the evidence or answerer is insufficient.
+    pub refusal: Option<AnswerRefusal>,
+    /// Host-selected closest passage metadata; never supporting citations.
+    pub closest: Vec<AnswerCitation>,
+}
+
+/// The exact card selected from the collection registry for this call.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub struct AnswerModel {
+    /// Router catalog entry.
+    pub router_entry: String,
+    /// Registry card ID; absent when no matching answerer is available.
+    pub card_id: Option<String>,
+}
+
+/// Why the ask request or its bounded dependencies could not complete safely.
+#[derive(Debug)]
+pub enum AskError {
+    /// Request validation failed before model work.
+    InvalidRequest(&'static str),
+    /// Search admission or route execution failed.
+    Search(SearchError),
+    /// Evidence assembly or source integrity failed.
+    Evidence(EvidenceError),
+    /// The bounded router chat call failed.
+    Backend(GatewayError),
+    /// A chat call exceeded its per-call deadline.
+    TimedOut,
+    /// An assembled citation lacks its source chunk identity.
+    EvidenceIntegrity,
+    /// The local answer prompt could not be serialized.
+    Json(serde_json::Error),
+}
+
+impl fmt::Display for AskError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidRequest(reason) => write!(formatter, "invalid ask request: {reason}"),
+            Self::Search(_) => formatter.write_str("knowledge search could not complete"),
+            Self::Evidence(_) => formatter.write_str("evidence could not be verified"),
+            Self::Backend(_) => formatter.write_str("the answerer is unavailable"),
+            Self::TimedOut => formatter.write_str("the answerer exceeded its 10-second deadline"),
+            Self::EvidenceIntegrity => {
+                formatter.write_str("the assembled passage has no source chunk identity")
+            }
+            Self::Json(_) => formatter.write_str("the bounded answer prompt could not be built"),
+        }
+    }
+}
+
+impl error::Error for AskError {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        match self {
+            Self::Search(error) => Some(error),
+            Self::Evidence(error) => Some(error),
+            Self::Backend(error) => Some(error),
+            Self::Json(error) => Some(error),
+            Self::InvalidRequest(_) | Self::TimedOut | Self::EvidenceIntegrity => None,
+        }
+    }
+}

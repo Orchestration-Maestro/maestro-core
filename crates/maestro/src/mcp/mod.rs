@@ -1,13 +1,8 @@
 //! Bounded local stdio MCP transport and tools.
 
+/// `knowledge_ask` request validation and JSON Schemas.
+mod ask_tool;
 pub(crate) mod run;
-#[cfg_attr(
-    test,
-    expect(
-        clippy::self_named_module_files,
-        reason = "keep the handler in server.rs and its unit tests in server/"
-    )
-)]
 mod server;
 #[cfg_attr(
     test,

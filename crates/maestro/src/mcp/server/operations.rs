@@ -1,6 +1,7 @@
 //! Strict MCP request parsing and bounded kernel workers.
 
 use super::{
+    super::ask_tool as ask,
     response::{
         CollectionsOutput, ResponseContext, bounded_collections_result, get_result,
         operation_error, response_fits, tool_error,
@@ -8,9 +9,12 @@ use super::{
     types::KernelOpener,
 };
 use crate::{
-    knowledge::operations::{collections_with, ensure_current_scopes, get_with},
+    knowledge::operations::{
+        ask::run::ask_with, collections_with, ensure_current_scopes, get_with,
+    },
     knowledge::{GetRequest, RequestError, SearchRequest},
 };
+use maestro_knowledge::answer::AskRequest;
 use rmcp::{
     ErrorData as McpError,
     model::{CallToolResponse, CallToolResult, ErrorCode},
@@ -42,6 +46,8 @@ pub(super) enum Operation {
     Get(GetRequest),
     /// Search one visible published generation.
     Search(SearchRequest),
+    /// Answer from one visible published generation.
+    Ask(AskRequest),
 }
 
 /// The synchronous operations executed by the bounded blocking-worker path.
@@ -50,6 +56,8 @@ pub(super) enum BlockingOperation {
     Collections,
     /// Retrieve one exact source-backed chunk or section.
     Get(GetRequest),
+    /// Answer from evidence, or return a safe refusal.
+    Ask(AskRequest),
 }
 
 /// Input errors distinguish malformed protocol requests from expected tool refusals.
@@ -86,6 +94,14 @@ pub(super) fn parse_operation(name: &str, arguments: Value) -> Result<Operation,
                 code: error.code(),
                 message: error.message(),
             }),
+        "knowledge_ask" => {
+            ask::parse(arguments)
+                .map(Operation::Ask)
+                .map_err(|error| InputFailure::Tool {
+                    code: error.code(),
+                    message: error.message(),
+                })
+        }
         _ => Err(InputFailure::Protocol(McpError::new(
             ErrorCode::INVALID_PARAMS,
             "unknown tool",
@@ -161,6 +177,7 @@ fn run_operation(
             "collections",
         ),
         BlockingOperation::Get(_) => ("the exact excerpt exceeds the response limit", "excerpt"),
+        BlockingOperation::Ask(_) => ("the answer exceeds the response limit", "answer"),
     };
     let (result, admitted) = match operation {
         BlockingOperation::Collections => match collections_with(|| open_kernel()) {
@@ -185,6 +202,17 @@ fn run_operation(
                 get_result(scoped.data),
                 Some((scoped.kernel, scoped.scopes)),
             ),
+            Err(error) => (Ok(operation_error(error)), None),
+        },
+        BlockingOperation::Ask(request) => match ask_with(|| open_kernel(), &request) {
+            Ok(scoped) => {
+                let value = serde_json::to_value(scoped.data)
+                    .map_err(|_| McpError::internal_error("response serialization failed", None));
+                (
+                    value.map(CallToolResult::structured),
+                    Some((scoped.kernel, scoped.scopes)),
+                )
+            }
             Err(error) => (Ok(operation_error(error)), None),
         },
     };

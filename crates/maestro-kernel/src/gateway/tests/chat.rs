@@ -244,6 +244,39 @@ fn chat_template_controls_need_names_and_finite_numbers() {
 }
 
 #[tokio::test]
+async fn chat_serializes_card_template_control_values() {
+    let (path, store) = scratch_store();
+    let mut identity = answerer_identity();
+    identity.invocation.limits.output_tokens = NonZeroU32::new(400);
+    identity.router_entry = RouterEntry::parse("answer").expect("router entry");
+    identity.invocation.llama_cpp_build = BUILD.to_owned();
+    identity.formats.template = Template::Digest(Digest::of(TEMPLATE.as_bytes()));
+    identity.invocation.reasoning = Capability::Supported(
+        [("enable_thinking".to_owned(), ControlValue::Boolean(false))].into(),
+    );
+    let card = ModelCard::record_v2(&store, &identity).expect("answerer card");
+    let stub = StubRouter::serve(vec![
+        ("/models/answer/props", props()),
+        (
+            "/models/answer/v1/chat/completions",
+            answer(200, &completion("The source says yes [1].")),
+        ),
+    ]);
+    let client = RouterClient::new(stub.base()).expect("router");
+    client
+        .chat(&card, Room::Free, &request(&[user("Use the evidence.")]))
+        .await
+        .expect("completion");
+
+    let requests = stub.requests();
+    assert_eq!(
+        requests[1].body["chat_template_kwargs"]["enable_thinking"],
+        json!(false)
+    );
+    fs::remove_dir_all(path).expect("remove scratch card");
+}
+
+#[tokio::test]
 async fn malformed_or_unexpected_completion_shapes_are_rejected() {
     let mut length = completion("partial");
     length["choices"][0]["finish_reason"] = json!("length");

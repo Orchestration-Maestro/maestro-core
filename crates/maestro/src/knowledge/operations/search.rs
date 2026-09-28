@@ -15,8 +15,8 @@ use maestro_kernel::{
 use maestro_knowledge::{
     index::Qdrant,
     search::{
-        DEFAULT_DEPTH, EvidenceCounter, EvidenceError, Reranker, SearchContext, SearchError,
-        SearchRequest as PipelineRequest, assemble_evidence,
+        Reranker, SearchContext, SearchError, SearchRequest as PipelineRequest,
+        evidence::{EvidenceCounter, EvidenceError, assemble_evidence},
         routes::{dense::Embedder, error::RouteError},
         search,
     },
@@ -66,16 +66,15 @@ pub(crate) async fn search_with<P: ModelPort>(
             card,
         }),
     };
-    let pipeline_request = PipelineRequest {
-        collection: &request.collection,
-        text: &request.query,
-        version: request.version.as_deref(),
+    let pipeline_request = PipelineRequest::new(
+        &request.collection,
+        &request.query,
+        request.version.as_deref(),
         budget,
-        rerank_depth: DEFAULT_DEPTH,
-    };
+    );
     let input = search(&context, &pipeline_request)
         .await
-        .map_err(search_failure)?;
+        .map_err(|error| search_failure(&error))?;
     if input.scopes.as_ref() != &scopes {
         return Err(access_changed());
     }
@@ -138,7 +137,7 @@ fn selected_reranker(
 }
 
 /// Maps search refusals and failures without exposing internal error chains.
-fn search_failure(error: SearchError) -> KnowledgeError {
+pub(super) fn search_failure(error: &SearchError) -> KnowledgeError {
     match error {
         SearchError::InvalidRequest { .. } => KnowledgeError::Refused {
             code: "invalid_arguments",
@@ -162,7 +161,7 @@ fn search_failure(error: SearchError) -> KnowledgeError {
 }
 
 /// Maps authoritative evidence failures without exposing source or backend data.
-fn evidence_failure(error: &EvidenceError) -> KnowledgeError {
+pub(super) fn evidence_failure(error: &EvidenceError) -> KnowledgeError {
     match error {
         EvidenceError::NotVisible => KnowledgeError::Refused {
             code: "not_found",
@@ -198,7 +197,7 @@ fn kernel_failure() -> KnowledgeError {
 }
 
 /// Reports corrupt evidence without exposing its source or artifact path.
-fn integrity_failure() -> KnowledgeError {
+pub(super) fn integrity_failure() -> KnowledgeError {
     KnowledgeError::Failed {
         code: "integrity_error",
         message: "the source integrity check failed",

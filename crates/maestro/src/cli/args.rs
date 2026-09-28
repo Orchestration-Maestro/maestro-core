@@ -74,6 +74,10 @@ pub(super) struct PublishArguments {
 
 /// What to do with the knowledge of a collection.
 #[derive(Debug, Subcommand)]
+#[expect(
+    clippy::min_ident_chars,
+    reason = "the public search-budget flag uses the shared maestro-evidence name k"
+)]
 pub(super) enum KnowledgeCommand {
     /// Collections and their declarations.
     #[command(subcommand)]
@@ -161,6 +165,33 @@ pub(super) enum KnowledgeCommand {
         #[arg(long, requires = "collection")]
         generation: Option<i64>,
     },
+    /// Answer a question from verified passages, or refuse when they do not suffice.
+    Ask {
+        /// The collection to search.
+        #[arg(long)]
+        collection: String,
+        /// The question to answer.
+        #[arg(long)]
+        question: String,
+        /// A registered answerer router entry; defaults to qwen3-4b.
+        #[arg(long)]
+        model: Option<String>,
+        /// Restrict search to this exact version.
+        #[arg(long)]
+        version: Option<String>,
+        /// Maximum number of passages to assemble.
+        #[arg(long)]
+        k: Option<u32>,
+        /// Maximum evidence bytes to assemble.
+        #[arg(long)]
+        max_tokens: Option<u32>,
+        /// Search and evidence deadline in milliseconds.
+        #[arg(long)]
+        search_deadline_ms: Option<u32>,
+        /// Maximum generated tokens per chat call.
+        #[arg(long)]
+        output_tokens: Option<u32>,
+    },
 }
 
 /// What to do with a collection's declaration.
@@ -181,4 +212,57 @@ pub(super) enum JobCommand {
         /// The job's ID.
         id: Ulid,
     },
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Arguments, KnowledgeCommand, Noun};
+    use clap::Parser as _;
+
+    #[test]
+    fn knowledge_ask_parses_the_required_question_and_optional_bounds() {
+        let parsed = Arguments::try_parse_from([
+            "maestro",
+            "knowledge",
+            "ask",
+            "--collection",
+            "docs",
+            "--question",
+            "How is the service configured?",
+        ]);
+        assert!(parsed.is_ok(), "{parsed:?}");
+        if let Ok(arguments) = parsed {
+            assert!(matches!(
+                arguments.noun,
+                Noun::Knowledge(KnowledgeCommand::Ask {
+                    collection,
+                    question,
+                    model: None,
+                    version: None,
+                    k: None,
+                    max_tokens: None,
+                    search_deadline_ms: None,
+                    output_tokens: None,
+                }) if collection == "docs" && question == "How is the service configured?"
+            ));
+        }
+    }
+
+    #[test]
+    fn i3_knowledge_ask_does_not_accept_a_language_option() {
+        assert!(
+            Arguments::try_parse_from([
+                "maestro",
+                "knowledge",
+                "ask",
+                "--collection",
+                "docs",
+                "--question",
+                "How is the service configured?",
+                "--language",
+                "fr",
+            ])
+            .is_err()
+        );
+    }
 }

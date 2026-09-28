@@ -16,7 +16,7 @@ use maestro_kernel::{
     scope::{Right, Scope},
 };
 use maestro_knowledge::search::{
-    DEFAULT_DEPTH, Reranker, Route, SearchContext, SearchError, SearchRequest, search,
+    Reranker, Route, SearchContext, SearchError, SearchRequest, search,
 };
 use qdrant_client::qdrant::{Distance, Modifier};
 
@@ -38,16 +38,15 @@ async fn unknown_and_unpublished_collections_stop_before_model_or_qdrant_calls()
         reranker: None,
     };
     for collection in ["missing-collection", kernel.collection.as_str()] {
-        let request = SearchRequest {
+        let request = SearchRequest::new(
             collection,
-            text: "scheduler",
-            version: None,
-            budget: RequestBudget {
+            "scheduler",
+            None,
+            RequestBudget {
                 deadline_ms: 5000,
                 ..RequestBudget::default()
             },
-            rerank_depth: DEFAULT_DEPTH,
-        };
+        );
         assert!(matches!(
             Box::pin(search(&context, &request)).await,
             Err(SearchError::Admission(_))
@@ -144,16 +143,15 @@ async fn alias_and_generation_moves_after_admission_keep_search_pinned() {
         }),
         reranker: None,
     };
-    let request = SearchRequest {
-        collection: &kernel.collection,
-        text: "How many documents?",
-        version: None,
-        budget: RequestBudget {
+    let request = SearchRequest::new(
+        &kernel.collection,
+        "How many documents?",
+        None,
+        RequestBudget {
             deadline_ms: 5000,
             ..RequestBudget::default()
         },
-        rerank_depth: DEFAULT_DEPTH,
-    };
+    );
     let search_future = search(&context, &request);
     tokio::pin!(search_future);
     tokio::select! {
@@ -261,16 +259,15 @@ async fn a_permission_revocation_during_a_slow_route_aborts_the_handoff() {
             card: &reranker_card,
         }),
     };
-    let request = SearchRequest {
-        collection: &kernel.collection,
-        text: "`ctm`",
-        version: None,
-        budget: RequestBudget {
+    let request = SearchRequest::new(
+        &kernel.collection,
+        "`ctm`",
+        None,
+        RequestBudget {
             deadline_ms: 5000,
             ..RequestBudget::default()
         },
-        rerank_depth: DEFAULT_DEPTH,
-    };
+    );
     let search_future = search(&context, &request);
     tokio::pin!(search_future);
     tokio::select! {
@@ -324,16 +321,15 @@ async fn a_new_grant_during_a_slow_route_aborts_the_handoff() {
         }),
         reranker: None,
     };
-    let request = SearchRequest {
-        collection: &kernel.collection,
-        text: "`ctm`",
-        version: None,
-        budget: RequestBudget {
+    let request = SearchRequest::new(
+        &kernel.collection,
+        "`ctm`",
+        None,
+        RequestBudget {
             deadline_ms: 5000,
             ..RequestBudget::default()
         },
-        rerank_depth: DEFAULT_DEPTH,
-    };
+    );
     let search_future = search(&context, &request);
     tokio::pin!(search_future);
     tokio::select! {

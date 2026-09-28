@@ -894,6 +894,7 @@ dependencies = [
  "qdrant-client",
  "reqwest",
  "rusqlite",
+ "schemars",
  "serde",
  "serde_json",
  "sha1",
