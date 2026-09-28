@@ -11,3 +11,6 @@ mod support;
 mod supports;
 mod upgrade;
 mod vocabulary;
+
+mod resolution;
+mod resolution_guards;

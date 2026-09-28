@@ -388,7 +388,8 @@ in place.
 │   │   │   ├── 0011_exact_identifiers.sql                                   # Exact, publish-time identifier membership
 │   │   │   ├── 0012_graph_claims.sql                                        # File: 0012 graph claims
 │   │   │   ├── 0013_graph_claim_vocabulary.sql                              # File: 0013 graph claim vocabulary
-│   │   │   └── 0014_graph_builds.sql                                        # File: 0013 graph builds
+│   │   │   ├── 0014_graph_builds.sql                                        # File: 0013 graph builds
+│   │   │   └── 0015_graph_resolution.sql                                    # File: 0015 graph resolution
 │   │   ├── src/                                                             # The crate's sources
 │   │   │   ├── artifact/                                                    # Content-addressed artifacts: immutable bytes stored, and read back, by their
 │   │   │   │   ├── digest.rs                                                # A SHA-256 digest: the name every artifact is stored under
@@ -465,6 +466,8 @@ in place.
 │   │   │   │   │   ├── builds.rs                                            # Graph builds: batches recorded in order under the job's lease, each with
 │   │   │   │   │   ├── claims.rs                                            # Admitting claims: a whole set or nothing, unreviewed, recorded once by
 │   │   │   │   │   ├── mod.rs                                               # Tests of claims: admitting a verified set or nothing, reading it back
+│   │   │   │   │   ├── resolution.rs                                        # Immutable sourced resolution snapshots and current-grant checks
+│   │   │   │   │   ├── resolution_guards.rs                                 # Frozen reviews, request coverage and rowid replacement regressions
 │   │   │   │   │   ├── schema.rs                                            # What the schema refuses whoever writes: replacing, changing or deleting
 │   │   │   │   │   ├── support.rs                                           # What the claim tests share: a scratch database holding revisions of a
 │   │   │   │   │   ├── supports.rs                                          # Verifying supports: the kernel reads the quoted bytes from the revision's
@@ -478,6 +481,7 @@ in place.
 │   │   │   │   ├── mod.rs                                                   # The knowledge graph's authority (specs/002-knowledge-graph, FR-S2-002 and
 │   │   │   │   ├── quote.rs                                                 # Verifying a claim's support from the authority: the revision is one the
 │   │   │   │   ├── read.rs                                                  # Reading a claim set: whole, or not at all when the caller's scopes do not
+│   │   │   │   ├── resolve.rs                                               # Immutable source-backed identity review snapshots over frozen claim sets
 │   │   │   │   ├── types.rs                                                 # What a claim says, the source locations that support it, and the records
 │   │   │   │   └── write.rs                                                 # Admitting a claim set: its form checked, every support verified from the
 │   │   │   ├── gateway/                                                     # The model gateway (building block B10): every model, embedder, reranker
@@ -732,11 +736,13 @@ in place.
 │       │   │   ├── tests/                                                   # Tests of the first table rule: its closed form, the claims it extracts
 │       │   │   │   ├── build.rs                                             # Every frozen build field participates in submission identity
 │       │   │   │   ├── mod.rs                                               # Tests of the first table rule: its closed form, the claims it extracts
+│       │   │   │   ├── resolve.rs                                           # Scoped identities and explicit, half-open validity ordering
 │       │   │   │   ├── rules.rs                                             # The closed table rule: what it refuses to read, the DEFAULTS_TO claims
 │       │   │   │   ├── support.rs                                           # What the graph tests share: the frozen synthetic defaults table of plan
 │       │   │   │   └── verify.rs                                            # Locating a row's quote: the row belongs to its table and its cells to the
 │       │   │   ├── build.rs                                                 # Frozen build identity and source-bounded extraction outside write transactions
 │       │   │   ├── mod.rs                                                   # The knowledge graph's construction (specs/002-knowledge-graph): claims
+│       │   │   ├── resolve.rs                                               # Exact sourced identities and replaceable validity ordering; no fuzzy linking
 │       │   │   ├── rules.rs                                                 # The first table rule (FR-S2-004, plan A0): maestro-graph-table-rule/1
 │       │   │   ├── structure.rs                                             # The tables of a canonical document as canonicalization gives them: each
 │       │   │   └── verify.rs                                                # Locating a quote before a claim cites it (FR-S2-003): the canonical

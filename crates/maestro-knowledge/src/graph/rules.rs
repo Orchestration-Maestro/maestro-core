@@ -16,7 +16,9 @@ use super::{
     structure::{Row, Table, tables},
     verify::{Source, check_source, locate},
 };
-use crate::{lexical::fold, shape};
+use crate::shape;
+
+pub use super::resolve::{Resolution, resolve};
 use maestro_kernel::{
     artifact::Digest,
     facts::{
@@ -115,19 +117,6 @@ pub struct Rejection {
     pub block_id: Option<String>,
     /// Why, for people.
     pub reason: String,
-}
-
-/// How a subject resolves: one entity for its kind and exact spelling, or
-/// ambiguous with the others whose name normalizes alike.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Resolution {
-    /// The subject: its kind and exact spelling.
-    pub subject: EntityName,
-    /// Its name without accents or case.
-    pub normalized: String,
-    /// Other subjects whose name normalizes alike, another spelling or
-    /// another kind: empty when it resolves to one entity.
-    pub colliding: Vec<EntityName>,
 }
 
 /// A body row's block, the subject its canonical cell names, if it names
@@ -421,48 +410,3 @@ impl fmt::Display for RuleError {
 }
 
 impl error::Error for RuleError {}
-
-/// How each distinct subject of `subjects`, of one collection, resolves:
-/// one entity for a kind and an exact spelling, however many documents name
-/// it, and ambiguous when another spelling or another kind normalizes to the
-/// same name. Similarity alone never merges two subjects. Ordered by
-/// normalized name, kind and spelling.
-#[must_use]
-pub fn resolve(subjects: &[EntityName]) -> Vec<Resolution> {
-    let distinct: BTreeMap<(String, &str, &str), &EntityName> = subjects
-        .iter()
-        .map(|subject| {
-            (
-                (
-                    normalize(&subject.name),
-                    subject.kind.as_str(),
-                    subject.name.as_str(),
-                ),
-                subject,
-            )
-        })
-        .collect();
-    distinct
-        .iter()
-        .map(|((normalized, kind, name), subject)| Resolution {
-            subject: (*subject).clone(),
-            normalized: normalized.clone(),
-            colliding: distinct
-                .iter()
-                .filter(|((other_normalized, other_kind, other_name), _)| {
-                    other_normalized == normalized && (*other_kind, *other_name) != (*kind, *name)
-                })
-                .map(|(_, other)| (*other).clone())
-                .collect(),
-        })
-        .collect()
-}
-
-/// `name` without accents or case, its spaces collapsed.
-fn normalize(name: &str) -> String {
-    fold(name)
-        .to_lowercase()
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ")
-}

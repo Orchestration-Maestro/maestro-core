@@ -3,6 +3,7 @@
 
 use crate::vocabulary::{EntityKind, Predicate};
 use crate::{artifact::Digest, evidence::Span};
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 /// Claims of one collection to admit together, in order: all of them, or
@@ -127,7 +128,7 @@ pub struct Support {
 
 /// Where a person's review of a claim stands. A valid quote never moves it:
 /// every claim is admitted unreviewed.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ReviewState {
     /// Nobody reviewed it yet.
     Unreviewed,

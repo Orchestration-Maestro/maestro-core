@@ -3,6 +3,7 @@
 //! located in the revision's original bytes before the kernel admits it.
 
 pub mod build;
+pub mod resolve;
 pub mod rules;
 mod structure;
 #[cfg(test)]

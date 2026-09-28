@@ -243,7 +243,8 @@ fn graph_claim_migration_adds_empty_claim_tables_and_keeps_existing_records() {
         [
             "0012_graph_claims",
             "0013_graph_claim_vocabulary",
-            "0014_graph_builds"
+            "0014_graph_builds",
+            "0015_graph_resolution"
         ]
     );
 
@@ -449,7 +450,7 @@ fn graph_build_migration_upgrades_claim_storage_once_without_backfilling() {
     drop(scratch.open_with(&preceding).unwrap());
     assert_eq!(
         pending_migrations(&scratch.0).unwrap(),
-        ["0014_graph_builds"]
+        ["0014_graph_builds", "0015_graph_resolution"]
     );
     drop(scratch.open());
     let reader = scratch.outside();
@@ -471,4 +472,27 @@ fn graph_build_migration_upgrades_claim_storage_once_without_backfilling() {
     drop(reader);
     drop(scratch.open());
     assert_eq!(recorded(&scratch.outside()), applied);
+}
+
+#[test]
+fn graph_resolution_upgrade_is_forward_only_and_idempotent() {
+    let scratch = Scratch::new();
+    let earlier: Vec<_> = MIGRATIONS
+        .iter()
+        .copied()
+        .filter(|(name, _)| *name != "0015_graph_resolution")
+        .collect();
+    drop(scratch.open_with(&earlier).unwrap());
+    assert_eq!(
+        pending_migrations(&scratch.0).unwrap(),
+        ["0015_graph_resolution"]
+    );
+    drop(scratch.open());
+    let before = recorded(&scratch.outside());
+    drop(scratch.open());
+    assert_eq!(recorded(&scratch.outside()), before);
+    assert!(pending_migrations(&scratch.0).unwrap().is_empty());
+    let legacy = scratch.open_with(&earlier);
+    assert!(matches!(legacy, Err(Error::UnknownMigration(name))
+        if name == "0015_graph_resolution"));
 }

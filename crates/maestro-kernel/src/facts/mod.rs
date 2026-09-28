@@ -27,6 +27,7 @@ mod build_types;
 mod error;
 mod quote;
 mod read;
+mod resolve;
 #[cfg(test)]
 mod tests;
 mod types;
@@ -42,3 +43,7 @@ pub use types::{
 };
 
 pub use crate::vocabulary::{EntityKind, Predicate};
+
+pub use resolve::{
+    Decision, DecisionKind, Endpoint, Mention, ResolutionInput, ResolutionSnapshot, ReviewRecord,
+};

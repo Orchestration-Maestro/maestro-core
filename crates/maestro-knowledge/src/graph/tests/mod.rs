@@ -5,3 +5,5 @@ mod build;
 mod rules;
 mod support;
 mod verify;
+
+mod resolve;
