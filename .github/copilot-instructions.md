@@ -1053,6 +1053,7 @@ in place.
 │   │   ├── 0018-rustix-on-unix-and-win32-flags-on-windows.md                # The snapshot store uses rustix on Unix and Win32 flags on Windows
 │   │   ├── 0019-reverse-engineering-is-analysis-behind-a-clean-room.md      # Reverse engineering produces knowledge only, behind a clean-room boundary
 │   │   ├── 0020-rust-libraries-with-named-dependency-exceptions.md          # Rust libraries join the stack; the duplicates they force are named exceptions
+│   │   ├── 0021-embedded-ladybug-graph-projection.md                        # Embedded LadybugDB for the graph projection
 │   │   └── README.md                                                        # Hard-to-reverse decisions, each with the trade-off that produced it
 │   ├── architecture/                                                        # Status: design of record, 2026-09-23, completed 2026-09-24
 │   │   ├── 01-knowledge-pipeline.md                                         # 01 Knowledge pipeline
@@ -1088,13 +1089,17 @@ in place.
 │   │   ├── plan.md                                                          # Implementation Plan: Foundation
 │   │   ├── spec.md                                                          # Feature Specification: Foundation
 │   │   └── tasks.md                                                         # Foundation Implementation Tasks
-│   └── 001-knowledge-kernel/                                                # 001 knowledge kernel
-│       ├── checklists/                                                      # Checklists
-│       │   └── requirements.md                                              # Specification Quality Checklist: Knowledge kernel and hybrid RAG
-│       ├── plan.md                                                          # Implementation Plan: Knowledge kernel and hybrid RAG
-│       ├── research.md                                                      # Research: Knowledge kernel and hybrid RAG
-│       ├── spec.md                                                          # Feature Specification: Knowledge kernel and hybrid RAG
-│       └── tasks.md                                                         # Knowledge Kernel and Hybrid RAG Implementation Tasks
+│   ├── 001-knowledge-kernel/                                                # 001 knowledge kernel
+│   │   ├── checklists/                                                      # Checklists
+│   │   │   └── requirements.md                                              # Specification Quality Checklist: Knowledge kernel and hybrid RAG
+│   │   ├── plan.md                                                          # Implementation Plan: Knowledge kernel and hybrid RAG
+│   │   ├── research.md                                                      # Research: Knowledge kernel and hybrid RAG
+│   │   ├── spec.md                                                          # Feature Specification: Knowledge kernel and hybrid RAG
+│   │   └── tasks.md                                                         # Knowledge Kernel and Hybrid RAG Implementation Tasks
+│   └── 002-knowledge-graph/                                                 # 002 knowledge graph
+│       ├── plan.md                                                          # Implementation Plan: Knowledge graph
+│       ├── spec.md                                                          # Feature Specification: Knowledge graph
+│       └── tasks.md                                                         # Knowledge Graph Implementation Tasks
 ├── supply-chain/                                                            # cargo-vet audits, configuration and imports
 │   ├── audits.toml                                                          # cargo-vet audits file
 │   ├── config.toml                                                          # cargo-vet config file

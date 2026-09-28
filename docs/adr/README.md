@@ -8,7 +8,7 @@ order; a superseded record stays and names its successor.
 | [0001](0001-fresh-start-with-canonicalization-only.md) | Fresh start: only the canonicalization crate is carried over |
 | [0002](0002-one-authority-many-projections.md) | SQLite + content-addressed artifacts are the only authority; indexes and graphs are projections |
 | [0003](0003-qdrant-server-for-search-projections.md) | Qdrant server for vector and lexical projections |
-| [0004](0004-neo4j-for-the-graph-projection.md) | Neo4j Community for the graph projection; LadybugDB under evaluation |
+| [0004](0004-neo4j-for-the-graph-projection.md) | Neo4j-first graph decision; amended for S2 by ADR-0021 |
 | [0005](0005-copilot-native-catalog-formats.md) | Copilot-native formats are the canonical catalog formats |
 | [0006](0006-in-house-event-sourced-workflow-engine.md) | An in-house, event-sourced workflow engine on the kernel journal |
 | [0007](0007-cedar-for-authorization.md) | Cedar for tool and operation authorization |
@@ -25,3 +25,4 @@ order; a superseded record stays and names its successor.
 | [0018](0018-rustix-on-unix-and-win32-flags-on-windows.md) | The snapshot store uses rustix on Unix and the standard library's Win32 flags on Windows |
 | [0019](0019-reverse-engineering-is-analysis-behind-a-clean-room.md) | Reverse engineering produces knowledge only, behind a clean-room boundary |
 | [0020](0020-rust-libraries-with-named-dependency-exceptions.md) | Rust libraries join the stack; the duplicates they force are named exceptions |
+| [0021](0021-embedded-ladybug-graph-projection.md) | Qualified embedded-first S2; SQLite authority and a typed-edge port for later selected backends |

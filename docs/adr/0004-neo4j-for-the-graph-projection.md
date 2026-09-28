@@ -1,6 +1,12 @@
 # Neo4j Community for the graph projection
 
-Status: accepted, 2026-09-23.
+Status: accepted, 2026-09-23; amended for S2 by
+[ADR-0021](0021-embedded-ladybug-graph-projection.md), 2026-09-28. S2 chooses
+embedded LadybugDB first, subject to G25 qualification, with SQLite still the
+authority. A qualification failure needs a supervisor re-plan ruling before
+substituting Neo4j in S2. Separately, approved deployment modes add a later
+user-selected external Neo4j adapter behind the graph port. Neither is a
+runtime fallback; the original decision below remains as history.
 
 The knowledge graph's facts live in the kernel; Neo4j 2026.x Community Edition,
 a separate local service reached over Bolt through neo4rs, is the projection used
