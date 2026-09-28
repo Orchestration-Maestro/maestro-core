@@ -112,7 +112,7 @@ async fn a_payload_timeout_keeps_the_completed_kernel_hit() {
     .await;
     assert!(matches!(
         &outcome.status,
-        RouteStatus::Unavailable(reason) if reason.starts_with("payload: route deadline elapsed")
+        RouteStatus::Unavailable(reason) if reason == "payload: deadline_exceeded"
     ));
     assert!(
         outcome

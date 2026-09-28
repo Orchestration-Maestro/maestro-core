@@ -28,3 +28,4 @@ reqwest.workspace = true
 rusqlite.workspace = true
 tokio = { workspace = true, features = ["macros", "rt", "test-util", "time"] }
 tonic.workspace = true
+tracing.workspace = true

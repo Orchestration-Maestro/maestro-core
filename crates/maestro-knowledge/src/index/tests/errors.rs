@@ -7,6 +7,7 @@ use maestro_kernel::{
     document, gateway,
     gateway::Role,
     generation, store,
+    telemetry::stage::Outcome,
 };
 use qdrant_client::QdrantError as ClientError;
 use std::{error::Error as _, time::Duration};
@@ -197,4 +198,59 @@ fn qdrant_s_refusals_say_what_they_hold() {
     );
     assert_eq!(refused.to_string(), format!("Qdrant refused: {cause}"));
     assert!(QdrantError::InvalidAnswer(String::new()).source().is_none());
+}
+
+#[test]
+fn each_stop_of_a_publication_ends_its_stage_with_its_outcome() {
+    let stops = [
+        (
+            Error::UnknownChunkSet("chunk-set-1".to_owned()),
+            Outcome::Refused,
+        ),
+        (
+            Error::Unverified {
+                generation: 3,
+                reason: Unverified::Count {
+                    expected: 10,
+                    found: 11,
+                },
+            },
+            Outcome::Refused,
+        ),
+        (
+            Error::Embedding {
+                at: 0,
+                failure: Failure::TimedOut(Duration::from_secs(1)),
+            },
+            Outcome::Timeout,
+        ),
+        (
+            Error::Embedding {
+                at: 0,
+                failure: Failure::Port(gateway::Error::Unavailable {
+                    reason: "no free room".to_owned(),
+                }),
+            },
+            Outcome::Unavailable,
+        ),
+        (
+            Error::Embedding {
+                at: 0,
+                failure: Failure::Refused(Refusal::Zero { input: 0 }),
+            },
+            Outcome::Refused,
+        ),
+        (
+            Error::Qdrant(QdrantError::InvalidAnswer("no count".to_owned())),
+            Outcome::Unavailable,
+        ),
+        (Error::Stopped, Outcome::Error),
+        (
+            Error::Artifacts(store::Error::Sqlite(rusqlite::Error::InvalidQuery)),
+            Outcome::Error,
+        ),
+    ];
+    for (stop, outcome) in stops {
+        assert_eq!(stop.outcome(), outcome, "{stop}");
+    }
 }

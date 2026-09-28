@@ -159,8 +159,13 @@ flowchart LR
 | **Eval reports** (artifacts) | Quality evidence for decisions | Immutable, referenced by the decision they support |
 
 The requirements below are the target for a future observability extension;
-they are not claims of implemented S1 coverage. S1 currently opens
-`gen_ai.execute_tool` and reports component health.
+they are not claims of implemented S1 coverage. S1 opens a span for each stage
+of publication (`knowledge.publish` and its steps), search (`retrieval.search`,
+its four routes, `retrieval.fuse`, `retrieval.rerank`), evidence assembly
+(`retrieval.assemble` and its phases) and each MCP tool call
+(`gen_ai.execute_tool`), with its outcome, duration and counts and never its
+content; the names are pinned in `maestro-kernel`'s `telemetry::span`. It also
+reports component health.
 
 **Span taxonomy** (GenAI semantic conventions, development status, attribute
 names centralized in one module so a convention change is one edit):

@@ -13,6 +13,8 @@ mod response;
 )]
 mod search;
 #[cfg(test)]
+mod span_tests;
+#[cfg(test)]
 #[expect(
     clippy::self_named_module_files,
     reason = "keep worker test modules beside the server protocol tests"

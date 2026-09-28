@@ -4,11 +4,24 @@
 //! journals it.
 
 use super::{
-    dense::embed, error::Error, point::point, progress::Progress, projection::Projection,
-    provenance::Provenance, search_inputs, sparse::Lengths,
+    dense::{Failure, embed},
+    error::Error,
+    point::point,
+    progress::Progress,
+    projection::Projection,
+    provenance::Provenance,
+    search_inputs,
+    sparse::Lengths,
 };
 use crate::query::index_identifiers;
-use maestro_kernel::{chunk_set::Chunk, gateway::ModelPort};
+use maestro_kernel::{
+    chunk_set::Chunk,
+    gateway::ModelPort,
+    telemetry::{
+        span,
+        stage::{Count, Outcome},
+    },
+};
 use qdrant_client::qdrant::PointStruct;
 use std::{ops::ControlFlow, time::Duration};
 
@@ -74,12 +87,20 @@ impl<P: ModelPort> Projection<'_, P> {
                 batch,
                 &inputs,
             )?;
-            let dense = embed(self.port, self.card, &inputs, DEADLINE)
-                .await
-                .map_err(|failure| Error::Embedding {
-                    at: indexed,
-                    failure,
-                })?;
+            let stage = span::publish_embed();
+            stage.count(Count::Chunks, inputs.len());
+            let dense = stage
+                .instrument(embed(self.port, self.card, &inputs, DEADLINE))
+                .await;
+            stage.finish(
+                dense
+                    .as_ref()
+                    .map_or_else(Failure::outcome, |_| Outcome::Ok),
+            );
+            let dense = dense.map_err(|failure| Error::Embedding {
+                at: indexed,
+                failure,
+            })?;
             let points = self.points(batch, &inputs, &dense, &lengths)?;
             self.qdrant
                 .upsert(target.collection, points)

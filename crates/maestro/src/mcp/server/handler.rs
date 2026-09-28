@@ -1,7 +1,10 @@
 //! MCP protocol handler and advertised knowledge tool schemas.
 
 use super::{
-    super::ask_tool as ask,
+    super::{
+        ask_tool as ask,
+        outcome::{call_outcome, tool_name},
+    },
     knowledge_server::KnowledgeServer,
     operations::{
         BlockingOperation, InputFailure, Operation, call_blocking_operation, parse_operation,
@@ -14,7 +17,7 @@ use crate::knowledge::{
     GetRequest, SearchRequest,
     operations::{CollectionsData, GetData},
 };
-use maestro_kernel::{evidence::Bundle, gateway::ModelPort};
+use maestro_kernel::{evidence::Bundle, gateway::ModelPort, telemetry::span};
 use rmcp::{
     ErrorData as McpError, ServerHandler,
     handler::server::common::{schema_for_input, schema_for_output},
@@ -58,6 +61,20 @@ impl<P: ModelPort + Send + Sync + 'static> ServerHandler for KnowledgeServer<P> 
     }
 
     async fn call_tool(
+        &self,
+        request: CallToolRequestParams,
+        context: RequestContext<RoleServer>,
+    ) -> Result<CallToolResponse, McpError> {
+        let stage = span::tool_call(tool_name(request.name.as_ref()));
+        let response = stage.instrument(self.call(request, context)).await;
+        stage.finish(call_outcome(&response));
+        response
+    }
+}
+
+impl<P: ModelPort + Send + Sync + 'static> KnowledgeServer<P> {
+    /// Runs one tool call on a bounded worker, within its deadline.
+    async fn call(
         &self,
         request: CallToolRequestParams,
         context: RequestContext<RoleServer>,

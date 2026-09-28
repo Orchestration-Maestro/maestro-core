@@ -4,7 +4,7 @@ use crate::{
     query::{Family, Identifier},
     search::{EvidenceInput, Route},
 };
-use maestro_kernel::{evidence::RouteStatus, store::Database};
+use maestro_kernel::{evidence::RouteStatus, store::Database, telemetry::stage::Outcome};
 use std::{num::NonZeroU32, sync::Arc};
 
 type InvalidCase = (&'static str, fn(&mut EvidenceInput), &'static str);
@@ -278,4 +278,22 @@ fn route_status_cases() -> Vec<InvalidCase> {
             UNAVAILABLE_ROUTE_ERROR,
         ),
     ]
+}
+
+#[test]
+fn an_assembly_refused_by_its_contract_or_rights_is_refused_not_failed() {
+    let errors = [
+        (
+            EvidenceError::InvalidRequest("k".to_owned()),
+            Outcome::Refused,
+        ),
+        (EvidenceError::NotVisible, Outcome::Refused),
+        (EvidenceError::PermissionsChanged, Outcome::Refused),
+        (EvidenceError::TimedOut, Outcome::Timeout),
+        (EvidenceError::Integrity("span".to_owned()), Outcome::Error),
+        (EvidenceError::WorkerFailed, Outcome::Error),
+    ];
+    for (error, outcome) in errors {
+        assert_eq!(error.outcome(), outcome, "{error}");
+    }
 }

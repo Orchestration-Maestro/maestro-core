@@ -4,6 +4,7 @@ pub(in crate::synthetic_gate) mod baseline;
 mod contract;
 mod driver;
 mod fixture;
+pub(super) mod published;
 mod readiness;
 mod report;
 mod runner;

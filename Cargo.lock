@@ -846,6 +846,7 @@ dependencies = [
  "sha2",
  "tokio",
  "tonic",
+ "tracing",
  "ulid",
  "winapi-util",
 ]
@@ -901,6 +902,7 @@ dependencies = [
  "sha2",
  "tokio",
  "tonic",
+ "tracing",
  "uuid",
  "whatlang",
 ]

@@ -24,6 +24,10 @@ use maestro_kernel::{
     generation::{Generation, GenerationState},
     retrieval::{Error as RetrievalError, ReadControl, SearchRead},
     store::Database,
+    telemetry::{
+        span,
+        stage::{Count, Outcome, Stage},
+    },
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -101,8 +105,10 @@ fn assemble_blocking_with_source_workers(
         .ok_or(EvidenceError::NotVisible)?;
     check(control)?;
     validate_generation(&input.generation, &generation)?;
-    let ledger = duplicate_ledger(database, &input.scopes, &generation.chunk_set_id, control)
-        .map_err(EvidenceError::from)?;
+    let ledger = phase(span::assemble_ledger(), |_| {
+        duplicate_ledger(database, &input.scopes, &generation.chunk_set_id, control)
+            .map_err(EvidenceError::from)
+    })?;
     check(control)?;
 
     let mut worker = AssemblyWorker {
@@ -123,43 +129,65 @@ impl AssemblyWorker<'_> {
     /// Resolves and groups source spans, then runs deterministic selection.
     fn assemble(&mut self, counter_info: CounterInfo) -> Result<Bundle, EvidenceError> {
         check(self.control)?;
-        let loaded = self.load_candidates()?;
-        let near_groups = self.near_duplicate_groups(&loaded)?;
-        let seeds = self.load_seed_spans(&loaded)?;
-        let unions =
-            union_seed_spans(seeds).map_err(|_| integrity("candidate span unions are invalid"))?;
-        let mut candidates = self.candidate_data(unions, &near_groups)?;
+        let (loaded, near_groups) = phase(span::assemble_candidates(), |stage| {
+            let loaded = self.load_candidates()?;
+            stage.count(Count::Candidates, loaded.len());
+            let near_groups = self.near_duplicate_groups(&loaded)?;
+            Ok((loaded, near_groups))
+        })?;
+        let seeds = phase(span::assemble_sources(), |stage| {
+            let seeds = self.load_seed_spans(&loaded)?;
+            stage.count(Count::Chunks, seeds.len());
+            Ok(seeds)
+        })?;
+        let (mut candidates, findings) = phase(span::assemble_sections(), |stage| {
+            let unions = union_seed_spans(seeds)
+                .map_err(|_| integrity("candidate span unions are invalid"))?;
+            let candidates = self.candidate_data(unions, &near_groups)?;
+            stage.count(Count::Candidates, candidates.len());
+            let conflict_sources = conflict_sources(&candidates, &self.sources)?;
+            let findings = detect_conflicts(&conflict_sources)
+                .map_err(|_| integrity("canonical conflict observations are invalid"))?;
+            Ok((candidates, findings))
+        })?;
         let all_seeds = candidates
             .iter()
             .flat_map(|candidate| candidate.seeds.seeds.iter().cloned())
             .collect::<Vec<_>>();
         let proposed_texts = candidate_texts(&candidates, &self.sources)?;
-        let conflict_sources = conflict_sources(&candidates, &self.sources)?;
-        let findings = detect_conflicts(&conflict_sources)
-            .map_err(|_| integrity("canonical conflict observations are invalid"))?;
-        drop(conflict_sources);
-        let collapse = super::candidates::collapse_candidate_versions(
-            self.input,
-            &mut candidates,
-            &findings,
-            &self.sources,
-        )?;
-        let conflict_sources = super::candidates::conflict_sources(&candidates, &self.sources)?;
-        let (selection, indices) = self.select(&candidates, &findings, &collapse, &counter_info)?;
-        let selected = selected_originals(&selection.selected_candidates, &indices)?;
-        let emission = emit_conflicts(&findings, &conflict_sources, &selected, &selection.passages)
-            .map_err(|_| integrity("selected conflict provenance is invalid"))?;
-        self.finish(
-            counter_info,
-            BundleParts {
-                passages: selection.passages,
-                seeds: all_seeds,
-                candidate_texts: proposed_texts,
-                emission,
-                omissions: selection.omissions,
-                latest_undetermined: collapse.latest_undetermined,
-            },
-        )
+        let (selection, emission, latest_undetermined) =
+            phase(span::assemble_selection(), |stage| {
+                let collapse = super::candidates::collapse_candidate_versions(
+                    self.input,
+                    &mut candidates,
+                    &findings,
+                    &self.sources,
+                )?;
+                let conflict_sources = conflict_sources(&candidates, &self.sources)?;
+                let (selection, indices) =
+                    self.select(&candidates, &findings, &collapse, &counter_info)?;
+                stage.count(Count::Passages, selection.passages.len());
+                let selected = selected_originals(&selection.selected_candidates, &indices)?;
+                let emission =
+                    emit_conflicts(&findings, &conflict_sources, &selected, &selection.passages)
+                        .map_err(|_| integrity("selected conflict provenance is invalid"))?;
+                Ok((selection, emission, collapse.latest_undetermined))
+            })?;
+        phase(span::assemble_output(), |stage| {
+            let bundle = self.finish(
+                counter_info,
+                BundleParts {
+                    passages: selection.passages,
+                    seeds: all_seeds,
+                    candidate_texts: proposed_texts,
+                    emission,
+                    omissions: selection.omissions,
+                    latest_undetermined,
+                },
+            )?;
+            stage.count(Count::Passages, bundle.passages.len());
+            Ok(bundle)
+        })
     }
 
     /// Loads only ranked IDs through T029c's controlled pinned-set reader.
@@ -373,6 +401,21 @@ impl AssemblyWorker<'_> {
         selection::select(&selection_candidates, &conflict_units, &budget)
             .map(|result| (result, indices))
     }
+}
+
+/// Runs one assembly phase as the stage `stage`, which `work` may give
+/// counts, and records how it ended.
+fn phase<T>(
+    stage: Stage,
+    work: impl FnOnce(&Stage) -> Result<T, EvidenceError>,
+) -> Result<T, EvidenceError> {
+    let result = stage.in_scope(|| work(&stage));
+    stage.finish(
+        result
+            .as_ref()
+            .map_or_else(EvidenceError::outcome, |_| Outcome::Ok),
+    );
+    result
 }
 
 /// Checks immutable generation identity and the current publication lifecycle.

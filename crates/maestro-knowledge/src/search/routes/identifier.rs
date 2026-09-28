@@ -4,7 +4,11 @@ use super::{outcome::RouteOutcome, results::ScoredChunk};
 use crate::{
     index::QdrantError,
     query::{PROFILE, Understood},
-    search::{deadline, filter::query_filter, query::Query},
+    search::{
+        deadline::{self, DEADLINE_EXCEEDED},
+        filter::query_filter,
+        query::Query,
+    },
 };
 use maestro_kernel::{
     evidence::RouteStatus,
@@ -43,10 +47,7 @@ pub async fn search_identifiers(
     }
     let limit = query.limit.min(20);
     if Instant::now() >= deadline {
-        return unavailable(
-            Vec::new(),
-            "payload: route deadline elapsed; kernel: route deadline elapsed",
-        );
+        return unavailable(Vec::new(), DEADLINE_EXCEEDED);
     }
     if let Err(reason) = ready_projection(
         database.clone(),
@@ -63,6 +64,11 @@ pub async fn search_identifiers(
         payload_leg(query, &identifiers, limit, deadline),
         kernel_leg(query, database, &identifiers, limit, deadline),
     );
+    if matches!((&payload, &kernel), (Err(payload), Err(kernel))
+        if payload == DEADLINE_EXCEEDED && kernel == DEADLINE_EXCEEDED)
+    {
+        return unavailable(Vec::new(), DEADLINE_EXCEEDED);
+    }
     let mut hits = Vec::new();
     let mut seen = HashSet::new();
     let mut reasons = Vec::new();
@@ -123,9 +129,7 @@ async fn ready_projection(
     .await
     {
         Ok(result) => result.map_err(|error| retrieval_reason(&error)),
-        Err(deadline::BlockingFailure::TimedOut) => {
-            Err("search projection check timed out".to_owned())
-        }
+        Err(deadline::BlockingFailure::TimedOut) => Err(DEADLINE_EXCEEDED.to_owned()),
         Err(deadline::BlockingFailure::WorkerFailed) => {
             Err("search projection check failed".to_owned())
         }
@@ -140,7 +144,7 @@ async fn payload_leg(
     deadline: Instant,
 ) -> Result<Vec<ScoredChunk>, String> {
     if Instant::now() >= deadline {
-        return Err("route deadline elapsed".to_owned());
+        return Err(DEADLINE_EXCEEDED.to_owned());
     }
     let mut filter = query_filter(query.scopes, query.version);
     filter
@@ -155,7 +159,7 @@ async fn payload_leg(
     let mut seen = HashSet::new();
     loop {
         if Instant::now() >= deadline {
-            return Err("route deadline elapsed".to_owned());
+            return Err(DEADLINE_EXCEEDED.to_owned());
         }
         let page = time::timeout_at(
             deadline,
@@ -164,7 +168,7 @@ async fn payload_leg(
                 .scroll_page(&query.collection(), filter.clone(), offset.clone()),
         )
         .await
-        .map_err(|_| "route deadline elapsed".to_owned())?
+        .map_err(|_| DEADLINE_EXCEEDED.to_owned())?
         .map_err(|_| "Qdrant payload search failed".to_owned())?;
         for point in page.result {
             let hit = payload_hit(&point)
@@ -274,9 +278,7 @@ async fn kernel_leg(
             skipped_too_common: result.skipped_too_common,
         }),
         Ok(Err(error)) => Err(retrieval_reason(&error)),
-        Err(deadline::BlockingFailure::TimedOut) => {
-            Err("kernel identifier search timed out".to_owned())
-        }
+        Err(deadline::BlockingFailure::TimedOut) => Err(DEADLINE_EXCEEDED.to_owned()),
         Err(deadline::BlockingFailure::WorkerFailed) => {
             Err("kernel identifier search failed".to_owned())
         }
@@ -324,9 +326,7 @@ fn retrieval_reason(error: &retrieval::Error) -> String {
         retrieval::Error::ProfileMismatch { .. } => {
             "search projection profile mismatch; publish a new generation".to_owned()
         }
-        retrieval::Error::TimedOut | retrieval::Error::Cancelled => {
-            "kernel identifier search timed out".to_owned()
-        }
+        retrieval::Error::TimedOut | retrieval::Error::Cancelled => DEADLINE_EXCEEDED.to_owned(),
         retrieval::Error::UnknownOrInaccessible => {
             "generation is unavailable in the granted scope".to_owned()
         }

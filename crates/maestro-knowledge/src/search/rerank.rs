@@ -1,6 +1,6 @@
 //! Reranks the head of a fused list without truncating candidate text.
 
-use super::fusion::Fused;
+use super::{deadline::DEADLINE_EXCEEDED, fusion::Fused};
 use maestro_kernel::{
     evidence::RouteStatus,
     gateway::{ModelCard, ModelPort, Role, Room},
@@ -35,7 +35,7 @@ impl RerankFailure {
             Self::InvalidModelCard => "invalid_model_card",
             Self::ModelUnavailable => "model_unavailable",
             Self::InvalidResponse => "invalid_response",
-            Self::DeadlineExceeded => "deadline_exceeded",
+            Self::DeadlineExceeded => DEADLINE_EXCEEDED,
             Self::ContextLimit => "context_limit",
             Self::InvalidCandidate => "invalid_candidate",
         }

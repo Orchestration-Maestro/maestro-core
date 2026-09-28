@@ -8,4 +8,6 @@ mod policy_tests;
 mod qdrant;
 mod real_qdrant;
 mod search;
+mod span_recorder;
+mod stage_spans;
 mod support;

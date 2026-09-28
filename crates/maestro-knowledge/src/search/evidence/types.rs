@@ -1,7 +1,9 @@
 //! Public evidence request types and their stable error boundary.
 
 use maestro_canonicalization::{Error as CanonicalError, TokenCounter};
-use maestro_kernel::{chunk_set, document, generation, retrieval, store};
+use maestro_kernel::{
+    chunk_set, document, generation, retrieval, store, telemetry::stage::Outcome,
+};
 use std::{error, fmt, sync::Arc};
 
 /// How the complete serialized passage array is measured.
@@ -53,6 +55,28 @@ pub enum EvidenceError {
     PermissionsChanged,
     /// The blocking worker could not be joined.
     WorkerFailed,
+}
+
+impl EvidenceError {
+    /// How an assembly stage that failed with this error ended: refused by
+    /// its contract or its caller's rights, out of time, or failed.
+    pub(super) const fn outcome(&self) -> Outcome {
+        match self {
+            Self::InvalidRequest(_) | Self::NotVisible | Self::PermissionsChanged => {
+                Outcome::Refused
+            }
+            Self::TimedOut => Outcome::Timeout,
+            Self::Generation(_)
+            | Self::ChunkSet(_)
+            | Self::Records(_)
+            | Self::Store(_)
+            | Self::Kernel(_)
+            | Self::Integrity(_)
+            | Self::Counter(_)
+            | Self::Json(_)
+            | Self::WorkerFailed => Outcome::Error,
+        }
+    }
 }
 
 impl fmt::Display for EvidenceError {

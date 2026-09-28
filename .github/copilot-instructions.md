@@ -158,6 +158,7 @@ in place.
 │   │   │   │   │   ├── operations.rs                                        # Strict MCP request parsing and bounded kernel workers
 │   │   │   │   │   ├── response.rs                                          # Bounded MCP response shapes, errors and wire-size checks
 │   │   │   │   │   ├── search.rs                                            # Async MCP dispatch and complete-response bounds for search
+│   │   │   │   │   ├── span_tests.rs                                        # Each tool call opens its gen_ai.execute_tool span, which names a listed
 │   │   │   │   │   ├── tests.rs                                             # Rust source: tests
 │   │   │   │   │   ├── types.rs                                             # Shared limits and kernel-open seam for the MCP server
 │   │   │   │   │   ├── warmup.rs                                            # Background startup warming for visible published embedder cards
@@ -166,6 +167,7 @@ in place.
 │   │   │   │   │   └── tests.rs                                             # Rust source: tests
 │   │   │   │   ├── ask_tool.rs                                              # MCP input and schema for knowledge_ask
 │   │   │   │   ├── mod.rs                                                   # Bounded local stdio MCP transport and tools
+│   │   │   │   ├── outcome.rs                                               # How a tool call ended, for its span: by the public code of the error it
 │   │   │   │   ├── run.rs                                                   # Runs the stdio MCP server without sending diagnostics to stdout
 │   │   │   │   └── transport.rs                                             # Stdio JSON-RPC framing with complete-line and complete-response byte bounds
 │   │   │   ├── failure.rs                                                   # Failures at the CLI and local-kernel boundary
@@ -580,10 +582,14 @@ in place.
 │   │   │   │   ├── migration.rs                                             # The migrations: the SQL files of migrations/, embedded in the binary
 │   │   │   │   └── mod.rs                                                   # The kernel's database: one SQLite file beside the artifact store, holding
 │   │   │   ├── telemetry/                                                   # Telemetry: pinned span names and component health (building block B11)
+│   │   │   │   ├── tests/                                                   # Tests of telemetry: component health, and the stages and their spans
+│   │   │   │   │   ├── health.rs                                            # Tests of component health
+│   │   │   │   │   ├── mod.rs                                               # Tests of telemetry: component health, and the stages and their spans
+│   │   │   │   │   └── stages.rs                                            # Tests of the stages: the spans they open under their pinned names, the
 │   │   │   │   ├── health.rs                                                # Health: how each component is doing, asked of its own check
 │   │   │   │   ├── mod.rs                                                   # Telemetry: pinned span names and component health (building block B11)
 │   │   │   │   ├── span.rs                                                  # The spans the kernel opens, and the names they carry, pinned in one place
-│   │   │   │   └── tests.rs                                                 # Tests of telemetry: component health and the names of a tool call's span
+│   │   │   │   └── stage.rs                                                 # One traced stage of a knowledge operation: its span, the outcome it ends
 │   │   │   ├── binding.rs                                                   # Named bindings: the local paths that the logical names of committed files
 │   │   │   ├── filesystem.rs                                                # The files and directories the kernel creates: its owner's only, and each
 │   │   │   ├── lib.rs                                                       # The kernel of Maestro: the single authoritative store every later
@@ -839,6 +845,7 @@ in place.
 │       │   │   │   ├── mod.rs                                               # Rust source: mod
 │       │   │   │   ├── rerank.rs                                            # Rust source: rerank
 │       │   │   │   ├── routes.rs                                            # Pure route helpers: Qdrant scope filters and ranked-hit cleanup
+│       │   │   │   ├── stages.rs                                            # The outcome each end of a search, a route or the rerank gives its stage
 │       │   │   │   ├── support.rs                                           # Scratch kernel records for the bounded candidate handoff
 │       │   │   │   └── window_boundaries.rs                                 # Rust source: window boundaries
 │       │   │   ├── admission.rs                                             # Request bounds, scope snapshots and generation admission
@@ -945,6 +952,7 @@ in place.
 │       │       │   │   ├── driver.rs                                        # Builds, prepares, publishes and evaluates the public synthetic collection
 │       │       │   │   ├── fixture.rs                                       # Loads the pinned synthetic collection and verifies every fixture digest
 │       │       │   │   ├── mod.rs                                           # Pipeline door: declarations and public entry-point re-exports
+│       │       │   │   ├── published.rs                                     # The synthetic collection imported, prepared and published against a fake
 │       │       │   │   ├── readiness.rs                                     # Waits for an exact, green Qdrant collection before the real retrieval pass
 │       │       │   │   ├── report.rs                                        # Writes public-only reports, provenance and summaries for a gate run
 │       │       │   │   └── runner.rs                                        # Runs the test adapter against fake Qdrant or the pinned real service
@@ -956,6 +964,8 @@ in place.
 │       │       │   ├── qdrant.rs                                            # Ownership checks and cleanup for the test-owned Qdrant instance
 │       │       │   ├── real_qdrant.rs                                       # Exercises the mandatory synthetic pipeline against the pinned Qdrant service
 │       │       │   ├── search.rs                                            # Test-only bridge from the integrated dense/lexical routes and fusion to T021
+│       │       │   ├── span_recorder.rs                                     # A minimal recording subscriber, written with the tracing API alone: it
+│       │       │   ├── stage_spans.rs                                       # The stages of the production publication, search and evidence assembly
 │       │       │   └── support.rs                                           # Owns private scratch directories used by synthetic-gate tests
 │       │       ├── answer_live.rs                                           # A single buffered ask against a registered answerer, live: an explicit
 │       │       ├── collection_contract.rs                                   # maestro-collection/1: a strict declaration parses into typed values; an

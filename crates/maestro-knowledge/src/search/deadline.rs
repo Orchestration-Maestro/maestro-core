@@ -14,6 +14,9 @@ use tokio::{
     time::{self, Instant},
 };
 
+/// The reason code of a route or the rerank that ran out of time.
+pub(super) const DEADLINE_EXCEEDED: &str = "deadline_exceeded";
+
 /// The largest window allowed for independent retrieval routes.
 const MAX_ROUTE_WINDOW: Duration = Duration::from_millis(300);
 /// The largest portion of the request deadline reserved for T032.

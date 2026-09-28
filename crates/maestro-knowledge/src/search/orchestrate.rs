@@ -3,7 +3,8 @@
 use super::{
     admission::{AdmittedSearch, admit_request, ensure_permissions},
     candidates::{self, Failure as CandidateFailure},
-    fusion::{Fused, Route, fuse},
+    deadline::DEADLINE_EXCEEDED,
+    fusion::{Fused, Route, RouteList, fuse},
     query::Query,
     request::{EvidenceInput, SearchContext, SearchError, SearchRequest},
     rerank::{Candidate, Ranked, Reranker, rerank},
@@ -11,15 +12,23 @@ use super::{
         add_named_route, add_route, dense_outcome, join_route_futures, lexical_outcome, route_list,
         structured_outcome,
     },
-    routes::{identifier::search_identifiers, outcome::RouteOutcome},
+    routes::{
+        identifier::search_identifiers,
+        outcome::{RouteOutcome, StructuredOutcome},
+    },
 };
 use crate::query::{QueryKind, Understood};
 use maestro_kernel::{
     evidence::{Inventory, RouteStatus},
     gateway::ModelPort,
+    telemetry::{
+        span,
+        stage::{Count, Outcome, Stage},
+    },
 };
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
+    future::Future,
     mem,
     num::NonZeroUsize,
 };
@@ -31,6 +40,9 @@ const DENSE_LIMIT: usize = 100;
 const FUSION_POOL: usize = 120;
 /// Retrieves a pinned, scoped and deadline-bounded evidence handoff for T032.
 ///
+/// The search is traced as a `retrieval.search` stage, whose routes, fusion
+/// and rerank are its child stages.
+///
 /// # Errors
 ///
 /// Returns [`SearchError`] when admission, permissions, or candidate integrity
@@ -39,9 +51,53 @@ pub async fn search<P: ModelPort>(
     context: &SearchContext<'_, P>,
     request: &SearchRequest<'_>,
 ) -> Result<EvidenceInput, SearchError> {
-    let admitted = admit_request(context, request).await?;
-    let routes = execute_routes(context, &admitted).await;
-    finish_search(context, request, admitted, routes).await
+    let stage = span::search();
+    let result = stage
+        .instrument(async {
+            let admitted = admit_request(context, request).await?;
+            let routes = execute_routes(context, &admitted).await;
+            finish_search(context, request, admitted, routes).await
+        })
+        .await;
+    if let Ok(input) = &result {
+        stage.collection(&input.generation.collection_id);
+        stage.generation(input.generation.id);
+        stage.count(Count::Candidates, input.ranked.len());
+    }
+    stage.finish(result.as_ref().map_or_else(search_outcome, |_| Outcome::Ok));
+    result
+}
+
+/// How a search that failed with `error` ended: refused by its contract or
+/// its caller's rights, out of time, or failed.
+pub(super) const fn search_outcome(error: &SearchError) -> Outcome {
+    match error {
+        SearchError::InvalidRequest { .. }
+        | SearchError::Admission(_)
+        | SearchError::PermissionsChanged => Outcome::Refused,
+        SearchError::AdmissionTimedOut | SearchError::PermissionCheckTimedOut => Outcome::Timeout,
+        SearchError::Kernel(_) | SearchError::EvidenceLoad { .. } | SearchError::WorkerFailed => {
+            Outcome::Error
+        }
+    }
+}
+
+/// How a route or the rerank that ended with `status` ended: the reason
+/// code [`DEADLINE_EXCEEDED`] is a timeout, any other an unavailability.
+pub(super) fn route_outcome(status: &RouteStatus) -> Outcome {
+    match status {
+        RouteStatus::Ok => Outcome::Ok,
+        RouteStatus::Unavailable(reason) if reason == DEADLINE_EXCEEDED => Outcome::Timeout,
+        RouteStatus::Unavailable(_) => Outcome::Unavailable,
+    }
+}
+
+/// Runs `route` as the stage `stage`, which records its hits and outcome.
+async fn traced_route(stage: Stage, route: impl Future<Output = RouteOutcome>) -> RouteOutcome {
+    let outcome = stage.instrument(route).await;
+    stage.count(Count::Candidates, outcome.hits.len());
+    stage.finish(route_outcome(&outcome.status));
+    outcome
 }
 
 /// The route votes, statuses and exact document inventory produced in parallel.
@@ -56,6 +112,22 @@ struct RouteResults {
     inventory: Option<Inventory>,
     /// Every degradation known before evidence expansion.
     known_gaps: Vec<String>,
+}
+
+/// Runs the structured `route` as its stage, which records its hits and
+/// outcome, when the question is `global`; else neither runs.
+async fn traced_structured(
+    global: bool,
+    route: impl Future<Output = StructuredOutcome>,
+) -> Option<StructuredOutcome> {
+    if !global {
+        return None;
+    }
+    let stage = span::route_structured();
+    let outcome = stage.instrument(route).await;
+    stage.count(Count::Candidates, outcome.route.hits.len());
+    stage.finish(route_outcome(&outcome.route.status));
+    Some(outcome)
 }
 
 /// Polls all applicable routes concurrently, then creates one RRF list per route.
@@ -76,20 +148,31 @@ async fn execute_routes<P: ModelPort>(
         None => Ok(admitted.structured_request.as_ref()),
     };
     let (dense, lexical, identifier, structured) = join_route_futures(
-        dense_outcome(&query, context.embedder.as_ref(), admitted.cutoffs.routes),
-        lexical_outcome(&query, admitted.cutoffs.routes),
-        search_identifiers(
-            &query,
-            context.database.clone(),
-            &admitted.understood,
-            admitted.cutoffs.routes,
+        traced_route(
+            span::route_dense(),
+            dense_outcome(&query, context.embedder.as_ref(), admitted.cutoffs.routes),
         ),
-        structured_outcome(
-            &query,
-            context.database.clone(),
-            structured_request,
+        traced_route(
+            span::route_lexical(),
+            lexical_outcome(&query, admitted.cutoffs.routes),
+        ),
+        traced_route(
+            span::route_identifier(),
+            search_identifiers(
+                &query,
+                context.database.clone(),
+                &admitted.understood,
+                admitted.cutoffs.routes,
+            ),
+        ),
+        traced_structured(
             admitted.understood.kind == QueryKind::Global,
-            admitted.cutoffs.routes,
+            structured_outcome(
+                &query,
+                context.database.clone(),
+                structured_request,
+                admitted.cutoffs.routes,
+            ),
         ),
     )
     .await;
@@ -101,7 +184,7 @@ async fn execute_routes<P: ModelPort>(
     if let Some(structured) = &structured {
         lists.push(route_list(Route::Structured, &structured.route));
     }
-    let fused = fuse(&lists, FUSION_POOL);
+    let fused = traced_fuse(&lists);
     let expected_revisions = revisions_for_fused(
         &fused,
         [&dense, &lexical, &identifier]
@@ -150,6 +233,15 @@ async fn execute_routes<P: ModelPort>(
     }
 }
 
+/// Fuses the routes' `lists` into one pool, as the fusion stage.
+fn traced_fuse(lists: &[RouteList]) -> Vec<Fused> {
+    let stage = span::fuse();
+    let fused = stage.in_scope(|| fuse(lists, FUSION_POOL));
+    stage.count(Count::Candidates, fused.len());
+    stage.finish(Outcome::Ok);
+    fused
+}
+
 /// Loads exact candidates, reranks or degrades safely, and rechecks permissions.
 async fn finish_search<P: ModelPort>(
     context: &SearchContext<'_, P>,
@@ -187,7 +279,7 @@ async fn finish_search<P: ModelPort>(
                     .push("candidate text loading timed out".to_owned());
                 routes.routes.insert(
                     "rerank".to_owned(),
-                    RouteStatus::Unavailable("candidate text loading timed out".to_owned()),
+                    RouteStatus::Unavailable(DEADLINE_EXCEEDED.to_owned()),
                 );
                 ensure_permissions(
                     context.database.clone(),
@@ -209,14 +301,18 @@ async fn finish_search<P: ModelPort>(
             Err(CandidateFailure::WorkerFailed) => return Err(SearchError::WorkerFailed),
         }
     };
-    let (ranked, rerank_status) = rerank_candidates(
-        &admitted.understood,
-        candidates,
-        context.reranker.as_ref(),
-        request.rerank_depth,
-        admitted.cutoffs.work,
-    )
-    .await;
+    let stage = span::rerank();
+    let (ranked, rerank_status) = stage
+        .instrument(rerank_candidates(
+            &admitted.understood,
+            candidates,
+            context.reranker.as_ref(),
+            request.rerank_depth,
+            admitted.cutoffs.work,
+        ))
+        .await;
+    stage.count(Count::Candidates, ranked.len());
+    stage.finish(route_outcome(&rerank_status));
     add_named_route(
         &mut routes.routes,
         &mut routes.known_gaps,
@@ -303,7 +399,7 @@ pub(super) async fn rerank_candidates<P: ModelPort>(
     if remaining.is_zero() {
         return (
             fused_order(candidates),
-            RouteStatus::Unavailable("reranking deadline elapsed".to_owned()),
+            RouteStatus::Unavailable(DEADLINE_EXCEEDED.to_owned()),
         );
     }
     let result = rerank(

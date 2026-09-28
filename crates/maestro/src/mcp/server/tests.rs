@@ -33,7 +33,7 @@ mod search_workers;
 
 /// A bound that only stops a hung test; it is generous so a loaded
 /// machine cannot fail a correct run.
-const HANG_GUARD: Duration = Duration::from_secs(30);
+pub(super) const HANG_GUARD: Duration = Duration::from_secs(30);
 
 #[test]
 fn empty_collection_arguments_are_strict_and_refuse_identity_fields() {
@@ -364,7 +364,7 @@ fn handshake_and_get_call(id: i64) -> Vec<u8> {
     )
 }
 
-fn handshake_and_tool_call(id: i64, name: &str, arguments: &Value) -> Vec<u8> {
+pub(super) fn handshake_and_tool_call(id: i64, name: &str, arguments: &Value) -> Vec<u8> {
     let lines = [
         json!({
             "jsonrpc": "2.0",
@@ -424,7 +424,7 @@ fn cancel_and_tool_call(cancelled_id: i64, next_id: i64, name: &str, arguments: 
     .into_bytes()
 }
 
-async fn serve_one_call(server: KnowledgeServer, request: Vec<u8>, id: i64) -> Value {
+pub(super) async fn serve_one_call(server: KnowledgeServer, request: Vec<u8>, id: i64) -> Value {
     let (server_input, mut client_input) = duplex(4096);
     let (server_output, client_output) = duplex(16_384);
     let serving = spawn(server.serve(BoundedStdio::new(server_input, server_output)));

@@ -33,6 +33,7 @@ ulid.workspace = true
 [dev-dependencies]
 qdrant-client.workspace = true
 tonic.workspace = true
+tracing.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 winapi-util.workspace = true

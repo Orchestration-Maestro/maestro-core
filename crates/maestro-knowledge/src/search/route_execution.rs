@@ -1,6 +1,7 @@
 //! Deadline-bounded leaf-route calls and their independent public statuses.
 
 use super::{
+    deadline::DEADLINE_EXCEEDED,
     fusion::{Hit, Route, RouteList},
     query::Query,
     routes::lexical,
@@ -54,7 +55,7 @@ pub(super) async fn dense_outcome<P: ModelPort>(
         return unavailable("no embedder card for the published generation's profile");
     };
     if Instant::now() >= deadline {
-        return unavailable("route deadline elapsed");
+        return unavailable(DEADLINE_EXCEEDED);
     }
     match time::timeout_at(deadline, dense::search_dense(query, embedder)).await {
         Ok(Ok(hits)) => RouteOutcome {
@@ -62,14 +63,14 @@ pub(super) async fn dense_outcome<P: ModelPort>(
             status: RouteStatus::Ok,
         },
         Ok(Err(error)) => unavailable(route_error_reason(&error)),
-        Err(_) => unavailable("route deadline elapsed"),
+        Err(_) => unavailable(DEADLINE_EXCEEDED),
     }
 }
 
 /// Executes lexical search with its independent route cutoff.
 pub(super) async fn lexical_outcome(query: &Query<'_>, deadline: Instant) -> RouteOutcome {
     if Instant::now() >= deadline {
-        return unavailable("route deadline elapsed");
+        return unavailable(DEADLINE_EXCEEDED);
     }
     match time::timeout_at(deadline, lexical::search_bm25(query)).await {
         Ok(Ok(hits)) => RouteOutcome {
@@ -77,7 +78,7 @@ pub(super) async fn lexical_outcome(query: &Query<'_>, deadline: Instant) -> Rou
             status: RouteStatus::Ok,
         },
         Ok(Err(error)) => unavailable(route_error_reason(&error)),
-        Err(_) => unavailable("route deadline elapsed"),
+        Err(_) => unavailable(DEADLINE_EXCEEDED),
     }
 }
 
@@ -94,27 +95,23 @@ pub(super) fn route_error_reason(error: &RouteError) -> &'static str {
     }
 }
 
-/// Runs Global inventory requests and degrades unsupported forms explicitly.
+/// Runs a Global inventory request and degrades unsupported forms explicitly.
 pub(super) async fn structured_outcome(
     query: &Query<'_>,
     database: Arc<Database>,
     request: Result<Option<&InventoryRequest>, &str>,
-    enabled: bool,
     deadline: Instant,
-) -> Option<StructuredOutcome> {
-    if !enabled {
-        return None;
-    }
+) -> StructuredOutcome {
     match request {
-        Err(reason) => Some(StructuredOutcome {
+        Err(reason) => StructuredOutcome {
             route: unavailable(reason),
             inventory: None,
-        }),
-        Ok(Some(request)) => Some(search_structured(query, database, request, deadline).await),
-        Ok(None) => Some(StructuredOutcome {
+        },
+        Ok(Some(request)) => search_structured(query, database, request, deadline).await,
+        Ok(None) => StructuredOutcome {
             route: unavailable(UNSUPPORTED_INVENTORY),
             inventory: None,
-        }),
+        },
     }
 }
 

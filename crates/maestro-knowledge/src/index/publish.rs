@@ -17,8 +17,12 @@ use maestro_kernel::{
     chunk_set::{Chunk, ChunkSet, ChunkSetState},
     gateway::{ModelPort, Role},
     generation::{Generation, GenerationState, NewGeneration},
+    telemetry::{
+        span,
+        stage::{Count, Outcome, Stage},
+    },
 };
-use std::ops::ControlFlow;
+use std::{future::Future, ops::ControlFlow};
 
 /// Where a generation found again stands, and what its publication still
 /// does.
@@ -101,7 +105,8 @@ impl<P: ModelPort> Projection<'_, P> {
             .await
     }
 
-    /// Publishes the set in batches of `batch_size` chunks.
+    /// Publishes the set in batches of `batch_size` chunks, traced as a
+    /// `knowledge.publish` stage whose steps are its child stages.
     pub(super) async fn publish_observed_with_batch_size(
         &self,
         chunk_set: &str,
@@ -109,10 +114,41 @@ impl<P: ModelPort> Projection<'_, P> {
         observer: &mut impl FnMut(&Progress) -> ControlFlow<()>,
         batch_size: usize,
     ) -> Result<Report, Error> {
-        let dimensions = self.dimensions()?;
-        let set = self.complete(chunk_set)?;
-        self.check_counter_contract(&set)?;
-        let (generation, step) = self.generation(&set)?;
+        let stage = span::publish();
+        let result = stage
+            .instrument(Box::pin(
+                self.publish_steps(chunk_set, resume, observer, batch_size),
+            ))
+            .await;
+        if let Ok(report) = &result {
+            stage.collection(&report.collection);
+            stage.generation(report.generation);
+            stage.count(
+                Count::Points,
+                usize::try_from(report.points).unwrap_or(usize::MAX),
+            );
+        }
+        stage.finish(result.as_ref().map_or_else(Error::outcome, |_| Outcome::Ok));
+        result
+    }
+
+    /// Publishes the set in batches of `batch_size` chunks, each step as its
+    /// stage.
+    async fn publish_steps(
+        &self,
+        chunk_set: &str,
+        resume: Option<&Progress>,
+        observer: &mut impl FnMut(&Progress) -> ControlFlow<()>,
+        batch_size: usize,
+    ) -> Result<Report, Error> {
+        let (dimensions, set, generation, step) = traced_step(span::publish_load_inputs(), async {
+            let dimensions = self.dimensions()?;
+            let set = self.complete(chunk_set)?;
+            self.check_counter_contract(&set)?;
+            let (generation, step) = self.generation(&set)?;
+            Ok((dimensions, set, generation, step))
+        })
+        .await?;
         let names = Names::of(&generation);
         if step == Step::Done {
             if !self
@@ -131,24 +167,52 @@ impl<P: ModelPort> Projection<'_, P> {
             .chunks(self.scopes, &set.id)
             .map_err(Error::ChunkSet)?;
         if step == Step::Build {
-            let new_search_profile = search_inputs::begin(self.database, self.scopes, &generation)?;
-            search_inputs::record_members(self.database, self.scopes, &set)?;
-            let created = self.ensure(&names, dimensions).await?;
-            let start = if created || new_search_profile {
-                0
-            } else {
-                resume
-                    .filter(|progress| progress.generation == generation.id)
-                    .map_or(0, |progress| progress.indexed)
-            };
-            let target = Target {
-                collection: &names.collection,
-                generation: generation.id,
-                chunk_set_id: &set.id,
-                chunks: &chunks,
-            };
-            self.index(&target, start, batch_size, observer).await?;
+            traced_step(span::publish_project(), async {
+                let new_search_profile =
+                    search_inputs::begin(self.database, self.scopes, &generation)?;
+                search_inputs::record_members(self.database, self.scopes, &set)?;
+                let created = self.ensure(&names, dimensions).await?;
+                let start = start(created || new_search_profile, resume, generation.id);
+                let target = Target {
+                    collection: &names.collection,
+                    generation: generation.id,
+                    chunk_set_id: &set.id,
+                    chunks: &chunks,
+                };
+                self.index(&target, start, batch_size, observer).await
+            })
+            .await?;
         }
+        let points = traced_step(
+            span::publish_verify(),
+            self.verify_steps(&names, dimensions, (&set, &generation, step), &chunks),
+        )
+        .await?;
+        traced_step(span::publish_switch_alias(), async {
+            self.qdrant
+                .point_alias(&names.alias, &names.collection)
+                .await
+                .map_err(Error::Qdrant)
+        })
+        .await?;
+        let retired = traced_step(span::publish_kernel(), async {
+            self.database
+                .publish_generation(generation.id)
+                .map_err(Error::Generation)
+        })
+        .await?;
+        Ok(report(&set, &generation, &names, points, retired))
+    }
+
+    /// The points of the collection of `names` once it passes every check,
+    /// the search check among them, and the generation is verified.
+    async fn verify_steps(
+        &self,
+        names: &Names,
+        dimensions: u64,
+        (set, generation, step): (&ChunkSet, &Generation, Step),
+        chunks: &[Chunk],
+    ) -> Result<u64, Error> {
         let rollback = if step == Step::Check {
             self.database
                 .published_generation(self.scopes, &set.collection_id)
@@ -158,9 +222,9 @@ impl<P: ModelPort> Projection<'_, P> {
             None
         };
         let points = self
-            .check(&names, dimensions, &chunks, rollback.as_deref())
+            .check(names, dimensions, chunks, rollback.as_deref())
             .await?;
-        if let Err(reason) = self.verify_search(&generation, &set, &chunks).await? {
+        if let Err(reason) = self.verify_search(generation, set, chunks).await? {
             let rollback = rollback
                 .as_deref()
                 .map(|collection| (names.alias.as_str(), collection));
@@ -171,15 +235,7 @@ impl<P: ModelPort> Projection<'_, P> {
                 .verify_generation(generation.id, points)
                 .map_err(Error::Generation)?;
         }
-        self.qdrant
-            .point_alias(&names.alias, &names.collection)
-            .await
-            .map_err(Error::Qdrant)?;
-        let retired = self
-            .database
-            .publish_generation(generation.id)
-            .map_err(Error::Generation)?;
-        Ok(report(&set, &generation, &names, points, retired))
+        Ok(points)
     }
 
     /// Prevents a v2 card from reusing chunks counted for another identity.
@@ -385,6 +441,29 @@ impl<P: ModelPort> ProjectionWithBatchSize<'_, P> {
             .publish_observed_with_batch_size(chunk_set, resume, observer, self.batch_size.get())
             .await
     }
+}
+
+/// Where the build of the generation `generation` starts: from its first
+/// chunk when its collection or search profile is `fresh`, else after the
+/// chunks `resume` says its collection holds, when `resume` is its step.
+fn start(fresh: bool, resume: Option<&Progress>, generation: i64) -> u64 {
+    if fresh {
+        return 0;
+    }
+    resume
+        .filter(|progress| progress.generation == generation)
+        .map_or(0, |progress| progress.indexed)
+}
+
+/// Runs one step of a publication as the stage `stage`, and records how it
+/// ended.
+async fn traced_step<T>(
+    stage: Stage,
+    work: impl Future<Output = Result<T, Error>>,
+) -> Result<T, Error> {
+    let result = stage.instrument(work).await;
+    stage.finish(result.as_ref().map_or_else(Error::outcome, |_| Outcome::Ok));
+    result
 }
 
 /// The names of a generation in Qdrant.

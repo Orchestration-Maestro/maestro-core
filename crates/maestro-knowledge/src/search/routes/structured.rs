@@ -1,7 +1,10 @@
 //! Exact generation inventories and their separately bounded supports.
 
 use super::outcome::{RouteOutcome, StructuredOutcome};
-use crate::search::{deadline, query::Query};
+use crate::search::{
+    deadline::{self, DEADLINE_EXCEEDED},
+    query::Query,
+};
 use maestro_kernel::{
     evidence::RouteStatus,
     retrieval::{self, InventoryRequest, ReadControl, SearchRead},
@@ -60,7 +63,7 @@ pub async fn search_structured(
         Err(deadline::BlockingFailure::WorkerFailed) => {
             unavailable("inventory search worker failed")
         }
-        Err(deadline::BlockingFailure::TimedOut) => unavailable("inventory timed out"),
+        Err(deadline::BlockingFailure::TimedOut) => unavailable(DEADLINE_EXCEEDED),
     }
 }
 
@@ -72,9 +75,7 @@ fn error_reason(error: &retrieval::Error) -> String {
         }
         retrieval::Error::ProfileMismatch { .. } => "search projection profile mismatch".to_owned(),
         retrieval::Error::TooLarge => "inventory too large; restrict the document set".to_owned(),
-        retrieval::Error::TimedOut | retrieval::Error::Cancelled => {
-            "inventory timed out".to_owned()
-        }
+        retrieval::Error::TimedOut | retrieval::Error::Cancelled => DEADLINE_EXCEEDED.to_owned(),
         retrieval::Error::InvalidInput(_) => "inventory request is invalid".to_owned(),
         retrieval::Error::Store(_)
         | retrieval::Error::UnknownOrInaccessible

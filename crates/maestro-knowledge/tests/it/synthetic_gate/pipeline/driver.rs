@@ -30,17 +30,17 @@ use maestro_knowledge::{
 use std::{collections::BTreeMap, env, path::Path};
 use tokio::runtime::Runtime;
 
-struct BuiltGeneration {
-    database: Database,
+pub(super) struct BuiltGeneration {
+    pub(super) database: Database,
     scopes: ScopeSet,
     import_report: import::Report,
     quality_report: quality::Report,
     prepared: prepare::Report,
     publication: index::Report,
     generation: Generation,
-    card: ModelCard,
-    models: SyntheticModels,
-    _scratch: Scratch,
+    pub(super) card: ModelCard,
+    pub(super) models: SyntheticModels,
+    pub(super) scratch: Scratch,
 }
 
 struct GenerationContext<'a> {
@@ -117,7 +117,7 @@ fn execute_internal(
     evaluate_generation(runtime, search_qdrant, backend, &fixture, &built)
 }
 
-fn build_generation(
+pub(super) fn build_generation(
     runtime: &Runtime,
     qdrant: &Qdrant,
     fixture: &FixtureInputs,
@@ -161,7 +161,7 @@ fn build_generation(
         generation: published.generation,
         card: published.card,
         models: published.models,
-        _scratch: scratch,
+        scratch,
     })
 }
 

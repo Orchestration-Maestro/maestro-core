@@ -5,5 +5,6 @@ mod handoff;
 mod inventory_query;
 mod rerank;
 mod routes;
+mod stages;
 mod support;
 mod window_boundaries;

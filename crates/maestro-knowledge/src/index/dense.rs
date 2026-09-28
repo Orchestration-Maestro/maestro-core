@@ -2,7 +2,10 @@
 //! card names, through the model port in free room, and checked before
 //! anything holds them.
 
-use maestro_kernel::gateway::{self, ModelCard, ModelPort, Room};
+use maestro_kernel::{
+    gateway::{self, ModelCard, ModelPort, Room},
+    telemetry::stage::Outcome,
+};
 use std::{error, fmt, num::NonZeroUsize, time::Duration};
 use tokio::time;
 
@@ -145,6 +148,18 @@ pub enum Failure {
     TimedOut(Duration),
     /// A vector broke a check, which refuses the whole batch.
     Refused(Refusal),
+}
+
+impl Failure {
+    /// How an embedding that failed so ended: unserved by the port, out of
+    /// time, or refused by the vector checks.
+    pub(super) const fn outcome(&self) -> Outcome {
+        match self {
+            Self::Port(_) => Outcome::Unavailable,
+            Self::TimedOut(_) => Outcome::Timeout,
+            Self::Refused(_) => Outcome::Refused,
+        }
+    }
 }
 
 impl fmt::Display for Failure {

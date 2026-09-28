@@ -13,8 +13,39 @@ use maestro_kernel::{
     document,
     gateway::Role,
     generation, retrieval, store,
+    telemetry::stage::Outcome,
 };
 use std::{error, fmt};
+
+impl Error {
+    /// How a publication step that stopped for this error ended: refused by
+    /// its inputs or its checks, out of time or unserved by a dependency, or
+    /// failed.
+    pub(super) const fn outcome(&self) -> Outcome {
+        match self {
+            Self::NotAnEmbedder { .. }
+            | Self::UnknownChunkSet(_)
+            | Self::CounterContractMismatch { .. }
+            | Self::Incomplete { .. }
+            | Self::PublishedChanged { .. }
+            | Self::RecoveryTarget { .. }
+            | Self::AmbiguousRecoveryTarget { .. }
+            | Self::UnrelatedAlias { .. }
+            | Self::Unverified { .. } => Outcome::Refused,
+            Self::Embedding { failure, .. } => failure.outcome(),
+            Self::Qdrant(_) => Outcome::Unavailable,
+            Self::Unreadable { .. }
+            | Self::MissingCollection(_)
+            | Self::Stopped
+            | Self::Generation(_)
+            | Self::ChunkSet(_)
+            | Self::Records(_)
+            | Self::Artifacts(_)
+            | Self::Preparation(_)
+            | Self::Search(_) => Outcome::Error,
+        }
+    }
+}
 
 /// Why a publication stopped.
 #[derive(Debug)]
