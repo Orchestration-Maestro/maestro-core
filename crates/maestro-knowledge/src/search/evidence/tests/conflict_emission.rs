@@ -104,6 +104,51 @@ fn touching_conflict_tables_emit_a_within_passage_gap_not_a_singleton_conflict()
 }
 
 #[test]
+fn repeated_section_conflicts_deduplicate_per_passage_without_merging_attributes() {
+    let markdown = concat!(
+        "# Guide\n\n## Network\n\n",
+        "| Entity | Attribute | Value |\n| --- | --- | --- |\n",
+        "| Agent | Port | 7005 |\n| Agent | Port | 7006 |\n",
+        "| Agent | Mode | fast |\n| Agent | Mode | safe |\n\n",
+        "## Network\n\n",
+        "| Entity | Attribute | Value |\n| --- | --- | --- |\n",
+        "| Agent | Port | 7007 |\n| Agent | Port | 7008 |\n",
+        "| Agent | Mode | active |\n| Agent | Mode | standby |\n"
+    );
+    let source_document = document(markdown, "repeated-sections.md");
+    let no_groups = BTreeSet::new();
+    let context = ConflictContext::default();
+    let sources = [
+        source(0, &source_document, markdown, &no_groups, &context),
+        source(1, &source_document, markdown, &no_groups, &context),
+    ];
+    let findings = detect_conflicts(&sources).unwrap();
+    assert_eq!(findings.len(), 4);
+    let passages = [passage(
+        &source_document.document_id,
+        &source_document.revision_id,
+        1,
+        Span {
+            start: 0,
+            end: markdown.len(),
+        },
+        markdown,
+    )];
+
+    let emitted = emit_conflicts(&findings, &sources, &BTreeSet::from([0, 1]), &passages).unwrap();
+
+    assert!(emitted.conflicts.is_empty());
+    assert_eq!(
+        emitted
+            .within_passage
+            .iter()
+            .map(|finding| finding.attribute)
+            .collect::<Vec<_>>(),
+        ["Mode", "Port"]
+    );
+}
+
+#[test]
 fn a_partially_retained_conflict_is_refused() {
     let markdown_a =
         "# Guide\n\n| Entity | Attribute | Value |\n| --- | --- | --- |\n| Agent | Port | 7005 |\n";

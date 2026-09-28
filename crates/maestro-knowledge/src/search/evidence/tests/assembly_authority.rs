@@ -1,7 +1,7 @@
 use super::super::assemble::assemble_blocking;
 use super::{
     super::{EvidenceCounter, EvidenceError, assemble_evidence},
-    support::{control, evidence_input, fixture},
+    support::{Fixture, control, evidence_input, fixture},
 };
 use crate::prepare::tests::scratch::{
     corrupt_artifact, quarantine_revision, replace_chunk_set_manifest, replace_revision_canonical,
@@ -12,10 +12,13 @@ use maestro_kernel::{
     generation::{GenerationState, NewGeneration},
     scope::{Right, Scope},
 };
-use std::sync::{
-    Arc, Mutex,
-    atomic::{AtomicUsize, Ordering},
-    mpsc::{self, Receiver, Sender},
+use std::{
+    collections::BTreeSet,
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicUsize, Ordering},
+        mpsc::{self, Receiver, Sender},
+    },
 };
 use tokio::task::spawn_blocking;
 
@@ -138,6 +141,23 @@ async fn hidden_generations_and_changed_pinned_chunk_sets_are_refused() {
     }
 }
 
+fn table_chunk_id(fixture: &Fixture, revision: &str, markdown: &str) -> String {
+    fixture
+        .database
+        .chunks(&fixture.scopes, &fixture.generation.chunk_set_id)
+        .unwrap()
+        .into_iter()
+        .find(|chunk| {
+            chunk.revision_id == revision
+                && markdown
+                    .get(chunk.span.start..chunk.span.end)
+                    .is_some_and(|text| text.contains("| Agent | Port |"))
+        })
+        .expect("near duplicate revision has a table chunk")
+        .id
+        .clone()
+}
+
 #[test]
 fn near_duplicate_rows_outside_the_manifest_allowlist_do_not_join_families() {
     let shared = (0..200)
@@ -166,6 +186,26 @@ fn near_duplicate_rows_outside_the_manifest_allowlist_do_not_join_families() {
             .len()
             > 1
     );
+    let old_groups = fixture
+        .database
+        .near_duplicates(&fixture.scopes, &old_revision)
+        .unwrap()
+        .into_iter()
+        .map(|member| member.group_id)
+        .collect::<BTreeSet<_>>();
+    let current_groups = fixture
+        .database
+        .near_duplicates(&fixture.scopes, &current_revision)
+        .unwrap()
+        .into_iter()
+        .map(|member| member.group_id)
+        .collect::<BTreeSet<_>>();
+    assert!(
+        old_groups
+            .iter()
+            .any(|group| current_groups.contains(group)),
+        "the prepared revisions must share a near-duplicate group"
+    );
     let set = fixture
         .database
         .chunk_set(&fixture.scopes, &fixture.generation.chunk_set_id)
@@ -182,6 +222,25 @@ fn near_duplicate_rows_outside_the_manifest_allowlist_do_not_join_families() {
             .unwrap()
             .is_empty()
     );
+    let mut input = evidence_input(&fixture, "What port does the Agent use?");
+    let mut old_ranked = input.ranked[0].clone();
+    old_ranked.candidate.fused.chunk_id = table_chunk_id(&fixture, &old_revision, &old);
+    let mut current_ranked = old_ranked.clone();
+    current_ranked.candidate.fused.chunk_id = table_chunk_id(&fixture, &current_revision, &current);
+    input.ranked = vec![old_ranked, current_ranked];
+
+    let allowed_bundle = assemble_blocking(
+        &fixture.database,
+        &input,
+        &EvidenceCounter::Utf8Bytes,
+        &control(),
+    )
+    .unwrap();
+    assert!(
+        !allowed_bundle.conflicts.is_empty(),
+        "authorized near-duplicate groups must expose the table conflict"
+    );
+
     manifest["near_duplicate_groups"] = serde_json::Value::Array(Vec::new());
     replace_chunk_set_manifest(
         &fixture.scratch,
@@ -189,26 +248,6 @@ fn near_duplicate_rows_outside_the_manifest_allowlist_do_not_join_families() {
         &fixture.generation.chunk_set_id,
         &serde_json::to_vec(&manifest).unwrap(),
     );
-
-    let chunks = fixture
-        .database
-        .chunks(&fixture.scopes, &fixture.generation.chunk_set_id)
-        .unwrap();
-    let chunk_for = |revision: &str| {
-        chunks
-            .iter()
-            .find(|chunk| chunk.revision_id == revision)
-            .expect("near duplicate revision has a prepared chunk")
-            .id
-            .clone()
-    };
-    let mut input = evidence_input(&fixture, "What port does the Agent use?");
-    let mut old_ranked = input.ranked[0].clone();
-    old_ranked.candidate.fused.chunk_id = chunk_for(&old_revision);
-    let mut current_ranked = old_ranked.clone();
-    current_ranked.candidate.fused.chunk_id = chunk_for(&current_revision);
-    input.ranked = vec![old_ranked, current_ranked];
-
     let bundle = assemble_blocking(
         &fixture.database,
         &input,
@@ -216,7 +255,6 @@ fn near_duplicate_rows_outside_the_manifest_allowlist_do_not_join_families() {
         &control(),
     )
     .unwrap();
-
     assert!(bundle.conflicts.is_empty());
 }
 

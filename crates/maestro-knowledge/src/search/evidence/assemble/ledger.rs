@@ -163,11 +163,7 @@ fn validate_manifest(
         ));
     }
     for (duplicate, representative) in &manifest.duplicates {
-        if duplicate.trim().is_empty()
-            || representative.trim().is_empty()
-            || !revisions.contains(duplicate)
-            || !revisions.contains(representative)
-        {
+        if !revisions.contains(duplicate) || !revisions.contains(representative) {
             return Err(DuplicateLedgerError::Invalid(
                 "chunk-set manifest duplicate mapping names an unknown revision".to_owned(),
             ));
@@ -242,10 +238,18 @@ mod tests {
     }
 
     #[test]
-    fn rejects_a_manifest_for_another_set() {
-        let mut manifest = manifest();
-        manifest.chunk_set = "other-set".to_owned();
-        assert_invalid(&manifest);
+    fn rejects_a_manifest_with_another_identity() {
+        let mut other_set = manifest();
+        other_set.chunk_set = "other-set".to_owned();
+        assert_invalid(&other_set);
+
+        let mut other_collection = manifest();
+        other_collection.collection = "other-collection".to_owned();
+        assert_invalid(&other_collection);
+
+        let mut other_counter = manifest();
+        other_counter.counter = "other-counter".to_owned();
+        assert_invalid(&other_counter);
     }
 
     #[test]
@@ -274,6 +278,12 @@ mod tests {
             .duplicates
             .insert("unknown".to_owned(), "rev-a".to_owned());
         assert_invalid(&outside);
+
+        let mut blank_duplicate = manifest();
+        blank_duplicate
+            .duplicates
+            .insert(" ".to_owned(), "rev-a".to_owned());
+        assert_invalid(&blank_duplicate);
 
         let mut self_mapping = manifest();
         self_mapping

@@ -12,8 +12,7 @@ fn invalid(reason: &str) -> EvidenceError {
 
 /// Checks handoff bounds and verifies that ranking metadata is internally valid.
 pub(super) fn validate_input(input: &EvidenceInput) -> Result<(), EvidenceError> {
-    if input.query.trim().is_empty()
-        || input.understood.normalized.trim().is_empty()
+    if input.understood.normalized.trim().is_empty()
         || input.principal.trim().is_empty()
         || input.query.len() > 8192
         || input

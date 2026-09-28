@@ -349,6 +349,19 @@ mod tests {
     }
 
     #[test]
+    fn include_span_rejects_each_empty_input_interval() {
+        let error = "selected window span is empty or reversed";
+        assert_eq!(
+            include_span(Span { start: 1, end: 1 }, Span { start: 1, end: 2 },).unwrap_err(),
+            error
+        );
+        assert_eq!(
+            include_span(Span { start: 1, end: 2 }, Span { start: 2, end: 2 },).unwrap_err(),
+            error
+        );
+    }
+
+    #[test]
     fn rejects_each_invalid_selected_span_or_source_identity() {
         let markdown = "Preface.\n\n# Guide\n\nUnicode Ω marker.\n";
         let document = document(markdown);

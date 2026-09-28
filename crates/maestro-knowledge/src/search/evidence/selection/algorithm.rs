@@ -394,17 +394,12 @@ fn add_optional_siblings(
         .copied()
         .ok_or_else(|| integrity("selected mandatory window disappeared"))?;
     let neighbors = [
-        plan.before.first().copied().map(|span| (true, span)),
-        plan.after.first().copied().map(|span| (false, span)),
-        plan.before.get(1).copied().map(|span| (true, span)),
-        plan.after.get(1).copied().map(|span| (false, span)),
+        plan.before.first().copied(),
+        plan.after.first().copied(),
+        plan.before.get(1).copied(),
+        plan.after.get(1).copied(),
     ];
-    let mut before_closed = false;
-    let mut after_closed = false;
-    for (before, sibling) in neighbors.into_iter().flatten() {
-        if (before && before_closed) || (!before && after_closed) {
-            continue;
-        }
+    for sibling in neighbors.into_iter().flatten() {
         let expanded = include_span(current, sibling)
             .map_err(|_| integrity("candidate optional sibling is invalid"))?;
         let mut trial_spans = selected.spans.clone();
@@ -413,10 +408,6 @@ fn add_optional_siblings(
         if fits {
             accept_trial(candidates, selected, trial_spans, rendered, budget.control)?;
             current = expanded;
-        } else if before {
-            before_closed = true;
-        } else {
-            after_closed = true;
         }
     }
     Ok(())
