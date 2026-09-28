@@ -320,10 +320,11 @@ fn publish_preflight_refuses_missing_unknown_and_incomplete_chunk_sets() {
     let mut unknown = arguments(&fixture, false);
     unknown.chunk_set = Some("missing".to_owned());
     let unknown_error = publish::run(&fixture.kernel, Output::new(true), &unknown);
-    assert!(
-        matches!(&unknown_error, Err(Failure::Refused(message)) if message.contains("no chunk set missing")),
-        "{unknown_error:?}"
+    let refused_unknown = matches!(
+        &unknown_error,
+        Err(Failure::Refused(message)) if message.contains("no chunk set missing")
     );
+    assert!(refused_unknown, "{unknown_error:?}");
 
     fixture
         .kernel
