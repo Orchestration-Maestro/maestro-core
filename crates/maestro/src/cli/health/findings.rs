@@ -18,25 +18,53 @@ use std::{
 /// directory.
 const SEARCH_SERVICE: &str = "qdrant";
 
-/// The entries of the data directory `data` the kernel does not own, in
-/// path order: the kernel owns its database with the files SQLite keeps
-/// beside it, its artifact tree, and the search service setup installs.
-pub(super) fn foreign_entries(data: &Path) -> Vec<PathBuf> {
+/// The data directory entries the kernel does not own and the database
+/// creation temporaries, each in path order. The database, its WAL and SHM,
+/// artifact tree and search service are owned; temporary links are only listed.
+pub(super) fn directory_findings(data: &Path) -> (Vec<PathBuf>, Vec<PathBuf>) {
     let Ok(entries) = fs::read_dir(data) else {
-        return Vec::new();
+        return (Vec::new(), Vec::new());
     };
-    let mut foreign: Vec<PathBuf> = entries
-        .filter_map(Result::ok)
-        .filter(|entry| !entry.file_name().to_str().is_some_and(owned))
-        .map(|entry| entry.path())
-        .collect();
+    let mut foreign = Vec::new();
+    let mut database_temporaries = Vec::new();
+    for entry in entries.filter_map(Result::ok) {
+        let path = entry.path();
+        let name = entry.file_name();
+        let Some(name) = name.to_str() else {
+            foreign.push(path);
+            continue;
+        };
+        if database_temporary(name) {
+            database_temporaries.push(path);
+        } else if !owned(name) {
+            foreign.push(path);
+        }
+    }
     foreign.sort();
-    foreign
+    database_temporaries.sort();
+    (foreign, database_temporaries)
+}
+
+/// Whether `name` is a leftover `<database>.tmp-<process>-<number>` link.
+fn database_temporary(name: &str) -> bool {
+    let Some((process, number)) = name
+        .strip_prefix(DATABASE)
+        .and_then(|suffix| suffix.strip_prefix(".tmp-"))
+        .and_then(|suffix| suffix.split_once('-'))
+    else {
+        return false;
+    };
+    [process, number]
+        .into_iter()
+        .all(|part| !part.is_empty() && part.bytes().all(|byte| byte.is_ascii_digit()))
 }
 
 /// Whether the kernel owns the entry `name` of its data directory.
 fn owned(name: &str) -> bool {
-    name.starts_with(DATABASE) || name == ARTIFACTS || name == SEARCH_SERVICE
+    name == DATABASE
+        || matches!(name.strip_prefix(DATABASE), Some("-wal" | "-shm"))
+        || name == ARTIFACTS
+        || name == SEARCH_SERVICE
 }
 
 /// The grants of `scopes` that reach no scope the kernel knows, in path

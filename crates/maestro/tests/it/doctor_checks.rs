@@ -10,7 +10,12 @@ use super::{
 };
 use rusqlite::Connection;
 use serde_json::{Value, json};
-use std::fs;
+use std::{fs, path::Path, process};
+
+const DATABASE_TEMPORARY_WARNING: &str = concat!(
+    "may be another name of the live database; never open it; ",
+    "inspect after no creation is in progress before removing only this name"
+);
 
 /// The checks of the document doctor printed.
 fn checks(document: &Value) -> &[Value] {
@@ -178,6 +183,106 @@ fn doctor_lists_what_it_must_not_touch_and_leaves_it_as_it_was() {
         "v1"
     );
     assert!(data.join("maestro.sock").exists());
+}
+
+fn database_state(database: &Path) -> (Vec<String>, i64) {
+    let connection = Connection::open(database).unwrap();
+    let mut statement = connection
+        .prepare(
+            "SELECT scope FROM grants WHERE principal = 'local' AND right = 'read' \
+             ORDER BY scope",
+        )
+        .unwrap();
+    let scopes = statement
+        .query_map([], |row| row.get::<_, String>(0))
+        .unwrap()
+        .collect::<rusqlite::Result<Vec<_>>>()
+        .unwrap();
+    let migrations = connection
+        .query_row("SELECT count(*) FROM migrations", [], |row| {
+            row.get::<_, i64>(0)
+        })
+        .unwrap();
+    (scopes, migrations)
+}
+
+fn assert_configured_database(database: &Path, migration_count: i64) {
+    let (scopes, migrations) = database_state(database);
+    assert_eq!(scopes, ["workspace/default"]);
+    assert_eq!(migrations, migration_count);
+}
+
+fn failed_check_count(document: &Value) -> usize {
+    checks(document)
+        .iter()
+        .filter(|check| check["passed"] == false)
+        .count()
+}
+
+fn assert_database_temporary_warning(document: &Value, temporary: &str, unrelated: &str) {
+    assert_eq!(document["database_temporaries"], json!([temporary]));
+    assert_eq!(
+        document["database_temporary_warning"],
+        DATABASE_TEMPORARY_WARNING
+    );
+    assert_eq!(document["untouched"], json!([unrelated]));
+}
+
+fn assert_temporary_database_sidecars_absent(data: &Path, temporary_name: &str) {
+    for suffix in ["-wal", "-shm"] {
+        assert!(
+            !data.join(format!("{temporary_name}{suffix}")).exists(),
+            "doctor must not open the temporary database name"
+        );
+    }
+}
+
+#[test]
+fn doctor_warns_about_database_temporaries_without_a_failed_check() {
+    let home = Home::bare();
+    home.configure("[access]\nread = ['workspace/default']\n");
+    drop(home.database());
+    let data = home.data();
+    let database = data.join("kernel.sqlite3");
+    let unrelated = data.join("kernel.sqlite3.notes");
+    fs::write(&unrelated, "leave this file alone").unwrap();
+    let migration_count = database_state(&database).1;
+    let baseline = checked(&home, &["doctor", "--json"]);
+    let baseline_document = baseline.json();
+    assert_eq!(baseline_document["database_temporaries"], json!([]));
+    assert_eq!(baseline_document["database_temporary_warning"], Value::Null);
+    assert_configured_database(&database, migration_count);
+
+    let temporary_name = format!("kernel.sqlite3.tmp-{}-0", process::id());
+    let temporary = data.join(&temporary_name);
+    fs::hard_link(&database, &temporary).unwrap();
+    let temporary_path = temporary.display().to_string();
+    let unrelated_path = unrelated.display().to_string();
+    let unrelated_before = fs::read(&unrelated).unwrap();
+    let with_temporary = checked(&home, &["doctor", "--json"]);
+    let document = with_temporary.json();
+    assert_eq!(with_temporary.code, baseline.code);
+    assert_eq!(checks(&document).len(), checks(&baseline_document).len());
+    assert_eq!(
+        failed_check_count(&document),
+        failed_check_count(&baseline_document)
+    );
+    assert_database_temporary_warning(&document, &temporary_path, &unrelated_path);
+    assert_configured_database(&database, migration_count);
+
+    let text = checked(&home, &["doctor"]);
+    assert_eq!(text.code, baseline.code);
+    assert!(
+        text.stdout.contains(DATABASE_TEMPORARY_WARNING),
+        "{}",
+        text.stdout
+    );
+    assert!(text.stdout.contains(&temporary_path), "{}", text.stdout);
+    assert!(text.stdout.contains(&unrelated_path), "{}", text.stdout);
+    assert!(temporary.exists());
+    assert_eq!(fs::read(&temporary).unwrap(), fs::read(&database).unwrap());
+    assert_eq!(fs::read(&unrelated).unwrap(), unrelated_before);
+    assert_temporary_database_sidecars_absent(&data, &temporary_name);
 }
 
 #[test]

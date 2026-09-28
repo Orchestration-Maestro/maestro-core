@@ -3,7 +3,7 @@
 //! of `config.toml` that reach no scope the kernel knows.
 
 use super::{
-    super::findings::{foreign_entries, unreached_grants},
+    super::findings::{directory_findings, unreached_grants},
     support::Scratch,
 };
 use maestro_kernel::{
@@ -11,7 +11,7 @@ use maestro_kernel::{
     scope::{LOCAL, Right, Scope},
     store::Database,
 };
-use std::{collections::BTreeMap, fs, path::PathBuf};
+use std::{collections::BTreeMap, fs, path::PathBuf, process, slice};
 
 #[test]
 fn the_entries_the_kernel_does_not_own_are_listed_and_left_untouched() {
@@ -32,8 +32,9 @@ fn the_entries_the_kernel_does_not_own_are_listed_and_left_untouched() {
         fs::write(data.join(file), "maestro v1").unwrap();
     }
     fs::create_dir(data.join("material")).unwrap();
+    let (foreign, temporaries) = directory_findings(&data);
     assert_eq!(
-        foreign_entries(&data),
+        foreign,
         [
             data.join("ledger.sqlite3"),
             data.join("ledger.sqlite3-wal"),
@@ -42,6 +43,7 @@ fn the_entries_the_kernel_does_not_own_are_listed_and_left_untouched() {
             data.join("supervisor.lock"),
         ]
     );
+    assert!(temporaries.is_empty());
     for file in [
         "ledger.sqlite3",
         "ledger.sqlite3-wal",
@@ -54,11 +56,34 @@ fn the_entries_the_kernel_does_not_own_are_listed_and_left_untouched() {
 }
 
 #[test]
+fn generated_database_temporary_links_are_separate_from_prefix_neighbors() {
+    let scratch = Scratch::new();
+    let data = scratch.data();
+    drop(Database::open_in(&data).unwrap());
+    let temporary = data.join(format!("kernel.sqlite3.tmp-{}-0", process::id()));
+    fs::hard_link(data.join("kernel.sqlite3"), &temporary).unwrap();
+    let unrelated = data.join("kernel.sqlite3.notes");
+    fs::write(&unrelated, "leave this file alone").unwrap();
+    let malformed = data.join("kernel.sqlite3.tmp-not-a-number");
+    fs::write(&malformed, "leave this file alone too").unwrap();
+
+    let (foreign, temporaries) = directory_findings(&data);
+    assert_eq!(foreign, [unrelated.clone(), malformed.clone()]);
+    assert_eq!(temporaries.as_slice(), slice::from_ref(&temporary));
+    assert_eq!(fs::read(unrelated).unwrap(), b"leave this file alone");
+    assert_eq!(fs::read(malformed).unwrap(), b"leave this file alone too");
+    assert_eq!(
+        fs::read(temporary).unwrap(),
+        fs::read(data.join("kernel.sqlite3")).unwrap()
+    );
+}
+
+#[test]
 fn a_data_directory_that_is_not_there_holds_nothing_foreign() {
     let scratch = Scratch::new();
     assert_eq!(
-        foreign_entries(&scratch.data().join("absent")),
-        Vec::<PathBuf>::new()
+        directory_findings(&scratch.data().join("absent")),
+        (Vec::<PathBuf>::new(), Vec::<PathBuf>::new())
     );
 }
 

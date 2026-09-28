@@ -296,7 +296,8 @@
 //! check names its next action. It then lists what it found but must not
 //! touch: the entries of the data directory the kernel does not own, as the
 //! files maestro v1 left there, and the grants of `config.toml` that reach
-//! no scope the kernel knows. It deletes nothing, and exits 0 when every
+//! no scope the kernel knows. It lists database-creation temporary names with
+//! a warning to never open them; it deletes nothing and exits 0 when every
 //! check passed and 1 when one failed.
 //!
 //! ```json
@@ -306,6 +307,7 @@
 //!   {"name":"model_card","target":"embedder","passed":false,
 //!    "detail":"no model card is recorded for the embedder","next_action":"…"}],
 //!  "untouched":["/…/ledger.sqlite3","/…/material"],
+//!  "database_temporaries":[],"database_temporary_warning":null,
 //!  "unreached_grants":["workspace/other"]}
 //! ```
 //!
