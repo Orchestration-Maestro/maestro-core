@@ -13,8 +13,10 @@ use std::{collections::BTreeMap, error, fmt, time::Duration};
 pub const DEFAULT_MODEL: &str = "qwen3-4b";
 /// Maximum time allowed for each buffered chat call.
 pub const CHAT_DEADLINE: Duration = Duration::from_secs(10);
-/// System-enforced output ceiling for one generation attempt.
-pub(super) const DEFAULT_OUTPUT_TOKENS: u32 = 700;
+/// System-enforced output ceiling for one generation attempt: the chat
+/// maximum, so a thinking answerer's think block fits before its answer. It
+/// is only a cap; an answerer that does not think stops well before it.
+pub(super) const DEFAULT_OUTPUT_TOKENS: u32 = MAX_CHAT_OUTPUT_TOKENS;
 /// Number of closest passages retained in a refusal.
 pub(super) const CLOSEST_LIMIT: usize = 3;
 /// Result schema identifier.

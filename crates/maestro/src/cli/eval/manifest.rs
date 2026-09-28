@@ -77,8 +77,8 @@ pub(super) struct AskSettings {
     /// The answer prompt: a version, or a private prompt file.
     pub(super) prompt: RungPrompt,
     /// The SHA-256 digest, in hexadecimal, of the registered answerer card
-    /// the rung asks with; absent, the latest registered non-thinking
-    /// answerer of the default model.
+    /// the rung asks with; absent, the latest registered answerer of the
+    /// default model.
     pub(super) card: Option<String>,
 }
 

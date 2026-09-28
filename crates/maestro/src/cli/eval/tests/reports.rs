@@ -208,7 +208,7 @@ fn a_rung_report_names_its_provenance_and_scores_its_floors() {
             "rung": "r0",
             "verdict": "PASS",
             "ask": true,
-            "ask_settings": {"k": 5, "max_tokens": 6000, "output_tokens": 700, "prompt": "v2"},
+            "ask_settings": {"k": 5, "max_tokens": 6000, "output_tokens": 1024, "prompt": "v2"},
             "warm_ups": 1,
             "collection": "docs",
             "provenance": provenance,

@@ -99,35 +99,34 @@ fn default_request() -> AskRequest {
 }
 
 #[test]
-fn default_resolution_skips_a_thinking_card_registered_later() {
+fn default_resolution_takes_a_thinking_card_registered_later() {
     let scratch = Scratch::new();
     let kernel = scratch.kernel(None).expect("open test kernel");
     let request = default_request();
     register_answerer(&kernel, "qwen3-4b", b"older answerer");
-    let (plain, _) = register_reasoning_answerer(&kernel, b"plain answerer", false);
+    register_reasoning_answerer(&kernel, b"plain answerer", false);
 
     let (thinking, _) = register_reasoning_answerer(&kernel, b"thinking answerer", true);
 
     let resolved = registered_answerer(&kernel, &kernel.scopes, &request)
         .expect("read scoped card registry")
-        .expect("the plain answerer");
-    assert_eq!(resolved.id, plain);
-    assert_ne!(resolved.id, thinking);
+        .expect("the thinking answerer");
+    assert_eq!(resolved.id, thinking);
 }
 
 #[test]
-fn only_a_thinking_card_leaves_the_default_unresolved() {
+fn a_plain_card_registered_after_a_thinking_one_is_the_default() {
     let scratch = Scratch::new();
     let kernel = scratch.kernel(None).expect("open test kernel");
     let request = default_request();
-
     register_reasoning_answerer(&kernel, b"thinking answerer", true);
 
-    assert!(
-        registered_answerer(&kernel, &kernel.scopes, &request)
-            .expect("read scoped card registry")
-            .is_none()
-    );
+    let (plain, _) = register_reasoning_answerer(&kernel, b"plain answerer", false);
+
+    let resolved = registered_answerer(&kernel, &kernel.scopes, &request)
+        .expect("read scoped card registry")
+        .expect("the plain answerer");
+    assert_eq!(resolved.id, plain);
 }
 
 #[test]
@@ -377,7 +376,7 @@ fn card_identity(kernel: &Kernel, role: Role, entry: &str, weights: &[u8]) -> Ca
         invocation: RuntimeLimits {
             limits: Limits {
                 context_tokens: NonZeroU32::new(4096).expect("nonzero context"),
-                output_tokens: answerer.then(|| NonZeroU32::new(1000).expect("nonzero output")),
+                output_tokens: answerer.then(|| NonZeroU32::new(1024).expect("nonzero output")),
             },
             dimensions: Dimensions::NotApplicable,
             sampling: if answerer {

@@ -1,5 +1,6 @@
 use super::super::generate::request_budget;
 use super::*;
+use maestro_kernel::gateway::MAX_CHAT_OUTPUT_TOKENS;
 use std::error::Error as _;
 
 /// A change to a valid request, and the error it must cause, if any.
@@ -72,6 +73,11 @@ async fn request_bounds_accept_their_limits_and_refuse_one_past_them() {
             "case {index}"
         );
     }
+}
+
+#[test]
+fn an_ask_budget_defaults_to_the_chat_output_maximum_so_a_think_block_fits() {
+    assert_eq!(AskBudget::default().output_tokens, MAX_CHAT_OUTPUT_TOKENS);
 }
 
 #[test]

@@ -281,9 +281,9 @@ fn a_rung_asking_for_more_output_tokens_than_its_answerer_card_allows_is_refused
         }))
     };
 
-    assert!(output(1000).is_ok());
+    assert!(output(1024).is_ok());
     assert!(matches!(
-        output(1001),
+        output(1025),
         Err(Failure::Refused(reason))
             if reason == "the rung `r0` asks for more output tokens than its answerer card allows"
     ));

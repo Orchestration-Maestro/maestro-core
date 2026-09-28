@@ -129,7 +129,7 @@ impl<'kernel> KernelEngine<'kernel> {
     }
 
     /// The answerer `rung` asks with: the card it names, or else the latest
-    /// registered non-thinking answerer of the default model, if any.
+    /// registered answerer of the default model, if any.
     ///
     /// # Errors
     ///
