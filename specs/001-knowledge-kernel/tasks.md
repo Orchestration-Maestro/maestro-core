@@ -714,7 +714,7 @@ cli/search.rs}`. **Requirements:** FR-S1-008, FR-S1-012.
 
 - [x] **Step 1: Failing CI check.** The suite runs with the deterministic fake
   models and fails the pull request below its recorded baseline.
-- [ ] **Step 2: Wire** the suite into CI and record the baseline.
+- [x] **Step 2: Wire** the suite into CI and record the baseline.
 - [x] **Step 3: Commit and integrate into S1** `ci: gate pull requests on the
   synthetic suite`.
 

@@ -1117,6 +1117,7 @@ in place.
 │           │   │       └── certificats-clients.md                           # Sample document: Certificats clients et TLS mutuel
 │           │   └── maestro-corpus.jsonl                                     # The source's manifest: one maestro-corpus/1 line per document, with its digest and size
 │           ├── evals/                                                       # The collection's evaluation suites, as evals.suite names them: each <name>.jsonl is the suite <name>
+│           │   ├── baseline.json                                            # JSON data: baseline
 │           │   └── synthetic.jsonl                                          # The suite synthetic: one maestro-suite/1 question per line, French and English, each with the sections that answer it
 │           ├── .rumdl.toml                                                  # The synthetic collection is test input, not documentation: one of its documents repeats a heading under the same parent, as authors do
 │           └── collection.json                                              # The maestro-collection/1 declaration of the public collection synthetic
