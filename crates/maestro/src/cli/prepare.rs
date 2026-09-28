@@ -10,10 +10,10 @@ use crate::{
     kernel::Kernel,
 };
 use maestro_kernel::{
-    gateway::RouterClient,
+    gateway::{ModelCard, RouterClient},
     job::{JobState, NewJob},
 };
-use maestro_knowledge::prepare::{self, RouterTokenizer};
+use maestro_knowledge::prepare::{self, RouterTokenizer, TokenizerQualification};
 use serde_json::json;
 use std::{env, ops::ControlFlow, process::ExitCode};
 
@@ -66,9 +66,9 @@ pub(super) fn run(
                 Ok(client) => client,
                 Err(error) => return (JobState::Failed, json!({"error": chain(&error)})),
             };
-            let tokenizer = match RouterTokenizer::qualify(client, card) {
+            let tokenizer = match qualify_tokenizer(kernel, client, card) {
                 Ok(tokenizer) => tokenizer,
-                Err(error) => return (JobState::Failed, json!({"error": chain(&error)})),
+                Err(error) => return (JobState::Failed, json!({"error": error})),
             };
             let mut stopped = None;
             let prepared = prepare::prepare_observed(
@@ -100,4 +100,21 @@ pub(super) fn run(
         },
         PRINTING,
     )
+}
+
+/// Qualifies a legacy card through its original path or loads and checks v2 evidence.
+fn qualify_tokenizer(
+    kernel: &Kernel,
+    client: RouterClient,
+    card: ModelCard,
+) -> Result<RouterTokenizer, String> {
+    let Some(identity) = card.identity() else {
+        return RouterTokenizer::qualify(client, card).map_err(|error| chain(&error));
+    };
+    let bytes = kernel
+        .artifacts
+        .get(&identity.formats.qualification_digest)
+        .map_err(|error| chain(&error))?;
+    let profile = TokenizerQualification::parse(&bytes).map_err(|error| chain(&error))?;
+    RouterTokenizer::qualify_with_profile(client, card, &profile).map_err(|error| chain(&error))
 }

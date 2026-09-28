@@ -241,7 +241,7 @@ fn parity_goldens() -> HashMap<String, Vec<u32>> {
 }
 
 /// Expands the input parts of one tokenizer parity fixture.
-fn input(parts: &Value) -> String {
+pub(super) fn input(parts: &Value) -> String {
     let mut input = String::new();
     for part in parts.as_array().unwrap() {
         if let Some(text) = part.as_str() {
@@ -257,7 +257,7 @@ fn input(parts: &Value) -> String {
 }
 
 /// Expands the expected token-ID runs of one parity fixture.
-fn ids(parts: &Value) -> Vec<u32> {
+pub(super) fn ids(parts: &Value) -> Vec<u32> {
     let mut ids = Vec::new();
     for part in parts.as_array().unwrap() {
         if let Some(id) = part.as_u64() {

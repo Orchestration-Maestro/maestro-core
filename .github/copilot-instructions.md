@@ -225,6 +225,7 @@ in place.
 │   │   │       ├── job_waits.rs                                             # job wait follows a job to its end and exits with its outcome; an unreadable job is unknown
 │   │   │       ├── knowledge_ask.rs                                         # The public CLI refuses an invalid ask model before contacting a backend
 │   │   │       ├── knowledge_collections.rs                                 # Visible metadata returned by knowledge collections
+│   │   │       ├── knowledge_prepare_v2.rs                                  # knowledge prepare qualifies a v2 embedder card against the tokenizer
 │   │   │       ├── knowledge_publish.rs                                     # knowledge prepare and knowledge publish refuse missing or unsuitable
 │   │   │       ├── knowledge_verify_recheck.rs                              # knowledge verify must read its artifacts again on every invocation
 │   │   │       ├── machine.rs                                               # How doctor and status tests run the binary: a router where nothing answers, the fakes on the PATH
