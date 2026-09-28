@@ -1,7 +1,7 @@
 //! Deadline-bounded leaf-route calls and their independent public statuses.
 
 use super::{
-    deadline::{DEADLINE_EXCEEDED, DISABLED_BY_CONFIGURATION},
+    deadline::{DEADLINE_EXCEEDED, DISABLED_BY_CONFIGURATION, Deadlines, until},
     fusion::{Hit, Route, RouteList},
     query::Query,
     routes::lexical,
@@ -13,7 +13,10 @@ use super::{
     },
 };
 use maestro_kernel::{
-    evidence::RouteStatus, gateway::ModelPort, retrieval::InventoryRequest, store::Database,
+    evidence::RouteStatus,
+    gateway::{ModelPort, Room},
+    retrieval::InventoryRequest,
+    store::Database,
 };
 use std::{collections::BTreeMap, future::Future, sync::Arc};
 use tokio::time::{self, Instant};
@@ -45,12 +48,14 @@ const UNSUPPORTED_INVENTORY: &str = concat!(
     "versions, optionally in one named set",
 );
 
-/// Executes dense search with its independent route cutoff.
+/// Executes dense search with its independent route cutoff, which starts
+/// once the embedder is ready: loading its model is setup, bounded by
+/// `cutoffs.setup`, not route time.
 pub(super) async fn dense_outcome<P: ModelPort>(
     enabled: bool,
     query: &Query<'_>,
     embedder: Option<&Embedder<'_, P>>,
-    deadline: Instant,
+    cutoffs: &Deadlines,
 ) -> RouteOutcome {
     if !enabled {
         return unavailable(DISABLED_BY_CONFIGURATION);
@@ -58,6 +63,16 @@ pub(super) async fn dense_outcome<P: ModelPort>(
     let Some(embedder) = embedder else {
         return unavailable("no embedder card for the published generation's profile");
     };
+    // A failed or unfinished setup is retried by the embedding call itself,
+    // which reports its precise reason within the route's window.
+    drop(
+        until(
+            cutoffs.setup,
+            embedder.port.prepare(embedder.card, Room::Free),
+        )
+        .await,
+    );
+    let deadline = cutoffs.route_after(Instant::now());
     if Instant::now() >= deadline {
         return unavailable(DEADLINE_EXCEEDED);
     }

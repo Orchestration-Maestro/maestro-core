@@ -191,6 +191,10 @@ pub(super) enum KnowledgeCommand {
         /// Maximum generated tokens per chat call.
         #[arg(long)]
         output_tokens: Option<u32>,
+        /// Print on stderr the check each rejected answer failed and the
+        /// offending tokens.
+        #[arg(long)]
+        explain: bool,
     },
 }
 
@@ -243,9 +247,28 @@ mod tests {
                     max_tokens: None,
                     search_deadline_ms: None,
                     output_tokens: None,
+                    explain: false,
                 }) if collection == "docs" && question == "How is the service configured?"
             ));
         }
+    }
+
+    #[test]
+    fn knowledge_ask_accepts_explain() {
+        let parsed = Arguments::try_parse_from([
+            "maestro",
+            "knowledge",
+            "ask",
+            "--collection",
+            "docs",
+            "--question",
+            "How is the service configured?",
+            "--explain",
+        ]);
+        assert!(matches!(
+            parsed.map(|arguments| arguments.noun),
+            Ok(Noun::Knowledge(KnowledgeCommand::Ask { explain: true, .. }))
+        ));
     }
 
     #[test]

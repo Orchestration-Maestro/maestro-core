@@ -31,8 +31,22 @@ pub(super) struct Deadlines {
     pub(super) expires: Instant,
     /// The deadline shared by independent retrieval routes.
     pub(super) routes: Instant,
+    /// The latest a route's one-time setup, such as loading its model, may
+    /// end: its window and as long again for the later stages still fit.
+    pub(super) setup: Instant,
     /// The final retrieval cutoff, before reserving time for T032.
     pub(super) work: Instant,
+    /// How long each route may take once it is ready.
+    pub(super) window: Duration,
+}
+
+impl Deadlines {
+    /// The cutoff of a route whose one-time setup ended at `ready`: its
+    /// window starts then, or at `setup` when setup ended later, so that the
+    /// route always ends a window before the later stages' cutoff.
+    pub(super) fn route_after(&self, ready: Instant) -> Instant {
+        ready.min(self.setup) + self.window
+    }
 }
 
 /// Derives every phase cutoff once from the accepted request budget.
@@ -41,10 +55,13 @@ pub(super) fn from_budget(started: Instant, budget: RequestBudget) -> Deadlines 
     let expires = started + duration;
     let route_window = (duration / 4).min(MAX_ROUTE_WINDOW);
     let reserve = (duration / 10).min(MAX_T032_RESERVE);
+    let work = expires - reserve;
     Deadlines {
         expires,
         routes: (started + route_window).min(expires),
-        work: expires - reserve,
+        setup: work - route_window * 2,
+        work,
+        window: route_window,
     }
 }
 

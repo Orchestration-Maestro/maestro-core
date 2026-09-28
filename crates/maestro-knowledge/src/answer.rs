@@ -14,5 +14,5 @@ mod validate;
 pub use generate::ask;
 pub use types::{
     Answer, AnswerCitation, AnswerContext, AnswerModel, AnswerRefusal, AskBudget, AskError,
-    AskRequest, CHAT_DEADLINE, DEFAULT_MODEL, RefusalCode, RegisteredAnswerer,
+    AskRequest, CHAT_DEADLINE, DEFAULT_MODEL, RefusalCode, RegisteredAnswerer, Rejection,
 };

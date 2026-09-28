@@ -138,6 +138,12 @@ impl RouterClient {
 }
 
 impl ModelPort for RouterClient {
+    /// Checks the card, which loads its model in `room` when it is not
+    /// loaded; a card already checked needs no request.
+    async fn prepare(&self, card: &ModelCard, room: Room) -> Result<(), Error> {
+        self.check(card, room).await
+    }
+
     async fn embed(
         &self,
         card: &ModelCard,

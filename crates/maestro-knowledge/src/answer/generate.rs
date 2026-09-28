@@ -5,9 +5,9 @@ use super::{
     types::{
         ANSWER_SCHEMA, Answer, AnswerCitation, AnswerContext, AnswerModel, AnswerRefusal,
         AskBudget, AskError, AskRequest, CHAT_DEADLINE, CLOSEST_LIMIT, RefusalCode,
-        RegisteredAnswerer, ResponseLanguage,
+        RegisteredAnswerer, Rejection, ResponseLanguage,
     },
-    validate::{Reply, ValidReply, ValidationFailure, validate_reply},
+    validate::{Invalid, Reply, ValidReply, ValidationFailure, validate_reply},
 };
 use crate::{
     query::{Language, understand},
@@ -126,34 +126,49 @@ pub(super) async fn answer_bundle<P: ModelPort + Sync>(
     check_answerer(request, answerer)?;
 
     let mut messages = prompt(request, &bundle)?;
-    for attempt in 0..=1 {
+    let mut rejections = Vec::new();
+    for attempt in 1..=2 {
         let chat = chat_request(request, answerer, messages.clone());
         let result = timeout(CHAT_DEADLINE, port.chat(&answerer.card, Room::Free, &chat))
             .await
             .map_err(|_| AskError::TimedOut)?;
-        let reply = match result {
-            Ok(reply) => reply,
-            Err(GatewayError::InvalidAnswer { .. }) if attempt == 0 => {
-                repair(
-                    &mut messages,
-                    String::new(),
-                    ValidationFailure::InvalidAnswer,
-                );
-                continue;
-            }
-            Err(GatewayError::InvalidAnswer { .. }) => {
-                return Ok(response.refusal(RefusalCode::Unsupported));
-            }
+        let (reply, invalid) = match result {
+            Ok(reply) => match validate_reply(&reply, request, &bundle) {
+                Ok(Reply::NotFound) => {
+                    let refusal = response.refusal(RefusalCode::NotFound);
+                    return Ok(explained(refusal, rejections));
+                }
+                Ok(Reply::Answer(valid)) => {
+                    return Ok(explained(response.answer(valid)?, rejections));
+                }
+                Err(invalid) => (reply, invalid),
+            },
+            Err(GatewayError::InvalidAnswer { reason }) => (
+                String::new(),
+                Invalid {
+                    failure: ValidationFailure::InvalidAnswer,
+                    tokens: vec![reason],
+                },
+            ),
             Err(error) => return Err(AskError::Backend(error)),
         };
-        match validate_reply(&reply, request, &bundle) {
-            Ok(Reply::NotFound) => return Ok(response.refusal(RefusalCode::NotFound)),
-            Ok(Reply::Answer(valid)) => return response.answer(valid),
-            Err(failure) if attempt == 0 => repair(&mut messages, reply, failure),
-            Err(_) => return Ok(response.refusal(RefusalCode::Unsupported)),
-        }
+        repair(&mut messages, reply, invalid.failure);
+        rejections.push(Rejection {
+            attempt,
+            check: invalid.failure.code(),
+            tokens: invalid.tokens,
+        });
     }
-    Ok(response.refusal(RefusalCode::Unsupported))
+    let refusal = response.refusal(RefusalCode::Unsupported);
+    Ok(explained(refusal, rejections))
+}
+
+/// Attaches the attempts rejected before `answer` for a local explanation.
+fn explained(answer: Answer, rejections: Vec<Rejection>) -> Answer {
+    Answer {
+        rejections,
+        ..answer
+    }
 }
 
 /// Adds one typed repair message without rerunning retrieval or changing evidence.
@@ -248,6 +263,7 @@ impl<'a> ResponseContext<'a> {
                 message: refusal_message(code, self.language).to_owned(),
             }),
             closest: self.closest.clone(),
+            rejections: Vec::new(),
         }
     }
 
@@ -275,6 +291,7 @@ impl<'a> ResponseContext<'a> {
             uncalibrated: true,
             refusal: None,
             closest: Vec::new(),
+            rejections: Vec::new(),
         })
     }
 }

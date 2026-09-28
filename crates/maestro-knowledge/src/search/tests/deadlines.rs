@@ -26,6 +26,7 @@ fn budgets_derive_the_capped_route_window_and_t032_reserve() {
     assert_eq!(short.expires, started + Duration::from_millis(1));
     assert_eq!(short.routes, started + Duration::from_micros(250));
     assert_eq!(short.work, started + Duration::from_micros(900));
+    assert_eq!(short.setup, started + Duration::from_micros(400));
 
     let long = super::super::deadline::from_budget(
         started,
@@ -37,6 +38,28 @@ fn budgets_derive_the_capped_route_window_and_t032_reserve() {
     assert_eq!(long.expires, started + Duration::from_secs(10));
     assert_eq!(long.routes, started + Duration::from_millis(300));
     assert_eq!(long.work, started + Duration::from_millis(9_950));
+    assert_eq!(long.setup, started + Duration::from_millis(9_350));
+}
+
+#[test]
+fn a_route_window_starts_when_its_setup_ends_and_never_passes_the_deadline() {
+    let started = Instant::now();
+    let cutoffs = super::super::deadline::from_budget(
+        started,
+        RequestBudget {
+            deadline_ms: 1500,
+            ..RequestBudget::default()
+        },
+    );
+    assert_eq!(cutoffs.setup, started + Duration::from_millis(850));
+    assert_eq!(
+        cutoffs.route_after(started + Duration::from_millis(700)),
+        started + Duration::from_millis(1000)
+    );
+    assert_eq!(
+        cutoffs.route_after(started + Duration::from_millis(1400)),
+        started + Duration::from_millis(1150)
+    );
 }
 
 #[tokio::test(start_paused = true)]

@@ -276,6 +276,21 @@ async fn a_card_is_checked_once_per_card_and_gateway() {
 }
 
 #[tokio::test]
+async fn preparing_a_card_checks_it_once_in_its_room_before_its_first_call() {
+    let (stub, client) = serve("embed", "v1/embeddings", embeddings());
+    let card = card(Role::Embedder);
+    client.prepare(&card, Room::Free).await.unwrap();
+    client.prepare(&card, Room::Free).await.unwrap();
+    client.embed(&card, Room::Free, &inputs()).await.unwrap();
+    let requests = stub.requests();
+    assert_eq!(requests.len(), 2);
+    assert_eq!(
+        requests.first(),
+        Some(&free("GET", "/models/embed/props", Value::Null))
+    );
+}
+
+#[tokio::test]
 async fn insufficient_room_makes_the_model_unavailable_with_the_routers_reason() {
     let reason = "'embed' was asked for with 'X-Model-Router-Room: free', and there is \
                   no free room for it: loading it would unload gemma3; nothing was unloaded";

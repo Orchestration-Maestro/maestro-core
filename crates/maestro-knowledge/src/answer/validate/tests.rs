@@ -1,4 +1,4 @@
-use super::{Reply, ValidationFailure, unsupported_literals, validate_reply};
+use super::{Invalid, Reply, ValidationFailure, unescaped, unsupported_literals, validate_reply};
 use crate::answer::{AskBudget, AskRequest};
 use maestro_kernel::{
     artifact::Digest,
@@ -68,15 +68,17 @@ fn c1_rejects_unsubstantiated_commands_flags_paths_names_and_versions() {
 
     for (answer, literals) in cases {
         assert!(
-            unsupported_literals(answer, question, &bundle("The service is documented here.")),
+            !unsupported_literals(answer, question, &bundle("The service is documented here."))
+                .is_empty(),
             "unsupported literals {literals:?} passed"
         );
         assert!(
-            !unsupported_literals(
+            unsupported_literals(
                 answer,
                 question,
                 &bundle(&format!("The manual documents {}.", literals.join(" "))),
-            ),
+            )
+            .is_empty(),
             "supported literals {literals:?} were rejected"
         );
     }
@@ -84,11 +86,14 @@ fn c1_rejects_unsubstantiated_commands_flags_paths_names_and_versions() {
 
 #[test]
 fn c1_allows_literals_that_appear_in_the_question() {
-    assert!(!unsupported_literals(
-        "Set EM_HOME, then run ctmpsm -FORCEALL now.",
-        "How do I use EM_HOME with ctmpsm -FORCEALL?",
-        &bundle("The service uses a local environment setting."),
-    ));
+    assert!(
+        unsupported_literals(
+            "Set EM_HOME, then run ctmpsm -FORCEALL now.",
+            "How do I use EM_HOME with ctmpsm -FORCEALL?",
+            &bundle("The service uses a local environment setting."),
+        )
+        .is_empty()
+    );
 }
 
 #[test]
@@ -109,7 +114,7 @@ fn i1_accepts_verbatim_fenced_code_and_digit_mixed_tokens() {
         ),
     ] {
         assert!(
-            !unsupported_literals(answer, question, &bundle(evidence)),
+            unsupported_literals(answer, question, &bundle(evidence)).is_empty(),
             "verbatim answer was rejected: {answer:?}"
         );
     }
@@ -137,19 +142,25 @@ fn m3_literals_from_passage_titles_and_section_paths_are_supported() {
     let question = "How does the service work?";
     let mut titled = bundle("The service uses documented defaults.");
     titled.passages[0].title = "EM_HOME".to_owned();
-    assert!(!unsupported_literals(
-        "Use EM_HOME with the documented service settings.",
-        question,
-        &titled,
-    ));
+    assert!(
+        unsupported_literals(
+            "Use EM_HOME with the documented service settings.",
+            question,
+            &titled,
+        )
+        .is_empty()
+    );
 
     let mut sectioned = bundle("The service uses documented defaults.");
     sectioned.passages[0].section_path = vec!["ctmpsm -FORCEALL".to_owned()];
-    assert!(!unsupported_literals(
-        "Run ctmpsm -FORCEALL during maintenance.",
-        question,
-        &sectioned,
-    ));
+    assert!(
+        unsupported_literals(
+            "Run ctmpsm -FORCEALL during maintenance.",
+            question,
+            &sectioned,
+        )
+        .is_empty()
+    );
 }
 
 #[test]
@@ -173,7 +184,10 @@ fn i8_thinking_markup_is_stripped_or_rejected_before_output() {
     assert_eq!(reply.text, "The service uses documented defaults [1].");
     assert!(matches!(
         validate_reply("<think>unfinished reasoning", &request, &evidence),
-        Err(ValidationFailure::ThinkMarkup)
+        Err(Invalid {
+            failure: ValidationFailure::ThinkMarkup,
+            ..
+        })
     ));
     assert!(matches!(
         validate_reply(
@@ -181,7 +195,10 @@ fn i8_thinking_markup_is_stripped_or_rejected_before_output() {
             &request,
             &evidence,
         ),
-        Err(ValidationFailure::ThinkMarkup)
+        Err(Invalid {
+            failure: ValidationFailure::ThinkMarkup,
+            ..
+        })
     ));
 }
 
@@ -207,7 +224,10 @@ fn i8_fake_missing_and_malformed_citations_are_rejected() {
         assert!(
             matches!(
                 validate_reply(reply, &request, &evidence),
-                Err(ValidationFailure::Citation)
+                Err(Invalid {
+                    failure: ValidationFailure::Citation,
+                    ..
+                })
             ),
             "invalid citation passed: {reply:?}"
         );
@@ -229,9 +249,157 @@ fn i8_citation_only_and_short_answers_are_rejected() {
         assert!(
             matches!(
                 validate_reply(reply, &request, &evidence),
-                Err(ValidationFailure::TooShort)
+                Err(Invalid {
+                    failure: ValidationFailure::TooShort,
+                    ..
+                })
             ),
             "short answer passed: {reply:?}"
         );
     }
+}
+
+fn ask(question: &str) -> AskRequest {
+    AskRequest {
+        collection: "docs".to_owned(),
+        question: question.to_owned(),
+        model: "qwen3-4b".to_owned(),
+        version: None,
+        budget: AskBudget::default(),
+    }
+}
+
+/// The unsupported literals of `reply`, or `None` when it passes.
+fn rejected_literals(reply: &str, evidence: &Bundle) -> Option<Vec<String>> {
+    match validate_reply(reply, &ask("How is the pool named?"), evidence) {
+        Ok(Reply::Answer(_)) => None,
+        Err(Invalid {
+            failure: ValidationFailure::UnsupportedLiteral,
+            tokens,
+        }) => Some(tokens),
+        Ok(Reply::NotFound) | Err(_) => panic!("{reply:?} failed another check"),
+    }
+}
+
+#[test]
+fn html_entities_in_a_passage_support_the_characters_they_stand_for() {
+    let evidence = bundle("Include the **-o &lt;output&gt;** option in each command.");
+    assert_eq!(
+        rejected_literals(
+            "Include the `-o <output>` option in each command [1].",
+            &evidence
+        ),
+        None
+    );
+    assert_eq!(
+        rejected_literals(
+            "Include the `-x <output>` option in each command [1].",
+            &evidence
+        ),
+        Some(vec!["-x".to_owned(), "-x <output>".to_owned()])
+    );
+}
+
+#[test]
+fn markdown_and_copied_prompt_escapes_do_not_make_a_literal_unsupported() {
+    let evidence = bundle(r#"Name it Queue\_Name@Host\_Name, then run tool "*42" to see why."#);
+    for reply in [
+        r#"Name it Queue_Name@Host_Name, then run tool "*42" to see why [1]."#,
+        r#"Name it Queue\\_Name@Host\\_Name, then run tool \"*42\" to see why [1]."#,
+    ] {
+        assert_eq!(rejected_literals(reply, &evidence), None, "{reply}");
+    }
+    assert_eq!(
+        rejected_literals(
+            r#"Name it Queue_Name@Host_Name, then run tool "*43" to see why [1]."#,
+            &evidence
+        ),
+        Some(vec!["43".to_owned()])
+    );
+}
+
+#[test]
+fn bracketed_link_text_is_text_and_digits_in_brackets_are_citations() {
+    let mut evidence = bundle("Open an item with the [item::open](guide.htm#open) call.");
+    let mut second = evidence.passages[0].clone();
+    second.n = 2;
+    evidence.passages.push(second);
+    let request = ask("How do I open an item?");
+    for (reply, citations) in [
+        (
+            "Open an item with the [item::open](guide.htm#open) call [1].",
+            vec![1],
+        ),
+        ("Open an item with the documented call [2, 1].", vec![1, 2]),
+        (
+            "Open an item with the documented call [2,1][1].",
+            vec![1, 2],
+        ),
+    ] {
+        let Ok(Reply::Answer(valid)) = validate_reply(reply, &request, &evidence) else {
+            panic!("{reply:?} was refused");
+        };
+        assert_eq!(valid.citations, citations, "{reply}");
+    }
+    for (reply, marker) in [
+        ("Open an item with the documented call [1, ].", "[1, ]"),
+        ("Open an item with the documented call [1, 3].", "[3]"),
+    ] {
+        assert!(
+            matches!(
+                validate_reply(reply, &request, &evidence),
+                Err(Invalid { failure: ValidationFailure::Citation, tokens }) if tokens == [marker]
+            ),
+            "{reply}"
+        );
+    }
+}
+
+#[test]
+fn unescaping_decodes_entities_once_and_drops_nested_escapes() {
+    assert_eq!(
+        unescaped(r"&quot;a&quot; &#39;b&#39; &amp;lt; Queue\\_Name C:\Program\ \\\\host"),
+        r#""a" 'b' &lt; Queue_Name C:\Program\ \host"#
+    );
+}
+
+#[test]
+fn a_backslash_that_was_a_paths_only_marker_keeps_it_a_literal() {
+    let reply = r"Store the key in %USERPROFILE%\.toolrc on the host [1].";
+    assert_eq!(
+        rejected_literals(reply, &bundle("Store the key in the user's profile.")),
+        Some(vec!["USERPROFILE%.toolrc".to_owned()])
+    );
+    assert_eq!(
+        rejected_literals(
+            reply,
+            &bundle(r"Store the key in %USERPROFILE%\.toolrc on each host.")
+        ),
+        None
+    );
+}
+
+#[test]
+fn a_bracket_with_a_number_is_a_citation_and_bracket_words_are_not_the_answer() {
+    let request = ask("How do I open an item?");
+    let evidence = bundle("Open an item from its menu with the [-NAME <item>] option.");
+    assert!(matches!(
+        validate_reply("Open an item from its menu [1]. More [passage 9].", &request, &evidence),
+        Err(Invalid { failure: ValidationFailure::Citation, tokens }) if tokens == ["[passage 9]"]
+    ));
+    assert!(matches!(
+        validate_reply("[See the passage] [1]", &request, &evidence),
+        Err(Invalid {
+            failure: ValidationFailure::TooShort,
+            ..
+        })
+    ));
+    assert!(matches!(
+        validate_reply(
+            "Open an item from its menu with the [-NAME <item>] option [1].",
+            &request,
+            &evidence
+        ),
+        Ok(Reply::Answer(_))
+    ));
 }

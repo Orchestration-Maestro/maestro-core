@@ -15,6 +15,19 @@ use std::{collections::BTreeMap, error, fmt, future::Future, num::NonZeroUsize};
 /// reranker's and a chat an answerer's, while any card tokenizes. Each call
 /// also names the [`Room`] its model may be loaded into.
 pub trait ModelPort {
+    /// Readies the card's model before its first call, in `room`: a router
+    /// checks the card and loads its model here, so that a caller can bound
+    /// this one-time setup apart from the call. A port with no setup has
+    /// nothing to do.
+    fn prepare(
+        &self,
+        card: &ModelCard,
+        room: Room,
+    ) -> impl Future<Output = Result<(), Error>> + Send {
+        let _ = (card, room);
+        async { Ok(()) }
+    }
+
     /// One vector per input, in the order of the inputs, each of the card's
     /// dimensions. No input needs no call.
     fn embed(

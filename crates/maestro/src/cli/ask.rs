@@ -6,14 +6,16 @@ use crate::{
     kernel::Kernel,
     knowledge::operations::{KnowledgeError, ask::run::ask_with, ensure_current_scopes},
 };
-use maestro_knowledge::answer::{Answer, AskRequest};
+use maestro_knowledge::answer::{Answer, AskRequest, Rejection};
 use serde::Serialize;
 use std::process::ExitCode;
 
-/// Runs one ask and prints the same versioned answer as the MCP tool.
+/// Runs one ask and prints the same versioned answer as the MCP tool; with
+/// `explain`, it also prints why each rejected attempt failed on stderr.
 pub(super) fn run(
     output: Output,
     request: &AskRequest,
+    explain: bool,
     open_kernel: impl FnOnce() -> Result<Kernel, Failure>,
 ) -> Result<ExitCode, Failure> {
     let mut scoped = match ask_with(open_kernel, request) {
@@ -22,6 +24,9 @@ pub(super) fn run(
     };
     if let Err(error) = ensure_current_scopes(&mut scoped.kernel, &scoped.scopes) {
         return operation_refusal(output, error);
+    }
+    if explain {
+        eprint!("{}", explanation(&scoped.data.rejections));
     }
     let text = answer_text(&scoped.data)?;
     output.result(&scoped.data, &text)?;
@@ -79,4 +84,57 @@ fn answer_text(answer: &Answer) -> Result<String, Failure> {
         return Ok(text);
     };
     Ok(refusal.message.clone())
+}
+
+/// One line per rejected attempt: its failed check and offending tokens.
+fn explanation(rejections: &[Rejection]) -> String {
+    use std::fmt::Write as _;
+
+    if rejections.is_empty() {
+        return "explain: no attempt was rejected\n".to_owned();
+    }
+    let mut text = String::new();
+    for rejection in rejections {
+        let tokens: Vec<String> = rejection
+            .tokens
+            .iter()
+            .map(|token| format!("{token:?}"))
+            .collect();
+        // Writing to a String cannot fail.
+        let _written = writeln!(
+            text,
+            "explain: attempt {} failed {}: {}",
+            rejection.attempt,
+            rejection.check,
+            tokens.join(" ")
+        );
+    }
+    text
+}
+
+#[cfg(test)]
+mod tests {
+    use super::explanation;
+    use maestro_knowledge::answer::Rejection;
+
+    #[test]
+    fn explanation_names_each_rejected_attempt_check_and_tokens() {
+        assert_eq!(explanation(&[]), "explain: no attempt was rejected\n");
+        assert_eq!(
+            explanation(&[
+                Rejection {
+                    attempt: 1,
+                    check: "unsupported_literal",
+                    tokens: vec!["-FORCEALL".to_owned(), "EM_HOME".to_owned()],
+                },
+                Rejection {
+                    attempt: 2,
+                    check: "too_short",
+                    tokens: Vec::new(),
+                },
+            ]),
+            "explain: attempt 1 failed unsupported_literal: \"-FORCEALL\" \"EM_HOME\"\n\
+             explain: attempt 2 failed too_short: \n"
+        );
+    }
 }

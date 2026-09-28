@@ -600,6 +600,7 @@ in place.
 │       ├── src/                                                             # The crate's sources
 │       │   ├── answer/                                                      # Evidence-grounded answering with bounded generation and one validation retry
 │       │   │   ├── tests/                                                   # Integration tests
+│       │   │   │   ├── explain.rs                                           # Rust source: explain
 │       │   │   │   └── guardrails.rs                                        # Rust source: guardrails
 │       │   │   ├── validate/                                                # Deterministic support checks for buffered answerer replies
 │       │   │   │   └── tests.rs                                             # Rust source: tests
@@ -849,6 +850,7 @@ in place.
 │       │   │   │   ├── inventory_query.rs                                   # Exact English and French inventory-query grammar
 │       │   │   │   ├── mod.rs                                               # Rust source: mod
 │       │   │   │   ├── rerank.rs                                            # Rust source: rerank
+│       │   │   │   ├── route_setup.rs                                       # A route's one-time setup, such as loading its model, is not route time
 │       │   │   │   ├── routes.rs                                            # Pure route helpers: Qdrant scope filters and ranked-hit cleanup
 │       │   │   │   ├── stages.rs                                            # The outcome each end of a search, a route or the rerank gives its stage
 │       │   │   │   ├── support.rs                                           # Scratch kernel records for the bounded candidate handoff

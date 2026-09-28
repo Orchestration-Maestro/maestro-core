@@ -24,8 +24,25 @@ pub(super) struct ValidReply {
     pub(super) citations: Vec<u32>,
 }
 
+/// A rejected reply: the check it failed and the offending tokens, if any.
+pub(super) struct Invalid {
+    /// The failed check.
+    pub(super) failure: ValidationFailure,
+    /// The reply's tokens that failed it, for the local explanation.
+    pub(super) tokens: Vec<String>,
+}
+
+impl From<ValidationFailure> for Invalid {
+    fn from(failure: ValidationFailure) -> Self {
+        Self {
+            failure,
+            tokens: Vec::new(),
+        }
+    }
+}
+
 /// A stable validation failure used only in the one repair instruction.
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum ValidationFailure {
     /// The reply contained malformed or leaked thinking markup.
     ThinkMarkup,
@@ -75,31 +92,43 @@ pub(super) fn validate_reply(
     raw: &str,
     request: &AskRequest,
     bundle: &Bundle,
-) -> Result<Reply, ValidationFailure> {
+) -> Result<Reply, Invalid> {
     let reply = strip_thinking(raw)?;
     if reply == "NOT_FOUND" {
         return Ok(Reply::NotFound);
     }
-    let (plain, mut citations) = remove_citations(reply)?;
-    if citations.is_empty()
-        || citations
-            .iter()
-            .any(|number| !bundle.passages.iter().any(|passage| passage.n == *number))
-    {
-        return Err(ValidationFailure::Citation);
+    let (Cited { plain, prose }, mut citations) =
+        remove_citations(reply).map_err(|marker| Invalid {
+            failure: ValidationFailure::Citation,
+            tokens: vec![marker],
+        })?;
+    let unknown: Vec<String> = citations
+        .iter()
+        .filter(|number| !bundle.passages.iter().any(|passage| passage.n == **number))
+        .map(|number| format!("[{number}]"))
+        .collect();
+    if citations.is_empty() || !unknown.is_empty() {
+        return Err(Invalid {
+            failure: ValidationFailure::Citation,
+            tokens: unknown,
+        });
     }
     citations.sort_unstable();
     citations.dedup();
-    if plain
+    if prose
         .split_whitespace()
         .filter(|token| token.chars().any(char::is_alphabetic))
         .count()
         < 3
     {
-        return Err(ValidationFailure::TooShort);
+        return Err(ValidationFailure::TooShort.into());
     }
-    if unsupported_literals(&plain, &request.question, bundle) {
-        return Err(ValidationFailure::UnsupportedLiteral);
+    let unsupported = unsupported_literals(&plain, &request.question, bundle);
+    if !unsupported.is_empty() {
+        return Err(Invalid {
+            failure: ValidationFailure::UnsupportedLiteral,
+            tokens: unsupported,
+        });
     }
     Ok(Reply::Answer(ValidReply {
         text: reply.to_owned(),
@@ -107,52 +136,96 @@ pub(super) fn validate_reply(
     }))
 }
 
-/// Removes strict `[n]` markers, refusing malformed or empty markers.
-fn remove_citations(text: &str) -> Result<(String, Vec<u32>), ValidationFailure> {
+/// A reply's text once its citation markers are removed.
+struct Cited {
+    /// The text with bracketed text kept, for the literal check.
+    plain: String,
+    /// The text outside every bracket, for the length check.
+    prose: String,
+}
+
+/// Removes citation markers, `[n]` or `[n, m]`, refusing a malformed or
+/// empty one, which it returns. A bracket holding a digit is a marker, so
+/// `[passage 9]` is refused; one holding letters and no digit, such as a
+/// link's text, is text and stays in `plain`, but not in `prose`.
+fn remove_citations(text: &str) -> Result<(Cited, Vec<u32>), String> {
     let mut plain = String::with_capacity(text.len());
+    let mut prose = String::with_capacity(text.len());
     let mut citations = Vec::new();
     let mut remaining = text;
     while let Some(open) = remaining.find('[') {
-        let Some(prefix) = remaining.get(..open) else {
-            return Err(ValidationFailure::Citation);
-        };
-        plain.push_str(prefix);
-        let after_open = remaining
-            .get(open + 1..)
-            .ok_or(ValidationFailure::Citation)?;
+        let before = remaining.get(..open).unwrap_or_default();
+        plain.push_str(before);
+        prose.push_str(before);
+        let after_open = remaining.get(open + 1..).unwrap_or_default();
         let Some(close) = after_open.find(']') else {
-            return Err(ValidationFailure::Citation);
+            return Err(marker(after_open, after_open.len()));
         };
-        let number = after_open
-            .get(..close)
-            .filter(|value| !value.is_empty() && value.bytes().all(|byte| byte.is_ascii_digit()))
-            .and_then(|value| value.parse::<u32>().ok())
-            .filter(|number| *number > 0)
-            .ok_or(ValidationFailure::Citation)?;
-        citations.push(number);
-        plain.push(' ');
-        remaining = after_open
-            .get(close + 1..)
-            .ok_or(ValidationFailure::Citation)?;
+        let content = after_open.get(..close).unwrap_or_default();
+        if content.chars().any(char::is_alphabetic)
+            && !content.chars().any(|character| character.is_ascii_digit())
+        {
+            plain.push('[');
+            plain.push_str(content);
+            plain.push(']');
+        } else {
+            citations.extend(marker_numbers(content).ok_or_else(|| marker(after_open, close))?);
+            plain.push(' ');
+        }
+        prose.push(' ');
+        remaining = after_open.get(close + 1..).unwrap_or_default();
     }
     if remaining.contains(']') {
-        return Err(ValidationFailure::Citation);
+        return Err("]".to_owned());
     }
     plain.push_str(remaining);
-    Ok((plain, citations))
+    prose.push_str(remaining);
+    Ok((Cited { plain, prose }, citations))
 }
 
-/// Rejects unsupported command, path, number, version, flag and error-code literals.
-fn unsupported_literals(text: &str, question: &str, bundle: &Bundle) -> bool {
-    let mut literals: BTreeSet<String> = understand(&without_fenced_code(text))
+/// The passage numbers of a marker's `content`: numbers from 1, separated
+/// by commas.
+fn marker_numbers(content: &str) -> Option<Vec<u32>> {
+    content
+        .split(',')
+        .map(|number| {
+            let number = number.trim();
+            number
+                .bytes()
+                .all(|byte| byte.is_ascii_digit())
+                .then(|| number.parse::<u32>().ok())
+                .flatten()
+                .filter(|number| *number > 0)
+        })
+        .collect()
+}
+
+/// The malformed marker whose content is `after_open`'s first `length`
+/// bytes, at most 24 characters of it.
+fn marker(after_open: &str, length: usize) -> String {
+    let content: String = after_open
+        .get(..length)
+        .unwrap_or_default()
+        .chars()
+        .take(24)
+        .collect();
+    format!("[{content}]")
+}
+
+/// The command, path, number, version, flag and error-code literals that
+/// neither the question nor a passage supports. Both sides are compared
+/// [`unescaped`].
+fn unsupported_literals(raw: &str, question: &str, bundle: &Bundle) -> Vec<String> {
+    let text = unescaped(raw);
+    let mut literals: BTreeSet<String> = understand(&without_fenced_code(&text))
         .identifiers
         .into_iter()
         .filter(|identifier| identifier.family == Family::Command)
         .map(|identifier| identifier.text)
         .collect();
-    literals.extend(literal_tokens(text));
-    literals.extend(backtick_literals(text));
-    let tokens = answer_tokens(text);
+    literals.extend(literal_tokens(raw, &text));
+    literals.extend(backtick_literals(&text));
+    let tokens = answer_tokens(&text);
     for pair in tokens.windows(2) {
         let Some((command, flag)) = pair.first().zip(pair.get(1)) else {
             continue;
@@ -161,32 +234,86 @@ fn unsupported_literals(text: &str, question: &str, bundle: &Bundle) -> bool {
             literals.insert((*command).to_owned());
         }
     }
-    literals.into_iter().any(|literal| {
-        !contains_literal(question, &literal)
-            && !bundle.passages.iter().any(|passage| {
-                contains_literal(&passage.title, &literal)
-                    || passage
-                        .section_path
-                        .iter()
-                        .any(|section| contains_literal(section, &literal))
-                    || contains_literal(&passage.text, &literal)
-            })
-    })
+    let sources: Vec<String> = [question]
+        .into_iter()
+        .chain(bundle.passages.iter().flat_map(|passage| {
+            [passage.title.as_str(), passage.text.as_str()]
+                .into_iter()
+                .chain(passage.section_path.iter().map(String::as_str))
+        }))
+        .map(unescaped)
+        .collect();
+    literals
+        .into_iter()
+        .filter(|literal| {
+            !sources
+                .iter()
+                .any(|source| contains_literal(source, literal))
+        })
+        .collect()
 }
 
-/// Extracts exact answer-side tokens with command, option, path or numeric syntax.
-fn literal_tokens(text: &str) -> BTreeSet<String> {
-    answer_tokens(text)
-        .into_iter()
-        .filter(|token| {
-            token
-                .chars()
-                .any(|character| matches!(character, '_' | '$' | '=' | '/' | '\\'))
-                || token.chars().any(|character| character.is_ascii_digit())
-                || is_flag(token)
+/// `text` as its reader sees it: HTML entities decoded, and no backslash
+/// escaping punctuation, as Markdown escapes it in passages and a model
+/// copies the prompt's JSON escapes (`\"`, `\\_`) into its answer.
+fn unescaped(text: &str) -> String {
+    let mut current = [
+        ("&lt;", "<"),
+        ("&gt;", ">"),
+        ("&quot;", "\""),
+        ("&#39;", "'"),
+        ("&amp;", "&"),
+    ]
+    .into_iter()
+    .fold(text.to_owned(), |text, (entity, character)| {
+        text.replace(entity, character)
+    });
+    loop {
+        let next = without_escapes(&current);
+        if next == current {
+            return next;
+        }
+        current = next;
+    }
+}
+
+/// Drops each backslash that escapes an ASCII punctuation character, once.
+fn without_escapes(text: &str) -> String {
+    let mut plain = String::with_capacity(text.len());
+    let mut characters = text.chars().peekable();
+    while let Some(character) = characters.next() {
+        let escaped = (character == '\\')
+            .then(|| characters.next_if(char::is_ascii_punctuation))
+            .flatten();
+        plain.push(escaped.unwrap_or(character));
+    }
+    plain
+}
+
+/// Extracts exact answer-side tokens with command, option, path or numeric
+/// syntax, in their `unescaped` form. A token is one when its raw or its
+/// unescaped form has that syntax, so a backslash that was a path's only
+/// marker, as in `%USERPROFILE%\.toolrc`, still makes it a literal.
+/// Unescaping never touches whitespace, so the two splits pair up.
+fn literal_tokens(raw: &str, unescaped: &str) -> BTreeSet<String> {
+    raw.split_whitespace()
+        .zip(unescaped.split_whitespace())
+        .filter(|(raw, clean)| {
+            is_literal(trim_token_edges(raw)) || is_literal(trim_token_edges(clean))
         })
+        .map(|(_, clean)| trim_token_edges(clean))
+        .filter(|token| !token.is_empty())
         .map(str::to_owned)
         .collect()
+}
+
+/// Whether `token` has command, option, path or numeric syntax.
+fn is_literal(token: &str) -> bool {
+    token
+        .chars()
+        .any(|character| matches!(character, '_' | '$' | '=' | '/' | '\\'))
+        || token.chars().any(|character| character.is_ascii_digit())
+        || is_flag(token)
 }
 
 /// Returns nonempty whitespace tokens with sentence punctuation and wrappers removed.

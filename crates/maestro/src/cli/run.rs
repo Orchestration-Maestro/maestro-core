@@ -99,6 +99,7 @@ fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> 
             max_tokens,
             search_deadline_ms,
             output_tokens,
+            explain,
         }) => {
             let defaults = AskBudget::default();
             ask::run(
@@ -116,6 +117,7 @@ fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> 
                         output_tokens: output_tokens.unwrap_or(defaults.output_tokens),
                     },
                 },
+                *explain,
                 Kernel::open,
             )
         }

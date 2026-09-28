@@ -10,7 +10,7 @@ use crate::{
     query::understand,
     search::{
         DISABLED_BY_CONFIGURATION, Query, Reranker, Route, SearchError, SearchObservations,
-        deadline::DEADLINE_EXCEEDED,
+        deadline::{DEADLINE_EXCEEDED, Deadlines, from_budget},
         orchestrate::{rerank_candidates, route_outcome, search_outcome},
         route_execution::{dense_outcome, lexical_outcome, structured_outcome},
         routes::{
@@ -22,13 +22,13 @@ use crate::{
 };
 use maestro_kernel::{
     artifact::Digest,
-    evidence::{Budget, Bundle, Passage, RouteStatus, Schema, Span, Trace},
+    evidence::{Budget, Bundle, Passage, RequestBudget, RouteStatus, Schema, Span, Trace},
     gateway::Role,
     retrieval::InventoryRequest,
     telemetry::stage::Outcome,
 };
 use std::{collections::BTreeMap, num::NonZeroUsize};
-use tokio::time::Instant;
+use tokio::time::{Duration, Instant};
 
 #[tokio::test]
 async fn disabled_routes_short_circuit_and_enabled_failures_remain_unavailable() {
@@ -48,7 +48,8 @@ async fn disabled_routes_short_circuit_and_enabled_failures_remain_unavailable()
         port: &port,
         card: &embedder_card,
     };
-    let disabled_dense = dense_outcome(false, &query, Some(&embedder), Instant::now()).await;
+    let cutoffs = from_budget(Instant::now(), RequestBudget::default());
+    let disabled_dense = dense_outcome(false, &query, Some(&embedder), &cutoffs).await;
     assert!(port.calls.lock().unwrap().is_empty());
     let disabled_lexical = lexical_outcome(false, &query, Instant::now()).await;
     let disabled_identifier = search_identifiers_enabled(
@@ -223,7 +224,14 @@ async fn each_route_and_the_rerank_report_a_passed_deadline_as_its_code() {
     let inventory = InventoryRequest::DocumentsBySet { set: None };
     let understood = understand("ERR-042");
 
-    let dense = dense_outcome(true, &query, Some(&embedder), passed).await;
+    let cutoffs = Deadlines {
+        expires: passed,
+        routes: passed,
+        setup: passed,
+        work: passed,
+        window: Duration::ZERO,
+    };
+    let dense = dense_outcome(true, &query, Some(&embedder), &cutoffs).await;
     let lexical = lexical_outcome(true, &query, passed).await;
     let identifier =
         search_identifiers(&query, fixture.database.clone(), &understood, passed).await;

@@ -48,7 +48,9 @@ pub struct AskBudget {
     pub k: u32,
     /// UTF-8-byte evidence budget used by the deliberately uncalibrated flow.
     pub max_tokens: u32,
-    /// Search and evidence-assembly deadline in milliseconds.
+    /// Search and evidence-assembly deadline in milliseconds. Its default,
+    /// 6 s, lets search load a cold embedder (measured 1.5-2.2 s) and still
+    /// run the dense route.
     pub search_deadline_ms: u32,
     /// Maximum generated tokens per chat call.
     pub output_tokens: u32,
@@ -59,7 +61,7 @@ impl Default for AskBudget {
         Self {
             k: 5,
             max_tokens: 6000,
-            search_deadline_ms: 1500,
+            search_deadline_ms: 6000,
             output_tokens: DEFAULT_OUTPUT_TOKENS,
         }
     }
@@ -179,6 +181,21 @@ pub struct Answer {
     pub refusal: Option<AnswerRefusal>,
     /// Host-selected closest passage metadata; never supporting citations.
     pub closest: Vec<AnswerCitation>,
+    /// Why each rejected reply failed its checks, for a local explanation
+    /// only: never serialized.
+    #[serde(skip)]
+    pub rejections: Vec<Rejection>,
+}
+
+/// One answerer reply the host checks rejected.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Rejection {
+    /// The attempt, from 1.
+    pub attempt: u8,
+    /// The stable code of the failed check, such as `unsupported_literal`.
+    pub check: &'static str,
+    /// The reply's tokens that failed the check, or the gateway's reason.
+    pub tokens: Vec<String>,
 }
 
 /// The exact card selected from the collection registry for this call.

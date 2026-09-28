@@ -1,4 +1,6 @@
-use super::{AnswerCitation, AskBudget, AskError, AskRequest, RefusalCode, RegisteredAnswerer};
+use super::{
+    AnswerCitation, AskBudget, AskError, AskRequest, RefusalCode, RegisteredAnswerer, Rejection,
+};
 use super::{generate::answer_bundle, prompt::prompt};
 use maestro_kernel::{
     artifact::{Digest, Store},
@@ -430,5 +432,7 @@ async fn i2_short_undetected_question_reaches_the_answerer() {
     assert!(answer.refusal.is_none());
 }
 
+#[path = "tests/explain.rs"]
+mod explain;
 #[path = "tests/guardrails.rs"]
 mod guardrails;

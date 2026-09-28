@@ -168,7 +168,7 @@ async fn execute_routes<P: ModelPort>(
                 configuration.dense_enabled,
                 &query,
                 context.embedder.as_ref(),
-                admitted.cutoffs.routes,
+                &admitted.cutoffs,
             ),
         ),
         traced_route(

@@ -4,6 +4,7 @@ mod fusion;
 mod handoff;
 mod inventory_query;
 mod rerank;
+mod route_setup;
 mod routes;
 mod stages;
 mod support;
