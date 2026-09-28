@@ -84,6 +84,7 @@
 mod bootstrap;
 mod compare;
 mod error;
+mod graph;
 mod judge;
 mod ladder;
 mod ladder_markdown;
@@ -99,6 +100,7 @@ mod tests;
 
 pub use compare::{Comparison, compare};
 pub use error::{AggregateError, CompareError, RunError};
+pub use graph::*;
 pub use ladder::{
     ANSWERED_PERCENT, Ask, AskOutcome, Floor, FloorResult, FloorStatus, LadderQuestion,
     LadderScore, Measure, Search, SearchOutcome, SectionRef, resolve_expected, score_ladder,

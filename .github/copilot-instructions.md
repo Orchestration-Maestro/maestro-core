@@ -660,6 +660,21 @@ in place.
 │       │   │   ├── types.rs                                                 # Typed ask requests, results, refusals, and trusted dependencies
 │       │   │   └── validate.rs                                              # Deterministic support checks for buffered answerer replies
 │       │   ├── eval/                                                        # The evaluation runner (plan D13; FR-S1-009, SC-S1-008): every retrieval
+│       │   │   ├── graph/                                                   # Digest-bound graph evaluation labels and construction/proof scoring
+│       │   │   │   ├── tests/                                               # Tests of graph evaluation: the strict proof labels and their checker, the
+│       │   │   │   │   ├── gates.rs                                         # The gate rules of the spec's table: pairing against same-run
+│       │   │   │   │   ├── labels.rs                                        # The label checker: a frozen set passes with only aggregates, IDs and
+│       │   │   │   │   ├── mod.rs                                           # Tests of graph evaluation: the strict proof labels and their checker, the
+│       │   │   │   │   ├── score.rs                                         # The scores: a proof counts only when every anchor of one allowed proof is
+│       │   │   │   │   └── support.rs                                       # What the graph evaluation tests share: a synthetic source, a suite of its
+│       │   │   │   ├── gates.rs                                             # Frozen evaluation run gates over construction, proof, retrieval and latency evidence
+│       │   │   │   ├── label_format.rs                                      # Closed deserialization model for the graph-label JSONL format
+│       │   │   │   ├── label_proofs.rs                                      # Validate every link and exact authority anchor in each alternative
+│       │   │   │   ├── label_types.rs                                       # Strict, digest-bound proof labels for construction and answer evaluation
+│       │   │   │   ├── label_validation.rs                                  # Label identity, question and review constraints
+│       │   │   │   ├── labels.rs                                            # Suite binding and aggregate label checking
+│       │   │   │   ├── mod.rs                                               # Digest-bound graph evaluation labels and construction/proof scoring
+│       │   │   │   └── score.rs                                             # Construction and complete-proof metrics for graph evaluation
 │       │   │   ├── reports/                                                 # Reports
 │       │   │   │   ├── base.rs                                              # Reports: maestro-eval-report/1, what a run measured, question by
 │       │   │   │   ├── metrics.rs                                           # Summary metrics shared by the v1 and v2 report contracts
