@@ -1,3 +1,4 @@
+use super::super::types::WORKER_LIMIT;
 use super::{
     HANG_GUARD, ServerHome, cancel_and_tool_call, handshake_and_tool_call, response, responses_for,
     tool_error,
@@ -20,13 +21,9 @@ async fn cancelling_four_searches_cannot_free_the_worker_cap() {
     let home = ServerHome::new();
     let release = Arc::new((Mutex::new(false), Condvar::new()));
     let (started_tx, started_rx) = mpsc::channel();
-    let (finished_tx, finished_rx) = mpsc::channel();
-    let server = home.server_with_gate(
-        release.clone(),
-        started_tx,
-        finished_tx,
-        Duration::from_millis(200),
-    );
+    let server = home.server_with_gate(release.clone(), started_tx, Duration::from_millis(200));
+    let workers = server.workers.clone();
+    let worker_limit = u32::try_from(WORKER_LIMIT).expect("worker limit fits a semaphore");
     let (server_input, mut client_input) = duplex(4096);
     let (server_output, client_output) = duplex(32_768);
     let serving = spawn(server.serve(BoundedStdio::new(server_input, server_output)));
@@ -67,28 +64,20 @@ async fn cancelling_four_searches_cannot_free_the_worker_cap() {
         .as_str()
         .expect("tool error code")
         .to_owned();
-    let extra_workers = usize::from(started_rx.try_recv().is_ok());
-    spawn_blocking({
-        let release = release.clone();
-        move || {
-            let (released, wake) = &*release;
-            *released.lock().expect("lock opener gate") = true;
-            wake.notify_all();
-        }
+    spawn_blocking(move || {
+        let (released, wake) = &*release;
+        *released.lock().expect("lock opener gate") = true;
+        wake.notify_all();
     })
     .await
     .expect("release blocked search workers");
-    let mut finished_rx = finished_rx;
-    for _ in 0..(4 + extra_workers) {
-        let (finished, next_rx) = spawn_blocking(move || {
-            let finished = finished_rx.recv_timeout(HANG_GUARD);
-            (finished, finished_rx)
-        })
+    // A worker drops its kernel before its permit, so holding every permit
+    // proves no worker still has the home's files open.
+    let idle = timeout(HANG_GUARD, workers.acquire_many_owned(worker_limit))
         .await
-        .expect("join kernel-open wait");
-        finished.expect("cancelled search worker finished");
-        finished_rx = next_rx;
-    }
+        .expect("cancelled search workers shutdown deadline")
+        .expect("every worker permit released");
+    drop(idle);
     assert_eq!(code, "busy");
     drop(client_input);
     timeout(HANG_GUARD, waiting)
@@ -103,7 +92,6 @@ impl ServerHome {
         &self,
         release: Arc<(Mutex<bool>, Condvar)>,
         started: mpsc::Sender<()>,
-        finished: mpsc::Sender<()>,
         deadline: Duration,
     ) -> super::KnowledgeServer {
         let data = self.0.join("data");
@@ -116,9 +104,7 @@ impl ServerHome {
                 while !*released {
                     released = wake.wait(released).expect("wait for opener gate");
                 }
-                let result = Kernel::open_at(&data, &config);
-                let _ = finished.send(());
-                result
+                Kernel::open_at(&data, &config)
             },
             deadline,
         )

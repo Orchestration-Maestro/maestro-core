@@ -1,0 +1,61 @@
+name: G25 portability legs (temporary)
+# S2 G25 route B only, dropped before landing: the organization's portability
+# legs run only on pull requests into the default branch, so this draft pull
+# request into feat/s2-integration repeats them for the patched lbug. The
+# steps follow ci.yml's portability job, plus a timed clean build of lbug.
+"on":
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: g25-portability-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  portability:
+    name: G25 lbug on ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, windows-2025, macos-15]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    # On Windows the default shell is PowerShell.
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out the revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the toolchain rust-toolchain.toml pins
+        run: |
+          set -euo pipefail
+          toolchain=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)
+          rustup toolchain install "$toolchain" --profile minimal
+          echo "RUSTUP_TOOLCHAIN=$toolchain" >> "$GITHUB_ENV"
+      - name: Report the native toolchain
+        run: |
+          set -uo pipefail
+          cmake --version | head -n 1
+          ninja --version || echo "no ninja"
+          c++ --version 2>/dev/null | head -n 1 || echo "no c++ on PATH"
+          nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo "$NUMBER_OF_PROCESSORS"
+      - name: Clean build of lbug, timed
+        run: |
+          set -euo pipefail
+          start=$SECONDS
+          cargo build --locked -p lbug-spike --tests
+          elapsed=$((SECONDS - start))
+          echo "clean lbug-spike build on $RUNNER_OS: $((elapsed / 60)) min $((elapsed % 60)) s" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Build and test
+        run: |
+          set -euo pipefail
+          start=$SECONDS
+          cargo test --locked --workspace
+          elapsed=$((SECONDS - start))
+          echo "workspace build and test after it: $((elapsed / 60)) min $((elapsed % 60)) s" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
