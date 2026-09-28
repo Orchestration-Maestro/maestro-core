@@ -53,7 +53,7 @@ async fn a_markerless_published_generation_degrades_then_republishes_without_ear
         .unwrap()
         .unwrap();
     let qdrant = backend.client();
-    create_collection(&backend, &legacy).await;
+    create_collection(&backend, &legacy, &card).await;
     let alias = alias_of(&kernel);
     let old_collection = collection_of(&kernel, legacy.id);
     backend.point_alias(&alias, &old_collection).await;

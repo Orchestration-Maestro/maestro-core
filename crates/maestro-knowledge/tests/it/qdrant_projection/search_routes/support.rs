@@ -64,10 +64,23 @@ pub(super) fn client(backend: &Backend) -> Client {
 }
 
 /// Creates a dense and sparse test collection and its scope keyword index.
-pub(in super::super) async fn create_collection(backend: &Backend, generation: &Generation) {
+pub(in super::super) async fn create_collection(
+    backend: &Backend,
+    generation: &Generation,
+    card: &ModelCard,
+) {
     let name = collection(generation);
+    let dimensions = card
+        .fields()
+        .dimensions
+        .expect("test collection card has dimensions")
+        .get();
+    let dimensions = u64::try_from(dimensions).expect("Qdrant dimension fits u64");
     let mut dense = VectorsConfigBuilder::default();
-    dense.add_named_vector_params("dense", VectorParamsBuilder::new(3, Distance::Cosine));
+    dense.add_named_vector_params(
+        "dense",
+        VectorParamsBuilder::new(dimensions, Distance::Cosine),
+    );
     let mut sparse = SparseVectorsConfigBuilder::default();
     sparse.add_named_vector_params(
         "bm25",

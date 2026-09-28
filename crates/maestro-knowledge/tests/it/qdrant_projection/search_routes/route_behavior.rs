@@ -42,7 +42,7 @@ async fn both_routes_apply_the_scope_filter_before_top_k() {
             GenerationState::Published,
             lexical::PROFILE,
         );
-        create_collection(&backend, &generation).await;
+        create_collection(&backend, &generation, &card).await;
 
         let dense_query = port
             .embed(&card, Room::Free, &[TEXT.to_owned()])
@@ -115,7 +115,7 @@ async fn dense_route_embeds_the_card_formatted_query() {
             GenerationState::Published,
             lexical::PROFILE,
         );
-        create_collection(&backend, &generation).await;
+        create_collection(&backend, &generation, &card).await;
         let query = Query {
             generation: &generation,
             scopes: &scopes,
@@ -209,8 +209,8 @@ async fn routes_pinned_to_an_older_generation_ignore_the_moved_alias() {
             GenerationState::Published,
             lexical::PROFILE,
         );
-        create_collection(&backend, &old).await;
-        create_collection(&backend, &new).await;
+        create_collection(&backend, &old, &card).await;
+        create_collection(&backend, &new, &card).await;
         let dense_query = port
             .embed(&card, Room::Free, &[TEXT.to_owned()])
             .await
@@ -275,7 +275,7 @@ async fn each_route_caps_results_at_k_and_deduplicates_chunks() {
             GenerationState::Published,
             lexical::PROFILE,
         );
-        create_collection(&backend, &generation).await;
+        create_collection(&backend, &generation, &card).await;
         let dense_query = port
             .embed(&card, Room::Free, &[TEXT.to_owned()])
             .await
