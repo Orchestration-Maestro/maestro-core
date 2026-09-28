@@ -7,7 +7,7 @@ use super::super::{
 use crate::{
     cli::health::{QDRANT_VARIABLE, ROUTER_VARIABLE, qdrant_url, router_url},
     failure::Failure,
-    kernel::Kernel,
+    kernel::{Kernel, pinned_embedder},
 };
 use maestro_kernel::{
     gateway::{ModelCard, Role, RouterClient},
@@ -33,7 +33,12 @@ pub(crate) fn ask_with(
         .database
         .published_generation(&scopes, &request.collection)
         .map_err(|_| kernel_failure())?;
-    let embedder_card = embedder_card(&kernel, current.as_ref())?;
+    let embedder_card = pinned_embedder(
+        &kernel.artifacts,
+        current
+            .as_ref()
+            .map(|generation| generation.embedding_profile.as_str()),
+    );
     let reranker_card = reranker_card(&kernel, &scopes, &request.collection, current.as_ref())?;
     let answerer = registered_answerer(&kernel, &scopes, request)?;
     let router_url = router_url(env::var_os(ROUTER_VARIABLE).as_deref()).map_err(|_| {
@@ -76,23 +81,6 @@ pub(crate) fn ask_with(
         kernel,
         scopes,
     })
-}
-
-/// Loads the exact embedder named by the current generation, when one exists.
-fn embedder_card(
-    kernel: &Kernel,
-    generation: Option<&Generation>,
-) -> Result<Option<ModelCard>, KnowledgeError> {
-    let Some(generation) = generation else {
-        return Ok(None);
-    };
-    let Some(digest) = generation.embedding_profile.strip_prefix("dense/1:sha256:") else {
-        return Ok(None);
-    };
-    kernel
-        .embedder_card(digest)
-        .map(Some)
-        .map_err(|_| kernel_failure())
 }
 
 /// Loads the generation-matched selected reranker, if one is selected.

@@ -1,9 +1,16 @@
 use super::search::search_with;
 use super::{KnowledgeError, collections_with, get_with, section_read_failure};
 use crate::knowledge::SearchRequest;
-use crate::{failure::Failure, kernel::Kernel, knowledge::GetRequest};
-use maestro_kernel::gateway::{RouterClient, Url};
+use crate::{
+    failure::Failure,
+    kernel::{Kernel, pinned_embedder},
+    knowledge::GetRequest,
+};
+use maestro_kernel::gateway::{
+    CardFields, Limits, ModelCard, Role, RouterClient, RouterEntry, Url,
+};
 use maestro_kernel::{
+    artifact::{Digest, Store},
     chunk_set::{Chunk, NewChunkSet},
     document::{Collection, Document, Revision, RevisionStatus, Source},
     evidence::Span,
@@ -16,6 +23,7 @@ use serde_json::Map;
 use std::{
     collections::BTreeMap,
     env, fs, io,
+    num::{NonZeroU32, NonZeroUsize},
     path::PathBuf,
     process,
     sync::atomic::{AtomicUsize, Ordering},
@@ -276,6 +284,43 @@ fn collections_opens_the_kernel_once() {
     });
     assert!(result.is_ok());
     assert_eq!(opens, 1);
+}
+
+#[test]
+fn pinned_embedder_loads_unregistered_v1_cards_and_degrades_for_missing_or_wrong_role() {
+    let root = env::temp_dir().join(format!("maestro-pinned-embedder-{}", process::id()));
+    let store = Store::new(&root);
+    let embedder = ModelCard::record(&store, &model_card_fields(Role::Embedder))
+        .expect("record legacy embedder card");
+    let profile = format!("dense/1:sha256:{}", embedder.digest().as_str());
+
+    let resolved = pinned_embedder(&store, Some(&profile));
+    assert_eq!(resolved.as_ref(), Some(&embedder));
+    assert!(pinned_embedder(&store, Some(&format!("dense/1:sha256:{}", "0".repeat(64)))).is_none());
+
+    let wrong_role = ModelCard::record(&store, &model_card_fields(Role::Reranker))
+        .expect("record wrong-role card");
+    let wrong_profile = format!("dense/1:sha256:{}", wrong_role.digest().as_str());
+    assert!(pinned_embedder(&store, Some(&wrong_profile)).is_none());
+
+    fs::remove_dir_all(root).expect("remove artifact store");
+}
+
+fn model_card_fields(role: Role) -> CardFields {
+    CardFields {
+        role,
+        router_entry: RouterEntry::parse("test-model").expect("router entry"),
+        file_digest: Digest::of(b"model"),
+        template_digest: None,
+        server_build: "test".to_owned(),
+        dimensions: (role == Role::Embedder)
+            .then(|| NonZeroUsize::new(2).expect("nonzero dimensions")),
+        limits: Limits {
+            context_tokens: NonZeroU32::new(1024).expect("nonzero context"),
+            output_tokens: None,
+        },
+        suite_results: Vec::new(),
+    }
 }
 
 #[test]

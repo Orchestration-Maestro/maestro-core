@@ -4,9 +4,8 @@ use super::{
     super::requests::SearchRequest,
     implementation::{KnowledgeError, Scoped, ensure_current_scopes},
 };
-use crate::kernel::Kernel;
+use crate::kernel::{Kernel, pinned_embedder};
 use maestro_kernel::{
-    artifact::Digest,
     evidence::Bundle,
     gateway::{ModelCard, ModelPort, Role},
     scope::{LOCAL, ScopeSet},
@@ -22,8 +21,6 @@ use maestro_knowledge::{
     },
 };
 use tokio::{task::spawn_blocking, time::Instant};
-/// The profile prefix that binds dense vectors to their registered embedder.
-const DENSE_PROFILE_PREFIX: &str = "dense/1:sha256:";
 
 /// The bundle plus its request-entry cutoff for bounded transport formatting.
 pub(crate) struct SearchData {
@@ -45,9 +42,18 @@ pub(crate) async fn search_with<P: ModelPort>(
     let budget = request.budget();
     let card_database = database.clone();
     let card_scopes = scopes.clone();
+    let artifacts = kernel.artifacts.clone();
     let collection = request.collection.clone();
     let (embedder, reranker) = spawn_blocking(move || {
-        let embedder = generation_embedder(&card_database, &card_scopes, &collection)?;
+        let generation = card_database
+            .published_generation(&card_scopes, &collection)
+            .map_err(|_| kernel_failure())?;
+        let embedder = pinned_embedder(
+            &artifacts,
+            generation
+                .as_ref()
+                .map(|generation| generation.embedding_profile.as_str()),
+        );
         let reranker = selected_reranker(&card_database, &card_scopes, &collection)?;
         Ok::<_, KnowledgeError>((embedder, reranker))
     })
@@ -98,30 +104,6 @@ pub(crate) async fn search_with<P: ModelPort>(
         kernel,
         scopes,
     })
-}
-
-/// Finds only the registered card named by a visible current generation.
-fn generation_embedder(
-    database: &Database,
-    scopes: &ScopeSet,
-    collection: &str,
-) -> Result<Option<ModelCard>, KnowledgeError> {
-    let Some(generation) = database
-        .published_generation(scopes, collection)
-        .map_err(|_| kernel_failure())?
-    else {
-        return Ok(None);
-    };
-    let Some(digest) = generation
-        .embedding_profile
-        .strip_prefix(DENSE_PROFILE_PREFIX)
-        .and_then(|text| Digest::parse(text).ok())
-    else {
-        return Ok(None);
-    };
-    database
-        .model_card(scopes, collection, &digest)
-        .map_err(|_| kernel_failure())
 }
 
 /// Freezes the configured real reranker once for this request.

@@ -18,6 +18,15 @@ use std::{
     sync::Arc,
 };
 
+/// The embedder pinned by a generation, loaded from the artifact store.
+/// Missing, malformed, corrupt, or non-embedder cards make dense unavailable.
+pub(crate) fn pinned_embedder(artifacts: &Store, profile: Option<&str>) -> Option<ModelCard> {
+    let profile = profile?.strip_prefix("dense/1:sha256:")?;
+    let digest = Digest::parse(profile).ok()?;
+    let card = ModelCard::load(artifacts, &digest).ok()?;
+    (card.fields().role == Role::Embedder).then_some(card)
+}
+
 /// One-shot callback used by tests to revoke access during a read.
 #[cfg(test)]
 pub(crate) type RefreshHook = fn(&Kernel);
