@@ -600,12 +600,15 @@ records obligations rather than licence names alone
 This section maps each S1 requirement and success criterion of the
 [S1 spec](../../specs/001-knowledge-kernel/spec.md) to the commits and tests
 that deliver it on the integration branch `feat/s1-integration`, at head
-`d2d528d` (2026-09-28). **Delivered** means integrated with tests; **Partial**
+`dac543c` (2026-09-28). **Delivered** means integrated with tests; **Partial**
 names the delivered portion and the open remainder; **OPEN** names the owner
-of the missing work. Private receipts (corpus accounting, golden set, model
-evaluations) live in the private collection (ADR-0009) and are cited by name
-only. The owner-approved exact row inventory of the other sections (T039
-step 3) is still to come; this section does not claim it.
+of the missing work; **Measured, below target, owner-accepted for M1** means a
+measured value misses its preregistered floor and the owner accepted it for M1
+as a tuning target after S1 (2026-09-28). Private receipts (corpus accounting,
+golden set, model evaluations, ladder runs) live in the private collection
+(ADR-0009) and are cited by name and counts only. The owner-approved exact row
+inventory of the other sections (T039 step 3) is still to come; this section
+does not claim it.
 
 Test paths are relative to the repository root.
 
@@ -619,18 +622,18 @@ Test paths are relative to the repository root.
 | FR-S1-003 | Delivered | Seam `2f83cbc`; router counter `fed0d24`; prepare `73faa04` | `crates/maestro-knowledge/src/prepare/tests/{duplicates,near,parity,counting}.rs`, `crates/maestro-knowledge/tests/it/router_parity.rs` | None |
 | FR-S1-004 | Delivered | Lexical `1c081c5`; projection `fd9414e`; publish `2144186`; identifiers `4613ec8` | `crates/maestro-knowledge/tests/it/qdrant_projection/`, `crates/maestro-knowledge/tests/it/lexical_golden.rs`, `.github/workflows/integration.yml` | None |
 | FR-S1-005 | Delivered | Fusion `5e3769e`; routes `17bfa42`; query `db14f92`; fused search `6bc3ee5`; rerank `cb9b200`; evidence `b1bc8bb`, `887b612` | `crates/maestro-knowledge/src/search/tests/`, `crates/maestro-knowledge/src/search/evidence/tests/`, `crates/maestro-knowledge/tests/it/qdrant_projection/search_routes/` | Live p95 under load: SC-S1-004 |
-| FR-S1-005a | Partial | `17bfa42` (`search_dense`, `search_bm25`) | `crates/maestro-knowledge/tests/it/qdrant_projection/search_routes/route_behavior.rs` | Per-route recall on the golden set: OPEN, T037 |
+| FR-S1-005a | Delivered | `17bfa42` (`search_dense`, `search_bm25`); route configuration `46e1dec` | `crates/maestro-knowledge/tests/it/qdrant_projection/search_routes/route_behavior.rs`, `crates/maestro-knowledge/src/search/tests/stages.rs` | None; per-route recall measured in SC-S1-008 |
 | FR-S1-006 | Delivered | `8dcab4b`; route scope filters `17bfa42`, `6bc3ee5` | `crates/maestro-kernel/src/scope/tests/`, `crates/maestro-kernel/src/retrieval/tests/identifier_scope.rs`, `crates/maestro-knowledge/tests/it/qdrant_projection/search_routes/scope_index.rs` | Identifier-count side channel: post-M1 queue |
 | FR-S1-007 | Delivered | Chat bounds `311eb85`; ask `f0cfc95`; pinned embedder `016be66` | `crates/maestro-knowledge/src/answer/tests/guardrails.rs`, `crates/maestro/tests/it/knowledge_ask.rs` | False refusals seen live: OPEN, ask live fix lane |
 | FR-S1-008 | Delivered | `750e7d6`, `2410855`, `56eae40`, `f0cfc95` | `crates/maestro/tests/it/mcp_stdio.rs`, `crates/maestro/tests/it/knowledge_get/` | Four real clients: SC-S1-005 |
 | FR-S1-008a | Delivered | `852c4e7`; scope ruling `2a2fddb` | `crates/maestro-kernel/src/journal/tests/{cursors,crash,concurrency}.rs` | Built-in cursor consumers: S2 (owner, MR-03) |
 | FR-S1-008b | Delivered | `4826626`; predecessor check `580c044` | `crates/maestro-kernel/src/journal/tests/{schemas,predecessor}.rs`, `.github/workflows/event-schemas.yml` | None |
-| FR-S1-009 | Partial | `6a6df77`; grouping `c1ecb3b`; report v2 `bdf52ca` | `crates/maestro-knowledge/src/eval/tests/`, `crates/maestro-kernel/src/eval/tests/` | Wrong-answer class from the answer scorer: OPEN, T037 |
+| FR-S1-009 | Delivered | `6a6df77`; grouping `c1ecb3b`; report v2 `bdf52ca`; ladder floors `90e8e56`; citation spans `0edc402` | `crates/maestro-knowledge/src/eval/tests/`, `crates/maestro-kernel/src/eval/tests/` | None |
 | FR-S1-010 | Delivered | `0146bf9`; rebuild `1f6ca8b`; drill `8ee5db4`; portable paths `1e80c1f` | `crates/maestro/tests/it/backup_restore.rs`, `crates/maestro/tests/it/rebuild_drill/` | None |
 | FR-S1-011 | Delivered | `6379c7a`; publication resume `2144186` | `crates/maestro-kernel/src/job/tests/{leases,resume}.rs`, `crates/maestro/src/cli/tests/publication_resume.rs` | None |
-| FR-S1-012 | Partial | `dc7d3c9`; setup `86b9580`; backup `0146bf9`; search `56eae40` | `crates/maestro/tests/it/cli_contract.rs`, `crates/maestro/tests/it/job_waits.rs` | `eval …` commands: OPEN, T037 |
+| FR-S1-012 | Delivered | `dc7d3c9`; setup `86b9580`; backup `0146bf9`; search `56eae40`; `maestro eval ladder` `80a7ad1` | `crates/maestro/tests/it/cli_contract.rs`, `crates/maestro/tests/it/job_waits.rs`, `crates/maestro/src/cli/eval/tests/` | None: for M1, `eval ladder` replaces `eval run` and `eval compare` |
 | FR-S1-013 | Delivered | Wording `8465a42` | Private: golden set v2.1 and its review receipt | None |
-| FR-S1-014 | Partial | Registry `bf58adb`; qualification `bdf52ca`; card evidence `dd298cd` | `crates/maestro-kernel/src/model/tests/`, `crates/maestro-knowledge/src/eval/tests/v2.rs` | Bake-off winners per role: OPEN, T037 |
+| FR-S1-014 | Delivered | Registry `bf58adb`; qualification `bdf52ca`; card evidence `dd298cd`; v2 embedder cards in prepare `5520789`; answerer per rung `dac543c` | `crates/maestro-kernel/src/model/tests/`, `crates/maestro-knowledge/src/eval/tests/v2.rs`, `crates/maestro/src/cli/eval/tests/rung_answerer.rs` | None; the private receipts are the v2 embedder, reranker and answerer cards and the embedder comparison |
 | FR-S1-015 | Partial | `86b9580`; Qdrant client check `ddb67e2`; temporaries `f1ed1a2` | `crates/maestro/tests/it/{setup_installs,doctor_checks}.rs`, `crates/maestro/src/cli/health/tests/` | Per-role card checks in `doctor`: post-M1 queue |
 | FR-S1-015a | Delivered | Router free room (T002, `maestro-model-router`); rerank fallback `cb9b200` | `crates/maestro-knowledge/src/search/tests/{admission,rerank}.rs` | None |
 | FR-S1-016 | Partial | Synthetic fixtures `a6a27e5`; synthetic-only CI `d30573d` | `.github/workflows/integration.yml`, `crates/maestro-conventions/tests/policies.rs` (paths and settings only) | Content check (MR-06): paused until after M1 by the owner |
@@ -639,30 +642,32 @@ Test paths are relative to the repository root.
 
 | ID | State | Evidence | Remainder and owner |
 | --- | --- | --- | --- |
-| SC-S1-001 | Partial | Import and quality accounting (`e634ff8`, `02c806e`); private import and disposition receipts | Re-measure against the final pinned receipt: OPEN, T039 |
-| SC-S1-002 | OPEN | Ladder comparison in the eval runner (`6a6df77`, `bdf52ca`) | Winners, ladder and publication: T037 |
-| SC-S1-003 | OPEN | Guarded ask (`f0cfc95`) | `ctm-answers` scorer and run: T037 |
-| SC-S1-004 | OPEN | Stage spans (`3af7d66`); rerank depth measured (`f5772d7`) | Load-wait observations: T037; tool-boundary p95: T039 |
-| SC-S1-005 | OPEN | Synthetic stdio tests (`crates/maestro/tests/it/mcp_stdio.rs`) | Pi, Codex, Claude Code and Copilot CLI receipts: T038 |
+| SC-S1-001 | Partial | Import and quality accounting (`e634ff8`, `02c806e`). Private v22 import receipt: 2,205 manifest entries, 2,159 imported and 46 held with a reason; quality outcomes 2,133 accepted, 2 with warnings, 20 needs re-extraction, 50 quarantined | The outcomes total 2,205 against 2,159 imported revisions: reconcile per revision against the pinned receipt, T039 |
+| SC-S1-002 | Partial | `maestro eval ladder` (`80a7ad1`, floors `90e8e56`) on the published generation 3 (BGE-M3 embedder). Private ladder runs 1 to 3: reranking at depth 30 lifts the right document in the top 10 from 72 (dense) to 81 of 84, and ranked first from 44 to 69; the Qwen3-Embedding-4B generation did not beat BGE-M3 (the embedder comparison). Winners: BGE-M3 embedder, `bge-reranker-v2-m3` at depth 30, Qwen3-4B answerer with prompt v2 | The ladder reports each rung's change from the rung below as a count; a paired interval per shipped rung (the `eval compare` bootstrap) is not computed on the ladder yet: after S1. The live default adopts depth 30 and prompt v2: T037 |
+| SC-S1-003 | Delivered | Guarded ask (`f0cfc95`, `0319633`), literal check (`c6cea31`). Private ladder run 3, rung v2-base: invented command literals 0 (command exactness 100 %); unanswerable questions refused 15 of 16 (93.8 %, floor 80 %) | None |
+| SC-S1-003, answer floor | Measured, below target, owner-accepted for M1 | Same rung: answerable questions answered with a right-section citation 63 of 84 (75.0 %, floor 80 %) | Tuning target after S1 (owner, 2026-09-28) |
+| SC-S1-003, citation floor | Measured, below target, owner-accepted for M1 | Same rung: right-section citations 63 of 83 answered (75.9 %, floor 90 %) | Tuning target after S1 (owner, 2026-09-28) |
+| SC-S1-004 | Delivered | Stage spans (`3af7d66`); warm-ups and per-question timing in the ladder (`80a7ad1`). Same rung, models loaded after the warm-ups: search p95 764 ms and ask p95 1.29 s over 100 questions; 100 of 100 searches ranked, 0 timed out or failed (a timed-out or failed search is counted apart, never in the percentiles) | p95 at the MCP tool boundary is not measured apart: T039 step 1 |
+| SC-S1-005 | Partial | Synthetic stdio tests (`crates/maestro/tests/it/mcp_stdio.rs`); client guide and stdio smoke (`1dcea41`) | Live receipts: Pi and Claude Code approved by the owner and running (T038); Codex and Copilot CLI await the owner's approval |
 | SC-S1-006 | Delivered | `8ee5db4`, `a597417`; `crates/maestro/tests/it/rebuild_drill/backup_loss_drill/backup_loss.rs`, run by `.github/workflows/integration.yml` | None |
-| SC-S1-007 | Partial | Synthetic gate `d30573d`; line coverage 95.4 % on the audited run at `ddb67e2` | Seed `tests/fixtures/synthetic/evals/baseline.json` (T036); a complete green CI run with zero missed mutants on the final head (MR-01) |
-| SC-S1-008 | Partial | Failure classes in `crates/maestro-knowledge/src/eval/tests/failures.rs` | Per-route recall and every golden failure classified: T037 |
+| SC-S1-007 | Partial | Synthetic gate `d30573d` and its frozen baseline `e6bb538` (`tests/fixtures/synthetic/evals/baseline.json`); line coverage 95.4 % on the audited run at `ddb67e2` | A complete green CI run with zero missed mutants on the final head (MR-01); the draft #49 run on `dac543c` is in progress |
+| SC-S1-008 | Delivered | Per-route rungs of private ladder run 1: lexical and identifier routes 59 of 84 in the top 10, dense route 72 of 84. Each ladder row carries the search outcome, the expected document's rank and the refusal code (`80a7ad1`); the 19 wrong answers of rung v2-base were classified by retrieval rank and graded by an audit | None |
 | SC-S1-009 | Partial | Public CI reads only synthetic fixtures | Content check (MR-06): paused until after M1 by the owner |
 
 ### 20.3 Remaining merge-readiness items
 
 The S1 merge-readiness audit (2026-09-27) raised MR-01 to MR-12. State at
-`d2d528d`:
+`dac543c`:
 
 | Item | Subject | State | Owner and next step |
 | --- | --- | --- | --- |
 | MR-01 | Whole-diff CI and mutation testing | OPEN | Supervisor: sharded mutation runs on draft #49; the final head needs a complete run with zero missed mutants and zero timeouts |
 | MR-02 | Event schemas against their released predecessor | Closed | `580c044`, `.github/workflows/event-schemas.yml` |
 | MR-03 | Built-in cursor consumers | Closed | Owner moved them to S2; `2a2fddb` |
-| MR-04 | Stage instrumentation and load-wait evidence | Partial | Spans landed in `3af7d66`; load-wait observations: T037, then T039 |
+| MR-04 | Stage instrumentation and load-wait evidence | Closed | Spans `3af7d66`; the ladder warms the models up and counts timed-out searches apart (`80a7ad1`); SC-S1-004 |
 | MR-05 | Import memory bound | Closed | `7d1ff9a` |
 | MR-06 | Content check for private vendor material | OPEN | Owner paused it until after M1; `AGENTS.md` now states what the checks do today |
-| MR-07 | Exact 08 row inventory and delivery map | OPEN | Owner approves the row keys; T039 maps them and adds the test |
+| MR-07 | Exact 08 row inventory and delivery map | OPEN | The proposed row-key list awaits the owner's approval; T039 then maps each key and adds the test |
 | MR-08 | Delivery instructions against the S1 workflow | Closed | `da92520` |
 | MR-09 | Corpus and question-review descriptions | Closed | `da92520` |
 | MR-10 | Architecture tables and operator examples | Closed | `da92520` |

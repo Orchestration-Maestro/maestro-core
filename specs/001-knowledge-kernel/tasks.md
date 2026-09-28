@@ -493,8 +493,10 @@ SC-S1-001.
   accuracy match hand-computed values; a paired bootstrap gives the same
   interval with the same seed; each failure gets its class and the route that
   missed it.
-- [ ] **Step 2: Implement** `eval run` and `eval compare`, reports stored as
-  artifacts and journaled.
+- [x] **Step 2: Implement** `eval run` and `eval compare`, reports stored as
+  artifacts and journaled. For M1, `maestro eval ladder` (`80a7ad1`)
+  replaces `eval run` and `eval compare`: it runs every rung, scores the
+  floors and compares each rung with the one below it.
 - [x] **Step 3: Commit and integrate into S1** `feat: evaluate retrieval with
   intervals`.
 
@@ -627,13 +629,18 @@ FR-S1-005, FR-S1-005a, FR-S1-006.
 
 - [x] **Step 1: List candidates** per role from 05 §3.2 with size, licence and
   source.
-- [ ] **Step 2: The owner approves** the downloads.
+- [x] **Step 2: The owner approves** the downloads. None was needed: every
+  candidate was already on the owner's router.
 - [x] **Step 3: Failing test.** A candidate violating a hard constraint is
   reported ineligible, never ranked; every attempt is kept, failures
   included.
-- [ ] **Step 4: Run** the protocol of 05 §3.3: each embedder with its own
-  chunk profile and generation, then the rerankers, then the answerers.
-- [ ] **Step 5: Record** a model card per role.
+- [x] **Step 4: Run** the protocol of 05 §3.3: each embedder with its own
+  chunk profile and generation, then the rerankers, then the answerers. The
+  embedder comparison (BGE-M3 against Qwen3-Embedding, each on its own
+  generation) and the reranker and answerer rungs ran on the ladder; the
+  receipts are private.
+- [x] **Step 5: Record** a model card per role: v2 embedder, reranker and
+  answerer cards are recorded in the private collection.
 
 ## Phase 9: Wave 9 — reranking, evidence and recovery
 
