@@ -225,7 +225,7 @@ impl Database {
 /// The idempotency key of `new`: the digest of the JSON array `[kind, scope,
 /// inputs]`, in which `serde_json` writes the fields of each object in the
 /// order of their names.
-fn idempotency_key(new: &NewJob<'_>) -> Digest {
+pub(crate) fn idempotency_key(new: &NewJob<'_>) -> Digest {
     let named = json!([new.kind, new.scope.as_str(), new.inputs]);
     Digest::of(named.to_string().as_bytes())
 }

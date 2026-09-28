@@ -210,12 +210,18 @@ pub(super) enum GraphCommand {
     /// Build a collection's claims with a strict table rule, and admit them
     /// as one claim set; print what was admitted and what was rejected.
     Build {
-        /// The collection's ID, as its declaration names it.
+        /// Frozen extraction options.
+        #[command(flatten)]
+        arguments: super::graph::build::Arguments,
+    },
+    /// Attach an existing frozen build without re-extraction.
+    Attach {
+        /// Completed build job ID.
         #[arg(long)]
-        collection: String,
-        /// The rule: a standalone `maestro-graph-table-rule/1` file.
-        #[arg(long, value_name = "PATH")]
-        rule: PathBuf,
+        build: Ulid,
+        /// Unpublished target generation.
+        #[arg(long)]
+        generation: i64,
     },
 }
 

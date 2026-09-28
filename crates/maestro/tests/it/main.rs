@@ -11,6 +11,7 @@ mod doctor_checks;
 #[cfg(unix)]
 mod fakes;
 mod graph_build;
+mod graph_resume;
 mod import_jobs;
 mod job_waits;
 mod knowledge_ask;

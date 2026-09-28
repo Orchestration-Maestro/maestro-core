@@ -1,7 +1,7 @@
 //! How `knowledge graph build` classifies the kernel's refusals of a claim
 //! set: a refused input exits 2, a kernel or integrity failure exits 1.
 
-use super::build::claim_failure;
+use super::failure::claim_failure;
 use crate::failure::Failure;
 use maestro_kernel::{artifact::Digest, evidence::Span, facts::Error, job};
 use std::process::ExitCode;

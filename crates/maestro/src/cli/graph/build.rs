@@ -1,35 +1,19 @@
-//! `knowledge graph build`: a collection's claims built with one strict
-//! table rule (FR-S2-004) and admitted through the kernel's one write path,
-//! [`Database::record_claim_set`](maestro_kernel::store::Database::record_claim_set).
-//! The rule reads the collection's eligible revisions, as the quality gate
-//! defines them ([`quality::eligible`]), whose original has its source
-//! digest. The build runs it through the [`Extractor`] port, and runs no
-//! model, script or graph service. Its claims are admitted as one frozen,
-//! ordered set, or none; a rebuild of the same inputs finds the same set and
-//! records nothing more, and a changed rule is another profile, so another
-//! set. What it rejects is printed with its reason. Under `--json` it prints
-//! `maestro-cli/knowledge-graph-build/1`, its `schema` first; a build that
-//! admits no claim prints its rejections and exits 2.
+//! Resumable rule builds backed by leased kernel receipts.
 
 use super::super::{collection, output::Output};
-use crate::{
-    failure::{Failure, chain},
-    kernel::Kernel,
-};
+use crate::{failure::Failure, kernel::Kernel};
 use maestro_kernel::{
     document::Revision,
     evidence::Span,
-    facts::{self, ClaimRecord, ClaimSet, ClaimSetRecord, Provenance, ReviewState},
+    facts::{self, Budget, BuildPlan, ClaimRecord, ClaimSetRecord, Provenance, ReviewState},
 };
 use maestro_knowledge::{
-    graph::{
-        rules::{Extraction, Extractor, Rejection, TableRule, resolve},
-        verify::{Source, SourceError},
-    },
+    graph::rules::{Extractor, Rejection, TableRule, resolve},
     quality,
 };
 use serde::Serialize;
-use std::{fs, path::Path, process::ExitCode};
+use std::{fs, num::NonZeroUsize, path::PathBuf, process::ExitCode};
+use ulid::Ulid;
 
 /// The schema of the document it prints under `--json`.
 const SCHEMA: &str = "maestro-cli/knowledge-graph-build/1";
@@ -42,6 +26,8 @@ struct Built<'b> {
     provenance: &'b Provenance,
     /// The revisions it read.
     revisions: &'b [Revision],
+    /// Total rejections, including those beyond the retention cap.
+    rejected: usize,
     /// What it rejected.
     rejections: &'b [Rejection],
 }
@@ -51,6 +37,8 @@ struct Built<'b> {
 struct BuildDocument<'a> {
     /// [`SCHEMA`].
     schema: &'static str,
+    /// Build job identity.
+    job: String,
     /// The collection's ID.
     collection: &'a str,
     /// What extracted the claims.
@@ -63,6 +51,10 @@ struct BuildDocument<'a> {
     claims: Vec<ClaimDocument<'a>>,
     /// How the admitted claims' subjects resolve.
     entities: Vec<EntityDocument>,
+    /// Total candidates rejected.
+    rejected: usize,
+    /// Number of retained rejection receipts.
+    retained_rejections: usize,
     /// What it rejected, and why.
     rejections: &'a [Rejection],
 }
@@ -189,9 +181,10 @@ struct ColliderDocument {
 pub(in crate::cli) fn run(
     kernel: &Kernel,
     output: Output,
-    collection: &str,
-    rule: &Path,
+    arguments: &Arguments,
 ) -> Result<ExitCode, Failure> {
+    let collection = &arguments.collection;
+    let rule = &arguments.rule;
     let text = fs::read_to_string(rule).map_err(|error| {
         Failure::refused(format!(
             "the rule {} cannot be read: {error}",
@@ -201,63 +194,88 @@ pub(in crate::cli) fn run(
     let rule = TableRule::parse(&text).map_err(|error| Failure::refused_by(&error))?;
     collection::declared(kernel, collection)?;
     let revisions = sources(kernel, collection, &rule)?;
-    let extractor: &dyn Extractor = &rule;
-    let extraction = extract(kernel, extractor, &revisions)?;
-    let provenance = extractor.provenance();
+    let provenance = rule.provenance();
+    let plan = BuildPlan {
+        collection_id: collection.clone(),
+        provenance: provenance.clone(),
+        sources: revisions
+            .iter()
+            .map(|revision| revision.id.clone())
+            .collect(),
+        budget: Budget {
+            max_claims: arguments.max_claims,
+            max_rejections: arguments.max_retained_rejections,
+        },
+    };
+    let work = super::job::Work {
+        plan: &plan,
+        revisions: &revisions,
+        extractor: &rule,
+    };
+    let result = super::job::run(kernel, output, &work)?;
+    let rejections: Vec<_> = result
+        .record
+        .rejections
+        .iter()
+        .map(|rejection| Rejection {
+            revision_id: rejection.revision_id.clone(),
+            block_id: rejection.block_id.clone(),
+            reason: rejection.reason.clone(),
+        })
+        .collect();
     let built = Built {
         collection,
         provenance: &provenance,
         revisions: &revisions,
-        rejections: &extraction.rejections,
+        rejected: result.record.rejected(),
+        rejections: &rejections,
     };
-    if extraction.claims.is_empty() {
-        let document = built.document(None);
-        let diagnostic = format!(
-            "the rule admitted no claim: {} rejected\n{}",
-            extraction.rejections.len(),
-            rejected(document.rejections)
-        );
-        output.refusal(&document, &diagnostic)?;
+    let document = built.document(result.job, result.set.as_ref());
+    if result.set.is_none() {
+        output.refusal(
+            &document,
+            &format!(
+                "the rule admitted no claim: {} rejected ({} retained)\n{}",
+                built.rejected,
+                rejections.len(),
+                rejected(&rejections)
+            ),
+        )?;
         return Ok(ExitCode::from(2));
     }
-    let set = ClaimSet {
-        collection_id: collection.to_owned(),
-        claims: extraction.claims,
-    };
-    let record = kernel
-        .database
-        .record_claim_set(&kernel.scopes, &set)
-        .map_err(|error| claim_failure(&error))?;
-    let document = built.document(Some(&record));
+    if let Some(generation) = arguments.generation {
+        super::attach::attach(kernel, output, result.job, generation)?;
+    }
     output.result(&document, &summary(&document))?;
     Ok(ExitCode::SUCCESS)
 }
 
-/// What `extractor` finds in `revisions`: the claims of each, in order, and
-/// what it rejected, a revision whose artifacts are not what it says among
-/// them.
-///
-/// # Errors
-///
-/// [`Failure::Failed`] when the artifact store fails.
-fn extract(
-    kernel: &Kernel,
-    extractor: &dyn Extractor,
-    revisions: &[Revision],
-) -> Result<Extraction, Failure> {
-    let mut extraction = Extraction::default();
-    for revision in revisions {
-        match Source::read(&kernel.database, revision) {
-            Ok(source) => {
-                let found = extractor.extract(&source);
-                extraction.claims.extend(found.claims);
-                extraction.rejections.extend(found.rejections);
-            }
-            Err(SourceError::Store(error)) => return Err(Failure::failed_by(&error)),
-            Err(error) => extraction.rejections.push(rejection(revision, &error)),
-        }
-    }
-    Ok(extraction)
+/// Frozen build inputs and optional independent attachment target.
+#[derive(Debug, clap::Args)]
+pub(in crate::cli) struct Arguments {
+    /// The collection's declared ID.
+    #[arg(long)]
+    pub(in crate::cli) collection: String,
+    /// Strict standalone table rule.
+    #[arg(long, value_name = "PATH")]
+    pub(in crate::cli) rule: PathBuf,
+    /// Attach the completed build to this unpublished generation.
+    #[arg(long)]
+    pub(in crate::cli) generation: Option<i64>,
+    /// Maximum accepted claims; changing this changes the frozen plan.
+    #[arg(long, default_value_t = 1_000_000, value_parser = positive_claim_budget)]
+    pub(in crate::cli) max_claims: usize,
+    /// Maximum retained rejection receipts; total rejections are still counted.
+    #[arg(long, default_value_t = 1_000_000)]
+    pub(in crate::cli) max_retained_rejections: usize,
+}
+
+/// Parse a nonzero, platform-sized claim budget at the argument boundary.
+fn positive_claim_budget(value: &str) -> Result<usize, String> {
+    value
+        .parse::<NonZeroUsize>()
+        .map(NonZeroUsize::get)
+        .map_err(|_| format!("expected a value in range 1..={}", usize::MAX))
 }
 
 /// The eligible revisions of `collection`, as the quality gate defines
@@ -285,41 +303,10 @@ fn sources(kernel: &Kernel, collection: &str, rule: &TableRule) -> Result<Vec<Re
     Ok(eligible)
 }
 
-/// The rejection of `revision`, whose artifacts are not what it says.
-fn rejection(revision: &Revision, error: &SourceError) -> Rejection {
-    Rejection {
-        revision_id: revision.id.clone(),
-        block_id: None,
-        reason: chain(error),
-    }
-}
-
-/// A refusal for a claim set the kernel refused as input, exit 2; a
-/// failure, exit 1, when its store failed or a stored original no longer
-/// holds what knowledge located in it.
-pub(super) fn claim_failure(error: &facts::Error) -> Failure {
-    match error {
-        facts::Error::Store(_)
-        | facts::Error::Job(_)
-        | facts::Error::DigestMismatch { .. }
-        | facts::Error::SpanOutOfRange { .. }
-        | facts::Error::SpanOffBoundary { .. }
-        | facts::Error::QuoteMismatch { .. } => Failure::failed_by(error),
-        facts::Error::Unauthorized
-        | facts::Error::Invalid(_)
-        | facts::Error::UnknownBuild(_)
-        | facts::Error::Unfinished { .. }
-        | facts::Error::OverBudget { .. }
-        | facts::Error::Conflict(_)
-        | facts::Error::UnknownRevision { .. }
-        | facts::Error::IneligibleRevision { .. } => Failure::refused_by(error),
-    }
-}
-
 impl Built<'_> {
     /// The document it prints: with the admitted set `record`, its id, its
     /// claims and how their subjects resolve, when there is one.
-    fn document<'d>(&'d self, record: Option<&'d ClaimSetRecord>) -> BuildDocument<'d> {
+    fn document<'d>(&'d self, job: Ulid, record: Option<&'d ClaimSetRecord>) -> BuildDocument<'d> {
         let claims = record.map_or(&[][..], |record| record.claims.as_slice());
         let subjects: Vec<_> = claims
             .iter()
@@ -343,6 +330,7 @@ impl Built<'_> {
             .collect();
         BuildDocument {
             schema: SCHEMA,
+            job: job.to_string(),
             collection: self.collection,
             extractor: ExtractorDocument {
                 id: &self.provenance.extractor,
@@ -356,6 +344,8 @@ impl Built<'_> {
             claim_set: record.map(|record| record.id.as_str()),
             claims: claims.iter().map(claim).collect(),
             entities,
+            rejected: self.rejected,
+            retained_rejections: self.rejections.len(),
             rejections: self.rejections,
         }
     }
@@ -418,10 +408,11 @@ fn rejected(rejections: &[Rejection]) -> String {
 /// rejected.
 fn summary(document: &BuildDocument<'_>) -> String {
     let mut lines = vec![format!(
-        "admitted {} claims as the claim set {}; {} rejected",
+        "admitted {} claims as the claim set {}; {} rejected ({} retained)",
         document.claims.len(),
         document.claim_set.unwrap_or_default(),
-        document.rejections.len()
+        document.rejected,
+        document.retained_rejections
     )];
     for claim in &document.claims {
         let (kind, name) = match &claim.object {

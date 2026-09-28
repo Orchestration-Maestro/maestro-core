@@ -71,3 +71,4 @@ pub use state::JobState;
 
 pub(crate) use lease::held as validate_lease;
 pub(crate) use progress::checkpoint;
+pub(crate) use record::idempotency_key;

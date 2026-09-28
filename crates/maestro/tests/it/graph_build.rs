@@ -20,7 +20,7 @@ use std::{
 const SCHEMA_FIRST: &str = r#"{"schema":"maestro-cli/knowledge-graph-build/1","#;
 
 /// The collection the temporary declaration names.
-const COLLECTION: &str = "synthetic-graph";
+pub(super) const COLLECTION: &str = "synthetic-graph";
 
 /// The frozen fixture directory, `tests/fixtures/synthetic/graph`.
 fn fixtures() -> PathBuf {
@@ -28,24 +28,24 @@ fn fixtures() -> PathBuf {
 }
 
 /// The frozen envelope: the standalone rule and its test oracle.
-fn envelope() -> Value {
+pub(super) fn envelope() -> Value {
     serde_json::from_str(&fs::read_to_string(fixtures().join("defaults.json")).unwrap()).unwrap()
 }
 
 /// Writes `json` to `name` in `home`'s own directory and returns its path.
-fn write(home: &Home, name: &str, json: &Value) -> PathBuf {
+pub(super) fn write(home: &Home, name: &str, json: &Value) -> PathBuf {
     let path = home.root().join(name);
     fs::write(&path, json.to_string()).unwrap();
     path
 }
 
 /// The path as the command line takes it.
-fn text(path: &Path) -> &str {
+pub(super) fn text(path: &Path) -> &str {
     path.to_str().unwrap()
 }
 
 /// Asserts `ended` exited with `code`.
-fn exited(ended: &Ended, code: i32) {
+pub(super) fn exited(ended: &Ended, code: i32) {
     assert_eq!(ended.code, Some(code), "{ended:?}");
 }
 
@@ -124,7 +124,7 @@ fn pilot_gated(home: &Home, gate: bool) -> PathBuf {
 }
 
 /// [`pilot_gated`], its quality disposition given.
-fn pilot(home: &Home) -> PathBuf {
+pub(super) fn pilot(home: &Home) -> PathBuf {
     pilot_gated(home, true)
 }
 
@@ -145,7 +145,7 @@ fn quality(home: &Home) {
 }
 
 /// Runs `knowledge graph build` of the pilot collection with `rule`.
-fn build(home: &Home, rule: &Path) -> Ended {
+pub(super) fn build(home: &Home, rule: &Path) -> Ended {
     home.run(&[
         "knowledge",
         "graph",
@@ -335,10 +335,10 @@ fn a_build_that_admits_nothing_prints_its_rejections_and_exits_2() {
         text(&rule),
     ]);
     exited(&text, 2);
-    assert!(text.stdout.is_empty(), "{text:?}");
+    assert!(text.stdout.starts_with("job "), "{text:?}");
     assert!(
         text.stderr
-            .contains("the rule admitted no claim: 1 rejected\nrejected rev-"),
+            .contains("the rule admitted no claim: 1 rejected (1 retained)\nrejected rev-"),
         "{text:?}"
     );
     assert!(text.stderr.contains(" -: no table under"), "{text:?}");
@@ -358,13 +358,14 @@ fn people_read_the_admitted_claims_one_per_line() {
         text(&rule),
     ]);
     exited(&ended, 0);
-    let lines: Vec<&str> = ended.stdout.lines().collect();
+    assert!(ended.stdout.starts_with("job "));
+    let lines: Vec<&str> = ended.stdout.lines().skip(1).collect();
     assert_eq!(lines.len(), 5, "{ended:?}");
     assert!(
         lines[0].starts_with("admitted 4 claims as the claim set "),
         "{ended:?}"
     );
-    assert!(lines[0].ends_with("; 0 rejected"), "{ended:?}");
+    assert!(lines[0].ends_with("; 0 rejected (0 retained)"), "{ended:?}");
     assert_eq!(
         &lines[1..],
         [
@@ -400,4 +401,39 @@ fn an_unreadable_rule_file_is_refused() {
     let refused = build(&home, &home.root().join("missing.json"));
     exited(&refused, 2);
     assert!(refused.stderr.contains("cannot be read"), "{refused:?}");
+}
+
+#[test]
+fn graph_resume_build_has_a_durable_job_and_receipts() {
+    let home = Home::new();
+    let rule = pilot(&home);
+    let first = build(&home, &rule);
+    exited(&first, 0);
+    let database = home.database();
+    let jobs = database
+        .jobs_for_resource(
+            &local(&database),
+            "knowledge.graph.build",
+            &format!("graph-build:{COLLECTION}"),
+        )
+        .unwrap();
+    assert_eq!(jobs.len(), 1, "graph build must use the durable job runner");
+    let record = database
+        .graph_build(&local(&database), jobs[0].id)
+        .unwrap()
+        .unwrap();
+    assert_eq!(record.batches.len(), 1);
+    assert!(record.claim_set_id.is_some());
+    exited(&build(&home, &rule), 0);
+    assert_eq!(
+        database
+            .jobs_for_resource(
+                &local(&database),
+                "knowledge.graph.build",
+                &format!("graph-build:{COLLECTION}")
+            )
+            .unwrap()
+            .len(),
+        1
+    );
 }

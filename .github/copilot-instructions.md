@@ -83,7 +83,10 @@ in place.
 │   │   │   │   │   ├── runner.rs                                            # The ladder's run: every rung's cards checked first, then each rung in
 │   │   │   │   │   └── stages.rs                                            # Whether a search ran every stage its rung enables
 │   │   │   │   ├── graph/                                                   # knowledge graph: the commands over a collection's knowledge graph
+│   │   │   │   │   ├── attach.rs                                            # Attachment is separate leased work; completed extraction is never repeated
 │   │   │   │   │   ├── build.rs                                             # knowledge graph build: a collection's claims built with one strict
+│   │   │   │   │   ├── failure.rs                                           # Shared classification of graph authority failures
+│   │   │   │   │   ├── job.rs                                               # Foreground graph builds: extraction outside the fence lock, atomic receipts inside it
 │   │   │   │   │   ├── mod.rs                                               # knowledge graph: the commands over a collection's knowledge graph
 │   │   │   │   │   └── tests.rs                                             # How knowledge graph build classifies the kernel's refusals of a claim
 │   │   │   │   ├── health/                                                  # maestro doctor and status: the checks of the kernel, the search service, the router and each role's card
@@ -229,6 +232,7 @@ in place.
 │   │   │       ├── doctor_checks.rs                                         # maestro doctor: each failure names its next action, the router its address; v1 files listed, untouched
 │   │   │       ├── fakes.rs                                                 # Fake curl and systemctl for the binary's tests, found first on the PATH, logging each call
 │   │   │       ├── graph_build.rs                                           # knowledge graph build: the frozen synthetic defaults table (plan A0)
+│   │   │       ├── graph_resume.rs                                          # Durable CLI resume and separate attachment, using real authority and rule artifacts
 │   │   │       ├── import_jobs.rs                                           # knowledge import end to end, rerun, live holder refused, stale one superseded, leases taken over
 │   │   │       ├── job_waits.rs                                             # job wait follows a job to its end and exits with its outcome; an unreadable job is unknown
 │   │   │       ├── knowledge_ask.rs                                         # The public CLI refuses an invalid ask model before contacting a backend
@@ -726,10 +730,12 @@ in place.
 │       │   │   └── run_v2.rs                                                # Strict v2 attempt execution and aggregation
 │       │   ├── graph/                                                       # The knowledge graph's construction (specs/002-knowledge-graph): claims
 │       │   │   ├── tests/                                                   # Tests of the first table rule: its closed form, the claims it extracts
+│       │   │   │   ├── build.rs                                             # Every frozen build field participates in submission identity
 │       │   │   │   ├── mod.rs                                               # Tests of the first table rule: its closed form, the claims it extracts
 │       │   │   │   ├── rules.rs                                             # The closed table rule: what it refuses to read, the DEFAULTS_TO claims
 │       │   │   │   ├── support.rs                                           # What the graph tests share: the frozen synthetic defaults table of plan
 │       │   │   │   └── verify.rs                                            # Locating a row's quote: the row belongs to its table and its cells to the
+│       │   │   ├── build.rs                                                 # Frozen build identity and source-bounded extraction outside write transactions
 │       │   │   ├── mod.rs                                                   # The knowledge graph's construction (specs/002-knowledge-graph): claims
 │       │   │   ├── rules.rs                                                 # The first table rule (FR-S2-004, plan A0): maestro-graph-table-rule/1
 │       │   │   ├── structure.rs                                             # The tables of a canonical document as canonicalization gives them: each

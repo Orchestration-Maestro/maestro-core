@@ -69,7 +69,14 @@ fn a_generation_gets_one_finished_claim_set_before_it_is_published() {
     let all = ScopeSet::default_workspace();
     let old = finished(&database, vec![label()], "worker-1");
     let pinned = generation(&database, "graph");
-    let attachment = database.attach_claim_set(&all, pinned, &old).unwrap();
+    let attachment = database
+        .attach_claim_set(
+            &all,
+            pinned,
+            old.job,
+            &attachment_lease(&database, old.job, pinned),
+        )
+        .unwrap();
     assert_eq!(attachment.generation_id, pinned);
     assert_eq!(attachment.job, old.job);
     let set = database
@@ -79,7 +86,14 @@ fn a_generation_gets_one_finished_claim_set_before_it_is_published() {
         .claim_set_id;
     assert_eq!(Some(attachment.claim_set_id.clone()), set);
     assert_eq!(
-        database.attach_claim_set(&all, pinned, &old).unwrap(),
+        database
+            .attach_claim_set(
+                &all,
+                pinned,
+                old.job,
+                &attachment_lease(&database, old.job, pinned)
+            )
+            .unwrap(),
         attachment,
         "attaching the same set again changes nothing"
     );
@@ -92,11 +106,23 @@ fn a_generation_gets_one_finished_claim_set_before_it_is_published() {
     }
     let new = finished(&database, later_claims, "worker-2");
     assert!(matches!(
-        database.attach_claim_set(&all, pinned, &new),
+        database.attach_claim_set(
+            &all,
+            pinned,
+            new.job,
+            &attachment_lease(&database, new.job, pinned)
+        ),
         Err(Error::Conflict(_))
     ));
     let next = generation(&database, "graph");
-    let later = database.attach_claim_set(&all, next, &new).unwrap();
+    let later = database
+        .attach_claim_set(
+            &all,
+            next,
+            new.job,
+            &attachment_lease(&database, new.job, next),
+        )
+        .unwrap();
     assert_ne!(later.claim_set_id, attachment.claim_set_id);
     assert_eq!(
         database.graph_attachment(&all, pinned).unwrap(),
@@ -105,7 +131,16 @@ fn a_generation_gets_one_finished_claim_set_before_it_is_published() {
     );
     let unpublished = generation(&database, "graph");
     database.verify_generation(unpublished, 1).unwrap();
-    assert!(database.attach_claim_set(&all, unpublished, &new).is_ok());
+    assert!(
+        database
+            .attach_claim_set(
+                &all,
+                unpublished,
+                new.job,
+                &attachment_lease(&database, new.job, unpublished)
+            )
+            .is_ok()
+    );
 }
 
 #[test]
@@ -119,13 +154,19 @@ fn only_a_finished_build_of_the_generations_collection_is_attached() {
     database.begin_graph_build(&all, &lease, &plan).unwrap();
     let target = generation(&database, "graph");
     assert!(matches!(
-        database.attach_claim_set(&all, target, &lease),
+        database.attach_claim_set(
+            &all,
+            target,
+            lease.job,
+            &attachment_lease(&database, lease.job, target)
+        ),
         Err(Error::Unfinished { .. })
     ));
     assert!(matches!(
         database.attach_claim_set(
             &all,
             target,
+            Ulid::nil(),
             &Lease {
                 job: Ulid::nil(),
                 ..lease.clone()
@@ -136,20 +177,37 @@ fn only_a_finished_build_of_the_generations_collection_is_attached() {
     let done = finished(&database, vec![on("rev-a", label())], "worker-2");
     let foreign = generation(&database, "other");
     assert!(matches!(
-        database.attach_claim_set(&all, foreign, &done),
+        database.attach_claim_set(
+            &all,
+            foreign,
+            done.job,
+            &attachment_lease(&database, done.job, foreign)
+        ),
         Err(Error::Conflict(_))
     ));
     assert!(matches!(
-        database.attach_claim_set(&all, 999, &done),
+        database.attach_claim_set(
+            &all,
+            999,
+            done.job,
+            &attachment_lease(&database, done.job, 999)
+        ),
         Err(Error::Conflict(_))
     ));
     let outsider = granted(&database, "alice", "workspace/default/collection/other");
     assert!(matches!(
-        database.attach_claim_set(&outsider, target, &done),
+        database.attach_claim_set(&outsider, target, done.job, &done),
         Err(Error::UnknownBuild(_))
     ));
     assert_eq!(database.graph_attachment(&all, target).unwrap(), None);
-    database.attach_claim_set(&all, target, &done).unwrap();
+    database
+        .attach_claim_set(
+            &all,
+            target,
+            done.job,
+            &attachment_lease(&database, done.job, target),
+        )
+        .unwrap();
     assert_eq!(database.graph_attachment(&outsider, target).unwrap(), None);
     for statement in [
         "DELETE FROM graph_attachments",
@@ -166,21 +224,112 @@ fn a_stale_holder_cannot_attach_after_takeover() {
     let scratch = Scratch::new();
     let database = scratch.open();
     let all = ScopeSet::default_workspace();
-    let stale = finished(&database, vec![label()], "worker-1");
+    let build = finished(&database, vec![label()], "builder");
+    database
+        .complete_job(&build, job::JobState::Succeeded, &serde_json::json!({}))
+        .unwrap();
+    let target = generation(&database, "graph");
+    let stale = attachment_lease(&database, build.job, target);
+
     let current = database
         .take_job(stale.job, "worker-2", at(120), TERM)
         .unwrap();
-    let target = generation(&database, "graph");
-    let late = database.attach_claim_set(&all, target, &stale);
+    let late = database.attach_claim_set(&all, target, build.job, &stale);
     assert!(
         matches!(late, Err(Error::Job(job::Error::Lost { number: 1, .. }))),
         "{late:?}"
     );
     assert_eq!(database.graph_attachment(&all, target).unwrap(), None);
-    let attachment = database.attach_claim_set(&all, target, &current).unwrap();
-    assert_eq!(attachment.job, current.job);
+    let attachment = database
+        .attach_claim_set(&all, target, build.job, &current)
+        .unwrap();
+    assert_eq!(attachment.job, build.job);
     assert_eq!(
         database.graph_attachment(&all, target).unwrap(),
         Some(attachment)
     );
+}
+
+#[test]
+fn a_completed_build_attaches_under_a_separate_job_lease() {
+    let scratch = Scratch::new();
+    let database = scratch.open();
+    let all = ScopeSet::default_workspace();
+    let build = finished(&database, vec![label()], "builder");
+    database
+        .complete_job(&build, job::JobState::Succeeded, &serde_json::json!({}))
+        .unwrap();
+    let target = generation(&database, "graph");
+    let lease = attachment_lease(&database, build.job, target);
+    let attached = database
+        .attach_claim_set(&all, target, build.job, &lease)
+        .unwrap();
+    assert_eq!(attached.job, build.job);
+}
+
+/// A distinct attachment job in the collection, not a reopened terminal build.
+fn attachment_lease(database: &Database, build: Ulid, target: i64) -> Lease {
+    let inputs = serde_json::json!({"build": build.to_string(), "generation": target});
+    let scope = "workspace/default/collection/graph".parse().unwrap();
+    let new = job::NewJob {
+        kind: "knowledge.graph.attach",
+        inputs: &inputs,
+        scope: &scope,
+        resource: None,
+    };
+    let attach = database.submit_job(&new, at(3)).unwrap();
+    attach.lease.unwrap_or_else(|| {
+        database
+            .take_job(attach.id, "attachment", at(3), TERM)
+            .unwrap()
+    })
+}
+
+#[test]
+fn an_attachment_lease_of_another_collection_is_refused() {
+    let scratch = Scratch::new();
+    let database = scratch.open();
+    let all = ScopeSet::default_workspace();
+    let build = finished(&database, vec![label()], "builder");
+    let target = generation(&database, "graph");
+    let scope = "workspace/default/collection/other".parse().unwrap();
+    let inputs = serde_json::json!({"build": build.job.to_string(), "generation": target});
+    let job = database
+        .submit_job(
+            &job::NewJob {
+                kind: "knowledge.graph.attach",
+                inputs: &inputs,
+                scope: &scope,
+                resource: None,
+            },
+            at(3),
+        )
+        .unwrap();
+    let lease = database.take_job(job.id, "foreign", at(3), TERM).unwrap();
+    assert!(matches!(
+        database.attach_claim_set(&all, target, build.job, &lease),
+        Err(Error::Unauthorized)
+    ));
+    assert!(database.graph_attachment(&all, target).unwrap().is_none());
+}
+
+#[test]
+fn an_attachment_lease_must_name_the_exact_build_and_generation() {
+    let scratch = Scratch::new();
+    let database = scratch.open();
+    let all = ScopeSet::default_workspace();
+    let build = finished(&database, vec![label()], "builder");
+    let target = generation(&database, "graph");
+    let wrong_build = attachment_lease(&database, Ulid::nil(), target);
+    let wrong_generation = attachment_lease(&database, build.job, target + 1);
+    for lease in [&build, &wrong_build, &wrong_generation] {
+        assert!(
+            matches!(
+                database.attach_claim_set(&all, target, build.job, lease),
+                Err(Error::Unauthorized)
+            ),
+            "unrelated lease authorized attachment: {lease:?}"
+        );
+        assert!(database.graph_attachment(&all, target).unwrap().is_none());
+    }
 }

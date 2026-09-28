@@ -3,16 +3,19 @@
 use super::{build_read::load_build, build_types::GraphAttachment, error::Error};
 use crate::{
     artifact::Digest,
-    job::{self, Lease},
-    scope::ScopeSet,
+    job::{self, Lease, NewJob},
+    scope::{ScopeSet, collection_path},
     store::Database,
 };
 use rusqlite::{Connection, OptionalExtension as _, params};
+use serde_json::json;
+use ulid::Ulid;
 
 impl Database {
     /// Attach a finished build to a building or verified generation, once.
     /// An identical attachment is a no-op, including after publication, while
-    /// the caller still holds the job lease.
+    /// the caller holds a live attachment job lease in the build collection
+    /// whose frozen inputs name exactly this build and generation.
     ///
     /// # Errors
     /// Refuses unknown or unfinished builds, different attachments, other
@@ -21,12 +24,27 @@ impl Database {
         &self,
         scopes: &ScopeSet,
         generation: i64,
+        job: Ulid,
         lease: &Lease,
     ) -> Result<GraphAttachment, Error> {
-        let job = lease.job;
         self.write(|transaction| {
             let build = load_build(transaction, scopes, job)?.ok_or(Error::UnknownBuild(job))?;
-            job::validate_lease(transaction, lease)?;
+            let holder = job::validate_lease(transaction, lease)?;
+            if holder.scope.as_str() != collection_path(&build.plan.collection_id) {
+                return Err(Error::Unauthorized);
+            }
+            let inputs = json!({"build": job.to_string(), "generation": generation});
+            let expected = NewJob {
+                kind: "knowledge.graph.attach",
+                inputs: &inputs,
+                scope: &holder.scope,
+                resource: None,
+            };
+            if holder.kind != expected.kind
+                || holder.idempotency_key != job::idempotency_key(&expected)
+            {
+                return Err(Error::Unauthorized);
+            }
             let set = build.claim_set_id.ok_or(Error::Unfinished {
                 recorded: build.batches.len(),
                 expected: build.plan.sources.len(),

@@ -149,8 +149,11 @@ fn knowledge(
         KnowledgeCommand::Collection(CollectionCommand::Add { declaration }) => {
             collection::add(kernel, output, declaration)
         }
-        KnowledgeCommand::Graph(GraphCommand::Build { collection, rule }) => {
-            graph::build::run(kernel, output, collection, rule)
+        KnowledgeCommand::Graph(GraphCommand::Build { arguments }) => {
+            graph::build::run(kernel, output, arguments)
+        }
+        KnowledgeCommand::Graph(GraphCommand::Attach { build, generation }) => {
+            graph::attach::run(kernel, output, *build, *generation)
         }
         KnowledgeCommand::Import { collection, again } => {
             import::run(kernel, output, collection, *again)
