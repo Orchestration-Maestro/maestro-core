@@ -55,6 +55,15 @@ pub enum RunError<E> {
         /// Why it gives no one section.
         reason: Unresolved,
     },
+    /// A resolved section has no validated canonical source extent.
+    SectionExtent {
+        /// The question's id.
+        question: String,
+        /// The resolved section's ID.
+        section_id: String,
+        /// Why its extent could not be read.
+        reason: String,
+    },
     /// Expected-section names outside one shared group give one section.
     SameSection {
         /// The question's id.
@@ -139,6 +148,18 @@ impl<E: fmt::Display> fmt::Display for RunError<E> {
                  {reason}",
                 heading_path.join(" › ")
             ),
+            Self::SectionExtent {
+                question,
+                section_id,
+                reason,
+            } => write!(
+                formatter,
+                concat!(
+                    "question {} expects section {}, but its source ",
+                    "extent is invalid: {}"
+                ),
+                question, section_id, reason
+            ),
             Self::SameSection {
                 question,
                 section_id,
@@ -193,6 +214,7 @@ impl<E: error::Error + 'static> error::Error for RunError<E> {
             Self::NoDocument { .. }
             | Self::SameSection { .. }
             | Self::SameDocument { .. }
+            | Self::SectionExtent { .. }
             | Self::Recording { .. }
             | Self::InvalidV2Header { .. }
             | Self::InvalidV2Report { .. }

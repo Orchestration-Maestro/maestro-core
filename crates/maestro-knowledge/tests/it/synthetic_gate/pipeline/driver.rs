@@ -404,7 +404,8 @@ fn evaluation_failure(error: eval::RunError<Failure>, completed: usize) -> Failu
             completed,
             &cause,
         ),
-        eval::RunError::Unresolved { question, .. } => Failure::question_from_error(
+        eval::RunError::Unresolved { question, .. }
+        | eval::RunError::SectionExtent { question, .. } => Failure::question_from_error(
             "evaluation-expected-section",
             &question,
             completed,

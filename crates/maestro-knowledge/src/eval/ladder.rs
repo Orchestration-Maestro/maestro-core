@@ -19,9 +19,9 @@
 //!   is no refusal;
 //! - right-section citation: the delivered answers citing a section an
 //!   answerable question expects, over every delivered answer, answers to
-//!   unanswerable questions included: at least 90%. A section matches when its
-//!   document and section are the expected ones; a document expected whole
-//!   matches any citation of it;
+//!   unanswerable questions included: at least 90%. A section matches when
+//!   its document and pinned revision match and its extent intersects the
+//!   citation span; a document expected whole matches any citation of it;
 //! - answerable answered right: the answerable questions answered with such a
 //!   citation, over them: at least [`ANSWERED_PERCENT`]. A refusal, a failure
 //!   or a timeout counts against it;
@@ -38,7 +38,7 @@
 //! answered with a right citation and no invented literal, the false
 //! refusals, and the failed searches and asks.
 
-use super::{bootstrap::percentile, error::RunError, run::resolve};
+use super::{bootstrap::percentile, error::RunError, run::resolve_details};
 use crate::{answer::RefusalCode, suite::Suite};
 use maestro_canonicalization::CanonicalDocument;
 use serde::Serialize;
@@ -52,8 +52,14 @@ use std::{
 pub struct SectionRef {
     /// The ID of the document.
     pub document_id: String,
+    /// The pinned revision of the document.
+    pub revision_id: Option<String>,
+    /// The ID of the citation's chunk.
+    pub chunk_id: Option<String>,
     /// The ID of the section, absent for the document whole.
     pub section_id: Option<String>,
+    /// The citation's half-open byte span or expected section extent.
+    pub span: Option<[usize; 2]>,
 }
 
 impl SectionRef {
@@ -62,7 +68,10 @@ impl SectionRef {
     pub fn section(document_id: &str, section_id: &str) -> Self {
         Self {
             document_id: document_id.to_owned(),
+            revision_id: None,
+            chunk_id: None,
             section_id: Some(section_id.to_owned()),
+            span: None,
         }
     }
 
@@ -71,14 +80,26 @@ impl SectionRef {
     pub fn document(document_id: &str) -> Self {
         Self {
             document_id: document_id.to_owned(),
+            revision_id: None,
+            chunk_id: None,
             section_id: None,
+            span: None,
         }
     }
 
     /// Whether `citation` cites this expected section, or this document.
     fn cited_by(&self, citation: &Self) -> bool {
+        let same_revision = self.revision_id == citation.revision_id;
         self.document_id == citation.document_id
-            && (self.section_id.is_none() || self.section_id == citation.section_id)
+            && same_revision
+            && (self.section_id.is_none()
+                || self.section_id == citation.section_id
+                || self
+                    .span
+                    .zip(citation.span)
+                    .is_some_and(|(expected, cited)| {
+                        expected[0].max(cited[0]) < expected[1].min(cited[1])
+                    }))
     }
 }
 
@@ -291,14 +312,17 @@ pub fn resolve_expected<E>(
     suite: &Suite,
     mut documents: impl FnMut(&str) -> Result<Option<CanonicalDocument>, E>,
 ) -> Result<Vec<Vec<SectionRef>>, RunError<E>> {
-    Ok(resolve(suite, &mut documents)?
+    Ok(resolve_details(suite, &mut documents)?
         .into_iter()
         .map(|expected| {
             expected
                 .into_iter()
                 .map(|item| SectionRef {
-                    document_id: item.document_id,
-                    section_id: item.section_id,
+                    document_id: item.expected.document_id,
+                    revision_id: Some(item.revision_id),
+                    chunk_id: None,
+                    section_id: item.expected.section_id,
+                    span: item.span,
                 })
                 .collect()
         })

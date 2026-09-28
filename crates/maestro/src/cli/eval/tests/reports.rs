@@ -43,10 +43,18 @@ pub(super) fn to_json(value: &impl serde::Serialize) -> Value {
 #[test]
 fn a_private_row_holds_ids_ranks_citations_refusals_and_timings() {
     let runs = runs();
-    let rows = &runs[0].rows;
-    let diagnostics = &runs[0].diagnostics;
-    let answered = to_json(&PrivateRow::new(&rows[0], &diagnostics[0], true));
-    let refused = to_json(&PrivateRow::new(&rows[2], &diagnostics[2], true));
+    let mut row = runs[0].rows[0].clone();
+    if let AskOutcome::Answered { citations, .. } = &mut row.ask.outcome {
+        citations[0].revision_id = Some("revision-a0".to_owned());
+        citations[0].chunk_id = Some("chunk-a0".to_owned());
+        citations[0].span = Some([12, 34]);
+    }
+    let answered = to_json(&PrivateRow::new(&row, &runs[0].diagnostics[0], true));
+    let refused = to_json(&PrivateRow::new(
+        &runs[0].rows[2],
+        &runs[0].diagnostics[2],
+        true,
+    ));
 
     let keys: Vec<&str> = answered
         .as_object()
@@ -81,7 +89,13 @@ fn a_private_row_holds_ids_ranks_citations_refusals_and_timings() {
     assert_eq!(answered["ask"], "answered");
     assert_eq!(
         answered["citations"],
-        json!([{"document_id": "doc-a0", "section_id": "section-a0"}])
+        json!([{
+            "document_id": "doc-a0",
+            "revision_id": "revision-a0",
+            "chunk_id": "chunk-a0",
+            "section_id": "section-a0",
+            "span": [12, 34]
+        }])
     );
     assert!(answered["search_us"].is_u64() && answered["ask_us"].is_u64());
     assert_eq!(refused["ask"], "refused");
@@ -180,6 +194,12 @@ fn a_rung_report_in_markdown_names_its_provenance_then_its_floors() {
     assert!(markdown.contains("- Generation: 0\n"));
     assert!(markdown.contains(&format!("- Reranker card: {RERANKER}\n")));
     assert!(markdown.contains("- Binary: 0.1.0 (abc123)\n"));
+    assert!(markdown.contains(concat!(
+        "- Citation scoring: same document and pinned revision; exact section ID or a cited ",
+        "span intersecting the expected section's extent (half-open, max(starts) < ",
+        "min(ends); touching spans do not); a whole-document expectation matches any ",
+        "citation of that revision.\n"
+    )));
     assert!(markdown.contains("| Right document top-10 | 2/2 (100.0%) |"));
 }
 

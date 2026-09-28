@@ -188,12 +188,25 @@ fn an_answer_gives_its_citations_documents_or_its_refusal() {
         answer_outcome(
             &answer(&[("source:docs", "section"), ("elsewhere", "s")], None),
             &documents,
+            1,
             &unchecked()
         ),
         AskOutcome::Answered {
             citations: vec![
-                SectionRef::section("document", "section"),
-                SectionRef::section("", "s"),
+                SectionRef {
+                    document_id: "document".to_owned(),
+                    revision_id: Some("revision".to_owned()),
+                    chunk_id: Some("chunk".to_owned()),
+                    section_id: Some("section".to_owned()),
+                    span: Some([0, 1]),
+                },
+                SectionRef {
+                    document_id: String::new(),
+                    revision_id: None,
+                    chunk_id: Some("chunk".to_owned()),
+                    section_id: Some("s".to_owned()),
+                    span: Some([0, 1]),
+                },
             ],
             invented_literals: 0,
         }
@@ -202,10 +215,26 @@ fn an_answer_gives_its_citations_documents_or_its_refusal() {
         answer_outcome(
             &answer(&[], Some(RefusalCode::NoEvidence)),
             &documents,
+            1,
             &unchecked()
         ),
         AskOutcome::Refused(RefusalCode::NoEvidence)
     );
+}
+
+#[test]
+fn citations_from_an_answer_outside_the_pinned_generation_have_no_revision() {
+    let scratch = Scratch::new();
+    let kernel = scratch.kernel(None).unwrap();
+    let documents = ChunkSetDocuments::read(&kernel.database, &kernel.scopes, "chunk-set").unwrap();
+    let mut stale = answer(&[("source:docs", "section")], None);
+    stale.generation = 2;
+
+    assert!(matches!(
+        answer_outcome(&stale, &documents, 1, &unchecked()),
+        AskOutcome::Answered { citations, .. }
+            if citations.iter().all(|citation| citation.revision_id.is_none())
+    ));
 }
 
 #[test]
@@ -233,19 +262,19 @@ fn an_answer_from_a_search_that_did_not_run_its_rung_fails() {
     let all = SearchConfiguration::default();
 
     assert_eq!(
-        answer_outcome(&late_dense, &documents, &all),
+        answer_outcome(&late_dense, &documents, 1, &all),
         AskOutcome::TimedOut
     );
     assert_eq!(
-        answer_outcome(&unranked, &documents, &all),
+        answer_outcome(&unranked, &documents, 1, &all),
         AskOutcome::Failed
     );
     assert_eq!(
-        answer_outcome(&clean, &documents, &all),
+        answer_outcome(&clean, &documents, 1, &all),
         AskOutcome::Refused(RefusalCode::NotFound)
     );
     assert_eq!(
-        answer_outcome(&unranked, &documents, &unchecked()),
+        answer_outcome(&unranked, &documents, 1, &unchecked()),
         AskOutcome::Refused(RefusalCode::NotFound)
     );
 }

@@ -3,7 +3,9 @@
 
 use super::run::{BACKUPS, NOTES, QUEUES, document_id, line, lookup, section_id, suite, three};
 use crate::eval::{RunError, SectionRef, resolve_expected};
+use maestro_canonicalization::{CanonicalizeInput, canonicalize};
 use serde_json::json;
+use std::convert::Infallible;
 
 #[test]
 fn each_question_expects_its_resolved_sections_in_the_suites_order() {
@@ -11,14 +13,26 @@ fn each_question_expects_its_resolved_sections_in_the_suites_order() {
     assert_eq!(
         resolved,
         [
-            vec![SectionRef::section(
-                document_id(BACKUPS),
-                section_id(BACKUPS, &["Backups", "Retention"], 1)
-            )],
-            vec![SectionRef::section(
-                document_id(QUEUES),
-                section_id(QUEUES, &["Queues", "Retries"], 2)
-            )],
+            vec![SectionRef {
+                document_id: document_id(BACKUPS).to_owned(),
+                revision_id: Some(
+                    "rev-40d01ad82199d03b7ff1cdde55c72c89d8c6edf99f95982c840fd12a891398e1"
+                        .to_owned()
+                ),
+                chunk_id: None,
+                section_id: Some(section_id(BACKUPS, &["Backups", "Retention"], 1).to_owned()),
+                span: Some([31, 59]),
+            }],
+            vec![SectionRef {
+                document_id: document_id(QUEUES).to_owned(),
+                revision_id: Some(
+                    "rev-4e9cc86808d9d11d9a0ff893cca8d1e4584452dd7878c0b22596153ad363c489"
+                        .to_owned()
+                ),
+                chunk_id: None,
+                section_id: Some(section_id(QUEUES, &["Queues", "Retries"], 2).to_owned()),
+                span: Some([36, 71]),
+            }],
             vec![],
         ]
     );
@@ -32,8 +46,46 @@ fn a_document_without_sections_is_expected_whole() {
     )]);
     assert_eq!(
         resolve_expected(&notes, lookup()).unwrap(),
-        [vec![SectionRef::document(document_id(NOTES))]]
+        [vec![SectionRef {
+            document_id: document_id(NOTES).to_owned(),
+            revision_id: Some(
+                "rev-c2df78459e41bf9f7679671fb5c916c572902e5642778f194dd4cba5f15c6d15".to_owned()
+            ),
+            chunk_id: None,
+            section_id: None,
+            span: None,
+        }]]
     );
+}
+
+#[test]
+fn a_nested_list_heading_uses_its_lexical_section_extent() {
+    const SOURCE_REF: &str = "corpus-path:lists.md";
+    let markdown = concat!(
+        "# Root\n\n## Install\n\n- Item\n  ### Note\n  nested text\n  still nested\n",
+        "- Another\n\nAfter list prose.\n\n## Next\n\nend\n",
+    );
+    let mut input = CanonicalizeInput::new(markdown, "lists.md");
+    input.metadata.source_reference = Some(SOURCE_REF.to_owned());
+    let document = canonicalize(input).unwrap();
+    let expected_start = markdown.find("### Note").unwrap();
+    let after_list = markdown.find("After list prose.").unwrap();
+    let nested = suite(&[line(
+        "nested",
+        &json!([{
+            "source_ref": SOURCE_REF,
+            "heading_path": ["Root", "Install", "Note"],
+        }]),
+    )]);
+
+    let resolved = resolve_expected(&nested, |source_ref| {
+        Ok::<_, Infallible>((source_ref == SOURCE_REF).then(|| document.clone()))
+    })
+    .unwrap();
+    let span = resolved[0][0].span.unwrap();
+
+    assert_eq!(span[0], expected_start);
+    assert!(span[0] < span[1] && span[1] < after_list);
 }
 
 #[test]

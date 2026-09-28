@@ -7,6 +7,7 @@ use super::{
     metric::measure,
     reports::{Expected, Header, Report, Schema},
 };
+use crate::search::evidence::SectionIndex;
 use crate::suite::{ExpectedSection, Question, Resolved, Suite};
 use maestro_canonicalization::CanonicalDocument;
 use maestro_kernel::evidence::Bundle;
@@ -29,8 +30,9 @@ use std::{collections::BTreeMap, time::Instant};
 /// [`RunError::Documents`] and [`RunError::Retrieval`] with the caller's own
 /// error; [`RunError::NoDocument`] for a `source_ref` the lookup does not
 /// find, [`RunError::Unresolved`] for a name that gives no one section, or no
-/// document without sections, and [`RunError::SameSection`] and
-/// [`RunError::SameDocument`] for a question that names one section or
+/// document without sections; [`RunError::SectionExtent`] for a resolved
+/// section without a valid canonical source extent; and [`RunError::SameSection`]
+/// and [`RunError::SameDocument`] for a question that names one section or
 /// document twice outside a group, or across groups, all before any retrieval; and
 /// [`RunError::OtherGeneration`] for a bundle of another collection or
 /// generation than the header's.
@@ -92,6 +94,17 @@ pub fn run<E>(
 /// the name.
 type Name<'suite> = (usize, usize, &'suite Question, &'suite ExpectedSection);
 
+/// An expected item plus the source identity needed only by the ladder.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) struct ResolvedExpected {
+    /// The existing run report fields.
+    pub expected: Expected,
+    /// The pinned source revision.
+    pub revision_id: String,
+    /// The expected section's half-open source extent.
+    pub span: Option<[usize; 2]>,
+}
+
 /// The sections and documents each question of `suite` expects, unranked,
 /// in the suite's order, each resolved in the canonical document `documents`
 /// gives for its `source_ref`, which is looked up once and dropped once its
@@ -100,6 +113,17 @@ pub(super) fn resolve<E>(
     suite: &Suite,
     documents: &mut impl FnMut(&str) -> Result<Option<CanonicalDocument>, E>,
 ) -> Result<Vec<Vec<Expected>>, RunError<E>> {
+    Ok(resolve_details(suite, documents)?
+        .into_iter()
+        .map(|row| row.into_iter().map(|item| item.expected).collect())
+        .collect())
+}
+
+/// Resolves expected items with the revision and extent used only by the ladder.
+pub(super) fn resolve_details<E>(
+    suite: &Suite,
+    documents: &mut impl FnMut(&str) -> Result<Option<CanonicalDocument>, E>,
+) -> Result<Vec<Vec<ResolvedExpected>>, RunError<E>> {
     let mut named: BTreeMap<&str, Vec<Name<'_>>> = BTreeMap::new();
     for (question_index, question) in suite.questions.iter().enumerate() {
         for (name_index, name) in question.expected.iter().enumerate() {
@@ -107,7 +131,7 @@ pub(super) fn resolve<E>(
             names.push((question_index, name_index, question, name));
         }
     }
-    let mut resolved: Vec<Vec<Option<Expected>>> = suite
+    let mut resolved: Vec<Vec<Option<ResolvedExpected>>> = suite
         .questions
         .iter()
         .map(|question| vec![None; question.expected.len()])
@@ -117,8 +141,19 @@ pub(super) fn resolve<E>(
             source_ref: source_ref.to_owned(),
             error,
         })?;
+        let section_index = document.as_ref().and_then(|document| {
+            names
+                .iter()
+                .any(|(_, _, _, name)| !name.heading_path.is_empty())
+                .then(|| {
+                    SectionIndex::new_from_length(
+                        document,
+                        document.original_markdown_reference.byte_length,
+                    )
+                })
+        });
         for (question_index, name_index, question, name) in names {
-            let expected = resolve_name(document.as_ref(), question, name)?;
+            let expected = resolve_name(document.as_ref(), section_index.as_ref(), question, name)?;
             let place = resolved
                 .get_mut(question_index)
                 .and_then(|places| places.get_mut(name_index));
@@ -140,9 +175,10 @@ pub(super) fn resolve<E>(
 /// `source_ref` if the lookup found one; unranked.
 fn resolve_name<E>(
     document: Option<&CanonicalDocument>,
+    section_index: Option<&Result<SectionIndex, String>>,
     question: &Question,
     name: &ExpectedSection,
-) -> Result<Expected, RunError<E>> {
+) -> Result<ResolvedExpected, RunError<E>> {
     let document = document.ok_or_else(|| RunError::NoDocument {
         question: question.id.clone(),
         source_ref: name.source_ref.clone(),
@@ -155,37 +191,70 @@ fn resolve_name<E>(
             heading_path: name.heading_path.clone(),
             reason,
         })?;
-    let section_id = match resolved {
-        Resolved::Section(section) => Some(section.section_id.clone()),
-        Resolved::Document(_) => None,
+    let (section_id, span) = match resolved {
+        Resolved::Section(section) => {
+            let extent = section_index
+                .ok_or_else(|| RunError::SectionExtent {
+                    question: question.id.clone(),
+                    section_id: section.section_id.clone(),
+                    reason: "section index was not built".to_owned(),
+                })?
+                .as_ref()
+                .map_err(|reason| RunError::SectionExtent {
+                    question: question.id.clone(),
+                    section_id: section.section_id.clone(),
+                    reason: reason.clone(),
+                })?
+                .section_extent(&section.section_id)
+                .ok_or_else(|| RunError::SectionExtent {
+                    question: question.id.clone(),
+                    section_id: section.section_id.clone(),
+                    reason: "canonical section has no source extent".to_owned(),
+                })?;
+            (
+                Some(section.section_id.clone()),
+                Some([extent.start, extent.end]),
+            )
+        }
+        Resolved::Document(_) => (None, None),
     };
-    Ok(Expected {
-        document_id: document.document_id.clone(),
-        section_id,
-        group: name.group.clone(),
-        rank: None,
+    Ok(ResolvedExpected {
+        expected: Expected {
+            document_id: document.document_id.clone(),
+            section_id,
+            group: name.group.clone(),
+            rank: None,
+        },
+        revision_id: document.revision_id.clone(),
+        span,
     })
 }
 
 /// `expected`, the sections and documents `question` expects, unless one is
 /// named twice outside a group or across groups.
-fn distinct<E>(question: &Question, expected: Vec<Expected>) -> Result<Vec<Expected>, RunError<E>> {
+fn distinct<E>(
+    question: &Question,
+    expected: Vec<ResolvedExpected>,
+) -> Result<Vec<ResolvedExpected>, RunError<E>> {
     let mut seen = BTreeMap::new();
     for item in &expected {
-        let identity = (item.document_id.as_str(), item.section_id.as_deref());
-        let group = item.group.as_deref();
+        let identity = (
+            item.expected.document_id.as_str(),
+            item.expected.section_id.as_deref(),
+        );
+        let group = item.expected.group.as_deref();
         if let Some(previous) = seen.get(&identity) {
             if group.is_some() && *previous == group {
                 continue;
             }
-            return match &item.section_id {
+            return match &item.expected.section_id {
                 Some(section_id) => Err(RunError::SameSection {
                     question: question.id.clone(),
                     section_id: section_id.clone(),
                 }),
                 None => Err(RunError::SameDocument {
                     question: question.id.clone(),
-                    document_id: item.document_id.clone(),
+                    document_id: item.expected.document_id.clone(),
                 }),
             };
         }

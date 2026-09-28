@@ -12,6 +12,7 @@ mod intervals;
 mod ladder;
 mod ladder_resolve;
 mod ladder_rows;
+mod ladder_spans;
 mod metrics;
 mod ranking;
 mod report;

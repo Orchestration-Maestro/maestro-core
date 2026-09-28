@@ -115,6 +115,16 @@ impl<'run> RungReport<'run> {
             serde_json::to_string(self.configuration).unwrap_or_else(|_| String::new());
         let _ = writeln!(text, "- Configuration: `{configuration}`");
         let _ = writeln!(text, "- Asks: {}", if self.ask { "yes" } else { "no" });
+        let _ = writeln!(
+            text,
+            concat!(
+                "- Citation scoring: same document and pinned revision; exact section ID or ",
+                "a cited span intersecting the expected section's extent ",
+                "(half-open, max(starts) < min(ends); touching spans do not); ",
+                "a whole-document expectation matches any ",
+                "citation of that revision."
+            )
+        );
         let _ = writeln!(text, "- Warm-ups: {}", self.warm_ups);
         let _ = writeln!(text, "- Suite digest: {}", self.suite_digest);
         let _ = writeln!(
@@ -173,8 +183,14 @@ pub(super) struct PrivateRow<'run> {
 struct Citation<'run> {
     /// Its document's ID.
     document_id: &'run str,
+    /// Its source revision in the rung's pinned chunk set.
+    revision_id: Option<&'run str>,
+    /// Its chunk's ID.
+    chunk_id: Option<&'run str>,
     /// Its ID, absent for a document without sections.
     section_id: Option<&'run str>,
+    /// Its half-open byte span in the revision.
+    span: Option<[usize; 2]>,
 }
 
 impl<'run> PrivateRow<'run> {
@@ -201,7 +217,10 @@ impl<'run> PrivateRow<'run> {
                     .iter()
                     .map(|citation| Citation {
                         document_id: &citation.document_id,
+                        revision_id: citation.revision_id.as_deref(),
+                        chunk_id: citation.chunk_id.as_deref(),
                         section_id: citation.section_id.as_deref(),
+                        span: citation.span,
                     })
                     .collect(),
             ),

@@ -29,6 +29,7 @@ mod spans;
 mod tests;
 /// Shared error types for authoritative evidence assembly.
 mod types;
+pub(crate) use sections::SectionIndex;
 /// Compares numeric version components without integer conversion.
 mod versions;
 

@@ -77,6 +77,14 @@ impl ChunkSetDocuments {
         self.by_chunk.get(chunk_id).map(String::as_str)
     }
 
+    /// The pinned revision of `source_ref`, if the set holds one.
+    #[must_use]
+    pub fn revision_id(&self, source_ref: &str) -> Option<&str> {
+        self.by_source_ref
+            .get(source_ref)
+            .map(|(_, revision)| revision.id.as_str())
+    }
+
     /// The ID of the document of `source_ref`, if the set holds one.
     #[must_use]
     pub fn document_id(&self, source_ref: &str) -> Option<&str> {

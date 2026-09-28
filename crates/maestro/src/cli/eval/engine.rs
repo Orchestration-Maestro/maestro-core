@@ -245,7 +245,12 @@ impl Engine for KernelEngine<'_> {
             self.runtime
                 .block_on(Box::pin(ask_configured(&context, &request, configuration)));
         match asked {
-            Ok(answer) => answer_outcome(&answer, &held.documents, &configuration),
+            Ok(answer) => answer_outcome(
+                &answer,
+                &held.documents,
+                held.cards.generation.id,
+                &configuration,
+            ),
             Err(error) => match ask_failure(&error) {
                 StageFailure::TimedOut => AskOutcome::TimedOut,
                 StageFailure::Failed => AskOutcome::Failed,
@@ -362,13 +367,15 @@ pub(super) fn bundle_documents(bundle: &Bundle, order: &[String]) -> Vec<String>
         .collect()
 }
 
-/// What `answer` gives the ladder: its citations' sections, their documents
-/// named by `source_ref` in `documents`, or its refusal. A delivered answer
-/// passed the answer check, which refuses an invented literal, so it holds
-/// none.
+/// What `answer` gives the ladder: its citations' sections and spans, their
+/// documents named by `source_ref` in `documents`, or its refusal. A delivered
+/// answer passed the answer check, which refuses an invented literal, so it
+/// holds none. A generation mismatch drops the citation revisions so scoring
+/// cannot accept spans from an unpinned answer.
 pub(super) fn answer_outcome(
     answer: &Answer,
     documents: &ChunkSetDocuments,
+    pinned_generation: i64,
     configuration: &SearchConfiguration,
 ) -> AskOutcome {
     match stage_failure(configuration, &answer.routes) {
@@ -388,7 +395,16 @@ pub(super) fn answer_outcome(
                     .document_id(&citation.source_ref)
                     .unwrap_or_default()
                     .to_owned(),
+                revision_id: (answer.generation == pinned_generation)
+                    .then(|| {
+                        documents
+                            .revision_id(&citation.source_ref)
+                            .map(str::to_owned)
+                    })
+                    .flatten(),
+                chunk_id: Some(citation.chunk_id.clone()),
                 section_id: citation.section_id.clone(),
+                span: Some(citation.span),
             })
             .collect(),
         invented_literals: 0,

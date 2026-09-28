@@ -647,6 +647,7 @@ in place.
 │       │   │   │   ├── ladder.rs                                            # Tests of the ladder's floors: each count at its exact boundary, the
 │       │   │   │   ├── ladder_resolve.rs                                    # resolve_expected gives the ladder's scorer each question's expected
 │       │   │   │   ├── ladder_rows.rs                                       # Tests of what the ladder's rows may not hide: answerable questions left
+│       │   │   │   ├── ladder_spans.rs                                      # Citation locality against the expected section's pinned source extent
 │       │   │   │   ├── metrics.rs                                           # Each metric of a run against values computed by hand on a small suite
 │       │   │   │   ├── mod.rs                                               # Tests of the evaluation runner: how it ranks and judges each question
 │       │   │   │   ├── ranking.rs                                           # A bundle lists its passages in reading order, so the runner ranks them
