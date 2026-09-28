@@ -927,6 +927,7 @@ in place.
 │       │       │   ├── publication_verification.rs                          # Published-generation verification names corrupted inputs, bad counts and
 │       │       │   ├── refused_batches.rs                                   # A batch whose vectors break a check is refused whole
 │       │       │   ├── resumed_builds.rs                                    # An interrupted build resumes after its last journaled batch
+│       │       │   ├── server_version.rs                                    # The client reads the server's version from its health check
 │       │       │   ├── stopped_builds.rs                                    # Refusals before any work, unreadable chunks, and a Qdrant that refuses or is out of reach
 │       │       │   └── support.rs                                           # What the projection's tests share: a publication and the names it gives
 │       │       ├── quality_gate/                                            # The quality gate (T020) through the import, the ledger and the kernel

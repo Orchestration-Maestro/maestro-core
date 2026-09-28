@@ -1,17 +1,23 @@
-//! The fake's server: its two services on a loopback port, served by the
+//! The fake's server: its three services on a loopback port, served by the
 //! runtime of the test that starts it.
 
 use super::state::Fake;
 use qdrant_client::qdrant::{
-    Filter, PointId, Value, collections_server::CollectionsServer, points_server::PointsServer,
+    Filter, HealthCheckReply, HealthCheckRequest, PointId, Value,
+    collections_server::CollectionsServer,
+    points_server::PointsServer,
+    qdrant_server::{Qdrant, QdrantServer},
     value::Kind,
 };
 use std::sync::Arc;
 use tokio::sync::Notify;
 use tonic::{
-    Code,
+    Code, Request, Response, Status,
     transport::{Server, server::TcpIncoming},
 };
+
+/// The version the fake's health check answers: the Qdrant it imitates.
+pub(in super::super) const FAKE_VERSION: &str = "1.19.0";
 
 /// A running fake.
 #[derive(Debug, Clone)]
@@ -32,6 +38,7 @@ impl FakeQdrant {
         let server = Server::builder()
             .add_service(CollectionsServer::new(fake.clone()))
             .add_service(PointsServer::new(fake.clone()))
+            .add_service(QdrantServer::new(fake.clone()))
             .serve_with_incoming(incoming);
         drop(tokio::spawn(server));
         Self { url, fake }
@@ -123,5 +130,19 @@ impl FakeQdrant {
     /// The target of `alias` in the fake's current state.
     pub(in super::super) fn alias_target(&self, alias: &str) -> Option<String> {
         self.fake.state().aliases.get(alias).cloned()
+    }
+}
+
+#[tonic::async_trait]
+impl Qdrant for Fake {
+    async fn health_check(
+        &self,
+        _request: Request<HealthCheckRequest>,
+    ) -> Result<Response<HealthCheckReply>, Status> {
+        Ok(Response::new(HealthCheckReply {
+            title: "qdrant - vector search engine".to_owned(),
+            version: FAKE_VERSION.to_owned(),
+            commit: None,
+        }))
     }
 }

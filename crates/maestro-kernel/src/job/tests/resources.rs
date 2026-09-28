@@ -9,6 +9,7 @@ use crate::{
     store::{Database, Error as StoreError},
 };
 use serde_json::{Value, json};
+use std::ops::Range;
 use ulid::Ulid;
 
 /// The resource the tests' publications hold: the publication of the
@@ -257,9 +258,37 @@ fn jobs_for_resource_returns_every_state_newest_first() {
 fn jobs_for_resource_refuses_a_history_over_its_bound() {
     let scratch = Scratch::new();
     let database = scratch.open();
+    insert_failed_jobs(&database, 0..1000);
+    assert_eq!(
+        database
+            .jobs_for_resource(&ScopeSet::default_workspace(), PUBLISH, PUBLICATION)
+            .unwrap()
+            .len(),
+        1000
+    );
+    insert_failed_jobs(&database, 1000..1001);
+
+    let error = database
+        .jobs_for_resource(&ScopeSet::default_workspace(), PUBLISH, PUBLICATION)
+        .unwrap_err();
+    assert_eq!(
+        error.to_string(),
+        format!("resource {PUBLICATION} has more than 1000 visible jobs; refusing its history")
+    );
+    assert!(
+        matches!(
+            error,
+            Error::TooManyJobs { ref resource, limit: 1000 } if resource == PUBLICATION
+        ),
+        "{error:?}"
+    );
+}
+
+/// Records failed publication jobs, one per sequence number.
+fn insert_failed_jobs(database: &Database, sequences: Range<u64>) {
     database
         .write(|transaction| {
-            for sequence in 0..=1000 {
+            for sequence in sequences {
                 transaction.execute(
                     "INSERT INTO jobs (id, kind, idempotency_key, attempt, scope, resource,
                                        state, outcome_json)
@@ -276,19 +305,4 @@ fn jobs_for_resource_refuses_a_history_over_its_bound() {
             Ok::<(), StoreError>(())
         })
         .unwrap();
-
-    let error = database
-        .jobs_for_resource(&ScopeSet::default_workspace(), PUBLISH, PUBLICATION)
-        .unwrap_err();
-    assert_eq!(
-        error.to_string(),
-        format!("resource {PUBLICATION} has more than 1000 visible jobs; refusing its history")
-    );
-    assert!(
-        matches!(
-            error,
-            Error::TooManyJobs { ref resource, limit: 1000 } if resource == PUBLICATION
-        ),
-        "{error:?}"
-    );
 }

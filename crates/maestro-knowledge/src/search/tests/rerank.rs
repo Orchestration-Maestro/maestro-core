@@ -20,7 +20,7 @@ use std::{
     },
     time::Duration,
 };
-use tokio::time::sleep;
+use tokio::{task::yield_now, time::sleep};
 
 pub(super) struct FakePort {
     reply: Reply,
@@ -119,7 +119,11 @@ impl ModelPort for FakePort {
             .iter()
             .find(|(known_text, _)| known_text == text)
             .map_or_else(|| text.chars().count(), |(_, count)| *count);
-        future::ready(Ok(vec![0; count]))
+        // Yield as a router call does, so the rerank deadline can stop a split that never ends.
+        async move {
+            yield_now().await;
+            Ok(vec![0; count])
+        }
     }
 
     fn chat(

@@ -1,8 +1,14 @@
 //! Concurrent model registry writes stay idempotent.
 
 use super::support::{Scratch, card, collection, collection_scopes};
-use crate::{gateway::Role, model::NewModelCard};
-use std::{sync::Barrier, thread};
+use crate::{gateway::Role, model::NewModelCard, store::Error as StoreError};
+use rusqlite::params;
+use std::{
+    sync::{Barrier, mpsc},
+    thread,
+    time::Duration,
+};
+use ulid::Ulid;
 
 #[test]
 fn simultaneous_registration_of_one_card_records_one_immutable_card() {
@@ -48,4 +54,50 @@ fn simultaneous_registration_of_one_card_records_one_immutable_card() {
             .pins,
         1
     );
+}
+
+#[test]
+fn a_registration_that_loses_the_race_returns_the_committed_identical_card() {
+    let scratch = Scratch::new();
+    let writer = scratch.open();
+    let registrant = scratch.open();
+    collection(&writer, "one");
+    let scopes = collection_scopes(&writer, "one");
+    let card = card(&writer, &scratch);
+    let json = String::from_utf8(card.card_json().unwrap()).unwrap();
+    let id = Ulid::generate();
+    let (inserted, started) = mpsc::channel();
+    let (card, scopes, registrant) = (&card, &scopes, &registrant);
+    let registered = thread::scope(|workers| {
+        let registration = workers.spawn(move || {
+            started.recv().unwrap();
+            registrant.record_model_card(
+                scopes,
+                &NewModelCard {
+                    collection_id: "one",
+                    card,
+                },
+            )
+        });
+        writer
+            .write(|transaction| {
+                transaction.execute(
+                    "INSERT INTO model_cards (id, collection_id, role, digest, card_json)
+                     VALUES (?1, 'one', ?2, ?3, ?4)",
+                    params![
+                        id.to_string(),
+                        card.fields().role.to_string(),
+                        card.digest().as_str(),
+                        json
+                    ],
+                )?;
+                // The registrant reads before this commit, then waits for the write lock.
+                inserted.send(()).unwrap();
+                thread::sleep(Duration::from_millis(200));
+                Ok::<(), StoreError>(())
+            })
+            .unwrap();
+        registration.join().unwrap()
+    });
+    assert_eq!(registered.unwrap().id, id);
 }

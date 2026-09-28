@@ -71,6 +71,16 @@ fn a_missing_path_under_a_symlinked_directory_stays_missing() {
     assert_eq!(error.kind(), io::ErrorKind::NotFound);
 }
 
+#[cfg(unix)]
+#[test]
+fn an_unreadable_ancestor_blocks_the_path_beneath_it() {
+    let scratch = Scratch::new("looped-parent");
+    let looped = scratch.path().join("loop");
+    symlink(&looped, &looped).unwrap();
+
+    assert!(has_blocking_parent(&looped.join("missing").join("child")));
+}
+
 #[test]
 fn not_found_beneath_a_file_is_not_a_missing_path() {
     let scratch = Scratch::new("blocked-path");

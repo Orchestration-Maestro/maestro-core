@@ -1,7 +1,10 @@
 //! Controlled exact-index identifier reads.
 
 use super::support::SearchDb;
-use crate::retrieval::{ChunkHit, Error, IdentifierSearchResult, ReadControl, SearchRead};
+use crate::retrieval::{
+    ChunkHit, Error, IdentifierSearchResult, ReadControl, SearchRead, contains_identifier,
+    normalize_whitespace,
+};
 use std::{
     sync::{Arc, atomic::AtomicBool},
     time::{Duration, Instant},
@@ -210,6 +213,47 @@ fn multiple_identifiers_merge_deduplicate_and_keep_the_global_top_limit() {
             .collect::<Vec<_>>(),
         ["chunk-2", "chunk-a"]
     );
+}
+
+#[test]
+fn a_later_identifier_replaces_earlier_hits_beyond_the_global_limit() {
+    let search = SearchDb::with_input_population(
+        &["Use --alpha.", "Use --alpha.", "Use --beta.", "Use --beta."],
+        20,
+    );
+    search.ready();
+    assert_eq!(
+        search_hits_limit(&search, &["--alpha", "--beta"], 2)
+            .iter()
+            .map(|hit| hit.chunk_id.as_str())
+            .collect::<Vec<_>>(),
+        ["chunk-2", "chunk-3"]
+    );
+}
+
+#[test]
+fn whitespace_normalization_trims_and_collapses_each_run() {
+    assert_eq!(
+        normalize_whitespace(" \tUse  the\n tool. "),
+        "Use the tool."
+    );
+}
+
+#[test]
+fn a_literal_identifier_matches_only_as_a_complete_atom() {
+    for (text, identifier, matches) in [
+        ("Use\n ERR-042.", "ERR-042", true),
+        ("(ERR-042)", "ERR-042", true),
+        ("XERR-042", "ERR-042", false),
+        ("--forceful", "--force", false),
+        ("ERR-042", "", false),
+    ] {
+        assert_eq!(
+            contains_identifier(text, identifier),
+            matches,
+            "identifier {identifier:?} in {text:?}"
+        );
+    }
 }
 
 #[test]

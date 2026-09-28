@@ -15,4 +15,4 @@ mod scroll;
 mod server;
 mod state;
 
-pub(super) use server::FakeQdrant;
+pub(super) use server::{FAKE_VERSION, FakeQdrant};

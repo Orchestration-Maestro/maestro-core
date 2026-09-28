@@ -17,6 +17,7 @@ mod publication_verification;
 mod refused_batches;
 mod resumed_builds;
 mod search_routes;
+mod server_version;
 mod stopped_builds;
 mod support;
 
