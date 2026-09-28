@@ -21,7 +21,7 @@ not fixture work. This scoped exception is recorded in
 | **S0 Foundation** | Clean `maestro-core` (canonicalization only) under org gates; the repositories S1 needs published; Spec Kit | 4–6 days (measured scope) | — | — |
 | **S1 Knowledge kernel + hybrid RAG** | Kernel building blocks; Control-M collection imported, published and searchable through MCP; eval suites; first model bake-off | 12–15 days | S0 | **M1 "Ask Control-M"** |
 | **S2 Knowledge graph** | Fact store, extraction, entity resolution, Neo4j projection, graph route, graph evals | 10–15 days | S1 | **M2 "Relationships answered"** |
-| **S3 Catalog** | Copilot-native catalog v1, settings classes and overrides, compile/release/install/update with freshness and revocation, `maestro init`, host projection, intent routing, policies and static graph checks | 118 lane-hours plus review/CI reserve ([plan](../../specs/003-catalog/plan.md#risks-and-estimates)) | S1 live evidence for C08/C28 and M1 release for M3 exit; S2 G25/G27 for impact | **M3 "Catalog installable"** |
+| **S3 Catalog** | Copilot-native catalog v1, settings classes and overrides, compile/release/install/update with freshness and revocation, `maestro init`, host projection, intent routing, policies and static graph checks | 180 lane-hours plus review/CI reserve ([plan](../../specs/003-catalog/plan.md#risks-and-estimates)) | S1 live evidence for C08/C28 and M1 release for M3 exit; S2 G25/G27 for impact | **M3 "Catalog installable"** |
 | **S4 Orchestration runtime** | Workflow graphs, durable engine, daemon, Copilot SDK + llama.cpp sessions, Cedar broker, sandbox, contracts, interrupts, extension host and event stream, test kit | 18–24 days | S3 | **M4 "First governed workflow"** |
 | **S5 Capabilities + InnerSource** | Monitoring, Product Owner and Control-M orchestration-planning capabilities; scaffolder; scenario runner; a contributed capability | 10–15 days | S4 | **M5 "First contributed capability"** |
 | **S6 Native acquisition** | Frontier, fetchers, extraction, policy; private BMC connectors; Python retired source by source | 15–25 days | S1 | **M6 "Python retired"** |
@@ -168,11 +168,11 @@ has passing allowed and denied neighbours. C28 requires M1 release, S2 impact,
 live host/release evidence (including Copilot `preToolUse` allow, deny and
 hook-error-to-deny receipts in the OA2 host stage) and final three-platform CI.
 
-**D5 routing exit (owner decision; pending proposal, 2026-09-28):**
-held-out matchable **top-3 ≥ 90 %** remains approved. The supervisor recommends
-**top-1 ≥ 90 %** instead because first-selection correctness is stricter than
-shortlist inclusion; this replacement is **owner-pending** under OA10, not an
-approved clarification. C23 freezes
+**D5 routing exit — OA10 approved (owner, 2026-09-28):** the absolute bar is
+held-out matchable **top-1 ≥ 90 %**, requiring a correct first selection rather
+than shortlist inclusion. This is the owner's dated amendment to D5; its
+original **top-3 ≥ 90 %** bar is retained as history, not current acceptance.
+C23 freezes
 100+ independently reviewed CORE public/synthetic cases (at least 20 tuning,
 80 held-out, 60 held-out matchable), ten eligible synthetic workflow candidates
 and a digest-pinned compiled bundle/eligibility fixture. Required dependency

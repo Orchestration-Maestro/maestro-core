@@ -207,7 +207,7 @@ authorizes and executes; evidence decides completion.
 6. **Baseline first (D5)**: exact-ID and local lexical routing precede hybrid.
    Enable hybrid only if the seeded 95 % paired-bootstrap interval for held-out
    matchable top-1 gain has a strictly positive lower bound; otherwise ship
-   the baseline and retain the failed comparison. Offline fallback uses only a
+   the passing baseline and retain the failed comparison. Offline fallback uses only a
    cached, authorized, still-valid bundle; a resolved run never queries the
    index per step. Response caches are keyed by visibility, snapshot, trust and
    policy freshness, runtime constraints and retrieval profile.
@@ -221,10 +221,11 @@ authorizes and executes; evidence decides completion.
 8. Evaluation (D5): freeze 100+ independently reviewed public/synthetic intents,
    with several valid answers where appropriate, and a synthetic eligibility
    fixture with a compiled bundle before comparison, pinning all input digests.
-   The owner's approved absolute gate remains **held-out matchable top-3 ≥ 90 %**.
-   The supervisor's 2026-09-28 top-1 ≥ 90 % replacement is **owner-pending**
-   (OA10), recommended because it measures the first selection rather than
-   shortlist inclusion. Freeze at least 20 tuning/80 held-out cases, 60 held-out
+   **OA10 approved (owner, 2026-09-28):** the absolute gate is
+   **held-out matchable top-1 ≥ 90 %**, measuring the first selection rather
+   than shortlist inclusion. This dated amendment to D5 replaces its original
+   top-3 ≥ 90 % bar, retained as history, not current acceptance.
+   Freeze at least 20 tuning/80 held-out cases, 60 held-out
    matchable cases and ten eligible synthetic workflows. Report both top-1/top-3,
    correct no-match, clarification, unnecessary context, distractors and latency
    separately. Required dependency completeness is 100 %; formulas, seed 42 and

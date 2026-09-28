@@ -1544,9 +1544,10 @@ synthetic qualification accepted by normal installed consumers.
   on C23's pinned CORE bundle/eligibility fixture, with held-out top-1 and
   negative/distractor cohorts separate; record route p50/p95 latency.
 
-**Acceptance:** owner-approved held-out matchable top-3 ≥90 % and exact closure
-completeness 100 %. Report top-1 against the proposed ≥90 % replacement,
-owner-pending under OA10; do not claim that target approved. Scores are not probabilities. Real unqualified workflows stay `incompatible`;
+**Acceptance:** held-out matchable top-1 ≥ 90 % (OA10 approved by the owner,
+2026-09-28, amending D5) and exact closure completeness 100 %. Report top-3
+as a diagnostic; D5's original top-3 ≥ 90 % bar is historical, not acceptance.
+Scores are not probabilities. Real unqualified workflows stay `incompatible`;
 no failed or empty-denominator comparison is called a passing baseline.
 
 ### C25 Rebuildable catalog cards [US4] (3 h)
@@ -1615,11 +1616,12 @@ and `graph.rs` if S2's R4 has landed,
   top-1/top-3, no-match, clarification, exact closure/unnecessary-context metrics,
   distractor results and route p50/p95 latency, with all input/cohort identities.
 
-**Acceptance:** enable hybrid only when the held-out top-1 gain interval's lower
-bound is strictly positive; otherwise ship the passing baseline. The approved
-absolute gate is top-3 ≥90 %; its proposed top-1 ≥90 % replacement is owner-pending
-under OA10. Closure 100 % still applies. A failed
-comparison is retained; no benchmark result is invented to enable hybrid.
+**Acceptance:** enable hybrid only when held-out matchable top-1 ≥ 90 %
+(OA10 approved by the owner, 2026-09-28, amending D5), the paired top-1 gain
+interval's lower bound is strictly positive, and exact closure completeness is
+100 %; otherwise ship the passing baseline. D5's original top-3 ≥ 90 % bar
+is historical; top-3 remains a reported diagnostic. A failed comparison is
+retained; no benchmark result is invented to enable hybrid.
 
 ### C27a Scoped catalog dependency projection [US4] (4 h)
 
@@ -1678,7 +1680,9 @@ this M3 exit; a bounded in-memory fallback requires its own explicit approval.
 **After:** C08, C05f, C05k and OA9 visual acceptance, C15, C16, C16b,
 C16c, C16d, C16e, C16f, C16g, C17, C18, C19, C20, C21, C21b, C22b, C23,
 C24, C25, C26, C27; integrated T034/T035, T038 live registrations, M1 release,
-final CI, OA4/OA5/OA7 live trust/release/evidence actions and OA10's quality decision.
+final CI and OA4/OA5/OA7 live trust/release/evidence actions. OA10 is approved
+by the owner, 2026-09-28: the quality target is held-out matchable top-1 ≥ 90 %,
+not an unresolved decision.
 **Files:** `scripts/tests/catalog-m3.sh`,
 `docs/how-to/catalog.md`, `docs/how-to/knowledge-mcp.md`,
 `docs/architecture/08-traceability.md`,
@@ -1711,8 +1715,9 @@ SC-S3-006, SC-S3-007, SC-S3-008, SC-S3-009, SC-S3-010, SC-S3-011, SC-S3-012.
   Verify OA4/OA5 release, six-hour re-issue, missed-run alert, withdrawal and
   rotation evidence; finish C09's owned publisher-row evidence handoff. Record
   expiry/revocation/offline/restore cases, C23's synthetic suite/eligibility
-  digests and both top-1/top-3 metrics. Record OA10's quality decision before
-  final acceptance; never call the top-1 proposal owner-approved without it.
+  digests and both top-1/top-3 metrics. Verify held-out matchable top-1 ≥ 90 %
+  against OA10's approved amendment (owner, 2026-09-28) before final acceptance;
+  top-3 cannot substitute for the first-selection bar.
   Include real installed `incompatible` ("not qualified until
   S4") results. Include preference/trust/client-delivery receipts and verified
   startup off/propose/catalog-auto/consent/rollback/offline evidence, runtime
@@ -1883,7 +1888,7 @@ OA7 below names only M3 acceptance and eventual main release.
 | Publish compiler/catalog; enable six-hour trust attestations/hourly alerts; supply clean environment and drills; authorize private/model access | OA5, OA6 | C28 release proof; C08/C23/C26 only for the requested private/model access |
 | Accept M3 and eventual main release; later comparison access; any S2 fallback separately | OA7, OA8 | C28, C29 |
 | **Approved 2026-09-28:** ratatui + crossterm under ADR-0020; C05f measurements/vet still required, branded visual acceptance pending; no parser dependency | OA9 | C05k after measurement, C28 after visual evidence; never first plain C08 |
-| **Owner-pending:** decide the proposed stricter top-1 ≥90 % absolute gate; retain the approved top-3 bar meanwhile | OA10 | C28 final quality acceptance; C24/C26 calculate both without waiting |
+| **Approved by the owner, 2026-09-28:** amend D5's absolute routing bar to held-out matchable top-1 ≥ 90 %; the original top-3 ≥ 90 % bar is historical | OA10 | Quality target resolved; C24/C26 apply the top-1 gate and report both metrics; C28 verifies the amended bar before final quality acceptance |
 
 Record blocked/not-run when any input or external proof is absent. Do not
 create a repository, change organization settings, publish, enable workflows,

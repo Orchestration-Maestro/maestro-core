@@ -66,11 +66,13 @@ recommendation. These are decisions, not questions to reopen during execution.
   versions/features, duplicates and licences; the supervisor verifies ADR-0020
   evidence and named DEP-001 exceptions. This is not a second library-approval
   gate or permission for host downloads, account access or organization changes.
-- **D5 Quality — decided:** a hybrid win is required only to enable hybrid
+- **D5 Quality — original decision (history):** a hybrid win is required only to enable hybrid
   routing. Keep top-3 accuracy at least 90 %, report top-1 and correct no-match
   separately, and include synthetic distractors so two workflows cannot make
   top-3 trivial. Record the change explicitly in architecture 06; do not
   silently reinterpret its older unconditional "beats the baseline" wording.
+  OA10, approved by the owner on 2026-09-28, amends this absolute bar to
+  held-out matchable top-1 ≥ 90 %; the conditional hybrid rule is unchanged.
 
 The exact host pin, measured dependency versions and publisher bindings are
 execution inputs and qualification evidence, not unresolved product choices.
@@ -189,6 +191,9 @@ the initial amendment.
 
 ### Owner approvals, 2026-09-28
 
+- **OA10 approved (owner, 2026-09-28):** amend D5's absolute routing bar to
+  held-out matchable top-1 ≥ 90 % (correct first selection), replacing the
+  original top-3 ≥ 90 % bar retained as history above. Report both metrics.
 - **OA9 approved:** ratatui + crossterm for the TUI under ADR-0020; measure the
   minimum adoption footprint in C05f. Branded visual acceptance is still pending.
 - **OA2 approved, bounded scope:** probe/test the already-installed Copilot CLI,
@@ -216,13 +221,13 @@ The workspace-config amendment already resolves the old settings-layer finding:
 preferences, and platform-derived user `preferences.toml` supplies the lower
 layer. No five-layer resolver or settings fields in the descriptor are restored.
 
-**D5 metric proposal — owner-pending, supervisor ruling 2026-09-28:** replace
-held-out matchable top-3 ≥ 90 % with top-1 ≥ 90 %. Recommend top-1 because it
-requires a correct first selection, not merely shortlist inclusion. This is a
-stricter quality target, not a clarification of the dated owner decision above.
-Report both metrics; top-3 remains the approved bar until OA10 records the
-owner's decision. D5's seeded paired top-1 gain protocol still governs whether
-hybrid improves on the baseline; it does not authorize a new absolute target.
+**D5 metric amendment — OA10 approved (owner, 2026-09-28):** the absolute
+routing bar is **held-out matchable top-1 ≥ 90 %**, requiring a correct first
+selection, not merely shortlist inclusion. This is the owner's dated amendment
+to D5, not a clarification of its original top-3 ≥ 90 % wording retained above
+as history. Report both metrics; top-3 is diagnostic, not the acceptance bar.
+D5's seeded paired top-1 gain protocol still governs whether hybrid improves
+on the baseline; it is unchanged by the amended absolute target.
 
 The supervisor approved a pure move of ADR-0018's existing filesystem code and
 tests into `maestro-filesystem` (C04a), and the S2 G27 public typed-edge port for
@@ -798,9 +803,9 @@ invalid graph rule and policy fixture through the real checks.
   neighbours, and every graph validation rule has a passing and failing case.
   Denial tests reach the real control and observe zero executor calls.
 - **SC-S3-006**: On C23's frozen 100+ intent suite and digest-pinned synthetic
-  bundle/eligibility fixture, the owner-approved held-out matchable top-3 bar
-  is at least 90 %. Its proposed top-1 ≥ 90 % replacement is owner-pending
-  (OA10); report both and record the decision before final M3 acceptance.
+  bundle/eligibility fixture, the absolute bar is held-out matchable top-1
+  ≥ 90 % (OA10 approved by the owner, 2026-09-28, amending D5). The original
+  top-3 ≥ 90 % bar is historical; report top-3 as a diagnostic, not acceptance.
   Freeze at least 20 tuning and 80 held-out cases, including at least
   60 held-out matchable cases and ten route-eligible synthetic workflow
   candidates. Record exact cohort sizes and all input digests before scoring.

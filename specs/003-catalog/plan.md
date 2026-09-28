@@ -456,12 +456,12 @@ setting. A hand-written schema or Cedar substitute is not the minimal solution.
 
 ### D5 Baseline routing and measured hybrid
 
-Approved: baseline first, hybrid only when it demonstrates gain, with top-3
-accuracy at least 90 %. The supervisor's 2026-09-28 proposal to replace that
-bar with **held-out matchable top-1 ≥ 90 %** is **owner-pending**, not a
-clarification of the owner's decision. Recommend the stricter top-1 bar because
-it measures the first selection rather than shortlist inclusion. Compute/report
-both; retain the approved top-3 gate until OA10 records the owner's decision.
+**OA10 approved (owner, 2026-09-28):** the absolute routing bar is
+**held-out matchable top-1 ≥ 90 %**. This dated amendment to D5 replaces its
+original "top-3 accuracy at least 90 %" bar, retained here as history, not
+current acceptance. Top-1 measures the first selection rather than shortlist
+inclusion. Baseline first and hybrid only when it demonstrates gain remain
+unchanged. Compute/report both metrics; top-3 is diagnostic.
 C23 owns CORE's public/synthetic fixture, not MAN content:
 `tests/fixtures/catalog/routing/` contains reviewed labels, split, eligibility,
 checked source workflows and their C10-compiled bundle. `digests.json` pins every
@@ -477,13 +477,14 @@ clarification and adversarial cases; IDs never overlap. Labels name accepted
 alternatives. Test grants exist only in the fixture harness, not installed
 consumers. Never tune on a failed held-out comparison.
 
-For the held-out matchable cohort M, top-k accuracy is the number of cases
-whose first k returned workflow IDs intersect the accepted alternatives,
-divided by |M|. A refusal/empty result for a matchable case counts as incorrect.
-Top-3 must be at least 90 % under the approved decision; the proposed top-1
-replacement at 90 % is owner-pending (OA10). Report both, never label the
-stricter threshold owner-approved before that decision. Correct no-match
-and clarification are each correct typed statuses divided by their own labelled
+For the held-out matchable cohort M, top-1 accuracy is the number of cases
+whose first returned workflow ID is an accepted alternative, divided by |M|.
+A refusal/empty result for a matchable case counts as incorrect. Top-1 must be
+at least 90 % (OA10 approved by the owner, 2026-09-28, amending D5).
+Report top-3 separately: cases whose first three returned workflow IDs
+intersect the accepted alternatives, divided by the same |M|. Top-3 cannot
+satisfy the amended acceptance bar. Correct no-match and clarification are
+each correct typed statuses divided by their own labelled
 cohort size. Report each denominator; an empty required cohort refuses scoring.
 For each returned candidate, the exact closure includes the workflow itself
 and every mandatory resource, so it is nonempty. Dependency completeness is
@@ -499,8 +500,9 @@ same held-out M. Reuse S1's seeded bootstrap method with 2,000 resamples, seed
 paired-difference entry point from `maestro-knowledge/src/eval/bootstrap.rs`
 through `eval/mod.rs`, reusing the existing generator/resampling/percentile
 code without changing S1's default or reported results. Enable hybrid only if
-the interval's lower bound is strictly above zero and the owner-approved
-absolute accuracy gate plus closure completeness pass. Record seed, resamples,
+the interval's lower bound is strictly above zero, held-out matchable top-1
+is at least 90 % (OA10 approved by the owner, 2026-09-28), and exact closure
+completeness is 100 %. Record seed, resamples,
 interval, cohort/input/profile digests and both scores. Tuning cases never enter
 this verdict; all failed comparisons remain.
 
@@ -523,8 +525,9 @@ bundle. A stale/missing index triggers explicit lexical fallback only when the
 bundle is still authorized and valid. Every cache includes visibility,
 snapshot, trust/policy revision, runtime constraints and retrieval profile.
 Use the protocol above for workflow IDs, not S1 document-section labels; keep
-missing-route markers visible. Architecture 03/06/08 records both the conditional
-hybrid rule, the approved top-3 ≥ 90 % gate and the owner-pending top-1 proposal. A real M3
+missing-route markers visible. Architecture 03/06/08 records the conditional
+hybrid rule and held-out matchable top-1 ≥ 90 % gate (OA10 approved by the
+owner, 2026-09-28), with D5's original top-3 bar retained as history. A real M3
 install returns `incompatible` ("not qualified until S4") for executable workflows. C28 and
 `docs/how-to/catalog.md` show both outcomes; synthetic receipts never authorize
 a live role. C24a resolve/search and C24 routing depend on fixture-based trust,
@@ -1253,7 +1256,7 @@ which names only M3 acceptance and eventual main release below.
 | OA7 | Accept M3 evidence and eventual main release. Any S2 fallback needs a separate explicit approval and 08 disposition | C28 exit; not a new product-choice gate |
 | OA8 | After M3, grant access to the earlier catalog and approve any recovery work, provenance/licence obligations and separate publication PRs | C29 and later recovery tasks |
 | OA9 | **Approved 2026-09-28:** ratatui + crossterm for the TUI under ADR-0020. C05f still measures minimum features/dependencies/licences/native links and vet before adoption. Owner visual acceptance of C05k's branded keyboard/plain/no-color walkthrough remains pending | Library choice resolved; C05f measurements precede C05k. Visual acceptance gates C28, never the first plain C08. No parser dependency or decision |
-| OA10 | **Owner-pending:** decide the supervisor's proposed held-out matchable top-1 ≥ 90 % replacement for the approved top-3 ≥ 90 % bar. Recommend top-1 for first-selection correctness, not just shortlist inclusion; the dated owner D5 remains unchanged until this decision | C24/C26 compute/report both without waiting; C28 records the owner's decision before final quality acceptance |
+| OA10 | **Approved by the owner, 2026-09-28:** amend D5's absolute routing bar to held-out matchable top-1 ≥ 90 % (correct first selection). The original top-3 ≥ 90 % wording is retained as history, not the current bar | Quality target resolved; C24/C26 apply the top-1 gate and report both metrics; C28 verifies evidence against the amended bar before final quality acceptance |
 
 The lane's authorized signed push to its own branch is not a product release.
 It does not create a repository, change shared settings, activate workflows,
