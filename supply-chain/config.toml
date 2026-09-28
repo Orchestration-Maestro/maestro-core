@@ -22,6 +22,10 @@ url = "https://raw.githubusercontent.com/Orchestration-Maestro/rust-workflows/ma
 [imports.zcash]
 url = "https://raw.githubusercontent.com/zcash/rust-ecosystem/main/supply-chain/audits.toml"
 
+[policy.lbug]
+audit-as-crates-io = true
+notes = "S2 G25: crates.io lbug 0.20.4 plus the OpenSSL opt-out patch, from Orchestration-Maestro/lbug"
+
 [[exemptions.android_system_properties]]
 version = "0.1.6"
 criteria = "safe-to-deploy"
@@ -33,6 +37,10 @@ criteria = "safe-to-deploy"
 
 [[exemptions.anyhow]]
 version = "1.0.104"
+criteria = "safe-to-deploy"
+
+[[exemptions.arrayvec]]
+version = "0.7.8"
 criteria = "safe-to-deploy"
 
 [[exemptions.async-trait]]
@@ -101,6 +109,14 @@ criteria = "safe-to-deploy"
 version = "1.1.1"
 criteria = "safe-to-deploy"
 
+[[exemptions.cmake]]
+version = "0.1.58"
+criteria = "safe-to-deploy"
+
+[[exemptions.codespan-reporting]]
+version = "0.13.1"
+criteria = "safe-to-deploy"
+
 [[exemptions.const-oid]]
 version = "0.10.2"
 criteria = "safe-to-deploy"
@@ -121,6 +137,22 @@ criteria = "safe-to-deploy"
 version = "0.2.2"
 criteria = "safe-to-deploy"
 
+[[exemptions.cxx]]
+version = "1.0.202"
+criteria = "safe-to-deploy"
+
+[[exemptions.cxx-build]]
+version = "1.0.202"
+criteria = "safe-to-deploy"
+
+[[exemptions.cxxbridge-flags]]
+version = "1.0.202"
+criteria = "safe-to-deploy"
+
+[[exemptions.cxxbridge-macro]]
+version = "1.0.202"
+criteria = "safe-to-deploy"
+
 [[exemptions.darling]]
 version = "0.20.11"
 criteria = "safe-to-deploy"
@@ -131,6 +163,10 @@ criteria = "safe-to-deploy"
 
 [[exemptions.darling_macro]]
 version = "0.20.11"
+criteria = "safe-to-deploy"
+
+[[exemptions.deranged]]
+version = "0.5.8"
 criteria = "safe-to-deploy"
 
 [[exemptions.derive_builder]]
@@ -163,6 +199,10 @@ criteria = "safe-to-deploy"
 
 [[exemptions.flate2]]
 version = "1.1.10"
+criteria = "safe-to-deploy"
+
+[[exemptions.foldhash]]
+version = "0.2.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.futures]]
@@ -294,12 +334,20 @@ criteria = "safe-to-deploy"
 version = "0.3.106"
 criteria = "safe-to-deploy"
 
+[[exemptions.lbug]]
+version = "0.20.4@git:4301d51c13f00f0917653ed753375d5ad37999d1"
+criteria = "safe-to-deploy"
+
 [[exemptions.libc]]
 version = "0.2.189"
 criteria = "safe-to-deploy"
 
 [[exemptions.libsqlite3-sys]]
 version = "0.38.2"
+criteria = "safe-to-deploy"
+
+[[exemptions.link-cplusplus]]
+version = "1.0.12"
 criteria = "safe-to-deploy"
 
 [[exemptions.linux-raw-sys]]
@@ -332,6 +380,10 @@ criteria = "safe-to-deploy"
 
 [[exemptions.mio]]
 version = "1.2.3"
+criteria = "safe-to-deploy"
+
+[[exemptions.num-conv]]
+version = "0.2.2"
 criteria = "safe-to-deploy"
 
 [[exemptions.once_cell]]
@@ -369,6 +421,10 @@ criteria = "safe-to-deploy"
 
 [[exemptions.pkg-config]]
 version = "0.3.34"
+criteria = "safe-to-deploy"
+
+[[exemptions.powerfmt]]
+version = "0.2.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.proc-macro2]]
@@ -436,6 +492,10 @@ notes = "rmcp 3.4.1 graph for T034 (ADR-0020)"
 version = "0.40.2"
 criteria = "safe-to-deploy"
 
+[[exemptions.rust_decimal]]
+version = "1.43.0"
+criteria = "safe-to-deploy"
+
 [[exemptions.rustix]]
 version = "1.1.5"
 criteria = "safe-to-deploy"
@@ -478,6 +538,10 @@ criteria = "safe-to-deploy"
 
 [[exemptions.scopeguard]]
 version = "1.2.0"
+criteria = "safe-to-deploy"
+
+[[exemptions.scratch]]
+version = "1.0.9"
 criteria = "safe-to-deploy"
 
 [[exemptions.security-framework]]
@@ -548,12 +612,24 @@ criteria = "safe-to-deploy"
 version = "0.1.2"
 criteria = "safe-to-deploy"
 
+[[exemptions.termcolor]]
+version = "1.4.1"
+criteria = "safe-to-deploy"
+
 [[exemptions.thiserror]]
 version = "2.0.21"
 criteria = "safe-to-deploy"
 
 [[exemptions.thiserror-impl]]
 version = "2.0.21"
+criteria = "safe-to-deploy"
+
+[[exemptions.time]]
+version = "0.3.55"
+criteria = "safe-to-deploy"
+
+[[exemptions.time-core]]
+version = "0.1.9"
 criteria = "safe-to-deploy"
 
 [[exemptions.tinyvec]]
@@ -646,6 +722,10 @@ criteria = "safe-to-deploy"
 
 [[exemptions.unicode-joining-type]]
 version = "1.0.0"
+criteria = "safe-to-deploy"
+
+[[exemptions.unicode-width]]
+version = "0.2.2"
 criteria = "safe-to-deploy"
 
 [[exemptions.unsafe-libyaml]]
