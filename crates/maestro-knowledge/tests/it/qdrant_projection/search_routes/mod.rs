@@ -13,6 +13,7 @@ mod identifier_route_resilience;
 mod idle_unload;
 mod route_behavior;
 mod route_errors;
+mod route_windows;
 mod scope_index;
 mod search_projection;
 mod structured_route;

@@ -6,7 +6,8 @@ use qdrant_client::qdrant::{
     vector_input::Variant as VectorInputVariant, vector_output, vectors_output,
     with_payload_selector,
 };
-use std::collections::HashMap;
+use std::{collections::HashMap, future};
+use tokio::time;
 use tonic::{Request, Response, Status};
 
 #[derive(Debug)]
@@ -15,8 +16,9 @@ enum SearchVector {
     Sparse(Vec<u32>, Vec<f32>),
 }
 
-/// Serves the request against the named collection and applies its scope filter before ranking.
-pub(super) fn run(
+/// Serves the request against the named collection and applies its scope
+/// filter before ranking, once any slowness a test asked for has passed.
+pub(super) async fn run(
     fake: &Fake,
     request: Request<QueryPoints>,
 ) -> Result<Response<QueryResponse>, Status> {
@@ -24,6 +26,15 @@ pub(super) fn run(
     let request = request.into_inner();
     let name = request.collection_name;
     let vector_name = request.using.unwrap_or_else(|| "dense".to_owned());
+    if let Some(slow) = fake.slow_query(&vector_name) {
+        match slow.delay {
+            Some(delay) => time::sleep(delay).await,
+            None => future::pending().await,
+        }
+        if let Some(code) = slow.refusal {
+            return Err(Status::new(code, "the fake was told to refuse late"));
+        }
+    }
     let query = request
         .query
         .and_then(|query| query.variant)

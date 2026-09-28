@@ -62,8 +62,9 @@ const UNSUPPORTED_INVENTORY: &str = concat!(
 
 /// Executes dense search with its independent route cutoff, which starts
 /// once the embedder is ready: loading its model is setup, bounded by
-/// `cutoffs.setup`, not route time. A setup the port refuses, or one still
-/// loading at that bound, leaves the route unavailable without its window.
+/// `cutoffs.routes_end`, not route time. A setup the port refuses, or
+/// one still loading at that bound, leaves the route unavailable without
+/// its window.
 pub(super) async fn dense_outcome<P: ModelPort>(
     enabled: bool,
     query: &Query<'_>,
@@ -77,9 +78,9 @@ pub(super) async fn dense_outcome<P: ModelPort>(
         return unavailable("no embedder card for the published generation's profile");
     };
     // A model still loading at the bound would hold the route past it, and
-    // evidence assembly needs the rest of the budget.
+    // the rerank and evidence assembly need the rest of the budget.
     match until(
-        cutoffs.setup,
+        cutoffs.routes_end,
         embedder.port.prepare(embedder.card, Room::Free),
     )
     .await

@@ -2,6 +2,7 @@
 
 use super::{
     assembly_settings::EvidenceSettings,
+    deadline::StageWindow,
     fusion::Route,
     rerank::{DEFAULT_DEPTH, Ranked, Reranker},
     routes::{dense::Embedder, error::RouteError},
@@ -94,6 +95,9 @@ pub struct SearchConfiguration {
     pub candidate_context: CandidateContext,
     /// Optional metadata-based soft section penalty.
     pub section_prior: SectionPrior,
+    /// How long the retrieval routes may run; derived from the request's
+    /// budget unless an experiment or a test fixes it.
+    pub stage_window: StageWindow,
 }
 
 impl Default for SearchConfiguration {
@@ -117,6 +121,7 @@ impl Default for SearchConfiguration {
             rerank_demotion_cap: None,
             candidate_context: CandidateContext::Chunk,
             section_prior: SectionPrior::Off,
+            stage_window: StageWindow::Derived,
         }
     }
 }

@@ -52,7 +52,8 @@ pub(super) async fn admit_request<P: ModelPort>(
         Err(error) => (None, Some(error.to_string())),
     };
     let version = request.version.map(str::to_owned);
-    let cutoffs = deadline::from_budget(started, request.budget);
+    let cutoffs =
+        deadline::from_budget(started, request.budget, request.configuration.stage_window);
     let (admission_scopes, generation, version_documented) = admit(
         context.database.clone(),
         context.principal,

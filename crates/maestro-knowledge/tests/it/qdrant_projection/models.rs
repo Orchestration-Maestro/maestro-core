@@ -18,8 +18,9 @@ use std::{
     fs, future,
     num::{NonZeroU32, NonZeroUsize},
     sync::{Arc, Mutex},
+    time::Duration,
 };
-use tokio::sync::Notify;
+use tokio::{sync::Notify, time};
 
 /// The card of a model filling `role` from the router's entry `embed`, of
 /// `dimensions` when it is an embedder, recorded in a store that is gone
@@ -105,6 +106,21 @@ struct Script {
     faults: BTreeMap<usize, Fault>,
     /// Number of calls the fake reranker received.
     rerank_calls: usize,
+    /// When each embedding call answers: late, as a loaded host's
+    /// embedder does, or never.
+    embedding_delay: Answers,
+}
+
+/// When an embedding call answers.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(super) enum Answers {
+    /// At once.
+    #[default]
+    AtOnce,
+    /// After this long.
+    After(Duration),
+    /// Never.
+    Never,
 }
 
 /// How a reranker's model is slow.
@@ -181,6 +197,11 @@ impl Embedder {
         }
     }
 
+    /// Makes every later embedding call answer as `delay` says.
+    pub(super) fn delay_embeddings(&self, delay: Answers) {
+        self.script.lock().unwrap().embedding_delay = delay;
+    }
+
     /// The number of rerank calls made so far.
     pub(super) fn rerank_calls(&self) -> usize {
         self.script.lock().unwrap().rerank_calls
@@ -224,6 +245,12 @@ impl ModelPort for Embedder {
             script.rooms.push(room);
             script.faults.get(&call).copied()
         };
+        let delay = self.script.lock().unwrap().embedding_delay;
+        match delay {
+            Answers::AtOnce => {}
+            Answers::After(delay) => time::sleep(delay).await,
+            Answers::Never => future::pending().await,
+        }
         let mut vectors = FakeModels.embed(card, room, inputs).await?;
         if let Some(gate) = &self.gate {
             gate.started.notify_one();

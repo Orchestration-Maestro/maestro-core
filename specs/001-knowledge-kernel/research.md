@@ -179,9 +179,13 @@ quality cutoff. Search and ask default to a 30 s deadline, so that a search
 after the router unloaded the embedder and the reranker still runs dense and
 rerank; SC-S1-004's 1.5 s stays the p95 target. Under a load average near 19,
 each model load took 2.4-5.3 s and a cold search 7.7-8.7 s. Evidence assembly
-took 340-500 ms on the real corpus, so dense and the rerank end before the
-deadline by the T032 reserve plus two route windows, 650 ms at any deadline
-from 1.5 s, and a model still loading then costs only its own stage. Each
+took 340-500 ms on the real corpus, so the rerank ends before the deadline
+by the T032 reserve plus two assembly windows of 300 ms, 650 ms at any
+deadline from 1.5 s, and a model still loading then costs only its own
+stage. The routes run until fusion and the rerank also keep a tenth of the
+deadline, at least 300 ms (26.35 s of 30 s): under host load, fixed 300 ms
+route windows had dropped dense at 301-309 ms with 29 s unused. A fixed
+window stays as a knob for experiments (`stage_window_ms`). Each
 answer attempt has 20 s, the answerer's load included: a cold Qwen3-4B loaded
 and thought through 1,024 tokens in 6.5 s. Every cap stays under 60 s, a
 common MCP client tool timeout. The router client asks for each

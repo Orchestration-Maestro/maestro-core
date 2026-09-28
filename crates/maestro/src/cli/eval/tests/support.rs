@@ -76,6 +76,7 @@ pub(super) fn rung(name: &str) -> Rung {
             }),
             min_rerank_score: None,
             section_prior: Prior::default(),
+            stage_window_ms: None,
         },
         ask: Some(AskSettings::default()),
     }

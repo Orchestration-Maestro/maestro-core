@@ -20,7 +20,7 @@ use maestro_knowledge::{
 };
 
 pub(super) struct Published {
-    backend: super::backends::Backend,
+    pub(super) backend: super::backends::Backend,
     pub(super) kernel: Kernel,
     pub(super) qdrant: Qdrant,
     pub(super) embedder_card: ModelCard,

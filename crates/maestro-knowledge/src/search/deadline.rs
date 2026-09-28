@@ -19,59 +19,102 @@ pub const DEADLINE_EXCEEDED: &str = "deadline_exceeded";
 /// The stable route status reason when disabled by the search configuration.
 pub const DISABLED_BY_CONFIGURATION: &str = "disabled by search configuration";
 
-/// The largest window allowed for independent retrieval routes.
-const MAX_ROUTE_WINDOW: Duration = Duration::from_millis(300);
+/// The largest assembly window: evidence assembly keeps two of them.
+const MAX_ASSEMBLY_WINDOW: Duration = Duration::from_millis(300);
 /// The largest portion of the request deadline reserved for T032.
 const MAX_T032_RESERVE: Duration = Duration::from_millis(50);
+
+/// How long the retrieval routes may run. A deadline is a safety cap, not
+/// a quality cutoff: by default a route runs until only the later stages'
+/// time is left.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum StageWindow {
+    /// Until the request's deadline less the time fusion, the rerank and
+    /// evidence assembly keep, wherever in the request the route starts.
+    #[default]
+    Derived,
+    /// At most this long from the route's start, once its setup ended,
+    /// and never past the setup bound: for experiments and tests.
+    Fixed(Duration),
+}
 
 /// The one accepted deadline and its retrieval/T032 phase cutoffs.
 #[derive(Debug, Clone, Copy)]
 pub(super) struct Deadlines {
     /// The full request deadline passed to T032.
     pub(super) expires: Instant,
-    /// The deadline shared by independent retrieval routes.
+    /// The cutoff of the routes that need no setup, such as lexical.
     pub(super) routes: Instant,
-    /// The latest a route's one-time setup, such as loading its model, may
-    /// end, and the latest the dense route and the rerank may end: evidence
-    /// assembly keeps its measured need, the T032 reserve and two windows
-    /// (650 ms at any deadline from 1.5 s; it took 340-500 ms on a real
-    /// collection), and setup gets the rest, so cold models load in time.
+    /// The latest a route may end, its setup included: under
+    /// [`StageWindow::Derived`], the time fusion and the rerank keep, a
+    /// tenth of the deadline and at least one assembly window, before
+    /// `setup`; under [`StageWindow::Fixed`], `setup`. A route's one-time
+    /// setup, such as loading its model, that ends later leaves the route
+    /// no time.
+    pub(super) routes_end: Instant,
+    /// The latest the reranker's one-time setup, such as loading its
+    /// model, and the rerank may end: evidence assembly keeps its measured
+    /// need, the T032 reserve and two assembly windows (650 ms at any
+    /// deadline from 1.5 s; it took 340-500 ms on a real collection), and
+    /// setup gets the rest, so cold models load in time.
     pub(super) setup: Instant,
     /// The final retrieval cutoff, before reserving time for T032.
     pub(super) work: Instant,
-    /// How long each route may take once it is ready.
+    /// The assembly window, a quarter of the deadline and at most 300 ms:
+    /// evidence assembly keeps two, and the rerank at least one after
+    /// enrichment.
     pub(super) window: Duration,
+    /// A route's fixed window, when the configuration sets one.
+    pub(super) fixed: Option<Duration>,
 }
 
 impl Deadlines {
     /// The cutoff of a route whose one-time setup ended at `ready`: its
-    /// window from then, but never past `setup`, where evidence assembly's
-    /// time begins.
+    /// fixed window from then, when it has one, but never past the routes'
+    /// end.
     pub(super) fn route_after(&self, ready: Instant) -> Instant {
-        (ready + self.window).min(self.setup)
+        self.fixed.map_or(self.routes_end, |window| {
+            (ready + window).min(self.routes_end)
+        })
     }
 
-    /// The latest optional reranker enrichment may read sources: one window
-    /// before `setup`, so the rerank keeps its time; at most `3/4` of the
-    /// request deadline plus its reserve precede it, so it follows the start.
+    /// The latest optional reranker enrichment may read sources: one
+    /// assembly window before `setup`, so the rerank keeps its time. The
+    /// later stages' reserve before `setup` is at least one window, so it
+    /// never precedes `routes_end`.
     pub(super) fn enrichment(&self) -> Instant {
         self.setup - self.window
     }
 }
 
-/// Derives every phase cutoff once from the accepted request budget.
-pub(super) fn from_budget(started: Instant, budget: RequestBudget) -> Deadlines {
+/// Derives every phase cutoff once from the accepted request budget and
+/// the configured route window.
+pub(super) fn from_budget(
+    started: Instant,
+    budget: RequestBudget,
+    stage_window: StageWindow,
+) -> Deadlines {
     let duration = Duration::from_millis(u64::from(budget.deadline_ms));
     let expires = started + duration;
-    let route_window = (duration / 4).min(MAX_ROUTE_WINDOW);
+    let window = (duration / 4).min(MAX_ASSEMBLY_WINDOW);
     let reserve = (duration / 10).min(MAX_T032_RESERVE);
     let work = expires - reserve;
+    let setup = work - window * 2;
+    let (routes, routes_end, fixed) = match stage_window {
+        StageWindow::Derived => {
+            let routes_end = setup - (duration / 10).max(window);
+            (routes_end, routes_end, None)
+        }
+        StageWindow::Fixed(fixed) => ((started + fixed).min(setup), setup, Some(fixed)),
+    };
     Deadlines {
         expires,
-        routes: (started + route_window).min(expires),
-        setup: work - route_window * 2,
+        routes,
+        routes_end,
+        setup,
         work,
-        window: route_window,
+        window,
+        fixed,
     }
 }
 

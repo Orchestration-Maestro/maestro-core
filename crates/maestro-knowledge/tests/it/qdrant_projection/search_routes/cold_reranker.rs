@@ -18,8 +18,8 @@ use maestro_knowledge::search::{
 use std::time::Duration;
 use tokio::time::Instant;
 
-/// The search deadline of these tests: its route window is 250 ms, and
-/// evidence assembly keeps two windows and the 50 ms reserve, 550 ms.
+/// The search deadline of these tests: evidence assembly keeps two
+/// assembly windows of 250 ms and the 50 ms reserve, 550 ms.
 const DEADLINE: Duration = Duration::from_millis(1000);
 
 /// How a search with a reranker that is `slow` ended: the rerank status, the

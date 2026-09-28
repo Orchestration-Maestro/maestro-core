@@ -12,7 +12,7 @@ use maestro_kernel::artifact::Digest;
 use maestro_knowledge::{
     answer::AskBudget,
     search::{
-        SearchConfiguration,
+        SearchConfiguration, StageWindow,
         evidence::{CounterMode, EvidenceSettings, ExpansionMode},
     },
 };
@@ -23,6 +23,7 @@ use std::{
     fs,
     num::{NonZeroU32, NonZeroUsize},
     path::{Path, PathBuf},
+    time::Duration,
 };
 
 /// The contract a manifest follows.
@@ -163,6 +164,10 @@ pub(super) struct RungConfiguration {
     /// Optional configured section-class penalty.
     #[serde(default)]
     pub(super) section_prior: Prior,
+    /// A fixed route window, in milliseconds, for an experiment; absent,
+    /// the routes' windows derive from the search deadline.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) stage_window_ms: Option<NonZeroU32>,
 }
 
 /// Which routes run.
@@ -251,6 +256,9 @@ impl RungConfiguration {
                 .section_prior
                 .search()
                 .expect("validated section prior"),
+            stage_window: self.stage_window_ms.map_or(StageWindow::Derived, |window| {
+                StageWindow::Fixed(Duration::from_millis(u64::from(window.get())))
+            }),
         }
     }
 

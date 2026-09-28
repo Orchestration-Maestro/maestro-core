@@ -6,11 +6,11 @@ use super::{
 };
 use crate::{cli::output::Output, failure::Failure};
 use maestro_knowledge::search::{
-    CandidateContext, SearchConfiguration, SectionClassSet, SectionPrior,
+    CandidateContext, SearchConfiguration, SectionClassSet, SectionPrior, StageWindow,
 };
 use maestro_test_scratch::scratch_directory;
 use serde_json::{Value, json};
-use std::{fs, num::NonZeroU32, path::Path};
+use std::{fs, num::NonZeroU32, path::Path, time::Duration};
 
 /// A manifest of the rungs `r0` and `r1`.
 fn manifest() -> Value {
@@ -77,6 +77,7 @@ fn a_manifest_holds_its_rungs_and_resolves_its_paths_from_its_directory() {
 fn a_rungs_configuration_sets_every_knob_of_search() {
     let mut configuration = rung("r1").configuration;
     configuration.min_rerank_score = Some(0.25);
+    configuration.stage_window_ms = NonZeroU32::new(250);
     let search = configuration.search();
 
     assert_eq!(
@@ -94,6 +95,7 @@ fn a_rungs_configuration_sets_every_knob_of_search() {
             rerank_enabled: true,
             rerank_depth: search.rerank_depth,
             min_rerank_score: Some(0.25),
+            stage_window: StageWindow::Fixed(Duration::from_millis(250)),
             ..SearchConfiguration::default()
         }
     );
@@ -101,6 +103,22 @@ fn a_rungs_configuration_sets_every_knob_of_search() {
     assert_eq!(
         configuration.reranker().unwrap().unwrap().as_str(),
         RERANKER
+    );
+}
+
+#[test]
+fn a_rung_may_fix_the_route_window_for_an_experiment() {
+    let mut value = manifest();
+    value["rungs"][0]["configuration"]["stage_window_ms"] = json!(300);
+    let manifest = parse(&value).unwrap();
+
+    assert_eq!(
+        manifest.rungs[0].configuration.search().stage_window,
+        StageWindow::Fixed(Duration::from_millis(300))
+    );
+    assert_eq!(
+        manifest.rungs[1].configuration.search().stage_window,
+        StageWindow::Derived
     );
 }
 

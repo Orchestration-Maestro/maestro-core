@@ -276,6 +276,21 @@ path = "crates/maestro/src/mcp/mod.rs"
 item = "run"
 reason = "the MCP module owns bounded transport and server startup; the CLI dispatcher selects its single stdio entry point"
 
+# Route windows are wall-clock budgets over real gRPC, where a paused clock
+# advances while a loopback reply is in flight: the real-path route-window
+# tests make a dependency answer late, about 400 ms, as a loaded host does.
+[[exception]]
+rule = "TST-001"
+path = "crates/maestro-knowledge/tests/it/qdrant_projection/fake/query.rs"
+item = "run"
+reason = "a slow dependency is the input under test: route windows are wall-clock budgets over real gRPC"
+
+[[exception]]
+rule = "TST-001"
+path = "crates/maestro-knowledge/tests/it/qdrant_projection/models.rs"
+item = "embed"
+reason = "a slow dependency is the input under test: route windows are wall-clock budgets over real gRPC"
+
 # The words this repository means that the spell checker reads as mistakes:
 # Exemple, French test input for the canonicalizer; RTO, the recovery time
 # objective beside RPO; WRONLY, the POSIX open flag as rustix names it;

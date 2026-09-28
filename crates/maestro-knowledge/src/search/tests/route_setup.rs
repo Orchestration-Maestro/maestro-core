@@ -10,7 +10,7 @@ use crate::{
     query::understand,
     search::{
         DEADLINE_EXCEEDED, DISABLED_BY_CONFIGURATION, Query, Reranker,
-        deadline::{Deadlines, from_budget},
+        deadline::{Deadlines, StageWindow, from_budget},
         rerank::rerank_candidates,
         route_execution::{dense_outcome, prepare_reranker},
         routes::dense::Embedder,
@@ -129,19 +129,28 @@ impl ModelPort for LoadingModel {
     }
 }
 
-/// The dense status after an embedder setup of `setup` under a 1.5 s
-/// budget, and when the route ended after the request started.
-async fn dense_after_setup(setup: Duration, hangs: bool) -> (RouteStatus, Duration) {
-    dense_route(true, setup, hangs, false).await.0
-}
+/// The fixed route window the routes used to have, now for experiments.
+const FIXED: StageWindow = StageWindow::Fixed(Duration::from_millis(300));
 
-/// The dense route's status and end time, when `enabled`, and whether its
-/// embedder's model was loaded.
-async fn dense_route(
-    enabled: bool,
+/// The dense status after an embedder setup of `setup` under a 1.5 s
+/// budget and the route window `window`, and when the route ended after the
+/// request started.
+async fn dense_after_setup(
+    window: StageWindow,
     setup: Duration,
     hangs: bool,
-    refuses_setup: bool,
+) -> (RouteStatus, Duration) {
+    dense_route(window, true, setup, (hangs, false)).await.0
+}
+
+/// The dense route's status and end time under the route window `window`,
+/// when `enabled`, and whether its embedder's model was loaded, when the
+/// embedder `hangs` or `refuses_setup`.
+async fn dense_route(
+    window: StageWindow,
+    enabled: bool,
+    setup: Duration,
+    (hangs, refuses_setup): (bool, bool),
 ) -> ((RouteStatus, Duration), bool) {
     let mut fixture = CandidateDb::new(b"prepared text", "docs");
     let embedder_card = card(Role::Embedder, 128);
@@ -160,7 +169,7 @@ async fn dense_route(
         port: &port,
         card: &embedder_card,
     };
-    let (started, cutoffs) = default_search_cutoffs();
+    let (started, cutoffs) = search_cutoffs(window);
     let status = dense_outcome(enabled, &query, Some(&embedder), &cutoffs)
         .await
         .status;
@@ -170,10 +179,24 @@ async fn dense_route(
     )
 }
 
+/// The route's end, [`RouteStatus`] `deadline_exceeded`, at `at` ms.
+fn exceeded_at(at: u64) -> (RouteStatus, Duration) {
+    (
+        RouteStatus::Unavailable(DEADLINE_EXCEEDED.to_owned()),
+        Duration::from_millis(at),
+    )
+}
+
 #[tokio::test(start_paused = true)]
 async fn a_disabled_dense_route_does_not_prepare_its_model() {
     assert_eq!(
-        dense_route(false, Duration::from_millis(800), false, false).await,
+        dense_route(
+            StageWindow::Derived,
+            false,
+            Duration::from_millis(800),
+            (false, false)
+        )
+        .await,
         (
             (
                 RouteStatus::Unavailable(DISABLED_BY_CONFIGURATION.to_owned()),
@@ -186,41 +209,51 @@ async fn a_disabled_dense_route_does_not_prepare_its_model() {
 
 #[tokio::test(start_paused = true)]
 async fn a_setup_longer_than_the_route_window_leaves_the_route_its_window() {
+    for window in [StageWindow::Derived, FIXED] {
+        assert_eq!(
+            dense_after_setup(window, Duration::from_millis(500), false).await,
+            (
+                RouteStatus::Unavailable("embedder unavailable".to_owned()),
+                Duration::from_millis(500)
+            )
+        );
+    }
     assert_eq!(
-        dense_after_setup(Duration::from_millis(500), false).await,
-        (
-            RouteStatus::Unavailable("embedder unavailable".to_owned()),
-            Duration::from_millis(500)
-        )
+        dense_after_setup(FIXED, Duration::from_millis(500), true).await,
+        exceeded_at(800)
+    );
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_derived_route_runs_until_the_later_stages_time_begins() {
+    // Fusion and the rerank keep 300 ms before the setup bound at 850 ms.
+    assert_eq!(
+        dense_after_setup(StageWindow::Derived, Duration::from_millis(100), true).await,
+        exceeded_at(550)
     );
     assert_eq!(
-        dense_after_setup(Duration::from_millis(500), true).await,
-        (
-            RouteStatus::Unavailable("deadline_exceeded".to_owned()),
-            Duration::from_millis(800)
-        )
+        dense_after_setup(StageWindow::Derived, Duration::from_millis(500), true).await,
+        exceeded_at(550)
     );
 }
 
 #[tokio::test(start_paused = true)]
 async fn a_late_setup_leaves_the_route_only_until_the_bound() {
     assert_eq!(
-        dense_after_setup(Duration::from_millis(800), true).await,
-        (
-            RouteStatus::Unavailable("deadline_exceeded".to_owned()),
-            Duration::from_millis(850)
-        )
+        dense_after_setup(FIXED, Duration::from_millis(800), true).await,
+        exceeded_at(850)
     );
 }
 
 #[tokio::test(start_paused = true)]
 async fn a_setup_ending_at_the_bound_leaves_the_route_no_call() {
     assert_eq!(
-        dense_after_setup(Duration::from_millis(850), false).await,
-        (
-            RouteStatus::Unavailable("deadline_exceeded".to_owned()),
-            Duration::from_millis(850)
-        )
+        dense_after_setup(FIXED, Duration::from_millis(850), false).await,
+        exceeded_at(850)
+    );
+    assert_eq!(
+        dense_after_setup(StageWindow::Derived, Duration::from_millis(550), false).await,
+        exceeded_at(550)
     );
 }
 
@@ -229,20 +262,26 @@ async fn a_setup_ending_at_the_bound_leaves_the_route_no_call() {
 #[tokio::test(start_paused = true)]
 async fn a_setup_past_its_bound_drops_the_route_at_the_bound() {
     assert_eq!(
-        dense_after_setup(Duration::from_millis(1500), false).await,
-        (
-            RouteStatus::Unavailable("deadline_exceeded".to_owned()),
-            Duration::from_millis(850)
-        )
+        dense_after_setup(FIXED, Duration::from_millis(1500), false).await,
+        exceeded_at(850)
+    );
+    assert_eq!(
+        dense_after_setup(StageWindow::Derived, Duration::from_millis(1500), false).await,
+        exceeded_at(550)
     );
 }
 
 #[tokio::test(start_paused = true)]
 async fn a_refused_setup_leaves_the_route_unavailable_at_once() {
     assert_eq!(
-        dense_route(true, Duration::from_millis(100), true, true)
-            .await
-            .0,
+        dense_route(
+            StageWindow::Derived,
+            true,
+            Duration::from_millis(100),
+            (true, true)
+        )
+        .await
+        .0,
         (
             RouteStatus::Unavailable("embedder unavailable".to_owned()),
             Duration::from_millis(100)
@@ -250,8 +289,9 @@ async fn a_refused_setup_leaves_the_route_unavailable_at_once() {
     );
 }
 
-/// The request start and cutoffs of a search under a 1.5 s budget.
-fn default_search_cutoffs() -> (Instant, Deadlines) {
+/// The request start and cutoffs of a search under a 1.5 s budget and the
+/// route window `window`.
+fn search_cutoffs(window: StageWindow) -> (Instant, Deadlines) {
     let started = Instant::now();
     let cutoffs = from_budget(
         started,
@@ -259,6 +299,7 @@ fn default_search_cutoffs() -> (Instant, Deadlines) {
             deadline_ms: 1500,
             ..RequestBudget::default()
         },
+        window,
     );
     (started, cutoffs)
 }
@@ -279,7 +320,7 @@ async fn rerank_after_setup(
         port: &port,
         card: &reranker_card,
     };
-    let (started, cutoffs) = default_search_cutoffs();
+    let (started, cutoffs) = search_cutoffs(StageWindow::Derived);
     prepare_reranker(Some(&reranker), enabled, &cutoffs).await;
     let (_, status) = rerank_candidates(
         &understand("ERR-042"),
@@ -326,7 +367,7 @@ async fn a_reranker_loaded_within_its_bound_reranks_until_the_bound() {
 
 #[tokio::test(start_paused = true)]
 async fn a_rerank_that_cannot_run_prepares_no_model() {
-    let (started, cutoffs) = default_search_cutoffs();
+    let (started, cutoffs) = search_cutoffs(StageWindow::Derived);
     let embedder_card = card(Role::Embedder, 128);
     let port = LoadingModel::new(Duration::from_secs(5), false, false);
     let not_a_reranker = Reranker {

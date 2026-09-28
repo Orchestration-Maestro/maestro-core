@@ -115,6 +115,7 @@ impl Corpus {
                     deadline_ms: 10_000,
                     ..RequestBudget::default()
                 },
+                configuration.stage_window,
             ),
             configuration,
         }

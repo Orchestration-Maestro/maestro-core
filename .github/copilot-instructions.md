@@ -998,6 +998,7 @@ in place.
 │   │   │       │   │   ├── mod.rs                                           # Dense and lexical routes against the shared fake and, when configured, real Qdrant
 │   │   │       │   │   ├── route_behavior.rs                                # Behavior of dense and lexical searches over the generation-pinned collection
 │   │   │       │   │   ├── route_errors.rs                                  # Refusals from admission, profiles and dense embedding
+│   │   │       │   │   ├── route_windows.rs                                 # A route's window comes from the request's budget, less the time the later
 │   │   │       │   │   ├── scope_index.rs                                   # A new generation indexes the scope payload it searches by
 │   │   │       │   │   ├── search_projection.rs                             # Publication's identifier payload and readiness marker
 │   │   │       │   │   ├── structured_route.rs                              # Exact document inventories stay separate from their supporting chunks

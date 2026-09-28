@@ -7,6 +7,7 @@ use std::{
     collections::BTreeMap,
     mem,
     sync::{Arc, Mutex, MutexGuard},
+    time::Duration,
 };
 use tokio::sync::Notify;
 use tonic::{Code, Status};
@@ -46,6 +47,21 @@ pub(super) struct State {
     redirect_create_alias: Option<String>,
     /// The calls to answer next without their result.
     hollows: Vec<&'static str>,
+    /// The queries to answer late next, as a loaded host or a slow refused
+    /// connection would.
+    slow_queries: Vec<SlowQuery>,
+}
+
+/// A query a test made slow: the named vector it searches, how long it
+/// waits, and the code it is then refused with, when it is.
+#[derive(Debug, Clone, Copy)]
+pub(in super::super) struct SlowQuery {
+    /// The named vector of the query: `dense` or `bm25`.
+    pub(in super::super) using: &'static str,
+    /// How long the query waits before it answers; `None` never answers.
+    pub(in super::super) delay: Option<Duration>,
+    /// The code it is refused with once it waited, or `None` to answer.
+    pub(in super::super) refusal: Option<Code>,
 }
 
 impl State {
@@ -106,6 +122,21 @@ impl Fake {
     /// Points the next `CreateAlias` action's alias at `collection` instead.
     pub(super) fn redirect_create_alias_next(&self, collection: &str) {
         self.state().redirect_create_alias = Some(collection.to_owned());
+    }
+
+    /// Makes the next query of `slow.using` wait, then answer or refuse.
+    pub(super) fn slow_next_query(&self, slow: SlowQuery) {
+        self.state().slow_queries.push(slow);
+    }
+
+    /// The slowness a test asked for the next query of `using`, once.
+    pub(super) fn slow_query(&self, using: &str) -> Option<SlowQuery> {
+        let mut state = self.state();
+        let at = state
+            .slow_queries
+            .iter()
+            .position(|slow| slow.using == using)?;
+        Some(state.slow_queries.remove(at))
     }
 
     /// Makes the next call `call` answer without its result.

@@ -1,7 +1,7 @@
 //! The fake's server: its three services on a loopback port, served by the
 //! runtime of the test that starts it.
 
-use super::state::Fake;
+use super::state::{Fake, SlowQuery};
 use qdrant_client::qdrant::{
     Filter, HealthCheckReply, HealthCheckRequest, PointId, Value,
     collections_server::CollectionsServer,
@@ -98,6 +98,11 @@ impl FakeQdrant {
     /// without its result.
     pub(in super::super) fn hollow_next(&self, call: &'static str) {
         self.fake.hollow_next(call);
+    }
+
+    /// Makes the next query of `slow.using` wait, then answer or refuse.
+    pub(in super::super) fn slow_next_query(&self, slow: SlowQuery) {
+        self.fake.slow_next_query(slow);
     }
 
     /// Returns the exact filters sent to payload scrolls, in call order.
