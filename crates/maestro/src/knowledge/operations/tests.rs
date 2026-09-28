@@ -14,11 +14,14 @@ use maestro_kernel::{
     chunk_set::{Chunk, NewChunkSet},
     document::{Collection, Document, Revision, RevisionStatus, Source},
     evidence::Span,
-    generation::NewGeneration,
+    generation::{Error as GenerationError, NewGeneration},
     scope::Config,
     store::Database,
 };
-use maestro_knowledge::{index::Qdrant, search::evidence::SectionReadError};
+use maestro_knowledge::{
+    index::Qdrant,
+    search::{SearchError, evidence::SectionReadError, routes::error::RouteError},
+};
 use serde_json::Map;
 use std::{
     collections::BTreeMap,
@@ -202,6 +205,20 @@ fn section_request() -> GetRequest {
         None,
     )
     .expect("valid section request")
+}
+
+#[test]
+fn search_generation_lookup_failures_are_reported_as_kernel_unavailable() {
+    let error = SearchError::Admission(RouteError::GenerationLookup(
+        GenerationError::UnknownGeneration(7),
+    ));
+    assert_eq!(
+        super::search::search_failure(&error),
+        KnowledgeError::Failed {
+            code: "kernel_unavailable",
+            message: "the local knowledge store is unavailable",
+        }
+    );
 }
 
 #[test]

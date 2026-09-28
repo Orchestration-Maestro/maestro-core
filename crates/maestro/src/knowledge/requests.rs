@@ -392,6 +392,15 @@ mod tests {
     }
 
     #[test]
+    fn search_request_accepts_exactly_64_distinct_identifiers() {
+        let query = (0..64)
+            .map(|number| format!("${{ITEM_{number}}}"))
+            .collect::<Vec<_>>()
+            .join(" ");
+        assert!(search(&query, None, None, None, None).is_ok());
+    }
+
+    #[test]
     fn search_request_refuses_more_than_64_distinct_identifiers() {
         let query = (0..65)
             .map(|number| format!("${{ITEM_{number}}}"))

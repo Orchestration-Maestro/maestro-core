@@ -34,9 +34,7 @@ pub fn merge_v2_attempts(reports: &[Report]) -> Result<Report, AggregateError> {
     merged.questions.clear();
     let mut seen = BTreeSet::new();
     for report in reports {
-        if report.schema != Schema::V2
-            || report.questions.is_empty()
-            || !same_v2_header(first, report)
+        if !same_v2_header(first, report)
             || report
                 .questions
                 .iter()

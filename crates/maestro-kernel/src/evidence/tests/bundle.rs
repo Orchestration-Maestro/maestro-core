@@ -34,6 +34,15 @@ fn digest_of(text: &str) -> String {
 }
 
 #[test]
+fn bundle_schema_uses_the_serialized_bundle_shape_and_name() {
+    let schema = serde_json::to_value(schemars::schema_for!(Bundle)).expect("bundle schema");
+    let text = schema.to_string();
+    assert!(text.contains("Written"), "{text}");
+    assert!(text.contains("collection"), "{text}");
+    assert!(text.contains("passages"), "{text}");
+}
+
+#[test]
 fn a_bundle_writes_maestro_evidence_1_and_reads_back_equal() {
     let first = "The agent listens on port 7005 by default.";
     let second = "The default port is 7006 — unless the installer finds it taken.";

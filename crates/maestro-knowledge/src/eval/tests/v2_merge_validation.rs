@@ -76,9 +76,24 @@ fn merge_refuses_reports_with_different_question_rows() {
     refresh_summaries(&mut other);
 
     assert_eq!(
-        merge_v2_attempts(&[first, other]).unwrap_err().to_string(),
+        merge_v2_attempts(&[first.clone(), other])
+            .unwrap_err()
+            .to_string(),
         "attempt reports differ in frozen header, route or suite rows"
     );
+
+    let mut empty = first.clone();
+    empty.questions.clear();
+    assert_eq!(
+        merge_v2_attempts(&[first.clone(), empty])
+            .unwrap_err()
+            .to_string(),
+        "attempt reports differ in frozen header, route or suite rows"
+    );
+
+    let mut wrong_schema = first.clone();
+    wrong_schema.schema = Schema::V1;
+    assert!(merge_v2_attempts(&[first, wrong_schema]).is_err());
 }
 
 #[test]

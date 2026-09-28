@@ -66,7 +66,13 @@ pub(crate) fn truncate_search_bundle(
 ) -> Result<BoundedSearch, SearchOutputError> {
     let mut truncation = SearchTruncation::default();
     let mut original_gap_count = bundle.known_gaps.len();
-    loop {
+    let inventory_groups = match bundle.inventory.as_ref() {
+        Some(Inventory::DocumentsBySet { sets, .. }) => sets.len(),
+        Some(Inventory::Versions { versions, .. }) => versions.len(),
+        None => 0,
+    };
+    let reductions = bundle.passages.len().saturating_add(inventory_groups);
+    for _ in 0..=reductions {
         write_truncation_gaps(&mut bundle, original_gap_count, truncation);
         if shared_search_result_fits(&bundle, truncation)? {
             return Ok(BoundedSearch { bundle, truncation });
@@ -86,6 +92,7 @@ pub(crate) fn truncate_search_bundle(
         }
         return Err(SearchOutputError::TooLarge);
     }
+    Err(SearchOutputError::TooLarge)
 }
 
 /// Builds the MCP success result; its first text block is the reduced bundle JSON.

@@ -62,6 +62,31 @@ fn truncation_keeps_the_highest_ranked_real_passage_and_counts_drops() {
 }
 
 #[test]
+fn truncation_removes_only_the_gap_for_the_dropped_passage() {
+    let mut bundle = bundle(
+        vec![passage(1, "retained"), passage(2, &"é".repeat(3_000))],
+        450,
+    );
+    bundle.known_gaps = vec![
+        "Passage 1 has no source reference.".to_owned(),
+        "Passage 2 has no source reference.".to_owned(),
+        "An unrelated gap.".to_owned(),
+    ];
+
+    let bounded = truncate_search_bundle(bundle).expect("bounded search bundle");
+
+    assert_eq!(bounded.truncation.passages, 1);
+    assert_eq!(
+        bounded.bundle.known_gaps,
+        [
+            "Passage 1 has no source reference.",
+            "An unrelated gap.",
+            "1 lowest-ranked passages were omitted to fit the response limit.",
+        ]
+    );
+}
+
+#[test]
 fn inventory_is_reduced_only_after_all_oversized_passages_are_dropped() {
     let total_groups = 560;
     let bundle = bundle(

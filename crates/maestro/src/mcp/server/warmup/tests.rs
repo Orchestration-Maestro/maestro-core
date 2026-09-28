@@ -1,4 +1,4 @@
-use super::{super::KnowledgeServer, warm_cards};
+use super::{super::KnowledgeServer, published_embedder_cards, warm_cards};
 use crate::{failure::Failure, mcp::transport::BoundedStdio};
 use maestro_kernel::{
     artifact::{Digest, Store},
@@ -29,6 +29,22 @@ use tokio::{
 
 /// Generous upper bound for service startup and test shutdown.
 const HANG_GUARD: Duration = Duration::from_secs(10);
+
+#[test]
+fn card_discovery_preserves_kernel_open_failures() {
+    let opener: super::super::types::KernelOpener =
+        Arc::new(|| Err(Failure::failed("kernel open failed")));
+    assert!(published_embedder_cards(&opener).is_err());
+}
+
+#[test]
+fn warning_marks_itself_emitted_before_any_later_failure() {
+    let mut warned = false;
+    super::warn_once(&mut warned, "first");
+    assert!(warned);
+    super::warn_once(&mut warned, "second");
+    assert!(warned);
+}
 
 #[tokio::test]
 async fn initialize_returns_while_the_background_embedder_warmup_is_blocked() {

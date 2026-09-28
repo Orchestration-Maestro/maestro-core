@@ -188,3 +188,15 @@ fn format_failure() -> KnowledgeError {
         message: "the response could not be safely formatted",
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{RESPONSE_LIMIT_BYTES, fits, success};
+    use serde_json::Value;
+
+    #[test]
+    fn cli_envelope_fit_check_includes_all_serialized_bytes() {
+        let envelope = success(Value::String("x".repeat(RESPONSE_LIMIT_BYTES)));
+        assert!(!fits(&envelope).expect("serialize CLI envelope"));
+    }
+}

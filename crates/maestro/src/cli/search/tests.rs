@@ -1,7 +1,15 @@
 use super::search_document;
+use crate::cli::output::Output;
 use crate::knowledge::RESPONSE_LIMIT_BYTES;
 use maestro_kernel::evidence::Bundle;
 use serde_json::{Value, json};
+use std::process::ExitCode;
+
+#[test]
+fn deadline_error_uses_a_nonzero_exit_code() {
+    let code = super::presentation::deadline_error(Output::new(true)).expect("deadline output");
+    assert_eq!(code, ExitCode::from(1));
+}
 
 #[test]
 fn cli_text_does_not_report_evidence_omission_when_only_inventory_was_removed() {

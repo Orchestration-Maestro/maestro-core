@@ -122,6 +122,29 @@ async fn again_ignores_unfinished_targets_outside_the_frozen_tuple() {
 }
 
 #[tokio::test]
+async fn again_finds_a_unique_unfinished_target_without_journaled_progress() {
+    let fixture = resume_fixture(fake()).await;
+    let partial = interrupt_rebuild(&fixture).await;
+
+    let resumed = super::super::support::projection(
+        &fixture.kernel,
+        &fixture.qdrant,
+        &fixture.port,
+        &fixture.card,
+    )
+    .republish_observed(
+        &fixture.kernel.chunk_set,
+        rebuild_guard(fixture.old.generation),
+        None,
+        &mut |_| ControlFlow::Continue(()),
+    )
+    .await
+    .expect("find the unique unfinished target");
+
+    assert_eq!(resumed.generation, partial.generation);
+}
+
+#[tokio::test]
 async fn again_resumes_an_existing_collection_from_the_journaled_batch() {
     let fixture = resume_fixture(fake()).await;
     let partial = interrupt_rebuild(&fixture).await;

@@ -1,7 +1,7 @@
 //! Backwards-readable search inventory and request-budget fields.
 
 use super::support::bundle;
-use crate::evidence::{Bundle, RequestBudget};
+use crate::evidence::{Bundle, Inventory, RequestBudget};
 use serde_json::{Value, json};
 
 /// A bundle with valid search fields, ready to adjust one field at a time.
@@ -115,6 +115,18 @@ fn inventories_require_exact_ordered_groups_and_structured_success() {
 }
 
 #[test]
+fn complete_inventory_validation_requires_exact_counts() {
+    let inventory: Inventory = serde_json::from_value(json!({
+        "kind": "documents_by_set",
+        "set_filter": null,
+        "total_documents": 2,
+        "sets": [{"value": "cli", "documents": 1}]
+    }))
+    .expect("inventory data");
+    assert!(inventory.validate().is_err());
+}
+
+#[test]
 fn partial_inventory_counts_require_an_explicit_truncation_gap() {
     let mut partial = valid_wire();
     partial["inventory"]["sets"] = json!([{"value": "cli", "documents": 1}]);
@@ -127,6 +139,13 @@ fn partial_inventory_counts_require_an_explicit_truncation_gap() {
 
     partial["inventory"]["sets"][0]["documents"] = json!(3);
     assert_invalid(partial);
+
+    let mut exact_partial = valid_wire();
+    exact_partial["known_gaps"] = json!(["Search inventory truncated: 1 group omitted"]);
+    exact_partial["inventory"]["sets"] = json!([
+        {"value": "cli", "documents": 2}
+    ]);
+    assert!(serde_json::from_value::<Bundle>(exact_partial).is_ok());
 }
 
 #[test]
