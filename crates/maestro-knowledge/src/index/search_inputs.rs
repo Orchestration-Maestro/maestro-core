@@ -228,7 +228,64 @@ fn payload_identifiers(point: &RetrievedPoint) -> Option<Vec<String>> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Error, RetrievalError, Unverified, verification_write_error};
+    use super::{
+        Error, PROFILE, RetrievalError, Unverified, check_payloads, point_id, record_batch,
+        verification_write_error,
+    };
+    use crate::prepare::tests::scratch::Scratch;
+    use maestro_kernel::{
+        artifact::Digest,
+        chunk_set::Chunk,
+        evidence::Span,
+        scope::{Right, Scope},
+    };
+    use qdrant_client::{
+        Payload,
+        qdrant::{PointId, RetrievedPoint, point_id::PointIdOptions},
+    };
+    use serde_json::{Value, json};
+    use std::collections::HashMap;
+
+    fn chunk() -> Chunk {
+        Chunk {
+            id: "chunk-0-1".to_owned(),
+            revision_id: "revision-1".to_owned(),
+            section_id: None,
+            digest: Digest::of(b"input"),
+            token_count: 1,
+            span: Span { start: 0, end: 1 },
+        }
+    }
+
+    fn payload(chunk: &str, revision: &str, profile: &str, identifiers: &Value) -> Payload {
+        Payload::try_from(json!({
+            "chunk_id": chunk,
+            "revision_id": revision,
+            "identifier_profile": profile,
+            "identifiers": identifiers,
+        }))
+        .unwrap()
+    }
+
+    fn point(id: Option<PointId>, payload: Payload) -> RetrievedPoint {
+        RetrievedPoint {
+            id,
+            payload: payload.into(),
+            vectors: None,
+            shard_key: None,
+            order_value: None,
+        }
+    }
+
+    fn expected<'a>(chunk: &'a Chunk, id: &str) -> HashMap<String, (&'a Chunk, Vec<String>)> {
+        HashMap::from([(id.to_owned(), (chunk, vec!["ERR-42".to_owned()]))])
+    }
+
+    fn uuid(id: &str) -> PointId {
+        PointId {
+            point_id_options: Some(PointIdOptions::Uuid(id.to_owned())),
+        }
+    }
 
     #[test]
     fn deterministic_search_write_conflicts_are_unverified() {
@@ -241,5 +298,126 @@ mod tests {
                 Ok(Unverified::Search { .. })
             ));
         }
+    }
+
+    #[test]
+    fn record_batch_refuses_mismatched_chunk_and_input_counts() {
+        let scratch = Scratch::new();
+        let database = scratch.database();
+        let workspace: Scope = "workspace/default".parse().unwrap();
+        database
+            .grant("reader", &workspace, Right::Read, "test")
+            .unwrap();
+        let scopes = database.visible("reader").unwrap();
+        let chunk = chunk();
+        assert!(matches!(
+            record_batch(&database, &scopes, "set", &[chunk], &[]),
+            Err(Error::Search(RetrievalError::InvalidInput(message)))
+                if message == "a search-input batch has mismatched chunks and prepared inputs"
+        ));
+    }
+
+    #[test]
+    fn search_payload_checks_report_missing_unexpected_and_inconsistent_points() {
+        let chunk = chunk();
+        let id = point_id(&chunk.id);
+        let good = payload(&chunk.id, &chunk.revision_id, PROFILE, &json!(["ERR-42"]));
+        assert!(
+            check_payloads(
+                vec![point(Some(uuid(&id)), good.clone())],
+                expected(&chunk, &id)
+            )
+            .is_ok()
+        );
+
+        assert!(
+            check_payloads(vec![point(None, good.clone())], expected(&chunk, &id))
+                .unwrap_err()
+                .contains("no point ID")
+        );
+        assert!(
+            check_payloads(
+                vec![point(Some(uuid("unexpected")), good.clone())],
+                expected(&chunk, &id)
+            )
+            .unwrap_err()
+            .contains("unexpected point ID")
+        );
+        assert!(
+            check_payloads(Vec::new(), expected(&chunk, &id))
+                .unwrap_err()
+                .contains("missing")
+        );
+        assert!(
+            check_payloads(
+                vec![point(
+                    Some(uuid(&id)),
+                    payload(
+                        "another-chunk",
+                        &chunk.revision_id,
+                        PROFILE,
+                        &json!(["ERR-42"])
+                    ),
+                )],
+                expected(&chunk, &id)
+            )
+            .unwrap_err()
+            .contains("inconsistent chunk ownership")
+        );
+        assert!(
+            check_payloads(
+                vec![point(
+                    Some(uuid(&id)),
+                    payload(
+                        &chunk.id,
+                        &chunk.revision_id,
+                        "another-profile",
+                        &json!(["ERR-42"])
+                    ),
+                )],
+                expected(&chunk, &id)
+            )
+            .unwrap_err()
+            .contains("wrong identifier profile")
+        );
+        assert!(
+            check_payloads(
+                vec![point(
+                    Some(uuid(&id)),
+                    payload(&chunk.id, &chunk.revision_id, PROFILE, &json!("not-a-list")),
+                )],
+                expected(&chunk, &id)
+            )
+            .unwrap_err()
+            .contains("inconsistent identifiers")
+        );
+        assert!(
+            check_payloads(
+                vec![point(
+                    Some(uuid(&id)),
+                    payload(
+                        &chunk.id,
+                        &chunk.revision_id,
+                        PROFILE,
+                        &json!(["ERR-42", 3])
+                    ),
+                )],
+                expected(&chunk, &id)
+            )
+            .unwrap_err()
+            .contains("inconsistent identifiers")
+        );
+    }
+
+    #[test]
+    fn search_payload_check_accepts_numeric_point_ids() {
+        let chunk = chunk();
+        let numeric = PointId {
+            point_id_options: Some(PointIdOptions::Num(42)),
+        };
+        let payload = payload(&chunk.id, &chunk.revision_id, PROFILE, &json!(["ERR-42"]));
+        assert!(
+            check_payloads(vec![point(Some(numeric), payload)], expected(&chunk, "42")).is_ok()
+        );
     }
 }

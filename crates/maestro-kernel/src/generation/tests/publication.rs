@@ -64,12 +64,19 @@ fn a_guarded_publish_refuses_a_changed_pointer_without_moving_either_generation(
     database.publish_generation(first).unwrap();
     let second = generation_in(&database, "ctm", Verified);
 
+    let error = database
+        .publish_generation_if_current(second, None)
+        .unwrap_err();
+    assert_eq!(
+        error.to_string(),
+        format!("published generation changed from None to Some({first}) during replacement")
+    );
     assert!(matches!(
-        database.publish_generation_if_current(second, None),
-        Err(Error::PublishedChanged {
+        error,
+        Error::PublishedChanged {
             expected: None,
             found: Some(found),
-        }) if found == first
+        } if found == first
     ));
     assert_eq!(state(&database, first), Published);
     assert_eq!(state(&database, second), Verified);

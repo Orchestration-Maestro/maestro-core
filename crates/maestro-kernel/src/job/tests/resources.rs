@@ -280,6 +280,10 @@ fn jobs_for_resource_refuses_a_history_over_its_bound() {
     let error = database
         .jobs_for_resource(&ScopeSet::default_workspace(), PUBLISH, PUBLICATION)
         .unwrap_err();
+    assert_eq!(
+        error.to_string(),
+        format!("resource {PUBLICATION} has more than 1000 visible jobs; refusing its history")
+    );
     assert!(
         matches!(
             error,

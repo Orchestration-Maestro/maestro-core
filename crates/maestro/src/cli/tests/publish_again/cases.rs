@@ -3,6 +3,7 @@
 use crate::{
     cli::{
         args::PublishArguments,
+        output::Output,
         publish::{self, ResumeCandidate},
         tests::support::{Scratch, everything},
     },
@@ -16,6 +17,7 @@ use maestro_kernel::{
     gateway::{CardFields, Limits, ModelCard, Role, RouterEntry},
     generation::{Generation, GenerationState, NewGeneration},
     job::{Job, JobState, NewJob},
+    journal::{NewEvent, stream},
     retrieval::IDENTIFIER_PROFILE,
     scope::Scope,
 };
@@ -71,6 +73,8 @@ fn fixture() -> Fixture {
         suite_results: Vec::new(),
     };
     let card = ModelCard::record(&artifacts, &fields).unwrap();
+    let card_json = artifacts.get(card.digest()).unwrap();
+    database.put(&card_json, "application/json").unwrap();
     let kernel = Kernel {
         database,
         artifacts,
@@ -210,6 +214,40 @@ fn arguments(fixture: &Fixture, again: bool) -> PublishArguments {
     }
 }
 
+fn record_declaration(fixture: &Fixture, collection: &str) {
+    let mut declaration: Value = serde_json::from_str(include_str!(
+        "../../../../../../tests/fixtures/synthetic/collection.json"
+    ))
+    .unwrap();
+    declaration["id"] = json!(collection);
+    let declaration = serde_json::to_vec(&declaration).unwrap();
+    let digest = fixture
+        .kernel
+        .database
+        .put(&declaration, "application/json")
+        .unwrap();
+    let stream = stream(collection);
+    let scope: Scope = format!("workspace/default/collection/{collection}")
+        .parse()
+        .unwrap();
+    let data = json!({
+        "collection": collection,
+        "declaration": digest.as_str(),
+        "path": format!("/tmp/{collection}/collection.json"),
+    });
+    fixture
+        .kernel
+        .database
+        .record(&NewEvent {
+            stream: &stream,
+            r#type: "maestro.knowledge.collection.added.v1",
+            subject: &stream,
+            scope: scope.as_str(),
+            data: &data,
+        })
+        .unwrap();
+}
+
 fn selected(
     fixture: &Fixture,
     again: bool,
@@ -265,6 +303,66 @@ fn recovery_inputs_freeze_the_tuple_nonce_expected_pointer_and_watermark() {
             "generation_watermark": 9,
         })
     );
+}
+
+#[test]
+fn publish_preflight_refuses_missing_unknown_and_incomplete_chunk_sets() {
+    let fixture = fixture();
+    record_declaration(&fixture, COLLECTION);
+
+    let mut no_recovery_set = arguments(&fixture, true);
+    no_recovery_set.chunk_set = None;
+    assert!(matches!(
+        publish::run(&fixture.kernel, Output::new(true), &no_recovery_set),
+        Err(Failure::Refused(message)) if message.contains("--again requires --chunk-set")
+    ));
+
+    let mut unknown = arguments(&fixture, false);
+    unknown.chunk_set = Some("missing".to_owned());
+    let unknown_error = publish::run(&fixture.kernel, Output::new(true), &unknown);
+    assert!(
+        matches!(&unknown_error, Err(Failure::Refused(message)) if message.contains("no chunk set missing")),
+        "{unknown_error:?}"
+    );
+
+    fixture
+        .kernel
+        .database
+        .begin_chunk_set(&NewChunkSet {
+            id: "building-set",
+            collection_id: COLLECTION,
+            chunk_profile: "synthetic/1",
+            counter_contract_id: "synthetic-counter/1",
+        })
+        .unwrap();
+    let mut building = arguments(&fixture, false);
+    building.chunk_set = Some("building-set".to_owned());
+    assert!(matches!(
+        publish::run(&fixture.kernel, Output::new(true), &building),
+        Err(Failure::Refused(message)) if message.contains("building-set is building")
+    ));
+
+    fixture
+        .kernel
+        .database
+        .record_collection(&Collection {
+            id: "empty".to_owned(),
+            title: "Empty".to_owned(),
+            visibility: "private".to_owned(),
+            profiles: BTreeMap::new(),
+        })
+        .unwrap();
+    record_declaration(&fixture, "empty");
+    let empty = PublishArguments {
+        collection: "empty".to_owned(),
+        card: fixture.card.digest().as_str().to_owned(),
+        chunk_set: None,
+        again: false,
+    };
+    assert!(matches!(
+        publish::run(&fixture.kernel, Output::new(true), &empty),
+        Err(Failure::Refused(message)) if message.contains("has no complete chunk set")
+    ));
 }
 
 #[test]

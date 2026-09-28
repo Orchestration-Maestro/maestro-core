@@ -340,3 +340,81 @@ pub(in crate::cli) fn last_progress(
         job_id = Ulid::from_string(previous).map_err(|error| Failure::failed_by(&error))?;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{ResumeCandidate, can_resume};
+    use maestro_kernel::{generation::GenerationState, job::JobState};
+    use maestro_knowledge::index::RebuildGuard;
+    use serde_json::json;
+    use ulid::Ulid;
+
+    fn candidate(
+        state: JobState,
+        expected: Option<i64>,
+        progress_generation: Option<i64>,
+        target_state: Option<GenerationState>,
+    ) -> ResumeCandidate {
+        ResumeCandidate {
+            id: Ulid::generate(),
+            state,
+            recovery: RebuildGuard {
+                expected_published: expected,
+                generation_watermark: expected.unwrap_or_default(),
+            },
+            progress_generation,
+            target_state,
+            inputs: json!({}),
+        }
+    }
+
+    #[test]
+    fn resume_requires_the_frozen_pointer_and_an_unpublished_or_own_published_target() {
+        use GenerationState::{Building, Failed, Published, Verified};
+        use JobState::{Cancelled, Failed as FailedJob, Queued, Running, Succeeded};
+
+        assert!(can_resume(&candidate(Queued, Some(1), None, None), Some(1)));
+        assert!(!can_resume(
+            &candidate(Running, Some(1), None, None),
+            Some(2)
+        ));
+        for target_state in [Building, Verified] {
+            assert!(can_resume(
+                &candidate(Running, Some(1), Some(2), Some(target_state)),
+                Some(1)
+            ));
+        }
+        assert!(can_resume(
+            &candidate(Running, Some(1), Some(2), Some(Published)),
+            Some(2)
+        ));
+        assert!(!can_resume(
+            &candidate(Running, Some(1), Some(2), Some(Published)),
+            Some(1)
+        ));
+        assert!(!can_resume(
+            &candidate(Running, Some(1), Some(2), Some(Failed)),
+            Some(1)
+        ));
+
+        assert!(can_resume(
+            &candidate(FailedJob, Some(1), None, None),
+            Some(1)
+        ));
+        assert!(!can_resume(
+            &candidate(FailedJob, Some(1), None, None),
+            Some(2)
+        ));
+        assert!(can_resume(
+            &candidate(FailedJob, Some(1), Some(2), Some(Verified)),
+            Some(1)
+        ));
+        assert!(!can_resume(
+            &candidate(FailedJob, Some(1), Some(2), Some(Published)),
+            Some(1)
+        ));
+        for state in [Succeeded, Cancelled] {
+            assert!(!can_resume(&candidate(state, Some(1), None, None), Some(1)));
+        }
+    }
+}

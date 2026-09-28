@@ -274,3 +274,72 @@ impl fmt::Display for Unverified {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{Error, Unverified};
+    use crate::prepare;
+    use maestro_kernel::retrieval;
+    use std::error::Error as StdError;
+
+    #[test]
+    fn recovery_failures_keep_diagnostics_and_sources() {
+        for error in [
+            Error::CounterContractMismatch {
+                expected: "expected".to_owned(),
+                actual: "actual".to_owned(),
+            },
+            Error::MissingCollection("missing".to_owned()),
+            Error::PublishedChanged {
+                expected: Some(1),
+                found: Some(2),
+            },
+            Error::RecoveryTarget { generation: 3 },
+            Error::AmbiguousRecoveryTarget {
+                generations: vec![3, 4],
+            },
+            Error::UnrelatedAlias {
+                alias: "alias".to_owned(),
+                found: "collection".to_owned(),
+            },
+        ] {
+            assert!(!error.to_string().is_empty());
+            assert!(StdError::source(&error).is_none());
+        }
+
+        let preparation = Error::Preparation(prepare::Error::Stopped);
+        assert!(
+            preparation
+                .to_string()
+                .contains("preparation manifest failed")
+        );
+        assert!(StdError::source(&preparation).is_some());
+
+        let search = Error::Search(retrieval::Error::InputConflict);
+        assert!(search.to_string().contains("search projection failed"));
+        assert!(StdError::source(&search).is_some());
+    }
+
+    #[test]
+    fn each_unverified_finding_has_a_diagnostic() {
+        for finding in [
+            Unverified::NoCollection,
+            Unverified::Vectors {
+                dimensions: 3,
+                found: "wrong vectors".to_owned(),
+            },
+            Unverified::Count {
+                expected: 1,
+                found: 2,
+            },
+            Unverified::Missing {
+                chunk: "chunk".to_owned(),
+            },
+            Unverified::Search {
+                reason: "missing payload".to_owned(),
+            },
+        ] {
+            assert!(!finding.to_string().is_empty());
+        }
+    }
+}
