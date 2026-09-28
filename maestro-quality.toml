@@ -274,6 +274,19 @@ rule = "DEP-001"
 path = "hashbrown@0.15.5"
 reason = "whatlang 0.18 requires it (ADR-0020); remove when whatlang moves to hashbrown 0.17"
 
+# The organization's lbug fork, pinned by commit in Cargo.lock through
+# [patch.crates-io]: crates.io lbug 0.20.4 with its OpenSSL-bound extension
+# installer made optional and one CMake build reused (S2 G25, ADR-0021).
+[[exception]]
+rule = "DEP-001"
+path = "https://github.com/Orchestration-Maestro/lbug"
+reason = "lbug 0.20.4 links OpenSSL for its extension installer alone (ADR-0021, G25 bar item 2); remove when an upstream lbug release makes OpenSSL optional (LadybugDB/ladybug#777, #796)"
+
+[[exception]]
+rule = "DEP-001"
+path = "foldhash@0.1.5"
+reason = "whatlang 0.18 requires it through hashbrown 0.15 while lbug 0.20.4's cxx uses foldhash 0.2 (S2 G25 spike; ADR-0020); remove when whatlang moves to hashbrown 0.17"
+
 # The MCP module owns its transport and service startup; CLI dispatch selects
 # its one public protocol entry point.
 [[exception]]

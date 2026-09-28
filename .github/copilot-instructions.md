@@ -36,6 +36,8 @@ in place.
 ```text
 .                                                                            # Repository root
 ├── .cargo/                                                                  # Cargo settings for this workspace
+│   ├── config.toml                                                          # S2 G25 spike: lbug's build script otherwise downloads an unpinned, unchecked prebuilt liblbug (and a helper script from LadybugDB's main
+│   ├── lbug-debug-flags.cmake                                               # File: lbug debug flags
 │   └── mutants.toml                                                         # Mutants no test can kill, each with its reason: none changes behaviour a test can observe
 ├── .github/                                                                 # GitHub metadata, templates and workflows
 │   ├── workflows/                                                           # GitHub Actions workflows
@@ -48,6 +50,17 @@ in place.
 │   ├── dependabot.yml                                                       # The organization merges only conventional titles: "ci(deps): bump ..."
 │   └── zizmor.yml                                                           # The workflow security audit just check and the commit hook run: zizmor, in its pedantic persona, offline
 ├── crates/                                                                  # The workspace's crates
+│   ├── lbug-spike/                                                          # Lbug spike
+│   │   ├── examples/                                                        # Worked examples
+│   │   │   └── open_query.rs                                                # The smallest program that links LadybugDB: open an in-memory database
+│   │   ├── src/                                                             # The crate's sources
+│   │   │   └── lib.rs                                                       # Throwaway S2 G25 probe of the lbug crate (LadybugDB)
+│   │   ├── tests/                                                           # Integration tests
+│   │   │   └── it/                                                          # It
+│   │   │       ├── engine_qualification.rs                                  # G25: create, insert, query, close and reopen an on-disk LadybugDB, and
+│   │   │       ├── main.rs                                                  # G25's evidence on lbug (LadybugDB), one test crate: what the engine
+│   │   │       └── no_openssl.rs                                            # G25 route B: the patched lbug (Orchestration-Maestro/lbug, default
+│   │   └── Cargo.toml                                                       # Crate manifest: Throwaway S2 G25 probe: LadybugDB (lbug) builds, opens, writes, reads and reopens
 │   ├── maestro/                                                             # The maestro binary: the command line (CLI) over the knowledge library and the kernel
 │   │   ├── src/                                                             # The crate's sources
 │   │   │   ├── cli/                                                         # The commands, a module each, and what they share
@@ -1248,6 +1261,7 @@ in place.
 │   │   └── tasks.md                                                         # Knowledge Kernel and Hybrid RAG Implementation Tasks
 │   └── 002-knowledge-graph/                                                 # 002 knowledge graph
 │       ├── plan.md                                                          # Implementation Plan: Knowledge graph
+│       ├── research.md                                                      # Research: qualifying lbug (G25)
 │       ├── spec.md                                                          # Feature Specification: Knowledge graph
 │       └── tasks.md                                                         # Knowledge Graph Implementation Tasks
 ├── supply-chain/                                                            # cargo-vet audits, configuration and imports
