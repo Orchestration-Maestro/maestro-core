@@ -472,5 +472,7 @@ mod prompt_text;
 mod prompts;
 #[path = "tests/requests.rs"]
 mod requests;
+#[path = "tests/router_refusal.rs"]
+mod router_refusal;
 #[path = "tests/threshold.rs"]
 mod threshold;

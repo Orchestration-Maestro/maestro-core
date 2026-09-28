@@ -8,6 +8,7 @@
 //! async because a search runs its routes in parallel under a deadline (D10);
 //! the caller sets that deadline.
 
+mod body;
 mod card;
 pub(crate) mod card_types;
 pub mod card_v2;

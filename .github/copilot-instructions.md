@@ -481,12 +481,14 @@ in place.
 │   │   │   │   │   ├── mod.rs                                               # Tests of the model gateway: model cards, the router client against a stub
 │   │   │   │   │   ├── port.rs                                              # Tests of the port's refusals: each says what was refused and why
 │   │   │   │   │   ├── router.rs                                            # Tests of the router client against a stub router: every call is bound to
+│   │   │   │   │   ├── safety.rs                                            # The router client against a misbehaving router: it never follows a
 │   │   │   │   │   ├── stub.rs                                              # A stub of the model router: a loopback HTTP server, on a thread of its
 │   │   │   │   │   ├── v2.rs                                                # V2 model-card identity contract
 │   │   │   │   │   ├── v2_golden.rs                                         # Canonical model-card JSON fixtures with pinned wire bytes
 │   │   │   │   │   ├── v2_validation.rs                                     # V2 card schema, weight, and runtime flag validation tests
 │   │   │   │   │   ├── v2_validation_more.rs                                # V2 card resource, provenance, role, sampling, and canonical-load validation tests
 │   │   │   │   │   └── v2_validation_paths.rs                               # Machine-path checks for v2 provenance fields
+│   │   │   │   ├── body.rs                                                  # Bounded answers: each call reads at most what its endpoint can
 │   │   │   │   ├── card.rs                                                  # Model cards: what was evaluated of a model filling a role (D8), kept as
 │   │   │   │   ├── card_types.rs                                            # Shared model-card vocabulary, independent of v1 and v2 encodings
 │   │   │   │   ├── fake.rs                                                  # The deterministic fake behind the model port, which public CI uses since it
@@ -649,6 +651,7 @@ in place.
 │   │   │   │   │   ├── prompt_text.rs                                       # A prompt a ladder rung supplies as text: its {data} slot holds the
 │   │   │   │   │   ├── prompts.rs                                           # The prompt versions: v1 stays today's text, v2 asks for every supporting
 │   │   │   │   │   ├── requests.rs                                          # Rust source: requests
+│   │   │   │   │   ├── router_refusal.rs                                    # A refusal the router client cannot read in full, through the answer path
 │   │   │   │   │   └── threshold.rs                                         # The reranker relevance threshold: below it, ask refuses without chat
 │   │   │   │   ├── validate/                                                # Deterministic support checks for buffered answerer replies
 │   │   │   │   │   └── tests.rs                                             # Rust source: tests

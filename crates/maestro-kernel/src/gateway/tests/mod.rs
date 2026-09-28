@@ -9,6 +9,7 @@ mod fixture;
 mod formatting;
 mod port;
 mod router;
+mod safety;
 mod stub;
 mod v2;
 mod v2_golden;

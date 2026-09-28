@@ -2,11 +2,15 @@
 //! endpoints, `/models/<entry>/…`.
 
 use super::{
+    body::{
+        MAX_CATALOG_BODY_BYTES, MAX_CHAT_BODY_BYTES, MAX_ERROR_BODY_BYTES, MAX_PROPS_BODY_BYTES,
+        embeddings_limit, ranking_limit, read_bounded, tokens_limit,
+    },
     card::{ModelCard, Role, RouterEntry},
     port::{ChatRequest, Error, ModelPort, Room, embedder_dimensions, require},
 };
 use crate::artifact::Digest;
-use reqwest::{Client, RequestBuilder, Url};
+use reqwest::{Client, RequestBuilder, Url, redirect::Policy};
 use serde::{Deserialize, de::DeserializeOwned};
 use serde_json::{Map, Value, json};
 use std::{
@@ -18,8 +22,6 @@ use std::{
 /// (T002): with its one value, `free`, the router refuses rather than unload
 /// another model.
 const ROOM_HEADER: &str = "X-Model-Router-Room";
-/// Maximum buffered HTTP chat body, including JSON escaping and metadata.
-const MAX_CHAT_BODY_BYTES: usize = 262_144;
 /// Maximum decoded answer content accepted from the model.
 const MAX_CHAT_CONTENT_BYTES: usize = 32_768;
 
@@ -40,8 +42,9 @@ pub struct RouterClient {
 
 impl RouterClient {
     /// A client of the router answering at the root of `base`, such as
-    /// `http://127.0.0.1:8080`. It uses no proxy and reads no environment
-    /// variable, and it sets no deadline: its caller does.
+    /// `http://127.0.0.1:8080`. It uses no proxy, follows no redirect and
+    /// reads no environment variable, and it sets no deadline: its caller
+    /// does.
     ///
     /// # Errors
     ///
@@ -49,6 +52,7 @@ impl RouterClient {
     pub fn new(base: Url) -> Result<Self, Error> {
         let http = Client::builder()
             .no_proxy()
+            .redirect(Policy::none())
             .build()
             .map_err(Error::Transport)?;
         Ok(Self {
@@ -70,7 +74,7 @@ impl RouterClient {
     pub async fn catalog(&self) -> Result<Vec<RouterEntry>, Error> {
         let mut url = self.base.clone();
         url.set_path("/v1/models");
-        let listing: Listing = send(self.http.get(url), Room::Any).await?;
+        let listing: Listing = send(self.http.get(url), Room::Any, MAX_CATALOG_BODY_BYTES).await?;
         listing
             .data
             .into_iter()
@@ -112,7 +116,8 @@ impl RouterClient {
     /// Asks `/props` in `room` and compares `card` with it, checked or not:
     /// the request reloads a model the router unloaded.
     async fn recheck(&self, card: &ModelCard, room: Room) -> Result<(), Error> {
-        let props: Props = send(self.http.get(self.endpoint(card, "props")), room).await?;
+        let request = self.http.get(self.endpoint(card, "props"));
+        let props: Props = send(request, room, MAX_PROPS_BODY_BYTES).await?;
         props.compare(card)?;
         self.checked
             .lock()
@@ -130,16 +135,17 @@ impl RouterClient {
     }
 
     /// Posts `body` to `path` under the model `card` names, once the card is
-    /// checked.
+    /// checked, and reads an answer of at most `limit` bytes.
     async fn call<T: DeserializeOwned>(
         &self,
         card: &ModelCard,
         room: Room,
-        path: &str,
+        (path, limit): (&str, usize),
         body: &Value,
     ) -> Result<T, Error> {
         self.check(card, room).await?;
-        send(self.http.post(self.endpoint(card, path)).json(body), room).await
+        let request = self.http.post(self.endpoint(card, path)).json(body);
+        send(request, room, limit).await
     }
 }
 
@@ -162,8 +168,14 @@ impl ModelPort for RouterClient {
         if inputs.is_empty() {
             return Ok(Vec::new());
         }
+        let limit = embeddings_limit(inputs.len(), dimensions.get());
         let answer: Embeddings = self
-            .call(card, room, "v1/embeddings", &json!({"input": inputs}))
+            .call(
+                card,
+                room,
+                ("v1/embeddings", limit),
+                &json!({"input": inputs}),
+            )
             .await?;
         let vectors = by_index(
             inputs.len(),
@@ -196,7 +208,8 @@ impl ModelPort for RouterClient {
             return Ok(Vec::new());
         }
         let body = json!({"query": query, "documents": documents});
-        let answer: Ranking = self.call(card, room, "v1/rerank", &body).await?;
+        let limit = ranking_limit(documents.len());
+        let answer: Ranking = self.call(card, room, ("v1/rerank", limit), &body).await?;
         by_index(
             documents.len(),
             answer
@@ -210,7 +223,8 @@ impl ModelPort for RouterClient {
         // As the embedding path counts: special tokens added and parsed, as
         // maestro-canonicalization's TOKENIZER.md records.
         let body = json!({"content": text, "add_special": true, "parse_special": true});
-        let answer: Tokens = self.call(card, room, "tokenize", &body).await?;
+        let limit = tokens_limit(text.len());
+        let answer: Tokens = self.call(card, room, ("tokenize", limit), &body).await?;
         Ok(answer.tokens)
     }
 
@@ -247,66 +261,58 @@ impl ModelPort for RouterClient {
                 body.insert("seed".to_owned(), json!(seed));
             }
         }
-        self.check(card, room).await?;
-        let response = self
-            .http
-            .post(self.endpoint(card, "v1/chat/completions"))
-            .json(&body);
-        let answer = send_chat(response, room).await?;
+        let answer: Completion = self
+            .call(
+                card,
+                room,
+                ("v1/chat/completions", MAX_CHAT_BODY_BYTES),
+                &Value::Object(body),
+            )
+            .await?;
         answer.into_content()
     }
 }
 
-/// Sends `request` in `room`, and reads its answer as `T`.
-async fn send<T: DeserializeOwned>(request: RequestBuilder, room: Room) -> Result<T, Error> {
+/// Sends `request` in `room`, and reads its answer as `T` when it is at most
+/// `limit` bytes, and a refusal when it is at most [`MAX_ERROR_BODY_BYTES`];
+/// a longer refusal keeps its status and quotes only the limit.
+/// A redirect is refused unread: following it could send the request's body
+/// off this machine.
+async fn send<T: DeserializeOwned>(
+    request: RequestBuilder,
+    room: Room,
+    limit: usize,
+) -> Result<T, Error> {
     let request = match room {
         Room::Free => request.header(ROOM_HEADER, "free"),
         // No header at all: the router refuses any value but `free`.
         Room::Any => request,
     };
-    let response = request.send().await.map_err(Error::Transport)?;
-    let status = response.status();
-    let body = response.bytes().await.map_err(Error::Transport)?;
-    if !status.is_success() {
-        return Err(refusal(status.as_u16(), &body));
-    }
-    serde_json::from_slice(&body).map_err(|error| invalid(error.to_string()))
-}
-
-/// Sends one bounded chat request and parses its completion envelope.
-async fn send_chat(request: RequestBuilder, room: Room) -> Result<Completion, Error> {
-    let request = match room {
-        Room::Free => request.header(ROOM_HEADER, "free"),
-        Room::Any => request,
-    };
     let mut response = request.send().await.map_err(Error::Transport)?;
     let status = response.status();
-    let body = read_chat_body(&mut response).await?;
+    if status.is_redirection() {
+        return Err(Error::Redirected {
+            status: status.as_u16(),
+        });
+    }
     if !status.is_success() {
-        return Err(refusal(status.as_u16(), &body));
+        let status = status.as_u16();
+        return Err(
+            match read_bounded(&mut response, MAX_ERROR_BODY_BYTES).await {
+                Ok(body) => refusal(status, &body),
+                // A refusal too long to read is still a refusal of its status,
+                // not a model answer to repair: only the limit is quoted.
+                Err(Error::InvalidAnswer { reason }) => Error::Refused {
+                    status,
+                    code: None,
+                    message: reason,
+                },
+                Err(error) => error,
+            },
+        );
     }
+    let body = read_bounded(&mut response, limit).await?;
     serde_json::from_slice(&body).map_err(|error| invalid(error.to_string()))
-}
-
-/// Reads a chat response only while it remains within the hard buffer limit.
-async fn read_chat_body(response: &mut reqwest::Response) -> Result<Vec<u8>, Error> {
-    if response
-        .content_length()
-        .is_some_and(|length| length > MAX_CHAT_BODY_BYTES as u64)
-    {
-        return Err(invalid("chat response exceeds the body limit"));
-    }
-    let mut body = Vec::new();
-    while let Some(chunk) = response.chunk().await.map_err(Error::Transport)? {
-        let Some(length) = body.len().checked_add(chunk.len()) else {
-            return Err(invalid("chat response exceeds the body limit"));
-        };
-        if length > MAX_CHAT_BODY_BYTES {
-            return Err(invalid("chat response exceeds the body limit"));
-        }
-        body.extend_from_slice(&chunk);
-    }
-    Ok(body)
 }
 
 /// The text of a one-choice, complete assistant reply.

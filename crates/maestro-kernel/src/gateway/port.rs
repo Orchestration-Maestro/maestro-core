@@ -153,6 +153,13 @@ pub enum Error {
         /// How the request differs.
         reason: String,
     },
+    /// The router answered with a redirect, which this gateway never follows:
+    /// a followed 307 or 308 would send the call's body, private text
+    /// included, wherever the redirect points.
+    Redirected {
+        /// The redirect's HTTP status.
+        status: u16,
+    },
     /// The model's answer is not what the call expects.
     InvalidAnswer {
         /// How it differs.
@@ -199,6 +206,10 @@ impl fmt::Display for Error {
             Self::InvalidRequest { reason } => {
                 write!(formatter, "invalid chat request: {reason}")
             }
+            Self::Redirected { status } => write!(
+                formatter,
+                "the router answered with redirect {status}, which this gateway never follows"
+            ),
             Self::InvalidAnswer { reason } => {
                 write!(
                     formatter,

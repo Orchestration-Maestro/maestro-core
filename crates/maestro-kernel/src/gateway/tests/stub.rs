@@ -6,7 +6,7 @@ use reqwest::Url;
 use serde_json::{Value, json};
 use std::{
     collections::HashMap,
-    io::{BufRead as _, BufReader, Read as _, Write as _},
+    io::{self, BufRead as _, BufReader, Read as _, Write as _},
     net::{TcpListener, TcpStream},
     sync::{Arc, Mutex},
     thread,
@@ -19,6 +19,17 @@ pub(super) enum Reply {
     Answer(u16, String),
     /// The connection closed before any answer.
     HangUp,
+    /// A redirect of the status to the location, with an empty body.
+    Redirect(u16, String),
+    /// A status whose header declares a body of that many bytes, and no
+    /// body: a client that reads it meets the connection's end.
+    Declared(u16, usize),
+    /// A status and a chunked body of that many spaces, which the stub stops
+    /// writing early when the client drops the connection.
+    Chunked(u16, usize),
+    /// A status and a chunked body of that many spaces whose end the stub
+    /// withholds: it keeps the connection open until the client drops it.
+    Held(u16, usize),
 }
 
 /// A reply of `status` with `body` as its JSON.
@@ -143,5 +154,48 @@ fn reply(stream: &TcpStream, replies: &HashMap<String, Reply>, recorded: &Mutex<
         )
         .unwrap(),
         Reply::HangUp => {}
+        Reply::Redirect(status, location) => write!(
+            &mut &*stream,
+            "HTTP/1.1 {status} Stub\r\nLocation: {location}\r\n\
+             Content-Length: 0\r\nConnection: close\r\n\r\n"
+        )
+        .unwrap(),
+        Reply::Declared(status, length) => write!(
+            &mut &*stream,
+            "HTTP/1.1 {status} Stub\r\nContent-Type: application/json\r\n\
+             Content-Length: {length}\r\nConnection: close\r\n\r\n"
+        )
+        .unwrap(),
+        Reply::Chunked(status, length) => {
+            if chunked(stream, status, length).is_ok() {
+                drop((&mut &*stream).write_all(b"0\r\n\r\n"));
+            }
+        }
+        Reply::Held(status, length) => {
+            if chunked(stream, status, length).is_ok() {
+                // Waits, discarding what it reads, until the client hangs up.
+                drop(io::copy(&mut &*stream, &mut io::sink()));
+            }
+        }
     }
+}
+
+/// Answers `status` with the chunks of a body of `length` spaces, 64 KiB a
+/// chunk, without the last chunk, and stops early once writing fails because
+/// the client dropped the connection.
+fn chunked(stream: &TcpStream, status: u16, length: usize) -> io::Result<()> {
+    const CHUNK: usize = 0x1_0000;
+    let mut writer = stream;
+    write!(
+        writer,
+        "HTTP/1.1 {status} Stub\r\nContent-Type: application/json\r\n\
+         Transfer-Encoding: chunked\r\nConnection: close\r\n\r\n"
+    )?;
+    let mut left = length;
+    while left > 0 {
+        let size = left.min(CHUNK);
+        write!(writer, "{size:x}\r\n{}\r\n", " ".repeat(size))?;
+        left -= size;
+    }
+    Ok(())
 }
