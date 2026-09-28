@@ -454,3 +454,35 @@ fn backtick_spans_and_token_edges_are_cut_on_character_boundaries() {
     assert_eq!(trim_token_edges("—“”–"), "");
     assert_eq!(trim_token_edges(""), "");
 }
+
+#[test]
+fn a_line_that_only_starts_with_three_backticks_is_still_checked() {
+    let evidence = bundle("The scheduler stops when asked.");
+    assert_eq!(
+        rejected_literals("```halt``` stops the scheduler [1].", &evidence),
+        Some(vec!["halt".to_owned()])
+    );
+    assert_eq!(
+        unsupported_literals("Stop it:\n```bash\nhalt\n```", "How?", &evidence),
+        ["halt"]
+    );
+}
+
+#[test]
+fn french_guillemets_around_a_literal_are_edge_punctuation() {
+    let evidence = bundle("Le service lit sa configuration dans «/opt/ctm».");
+    assert_eq!(
+        rejected_literals(
+            "Le service lit sa configuration dans «/opt/ctm» [1].",
+            &evidence
+        ),
+        None
+    );
+    assert_eq!(
+        rejected_literals(
+            "Le service lit sa configuration dans «/opt/autre» [1].",
+            &evidence
+        ),
+        Some(vec!["/opt/autre".to_owned()])
+    );
+}

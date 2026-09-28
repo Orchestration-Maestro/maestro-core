@@ -353,7 +353,8 @@ fn edge_punctuation(character: char, token: &str, leading: bool) -> bool {
     if character == '.' && leading && (token.starts_with("./") || token.starts_with("../")) {
         return false;
     }
-    character.is_ascii_punctuation() || matches!(character, '“' | '”' | '‘' | '’' | '—' | '–')
+    character.is_ascii_punctuation()
+        || matches!(character, '“' | '”' | '‘' | '’' | '—' | '–' | '«' | '»')
 }
 
 /// Recognizes one or two leading hyphens followed by an ASCII letter.
@@ -387,12 +388,19 @@ fn is_command_name(token: &str) -> bool {
         )
 }
 
+/// Whether `line` opens or closes a fenced block: three or more backticks
+/// and an info string without a backtick, as Markdown requires.
+fn is_fence(line: &str) -> bool {
+    let trimmed = line.trim();
+    trimmed.starts_with("```") && !trimmed.trim_start_matches('`').contains('`')
+}
+
 /// Omits fenced blocks from command inference; their contents are checked line by line.
 fn without_fenced_code(text: &str) -> String {
     let mut prose = String::new();
     let mut fenced = false;
     for line in text.lines() {
-        if line.trim_start().starts_with("```") {
+        if is_fence(line) {
             fenced = !fenced;
         } else if !fenced {
             prose.push_str(line);
@@ -408,7 +416,7 @@ fn backtick_literals(text: &str) -> Vec<String> {
     let mut fenced = false;
     for line in text.lines() {
         let trimmed = line.trim();
-        if trimmed.starts_with("```") {
+        if is_fence(trimmed) {
             fenced = !fenced;
             continue;
         }
