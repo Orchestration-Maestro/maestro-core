@@ -5,6 +5,7 @@ mod errors;
 mod guards;
 mod history;
 mod journal;
+mod live_registration;
 mod reads;
 mod records;
 mod scopes;

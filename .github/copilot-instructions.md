@@ -457,6 +457,7 @@ in place.
 │   │   │   │   │   ├── guards.rs                                            # Model registry write preconditions, eligibility, and transaction rollback tests
 │   │   │   │   │   ├── history.rs                                           # Exact evaluation-selection joins, insertion ordering, and selection history
 │   │   │   │   │   ├── journal.rs                                           # Transactional model-registry journal event contents and rollback
+│   │   │   │   │   ├── live_registration.rs                                 # Safe fake-backed registration checks and the explicitly ignored live card registration
 │   │   │   │   │   ├── mod.rs                                               # Model registry tests for identities, persistence, eligibility, scopes, and guards
 │   │   │   │   │   ├── reads.rs                                             # Integrity checks for scoped model registry reads
 │   │   │   │   │   ├── records.rs                                           # Model card, evaluation, and selection record/read contract tests
