@@ -678,6 +678,7 @@ in place.
 │       │   │   │   ├── parity.rs                                            # The parity fixtures: how their file writes them, and what the built-in
 │       │   │   │   ├── port.rs                                              # A model port that answers each parity fixture with the native counter's
 │       │   │   │   ├── qualification.rs                                     # Qualification: a router tokenizer exists only once the port gives every
+│       │   │   │   ├── qualification_validation.rs                          # Rust source: qualification validation
 │       │   │   │   ├── refusals.rs                                          # The refusals: what each says, and the cause each keeps
 │       │   │   │   ├── router_client.rs                                     # The router client through a router tokenizer, against a stub router: from
 │       │   │   │   ├── scratch.rs                                           # What the preparation's tests share: a scratch corpus and kernel, a collection imported and decided

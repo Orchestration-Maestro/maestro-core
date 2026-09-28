@@ -16,6 +16,7 @@ mod oversized;
 mod parity;
 mod port;
 mod qualification;
+mod qualification_validation;
 mod refusals;
 mod router_client;
 pub(crate) mod scratch;
