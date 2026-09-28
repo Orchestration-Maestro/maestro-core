@@ -145,6 +145,7 @@ impl<'run> RungReport<'run> {
             ("Reranker card", &self.provenance.reranker),
             ("Answerer card", &self.provenance.answerer),
             ("Prompt file", &self.provenance.prompt),
+            ("Source-class table", &self.provenance.source_classes),
         ];
         let _ = writeln!(text, "- Collection: {}", self.collection);
         let _ = writeln!(text, "- Generation: {}", self.provenance.generation);

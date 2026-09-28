@@ -163,6 +163,7 @@ fn search_context_debug_redacts_its_database_connection() {
         qdrant: &qdrant,
         embedder: None,
         reranker: None,
+        source_classes: None,
     };
 
     let debug = format!("{context:?}");

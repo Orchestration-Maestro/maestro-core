@@ -73,6 +73,7 @@ async fn undocumented_question_version_does_not_filter_search_results() {
             qdrant: &qdrant,
             embedder: None,
             reranker: None,
+            source_classes: None,
         };
         let request = SearchRequest::new(
             &kernel.collection,
@@ -118,6 +119,7 @@ async fn explicit_version_overrides_question_version() {
             qdrant: &qdrant,
             embedder: None,
             reranker: None,
+            source_classes: None,
         };
         let request = SearchRequest::new(
             &kernel.collection,
@@ -162,6 +164,7 @@ async fn missing_explicit_version_is_reported_as_a_known_gap() {
         qdrant: &qdrant,
         embedder: None,
         reranker: None,
+        source_classes: None,
     };
     let request = SearchRequest::new(
         &kernel.collection,
@@ -205,6 +208,7 @@ async fn malformed_inventory_filter_degrades_only_the_structured_route() {
         qdrant: &qdrant,
         embedder: None,
         reranker: None,
+        source_classes: None,
     };
     let request = SearchRequest::new(
         &kernel.collection,
@@ -272,6 +276,7 @@ async fn mismatched_route_revision_is_refused_before_rerank() {
             port: &rerank_port,
             card: &reranker_card,
         }),
+        source_classes: None,
     };
     let request = SearchRequest::new(
         &kernel.collection,
@@ -332,6 +337,7 @@ async fn missing_embedder_degrades_dense_but_fuses_other_routes() {
         qdrant: &qdrant,
         embedder: None,
         reranker: None,
+        source_classes: None,
     };
     let request = SearchRequest::new(
         &kernel.collection,

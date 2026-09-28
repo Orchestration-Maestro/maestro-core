@@ -9,10 +9,13 @@ use crate::{
         output::{SearchOutputError, SearchTruncation, truncate_search_bundle},
     },
 };
-use maestro_kernel::evidence::Bundle;
+use maestro_kernel::evidence::{Bundle, Passage};
 use serde::Serialize;
 use serde_json::Value;
-use std::{collections::BTreeSet, process::ExitCode};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    process::ExitCode,
+};
 
 /// The stable CLI search document schema.
 const CLI_SCHEMA: &str = "maestro-cli/knowledge-search/1";
@@ -137,8 +140,18 @@ fn fits(envelope: &CliEnvelope) -> Result<bool, KnowledgeError> {
     Ok(bytes.len().saturating_add(1) <= RESPONSE_LIMIT_BYTES)
 }
 
-/// Formats only the passages retained in the bounded JSON envelope.
-pub(super) fn search_text(bundle: &Bundle, envelope: &CliEnvelope) -> String {
+/// Lists the documents of the passages retained in the bounded JSON
+/// envelope, one line each at its best passage's place: its source label,
+/// the version it documents and its title, then each of its passages, by
+/// number and section, with its text. `labels` holds the source label of
+/// each classified document by id; any other document is named by its
+/// origin host or first corpus-path segment.
+pub(super) fn search_text(
+    bundle: &Bundle,
+    envelope: &CliEnvelope,
+    labels: &BTreeMap<String, String>,
+) -> String {
+    use std::fmt::Write as _;
     let mut text = format!(
         "Search {} generation {}: {}\n",
         bundle.collection, bundle.generation, bundle.query
@@ -151,18 +164,35 @@ pub(super) fn search_text(bundle: &Bundle, envelope: &CliEnvelope) -> String {
         .flatten()
         .filter_map(|passage| passage["n"].as_u64())
         .collect::<BTreeSet<_>>();
+    let mut documents: Vec<(&Passage, Vec<&Passage>)> = Vec::new();
     for passage in bundle
         .passages
         .iter()
         .filter(|passage| included.contains(&u64::from(passage.n)))
     {
-        use std::fmt::Write as _;
+        match documents
+            .iter_mut()
+            .find(|(first, _)| first.document_id == passage.document_id)
+        {
+            Some((_, passages)) => passages.push(passage),
+            None => documents.push((passage, vec![passage])),
+        }
+    }
+    for (rank, (first, passages)) in documents.iter().enumerate() {
         let _ = writeln!(
             text,
-            "\n[{}] {} — {}",
-            passage.n, passage.title, passage.source_ref
+            "\n{}. {} — {}",
+            rank + 1,
+            source_label(first, labels),
+            first.title
         );
-        let _ = writeln!(text, "{}", passage.text);
+        for passage in passages {
+            let _ = write!(text, "[{}]", passage.n);
+            if !passage.section_path.is_empty() {
+                let _ = write!(text, " {}", passage.section_path.join(" › "));
+            }
+            let _ = writeln!(text, "\n{}", passage.text);
+        }
     }
     if included.is_empty() {
         text.push_str("No evidence passages were returned.\n");
@@ -174,11 +204,31 @@ pub(super) fn search_text(bundle: &Bundle, envelope: &CliEnvelope) -> String {
         .and_then(Value::as_array)
     {
         for gap in gaps.iter().filter_map(Value::as_str) {
-            use std::fmt::Write as _;
             let _ = writeln!(text, "Known gap: {gap}");
         }
     }
     text
+}
+
+/// The label of `passage`'s document, followed by its version, if any.
+fn source_label(passage: &Passage, labels: &BTreeMap<String, String>) -> String {
+    let label = labels
+        .get(&passage.document_id)
+        .map_or_else(|| origin(&passage.source_ref), String::as_str);
+    match &passage.version {
+        Some(version) => format!("{label} {version}"),
+        None => label.to_owned(),
+    }
+}
+
+/// The host of a URL `source_ref`, or the first path segment of a
+/// `corpus-path:` one.
+fn origin(source_ref: &str) -> &str {
+    let rest = source_ref
+        .split_once("://")
+        .or_else(|| source_ref.split_once(':'))
+        .map_or(source_ref, |(_, rest)| rest);
+    rest.split('/').next().unwrap_or(rest)
 }
 
 /// Creates the safe failure for a bundle that cannot be serialized.

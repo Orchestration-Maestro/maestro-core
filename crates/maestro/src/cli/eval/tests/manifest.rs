@@ -6,7 +6,8 @@ use super::{
 };
 use crate::{cli::output::Output, failure::Failure};
 use maestro_knowledge::search::{
-    CandidateContext, SearchConfiguration, SectionClassSet, SectionPrior, StageWindow,
+    CandidateContext, SearchConfiguration, SectionClassSet, SectionPrior, SourceClassSet,
+    SourcePrior, StageWindow,
 };
 use maestro_test_scratch::scratch_directory;
 use serde_json::{Value, json};
@@ -375,4 +376,54 @@ fn intent_manifest_requires_explicit_card_and_preserves_default_off() {
     assert_eq!(configuration.intent_deadline_ms, 250);
     value["rungs"][0]["configuration"]["intent_deadline_ms"] = json!(5001);
     assert!(refusal(&value).contains("intent deadline"));
+}
+
+#[test]
+fn the_source_prior_defaults_to_official_first_and_is_set_per_rung() {
+    let mut value = manifest();
+    let parsed = parse(&value).unwrap();
+    let default = &parsed.rungs[1].configuration;
+    assert_eq!(default.search().source_prior, SourcePrior::default());
+    assert!(
+        serde_json::to_value(default)
+            .unwrap()
+            .get("source_prior")
+            .is_none()
+    );
+
+    value["rungs"][0]["configuration"]["source_prior"] = json!({"mode": "off"});
+    value["rungs"][1]["configuration"]["source_prior"] =
+        json!({"mode": "soft", "weight": 0.25, "classes": ["community", "third_party"]});
+    let parsed = parse(&value).unwrap();
+    assert_eq!(
+        parsed.rungs[0].configuration.search().source_prior,
+        SourcePrior::Off
+    );
+    let mut classes = SourceClassSet::default();
+    assert!(classes.insert("community"));
+    assert!(classes.insert("third_party"));
+    let config = &parsed.rungs[1].configuration;
+    assert_eq!(
+        config.search().source_prior,
+        SourcePrior::Soft {
+            weight: 0.25,
+            classes
+        }
+    );
+    assert_eq!(
+        serde_json::to_value(config).unwrap()["source_prior"]["classes"],
+        json!(["community", "third_party"])
+    );
+    for (pointer, invalid) in [
+        ("/rungs/1/configuration/source_prior/weight", json!(1.01)),
+        ("/rungs/1/configuration/source_prior/weight", json!(-0.01)),
+        (
+            "/rungs/1/configuration/source_prior/classes",
+            json!(["vendor"]),
+        ),
+    ] {
+        let mut invalid_value = value.clone();
+        *invalid_value.pointer_mut(pointer).unwrap() = invalid;
+        assert!(parse(&invalid_value).is_err(), "{pointer}");
+    }
 }

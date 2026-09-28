@@ -94,6 +94,7 @@ impl CandidateDb {
             }],
             configuration: SearchConfiguration::default(),
             query: "query".to_owned(),
+            source_classes: None,
             expected_revisions: HashMap::from([(chunk_id.to_owned(), expected_revisions)]),
             deadline: Instant::now() + Duration::from_secs(2),
             context_deadline: Instant::now() + Duration::from_secs(2),

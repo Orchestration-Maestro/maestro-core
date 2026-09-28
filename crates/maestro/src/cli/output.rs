@@ -37,6 +37,11 @@ impl Output {
         }
     }
 
+    /// Whether it prints one JSON document instead of text.
+    pub(super) const fn is_json(self) -> bool {
+        self.json
+    }
+
     /// Prints `line` for people; nothing under `--json`.
     ///
     /// # Errors

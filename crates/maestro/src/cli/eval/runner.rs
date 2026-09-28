@@ -39,6 +39,10 @@ pub(super) struct Provenance {
     /// The SHA-256 of the rung's prompt file, absent when it asks with a
     /// prompt version or does not ask.
     pub(super) prompt: Option<String>,
+    /// The digest of the source-class table the rung's source prior reads,
+    /// absent when the prior is off or no table is bound.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) source_classes: Option<String>,
 }
 
 impl Provenance {

@@ -27,7 +27,7 @@ async fn an_unreadable_source_keeps_the_chunk_text_and_records_the_fallback() {
     assert_eq!(loaded.candidates.len(), 1);
     assert_eq!(loaded.candidates[0].text, "prepared text");
     assert_eq!(loaded.fallbacks, slice::from_ref(&db.chunk_id));
-    assert!(loaded.penalized.is_empty());
+    assert!(loaded.penalized.section.is_empty());
     assert_eq!(loaded.context_unavailable, 1);
 }
 
@@ -44,7 +44,7 @@ async fn an_unreadable_source_never_fails_a_prior_only_search() {
         .unwrap();
     assert_eq!(loaded.candidates[0].text, "prepared text");
     assert!(loaded.fallbacks.is_empty());
-    assert!(loaded.penalized.is_empty());
+    assert!(loaded.penalized.section.is_empty());
     assert_eq!(loaded.context_unavailable, 1);
 }
 

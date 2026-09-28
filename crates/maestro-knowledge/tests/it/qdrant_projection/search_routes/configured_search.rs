@@ -65,6 +65,7 @@ pub(super) fn context<'a>(
             port: &fixture.port,
             card,
         }),
+        source_classes: None,
     }
 }
 

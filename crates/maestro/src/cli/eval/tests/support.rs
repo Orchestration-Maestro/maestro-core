@@ -83,6 +83,7 @@ pub(super) fn rung(name: &str) -> Rung {
             min_rerank_score: None,
             section_prior: Prior::default(),
             stage_window_ms: None,
+            source_prior: None,
         },
         ask: Some(AskSettings::default()),
     }
@@ -224,6 +225,7 @@ impl Engine for FakeEngine {
                 .map(|rerank| rerank.card.clone()),
             answerer: (!self.no_answerer).then(|| "a".repeat(64)),
             prompt: None,
+            source_classes: None,
         })
     }
 

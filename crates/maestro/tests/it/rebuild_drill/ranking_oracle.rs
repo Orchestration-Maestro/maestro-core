@@ -125,6 +125,7 @@ pub(super) async fn capture_question<P: ModelPort>(
             port: capture.reranker.port,
             card: capture.reranker.card,
         }),
+        source_classes: None,
     };
     let evidence = search::search(&context, &request)
         .await

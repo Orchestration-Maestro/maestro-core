@@ -4,8 +4,12 @@ use super::{
     super::requests::SearchRequest,
     implementation::{KnowledgeError, Scoped, ensure_current_scopes},
 };
-use crate::kernel::{Kernel, pinned_embedder};
+use crate::{
+    kernel::{Kernel, pinned_embedder},
+    knowledge::source_classes,
+};
 use maestro_kernel::{
+    binding::Bindings,
     evidence::Bundle,
     gateway::{ModelCard, ModelPort, Role},
     scope::{LOCAL, ScopeSet},
@@ -15,13 +19,13 @@ use maestro_knowledge::{
     index::Qdrant,
     search::{
         HydeExpander, QueryExpander, Reranker, SearchContext, SearchError,
-        SearchRequest as PipelineRequest,
+        SearchRequest as PipelineRequest, SourceClassifier,
         evidence::{EvidenceError, assemble_evidence},
         routes::{dense::Embedder, error::RouteError},
         search,
     },
 };
-use std::sync::Arc;
+use std::{path::Path, sync::Arc};
 use tokio::{task::spawn_blocking, time::Instant};
 
 /// The bundle plus its request-entry cutoff for bounded transport formatting.
@@ -30,6 +34,9 @@ pub(crate) struct SearchData {
     pub(crate) bundle: Bundle,
     /// T032's accepted deadline, enforced through formatting and delivery.
     pub(crate) deadline: Instant,
+    /// The source classifier the search ranked with, for the text view's
+    /// labels.
+    pub(crate) source_classes: Option<Arc<dyn SourceClassifier>>,
 }
 
 /// The cards one search runs with, all optional.
@@ -62,6 +69,7 @@ pub(crate) fn local_search_context<'a, P: ModelPort + Sync>(
         qdrant,
         embedder: cards.embedder.map(|card| Embedder { port, card }),
         reranker: cards.reranker.map(|card| Reranker { port, card }),
+        source_classes: None,
     }
 }
 
@@ -79,7 +87,8 @@ pub(crate) async fn search_with<P: ModelPort + Sync>(
     let card_scopes = scopes.clone();
     let artifacts = kernel.artifacts.clone();
     let collection = request.collection.clone();
-    let (embedder, reranker, intent) = spawn_blocking(move || {
+    let config_dir = kernel.config_dir.clone();
+    let (embedder, reranker, intent, source_classes) = spawn_blocking(move || {
         let generation = card_database
             .published_generation(&card_scopes, &collection)
             .map_err(|_| kernel_failure())?;
@@ -91,11 +100,12 @@ pub(crate) async fn search_with<P: ModelPort + Sync>(
         );
         let reranker = selected_reranker(&card_database, &card_scopes, &collection)?;
         let intent = selected_answerer(&card_database, &card_scopes, &collection)?;
-        Ok::<_, KnowledgeError>((embedder, reranker, intent))
+        let source_classes = bound_source_classes(&config_dir)?;
+        Ok::<_, KnowledgeError>((embedder, reranker, intent, source_classes))
     })
     .await
     .map_err(|_| kernel_failure())??;
-    let context = local_search_context(
+    let mut context = local_search_context(
         &database,
         qdrant,
         model_port,
@@ -105,6 +115,7 @@ pub(crate) async fn search_with<P: ModelPort + Sync>(
             intent: intent.as_ref(),
         },
     );
+    context.source_classes.clone_from(&source_classes);
     let pipeline_request = PipelineRequest::new(
         &request.collection,
         &request.query,
@@ -137,10 +148,36 @@ pub(crate) async fn search_with<P: ModelPort + Sync>(
         return Err(deadline_failure());
     }
     Ok(Scoped {
-        data: SearchData { bundle, deadline },
+        data: SearchData {
+            bundle,
+            deadline,
+            source_classes,
+        },
         kernel,
         scopes,
     })
+}
+
+/// The table the `source_classes` binding names, if any.
+///
+/// # Errors
+///
+/// `invalid_configuration` when the bindings file is invalid, or the bound
+/// table cannot be read or is invalid, each with its own message.
+pub(super) fn bound_source_classes(
+    config_dir: &Path,
+) -> Result<Option<Arc<dyn SourceClassifier>>, KnowledgeError> {
+    Bindings::load(config_dir).map_err(|_| KnowledgeError::Refused {
+        code: "invalid_configuration",
+        message: "the bindings file is invalid; run `maestro doctor`",
+    })?;
+    match source_classes::load(config_dir) {
+        Ok(table) => Ok(table.map(|table| table as Arc<dyn SourceClassifier>)),
+        Err(_) => Err(KnowledgeError::Refused {
+            code: "invalid_configuration",
+            message: "the source-class table is invalid",
+        }),
+    }
 }
 
 /// Freezes the configured real reranker once for this request.

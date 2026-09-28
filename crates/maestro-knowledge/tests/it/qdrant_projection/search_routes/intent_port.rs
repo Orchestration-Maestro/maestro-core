@@ -160,6 +160,7 @@ pub(super) async fn search_with(
             port,
             card: &reranker,
         }),
+        source_classes: None,
     };
     let request = SearchRequest {
         configuration,

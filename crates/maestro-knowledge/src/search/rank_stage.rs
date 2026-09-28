@@ -3,7 +3,7 @@
 
 use super::{
     admission::AdmittedSearch,
-    candidates::{self, Failure},
+    candidates::{self, Failure, Penalized},
     fusion::Fused,
     rank_policy,
     request::SearchConfiguration,
@@ -18,7 +18,7 @@ use maestro_kernel::{
 };
 use std::{
     cmp::Ordering,
-    collections::{BTreeSet, HashMap},
+    collections::{BTreeMap, HashMap},
     num::NonZeroUsize,
     sync::Arc,
 };
@@ -88,6 +88,7 @@ pub(super) async fn rank<P: ModelPort>(
             context_deadline: admitted.cutoffs.enrichment(),
             configuration,
             query: query.to_owned(),
+            source_classes: admitted.source_classes.clone(),
         },
     )
     .await?;
@@ -189,12 +190,13 @@ fn by_score_then_fused(
     }
 }
 
-/// Blends, applies the soft prior, then enforces final top-ten demotion bounds.
+/// Blends, applies the soft priors in one demotion, then enforces final
+/// top-ten demotion bounds.
 pub(super) fn apply_rank_policies(
     ranked: &mut [Ranked],
     fused_ids: &[String],
     configuration: SearchConfiguration,
-    penalized: &BTreeSet<String>,
+    penalized: &Penalized,
 ) {
     rank_policy::blend(
         ranked,
@@ -202,6 +204,18 @@ pub(super) fn apply_rank_policies(
         configuration.rerank_blend,
         configuration.rrf_k,
     );
-    configuration.section_prior.apply(ranked, penalized);
+    let mut multipliers = BTreeMap::new();
+    for (multiplier, ids) in [
+        (configuration.section_prior.multiplier(), &penalized.section),
+        (configuration.source_prior.multiplier(), &penalized.source),
+    ] {
+        let Some(multiplier) = multiplier else {
+            continue;
+        };
+        for id in ids {
+            *multipliers.entry(id.clone()).or_insert(1.0) *= multiplier;
+        }
+    }
+    rank_policy::demote(ranked, &multipliers);
     rank_policy::cap_demotion(ranked, fused_ids, configuration.rerank_demotion_cap);
 }

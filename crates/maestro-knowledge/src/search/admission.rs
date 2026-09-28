@@ -3,6 +3,7 @@
 use super::request::{
     CandidateContext, SearchConfiguration, SearchContext, SearchError, SearchRequest,
 };
+use super::source_class::SourceClassifier;
 use super::{deadline, inventory_query::inventory_request, pin};
 use crate::query::{Understood, understand};
 use maestro_kernel::{
@@ -39,6 +40,8 @@ pub(super) struct AdmittedSearch {
     pub(super) cutoffs: deadline::Deadlines,
     /// Validated execution settings frozen before route access.
     pub(super) configuration: SearchConfiguration,
+    /// The source classifier the source prior reads, when one is configured.
+    pub(super) source_classes: Option<Arc<dyn SourceClassifier>>,
 }
 
 /// Validates request bounds and pins its generation before route access.
@@ -74,6 +77,7 @@ pub(super) async fn admit_request<P: ModelPort>(
         scopes: Arc::new(admission_scopes),
         cutoffs,
         configuration: request.configuration,
+        source_classes: context.source_classes.clone(),
     })
 }
 
@@ -138,6 +142,9 @@ pub(super) fn validate(request: &SearchRequest<'_>) -> Result<Understood, Search
     }
     if !request.configuration.section_prior.is_valid() {
         return Err(invalid("section prior weight must be between 0 and 1"));
+    }
+    if !request.configuration.source_prior.is_valid() {
+        return Err(invalid("source prior weight must be between 0 and 1"));
     }
     if let CandidateContext::BoundedSection { max_bytes } = request.configuration.candidate_context
         && !(1..=1500).contains(&max_bytes)

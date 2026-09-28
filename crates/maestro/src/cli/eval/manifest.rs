@@ -4,7 +4,7 @@
 //! owner's files. Relative paths resolve from the manifest's directory.
 
 use super::{
-    rank_settings::{Context, Prior},
+    rank_settings::{Context, Prior, SourcePriorSetting},
     rung_prompt::RungPrompt,
 };
 use crate::failure::Failure;
@@ -12,7 +12,7 @@ use maestro_kernel::{artifact::Digest, evidence::RequestBudget};
 use maestro_knowledge::{
     answer::AskBudget,
     search::{
-        IntentExpansion, IntentTrigger, SearchConfiguration, StageWindow,
+        IntentExpansion, IntentTrigger, SearchConfiguration, SourcePrior, StageWindow,
         evidence::{CounterMode, EvidenceSettings, ExpansionMode},
     },
 };
@@ -202,6 +202,9 @@ pub(super) struct RungConfiguration {
     /// the routes' windows derive from the search deadline.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(super) stage_window_ms: Option<NonZeroU32>,
+    /// The source prior; absent, search's default, official-first.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) source_prior: Option<SourcePriorSetting>,
 }
 
 /// Which routes run.
@@ -274,7 +277,7 @@ impl RungConfiguration {
     /// The configuration search runs under.
     #[expect(
         clippy::expect_used,
-        reason = "manifest validation checks section prior before execution"
+        reason = "manifest validation checks both priors before execution"
     )]
     pub(super) fn search(&self) -> SearchConfiguration {
         SearchConfiguration {
@@ -313,6 +316,12 @@ impl RungConfiguration {
             stage_window: self.stage_window_ms.map_or(StageWindow::Derived, |window| {
                 StageWindow::Fixed(Duration::from_millis(u64::from(window.get())))
             }),
+            source_prior: self
+                .source_prior
+                .as_ref()
+                .map_or_else(SourcePrior::default, |prior| {
+                    prior.search().expect("validated source prior")
+                }),
         }
     }
 
@@ -442,6 +451,11 @@ fn check_rung(rung: &Rung) -> Result<(), Failure> {
         )));
     }
     configuration.section_prior.search()?;
+    configuration
+        .source_prior
+        .as_ref()
+        .map(SourcePriorSetting::search)
+        .transpose()?;
     if let Some(rerank) = &configuration.rerank {
         rerank.candidate_context.check()?;
         if rerank

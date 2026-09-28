@@ -1,7 +1,10 @@
-//! Manifest adapters for optional candidate-context and section-prior policies.
+//! Manifest adapters for optional candidate-context, section-prior and
+//! source-prior policies.
 
 use crate::failure::Failure;
-use maestro_knowledge::search::{CandidateContext, SectionClassSet, SectionPrior};
+use maestro_knowledge::search::{
+    CandidateContext, SectionClassSet, SectionPrior, SourceClassSet, SourcePrior,
+};
 use serde::{Deserialize, Serialize};
 
 /// Reranker input context; absent settings retain indexed chunks.
@@ -75,6 +78,47 @@ impl Prior {
         if !prior.is_valid() {
             return Err(Failure::refused(
                 "section prior weight must be between 0 and 1",
+            ));
+        }
+        Ok(prior)
+    }
+}
+
+/// A rung's source prior; a rung that sets none keeps search's default,
+/// official-first.
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+#[serde(tag = "mode", rename_all = "snake_case", deny_unknown_fields)]
+pub(super) enum SourcePriorSetting {
+    /// No source preference.
+    Off,
+    /// Reciprocal-rank penalty for documents of the named source classes.
+    Soft {
+        /// Fraction removed, in 0..=1.
+        weight: f32,
+        /// Source class names, validated against the class vocabulary.
+        classes: Vec<String>,
+    },
+}
+
+impl SourcePriorSetting {
+    /// Validates names and weight, returning the Copy search setting.
+    pub(super) fn search(&self) -> Result<SourcePrior, Failure> {
+        let Self::Soft { weight, classes } = self else {
+            return Ok(SourcePrior::Off);
+        };
+        let mut selected = SourceClassSet::default();
+        for name in classes {
+            if !selected.insert(name) {
+                return Err(Failure::refused("unknown source prior class"));
+            }
+        }
+        let prior = SourcePrior::Soft {
+            weight: *weight,
+            classes: selected,
+        };
+        if !prior.is_valid() {
+            return Err(Failure::refused(
+                "source prior weight must be between 0 and 1",
             ));
         }
         Ok(prior)

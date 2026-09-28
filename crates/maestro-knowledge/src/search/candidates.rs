@@ -1,13 +1,15 @@
 //! Scoped prepared-input loading for the fused candidate IDs only.
 
 use super::{
-    candidate_enrichment::{self, Settings},
+    candidate_enrichment::{self, Enriched, Settings},
     deadline,
     fusion::Fused,
     request::SearchConfiguration,
     rerank::Candidate,
+    source_class::{self, SourceClassifier},
 };
 use maestro_kernel::{
+    chunk_set::Chunk,
     generation::Generation,
     retrieval::{self, ReadControl, SearchRead},
     scope::ScopeSet,
@@ -53,6 +55,17 @@ pub(super) struct Request {
     pub(super) configuration: SearchConfiguration,
     /// Query used only to exempt explicitly requested section classes.
     pub(super) query: String,
+    /// The source classifier the source prior reads, when one is configured.
+    pub(super) source_classes: Option<Arc<dyn SourceClassifier>>,
+}
+
+/// The candidates each soft prior penalizes.
+#[derive(Debug, Default)]
+pub(super) struct Penalized {
+    /// Those whose section class the section prior penalizes.
+    pub(super) section: BTreeSet<String>,
+    /// Those whose source class the source prior penalizes.
+    pub(super) source: BTreeSet<String>,
 }
 
 /// Loaded candidates and opt-in context diagnostics.
@@ -66,9 +79,35 @@ pub(super) struct Loaded {
     /// unavailable source, or the enrichment cutoff.
     pub(super) fallbacks: Vec<String>,
     /// Candidates classified for a soft penalty.
-    pub(super) penalized: BTreeSet<String>,
+    pub(super) penalized: Penalized,
     /// Candidates whose enrichment was unavailable.
     pub(super) context_unavailable: usize,
+}
+
+impl Loaded {
+    /// The candidates of `fused` with their `texts`, and what enrichment and
+    /// the source classification found.
+    fn new(
+        fused: Vec<Fused>,
+        texts: Vec<(&Chunk, String)>,
+        enriched: Enriched,
+        source: BTreeSet<String>,
+    ) -> Self {
+        Self {
+            candidates: fused
+                .into_iter()
+                .zip(texts)
+                .map(|(fused, (_, text))| Candidate { fused, text })
+                .collect(),
+            source_load_micros: enriched.micros,
+            fallbacks: enriched.fallbacks,
+            penalized: Penalized {
+                section: enriched.penalized,
+                source,
+            },
+            context_unavailable: enriched.unavailable,
+        }
+    }
 }
 
 /// Loads each fused chunk's strict UTF-8 prepared input in fused order.
@@ -83,6 +122,7 @@ pub(super) async fn load(database: Arc<Database>, request: Request) -> Result<Lo
         context_deadline,
         configuration,
         query,
+        source_classes,
     } = request;
     if fused.is_empty() {
         return Ok(Loaded::default());
@@ -141,18 +181,21 @@ pub(super) async fn load(database: Arc<Database>, request: Request) -> Result<Lo
             },
             &mut texts,
         );
+        let enrichment = ReadControl {
+            deadline: control.deadline.min(context_deadline.into_std()),
+            cancelled: control.cancelled.clone(),
+        };
+        let source = source_class::penalized(
+            (&database, &scopes, &enrichment),
+            source_classes.as_deref(),
+            configuration.source_prior,
+            texts
+                .iter()
+                .take(configuration.rerank_depth.get())
+                .map(|(chunk, _)| *chunk),
+        );
         check_control(&control)?;
-        Ok(Loaded {
-            candidates: fused
-                .into_iter()
-                .zip(texts)
-                .map(|(fused, (_, text))| Candidate { fused, text })
-                .collect(),
-            source_load_micros: enriched.micros,
-            fallbacks: enriched.fallbacks,
-            penalized: enriched.penalized,
-            context_unavailable: enriched.unavailable,
-        })
+        Ok(Loaded::new(fused, texts, enriched, source))
     })
     .await
     .map_err(|error| match error {

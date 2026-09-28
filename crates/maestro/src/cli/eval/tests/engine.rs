@@ -3,8 +3,9 @@
 //! and what an answer gives the ladder.
 
 use super::super::{
+    candidates::candidate_reranker,
     documents::{bundle_documents, ranked_documents},
-    engine::{answer_outcome, candidate_reranker, rejected_checks},
+    engine::{answer_outcome, rejected_checks},
     runner::RejectedCheck,
 };
 use crate::{

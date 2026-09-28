@@ -8,6 +8,7 @@ use super::{
     rerank::{DEFAULT_DEPTH, Ranked, Reranker},
     routes::{dense::Embedder, error::RouteError},
     section_prior::SectionPrior,
+    source_class::{SourceClassifier, SourcePrior},
 };
 use crate::{index::Qdrant, query::Understood};
 use maestro_kernel::{
@@ -110,6 +111,9 @@ pub struct SearchConfiguration {
     /// How long the retrieval routes may run; derived from the request's
     /// budget unless an experiment or a test fixes it.
     pub stage_window: StageWindow,
+    /// Soft preference for official sources; it needs a source classifier
+    /// in the search context, and ranks as before without one.
+    pub source_prior: SourcePrior,
 }
 
 impl Default for SearchConfiguration {
@@ -139,6 +143,7 @@ impl Default for SearchConfiguration {
             candidate_context: CandidateContext::Chunk,
             section_prior: SectionPrior::Off,
             stage_window: StageWindow::Derived,
+            source_prior: SourcePrior::default(),
         }
     }
 }
@@ -240,6 +245,8 @@ pub struct SearchContext<'a, P> {
     pub intent_expander: Option<Box<dyn QueryExpander + 'a>>,
     /// The configured reranker, when available.
     pub reranker: Option<Reranker<'a, P>>,
+    /// The source classifier the source prior reads, when one is configured.
+    pub source_classes: Option<Arc<dyn SourceClassifier>>,
 }
 
 impl<P> fmt::Debug for SearchContext<'_, P> {
@@ -252,6 +259,7 @@ impl<P> fmt::Debug for SearchContext<'_, P> {
             .field("has_embedder", &self.embedder.is_some())
             .field("has_intent_expander", &self.intent_expander.is_some())
             .field("has_reranker", &self.reranker.is_some())
+            .field("source_classes", &self.source_classes)
             .finish()
     }
 }

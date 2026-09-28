@@ -8,7 +8,7 @@ use super::{
     intent::{IntentExpansion, IntentTrigger},
     intent_routes, rank_stage,
     request::{EvidenceInput, SearchContext, SearchError, SearchRequest},
-    rerank::{Ranked, best_rerank_score},
+    rerank::{Ranked, top_rerank_score},
     route_execution::{add_named_route, prepare_reranker},
     route_search::{self, Originals, RouteResults},
 };
@@ -86,7 +86,7 @@ async fn conditional_search<P: ModelPort>(
     if !admitted
         .configuration
         .intent_trigger
-        .should_expand(best_rerank_score(&first.ranked))
+        .should_expand(top_rerank_score(&first.ranked))
     {
         first.routes.insert(
             "intent_expansion".to_owned(),

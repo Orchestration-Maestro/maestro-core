@@ -1,13 +1,13 @@
 //! Absolute cutoffs shared by routes, candidate loading and T032 handoff.
 
-use maestro_kernel::evidence::RequestBudget;
+use maestro_kernel::{evidence::RequestBudget, retrieval::ReadControl};
 use std::{
     future::Future,
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
     },
-    time::Duration,
+    time::{Duration, Instant as StdInstant},
 };
 use tokio::{
     task::spawn_blocking,
@@ -174,4 +174,10 @@ impl Drop for CancelOnDrop {
     fn drop(&mut self) {
         self.0.store(true, Ordering::Relaxed);
     }
+}
+
+/// Whether optional enrichment may still read under `control`: neither
+/// cancelled nor past its cutoff.
+pub(super) fn open(control: &ReadControl) -> bool {
+    !control.cancelled.load(Ordering::Relaxed) && StdInstant::now() < control.deadline
 }

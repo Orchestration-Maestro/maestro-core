@@ -29,6 +29,13 @@ mod request;
 mod rerank;
 mod section_prior;
 pub use section_prior::{SectionClassSet, SectionPrior};
+mod source_class;
+pub use source_class::{
+    Classification, SourceClass, SourceClassSet, SourceClassifier, SourceMetadata, SourcePrior,
+    classify_revision,
+};
+mod source_class_table;
+pub use source_class_table::{SourceClassTable, TableError};
 mod route_execution;
 mod route_search;
 pub mod routes;
@@ -44,7 +51,7 @@ pub use request::{
     SearchObservations, SearchRequest,
 };
 pub use rerank::{
-    Candidate, NO_FUSED_CANDIDATES, Ranked, Reranked, Reranker, best_rerank_score, rerank,
-    top_fused_score, top_rerank_score,
+    Candidate, NO_FUSED_CANDIDATES, Ranked, Reranked, Reranker, rerank, top_fused_score,
+    top_rerank_score,
 };
 pub use routes::outcome::{RouteOutcome, StructuredOutcome};

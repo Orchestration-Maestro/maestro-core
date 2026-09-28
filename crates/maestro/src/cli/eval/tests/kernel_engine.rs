@@ -7,6 +7,7 @@ use super::{
     super::{
         engine::{KernelEngine, expected_failure},
         manifest::AskSettings,
+        rank_settings::SourcePriorSetting,
         rung_prompt::RungPrompt,
         runner::Engine as _,
         stages::{StageFailure, ask_failure, evidence_failure, search_failure},
@@ -17,6 +18,7 @@ use crate::{
     failure::Failure,
     knowledge::operations::{ask::tests::register_card, tests::Scratch},
 };
+use maestro_kernel::artifact::Digest;
 use maestro_kernel::evidence::RequestBudget;
 use maestro_kernel::{
     gateway::{Error as GatewayError, Role, RouterClient, Url},
@@ -29,7 +31,7 @@ use maestro_knowledge::{
     index::Qdrant,
     search::{SearchError, evidence::EvidenceError, routes::error::RouteError},
 };
-use std::io;
+use std::{fs, io};
 
 /// An address where nothing listens.
 const NOWHERE: &str = "http://127.0.0.1:1";
@@ -291,4 +293,36 @@ fn an_ask_is_out_of_time_when_its_search_evidence_or_answerer_is() {
     for (error, expected) in cases {
         assert_eq!(ask_failure(&error), expected, "{error:?}");
     }
+}
+
+#[test]
+fn a_rung_with_an_active_source_prior_names_the_bound_table_and_searches_with_it() {
+    let table = r#"{"schema": "maestro-source-classes/1", "rules": []}"#;
+    let scratch = Scratch::new();
+    let kernel = scratch.kernel(None).unwrap();
+    let path = kernel.config_dir.join("source-classes.json");
+    fs::write(&path, table).unwrap();
+    fs::write(
+        kernel.config_dir.join("bindings.toml"),
+        format!("source_classes = '{}'\n", path.display()),
+    )
+    .unwrap();
+    let (_, reranker) = register_card(&kernel, "collection", Role::Reranker, "rerank", b"r");
+    let mut official_first = rung("r0");
+    official_first.configuration.routes.dense = false;
+    official_first.configuration.rerank.as_mut().unwrap().card =
+        reranker.digest().as_str().to_owned();
+    let mut off = official_first.clone();
+    off.configuration.source_prior = Some(SourcePriorSetting::Off);
+    let port = RouterClient::new(Url::parse(NOWHERE).unwrap()).unwrap();
+    let mut engine =
+        KernelEngine::new(&kernel, "collection", port, Qdrant::new(NOWHERE).unwrap()).unwrap();
+
+    let (start, _) = engine.start(&official_first, &suite(0, 1)).unwrap();
+    assert_eq!(
+        start.source_classes.as_deref(),
+        Some(Digest::of(table.as_bytes()).as_str())
+    );
+    assert!(engine.search_context().unwrap().source_classes.is_some());
+    assert_eq!(engine.provenance(&off).unwrap().source_classes, None);
 }

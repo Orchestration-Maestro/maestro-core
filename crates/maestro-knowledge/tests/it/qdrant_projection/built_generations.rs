@@ -66,6 +66,7 @@ async fn a_markerless_published_generation_degrades_then_republishes_without_ear
         qdrant: &qdrant,
         embedder: None,
         reranker: None,
+        source_classes: None,
     };
     let identifier = SearchRequest::new(
         &kernel.collection,

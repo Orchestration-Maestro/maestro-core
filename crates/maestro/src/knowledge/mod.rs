@@ -4,6 +4,7 @@
 pub(crate) mod operations;
 pub(crate) mod output;
 mod requests;
+pub(crate) mod source_classes;
 
 #[cfg(test)]
 pub(crate) use operations::tests::Scratch as RefreshScratch;

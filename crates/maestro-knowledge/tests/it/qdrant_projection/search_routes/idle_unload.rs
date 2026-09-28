@@ -123,6 +123,7 @@ async fn dense_runs_after_the_router_unloads_its_model_between_two_searches() {
             card: &fixture.embedder_card,
         }),
         reranker: None,
+        source_classes: None,
     };
     let request = SearchRequest {
         evidence: EvidenceSettings::default(),

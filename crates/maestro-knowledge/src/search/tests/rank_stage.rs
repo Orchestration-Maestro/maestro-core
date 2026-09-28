@@ -10,13 +10,15 @@ use crate::{
     query::understand,
     search::{
         CandidateContext, EvidenceInput, Hit, Ranked, Route, RouteList, SearchConfiguration,
-        SearchObservations, SectionClassSet, SectionPrior,
+        SearchObservations, SectionClassSet, SectionPrior, SourceClassSet, SourceClassTable,
+        SourceClassifier, SourcePrior,
         admission::AdmittedSearch,
         deadline,
         evidence::{EvidenceCounter, EvidenceSettings, assemble_evidence},
         fuse,
         rank_stage::{self, Pool, Ranking},
         rerank::Reranker,
+        top_rerank_score,
     },
 };
 use maestro_kernel::{
@@ -118,6 +120,7 @@ impl Corpus {
                 configuration.stage_window,
             ),
             configuration,
+            source_classes: None,
         }
     }
 
@@ -311,6 +314,107 @@ async fn enrichment_past_its_cutoff_keeps_chunk_text_and_reports_a_gap() {
         ranking.context_gap().unwrap(),
         "reranker context unavailable for 3 candidates; their chunk text was used"
     );
+}
+
+/// Classifies documents whose path starts with `prefix` as community pages
+/// and every other example page as official documentation.
+fn community(prefix: &str) -> Arc<dyn SourceClassifier> {
+    let table = format!(
+        r#"{{"schema": "maestro-source-classes/1", "rules": [
+            {{"host": "example.org", "path_prefix": "/{prefix}", "class": "community",
+              "label": "Community"}},
+            {{"host": "example.org", "class": "official_docs", "label": "Docs"}}
+        ]}}"#
+    );
+    Arc::new(SourceClassTable::parse(table.as_bytes()).unwrap())
+}
+
+fn official_first(weight: f32) -> SourcePrior {
+    let mut classes = SourceClassSet::default();
+    assert!(classes.insert("community"));
+    SourcePrior::Soft { weight, classes }
+}
+
+#[tokio::test]
+async fn the_source_prior_ranks_an_official_page_before_a_community_page() {
+    let corpus = Corpus::new();
+    let (release, intro, steps) = (corpus.id(0), corpus.id(1), corpus.id(2));
+    let port = FakePort::scores(vec![0.9, 0.5, 0.1]);
+    let configuration = SearchConfiguration {
+        source_prior: official_first(0.5),
+        ..SearchConfiguration::default()
+    };
+    let mut admitted = corpus.admitted("run a task", configuration);
+    admitted.source_classes = Some(community("release"));
+    let demoted = corpus.rank(&port, &admitted, "run a task").await;
+    assert_eq!(order(&demoted), [intro, release, steps]);
+    assert_eq!(
+        texts(&demoted),
+        [1, 0, 2].map(|index| corpus.prepared()[index].clone())
+    );
+    assert_eq!(top_rerank_score(&demoted.ranked), Some(0.9));
+
+    let capped = SearchConfiguration {
+        rerank_demotion_cap: Some(0),
+        ..configuration
+    };
+    admitted.configuration = capped;
+    let bounded_demotion = corpus.rank(&port, &admitted, "run a task").await;
+    assert_eq!(order(&bounded_demotion), [release, intro, steps]);
+}
+
+#[tokio::test]
+async fn without_a_table_or_with_the_prior_off_the_order_is_unchanged() {
+    let corpus = Corpus::new();
+    let fused = [corpus.id(0), corpus.id(1), corpus.id(2)];
+    for (prior, table) in [
+        (SourcePrior::Off, Some(community("release"))),
+        (official_first(0.5), None),
+        (SourcePrior::default(), None),
+    ] {
+        let port = FakePort::scores(vec![0.9, 0.5, 0.1]);
+        let configuration = SearchConfiguration {
+            source_prior: prior,
+            ..SearchConfiguration::default()
+        };
+        let mut admitted = corpus.admitted("run a task", configuration);
+        admitted.source_classes = table;
+        let ranking = corpus.rank(&port, &admitted, "run a task").await;
+        assert_eq!(order(&ranking), fused);
+        assert_eq!(ranking.context_gap(), None);
+    }
+}
+
+#[tokio::test]
+async fn the_source_prior_classifies_only_within_the_rerank_depth() {
+    let corpus = Corpus::new();
+    let (release, intro, steps) = (corpus.id(0), corpus.id(1), corpus.id(2));
+    let configuration = SearchConfiguration {
+        rerank_depth: NonZeroUsize::new(2).unwrap(),
+        source_prior: official_first(0.9),
+        ..SearchConfiguration::default()
+    };
+    let port = FakePort::scores(vec![0.9, 0.5]);
+    let mut admitted = corpus.admitted("run a task", configuration);
+    admitted.source_classes = Some(community("guide"));
+    let ranking = corpus.rank(&port, &admitted, "run a task").await;
+    assert_eq!(order(&ranking), [release, steps, intro]);
+}
+
+#[tokio::test]
+async fn source_classification_past_the_enrichment_cutoff_penalizes_nothing() {
+    let corpus = Corpus::new();
+    let port = FakePort::scores(vec![0.9, 0.5, 0.1]);
+    let configuration = SearchConfiguration {
+        source_prior: official_first(0.5),
+        ..SearchConfiguration::default()
+    };
+    let mut admitted = corpus.admitted("run a task", configuration);
+    admitted.source_classes = Some(community("release"));
+    admitted.cutoffs.setup = Instant::now() + admitted.cutoffs.window;
+    let ranking = corpus.rank(&port, &admitted, "run a task").await;
+    assert_eq!(order(&ranking), [corpus.id(0), corpus.id(1), corpus.id(2)]);
+    assert_eq!(ranking.status, RouteStatus::Ok);
 }
 
 fn evidence_input(corpus: &Corpus, admitted: AdmittedSearch, ranked: Vec<Ranked>) -> EvidenceInput {

@@ -4,6 +4,7 @@
 //! the enrichment cutoff, keeps the indexed chunk text and no penalty.
 
 use super::{
+    deadline,
     evidence::{self, Indexing, SourceCache},
     request::{CandidateContext, SearchConfiguration},
 };
@@ -14,7 +15,6 @@ use maestro_kernel::{
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
-    sync::atomic::Ordering,
     time::{Duration, Instant},
 };
 
@@ -82,7 +82,7 @@ pub(super) fn enrich(
         .collect::<Vec<_>>();
     cache.load_available(&revisions, settings.generation, CONTEXT_LOAD_WORKERS);
     for (chunk, text) in candidates {
-        let context = open(&control)
+        let context = deadline::open(&control)
             .then(|| cache.get(&chunk.revision_id))
             .flatten()
             .and_then(|source| {
@@ -133,11 +133,6 @@ fn chunk_profile(
         .ok()
         .flatten()?;
     ChunkProfile::named(&set.chunk_profile)
-}
-
-/// Whether enrichment may still read: neither cancelled nor past its cutoff.
-fn open(control: &ReadControl) -> bool {
-    !control.cancelled.load(Ordering::Relaxed) && Instant::now() < control.deadline
 }
 
 /// Whole microseconds, saturating.

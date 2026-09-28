@@ -310,6 +310,7 @@ async fn traced_search(
             port: &published.models,
             card,
         }),
+        source_classes: None,
     };
     let request = SearchRequest {
         evidence: EvidenceSettings::default(),

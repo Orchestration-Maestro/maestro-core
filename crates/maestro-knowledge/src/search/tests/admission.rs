@@ -190,7 +190,9 @@ fn each_route_weight_must_be_finite_and_nonnegative() {
 
 #[test]
 fn ranking_settings_reject_nonfinite_weights_and_invalid_context_bounds() {
-    use crate::search::{CandidateContext, SectionClassSet, SectionPrior};
+    use crate::search::{
+        CandidateContext, SectionClassSet, SectionPrior, SourceClassSet, SourcePrior,
+    };
     let mut request = SearchRequest::new("docs", "question", None, RequestBudget::default());
     for weight in [f32::NAN, f32::INFINITY, -0.01, 1.01] {
         request.configuration.rerank_blend = Some(weight);
@@ -202,6 +204,15 @@ fn ranking_settings_reject_nonfinite_weights_and_invalid_context_bounds() {
         };
         assert!(validate(&request).is_err());
         request.configuration.section_prior = SectionPrior::Off;
+        request.configuration.source_prior = SourcePrior::Soft {
+            weight,
+            classes: SourceClassSet::default(),
+        };
+        assert_eq!(
+            validate(&request).unwrap_err().to_string(),
+            "invalid search request: source prior weight must be between 0 and 1"
+        );
+        request.configuration.source_prior = SourcePrior::Off;
     }
     for max_bytes in [0, 1501] {
         request.configuration.candidate_context = CandidateContext::BoundedSection { max_bytes };

@@ -37,6 +37,7 @@ async fn unknown_and_unpublished_collections_stop_before_model_or_qdrant_calls()
             card: &card,
         }),
         reranker: None,
+        source_classes: None,
     };
     for collection in ["missing-collection", kernel.collection.as_str()] {
         let request = SearchRequest::new(
@@ -144,6 +145,7 @@ async fn alias_and_generation_moves_after_admission_keep_search_pinned() {
             card: &embedder_card,
         }),
         reranker: None,
+        source_classes: None,
     };
     let request = SearchRequest::new(
         &kernel.collection,
@@ -261,6 +263,7 @@ async fn a_permission_revocation_during_a_slow_route_aborts_the_handoff() {
             port: &rerank_port,
             card: &reranker_card,
         }),
+        source_classes: None,
     };
     let request = SearchRequest::new(
         &kernel.collection,
@@ -324,6 +327,7 @@ async fn a_new_grant_during_a_slow_route_aborts_the_handoff() {
             card: &embedder_card,
         }),
         reranker: None,
+        source_classes: None,
     };
     let request = SearchRequest::new(
         &kernel.collection,

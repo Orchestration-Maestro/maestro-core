@@ -3,8 +3,8 @@
 use super::super::{
     implementation::{KnowledgeError, Scoped, kernel_failure, kernel_open_failure},
     search::{
-        SearchCards, evidence_failure, integrity_failure, local_search_context, search_failure,
-        selected_answerer,
+        SearchCards, bound_source_classes, evidence_failure, integrity_failure,
+        local_search_context, search_failure, selected_answerer,
     },
 };
 use crate::{
@@ -56,7 +56,7 @@ pub(crate) fn ask_with(
         message: "the search service URL is invalid",
     })?;
     let intent_card = selected_answerer(&kernel.database, &scopes, &request.collection)?;
-    let search = local_search_context(
+    let mut search = local_search_context(
         &kernel.database,
         &qdrant,
         &port,
@@ -66,6 +66,7 @@ pub(crate) fn ask_with(
             intent: intent_card.as_ref(),
         },
     );
+    search.source_classes = bound_source_classes(&kernel.config_dir)?;
     let context = AnswerContext {
         search,
         port: &port,

@@ -78,17 +78,10 @@ pub struct Ranked {
     pub score: Option<f64>,
 }
 
-/// The reranker score of the first of `ranked`, the highest one; none when
-/// rerank did not run.
+/// The highest reranker score of `ranked`, whatever their order: a rank
+/// policy can put another candidate first. None when rerank did not run.
 #[must_use]
 pub fn top_rerank_score(ranked: &[Ranked]) -> Option<f64> {
-    ranked.first().and_then(|item| item.score)
-}
-
-/// The highest reranker score of `ranked`, whatever their order: rank
-/// policies can put another candidate first; none when rerank did not run.
-#[must_use]
-pub fn best_rerank_score(ranked: &[Ranked]) -> Option<f64> {
     ranked.iter().filter_map(|item| item.score).reduce(f64::max)
 }
 

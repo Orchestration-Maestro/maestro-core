@@ -67,6 +67,7 @@ async fn asks_with_the_registered_qwen3_4b_answerer() {
             reranker: reranker_card
                 .as_ref()
                 .map(|card| Reranker { port: &port, card }),
+            source_classes: None,
         },
         port: &port,
         answerer: Some(answerer),

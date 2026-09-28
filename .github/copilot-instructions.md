@@ -74,6 +74,7 @@ in place.
 │   │   │   │   │   │   ├── runner.rs                                        # The ladder's run: warm-ups unscored, the rung's configuration in every
 │   │   │   │   │   │   ├── stages.rs                                        # A search fails when a stage its rung enables did not run: out of time for
 │   │   │   │   │   │   └── support.rs                                       # A synthetic suite, rungs, and a fake engine that records what it is asked
+│   │   │   │   │   ├── candidates.rs                                        # The registered cards a ladder rung may name by digest: found in the
 │   │   │   │   │   ├── command.rs                                           # Running the ladder a manifest describes, on this machine
 │   │   │   │   │   ├── comparison.rs                                        # The comparison across a ladder's rungs, maestro-eval-ladder-comparison/1
 │   │   │   │   │   ├── documents.rs                                         # The documents a ladder row scores: a search's ranked documents, the first
@@ -168,6 +169,10 @@ in place.
 │   │   │   │   ├── output/                                                  # Shared response bounds and semantic search truncation for CLI and MCP
 │   │   │   │   │   ├── mod.rs                                               # Shared response bounds and semantic search truncation for CLI and MCP
 │   │   │   │   │   ├── policy.rs                                            # Shared response bounds and semantic search truncation for CLI and MCP
+│   │   │   │   │   └── tests.rs                                             # Rust source: tests
+│   │   │   │   ├── source_classes/                                          # The source-class table this machine binds as source_classes: the
+│   │   │   │   │   ├── load.rs                                              # Loading the bound source-class table
+│   │   │   │   │   ├── mod.rs                                               # The source-class table this machine binds as source_classes: the
 │   │   │   │   │   └── tests.rs                                             # Rust source: tests
 │   │   │   │   ├── mod.rs                                                   # Scoped knowledge operations shared by the CLI and stdio MCP server
 │   │   │   │   └── requests.rs                                              # Strict arguments shared by the CLI and MCP tools
@@ -927,6 +932,7 @@ in place.
 │   │   │   │   │   ├── route_setup.rs                                       # A route's one-time setup, such as loading its model, is not route time
 │   │   │   │   │   ├── routes.rs                                            # Pure route helpers: Qdrant scope filters and ranked-hit cleanup
 │   │   │   │   │   ├── section_prior.rs                                     # The soft section prior: strict demotion and precise, bilingual exemptions
+│   │   │   │   │   ├── source_class.rs                                      # Source classes: the table adapter, the class vocabulary and the prior
 │   │   │   │   │   ├── stages.rs                                            # The outcome each end of a search, a route or the rerank gives its stage
 │   │   │   │   │   ├── support.rs                                           # Scratch kernel records for the bounded candidate handoff
 │   │   │   │   │   ├── top_scores.rs                                        # Rust source: top scores
@@ -954,7 +960,9 @@ in place.
 │   │   │   │   ├── rerank.rs                                                # Reranks the head of a fused list without truncating candidate text
 │   │   │   │   ├── route_execution.rs                                       # Deadline-bounded leaf-route calls and their independent public statuses
 │   │   │   │   ├── route_search.rs                                          # Cached original routes and additive fusion for one pinned search
-│   │   │   │   └── section_prior.rs                                         # Configured section classes and an optional soft reciprocal-rank penalty
+│   │   │   │   ├── section_prior.rs                                         # Configured section classes and an optional soft reciprocal-rank penalty
+│   │   │   │   ├── source_class.rs                                          # Source classes: the port that names where a document comes from, and the
+│   │   │   │   └── source_class_table.rs                                    # The default source classifier: a strict maestro-source-classes/1 JSON
 │   │   │   ├── answer.rs                                                    # Evidence-grounded answering with bounded generation and one validation retry
 │   │   │   ├── collection.rs                                                # A collection's declaration: maestro-collection/1, the strict JSON that
 │   │   │   ├── corpus.rs                                                    # A corpus manifest: maestro-corpus/1, one JSON line per document, through

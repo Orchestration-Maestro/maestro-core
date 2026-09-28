@@ -5,6 +5,7 @@
 //! answerer, when its manifest names one.
 
 use super::{
+    candidates::{candidate_answerer, candidate_reranker},
     documents::{bundle_documents, ranked_documents},
     manifest::{AskSettings, Rung},
     runner::{Asked, Engine, Provenance, RejectedCheck, SearchDiagnostic, Searched},
@@ -13,11 +14,14 @@ use super::{
 use crate::{
     failure::Failure,
     kernel::{Kernel, pinned_embedder},
-    knowledge::operations::{SearchCards, ask::run::registered_answerer, local_search_context},
+    knowledge::{
+        operations::{SearchCards, ask::run::registered_answerer, local_search_context},
+        source_classes,
+    },
 };
 use maestro_kernel::{
     artifact::Digest,
-    gateway::{ModelCard, Role, RouterClient},
+    gateway::{ModelCard, RouterClient},
     generation::Generation,
 };
 use maestro_knowledge::{
@@ -29,6 +33,7 @@ use maestro_knowledge::{
     index::Qdrant,
     search::{
         HydeExpander, IntentExpansion, SearchConfiguration, SearchContext, SearchRequest,
+        SourceClassTable, SourceClassifier,
         evidence::{Anchor, ChunkSetDocuments, assemble_evidence},
         search, top_fused_score, top_rerank_score,
     },
@@ -51,6 +56,8 @@ pub(super) struct KernelEngine<'kernel> {
     runtime: Runtime,
     /// What the current rung runs against, once it started.
     held: Option<Held>,
+    /// The source-class table this machine binds, if any.
+    source_classes: Option<Arc<SourceClassTable>>,
 }
 
 /// What a started rung runs against.
@@ -76,6 +83,8 @@ struct Cards {
     answerer: Option<RegisteredAnswerer>,
     /// The SHA-256 of the rung's prompt file, when it asks with one.
     prompt: Option<String>,
+    /// The digest of the source-class table its source prior reads.
+    source_classes: Option<String>,
 }
 
 impl<'kernel> KernelEngine<'kernel> {
@@ -101,6 +110,7 @@ impl<'kernel> KernelEngine<'kernel> {
             qdrant,
             runtime,
             held: None,
+            source_classes: source_classes::load(&kernel.config_dir)?,
         })
     }
 
@@ -137,6 +147,11 @@ impl<'kernel> KernelEngine<'kernel> {
             .ask
             .as_ref()
             .and_then(|settings| settings.prompt.digest());
+        let source_classes = self
+            .source_classes
+            .as_ref()
+            .filter(|_| rung.configuration.search().source_prior.is_active())
+            .map(|table| table.digest().as_str().to_owned());
         Ok(Cards {
             generation,
             embedder,
@@ -144,6 +159,7 @@ impl<'kernel> KernelEngine<'kernel> {
             reranker,
             answerer,
             prompt,
+            source_classes,
         })
     }
 
@@ -227,7 +243,7 @@ impl<'kernel> KernelEngine<'kernel> {
     /// started.
     pub(super) fn search_context(&self) -> Option<SearchContext<'_, RouterClient>> {
         let cards = &self.held.as_ref()?.cards;
-        Some(local_search_context(
+        let mut context = local_search_context(
             &self.kernel.database,
             &self.qdrant,
             &self.port,
@@ -236,7 +252,12 @@ impl<'kernel> KernelEngine<'kernel> {
                 reranker: cards.reranker.as_ref(),
                 intent: cards.intent.as_ref(),
             },
-        ))
+        );
+        context.source_classes = self
+            .source_classes
+            .clone()
+            .map(|table| table as Arc<dyn SourceClassifier>);
+        Some(context)
     }
 }
 
@@ -436,6 +457,7 @@ impl Cards {
                 .as_ref()
                 .map(|answerer| card_digest(&answerer.card)),
             prompt: self.prompt.clone(),
+            source_classes: self.source_classes.clone(),
         }
     }
 }
@@ -443,76 +465,6 @@ impl Cards {
 /// The digest of `card`, in hexadecimal.
 fn card_digest(card: &ModelCard) -> String {
     card.digest().as_str().to_owned()
-}
-
-/// The reranker card of `digest`, registered in `collection`, without
-/// selecting it; none when `digest` is none.
-///
-/// # Errors
-///
-/// [`Failure::Refused`] for a card the collection has not registered, or
-/// whose role is not reranker; [`Failure::Failed`] when the kernel cannot be
-/// read.
-pub(super) fn candidate_reranker(
-    kernel: &Kernel,
-    collection: &str,
-    digest: Option<Digest>,
-) -> Result<Option<ModelCard>, Failure> {
-    let Some(digest) = digest else {
-        return Ok(None);
-    };
-    let card = kernel
-        .database
-        .model_card(&kernel.scopes, collection, &digest)
-        .map_err(|error| Failure::failed_by(&error))?
-        .ok_or_else(|| {
-            Failure::refused("a rung's reranker card is not registered in the collection")
-        })?;
-    if card.fields().role != Role::Reranker {
-        return Err(Failure::refused(
-            "a rung's reranker card does not have the reranker role",
-        ));
-    }
-    Ok(Some(card))
-}
-
-/// The answerer card of `digest`, registered in `collection` with the
-/// answerer role, without selecting it.
-///
-/// # Errors
-///
-/// [`Failure::Refused`] for a card the collection has not registered, or
-/// whose role is not answerer; [`Failure::Failed`] when the kernel or the
-/// card cannot be read.
-pub(super) fn candidate_answerer(
-    kernel: &Kernel,
-    collection: &str,
-    digest: &Digest,
-) -> Result<RegisteredAnswerer, Failure> {
-    let answerers = kernel
-        .database
-        .model_cards(&kernel.scopes, collection, Role::Answerer)
-        .map_err(|error| Failure::failed_by(&error))?;
-    if let Some(record) = answerers
-        .into_iter()
-        .find(|record| record.digest == *digest)
-    {
-        let card = ModelCard::load(&kernel.artifacts, &record.digest)
-            .map_err(|error| Failure::failed_by(&error))?;
-        return Ok(RegisteredAnswerer {
-            id: record.id.to_string(),
-            card,
-        });
-    }
-    let registered = kernel
-        .database
-        .model_card(&kernel.scopes, collection, digest)
-        .map_err(|error| Failure::failed_by(&error))?;
-    Err(Failure::refused(if registered.is_some() {
-        "a rung's answerer card does not have the answerer role"
-    } else {
-        "a rung's answerer card is not registered in the collection"
-    }))
 }
 
 /// What `answer` gives the ladder: its citations' sections and spans, their
