@@ -3,7 +3,10 @@
 //! search configuration and whether `ask` runs, with which settings. It is private: it names the
 //! owner's files. Relative paths resolve from the manifest's directory.
 
-use super::rung_prompt::RungPrompt;
+use super::{
+    rank_settings::{Context, Prior},
+    rung_prompt::RungPrompt,
+};
 use crate::failure::Failure;
 use maestro_kernel::artifact::Digest;
 use maestro_knowledge::{
@@ -157,6 +160,9 @@ pub(super) struct RungConfiguration {
     /// holds no non-finite number, and parsing refuses one beyond `f32`,
     /// through the `float_roundtrip` feature of `serde_json`.
     pub(super) min_rerank_score: Option<f32>,
+    /// Optional configured section-class penalty.
+    #[serde(default)]
+    pub(super) section_prior: Prior,
 }
 
 /// Which routes run.
@@ -193,17 +199,29 @@ pub(super) struct Weights {
 
 /// The reranker a rung runs, registered in the collection but not
 /// necessarily selected.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct Rerank {
     /// The SHA-256 digest of its card, in hexadecimal.
     pub(super) card: String,
     /// The fused candidates it reranks.
     pub(super) depth: NonZeroUsize,
+    /// Fused-position weight in a rank fusion with the reranked position,
+    /// using the rung's `rrf_k`; absent for unchanged rerank order.
+    pub(super) blend: Option<f32>,
+    /// Maximum final demotion of a fused top-ten candidate.
+    pub(super) demotion_cap: Option<u16>,
+    /// Reranker-only source context.
+    #[serde(default)]
+    pub(super) candidate_context: Context,
 }
 
 impl RungConfiguration {
     /// The configuration search runs under.
+    #[expect(
+        clippy::expect_used,
+        reason = "manifest validation checks section prior before execution"
+    )]
     pub(super) fn search(&self) -> SearchConfiguration {
         SearchConfiguration {
             dense_enabled: self.routes.dense,
@@ -223,6 +241,16 @@ impl RungConfiguration {
                     rerank.depth
                 }),
             min_rerank_score: self.min_rerank_score,
+            rerank_blend: self.rerank.as_ref().and_then(|rerank| rerank.blend),
+            rerank_demotion_cap: self.rerank.as_ref().and_then(|rerank| rerank.demotion_cap),
+            candidate_context: self
+                .rerank
+                .as_ref()
+                .map_or_default(|rerank| rerank.candidate_context.search()),
+            section_prior: self
+                .section_prior
+                .search()
+                .expect("validated section prior"),
         }
     }
 
@@ -349,6 +377,16 @@ fn check_rung(rung: &Rung) -> Result<(), Failure> {
             "the rung `{}` runs no route",
             rung.name
         )));
+    }
+    configuration.section_prior.search()?;
+    if let Some(rerank) = &configuration.rerank {
+        rerank.candidate_context.check()?;
+        if rerank
+            .blend
+            .is_some_and(|weight| !weight.is_finite() || !(0.0..=1.0).contains(&weight))
+        {
+            return Err(Failure::refused("rerank blend must be between 0 and 1"));
+        }
     }
     if !configuration.search().weights_are_valid() {
         return Err(Failure::refused(format!(

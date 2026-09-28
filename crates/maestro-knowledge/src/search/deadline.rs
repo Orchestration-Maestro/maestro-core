@@ -50,6 +50,13 @@ impl Deadlines {
     pub(super) fn route_after(&self, ready: Instant) -> Instant {
         (ready + self.window).min(self.setup)
     }
+
+    /// The latest optional reranker enrichment may read sources: one window
+    /// before `setup`, so the rerank keeps its time; at most `3/4` of the
+    /// request deadline plus its reserve precede it, so it follows the start.
+    pub(super) fn enrichment(&self) -> Instant {
+        self.setup - self.window
+    }
 }
 
 /// Derives every phase cutoff once from the accepted request budget.

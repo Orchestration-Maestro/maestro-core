@@ -2,22 +2,23 @@
 
 use super::{
     admission::{AdmittedSearch, admit_request, ensure_permissions},
-    candidates::{self, Failure as CandidateFailure},
+    candidates::Failure as CandidateFailure,
     deadline::{DEADLINE_EXCEEDED, DISABLED_BY_CONFIGURATION},
     fusion::{Fused, Route, RouteList},
     query::Query,
+    rank_stage,
     request::{EvidenceInput, SearchContext, SearchError, SearchObservations, SearchRequest},
-    rerank::{Candidate, Ranked, Reranker, rerank},
+    rerank::Ranked,
     route_execution::{
         add_named_route, add_route, dense_outcome, join_route_futures, lexical_outcome,
-        prepare_reranker, route_list, structured_outcome,
+        prepare_reranker, route_list, route_outcome, structured_outcome,
     },
     routes::{
         identifier::search_identifiers_enabled,
         outcome::{RouteOutcome, StructuredOutcome},
     },
 };
-use crate::query::{QueryKind, Understood};
+use crate::query::QueryKind;
 use maestro_kernel::{
     evidence::{Inventory, RouteStatus},
     gateway::ModelPort,
@@ -30,16 +31,12 @@ use std::{
     collections::{BTreeMap, HashMap, HashSet},
     future::Future,
     mem,
-    num::NonZeroUsize,
 };
-use tokio::time::Instant;
 
 /// The dense and lexical routes' bounded candidate pool.
 const DENSE_LIMIT: usize = 100;
 /// The single reciprocal-rank fusion pool limit.
 const FUSION_POOL: usize = 120;
-/// The rerank status reason when fusion gave no candidate to rerank.
-pub const NO_FUSED_CANDIDATES: &str = "no fused candidates";
 
 /// Retrieves a pinned, scoped and deadline-bounded evidence handoff for T032.
 ///
@@ -91,16 +88,6 @@ pub(super) const fn search_outcome(error: &SearchError) -> Outcome {
         SearchError::Kernel(_) | SearchError::EvidenceLoad { .. } | SearchError::WorkerFailed => {
             Outcome::Error
         }
-    }
-}
-
-/// How a route or the rerank that ended with `status` ended: the reason
-/// code [`DEADLINE_EXCEEDED`] is a timeout, any other an unavailability.
-pub(super) fn route_outcome(status: &RouteStatus) -> Outcome {
-    match status {
-        RouteStatus::Ok => Outcome::Ok,
-        RouteStatus::Unavailable(reason) if reason == DEADLINE_EXCEEDED => Outcome::Timeout,
-        RouteStatus::Unavailable(_) => Outcome::Unavailable,
     }
 }
 
@@ -343,9 +330,7 @@ async fn finish_search<P: ModelPort>(
     admitted: AdmittedSearch,
     mut routes: RouteResults,
 ) -> Result<EvidenceInput, SearchError> {
-    let candidates = if routes.fused.is_empty() {
-        Vec::new()
-    } else {
+    if !routes.fused.is_empty() {
         ensure_permissions(
             context.database.clone(),
             context.principal,
@@ -353,64 +338,46 @@ async fn finish_search<P: ModelPort>(
             admitted.cutoffs.work,
         )
         .await?;
-        match candidates::load(
-            context.database.clone(),
-            candidates::Request {
-                generation: admitted.generation.clone(),
-                scopes: admitted.scopes.as_ref().clone(),
-                version: admitted.version.clone(),
-                fused: mem::take(&mut routes.fused),
-                expected_revisions: mem::take(&mut routes.expected_revisions),
-                deadline: admitted.cutoffs.work,
-            },
-        )
-        .await
-        {
-            Ok(candidates) => candidates,
-            Err(CandidateFailure::TimedOut) => {
-                routes
-                    .known_gaps
-                    .push("candidate text loading timed out".to_owned());
-                routes.routes.insert(
-                    "rerank".to_owned(),
-                    RouteStatus::Unavailable(DEADLINE_EXCEEDED.to_owned()),
-                );
-                ensure_permissions(
-                    context.database.clone(),
-                    context.principal,
-                    admitted.scopes.as_ref(),
-                    admitted.cutoffs.expires,
-                )
-                .await?;
-                return Ok(evidence_input(request, admitted, routes, Vec::new()));
-            }
-            Err(CandidateFailure::EvidenceLoad) => {
-                return Err(SearchError::EvidenceLoad {
-                    reason:
-                        "a fused candidate is unavailable, corrupt, or outside the pinned scope"
-                            .to_owned(),
-                });
-            }
-            Err(CandidateFailure::Kernel(error)) => return Err(SearchError::Kernel(error)),
-            Err(CandidateFailure::WorkerFailed) => return Err(SearchError::WorkerFailed),
-        }
+    }
+    let pool = rank_stage::Pool {
+        fused: mem::take(&mut routes.fused),
+        expected_revisions: mem::take(&mut routes.expected_revisions),
     };
-    let stage = span::rerank();
-    let (ranked, rerank_status) = stage
-        .instrument(rerank_candidates(
-            &admitted.understood,
-            candidates,
-            context.reranker.as_ref(),
-            admitted
-                .configuration
-                .rerank_enabled
-                .then_some(admitted.configuration.rerank_depth),
-            admitted.cutoffs.setup,
-        ))
-        .await;
-    stage.count(Count::Candidates, ranked.len());
-    stage.finish(route_outcome(&rerank_status));
-    routes.observations.reranked_chunk_ids = ranked
+    let ranking = match rank_stage::rank(
+        context.database.clone(),
+        context.reranker.as_ref(),
+        &admitted,
+        request.text,
+        pool,
+    )
+    .await
+    {
+        Ok(ranking) => ranking,
+        Err(CandidateFailure::TimedOut) => {
+            candidate_timeout(&mut routes);
+            ensure_permissions(
+                context.database.clone(),
+                context.principal,
+                admitted.scopes.as_ref(),
+                admitted.cutoffs.expires,
+            )
+            .await?;
+            return Ok(evidence_input(request, admitted, routes, Vec::new()));
+        }
+        Err(CandidateFailure::EvidenceLoad) => {
+            return Err(SearchError::EvidenceLoad {
+                reason: "a fused candidate is unavailable, corrupt, or outside the pinned scope"
+                    .to_owned(),
+            });
+        }
+        Err(CandidateFailure::Kernel(error)) => return Err(SearchError::Kernel(error)),
+        Err(CandidateFailure::WorkerFailed) => return Err(SearchError::WorkerFailed),
+    };
+    routes.observations.candidate_source_load_micros = ranking.source_load_micros;
+    routes.known_gaps.extend(ranking.context_gap());
+    routes.observations.candidate_context_fallbacks = ranking.fallbacks;
+    routes.observations.reranked_chunk_ids = ranking
+        .ranked
         .iter()
         .map(|candidate| candidate.candidate.fused.chunk_id.clone())
         .collect();
@@ -418,7 +385,7 @@ async fn finish_search<P: ModelPort>(
         &mut routes.routes,
         &mut routes.known_gaps,
         "rerank",
-        &rerank_status,
+        &ranking.status,
     );
     ensure_permissions(
         context.database.clone(),
@@ -427,7 +394,18 @@ async fn finish_search<P: ModelPort>(
         admitted.cutoffs.expires,
     )
     .await?;
-    Ok(evidence_input(request, admitted, routes, ranked))
+    Ok(evidence_input(request, admitted, routes, ranking.ranked))
+}
+
+/// Records candidate-loading deadline degradation before the permission recheck.
+fn candidate_timeout(routes: &mut RouteResults) {
+    routes
+        .known_gaps
+        .push("candidate text loading timed out".to_owned());
+    routes.routes.insert(
+        "rerank".to_owned(),
+        RouteStatus::Unavailable(DEADLINE_EXCEEDED.to_owned()),
+    );
 }
 
 /// Assembles the transport-neutral handoff without expanding source evidence.
@@ -476,59 +454,4 @@ fn revisions_for_fused<'a>(
         }
     }
     revisions
-}
-
-/// Reranks loaded candidates or returns the safe fused-order fallback.
-pub(super) async fn rerank_candidates<P: ModelPort>(
-    understood: &Understood,
-    candidates: Vec<Candidate>,
-    reranker: Option<&Reranker<'_, P>>,
-    depth: Option<NonZeroUsize>,
-    deadline: Instant,
-) -> (Vec<Ranked>, RouteStatus) {
-    if candidates.is_empty() {
-        return (
-            Vec::new(),
-            RouteStatus::Unavailable(NO_FUSED_CANDIDATES.to_owned()),
-        );
-    }
-    let Some(depth) = depth else {
-        return (
-            fused_order(candidates),
-            RouteStatus::Unavailable(DISABLED_BY_CONFIGURATION.to_owned()),
-        );
-    };
-    let Some(reranker) = reranker else {
-        return (
-            fused_order(candidates),
-            RouteStatus::Unavailable("no reranker configured".to_owned()),
-        );
-    };
-    let remaining = deadline.saturating_duration_since(Instant::now());
-    if remaining.is_zero() {
-        return (
-            fused_order(candidates),
-            RouteStatus::Unavailable(DEADLINE_EXCEEDED.to_owned()),
-        );
-    }
-    let result = rerank(
-        &understood.normalized,
-        candidates,
-        reranker,
-        depth,
-        remaining,
-    )
-    .await;
-    (result.ranked, result.status)
-}
-
-/// Keeps the fused order when no reranker can run.
-fn fused_order(candidates: Vec<Candidate>) -> Vec<Ranked> {
-    candidates
-        .into_iter()
-        .map(|candidate| Ranked {
-            candidate,
-            score: None,
-        })
-        .collect()
 }

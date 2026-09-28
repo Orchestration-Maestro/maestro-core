@@ -1,6 +1,8 @@
 //! Request bounds, scope snapshots and generation admission.
 
-use super::request::{SearchConfiguration, SearchContext, SearchError, SearchRequest};
+use super::request::{
+    CandidateContext, SearchConfiguration, SearchContext, SearchError, SearchRequest,
+};
 use super::{deadline, inventory_query::inventory_request, pin};
 use crate::query::{Understood, understand};
 use maestro_kernel::{
@@ -110,6 +112,23 @@ pub(super) fn validate(request: &SearchRequest<'_>) -> Result<Understood, Search
     }
     if !request.configuration.weights_are_valid() {
         return Err(invalid("route weights must be finite and nonnegative"));
+    }
+    if request
+        .configuration
+        .rerank_blend
+        .is_some_and(|blend| !blend.is_finite() || !(0.0..=1.0).contains(&blend))
+    {
+        return Err(invalid("rerank blend must be between 0 and 1"));
+    }
+    if !request.configuration.section_prior.is_valid() {
+        return Err(invalid("section prior weight must be between 0 and 1"));
+    }
+    if let CandidateContext::BoundedSection { max_bytes } = request.configuration.candidate_context
+        && !(1..=1500).contains(&max_bytes)
+    {
+        return Err(invalid(
+            "candidate context max_bytes must be between 1 and 1500",
+        ));
     }
     if request
         .version

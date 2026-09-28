@@ -3,8 +3,10 @@
 
 mod command;
 mod comparison;
+mod documents;
 mod engine;
 mod manifest;
+mod rank_settings;
 mod reports;
 mod rung_prompt;
 mod runner;

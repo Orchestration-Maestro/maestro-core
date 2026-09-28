@@ -10,8 +10,8 @@ use crate::{
     search::{
         DISABLED_BY_CONFIGURATION, SearchContext, SearchError,
         candidates::{self, Failure as CandidateFailure, check_control, classify_read},
-        orchestrate::rerank_candidates,
         rerank::Reranker,
+        rerank::rerank_candidates,
         route_execution::{join_route_futures, route_error_reason},
         routes::{
             error::RouteError,

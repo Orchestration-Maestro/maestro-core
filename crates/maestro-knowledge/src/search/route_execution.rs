@@ -18,9 +18,20 @@ use maestro_kernel::{
     gateway::{ModelPort, Role, Room},
     retrieval::InventoryRequest,
     store::Database,
+    telemetry::stage::Outcome,
 };
 use std::{collections::BTreeMap, future::Future, sync::Arc};
 use tokio::time::{self, Instant};
+
+/// How a route or the rerank that ended with `status` ended: the reason
+/// code [`DEADLINE_EXCEEDED`] is a timeout, any other an unavailability.
+pub(super) fn route_outcome(status: &RouteStatus) -> Outcome {
+    match status {
+        RouteStatus::Ok => Outcome::Ok,
+        RouteStatus::Unavailable(reason) if reason == DEADLINE_EXCEEDED => Outcome::Timeout,
+        RouteStatus::Unavailable(_) => Outcome::Unavailable,
+    }
+}
 
 /// Polls every independent route before returning any route's outcome.
 pub(super) async fn join_route_futures<D, L, I, S>(

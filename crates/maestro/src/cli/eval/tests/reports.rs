@@ -75,6 +75,8 @@ fn a_private_row_holds_ids_ranks_citations_refusals_and_timings() {
             "ask_us",
             "bundle_documents",
             "bundle_rank",
+            "candidate_context_fallbacks",
+            "candidate_source_load_micros",
             "citations",
             "delivered",
             "expected_rank",

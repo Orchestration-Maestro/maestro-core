@@ -6,6 +6,7 @@ mod anchor;
 mod assemble;
 /// Counts compact serialized passages with the selected counter.
 mod budget;
+mod candidate_context;
 /// Finds the documents of a chunk set by `source_ref`.
 mod chunk_set_documents;
 /// Detects explicit structured disagreements in candidate tables.
@@ -24,6 +25,8 @@ mod selection;
 mod signals;
 /// Loads and caches authorized canonical source records.
 mod source;
+pub(super) use candidate_context::context;
+pub(super) use source::SourceCache;
 /// Unions candidate source spans without crossing revisions.
 mod spans;
 /// Exercises the helper contracts with canonical source fixtures.

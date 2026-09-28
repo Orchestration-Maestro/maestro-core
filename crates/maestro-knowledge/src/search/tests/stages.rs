@@ -11,7 +11,9 @@ use crate::{
     search::{
         DISABLED_BY_CONFIGURATION, Query, Reranker, Route, SearchError, SearchObservations,
         deadline::{DEADLINE_EXCEEDED, Deadlines, from_budget},
-        orchestrate::{rerank_candidates, route_outcome, search_outcome},
+        orchestrate::search_outcome,
+        rerank::rerank_candidates,
+        route_execution::route_outcome,
         route_execution::{dense_outcome, lexical_outcome, structured_outcome},
         routes::{
             dense::Embedder,

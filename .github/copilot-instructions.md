@@ -75,9 +75,11 @@ in place.
 │   │   │   │   │   │   └── support.rs                                       # A synthetic suite, rungs, and a fake engine that records what it is asked
 │   │   │   │   │   ├── command.rs                                           # Running the ladder a manifest describes, on this machine
 │   │   │   │   │   ├── comparison.rs                                        # The comparison across a ladder's rungs, maestro-eval-ladder-comparison/1
+│   │   │   │   │   ├── documents.rs                                         # The documents a ladder row scores: a search's ranked documents, the first
 │   │   │   │   │   ├── engine.rs                                            # The ladder's engine on this machine: the kernel opened for the local
 │   │   │   │   │   ├── manifest.rs                                          # The ladder's manifest, maestro-ladder-manifest/1: the suite, the
 │   │   │   │   │   ├── mod.rs                                               # maestro eval ladder: the M1 ladder, every question of a suite searched
+│   │   │   │   │   ├── rank_settings.rs                                     # Manifest adapters for optional candidate-context and section-prior policies
 │   │   │   │   │   ├── reports.rs                                           # What a ladder writes: for each rung, its private rows, one JSON line per
 │   │   │   │   │   ├── rung_prompt.rs                                       # A rung's answer prompt: a prompt version, or a private prompt file of
 │   │   │   │   │   ├── runner.rs                                            # The ladder's run: every rung's cards checked first, then each rung in
@@ -852,6 +854,7 @@ in place.
 │       │   │   │   │   ├── assembly_output.rs                               # Rust source: assembly output
 │       │   │   │   │   ├── assembly_versions.rs                             # Rust source: assembly versions
 │       │   │   │   │   ├── budget.rs                                        # Rust source: budget
+│       │   │   │   │   ├── candidate_context.rs                             # Rust source: candidate context
 │       │   │   │   │   ├── conflict_emission.rs                             # Rust source: conflict emission
 │       │   │   │   │   ├── conflict_structures.rs                           # Rust source: conflict structures
 │       │   │   │   │   ├── conflicts.rs                                     # Rust source: conflicts
@@ -870,6 +873,7 @@ in place.
 │       │   │   │   │   └── versions.rs                                      # Rust source: versions
 │       │   │   │   ├── anchor.rs                                            # The source anchor of each passage of an assembled bundle: where its text
 │       │   │   │   ├── budget.rs                                            # Token-counting helpers for compact serialized evidence
+│       │   │   │   ├── candidate_context.rs                                 # Reuses authoritative evidence sections for reranker-only context
 │       │   │   │   ├── chunk_set_documents.rs                               # The documents of a chunk set by source_ref: the ladder resolves its
 │       │   │   │   ├── families.rs                                          # Shared candidate-family identity for conflicts and documentary versions
 │       │   │   │   ├── mod.rs                                               # Authoritative section reads and bounded evidence assembly
@@ -891,20 +895,25 @@ in place.
 │       │   │   │   └── tests.rs                                             # Rust source: tests
 │       │   │   ├── tests/                                                   # Integration tests
 │       │   │   │   ├── admission.rs                                         # Request-boundary checks before generation admission
+│       │   │   │   ├── candidate_enrichment.rs                              # Opt-in reranker enrichment degrades to the indexed chunk, never to a failed search
 │       │   │   │   ├── deadlines.rs                                         # Rust source: deadlines
 │       │   │   │   ├── fusion.rs                                            # Rust source: fusion
 │       │   │   │   ├── handoff.rs                                           # Route joining and rerank handoff boundaries
 │       │   │   │   ├── inventory_query.rs                                   # Exact English and French inventory-query grammar
 │       │   │   │   ├── mod.rs                                               # Rust source: mod
+│       │   │   │   ├── rank_policy.rs                                       # Rust source: rank policy
+│       │   │   │   ├── rank_stage.rs                                        # The search's candidate stage end to end: exact texts, optional context
 │       │   │   │   ├── rerank.rs                                            # Rust source: rerank
 │       │   │   │   ├── route_setup.rs                                       # A route's one-time setup, such as loading its model, is not route time
 │       │   │   │   ├── routes.rs                                            # Pure route helpers: Qdrant scope filters and ranked-hit cleanup
+│       │   │   │   ├── section_prior.rs                                     # The soft section prior: strict demotion and precise, bilingual exemptions
 │       │   │   │   ├── stages.rs                                            # The outcome each end of a search, a route or the rerank gives its stage
 │       │   │   │   ├── support.rs                                           # Scratch kernel records for the bounded candidate handoff
 │       │   │   │   ├── top_scores.rs                                        # Rust source: top scores
 │       │   │   │   └── window_boundaries.rs                                 # Rust source: window boundaries
 │       │   │   ├── admission.rs                                             # Request bounds, scope snapshots and generation admission
 │       │   │   ├── assembly_settings.rs                                     # Per-request evidence assembly knobs, separate from copyable search ranking
+│       │   │   ├── candidate_enrichment.rs                                  # Opt-in reranker context and section classes read from authoritative sources
 │       │   │   ├── candidates.rs                                            # Scoped prepared-input loading for the fused candidate IDs only
 │       │   │   ├── deadline.rs                                              # Absolute cutoffs shared by routes, candidate loading and T032 handoff
 │       │   │   ├── filter.rs                                                # Qdrant's in-route filter for the scopes admitted to one request
@@ -914,9 +923,12 @@ in place.
 │       │   │   ├── orchestrate.rs                                           # Admission, parallel route execution, fusion and the bounded T032 handoff
 │       │   │   ├── pin.rs                                                   # Pins the published generation before any route touches Qdrant
 │       │   │   ├── query.rs                                                 # The scopes and generation admitted for a search
+│       │   │   ├── rank_policy.rs                                           # Optional position-only rerank policies; model and fusion scores remain untouched
+│       │   │   ├── rank_stage.rs                                            # The candidate stage of a search: exact loading, optional enrichment
 │       │   │   ├── request.rs                                               # Retrieval results handed to T032 without assembling an evidence bundle
 │       │   │   ├── rerank.rs                                                # Reranks the head of a fused list without truncating candidate text
-│       │   │   └── route_execution.rs                                       # Deadline-bounded leaf-route calls and their independent public statuses
+│       │   │   ├── route_execution.rs                                       # Deadline-bounded leaf-route calls and their independent public statuses
+│       │   │   └── section_prior.rs                                         # Configured section classes and an optional soft reciprocal-rank penalty
 │       │   ├── answer.rs                                                    # Evidence-grounded answering with bounded generation and one validation retry
 │       │   ├── collection.rs                                                # A collection's declaration: maestro-collection/1, the strict JSON that
 │       │   ├── corpus.rs                                                    # A corpus manifest: maestro-corpus/1, one JSON line per document, through

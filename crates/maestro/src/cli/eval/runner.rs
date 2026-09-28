@@ -70,6 +70,10 @@ pub(super) struct SearchDiagnostic {
     pub(super) top_rerank_score: Option<f64>,
     /// The top fused score, absent when no fused candidate was loaded.
     pub(super) top_fused_score: Option<f64>,
+    /// Source-context loading and validation wall time in microseconds.
+    pub(super) candidate_source_load_micros: u64,
+    /// Candidate identities whose oversized source units retained indexed input.
+    pub(super) candidate_context_fallbacks: Vec<String>,
 }
 
 /// What an `ask` gave the ladder.

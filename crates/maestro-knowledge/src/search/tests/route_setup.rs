@@ -11,7 +11,7 @@ use crate::{
     search::{
         DEADLINE_EXCEEDED, DISABLED_BY_CONFIGURATION, Query, Reranker,
         deadline::{Deadlines, from_budget},
-        orchestrate::rerank_candidates,
+        rerank::rerank_candidates,
         route_execution::{dense_outcome, prepare_reranker},
         routes::dense::Embedder,
     },

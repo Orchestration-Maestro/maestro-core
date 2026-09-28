@@ -1,5 +1,6 @@
 //! Scratch kernel records for the bounded candidate handoff.
 
+use crate::search::SearchConfiguration;
 use crate::search::{candidates, fusion::Fused};
 use maestro_kernel::{
     artifact::Digest,
@@ -91,8 +92,11 @@ impl CandidateDb {
                 score: 1.0,
                 ranks: BTreeMap::new(),
             }],
+            configuration: SearchConfiguration::default(),
+            query: "query".to_owned(),
             expected_revisions: HashMap::from([(chunk_id.to_owned(), expected_revisions)]),
             deadline: Instant::now() + Duration::from_secs(2),
+            context_deadline: Instant::now() + Duration::from_secs(2),
         }
     }
 

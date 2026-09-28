@@ -424,13 +424,7 @@ fn add_optional_siblings(
         .get(&candidate_index)
         .copied()
         .ok_or_else(|| integrity("selected mandatory window disappeared"))?;
-    let neighbors = [
-        plan.before.first().copied(),
-        plan.after.first().copied(),
-        plan.before.get(1).copied(),
-        plan.after.get(1).copied(),
-    ];
-    for sibling in neighbors.into_iter().flatten() {
+    for sibling in plan.neighbors() {
         let expanded = include_span(current, sibling)
             .map_err(|_| integrity("candidate optional sibling is invalid"))?;
         let mut trial_spans = selected.spans.clone();

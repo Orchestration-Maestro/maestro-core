@@ -266,6 +266,10 @@ pub(super) struct PrivateRow<'run> {
     /// The documents of the search's assembled evidence, in rank order: a
     /// diagnostic, assembled under the rung's ask budget.
     bundle_documents: &'run [String],
+    /// Source-context loading and validation wall time in microseconds.
+    candidate_source_load_micros: u64,
+    /// Candidate IDs retained as chunks after whole-unit expansion exceeded its cap.
+    candidate_context_fallbacks: &'run [String],
     /// The first of them, from 1, that is an expected document.
     bundle_rank: Option<usize>,
     /// The search's top reranker score, absent when rerank did not run.
@@ -346,6 +350,8 @@ impl<'run> PrivateRow<'run> {
             bundle_rank,
             top_rerank_score: diagnostic.top_rerank_score,
             top_fused_score: diagnostic.top_fused_score,
+            candidate_source_load_micros: diagnostic.candidate_source_load_micros,
+            candidate_context_fallbacks: &diagnostic.candidate_context_fallbacks,
             ask: asked.then_some(ask),
             ask_us: asked.then(|| micros(row.ask.elapsed)),
             refusal: refusal.filter(|_| asked),

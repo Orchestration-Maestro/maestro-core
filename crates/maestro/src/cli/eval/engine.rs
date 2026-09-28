@@ -5,6 +5,7 @@
 //! answerer, when its manifest names one.
 
 use super::{
+    documents::{bundle_documents, ranked_documents},
     manifest::{AskSettings, Rung},
     runner::{Asked, Engine, Provenance, RejectedCheck, SearchDiagnostic, Searched},
     stages::{StageFailure, ask_failure, evidence_failure, search_failure, stage_failure},
@@ -16,7 +17,6 @@ use crate::{
 };
 use maestro_kernel::{
     artifact::Digest,
-    evidence::Bundle,
     gateway::{ModelCard, Role, RouterClient},
     generation::Generation,
 };
@@ -34,7 +34,7 @@ use maestro_knowledge::{
     },
     suite::Suite,
 };
-use std::{collections::BTreeMap, error::Error, sync::Arc};
+use std::{error::Error, sync::Arc};
 use tokio::runtime::{Builder, Runtime};
 
 /// The engine of the kernel, the router and the search service.
@@ -290,6 +290,11 @@ impl Engine for KernelEngine<'_> {
                 .map_err(|error| search_failure(&error))?;
             diagnostic.top_rerank_score = top_rerank_score(&input.ranked);
             diagnostic.top_fused_score = top_fused_score(&input.ranked);
+            diagnostic.candidate_source_load_micros =
+                input.observations.candidate_source_load_micros;
+            diagnostic
+                .candidate_context_fallbacks
+                .clone_from(&input.observations.candidate_context_fallbacks);
             let order = input.observations.reranked_chunk_ids.clone();
             let database = Arc::clone(&self.kernel.database);
             let bundle = Box::pin(assemble_evidence(
@@ -477,62 +482,6 @@ pub(super) fn candidate_answerer(
     } else {
         "a rung's answerer card is not registered in the collection"
     }))
-}
-
-/// The most documents a search's ranked list holds: the floors score its
-/// first 10.
-const RANKED_DOCUMENTS: usize = 10;
-
-/// The distinct documents of `order`, the chunks after reranking, or in fused
-/// order when no rerank ran, before evidence assembly: each at its best
-/// chunk's rank, the first [`RANKED_DOCUMENTS`]. `document_of` names each
-/// chunk's document; a chunk it does not know is skipped.
-pub(super) fn ranked_documents<'set>(
-    order: &[String],
-    document_of: impl Fn(&str) -> Option<&'set str>,
-) -> Vec<String> {
-    let mut ranked: Vec<String> = Vec::with_capacity(RANKED_DOCUMENTS);
-    for document in order.iter().filter_map(|chunk| document_of(chunk)) {
-        if ranked.len() == RANKED_DOCUMENTS {
-            break;
-        }
-        if !ranked.iter().any(|seen| seen == document) {
-            ranked.push(document.to_owned());
-        }
-    }
-    ranked
-}
-
-/// The documents of `bundle`'s passages in retrieval rank, as `order`, the
-/// chunks after reranking, ranks them: each passage at the best rank of its
-/// chunks, a passage without a ranked chunk last, ties by passage number.
-pub(super) fn bundle_documents(bundle: &Bundle, order: &[String]) -> Vec<String> {
-    let rank: BTreeMap<&str, usize> = order
-        .iter()
-        .enumerate()
-        .rev()
-        .map(|(index, chunk)| (chunk.as_str(), index))
-        .collect();
-    let mut passages: Vec<(usize, u32, &str)> = bundle
-        .passages
-        .iter()
-        .map(|passage| {
-            let best = bundle
-                .trace
-                .iter()
-                .filter(|trace| trace.n == passage.n)
-                .flat_map(|trace| &trace.chunk_ids)
-                .filter_map(|chunk| rank.get(chunk.as_str()).copied())
-                .min()
-                .unwrap_or(usize::MAX);
-            (best, passage.n, passage.document_id.as_str())
-        })
-        .collect();
-    passages.sort_unstable();
-    passages
-        .into_iter()
-        .map(|(_, _, document)| document.to_owned())
-        .collect()
 }
 
 /// What `answer` gives the ladder: its citations' sections and spans, their

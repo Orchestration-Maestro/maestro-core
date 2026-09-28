@@ -1,5 +1,6 @@
 //! A synthetic suite, rungs, and a fake engine that records what it is asked.
 
+use super::super::rank_settings::{Context, Prior};
 use super::super::{
     manifest::{AskSettings, Rerank, Routes, Rung, RungConfiguration, Weights},
     runner::{Asked, Engine, Provenance, RejectedCheck, SearchDiagnostic, Searched},
@@ -69,8 +70,12 @@ pub(super) fn rung(name: &str) -> Rung {
             rerank: Some(Rerank {
                 card: RERANKER.to_owned(),
                 depth: NonZeroUsize::new(30).unwrap(),
+                blend: None,
+                demotion_cap: None,
+                candidate_context: Context::default(),
             }),
             min_rerank_score: None,
+            section_prior: Prior::default(),
         },
         ask: Some(AskSettings::default()),
     }
@@ -157,6 +162,7 @@ fn diagnostic(rung: &Rung, bundle_documents: Vec<String>) -> SearchDiagnostic {
         bundle_documents,
         top_rerank_score: rung.configuration.rerank.as_ref().map(|_| 0.75),
         top_fused_score: Some(0.05),
+        ..SearchDiagnostic::default()
     }
 }
 

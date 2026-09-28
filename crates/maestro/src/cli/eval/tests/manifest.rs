@@ -5,7 +5,9 @@ use super::{
     support::{RERANKER, rung, rung_json},
 };
 use crate::{cli::output::Output, failure::Failure};
-use maestro_knowledge::search::SearchConfiguration;
+use maestro_knowledge::search::{
+    CandidateContext, SearchConfiguration, SectionClassSet, SectionPrior,
+};
 use serde_json::{Value, json};
 use std::{env, fs, num::NonZeroU32, path::Path, process};
 
@@ -91,6 +93,7 @@ fn a_rungs_configuration_sets_every_knob_of_search() {
             rerank_enabled: true,
             rerank_depth: search.rerank_depth,
             min_rerank_score: Some(0.25),
+            ..SearchConfiguration::default()
         }
     );
     assert_eq!(search.rerank_depth.get(), 30);
@@ -260,4 +263,62 @@ fn the_ladder_command_refuses_a_manifest_it_cannot_read_before_any_search() {
         command::run(Output::new(true), &absent),
         Err(Failure::Refused(reason)) if reason.contains("cannot read the manifest")
     ));
+}
+
+#[test]
+fn rank_knobs_round_trip_and_refuse_unknown_or_out_of_range_values() {
+    let mut value = manifest();
+    let config = &mut value["rungs"][1]["configuration"];
+    config["rerank"]["blend"] = json!(0.25);
+    config["rerank"]["demotion_cap"] = json!(2);
+    config["rerank"]["candidate_context"] = json!({"mode": "bounded_section", "max_bytes": 1500});
+    config["section_prior"] = json!({
+        "mode": "soft", "weight": 0.5,
+        "classes": ["changelog", "release_notes", "conversion"]
+    });
+    let parsed = parse(&value).unwrap();
+    let config = &parsed.rungs[1].configuration;
+    assert_eq!(config.search().rerank_blend, Some(0.25));
+    assert_eq!(config.search().rerank_demotion_cap, Some(2));
+    assert_eq!(
+        config.search().candidate_context,
+        CandidateContext::BoundedSection { max_bytes: 1500 }
+    );
+    let SectionPrior::Soft { weight, classes } = config.search().section_prior else {
+        panic!("the manifest sets a soft prior");
+    };
+    assert!((weight - 0.5).abs() < f32::EPSILON);
+    let mut expected = SectionClassSet::default();
+    for name in ["changelog", "release_notes", "conversion"] {
+        assert!(expected.insert(name));
+    }
+    assert_eq!(classes, expected);
+    let encoded = serde_json::to_value(config).unwrap();
+    assert_eq!(encoded["rerank"]["candidate_context"]["max_bytes"], 1500);
+    assert_eq!(
+        encoded["section_prior"]["classes"],
+        json!(["changelog", "release_notes", "conversion"])
+    );
+    for (pointer, invalid) in [
+        ("/rungs/1/configuration/rerank/blend", json!(-0.01)),
+        ("/rungs/1/configuration/rerank/blend", json!(1.01)),
+        ("/rungs/1/configuration/rerank/demotion_cap", json!(65536)),
+        (
+            "/rungs/1/configuration/rerank/candidate_context/max_bytes",
+            json!(0),
+        ),
+        (
+            "/rungs/1/configuration/rerank/candidate_context/max_bytes",
+            json!(1501),
+        ),
+        ("/rungs/1/configuration/section_prior/weight", json!(1.01)),
+        (
+            "/rungs/1/configuration/section_prior/classes",
+            json!(["unknown"]),
+        ),
+    ] {
+        let mut invalid_value = value.clone();
+        *invalid_value.pointer_mut(pointer).unwrap() = invalid;
+        assert!(parse(&invalid_value).is_err(), "{pointer}");
+    }
 }

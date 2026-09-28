@@ -200,3 +200,31 @@ fn each_route_weight_must_be_finite_and_nonnegative() {
         }
     }
 }
+
+#[test]
+fn ranking_settings_reject_nonfinite_weights_and_invalid_context_bounds() {
+    use crate::search::{CandidateContext, SectionClassSet, SectionPrior};
+    let mut request = SearchRequest::new("docs", "question", None, RequestBudget::default());
+    for weight in [f32::NAN, f32::INFINITY, -0.01, 1.01] {
+        request.configuration.rerank_blend = Some(weight);
+        assert!(validate(&request).is_err());
+        request.configuration.rerank_blend = None;
+        request.configuration.section_prior = SectionPrior::Soft {
+            weight,
+            classes: SectionClassSet::default(),
+        };
+        assert!(validate(&request).is_err());
+        request.configuration.section_prior = SectionPrior::Off;
+    }
+    for max_bytes in [0, 1501] {
+        request.configuration.candidate_context = CandidateContext::BoundedSection { max_bytes };
+        assert!(validate(&request).is_err());
+    }
+    for max_bytes in [1, 1500] {
+        request.configuration.candidate_context = CandidateContext::BoundedSection { max_bytes };
+        request.configuration.rerank_blend = Some(0.0);
+        assert!(validate(&request).is_ok());
+        request.configuration.rerank_blend = Some(1.0);
+        assert!(validate(&request).is_ok());
+    }
+}
