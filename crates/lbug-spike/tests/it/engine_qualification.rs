@@ -107,7 +107,11 @@ fn writer_in_another_process_is_reported() {
     let path = scratch("process").expect("scratch");
     let first = Database::new(&path, SystemConfig::default()).expect("parent writer");
     let output = Command::new(current_exe().expect("test binary"))
-        .args(["child_opens_the_path", "--exact", "--nocapture"])
+        .args([
+            "engine_qualification::child_opens_the_path",
+            "--exact",
+            "--nocapture",
+        ])
         .env(CHILD_PATH, &path)
         .output()
         .expect("run the child");

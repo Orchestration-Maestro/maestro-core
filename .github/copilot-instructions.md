@@ -55,7 +55,10 @@ in place.
 │   │   ├── src/                                                             # The crate's sources
 │   │   │   └── lib.rs                                                       # Throwaway S2 G25 probe of the lbug crate (LadybugDB)
 │   │   ├── tests/                                                           # Integration tests
-│   │   │   └── lbug_qualification.rs                                        # G25: create, insert, query, close and reopen an on-disk LadybugDB, and
+│   │   │   └── it/                                                          # It
+│   │   │       ├── engine_qualification.rs                                  # G25: create, insert, query, close and reopen an on-disk LadybugDB, and
+│   │   │       ├── main.rs                                                  # G25's evidence on lbug (LadybugDB), one test crate: what the engine
+│   │   │       └── no_openssl.rs                                            # G25 route B: the patched lbug (Orchestration-Maestro/lbug, default
 │   │   └── Cargo.toml                                                       # Crate manifest: Throwaway S2 G25 probe: LadybugDB (lbug) builds, opens, writes, reads and reopens
 │   ├── maestro/                                                             # The maestro binary: the command line (CLI) over the knowledge library and the kernel
 │   │   ├── src/                                                             # The crate's sources

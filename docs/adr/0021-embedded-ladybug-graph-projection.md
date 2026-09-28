@@ -83,6 +83,42 @@ ordered neighbors, paths, claims, evidence and coverage, excluding only timings
 and transport IDs. Retained generations and other collections survive. No
 model rerun, Qdrant claim source or graph backup is needed.
 
+## The carried lbug fork
+
+G25 found that `lbug` 0.20.4 links system OpenSSL for its extension installer
+alone, with no switch to drop it (bar item 2). Upstream's optional-OpenSSL pull
+requests, LadybugDB/ladybug#777 and #796, closed unmerged. The owner chose on
+2026-09-28 to keep LadybugDB and carry a small patch.
+
+The patch lives in the organization's repository
+[`Orchestration-Maestro/lbug`](https://github.com/Orchestration-Maestro/lbug):
+the crates.io 0.20.4 crate imported unmodified, then the patch commits.
+The workspace keeps `lbug = "=0.20.4"` with default features off, and
+`[patch.crates-io]` replaces it with the fork at commit `4301d51`
+(`Cargo.lock` pins the full hash). Its DEP-001 exception in
+`maestro-quality.toml` allows that one git source, and `supply-chain`
+records its vet exemption.
+
+- **OpenSSL-free** (`575d94f`): a default Cargo feature,
+  `extension_installer`, keeps upstream's behaviour. Without it, the CMake
+  option `LBUG_EXTENSION_INSTALLER=OFF` skips `find_package(OpenSSL 3)`,
+  `INSTALL` fails with a clear error instead of downloading over HTTPS or
+  plain HTTP, and `build.rs` links neither `ssl` nor `crypto`. A static link
+  also stops building the unused shared library.
+- **CMake reuse** (`03c5460`, `4301d51`): with `LBUG_REUSE_CMAKE_BUILD`
+  (set in `.cargo/config.toml`), the C++ build lives in one directory per
+  target directory, profile and compiler settings, and a finished build is
+  reused whatever features, `RUSTFLAGS` or package selection Cargo builds the
+  crate for: coverage, mutation shards, `-p` against `--workspace`, or a CI
+  cache restore with fresh source timestamps. The archive links `-bundle`, so
+  the 2.6 GB debug archive is no longer copied into every rlib (7 GB of
+  rustc memory), and a finished build drops its object files.
+
+The fork's README says how to move to a new upstream version: import the new
+crate, cherry-pick the patch commits, update the pin. When an upstream release
+makes OpenSSL optional, drop the fork, its DEP-001 exception and its vet
+exemption.
+
 ## Considered options
 
 - **Neo4j/neo4rs first (ADR-0004):** a separate service, not built in S2. A
