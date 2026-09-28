@@ -278,7 +278,7 @@ agent roles must meet.
 | **Commands are never invented** | Deterministic check: every code span and command-like token in the answer must appear verbatim in a cited passage, else the answer is rejected and regenerated once, then refused |
 | Procedures verbatim | For `procedure` questions the answer quotes the source steps (evidence-first mode) instead of paraphrasing them |
 | Refuse when unsupported | Rerank threshold not met, out-of-scope question, or conflicting evidence without a version decision → explicit refusal with the reason and the closest passages |
-| Same language as the question | Checked; mismatch regenerates once |
+| Response language | Question's language unless an explicit session language is set (planned S3 C05d, 2026-09-28); all evaluation runs ignore session preferences and keep question language. Check where detection supports the tag; otherwise record unchecked, never refuse solely for unsupported detection. A detected mismatch regenerates once |
 | Faithfulness | Optional judge check (entailment of each cited sentence), reported as a signal; a second call to the same model is not an independent oracle |
 | Validated before delivery | Every cited passage exists, belongs to the pinned generation, is still accessible and maps to a real source location; quotations match the stored text; numbers and versions are checked. Citations are resolved from stored evidence, never generated as URLs. A verified answer is buffered until these checks finish; unverified text is never streamed as verified |
 

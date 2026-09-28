@@ -1,6 +1,6 @@
 # Feature Specification: Catalog
 
-**Feature Branch**: `docs/s3-spec`, from `feat/s3-integration`
+**Feature Branch**: `docs/s3-workspace-config`, from `feat/s3-integration`
 
 **Created**: 2026-09-28
 
@@ -59,6 +59,121 @@ execution inputs and qualification evidence, not unresolved product choices.
 D1–D5, not M1. Integrated T034/T035 and T038 live evidence gate C08 and C28;
 the M1 release remains an M3 exit dependency, not an implementation-start gate.
 
+### Owner decision, 2026-09-28 11:25
+
+Init stores workspace settings in `.maestro/config.toml` at the init root,
+asks the conversational language and tone, and offers a polished, branded
+interactive configuration menu plus flags and `--yes` for scripts. Every
+Maestro session discovers the nearest workspace file upward from its working
+directory within the safe discovery boundary below. Free preferences use
+**explicit flags > workspace file > user-level config > built-in defaults**;
+this supersedes the older five-layer preference order. No layer grants authority.
+Code, commits, file names, identifiers, logs and documentation always stay
+English; language and tone affect conversational prose only.
+
+The supervisor's schema ruling keeps user preferences in `preferences.toml`
+inside the existing platform configuration directory, separate from the
+kernel's authority-bearing `config.toml`. UI/init defaults are `en` and `normal`;
+without an explicit session language, answers retain S1's question language.
+Display "Very detailed", store `detailed`.
+Presets seed explicit init choices, not an additional session precedence layer.
+OA9 subsequently approved `ratatui` with `crossterm` on 2026-09-28 under ADR-0020;
+minimum-feature measurement and visual acceptance remain required.
+
+### Owner clarification, 2026-09-28 11:50
+
+The owner requested languages beyond en/fr. The supervisor's review ruling
+bounds S3 to a well-formed **BCP 47 subset**: 2–3 ASCII-letter language,
+optional 4-letter script and optional 2-letter or 3-digit region, with canonical
+casing. No other subtag is accepted and no parser dependency is needed.
+Explicit session language governs generated conversation; without one, use the
+question's language. Evaluation runs always keep question-language behavior
+and ignore session preferences. Built-in interface strings ship in `en`, `fr` and `es`;
+other languages keep English interface text with one visible fallback note,
+while conversation still uses the chosen language. Tone changes only prose
+length/detail, never code or document content. Every session reads the settings;
+MCP uses explicit registered `--workspace` for workspace overrides, otherwise
+user preferences, and exposes them to Pi, Claude Code, Codex and Copilot.
+Maestro-launched
+agents receive them in their instructions. S3 proves instruction construction
+and delivery; the named S4 launch-adapter obligation proves actual launch use.
+
+### Owner requirement, 2026-09-28 11:55
+
+At session startup, check for newer verified production releases, rate-limited
+to once per day and safe offline. The review ruling adds `updates = "off"`
+(no startup discovery), keeps `"propose"` as default and allows `"auto"` only
+as user-level catalog consent; workspace settings/flags may only narrow it.
+Runtime releases are propose-only in S3. MCP never applies updates and exposes
+only a fixed path-free ID/target/version notice through the client-delivery port,
+never release-note text.
+Permission-widening or hook-changing updates always require explicit human
+approval, even in auto mode. Every applied update has a receipt and a rollback
+path; no update runs mid-task. Reuse ADR-0015 and the existing verification,
+freshness, revocation and activation path, not a second updater.
+
+The supervisor's inventory ruling covers the released Maestro runtime (its
+separate publisher identity) and every installed catalog with its pinned
+component closure. Cargo resolution, host clients, models, pinned `gh` and
+Qdrant setup are not S3 update targets. The named later follow-up is
+"notify-only update checks for owner-managed components (Qdrant, router runtime,
+host clients, models)": propose-only after approved sources exist, never apply.
+
+### Owner requirements, 2026-09-28 12:00 and 12:05
+
+Init asks whether to trust its canonical working directory (normally a clone,
+or an explicitly chosen larger workspace). The review ruling keeps the answer, canonical folders and approval receipt
+entirely in user-local kernel authority records keyed by canonical path, not in
+workspace config. Only `maestro trust add/list/remove` manages these records;
+cloned/edited config, catalogs and updates cannot grant trust. Add asks default-no
+on a terminal, or requires an exact canonical `--confirm-path DIR` without one;
+never `--yes`, environment variables or MCP text. Filesystem/drive/mount roots,
+HOME itself and kernel-internal directories cannot be trusted.
+
+Trust permits non-secret reads/writes inside approved folders under other
+mandatory controls. Writes outside are blocked; reads outside are allowed
+except for the immutable secret-location deny list. Secrets remain denied even
+inside trust; ADR-0018 canonical/held-handle checks prevent link and `..` escapes.
+S3 enforces this on its own file effects and Copilot's hook; Pi/Codex/Claude
+hooks remain the named S4 obligation. Kernel-internal XDG config/data/state
+writes retain kernel authority and are never granted to agents/tools by trust.
+Declining trust permits only an explicitly confirmed config/approval-metadata
+write, not templates or installation. External host installation directories
+need their own once-only user grant; never auto-trust HOME.
+
+Keep workspace configuration, path trust, updates and instruction delivery as
+small modules with clear ports. Secret denies are checked data in the default
+trust adapter; runtime/catalog releases use update-source adapters; MCP and
+native projections use client-delivery adapters. Another client or approved
+source must not require changes in callers. No plugin runtime is implied.
+
+### Review boundaries, 2026-09-28
+
+Discovery inside home stops at home. Outside home no workspace config is read
+until a containing root is journal-trusted; discovery then stays inside it.
+Require current-user ownership and no group/world write access to the config
+and its directory on held handles. Skip foreign-owned/unsafe candidates with a
+warning, including planted invalid files; malformed selected safe files still
+refuse. Never select drive/mount roots. No preference becomes authority.
+
+MCP initialization uses explicit `--workspace` or user preferences, never the
+client's spawn directory or roots. Report the source without paths. Roots-based
+workspace detection waits for a client-qualified channel (06/08). Plain init
+ships before the optional TUI; C08 does not wait for OA9. Runtime auto-apply with
+the installer is also a named follow-up. These review rulings supersede the
+broader discovery, in-file trust, language grammar and runtime-apply wording of
+the initial amendment.
+
+### Owner approvals, 2026-09-28
+
+- **OA9 approved:** ratatui + crossterm for the TUI under ADR-0020; measure the
+  minimum adoption footprint in C05f. Branded visual acceptance is still pending.
+- **OA2 approved, bounded scope:** probe/test the already-installed Copilot CLI,
+  Pi, Claude Code and Codex, each in an isolated temporary home. C01 records
+  every exact installed version as its pin. No installs/upgrades, changes to
+  the owner's real configurations or enterprise policy. Anything beyond this
+  scope needs fresh OA2 approval; no private-data/provider approval is implied.
+
 ### Execution rulings, 2026-09-28
 
 The supervisor approved a pure move of ADR-0018's existing filesystem code and
@@ -71,8 +186,9 @@ and the hook disposition below in architecture 03/06/08.
 
 ### User Story 1 - Start a project and ask a cited question (Priority: P1)
 
-As the owner, I select the knowledge preset, preview its files, project the
-Maestro profile into Copilot or Pi, and ask a question through the existing
+As the owner, I select the knowledge preset, choose Maestro's conversational
+language and tone in a polished configuration menu, preview its files, project
+the Maestro profile into Copilot or Pi, and ask a question through the existing
 knowledge tools without hand-copying framework configuration.
 
 **Why this priority**: it proves useful content and host integration before
@@ -100,6 +216,33 @@ content in public tests; keep any approved private proof private.
 5. **Given** an existing projection, **When** I rerun or remove it,
    **Then** rerun changes nothing and removal preserves unrelated and edited
    files, including other MCP registrations.
+6. **Given** a terminal, **When** I run `maestro init`, **Then** a branded,
+   keyboard-accessible menu shows workspace/preset, language, tone and allowed
+   overrides and the canonical workspace trust decision, followed by a complete
+   file preview. Confirmed `--apply` with explicit user trust writes
+   `.maestro/config.toml` at the displayed init root; Back, cancel or preview
+   alone writes nothing, including no configuration file.
+7. **Given** a script without a terminal, **When** I run init with
+   `--language fr --tone detailed --yes --apply` and an explicit preset,
+   **Then**, after `maestro trust add DIR --confirm-path DIR` for that exact
+   canonical root (including in a fresh CI home), it never prompts,
+   validates the same schema and produces the same files as those choices. `--yes` alone does not imply `--apply`
+   or waive collisions, policy, trust or validation; missing required choices
+   without `--yes` produce a usage error rather than a hang.
+8. **Given** no color, a small terminal or a screen reader, **When** I configure
+   Maestro, **Then** a plain sequential mode exposes the same choices, errors
+   and preview; focus and status never depend only on color or animation.
+9. **Given** malformed/duplicate/unknown settings or a malformed language tag,
+   **When** init validates them, **Then** it names the offending path/key or tag
+   and refuses before writes; no arbitrary SDK option or authority-bearing table
+   passes as an override. A supported well-formed tag outside the shipped interface translations
+   is accepted, with a visible English-interface note, not a changed conversation
+   language.
+10. **Given** an untrusted clone, **When** I apply init, **Then** it asks about
+    the displayed canonical root and records the answer/paths/receipt only in
+    user-local kernel authority. Decline can separately confirm a preferences-only
+    config write, never a template or projection. `--yes` cannot grant trust;
+    adding a folder after editing preferences leaves the config byte-identical.
 
 ---
 
@@ -133,12 +276,38 @@ install or losing user files.
 5. **Given** interrupted installation or an old backup, **When** recovered,
    **Then** durable ownership and pins remain consistent, and restored catalog
    use requires a fresh authenticated trust check rather than a restored floor.
+6. **Given** `updates = "propose"` and a newer verified production release,
+   **When** a daily startup check is due, **Then** Maestro identifies the runtime
+   or installed catalog, summarizes verified changes and gives one exact apply
+   command. It changes no installed version; unverified metadata cannot become
+   a trusted proposal. Repeated same-day startups reuse the recorded result.
+7. **Given** user-level `updates = "auto"` not narrowed by another layer and a
+   verified compatible catalog update without wider
+   permissions or hook changes, **When** the session is idle before its first
+   task, **Then** the existing updater activates it atomically and records the
+   old/new identities, trust evidence, policy and rollback target in a receipt.
+8. **Given** a permission-widening or hook-changing update, **When** auto would
+   apply it, **Then** it requests explicit approval bound to the exact change;
+   without an interactive human or recorded scoped approval it only proposes.
+   `--yes` and agent text cannot approve the change.
+9. **Given** an unverified, revoked, expired or incompatible update, a partial
+   download, or offline startup, **When** checked, **Then** no unsafe update is
+   applied. Offline check failure is visible but does not block otherwise valid
+   current work; existing trust expiry still refuses invalid catalog use.
+10. **Given** a recorded applied catalog update, **When** rollback is requested,
+    **Then** retained prior artifacts and pins are restored atomically with a
+    linked receipt only if current trust still admits them. A revoked target is
+    refused; an active task defers both update and rollback until a safe boundary.
+11. **Given** startup updates off, a runtime proposal or an MCP session, **When**
+    startup runs, **Then** off makes zero discovery network calls, runtime never
+    auto-applies, and MCP never activates any target. Explicit CLI check still
+    works with off; MCP instructions contain no release notes or install command.
 
 ---
 
 ### User Story 3 - Change preferences without widening permissions (Priority: P1)
 
-As a developer, I change language, verbosity or an allowed model profile and
+As a developer, I change language, tone or an allowed model profile and
 can see where each effective value came from, without disabling mandatory
 checks, weakening permissions or changing another role's settings.
 
@@ -152,8 +321,10 @@ Cedar evaluator, with zero executor calls on denial.
 
 1. **Given** a setting, **When** checked or loaded, **Then** it has exactly one
    class: free, bounded, additive or locked; unknown or duplicate classes fail.
-2. **Given** conflicting preferences, **When** resolved, **Then** precedence is
-   default → preset → project → user → command, with every source explained.
+2. **Given** conflicting free preferences, **When** resolved, **Then** precedence is
+   explicit flags > workspace file > user-level config > built-in defaults,
+   per key, with every source explained. Only explicitly supplied flags win;
+   parser defaults never hide the workspace or user value.
 3. **Given** a wider permission, removed check or larger budget, **When** proposed
    as an override, **Then** permissions still intersect, checks accumulate and
    budgets narrow; locked changes are refused.
@@ -162,6 +333,38 @@ Cedar evaluator, with zero executor calls on denial.
    evaluator errors and timeouts deny. An absent hook is reported as unprotected.
 5. **Given** no S4 qualification or observed run, **When** explained, **Then** the
    value is unsupported or not observed, never an invented qualification receipt.
+6. **Given** nested directories/workspaces, **When** CLI or explicitly registered
+   MCP workspace discovery runs, **Then** it selects only the nearest safe,
+   user-owned config within home or an approved external root. Foreign/unsafe
+   candidates warn and are skipped; malformed selected files refuse. No selected
+   file means user/default preferences. MCP without `--workspace` always uses
+   user preferences, regardless of cwd/roots. A new session sees edits.
+7. **Given** `fr` with any tone, **When** Maestro answers or displays human CLI/TUI
+   messages, **Then** its conversational prose follows that choice, but generated
+   code/comments, commits, file names, identifiers, logs and documentation remain
+   English. JSON keys/status codes, command names, citation IDs and quoted source
+   bytes are unchanged; a brief answer still contains required evidence/refusals.
+8. **Given** workspace settings that name `[access]`, identity, hooks, secrets or
+   a locked parameter, **When** loaded or explained, **Then** they are refused.
+   User preferences cannot change the kernel authority config; allowed bounded
+   overrides still cannot widen permissions or budgets.
+9. **Given** a language such as `ja` and any tone, **When** each of Pi, Claude
+   Code, Codex and Copilot initializes an MCP connection, **Then** server
+   instructions expose that validated conversational preference and the English
+   artifact/log rule. Interface text remains English with a visible note; the
+   selected conversation language is unchanged. S3 tests delivery, not obedience
+   by an arbitrary client; S4 must test every launched/resumed/delegated agent's
+   actual instruction payload.
+10. **Given** a trusted folder, **When** an operation writes outside it, reads
+    `.env` or SSH/cloud credentials inside it, or follows a link outside it,
+    **Then** Maestro's own effect path and the installed Copilot hook deny before
+    effects; ordinary non-secret inside writes and outside reads remain eligible.
+11. **Given** another folder, **When** it is added to trust, **Then** only an
+    explicit user `maestro trust add DIR` action can record the canonical path
+    and matching journal approval in user-local state only. A catalog/update/
+    config edit or model-supplied approval cannot add it. Non-terminal add needs
+    exact `--confirm-path`; omitted confirmation exits 2. Root/HOME/internal
+    directory additions refuse. Kernel-internal directories are not tool grants.
 
 ---
 
@@ -246,6 +449,13 @@ invalid graph rule and policy fixture through the real checks.
   restart/removal for that session. Do not claim runtime containment.
 - A private-data denial test shares a kernel with an allowed principal: use a
   separate no-grant kernel; configuration reconciles the local principal's grants.
+- A parent and child each have a workspace config: the child wins as a whole
+  file; omitted child keys use user/default values, not the parent file.
+- A discovered config is a link or foreign-writable: warn and skip it without
+  parsing. A planned file changes after preview: refuse the write. Never modify
+  a parent workspace as a side effect of init.
+- EOF, Ctrl-C, resize or terminal failure interrupts init: no unconfirmed write;
+  restore terminal state and preserve the same safe recovery contract as C04.
 
 ## Requirements *(mandatory)*
 
@@ -261,7 +471,8 @@ invalid graph rule and policy fixture through the real checks.
   a resource. Drafts may be discoverable but never enter an executable closure.
 - **FR-S3-004**: `maestro init` MUST inspect without scripts, compose base plus
   Rust, preview all files including dotfiles, require explicit apply, validate
-  composed output and write only the small descriptor, lock and owned files.
+  composed output and write only the small descriptor, workspace config, lock
+  and owned files.
 - **FR-S3-005**: A shared owned-file writer MUST resist traversal, links, races
   and changed previews, stop on collision, recover interrupted operations and
   remove only unchanged owned content on all three supported operating systems.
@@ -301,11 +512,14 @@ invalid graph rule and policy fixture through the real checks.
   `GH_TOKEN`); credentials never enter catalog content. `maestro doctor` checks
   the verifier pin and authentication readiness.
 - **FR-S3-014**: Every setting MUST have exactly one override class. Preferences
-  use the five-layer precedence; permissions intersect, prohibitions and checks
-  accumulate, budgets narrow, secrets remain references, and capability values
-  stay local to their role or step.
+  use explicit flags > workspace file > user-level config > built-in defaults
+  for free values only; update consent and budgets narrow across all layers.
+  Permissions intersect, prohibitions and checks accumulate,
+  secrets remain references, and capability values stay local to their role or
+  step. Precedence never makes a locked or widening override acceptable.
 - **FR-S3-015**: The project lock MUST pin bundle/component/runtime/host/model
-  identities and supported execution profiles. Updates are explicit; the lock
+  identities and supported execution profiles. Updates require an explicit
+  command or FR-S3-033's safe-boundary policy; session pins never change mid-task. The lock
   is not trust authority. Explain declared, effective and observed states with
   each value's class, source and requester; absent S4 evidence stays unsupported.
 - **FR-S3-016**: Check real Cedar policies and JSON Schema contracts; ship
@@ -355,6 +569,102 @@ invalid graph rule and policy fixture through the real checks.
 - **FR-S3-026**: After M3 and access approval, compare the earlier catalog once;
   record every item's disposition, provenance and reason. Each recovery is a
   separate reviewed task of at most four hours, with attribution and tests.
+- **FR-S3-027**: Init MUST preview and, only on explicit apply, persist
+  `.maestro/config.toml` at its displayed root, leaving ancestors untouched.
+  The strict versioned TOML schema stores `language` (the well-formed BCP 47
+  subset: 2–3 ASCII-letter language, optional 4-letter script, optional 2-letter
+  or 3-digit region), `tone` (`brief`, `normal`, `detailed`), `updates`
+  (`off`, `propose`, user-only `auto`) and documented typed `[overrides]`.
+  Canonicalize tag casing; refuse all other subtags, unknown/duplicate keys,
+  wrong types, unsupported versions and authority fields. Only the canonical
+  tag reaches model instructions, quoted as data. Neither preference file holds
+  trust, paths or receipts or replaces user authority `config.toml`. Init always
+  writes a language; other files may omit it to preserve question-language answers.
+- **FR-S3-028**: CLI discovery MUST select the nearest safe current-user-owned
+  config, with directory/file ownership and write permissions checked on held
+  handles. Inside home stop at home; outside home select nothing until a
+  containing root is journal-trusted, then never climb above it. Never select
+  drive/mount roots. Foreign-owned, writable-by-others, unreadable or otherwise
+  unsafe candidates warn and are skipped without parsing; malformed selected
+  safe files refuse. Select one file, never merge ancestors. MCP uses registered
+  `--workspace` through these checks, otherwise user preferences, never cwd or
+  client roots. Report selected/fallback source without paths in instructions.
+  Retain provenance and one fixed snapshot until the next session.
+- **FR-S3-029**: Language/tone MUST govern only conversational prose: every
+  generated reply, agent reply, ask answer and explanation. Code (including
+  comments), commits, file names, identifiers, logs and documentation MUST
+  always be English and unaffected by tone. Built-in CLI/TUI interface strings
+  ship in `en`, `fr`, `es`; for other languages show one visible note that the
+  interface is English while conversation retains the selected language. Keep
+  machine contracts, evidence/citation identities and source quotations unchanged.
+  An explicit layer language wins; absent one, answer in the question's language.
+  Evaluation always ignores session preferences. Unsupported language detection
+  is `unchecked`, never a fabricated pass or automatic refusal. Built-in messages
+  have one wording per language, independent of tone; `--help`/clap reference
+  remain English documentation. Tone never suppresses a warning, refusal,
+  citation or mandatory check; changing
+  presentation never claims an unmeasured answer profile is calibrated.
+- **FR-S3-030**: On a terminal, init MUST provide the owner's "very nice looking,
+  AAA, pristine" configuration flow: consistent Maestro brand palette, clear
+  hierarchy, visible progress/focus, language/tone choices, allowed overrides,
+  complete preview and explicit confirmation. Provide keyboard-only operation,
+  screen-reader-friendly plain mode, resize handling, cancel without writes and
+  a no-color fallback. Flags plus `--yes` MUST provide the same validation and
+  deterministic plan without prompts for CI; `--apply` remains required to write.
+  OA9 approved ratatui + crossterm on 2026-09-28 under ADR-0020; adoption still
+  requires C05f's minimum-feature/dependency measurements and normal vet gates.
+- **FR-S3-031**: The MCP server MUST expose the effective language/tone and the
+  English-artifact/log rule in its initialization instructions to Pi, Claude
+  Code, Codex and Copilot. Native projections contain only the shared fixed
+  English artifact/log rule and the instruction to follow Maestro MCP session
+  language/tone, never copied preference values. Maestro-launched agents MUST receive it on start, resume and
+  delegation: S3 tests construction/delivery and hands off the real launch test
+  as `S4 session-preferences launch-adapter obligation`, not an S3 engine.
+- **FR-S3-032**: Unless startup updates are `off`, check for newer verified
+  runtime and installed catalog/closure production releases at most once per
+  24 hours per installation. Bound network time/output and cache attempts across
+  sessions; offline discovery never blocks otherwise valid work. `off` makes
+  zero startup discovery network calls; explicit `maestro update check` still
+  works. Mandatory trust refresh/expiry is unchanged. MCP never applies updates;
+  its client-delivery port provides only a fixed one-line proposal ID/target/
+  version notice, never release-note text or commands in model instructions.
+- **FR-S3-033**: Resolve updates by narrowing (`off < propose < auto`), not
+  last-writer-wins. Default `propose`; only user `preferences.toml` can enable
+  `auto`. Workspace/flags can only tighten the user/default ceiling; diagnose
+  ignored widenings, including workspace auto over user propose. Budget-like
+  keys also narrow across all layers. Propose shows verified changes and one
+  exact command; S3 runtime proposals never apply and use the approved installer
+  command, not a new updater. Auto applies verified compatible catalogs only at
+  idle CLI boundaries. Widened permissions or changed hooks require exact human
+  consent; uncertainty/missing consent stays a proposal, never generic `--yes`.
+- **FR-S3-034**: Catalog update/rollback MUST reuse C13/C14/C16 verification,
+  admission and atomic activation. Every apply retains a rollback target and
+  English receipt of old/new identities, trust, policy, approval and result.
+  Rollback revalidates current trust, cannot revive revocation or lower floors,
+  and records a linked receipt. No activation or pin replacement runs mid-task;
+  interruption preserves the prior valid install. Runtime discovery reuses
+  verification with its separate publisher; runtime activation/rollback and
+  installer handoff remain a named follow-up, not an S3 implementation.
+- **FR-S3-035**: Init MUST ask about trust in its canonical root; store answers,
+  canonical paths and receipts entirely in user-local kernel authority keyed by
+  canonical path. No trust table belongs in workspace or user preferences.
+  `maestro trust add/list/remove` manages authority without rewriting preferences.
+  Add displays its canonical path and asks default-no on a terminal; without one,
+  require exact `--confirm-path DIR`, else exit 2 with the exact command.
+  Reject filesystem/drive/mount roots, HOME itself and kernel-internal directories.
+  `--yes`, environment variables, MCP/model text, catalogs and updates cannot
+  grant trust. Decline allows only a separately confirmed preferences-config
+  write with kernel-local metadata, never templates or other effects.
+- **FR-S3-036**: A shared workspace-trust policy port MUST check Maestro-owned
+  filesystem effects (init, projection, install, update and rollback) and Copilot
+  `preToolUse`. Permit non-secret inside reads/writes and outside reads subject
+  to other controls; deny outside writes and all built-in secret locations,
+  even inside trust. Cover SSH/GPG, cloud/CLI credentials, password/keyring stores
+  and `.env` files with immutable checked deny data. Use ADR-0018 canonical
+  ancestry/held handles for links, `..`, new-file parents and race resistance.
+  Kernel-internal XDG config/data/state writes follow kernel rules and grant
+  agents/tools no access. External host targets require explicit folder trust;
+  Pi/Codex/Claude tool enforcement waits for the named S4 hook qualification.
 
 ### Key Entities
 
@@ -366,6 +676,14 @@ invalid graph rule and policy fixture through the real checks.
   to authenticated freshness, revocations and a monotonic version floor.
 - **Project and ownership manifest**: descriptor and explicit lock plus the
   paths/digests Maestro wrote, including owned portions of shared host settings.
+- **Workspace preferences**: strict `.maestro/config.toml` with conversational
+  language/tone, update policy and documented overrides; user `preferences.toml`
+  supplies lower precedence values. Neither is a grant, lock or secret store.
+- **Workspace trust approval**: canonical roots, answer and receipt in user-local
+  kernel authority only, never editable preferences or a secret-deny exception.
+- **Update proposal and receipt**: exact managed release identities, verified
+  change/permission/hook diff, decision and rollback artifacts; never authority
+  to skip current trust or replace an active session's pins.
 - **Discovery card and route result**: searchable description versus exact
   definitions; results bind eligible candidates to the consulted snapshot.
 - **Policy/qualification evidence**: rule decisions and measured role/profile
@@ -408,6 +726,37 @@ invalid graph rule and policy fixture through the real checks.
 - **SC-S3-009**: M3 evidence names every required traceability row and delivered
   portion, with no missing, duplicate or extra keys; private receipts stay
   private. Missing host, release, S2 or CI evidence blocks the corresponding exit.
+- **SC-S3-010**: Automated cases cover `en`/`fr`/`es`/`ja` in the well-formed
+  BCP 47 subset × all three tones, all four
+  precedence layers, nearest/nested/missing/invalid-file discovery, strict-schema
+  refusals, permission non-widening and identical interactive/scripted plans.
+  Verify every generated workspace/host deliverable is byte-identical except
+  config language/tone values. Kernel/internal ownership metadata is checked
+  structurally for the exact corresponding config digest, not byte identity;
+  no other deliverable exception exists. Receipts/logs normalize only timestamps
+  and IDs. Verify successful
+  trusted apply at the root, an untouched ancestor and zero writes on rerun.
+  Preserve machine/evidence fields and MCP delivery/source reporting for all
+  four clients with/without explicit workspace. Terminal
+  snapshots and a keyboard/plain-mode walkthrough cover preview, confirmation,
+  cancel, resize, no-color and screen-reader use; all three OS test suites pass.
+  Owner visual acceptance is recorded before calling the branded menu complete.
+- **SC-S3-011**: Startup-update tests cover off (zero discovery calls), propose,
+  user-only catalog auto, runtime propose-only, MCP zero activation, daily throttling,
+  concurrent sessions, unverified/expired/revoked releases, mandatory approval
+  for widened permissions or changed hooks, offline use, interrupted activation,
+  receipts and trusted rollback for catalog updates. An active-task spy
+  observes zero activation calls; S3 manages no owner-controlled component.
+- **SC-S3-012**: Real file-effect and Copilot-hook tests deny an outside write,
+  a secret read inside trust and a symlink/reparse escape with zero effects.
+  A trusted-folder addition succeeds only with user approval bound to its
+  canonical path; copied configs, updates and model text fail. Fresh-home CI
+  uses exact confirm-path; missing confirmation and root/HOME additions refuse.
+  A trust addition leaves manually edited preferences untouched. Test a
+  declined-trust config-only write, outside non-secret reads, kernel-internal
+  isolation and all built-in deny data on Linux/macOS/Windows. Shared port
+  contract tests cover every default adapter; changing adapters cannot weaken
+  the policy floor.
 
 ## Out of Scope
 
@@ -416,8 +765,15 @@ invalid graph rule and policy fixture through the real checks.
   and filesystem safety are not substitutes for those controls.
 - A new Pi extension, provider fallback, a separate catalog service, remote MCP,
   GUI, team deployment or multi-user operations.
-- Extra roles, languages, three-way generated-file merge and bulk import of an
-  earlier catalog. Comparison is a separately gated post-M3 task.
+- Extra roles, programming-language overlays beyond Rust, built-in interface
+  translations beyond `en`/`fr`/`es`, three-way generated-file merge and bulk import
+  of an earlier catalog. Tags outside the defined BCP 47 subset are not supported.
+  Comparison is a separately gated post-M3 task.
+- Automatic runtime activation/rollback and roots-based MCP workspace detection:
+  named follow-ups in 06/08; no unqualified handoff or instructions notification.
+- Updates to Cargo dependencies, host clients, models, pinned `gh`, Qdrant setup
+  or the router runtime. Owner-managed components have the named notify-only
+  follow-up in architecture 06/08, not an S3 automatic installation path.
 - S1 cleanup, answer calibration, corpus deduplication, Qdrant Edge, unrelated
   gate changes and the post-M1 backlog. Reuse approved privacy checks when they
   land; do not fold their implementation into S3.
@@ -531,6 +887,31 @@ key rotation procedure" row with D2 and OA4 evidence; without that evidence
 C28 remains blocked.
 Runtime enforcement, general qualification and InnerSource keep their named
 later slice. No similarity or unapproved closure fallback replaces C27a/C27.
+
+### Owner amendment coverage (2026-09-28 11:25–12:05)
+
+The frozen C00 rows above stay unchanged. These requirements refine existing
+rows, so no new traceability JSON row or inventory-test change is needed:
+
+| Requirement | Existing row family | Tasks |
+| --- | --- | --- |
+| FR-S3-027 | Bootstrap/settings: `owner.m001.cli`, `owner.m001.load`, `chat.M019 bootstrap, M023 step 13` | C17, C05a, C05j, C05g, C08 |
+| FR-S3-028 | Settings: `chat.M036 classes, M039 policy`, `chat.M006 explain` | C05b, C08 |
+| FR-S3-029 | Preferences: `owner.m001.load`, `chat.M036 classes, M039 policy` | C05c, C05l, C05d, C08 |
+| FR-S3-030 | Bootstrap: `owner.m001.cli`, `owner.m001.load` | C05g, C08, C05f, C05k |
+| FR-S3-031 | Instructions: `delivery.C08 explicit instructions and skills with provenance`, `product.GD2, GD4, GD5` | C05e, C06, C07, C08 |
+| FR-S3-032 | Releases: `chat.M006 release`, `chat.M027 TUF`, `owner.m024` | C16c, C16e, C16g, C16f |
+| FR-S3-033 | Settings/releases: `chat.M036 classes, M039 policy`, `delivery.C17 signed releases, freshness, revocation, transparency` | C17, C05a, C16c, C16e, C16g, C16f |
+| FR-S3-034 | Lifecycle: `chat.M006 release`, `delivery.C17 signed releases, freshness, revocation, transparency`, `owner.m024` | C16d, C16e, C16f |
+| FR-S3-035 | User authority: `owner.m001.guardrails`, `owner.m032` | C05h, C05j, C05g, C08 |
+| FR-S3-036 | Guardrails: `owner.m001.guardrails`, `chat.M036 classes, M039 policy`, `chat.M006 destructive` | C05h, C05i, C05j, C05e, C06, C07, C08, C16d, C16f, C20 |
+| SC-S3-010 | Delivery proof: `delivery.§1.5` | C05a, C05b, C05j, C05c, C05l, C05d, C05e, C05g, C06, C07, C08, C05f, C05k, C16d, C28 |
+| SC-S3-011 | Delivery proof: `delivery.§1.5` | C16c, C16d, C16e, C16g, C16f, C28 |
+| SC-S3-012 | Delivery proof: `delivery.§1.5` | C05h, C05i, C05j, C05g, C06, C07, C08, C16d, C16f, C20, C28 |
+
+C28 must include these supplemental portions in its existing-row evidence.
+They do not claim delivery or S4 launch qualification. The named S4 handoff and
+owner-managed notify-only follow-up are recorded in architecture 06/08.
 
 ## Assumptions
 

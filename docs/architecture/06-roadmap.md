@@ -145,7 +145,9 @@ an M3 exit criterion, and no S3 task executes a workflow graph.
 | Deliverable | Detail |
 | --- | --- |
 | `maestro-catalog` | Parse, check, compile, verify (attestation, freshness, revocation, version floor), install, update, project, route, resolve, search, impact, explain; settings classes and override resolution; project lock |
-| Bootstrap | `maestro init` with presets, base template and language overlays (Rust first; others as projects need them), preview, stop-on-collision apply, composed-output tests |
+| Bootstrap | Branded, keyboard/plain/no-color `maestro init`; strict workspace config, language/tone, user-approved canonical folder trust, updates and documented overrides; scripted flags plus `--yes`, explicit apply, base/Rust composition and owned-file safety |
+| Session preferences and trust | Free flags > safely discovered workspace > user preferences > defaults; updates/budgets only narrow. Bounded canonical BCP 47 subset; question-language answers when unset, evaluation unchanged. en/fr/es interface, English fallback otherwise; English artifacts/logs. MCP --workspace or user-only snapshot, path-free source; static native English rules. Kernel-only path trust, immutable secret deny data |
+| Startup updates | Off or daily offline-safe verified discovery; default propose, user-only catalog auto before work, mandatory widening/hook consent, receipts and trusted catalog rollback. Runtime propose-only; MCP never applies, fixed ID/target/version notice only. Never update trusted roots |
 | Catalog v1 content | Written from zero ([03 §1.8](03-agent-orchestration.md#18-writing-the-first-catalog)): the `feature-delivery` and `ctm-question` workflows, the Maestro orchestrator and the owner's roles they need (coder, tester, reviewer; builder as a step), and only the skills, instructions, contracts, Cedar policies (default deny, destructive operations, protected paths, egress, each with allowed and denied fixtures), model profiles (`fast`, `balanced`, `deep`) for both providers, MCP server descriptors and discovery cards those workflows use; every file's pull request names its 08 rows |
 | Release | Manifests CI: check, policy tests, attested bundle |
 | Hosts | Copilot/Pi projection (preview, apply, owned removal); four-client local MCP registration (Pi, Codex, Claude Code, Copilot CLI); only Copilot `preToolUse` → `maestro policy check` in S3. Other hooks wait for S4 trusted event/identity adapter qualification |
@@ -180,6 +182,17 @@ landing above every landed or reserved number on main and S1/S2/S3 integration
 branches. C00 reserves no number or gapped block; later schema changes receive
 new numbers, never edits to applied migrations.
 
+The 11:25–12:05 owner amendments add S3 exit evidence for config discovery/
+precedence, conversational/artifact separation, four-client instruction delivery,
+menu accessibility/visual acceptance, trust-backed real file denials, and startup
+off/propose/catalog-auto/approval/rollback/offline cases. Plain init serves C08
+without TUI/OA9; branded visual acceptance is required before M3, not the first
+owner loop. The revised task set is
+[53 tasks / 177 lane-hours](../../specs/003-catalog/tasks.md); the older calendar
+estimate is not a commitment for this expanded scope. Configuration, path trust,
+release sources and client delivery remain small modules with explicit ports;
+new adapters do not change callers or weaken mandatory controls.
+
 ### S4 Orchestration runtime → M4
 
 | Deliverable | Detail |
@@ -200,6 +213,34 @@ every denial test proves its stimulus reached the real guard; sandbox escape
 tests fail closed; an extension is activated, receives events, survives a
 restart without loss and is deactivated without restarting the daemon; L1–L4
 suites in CI, L5 recorded as qualification cards.
+
+**S4 session-preferences launch-adapter obligation:** consume S3 C05e's English
+instruction fragment in every launched, resumed and delegated agent. Acceptance
+inspects actual adapter instruction payloads on both provider routes for all
+three tones and a language without built-in interface strings, retaining the
+selected tag and English code/commit/name/identifier/log/documentation rule.
+S3 construction/delivery tests are not this launch proof or proof of host obedience.
+
+**S4 non-Copilot workspace-trust hook obligation:** qualify Pi, Codex and Claude
+Code's trusted event/identity adapters against the same `WorkspaceTrust` port.
+Actual hook/effect tests must deny outside writes, secret reads inside trust,
+link escapes and agent-shell trust administration (even a correct
+`--confirm-path`), with allowed neighbours and zero
+executor calls on denial. These extend the existing S4 hook qualification,
+not S3's claimed enforcement. S4 task/session admission must also hold the
+shared update lifecycle lease so no activation/rollback happens mid-task.
+
+### Named S3 follow-ups
+
+- **Runtime auto-apply with the installer:** define released-installation layout,
+  cross-platform startup handoff, idle exclusion, retained binaries/state,
+  receipts and current-trust rollback before automatic runtime activation. S3
+  only proposes a verified runtime release and exact approved install command;
+  catalog off/propose/auto uses the existing lifecycle.
+- **Roots-based workspace detection, once a client-qualified channel exists:**
+  MCP roots arrive after initialization and there is no standard instructions-
+  changed notification. S3 uses explicit --workspace or user preferences only;
+  no per-client notification workaround is implied.
 
 ### S5 Capabilities + InnerSource → M5
 
@@ -276,6 +317,11 @@ registered before it starts, so R1 ships with that phase if S8 has not begun.
 - Inbound webhooks, the broker bridge and WebAssembly extensions until a real
   integration asks for them.
 - The structured-data (SQL) knowledge profile until a domain needs it.
+- **Notify-only update checks for owner-managed components (Qdrant, router runtime,
+  host clients, models):** propose-only after each has an approved source; never
+  apply or download those components. S3 manages only released Maestro and
+  installed catalogs/component closures. Pinned `gh` and Cargo resolution stay
+  owner/build-managed, outside that updater.
 
 ## 4. Risk register
 

@@ -709,3 +709,59 @@ Architecture [03](03-agent-orchestration.md) and
 [06 S3](06-roadmap.md#s3-catalog--m3) carry the same boundaries. C00 performs
 no host installation, account access, repository creation, release, trust
 rotation or private-data operation. Missing live evidence remains missing.
+
+## 22. Owner amendments, 2026-09-28 11:25–12:05
+
+The [S3 amendment coverage](../../specs/003-catalog/spec.md#owner-amendment-coverage-2026-09-28-11251205)
+refines existing source rows, not a new source-key inventory. C00's 85 included
+keys, six exclusions and planned statuses remain unchanged; no new JSON row or
+inventory-test exemption is needed. The supplemental FR/task map must become
+part of C28's evidence for these existing rows, never an untracked M3 promise.
+
+| Amendment | Existing source rows and planned responsibility |
+| --- | --- |
+| Workspace config and polished init | `owner.m001.cli`, `owner.m001.load`, `chat.M019 bootstrap, M023 step 13`: C05a/C05b/C05g/C05j implement strict preferences, owner/home/trust-bounded discovery, free flags > workspace > user > defaults, successful root-only writes and plain/script parity. C05f/C05k add the approved branded renderer after the first owner loop |
+| Conversation versus artifacts | `owner.m001.load`, `chat.M036 classes, M039 policy`, `delivery.C08 explicit instructions and skills with provenance`: C05c/C05l/C05d/C05e use the bounded canonical BCP 47 subset, question-language fallback and evaluation isolation. Interface en/fr/es, English fallback, tone only for generated prose. MCP --workspace or user preferences, path-free source; native files contain fixed English rules only. C05j/C06/C07 prove byte invariance |
+| Verified startup updates | `chat.M006 release`, `chat.M027 TUF`, `delivery.C17 signed releases, freshness, revocation, transparency`, `owner.m024`: C16c–C16g add off/daily discovery, user-only catalog auto with narrowing ceilings, widening/hook consent, invariant receipts and trusted catalog rollback. Runtime propose-only; MCP never applies or carries release-note instructions; no mid-task activation |
+| User-approved workspace path trust | `owner.m001.guardrails`, `owner.m032`, `chat.M036 classes, M039 policy`, `chat.M006 destructive`: C05h/C05i/C05j and C20 use kernel-only canonical trust records, explicit add/list/remove with exact confirm-path for CI, root/HOME refusal and unchanged edited preferences. Shared policy denies outside writes and secret reads/escapes; Copilot denies agent-shell trust commands. Other host containment stays S4; internal paths never become tool grants |
+| Modular delivery | The same rows above: `WorkspacePreferences`, `WorkspaceTrust`, `UpdateSource`, pure instruction construction and `ClientPreferencesDelivery` are small typed ports. New clients/sources add adapters without editing callers; no adapter can weaken mandatory controls or imply a plugin runtime |
+
+### Named remaining obligations
+
+- **S4 session-preferences launch-adapter obligation** (remaining runtime
+  portion of `delivery.C08 explicit instructions and skills with provenance`):
+  consume C05e's shared fragment in every actual launch, resume and delegation.
+  Test adapter payloads on both providers with each tone and a non-interface
+  language; preserve selected tag and English artifact/log rules, reject
+  model-supplied preference replacement. S3 tests construction/delivery only.
+- **S4 non-Copilot workspace-trust hook obligation** (remaining portion of
+  `product.GD2, GD4, GD5` and the existing hook deferral): Pi, Codex and Claude
+  Code must use qualified trusted event/identity adapters with the same path
+  policy. Test actual outside-write, secret-read, symlink-escape and agent-shell
+  trust administration, including correct --confirm-path arguments, with allowed
+  neighbours and zero executor calls on denial.
+  S4 also uses the shared update idle lease around tasks/sessions. No S3
+  instruction or preference setting is runtime containment evidence.
+- **Notify-only update checks for owner-managed components (Qdrant, router runtime,
+  host clients, models)** (remaining owner-managed lifecycle follow-up, not an
+  S3 exit): only propose after each has an approved source; never apply/download.
+  S3 discovers released Maestro and installed catalogs with pinned closures,
+  but applies only catalog updates; Cargo and pinned `gh` stay outside.
+- **Runtime auto-apply with the installer** (remaining runtime portion of
+  `owner.m024` and release-lifecycle rows): define installation layout, platform
+  startup handoff, idle exclusion, retained binaries/state, durable receipts and
+  trust-checked rollback. S3 C16e/C16g only proposes verified releases with an
+  exact approved install command; no automatic runtime switch or rollback.
+- **Roots-based workspace detection, once a client-qualified channel exists**
+  (remaining client portion of `product.GD2, GD4, GD5`): roots arrive after MCP
+  initialization, with no standard instructions-changed notification. S3 C05e
+  uses --workspace or user preferences only, not per-client notification schemes.
+
+These obligations also appear in [06](06-roadmap.md). On 2026-09-28, OA9
+approved ratatui + crossterm under ADR-0020; C05f measurements and C05k visual
+acceptance before C28 remain required. OA2 approved tests of already-installed
+Copilot CLI, Pi, Claude Code and Codex in isolated temporary homes; C01 records
+exact installed pins. No installs/upgrades, real owner configuration or enterprise
+policy changes; broader scope needs fresh OA2 approval. Plain C08 does not wait
+for TUI evidence; the tag grammar needs no parser dependency. None of these
+approvals or dispositions claims that tasks or live checks have run.

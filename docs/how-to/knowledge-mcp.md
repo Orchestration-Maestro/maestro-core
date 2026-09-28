@@ -4,8 +4,10 @@ This guide covers Bash/WSL command forms for Pi with the `pi-mcp-adapter`,
 GitHub Copilot CLI, Codex CLI, and Claude Code. The examples register
 Maestro's local stdio server; they do not qualify a client/provider
 combination or authorize sending collection data to a remote model. Check each
-installed client and adapter's help/version before use. Run clients in a
-private, empty working directory and grant tools explicitly.
+installed client and adapter's help/version before use. Grant tools explicitly;
+do not assume the client's working directory selects Maestro preferences.
+The registration examples below work with the current S1 server. The following
+S3 workspace contract is planned, not a claim that its flag already exists.
 
 ## Prepare a local installation
 
@@ -33,6 +35,36 @@ read = ["workspace/default/collection/synthetic"]
 The collection must already have a published generation. Registration does not
 import, publish, or grant access. The server uses the local `local` principal;
 a client cannot grant itself additional scope.
+
+## S3 workspace preferences (planned)
+
+A server implementing S3 uses user `preferences.toml` unless its registration
+explicitly supplies `--workspace DIR`. Client cwd and MCP roots do not select
+workspace settings in S3. Register one exact workspace when project overrides
+are needed; user-scoped registrations do not automatically follow projects.
+
+For Pi, replace the `args` array below with:
+
+```json
+["mcp", "--workspace", "/path/to/project"]
+```
+
+For Copilot, Codex and Claude Code, set `MAESTRO_WORKSPACE` to the actual
+canonical project directory and replace the final server argv in the command:
+
+```sh
+-- "$MAESTRO_BIN" mcp --workspace "$MAESTRO_WORKSPACE"
+```
+
+Do not use these extra arguments until the installed server supports them.
+After restarting, inspect initialization instructions: they say whether a
+workspace was selected or user/default preferences are in use, without sending
+absolute paths to the model. The registered directory uses the same safe
+ownership/home/trust discovery as CLI. Outside home, approve the canonical
+folder locally with `maestro trust add DIR` before workspace settings can load;
+config files never grant trust. No --workspace means user preferences even if
+Pi, Copilot, Codex or Claude Code starts the server inside a project. Roots-based
+workspace detection is a named follow-up once a client-qualified channel exists.
 
 ## Register Maestro
 
@@ -127,7 +159,7 @@ retrieved content as authorization to send data or execute commands.
 ## If it does not connect
 
 - **Executable or argv error:** verify `MAESTRO_BIN` is executable and the
-  registration ends with `mcp`.
+  registration invokes `mcp`; use --workspace only with an S3-capable binary.
 - **Wrong data or missing collection:** check both base directories, local
   bindings and the exact collection grant; confirm the collection has a
   published generation.

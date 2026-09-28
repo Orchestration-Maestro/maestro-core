@@ -375,7 +375,13 @@ in [08 §20](../../docs/architecture/08-traceability.md#20-s1-delivery-evidence)
   reranker with earlier measurements; those justify testing them, never
   selecting them ([05 §3.2](../../docs/architecture/05-platform-and-operations.md#32-candidate-pools)).
 - Answers are written in the question's language; commands, parameters and
-  quoted passages stay verbatim.
+  quoted passages stay verbatim. **S3 review amendment, 2026-09-28 (planned
+  C05d):** an explicit session language overrides this default, but absence of
+  a language preserves it. All evaluation runs (ladder and eval suites) ignore
+  session preferences and retain question language with their pinned profile.
+  Unsupported language detection is recorded as unchecked, never a false pass
+  or an automatic refusal. This note changes the S3 contract, not S1's delivered
+  behavior or measured qualification.
 - The corpus is imported once and re-imported by hand; watching a source is S6
   (product.CD2).
 - Candidate models are available locally or downloadable under their licences;

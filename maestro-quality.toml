@@ -287,7 +287,8 @@ reason = "the MCP module owns bounded transport and server startup; the CLI disp
 # of the synthetic collection in tests/fixtures/synthetic; celle, celles and
 # toi, French stopwords of the lexical analyzer, as sur is too, and requet and
 # schedul, stems its golden test pins; flate, of flate2, the compression crate
-# qdrant-client's tonic brings, which supply-chain/config.toml exempts.
+# qdrant-client's tonic brings, which supply-chain/config.toml exempts;
+# ratatui, the proposed TUI crate's proper name in S3's owner-action register.
 [typos]
 words = [
   "Exemple",
@@ -317,4 +318,5 @@ words = [
   "requet",
   "schedul",
   "flate",
+  "ratatui",
 ]

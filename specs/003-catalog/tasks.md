@@ -17,11 +17,14 @@ pinned `gh`, measured minimum tar/JSON Schema/Cedar dependencies.
 **Input and prerequisites:** [spec.md](spec.md), [plan.md](plan.md) and the
 owner-approved D1–D5 decisions. The 08:12 decision starts S3 beside unfinished
 S1. Only C08/C28 require integrated T034/T035 and T038 live evidence; M1 release
-is an M3 exit dependency. Research, data model and contracts are in the plan.
+is an M3 exit dependency. The 11:25–12:05 owner amendments add workspace
+preferences, bounded conversational language tags, client instructions, verified
+startup updates, user-approved path trust and small replaceable ports. Research,
+data model and contracts are in the plan.
 
 **Format:** `Cnn [USn] title (hours)`, with red/green/check steps. IDs preserve
 the approved draft, with explicit review splits. Physical order below is
-dependency order, not numeric order. **36 tasks, 118 lane-hours**, each at most
+dependency order, not numeric order. **53 tasks, 177 lane-hours**, each at most
 four hours including local checks; review/CI reserve is separate. All checkboxes
 start open: a plan is not implementation evidence. Only the supervisor ticks
 integrated work.
@@ -72,7 +75,7 @@ Shared files are serialized by the supervisor: `Cargo.toml`, `Cargo.lock`,
 dispatch, migration registration and the generated Copilot guide. Do not create
 a new command/module before its first working behaviour.
 
-## Phase 1: First useful content and owner loop [US1, US5]
+## Phase 1: First useful content, preferences and owner loop [US1, US3, US5]
 
 ### C00 Contract and traceability [US1, US2, US3, US4, US5] (2 h)
 
@@ -119,7 +122,9 @@ evidence. Architecture 03/06/08 records the decided contract.
 
 ### C01 Real host format probe [US1, US5] (3 h)
 
-**After:** C00; OA2 approved host pins/access. Do not install a host in this task.
+**After:** C00; OA2 approved on 2026-09-28 for already-installed tools in isolated
+temporary homes only. No installs/upgrades, real-configuration or enterprise
+policy changes; anything broader needs fresh approval.
 **Files:** `crates/maestro/tests/it/catalog_host_probe.rs`,
 `tests/fixtures/catalog/hosts/{metadata.agent.md,sidecar.agent.md,sidecar.maestro.toml,pi.md}`,
 `specs/003-catalog/research/hosts.md`.
@@ -129,7 +134,9 @@ evidence. Architecture 03/06/08 records the decided contract.
   preservation, exact tool exposure, a real MCP call and a detected same-name
   shadow. Run it with the provider absent to demonstrate the failure boundary.
 - [ ] **Step 2: Green.** Test both Copilot metadata/sidecar shapes on the pinned
-  real parser; record host digests, lookup/reload and Pi's explicit tool/provider/
+  real parser in isolated temporary homes. Record exact installed versions as
+  pins for Copilot CLI, Pi, Claude Code, Codex and adapters used, plus host
+  digests, lookup/reload and Pi's explicit tool/provider/
   skill mapping. If C03 already fixed sidecars for v1, qualify that shape without
   silently switching it; a later metadata migration is a separate reviewed task.
   Do not mask unsupported fields.
@@ -254,6 +261,34 @@ regression assertions; canonicalization no longer owns a private copy.
 refused with user bytes intact; no path escapes its root and removal never
 claims another writer's file or entry.
 
+### C17 Restrictive settings resolution [US3] (4 h)
+
+**After:** C03.
+**Files:** `crates/maestro-catalog/src/settings/{mod.rs,classes.rs,resolve.rs,tests.rs}`,
+`tests/fixtures/catalog/settings/{classes.toml,overrides.toml}`.
+**Requirements:** FR-S3-014, FR-S3-027, FR-S3-033, SC-S3-005.
+
+- [ ] **Step 1: Red.** Test unknown/unclassified/doubly classified keys, all
+  four precedence layers, explicit flags versus parser defaults, locked mutation,
+  permission widening, dropped checks, larger budgets, secret literals and
+  role-to-role leakage, each with a neighbour. Cover language/tone as free,
+  updates as bounded and documented model_profile/routing_candidates overrides.
+  Workspace auto over user propose stays propose; only user preferences can
+  enable auto. Off dominates propose/auto; flags cannot raise the user/workspace
+  ceiling. Budget-like keys take the minimum across every layer. Trust lives
+  only in kernel authority, never preferences.
+- [ ] **Step 2: Green.** Reuse C03's checked class declarations and add
+  resolution/provenance: explicit flags > workspace file > user-level config > built-in defaults.
+  Apply update-consent ceilings and budget minima before free-value precedence,
+  explaining ignored widenings. Presets are init seeds only; permissions
+  intersect, checks accumulate and values stay role-local. Reject unsupported
+  profile effort. The small resolver consumes typed layers, not storage or UI.
+- [ ] **Step 3: Check.** Run
+  `~/.local/bin/capped cargo nextest run -p maestro-catalog settings::tests`.
+
+**Acceptance:** every effective value has one class/source/requester; ordering
+search results cannot change configuration or grant a permission.
+
 ### C05 Preview and apply project bootstrap [US1] (3 h)
 
 **After:** C03, C04; CORE fixtures, not the owner-created seed.
@@ -281,75 +316,449 @@ CLI registration files from the shared list.
 no script marker exists, and authoring output cannot be mistaken for a verified
 install. Descriptor fields cannot override authentication, policy or hooks.
 
+### C05a Strict workspace and user preferences [US1, US3] (3 h)
+
+**After:** C05, C17; D6's complete BCP 47 subset needs no dependency or OA9.
+**Files:** `crates/maestro-catalog/src/settings/{preferences.rs,preference_files.rs}`,
+`crates/maestro-catalog/src/settings/tests/preferences.rs`,
+`crates/maestro/src/cli/init.rs`, `crates/maestro/tests/it/catalog_preferences.rs`,
+`tests/fixtures/catalog/settings/{workspace.toml,user-preferences.toml}`;
+necessary module/CLI registrations only.
+**Requirements:** FR-S3-027, FR-S3-033, SC-S3-010.
+
+- [ ] **Step 1: Red.** Test full/partial files, absent language, canonical
+  en/fr/es/ja, zh-Hant-TW, es-419 and sr-Latn; reject variants, extensions,
+  private-use, grandfathered forms, malformed tags and non-ASCII input. Test all
+  tones/update modes, duplicate/unknown keys, types, versions, size and forbidden
+  access/identity/hooks/secrets. Both preference files reject trust, paths and
+  receipts; workspace auto is an ignored widening. Preview/cancel create no
+  files and changed config bytes survive rerun.
+- [ ] **Step 2: Green.** Implement D6's strict schema and file adapter behind
+  `WorkspacePreferences`. Both files hold preferences only. Parse the exact
+  bounded tag grammar without a new library; pass only canonical tags onward.
+  Add language, tone, narrowing update choices and documented overrides to
+  init's side-effect-free draft; absence of language remains distinct from en.
+  Do not enable config persistence before C05h/C05j supply the real trust guard;
+  this task produces the validated C04 write plan, not an approval stub. Keep
+  user authority config untouched; the draft contains no machine-local paths.
+- [ ] **Step 3: Check.** Run capped nextest filters `settings::tests::preferences`
+  in maestro-catalog and `catalog_preferences` in maestro; parse the generated
+  TOML and compare scripted and draft-plan bytes.
+
+**Acceptance:** one strict schema/port and file adapter, no raw option escape
+hatch or authority field. Init plans selected preferences at its own
+root; C05j owns guarded persistence, never into an ancestor/user authority file.
+New storage adapters do
+not change configuration consumers.
+
+### C05b Every-session discovery and precedence [US1, US3] (3 h)
+
+**After:** C05a, C17; reads existing kernel journal records, not config claims.
+**Files:** `crates/maestro-catalog/src/settings/{discovery.rs,resolve.rs}`,
+`crates/maestro-filesystem/src/{unix.rs,windows.rs}` (held-handle owner/write
+metadata only, keeping ADR-0018's module layout after C04a),
+`crates/maestro-catalog/src/settings/tests/discovery.rs`,
+`crates/maestro/src/cli/{args.rs,run.rs}`, `crates/maestro/src/mcp/run.rs`,
+`crates/maestro/tests/it/catalog_session_preferences.rs`.
+**Requirements:** FR-S3-014, FR-S3-028, SC-S3-010.
+
+- [ ] **Step 1: Red.** Test home-bounded and explicitly trusted external-root
+  discovery, nested configs, missing config, links and ancestor swaps. Plant
+  valid and invalid foreign-owned/other-writable files, unreadable candidates,
+  a /tmp parent and a /mnt/c-style parent, with safe user-owned neighbours.
+  Skips warn, never parse or block startup; malformed selected safe files refuse.
+  Outside home without journal trust reads no config. Cover four-layer conflicts,
+  absent language, masked invalid keys, explicit/default flags, ignored ancestors,
+  workspace auto over user propose, user off and budget-only narrowing. No grant
+  reconciliation runs; explicit MCP --workspace uses these same checks.
+- [ ] **Step 2: Green.** Resolve one session snapshot through C05a's port and
+  C17, including provenance. Wire every CLI invocation and MCP startup before
+  effects. Reuse ADR-0018 reads with held-handle uid/mode or owner SID/DACL checks
+  on directory and file; never select mount/drive roots. MCP without --workspace
+  uses only user preferences, never cwd/roots. Preserve platform config-home
+  resolution; snapshots do not watch files and tool arguments cannot replace them.
+- [ ] **Step 3: Check.** Run capped nextest filters `settings::tests::discovery`
+  and `catalog_session_preferences`; restart the process after an edit and
+  assert that only the new session sees the changed preference. Run planted-file
+  and owner/write-check cases on all three CI hosts, not Unix-only mocks.
+
+**Acceptance:** free values use explicit flags > workspace file > user-level
+config > built-in defaults; update consent/budgets only narrow. No hidden preset
+layer, ancestor merge or policy widening. CLI/MCP
+consume the same port; replacing file storage does not change their resolution.
+
+### C05h User-approved workspace trust records [US1, US3] (3 h)
+
+**After:** C05a, C05b; existing kernel journal/scopes and C04 filesystem seam.
+Trust administration itself never depends on successful workspace discovery.
+**Files:** `crates/maestro-catalog/src/policy/workspace/{mod.rs,port.rs,approval.rs}`,
+`crates/maestro-catalog/src/policy/workspace/tests/{mod.rs,approval.rs}`,
+`crates/maestro/src/cli/trust.rs`, `crates/maestro/src/cli/init.rs`,
+`crates/maestro/tests/it/catalog_workspace_trust.rs`.
+**Requirements:** FR-S3-035, FR-S3-036, SC-S3-012.
+
+- [ ] **Step 1: Red.** Test default-no terminal confirmation and fresh-home CI:
+  `trust add DIR --confirm-path DIR` then scripted init writes its files. Missing
+  non-terminal confirmation exits 2 with the exact command; mismatched canonical
+  path, --yes, --json, environment, catalog and MCP text cannot approve. Refuse
+  filesystem/drive/mount roots, HOME itself and internal directories. Adding or
+  removing trust preserves edited preference bytes; list reads only kernel state.
+  Decline cannot apply a template/projection; copied configs never grant trust.
+- [ ] **Step 2: Green.** Store answers, canonical paths and receipts only in
+  user-local kernel authority keyed by canonical path. Implement explicit
+  `maestro trust add/list/remove`, never an MCP tool; no discovered config is
+  read or rewritten by these commands. Add uses D11's terminal or exact
+  --confirm-path contract; remove revokes subsequent controlled access. Implement
+  the separately confirmed preferences-only decline write with internal metadata,
+  without broad HOME grants, elevation or a new authorization database.
+- [ ] **Step 3: Check.** Run capped nextest filters `policy::workspace::tests::approval`
+  and `catalog_workspace_trust`; assert journal provenance and unchanged files
+  after refused additions and successful trust changes beside an edited config.
+
+**Acceptance:** `WorkspaceTrust` resolves journal-backed authority, not editable
+text or process identity inferred from a repeated path. The default adapter is replaceable behind that port without changing
+callers; every adapter must preserve the mandatory deny floor. Only a real user
+approval can add a folder, and config-only decline records grant no other write.
+
+### C05i Canonical path policy and secret deny data [US1, US3] (4 h)
+
+**After:** C05h, C04a.
+**Files:** `crates/maestro-catalog/src/policy/workspace/{paths.rs,deny.rs}`,
+`crates/maestro-catalog/src/policy/workspace/tests/paths.rs`,
+`crates/maestro-catalog/resources/secret-paths.json`.
+**Requirements:** FR-S3-036, SC-S3-012.
+
+- [ ] **Step 1: Red.** Test inside/outside reads and writes, nested trust roots,
+  lookalike prefixes, `..`, symlink/reparse escapes, link swaps and new-file
+  parents. Deny secret reads even inside trust: SSH/GPG, cloud/CLI credentials,
+  password stores/keyrings and `.env`/`.env.*`. Exercise home/XDG/Windows path
+  mappings and a known secret path's allowed non-secret neighbour.
+- [ ] **Step 2: Green.** Implement the default `WorkspaceTrust` decision adapter
+  over ADR-0018 held handles/canonical ancestry, not string prefixes or a second
+  path implementation. Load the immutable built-in deny rules as strict data;
+  workspace/catalog inputs cannot remove or replace them. Keep kernel-internal
+  storage inaccessible to agents/tools even if a broader folder is trusted.
+- [ ] **Step 3: Check.** Run capped nextest filter `policy::workspace::tests::paths`
+  and three-target Clippy; run the real filesystem cases on all three CI hosts.
+
+**Acceptance:** outside writes, secret reads and escapes fail before effects;
+ordinary outside reads and non-secret trusted reads/writes remain eligible
+under other controls. Adding a secret location changes checked data, not callers;
+no adapter may weaken the mandatory policy floor.
+
+### C05j Own-file-operation trust enforcement [US1, US2, US3] (4 h)
+
+**After:** C05i, C04, C05.
+**Files:** `crates/maestro-catalog/src/files/{plan.rs,apply.rs,remove.rs,recovery.rs}`,
+`crates/maestro-catalog/src/files/tests/workspace_trust.rs`,
+`crates/maestro/src/cli/init.rs`,
+`crates/maestro/tests/it/catalog_trusted_files.rs`.
+**Requirements:** FR-S3-005, FR-S3-027, FR-S3-035, FR-S3-036,
+SC-S3-010, SC-S3-012.
+
+- [ ] **Step 1: Red.** Prove trusted --apply writes expected config bytes at the
+  displayed root, nested init leaves the ancestor's `.maestro/` byte-identical,
+  and identical rerun writes nothing. Across en/fr/es/ja × all three tones,
+  every generated workspace/host deliverable is byte-identical except config
+  language/tone values. Check kernel/internal ownership metadata structurally
+  for the exact corresponding config digest; the test's doc comment must name
+  this boundary and forbid other deliverable exceptions. Receipts/logs normalize
+  only timestamps and IDs. Drive apply/remove/recovery through outside-write, secret-read and swapped-path
+  denials with zero writer calls and intact bytes. Test the narrow declined-trust
+  config write and kernel-internal operations without granting agents those paths.
+- [ ] **Step 2: Green.** Gate owned-file effects through `WorkspaceTrust` at the
+  held-handle write/read boundary. Supply trusted local actor/operation facts,
+  not model text. C06/C07/C16/C16d consume this same port for external host
+  targets, asking once to trust an exact managed directory at first installation.
+  Kernel-owned XDG config/data/state writes keep kernel rules, not agent grants.
+- [ ] **Step 3: Check.** Run capped nextest filters `files::tests::workspace_trust`
+  and `catalog_trusted_files`, then the existing race/crash/removal suite.
+
+**Acceptance:** one controlled file-effect gate serves init, projection and
+later install/update/rollback; adapters do not bypass path policy. No trust
+preference, catalog or update widens roots. S3 does not claim containment of arbitrary
+Pi/Codex/Claude tools; C20 covers Copilot and the named S4 obligation covers the rest.
+
+### C05c Interface message port and English logs [US1, US3] (4 h)
+
+**After:** C05b.
+**Files:** `crates/maestro/src/presentation/{mod.rs,messages.rs,tests.rs}`,
+`crates/maestro/src/cli/{output.rs,run.rs,init.rs}`,
+`crates/maestro/tests/it/catalog_presentation.rs`.
+**Requirements:** FR-S3-029, SC-S3-010.
+
+- [ ] **Step 1: Red.** Exercise en/fr/es plus another accepted subset tag across three
+  tones; deterministic messages have one wording per language, invariant under
+  tone. Assert one English-interface note for other tags, no snapshot language
+  change, English logs, stable JSON/status/command fields and complete warnings.
+  --help and clap reference stay English; no translation network calls occur.
+- [ ] **Step 2: Green.** Add deterministic built-in interface translations and
+  fallback through the existing human output boundary, with data interpolation
+  separate from message selection. Wire init's new prompts and the common output
+  boundary only; C05l owns existing-message migration. Keep logs/receipts, code
+  and documentation English and invariant under tone. No model call to render UI.
+- [ ] **Step 3: Check.** Run capped nextest filter `catalog_presentation` plus
+  the existing CLI contract suite; compare structured outputs byte-for-byte
+  and inspect the no-color/plain snapshots.
+
+**Acceptance:** presentation is one small module consuming validated preferences,
+not a configuration or authorization engine. Future clients consume its typed
+messages without changing language resolution or machine contracts.
+
+### C05l Existing user-facing message migration [US1, US3] (4 h)
+
+**After:** C05c.
+**Files:** existing human-message/error call sites under `crates/maestro/src/cli/`,
+`crates/maestro/src/presentation/{messages.rs,tests.rs}`,
+`crates/maestro/tests/it/catalog_presentation.rs`;
+no command/parser or machine-contract refactoring.
+**Requirements:** FR-S3-029, SC-S3-010.
+
+- [ ] **Step 1: Red.** Inventory existing user-facing messages/errors at the
+  human output boundary. Add en/fr/es snapshots covering each message key,
+  three-tone invariance and English help/log/JSON neighbours; fail a missing key.
+- [ ] **Step 2: Green.** Route that inventory through C05c's typed message port.
+  Keep one wording per language and interpolate data separately; no translated
+  command names, help/reference text, machine values or operational logs.
+- [ ] **Step 3: Check.** Run capped nextest `catalog_presentation` and the CLI
+  contract suite; compare the inventory to migrated call sites and retain zero
+  untranslated user-facing message keys, with help/reference exclusions named.
+
+**Acceptance:** interactive messages/errors use the shared translations without
+changing output semantics or touching clap's English documentation. The inventory
+bounds this migration separately from the message port and the later renderer.
+
+### C05d Ask language, tone and artifact boundary [US1, US3] (4 h)
+
+**After:** C05b, C05c; existing S1 answer ports, not live calibration approval.
+**Files:** `crates/maestro-knowledge/src/answer/{types.rs,prompt.rs,generate.rs}`,
+`crates/maestro-knowledge/src/answer/tests/{prompts.rs,prompt_text.rs}`,
+`crates/maestro/src/knowledge/operations/ask/run.rs`,
+`crates/maestro/src/cli/ask.rs`, `crates/maestro/src/mcp/server/operations.rs`,
+`crates/maestro/tests/it/catalog_answer_preferences.rs`,
+`crates/maestro/src/cli/eval/engine.rs`,
+`crates/maestro/src/cli/eval/tests/{engine.rs,kernel_engine.rs}`,
+`docs/architecture/02-retrieval-and-knowledge-graph.md`,
+`specs/001-knowledge-kernel/spec.md`.
+**Requirements:** FR-S3-029, SC-S3-010.
+
+- [ ] **Step 1: Red.** Use controlled gateway responses to inspect actual trusted
+  prompt inputs for accepted canonical tags (including one without UI translations)
+  and three tones. Test no-layer French question fallback, explicit en over a
+  French question, canonical `lang`, en/fr/es refusal text and English fallback.
+  An unsupported detector records unchecked, never a false pass/refusal. Evaluation
+  ignores conflicting user/workspace/flag language and tone on the real ask path.
+  Keep English artifact instructions, citations/quotes and prompt identity;
+  question text cannot override explicit language. Use the real evidence validator.
+- [ ] **Step 2: Green.** Pass optional validated presentation inputs from CLI/MCP
+  to the answer port. Update response_language and host-owned refusal text in
+  generate.rs, carry the canonical tag in lang, and preserve question-language
+  default and evaluation's pinned prompt/profile. Record checked/unchecked language
+  honestly, retaining all evidence controls and token ceilings. Changed explicit
+  prompts stay uncalibrated until measured; no catalog dependency in knowledge.
+- [ ] **Step 3: Check.** Run capped nextest `answer::tests::prompts` and
+  `answer::tests::prompt_text` in maestro-knowledge, plus
+  `catalog_answer_preferences` in maestro; retain existing denial neighbours.
+
+**Acceptance:** all generated conversation follows the selected tag/tone while
+artifact content/logs stay English; no explicit tag means S1's question language.
+The prompt port is independent of workspace
+storage and client delivery; tests prove instruction/validation behavior, not
+unmeasured multilingual model quality.
+
+### C05e Preferences delivered to client and agent sessions [US1, US3] (4 h)
+
+**After:** C05b, C05c, C05d.
+**Files:** `crates/maestro-catalog/src/settings/{instructions.rs,tests/instructions.rs}`,
+`crates/maestro-catalog/src/hosts/preferences.rs`,
+`crates/maestro/src/mcp/preferences.rs`,
+`crates/maestro/src/mcp/server/{handler.rs,tests.rs}`,
+`crates/maestro/tests/it/{mcp_clients.rs,catalog_client_preferences.rs}`,
+`docs/architecture/{06-roadmap.md,08-traceability.md}`,
+`specs/003-catalog/research/session-preferences.md`.
+**Requirements:** FR-S3-031, FR-S3-036, SC-S3-010.
+
+- [ ] **Step 1: Red.** Assert the exact effective language/tone and fixed English
+  artifact/log rules in initialization instructions observed by each of Pi,
+  Claude Code, Codex and Copilot client fixtures. A stale value, missing fragment
+  or model-supplied replacement must fail; cover the visible UI fallback note.
+  Start in a nested workspace and an empty folder, with/without --workspace;
+  report selected versus fallback source without paths. Supplied MCP roots never
+  change S3's choice. Model instructions contain only canonical quoted tags.
+- [ ] **Step 2: Green.** Build one English instruction fragment from validated
+  session preferences, delivered by `ClientPreferencesDelivery`'s MCP adapter.
+  Native projections reuse only its fixed English artifact/log rule plus the
+  instruction to follow current MCP session language/tone, never stored values. Record the named S4 launch-adapter and non-Copilot trust-hook
+  obligations, with their actual payload/effect acceptance tests, in 06/08 and
+  the handoff note. Add no launcher, plugin or dynamic discovery mechanism.
+- [ ] **Step 3: Check.** Run capped nextest filters `catalog_client_preferences`
+  and `mcp_clients`; inspect each initialization payload. C08 supplies actual
+  host evidence without calling fixture behavior host obedience.
+
+**Acceptance:** a fifth client adds a delivery adapter, not branches in callers.
+S3 proves construction/MCP delivery and prepares native adapter input; S4 must
+prove launch/resume/delegation consume the fragment and its other host hooks
+actually deny unsafe paths. No speculative S3 execution engine is introduced.
+
+### C05g Plain init flow and script parity [US1, US3] (4 h)
+
+**After:** C05a, C05b, C05h, C05i, C05j, C05c; no TUI or OA9 dependency.
+**Files:** `crates/maestro/src/cli/init/{mod.rs,flow.rs,plain.rs}`
+(move C05's adapter without duplicating its planner),
+`crates/maestro/src/cli/init/tests/{mod.rs,flow.rs}`,
+`crates/maestro/tests/it/catalog_init_menu.rs`, `docs/how-to/catalog.md`.
+**Requirements:** FR-S3-027, FR-S3-030, FR-S3-035, SC-S3-010, SC-S3-012.
+
+- [ ] **Step 1: Red.** Test D6's five steps as sequential labelled prompts,
+  language/tag/tone, narrowing update choice, trust yes/no, Back, errors and
+  Ctrl-C/EOF. Assert flags/plain plan parity, zero preview/cancel writes, --yes
+  without prompts and fresh-home explicit trust setup; --yes never grants trust.
+- [ ] **Step 2: Green.** Implement the small flow port and plain adapter over
+  one draft/validator/planner. No raw mode, alternate screen or new library.
+  Reuse localized messages and fallback note. --apply remains necessary;
+  missing scripted approval gives the exact user trust command, not a prompt.
+- [ ] **Step 3: Check.** Run capped nextest `catalog_init_menu` and flow tests on
+  three hosts; retain a screen-reader/plain/no-color walkthrough and script parity.
+
+**Acceptance:** the first owner loop has a complete accessible flow without waiting on TUI evidence.
+C05k later replaces the renderer, not preferences, trust or owned-file planning.
+
 ### C06 Copilot projection and shared JSON ownership [US1] (4 h)
 
-**After:** C01, C04, C05; OA2 host-operation approval.
+**After:** C01, C04, C05e, C05j; OA2 host-operation approval.
 **Files:** `crates/maestro-catalog/src/hosts/{mod.rs,copilot.rs,shared_json.rs}`,
 `crates/maestro-catalog/src/hosts/tests/{mod.rs,copilot.rs,shared_json.rs}`,
 `crates/maestro/src/cli/catalog/project.rs`,
 `crates/maestro/tests/it/catalog_copilot.rs`.
-**Requirements:** FR-S3-006, FR-S3-007, SC-S3-001, SC-S3-004.
+**Requirements:** FR-S3-006, FR-S3-007, FR-S3-031, FR-S3-036,
+SC-S3-001, SC-S3-004, SC-S3-010, SC-S3-012.
 
 - [ ] **Step 1: Red.** In an isolated home, test native discovery, exact tools,
   same-name shadowing, unrelated MCP entries, edited owned entries, rerun,
-  drift and removal; a dry run must leave no files.
+  drift and removal; a dry run must leave no files. Assert the native preference
+  fragment is present, outside-trust writes refuse and a user-approved exact
+  host folder permits only the owned non-secret effects. Project under
+  en/fr/es/ja × three tones: every written file is byte-identical, contains only
+  fixed English rules/MCP guidance and never embeds language/tone values.
 - [ ] **Step 2: Green.** Render the frozen v1 shape qualified by C01 and
   explicit Maestro MCP registration. Own only inserted shared JSON entries;
   preserve unrelated entries, refuse edited owned entries and use C04's
   unchanged-file preconditions for preview/apply/remove/recovery. Record
-  registered/observed/stale/failed separately. Do not bypass enterprise policy.
+  registered/observed/stale/failed separately. Deliver C05e's static rule through
+  the native `ClientPreferencesDelivery` adapter; the current MCP session
+  supplies effective preferences. Ask once to trust the exact external target
+  through C05h before C05j permits writes. Never auto-trust HOME or grant secrets.
+  Do not bypass enterprise policy.
 - [ ] **Step 3: Check.** Run
   `~/.local/bin/capped cargo nextest run -p maestro catalog_copilot` and repeat
   the C01 real parser/MCP call on the resulting isolated projection.
 
-**Acceptance:** idempotent real discovery and owned-only removal; user MCP
-entries survive byte-equivalent in meaning, and no missing tool/model is hidden.
+**Acceptance:** idempotent real discovery, preference-fragment delivery and
+owned-only removal; user MCP entries survive and no missing tool/model is hidden.
+The native delivery adapter shares the fragment/WorkspaceTrust ports, and tests
+prove an outside-trust write is refused rather than silently granting a folder.
 
 ### C07 Pi projection [US1] (3 h)
 
-**After:** C01, C04, C05, C06; OA2 host-operation approval.
+**After:** C01, C04, C05e, C05j, C06; OA2 host-operation approval.
 **Files:** `crates/maestro-catalog/src/hosts/pi.rs`,
 `crates/maestro-catalog/src/hosts/tests/pi.rs`,
 `crates/maestro/tests/it/catalog_pi.rs`; register Pi in the existing projector.
-**Requirements:** FR-S3-006, FR-S3-007, SC-S3-001, SC-S3-004.
+**Requirements:** FR-S3-006, FR-S3-007, FR-S3-031, FR-S3-036,
+SC-S3-001, SC-S3-004, SC-S3-010, SC-S3-012.
 
 - [ ] **Step 1: Red.** Test exact tools and skills, missing MCP adapter/provider,
   unsupported fields, restart/reload, shadowing, edited content and removal in
   an isolated Pi home; prove tool names alone cannot pass the MCP-call check.
+  Assert the shared fixed English/MCP-guidance fragment and path-policy port.
+  Across en/fr/es/ja × three tones, all projected files are byte-identical and
+  contain no stored language/tone values.
 - [ ] **Step 2: Green.** Project only C01's supported profile with explicit
-  provider loading; reuse the installed adapter and C04. No extension install,
+  provider loading; reuse C05e's static rule/native delivery port,
+  C05j's controlled write gate, the installed adapter and C04. No extension install,
   silently dropped field or inherited/fallback model.
 - [ ] **Step 3: Check.** Run
   `~/.local/bin/capped cargo nextest run -p maestro catalog_pi` and the C01 real
   Pi MCP probe after restarting the projected host.
 
-**Acceptance:** provider-backed tools actually work, missing support is a
-named error, and unrelated or user-edited resources survive removal.
+**Acceptance:** provider-backed tools work, preference instructions are delivered
+through the shared port, missing support is named, and unrelated/edited resources
+survive. Maestro's projection writes enforce trust; this does not claim Pi tool
+containment, whose hook obligation remains S4.
 
 ### C08 First owner loop [US1] (2 h)
 
-**After:** C02, C06, C07; integrated T034/T035 and completed T038 live evidence;
+**After:** C02, C05a, C05b, C05c, C05d, C05e, C05g, C05h, C05i, C05j, C05l,
+C06, C07; integrated T034/T035 and completed T038 live evidence;
 OA2/OA6 for real hosts or private data.
 **Files:** `crates/maestro/tests/it/catalog_owner_loop.rs`,
 `docs/how-to/catalog.md`, `docs/how-to/knowledge-mcp.md`;
 private live receipts at the approved location, never in CORE.
-**Requirements:** FR-S3-007, SC-S3-001, SC-S3-004.
+**Requirements:** FR-S3-007, FR-S3-027–031, FR-S3-035, FR-S3-036,
+SC-S3-001, SC-S3-004, SC-S3-010, SC-S3-012.
 
 - [ ] **Step 1: Red.** Extend the T038 synthetic process flow to assert init,
   projection, actual search/get/ask, citation generation/span/digest, refusal,
-  repeat and removal. Add a separate no-grant kernel, not a second config
+  repeat and removal. Verify workspace language/tone/trust, four-client MCP
+  preference delivery and English artifacts/logs, including a language without
+  shipped interface strings. Add a separate no-grant kernel, not a second config
   mutating the allowed kernel's shared principal.
-- [ ] **Step 2: Green.** Complete the documented owner loop in fresh pinned
-  Copilot and Pi sessions. Preserve unavailable/uncalibrated markers and
-  private receipts; fix only integration defects within this flow.
+- [ ] **Step 2: Green.** Complete the documented owner loop with plain init in
+  fresh pinned Copilot and Pi sessions. Confirm explicit --workspace registration
+  and path-free source reporting; the guide must not suggest an empty cwd selects
+  project preferences. Preserve unavailable/uncalibrated markers and private
+  receipts; fix only integration defects within this flow. When C05k is available,
+  repeat the walkthrough for OA9 visual acceptance, never gate this first loop on it.
 - [ ] **Step 3: Check.** Run
   `~/.local/bin/capped cargo nextest run -p maestro catalog_owner_loop` and the
   authorized live flow; record client/provider versions and all observed states.
 
 **Acceptance:** first useful checkpoint, not M3. A client-like test alone is
-insufficient. Re-estimate remaining work from the actual 29-hour-checkpoint results.
+insufficient. Re-estimate remaining work from the actual 70-hour-checkpoint results.
 
-## Phase 2: Settings, policy and required content [US3, US5]
+## Phase 2: Menu, settings, policy and required content [US1, US3, US5]
+
+### C05f Terminal dependency measurements [US1] (2 h)
+
+**After:** C05; independent of the first owner loop. OA9 approved ratatui +
+crossterm on 2026-09-28; ADR-0020 measurements still precede adoption.
+**Files:** `specs/003-catalog/research/interface.md`; scratch manifests only.
+**Requirements:** FR-S3-030, SC-S3-010.
+
+- [ ] **Step 1: Red.** Define a terminal probe for keyboard/focus, resize,
+  Ctrl-C cleanup, plain output and no-color behavior on the three platforms.
+- [ ] **Step 2: Green.** Measure minimum ratatui/crossterm features, added
+  crates, duplicates, native links, licences and vet needs. Keep the prototype
+  disposable; no parser work or production dependency adoption in this task.
+- [ ] **Step 3: Check.** Run the probe and capped `cargo tree -e features` /
+  `cargo tree -d` on scratch manifests; record results and exact OA9 decision.
+
+**Acceptance:** reproducible measurement; only the optional renderer waits for
+adoption evidence. The plain flow and preference parser have no new dependency.
+
+### C05k Branded terminal renderer [US1, US3] (4 h)
+
+**After:** C05g, C05f, C05c; OA9 ratatui/crossterm approval recorded 2026-09-28,
+not a C08 prerequisite. Measurement/vet requirements remain.
+**Files:** `crates/maestro/src/cli/init/{terminal.rs,mod.rs}`,
+`crates/maestro/src/cli/init/tests/terminal.rs`,
+`crates/maestro/tests/it/catalog_init_menu.rs`, `docs/how-to/catalog.md`;
+approved dependency/feature/vet registrations only.
+**Requirements:** FR-S3-030, SC-S3-010.
+
+- [ ] **Step 1: Red.** Add five-screen snapshots/key sequences, Tab/arrows,
+  Back, invalid-field focus, resize, Ctrl-C/EOF, cleanup and no-color cases.
+  Assert renderer/plain/script plan parity and zero unconfirmed writes.
+- [ ] **Step 2: Green.** Plug the approved renderer into C05g's flow port.
+  Apply D6's palette, hierarchy, focus and accessible fallback; never duplicate
+  draft validation or file effects. Restore the terminal on every exit.
+- [ ] **Step 3: Check.** Run terminal/menu tests on all three hosts, measure
+  contrast and retain keyboard/plain/no-color walkthrough plus OA9 visual
+  acceptance during the repeated C08 flow; screenshot-only proof is insufficient.
+
+**Acceptance:** the owner's polished menu target is met before C28. A renderer
+can be replaced without changing preferences, trust or planning; plain C08 does
+not wait for this task or its library decision.
 
 ### C09 Dependency and trust measurements [US2, US3, US5] (3 h)
 
@@ -381,26 +790,6 @@ exception removal conditions; authentic/wrong-signer outcomes, authentication
 requirements and measured polling budget are recorded. C09 closes the 08 §17
 row when OA4 evidence arrives; its explicit pending-evidence handoff blocks
 C28, never the library/verifier implementation that uses public fixtures.
-
-### C17 Restrictive settings resolution [US3] (4 h)
-
-**After:** C03.
-**Files:** `crates/maestro-catalog/src/settings/{mod.rs,classes.rs,resolve.rs,tests.rs}`,
-`tests/fixtures/catalog/settings/{classes.toml,overrides.toml}`.
-**Requirements:** FR-S3-014, SC-S3-005.
-
-- [ ] **Step 1: Red.** Test unknown/unclassified/doubly classified keys, each
-  precedence layer, locked mutation, permission widening, dropped checks,
-  larger budgets, secret literals and role-to-role leakage, each with a neighbour.
-- [ ] **Step 2: Green.** Reuse C03's checked class declarations and add
-  resolution/provenance; preferences use precedence, permissions intersect,
-  prohibitions/checks accumulate,
-  budgets narrow and values stay role-local. Reject unsupported profile effort.
-- [ ] **Step 3: Check.** Run
-  `~/.local/bin/capped cargo nextest run -p maestro-catalog settings::tests`.
-
-**Acceptance:** every effective value has one class/source/requester; ordering
-search results cannot change configuration or grant a permission.
 
 ### C19 Real Cedar checks [US3, US5] (4 h)
 
@@ -645,7 +1034,7 @@ visible, and a locally invalidated in-flight consult does not return a candidate
 
 ### C18 Explicit lock and explanations [US3] (3 h)
 
-**After:** C14, C17.
+**After:** C14, C17, C05b.
 **Files:** `crates/maestro-catalog/src/resolve/{mod.rs,lock.rs,explain.rs,tests.rs}`,
 `crates/maestro/src/cli/config.rs`,
 `crates/maestro/src/cli/catalog/explain.rs`,
@@ -699,7 +1088,7 @@ missed-run alert, withdrawal and rotation proofs after OA4/OA5.
 
 ### C16 Verified install and update [US2] (4 h)
 
-**After:** C12, C13, C14, C15, C18.
+**After:** C12, C13, C14, C15, C18, C05j.
 **Files:** `crates/maestro-catalog/src/install/{download.rs,activate.rs,update.rs}`,
 `crates/maestro-catalog/src/install/tests/{updates.rs,recovery.rs}`,
 `crates/maestro/src/cli/catalog/{install.rs,update.rs}`,
@@ -711,8 +1100,9 @@ missed-run alert, withdrawal and rotation proofs after OA4/OA5.
   expired offline cache, revoked rollback and attempted authoring promotion,
   using C09/C13's real verified fixture artifacts and controlled downloads.
 - [ ] **Step 2: Green.** Compose bounded download, C11/C13 validation, C14
-  admission and C12 atomic records. Update the lock only explicitly and refuse
-  unsigned installs. Do not wait for a live catalog release to implement these
+  admission, C05j's path-policy port and C12 atomic records. Update the lock
+  only by explicit command here and refuse unsigned installs; C16f later adds
+  the approved pre-task auto policy without a second update mechanism. Do not wait for a live catalog release to implement these
   paths; C28 tests the owner-published release.
 - [ ] **Step 3: Check.** Run
   `~/.local/bin/capped cargo nextest run -p maestro catalog_install` and
@@ -747,20 +1137,148 @@ or compiler toolchain is needed by the implemented consumption path.
 **Acceptance:** backup restores data, never old trust authority; every installed
 init/project path uses admission and preserves user files on refusal.
 
-### C20 Native Copilot policy hook [US1, US3] (3 h)
+### C16c Verified release discovery and proposals [US2, US3] (3 h)
 
-**After:** C06, C19, C21; OA2 authorizes the real host test.
+**After:** C16b, C05a, C05b.
+**Files:** `crates/maestro-catalog/src/install/{sources.rs,proposal.rs}`,
+`crates/maestro-catalog/src/install/tests/proposals.rs`,
+`crates/maestro/src/cli/update.rs`, `crates/maestro/tests/it/catalog_update_proposals.rs`.
+**Requirements:** FR-S3-032, FR-S3-033, SC-S3-011.
+
+- [ ] **Step 1: Red.** Test newer/unchanged releases, wrong publisher, unverified
+  notes, incompatible closure and permission/hook diffs for runtime and catalog
+  adapters. Propose mode must show old/new identity, changes and one exact apply
+  command, with zero activation calls; unknown effects require approval.
+- [ ] **Step 2: Green.** Implement `UpdateSource` with runtime/catalog adapters,
+  registered by managed target rather than switches in session callers. Reuse
+  C13/C14 verified records; catalog components move only with their pinned
+  closure. Add thin check/apply CLI planning over C16, not another updater.
+- [ ] **Step 3: Check.** Run capped nextest filters `install::tests::proposals`
+  and `catalog_update_proposals`; run the same source-port contract against
+  both adapters and refuse an unbound publisher.
+
+**Acceptance:** only verified managed releases form proposals; no Cargo, host,
+model, gh, Qdrant or router update. Adding a source requires an approved binding
+and adapter/contract tests, not changes to discovery-policy callers.
+
+### C16d Shared update receipts and safe rollback [US2, US3] (4 h)
+
+**After:** C16c, C05j.
+**Files:** `crates/maestro-catalog/src/install/{activate.rs,update.rs,rollback.rs,receipt.rs}`,
+`crates/maestro-catalog/src/install/tests/{receipts.rs,rollback.rs}`,
+`crates/maestro-kernel/src/catalog/{updates.rs,tests/updates.rs}`,
+`crates/maestro/src/cli/catalog/update.rs`, `crates/maestro/src/cli/update.rs`;
+next-free migration/registration only if existing records cannot represent it.
+**Requirements:** FR-S3-034, FR-S3-036, SC-S3-010, SC-S3-011, SC-S3-012.
+
+- [ ] **Step 1: Red.** Interrupt every receipt/pin/activation boundary; assert
+  previous valid state or a recoverable pending operation, never an unreceipted
+  active catalog update. Test rollback, revoked rollback, irreversible migration,
+  stale approval, outside-trust targets and active-session denial with zero
+  effects. Across en/fr/es/ja × three tones, receipts/logs are byte-identical
+  after normalizing timestamps and IDs.
+- [ ] **Step 2: Green.** Extend C16's transaction/recovery seam with retained
+  prior artifacts/state, exact receipts and linked rollback. Revalidate trust
+  and filesystem policy on both directions; require exclusive idle leases and
+  reversible state before switching. Catalog update and generic update CLI
+  share this lifecycle port; do not create a second authority store.
+- [ ] **Step 3: Check.** Run capped nextest filters `install::tests::receipts`,
+  `install::tests::rollback` and kernel `catalog::tests::updates`, including the
+  existing C16 interruption and C16b restored-trust regressions.
+
+**Acceptance:** every applied update has an English durable receipt and retained
+rollback target, never authority to revive revocation. Lifecycle callers are
+independent of release source and use the same trust-policy port; updates never
+mint a folder-trust approval.
+
+### C16e Verified runtime proposal contract [US2] (2 h)
+
+**After:** C16c; OA4 runtime publisher bindings for live proof only.
+**Files:** `crates/maestro-catalog/src/install/{runtime.rs,tests/runtime.rs}`.
+**Requirements:** FR-S3-032, FR-S3-033, FR-S3-034, SC-S3-011.
+
+- [ ] **Step 1: Red.** Exercise authentic/wrong-publisher runtime metadata,
+  incompatible versions, missing installer contracts and auto requests. Require
+  propose-only capability and zero staging, activation or rollback calls.
+- [ ] **Step 2: Green.** Reuse C13/C14 and C16c's runtime source adapter for a
+  verified release identity/compatibility proposal. Expose no runtime activation
+  capability; retain distinct publisher bindings and bounded untrusted notes.
+- [ ] **Step 3: Check.** Run capped nextest `install::tests::runtime` and the
+  source-port contracts; wrong publisher and every apply attempt must refuse.
+
+**Acceptance:** verified runtime proposals, not a new installer or cross-platform
+handoff. Only catalog adapters expose the existing activation lifecycle in S3.
+
+### C16g Runtime install-command presentation [US2] (2 h)
+
+**After:** C16e.
+**Files:** `crates/maestro/src/cli/update.rs`,
+`crates/maestro/tests/it/runtime_update.rs`, `docs/how-to/catalog.md`,
+`docs/architecture/{06-roadmap.md,08-traceability.md}`.
+**Requirements:** FR-S3-032, FR-S3-033, SC-S3-011.
+
+- [ ] **Step 1: Red.** With approved released-installer fixtures, assert the
+  exact verified release plus install command; unsupported installation layouts
+  report unsupported rather than inventing a command. Runtime apply/rollback and
+  auto make zero executor calls; notes cannot become shell instructions.
+- [ ] **Step 2: Green.** Render C16e's verified proposal and approved installer
+  command as display data only. Record runtime auto-apply with the installer as
+  a named follow-up: layout, startup handoff, receipts and trusted rollback.
+- [ ] **Step 3: Check.** Run capped nextest `runtime_update` and document/link
+  checks; no test invokes a package manager or replaces any executable.
+
+**Acceptance:** one actionable command for supported released installations,
+with no S3 runtime installation effects or implied cross-OS activation proof.
+
+### C16f Startup policy, daily checks and mandatory consent [US1, US2, US3] (4 h)
+
+**After:** C16c, C16d, C16e, C16g, C05b, C05h, C05j, C05e.
+**Files:** `crates/maestro-catalog/src/install/{startup.rs,tests/startup.rs}`,
+`crates/maestro/src/cli/{run.rs,update.rs}`,
+`crates/maestro/src/mcp/run.rs`, `crates/maestro/tests/it/startup_updates.rs`,
+`docs/how-to/catalog.md`.
+**Requirements:** FR-S3-032, FR-S3-033, FR-S3-034, FR-S3-036,
+SC-S3-011, SC-S3-012.
+
+- [ ] **Step 1: Red.** With a fake clock and real lifecycle guards, test 24-hour
+  throttling across simultaneous sessions, recorded offline failures, five-second
+  timeout, off/propose/user-only catalog auto, revoked/expired updates and a
+  safe current install. Off makes zero network calls for startup discovery;
+  explicit update check still works. Runtime and MCP always make zero activation
+  calls. MCP receives only a fixed ID/target/version notice, never release notes,
+  paths or install commands. Widened permissions/hooks ask; --yes/model text never
+  approve. Active tasks/sessions and kernel job leases forbid activation.
+- [ ] **Step 2: Green.** Run bounded discovery/policy before admitting the first
+  task/tool call unless off; use shared kernel check state and idle lease. CLI
+  auto applies only a verified safe catalog diff; uncertainty/missing approval
+  leaves a proposal. MCP only delivers a fixed notice through C05e's port. Trust additions always use C05h's user-only command, never an
+  update's permission dialog. Preserve current trust expiry despite offline checks.
+- [ ] **Step 3: Check.** Run capped nextest filter `startup_updates` and
+  `install::tests::startup`; verify every apply/rollback is receipted, pending
+  proposals survive restart and no background or mid-task activation occurs.
+
+**Acceptance:** off, default propose and user-only catalog auto use one policy over
+`UpdateSource` adapters. A new source/client does not change callers; independent
+approval and path-policy ports keep updates from widening trust or permissions.
+
+### C20 Native Copilot policy hook [US1, US3] (4 h)
+
+**After:** C06, C19, C21, C05i, C05j; OA2 authorizes the real host test.
 **Files:** `crates/maestro-catalog/src/hosts/copilot.rs`,
 `crates/maestro-catalog/src/policy/{native.rs,normalize.rs}`,
 `crates/maestro-catalog/src/policy/tests/native.rs`,
 `crates/maestro/tests/it/catalog_hook.rs`, `docs/how-to/catalog.md`.
-**Requirements:** FR-S3-017, SC-S3-005.
+**Requirements:** FR-S3-017, FR-S3-036, SC-S3-005, SC-S3-012.
 
 - [ ] **Step 1: Red.** Drive a real pinned preToolUse hook through allow,
   deny, malformed request, unknown tool, opaque shell, missing fact, error and
-  timeout. Try model-supplied identity/approval; denied cases record no effect.
+  timeout. Try model-supplied identity/approval, outside-trust writes, secret
+  reads even inside trust, link escapes and agent-shell trust administration,
+  including trust-add with a correct --confirm-path;
+  denied cases record no effect, with ordinary allowed neighbours.
 - [ ] **Step 2: Green.** Normalize only supported operations into C19's real
-  evaluator; load hooks only through the explicit projection. Report absent hook
+  evaluator and the same `WorkspaceTrust` port as Maestro-owned effects; load
+  hooks only through the explicit projection. Report absent hook
   as unprotected; an approval-needed result cannot be manufactured into allow.
 - [ ] **Step 3: Check.** Run
   `~/.local/bin/capped cargo nextest run -p maestro catalog_hook` and the
@@ -768,7 +1286,9 @@ init/project path uses admission and preserves user files on refusal.
 
 **Acceptance:** real policy denial, not merely hidden tools; errors/timeouts
 fail closed when the hook is installed. Documentation makes no broker,
-acceptance, journal or sandbox claim for native mode.
+acceptance, journal or sandbox claim for native mode. Extending secret-path
+rules changes checked data, not this hook; other clients' trust hooks stay the
+named S4 qualification obligation.
 
 ## Phase 4: Measured routing and exact impact [US4]
 
@@ -957,7 +1477,8 @@ this M3 exit; a bounded in-memory fallback requires its own explicit approval.
 
 ### C28 Tagged M3 proof [US1, US2, US3, US4, US5] (3 h)
 
-**After:** C08, C15, C16, C16b, C17, C18, C19, C20, C21, C21b, C22b, C23,
+**After:** C08, C05f, C05k and OA9 visual acceptance, C15, C16, C16b,
+C16c, C16d, C16e, C16f, C16g, C17, C18, C19, C20, C21, C21b, C22b, C23,
 C24, C25, C26, C27; integrated T034/T035, T038 live registrations, M1 release,
 final CI and OA4/OA5/OA7 live trust/release/evidence actions.
 **Files:** `scripts/tests/catalog-m3.sh`,
@@ -966,7 +1487,7 @@ final CI and OA4/OA5/OA7 live trust/release/evidence actions.
 `specs/003-catalog/traceability.json`,
 `specs/003-catalog/research/m3-evidence.md`; private receipts remain private.
 **Requirements:** SC-S3-001, SC-S3-002, SC-S3-003, SC-S3-004, SC-S3-005,
-SC-S3-006, SC-S3-007, SC-S3-008, SC-S3-009.
+SC-S3-006, SC-S3-007, SC-S3-008, SC-S3-009, SC-S3-010, SC-S3-011, SC-S3-012.
 
 - [ ] **Step 1: Red.** Write the shell acceptance harness; fail its preflight
   if `command -v cargo`, `command -v rustc` or `command -v python3` succeeds,
@@ -981,7 +1502,12 @@ SC-S3-006, SC-S3-007, SC-S3-008, SC-S3-009.
   rotation evidence; finish C09's owned publisher-row evidence handoff. Record
   expiry/revocation/offline/restore cases, C23's synthetic suite/eligibility
   digests and metrics, plus real installed `incompatible` ("not qualified until
-  S4") results. Document both in `docs/how-to/catalog.md`.
+  S4") results. Include preference/trust/client-delivery receipts and verified
+  startup off/propose/catalog-auto/consent/rollback/offline evidence, runtime
+  propose-only and MCP zero activation. Include C05k/OA9 visual acceptance;
+  no mid-task effects or claims of runtime installer qualification.
+  Update only delivered portions of existing traceability rows; preserve their
+  S4/follow-up obligations. Document outcomes in `docs/how-to/catalog.md`.
 - [ ] **Step 3: Check.** Run `bash catalog-m3.sh` inside that clean environment,
   not through cargo. In the checkout run offline links and C00's traceability
   suite. Quote final CI platform/test counts, coverage, killed/missed/timeout
@@ -1022,40 +1548,88 @@ predecessors land; shared registration changes still serialize.
 | --- | --- | --- |
 | C00 recorded | C01 live probe, C03 fixture checker and C04a filesystem move | C03 does not wait for missing hosts; freeze sidecars if needed |
 | C03 complete | C04 after C04a, C17 settings and C02 content in MAN | Two writers to the same CLI/module registration |
-| C05 complete | C06 Copilot and C17 settings if still open | C07 waits for C06's shared projection command |
+| C05 complete | C05a preferences and optional C05f TUI measurements | No parser dependency; C05f/OA9 never gate plain init |
+| C05b complete | C05h/C05i/C05j trust; C05c/C05l/C05d/C05e presentation | C05g plain flow joins trust and C05c, not MCP delivery |
+| C05e/C05j complete | C06 after C01/OA2, without C05g/C05k; optional renderer after C05g/C05f/OA9 | C07 waits for C06's shared projection command |
 | C09 complete | C19 policy work and source-independent trust research | Dependency-lock updates from multiple lanes |
 | C11 complete | C12 records and C13 attestation | Unassigned SQL migrations with S2 |
 | C21/C21b complete | C23 MAN labels; C25 CORE cards after C12/C14 | A scoring implementation before labels are frozen |
 
 Fixture implementation starts C00 → C03, with C04a → C04 → C05 and C17 in
 parallel when their predecessors permit. Neither C01 nor the real C02 seed gates
-C03/C05. If C01 is blocked at C03 start, sidecars are final for v1. First live
-use adds C01/OA2 → C06 → C07, the real C02/OA1 seed and T034/T035/T038 → C08.
+C03/C05. C17 precedes C05a, then C05b feeds trust and presentation. C05g's plain
+flow needs trust and C05c, not C05e; C06/C07 need delivery and the write gate,
+not the menu. C05l owns message migration. If C01 is blocked at C03 start,
+sidecars are final for v1. First live use adds C01/OA2 → C06 → C07, plain C05g,
+C02/OA1 and T034/T035/T038 → C08. C05f → C05k (OA9 library approval recorded) is an independent later
+renderer path, joined at C28 with visual evidence, never a first-loop gate.
 
 Trust/compiler code: C09 → C19 → C22a → C22b → C10 → C11 → C12/C13 → C14;
 C18 also needs C17. C15's workflow code can land without OA4/OA5; C16 consumes
 that code and verified fixtures, then C16b adds restore/admission wiring.
+C16c → C16d adds catalog receipts/rollback; C16c → C16e → C16g adds verified
+runtime proposals and install-command display only. C16f joins both for startup
+policy and MCP notices, consuming the existing trust/client-delivery ports.
 C28 alone joins these paths with real publisher/compiler/drill evidence.
 
 Routing: C21 → C21b → C23 plus C14/C18/C22b → C24a → C24, with C25 → C26.
 There is no C15/C16 or live-host prerequisite for routing implementation.
 Impact: C12/C14 plus qualified S2 G25 and the S2-owned G27 public port → C27a;
 C22b/C24/C27a → C27. C28 joins all exits, including C08, M1 release, C15/C16b,
-C27, OA4/OA5/OA7 and final CI. C29 starts only after accepted M3.
+C27, C05k/OA9, OA4/OA5/OA7 and final CI. C29 starts only after accepted M3.
 
 ### Requirements coverage
 
 | Requirement | Tasks |
 | --- | --- |
-| FR-S3-001, FR-S3-002, FR-S3-003 | C00, C01, C02, C03, C21, C21b, C22a |
-| FR-S3-004, FR-S3-005, FR-S3-006, FR-S3-007 | C04a, C04, C05, C06, C07, C08 |
-| FR-S3-008, FR-S3-009, FR-S3-010, FR-S3-011, FR-S3-012, FR-S3-013 | C09, C10, C11, C12, C13, C14, C15, C16, C16b, C18 |
-| FR-S3-014, FR-S3-015, FR-S3-016, FR-S3-017 | C17, C18, C19, C20, C21 |
-| FR-S3-018, FR-S3-019 | C21, C21b, C22a, C22b |
-| FR-S3-020, FR-S3-021, FR-S3-022 | C23, C24a, C24, C26 |
-| FR-S3-023, FR-S3-024, FR-S3-025 | C25, C26, C27a, C27 |
+| FR-S3-001 | C00, C02, C21, C21b |
+| FR-S3-002 | C01, C03, C02 |
+| FR-S3-003 | C03, C02, C22a, C21, C21b |
+| FR-S3-004 | C05 |
+| FR-S3-005 | C04a, C04, C05, C05j |
+| FR-S3-006 | C01, C06, C07 |
+| FR-S3-007 | C02, C06, C07, C08 |
+| FR-S3-008 | C09, C10 |
+| FR-S3-009 | C11, C16 |
+| FR-S3-010 | C09, C13, C16 |
+| FR-S3-011 | C09, C14, C18, C16, C16b |
+| FR-S3-012 | C12, C16, C16b |
+| FR-S3-013 | C15 |
+| FR-S3-014 | C17, C05b |
+| FR-S3-015 | C18 |
+| FR-S3-016 | C09, C19, C22b, C21 |
+| FR-S3-017 | C20 |
+| FR-S3-018 | C21, C21b |
+| FR-S3-019 | C00, C22a, C22b, C21, C21b |
+| FR-S3-020 | C23, C24 |
+| FR-S3-021 | C24a, C24 |
+| FR-S3-022 | C14, C24a, C24, C26 |
+| FR-S3-023 | C25 |
+| FR-S3-024 | C00, C26 |
+| FR-S3-025 | C27a, C27 |
 | FR-S3-026 | C29 |
-| SC-S3-001 through SC-S3-009 | C28 verifies the earlier task evidence; it does not defer their tests to the end |
+| FR-S3-027 | C17, C05a, C05j, C05g, C08 |
+| FR-S3-028 | C05b, C08 |
+| FR-S3-029 | C05c, C05l, C05d, C08 |
+| FR-S3-030 | C05g, C08, C05f, C05k |
+| FR-S3-031 | C05e, C06, C07, C08 |
+| FR-S3-032 | C16c, C16e, C16g, C16f |
+| FR-S3-033 | C17, C05a, C16c, C16e, C16g, C16f |
+| FR-S3-034 | C16d, C16e, C16f |
+| FR-S3-035 | C05h, C05j, C05g, C08 |
+| FR-S3-036 | C05h, C05i, C05j, C05e, C06, C07, C08, C16d, C16f, C20 |
+| SC-S3-001 | C01, C06, C07, C08, C28 |
+| SC-S3-002 | C10, C15, C16, C28 |
+| SC-S3-003 | C11, C12, C13, C14, C15, C16, C16b, C28 |
+| SC-S3-004 | C04a, C04, C05, C06, C07, C08, C28 |
+| SC-S3-005 | C03, C17, C19, C22a, C22b, C18, C20, C28 |
+| SC-S3-006 | C23, C24a, C24, C26, C28 |
+| SC-S3-007 | C25, C26, C27a, C27, C28 |
+| SC-S3-008 | C28 |
+| SC-S3-009 | C00, C28 |
+| SC-S3-010 | C05a, C05b, C05j, C05c, C05l, C05d, C05e, C05g, C06, C07, C08, C05f, C05k, C16d, C28 |
+| SC-S3-011 | C16c, C16d, C16e, C16g, C16f, C28 |
+| SC-S3-012 | C05h, C05i, C05j, C05g, C06, C07, C08, C16d, C16f, C20, C28 |
 
 ## Implementation Strategy
 
@@ -1073,17 +1647,19 @@ C27, OA4/OA5/OA7 and final CI. C29 starts only after accepted M3.
 ## Needs owner action
 
 The [plan's owner-action register](plan.md#needs-owner-action) is authoritative;
-these are blockers or handoffs, never permissions for a lane to act outwardly.
+only its explicitly approved scope authorizes assigned lane operations.
+Remaining owner actions are blockers or handoffs, not implied permissions.
 OA7's frozen keys/S3 portions and hook deferral are approved by the owner,
 2026-09-28. Only its later actions remain in the table.
 
 | Action group | Register | Tasks waiting |
 | --- | --- | --- |
 | Create manifests repository, owners and protections | OA1 | MAN landing: C02, C21, C21b, C23, C15; not CORE fixtures |
-| Supply host pins/accounts/MCP policy and authorize host operations | OA2 | Live C01, C06, C07, C08, C20, C28; not checker/bootstrap/routing code |
+| **Approved 2026-09-28:** probe/test already-installed Copilot CLI, Pi, Claude Code and Codex, each in an isolated temporary home; C01 pins exact installed versions. No installs/upgrades, real owner configuration or enterprise policy changes; broader scope needs fresh approval | OA2 | Bounded C01, C06, C07, C08, C20, C28 host tests; missing access still blocks and OA6 data approval remains separate |
 | Bind publishers, standalone pinned `gh`/authentication; authorized maintainer handles any unlisted licence | OA4 | C09's publisher-row evidence closure and C28, not verifier/dependency implementation |
 | Publish compiler/catalog; enable six-hour trust attestations/hourly alerts; supply clean environment and drills; authorize private/model access | OA5, OA6 | C28 release proof; C08/C23/C26 only for the requested private/model access |
 | Accept M3 and eventual main release; later comparison access; any S2 fallback separately | OA7, OA8 | C28, C29 |
+| **Approved 2026-09-28:** ratatui + crossterm under ADR-0020; C05f measurements/vet still required, branded visual acceptance pending; no parser dependency | OA9 | C05k after measurement, C28 after visual evidence; never first plain C08 |
 
 Record blocked/not-run when any input or external proof is absent. Do not
 create a repository, change organization settings, publish, enable workflows,
