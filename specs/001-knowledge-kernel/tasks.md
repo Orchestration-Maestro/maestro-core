@@ -732,15 +732,32 @@ cli/search.rs}`. **Requirements:** FR-S1-008, FR-S1-012.
 **After:** T028, T030, T031, T035. **Files:** `PRIVATE`: `reports/`.
 **Requirements:** SC-S1-002, SC-S1-003, SC-S1-008.
 
-- [ ] **Step 1: Run the ladder** BM25 → dense → hybrid → identifiers → rerank
-  on `ctm-retrieval`.
-- [ ] **Step 2: Ship** only the rungs whose paired gain has an interval above
-  zero.
-- [ ] **Step 3: Publish** the `ctm` generation with the winners and the
-  shipped rungs.
-- [ ] **Step 4: Classify** every remaining failure of the golden set.
-- [ ] **Step 5: Run `ctm-answers`:** command exactness 100 %, no-answer
-  accuracy at least 80 %.
+- [x] **Step 1: Run the ladder** on `ctm-retrieval`: golden v2.1 run 1
+  measured lexical + identifier + structured (`r0-lexical-identifier`),
+  four-route hybrid without reranking (`r1-dense`), RRF 20 and 100
+  (`r2-k20`, `r2-k100`), then rerank depths 30 and 80 (`r3-rerank-30`,
+  `r3-rerank-80`); runs 2-4 tuned scoring, evidence and answers. Private T039
+  single-route receipts measure dense-only and lexical-only on golden v2.2
+  separately (08 §20.2, SC-S1-002 and SC-S1-008).
+- [x] **Step 2: Ship** only the rungs whose paired gain has an interval above
+  zero. Closed by the owner without the interval (2026-09-28, 08:12), adopting
+  the best measured configuration instead. The ladder counts each rung's
+  gain; the paired interval is queued after S1 (SC-S1-002 stays Partial).
+- [x] **Step 3: Publish** the `ctm` generation with the winners and the
+  shipped rungs: generation 3, reranker depth 30 and prompt v2 adopted live
+  (`e665da7`), the thinking answerer by default (`6826de6`).
+- [x] **Step 4: Classify** every remaining failure of the golden set: every
+  ladder row carries its outcome and rank. The manual audit graded run 3
+  v2-base's 19 wrong answers on golden v2.1, not the thinking answerer's
+  failures (SC-S1-008).
+- [x] **Step 5: Run the ask rungs on `ctm-retrieval` as the M1 substitute for
+  `ctm-answers`:** no separate reference-answer suite was run. On golden v2.2
+  (private T039 v22-thinking receipt), 0 invented literals in delivered
+  answers by the literal check (command exactness 100 %), 15 of 16 refused
+  (floor 80 % in the spec; the ladder applies 90 %, met). Run 4 v2-thinking
+  on golden v2.1 has the same counts. Unmet floors on golden v2.2, queued
+  tuning targets after S1: answered right 80 % (65 of 84) and right-section
+  citations 90 % (65 of 78).
 
 ## Phase 12: Wave 12 — four agents ask Control-M
 
@@ -749,11 +766,17 @@ cli/search.rs}`. **Requirements:** FR-S1-008, FR-S1-012.
 **After:** T034, T037. **Files:** `docs/` how-to; client configuration stays
 local. **Requirements:** SC-S1-005.
 
-- [ ] **Step 1: Pi** calls `knowledge_search` and receives cited passages.
-- [ ] **Step 2: Codex** does the same.
-- [ ] **Step 3: Claude Code** does the same.
-- [ ] **Step 4: Copilot CLI** does the same.
-- [ ] **Step 5: Document** the one-line registration for each client.
+- [x] **Step 1: Pi** calls `knowledge_search` and receives cited passages.
+- [x] **Step 2: Codex** does the same.
+- [x] **Step 3: Claude Code** does the same.
+- [x] **Step 4: Copilot CLI** does the same.
+- [x] **Step 5: Document** the one-line registration for each client
+  (`docs/how-to/knowledge-mcp.md`). Steps 1-4: the private T038 live client
+  report, with the expected source cited in the final 2 cases each, one
+  English and one French. A first French case missed its expected source in
+  Pi and Claude Code and was replaced. Copilot's French search failed once
+  at the then-default 1.5 s deadline and passed on its own retry with 10 s;
+  the default has since been raised.
 
 ## Phase 13: Exit — M1 "Ask Control-M"
 
@@ -763,9 +786,11 @@ local. **Requirements:** SC-S1-005.
 `docs/architecture/08-traceability.md`, the release. **Requirements:**
 SC-S1-001 to SC-S1-009.
 
-- [ ] **Step 1: Measure p95** of `knowledge_search` on the workstation with
-  the search models loaded; report waits and missing routes apart.
-- [ ] **Step 2: Check every success criterion** with its evidence.
+- [x] **Step 1: Measure p95** of `knowledge_search` on the workstation with
+  the search models loaded; report waits and missing routes apart: 940 ms,
+  0 observed waits by process watch, 0 missing routes (golden v2.2;
+  SC-S1-004 names the timing and load-wait limits).
+- [x] **Step 2: Check every success criterion** with its evidence (08 §20.2).
 - [x] **Step 3: Obtain** the owner-approved exact 08 row keys; map each to its
   delivered portion, task, integrated code/test evidence and named remaining
   slice. Test for missing, duplicate and extra keys; reconcile the reported
