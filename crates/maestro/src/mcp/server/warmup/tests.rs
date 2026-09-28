@@ -56,7 +56,7 @@ fn card_discovery_finds_the_selected_reranker_of_a_published_collection() {
         .expect("read published generation")
         .expect("published generation");
     let reranker = select_reranker(&kernel, &generation);
-    let opener: super::super::types::KernelOpener = Arc::new(move || scratch.kernel(None));
+    let opener = scratch_opener(&scratch);
 
     let cards = published_model_cards(&opener).expect("discover cards");
 
@@ -72,9 +72,18 @@ fn card_discovery_warms_no_card_of_another_role_that_a_dense_profile_names() {
     let kernel = scratch.kernel(None).expect("open test kernel");
     let (_, reranker) = register_card(&kernel, "collection", Role::Reranker, "rerank", b"r");
     publish_dense_profile(&kernel, &reranker);
-    let opener: super::super::types::KernelOpener = Arc::new(move || scratch.kernel(None));
+    let opener = scratch_opener(&scratch);
 
     assert_eq!(published_model_cards(&opener), Ok(Vec::new()));
+}
+
+/// Opens a kernel of `scratch` on each call. The opener holds its own
+/// handle, so the test's `scratch`, declared before the test's kernel, is
+/// removed after that kernel closes: Windows refuses to delete an open
+/// database.
+fn scratch_opener(scratch: &Arc<Scratch>) -> super::super::types::KernelOpener {
+    let scratch = Arc::clone(scratch);
+    Arc::new(move || scratch.kernel(None))
 }
 
 /// Publishes a new generation of the scratch chunk set whose dense profile
@@ -119,7 +128,7 @@ fn an_unreadable_reranker_selection_skips_only_that_reranker() {
         .join(&hex[2..4])
         .join(hex);
     fs::remove_file(artifact).expect("remove the evaluation manifest");
-    let opener: super::super::types::KernelOpener = Arc::new(move || scratch.kernel(None));
+    let opener = scratch_opener(&scratch);
 
     assert_eq!(
         published_model_cards(&opener).map(|cards| cards.len()),

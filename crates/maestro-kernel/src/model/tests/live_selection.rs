@@ -191,11 +191,13 @@ fn each_refusal_names_its_cause_and_records_nothing() {
 }
 
 struct Fixture {
-    scratch: Scratch,
     database: Database,
     scopes: ScopeSet,
     card: Digest,
     generation: i64,
+    /// Last, as fields drop in order: Windows refuses to remove a database
+    /// still open.
+    scratch: Scratch,
 }
 
 impl Fixture {

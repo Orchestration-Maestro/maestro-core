@@ -26,14 +26,15 @@ use tokio::time::Instant as TokioInstant;
 
 /// One synthetic, authorized corpus prepared and pinned to a generation.
 pub(super) struct Fixture {
-    /// The source directory lives as long as this test fixture.
-    pub(super) scratch: Scratch,
     /// The kernel used to prepare and read the evidence.
     pub(super) database: Database,
     /// The read grants captured during import.
     pub(super) scopes: ScopeSet,
     /// The generation pinned to the chunk set.
     pub(super) generation: Generation,
+    /// The source directory lives as long as this test fixture. Last, as
+    /// fields drop in order: Windows refuses to remove a database still open.
+    pub(super) scratch: Scratch,
 }
 
 /// Imports, accepts, prepares and publishes a synthetic corpus.
@@ -59,10 +60,10 @@ pub(super) fn fixture(documents: &[(&str, &str)]) -> Fixture {
     database.publish_generation(building.id).unwrap();
     let generation = database.generation(&scopes, building.id).unwrap().unwrap();
     Fixture {
-        scratch,
         database,
         scopes,
         generation,
+        scratch,
     }
 }
 

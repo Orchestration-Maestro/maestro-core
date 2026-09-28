@@ -28,9 +28,11 @@ use maestro_knowledge::{
 use serde_json::Value;
 use std::{
     fs,
+    net::TcpListener,
     num::NonZeroU32,
     panic::{self, AssertUnwindSafe},
     path::{Path, PathBuf},
+    thread,
 };
 use tokio::runtime::{Builder, Runtime};
 
@@ -253,7 +255,7 @@ fn traced_synthetic_path() -> Traced {
     });
     let (published, question, bundle) = run.unwrap();
     assert!(!bundle.passages.is_empty());
-    let dead = Qdrant::new("http://127.0.0.1:1").unwrap();
+    let dead = dead_qdrant();
     let degraded = Recording::of(|| {
         let refused = runtime.block_on(traced_search(
             &published,
@@ -275,6 +277,16 @@ fn traced_synthetic_path() -> Traced {
         degraded,
         bundle,
     }
+}
+
+/// A Qdrant endpoint that closes every connection it accepts, so that its
+/// routes fail at once on every host: Windows retries a connection to a
+/// port nothing listens on for about two seconds, past the routes' window.
+fn dead_qdrant() -> Qdrant {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    thread::spawn(move || listener.incoming().for_each(drop));
+    Qdrant::new(&format!("http://127.0.0.1:{port}")).unwrap()
 }
 
 /// Searches `collection` of `published` for `text` through `qdrant`, with

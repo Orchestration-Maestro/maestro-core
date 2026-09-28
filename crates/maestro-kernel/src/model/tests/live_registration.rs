@@ -236,13 +236,15 @@ impl RegistrationContext<'_> {
 }
 
 struct Fixture {
-    scratch: Scratch,
     database: Database,
     scopes: ScopeSet,
     card_json: Vec<u8>,
     weights: PathBuf,
     evidence_dir: PathBuf,
     evidence_digests: Vec<Digest>,
+    /// Last, as fields drop in order: Windows refuses to remove a database
+    /// still open.
+    scratch: Scratch,
 }
 
 impl Fixture {
@@ -279,13 +281,13 @@ impl Fixture {
             fs::write(evidence_dir.join(name), bytes).unwrap();
         }
         Self {
-            scratch,
             database,
             scopes,
             card_json,
             weights,
             evidence_dir,
             evidence_digests,
+            scratch,
         }
     }
 
