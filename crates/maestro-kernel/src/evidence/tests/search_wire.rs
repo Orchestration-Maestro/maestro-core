@@ -28,7 +28,7 @@ fn optional_search_fields_round_trip_and_old_bundles_remain_unchanged() {
         RequestBudget {
             k: 10,
             max_tokens: 6000,
-            deadline_ms: 10_000,
+            deadline_ms: 30_000,
         }
     );
     let old = serde_json::to_value(bundle()).unwrap();
@@ -67,7 +67,7 @@ fn request_budget_fields_enforce_their_bounds() {
         ("/request_budget/k", json!(0)),
         ("/request_budget/k", json!(51)),
         ("/request_budget/max_tokens", json!(0)),
-        ("/request_budget/deadline_ms", json!(10_001)),
+        ("/request_budget/deadline_ms", json!(30_001)),
         ("/budget/limit", json!(5999)),
         ("/budget/evidence_tokens", json!(6001)),
     ] {

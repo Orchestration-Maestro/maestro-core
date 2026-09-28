@@ -56,7 +56,7 @@ fn cli_search_returns_an_evidence_bundle_with_the_default_budget() {
     assert_eq!(output["data"]["query"], QUERY);
     assert_eq!(
         output["data"]["request_budget"],
-        json!({"k": 10, "max_tokens": 6000, "deadline_ms": 10_000})
+        json!({"k": 10, "max_tokens": 6000, "deadline_ms": 30_000})
     );
     assert_eq!(output["data"]["budget"]["counter"], "evidence-utf8-bytes/1");
     assert_eq!(output["data"]["budget"]["estimated"], true);

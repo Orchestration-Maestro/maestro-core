@@ -149,7 +149,7 @@ pub(super) enum KnowledgeCommand {
         /// Maximum evidence tokens (1..=12000, default 6000).
         #[arg(long)]
         max_tokens: Option<u32>,
-        /// Search deadline in milliseconds (1..=10000, default 10000).
+        /// Search deadline in milliseconds (1..=30000, default 30000).
         #[arg(long)]
         deadline_ms: Option<u32>,
     },
@@ -188,8 +188,8 @@ pub(super) enum KnowledgeCommand {
         /// Maximum evidence bytes to assemble.
         #[arg(long)]
         max_tokens: Option<u32>,
-        /// Search and evidence deadline in milliseconds (1..=10000, default
-        /// 10000).
+        /// Search and evidence deadline in milliseconds (1..=30000, default
+        /// 30000).
         #[arg(long)]
         search_deadline_ms: Option<u32>,
         /// Maximum generated tokens per chat call.

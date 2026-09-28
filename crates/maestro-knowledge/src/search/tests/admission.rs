@@ -73,7 +73,7 @@ fn request_bounds_include_both_endpoints_and_reject_the_next_value() {
     let valid = RequestBudget {
         k: 50,
         max_tokens: 12_000,
-        deadline_ms: 10_000,
+        deadline_ms: 30_000,
     };
     assert!(validate(&request("query", valid, 120, Some(&"v".repeat(256)))).is_ok());
     let valid_low = RequestBudget {
@@ -111,14 +111,14 @@ fn request_bounds_include_both_endpoints_and_reject_the_next_value() {
                 deadline_ms: 0,
                 ..valid_low
             },
-            "deadline_ms must be between 1 and 10000",
+            "deadline_ms must be between 1 and 30000",
         ),
         (
             RequestBudget {
-                deadline_ms: 10_001,
+                deadline_ms: 30_001,
                 ..valid
             },
-            "deadline_ms must be between 1 and 10000",
+            "deadline_ms must be between 1 and 30000",
         ),
     ] {
         rejected(&request("query", budget, 1, None), expected);

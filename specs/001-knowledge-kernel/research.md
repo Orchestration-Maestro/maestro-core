@@ -175,17 +175,20 @@ measures again on the real corpus, so 80 is where it starts, not a setting.
 top-1 69/84, search p95 0.76 s). The default depth is now 30.
 
 **Cold start (owner, 2026-09-28):** a deadline is a safety cap, not a
-quality cutoff. Search and ask default to a 10 s deadline, so that a search
+quality cutoff. Search and ask default to a 30 s deadline, so that a search
 after the router unloaded the embedder and the reranker still runs dense and
-rerank; SC-S1-004's 1.5 s stays the p95 target. Evidence assembly took
-340-500 ms on the real corpus, so dense and the rerank end before the
-deadline by the T032 reserve plus two route windows or a fifth of the
-deadline, whichever is longer (650 ms of 1.5 s, 2.05 s of 10 s), and a model
-still loading then costs only its own stage. The router client asks for each
+rerank; SC-S1-004's 1.5 s stays the p95 target. Under a load average near 19,
+each model load took 2.4-5.3 s and a cold search 7.7-8.7 s. Evidence assembly
+took 340-500 ms on the real corpus, so dense and the rerank end before the
+deadline by the T032 reserve plus two route windows, 650 ms at any deadline
+from 1.5 s, and a model still loading then costs only its own stage. Each
+answer attempt has 20 s, the answerer's load included: a cold Qwen3-4B loaded
+and thought through 1,024 tokens in 6.5 s. Every cap stays under 60 s, a
+common MCP client tool timeout. The router client asks for each
 model before every search, so a long-lived MCP server reloads a model the
-router unloaded while idle. Ladder runs from this change on search at the
-10 s default, and their reports record the deadline; runs 1-3 searched at
-1.5 s and asked at 6 s.
+router unloaded while idle. Ladder runs search at the default deadline (10 s
+from the cold-start change, 30 s since), and their reports record it; runs
+1-3 searched at 1.5 s and asked at 6 s.
 
 Measured by T008 on 2026-09-26 on the reference workstation:
 

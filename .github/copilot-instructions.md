@@ -171,6 +171,7 @@ in place.
 │   │   │   │   │   ├── search/                                              # Async MCP dispatch and complete-response bounds for search
 │   │   │   │   │   │   └── tests.rs                                         # Rust source: tests
 │   │   │   │   │   ├── tests/                                               # Integration tests
+│   │   │   │   │   │   ├── call_deadlines.rs                                # The MCP call caps against the search and chat caps they wrap
 │   │   │   │   │   │   └── search_workers.rs                                # Rust source: search workers
 │   │   │   │   │   ├── warmup/                                              # Background startup warming for visible published embedder cards
 │   │   │   │   │   │   └── tests.rs                                         # Rust source: tests

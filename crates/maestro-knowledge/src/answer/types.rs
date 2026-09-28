@@ -2,7 +2,7 @@
 
 use crate::search::{SearchContext, SearchError, evidence::EvidenceError};
 use maestro_kernel::{
-    evidence::RouteStatus,
+    evidence::{RequestBudget, RouteStatus},
     gateway::{Error as GatewayError, MAX_CHAT_OUTPUT_TOKENS, ModelCard},
 };
 use schemars::JsonSchema;
@@ -11,8 +11,10 @@ use std::{collections::BTreeMap, error, fmt, time::Duration};
 
 /// Default local answerer router entry.
 pub const DEFAULT_MODEL: &str = "qwen3-4b";
-/// Maximum time allowed for each buffered chat call.
-pub const CHAT_DEADLINE: Duration = Duration::from_secs(10);
+/// Maximum time allowed for each buffered chat call, the answerer's load
+/// included. A safety cap: a cold answerer loaded and thought through 1024
+/// tokens in 6.5 s, and a load alone took up to 5.3 s on a busy machine.
+pub const CHAT_DEADLINE: Duration = Duration::from_secs(20);
 /// System-enforced output ceiling for one generation attempt: the chat
 /// maximum, so a thinking answerer's think block fits before its answer. It
 /// is only a cap; an answerer that does not think stops well before it.
@@ -54,8 +56,9 @@ pub struct AskBudget {
     /// UTF-8-byte evidence budget used by the deliberately uncalibrated flow.
     pub max_tokens: u32,
     /// Search and evidence-assembly deadline in milliseconds. Its default,
-    /// 10 s, is a safety cap: search loads a cold embedder (measured
-    /// 1.5-2.2 s) and a cold reranker and still runs dense and rerank.
+    /// 30 s, is a safety cap: search loads a cold embedder and a cold
+    /// reranker (each load measured 2.4-5.3 s on a busy machine) and still
+    /// runs dense and rerank.
     pub search_deadline_ms: u32,
     /// Maximum generated tokens per chat call.
     pub output_tokens: u32,
@@ -66,7 +69,7 @@ impl Default for AskBudget {
         Self {
             k: 5,
             max_tokens: 6000,
-            search_deadline_ms: 10_000,
+            search_deadline_ms: RequestBudget::MAX_DEADLINE_MS,
             output_tokens: DEFAULT_OUTPUT_TOKENS,
         }
     }
@@ -74,13 +77,13 @@ impl Default for AskBudget {
 
 impl AskBudget {
     /// Whether every bound is within what `ask` accepts: 1 to 50 passages,
-    /// 1 to 12,000 evidence bytes, 1 to 10,000 ms of search and 1 to
+    /// 1 to 12,000 evidence bytes, 1 to 30,000 ms of search and 1 to
     /// [`MAX_CHAT_OUTPUT_TOKENS`] output tokens.
     #[must_use]
     pub fn is_within_limits(&self) -> bool {
         (1..=50).contains(&self.k)
             && (1..=12_000).contains(&self.max_tokens)
-            && (1..=10_000).contains(&self.search_deadline_ms)
+            && (1..=RequestBudget::MAX_DEADLINE_MS).contains(&self.search_deadline_ms)
             && (1..=MAX_CHAT_OUTPUT_TOKENS).contains(&self.output_tokens)
     }
 }
@@ -340,7 +343,7 @@ impl fmt::Display for AskError {
             Self::Search(_) => formatter.write_str("knowledge search could not complete"),
             Self::Evidence(_) => formatter.write_str("evidence could not be verified"),
             Self::Backend(_) => formatter.write_str("the answerer is unavailable"),
-            Self::TimedOut => formatter.write_str("the answerer exceeded its 10-second deadline"),
+            Self::TimedOut => formatter.write_str("the answerer exceeded its 20-second deadline"),
             Self::EvidenceIntegrity => {
                 formatter.write_str("the assembled passage has no source chunk identity")
             }

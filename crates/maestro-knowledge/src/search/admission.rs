@@ -4,6 +4,7 @@ use super::request::{SearchConfiguration, SearchContext, SearchError, SearchRequ
 use super::{deadline, inventory_query::inventory_request, pin};
 use crate::query::{Understood, understand};
 use maestro_kernel::{
+    evidence::RequestBudget,
     gateway::ModelPort,
     generation::Generation,
     retrieval::{self, InventoryRequest},
@@ -101,8 +102,8 @@ pub(super) fn validate(request: &SearchRequest<'_>) -> Result<Understood, Search
     if !(1..=12_000).contains(&request.budget.max_tokens) {
         return Err(invalid("max_tokens must be between 1 and 12000"));
     }
-    if !(1..=10_000).contains(&request.budget.deadline_ms) {
-        return Err(invalid("deadline_ms must be between 1 and 10000"));
+    if !(1..=RequestBudget::MAX_DEADLINE_MS).contains(&request.budget.deadline_ms) {
+        return Err(invalid("deadline_ms must be between 1 and 30000"));
     }
     if request.configuration.rerank_depth.get() > 120 {
         return Err(invalid("rerank depth must be between 1 and 120"));

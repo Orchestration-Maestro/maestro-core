@@ -114,11 +114,16 @@ A successful search returns `maestro-evidence/1`, including the selected
 collection and published generation, cited passages, and route status. Keep
 that provenance and any truncation/budget information when using a client that
 summarizes tool output. Search budget defaults are `k: 10`, `max_tokens: 6000`,
-and `deadline_ms: 10000` (a safety cap, so that a search after the router
-unloaded its models still runs every route); accepted maxima are `k: 50`,
-`max_tokens: 12000`, and `deadline_ms: 10000`. The token budget is an estimate unless the configured
-route provides exact token counting. `knowledge_ask` is grounded in returned
-evidence and can refuse when the evidence does not support an answer.
+and `deadline_ms: 30000` (a safety cap, not a quality cutoff: a search after
+the router unloaded its models loads them again, which took up to 5 s each on a
+busy machine, and still runs every route); accepted maxima are `k: 50`,
+`max_tokens: 12000`, and `deadline_ms: 30000`. The token budget is an estimate
+unless the configured route provides exact token counting. `knowledge_ask` is
+grounded in returned evidence and can refuse when the evidence does not support
+an answer. Its search has the same 30 s cap, and each answer attempt 20 s, the
+answerer's load included. The server ends a search call after 40 s and an ask
+call after 55 s, under the 60 s tool timeout common to MCP clients; a warm
+search takes under 1.5 s and a warm ask under 10 s.
 
 A local stdio process does not make a remote model's processing local. Before
 using a remote provider, confirm that the provider/account and the collection

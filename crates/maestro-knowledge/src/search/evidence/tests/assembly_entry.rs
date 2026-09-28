@@ -181,8 +181,8 @@ fn request_bound_cases() -> Vec<InvalidCase> {
             BOUNDS_ERROR,
         ),
         (
-            "deadline budget over 10000",
-            |input| input.budget.deadline_ms = 10001,
+            "deadline budget over 30000",
+            |input| input.budget.deadline_ms = 30001,
             BOUNDS_ERROR,
         ),
         (

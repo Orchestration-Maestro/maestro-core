@@ -2,7 +2,7 @@
 //!
 //! When the selected reranker's model never finishes loading, both return
 //! the fused order, with the rerank reported unavailable, not an error. The
-//! searches ask for a 1.5 s deadline, not the 10 s default, to stay quick.
+//! searches ask for a 1.5 s deadline, not the 30 s default, to stay quick.
 
 use super::super::{
     knowledge_prepare_v2::identity,

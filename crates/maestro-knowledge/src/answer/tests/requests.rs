@@ -85,13 +85,13 @@ fn an_ask_budget_is_within_limits_up_to_each_bound_and_not_past_it() {
     let at_bounds = AskBudget {
         k: 50,
         max_tokens: 12_000,
-        search_deadline_ms: 10_000,
+        search_deadline_ms: 30_000,
         output_tokens: 1024,
     };
     let past: [fn(&mut AskBudget); 4] = [
         |budget| budget.k = 51,
         |budget| budget.max_tokens = 12_001,
-        |budget| budget.search_deadline_ms = 10_001,
+        |budget| budget.search_deadline_ms = 30_001,
         |budget| budget.output_tokens = 1025,
     ];
 
@@ -214,6 +214,10 @@ fn ask_errors_render_their_reason_and_keep_their_source() {
     });
     assert_eq!(backend.to_string(), "the answerer is unavailable");
     assert!(backend.source().is_some());
+    assert_eq!(
+        AskError::TimedOut.to_string(),
+        "the answerer exceeded its 20-second deadline"
+    );
     assert!(AskError::TimedOut.source().is_none());
 }
 

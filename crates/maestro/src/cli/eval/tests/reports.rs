@@ -213,7 +213,7 @@ fn a_rung_report_names_its_provenance_and_scores_its_floors() {
                 "max_tokens": 6000,
                 "output_tokens": 1024,
                 "prompt": "v2",
-                "search_deadline_ms": 10_000
+                "search_deadline_ms": 30_000
             },
             "warm_ups": 1,
             "collection": "docs",
@@ -221,7 +221,7 @@ fn a_rung_report_names_its_provenance_and_scores_its_floors() {
             "end": provenance,
             "ladder": provenance,
             "configuration": to_json(&runs[0].rung.configuration),
-            "search_deadline_ms": 10_000,
+            "search_deadline_ms": 30_000,
             "suite_digest": suite.digest.as_str(),
             "binary": {"version": "0.1.0", "commit": "abc123"},
             "rejected_checks": {"unsupported_literal": 2},

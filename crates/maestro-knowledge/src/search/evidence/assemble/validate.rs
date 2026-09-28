@@ -2,7 +2,10 @@
 
 use super::super::super::{fusion::Route, request::EvidenceInput};
 use super::super::types::EvidenceError;
-use maestro_kernel::{evidence::RouteStatus, retrieval::normalize_whitespace};
+use maestro_kernel::{
+    evidence::{RequestBudget, RouteStatus},
+    retrieval::normalize_whitespace,
+};
 use std::collections::BTreeSet;
 
 /// Converts an invalid handoff field into a non-sensitive public error.
@@ -25,7 +28,7 @@ pub(super) fn validate_input(input: &EvidenceInput) -> Result<(), EvidenceError>
     }
     if !(1..=50).contains(&input.budget.k)
         || !(1..=12_000).contains(&input.budget.max_tokens)
-        || !(1..=10_000).contains(&input.budget.deadline_ms)
+        || !(1..=RequestBudget::MAX_DEADLINE_MS).contains(&input.budget.deadline_ms)
         || input.ranked.len() > 120
     {
         return Err(invalid(

@@ -38,8 +38,19 @@ fn budgets_derive_the_capped_route_window_and_t032_reserve() {
     assert_eq!(long.expires, started + Duration::from_secs(10));
     assert_eq!(long.routes, started + Duration::from_millis(300));
     assert_eq!(long.work, started + Duration::from_millis(9_950));
-    // Evidence assembly keeps a fifth of a long budget: 2 s of 10 s.
-    assert_eq!(long.setup, started + Duration::from_millis(7_950));
+    // Evidence assembly keeps its measured need at any deadline: the T032
+    // reserve and two windows, 650 ms; setup gets the rest.
+    assert_eq!(long.setup, started + Duration::from_millis(9_350));
+
+    let cap = super::super::deadline::from_budget(
+        started,
+        RequestBudget {
+            deadline_ms: 30_000,
+            ..RequestBudget::default()
+        },
+    );
+    assert_eq!(cap.work, started + Duration::from_millis(29_950));
+    assert_eq!(cap.setup, started + Duration::from_millis(29_350));
 }
 
 #[test]

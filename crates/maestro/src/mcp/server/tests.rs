@@ -29,6 +29,7 @@ use tokio::{
     time::timeout,
 };
 
+mod call_deadlines;
 mod search_workers;
 
 /// A bound that only stops a hung test; it is generous so a loaded

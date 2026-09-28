@@ -66,9 +66,9 @@ pub(crate) struct SearchRequest {
     #[serde(default = "default_max_tokens")]
     #[schemars(range(min = 1, max = 12_000))]
     pub(crate) max_tokens: u32,
-    /// Search deadline in milliseconds, default 10000.
+    /// Search deadline in milliseconds, default 30000.
     #[serde(default = "default_deadline_ms")]
-    #[schemars(range(min = 1, max = 10_000))]
+    #[schemars(range(min = 1, max = RequestBudget::MAX_DEADLINE_MS))]
     pub(crate) deadline_ms: u32,
 }
 
@@ -130,7 +130,7 @@ impl SearchRequest {
         if !(1..=12_000).contains(&self.max_tokens) {
             return Err(RequestError::InvalidMaxTokens);
         }
-        if !(1..=10_000).contains(&self.deadline_ms) {
+        if !(1..=RequestBudget::MAX_DEADLINE_MS).contains(&self.deadline_ms) {
             return Err(RequestError::InvalidDeadline);
         }
         Ok(())
@@ -171,7 +171,7 @@ pub(crate) enum RequestError {
     InvalidK,
     /// `max_tokens` is outside 1..=12000.
     InvalidMaxTokens,
-    /// `deadline_ms` is outside 1..=10000.
+    /// `deadline_ms` is outside 1..=30000.
     InvalidDeadline,
 }
 
@@ -208,7 +208,7 @@ impl RequestError {
             Self::InvalidVersion => "version must contain 1 to 256 UTF-8 bytes",
             Self::InvalidK => "k must be between 1 and 50",
             Self::InvalidMaxTokens => "max_tokens must be between 1 and 12000",
-            Self::InvalidDeadline => "deadline_ms must be between 1 and 10000",
+            Self::InvalidDeadline => "deadline_ms must be between 1 and 30000",
         }
     }
 }
@@ -363,7 +363,7 @@ mod tests {
                 Some("v".repeat(256)),
                 Some(50),
                 Some(12_000),
-                Some(10_000)
+                Some(30_000)
             )
             .is_ok()
         );
@@ -420,7 +420,7 @@ mod tests {
             (None, Some(0), None, RequestError::InvalidMaxTokens),
             (None, Some(12_001), None, RequestError::InvalidMaxTokens),
             (None, None, Some(0), RequestError::InvalidDeadline),
-            (None, None, Some(10_001), RequestError::InvalidDeadline),
+            (None, None, Some(30_001), RequestError::InvalidDeadline),
         ] {
             assert_eq!(
                 search("query", None, max_passages, max_tokens, deadline_ms)
@@ -471,7 +471,7 @@ mod tests {
         assert_eq!(schema["properties"]["k"]["default"], 10);
         assert_eq!(schema["properties"]["max_tokens"]["maximum"], 12_000);
         assert_eq!(schema["properties"]["max_tokens"]["default"], 6000);
-        assert_eq!(schema["properties"]["deadline_ms"]["maximum"], 10_000);
-        assert_eq!(schema["properties"]["deadline_ms"]["default"], 10_000);
+        assert_eq!(schema["properties"]["deadline_ms"]["maximum"], 30_000);
+        assert_eq!(schema["properties"]["deadline_ms"]["default"], 30_000);
     }
 }

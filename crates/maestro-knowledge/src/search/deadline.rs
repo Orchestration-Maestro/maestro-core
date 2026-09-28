@@ -33,9 +33,9 @@ pub(super) struct Deadlines {
     pub(super) routes: Instant,
     /// The latest a route's one-time setup, such as loading its model, may
     /// end, and the latest the dense route and the rerank may end: evidence
-    /// assembly keeps the T032 reserve and two windows or a fifth of the
-    /// budget, whichever is longer: 650 ms of 1.5 s, 2.05 s of 10 s (it
-    /// took 340-500 ms on a real collection).
+    /// assembly keeps its measured need, the T032 reserve and two windows
+    /// (650 ms at any deadline from 1.5 s; it took 340-500 ms on a real
+    /// collection), and setup gets the rest, so cold models load in time.
     pub(super) setup: Instant,
     /// The final retrieval cutoff, before reserving time for T032.
     pub(super) work: Instant,
@@ -62,7 +62,7 @@ pub(super) fn from_budget(started: Instant, budget: RequestBudget) -> Deadlines 
     Deadlines {
         expires,
         routes: (started + route_window).min(expires),
-        setup: work - (route_window * 2).max(duration / 5),
+        setup: work - route_window * 2,
         work,
         window: route_window,
     }

@@ -349,7 +349,7 @@ fn a_rung_report_names_its_prompt_file_and_its_digest() {
         "{markdown}"
     );
     assert!(
-        markdown.contains("output tokens, prompt file, search deadline 10000 ms\n"),
+        markdown.contains("output tokens, prompt file, search deadline 30000 ms\n"),
         "{markdown}"
     );
     assert_eq!(to_json(&report)["ask_settings"]["prompt"], "file");

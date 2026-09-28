@@ -135,18 +135,18 @@ fn a_rung_report_records_its_resolved_ask_settings_and_prompt() {
             "max_tokens": 6000,
             "output_tokens": 900,
             "prompt": "v2",
-            "search_deadline_ms": 10_000
+            "search_deadline_ms": 30_000
         })
     );
     assert!(set.to_markdown().contains(
         "- Ask settings: at most 5 passages, 6000 evidence bytes, 900 output tokens, prompt v2, \
-         search deadline 10000 ms\n"
+         search deadline 30000 ms\n"
     ));
-    assert_eq!(to_json(&unasked)["search_deadline_ms"], json!(10_000));
+    assert_eq!(to_json(&unasked)["search_deadline_ms"], json!(30_000));
     assert!(
         unasked
             .to_markdown()
-            .contains("- Search deadline: 10000 ms\n")
+            .contains("- Search deadline: 30000 ms\n")
     );
     assert_eq!(to_json(&unasked)["ask"], json!(false));
     assert_eq!(to_json(&unasked)["ask_settings"], Value::Null);
