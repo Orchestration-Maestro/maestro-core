@@ -164,33 +164,36 @@ async fn execute_routes<P: ModelPort>(
         None => Ok(admitted.structured_request.as_ref()),
     };
     let configuration = admitted.configuration;
+    // Boxed: an async function keeps a future it takes by value beside the
+    // copy it polls, so each wrapper below would double the routes' futures,
+    // and a debug build copies them through its poll frames on the stack.
     let (dense, lexical, identifier, structured) = join_route_futures(
         traced_route(
             span::route_dense(),
-            dense_outcome(
+            Box::pin(dense_outcome(
                 configuration.dense_enabled,
                 &query,
                 context.embedder.as_ref(),
                 &admitted.cutoffs,
-            ),
+            )),
         ),
         traced_route(
             span::route_lexical(),
-            lexical_outcome(
+            Box::pin(lexical_outcome(
                 configuration.lexical_enabled,
                 &query,
                 admitted.cutoffs.routes,
-            ),
+            )),
         ),
         traced_route(
             span::route_identifier(),
-            search_identifiers_enabled(
+            Box::pin(search_identifiers_enabled(
                 configuration.identifier_enabled,
                 &query,
                 context.database.clone(),
                 &admitted.understood,
                 admitted.cutoffs.routes,
-            ),
+            )),
         ),
         traced_structured(
             admitted.understood.kind == QueryKind::Global,

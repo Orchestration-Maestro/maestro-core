@@ -5,6 +5,8 @@ pub(crate) mod ask;
 mod implementation;
 mod search;
 #[cfg(test)]
+mod stack_tests;
+#[cfg(test)]
 pub(crate) mod tests;
 
 #[cfg(test)]

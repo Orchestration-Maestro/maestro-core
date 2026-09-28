@@ -177,6 +177,7 @@ in place.
 │   │   │   │   │   ├── implementation.rs                                    # Scoped application operations shared by CLI and MCP
 │   │   │   │   │   ├── mod.rs                                               # Source-scoped kernel operations for the CLI and MCP read surfaces
 │   │   │   │   │   ├── search.rs                                            # Scoped search followed by the approved evidence assembly handoff
+│   │   │   │   │   ├── stack_tests.rs                                       # Search fits half the stack of a Windows main thread
 │   │   │   │   │   └── tests.rs                                             # Rust source: tests
 │   │   │   │   ├── output/                                                  # Shared response bounds and semantic search truncation for CLI and MCP
 │   │   │   │   │   ├── mod.rs                                               # Shared response bounds and semantic search truncation for CLI and MCP
