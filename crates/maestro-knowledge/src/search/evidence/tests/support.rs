@@ -6,7 +6,7 @@ use crate::{
         tests::scratch::{COLLECTION, Scratch, decide_all, router_tokenizer},
     },
     query::understand,
-    search::{Candidate, EvidenceInput, Hit, Ranked, Route, RouteList, fuse},
+    search::{Candidate, EvidenceInput, Hit, Ranked, Route, RouteList, SearchObservations, fuse},
 };
 use maestro_kernel::{
     document::Outcome,
@@ -103,6 +103,7 @@ pub(super) fn evidence_input(fixture: &Fixture, query: &str) -> EvidenceInput {
         principal: "tester".to_owned(),
         scopes: Arc::new(fixture.scopes.clone()),
         ranked,
+        observations: SearchObservations::default(),
         routes: BTreeMap::from([
             ("lexical".to_owned(), RouteStatus::Ok),
             ("rerank".to_owned(), RouteStatus::Ok),

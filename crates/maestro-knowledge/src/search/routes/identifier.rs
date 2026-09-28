@@ -5,7 +5,7 @@ use crate::{
     index::QdrantError,
     query::{PROFILE, Understood},
     search::{
-        deadline::{self, DEADLINE_EXCEEDED},
+        deadline::{self, DEADLINE_EXCEEDED, DISABLED_BY_CONFIGURATION},
         filter::query_filter,
         query::Query,
     },
@@ -38,6 +38,20 @@ pub async fn search_identifiers(
     understood: &Understood,
     deadline: Instant,
 ) -> RouteOutcome {
+    search_identifiers_enabled(true, query, database, understood, deadline).await
+}
+
+/// Executes identifier search only when enabled by the request configuration.
+pub(in crate::search) async fn search_identifiers_enabled(
+    enabled: bool,
+    query: &Query<'_>,
+    database: Arc<Database>,
+    understood: &Understood,
+    deadline: Instant,
+) -> RouteOutcome {
+    if !enabled {
+        return unavailable(Vec::new(), DISABLED_BY_CONFIGURATION);
+    }
     let identifiers = unique_identifiers(understood);
     if identifiers.is_empty() || query.limit == 0 || query.scopes.is_empty() {
         return ok(Vec::new());

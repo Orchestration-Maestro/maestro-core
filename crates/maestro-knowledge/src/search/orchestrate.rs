@@ -3,17 +3,17 @@
 use super::{
     admission::{AdmittedSearch, admit_request, ensure_permissions},
     candidates::{self, Failure as CandidateFailure},
-    deadline::DEADLINE_EXCEEDED,
-    fusion::{Fused, Route, RouteList, fuse},
+    deadline::{DEADLINE_EXCEEDED, DISABLED_BY_CONFIGURATION},
+    fusion::{Fused, Route, RouteList},
     query::Query,
-    request::{EvidenceInput, SearchContext, SearchError, SearchRequest},
+    request::{EvidenceInput, SearchContext, SearchError, SearchObservations, SearchRequest},
     rerank::{Candidate, Ranked, Reranker, rerank},
     route_execution::{
         add_named_route, add_route, dense_outcome, join_route_futures, lexical_outcome, route_list,
         structured_outcome,
     },
     routes::{
-        identifier::search_identifiers,
+        identifier::search_identifiers_enabled,
         outcome::{RouteOutcome, StructuredOutcome},
     },
 };
@@ -112,19 +112,32 @@ struct RouteResults {
     inventory: Option<Inventory>,
     /// Every degradation known before evidence expansion.
     known_gaps: Vec<String>,
+    /// Scoped candidate ranks observed before fusion.
+    observations: SearchObservations,
 }
 
 /// Runs the structured `route` as its stage, which records its hits and
 /// outcome, when the question is `global`; else neither runs.
 async fn traced_structured(
     global: bool,
+    enabled: bool,
     route: impl Future<Output = StructuredOutcome>,
 ) -> Option<StructuredOutcome> {
     if !global {
         return None;
     }
     let stage = span::route_structured();
-    let outcome = stage.instrument(route).await;
+    let outcome = if enabled {
+        stage.instrument(route).await
+    } else {
+        StructuredOutcome {
+            route: RouteOutcome {
+                hits: Vec::new(),
+                status: RouteStatus::Unavailable(DISABLED_BY_CONFIGURATION.to_owned()),
+            },
+            inventory: None,
+        }
+    };
     stage.count(Count::Candidates, outcome.route.hits.len());
     stage.finish(route_outcome(&outcome.route.status));
     Some(outcome)
@@ -147,18 +160,29 @@ async fn execute_routes<P: ModelPort>(
         Some(error) => Err(error),
         None => Ok(admitted.structured_request.as_ref()),
     };
+    let configuration = admitted.configuration;
     let (dense, lexical, identifier, structured) = join_route_futures(
         traced_route(
             span::route_dense(),
-            dense_outcome(&query, context.embedder.as_ref(), admitted.cutoffs.routes),
+            dense_outcome(
+                configuration.dense_enabled,
+                &query,
+                context.embedder.as_ref(),
+                admitted.cutoffs.routes,
+            ),
         ),
         traced_route(
             span::route_lexical(),
-            lexical_outcome(&query, admitted.cutoffs.routes),
+            lexical_outcome(
+                configuration.lexical_enabled,
+                &query,
+                admitted.cutoffs.routes,
+            ),
         ),
         traced_route(
             span::route_identifier(),
-            search_identifiers(
+            search_identifiers_enabled(
+                configuration.identifier_enabled,
                 &query,
                 context.database.clone(),
                 &admitted.understood,
@@ -167,6 +191,7 @@ async fn execute_routes<P: ModelPort>(
         ),
         traced_structured(
             admitted.understood.kind == QueryKind::Global,
+            configuration.structured_enabled,
             structured_outcome(
                 &query,
                 context.database.clone(),
@@ -184,7 +209,8 @@ async fn execute_routes<P: ModelPort>(
     if let Some(structured) = &structured {
         lists.push(route_list(Route::Structured, &structured.route));
     }
-    let fused = traced_fuse(&lists);
+    let observations = route_observations(&dense, &lexical, &identifier, structured.as_ref());
+    let fused = traced_fuse(&lists, configuration);
     let expected_revisions = revisions_for_fused(
         &fused,
         [&dense, &lexical, &identifier]
@@ -199,44 +225,96 @@ async fn execute_routes<P: ModelPort>(
             "requested version {version:?} has no documents in the pinned generation"
         ));
     }
-    let mut routes = BTreeMap::new();
-    add_route(&mut routes, &mut known_gaps, Route::Dense, &dense.status);
-    add_route(
-        &mut routes,
-        &mut known_gaps,
-        Route::Lexical,
-        &lexical.status,
+    let (routes, known_gaps, inventory) = route_metadata(
+        &dense,
+        &lexical,
+        &identifier,
+        structured.as_ref(),
+        known_gaps,
     );
-    add_route(
-        &mut routes,
-        &mut known_gaps,
-        Route::Identifier,
-        &identifier.status,
-    );
-    let inventory = structured
-        .as_ref()
-        .and_then(|outcome| outcome.inventory.clone());
-    if let Some(structured) = &structured {
-        add_route(
-            &mut routes,
-            &mut known_gaps,
-            Route::Structured,
-            &structured.route.status,
-        );
-    }
     RouteResults {
         fused,
         expected_revisions,
         routes,
         inventory,
         known_gaps,
+        observations,
     }
 }
 
+/// Captures route candidate order before fusion without inventing ranks from the output.
+fn route_metadata(
+    dense: &RouteOutcome,
+    lexical: &RouteOutcome,
+    identifier: &RouteOutcome,
+    structured: Option<&StructuredOutcome>,
+    mut known_gaps: Vec<String>,
+) -> (
+    BTreeMap<String, RouteStatus>,
+    Vec<String>,
+    Option<Inventory>,
+) {
+    let mut routes = BTreeMap::new();
+    for (route, outcome) in [
+        (Route::Dense, dense),
+        (Route::Lexical, lexical),
+        (Route::Identifier, identifier),
+    ] {
+        add_route(&mut routes, &mut known_gaps, route, &outcome.status);
+    }
+    let inventory = structured.and_then(|outcome| outcome.inventory.clone());
+    if let Some(outcome) = structured {
+        add_route(
+            &mut routes,
+            &mut known_gaps,
+            Route::Structured,
+            &outcome.route.status,
+        );
+    }
+    (routes, known_gaps, inventory)
+}
+
+/// Captures each route's candidate order before fusion.
+fn route_observations(
+    dense: &RouteOutcome,
+    lexical: &RouteOutcome,
+    identifier: &RouteOutcome,
+    structured: Option<&StructuredOutcome>,
+) -> SearchObservations {
+    let mut route_ranks = BTreeMap::from([
+        (Route::Dense, observed_chunk_ids(dense)),
+        (Route::Lexical, observed_chunk_ids(lexical)),
+        (Route::Identifier, observed_chunk_ids(identifier)),
+    ]);
+    if let Some(structured) = structured {
+        route_ranks.insert(Route::Structured, observed_chunk_ids(&structured.route));
+    }
+    SearchObservations {
+        route_ranks,
+        ..SearchObservations::default()
+    }
+}
+
+/// Retains candidate identities in their route-provided rank order.
+fn observed_chunk_ids(outcome: &RouteOutcome) -> Vec<String> {
+    outcome
+        .hits
+        .iter()
+        .map(|hit| hit.chunk_id.clone())
+        .collect()
+}
+
 /// Fuses the routes' `lists` into one pool, as the fusion stage.
-fn traced_fuse(lists: &[RouteList]) -> Vec<Fused> {
+fn traced_fuse(
+    lists: &[RouteList],
+    configuration: super::request::SearchConfiguration,
+) -> Vec<Fused> {
     let stage = span::fuse();
-    let fused = stage.in_scope(|| fuse(lists, FUSION_POOL));
+    let fused = stage.in_scope(|| {
+        super::fusion::fuse_weighted(lists, FUSION_POOL, configuration.rrf_k, |route| {
+            configuration.weight(route)
+        })
+    });
     stage.count(Count::Candidates, fused.len());
     stage.finish(Outcome::Ok);
     fused
@@ -307,12 +385,19 @@ async fn finish_search<P: ModelPort>(
             &admitted.understood,
             candidates,
             context.reranker.as_ref(),
-            request.rerank_depth,
+            request
+                .configuration
+                .rerank_enabled
+                .then_some(request.configuration.rerank_depth),
             admitted.cutoffs.work,
         ))
         .await;
     stage.count(Count::Candidates, ranked.len());
     stage.finish(route_outcome(&rerank_status));
+    routes.observations.reranked_chunk_ids = ranked
+        .iter()
+        .map(|candidate| candidate.candidate.fused.chunk_id.clone())
+        .collect();
     add_named_route(
         &mut routes.routes,
         &mut routes.known_gaps,
@@ -349,6 +434,7 @@ fn evidence_input(
         budget: request.budget,
         deadline: admitted.cutoffs.expires,
         known_gaps: routes.known_gaps,
+        observations: routes.observations,
     }
 }
 
@@ -380,7 +466,7 @@ pub(super) async fn rerank_candidates<P: ModelPort>(
     understood: &Understood,
     candidates: Vec<Candidate>,
     reranker: Option<&Reranker<'_, P>>,
-    depth: NonZeroUsize,
+    depth: Option<NonZeroUsize>,
     deadline: Instant,
 ) -> (Vec<Ranked>, RouteStatus) {
     if candidates.is_empty() {
@@ -389,6 +475,12 @@ pub(super) async fn rerank_candidates<P: ModelPort>(
             RouteStatus::Unavailable("no fused candidates".to_owned()),
         );
     }
+    let Some(depth) = depth else {
+        return (
+            fused_order(candidates),
+            RouteStatus::Unavailable(DISABLED_BY_CONFIGURATION.to_owned()),
+        );
+    };
     let Some(reranker) = reranker else {
         return (
             fused_order(candidates),

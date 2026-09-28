@@ -8,7 +8,7 @@ use crate::{
     index::{Qdrant, QdrantError},
     query::understand,
     search::{
-        SearchContext, SearchError,
+        DISABLED_BY_CONFIGURATION, SearchContext, SearchError,
         candidates::{self, Failure as CandidateFailure, check_control, classify_read},
         orchestrate::rerank_candidates,
         rerank::Reranker,
@@ -57,7 +57,7 @@ async fn rerank_handoff_passes_eighty_of_one_hundred_twenty_candidates() {
             port: &port,
             card: &card,
         }),
-        NonZeroUsize::new(80).unwrap(),
+        Some(NonZeroUsize::new(80).unwrap()),
         Instant::now() + Duration::from_secs(2),
     )
     .await;
@@ -77,6 +77,30 @@ async fn rerank_handoff_passes_eighty_of_one_hundred_twenty_candidates() {
     );
 }
 
+#[tokio::test]
+async fn disabled_reranking_keeps_fused_order_without_calling_the_model() {
+    let port = FakePort::scores(vec![1.0]);
+    let card = card(Role::Reranker, 128);
+    let (ranked, status) = rerank_candidates(
+        &understand("query"),
+        vec![candidate("candidate", 1.0, "prepared text")],
+        Some(&Reranker {
+            port: &port,
+            card: &card,
+        }),
+        None,
+        Instant::now() + Duration::from_secs(2),
+    )
+    .await;
+    assert_eq!(ranked.len(), 1);
+    assert_eq!(ranked[0].score, None);
+    assert_eq!(
+        status,
+        RouteStatus::Unavailable(DISABLED_BY_CONFIGURATION.to_owned())
+    );
+    assert!(port.calls.lock().unwrap().is_empty());
+}
+
 #[tokio::test(start_paused = true)]
 async fn rerank_handoff_uses_only_the_remaining_request_time() {
     let port = FakePort::delayed_scores(vec![1.0], Duration::from_millis(20));
@@ -89,7 +113,7 @@ async fn rerank_handoff_uses_only_the_remaining_request_time() {
             port: &port,
             card: &card,
         }),
-        NonZeroUsize::new(1).unwrap(),
+        Some(NonZeroUsize::new(1).unwrap()),
         deadline,
     )
     .await;

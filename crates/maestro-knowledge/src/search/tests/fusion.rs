@@ -1,4 +1,4 @@
-use crate::search::{Fused, Hit, Route, RouteList, fuse};
+use crate::search::{Fused, Hit, Route, RouteList, fuse, fusion::fuse_weighted};
 use std::collections::BTreeMap;
 use std::num::NonZeroU32;
 
@@ -34,6 +34,20 @@ fn assert_fused(actual: &Fused, chunk_id: &str, score: f64, expected_ranks: &[(R
     assert_eq!(actual.chunk_id, chunk_id);
     assert_score(actual.score, score);
     assert_eq!(actual.ranks, ranks(expected_ranks));
+}
+
+#[test]
+fn configured_weights_and_rrf_k_control_fusion_order() {
+    let lists = [
+        list(Route::Dense, &["dense-first", "dense-second"]),
+        list(Route::Lexical, &["lexical-first"]),
+    ];
+    let fused = fuse_weighted(&lists, 10, NonZeroU32::new(1).unwrap(), |route| {
+        if route == Route::Dense { 10.0 } else { 1.0 }
+    });
+    assert_eq!(fused[0].chunk_id, "dense-first");
+    assert_eq!(fused[1].chunk_id, "dense-second");
+    assert_eq!(fused[2].chunk_id, "lexical-first");
 }
 
 #[test]

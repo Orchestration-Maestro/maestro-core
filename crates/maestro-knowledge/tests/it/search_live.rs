@@ -29,7 +29,7 @@ use maestro_kernel::{
 use maestro_knowledge::{
     index::Qdrant,
     search::{
-        EvidenceInput, Ranked, Reranker, SearchContext, SearchRequest, pin,
+        EvidenceInput, Ranked, Reranker, SearchConfiguration, SearchContext, SearchRequest, pin,
         routes::dense::Embedder, search,
     },
 };
@@ -253,7 +253,10 @@ async fn questions_run_against_the_published_generation() {
             text: &question.question,
             version: None,
             budget: RequestBudget::default(),
-            rerank_depth: NonZeroUsize::new(50).unwrap(),
+            configuration: SearchConfiguration {
+                rerank_depth: NonZeroUsize::new(50).unwrap(),
+                ..SearchConfiguration::default()
+            },
         };
         let started = Instant::now();
         let evidence = Box::pin(search(&context, &request)).await.unwrap();

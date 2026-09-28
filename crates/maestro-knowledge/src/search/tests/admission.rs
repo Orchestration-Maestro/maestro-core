@@ -2,7 +2,7 @@
 
 use crate::search::{
     admission::{ensure_permissions, validate},
-    request::{SearchError, SearchRequest},
+    request::{SearchConfiguration, SearchError, SearchRequest},
     rerank::DEFAULT_DEPTH,
 };
 use maestro_kernel::{evidence::RequestBudget, store::Database};
@@ -28,14 +28,17 @@ fn request<'a>(
         text,
         version,
         budget,
-        rerank_depth: NonZeroUsize::new(depth).unwrap(),
+        configuration: SearchConfiguration {
+            rerank_depth: NonZeroUsize::new(depth).unwrap(),
+            ..SearchConfiguration::default()
+        },
     }
 }
 
 #[test]
 fn search_request_constructor_uses_the_measured_default_depth() {
     let request = SearchRequest::new("docs", "question", None, RequestBudget::default());
-    assert_eq!(request.rerank_depth, DEFAULT_DEPTH);
+    assert_eq!(request.configuration.rerank_depth, DEFAULT_DEPTH);
 }
 
 fn rejected(request: &SearchRequest<'_>, expected: &str) {

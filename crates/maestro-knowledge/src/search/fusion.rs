@@ -3,9 +3,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::num::NonZeroU32;
 
-/// The reciprocal-rank-fusion constant in the denominator.
-const RRF_K: f64 = 60.0;
-
 /// A retrieval route contributing ranked chunks to fusion.
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum Route {
@@ -73,6 +70,24 @@ pub struct Fused {
 /// represented by the rank type.
 #[must_use]
 pub fn fuse(lists: &[RouteList], limit: usize) -> Vec<Fused> {
+    #[expect(clippy::expect_used, reason = "60 is a fixed nonzero default")]
+    let rrf_constant = NonZeroU32::new(60).expect("default RRF K is nonzero");
+    fuse_weighted(lists, limit, rrf_constant, |_| 1.0)
+}
+
+/// Fuses route rankings with configured reciprocal-rank weights and K.
+///
+/// # Panics
+///
+/// Panics if a route has more than `u32::MAX` unique chunks, which cannot be
+/// represented by the rank type.
+#[must_use]
+pub fn fuse_weighted(
+    lists: &[RouteList],
+    limit: usize,
+    rrf_constant: NonZeroU32,
+    weight: impl Fn(Route) -> f64,
+) -> Vec<Fused> {
     debug_assert!(
         lists
             .iter()
@@ -111,8 +126,10 @@ pub fn fuse(lists: &[RouteList], limit: usize) -> Vec<Fused> {
         .into_iter()
         .map(|(chunk_id, ranks)| {
             let score = ranks
-                .values()
-                .map(|rank| 1.0 / (RRF_K + f64::from(rank.get())))
+                .iter()
+                .map(|(route, rank)| {
+                    weight(*route) / (f64::from(rrf_constant.get()) + f64::from(rank.get()))
+                })
                 .sum();
             Fused {
                 chunk_id,

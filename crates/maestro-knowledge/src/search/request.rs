@@ -1,18 +1,24 @@
 //! Bounded search requests and retrieval handoffs for T032.
 
 use super::{
+    fusion::Route,
     rerank::{DEFAULT_DEPTH, Ranked, Reranker},
     routes::{dense::Embedder, error::RouteError},
 };
 use crate::{index::Qdrant, query::Understood};
 use maestro_kernel::{
-    evidence::{Inventory, RequestBudget, RouteStatus},
+    evidence::{Bundle, Inventory, RequestBudget, RouteStatus},
     generation::Generation,
     retrieval,
     scope::ScopeSet,
     store::Database,
 };
-use std::{collections::BTreeMap, error, fmt, num::NonZeroUsize, sync::Arc};
+use std::{
+    collections::BTreeMap,
+    error, fmt,
+    num::{NonZeroU32, NonZeroUsize},
+    sync::Arc,
+};
 use tokio::time::Instant;
 
 /// A bounded search request, before resolving caller permissions.
@@ -26,8 +32,113 @@ pub struct SearchRequest<'a> {
     pub version: Option<&'a str>,
     /// Accepted passage, token and deadline bounds.
     pub budget: RequestBudget,
-    /// The number of fused candidates passed to T031, at most 120.
+    /// Search route, fusion and rerank settings; defaults preserve the current pipeline.
+    pub configuration: SearchConfiguration,
+}
+
+/// Bounded knobs for one search execution.
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[expect(
+    clippy::struct_excessive_bools,
+    reason = "each route and rerank stage has an independent enable switch"
+)]
+pub struct SearchConfiguration {
+    /// Whether dense retrieval runs.
+    pub dense_enabled: bool,
+    /// Whether lexical retrieval runs.
+    pub lexical_enabled: bool,
+    /// Whether identifier retrieval runs.
+    pub identifier_enabled: bool,
+    /// Whether structured retrieval may run for Global questions.
+    pub structured_enabled: bool,
+    /// RRF denominator constant.
+    pub rrf_k: NonZeroU32,
+    /// Dense route's RRF contribution multiplier.
+    pub dense_weight: f64,
+    /// Lexical route's RRF contribution multiplier.
+    pub lexical_weight: f64,
+    /// Identifier route's RRF contribution multiplier.
+    pub identifier_weight: f64,
+    /// Structured route's RRF contribution multiplier.
+    pub structured_weight: f64,
+    /// Whether to call the reranker.
+    pub rerank_enabled: bool,
+    /// Fused candidates passed to reranking, capped at 120.
     pub rerank_depth: NonZeroUsize,
+}
+
+impl Default for SearchConfiguration {
+    fn default() -> Self {
+        #[expect(clippy::expect_used, reason = "60 is the fixed nonzero default")]
+        let rrf_k = NonZeroU32::new(60).expect("default RRF K is nonzero");
+        Self {
+            dense_enabled: true,
+            lexical_enabled: true,
+            identifier_enabled: true,
+            structured_enabled: true,
+            rrf_k,
+            dense_weight: 1.0,
+            lexical_weight: 1.0,
+            identifier_weight: 1.0,
+            structured_weight: 1.0,
+            rerank_enabled: true,
+            rerank_depth: DEFAULT_DEPTH,
+        }
+    }
+}
+
+impl SearchConfiguration {
+    /// Returns the configured RRF multiplier for `route`.
+    #[must_use]
+    pub const fn weight(self, route: Route) -> f64 {
+        match route {
+            Route::Dense => self.dense_weight,
+            Route::Lexical => self.lexical_weight,
+            Route::Identifier => self.identifier_weight,
+            Route::Structured => self.structured_weight,
+        }
+    }
+
+    /// Whether the configured fusion weights are finite and nonnegative.
+    #[must_use]
+    pub fn weights_are_valid(self) -> bool {
+        [
+            self.dense_weight,
+            self.lexical_weight,
+            self.identifier_weight,
+            self.structured_weight,
+        ]
+        .into_iter()
+        .all(|weight| weight.is_finite() && weight >= 0.0)
+    }
+}
+
+/// Rank snapshots retained for evaluation without reconstructing stages from the final bundle.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct SearchObservations {
+    /// One-based scoped ranks for each route before fusion, including empty failed routes.
+    pub route_ranks: BTreeMap<Route, Vec<String>>,
+    /// Chunk IDs ordered after reranking or fused-order fallback.
+    pub reranked_chunk_ids: Vec<String>,
+    /// Chunk IDs grouped by final passage slot, with slots in reading order.
+    pub assembled_passages: Vec<Vec<String>>,
+}
+
+impl SearchObservations {
+    /// Records chunk identities grouped by each final passage slot in reading order.
+    pub fn observe_assembly(&mut self, bundle: &Bundle) {
+        self.assembled_passages = bundle
+            .passages
+            .iter()
+            .map(|passage| {
+                bundle
+                    .trace
+                    .iter()
+                    .find(|trace| trace.n == passage.n)
+                    .map_or_else(Vec::new, |trace| trace.chunk_ids.clone())
+            })
+            .collect();
+    }
 }
 
 impl<'a> SearchRequest<'a> {
@@ -44,7 +155,7 @@ impl<'a> SearchRequest<'a> {
             text,
             version,
             budget,
-            rerank_depth: DEFAULT_DEPTH,
+            configuration: SearchConfiguration::default(),
         }
     }
 }
@@ -156,6 +267,8 @@ pub struct EvidenceInput {
     pub scopes: Arc<ScopeSet>,
     /// The final reranked candidates, with fusion data preserved.
     pub ranked: Vec<Ranked>,
+    /// Per-stage scoped ranks retained for evaluation.
+    pub observations: SearchObservations,
     /// The status of each route that participated in the search.
     pub routes: BTreeMap<String, RouteStatus>,
     /// The complete exact inventory, if structured routing succeeded.

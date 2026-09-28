@@ -16,6 +16,8 @@ use tokio::{
 
 /// The reason code of a route or the rerank that ran out of time.
 pub(super) const DEADLINE_EXCEEDED: &str = "deadline_exceeded";
+/// The stable route status reason when disabled by the search configuration.
+pub const DISABLED_BY_CONFIGURATION: &str = "disabled by search configuration";
 
 /// The largest window allowed for independent retrieval routes.
 const MAX_ROUTE_WINDOW: Duration = Duration::from_millis(300);

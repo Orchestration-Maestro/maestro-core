@@ -1,6 +1,6 @@
 //! Request bounds, scope snapshots and generation admission.
 
-use super::request::{SearchContext, SearchError, SearchRequest};
+use super::request::{SearchConfiguration, SearchContext, SearchError, SearchRequest};
 use super::{deadline, inventory_query::inventory_request, pin};
 use crate::query::{Understood, understand};
 use maestro_kernel::{
@@ -33,6 +33,8 @@ pub(super) struct AdmittedSearch {
     pub(super) scopes: Arc<ScopeSet>,
     /// Absolute route, work and T032 deadlines derived at request entry.
     pub(super) cutoffs: deadline::Deadlines,
+    /// Validated execution settings frozen before route access.
+    pub(super) configuration: SearchConfiguration,
 }
 
 /// Validates request bounds and pins its generation before route access.
@@ -66,6 +68,7 @@ pub(super) async fn admit_request<P: ModelPort>(
         principal: context.principal.to_owned(),
         scopes: Arc::new(admission_scopes),
         cutoffs,
+        configuration: request.configuration,
     })
 }
 
@@ -101,8 +104,11 @@ pub(super) fn validate(request: &SearchRequest<'_>) -> Result<Understood, Search
     if !(1..=10_000).contains(&request.budget.deadline_ms) {
         return Err(invalid("deadline_ms must be between 1 and 10000"));
     }
-    if request.rerank_depth.get() > 120 {
+    if request.configuration.rerank_depth.get() > 120 {
         return Err(invalid("rerank depth must be between 1 and 120"));
+    }
+    if !request.configuration.weights_are_valid() {
+        return Err(invalid("route weights must be finite and nonnegative"));
     }
     if request
         .version

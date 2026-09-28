@@ -2,6 +2,7 @@
 
 use super::{backends, kernel, models};
 
+mod configured_search;
 mod fused_search;
 mod fused_search_admission_pinning;
 mod identifier_route;

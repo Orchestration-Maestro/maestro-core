@@ -1,7 +1,7 @@
 //! Deadline-bounded leaf-route calls and their independent public statuses.
 
 use super::{
-    deadline::DEADLINE_EXCEEDED,
+    deadline::{DEADLINE_EXCEEDED, DISABLED_BY_CONFIGURATION},
     fusion::{Hit, Route, RouteList},
     query::Query,
     routes::lexical,
@@ -47,10 +47,14 @@ const UNSUPPORTED_INVENTORY: &str = concat!(
 
 /// Executes dense search with its independent route cutoff.
 pub(super) async fn dense_outcome<P: ModelPort>(
+    enabled: bool,
     query: &Query<'_>,
     embedder: Option<&Embedder<'_, P>>,
     deadline: Instant,
 ) -> RouteOutcome {
+    if !enabled {
+        return unavailable(DISABLED_BY_CONFIGURATION);
+    }
     let Some(embedder) = embedder else {
         return unavailable("no embedder card for the published generation's profile");
     };
@@ -68,7 +72,14 @@ pub(super) async fn dense_outcome<P: ModelPort>(
 }
 
 /// Executes lexical search with its independent route cutoff.
-pub(super) async fn lexical_outcome(query: &Query<'_>, deadline: Instant) -> RouteOutcome {
+pub(super) async fn lexical_outcome(
+    enabled: bool,
+    query: &Query<'_>,
+    deadline: Instant,
+) -> RouteOutcome {
+    if !enabled {
+        return unavailable(DISABLED_BY_CONFIGURATION);
+    }
     if Instant::now() >= deadline {
         return unavailable(DEADLINE_EXCEEDED);
     }

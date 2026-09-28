@@ -17,7 +17,7 @@ use maestro_kernel::{
 use maestro_knowledge::{
     index::Qdrant,
     search::{
-        EvidenceInput, Reranker, SearchContext, SearchError, SearchRequest,
+        EvidenceInput, Reranker, SearchConfiguration, SearchContext, SearchError, SearchRequest,
         evidence::{EvidenceCounter, assemble_evidence},
         routes::dense::Embedder,
         search,
@@ -284,7 +284,10 @@ async fn traced_search(
             deadline_ms: 10_000,
             ..RequestBudget::default()
         },
-        rerank_depth: RERANK_DEPTH,
+        configuration: SearchConfiguration {
+            rerank_depth: RERANK_DEPTH,
+            ..SearchConfiguration::default()
+        },
     };
     Box::pin(search(&context, &request)).await
 }

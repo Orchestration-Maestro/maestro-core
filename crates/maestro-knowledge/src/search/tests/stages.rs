@@ -9,18 +9,139 @@ use crate::{
     index::Qdrant,
     query::understand,
     search::{
-        Query, Reranker, SearchError,
+        DISABLED_BY_CONFIGURATION, Query, Reranker, Route, SearchError, SearchObservations,
         deadline::DEADLINE_EXCEEDED,
         orchestrate::{rerank_candidates, route_outcome, search_outcome},
         route_execution::{dense_outcome, lexical_outcome, structured_outcome},
-        routes::{dense::Embedder, error::RouteError, identifier::search_identifiers},
+        routes::{
+            dense::Embedder,
+            error::RouteError,
+            identifier::{search_identifiers, search_identifiers_enabled},
+        },
     },
 };
 use maestro_kernel::{
-    evidence::RouteStatus, gateway::Role, retrieval::InventoryRequest, telemetry::stage::Outcome,
+    artifact::Digest,
+    evidence::{Budget, Bundle, Passage, RouteStatus, Schema, Span, Trace},
+    gateway::Role,
+    retrieval::InventoryRequest,
+    telemetry::stage::Outcome,
 };
-use std::num::NonZeroUsize;
+use std::{collections::BTreeMap, num::NonZeroUsize};
 use tokio::time::Instant;
+
+#[tokio::test]
+async fn disabled_routes_short_circuit_and_enabled_failures_remain_unavailable() {
+    let fixture = CandidateDb::new(b"prepared text", "docs");
+    let qdrant = Qdrant::new("http://127.0.0.1:1").unwrap();
+    let query = Query {
+        generation: &fixture.generation,
+        scopes: &fixture.scopes,
+        text: "ERR-042",
+        limit: 10,
+        version: None,
+        qdrant: &qdrant,
+    };
+    let port = FakePort::scores(Vec::new());
+    let embedder_card = card(Role::Embedder, 128);
+    let embedder = Embedder {
+        port: &port,
+        card: &embedder_card,
+    };
+    let disabled_dense = dense_outcome(false, &query, Some(&embedder), Instant::now()).await;
+    assert!(port.calls.lock().unwrap().is_empty());
+    let disabled_lexical = lexical_outcome(false, &query, Instant::now()).await;
+    let disabled_identifier = search_identifiers_enabled(
+        false,
+        &query,
+        fixture.database.clone(),
+        &understand("ERR-042"),
+        Instant::now(),
+    )
+    .await;
+    for outcome in [disabled_dense, disabled_lexical, disabled_identifier] {
+        assert_eq!(
+            outcome.status,
+            RouteStatus::Unavailable(DISABLED_BY_CONFIGURATION.to_owned())
+        );
+    }
+
+    let failed = lexical_outcome(true, &query, Instant::now()).await;
+    assert_eq!(
+        failed.status,
+        RouteStatus::Unavailable(DEADLINE_EXCEEDED.to_owned())
+    );
+}
+
+#[test]
+fn observations_keep_route_ranks_and_accept_assembled_passage_order() {
+    let mut observations = SearchObservations {
+        route_ranks: BTreeMap::from([(Route::Dense, vec!["d1".to_owned(), "d2".to_owned()])]),
+        reranked_chunk_ids: vec!["d2".to_owned(), "d1".to_owned()],
+        ..SearchObservations::default()
+    };
+    let bundle = Bundle {
+        schema: Schema::V1,
+        collection: "docs".to_owned(),
+        generation: 1,
+        query: "query".to_owned(),
+        lang: "en".to_owned(),
+        routes: BTreeMap::new(),
+        passages: vec![passage(1), passage(2)],
+        conflicts: Vec::new(),
+        known_gaps: Vec::new(),
+        budget: Budget {
+            evidence_tokens: 0,
+            limit: 1,
+            counter: None,
+            estimated: false,
+        },
+        request_budget: None,
+        inventory: None,
+        trace: vec![trace(1, &["chunk-z", "chunk-a"]), trace(2, &["chunk-b"])],
+    };
+    observations.observe_assembly(&bundle);
+    assert_eq!(observations.route_ranks[&Route::Dense], ["d1", "d2"]);
+    assert_eq!(observations.reranked_chunk_ids, ["d2", "d1"]);
+    assert_eq!(
+        observations.assembled_passages,
+        [
+            vec!["chunk-z".to_owned(), "chunk-a".to_owned()],
+            vec!["chunk-b".to_owned()]
+        ]
+    );
+}
+
+fn passage(n: u32) -> Passage {
+    Passage {
+        n,
+        section_id: None,
+        document_id: "doc".to_owned(),
+        revision_id: "revision".to_owned(),
+        title: "title".to_owned(),
+        section_path: Vec::new(),
+        version: None,
+        source_ref: "source".to_owned(),
+        span: Span { start: 0, end: 0 },
+        digest: Digest::of(b""),
+        text: String::new(),
+        windowed: false,
+        alternates: Vec::new(),
+    }
+}
+
+fn trace(n: u32, chunk_ids: &[&str]) -> Trace {
+    Trace {
+        n,
+        score: None,
+        routes: Vec::new(),
+        chunk_ids: chunk_ids
+            .iter()
+            .map(|chunk_id| (*chunk_id).to_owned())
+            .collect(),
+        procedural: false,
+    }
+}
 
 #[test]
 fn a_route_that_ran_is_ok_and_one_that_ran_out_of_time_is_a_timeout() {
@@ -102,8 +223,8 @@ async fn each_route_and_the_rerank_report_a_passed_deadline_as_its_code() {
     let inventory = InventoryRequest::DocumentsBySet { set: None };
     let understood = understand("ERR-042");
 
-    let dense = dense_outcome(&query, Some(&embedder), passed).await;
-    let lexical = lexical_outcome(&query, passed).await;
+    let dense = dense_outcome(true, &query, Some(&embedder), passed).await;
+    let lexical = lexical_outcome(true, &query, passed).await;
     let identifier =
         search_identifiers(&query, fixture.database.clone(), &understood, passed).await;
     let structured = structured_outcome(
@@ -120,7 +241,7 @@ async fn each_route_and_the_rerank_report_a_passed_deadline_as_its_code() {
             port: &port,
             card: &reranker_card,
         }),
-        NonZeroUsize::MIN,
+        Some(NonZeroUsize::MIN),
         passed,
     )
     .await;
