@@ -86,9 +86,9 @@ fn delimiter(character: char) -> bool {
 impl Database {
     /// Finds scoped exact identifier matches in the ready pinned generation.
     ///
-    /// Identifiers matching more than 10% of the set's chunks are skipped
-    /// using the exact membership index. Scope and eligibility are applied
-    /// before the requested hit limit.
+    /// Identifiers matching more chunks than the requested hit limit are
+    /// skipped using the exact membership index. Counting stops one match
+    /// beyond that limit because the route cannot rank a larger set.
     ///
     /// # Errors
     ///
@@ -116,14 +116,6 @@ impl Database {
             .map_err(|error| classify(error, read.control))?;
         ready_projection(&transaction, read)?;
 
-        let chunk_count: i64 = transaction
-            .query_row(
-                "SELECT count(*) FROM chunks WHERE chunk_set_id = ?1",
-                [&read.generation.chunk_set_id],
-                |row| row.get(0),
-            )
-            .map_err(|error| classify(error, read.control))?;
-        let threshold = chunk_count / 10;
         let mut seen = HashSet::new();
         let requested_identifiers = identifiers
             .iter()
@@ -131,7 +123,7 @@ impl Database {
             .cloned()
             .collect::<Vec<_>>();
         let too_common =
-            too_common_identifiers(&transaction, read, &requested_identifiers, threshold)?;
+            too_common_identifiers(&transaction, read, &requested_identifiers, sqlite_limit)?;
         let active_identifiers = requested_identifiers
             .into_iter()
             .filter(|identifier| !too_common.contains(identifier))
@@ -154,12 +146,12 @@ impl Database {
     }
 }
 
-/// Counts each requested identifier only through the commonness threshold.
+/// Counts each requested identifier only through one beyond the fetch limit.
 fn too_common_identifiers(
     transaction: &Transaction<'_>,
     read: &SearchRead<'_>,
     identifiers: &[String],
-    threshold: i64,
+    fetch_limit: i64,
 ) -> Result<HashSet<String>, Error> {
     let encoded_identifiers = serde_json::to_string(identifiers)
         .map_err(|_| Error::InvalidInput("identifier values could not be encoded".to_owned()))?;
@@ -179,7 +171,7 @@ fn too_common_identifiers(
         .query(params![
             encoded_identifiers,
             read.generation.chunk_set_id,
-            threshold.saturating_add(1),
+            fetch_limit.saturating_add(1),
         ])
         .map_err(|error| classify(error, read.control))?;
     let mut common = HashSet::new();
@@ -187,7 +179,7 @@ fn too_common_identifiers(
         read.control.check()?;
         let identifier: String = row.get(0).map_err(|error| classify(error, read.control))?;
         let count: i64 = row.get(1).map_err(|error| classify(error, read.control))?;
-        if count > threshold {
+        if count > fetch_limit {
             common.insert(identifier);
         }
     }

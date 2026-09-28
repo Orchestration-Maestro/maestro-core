@@ -106,36 +106,41 @@ fn exact_index_lookup_is_case_sensitive_and_does_not_need_fts() {
 }
 
 #[test]
-fn common_identifiers_over_ten_percent_are_skipped() {
+fn identifiers_at_the_fetch_limit_are_kept() {
+    const LIMIT: usize = 20;
     let mut inputs = vec!["unrelated entry"; 100];
-    inputs[..11].fill("ctm appears in this prepared input");
+    inputs[..LIMIT].fill("ctm appears in this prepared input");
     let search = SearchDb::with_inputs(&inputs);
     search.ready();
-    let result = search_result(&search, &["ctm"]);
+
+    let result = search_result_limit(&search, &["ctm"], LIMIT);
+    assert_eq!(result.hits.len(), LIMIT);
+    assert!(!result.skipped_too_common);
+}
+
+#[test]
+fn identifiers_one_over_the_fetch_limit_are_skipped() {
+    const LIMIT: usize = 20;
+    let mut inputs = vec!["unrelated entry"; 100];
+    inputs[..=LIMIT].fill("ctm appears in this prepared input");
+    let search = SearchDb::with_inputs(&inputs);
+    search.ready();
+
+    let result = search_result_limit(&search, &["ctm"], LIMIT);
     assert!(result.hits.is_empty());
     assert!(result.skipped_too_common);
 }
 
 #[test]
-fn identifiers_at_ten_percent_are_not_skipped() {
+fn too_broad_identifiers_are_skipped_while_rare_matches_are_kept() {
+    const LIMIT: usize = 20;
     let mut inputs = vec!["unrelated entry"; 100];
-    inputs[..10].fill("ctm appears in this prepared input");
-    let search = SearchDb::with_inputs(&inputs);
-    search.ready();
-    let result = search_result(&search, &["ctm"]);
-    assert_eq!(result.hits.len(), 10);
-    assert!(!result.skipped_too_common);
-}
-
-#[test]
-fn too_common_terms_are_skipped_while_rare_terms_still_return_hits() {
-    let mut inputs = vec!["unrelated entry"; 100];
-    inputs[..11].fill("ctm appears in this prepared input");
-    inputs[50] = "rare appears in this prepared input";
+    inputs[..=LIMIT].fill("ctm appears in this prepared input");
+    inputs[50..53].fill("rare appears in this prepared input");
     let search = SearchDb::with_inputs(&inputs);
     search.ready();
 
-    let result = search_result(&search, &["ctm", "rare"]);
+    let result = search_result_limit(&search, &["ctm", "rare"], LIMIT);
     assert!(result.skipped_too_common);
     assert_eq!(
         result
@@ -143,7 +148,7 @@ fn too_common_terms_are_skipped_while_rare_terms_still_return_hits() {
             .iter()
             .map(|hit| hit.chunk_id.as_str())
             .collect::<Vec<_>>(),
-        ["chunk-50"]
+        ["chunk-50", "chunk-51", "chunk-52"]
     );
 }
 
@@ -183,15 +188,12 @@ fn identifier_hits_return_stable_chunk_id_order() {
 
 #[test]
 fn identifier_hits_stops_at_the_requested_unique_chunk_limit() {
-    let search = SearchDb::with_input_population(
-        &[
-            "Install the tool with --force.",
-            "Install the tool with --force again.",
-        ],
-        20,
-    );
+    let search = SearchDb::with_input_population(&["Use --alpha.", "Use --beta."], 20);
     search.ready();
-    assert_eq!(search_hits_limit(&search, &["--force"], 1).len(), 1);
+    assert_eq!(
+        search_hits_limit(&search, &["--alpha", "--beta"], 1).len(),
+        1
+    );
 }
 
 #[test]
@@ -257,10 +259,6 @@ fn search_hits(search: &SearchDb, identifiers: &[&str]) -> Vec<ChunkHit> {
 
 fn search_hits_limit(search: &SearchDb, identifiers: &[&str], limit: usize) -> Vec<ChunkHit> {
     search_result_limit(search, identifiers, limit).hits
-}
-
-fn search_result(search: &SearchDb, identifiers: &[&str]) -> IdentifierSearchResult {
-    search_result_limit(search, identifiers, 20)
 }
 
 fn search_result_limit(

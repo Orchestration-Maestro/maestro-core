@@ -230,7 +230,7 @@ fn payload_hit(point: &RetrievedPoint) -> Result<ScoredChunk, QdrantError> {
 struct KernelOutcome {
     /// Ranked chunks returned by the kernel identifier leg.
     hits: Vec<ScoredChunk>,
-    /// Whether the kernel skipped an identifier above the frequency threshold.
+    /// Whether the kernel skipped an identifier above the route's fetch limit.
     skipped_too_common: bool,
 }
 

@@ -80,7 +80,7 @@ pub struct ChunkHit {
 pub struct IdentifierSearchResult {
     /// Scoped, exact matches in stable search order.
     pub hits: Vec<ChunkHit>,
-    /// Whether one or more exact identifiers matched over 10% of the chunk set.
+    /// Whether one or more exact identifiers matched more chunks than the hit limit.
     pub skipped_too_common: bool,
 }
 

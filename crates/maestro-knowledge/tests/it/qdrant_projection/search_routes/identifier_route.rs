@@ -389,12 +389,9 @@ async fn payload_filter_conjoins_scope_identifier_profile_and_version() {
 }
 
 #[tokio::test]
-async fn too_common_kernel_identifier_is_reported_without_kernel_hits() {
+async fn identifier_over_route_fetch_limit_is_reported_without_kernel_hits() {
     let backend = fake();
-    let kernel = Kernel::with_changed_guides(10, &|kernel, guide, mut chunks| {
-        if guide != 0 {
-            return chunks;
-        }
+    let kernel = Kernel::with_changed_guides(21, &|kernel, _guide, mut chunks| {
         for chunk in &mut chunks {
             chunk.digest = kernel.put(b"Install the tool with --force.");
         }
