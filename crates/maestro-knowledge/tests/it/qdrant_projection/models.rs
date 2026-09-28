@@ -1,6 +1,7 @@
 //! The embedder the tests publish through: the deterministic fake models of
 //! the gateway, behind a port that records each embedding call and can
-//! spoil the vectors of one call, or refuse it, as a real embedder might.
+//! spoil the vectors of one call, or refuse it, as a real embedder might,
+//! and whose reranker can be slow to load or to score.
 
 use maestro_kernel::{
     artifact::{Digest, Store},
@@ -13,7 +14,7 @@ use maestro_kernel::{
 use serde_json::Value;
 use std::{
     collections::BTreeMap,
-    env, fs,
+    env, fs, future,
     num::{NonZeroU32, NonZeroUsize},
     process,
     sync::{
@@ -119,6 +120,16 @@ struct Script {
     rerank_calls: usize,
 }
 
+/// How a reranker's model is slow.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum SlowReranker {
+    /// It never finishes loading, as one the router unloaded may not within
+    /// a search: neither its setup nor a call returns.
+    Loading,
+    /// It loads at once, then never scores.
+    Hanging,
+}
+
 /// The fake models, with each embedding call recorded, and a fault for the
 /// calls told.
 #[derive(Debug, Clone, Default)]
@@ -127,6 +138,8 @@ pub(super) struct Embedder {
     script: Arc<Mutex<Script>>,
     /// A gate that can pause a retrieval embedding call.
     gate: Option<Arc<Gate>>,
+    /// How its reranker is slow, when it is.
+    slow_reranker: Option<SlowReranker>,
 }
 
 #[derive(Debug, Default)]
@@ -157,9 +170,28 @@ impl Embedder {
             Self {
                 script: Arc::new(Mutex::new(Script::default())),
                 gate: Some(gate.clone()),
+                slow_reranker: None,
             },
             EmbedGate(gate),
         )
+    }
+
+    /// Creates a port whose reranker is `slow`.
+    pub(super) fn with_slow_reranker(slow: SlowReranker) -> Self {
+        Self {
+            slow_reranker: Some(slow),
+            ..Self::default()
+        }
+    }
+
+    /// Readies a slow reranker's model, and scores with it when `scoring`:
+    /// never returns when the model never loads, or never scores.
+    async fn wait_for_reranker(&self, scoring: bool) {
+        if self.slow_reranker == Some(SlowReranker::Loading)
+            || (scoring && self.slow_reranker == Some(SlowReranker::Hanging))
+        {
+            future::pending::<()>().await;
+        }
     }
 
     /// The number of rerank calls made so far.
@@ -185,6 +217,13 @@ impl Embedder {
 }
 
 impl ModelPort for Embedder {
+    async fn prepare(&self, card: &ModelCard, _room: Room) -> Result<(), Error> {
+        if card.fields().role == Role::Reranker {
+            self.wait_for_reranker(false).await;
+        }
+        Ok(())
+    }
+
     async fn embed(
         &self,
         card: &ModelCard,
@@ -227,6 +266,7 @@ impl ModelPort for Embedder {
         documents: &[String],
     ) -> Result<Vec<f64>, Error> {
         self.script.lock().unwrap().rerank_calls += 1;
+        self.wait_for_reranker(true).await;
         FakeModels.rerank(card, room, query, documents).await
     }
 

@@ -84,7 +84,7 @@ fn assert_search_tool(search: &Value) {
     );
     assert_eq!(
         search["inputSchema"]["properties"]["deadline_ms"]["default"],
-        1500
+        10_000
     );
     assert_eq!(search["outputSchema"]["type"], "object");
     assert!(

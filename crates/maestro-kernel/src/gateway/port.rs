@@ -15,10 +15,10 @@ use std::{collections::BTreeMap, error, fmt, future::Future, num::NonZeroUsize};
 /// reranker's and a chat an answerer's, while any card tokenizes. Each call
 /// also names the [`Room`] its model may be loaded into.
 pub trait ModelPort {
-    /// Readies the card's model before its first call, in `room`: a router
-    /// checks the card and loads its model here, so that a caller can bound
-    /// this one-time setup apart from the call. A port with no setup has
-    /// nothing to do.
+    /// Readies the card's model before a call, in `room`: a router checks
+    /// the card and loads its model here, also after unloading it while
+    /// idle, so that a caller can bound this setup apart from the call. A
+    /// port with no setup has nothing to do.
     fn prepare(
         &self,
         card: &ModelCard,

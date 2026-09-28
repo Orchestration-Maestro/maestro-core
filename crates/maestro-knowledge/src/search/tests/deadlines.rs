@@ -38,11 +38,12 @@ fn budgets_derive_the_capped_route_window_and_t032_reserve() {
     assert_eq!(long.expires, started + Duration::from_secs(10));
     assert_eq!(long.routes, started + Duration::from_millis(300));
     assert_eq!(long.work, started + Duration::from_millis(9_950));
-    assert_eq!(long.setup, started + Duration::from_millis(9_350));
+    // Evidence assembly keeps a fifth of a long budget: 2 s of 10 s.
+    assert_eq!(long.setup, started + Duration::from_millis(7_950));
 }
 
 #[test]
-fn a_route_window_starts_when_its_setup_ends_and_never_passes_the_deadline() {
+fn a_route_window_starts_when_its_setup_ends_and_never_passes_the_setup_bound() {
     let started = Instant::now();
     let cutoffs = super::super::deadline::from_budget(
         started,
@@ -53,12 +54,14 @@ fn a_route_window_starts_when_its_setup_ends_and_never_passes_the_deadline() {
     );
     assert_eq!(cutoffs.setup, started + Duration::from_millis(850));
     assert_eq!(
-        cutoffs.route_after(started + Duration::from_millis(700)),
-        started + Duration::from_millis(1000)
+        cutoffs.route_after(started + Duration::from_millis(500)),
+        started + Duration::from_millis(800)
     );
+    // Past the setup bound starts evidence assembly's time: 650 ms, of
+    // which it took 340-500 ms on a real collection.
     assert_eq!(
-        cutoffs.route_after(started + Duration::from_millis(1400)),
-        started + Duration::from_millis(1150)
+        cutoffs.route_after(started + Duration::from_millis(700)),
+        started + Duration::from_millis(850)
     );
 }
 

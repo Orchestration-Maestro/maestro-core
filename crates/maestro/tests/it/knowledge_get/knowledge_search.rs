@@ -15,7 +15,7 @@ use maestro_kernel::{
     store::Database,
 };
 use serde_json::{Value, json};
-use std::{fs, io::Write as _};
+use std::{fs, io::Write as _, process::Command};
 
 const QDRANT_URL: &str = "http://127.0.0.1:16634";
 const ROUTER_URL: &str = "http://127.0.0.1:16633";
@@ -56,7 +56,7 @@ fn cli_search_returns_an_evidence_bundle_with_the_default_budget() {
     assert_eq!(output["data"]["query"], QUERY);
     assert_eq!(
         output["data"]["request_budget"],
-        json!({"k": 10, "max_tokens": 6000, "deadline_ms": 1500})
+        json!({"k": 10, "max_tokens": 6000, "deadline_ms": 10_000})
     );
     assert_eq!(output["data"]["budget"]["counter"], "evidence-utf8-bytes/1");
     assert_eq!(output["data"]["budget"]["estimated"], true);
@@ -236,7 +236,13 @@ fn mcp_search_error(home: &Home, arguments: &Value) -> Value {
 }
 
 fn mcp_search_result(home: &Home, arguments: &Value) -> Value {
-    let (server, mut input) = home.start_with_stdin(&["mcp"]);
+    mcp_search_result_of(home.command(&["mcp"]), arguments)
+}
+
+/// The result of one `knowledge_search` call with `arguments` to the MCP
+/// server `command` starts.
+pub(super) fn mcp_search_result_of(command: Command, arguments: &Value) -> Value {
+    let (server, mut input) = Running::with_stdin(command);
     let initialize = json!({
         "jsonrpc": "2.0",
         "id": 1,
@@ -272,7 +278,7 @@ fn mcp_search_result(home: &Home, arguments: &Value) -> Value {
     response["result"].clone()
 }
 
-fn published_identifier_source(home: &Home) -> i64 {
+pub(super) fn published_identifier_source(home: &Home) -> i64 {
     home.add_synthetic();
     write_identifier_corpus(home);
 
@@ -439,6 +445,6 @@ fn publish_identifier_generation(
     generation.id
 }
 
-fn cli_data(stdout: &str) -> Value {
+pub(super) fn cli_data(stdout: &str) -> Value {
     serde_json::from_str::<Value>(stdout.trim()).expect("CLI search JSON")["data"].clone()
 }

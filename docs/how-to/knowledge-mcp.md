@@ -114,8 +114,9 @@ A successful search returns `maestro-evidence/1`, including the selected
 collection and published generation, cited passages, and route status. Keep
 that provenance and any truncation/budget information when using a client that
 summarizes tool output. Search budget defaults are `k: 10`, `max_tokens: 6000`,
-and `deadline_ms: 1500`; accepted maxima are `k: 50`, `max_tokens: 12000`, and
-`deadline_ms: 10000`. The token budget is an estimate unless the configured
+and `deadline_ms: 10000` (a safety cap, so that a search after the router
+unloaded its models still runs every route); accepted maxima are `k: 50`,
+`max_tokens: 12000`, and `deadline_ms: 10000`. The token budget is an estimate unless the configured
 route provides exact token counting. `knowledge_ask` is grounded in returned
 evidence and can refuse when the evidence does not support an answer.
 

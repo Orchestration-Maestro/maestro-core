@@ -25,7 +25,7 @@ impl Default for RequestBudget {
         Self {
             k: 10,
             max_tokens: 6000,
-            deadline_ms: 1500,
+            deadline_ms: 10_000,
         }
     }
 }

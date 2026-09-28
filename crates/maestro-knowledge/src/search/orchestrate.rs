@@ -9,8 +9,8 @@ use super::{
     request::{EvidenceInput, SearchContext, SearchError, SearchObservations, SearchRequest},
     rerank::{Candidate, Ranked, Reranker, rerank},
     route_execution::{
-        add_named_route, add_route, dense_outcome, join_route_futures, lexical_outcome, route_list,
-        structured_outcome,
+        add_named_route, add_route, dense_outcome, join_route_futures, lexical_outcome,
+        prepare_reranker, route_list, structured_outcome,
     },
     routes::{
         identifier::search_identifiers_enabled,
@@ -44,7 +44,8 @@ pub const NO_FUSED_CANDIDATES: &str = "no fused candidates";
 /// Retrieves a pinned, scoped and deadline-bounded evidence handoff for T032.
 ///
 /// The search is traced as a `retrieval.search` stage, whose routes, fusion
-/// and rerank are its child stages.
+/// and rerank are its child stages. The reranker's model is readied while
+/// the routes run.
 ///
 /// # Errors
 ///
@@ -58,7 +59,15 @@ pub async fn search<P: ModelPort>(
     let result = stage
         .instrument(async {
             let admitted = admit_request(context, request).await?;
-            let routes = execute_routes(context, &admitted).await;
+            // Boxed: the routes' future is large, and ask nests this one.
+            let (routes, ()) = tokio::join!(
+                Box::pin(execute_routes(context, &admitted)),
+                prepare_reranker(
+                    context.reranker.as_ref(),
+                    admitted.configuration.rerank_enabled,
+                    &admitted.cutoffs,
+                ),
+            );
             finish_search(context, request, admitted, routes).await
         })
         .await;
@@ -323,7 +332,8 @@ fn traced_fuse(
     fused
 }
 
-/// Loads exact candidates, reranks or degrades safely, and rechecks permissions.
+/// Loads exact candidates, reranks until the setup cutoff, which leaves
+/// evidence assembly its time, or degrades safely, and rechecks permissions.
 async fn finish_search<P: ModelPort>(
     context: &SearchContext<'_, P>,
     request: &SearchRequest<'_>,
@@ -392,7 +402,7 @@ async fn finish_search<P: ModelPort>(
                 .configuration
                 .rerank_enabled
                 .then_some(admitted.configuration.rerank_depth),
-            admitted.cutoffs.work,
+            admitted.cutoffs.setup,
         ))
         .await;
     stage.count(Count::Candidates, ranked.len());

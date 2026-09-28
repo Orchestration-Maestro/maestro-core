@@ -199,6 +199,7 @@ in place.
 │   │   │   └── it/                                                          # The contract tests: the built binary run in a scratch home
 │   │   │       ├── knowledge_get/                                           # CLI and MCP contracts for exact knowledge retrieval
 │   │   │       │   ├── cli_cases.rs                                         # Exact knowledge get CLI behavior
+│   │   │       │   ├── cold_reranker.rs                                     # A cold reranker costs CLI and MCP search only the rerank
 │   │   │       │   ├── knowledge_search.rs                                  # CLI and MCP search through the shared scoped evidence pipeline
 │   │   │       │   ├── mcp_and_authorization.rs                             # MCP parity, permission refresh, and exact-retrieval refusal cases
 │   │   │       │   ├── mod.rs                                               # CLI and MCP contracts for exact knowledge retrieval
@@ -951,12 +952,14 @@ in place.
 │       │       │   │   └── rebuild_validation.rs                            # Refusals for malformed journaled projection rebuild state
 │       │       │   ├── search_routes/                                       # Dense and lexical routes against the shared fake and, when configured, real Qdrant
 │       │       │   │   ├── chunk_set_documents.rs                           # The ladder reads the documents of a chunk set by source_ref
+│       │       │   │   ├── cold_reranker.rs                                 # A cold or slow reranker costs a search only its rerank
 │       │       │   │   ├── configured_ask.rs                                # ask searches with the configuration its caller gives
 │       │       │   │   ├── configured_search.rs                             # Request configuration controls the real fused search pipeline
 │       │       │   │   ├── fused_search.rs                                  # The public search handoff fuses available routes when dense metadata is absent
 │       │       │   │   ├── fused_search_admission_pinning.rs                # Search admission and generation-pinning acceptance tests
 │       │       │   │   ├── identifier_route.rs                              # Exact identifiers combine payload equality with the scoped kernel index
 │       │       │   │   ├── identifier_route_resilience.rs                   # Independent exact-identifier leg failures and empty results
+│       │       │   │   ├── idle_unload.rs                                   # A long-lived router client, as the MCP server shares, reloads a model the
 │       │       │   │   ├── mod.rs                                           # Dense and lexical routes against the shared fake and, when configured, real Qdrant
 │       │       │   │   ├── route_behavior.rs                                # Behavior of dense and lexical searches over the generation-pinned collection
 │       │       │   │   ├── route_errors.rs                                  # Refusals from admission, profiles and dense embedding

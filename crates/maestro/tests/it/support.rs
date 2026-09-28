@@ -107,11 +107,7 @@ impl Home {
 
     /// Starts the binary with piped stdin and its usual bounded output readers.
     pub(crate) fn start_with_stdin(&self, arguments: &[&str]) -> (Running, process::ChildStdin) {
-        let mut command = self.command(arguments);
-        command.stdin(Stdio::piped());
-        let mut child = command.spawn().unwrap();
-        let input = child.stdin.take().unwrap();
-        (Running::from_child(child), input)
+        Running::with_stdin(self.command(arguments))
     }
 
     /// Runs the binary with `arguments` in this home to its end.
@@ -287,6 +283,14 @@ impl Running {
     pub(crate) fn of(mut command: Command) -> Self {
         let child = command.spawn().unwrap();
         Self::from_child(child)
+    }
+
+    /// Starts `command` with piped stdin and the usual bounded output readers.
+    pub(crate) fn with_stdin(mut command: Command) -> (Self, process::ChildStdin) {
+        command.stdin(Stdio::piped());
+        let mut child = command.spawn().unwrap();
+        let input = child.stdin.take().unwrap();
+        (Self::from_child(child), input)
     }
 
     /// Captures a spawned child with the same bounded output readers.

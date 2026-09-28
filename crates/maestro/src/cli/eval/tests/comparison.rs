@@ -82,12 +82,12 @@ fn the_comparison_names_the_provenance_of_every_rung() {
     assert!(markdown.contains(&format!(
         "- `r0`: generation 0, chunk set chunk-set, embedder card {embedder}, reranker card \
          {RERANKER}, answerer card {answerer}; ask: at most 5 passages, 6000 evidence bytes, 1024 \
-         output tokens, prompt v2\n"
+         output tokens, prompt v2, search deadline 10000 ms\n"
     )));
     assert!(markdown.contains(&format!(
         "- `r1`: generation 0, chunk set chunk-set, embedder card {embedder}, reranker card \
          none, answerer card {answerer}; ask: at most 5 passages, 6000 evidence bytes, 1024 output \
-         tokens, prompt v2\n"
+         tokens, prompt v2, search deadline 10000 ms\n"
     )));
 }
 
@@ -109,7 +109,13 @@ fn the_comparison_names_each_rungs_ask_settings() {
     assert_eq!(json["rungs"][0]["ask_settings"], Value::Null);
     assert_eq!(
         json["rungs"][1]["ask_settings"],
-        json!({"k": 8, "max_tokens": 9000, "output_tokens": 900, "prompt": "v2"})
+        json!({
+            "k": 8,
+            "max_tokens": 9000,
+            "output_tokens": 900,
+            "prompt": "v2",
+            "search_deadline_ms": 10_000
+        })
     );
     let markdown = comparison.to_markdown();
     let embedder = "e".repeat(64);
@@ -119,7 +125,8 @@ fn the_comparison_names_each_rungs_ask_settings() {
          {RERANKER}, answerer card {answerer}; no ask\n"
     )));
     assert!(markdown.contains(
-        "; ask: at most 8 passages, 9000 evidence bytes, 900 output tokens, prompt v2\n"
+        "; ask: at most 8 passages, 9000 evidence bytes, 900 output tokens, prompt v2, \
+         search deadline 10000 ms\n"
     ));
 }
 

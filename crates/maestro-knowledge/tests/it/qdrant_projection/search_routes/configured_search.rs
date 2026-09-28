@@ -21,8 +21,8 @@ use maestro_knowledge::{
 pub(super) struct Published {
     backend: super::backends::Backend,
     pub(super) kernel: Kernel,
-    qdrant: Qdrant,
-    embedder_card: ModelCard,
+    pub(super) qdrant: Qdrant,
+    pub(super) embedder_card: ModelCard,
     pub(super) port: models::Embedder,
     generation: i64,
 }

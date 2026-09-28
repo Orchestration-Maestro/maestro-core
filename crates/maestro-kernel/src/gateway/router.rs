@@ -106,6 +106,12 @@ impl RouterClient {
         if self.is_checked(card.digest()) {
             return Ok(());
         }
+        self.recheck(card, room).await
+    }
+
+    /// Asks `/props` in `room` and compares `card` with it, checked or not:
+    /// the request reloads a model the router unloaded.
+    async fn recheck(&self, card: &ModelCard, room: Room) -> Result<(), Error> {
         let props: Props = send(self.http.get(self.endpoint(card, "props")), room).await?;
         props.compare(card)?;
         self.checked
@@ -138,12 +144,12 @@ impl RouterClient {
 }
 
 impl ModelPort for RouterClient {
-    /// Checks the card, which loads its model in `room` when it is not
-    /// loaded; a card already checked needs no request. The check is cached
-    /// for the client's life, so after the router unloads an idle model,
-    /// this sends nothing, and the next call to the model reloads it.
+    /// Checks the card on every call, which loads its model in `room` when
+    /// it is not loaded, also after the router unloaded it while idle: a
+    /// long-lived client, such as the MCP server's, reloads the model here
+    /// rather than in the call's window. The calls keep their cached check.
     async fn prepare(&self, card: &ModelCard, room: Room) -> Result<(), Error> {
-        self.check(card, room).await
+        self.recheck(card, room).await
     }
 
     async fn embed(

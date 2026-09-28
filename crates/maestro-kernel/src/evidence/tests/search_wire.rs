@@ -28,7 +28,7 @@ fn optional_search_fields_round_trip_and_old_bundles_remain_unchanged() {
         RequestBudget {
             k: 10,
             max_tokens: 6000,
-            deadline_ms: 1500,
+            deadline_ms: 10_000,
         }
     );
     let old = serde_json::to_value(bundle()).unwrap();

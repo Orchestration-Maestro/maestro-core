@@ -7,7 +7,7 @@ use super::{
     runner::{Provenance, RejectedCheck, RungRun, SearchDiagnostic, Verdict},
 };
 use crate::failure::Failure;
-use maestro_kernel::artifact::Digest;
+use maestro_kernel::{artifact::Digest, evidence::RequestBudget};
 use maestro_knowledge::{
     answer::RefusalCode,
     eval::{AskOutcome, LadderQuestion, LadderScore, SearchOutcome},
@@ -67,6 +67,8 @@ pub(super) struct RungReport<'run> {
     ladder: &'run Provenance,
     /// Its search configuration.
     configuration: &'run RungConfiguration,
+    /// The deadline each of its searches ran with, in milliseconds.
+    search_deadline_ms: u32,
     /// The SHA-256 of the suite's file.
     suite_digest: &'run str,
     /// The binary that ran it.
@@ -97,6 +99,7 @@ impl<'run> RungReport<'run> {
             end: run.end.as_ref(),
             ladder: &run.ladder,
             configuration: &run.rung.configuration,
+            search_deadline_ms: RequestBudget::default().deadline_ms,
             suite_digest: suite_digest.as_str(),
             binary,
             score: &run.score,
@@ -128,6 +131,7 @@ impl<'run> RungReport<'run> {
         let configuration =
             serde_json::to_string(self.configuration).unwrap_or_else(|_| String::new());
         let _ = writeln!(text, "- Configuration: `{configuration}`");
+        let _ = writeln!(text, "- Search deadline: {} ms", self.search_deadline_ms);
         let _ = writeln!(text, "- Asks: {}", if self.ask { "yes" } else { "no" });
         let _ = writeln!(
             text,
@@ -183,6 +187,8 @@ pub(super) struct AskReport {
     output_tokens: u32,
     /// The answer prompt: its version, or `file`.
     prompt: &'static str,
+    /// The deadline of each ask's search, in milliseconds.
+    search_deadline_ms: u32,
 }
 
 impl AskReport {
@@ -194,15 +200,17 @@ impl AskReport {
             max_tokens: budget.max_tokens,
             output_tokens: budget.output_tokens,
             prompt: settings.prompt.name(),
+            search_deadline_ms: budget.search_deadline_ms,
         }
     }
 
     /// The settings in words: the most passages, evidence bytes, output
-    /// tokens and prompt.
+    /// tokens, the prompt and the search deadline.
     pub(super) fn describe(&self) -> String {
         format!(
-            "at most {} passages, {} evidence bytes, {} output tokens, prompt {}",
-            self.k, self.max_tokens, self.output_tokens, self.prompt
+            "at most {} passages, {} evidence bytes, {} output tokens, prompt {}, search \
+             deadline {} ms",
+            self.k, self.max_tokens, self.output_tokens, self.prompt, self.search_deadline_ms
         )
     }
 }

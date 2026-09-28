@@ -54,8 +54,8 @@ pub struct AskBudget {
     /// UTF-8-byte evidence budget used by the deliberately uncalibrated flow.
     pub max_tokens: u32,
     /// Search and evidence-assembly deadline in milliseconds. Its default,
-    /// 6 s, lets search load a cold embedder (measured 1.5-2.2 s) and still
-    /// run the dense route.
+    /// 10 s, is a safety cap: search loads a cold embedder (measured
+    /// 1.5-2.2 s) and a cold reranker and still runs dense and rerank.
     pub search_deadline_ms: u32,
     /// Maximum generated tokens per chat call.
     pub output_tokens: u32,
@@ -66,7 +66,7 @@ impl Default for AskBudget {
         Self {
             k: 5,
             max_tokens: 6000,
-            search_deadline_ms: 6000,
+            search_deadline_ms: 10_000,
             output_tokens: DEFAULT_OUTPUT_TOKENS,
         }
     }

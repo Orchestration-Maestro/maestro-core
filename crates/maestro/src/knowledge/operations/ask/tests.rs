@@ -217,7 +217,27 @@ fn only_a_reranker_selected_for_the_searched_generation_is_used() {
         .published_generation(scopes, "collection")
         .expect("read published generation")
         .expect("published generation");
-    let (id, card) = register_card(&kernel, "collection", Role::Reranker, "rerank", b"reranker");
+    let card = select_reranker(&kernel, &current);
+    let selected = |generation: Option<&Generation>| {
+        reranker_card(&kernel, scopes, "collection", generation)
+            .expect("read selected reranker")
+            .map(|selected| selected.digest().clone())
+    };
+
+    assert_eq!(selected(Some(&current)), Some(card.digest().clone()));
+    let other = Generation {
+        id: current.id + 1,
+        ..current.clone()
+    };
+    assert_eq!(selected(Some(&other)), None);
+    assert_eq!(selected(None), None);
+}
+
+/// Registers a reranker card in the scratch collection, evaluates it on
+/// `generation` and selects it; returns the card.
+pub(crate) fn select_reranker(kernel: &Kernel, generation: &Generation) -> ModelCard {
+    let scopes = &kernel.scopes;
+    let (id, card) = register_card(kernel, "collection", Role::Reranker, "rerank", b"reranker");
     let card_id = id.parse().expect("registration ULID");
     let evaluation = kernel
         .database
@@ -229,7 +249,7 @@ fn only_a_reranker_selected_for_the_searched_generation_is_used() {
                 card_id,
                 role: Role::Reranker,
                 mode: EvaluationMode::Real,
-                generation_id: Some(current.id),
+                generation_id: Some(generation.id),
                 disposition: EvaluationDisposition::Eligible,
                 manifest: b"manifest",
                 report: b"report",
@@ -250,19 +270,7 @@ fn only_a_reranker_selected_for_the_searched_generation_is_used() {
             },
         )
         .expect("select reranker");
-    let selected = |generation: Option<&Generation>| {
-        reranker_card(&kernel, scopes, "collection", generation)
-            .expect("read selected reranker")
-            .map(|selected| selected.digest().clone())
-    };
-
-    assert_eq!(selected(Some(&current)), Some(card.digest().clone()));
-    let other = Generation {
-        id: current.id + 1,
-        ..current.clone()
-    };
-    assert_eq!(selected(Some(&other)), None);
-    assert_eq!(selected(None), None);
+    card
 }
 
 /// Registers a small v2 answerer card and returns its immutable registry ID.

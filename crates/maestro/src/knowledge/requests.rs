@@ -66,7 +66,7 @@ pub(crate) struct SearchRequest {
     #[serde(default = "default_max_tokens")]
     #[schemars(range(min = 1, max = 12_000))]
     pub(crate) max_tokens: u32,
-    /// Search deadline in milliseconds, default 1500.
+    /// Search deadline in milliseconds, default 10000.
     #[serde(default = "default_deadline_ms")]
     #[schemars(range(min = 1, max = 10_000))]
     pub(crate) deadline_ms: u32,
@@ -472,6 +472,6 @@ mod tests {
         assert_eq!(schema["properties"]["max_tokens"]["maximum"], 12_000);
         assert_eq!(schema["properties"]["max_tokens"]["default"], 6000);
         assert_eq!(schema["properties"]["deadline_ms"]["maximum"], 10_000);
-        assert_eq!(schema["properties"]["deadline_ms"]["default"], 1500);
+        assert_eq!(schema["properties"]["deadline_ms"]["default"], 10_000);
     }
 }
