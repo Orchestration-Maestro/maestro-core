@@ -400,7 +400,7 @@ fn five_search_timeouts_pass_and_a_sixth_fails() {
 }
 
 #[test]
-fn ask_p95_counts_timeouts_and_allows_ten_seconds() {
+fn ask_p95_counts_timeouts() {
     let mut questions = passing();
     for (rank, question) in (1_u32..).zip(questions.iter_mut()) {
         question.ask.elapsed = Duration::from_millis(100) * rank;
@@ -418,6 +418,27 @@ fn ask_p95_counts_timeouts_and_allows_ten_seconds() {
     assert_eq!(
         p95(&timed_out, Floor::AskP95),
         (None, true, FloorStatus::Fail)
+    );
+}
+
+#[test]
+fn ask_p95_may_equal_ten_seconds_and_not_exceed_them() {
+    let mut questions = passing();
+    for (rank, question) in (1_u32..).zip(questions.iter_mut()) {
+        question.ask.elapsed = Duration::from_millis(105) * rank;
+    }
+    questions[94].ask.elapsed = Duration::from_secs(10);
+    let at_limit = score(&questions);
+    questions[94].ask.elapsed = Duration::from_micros(10_000_001);
+    let over = score(&questions);
+
+    assert_eq!(
+        p95(&at_limit, Floor::AskP95),
+        (Some(10_000_000), false, FloorStatus::Pass)
+    );
+    assert_eq!(
+        p95(&over, Floor::AskP95),
+        (Some(10_000_001), false, FloorStatus::Fail)
     );
 }
 
@@ -440,7 +461,7 @@ fn a_suite_without_rows_fails_every_question() {
     assert!(markdown.contains("| Right-section citation | 0/0 | >= 90% (0/0) | UNAVAILABLE |\n"));
     assert!(markdown.contains("| Ask p95 | not ended | <= 10000.000 ms | FAIL |\n"));
     assert!(markdown.contains("Missing rows: 100\n"));
-    assert!(markdown.ends_with("All floors: FAIL\n"));
+    assert!(markdown.contains("All floors: FAIL\n"));
 }
 
 #[test]

@@ -3,7 +3,7 @@ use super::{
     RefusalCode, RegisteredAnswerer, Rejection,
 };
 use super::{
-    generate::{Relevance, answer_bundle, answer_relevant},
+    generate::{AnswerPlan, answer_bundle, answer_relevant},
     prompt::prompt,
 };
 use maestro_kernel::{

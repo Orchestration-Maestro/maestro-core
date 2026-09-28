@@ -20,8 +20,10 @@
 //! - right-section citation: the delivered answers citing a section an
 //!   answerable question expects, over every delivered answer, answers to
 //!   unanswerable questions included: at least 90%. A section matches when
-//!   its document and pinned revision match and its extent intersects the
-//!   citation span; a document expected whole matches any citation of it;
+//!   its document and pinned revision match and the citation names the same
+//!   section ID or its span intersects the section's extent (half-open:
+//!   spans that only touch do not); a document expected whole matches any
+//!   citation of it in that revision;
 //! - answerable answered right: the answerable questions answered with such a
 //!   citation, over them: at least [`ANSWERED_PERCENT`]. A refusal, a failure
 //!   or a timeout counts against it;
@@ -54,11 +56,12 @@ pub struct SectionRef {
     pub document_id: String,
     /// The pinned revision of the document.
     pub revision_id: Option<String>,
-    /// The ID of the citation's chunk.
+    /// The ID of the cited chunk; always absent on an expected section.
     pub chunk_id: Option<String>,
     /// The ID of the section, absent for the document whole.
     pub section_id: Option<String>,
-    /// The citation's half-open byte span or expected section extent.
+    /// The half-open byte range in the document's source: on a citation, the
+    /// cited passage's span; on an expected section, the section's extent.
     pub span: Option<[usize; 2]>,
 }
 
@@ -130,9 +133,10 @@ pub struct Search {
 pub enum SearchOutcome {
     /// The IDs of the documents of its final ranked slots, in rank order.
     Ranked(Vec<String>),
-    /// It failed.
+    /// It failed, or a stage its configuration enables did not run, even
+    /// when a fallback still ranked documents.
     Failed,
-    /// It ran out of time.
+    /// It ran out of time, or a stage its configuration enables did.
     TimedOut,
 }
 
@@ -158,9 +162,10 @@ pub enum AskOutcome {
     },
     /// It refused to answer, with this code.
     Refused(RefusalCode),
-    /// It failed.
+    /// It failed, or a stage its configuration enables did not run in its
+    /// search, even when a fallback still answered.
     Failed,
-    /// It ran out of time.
+    /// It ran out of time, or a stage its configuration enables did.
     TimedOut,
 }
 
@@ -282,6 +287,28 @@ pub struct LadderScore {
     /// The IDs of the rows the suite does not know, or that repeat an earlier
     /// row's question.
     pub rejected_ids: Vec<String>,
+    /// The counts of each language of the suite, French first.
+    pub languages: Vec<LanguageCounts>,
+}
+
+/// One language's counts; those `ask` gives are absent when it did not run.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct LanguageCounts {
+    /// The language, `fr` or `en`.
+    pub language: &'static str,
+    /// Its answerable questions.
+    pub answerable: usize,
+    /// Those with an expected document in the first 10 ranked slots.
+    pub top_10: usize,
+    /// Its unanswerable questions.
+    pub unanswerable: usize,
+    /// Those `ask` refused for a reason about the question.
+    pub refused: Option<usize>,
+    /// The answerable questions `ask` refused for a reason about the question.
+    pub false_refusals: Option<usize>,
+    /// The answerable questions answered with a right citation and no
+    /// invented literal.
+    pub supported_answers: Option<usize>,
 }
 
 /// The least share of answerable questions with an expected document in the
@@ -338,9 +365,9 @@ struct Scored<'row> {
     row: Option<&'row LadderQuestion>,
 }
 
-/// Scores every floor of the questions of `suite` from `rows`.
-#[must_use]
-pub fn score_ladder(suite: &Suite, rows: &[LadderQuestion]) -> LadderScore {
+/// Scores every floor of the questions of `suite` from `rows`, with no
+/// count per language.
+pub(super) fn score_floors(suite: &Suite, rows: &[LadderQuestion]) -> LadderScore {
     let (by_id, rejected_ids) = index(suite, rows);
     let entries: Vec<Scored<'_>> = suite
         .questions
@@ -425,34 +452,7 @@ pub fn score_ladder(suite: &Suite, rows: &[LadderQuestion]) -> LadderScore {
         failed_asks: count(&entries, Scored::ask_failed),
         missing: count(&entries, |entry| entry.row.is_none()),
         rejected_ids,
-    }
-}
-
-/// The floors `ask` measures.
-const ASK_FLOORS: [Floor; 5] = [
-    Floor::Refused,
-    Floor::Citation,
-    Floor::Answered,
-    Floor::Literals,
-    Floor::AskP95,
-];
-
-impl LadderScore {
-    /// The score of a configuration that ran search alone: every floor
-    /// `ask` measures is not run, so the score cannot pass, and no `ask`
-    /// counts as failed.
-    #[must_use]
-    pub fn without_asks(mut self) -> Self {
-        for result in &mut self.floors {
-            if ASK_FLOORS.contains(&result.floor) {
-                result.status = FloorStatus::Unavailable;
-                result.measure = Measure::NotRun { ran: false };
-            }
-        }
-        self.passed = false;
-        self.asked = false;
-        self.failed_asks = 0;
-        self
+        languages: Vec::new(),
     }
 }
 

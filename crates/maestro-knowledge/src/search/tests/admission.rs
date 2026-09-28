@@ -164,3 +164,37 @@ fn text_and_distinct_identifier_bounds_are_enforced() {
         "query has more than 64 distinct identifiers",
     );
 }
+
+/// A request with every route weight at the default and one set by `set`.
+fn weighted(set: impl Fn(&mut SearchConfiguration)) -> SearchRequest<'static> {
+    let mut request = request("query", RequestBudget::default(), 1, None);
+    set(&mut request.configuration);
+    request
+}
+
+#[test]
+fn each_route_weight_must_be_finite_and_nonnegative() {
+    let setters: [fn(&mut SearchConfiguration, f64); 4] = [
+        |configuration, weight| configuration.dense_weight = weight,
+        |configuration, weight| configuration.lexical_weight = weight,
+        |configuration, weight| configuration.identifier_weight = weight,
+        |configuration, weight| configuration.structured_weight = weight,
+    ];
+    for set in setters {
+        for weight in [
+            f64::NAN,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            -1.0,
+            -f64::MIN_POSITIVE,
+        ] {
+            rejected(
+                &weighted(|configuration| set(configuration, weight)),
+                "route weights must be finite and nonnegative",
+            );
+        }
+        for weight in [0.0, 0.5, 2.0] {
+            assert!(validate(&weighted(|configuration| set(configuration, weight))).is_ok());
+        }
+    }
+}

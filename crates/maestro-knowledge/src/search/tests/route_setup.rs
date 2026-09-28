@@ -27,6 +27,8 @@ struct LoadingEmbedder {
     setup: Duration,
     /// Whether its embedding never answers.
     hangs: bool,
+    /// Whether its setup is refused once its model loaded.
+    refuses_setup: bool,
     /// Whether its model finished loading.
     loaded: AtomicBool,
 }
@@ -44,6 +46,11 @@ impl LoadingEmbedder {
 impl ModelPort for LoadingEmbedder {
     async fn prepare(&self, _card: &ModelCard, _room: Room) -> Result<(), Error> {
         self.load().await;
+        if self.refuses_setup {
+            return Err(Error::Unavailable {
+                reason: "no free room".to_owned(),
+            });
+        }
         Ok(())
     }
 
@@ -94,7 +101,7 @@ impl ModelPort for LoadingEmbedder {
 /// The dense status after an embedder setup of `setup` under a 1.5 s
 /// budget, and when the route ended after the request started.
 async fn dense_after_setup(setup: Duration, hangs: bool) -> (RouteStatus, Duration) {
-    dense_route(true, setup, hangs).await.0
+    dense_route(true, setup, hangs, false).await.0
 }
 
 /// The dense route's status and end time, when `enabled`, and whether its
@@ -103,6 +110,7 @@ async fn dense_route(
     enabled: bool,
     setup: Duration,
     hangs: bool,
+    refuses_setup: bool,
 ) -> ((RouteStatus, Duration), bool) {
     let mut fixture = CandidateDb::new(b"prepared text", "docs");
     let embedder_card = card(Role::Embedder, 128);
@@ -119,6 +127,7 @@ async fn dense_route(
     let port = LoadingEmbedder {
         setup,
         hangs,
+        refuses_setup,
         loaded: AtomicBool::new(false),
     };
     let embedder = Embedder {
@@ -145,7 +154,7 @@ async fn dense_route(
 #[tokio::test(start_paused = true)]
 async fn a_disabled_dense_route_does_not_prepare_its_model() {
     assert_eq!(
-        dense_route(false, Duration::from_millis(800), false).await,
+        dense_route(false, Duration::from_millis(800), false, false).await,
         (
             (
                 RouteStatus::Unavailable(DISABLED_BY_CONFIGURATION.to_owned()),
@@ -181,6 +190,19 @@ async fn a_setup_past_its_bound_leaves_the_route_one_window_after_the_bound() {
         (
             RouteStatus::Unavailable("deadline_exceeded".to_owned()),
             Duration::from_millis(1150)
+        )
+    );
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_refused_setup_leaves_the_route_unavailable_at_once() {
+    assert_eq!(
+        dense_route(true, Duration::from_millis(100), true, true)
+            .await
+            .0,
+        (
+            RouteStatus::Unavailable("embedder unavailable".to_owned()),
+            Duration::from_millis(100)
         )
     );
 }

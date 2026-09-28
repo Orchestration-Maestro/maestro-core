@@ -49,10 +49,16 @@ fn a_private_row_holds_ids_ranks_citations_refusals_and_timings() {
         citations[0].chunk_id = Some("chunk-a0".to_owned());
         citations[0].span = Some([12, 34]);
     }
-    let answered = to_json(&PrivateRow::new(&row, &runs[0].diagnostics[0], true));
+    let answered = to_json(&PrivateRow::new(
+        &row,
+        &runs[0].diagnostics[0],
+        &runs[0].rejections[0],
+        true,
+    ));
     let refused = to_json(&PrivateRow::new(
         &runs[0].rows[2],
         &runs[0].diagnostics[2],
+        &runs[0].rejections[2],
         true,
     ));
 
@@ -74,6 +80,7 @@ fn a_private_row_holds_ids_ranks_citations_refusals_and_timings() {
             "id",
             "ranked_documents",
             "refusal",
+            "rejections",
             "search",
             "search_us",
             "top_fused_score",
@@ -104,16 +111,41 @@ fn a_private_row_holds_ids_ranks_citations_refusals_and_timings() {
 }
 
 #[test]
+fn a_private_row_carries_the_checks_the_answer_check_refused_without_tokens() {
+    let runs = runs();
+    let answered = to_json(&PrivateRow::new(
+        &runs[0].rows[0],
+        &runs[0].diagnostics[0],
+        &runs[0].rejections[0],
+        true,
+    ));
+    let refused = to_json(&PrivateRow::new(
+        &runs[0].rows[2],
+        &runs[0].diagnostics[2],
+        &runs[0].rejections[2],
+        true,
+    ));
+
+    assert_eq!(
+        answered["rejections"],
+        json!([{"attempt": 1, "check": "unsupported_literal"}])
+    );
+    assert_eq!(refused["rejections"], json!([]));
+}
+
+#[test]
 fn a_private_row_carries_the_top_rerank_and_fused_scores() {
     let runs = runs();
     let reranked = to_json(&PrivateRow::new(
         &runs[0].rows[0],
         &runs[0].diagnostics[0],
+        &runs[0].rejections[0],
         true,
     ));
     let fused_only = to_json(&PrivateRow::new(
         &runs[1].rows[0],
         &runs[1].diagnostics[0],
+        &runs[1].rejections[0],
         true,
     ));
 
@@ -139,7 +171,12 @@ fn a_row_of_a_rung_that_does_not_ask_holds_no_ask() {
     let mut row = runs[0].rows[2].clone();
     row.search.outcome = SearchOutcome::TimedOut;
     row.ask.outcome = AskOutcome::Refused(RefusalCode::NotFound);
-    let unasked = to_json(&PrivateRow::new(&row, &SearchDiagnostic::default(), false));
+    let unasked = to_json(&PrivateRow::new(
+        &row,
+        &SearchDiagnostic::default(),
+        &[],
+        false,
+    ));
 
     assert_eq!(unasked["search"], "timed_out");
     assert_eq!(unasked["ranked_documents"], json!([]));
@@ -180,6 +217,7 @@ fn a_rung_report_names_its_provenance_and_scores_its_floors() {
             "configuration": to_json(&runs[0].rung.configuration),
             "suite_digest": suite.digest.as_str(),
             "binary": {"version": "0.1.0", "commit": "abc123"},
+            "rejected_checks": {"unsupported_literal": 2},
         })
     );
     assert_eq!(score, to_json(&runs[0].score));
@@ -204,12 +242,16 @@ fn a_rung_report_in_markdown_names_its_provenance_then_its_floors() {
         "citation of that revision.\n"
     )));
     assert!(markdown.contains("| Right document top-10 | 2/2 (100.0%) |"));
+    assert!(markdown.contains(concat!(
+        "- Rejected answer attempts: unsupported_literal 2; the invented-literals floor ",
+        "counts delivered answers only\n"
+    )));
 }
 
 #[test]
 fn an_invalid_rung_says_so_in_its_report() {
     let mut runs = runs();
-    runs[0].end.generation = 7;
+    runs[0].end.as_mut().unwrap().generation = 7;
     let suite = suite(2, 1);
     let report = RungReport::new(&runs[0], "docs", &suite.digest, BINARY);
 
@@ -261,7 +303,12 @@ fn a_private_row_gives_its_times_in_microseconds() {
     let mut row = runs[0].rows[0].clone();
     row.search.elapsed = Duration::from_micros(1_234_567);
     row.ask.elapsed = Duration::from_micros(7_654_321);
-    let json = to_json(&PrivateRow::new(&row, &SearchDiagnostic::default(), true));
+    let json = to_json(&PrivateRow::new(
+        &row,
+        &SearchDiagnostic::default(),
+        &[],
+        true,
+    ));
 
     assert_eq!(
         (json["search_us"].clone(), json["ask_us"].clone()),
@@ -277,7 +324,12 @@ fn a_right_document_ranked_7th_but_not_assembled_is_in_the_top_10() {
     };
     let runs = run_ladder(&mut engine, &suite(2, 1), 0, &[rung("r0")], |_| Ok(())).unwrap();
     let run = &runs[0];
-    let row = to_json(&PrivateRow::new(&run.rows[0], &run.diagnostics[0], true));
+    let row = to_json(&PrivateRow::new(
+        &run.rows[0],
+        &run.diagnostics[0],
+        &run.rejections[0],
+        true,
+    ));
 
     assert_eq!(row["expected_rank"], 7);
     assert_eq!(row["ranked_documents"].as_array().unwrap().len(), 10);

@@ -269,6 +269,27 @@ fn a_named_card_of_another_role_collection_or_unregistered_is_refused() {
 }
 
 #[test]
+fn a_rung_asking_for_more_output_tokens_than_its_answerer_card_allows_is_refused() {
+    let scratch = Scratch::new();
+    let kernel = scratch.kernel(None).unwrap();
+    register_card(&kernel, "collection", Role::Answerer, "qwen3-4b", b"a");
+    let engine = engine(&kernel);
+    let output = |tokens: u32| {
+        engine.provenance(&asking(AskSettings {
+            output_tokens: Some(tokens),
+            ..AskSettings::default()
+        }))
+    };
+
+    assert!(output(1000).is_ok());
+    assert!(matches!(
+        output(1001),
+        Err(Failure::Refused(reason))
+            if reason == "the rung `r0` asks for more output tokens than its answerer card allows"
+    ));
+}
+
+#[test]
 fn the_provenance_holds_the_prompt_files_digest() {
     let scratch = Scratch::new();
     let kernel = scratch.kernel(None).unwrap();

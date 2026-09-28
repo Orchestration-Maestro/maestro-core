@@ -67,7 +67,7 @@ pub async fn ask_configured<P: ModelPort + Sync>(
     let input = search(&context.search, &search_request)
         .await
         .map_err(AskError::Search)?;
-    let relevance = Relevance {
+    let plan = AnswerPlan {
         min_rerank_score: configuration.min_rerank_score,
         top_rerank_score: top_rerank_score(&input.ranked),
         answer_prompt,
@@ -84,15 +84,15 @@ pub async fn ask_configured<P: ModelPort + Sync>(
         request,
         context.answerer.as_ref(),
         bundle,
-        relevance,
+        plan,
     )
     .await
 }
 
-/// The reranker's top score for one search, the least one `ask` answers
-/// from, and the prompt it answers with.
+/// How `ask` answers one bundle: the reranker's top score for its search, the
+/// least one `ask` answers from, and the prompt it answers with.
 #[derive(Debug, Clone, Copy)]
-pub(super) struct Relevance<'prompt> {
+pub(super) struct AnswerPlan<'prompt> {
     /// The configured threshold, when one is set.
     pub(super) min_rerank_score: Option<f32>,
     /// The top reranker score, absent when rerank did not run.
@@ -101,7 +101,7 @@ pub(super) struct Relevance<'prompt> {
     pub(super) answer_prompt: &'prompt AnswerPrompt,
 }
 
-impl Relevance<'_> {
+impl AnswerPlan<'_> {
     /// Whether rerank ran and its top score is below the threshold.
     fn is_below_threshold(self) -> bool {
         self.min_rerank_score
@@ -111,20 +111,20 @@ impl Relevance<'_> {
 }
 
 /// As [`answer_bundle`], but refuses with `no_evidence`, without chat, when
-/// `relevance` is below its threshold.
+/// `plan` is below its threshold.
 pub(super) async fn answer_relevant<P: ModelPort + Sync>(
     port: &P,
     request: &AskRequest,
     answerer: Option<&RegisteredAnswerer>,
     bundle: Bundle,
-    relevance: Relevance<'_>,
+    plan: AnswerPlan<'_>,
 ) -> Result<Answer, AskError> {
-    if relevance.is_below_threshold() {
+    if plan.is_below_threshold() {
         let language = response_language(request);
         let response = ResponseContext::new(request, &bundle, answerer, language)?;
         return Ok(response.refused(RefusalCode::NoEvidence, below_threshold_message(language)));
     }
-    answer_bundle(port, request, answerer, bundle, relevance.answer_prompt).await
+    answer_bundle(port, request, answerer, bundle, plan.answer_prompt).await
 }
 
 /// Validates caller bounds without imposing language-detection rules.

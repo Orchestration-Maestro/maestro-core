@@ -377,7 +377,7 @@ fn card_identity(kernel: &Kernel, role: Role, entry: &str, weights: &[u8]) -> Ca
         invocation: RuntimeLimits {
             limits: Limits {
                 context_tokens: NonZeroU32::new(4096).expect("nonzero context"),
-                output_tokens: answerer.then(|| NonZeroU32::new(128).expect("nonzero output")),
+                output_tokens: answerer.then(|| NonZeroU32::new(1000).expect("nonzero output")),
             },
             dimensions: Dimensions::NotApplicable,
             sampling: if answerer {

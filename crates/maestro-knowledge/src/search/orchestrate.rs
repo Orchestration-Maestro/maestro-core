@@ -245,7 +245,7 @@ async fn execute_routes<P: ModelPort>(
     }
 }
 
-/// Captures route candidate order before fusion without inventing ranks from the output.
+/// Records each route's status, its degradation gaps and the structured inventory.
 fn route_metadata(
     dense: &RouteOutcome,
     lexical: &RouteOutcome,
@@ -388,10 +388,10 @@ async fn finish_search<P: ModelPort>(
             &admitted.understood,
             candidates,
             context.reranker.as_ref(),
-            request
+            admitted
                 .configuration
                 .rerank_enabled
-                .then_some(request.configuration.rerank_depth),
+                .then_some(admitted.configuration.rerank_depth),
             admitted.cutoffs.work,
         ))
         .await;

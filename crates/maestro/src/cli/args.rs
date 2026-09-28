@@ -195,7 +195,8 @@ pub(super) enum KnowledgeCommand {
         #[arg(long)]
         output_tokens: Option<u32>,
         /// Print on stderr the check each rejected answer failed and the
-        /// offending tokens.
+        /// offending tokens. An ask that ends in an error, such as a timeout
+        /// or an unavailable answerer, prints no explanation.
         #[arg(long)]
         explain: bool,
     },

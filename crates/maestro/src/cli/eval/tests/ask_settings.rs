@@ -9,7 +9,7 @@ use super::{
         rung_prompt::RungPrompt,
     },
     reports::{BINARY, runs, to_json},
-    support::{rung, suite},
+    support::{rung_json, suite},
 };
 use crate::failure::Failure;
 use maestro_knowledge::answer::{AskBudget, PromptVersion};
@@ -18,7 +18,7 @@ use std::path::Path;
 
 /// A manifest of one rung whose `ask` is `ask`.
 pub(super) fn manifest(ask: &Value) -> Value {
-    let mut rung = serde_json::to_value(rung("r0")).unwrap();
+    let mut rung = rung_json("r0");
     rung["ask"] = ask.clone();
     json!({
         "schema": "maestro-ladder-manifest/1",
@@ -116,31 +116,6 @@ fn an_unknown_prompt_or_setting_is_refused() {
 }
 
 #[test]
-fn a_rung_writes_its_ask_as_true_false_or_its_settings() {
-    let settings = AskSettings {
-        k: Some(8),
-        prompt: RungPrompt::Version(PromptVersion::V2),
-        ..AskSettings::default()
-    };
-    let mut asks = rung("r0");
-    let mut quiet = rung("r0");
-    quiet.ask = None;
-    let mut set = rung("r0");
-    set.ask = Some(settings);
-
-    assert_eq!(to_json(&asks)["ask"], json!(true));
-    assert_eq!(to_json(&quiet)["ask"], json!(false));
-    assert_eq!(
-        to_json(&set)["ask"],
-        json!({
-            "k": 8, "max_tokens": null, "output_tokens": null, "prompt": "v2", "card": null,
-        })
-    );
-    asks.ask = parsed(&to_json(&set)["ask"]).unwrap();
-    assert_eq!(asks, set);
-}
-
-#[test]
 fn a_rung_report_records_its_resolved_ask_settings_and_prompt() {
     let mut runs = runs();
     let suite = suite(2, 1);
@@ -158,7 +133,7 @@ fn a_rung_report_records_its_resolved_ask_settings_and_prompt() {
         json!({"k": 5, "max_tokens": 6000, "output_tokens": 900, "prompt": "v2"})
     );
     assert!(set.to_markdown().contains(
-        "- Ask settings: 5 passages, 6000 evidence bytes, 900 output tokens, prompt v2\n"
+        "- Ask settings: at most 5 passages, 6000 evidence bytes, 900 output tokens, prompt v2\n"
     ));
     assert_eq!(to_json(&unasked)["ask"], json!(false));
     assert_eq!(to_json(&unasked)["ask_settings"], Value::Null);

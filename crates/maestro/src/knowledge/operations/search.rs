@@ -20,6 +20,7 @@ use maestro_knowledge::{
         search,
     },
 };
+use std::sync::Arc;
 use tokio::{task::spawn_blocking, time::Instant};
 
 /// The bundle plus its request-entry cutoff for bounded transport formatting.
@@ -28,6 +29,24 @@ pub(crate) struct SearchData {
     pub(crate) bundle: Bundle,
     /// T032's accepted deadline, enforced through formatting and delivery.
     pub(crate) deadline: Instant,
+}
+
+/// The local principal's search context over `database` and `qdrant`, with
+/// the embedder and the reranker of the cards given, both served by `port`.
+pub(crate) fn local_search_context<'a, P>(
+    database: &Arc<Database>,
+    qdrant: &'a Qdrant,
+    port: &'a P,
+    embedder: Option<&'a ModelCard>,
+    reranker: Option<&'a ModelCard>,
+) -> SearchContext<'a, P> {
+    SearchContext {
+        database: Arc::clone(database),
+        principal: LOCAL,
+        qdrant,
+        embedder: embedder.map(|card| Embedder { port, card }),
+        reranker: reranker.map(|card| Reranker { port, card }),
+    }
 }
 
 /// Searches through the pinned generation and assembles its canonical evidence.
@@ -59,19 +78,13 @@ pub(crate) async fn search_with<P: ModelPort>(
     })
     .await
     .map_err(|_| kernel_failure())??;
-    let context = SearchContext {
-        database: database.clone(),
-        principal: LOCAL,
+    let context = local_search_context(
+        &database,
         qdrant,
-        embedder: embedder.as_ref().map(|card| Embedder {
-            port: model_port,
-            card,
-        }),
-        reranker: reranker.as_ref().map(|card| Reranker {
-            port: model_port,
-            card,
-        }),
-    };
+        model_port,
+        embedder.as_ref(),
+        reranker.as_ref(),
+    );
     let pipeline_request = PipelineRequest::new(
         &request.collection,
         &request.query,

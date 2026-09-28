@@ -157,7 +157,7 @@ async fn an_answer_above_the_threshold_uses_the_relevance_prompt() {
         "Sources are listed by the service.",
     );
     let port = ScriptedPort::new(&["Sources are listed by the service. [1]"]);
-    let relevance = Relevance {
+    let relevance = AnswerPlan {
         min_rerank_score: None,
         top_rerank_score: None,
         answer_prompt: &PromptVersion::V2.into(),

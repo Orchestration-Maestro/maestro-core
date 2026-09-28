@@ -50,7 +50,8 @@ const UNSUPPORTED_INVENTORY: &str = concat!(
 
 /// Executes dense search with its independent route cutoff, which starts
 /// once the embedder is ready: loading its model is setup, bounded by
-/// `cutoffs.setup`, not route time.
+/// `cutoffs.setup`, not route time. A setup the port refuses leaves the
+/// route unavailable without its window.
 pub(super) async fn dense_outcome<P: ModelPort>(
     enabled: bool,
     query: &Query<'_>,
@@ -63,15 +64,19 @@ pub(super) async fn dense_outcome<P: ModelPort>(
     let Some(embedder) = embedder else {
         return unavailable("no embedder card for the published generation's profile");
     };
-    // A failed or unfinished setup is retried by the embedding call itself,
-    // which reports its precise reason within the route's window.
-    drop(
-        until(
-            cutoffs.setup,
-            embedder.port.prepare(embedder.card, Room::Free),
-        )
-        .await,
-    );
+    // An unfinished setup is retried by the embedding call itself, which
+    // reports its precise reason within the route's window; a refused one
+    // ends the route at once.
+    if let Ok(Err(error)) = until(
+        cutoffs.setup,
+        embedder.port.prepare(embedder.card, Room::Free),
+    )
+    .await
+    {
+        return unavailable(route_error_reason(&RouteError::EmbedderUnavailable {
+            reason: error.to_string(),
+        }));
+    }
     let deadline = cutoffs.route_after(Instant::now());
     if Instant::now() >= deadline {
         return unavailable(DEADLINE_EXCEEDED);

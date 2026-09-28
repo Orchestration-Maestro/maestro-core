@@ -1,3 +1,5 @@
+//! The top reranker and fused scores of a ranked list.
+
 use super::rerank::candidate;
 use crate::search::{Ranked, top_fused_score, top_rerank_score};
 

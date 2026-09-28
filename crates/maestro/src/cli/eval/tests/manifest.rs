@@ -2,7 +2,7 @@
 
 use super::{
     super::manifest::Manifest,
-    support::{RERANKER, rung},
+    support::{RERANKER, rung, rung_json},
 };
 use crate::failure::Failure;
 use maestro_knowledge::search::SearchConfiguration;
@@ -27,10 +27,11 @@ fn manifest() -> Value {
                     "rrf_k": 60,
                     "weights": {"dense": 1.0, "lexical": 1.0, "identifier": 1.0, "structured": 1.0},
                     "rerank": null,
+                    "min_rerank_score": null,
                 },
                 "ask": false,
             },
-            serde_json::to_value(rung("r1")).unwrap(),
+            rung_json("r1"),
         ],
     })
 }
@@ -101,8 +102,13 @@ fn a_rungs_configuration_sets_every_knob_of_search() {
 
 #[test]
 fn each_malformed_manifest_is_refused() {
-    let cases: [(&str, Value, &str); 5] = [
+    let cases: [(&str, Value, &str); 6] = [
         ("/schema", json!("maestro-ladder-manifest/2"), "schema"),
+        (
+            "/rungs/1/name",
+            json!("ladder"),
+            "the rung name `ladder` names the comparison's files",
+        ),
         ("/collection", json!(" "), "no collection"),
         ("/rungs", json!([]), "no rung"),
         ("/rungs/1/name", json!("r0"), "given twice"),
@@ -123,8 +129,13 @@ fn each_malformed_manifest_is_refused() {
 fn each_rung_search_would_refuse_is_refused() {
     let routes =
         json!({"dense": false, "lexical": false, "identifier": false, "structured": false});
-    let cases: [(&str, Value, &str); 5] = [
+    let cases: [(&str, Value, &str); 6] = [
         ("/rungs/0/configuration/routes", routes, "runs no route"),
+        (
+            "/rungs/0/configuration/min_rerank_score",
+            json!(0.25),
+            "sets a relevance threshold but does not rerank",
+        ),
         (
             "/rungs/0/configuration/weights/lexical",
             json!(-1.0),
@@ -203,6 +214,12 @@ fn an_output_directory_that_holds_files_is_refused() {
     assert!(matches!(
         Manifest::read(&path),
         Err(Failure::Refused(reason)) if reason.contains("already holds files")
+    ));
+    fs::remove_dir_all(root.join("out")).unwrap();
+    fs::write(root.join("out"), "").unwrap();
+    assert!(matches!(
+        Manifest::read(&path),
+        Err(Failure::Refused(reason)) if reason == "the manifest's output path is not a directory"
     ));
     assert!(matches!(
         Manifest::read(&root.join("absent.json")),

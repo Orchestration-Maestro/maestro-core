@@ -2,7 +2,7 @@
 
 use super::super::{
     manifest::{AskSettings, Rerank, Routes, Rung, RungConfiguration, Weights},
-    runner::{Engine, Provenance, SearchDiagnostic, Searched},
+    runner::{Asked, Engine, Provenance, RejectedCheck, SearchDiagnostic, Searched},
 };
 use crate::failure::Failure;
 use maestro_knowledge::{
@@ -11,7 +11,7 @@ use maestro_knowledge::{
     search::SearchConfiguration,
     suite::Suite,
 };
-use serde_json::json;
+use serde_json::{Value, json};
 use std::{
     cell::{Cell, RefCell},
     num::{NonZeroU32, NonZeroUsize},
@@ -76,6 +76,16 @@ pub(super) fn rung(name: &str) -> Rung {
     }
 }
 
+/// The manifest JSON of [`rung`] `name`, which asks with the default
+/// settings.
+pub(super) fn rung_json(name: &str) -> Value {
+    json!({
+        "name": name,
+        "configuration": serde_json::to_value(rung(name).configuration).unwrap(),
+        "ask": true,
+    })
+}
+
 /// One call to the fake engine.
 #[derive(Debug, Clone, PartialEq)]
 pub(super) struct Call {
@@ -90,7 +100,8 @@ pub(super) struct Call {
 }
 
 /// An engine whose searches rank each answerable question's document first
-/// and whose asks cite its section and refuse the others.
+/// and whose asks cite its section, after one attempt the answer check
+/// refused, and refuse the others.
 #[derive(Debug, Default)]
 pub(super) struct FakeEngine {
     /// Every search and ask, in order.
@@ -110,6 +121,10 @@ pub(super) struct FakeEngine {
     pub(super) right_document_at_7: bool,
     /// Whether the collection has no answerer card.
     pub(super) no_answerer: bool,
+    /// After this many searches, what a rung runs against cannot be read.
+    pub(super) unreadable_after: Option<usize>,
+    /// How many of the last questions' expected sections are missing.
+    pub(super) expectations_missing: usize,
 }
 
 impl FakeEngine {
@@ -157,6 +172,14 @@ impl Engine for FakeEngine {
         if self.refused_rung.as_deref() == Some(rung.name.as_str()) {
             return Err(Failure::refused("the reranker card is not registered"));
         }
+        if self
+            .unreadable_after
+            .is_some_and(|searches| self.questions("search").len() >= searches)
+        {
+            return Err(Failure::failed(
+                "the collection has no published generation",
+            ));
+        }
         Ok(Provenance {
             generation: self.generation.get(),
             chunk_set: "chunk-set".to_owned(),
@@ -192,8 +215,9 @@ impl Engine for FakeEngine {
                     Vec::new()
                 }
             })
-            .collect();
-        Ok((self.provenance(rung)?, expected))
+            .collect::<Vec<_>>();
+        let kept = expected.len() - self.expectations_missing;
+        Ok((self.provenance(rung)?, expected[..kept].to_vec()))
     }
 
     fn search(&self, rung: &Rung, question: &str) -> Searched {
@@ -220,16 +244,26 @@ impl Engine for FakeEngine {
         }
     }
 
-    fn ask(&self, rung: &Rung, question: &str) -> AskOutcome {
+    fn ask(&self, rung: &Rung, question: &str) -> Asked {
         self.record("ask", rung, question);
-        answerable_index(question).map_or(AskOutcome::Refused(RefusalCode::NotFound), |index| {
-            AskOutcome::Answered {
-                citations: vec![SectionRef::section(
-                    &format!("doc-a{index}"),
-                    &format!("section-a{index}"),
-                )],
-                invented_literals: 0,
-            }
-        })
+        answerable_index(question).map_or_else(
+            || Asked {
+                outcome: AskOutcome::Refused(RefusalCode::NotFound),
+                rejections: Vec::new(),
+            },
+            |index| Asked {
+                outcome: AskOutcome::Answered {
+                    citations: vec![SectionRef::section(
+                        &format!("doc-a{index}"),
+                        &format!("section-a{index}"),
+                    )],
+                    invented_literals: 0,
+                },
+                rejections: vec![RejectedCheck {
+                    attempt: 1,
+                    check: "unsupported_literal",
+                }],
+            },
+        )
     }
 }

@@ -87,6 +87,7 @@ mod error;
 mod judge;
 mod ladder;
 mod ladder_markdown;
+mod ladder_score;
 mod merge;
 mod metric;
 mod record;
@@ -101,8 +102,9 @@ pub use compare::{Comparison, compare};
 pub use error::{AggregateError, CompareError, RunError};
 pub use ladder::{
     ANSWERED_PERCENT, Ask, AskOutcome, Floor, FloorResult, FloorStatus, LadderQuestion,
-    LadderScore, Measure, Search, SearchOutcome, SectionRef, resolve_expected, score_ladder,
+    LadderScore, LanguageCounts, Measure, Search, SearchOutcome, SectionRef, resolve_expected,
 };
+pub use ladder_score::score_ladder;
 pub use merge::merge_v2_attempts;
 pub use record::{RecordError, record};
 pub use reports::{

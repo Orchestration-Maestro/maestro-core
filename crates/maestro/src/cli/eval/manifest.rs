@@ -7,7 +7,7 @@ use super::rung_prompt::RungPrompt;
 use crate::failure::Failure;
 use maestro_kernel::artifact::Digest;
 use maestro_knowledge::{answer::AskBudget, search::SearchConfiguration};
-use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
+use serde::{Deserialize, Deserializer, Serialize, de};
 use serde_json::Value;
 use std::{
     collections::BTreeSet,
@@ -22,6 +22,9 @@ const SCHEMA: &str = "maestro-ladder-manifest/1";
 const MAX_RERANK_DEPTH: usize = 120;
 /// The longest rung name, which names the rung's report files.
 const MAX_NAME_BYTES: usize = 64;
+/// The name of the comparison's files in the output directory, which no rung
+/// may take.
+pub(super) const COMPARISON_NAME: &str = "ladder";
 
 /// A checked ladder manifest.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
@@ -43,7 +46,7 @@ pub(super) struct Manifest {
 }
 
 /// One configuration of the ladder.
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct Rung {
     /// Its name: lower-case letters, digits and dashes, which name its files.
@@ -53,19 +56,19 @@ pub(super) struct Rung {
     /// How each question also runs through `ask`; `None` when it does not.
     /// The manifest writes `false`, `true` for the default settings, or the
     /// settings.
-    #[serde(serialize_with = "write_ask", deserialize_with = "read_ask")]
+    #[serde(deserialize_with = "read_ask")]
     pub(super) ask: Option<AskSettings>,
 }
 
 /// A rung's `ask` settings; each one absent is `ask`'s default.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 #[expect(
     clippy::min_ident_chars,
     reason = "ask's budget names this limit k, as the manifest does"
 )]
 pub(super) struct AskSettings {
-    /// The passages given to the answerer.
+    /// The most passages given to the answerer.
     pub(super) k: Option<u32>,
     /// The evidence budget, in UTF-8 bytes.
     pub(super) max_tokens: Option<u32>,
@@ -119,19 +122,6 @@ fn read_ask<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<AskSett
     }
 }
 
-/// Writes a rung's `ask` as [`read_ask`] reads it.
-#[expect(
-    clippy::ref_option,
-    reason = "serde's `serialize_with` passes the field by reference"
-)]
-fn write_ask<S: Serializer>(ask: &Option<AskSettings>, serializer: S) -> Result<S::Ok, S::Error> {
-    match ask {
-        None => serializer.serialize_bool(false),
-        Some(settings) if *settings == AskSettings::default() => serializer.serialize_bool(true),
-        Some(settings) => settings.serialize(serializer),
-    }
-}
-
 /// A rung's search configuration, as the manifest writes it.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -144,9 +134,10 @@ pub(super) struct RungConfiguration {
     pub(super) weights: Weights,
     /// The reranker and its depth, absent when reranking is off.
     pub(super) rerank: Option<Rerank>,
-    /// The least top reranker score `ask` answers from; absent, or when
-    /// rerank does not run, `ask` answers whatever the score. JSON holds no
-    /// non-finite number, and parsing refuses one beyond `f32`.
+    /// The least top reranker score `ask` answers from; absent, `ask`
+    /// answers whatever the score, and a rung that sets it must rerank. JSON
+    /// holds no non-finite number, and parsing refuses one beyond `f32`,
+    /// through the `float_roundtrip` feature of `serde_json`.
     pub(super) min_rerank_score: Option<f32>,
 }
 
@@ -247,6 +238,11 @@ impl Manifest {
             .map_err(|error| Failure::refused(format!("cannot read the manifest: {error}")))?;
         let base = path.parent().unwrap_or_else(|| Path::new(""));
         let manifest = Self::parse(&text, base)?;
+        if manifest.output.exists() && !manifest.output.is_dir() {
+            return Err(Failure::refused(
+                "the manifest's output path is not a directory",
+            ));
+        }
         let occupied =
             fs::read_dir(&manifest.output).is_ok_and(|mut entries| entries.next().is_some());
         if occupied {
@@ -297,6 +293,11 @@ impl Manifest {
         }
         let mut names = BTreeSet::new();
         for rung in &self.rungs {
+            if rung.name == COMPARISON_NAME {
+                return Err(Failure::refused(format!(
+                    "the rung name `{COMPARISON_NAME}` names the comparison's files"
+                )));
+            }
             if !names.insert(rung.name.as_str()) {
                 return Err(Failure::refused(format!(
                     "the rung name `{}` is given twice",
@@ -344,6 +345,12 @@ fn check_rung(rung: &Rung) -> Result<(), Failure> {
     {
         return Err(Failure::refused(format!(
             "the rung `{}` reranks more than {MAX_RERANK_DEPTH} candidates",
+            rung.name
+        )));
+    }
+    if configuration.min_rerank_score.is_some() && configuration.rerank.is_none() {
+        return Err(Failure::refused(format!(
+            "the rung `{}` sets a relevance threshold but does not rerank",
             rung.name
         )));
     }

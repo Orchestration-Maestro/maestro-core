@@ -14,4 +14,4 @@ pub(crate) use implementation::{CollectionItem, GetExcerpt};
 pub(crate) use implementation::{
     CollectionsData, GetData, KnowledgeError, collections_with, ensure_current_scopes, get_with,
 };
-pub(crate) use search::search_with;
+pub(crate) use search::{local_search_context, search_with};

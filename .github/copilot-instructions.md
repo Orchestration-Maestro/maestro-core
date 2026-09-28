@@ -652,6 +652,7 @@ in place.
 │       │   │   │   ├── groups.rs                                            # Expected section copies share one nDCG item while remaining visible in
 │       │   │   │   ├── intervals.rs                                         # The intervals: 95 % percentile intervals of 2,000 bootstrap resamples
 │       │   │   │   ├── ladder.rs                                            # Tests of the ladder's floors: each count at its exact boundary, the
+│       │   │   │   ├── ladder_languages.rs                                  # The ladder's counts per language: French and English questions counted
 │       │   │   │   ├── ladder_resolve.rs                                    # resolve_expected gives the ladder's scorer each question's expected
 │       │   │   │   ├── ladder_rows.rs                                       # Tests of what the ladder's rows may not hide: answerable questions left
 │       │   │   │   ├── ladder_spans.rs                                      # Citation locality against the expected section's pinned source extent
@@ -673,6 +674,7 @@ in place.
 │       │   │   ├── judge.rs                                                 # Judging one question: ranking its bundle's passages, finding the sections
 │       │   │   ├── ladder.rs                                                # The ladder's scorer (T037): the M1 floors of one configuration, each PASS
 │       │   │   ├── ladder_markdown.rs                                       # The ladder's score as a Markdown table
+│       │   │   ├── ladder_score.rs                                          # The ladder's score as a configuration reports it: its floors with counts
 │       │   │   ├── merge.rs                                                 # Merging v2 attempt reports without dropping scheduled work
 │       │   │   ├── metric.rs                                                # The metrics of a run: each a value over a sample of its questions, drawn
 │       │   │   ├── mod.rs                                                   # The evaluation runner (plan D13; FR-S1-009, SC-S1-008): every retrieval

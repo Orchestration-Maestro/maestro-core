@@ -10,6 +10,7 @@ mod failures;
 mod groups;
 mod intervals;
 mod ladder;
+mod ladder_languages;
 mod ladder_resolve;
 mod ladder_rows;
 mod ladder_spans;

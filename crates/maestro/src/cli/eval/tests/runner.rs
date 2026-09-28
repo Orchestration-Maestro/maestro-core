@@ -73,7 +73,7 @@ fn a_rung_whose_generation_changes_is_invalid() {
     };
     let runs = run_ladder(&mut engine, &suite(2, 1), 0, &[rung("r0")], |_| Ok(())).unwrap();
 
-    assert_ne!(runs[0].start, runs[0].end);
+    assert_ne!(Some(&runs[0].start), runs[0].end.as_ref());
     assert_eq!(runs[0].verdict(), Verdict::Invalid);
     assert!(runs[0].score.passed);
 }
@@ -89,7 +89,7 @@ fn a_rung_that_starts_on_another_generation_than_the_first_is_invalid() {
 
     assert_eq!(runs[0].verdict(), Verdict::Pass);
     for run in &runs[1..] {
-        assert_eq!(run.start, run.end);
+        assert_eq!(Some(&run.start), run.end.as_ref());
         assert_eq!(run.ladder, runs[0].start);
         assert_eq!(run.verdict(), Verdict::Invalid);
     }
@@ -236,4 +236,50 @@ fn a_recording_failure_stops_the_ladder() {
     assert!(matches!(result, Err(Failure::Failed(_))));
     assert_eq!(recorded, ["r0"]);
     assert!(engine.calls.borrow().iter().all(|call| call.rung == "r0"));
+}
+
+#[test]
+fn a_rung_whose_end_cannot_be_read_is_recorded_invalid_then_stops_the_ladder() {
+    let mut engine = FakeEngine {
+        unreadable_after: Some(1),
+        ..FakeEngine::default()
+    };
+    let mut recorded = Vec::new();
+
+    let stopped = run_ladder(
+        &mut engine,
+        &suite(2, 1),
+        0,
+        &[rung("r0"), rung("r1")],
+        |run| {
+            recorded.push(run.clone());
+            Ok(())
+        },
+    );
+
+    assert!(matches!(stopped, Err(Failure::Failed(_))), "{stopped:?}");
+    assert_eq!(recorded.len(), 1);
+    assert_eq!(recorded[0].end, None);
+    assert_eq!(recorded[0].rows.len(), 3);
+    assert_eq!(recorded[0].verdict(), Verdict::Invalid);
+}
+
+#[test]
+fn a_rung_whose_expected_sections_miss_a_question_is_refused_before_any_search() {
+    let mut engine = FakeEngine {
+        expectations_missing: 1,
+        ..FakeEngine::default()
+    };
+
+    let refused = run_ladder(&mut engine, &suite(2, 1), 0, &[rung("r0")], |_| Ok(()));
+
+    assert!(
+        matches!(
+            &refused,
+            Err(Failure::Refused(reason)) if reason
+                == "the rung `r0` resolved expected sections for 2 of the suite's 3 questions"
+        ),
+        "{refused:?}"
+    );
+    assert!(engine.calls.borrow().is_empty());
 }

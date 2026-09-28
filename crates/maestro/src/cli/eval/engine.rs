@@ -6,20 +6,19 @@
 
 use super::{
     manifest::{AskSettings, Rung},
-    runner::{Engine, Provenance, SearchDiagnostic, Searched},
+    runner::{Asked, Engine, Provenance, RejectedCheck, SearchDiagnostic, Searched},
     stages::{StageFailure, stage_failure},
 };
 use crate::{
     failure::Failure,
     kernel::{Kernel, pinned_embedder},
-    knowledge::operations::ask::run::registered_answerer,
+    knowledge::operations::{ask::run::registered_answerer, local_search_context},
 };
 use maestro_kernel::{
     artifact::Digest,
     evidence::{Bundle, RequestBudget},
     gateway::{ModelCard, Role, RouterClient},
     generation::Generation,
-    scope::LOCAL,
 };
 use maestro_knowledge::{
     answer::{
@@ -29,9 +28,8 @@ use maestro_knowledge::{
     eval::{AskOutcome, RunError, SearchOutcome, SectionRef, resolve_expected},
     index::Qdrant,
     search::{
-        Reranker, SearchConfiguration, SearchContext, SearchError, SearchRequest,
+        SearchConfiguration, SearchContext, SearchError, SearchRequest,
         evidence::{ChunkSetDocuments, EvidenceCounter, EvidenceError, assemble_evidence},
-        routes::dense::Embedder,
         search, top_fused_score, top_rerank_score,
     },
     suite::Suite,
@@ -116,6 +114,7 @@ impl<'kernel> KernelEngine<'kernel> {
         let reranker =
             candidate_reranker(kernel, &self.collection, rung.configuration.reranker()?)?;
         let answerer = self.answerer(rung)?;
+        check_output_limit(rung, answerer.as_ref())?;
         let prompt = rung
             .ask
             .as_ref()
@@ -186,20 +185,30 @@ impl<'kernel> KernelEngine<'kernel> {
     /// started.
     pub(super) fn search_context(&self) -> Option<SearchContext<'_, RouterClient>> {
         let cards = &self.held.as_ref()?.cards;
-        Some(SearchContext {
-            database: Arc::clone(&self.kernel.database),
-            principal: LOCAL,
-            qdrant: &self.qdrant,
-            embedder: cards.embedder.as_ref().map(|card| Embedder {
-                port: &self.port,
-                card,
-            }),
-            reranker: cards.reranker.as_ref().map(|card| Reranker {
-                port: &self.port,
-                card,
-            }),
-        })
+        Some(local_search_context(
+            &self.kernel.database,
+            &self.qdrant,
+            &self.port,
+            cards.embedder.as_ref(),
+            cards.reranker.as_ref(),
+        ))
     }
+}
+
+/// Refuses `rung` when it asks for more output tokens than `answerer`'s card
+/// allows: every one of its asks would fail.
+fn check_output_limit(rung: &Rung, answerer: Option<&RegisteredAnswerer>) -> Result<(), Failure> {
+    let (Some(settings), Some(answerer)) = (&rung.ask, answerer) else {
+        return Ok(());
+    };
+    let limit = answerer.card.fields().limits.output_tokens;
+    if limit.is_some_and(|limit| settings.budget().output_tokens > limit.get()) {
+        return Err(Failure::refused(format!(
+            "the rung `{}` asks for more output tokens than its answerer card allows",
+            rung.name
+        )));
+    }
+    Ok(())
 }
 
 impl Engine for KernelEngine<'_> {
@@ -279,16 +288,20 @@ impl Engine for KernelEngine<'_> {
         }
     }
 
-    fn ask(&self, rung: &Rung, question: &str) -> AskOutcome {
+    fn ask(&self, rung: &Rung, question: &str) -> Asked {
+        let failed = || Asked {
+            outcome: AskOutcome::Failed,
+            rejections: Vec::new(),
+        };
         let (Some(search), Some(held), Some(settings)) =
             (self.search_context(), &self.held, &rung.ask)
         else {
-            return AskOutcome::Failed;
+            return failed();
         };
         let Some((request, prompt)) =
             self.ask_call(question, settings, held.cards.answerer.as_ref())
         else {
-            return AskOutcome::Failed;
+            return failed();
         };
         let context = AnswerContext {
             search,
@@ -303,18 +316,37 @@ impl Engine for KernelEngine<'_> {
             &prompt,
         )));
         match asked {
-            Ok(answer) => answer_outcome(
-                &answer,
-                &held.documents,
-                held.cards.generation.id,
-                &configuration,
-            ),
-            Err(error) => match ask_failure(&error) {
-                StageFailure::TimedOut => AskOutcome::TimedOut,
-                StageFailure::Failed => AskOutcome::Failed,
+            Ok(answer) => Asked {
+                outcome: answer_outcome(
+                    &answer,
+                    &held.documents,
+                    held.cards.generation.id,
+                    &configuration,
+                ),
+                rejections: rejected_checks(&answer),
+            },
+            Err(error) => Asked {
+                outcome: match ask_failure(&error) {
+                    StageFailure::TimedOut => AskOutcome::TimedOut,
+                    StageFailure::Failed => AskOutcome::Failed,
+                },
+                rejections: Vec::new(),
             },
         }
     }
+}
+
+/// The attempts the answer check refused before `answer`, without their
+/// tokens.
+pub(super) fn rejected_checks(answer: &Answer) -> Vec<RejectedCheck> {
+    answer
+        .rejections
+        .iter()
+        .map(|rejection| RejectedCheck {
+            attempt: rejection.attempt,
+            check: rejection.check,
+        })
+        .collect()
 }
 
 impl Cards {

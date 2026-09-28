@@ -27,6 +27,7 @@ use serde_json::Value;
 use std::{
     fs,
     num::NonZeroU32,
+    panic::{self, AssertUnwindSafe},
     path::{Path, PathBuf},
 };
 use tokio::runtime::{Builder, Runtime};
@@ -88,14 +89,36 @@ struct Traced {
 
 /// The synthetic generation is built once, the slow part, and every contract
 /// is checked on it: each test process builds its own, so one test builds it
-/// once instead of once for each contract.
+/// once instead of once for each contract. Every contract runs even when an
+/// earlier one fails, and the test names each one that failed.
 #[test]
 fn the_synthetic_path_traces_its_stages_and_outcomes_and_no_content() {
     let traced = traced_synthetic_path();
+    let contracts: [(&str, &dyn Fn()); 3] = [
+        ("each_stage_is_nested_with_its_outcome", &|| {
+            each_stage_is_nested_with_its_outcome(&traced.path, &traced.bundle);
+        }),
+        (
+            "a_refused_search_and_unavailable_routes_record_their_outcomes",
+            &|| {
+                a_refused_search_and_unavailable_routes_record_their_outcomes(&traced.degraded);
+            },
+        ),
+        (
+            "no_recorded_field_carries_the_corpus_or_question_text",
+            &|| {
+                no_recorded_field_carries_the_corpus_or_question_text(&traced);
+            },
+        ),
+    ];
 
-    each_stage_is_nested_with_its_outcome(&traced.path, &traced.bundle);
-    a_refused_search_and_unavailable_routes_record_their_outcomes(&traced.degraded);
-    no_recorded_field_carries_the_corpus_or_question_text(&traced);
+    let failed: Vec<&str> = contracts
+        .into_iter()
+        .filter(|(_, contract)| panic::catch_unwind(AssertUnwindSafe(contract)).is_err())
+        .map(|(name, _)| name)
+        .collect();
+
+    assert!(failed.is_empty(), "failed contracts: {failed:?}");
 }
 
 /// The publication, search and assembly open each stage under its parent,

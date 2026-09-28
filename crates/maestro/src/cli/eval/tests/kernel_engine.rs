@@ -123,11 +123,11 @@ fn with_the_services_down_each_search_and_ask_fails_once() {
         engine.search(&lexical, "question").outcome,
         SearchOutcome::Failed
     );
-    assert_eq!(engine.ask(&lexical, "question"), AskOutcome::Failed);
+    assert_eq!(engine.ask(&lexical, "question").outcome, AskOutcome::Failed);
 
     engine.start(&lexical, &suite(0, 1)).unwrap();
     let searched = engine.search(&lexical, "question").outcome;
-    let asked = engine.ask(&lexical, "question");
+    let asked = engine.ask(&lexical, "question").outcome;
 
     assert!(
         !matches!(searched, SearchOutcome::Ranked(_)),

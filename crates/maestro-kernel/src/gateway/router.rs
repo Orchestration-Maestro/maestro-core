@@ -139,7 +139,9 @@ impl RouterClient {
 
 impl ModelPort for RouterClient {
     /// Checks the card, which loads its model in `room` when it is not
-    /// loaded; a card already checked needs no request.
+    /// loaded; a card already checked needs no request. The check is cached
+    /// for the client's life, so after the router unloads an idle model,
+    /// this sends nothing, and the next call to the model reloads it.
     async fn prepare(&self, card: &ModelCard, room: Room) -> Result<(), Error> {
         self.check(card, room).await
     }

@@ -1,11 +1,18 @@
 //! `resolve_expected` gives the ladder's scorer each question's expected
 //! sections, and documents expected whole, as `run` resolves them.
 
-use super::run::{BACKUPS, NOTES, QUEUES, document_id, line, lookup, section_id, suite, three};
+use super::run::{
+    BACKUPS, NOTES, QUEUES, document, document_id, line, lookup, section_id, suite, three,
+};
 use crate::eval::{RunError, SectionRef, resolve_expected};
 use maestro_canonicalization::{CanonicalizeInput, canonicalize};
 use serde_json::json;
 use std::convert::Infallible;
+
+/// The pinned revision of the document of `source_ref`.
+fn revision_id(source_ref: &str) -> String {
+    document(source_ref).unwrap().revision_id
+}
 
 #[test]
 fn each_question_expects_its_resolved_sections_in_the_suites_order() {
@@ -15,20 +22,14 @@ fn each_question_expects_its_resolved_sections_in_the_suites_order() {
         [
             vec![SectionRef {
                 document_id: document_id(BACKUPS).to_owned(),
-                revision_id: Some(
-                    "rev-40d01ad82199d03b7ff1cdde55c72c89d8c6edf99f95982c840fd12a891398e1"
-                        .to_owned()
-                ),
+                revision_id: Some(revision_id(BACKUPS)),
                 chunk_id: None,
                 section_id: Some(section_id(BACKUPS, &["Backups", "Retention"], 1).to_owned()),
                 span: Some([31, 59]),
             }],
             vec![SectionRef {
                 document_id: document_id(QUEUES).to_owned(),
-                revision_id: Some(
-                    "rev-4e9cc86808d9d11d9a0ff893cca8d1e4584452dd7878c0b22596153ad363c489"
-                        .to_owned()
-                ),
+                revision_id: Some(revision_id(QUEUES)),
                 chunk_id: None,
                 section_id: Some(section_id(QUEUES, &["Queues", "Retries"], 2).to_owned()),
                 span: Some([36, 71]),
@@ -48,9 +49,7 @@ fn a_document_without_sections_is_expected_whole() {
         resolve_expected(&notes, lookup()).unwrap(),
         [vec![SectionRef {
             document_id: document_id(NOTES).to_owned(),
-            revision_id: Some(
-                "rev-c2df78459e41bf9f7679671fb5c916c572902e5642778f194dd4cba5f15c6d15".to_owned()
-            ),
+            revision_id: Some(revision_id(NOTES)),
             chunk_id: None,
             section_id: None,
             span: None,

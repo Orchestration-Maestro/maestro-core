@@ -2,8 +2,11 @@
 //! by digest without selection, the retrieval rank of a bundle's documents,
 //! and what an answer gives the ladder.
 
-use super::super::engine::{
-    answer_outcome, bundle_documents, candidate_reranker, ranked_documents,
+use super::super::{
+    engine::{
+        answer_outcome, bundle_documents, candidate_reranker, ranked_documents, rejected_checks,
+    },
+    runner::RejectedCheck,
 };
 use crate::{
     failure::Failure,
@@ -15,7 +18,7 @@ use maestro_kernel::{
     gateway::Role,
 };
 use maestro_knowledge::{
-    answer::{Answer, AnswerCitation, AnswerModel, AnswerRefusal, RefusalCode},
+    answer::{Answer, AnswerCitation, AnswerModel, AnswerRefusal, RefusalCode, Rejection},
     eval::{AskOutcome, SectionRef},
     search::{DEADLINE_EXCEEDED, SearchConfiguration, evidence::ChunkSetDocuments},
 };
@@ -145,12 +148,12 @@ fn answer(citations: &[(&str, &str)], refusal: Option<RefusalCode>) -> Answer {
             .enumerate()
             .map(|(index, (source_ref, section))| AnswerCitation {
                 n: u32::try_from(index + 1).unwrap(),
-                chunk_id: "chunk".to_owned(),
+                chunk_id: format!("chunk-{}", index + 1),
                 section_id: Some((*section).to_owned()),
                 source_ref: (*source_ref).to_owned(),
                 title: String::new(),
                 section_path: Vec::new(),
-                span: [0, 1],
+                span: [index + 1, index + 2],
             })
             .collect(),
         model: AnswerModel {
@@ -196,16 +199,16 @@ fn an_answer_gives_its_citations_documents_or_its_refusal() {
                 SectionRef {
                     document_id: "document".to_owned(),
                     revision_id: Some("revision".to_owned()),
-                    chunk_id: Some("chunk".to_owned()),
+                    chunk_id: Some("chunk-1".to_owned()),
                     section_id: Some("section".to_owned()),
-                    span: Some([0, 1]),
+                    span: Some([1, 2]),
                 },
                 SectionRef {
                     document_id: String::new(),
                     revision_id: None,
-                    chunk_id: Some("chunk".to_owned()),
+                    chunk_id: Some("chunk-2".to_owned()),
                     section_id: Some("s".to_owned()),
-                    span: Some([0, 1]),
+                    span: Some([2, 3]),
                 },
             ],
             invented_literals: 0,
@@ -306,5 +309,36 @@ fn the_ranked_list_holds_each_ranked_chunks_document_once_the_first_10() {
     assert_eq!(
         ranked_documents(&order, |chunk| documents.document_of_chunk(chunk)),
         ["document"]
+    );
+}
+
+#[test]
+fn an_answers_rejected_attempts_keep_their_checks_without_their_tokens() {
+    let mut repaired = answer(&[("source:docs", "section")], None);
+    repaired.rejections = vec![
+        Rejection {
+            attempt: 1,
+            check: "unsupported_literal",
+            tokens: vec!["secret".to_owned()],
+        },
+        Rejection {
+            attempt: 2,
+            check: "citation",
+            tokens: Vec::new(),
+        },
+    ];
+
+    assert_eq!(
+        rejected_checks(&repaired),
+        [
+            RejectedCheck {
+                attempt: 1,
+                check: "unsupported_literal",
+            },
+            RejectedCheck {
+                attempt: 2,
+                check: "citation",
+            },
+        ]
     );
 }

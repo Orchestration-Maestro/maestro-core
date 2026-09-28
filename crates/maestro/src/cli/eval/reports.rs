@@ -4,7 +4,7 @@
 
 use super::{
     manifest::{AskSettings, RungConfiguration},
-    runner::{Provenance, RungRun, SearchDiagnostic, Verdict},
+    runner::{Provenance, RejectedCheck, RungRun, SearchDiagnostic, Verdict},
 };
 use crate::failure::Failure;
 use maestro_kernel::artifact::Digest;
@@ -13,7 +13,7 @@ use maestro_knowledge::{
     eval::{AskOutcome, LadderQuestion, LadderScore, SearchOutcome},
 };
 use serde::Serialize;
-use std::{fmt::Write as _, fs, path::Path, time::Duration};
+use std::{collections::BTreeMap, fmt::Write as _, fs, path::Path, time::Duration};
 
 /// The contract of a rung's public report.
 const RUNG_SCHEMA: &str = "maestro-eval-ladder-rung/1";
@@ -59,8 +59,9 @@ pub(super) struct RungReport<'run> {
     collection: &'run str,
     /// What it ran against at its start.
     provenance: &'run Provenance,
-    /// What it ran against at its end; it differs when the rung is INVALID.
-    end: &'run Provenance,
+    /// What it ran against at its end; it differs, or is absent when it
+    /// could not be read, when the rung is INVALID.
+    end: Option<&'run Provenance>,
     /// What the ladder's first rung ran against at its start; the rung is
     /// INVALID when it differs from this in anything but the reranker.
     ladder: &'run Provenance,
@@ -72,6 +73,8 @@ pub(super) struct RungReport<'run> {
     binary: Binary,
     /// Its floors.
     score: &'run LadderScore,
+    /// How many attempts each answer check refused, over every row.
+    rejected_checks: BTreeMap<&'static str, usize>,
 }
 
 impl<'run> RungReport<'run> {
@@ -91,12 +94,19 @@ impl<'run> RungReport<'run> {
             warm_ups: run.warm_ups,
             collection,
             provenance: &run.start,
-            end: &run.end,
+            end: run.end.as_ref(),
             ladder: &run.ladder,
             configuration: &run.rung.configuration,
             suite_digest: suite_digest.as_str(),
             binary,
             score: &run.score,
+            rejected_checks: run.rejections.iter().flatten().fold(
+                BTreeMap::new(),
+                |mut counts, rejection| {
+                    *counts.entry(rejection.check).or_default() += 1;
+                    counts
+                },
+            ),
         }
     }
 
@@ -132,6 +142,12 @@ impl<'run> RungReport<'run> {
         if let Some(settings) = &self.ask_settings {
             let _ = writeln!(text, "- Ask settings: {}", settings.describe());
         }
+        let _ = writeln!(
+            text,
+            "- Rejected answer attempts: {}; the invented-literals floor counts delivered \
+             answers only",
+            rejected_counts(&self.rejected_checks)
+        );
         let _ = writeln!(text, "- Warm-ups: {}", self.warm_ups);
         let _ = writeln!(text, "- Suite digest: {}", self.suite_digest);
         let _ = writeln!(
@@ -143,7 +159,7 @@ impl<'run> RungReport<'run> {
         if self.verdict == Verdict::Invalid {
             text.push_str(
                 "- INVALID: the generation or a card changed while the rung ran, or differs \
-                 from the first rung's\n",
+                 from the first rung's, or could not be read at its end\n",
             );
         }
         text.push('\n');
@@ -159,7 +175,7 @@ impl<'run> RungReport<'run> {
     reason = "ask's budget names this limit k, as the manifest does"
 )]
 pub(super) struct AskReport {
-    /// The passages given to the answerer.
+    /// The most passages given to the answerer.
     k: u32,
     /// The evidence budget, in UTF-8 bytes.
     max_tokens: u32,
@@ -181,11 +197,11 @@ impl AskReport {
         }
     }
 
-    /// The settings in words: passages, evidence bytes, output tokens and
-    /// prompt.
+    /// The settings in words: the most passages, evidence bytes, output
+    /// tokens and prompt.
     pub(super) fn describe(&self) -> String {
         format!(
-            "{} passages, {} evidence bytes, {} output tokens, prompt {}",
+            "at most {} passages, {} evidence bytes, {} output tokens, prompt {}",
             self.k, self.max_tokens, self.output_tokens, self.prompt
         )
     }
@@ -206,13 +222,15 @@ pub(super) struct PrivateRow<'run> {
     ranked_documents: &'run [String],
     /// The first of them, from 1, that is an expected document.
     expected_rank: Option<usize>,
-    /// The documents of the assembled evidence, in rank order: a diagnostic.
+    /// The documents of the assembled evidence, in rank order: a diagnostic,
+    /// assembled under the search's default budget, not the rung's `ask`
+    /// settings.
     bundle_documents: &'run [String],
     /// The first of them, from 1, that is an expected document.
     bundle_rank: Option<usize>,
     /// The search's top reranker score, absent when rerank did not run.
     top_rerank_score: Option<f64>,
-    /// The search's top fused score, absent when nothing was fused.
+    /// The search's top fused score, absent when no fused candidate was loaded.
     top_fused_score: Option<f64>,
     /// How its `ask` ended, absent when the rung does not ask.
     ask: Option<&'static str>,
@@ -222,6 +240,8 @@ pub(super) struct PrivateRow<'run> {
     refusal: Option<RefusalCode>,
     /// The sections the answer cites.
     citations: Vec<Citation<'run>>,
+    /// The attempts the answer check refused before `ask` ended.
+    rejections: &'run [RejectedCheck],
 }
 
 /// A section an answer cites.
@@ -241,10 +261,11 @@ struct Citation<'run> {
 
 impl<'run> PrivateRow<'run> {
     /// The private row of `row`, whose search gave `diagnostic` and whose
-    /// `ask` ran when `asked`.
+    /// `ask` ran when `asked`, after the answer check refused `rejections`.
     pub(super) fn new(
         row: &'run LadderQuestion,
         diagnostic: &'run SearchDiagnostic,
+        rejections: &'run [RejectedCheck],
         asked: bool,
     ) -> Self {
         let bundle_documents = diagnostic.bundle_documents.as_slice();
@@ -288,6 +309,7 @@ impl<'run> PrivateRow<'run> {
             ask_us: asked.then(|| micros(row.ask.elapsed)),
             refusal: refusal.filter(|_| asked),
             citations,
+            rejections,
         }
     }
 }
@@ -305,8 +327,11 @@ pub(super) fn write_rung(
     let private = output.join(PRIVATE);
     fs::create_dir_all(&private).map_err(|error| Failure::failed_by(&error))?;
     let mut rows = String::new();
-    for (row, diagnostic) in run.rows.iter().zip(&run.diagnostics) {
-        let line = serde_json::to_string(&PrivateRow::new(row, diagnostic, run.rung.ask.is_some()))
+    for ((row, diagnostic), rejections) in
+        run.rows.iter().zip(&run.diagnostics).zip(&run.rejections)
+    {
+        let asked = run.rung.ask.is_some();
+        let line = serde_json::to_string(&PrivateRow::new(row, diagnostic, rejections, asked))
             .map_err(|error| Failure::failed_by(&error))?;
         rows.push_str(&line);
         rows.push('\n');
@@ -322,6 +347,18 @@ pub(super) fn write_rung(
 pub(super) fn write(path: &Path, text: &str) -> Result<(), Failure> {
     fs::write(path, text)
         .map_err(|error| Failure::failed(format!("cannot write {}: {error}", path.display())))
+}
+
+/// `counts` in words: each check's code and count, or "none".
+fn rejected_counts(counts: &BTreeMap<&'static str, usize>) -> String {
+    if counts.is_empty() {
+        return "none".to_owned();
+    }
+    counts
+        .iter()
+        .map(|(check, count)| format!("{check} {count}"))
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 /// The first of `documents`, from 1, that `row` expects.
