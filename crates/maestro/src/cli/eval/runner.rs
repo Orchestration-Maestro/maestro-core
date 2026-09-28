@@ -6,6 +6,7 @@
 
 use super::manifest::Rung;
 use crate::failure::Failure;
+use maestro_kernel::evidence::RouteStatus;
 use maestro_knowledge::{
     eval::{
         Ask, AskOutcome, DeliveryScore, LadderQuestion, LadderScore, Search, SearchOutcome,
@@ -27,6 +28,9 @@ pub(super) struct Provenance {
     pub(super) chunk_set: String,
     /// The digest of the embedder's card, absent when none matches.
     pub(super) embedder: Option<String>,
+    /// The explicitly configured expansion card, absent when off.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) intent: Option<String>,
     /// The digest of the rung's reranker card, absent when reranking is off.
     pub(super) reranker: Option<String>,
     /// The digest of the rung's answerer card, absent when none is
@@ -64,6 +68,11 @@ pub(super) struct Searched {
 /// What a search gave beyond what the floors score: diagnostics only.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub(super) struct SearchDiagnostic {
+    /// Expansion outcome, absent when intent is off.
+    pub(super) intent_status: Option<RouteStatus>,
+    /// Original top-depth candidates the intent votes put below the rerank
+    /// depth, all still reranked; absent when no intent voted.
+    pub(super) intent_displaced: Option<usize>,
     /// The documents of its assembled evidence, in rank order.
     pub(super) bundle_documents: Vec<String>,
     /// The top reranker score, absent when rerank did not run.

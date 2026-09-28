@@ -85,6 +85,13 @@ pub fn top_rerank_score(ranked: &[Ranked]) -> Option<f64> {
     ranked.first().and_then(|item| item.score)
 }
 
+/// The highest reranker score of `ranked`, whatever their order: rank
+/// policies can put another candidate first; none when rerank did not run.
+#[must_use]
+pub fn best_rerank_score(ranked: &[Ranked]) -> Option<f64> {
+    ranked.iter().filter_map(|item| item.score).reduce(f64::max)
+}
+
 /// The highest fused score of `ranked`, whatever their order.
 #[must_use]
 pub fn top_fused_score(ranked: &[Ranked]) -> Option<f64> {

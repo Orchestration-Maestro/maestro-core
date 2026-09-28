@@ -60,6 +60,7 @@ async fn a_markerless_published_generation_degrades_then_republishes_without_ear
     backend.point_alias(&alias, &old_collection).await;
 
     let context: SearchContext<'_, Embedder> = SearchContext {
+        intent_expander: None,
         database: kernel.database.clone(),
         principal: "tester",
         qdrant: &qdrant,

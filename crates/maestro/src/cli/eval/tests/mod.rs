@@ -4,6 +4,7 @@
 mod ask_settings;
 mod comparison;
 mod engine;
+mod intent;
 mod kernel_engine;
 mod manifest;
 mod reports;

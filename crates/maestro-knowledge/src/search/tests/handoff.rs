@@ -157,6 +157,7 @@ fn search_context_debug_redacts_its_database_connection() {
     let database = CandidateDb::new(b"prepared text", "docs");
     let qdrant = Qdrant::new("http://127.0.0.1:6334").unwrap();
     let context = SearchContext::<()> {
+        intent_expander: None,
         database: database.database.clone(),
         principal: "reader",
         qdrant: &qdrant,

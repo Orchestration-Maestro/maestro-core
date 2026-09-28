@@ -13,7 +13,7 @@ use super::{
 use crate::{
     failure::Failure,
     kernel::{Kernel, pinned_embedder},
-    knowledge::operations::{ask::run::registered_answerer, local_search_context},
+    knowledge::operations::{SearchCards, ask::run::registered_answerer, local_search_context},
 };
 use maestro_kernel::{
     artifact::Digest,
@@ -28,7 +28,7 @@ use maestro_knowledge::{
     eval::{AskOutcome, RunError, SearchOutcome, SectionRef, resolve_expected},
     index::Qdrant,
     search::{
-        SearchConfiguration, SearchContext, SearchRequest,
+        HydeExpander, IntentExpansion, SearchConfiguration, SearchContext, SearchRequest,
         evidence::{Anchor, ChunkSetDocuments, assemble_evidence},
         search, top_fused_score, top_rerank_score,
     },
@@ -67,6 +67,8 @@ struct Cards {
     generation: Generation,
     /// The embedder its dense vectors were made with, if its card loads.
     embedder: Option<ModelCard>,
+    /// The explicitly registered expansion card, independent of the answerer.
+    intent: Option<ModelCard>,
     /// The rung's reranker, when it reranks.
     reranker: Option<ModelCard>,
     /// The answerer the rung names, or else the one registered for the
@@ -113,6 +115,22 @@ impl<'kernel> KernelEngine<'kernel> {
         let embedder = pinned_embedder(&kernel.artifacts, Some(&generation.embedding_profile));
         let reranker =
             candidate_reranker(kernel, &self.collection, rung.configuration.reranker()?)?;
+        let intent = match rung.configuration.intent_expansion {
+            IntentExpansion::Off => None,
+            IntentExpansion::Hyde => {
+                let digest = rung
+                    .configuration
+                    .intent_card
+                    .as_deref()
+                    .ok_or_else(|| Failure::refused("hyde requires an explicit intent card"))?;
+                let digest = Digest::parse(digest)
+                    .map_err(|_| Failure::refused("intent card must be a SHA-256 digest"))?;
+                let card = candidate_answerer(kernel, &self.collection, &digest)?.card;
+                HydeExpander::new(&self.port, &card)
+                    .map_err(|error| Failure::refused_by(&error))?;
+                Some(card)
+            }
+        };
         let answerer = self.answerer(rung)?;
         check_output_limit(rung, answerer.as_ref())?;
         let prompt = rung
@@ -122,6 +140,7 @@ impl<'kernel> KernelEngine<'kernel> {
         Ok(Cards {
             generation,
             embedder,
+            intent,
             reranker,
             answerer,
             prompt,
@@ -212,8 +231,11 @@ impl<'kernel> KernelEngine<'kernel> {
             &self.kernel.database,
             &self.qdrant,
             &self.port,
-            cards.embedder.as_ref(),
-            cards.reranker.as_ref(),
+            SearchCards {
+                embedder: cards.embedder.as_ref(),
+                reranker: cards.reranker.as_ref(),
+                intent: cards.intent.as_ref(),
+            },
         ))
     }
 }
@@ -293,6 +315,7 @@ impl Engine for KernelEngine<'_> {
                 .map_err(|error| search_failure(&error))?;
             diagnostic.top_rerank_score = top_rerank_score(&input.ranked);
             diagnostic.top_fused_score = top_fused_score(&input.ranked);
+            diagnostic.intent_displaced = input.observations.intent_displaced;
             diagnostic.candidate_source_load_micros =
                 input.observations.candidate_source_load_micros;
             diagnostic
@@ -311,6 +334,7 @@ impl Engine for KernelEngine<'_> {
             .await
             .map_err(|error| evidence_failure(&error))?;
             delivered = bundle.passages.iter().map(Anchor::from).collect();
+            diagnostic.intent_status = bundle.routes.get("intent_expansion").cloned();
             diagnostic.bundle_documents = bundle_documents(&bundle, &order);
             match stage_failure(&configuration, &bundle.routes) {
                 Some(failure) => Err(failure),
@@ -402,6 +426,7 @@ impl Cards {
     /// What a rung with these cards runs against.
     fn provenance(&self) -> Provenance {
         Provenance {
+            intent: self.intent.as_ref().map(card_digest),
             generation: self.generation.id,
             chunk_set: self.generation.chunk_set_id.clone(),
             embedder: self.embedder.as_ref().map(card_digest),

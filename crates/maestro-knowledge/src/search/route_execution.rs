@@ -2,8 +2,9 @@
 
 use super::{
     deadline::{DEADLINE_EXCEEDED, DISABLED_BY_CONFIGURATION, DeadlineElapsed, Deadlines, until},
-    fusion::{Hit, Route, RouteList},
+    fusion::{Fused, Hit, Route, RouteList},
     query::Query,
+    request::SearchObservations,
     rerank::Reranker,
     routes::lexical,
     routes::{
@@ -20,7 +21,11 @@ use maestro_kernel::{
     store::Database,
     telemetry::stage::Outcome,
 };
-use std::{collections::BTreeMap, future::Future, sync::Arc};
+use std::{
+    collections::{BTreeMap, HashMap, HashSet},
+    future::Future,
+    sync::Arc,
+};
 use tokio::time::{self, Instant};
 
 /// How a route or the rerank that ended with `status` ended: the reason
@@ -241,4 +246,57 @@ fn nonblank(reason: &str) -> &str {
     } else {
         reason
     }
+}
+
+/// Captures each route's candidate order before fusion.
+pub(super) fn route_observations(
+    dense: &RouteOutcome,
+    lexical: &RouteOutcome,
+    identifier: &RouteOutcome,
+    structured: Option<&StructuredOutcome>,
+) -> SearchObservations {
+    let mut route_ranks = BTreeMap::from([
+        (Route::Dense, observed_chunk_ids(dense)),
+        (Route::Lexical, observed_chunk_ids(lexical)),
+        (Route::Identifier, observed_chunk_ids(identifier)),
+    ]);
+    if let Some(structured) = structured {
+        route_ranks.insert(Route::Structured, observed_chunk_ids(&structured.route));
+    }
+    SearchObservations {
+        route_ranks,
+        ..SearchObservations::default()
+    }
+}
+
+/// Retains candidate identities in their route-provided rank order.
+pub(super) fn observed_chunk_ids(outcome: &RouteOutcome) -> Vec<String> {
+    outcome
+        .hits
+        .iter()
+        .map(|hit| hit.chunk_id.clone())
+        .collect()
+}
+
+/// Retains revision identities for every fused candidate to validate kernel ownership.
+pub(super) fn revisions_for_fused<'a>(
+    fused: &[Fused],
+    outcomes: impl Iterator<Item = &'a RouteOutcome>,
+) -> HashMap<String, Vec<String>> {
+    let wanted: HashSet<&str> = fused
+        .iter()
+        .map(|candidate| candidate.chunk_id.as_str())
+        .collect();
+    let mut revisions = HashMap::new();
+    for outcome in outcomes {
+        for hit in &outcome.hits {
+            if wanted.contains(hit.chunk_id.as_str()) {
+                revisions
+                    .entry(hit.chunk_id.clone())
+                    .or_insert_with(Vec::new)
+                    .push(hit.revision_id.clone());
+            }
+        }
+    }
+    revisions
 }

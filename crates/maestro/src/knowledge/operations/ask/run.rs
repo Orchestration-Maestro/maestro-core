@@ -2,7 +2,10 @@
 
 use super::super::{
     implementation::{KnowledgeError, Scoped, kernel_failure, kernel_open_failure},
-    search::{evidence_failure, integrity_failure, local_search_context, search_failure},
+    search::{
+        SearchCards, evidence_failure, integrity_failure, local_search_context, search_failure,
+        selected_answerer,
+    },
 };
 use crate::{
     cli::health::{QDRANT_VARIABLE, ROUTER_VARIABLE, qdrant_url, router_url},
@@ -52,12 +55,16 @@ pub(crate) fn ask_with(
         code: "invalid_configuration",
         message: "the search service URL is invalid",
     })?;
+    let intent_card = selected_answerer(&kernel.database, &scopes, &request.collection)?;
     let search = local_search_context(
         &kernel.database,
         &qdrant,
         &port,
-        embedder_card.as_ref(),
-        reranker_card.as_ref(),
+        SearchCards {
+            embedder: embedder_card.as_ref(),
+            reranker: reranker_card.as_ref(),
+            intent: intent_card.as_ref(),
+        },
     );
     let context = AnswerContext {
         search,

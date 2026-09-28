@@ -5,7 +5,7 @@ mod generate;
 /// Build the bounded system and evidence messages sent to the answerer.
 mod prompt;
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 /// Public request, response and error contracts for answering.
 mod types;
 /// Check citations, language and supported literals in a buffered reply.

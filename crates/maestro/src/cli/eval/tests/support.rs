@@ -9,7 +9,7 @@ use crate::failure::Failure;
 use maestro_knowledge::{
     answer::RefusalCode,
     eval::{AskOutcome, SearchOutcome, SectionRef},
-    search::{SearchConfiguration, evidence::Anchor},
+    search::{IntentExpansion, IntentTrigger, SearchConfiguration, evidence::Anchor},
     suite::Suite,
 };
 use serde_json::{Value, json};
@@ -54,6 +54,12 @@ pub(super) fn rung(name: &str) -> Rung {
     Rung {
         name: name.to_owned(),
         configuration: RungConfiguration {
+            intent_expansion: IntentExpansion::Off,
+            intent_trigger: IntentTrigger::Always,
+            intent_card: None,
+            intent_deadline_ms: 4000,
+            intent_weight: 1.0,
+            intent_rerank_additions: 10,
             routes: Routes {
                 dense: true,
                 lexical: true,
@@ -160,6 +166,8 @@ impl FakeEngine {
 /// reranker score of 0.75 when `rung` reranks, and a top fused score of 0.05.
 fn diagnostic(rung: &Rung, bundle_documents: Vec<String>) -> SearchDiagnostic {
     SearchDiagnostic {
+        intent_status: None,
+        intent_displaced: None,
         bundle_documents,
         top_rerank_score: rung.configuration.rerank.as_ref().map(|_| 0.75),
         top_fused_score: Some(0.05),
@@ -205,6 +213,7 @@ impl Engine for FakeEngine {
             ));
         }
         Ok(Provenance {
+            intent: None,
             generation: self.generation.get(),
             chunk_set: "chunk-set".to_owned(),
             embedder: (!self.no_embedder).then(|| "e".repeat(64)),

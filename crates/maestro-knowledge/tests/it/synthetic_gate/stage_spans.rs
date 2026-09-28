@@ -298,6 +298,7 @@ async fn traced_search(
     text: &str,
 ) -> Result<EvidenceInput, SearchError> {
     let context = SearchContext {
+        intent_expander: None,
         database: published.database.clone(),
         principal: PRINCIPAL,
         qdrant,

@@ -302,7 +302,8 @@ reason = "a slow dependency is the input under test: route windows are wall-cloc
 # of the synthetic collection in tests/fixtures/synthetic; celle, celles and
 # toi, French stopwords of the lexical analyzer, as sur is too, and requet and
 # schedul, stems its golden test pins; flate, of flate2, the compression crate
-# qdrant-client's tonic brings, which supply-chain/config.toml exempts.
+# qdrant-client's tonic brings, which supply-chain/config.toml exempts; nd,
+# the ordinal ending of 2nd that the intent guard reads as a quantity.
 [typos]
 words = [
   "Exemple",
@@ -332,4 +333,5 @@ words = [
   "requet",
   "schedul",
   "flate",
+  "nd",
 ]

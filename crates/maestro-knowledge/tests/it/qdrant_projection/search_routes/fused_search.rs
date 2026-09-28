@@ -67,6 +67,7 @@ async fn undocumented_question_version_does_not_filter_search_results() {
             .await
             .unwrap();
         let context: SearchContext<'_, models::Embedder> = SearchContext {
+            intent_expander: None,
             database: kernel.database.clone(),
             principal: "tester",
             qdrant: &qdrant,
@@ -111,6 +112,7 @@ async fn explicit_version_overrides_question_version() {
             .await
             .unwrap();
         let context: SearchContext<'_, models::Embedder> = SearchContext {
+            intent_expander: None,
             database: kernel.database.clone(),
             principal: "tester",
             qdrant: &qdrant,
@@ -154,6 +156,7 @@ async fn missing_explicit_version_is_reported_as_a_known_gap() {
         .await
         .unwrap();
     let context: SearchContext<'_, models::Embedder> = SearchContext {
+        intent_expander: None,
         database: kernel.database.clone(),
         principal: "tester",
         qdrant: &qdrant,
@@ -196,6 +199,7 @@ async fn malformed_inventory_filter_degrades_only_the_structured_route() {
         .await
         .unwrap();
     let context: SearchContext<'_, models::Embedder> = SearchContext {
+        intent_expander: None,
         database: kernel.database.clone(),
         principal: "tester",
         qdrant: &qdrant,
@@ -259,6 +263,7 @@ async fn mismatched_route_revision_is_refused_before_rerank() {
     let rerank_port = models::Embedder::default();
     let reranker_card = models::card(Role::Reranker, 0);
     let context: SearchContext<'_, models::Embedder> = SearchContext {
+        intent_expander: None,
         database: kernel.database.clone(),
         principal: "tester",
         qdrant: &qdrant,
@@ -321,6 +326,7 @@ async fn missing_embedder_degrades_dense_but_fuses_other_routes() {
         .unwrap();
     let calls_before_search = port.calls().len();
     let context: SearchContext<'_, models::Embedder> = SearchContext {
+        intent_expander: None,
         database: kernel.database.clone(),
         principal: "tester",
         qdrant: &qdrant,

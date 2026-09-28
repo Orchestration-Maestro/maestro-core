@@ -28,6 +28,7 @@ async fn unknown_and_unpublished_collections_stop_before_model_or_qdrant_calls()
     let port = models::Embedder::default();
     let qdrant = backend.client();
     let context: SearchContext<'_, models::Embedder> = SearchContext {
+        intent_expander: None,
         database: kernel.database.clone(),
         principal: "tester",
         qdrant: &qdrant,
@@ -134,6 +135,7 @@ async fn alias_and_generation_moves_after_admission_keep_search_pinned() {
 
     let (search_port, gate) = models::Embedder::gated();
     let context: SearchContext<'_, models::Embedder> = SearchContext {
+        intent_expander: None,
         database: kernel.database.clone(),
         principal: "tester",
         qdrant: &qdrant,
@@ -247,6 +249,7 @@ async fn a_permission_revocation_during_a_slow_route_aborts_the_handoff() {
     let rerank_port = models::Embedder::default();
     let reranker_card = models::card(Role::Reranker, 0);
     let context: SearchContext<'_, models::Embedder> = SearchContext {
+        intent_expander: None,
         database: kernel.database.clone(),
         principal: "tester",
         qdrant: &qdrant,
@@ -312,6 +315,7 @@ async fn a_new_grant_during_a_slow_route_aborts_the_handoff() {
         .unwrap();
     let (search_port, gate) = models::Embedder::gated();
     let context: SearchContext<'_, models::Embedder> = SearchContext {
+        intent_expander: None,
         database: kernel.database.clone(),
         principal: "tester",
         qdrant: &qdrant,

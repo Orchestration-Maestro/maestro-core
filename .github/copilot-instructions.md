@@ -65,6 +65,7 @@ in place.
 │   │   │   │   │   │   ├── ask_settings.rs                                  # A rung's ask: true asks as ask does by default, false does not
 │   │   │   │   │   │   ├── comparison.rs                                    # The comparison across rungs: each floor per rung and its change, the
 │   │   │   │   │   │   ├── engine.rs                                        # The engine's pieces that need no search service: a rung's reranker taken
+│   │   │   │   │   │   ├── intent.rs                                        # Intent expansion on the ladder: a HyDE rung's card reaches search and
 │   │   │   │   │   │   ├── kernel_engine.rs                                 # The engine on a real kernel, with the router and the search service
 │   │   │   │   │   │   ├── manifest.rs                                      # The manifest: what it holds, where its paths lead, and each refusal
 │   │   │   │   │   │   ├── mod.rs                                           # Tests of the ladder command: its manifest, its run over a fake engine, its
@@ -159,6 +160,7 @@ in place.
 │   │   │   │   │   │   ├── run.rs                                           # One local ask operation shared by CLI and MCP
 │   │   │   │   │   │   └── tests.rs                                         # Rust source: tests
 │   │   │   │   │   ├── implementation.rs                                    # Scoped application operations shared by CLI and MCP
+│   │   │   │   │   ├── intent_tests.rs                                      # Production searches take their query expander from the collection's
 │   │   │   │   │   ├── mod.rs                                               # Source-scoped kernel operations for the CLI and MCP read surfaces
 │   │   │   │   │   ├── search.rs                                            # Scoped search followed by the approved evidence assembly handoff
 │   │   │   │   │   ├── stack_tests.rs                                       # Search fits half the stack of a Windows main thread
@@ -914,6 +916,9 @@ in place.
 │   │   │   │   │   ├── deadlines.rs                                         # Rust source: deadlines
 │   │   │   │   │   ├── fusion.rs                                            # Rust source: fusion
 │   │   │   │   │   ├── handoff.rs                                           # Route joining and rerank handoff boundaries
+│   │   │   │   │   ├── intent.rs                                            # Guarded additive intent expansion contracts
+│   │   │   │   │   ├── intent_guard.rs                                      # The expansion guard: quantities in any spelling, protected constraint
+│   │   │   │   │   ├── intent_request.rs                                    # The expansion port: the one chat request the HyDE adapter sends, the
 │   │   │   │   │   ├── inventory_query.rs                                   # Exact English and French inventory-query grammar
 │   │   │   │   │   ├── mod.rs                                               # Rust source: mod
 │   │   │   │   │   ├── rank_policy.rs                                       # Rust source: rank policy
@@ -933,6 +938,11 @@ in place.
 │   │   │   │   ├── deadline.rs                                              # Absolute cutoffs shared by routes, candidate loading and T032 handoff
 │   │   │   │   ├── filter.rs                                                # Qdrant's in-route filter for the scopes admitted to one request
 │   │   │   │   ├── fusion.rs                                                # Reciprocal rank fusion over independent retrieval routes
+│   │   │   │   ├── hyde.rs                                                  # The hypothetical-document expander: a configured answerer card, called
+│   │   │   │   ├── intent.rs                                                # Optional query expansion behind a replaceable port; generated text is
+│   │   │   │   ├── intent_guard.rs                                          # The mechanical guard every expansion passes before it may vote
+│   │   │   │   ├── intent_routes.rs                                         # Independent additive routes over guarded model-generated retrieval inputs
+│   │   │   │   ├── intent_words.rs                                          # Per-language word lists of the expansion guard: data, not rules
 │   │   │   │   ├── inventory_query.rs                                       # Exact natural-language grammar for S1 document and version inventories
 │   │   │   │   ├── mod.rs                                                   # Rust source: mod
 │   │   │   │   ├── orchestrate.rs                                           # Admission, parallel route execution, fusion and the bounded T032 handoff
@@ -943,6 +953,7 @@ in place.
 │   │   │   │   ├── request.rs                                               # Retrieval results handed to T032 without assembling an evidence bundle
 │   │   │   │   ├── rerank.rs                                                # Reranks the head of a fused list without truncating candidate text
 │   │   │   │   ├── route_execution.rs                                       # Deadline-bounded leaf-route calls and their independent public statuses
+│   │   │   │   ├── route_search.rs                                          # Cached original routes and additive fusion for one pinned search
 │   │   │   │   └── section_prior.rs                                         # Configured section classes and an optional soft reciprocal-rank penalty
 │   │   │   ├── answer.rs                                                    # Evidence-grounded answering with bounded generation and one validation retry
 │   │   │   ├── collection.rs                                                # A collection's declaration: maestro-collection/1, the strict JSON that
@@ -1001,6 +1012,10 @@ in place.
 │   │   │       │   │   ├── identifier_route.rs                              # Exact identifiers combine payload equality with the scoped kernel index
 │   │   │       │   │   ├── identifier_route_resilience.rs                   # Independent exact-identifier leg failures and empty results
 │   │   │       │   │   ├── idle_unload.rs                                   # A long-lived router client, as the MCP server shares, reloads a model the
+│   │   │       │   │   ├── intent_expansion.rs                              # Real search admission and fusion with a controlled expansion model
+│   │   │       │   │   ├── intent_fallbacks.rs                              # An expanded search never ends worse than the original one: a failed or
+│   │   │       │   │   ├── intent_port.rs                                   # A model port whose expansion chat and reranker a test scripts, over the
+│   │   │       │   │   ├── intent_rerank_set.rs                             # What the rerank scores once intent routes voted: the original top-depth
 │   │   │       │   │   ├── mod.rs                                           # Dense and lexical routes against the shared fake and, when configured, real Qdrant
 │   │   │       │   │   ├── route_behavior.rs                                # Behavior of dense and lexical searches over the generation-pinned collection
 │   │   │       │   │   ├── route_errors.rs                                  # Refusals from admission, profiles and dense embedding

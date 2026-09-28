@@ -7,7 +7,10 @@ use super::{
     runner::{Provenance, RejectedCheck, RungRun, SearchDiagnostic, Verdict},
 };
 use crate::failure::Failure;
-use maestro_kernel::{artifact::Digest, evidence::RequestBudget};
+use maestro_kernel::{
+    artifact::Digest,
+    evidence::{RequestBudget, RouteStatus},
+};
 use maestro_knowledge::search::evidence::EvidenceSettings;
 use maestro_knowledge::{
     answer::{AskBudget, RefusalCode},
@@ -88,6 +91,9 @@ pub(super) struct RungReport<'run> {
     /// median coverage, the composition cases and those complete, and the
     /// questions credited with nothing.
     delivery: &'run DeliveryScore,
+    /// Counts of expansion outcomes, absent when intent is off.
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    intent_outcomes: BTreeMap<&'static str, usize>,
     /// How many attempts each answer check refused, over every row.
     rejected_checks: BTreeMap<&'static str, usize>,
     /// The reply caps its asks' chat calls ran with, over every row.
@@ -119,6 +125,7 @@ impl<'run> RungReport<'run> {
             binary,
             score: &run.score,
             delivery: &run.delivery,
+            intent_outcomes: intent_counts(&run.diagnostics),
             rejected_checks: run.rejections.iter().flatten().fold(
                 BTreeMap::new(),
                 |mut counts, rejection| {
@@ -187,6 +194,9 @@ impl<'run> RungReport<'run> {
             );
         }
         text.push('\n');
+        if !self.intent_outcomes.is_empty() {
+            let _ = writeln!(text, "- Intent outcomes: {:?}\n", self.intent_outcomes);
+        }
         text.push_str(&self.score.to_markdown());
         text
     }
@@ -266,6 +276,13 @@ pub(super) struct PrivateRow<'run> {
     id: &'run str,
     /// How its search ended: `ranked`, `failed` or `timed_out`.
     search: &'static str,
+    /// Expansion outcome only, never generated text; omitted when off.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    intent_status: Option<&'run RouteStatus>,
+    /// Original top-depth candidates the intent votes put below the rerank
+    /// depth, all still reranked; omitted when no intent voted.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    intent_displaced: Option<usize>,
     /// Its search's time, in microseconds.
     search_us: u64,
     /// The distinct documents of the search's final ranked chunks, before
@@ -364,6 +381,8 @@ impl<'run> PrivateRow<'run> {
             id: &row.id,
             delivered: &row.delivered,
             search,
+            intent_status: diagnostic.intent_status.as_ref(),
+            intent_displaced: diagnostic.intent_displaced,
             search_us: micros(row.search.elapsed),
             ranked_documents,
             expected_rank,
@@ -460,4 +479,46 @@ fn first_expected(row: &LadderQuestion, documents: &[String]) -> Option<usize> {
 /// `duration` in whole microseconds, saturating.
 fn micros(duration: Duration) -> u64 {
     u64::try_from(duration.as_micros()).unwrap_or(u64::MAX)
+}
+
+/// Counts search expansion outcomes without exposing model-generated text:
+/// each guard rule and each fallback by its fixed name.
+fn intent_counts(diagnostics: &[SearchDiagnostic]) -> BTreeMap<&'static str, usize> {
+    let mut counts = BTreeMap::new();
+    for status in diagnostics
+        .iter()
+        .filter_map(|item| item.intent_status.as_ref())
+    {
+        *counts.entry(intent_outcome(status)).or_default() += 1;
+    }
+    counts
+}
+
+/// The report name of one expansion outcome.
+fn intent_outcome(status: &RouteStatus) -> &'static str {
+    const OUTCOMES: [(&str, &str); 10] = [
+        ("intent_not_triggered", "not_triggered"),
+        ("intent_deadline_exceeded", "timeout"),
+        ("intent_second_pass_unavailable", "second_pass_unavailable"),
+        ("intent_guard_malformed", "guarded_malformed"),
+        ("intent_guard_empty", "guarded_empty"),
+        ("intent_guard_oversize", "guarded_oversize"),
+        (
+            "intent_guard_protected_missing",
+            "guarded_protected_missing",
+        ),
+        ("intent_guard_added_number", "guarded_added_number"),
+        (
+            "intent_guard_identifier_missing",
+            "guarded_identifier_missing",
+        ),
+        ("intent_guard_identifier_added", "guarded_identifier_added"),
+    ];
+    match status {
+        RouteStatus::Ok => "ran",
+        RouteStatus::Unavailable(reason) => OUTCOMES
+            .iter()
+            .find(|(code, _)| code == reason)
+            .map_or("unavailable", |(_, name)| name),
+    }
 }

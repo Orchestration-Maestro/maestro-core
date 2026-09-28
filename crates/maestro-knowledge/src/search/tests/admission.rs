@@ -215,3 +215,46 @@ fn ranking_settings_reject_nonfinite_weights_and_invalid_context_bounds() {
         assert!(validate(&request).is_ok());
     }
 }
+
+#[test]
+fn admission_bounds_the_intent_deadline_and_threshold() {
+    use crate::search::IntentTrigger;
+    let with = |configuration: SearchConfiguration| SearchRequest {
+        configuration,
+        ..request("question", RequestBudget::default(), 30, None)
+    };
+    for milliseconds in [1, 5000] {
+        let accepted = with(SearchConfiguration {
+            intent_deadline_ms: milliseconds,
+            ..SearchConfiguration::default()
+        });
+        assert!(validate(&accepted).is_ok(), "{milliseconds}");
+    }
+    for milliseconds in [0, 5001] {
+        rejected(
+            &with(SearchConfiguration {
+                intent_deadline_ms: milliseconds,
+                ..SearchConfiguration::default()
+            }),
+            "intent deadline must be between 1 and 5000 milliseconds",
+        );
+    }
+    for threshold in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        rejected(
+            &with(SearchConfiguration {
+                intent_trigger: IntentTrigger::LowConfidence {
+                    min_top_rerank: threshold,
+                },
+                ..SearchConfiguration::default()
+            }),
+            "intent confidence threshold must be finite",
+        );
+    }
+    let finite = with(SearchConfiguration {
+        intent_trigger: IntentTrigger::LowConfidence {
+            min_top_rerank: -1.0,
+        },
+        ..SearchConfiguration::default()
+    });
+    assert!(validate(&finite).is_ok());
+}

@@ -10,7 +10,16 @@ pub use deadline::{DEADLINE_EXCEEDED, DISABLED_BY_CONFIGURATION, StageWindow};
 pub mod evidence;
 mod filter;
 mod fusion;
+mod hyde;
+pub use hyde::{HYDE_PROMPT_VERSION, HydeCardError, HydeExpander};
+mod intent;
+mod intent_guard;
+mod intent_routes;
+mod intent_words;
 mod inventory_query;
+pub use intent::{
+    Expansion, ExpansionFailure, ExpansionFuture, IntentExpansion, IntentTrigger, QueryExpander,
+};
 mod orchestrate;
 mod pin;
 mod query;
@@ -21,6 +30,7 @@ mod rerank;
 mod section_prior;
 pub use section_prior::{SectionClassSet, SectionPrior};
 mod route_execution;
+mod route_search;
 pub mod routes;
 #[cfg(test)]
 mod tests;
@@ -34,7 +44,7 @@ pub use request::{
     SearchObservations, SearchRequest,
 };
 pub use rerank::{
-    Candidate, NO_FUSED_CANDIDATES, Ranked, Reranked, Reranker, rerank, top_fused_score,
-    top_rerank_score,
+    Candidate, NO_FUSED_CANDIDATES, Ranked, Reranked, Reranker, best_rerank_score, rerank,
+    top_fused_score, top_rerank_score,
 };
 pub use routes::outcome::{RouteOutcome, StructuredOutcome};

@@ -53,6 +53,7 @@ pub(super) fn context<'a>(
     reranker_card: Option<&'a ModelCard>,
 ) -> SearchContext<'a, models::Embedder> {
     SearchContext {
+        intent_expander: None,
         database: fixture.kernel.database.clone(),
         principal: "tester",
         qdrant: &fixture.qdrant,

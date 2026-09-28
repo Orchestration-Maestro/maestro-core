@@ -237,6 +237,7 @@ async fn questions_run_against_the_published_generation() {
         availability: BTreeMap::new(),
     };
     let context = SearchContext {
+        intent_expander: None,
         database: Arc::clone(&database),
         principal: LOCAL,
         qdrant: &qdrant,

@@ -4,6 +4,7 @@ use super::{
     assembly_settings::EvidenceSettings,
     deadline::StageWindow,
     fusion::Route,
+    intent::{IntentExpansion, IntentTrigger, QueryExpander},
     rerank::{DEFAULT_DEPTH, Ranked, Reranker},
     routes::{dense::Embedder, error::RouteError},
     section_prior::SectionPrior,
@@ -61,6 +62,17 @@ pub enum CandidateContext {
     reason = "each route and rerank stage has an independent enable switch"
 )]
 pub struct SearchConfiguration {
+    /// Optional additive hypothetical-document retrieval.
+    pub intent_expansion: IntentExpansion,
+    /// Expand always or only after weak original ranking.
+    pub intent_trigger: IntentTrigger,
+    /// Maximum model expansion time, capped by the search deadline.
+    pub intent_deadline_ms: u32,
+    /// RRF multiplier for each extra intent route.
+    pub intent_weight: f64,
+    /// The most candidates the intent votes may add to the rerank beyond
+    /// the original top-depth, which the rerank always keeps.
+    pub intent_rerank_additions: usize,
     /// Whether dense retrieval runs.
     pub dense_enabled: bool,
     /// Whether lexical retrieval runs.
@@ -105,6 +117,11 @@ impl Default for SearchConfiguration {
         #[expect(clippy::expect_used, reason = "60 is the fixed nonzero default")]
         let rrf_k = NonZeroU32::new(60).expect("default RRF K is nonzero");
         Self {
+            intent_expansion: IntentExpansion::Off,
+            intent_trigger: IntentTrigger::Always,
+            intent_deadline_ms: 4000,
+            intent_weight: 1.0,
+            intent_rerank_additions: 10,
             dense_enabled: true,
             lexical_enabled: true,
             identifier_enabled: true,
@@ -131,6 +148,7 @@ impl SearchConfiguration {
     #[must_use]
     pub const fn weight(self, route: Route) -> f64 {
         match route {
+            Route::DenseIntent | Route::LexicalIntent => self.intent_weight,
             Route::Dense => self.dense_weight,
             Route::Lexical => self.lexical_weight,
             Route::Identifier => self.identifier_weight,
@@ -142,6 +160,7 @@ impl SearchConfiguration {
     #[must_use]
     pub fn weights_are_valid(self) -> bool {
         [
+            self.intent_weight,
             self.dense_weight,
             self.lexical_weight,
             self.identifier_weight,
@@ -165,6 +184,9 @@ pub struct SearchObservations {
     pub candidate_source_load_micros: u64,
     /// Candidate identities that retained the chunk because a whole unit exceeded the cap.
     pub candidate_context_fallbacks: Vec<String>,
+    /// How many original top-depth candidates the intent votes put below
+    /// the rerank depth, all still reranked; none when no intent voted.
+    pub intent_displaced: Option<usize>,
 }
 
 impl SearchObservations {
@@ -214,6 +236,8 @@ pub struct SearchContext<'a, P> {
     pub qdrant: &'a Qdrant,
     /// The generation's matching embedder, absent when no card is available.
     pub embedder: Option<Embedder<'a, P>>,
+    /// Optional explicitly configured expansion model; unused when expansion is off.
+    pub intent_expander: Option<Box<dyn QueryExpander + 'a>>,
     /// The configured reranker, when available.
     pub reranker: Option<Reranker<'a, P>>,
 }
@@ -226,6 +250,7 @@ impl<P> fmt::Debug for SearchContext<'_, P> {
             .field("principal", &self.principal)
             .field("qdrant", &self.qdrant)
             .field("has_embedder", &self.embedder.is_some())
+            .field("has_intent_expander", &self.intent_expander.is_some())
             .field("has_reranker", &self.reranker.is_some())
             .finish()
     }

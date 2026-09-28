@@ -172,6 +172,22 @@ impl Scratch {
     }
 }
 
+/// A v2 answerer card whose template sets `enable_thinking` to `thinking`,
+/// recorded in a store that is gone once it is made.
+pub(crate) fn reasoning_answerer(thinking: bool) -> ModelCard {
+    let scratch = Scratch::new();
+    let mut card = scratch.answerer().card;
+    if thinking {
+        let mut identity = card.identity().expect("v2 identity").clone();
+        identity.invocation.reasoning = Capability::Supported(BTreeMap::from([(
+            "enable_thinking".to_owned(),
+            ControlValue::Boolean(true),
+        )]));
+        card = ModelCard::record_v2(&Store::new(&scratch.0), &identity).expect("v2 card");
+    }
+    card
+}
+
 impl Drop for Scratch {
     fn drop(&mut self) {
         fs::remove_dir_all(&self.0).expect("remove scratch card store");

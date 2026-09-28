@@ -143,6 +143,8 @@ impl Corpus {
                 .iter()
                 .map(|chunk| (chunk.id.clone(), vec![chunk.revision_id.clone()]))
                 .collect::<HashMap<_, _>>(),
+            rerank_extra: 0,
+            known_scores: HashMap::new(),
         }
     }
 

@@ -17,6 +17,7 @@ use std::{collections::HashSet, sync::Arc};
 use tokio::time::Instant;
 
 /// One admitted request pinned to a generation, scope snapshot and cutoff set.
+#[derive(Clone)]
 pub(super) struct AdmittedSearch {
     /// The deterministic interpretation of the original question.
     pub(super) understood: Understood,
@@ -113,6 +114,17 @@ pub(super) fn validate(request: &SearchRequest<'_>) -> Result<Understood, Search
     }
     if request.configuration.rerank_depth.get() > 120 {
         return Err(invalid("rerank depth must be between 1 and 120"));
+    }
+    if !(1..=5000).contains(&request.configuration.intent_deadline_ms) {
+        return Err(invalid(
+            "intent deadline must be between 1 and 5000 milliseconds",
+        ));
+    }
+    if request.configuration.intent_rerank_additions > 120 {
+        return Err(invalid("intent rerank additions must be at most 120"));
+    }
+    if !request.configuration.intent_trigger.is_valid() {
+        return Err(invalid("intent confidence threshold must be finite"));
     }
     if !request.configuration.weights_are_valid() {
         return Err(invalid("route weights must be finite and nonnegative"));

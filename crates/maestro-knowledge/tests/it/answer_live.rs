@@ -56,6 +56,7 @@ async fn asks_with_the_registered_qwen3_4b_answerer() {
     let database = Arc::new(database);
     let context = AnswerContext {
         search: SearchContext {
+            intent_expander: None,
             database,
             principal: LOCAL,
             qdrant: &qdrant,

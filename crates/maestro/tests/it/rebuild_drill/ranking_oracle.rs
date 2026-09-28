@@ -113,6 +113,7 @@ pub(super) async fn capture_question<P: ModelPort>(
         RequestBudget::default(),
     );
     let context = SearchContext {
+        intent_expander: None,
         database: Arc::clone(&capture.database),
         principal: capture.principal,
         qdrant: capture.qdrant,

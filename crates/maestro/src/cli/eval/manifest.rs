@@ -12,7 +12,7 @@ use maestro_kernel::{artifact::Digest, evidence::RequestBudget};
 use maestro_knowledge::{
     answer::AskBudget,
     search::{
-        SearchConfiguration, StageWindow,
+        IntentExpansion, IntentTrigger, SearchConfiguration, StageWindow,
         evidence::{CounterMode, EvidenceSettings, ExpansionMode},
     },
 };
@@ -164,6 +164,24 @@ fn read_ask<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<AskSett
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct RungConfiguration {
+    /// Optional hypothetical-document retrieval; absent means off.
+    #[serde(default)]
+    pub(super) intent_expansion: IntentExpansion,
+    /// Run beside originals or only after a weak first ranking.
+    #[serde(default)]
+    pub(super) intent_trigger: IntentTrigger,
+    /// Explicit registered answerer-role card for expansion, independent of ask.
+    #[serde(default)]
+    pub(super) intent_card: Option<String>,
+    /// Maximum expansion model duration in milliseconds.
+    #[serde(default = "default_intent_deadline")]
+    pub(super) intent_deadline_ms: u32,
+    /// RRF weight of each additional intent route.
+    #[serde(default = "default_intent_weight")]
+    pub(super) intent_weight: f64,
+    /// The most candidates intent votes add to the rerank beyond its depth.
+    #[serde(default = "default_intent_rerank_additions")]
+    pub(super) intent_rerank_additions: usize,
     /// The routes that run.
     pub(super) routes: Routes,
     /// The reciprocal rank fusion constant K.
@@ -237,6 +255,21 @@ pub(super) struct Rerank {
     pub(super) candidate_context: Context,
 }
 
+/// Default bounded expansion deadline.
+fn default_intent_deadline() -> u32 {
+    SearchConfiguration::default().intent_deadline_ms
+}
+
+/// Default expansion vote weight.
+fn default_intent_weight() -> f64 {
+    SearchConfiguration::default().intent_weight
+}
+
+/// Default number of intent additions to the rerank.
+fn default_intent_rerank_additions() -> usize {
+    SearchConfiguration::default().intent_rerank_additions
+}
+
 impl RungConfiguration {
     /// The configuration search runs under.
     #[expect(
@@ -245,6 +278,11 @@ impl RungConfiguration {
     )]
     pub(super) fn search(&self) -> SearchConfiguration {
         SearchConfiguration {
+            intent_expansion: self.intent_expansion,
+            intent_trigger: self.intent_trigger,
+            intent_deadline_ms: self.intent_deadline_ms,
+            intent_weight: self.intent_weight,
+            intent_rerank_additions: self.intent_rerank_additions,
             dense_enabled: self.routes.dense,
             lexical_enabled: self.routes.lexical,
             identifier_enabled: self.routes.identifier,
@@ -395,6 +433,7 @@ fn check_rung(rung: &Rung) -> Result<(), Failure> {
         ));
     }
     let configuration = &rung.configuration;
+    check_intent(configuration)?;
     let routes = configuration.routes;
     if !(routes.dense || routes.lexical || routes.identifier || routes.structured) {
         return Err(Failure::refused(format!(
@@ -449,4 +488,33 @@ fn check_rung(rung: &Rung) -> Result<(), Failure> {
             .map_err(|error| Failure::refused(error.to_string()))?;
     }
     configuration.reranker().map(drop)
+}
+
+/// Checks the opt-in expansion card and bounded model deadline before a run.
+fn check_intent(configuration: &RungConfiguration) -> Result<(), Failure> {
+    if !configuration.intent_trigger.is_valid() {
+        return Err(Failure::refused(
+            "intent confidence threshold must be finite",
+        ));
+    }
+    if !(1..=5000).contains(&configuration.intent_deadline_ms) {
+        return Err(Failure::refused(
+            "intent deadline must be between 1 and 5000 milliseconds",
+        ));
+    }
+    if configuration.intent_rerank_additions > 120 {
+        return Err(Failure::refused(
+            "intent rerank additions must be at most 120",
+        ));
+    }
+    if configuration.intent_expansion == IntentExpansion::Hyde
+        && configuration.intent_card.is_none()
+    {
+        return Err(Failure::refused("hyde requires an explicit intent card"));
+    }
+    if let Some(card) = &configuration.intent_card {
+        Digest::parse(card)
+            .map_err(|_| Failure::refused("intent card must be a SHA-256 digest"))?;
+    }
+    Ok(())
 }
