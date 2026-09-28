@@ -13,7 +13,7 @@ use serde_json::{Value, json};
 use std::{fs, path::PathBuf};
 
 pub(super) const CHUNK_ID: &str = "chunk-glossary";
-pub(super) const SET_ID: &str = "set-glossary";
+pub(crate) const SET_ID: &str = "set-glossary";
 pub(super) const SOURCE_REF: &str = "https://handbook.example.org/4.2/glossary";
 
 #[test]
@@ -297,7 +297,7 @@ fn oversized_source_ref_generation(home: &Home, source: &[u8]) -> (String, i64, 
     (source_ref, generation.id, section_id)
 }
 
-pub(super) fn published_glossary(home: &Home, set_id: &str, span: (usize, Option<usize>)) -> i64 {
+pub(crate) fn published_glossary(home: &Home, set_id: &str, span: (usize, Option<usize>)) -> i64 {
     glossary_generation(home, "synthetic", set_id, span, true)
 }
 

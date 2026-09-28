@@ -1,6 +1,6 @@
 //! CLI and MCP contracts for exact knowledge retrieval.
 
-mod cli_cases;
+pub(crate) mod cli_cases;
 mod knowledge_search;
 mod mcp_and_authorization;
 mod search_cli_failures;

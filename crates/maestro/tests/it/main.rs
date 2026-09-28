@@ -18,6 +18,7 @@ mod knowledge_get;
 mod knowledge_publish;
 mod knowledge_verify_recheck;
 mod machine;
+mod mcp_clients;
 mod mcp_stdio;
 mod publish_again;
 mod quality_gates;

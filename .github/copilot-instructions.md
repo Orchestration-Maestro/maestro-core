@@ -210,6 +210,7 @@ in place.
 │   │   │       ├── knowledge_verify_recheck.rs                              # knowledge verify must read its artifacts again on every invocation
 │   │   │       ├── machine.rs                                               # How doctor and status tests run the binary: a router where nothing answers, the fakes on the PATH
 │   │   │       ├── main.rs                                                  # The one integration-test crate of the binary
+│   │   │       ├── mcp_clients.rs                                           # Client-like MCP stdio round trips over the synthetic collection
 │   │   │       ├── mcp_stdio.rs                                             # The stdio MCP server's process boundary and advertised tools
 │   │   │       ├── publish_again.rs                                         # Help for explicit projection recovery
 │   │   │       ├── quality_gates.rs                                         # knowledge quality: its report, a rerun, a gate after an import, the ledger first, failures and refusals
@@ -1024,6 +1025,8 @@ in place.
 │   │   ├── 08-traceability.md                                               # 08 Traceability
 │   │   ├── 09-reverse-engineering.md                                        # 09 Reverse engineering and provenance
 │   │   └── README.md                                                        # Status: design of record, 2026-09-23, completed 2026-09-24
+│   ├── how-to/                                                              # How to
+│   │   └── knowledge-mcp.md                                                 # Connect a client to Maestro's knowledge MCP server
 │   └── standards/                                                           # Standards
 │       ├── engineering.md                                                   # Engineering rules in maestro-core
 │       ├── northstar.md                                                     # Northstar for maestro-core
