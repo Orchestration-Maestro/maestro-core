@@ -199,31 +199,10 @@ fn extend_command_end(text: &str, parameters: &[Candidate], first_end: usize) ->
 /// Extracts the exact contents of paired backtick delimiters.
 fn backtick_candidates(text: &str) -> Vec<Candidate> {
     let mut candidates = Vec::new();
-    let mut cursor = 0;
-    while let Some(relative_start) = text.get(cursor..).and_then(|tail| tail.find('`')) {
-        let Some(start) = cursor.checked_add(relative_start) else {
-            break;
-        };
-        let Some((delimiter_length, content_start)) = backtick_run(text, start) else {
-            break;
-        };
-        let mut search = content_start;
-        let close = loop {
-            let Some(relative_close) = text.get(search..).and_then(|tail| tail.find('`')) else {
-                break None;
-            };
-            let Some(close_start) = search.checked_add(relative_close) else {
-                break None;
-            };
-            let Some((close_length, close_end)) = backtick_run(text, close_start) else {
-                break None;
-            };
-            if close_length == delimiter_length {
-                break Some((close_start, close_end));
-            }
-            search = close_end;
-        };
-        let Some((close_start, close_end)) = close else {
+    let mut runs = backtick_runs(text).into_iter();
+    while let Some((open_start, content_start)) = runs.next() {
+        let length = content_start - open_start;
+        let Some((close_start, _)) = runs.find(|&(start, end)| end - start == length) else {
             break;
         };
         candidates.push(Candidate {
@@ -231,20 +210,20 @@ fn backtick_candidates(text: &str) -> Vec<Candidate> {
             start: content_start,
             end: close_start,
         });
-        cursor = close_end;
     }
     candidates
 }
 
-/// Returns the number of consecutive backticks and the byte after them.
-fn backtick_run(text: &str, start: usize) -> Option<(usize, usize)> {
-    let run_length = text
-        .get(start..)?
-        .chars()
-        .take_while(|character| matches!(*character, '`'))
-        .count();
-    let end = start.checked_add(run_length)?;
-    Some((run_length, end))
+/// The byte ranges of `text`'s maximal backtick runs, in order.
+pub(crate) fn backtick_runs(text: &str) -> Vec<(usize, usize)> {
+    let mut runs: Vec<(usize, usize)> = Vec::new();
+    for (index, _) in text.match_indices('`') {
+        match runs.last_mut() {
+            Some((_, end)) if *end == index => *end = index + 1,
+            _ => runs.push((index, index + 1)),
+        }
+    }
+    runs
 }
 
 /// Finds supported Unix, Windows and filename path spans.

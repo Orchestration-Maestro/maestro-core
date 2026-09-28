@@ -25,6 +25,11 @@ fn each_document_of_the_set_is_found_by_its_source_ref() {
         .unwrap()
         .unwrap();
     assert_eq!(canonical.document_id, document_id);
+    assert_eq!(
+        documents.revision_id(source_ref),
+        Some(canonical.revision_id.as_str())
+    );
+    assert_eq!(documents.revision_id("https://example.org/guides/9"), None);
     assert!(!canonical.sections.is_empty());
     assert_eq!(documents.document_id("https://example.org/guides/9"), None);
     assert!(

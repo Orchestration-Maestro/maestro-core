@@ -88,6 +88,12 @@ impl FakeQdrant {
         self.fake.refuse_create_alias_next();
     }
 
+    /// Makes the next `CreateAlias` action point its alias at `collection`
+    /// instead of its own, as a concurrent alias change would.
+    pub(in super::super) fn redirect_next_alias_to(&self, collection: &str) {
+        self.fake.redirect_create_alias_next(collection);
+    }
+
     /// Makes it answer the next call `call`, `count` or `collection_info`,
     /// without its result.
     pub(in super::super) fn hollow_next(&self, call: &'static str) {

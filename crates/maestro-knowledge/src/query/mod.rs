@@ -12,6 +12,7 @@ mod normalize;
 mod tests;
 mod understand;
 
+pub(crate) use identifier_patterns::backtick_runs;
 pub use identifier_types::{Family, Identifier};
 pub(crate) use index::index_identifiers;
 pub use kind::QueryKind;

@@ -263,3 +263,31 @@ async fn again_refuses_a_resumed_target_with_a_different_embedding_or_sparse_pro
         assert!(matches!(error, Error::RecoveryTarget { .. }), "{error}");
     }
 }
+
+#[tokio::test]
+async fn again_refuses_a_journaled_target_at_or_below_the_frozen_watermark() {
+    let fixture = resume_fixture(fake()).await;
+    let partial = interrupt_rebuild(&fixture).await;
+
+    let error = super::super::support::projection(
+        &fixture.kernel,
+        &fixture.qdrant,
+        &fixture.port,
+        &fixture.card,
+    )
+    .republish_observed(
+        &fixture.kernel.chunk_set,
+        RebuildGuard {
+            expected_published: Some(fixture.old.generation),
+            generation_watermark: partial.generation,
+        },
+        Some(&partial),
+        &mut |_| ControlFlow::Continue(()),
+    )
+    .await
+    .unwrap_err();
+    assert!(
+        matches!(error, Error::RecoveryTarget { generation } if generation == partial.generation),
+        "{error}"
+    );
+}

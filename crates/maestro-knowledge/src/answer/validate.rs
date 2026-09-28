@@ -3,7 +3,7 @@
 use super::types::AskRequest;
 use crate::{
     lexical::is_stopword,
-    query::{Family, understand},
+    query::{Family, backtick_runs, understand},
 };
 use maestro_kernel::evidence::Bundle;
 use std::collections::BTreeSet;
@@ -470,18 +470,6 @@ fn inline_backtick_literals(line: &str) -> Vec<String> {
         };
     }
     literals
-}
-
-/// The byte ranges of `line`'s maximal backtick runs, in order.
-fn backtick_runs(line: &str) -> Vec<(usize, usize)> {
-    let mut runs: Vec<(usize, usize)> = Vec::new();
-    for (index, _) in line.match_indices('`') {
-        match runs.last_mut() {
-            Some((_, end)) if *end == index => *end = index + 1,
-            _ => runs.push((index, index + 1)),
-        }
-    }
-    runs
 }
 
 /// Checks a literal as the same whole-token sequence used on answer and evidence.

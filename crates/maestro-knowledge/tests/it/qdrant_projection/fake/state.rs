@@ -41,6 +41,9 @@ pub(super) struct State {
     refusals: Vec<(&'static str, Code)>,
     /// Whether to refuse the next `CreateAlias` action.
     refuse_create_alias: bool,
+    /// The collection the next `CreateAlias` action points its alias at
+    /// instead of its own, as a concurrent alias change would.
+    redirect_create_alias: Option<String>,
     /// The calls to answer next without their result.
     hollows: Vec<&'static str>,
 }
@@ -56,6 +59,12 @@ impl State {
     /// Whether the next `CreateAlias` action should refuse.
     pub(super) fn refuse_create_alias(&mut self) -> bool {
         mem::take(&mut self.refuse_create_alias)
+    }
+
+    /// The collection the next `CreateAlias` action points at instead of its
+    /// own, if a test asked for one.
+    pub(super) fn redirect_create_alias(&mut self) -> Option<String> {
+        self.redirect_create_alias.take()
     }
 }
 
@@ -92,6 +101,11 @@ impl Fake {
     /// Makes the next `CreateAlias` action refuse.
     pub(super) fn refuse_create_alias_next(&self) {
         self.state().refuse_create_alias = true;
+    }
+
+    /// Points the next `CreateAlias` action's alias at `collection` instead.
+    pub(super) fn redirect_create_alias_next(&self, collection: &str) {
+        self.state().redirect_create_alias = Some(collection.to_owned());
     }
 
     /// Makes the next call `call` answer without its result.

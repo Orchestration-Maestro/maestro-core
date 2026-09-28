@@ -946,6 +946,7 @@ in place.
 │       │       │   │   ├── server.rs                                        # The fake's server: its two services on a loopback port, in the test's runtime
 │       │       │   │   └── state.rs                                         # What the fake keeps, and the refusals and hollow answers a test asked for
 │       │       │   ├── projection_rebuild/                                  # Crash recovery assertions for lost or partially published projections
+│       │       │   │   ├── alias_guards.rs                                  # The published alias a guarded replacement restores or refuses to leave
 │       │       │   │   ├── crash_boundaries.rs                              # Crash boundaries around alias and kernel publication
 │       │       │   │   ├── mod.rs                                           # Crash recovery assertions for lost or partially published projections
 │       │       │   │   ├── rebuild_tests.rs                                 # Explicit replacement of a lost published projection

@@ -176,6 +176,12 @@ path = "crates/maestro-knowledge/src/query/mod.rs"
 item = "INVENTORY_VERSION_FORMS"
 reason = "understanding and inventory parsing must share version forms to mask quoted set text consistently"
 
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-knowledge/src/query/mod.rs"
+item = "backtick_runs"
+reason = "query understanding and the answer's literal check must split backtick runs the same way"
+
 # Independent retrieval routes stay separate from orchestration and one another.
 [[exception]]
 rule = "ARC-005"

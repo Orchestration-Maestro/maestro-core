@@ -224,7 +224,6 @@ fn i8_fake_missing_and_malformed_citations_are_rejected() {
         "The service uses documented defaults [-].",
         "The service uses documented defaults [1;2].",
         "The service uses documented defaults [1, 1].",
-        "The service uses documented defaults [0].",
         "The service uses documented defaults [1]. ]",
         "The service uses documented defaults [1.",
     ] {
@@ -352,6 +351,7 @@ fn bracketed_link_text_is_text_and_digits_in_brackets_are_citations() {
     for (reply, marker) in [
         ("Open an item with the documented call [1, ].", "[1, ]"),
         ("Open an item with the documented call [1, 3].", "[3]"),
+        ("Open an item with the documented call [0, 1].", "[0, 1]"),
     ] {
         assert!(
             matches!(
