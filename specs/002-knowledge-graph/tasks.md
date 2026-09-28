@@ -147,7 +147,9 @@ The SQLite pilot and model/evaluation groundwork do not wait for G25 or M1.
 `docs/adr/0021-embedded-ladybug-graph-projection.md`, `docs/adr/README.md`,
 `docs/adr/0004-neo4j-for-the-graph-projection.md`,
 `docs/adr/0020-rust-libraries-with-named-dependency-exceptions.md`,
+`docs/architecture/README.md`, `docs/architecture/01-knowledge-pipeline.md`,
 `docs/architecture/02-retrieval-and-knowledge-graph.md`,
+`docs/architecture/04-intelligence-backend.md`,
 `docs/architecture/05-platform-and-operations.md`,
 `docs/architecture/06-roadmap.md`, `docs/architecture/08-traceability.md`,
 `tests/fixtures/synthetic/graph/defaults.md`,
@@ -160,7 +162,8 @@ reviewed requirements and a private scope receipt reference, no vendor text.
   defaults; check the requirement table equals the Acceptance lines exactly.
   Inventory ADR-0020's neo4rs wording, architecture 08's open Neo4j-first row,
   architecture 06's platform deferral until after S4, and architecture 05's
-  Neo4j service row, as well as the graph design in 02.
+  Neo4j service row, the graph design in 02, README's graph stack, 01's
+  entity-vector row and 04's B6/D02 graph references.
 - [ ] **Green.** Reconcile those rows with embedded-first S2, later selected
   Neo4j, three-OS gates and the minimal typed-edge seam. Pin one table rule
   and synthetic fixture; keep private receipt content private. Allocate no
@@ -169,6 +172,13 @@ reviewed requirements and a private scope receipt reference, no vendor text.
 - [ ] **Check.** Fixture and document hooks pass; architecture rows distinguish
   planned work from delivered evidence and name deferred graph algorithms.
   Verify existing search/ask, backup, scopes and generation seams at dispatch.
+
+G01's frozen public rule/oracle and dispatch inspection are in plan A0 and
+Starting point. The private reference `PRIVATE/graph/receipts/pilot-inputs.json`
+is planned and unverified; no S1 receipt applies. G05/G07 private reads remain
+blocked pending owner scope confirmation. The `graph_fixture` test checks this
+fixture and the requirement map below; it does not implement G02–G04 or prove
+private pilot success. Checkboxes remain for supervisor integration evidence.
 
 ### G02 [US1] Store verified immutable claims
 
@@ -210,10 +220,14 @@ only correctly located `DEFAULTS_TO` claims through G02.
   normalized name, kind and collection resolves across documents; different
   colliding spellings or kinds remain ambiguous. Assert `DEFAULTS_TO` has a
   typed literal object and creates no literal/Document/Section nodes.
-- [ ] **Green.** Parse one closed data-only table rule, reuse block/source
-  references and submit verified candidates through G02. Preserve literal
-  types and source lexemes, not floating-point rewrites or invented entities.
-  Carry source references without projecting structural nodes; retain rejections.
+- [ ] **Green.** Parse the standalone closed `rule` object defined in plan A0:
+  `id`, its bound `source_sha256` and explicit subject/type/lexeme columns;
+  never accept the test envelope or its `expected` oracle as rule input. Build
+  the temporary import declaration/manifest from A0's fixed metadata, not S1's
+  corpus. Reuse block/source references and submit candidates through G02.
+  Preserve literal types and source lexemes, not floating-point rewrites or
+  invented entities. Carry source references without projecting structural
+  nodes; retain rejections.
 - [ ] **Check.** Run both Test commands; valid Unicode source slices agree
   byte-for-byte with the original. A rule/profile change changes the frozen
   inputs. The build runs without a model, script or graph service.
@@ -237,7 +251,8 @@ relation, revision, original span/quote and explicit ambiguity/coverage.
   frozen verified pilot claims. Keep authoritative evidence checks in the
   kernel. This is the temporary pilot path that G11 replaces, not recursion.
 - [ ] **Check.** Run both Test commands and query the G01 fixture after import
-  and build. Confirm every emitted byte span/quote and no hidden title/count.
+  and build with plan A0's temporary declaration/manifest and version `1.0`.
+  Confirm every emitted byte span/quote and no hidden title/count.
 
 ### G05 [US1] Independently check the private pilot
 
@@ -428,9 +443,9 @@ port for catalog dependency edges, which never become evidence-span claims.
   claims/proofs or cross family/scope boundaries.
 - [ ] **Green.** Expose typed-edge operations on application IDs, frozen
   generations and explicit families, never engine IDs/raw Cypher. Keep lbug
-  calls in `G/projection/` and `G/cypher.rs`; D07 later wraps this API in
-  `GraphStore`. Write unpublished files only; verify IDs/families/digests/
-  counts/schema/indexes after flush/close/reopen before kernel readiness.
+  calls in `G/projection/` and `G/cypher.rs`; deployment-modes D07 later wraps
+  this API in `GraphStore`. Write unpublished files only; verify IDs/families/
+  digests/counts/schema/indexes after flush/close/reopen before kernel readiness.
 - [ ] **Check.** Run both Test commands and a public-API consumer test. No
   engine I/O in SQLite transactions, lbug types in the public port, or changed
   pinned reads. Catalog edges require catalog authority, not evidence spans.
@@ -853,8 +868,11 @@ behavior, not a framework assembled before the first useful result.
 ## Requirement coverage
 
 Generated from each task's **Acceptance** line, not inferred extra ownership.
-These are planned owners, not delivered statuses. G01 checks exact equality;
-G24 replaces planning claims with integrated evidence/blockers before release.
+These are planned owners, not delivered statuses. G01 checks exact equality in
+`crates/maestro-knowledge/tests/it/graph_fixture.rs`; missing, extra and duplicate
+map rows fail. Owners stay in task/document order, not numeric order (for
+example `G28, G30, G22`); only `### GNN [US…]` headings define tasks. G24
+replaces planning claims with integrated evidence/blockers before release.
 
 | Requirement | Tasks |
 | --- | --- |

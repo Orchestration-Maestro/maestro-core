@@ -1014,6 +1014,7 @@ in place.
 │       │       ├── collection_contract.rs                                   # maestro-collection/1: a strict declaration parses into typed values; an
 │       │       ├── corpus_contract.rs                                       # maestro-corpus/1: one line per document parses into typed values; an
 │       │       ├── eval_synthetic.rs                                        # The evaluation runner over the public synthetic suite (T014), end to end
+│       │       ├── graph_fixture.rs                                         # G01's synthetic pilot contract, not the G03 production rule engine
 │       │       ├── lexical_accents.rs                                       # Properties of bm25-en-fr/1 over generated texts: a text and the same
 │       │       ├── lexical_fold.rs                                          # Folding in bm25-en-fr/1: every letter of Latin-1 Supplement and Latin
 │       │       ├── lexical_golden.rs                                        # The golden of bm25-en-fr/1: the terms and vectors of sample passages and
@@ -1159,6 +1160,9 @@ in place.
 │           ├── evals/                                                       # The collection's evaluation suites, as evals.suite names them: each <name>.jsonl is the suite <name>
 │           │   ├── baseline.json                                            # JSON data: baseline
 │           │   └── synthetic.jsonl                                          # The suite synthetic: one maestro-suite/1 question per line, French and English, each with the sections that answer it
+│           ├── graph/                                                       # Graph
+│           │   ├── defaults.json                                            # JSON data: defaults
+│           │   └── defaults.md                                              # Sample document: Lantern controller
 │           ├── .rumdl.toml                                                  # The synthetic collection is test input, not documentation: one of its documents repeats a heading under the same parent, as authors do
 │           └── collection.json                                              # The maestro-collection/1 declaration of the public collection synthetic
 ├── .editorconfig                                                            # Editor settings that survive the editor

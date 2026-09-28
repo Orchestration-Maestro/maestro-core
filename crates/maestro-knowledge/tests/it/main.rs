@@ -5,6 +5,7 @@ mod answer_live;
 mod collection_contract;
 mod corpus_contract;
 mod eval_synthetic;
+mod graph_fixture;
 mod import_contract;
 mod lexical_accents;
 mod lexical_fold;

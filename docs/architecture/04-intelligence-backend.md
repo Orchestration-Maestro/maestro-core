@@ -115,7 +115,7 @@ Built in S1 (B8 in S2), each as a small interface over a deep implementation in
 | **B3 Artifacts** | Immutable content-addressed bytes | `put(bytes, media) -> Digest`, `get(digest) -> Bytes`, `pin`/`gc` | SHA-256 verified on read; atomic write (temp, fsync, rename); garbage collection only of unreferenced, unpinned artifacts |
 | **B4 Jobs** | Long-running work with leases | `job(spec) -> Job`, `heartbeat`, `complete(outcome)` | One writer per lease; states `queued/running/succeeded/failed/cancelled`; resumable from the journal |
 | **B5 Documents** | Collections, sources, documents, revisions, occurrences | pipeline operations of [01](01-knowledge-pipeline.md) | Revisions immutable; failed revisions inspectable, never eligible |
-| **B6 Projections** | Generation-stamped derived indexes (Qdrant, Neo4j, caches) | `generation(collection, profiles)`, `publish`, `retire`, `rebuild` | Always rebuildable from B3/B5/B8; readers pinned to one generation |
+| **B6 Projections** | Generation-stamped derived indexes (Qdrant, embedded LadybugDB pending G25, caches; graph amended by ADR-0021) | `generation(collection, profiles)`, `publish`, `retire`, `rebuild` | Always rebuildable from B3/B5/B8; readers pinned to one generation |
 | **B7 Evidence** | Spans, citations and evidence bundles | `resolve(chunk_set, chunk) -> Excerpt`, bundle schema `maestro-evidence/1` | Text always read from the authority; every passage carries digest, span and version |
 | **B8 Facts** (S2) | Entities, aliases, relations and claims with provenance and validity | `assert(claim, evidence)`, `supersede`, `query(pattern, as_of)` | No claim without verified evidence; supersession keeps history; ambiguity goes to review, never auto-merged |
 | **B9 Capabilities** | Registry of tools and their effects, exposed through MCP | `register(tool, schema, effects)`, MCP adapters | Every tool declares its effects and required scopes; the Cedar schema is generated from it |
@@ -278,7 +278,7 @@ its code or its licence obligations — is [09](09-reverse-engineering.md).
 | ID | Decision | Status |
 | --- | --- | --- |
 | D01 | First primary journey | Proposed: scoped every-agent continuity plus exact project evidence (I1), then change review (I2) |
-| D02 | Construction and storage | Decided: one coherent native core on the kernel (SQLite + artifacts) with Qdrant and Neo4j projections |
+| D02 | Construction and storage | Decided: one coherent native core on the kernel (SQLite + artifacts) with Qdrant and embedded LadybugDB projections (G25 pending); graph amended by ADR-0021, selected external Neo4j later in deployment modes |
 | D03 | Capture consent and private events | Proposed: all authorized user, assistant, tool and ancestry events; private reasoning excluded unless separately authorized; secret and sensitive-output policy to write |
 | D04 | Identity ownership and budgets | Partly decided: exact L0 never truncated, adaptive budget under a ceiling; global versus per-project identity still open |
 | D05 | Scope, retention, deletion | Partly decided: no automatic expiry of originals; erasure, backup expiry and key custody still open |

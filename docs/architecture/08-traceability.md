@@ -69,7 +69,7 @@ portion, integrated code or test evidence, and remaining work.
 | owner.n007 | The best fully local Rust pipeline from crawl to answer, automated | Kept | [01](01-knowledge-pipeline.md), [02](02-retrieval-and-knowledge-graph.md) |
 | owner.n012 | A graph database and how agents consume it (MCP, agents) | Kept | [02 §8–§9](02-retrieval-and-knowledge-graph.md#8-knowledge-graph-s2) |
 | owner.n017 | Is Oxigraph dead; what is SurrealDB | Answered: Oxigraph is maintained but RDF is not needed; SurrealDB not chosen (§16) | §16 |
-| owner.n020 | Qdrant and Neo4j combined with fusion | Kept | ADR-0003, ADR-0004, [02 §4](02-retrieval-and-knowledge-graph.md#4-fusion) |
+| owner.n020 | Qdrant and Neo4j combined with fusion | Adapted (§15 A29): embedded-first S2, later selected Neo4j | ADR-0003, ADR-0021, [02 §4](02-retrieval-and-knowledge-graph.md#4-fusion), §22 |
 | owner.n024 | An Archify diagram of the whole architecture | Deferred: regenerate the atlas from this design once S0 publishes it | [06 S0](06-roadmap.md#s0-foundation) |
 | owner.n029, n065 | BM25 versus BGE-M3; why not BM25 | Kept: both, at different layers | [01 §8](01-knowledge-pipeline.md#8-l6-representations), [02 §3](02-retrieval-and-knowledge-graph.md#3-retrieval-routes) |
 | owner.n031 | Source to answer step by step, with fusion, reranking and deduplication | Kept | [01 §6](01-knowledge-pipeline.md#6-l4-deduplication), [02 §4–§6](02-retrieval-and-knowledge-graph.md#4-fusion) |
@@ -311,14 +311,14 @@ portion, integrated code or test evidence, and remaining work.
 
 | ID | Requirement | Status | Where |
 | --- | --- | --- | --- |
-| rag.N016 claims | Qualified claims; three logical graphs; world and record time; contradictions visible | Kept | [02 §8.2](02-retrieval-and-knowledge-graph.md#82-graph-model) |
+| rag.N016 claims | Qualified claims; three logical graphs; world and record time; contradictions visible | Adapted (§15 A29): source structure remains canonical; navigation deferred | [02 §8.2](02-retrieval-and-knowledge-graph.md#82-graph-model), §22 |
 | rag.N016 resolution | Reliable identifiers first; reversible merges; answers never evidence | Kept | [02 §8.2–8.3](02-retrieval-and-knowledge-graph.md#83-construction-pipeline) |
-| rag.N052 layers | Structural graph first, extracted knowledge later; claims anchored to spans; coverage visible | Kept | [02 §8.2–8.3](02-retrieval-and-knowledge-graph.md#82-graph-model) |
-| rag.N023 roles | Qdrant for passages, Neo4j for relations, Rust for fusion; graph results mapped to passages before fusion | Kept | [02 §8.4–8.5](02-retrieval-and-knowledge-graph.md#84-authority-and-projection) |
-| rag.N023 access | neo4rs or the official HTTP Query API behind a graph interface; application IDs | Kept | [02 §8.4](02-retrieval-and-knowledge-graph.md#84-authority-and-projection) |
-| rag.N023 variants | Compare Qdrant only, Neo4j only and the pairing | Kept | [02 §8.4](02-retrieval-and-knowledge-graph.md#84-authority-and-projection) |
-| rag.N023 editions | Community single instance, GPL, GDS limits; no global analytics interactively | Kept | [02 §8.4](02-retrieval-and-knowledge-graph.md#84-authority-and-projection) |
-| rag.N016 methods | GraphRAG global and DRIFT, HippoRAG 2, LightRAG, LazyGraphRAG, HyperGraphRAG, in order and on evidence | Kept | [02 §8.5](02-retrieval-and-knowledge-graph.md#85-graph-retrieval-route-r4) |
+| rag.N052 layers | Structural graph first, extracted knowledge later; claims anchored to spans; coverage visible | Adapted (§15 A29): reuse block references, no Document/Section projection nodes | [02 §8.2–8.3](02-retrieval-and-knowledge-graph.md#82-graph-model), §22 |
+| rag.N023 roles | Qdrant for passages, Neo4j for relations, Rust for fusion; graph results mapped to passages before fusion | Adapted (§15 A29): LadybugDB in S2, whole source proofs | [02 §8.4–8.5](02-retrieval-and-knowledge-graph.md#84-authority-and-projection), §22 |
+| rag.N023 access | neo4rs or the official HTTP Query API behind a graph interface; application IDs | Adapted (§15 A29): G27 typed-edge port; selected Neo4j later via deployment-modes D07 | [02 §8.4](02-retrieval-and-knowledge-graph.md#84-authority-and-projection), §22 |
+| rag.N023 variants | Compare Qdrant only, Neo4j only and the pairing | Adapted (§15 A29): same-run Qdrant-only, LadybugDB-only and pairing | [02 §10](02-retrieval-and-knowledge-graph.md#10-evaluation), §22 |
+| rag.N023 editions | Community single instance, GPL, GDS limits; no global analytics interactively | Deferred: requalify for the later selected Neo4j adapter, not S2 | ADR-0021, §22 |
+| rag.N016 methods | GraphRAG global and DRIFT, HippoRAG 2, LightRAG, LazyGraphRAG, HyperGraphRAG, in order and on evidence | Deferred: measured gain and a later plan required; S2 is bounded traversal only | [02 §8.5](02-retrieval-and-knowledge-graph.md#85-graph-retrieval-route-r4), §22 |
 | rag.N052 publication | Graph and indexes published together; claims in later publications | Kept | [01 §9](01-knowledge-pipeline.md#9-l7-indexing-and-publication), [02 §8.4](02-retrieval-and-knowledge-graph.md#84-authority-and-projection) |
 | rag.N016, N052 authority | Neo4j as the authority for jobs, metadata and claims | Adapted (§15 A1) | ADR-0002 |
 
@@ -429,8 +429,8 @@ first slice; the earlier plan's first governed workflow (U08) moves to S4.
 
 | # | Earlier choice | Now | Reason |
 | --- | --- | --- | --- |
-| A1 | Neo4j holds jobs, publication metadata and claims (rag.N038, N052) | The kernel (SQLite + artifacts) is the only authority; Neo4j is a rebuildable projection (ADR-0002) | One authority; the later unified analysis (rag.N075) chose SQLite for lifecycle state itself |
-| A2 | SurrealDB as the graph store (rag.N016) | Neo4j (ADR-0004) | The owner asked for Qdrant + Neo4j (rag.N020); SurrealDB's licence and storage caveats |
+| A1 | Neo4j holds jobs, publication metadata and claims (rag.N038, N052) | The kernel (SQLite + artifacts) is the only authority; graph engines are rebuildable projections (ADR-0002, ADR-0021) | One authority; the later unified analysis (rag.N075) chose SQLite for lifecycle state itself |
+| A2 | SurrealDB as the graph store (rag.N016) | Historical Neo4j choice (ADR-0004), amended for S2 by A29 | The owner asked for Qdrant + Neo4j (rag.N020); SurrealDB's licence and storage caveats |
 | A3 | redb or apalis as the job registry (chat.M023, rag.N011) | Kernel jobs on SQLite | One store; SQLite selected by the unified plan |
 | A4 | Qwen3-Embedding-0.6B, gte reranker and Qwen3.8-27B as starting models (rag.N011, N030, N038) | Candidates in a recorded bake-off (ADR-0011) | Owner decision: no preselected model |
 | A5 | text-splitter for chunking (rag) | The existing canonicalization chunker | Already built, tested and span-mapped |
@@ -455,6 +455,7 @@ first slice; the earlier plan's first governed workflow (U08) moves to S4.
 | A24 | A separately deployable catalog MCP service (chat.M031) | The same `maestro` MCP server; a service deployment waits for a team profile | Laptop first |
 | A25 | Recopy 43 reviewed migration candidates (core) | The crate stays as is with its fixtures; S0 only brings it to the gates | Already present; delivery.§7.2 |
 | A26 | First governed workflow first (delivery.U08) | Knowledge kernel and Control-M RAG first (S1) | Owner decision |
+| A29 | Neo4j-first S2, structural nodes, vector linking and global algorithms in the first graph | Rule-only pilot, then G25-qualified embedded LadybugDB, source-referenced claims and bounded whole proofs; later selected Neo4j and named algorithm deferrals | Owner D1–D5, 2026-09-28, ADR-0021; fewer services and a useful pilot before expansion. G01 reconciles design only; G24 supplies delivery evidence. |
 
 ## 16. Dropped
 
@@ -462,7 +463,7 @@ first slice; the earlier plan's first governed workflow (U08) moves to S4.
 | --- | --- | --- |
 | Sonar code-quality integration | The organization removed Sonar and every mirror or tier notion | Owner |
 | Artifactory or JFrog registry configuration | Same | Owner |
-| SurrealDB, HelixDB, CozoDB, Oxigraph as graph stores | Neo4j chosen; RDF and Datalog not required; licences and maturity caveats | Owner (rag.N020) |
+| SurrealDB, HelixDB, CozoDB, Oxigraph as graph stores | Historical Neo4j choice, now embedded-first S2 (ADR-0021); RDF and Datalog not required; licences and maturity caveats | Owner (rag.N020, D1) |
 | Graphiti's Python runtime | Principles kept (bitemporal facts), runtime not reused | NP rule |
 | Embedded provider engines (Headroom, Context Mode, OpenViking, Archify renderer) | Outcomes reimplemented; no framework code reuse | Owner (NP) |
 | The three frozen provider exclusions (no-op, demonstration, idle launcher) | Nothing to deliver | Provider review overlays |
@@ -483,7 +484,7 @@ first slice; the earlier plan's first governed workflow (U08) moves to S4.
 | Publisher identities, trust roots, key rotation procedure | S3 | Manifests release workflow identity; documented rotation |
 | Product decisions D01, D03–D05, D07–D08, D10–D11 | S7 phases | [04 §12](04-intelligence-backend.md#12-decisions-still-open) |
 | egui/eframe as the workbench toolkit | I4 start | egui/eframe |
-| Neo4j versus the LadybugDB spike on laptops | S2 exit | Neo4j unless the spike wins |
+| S2 private scope, provisional suite size and precision-review protocol | Before G05/G07 private reads and G08/G20/G23 acceptance | Owner confirmation required; the embedded-first engine direction itself is decided by ADR-0021, with G25 qualification still pending. |
 | Qdrant server versus Qdrant Edge on laptops | Before laptop rollout | Server (ADR-0003) |
 
 ## 18. Source limits
@@ -668,3 +669,39 @@ The S1 merge-readiness audit (2026-09-27) raised MR-01 to MR-12. State at
 | MR-10 | Architecture tables and operator examples | Closed | `da92520` |
 | MR-11 | Entry documentation still describing S0 | Closed | `da92520` |
 | MR-12 | Task checkboxes against landings | Closed | The landed steps of [tasks.md](../../specs/001-knowledge-kernel/tasks.md) are ticked; open steps name their owner here |
+
+## 22. S2 design reconciliation
+
+G01 reconciles these exact architecture rows with the approved
+[S2 spec](../../specs/002-knowledge-graph/spec.md), not with delivered graph
+behavior. The [requirement map](../../specs/002-knowledge-graph/tasks.md#requirement-coverage)
+is checked against every task's Acceptance line by
+`crates/maestro-knowledge/tests/it/graph_fixture.rs`. G24 must replace planned
+ownership with integrated commit/test/receipt evidence or blockers for every
+FR-S2/SC-S2 requirement; G01 neither completes M1 nor declares the pilot M2.
+
+| Architecture rows | Planned S2 portion / task owners | Deferred or evidence still required |
+| --- | --- | --- |
+| Architecture README diagram/layer L8/technology matrix, 01 entity vectors, 04 B6/D02 | Embedded-first stack, entity vectors deferred and ADR-0021 graph amendment; G01, G25, G24 | The S2 spec governs older architecture wording; engine qualification and release evidence remain pending. |
+| `owner.n012`, `owner.n020`, `rag.N023 roles`, `rag.N023 access`, `rag.N023 editions` | Embedded-first projection and minimal application-ID typed-edge seam; G25, G26–G28, G11 | Qualification pending; G24 finalizes ADR-0021. Deployment-modes D07 later wraps the seam for selected Neo4j; no runtime fallback. |
+| `rag.N016 claims`, `rag.N052 layers`, `rag.N011 mining` | Verified immutable claims and original source references; one `DEFAULTS_TO` table first; G01–G05, G09, G19 | G01's synthetic fixture is not production claim/extraction/CLI or private pilot evidence; no structural/literal nodes. |
+| `rag.N016 resolution` | Exact spelling/name/kind/collection identity, reviewed reversible aliases and contradictions; G10 | Fuzzy/vector linking deferred. |
+| `rag.N052 publication`, `rag.N016, N052 authority` | Kernel claim/profile attachment, immutable pins, one loader and durable foreground effects; G09, G27, G28, G21 | Graph files never authority; process safety and ordered deletion/rebuild/restore equality pending G25, G30, G22. |
+| `rag.N038 identity dedup`, `rag.N038 RRF`, `rag.N038 budgets`, `rag.N038 context dedup`, `rag.N038 EvidenceBundle` | Question-only R4, no echo vote, complete `/2` proofs through fusion and budgets; G11–G14 | S1 `/1` unchanged; general release-delta deduplication and calibration stay outside S2. |
+| `rag.N038 answer`, `rag.N038 degradation`, `rag.N016 permissions`, `rag.N016 tools` | Per-hop eligibility/current grants, explicit coverage/unavailable, four CLI/MCP reads, guarded local ≤4B answers; G11, G15, G16 | Real-client smoke and whole-proof transport evidence pending; HTTP/research loops remain S4. |
+| `rag.N023 variants`, `rag.N011 evaluation`, `owner.n057` | Construction/proof/answer scores, frozen private suite and same-run three-rung comparison; G06–G08, G20, G23 | D3 gates stay fixed; private scope, suite size and review protocol need owner confirmation. |
+| `rag.N016 methods` | Bounded local/path traversal only; G11 | Leiden, PageRank/PPR, node similarity, global/DRIFT search, community summaries, incremental graph algorithms and dense-seeded expansion deferred until measured gain and a later plan. |
+| `core native`, `product.NP` | Linux/Windows/macOS and supported cross-Clippy gates; G25, G22 | A dated CI plan may permit implementation, never M2 acceptance; no platform deferral until after S4. |
+
+**G01 evidence boundary:** one new synthetic table/rule-oracle pair at
+`tests/fixtures/synthetic/graph/defaults.{md,json}`, with digest, UTF-8,
+canonical row and literal-default checks. The dispatch source inspection at
+`821851a` confirms S1 search/ask, backup/restore, scope and generation seams
+([plan Starting point](../../specs/002-knowledge-graph/plan.md#starting-point));
+it is not a new native or live-client receipt. G01 assigns no migration number.
+
+**Private boundary:** `PRIVATE/graph/receipts/pilot-inputs.json` is a planned,
+unverified reference only; no S1 receipt applies. Plan A0 proposes one official
+parameter-reference document, one release in 9.0.22+, one table plus heading
+window. G05/G07 remain blocked until owner scope confirmation. No vendor source,
+quote, rule pack or receipt body is copied here.

@@ -15,7 +15,7 @@ that mapping before it starts.
 | --- | --- | --- | --- | --- |
 | **S0 Foundation** | Clean `maestro-core` (canonicalization only) under org gates; the repositories S1 needs published; Spec Kit | 4–6 days (measured scope) | — | — |
 | **S1 Knowledge kernel + hybrid RAG** | Kernel building blocks; Control-M collection imported, published and searchable through MCP; eval suites; first model bake-off | 12–15 days | S0 | **M1 "Ask Control-M"** |
-| **S2 Knowledge graph** | Fact store, extraction, entity resolution, Neo4j projection, graph route, graph evals | 10–15 days | S1 | **M2 "Relationships answered"** |
+| **S2 Knowledge graph** | Rule-only neighbors pilot, sourced claims, qualified embedded LadybugDB, whole-proof graph route and measured gain | 9–12 working days; pilot 3–4 | Integrated S1 seams, not M1 release; engine tasks also need G25 | **M2 "Relationships answered"** |
 | **S3 Catalog** | Copilot-native catalog v1, settings classes and overrides, compile/release/install/update with freshness and revocation, `maestro init` with presets and language overlays, host projection, intent routing, policies | 10–13 days | S1 (S2 for impact queries) | **M3 "Catalog installable"** |
 | **S4 Orchestration runtime** | Workflow graphs, durable engine, daemon, Copilot SDK + llama.cpp sessions, Cedar broker, sandbox, contracts, interrupts, extension host and event stream, test kit | 18–24 days | S3 | **M4 "First governed workflow"** |
 | **S5 Capabilities + InnerSource** | Monitoring, Product Owner and Control-M orchestration-planning capabilities; scaffolder; scenario runner; a contributed capability | 10–15 days | S4 | **M5 "First contributed capability"** |
@@ -105,19 +105,29 @@ cited passages from the full corpus, with measured quality.
 
 ### S2 Knowledge graph → M2
 
+Approved direction, implementation/qualification pending: [spec and fixed
+exits](../../specs/002-knowledge-graph/spec.md), [plan](../../specs/002-knowledge-graph/plan.md)
+and [29 tasks](../../specs/002-knowledge-graph/tasks.md). G25 qualification runs
+beside the 18-lane-hour SQLite pilot; neither waits for M1 release.
+
 | Deliverable | Detail |
 | --- | --- |
-| B8 fact store | Entities, aliases, mentions, relations, qualified claims with evidence spans (anchored to blocks, not chunks), world and record times, review queue |
-| Extraction | Structural stage; Control-M rule pack (private); model extraction with verified evidence quotes (extractor from bake-off) |
-| Resolution | Normalization, blocking, entity vectors, conservative auto-merge, review queue |
-| Projection | Neo4j 2026.x Community with generation stamps; full rebuild by import; incremental `MERGE`; LadybugDB adapter spike |
-| Retrieval | Graph route R4 (local, path, global-on-demand), independence rule, support groups, explanations in evidence; `knowledge_graph_neighbors`, `knowledge_graph_path`, `knowledge_entity_resolve`, `knowledge_evidence_trace` |
-| Comparison | Qdrant only, Neo4j only and the pairing, on the graph suite, with the same generator and context budget |
+| Pilot | G01 freezes one synthetic `DEFAULTS_TO` table rule; G02–G04 add verified claims and scoped one-hop neighbors without a model/service. G05 independently reviews every approved private claim. The planned private scope receipt is unverified and blocks private work. Pilot success is not M2. |
+| B8 authority | Immutable entities/claims/supports, source block/original spans, typed literal defaults, version/conditions and review history; no literal/Document/Section projection nodes. |
+| Construction | Rule-first; exact spelling/name/kind/collection resolution with reversible sourced decisions; then qualified bounded offline Qwen3-4B extraction. No fuzzy/vector linking or held-out tuning. |
+| Projection | G25-qualified embedded LadybugDB; one resumable parameterized-batch loader, immutable pinned generations and verified readiness. G27 exposes the minimal typed-edge port for S3; deployment-modes D07 adds backend choice and later selected Neo4j separately. |
+| Retrieval | G11 replaces temporary pilot SQL traversal; question-only R4, bounded admissible neighbors/paths, whole-proof `/2` evidence and four scoped CLI/MCP reads. Missing selected graph means unavailable, never runtime fallback. |
+| Comparison | Same-run Qdrant-only, LadybugDB-only and pairing; frozen at-most-4B answerer/card/settings, held-out private labels, all attempts retained and `ctm-retrieval` rerun. |
 
-**Exit criteria:** the graph route improves the `ctm-graph` suite by a recorded
-margin without lowering `ctm-retrieval`; every stored relation has a verified
-evidence span; deleting the Neo4j data and rebuilding from the kernel restores
-identical query results; the LadybugDB spike has a written verdict.
+**M2 exits:** all D3 gates in the spec pass in each of three runs: at least
+five-point complete-proof gain with a positive paired interval, no retrieval
+or supported-answer loss, ≥95% relation precision, exact spans/quotes/commands,
+≥16/20 correct refusals and the warm graph/search/ask latency limits. The
+100-question suite and precision-review protocol need owner confirmation.
+Actual graph deletion/rebuild and authority backup/restore give identical
+ordered results; native Linux/Windows/macOS process tests, Pi/Claude Code
+smoke, coverage and zero-miss/zero-timeout CI mutations pass. G24 maps integrated
+evidence and finalizes ADR-0021 against G25; no design row closes an exit.
 
 ### S3 Catalog → M3
 
@@ -229,7 +239,12 @@ registered before it starts, so R1 ships with that phase if S8 has not begun.
 - The desktop workbench before I4 (it is native Rust, ADR-0016; there is no web
   UI).
 - Streamable HTTP MCP transport and any remote access before S4 hardening.
-- macOS and Windows qualification (after S4 on Linux).
+- Platform-specific S4 sandbox/service features qualify in S4. Core builds and
+  tests already require Linux, Windows and macOS (ADR-0018); S2's native graph
+  qualification and cross-Clippy are M2 gates, never deferred until after S4.
+- Graph algorithms and expanded linking: Leiden, PageRank/Personalized
+  PageRank, node similarity, global/DRIFT search, community summaries,
+  vector/fuzzy linking and dense-seeded expansion; only after measured gain.
 - Multi-user or team-server deployment of the kernel, SSO, high availability
   and replication.
 - Learned sparse and late-interaction retrieval unless a bake-off selects them.
@@ -243,7 +258,7 @@ registered before it starts, so R1 ships with that phase if S8 has not begun.
 | --- | --- | --- | --- | --- |
 | R1 | Planning outgrows delivery again | Medium | High | [ADR-0010](../adr/0010-spec-kit-and-executable-gates.md): specs only for the active slice; evals and tests are the only gates; every slice ends in a release |
 | R2 | Copilot SDK or CLI changes break sessions | Medium | High | Pin SDK and CLI; L2/L3 tests catch protocol changes; the `llamacpp` provider keeps the engine usable |
-| R3 | neo4rs incompatible with Neo4j 2026.x | Medium | Medium | Qualify in S2; fall back to 5.26 LTS; LadybugDB adapter |
+| R3 | Embedded native cost, cancellation or independent-process safety fails qualification | Medium | High | G25 fails/blocks engine adoption; supervisor re-plans, never waives a gate. Later selected Neo4j remains separate work, not a runtime fallback. |
 | R4 | Model licences or quality disappoint | Medium | Medium | Bake-off with licence checks; managed route for agent roles when local models do not qualify |
 | R5 | VRAM contention between embedder, reranker, answerer and agents | High | Medium | Router budget; residency plan per role; batch jobs scheduled off interactive hours |
 | R6 | WSL2 specifics (systemd, Landlock, GPU) differ from native Linux | Medium | Medium | Reference environment explicit; native Linux qualified separately |

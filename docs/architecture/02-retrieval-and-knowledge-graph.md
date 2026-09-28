@@ -2,7 +2,11 @@
 
 From a question to a set of cited, verifiable passages, and optionally to a
 grounded answer. Layers L8–L10 of the [layer map](README.md#4-layer-map). The
-knowledge graph is built in S2 on the kernel of S1.
+knowledge graph is planned in S2 on the integrated kernel of S1.
+[The S2 specification](../../specs/002-knowledge-graph/spec.md) and
+[ADR-0021](../adr/0021-embedded-ladybug-graph-projection.md) govern this design;
+G25 qualification and G24 release evidence are still required. The G01–G05
+rule-only SQLite neighbors pilot is not M2.
 
 ```mermaid
 sequenceDiagram
@@ -85,23 +89,25 @@ bounded retrieval.
 | R1 Dense | Qdrant `dense` named vector, query embedded with the profile's own query instruction (never another model's prefix, never applied to the reranker) | 100 | Paraphrases, cross-lingual meaning |
 | R2 Lexical | Qdrant sparse vector that maestro computes with its versioned `bm25-en-fr/1` analyzer; Qdrant applies IDF (`modifier: idf`), and a query is analysed with its generation's profile ([R7](../../specs/001-knowledge-kernel/research.md#r7-server-side-bm25)) | 100 | Exact words, rare terms |
 | R3 Identifier | Payload/keyword match on extracted identifiers + kernel full-text lookup | 20 | Commands, parameters, error codes: must never be missed |
-| R4 Graph (S2) | Entity linking → bounded typed traversal → supporting chunks | ≤ 50 evidence items | Relationships, dependencies, multi-hop |
+| R4 Graph (planned S2) | Question-only exact names/identifiers/reviewed aliases → bounded admissible traversal → whole source proofs | ≤ 50 evidence items | Relationships, dependencies, multi-hop |
 | R5 Late interaction (candidate) | Qdrant multivector MaxSim | 100 | Fine-grained matching, if selected by the bake-off |
 | R6 Structured | Exact query over a known scope in the kernel (counts, inventories, "which versions") | — | Exhaustive answers; top-k results are never counted |
 
 Starting depths are budgets to tune with the ladder protocol (§10), not
 optima. Routes run in parallel under the admission deadline. A route that fails
 or times out is reported in the response, with its reason
-(`"routes": {"graph": {"unavailable": "<reason>"}}`).
+(`"routes": {"graph": {"unavailable": "<reason>"}}`). A configured graph `none`
+is disabled with zero opens/probes/calls, not unavailable. A selected missing,
+stale, locked or rebuilding graph never enables SQL or Neo4j fallback.
 Degradation depends on the question: without the graph, a documentary
 explanation may proceed with the limitation disclosed, but a dependency
 conclusion that needs the graph is refused rather than asserted unchecked.
 
 **Query routing by type:** definitions and parameters use R1–R3; dependency
 and multi-hop questions add R4; exact inventories and counts use R6; broad
-synthesis uses several searches and community navigation (§8.5). The graph can
-act as a filter, an explorer or a candidate generator; it is not always a third
-list to fuse.
+synthesis uses several searches; community navigation is deferred (§8.5). The
+graph can act as a filter, an explorer or a candidate generator; it is not
+always a third list to fuse.
 
 ## 4. Fusion
 
@@ -185,7 +191,8 @@ chunk: technical procedures lose meaning when cut.
 4. **Support groups**: a conclusion that needs a chain (service → package →
    library) keeps every link's supporting passage together; part of the budget
    is reserved for these groups; if a group cannot fit, another path is chosen
-   or the answer is qualified. A high-scoring endpoint never replaces a missing
+   or the whole proof is dropped with an explicit gap and any conclusion
+   needing it is refused. A high-scoring endpoint never replaces a missing
    intermediate proof.
 5. **Budget**: fill up to the evidence token budget (default 6,000 tokens of the
    answerer's tokenizer, roughly 8–12 passages or support units), in rank order,
@@ -231,27 +238,30 @@ to retained primary seeds, not alternates; alternate sections are not extra
 votes. Final reading order groups by document/revision in best input-rank order,
 then by source span.
 
-The bundle also carries the claims and paths used (S2), the **known gaps**
-(required evidence not found or not accessible) and, when `ask` is used, an
-**answer-support plan** that maps each planned statement to its evidence before
-any text is drafted, so an unsupported conclusion is caught before generation.
+Planned S2 graph evidence uses the separate closed `maestro-evidence/2`
+contract for claims, paths, supports, attachment identity and coverage. The
+non-graph `/1` below stays unchanged and rejects graph fields. Whole proof
+groups survive ranking, token budgets (including graph metadata) and the final
+64 KiB wire limit, or are removed with sanitized **known gaps**. An
+**answer-support plan** maps every proposed conclusion to its complete source
+proof before generation; a caller-written complete flag is not evidence.
 
 ```json
 {
   "schema": "maestro-evidence/1",
-  "collection": "ctm", "generation": 7, "query": "…", "lang": "fr",
+  "collection": "synthetic", "generation": 7, "query": "…", "lang": "fr",
   "routes": {"dense": "ok", "lexical": "ok", "identifier": "ok", "structured": "ok", "rerank": "ok"},
   "request_budget": {"k": 10, "max_tokens": 6000, "deadline_ms": 1500},
-  "inventory": {"kind": "documents_by_set", "set_filter": null, "total_documents": 12, "sets": [{"value": "ctm", "documents": 12}]},
+  "inventory": {"kind": "documents_by_set", "set_filter": null, "total_documents": 12, "sets": [{"value": "synthetic", "documents": 12}]},
   "passages": [{
     "windowed": true,
     "n": 1, "section_id": "…", "doc_id": "…", "revision_id": "…",
-    "title": "Installing Control-M/Agent on UNIX", "section_path": ["Installation", "Prerequisites"],
-    "version": "9.0.22", "source_ref": "https://…", "span": [18230, 20411], "digest": "sha256:…",
-    "text": "…verbatim source text…", "alternates": [{"version": "9.0.21", "section_id": "…"}]
+    "title": "Installing the lantern controller", "section_path": ["Installation", "Prerequisites"],
+    "version": "2.0", "source_ref": "https://…", "span": [18230, 20411], "digest": "sha256:…",
+    "text": "…verbatim source text…", "alternates": [{"version": "1.1", "section_id": "…"}]
   }, {
     "n": 2, "section_id": "…", "doc_id": "…", "revision_id": "…",
-    "title": "…", "section_path": ["…"], "version": "9.0.20",
+    "title": "…", "section_path": ["…"], "version": "1.0",
     "source_ref": "https://…", "span": [4096, 5210], "digest": "sha256:…",
     "text": "…verbatim source text…", "alternates": []
   }],
@@ -286,49 +296,54 @@ Structured output: `answer`, claim-to-evidence references, uncertainties and
 unanswered parts. On a failed check the answerer revises, retrieves missing
 evidence within its budget, or returns a qualified partial answer.
 
-The answerer model is a bake-off winner; the Copilot-managed route may also
-answer when the caller's provider profile allows sending the evidence to it.
+The general answerer model is a bake-off winner; an approved provider profile
+controls any managed route. S2 acceptance instead freezes the local at-most-4B
+S1 answerer card/settings in G08, uses at most one retry, and refuses missing
+proofs, invented links, inferred transitivity and unresolved contradictions.
+There is no private-data egress or larger-answerer substitution in S2.
 
 ## 8. Knowledge graph (S2)
 
 ### 8.1 Why a graph
 
 Vector and lexical search find passages that *look like* the question. They do
-not answer "what depends on X", "which parameters affect Y in version 9.0.22",
-"what changed between versions", or "what are the main themes of this corpus".
+not establish "what depends on X", "which parameters affect Y in version 2.0"
+or "what changed between versions". Global thematic summaries are deferred.
 The graph adds typed relationships with evidence, so the retrieval layer can
 follow them and the answerer can explain a path. It augments passage retrieval;
 it never replaces the passages that prove a relation.
 
 ### 8.2 Graph model
 
-```mermaid
-flowchart LR
-  Doc[Document] -->|HAS_SECTION| Sec[Section]
-  Sec -->|HAS_CHUNK| Ch[Chunk]
-  Sec -->|NEXT| Sec
-  Doc -->|LINKS_TO| Doc
-  Ch -->|MENTIONS span| Ent[Entity]
-  Sec -->|DEFINES| Ent
-  Ent -->|RELATES type, version range, evidence| Ent
-  Ent -->|ALIAS_OF| Ent
-  Doc -->|SAME_TOPIC_AS| Doc
-```
+The kind and relation vocabularies are closed lists, extended by ADR:
 
-| Element | Kinds / properties |
+| Vocabulary | Values |
 | --- | --- |
-| **Entity** kinds | `Component` (e.g. Enterprise Manager, Server, Agent), `Command`, `Parameter`, `ConfigFile`, `ErrorCode`, `Message`, `Version`, `Platform`, `Port`, `Feature`, `Concept`, `API` |
-| **Relation** types | `REQUIRES`, `CONFIGURES`, `PART_OF`, `DEPENDS_ON`, `REPLACES`, `DEPRECATED_IN`, `INTRODUCED_IN`, `APPLIES_TO`, `CAUSES`, `RESOLVES`, `DEFAULTS_TO`, `ALIAS_OF` (closed list, extended by ADR) |
-| Relation properties | `evidence: [chunk_id + span]`, `extractor` (rule ID or model card), `confidence`, `valid_from_version`, `valid_to_version`, `generation` |
-| Structural nodes | `Document`, `Section`, `Chunk` mirror the kernel (IDs only, no text) |
+| Entity kinds | `Component`, `Command`, `Parameter`, `ConfigFile`, `ErrorCode`, `Message`, `Version`, `Platform`, `Port`, `Feature`, `Concept`, `API` |
+| Relation types | `REQUIRES`, `CONFIGURES`, `PART_OF`, `DEPENDS_ON`, `REPLACES`, `DEPRECATED_IN`, `INTRODUCED_IN`, `APPLIES_TO`, `CAUSES`, `RESOLVES`, `DEFAULTS_TO`, `ALIAS_OF` |
 
-Relations are **claims with evidence**, not facts: a relation without at least
-one verified evidence span is never stored.
+Only `DEFAULTS_TO` is a pilot predicate. `ALIAS_OF` names alias identity, not an
+extractable S2 claim or projection edge: aliases are authoritative, reviewed,
+reversible records ([S2 plan A2](../../specs/002-knowledge-graph/plan.md#a2-claims-and-source-verification)),
+not knowledge proofs. Later extractors use only the permitted claim predicates;
+they cannot expand either vocabulary without an ADR.
+
+| Element | S2 boundary |
+| --- | --- |
+| Entity | Typed application ID, collection, normalized name and exact source spelling; the pilot uses `Parameter`. |
+| Claim | Typed subject/predicate/object, conditions/environment, known half-open version/world-time bounds or explicit unknown validity, record time, profile and review state. |
+| Support | Nonempty original source span, revision/block ID and exact quote digest; independent kernel authority and byte checks. |
+| Literal default | `DEFAULTS_TO` has a typed text/boolean/integer/decimal object with its source lexeme preserved, not an invented entity. |
+| Structure | Reuse canonical block/source references; no literal, Document or Section projection nodes. Literal defaults cannot create entity-to-entity proof paths. |
+
+Knowledge relations are **claims with evidence**, not guaranteed facts. An
+accepted knowledge claim needs at least one verified support; rejected
+candidates stay in their receipts. Catalog edges use their own authority (§8.6).
 
 | Rule | Design |
 | --- | --- |
-| Qualified claims | A claim carries subject (with version), predicate, object, conditions, environment, validity period and validation status, and points to its supporting spans; a materialized shortcut edge keeps that provenance |
-| Three logical graphs | *Documentary* (sources, revisions, sections, passages), *factual* (claims and evidence) and *navigation* (similarity, co-occurrence, communities). Similarity helps search; it never proves a fact |
+| Qualified claims | A claim carries subject (with version), predicate, object, conditions, environment, validity period and validation status, and points to its supporting spans; S2 materializes no shortcut or derived edges |
+| Logical layers | Documentary structure stays in the kernel/canonical artifacts; S2 projects sourced claims. Similarity, co-occurrence and community navigation are deferred and never prove a fact |
 | Two times | World-valid time (when a claim holds) and record time (when it was learned); a collection date never replaces an unknown validity; contradictions stay visible (the newest does not always win) |
 | Anchoring | Claims anchor to source blocks and spans, never to one chunking scheme; a new chunk profile only remaps chunks to spans. Extraction windows are sections or bounded block groups with their headings |
 | Coverage | Graph coverage is visible: "no relation in the graph" never means "no relation" |
@@ -338,15 +353,18 @@ one verified evidence span is never stored.
 
 | Stage | Method | Cost | Output |
 | --- | --- | --- | --- |
-| A. Structure | From canonical documents: sections, order, links, versions | None (deterministic) | Document/Section/Chunk nodes, `LINKS_TO`, `NEXT` |
-| B. Rule extraction | Domain rule packs: commands from code blocks, parameters from parameter tables (name, default, component, version), error codes by pattern, components from a curated dictionary | Low (deterministic) | High-precision entities and `DEFAULTS_TO`, `PART_OF`, `APPLIES_TO` relations |
-| C. Model extraction | The selected extractor model reads a chunk with its context and returns typed relations as JSON Schema output; **each relation must quote its evidence, and the quote must be an exact substring of the chunk**, otherwise it is dropped | High: runs offline as a resumable job with a token budget; prioritized on sections the eval shows under-served | Typed relations with confidence |
-| D. Entity resolution | Normalize names; alias rules; blocking by entity kind; entity-vector similarity; automatic merge only for identical normalized names within a kind; everything ambiguous goes to a review queue | Medium | Canonical entities, `ALIAS_OF` edges, review items |
-| E. Temporal and conflict | Relations carry version ranges; the same subject/predicate with different objects across versions becomes two ranged relations, not an overwrite | Low | Version-aware claims, conflict records |
-| F. Communities (optional) | Leiden communities on the entity graph; summaries generated **on demand** for global questions and cached per generation (LazyGraphRAG-style), not precomputed for every community | On demand | Community IDs, cached summaries |
+| A. Structure | Reuse canonical blocks and original byte spans; no structural-node projection | Deterministic | Source references for verification |
+| B. Rule extraction | One closed, digest-bound, data-only parameter table rule, frozen by G01; no scripts | Deterministic, no model/service | `DEFAULTS_TO` literal claims and retained rejections |
+| C. Model extraction | Qualified separate Extractor role; Qwen3-4B is a candidate, not selected. Closed JSON, original block/window quote verification through the same admission path | Offline leased/resumable jobs, bounded windows, `Room::Free`, at most 1,024 output tokens | Candidates and rejection receipts; quote validity alone is not semantic truth |
+| D. Entity resolution | Same exact spelling, normalized name, kind and collection joins across documents reversibly; colliding spellings/kinds stay ambiguous | Deterministic names and sourced reviewed aliases, no fuzzy/vector linking | Source-backed identities and review history |
+| E. Temporal and conflict | Preserve contradictory values, conditions, unknown validity and supersession under frozen generation membership | No newest-record-wins overwrite | Version-aware claims and complete supporting evidence |
 
-Rule packs and extraction prompts are catalog content (versioned, reviewed); the
-Control-M rule pack lives in the private collection repository.
+Only pilot/synthetic development failures guide extraction windows or tuning;
+held-out acceptance labels and failures never do. Rule/profile changes require
+new frozen inputs. Vendor rule packs, prompts and receipts stay in the private
+collection. The public table is synthetic; plan A0 names the planned private
+receipt binding and its unconfirmed scope. G05 must independently check every
+private pilot claim before expanding. No pilot result declares M2.
 
 ### 8.4 Authority and projection
 
@@ -356,63 +374,68 @@ projection used for traversal and algorithms, rebuildable at any time.
 
 | Aspect | Design |
 | --- | --- |
-| Engine | Neo4j 2026.x Community Edition as a separate local service (GPLv3 server, used over Bolt; our code stays MIT) |
-| Driver | Behind an internal `GraphStore` interface: neo4rs 0.9 (community Bolt driver, release candidate; transactions, reconnects, types and timeouts qualified in S2) or Neo4j's official HTTP Query API (not the deprecated transactional endpoint); fallback server Neo4j 5.26 LTS |
-| Identifiers | Application IDs (`document_id`, `revision_id`, `chunk_id`, `entity_id`, `claim_id`, generation) shared with Qdrant payloads; Neo4j internal IDs are never stored as keys (they are reused after deletion) |
-| Generations | Community Edition has one user database, so every node and relation carries `gen`; the kernel records the current generation per collection and every query binds `$gen`; old generations are deleted in the background |
-| Loading | Full rebuild: kernel → CSV → `neo4j-admin database import` (fastest, offline); incremental: batched `UNWIND … MERGE` through neo4rs |
-| Indexes | Uniqueness on `(gen, id)` per label; full-text index on entity names and aliases for linking fallback |
-| Algorithms | Graph Data Science library for Leiden, PageRank, Personalized PageRank and node similarity where its licence allows (Community edition: four cores, projections cost memory); otherwise petgraph 0.8 in-process on the exported subgraph. Global analytics never run in the interactive path |
-| Variants compared | Qdrant only + rerank; Neo4j only (its vector and full-text indexes with graph); Qdrant + Neo4j with application fusion. The pairing stays only if it wins on the graph suite; embeddings are not duplicated in both stores without evidence |
-| Embedded alternative | LadybugDB (`lbug` 0.20, the maintained fork of the archived Kùzu) as an adapter spike: Cypher, embedded, no JVM; adopted for laptops if it passes the graph eval and the operations tests |
-| Absent graph | The graph route reports `unavailable`; passage retrieval still works |
+| Engine | Planned embedded LadybugDB through owner-approved `lbug`, subject to G25's six-row qualification bar. No S2 graph service, network port, Docker, JVM or first-use download. |
+| Boundary | G27's application-ID typed-edge port (§8.6); lbug calls stay in knowledge's `graph/projection/` and `graph/cypher.rs`. No backend-choice trait in S2. |
+| Identifiers | Collection, generation, entity and claim application IDs; never engine IDs. Source references stay authoritative in SQLite/artifacts. |
+| Generations | Frozen claim/profile attachment, once per generation; writer owns unpublished files, readers retain immutable published pins, only if G25 proves this safe in independent processes. |
+| Loading | One resumable parameterized-batch loader from the complete frozen kernel snapshot; no CSV/COPY or second incremental loader. Native I/O stays outside SQLite transactions. |
+| Readiness | Flush/close/reopen and verify schema, indexes, IDs, counts and digests before kernel-controlled publication. Reader-safe cleanup preserves other collections and retained generations. |
+| Algorithms | Bounded admissible neighbors/paths only. Leiden, PageRank, Personalized PageRank, node similarity and global analytics remain deferred; no GDS or petgraph fallback. |
+| Variants compared | Same-run Qdrant-only, LadybugDB-only and pairing on frozen inputs with the same at-most-4B answerer; no duplicate embeddings. D3's quality gates decide M2, not a working import. |
+| Later selected Neo4j | Separate adapter behind deployment-modes D07's later `GraphStore`; not conditional on lbug failure and never a runtime fallback. G25 failure instead requires an S2 re-plan ruling before substitution. |
+| Disabled/unavailable | Graph `none` makes zero calls. A selected absent/stale/locked/rebuilding graph reports `unavailable`; passage retrieval continues, unsupported graph conclusions refuse. |
+
+G01–G05 may use indexed SQLite one-hop neighbors while G25 runs. G11 removes
+that temporary traversal branch; SQLite retains claim/export/evidence reads,
+not recursive traversal. G25 pins versions/features and measures native build,
+cache, packaging and process behavior on Linux, Windows and macOS. G30/G22 must
+prove ordered semantic equality after actual graph-file deletion/rebuild and
+authoritative backup/restore. These are planned obligations, not passed gates.
 
 ### 8.5 Graph retrieval route (R4)
 
-1. **Entity linking**: identifiers from query understanding, dictionary lookup
-   (names and aliases), then entity-vector search; top seed entities with scores.
-2. **Mode selection** from the query type:
-   - *local*: typed 1–2 hop neighbourhood of the seeds, relation-type weights,
-     version filter (`valid_from ≤ v < valid_to`);
-   - *path*: shortest typed paths (length ≤ 4) between two linked entities, for
-     "how does A relate to B";
-   - *global*: communities touched by the seeds; on-demand summaries map-reduced
-     for thematic questions.
-3. **Evidence resolution**: every relation used resolves to its supporting chunk
-   IDs; those chunks become graph-route candidates, carrying a human-readable
-   path explanation (`Agent —REQUIRES→ Java 17 (9.0.22)`).
-4. Candidates enter fusion under the independence rule; the explanation travels
-   into the evidence bundle.
+1. **Question-only seeds:** exact identifiers/names and reviewed aliases from
+   the FR/EN question; no dense/BM25-seeded expansion or vector/fuzzy linking.
+   Ambiguous names remain explicit.
+2. **Admissible traversal:** fixed parameterized Cypher applies scope,
+   eligibility, generation, version and conditions at every hop **before**
+   shortest-path selection, ranking or limits. Local depth is at most two,
+   path length four, evidence 50 items; native expansion, time and cancellation
+   are also bounded. Stable application IDs break ties.
+3. **Authority recheck:** the kernel rechecks every entity, claim and support
+   against current grants and eligibility under the request's pin. Hidden and
+   unknown IDs have identical responses; an unauthorized middle link cannot
+   win as an unfiltered shortcut.
+4. **Whole proofs:** source spans remap to the pinned chunk set and survive
+   fusion/reranking/budgeting as complete groups. Graph echoes are not extra
+   votes. Limited traversal reports coverage, never corpus-wide absence.
 
-Traversal is parameterized and bounded (usually 1–2 hops, cap 3 for local mode,
-allowed relation types, maximum evidence items); graph candidates are ranked
-deterministically by constraint satisfaction, entity match, allowed path type
-and length, with a stable tie-break. Two modes: *independent* (seeds from the
-question) and *seeded expansion* (seeds from dense/BM25 results).
-
-**Advanced methods, in order, each only on measured gain:** solid hybrid →
-sourced graph → bounded traversal → communities (GraphRAG global search and DRIFT)
-or propagation (HippoRAG 2 with Personalized PageRank) → adaptive policies.
-LightRAG's incremental graph-plus-vector ideas and LazyGraphRAG's deferred
-summaries are reimplemented as principles; n-ary relations use qualified
-claims rather than a hypergraph store. Graphs do not improve every question
-type; a method that regresses simple facts, permissions, deletions or latency
-is not shipped.
+**Deferred, not delivered by S2:** GraphRAG global/DRIFT search, HippoRAG-style
+Personalized PageRank, Leiden communities, PageRank, node similarity,
+LightRAG-style incremental loading, LazyGraphRAG summaries, vector/fuzzy
+linking and dense-seeded expansion. Each needs measured gain and a later plan;
+none is an implicit requirement to build before the first useful neighbors.
 
 ### 8.6 One graph infrastructure, several graphs
 
-The same projection machinery serves every graph the platform needs: the
-knowledge graph (S2), the catalog dependency graph (S3: which workflows use a
-skill, what a policy change affects), run lineage (S4: which artifacts came from
-which node and model), the code graph (S7-I2) and the memory graph (S7-I1).
-Each is a kernel-authoritative fact set with its own generation stamp.
+G27 plans the minimal public port at
+`crates/maestro-knowledge/src/graph/projection/port.rs`: typed-edge write/read
+operations on collection/generation/application IDs and explicit authoritative
+edge families, with scoped reads. No raw Cypher, lbug types or engine IDs cross
+it. S3 C27a consumes it for catalog dependencies, which name catalog records,
+not documentary spans; catalog edges never become knowledge claims or proofs.
+
+Deployment-modes D07 later wraps this API in `GraphStore` for backend choice.
+Run lineage (S4), code (S7-I2) and memory (S7-I1) remain later consumers, not
+graph frameworks built in S2. Each slice retains its own authority and family
+boundary.
 
 ## 9. MCP tools (knowledge)
 
-T034's first bounded local stdio server is integrated at `750e7d6`; it currently
-advertises `knowledge_collections` and chunk-only `knowledge_get`. MCP search, section
-reads and `knowledge_ask` are not yet exposed. The table and resource
-URIs below describe the planned surface by slice.
+G01's source inspection at `821851a` finds the bounded local stdio server
+already dispatching collections, chunk/section get, search and ask through
+shared operations. This is not M1 release or real-client acceptance evidence.
+The four S2 graph tools and the resource URIs below remain planned.
 
 | Tool | Input | Output | Slice |
 | --- | --- | --- | --- |
@@ -457,7 +480,7 @@ blocks regressions.
 | `ctm-retrieval` | Owner-pinned private questions from eligible official documentation; contents, counts and review receipt remain private | Local, private; reports remain private |
 | `ctm-identifiers` | Queries naming commands, parameters, error codes | Local, private |
 | `ctm-answers` | Questions with reference answers and required citations | Local, private |
-| `ctm-graph` (S2) | Relationship, dependency, version-difference and multi-hop questions | Local, private |
+| `ctm-graph` (planned S2) | Relationship, dependency, version-difference, multi-hop and unanswerable questions; provisional 100 held-out items, pending owner confirmation | Local, private scratch restore |
 
 The public synthetic CI leg uses pinned Qdrant and deterministic fake inference;
 its temporary test adapter records route/fusion rankings and T021 metrics without
@@ -509,9 +532,16 @@ misranked* (fix fusion, reranking, context selection) or *present but wrong*
 reranking cannot recover it. Functional indexing acceptance is not corpus-wide
 relevance quality.
 
-**Graph evaluation** scores three outcomes separately (graph construction,
-retrieved evidence, answer), with the same generator and context budget across
-variants.
+**S2 graph evaluation** scores construction, complete retrieved proofs and
+answers separately through the existing `eval ladder --manifest`. Its fixed
+[D3 gates](../../specs/002-knowledge-graph/spec.md#gate-decision-rules) supersede
+the general two-point tolerance above: pairing needs at least five points of
+complete-proof recall gain with a strictly positive paired 95% interval, no
+Recall@10/MRR@10/supported-answer loss, at least 95% relation precision, exact
+spans/quotes/commands and at least 16/20 correct refusals, in each of three runs.
+All rungs freeze the same answerer/card/settings/context; same-run Qdrant-only
+is the comparator, G08's S1 result only a drift check. Suite size and the
+independent precision-review protocol remain pending owner confirmation.
 
 ## 11. Performance budgets
 
@@ -520,6 +550,7 @@ Targets to be validated in S1/S2 on the reference workstation.
 | Operation | p95 target |
 | --- | --- |
 | `knowledge_search` without graph | < 1.5 s |
+| Graph route span / graph tool server time (S2, warm private graph) | ≤ 500 ms |
 | `knowledge_search` with graph | < 2.5 s |
 | `ask` with a local answerer | < 10 s to the complete answer |
 | Entity linking | < 150 ms |

@@ -1,0 +1,44 @@
+{
+  "rule": {
+    "schema": "maestro-graph-table-rule/1",
+    "id": "synthetic-defaults/1",
+    "source_sha256": "8cfbf93dbaa5dc25bf9c3a6d88f1b698a19c7c79c6bb832320977e95220766a3",
+    "heading_path": ["Lantern controller", "Parameters"],
+    "columns": ["Parameter", "Type", "Default"],
+    "subject_column": "Parameter",
+    "type_column": "Type",
+    "lexeme_column": "Default",
+    "subject_kind": "Parameter",
+    "predicate": "DEFAULTS_TO"
+  },
+  "expected": [
+    {
+      "subject": "label",
+      "object": {"type": "text", "lexeme": "café"},
+      "span": [138, 163],
+      "quote": "| label | text | café |\n",
+      "quote_sha256": "89c6941cb7c3a8de460db680b7829f4492443568948e8ae7e89778dcbb1ca5d2"
+    },
+    {
+      "subject": "enabled",
+      "object": {"type": "boolean", "lexeme": "true"},
+      "span": [163, 192],
+      "quote": "| enabled | boolean | true |\n",
+      "quote_sha256": "a6ff90d8a58aeddf77f62300ec2009d11e4998b66dbb9cc65b035f055769e2c3"
+    },
+    {
+      "subject": "retries",
+      "object": {"type": "integer", "lexeme": "3"},
+      "span": [192, 218],
+      "quote": "| retries | integer | 3 |\n",
+      "quote_sha256": "250f7186b1e76ee1871d2fef4e001f0ebf8d4134a6cbaa50577ac9edeed8d561"
+    },
+    {
+      "subject": "ratio",
+      "object": {"type": "decimal", "lexeme": "0.50"},
+      "span": [218, 245],
+      "quote": "| ratio | decimal | 0.50 |\n",
+      "quote_sha256": "f113b05df13d49c47896d2404c3a7a958d87bcc547744c3e2540e4d7f6b01612"
+    }
+  ]
+}

@@ -17,9 +17,10 @@ Architecture: [02](../../docs/architecture/02-retrieval-and-knowledge-graph.md),
 [06](../../docs/architecture/06-roadmap.md),
 [08](../../docs/architecture/08-traceability.md).
 [ADR-0021](../../docs/adr/0021-embedded-ladybug-graph-projection.md) amends the
-Neo4j-first choice in ADR-0004. This specification governs S2 where the earlier
-architecture still describes Neo4j, vector linking or global graph search; G01
-updates those design references without claiming delivery.
+Neo4j-first choice in ADR-0004. This specification governs S2 where older
+architecture text still describes Neo4j, vector linking or global graph search.
+G01 reconciles the design references with embedded-first S2 and names the
+deferred algorithms; design agreement is not qualification or delivery evidence.
 
 Rules: the organization's golden rules come first, as
 [the repository rule map](../../docs/standards/engineering.md) records them.
@@ -57,7 +58,7 @@ Implementation: [plan.md](plan.md). Execution: [tasks.md](tasks.md).
 | --- | --- | --- |
 | Confirm the 100-question suite | Before G07/G08 freeze; pending owner confirmation | Twenty per type, all 100 held out, 80 answerable independent families; development uses pilot/synthetic cases only. |
 | Confirm the precision reviewer | Before G20/G23 acceptance; pending owner confirmation | A model other than the extractor checks every accepted held-out claim; owner rules on flagged claims. |
-| Confirm private source coverage | Before G05/G07 private reads | Confirm that the S1 owner-pinned receipt covers the pilot subset, version and windows; otherwise approve a narrower receipt. |
+| Confirm private source coverage | Before G05/G07 private reads | Approve the proposed scope in plan A0 and bind `PRIVATE/graph/receipts/pilot-inputs.json`; no S1 receipt applies. The binding is planned and unverified, not authorization. |
 | Rule on flagged review changes | G08 wording/answerability; G20/G23 flagged claims | Resolve flags before freeze or acceptance; no automatic model approval. |
 | Upgrade the live installation | G24, after S2 lands | Owner takes a named backup, updates `maestro-s1` and its clients, then authorizes the live-kernel migration. All earlier runs use scratch restores. |
 | Approve an additional client | Only if Copilot smoke is requested | Pi and Claude Code are the current acceptance clients. Install/use Copilot only after approval; it does not block their S2 acceptance. |
@@ -99,7 +100,11 @@ one approved subset/version; independently review every accepted claim.
    **Then** the response describes coverage, not corpus-wide absence.
 
 The G01–G05 pilot may use indexed SQLite one-hop reads. It is not M2 and is
-not a second traversal engine retained after G11.
+not a second traversal engine retained after G11. G01 freezes the public
+[synthetic source](../../tests/fixtures/synthetic/graph/defaults.md) and
+[rule/oracle fixture](../../tests/fixtures/synthetic/graph/defaults.json).
+Plan A0 specifies this single table contract and the separate, unapproved
+private-scope proposal; synthetic evidence never substitutes for a private run.
 
 ### User Story 2 - Follow a permitted path (Priority: P1)
 
@@ -323,8 +328,8 @@ paths, claims, evidence and coverage. Repeat after authoritative backup/restore.
   pinned generations, scopes and authoritative edge-family records only.
   Other slices use it to write/read their own typed edges. S3 catalog dependency
   edges remain distinct from knowledge claims and never become evidence-span
-  claims. No raw Cypher or engine IDs cross this API; D07 later wraps it in
-  `GraphStore` for backend choice.
+  claims. No raw Cypher or engine IDs cross this API; deployment-modes D07 later
+  wraps it in `GraphStore` for backend choice.
 
 ### Key Entities
 
@@ -396,11 +401,11 @@ rungs supply the comparator and diagnostic; they need not each earn graph gain.
 ## Out of Scope
 
 No Neo4j dependency/service in S2; no SQL traversal fallback at M2. Later
-user-selected Neo4j is deployment-modes work behind D07's graph port, not a
+user-selected Neo4j belongs behind deployment-modes D07's graph port, not a
 forbidden future backend. No vector/fuzzy entity linking, dense-seeded
 expansion, community summaries, PPR, Leiden, global graph analytics or duplicated
 vector store. These require measured gain and a later plan. Backend selection
-belongs to D07, not S2's shared typed-edge API.
+belongs to deployment-modes D07, not S2's shared typed-edge API.
 
 Qdrant Server stays unchanged. The parallel Qdrant Edge evaluation is separate
 and does not qualify it for S2. Catalog semantics belong to S3; S2 provides only
@@ -420,10 +425,11 @@ receipts for every FR-S2 and SC-S2 item before declaring M2.
 
 - The integrated S1 APIs are the starting point; S1 finishes in parallel.
   G01–G05 wait for neither M1 release nor G25. Only engine tasks need G25.
-- The owner confirms whether the S1 receipt covers the subset, version and
-  windows. Private runs restore a named backup into an isolated scratch kernel,
-  never the live kernel that `maestro-s1` uses. No private material was read
-  to write this spec.
+- No S1 receipt applies to the pilot. The planned private binding
+  `PRIVATE/graph/receipts/pilot-inputs.json` remains unverified; G05/G07 are
+  blocked until the owner confirms the subset, exact version and windows.
+  Private runs restore a named backup into an isolated scratch kernel, never
+  the live kernel that `maestro-s1` uses. G01 reads no private material.
 - `lbug` version, minimum features, native packaging and safe multi-process
   mode come from G25's measured verdict, not its crate name or approval alone.
 - The 4B extractor is a candidate, not a chosen model; minimum sufficient

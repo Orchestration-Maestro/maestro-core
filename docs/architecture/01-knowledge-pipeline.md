@@ -532,7 +532,7 @@ follow an explicit policy.
 | BM25 (`bm25-en-fr/1`, client-generated sparse vectors) | Required; Qdrant stores and searches the sparse vectors with IDF weighting (R7) |
 | Learned sparse (e.g. BGE-M3 sparse, SPLADE) | Candidate; complements or replaces BM25 only on evidence |
 | Late interaction (multivector, MaxSim) | Candidate; kept only if it beats the cross-encoder trade-off |
-| Entity vectors (S2) | For entity linking in the graph route |
+| Entity vectors (deferred beyond S2) | Only after measured gain and a later plan; S2 links exact question names/identifiers and reviewed aliases, not vectors |
 
 Model runtimes are candidates too: the router (llama.cpp) serves the current
 models; Text Embeddings Inference, mistral.rs, fastembed/ONNX Runtime and

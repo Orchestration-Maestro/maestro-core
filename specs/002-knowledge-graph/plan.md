@@ -20,9 +20,9 @@ traversal engine: an in-process Cypher projection, rebuilt from frozen kernel
 claims. After G11 replaces the pilot read, a selected but missing graph is
 unavailable, not a fallback; graph `none` is disabled without calls. Reuse S1
 jobs, evidence, evaluation, CLI and MCP. G27 exposes the shared application-ID
-typed-edge port; D07 later wraps it for backend choice, including a separately
-planned user-selected Neo4j adapter. M2 requires measured gain, complete proofs,
-three-platform qualification and delete/rebuild equality.
+typed-edge port; deployment-modes D07 later wraps it for backend choice,
+including a separately planned user-selected Neo4j adapter. M2 requires measured
+gain, complete proofs, three-platform qualification and delete/rebuild equality.
 
 ## Technical Context
 
@@ -73,9 +73,9 @@ a revised estimate.
 
 ## Starting point
 
-Checked against `origin/feat/s2-integration` at `dac543c` on 2026-09-28.
-This is a source inspection, not a claim that M1 or native qualification passed.
-Recheck moving seams before dispatch.
+G01 rechecked `origin/feat/s2-integration` at `821851a` on 2026-09-28.
+This is source inspection, not a claim that M1 or native qualification passed.
+Recheck moving seams at later dispatches; no migration number is allocated here.
 
 | Existing seam | S2 use |
 | --- | --- |
@@ -86,7 +86,9 @@ Recheck moving seams before dispatch.
 | `crates/maestro-knowledge/src/search/fusion.rs` | `Route` has Dense, Lexical, Identifier, Structured only; extend it once with Graph and preserve one-based RRF. |
 | `crates/maestro-kernel/src/evidence/bundle.rs` | `/1` accepts only V1 and denies unknown fields; graph data needs a separately versioned `/2` boundary. |
 | `crates/maestro/src/knowledge/output/policy.rs` | Shared CLI/MCP 65,536-byte response policy drops passages today; S2 must drop complete proof groups instead. |
-| `crates/maestro/src/cli/args.rs`, `src/knowledge/operations/ask/run.rs` | Search/ask already exist. Extend their application operations, rather than recreate S1's CLI. |
+| `crates/maestro/src/cli/args.rs`, `crates/maestro/src/knowledge/operations/search.rs`, `crates/maestro/src/knowledge/operations/ask/run.rs` | Search/ask already exist, with pinned model cards and final scope checks; MCP dispatches both in `crates/maestro/src/mcp/server/handler.rs`. Extend these operations, not a second CLI. |
+| `crates/maestro/src/cli/backup/command.rs`, `crates/maestro/src/cli/backup/restore.rs` | Read-only SQLite online backup plus digest manifest/artifacts; restore validates into an empty slot and installs the database last. Reuse for isolated scratch runs, not the live kernel. |
+| `crates/maestro-kernel/src/scope/grant.rs`, `crates/maestro-kernel/src/generation/lifecycle.rs` | `visible` reloads current grants; scoped generation reads and `publish_generation_if_current` already exist. Preserve request pins and recheck grants; graph attachment is new S2 work. |
 | `crates/maestro-kernel/src/gateway/port.rs` | Chat requires Answerer and caps output at 1,024 tokens; add a constrained Extractor call without weakening chat. |
 | `crates/maestro-kernel/migrations/0009_model_cards.sql` | Three role CHECK constraints in cards/evaluations/selections; preserve immutable history and real-evaluation selection guards. |
 | `crates/maestro-knowledge/src/index/rebuild.rs`, kernel journal cursors | Reuse snapshot, job and progress patterns, not Qdrant aliases or live-file copying. |
@@ -105,7 +107,7 @@ Recheck this table after G25 and before release.
 
 | Rule | Plan disposition and proof obligation |
 | --- | --- |
-| Simplicity, YAGNI, rule of three | Rules-first pilot; reuse S1's runner; one loader and one engine. G27's typed-edge API serves S2/S3; D07 adds the backend-choice `GraphStore`, not a second engine in S2. |
+| Simplicity, YAGNI, rule of three | Rules-first pilot; reuse S1's runner; one loader and one engine. G27's typed-edge API serves S2/S3; deployment-modes D07 adds the backend-choice `GraphStore`, not a second engine in S2. |
 | One authority, least privilege | SQLite claims; per-hop filters before limits and fresh kernel rechecks of every delivered result. G02/G11/G13/G15 test refusals. |
 | Test first, never weaken a gate | Every task starts with a failing contract/test; three-platform gates remain mandatory. G25 cannot waive native code coverage. |
 | Pinned inputs, ADR-0020 | Exact lbug/features/tree and model/profile digests; named dependency exceptions with removal conditions, licences and vet evidence. |
@@ -170,6 +172,99 @@ re-pin are a supervisor-owned external step with its wait recorded. No worker
 edits another lane's clone.
 
 ## Design
+
+### A0 Frozen pilot contract and private-scope proposal
+
+G01 freezes one public synthetic table, not a production extractor:
+`tests/fixtures/synthetic/graph/defaults.md` and `defaults.json`. The Markdown
+is a separate graph development fixture, not an addition to S1's retrieval
+corpus or a held-out acceptance item. Its SHA-256 is
+`8cfbf93dbaa5dc25bf9c3a6d88f1b698a19c7c79c6bb832320977e95220766a3`.
+The JSON rule/oracle SHA-256 is
+`3443fe932c03e9042e08514c33b4034fc18cf302b2e296cdfa44531adcfefbf9`.
+Git preserves LF bytes on all three platforms; a later fixture change needs
+an explicit reviewed re-freeze, never a silent oracle update.
+
+The JSON envelope separates `rule` and test-only `expected`. G03's production
+parser consumes only the standalone `rule` object, never this envelope or its
+oracle. The test harness passes that object; the private rule file has that
+same standalone shape, with no `expected` key.
+
+- `rule` is closed data only: schema `maestro-graph-table-rule/1`, `id`
+  `synthetic-defaults/1`, the source digest above as `source_sha256`, exact
+  heading path `Lantern controller` / `Parameters`, ordered columns
+  `Parameter`, `Type`, `Default`, subject kind `Parameter` and predicate
+  `DEFAULTS_TO`. Role bindings are explicit: `subject_column: Parameter`,
+  `type_column: Type`, `lexeme_column: Default`; each must name a distinct
+  declared header. No scripts, expressions or inferred column roles.
+- Each row supplies its literal type explicitly. The four expected defaults
+  are `label` → text `café`, `enabled` → boolean `true`, `retries` → integer `3`
+  and `ratio` → decimal `0.50`. Keep each lexeme unchanged; no guessed units,
+  floating-point rewrite or literal/Document/Section projection nodes.
+- `expected` is a test oracle, never an input granting claim authority. Each
+  entry pins a complete original row (newline included), its half-open UTF-8
+  span and quote digest. The fixture check resolves the actual canonical table
+  and row blocks, not a second Markdown parser. G03 must retain those revision/
+  block references; G02 independently verifies authority before admission.
+
+`graph_fixture` checks both file digests against constants and this A0 freeze,
+source/quote digests, canonical row ownership, nonempty UTF-8 spans, explicit
+column bindings, all default values/types and complete row accounting. Closed
+rule checks reject unknown/executable/oracle and duplicate keys. It also checks
+the requirement table against every task's Acceptance line exactly, including
+missing, extra and duplicate ownership rows. G03 adds the production closed-rule
+parser and extraction; G04 proves CLI neighbors.
+
+**Temporary import metadata:** G03 and G04 build their import fixture in a fresh
+temp directory, without changing S1's collection or corpus manifest. Copy the
+frozen Markdown byte-for-byte to `corpus/graph/defaults.md`. Bind
+`synthetic_graph_root` to the temp directory and write `collection.json` with:
+
+```json
+{
+  "schema": "maestro-collection/1",
+  "id": "synthetic-graph",
+  "title": "Synthetic graph defaults",
+  "visibility": "public",
+  "profiles": {
+    "extraction": "technical-html/1",
+    "chunking": "structural-500-700/1",
+    "embedding": "embed:winner",
+    "sparse": "bm25-en-fr/1"
+  },
+  "quality": {"ledger": "quality/ledger.jsonl"},
+  "sources": [{
+    "id": "defaults", "kind": "import", "sync": "manual",
+    "manifest": {"binding": "synthetic_graph_root", "path": "corpus/maestro-corpus.jsonl"}
+  }],
+  "evals": {"suite": "evals"}
+}
+```
+
+Write `corpus/maestro-corpus.jsonl` as one `maestro-corpus/1` line with fixed
+`path: graph/defaults.md`, `sha256` equal to the frozen Markdown digest above,
+`bytes: 245`, `source_ref: corpus-path:graph/defaults.md`,
+`title: Lantern controller parameters`, `version: 1.0`, `set: graph` and
+`source_kind: reference` (all except `bytes` are JSON strings). These constants
+belong to G03/G04's test helpers, not a new checked-in corpus. Version-selection
+cases start from `1.0`; any deliberately different test revision must have its
+own explicit metadata. This imports only development data, not acceptance data.
+
+**Private proposal, not permission:** collection `ctm`, one official
+parameter-reference document at one owner-selected release in **9.0.22+**,
+with one parameter/default table. The proposed extraction window is that
+complete table (header and all body rows) with its nearest heading as context;
+no other document category, version or surrounding prose window is included.
+Actual source identity, exact release, row count, byte windows and digests must
+be frozen privately before reading. No private material was inspected by G01.
+
+The supervisor-approved public reference is the **planned, unverified** binding
+`PRIVATE/graph/receipts/pilot-inputs.json`. No S1 receipt applies. G05 and G07
+remain blocked until the owner confirms their private scope; a pilot receipt
+alone does not authorize a broader acceptance corpus. Keep receipt bodies,
+rules, quotes and review results private. G05 reviews every accepted relation
+and retains failures on a named backup's isolated scratch restore. This fixture
+freeze proves neither private pilot success (SC-S2-001) nor M2.
 
 ### A1 Qualification before adoption
 
@@ -298,9 +393,9 @@ or enter a knowledge proof. A graph projection grants neither claim admission
 nor catalog write authority. Keep the family discriminator through write,
 read, verification and readiness checks to prevent cross-family confusion.
 
-The supervisor accepts this API boundary as D07's seam agreement. D07 later
-wraps it in `GraphStore` for lbug/none and later backend choice; S2 does not
-implement that backend trait or the Neo4j adapter. A configured graph `none`
+The supervisor accepts this API boundary as deployment-modes D07's seam
+agreement. That task later wraps it in `GraphStore` for lbug/none and backend
+choice; S2 implements neither that trait nor the Neo4j adapter. Graph `none`
 is disabled with zero calls, including opens/probes, distinct from a selected
 but unavailable graph. The deployment mode where the entire knowledge core is
 not installed is a separate concern, not a new SQLite retrieval fallback.

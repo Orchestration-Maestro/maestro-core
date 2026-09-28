@@ -3,6 +3,9 @@
 Status: accepted, 2026-09-28. Owner direction recorded on 2026-09-27 at 21:27;
 all remaining S2 recommendations approved on 2026-09-28 at 01:56.
 Amends [ADR-0004](0004-neo4j-for-the-graph-projection.md).
+This status accepts the direction, not technical qualification or delivery.
+G01 reconciles the design; G24 alone finalizes this record against G25's actual
+evidence and the M2 release checks.
 
 ## Decision
 
@@ -103,8 +106,9 @@ stop for the fallback ruling rather than weaken isolation or platform gates.
 
 Qdrant Server remains unchanged under ADR-0003. Qdrant Edge is evaluated in a
 separate track; the longer-term no-external-servers goal does not qualify Edge
-or add it to S2. Graph algorithms, fuzzy/vector linking and community summaries
-remain deferred until measured gain justifies them. The
+or add it to S2. PageRank, Personalized PageRank, Leiden, node similarity,
+global/DRIFT search, fuzzy/vector linking and community summaries remain
+deferred until measured gain justifies a later plan. The
 [S2 specification](../../specs/002-knowledge-graph/spec.md) and
 [plan](../../specs/002-knowledge-graph/plan.md) define the complete scope and
 fixed quality gates.
