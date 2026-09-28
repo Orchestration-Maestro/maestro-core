@@ -1,0 +1,115 @@
+name: G25 portability legs (temporary)
+# S2 G25 only, dropped before landing: the organization's portability legs
+# run only on pull requests into the default branch, so this workflow repeats
+# their command, `cargo test --locked --workspace`, on each OS for the lbug
+# proof branch (through its draft pull request) and for a baseline branch
+# with the same base and without lbug (on push). Both carry this same file,
+# so the timed clean builds compare like for like. A pull request's head is
+# checked out, not its merge commit, which would carry whatever landed on the
+# base branch since.
+"on":
+  pull_request:
+  push:
+    branches: [test/s2-g25-base-c]
+permissions:
+  contents: read
+concurrency:
+  group: g25-portability-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  portability:
+    name: G25 portability on ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, windows-2025, macos-15]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    # On Windows the default shell is PowerShell.
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out the revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Install the toolchain rust-toolchain.toml pins
+        run: |
+          set -euo pipefail
+          toolchain=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)
+          rustup toolchain install "$toolchain" --profile minimal
+          echo "RUSTUP_TOOLCHAIN=$toolchain" >> "$GITHUB_ENV"
+      - name: Report the native toolchain
+        run: |
+          set -uo pipefail
+          cmake --version | head -n 1
+          ninja --version || echo "no ninja"
+          c++ --version 2>/dev/null | head -n 1 || echo "no c++ on PATH"
+          nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo "$NUMBER_OF_PROCESSORS"
+      - name: Clean build of the workspace tests, timed
+        run: |
+          set -euo pipefail
+          start=$SECONDS
+          cargo test --locked --workspace --no-run --timings
+          elapsed=$((SECONDS - start))
+          echo "clean workspace test build on $RUNNER_OS: $elapsed s ($((elapsed / 60)) min $((elapsed % 60)) s)" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Test, timed
+        run: |
+          set -euo pipefail
+          start=$SECONDS
+          cargo test --locked --workspace
+          elapsed=$((SECONDS - start))
+          echo "workspace tests after the build on $RUNNER_OS: $elapsed s ($((elapsed / 60)) min $((elapsed % 60)) s)" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Keep the build timings
+        if: ${{ always() }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: g25-timings-${{ matrix.runner }}
+          path: target/cargo-timings/cargo-timing.html
+          if-no-files-found: warn
+          retention-days: 7
+  linux-profiles:
+    # The Linux gate also builds the tests for coverage (their own target
+    # directory, instrumented) and in release: each is one more clean build.
+    name: G25 ${{ matrix.profile }} build on ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [release, coverage]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Install the toolchain rust-toolchain.toml pins
+        run: |
+          set -euo pipefail
+          toolchain=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)
+          rustup toolchain install "$toolchain" --profile minimal
+          echo "RUSTUP_TOOLCHAIN=$toolchain" >> "$GITHUB_ENV"
+      - name: Clean build of the workspace tests, timed
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          start=$SECONDS
+          if [ "$PROFILE" = release ]; then
+            cargo test --locked --workspace --no-run --release
+          else
+            RUSTFLAGS="-C instrument-coverage" CARGO_TARGET_DIR=target/llvm-cov-target \
+              cargo test --locked --workspace --no-run
+          fi
+          elapsed=$((SECONDS - start))
+          echo "clean $PROFILE workspace test build on $RUNNER_OS: $elapsed s ($((elapsed / 60)) min $((elapsed % 60)) s)" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
