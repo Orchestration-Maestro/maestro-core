@@ -114,6 +114,16 @@ records its vet exemption.
   the 2.6 GB debug archive is no longer copied into every rlib (7 GB of
   rustc memory), and a finished build drops its object files.
 
+Without a fork patch, `.cargo/config.toml` also points `CMAKE_TOOLCHAIN_FILE`
+(read by cmake-rs, whose one user in the workspace is lbug) at
+`.cargo/lbug-debug-flags.cmake`. It builds the engine's CMake "Debug" type
+without debug information (`-O0`; MSVC `/Ob0 /Od /RTC1` with `cl` named, since
+a toolchain file stops cmake-rs from naming the compiler): cmake-rs picks
+"Debug" for any Rust opt-level 0, whatever the profile's `debug` says, so a
+profile override cannot drop `-g`. Release builds are unchanged. The reused
+CMake build does not see that file: after editing it, delete
+`target/*/build/lbug-cmake-*` and CI's target cache.
+
 The fork's README says how to move to a new upstream version: import the new
 crate, cherry-pick the patch commits, update the pin. When an upstream release
 makes OpenSSL optional, drop the fork, its DEP-001 exception and its vet

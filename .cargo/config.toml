@@ -7,3 +7,5 @@
 [env]
 LBUG_BUILD_FROM_SOURCE = "1"
 LBUG_REUSE_CMAKE_BUILD = "1"
+# Debug builds of the C++ engine without debug information (see the file).
+CMAKE_TOOLCHAIN_FILE = { value = ".cargo/lbug-debug-flags.cmake", relative = true }
