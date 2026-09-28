@@ -1,5 +1,6 @@
-//! The prompt versions: v1 stays today's text, v2 asks for the passages that
-//! state each sentence and a direct answer, and both keep the host checks.
+//! The prompt versions: v1 keeps the first text; v2, the default, asks for
+//! the passages that state each sentence and a direct answer; both keep the
+//! host checks.
 
 use super::*;
 use maestro_kernel::gateway::Message;
@@ -45,15 +46,23 @@ fn prompt_of(version: PromptVersion) -> Vec<Message> {
 }
 
 #[test]
-fn the_default_prompt_is_v1_and_keeps_todays_text() {
-    let messages = prompt_of(PromptVersion::default());
+fn v1_keeps_todays_text() {
+    let messages = prompt_of(PromptVersion::V1);
 
-    assert_eq!(PromptVersion::default(), PromptVersion::V1);
     assert_eq!(messages[0].content, V1_SYSTEM);
     assert!(messages[1].content.starts_with(
         "Answer the question in full sentences, with passage markers such as [1] after the \
          sentences they support.\nQuestion and evidence data (JSON):\n"
     ));
+}
+
+#[test]
+fn the_default_prompt_is_v2_the_ladder_measured_best() {
+    assert_eq!(PromptVersion::default(), PromptVersion::V2);
+    assert_eq!(
+        prompt_of(PromptVersion::default()),
+        prompt_of(PromptVersion::V2)
+    );
 }
 
 #[test]

@@ -51,14 +51,14 @@ fn true_and_false_still_parse_and_true_asks_as_ask_does_by_default() {
     assert_eq!(parsed(&json!(false)).unwrap(), None);
     assert_eq!(asks, AskSettings::default());
     assert_eq!(asks.budget(), AskBudget::default());
-    assert_eq!(asks.prompt, RungPrompt::Version(PromptVersion::V1));
+    assert_eq!(asks.prompt, RungPrompt::Version(PromptVersion::V2));
     assert_eq!(parsed(&json!({})).unwrap(), Some(AskSettings::default()));
 }
 
 #[test]
 fn an_object_sets_each_ask_setting_and_leaves_the_rest_at_their_defaults() {
     let settings = parsed(&json!({
-        "k": 8, "max_tokens": 9000, "output_tokens": 900, "prompt": "v2",
+        "k": 8, "max_tokens": 9000, "output_tokens": 900, "prompt": "v1",
     }))
     .unwrap()
     .unwrap();
@@ -73,7 +73,7 @@ fn an_object_sets_each_ask_setting_and_leaves_the_rest_at_their_defaults() {
             ..AskBudget::default()
         }
     );
-    assert_eq!(settings.prompt, RungPrompt::Version(PromptVersion::V2));
+    assert_eq!(settings.prompt, RungPrompt::Version(PromptVersion::V1));
     assert_eq!(
         only_k.budget(),
         AskBudget {
@@ -81,7 +81,7 @@ fn an_object_sets_each_ask_setting_and_leaves_the_rest_at_their_defaults() {
             ..AskBudget::default()
         }
     );
-    assert_eq!(only_k.prompt, RungPrompt::Version(PromptVersion::V1));
+    assert_eq!(only_k.prompt, RungPrompt::Version(PromptVersion::V2));
 }
 
 #[test]

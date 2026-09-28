@@ -17,8 +17,9 @@ use crate::{
         CardRecord, EvaluationDisposition, EvaluationMode, EvaluationRecord, NewModelCard,
         NewModelEvaluation, NewModelSelection, SelectionRecord,
     },
-    scope::{Right, Scope, ScopeSet},
-    store::Database,
+    paths::{self, Environment},
+    scope::{Config, LOCAL, Right, Scope, ScopeSet},
+    store::{Database, Error as StoreError},
 };
 use rusqlite::Connection;
 use std::{
@@ -333,4 +334,53 @@ pub(super) fn populated_model_records(
         )
         .unwrap();
     (registration, evaluation, selection)
+}
+
+/// A building generation of `collection`, over a complete chunk set.
+pub(super) fn generation_in(database: &Database, collection: &str) -> i64 {
+    database
+        .write(|transaction| {
+            transaction.execute(
+                "INSERT INTO chunk_sets \
+                     (id,collection_id,chunk_profile,counter_contract_id,state) \
+                     VALUES (?1 || '-set',?1,'structural-500-700/1','native','building')",
+                [collection],
+            )?;
+            transaction.execute(
+                "UPDATE chunk_sets SET state='complete',manifest_digest='manifest' \
+                     WHERE id=?1 || '-set'",
+                [collection],
+            )?;
+            let id = transaction.query_row(
+                "INSERT INTO generations \
+                     (collection_id,chunk_set_id,embedding_profile,sparse_profile) \
+                     VALUES (?1,?1 || '-set','embed:test','bm25-en-fr/1') RETURNING id",
+                [collection],
+                |row| row.get(0),
+            )?;
+            Ok::<_, StoreError>(id)
+        })
+        .unwrap()
+}
+
+/// The local kernel, the local principal's scopes and the kernel's data
+/// directory, as a live test opens them.
+pub(super) fn live_kernel() -> (Database, ScopeSet, PathBuf) {
+    let environment = Environment::current();
+    let data = paths::data_dir(&environment).expect("resolve kernel data home");
+    let config =
+        Config::load(&paths::config_dir(&environment).expect("resolve kernel config home"))
+            .expect("read kernel access config");
+    let database = Database::open_in(&data).expect("open default kernel");
+    database
+        .apply_config(&config)
+        .expect("apply kernel access config");
+    let scopes = database.visible(LOCAL).expect("read local kernel scopes");
+    (database, scopes, data)
+}
+
+/// The value of the environment variable `variable`, which a live test
+/// requires.
+pub(super) fn required(variable: &str) -> String {
+    env::var(variable).unwrap_or_else(|_| panic!("set {variable}"))
 }

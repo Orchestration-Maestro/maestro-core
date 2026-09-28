@@ -1,7 +1,8 @@
 //! Transactional model-registry write preconditions and rollback tests.
 
 use super::support::{
-    Scratch, card, collection, collection_scopes, corrupt_artifact, identity, new_eval,
+    Scratch, card, collection, collection_scopes, corrupt_artifact, generation_in, identity,
+    new_eval,
 };
 use crate::{
     artifact::Digest,
@@ -10,34 +11,8 @@ use crate::{
         card_v2::{Capability, TextFormat},
     },
     model::{Error as ModelError, EvaluationDisposition, EvaluationMode, NewModelCard},
-    store::{Database, Error as StoreError},
+    store::Error as StoreError,
 };
-
-fn generation_in(database: &Database, collection: &str) -> i64 {
-    database
-        .write(|transaction| {
-            transaction.execute(
-                "INSERT INTO chunk_sets \
-                     (id,collection_id,chunk_profile,counter_contract_id,state) \
-                     VALUES (?1 || '-set',?1,'structural-500-700/1','native','building')",
-                [collection],
-            )?;
-            transaction.execute(
-                "UPDATE chunk_sets SET state='complete',manifest_digest='manifest' \
-                     WHERE id=?1 || '-set'",
-                [collection],
-            )?;
-            let id = transaction.query_row(
-                "INSERT INTO generations \
-                     (collection_id,chunk_set_id,embedding_profile,sparse_profile) \
-                     VALUES (?1,?1 || '-set','embed:test','bm25-en-fr/1') RETURNING id",
-                [collection],
-                |row| row.get(0),
-            )?;
-            Ok::<_, StoreError>(id)
-        })
-        .unwrap()
-}
 
 #[test]
 fn missing_collection_and_blank_run_id_fail_before_artifacts_are_recorded() {

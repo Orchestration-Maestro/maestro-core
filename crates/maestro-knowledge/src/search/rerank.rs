@@ -42,9 +42,10 @@ impl RerankFailure {
     }
 }
 
-/// The initial reranking depth measured by T008.
+/// The reranking depth the T037 ladder measured best: depth 80 overran the
+/// 1.5 s search budget.
 pub(super) const DEFAULT_DEPTH: NonZeroUsize =
-    NonZeroUsize::new(80).expect("default depth is nonzero");
+    NonZeroUsize::new(30).expect("default depth is nonzero");
 
 /// A fused candidate and the prepared text read by the reranker.
 #[derive(Clone, Debug, PartialEq)]

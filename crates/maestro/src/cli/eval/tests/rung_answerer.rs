@@ -224,7 +224,7 @@ fn a_named_card_is_the_rungs_answerer_and_its_router_entry_is_asked() {
         .ask_call("question", &named(&bigger), big.as_ref())
         .unwrap();
     assert_eq!(request.model, "qwen3-8b");
-    assert_eq!(prompt, AnswerPrompt::Version(PromptVersion::V1));
+    assert_eq!(prompt, AnswerPrompt::Version(PromptVersion::V2));
 }
 
 #[test]

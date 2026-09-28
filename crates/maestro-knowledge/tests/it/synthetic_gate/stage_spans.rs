@@ -26,7 +26,7 @@ use maestro_knowledge::{
 use serde_json::Value;
 use std::{
     fs,
-    num::{NonZeroU32, NonZeroUsize},
+    num::NonZeroU32,
     path::{Path, PathBuf},
 };
 use tokio::runtime::{Builder, Runtime};
@@ -69,9 +69,6 @@ const ASSEMBLE: [(&str, Option<&str>); 7] = [
     ("retrieval.assemble.selection", Some("retrieval.assemble")),
     ("retrieval.assemble.output", Some("retrieval.assemble")),
 ];
-
-/// How many fused candidates the reranker reads: the production default.
-const RERANK_DEPTH: NonZeroUsize = NonZeroUsize::new(80).unwrap();
 
 /// The shortest corpus line the content scan looks for: shorter lines, such
 /// as a fence or a list marker, are not text a field could leak.
@@ -284,10 +281,7 @@ async fn traced_search(
             deadline_ms: 10_000,
             ..RequestBudget::default()
         },
-        configuration: SearchConfiguration {
-            rerank_depth: RERANK_DEPTH,
-            ..SearchConfiguration::default()
-        },
+        configuration: SearchConfiguration::default(),
     };
     Box::pin(search(&context, &request)).await
 }

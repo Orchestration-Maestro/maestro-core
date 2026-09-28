@@ -170,6 +170,10 @@ documents. At 120 documents the p95 is 1.41 to 1.42 s, which leaves under
 rest of a search, 80 is the deepest measured depth that fits. The ladder
 measures again on the real corpus, so 80 is where it starts, not a setting.
 
+**T037 outcome:** on the real corpus, depth 80 did not finish inside the
+1.5 s search budget in ladder run 1, and depth 30 won (run 3: top-10 81/84,
+top-1 69/84, search p95 0.76 s). The default depth is now 30.
+
 Measured by T008 on 2026-09-26 on the reference workstation:
 
 | Part | What ran |
@@ -297,6 +301,9 @@ That leaves reranking 1.2 s at p95: **depth 80 fits** (0.90 and 1.13 s) and
 depth 120 does not (1.41 and 1.42 s). The margin at 80 is thin, 70 ms in the
 slower pass. Each pair adds about 11 ms, so each 0.1 s more that retrieval
 needs costs about 9 pairs of depth.
+
+On the real corpus the rest of a search took more than 0.3 s, so depth 80
+overran the budget; T037 set the default to 30 (see the T037 outcome above).
 
 ### On the CPU
 

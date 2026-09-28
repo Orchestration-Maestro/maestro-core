@@ -88,11 +88,11 @@ impl AskBudget {
 #[serde(rename_all = "lowercase")]
 pub enum PromptVersion {
     /// The first prompt: a marker after each supported sentence.
-    #[default]
     V1,
     /// After each sentence, the passages that state it, the specific one
     /// over a general one, and `NOT_FOUND` unless the passages answer
-    /// directly.
+    /// directly. The default: the T037 ladder measured it best.
+    #[default]
     V2,
 }
 
@@ -274,7 +274,8 @@ pub struct Answer {
     pub citations: Vec<AnswerCitation>,
     /// Host-resolved answerer identity.
     pub model: AnswerModel,
-    /// True until T037 records a calibrated shipping profile.
+    /// True until a ladder run passes every M1 floor; T037 closed with two
+    /// answer floors unmet.
     pub uncalibrated: bool,
     /// Host-owned safe refusal, when the evidence or answerer is insufficient.
     pub refusal: Option<AnswerRefusal>,

@@ -79,7 +79,7 @@ fn an_ask_carries_the_rungs_budget_and_prompt() {
         k: Some(8),
         max_tokens: Some(9000),
         output_tokens: Some(900),
-        prompt: RungPrompt::Version(PromptVersion::V2),
+        prompt: RungPrompt::Version(PromptVersion::V1),
         card: None,
     };
 
@@ -100,12 +100,12 @@ fn an_ask_carries_the_rungs_budget_and_prompt() {
             },
         }
     );
-    assert_eq!(prompt, PromptVersion::V2.into());
-    let (default, v1) = engine
+    assert_eq!(prompt, PromptVersion::V1.into());
+    let (default, default_prompt) = engine
         .ask_call("question", &AskSettings::default(), None)
         .unwrap();
     assert_eq!(default.budget, AskBudget::default());
-    assert_eq!(v1, PromptVersion::V1.into());
+    assert_eq!(default_prompt, PromptVersion::V2.into());
 }
 
 #[test]

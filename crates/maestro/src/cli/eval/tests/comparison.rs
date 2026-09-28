@@ -82,12 +82,12 @@ fn the_comparison_names_the_provenance_of_every_rung() {
     assert!(markdown.contains(&format!(
         "- `r0`: generation 0, chunk set chunk-set, embedder card {embedder}, reranker card \
          {RERANKER}, answerer card {answerer}; ask: 5 passages, 6000 evidence bytes, 700 \
-         output tokens, prompt v1\n"
+         output tokens, prompt v2\n"
     )));
     assert!(markdown.contains(&format!(
         "- `r1`: generation 0, chunk set chunk-set, embedder card {embedder}, reranker card \
          none, answerer card {answerer}; ask: 5 passages, 6000 evidence bytes, 700 output \
-         tokens, prompt v1\n"
+         tokens, prompt v2\n"
     )));
 }
 

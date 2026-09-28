@@ -542,9 +542,11 @@ in place.
 │   │   │   │   │   ├── history.rs                                           # Exact evaluation-selection joins, insertion ordering, and selection history
 │   │   │   │   │   ├── journal.rs                                           # Transactional model-registry journal event contents and rollback
 │   │   │   │   │   ├── live_registration.rs                                 # Safe fake-backed registration checks and the explicitly ignored live card registration
+│   │   │   │   │   ├── live_selection.rs                                    # The ignored live reranker selection and the checks of its helper
 │   │   │   │   │   ├── mod.rs                                               # Model registry tests for identities, persistence, eligibility, scopes, and guards
 │   │   │   │   │   ├── reads.rs                                             # Integrity checks for scoped model registry reads
 │   │   │   │   │   ├── records.rs                                           # Model card, evaluation, and selection record/read contract tests
+│   │   │   │   │   ├── rung_selection.rs                                    # Reranker selection from a ladder rung's report and its manifest
 │   │   │   │   │   ├── scopes.rs                                            # Scope-bound visibility tests for model cards, evaluations, and selections
 │   │   │   │   │   ├── support.rs                                           # Scratch databases and v2 card fixtures for model persistence tests
 │   │   │   │   │   ├── triggers.rs                                          # Direct tests for immutable model-registry row guards

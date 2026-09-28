@@ -242,8 +242,8 @@ async fn maps_scores_to_document_positions_before_sorting() {
 }
 
 #[tokio::test]
-async fn default_depth_sends_eighty_once_and_keeps_the_unscored_tail() {
-    let port = FakePort::scores((0..80).map(f64::from).collect());
+async fn default_depth_sends_thirty_once_and_keeps_the_unscored_tail() {
+    let port = FakePort::scores((0..30).map(f64::from).collect());
     let card = card(Role::Reranker, 128);
     let result = rerank(
         "q",
@@ -259,23 +259,23 @@ async fn default_depth_sends_eighty_once_and_keeps_the_unscored_tail() {
 
     let calls = port.calls.lock().unwrap();
     assert_eq!(calls.len(), 1);
-    assert_eq!(calls[0].documents.len(), 80);
+    assert_eq!(calls[0].documents.len(), 30);
     assert_eq!(calls[0].documents[0], "candidate-00");
-    assert_eq!(calls[0].documents[79], "candidate-79");
+    assert_eq!(calls[0].documents[29], "candidate-29");
     drop(calls);
     assert_eq!(result.ranked.len(), 100);
     assert_eq!(
-        ids(&result.ranked[..80])[..3],
-        ["candidate-79", "candidate-78", "candidate-77"]
+        ids(&result.ranked[..30])[..3],
+        ["candidate-29", "candidate-28", "candidate-27"]
     );
     assert_eq!(
-        ids(&result.ranked[80..]),
-        (80..100)
+        ids(&result.ranked[30..]),
+        (30..100)
             .map(|i| format!("candidate-{i:02}"))
             .collect::<Vec<_>>()
     );
-    assert!(result.ranked[..80].iter().all(|item| item.score.is_some()));
-    assert!(result.ranked[80..].iter().all(|item| item.score.is_none()));
+    assert!(result.ranked[..30].iter().all(|item| item.score.is_some()));
+    assert!(result.ranked[30..].iter().all(|item| item.score.is_none()));
 }
 
 #[tokio::test]

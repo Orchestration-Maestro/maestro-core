@@ -1,20 +1,20 @@
 //! Safe fake-backed registration checks and the explicitly ignored live card registration.
 
-use super::support::{Scratch, collection, collection_scopes, grant, identity};
+use super::support::{
+    Scratch, collection, collection_scopes, grant, identity, live_kernel, required,
+};
 use crate::{
     artifact::{Digest, Store},
     gateway::{ModelCard, Role, card_v2::CardIdentity},
     journal::{self, Filter},
     model::{CardRecord, Error as ModelError, NewModelCard},
-    paths::{self, Environment},
-    scope::{Config, LOCAL, Scope, ScopeSet, collection_path},
+    scope::{Scope, ScopeSet, collection_path},
     store::Database,
 };
 use serde::Deserialize;
 use sha2::{Digest as _, Sha256};
 use std::{
     collections::BTreeMap,
-    env,
     error::Error as StdError,
     fs::{self, File},
     io::{self, Read as _},
@@ -45,16 +45,7 @@ fn register_card_live() {
     let evidence_dir = required("MAESTRO_CARD_EVIDENCE");
     let card_json = fs::read(card_path).expect("read MAESTRO_CARD_JSON");
 
-    let environment = Environment::current();
-    let data = paths::data_dir(&environment).expect("resolve kernel data home");
-    let config =
-        Config::load(&paths::config_dir(&environment).expect("resolve kernel config home"))
-            .expect("read kernel access config");
-    let database = Database::open_in(&data).expect("open default kernel");
-    database
-        .apply_config(&config)
-        .expect("apply kernel access config");
-    let scopes = database.visible(LOCAL).expect("read local kernel scopes");
+    let (database, scopes, data) = live_kernel();
     let store = Store::new(data.join("artifacts"));
     let result = RegistrationContext {
         database: &database,
@@ -366,10 +357,6 @@ fn card_json(identity: &CardIdentity) -> Vec<u8> {
         "identity": identity,
     }))
     .unwrap()
-}
-
-fn required(variable: &str) -> String {
-    env::var(variable).unwrap_or_else(|_| panic!("set {variable}"))
 }
 
 fn register_card(

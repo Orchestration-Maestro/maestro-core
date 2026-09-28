@@ -39,6 +39,7 @@ fn request<'a>(
 fn search_request_constructor_uses_the_measured_default_depth() {
     let request = SearchRequest::new("docs", "question", None, RequestBudget::default());
     assert_eq!(request.configuration.rerank_depth, DEFAULT_DEPTH);
+    assert_eq!(DEFAULT_DEPTH.get(), 30);
 }
 
 fn rejected(request: &SearchRequest<'_>, expected: &str) {
