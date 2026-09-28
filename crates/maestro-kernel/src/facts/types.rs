@@ -1,6 +1,7 @@
 //! What a claim says, the source locations that support it, and the records
 //! the kernel keeps of both.
 
+use crate::vocabulary::{EntityKind, Predicate};
 use crate::{artifact::Digest, evidence::Span};
 use std::collections::BTreeMap;
 
@@ -23,8 +24,9 @@ pub struct Claim {
     pub subject: EntityName,
     /// What it says of its subject.
     pub predicate: Predicate,
-    /// The value it gives, as the source writes it.
-    pub object: Literal,
+    /// What it relates its subject to: a literal for `DEFAULTS_TO`, an
+    /// entity for every other predicate.
+    pub object: Object,
     /// The conditions it holds under, by name, as the source states them:
     /// data, never expressions. Empty when it states none.
     pub conditions: BTreeMap<String, String>,
@@ -43,17 +45,20 @@ pub struct Claim {
 /// left for that resolved record.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EntityName {
-    /// Its kind, such as `Parameter`.
-    pub kind: String,
+    /// Its kind.
+    pub kind: EntityKind,
     /// Its name, spelled as the source spells it.
     pub name: String,
 }
 
-/// What a claim says of its subject.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Predicate {
-    /// The subject's default is the object, a literal.
-    DefaultsTo,
+/// What a claim relates its subject to.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Object {
+    /// A typed literal, the object of `DEFAULTS_TO` alone.
+    Literal(Literal),
+    /// An entity of the claim's collection, the object of every other
+    /// predicate.
+    Entity(EntityName),
 }
 
 /// A typed literal, its lexeme unchanged from the source: no number is
@@ -158,21 +163,6 @@ pub struct ClaimSetRecord {
     pub collection_id: String,
     /// Its claims, in order.
     pub claims: Vec<ClaimRecord>,
-}
-
-impl Predicate {
-    /// Its name, as the `predicate` column holds it.
-    #[must_use]
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::DefaultsTo => "DEFAULTS_TO",
-        }
-    }
-
-    /// The predicate named `name`.
-    pub(super) fn parse(name: &str) -> Option<Self> {
-        (name == "DEFAULTS_TO").then_some(Self::DefaultsTo)
-    }
 }
 
 impl LiteralKind {

@@ -5,3 +5,5 @@ mod claims;
 mod schema;
 mod support;
 mod supports;
+mod upgrade;
+mod vocabulary;

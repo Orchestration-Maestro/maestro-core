@@ -277,7 +277,6 @@ fn malformed() -> Vec<(ClaimSet, &'static str)> {
     edit("empty span", |claim| {
         claim.supports[0].span.end = claim.supports[0].span.start;
     });
-    edit("subject kind", |claim| claim.subject.kind.clear());
     edit("subject name", |claim| claim.subject.name.clear());
     edit("extractor", |claim| claim.provenance.extractor.clear());
     edit("condition", |claim| {

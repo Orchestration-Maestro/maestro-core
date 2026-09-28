@@ -7,12 +7,13 @@ use crate::{
     document::{Collection, Disposition, Document, Outcome, Revision, RevisionStatus, Source},
     evidence::Span,
     facts::{
-        Claim, ClaimSet, EntityName, Literal, LiteralKind, Predicate, Provenance, Support, Validity,
+        Claim, ClaimSet, EntityKind, EntityName, Literal, LiteralKind, Object, Predicate,
+        Provenance, Support, Validity,
     },
     scope::{Right, ScopeSet},
     store::{self, Database},
 };
-use rusqlite::Connection;
+use rusqlite::{Connection, params};
 use serde_json::Map;
 use std::{
     collections::BTreeMap,
@@ -60,45 +61,13 @@ impl Scratch {
     /// `doc-o`; the first has the accepted revision `rev-a`, the second the
     /// accepted revision `rev-o`, both of [`ORIGINAL`].
     pub(super) fn open(&self) -> Database {
-        let database = Database::open_in(&self.0).unwrap();
-        for (collection, document, revision) in
-            [(COLLECTION, "doc-a", "rev-a"), ("other", "doc-o", "rev-o")]
-        {
-            database
-                .record_collection(&Collection {
-                    id: collection.to_owned(),
-                    title: format!("The {collection} collection"),
-                    visibility: "public".to_owned(),
-                    profiles: BTreeMap::new(),
-                })
-                .unwrap();
-            database
-                .record_source(&Source {
-                    collection_id: collection.to_owned(),
-                    id: "docs".to_owned(),
-                    kind: "import".to_owned(),
-                    transport: None,
-                    reference: "corpus_root:docs.jsonl".to_owned(),
-                    profiles: BTreeMap::new(),
-                })
-                .unwrap();
-            database
-                .record_document(&Document {
-                    id: document.to_owned(),
-                    collection_id: collection.to_owned(),
-                    source_id: "docs".to_owned(),
-                    source_ref: format!("corpus-path:{document}.md"),
-                })
-                .unwrap();
-            revise(
-                &database,
-                document,
-                revision,
-                RevisionStatus::Valid,
-                Some(Outcome::Accepted),
-            );
-        }
-        database
+        populate(Database::open_in(&self.0).unwrap())
+    }
+
+    /// [`Scratch::open`], with the migrations numbered below `migration`
+    /// alone: the database an older binary left.
+    pub(super) fn open_before(&self, migration: &str) -> Database {
+        populate(Database::open_before(&self.0, migration).unwrap())
     }
 
     /// A reader of this directory's database of its own.
@@ -122,6 +91,51 @@ impl Drop for Scratch {
     fn drop(&mut self) {
         fs::remove_dir_all(&self.0).unwrap();
     }
+}
+
+/// `database`, once it holds the collections `graph` and `other`, each with
+/// the source `docs` and the document `doc-a` or `doc-o`; the first has the
+/// accepted revision `rev-a`, the second the accepted revision `rev-o`, both
+/// of [`ORIGINAL`].
+fn populate(database: Database) -> Database {
+    for (collection, document, revision) in
+        [(COLLECTION, "doc-a", "rev-a"), ("other", "doc-o", "rev-o")]
+    {
+        database
+            .record_collection(&Collection {
+                id: collection.to_owned(),
+                title: format!("The {collection} collection"),
+                visibility: "public".to_owned(),
+                profiles: BTreeMap::new(),
+            })
+            .unwrap();
+        database
+            .record_source(&Source {
+                collection_id: collection.to_owned(),
+                id: "docs".to_owned(),
+                kind: "import".to_owned(),
+                transport: None,
+                reference: "corpus_root:docs.jsonl".to_owned(),
+                profiles: BTreeMap::new(),
+            })
+            .unwrap();
+        database
+            .record_document(&Document {
+                id: document.to_owned(),
+                collection_id: collection.to_owned(),
+                source_id: "docs".to_owned(),
+                source_ref: format!("corpus-path:{document}.md"),
+            })
+            .unwrap();
+        revise(
+            &database,
+            document,
+            revision,
+            RevisionStatus::Valid,
+            Some(Outcome::Accepted),
+        );
+    }
+    database
 }
 
 /// Records the revision `id` of `document`, of [`ORIGINAL`], with `status`
@@ -190,14 +204,14 @@ pub(super) fn quoting(text: &str, block: &str) -> Support {
 pub(super) fn default_claim(name: &str, kind: LiteralKind, lexeme: &str, row: &str) -> Claim {
     Claim {
         subject: EntityName {
-            kind: "Parameter".to_owned(),
+            kind: EntityKind::Parameter,
             name: name.to_owned(),
         },
         predicate: Predicate::DefaultsTo,
-        object: Literal {
+        object: Object::Literal(Literal {
             kind,
             lexeme: lexeme.to_owned(),
-        },
+        }),
         conditions: BTreeMap::new(),
         version: Validity::Unknown,
         world: Validity::Unknown,
@@ -206,6 +220,26 @@ pub(super) fn default_claim(name: &str, kind: LiteralKind, lexeme: &str, row: &s
             profile: Digest::of(b"synthetic-defaults/1"),
         },
         supports: vec![quoting(row, &format!("block-{name}"))],
+    }
+}
+
+/// The claim that the `subject` entity stands in `predicate` to the
+/// `object` entity, supported by [`LABEL_ROW`], in the block `block-label`,
+/// with no conditions and unknown validity.
+pub(super) fn relation_claim(
+    subject: (EntityKind, &str),
+    predicate: Predicate,
+    object: (EntityKind, &str),
+) -> Claim {
+    let named = |(kind, name): (EntityKind, &str)| EntityName {
+        kind,
+        name: name.to_owned(),
+    };
+    Claim {
+        subject: named(subject),
+        predicate,
+        object: Object::Entity(named(object)),
+        ..label()
     }
 }
 
@@ -253,4 +287,78 @@ pub(super) fn execute(database: &Database, statement: &str) -> Result<usize, sto
             .execute(statement, [])
             .map_err(store::Error::from)
     })
+}
+
+/// Seeds the actual 0012 schema, never using the current claim writer. The
+/// optional last kind models a legacy row the closed vocabulary cannot admit.
+pub(super) fn legacy(scratch: &Scratch, invalid_kind: Option<&str>) -> (Digest, Vec<Digest>) {
+    use crate::facts::write::{claim_digest, set_digest};
+
+    let database = scratch.open_before("0013_graph_claim_vocabulary");
+    let claims = [label(), retries()];
+    let kinds = ["Parameter", invalid_kind.unwrap_or("Parameter")];
+    let ids: Vec<_> = claims
+        .iter()
+        .zip(kinds)
+        .map(|(claim, kind)| {
+            claim_digest(
+                COLLECTION,
+                kind,
+                claim,
+                &claim.supports.iter().collect::<Vec<_>>(),
+            )
+        })
+        .collect();
+    let set = set_digest(COLLECTION, &ids);
+    database
+        .write::<_, store::Error>(|transaction| {
+            for ((claim, kind), id) in claims.iter().zip(kinds).zip(&ids) {
+                let Object::Literal(literal) = &claim.object else {
+                    panic!("legacy fixture must hold literals")
+                };
+                transaction.execute(
+                    "INSERT INTO claims (id, collection_id, subject_kind, subject_name, predicate,
+                  object_type, object_lexeme, conditions_json, version_known, world_known,
+                  extractor, profile_digest, review_state, support_count, recorded_at)
+                 VALUES (?1, ?2, ?3, ?4, 'DEFAULTS_TO', ?5, ?6, '{}', 0, 0,
+                  ?7, ?8, 'accepted', 1, '2026-01-02T03:04:05.678Z')",
+                    params![
+                        id.as_str(),
+                        COLLECTION,
+                        kind,
+                        claim.subject.name,
+                        literal.kind.as_str(),
+                        literal.lexeme,
+                        claim.provenance.extractor,
+                        claim.provenance.profile.as_str()
+                    ],
+                )?;
+                for support in &claim.supports {
+                    transaction.execute(
+                        "INSERT INTO claim_supports VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                        params![
+                            id.as_str(),
+                            support.revision_id,
+                            support.block_id,
+                            i64::try_from(support.span.start).unwrap(),
+                            i64::try_from(support.span.end).unwrap(),
+                            support.quote_digest.as_str()
+                        ],
+                    )?;
+                }
+            }
+            transaction.execute(
+                "INSERT INTO claim_sets VALUES (?1, ?2, 2)",
+                params![set.as_str(), COLLECTION],
+            )?;
+            for (ordinal, id) in ids.iter().enumerate() {
+                transaction.execute(
+                    "INSERT INTO claim_set_members VALUES (?1, ?2, ?3)",
+                    params![set.as_str(), i64::try_from(ordinal).unwrap(), id.as_str()],
+                )?;
+            }
+            Ok(())
+        })
+        .unwrap();
+    (set, ids)
 }

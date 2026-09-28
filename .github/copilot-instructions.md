@@ -382,7 +382,8 @@ in place.
 │   │   │   ├── 0009_model_cards.sql                                         # V2 cards, evaluations, selections and immutable triggers
 │   │   │   ├── 0010_search.sql                                              # File: 0010 search
 │   │   │   ├── 0011_exact_identifiers.sql                                   # Exact, publish-time identifier membership
-│   │   │   └── 0012_graph_claims.sql                                        # File: 0012 graph claims
+│   │   │   ├── 0012_graph_claims.sql                                        # File: 0012 graph claims
+│   │   │   └── 0013_graph_claim_vocabulary.sql                              # File: 0013 graph claim vocabulary
 │   │   ├── src/                                                             # The crate's sources
 │   │   │   ├── artifact/                                                    # Content-addressed artifacts: immutable bytes stored, and read back, by their
 │   │   │   │   ├── digest.rs                                                # A SHA-256 digest: the name every artifact is stored under
@@ -458,7 +459,9 @@ in place.
 │   │   │   │   │   ├── mod.rs                                               # Tests of claims: admitting a verified set or nothing, reading it back
 │   │   │   │   │   ├── schema.rs                                            # What the schema refuses whoever writes: replacing, changing or deleting
 │   │   │   │   │   ├── support.rs                                           # What the claim tests share: a scratch database holding revisions of a
-│   │   │   │   │   └── supports.rs                                          # Verifying supports: the kernel reads the quoted bytes from the revision's
+│   │   │   │   │   ├── supports.rs                                          # Verifying supports: the kernel reads the quoted bytes from the revision's
+│   │   │   │   │   ├── upgrade.rs                                           # Legacy claim records survive the vocabulary migration unchanged
+│   │   │   │   │   └── vocabulary.rs                                        # Closed vocabulary, entity endpoints and the existing scoped support authority
 │   │   │   │   ├── error.rs                                                 # Why the kernel refused to admit or read claims
 │   │   │   │   ├── mod.rs                                                   # The knowledge graph's authority (specs/002-knowledge-graph, FR-S2-002 and
 │   │   │   │   ├── quote.rs                                                 # Verifying a claim's support from the authority: the revision is one the
@@ -636,7 +639,8 @@ in place.
 │   │   │   ├── binding.rs                                                   # Named bindings: the local paths that the logical names of committed files
 │   │   │   ├── filesystem.rs                                                # The files and directories the kernel creates: its owner's only, and each
 │   │   │   ├── lib.rs                                                       # The kernel of Maestro: the single authoritative store every later
-│   │   │   └── paths.rs                                                     # Where the kernel keeps its data: $XDG_DATA_HOME/maestro when that names an
+│   │   │   ├── paths.rs                                                     # Where the kernel keeps its data: $XDG_DATA_HOME/maestro when that names an
+│   │   │   └── vocabulary.rs                                                # The closed graph vocabulary, shared by claims and schema migration
 │   │   └── Cargo.toml                                                       # Crate manifest: The single authoritative store of Maestro, starting with its content-addressed artifacts
 │   └── maestro-knowledge/                                                   # Maestro knowledge
 │       ├── src/                                                             # The crate's sources

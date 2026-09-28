@@ -7,7 +7,7 @@ use crate::graph::rules::{Extractor as _, Resolution, TableRule, resolve};
 use maestro_kernel::{
     artifact::Digest,
     evidence::Span,
-    facts::{EntityName, Literal, LiteralKind, Predicate, Validity},
+    facts::{EntityKind, EntityName, Literal, LiteralKind, Object, Predicate, Validity},
 };
 use serde_json::{Value, json};
 
@@ -24,7 +24,7 @@ fn changed(changes: &Value) -> String {
 /// A subject of kind `kind` spelled `name`.
 fn named(kind: &str, name: &str) -> EntityName {
     EntityName {
-        kind: kind.to_owned(),
+        kind: EntityKind::parse(kind).unwrap(),
         name: name.to_owned(),
     }
 }
@@ -146,7 +146,7 @@ fn the_frozen_table_gives_the_four_oracle_defaults() {
         assert_eq!(claim.predicate, Predicate::DefaultsTo);
         let kind = LiteralKind::parse(expected["object"]["type"].as_str().unwrap()).unwrap();
         let lexeme = expected["object"]["lexeme"].as_str().unwrap().to_owned();
-        assert_eq!(claim.object, Literal { kind, lexeme });
+        assert_eq!(claim.object, Object::Literal(Literal { kind, lexeme }));
         assert!(claim.conditions.is_empty());
         assert_eq!(
             (&claim.version, &claim.world),
@@ -197,7 +197,12 @@ fn literals_keep_their_source_lexemes_and_become_no_entity() {
     let objects: Vec<(LiteralKind, &str)> = extraction
         .claims
         .iter()
-        .map(|claim| (claim.object.kind, claim.object.lexeme.as_str()))
+        .map(|claim| {
+            (
+                literal(&claim.object).kind,
+                literal(&claim.object).lexeme.as_str(),
+            )
+        })
         .collect();
     assert_eq!(
         objects,
@@ -329,7 +334,7 @@ fn a_rule_change_changes_its_profile() {
     );
     for changes in [
         json!({"id": "synthetic-defaults/2"}),
-        json!({"subject_kind": "Setting"}),
+        json!({"subject_kind": "Platform"}),
         json!({"heading_path": ["Lantern controller"]}),
         json!({"columns": ["Parameter", "Default", "Type"]}),
         json!({"source_sha256": Digest::of(b"other").as_str()}),
@@ -368,7 +373,7 @@ fn colliding_spellings_or_kinds_stay_ambiguous() {
     let resolved = resolve(&[
         named("Parameter", "Café"),
         named("Parameter", "cafe"),
-        named("Setting", "cafe"),
+        named("Platform", "cafe"),
     ]);
     assert_eq!(
         resolved,
@@ -376,15 +381,15 @@ fn colliding_spellings_or_kinds_stay_ambiguous() {
             Resolution {
                 subject: named("Parameter", "Café"),
                 normalized: "cafe".to_owned(),
-                colliding: vec![named("Parameter", "cafe"), named("Setting", "cafe")],
+                colliding: vec![named("Parameter", "cafe"), named("Platform", "cafe")],
             },
             Resolution {
                 subject: named("Parameter", "cafe"),
                 normalized: "cafe".to_owned(),
-                colliding: vec![named("Parameter", "Café"), named("Setting", "cafe")],
+                colliding: vec![named("Parameter", "Café"), named("Platform", "cafe")],
             },
             Resolution {
-                subject: named("Setting", "cafe"),
+                subject: named("Platform", "cafe"),
                 normalized: "cafe".to_owned(),
                 colliding: vec![named("Parameter", "Café"), named("Parameter", "cafe")],
             },
@@ -393,16 +398,10 @@ fn colliding_spellings_or_kinds_stay_ambiguous() {
 }
 
 #[test]
-fn a_subject_kind_may_hold_digits_and_underscores() {
-    let rule = TableRule::parse(&changed(&json!({"subject_kind": "Lantern_parameter2"}))).unwrap();
-    let extraction = rule.extract(&source(&markdown()));
-    assert_eq!(extraction.claims.len(), 4);
-    assert!(
-        extraction
-            .claims
-            .iter()
-            .all(|claim| claim.subject.kind == "Lantern_parameter2")
-    );
+fn a_subject_kind_outside_the_closed_vocabulary_is_refused() {
+    for kind in ["Lantern_parameter2", "Setting", "parameter", ""] {
+        assert!(refusal(&changed(&json!({"subject_kind": kind}))).contains("subject kind"));
+    }
 }
 
 #[test]
@@ -420,7 +419,7 @@ fn a_table_without_outer_pipes_gives_the_same_defaults() {
     let lexemes: Vec<&str> = extraction
         .claims
         .iter()
-        .map(|claim| claim.object.lexeme.as_str())
+        .map(|claim| literal(&claim.object).lexeme.as_str())
         .collect();
     assert_eq!(lexemes, ["café", "true", "3", "0.50"]);
 }
@@ -523,4 +522,12 @@ fn a_header_with_markup_rejects_the_table() {
         .unwrap();
     assert_eq!(rejection.block_id.as_deref(), Some(table.block_id.as_str()));
     assert!(rejection.reason.contains("not the source"), "{rejection:?}");
+}
+
+/// The literal a table rule must emit, never an entity.
+fn literal(object: &Object) -> &Literal {
+    let Object::Literal(literal) = object else {
+        panic!("table rule emitted an entity")
+    };
+    literal
 }

@@ -9,6 +9,15 @@ pub enum Error {
     /// The database records a migration this binary does not carry: a newer
     /// binary migrated it, and this one would misread its tables.
     UnknownMigration(String),
+    /// A migration cannot carry these records forward, and invents nothing
+    /// in their place: it applied not at all, and the database is as it
+    /// was. Only their ids are named, never what they hold.
+    RefusedMigration {
+        /// The migration.
+        name: String,
+        /// The ids of the records it refuses, in order.
+        ids: Vec<String>,
+    },
     /// No artifact is recorded under the digest.
     UnknownArtifact(Digest),
     /// The artifact has no pin to remove.
@@ -44,6 +53,12 @@ impl fmt::Display for Error {
                 "the kernel database records migration {name}, which this binary does not \
                  carry: a newer binary migrated it"
             ),
+            Self::RefusedMigration { name, ids } => write!(
+                formatter,
+                "the kernel database holds records migration {name} cannot carry forward, \
+                 so it changed nothing: {}",
+                ids.join(", ")
+            ),
             Self::UnknownArtifact(digest) => write!(
                 formatter,
                 "no artifact is recorded under sha256:{}",
@@ -77,6 +92,7 @@ impl error::Error for Error {
             Self::Io { source, .. } => Some(source),
             Self::Sqlite(source) => Some(source),
             Self::UnknownMigration(_)
+            | Self::RefusedMigration { .. }
             | Self::UnknownArtifact(_)
             | Self::NotPinned(_)
             | Self::MediaConflict { .. } => None,

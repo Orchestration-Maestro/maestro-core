@@ -5,11 +5,17 @@
 use super::{
     error::Error,
     types::{
-        Claim, ClaimRecord, ClaimSetRecord, EntityName, Literal, LiteralKind, Predicate,
-        Provenance, ReviewState, Support, Validity,
+        Claim, ClaimRecord, ClaimSetRecord, EntityName, Literal, LiteralKind, Object, Provenance,
+        ReviewState, Support, Validity,
     },
 };
-use crate::{artifact::Digest, evidence::Span, scope::ScopeSet, store::Database};
+use crate::{
+    artifact::Digest,
+    evidence::Span,
+    scope::ScopeSet,
+    store::Database,
+    vocabulary::{EntityKind, Predicate},
+};
 use rusqlite::{Connection, OptionalExtension as _, Row, params, types::Type};
 use std::{collections::BTreeMap, error};
 
@@ -17,7 +23,7 @@ use std::{collections::BTreeMap, error};
 const CLAIM_COLUMNS: &str = "claims.id, claims.collection_id, subject_kind, subject_name,
     predicate, object_type, object_lexeme, conditions_json, version_known, version_start,
     version_end, world_known, world_start, world_end, extractor, profile_digest, review_state,
-    recorded_at";
+    recorded_at, object_kind, object_name";
 
 impl Database {
     /// The claim set `id`, if `scopes` covers its collection; a set outside
@@ -102,14 +108,11 @@ fn claim_row(row: &Row<'_>) -> rusqlite::Result<ClaimRecord> {
         collection_id: row.get(1)?,
         claim: Claim {
             subject: EntityName {
-                kind: row.get(2)?,
+                kind: named(row, 2, EntityKind::parse)?,
                 name: row.get(3)?,
             },
             predicate: named(row, 4, Predicate::parse)?,
-            object: Literal {
-                kind: named(row, 5, LiteralKind::parse)?,
-                lexeme: row.get(6)?,
-            },
+            object: object(row)?,
             conditions: serde_json::from_str::<BTreeMap<String, String>>(&conditions)
                 .map_err(|error| conversion(7, error))?,
             version: validity(row, 8)?,
@@ -122,6 +125,22 @@ fn claim_row(row: &Row<'_>) -> rusqlite::Result<ClaimRecord> {
         },
         review: named(row, 16, ReviewState::parse)?,
         recorded_at: row.get(17)?,
+    })
+}
+
+/// The object of a row of [`CLAIM_COLUMNS`]: its literal when its CHECK gave
+/// it a type, which it does for `DEFAULTS_TO` alone, and its entity when not.
+fn object(row: &Row<'_>) -> rusqlite::Result<Object> {
+    Ok(if row.get::<_, Option<String>>(5)?.is_some() {
+        Object::Literal(Literal {
+            kind: named(row, 5, LiteralKind::parse)?,
+            lexeme: row.get(6)?,
+        })
+    } else {
+        Object::Entity(EntityName {
+            kind: named(row, 18, EntityKind::parse)?,
+            name: row.get(19)?,
+        })
     })
 }
 

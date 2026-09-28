@@ -8,7 +8,7 @@
 //! refused with exit code 2.
 
 use super::support::{Ended, Home, local};
-use maestro_kernel::artifact::Digest;
+use maestro_kernel::{artifact::Digest, facts::Object};
 use rusqlite::Connection;
 use serde_json::{Value, json};
 use std::{
@@ -210,7 +210,10 @@ fn recorded(home: &Home, built: &Value, expected: &[Value]) {
         let quote = &original[support.span.start..support.span.end];
         assert_eq!(quote, expected["quote"].as_str().unwrap().as_bytes());
         assert_eq!(support.quote_digest, Digest::of(quote));
-        assert_eq!(record.claim.object.lexeme, expected["object"]["lexeme"]);
+        let Object::Literal(literal) = &record.claim.object else {
+            panic!("table rule emitted an entity");
+        };
+        assert_eq!(literal.lexeme, expected["object"]["lexeme"]);
     }
 }
 

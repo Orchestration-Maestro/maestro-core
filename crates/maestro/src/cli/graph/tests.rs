@@ -60,3 +60,31 @@ fn refused_inputs_are_refused() {
         assert!(!fails(&error), "{error:?}");
     }
 }
+
+#[test]
+fn object_documents_keep_literal_bytes_and_name_entity_endpoints() {
+    use super::build::ObjectDocument;
+    use maestro_kernel::facts::{EntityKind, EntityName, Literal, LiteralKind, Object};
+
+    for (object, expected) in [
+        (
+            Object::Literal(Literal {
+                kind: LiteralKind::Decimal,
+                lexeme: "0.50".to_owned(),
+            }),
+            r#"{"type":"decimal","lexeme":"0.50"}"#,
+        ),
+        (
+            Object::Entity(EntityName {
+                kind: EntityKind::Api,
+                name: "GET /status".to_owned(),
+            }),
+            r#"{"kind":"API","name":"GET /status"}"#,
+        ),
+    ] {
+        assert_eq!(
+            serde_json::to_string(&ObjectDocument::from(&object)).unwrap(),
+            expected
+        );
+    }
+}

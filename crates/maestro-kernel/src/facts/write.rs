@@ -5,7 +5,7 @@ use super::{
     error::Error,
     quote::eligible,
     read::load_set,
-    types::{Claim, ClaimSet, ClaimSetRecord, Support, Validity},
+    types::{Claim, ClaimSet, ClaimSetRecord, Object, Support, Validity},
 };
 use crate::{
     artifact::Digest,
@@ -63,14 +63,13 @@ impl Database {
             };
             original.check_quote(support.span, &support.quote_digest)?;
         }
-        let id = canonical_digest(&json!([
-            "maestro-claim-set/1",
-            set.collection_id,
-            admitted
+        let id = set_digest(
+            &set.collection_id,
+            &admitted
                 .iter()
-                .map(|claim| claim.id.as_str())
-                .collect::<Vec<_>>()
-        ]));
+                .map(|claim| claim.id.clone())
+                .collect::<Vec<_>>(),
+        );
         self.write(|transaction| {
             for revision in originals.keys() {
                 eligible(transaction, revision)?;
@@ -126,12 +125,10 @@ fn admit(set: &ClaimSet) -> Result<Vec<Admitted<'_>>, Error> {
 /// `claim` with its id and ordered supports, once it has the right form.
 fn admit_claim<'c>(collection: &str, claim: &'c Claim) -> Result<Admitted<'c>, Error> {
     let invalid = |reason: &str| Err(Error::Invalid(reason.to_owned()));
-    if claim.subject.kind.is_empty() {
-        return invalid("a claim's subject kind is empty");
-    }
     if claim.subject.name.is_empty() {
         return invalid("a claim's subject name is empty");
     }
+    check_object(claim)?;
     if claim.provenance.extractor.is_empty() {
         return invalid("a claim's extractor is empty");
     }
@@ -140,13 +137,6 @@ fn admit_claim<'c>(collection: &str, claim: &'c Claim) -> Result<Admitted<'c>, E
     }
     if !(bounded(&claim.version) && bounded(&claim.world)) {
         return invalid("a claim's validity has an empty bound");
-    }
-    if !claim.object.kind.admits(&claim.object.lexeme) {
-        return Err(Error::Invalid(format!(
-            "the lexeme {:?} is not a {}",
-            claim.object.lexeme,
-            claim.object.kind.as_str()
-        )));
     }
     if claim.supports.is_empty() {
         return invalid("a claim has no support");
@@ -166,14 +156,30 @@ fn admit_claim<'c>(collection: &str, claim: &'c Claim) -> Result<Admitted<'c>, E
     {
         return invalid("a claim's support has an empty span");
     }
-    let id = canonical_digest(&json!([
+    let id = claim_digest(collection, claim.subject.kind.as_str(), claim, &supports);
+    Ok(Admitted {
+        id,
+        claim,
+        supports,
+    })
+}
+
+/// The G02 canonical identity, retaining the legacy kind spelling and ordered supports.
+pub(super) fn claim_digest(
+    collection: &str,
+    subject_kind: &str,
+    claim: &Claim,
+    supports: &[&Support],
+) -> Digest {
+    let (object_kind, object_text) = object_columns(&claim.object);
+    canonical_digest(&json!([
         "maestro-claim/1",
         collection,
-        claim.subject.kind,
+        subject_kind,
         claim.subject.name,
         claim.predicate.as_str(),
-        claim.object.kind.as_str(),
-        claim.object.lexeme,
+        object_kind,
+        object_text,
         claim.conditions.iter().collect::<Vec<_>>(),
         validity(&claim.version),
         validity(&claim.world),
@@ -189,12 +195,57 @@ fn admit_claim<'c>(collection: &str, claim: &'c Claim) -> Result<Admitted<'c>, E
                 support.quote_digest.as_str()
             ]))
             .collect::<Vec<_>>()
-    ]));
-    Ok(Admitted {
-        id,
-        claim,
-        supports,
-    })
+    ]))
+}
+
+/// The G02 canonical identity of an ordered collection of claim ids.
+pub(super) fn set_digest(collection: &str, ids: &[Digest]) -> Digest {
+    canonical_digest(&json!([
+        "maestro-claim-set/1",
+        collection,
+        ids.iter().map(Digest::as_str).collect::<Vec<_>>()
+    ]))
+}
+
+/// Refuses a claim whose predicate is `ALIAS_OF`, or whose object is not the
+/// one its predicate takes: a literal of the form of its type for
+/// `DEFAULTS_TO`, an entity with a name for every other predicate.
+fn check_object(claim: &Claim) -> Result<(), Error> {
+    let predicate = claim.predicate.as_str();
+    if !claim.predicate.is_claimable() {
+        return Err(Error::Invalid(format!(
+            "{predicate} is a reviewed identity record, never a claim"
+        )));
+    }
+    match &claim.object {
+        Object::Literal(_) if !claim.predicate.takes_literal() => Err(Error::Invalid(format!(
+            "the object of {predicate} is an entity, not a literal"
+        ))),
+        Object::Entity(_) if claim.predicate.takes_literal() => Err(Error::Invalid(format!(
+            "the object of {predicate} is a literal, not an entity"
+        ))),
+        Object::Literal(literal) if !literal.kind.admits(&literal.lexeme) => {
+            Err(Error::Invalid(format!(
+                "the lexeme {:?} is not a {}",
+                literal.lexeme,
+                literal.kind.as_str()
+            )))
+        }
+        Object::Entity(entity) if entity.name.is_empty() => {
+            Err(Error::Invalid("a claim's object name is empty".to_owned()))
+        }
+        Object::Literal(_) | Object::Entity(_) => Ok(()),
+    }
+}
+
+/// The two texts that name `object` in a claim's canonical form: a
+/// literal's type and lexeme, as 0012 recorded them, or an entity's kind and
+/// name. The predicate before them says which.
+fn object_columns(object: &Object) -> (&'static str, &str) {
+    match object {
+        Object::Literal(literal) => (literal.kind.as_str(), &literal.lexeme),
+        Object::Entity(entity) => (entity.kind.as_str(), &entity.name),
+    }
 }
 
 /// Where a support lies: what identifies it within its claim.
@@ -274,20 +325,27 @@ fn insert_claim(
     let (version_known, version_start, version_end) = columns(&claim.version);
     let (world_known, world_start, world_end) = columns(&claim.world);
     let conditions = json!(claim.conditions).to_string();
+    let (literal, entity) = match &claim.object {
+        Object::Literal(literal) => (Some((literal.kind.as_str(), &literal.lexeme)), None),
+        Object::Entity(entity) => (None, Some((entity.kind.as_str(), &entity.name))),
+    };
     transaction.execute(
         "INSERT INTO claims (id, collection_id, subject_kind, subject_name, predicate,
-           object_type, object_lexeme, conditions_json, version_known, version_start,
-           version_end, world_known, world_start, world_end, extractor, profile_digest,
-           support_count)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
+           object_type, object_lexeme, object_kind, object_name, conditions_json,
+           version_known, version_start, version_end, world_known, world_start, world_end,
+           extractor, profile_digest, support_count)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17,
+           ?18, ?19)",
         params![
             admitted.id.as_str(),
             collection,
-            claim.subject.kind,
+            claim.subject.kind.as_str(),
             claim.subject.name,
             claim.predicate.as_str(),
-            claim.object.kind.as_str(),
-            claim.object.lexeme,
+            literal.map(|(kind, _)| kind),
+            literal.map(|(_, lexeme)| lexeme),
+            entity.map(|(kind, _)| kind),
+            entity.map(|(_, name)| name),
             conditions,
             version_known,
             version_start,

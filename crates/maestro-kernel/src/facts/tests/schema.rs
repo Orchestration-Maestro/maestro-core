@@ -128,7 +128,7 @@ fn every_claim_column_but_its_review_state_is_frozen() {
             .map(Result::unwrap)
             .collect()
     };
-    assert_eq!(columns.len(), 19, "{columns:?}");
+    assert_eq!(columns.len(), 21, "{columns:?}");
     for column in columns.iter().filter(|column| *column != "review_state") {
         refused(
             &database,
@@ -156,7 +156,8 @@ fn a_replace_is_refused_on_a_connection_without_recursive_triggers() {
     let cases = [
         (
             "INSERT OR REPLACE INTO claims SELECT id, collection_id, subject_kind,
-               subject_name, predicate, object_type, 'tea', conditions_json, version_known,
+               subject_name, predicate, object_type, 'tea', object_kind, object_name,
+               conditions_json, version_known,
                version_start, version_end, world_known, world_start, world_end, extractor,
                profile_digest, review_state, support_count, recorded_at
              FROM claims WHERE subject_name = 'label'"

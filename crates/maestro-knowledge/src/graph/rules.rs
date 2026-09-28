@@ -19,7 +19,10 @@ use super::{
 use crate::{lexical::fold, shape};
 use maestro_kernel::{
     artifact::Digest,
-    facts::{Claim, EntityName, Literal, LiteralKind, Predicate, Provenance, Support, Validity},
+    facts::{
+        Claim, EntityKind, EntityName, Literal, LiteralKind, Object, Predicate, Provenance,
+        Support, Validity,
+    },
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -137,13 +140,8 @@ impl RuleFile {
         if self.id.is_empty() {
             return Err("the rule's id is empty");
         }
-        if self.subject_kind.is_empty()
-            || !self
-                .subject_kind
-                .chars()
-                .all(|character| character.is_ascii_alphanumeric() || character == '_')
-        {
-            return Err("the subject kind is not a name of ASCII letters, digits and `_`");
+        if EntityKind::parse(&self.subject_kind).is_none() {
+            return Err("the subject kind is outside the closed vocabulary");
         }
         if self.heading_path.is_empty() || self.heading_path.iter().any(String::is_empty) {
             return Err("the heading path is empty or holds an empty heading");
@@ -253,14 +251,15 @@ impl TableRule {
         }
         Ok(Claim {
             subject: EntityName {
-                kind: self.0.subject_kind.clone(),
+                kind: EntityKind::parse(&self.0.subject_kind)
+                    .ok_or("the subject kind is outside the closed vocabulary")?,
                 name: subject.to_owned(),
             },
             predicate: self.predicate(),
-            object: Literal {
+            object: Object::Literal(Literal {
                 kind,
                 lexeme: lexeme.to_owned(),
-            },
+            }),
             conditions: BTreeMap::new(),
             version: Validity::Unknown,
             world: Validity::Unknown,
@@ -430,31 +429,30 @@ impl error::Error for RuleError {}
 /// normalized name, kind and spelling.
 #[must_use]
 pub fn resolve(subjects: &[EntityName]) -> Vec<Resolution> {
-    let distinct: BTreeSet<(String, &str, &str)> = subjects
+    let distinct: BTreeMap<(String, &str, &str), &EntityName> = subjects
         .iter()
         .map(|subject| {
             (
-                normalize(&subject.name),
-                subject.kind.as_str(),
-                subject.name.as_str(),
+                (
+                    normalize(&subject.name),
+                    subject.kind.as_str(),
+                    subject.name.as_str(),
+                ),
+                subject,
             )
         })
         .collect();
     distinct
         .iter()
-        .map(|(normalized, kind, name)| Resolution {
-            subject: EntityName {
-                kind: (*kind).to_owned(),
-                name: (*name).to_owned(),
-            },
+        .map(|((normalized, kind, name), subject)| Resolution {
+            subject: (*subject).clone(),
             normalized: normalized.clone(),
             colliding: distinct
                 .iter()
-                .filter(|other| other.0 == *normalized && (other.1, other.2) != (*kind, *name))
-                .map(|other| EntityName {
-                    kind: other.1.to_owned(),
-                    name: other.2.to_owned(),
+                .filter(|((other_normalized, other_kind, other_name), _)| {
+                    other_normalized == normalized && (*other_kind, *other_name) != (*kind, *name)
                 })
+                .map(|(_, other)| (*other).clone())
                 .collect(),
         })
         .collect()

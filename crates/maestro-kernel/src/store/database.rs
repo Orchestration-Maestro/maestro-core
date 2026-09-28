@@ -3,7 +3,7 @@
 
 use super::{
     error::Error,
-    migration::{MIGRATIONS, migrate, pending},
+    migration::{MIGRATIONS, migrate, pending, preflight},
 };
 use crate::{
     artifact::Store,
@@ -68,6 +68,18 @@ impl Database {
         Self::open(&data.join(FILE), &data.join("artifacts"))
     }
 
+    /// [`Database::open_in`] with the binary's migrations numbered below
+    /// `migration` alone: the database an older binary left.
+    #[cfg(test)]
+    pub(crate) fn open_before(data: &Path, migration: &str) -> Result<Self, Error> {
+        let older: Vec<_> = MIGRATIONS
+            .iter()
+            .copied()
+            .filter(|(name, _)| *name < migration)
+            .collect();
+        Self::open_with(&data.join(FILE), &data.join("artifacts"), &older)
+    }
+
     /// [`Database::open`] with `migrations` in place of the binary's own.
     pub(super) fn open_with(
         database: &Path,
@@ -75,6 +87,13 @@ impl Database {
         migrations: &[(&str, &str)],
     ) -> Result<Self, Error> {
         let path = path::absolute(database).map_err(|source| io_error(database, source))?;
+        if path.exists() {
+            let reader = configured(Connection::open_with_flags(
+                &path,
+                OpenFlags::SQLITE_OPEN_READ_ONLY,
+            )?)?;
+            preflight(&reader, migrations)?;
+        }
         create_file(&path)?;
         // Without SQLite's create flag: a file the link failed to make is an
         // error, never a new database anyone could read.

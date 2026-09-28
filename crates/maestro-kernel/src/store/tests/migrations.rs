@@ -226,7 +226,7 @@ fn graph_claim_migration_adds_empty_claim_tables_and_keeps_existing_records() {
     let without_claims: Vec<_> = MIGRATIONS
         .iter()
         .copied()
-        .filter(|(name, _)| *name != "0012_graph_claims")
+        .filter(|(name, _)| *name < "0012_graph_claims")
         .collect();
     let scratch = Scratch::new();
     drop(scratch.open_with(&without_claims).unwrap());
@@ -240,7 +240,7 @@ fn graph_claim_migration_adds_empty_claim_tables_and_keeps_existing_records() {
         .unwrap();
     assert_eq!(
         pending_migrations(&scratch.0).unwrap(),
-        ["0012_graph_claims"]
+        ["0012_graph_claims", "0013_graph_claim_vocabulary"]
     );
 
     drop(scratch.open());

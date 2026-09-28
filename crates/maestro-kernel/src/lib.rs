@@ -35,3 +35,5 @@ pub mod retrieval;
 pub mod scope;
 pub mod store;
 pub mod telemetry;
+
+mod vocabulary;

@@ -85,8 +85,8 @@ struct ClaimDocument<'a> {
     subject: NameDocument<'a>,
     /// What it says.
     predicate: &'static str,
-    /// Its typed literal.
-    object: LiteralDocument<'a>,
+    /// Its literal or collection-local entity endpoint.
+    object: ObjectDocument<'a>,
     /// What extracted it.
     extractor: &'a str,
     /// The digest of its extractor's rule or profile.
@@ -106,14 +106,40 @@ struct NameDocument<'a> {
     name: &'a str,
 }
 
-/// A typed literal.
+/// A claim endpoint, retaining the original literal JSON representation.
 #[derive(Debug, Serialize)]
-struct LiteralDocument<'a> {
-    /// Its type.
-    #[serde(rename = "type")]
-    kind: &'static str,
-    /// Its lexeme, as the source writes it.
-    lexeme: &'a str,
+#[serde(untagged)]
+pub(super) enum ObjectDocument<'a> {
+    /// A typed literal.
+    Literal {
+        /// Its type.
+        #[serde(rename = "type")]
+        kind: &'static str,
+        /// Its unchanged source spelling.
+        lexeme: &'a str,
+    },
+    /// An entity in the claim's collection.
+    Entity {
+        /// Its closed kind.
+        kind: &'static str,
+        /// Its unchanged source name.
+        name: &'a str,
+    },
+}
+
+impl<'a> From<&'a facts::Object> for ObjectDocument<'a> {
+    fn from(object: &'a facts::Object) -> Self {
+        match object {
+            facts::Object::Literal(literal) => Self::Literal {
+                kind: literal.kind.as_str(),
+                lexeme: &literal.lexeme,
+            },
+            facts::Object::Entity(entity) => Self::Entity {
+                kind: entity.kind.as_str(),
+                name: &entity.name,
+            },
+        }
+    }
 }
 
 /// A claim's support.
@@ -297,14 +323,14 @@ impl Built<'_> {
         let entities = resolve(&subjects)
             .into_iter()
             .map(|resolution| EntityDocument {
-                kind: resolution.subject.kind,
+                kind: resolution.subject.kind.as_str().to_owned(),
                 name: resolution.subject.name,
                 normalized: resolution.normalized,
                 colliding: resolution
                     .colliding
                     .into_iter()
                     .map(|other| ColliderDocument {
-                        kind: other.kind,
+                        kind: other.kind.as_str().to_owned(),
                         name: other.name,
                     })
                     .collect(),
@@ -336,14 +362,11 @@ fn claim(record: &ClaimRecord) -> ClaimDocument<'_> {
     ClaimDocument {
         id: record.id.as_str(),
         subject: NameDocument {
-            kind: &claim.subject.kind,
+            kind: claim.subject.kind.as_str(),
             name: &claim.subject.name,
         },
         predicate: claim.predicate.as_str(),
-        object: LiteralDocument {
-            kind: claim.object.kind.as_str(),
-            lexeme: &claim.object.lexeme,
-        },
+        object: ObjectDocument::from(&claim.object),
         extractor: &claim.provenance.extractor,
         profile: claim.provenance.profile.as_str(),
         review: review(record.review),
@@ -396,9 +419,13 @@ fn summary(document: &BuildDocument<'_>) -> String {
         document.rejections.len()
     )];
     for claim in &document.claims {
+        let (kind, name) = match &claim.object {
+            ObjectDocument::Literal { kind, lexeme } => (kind, lexeme),
+            ObjectDocument::Entity { kind, name } => (kind, name),
+        };
         lines.push(format!(
             "{} {} {} {}",
-            claim.subject.name, claim.predicate, claim.object.kind, claim.object.lexeme
+            claim.subject.name, claim.predicate, kind, name
         ));
     }
     let rejected = rejected(document.rejections);

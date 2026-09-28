@@ -27,6 +27,8 @@ mod write;
 
 pub use error::Error;
 pub use types::{
-    Claim, ClaimRecord, ClaimSet, ClaimSetRecord, EntityName, Literal, LiteralKind, Predicate,
+    Claim, ClaimRecord, ClaimSet, ClaimSetRecord, EntityName, Literal, LiteralKind, Object,
     Provenance, ReviewState, Support, Validity,
 };
+
+pub use crate::vocabulary::{EntityKind, Predicate};
