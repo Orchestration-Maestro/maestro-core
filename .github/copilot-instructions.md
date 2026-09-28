@@ -621,6 +621,8 @@ in place.
 │       │   │   │   ├── failures.rs                                          # Each failure of an answerable question gets its class at each cut-off it
 │       │   │   │   ├── groups.rs                                            # Expected section copies share one nDCG item while remaining visible in
 │       │   │   │   ├── intervals.rs                                         # The intervals: 95 % percentile intervals of 2,000 bootstrap resamples
+│       │   │   │   ├── ladder.rs                                            # Tests of the ladder's floors: each count at its exact boundary, the
+│       │   │   │   ├── ladder_rows.rs                                       # Tests of what the ladder's rows may not hide: answerable questions left
 │       │   │   │   ├── metrics.rs                                           # Each metric of a run against values computed by hand on a small suite
 │       │   │   │   ├── mod.rs                                               # Tests of the evaluation runner: how it ranks and judges each question
 │       │   │   │   ├── ranking.rs                                           # A bundle lists its passages in reading order, so the runner ranks them
@@ -637,6 +639,8 @@ in place.
 │       │   │   ├── compare.rs                                               # Comparing two runs of one suite, question by question
 │       │   │   ├── error.rs                                                 # Why a run or a comparison was refused
 │       │   │   ├── judge.rs                                                 # Judging one question: ranking its bundle's passages, finding the sections
+│       │   │   ├── ladder.rs                                                # The ladder's scorer (T037): the M1 floors of one configuration, each PASS
+│       │   │   ├── ladder_markdown.rs                                       # The ladder's score as a Markdown table
 │       │   │   ├── merge.rs                                                 # Merging v2 attempt reports without dropping scheduled work
 │       │   │   ├── metric.rs                                                # The metrics of a run: each a value over a sample of its questions, drawn
 │       │   │   ├── mod.rs                                                   # The evaluation runner (plan D13; FR-S1-009, SC-S1-008): every retrieval

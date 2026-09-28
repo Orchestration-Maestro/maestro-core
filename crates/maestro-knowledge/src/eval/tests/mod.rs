@@ -9,6 +9,8 @@ mod documents;
 mod failures;
 mod groups;
 mod intervals;
+mod ladder;
+mod ladder_rows;
 mod metrics;
 mod ranking;
 mod report;
