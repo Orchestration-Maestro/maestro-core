@@ -125,6 +125,55 @@ fn a_partially_retained_conflict_is_refused() {
 }
 
 #[test]
+fn rejects_incomplete_findings_and_un_numbered_table_passages() {
+    let markdown_a =
+        "# Guide\n\n| Entity | Attribute | Value |\n| --- | --- | --- |\n| Agent | Port | 7005 |\n";
+    let markdown_b = markdown_a.replace("7005", "7006");
+    let document_a = document(markdown_a, "conflict-a.md");
+    let document_b = document(&markdown_b, "conflict-b.md");
+    let groups = BTreeSet::from(["near-group".to_owned()]);
+    let context = ConflictContext::default();
+    let sources = [
+        source(0, &document_a, markdown_a, &groups, &context),
+        source(1, &document_b, &markdown_b, &groups, &context),
+    ];
+    let findings = detect_conflicts(&sources).unwrap();
+    let mut incomplete = findings.clone();
+    incomplete[0].values = BTreeSet::from(["7005".to_owned()]);
+    assert_eq!(
+        emit_conflicts(&incomplete, &sources, &BTreeSet::new(), &[]).err(),
+        Some("conflict finding has fewer than two explicit values".to_owned())
+    );
+
+    let passages = [
+        passage(
+            &document_a.document_id,
+            &document_a.revision_id,
+            0,
+            Span {
+                start: 0,
+                end: markdown_a.len(),
+            },
+            markdown_a,
+        ),
+        passage(
+            &document_b.document_id,
+            &document_b.revision_id,
+            1,
+            Span {
+                start: 0,
+                end: markdown_b.len(),
+            },
+            &markdown_b,
+        ),
+    ];
+    assert_eq!(
+        emit_conflicts(&findings, &sources, &BTreeSet::from([0, 1]), &passages).err(),
+        Some("conflict table has ambiguous passage provenance".to_owned())
+    );
+}
+
+#[test]
 fn omitted_conflict_units_emit_no_conflict_signal() {
     let markdown_a =
         "# Guide\n\n| Entity | Attribute | Value |\n| --- | --- | --- |\n| Agent | Port | 7005 |\n";

@@ -4,7 +4,7 @@ use super::super::{
     sections::SectionIndex,
     selection::{SelectionBudget, SelectionCandidate, select},
     spans::{SeedSpan, SpanUnion},
-    types::EvidenceCounter,
+    types::{EvidenceCounter, EvidenceError},
 };
 use super::support::control;
 use crate::search::Route;
@@ -12,8 +12,13 @@ use maestro_canonicalization::{CanonicalDocument, CanonicalizeInput, canonicaliz
 use maestro_kernel::{
     artifact::Digest,
     evidence::{Passage, Span},
+    retrieval::ReadControl,
 };
-use std::collections::BTreeSet;
+use std::{
+    collections::BTreeSet,
+    sync::{Arc, atomic::AtomicBool},
+    time::{Duration, Instant},
+};
 
 fn prepared(markdown: &str, path: &str) -> (CanonicalDocument, SectionIndex) {
     let document = canonicalize(CanonicalizeInput::new(markdown, path)).unwrap();
@@ -245,6 +250,44 @@ fn mandatory_whole_sibling_window_adds_before_then_stops_at_budget() {
     assert_eq!(result.passages[0].text, expected_text);
     assert!(!result.passages[0].text.contains("after-context"));
     assert!(result.passages[0].windowed);
+}
+
+#[test]
+fn selection_refuses_an_already_cancelled_control() {
+    let markdown = "# Guide\n\nSource passage.\n";
+    let (document, sections) = prepared(markdown, "guide.md");
+    let candidate = candidate(
+        CandidateSource {
+            markdown,
+            document: &document,
+            sections: &sections,
+        },
+        "Guide",
+        "Source passage.",
+        0,
+        None,
+    );
+    let counter = EvidenceCounter::Utf8Bytes;
+    let info = counter_info(&counter).unwrap();
+    let control = ReadControl {
+        deadline: Instant::now() + Duration::from_secs(1),
+        cancelled: Arc::new(AtomicBool::new(true)),
+    };
+
+    assert!(matches!(
+        select(
+            &[candidate],
+            &[],
+            &SelectionBudget {
+                max_passages: 1,
+                max_tokens: u32::MAX,
+                counter: &counter,
+                counter_info: &info,
+                control: &control,
+            }
+        ),
+        Err(EvidenceError::TimedOut)
+    ));
 }
 
 #[test]

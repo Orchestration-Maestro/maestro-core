@@ -20,6 +20,39 @@ const MISSING_ROUTE_ERROR: &str = "candidate route status is missing";
 const UNAVAILABLE_ROUTE_ERROR: &str = "an unavailable route supplied a candidate";
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn accepts_handoff_fields_at_their_exact_text_and_candidate_limits() {
+    let fixture = fixture(&[("guide.md", "# Guide\n\nA source passage.\n")]);
+    let mut input = evidence_input(&fixture, "What does the guide document say?");
+    input.query = "q".repeat(8192);
+    input.understood.normalized.clone_from(&input.query);
+    input.version = Some("v".repeat(8192));
+    let ranked = input.ranked[0].clone();
+    input.ranked = (0..120)
+        .map(|index| {
+            let mut candidate = ranked.clone();
+            candidate.candidate.fused.chunk_id = format!("unmatched-{index}");
+            candidate
+        })
+        .collect();
+    input.understood.identifiers = (0..64)
+        .map(|index| Identifier {
+            family: Family::ErrorCode,
+            text: format!("ERR_{index}"),
+        })
+        .collect();
+
+    let bundle = assemble_evidence(
+        Arc::new(fixture.database),
+        input,
+        EvidenceCounter::Utf8Bytes,
+    )
+    .await
+    .unwrap();
+
+    assert!(bundle.passages.is_empty());
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn rejects_each_invalid_handoff_field_at_the_public_entry_point() {
     let fixture = fixture(&[("guide.md", "# Guide\n\nA source passage.\n")]);
     let base = evidence_input(&fixture, "What does the guide document say?");

@@ -205,6 +205,7 @@ fn check(control: &ReadControl) -> Result<(), DuplicateLedgerError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::error::Error as _;
 
     fn manifest() -> Manifest {
         Manifest::new(
@@ -220,6 +221,24 @@ mod tests {
             validate_manifest(manifest, "notes", "set", &manifest.chunk_profile, "counter",),
             Err(DuplicateLedgerError::Invalid(_))
         ));
+    }
+
+    #[test]
+    fn formats_errors_and_preserves_their_sources() {
+        let invalid_json = serde_json::from_str::<Manifest>("{").unwrap_err();
+        let error = DuplicateLedgerError::Json(invalid_json);
+
+        assert!(error.to_string().contains("EOF while parsing an object"));
+        assert!(error.source().is_some());
+        assert_eq!(
+            DuplicateLedgerError::Invalid("bad manifest".to_owned()).to_string(),
+            "bad manifest"
+        );
+        assert!(
+            DuplicateLedgerError::Invalid("bad manifest".to_owned())
+                .source()
+                .is_none()
+        );
     }
 
     #[test]

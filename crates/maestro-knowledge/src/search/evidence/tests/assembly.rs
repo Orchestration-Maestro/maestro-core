@@ -4,7 +4,9 @@ use super::super::assemble::{
 };
 use super::super::{EvidenceCounter, EvidenceError, assemble_evidence};
 use super::support::{control, evidence_input, fixture};
-use crate::prepare::tests::scratch::clear_chunk_set_manifest;
+use crate::prepare::tests::scratch::{
+    clear_chunk_set_manifest, corrupt_artifact, replace_chunk_set_manifest,
+};
 use maestro_canonicalization::TokenCounter;
 use maestro_kernel::{
     chunk_set::NewChunkSet,
@@ -314,6 +316,63 @@ fn reads_revision_and_duplicate_allowlists_from_the_manifest() {
 }
 
 #[test]
+fn refuses_a_ranked_chunk_from_a_manifest_duplicate_revision() {
+    let fixture = fixture(&[
+        ("first.md", "# First\n\nFirst source passage.\n"),
+        ("second.md", "# Second\n\nSecond source passage.\n"),
+    ]);
+    let chunks = fixture
+        .database
+        .chunks(&fixture.scopes, &fixture.generation.chunk_set_id)
+        .unwrap();
+    let duplicate = &chunks[0];
+    let representative = chunks
+        .iter()
+        .find(|chunk| chunk.revision_id != duplicate.revision_id)
+        .expect("both revisions have prepared chunks");
+    let set = fixture
+        .database
+        .chunk_set(&fixture.scopes, &fixture.generation.chunk_set_id)
+        .unwrap()
+        .unwrap();
+    let bytes = fixture
+        .database
+        .get(set.manifest_digest.as_ref().unwrap())
+        .unwrap();
+    let mut manifest: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    let mut duplicates = serde_json::Map::new();
+    duplicates.insert(
+        duplicate.revision_id.clone(),
+        serde_json::Value::String(representative.revision_id.clone()),
+    );
+    manifest["duplicates"] = serde_json::Value::Object(duplicates);
+    replace_chunk_set_manifest(
+        &fixture.scratch,
+        &fixture.database,
+        &fixture.generation.chunk_set_id,
+        &serde_json::to_vec(&manifest).unwrap(),
+    );
+
+    let mut input = evidence_input(&fixture, "What does the source say?");
+    let mut ranked = input.ranked[0].clone();
+    ranked.candidate.fused.chunk_id.clone_from(&duplicate.id);
+    input.ranked = vec![ranked];
+    let error = assemble_blocking(
+        &fixture.database,
+        &input,
+        &EvidenceCounter::Utf8Bytes,
+        &control(),
+    )
+    .unwrap_err();
+
+    assert!(matches!(
+        error,
+        EvidenceError::Integrity(reason)
+            if reason == "loaded candidate is outside the manifest ledger"
+    ));
+}
+
+#[test]
 fn refuses_building_sets_and_complete_sets_without_a_manifest() {
     let fixture = fixture(&[("guide.md", "# Guide\n\nA small guide.\n")]);
     let building = fixture
@@ -340,6 +399,44 @@ fn refuses_building_sets_and_complete_sets_without_a_manifest() {
             &control,
         ),
         Err(DuplicateLedgerError::Invalid(reason)) if reason.contains("manifest digest")
+    ));
+}
+
+#[test]
+fn manifest_artifact_and_json_errors_keep_their_error_variants() {
+    let artifact_fixture = fixture(&[("guide.md", "# Guide\n\nA small guide.\n")]);
+    let digest = replace_chunk_set_manifest(
+        &artifact_fixture.scratch,
+        &artifact_fixture.database,
+        &artifact_fixture.generation.chunk_set_id,
+        b"{}",
+    );
+    corrupt_artifact(&artifact_fixture.scratch, &digest);
+    assert!(matches!(
+        duplicate_ledger(
+            &artifact_fixture.database,
+            &artifact_fixture.scopes,
+            &artifact_fixture.generation.chunk_set_id,
+            &control(),
+        ),
+        Err(DuplicateLedgerError::Artifacts(_))
+    ));
+
+    let json_fixture = fixture(&[("guide.md", "# Guide\n\nA small guide.\n")]);
+    replace_chunk_set_manifest(
+        &json_fixture.scratch,
+        &json_fixture.database,
+        &json_fixture.generation.chunk_set_id,
+        b"{",
+    );
+    assert!(matches!(
+        duplicate_ledger(
+            &json_fixture.database,
+            &json_fixture.scopes,
+            &json_fixture.generation.chunk_set_id,
+            &control(),
+        ),
+        Err(DuplicateLedgerError::Json(_))
     ));
 }
 

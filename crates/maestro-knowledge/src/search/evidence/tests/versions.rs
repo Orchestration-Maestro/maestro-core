@@ -178,6 +178,44 @@ fn latest_equal_sections_carry_older_versions_without_collapsing_latest_mirrors(
 }
 
 #[test]
+fn older_alternates_attach_to_the_earliest_numeric_latest_candidate() {
+    let candidates = [
+        candidate(
+            ("doc-new", "rev-new", "section-new"),
+            Some("2.10"),
+            "same",
+            0,
+            &["near"],
+        ),
+        candidate(
+            ("doc-old", "rev-old", "section-old"),
+            Some("2.9"),
+            "same",
+            1,
+            &["near"],
+        ),
+        candidate(
+            ("doc-mirror", "rev-mirror", "section-mirror"),
+            Some("2.10"),
+            "same",
+            2,
+            &["near"],
+        ),
+    ];
+
+    let collapsed = collapse_versions(&candidates, true).unwrap();
+
+    assert_eq!(collapsed.suppressed, BTreeSet::from([1]));
+    assert_eq!(
+        collapsed.alternates.get(&0),
+        Some(&vec![Alternate {
+            version: Some("2.9".to_owned()),
+            section_id: "section-old".to_owned(),
+        }])
+    );
+}
+
+#[test]
 fn numeric_equal_versions_and_material_differences_remain_independent() {
     for candidates in [
         [
@@ -290,6 +328,33 @@ fn disabled_collapse_and_unrelated_families_remain_independent() {
     let unrelated = [candidates[0].clone(), other_occurrence];
     let collapsed = collapse_versions(&unrelated, true).unwrap();
     assert!(collapsed.suppressed.is_empty());
+}
+
+#[test]
+fn malformed_versions_keep_latest_undetermined_for_multiple_revisions() {
+    for version in ["", ".1", "1.", "1..2", "v1.2", "1.-2", " 1.2"] {
+        let candidates = [
+            candidate(
+                ("doc-a", "rev-a", "section-a"),
+                Some(version),
+                "same",
+                0,
+                &["near"],
+            ),
+            candidate(
+                ("doc-b", "rev-b", "section-b"),
+                Some("2.0"),
+                "same",
+                1,
+                &["near"],
+            ),
+        ];
+        let collapsed = collapse_versions(&candidates, true).unwrap();
+
+        assert!(collapsed.latest_undetermined, "{version:?}");
+        assert!(collapsed.suppressed.is_empty());
+        assert!(collapsed.alternates.is_empty());
+    }
 }
 
 #[test]

@@ -116,8 +116,7 @@ fn equivalent_groups(candidates: &[VersionCandidate]) -> Result<Vec<Vec<usize>>,
                 .get(current_index)
                 .ok_or_else(|| "version candidate index is invalid".to_owned())?;
             let matching = matching_candidates(candidates, current, &remaining)?;
-            for index in matching {
-                remaining.remove(&index);
+            for index in matching.into_iter().filter(|index| remaining.remove(index)) {
                 pending.push(index);
                 group.push(index);
             }
@@ -214,13 +213,7 @@ fn latest_version<'a>(
             return Ok(None);
         };
         match latest {
-            None if compare_numeric_versions(version, version).is_some() => {
-                latest = Some(version);
-            }
-            None => {
-                result.latest_undetermined = true;
-                return Ok(None);
-            }
+            None => latest = Some(version),
             Some(current) => match compare_numeric_versions(version, current) {
                 Some(Ordering::Greater) => latest = Some(version),
                 Some(Ordering::Less | Ordering::Equal) => {}
@@ -341,4 +334,52 @@ fn compare_component(left: &str, right: &str) -> Ordering {
     let left = if left.is_empty() { "0" } else { left };
     let right = if right.is_empty() { "0" } else { right };
     left.len().cmp(&right.len()).then_with(|| left.cmp(right))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::search::evidence::families::ConflictContext;
+
+    #[test]
+    fn already_removed_candidate_indexes_are_not_grouped_twice() {
+        let family = |document_id: &str| CandidateFamily {
+            document_id: document_id.to_owned(),
+            near_group_ids: BTreeSet::from(["near".to_owned()]),
+            section_path: vec!["Guide".to_owned()],
+            occurrence: 1,
+            context: ConflictContext::default(),
+        };
+        let candidates = [
+            VersionCandidate {
+                family: family("doc-a"),
+                input_position: 0,
+                revision_id: "rev-a".to_owned(),
+                section_id: Some("section-a".to_owned()),
+                version: Some("1".to_owned()),
+                section_text: "same".to_owned(),
+                conflict_member: false,
+            },
+            VersionCandidate {
+                family: family("doc-b"),
+                input_position: 1,
+                revision_id: "rev-b".to_owned(),
+                section_id: Some("section-b".to_owned()),
+                version: Some("2".to_owned()),
+                section_text: "same".to_owned(),
+                conflict_member: false,
+            },
+            VersionCandidate {
+                family: family("doc-c"),
+                input_position: 2,
+                revision_id: "rev-c".to_owned(),
+                section_id: Some("section-c".to_owned()),
+                version: Some("3".to_owned()),
+                section_text: "same".to_owned(),
+                conflict_member: false,
+            },
+        ];
+
+        assert_eq!(equivalent_groups(&candidates).unwrap(), [vec![0, 1, 2]]);
+    }
 }

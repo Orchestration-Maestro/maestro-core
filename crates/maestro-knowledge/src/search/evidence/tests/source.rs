@@ -165,6 +165,22 @@ fn parallel_source_load_errors_follow_candidate_order_not_completion_order() {
 }
 
 #[test]
+fn source_cache_refuses_an_already_cancelled_read() {
+    let fixture = fixture(&[("guide.md", "# Guide\n\nPrivate source.\n")]);
+    let revision = revision_of(&fixture.database, &fixture.scopes, "guide.md");
+    let read_control = ReadControl {
+        deadline: Instant::now() + Duration::from_secs(1),
+        cancelled: Arc::new(AtomicBool::new(true)),
+    };
+    let mut cache = SourceCache::new(&fixture.database, &fixture.scopes, &read_control);
+
+    assert!(matches!(
+        cache.load(&revision, &fixture.generation),
+        Err(EvidenceError::TimedOut)
+    ));
+}
+
+#[test]
 fn parallel_source_loads_refuse_expiry_during_a_batch() {
     let documents: Vec<_> = (0..16)
         .map(|index| {

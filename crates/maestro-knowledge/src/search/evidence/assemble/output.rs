@@ -13,7 +13,7 @@ use super::{
 use crate::query::Language;
 use maestro_canonicalization::Severity;
 use maestro_kernel::{
-    document::{Outcome, RevisionStatus},
+    document::Outcome,
     evidence::{Budget, Bundle, Passage, Schema, Trace},
 };
 use std::{
@@ -200,14 +200,6 @@ impl AssemblyWorker<'_> {
                 .get(revision_id)
                 .ok_or_else(|| integrity("returned revision was not cached"))?;
             if live_revision != cached.revision || live_disposition != cached.disposition {
-                return Err(integrity("evidence eligibility changed during assembly"));
-            }
-            if live_revision.status == RevisionStatus::Failed
-                || !matches!(
-                    live_disposition.outcome,
-                    Outcome::Accepted | Outcome::AcceptedWithWarnings
-                )
-            {
                 return Err(integrity("evidence eligibility changed during assembly"));
             }
         }

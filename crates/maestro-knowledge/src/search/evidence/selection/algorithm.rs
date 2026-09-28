@@ -183,8 +183,7 @@ fn update_max_similarity(
             .get(*selected_index)
             .ok_or_else(|| integrity("selected candidate index is invalid"))?;
         for (candidate_index, candidate) in candidates.iter().enumerate() {
-            if candidate_index == *selected_index || selected_candidates.contains(&candidate_index)
-            {
+            if selected_candidates.contains(&candidate_index) {
                 continue;
             }
             check(control)?;

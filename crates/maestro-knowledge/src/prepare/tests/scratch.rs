@@ -372,6 +372,28 @@ pub(super) fn drop_chunk_sets_table(scratch: &Scratch) {
         .unwrap();
 }
 
+/// Points a complete set at test manifest bytes and returns their digest.
+pub(crate) fn replace_chunk_set_manifest(
+    scratch: &Scratch,
+    database: &Database,
+    chunk_set: &str,
+    bytes: &[u8],
+) -> Digest {
+    let digest = database.put(bytes, "application/json").unwrap();
+    let path = scratch.0.join("kernel").join("kernel.sqlite3");
+    let connection = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_WRITE).unwrap();
+    connection
+        .execute_batch("DROP TRIGGER chunk_sets_move_only_from_building")
+        .unwrap();
+    connection
+        .execute(
+            "UPDATE chunk_sets SET manifest_digest = ?1 WHERE id = ?2",
+            [digest.as_str(), chunk_set],
+        )
+        .unwrap();
+    digest
+}
+
 /// Clears a complete set's manifest reference to exercise the reader refusal.
 pub(crate) fn clear_chunk_set_manifest(scratch: &Scratch, chunk_set: &str) {
     let path = scratch.0.join("kernel").join("kernel.sqlite3");

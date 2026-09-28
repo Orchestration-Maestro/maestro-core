@@ -233,3 +233,196 @@ pub(super) fn include_span(current: Span, addition: Span) -> Result<Span, String
         end: current.end.max(addition.end),
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::search::{
+        Route,
+        evidence::{
+            features::diversity_features,
+            sections::SectionIndex,
+            spans::{SeedSpan, SpanUnion},
+        },
+    };
+    use maestro_canonicalization::{CanonicalDocument, CanonicalizeInput, canonicalize};
+    use std::slice;
+
+    fn document(markdown: &str) -> CanonicalDocument {
+        canonicalize(CanonicalizeInput::new(markdown, "guide.md")).unwrap()
+    }
+
+    fn candidate<'a>(
+        markdown: &'a str,
+        document: &'a CanonicalDocument,
+        sections: &'a SectionIndex,
+        input_position: usize,
+        marker: &str,
+    ) -> SelectionCandidate<'a> {
+        let start = markdown.find(marker).unwrap();
+        let span = Span {
+            start,
+            end: start + marker.len(),
+        };
+        let section_id = document
+            .sections
+            .iter()
+            .find(|section| section.title == "Guide")
+            .map(|section| section.section_id.clone());
+        let seeds = SpanUnion {
+            revision_id: document.revision_id.clone(),
+            span,
+            seeds: vec![SeedSpan {
+                chunk_id: format!("chunk-{input_position}"),
+                revision_id: document.revision_id.clone(),
+                section_id,
+                span,
+                input_position,
+                score: Some(0.8),
+                routes: BTreeSet::from([Route::Lexical]),
+            }],
+        };
+        let expansion = sections.expand(&seeds).unwrap();
+        let text = markdown
+            .get(expansion.extent.start..expansion.extent.end)
+            .unwrap();
+        SelectionCandidate {
+            markdown,
+            document,
+            sections,
+            seeds,
+            required_span: span,
+            features: diversity_features(markdown, document, expansion.extent, None).unwrap(),
+            template: Passage {
+                n: 0,
+                section_id: expansion.section_id.clone(),
+                document_id: document.document_id.clone(),
+                revision_id: document.revision_id.clone(),
+                title: "Guide".to_owned(),
+                section_path: expansion.section_path.clone(),
+                version: None,
+                source_ref: "corpus-path:guide.md".to_owned(),
+                span: expansion.extent,
+                digest: Digest::of(text.as_bytes()),
+                text: text.to_owned(),
+                windowed: false,
+                alternates: Vec::new(),
+            },
+            expansion,
+            input_position,
+        }
+    }
+
+    fn assert_grouping_rejects(candidate: &SelectionCandidate<'_>, span: Span) {
+        assert!(
+            group_selected_spans(slice::from_ref(candidate), &BTreeMap::from([(0, span)])).is_err()
+        );
+    }
+
+    fn assert_cluster_excludes_identity(candidates: &[SelectionCandidate<'_>]) {
+        let first = &candidates[0];
+        let mut covered = BTreeSet::new();
+        render_cluster(
+            candidates,
+            &first.template.document_id,
+            &first.template.revision_id,
+            first.expansion.extent,
+            &mut covered,
+        )
+        .unwrap();
+        assert_eq!(covered, BTreeSet::from([0]));
+    }
+
+    fn assert_source_references_rejected(candidates: &[SelectionCandidate<'_>]) {
+        let first = &candidates[0];
+        assert_eq!(
+            render_cluster(
+                candidates,
+                &first.template.document_id,
+                &first.template.revision_id,
+                first.expansion.extent,
+                &mut BTreeSet::new(),
+            )
+            .err(),
+            Some("one revision has inconsistent cached source references".to_owned())
+        );
+    }
+
+    #[test]
+    fn rejects_each_invalid_selected_span_or_source_identity() {
+        let markdown = "Preface.\n\n# Guide\n\nUnicode Ω marker.\n";
+        let document = document(markdown);
+        let sections = SectionIndex::new(&document, markdown).unwrap();
+        let valid = candidate(markdown, &document, &sections, 0, "Ω marker");
+        let marker = markdown.find('Ω').unwrap();
+        for invalid in [
+            Span {
+                start: valid.required_span.start,
+                end: valid.required_span.start,
+            },
+            Span {
+                start: marker + 1,
+                end: marker + 2,
+            },
+            Span {
+                start: 0,
+                end: markdown.find("# Guide").unwrap() - 1,
+            },
+        ] {
+            assert_grouping_rejects(&valid, invalid);
+        }
+
+        let mut wrong_document = candidate(markdown, &document, &sections, 0, "Ω marker");
+        wrong_document.template.document_id = "other-document".to_owned();
+        assert_grouping_rejects(&wrong_document, valid.required_span);
+
+        let mut wrong_revision = candidate(markdown, &document, &sections, 0, "Ω marker");
+        wrong_revision.template.revision_id = "other-revision".to_owned();
+        assert_grouping_rejects(&wrong_revision, valid.required_span);
+
+        let mut wrong_seed = candidate(markdown, &document, &sections, 0, "Ω marker");
+        wrong_seed.seeds.revision_id = "other-revision".to_owned();
+        assert_grouping_rejects(&wrong_seed, valid.required_span);
+    }
+
+    #[test]
+    fn cluster_members_require_both_matching_source_ids() {
+        let markdown = "# Guide\n\nFirst marker.\n\nSecond marker.\n";
+        let document = document(markdown);
+        let sections = SectionIndex::new(&document, markdown).unwrap();
+        let first = candidate(markdown, &document, &sections, 0, "First marker.");
+        let mut wrong_document = candidate(markdown, &document, &sections, 1, "Second marker.");
+        wrong_document.template.document_id = "other-document".to_owned();
+        assert_cluster_excludes_identity(&[first, wrong_document]);
+
+        let first = candidate(markdown, &document, &sections, 0, "First marker.");
+        let mut wrong_revision = candidate(markdown, &document, &sections, 1, "Second marker.");
+        wrong_revision.template.revision_id = "other-revision".to_owned();
+        assert_cluster_excludes_identity(&[first, wrong_revision]);
+    }
+
+    #[test]
+    fn source_allocations_must_match_independently() {
+        let markdown_a = String::from("# Guide\n\nFirst marker.\n\nSecond marker.\n");
+        let markdown_b = markdown_a.clone();
+        let document_a = document(&markdown_a);
+        let document_b = document(&markdown_a);
+        let sections_a = SectionIndex::new(&document_a, &markdown_a).unwrap();
+        let sections_b = SectionIndex::new(&document_b, &markdown_a).unwrap();
+        assert_eq!(document_a.document_id, document_b.document_id);
+        assert_eq!(document_a.revision_id, document_b.revision_id);
+
+        assert_source_references_rejected(&[
+            candidate(&markdown_a, &document_a, &sections_a, 0, "First marker."),
+            candidate(&markdown_a, &document_b, &sections_a, 1, "Second marker."),
+        ]);
+        assert_source_references_rejected(&[
+            candidate(&markdown_a, &document_a, &sections_a, 0, "First marker."),
+            candidate(&markdown_b, &document_a, &sections_a, 1, "Second marker."),
+        ]);
+        assert_source_references_rejected(&[
+            candidate(&markdown_a, &document_a, &sections_a, 0, "First marker."),
+            candidate(&markdown_a, &document_a, &sections_b, 1, "Second marker."),
+        ]);
+    }
+}

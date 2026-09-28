@@ -240,7 +240,6 @@ impl AssemblyWorker<'_> {
         let mut groups = BTreeMap::<String, BTreeSet<String>>::new();
         for member in members.into_iter().filter(|member| {
             self.ledger.near_duplicate_groups.contains(&member.group_id)
-                && self.ledger.revisions.contains(&member.revision_id)
                 && loaded_revisions.contains(member.revision_id.as_str())
         }) {
             groups
@@ -429,5 +428,24 @@ fn map_kernel_error(error: RetrievalError) -> EvidenceError {
         RetrievalError::Cancelled | RetrievalError::TimedOut => EvidenceError::TimedOut,
         RetrievalError::UnknownOrInaccessible => EvidenceError::NotVisible,
         other => EvidenceError::Kernel(other),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::{
+        sync::{Arc, atomic::AtomicBool},
+        time::Duration,
+    };
+
+    #[test]
+    fn request_check_refuses_an_already_cancelled_read() {
+        let control = ReadControl {
+            deadline: Instant::now() + Duration::from_secs(1),
+            cancelled: Arc::new(AtomicBool::new(true)),
+        };
+
+        assert!(matches!(check(&control), Err(EvidenceError::TimedOut)));
     }
 }

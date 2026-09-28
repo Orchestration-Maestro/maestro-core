@@ -1,11 +1,13 @@
+use super::super::assemble::assemble_blocking;
 use super::{
     super::{EvidenceCounter, EvidenceError, assemble_evidence},
-    support::{evidence_input, fixture},
+    support::{control, evidence_input, fixture},
 };
 use crate::prepare::tests::scratch::{
-    corrupt_artifact, quarantine_revision, replace_revision_canonical, revision_of,
+    corrupt_artifact, quarantine_revision, replace_chunk_set_manifest, replace_revision_canonical,
+    revision_of,
 };
-use maestro_canonicalization::{CanonicalDocument, TokenCounter};
+use maestro_canonicalization::{CanonicalDocument, TokenCounter, ValidationStatus};
 use maestro_kernel::{
     generation::{GenerationState, NewGeneration},
     scope::{Right, Scope},
@@ -46,6 +48,22 @@ async fn source_corruption_and_canonical_refusals_keep_exact_error_variants() {
             "identity",
             "canonical artifact identity or status is invalid",
         ),
+        (
+            "revision",
+            "canonical artifact identity or status is invalid",
+        ),
+        (
+            "content hash",
+            "canonical artifact identity or status is invalid",
+        ),
+        (
+            "source reference hash",
+            "canonical artifact identity or status is invalid",
+        ),
+        (
+            "validation status",
+            "canonical artifact identity or status is invalid",
+        ),
         ("structure", "canonical source spans or links are invalid"),
     ] {
         let fixture = fixture(&[("guide.md", "# Guide\n\nAn authoritative source.\n")]);
@@ -60,6 +78,15 @@ async fn source_corruption_and_canonical_refusals_keep_exact_error_variants() {
                 .unwrap();
         if field == "identity" {
             canonical.document_id = "another-document".to_owned();
+        } else if field == "revision" {
+            canonical.revision_id = "another-revision".to_owned();
+        } else if field == "content hash" {
+            canonical.content_hash = "sha256:wrong".to_owned();
+            canonical.original_markdown_reference.content_hash = canonical.content_hash.clone();
+        } else if field == "source reference hash" {
+            canonical.original_markdown_reference.content_hash = "sha256:wrong".to_owned();
+        } else if field == "validation status" {
+            canonical.validation_status = ValidationStatus::Failed;
         } else {
             canonical.sections.first_mut().unwrap().parent_section_id =
                 Some("missing-section".to_owned());
@@ -108,6 +135,118 @@ async fn hidden_generations_and_changed_pinned_chunk_sets_are_refused() {
             assert_eq!(reason, "pinned generation identity changed");
         }
         other => panic!("expected pinned-identity Integrity, got {other:?}"),
+    }
+}
+
+#[test]
+fn near_duplicate_rows_outside_the_manifest_allowlist_do_not_join_families() {
+    let shared = (0..200)
+        .map(|index| format!("sharedword{index}"))
+        .collect::<Vec<_>>()
+        .join(" ");
+    let old = format!(
+        concat!(
+            "# Guide\n\n{shared}\n\n",
+            "| Entity | Attribute | Value |\n| --- | --- | --- |\n",
+            "| Agent | Port | 7005 |\n"
+        ),
+        shared = shared
+    );
+    let current = old
+        .replace("sharedword100 ", "changedword100 ")
+        .replace("7005", "7006");
+    let fixture = fixture(&[("old.md", &old), ("current.md", &current)]);
+    let old_revision = revision_of(&fixture.database, &fixture.scopes, "old.md");
+    let current_revision = revision_of(&fixture.database, &fixture.scopes, "current.md");
+    assert!(
+        fixture
+            .database
+            .near_duplicates(&fixture.scopes, &old_revision)
+            .unwrap()
+            .len()
+            > 1
+    );
+    let set = fixture
+        .database
+        .chunk_set(&fixture.scopes, &fixture.generation.chunk_set_id)
+        .unwrap()
+        .unwrap();
+    let bytes = fixture
+        .database
+        .get(set.manifest_digest.as_ref().unwrap())
+        .unwrap();
+    let mut manifest: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    assert!(
+        !manifest["near_duplicate_groups"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+    manifest["near_duplicate_groups"] = serde_json::Value::Array(Vec::new());
+    replace_chunk_set_manifest(
+        &fixture.scratch,
+        &fixture.database,
+        &fixture.generation.chunk_set_id,
+        &serde_json::to_vec(&manifest).unwrap(),
+    );
+
+    let chunks = fixture
+        .database
+        .chunks(&fixture.scopes, &fixture.generation.chunk_set_id)
+        .unwrap();
+    let chunk_for = |revision: &str| {
+        chunks
+            .iter()
+            .find(|chunk| chunk.revision_id == revision)
+            .expect("near duplicate revision has a prepared chunk")
+            .id
+            .clone()
+    };
+    let mut input = evidence_input(&fixture, "What port does the Agent use?");
+    let mut old_ranked = input.ranked[0].clone();
+    old_ranked.candidate.fused.chunk_id = chunk_for(&old_revision);
+    let mut current_ranked = old_ranked.clone();
+    current_ranked.candidate.fused.chunk_id = chunk_for(&current_revision);
+    input.ranked = vec![old_ranked, current_ranked];
+
+    let bundle = assemble_blocking(
+        &fixture.database,
+        &input,
+        &EvidenceCounter::Utf8Bytes,
+        &control(),
+    )
+    .unwrap();
+
+    assert!(bundle.conflicts.is_empty());
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn rejects_each_changed_pinned_generation_profile() {
+    let fixture = fixture(&[("guide.md", "# Guide\n\nAn authoritative source.\n")]);
+    let base = evidence_input(&fixture, "What does the guide say?");
+    let database = Arc::new(fixture.database);
+
+    let mut collection = base.clone();
+    collection.generation.collection_id = "other-collection".to_owned();
+    let mut embedding = base.clone();
+    embedding.generation.embedding_profile = "other-embedding".to_owned();
+    let mut sparse = base.clone();
+    sparse.generation.sparse_profile = "other-sparse".to_owned();
+    for (field, input) in [
+        ("collection", collection),
+        ("embedding", embedding),
+        ("sparse", sparse),
+    ] {
+        let error = assemble_evidence(database.clone(), input, EvidenceCounter::Utf8Bytes)
+            .await
+            .unwrap_err();
+        assert!(
+            matches!(
+                error,
+                EvidenceError::Integrity(reason) if reason == "pinned generation identity changed"
+            ),
+            "{field}"
+        );
     }
 }
 

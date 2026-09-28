@@ -274,3 +274,41 @@ fn include_conflict_table_spans(
 fn integrity(reason: &str) -> EvidenceError {
     EvidenceError::Integrity(reason.to_owned())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn conflict_table_spans_must_be_nonempty_and_inside_the_candidate_extent() {
+        let extent = Span { start: 10, end: 30 };
+        let invalid = [
+            Span { start: 20, end: 20 },
+            Span { start: 9, end: 12 },
+            Span { start: 28, end: 31 },
+        ];
+        for table in invalid {
+            assert!(matches!(
+                include_conflict_table_spans(&mut Span { start: 15, end: 20 }, extent, &[table]),
+                Err(EvidenceError::Integrity(_))
+            ));
+        }
+
+        let mut required = Span { start: 15, end: 20 };
+        include_conflict_table_spans(&mut required, extent, &[Span { start: 12, end: 27 }])
+            .unwrap();
+        assert_eq!(required, Span { start: 12, end: 27 });
+
+        let mut boundary_required = Span { start: 15, end: 20 };
+        include_conflict_table_spans(
+            &mut boundary_required,
+            extent,
+            &[Span {
+                start: extent.start,
+                end: 25,
+            }],
+        )
+        .unwrap();
+        assert_eq!(boundary_required, Span { start: 10, end: 25 });
+    }
+}
