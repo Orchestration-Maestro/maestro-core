@@ -353,7 +353,9 @@ claim that all 94 rows are delivered.
 T039 owns the owner-approved exact row keys, each delivered portion and its
 task, integrated code/test evidence, and named remaining slice. Its check must
 reject missing, duplicate, or extra keys. Until that map is approved and
-completed, this spec makes no complete 94-row delivery claim.
+completed, this spec makes no complete 94-row delivery claim. Each FR-S1 and
+SC-S1 item is mapped to its commits and tests, or marked open with its owner,
+in [08 §20](../../docs/architecture/08-traceability.md#20-s1-delivery-evidence).
 
 ## Assumptions
 

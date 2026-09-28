@@ -594,3 +594,77 @@ records obligations rather than licence names alone
 | Merging the internal code of several projects into one codebase | Against "outcomes, not engines" ([04 §1](04-intelligence-backend.md#1-scope-and-stance)) and against the clean-room boundary |
 | gRPC as an application interface | Local HTTP on a Unix socket plus MCP already cover it ([07 §2](07-extensibility.md#2-entry-points)); a remote profile is a separate decision |
 | Python or TypeScript adapters for AI and agent integrations as a starting assumption | Rust wherever feasible; an exception must record its justification ([04 §1](04-intelligence-backend.md#1-scope-and-stance)) |
+
+## 20. S1 delivery evidence
+
+This section maps each S1 requirement and success criterion of the
+[S1 spec](../../specs/001-knowledge-kernel/spec.md) to the commits and tests
+that deliver it on the integration branch `feat/s1-integration`, at head
+`d2d528d` (2026-09-28). **Delivered** means integrated with tests; **Partial**
+names the delivered portion and the open remainder; **OPEN** names the owner
+of the missing work. Private receipts (corpus accounting, golden set, model
+evaluations) live in the private collection (ADR-0009) and are cited by name
+only. The owner-approved exact row inventory of the other sections (T039
+step 3) is still to come; this section does not claim it.
+
+Test paths are relative to the repository root.
+
+### 20.1 Functional requirements
+
+| ID | State | Commits | Tests and checks | Remainder and owner |
+| --- | --- | --- | --- | --- |
+| FR-S1-001 | Delivered | B3 `b771872`; database `9c4463e`; B10 `b738975`; B9, B11 `0c69714`; B2 `852c4e7`; B1 `8dcab4b`; B5, B6 `e24a02b`; B4 `6379c7a`; B7 `0495f5f`; spans `3af7d66` | `crates/maestro-kernel/src/{artifact,store,gateway,capability,telemetry,journal,scope,document,generation,job,evidence}/tests` | B8 facts: S2 |
+| FR-S1-002 | Delivered | `9405140` contracts; `e634ff8` import; `7d1ff9a` bounded bookkeeping | `crates/maestro-knowledge/src/import/tests/streaming.rs`, `crates/maestro-knowledge/tests/it/import_contract/` | None |
+| FR-S1-002a | Delivered | `02c806e`; CLI `87b2aeb` | `crates/maestro-knowledge/src/quality/tests/`, `crates/maestro-knowledge/tests/it/quality_gate/` | None |
+| FR-S1-003 | Delivered | Seam `2f83cbc`; router counter `fed0d24`; prepare `73faa04` | `crates/maestro-knowledge/src/prepare/tests/{duplicates,near,parity,counting}.rs`, `crates/maestro-knowledge/tests/it/router_parity.rs` | None |
+| FR-S1-004 | Delivered | Lexical `1c081c5`; projection `fd9414e`; publish `2144186`; identifiers `4613ec8` | `crates/maestro-knowledge/tests/it/qdrant_projection/`, `crates/maestro-knowledge/tests/it/lexical_golden.rs`, `.github/workflows/integration.yml` | None |
+| FR-S1-005 | Delivered | Fusion `5e3769e`; routes `17bfa42`; query `db14f92`; fused search `6bc3ee5`; rerank `cb9b200`; evidence `b1bc8bb`, `887b612` | `crates/maestro-knowledge/src/search/tests/`, `crates/maestro-knowledge/src/search/evidence/tests/`, `crates/maestro-knowledge/tests/it/qdrant_projection/search_routes/` | Live p95 under load: SC-S1-004 |
+| FR-S1-005a | Partial | `17bfa42` (`search_dense`, `search_bm25`) | `crates/maestro-knowledge/tests/it/qdrant_projection/search_routes/route_behavior.rs` | Per-route recall on the golden set: OPEN, T037 |
+| FR-S1-006 | Delivered | `8dcab4b`; route scope filters `17bfa42`, `6bc3ee5` | `crates/maestro-kernel/src/scope/tests/`, `crates/maestro-kernel/src/retrieval/tests/identifier_scope.rs`, `crates/maestro-knowledge/tests/it/qdrant_projection/search_routes/scope_index.rs` | Identifier-count side channel: post-M1 queue |
+| FR-S1-007 | Delivered | Chat bounds `311eb85`; ask `f0cfc95`; pinned embedder `016be66` | `crates/maestro-knowledge/src/answer/tests/guardrails.rs`, `crates/maestro/tests/it/knowledge_ask.rs` | False refusals seen live: OPEN, ask live fix lane |
+| FR-S1-008 | Delivered | `750e7d6`, `2410855`, `56eae40`, `f0cfc95` | `crates/maestro/tests/it/mcp_stdio.rs`, `crates/maestro/tests/it/knowledge_get/` | Four real clients: SC-S1-005 |
+| FR-S1-008a | Delivered | `852c4e7`; scope ruling `2a2fddb` | `crates/maestro-kernel/src/journal/tests/{cursors,crash,concurrency}.rs` | Built-in cursor consumers: S2 (owner, MR-03) |
+| FR-S1-008b | Delivered | `4826626`; predecessor check `580c044` | `crates/maestro-kernel/src/journal/tests/{schemas,predecessor}.rs`, `.github/workflows/event-schemas.yml` | None |
+| FR-S1-009 | Partial | `6a6df77`; grouping `c1ecb3b`; report v2 `bdf52ca` | `crates/maestro-knowledge/src/eval/tests/`, `crates/maestro-kernel/src/eval/tests/` | Wrong-answer class from the answer scorer: OPEN, T037 |
+| FR-S1-010 | Delivered | `0146bf9`; rebuild `1f6ca8b`; drill `8ee5db4`; portable paths `1e80c1f` | `crates/maestro/tests/it/backup_restore.rs`, `crates/maestro/tests/it/rebuild_drill/` | None |
+| FR-S1-011 | Delivered | `6379c7a`; publication resume `2144186` | `crates/maestro-kernel/src/job/tests/{leases,resume}.rs`, `crates/maestro/src/cli/tests/publication_resume.rs` | None |
+| FR-S1-012 | Partial | `dc7d3c9`; setup `86b9580`; backup `0146bf9`; search `56eae40` | `crates/maestro/tests/it/cli_contract.rs`, `crates/maestro/tests/it/job_waits.rs` | `eval …` commands: OPEN, T037 |
+| FR-S1-013 | Delivered | Wording `8465a42` | Private: golden set v2.1 and its review receipt | None |
+| FR-S1-014 | Partial | Registry `bf58adb`; qualification `bdf52ca`; card evidence `dd298cd` | `crates/maestro-kernel/src/model/tests/`, `crates/maestro-knowledge/src/eval/tests/v2.rs` | Bake-off winners per role: OPEN, T037 |
+| FR-S1-015 | Partial | `86b9580`; Qdrant client check `ddb67e2`; temporaries `f1ed1a2` | `crates/maestro/tests/it/{setup_installs,doctor_checks}.rs`, `crates/maestro/src/cli/health/tests/` | Per-role card checks in `doctor`: post-M1 queue |
+| FR-S1-015a | Delivered | Router free room (T002, `maestro-model-router`); rerank fallback `cb9b200` | `crates/maestro-knowledge/src/search/tests/{admission,rerank}.rs` | None |
+| FR-S1-016 | Partial | Synthetic fixtures `a6a27e5`; synthetic-only CI `d30573d` | `.github/workflows/integration.yml`, `crates/maestro-conventions/tests/policies.rs` (paths and settings only) | Content check (MR-06): paused until after M1 by the owner |
+
+### 20.2 Success criteria
+
+| ID | State | Evidence | Remainder and owner |
+| --- | --- | --- | --- |
+| SC-S1-001 | Partial | Import and quality accounting (`e634ff8`, `02c806e`); private import and disposition receipts | Re-measure against the final pinned receipt: OPEN, T039 |
+| SC-S1-002 | OPEN | Ladder comparison in the eval runner (`6a6df77`, `bdf52ca`) | Winners, ladder and publication: T037 |
+| SC-S1-003 | OPEN | Guarded ask (`f0cfc95`) | `ctm-answers` scorer and run: T037 |
+| SC-S1-004 | OPEN | Stage spans (`3af7d66`); rerank depth measured (`f5772d7`) | Load-wait observations: T037; tool-boundary p95: T039 |
+| SC-S1-005 | OPEN | Synthetic stdio tests (`crates/maestro/tests/it/mcp_stdio.rs`) | Pi, Codex, Claude Code and Copilot CLI receipts: T038 |
+| SC-S1-006 | Delivered | `8ee5db4`, `a597417`; `crates/maestro/tests/it/rebuild_drill/backup_loss_drill/backup_loss.rs`, run by `.github/workflows/integration.yml` | None |
+| SC-S1-007 | Partial | Synthetic gate `d30573d`; line coverage 95.4 % on the audited run at `ddb67e2` | Seed `tests/fixtures/synthetic/evals/baseline.json` (T036); a complete green CI run with zero missed mutants on the final head (MR-01) |
+| SC-S1-008 | Partial | Failure classes in `crates/maestro-knowledge/src/eval/tests/failures.rs` | Per-route recall and every golden failure classified: T037 |
+| SC-S1-009 | Partial | Public CI reads only synthetic fixtures | Content check (MR-06): paused until after M1 by the owner |
+
+### 20.3 Remaining merge-readiness items
+
+The S1 merge-readiness audit (2026-09-27) raised MR-01 to MR-12. State at
+`d2d528d`:
+
+| Item | Subject | State | Owner and next step |
+| --- | --- | --- | --- |
+| MR-01 | Whole-diff CI and mutation testing | OPEN | Supervisor: sharded mutation runs on draft #49; the final head needs a complete run with zero missed mutants and zero timeouts |
+| MR-02 | Event schemas against their released predecessor | Closed | `580c044`, `.github/workflows/event-schemas.yml` |
+| MR-03 | Built-in cursor consumers | Closed | Owner moved them to S2; `2a2fddb` |
+| MR-04 | Stage instrumentation and load-wait evidence | Partial | Spans landed in `3af7d66`; load-wait observations: T037, then T039 |
+| MR-05 | Import memory bound | Closed | `7d1ff9a` |
+| MR-06 | Content check for private vendor material | OPEN | Owner paused it until after M1; `AGENTS.md` now states what the checks do today |
+| MR-07 | Exact 08 row inventory and delivery map | OPEN | Owner approves the row keys; T039 maps them and adds the test |
+| MR-08 | Delivery instructions against the S1 workflow | Closed | `da92520` |
+| MR-09 | Corpus and question-review descriptions | Closed | `da92520` |
+| MR-10 | Architecture tables and operator examples | Closed | `da92520` |
+| MR-11 | Entry documentation still describing S0 | Closed | `da92520` |
+| MR-12 | Task checkboxes against landings | Closed | The landed steps of [tasks.md](../../specs/001-knowledge-kernel/tasks.md) are ticked; open steps name their owner here |

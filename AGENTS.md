@@ -18,8 +18,11 @@ repository; this page is the working summary.
    uses one integration pull request; see the linked S1 workflow above.
 3. Conventional titles, lower case after the type, subject at most 71
    characters, lines at most 80.
-4. No personal path, secret or vendor-private material: `maestro-conventions`
-   refuses them, and vendor material lives in the private collection (ADR-0009).
+4. No personal path, secret or vendor-private material. `maestro-conventions`
+   refuses personal paths and private registry or quality-service settings,
+   and gitleaks refuses secrets. No check refuses vendor text yet (it comes
+   after M1), so keep it out by hand: vendor material lives in the private
+   collection (ADR-0009), and public tests use synthetic fixtures only.
 5. Files stay within 500 counted lines; functions within 100 lines,
    5 parameters and complexity 15. Split rather than allow.
 6. Canonicalization identities and fixture bytes change only through a recorded

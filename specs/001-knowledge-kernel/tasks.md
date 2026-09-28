@@ -178,7 +178,7 @@ src/paths.rs, src/artifact.rs}`, `Cargo.lock`. **Requirements:** FR-S1-001
   router's README.
 - [x] **Step 3: Gate** (`just check` in `ROUTER`) and pull request `feat: load
   a model only into free room on request`.
-- [ ] **Step 4: Deploy** the new router on the workstation and confirm the
+- [x] **Step 4: Deploy** the new router on the workstation and confirm the
   behaviour against the real card.
 
 ### T003 [P] The private corpus mapping and declaration [US2]
@@ -262,11 +262,11 @@ telemetry}.rs`. **Requirements:** FR-S1-001 (B9, B11).
 **After:** T002 deployed. **Files:** `specs/001-knowledge-kernel/plan.md` (R8).
 **Requirements:** FR-S1-005, SC-S1-004, R8.
 
-- [ ] **Step 1: Confirm** the router refuses rather than unloads when room is
+- [x] **Step 1: Confirm** the router refuses rather than unloads when room is
   short, so the measurement never costs a chat model.
-- [ ] **Step 2: Measure** `/v1/rerank` at 20, 80 and 120 pairs of public text,
+- [x] **Step 2: Measure** `/v1/rerank` at 20, 80 and 120 pairs of public text,
   30 runs each, batched: p50 and p95.
-- [ ] **Step 3: Record** in R8 the depth that leaves room for retrieval inside
+- [x] **Step 3: Record** in R8 the depth that leaves room for retrieval inside
   1.5 s.
 
 ### T009 [P] The knowledge crate: collection and corpus contracts [US2]
@@ -296,14 +296,14 @@ and `config_dir` in `paths.rs`. **Requirements:** FR-S1-002, ADR-0014.
 **After:** T005. **Files:** `crates/maestro-kernel/src/journal.rs`,
 `migrations/0002_journal.sql`. **Requirements:** FR-S1-008a, D3.
 
-- [ ] **Step 1: Failing tests.** Recording an event gives it a ULID and the
+- [x] **Step 1: Failing tests.** Recording an event gives it a ULID and the
   next sequence of its stream; sequences never skip or repeat under
   concurrent writers; a cursor survives a reopen; `ack` never moves a cursor
   backwards.
-- [ ] **Step 2: Implement** `record`, `events(filter)`, `cursor` and `ack`.
-- [ ] **Step 3: Crash test.** An event committed before a simulated crash is
+- [x] **Step 2: Implement** `record`, `events(filter)`, `cursor` and `ack`.
+- [x] **Step 3: Crash test.** An event committed before a simulated crash is
   read after the reopen; one not committed is not.
-- [ ] **Step 4: Commit and integrate into S1** `feat: journal events with durable
+- [x] **Step 4: Commit and integrate into S1** `feat: journal events with durable
   cursors`.
 
 ### T011 [P] Scopes and grants [US1]
@@ -311,13 +311,13 @@ and `config_dir` in `paths.rs`. **Requirements:** FR-S1-002, ADR-0014.
 **After:** T005, T010. **Files:** `crates/maestro-kernel/src/scope.rs`,
 `migrations/0003_scopes.sql`. **Requirements:** FR-S1-006, D4.
 
-- [ ] **Step 1: Failing tests.** A principal sees only granted scopes and
+- [x] **Step 1: Failing tests.** A principal sees only granted scopes and
   their descendants; an unknown scope is no access; a grant is journaled with
   its actor; there is no read function without a `ScopeSet`.
-- [ ] **Step 2: Implement** scopes, grants, `visible` and the `ScopeSet` type.
-- [ ] **Step 3: Grants from configuration.** The local principal's grants come
+- [x] **Step 2: Implement** scopes, grants, `visible` and the `ScopeSet` type.
+- [x] **Step 3: Grants from configuration.** The local principal's grants come
   from `config.toml`; a missing file grants nothing.
-- [ ] **Step 4: Commit and integrate into S1** `feat: scope every kernel read`.
+- [x] **Step 4: Commit and integrate into S1** `feat: scope every kernel read`.
 
 ### T012 [P] Document and generation records [US2]
 
@@ -325,12 +325,12 @@ and `config_dir` in `paths.rs`. **Requirements:** FR-S1-002, ADR-0014.
 generation}.rs`, `migrations/0004_documents.sql`. **Requirements:** FR-S1-001
 (B5, B6).
 
-- [ ] **Step 1: Failing tests.** Revisions are immutable once recorded; a
+- [x] **Step 1: Failing tests.** Revisions are immutable once recorded; a
   failed revision stays inspectable and never eligible; a generation moves
   only through `building`, `verified`, `published`, `retired`; exactly one
   generation per collection is published.
-- [ ] **Step 2: Implement** the tables of 01 §11 and their record types.
-- [ ] **Step 3: Commit and integrate into S1** `feat: record documents and
+- [x] **Step 2: Implement** the tables of 01 §11 and their record types.
+- [x] **Step 3: Commit and integrate into S1** `feat: record documents and
   generations`.
 
 ### T013 [P] A token-counting seam in canonicalization [US2]
@@ -354,13 +354,13 @@ FR-S1-003, D7.
 **After:** T009. **Files:** `tests/fixtures/synthetic/`. **Requirements:**
 SC-S1-007.
 
-- [ ] **Step 1: Write** a synthetic collection on non-vendor topics, written
+- [x] **Step 1: Write** a synthetic collection on non-vendor topics, written
   for the purpose, as `maestro-corpus/1` with its Markdown.
-- [ ] **Step 2: Label** its questions: French and English, some unanswerable,
+- [x] **Step 2: Label** its questions: French and English, some unanswerable,
   each with its expected sections.
-- [ ] **Step 3: Failing test, then passing.** Every fixture parses under the
+- [x] **Step 3: Failing test, then passing.** Every fixture parses under the
   contracts of T009.
-- [ ] **Step 4: Commit and integrate into S1** `test: add the public synthetic
+- [x] **Step 4: Commit and integrate into S1** `test: add the public synthetic
   collection`.
 
 ### T040 [P] The lexical analyzer `bm25-en-fr/1` [US1]
@@ -368,17 +368,17 @@ SC-S1-007.
 **After:** T009. **Files:** `crates/maestro-knowledge/src/lexical/`.
 **Requirements:** FR-S1-004, FR-S1-005a, R7.
 
-- [ ] **Step 1: Failing tests** on T004's public sample
+- [x] **Step 1: Failing tests** on T004's public sample
   ([research.md](research.md#the-sample-and-its-checks)): all 23 checks pass,
   scored with BM25 (k 1.2, b 0.75) and IDF over the sample, with no language
   given for any passage or query, since the corpus declares none and nothing
   is guessed; the same text always gives the same vector.
-- [ ] **Step 2: Implement** `bm25-en-fr/1`: identifiers kept whole as well as
+- [x] **Step 2: Implement** `bm25-en-fr/1`: identifiers kept whole as well as
   split into their parts, French and English forms that meet with or without
   their accents, stopwords, BM25 term weights with the generation's average
   length, and a stable 32-bit token ID. A change to any rule is a new profile
   version.
-- [ ] **Step 3: Commit and integrate into S1** `feat: analyze text for the lexical
+- [x] **Step 3: Commit and integrate into S1** `feat: analyze text for the lexical
   route`.
 
 ## Phase 4: Wave 4 — the journal and the records at work
@@ -388,14 +388,14 @@ SC-S1-007.
 **After:** T010. **Files:** `crates/maestro-kernel/src/journal/envelope.rs`,
 `schemas/events/`. **Requirements:** FR-S1-008b.
 
-- [ ] **Step 1: Failing tests.** An event reads back as a CloudEvents 1.0
+- [x] **Step 1: Failing tests.** An event reads back as a CloudEvents 1.0
   envelope with `maestrosequence` and `maestroscope`; the four knowledge
   events have schemas generated from their types; removing a field from a
   type fails the compatibility test against the committed schema.
-- [ ] **Step 2: Implement** the envelope and the four event types.
-- [ ] **Step 3: Commit the schemas** under `schemas/events/` and the
+- [x] **Step 2: Implement** the envelope and the four event types.
+- [x] **Step 3: Commit the schemas** under `schemas/events/` and the
   compatibility test that guards them.
-- [ ] **Step 4: Commit and integrate into S1** `feat: publish the knowledge events
+- [x] **Step 4: Commit and integrate into S1** `feat: publish the knowledge events
   with their schemas`.
 
 ### T016 [P] Jobs with leases [US2]
@@ -403,25 +403,25 @@ SC-S1-007.
 **After:** T010. **Files:** `crates/maestro-kernel/src/job/`,
 `migrations/0005_jobs.sql`. **Requirements:** FR-S1-011, D5.
 
-- [ ] **Step 1: Failing tests.** A second lease on the same idempotency key is
+- [x] **Step 1: Failing tests.** A second lease on the same idempotency key is
   refused; an expired lease can be taken over; a retried command returns the
   existing job; states move only forward.
-- [ ] **Step 2: Implement** jobs, leases, heartbeats and outcomes, with
+- [x] **Step 2: Implement** jobs, leases, heartbeats and outcomes, with
   progress in the journal.
-- [ ] **Step 3: Resume test.** A job interrupted mid-way resumes from its last
+- [x] **Step 3: Resume test.** A job interrupted mid-way resumes from its last
   journaled progress.
-- [ ] **Step 4: Commit and integrate into S1** `feat: run long work as leased jobs`.
+- [x] **Step 4: Commit and integrate into S1** `feat: run long work as leased jobs`.
 
 ### T017 [P] Evidence bundles [US1]
 
 **After:** T012. **Files:** `crates/maestro-kernel/src/evidence.rs`.
 **Requirements:** FR-S1-001 (B7).
 
-- [ ] **Step 1: Failing tests.** `resolve(chunk)` returns the exact text from
+- [x] **Step 1: Failing tests.** `resolve(chunk)` returns the exact text from
   the authority with its digest, span and version; a digest mismatch is an
   error; a bundle serializes to `maestro-evidence/1` and back unchanged.
-- [ ] **Step 2: Implement** the bundle types and `resolve`.
-- [ ] **Step 3: Commit and integrate into S1** `feat: resolve evidence from the
+- [x] **Step 2: Implement** the bundle types and `resolve`.
+- [x] **Step 3: Commit and integrate into S1** `feat: resolve evidence from the
   kernel`.
 
 ### T018 [P] The router tokenizer and its parity [US2]
@@ -433,14 +433,14 @@ SC-S1-007.
 `crates/maestro-knowledge/tests/it/router_parity.rs`.
 **Requirements:** FR-S1-003, ADR-0008.
 
-- [ ] **Step 1: Failing tests** against the gateway's fake: token IDs come
+- [x] **Step 1: Failing tests** against the gateway's fake: token IDs come
   back in order; the contract ID changes with the model card or the router
   build.
-- [ ] **Step 2: Implement** `RouterTokenizer` over `/models/<id>/tokenize`.
-- [ ] **Step 3: Parity run.** For every fixture of the native profile, the
+- [x] **Step 2: Implement** `RouterTokenizer` over `/models/<id>/tokenize`.
+- [x] **Step 3: Parity run.** For every fixture of the native profile, the
   router's ordered IDs equal the native counter's (explicit local test); a
   disagreement refuses to qualify.
-- [ ] **Step 4: Commit and integrate into S1** `feat: count tokens through the
+- [x] **Step 4: Commit and integrate into S1** `feat: count tokens through the
   router`.
 
 ### T019 [P] Import a corpus manifest [US2]
@@ -449,7 +449,7 @@ SC-S1-007.
 `crates/maestro-knowledge/src/import/`. **Requirements:** FR-S1-002,
 SC-S1-001.
 
-- [ ] **Step 1: Failing tests** on a synthetic manifest: a digest mismatch
+- [x] **Step 1: Failing tests** on a synthetic manifest: a digest mismatch
   refuses that entry with both digests and the rest continue; a malformed
   line is refused with its number; two lines sharing a `source_ref` with
   different digests are both held with the reason, never one silently
@@ -458,12 +458,12 @@ SC-S1-001.
   document bodies are read one at a time, with one digest/conflict entry per
   distinct `source_ref` and one refusal record per refused entry; a scale test
   covers many distinct references and refusals.
-- [ ] **Step 2: Implement** the streaming import: record the collection, its
+- [x] **Step 2: Implement** the streaming import: record the collection, its
   sources and scope tags; parse, verify and canonicalize each line; store
   originals and canonical documents as artifacts; record revisions.
-- [ ] **Step 3: Report** imported, unchanged and refused counts as JSON and as
+- [x] **Step 3: Report** imported, unchanged and refused counts as JSON and as
   `import.completed`.
-- [ ] **Step 4: Commit and integrate into S1** `feat: import corpus manifests`.
+- [x] **Step 4: Commit and integrate into S1** `feat: import corpus manifests`.
 
 ## Phase 5: Wave 5 — the corpus in the kernel
 
@@ -472,16 +472,16 @@ SC-S1-001.
 **After:** T019, T003. **Files:** `crates/maestro-knowledge/src/quality.rs`;
 `PRIVATE`: the disposition report. **Requirements:** FR-S1-002a, SC-S1-001.
 
-- [ ] **Step 1: Failing tests.** Each rule of 01 §4 gives its disposition with
+- [x] **Step 1: Failing tests.** Each rule of 01 §4 gives its disposition with
   rule IDs and reasons; only `accepted` and `accepted_with_warnings`
   revisions are eligible; a held revision emits `revision.held`; a missing
   quality ledger reads as an empty one.
-- [ ] **Step 2: Implement** the gate and `knowledge quality`.
-- [ ] **Step 3: Import** the current owner-approved private receipt and account
+- [x] **Step 2: Implement** the gate and `knowledge quality`.
+- [x] **Step 3: Import** the current owner-approved private receipt and account
   for every entry; keep the measured counts in the private collection.
-- [ ] **Step 4: Run the gate** on that receipt and keep the disposition report
+- [x] **Step 4: Run the gate** on that receipt and keep the disposition report
   private.
-- [ ] **Step 5: Commit and integrate into S1** `feat: give every revision a quality
+- [x] **Step 5: Commit and integrate into S1** `feat: give every revision a quality
   disposition`.
 
 ### T021 [P] The evaluation runner [US3]
@@ -489,13 +489,13 @@ SC-S1-001.
 **After:** T017. **Files:** `crates/maestro-knowledge/src/eval/`,
 `migrations/0006_eval_reports.sql`. **Requirements:** FR-S1-009, SC-S1-008.
 
-- [ ] **Step 1: Failing tests.** Recall@k, MRR@10, nDCG@10 and no-answer
+- [x] **Step 1: Failing tests.** Recall@k, MRR@10, nDCG@10 and no-answer
   accuracy match hand-computed values; a paired bootstrap gives the same
   interval with the same seed; each failure gets its class and the route that
   missed it.
 - [ ] **Step 2: Implement** `eval run` and `eval compare`, reports stored as
   artifacts and journaled.
-- [ ] **Step 3: Commit and integrate into S1** `feat: evaluate retrieval with
+- [x] **Step 3: Commit and integrate into S1** `feat: evaluate retrieval with
   intervals`.
 
 ### T022 [P] The `maestro` binary: import, quality, status and jobs [US6]
@@ -503,13 +503,13 @@ SC-S1-001.
 **After:** T016, T019. **Files:** `crates/maestro/{Cargo.toml, src/main.rs,
 src/cli/}`. **Requirements:** FR-S1-012.
 
-- [ ] **Step 1: Failing contract tests.** `knowledge collection add`,
+- [x] **Step 1: Failing contract tests.** `knowledge collection add`,
   `import`, `quality`, `status` and `job wait` print versioned JSON on stdout
   and diagnostics on stderr; exit codes are 0, 1, 2; a long command prints its
   job ID first.
-- [ ] **Step 2: Create the crate** and implement those commands over the
+- [x] **Step 2: Create the crate** and implement those commands over the
   knowledge library.
-- [ ] **Step 3: Commit and integrate into S1** `feat: add the maestro command line`.
+- [x] **Step 3: Commit and integrate into S1** `feat: add the maestro command line`.
 
 ## Phase 6: Wave 6 — chunks, questions and setup
 
@@ -518,27 +518,27 @@ src/cli/}`. **Requirements:** FR-S1-012.
 **After:** T020, T018. **Files:** `crates/maestro-knowledge/src/prepare/`.
 **Requirements:** FR-S1-003.
 
-- [ ] **Step 1: Failing tests.** Exact duplicates keep every occurrence;
+- [x] **Step 1: Failing tests.** Exact duplicates keep every occurrence;
   near-duplicates are grouped, not deleted; a unit over 700 tokens refuses its
   document with the unit named; a chunk set records its profile and counter.
-- [ ] **Step 2: Implement** `knowledge prepare` over the canonicalization
+- [x] **Step 2: Implement** `knowledge prepare` over the canonicalization
   crate.
-- [ ] **Step 3: Measure** the private collection's chunk count and record it in
+- [x] **Step 3: Measure** the private collection's chunk count and record it in
   its private receipt; do not publish corpus counts.
-- [ ] **Step 4: Commit and integrate into S1** `feat: prepare chunk sets`.
+- [x] **Step 4: Commit and integrate into S1** `feat: prepare chunk sets`.
 
 ### T024 [P] The golden set, drafted [US3]
 
 **After:** T020. **Files:** `PRIVATE`: the evaluation set. **Requirements:**
 FR-S1-013.
 
-- [ ] **Step 1: Sample** canonical sections from eligible official
+- [x] **Step 1: Sample** canonical sections from eligible official
   documentation only; group equivalent version copies before scoring.
-- [ ] **Step 2: Draft** at least 100 questions, French and English, about
+- [x] **Step 2: Draft** at least 100 questions, French and English, about
   15 % unanswerable, each with its expected sections.
-- [ ] **Step 3: Check** that every expected section exists and every
+- [x] **Step 3: Check** that every expected section exists and every
   unanswerable question has none.
-- [ ] **Step 4: Hand off** the draft and its digest for the independent review
+- [x] **Step 4: Hand off** the draft and its digest for the independent review
   in T027.
 
 ### T025 [P] Setup, status and doctor [US6]
@@ -546,13 +546,13 @@ FR-S1-013.
 **After:** T022, T006, T007. **Files:**
 `crates/maestro/src/cli/{setup,doctor}.rs`. **Requirements:** FR-S1-015.
 
-- [ ] **Step 1: Failing tests.** `setup` previews the Qdrant service it will
+- [x] **Step 1: Failing tests.** `setup` previews the Qdrant service it will
   install and changes nothing without approval; a second run changes nothing;
   `doctor` names every failed check with its next action.
-- [ ] **Step 2: Implement** the pinned Qdrant install (digest in the code),
+- [x] **Step 2: Implement** the pinned Qdrant install (digest in the code),
   the systemd user unit, `status` and `doctor`.
-- [ ] **Step 3: Run** them on the workstation.
-- [ ] **Step 4: Commit and integrate into S1** `feat: set up and diagnose the local
+- [x] **Step 3: Run** them on the workstation.
+- [x] **Step 4: Commit and integrate into S1** `feat: set up and diagnose the local
   services`.
 
 ## Phase 7: Wave 7 — the search projection
@@ -563,17 +563,17 @@ FR-S1-013.
 `crates/maestro-knowledge/src/{represent,index}.rs`,
 `.github/workflows/integration.yml`. **Requirements:** FR-S1-004, D9, R6, R7.
 
-- [ ] **Step 1: Failing integration tests** against a pinned Qdrant: a
+- [x] **Step 1: Failing integration tests** against a pinned Qdrant: a
   generation builds in its own collection; a vector of the wrong dimension or
   a non-finite value refuses the batch; an interrupted build resumes at its
   last journaled batch; the alias moves only after verification; a
   generation records its sparse profile.
-- [ ] **Step 2: Implement** representations (dense through the gateway,
+- [x] **Step 2: Implement** representations (dense through the gateway,
   sparse through T040's analyzer, weighted by Qdrant with `modifier: idf`)
   and the generation lifecycle.
-- [ ] **Step 3: CI job** `integration.yml` with the Qdrant image pinned by
+- [x] **Step 3: CI job** `integration.yml` with the Qdrant image pinned by
   digest.
-- [ ] **Step 4: Commit and integrate into S1** `feat: publish search generations in
+- [x] **Step 4: Commit and integrate into S1** `feat: publish search generations in
   Qdrant`.
 
 ### T027 [P] An independent review; the owner decides [US3]
@@ -581,12 +581,12 @@ FR-S1-013.
 **After:** T024. **Files:** `PRIVATE`: the evaluation review receipt.
 **Requirements:** FR-S1-013.
 
-- [ ] **Step 1: Review** every question against the corpus with a model other
+- [x] **Step 1: Review** every question against the corpus with a model other
   than the drafter's; the owner decides each change it proposes to wording or
   answerability.
-- [ ] **Step 2: Apply** the decisions; a change to expected sections lands only
+- [x] **Step 2: Apply** the decisions; a change to expected sections lands only
   when the corpus confirms it and the suite check accepts it.
-- [ ] **Step 3: Freeze** the set with its digest for the bake-off.
+- [x] **Step 3: Freeze** the set with its digest for the bake-off.
 
 ## Phase 8: Wave 8 — publish, search, choose
 
@@ -595,13 +595,13 @@ FR-S1-013.
 **After:** T026, T016. **Files:** `crates/maestro-knowledge/src/publish.rs`.
 **Requirements:** FR-S1-004, FR-S1-011.
 
-- [ ] **Step 1: Failing tests.** A second publish of one collection is refused
+- [x] **Step 1: Failing tests.** A second publish of one collection is refused
   by its lease; a verified generation switches the alias and emits
   `generation.published`; the previous one is retired with
   `generation.retired`; `verify` replays digests and recounts.
-- [ ] **Step 2: Implement** `knowledge publish`, `status` and `verify` as
+- [x] **Step 2: Implement** `knowledge publish`, `status` and `verify` as
   jobs.
-- [ ] **Step 3: Commit and integrate into S1** `feat: publish, inspect and verify
+- [x] **Step 3: Commit and integrate into S1** `feat: publish, inspect and verify
   generations`.
 
 ### T029 [P] Retrieval routes and fusion [US1]
@@ -610,13 +610,13 @@ FR-S1-013.
 `crates/maestro-knowledge/src/search/{routes,fusion}.rs`. **Requirements:**
 FR-S1-005, FR-S1-005a, FR-S1-006.
 
-- [ ] **Step 1: Failing tests.** R1, R2, R3 and R6 run in parallel under a
+- [x] **Step 1: Failing tests.** R1, R2, R3 and R6 run in parallel under a
   deadline; each deduplicates its own hits; RRF is one-based with K = 60 and
   stable ties; a route past its deadline is reported, not waited for; every
   route filters by scope.
-- [ ] **Step 2: Implement** the routes and the fusion, with `search_dense` and
+- [x] **Step 2: Implement** the routes and the fusion, with `search_dense` and
   `search_bm25` as independent diagnostics.
-- [ ] **Step 3: Commit and integrate into S1** `feat: search by four routes fused
+- [x] **Step 3: Commit and integrate into S1** `feat: search by four routes fused
   with RRF`.
 
 ### T030 [P] Bake-off round 1 [US3]
@@ -625,10 +625,10 @@ FR-S1-005, FR-S1-005a, FR-S1-006.
 `crates/maestro-knowledge/src/eval/bakeoff.rs`,
 `migrations/0009_model_cards.sql`. **Requirements:** FR-S1-014, ADR-0011.
 
-- [ ] **Step 1: List candidates** per role from 05 §3.2 with size, licence and
+- [x] **Step 1: List candidates** per role from 05 §3.2 with size, licence and
   source.
 - [ ] **Step 2: The owner approves** the downloads.
-- [ ] **Step 3: Failing test.** A candidate violating a hard constraint is
+- [x] **Step 3: Failing test.** A candidate violating a hard constraint is
   reported ineligible, never ranked; every attempt is kept, failures
   included.
 - [ ] **Step 4: Run** the protocol of 05 §3.3: each embedder with its own
@@ -643,12 +643,12 @@ FR-S1-005, FR-S1-005a, FR-S1-006.
 `crates/maestro-knowledge/src/search/rerank.rs`. **Requirements:** FR-S1-005,
 FR-S1-015a.
 
-- [ ] **Step 1: Failing tests.** Results map back by index; no candidate is
+- [x] **Step 1: Failing tests.** Results map back by index; no candidate is
   truncated; a reranker without room answers
   `"rerank": {"unavailable": "<reason>"}`.
-- [ ] **Step 2: Implement** reranking with the depth T008 measured, as a
+- [x] **Step 2: Implement** reranking with the depth T008 measured, as a
   ladder parameter.
-- [ ] **Step 3: Commit and integrate into S1** `feat: rerank fused candidates`.
+- [x] **Step 3: Commit and integrate into S1** `feat: rerank fused candidates`.
 
 ### T032 [P] Evidence assembly [US1]
 
@@ -656,26 +656,26 @@ FR-S1-015a.
 `crates/maestro-knowledge/src/search/evidence.rs`. **Requirements:**
 FR-S1-005.
 
-- [ ] **Step 1: Failing tests.** Small-to-big expansion, span unions, MMR
+- [x] **Step 1: Failing tests.** Small-to-big expansion, span unions, MMR
   diversity, version collapse, conflict flags and known gaps each change the
   bundle as 02 §6 says; a section too large is windowed and marked.
-- [ ] **Step 2: Implement** the assembly into `maestro-evidence/1`, trace
+- [x] **Step 2: Implement** the assembly into `maestro-evidence/1`, trace
   apart.
-- [ ] **Step 3: Commit and integrate into S1** `feat: assemble evidence bundles`.
+- [x] **Step 3: Commit and integrate into S1** `feat: assemble evidence bundles`.
 
 ### T033 [P] Backup, restore and the rebuild drill [US5]
 
 **After:** T028. **Files:** `crates/maestro/src/cli/backup.rs`.
 **Requirements:** FR-S1-010, SC-S1-006.
 
-- [ ] **Step 1: Failing tests.** A backup holds the database and an artifact
+- [x] **Step 1: Failing tests.** A backup holds the database and an artifact
   manifest; restore refuses traversal and links; an interrupted publish
   restores as interrupted and resumes.
-- [ ] **Step 2: Implement** `backup` and `restore` with the projection
+- [x] **Step 2: Implement** `backup` and `restore` with the projection
   rebuild.
-- [ ] **Step 3: Drill:** backup, wipe, restore, rebuild, identical synthetic
+- [x] **Step 3: Drill:** backup, wipe, restore, rebuild, identical synthetic
   rankings.
-- [ ] **Step 4: Commit and integrate into S1** `feat: back up and restore the
+- [x] **Step 4: Commit and integrate into S1** `feat: back up and restore the
   kernel`.
 
 ## Phase 10: Wave 10 — MCP, `ask` and the synthetic gate
@@ -685,26 +685,26 @@ FR-S1-005.
 **After:** T022, T031, T032. **Files:** `crates/maestro/src/{mcp.rs,
 cli/search.rs}`. **Requirements:** FR-S1-008, FR-S1-012.
 
-- [ ] **Step 1: Failing tests** over stdio: `knowledge_collections`,
+- [x] **Step 1: Failing tests** over stdio: `knowledge_collections`,
   `knowledge_search` and `knowledge_get` answer with their schemas; a caller
   without the `ctm` scope sees no count or title; a response over 64 KiB is
   truncated and says so; `knowledge search` and `knowledge get` print
   versioned JSON.
-- [ ] **Step 2: Implement** the server with `rmcp` 3.4.1 and the two
+- [x] **Step 2: Implement** the server with `rmcp` 3.4.1 and the two
   commands; the workspace MSRV, 1.98, is above the 1.88 `rmcp` needs (R3).
-- [ ] **Step 3: Commit and integrate into S1** `feat: serve knowledge over MCP`.
+- [x] **Step 3: Commit and integrate into S1** `feat: serve knowledge over MCP`.
 
 ### T035 [P] `ask` with its guards [US4]
 
 **After:** T032, T006. **Files:** `crates/maestro-knowledge/src/answer.rs`,
 `crates/maestro/src/mcp.rs` (one tool). **Requirements:** FR-S1-007.
 
-- [ ] **Step 1: Failing tests** with the fake generator: an invented command
+- [x] **Step 1: Failing tests** with the fake generator: an invented command
   is rejected, regenerated once, then refused; an unanswerable question is
   refused with its reason and the closest passages; the answer takes the
   question's language.
-- [ ] **Step 2: Implement** `knowledge ask` and the `knowledge_ask` tool.
-- [ ] **Step 3: Commit and integrate into S1** `feat: answer from evidence or
+- [x] **Step 2: Implement** `knowledge ask` and the `knowledge_ask` tool.
+- [x] **Step 3: Commit and integrate into S1** `feat: answer from evidence or
   refuse`.
 
 ### T036 [P] The synthetic suite gates pull requests [US3]
@@ -712,10 +712,10 @@ cli/search.rs}`. **Requirements:** FR-S1-008, FR-S1-012.
 **After:** T014, T021, T032. **Files:** `.github/workflows/ci.yml`,
 `tests/synthetic_suite.rs`. **Requirements:** SC-S1-007.
 
-- [ ] **Step 1: Failing CI check.** The suite runs with the deterministic fake
+- [x] **Step 1: Failing CI check.** The suite runs with the deterministic fake
   models and fails the pull request below its recorded baseline.
 - [ ] **Step 2: Wire** the suite into CI and record the baseline.
-- [ ] **Step 3: Commit and integrate into S1** `ci: gate pull requests on the
+- [x] **Step 3: Commit and integrate into S1** `ci: gate pull requests on the
   synthetic suite`.
 
 ## Phase 11: Wave 11 — the first published generation
