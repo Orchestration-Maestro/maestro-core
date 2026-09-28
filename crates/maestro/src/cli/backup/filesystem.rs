@@ -28,8 +28,14 @@ pub(super) fn directory_problem(path: &Path) -> Result<Option<String>, Failure> 
             },
             Err(error) => Err(failed_io(path, "list", &error)),
         },
-        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
-        Err(error) => Err(failed_io(path, "inspect", &error)),
+        Err(error) => {
+            let error = normalize_path_error(path, error);
+            if error.kind() == io::ErrorKind::NotFound {
+                Ok(None)
+            } else {
+                Err(failed_io(path, "inspect", &error))
+            }
+        }
     }
 }
 
@@ -43,10 +49,12 @@ pub(super) fn create_destination(path: &Path) -> Result<(), Failure> {
                 path.display()
             )));
         }
-        Err(error) if error.kind() != io::ErrorKind::NotFound => {
-            return Err(failed_io(path, "inspect", &error));
+        Err(error) => {
+            let error = normalize_path_error(path, error);
+            if error.kind() != io::ErrorKind::NotFound {
+                return Err(failed_io(path, "inspect", &error));
+            }
         }
-        Err(_) => {}
     }
     if let Some(parent) = path.parent() {
         create_private_dir_all(parent).map_err(|error| failed_io(parent, "create", &error))?;
@@ -59,7 +67,11 @@ pub(super) fn create_private_dir_all(path: &Path) -> io::Result<()> {
     match fs::symlink_metadata(path) {
         Ok(metadata) if metadata.is_dir() && !metadata.file_type().is_symlink() => Ok(()),
         Ok(_) => Err(io::Error::other("not a directory")),
-        Err(error) if error.kind() == io::ErrorKind::NotFound => {
+        Err(error) => {
+            let error = normalize_path_error(path, error);
+            if error.kind() != io::ErrorKind::NotFound {
+                return Err(error);
+            }
             if let Some(parent) = path.parent()
                 && parent != path
             {
@@ -67,8 +79,32 @@ pub(super) fn create_private_dir_all(path: &Path) -> io::Result<()> {
             }
             create_private_dir(path)
         }
-        Err(error) => Err(error),
     }
+}
+
+/// Normalizes a missing-path error when a parent blocks no-follow path traversal.
+pub(super) fn normalize_path_error(path: &Path, error: io::Error) -> io::Error {
+    if error.kind() == io::ErrorKind::NotFound && has_blocking_parent(path) {
+        io::Error::new(io::ErrorKind::NotADirectory, error)
+    } else {
+        error
+    }
+}
+
+/// Checks whether the nearest existing ancestor is not a directory: a missing
+/// path beneath a file is unreachable, not absent. Symlinked directories, such
+/// as macOS's `/var`, are followed, so a missing path under them stays missing.
+pub(super) fn has_blocking_parent(path: &Path) -> bool {
+    let mut parent = path.parent();
+    while let Some(candidate) = parent {
+        match fs::metadata(candidate) {
+            Ok(metadata) => return !metadata.is_dir(),
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+            Err(_) => return true,
+        }
+        parent = candidate.parent();
+    }
+    false
 }
 
 /// Creates a directory with owner-only permissions on Unix.

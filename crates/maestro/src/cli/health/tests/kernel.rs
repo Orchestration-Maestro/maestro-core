@@ -22,7 +22,9 @@ fn valid_configuration_files_pass() {
     assert_eq!(detail(&config_check(&scratch.config()).0), "valid");
     assert_eq!(detail(&bindings_check(&scratch.config())), "valid");
     scratch.configure("config.toml", "[access]\nread = ['workspace/default']\n");
-    scratch.configure("bindings.toml", "corpus_root = '/srv/corpus'\n");
+    let corpus_root = fs::canonicalize(scratch.data()).unwrap();
+    let corpus_root = serde_json::to_string(&corpus_root.to_string_lossy()).unwrap();
+    scratch.configure("bindings.toml", &format!("corpus_root = {corpus_root}\n"));
     let (check, config) = config_check(&scratch.config());
     assert_eq!(detail(&check), "valid");
     assert!(config.is_some());

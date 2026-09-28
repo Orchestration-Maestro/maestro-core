@@ -1,12 +1,15 @@
 use super::{
     filesystem::{
-        create_destination, create_private_dir_all, directory_problem, source_file, timestamp_for,
+        create_destination, create_private_dir_all, directory_problem, has_blocking_parent,
+        normalize_path_error, source_file, timestamp_for,
     },
     names::{ARTIFACTS, DATABASE},
     restore::commit_staged,
     test_support::Scratch,
 };
 use crate::failure::Failure;
+#[cfg(unix)]
+use std::os::unix::fs::symlink;
 use std::{fs, io, time::Duration};
 
 #[test]
@@ -48,6 +51,39 @@ fn destination_rejects_files_and_reports_inspection_errors() {
         create_destination(&child),
         Err(Failure::Failed(message)) if message.contains("inspect")
     ));
+}
+
+#[cfg(unix)]
+#[test]
+fn a_missing_path_under_a_symlinked_directory_stays_missing() {
+    let scratch = Scratch::new("symlinked-parent");
+    let real = scratch.path().join("real");
+    fs::create_dir(&real).unwrap();
+    let link = scratch.path().join("link");
+    symlink(&real, &link).unwrap();
+    let missing = link.join("missing").join("child");
+
+    assert!(!has_blocking_parent(&missing));
+    let error = normalize_path_error(
+        &missing,
+        io::Error::new(io::ErrorKind::NotFound, "path not found"),
+    );
+    assert_eq!(error.kind(), io::ErrorKind::NotFound);
+}
+
+#[test]
+fn not_found_beneath_a_file_is_not_a_missing_path() {
+    let scratch = Scratch::new("blocked-path");
+    let file = scratch.path().join("file");
+    fs::write(&file, b"not a directory").unwrap();
+    let child = file.join("child");
+
+    assert!(has_blocking_parent(&child));
+    let error = normalize_path_error(
+        &child,
+        io::Error::new(io::ErrorKind::NotFound, "path not found"),
+    );
+    assert_eq!(error.kind(), io::ErrorKind::NotADirectory);
 }
 
 #[cfg(unix)]

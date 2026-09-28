@@ -180,15 +180,9 @@ async fn cancellation_keeps_the_worker_permit_and_busy_is_a_json_text_error() {
     let home = ServerHome::new();
     let barrier = Arc::new(Barrier::new(2));
     let (started_tx, started_rx) = mpsc::channel();
-    let (finished_tx, finished_rx) = mpsc::channel();
-    let server = home.server_with_barrier(
-        barrier.clone(),
-        started_tx,
-        finished_tx,
-        Duration::from_secs(5),
-    );
-    let held = server
-        .workers
+    let server = home.server_with_barrier(barrier.clone(), started_tx, Duration::from_secs(5));
+    let workers = server.workers.clone();
+    let held = workers
         .clone()
         .try_acquire_many_owned(3)
         .expect("reserve three worker permits");
@@ -218,12 +212,13 @@ async fn cancellation_keeps_the_worker_permit_and_busy_is_a_json_text_error() {
     drop(client_input);
     assert!(!responses.iter().any(|response| response["id"] == 2));
     assert_eq!(tool_error(response(&responses, 3))["error"]["code"], "busy");
-    drop(held);
     drop(release_worker);
-    spawn_blocking(move || finished_rx.recv_timeout(HANG_GUARD))
+    let worker_finished = timeout(HANG_GUARD, workers.acquire_owned())
         .await
-        .expect("join kernel-open wait")
-        .expect("blocking operation finished");
+        .expect("blocking worker shutdown deadline")
+        .expect("worker permit released");
+    drop(worker_finished);
+    drop(held);
     timeout(HANG_GUARD, waiting)
         .await
         .expect("service shutdown deadline")
@@ -236,15 +231,9 @@ async fn deadline_returns_a_refusal_while_the_blocking_worker_keeps_its_permit()
     let home = ServerHome::new();
     let barrier = Arc::new(Barrier::new(2));
     let (started_tx, started_rx) = mpsc::channel();
-    let (finished_tx, finished_rx) = mpsc::channel();
-    let server = home.server_with_barrier(
-        barrier.clone(),
-        started_tx,
-        finished_tx,
-        Duration::from_millis(50),
-    );
-    let held = server
-        .workers
+    let server = home.server_with_barrier(barrier.clone(), started_tx, Duration::from_millis(50));
+    let workers = server.workers.clone();
+    let held = workers
         .clone()
         .try_acquire_many_owned(3)
         .expect("reserve three worker permits");
@@ -269,12 +258,17 @@ async fn deadline_returns_a_refusal_while_the_blocking_worker_keeps_its_permit()
     let responses = responses_for(client_output, &[2]).await;
     let response = response(&responses, 2);
     assert_eq!(tool_error(response)["error"]["code"], "deadline_exceeded");
-    drop(held);
+    assert!(
+        workers.clone().try_acquire_owned().is_err(),
+        "blocking worker keeps its permit after the deadline",
+    );
     drop(release_worker);
-    spawn_blocking(move || finished_rx.recv_timeout(HANG_GUARD))
+    let worker_finished = timeout(HANG_GUARD, workers.acquire_owned())
         .await
-        .expect("join kernel-open wait")
-        .expect("blocking operation finished");
+        .expect("blocking worker shutdown deadline")
+        .expect("worker permit released");
+    drop(worker_finished);
+    drop(held);
     drop(client_input);
     timeout(HANG_GUARD, waiting)
         .await
@@ -314,7 +308,6 @@ impl ServerHome {
         &self,
         barrier: Arc<Barrier>,
         started: mpsc::Sender<()>,
-        finished: mpsc::Sender<()>,
         deadline: Duration,
     ) -> KnowledgeServer {
         let data = self.0.join("data");
@@ -323,9 +316,7 @@ impl ServerHome {
             move || {
                 started.send(()).expect("signal blocking opener");
                 barrier.wait();
-                let result = Kernel::open_at(&data, &config);
-                let _ = finished.send(());
-                result
+                Kernel::open_at(&data, &config)
             },
             deadline,
         )

@@ -1,7 +1,9 @@
 //! Staged restore checks and the database-last install.
 
 use super::{
-    filesystem::{copy_hash, create_private_dir, create_private_dir_all, failed_io},
+    filesystem::{
+        copy_hash, create_private_dir, create_private_dir_all, failed_io, normalize_path_error,
+    },
     manifest::Manifest,
     names::{ARTIFACTS, DATABASE},
 };
@@ -91,8 +93,13 @@ fn ensure_empty_kernel_slot(data: &Path) -> Result<(), Failure> {
             )));
         }
         Ok(_) => {}
-        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(()),
-        Err(error) => return Err(failed_io(data, "inspect", &error)),
+        Err(error) => {
+            let error = normalize_path_error(data, error);
+            if error.kind() == io::ErrorKind::NotFound {
+                return Ok(());
+            }
+            return Err(failed_io(data, "inspect", &error));
+        }
     }
     for name in [
         DATABASE,
@@ -108,8 +115,12 @@ fn ensure_empty_kernel_slot(data: &Path) -> Result<(), Failure> {
                     path.display()
                 )));
             }
-            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
-            Err(error) => return Err(failed_io(&path, "inspect", &error)),
+            Err(error) => {
+                let error = normalize_path_error(&path, error);
+                if error.kind() != io::ErrorKind::NotFound {
+                    return Err(failed_io(&path, "inspect", &error));
+                }
+            }
         }
     }
     Ok(())
