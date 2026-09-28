@@ -7,6 +7,9 @@ use super::{
     },
     comparison::{Comparison, write_comparison},
     engine::KernelEngine,
+    graph_ladder,
+    graph_manifest::GraphManifest,
+    graph_output::Code,
     manifest::Manifest,
     reports::{Binary, RungReport, write_rung},
     runner::run_ladder,
@@ -24,7 +27,16 @@ use std::{fs, path::Path, process::ExitCode};
 /// search; [`Failure`] when the kernel, the services or the output directory
 /// fail.
 pub(in crate::cli) fn run(output: Output, path: &Path) -> Result<ExitCode, Failure> {
-    let manifest = Manifest::read(path)?;
+    let manifest = Manifest::read(path).map_err(|error| Code::Manifest.sanitize(&error))?;
+    if let Some(graph) = &manifest.graph {
+        let inputs = GraphManifest::read(graph).map_err(Code::failure)?;
+        return graph_ladder::run(output, &manifest, &inputs);
+    }
+    run_public(output, &manifest).map_err(|error| Code::Ladder.sanitize(&error))
+}
+
+/// Preserves the S1 ladder's report format for manifests without graph inputs.
+fn run_public(output: Output, manifest: &Manifest) -> Result<ExitCode, Failure> {
     let text = fs::read_to_string(&manifest.suite)
         .map_err(|error| Failure::refused(format!("cannot read the suite: {error}")))?;
     let suite: Suite = text.parse().map_err(|error| Failure::refused_by(&error))?;

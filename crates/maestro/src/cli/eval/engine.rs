@@ -5,6 +5,7 @@
 //! answerer, when its manifest names one.
 
 use super::{
+    delivered::anchors,
     manifest::{AskSettings, Rung},
     runner::{Engine, Provenance, SearchDiagnostic, Searched},
     stages::{StageFailure, stage_failure},
@@ -241,9 +242,20 @@ impl Engine for KernelEngine<'_> {
             };
         };
         let configuration = rung.configuration.search();
+        let budget = rung
+            .ask
+            .as_ref()
+            .map_or(RequestBudget::default(), |settings| {
+                let ask = settings.budget();
+                RequestBudget {
+                    k: ask.k,
+                    max_tokens: ask.max_tokens,
+                    ..RequestBudget::default()
+                }
+            });
         let request = SearchRequest {
             configuration,
-            ..SearchRequest::new(&self.collection, question, None, RequestBudget::default())
+            ..SearchRequest::new(&self.collection, question, None, budget)
         };
         let mut diagnostic = SearchDiagnostic::default();
         let searched = self.runtime.block_on(async {
@@ -262,6 +274,7 @@ impl Engine for KernelEngine<'_> {
             .await
             .map_err(|error| evidence_failure(&error))?;
             diagnostic.bundle_documents = bundle_documents(&bundle, &order);
+            diagnostic.delivered = anchors(bundle.clone()).map_err(|_| StageFailure::Failed)?;
             match stage_failure(&configuration, &bundle.routes) {
                 Some(failure) => Err(failure),
                 None => Ok(ranked_documents(&order, |chunk| {

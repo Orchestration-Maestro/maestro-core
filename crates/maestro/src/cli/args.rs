@@ -238,10 +238,24 @@ pub(super) enum CollectionCommand {
 /// Which evaluation to run.
 #[derive(Debug, Subcommand)]
 pub(super) enum EvalCommand {
+    /// Inference-free graph label checks.
+    #[command(subcommand)]
+    Graph(GraphEvalCommand),
     /// Run the M1 ladder a private manifest describes: each rung searches and
     /// asks every question of the suite, and its floors are scored.
     Ladder {
         /// The `maestro-ladder-manifest/1` file.
+        #[arg(long, value_name = "PATH")]
+        manifest: PathBuf,
+    },
+}
+
+/// Graph evaluation operations; comparisons remain on the existing ladder.
+#[derive(Debug, Subcommand)]
+pub(super) enum GraphEvalCommand {
+    /// Validate frozen source anchors without inference.
+    Check {
+        /// The strict maestro-graph-check/1 manifest.
         #[arg(long, value_name = "PATH")]
         manifest: PathBuf,
     },

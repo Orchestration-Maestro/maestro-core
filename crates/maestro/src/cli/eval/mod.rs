@@ -3,8 +3,15 @@
 
 mod command;
 mod comparison;
+mod delivered;
 mod engine;
+mod graph;
+mod graph_ladder;
+mod graph_manifest;
+mod graph_output;
 mod manifest;
+mod private_run;
+mod private_write;
 mod reports;
 mod rung_prompt;
 mod runner;
@@ -13,3 +20,5 @@ mod stages;
 mod tests;
 
 pub(super) use command::run;
+
+pub(super) use graph::run as check_graph;

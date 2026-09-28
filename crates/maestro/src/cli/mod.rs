@@ -7,6 +7,7 @@ mod ask;
 mod backup;
 mod collection;
 mod eval;
+mod filesystem;
 mod foreground;
 mod graph;
 pub(crate) mod health;

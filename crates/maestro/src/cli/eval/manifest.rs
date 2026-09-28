@@ -3,7 +3,12 @@
 //! search configuration and whether `ask` runs, with which settings. It is private: it names the
 //! owner's files. Relative paths resolve from the manifest's directory.
 
-use super::rung_prompt::RungPrompt;
+use super::{
+    graph_manifest::{GraphManifest, Inputs},
+    graph_output::Code,
+    private_run::CheckedRun,
+    rung_prompt::RungPrompt,
+};
 use crate::failure::Failure;
 use maestro_kernel::artifact::Digest;
 use maestro_knowledge::{answer::AskBudget, search::SearchConfiguration};
@@ -38,6 +43,10 @@ pub(super) struct Manifest {
     pub(super) warm_ups: usize,
     /// The directory the reports go to, new or empty.
     pub(super) output: PathBuf,
+    /// Optional private graph-check manifest binding labels, authority and approval.
+    #[serde(default)]
+    #[serde(rename = "graph_manifest")]
+    pub(super) graph: Option<PathBuf>,
     /// The rungs, run in this order.
     pub(super) rungs: Vec<Rung>,
 }
@@ -132,6 +141,19 @@ fn write_ask<S: Serializer>(ask: &Option<AskSettings>, serializer: S) -> Result<
     }
 }
 
+/// Closed graph rung selection, separate from the unchanged S1 route configuration.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub(super) enum GraphSelection {
+    /// Unchanged passage routes.
+    #[default]
+    None,
+    /// Ladybug-only diagnostic, pending G13/G27.
+    Ladybug,
+    /// Passage and Ladybug pairing, pending G13/G27.
+    Pairing,
+}
+
 /// A rung's search configuration, as the manifest writes it.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -158,6 +180,9 @@ pub(super) struct RungConfiguration {
     reason = "each route has its own switch, as search's configuration does"
 )]
 pub(super) struct Routes {
+    /// Graph selection; enabled adapters are refused until G13/G27 land.
+    #[serde(default)]
+    pub(super) graph: GraphSelection,
     /// The dense route.
     pub(super) dense: bool,
     /// The lexical route.
@@ -245,6 +270,7 @@ impl Manifest {
     pub(super) fn read(path: &Path) -> Result<Self, Failure> {
         let text = fs::read_to_string(path)
             .map_err(|error| Failure::refused(format!("cannot read the manifest: {error}")))?;
+        let path = fs::canonicalize(path).map_err(|error| Failure::refused_by(&error))?;
         let base = path.parent().unwrap_or_else(|| Path::new(""));
         let manifest = Self::parse(&text, base)?;
         let occupied =
@@ -268,6 +294,26 @@ impl Manifest {
         let mut manifest: Self = serde_json::from_str(text)
             .map_err(|error| Failure::refused(format!("the manifest is not {SCHEMA}: {error}")))?;
         manifest.check()?;
+        let private = manifest
+            .graph
+            .as_ref()
+            .map(|path| GraphManifest::read(&base.join(path)).map_err(Code::failure))
+            .transpose()?;
+        if let Some(inputs) = &private {
+            if inputs.collection != manifest.collection {
+                return Err(Code::Isolation.failure());
+            }
+            manifest.suite = inputs
+                .run
+                .input(&base.join(&manifest.suite))
+                .map_err(Code::failure)?;
+            manifest.output = inputs
+                .run
+                .directory(&base.join(&manifest.output))
+                .map_err(Code::failure)?;
+            CheckedRun::local_router().map_err(Code::failure)?;
+        }
+        manifest.graph = manifest.graph.map(|path| base.join(path));
         manifest.suite = base.join(&manifest.suite);
         manifest.output = base.join(&manifest.output);
         for rung in &mut manifest.rungs {
@@ -276,6 +322,7 @@ impl Manifest {
                 ..
             }) = &mut rung.ask
             {
+                check_prompt_path(private.as_ref(), &base.join(&file.file))?;
                 file.read(base, &rung.name)?;
             }
         }
@@ -324,6 +371,9 @@ fn check_rung(rung: &Rung) -> Result<(), Failure> {
         ));
     }
     let configuration = &rung.configuration;
+    if configuration.routes.graph != GraphSelection::None {
+        return Err(Code::GraphUnavailable.failure());
+    }
     let routes = configuration.routes;
     if !(routes.dense || routes.lexical || routes.identifier || routes.structured) {
         return Err(Failure::refused(format!(
@@ -357,4 +407,12 @@ fn check_rung(rung: &Rung) -> Result<(), Failure> {
         settings.answerer_card()?;
     }
     configuration.reranker().map(drop)
+}
+
+/// Private prompts pass the same path guard before their text is read.
+fn check_prompt_path(inputs: Option<&Inputs>, path: &Path) -> Result<(), Failure> {
+    if let Some(inputs) = inputs {
+        inputs.run.input(path).map_err(Code::failure)?;
+    }
+    Ok(())
 }

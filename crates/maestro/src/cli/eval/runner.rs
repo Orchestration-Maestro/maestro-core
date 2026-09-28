@@ -8,7 +8,7 @@ use super::manifest::Rung;
 use crate::failure::Failure;
 use maestro_knowledge::{
     eval::{
-        Ask, AskOutcome, LadderQuestion, LadderScore, Search, SearchOutcome, SectionRef,
+        Ask, AskOutcome, LadderQuestion, LadderScore, Located, Search, SearchOutcome, SectionRef,
         score_ladder,
     },
     suite::Suite,
@@ -53,13 +53,15 @@ pub(super) struct Searched {
     /// How it ended: when ranked, the distinct documents of its final ranked
     /// chunks, before evidence assembly, the first 10, which the floors score.
     pub(super) outcome: SearchOutcome,
-    /// What else it gave, never scored.
+    /// Post-delivery anchors and unscored route diagnostics.
     pub(super) diagnostic: SearchDiagnostic,
 }
 
-/// What a search gave beyond what the floors score: diagnostics only.
+/// Delivered proof coordinates plus diagnostics beyond the S1 retrieval floors.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub(super) struct SearchDiagnostic {
+    /// Original anchors remaining after the shared context and wire bounds.
+    pub(super) delivered: Vec<Located>,
     /// The documents of its assembled evidence, in rank order.
     pub(super) bundle_documents: Vec<String>,
     /// The top reranker score, absent when rerank did not run.

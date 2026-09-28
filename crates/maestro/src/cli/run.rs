@@ -4,7 +4,8 @@
 
 use super::{
     args::{
-        Arguments, CollectionCommand, EvalCommand, GraphCommand, JobCommand, KnowledgeCommand, Noun,
+        Arguments, CollectionCommand, EvalCommand, GraphCommand, GraphEvalCommand, JobCommand,
+        KnowledgeCommand, Noun,
     },
     ask, backup, collection, eval, graph, health, import,
     output::{Output, diagnose},
@@ -130,6 +131,9 @@ fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> 
             Ok(ExitCode::SUCCESS)
         }
         Noun::Eval(EvalCommand::Ladder { manifest }) => eval::run(output, manifest),
+        Noun::Eval(EvalCommand::Graph(GraphEvalCommand::Check { manifest })) => {
+            eval::check_graph(output, manifest)
+        }
         Noun::Job(JobCommand::Wait { id }) => wait::run(&Kernel::open()?, output, *id),
         Noun::Setup { yes } => setup::run(output, *yes),
         Noun::Status => health::status::run(output),

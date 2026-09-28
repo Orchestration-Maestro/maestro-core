@@ -1,7 +1,7 @@
 //! A synthetic suite, rungs, and a fake engine that records what it is asked.
 
 use super::super::{
-    manifest::{AskSettings, Rerank, Routes, Rung, RungConfiguration, Weights},
+    manifest::{AskSettings, GraphSelection, Rerank, Routes, Rung, RungConfiguration, Weights},
     runner::{Engine, Provenance, SearchDiagnostic, Searched},
 };
 use crate::failure::Failure;
@@ -54,6 +54,7 @@ pub(super) fn rung(name: &str) -> Rung {
         name: name.to_owned(),
         configuration: RungConfiguration {
             routes: Routes {
+                graph: GraphSelection::None,
                 dense: true,
                 lexical: true,
                 identifier: true,
@@ -110,6 +111,8 @@ pub(super) struct FakeEngine {
     pub(super) right_document_at_7: bool,
     /// Whether the collection has no answerer card.
     pub(super) no_answerer: bool,
+    /// Whether asks fail after a successful search.
+    pub(super) ask_outcome: Option<AskOutcome>,
 }
 
 impl FakeEngine {
@@ -138,6 +141,7 @@ impl FakeEngine {
 /// reranker score of 0.75 when `rung` reranks, and a top fused score of 0.05.
 fn diagnostic(rung: &Rung, bundle_documents: Vec<String>) -> SearchDiagnostic {
     SearchDiagnostic {
+        delivered: Vec::new(),
         bundle_documents,
         top_rerank_score: rung.configuration.rerank.as_ref().map(|_| 0.75),
         top_fused_score: Some(0.05),
@@ -222,6 +226,9 @@ impl Engine for FakeEngine {
 
     fn ask(&self, rung: &Rung, question: &str) -> AskOutcome {
         self.record("ask", rung, question);
+        if let Some(outcome) = &self.ask_outcome {
+            return outcome.clone();
+        }
         answerable_index(question).map_or(AskOutcome::Refused(RefusalCode::NotFound), |index| {
             AskOutcome::Answered {
                 citations: vec![SectionRef::section(

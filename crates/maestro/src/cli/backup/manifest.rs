@@ -1,7 +1,8 @@
 //! Backup manifest parsing, path safety and integrity checks.
 
+use super::super::filesystem::has_multiple_links;
 use super::{
-    filesystem::{has_multiple_links, hash_file, refused_io},
+    filesystem::{hash_file, refused_io},
     names::{ARTIFACTS, DATABASE, MANIFEST},
 };
 use crate::failure::Failure;

@@ -64,10 +64,13 @@ in place.
 │   │   │   │   │   ├── tests/                                               # Tests of the ladder command: its manifest, its run over a fake engine, its
 │   │   │   │   │   │   ├── ask_settings.rs                                  # A rung's ask: true asks as ask does by default, false does not
 │   │   │   │   │   │   ├── comparison.rs                                    # The comparison across rungs: each floor per rung and its change, the
+│   │   │   │   │   │   ├── delivered.rs                                     # Only post-context, post-wire evidence earns complete-proof credit
 │   │   │   │   │   │   ├── engine.rs                                        # The engine's pieces that need no search service: a rung's reranker taken
+│   │   │   │   │   │   ├── graph_ladder.rs                                  # Existing ladder rows earn graph credit only from successful delivered anchors
 │   │   │   │   │   │   ├── kernel_engine.rs                                 # The engine on a real kernel, with the router and the search service
 │   │   │   │   │   │   ├── manifest.rs                                      # The manifest: what it holds, where its paths lead, and each refusal
 │   │   │   │   │   │   ├── mod.rs                                           # Tests of the ladder command: its manifest, its run over a fake engine, its
+│   │   │   │   │   │   ├── private_run.rs                                   # Shared admission, private path IO and loopback normalization seams
 │   │   │   │   │   │   ├── reports.rs                                       # What a ladder writes: private rows with IDs, ranks, citations, refusal
 │   │   │   │   │   │   ├── rung_answerer.rs                                 # A rung's answerer and prompt: ask.card names a registered answerer card
 │   │   │   │   │   │   ├── runner.rs                                        # The ladder's run: warm-ups unscored, the rung's configuration in every
@@ -75,9 +78,16 @@ in place.
 │   │   │   │   │   │   └── support.rs                                       # A synthetic suite, rungs, and a fake engine that records what it is asked
 │   │   │   │   │   ├── command.rs                                           # Running the ladder a manifest describes, on this machine
 │   │   │   │   │   ├── comparison.rs                                        # The comparison across a ladder's rungs, maestro-eval-ladder-comparison/1
+│   │   │   │   │   ├── delivered.rs                                         # Adapter from delivered evidence to the graph scorer's source coordinates
 │   │   │   │   │   ├── engine.rs                                            # The ladder's engine on this machine: the kernel opened for the local
+│   │   │   │   │   ├── graph.rs                                             # Inference-free graph checks using only the scoped scratch authority
+│   │   │   │   │   ├── graph_ladder.rs                                      # Graph metrics on the existing ladder; no second execution engine or raw public output
+│   │   │   │   │   ├── graph_manifest.rs                                    # Versioned, strict manifest shared by inference-free check and private ladder scoring
+│   │   │   │   │   ├── graph_output.rs                                      # Private evaluation's single public error boundary; raw causes stay on disk
 │   │   │   │   │   ├── manifest.rs                                          # The ladder's manifest, maestro-ladder-manifest/1: the suite, the
 │   │   │   │   │   ├── mod.rs                                               # maestro eval ladder: the M1 ladder, every question of a suite searched
+│   │   │   │   │   ├── private_run.rs                                       # Reusable private-run approval, resolved-path isolation and explicit kernel open
+│   │   │   │   │   ├── private_write.rs                                     # Durable no-overwrite publication for admitted private paths
 │   │   │   │   │   ├── reports.rs                                           # What a ladder writes: for each rung, its private rows, one JSON line per
 │   │   │   │   │   ├── rung_prompt.rs                                       # A rung's answer prompt: a prompt version, or a private prompt file of
 │   │   │   │   │   ├── runner.rs                                            # The ladder's run: every rung's cards checked first, then each rung in
@@ -145,6 +155,7 @@ in place.
 │   │   │   │   ├── args.rs                                                  # The grammar, noun then verb, as clap derives it; the comments are the help
 │   │   │   │   ├── ask.rs                                                   # CLI adapter for evidence-grounded knowledge answers
 │   │   │   │   ├── collection.rs                                            # knowledge collection add, and the declaration a later command finds for a collection
+│   │   │   │   ├── filesystem.rs                                            # Filesystem identity shared by authority admission and backup
 │   │   │   │   ├── foreground.rs                                            # A job run in the foreground: submitted or found by its key, taken or followed, a stale holder superseded
 │   │   │   │   ├── import.rs                                                # knowledge import: a leased job in the foreground, its ID first; a rerun follows, takes over or supersedes
 │   │   │   │   ├── lease.rs                                                 # The lease of a job run in the foreground: Holder::run's heartbeat thread and each step renew it
@@ -232,6 +243,7 @@ in place.
 │   │   │       ├── doctor_checks.rs                                         # maestro doctor: each failure names its next action, the router its address; v1 files listed, untouched
 │   │   │       ├── fakes.rs                                                 # Fake curl and systemctl for the binary's tests, found first on the PATH, logging each call
 │   │   │       ├── graph_build.rs                                           # knowledge graph build: the frozen synthetic defaults table (plan A0)
+│   │   │       ├── graph_eval.rs                                            # Graph evaluation refuses unsafe input without opening a default kernel
 │   │   │       ├── graph_resume.rs                                          # Durable CLI resume and separate attachment, using real authority and rule artifacts
 │   │   │       ├── import_jobs.rs                                           # knowledge import end to end, rerun, live holder refused, stale one superseded, leases taken over
 │   │   │       ├── job_waits.rs                                             # job wait follows a job to its end and exits with its outcome; an unreadable job is unknown
