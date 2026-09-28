@@ -20,6 +20,7 @@ use std::{
         atomic::{AtomicUsize, Ordering},
         mpsc,
     },
+    thread,
     time::Duration,
 };
 use tokio::{
@@ -348,6 +349,15 @@ impl ServerHome {
 
 impl Drop for ServerHome {
     fn drop(&mut self) {
+        // A cancelled search worker can still hold the kernel open for a
+        // moment after the test ends, and Windows refuses to delete an open
+        // file, so retry briefly before giving up.
+        for _ in 0..50 {
+            if fs::remove_dir_all(&self.0).is_ok() || !self.0.exists() {
+                return;
+            }
+            thread::sleep(Duration::from_millis(100));
+        }
         fs::remove_dir_all(&self.0).expect("remove isolated MCP home");
     }
 }
