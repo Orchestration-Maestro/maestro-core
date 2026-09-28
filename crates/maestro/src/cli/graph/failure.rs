@@ -16,6 +16,7 @@ pub(super) fn claim_failure(error: &facts::Error) -> Failure {
         | facts::Error::QuoteMismatch { .. } => Failure::failed_by(error),
         facts::Error::Unauthorized
         | facts::Error::Invalid(_)
+        | facts::Error::ResolutionRejected
         | facts::Error::UnknownBuild(_)
         | facts::Error::Unfinished { .. }
         | facts::Error::OverBudget { .. }

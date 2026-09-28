@@ -748,6 +748,7 @@ in place.
 │       │   │   ├── tests/                                                   # Tests of the first table rule: its closed form, the claims it extracts
 │       │   │   │   ├── build.rs                                             # Every frozen build field participates in submission identity
 │       │   │   │   ├── mod.rs                                               # Tests of the first table rule: its closed form, the claims it extracts
+│       │   │   │   ├── record_resolution.rs                                 # Record-time semantic validation must not poison immutable snapshot history
 │       │   │   │   ├── resolve.rs                                           # Scoped identities and explicit, half-open validity ordering
 │       │   │   │   ├── rules.rs                                             # The closed table rule: what it refuses to read, the DEFAULTS_TO claims
 │       │   │   │   ├── support.rs                                           # What the graph tests share: the frozen synthetic defaults table of plan

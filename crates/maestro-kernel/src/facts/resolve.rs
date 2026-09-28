@@ -117,15 +117,19 @@ impl Database {
     /// Record a sourced snapshot, replaying identical input idempotently.
     /// Requires request coverage and current grants for every source. Reviews
     /// cannot add names, sources or literal nodes absent from the claims.
+    /// The validator checks the complete proposed snapshot inside the write
+    /// transaction, before insertion. It must perform no I/O or reentrant writes.
     ///
     /// # Errors
     /// Returns [`Error::Unauthorized`] for inaccessible inputs, [`Error::Invalid`]
-    /// for unsourced decisions, and [`Error::Store`] for storage failures.
+    /// for unsourced decisions, the validator's typed refusal, or [`Error::Store`]
+    /// for storage failures.
     pub fn record_resolution(
         &self,
         request: &ScopeSet,
         principal: &str,
         input: &ResolutionInput,
+        validate: &dyn Fn(&ResolutionSnapshot) -> Result<(), Error>,
     ) -> Result<ResolutionSnapshot, Error> {
         self.write(|transaction| {
             // Refresh after acquiring the writer: a revocation cannot commit mid-write.
@@ -162,6 +166,8 @@ impl Database {
             let body = serde_json::to_string(&stored)
                 .map_err(|_| invalid("invalid resolution payload"))?;
             let id = Digest::of(format!("maestro-resolution/1:{body}").as_bytes());
+            let proposed = snapshot(id.clone(), stored, claims)?;
+            validate(&proposed)?;
             transaction.execute(
                 "INSERT INTO graph_resolutions (id, previous_id, reviewer, body)
                  SELECT ?1, ?2, ?3, ?4
@@ -173,7 +179,7 @@ impl Database {
                     body
                 ],
             )?;
-            snapshot(id, stored, claims)
+            Ok(proposed)
         })
     }
 

@@ -37,11 +37,11 @@ fn sourced_reviews_are_reversible_without_changing_old_snapshots() {
         }],
     };
     let first = database
-        .record_resolution(&scopes, "reviewer", &input)
+        .record_resolution(&scopes, "reviewer", &input, &|_| Ok(()))
         .unwrap();
     assert_eq!(
         database
-            .record_resolution(&scopes, "reviewer", &input)
+            .record_resolution(&scopes, "reviewer", &input, &|_| Ok(()))
             .unwrap(),
         first
     );
@@ -57,7 +57,7 @@ fn sourced_reviews_are_reversible_without_changing_old_snapshots() {
         ..input
     };
     let second = database
-        .record_resolution(&scopes, "reviewer", &reversed)
+        .record_resolution(&scopes, "reviewer", &reversed, &|_| Ok(()))
         .unwrap();
     assert_ne!(first.id, second.id);
     assert_eq!(second.history.len(), 2);
@@ -125,7 +125,7 @@ fn cross_collection_alias_and_history_disappear_when_either_grant_is_revoked() {
         }],
     };
     let snapshot = database
-        .record_resolution(&scopes, "reviewer", &input)
+        .record_resolution(&scopes, "reviewer", &input, &|_| Ok(()))
         .unwrap();
     let denied_request = database.visible("ungranted").unwrap();
     assert_eq!(
@@ -153,7 +153,7 @@ fn cross_collection_alias_and_history_disappear_when_either_grant_is_revoked() {
         );
         assert!(
             database
-                .record_resolution(&scopes, "reviewer", &input)
+                .record_resolution(&scopes, "reviewer", &input, &|_| Ok(()))
                 .is_err()
         );
         database
@@ -210,7 +210,8 @@ fn review_refuses_unsourced_endpoints_literals_and_empty_reasons() {
                         sets: vec![set.id.clone()],
                         previous: None,
                         decisions: vec![bad]
-                    }
+                    },
+                    &|_| Ok(())
                 )
                 .is_err()
         );
@@ -248,6 +249,7 @@ fn upgrade_preserves_populated_claims_and_unknown_validity() {
                 previous: None,
                 decisions: vec![],
             },
+            &|_| Ok(()),
         )
         .unwrap();
     assert_eq!(snapshot.claims, set.claims);
@@ -282,7 +284,7 @@ fn superseded_conflicting_defaults_keep_qualifiers_and_old_pins() {
         decisions: vec![],
     };
     let old = database
-        .record_resolution(&scopes, "reviewer", &input)
+        .record_resolution(&scopes, "reviewer", &input, &|_| Ok(()))
         .unwrap();
     let decision = Decision {
         left: Mention {
@@ -306,6 +308,7 @@ fn superseded_conflicting_defaults_keep_qualifiers_and_old_pins() {
                 decisions: vec![decision],
                 ..input
             },
+            &|_| Ok(()),
         )
         .unwrap();
     assert_eq!(new.claims, old.claims);
@@ -360,7 +363,7 @@ fn history_cannot_discard_sources_or_reviewer_attribution() {
         decisions: vec![decision],
     };
     let old = database
-        .record_resolution(&scopes, "first", &input)
+        .record_resolution(&scopes, "first", &input, &|_| Ok(()))
         .unwrap();
     let next = ResolutionInput {
         resolver_version: "exact-test/1".to_owned(),
@@ -369,7 +372,7 @@ fn history_cannot_discard_sources_or_reviewer_attribution() {
         ..input
     };
     let new = database
-        .record_resolution(&scopes, "second", &next)
+        .record_resolution(&scopes, "second", &next, &|_| Ok(()))
         .unwrap();
     assert_eq!(new.history[0].reviewer, "first");
     assert!(
@@ -381,7 +384,8 @@ fn history_cannot_discard_sources_or_reviewer_attribution() {
                     resolver_version: "exact-test/1".to_owned(),
                     sets: vec![source.id],
                     ..next
-                }
+                },
+                &|_| Ok(())
             )
             .is_err()
     );
@@ -395,7 +399,8 @@ fn history_cannot_discard_sources_or_reviewer_attribution() {
                     sets: vec![],
                     previous: None,
                     decisions: vec![]
-                }
+                },
+                &|_| Ok(())
             )
             .is_err()
     );
@@ -416,11 +421,11 @@ fn resolver_identity_is_frozen_and_changes_the_snapshot_digest() {
         decisions: vec![],
     };
     let first = database
-        .record_resolution(&scopes, "reviewer", &input)
+        .record_resolution(&scopes, "reviewer", &input, &|_| Ok(()))
         .unwrap();
     input.resolver_version = "normalizer/2".to_owned();
     let second = database
-        .record_resolution(&scopes, "reviewer", &input)
+        .record_resolution(&scopes, "reviewer", &input, &|_| Ok(()))
         .unwrap();
     assert_ne!(first.id, second.id);
     assert_eq!(
@@ -434,7 +439,7 @@ fn resolver_identity_is_frozen_and_changes_the_snapshot_digest() {
     input.resolver_version.clear();
     assert!(
         database
-            .record_resolution(&scopes, "reviewer", &input)
+            .record_resolution(&scopes, "reviewer", &input, &|_| Ok(()))
             .is_err()
     );
 }

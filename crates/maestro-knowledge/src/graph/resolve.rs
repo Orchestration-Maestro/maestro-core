@@ -4,7 +4,8 @@ use crate::lexical::fold;
 use maestro_kernel::{
     artifact::Digest,
     facts::{
-        DecisionKind, Endpoint, EntityName, Mention, Object, ResolutionSnapshot, Support, Validity,
+        DecisionKind, Endpoint, EntityName, Error as FactError, Mention, Object,
+        ResolutionSnapshot, Support, Validity,
     },
 };
 use serde_json::json;
@@ -233,6 +234,17 @@ pub fn resolve_snapshot(
         entity.support_groups.dedup();
     }
     Ok(entities.into_values().collect())
+}
+
+/// Default adapter for the kernel's record-time validation port.
+/// Uses the same resolver as reads, without storing a second derived graph.
+///
+/// # Errors
+/// Returns [`FactError::ResolutionRejected`] if the proposed snapshot cannot resolve.
+pub fn validate_snapshot(snapshot: &ResolutionSnapshot) -> Result<(), FactError> {
+    resolve_snapshot(snapshot)
+        .map(|_| ())
+        .map_err(|_| FactError::ResolutionRejected)
 }
 
 /// Entity endpoints only; typed literal values remain claim properties.

@@ -6,4 +6,5 @@ mod rules;
 mod support;
 mod verify;
 
+mod record_resolution;
 mod resolve;
