@@ -64,6 +64,10 @@ pub(super) struct RungConfiguration {
     pub(super) weights: Weights,
     /// The reranker and its depth, absent when reranking is off.
     pub(super) rerank: Option<Rerank>,
+    /// The least top reranker score `ask` answers from; absent, or when
+    /// rerank does not run, `ask` answers whatever the score. JSON holds no
+    /// non-finite number, and parsing refuses one beyond `f32`.
+    pub(super) min_rerank_score: Option<f32>,
 }
 
 /// Which routes run.
@@ -129,6 +133,7 @@ impl RungConfiguration {
                 .map_or(SearchConfiguration::default().rerank_depth, |rerank| {
                     rerank.depth
                 }),
+            min_rerank_score: self.min_rerank_score,
         }
     }
 

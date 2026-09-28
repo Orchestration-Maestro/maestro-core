@@ -6,7 +6,7 @@ use super::{
     super::{
         comparison::{Comparison, write_comparison},
         reports::{Binary, PrivateRow, RungReport, write_rung},
-        runner::{RungRun, run_ladder},
+        runner::{RungRun, SearchDiagnostic, run_ladder},
     },
     support::{FakeEngine, RERANKER, rung, suite},
 };
@@ -44,9 +44,9 @@ pub(super) fn to_json(value: &impl serde::Serialize) -> Value {
 fn a_private_row_holds_ids_ranks_citations_refusals_and_timings() {
     let runs = runs();
     let rows = &runs[0].rows;
-    let bundles = &runs[0].bundle_documents;
-    let answered = to_json(&PrivateRow::new(&rows[0], &bundles[0], true));
-    let refused = to_json(&PrivateRow::new(&rows[2], &bundles[2], true));
+    let diagnostics = &runs[0].diagnostics;
+    let answered = to_json(&PrivateRow::new(&rows[0], &diagnostics[0], true));
+    let refused = to_json(&PrivateRow::new(&rows[2], &diagnostics[2], true));
 
     let keys: Vec<&str> = answered
         .as_object()
@@ -67,7 +67,9 @@ fn a_private_row_holds_ids_ranks_citations_refusals_and_timings() {
             "ranked_documents",
             "refusal",
             "search",
-            "search_us"
+            "search_us",
+            "top_fused_score",
+            "top_rerank_score"
         ]
     );
     assert_eq!(answered["id"], "a0");
@@ -88,12 +90,42 @@ fn a_private_row_holds_ids_ranks_citations_refusals_and_timings() {
 }
 
 #[test]
+fn a_private_row_carries_the_top_rerank_and_fused_scores() {
+    let runs = runs();
+    let reranked = to_json(&PrivateRow::new(
+        &runs[0].rows[0],
+        &runs[0].diagnostics[0],
+        true,
+    ));
+    let fused_only = to_json(&PrivateRow::new(
+        &runs[1].rows[0],
+        &runs[1].diagnostics[0],
+        true,
+    ));
+
+    assert_eq!(
+        (
+            reranked["top_rerank_score"].clone(),
+            reranked["top_fused_score"].clone()
+        ),
+        (json!(0.75), json!(0.05))
+    );
+    assert_eq!(
+        (
+            fused_only["top_rerank_score"].clone(),
+            fused_only["top_fused_score"].clone()
+        ),
+        (Value::Null, json!(0.05))
+    );
+}
+
+#[test]
 fn a_row_of_a_rung_that_does_not_ask_holds_no_ask() {
     let runs = runs();
     let mut row = runs[0].rows[2].clone();
     row.search.outcome = SearchOutcome::TimedOut;
     row.ask.outcome = AskOutcome::Refused(RefusalCode::NotFound);
-    let unasked = to_json(&PrivateRow::new(&row, &[], false));
+    let unasked = to_json(&PrivateRow::new(&row, &SearchDiagnostic::default(), false));
 
     assert_eq!(unasked["search"], "timed_out");
     assert_eq!(unasked["ranked_documents"], json!([]));
@@ -206,7 +238,7 @@ fn a_private_row_gives_its_times_in_microseconds() {
     let mut row = runs[0].rows[0].clone();
     row.search.elapsed = Duration::from_micros(1_234_567);
     row.ask.elapsed = Duration::from_micros(7_654_321);
-    let json = to_json(&PrivateRow::new(&row, &[], true));
+    let json = to_json(&PrivateRow::new(&row, &SearchDiagnostic::default(), true));
 
     assert_eq!(
         (json["search_us"].clone(), json["ask_us"].clone()),
@@ -222,11 +254,7 @@ fn a_right_document_ranked_7th_but_not_assembled_is_in_the_top_10() {
     };
     let runs = run_ladder(&mut engine, &suite(2, 1), 0, &[rung("r0")], |_| Ok(())).unwrap();
     let run = &runs[0];
-    let row = to_json(&PrivateRow::new(
-        &run.rows[0],
-        &run.bundle_documents[0],
-        true,
-    ));
+    let row = to_json(&PrivateRow::new(&run.rows[0], &run.diagnostics[0], true));
 
     assert_eq!(row["expected_rank"], 7);
     assert_eq!(row["ranked_documents"].as_array().unwrap().len(), 10);

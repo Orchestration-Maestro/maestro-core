@@ -209,6 +209,12 @@ path = "crates/maestro-knowledge/src/search/mod.rs"
 item = "search"
 reason = "ask is its only in-crate caller; CLI, MCP and integration-test consumers are in other crates"
 
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-knowledge/src/search/mod.rs"
+item = "top_rerank_score"
+reason = "ask's relevance threshold is its only in-crate caller; the ladder's private rows in the maestro crate read it too"
+
 # The quality gate's reader of the revisions it lets through: the gate owns
 # eligibility, so the preparation (T023) reads it rather than deciding again,
 # and the gate's contract tests call it from outside the crate's sources.

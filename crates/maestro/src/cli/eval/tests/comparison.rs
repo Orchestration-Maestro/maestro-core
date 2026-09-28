@@ -175,5 +175,5 @@ fn a_rung_that_does_not_ask_shows_not_run_and_no_change() {
         "{row}"
     );
     assert!(row.ends_with(" | not run | not run |"), "{row}");
-    assert!(!row.contains("0.000 ms"));
+    assert_eq!(row.split(" | ").nth(9), Some("not run"), "{row}");
 }

@@ -2,7 +2,7 @@
 
 use super::super::{
     manifest::{Rerank, Routes, Rung, RungConfiguration, Weights},
-    runner::{Engine, Provenance, Searched},
+    runner::{Engine, Provenance, SearchDiagnostic, Searched},
 };
 use crate::failure::Failure;
 use maestro_knowledge::{
@@ -70,6 +70,7 @@ pub(super) fn rung(name: &str) -> Rung {
                 card: RERANKER.to_owned(),
                 depth: NonZeroUsize::new(30).unwrap(),
             }),
+            min_rerank_score: None,
         },
         ask: true,
     }
@@ -130,6 +131,16 @@ impl FakeEngine {
             question: question.to_owned(),
             configuration: rung.configuration.search(),
         });
+    }
+}
+
+/// A search's diagnostic whose evidence holds `bundle_documents`: a top
+/// reranker score of 0.75 when `rung` reranks, and a top fused score of 0.05.
+fn diagnostic(rung: &Rung, bundle_documents: Vec<String>) -> SearchDiagnostic {
+    SearchDiagnostic {
+        bundle_documents,
+        top_rerank_score: rung.configuration.rerank.as_ref().map(|_| 0.75),
+        top_fused_score: Some(0.05),
     }
 }
 
@@ -199,12 +210,12 @@ impl Engine for FakeEngine {
             ranked.extend_from_slice(&others[6..]);
             return Searched {
                 outcome: SearchOutcome::Ranked(ranked),
-                bundle_documents: others[..3].to_vec(),
+                diagnostic: diagnostic(rung, others[..3].to_vec()),
             };
         }
         Searched {
             outcome: SearchOutcome::Ranked(vec![right.clone()]),
-            bundle_documents: vec![right],
+            diagnostic: diagnostic(rung, vec![right]),
         }
     }
 

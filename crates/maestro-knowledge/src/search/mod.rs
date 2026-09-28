@@ -27,5 +27,7 @@ pub use request::{
     EvidenceInput, SearchConfiguration, SearchContext, SearchError, SearchObservations,
     SearchRequest,
 };
-pub use rerank::{Candidate, Ranked, Reranked, Reranker, rerank};
+pub use rerank::{
+    Candidate, Ranked, Reranked, Reranker, rerank, top_fused_score, top_rerank_score,
+};
 pub use routes::outcome::{RouteOutcome, StructuredOutcome};

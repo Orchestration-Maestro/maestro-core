@@ -1,7 +1,10 @@
 use super::{
     AnswerCitation, AskBudget, AskError, AskRequest, RefusalCode, RegisteredAnswerer, Rejection,
 };
-use super::{generate::answer_bundle, prompt::prompt};
+use super::{
+    generate::{Relevance, answer_bundle, answer_relevant},
+    prompt::prompt,
+};
 use maestro_kernel::{
     artifact::{Digest, Store},
     evidence::{Budget, Bundle, Passage, RequestBudget, RouteStatus, Schema, Span, Trace},
@@ -443,3 +446,5 @@ mod explain;
 mod guardrails;
 #[path = "tests/requests.rs"]
 mod requests;
+#[path = "tests/threshold.rs"]
+mod threshold;

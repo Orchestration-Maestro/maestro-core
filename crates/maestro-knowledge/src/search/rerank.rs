@@ -73,6 +73,22 @@ pub struct Ranked {
     pub score: Option<f64>,
 }
 
+/// The reranker score of the first of `ranked`, the highest one; none when
+/// rerank did not run.
+#[must_use]
+pub fn top_rerank_score(ranked: &[Ranked]) -> Option<f64> {
+    ranked.first().and_then(|item| item.score)
+}
+
+/// The highest fused score of `ranked`, whatever their order.
+#[must_use]
+pub fn top_fused_score(ranked: &[Ranked]) -> Option<f64> {
+    ranked
+        .iter()
+        .map(|item| item.candidate.fused.score)
+        .reduce(f64::max)
+}
+
 /// Candidates in final order and whether reranking was available.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Reranked {

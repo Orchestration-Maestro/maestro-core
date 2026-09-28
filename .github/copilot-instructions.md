@@ -622,7 +622,8 @@ in place.
 │       │   │   ├── tests/                                                   # Integration tests
 │       │   │   │   ├── explain.rs                                           # Rust source: explain
 │       │   │   │   ├── guardrails.rs                                        # Rust source: guardrails
-│       │   │   │   └── requests.rs                                          # Rust source: requests
+│       │   │   │   ├── requests.rs                                          # Rust source: requests
+│       │   │   │   └── threshold.rs                                         # The reranker relevance threshold: below it, ask refuses without chat
 │       │   │   ├── validate/                                                # Deterministic support checks for buffered answerer replies
 │       │   │   │   └── tests.rs                                             # Rust source: tests
 │       │   │   ├── generate.rs                                              # The bounded search-to-answer state machine and refusal handling
@@ -877,6 +878,7 @@ in place.
 │       │   │   │   ├── routes.rs                                            # Pure route helpers: Qdrant scope filters and ranked-hit cleanup
 │       │   │   │   ├── stages.rs                                            # The outcome each end of a search, a route or the rerank gives its stage
 │       │   │   │   ├── support.rs                                           # Scratch kernel records for the bounded candidate handoff
+│       │   │   │   ├── top_scores.rs                                        # Rust source: top scores
 │       │   │   │   └── window_boundaries.rs                                 # Rust source: window boundaries
 │       │   │   ├── admission.rs                                             # Request bounds, scope snapshots and generation admission
 │       │   │   ├── candidates.rs                                            # Scoped prepared-input loading for the fused candidate IDs only

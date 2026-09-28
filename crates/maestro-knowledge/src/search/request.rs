@@ -65,6 +65,9 @@ pub struct SearchConfiguration {
     pub rerank_enabled: bool,
     /// Fused candidates passed to reranking, capped at 120.
     pub rerank_depth: NonZeroUsize,
+    /// The least top reranker score `ask` answers from, when rerank ran;
+    /// search results are never filtered by it.
+    pub min_rerank_score: Option<f32>,
 }
 
 impl Default for SearchConfiguration {
@@ -83,6 +86,7 @@ impl Default for SearchConfiguration {
             structured_weight: 1.0,
             rerank_enabled: true,
             rerank_depth: DEFAULT_DEPTH,
+            min_rerank_score: None,
         }
     }
 }

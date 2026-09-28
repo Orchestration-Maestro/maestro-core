@@ -8,4 +8,5 @@ mod route_setup;
 mod routes;
 mod stages;
 mod support;
+mod top_scores;
 mod window_boundaries;

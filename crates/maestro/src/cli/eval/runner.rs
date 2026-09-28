@@ -44,14 +44,24 @@ impl Provenance {
 }
 
 /// What a search gave the ladder.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub(super) struct Searched {
     /// How it ended: when ranked, the distinct documents of its final ranked
     /// chunks, before evidence assembly, the first 10, which the floors score.
     pub(super) outcome: SearchOutcome,
-    /// The documents of its assembled evidence, in rank order: a diagnostic,
-    /// never scored.
+    /// What else it gave, never scored.
+    pub(super) diagnostic: SearchDiagnostic,
+}
+
+/// What a search gave beyond what the floors score: diagnostics only.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub(super) struct SearchDiagnostic {
+    /// The documents of its assembled evidence, in rank order.
     pub(super) bundle_documents: Vec<String>,
+    /// The top reranker score, absent when rerank did not run.
+    pub(super) top_rerank_score: Option<f64>,
+    /// The top fused score, absent when nothing was fused.
+    pub(super) top_fused_score: Option<f64>,
 }
 
 /// The machine a ladder runs on: the kernel, the router and the search
@@ -100,8 +110,8 @@ pub(super) struct RungRun {
     pub(super) warm_ups: usize,
     /// Each scored question's row, in the suite's order.
     pub(super) rows: Vec<LadderQuestion>,
-    /// The documents of each row's assembled evidence, in rank order.
-    pub(super) bundle_documents: Vec<Vec<String>>,
+    /// Each row's search diagnostic.
+    pub(super) diagnostics: Vec<SearchDiagnostic>,
     /// The floors.
     pub(super) score: LadderScore,
 }
@@ -210,7 +220,7 @@ fn run_rung(
             engine.ask(rung, &question.question);
         }
     }
-    let (rows, bundle_documents): (Vec<LadderQuestion>, Vec<Vec<String>>) = suite
+    let (rows, diagnostics): (Vec<LadderQuestion>, Vec<SearchDiagnostic>) = suite
         .questions
         .iter()
         .zip(expected)
@@ -231,7 +241,7 @@ fn run_rung(
                 search,
                 ask: Ask { outcome, elapsed },
             };
-            (row, searched.bundle_documents)
+            (row, searched.diagnostic)
         })
         .unzip();
     let end = engine.provenance(rung)?;
@@ -248,7 +258,7 @@ fn run_rung(
         end,
         warm_ups,
         rows,
-        bundle_documents,
+        diagnostics,
         score,
     })
 }

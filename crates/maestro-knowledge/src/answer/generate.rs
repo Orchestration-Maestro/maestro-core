@@ -14,7 +14,7 @@ use crate::{
     search::{
         SearchConfiguration, SearchRequest,
         evidence::{EvidenceCounter, assemble_evidence},
-        search,
+        search, top_rerank_score,
     },
 };
 use maestro_kernel::{
@@ -62,6 +62,10 @@ pub async fn ask_configured<P: ModelPort + Sync>(
     let input = search(&context.search, &search_request)
         .await
         .map_err(AskError::Search)?;
+    let relevance = Relevance {
+        min_rerank_score: configuration.min_rerank_score,
+        top_rerank_score: top_rerank_score(&input.ranked),
+    };
     let bundle = assemble_evidence(
         context.search.database.clone(),
         input,
@@ -69,7 +73,50 @@ pub async fn ask_configured<P: ModelPort + Sync>(
     )
     .await
     .map_err(AskError::Evidence)?;
-    answer_bundle(context.port, request, context.answerer.as_ref(), bundle).await
+    answer_relevant(
+        context.port,
+        request,
+        context.answerer.as_ref(),
+        bundle,
+        relevance,
+    )
+    .await
+}
+
+/// The reranker's top score for one search and the least one `ask` answers
+/// from.
+#[derive(Debug, Clone, Copy)]
+pub(super) struct Relevance {
+    /// The configured threshold, when one is set.
+    pub(super) min_rerank_score: Option<f32>,
+    /// The top reranker score, absent when rerank did not run.
+    pub(super) top_rerank_score: Option<f64>,
+}
+
+impl Relevance {
+    /// Whether rerank ran and its top score is below the threshold.
+    fn is_below_threshold(self) -> bool {
+        self.min_rerank_score
+            .zip(self.top_rerank_score)
+            .is_some_and(|(min, top)| top < f64::from(min))
+    }
+}
+
+/// As [`answer_bundle`], but refuses with `no_evidence`, without chat, when
+/// `relevance` is below its threshold.
+pub(super) async fn answer_relevant<P: ModelPort + Sync>(
+    port: &P,
+    request: &AskRequest,
+    answerer: Option<&RegisteredAnswerer>,
+    bundle: Bundle,
+    relevance: Relevance,
+) -> Result<Answer, AskError> {
+    if relevance.is_below_threshold() {
+        let language = response_language(request);
+        let response = ResponseContext::new(request, &bundle, answerer, language)?;
+        return Ok(response.refused(RefusalCode::NoEvidence, below_threshold_message(language)));
+    }
+    answer_bundle(port, request, answerer, bundle).await
 }
 
 /// Validates caller bounds without imposing language-detection rules.
@@ -264,6 +311,11 @@ impl<'a> ResponseContext<'a> {
 
     /// Builds a host-written refusal without returning passage text.
     fn refusal(&self, code: RefusalCode) -> Answer {
+        self.refused(code, refusal_message(code, self.language))
+    }
+
+    /// Builds a refusal with `code` and the host-written `message`.
+    fn refused(&self, code: RefusalCode, message: &str) -> Answer {
         Answer {
             schema: ANSWER_SCHEMA.to_owned(),
             collection: self.bundle.collection.clone(),
@@ -276,7 +328,7 @@ impl<'a> ResponseContext<'a> {
             uncalibrated: true,
             refusal: Some(AnswerRefusal {
                 code,
-                message: refusal_message(code, self.language).to_owned(),
+                message: message.to_owned(),
             }),
             closest: self.closest.clone(),
             rejections: Vec::new(),
@@ -376,5 +428,14 @@ fn refusal_message(code: RefusalCode, language: ResponseLanguage) -> &'static st
         (RefusalCode::NoEvidence, ResponseLanguage::French) => {
             "Aucun passage ne correspond à la question."
         }
+    }
+}
+
+/// Host-owned text of a refusal whose best passage was below the relevance
+/// threshold.
+const fn below_threshold_message(language: ResponseLanguage) -> &'static str {
+    match language {
+        ResponseLanguage::English => "The best passage was below the relevance threshold.",
+        ResponseLanguage::French => "Le meilleur passage est sous le seuil de pertinence.",
     }
 }

@@ -71,7 +71,8 @@ fn a_manifest_holds_its_rungs_and_resolves_its_paths_from_its_directory() {
 
 #[test]
 fn a_rungs_configuration_sets_every_knob_of_search() {
-    let configuration = rung("r1").configuration;
+    let mut configuration = rung("r1").configuration;
+    configuration.min_rerank_score = Some(0.25);
     let search = configuration.search();
 
     assert_eq!(
@@ -88,6 +89,7 @@ fn a_rungs_configuration_sets_every_knob_of_search() {
             structured_weight: 1.0,
             rerank_enabled: true,
             rerank_depth: search.rerank_depth,
+            min_rerank_score: Some(0.25),
         }
     );
     assert_eq!(search.rerank_depth.get(), 30);
@@ -153,6 +155,28 @@ fn each_rung_search_would_refuse_is_refused() {
             refusal(&changed)
         );
     }
+}
+
+#[test]
+fn a_rung_sets_a_relevance_threshold_and_parsing_refuses_one_beyond_f32() {
+    let mut threshold = manifest();
+    threshold["rungs"][1]["configuration"]["min_rerank_score"] = json!(0.25);
+    let manifest_with_threshold = parse(&threshold).unwrap();
+    let mut infinite = manifest();
+    infinite["rungs"][1]["configuration"]["min_rerank_score"] = json!(1e300);
+
+    assert_eq!(
+        manifest_with_threshold.rungs[1]
+            .configuration
+            .search()
+            .min_rerank_score,
+        Some(0.25)
+    );
+    assert!(
+        refusal(&infinite).contains("number out of range"),
+        "{}",
+        refusal(&infinite)
+    );
 }
 
 #[test]

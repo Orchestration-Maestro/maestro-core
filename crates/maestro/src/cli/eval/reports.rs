@@ -4,7 +4,7 @@
 
 use super::{
     manifest::RungConfiguration,
-    runner::{Provenance, RungRun, Verdict},
+    runner::{Provenance, RungRun, SearchDiagnostic, Verdict},
 };
 use crate::failure::Failure;
 use maestro_kernel::artifact::Digest;
@@ -154,6 +154,10 @@ pub(super) struct PrivateRow<'run> {
     bundle_documents: &'run [String],
     /// The first of them, from 1, that is an expected document.
     bundle_rank: Option<usize>,
+    /// The search's top reranker score, absent when rerank did not run.
+    top_rerank_score: Option<f64>,
+    /// The search's top fused score, absent when nothing was fused.
+    top_fused_score: Option<f64>,
     /// How its `ask` ended, absent when the rung does not ask.
     ask: Option<&'static str>,
     /// Its `ask`'s time, in microseconds, absent when the rung does not ask.
@@ -174,13 +178,14 @@ struct Citation<'run> {
 }
 
 impl<'run> PrivateRow<'run> {
-    /// The private row of `row`, whose evidence held `bundle_documents` and
-    /// whose `ask` ran when `asked`.
+    /// The private row of `row`, whose search gave `diagnostic` and whose
+    /// `ask` ran when `asked`.
     pub(super) fn new(
         row: &'run LadderQuestion,
-        bundle_documents: &'run [String],
+        diagnostic: &'run SearchDiagnostic,
         asked: bool,
     ) -> Self {
+        let bundle_documents = diagnostic.bundle_documents.as_slice();
         let (search, ranked_documents): (&'static str, &[String]) = match &row.search.outcome {
             SearchOutcome::Ranked(documents) => ("ranked", documents),
             SearchOutcome::Failed => ("failed", &[]),
@@ -212,6 +217,8 @@ impl<'run> PrivateRow<'run> {
             expected_rank,
             bundle_documents,
             bundle_rank,
+            top_rerank_score: diagnostic.top_rerank_score,
+            top_fused_score: diagnostic.top_fused_score,
             ask: asked.then_some(ask),
             ask_us: asked.then(|| micros(row.ask.elapsed)),
             refusal: refusal.filter(|_| asked),
@@ -233,8 +240,8 @@ pub(super) fn write_rung(
     let private = output.join(PRIVATE);
     fs::create_dir_all(&private).map_err(|error| Failure::failed_by(&error))?;
     let mut rows = String::new();
-    for (row, bundle_documents) in run.rows.iter().zip(&run.bundle_documents) {
-        let line = serde_json::to_string(&PrivateRow::new(row, bundle_documents, run.rung.ask))
+    for (row, diagnostic) in run.rows.iter().zip(&run.diagnostics) {
+        let line = serde_json::to_string(&PrivateRow::new(row, diagnostic, run.rung.ask))
             .map_err(|error| Failure::failed_by(&error))?;
         rows.push_str(&line);
         rows.push('\n');

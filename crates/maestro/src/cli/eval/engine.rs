@@ -5,7 +5,7 @@
 
 use super::{
     manifest::Rung,
-    runner::{Engine, Provenance, Searched},
+    runner::{Engine, Provenance, SearchDiagnostic, Searched},
     stages::{StageFailure, stage_failure},
 };
 use crate::{
@@ -31,7 +31,7 @@ use maestro_knowledge::{
         Reranker, SearchConfiguration, SearchContext, SearchError, SearchRequest,
         evidence::{ChunkSetDocuments, EvidenceCounter, EvidenceError, assemble_evidence},
         routes::dense::Embedder,
-        search,
+        search, top_fused_score, top_rerank_score,
     },
     suite::Suite,
 };
@@ -188,7 +188,7 @@ impl Engine for KernelEngine<'_> {
         let (Some(context), Some(held)) = (self.search_context(), &self.held) else {
             return Searched {
                 outcome: SearchOutcome::Failed,
-                bundle_documents: Vec::new(),
+                diagnostic: SearchDiagnostic::default(),
             };
         };
         let configuration = rung.configuration.search();
@@ -196,10 +196,13 @@ impl Engine for KernelEngine<'_> {
             configuration,
             ..SearchRequest::new(&self.collection, question, None, RequestBudget::default())
         };
+        let mut diagnostic = SearchDiagnostic::default();
         let searched = self.runtime.block_on(async {
             let input = Box::pin(search(&context, &request))
                 .await
-                .map_err(|error| (search_failure(&error), Vec::new()))?;
+                .map_err(|error| search_failure(&error))?;
+            diagnostic.top_rerank_score = top_rerank_score(&input.ranked);
+            diagnostic.top_fused_score = top_fused_score(&input.ranked);
             let order = input.observations.reranked_chunk_ids.clone();
             let database = Arc::clone(&self.kernel.database);
             let bundle = Box::pin(assemble_evidence(
@@ -208,28 +211,22 @@ impl Engine for KernelEngine<'_> {
                 EvidenceCounter::Utf8Bytes,
             ))
             .await
-            .map_err(|error| (evidence_failure(&error), Vec::new()))?;
-            let assembled = bundle_documents(&bundle, &order);
+            .map_err(|error| evidence_failure(&error))?;
+            diagnostic.bundle_documents = bundle_documents(&bundle, &order);
             match stage_failure(&configuration, &bundle.routes) {
-                Some(failure) => Err((failure, assembled)),
-                None => Ok((
-                    ranked_documents(&order, |chunk| held.documents.document_of_chunk(chunk)),
-                    assembled,
-                )),
+                Some(failure) => Err(failure),
+                None => Ok(ranked_documents(&order, |chunk| {
+                    held.documents.document_of_chunk(chunk)
+                })),
             }
         });
-        match searched {
-            Ok((ranked, bundle_documents)) => Searched {
-                outcome: SearchOutcome::Ranked(ranked),
-                bundle_documents,
+        Searched {
+            outcome: match searched {
+                Ok(ranked) => SearchOutcome::Ranked(ranked),
+                Err(StageFailure::TimedOut) => SearchOutcome::TimedOut,
+                Err(StageFailure::Failed) => SearchOutcome::Failed,
             },
-            Err((failure, bundle_documents)) => Searched {
-                outcome: match failure {
-                    StageFailure::TimedOut => SearchOutcome::TimedOut,
-                    StageFailure::Failed => SearchOutcome::Failed,
-                },
-                bundle_documents,
-            },
+            diagnostic,
         }
     }
 
