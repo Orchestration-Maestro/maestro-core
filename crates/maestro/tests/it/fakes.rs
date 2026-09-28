@@ -16,14 +16,13 @@ use std::{
 /// What the fake `curl` serves, whatever it is asked for.
 pub(crate) const SERVED: &[u8] = b"not the archive of Qdrant 1.19.1\n";
 
-/// The fake tools, in a directory of the test's home.
+/// The fake tools, in the test home's directory for programs.
 pub(crate) struct Fakes(PathBuf);
 
 impl Fakes {
     /// The fake tools, written in `home` unless they are already.
     pub(crate) fn in_home(home: &Home) -> Self {
-        let fakes = Self(home.root().join("fakes"));
-        fs::create_dir_all(&fakes.0).unwrap();
+        let fakes = Self(home.tools().to_path_buf());
         fs::write(fakes.0.join("served"), SERVED).unwrap();
         fakes.script(
             "curl",

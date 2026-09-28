@@ -15,12 +15,11 @@ use maestro_kernel::{
         },
     },
 };
+use maestro_test_scratch::scratch_directory;
 use std::{
     collections::BTreeMap,
-    env, fs,
+    fs,
     num::{NonZeroU32, NonZeroU64, NonZeroUsize},
-    process,
-    sync::atomic::{AtomicUsize, Ordering},
     time::Duration,
 };
 
@@ -45,7 +44,6 @@ pub(crate) fn digest(hex: &str) -> Digest {
 /// the file `file_digest` names, served by the llama.cpp build
 /// `server_build`.
 pub(super) fn card(role: Role, file_digest: &str, server_build: &str) -> ModelCard {
-    static NEXT: AtomicUsize = AtomicUsize::new(0);
     let fields = CardFields {
         role,
         router_entry: RouterEntry::parse("embed").unwrap(),
@@ -59,11 +57,7 @@ pub(super) fn card(role: Role, file_digest: &str, server_build: &str) -> ModelCa
         },
         suite_results: Vec::new(),
     };
-    let root = env::temp_dir().join(format!(
-        "maestro-knowledge-prepare-{}-{}",
-        process::id(),
-        NEXT.fetch_add(1, Ordering::Relaxed)
-    ));
+    let root = scratch_directory().unwrap();
     let card = ModelCard::record(&Store::new(&root), &fields).unwrap();
     fs::remove_dir_all(&root).unwrap();
     card

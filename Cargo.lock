@@ -837,6 +837,7 @@ dependencies = [
  "clap",
  "maestro-kernel",
  "maestro-knowledge",
+ "maestro-test-scratch",
  "qdrant-client",
  "rmcp",
  "rusqlite",
@@ -874,6 +875,7 @@ dependencies = [
 name = "maestro-kernel"
 version = "0.1.0"
 dependencies = [
+ "maestro-test-scratch",
  "reqwest",
  "rusqlite",
  "schemars",
@@ -892,6 +894,7 @@ version = "0.1.0"
 dependencies = [
  "maestro-canonicalization",
  "maestro-kernel",
+ "maestro-test-scratch",
  "qdrant-client",
  "reqwest",
  "rusqlite",
@@ -905,6 +908,13 @@ dependencies = [
  "tracing",
  "uuid",
  "whatlang",
+]
+
+[[package]]
+name = "maestro-test-scratch"
+version = "0.1.0"
+dependencies = [
+ "rustix",
 ]
 
 [[package]]

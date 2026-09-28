@@ -31,13 +31,12 @@ use maestro_knowledge::{
     answer::{AnswerPrompt, PromptText, PromptVersion},
     index::Qdrant,
 };
+use maestro_test_scratch::scratch_directory;
 use serde_json::{Value, json};
 use std::{
     collections::BTreeMap,
-    env, fs,
+    fs,
     path::{Path, PathBuf},
-    process,
-    sync::atomic::{AtomicUsize, Ordering},
 };
 
 /// An address where nothing listens.
@@ -48,13 +47,7 @@ const PROMPT: &str = r#"{"system": "Réponds précisément.", "user": "Données 
 
 /// A new directory holding `prompt.json` with `text`.
 fn prompt_directory(text: &str) -> PathBuf {
-    static NEXT: AtomicUsize = AtomicUsize::new(0);
-    let root = env::temp_dir().join(format!(
-        "maestro-ladder-prompt-{}-{}",
-        process::id(),
-        NEXT.fetch_add(1, Ordering::Relaxed)
-    ));
-    fs::create_dir_all(&root).unwrap();
+    let root = scratch_directory().unwrap();
     fs::write(root.join("prompt.json"), text).unwrap();
     root
 }

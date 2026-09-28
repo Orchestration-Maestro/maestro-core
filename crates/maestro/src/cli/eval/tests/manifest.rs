@@ -8,8 +8,9 @@ use crate::{cli::output::Output, failure::Failure};
 use maestro_knowledge::search::{
     CandidateContext, SearchConfiguration, SectionClassSet, SectionPrior,
 };
+use maestro_test_scratch::scratch_directory;
 use serde_json::{Value, json};
-use std::{env, fs, num::NonZeroU32, path::Path, process};
+use std::{fs, num::NonZeroU32, path::Path};
 
 /// A manifest of the rungs `r0` and `r1`.
 fn manifest() -> Value {
@@ -231,7 +232,7 @@ fn unknown_and_missing_keys_are_refused() {
 
 #[test]
 fn an_output_directory_that_holds_files_is_refused() {
-    let root = env::temp_dir().join(format!("maestro-ladder-manifest-{}", process::id()));
+    let root = scratch_directory().unwrap();
     fs::create_dir_all(root.join("out")).unwrap();
     let path = root.join("manifest.json");
     fs::write(&path, manifest().to_string()).unwrap();
@@ -257,10 +258,13 @@ fn an_output_directory_that_holds_files_is_refused() {
 
 #[test]
 fn the_ladder_command_refuses_a_manifest_it_cannot_read_before_any_search() {
-    let absent = env::temp_dir().join(format!("maestro-ladder-absent-{}.json", process::id()));
+    let scratch = scratch_directory().unwrap();
 
+    let refused = command::run(Output::new(true), &scratch.join("absent.json"));
+
+    fs::remove_dir(&scratch).unwrap();
     assert!(matches!(
-        command::run(Output::new(true), &absent),
+        refused,
         Err(Failure::Refused(reason)) if reason.contains("cannot read the manifest")
     ));
 }

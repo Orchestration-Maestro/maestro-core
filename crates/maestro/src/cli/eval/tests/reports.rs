@@ -14,8 +14,9 @@ use maestro_knowledge::{
     answer::RefusalCode,
     eval::{AskOutcome, SearchOutcome},
 };
+use maestro_test_scratch::scratch_directory;
 use serde_json::{Value, json};
-use std::{env, fs, process, time::Duration};
+use std::{fs, time::Duration};
 
 /// The binary the tests' reports name.
 pub(super) const BINARY: Binary = Binary {
@@ -294,7 +295,7 @@ fn an_invalid_rung_says_so_in_its_report() {
 fn the_files_hold_no_question_text() {
     let runs = runs();
     let suite = suite(2, 1);
-    let output = env::temp_dir().join(format!("maestro-ladder-reports-{}", process::id()));
+    let output = scratch_directory().unwrap();
     for run in &runs {
         let report = RungReport::new(run, "docs", &suite.digest, BINARY);
         write_rung(&output, run, &report).unwrap();

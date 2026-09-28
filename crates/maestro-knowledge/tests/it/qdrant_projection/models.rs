@@ -11,16 +11,13 @@ use maestro_kernel::{
         card_v2::{Capability, TextFormat},
     },
 };
+use maestro_test_scratch::scratch_directory;
 use serde_json::Value;
 use std::{
     collections::BTreeMap,
-    env, fs, future,
+    fs, future,
     num::{NonZeroU32, NonZeroUsize},
-    process,
-    sync::{
-        Arc, Mutex,
-        atomic::{AtomicUsize, Ordering},
-    },
+    sync::{Arc, Mutex},
 };
 use tokio::sync::Notify;
 
@@ -28,7 +25,6 @@ use tokio::sync::Notify;
 /// `dimensions` when it is an embedder, recorded in a store that is gone
 /// once it is made.
 pub(super) fn card(role: Role, dimensions: usize) -> ModelCard {
-    static NEXT: AtomicUsize = AtomicUsize::new(0);
     let fields = CardFields {
         role,
         router_entry: RouterEntry::parse("embed").unwrap(),
@@ -42,11 +38,7 @@ pub(super) fn card(role: Role, dimensions: usize) -> ModelCard {
         },
         suite_results: Vec::new(),
     };
-    let root = env::temp_dir().join(format!(
-        "maestro-knowledge-qdrant-card-{}-{}",
-        process::id(),
-        NEXT.fetch_add(1, Ordering::Relaxed)
-    ));
+    let root = scratch_directory().unwrap();
     let card = ModelCard::record(&Store::new(&root), &fields).unwrap();
     fs::remove_dir_all(&root).unwrap();
     card
@@ -68,7 +60,6 @@ pub(super) fn v2_embedder_with_query_prefix() -> ModelCard {
 }
 
 fn v2_card_from_fixture(query_prefix: bool) -> ModelCard {
-    static NEXT: AtomicUsize = AtomicUsize::new(0);
     let value: Value = serde_json::from_str(include_str!(
         "../../fixtures/synthetic/evals/model-card-v2.json"
     ))
@@ -80,11 +71,7 @@ fn v2_card_from_fixture(query_prefix: bool) -> ModelCard {
             suffix: String::new(),
         });
     }
-    let root = env::temp_dir().join(format!(
-        "maestro-knowledge-qdrant-v2-card-{}-{}",
-        process::id(),
-        NEXT.fetch_add(1, Ordering::Relaxed)
-    ));
+    let root = scratch_directory().unwrap();
     let card = ModelCard::record_v2(&Store::new(&root), &identity).unwrap();
     fs::remove_dir_all(root).unwrap();
     card

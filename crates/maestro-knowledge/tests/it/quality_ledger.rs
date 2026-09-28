@@ -5,6 +5,7 @@
 
 use maestro_kernel::{artifact::Digest, document::Outcome};
 use maestro_knowledge::quality::{Ledger, LedgerError};
+use maestro_test_scratch::scratch_directory;
 use serde_json::{Value, json};
 use std::{env, error::Error as _, fs, path::PathBuf, process};
 
@@ -111,11 +112,7 @@ fn an_empty_ledger_and_a_missing_one_hold_no_rule() {
 
 #[test]
 fn a_ledger_that_exists_but_cannot_be_read_is_refused() {
-    let directory: PathBuf = env::temp_dir().join(format!(
-        "maestro-knowledge-ledger-directory-{}",
-        process::id()
-    ));
-    fs::create_dir_all(&directory).unwrap();
+    let directory: PathBuf = scratch_directory().unwrap();
     let refused = Ledger::load(&directory);
     fs::remove_dir(&directory).unwrap();
     let Err(error @ LedgerError::Io { .. }) = refused else {
@@ -192,9 +189,7 @@ fn a_rule_that_matches_no_field_or_shares_an_id_is_refused() {
 
 #[test]
 fn a_ledger_is_read_from_its_file() {
-    let directory: PathBuf =
-        env::temp_dir().join(format!("maestro-knowledge-ledger-file-{}", process::id()));
-    fs::create_dir_all(&directory).unwrap();
+    let directory: PathBuf = scratch_directory().unwrap();
     let file = directory.join("ledger.jsonl");
     fs::write(&file, format!("{}\n", rule("only"))).unwrap();
     let read = Ledger::load(&file);

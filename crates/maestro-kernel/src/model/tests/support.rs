@@ -21,28 +21,20 @@ use crate::{
     scope::{Config, LOCAL, Right, Scope, ScopeSet},
     store::{Database, Error as StoreError},
 };
+use maestro_test_scratch::scratch_directory;
 use rusqlite::Connection;
 use std::{
     collections::BTreeMap,
     env, fs,
     num::{NonZeroU32, NonZeroU64, NonZeroUsize},
     path::PathBuf,
-    process,
-    sync::atomic::{AtomicUsize, Ordering},
 };
 
 pub(super) struct Scratch(pub(super) PathBuf);
 
 impl Scratch {
     pub(super) fn new() -> Self {
-        static NEXT: AtomicUsize = AtomicUsize::new(0);
-        let path = env::temp_dir().join(format!(
-            "maestro-model-{}-{}",
-            process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
-        fs::create_dir(&path).unwrap();
-        Self(path)
+        Self(scratch_directory().unwrap())
     }
 
     pub(super) fn open(&self) -> Database {

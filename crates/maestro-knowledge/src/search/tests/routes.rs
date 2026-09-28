@@ -4,13 +4,9 @@ use maestro_kernel::{
     scope::{Right, Scope, ScopeSet},
     store::Database,
 };
+use maestro_test_scratch::scratch_directory;
 use qdrant_client::qdrant::{condition::ConditionOneOf, r#match::MatchValue};
-use std::{
-    env, fs,
-    path::PathBuf,
-    process,
-    sync::atomic::{AtomicUsize, Ordering},
-};
+use std::{fs, path::PathBuf};
 
 use crate::search::{
     filter::{query_filter, scope_filter},
@@ -21,12 +17,7 @@ struct Scratch(PathBuf);
 
 impl Scratch {
     fn new() -> Self {
-        static NEXT: AtomicUsize = AtomicUsize::new(0);
-        Self(env::temp_dir().join(format!(
-            "maestro-search-routes-{}-{}",
-            process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        )))
+        Self(scratch_directory().unwrap())
     }
 }
 

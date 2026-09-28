@@ -14,14 +14,13 @@ use maestro_knowledge::{
     collection::Declaration,
     import::{self, Report},
 };
+use maestro_test_scratch::scratch_directory;
 use rusqlite::{Connection, OpenFlags, types::Value as Column};
 use serde_json::{Value, json};
 use std::{
     collections::BTreeMap,
-    env, fs,
+    fs,
     path::{Path, PathBuf},
-    process,
-    sync::atomic::{AtomicUsize, Ordering},
     time::SystemTime,
 };
 
@@ -37,12 +36,7 @@ pub(super) struct Scratch(PathBuf);
 impl Scratch {
     /// A directory of its own for one test.
     pub(super) fn new() -> Self {
-        static NEXT: AtomicUsize = AtomicUsize::new(0);
-        let path = env::temp_dir().join(format!(
-            "maestro-knowledge-import-{}-{}",
-            process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
+        let path = scratch_directory().unwrap();
         fs::create_dir_all(path.join("corpus")).unwrap();
         Self(path)
     }

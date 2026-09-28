@@ -14,6 +14,7 @@ use maestro_kernel::{
         card_v2::{Capability, ControlValue},
     },
 };
+use maestro_test_scratch::scratch_directory;
 #[expect(
     dead_code,
     reason = "the shared v2 fixture also contains an unused embedder card"
@@ -23,10 +24,9 @@ mod v2_golden;
 
 use std::{
     collections::{BTreeMap, VecDeque},
-    env, fs,
+    fs,
     future::{self, Future},
     path::PathBuf,
-    process,
     sync::{
         Mutex,
         atomic::{AtomicUsize, Ordering},
@@ -168,14 +168,7 @@ impl Scratch {
     }
 
     fn new() -> Self {
-        static NEXT: AtomicUsize = AtomicUsize::new(0);
-        let path = env::temp_dir().join(format!(
-            "maestro-answer-{}-{}",
-            process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
-        fs::create_dir(&path).expect("create scratch card store");
-        Self(path)
+        Self(scratch_directory().unwrap())
     }
 }
 

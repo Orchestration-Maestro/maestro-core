@@ -1,0 +1,14 @@
+[package]
+name = "maestro-test-scratch"
+description = "Where the workspace's tests create their scratch directories"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[target.'cfg(unix)'.dependencies]
+rustix.workspace = true

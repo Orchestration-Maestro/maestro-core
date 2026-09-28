@@ -17,12 +17,9 @@ use maestro_kernel::{
         card_v2::{FlagValue, QualificationMethod},
     },
 };
+use maestro_test_scratch::scratch_directory;
 use serde_json::{Value, json};
-use std::{
-    collections::BTreeSet,
-    env, fs, process,
-    sync::atomic::{AtomicUsize, Ordering},
-};
+use std::{collections::BTreeSet, fs};
 
 #[test]
 fn a_port_that_answers_the_native_goldens_qualifies_after_every_fixture() {
@@ -435,12 +432,7 @@ pub(super) fn v2_card(profile: &TokenizerQualification, model_digest: &str) -> M
 }
 
 fn record_v2_card(identity: &CardIdentity) -> ModelCard {
-    static NEXT: AtomicUsize = AtomicUsize::new(0);
-    let root = env::temp_dir().join(format!(
-        "maestro-knowledge-qualification-v2-{}-{}",
-        process::id(),
-        NEXT.fetch_add(1, Ordering::Relaxed)
-    ));
+    let root = scratch_directory().unwrap();
     let card = ModelCard::record_v2(&Store::new(&root), identity).unwrap();
     fs::remove_dir_all(root).unwrap();
     card

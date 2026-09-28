@@ -11,14 +11,9 @@ use crate::{
     scope::{Right, ScopeSet},
     store::Database,
 };
+use maestro_test_scratch::scratch_directory;
 use serde_json::Map;
-use std::{
-    collections::BTreeMap,
-    env, fs,
-    path::PathBuf,
-    process,
-    sync::atomic::{AtomicUsize, Ordering},
-};
+use std::{collections::BTreeMap, fs, path::PathBuf};
 
 /// A new empty directory under the platform's temporary directory, removed
 /// with everything in it when dropped: after the database a test opened in
@@ -27,14 +22,7 @@ pub(super) struct Scratch(PathBuf);
 
 impl Scratch {
     pub(super) fn new() -> Self {
-        static NEXT: AtomicUsize = AtomicUsize::new(0);
-        let path = env::temp_dir().join(format!(
-            "maestro-kernel-chunk-set-{}-{}",
-            process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
-        fs::create_dir(&path).unwrap();
-        Self(path)
+        Self(scratch_directory().unwrap())
     }
 
     /// The kernel database of this directory, with the revisions `rev-a` and

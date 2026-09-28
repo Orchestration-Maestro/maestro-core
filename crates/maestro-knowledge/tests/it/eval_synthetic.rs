@@ -22,13 +22,14 @@ use maestro_knowledge::{
     eval::{self, Estimate, FailureClass, Header, Report},
     suite::{Question, Resolved, Suite},
 };
+use maestro_test_scratch::scratch_directory;
 use std::{
     collections::{BTreeMap, BTreeSet},
     convert::Infallible,
     env, error, fs,
     num::NonZeroU32,
     path::{Path, PathBuf},
-    process, str,
+    str,
 };
 
 /// The generation the fake retrievals answer from.
@@ -307,10 +308,8 @@ fn a_report_names_the_digest_of_its_suite_file() {
 struct Scratch(PathBuf);
 
 impl Scratch {
-    fn new(name: &str) -> Self {
-        let path = env::temp_dir().join(format!("maestro-knowledge-eval-{name}-{}", process::id()));
-        fs::create_dir(&path).unwrap();
-        Self(path)
+    fn new() -> Self {
+        Self(scratch_directory().unwrap())
     }
 
     /// A kernel in this directory with the collection `synthetic` and
@@ -359,7 +358,7 @@ impl Drop for Scratch {
 fn a_report_is_recorded_under_its_own_collection_generation_and_suite() {
     let mut report = evaluate(oracle);
     report.suite = "handbook".to_owned();
-    let scratch = Scratch::new("recorded");
+    let scratch = Scratch::new();
     let database = scratch.kernel(GENERATION);
     let recorded = eval::record(&database, &report).unwrap();
     assert_eq!(recorded.collection_id, "synthetic");
@@ -375,7 +374,7 @@ fn a_report_is_recorded_under_its_own_collection_generation_and_suite() {
 #[test]
 fn a_report_of_a_generation_the_kernel_lacks_is_refused_naming_it() {
     let report = evaluate(oracle);
-    let scratch = Scratch::new("refused");
+    let scratch = Scratch::new();
     let database = scratch.kernel(GENERATION - 1);
     let error = eval::record(&database, &report).unwrap_err();
     assert!(

@@ -7,15 +7,8 @@ use crate::search::{
     rerank::DEFAULT_DEPTH,
 };
 use maestro_kernel::{evidence::RequestBudget, store::Database};
-use std::{
-    env, fs,
-    num::NonZeroUsize,
-    process,
-    sync::{
-        Arc,
-        atomic::{AtomicUsize, Ordering},
-    },
-};
+use maestro_test_scratch::scratch_directory;
+use std::{fs, num::NonZeroUsize, sync::Arc};
 use tokio::time::Instant;
 
 fn request<'a>(
@@ -53,13 +46,7 @@ fn rejected(request: &SearchRequest<'_>, expected: &str) {
 
 #[tokio::test]
 async fn an_expired_permission_recheck_reports_its_deadline() {
-    static NEXT: AtomicUsize = AtomicUsize::new(0);
-    let path = env::temp_dir().join(format!(
-        "maestro-search-permission-deadline-{}-{}",
-        process::id(),
-        NEXT.fetch_add(1, Ordering::Relaxed)
-    ));
-    fs::create_dir(&path).unwrap();
+    let path = scratch_directory().unwrap();
     let database = Arc::new(Database::open_in(&path).unwrap());
     let scopes = database.visible("reader").unwrap();
     assert!(matches!(

@@ -16,13 +16,14 @@ use super::live_router::embedder_card;
 use maestro_canonicalization::TokenCounter;
 use maestro_kernel::{artifact::Store, gateway::RouterClient};
 use maestro_knowledge::prepare::RouterTokenizer;
-use std::{env, fs, process};
+use maestro_test_scratch::scratch_directory;
+use std::fs;
 
 #[test]
 #[ignore = "needs a model router with free room (T002 redeployed): an older one may unload the \
             chat model; run explicitly"]
 fn the_router_gives_every_parity_fixture_the_native_ids() {
-    let scratch = env::temp_dir().join(format!("maestro-router-parity-{}", process::id()));
+    let scratch = scratch_directory().unwrap();
     let (base, card) = embedder_card(&Store::new(&scratch));
     fs::remove_dir_all(&scratch).unwrap();
     let tokenizer = RouterTokenizer::qualify(RouterClient::new(base).unwrap(), card).unwrap();

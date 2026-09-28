@@ -16,17 +16,14 @@ use maestro_kernel::{
     generation::NewGeneration,
 };
 use maestro_knowledge::index::Qdrant;
+use maestro_test_scratch::scratch_directory;
 use rmcp::{ServerHandler, ServiceExt};
 use serde_json::Value;
 use std::{
-    env, fs,
+    fs,
     future::{self, Future},
     num::{NonZeroU32, NonZeroUsize},
-    process,
-    sync::{
-        Arc, Mutex,
-        atomic::{AtomicUsize, Ordering},
-    },
+    sync::{Arc, Mutex},
     time::Duration,
 };
 use tokio::{
@@ -261,12 +258,7 @@ fn card(weights: &[u8]) -> ModelCard {
 }
 
 fn card_of(role: Role, weights: &[u8]) -> ModelCard {
-    static NEXT: AtomicUsize = AtomicUsize::new(0);
-    let root = env::temp_dir().join(format!(
-        "maestro-mcp-warmup-{}-{}",
-        process::id(),
-        NEXT.fetch_add(1, Ordering::Relaxed)
-    ));
+    let root = scratch_directory().unwrap();
     let fields = CardFields {
         role,
         router_entry: RouterEntry::parse("embed").expect("router entry"),

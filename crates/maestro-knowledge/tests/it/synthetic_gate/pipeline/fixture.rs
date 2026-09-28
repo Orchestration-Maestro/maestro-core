@@ -6,12 +6,11 @@ use super::contract::{
 };
 use maestro_kernel::{artifact::Digest, binding::Bindings};
 use maestro_knowledge::{collection::Declaration, corpus::Entry, suite::Suite};
+use maestro_test_scratch::scratch_directory;
 use std::{
     env, fs,
-    io::ErrorKind,
     path::{Path, PathBuf},
-    process, str,
-    sync::atomic::{AtomicU64, Ordering},
+    str,
 };
 
 pub(super) struct FixtureInputs {
@@ -141,19 +140,9 @@ pub(super) struct Scratch {
 
 impl Scratch {
     pub(super) fn new() -> Result<Self, Failure> {
-        static NEXT: AtomicU64 = AtomicU64::new(0);
-        loop {
-            let path = env::temp_dir().join(format!(
-                "maestro-synthetic-gate-{}-{}",
-                process::id(),
-                NEXT.fetch_add(1, Ordering::Relaxed)
-            ));
-            match fs::create_dir(&path) {
-                Ok(()) => return Ok(Self { path }),
-                Err(error) if error.kind() == ErrorKind::AlreadyExists => {}
-                Err(error) => return Err(Failure::from_error("scratch-directory", error)),
-            }
-        }
+        let path =
+            scratch_directory().map_err(|error| Failure::from_error("scratch-directory", error))?;
+        Ok(Self { path })
     }
 }
 

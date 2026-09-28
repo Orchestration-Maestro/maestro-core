@@ -11,12 +11,12 @@ use maestro_kernel::{
     scope::{Right, Scope, ScopeSet},
     store::Database,
 };
+use maestro_test_scratch::scratch_directory;
 use serde_json::{Map, Value};
 use std::{
     collections::{BTreeMap, HashMap},
-    env, fs,
+    fs,
     path::PathBuf,
-    process,
     sync::{
         Arc,
         atomic::{AtomicUsize, Ordering},
@@ -222,13 +222,7 @@ struct Scratch(PathBuf);
 
 impl Scratch {
     fn new() -> Self {
-        let path = env::temp_dir().join(format!(
-            "maestro-search-candidate-{}-{}",
-            process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
-        fs::create_dir(&path).unwrap();
-        Self(path)
+        Self(scratch_directory().unwrap())
     }
 }
 

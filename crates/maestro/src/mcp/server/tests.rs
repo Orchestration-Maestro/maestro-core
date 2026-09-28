@@ -9,17 +9,13 @@ use crate::{
     knowledge::{RESPONSE_LIMIT_BYTES, RefreshScratch, RequestError},
     mcp::transport::BoundedStdio,
 };
+use maestro_test_scratch::scratch_directory;
 use rmcp::{ServerHandler, ServiceExt, model::ProtocolVersion};
 use serde_json::{Value, json};
 use std::{
-    env, fs,
+    fs,
     path::PathBuf,
-    process,
-    sync::{
-        Arc, Barrier,
-        atomic::{AtomicUsize, Ordering},
-        mpsc,
-    },
+    sync::{Arc, Barrier, mpsc},
     time::Duration,
 };
 use tokio::{
@@ -313,12 +309,7 @@ struct ServerHome(PathBuf);
 
 impl ServerHome {
     fn new() -> Self {
-        static NEXT: AtomicUsize = AtomicUsize::new(0);
-        let root = env::temp_dir().join(format!(
-            "maestro-mcp-server-{}-{}",
-            process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
+        let root = scratch_directory().unwrap();
         let data = root.join("data");
         let config = root.join("config");
         fs::create_dir_all(&data).expect("create data directory");

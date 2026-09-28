@@ -12,10 +12,11 @@ use maestro_kernel::{
     scope::{Right, ScopeSet},
     store::Database,
 };
+use maestro_test_scratch::scratch_directory;
 use serde_json::{Map, Value, json};
 use std::{
     collections::BTreeMap,
-    env, fs,
+    fs,
     path::PathBuf,
     process,
     sync::Arc,
@@ -150,8 +151,7 @@ impl Kernel {
             nanos % 0xff_ffff,
             NEXT.fetch_add(1, Ordering::Relaxed)
         );
-        let directory = env::temp_dir().join(format!("maestro-knowledge-qdrant-{collection}"));
-        fs::create_dir_all(&directory).unwrap();
+        let directory = scratch_directory().unwrap();
         let database = Arc::new(Database::open_in(&directory).unwrap());
         let workspace = "workspace/default".parse().unwrap();
         database

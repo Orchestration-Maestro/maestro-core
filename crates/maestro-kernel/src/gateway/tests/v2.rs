@@ -10,14 +10,14 @@ use super::super::card_v2::{
 use super::super::{CardError, Limits, ModelCard, Role, RouterEntry};
 use super::v2_golden::CANONICAL_V2_CARD;
 use crate::artifact::{Digest, Store};
+use maestro_test_scratch::scratch_directory;
 use serde_json::{Value, json};
 use std::{
     collections::BTreeMap,
-    env, fs,
+    fs,
     num::{NonZeroU32, NonZeroU64, NonZeroUsize},
     path::PathBuf,
-    process, str,
-    sync::atomic::{AtomicUsize, Ordering},
+    str,
 };
 
 pub(super) fn digest(byte: char) -> Digest {
@@ -138,13 +138,7 @@ pub(super) fn card_identity() -> CardIdentity {
 }
 
 pub(super) fn scratch_store() -> (PathBuf, Store) {
-    static NEXT: AtomicUsize = AtomicUsize::new(0);
-    let path = env::temp_dir().join(format!(
-        "maestro-card-v2-{}-{}",
-        process::id(),
-        NEXT.fetch_add(1, Ordering::Relaxed)
-    ));
-    fs::create_dir(&path).unwrap();
+    let path = scratch_directory().unwrap();
     let store = Store::new(&path);
     (path, store)
 }

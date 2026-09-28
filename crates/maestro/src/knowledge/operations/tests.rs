@@ -23,14 +23,13 @@ use maestro_knowledge::{
     index::Qdrant,
     search::{SearchError, evidence::SectionReadError, routes::error::RouteError},
 };
+use maestro_test_scratch::scratch_directory;
 use serde_json::Map;
 use std::{
     collections::BTreeMap,
-    env, fs, io,
+    fs, io,
     num::{NonZeroU32, NonZeroUsize},
     path::PathBuf,
-    process,
-    sync::atomic::{AtomicUsize, Ordering},
 };
 
 const SOURCE: &str = "exact source text";
@@ -43,12 +42,7 @@ pub(crate) struct Scratch(PathBuf);
 
 impl Scratch {
     pub(crate) fn new() -> Self {
-        static NEXT: AtomicUsize = AtomicUsize::new(0);
-        let root = env::temp_dir().join(format!(
-            "maestro-knowledge-refresh-{}-{}",
-            process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
+        let root = scratch_directory().unwrap();
         let data = root.join("data");
         let config = root.join("config");
         fs::create_dir_all(&data).expect("create data directory");
@@ -326,7 +320,7 @@ fn a_search_freezes_the_reranker_selected_for_its_collection() {
 
 #[test]
 fn pinned_embedder_loads_unregistered_v1_cards_and_degrades_for_missing_or_wrong_role() {
-    let root = env::temp_dir().join(format!("maestro-pinned-embedder-{}", process::id()));
+    let root = scratch_directory().unwrap();
     let store = Store::new(&root);
     let embedder = ModelCard::record(&store, &model_card_fields(Role::Embedder))
         .expect("record legacy embedder card");

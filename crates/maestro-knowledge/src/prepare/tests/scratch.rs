@@ -17,16 +17,10 @@ use maestro_kernel::{
     scope::{Right, ScopeSet},
     store::Database,
 };
+use maestro_test_scratch::scratch_directory;
 use rusqlite::{Connection, OpenFlags};
 use serde_json::{Value, json};
-use std::{
-    env,
-    fmt::Write as _,
-    fs,
-    path::PathBuf,
-    process,
-    sync::atomic::{AtomicUsize, Ordering},
-};
+use std::{fmt::Write as _, fs, path::PathBuf};
 
 /// The collection every test prepares.
 pub(crate) const COLLECTION: &str = "notes";
@@ -38,12 +32,7 @@ pub(crate) struct Scratch(PathBuf);
 
 impl Scratch {
     pub(crate) fn new() -> Self {
-        static NEXT: AtomicUsize = AtomicUsize::new(0);
-        let path = env::temp_dir().join(format!(
-            "maestro-knowledge-preparation-{}-{}",
-            process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
+        let path = scratch_directory().unwrap();
         fs::create_dir_all(path.join("corpus")).unwrap();
         Self(path)
     }

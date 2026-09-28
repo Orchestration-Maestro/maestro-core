@@ -22,7 +22,7 @@ static NEXT_REFUSAL_COLLECTION: AtomicU64 = AtomicU64::new(0);
 
 #[test]
 fn real_qdrant_runner_refuses_missing_and_foreign_urls() -> Result<(), Box<dyn Error>> {
-    let directory = TestDirectory::new("maestro-synthetic-refusals")?;
+    let directory = TestDirectory::new()?;
     let missing =
         pipeline::run_real_qdrant_baseline(&directory.path.join("missing"), None).unwrap_err();
     assert_eq!(missing.stage, "qdrant-url");
@@ -102,7 +102,7 @@ fn assert_nonempty_service_is_refused(url: Option<&str>) -> Result<(), Box<dyn E
         client.create_collection(CreateCollectionBuilder::new(&collection).vectors_config(vectors)),
     )?;
 
-    let refusal_dir = TestDirectory::new("maestro-synthetic-nonempty")?;
+    let refusal_dir = TestDirectory::new()?;
     let refusal = pipeline::run_real_qdrant_baseline(&refusal_dir.path.join("report"), Some(url));
     runtime.block_on(client.delete_collection(DeleteCollection {
         collection_name: collection,

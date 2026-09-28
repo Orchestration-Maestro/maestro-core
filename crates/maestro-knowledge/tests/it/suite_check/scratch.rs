@@ -4,13 +4,9 @@
 
 use super::check::{Checked, check};
 use maestro_kernel::artifact::Digest;
+use maestro_test_scratch::scratch_directory;
 use serde_json::{Value, json};
-use std::{
-    env, fs,
-    path::PathBuf,
-    process,
-    sync::atomic::{AtomicUsize, Ordering},
-};
+use std::{fs, path::PathBuf};
 
 /// A document whose sections have, in order, the heading paths `Rotation`,
 /// `Rotation › By size`, `Rotation › Example`, `Rotation › By time` and
@@ -37,12 +33,7 @@ pub(super) struct Scratch(PathBuf);
 impl Scratch {
     /// A directory of its own for one test.
     pub(super) fn new() -> Self {
-        static NEXT: AtomicUsize = AtomicUsize::new(0);
-        let path = env::temp_dir().join(format!(
-            "maestro-knowledge-suite-check-{}-{}",
-            process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
+        let path = scratch_directory().unwrap();
         fs::create_dir_all(path.join("corpus")).unwrap();
         fs::create_dir_all(path.join("evals")).unwrap();
         Self(path)

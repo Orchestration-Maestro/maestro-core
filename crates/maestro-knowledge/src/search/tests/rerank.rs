@@ -8,16 +8,13 @@ use maestro_kernel::{
         SuiteResult,
     },
 };
+use maestro_test_scratch::scratch_directory;
 use std::{
     collections::BTreeMap,
-    env, fs,
+    fs,
     future::{self, Future},
     num::{NonZeroU32, NonZeroUsize},
-    process,
-    sync::{
-        Mutex,
-        atomic::{AtomicUsize, Ordering},
-    },
+    sync::Mutex,
     time::Duration,
 };
 use tokio::{task::yield_now, time::sleep};
@@ -139,12 +136,7 @@ impl ModelPort for FakePort {
 }
 
 pub(super) fn card(role: Role, context_tokens: u32) -> ModelCard {
-    static NEXT: AtomicUsize = AtomicUsize::new(0);
-    let root = env::temp_dir().join(format!(
-        "maestro-knowledge-rerank-{}-{}",
-        process::id(),
-        NEXT.fetch_add(1, Ordering::Relaxed)
-    ));
+    let root = scratch_directory().unwrap();
     let fields = CardFields {
         role,
         router_entry: RouterEntry::parse(if role == Role::Reranker {

@@ -225,7 +225,7 @@ fn no_recorded_field_carries_the_corpus_or_question_text(traced: &Traced) {
 /// collection, and the collection through a dead Qdrant, recorded apart.
 fn traced_synthetic_path() -> Traced {
     let runtime = runtime();
-    let scratch = TestDirectory::new("maestro-stage-spans").unwrap();
+    let scratch = TestDirectory::new().unwrap();
     let card = reranker(&scratch.path);
     let mut run = None;
     let path = Recording::of(|| {
