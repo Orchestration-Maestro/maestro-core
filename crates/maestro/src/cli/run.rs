@@ -9,7 +9,7 @@ use super::{
     },
     ask, backup, collection,
     config::{self, Change, Places},
-    eval, health, import,
+    eval, health, import, model,
     output::{Output, diagnose},
     prepare, publish, quality, retrieve, search, setup, status, verify, wait,
 };
@@ -62,6 +62,7 @@ fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> 
     let registry = Registry::built_in().map_err(|error| Failure::failed_by(&error))?;
     parse_flags(&registry, &arguments.set).map_err(|error| Failure::refused_by(&error))?;
     match &arguments.noun {
+        Noun::Model(command) => model::run(&Kernel::open()?, output, command),
         Noun::Knowledge(KnowledgeCommand::Collections) => {
             retrieve::collections(output, Kernel::open)
         }

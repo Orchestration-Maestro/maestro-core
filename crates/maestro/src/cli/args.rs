@@ -30,6 +30,9 @@ pub(super) enum Noun {
     /// Collections, their imports and their status.
     #[command(subcommand)]
     Knowledge(KnowledgeCommand),
+    /// Register, qualify, select and list model cards.
+    #[command(subcommand)]
+    Model(ModelCommand),
     /// Jobs: long work run under a lease.
     #[command(subcommand)]
     Job(JobCommand),
@@ -70,6 +73,50 @@ pub(super) enum Noun {
         /// The backup directory.
         #[arg(long, value_name = "DIR")]
         from: PathBuf,
+    },
+}
+
+/// What to do with registered model cards.
+#[derive(Debug, Subcommand)]
+pub(super) enum ModelCommand {
+    /// Register a canonical v2 model card for a collection.
+    Register {
+        /// The collection whose registry records the card.
+        #[arg(long)]
+        collection: String,
+        /// The canonical v2 card JSON file.
+        #[arg(long)]
+        card: PathBuf,
+    },
+    /// Qualify a registered reranker card through the model router.
+    Check {
+        /// The collection whose card is checked.
+        #[arg(long)]
+        collection: String,
+        /// The registered card's SHA-256 digest.
+        #[arg(long)]
+        digest: String,
+    },
+    /// Select a card for a role, only after a real eligible evaluation.
+    Select {
+        /// The collection whose role is selected.
+        #[arg(long)]
+        collection: String,
+        /// The role to select.
+        #[arg(long)]
+        role: String,
+        /// The registered card's SHA-256 digest.
+        #[arg(long)]
+        digest: String,
+    },
+    /// List cards, evaluations and current role selections.
+    List {
+        /// The collection to list.
+        #[arg(long)]
+        collection: String,
+        /// Restrict all results to one role.
+        #[arg(long)]
+        role: Option<String>,
     },
 }
 

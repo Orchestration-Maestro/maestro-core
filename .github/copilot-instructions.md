@@ -159,6 +159,7 @@ in place.
 │   │   │   │   ├── import.rs                                                # knowledge import: a leased job in the foreground, its ID first; a rerun follows, takes over or supersedes
 │   │   │   │   ├── lease.rs                                                 # The lease of a job run in the foreground: Holder::run's heartbeat thread and each step renew it
 │   │   │   │   ├── mod.rs                                                   # The commands' door: declarations only
+│   │   │   │   ├── model.rs                                                 # Registering and listing scoped model cards
 │   │   │   │   ├── output.rs                                                # How a command prints: text, or one JSON document under --json; diagnostics on stderr
 │   │   │   │   ├── prepare.rs                                               # knowledge prepare: T023's chunking as a leased job
 │   │   │   │   ├── quality.rs                                               # knowledge quality: the gate as a leased job; its inputs the ledger beside the declaration and the revisions
@@ -269,6 +270,7 @@ in place.
 │   │   │       ├── main.rs                                                  # The one integration-test crate of the binary
 │   │   │       ├── mcp_clients.rs                                           # Client-like MCP stdio round trips over the synthetic collection
 │   │   │       ├── mcp_stdio.rs                                             # The stdio MCP server's process boundary and advertised tools
+│   │   │       ├── model_cli.rs                                             # Registration and listing of scoped model cards through the public CLI
 │   │   │       ├── publish_again.rs                                         # Help for explicit projection recovery
 │   │   │       ├── quality_gates.rs                                         # knowledge quality: its report, a rerun, a gate after an import, the ledger first, failures and refusals
 │   │   │       ├── settings_config.rs                                       # maestro config: the user file preferences.toml, the project file

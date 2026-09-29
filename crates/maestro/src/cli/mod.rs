@@ -12,6 +12,7 @@ mod foreground;
 pub(crate) mod health;
 mod import;
 mod lease;
+mod model;
 mod output;
 mod prepare;
 /// Explicit replacement of a lost published projection.

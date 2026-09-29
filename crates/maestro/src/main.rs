@@ -29,6 +29,14 @@
 //!   chunk or section;
 //! - `maestro knowledge ask --collection <id> --question <text>` answers from
 //!   verified evidence or returns a safe refusal;
+//! - `maestro model register --collection <id> --card <file>` records a
+//!   canonical v2 model card and prints its digest;
+//! - `maestro model check --collection <id> --digest <digest>` runs and records
+//!   reranker health qualification through the router;
+//! - `maestro model select --collection <id> --role <role> --digest <digest>`
+//!   selects only a card with an eligible real evaluation;
+//! - `maestro model list --collection <id> [--role <role>]` lists cards,
+//!   evaluations and current selections;
 //! - `maestro mcp [--workspace <dir>]` serves collection, search,
 //!   exact-retrieval and answer tools over stdio JSON-RPC;
 //! - `maestro config get|set|unset|list|explain|history` reads, changes and
@@ -45,6 +53,28 @@
 //!   backup API and a digest manifest, without creating or migrating it;
 //! - `maestro restore --from <dir>` checks a backup and restores it only when
 //!   the data directory has no kernel database or artifact tree.
+//!
+//! # `model register`, `check`, `select` and `list`
+//!
+//! `model register` accepts a canonical `maestro-model-card/2` JSON file,
+//! validates its identity, and records it in the collection's scoped registry.
+//! Re-registering its digest is a no-op. Its JSON document is
+//! `maestro-cli/model-register/1`; text output includes the digest.
+//!
+//! `model check` is currently the reranker qualification path: it scores the
+//! two built-in positive/negative pairs through the router at
+//! `MAESTRO_ROUTER_URL`, or `http://127.0.0.1:8080`. It records an immutable
+//! real evaluation and receipt whether the gate passes or fails. Its
+//! `maestro-cli/model-check/1` result gives the disposition and first failure;
+//! a failed gate is a completed check, not a command failure. Embedder checks
+//! refuse with a direction to `knowledge prepare`; answerer qualification is
+//! not provided here.
+//!
+//! `model select` relies on the kernel's exact-card, exact-role eligible-real
+//! evaluation rule. A missing evaluation or a role mismatch is refused with
+//! exit 2. `model list` shows registered cards, evaluations and the current
+//! selection in text or `maestro-cli/model-list/1` JSON. All four commands
+//! apply the local principal's collection grants.
 //!
 //! # Output and exit codes
 //!

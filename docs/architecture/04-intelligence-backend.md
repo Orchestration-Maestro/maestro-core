@@ -120,6 +120,7 @@ Built in S1 (B8 in S2), each as a small interface over a deep implementation in
 | **B8 Facts** (S2) | Entities, aliases, relations and claims with provenance and validity | `assert(claim, evidence)`, `supersede`, `query(pattern, as_of)` | No claim without verified evidence; supersession keeps history; ambiguity goes to review, never auto-merged |
 | **B9 Capabilities** | Registry of tools and their effects, exposed through MCP | `register(tool, schema, effects)`, MCP adapters | Every tool declares its effects and required scopes; the Cedar schema is generated from it |
 | **B10 Model gateway** | Router client for generate, embed, rerank and tokenize, bound to model cards | `embed(profile, inputs)`, `rerank(profile, q, docs)`, `tokenize(profile, text)`, `generate(profile, request)` | Every call carries its model card; no implicit model or provider switch |
+| **B10 model registry (S1)** | Collection-scoped v2 card registration, real qualification evidence and explicit role selection | `maestro model register|check|select|list` | Reranker selection requires the recorded, eligible two-pair router health evaluation for that exact card; embedder qualification stays in `knowledge prepare` |
 | **B11 Telemetry** | Traces, metrics, health | `span!` helpers, `health() -> Report` | Diagnostic loss is visible; the journal, not telemetry, is the audit |
 
 **Kernel storage** (SQLite, WAL, `busy_timeout`, short transactions): tables for
