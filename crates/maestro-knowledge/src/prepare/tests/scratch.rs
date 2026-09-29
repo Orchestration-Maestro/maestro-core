@@ -70,7 +70,7 @@ impl Scratch {
 
     /// [`Scratch::corpus`], each document with its path, its title and its
     /// Markdown.
-    pub(super) fn titled_corpus(&self, documents: &[(&str, &str, &str)]) {
+    pub(crate) fn titled_corpus(&self, documents: &[(&str, &str, &str)]) {
         let mut manifest = String::new();
         for (path, title, markdown) in documents {
             let file = self.0.join("corpus").join(path);

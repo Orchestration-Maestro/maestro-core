@@ -229,7 +229,7 @@ in place.
 │   │   │       │   ├── ask_republish.rs                                     # ask keeps the collection's selected reranker after a republish, as
 │   │   │       │   ├── cli_cases.rs                                         # Exact knowledge get CLI behavior
 │   │   │       │   ├── cold_reranker.rs                                     # A cold reranker costs CLI and MCP search only the rerank
-│   │   │       │   ├── evidence_ceiling.rs                                  # CLI and MCP search accept an evidence budget up to the 24,000-byte
+│   │   │       │   ├── evidence_ceiling.rs                                  # CLI and MCP search accept evidence up to the 24,000-byte ceiling and refuse one byte past it
 │   │   │       │   ├── knowledge_search.rs                                  # CLI and MCP search through the shared scoped evidence pipeline
 │   │   │       │   ├── mcp_and_authorization.rs                             # MCP parity, permission refresh, and exact-retrieval refusal cases
 │   │   │       │   ├── mod.rs                                               # CLI and MCP contracts for exact knowledge retrieval
@@ -954,6 +954,8 @@ in place.
 │   │   │   │   │   ├── structured.rs                                        # Exact generation inventories and their separately bounded supports
 │   │   │   │   │   └── tests.rs                                             # Rust source: tests
 │   │   │   │   ├── tests/                                                   # Integration tests
+│   │   │   │   │   ├── rank_stage/                                          # The search's candidate stage end to end: exact texts, optional context
+│   │   │   │   │   │   └── rerank_header.rs                                 # Rust source: rerank header
 │   │   │   │   │   ├── admission.rs                                         # Request-boundary checks before generation admission
 │   │   │   │   │   ├── candidate_enrichment.rs                              # Opt-in reranker enrichment degrades to the indexed chunk, never to a failed search
 │   │   │   │   │   ├── deadlines.rs                                         # Rust source: deadlines

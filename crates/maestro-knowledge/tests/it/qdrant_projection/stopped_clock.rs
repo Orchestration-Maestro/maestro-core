@@ -4,6 +4,7 @@
 
 use maestro_kernel::telemetry::stage::OUTCOME;
 use std::{
+    collections::HashSet,
     fmt,
     future::Future,
     pin::pin,
@@ -70,12 +71,18 @@ impl StageEnd {
     /// Watches for the stage span named `stage`, such as
     /// `retrieval.route.lexical`, to record its outcome.
     pub(super) fn watch(stage: &'static str) -> Self {
+        Self::watch_all(&[stage])
+    }
+
+    /// Watches each `stage` until its outcome has been recorded.
+    pub(super) fn watch_all(stages: &[&'static str]) -> Self {
         LazyLock::force(&SECOND_DISPATCHER);
         let ended = Arc::new(Notify::new());
         let watcher = Watcher {
-            stage,
+            stages: stages.to_vec(),
             ended: Arc::clone(&ended),
             names: Mutex::default(),
+            seen: Mutex::default(),
         };
         Self {
             ended,
@@ -89,15 +96,17 @@ impl StageEnd {
     }
 }
 
-/// The subscriber: it keeps each span's name, and tells `ended` when a span
-/// named `stage` records its outcome.
+/// The subscriber: it keeps each span's name, and tells `ended` when every
+/// watched stage records its outcome.
 struct Watcher {
-    /// The name of the watched stage span.
-    stage: &'static str,
-    /// Told when that span records its outcome.
+    /// The names of the watched stage spans.
+    stages: Vec<&'static str>,
+    /// Told when every watched stage records its outcome.
     ended: Arc<Notify>,
     /// The name of each span; a span's ID is its position + 1.
     names: Mutex<Vec<&'static str>>,
+    /// The watched stages that recorded their outcome.
+    seen: Mutex<HashSet<&'static str>>,
 }
 
 /// Whether a span's recorded values hold its outcome.
@@ -125,8 +134,13 @@ impl Subscriber for Watcher {
         let mut outcome = HasOutcome::default();
         values.record(&mut outcome);
         let position = usize::try_from(span.into_u64() - 1).unwrap();
-        if outcome.0 && self.names.lock().unwrap()[position] == self.stage {
-            self.ended.notify_one();
+        let name = self.names.lock().unwrap()[position];
+        if outcome.0 && self.stages.contains(&name) {
+            let mut seen = self.seen.lock().unwrap();
+            seen.insert(name);
+            if seen.len() == self.stages.len() {
+                self.ended.notify_one();
+            }
         }
     }
 

@@ -208,6 +208,7 @@ impl RequestError {
 
     /// The privacy-safe explanation returned at a public boundary.
     pub(crate) fn message(self) -> &'static str {
+        const _: () = assert!(RequestBudget::MAX_EVIDENCE_BUDGET == 24_000);
         match self {
             Self::InvalidArguments => "arguments do not match the knowledge tool schema",
             Self::InvalidChunkId => "chunk_id must be nonblank and at most 256 UTF-8 bytes",

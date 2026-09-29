@@ -1,8 +1,7 @@
-//! A cold reranker costs CLI and MCP search only the rerank.
-//!
-//! When the selected reranker's model never finishes loading, both return
-//! the fused order, with the rerank reported unavailable, not an error. The
-//! searches ask for a 3 s deadline, not the 30 s default, to stay quick.
+//! A router that refuses immediately as if the model were still loading lets
+//! CLI and MCP search return the fused order with `model_unavailable`. The
+//! deadline path is covered in-process on a stopped clock by
+//! `maestro-knowledge`'s `search_routes/cold_reranker` tests.
 
 use super::super::{
     knowledge_prepare_v2::identity,
@@ -21,7 +20,8 @@ use maestro_kernel::{
 };
 use serde_json::{Value, json};
 use std::{
-    net::{TcpListener, TcpStream},
+    io::{Read, Write},
+    net::TcpListener,
     process::Command,
     thread,
 };
@@ -30,15 +30,18 @@ const QUERY: &str = "What does --force do?";
 /// The deadline the searches ask for, in milliseconds.
 const DEADLINE_MS: u32 = 3000;
 
-/// Serves a loopback router whose models never finish loading: it takes
-/// every request and never answers. Returns its URL.
-fn cold_router() -> String {
+/// Serves a loopback router that refuses each request with 503 immediately.
+pub(super) fn refusing_router() -> String {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let url = format!("http://{}", listener.local_addr().unwrap());
     thread::spawn(move || {
-        let mut held: Vec<TcpStream> = Vec::new();
-        for stream in listener.incoming().flatten() {
-            held.push(stream);
+        for mut stream in listener.incoming().flatten() {
+            let mut request = [0; 4096];
+            let _read = stream.read(&mut request);
+            let _written = stream.write_all(
+                b"HTTP/1.1 503 Service Unavailable\r\ncontent-length: 0\r\n\
+                  connection: close\r\n\r\n",
+            );
         }
     });
     url
@@ -117,8 +120,8 @@ fn a_cold_reranker_degrades_cli_and_mcp_search_to_the_fused_order() {
     let home = Home::new();
     let generation = published_identifier_source(&home);
     select_reranker(&home, generation);
-    let router = cold_router();
-    let unavailable: Value = json!({"unavailable": "deadline_exceeded"});
+    let router = refusing_router();
+    let unavailable: Value = json!({"unavailable": "model_unavailable"});
 
     let cli = Running::of(command(
         &home,

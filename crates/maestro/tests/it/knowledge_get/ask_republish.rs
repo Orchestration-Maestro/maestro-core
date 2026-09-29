@@ -3,33 +3,9 @@
 //! degraded ask is visible.
 
 use super::super::support::{Home, Running, local};
-use super::cold_reranker::select_reranker;
+use super::cold_reranker::{refusing_router, select_reranker};
 use super::knowledge_search::published_identifier_source;
 use maestro_kernel::{generation::NewGeneration, retrieval::IDENTIFIER_PROFILE};
-use std::{
-    io::{Read as _, Write as _},
-    net::TcpListener,
-    thread,
-};
-
-/// Serves a loopback router that refuses every request at once with 503, so
-/// a rerank that runs ends `model_unavailable` long before the deadline, and
-/// a slow machine leaves evidence assembly its time. Returns its URL.
-fn refusing_router() -> String {
-    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-    let url = format!("http://{}", listener.local_addr().unwrap());
-    thread::spawn(move || {
-        for mut stream in listener.incoming().flatten() {
-            let mut request = [0; 4096];
-            let _read = stream.read(&mut request);
-            let _written = stream.write_all(
-                b"HTTP/1.1 503 Service Unavailable\r\ncontent-length: 0\r\n\
-                  connection: close\r\n\r\n",
-            );
-        }
-    });
-    url
-}
 
 /// Publishes a new generation of the published chunk set, as a republish
 /// does, and returns its ID.

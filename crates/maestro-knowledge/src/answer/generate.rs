@@ -153,6 +153,7 @@ fn validate_request(request: &AskRequest) -> Result<(), AskError> {
         return Err(AskError::InvalidRequest("model must be one router entry"));
     }
     if !(1..=RequestBudget::MAX_EVIDENCE_BUDGET).contains(&request.budget.max_tokens) {
+        const _: () = assert!(RequestBudget::MAX_EVIDENCE_BUDGET == 24_000);
         return Err(AskError::InvalidRequest(
             "max_tokens must be between 1 and 24000",
         ));

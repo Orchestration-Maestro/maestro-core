@@ -1,6 +1,7 @@
 //! An expanded search never ends worse than the original one: a failed or
 //! slow second pass, a small budget and revoked rights, through `search`.
 
+use super::super::stopped_clock::{StageEnd, on_stopped_clock};
 use super::{
     configured_search::{clean, published},
     intent_port::{IntentPort, RerankFault, run_configured, search_with},
@@ -12,12 +13,29 @@ use maestro_kernel::{
 use maestro_knowledge::search::{
     IntentExpansion, IntentTrigger, Route, SearchConfiguration, SearchError,
 };
-use std::{num::NonZeroUsize, sync::atomic::Ordering};
-use tokio::time::{Duration, Instant};
+use std::{future, num::NonZeroUsize, sync::atomic::Ordering};
+use tokio::{
+    task::yield_now,
+    time::{Duration, Instant},
+};
 
 /// A reply whose passage and keywords find the filler chunks first.
 pub(super) const FILLER: &str =
     r#"{"passage":"unrelated frequency padding","keywords":"unrelated frequency padding"}"#;
+
+/// Waits for the search to begin its second rerank call.
+async fn second_rerank_started(port: &IntentPort<'_>) {
+    while port.rerank_calls.load(Ordering::SeqCst) < 2 {
+        yield_now().await;
+    }
+}
+
+/// Waits for the first intent-chat request.
+async fn chat_started(port: &IntentPort<'_>) {
+    while port.calls.load(Ordering::SeqCst) == 0 {
+        yield_now().await;
+    }
+}
 
 /// The 1.5 s budget a caller may pass.
 fn small_budget() -> RequestBudget {
@@ -43,29 +61,42 @@ fn low_confidence(mode: IntentExpansion) -> SearchConfiguration {
 async fn a_failed_or_hanging_second_rerank_keeps_the_first_ranking() {
     let fixture = published().await;
     let off = IntentPort::new(&fixture.port, Some(FILLER));
-    let first = search_with(
-        &fixture,
-        &off,
-        "scheduler job",
-        low_confidence(IntentExpansion::Off),
-        small_budget(),
+    let first = on_stopped_clock(
+        future::pending(),
+        Box::pin(search_with(
+            &fixture,
+            &off,
+            "scheduler job",
+            low_confidence(IntentExpansion::Off),
+            small_budget(),
+        )),
     )
     .await
     .unwrap();
     for fault in [RerankFault::Fails, RerankFault::Hangs] {
         let mut port = IntentPort::new(&fixture.port, Some(FILLER));
         port.rerank_fault = Some((1, fault));
-        let started = Instant::now();
-        let result = search_with(
-            &fixture,
-            &port,
-            "scheduler job",
-            low_confidence(IntentExpansion::Hyde),
-            small_budget(),
+        let result = on_stopped_clock(
+            second_rerank_started(&port),
+            Box::pin(async {
+                let started = Instant::now();
+                let result = search_with(
+                    &fixture,
+                    &port,
+                    "scheduler job",
+                    low_confidence(IntentExpansion::Hyde),
+                    small_budget(),
+                )
+                .await
+                .unwrap();
+                assert!(
+                    started.elapsed() <= Duration::from_millis(1500),
+                    "{fault:?}"
+                );
+                result
+            }),
         )
-        .await
-        .unwrap();
-        assert!(started.elapsed() < Duration::from_millis(1500), "{fault:?}");
+        .await;
         assert_eq!(port.rerank_calls.load(Ordering::SeqCst), 2, "{fault:?}");
         assert_eq!(result.ranked, first.ranked, "{fault:?}");
         assert_eq!(result.routes["rerank"], RouteStatus::Ok, "{fault:?}");
@@ -87,21 +118,35 @@ async fn always_mode_at_a_small_budget_still_reranks_the_originals() {
     let fixture = published().await;
     let mut port = IntentPort::new(&fixture.port, Some(FILLER));
     port.delay = Duration::from_secs(5);
-    let started = Instant::now();
-    let result = search_with(
-        &fixture,
-        &port,
-        "scheduler job",
-        SearchConfiguration {
-            intent_expansion: IntentExpansion::Hyde,
-            intent_deadline_ms: 5000,
-            ..SearchConfiguration::default()
+    let routes = StageEnd::watch_all(&[
+        "retrieval.route.dense",
+        "retrieval.route.lexical",
+        "retrieval.route.identifier",
+    ]);
+    let result = on_stopped_clock(
+        async {
+            tokio::join!(chat_started(&port), routes.ended());
         },
-        small_budget(),
+        Box::pin(async {
+            let started = Instant::now();
+            let result = search_with(
+                &fixture,
+                &port,
+                "scheduler job",
+                SearchConfiguration {
+                    intent_expansion: IntentExpansion::Hyde,
+                    intent_deadline_ms: 5000,
+                    ..SearchConfiguration::default()
+                },
+                small_budget(),
+            )
+            .await
+            .unwrap();
+            assert!(started.elapsed() <= Duration::from_millis(1500));
+            result
+        }),
     )
-    .await
-    .unwrap();
-    assert!(started.elapsed() < Duration::from_millis(1500));
+    .await;
     assert_eq!(
         result.routes["intent_expansion"],
         RouteStatus::Unavailable("intent_deadline_exceeded".to_owned())

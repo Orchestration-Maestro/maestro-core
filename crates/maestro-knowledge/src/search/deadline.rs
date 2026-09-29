@@ -82,9 +82,9 @@ impl Deadlines {
     }
 
     /// The latest optional reranker enrichment may read sources: one
-    /// assembly window before `setup`, so the rerank keeps its time. Under
-    /// [`StageWindow::Derived`], the later stages' reserve before `setup` is
-    /// at least one window, so it never precedes `routes_end`.
+    /// assembly window before `setup`, so the rerank keeps its time. Only
+    /// under [`StageWindow::Derived`] does the later-stage reserve ensure it
+    /// never precedes `routes_end`; fixed windows may end later.
     pub(super) fn enrichment(&self) -> Instant {
         self.setup - self.window
     }

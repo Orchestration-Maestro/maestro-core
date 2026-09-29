@@ -2,6 +2,7 @@
 //! from these types, whose comments are the help it prints.
 
 use clap::{Args, Parser, Subcommand};
+use maestro_kernel::evidence::RequestBudget;
 use std::path::PathBuf;
 use ulid::Ulid;
 
@@ -95,6 +96,9 @@ pub(super) struct PublishArguments {
     #[arg(long)]
     pub(super) again: bool,
 }
+
+// The `--max-tokens` help names this shared evidence ceiling.
+const _: () = assert!(RequestBudget::MAX_EVIDENCE_BUDGET == 24_000);
 
 /// What to do with the knowledge of a collection.
 #[derive(Debug, Subcommand)]

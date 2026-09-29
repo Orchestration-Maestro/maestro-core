@@ -1,5 +1,4 @@
-//! CLI and MCP search accept an evidence budget up to the 24,000-byte
-//! ceiling and refuse one byte past it, naming the ceiling.
+//! CLI and MCP search accept evidence up to the 24,000-byte ceiling and refuse one byte past it.
 
 use super::super::support::{Ended, Home};
 use super::cli_cases::{SET_ID, published_glossary};

@@ -120,12 +120,25 @@ fn assert_get_tool(get: &Value) {
     assert_eq!(get["annotations"]["openWorldHint"], false);
 }
 
+fn assert_ask_budget_schema(ask: &Value) {
+    let budget = &ask["inputSchema"]["$defs"]["AskBudget"]["properties"];
+    assert_eq!(budget["k"]["minimum"], 1);
+    assert_eq!(budget["k"]["maximum"], 50);
+    assert_eq!(budget["max_tokens"]["minimum"], 1);
+    assert_eq!(budget["max_tokens"]["maximum"], 24_000);
+    assert_eq!(budget["search_deadline_ms"]["minimum"], 1);
+    assert_eq!(budget["search_deadline_ms"]["maximum"], 30_000);
+    assert_eq!(budget["output_tokens"]["minimum"], 1);
+    assert_eq!(budget["output_tokens"]["maximum"], 2_048);
+}
+
 fn assert_ask_tool(ask: &Value) {
     assert_eq!(ask["inputSchema"]["type"], "object");
     assert_eq!(ask["inputSchema"]["additionalProperties"], false);
     let required = ask["inputSchema"]["required"].as_array().unwrap();
     assert!(required.contains(&json!("collection")));
     assert!(required.contains(&json!("question")));
+    assert_ask_budget_schema(ask);
     assert_eq!(ask["outputSchema"]["type"], "object");
     assert_eq!(ask["annotations"]["destructiveHint"], false);
     assert_eq!(ask["annotations"]["openWorldHint"], false);

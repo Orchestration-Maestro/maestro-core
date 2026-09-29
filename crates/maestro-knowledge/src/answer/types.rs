@@ -52,17 +52,21 @@ impl ResponseLanguage {
 )]
 pub struct AskBudget {
     /// Maximum passages assembled from search.
+    #[schemars(range(min = 1, max = 50))]
     pub k: u32,
     /// UTF-8-byte evidence budget used by the deliberately uncalibrated flow.
+    #[schemars(range(min = 1, max = RequestBudget::MAX_EVIDENCE_BUDGET))]
     pub max_tokens: u32,
     /// Search and evidence-assembly deadline in milliseconds. Its default,
     /// 30 s, is a safety cap: search loads a cold embedder and a cold
     /// reranker (each load measured 2.4-5.3 s on a busy machine) and still
     /// runs dense and rerank.
+    #[schemars(range(min = 1, max = RequestBudget::MAX_DEADLINE_MS))]
     pub search_deadline_ms: u32,
     /// Maximum generated tokens per chat call; absent, the answerer card's
     /// declared output limit, or 1,024 when it declares none. Every call is
     /// capped at 2,048.
+    #[schemars(range(min = 1, max = MAX_CHAT_OUTPUT_TOKENS))]
     pub output_tokens: Option<u32>,
 }
 

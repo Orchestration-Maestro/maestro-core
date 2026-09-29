@@ -37,15 +37,12 @@ impl RequestBudget {
     pub const MAX_DEADLINE_MS: u32 = 30_000;
 
     /// The largest evidence budget, `max_tokens`, that a search or an ask
-    /// accepts: UTF-8 bytes under the byte counters. The answerer cards'
-    /// contexts, 32,768 and 40,960 tokens, hold it with margin. A byte-level
-    /// BPE token covers at least one byte, so at worst 24,000 evidence bytes
-    /// are 24,000 tokens; with the longest built-in instructions
-    /// (`procedure_first`, 1,416 bytes) and a 2,048-token reply that makes
-    /// 24,000 + 1,416 + 2,048 = 27,464 tokens, which leaves 5,304 of 32,768
-    /// and 13,496 of 40,960 for the question and the chat template. Prose
-    /// runs 3 to 4 bytes a token, so 24,000 bytes are typically 6,000 to
-    /// 8,000 tokens.
+    /// accepts: UTF-8 bytes under the byte counters. The 29,621-token worst
+    /// case (longest prompt, 24,000 evidence bytes, two 2,048-token replies,
+    /// and repair text) fits the 32,768-token card when the answer-bound
+    /// counter is used and the vocabulary has no normalization map. A
+    /// byte-level BPE token covers at least one byte; prose usually runs 3 to
+    /// 4 bytes per token, so 24,000 bytes are typically 6,000 to 8,000 tokens.
     pub const MAX_EVIDENCE_BUDGET: u32 = 24_000;
 
     /// Whether this echo is within the search request bounds.
