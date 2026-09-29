@@ -43,21 +43,18 @@ impl RetrievalProjectionPort for Qdrant {
         collection: &str,
         layout: CollectionLayout,
     ) -> Result<(), ProjectionError> {
-        if !layout
-            .dense
-            .as_ref()
-            .is_some_and(|dense| dense.distance == DenseDistance::Cosine)
+        let Some(dense) = layout.dense else {
+            return Err(ProjectionError::new("unsupported retrieval vector layout"));
+        };
+        if dense.distance != DenseDistance::Cosine
             || !layout.sparse_present
             || layout.sparse_modifier != Some(SparseModifier::Idf)
         {
             return Err(ProjectionError::new("unsupported retrieval vector layout"));
         }
-        self.create(
-            collection,
-            layout.dense.as_ref().map_or(0, |dense| dense.dimensions),
-        )
-        .await
-        .map_err(Into::into)
+        self.create(collection, dense.dimensions)
+            .await
+            .map_err(Into::into)
     }
 
     async fn collection_layout(

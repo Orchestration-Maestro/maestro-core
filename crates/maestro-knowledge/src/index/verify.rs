@@ -85,10 +85,9 @@ pub(super) fn vectors(layout: &CollectionLayout, dimensions: u64) -> Result<(), 
     let sparse = if layout.sparse_present {
         format!(
             "a sparse vector `bm25` weighted by {} modifier",
-            layout.sparse_modifier.map_or_else(
-                || "no".to_owned(),
-                super::projection_port::SparseModifier::label,
-            )
+            layout
+                .sparse_modifier
+                .map_or("no", super::projection_port::SparseModifier::label)
         )
     } else {
         "no sparse vector `bm25`".to_owned()

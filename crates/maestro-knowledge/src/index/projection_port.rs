@@ -22,14 +22,14 @@ pub enum DenseDistance {
 
 impl DenseDistance {
     /// Diagnostic label matching the established verification output.
-    pub(super) fn label(self) -> String {
+    pub(super) fn label(self) -> &'static str {
         match self {
-            Self::Cosine => "Cosine".to_owned(),
-            Self::Euclid => "Euclid".to_owned(),
-            Self::Dot => "Dot".to_owned(),
-            Self::Manhattan => "Manhattan".to_owned(),
-            Self::Unknown => "UnknownDistance".to_owned(),
-            Self::Other => "unknown".to_owned(),
+            Self::Cosine => "Cosine",
+            Self::Euclid => "Euclid",
+            Self::Dot => "Dot",
+            Self::Manhattan => "Manhattan",
+            Self::Unknown => "UnknownDistance",
+            Self::Other => "unknown",
         }
     }
 }
@@ -45,10 +45,10 @@ pub enum SparseModifier {
 
 impl SparseModifier {
     /// Diagnostic label matching the established verification output.
-    pub(super) fn label(self) -> String {
+    pub(super) fn label(self) -> &'static str {
         match self {
-            Self::None => "None".to_owned(),
-            Self::Idf => "Idf".to_owned(),
+            Self::None => "None",
+            Self::Idf => "Idf",
         }
     }
 }

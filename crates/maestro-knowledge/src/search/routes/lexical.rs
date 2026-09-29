@@ -15,7 +15,7 @@ use crate::{
 /// # Errors
 ///
 /// [`RouteError::ProfileMismatch`] when the generation recorded another
-/// analyzer, and [`RouteError::Projection`] when projection backend fails.
+/// analyzer, and [`RouteError::Projection`] when the projection backend fails.
 pub async fn search_bm25<R: RetrievalProjectionPort>(
     query: &Query<'_, R>,
 ) -> Result<Vec<ScoredChunk>, RouteError> {
