@@ -12,7 +12,7 @@ use super::{
     support::{rung_json, suite},
 };
 use crate::failure::Failure;
-use maestro_kernel::gateway::MAX_CHAT_OUTPUT_TOKENS;
+use maestro_kernel::{evidence::RequestBudget, gateway::MAX_CHAT_OUTPUT_TOKENS};
 use maestro_knowledge::answer::{AskBudget, PromptVersion};
 use serde_json::{Value, json};
 use std::path::Path;
@@ -91,7 +91,6 @@ fn ask_settings_outside_asks_limits_are_refused() {
         json!({"k": 0}),
         json!({"k": 51}),
         json!({"max_tokens": 0}),
-        json!({"max_tokens": 12_001}),
         json!({"output_tokens": 0}),
         json!({"output_tokens": MAX_CHAT_OUTPUT_TOKENS + 1}),
     ];
@@ -103,8 +102,19 @@ fn ask_settings_outside_asks_limits_are_refused() {
         );
     }
     assert!(
-        parsed(&json!({"k": 50, "max_tokens": 12_000, "output_tokens": MAX_CHAT_OUTPUT_TOKENS}))
+        parsed(&json!({"k": 50, "max_tokens": 24_000, "output_tokens": MAX_CHAT_OUTPUT_TOKENS}))
             .is_ok()
+    );
+}
+
+#[test]
+fn a_rung_asks_up_to_the_24000_byte_evidence_ceiling_and_is_refused_past_it() {
+    let ceiling = parsed(&json!({"max_tokens": 24_000})).unwrap().unwrap();
+
+    assert_eq!(RequestBudget::from(ceiling.budget()).max_tokens, 24_000);
+    assert_eq!(
+        refusal(&json!({"max_tokens": 24_001})),
+        "the rung `r0` asks for 24001 evidence bytes, over the 24000-byte ceiling"
     );
 }
 

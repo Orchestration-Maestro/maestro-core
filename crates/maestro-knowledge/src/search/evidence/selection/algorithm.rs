@@ -399,8 +399,13 @@ fn fits_trial(
     if rendered.passages.len() > budget.max_passages {
         return Ok((false, rendered));
     }
-    let tokens = count_passages(&rendered.passages, budget.counter, budget.counter_info)
-        .map_err(EvidenceError::from)?;
+    let tokens = count_passages(
+        &rendered.passages,
+        budget.counter,
+        budget.counter_info,
+        budget.max_tokens,
+    )
+    .map_err(EvidenceError::from)?;
     check(budget.control)?;
     Ok((tokens <= budget.max_tokens, rendered))
 }

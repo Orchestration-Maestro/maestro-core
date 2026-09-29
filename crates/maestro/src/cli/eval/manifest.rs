@@ -8,7 +8,7 @@ use super::{
     rung_prompt::RungPrompt,
 };
 use crate::failure::Failure;
-use maestro_kernel::artifact::Digest;
+use maestro_kernel::{artifact::Digest, evidence::RequestBudget};
 use maestro_knowledge::{
     answer::AskBudget,
     search::{
@@ -115,6 +115,21 @@ impl AskSettings {
             max_tokens: self.max_tokens.unwrap_or(default.max_tokens),
             output_tokens: self.output_tokens.or(default.output_tokens),
             ..default
+        }
+    }
+
+    /// Refuses an evidence budget over [`RequestBudget::MAX_EVIDENCE_BUDGET`],
+    /// naming the ceiling.
+    fn check_evidence_budget(&self, rung: &str) -> Result<(), Failure> {
+        match self.max_tokens {
+            Some(bytes) if bytes > RequestBudget::MAX_EVIDENCE_BUDGET => {
+                Err(Failure::refused(format!(
+                    "the rung `{rung}` asks for {bytes} evidence bytes, over the \
+                     {}-byte ceiling",
+                    RequestBudget::MAX_EVIDENCE_BUDGET
+                )))
+            }
+            _ => Ok(()),
         }
     }
 
@@ -420,6 +435,7 @@ fn check_rung(rung: &Rung) -> Result<(), Failure> {
         )));
     }
     if let Some(settings) = &rung.ask {
+        settings.check_evidence_budget(&rung.name)?;
         if !settings.budget().is_within_limits() {
             return Err(Failure::refused(format!(
                 "the rung `{}` has ask settings outside ask's limits",

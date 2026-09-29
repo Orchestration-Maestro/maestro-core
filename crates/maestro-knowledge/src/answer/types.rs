@@ -90,12 +90,13 @@ impl From<AskBudget> for RequestBudget {
 
 impl AskBudget {
     /// Whether every bound is within what `ask` accepts: 1 to 50 passages,
-    /// 1 to 12,000 evidence bytes, 1 to 30,000 ms of search and, when set,
-    /// 1 to [`MAX_CHAT_OUTPUT_TOKENS`] output tokens.
+    /// 1 to [`RequestBudget::MAX_EVIDENCE_BUDGET`] evidence bytes, 1 to
+    /// 30,000 ms of search and, when set, 1 to [`MAX_CHAT_OUTPUT_TOKENS`]
+    /// output tokens.
     #[must_use]
     pub fn is_within_limits(&self) -> bool {
         (1..=50).contains(&self.k)
-            && (1..=12_000).contains(&self.max_tokens)
+            && (1..=RequestBudget::MAX_EVIDENCE_BUDGET).contains(&self.max_tokens)
             && (1..=RequestBudget::MAX_DEADLINE_MS).contains(&self.search_deadline_ms)
             && self
                 .output_tokens

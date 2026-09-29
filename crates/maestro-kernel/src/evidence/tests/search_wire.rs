@@ -84,6 +84,26 @@ fn request_budget_fields_enforce_their_bounds() {
 }
 
 #[test]
+fn a_request_budget_accepts_the_24000_byte_evidence_ceiling_and_names_it_past_it() {
+    let mut at_ceiling = valid_wire();
+    at_ceiling["request_budget"]["max_tokens"] = json!(24_000);
+    at_ceiling["budget"]["limit"] = json!(24_000);
+    assert!(serde_json::from_value::<Bundle>(at_ceiling.clone()).is_ok());
+    let mut past = at_ceiling;
+    past["request_budget"]["max_tokens"] = json!(24_001);
+    past["budget"]["limit"] = json!(24_001);
+
+    let error = serde_json::from_value::<Bundle>(past)
+        .unwrap_err()
+        .to_string();
+
+    assert!(
+        error.contains("max_tokens must be between 1 and 24000"),
+        "{error}"
+    );
+}
+
+#[test]
 fn inventories_require_exact_ordered_groups_and_structured_success() {
     let valid = valid_wire();
     for groups in [

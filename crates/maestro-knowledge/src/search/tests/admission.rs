@@ -61,7 +61,7 @@ async fn an_expired_permission_recheck_reports_its_deadline() {
 fn request_bounds_include_both_endpoints_and_reject_the_next_value() {
     let valid = RequestBudget {
         k: 50,
-        max_tokens: 12_000,
+        max_tokens: 24_000,
         deadline_ms: 30_000,
     };
     assert!(validate(&request("query", valid, 120, Some(&"v".repeat(256)))).is_ok());
@@ -86,14 +86,14 @@ fn request_bounds_include_both_endpoints_and_reject_the_next_value() {
                 max_tokens: 0,
                 ..valid_low
             },
-            "max_tokens must be between 1 and 12000",
+            "max_tokens must be between 1 and 24000",
         ),
         (
             RequestBudget {
-                max_tokens: 12_001,
+                max_tokens: 24_001,
                 ..valid
             },
-            "max_tokens must be between 1 and 12000",
+            "max_tokens must be between 1 and 24000",
         ),
         (
             RequestBudget {

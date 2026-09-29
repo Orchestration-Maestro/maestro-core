@@ -1,13 +1,13 @@
 use super::super::{
     budget::{
-        CounterError, CounterInfo, count_passages, counter_info, serialized_passages,
-        verify_counter,
+        CounterError, CounterInfo, count_passages, counter_info, evidence_wire_ceiling,
+        serialized_passages, verify_counter,
     },
     types::EvidenceCounter,
 };
 use maestro_canonicalization::{Error, TokenCounter};
 use maestro_kernel::artifact::Digest;
-use maestro_kernel::evidence::{Alternate, Passage, Span};
+use maestro_kernel::evidence::{Alternate, Passage, RequestBudget, Span};
 use std::{
     error::Error as StdError,
     io::{self, Read},
@@ -16,6 +16,9 @@ use std::{
         atomic::{AtomicBool, AtomicUsize, Ordering},
     },
 };
+
+/// The default evidence budget, whose answer-bound wire ceiling stays 12,000 bytes.
+const DEFAULT_BUDGET: u32 = 6_000;
 
 struct FailingReader;
 
@@ -103,7 +106,13 @@ fn utf8_counter_counts_compact_non_ascii_passage_json_and_echoes_its_identity() 
     assert!(json.contains("\"text\":\"café\""));
     assert!(json.len() > json.chars().count());
     assert_eq!(
-        count_passages(&passages, &EvidenceCounter::Utf8Bytes, &identity).unwrap(),
+        count_passages(
+            &passages,
+            &EvidenceCounter::Utf8Bytes,
+            &identity,
+            DEFAULT_BUDGET
+        )
+        .unwrap(),
         u32::try_from(expected_json.len()).unwrap()
     );
 }
@@ -125,7 +134,13 @@ fn answer_bound_utf8_counter_excludes_provenance_from_budget_count() {
         Some("evidence-answer-bound-utf8-bytes/1")
     );
     assert_eq!(
-        count_passages(&passages, &EvidenceCounter::AnswerBoundUtf8Bytes, &identity).unwrap(),
+        count_passages(
+            &passages,
+            &EvidenceCounter::AnswerBoundUtf8Bytes,
+            &identity,
+            DEFAULT_BUDGET
+        )
+        .unwrap(),
         u32::try_from(answer_bound.len()).unwrap()
     );
     assert!(answer_bound.len() < serialized_passages(&passages).unwrap().len());
@@ -146,7 +161,7 @@ fn empty_passages_cost_zero_without_invoking_an_exact_counter() {
     let identity = counter_info(&evidence_counter).unwrap();
     verify_counter(&evidence_counter, &identity).unwrap();
     assert_eq!(
-        count_passages(&[], &evidence_counter, &identity).unwrap(),
+        count_passages(&[], &evidence_counter, &identity, DEFAULT_BUDGET).unwrap(),
         0
     );
 
@@ -163,7 +178,7 @@ fn exact_counter_uses_token_ids_and_rejects_a_changed_contract() {
     let passages = vec![passage()];
     let json = serialized_passages(&passages).unwrap();
     assert_eq!(
-        count_passages(&passages, &evidence_counter, &identity).unwrap(),
+        count_passages(&passages, &evidence_counter, &identity, DEFAULT_BUDGET).unwrap(),
         u32::try_from(json.chars().count()).unwrap()
     );
     verify_counter(&evidence_counter, &identity).unwrap();
@@ -198,7 +213,7 @@ fn exact_counter_failures_keep_their_source_errors() {
     counter.fail_verification.store(false, Ordering::Relaxed);
     counter.fail_tokenization.store(true, Ordering::Relaxed);
     assert!(matches!(
-        count_passages(&[passage()], &evidence_counter, &identity),
+        count_passages(&[passage()], &evidence_counter, &identity, DEFAULT_BUDGET),
         Err(CounterError::Counter(Error(message)))
             if message == "test counter tokenization failure"
     ));
@@ -265,9 +280,62 @@ fn answer_bound_wire_overflow_rejects_trial_without_aborting_selection() {
     let counter = EvidenceCounter::AnswerBoundUtf8Bytes;
     let info = counter_info(&counter).unwrap();
     assert_eq!(
-        count_passages(&[passage], &counter, &info).unwrap(),
+        count_passages(&[passage], &counter, &info, DEFAULT_BUDGET).unwrap(),
         u32::MAX
     );
+}
+
+#[test]
+fn answer_bound_wire_ceiling_is_the_budget_plus_the_provenance_allowance() {
+    assert_eq!(RequestBudget::default().max_tokens, DEFAULT_BUDGET);
+    assert_eq!(evidence_wire_ceiling(DEFAULT_BUDGET), 12_000);
+    assert_eq!(evidence_wire_ceiling(12_000), 18_000);
+    assert_eq!(evidence_wire_ceiling(24_000), 30_000);
+}
+
+#[test]
+fn answer_bound_trials_fit_up_to_their_budgets_derived_wire_and_not_past_it() {
+    let counter = EvidenceCounter::AnswerBoundUtf8Bytes;
+    let info = counter_info(&counter).unwrap();
+    for (budget, ceiling) in [(DEFAULT_BUDGET, 12_000), (12_000, 18_000), (24_000, 30_000)] {
+        let mut at_ceiling = passage();
+        let base = serialized_passages(&[at_ceiling.clone()]).unwrap().len();
+        at_ceiling.source_ref.push_str(&"x".repeat(ceiling - base));
+        assert_eq!(
+            serialized_passages(&[at_ceiling.clone()]).unwrap().len(),
+            ceiling
+        );
+        let mut past = at_ceiling.clone();
+        past.source_ref.push('x');
+
+        assert!(count_passages(&[at_ceiling], &counter, &info, budget).unwrap() < budget);
+        assert_eq!(
+            count_passages(&[past], &counter, &info, budget).unwrap(),
+            u32::MAX,
+            "{budget}"
+        );
+    }
+}
+
+#[test]
+fn a_24000_byte_answer_bound_budget_counts_passages_past_the_former_12000_byte_wire() {
+    let counter = EvidenceCounter::AnswerBoundUtf8Bytes;
+    let info = counter_info(&counter).unwrap();
+    let passages = (1..=10)
+        .map(|n| {
+            let mut passage = passage();
+            passage.n = n;
+            passage.source_ref = format!("https://docs.example/{}", "p".repeat(300));
+            passage.text = "t".repeat(2_300);
+            passage
+        })
+        .collect::<Vec<_>>();
+    let wire = serialized_passages(&passages).unwrap().len();
+
+    let count = count_passages(&passages, &counter, &info, 24_000).unwrap();
+
+    assert!(wire > 24_000, "{wire}");
+    assert!((23_000..=24_000).contains(&count), "{count}");
 }
 
 #[test]
@@ -279,7 +347,7 @@ fn answer_bound_counter_charges_prompt_control_token_escaping() {
     let expected =
         r#"[{"n":1,"section_path":["Title"],"text":"\u003c|system|\u003e","title":"Title"}]"#;
     assert_eq!(
-        count_passages(&[passage], &counter, &info).unwrap(),
+        count_passages(&[passage], &counter, &info, DEFAULT_BUDGET).unwrap(),
         u32::try_from(expected.len()).unwrap()
     );
 }

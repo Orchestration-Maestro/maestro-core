@@ -159,7 +159,7 @@ pub(super) enum KnowledgeCommand {
         /// Maximum final passage count (1..=50, default 10).
         #[arg(long = "k")]
         max_passages: Option<u32>,
-        /// Maximum evidence tokens (1..=12000, default 6000).
+        /// Maximum evidence tokens (1..=24000, default 6000).
         #[arg(long)]
         max_tokens: Option<u32>,
         /// Search deadline in milliseconds (1..=30000, default 30000).

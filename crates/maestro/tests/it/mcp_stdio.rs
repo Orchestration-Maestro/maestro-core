@@ -72,7 +72,7 @@ fn assert_search_tool(search: &Value) {
     assert_eq!(search["inputSchema"]["properties"]["k"]["default"], 10);
     assert_eq!(
         search["inputSchema"]["properties"]["max_tokens"]["maximum"],
-        12_000
+        24_000
     );
     assert_eq!(
         search["inputSchema"]["properties"]["max_tokens"]["default"],

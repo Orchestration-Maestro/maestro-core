@@ -375,7 +375,7 @@ fn mandatory_whole_sibling_window_adds_before_then_stops_at_budget() {
     expected.windowed = true;
     let counter = EvidenceCounter::Utf8Bytes;
     let info = counter_info(&counter).unwrap();
-    let max_tokens = count_passages(&[expected], &counter, &info).unwrap();
+    let max_tokens = count_passages(&[expected], &counter, &info, 6_000).unwrap();
     let control = control();
 
     let result = select(

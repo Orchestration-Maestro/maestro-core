@@ -204,6 +204,7 @@ in place.
 │   │   │       ├── knowledge_get/                                           # CLI and MCP contracts for exact knowledge retrieval
 │   │   │       │   ├── cli_cases.rs                                         # Exact knowledge get CLI behavior
 │   │   │       │   ├── cold_reranker.rs                                     # A cold reranker costs CLI and MCP search only the rerank
+│   │   │       │   ├── evidence_ceiling.rs                                  # CLI and MCP search accept an evidence budget up to the 24,000-byte
 │   │   │       │   ├── knowledge_search.rs                                  # CLI and MCP search through the shared scoped evidence pipeline
 │   │   │       │   ├── mcp_and_authorization.rs                             # MCP parity, permission refresh, and exact-retrieval refusal cases
 │   │   │       │   ├── mod.rs                                               # CLI and MCP contracts for exact knowledge retrieval

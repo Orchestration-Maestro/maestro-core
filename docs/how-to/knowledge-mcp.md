@@ -117,7 +117,7 @@ summarizes tool output. Search budget defaults are `k: 10`, `max_tokens: 6000`,
 and `deadline_ms: 30000` (a safety cap, not a quality cutoff: a search after
 the router unloaded its models loads them again, which took up to 5 s each on a
 busy machine, and still runs every route); accepted maxima are `k: 50`,
-`max_tokens: 12000`, and `deadline_ms: 30000`. The token budget is an estimate
+`max_tokens: 24000`, and `deadline_ms: 30000`. The token budget is an estimate
 unless the configured route provides exact token counting. `knowledge_ask` is
 grounded in returned evidence and can refuse when the evidence does not support
 an answer. Its search has the same 30 s cap, and each answer attempt 20 s, the

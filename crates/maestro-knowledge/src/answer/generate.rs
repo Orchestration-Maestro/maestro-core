@@ -18,7 +18,7 @@ use crate::{
     },
 };
 use maestro_kernel::{
-    evidence::Bundle,
+    evidence::{Bundle, RequestBudget},
     gateway::{
         Error as GatewayError, Message, ModelPort, Role, Room, RouterEntry, Speaker, reply_cap,
     },
@@ -150,6 +150,11 @@ fn validate_request(request: &AskRequest) -> Result<(), AskError> {
     }
     if RouterEntry::parse(&request.model).is_err() {
         return Err(AskError::InvalidRequest("model must be one router entry"));
+    }
+    if !(1..=RequestBudget::MAX_EVIDENCE_BUDGET).contains(&request.budget.max_tokens) {
+        return Err(AskError::InvalidRequest(
+            "max_tokens must be between 1 and 24000",
+        ));
     }
     if !request.budget.is_within_limits() {
         return Err(AskError::InvalidRequest(

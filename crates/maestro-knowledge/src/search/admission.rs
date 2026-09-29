@@ -102,8 +102,11 @@ pub(super) fn validate(request: &SearchRequest<'_>) -> Result<Understood, Search
     if !(1..=50).contains(&request.budget.k) {
         return Err(invalid("k must be between 1 and 50"));
     }
-    if !(1..=12_000).contains(&request.budget.max_tokens) {
-        return Err(invalid("max_tokens must be between 1 and 12000"));
+    if !(1..=RequestBudget::MAX_EVIDENCE_BUDGET).contains(&request.budget.max_tokens) {
+        return Err(invalid(&format!(
+            "max_tokens must be between 1 and {}",
+            RequestBudget::MAX_EVIDENCE_BUDGET
+        )));
     }
     if !(1..=RequestBudget::MAX_DEADLINE_MS).contains(&request.budget.deadline_ms) {
         return Err(invalid("deadline_ms must be between 1 and 30000"));

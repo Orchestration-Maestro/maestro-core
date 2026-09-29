@@ -5,7 +5,7 @@ use crate::{
     search::{EvidenceInput, Route},
 };
 use maestro_kernel::{evidence::RouteStatus, store::Database, telemetry::stage::Outcome};
-use std::{num::NonZeroU32, sync::Arc};
+use std::{fmt::Write as _, num::NonZeroU32, sync::Arc};
 
 type InvalidCase = (&'static str, fn(&mut EvidenceInput), &'static str);
 
@@ -34,6 +34,7 @@ async fn accepts_handoff_fields_at_their_exact_text_and_candidate_limits() {
             candidate
         })
         .collect();
+    input.budget.max_tokens = 24_000;
     input.understood.identifiers = (0..64)
         .map(|index| Identifier {
             family: Family::ErrorCode,
@@ -50,6 +51,44 @@ async fn accepts_handoff_fields_at_their_exact_text_and_candidate_limits() {
     .unwrap();
 
     assert!(bundle.passages.is_empty());
+    assert_eq!(bundle.budget.limit, 24_000);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_24000_byte_answer_bound_budget_delivers_past_the_former_12000_byte_wire() {
+    let mut guide = "# Guide\n\n".to_owned();
+    for step in 1..=8 {
+        write!(guide, "## Step {step}\n\n").unwrap();
+        for index in 0..40 {
+            write!(
+                guide,
+                "Step {step} sets agent option o{step}x{index} to {index}. "
+            )
+            .unwrap();
+        }
+        guide.push_str("\n\n");
+    }
+    let fixture = fixture(&[("guide.md", &guide)]);
+    let mut input = evidence_input(&fixture, "How are the agent options set?");
+    input.evidence.evidence_counter = CounterMode::Utf8AnswerBound;
+    input.budget.max_tokens = 24_000;
+
+    let bundle = assemble_evidence(
+        Arc::new(fixture.database),
+        input,
+        EvidenceCounter::AnswerBoundUtf8Bytes,
+    )
+    .await
+    .unwrap();
+
+    let wire = serde_json::to_string(&bundle.passages).unwrap().len();
+    assert!(wire > 12_000, "{wire}");
+    assert!(
+        bundle.budget.evidence_tokens > 12_000,
+        "{:?}",
+        bundle.budget
+    );
+    assert_eq!(bundle.budget.limit, 24_000);
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -203,8 +242,8 @@ fn request_bound_cases() -> Vec<InvalidCase> {
             BOUNDS_ERROR,
         ),
         (
-            "token budget over 12000",
-            |input| input.budget.max_tokens = 12001,
+            "token budget over 24000",
+            |input| input.budget.max_tokens = 24_001,
             BOUNDS_ERROR,
         ),
         (
