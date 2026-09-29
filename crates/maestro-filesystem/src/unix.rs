@@ -14,13 +14,16 @@ use std::{
 
 /// An open directory: names inside it resolve against the handle, never against a path.
 #[derive(Debug)]
-pub(crate) struct Directory(File);
+pub struct Directory(File);
 
 impl Directory {
     /// Open the directory `below` names under the caller's `root`: the root resolves once, then
     /// the walk opens every component from `/` on without following links, creating missing
     /// components when asked.
-    pub(crate) fn open(root: &Path, below: &Path, create: bool) -> io::Result<Self> {
+    ///
+    /// # Errors
+    /// Returns an error for unsafe names, missing roots, or filesystem failures.
+    pub fn open(root: &Path, below: &Path, create: bool) -> io::Result<Self> {
         let path = resolve(root, below)?;
         let mut directory = File::open("/")?;
         for component in path.components() {
@@ -32,7 +35,10 @@ impl Directory {
     }
 
     /// The bytes of a regular file in the directory, never read through a link.
-    pub(crate) fn read_regular(&self, name: &str) -> io::Result<Vec<u8>> {
+    ///
+    /// # Errors
+    /// Returns an error if the name is unsafe, linked, non-regular, or unreadable.
+    pub fn read_regular(&self, name: &str) -> io::Result<Vec<u8>> {
         let fd = openat(
             &self.0,
             name,
@@ -49,7 +55,10 @@ impl Directory {
     }
 
     /// Create a file the name must not already hold, link or not, writable by its owner alone.
-    pub(crate) fn create_new(&self, name: &str) -> io::Result<File> {
+    ///
+    /// # Errors
+    /// Returns an error if the name exists, is unsafe, or cannot be created.
+    pub fn create_new(&self, name: &str) -> io::Result<File> {
         let fd = openat(
             &self.0,
             name,
@@ -60,20 +69,20 @@ impl Directory {
     }
 
     /// Link `from` as `to`, never replacing `to`, then flush the directory's entries.
-    pub(crate) fn link(&self, from: &str, to: &str) -> io::Result<()> {
+    ///
+    /// # Errors
+    /// Returns an error if the link cannot be created or the directory cannot be flushed.
+    pub fn link(&self, from: &str, to: &str) -> io::Result<()> {
         linkat(&self.0, from, &self.0, to, AtFlags::empty())?;
         self.0.sync_all()
     }
 
     /// Remove a name from the directory; a link is removed, never followed.
-    pub(crate) fn remove_file(&self, name: &str) -> io::Result<()> {
+    ///
+    /// # Errors
+    /// Returns an error if the name cannot be removed.
+    pub fn remove_file(&self, name: &str) -> io::Result<()> {
         Ok(unlinkat(&self.0, name, AtFlags::empty())?)
-    }
-
-    /// A second handle on the same directory, for a test that reads it from another thread.
-    #[cfg(test)]
-    pub(crate) fn try_clone(&self) -> io::Result<Self> {
-        Ok(Self(self.0.try_clone()?))
     }
 }
 
@@ -96,7 +105,10 @@ fn open_child(directory: &File, name: &OsStr, create: bool) -> io::Result<OwnedF
 
 /// Open a file for reading without following a link in its last component and without blocking
 /// on a FIFO.
-pub(crate) fn open_nofollow(path: &Path) -> io::Result<File> {
+///
+/// # Errors
+/// Returns an error if the path is linked or cannot be opened.
+pub fn open_nofollow(path: &Path) -> io::Result<File> {
     let fd = open(
         path,
         OFlags::RDONLY | OFlags::CLOEXEC | OFlags::NOFOLLOW | OFlags::NONBLOCK,

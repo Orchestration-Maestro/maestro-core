@@ -344,11 +344,6 @@ in place.
 │   │   │   │   ├── identity.rs                                              # Prepared-input groups: identical prepared inputs share one identity
 │   │   │   │   ├── mod.rs                                                   # Phase B chunk batches: assembly, prepared-input identities and replay validation
 │   │   │   │   └── validation.rs                                            # Replay checks: coverage and every prepared part must rebuild from the mapped source
-│   │   │   ├── filesystem/                                                  # Filesystem access that never follows a link, behind one interface: rustix's directory-relative
-│   │   │   │   ├── mod.rs                                                   # Filesystem access that never follows a link, behind one interface: rustix's directory-relative
-│   │   │   │   ├── root.rs                                                  # The root a caller names, resolved once, and the names the store appends below it
-│   │   │   │   ├── unix.rs                                                  # Unix: every name resolves against an open directory through rustix's openat family, which
-│   │   │   │   └── windows.rs                                               # Windows: names resolve by path, but every directory on the way is held open without
 │   │   │   ├── tokenizer/                                                   # Token counting: the TokenCounter seam, and the qualified local executable that fills it
 │   │   │   │   ├── tests/                                                   # Tests of the native tokenizer: profile identity, artifacts, process limits and output
 │   │   │   │   │   ├── invocation.rs                                        # Tests of the counter's invocation: its environment, its arguments and each platform's loader
@@ -526,6 +521,13 @@ in place.
 │   │   │   │   └── row_key_checks.rs                                        # The spec and 08 §20.4 carry exactly the approved keys, each an 08 row
 │   │   │   └── policies.rs                                                  # The repository's policies, checked on every pull request by cargo test
 │   │   └── Cargo.toml                                                       # Crate manifest: Tests that hold the maestro-core repository to its own policies
+│   ├── maestro-filesystem/                                                  # Maestro filesystem
+│   │   ├── src/                                                             # The crate's sources
+│   │   │   ├── lib.rs                                                       # Filesystem access that never follows a link below the root its caller names, which resolves
+│   │   │   ├── root.rs                                                      # The root a caller names, resolved once, and the names the store appends below it
+│   │   │   ├── unix.rs                                                      # Unix filesystem access: every name resolves against an open directory, never a path
+│   │   │   └── windows.rs                                                   # Windows filesystem access: held directories and open flags that never follow a link
+│   │   └── Cargo.toml                                                       # Crate manifest
 │   ├── maestro-kernel/                                                      # Maestro kernel
 │   │   ├── migrations/                                                      # The kernel database's migrations, embedded and applied in number order
 │   │   │   ├── 0001_artifacts.sql                                           # The artifacts table: each artifact's size, media type, pins and creation time

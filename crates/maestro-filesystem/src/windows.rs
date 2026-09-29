@@ -29,7 +29,7 @@ const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x0000_0400;
 
 /// A directory reached by a path whose every directory, from its anchor on, is held open.
 #[derive(Debug)]
-pub(crate) struct Directory {
+pub struct Directory {
     /// The path walked; names inside the directory are opened below it.
     path: PathBuf,
     /// The anchor and each component, which no one can rename or delete while they stay open.
@@ -40,7 +40,10 @@ impl Directory {
     /// Open the directory `below` names under the caller's `root`: the root resolves once, to a
     /// verbatim path such as `\\?\C:\data`, then the walk holds every component from its drive or
     /// share on, never following a link, and creates missing components when asked.
-    pub(crate) fn open(root: &Path, below: &Path, create: bool) -> io::Result<Self> {
+    ///
+    /// # Errors
+    /// Returns an error for unsafe names, missing roots, or filesystem failures.
+    pub fn open(root: &Path, below: &Path, create: bool) -> io::Result<Self> {
         let path = resolve(root, below)?;
         // The prefix and root of a resolved path, such as `\\?\C:\` or `\\?\UNC\server\share\`.
         let start: PathBuf = path
@@ -62,7 +65,10 @@ impl Directory {
     }
 
     /// The bytes of a regular file in the directory, never read through a link.
-    pub(crate) fn read_regular(&self, name: &str) -> io::Result<Vec<u8>> {
+    ///
+    /// # Errors
+    /// Returns an error if the name is unsafe, linked, non-regular, or unreadable.
+    pub fn read_regular(&self, name: &str) -> io::Result<Vec<u8>> {
         let mut file = open_nofollow(&self.path.join(name))?;
         if !file.metadata()?.is_file() {
             return Err(io::Error::other("artifact is not a regular file"));
@@ -73,7 +79,10 @@ impl Directory {
     }
 
     /// Create a file the name must not already hold, link or not.
-    pub(crate) fn create_new(&self, name: &str) -> io::Result<File> {
+    ///
+    /// # Errors
+    /// Returns an error if the name exists, is unsafe, or cannot be created.
+    pub fn create_new(&self, name: &str) -> io::Result<File> {
         OpenOptions::new()
             .write(true)
             .create_new(true)
@@ -82,12 +91,18 @@ impl Directory {
     }
 
     /// Link `from` as `to`, never replacing `to`. The directory is not flushed.
-    pub(crate) fn link(&self, from: &str, to: &str) -> io::Result<()> {
+    ///
+    /// # Errors
+    /// Returns an error if the link cannot be created.
+    pub fn link(&self, from: &str, to: &str) -> io::Result<()> {
         fs::hard_link(self.path.join(from), self.path.join(to))
     }
 
     /// Remove a name from the directory; a link is removed, never followed.
-    pub(crate) fn remove_file(&self, name: &str) -> io::Result<()> {
+    ///
+    /// # Errors
+    /// Returns an error if the name cannot be removed.
+    pub fn remove_file(&self, name: &str) -> io::Result<()> {
         fs::remove_file(self.path.join(name))
     }
 }
@@ -145,7 +160,10 @@ fn refuse_reparse_point(file: &File) -> io::Result<u32> {
 
 /// Open a file for reading without following a link in its last component: a reparse point there
 /// is refused. A directory opens too, so callers tell it from a file by its metadata.
-pub(crate) fn open_nofollow(path: &Path) -> io::Result<File> {
+///
+/// # Errors
+/// Returns an error if the path is linked or cannot be opened.
+pub fn open_nofollow(path: &Path) -> io::Result<File> {
     let file = OpenOptions::new()
         .read(true)
         .custom_flags(FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT)

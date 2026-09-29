@@ -1,9 +1,9 @@
 //! Immutable snapshots, accessed through directory handles without following links.
 use crate::document::CanonicalDocument;
 use crate::error::Error;
-use crate::filesystem::Directory;
 use crate::hashing::digest;
 use crate::replay::validate_document;
+use maestro_filesystem::Directory;
 use std::{
     fs::File,
     io::{self, ErrorKind, Write},
@@ -210,8 +210,7 @@ mod tests {
 
     /// `read_regular` on its own thread: the test fails, rather than hangs, if the open blocks.
     #[cfg(unix)]
-    fn read_without_blocking(directory: &Directory, name: &'static str) -> io::Result<Vec<u8>> {
-        let directory = directory.try_clone().unwrap();
+    fn read_without_blocking(directory: Directory, name: &'static str) -> io::Result<Vec<u8>> {
         let (sender, receiver) = mpsc::channel();
         thread::spawn(move || sender.send(directory.read_regular(name)));
         receiver
@@ -240,7 +239,13 @@ mod tests {
         // POSIX's `mkfifo` utility: Linux and macOS both ship it.
         let made = Command::new("mkfifo").arg(root.join("moved/fifo")).status();
         assert!(made.unwrap().success());
-        assert!(read_without_blocking(&directory, "fifo").is_err());
+        assert!(
+            read_without_blocking(
+                Directory::open(&root, Path::new("moved"), false).unwrap(),
+                "fifo"
+            )
+            .is_err()
+        );
         assert!(directory.read_regular(".").is_err());
         fs::remove_dir_all(root).unwrap();
     }

@@ -19,7 +19,6 @@ mod content;
 mod dedup;
 mod document;
 mod error;
-mod filesystem;
 mod hashing;
 mod metadata;
 mod model;

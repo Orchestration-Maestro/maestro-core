@@ -14,7 +14,7 @@ artifact-key = "maestro-core"
 platforms = "macos windows"
 mutation-windows = [
   "crates/maestro-settings/src/file/windows.rs",
-  "crates/maestro-canonicalization/src/filesystem/windows.rs",
+  "crates/maestro-filesystem/src/windows.rs",
 ]
 
 # The seams of the canonicalization crate that keep one caller: each door is a
@@ -60,20 +60,6 @@ rule = "ARC-005"
 path = "crates/maestro-canonicalization/src/validate/mod.rs"
 item = "validate_structure"
 reason = "the pipeline runs the structural validator, a subsystem of its own"
-
-# The platform door picks rustix on Unix or Win32's flags on Windows, so that
-# neither the store nor the tokenizer branches on the platform (ADR-0018).
-[[exception]]
-rule = "ARC-005"
-path = "crates/maestro-canonicalization/src/filesystem/mod.rs"
-item = "Directory"
-reason = "the store's link-free directories, one type on each platform"
-
-[[exception]]
-rule = "ARC-005"
-path = "crates/maestro-canonicalization/src/filesystem/mod.rs"
-item = "open_nofollow"
-reason = "the artifact check's link-free open, one function on each platform"
 
 # The journal's filter, which jobs alone use outside the journal for now, to
 # read a job's last step: the lane that adds a second reader of a stream, the

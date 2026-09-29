@@ -8,6 +8,6 @@ mod unix;
 #[cfg(windows)]
 mod windows;
 #[cfg(unix)]
-pub(crate) use unix::{Directory, open_nofollow};
+pub use unix::{Directory, open_nofollow};
 #[cfg(windows)]
-pub(crate) use windows::{Directory, open_nofollow};
+pub use windows::{Directory, open_nofollow};

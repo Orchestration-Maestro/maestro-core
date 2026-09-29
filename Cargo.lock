@@ -858,8 +858,8 @@ dependencies = [
 name = "maestro-canonicalization"
 version = "0.1.0"
 dependencies = [
+ "maestro-filesystem",
  "pulldown-cmark",
- "rustix",
  "serde",
  "serde_json",
  "serde_yaml_ng",
@@ -883,6 +883,13 @@ version = "0.1.0"
 dependencies = [
  "pulldown-cmark",
  "serde_json",
+]
+
+[[package]]
+name = "maestro-filesystem"
+version = "0.1.0"
+dependencies = [
+ "rustix",
 ]
 
 [[package]]
