@@ -171,7 +171,6 @@ pub(super) fn card(role: Role, context_tokens: u32) -> ModelCard {
 
 pub(super) fn candidate(id: &str, fusion_score: f64, text: &str) -> Candidate {
     Candidate {
-        header: None,
         fused: Fused {
             chunk_id: id.to_owned(),
             score: fusion_score,

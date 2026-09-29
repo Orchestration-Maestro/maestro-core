@@ -52,7 +52,6 @@ macro_rules! stages {
                 passages = Empty,
                 points = Empty,
                 sources = Empty,
-                header_missing = Empty,
             ))
         }
     )*};

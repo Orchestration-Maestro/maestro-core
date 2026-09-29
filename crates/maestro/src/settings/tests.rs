@@ -5,7 +5,6 @@
 use super::{Compute, KnowledgeSettings, Session};
 use crate::failure::Failure;
 use maestro_kernel::evidence::RequestBudget;
-use maestro_knowledge::search::RerankHeader;
 use maestro_knowledge::{
     answer::{AnswerPrompt, AskBudget, DEFAULT_MODEL, Presentation, PromptVersion, Tone},
     prepare::ChunkProfile,
@@ -105,7 +104,7 @@ fn every_default_is_the_behaviour_before_settings_existed() {
             presentation: Presentation::default(),
         },
         compute: Compute::Gpu,
-        chunk_profile: ChunkProfile::default(),
+        chunk_profile: ChunkProfile::CompleteIdeas,
     };
     assert_eq!(defaults(), today);
     assert_eq!(KnowledgeSettings::default(), today);
@@ -199,7 +198,6 @@ fn each_setting_reaches_the_knowledge_operations() {
             identifier_weight: 3.0,
             structured_weight: 0.0,
             rerank_enabled: true,
-            rerank_header: RerankHeader::default(),
             rerank_depth: NonZeroUsize::new(50).unwrap(),
             min_rerank_score: Some(-1.5),
             rerank_blend: Some(0.25),
@@ -403,31 +401,6 @@ fn a_refused_file_is_named_and_stops_the_session() {
             scratch.config().join(USER_FILE).display()
         )
     );
-}
-
-#[test]
-fn rerank_header_session_flag_reaches_search_and_ask_settings() {
-    let scratch = Scratch::new();
-    let settings = scratch
-        .session(&["search.rerank.header=heading_path"])
-        .knowledge()
-        .unwrap();
-    assert_eq!(
-        serde_json::to_value(settings.search.rerank_header).unwrap(),
-        "heading_path"
-    );
-    assert_eq!(
-        serde_json::to_value(defaults().search.rerank_header).unwrap(),
-        "off"
-    );
-    let mcp = Session::for_mcp_at(
-        &scratch.config(),
-        None,
-        Some(&scratch.home()),
-        &["search.rerank.header=heading_path".to_owned()],
-    )
-    .unwrap();
-    assert_eq!(mcp.knowledge().unwrap().search, settings.search);
 }
 
 #[test]

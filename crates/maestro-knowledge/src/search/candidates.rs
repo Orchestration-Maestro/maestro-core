@@ -90,18 +90,14 @@ impl Loaded {
     fn new(
         fused: Vec<Fused>,
         texts: Vec<(&Chunk, String)>,
-        mut enriched: Enriched,
+        enriched: Enriched,
         source: BTreeSet<String>,
     ) -> Self {
         Self {
             candidates: fused
                 .into_iter()
                 .zip(texts)
-                .map(|(fused, (chunk, text))| Candidate {
-                    fused,
-                    text,
-                    header: enriched.headers.remove(&chunk.id),
-                })
+                .map(|(fused, (_chunk, text))| Candidate { fused, text })
                 .collect(),
             source_load_micros: enriched.micros,
             fallbacks: enriched.fallbacks,

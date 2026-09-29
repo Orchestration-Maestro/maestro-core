@@ -8,7 +8,7 @@ use super::{ask_settings::read_ask, rung_prompt::RungPrompt};
 use crate::failure::Failure;
 use maestro_kernel::artifact::Digest;
 use maestro_knowledge::search::{
-    IntentExpansion, IntentTrigger, RerankHeader, SearchConfiguration, SourcePrior, StageWindow,
+    IntentExpansion, IntentTrigger, SearchConfiguration, SourcePrior, StageWindow,
     evidence::{EvidenceSettings, ExpansionMode, ParentChainOrder},
 };
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -176,9 +176,6 @@ pub(super) struct Rerank {
     /// Reranker-only source context.
     #[serde(default)]
     pub(super) candidate_context: Context,
-    /// Optional page title and heading prefix for every reranker window.
-    #[serde(default, skip_serializing_if = "RerankHeader::is_off")]
-    pub(super) header: RerankHeader,
 }
 
 /// Default bounded expansion deadline.
@@ -248,7 +245,6 @@ impl RungConfiguration {
             identifier_weight: self.weights.identifier,
             structured_weight: self.weights.structured,
             rerank_enabled: self.rerank.is_some(),
-            rerank_header: self.rerank.as_ref().map_or_default(|rerank| rerank.header),
             rerank_depth: self
                 .rerank
                 .as_ref()

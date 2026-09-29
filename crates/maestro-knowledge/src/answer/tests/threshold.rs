@@ -95,7 +95,6 @@ async fn without_a_rerank_score_the_threshold_does_nothing() {
 fn ranked(id: &str, score: f64) -> Ranked {
     Ranked {
         candidate: Candidate {
-            header: None,
             fused: Fused {
                 chunk_id: id.to_owned(),
                 score: 0.0,

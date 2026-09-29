@@ -64,8 +64,6 @@ pub enum Count {
     Points,
     /// Source revisions read.
     Sources,
-    /// Reranked candidates whose optional heading prefix was unavailable.
-    HeaderMissing,
 }
 
 impl Count {
@@ -78,7 +76,6 @@ impl Count {
             Self::Passages => "passages",
             Self::Points => "points",
             Self::Sources => "sources",
-            Self::HeaderMissing => "header_missing",
         }
     }
 }

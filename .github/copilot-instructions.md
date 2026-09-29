@@ -1000,8 +1000,6 @@ in place.
 │   │   │   │   │   ├── structured.rs                                        # Exact generation inventories and their separately bounded supports
 │   │   │   │   │   └── tests.rs                                             # Rust source: tests
 │   │   │   │   ├── tests/                                                   # Integration tests
-│   │   │   │   │   ├── rank_stage/                                          # The search's candidate stage end to end: exact texts, optional context
-│   │   │   │   │   │   └── rerank_header.rs                                 # Rust source: rerank header
 │   │   │   │   │   ├── admission.rs                                         # Request-boundary checks before generation admission
 │   │   │   │   │   ├── candidate_enrichment.rs                              # Opt-in reranker enrichment degrades to the indexed chunk, never to a failed search
 │   │   │   │   │   ├── deadlines.rs                                         # Rust source: deadlines
@@ -1015,7 +1013,6 @@ in place.
 │   │   │   │   │   ├── rank_policy.rs                                       # Rust source: rank policy
 │   │   │   │   │   ├── rank_stage.rs                                        # The search's candidate stage end to end: exact texts, optional context
 │   │   │   │   │   ├── rerank.rs                                            # Rust source: rerank
-│   │   │   │   │   ├── rerank_header.rs                                     # Header formatting and token budgets affect model input, not candidate text
 │   │   │   │   │   ├── route_setup.rs                                       # A route's one-time setup, such as loading its model, is not route time
 │   │   │   │   │   ├── routes.rs                                            # Pure route helpers: Qdrant scope filters and ranked-hit cleanup
 │   │   │   │   │   ├── section_prior.rs                                     # The soft section prior: strict demotion and precise, bilingual exemptions
@@ -1045,7 +1042,6 @@ in place.
 │   │   │   │   ├── rank_stage.rs                                            # The candidate stage of a search: exact loading, optional enrichment
 │   │   │   │   ├── request.rs                                               # Retrieval results handed to T032 without assembling an evidence bundle
 │   │   │   │   ├── rerank.rs                                                # Reranks the head of a fused list without truncating candidate text
-│   │   │   │   ├── rerank_header.rs                                         # Bounded, reranker-only heading prefixes
 │   │   │   │   ├── route_execution.rs                                       # Deadline-bounded leaf-route calls and their independent public statuses
 │   │   │   │   ├── route_search.rs                                          # Cached original routes and additive fusion for one pinned search
 │   │   │   │   ├── section_prior.rs                                         # Configured section classes and an optional soft reciprocal-rank penalty

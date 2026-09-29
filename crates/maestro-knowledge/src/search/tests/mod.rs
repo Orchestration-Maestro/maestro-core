@@ -20,5 +20,3 @@ mod source_class;
 mod intent;
 mod intent_guard;
 mod intent_request;
-
-mod rerank_header;

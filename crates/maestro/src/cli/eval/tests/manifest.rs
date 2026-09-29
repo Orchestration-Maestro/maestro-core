@@ -426,24 +426,6 @@ fn the_identifier_noise_guard_is_off_unless_a_rung_turns_it_on() {
 }
 
 #[test]
-fn rerank_header_round_trips_only_when_enabled() {
-    let mut value = manifest();
-    let parsed = parse(&value).unwrap();
-    let encoded = serde_json::to_value(&parsed.rungs[1].configuration).unwrap();
-    assert!(encoded["rerank"].get("header").is_none());
-    value["rungs"][1]["configuration"]["rerank"]["header"] = json!("heading_path");
-    let parsed = parse(&value).unwrap();
-    let encoded = serde_json::to_value(&parsed.rungs[1].configuration).unwrap();
-    assert_eq!(encoded["rerank"]["header"], "heading_path");
-    assert_eq!(
-        serde_json::to_value(parsed.rungs[1].configuration.search().rerank_header).unwrap(),
-        "heading_path"
-    );
-    value["rungs"][1]["configuration"]["rerank"]["header"] = json!("unknown");
-    assert!(parse(&value).is_err());
-}
-
-#[test]
 fn search_only_parent_chain_settings_are_optional_and_validated() {
     let mut value = manifest();
     value["rungs"][0]["configuration"]["evidence_expansion"] = json!("parent_chain");

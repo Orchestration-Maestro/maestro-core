@@ -189,18 +189,3 @@ fn parse_refuses_a_setting_a_quoted_dotted_key_and_a_table_both_set() {
         "ask.k: the setting is set twice in the file"
     );
 }
-
-#[test]
-fn rerank_header_rejects_unknown_values() {
-    let prefix = "schema = \"maestro-preferences/1\"\nsearch.rerank.header = ";
-    for value in ["off", "heading_path"] {
-        let layer = Layer::parse(&registry(), &format!("{prefix}\"{value}\"\n")).unwrap();
-        assert_eq!(
-            layer.get("search.rerank.header"),
-            Some(&Value::Text(value.to_owned()))
-        );
-    }
-    let error = refusal(&format!("{prefix}\"unknown\"\n"));
-    assert!(error.contains("search.rerank.header"));
-    assert!(error.contains("heading_path"));
-}

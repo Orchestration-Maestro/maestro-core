@@ -87,8 +87,6 @@ pub(super) struct SearchDiagnostic {
     pub(super) top_fused_score: Option<f64>,
     /// Source-context loading and validation wall time in microseconds.
     pub(super) candidate_source_load_micros: u64,
-    /// Missing heading prefixes, absent when headers are disabled.
-    pub(super) rerank_header_missing: Option<usize>,
     /// Candidate identities whose oversized source units retained indexed input.
     pub(super) candidate_context_fallbacks: Vec<String>,
 }

@@ -166,12 +166,6 @@ pub const BUILT_IN: &[SettingDescriptor] = &[
         "Whether the reranker reorders the fused candidates.",
     ),
     free(
-        "search.rerank.header",
-        choice(texts!["off", "heading_path"]),
-        "off",
-        "Prefix reranker inputs with the page title and heading path; off preserves input text.",
-    ),
-    free(
         "search.rerank.depth",
         integer(1, 120),
         "30",
@@ -367,7 +361,7 @@ pub const BUILT_IN: &[SettingDescriptor] = &[
             "mapped-structural-chunks/2",
             "mapped-structural-chunks/3"
         ]),
-        "mapped-structural-chunks/2",
+        "mapped-structural-chunks/3",
         "The chunking profile prepare uses, and publish selects when no chunk set is named.",
     ),
 ];

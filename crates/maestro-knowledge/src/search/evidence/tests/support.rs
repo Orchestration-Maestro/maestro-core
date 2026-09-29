@@ -110,7 +110,6 @@ pub(super) fn evidence_input(fixture: &Fixture, query: &str) -> EvidenceInput {
         .into_iter()
         .map(|fused| Ranked {
             candidate: Candidate {
-                header: None,
                 fused,
                 text: "untrusted candidate text".to_owned(),
             },

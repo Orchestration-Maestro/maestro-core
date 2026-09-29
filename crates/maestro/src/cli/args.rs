@@ -87,7 +87,7 @@ pub(super) struct PublishArguments {
     #[arg(long)]
     pub(super) chunk_set: Option<String>,
     /// The chunking profile whose latest complete set is published when no
-    /// chunk set is named, by its chunker version: mapped-structural-chunks/2,
+    /// chunk set is named, by its chunker version: mapped-structural-chunks/3,
     /// the default, as for prepare. A set of another profile is published
     /// only when named.
     #[arg(long, value_name = "PROFILE", conflicts_with = "chunk_set")]
@@ -136,10 +136,10 @@ pub(super) enum KnowledgeCommand {
         /// The recorded embedder model card's SHA-256 digest.
         #[arg(long)]
         card: String,
-        /// The chunking profile, by its chunker version: mapped-structural-chunks/2, the
-        /// default, or mapped-structural-chunks/3, which leaves page chrome out of the indexed
-        /// text and keeps a section's introductions, steps and tables together. Another profile
-        /// makes another chunk set; the published one stays as it is.
+        /// The chunking profile, by its chunker version: mapped-structural-chunks/3, the
+        /// default, or mapped-structural-chunks/2, which indexes page chrome and packs compatible
+        /// blocks within one section and container. Another profile makes another chunk set; the
+        /// published one stays as it is.
         #[arg(long, value_name = "PROFILE")]
         chunk_profile: Option<String>,
     },
@@ -391,35 +391,5 @@ mod tests {
             ])
             .is_err()
         );
-    }
-    #[test]
-    fn rerank_header_uses_the_session_flag_for_search_ask_and_mcp() {
-        for args in [
-            vec![
-                "knowledge",
-                "search",
-                "--collection",
-                "docs",
-                "--query",
-                "q",
-            ],
-            vec![
-                "knowledge",
-                "ask",
-                "--collection",
-                "docs",
-                "--question",
-                "q",
-            ],
-            vec!["mcp"],
-        ] {
-            let arguments = Arguments::try_parse_from(
-                ["maestro", "--set", "search.rerank.header=heading_path"]
-                    .into_iter()
-                    .chain(args),
-            )
-            .unwrap();
-            assert_eq!(arguments.set, ["search.rerank.header=heading_path"]);
-        }
     }
 }

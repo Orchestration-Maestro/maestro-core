@@ -60,15 +60,6 @@ impl Corpus {
         Self::from_scratch(scratch)
     }
 
-    fn with_one_missing_header() -> Self {
-        let scratch = Scratch::new();
-        scratch.titled_corpus(&[
-            ("release.md", "", "Run was renamed in this release.\n"),
-            ("guide.md", "Notes", GUIDE),
-        ]);
-        Self::from_scratch(scratch)
-    }
-
     fn from_scratch(scratch: Scratch) -> Self {
         let database = Arc::new(scratch.database());
         let scopes = scratch.import(&database);
@@ -227,7 +218,6 @@ async fn the_reranker_reads_chunk_text_by_default() {
     assert_eq!(ranking.status, RouteStatus::Ok);
     assert!(ranking.fallbacks.is_empty());
     assert_eq!(ranking.context_gap(), None);
-    assert_eq!(ranking.header_missing, None);
 }
 
 #[tokio::test]
@@ -453,26 +443,4 @@ fn evidence_input(corpus: &Corpus, admitted: AdmittedSearch, ranked: Vec<Ranked>
         deadline: Instant::now() + Duration::from_secs(10),
         known_gaps: Vec::new(),
     }
-}
-
-#[path = "rank_stage/rerank_header.rs"]
-mod rerank_header;
-
-#[tokio::test]
-async fn rerank_header_missing_is_counted_without_changing_evidence_gaps() {
-    use crate::search::RerankHeader;
-    let corpus = Corpus::new();
-    let port = FakePort::scores(vec![0.9, 0.5, 0.1]);
-    let mut admitted = corpus.admitted(
-        "run a task",
-        SearchConfiguration {
-            rerank_header: RerankHeader::HeadingPath,
-            ..SearchConfiguration::default()
-        },
-    );
-    admitted.cutoffs.setup = Instant::now() + admitted.cutoffs.window;
-    let ranking = corpus.rank(&port, &admitted, "run a task").await;
-    assert_eq!(ranking.header_missing, Some(3));
-    assert_eq!(ranking.context_gap(), None);
-    assert_eq!(texts(&ranking), corpus.prepared());
 }

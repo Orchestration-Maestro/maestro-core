@@ -430,9 +430,10 @@ provenance.
 
 ## 7. L5 Chunking
 
-Profile `mapped-structural-chunks/2` from the existing crate, the default, or
-`mapped-structural-chunks/3`, which leaves page chrome out of the indexed text and
-keeps a section's introductions, steps, code and tables together, a chunk ending
+The default for prepare and publish without a named chunk set is
+`mapped-structural-chunks/3`; `mapped-structural-chunks/2` remains selectable.
+The /3 profile leaves page chrome out of the indexed text and keeps a section's
+introductions, steps, code and tables together, a chunk ending
 only between whole steps and rows (`maestro knowledge prepare --chunk-profile`;
 each profile makes its own chunk set and generation, the manifest and the report
 count the chrome each rule left out, and `knowledge publish` without

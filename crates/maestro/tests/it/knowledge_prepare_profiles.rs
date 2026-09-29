@@ -32,7 +32,7 @@ fn prepare(home: &Home, router: &StubRouter, profile: &[&str]) -> (Option<i32>, 
 }
 
 #[test]
-fn a_named_chunking_profile_builds_its_own_chunk_set_beside_the_default_one() {
+fn a_new_collection_defaults_to_ideas_and_keeps_explicit_structural_sets_available() {
     let home = Home::new();
     home.add_synthetic();
     let router = StubRouter::serve();
@@ -40,17 +40,17 @@ fn a_named_chunking_profile_builds_its_own_chunk_set_beside_the_default_one() {
     assert_eq!(code, Some(0), "{default}");
     assert_eq!(
         default["outcome"]["chunk_profile"],
-        "mapped-structural-chunks/2"
-    );
-    let named = ["--chunk-profile", "mapped-structural-chunks/3"];
-    let (code, ideas, _) = prepare(&home, &router, &named);
-    assert_eq!(code, Some(0), "{ideas}");
-    assert_eq!(
-        ideas["outcome"]["chunk_profile"],
         "mapped-structural-chunks/3"
     );
+    let named = ["--chunk-profile", "mapped-structural-chunks/2"];
+    let (code, structural, _) = prepare(&home, &router, &named);
+    assert_eq!(code, Some(0), "{structural}");
+    assert_eq!(
+        structural["outcome"]["chunk_profile"],
+        "mapped-structural-chunks/2"
+    );
     assert_ne!(
-        ideas["outcome"]["chunk_set"],
+        structural["outcome"]["chunk_set"],
         default["outcome"]["chunk_set"]
     );
     let (code, again, _) = prepare(&home, &router, &[]);
@@ -121,18 +121,17 @@ fn publish_without_a_chunk_set_takes_the_latest_complete_set_of_the_chunking_pro
     let home = Home::new();
     home.add_synthetic();
     let router = StubRouter::serve();
-    let (_, structural, _) = prepare(&home, &router, &[]);
-    let named = ["--chunk-profile", "mapped-structural-chunks/3"];
-    let (_, ideas, _) = prepare(&home, &router, &named);
-    let [structural, ideas] = [structural, ideas].map(|document| {
+    let (_, ideas, _) = prepare(&home, &router, &[]);
+    let named = ["--chunk-profile", "mapped-structural-chunks/2"];
+    let (_, structural, _) = prepare(&home, &router, &named);
+    let [ideas, structural] = [ideas, structural].map(|document| {
         document["outcome"]["chunk_set"]
             .as_str()
             .unwrap()
             .to_owned()
     });
-    // The newer complete set is the complete-ideas one; the default profile's is published.
-    assert_eq!(publish(&home, &router, &[]).1, Some(structural));
-    assert_eq!(publish(&home, &router, &named).1, Some(ideas));
+    assert_eq!(publish(&home, &router, &[]).1, Some(ideas));
+    assert_eq!(publish(&home, &router, &named).1, Some(structural));
     let both = [
         "--chunk-set",
         "chunk-set-any",
