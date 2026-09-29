@@ -42,7 +42,8 @@ pub(super) fn pack_small_tables(
             .or_default()
             .push(unit_index);
     }
-    for table in tables {
+    // Pack from right to left so cached unit indexes for earlier tables stay valid.
+    for table in tables.into_iter().rev() {
         let source_blocks: BTreeSet<_> = index
             .descendants(&table.block_id)
             .iter()

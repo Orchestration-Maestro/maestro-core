@@ -42,6 +42,22 @@ fn small_table_packs_below_at_and_above_its_limit() {
 }
 
 #[test]
+fn multiple_small_tables_pack_with_primary_parts() {
+    let markdown = concat!(
+        "# T\n\n| A | B |\n|---|---|\n| x | y |\n| p | q |\n\n",
+        "- review\n\n  | C | D |\n  |---|---|\n  | z | w |\n"
+    );
+    let graph = build_graph_for_profile(markdown, UnitProfile::new(RankedUnit::V2Unit)).unwrap();
+    let tables: Vec<_> = graph
+        .units
+        .iter()
+        .filter(|unit| unit.kind == UnitKind::Table)
+        .collect();
+    assert_eq!(tables.len(), 2);
+    assert!(tables.iter().all(|table| !table.parts.is_empty()));
+}
+
+#[test]
 fn oversized_rows_steps_and_code_return_their_typed_kind() {
     let mut profile = UnitProfile::new(RankedUnit::V2Unit);
     profile.size_limits.row_tokens = 1;
