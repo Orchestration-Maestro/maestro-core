@@ -10,7 +10,7 @@ use maestro_kernel::gateway::{
 use serde::{Deserialize, Deserializer};
 use std::{error::Error, fmt};
 
-/// The version of [`HYDE_PROMPT`]; it changes with the prompt's text.
+/// The version of the expansion prompt, `HYDE_PROMPT`; it changes with the prompt's text.
 pub const HYDE_PROMPT_VERSION: &str = "hyde/1";
 
 /// The system prompt of the expansion call.
