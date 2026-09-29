@@ -1,0 +1,183 @@
+name: G25 portability legs (temporary)
+# S2 G25 only, dropped before landing: the organization's portability legs
+# run only on pull requests into the default branch, so this workflow repeats
+# their command, `cargo test --locked --workspace`, on each OS for the lbug
+# proof branch's draft pull request. Each job also builds the baseline, the
+# base branch commit this branch's G25 commit sits on, and times both clean
+# builds on the same machine: with lbug opt-in, the default build should add
+# nothing. Then it builds and tests the probe with its `engine` feature and
+# records the native links of its test binary. A pull request's head is
+# checked out, not its merge commit, which would carry whatever landed on the
+# base branch since.
+"on":
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: g25-portability-${{ github.ref }}
+  cancel-in-progress: true
+env:
+  BASELINE_SHA: 3fef2311760aae2e5c17c9d11fa7352cb25b6378
+jobs:
+  portability:
+    name: G25 portability on ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, windows-2025, macos-15]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 150
+    permissions:
+      contents: read
+    # On Windows the default shell is PowerShell.
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out the revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: with-lbug
+          persist-credentials: false
+      - name: Check out the baseline
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: ${{ env.BASELINE_SHA }}
+          path: baseline
+          persist-credentials: false
+      - name: Install the toolchain rust-toolchain.toml pins
+        run: |
+          set -euo pipefail
+          toolchain=$(sed -n 's/^channel = "\(.*\)"$/\1/p' with-lbug/rust-toolchain.toml)
+          rustup toolchain install "$toolchain" --profile minimal
+          echo "RUSTUP_TOOLCHAIN=$toolchain" >> "$GITHUB_ENV"
+      - name: Report the machine and the native toolchain
+        run: |
+          set -uo pipefail
+          grep -m 1 "model name" /proc/cpuinfo 2>/dev/null \
+            || sysctl -n machdep.cpu.brand_string 2>/dev/null \
+            || powershell -NoProfile -Command "(Get-CimInstance Win32_Processor).Name"
+          nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo "$NUMBER_OF_PROCESSORS"
+          cmake --version | head -n 1
+          ninja --version || echo "no ninja"
+          c++ --version 2>/dev/null | head -n 1 || echo "no c++ on PATH"
+      - name: Fetch both lock files' sources
+        run: |
+          set -euo pipefail
+          (cd baseline && cargo fetch --locked)
+          (cd with-lbug && cargo fetch --locked)
+      - name: Clean build of the workspace tests, timed on both trees
+        run: |
+          set -euo pipefail
+          start=$SECONDS
+          (cd baseline && cargo test --locked --workspace --no-run)
+          base=$((SECONDS - start))
+          rm -rf baseline/target
+          start=$SECONDS
+          (cd with-lbug && cargo test --locked --workspace --no-run)
+          lbug=$((SECONDS - start))
+          echo "clean workspace test build on $RUNNER_OS: baseline $base s, with G25 $lbug s, added $((lbug - base)) s" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: The default build compiled no lbug
+        working-directory: with-lbug
+        run: |
+          set -euo pipefail
+          for dir in target/debug/build/lbug-*; do
+            if [ -e "$dir" ]; then
+              echo "a default workspace build compiled lbug: $dir" >&2
+              exit 1
+            fi
+          done
+          echo "no lbug build directory in target/debug/build" | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Build and test the probe with its engine, timed
+        working-directory: with-lbug
+        run: |
+          set -euo pipefail
+          start=$SECONDS
+          cargo test --locked -p lbug-spike --features engine --no-run
+          built=$((SECONDS - start))
+          cargo test --locked -p lbug-spike --features engine
+          echo "lbug-spike with engine on $RUNNER_OS: built in $built s, tested in $((SECONDS - start - built)) s" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+      - name: Record the native links of the probe's test binary
+        working-directory: with-lbug
+        run: |
+          set -euo pipefail
+          binary=$(cargo test --locked -p lbug-spike --features engine --no-run 2>&1 \
+            | sed -n 's/.*Executable tests.it.main\.rs (\(.*\))$/\1/p')
+          echo "native links of $binary on $RUNNER_OS:" | tee -a "$GITHUB_STEP_SUMMARY"
+          case "$RUNNER_OS" in
+            Linux) ldd "$binary" ;;
+            macOS) otool -L "$binary" ;;
+            Windows) objdump -p "$binary" | grep "DLL Name" ;;
+          esac | tee -a "$GITHUB_STEP_SUMMARY"
+      # Last: a failure in the workspace's own tests must not hide the probe's.
+      - name: Test the workspace, the portability command
+        working-directory: with-lbug
+        run: cargo test --locked --workspace --no-fail-fast
+  linux-profiles:
+    # The Linux gate also builds the tests for coverage (their own target
+    # directory, instrumented) and in release, and it checks each feature.
+    name: G25 ${{ matrix.profile }} build on ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        profile: [release, coverage, features]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: with-lbug
+          persist-credentials: false
+      - name: Check out the baseline
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: ${{ env.BASELINE_SHA }}
+          path: baseline
+          persist-credentials: false
+      - name: Install the toolchain rust-toolchain.toml pins
+        run: |
+          set -euo pipefail
+          toolchain=$(sed -n 's/^channel = "\(.*\)"$/\1/p' with-lbug/rust-toolchain.toml)
+          rustup toolchain install "$toolchain" --profile minimal
+          echo "RUSTUP_TOOLCHAIN=$toolchain" >> "$GITHUB_ENV"
+          grep -m 1 "model name" /proc/cpuinfo
+      - name: Fetch both lock files' sources
+        run: |
+          set -euo pipefail
+          (cd baseline && cargo fetch --locked)
+          (cd with-lbug && cargo fetch --locked)
+      - name: Clean build, timed on both trees
+        env:
+          PROFILE: ${{ matrix.profile }}
+        run: |
+          set -euo pipefail
+          # features: the gate's `cargo hack check --each-feature` differs
+          # from the baseline by the one feature this branch adds.
+          build() {
+            case "$PROFILE" in
+              release) cargo test --locked --workspace --no-run --release ;;
+              coverage)
+                RUSTFLAGS="-C instrument-coverage" CARGO_TARGET_DIR=target/llvm-cov-target \
+                  cargo test --locked --workspace --no-run ;;
+              features)
+                if [ -d crates/lbug-spike ]; then
+                  cargo check --locked -p lbug-spike --features engine
+                fi ;;
+            esac
+          }
+          start=$SECONDS
+          (cd baseline && build)
+          base=$((SECONDS - start))
+          rm -rf baseline/target
+          start=$SECONDS
+          (cd with-lbug && build)
+          lbug=$((SECONDS - start))
+          echo "clean $PROFILE build on $RUNNER_OS: baseline $base s, with G25 $lbug s, added $((lbug - base)) s" \
+            | tee -a "$GITHUB_STEP_SUMMARY"
