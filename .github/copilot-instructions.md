@@ -729,7 +729,8 @@ in place.
 │   │   │   │   │   ├── records.rs                                           # Record/read atomicity and hidden-ancestry refusal
 │   │   │   │   │   ├── representations.rs                                   # Revision shards complete frozen representation sets and bind once
 │   │   │   │   │   ├── scale.rs                                             # Synthetic graph size and indexed candidate lookup, without row explosion
-│   │   │   │   │   └── support.rs                                           # Synthetic source, graph and kernel records shared by persistence tests
+│   │   │   │   │   ├── support.rs                                           # Synthetic source, graph and kernel records shared by persistence tests
+│   │   │   │   │   └── validation.rs                                        # Direct invariants of the current delivery-graph contract
 │   │   │   │   ├── coverage.rs                                              # Exact ownership and source accounting, with structural references by ID
 │   │   │   │   ├── error.rs                                                 # Refusals at the graph wire and persistence boundary
 │   │   │   │   ├── group_parts.rs                                           # Canonical graph array and node part ordering
