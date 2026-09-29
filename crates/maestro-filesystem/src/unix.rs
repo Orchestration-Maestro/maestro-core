@@ -17,7 +17,8 @@ const READ_REGULAR_FLAGS: OFlags = OFlags::RDONLY
     .union(OFlags::NOFOLLOW)
     .union(OFlags::NONBLOCK)
     .union(OFlags::CLOEXEC);
-/// Write only, create exclusively without following links, and keep the descriptor out of children.
+/// Write only, create exclusively without following links; CLOEXEC is observable only by a child
+/// started while the descriptor is open.
 const CREATE_NEW_FLAGS: OFlags = OFlags::WRONLY
     .union(OFlags::CREATE)
     .union(OFlags::EXCL)
@@ -30,7 +31,8 @@ const OPEN_CHILD_FLAGS: OFlags = OFlags::RDONLY
     .union(OFlags::DIRECTORY)
     .union(OFlags::NOFOLLOW)
     .union(OFlags::CLOEXEC);
-/// Read without following links or blocking on FIFOs; do not inherit the descriptor.
+/// Read without following links or blocking on FIFOs; CLOEXEC is observable only by a child
+/// started while the descriptor is open.
 const OPEN_NOFOLLOW_FLAGS: OFlags = OFlags::RDONLY
     .union(OFlags::CLOEXEC)
     .union(OFlags::NOFOLLOW)
@@ -102,8 +104,7 @@ impl Directory {
 
 /// Open one child directory without following a link, creating it first when asked and absent.
 fn open_child(directory: &File, name: &OsStr, create: bool) -> io::Result<OwnedFd> {
-    let flags = OPEN_CHILD_FLAGS;
-    match openat(directory, name, flags, Mode::empty()) {
+    match openat(directory, name, OPEN_CHILD_FLAGS, Mode::empty()) {
         Ok(child) => Ok(child),
         Err(Errno::NOENT) if create => {
             match mkdirat(directory, name, Mode::RWXU) {
@@ -111,7 +112,7 @@ fn open_child(directory: &File, name: &OsStr, create: bool) -> io::Result<OwnedF
                 Err(Errno::EXIST) => {}
                 Err(error) => return Err(error.into()),
             }
-            Ok(openat(directory, name, flags, Mode::empty())?)
+            Ok(openat(directory, name, OPEN_CHILD_FLAGS, Mode::empty())?)
         }
         Err(error) => Err(error.into()),
     }

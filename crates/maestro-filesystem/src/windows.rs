@@ -3,8 +3,9 @@
 //! `FILE_SHARE_DELETE`, so none can be renamed, deleted or replaced while the store works under
 //! it, and every open carries `FILE_FLAG_OPEN_REPARSE_POINT`, so a symbolic link or junction is
 //! opened itself and refused, never followed. The standard library exposes these flags safely;
-//! the constants are Win32's documented values. The local filesystem must support hard links;
-//! directories are not flushed, which Windows does only through a writable handle (ADR-0018).
+//! the single-bit constants are Win32's documented values, and each combined value is checked
+//! against its bits at compile time. The local filesystem must support hard links; directories
+//! are not flushed, which Windows does only through a writable handle (ADR-0018).
 use super::root::resolve;
 use std::{
     ffi::OsStr,
@@ -14,14 +15,24 @@ use std::{
     path::{Component, Path, PathBuf},
 };
 
-/// Allow concurrent reads and writes, but not deletion or renaming, while held.
+/// `FILE_SHARE_READ`: others may read the file while the handle is open.
+const FILE_SHARE_READ: u32 = 0x0000_0001;
+/// `FILE_SHARE_WRITE`: others may write the file while the handle is open.
+const FILE_SHARE_WRITE: u32 = 0x0000_0002;
+/// `FILE_SHARE_READ | FILE_SHARE_WRITE`: never deletion or renaming while held.
 const FILE_SHARE_READ_WRITE: u32 = 0x0000_0003;
 /// `FILE_FLAG_BACKUP_SEMANTICS`: the open may name a directory.
 const FILE_FLAG_BACKUP_SEMANTICS: u32 = 0x0200_0000;
 /// `FILE_FLAG_OPEN_REPARSE_POINT`: a reparse point is opened itself, never followed.
 const FILE_FLAG_OPEN_REPARSE_POINT: u32 = 0x0020_0000;
-/// Open a directory handle and open reparse points themselves so callers can refuse them.
+/// `FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT`: a directory may open, and a
+/// reparse point opens itself.
 const OPEN_REPARSE_DIRECTORY_FLAGS: u32 = 0x0220_0000;
+// Each precombined value is exactly its named Win32 bits.
+const _: () = assert!(FILE_SHARE_READ_WRITE == FILE_SHARE_READ | FILE_SHARE_WRITE);
+const _: () = assert!(
+    OPEN_REPARSE_DIRECTORY_FLAGS == FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT
+);
 /// `FILE_ATTRIBUTE_DIRECTORY`: the handle names a directory.
 const FILE_ATTRIBUTE_DIRECTORY: u32 = 0x0000_0010;
 /// `FILE_ATTRIBUTE_REPARSE_POINT`: the handle names a reparse point, a link or junction among them.

@@ -525,6 +525,7 @@ in place.
 │   │   ├── src/                                                             # The crate's sources
 │   │   │   ├── lib.rs                                                       # Filesystem access that never follows a link below the root its caller names, which resolves
 │   │   │   ├── root.rs                                                      # The root a caller names, resolved once, and the names the store appends below it
+│   │   │   ├── tests.rs                                                     # Rust source: tests
 │   │   │   ├── unix.rs                                                      # Unix filesystem access: every name resolves against an open directory, never a path
 │   │   │   └── windows.rs                                                   # Windows filesystem access: held directories and open flags that never follow a link
 │   │   └── Cargo.toml                                                       # Crate manifest
