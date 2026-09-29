@@ -116,8 +116,20 @@ pub(super) fn validate(request: &SearchRequest<'_>) -> Result<Understood, Search
     if !(1..=RequestBudget::MAX_DEADLINE_MS).contains(&request.budget.deadline_ms) {
         return Err(invalid("deadline_ms must be between 1 and 30000"));
     }
+    for (name, value) in [
+        ("routes_limit", request.configuration.routes_limit),
+        ("identifier_limit", request.configuration.identifier_limit),
+        ("fusion_pool", request.configuration.fusion_pool),
+    ] {
+        if !(1..=120).contains(&value) {
+            return Err(invalid(&format!("{name} must be between 1 and 120")));
+        }
+    }
     if request.configuration.rerank_depth.get() > 120 {
         return Err(invalid("rerank depth must be between 1 and 120"));
+    }
+    if request.configuration.rerank_depth.get() > request.configuration.fusion_pool {
+        return Err(invalid("rerank depth cannot exceed fusion_pool"));
     }
     if !(1..=5000).contains(&request.configuration.intent_deadline_ms) {
         return Err(invalid(

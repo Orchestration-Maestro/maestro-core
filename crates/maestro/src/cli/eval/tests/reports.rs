@@ -243,7 +243,7 @@ fn a_rung_report_names_its_provenance_and_scores_its_floors() {
                 "evidence_bytes": 6000,
                 "output_tokens": null,
                 "prompt": "v2",
-                "evidence": {"expansion":"parent_chain", "evidence_counter":"utf8"},
+                "evidence": {"expansion":"full_section", "evidence_counter":"utf8"},
                 "search_deadline_ms": 30_000
             },
             "warm_ups": 1,
@@ -252,6 +252,12 @@ fn a_rung_report_names_its_provenance_and_scores_its_floors() {
             "end": provenance,
             "ladder": provenance,
             "configuration": to_json(&runs[0].rung.configuration),
+            "search_settings": {
+                "k": 5,
+                "evidence_bytes": 6000,
+                "expansion": "full_section",
+                "parent_chain_order": null
+            },
             "search_deadline_ms": 30_000,
             "suite_digest": suite.digest.as_str(),
             "binary": {"version": "0.1.0", "commit": "abc123"},
@@ -292,9 +298,10 @@ fn a_rung_report_in_markdown_names_its_provenance_then_its_floors() {
     )));
     assert!(markdown.contains("| Right document top-10 | 2/2 (100.0%) |"));
     assert!(markdown.contains(concat!(
-        "- Scored bundle: the evidence each ask gave its answerer, under the ask settings\n",
-        "- Delivered-section recall: 2/2 (same document"
+        "- Search settings: at most 5 passages, 6000 evidence bytes, full_section ",
+        "expansion, none order\n"
     )));
+    assert!(markdown.contains("- Delivered-section recall: 2/2 (same document"));
     assert!(markdown.contains("- Fully delivered sections: 2/2 ("));
     assert!(markdown.contains("- Required-composition coverage: 0/0\n"));
     assert!(markdown.contains(concat!(

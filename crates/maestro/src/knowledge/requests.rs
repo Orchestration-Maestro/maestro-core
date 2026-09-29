@@ -140,7 +140,7 @@ impl SearchRequest {
             return Err(RequestError::InvalidK);
         }
         if !(1..=RequestBudget::MAX_EVIDENCE_BUDGET).contains(&self.evidence_bytes) {
-            return Err(RequestError::InvalidMaxTokens);
+            return Err(RequestError::InvalidEvidenceBytes);
         }
         if !(1..=RequestBudget::MAX_DEADLINE_MS).contains(&self.deadline_ms) {
             return Err(RequestError::InvalidDeadline);
@@ -182,7 +182,7 @@ pub(crate) enum RequestError {
     /// `k` is outside 1..=50.
     InvalidK,
     /// `evidence_bytes` is outside 1..=[`RequestBudget::MAX_EVIDENCE_BUDGET`].
-    InvalidMaxTokens,
+    InvalidEvidenceBytes,
     /// `deadline_ms` is outside 1..=30000.
     InvalidDeadline,
 }
@@ -201,7 +201,7 @@ impl RequestError {
             Self::TooManyIdentifiers => "too_many_identifiers",
             Self::InvalidVersion => "invalid_version",
             Self::InvalidK => "invalid_k",
-            Self::InvalidMaxTokens => "invalid_evidence_bytes",
+            Self::InvalidEvidenceBytes => "invalid_evidence_bytes",
             Self::InvalidDeadline => "invalid_deadline_ms",
         }
     }
@@ -220,7 +220,7 @@ impl RequestError {
             Self::TooManyIdentifiers => "query must contain at most 64 distinct identifiers",
             Self::InvalidVersion => "version must contain 1 to 256 UTF-8 bytes",
             Self::InvalidK => "k must be between 1 and 50",
-            Self::InvalidMaxTokens => "evidence_bytes must be between 1 and 24000",
+            Self::InvalidEvidenceBytes => "evidence_bytes must be between 1 and 24000",
             Self::InvalidDeadline => "deadline_ms must be between 1 and 30000",
         }
     }
@@ -430,8 +430,8 @@ mod tests {
         for (max_passages, evidence_bytes, deadline_ms, expected) in [
             (Some(0), None, None, RequestError::InvalidK),
             (Some(51), None, None, RequestError::InvalidK),
-            (None, Some(0), None, RequestError::InvalidMaxTokens),
-            (None, Some(24_001), None, RequestError::InvalidMaxTokens),
+            (None, Some(0), None, RequestError::InvalidEvidenceBytes),
+            (None, Some(24_001), None, RequestError::InvalidEvidenceBytes),
             (None, None, Some(0), RequestError::InvalidDeadline),
             (None, None, Some(30_001), RequestError::InvalidDeadline),
         ] {
@@ -442,7 +442,7 @@ mod tests {
             );
         }
         assert_eq!(
-            RequestError::InvalidMaxTokens.message(),
+            RequestError::InvalidEvidenceBytes.message(),
             "evidence_bytes must be between 1 and 24000"
         );
     }

@@ -23,7 +23,6 @@ use crate::{
 };
 use maestro_kernel::{
     artifact::Digest,
-    evidence::RequestBudget,
     gateway::{ModelCard, RouterClient, reply_cap},
     generation::Generation,
 };
@@ -227,21 +226,10 @@ impl<'kernel> KernelEngine<'kernel> {
         rung: &Rung,
         question: &'a str,
     ) -> SearchRequest<'a> {
-        let budget = rung.ask.as_ref().map_or_else(
-            || {
-                rung.search_budget.unwrap_or(RequestBudget {
-                    evidence_bytes: RequestBudget::DEFAULT_SEARCH_EVIDENCE_BYTES,
-                    ..RequestBudget::default()
-                })
-            },
-            |settings| settings.budget().into(),
-        );
+        let (budget, evidence) = rung.resolved_search_settings();
         SearchRequest {
             configuration: rung.configuration.search(),
-            evidence: rung
-                .ask
-                .as_ref()
-                .map_or_else(|| rung.configuration.evidence(), AskSettings::evidence),
+            evidence,
             ..SearchRequest::new(&self.collection, question, None, budget)
         }
     }
@@ -363,13 +351,7 @@ impl Engine for KernelEngine<'_> {
             .await
             .map_err(|error| evidence_failure(&error))?;
             delivered = bundle.passages.iter().map(Anchor::from).collect();
-            diagnostic.evidence_bytes = Some(
-                bundle
-                    .passages
-                    .iter()
-                    .map(|passage| passage.text.len())
-                    .sum(),
-            );
+            diagnostic.evidence_bytes = Some(bundle.budget.evidence_bytes);
             diagnostic.intent_status = bundle.routes.get("intent_expansion").cloned();
             diagnostic.bundle_documents = bundle_documents(&bundle, &order);
             match stage_failure(&configuration, &bundle.routes) {

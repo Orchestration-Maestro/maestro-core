@@ -269,7 +269,10 @@ pub const BUILT_IN: &[SettingDescriptor] = &[
         "search.intent.rerank_additions",
         integer(0, 120),
         "10",
-        "The most candidates the intent routes may add to the rerank beyond its depth.",
+        concat!(
+            "The most candidates the intent routes may add beyond rerank depth; the combined ",
+            "candidates can exceed search.fusion_pool."
+        ),
     ),
     free(
         "search.source_prior.weight",

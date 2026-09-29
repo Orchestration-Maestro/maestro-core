@@ -58,6 +58,30 @@ async fn an_expired_permission_recheck_reports_its_deadline() {
 }
 
 #[test]
+fn route_limits_and_fusion_pool_are_bounded_and_depth_may_equal_the_pool() {
+    for (field, name) in [
+        (0, "routes_limit"),
+        (1, "identifier_limit"),
+        (2, "fusion_pool"),
+    ] {
+        for value in [0, 121] {
+            let mut request = request("query", RequestBudget::default(), 1, None);
+            match field {
+                0 => request.configuration.routes_limit = value,
+                1 => request.configuration.identifier_limit = value,
+                _ => request.configuration.fusion_pool = value,
+            }
+            rejected(&request, &format!("{name} must be between 1 and 120"));
+        }
+    }
+    let mut request = request("query", RequestBudget::default(), 5, None);
+    request.configuration.fusion_pool = 5;
+    assert!(validate(&request).is_ok());
+    request.configuration.fusion_pool = 4;
+    rejected(&request, "rerank depth cannot exceed fusion_pool");
+}
+
+#[test]
 fn intent_rerank_additions_accept_the_maximum_and_reject_the_next_value() {
     let budget = RequestBudget::default();
     for additions in [0, 120] {

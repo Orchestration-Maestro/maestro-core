@@ -230,7 +230,7 @@ pub(super) enum KnowledgeCommand {
         /// Maximum final passage count (1..=50, default 10).
         #[arg(long = "k")]
         max_passages: Option<u32>,
-        /// Maximum evidence size in UTF-8 bytes (1..=24000, default 6000).
+        /// Maximum evidence size in UTF-8 bytes (1..=24000, default 12000).
         #[arg(long)]
         evidence_bytes: Option<u32>,
         /// Search deadline in milliseconds (1..=30000, default 30000).
@@ -269,7 +269,8 @@ pub(super) enum KnowledgeCommand {
         /// Maximum number of passages to assemble.
         #[arg(long)]
         k: Option<u32>,
-        /// Maximum evidence bytes to assemble.
+        /// Maximum evidence size in UTF-8 bytes (1..=24000, default 6000), about
+        /// 4 bytes per English or French token.
         #[arg(long)]
         evidence_bytes: Option<u32>,
         /// Search and evidence deadline in milliseconds (1..=30000, default

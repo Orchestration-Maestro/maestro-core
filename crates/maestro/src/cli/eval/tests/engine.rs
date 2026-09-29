@@ -183,9 +183,6 @@ fn unchecked() -> SearchConfiguration {
         dense_enabled: false,
         lexical_enabled: false,
         rerank_enabled: false,
-        routes_limit: 100,
-        identifier_limit: 20,
-        fusion_pool: 120,
         ..SearchConfiguration::default()
     }
 }

@@ -125,75 +125,60 @@ fn a_search_and_an_ask_carry_the_rungs_configuration_budget_and_prompt() {
 }
 
 #[test]
-fn a_search_carries_the_asks_budget_and_evidence_settings() {
+fn search_only_rungs_keep_their_legacy_budget_and_expansion() {
     let scratch = Scratch::new();
     let kernel = scratch.kernel(None).unwrap();
     let port = RouterClient::new(Url::parse(NOWHERE).unwrap()).unwrap();
     let engine =
         KernelEngine::new(&kernel, "collection", port, Qdrant::new(NOWHERE).unwrap()).unwrap();
-    let settings = v1_settings();
-
     let mut candidate = rung("r0");
     candidate.ask = None;
+
     let search = engine.search_request(&candidate, "question");
-    assert_eq!(search.configuration, candidate.configuration.search());
-    assert_eq!((search.collection, search.text), ("collection", "question"));
-    assert_eq!(
-        search.budget.evidence_bytes,
-        RequestBudget::DEFAULT_SEARCH_EVIDENCE_BYTES
-    );
-    candidate.ask = None;
+    assert_eq!((search.budget.k, search.budget.evidence_bytes), (5, 6_000));
+    assert_eq!(search.evidence.expansion, ExpansionMode::FullSection);
+    assert_eq!(search.evidence.parent_chain_order, None);
     candidate.search_budget = Some(RequestBudget {
         k: 4,
         evidence_bytes: 9_000,
         ..RequestBudget::default()
     });
     assert_eq!(
-        engine
-            .search_request(&candidate, "question")
-            .budget
-            .evidence_bytes,
-        9_000
+        engine.search_request(&candidate, "question").budget,
+        candidate.search_budget.unwrap()
     );
-    candidate.search_budget = None;
-    candidate.ask = Some(settings.clone());
-    let asking = engine.search_request(&candidate, "question").budget;
-    assert_eq!((asking.k, asking.evidence_bytes), (8, 9000));
-    candidate.ask = None;
-    let unasked = engine.search_request(&candidate, "question").budget;
+}
+
+#[test]
+fn ask_rungs_keep_their_resolved_budget_and_evidence_settings() {
+    let scratch = Scratch::new();
+    let kernel = scratch.kernel(None).unwrap();
+    let port = RouterClient::new(Url::parse(NOWHERE).unwrap()).unwrap();
+    let engine =
+        KernelEngine::new(&kernel, "collection", port, Qdrant::new(NOWHERE).unwrap()).unwrap();
+    let mut candidate = rung("r0");
+    candidate.ask = Some(AskSettings::default());
+    let defaults = engine.search_request(&candidate, "question");
     assert_eq!(
-        unasked.evidence_bytes,
-        RequestBudget::DEFAULT_SEARCH_EVIDENCE_BYTES
+        (defaults.budget.k, defaults.budget.evidence_bytes),
+        (5, 6_000)
     );
-    let search = engine.search_request(&candidate, "question");
-    assert_eq!(search.configuration, candidate.configuration.search());
-    assert_eq!((search.collection, search.text), ("collection", "question"));
-    assert_eq!(
-        search.budget.evidence_bytes,
-        RequestBudget::DEFAULT_SEARCH_EVIDENCE_BYTES
-    );
+    assert_eq!(defaults.evidence.expansion, ExpansionMode::FullSection);
+    assert_eq!(defaults.evidence.parent_chain_order, None);
+
+    candidate.ask = Some(v1_settings());
+    let asking = engine.search_request(&candidate, "question");
+    assert_eq!((asking.budget.k, asking.budget.evidence_bytes), (8, 9000));
     candidate.ask = Some(AskSettings {
         expansion: ExpansionMode::RelevantBlocks,
         evidence_counter: CounterMode::Utf8AnswerBound,
-        ..settings
+        ..AskSettings::default()
     });
     let search = engine.search_request(&candidate, "question");
     assert_eq!(search.evidence.expansion, ExpansionMode::RelevantBlocks);
     assert_eq!(
         search.evidence.evidence_counter,
         CounterMode::Utf8AnswerBound
-    );
-    assert_eq!((search.budget.k, search.budget.evidence_bytes), (8, 9000));
-    candidate.ask = Some(AskSettings::default());
-    let search = engine.search_request(&candidate, "question");
-    let asked = AskBudget::default();
-    assert_eq!(
-        (
-            search.budget.k,
-            search.budget.evidence_bytes,
-            search.budget.deadline_ms
-        ),
-        (asked.k, asked.evidence_bytes, asked.search_deadline_ms)
     );
 }
 

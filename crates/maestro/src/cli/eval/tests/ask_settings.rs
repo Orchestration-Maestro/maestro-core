@@ -151,7 +151,7 @@ fn a_rung_report_records_its_resolved_ask_settings_and_prompt() {
             "evidence_bytes": 6000,
             "output_tokens": 900,
             "prompt": "v2",
-            "evidence": {"expansion":"parent_chain", "evidence_counter":"utf8"},
+            "evidence": {"expansion":"full_section", "evidence_counter":"utf8"},
             "search_deadline_ms": 30_000
         })
     );
@@ -162,8 +162,8 @@ fn a_rung_report_records_its_resolved_ask_settings_and_prompt() {
     assert_eq!(to_json(&unasked)["search_deadline_ms"], json!(30_000));
     let unasked_markdown = unasked.to_markdown();
     assert!(unasked_markdown.contains(concat!(
-        "- Scored bundle: each search's evidence, assembled under the default ask budget: ",
-        "at most 5 passages, 6000 evidence bytes\n"
+        "- Search settings: at most 5 passages, 6000 evidence bytes, full_section ",
+        "expansion, none order\n"
     )));
     assert!(
         unasked

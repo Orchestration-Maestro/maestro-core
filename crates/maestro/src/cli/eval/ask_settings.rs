@@ -11,7 +11,7 @@ use serde::{Deserialize, Deserializer, de};
 use serde_json::Value;
 
 /// A rung's `ask` settings; each one absent is `ask`'s default.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 #[expect(
     clippy::min_ident_chars,
@@ -28,7 +28,8 @@ pub(super) struct AskSettings {
     /// The answer prompt: a version, or a private prompt file.
     #[serde(alias = "answer_prompt")]
     pub(super) prompt: RungPrompt,
-    /// Source-window allocation policy.
+    /// Source-window allocation policy; absent retains legacy full-section behavior.
+    #[serde(default = "full_section")]
     pub(super) expansion: ExpansionMode,
     /// Representation charged against `evidence_bytes`.
     pub(super) evidence_counter: CounterMode,
@@ -36,6 +37,25 @@ pub(super) struct AskSettings {
     /// the rung asks with; absent, the latest registered answerer of the
     /// default model.
     pub(super) card: Option<String>,
+}
+
+/// The ladder's legacy evidence expansion.
+fn full_section() -> ExpansionMode {
+    ExpansionMode::FullSection
+}
+
+impl Default for AskSettings {
+    fn default() -> Self {
+        Self {
+            k: None,
+            evidence_bytes: None,
+            output_tokens: None,
+            prompt: RungPrompt::default(),
+            expansion: ExpansionMode::FullSection,
+            evidence_counter: CounterMode::default(),
+            card: None,
+        }
+    }
 }
 
 impl AskSettings {

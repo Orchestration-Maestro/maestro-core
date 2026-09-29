@@ -68,9 +68,6 @@ fn a_manifest_holds_its_rungs_and_resolves_its_paths_from_its_directory() {
             dense_enabled: false,
             structured_enabled: false,
             rerank_enabled: false,
-            routes_limit: 100,
-            identifier_limit: 20,
-            fusion_pool: 120,
             ..SearchConfiguration::default()
         }
     );
@@ -97,9 +94,6 @@ fn a_rungs_configuration_sets_every_knob_of_search() {
             identifier_weight: 1.0,
             structured_weight: 1.0,
             rerank_enabled: true,
-            routes_limit: 100,
-            identifier_limit: 20,
-            fusion_pool: 120,
             rerank_depth: search.rerank_depth,
             min_rerank_score: Some(0.25),
             stage_window: StageWindow::Fixed(Duration::from_millis(250)),
@@ -453,6 +447,24 @@ fn route_limits_and_fusion_pool_are_configurable_and_bounded() {
     value["rungs"][1]["configuration"]["fusion_pool"] = json!(40);
     value["rungs"][1]["configuration"]["routes_limit"] = json!(0);
     assert!(refusal(&value).contains("routes_limit must be between 1 and 120"));
+    value["rungs"][1]["configuration"]["routes_limit"] = json!(100);
+    for limit in [0, 121] {
+        value["rungs"][1]["configuration"]["identifier_limit"] = json!(limit);
+        assert!(refusal(&value).contains("identifier_limit must be between 1 and 120"));
+    }
+}
+
+#[test]
+fn search_budget_is_checked_during_manifest_parse() {
+    let mut value = manifest();
+    value["rungs"][0]["search_budget"] =
+        json!({"k": 5, "evidence_bytes": 24001, "deadline_ms": 30000});
+    assert!(refusal(&value).contains("over the 24000-byte ceiling"));
+
+    value["rungs"][0]["search_budget"] =
+        json!({"k": 5, "evidence_bytes": 6000, "deadline_ms": 30000});
+    value["rungs"][0]["ask"] = json!(true);
+    assert!(refusal(&value).contains("search_budget requires ask false"));
 }
 
 #[test]

@@ -7,13 +7,10 @@ use super::{
     runner::{Provenance, RejectedCheck, RungRun, SearchDiagnostic, Verdict},
 };
 use crate::failure::Failure;
-use maestro_kernel::{
-    artifact::Digest,
-    evidence::{RequestBudget, RouteStatus},
-};
-use maestro_knowledge::search::evidence::EvidenceSettings;
+use maestro_kernel::{artifact::Digest, evidence::RouteStatus};
+use maestro_knowledge::search::evidence::{EvidenceSettings, ExpansionMode, ParentChainOrder};
 use maestro_knowledge::{
-    answer::{AskBudget, RefusalCode},
+    answer::RefusalCode,
     eval::{AskOutcome, DeliveryScore, LadderQuestion, LadderScore, SearchOutcome},
     search::evidence::Anchor,
 };
@@ -78,6 +75,8 @@ pub(super) struct RungReport<'run> {
     ladder: &'run Provenance,
     /// Its search configuration.
     configuration: &'run RungConfiguration,
+    /// The resolved budget and evidence settings used by each search.
+    search_settings: SearchReport,
     /// The deadline each of its searches ran with, in milliseconds.
     search_deadline_ms: u32,
     /// The SHA-256 of the suite's file.
@@ -108,6 +107,7 @@ impl<'run> RungReport<'run> {
         suite_digest: &'run Digest,
         binary: Binary,
     ) -> Self {
+        let (search_budget, search_evidence) = run.rung.resolved_search_settings();
         Self {
             schema: RUNG_SCHEMA,
             rung: &run.rung.name,
@@ -120,7 +120,13 @@ impl<'run> RungReport<'run> {
             end: run.end.as_ref(),
             ladder: &run.ladder,
             configuration: &run.rung.configuration,
-            search_deadline_ms: RequestBudget::default().deadline_ms,
+            search_settings: SearchReport {
+                max_passages: search_budget.k,
+                evidence_bytes: search_budget.evidence_bytes,
+                expansion: search_evidence.expansion,
+                parent_chain_order: search_evidence.parent_chain_order,
+            },
+            search_deadline_ms: search_budget.deadline_ms,
             suite_digest: suite_digest.as_str(),
             binary,
             score: &run.score,
@@ -172,7 +178,27 @@ impl<'run> RungReport<'run> {
             let _ = writeln!(text, "- Ask settings: {}", settings.describe());
             let _ = writeln!(text, "- Reply cap: {}", reply_caps(&self.reply_caps));
         }
-        let _ = writeln!(text, "- Scored bundle: {}", self.scored_bundle());
+        let expansion = match self.search_settings.expansion {
+            ExpansionMode::FullSection => "full_section",
+            ExpansionMode::RelevantBlocks => "relevant_blocks",
+            ExpansionMode::ParentChain => "parent_chain",
+        };
+        let order = match self.search_settings.parent_chain_order {
+            Some(ParentChainOrder::MinimumCompleteFirst) => "minimum_complete_first",
+            Some(ParentChainOrder::LargestFittingParent) => "largest_fitting_parent",
+            None => "none",
+        };
+        let _ = writeln!(
+            text,
+            concat!(
+                "- Search settings: at most {} passages, {} evidence bytes, ",
+                "{} expansion, {} order"
+            ),
+            self.search_settings.max_passages,
+            self.search_settings.evidence_bytes,
+            expansion,
+            order
+        );
         text.push_str(&self.delivery.to_markdown());
         let _ = writeln!(
             text,
@@ -201,21 +227,20 @@ impl<'run> RungReport<'run> {
         text.push_str(&self.score.to_markdown());
         text
     }
+}
 
-    /// The bundle the delivery score reads, in words: what each ask's
-    /// answerer received, or each search's evidence under the default ask
-    /// budget when the rung did not ask.
-    fn scored_bundle(&self) -> String {
-        if self.ask {
-            return "the evidence each ask gave its answerer, under the ask settings".to_owned();
-        }
-        let budget = AskBudget::default();
-        format!(
-            "each search's evidence, assembled under the default ask budget: at most {} \
-             passages, {} evidence bytes",
-            budget.k, budget.evidence_bytes
-        )
-    }
+/// The resolved budget and evidence settings searches ran with.
+#[derive(Debug, Serialize)]
+pub(super) struct SearchReport {
+    /// Maximum passages.
+    #[serde(rename = "k")]
+    max_passages: u32,
+    /// Maximum evidence bytes.
+    evidence_bytes: u32,
+    /// Resolved evidence expansion.
+    expansion: ExpansionMode,
+    /// Resolved parent-chain order, or none.
+    parent_chain_order: Option<ParentChainOrder>,
 }
 
 /// The settings a rung's asks ran with, each resolved.
@@ -309,7 +334,7 @@ pub(super) struct PrivateRow<'run> {
     /// The first of them, from 1, that is an expected document.
     bundle_rank: Option<usize>,
     /// UTF-8 byte count of the assembled evidence, absent when assembly failed.
-    evidence_bytes: Option<usize>,
+    evidence_bytes: Option<u32>,
     /// The search's top reranker score, absent when rerank did not run.
     top_rerank_score: Option<f64>,
     /// The search's top fused score, absent when no fused candidate was loaded.

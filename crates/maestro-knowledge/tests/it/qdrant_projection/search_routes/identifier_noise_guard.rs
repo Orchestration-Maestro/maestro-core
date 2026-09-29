@@ -7,7 +7,7 @@ use super::{
     fused_search::accept_all_revisions,
     identifier_route::{PublishedCommand, publish_command, publish_kernel},
     kernel::Kernel,
-    support::cleanup,
+    support::{cleanup, identifier_point, upsert},
 };
 use maestro_kernel::evidence::{RequestBudget, RouteStatus};
 use maestro_knowledge::{
@@ -72,15 +72,26 @@ async fn identifier_search_limits(
 #[tokio::test]
 async fn identifier_limit_bounds_identifier_route_candidates() {
     let backend = fake();
-    let kernel = Kernel::with_changed_guides(2, &|kernel, _, mut chunks| {
-        chunks[0].digest = kernel.put(b"Install version 9.0.22 of the tool.");
-        chunks
-    });
-    accept_all_revisions(&kernel);
-    let fixture = publish_kernel(&backend, kernel).await;
-    let result = identifier_search_limits(&fixture, "9.0.22", 100, 2).await;
-    assert_eq!(result.status, RouteStatus::Ok);
-    assert_eq!(result.hits.len(), 2);
+    let fixture = publish_command(&backend).await;
+    let decoys = ["payload-only-a", "payload-only-b"]
+        .into_iter()
+        .enumerate()
+        .map(|(index, chunk)| {
+            identifier_point(
+                &format!("00000000-0000-4000-8000-{index:012x}"),
+                chunk,
+                "payload-revision",
+                "workspace/default",
+            )
+        })
+        .collect();
+    upsert(&backend, &fixture.generation, decoys).await;
+    let uncapped = identifier_search_limits(&fixture, "ERR-042", 100, 3).await;
+    assert_eq!(uncapped.status, RouteStatus::Ok);
+    assert_eq!(uncapped.hits.len(), 3);
+    let capped = identifier_search_limits(&fixture, "ERR-042", 100, 2).await;
+    assert_eq!(capped.status, RouteStatus::Ok);
+    assert_eq!(capped.hits.len(), 2);
     cleanup(&backend, &[&fixture.generation]).await;
 }
 
@@ -258,9 +269,6 @@ async fn search_guarded(fixture: &PublishedCommand, text: &str, guard: bool) -> 
             dense_enabled: false,
             structured_enabled: false,
             rerank_enabled: false,
-            routes_limit: 100,
-            identifier_limit: 20,
-            fusion_pool: 120,
             identifier_noise_guard: guard,
             ..SearchConfiguration::default()
         },

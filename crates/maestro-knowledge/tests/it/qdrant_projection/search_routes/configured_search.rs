@@ -18,7 +18,7 @@ use maestro_knowledge::{
         SearchContext, SearchRequest, routes::dense::Embedder, search,
     },
 };
-use std::future;
+use std::{future, num::NonZeroUsize};
 
 pub(super) struct Published {
     pub(super) backend: super::backends::Backend,
@@ -95,9 +95,6 @@ fn off() -> SearchConfiguration {
         identifier_enabled: false,
         structured_enabled: false,
         rerank_enabled: false,
-        routes_limit: 100,
-        identifier_limit: 20,
-        fusion_pool: 120,
         ..SearchConfiguration::default()
     }
 }
@@ -231,53 +228,45 @@ async fn each_route_switch_changes_calls_or_search_results() {
 }
 
 #[tokio::test]
-async fn pipeline_limit_defaults_preserve_byte_identical_search_results() {
-    let defaults = SearchConfiguration::default();
-    assert_eq!(defaults.routes_limit, 100);
-    assert_eq!(defaults.identifier_limit, 20);
-    assert_eq!(defaults.fusion_pool, 120);
-
+async fn configured_route_and_fusion_caps_bound_candidate_counts() {
     let fixture = published().await;
-    let implicit = run(&fixture, "scheduler ERR-042", defaults).await;
-    let explicit = run(
+    let baseline = run(
         &fixture,
-        "scheduler ERR-042",
+        "scheduler job",
         SearchConfiguration {
-            routes_limit: 100,
-            identifier_limit: 20,
-            fusion_pool: 120,
-            ..defaults
+            dense_enabled: false,
+            lexical_enabled: true,
+            identifier_enabled: false,
+            structured_enabled: false,
+            rerank_enabled: false,
+            ..SearchConfiguration::default()
         },
     )
     .await;
-    let result_bytes = |result: &EvidenceInput| {
-        let mut observations = result.observations.clone();
-        observations.candidate_source_load_micros = 0;
-        format!(
-            "{:?}",
-            (
-                (
-                    &result.evidence,
-                    &result.generation,
-                    &result.query,
-                    &result.understood,
-                    &result.version,
-                    &result.principal,
-                    &result.scopes,
-                ),
-                (
-                    &result.ranked,
-                    &observations,
-                    &result.routes,
-                    &result.inventory,
-                    &result.budget,
-                    &result.known_gaps,
-                ),
-            )
-        )
-        .into_bytes()
-    };
-    assert_eq!(result_bytes(&implicit), result_bytes(&explicit));
+    let baseline_count = baseline.observations.route_ranks[&Route::Lexical].len();
+    assert!(
+        baseline_count > 2,
+        "fixture must provide candidates above the caps"
+    );
+    let result = run(
+        &fixture,
+        "scheduler job",
+        SearchConfiguration {
+            dense_enabled: false,
+            lexical_enabled: true,
+            identifier_enabled: false,
+            structured_enabled: false,
+            routes_limit: 2,
+            fusion_pool: 2,
+            rerank_depth: NonZeroUsize::new(2).unwrap(),
+            rerank_enabled: false,
+            ..SearchConfiguration::default()
+        },
+    )
+    .await;
+
+    assert_eq!(result.observations.route_ranks[&Route::Lexical].len(), 2);
+    assert_eq!(result.ranked.len(), 2);
     clean(&fixture).await;
 }
 
@@ -290,9 +279,6 @@ async fn weighted_fusion_and_stage_observations_follow_the_configured_pipeline()
         identifier_enabled: false,
         structured_enabled: false,
         rerank_enabled: false,
-        routes_limit: 100,
-        identifier_limit: 20,
-        fusion_pool: 120,
         ..SearchConfiguration::default()
     };
     let baseline = run(&fixture, "scheduler job", hybrid).await;
@@ -365,9 +351,6 @@ async fn reranked_and_failed_stage_ranks_are_retained_from_search() {
         identifier_enabled: false,
         structured_enabled: false,
         rerank_enabled: false,
-        routes_limit: 100,
-        identifier_limit: 20,
-        fusion_pool: 120,
         ..SearchConfiguration::default()
     };
     let baseline = run(&fixture, "scheduler job", hybrid).await;
@@ -379,9 +362,6 @@ async fn reranked_and_failed_stage_ranks_are_retained_from_search() {
             "scheduler job",
             SearchConfiguration {
                 rerank_enabled: true,
-                routes_limit: 100,
-                identifier_limit: 20,
-                fusion_pool: 120,
                 ..hybrid
             },
         ),
@@ -405,9 +385,6 @@ async fn reranked_and_failed_stage_ranks_are_retained_from_search() {
             "scheduler job",
             SearchConfiguration {
                 rerank_enabled: true,
-                routes_limit: 100,
-                identifier_limit: 20,
-                fusion_pool: 120,
                 ..hybrid
             },
         ),

@@ -136,9 +136,6 @@ async fn dense_runs_after_the_router_unloads_its_model_between_two_searches() {
         },
         configuration: SearchConfiguration {
             rerank_enabled: false,
-            routes_limit: 100,
-            identifier_limit: 20,
-            fusion_pool: 120,
             ..SearchConfiguration::default()
         },
     };

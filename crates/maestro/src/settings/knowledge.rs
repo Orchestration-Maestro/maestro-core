@@ -112,6 +112,7 @@ impl KnowledgeSettings {
             search.intent_expansion = IntentExpansion::Off;
         }
         let expansion = read.named::<ExpansionMode>("evidence.expansion")?;
+        // An order given with a non-parent expansion is dropped.
         let parent_chain_order = match read.text("evidence.parent_chain_order")? {
             "off" => None,
             "minimum_complete_first" if expansion != ExpansionMode::ParentChain => None,

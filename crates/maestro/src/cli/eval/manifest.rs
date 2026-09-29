@@ -73,7 +73,7 @@ pub(super) struct Rung {
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct RungConfiguration {
-    /// Optional search-only delivery strategy; absent retains full-section behavior.
+    /// Optional evidence expansion; absent retains `full_section` behavior.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(super) evidence_expansion: Option<ExpansionMode>,
     /// Optional admission order, valid only for parent-chain expansion.
@@ -237,11 +237,30 @@ fn default_intent_rerank_additions() -> usize {
     SearchConfiguration::default().intent_rerank_additions
 }
 
+impl Rung {
+    /// Resolved request budget and evidence settings shared by execution and reporting.
+    pub(super) fn resolved_search_settings(&self) -> (RequestBudget, EvidenceSettings) {
+        if let Some(ask) = &self.ask {
+            return (ask.budget().into(), ask.evidence());
+        }
+        (
+            self.search_budget.unwrap_or(RequestBudget {
+                k: 5,
+                evidence_bytes: 6_000,
+                ..RequestBudget::default()
+            }),
+            self.configuration.evidence(),
+        )
+    }
+}
+
 impl RungConfiguration {
     /// Search-only delivery settings, with legacy defaults when the fields are absent.
     pub(super) fn evidence(&self) -> EvidenceSettings {
         EvidenceSettings {
-            expansion: self.evidence_expansion.unwrap_or_default(),
+            expansion: self
+                .evidence_expansion
+                .unwrap_or(ExpansionMode::FullSection),
             parent_chain_order: self.parent_chain_order,
             ..EvidenceSettings::default()
         }
@@ -450,6 +469,19 @@ fn check_rung(rung: &Rung) -> Result<(), Failure> {
         ));
     }
     let configuration = &rung.configuration;
+    if let Some(budget) = rung.search_budget
+        && budget.evidence_bytes > RequestBudget::MAX_EVIDENCE_BUDGET
+    {
+        return Err(Failure::refused(format!(
+            "the rung `{}` asks for {} evidence bytes, over the {}-byte ceiling",
+            rung.name,
+            budget.evidence_bytes,
+            RequestBudget::MAX_EVIDENCE_BUDGET
+        )));
+    }
+    if rung.ask.is_some() && rung.search_budget.is_some() {
+        return Err(Failure::refused("search_budget requires ask false"));
+    }
     check_intent(configuration)?;
     configuration
         .evidence()
