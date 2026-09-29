@@ -9,9 +9,9 @@
     },
     {
       "source_row": "owner.m001.manifest",
-      "s3_portion": "Descriptor-extensible catalog definitions and model cards; InnerSource operation stays S5",
-      "tasks": ["C03", "C03a", "C02a", "C10", "C11", "C12", "C16", "C21", "C21b"],
-      "remaining": "S3: descriptor-only extension and model-card declarations/registration with C28 evidence; S5: InnerSource operation"
+      "s3_portion": "Descriptor-extensible catalog definitions and local-evidence model-card registration; InnerSource operation stays S5",
+      "tasks": ["C03", "C03a", "C02a", "C10", "C11", "C12", "C16", "C16h", "C21", "C21b"],
+      "remaining": "S3: descriptor-only extension and model-card declarations/local-evidence registration with C28 evidence; S5: InnerSource operation"
     },
     {
       "source_row": "owner.m001.team",
@@ -21,14 +21,14 @@
     },
     {
       "source_row": "owner.m001.cli",
-      "s3_portion": "Project bootstrap",
-      "tasks": ["C04a", "C04", "C05"],
+      "s3_portion": "Project bootstrap and registry-generated settings editor",
+      "tasks": ["C04a", "C04", "C05", "C05g", "C05k"],
       "remaining": "S3: bootstrap implementation and C28 evidence"
     },
     {
       "source_row": "owner.m001.load",
-      "s3_portion": "Bootstrap/preferences; human approvals remain",
-      "tasks": ["C05", "C17", "C18"],
+      "s3_portion": "Bootstrap/preferences and shared every-setting editor; human approvals remain",
+      "tasks": ["C05", "C05g", "C05k", "C17", "C18"],
       "remaining": "S3: bootstrap and preference resolution without removing human approvals; S4: governed approval execution"
     },
     {
@@ -87,8 +87,8 @@
     },
     {
       "source_row": "chat.M006 lockfile",
-      "s3_portion": "Exact pins; live execution qualification stays S4",
-      "tasks": ["C18"],
+      "s3_portion": "Exact pins and shared lock-bound lookup; live execution qualification stays S4",
+      "tasks": ["C18", "C16h"],
       "remaining": "S3: explicit pins and unsupported states; S4: live execution qualification"
     },
     {
@@ -171,9 +171,9 @@
     },
     {
       "source_row": "chat.M036 classes, M039 policy",
-      "s3_portion": "Restrictive override classes",
+      "s3_portion": "Restrictive override classes over canonical S1 registry keys, not a second key list",
       "tasks": ["C03", "C17"],
-      "remaining": "S3: exactly one class per setting and restrictive resolution evidence"
+      "remaining": "S3: exactly one class per setting and restrictive resolution evidence; S1: shared settings registry and canonical keys integrated before the catalog adapter"
     },
     {
       "source_row": "chat.M036 defaults",
@@ -213,9 +213,9 @@
     },
     {
       "source_row": "chat.M036 models",
-      "s3_portion": "Kernel model-card declarations/registration and separate agent profiles; provider qualification stays S4",
-      "tasks": ["C03a", "C02a", "C16", "C18", "C21", "C21b"],
-      "remaining": "S3: owner-reviewed kernel card declarations/registration, bounded agent profile declarations and unsupported diagnostics; S4: provider/role qualification"
+      "s3_portion": "Kernel model-card declarations/local-evidence registration and separate agent profiles; provider qualification stays S4",
+      "tasks": ["C03a", "C02a", "C16h", "C18", "C21", "C21b"],
+      "remaining": "S3: owner-reviewed kernel card declarations/local-evidence registration, bounded agent profile declarations and unsupported diagnostics; S4: provider/role qualification"
     },
     {
       "source_row": "chat.M059 model profile",
@@ -363,9 +363,9 @@
     },
     {
       "source_row": "chat.M059 provenance",
-      "s3_portion": "Declared model cards, kernel registrations and observations kept distinct",
-      "tasks": ["C03a", "C08", "C16", "C18", "C28"],
-      "remaining": "S3: model-card declaration/registration/history and honest catalog/host observed/unsupported/not-run evidence; S4: governed execution observations"
+      "s3_portion": "Declared model cards, registrations and returned answer card IDs kept distinct; no stored-answer history",
+      "tasks": ["C03a", "C08", "C16h", "C18", "C28"],
+      "remaining": "S3: model-card declaration/local-evidence registration, immutable returned-ID resolution and honest catalog/host observed/unsupported/not-run evidence, not an answer journal; S4: governed execution observations"
     },
     {
       "source_row": "delivery.U02",
@@ -400,8 +400,8 @@
     {
       "source_row": "core storage",
       "s3_portion": "Scoped kernel authority including immutable model cards, rebuildable projections",
-      "tasks": ["C03a", "C12", "C16", "C25", "C27a"],
-      "remaining": "S3: reuse kernel model registry and catalog records without a second model store, plus rebuildable scoped projections; S2: G25 qualification and G27 public port"
+      "tasks": ["C03a", "C12", "C16", "C16h", "C25", "C27a"],
+      "remaining": "S3: reuse kernel model registry and catalog records without a second model store or answer journal, plus rebuildable scoped projections; S2: G25 qualification and G27 public port"
     },
     {
       "source_row": "core verification",
@@ -417,15 +417,15 @@
     },
     {
       "source_row": "chat.M006 CLI",
-      "s3_portion": "Bootstrap, projection, doctor, catalog lifecycle, explicit model-card registration, settings and policy CLI; other commands stay S4/S5",
-      "tasks": ["C05", "C06", "C07", "C13", "C13a", "C16", "C16b", "C17", "C18", "C19"],
-      "remaining": "S3: checked catalog CLI including explicit admitted model-card registration and C28 evidence; S4: run, session and governed lifecycle commands; S5: capability scaffolding and contribution commands"
+      "s3_portion": "Bootstrap, projection, doctor, catalog lifecycle, explicit local-evidence model-card registration, registry-generated settings editor and policy CLI; other commands stay S4/S5",
+      "tasks": ["C05", "C05g", "C05k", "C06", "C07", "C13", "C13a", "C16", "C16h", "C16b", "C17", "C18", "C19"],
+      "remaining": "S3: checked catalog CLI, shared settings editor, explicit admitted local-evidence model-card registration over existing kernel authority and C28 evidence; S4: run, session and governed lifecycle commands; S5: capability scaffolding and contribution commands"
     },
     {
       "source_row": "chat.M036 objects",
       "s3_portion": "Descriptor-extensible resource kinds including model cards; runtime objects stay S4",
-      "tasks": ["C03", "C03a", "C02a", "C10", "C11", "C12", "C16", "C21", "C21b"],
-      "remaining": "S3: generic kind lifecycle, required declarations and model-card registration; S4: runtime sessions, handoffs and execution objects"
+      "tasks": ["C03", "C03a", "C02a", "C10", "C11", "C12", "C16", "C16h", "C21", "C21b"],
+      "remaining": "S3: generic kind lifecycle, required declarations and model-card local-evidence registration; S4: runtime sessions, handoffs and execution objects"
     },
     {
       "source_row": "delivery.§2.2",
@@ -447,8 +447,8 @@
     },
     {
       "source_row": "delivery.C01 transparent platform, minimal plumbing",
-      "s3_portion": "Bootstrap and preferences remove plumbing, not human judgement",
-      "tasks": ["C05", "C17", "C18"],
+      "s3_portion": "Bootstrap and registry-generated preferences remove plumbing, not human judgement",
+      "tasks": ["C05", "C05g", "C05k", "C17", "C18"],
       "remaining": "S3: deterministic setup and explainable settings; S4: governed approvals remain human-controlled"
     },
     {
@@ -477,8 +477,8 @@
     },
     {
       "source_row": "delivery.C12 preview/apply bootstrap",
-      "s3_portion": "Safe deterministic preview/apply bootstrap",
-      "tasks": ["C04a", "C04", "C05"],
+      "s3_portion": "Safe deterministic preview/apply bootstrap with the shared settings editor",
+      "tasks": ["C04a", "C04", "C05", "C05g", "C05k"],
       "remaining": "S3: shared owned writes, collision refusal and composed-output checks"
     },
     {

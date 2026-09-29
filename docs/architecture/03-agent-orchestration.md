@@ -61,6 +61,7 @@ workflows/<name>/workflow.md                 # graph spec (frontmatter) + docume
 contracts/<name>.schema.json                 # JSON Schema 2020-12
 policies/*.cedar  policies/schema.cedarschema.json
 profiles/models/<role>.toml                  # allowed provider/model profiles per role
+model-cards/<id>.toml                        # owner-approved kernel v2 identities, not agent profiles
 mcp/<server>.toml                            # approved MCP servers and tool allowlists
 extensions/<name>/extension.toml             # event subscribers and connectors (07)
 hooks/<name>.json                            # native Copilot hook projections
@@ -82,6 +83,7 @@ CODEOWNERS                                   # generated from one ownership mode
 | Workflow graph | `workflow.md`: graph spec in YAML frontmatter, human documentation in the body | Maestro-specific (§2) |
 | Contract | JSON Schema 2020-12 + named semantic validators | — |
 | Policy | Cedar policies + a Cedar schema | — |
+| Model card | `model-cards/<id>.toml` | Common resource metadata, a model-card `version` field and the exact nested kernel v2 `CardIdentity`; canonical JSON/fingerprint remain kernel-owned |
 
 The agent body keeps a fixed structure (Purpose, Responsibilities, Inputs,
 Working sequence, Outputs, Boundaries) that the linter checks. The separation of
@@ -107,6 +109,17 @@ their obligations (approvals, gates); a simplified version is a named, versioned
 never a hidden rewrite. Every imported skill is pinned like a dependency, with
 licence, attribution and a review of any script it carries.
 
+**Kinds grow through descriptors** ([S3 D12](../../specs/003-catalog/plan.md#d12-kind-extensibility-and-model-cards)).
+A built-in `Registration` pairs a descriptor with an existing named hook; generic
+check/compile/read/install code does not branch on each new kind. C03 supports
+finite floats and whole structured tables passed to `KindRules`, with strict
+bounds and unknown-hook/kind/version refusals. JSON resource-format support and
+file-loaded descriptors arrive later; no plugin execution is implied.
+Model cards use the existing kernel validator/registry, not copied identity types.
+After the glossary spike shows value, glossary and source-class tables become
+reviewed, versioned per-collection catalog kinds, not only kernel bindings; they
+are later work, not additional M3 production kinds.
+
 ### 1.3 Check, compile, release, install
 
 | Command | Does |
@@ -116,7 +129,8 @@ licence, attribution and a review of any script it carries.
 | Release (manifests CI) | On a tag: compile with the **released, pinned** `maestro` binary (checksum verified), generate an SPDX 2.3 JSON SBOM from the pinned component closure/digests using checksum-pinned toolbelt jaq 3.1.1, commit-time `creationInfo.created` and bundle-digest `documentNamespace`; follow the [S3 release-assets contract](../../specs/003-catalog/plan.md#contracts) for tag/names, `SHA256SUMS` and both attestation subjects; document verification (SEC-011) |
 | `maestro catalog install <version>` | Downloads, verifies SHA-256 and the attestation (signer = the manifests release workflow), unpacks into the kernel's artifact store, records the install, indexes discovery cards (§1.4), and optionally projects to hosts (§1.5) |
 | `maestro catalog update` | Same as install for the newest compatible version; refuses a bundle whose runtime contract range excludes the installed `maestro` or that requires a feature it lacks |
-| `maestro catalog explain` | Declared, effective and observed views: what a resource is meant to do; what applies to this project after resolution, with the source of every setting; what a run actually did |
+| `maestro catalog explain` | Declared, effective and observed views: what a resource is meant to do; what applies to this project after resolution, with the source of every setting; actual observations only where recorded. For model cards, explain the card an ask would use now, not a nonexistent stored-answer history |
+| `maestro catalog register-model-card ID --collection COLLECTION` | Explicitly register an exact admitted installed declaration in the existing scoped kernel registry with all evidence already local; never implicit in install/update, never a model download or selection-record write |
 
 The laptop never clones the manifests repository to run a bundle, and it needs
 no Rust toolchain or Python. **Authoring schemas differ from the bundle schema**:
@@ -125,6 +139,18 @@ the runtime validates what it loads again (a passing catalog build is not blind
 trust). A bundle can never disable signature verification, invent an identity,
 bypass the broker or turn agent text into a host receipt: those mechanisms are
 not settings.
+
+**Model-card boundary.** Bake-off winners arrive as owner-approved manifest changes,
+not edited runtime defaults. Each machine qualifies its own backend/runtime/hardware-
+bound card; M3 registration requires all identity-referenced evidence already local.
+Cross-machine digest-matched local `--evidence DIR` import is post-M1 work.
+Each answer carries its registry card ID, which resolves to an immutable card;
+the kernel stores no answers. Catalog edits/removal cannot rewrite that identity.
+Until S1's post-M1 explicit-answerer-selection fix, the latest registered answerer
+for a router entry wins; re-registering an earlier card does not restore it.
+M059 agent-session profiles remain separate and confer no kernel job selection
+or S4 qualification. S2 G17 supplies extractor before M3; query_expander stays
+unsupported until its S1 role follow-up, using the kernel's own unknown-role refusal.
 
 **Authoring checkpoints (D1).** C02's small reviewed-source seed and C08's
 init → project → knowledge search/get/ask → remove loop come before M3.
@@ -268,7 +294,13 @@ runs through the S4 engine.
 
 Every configurable key has **exactly one** override class in
 `settings/classes.toml`; an unknown, unclassified or doubly classified key is
-rejected by the compiler and by the runtime.
+rejected by the compiler and by the runtime. The key inventory comes through a
+port from S1's shared settings registry, not a second `KNOWN_SETTINGS` list.
+**Supervisor ruling, 21:02: S1 registry names are canonical**; for example,
+`ask.output_tokens` replaces the catalog's `max_output_tokens` spelling. After the
+supervisor synchronizes landed S1 APIs into S3, C17 adds only missing catalog
+descriptors for this section. Landed S3 layers and authority restrictions below
+remain unchanged.
 
 | Class | Examples | Who changes it |
 | --- | --- | --- |
@@ -419,6 +451,15 @@ adoption, with visual acceptance still pending. Plain init
 serves the first owner loop without TUI/OA9. Save preferences only in
 `.maestro/config.toml` through the checked writer; preserve user edits. Trust
 stays kernel-local. Visual/keyboard/plain tests gate the later menu and M3.
+
+The owner's 20:48 addition makes init and no-argument `maestro config` share the
+same registry-generated every-setting editor. Each entry shows current value,
+allowed values/range, one-line description and source layer; a new descriptor
+appears without per-setting screen code. C05g supplies the plain flow and C05k
+the ratatui renderer. Every authorized edit goes through S1 validation/journalling;
+locked/authority-only entries show their restriction, never a preference bypass.
+Init writes only workspace preferences; config uses S1's explicit layer selection.
+Preview/cancel writes nothing, and all existing trust/consent rules still apply.
 
 The project also keeps a small descriptor, `.maestro/project.toml`: preset,
 lock, capabilities and context files; it never redefines hooks, orchestration,
