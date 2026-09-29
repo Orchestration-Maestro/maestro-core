@@ -73,7 +73,7 @@ pub(super) fn record_batch(
         .map_err(Error::Search)
 }
 
-impl<P: ModelPort, R: RetrievalProjectionPort<Error = super::qdrant::QdrantError>>
+impl<P: ModelPort, R: RetrievalProjectionPort<Error = super::projection_port::ProjectionError>>
     Projection<'_, P, R>
 {
     /// Rechecks manifest membership, every prepared input, each exact payload
@@ -94,7 +94,7 @@ impl<P: ModelPort, R: RetrievalProjectionPort<Error = super::qdrant::QdrantError
             .projection
             .payload_fields(&collection_name(generation))
             .await
-            .map_err(Error::Qdrant)?;
+            .map_err(Error::from)?;
         for field in ["scope_tags", "identifiers", "identifier_profile", "version"] {
             if indexes.get(field).map(String::as_str) != Some("keyword") {
                 return Ok(Err(Unverified::Search {
@@ -124,7 +124,7 @@ impl<P: ModelPort, R: RetrievalProjectionPort<Error = super::qdrant::QdrantError
                 .projection
                 .payloads(&collection_name(generation), &point_ids)
                 .await
-                .map_err(Error::Qdrant)?;
+                .map_err(Error::from)?;
             if points.len() != batch.len() {
                 return Ok(Err(Unverified::Search {
                     reason: "a published point is missing its search payload".to_owned(),

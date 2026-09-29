@@ -8,60 +8,26 @@ use super::{
     names::collection_name,
     progress::{Progress, Report},
     projection::Projection,
-    publish::{Names, Step, report},
+    publication_names::{Names, report},
+    publish::Step,
+    rebuild_state::{RebuildGuard, RebuildState},
     rebuild_validation::validate_tuple,
     search_inputs,
     verify::verify,
 };
 use crate::{lexical, query::PROFILE};
 use maestro_kernel::{
-    chunk_set::{Chunk, ChunkSet},
+    chunk_set::ChunkSet,
     gateway::ModelPort,
     generation::{Error as GenerationError, Generation, GenerationState, NewGeneration},
 };
 use std::ops::ControlFlow;
 
-/// The published pointer and generation boundary frozen when a rebuild starts.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct RebuildGuard {
-    /// The published generation at admission, or none.
-    pub expected_published: Option<i64>,
-    /// Generations at or before this ID cannot be adopted by this rebuild.
-    pub generation_watermark: i64,
-}
-
-/// Frozen database and Qdrant state for one guarded replacement.
-struct RebuildState<'a> {
-    /// Dimensions of the card's dense vectors.
-    dimensions: u64,
-    /// Complete chunk set to rebuild.
-    set: ChunkSet,
-    /// Embedding profile expected from the restored card.
-    expected_embedding: String,
-    /// Chunks whose points the replacement must hold.
-    chunks: Vec<Chunk>,
-    /// Published generation observed while admitting the replacement.
-    published: Option<Generation>,
-    /// Generation named by journaled progress, if resuming.
-    resume_generation: Option<Generation>,
-    /// Alias targets this replacement may reconcile.
-    allowed_aliases: [Option<String>; 3],
-    /// Published pointer and generation watermark frozen by the job.
-    guard: RebuildGuard,
-    /// Last progress event recorded by the job, if resuming.
-    resume: Option<&'a Progress>,
-}
-
-impl RebuildState<'_> {
-    /// The generation ID observed as published during admission.
-    fn published_id(&self) -> Option<i64> {
-        self.published.as_ref().map(|generation| generation.id)
-    }
-}
-
 impl<
     P: ModelPort,
-    R: super::projection_port::RetrievalProjectionPort<Error = super::qdrant::QdrantError>,
+    R: super::projection_port::RetrievalProjectionPort<
+            Error = super::projection_port::ProjectionError,
+        >,
 > Projection<'_, P, R>
 {
     /// Publishes an explicitly requested replacement, retaining the
@@ -140,7 +106,7 @@ impl<
             self.projection
                 .collection_exists(&collection_name(current))
                 .await
-                .map_err(Error::Qdrant)?;
+                .map_err(Error::from)?;
         }
 
         let alias = format!("maestro-{}", set.collection_id);
@@ -161,7 +127,7 @@ impl<
             .projection
             .alias_target(&alias)
             .await
-            .map_err(Error::Qdrant)?;
+            .map_err(Error::from)?;
         if let Some(found) = &alias_target
             && !allowed_aliases
                 .iter()
@@ -283,7 +249,7 @@ impl<
             .projection
             .collection_exists(&names.collection)
             .await
-            .map_err(Error::Qdrant)?
+            .map_err(Error::from)?
         {
             return Err(Error::MissingCollection(names.collection.clone()));
         }
@@ -294,7 +260,7 @@ impl<
             &state.chunks,
         )
         .await
-        .map_err(Error::Qdrant)?
+        .map_err(Error::from)?
         {
             Ok(points) => points,
             Err(reason) => {
@@ -317,14 +283,14 @@ impl<
             .projection
             .alias_target(&names.alias)
             .await
-            .map_err(Error::Qdrant)?
+            .map_err(Error::from)?
             .as_deref()
             != Some(names.collection.as_str())
         {
             self.projection
                 .replace_alias(&names.alias, &names.collection)
                 .await
-                .map_err(Error::Qdrant)?;
+                .map_err(Error::from)?;
         }
         Ok(report(
             &state.set,
@@ -419,12 +385,12 @@ impl<
         self.projection
             .replace_alias(&names.alias, &names.collection)
             .await
-            .map_err(Error::Qdrant)?;
+            .map_err(Error::from)?;
         let alias_target = self
             .projection
             .alias_target(&names.alias)
             .await
-            .map_err(Error::Qdrant)?;
+            .map_err(Error::from)?;
         if let Some(found) = alias_target
             && found != names.collection
             && !state
@@ -453,12 +419,12 @@ impl<
                         .projection
                         .collection_exists(&collection_name(&current))
                         .await
-                        .map_err(Error::Qdrant)?
+                        .map_err(Error::from)?
                 {
                     self.projection
                         .replace_alias(&names.alias, &collection_name(&current))
                         .await
-                        .map_err(Error::Qdrant)?;
+                        .map_err(Error::from)?;
                 }
                 return Err(Error::PublishedChanged { expected, found });
             }

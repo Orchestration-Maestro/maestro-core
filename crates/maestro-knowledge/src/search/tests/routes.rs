@@ -5,12 +5,14 @@ use maestro_kernel::{
     store::Database,
 };
 use maestro_test_scratch::scratch_directory;
-use qdrant_client::qdrant::{condition::ConditionOneOf, r#match::MatchValue};
 use std::{fs, path::PathBuf};
 
-use crate::search::{
-    filter::{query_filter, scope_filter},
-    routes::results::{ScoredChunk, deduplicate, rank},
+use crate::{
+    index::ProjectionFilter,
+    search::{
+        filter::{query_filter, scope_filter},
+        routes::results::{ScoredChunk, deduplicate, rank},
+    },
 };
 
 struct Scratch(PathBuf);
@@ -42,35 +44,32 @@ fn scopes() -> (Scratch, Database, ScopeSet) {
 fn scope_filter_matches_any_granted_scope_tag() {
     let (_scratch, _database, scopes) = scopes();
     let filter = scope_filter(&scopes);
-    let [condition] = filter.must.as_slice() else {
-        panic!("the scope filter must have one Qdrant condition: {filter:?}");
+    let ProjectionFilter::AnyString { field, values } = filter else {
+        panic!("scope filter should match granted string-array values: {filter:?}");
     };
-    let Some(ConditionOneOf::Field(field)) = condition.condition_one_of.as_ref() else {
-        panic!("the scope filter must use a field condition: {condition:?}");
-    };
-    assert_eq!(field.key, "scope_tags");
-    assert!(matches!(
-        field.r#match.as_ref().and_then(|matched| matched.match_value.as_ref()),
-        Some(MatchValue::Keywords(scopes)) if scopes.strings == ["workspace/default/collection/ctm"]
-    ));
+    assert_eq!(field, "scope_tags");
+    assert_eq!(values, ["workspace/default/collection/ctm"]);
 }
 
 #[test]
 fn search_filter_adds_exact_version_after_scope_authorization() {
     let (_scratch, _database, scopes) = scopes();
     let filter = query_filter(&scopes, Some("v1.2"));
-    assert_eq!(filter.must.len(), 2);
-    let Some(ConditionOneOf::Field(version)) = filter.must[1].condition_one_of.as_ref() else {
+    let ProjectionFilter::All(filters) = filter else {
+        panic!("version filter should combine scope and exact version: {filter:?}");
+    };
+    assert_eq!(filters.len(), 2);
+    assert!(
+        matches!(&filters[0], ProjectionFilter::AnyString { field, .. } if field == "scope_tags")
+    );
+    let ProjectionFilter::ExactString { field, value } = &filters[1] else {
         panic!(
-            "the version filter must use a field condition: {:?}",
-            filter.must[1]
+            "version filter should match one exact string: {:?}",
+            filters[1]
         );
     };
-    assert_eq!(version.key, "version");
-    assert!(matches!(
-        version.r#match.as_ref().and_then(|matched| matched.match_value.as_ref()),
-        Some(MatchValue::Keyword(value)) if value == "v1.2"
-    ));
+    assert_eq!(field, "version");
+    assert_eq!(value, "v1.2");
 }
 
 #[test]

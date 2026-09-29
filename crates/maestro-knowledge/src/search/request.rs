@@ -11,7 +11,10 @@ use super::{
     section_prior::SectionPrior,
     source_class::{SourceClassifier, SourcePrior},
 };
-use crate::{index::Qdrant, query::Understood};
+use crate::{
+    index::{Qdrant, RetrievalProjectionPort},
+    query::Understood,
+};
 use maestro_kernel::{
     evidence::{Bundle, Inventory, RequestBudget, RouteStatus},
     generation::Generation,
@@ -246,13 +249,13 @@ impl<'a> SearchRequest<'a> {
 }
 
 /// Trusted dependencies and caller identity for one search.
-pub struct SearchContext<'a, P> {
+pub struct SearchContext<'a, P, R = Qdrant> {
     /// The kernel database shared by owned blocking readers.
     pub database: Arc<Database>,
     /// The caller resolved by a trusted transport, never request JSON.
     pub principal: &'a str,
-    /// Qdrant containing the pinned generation's physical collection.
-    pub qdrant: &'a Qdrant,
+    /// Backend holding the pinned generation's physical collection.
+    pub qdrant: &'a R,
     /// The generation's matching embedder, absent when no card is available.
     pub embedder: Option<Embedder<'a, P>>,
     /// Optional explicitly configured expansion model; unused when expansion is off.
@@ -263,13 +266,13 @@ pub struct SearchContext<'a, P> {
     pub source_classes: Option<Arc<dyn SourceClassifier>>,
 }
 
-impl<P> fmt::Debug for SearchContext<'_, P> {
+impl<P, R: RetrievalProjectionPort> fmt::Debug for SearchContext<'_, P, R> {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter
             .debug_struct("SearchContext")
             .field("database", &"Database")
             .field("principal", &self.principal)
-            .field("qdrant", &self.qdrant)
+            .field("projection", &self.qdrant)
             .field("has_embedder", &self.embedder.is_some())
             .field("has_intent_expander", &self.intent_expander.is_some())
             .field("has_reranker", &self.reranker.is_some())

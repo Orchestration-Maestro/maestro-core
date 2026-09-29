@@ -2,8 +2,8 @@
 
 use super::{
     projection_port::{
-        CollectionLayout, PointHit, ProjectionFilter, ProjectionPage, ProjectionPoint,
-        RetrievalProjectionPort, SparseValues,
+        CollectionLayout, PointHit, ProjectionCursor, ProjectionError, ProjectionFilter,
+        ProjectionPage, ProjectionPoint, RetrievalProjectionPort, SparseValues,
     },
     qdrant::{DENSE, Qdrant, QdrantError, SPARSE},
 };
@@ -17,11 +17,26 @@ use qdrant_client::{
 };
 use std::collections::BTreeMap;
 
+impl From<QdrantError> for ProjectionError {
+    fn from(error: QdrantError) -> Self {
+        Self::with_source(error.to_string(), error)
+    }
+}
+
+impl From<ProjectionError> for QdrantError {
+    fn from(error: ProjectionError) -> Self {
+        let (message, source) = error.into_parts();
+        source
+            .and_then(|source| source.downcast::<QdrantError>().ok())
+            .map_or_else(|| Self::InvalidAnswer(message), |error| *error)
+    }
+}
+
 impl RetrievalProjectionPort for Qdrant {
-    type Error = QdrantError;
+    type Error = ProjectionError;
 
     async fn collection_exists(&self, collection: &str) -> Result<bool, Self::Error> {
-        self.exists(collection).await
+        self.exists(collection).await.map_err(Into::into)
     }
 
     async fn create_collection(
@@ -34,11 +49,11 @@ impl RetrievalProjectionPort for Qdrant {
             || !layout.sparse_present
             || layout.sparse_modifier.as_deref() != Some("Idf")
         {
-            return Err(QdrantError::InvalidAnswer(
-                "unsupported retrieval vector layout".to_owned(),
-            ));
+            return Err(ProjectionError::new("unsupported retrieval vector layout"));
         }
-        self.create(collection, layout.dense_dimensions).await
+        self.create(collection, layout.dense_dimensions)
+            .await
+            .map_err(Into::into)
     }
 
     async fn collection_layout(
@@ -83,7 +98,9 @@ impl RetrievalProjectionPort for Qdrant {
     }
 
     async fn index_payload_fields(&self, collection: &str) -> Result<(), Self::Error> {
-        self.index_search_fields(collection).await
+        self.index_search_fields(collection)
+            .await
+            .map_err(Into::into)
     }
 
     async fn payload_fields(
@@ -126,11 +143,13 @@ impl RetrievalProjectionPort for Qdrant {
                 )
             })
             .collect();
-        Qdrant::upsert(self, collection, points).await
+        Qdrant::upsert(self, collection, points)
+            .await
+            .map_err(Into::into)
     }
 
     async fn count_points(&self, collection: &str) -> Result<u64, Self::Error> {
-        Qdrant::count(self, collection).await
+        Qdrant::count(self, collection).await.map_err(Into::into)
     }
 
     async fn point_ids(
@@ -138,7 +157,9 @@ impl RetrievalProjectionPort for Qdrant {
         collection: &str,
         ids: &[String],
     ) -> Result<Vec<String>, Self::Error> {
-        Qdrant::found(self, collection, ids).await
+        Qdrant::found(self, collection, ids)
+            .await
+            .map_err(Into::into)
     }
 
     async fn payloads(
@@ -149,7 +170,7 @@ impl RetrievalProjectionPort for Qdrant {
         self.payload_points(collection, ids)
             .await?
             .into_iter()
-            .map(payload_hit)
+            .map(|point| payload_hit(point).map_err(Into::into))
             .collect()
     }
 
@@ -163,7 +184,7 @@ impl RetrievalProjectionPort for Qdrant {
         self.query_dense(collection, vector, limit, to_filter(filter))
             .await?
             .into_iter()
-            .map(scored_hit)
+            .map(|point| scored_hit(point).map_err(Into::into))
             .collect()
     }
 
@@ -181,7 +202,7 @@ impl RetrievalProjectionPort for Qdrant {
         self.query_sparse(collection, sparse, limit, to_filter(filter))
             .await?
             .into_iter()
-            .map(scored_hit)
+            .map(|point| scored_hit(point).map_err(Into::into))
             .collect()
     }
 
@@ -189,34 +210,39 @@ impl RetrievalProjectionPort for Qdrant {
         &self,
         collection: &str,
         filter: ProjectionFilter,
-        cursor: Option<String>,
+        cursor: Option<ProjectionCursor>,
     ) -> Result<ProjectionPage, Self::Error> {
-        let offset = cursor.as_deref().map(PointId::from);
+        let offset = cursor.map(|cursor| match cursor {
+            ProjectionCursor::Number(number) => PointId::from(number),
+            ProjectionCursor::Text(id) => PointId::from(id.as_str()),
+        });
         let page = self
             .scroll_page(collection, to_filter(filter), offset)
             .await?;
         let points = page
             .result
             .into_iter()
-            .map(payload_hit)
+            .map(|point| payload_hit(point).map_err(ProjectionError::from))
             .collect::<Result<Vec<_>, _>>()?;
         let next = page
             .next_page_offset
             .and_then(|id| id.point_id_options)
-            .map(point_id_string);
+            .map(point_id_cursor);
         Ok(ProjectionPage { points, next })
     }
 
     async fn alias_target(&self, alias: &str) -> Result<Option<String>, Self::Error> {
-        self.alias_collection(alias).await
+        self.alias_collection(alias).await.map_err(Into::into)
     }
 
     async fn replace_alias(&self, alias: &str, collection: &str) -> Result<(), Self::Error> {
-        self.point_alias(alias, collection).await
+        self.point_alias(alias, collection)
+            .await
+            .map_err(Into::into)
     }
 
     async fn remove_collection(&self, collection: &str) -> Result<(), Self::Error> {
-        self.delete_collection(collection).await
+        self.delete_collection(collection).await.map_err(Into::into)
     }
 }
 
@@ -284,10 +310,18 @@ fn scored_hit(point: ScoredPoint) -> Result<PointHit, QdrantError> {
     })
 }
 
+/// Converts Qdrant's typed point identifier into a backend-neutral cursor.
+fn point_id_cursor(id: PointIdOptions) -> ProjectionCursor {
+    match id {
+        PointIdOptions::Uuid(uuid) => ProjectionCursor::Text(uuid),
+        PointIdOptions::Num(number) => ProjectionCursor::Number(number),
+    }
+}
+
 /// Converts Qdrant's typed point identifier into its stable string form.
 fn point_id_string(id: PointIdOptions) -> String {
-    match id {
-        PointIdOptions::Uuid(uuid) => uuid,
-        PointIdOptions::Num(number) => number.to_string(),
+    match point_id_cursor(id) {
+        ProjectionCursor::Number(number) => number.to_string(),
+        ProjectionCursor::Text(text) => text,
     }
 }

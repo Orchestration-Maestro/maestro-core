@@ -1,11 +1,13 @@
 //! Exact identifier search from Qdrant payloads and the kernel identifier index.
 
 use super::{
+    identifier_cursor::advances,
+    identifier_payload::{invalid_answer, payload_hit},
     outcome::{DroppedIdentifier, IdentifierOutcome, RouteOutcome},
     results::ScoredChunk,
 };
 use crate::{
-    index::QdrantError,
+    index::{ProjectionCursor, ProjectionError, ProjectionFilter, RetrievalProjectionPort},
     query::{PROFILE, Understood},
     search::{
         deadline::{self, DEADLINE_EXCEEDED, DISABLED_BY_CONFIGURATION},
@@ -18,9 +20,6 @@ use maestro_kernel::{
     retrieval::{self, ReadControl, SearchRead},
     scope::ScopeSet,
     store::Database,
-};
-use qdrant_client::qdrant::{
-    Condition, PointId, RetrievedPoint, point_id::PointIdOptions, value::Kind,
 };
 use std::{
     collections::HashSet,
@@ -51,8 +50,8 @@ const TOO_COMMON: &str = "identifier too common";
 /// The two legs run concurrently. A completed leg's hits survive failure or
 /// timeout in the other; common kernel identifiers are reported as degraded.
 /// One Identifier route remains one fusion vote.
-pub async fn search_identifiers(
-    query: &Query<'_>,
+pub async fn search_identifiers<R: RetrievalProjectionPort<Error = ProjectionError>>(
+    query: &Query<'_, R>,
     database: Arc<Database>,
     understood: &Understood,
     deadline: Instant,
@@ -65,8 +64,8 @@ pub async fn search_identifiers(
 /// [`search_identifiers`] with the noise guard: an identifier the kernel
 /// leg skips as too common is dropped from the payload leg too, and the
 /// route is unavailable only when a leg fails or every identifier is dropped.
-pub async fn search_identifiers_guarded(
-    query: &Query<'_>,
+pub async fn search_identifiers_guarded<R: RetrievalProjectionPort<Error = ProjectionError>>(
+    query: &Query<'_, R>,
     database: Arc<Database>,
     understood: &Understood,
     deadline: Instant,
@@ -82,9 +81,11 @@ pub async fn search_identifiers_guarded(
 }
 
 /// Executes identifier search as `mode` says.
-pub(in crate::search) async fn search_identifiers_as(
+pub(in crate::search) async fn search_identifiers_as<
+    R: RetrievalProjectionPort<Error = ProjectionError>,
+>(
     mode: IdentifierMode,
-    query: &Query<'_>,
+    query: &Query<'_, R>,
     database: Arc<Database>,
     understood: &Understood,
     deadline: Instant,
@@ -140,8 +141,8 @@ pub(in crate::search) async fn search_identifiers_as(
 /// Runs the kernel leg, then the payload leg on the identifiers the kernel
 /// leg did not skip as too common; when it skipped them all, the payload
 /// leg does not run.
-async fn guarded_legs(
-    query: &Query<'_>,
+async fn guarded_legs<R: RetrievalProjectionPort<Error = ProjectionError>>(
+    query: &Query<'_, R>,
     database: Arc<Database>,
     identifiers: &[String],
     limit: usize,
@@ -271,8 +272,8 @@ async fn ready_projection(
 }
 
 /// Searches filtered payload pages in the pinned physical collection.
-async fn payload_leg(
-    query: &Query<'_>,
+async fn payload_leg<R: RetrievalProjectionPort<Error = ProjectionError>>(
+    query: &Query<'_, R>,
     identifiers: &[String],
     limit: usize,
     deadline: Instant,
@@ -280,14 +281,18 @@ async fn payload_leg(
     if Instant::now() >= deadline {
         return Err(DEADLINE_EXCEEDED.to_owned());
     }
-    let mut filter = query_filter(query.scopes, query.version);
-    filter
-        .must
-        .push(Condition::matches("identifier_profile", PROFILE.to_owned()));
-    filter
-        .must
-        .push(Condition::matches("identifiers", identifiers.to_vec()));
-    let mut offset: Option<PointId> = None;
+    let filter = ProjectionFilter::All(vec![
+        query_filter(query.scopes, query.version),
+        ProjectionFilter::ExactString {
+            field: "identifier_profile".to_owned(),
+            value: PROFILE.to_owned(),
+        },
+        ProjectionFilter::AnyString {
+            field: "identifiers".to_owned(),
+            values: identifiers.to_vec(),
+        },
+    ]);
+    let mut offset: Option<ProjectionCursor> = None;
     let candidate_limit = limit.saturating_mul(2);
     let mut hits = Vec::new();
     let mut seen = HashSet::new();
@@ -299,12 +304,12 @@ async fn payload_leg(
             deadline,
             query
                 .qdrant
-                .scroll_page(&query.collection(), filter.clone(), offset.clone()),
+                .scroll(&query.collection(), filter.clone(), offset.clone()),
         )
         .await
         .map_err(|_| DEADLINE_EXCEEDED.to_owned())?
         .map_err(|_| "Qdrant payload search failed".to_owned())?;
-        for point in page.result {
+        for point in page.points {
             let hit = payload_hit(&point)
                 .map_err(|_| "Qdrant returned an invalid search payload".to_owned())?;
             if !seen.insert(hit.chunk_id.clone()) {
@@ -315,7 +320,7 @@ async fn payload_leg(
                 return Ok(order_payload_hits(hits, limit));
             }
         }
-        let Some(next) = page.next_page_offset else {
+        let Some(next) = page.next else {
             return Ok(order_payload_hits(hits, limit));
         };
         if !advances(offset.as_ref(), &next) {
@@ -330,40 +335,6 @@ fn order_payload_hits(hits: Vec<ScoredChunk>, limit: usize) -> Vec<ScoredChunk> 
     super::results::rank(hits, limit)
 }
 
-/// Validates the required string and string-array fields of a payload hit.
-fn payload_hit(point: &RetrievedPoint) -> Result<ScoredChunk, QdrantError> {
-    let chunk_id = payload_text(point, "chunk_id")?;
-    let revision_id = payload_text(point, "revision_id")?;
-    if payload_text(point, "identifier_profile")? != PROFILE {
-        return Err(invalid_answer(
-            "Qdrant returned an invalid identifier profile",
-        ));
-    }
-    let Some(Kind::ListValue(values)) = point
-        .payload
-        .get("identifiers")
-        .and_then(|value| value.kind.as_ref())
-    else {
-        return Err(invalid_answer(
-            "Qdrant hit lacks a string-array identifiers field",
-        ));
-    };
-    if values
-        .values
-        .iter()
-        .any(|value| !matches!(value.kind.as_ref(), Some(Kind::StringValue(_))))
-    {
-        return Err(invalid_answer(
-            "Qdrant hit has a malformed identifiers array",
-        ));
-    }
-    Ok(ScoredChunk {
-        chunk_id,
-        revision_id,
-        score: 1.0,
-    })
-}
-
 /// The exact kernel hits and the high-frequency identifiers it skipped.
 struct KernelOutcome {
     /// Ranked chunks returned by the kernel identifier leg.
@@ -373,8 +344,8 @@ struct KernelOutcome {
 }
 
 /// Reads an exact, scope-filtered kernel leg on a cancellable blocking worker.
-async fn kernel_leg(
-    query: &Query<'_>,
+async fn kernel_leg<R: RetrievalProjectionPort<Error = ProjectionError>>(
+    query: &Query<'_, R>,
     database: Arc<Database>,
     identifiers: &[String],
     limit: usize,
@@ -416,38 +387,6 @@ async fn kernel_leg(
         Err(deadline::BlockingFailure::WorkerFailed) => {
             Err("kernel identifier search failed".to_owned())
         }
-    }
-}
-
-/// Whether a Qdrant scroll cursor strictly advances its typed point ID.
-pub(super) fn advances(previous: Option<&PointId>, next: &PointId) -> bool {
-    let Some(previous) = previous else {
-        return true;
-    };
-    match (
-        previous.point_id_options.as_ref(),
-        next.point_id_options.as_ref(),
-    ) {
-        (Some(PointIdOptions::Num(previous)), Some(PointIdOptions::Num(next))) => next > previous,
-        (Some(PointIdOptions::Uuid(previous)), Some(PointIdOptions::Uuid(next))) => next > previous,
-        _ => false,
-    }
-}
-
-/// Wraps malformed payload or scroll answers in Qdrant's typed invalid-answer error.
-fn invalid_answer(reason: &str) -> QdrantError {
-    QdrantError::InvalidAnswer(reason.to_owned())
-}
-
-/// Gets a string-valued field from a Qdrant payload.
-fn payload_text(point: &RetrievedPoint, field: &str) -> Result<String, QdrantError> {
-    match point
-        .payload
-        .get(field)
-        .and_then(|value| value.kind.as_ref())
-    {
-        Some(Kind::StringValue(value)) => Ok(value.clone()),
-        _ => Err(invalid_answer(&format!("Qdrant hit lacks string {field}"))),
     }
 }
 

@@ -45,8 +45,8 @@ pub(super) struct AdmittedSearch {
 }
 
 /// Validates request bounds and pins its generation before route access.
-pub(super) async fn admit_request<P: ModelPort>(
-    context: &SearchContext<'_, P>,
+pub(super) async fn admit_request<P: ModelPort, R>(
+    context: &SearchContext<'_, P, R>,
     request: &SearchRequest<'_>,
 ) -> Result<AdmittedSearch, SearchError> {
     let started = Instant::now();

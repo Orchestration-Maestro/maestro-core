@@ -6,8 +6,7 @@
 use super::{
     error::Unverified,
     point::point_id,
-    projection_port::{CollectionLayout, RetrievalProjectionPort},
-    qdrant::QdrantError,
+    projection_port::{CollectionLayout, ProjectionError, RetrievalProjectionPort},
 };
 use maestro_kernel::chunk_set::Chunk;
 use std::collections::HashSet;
@@ -23,13 +22,13 @@ const LOOKUP: usize = 1000;
 ///
 /// # Errors
 ///
-/// [`QdrantError`] when Qdrant fails, which checks nothing.
+/// [`ProjectionError`] when the projection backend fails, which checks nothing.
 pub(super) async fn verify(
-    qdrant: &impl RetrievalProjectionPort<Error = QdrantError>,
+    qdrant: &impl RetrievalProjectionPort<Error = ProjectionError>,
     collection: &str,
     dimensions: u64,
     chunks: &[Chunk],
-) -> Result<Result<u64, Unverified>, QdrantError> {
+) -> Result<Result<u64, Unverified>, ProjectionError> {
     let Some(layout) = qdrant.collection_layout(collection).await? else {
         return Ok(Err(Unverified::NoCollection));
     };

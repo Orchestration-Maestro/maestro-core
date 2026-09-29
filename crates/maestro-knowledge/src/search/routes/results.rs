@@ -1,8 +1,7 @@
 //! Route-order results and the common first-hit deduplication rule.
 
 use super::error::RouteError;
-use crate::index::QdrantError;
-use qdrant_client::qdrant::{ScoredPoint, value::Kind};
+use crate::index::{PointHit, ProjectionError};
 use std::collections::HashSet;
 
 /// A chunk returned by one independent route, with its route score.
@@ -26,18 +25,21 @@ pub(crate) fn deduplicate(hits: Vec<ScoredChunk>, limit: usize) -> Vec<ScoredChu
 }
 
 /// Converts Qdrant hits to their required payload fields; `rank` orders them.
-pub(super) fn chunks(points: Vec<ScoredPoint>) -> Result<Vec<ScoredChunk>, RouteError> {
+pub(super) fn chunks(points: Vec<PointHit>) -> Result<Vec<ScoredChunk>, RouteError> {
     let mut hits = Vec::with_capacity(points.len());
     for point in points {
         let chunk_id = payload_text(&point, "chunk_id")?;
         let revision_id = payload_text(&point, "revision_id")?;
-        if !point.score.is_finite() {
+        let score = point
+            .score
+            .ok_or_else(|| invalid_answer("ranked hit lacks a score"))?;
+        if !score.is_finite() {
             return Err(invalid_answer("Qdrant returned a non-finite score"));
         }
         hits.push(ScoredChunk {
             chunk_id,
             revision_id,
-            score: f64::from(point.score),
+            score,
         });
     }
     Ok(hits)
@@ -72,16 +74,20 @@ pub(crate) fn rank(hits: Vec<ScoredChunk>, limit: usize) -> Vec<ScoredChunk> {
 }
 
 /// Gets a string payload field from one Qdrant hit.
-fn payload_text(point: &ScoredPoint, key: &str) -> Result<String, RouteError> {
-    match point.payload.get(key).and_then(|value| value.kind.as_ref()) {
-        Some(Kind::StringValue(value)) => Ok(value.clone()),
-        _ => Err(invalid_answer(&format!("hit payload lacks string {key}"))),
-    }
+fn payload_text(point: &PointHit, key: &str) -> Result<String, RouteError> {
+    point
+        .payload
+        .get(key)
+        .and_then(serde_json::Value::as_str)
+        .map(str::to_owned)
+        .ok_or_else(|| invalid_answer(&format!("hit payload lacks string {key}")))
 }
 
 /// Wraps a malformed answer from Qdrant as an invalid answer error.
 fn invalid_answer(reason: &str) -> RouteError {
-    RouteError::Qdrant(QdrantError::InvalidAnswer(reason.to_owned()))
+    RouteError::Qdrant(ProjectionError::new(format!(
+        "Qdrant's answer is not what was asked for: {reason}"
+    )))
 }
 
 #[cfg(test)]

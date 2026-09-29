@@ -14,6 +14,7 @@ use super::{
         structured::search_structured,
     },
 };
+use crate::index::{ProjectionError, RetrievalProjectionPort};
 use maestro_kernel::{
     evidence::RouteStatus,
     gateway::{ModelPort, Role, Room},
@@ -70,9 +71,12 @@ const UNSUPPORTED_INVENTORY: &str = concat!(
 /// `cutoffs.routes_end`, not route time. A setup the port refuses, or
 /// one still loading at that bound, leaves the route unavailable without
 /// its window.
-pub(super) async fn dense_outcome<P: ModelPort>(
+pub(super) async fn dense_outcome<
+    P: ModelPort,
+    R: RetrievalProjectionPort<Error = ProjectionError>,
+>(
     enabled: bool,
-    query: &Query<'_>,
+    query: &Query<'_, R>,
     embedder: Option<&Embedder<'_, P>>,
     cutoffs: &Deadlines,
 ) -> RouteOutcome {
@@ -139,9 +143,9 @@ pub(super) async fn prepare_reranker<P: ModelPort>(
 }
 
 /// Executes lexical search with its independent route cutoff.
-pub(super) async fn lexical_outcome(
+pub(super) async fn lexical_outcome<R: RetrievalProjectionPort<Error = ProjectionError>>(
     enabled: bool,
-    query: &Query<'_>,
+    query: &Query<'_, R>,
     deadline: Instant,
 ) -> RouteOutcome {
     if !enabled {
@@ -174,8 +178,8 @@ pub(super) fn route_error_reason(error: &RouteError) -> &'static str {
 }
 
 /// Runs a Global inventory request and degrades unsupported forms explicitly.
-pub(super) async fn structured_outcome(
-    query: &Query<'_>,
+pub(super) async fn structured_outcome<R>(
+    query: &Query<'_, R>,
     database: Arc<Database>,
     request: Result<Option<&InventoryRequest>, &str>,
     deadline: Instant,

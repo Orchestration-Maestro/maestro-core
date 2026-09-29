@@ -46,7 +46,9 @@ pub(super) struct Target<'a> {
 
 impl<
     P: ModelPort,
-    R: super::projection_port::RetrievalProjectionPort<Error = super::qdrant::QdrantError>,
+    R: super::projection_port::RetrievalProjectionPort<
+            Error = super::projection_port::ProjectionError,
+        >,
 > Projection<'_, P, R>
 {
     /// Writes the points of the chunks of `target` after its first `start`,
@@ -108,7 +110,7 @@ impl<
             self.projection
                 .upsert_points(target.collection, points)
                 .await
-                .map_err(Error::Qdrant)?;
+                .map_err(Error::from)?;
             indexed += u64::try_from(batch.len()).unwrap_or(u64::MAX);
             let progress = Progress {
                 generation: target.generation,

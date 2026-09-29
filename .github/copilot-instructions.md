@@ -811,10 +811,12 @@ in place.
 │   │   │   │   ├── projection.rs                                            # What a publication works with
 │   │   │   │   ├── projection_port.rs                                       # Backend-neutral operations and values for a generation's retrieval projection
 │   │   │   │   ├── provenance.rs                                            # What a chunk's point carries of its revision: version, source kind, scope tags, sections
+│   │   │   │   ├── publication_names.rs                                     # Stable backend collection names and publication reports
 │   │   │   │   ├── publish.rs                                               # Publishing a chunk set as a generation: built or resumed, checked, then behind the alias
 │   │   │   │   ├── qdrant.rs                                                # Qdrant through its official Rust client, qdrant-client 1.19, over gRPC
 │   │   │   │   ├── qdrant_adapter.rs                                        # Conversion between backend-neutral projection operations and Qdrant's transport types
 │   │   │   │   ├── rebuild.rs                                               # A fresh, guarded replacement for a published generation whose projection
+│   │   │   │   ├── rebuild_state.rs                                         # Snapshot types for one guarded generation replacement
 │   │   │   │   ├── rebuild_validation.rs                                    # Validation of the frozen identity for a guarded projection rebuild
 │   │   │   │   ├── search_inputs.rs                                         # The kernel-owned search derivatives of one published generation
 │   │   │   │   ├── sparse.rs                                                # Sparse vectors: BM25 weights against the chunk set's average passage length
@@ -985,6 +987,8 @@ in place.
 │   │   │   │   │   ├── dense.rs                                             # Dense diagnostic search through the generation's own embedder and vector
 │   │   │   │   │   ├── error.rs                                             # Typed failures for the admission and diagnostic routes
 │   │   │   │   │   ├── identifier.rs                                        # Exact identifier search from Qdrant payloads and the kernel identifier index
+│   │   │   │   │   ├── identifier_cursor.rs                                 # Backend-neutral cursor ordering for identifier payload pagination
+│   │   │   │   │   ├── identifier_payload.rs                                # Validation of identifier-route payload results
 │   │   │   │   │   ├── lexical.rs                                           # BM25 diagnostic search, using the generation's recorded analyzer profile
 │   │   │   │   │   ├── mod.rs                                               # Independent route diagnostics
 │   │   │   │   │   ├── outcome.rs                                           # A route's hits and its independent availability status

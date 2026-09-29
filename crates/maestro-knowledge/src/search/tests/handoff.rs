@@ -5,7 +5,7 @@ use super::{
     support::CandidateDb,
 };
 use crate::{
-    index::{Qdrant, QdrantError},
+    index::{ProjectionError, Qdrant},
     query::understand,
     search::{
         DISABLED_BY_CONFIGURATION, SearchContext, SearchError,
@@ -269,8 +269,8 @@ fn route_errors_keep_fixed_failure_categories() {
         "search profile mismatch"
     );
     assert_eq!(
-        route_error_reason(&RouteError::Qdrant(QdrantError::InvalidAnswer(
-            "private response details".to_owned(),
+        route_error_reason(&RouteError::Qdrant(ProjectionError::new(
+            "Qdrant's answer is not what was asked for: private response details",
         ))),
         "Qdrant search failed"
     );

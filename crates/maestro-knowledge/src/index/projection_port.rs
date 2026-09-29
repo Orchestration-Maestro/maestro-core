@@ -1,7 +1,7 @@
 //! Backend-neutral operations and values for a generation's retrieval projection.
 
 use serde_json::Value;
-use std::{collections::BTreeMap, fmt};
+use std::{collections::BTreeMap, error, fmt};
 
 /// The named vector layout required by current dense and sparse retrieval.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -72,13 +72,73 @@ pub enum ProjectionFilter {
     All(Vec<Self>),
 }
 
+/// A backend-neutral cursor for stable numeric or textual point IDs.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ProjectionCursor {
+    /// Numeric point ID.
+    Number(u64),
+    /// Text point ID, including UUIDs.
+    Text(String),
+}
+
 /// One backend-neutral page of identifier-route payloads.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ProjectionPage {
     /// Payloads in backend-returned order.
     pub points: Vec<PointHit>,
     /// Cursor for the next page, absent when exhausted.
-    pub next: Option<String>,
+    pub next: Option<ProjectionCursor>,
+}
+
+/// A transport-independent projection backend failure.
+#[derive(Debug)]
+pub struct ProjectionError {
+    /// Stable operation failure message.
+    message: String,
+    /// The adapter's underlying cause, when one exists.
+    source: Option<Box<dyn error::Error + Send + Sync>>,
+}
+
+impl ProjectionError {
+    /// Creates an operational error without a lower-level cause.
+    #[must_use]
+    pub fn new(message: impl Into<String>) -> Self {
+        Self {
+            message: message.into(),
+            source: None,
+        }
+    }
+
+    /// Creates an operational error while preserving its adapter cause.
+    #[must_use]
+    pub fn with_source(
+        message: impl Into<String>,
+        source: impl error::Error + Send + Sync + 'static,
+    ) -> Self {
+        Self {
+            message: message.into(),
+            source: Some(Box::new(source)),
+        }
+    }
+}
+
+impl ProjectionError {
+    /// Consumes the error for adapter-specific compatibility mapping.
+    pub(super) fn into_parts(self) -> (String, Option<Box<dyn error::Error + Send + Sync>>) {
+        (self.message, self.source)
+    }
+}
+
+impl fmt::Display for ProjectionError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(&self.message)
+    }
+}
+
+impl error::Error for ProjectionError {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        self.source.as_deref().map(|source| source as _)
+    }
 }
 
 /// Operations used to publish, verify, rebuild, and search a generation.
@@ -88,7 +148,7 @@ pub struct ProjectionPage {
 )]
 pub trait RetrievalProjectionPort: fmt::Debug {
     /// The adapter's operational error, with no transport client types.
-    type Error: fmt::Debug + fmt::Display;
+    type Error: error::Error + Send + Sync + 'static;
 
     /// Whether a physical collection exists.
     async fn collection_exists(&self, collection: &str) -> Result<bool, Self::Error>;
@@ -148,7 +208,7 @@ pub trait RetrievalProjectionPort: fmt::Debug {
         &self,
         collection: &str,
         filter: ProjectionFilter,
-        cursor: Option<String>,
+        cursor: Option<ProjectionCursor>,
     ) -> Result<ProjectionPage, Self::Error>;
     /// Resolve the collection named by an alias.
     async fn alias_target(&self, alias: &str) -> Result<Option<String>, Self::Error>;

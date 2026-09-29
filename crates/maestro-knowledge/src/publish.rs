@@ -1,7 +1,9 @@
 //! Verification of a published generation against the kernel artifacts and
 //! the Qdrant alias it serves.
 
-use crate::index::{QdrantError, RetrievalProjectionPort, alias_name, collection_name};
+use crate::index::{
+    ProjectionError, QdrantError, RetrievalProjectionPort, alias_name, collection_name,
+};
 use maestro_kernel::{
     artifact,
     chunk_set::{self, ChunkSetState},
@@ -45,6 +47,12 @@ pub enum Error {
     Qdrant(QdrantError),
 }
 
+impl From<ProjectionError> for Error {
+    fn from(error: ProjectionError) -> Self {
+        Self::Qdrant(error.into())
+    }
+}
+
 impl fmt::Display for Error {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -82,11 +90,11 @@ impl error::Error for Error {
 /// [`Error::UnknownGeneration`] and [`Error::UnknownChunkSet`] when the
 /// caller's scopes read neither, [`Error::Generation`] or [`Error::ChunkSet`]
 /// when the kernel fails, [`Error::Artifact`] for another artifact-store
-/// failure, and [`Error::Qdrant`] when Qdrant fails.
+/// failure, and [`Error::Projection`] when the projection backend fails.
 pub async fn verify_generation(
     database: &Database,
     scopes: &ScopeSet,
-    qdrant: &impl RetrievalProjectionPort<Error = QdrantError>,
+    qdrant: &impl RetrievalProjectionPort<Error = ProjectionError>,
     id: i64,
 ) -> Result<Verification, Error> {
     let generation = database
@@ -139,7 +147,7 @@ pub async fn verify_generation(
     let points = qdrant
         .count_points(&qdrant_collection)
         .await
-        .map_err(Error::Qdrant)?;
+        .map_err(Error::from)?;
     let chunk_count = u64::try_from(chunks.len()).unwrap_or(u64::MAX);
     if generation.point_count != Some(points) || points != chunk_count {
         findings.push(format!(
@@ -152,7 +160,7 @@ pub async fn verify_generation(
         ));
     }
     let alias = alias_name(&generation);
-    let alias_target = qdrant.alias_target(&alias).await.map_err(Error::Qdrant)?;
+    let alias_target = qdrant.alias_target(&alias).await.map_err(Error::from)?;
     if alias_target.as_deref() != Some(qdrant_collection.as_str()) {
         findings.push(format!(
             "alias {alias} names {}, not generation collection {qdrant_collection}",

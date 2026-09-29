@@ -6,16 +6,28 @@ use super::{
 };
 use maestro_knowledge::{
     index::{
-        CollectionLayout, PointHit, Projection, ProjectionFilter, ProjectionPage, ProjectionPoint,
-        QdrantError, RebuildGuard, RetrievalProjectionPort, SparseValues,
+        CollectionLayout, PointHit, Projection, ProjectionCursor, ProjectionError,
+        ProjectionFilter, ProjectionPage, ProjectionPoint, RebuildGuard, RetrievalProjectionPort,
+        SparseValues,
     },
     publish::verify_generation,
+    query::understand,
+    search::{
+        Query,
+        routes::{
+            dense::{Embedder as SearchEmbedder, search_dense},
+            identifier::search_identifiers,
+            lexical::search_bm25,
+        },
+    },
 };
 use std::{
     collections::{BTreeMap, HashMap},
     ops::ControlFlow,
     sync::Mutex,
+    time::Duration,
 };
+use tokio::time::Instant;
 
 #[derive(Debug, Default)]
 struct FakePort {
@@ -31,8 +43,24 @@ struct FakeCollection {
 }
 
 impl FakePort {
-    fn error() -> QdrantError {
-        QdrantError::InvalidAnswer("fake port operation is unsupported".to_owned())
+    fn error() -> ProjectionError {
+        ProjectionError::new("fake port operation is unsupported")
+    }
+}
+
+impl FakePort {
+    fn search_hits(&self, name: &str) -> Result<Vec<PointHit>, ProjectionError> {
+        let collections = self.collections.lock().unwrap();
+        let collection = collections.get(name).ok_or_else(Self::error)?;
+        Ok(collection
+            .points
+            .values()
+            .cloned()
+            .map(|mut point| {
+                point.score = Some(0.75);
+                point
+            })
+            .collect())
     }
 }
 
@@ -41,7 +69,7 @@ impl FakePort {
     reason = "The in-memory fake has no I/O to await."
 )]
 impl RetrievalProjectionPort for FakePort {
-    type Error = QdrantError;
+    type Error = ProjectionError;
 
     async fn collection_exists(&self, name: &str) -> Result<bool, Self::Error> {
         Ok(self.collections.lock().unwrap().contains_key(name))
@@ -131,30 +159,30 @@ impl RetrievalProjectionPort for FakePort {
     }
     async fn search_dense(
         &self,
-        _: &str,
+        collection: &str,
         _: Vec<f32>,
         _: usize,
         _: ProjectionFilter,
     ) -> Result<Vec<PointHit>, Self::Error> {
-        Ok(Vec::new())
+        self.search_hits(collection)
     }
     async fn search_sparse(
         &self,
-        _: &str,
+        collection: &str,
         _: SparseValues,
         _: usize,
         _: ProjectionFilter,
     ) -> Result<Vec<PointHit>, Self::Error> {
-        Ok(Vec::new())
+        self.search_hits(collection)
     }
     async fn scroll(
         &self,
-        _: &str,
+        collection: &str,
         _: ProjectionFilter,
-        _: Option<String>,
+        _: Option<ProjectionCursor>,
     ) -> Result<ProjectionPage, Self::Error> {
         Ok(ProjectionPage {
-            points: Vec::new(),
+            points: self.search_hits(collection)?,
             next: None,
         })
     }
@@ -179,7 +207,12 @@ impl RetrievalProjectionPort for FakePort {
 
 #[tokio::test]
 async fn publication_and_standalone_verification_use_the_fake_port() {
-    let kernel = Kernel::with_guides(1);
+    let kernel = Kernel::with_changed_guides(1, &|kernel, guide, mut chunks| {
+        if guide == 0 {
+            chunks[0].digest = kernel.put(b"The command handles ERR-042 safely.");
+        }
+        chunks
+    });
     let fake = FakePort::default();
     let model_port = Embedder::default();
     let card = embedder(8);
@@ -222,4 +255,44 @@ async fn publication_and_standalone_verification_use_the_fake_port() {
         .await
         .unwrap();
     assert!(verified.findings.is_empty(), "{:#?}", verified.findings);
+
+    let generation = kernel
+        .database
+        .generation(&kernel.scopes, rebuilt.generation)
+        .unwrap()
+        .unwrap();
+    let query = Query {
+        generation: &generation,
+        scopes: &kernel.scopes,
+        text: "guide",
+        limit: 5,
+        version: None,
+        qdrant: &fake,
+    };
+    let hits = search_bm25(&query).await.unwrap();
+    assert!(!hits.is_empty());
+    let search_embedder = SearchEmbedder {
+        port: &model_port,
+        card: &card,
+    };
+    assert!(
+        !search_dense(&query, &search_embedder)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+
+    let understood = understand("ERR-042");
+    let identifier_query = Query {
+        text: "ERR-042",
+        ..query
+    };
+    let identifiers = search_identifiers(
+        &identifier_query,
+        kernel.database.clone(),
+        &understood,
+        Instant::now() + Duration::from_secs(2),
+    )
+    .await;
+    assert!(!identifiers.hits.is_empty());
 }
