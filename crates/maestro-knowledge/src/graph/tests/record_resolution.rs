@@ -11,15 +11,10 @@ use maestro_kernel::{
     scope::{Right, ScopeSet, WORKSPACE},
     store::Database,
 };
+use maestro_test_scratch::scratch_directory;
 use rusqlite::Connection;
 use serde_json::Map;
-use std::{
-    collections::BTreeMap,
-    env, fs,
-    path::PathBuf,
-    process,
-    sync::atomic::{AtomicUsize, Ordering},
-};
+use std::{collections::BTreeMap, fs, path::PathBuf};
 
 /// A real admitted table and a scoped reviewer in an isolated database.
 struct Fixture {
@@ -38,12 +33,7 @@ struct Fixture {
 impl Fixture {
     /// Admit the existing synthetic table through the public kernel API.
     fn new() -> Self {
-        static NEXT: AtomicUsize = AtomicUsize::new(0);
-        let path = env::temp_dir().join(format!(
-            "maestro-resolution-write-{}-{}",
-            process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
+        let path = scratch_directory().unwrap();
         let database = Database::open_in(&path).unwrap();
         database
             .record_collection(&Collection {

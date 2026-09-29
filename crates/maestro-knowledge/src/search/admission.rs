@@ -1,9 +1,12 @@
 //! Request bounds, scope snapshots and generation admission.
 
-use super::request::{SearchConfiguration, SearchContext, SearchError, SearchRequest};
+use super::request::{
+    CandidateContext, SearchConfiguration, SearchContext, SearchError, SearchRequest,
+};
 use super::{deadline, inventory_query::inventory_request, pin};
 use crate::query::{Understood, understand};
 use maestro_kernel::{
+    evidence::RequestBudget,
     gateway::ModelPort,
     generation::Generation,
     retrieval::{self, InventoryRequest},
@@ -49,7 +52,8 @@ pub(super) async fn admit_request<P: ModelPort>(
         Err(error) => (None, Some(error.to_string())),
     };
     let version = request.version.map(str::to_owned);
-    let cutoffs = deadline::from_budget(started, request.budget);
+    let cutoffs =
+        deadline::from_budget(started, request.budget, request.configuration.stage_window);
     let (admission_scopes, generation, version_documented) = admit(
         context.database.clone(),
         context.principal,
@@ -101,14 +105,31 @@ pub(super) fn validate(request: &SearchRequest<'_>) -> Result<Understood, Search
     if !(1..=12_000).contains(&request.budget.max_tokens) {
         return Err(invalid("max_tokens must be between 1 and 12000"));
     }
-    if !(1..=10_000).contains(&request.budget.deadline_ms) {
-        return Err(invalid("deadline_ms must be between 1 and 10000"));
+    if !(1..=RequestBudget::MAX_DEADLINE_MS).contains(&request.budget.deadline_ms) {
+        return Err(invalid("deadline_ms must be between 1 and 30000"));
     }
     if request.configuration.rerank_depth.get() > 120 {
         return Err(invalid("rerank depth must be between 1 and 120"));
     }
     if !request.configuration.weights_are_valid() {
         return Err(invalid("route weights must be finite and nonnegative"));
+    }
+    if request
+        .configuration
+        .rerank_blend
+        .is_some_and(|blend| !blend.is_finite() || !(0.0..=1.0).contains(&blend))
+    {
+        return Err(invalid("rerank blend must be between 0 and 1"));
+    }
+    if !request.configuration.section_prior.is_valid() {
+        return Err(invalid("section prior weight must be between 0 and 1"));
+    }
+    if let CandidateContext::BoundedSection { max_bytes } = request.configuration.candidate_context
+        && !(1..=1500).contains(&max_bytes)
+    {
+        return Err(invalid(
+            "candidate context max_bytes must be between 1 and 1500",
+        ));
     }
     if request
         .version

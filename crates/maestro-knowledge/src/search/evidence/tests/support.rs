@@ -1,8 +1,9 @@
 //! A prepared chunk set and generation for evidence-path tests.
 
+use crate::search::evidence::{CounterMode, EvidenceSettings};
 use crate::{
     prepare::{
-        prepare,
+        ChunkProfile, Preparation, prepare_observed,
         tests::scratch::{COLLECTION, Scratch, decide_all, router_tokenizer},
     },
     query::understand,
@@ -18,6 +19,7 @@ use maestro_kernel::{
 };
 use std::{
     collections::BTreeMap,
+    ops::ControlFlow,
     sync::{Arc, atomic::AtomicBool},
     time::{Duration, Instant},
 };
@@ -25,25 +27,37 @@ use tokio::time::Instant as TokioInstant;
 
 /// One synthetic, authorized corpus prepared and pinned to a generation.
 pub(super) struct Fixture {
-    /// The source directory lives as long as this test fixture.
-    pub(super) scratch: Scratch,
     /// The kernel used to prepare and read the evidence.
     pub(super) database: Database,
     /// The read grants captured during import.
     pub(super) scopes: ScopeSet,
     /// The generation pinned to the chunk set.
     pub(super) generation: Generation,
+    /// The source directory lives as long as this test fixture. Last, as
+    /// fields drop in order: Windows refuses to remove a database still open.
+    pub(super) scratch: Scratch,
 }
 
 /// Imports, accepts, prepares and publishes a synthetic corpus.
 pub(super) fn fixture(documents: &[(&str, &str)]) -> Fixture {
+    fixture_under(documents, ChunkProfile::Structural)
+}
+
+/// [`fixture`], its chunk set cut under `profile`.
+pub(super) fn fixture_under(documents: &[(&str, &str)], profile: ChunkProfile) -> Fixture {
     let scratch = Scratch::new();
     scratch.corpus(documents);
     let database = scratch.database();
     let scopes = scratch.import(&database);
     decide_all(&database, &scopes, Outcome::Accepted);
     let counter = router_tokenizer();
-    let report = prepare(&database, &scopes, COLLECTION, &counter).unwrap();
+    let preparation = Preparation {
+        collection: COLLECTION,
+        profile,
+    };
+    let mut unobserved = |_: &_| ControlFlow::Continue(());
+    let report =
+        prepare_observed(&database, &scopes, preparation, &counter, &mut unobserved).unwrap();
     let building = database
         .create_generation(&NewGeneration {
             collection_id: COLLECTION.to_owned(),
@@ -58,11 +72,18 @@ pub(super) fn fixture(documents: &[(&str, &str)]) -> Fixture {
     database.publish_generation(building.id).unwrap();
     let generation = database.generation(&scopes, building.id).unwrap().unwrap();
     Fixture {
-        scratch,
         database,
         scopes,
         generation,
+        scratch,
     }
+}
+
+/// As [`evidence_input`], configured for an exact token counter.
+pub(super) fn exact_evidence_input(fixture: &Fixture, query: &str) -> EvidenceInput {
+    let mut input = evidence_input(fixture, query);
+    input.evidence.evidence_counter = CounterMode::Exact;
+    input
 }
 
 /// Builds a bounded search handoff from every chunk in the fixture generation.
@@ -96,6 +117,7 @@ pub(super) fn evidence_input(fixture: &Fixture, query: &str) -> EvidenceInput {
         })
         .collect();
     EvidenceInput {
+        evidence: EvidenceSettings::default(),
         generation: fixture.generation.clone(),
         query: query.to_owned(),
         understood: understand(query),

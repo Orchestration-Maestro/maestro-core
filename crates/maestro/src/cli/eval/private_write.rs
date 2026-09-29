@@ -31,16 +31,15 @@ pub(super) fn write(
 #[cfg(test)]
 mod tests {
     use super::write;
+    use maestro_test_scratch::scratch_directory;
     use std::{
-        env, fs,
+        fs,
         io::{self, Write as _},
     };
-    use ulid::Ulid;
 
     #[test]
     fn graph_eval_failed_private_write_leaves_no_final_and_retry_succeeds() {
-        let root = env::temp_dir().join(format!("private-write-{}", Ulid::generate()));
-        fs::create_dir(&root).unwrap();
+        let root = scratch_directory().unwrap();
         let path = root.join("receipt.json");
         let result = write(&path, |file| {
             file.write_all(b"partial")?;

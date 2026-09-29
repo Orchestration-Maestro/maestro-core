@@ -14,15 +14,15 @@ use maestro_kernel::{
     store::Database,
 };
 use maestro_knowledge::lexical;
+use maestro_test_scratch::scratch_directory;
 use serde_json::{Value, json};
 use std::{
     collections::BTreeMap,
-    env, fs,
+    fs,
     net::TcpListener,
     num::{NonZeroU32, NonZeroUsize},
     path::PathBuf,
-    process::{self, ExitCode},
-    sync::atomic::{AtomicUsize, Ordering},
+    process::ExitCode,
 };
 use ulid::Ulid;
 
@@ -41,14 +41,7 @@ struct Scratch(PathBuf);
 
 impl Scratch {
     fn new() -> Self {
-        static NEXT: AtomicUsize = AtomicUsize::new(0);
-        let path = env::temp_dir().join(format!(
-            "maestro-report-{}-{}",
-            process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
-        fs::create_dir(&path).unwrap();
-        Self(path)
+        Self(scratch_directory().unwrap())
     }
 }
 

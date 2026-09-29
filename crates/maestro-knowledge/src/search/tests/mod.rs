@@ -10,3 +10,8 @@ mod stages;
 mod support;
 mod top_scores;
 mod window_boundaries;
+
+mod candidate_enrichment;
+mod rank_policy;
+mod rank_stage;
+mod section_prior;

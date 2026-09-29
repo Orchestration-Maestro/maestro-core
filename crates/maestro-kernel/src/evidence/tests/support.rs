@@ -9,14 +9,9 @@ use crate::{
     scope::{Right, ScopeSet},
     store::{self, Database},
 };
+use maestro_test_scratch::scratch_directory;
 use serde_json::{Map, Value};
-use std::{
-    collections::BTreeMap,
-    env, fs,
-    path::PathBuf,
-    process,
-    sync::atomic::{AtomicUsize, Ordering},
-};
+use std::{collections::BTreeMap, fs, path::PathBuf};
 
 /// The original Markdown of the revision `rev-a`: two sections that state
 /// different default ports, the second with a dash that takes three bytes.
@@ -36,14 +31,7 @@ pub(super) struct Scratch(PathBuf);
 
 impl Scratch {
     pub(super) fn new() -> Self {
-        static NEXT: AtomicUsize = AtomicUsize::new(0);
-        let path = env::temp_dir().join(format!(
-            "maestro-kernel-evidence-{}-{}",
-            process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
-        fs::create_dir(&path).unwrap();
-        Self(path)
+        Self(scratch_directory().unwrap())
     }
 
     /// The kernel database of this directory, with the revision `rev-a` of

@@ -1,8 +1,11 @@
 //! Typed ask requests, results, refusals, and trusted dependencies.
 
-use crate::search::{SearchContext, SearchError, evidence::EvidenceError};
+use crate::search::{
+    SearchContext, SearchError,
+    evidence::{Anchor, EvidenceError},
+};
 use maestro_kernel::{
-    evidence::RouteStatus,
+    evidence::{RequestBudget, RouteStatus},
     gateway::{Error as GatewayError, MAX_CHAT_OUTPUT_TOKENS, ModelCard},
 };
 use schemars::JsonSchema;
@@ -11,10 +14,14 @@ use std::{collections::BTreeMap, error, fmt, time::Duration};
 
 /// Default local answerer router entry.
 pub const DEFAULT_MODEL: &str = "qwen3-4b";
-/// Maximum time allowed for each buffered chat call.
-pub const CHAT_DEADLINE: Duration = Duration::from_secs(10);
-/// System-enforced output ceiling for one generation attempt.
-pub(super) const DEFAULT_OUTPUT_TOKENS: u32 = 700;
+/// Maximum time allowed for each buffered chat call, the answerer's load
+/// included. A safety cap: a cold answerer loaded and thought through 1024
+/// tokens in 6.5 s, and a load alone took up to 5.3 s on a busy machine.
+pub const CHAT_DEADLINE: Duration = Duration::from_secs(20);
+/// System-enforced output ceiling for one generation attempt: the chat
+/// maximum, so a thinking answerer's think block fits before its answer. It
+/// is only a cap; an answerer that does not think stops well before it.
+pub(super) const DEFAULT_OUTPUT_TOKENS: u32 = MAX_CHAT_OUTPUT_TOKENS;
 /// Number of closest passages retained in a refusal.
 pub(super) const CLOSEST_LIMIT: usize = 3;
 /// Result schema identifier.
@@ -52,8 +59,9 @@ pub struct AskBudget {
     /// UTF-8-byte evidence budget used by the deliberately uncalibrated flow.
     pub max_tokens: u32,
     /// Search and evidence-assembly deadline in milliseconds. Its default,
-    /// 6 s, lets search load a cold embedder (measured 1.5-2.2 s) and still
-    /// run the dense route.
+    /// 30 s, is a safety cap: search loads a cold embedder and a cold
+    /// reranker (each load measured 2.4-5.3 s on a busy machine) and still
+    /// runs dense and rerank.
     pub search_deadline_ms: u32,
     /// Maximum generated tokens per chat call.
     pub output_tokens: u32,
@@ -64,21 +72,33 @@ impl Default for AskBudget {
         Self {
             k: 5,
             max_tokens: 6000,
-            search_deadline_ms: 6000,
+            search_deadline_ms: RequestBudget::MAX_DEADLINE_MS,
             output_tokens: DEFAULT_OUTPUT_TOKENS,
+        }
+    }
+}
+
+impl From<AskBudget> for RequestBudget {
+    /// The search bounds of an ask: its passages, evidence budget and search
+    /// deadline.
+    fn from(budget: AskBudget) -> Self {
+        Self {
+            k: budget.k,
+            max_tokens: budget.max_tokens,
+            deadline_ms: budget.search_deadline_ms,
         }
     }
 }
 
 impl AskBudget {
     /// Whether every bound is within what `ask` accepts: 1 to 50 passages,
-    /// 1 to 12,000 evidence bytes, 1 to 10,000 ms of search and 1 to
+    /// 1 to 12,000 evidence bytes, 1 to 30,000 ms of search and 1 to
     /// [`MAX_CHAT_OUTPUT_TOKENS`] output tokens.
     #[must_use]
     pub fn is_within_limits(&self) -> bool {
         (1..=50).contains(&self.k)
             && (1..=12_000).contains(&self.max_tokens)
-            && (1..=10_000).contains(&self.search_deadline_ms)
+            && (1..=RequestBudget::MAX_DEADLINE_MS).contains(&self.search_deadline_ms)
             && (1..=MAX_CHAT_OUTPUT_TOKENS).contains(&self.output_tokens)
     }
 }
@@ -88,12 +108,15 @@ impl AskBudget {
 #[serde(rename_all = "lowercase")]
 pub enum PromptVersion {
     /// The first prompt: a marker after each supported sentence.
-    #[default]
     V1,
     /// After each sentence, the passages that state it, the specific one
     /// over a general one, and `NOT_FOUND` unless the passages answer
-    /// directly.
+    /// directly. The default: the T037 ladder measured it best.
+    #[default]
     V2,
+    /// Selects the directly applicable procedure before contextual passages.
+    #[serde(rename = "procedure_first")]
+    ProcedureFirst,
 }
 
 impl PromptVersion {
@@ -103,6 +126,7 @@ impl PromptVersion {
         match self {
             Self::V1 => "v1",
             Self::V2 => "v2",
+            Self::ProcedureFirst => "procedure_first",
         }
     }
 }
@@ -274,7 +298,8 @@ pub struct Answer {
     pub citations: Vec<AnswerCitation>,
     /// Host-resolved answerer identity.
     pub model: AnswerModel,
-    /// True until T037 records a calibrated shipping profile.
+    /// True until a ladder run passes every M1 floor; T037 closed with two
+    /// answer floors unmet.
     pub uncalibrated: bool,
     /// Host-owned safe refusal, when the evidence or answerer is insufficient.
     pub refusal: Option<AnswerRefusal>,
@@ -288,6 +313,10 @@ pub struct Answer {
     /// for evaluation only: never serialized.
     #[serde(skip)]
     pub routes: BTreeMap<String, RouteStatus>,
+    /// The anchors of the bundle the answer was given, in passage order, for
+    /// evaluation only: never serialized.
+    #[serde(skip)]
+    pub delivered: Vec<Anchor>,
 }
 
 /// One answerer reply the host checks rejected.
@@ -337,7 +366,7 @@ impl fmt::Display for AskError {
             Self::Search(_) => formatter.write_str("knowledge search could not complete"),
             Self::Evidence(_) => formatter.write_str("evidence could not be verified"),
             Self::Backend(_) => formatter.write_str("the answerer is unavailable"),
-            Self::TimedOut => formatter.write_str("the answerer exceeded its 10-second deadline"),
+            Self::TimedOut => formatter.write_str("the answerer exceeded its 20-second deadline"),
             Self::EvidenceIntegrity => {
                 formatter.write_str("the assembled passage has no source chunk identity")
             }

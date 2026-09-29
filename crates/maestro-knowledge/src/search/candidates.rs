@@ -1,6 +1,12 @@
 //! Scoped prepared-input loading for the fused candidate IDs only.
 
-use super::{deadline, fusion::Fused, rerank::Candidate};
+use super::{
+    candidate_enrichment::{self, Settings},
+    deadline,
+    fusion::Fused,
+    request::SearchConfiguration,
+    rerank::Candidate,
+};
 use maestro_kernel::{
     generation::Generation,
     retrieval::{self, ReadControl, SearchRead},
@@ -8,7 +14,7 @@ use maestro_kernel::{
     store::Database,
 };
 use std::{
-    collections::HashMap,
+    collections::{BTreeSet, HashMap},
     sync::{Arc, atomic::Ordering},
     time::Instant as StdInstant,
 };
@@ -41,13 +47,32 @@ pub(super) struct Request {
     pub(super) expected_revisions: HashMap<String, Vec<String>>,
     /// The shared text-loading and reranking cutoff.
     pub(super) deadline: Instant,
+    /// The earlier cutoff after which enrichment keeps chunk text.
+    pub(super) context_deadline: Instant,
+    /// Validated optional ranking policies.
+    pub(super) configuration: SearchConfiguration,
+    /// Query used only to exempt explicitly requested section classes.
+    pub(super) query: String,
+}
+
+/// Loaded candidates and opt-in context diagnostics.
+#[derive(Debug, Default)]
+pub(super) struct Loaded {
+    /// Prepared or expanded reranker inputs in fused order.
+    pub(super) candidates: Vec<Candidate>,
+    /// Source-loading wall time, including validation.
+    pub(super) source_load_micros: u64,
+    /// Chunks kept under bounded context: an oversized mandatory unit, an
+    /// unavailable source, or the enrichment cutoff.
+    pub(super) fallbacks: Vec<String>,
+    /// Candidates classified for a soft penalty.
+    pub(super) penalized: BTreeSet<String>,
+    /// Candidates whose enrichment was unavailable.
+    pub(super) context_unavailable: usize,
 }
 
 /// Loads each fused chunk's strict UTF-8 prepared input in fused order.
-pub(super) async fn load(
-    database: Arc<Database>,
-    request: Request,
-) -> Result<Vec<Candidate>, Failure> {
+pub(super) async fn load(database: Arc<Database>, request: Request) -> Result<Loaded, Failure> {
     let Request {
         generation,
         scopes,
@@ -55,9 +80,12 @@ pub(super) async fn load(
         fused,
         expected_revisions,
         deadline,
+        context_deadline,
+        configuration,
+        query,
     } = request;
     if fused.is_empty() {
-        return Ok(Vec::new());
+        return Ok(Loaded::default());
     }
     if Instant::now() >= deadline {
         return Err(Failure::TimedOut);
@@ -82,8 +110,8 @@ pub(super) async fn load(
             .into_iter()
             .map(|chunk| (chunk.id.clone(), chunk))
             .collect::<HashMap<_, _>>();
-        let mut candidates = Vec::with_capacity(fused.len());
-        for fused in fused {
+        let mut texts = Vec::with_capacity(fused.len());
+        for fused in &fused {
             check_control(&control)?;
             let chunk = chunks.get(&fused.chunk_id).ok_or(Failure::EvidenceLoad)?;
             if !expected_revisions
@@ -101,10 +129,30 @@ pub(super) async fn load(
                 .map_err(|_| Failure::EvidenceLoad)?;
             check_control(&control)?;
             let text = String::from_utf8(bytes).map_err(|_| Failure::EvidenceLoad)?;
-            candidates.push(Candidate { fused, text });
+            texts.push((chunk, text));
         }
+        let enriched = candidate_enrichment::enrich(
+            (&database, &scopes, &control),
+            &Settings {
+                configuration,
+                query: &query,
+                generation: &generation,
+                deadline: context_deadline.into_std(),
+            },
+            &mut texts,
+        );
         check_control(&control)?;
-        Ok(candidates)
+        Ok(Loaded {
+            candidates: fused
+                .into_iter()
+                .zip(texts)
+                .map(|(fused, (_, text))| Candidate { fused, text })
+                .collect(),
+            source_load_micros: enriched.micros,
+            fallbacks: enriched.fallbacks,
+            penalized: enriched.penalized,
+            context_unavailable: enriched.unavailable,
+        })
     })
     .await
     .map_err(|error| match error {

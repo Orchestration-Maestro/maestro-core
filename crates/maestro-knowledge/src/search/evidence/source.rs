@@ -107,6 +107,35 @@ impl<'a> SourceCache<'a> {
         generation: &Generation,
         worker_limit: usize,
     ) -> Result<(), EvidenceError> {
+        let outcomes = self.load_concurrently(revision_ids, generation, worker_limit)?;
+        let loaded = outcomes.into_iter().collect::<Result<Vec<_>, _>>()?;
+        self.check()?;
+        self.insert_loaded(loaded);
+        self.check()
+    }
+
+    /// Loads unique revisions concurrently and keeps each one that loads:
+    /// optional enrichment degrades per revision, while assembly still
+    /// refuses a revision that fails its checks.
+    pub(in crate::search) fn load_available(
+        &mut self,
+        revision_ids: &[String],
+        generation: &Generation,
+        worker_limit: usize,
+    ) {
+        if let Ok(outcomes) = self.load_concurrently(revision_ids, generation, worker_limit) {
+            self.insert_loaded(outcomes.into_iter().flatten().collect());
+        }
+    }
+
+    /// Runs the scoped workers over the revisions not yet cached, returning
+    /// one outcome per revision in input order.
+    fn load_concurrently(
+        &self,
+        revision_ids: &[String],
+        generation: &Generation,
+        worker_limit: usize,
+    ) -> Result<Vec<Result<LoadedSource, EvidenceError>>, EvidenceError> {
         self.check()?;
         let mut seen = BTreeSet::new();
         let missing: Vec<_> = revision_ids
@@ -117,7 +146,7 @@ impl<'a> SourceCache<'a> {
             .cloned()
             .collect();
         if missing.is_empty() {
-            return self.check();
+            return Ok(Vec::new());
         }
 
         let worker_count = worker_limit
@@ -159,23 +188,14 @@ impl<'a> SourceCache<'a> {
                 return Err(EvidenceError::WorkerFailed);
             }
         }
-        if outcomes.iter().any(Option::is_none) {
-            return Err(EvidenceError::WorkerFailed);
-        }
+        outcomes
+            .into_iter()
+            .map(|outcome| outcome.ok_or(EvidenceError::WorkerFailed))
+            .collect()
+    }
 
-        let mut loaded = Vec::with_capacity(missing.len());
-        let mut first_error = None;
-        for outcome in outcomes.into_iter().flatten() {
-            match outcome {
-                Ok(source) => loaded.push(source),
-                Err(error) if first_error.is_none() => first_error = Some(error),
-                Err(_) => {}
-            }
-        }
-        if let Some(error) = first_error {
-            return Err(error);
-        }
-        self.check()?;
+    /// Caches loaded sources by revision.
+    fn insert_loaded(&mut self, loaded: Vec<LoadedSource>) {
         #[cfg(test)]
         for (revision_id, source, counts) in loaded {
             self.sources.insert(revision_id.clone(), source);
@@ -185,7 +205,6 @@ impl<'a> SourceCache<'a> {
         for (revision_id, source, ()) in loaded {
             self.sources.insert(revision_id, source);
         }
-        self.check()
     }
 
     /// Returns an already-loaded authoritative revision without mutating the cache.

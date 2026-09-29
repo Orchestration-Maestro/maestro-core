@@ -106,9 +106,10 @@ impl Collections for Fake {
                         ));
                     }
                     state.collection(&create.collection_name)?;
-                    state
-                        .aliases
-                        .insert(create.alias_name, create.collection_name);
+                    let collection = state
+                        .redirect_create_alias()
+                        .unwrap_or(create.collection_name);
+                    state.aliases.insert(create.alias_name, collection);
                 }
                 Some(Action::DeleteAlias(delete)) => drop(state.aliases.remove(&delete.alias_name)),
                 Some(Action::RenameAlias(_)) | None => return Err(unserved("rename_alias")),

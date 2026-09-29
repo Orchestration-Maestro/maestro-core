@@ -195,13 +195,8 @@ mod tests {
         scope::{Right, ScopeSet},
         store::Database,
     };
-    use std::{
-        env, fs,
-        io::Cursor,
-        path::PathBuf,
-        process,
-        sync::atomic::{AtomicUsize, Ordering},
-    };
+    use maestro_test_scratch::scratch_directory;
+    use std::{fs, io::Cursor, path::PathBuf};
 
     /// Distinct synthetic references, each repeated once in the manifest.
     const REFERENCES: usize = 2_048;
@@ -213,14 +208,7 @@ mod tests {
     impl Scratch {
         /// Creates a fresh test directory.
         fn new() -> Self {
-            static NEXT: AtomicUsize = AtomicUsize::new(0);
-            let path = env::temp_dir().join(format!(
-                "maestro-import-bookkeeping-{}-{}",
-                process::id(),
-                NEXT.fetch_add(1, Ordering::Relaxed)
-            ));
-            fs::create_dir(&path).unwrap();
-            Self(path)
+            Self(scratch_directory().unwrap())
         }
     }
 

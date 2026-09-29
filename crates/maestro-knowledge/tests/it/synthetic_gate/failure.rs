@@ -1,5 +1,6 @@
 //! Stages, items and completed-question counts for a failed synthetic run.
 
+use maestro_test_scratch::scratch_root;
 use std::{env, fmt};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -52,6 +53,11 @@ fn log_cause(stage: &str, error: impl fmt::Display) {
             .map(|path| path.to_string_lossy().into_owned()),
     );
     private_paths.push(env::temp_dir().to_string_lossy().into_owned());
+    private_paths.extend(
+        scratch_root()
+            .ok()
+            .map(|root| root.to_string_lossy().into_owned()),
+    );
     for path in private_paths {
         if !path.is_empty() {
             cause = cause.replace(&path, "<path>");

@@ -9,14 +9,13 @@ use crate::{
     scope::{Right, ScopeSet},
     store::{self, Database},
 };
+use maestro_test_scratch::scratch_directory;
 use rusqlite::params;
 use serde_json::{Map, Value};
 use std::{
     collections::{BTreeMap, BTreeSet},
-    env, fs,
+    fs,
     path::PathBuf,
-    process,
-    sync::atomic::{AtomicUsize, Ordering},
 };
 
 /// A scratch kernel that owns one prepared chunk in a published-scope set.
@@ -296,14 +295,7 @@ struct Scratch(PathBuf);
 
 impl Scratch {
     fn new() -> Self {
-        static NEXT: AtomicUsize = AtomicUsize::new(0);
-        let path = env::temp_dir().join(format!(
-            "maestro-kernel-search-{}-{}",
-            process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
-        fs::create_dir(&path).unwrap();
-        Self(path)
+        Self(scratch_directory().unwrap())
     }
 }
 

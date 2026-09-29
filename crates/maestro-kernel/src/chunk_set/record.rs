@@ -160,8 +160,9 @@ impl Database {
             .optional()?)
     }
 
-    /// The latest complete chunk set of `collection_id`, if one is recorded
-    /// and `scopes` covers its collection.
+    /// The latest complete chunk set of `collection_id` cut under
+    /// `chunk_profile`, if one is recorded and `scopes` covers its
+    /// collection: a set of another profile is never taken in its place.
     ///
     /// # Errors
     ///
@@ -170,17 +171,19 @@ impl Database {
         &self,
         scopes: &ScopeSet,
         collection_id: &str,
+        chunk_profile: &str,
     ) -> Result<Option<ChunkSet>, Error> {
         Ok(self
             .reader()?
             .query_row(
                 &format!(
                     "SELECT {COLUMNS} FROM chunk_sets
-                     WHERE collection_id = ?1 AND state = 'complete' AND {}
+                     WHERE collection_id = ?1 AND chunk_profile = ?2 AND state = 'complete'
+                       AND {}
                      ORDER BY rowid DESC LIMIT 1",
-                    ScopeSet::collection_condition("chunk_sets.collection_id", 2)
+                    ScopeSet::collection_condition("chunk_sets.collection_id", 3)
                 ),
-                params![collection_id, scopes.parameter()],
+                params![collection_id, chunk_profile, scopes.parameter()],
                 chunk_set_row,
             )
             .optional()?)

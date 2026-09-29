@@ -1,9 +1,10 @@
 //! Deadline-bounded leaf-route calls and their independent public statuses.
 
 use super::{
-    deadline::{DEADLINE_EXCEEDED, DISABLED_BY_CONFIGURATION, Deadlines, until},
+    deadline::{DEADLINE_EXCEEDED, DISABLED_BY_CONFIGURATION, DeadlineElapsed, Deadlines, until},
     fusion::{Hit, Route, RouteList},
     query::Query,
+    rerank::Reranker,
     routes::lexical,
     routes::{
         dense::{self, Embedder},
@@ -14,12 +15,23 @@ use super::{
 };
 use maestro_kernel::{
     evidence::RouteStatus,
-    gateway::{ModelPort, Room},
+    gateway::{ModelPort, Role, Room},
     retrieval::InventoryRequest,
     store::Database,
+    telemetry::stage::Outcome,
 };
 use std::{collections::BTreeMap, future::Future, sync::Arc};
 use tokio::time::{self, Instant};
+
+/// How a route or the rerank that ended with `status` ended: the reason
+/// code [`DEADLINE_EXCEEDED`] is a timeout, any other an unavailability.
+pub(super) fn route_outcome(status: &RouteStatus) -> Outcome {
+    match status {
+        RouteStatus::Ok => Outcome::Ok,
+        RouteStatus::Unavailable(reason) if reason == DEADLINE_EXCEEDED => Outcome::Timeout,
+        RouteStatus::Unavailable(_) => Outcome::Unavailable,
+    }
+}
 
 /// Polls every independent route before returning any route's outcome.
 pub(super) async fn join_route_futures<D, L, I, S>(
@@ -50,7 +62,9 @@ const UNSUPPORTED_INVENTORY: &str = concat!(
 
 /// Executes dense search with its independent route cutoff, which starts
 /// once the embedder is ready: loading its model is setup, bounded by
-/// `cutoffs.setup`, not route time.
+/// `cutoffs.routes_end`, not route time. A setup the port refuses, or
+/// one still loading at that bound, leaves the route unavailable without
+/// its window.
 pub(super) async fn dense_outcome<P: ModelPort>(
     enabled: bool,
     query: &Query<'_>,
@@ -63,15 +77,22 @@ pub(super) async fn dense_outcome<P: ModelPort>(
     let Some(embedder) = embedder else {
         return unavailable("no embedder card for the published generation's profile");
     };
-    // A failed or unfinished setup is retried by the embedding call itself,
-    // which reports its precise reason within the route's window.
-    drop(
-        until(
-            cutoffs.setup,
-            embedder.port.prepare(embedder.card, Room::Free),
-        )
-        .await,
-    );
+    // A model still loading at the bound would hold the route past it, and
+    // the rerank and evidence assembly need the rest of the budget.
+    match until(
+        cutoffs.routes_end,
+        embedder.port.prepare(embedder.card, Room::Free),
+    )
+    .await
+    {
+        Ok(Ok(())) => {}
+        Ok(Err(error)) => {
+            return unavailable(route_error_reason(&RouteError::EmbedderUnavailable {
+                reason: error.to_string(),
+            }));
+        }
+        Err(DeadlineElapsed) => return unavailable(DEADLINE_EXCEEDED),
+    }
     let deadline = cutoffs.route_after(Instant::now());
     if Instant::now() >= deadline {
         return unavailable(DEADLINE_EXCEEDED);
@@ -84,6 +105,32 @@ pub(super) async fn dense_outcome<P: ModelPort>(
         Ok(Err(error)) => unavailable(route_error_reason(&error)),
         Err(_) => unavailable(DEADLINE_EXCEEDED),
     }
+}
+
+/// Readies the reranker's model, its one-time setup, while the routes run,
+/// bounded by `cutoffs.setup`, the rerank's own cutoff: a model still
+/// loading then leaves the rerank no time, so it makes no call and the
+/// search keeps the fused order and its deadline. A rerank that cannot run
+/// prepares no model.
+pub(super) async fn prepare_reranker<P: ModelPort>(
+    reranker: Option<&Reranker<'_, P>>,
+    enabled: bool,
+    cutoffs: &Deadlines,
+) {
+    let Some(reranker) =
+        reranker.filter(|reranker| enabled && reranker.card.fields().role == Role::Reranker)
+    else {
+        return;
+    };
+    // A refused setup is retried by the reranking call itself, which reports
+    // its precise reason before the cutoff.
+    drop(
+        until(
+            cutoffs.setup,
+            reranker.port.prepare(reranker.card, Room::Free),
+        )
+        .await,
+    );
 }
 
 /// Executes lexical search with its independent route cutoff.

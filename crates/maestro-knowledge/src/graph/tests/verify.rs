@@ -15,13 +15,9 @@ use maestro_kernel::{
     evidence::Span,
     store::Database,
 };
+use maestro_test_scratch::scratch_directory;
 use serde_json::Map;
-use std::{
-    env, error, fs,
-    path::PathBuf,
-    process,
-    sync::atomic::{AtomicUsize, Ordering},
-};
+use std::{error, fs, path::PathBuf};
 
 /// The frozen source's canonical document.
 fn canonical() -> CanonicalDocument {
@@ -205,18 +201,13 @@ fn the_canonical_document_must_be_the_revisions_own() {
     assert!(refused.contains("source digest"), "{refused}");
 }
 
-/// A kernel database in a new directory under the platform's temporary
-/// directory, removed with it when dropped.
+/// A kernel database in a new scratch directory, removed with it when
+/// dropped.
 struct Scratch(PathBuf, Database);
 
 impl Scratch {
     fn new() -> Self {
-        static NEXT: AtomicUsize = AtomicUsize::new(0);
-        let path = env::temp_dir().join(format!(
-            "maestro-knowledge-graph-{}-{}",
-            process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
+        let path = scratch_directory().unwrap();
         let database = Database::open_in(&path).unwrap();
         Self(path, database)
     }

@@ -5,25 +5,31 @@
 
 use super::{
     super::{
-        engine::{KernelEngine, ask_failure, evidence_failure, search_failure},
+        engine::{KernelEngine, expected_failure},
         manifest::AskSettings,
         rung_prompt::RungPrompt,
         runner::Engine as _,
-        stages::StageFailure,
+        stages::{StageFailure, ask_failure, evidence_failure, search_failure},
     },
     support::{rung, suite},
 };
-use crate::knowledge::operations::{ask::tests::register_card, tests::Scratch};
+use crate::{
+    failure::Failure,
+    knowledge::operations::{ask::tests::register_card, tests::Scratch},
+};
+use maestro_kernel::evidence::RequestBudget;
 use maestro_kernel::{
     gateway::{Error as GatewayError, Role, RouterClient, Url},
     retrieval,
 };
+use maestro_knowledge::search::evidence::{CounterMode, ExpansionMode};
 use maestro_knowledge::{
     answer::{AskBudget, AskError, AskRequest, DEFAULT_MODEL, PromptVersion},
-    eval::{AskOutcome, SearchOutcome},
+    eval::{AskOutcome, RunError, SearchOutcome},
     index::Qdrant,
     search::{SearchError, evidence::EvidenceError, routes::error::RouteError},
 };
+use std::io;
 
 /// An address where nothing listens.
 const NOWHERE: &str = "http://127.0.0.1:1";
@@ -68,20 +74,28 @@ fn the_engine_names_the_generation_chunk_set_and_every_card_and_sees_drift() {
     assert_ne!(end, start);
 }
 
+/// Full-section, UTF-8 ask settings with k 8, 9,000 evidence bytes, 900
+/// output tokens and prompt v1.
+fn v1_settings() -> AskSettings {
+    AskSettings {
+        expansion: ExpansionMode::FullSection,
+        evidence_counter: CounterMode::Utf8,
+        k: Some(8),
+        max_tokens: Some(9000),
+        output_tokens: Some(900),
+        prompt: RungPrompt::Version(PromptVersion::V1),
+        card: None,
+    }
+}
+
 #[test]
-fn an_ask_carries_the_rungs_budget_and_prompt() {
+fn a_search_and_an_ask_carry_the_rungs_configuration_budget_and_prompt() {
     let scratch = Scratch::new();
     let kernel = scratch.kernel(None).unwrap();
     let port = RouterClient::new(Url::parse(NOWHERE).unwrap()).unwrap();
     let engine =
         KernelEngine::new(&kernel, "collection", port, Qdrant::new(NOWHERE).unwrap()).unwrap();
-    let settings = AskSettings {
-        k: Some(8),
-        max_tokens: Some(9000),
-        output_tokens: Some(900),
-        prompt: RungPrompt::Version(PromptVersion::V2),
-        card: None,
-    };
+    let settings = v1_settings();
 
     let (request, prompt) = engine.ask_call("question", &settings, None).unwrap();
 
@@ -100,12 +114,76 @@ fn an_ask_carries_the_rungs_budget_and_prompt() {
             },
         }
     );
-    assert_eq!(prompt, PromptVersion::V2.into());
-    let (default, v1) = engine
+    assert_eq!(prompt, PromptVersion::V1.into());
+    let (default, default_prompt) = engine
         .ask_call("question", &AskSettings::default(), None)
         .unwrap();
     assert_eq!(default.budget, AskBudget::default());
-    assert_eq!(v1, PromptVersion::V1.into());
+    assert_eq!(default_prompt, PromptVersion::V2.into());
+}
+
+#[test]
+fn a_search_carries_the_asks_budget_and_evidence_settings() {
+    let scratch = Scratch::new();
+    let kernel = scratch.kernel(None).unwrap();
+    let port = RouterClient::new(Url::parse(NOWHERE).unwrap()).unwrap();
+    let engine =
+        KernelEngine::new(&kernel, "collection", port, Qdrant::new(NOWHERE).unwrap()).unwrap();
+    let settings = v1_settings();
+
+    let mut candidate = rung("r0");
+    let search = engine.search_request(&candidate, "question");
+    assert_eq!(search.configuration, candidate.configuration.search());
+    assert_eq!((search.collection, search.text), ("collection", "question"));
+    assert_eq!(search.budget, RequestBudget::from(AskBudget::default()));
+    candidate.ask = Some(settings.clone());
+    let asking = engine.search_request(&candidate, "question").budget;
+    assert_eq!((asking.k, asking.max_tokens), (8, 9000));
+    candidate.ask = None;
+    let unasked = engine.search_request(&candidate, "question").budget;
+    assert_eq!(unasked, RequestBudget::from(AskBudget::default()));
+    let search = engine.search_request(&candidate, "question");
+    assert_eq!(search.configuration, candidate.configuration.search());
+    assert_eq!((search.collection, search.text), ("collection", "question"));
+    assert_eq!(search.budget, RequestBudget::from(AskBudget::default()));
+    candidate.ask = Some(AskSettings {
+        expansion: ExpansionMode::RelevantBlocks,
+        evidence_counter: CounterMode::Utf8AnswerBound,
+        ..settings
+    });
+    let search = engine.search_request(&candidate, "question");
+    assert_eq!(search.evidence.expansion, ExpansionMode::RelevantBlocks);
+    assert_eq!(
+        search.evidence.evidence_counter,
+        CounterMode::Utf8AnswerBound
+    );
+    assert_eq!((search.budget.k, search.budget.max_tokens), (8, 9000));
+    candidate.ask = Some(AskSettings::default());
+    let search = engine.search_request(&candidate, "question");
+    let asked = AskBudget::default();
+    assert_eq!(
+        (
+            search.budget.k,
+            search.budget.max_tokens,
+            search.budget.deadline_ms
+        ),
+        (asked.k, asked.max_tokens, asked.search_deadline_ms)
+    );
+}
+
+#[test]
+fn only_a_failed_document_lookup_fails_the_start_of_a_rung() {
+    let lookup = RunError::Documents {
+        source_ref: "a.md".to_owned(),
+        error: io::Error::other("disk"),
+    };
+    let absent = RunError::<io::Error>::NoDocument {
+        question: "q1".to_owned(),
+        source_ref: "a.md".to_owned(),
+    };
+
+    assert!(matches!(expected_failure(&lookup), Failure::Failed(_)));
+    assert!(matches!(expected_failure(&absent), Failure::Refused(_)));
 }
 
 #[test]
@@ -123,11 +201,11 @@ fn with_the_services_down_each_search_and_ask_fails_once() {
         engine.search(&lexical, "question").outcome,
         SearchOutcome::Failed
     );
-    assert_eq!(engine.ask(&lexical, "question"), AskOutcome::Failed);
+    assert_eq!(engine.ask(&lexical, "question").outcome, AskOutcome::Failed);
 
     engine.start(&lexical, &suite(0, 1)).unwrap();
     let searched = engine.search(&lexical, "question").outcome;
-    let asked = engine.ask(&lexical, "question");
+    let asked = engine.ask(&lexical, "question").outcome;
 
     assert!(
         !matches!(searched, SearchOutcome::Ranked(_)),

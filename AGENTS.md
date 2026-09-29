@@ -29,3 +29,9 @@ repository; this page is the working summary.
    decision.
 7. Terms come from [CONTEXT.md](CONTEXT.md); a hard-to-reverse decision gets an
    ADR in [docs/adr](docs/adr/README.md).
+8. Test scratch directories come from
+   `maestro_test_scratch::scratch_directory()`, which prefers the tmpfs
+   `/dev/shm`: the kernel's durable writes wait on `fsync`, and on a disk the
+   suite took 147 s against 40 s on tmpfs. `MAESTRO_TEST_SCRATCH`, an
+   absolute path, names another base. Programs a test runs go under
+   `disk_scratch_directory()`, since tmpfs is often mounted `noexec`.

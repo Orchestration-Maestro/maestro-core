@@ -276,17 +276,26 @@ async fn a_card_is_checked_once_per_card_and_gateway() {
 }
 
 #[tokio::test]
-async fn preparing_a_card_checks_it_once_in_its_room_before_its_first_call() {
+async fn preparing_a_card_asks_for_its_model_every_time_and_its_call_checks_nothing() {
+    // Each prepare asks the router for the model, which reloads one the
+    // router unloaded while idle; the call after them sends only itself.
     let (stub, client) = serve("embed", "v1/embeddings", embeddings());
     let card = card(Role::Embedder);
     client.prepare(&card, Room::Free).await.unwrap();
     client.prepare(&card, Room::Free).await.unwrap();
     client.embed(&card, Room::Free, &inputs()).await.unwrap();
-    let requests = stub.requests();
-    assert_eq!(requests.len(), 2);
+    let check = free("GET", "/models/embed/props", Value::Null);
     assert_eq!(
-        requests.first(),
-        Some(&free("GET", "/models/embed/props", Value::Null))
+        stub.requests(),
+        [
+            check.clone(),
+            check,
+            free(
+                "POST",
+                "/models/embed/v1/embeddings",
+                json!({"input": inputs()})
+            )
+        ]
     );
 }
 

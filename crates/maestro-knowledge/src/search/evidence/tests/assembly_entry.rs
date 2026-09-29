@@ -1,4 +1,4 @@
-use super::super::{EvidenceCounter, EvidenceError, assemble_evidence};
+use super::super::{CounterMode, EvidenceCounter, EvidenceError, assemble_evidence};
 use super::support::{evidence_input, fixture};
 use crate::{
     query::{Family, Identifier},
@@ -64,6 +64,38 @@ async fn rejects_each_invalid_handoff_field_at_the_public_entry_point() {
     for (name, change, expected_reason) in invalid_cases() {
         assert_invalid_case(&database, &base, name, change, expected_reason).await;
     }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn refuses_a_counter_other_than_the_configured_evidence_counter() {
+    let fixture = fixture(&[("guide.md", "# Guide\n\nA source passage.\n")]);
+    let base = evidence_input(&fixture, "What does the guide document say?");
+    let database = Arc::new(fixture.database);
+    let mismatches = [
+        (CounterMode::Utf8AnswerBound, EvidenceCounter::Utf8Bytes),
+        (CounterMode::Exact, EvidenceCounter::Utf8Bytes),
+        (CounterMode::Utf8, EvidenceCounter::AnswerBoundUtf8Bytes),
+    ];
+    for (setting, counter) in mismatches {
+        let mut input = base.clone();
+        input.evidence.evidence_counter = setting;
+        let error = assemble_evidence(database.clone(), input, counter)
+            .await
+            .unwrap_err();
+        assert!(
+            matches!(
+                &error,
+                EvidenceError::InvalidRequest(reason)
+                    if reason == "evidence counter differs from the configured evidence_counter"
+            ),
+            "{setting:?}: {error:?}"
+        );
+    }
+    let mut input = base;
+    input.evidence.evidence_counter = CounterMode::Utf8AnswerBound;
+    assemble_evidence(database, input, EvidenceCounter::AnswerBoundUtf8Bytes)
+        .await
+        .expect("the configured counter is accepted");
 }
 
 async fn assert_invalid_case(
@@ -181,8 +213,8 @@ fn request_bound_cases() -> Vec<InvalidCase> {
             BOUNDS_ERROR,
         ),
         (
-            "deadline budget over 10000",
-            |input| input.budget.deadline_ms = 10001,
+            "deadline budget over 30000",
+            |input| input.budget.deadline_ms = 30001,
             BOUNDS_ERROR,
         ),
         (

@@ -5,9 +5,9 @@ use super::super::{
     private_run::{PrivateRun, endpoint},
 };
 use maestro_kernel::{artifact::Digest, paths::Environment};
+use maestro_test_scratch::scratch_directory;
 use serde_json::{Value, json};
-use std::{cell::Cell, env, fs, path::PathBuf};
-use ulid::Ulid;
+use std::{cell::Cell, fs, path::PathBuf};
 
 /// Synthetic binding receipt with no process-wide environment changes.
 struct Fixture {
@@ -22,7 +22,7 @@ struct Fixture {
 impl Fixture {
     /// Creates all declared roots, as restore does before command admission.
     fn new() -> Self {
-        let root = env::temp_dir().join(format!("graph-eval-{}", Ulid::generate()));
+        let root = scratch_directory().unwrap();
         for path in [
             "data/maestro",
             "config/maestro",

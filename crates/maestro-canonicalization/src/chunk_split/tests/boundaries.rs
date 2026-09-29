@@ -1,5 +1,6 @@
 //! The pure preparation helpers: cut points, fitting prefixes and delimiter-safe ranges.
-use super::super::prepare::{boundaries, normalized_range};
+use super::super::prepare::boundaries;
+use super::super::ranges::normalized_range;
 use super::*;
 use crate::source_units::{InlineEnvelope, TextRange};
 

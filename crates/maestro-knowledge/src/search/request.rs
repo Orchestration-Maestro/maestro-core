@@ -1,9 +1,12 @@
 //! Bounded search requests and retrieval handoffs for T032.
 
 use super::{
+    assembly_settings::EvidenceSettings,
+    deadline::StageWindow,
     fusion::Route,
     rerank::{DEFAULT_DEPTH, Ranked, Reranker},
     routes::{dense::Embedder, error::RouteError},
+    section_prior::SectionPrior,
 };
 use crate::{index::Qdrant, query::Understood};
 use maestro_kernel::{
@@ -34,6 +37,21 @@ pub struct SearchRequest<'a> {
     pub budget: RequestBudget,
     /// Search route, fusion and rerank settings; defaults preserve the current pipeline.
     pub configuration: SearchConfiguration,
+    /// Assembly policy carried beside the request budget and ranking settings.
+    pub evidence: EvidenceSettings,
+}
+
+/// Text presented to the reranker; evidence and citation spans are never changed.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum CandidateContext {
+    /// Original prepared input, exactly as indexed.
+    #[default]
+    Chunk,
+    /// Whole section or whole-sibling window, falling back to the chunk if oversized.
+    BoundedSection {
+        /// Maximum expanded text bytes, including the heading path; 1..=1500.
+        max_bytes: usize,
+    },
 }
 
 /// Bounded knobs for one search execution.
@@ -68,6 +86,18 @@ pub struct SearchConfiguration {
     /// The least top reranker score `ask` answers from, when rerank ran;
     /// search results are never filtered by it.
     pub min_rerank_score: Option<f32>,
+    /// Fused-position weight in a rank fusion of fused and reranked
+    /// positions with the constant `rrf_k`; absent keeps the rerank order.
+    pub rerank_blend: Option<f32>,
+    /// Maximum positions a fused top-10 candidate may drop after reranking.
+    pub rerank_demotion_cap: Option<u16>,
+    /// Optional source-section context for reranking.
+    pub candidate_context: CandidateContext,
+    /// Optional metadata-based soft section penalty.
+    pub section_prior: SectionPrior,
+    /// How long the retrieval routes may run; derived from the request's
+    /// budget unless an experiment or a test fixes it.
+    pub stage_window: StageWindow,
 }
 
 impl Default for SearchConfiguration {
@@ -87,6 +117,11 @@ impl Default for SearchConfiguration {
             rerank_enabled: true,
             rerank_depth: DEFAULT_DEPTH,
             min_rerank_score: None,
+            rerank_blend: None,
+            rerank_demotion_cap: None,
+            candidate_context: CandidateContext::Chunk,
+            section_prior: SectionPrior::Off,
+            stage_window: StageWindow::Derived,
         }
     }
 }
@@ -126,6 +161,10 @@ pub struct SearchObservations {
     pub reranked_chunk_ids: Vec<String>,
     /// Chunk IDs grouped by final passage slot, with slots in reading order.
     pub assembled_passages: Vec<Vec<String>>,
+    /// Wall time spent loading and validating source context, in microseconds.
+    pub candidate_source_load_micros: u64,
+    /// Candidate identities that retained the chunk because a whole unit exceeded the cap.
+    pub candidate_context_fallbacks: Vec<String>,
 }
 
 impl SearchObservations {
@@ -160,6 +199,7 @@ impl<'a> SearchRequest<'a> {
             version,
             budget,
             configuration: SearchConfiguration::default(),
+            evidence: EvidenceSettings::default(),
         }
     }
 }
@@ -257,6 +297,8 @@ impl error::Error for SearchError {
 /// Retrieval results handed to T032 without assembling an evidence bundle.
 #[derive(Debug, Clone)]
 pub struct EvidenceInput {
+    /// Request-scoped assembly policy; the budget remains in `budget`.
+    pub evidence: EvidenceSettings,
     /// The single generation pinned at admission.
     pub generation: Generation,
     /// The original question.

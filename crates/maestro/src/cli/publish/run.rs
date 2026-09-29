@@ -6,6 +6,7 @@ use crate::cli::{
     collection, foreground, health,
     lease::{self, Holder},
     output::Output,
+    prepare::chunk_profile,
     publish_report,
 };
 use crate::{
@@ -36,24 +37,26 @@ pub(in crate::cli) fn run(
     }
     collection::declared(kernel, collection_id)?;
     let card = kernel.embedder_card(&arguments.card)?;
-    let set = match arguments.chunk_set.as_deref() {
-        Some(id) => kernel
+    let set = if let Some(id) = arguments.chunk_set.as_deref() {
+        kernel
             .database
             .chunk_set(&kernel.scopes, id)
             .map_err(|error| Failure::failed_by(&error))?
             .filter(|set| set.collection_id == collection_id)
             .ok_or_else(|| {
                 Failure::refused(format!("no chunk set {id} belongs to {collection_id}"))
-            })?,
-        None => kernel
+            })?
+    } else {
+        let profile = chunk_profile(arguments.chunk_profile.as_deref())?.chunker_version();
+        kernel
             .database
-            .latest_complete_chunk_set(&kernel.scopes, collection_id)
+            .latest_complete_chunk_set(&kernel.scopes, collection_id, profile)
             .map_err(|error| Failure::failed_by(&error))?
             .ok_or_else(|| {
                 Failure::refused(format!(
-                    "collection {collection_id} has no complete chunk set"
+                    "collection {collection_id} has no complete chunk set of {profile}"
                 ))
-            })?,
+            })?
     };
     if set.state != ChunkSetState::Complete {
         return Err(Failure::refused(format!(
@@ -185,22 +188,25 @@ impl Publication<'_> {
             (_, Some(error)) => (JobState::Failed, json!({"error": error})),
             (Ok(report), None) => (JobState::Succeeded, json!(report)),
             (Err(error), None) => {
-                let message = if self.recovery.is_none()
-                    && matches!(error, IndexError::MissingCollection(_))
-                {
-                    format!(
-                        "{error}; recover explicitly with `{}`",
-                        publish_report::recovery_command(
-                            self.collection,
-                            self.chunk_set,
-                            self.card
-                        )
-                    )
-                } else {
-                    chain(&error)
-                };
+                let command =
+                    publish_report::recovery_command(self.collection, self.chunk_set, self.card);
+                let message = failure_message(&error, self.recovery.is_some(), &command);
                 (JobState::Failed, json!({"error": message}))
             }
         }
+    }
+}
+
+/// What a failed publication reports for `error`: a lost collection names
+/// `recovery_command`, which replaces it, unless `recovering` already does.
+pub(in crate::cli) fn failure_message(
+    error: &IndexError,
+    recovering: bool,
+    recovery_command: &str,
+) -> String {
+    if !recovering && matches!(error, IndexError::MissingCollection(_)) {
+        format!("{error}; recover explicitly with `{recovery_command}`")
+    } else {
+        chain(error)
     }
 }

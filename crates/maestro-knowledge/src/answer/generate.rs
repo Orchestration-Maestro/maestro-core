@@ -4,8 +4,8 @@ use super::{
     prompt::{chat_request, prompt},
     types::{
         ANSWER_SCHEMA, Answer, AnswerCitation, AnswerContext, AnswerModel, AnswerPrompt,
-        AnswerRefusal, AskBudget, AskError, AskRequest, CHAT_DEADLINE, CLOSEST_LIMIT,
-        PromptVersion, RefusalCode, RegisteredAnswerer, Rejection, ResponseLanguage,
+        AnswerRefusal, AskError, AskRequest, CHAT_DEADLINE, CLOSEST_LIMIT, PromptVersion,
+        RefusalCode, RegisteredAnswerer, Rejection, ResponseLanguage,
     },
     validate::{Invalid, Reply, ValidReply, ValidationFailure, validate_reply},
 };
@@ -13,12 +13,12 @@ use crate::{
     query::{Language, understand},
     search::{
         SearchConfiguration, SearchRequest,
-        evidence::{EvidenceCounter, assemble_evidence},
+        evidence::{Anchor, EvidenceSettings, assemble_evidence},
         search, top_rerank_score,
     },
 };
 use maestro_kernel::{
-    evidence::{Bundle, RequestBudget},
+    evidence::Bundle,
     gateway::{Error as GatewayError, Message, ModelPort, Role, Room, RouterEntry, Speaker},
 };
 use std::collections::BTreeMap;
@@ -38,6 +38,7 @@ pub async fn ask<P: ModelPort + Sync>(
         context,
         request,
         SearchConfiguration::default(),
+        EvidenceSettings::default(),
         &PromptVersion::default().into(),
     )
     .await
@@ -52,47 +53,46 @@ pub async fn ask_configured<P: ModelPort + Sync>(
     context: &AnswerContext<'_, P>,
     request: &AskRequest,
     configuration: SearchConfiguration,
+    evidence: EvidenceSettings,
     answer_prompt: &AnswerPrompt,
 ) -> Result<Answer, AskError> {
     validate_request(request)?;
+    let counter = evidence.counter().map_err(AskError::Evidence)?;
     let search_request = SearchRequest {
         configuration,
+        evidence,
         ..SearchRequest::new(
             &request.collection,
             &request.question,
             request.version.as_deref(),
-            request_budget(request.budget),
+            request.budget.into(),
         )
     };
     let input = search(&context.search, &search_request)
         .await
         .map_err(AskError::Search)?;
-    let relevance = Relevance {
+    let plan = AnswerPlan {
         min_rerank_score: configuration.min_rerank_score,
         top_rerank_score: top_rerank_score(&input.ranked),
         answer_prompt,
     };
-    let bundle = assemble_evidence(
-        context.search.database.clone(),
-        input,
-        EvidenceCounter::Utf8Bytes,
-    )
-    .await
-    .map_err(AskError::Evidence)?;
+    let bundle = assemble_evidence(context.search.database.clone(), input, counter)
+        .await
+        .map_err(AskError::Evidence)?;
     answer_relevant(
         context.port,
         request,
         context.answerer.as_ref(),
         bundle,
-        relevance,
+        plan,
     )
     .await
 }
 
-/// The reranker's top score for one search, the least one `ask` answers
-/// from, and the prompt it answers with.
+/// How `ask` answers one bundle: the reranker's top score for its search, the
+/// least one `ask` answers from, and the prompt it answers with.
 #[derive(Debug, Clone, Copy)]
-pub(super) struct Relevance<'prompt> {
+pub(super) struct AnswerPlan<'prompt> {
     /// The configured threshold, when one is set.
     pub(super) min_rerank_score: Option<f32>,
     /// The top reranker score, absent when rerank did not run.
@@ -101,7 +101,7 @@ pub(super) struct Relevance<'prompt> {
     pub(super) answer_prompt: &'prompt AnswerPrompt,
 }
 
-impl Relevance<'_> {
+impl AnswerPlan<'_> {
     /// Whether rerank ran and its top score is below the threshold.
     fn is_below_threshold(self) -> bool {
         self.min_rerank_score
@@ -111,20 +111,20 @@ impl Relevance<'_> {
 }
 
 /// As [`answer_bundle`], but refuses with `no_evidence`, without chat, when
-/// `relevance` is below its threshold.
+/// `plan` is below its threshold.
 pub(super) async fn answer_relevant<P: ModelPort + Sync>(
     port: &P,
     request: &AskRequest,
     answerer: Option<&RegisteredAnswerer>,
     bundle: Bundle,
-    relevance: Relevance<'_>,
+    plan: AnswerPlan<'_>,
 ) -> Result<Answer, AskError> {
-    if relevance.is_below_threshold() {
+    if plan.is_below_threshold() {
         let language = response_language(request);
         let response = ResponseContext::new(request, &bundle, answerer, language)?;
         return Ok(response.refused(RefusalCode::NoEvidence, below_threshold_message(language)));
     }
-    answer_bundle(port, request, answerer, bundle, relevance.answer_prompt).await
+    answer_bundle(port, request, answerer, bundle, plan.answer_prompt).await
 }
 
 /// Validates caller bounds without imposing language-detection rules.
@@ -162,15 +162,6 @@ fn response_language(request: &AskRequest) -> ResponseLanguage {
     match understand(&request.question).language {
         Language::French => ResponseLanguage::French,
         Language::English | Language::Unknown => ResponseLanguage::English,
-    }
-}
-
-/// Converts the public answer budget into the shared search bounds.
-pub(super) fn request_budget(budget: AskBudget) -> RequestBudget {
-    RequestBudget {
-        k: budget.k,
-        max_tokens: budget.max_tokens,
-        deadline_ms: budget.search_deadline_ms,
     }
 }
 
@@ -339,6 +330,7 @@ impl<'a> ResponseContext<'a> {
             closest: self.closest.clone(),
             rejections: Vec::new(),
             routes: self.bundle.routes.clone(),
+            delivered: self.bundle.passages.iter().map(Anchor::from).collect(),
         }
     }
 
@@ -368,6 +360,7 @@ impl<'a> ResponseContext<'a> {
             closest: Vec::new(),
             rejections: Vec::new(),
             routes: self.bundle.routes.clone(),
+            delivered: self.bundle.passages.iter().map(Anchor::from).collect(),
         })
     }
 }

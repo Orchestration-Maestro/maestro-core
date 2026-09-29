@@ -8,16 +8,13 @@ use maestro_kernel::{
         SuiteResult,
     },
 };
+use maestro_test_scratch::scratch_directory;
 use std::{
     collections::BTreeMap,
-    env, fs,
+    fs,
     future::{self, Future},
     num::{NonZeroU32, NonZeroUsize},
-    process,
-    sync::{
-        Mutex,
-        atomic::{AtomicUsize, Ordering},
-    },
+    sync::Mutex,
     time::Duration,
 };
 use tokio::{task::yield_now, time::sleep};
@@ -139,12 +136,7 @@ impl ModelPort for FakePort {
 }
 
 pub(super) fn card(role: Role, context_tokens: u32) -> ModelCard {
-    static NEXT: AtomicUsize = AtomicUsize::new(0);
-    let root = env::temp_dir().join(format!(
-        "maestro-knowledge-rerank-{}-{}",
-        process::id(),
-        NEXT.fetch_add(1, Ordering::Relaxed)
-    ));
+    let root = scratch_directory().unwrap();
     let fields = CardFields {
         role,
         router_entry: RouterEntry::parse(if role == Role::Reranker {
@@ -242,8 +234,8 @@ async fn maps_scores_to_document_positions_before_sorting() {
 }
 
 #[tokio::test]
-async fn default_depth_sends_eighty_once_and_keeps_the_unscored_tail() {
-    let port = FakePort::scores((0..80).map(f64::from).collect());
+async fn default_depth_sends_thirty_once_and_keeps_the_unscored_tail() {
+    let port = FakePort::scores((0..30).map(f64::from).collect());
     let card = card(Role::Reranker, 128);
     let result = rerank(
         "q",
@@ -259,23 +251,23 @@ async fn default_depth_sends_eighty_once_and_keeps_the_unscored_tail() {
 
     let calls = port.calls.lock().unwrap();
     assert_eq!(calls.len(), 1);
-    assert_eq!(calls[0].documents.len(), 80);
+    assert_eq!(calls[0].documents.len(), 30);
     assert_eq!(calls[0].documents[0], "candidate-00");
-    assert_eq!(calls[0].documents[79], "candidate-79");
+    assert_eq!(calls[0].documents[29], "candidate-29");
     drop(calls);
     assert_eq!(result.ranked.len(), 100);
     assert_eq!(
-        ids(&result.ranked[..80])[..3],
-        ["candidate-79", "candidate-78", "candidate-77"]
+        ids(&result.ranked[..30])[..3],
+        ["candidate-29", "candidate-28", "candidate-27"]
     );
     assert_eq!(
-        ids(&result.ranked[80..]),
-        (80..100)
+        ids(&result.ranked[30..]),
+        (30..100)
             .map(|i| format!("candidate-{i:02}"))
             .collect::<Vec<_>>()
     );
-    assert!(result.ranked[..80].iter().all(|item| item.score.is_some()));
-    assert!(result.ranked[80..].iter().all(|item| item.score.is_none()));
+    assert!(result.ranked[..30].iter().all(|item| item.score.is_some()));
+    assert!(result.ranked[30..].iter().all(|item| item.score.is_none()));
 }
 
 #[tokio::test]

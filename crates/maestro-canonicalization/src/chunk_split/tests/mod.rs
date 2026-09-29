@@ -1,9 +1,11 @@
 //! Tests of structural preparation and packing.
 use super::prepare::fit_prefix;
-use super::structure::{Body, layout};
+use super::structure::{Body, Layout};
 use super::{MAX_TOKENS, build_drafts, validate_preparation};
 use crate::{
     chunk_mapping::map_document,
+    chunk_profile::ChunkProfile,
+    document::CanonicalDocument,
     error::Error,
     model::CanonicalizeInput,
     pipeline::canonicalize,
@@ -13,16 +15,27 @@ use crate::{
 use std::collections::BTreeSet;
 
 mod boundaries;
+mod chrome;
 mod context;
+mod ideas;
 mod oversized;
 mod packing;
 mod splitting;
+
+/// A document's layout under the structural profile.
+fn structural<'a>(
+    doc: &'a CanonicalDocument,
+    markdown: &'a str,
+    mapped: &'a MappedDocument,
+) -> Layout<'a> {
+    Layout::new(doc, markdown, mapped, ChunkProfile::Structural).unwrap()
+}
 
 fn structural_chunks(markdown: &str) -> Result<(MappedDocument, Vec<ChunkContent>), Error> {
     let doc = canonicalize(CanonicalizeInput::new(markdown, "structural-test"))?;
     let mapped = map_document(&doc, markdown)?;
     let mut fake_counter = |text: &str| Ok(text.chars().count() + 2);
-    let chunks = build_drafts(&doc, markdown, &mapped, &mut fake_counter)?;
+    let chunks = build_drafts(&structural(&doc, markdown, &mapped), &mut fake_counter)?;
     for chunk in &chunks {
         assert!(chunk.token_count <= 700);
         assert_eq!(

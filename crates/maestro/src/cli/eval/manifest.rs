@@ -7,18 +7,26 @@ use super::{
     graph_manifest::{GraphManifest, Inputs},
     graph_output::Code,
     private_run::CheckedRun,
+    rank_settings::{Context, Prior},
     rung_prompt::RungPrompt,
 };
 use crate::failure::Failure;
 use maestro_kernel::artifact::Digest;
-use maestro_knowledge::{answer::AskBudget, search::SearchConfiguration};
-use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
+use maestro_knowledge::{
+    answer::AskBudget,
+    search::{
+        SearchConfiguration, StageWindow,
+        evidence::{CounterMode, EvidenceSettings, ExpansionMode},
+    },
+};
+use serde::{Deserialize, Deserializer, Serialize, de};
 use serde_json::Value;
 use std::{
     collections::BTreeSet,
     fs,
     num::{NonZeroU32, NonZeroUsize},
     path::{Path, PathBuf},
+    time::Duration,
 };
 
 /// The contract a manifest follows.
@@ -27,6 +35,9 @@ const SCHEMA: &str = "maestro-ladder-manifest/1";
 const MAX_RERANK_DEPTH: usize = 120;
 /// The longest rung name, which names the rung's report files.
 const MAX_NAME_BYTES: usize = 64;
+/// The name of the comparison's files in the output directory, which no rung
+/// may take.
+pub(super) const COMPARISON_NAME: &str = "ladder";
 
 /// A checked ladder manifest.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
@@ -52,7 +63,7 @@ pub(super) struct Manifest {
 }
 
 /// One configuration of the ladder.
-#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct Rung {
     /// Its name: lower-case letters, digits and dashes, which name its files.
@@ -62,33 +73,45 @@ pub(super) struct Rung {
     /// How each question also runs through `ask`; `None` when it does not.
     /// The manifest writes `false`, `true` for the default settings, or the
     /// settings.
-    #[serde(serialize_with = "write_ask", deserialize_with = "read_ask")]
+    #[serde(deserialize_with = "read_ask")]
     pub(super) ask: Option<AskSettings>,
 }
 
 /// A rung's `ask` settings; each one absent is `ask`'s default.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 #[expect(
     clippy::min_ident_chars,
     reason = "ask's budget names this limit k, as the manifest does"
 )]
 pub(super) struct AskSettings {
-    /// The passages given to the answerer.
+    /// The most passages given to the answerer.
     pub(super) k: Option<u32>,
     /// The evidence budget, in UTF-8 bytes.
     pub(super) max_tokens: Option<u32>,
     /// The most tokens each answerer reply generates.
     pub(super) output_tokens: Option<u32>,
     /// The answer prompt: a version, or a private prompt file.
+    #[serde(alias = "answer_prompt")]
     pub(super) prompt: RungPrompt,
+    /// Source-window allocation policy.
+    pub(super) expansion: ExpansionMode,
+    /// Representation charged against `max_tokens`.
+    pub(super) evidence_counter: CounterMode,
     /// The SHA-256 digest, in hexadecimal, of the registered answerer card
-    /// the rung asks with; absent, the latest registered non-thinking
-    /// answerer of the default model.
+    /// the rung asks with; absent, the latest registered answerer of the
+    /// default model.
     pub(super) card: Option<String>,
 }
 
 impl AskSettings {
+    /// Assembly settings carried alongside the search configuration and budget.
+    pub(super) fn evidence(&self) -> EvidenceSettings {
+        EvidenceSettings {
+            expansion: self.expansion,
+            evidence_counter: self.evidence_counter,
+        }
+    }
     /// The budget `ask` runs under: [`AskBudget::default`] with these
     /// settings.
     pub(super) fn budget(&self) -> AskBudget {
@@ -128,19 +151,6 @@ fn read_ask<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<AskSett
     }
 }
 
-/// Writes a rung's `ask` as [`read_ask`] reads it.
-#[expect(
-    clippy::ref_option,
-    reason = "serde's `serialize_with` passes the field by reference"
-)]
-fn write_ask<S: Serializer>(ask: &Option<AskSettings>, serializer: S) -> Result<S::Ok, S::Error> {
-    match ask {
-        None => serializer.serialize_bool(false),
-        Some(settings) if *settings == AskSettings::default() => serializer.serialize_bool(true),
-        Some(settings) => settings.serialize(serializer),
-    }
-}
-
 /// Closed graph rung selection, separate from the unchanged S1 route configuration.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -166,10 +176,18 @@ pub(super) struct RungConfiguration {
     pub(super) weights: Weights,
     /// The reranker and its depth, absent when reranking is off.
     pub(super) rerank: Option<Rerank>,
-    /// The least top reranker score `ask` answers from; absent, or when
-    /// rerank does not run, `ask` answers whatever the score. JSON holds no
-    /// non-finite number, and parsing refuses one beyond `f32`.
+    /// The least top reranker score `ask` answers from; absent, `ask`
+    /// answers whatever the score, and a rung that sets it must rerank. JSON
+    /// holds no non-finite number, and parsing refuses one beyond `f32`,
+    /// through the `float_roundtrip` feature of `serde_json`.
     pub(super) min_rerank_score: Option<f32>,
+    /// Optional configured section-class penalty.
+    #[serde(default)]
+    pub(super) section_prior: Prior,
+    /// A fixed route window, in milliseconds, for an experiment; absent,
+    /// the routes' windows derive from the search deadline.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) stage_window_ms: Option<NonZeroU32>,
 }
 
 /// Which routes run.
@@ -209,17 +227,29 @@ pub(super) struct Weights {
 
 /// The reranker a rung runs, registered in the collection but not
 /// necessarily selected.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct Rerank {
     /// The SHA-256 digest of its card, in hexadecimal.
     pub(super) card: String,
     /// The fused candidates it reranks.
     pub(super) depth: NonZeroUsize,
+    /// Fused-position weight in a rank fusion with the reranked position,
+    /// using the rung's `rrf_k`; absent for unchanged rerank order.
+    pub(super) blend: Option<f32>,
+    /// Maximum final demotion of a fused top-ten candidate.
+    pub(super) demotion_cap: Option<u16>,
+    /// Reranker-only source context.
+    #[serde(default)]
+    pub(super) candidate_context: Context,
 }
 
 impl RungConfiguration {
     /// The configuration search runs under.
+    #[expect(
+        clippy::expect_used,
+        reason = "manifest validation checks section prior before execution"
+    )]
     pub(super) fn search(&self) -> SearchConfiguration {
         SearchConfiguration {
             dense_enabled: self.routes.dense,
@@ -239,6 +269,19 @@ impl RungConfiguration {
                     rerank.depth
                 }),
             min_rerank_score: self.min_rerank_score,
+            rerank_blend: self.rerank.as_ref().and_then(|rerank| rerank.blend),
+            rerank_demotion_cap: self.rerank.as_ref().and_then(|rerank| rerank.demotion_cap),
+            candidate_context: self
+                .rerank
+                .as_ref()
+                .map_or_default(|rerank| rerank.candidate_context.search()),
+            section_prior: self
+                .section_prior
+                .search()
+                .expect("validated section prior"),
+            stage_window: self.stage_window_ms.map_or(StageWindow::Derived, |window| {
+                StageWindow::Fixed(Duration::from_millis(u64::from(window.get())))
+            }),
         }
     }
 
@@ -273,6 +316,11 @@ impl Manifest {
         let path = fs::canonicalize(path).map_err(|error| Failure::refused_by(&error))?;
         let base = path.parent().unwrap_or_else(|| Path::new(""));
         let manifest = Self::parse(&text, base)?;
+        if manifest.output.exists() && !manifest.output.is_dir() {
+            return Err(Failure::refused(
+                "the manifest's output path is not a directory",
+            ));
+        }
         let occupied =
             fs::read_dir(&manifest.output).is_ok_and(|mut entries| entries.next().is_some());
         if occupied {
@@ -344,6 +392,11 @@ impl Manifest {
         }
         let mut names = BTreeSet::new();
         for rung in &self.rungs {
+            if rung.name == COMPARISON_NAME {
+                return Err(Failure::refused(format!(
+                    "the rung name `{COMPARISON_NAME}` names the comparison's files"
+                )));
+            }
             if !names.insert(rung.name.as_str()) {
                 return Err(Failure::refused(format!(
                     "the rung name `{}` is given twice",
@@ -381,6 +434,16 @@ fn check_rung(rung: &Rung) -> Result<(), Failure> {
             rung.name
         )));
     }
+    configuration.section_prior.search()?;
+    if let Some(rerank) = &configuration.rerank {
+        rerank.candidate_context.check()?;
+        if rerank
+            .blend
+            .is_some_and(|weight| !weight.is_finite() || !(0.0..=1.0).contains(&weight))
+        {
+            return Err(Failure::refused("rerank blend must be between 0 and 1"));
+        }
+    }
     if !configuration.search().weights_are_valid() {
         return Err(Failure::refused(format!(
             "the rung `{}` has a weight that is negative or not finite",
@@ -397,6 +460,12 @@ fn check_rung(rung: &Rung) -> Result<(), Failure> {
             rung.name
         )));
     }
+    if configuration.min_rerank_score.is_some() && configuration.rerank.is_none() {
+        return Err(Failure::refused(format!(
+            "the rung `{}` sets a relevance threshold but does not rerank",
+            rung.name
+        )));
+    }
     if let Some(settings) = &rung.ask {
         if !settings.budget().is_within_limits() {
             return Err(Failure::refused(format!(
@@ -405,6 +474,10 @@ fn check_rung(rung: &Rung) -> Result<(), Failure> {
             )));
         }
         settings.answerer_card()?;
+        settings
+            .evidence()
+            .counter()
+            .map_err(|error| Failure::refused(error.to_string()))?;
     }
     configuration.reranker().map(drop)
 }

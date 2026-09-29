@@ -2,7 +2,8 @@
 use crate::model::SourceSpan;
 use serde::Serialize;
 
-/// Version of canonical mapping, structural splitting and chunk identity rules.
+/// Version of canonical mapping, structural splitting and chunk identity rules: the default
+/// profile's chunker version, whose mapping every profile shares.
 pub const CHUNKER_VERSION: &str = "mapped-structural-chunks/2";
 
 /// Half-open UTF-8 byte range in derived text, never original Markdown.

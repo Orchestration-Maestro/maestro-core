@@ -31,13 +31,12 @@ use maestro_knowledge::{
     answer::{AnswerPrompt, PromptText, PromptVersion},
     index::Qdrant,
 };
+use maestro_test_scratch::scratch_directory;
 use serde_json::{Value, json};
 use std::{
     collections::BTreeMap,
-    env, fs,
+    fs,
     path::{Path, PathBuf},
-    process,
-    sync::atomic::{AtomicUsize, Ordering},
 };
 
 /// An address where nothing listens.
@@ -48,13 +47,7 @@ const PROMPT: &str = r#"{"system": "Réponds précisément.", "user": "Données 
 
 /// A new directory holding `prompt.json` with `text`.
 fn prompt_directory(text: &str) -> PathBuf {
-    static NEXT: AtomicUsize = AtomicUsize::new(0);
-    let root = env::temp_dir().join(format!(
-        "maestro-ladder-prompt-{}-{}",
-        process::id(),
-        NEXT.fetch_add(1, Ordering::Relaxed)
-    ));
-    fs::create_dir_all(&root).unwrap();
+    let root = scratch_directory().unwrap();
     fs::write(root.join("prompt.json"), text).unwrap();
     root
 }
@@ -224,7 +217,7 @@ fn a_named_card_is_the_rungs_answerer_and_its_router_entry_is_asked() {
         .ask_call("question", &named(&bigger), big.as_ref())
         .unwrap();
     assert_eq!(request.model, "qwen3-8b");
-    assert_eq!(prompt, AnswerPrompt::Version(PromptVersion::V1));
+    assert_eq!(prompt, AnswerPrompt::Version(PromptVersion::V2));
 }
 
 #[test]
@@ -266,6 +259,27 @@ fn a_named_card_of_another_role_collection_or_unregistered_is_refused() {
         refusal(&"3".repeat(64)),
         "a rung's answerer card is not registered in the collection"
     );
+}
+
+#[test]
+fn a_rung_asking_for_more_output_tokens_than_its_answerer_card_allows_is_refused() {
+    let scratch = Scratch::new();
+    let kernel = scratch.kernel(None).unwrap();
+    register_card(&kernel, "collection", Role::Answerer, "qwen3-4b", b"a");
+    let engine = engine(&kernel);
+    let output = |tokens: u32| {
+        engine.provenance(&asking(AskSettings {
+            output_tokens: Some(tokens),
+            ..AskSettings::default()
+        }))
+    };
+
+    assert!(output(1024).is_ok());
+    assert!(matches!(
+        output(1025),
+        Err(Failure::Refused(reason))
+            if reason == "the rung `r0` asks for more output tokens than its answerer card allows"
+    ));
 }
 
 #[test]
@@ -328,7 +342,7 @@ fn a_rung_report_names_its_prompt_file_and_its_digest() {
         "{markdown}"
     );
     assert!(
-        markdown.contains("output tokens, prompt file\n"),
+        markdown.contains("output tokens, prompt file, search deadline 30000 ms\n"),
         "{markdown}"
     );
     assert_eq!(to_json(&report)["ask_settings"]["prompt"], "file");

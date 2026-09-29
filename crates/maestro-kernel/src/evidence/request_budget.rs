@@ -25,12 +25,17 @@ impl Default for RequestBudget {
         Self {
             k: 10,
             max_tokens: 6000,
-            deadline_ms: 1500,
+            deadline_ms: Self::MAX_DEADLINE_MS,
         }
     }
 }
 
 impl RequestBudget {
+    /// The longest deadline a search accepts, in milliseconds. It is a
+    /// safety cap, not a quality cutoff: a search that loads cold models
+    /// under a loaded machine still completes within it.
+    pub const MAX_DEADLINE_MS: u32 = 30_000;
+
     /// Whether this echo is within the search request bounds.
     pub(super) fn validate(&self) -> Result<(), String> {
         if !(1..=50).contains(&self.k) {
@@ -39,8 +44,8 @@ impl RequestBudget {
         if !(1..=12_000).contains(&self.max_tokens) {
             return Err("request budget max_tokens must be between 1 and 12000".to_owned());
         }
-        if !(1..=10_000).contains(&self.deadline_ms) {
-            return Err("request budget deadline_ms must be between 1 and 10000".to_owned());
+        if !(1..=Self::MAX_DEADLINE_MS).contains(&self.deadline_ms) {
+            return Err("request budget deadline_ms must be between 1 and 30000".to_owned());
         }
         Ok(())
     }

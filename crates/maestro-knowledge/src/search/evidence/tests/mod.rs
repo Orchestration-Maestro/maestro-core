@@ -16,3 +16,5 @@ mod source;
 mod spans;
 mod support;
 mod versions;
+
+mod candidate_context;

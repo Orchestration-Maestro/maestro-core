@@ -18,6 +18,7 @@ mod job_waits;
 mod knowledge_ask;
 mod knowledge_collections;
 mod knowledge_get;
+mod knowledge_prepare_profiles;
 mod knowledge_prepare_v2;
 mod knowledge_publish;
 mod knowledge_verify_recheck;

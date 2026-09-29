@@ -75,6 +75,6 @@ fn a_piece_counted_over_the_maximum_once_chosen_names_its_unit() {
             701
         })
     };
-    let refused = build_drafts(&doc, &markdown, &mapped, &mut counter).unwrap_err();
+    let refused = build_drafts(&structural(&doc, &markdown, &mapped), &mut counter).unwrap_err();
     assert_eq!(refused.0, naming(&markdown, &"x".repeat(1000)));
 }

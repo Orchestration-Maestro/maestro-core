@@ -17,12 +17,6 @@ platforms = "macos windows"
 # subsystem, and its one outside caller is the stage that composes it.
 [[exception]]
 rule = "ARC-005"
-path = "crates/maestro-canonicalization/src/chunk_mapping/mod.rs"
-item = "map_document"
-reason = "the chunker maps each document through the source mapper"
-
-[[exception]]
-rule = "ARC-005"
 path = "crates/maestro-canonicalization/src/chunk_split/mod.rs"
 item = "build_drafts"
 reason = "the chunker packs a mapped document through the structural splitter"
@@ -182,6 +176,12 @@ path = "crates/maestro-knowledge/src/query/mod.rs"
 item = "INVENTORY_VERSION_FORMS"
 reason = "understanding and inventory parsing must share version forms to mask quoted set text consistently"
 
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-knowledge/src/query/mod.rs"
+item = "backtick_runs"
+reason = "query understanding and the answer's literal check must split backtick runs the same way"
+
 # Independent retrieval routes stay separate from orchestration and one another.
 [[exception]]
 rule = "ARC-005"
@@ -281,6 +281,21 @@ rule = "ARC-005"
 path = "crates/maestro/src/mcp/mod.rs"
 item = "run"
 reason = "the MCP module owns bounded transport and server startup; the CLI dispatcher selects its single stdio entry point"
+
+# Route windows are wall-clock budgets over real gRPC, where a paused clock
+# advances while a loopback reply is in flight: the real-path route-window
+# tests make a dependency answer late, about 400 ms, as a loaded host does.
+[[exception]]
+rule = "TST-001"
+path = "crates/maestro-knowledge/tests/it/qdrant_projection/fake/query.rs"
+item = "run"
+reason = "a slow dependency is the input under test: route windows are wall-clock budgets over real gRPC"
+
+[[exception]]
+rule = "TST-001"
+path = "crates/maestro-knowledge/tests/it/qdrant_projection/models.rs"
+item = "embed"
+reason = "a slow dependency is the input under test: route windows are wall-clock budgets over real gRPC"
 
 # The words this repository means that the spell checker reads as mistakes:
 # Exemple, French test input for the canonicalizer; RTO, the recovery time

@@ -242,9 +242,9 @@
 //! Answers cite only host-resolved passage metadata; the host checks citation
 //! numbers and command/path/version-like literals, retries one invalid reply,
 //! then refuses. `--json` emits the same `maestro-answer/1` object as MCP,
-//! always marked `uncalibrated: true` until T037. A validated answer or safe
-//! refusal exits 0, invalid/admission refusals exit 2, and execution failures
-//! exit 1.
+//! marked `uncalibrated: true` until a ladder run passes every M1 floor. A
+//! validated answer or safe refusal exits 0, invalid/admission refusals exit
+//! 2, and execution failures exit 1.
 //!
 //! # `mcp`
 //!

@@ -89,6 +89,7 @@ fn assemble_blocking_with_source_workers(
     source_load_workers: usize,
 ) -> Result<Bundle, EvidenceError> {
     check(control)?;
+    input.evidence.check_counter(counter)?;
     let counter_info = budget::counter_info(counter).map_err(EvidenceError::from)?;
     budget::verify_counter(counter, &counter_info).map_err(EvidenceError::from)?;
     check(control)?;
@@ -391,6 +392,7 @@ impl AssemblyWorker<'_> {
             })
             .collect::<Result<Vec<_>, EvidenceError>>()?;
         let budget = SelectionBudget {
+            expansion: self.input.evidence.expansion,
             max_passages: usize::try_from(self.input.budget.k)
                 .map_err(|_| invalid("passage budget does not fit this target"))?,
             max_tokens: self.input.budget.max_tokens,

@@ -344,7 +344,7 @@ impl Points for Fake {
         &self,
         request: Request<QueryPoints>,
     ) -> Result<Response<QueryResponse>, Status> {
-        super::query::run(self, request)
+        super::query::run(self, request).await
     }
 
     async fn query_batch(

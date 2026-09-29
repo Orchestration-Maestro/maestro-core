@@ -6,38 +6,36 @@
 
 use super::{
     delivered::anchors,
+    documents::{bundle_documents, ranked_documents},
     manifest::{AskSettings, Rung},
-    runner::{Engine, Provenance, SearchDiagnostic, Searched},
-    stages::{StageFailure, stage_failure},
+    runner::{Asked, Engine, Provenance, RejectedCheck, SearchDiagnostic, Searched},
+    stages::{StageFailure, ask_failure, evidence_failure, search_failure, stage_failure},
 };
 use crate::{
     failure::Failure,
     kernel::{Kernel, pinned_embedder},
-    knowledge::operations::ask::run::registered_answerer,
+    knowledge::operations::{ask::run::registered_answerer, local_search_context},
 };
 use maestro_kernel::{
     artifact::Digest,
-    evidence::{Bundle, RequestBudget},
     gateway::{ModelCard, Role, RouterClient},
     generation::Generation,
-    scope::LOCAL,
 };
 use maestro_knowledge::{
     answer::{
-        Answer, AnswerContext, AnswerPrompt, AskBudget, AskError, AskRequest, DEFAULT_MODEL,
+        Answer, AnswerContext, AnswerPrompt, AskBudget, AskRequest, DEFAULT_MODEL,
         RegisteredAnswerer, ask_configured,
     },
     eval::{AskOutcome, RunError, SearchOutcome, SectionRef, resolve_expected},
     index::Qdrant,
     search::{
-        Reranker, SearchConfiguration, SearchContext, SearchError, SearchRequest,
-        evidence::{ChunkSetDocuments, EvidenceCounter, EvidenceError, assemble_evidence},
-        routes::dense::Embedder,
+        SearchConfiguration, SearchContext, SearchRequest,
+        evidence::{Anchor, ChunkSetDocuments, assemble_evidence},
         search, top_fused_score, top_rerank_score,
     },
     suite::Suite,
 };
-use std::{collections::BTreeMap, sync::Arc};
+use std::{error::Error, sync::Arc};
 use tokio::runtime::{Builder, Runtime};
 
 /// The engine of the kernel, the router and the search service.
@@ -117,6 +115,7 @@ impl<'kernel> KernelEngine<'kernel> {
         let reranker =
             candidate_reranker(kernel, &self.collection, rung.configuration.reranker()?)?;
         let answerer = self.answerer(rung)?;
+        check_output_limit(rung, answerer.as_ref())?;
         let prompt = rung
             .ask
             .as_ref()
@@ -131,7 +130,7 @@ impl<'kernel> KernelEngine<'kernel> {
     }
 
     /// The answerer `rung` asks with: the card it names, or else the latest
-    /// registered non-thinking answerer of the default model, if any.
+    /// registered answerer of the default model, if any.
     ///
     /// # Errors
     ///
@@ -183,24 +182,67 @@ impl<'kernel> KernelEngine<'kernel> {
         Some((self.ask_request(question, model, settings.budget()), prompt))
     }
 
+    /// The search of `question` in the collection under `rung`'s
+    /// configuration, with the budget its asks assemble evidence under: its
+    /// ask settings', or the default ask budget when it does not ask.
+    pub(super) fn search_request<'a>(
+        &'a self,
+        rung: &Rung,
+        question: &'a str,
+    ) -> SearchRequest<'a> {
+        let budget = rung
+            .ask
+            .as_ref()
+            .map_or_else(AskBudget::default, AskSettings::budget);
+        SearchRequest {
+            configuration: rung.configuration.search(),
+            evidence: rung
+                .ask
+                .as_ref()
+                .map(AskSettings::evidence)
+                .unwrap_or_default(),
+            ..SearchRequest::new(&self.collection, question, None, budget.into())
+        }
+    }
+
     /// The search context of the started rung's cards, none before a rung
     /// started.
     pub(super) fn search_context(&self) -> Option<SearchContext<'_, RouterClient>> {
         let cards = &self.held.as_ref()?.cards;
-        Some(SearchContext {
-            database: Arc::clone(&self.kernel.database),
-            principal: LOCAL,
-            qdrant: &self.qdrant,
-            embedder: cards.embedder.as_ref().map(|card| Embedder {
-                port: &self.port,
-                card,
-            }),
-            reranker: cards.reranker.as_ref().map(|card| Reranker {
-                port: &self.port,
-                card,
-            }),
-        })
+        Some(local_search_context(
+            &self.kernel.database,
+            &self.qdrant,
+            &self.port,
+            cards.embedder.as_ref(),
+            cards.reranker.as_ref(),
+        ))
     }
+}
+
+/// How a suite's expected sections that cannot be resolved end the rung: a
+/// failed document lookup fails it, and anything else the suite names that
+/// the generation does not hold refuses it.
+pub(super) fn expected_failure<E: Error + 'static>(error: &RunError<E>) -> Failure {
+    match error {
+        RunError::Documents { .. } => Failure::failed_by(error),
+        _ => Failure::refused_by(error),
+    }
+}
+
+/// Refuses `rung` when it asks for more output tokens than `answerer`'s card
+/// allows: every one of its asks would fail.
+fn check_output_limit(rung: &Rung, answerer: Option<&RegisteredAnswerer>) -> Result<(), Failure> {
+    let (Some(settings), Some(answerer)) = (&rung.ask, answerer) else {
+        return Ok(());
+    };
+    let limit = answerer.card.fields().limits.output_tokens;
+    if limit.is_some_and(|limit| settings.budget().output_tokens > limit.get()) {
+        return Err(Failure::refused(format!(
+            "the rung `{}` asks for more output tokens than its answerer card allows",
+            rung.name
+        )));
+    }
+    Ok(())
 }
 
 impl Engine for KernelEngine<'_> {
@@ -225,10 +267,7 @@ impl Engine for KernelEngine<'_> {
         let expected = resolve_expected(suite, |source_ref| {
             documents.canonical(database, source_ref)
         })
-        .map_err(|error| match error {
-            RunError::Documents { .. } => Failure::failed_by(&error),
-            _ => Failure::refused_by(&error),
-        })?;
+        .map_err(|error| expected_failure(&error))?;
         let provenance = cards.provenance();
         self.held = Some(Held { cards, documents });
         Ok((provenance, expected))
@@ -238,41 +277,38 @@ impl Engine for KernelEngine<'_> {
         let (Some(context), Some(held)) = (self.search_context(), &self.held) else {
             return Searched {
                 outcome: SearchOutcome::Failed,
+                delivered: Vec::new(),
                 diagnostic: SearchDiagnostic::default(),
             };
         };
-        let configuration = rung.configuration.search();
-        let budget = rung
-            .ask
-            .as_ref()
-            .map_or(RequestBudget::default(), |settings| {
-                let ask = settings.budget();
-                RequestBudget {
-                    k: ask.k,
-                    max_tokens: ask.max_tokens,
-                    ..RequestBudget::default()
-                }
-            });
-        let request = SearchRequest {
-            configuration,
-            ..SearchRequest::new(&self.collection, question, None, budget)
-        };
+        let request = self.search_request(rung, question);
+        let configuration = request.configuration;
         let mut diagnostic = SearchDiagnostic::default();
+        let mut delivered = Vec::new();
         let searched = self.runtime.block_on(async {
             let input = Box::pin(search(&context, &request))
                 .await
                 .map_err(|error| search_failure(&error))?;
             diagnostic.top_rerank_score = top_rerank_score(&input.ranked);
             diagnostic.top_fused_score = top_fused_score(&input.ranked);
+            diagnostic.candidate_source_load_micros =
+                input.observations.candidate_source_load_micros;
+            diagnostic
+                .candidate_context_fallbacks
+                .clone_from(&input.observations.candidate_context_fallbacks);
             let order = input.observations.reranked_chunk_ids.clone();
             let database = Arc::clone(&self.kernel.database);
             let bundle = Box::pin(assemble_evidence(
                 database,
                 input,
-                EvidenceCounter::Utf8Bytes,
+                request
+                    .evidence
+                    .counter()
+                    .map_err(|error| evidence_failure(&error))?,
             ))
             .await
             .map_err(|error| evidence_failure(&error))?;
+            delivered = bundle.passages.iter().map(Anchor::from).collect();
             diagnostic.bundle_documents = bundle_documents(&bundle, &order);
             diagnostic.delivered = anchors(bundle.clone()).map_err(|_| StageFailure::Failed)?;
             match stage_failure(&configuration, &bundle.routes) {
@@ -288,20 +324,26 @@ impl Engine for KernelEngine<'_> {
                 Err(StageFailure::TimedOut) => SearchOutcome::TimedOut,
                 Err(StageFailure::Failed) => SearchOutcome::Failed,
             },
+            delivered,
             diagnostic,
         }
     }
 
-    fn ask(&self, rung: &Rung, question: &str) -> AskOutcome {
+    fn ask(&self, rung: &Rung, question: &str) -> Asked {
+        let failed = || Asked {
+            outcome: AskOutcome::Failed,
+            delivered: Vec::new(),
+            rejections: Vec::new(),
+        };
         let (Some(search), Some(held), Some(settings)) =
             (self.search_context(), &self.held, &rung.ask)
         else {
-            return AskOutcome::Failed;
+            return failed();
         };
         let Some((request, prompt)) =
             self.ask_call(question, settings, held.cards.answerer.as_ref())
         else {
-            return AskOutcome::Failed;
+            return failed();
         };
         let context = AnswerContext {
             search,
@@ -313,21 +355,43 @@ impl Engine for KernelEngine<'_> {
             &context,
             &request,
             configuration,
+            settings.evidence(),
             &prompt,
         )));
         match asked {
-            Ok(answer) => answer_outcome(
-                &answer,
-                &held.documents,
-                held.cards.generation.id,
-                &configuration,
-            ),
-            Err(error) => match ask_failure(&error) {
-                StageFailure::TimedOut => AskOutcome::TimedOut,
-                StageFailure::Failed => AskOutcome::Failed,
+            Ok(answer) => Asked {
+                outcome: answer_outcome(
+                    &answer,
+                    &held.documents,
+                    held.cards.generation.id,
+                    &configuration,
+                ),
+                rejections: rejected_checks(&answer),
+                delivered: answer.delivered,
+            },
+            Err(error) => Asked {
+                outcome: match ask_failure(&error) {
+                    StageFailure::TimedOut => AskOutcome::TimedOut,
+                    StageFailure::Failed => AskOutcome::Failed,
+                },
+                delivered: Vec::new(),
+                rejections: Vec::new(),
             },
         }
     }
+}
+
+/// The attempts the answer check refused before `answer`, without their
+/// tokens.
+pub(super) fn rejected_checks(answer: &Answer) -> Vec<RejectedCheck> {
+    answer
+        .rejections
+        .iter()
+        .map(|rejection| RejectedCheck {
+            attempt: rejection.attempt,
+            check: rejection.check,
+        })
+        .collect()
 }
 
 impl Cards {
@@ -422,62 +486,6 @@ pub(super) fn candidate_answerer(
     }))
 }
 
-/// The most documents a search's ranked list holds: the floors score its
-/// first 10.
-const RANKED_DOCUMENTS: usize = 10;
-
-/// The distinct documents of `order`, the chunks after reranking, or in fused
-/// order when no rerank ran, before evidence assembly: each at its best
-/// chunk's rank, the first [`RANKED_DOCUMENTS`]. `document_of` names each
-/// chunk's document; a chunk it does not know is skipped.
-pub(super) fn ranked_documents<'set>(
-    order: &[String],
-    document_of: impl Fn(&str) -> Option<&'set str>,
-) -> Vec<String> {
-    let mut ranked: Vec<String> = Vec::with_capacity(RANKED_DOCUMENTS);
-    for document in order.iter().filter_map(|chunk| document_of(chunk)) {
-        if ranked.len() == RANKED_DOCUMENTS {
-            break;
-        }
-        if !ranked.iter().any(|seen| seen == document) {
-            ranked.push(document.to_owned());
-        }
-    }
-    ranked
-}
-
-/// The documents of `bundle`'s passages in retrieval rank, as `order`, the
-/// chunks after reranking, ranks them: each passage at the best rank of its
-/// chunks, a passage without a ranked chunk last, ties by passage number.
-pub(super) fn bundle_documents(bundle: &Bundle, order: &[String]) -> Vec<String> {
-    let rank: BTreeMap<&str, usize> = order
-        .iter()
-        .enumerate()
-        .rev()
-        .map(|(index, chunk)| (chunk.as_str(), index))
-        .collect();
-    let mut passages: Vec<(usize, u32, &str)> = bundle
-        .passages
-        .iter()
-        .map(|passage| {
-            let best = bundle
-                .trace
-                .iter()
-                .filter(|trace| trace.n == passage.n)
-                .flat_map(|trace| &trace.chunk_ids)
-                .filter_map(|chunk| rank.get(chunk.as_str()).copied())
-                .min()
-                .unwrap_or(usize::MAX);
-            (best, passage.n, passage.document_id.as_str())
-        })
-        .collect();
-    passages.sort_unstable();
-    passages
-        .into_iter()
-        .map(|(_, _, document)| document.to_owned())
-        .collect()
-}
-
 /// What `answer` gives the ladder: its citations' sections and spans, their
 /// documents named by `source_ref` in `documents`, or its refusal. A delivered
 /// answer passed the answer check, which refuses an invented literal, so it
@@ -516,47 +524,9 @@ pub(super) fn answer_outcome(
                 chunk_id: Some(citation.chunk_id.clone()),
                 section_id: citation.section_id.clone(),
                 span: Some(citation.span),
+                component: None,
             })
             .collect(),
         invented_literals: 0,
-    }
-}
-
-/// How a search that returned `error` ended: out of time when its admission
-/// or a permission check ran out of time, failed otherwise.
-pub(super) const fn search_failure(error: &SearchError) -> StageFailure {
-    match error {
-        SearchError::AdmissionTimedOut | SearchError::PermissionCheckTimedOut => {
-            StageFailure::TimedOut
-        }
-        SearchError::InvalidRequest { .. }
-        | SearchError::Admission(_)
-        | SearchError::Kernel(_)
-        | SearchError::EvidenceLoad { .. }
-        | SearchError::PermissionsChanged
-        | SearchError::WorkerFailed => StageFailure::Failed,
-    }
-}
-
-/// How evidence assembly that returned `error` ended.
-pub(super) const fn evidence_failure(error: &EvidenceError) -> StageFailure {
-    if matches!(error, EvidenceError::TimedOut) {
-        StageFailure::TimedOut
-    } else {
-        StageFailure::Failed
-    }
-}
-
-/// How an `ask` that returned `error` ended: out of time when its search,
-/// its evidence or its answerer ran out of time, failed otherwise.
-pub(super) const fn ask_failure(error: &AskError) -> StageFailure {
-    match error {
-        AskError::TimedOut => StageFailure::TimedOut,
-        AskError::Search(error) => search_failure(error),
-        AskError::Evidence(error) => evidence_failure(error),
-        AskError::InvalidRequest(_)
-        | AskError::Backend(_)
-        | AskError::EvidenceIntegrity
-        | AskError::Json(_) => StageFailure::Failed,
     }
 }

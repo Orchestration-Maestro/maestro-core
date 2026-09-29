@@ -58,6 +58,9 @@ pub struct Fused {
     pub ranks: BTreeMap<Route, NonZeroU32>,
 }
 
+/// The default reciprocal rank fusion constant K.
+pub(super) const DEFAULT_RRF_K: NonZeroU32 = NonZeroU32::new(60).expect("default RRF K is nonzero");
+
 /// Fuses route rankings with equal-weight reciprocal rank fusion and truncates
 /// the result to `limit` chunks.
 ///
@@ -70,9 +73,7 @@ pub struct Fused {
 /// represented by the rank type.
 #[must_use]
 pub fn fuse(lists: &[RouteList], limit: usize) -> Vec<Fused> {
-    #[expect(clippy::expect_used, reason = "60 is a fixed nonzero default")]
-    let rrf_constant = NonZeroU32::new(60).expect("default RRF K is nonzero");
-    fuse_weighted(lists, limit, rrf_constant, |_| 1.0)
+    fuse_weighted(lists, limit, DEFAULT_RRF_K, |_| 1.0)
 }
 
 /// Fuses route rankings with configured reciprocal-rank weights and K.

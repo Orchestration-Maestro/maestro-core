@@ -10,6 +10,7 @@ use maestro_kernel::{
     evidence::RouteStatus,
     gateway::{ModelCard, Role},
 };
+use maestro_knowledge::search::evidence::EvidenceSettings;
 use maestro_knowledge::{
     index::Qdrant,
     search::{
@@ -19,10 +20,10 @@ use maestro_knowledge::{
 };
 
 pub(super) struct Published {
-    backend: super::backends::Backend,
+    pub(super) backend: super::backends::Backend,
     pub(super) kernel: Kernel,
-    qdrant: Qdrant,
-    embedder_card: ModelCard,
+    pub(super) qdrant: Qdrant,
+    pub(super) embedder_card: ModelCard,
     pub(super) port: models::Embedder,
     generation: i64,
 }
@@ -72,6 +73,7 @@ fn request<'a>(
     configuration: SearchConfiguration,
 ) -> SearchRequest<'a> {
     SearchRequest {
+        evidence: EvidenceSettings::default(),
         collection: &fixture.kernel.collection,
         text,
         version: None,

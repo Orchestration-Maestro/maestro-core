@@ -1,17 +1,18 @@
 //! A synthetic suite, rungs, and a fake engine that records what it is asked.
 
+use super::super::rank_settings::{Context, Prior};
 use super::super::{
     manifest::{AskSettings, GraphSelection, Rerank, Routes, Rung, RungConfiguration, Weights},
-    runner::{Engine, Provenance, SearchDiagnostic, Searched},
+    runner::{Asked, Engine, Provenance, RejectedCheck, SearchDiagnostic, Searched},
 };
 use crate::failure::Failure;
 use maestro_knowledge::{
     answer::RefusalCode,
     eval::{AskOutcome, SearchOutcome, SectionRef},
-    search::SearchConfiguration,
+    search::{SearchConfiguration, evidence::Anchor},
     suite::Suite,
 };
-use serde_json::json;
+use serde_json::{Value, json};
 use std::{
     cell::{Cell, RefCell},
     num::{NonZeroU32, NonZeroUsize},
@@ -70,11 +71,26 @@ pub(super) fn rung(name: &str) -> Rung {
             rerank: Some(Rerank {
                 card: RERANKER.to_owned(),
                 depth: NonZeroUsize::new(30).unwrap(),
+                blend: None,
+                demotion_cap: None,
+                candidate_context: Context::default(),
             }),
             min_rerank_score: None,
+            section_prior: Prior::default(),
+            stage_window_ms: None,
         },
         ask: Some(AskSettings::default()),
     }
+}
+
+/// The manifest JSON of [`rung`] `name`, which asks with the default
+/// settings.
+pub(super) fn rung_json(name: &str) -> Value {
+    json!({
+        "name": name,
+        "configuration": serde_json::to_value(rung(name).configuration).unwrap(),
+        "ask": true,
+    })
 }
 
 /// One call to the fake engine.
@@ -90,8 +106,10 @@ pub(super) struct Call {
     pub(super) configuration: SearchConfiguration,
 }
 
-/// An engine whose searches rank each answerable question's document first
-/// and whose asks cite its section and refuse the others.
+/// An engine whose searches rank each answerable question's document first,
+/// with evidence of another document, and whose asks cite its section, pinned,
+/// from a bundle that holds it, after one attempt the answer check refused,
+/// and refuse the others.
 #[derive(Debug, Default)]
 pub(super) struct FakeEngine {
     /// Every search and ask, in order.
@@ -113,6 +131,10 @@ pub(super) struct FakeEngine {
     pub(super) no_answerer: bool,
     /// Whether asks fail after a successful search.
     pub(super) ask_outcome: Option<AskOutcome>,
+    /// After this many searches, what a rung runs against cannot be read.
+    pub(super) unreadable_after: Option<usize>,
+    /// How many of the last questions' expected sections are missing.
+    pub(super) expectations_missing: usize,
 }
 
 impl FakeEngine {
@@ -141,10 +163,26 @@ impl FakeEngine {
 /// reranker score of 0.75 when `rung` reranks, and a top fused score of 0.05.
 fn diagnostic(rung: &Rung, bundle_documents: Vec<String>) -> SearchDiagnostic {
     SearchDiagnostic {
-        delivered: Vec::new(),
         bundle_documents,
         top_rerank_score: rung.configuration.rerank.as_ref().map(|_| 0.75),
         top_fused_score: Some(0.05),
+        ..SearchDiagnostic::default()
+    }
+}
+
+/// The pinned revision of every section the fake engine expects.
+const REVISION: &str = "rev";
+
+/// An anchor of `document`, pinned, over the bytes 0 to 10 of its section
+/// `section`.
+pub(super) fn anchor(document: &str, section: &str) -> Anchor {
+    Anchor {
+        source_ref: format!("doc:{document}"),
+        doc_id: document.to_owned(),
+        revision_id: REVISION.to_owned(),
+        section_id: Some(section.to_owned()),
+        span: [0, 10],
+        digest: format!("sha256:{}", "0".repeat(64)),
     }
 }
 
@@ -160,6 +198,14 @@ impl Engine for FakeEngine {
     fn provenance(&self, rung: &Rung) -> Result<Provenance, Failure> {
         if self.refused_rung.as_deref() == Some(rung.name.as_str()) {
             return Err(Failure::refused("the reranker card is not registered"));
+        }
+        if self
+            .unreadable_after
+            .is_some_and(|searches| self.questions("search").len() >= searches)
+        {
+            return Err(Failure::failed(
+                "the collection has no published generation",
+            ));
         }
         Ok(Provenance {
             generation: self.generation.get(),
@@ -188,16 +234,21 @@ impl Engine for FakeEngine {
             .iter()
             .map(|question| {
                 if question.answerable {
-                    vec![SectionRef::section(
-                        &format!("doc-{}", question.id),
-                        &format!("section-{}", question.id),
-                    )]
+                    vec![SectionRef {
+                        revision_id: Some(REVISION.to_owned()),
+                        span: Some([0, 10]),
+                        ..SectionRef::section(
+                            &format!("doc-{}", question.id),
+                            &format!("section-{}", question.id),
+                        )
+                    }]
                 } else {
                     Vec::new()
                 }
             })
-            .collect();
-        Ok((self.provenance(rung)?, expected))
+            .collect::<Vec<_>>();
+        let kept = expected.len() - self.expectations_missing;
+        Ok((self.provenance(rung)?, expected[..kept].to_vec()))
     }
 
     fn search(&self, rung: &Rung, question: &str) -> Searched {
@@ -215,28 +266,52 @@ impl Engine for FakeEngine {
             ranked.extend_from_slice(&others[6..]);
             return Searched {
                 outcome: SearchOutcome::Ranked(ranked),
+                delivered: Vec::new(),
                 diagnostic: diagnostic(rung, others[..3].to_vec()),
             };
         }
         Searched {
             outcome: SearchOutcome::Ranked(vec![right.clone()]),
+            delivered: vec![anchor("doc-other", "section-other")],
             diagnostic: diagnostic(rung, vec![right]),
         }
     }
 
-    fn ask(&self, rung: &Rung, question: &str) -> AskOutcome {
+    fn ask(&self, rung: &Rung, question: &str) -> Asked {
         self.record("ask", rung, question);
         if let Some(outcome) = &self.ask_outcome {
-            return outcome.clone();
+            return Asked {
+                outcome: outcome.clone(),
+                delivered: Vec::new(),
+                rejections: Vec::new(),
+            };
         }
-        answerable_index(question).map_or(AskOutcome::Refused(RefusalCode::NotFound), |index| {
-            AskOutcome::Answered {
-                citations: vec![SectionRef::section(
+        answerable_index(question).map_or_else(
+            || Asked {
+                outcome: AskOutcome::Refused(RefusalCode::NotFound),
+                delivered: Vec::new(),
+                rejections: Vec::new(),
+            },
+            |index| Asked {
+                outcome: AskOutcome::Answered {
+                    citations: vec![SectionRef {
+                        revision_id: Some(REVISION.to_owned()),
+                        ..SectionRef::section(
+                            &format!("doc-a{index}"),
+                            &format!("section-a{index}"),
+                        )
+                    }],
+                    invented_literals: 0,
+                },
+                delivered: vec![anchor(
                     &format!("doc-a{index}"),
                     &format!("section-a{index}"),
                 )],
-                invented_literals: 0,
-            }
-        })
+                rejections: vec![RejectedCheck {
+                    attempt: 1,
+                    check: "unsupported_literal",
+                }],
+            },
+        )
     }
 }

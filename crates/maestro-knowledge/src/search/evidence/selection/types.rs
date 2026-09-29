@@ -1,5 +1,6 @@
 //! Candidate metadata and final selection result.
 
+use super::super::super::assembly_settings::ExpansionMode;
 use super::super::{
     budget::CounterInfo,
     features::DiversityFeatures,
@@ -38,6 +39,8 @@ pub(crate) struct SelectionCandidate<'a> {
 
 /// Limits and exact counter shared by every complete-trial measurement.
 pub(crate) struct SelectionBudget<'a> {
+    /// Whether passage admission precedes optional context expansion.
+    pub(crate) expansion: ExpansionMode,
     /// Maximum number of returned passages.
     pub(crate) max_passages: usize,
     /// Maximum complete passage-array count.

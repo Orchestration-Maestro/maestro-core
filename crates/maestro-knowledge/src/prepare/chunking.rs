@@ -8,9 +8,15 @@
 //! refuses then gets its refusal and no chunk, and the rest are chunked. A
 //! refusal of the counter is no refusal of a document: it stops the batch.
 
-use super::{counter::Counting, exact::Kernel, exact::Loaded, failure::Error, report::Refusal};
+use super::{
+    counter::Counting,
+    exact::Kernel,
+    exact::Loaded,
+    failure::Error,
+    report::{Chrome, Refusal},
+};
 use maestro_canonicalization::{
-    ChunkBatch, ChunkContent, DedupInput, InputRole, WarningPolicy, chunk_documents,
+    ChunkBatch, ChunkContent, ChunkDocument, DedupInput, InputRole, WarningPolicy, chunk_documents,
 };
 use maestro_kernel::{artifact::Digest, chunk_set::Chunk, evidence::Span};
 use std::slice;
@@ -26,12 +32,15 @@ const PREPARED_INPUT: &str = "text/plain; charset=utf-8";
 /// What chunking one revision did.
 #[derive(Debug)]
 pub(super) enum Chunked {
-    /// Its chunks are recorded: how many, and their tokens.
+    /// Its chunks are recorded: how many, their tokens, and the chrome left
+    /// out of them.
     Recorded {
         /// Its chunks.
         chunks: u64,
         /// The tokens of their prepared inputs.
         tokens: u64,
+        /// The page chrome left out of its prepared inputs, per rule.
+        chrome: Chrome,
     },
     /// The chunker refused it, and it got no chunk.
     Refused(Refusal),
@@ -63,7 +72,14 @@ impl Kernel<'_> {
             .collect();
         // A refusal of a batch before this one stopped it: none is left.
         counting.take_refusal();
-        let refused = match chunk_documents(&scope, &inputs, WarningPolicy::Preserve, counting) {
+        let chunked = chunk_documents(
+            &scope,
+            &inputs,
+            WarningPolicy::Preserve,
+            self.profile,
+            counting,
+        );
+        let refused = match chunked {
             Ok(chunked) => return self.record(chunk_set, batch, &chunked),
             Err(refused) => refused,
         };
@@ -108,19 +124,27 @@ impl Kernel<'_> {
                 .filter(|chunk| chunk.occurrence_index == index)
                 .map(|chunk| (chunk.chunk_id.as_str(), &chunk.content))
                 .collect();
-            outcomes.push(self.record_revision(chunk_set, loaded, &contents)?);
+            let chrome = chunked
+                .documents
+                .iter()
+                .find(|document| document.occurrence_index == index)
+                .map(ChunkDocument::chrome)
+                .unwrap_or_default();
+            outcomes.push(self.record_revision(chunk_set, loaded, &contents, chrome)?);
         }
         Ok(outcomes)
     }
 
     /// Stores the prepared input of each of `contents`, the chunks of
-    /// `loaded` by their ids, then records them in `chunk_set` at once; a
-    /// chunk that covers no source byte refuses the revision.
+    /// `loaded` by their ids, then records them in `chunk_set` at once, with
+    /// the `chrome` left out of them; a chunk that covers no source byte
+    /// refuses the revision.
     fn record_revision(
         &self,
         chunk_set: &str,
         loaded: &Loaded,
         contents: &[(&str, &ChunkContent)],
+        chrome: Chrome,
     ) -> Result<Chunked, Error> {
         let mut spans = Vec::new();
         for (id, content) in contents {
@@ -151,6 +175,7 @@ impl Kernel<'_> {
         Ok(Chunked::Recorded {
             chunks: u64::try_from(chunks.len()).unwrap_or(u64::MAX),
             tokens,
+            chrome,
         })
     }
 

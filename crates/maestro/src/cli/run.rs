@@ -163,9 +163,11 @@ fn knowledge(
             import::run(kernel, output, collection, *again)
         }
         KnowledgeCommand::Quality { collection } => quality::run(kernel, output, collection),
-        KnowledgeCommand::Prepare { collection, card } => {
-            prepare::run(kernel, output, collection, card)
-        }
+        KnowledgeCommand::Prepare {
+            collection,
+            card,
+            chunk_profile,
+        } => prepare::run(kernel, output, collection, card, chunk_profile.as_deref()),
         KnowledgeCommand::Publish { arguments } => publish::run(kernel, output, arguments),
         KnowledgeCommand::Verify { collection } => verify::run(kernel, output, collection),
         KnowledgeCommand::Status { collection } => status::run(kernel, output, collection),

@@ -3,7 +3,7 @@
 use super::types::AskRequest;
 use crate::{
     lexical::is_stopword,
-    query::{Family, understand},
+    query::{Family, backtick_runs, understand},
 };
 use maestro_kernel::evidence::Bundle;
 use std::collections::BTreeSet;
@@ -183,10 +183,10 @@ fn remove_citations(text: &str) -> Result<(Cited, Vec<u32>), String> {
     Ok((Cited { plain, prose }, citations))
 }
 
-/// The passage numbers of a marker's `content`: numbers from 1, separated
-/// by commas.
+/// The passage numbers of a marker's `content`: distinct numbers from 1,
+/// separated by commas.
 fn marker_numbers(content: &str) -> Option<Vec<u32>> {
-    content
+    let numbers: Vec<u32> = content
         .split(',')
         .map(|number| {
             let number = number.trim();
@@ -197,7 +197,9 @@ fn marker_numbers(content: &str) -> Option<Vec<u32>> {
                 .flatten()
                 .filter(|number| *number > 0)
         })
-        .collect()
+        .collect::<Option<_>>()?;
+    let distinct: BTreeSet<u32> = numbers.iter().copied().collect();
+    (distinct.len() == numbers.len()).then_some(numbers)
 }
 
 /// The malformed marker whose content is `after_open`'s first `length`
@@ -253,11 +255,15 @@ fn unsupported_literals(raw: &str, question: &str, bundle: &Bundle) -> Vec<Strin
         .collect()
 }
 
-/// `text` as its reader sees it: HTML entities decoded, and no backslash
-/// escaping punctuation, as Markdown escapes it in passages and a model
-/// copies the prompt's JSON escapes (`\"`, `\\_`) into its answer.
+/// `text` as its reader sees it: HTML entities and the prompt's own `\u003c`
+/// and `\u003e` decoded, and no backslash escaping punctuation, as Markdown
+/// escapes it in passages and a model copies the prompt's JSON escapes
+/// (`\"`, `\\_`) into its answer. Other JSON escapes, such as `\n`, stay:
+/// decoding them would split tokens.
 fn unescaped(text: &str) -> String {
     let mut current = [
+        ("\\u003c", "<"),
+        ("\\u003e", ">"),
         ("&lt;", "<"),
         ("&gt;", ">"),
         ("&quot;", "\""),
@@ -311,13 +317,28 @@ fn literal_tokens(raw: &str, unescaped: &str) -> BTreeSet<String> {
         .collect()
 }
 
-/// Whether `token` has command, option, path or numeric syntax.
+/// Whether `token` has command, option, path or numeric syntax, or holds a
+/// named HTML entity, which a Markdown client shows as the character it
+/// names: `tool&nbsp;-FORCE` reads as a command and its option.
 fn is_literal(token: &str) -> bool {
     token
         .chars()
         .any(|character| matches!(character, '_' | '$' | '=' | '/' | '\\'))
         || token.chars().any(|character| character.is_ascii_digit())
         || is_flag(token)
+        || holds_named_entity(token)
+}
+
+/// Whether `token` holds `&`, then letters, then `;`.
+fn holds_named_entity(token: &str) -> bool {
+    token.split('&').skip(1).any(|after| {
+        after.split_once(';').is_some_and(|(name, _)| {
+            !name.is_empty()
+                && name
+                    .chars()
+                    .all(|character| character.is_ascii_alphabetic())
+        })
+    })
 }
 
 /// Returns nonempty whitespace tokens with sentence punctuation and wrappers removed.
@@ -328,29 +349,27 @@ fn answer_tokens(text: &str) -> Vec<&str> {
         .collect()
 }
 
-/// Removes surrounding punctuation while preserving characters inside literals.
+/// Removes surrounding punctuation while preserving characters inside
+/// literals, and the leading dots of a relative path (`./`, `../`).
 fn trim_token_edges(token: &str) -> &str {
     let start = token
         .char_indices()
-        .find(|(index, character)| {
-            !edge_punctuation(*character, token.get(*index..).unwrap_or_default(), true)
+        .find(|&(index, character)| {
+            !edge_punctuation(character)
+                || token
+                    .get(index..)
+                    .is_some_and(|rest| rest.starts_with("./") || rest.starts_with("../"))
         })
         .map_or(token.len(), |(index, _)| index);
-    let rest = token.get(start..).unwrap_or_default();
-    let end = rest
-        .char_indices()
-        .rev()
-        .find(|(_, character)| !edge_punctuation(*character, rest, false))
-        .map_or(0, |(index, character)| index + character.len_utf8());
-    rest.get(..end).unwrap_or_default()
+    token
+        .get(start..)
+        .unwrap_or_default()
+        .trim_end_matches(edge_punctuation)
 }
 
 /// Keeps path and option syntax but drops quotes, brackets and sentence marks.
-fn edge_punctuation(character: char, token: &str, leading: bool) -> bool {
+fn edge_punctuation(character: char) -> bool {
     if matches!(character, '_' | '$' | '=' | '/' | '\\' | '-') {
-        return false;
-    }
-    if character == '.' && leading && (token.starts_with("./") || token.starts_with("../")) {
         return false;
     }
     character.is_ascii_punctuation()
@@ -431,7 +450,7 @@ fn backtick_literals(text: &str) -> Vec<String> {
     literals
 }
 
-/// Extracts complete inline spans delimited by equal runs of one or two backticks.
+/// Extracts complete inline spans delimited by equal-length backtick runs.
 fn inline_backtick_literals(line: &str) -> Vec<String> {
     let runs = backtick_runs(line);
     let mut literals = Vec::new();
@@ -440,10 +459,10 @@ fn inline_backtick_literals(line: &str) -> Vec<String> {
         let length = open_end.saturating_sub(open_start);
         remaining = match rest
             .iter()
-            .position(|&(start, end)| end.saturating_sub(start) == length)
+            .enumerate()
+            .find(|&(_, &(start, end))| end.saturating_sub(start) == length)
         {
-            Some(close) => {
-                let close_start = rest.get(close).map_or(open_end, |&(start, _)| start);
+            Some((close, &(close_start, _))) => {
                 literals.extend(line.get(open_end..close_start).map(str::to_owned));
                 rest.get(close + 1..).unwrap_or_default()
             }
@@ -451,18 +470,6 @@ fn inline_backtick_literals(line: &str) -> Vec<String> {
         };
     }
     literals
-}
-
-/// The byte ranges of `line`'s maximal backtick runs, in order.
-fn backtick_runs(line: &str) -> Vec<(usize, usize)> {
-    let mut runs: Vec<(usize, usize)> = Vec::new();
-    for (index, _) in line.match_indices('`') {
-        match runs.last_mut() {
-            Some((_, end)) if *end == index => *end = index + 1,
-            _ => runs.push((index, index + 1)),
-        }
-    }
-    runs
 }
 
 /// Checks a literal as the same whole-token sequence used on answer and evidence.

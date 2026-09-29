@@ -42,6 +42,13 @@ const V2_SYSTEM: &str = concat!(
 const V1_USER: &str = "Answer the question in full sentences, with passage markers such as \
                        [1] after the sentences they support.";
 
+/// Procedure guidance added to v2 without replacing its citation or safety contract.
+const PROCEDURE_FIRST: &str = concat!(
+    "Examine every passage. Put the directly applicable procedure first. Preserve its ",
+    "platform and state prerequisites. Use other passages only when relevant; ",
+    "not every passage needs a citation."
+);
+
 /// The v2 user instruction, before the JSON data, with the `NOT_FOUND` exit
 /// last before the data.
 const V2_USER: &str = "Answer the question from the passages, in full sentences. End each \
@@ -79,20 +86,27 @@ pub(super) fn prompt(
     let (system, user) = match answer_prompt {
         AnswerPrompt::Version(version) => {
             let (system, user) = match version {
-                PromptVersion::V1 => (V1_SYSTEM, V1_USER),
-                PromptVersion::V2 => (V2_SYSTEM, V2_USER),
+                PromptVersion::V1 => (V1_SYSTEM.to_owned(), V1_USER.to_owned()),
+                PromptVersion::V2 => (V2_SYSTEM.to_owned(), V2_USER.to_owned()),
+                PromptVersion::ProcedureFirst => (
+                    format!("{V2_SYSTEM} {PROCEDURE_FIRST}"),
+                    format!("{PROCEDURE_FIRST} {V2_USER}"),
+                ),
             };
             (
                 system,
                 format!("{user}\nQuestion and evidence data (JSON):\n{data}"),
             )
         }
-        AnswerPrompt::Text(text) => (text.system(), text.user().replacen(DATA_SLOT, &data, 1)),
+        AnswerPrompt::Text(text) => (
+            text.system().to_owned(),
+            text.user().replacen(DATA_SLOT, &data, 1),
+        ),
     };
     Ok(vec![
         Message {
             speaker: Speaker::System,
-            content: system.to_owned(),
+            content: system,
         },
         Message {
             speaker: Speaker::User,

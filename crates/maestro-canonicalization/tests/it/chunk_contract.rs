@@ -2,8 +2,8 @@
 //! The native tokenizer remains an accepted counter.
 #![cfg(test)]
 use maestro_canonicalization::{
-    CanonicalizeInput, ChunkBatch, DedupInput, DedupScope, Error, NativeTokenizer, RevisionKey,
-    TokenCounter, WarningPolicy, canonicalize, chunk_documents,
+    CanonicalizeInput, ChunkBatch, ChunkProfile, DedupInput, DedupScope, Error, NativeTokenizer,
+    RevisionKey, TokenCounter, WarningPolicy, canonicalize, chunk_documents,
 };
 use std::cell::Cell;
 
@@ -67,7 +67,13 @@ fn chunk_one(counter: &(impl TokenCounter + ?Sized)) -> Result<(String, usize), 
         document: &document,
         markdown: MARKDOWN,
     }];
-    let batch = chunk_documents(&scope, &inputs, WarningPolicy::Preserve, counter)?;
+    let batch = chunk_documents(
+        &scope,
+        &inputs,
+        WarningPolicy::Preserve,
+        ChunkProfile::Structural,
+        counter,
+    )?;
     assert_eq!(batch.chunks.len(), 1);
     Ok((
         batch.tokenizer_contract_id,
@@ -104,12 +110,16 @@ fn a_failing_verify_of_an_outside_counter_refuses_the_batch() {
     }
 }
 
+/// `chunk_documents` counting through the native tokenizer.
+type NativeChunking = for<'a> fn(
+    &'a DedupScope,
+    &[DedupInput<'a>],
+    WarningPolicy,
+    ChunkProfile,
+    &NativeTokenizer,
+) -> Result<ChunkBatch<'a>, Error>;
+
 #[test]
 fn the_native_tokenizer_remains_an_accepted_counter() {
-    let _: for<'a> fn(
-        &'a DedupScope,
-        &[DedupInput<'a>],
-        WarningPolicy,
-        &NativeTokenizer,
-    ) -> Result<ChunkBatch<'a>, Error> = chunk_documents;
+    let _: NativeChunking = chunk_documents;
 }

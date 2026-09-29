@@ -87,6 +87,37 @@ fn truncation_removes_only_the_gap_for_the_dropped_passage() {
 }
 
 #[test]
+fn successive_drops_keep_the_remaining_conflict_and_one_current_truncation_gap() {
+    let large = "é".repeat(2_600);
+    let mut bundle = bundle(
+        vec![
+            passage(1, "retained"),
+            passage(2, "also retained"),
+            passage(3, &large),
+            passage(4, &large),
+        ],
+        450,
+    );
+    bundle.known_gaps = vec![
+        "Passage 4 has no source reference.".to_owned(),
+        "An unrelated gap.".to_owned(),
+    ];
+
+    let bounded = truncate_search_bundle(bundle).expect("bounded search bundle");
+
+    assert_eq!(bounded.truncation.passages, 2);
+    assert_eq!(bounded.bundle.conflicts.len(), 1);
+    assert_eq!(bounded.bundle.conflicts[0].passages, [1, 2]);
+    assert_eq!(
+        bounded.bundle.known_gaps,
+        [
+            "An unrelated gap.",
+            "2 lowest-ranked passages were omitted to fit the response limit.",
+        ]
+    );
+}
+
+#[test]
 fn inventory_is_reduced_only_after_all_oversized_passages_are_dropped() {
     let total_groups = 560;
     let bundle = bundle(

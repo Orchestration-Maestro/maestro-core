@@ -1,9 +1,12 @@
 //! Authoritative section reads and bounded evidence assembly.
 
+/// Anchors each passage of an assembled bundle in its source.
+mod anchor;
 /// Runs authoritative assembly under the inherited deadline.
 mod assemble;
 /// Counts compact serialized passages with the selected counter.
 mod budget;
+mod candidate_context;
 /// Finds the documents of a chunk set by `source_ref`.
 mod chunk_set_documents;
 /// Detects explicit structured disagreements in candidate tables.
@@ -22,6 +25,8 @@ mod selection;
 mod signals;
 /// Loads and caches authorized canonical source records.
 mod source;
+pub(super) use candidate_context::{Indexing, context};
+pub(super) use source::SourceCache;
 /// Unions candidate source spans without crossing revisions.
 mod spans;
 /// Exercises the helper contracts with canonical source fixtures.
@@ -33,6 +38,8 @@ pub(crate) use sections::SectionIndex;
 /// Compares numeric version components without integer conversion.
 mod versions;
 
+pub use super::assembly_settings::{CounterMode, EvidenceSettings, ExpansionMode};
+pub use anchor::Anchor;
 pub use assemble::deadline::assemble_evidence;
 pub use chunk_set_documents::ChunkSetDocuments;
 pub use section_reader::{SectionExcerpt, SectionReadError, read_section};

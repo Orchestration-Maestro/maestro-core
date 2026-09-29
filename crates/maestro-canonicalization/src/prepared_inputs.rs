@@ -116,5 +116,5 @@ pub struct ChunkContent {
     pub token_count: usize,
 }
 
-/// Version of context and formatting preparation rules.
+/// Version of context and formatting preparation rules: the default profile's.
 pub const PREPARATION_PROFILE: &str = "canonical-context-parts/v1";

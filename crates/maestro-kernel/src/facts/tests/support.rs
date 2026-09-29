@@ -14,14 +14,13 @@ use crate::{
     scope::{Right, ScopeSet, collection_path},
     store::{self, Database},
 };
+use maestro_test_scratch::scratch_directory;
 use rusqlite::{Connection, params};
 use serde_json::{Map, json};
 use std::{
     collections::BTreeMap,
-    env, fs,
+    fs,
     path::PathBuf,
-    process,
-    sync::atomic::{AtomicUsize, Ordering},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
@@ -42,20 +41,13 @@ pub(super) const RETRIES_ROW: &str = "| retries | integer | 3 |\n";
 /// The collection every claim belongs to.
 pub(super) const COLLECTION: &str = "graph";
 
-/// A new empty directory under the platform's temporary directory, removed
-/// with everything in it when dropped.
+/// A new empty scratch directory, removed with everything in it when
+/// dropped.
 pub(super) struct Scratch(pub(super) PathBuf);
 
 impl Scratch {
     pub(super) fn new() -> Self {
-        static NEXT: AtomicUsize = AtomicUsize::new(0);
-        let path = env::temp_dir().join(format!(
-            "maestro-kernel-facts-{}-{}",
-            process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
-        fs::create_dir(&path).unwrap();
-        Self(path)
+        Self(scratch_directory().unwrap())
     }
 
     /// The kernel database of this directory, with the collections `graph`

@@ -1,28 +1,24 @@
 //! Replaying a chunk's preparation: its table windows against its fragments, then the chunk
 //! prepared again from its body.
 use super::refusal::structure_error;
-use super::structure::{Body, Layout, layout};
+use super::structure::{Body, Layout};
 use crate::{
-    document::CanonicalDocument,
+    chunk_profile::Packing,
     error::Error,
     prepared_inputs::{ChunkContent, TableWindow},
-    source_units::MappedDocument,
 };
 use std::collections::BTreeSet;
 
 /// Replay each chunk's preparation: its table windows must match its fragments, and preparing its
 /// body again must give the same chunk.
 pub(crate) fn validate_preparation(
-    document: &CanonicalDocument,
-    markdown: &str,
-    mapped: &MappedDocument,
+    layout: &Layout<'_>,
     chunks: &[ChunkContent],
     count: &mut impl FnMut(&str) -> Result<usize, Error>,
 ) -> Result<(), Error> {
-    let layout = layout(document, markdown, mapped)?;
     for chunk in chunks {
-        witness_windows(&layout, chunk)?;
-        order_windows(&layout, chunk)?;
+        witness_windows(layout, chunk)?;
+        order_windows(layout, chunk)?;
         let body = Body {
             fragments: chunk.fragments.clone(),
             windows: chunk.table_windows.clone(),
@@ -35,7 +31,7 @@ pub(crate) fn validate_preparation(
 }
 
 /// Each fragment inside a table falls in exactly one of the chunk's windows and every window holds
-/// one; a chunk outside tables has no window.
+/// one; when packing by container, a chunk with windows holds nothing outside tables.
 fn witness_windows(layout: &Layout<'_>, chunk: &ChunkContent) -> Result<(), Error> {
     let mut witnessed = BTreeSet::new();
     for fragment in &chunk.fragments {
@@ -45,7 +41,7 @@ fn witness_windows(layout: &Layout<'_>, chunk: &ChunkContent) -> Result<(), Erro
         }
         if let Some(expected) = layout.window(index, false)? {
             witnessed.insert(matching_window(chunk, &expected)?);
-        } else if !chunk.table_windows.is_empty() {
+        } else if !chunk.table_windows.is_empty() && layout.rules().packing == Packing::Container {
             return Err(structure_error());
         }
     }

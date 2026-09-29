@@ -4,6 +4,9 @@ use super::types::{EvidenceCounter, EvidenceError};
 use maestro_kernel::evidence::Passage;
 use std::{error, fmt};
 
+/// Independent wire-size ceiling for answer-bound UTF-8 budgeting.
+const MAX_EVIDENCE_WIRE_BYTES: usize = 12_000;
+
 /// The counter identity and estimate flag written into the bundle.
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct CounterInfo {
@@ -61,6 +64,10 @@ pub(crate) fn counter_info(counter: &EvidenceCounter) -> Result<CounterInfo, Cou
             counter: Some("evidence-utf8-bytes/1".to_owned()),
             estimated: true,
         }),
+        EvidenceCounter::AnswerBoundUtf8Bytes => Ok(CounterInfo {
+            counter: Some("evidence-answer-bound-utf8-bytes/1".to_owned()),
+            estimated: true,
+        }),
         EvidenceCounter::Exact(counter) => {
             let contract = counter.contract_id();
             if contract.trim().is_empty() {
@@ -107,14 +114,39 @@ pub(crate) fn count_passages(
         return Ok(0);
     }
     let serialized = serialized_passages(passages)?;
+    if matches!(counter, EvidenceCounter::AnswerBoundUtf8Bytes)
+        && serialized.len() > MAX_EVIDENCE_WIRE_BYTES
+    {
+        // Admitted budgets are below this sentinel: try a smaller source window.
+        return Ok(u32::MAX);
+    }
     let count = match counter {
         EvidenceCounter::Utf8Bytes => serialized.len(),
+        EvidenceCounter::AnswerBoundUtf8Bytes => answer_bound_passages(passages)?.len(),
         EvidenceCounter::Exact(counter) => counter
             .token_ids(&serialized)
             .map_err(CounterError::Counter)?
             .len(),
     };
     u32::try_from(count).map_err(|_| CounterError::Invalid("evidence token count exceeds u32"))
+}
+
+/// Serializes the answer-bound fields, excluding provenance and wire metadata.
+fn answer_bound_passages(passages: &[Passage]) -> Result<String, CounterError> {
+    let answer_bound = passages
+        .iter()
+        .map(|passage| {
+            serde_json::json!({
+                "n": passage.n,
+                "title": passage.title,
+                "section_path": passage.section_path,
+                "text": passage.text,
+            })
+        })
+        .collect::<Vec<_>>();
+    serde_json::to_string(&answer_bound)
+        .map(|text| text.replace('<', "\\u003c").replace('>', "\\u003e"))
+        .map_err(CounterError::Json)
 }
 
 /// Serializes only passages, the evidence budget's counted input.

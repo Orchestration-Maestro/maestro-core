@@ -10,8 +10,10 @@ use crate::{
     query::understand,
     search::{
         DISABLED_BY_CONFIGURATION, Query, Reranker, Route, SearchError, SearchObservations,
-        deadline::{DEADLINE_EXCEEDED, Deadlines, from_budget},
-        orchestrate::{rerank_candidates, route_outcome, search_outcome},
+        deadline::{DEADLINE_EXCEEDED, Deadlines, StageWindow, from_budget},
+        orchestrate::search_outcome,
+        rerank::rerank_candidates,
+        route_execution::route_outcome,
         route_execution::{dense_outcome, lexical_outcome, structured_outcome},
         routes::{
             dense::Embedder,
@@ -48,7 +50,11 @@ async fn disabled_routes_short_circuit_and_enabled_failures_remain_unavailable()
         port: &port,
         card: &embedder_card,
     };
-    let cutoffs = from_budget(Instant::now(), RequestBudget::default());
+    let cutoffs = from_budget(
+        Instant::now(),
+        RequestBudget::default(),
+        StageWindow::Derived,
+    );
     let disabled_dense = dense_outcome(false, &query, Some(&embedder), &cutoffs).await;
     assert!(port.calls.lock().unwrap().is_empty());
     let disabled_lexical = lexical_outcome(false, &query, Instant::now()).await;
@@ -227,9 +233,11 @@ async fn each_route_and_the_rerank_report_a_passed_deadline_as_its_code() {
     let cutoffs = Deadlines {
         expires: passed,
         routes: passed,
+        routes_end: passed,
         setup: passed,
         work: passed,
         window: Duration::ZERO,
+        fixed: None,
     };
     let dense = dense_outcome(true, &query, Some(&embedder), &cutoffs).await;
     let lexical = lexical_outcome(true, &query, passed).await;

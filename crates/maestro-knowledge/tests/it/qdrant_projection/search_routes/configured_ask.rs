@@ -3,6 +3,7 @@
 use super::configured_search::{clean, context, published};
 use super::models;
 use maestro_kernel::gateway::Role;
+use maestro_knowledge::search::evidence::EvidenceSettings;
 use maestro_knowledge::{
     answer::{
         AnswerContext, AskBudget, AskRequest, DEFAULT_MODEL, PromptVersion, RefusalCode, ask,
@@ -42,6 +43,7 @@ async fn ask_runs_its_search_with_the_given_configuration() {
         &answer_context,
         &request,
         lexical_only,
+        EvidenceSettings::default(),
         &PromptVersion::V2.into(),
     ))
     .await
@@ -97,6 +99,7 @@ async fn ask_refuses_below_the_relevance_threshold_only_when_rerank_ran() {
                 answer_context,
                 request,
                 configuration,
+                EvidenceSettings::default(),
                 &PromptVersion::V1.into(),
             ))
             .await

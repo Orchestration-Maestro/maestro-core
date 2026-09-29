@@ -1,12 +1,12 @@
 //! Prepared-input groups: identical prepared inputs share one identity.
 use super::batch::PreparedInputGroup;
 use super::validation::invalid_chunks;
+use crate::chunk_profile::ChunkProfile;
+use crate::chunk_split::Layout;
 use crate::dedup::Deduplication;
-use crate::document::CanonicalDocument;
 use crate::error::Error;
 use crate::hashing::digest;
-use crate::prepared_inputs::{ChunkContent, PREPARATION_PROFILE};
-use crate::source_units::{CHUNKER_VERSION, MappedDocument};
+use crate::prepared_inputs::ChunkContent;
 use serde::Serialize;
 use std::collections::BTreeMap;
 
@@ -21,12 +21,11 @@ pub(super) struct PreparedIdentity {
 }
 
 /// A chunk's identifier: its scope, its document revision and parser, the
-/// chunker and preparation versions, the counter's contract and its source
-/// coordinates.
+/// layout profile's chunker and preparation versions, the counter's contract
+/// and its source coordinates.
 pub(super) fn chunk_id(
     deduplication: &Deduplication<'_>,
-    document: &CanonicalDocument,
-    mapped: &MappedDocument,
+    layout: &Layout<'_>,
     content: &ChunkContent,
     tokenizer_contract_id: &str,
 ) -> Result<String, Error> {
@@ -34,13 +33,15 @@ pub(super) fn chunk_id(
         .fragments
         .iter()
         .map(|fragment| {
-            let unit = mapped
+            let unit = layout
+                .mapped
                 .units
                 .get(fragment.contribution.unit_index)
                 .ok_or_else(invalid_chunks)?;
             Ok((&unit.unit_id, fragment.contribution.range))
         })
         .collect::<Result<Vec<_>, Error>>()?;
+    let document = layout.document;
     Ok(format!(
         "chunk-{}",
         digest(&record_bytes(&(
@@ -52,21 +53,27 @@ pub(super) fn chunk_id(
             &document.schema_version,
             &document.parser_version,
             &document.parser_options,
-            CHUNKER_VERSION,
-            PREPARATION_PROFILE,
+            layout.profile().chunker_version(),
+            layout.profile().preparation_profile(),
             tokenizer_contract_id,
             coordinates,
         ))?)
     ))
 }
 
-/// The fingerprint of a prepared input and its group within the scope.
+/// The fingerprint of a prepared input under `profile`'s preparation and its group within the
+/// scope.
 pub(super) fn prepared_identity(
     deduplication: &Deduplication<'_>,
+    profile: ChunkProfile,
     tokenizer_contract_id: &str,
     prepared_input: &str,
 ) -> Result<PreparedIdentity, Error> {
-    let bytes = record_bytes(&(PREPARATION_PROFILE, tokenizer_contract_id, prepared_input))?;
+    let bytes = record_bytes(&(
+        profile.preparation_profile(),
+        tokenizer_contract_id,
+        prepared_input,
+    ))?;
     let fingerprint = format!("sha256:{}", digest(&bytes));
     let group_id = format!(
         "prepared-{}",

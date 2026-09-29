@@ -10,15 +10,12 @@ use maestro_kernel::{
         RouterEntry,
     },
 };
+use maestro_test_scratch::scratch_directory;
 use std::{
-    env, fs,
+    fs,
     future::{self, Future},
     num::{NonZeroU32, NonZeroUsize},
-    process,
-    sync::{
-        Arc, Mutex,
-        atomic::{AtomicUsize, Ordering},
-    },
+    sync::{Arc, Mutex},
     time::Duration,
 };
 
@@ -68,7 +65,6 @@ impl ModelPort for Silent {
 /// An embedder's card of 4 dimensions, recorded in a store that is gone
 /// once it is made.
 fn card() -> ModelCard {
-    static NEXT: AtomicUsize = AtomicUsize::new(0);
     let fields = CardFields {
         role: Role::Embedder,
         router_entry: RouterEntry::parse("embed").unwrap(),
@@ -82,11 +78,7 @@ fn card() -> ModelCard {
         },
         suite_results: Vec::new(),
     };
-    let root = env::temp_dir().join(format!(
-        "maestro-knowledge-dense-{}-{}",
-        process::id(),
-        NEXT.fetch_add(1, Ordering::Relaxed)
-    ));
+    let root = scratch_directory().unwrap();
     let card = ModelCard::record(&Store::new(&root), &fields).unwrap();
     fs::remove_dir_all(&root).unwrap();
     card
@@ -132,11 +124,7 @@ impl ModelPort for RecordingEmbedder {
 
 #[tokio::test]
 async fn indexing_formats_v2_documents_once_before_embedding() {
-    let root = env::temp_dir().join(format!(
-        "maestro-knowledge-dense-v2-{}-{}",
-        process::id(),
-        0
-    ));
+    let root = scratch_directory().unwrap();
     let card =
         ModelCard::record_v2(&Store::new(&root), &identity(Digest::of(b"qualification"))).unwrap();
     fs::remove_dir_all(root).unwrap();

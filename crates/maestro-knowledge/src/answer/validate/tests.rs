@@ -221,8 +221,9 @@ fn i8_fake_missing_and_malformed_citations_are_rejected() {
     for reply in [
         "The service uses documented defaults.",
         "The service uses documented defaults [2].",
-        "The service uses documented defaults [x].",
-        "The service uses documented defaults [0].",
+        "The service uses documented defaults [-].",
+        "The service uses documented defaults [1;2].",
+        "The service uses documented defaults [1, 1].",
         "The service uses documented defaults [1]. ]",
         "The service uses documented defaults [1.",
     ] {
@@ -336,6 +337,7 @@ fn bracketed_link_text_is_text_and_digits_in_brackets_are_citations() {
             vec![1],
         ),
         ("Open an item with the documented call [2, 1].", vec![1, 2]),
+        ("Open an item with the documented call [x] [1].", vec![1]),
         (
             "Open an item with the documented call [2,1][1].",
             vec![1, 2],
@@ -349,6 +351,7 @@ fn bracketed_link_text_is_text_and_digits_in_brackets_are_citations() {
     for (reply, marker) in [
         ("Open an item with the documented call [1, ].", "[1, ]"),
         ("Open an item with the documented call [1, 3].", "[3]"),
+        ("Open an item with the documented call [0, 1].", "[0, 1]"),
     ] {
         assert!(
             matches!(
@@ -423,6 +426,9 @@ fn each_literal_source_is_checked_once_in_its_own_region() {
             "List them with the command below.\n```\ntool list all\n```",
             &["tool list all"],
         ),
+        // The command-before-flag pairing runs over the whole reply and
+        // skips the fence line, so the prose word before a fenced flag is
+        // its command: this fails closed.
         (
             "Run the command below\n```\n--all\n```",
             &["--all", "below"],
@@ -485,4 +491,44 @@ fn french_guillemets_around_a_literal_are_edge_punctuation() {
         ),
         Some(vec!["/opt/autre".to_owned()])
     );
+}
+
+#[test]
+fn a_copied_prompt_escape_of_angle_brackets_is_the_bracket() {
+    let evidence = bundle("Pass the <job> name to the tool.");
+    assert_eq!(
+        rejected_literals(
+            r"Pass the `\u003cjob\u003e` name to the tool [1].",
+            &evidence
+        ),
+        None
+    );
+    assert_eq!(unescaped(r"\u003ca\u003e \n"), r"<a> \n");
+}
+
+#[test]
+fn a_named_entity_makes_a_token_a_literal() {
+    let reply = "Stop it with tool&nbsp;-FORCE now [1].";
+    assert_eq!(
+        rejected_literals(reply, &bundle("Stop it with the tool now.")),
+        Some(vec!["tool&nbsp;-FORCE".to_owned()])
+    );
+    assert_eq!(
+        rejected_literals(reply, &bundle("Stop it with tool&nbsp;-FORCE now.")),
+        None
+    );
+    assert_eq!(
+        rejected_literals(
+            "Wait a&ndash;b or a&;b then stop [1].",
+            &bundle("Wait then stop.")
+        ),
+        Some(vec!["a&ndash;b".to_owned()])
+    );
+}
+
+#[test]
+fn a_trailing_trim_keeps_a_relative_paths_leading_dots() {
+    assert_eq!(trim_token_edges("\"../up\"."), "../up");
+    assert_eq!(trim_token_edges(".../x"), "../x");
+    assert_eq!(trim_token_edges("x./"), "x./");
 }

@@ -9,18 +9,13 @@ use crate::{
     knowledge::{RESPONSE_LIMIT_BYTES, RefreshScratch, RequestError},
     mcp::transport::BoundedStdio,
 };
+use maestro_test_scratch::scratch_directory;
 use rmcp::{ServerHandler, ServiceExt, model::ProtocolVersion};
 use serde_json::{Value, json};
 use std::{
-    env, fs,
+    fs,
     path::PathBuf,
-    process,
-    sync::{
-        Arc, Barrier,
-        atomic::{AtomicUsize, Ordering},
-        mpsc,
-    },
-    thread,
+    sync::{Arc, Barrier, mpsc},
     time::Duration,
 };
 use tokio::{
@@ -30,6 +25,7 @@ use tokio::{
     time::timeout,
 };
 
+mod call_deadlines;
 mod search_workers;
 
 /// A bound that only stops a hung test; it is generous so a loaded
@@ -313,12 +309,7 @@ struct ServerHome(PathBuf);
 
 impl ServerHome {
     fn new() -> Self {
-        static NEXT: AtomicUsize = AtomicUsize::new(0);
-        let root = env::temp_dir().join(format!(
-            "maestro-mcp-server-{}-{}",
-            process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
+        let root = scratch_directory().unwrap();
         let data = root.join("data");
         let config = root.join("config");
         fs::create_dir_all(&data).expect("create data directory");
@@ -349,15 +340,6 @@ impl ServerHome {
 
 impl Drop for ServerHome {
     fn drop(&mut self) {
-        // A cancelled search worker can still hold the kernel open for a
-        // moment after the test ends, and Windows refuses to delete an open
-        // file, so retry briefly before giving up.
-        for _ in 0..50 {
-            if fs::remove_dir_all(&self.0).is_ok() || !self.0.exists() {
-                return;
-            }
-            thread::sleep(Duration::from_millis(100));
-        }
         fs::remove_dir_all(&self.0).expect("remove isolated MCP home");
     }
 }

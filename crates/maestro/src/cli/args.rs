@@ -67,9 +67,16 @@ pub(super) struct PublishArguments {
     /// The recorded embedder model card's SHA-256 digest.
     #[arg(long)]
     pub(super) card: String,
-    /// The complete chunk set to publish; defaults to the latest complete set.
+    /// The complete chunk set to publish; defaults to the latest complete set
+    /// of the chunking profile.
     #[arg(long)]
     pub(super) chunk_set: Option<String>,
+    /// The chunking profile whose latest complete set is published when no
+    /// chunk set is named, by its chunker version: mapped-structural-chunks/2,
+    /// the default, as for prepare. A set of another profile is published
+    /// only when named.
+    #[arg(long, value_name = "PROFILE", conflicts_with = "chunk_set")]
+    pub(super) chunk_profile: Option<String>,
     /// Build a new generation instead of reusing an already published one.
     #[arg(long)]
     pub(super) again: bool,
@@ -114,6 +121,12 @@ pub(super) enum KnowledgeCommand {
         /// The recorded embedder model card's SHA-256 digest.
         #[arg(long)]
         card: String,
+        /// The chunking profile, by its chunker version: mapped-structural-chunks/2, the
+        /// default, or mapped-structural-chunks/3, which leaves page chrome out of the indexed
+        /// text and keeps a section's introductions, steps and tables together. Another profile
+        /// makes another chunk set; the published one stays as it is.
+        #[arg(long, value_name = "PROFILE")]
+        chunk_profile: Option<String>,
     },
     /// Publish a complete chunk set as a verified Qdrant generation, as a job.
     Publish {
@@ -152,7 +165,7 @@ pub(super) enum KnowledgeCommand {
         /// Maximum evidence tokens (1..=12000, default 6000).
         #[arg(long)]
         max_tokens: Option<u32>,
-        /// Search deadline in milliseconds (1..=10000, default 1500).
+        /// Search deadline in milliseconds (1..=30000, default 30000).
         #[arg(long)]
         deadline_ms: Option<u32>,
     },
@@ -191,14 +204,16 @@ pub(super) enum KnowledgeCommand {
         /// Maximum evidence bytes to assemble.
         #[arg(long)]
         max_tokens: Option<u32>,
-        /// Search and evidence deadline in milliseconds.
+        /// Search and evidence deadline in milliseconds (1..=30000, default
+        /// 30000).
         #[arg(long)]
         search_deadline_ms: Option<u32>,
         /// Maximum generated tokens per chat call.
         #[arg(long)]
         output_tokens: Option<u32>,
         /// Print on stderr the check each rejected answer failed and the
-        /// offending tokens.
+        /// offending tokens. An ask that ends in an error, such as a timeout
+        /// or an unavailable answerer, prints no explanation.
         #[arg(long)]
         explain: bool,
     },

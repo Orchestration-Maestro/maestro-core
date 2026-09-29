@@ -4,6 +4,7 @@
 mod command;
 mod comparison;
 mod delivered;
+mod documents;
 mod engine;
 mod graph;
 mod graph_ladder;
@@ -12,6 +13,7 @@ mod graph_output;
 mod manifest;
 mod private_run;
 mod private_write;
+mod rank_settings;
 mod reports;
 mod rung_prompt;
 mod runner;

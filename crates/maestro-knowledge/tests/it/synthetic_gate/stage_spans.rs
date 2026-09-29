@@ -4,6 +4,8 @@
 //! they record (MR-04).
 #![cfg(test)]
 
+use maestro_knowledge::search::evidence::EvidenceSettings;
+
 use super::{
     pipeline::published::{PRINCIPAL, Published, publish_fake},
     span_recorder::Recording,
@@ -26,8 +28,11 @@ use maestro_knowledge::{
 use serde_json::Value;
 use std::{
     fs,
-    num::{NonZeroU32, NonZeroUsize},
+    net::TcpListener,
+    num::NonZeroU32,
+    panic::{self, AssertUnwindSafe},
     path::{Path, PathBuf},
+    thread,
 };
 use tokio::runtime::{Builder, Runtime};
 
@@ -70,9 +75,6 @@ const ASSEMBLE: [(&str, Option<&str>); 7] = [
     ("retrieval.assemble.output", Some("retrieval.assemble")),
 ];
 
-/// How many fused candidates the reranker reads: the production default.
-const RERANK_DEPTH: NonZeroUsize = NonZeroUsize::new(80).unwrap();
-
 /// The shortest corpus line the content scan looks for: shorter lines, such
 /// as a fence or a list marker, are not text a field could leak.
 const SHORTEST_CANARY: usize = 12;
@@ -91,14 +93,36 @@ struct Traced {
 
 /// The synthetic generation is built once, the slow part, and every contract
 /// is checked on it: each test process builds its own, so one test builds it
-/// once instead of once for each contract.
+/// once instead of once for each contract. Every contract runs even when an
+/// earlier one fails, and the test names each one that failed.
 #[test]
 fn the_synthetic_path_traces_its_stages_and_outcomes_and_no_content() {
     let traced = traced_synthetic_path();
+    let contracts: [(&str, &dyn Fn()); 3] = [
+        ("each_stage_is_nested_with_its_outcome", &|| {
+            each_stage_is_nested_with_its_outcome(&traced.path, &traced.bundle);
+        }),
+        (
+            "a_refused_search_and_unavailable_routes_record_their_outcomes",
+            &|| {
+                a_refused_search_and_unavailable_routes_record_their_outcomes(&traced.degraded);
+            },
+        ),
+        (
+            "no_recorded_field_carries_the_corpus_or_question_text",
+            &|| {
+                no_recorded_field_carries_the_corpus_or_question_text(&traced);
+            },
+        ),
+    ];
 
-    each_stage_is_nested_with_its_outcome(&traced.path, &traced.bundle);
-    a_refused_search_and_unavailable_routes_record_their_outcomes(&traced.degraded);
-    no_recorded_field_carries_the_corpus_or_question_text(&traced);
+    let failed: Vec<&str> = contracts
+        .into_iter()
+        .filter(|(_, contract)| panic::catch_unwind(AssertUnwindSafe(contract)).is_err())
+        .map(|(name, _)| name)
+        .collect();
+
+    assert!(failed.is_empty(), "failed contracts: {failed:?}");
 }
 
 /// The publication, search and assembly open each stage under its parent,
@@ -201,7 +225,7 @@ fn no_recorded_field_carries_the_corpus_or_question_text(traced: &Traced) {
 /// collection, and the collection through a dead Qdrant, recorded apart.
 fn traced_synthetic_path() -> Traced {
     let runtime = runtime();
-    let scratch = TestDirectory::new("maestro-stage-spans").unwrap();
+    let scratch = TestDirectory::new().unwrap();
     let card = reranker(&scratch.path);
     let mut run = None;
     let path = Recording::of(|| {
@@ -231,7 +255,7 @@ fn traced_synthetic_path() -> Traced {
     });
     let (published, question, bundle) = run.unwrap();
     assert!(!bundle.passages.is_empty());
-    let dead = Qdrant::new("http://127.0.0.1:1").unwrap();
+    let dead = dead_qdrant();
     let degraded = Recording::of(|| {
         let refused = runtime.block_on(traced_search(
             &published,
@@ -253,6 +277,16 @@ fn traced_synthetic_path() -> Traced {
         degraded,
         bundle,
     }
+}
+
+/// A Qdrant endpoint that closes every connection it accepts, so that its
+/// routes fail at once on every host: Windows retries a connection to a
+/// port nothing listens on for about two seconds, past the routes' window.
+fn dead_qdrant() -> Qdrant {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    thread::spawn(move || listener.incoming().for_each(drop));
+    Qdrant::new(&format!("http://127.0.0.1:{port}")).unwrap()
 }
 
 /// Searches `collection` of `published` for `text` through `qdrant`, with
@@ -277,6 +311,7 @@ async fn traced_search(
         }),
     };
     let request = SearchRequest {
+        evidence: EvidenceSettings::default(),
         collection,
         text,
         version: None,
@@ -284,10 +319,7 @@ async fn traced_search(
             deadline_ms: 10_000,
             ..RequestBudget::default()
         },
-        configuration: SearchConfiguration {
-            rerank_depth: RERANK_DEPTH,
-            ..SearchConfiguration::default()
-        },
+        configuration: SearchConfiguration::default(),
     };
     Box::pin(search(&context, &request)).await
 }

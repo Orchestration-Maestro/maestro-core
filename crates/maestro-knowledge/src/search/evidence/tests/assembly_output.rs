@@ -1,5 +1,5 @@
 use super::{
-    super::{EvidenceCounter, assemble_evidence},
+    super::{EvidenceCounter, EvidenceSettings, assemble_evidence},
     support::{Fixture, evidence_input, fixture},
 };
 use crate::{
@@ -28,9 +28,13 @@ async fn public_entry_emits_every_bundle_field_deterministically() {
     let bundle = assemble_evidence(database.clone(), input.clone(), EvidenceCounter::Utf8Bytes)
         .await
         .unwrap();
-    let repeated = assemble_evidence(database, input, EvidenceCounter::Utf8Bytes)
-        .await
-        .unwrap();
+    let repeated = assemble_evidence(
+        database,
+        input,
+        EvidenceSettings::default().counter().unwrap(),
+    )
+    .await
+    .unwrap();
 
     assert_eq!(bundle, expected);
     assert_eq!(

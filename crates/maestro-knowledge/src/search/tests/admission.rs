@@ -1,20 +1,14 @@
 //! Request-boundary checks before generation admission.
 
+use crate::search::evidence::EvidenceSettings;
 use crate::search::{
     admission::{ensure_permissions, validate},
     request::{SearchConfiguration, SearchError, SearchRequest},
     rerank::DEFAULT_DEPTH,
 };
 use maestro_kernel::{evidence::RequestBudget, store::Database};
-use std::{
-    env, fs,
-    num::NonZeroUsize,
-    process,
-    sync::{
-        Arc,
-        atomic::{AtomicUsize, Ordering},
-    },
-};
+use maestro_test_scratch::scratch_directory;
+use std::{fs, num::NonZeroUsize, sync::Arc};
 use tokio::time::Instant;
 
 fn request<'a>(
@@ -24,6 +18,7 @@ fn request<'a>(
     version: Option<&'a str>,
 ) -> SearchRequest<'a> {
     SearchRequest {
+        evidence: EvidenceSettings::default(),
         collection: "collection",
         text,
         version,
@@ -39,6 +34,7 @@ fn request<'a>(
 fn search_request_constructor_uses_the_measured_default_depth() {
     let request = SearchRequest::new("docs", "question", None, RequestBudget::default());
     assert_eq!(request.configuration.rerank_depth, DEFAULT_DEPTH);
+    assert_eq!(DEFAULT_DEPTH.get(), 30);
 }
 
 fn rejected(request: &SearchRequest<'_>, expected: &str) {
@@ -50,13 +46,7 @@ fn rejected(request: &SearchRequest<'_>, expected: &str) {
 
 #[tokio::test]
 async fn an_expired_permission_recheck_reports_its_deadline() {
-    static NEXT: AtomicUsize = AtomicUsize::new(0);
-    let path = env::temp_dir().join(format!(
-        "maestro-search-permission-deadline-{}-{}",
-        process::id(),
-        NEXT.fetch_add(1, Ordering::Relaxed)
-    ));
-    fs::create_dir(&path).unwrap();
+    let path = scratch_directory().unwrap();
     let database = Arc::new(Database::open_in(&path).unwrap());
     let scopes = database.visible("reader").unwrap();
     assert!(matches!(
@@ -72,7 +62,7 @@ fn request_bounds_include_both_endpoints_and_reject_the_next_value() {
     let valid = RequestBudget {
         k: 50,
         max_tokens: 12_000,
-        deadline_ms: 10_000,
+        deadline_ms: 30_000,
     };
     assert!(validate(&request("query", valid, 120, Some(&"v".repeat(256)))).is_ok());
     let valid_low = RequestBudget {
@@ -110,14 +100,14 @@ fn request_bounds_include_both_endpoints_and_reject_the_next_value() {
                 deadline_ms: 0,
                 ..valid_low
             },
-            "deadline_ms must be between 1 and 10000",
+            "deadline_ms must be between 1 and 30000",
         ),
         (
             RequestBudget {
-                deadline_ms: 10_001,
+                deadline_ms: 30_001,
                 ..valid
             },
-            "deadline_ms must be between 1 and 10000",
+            "deadline_ms must be between 1 and 30000",
         ),
     ] {
         rejected(&request("query", budget, 1, None), expected);
@@ -162,4 +152,66 @@ fn text_and_distinct_identifier_bounds_are_enforced() {
         &request(&over, budget, 1, None),
         "query has more than 64 distinct identifiers",
     );
+}
+
+/// A request with every route weight at the default and one set by `set`.
+fn weighted(set: impl Fn(&mut SearchConfiguration)) -> SearchRequest<'static> {
+    let mut request = request("query", RequestBudget::default(), 1, None);
+    set(&mut request.configuration);
+    request
+}
+
+#[test]
+fn each_route_weight_must_be_finite_and_nonnegative() {
+    let setters: [fn(&mut SearchConfiguration, f64); 4] = [
+        |configuration, weight| configuration.dense_weight = weight,
+        |configuration, weight| configuration.lexical_weight = weight,
+        |configuration, weight| configuration.identifier_weight = weight,
+        |configuration, weight| configuration.structured_weight = weight,
+    ];
+    for set in setters {
+        for weight in [
+            f64::NAN,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            -1.0,
+            -f64::MIN_POSITIVE,
+        ] {
+            rejected(
+                &weighted(|configuration| set(configuration, weight)),
+                "route weights must be finite and nonnegative",
+            );
+        }
+        for weight in [0.0, 0.5, 2.0] {
+            assert!(validate(&weighted(|configuration| set(configuration, weight))).is_ok());
+        }
+    }
+}
+
+#[test]
+fn ranking_settings_reject_nonfinite_weights_and_invalid_context_bounds() {
+    use crate::search::{CandidateContext, SectionClassSet, SectionPrior};
+    let mut request = SearchRequest::new("docs", "question", None, RequestBudget::default());
+    for weight in [f32::NAN, f32::INFINITY, -0.01, 1.01] {
+        request.configuration.rerank_blend = Some(weight);
+        assert!(validate(&request).is_err());
+        request.configuration.rerank_blend = None;
+        request.configuration.section_prior = SectionPrior::Soft {
+            weight,
+            classes: SectionClassSet::default(),
+        };
+        assert!(validate(&request).is_err());
+        request.configuration.section_prior = SectionPrior::Off;
+    }
+    for max_bytes in [0, 1501] {
+        request.configuration.candidate_context = CandidateContext::BoundedSection { max_bytes };
+        assert!(validate(&request).is_err());
+    }
+    for max_bytes in [1, 1500] {
+        request.configuration.candidate_context = CandidateContext::BoundedSection { max_bytes };
+        request.configuration.rerank_blend = Some(0.0);
+        assert!(validate(&request).is_ok());
+        request.configuration.rerank_blend = Some(1.0);
+        assert!(validate(&request).is_ok());
+    }
 }

@@ -80,6 +80,22 @@ pub(crate) struct WindowPlan {
     pub(crate) after: Vec<Span>,
 }
 
+impl WindowPlan {
+    /// The optional neighbors in the one order every window grows by:
+    /// nearest first, alternating predecessor and successor.
+    pub(crate) fn neighbors(&self) -> impl Iterator<Item = Span> + '_ {
+        [
+            self.before.first(),
+            self.after.first(),
+            self.before.get(1),
+            self.after.get(1),
+        ]
+        .into_iter()
+        .flatten()
+        .copied()
+    }
+}
+
 /// Canonical block identities and their validated source ranges.
 struct BlockIndex<'a> {
     /// All source-bearing blocks in canonical arena order.
