@@ -7,22 +7,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 /// Checks unique identities, reciprocal edges, structural kinds and contexts.
 pub(super) fn validate(graph: &DeliveryGraph) -> Result<(), Error> {
-    let groups: BTreeMap<_, _> = graph
-        .groups
-        .iter()
-        .map(|group| (group.group_id.as_str(), group))
-        .collect();
-    let units: BTreeMap<_, _> = graph
-        .units
-        .iter()
-        .map(|unit| (unit.unit_id.as_str(), unit))
-        .collect();
-    require(
-        groups.len() == graph.groups.len()
-            && units.len() == graph.units.len()
-            && groups.keys().all(|id| !units.contains_key(id)),
-        "duplicate graph identity",
-    )?;
+    let (groups, units) = node_indexes(graph)?;
     let part_order: BTreeMap<_, _> = graph
         .parts
         .iter()
@@ -49,6 +34,33 @@ pub(super) fn validate(graph: &DeliveryGraph) -> Result<(), Error> {
     }
     validate_units(graph, &groups, &children)?;
     validate_acyclic(&groups)
+}
+
+/// Uniquely indexed group and delivery-unit identities.
+type NodeIndexes<'a> = (
+    BTreeMap<&'a str, &'a Group>,
+    BTreeMap<&'a str, &'a DeliveryUnit>,
+);
+
+/// Indexes graph nodes and rejects duplicate or cross-kind identities.
+fn node_indexes(graph: &DeliveryGraph) -> Result<NodeIndexes<'_>, Error> {
+    let groups: BTreeMap<_, _> = graph
+        .groups
+        .iter()
+        .map(|group| (group.group_id.as_str(), group))
+        .collect();
+    let units: BTreeMap<_, _> = graph
+        .units
+        .iter()
+        .map(|unit| (unit.unit_id.as_str(), unit))
+        .collect();
+    require(
+        groups.len() == graph.groups.len()
+            && units.len() == graph.units.len()
+            && groups.keys().all(|id| !units.contains_key(id)),
+        "duplicate graph identity",
+    )?;
+    Ok((groups, units))
 }
 
 /// Validates family identity and structural parent-kind rules.
@@ -274,4 +286,156 @@ pub(super) fn required_context<'a>(
         )
     });
     Ok(result)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Loads the graph fixture without running the full validator.
+    fn graph() -> DeliveryGraph {
+        DeliveryGraph::from_bytes(
+            include_bytes!("../../tests/fixtures/unit-graph-v1.json")
+                .strip_suffix(b"\n")
+                .unwrap(),
+        )
+        .unwrap()
+    }
+
+    /// Duplicate group IDs fail the node-index contract directly.
+    #[test]
+    fn node_indexes_reject_duplicate_group_ids() {
+        let mut graph = graph();
+        graph.groups.push(graph.groups[0].clone());
+        assert!(node_indexes(&graph).is_err());
+    }
+
+    /// A group ID cannot be reused by a delivery unit.
+    #[test]
+    fn node_indexes_reject_cross_kind_id_collisions() {
+        let mut graph = graph();
+        graph.units[0].unit_id = graph.groups[0].group_id.clone();
+        assert!(node_indexes(&graph).is_err());
+    }
+
+    /// A child's declared parent must list that child.
+    #[test]
+    fn children_reject_a_missing_reciprocal_parent_edge() {
+        let graph = graph();
+        let group = &graph.groups[3];
+        let groups = graph
+            .groups
+            .iter()
+            .map(|group| (group.group_id.as_str(), group))
+            .collect();
+        let units = graph
+            .units
+            .iter()
+            .map(|unit| (unit.unit_id.as_str(), unit))
+            .collect();
+        assert!(validate_children(group, &groups, &units, &mut BTreeSet::new()).is_err());
+    }
+
+    /// Context IDs must remain strictly source-ordered, including repeats.
+    #[test]
+    fn context_reports_duplicate_part_ids_as_an_order_error() {
+        let mut graph = graph();
+        graph.groups[2].context_relations[1].part_id =
+            graph.groups[2].context_relations[0].part_id.clone();
+        let group = &graph.groups[2];
+        let order = graph
+            .parts
+            .iter()
+            .enumerate()
+            .map(|(index, part)| (part.part_id.as_str(), index))
+            .collect();
+        assert!(matches!(
+            validate_context(group, &order),
+            Err(Error::Invalid("context relations are not in source order"))
+        ));
+    }
+
+    /// Context dependencies must be direct parts of their containing group.
+    #[test]
+    fn context_rejects_non_direct_parts() {
+        let mut graph = graph();
+        graph.groups[2].context_relations.truncate(1);
+        graph.groups[2].context_relations[0].part_id = "part-7".into();
+        let group = &graph.groups[2];
+        let order = graph
+            .parts
+            .iter()
+            .enumerate()
+            .map(|(index, part)| (part.part_id.as_str(), index))
+            .collect();
+        assert!(validate_context(group, &order).is_err());
+    }
+
+    /// Unit-parent checks reject missing parent/child membership independently.
+    #[test]
+    fn units_reject_parent_edges_missing_from_group_children() {
+        let graph = graph();
+        let groups = graph
+            .groups
+            .iter()
+            .map(|group| (group.group_id.as_str(), group))
+            .collect();
+        let children: BTreeSet<_> = graph
+            .groups
+            .iter()
+            .flat_map(|group| group.children.iter().cloned())
+            .filter(|child| child != "caption")
+            .collect();
+        assert!(validate_units(&graph, &groups, &children).is_err());
+    }
+
+    /// A non-code unit with a missing parent fails even if it is unlisted.
+    #[test]
+    fn units_reject_missing_parent_and_child_edges() {
+        let mut graph = graph();
+        graph.units[0].parent = Some("missing".into());
+        let groups = graph
+            .groups
+            .iter()
+            .map(|group| (group.group_id.as_str(), group))
+            .collect();
+        let children: BTreeSet<_> = graph
+            .groups
+            .iter()
+            .flat_map(|group| group.children.iter().cloned())
+            .filter(|child| child != "caption")
+            .collect();
+        assert!(validate_units(&graph, &groups, &children).is_err());
+    }
+
+    /// A parentless non-code unit is valid.
+    #[test]
+    fn units_allow_parentless_non_code_units() {
+        let mut graph = graph();
+        graph.units[0].parent = None;
+        let groups = graph
+            .groups
+            .iter()
+            .map(|group| (group.group_id.as_str(), group))
+            .collect();
+        let children: BTreeSet<_> = graph
+            .groups
+            .iter()
+            .flat_map(|group| group.children.iter().cloned())
+            .collect();
+        assert!(validate_units(&graph, &groups, &children).is_ok());
+    }
+
+    /// An ancestry cycle is rejected independently of other graph contracts.
+    #[test]
+    fn acyclic_check_rejects_parent_cycles() {
+        let mut graph = graph();
+        graph.groups[0].parent = Some("section".into());
+        let groups = graph
+            .groups
+            .iter()
+            .map(|group| (group.group_id.as_str(), group))
+            .collect();
+        assert!(validate_acyclic(&groups).is_err());
+    }
 }

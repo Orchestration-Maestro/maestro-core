@@ -146,3 +146,46 @@ fn validate_searchability(graph: &DeliveryGraph, covered: &BTreeSet<&str>) -> Re
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Loads the fixture graph without running graph-level validation.
+    fn graph() -> DeliveryGraph {
+        DeliveryGraph::from_bytes(
+            include_bytes!("../../tests/fixtures/unit-graph-v1.json")
+                .strip_suffix(b"\n")
+                .unwrap(),
+        )
+        .unwrap()
+    }
+
+    /// A delivery unit needs both a stable ID and primary source parts.
+    #[test]
+    fn unit_validation_rejects_an_empty_identifier() {
+        let mut graph = graph();
+        graph.units[0].unit_id.clear();
+        assert!(validate_units(&graph).is_err());
+    }
+
+    /// Repeated membership parts violate their strictly increasing positions.
+    #[test]
+    fn membership_validation_rejects_a_repeated_primary_part() {
+        let graph = graph();
+        let mut view = graph.retrieval_views[0].clone();
+        view.memberships[0].primary_part_ids[1] = "part-3".into();
+        let units = graph
+            .units
+            .iter()
+            .map(|unit| (unit.unit_id.as_str(), unit))
+            .collect();
+        let unit_order = graph
+            .units
+            .iter()
+            .enumerate()
+            .map(|(index, unit)| (unit.unit_id.as_str(), index))
+            .collect();
+        assert!(validate_memberships(&view, &units, &unit_order, &mut BTreeSet::new()).is_err());
+    }
+}
