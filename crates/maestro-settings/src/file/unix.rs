@@ -2,6 +2,7 @@
 //! directory, never a path, with `O_NOFOLLOW`, so a link swapped in after a
 //! check is refused rather than followed (rustix's `openat` family).
 
+use super::place::FilePlace;
 use rustix::{
     fs::{AtFlags, FileType, Mode, OFlags, mkdirat, open, openat, renameat, statat, unlinkat},
     io::Errno,
@@ -21,9 +22,14 @@ pub(super) const LINK: &str = "a link is never followed";
 pub(super) struct Directory(File);
 
 impl Directory {
-    /// `root_path`, then `below` opened without following a link. Missing
+    /// The directory of `place`, creating it when `create`, else `None` if absent.
+    pub(super) fn open(place: &FilePlace, create: bool) -> io::Result<Option<Self>> {
+        Self::open_at(place.root(), place.below(), create)
+    }
+
+    /// Opens `root_path`, then `below` without following a link. Missing
     /// directories are created when `create`, else `None`.
-    pub(super) fn open(
+    pub(super) fn open_at(
         root_path: &Path,
         below: Option<&OsStr>,
         create: bool,
@@ -64,6 +70,7 @@ impl Directory {
     /// The regular file `name`, opened for reading without following a
     /// link or blocking on a FIFO; `None` when it does not exist.
     pub(super) fn open_regular(&self, name: &OsStr) -> io::Result<Option<File>> {
+        // Each `.union()` joins distinct single-bit flags.
         let flags = OFlags::NOFOLLOW
             .union(OFlags::NONBLOCK)
             .union(OFlags::CLOEXEC);
@@ -77,6 +84,7 @@ impl Directory {
 
     /// The lock file `name`, created when absent, never through a link.
     pub(super) fn lock_file(&self, name: &OsStr) -> io::Result<File> {
+        // Each `.union()` joins distinct single-bit flags.
         let flags = OFlags::RDWR
             .union(OFlags::CREATE)
             .union(OFlags::NOFOLLOW)
@@ -90,6 +98,7 @@ impl Directory {
     /// A new file `name`, readable and writable by its owner alone; a name
     /// that exists, link or not, is refused.
     pub(super) fn create_private(&self, name: &OsStr) -> io::Result<File> {
+        // Each `.union()` joins distinct single-bit flags.
         let flags = OFlags::WRONLY
             .union(OFlags::CREATE)
             .union(OFlags::EXCL)

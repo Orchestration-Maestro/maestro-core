@@ -83,17 +83,7 @@ impl LayerSource for FileLayers {
 /// not exist, read without following a link below its trusted directory.
 fn read_place(place: &FilePlace) -> Result<Option<String>, SettingsError> {
     let path = place.path();
-    let opened = {
-        #[cfg(unix)]
-        {
-            Directory::open(place.root(), place.below(), false)
-        }
-        #[cfg(windows)]
-        {
-            Directory::open(place, false)
-        }
-    }
-    .map_err(|error| unreadable(&path, &error))?;
+    let opened = Directory::open(place, false).map_err(|error| unreadable(&path, &error))?;
     let Some(directory) = opened else {
         return Ok(None);
     };

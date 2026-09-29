@@ -69,17 +69,7 @@ impl FileEdit {
     ) -> Result<Self, FileError> {
         let path = place.path();
         let refused = |error: &io::Error| FileError::Read(unreadable(&path, error));
-        let opened = {
-            #[cfg(unix)]
-            {
-                Directory::open(place.root(), place.below(), create)
-            }
-            #[cfg(windows)]
-            {
-                Directory::open(&place, create)
-            }
-        }
-        .map_err(|error| refused(&error))?;
+        let opened = Directory::open(&place, create).map_err(|error| refused(&error))?;
         let Some(directory) = opened else {
             return Ok(Self {
                 place,

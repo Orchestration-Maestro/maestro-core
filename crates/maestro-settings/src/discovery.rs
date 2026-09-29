@@ -103,19 +103,19 @@ enum Kind {
 
 /// What `path` is, `None` when it does not exist.
 fn kind(path: &Path) -> Result<Option<Kind>, String> {
-    match fs::symlink_metadata(path) {
+    kind_of(path, fs::symlink_metadata(path))
+}
+
+/// What a metadata lookup found, and an error that is not a missing path.
+fn kind_of(path: &Path, metadata: io::Result<fs::Metadata>) -> Result<Option<Kind>, String> {
+    match metadata {
         Ok(metadata) if metadata.file_type().is_symlink() => Ok(Some(Kind::Link)),
         Ok(metadata) if metadata.is_dir() => Ok(Some(Kind::Directory)),
         Ok(metadata) if metadata.is_file() => Ok(Some(Kind::File)),
         Ok(_) => Err(skipped(path, "not a regular file")),
-        Err(error) if not_found(&error) => Ok(None),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
         Err(error) => Err(skipped(path, &format!("cannot be read: {error}"))),
     }
-}
-
-/// Whether a filesystem operation reports a missing path.
-fn not_found(error: &io::Error) -> bool {
-    error.kind() == io::ErrorKind::NotFound
 }
 
 /// The warning of `path` skipped for `reason`.
@@ -125,12 +125,28 @@ fn skipped(path: &Path, reason: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::not_found;
-    use std::io::{Error, ErrorKind};
+    use super::kind_of;
+    use std::{io, path::Path};
 
     #[test]
-    fn only_not_found_is_a_missing_path() {
-        assert!(not_found(&Error::from(ErrorKind::NotFound)));
-        assert!(!not_found(&Error::from(ErrorKind::PermissionDenied)));
+    fn not_found_metadata_is_a_missing_path() {
+        assert!(matches!(
+            kind_of(
+                Path::new("project/.maestro"),
+                Err(io::Error::from(io::ErrorKind::NotFound))
+            ),
+            Ok(None)
+        ));
+    }
+
+    #[test]
+    fn permission_denied_metadata_is_not_a_missing_path() {
+        assert!(matches!(
+            kind_of(
+                Path::new("project/.maestro"),
+                Err(io::Error::from(io::ErrorKind::PermissionDenied))
+            ),
+            Err(reason) if reason.contains("cannot be read")
+        ));
     }
 }

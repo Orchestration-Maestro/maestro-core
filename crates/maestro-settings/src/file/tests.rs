@@ -3,20 +3,45 @@
 use super::unix::Directory;
 use rustix::fs::{Mode, mkfifoat};
 use std::{
-    error::Error, ffi::OsStr, fs, io, os::unix::fs::symlink, path::Path, process::Command,
-    sync::mpsc, thread, time::Duration,
+    error::Error,
+    ffi::OsStr,
+    fs, io,
+    os::unix::fs::symlink,
+    path::{Path, PathBuf},
+    process::Command,
+    sync::mpsc,
+    thread,
+    time::Duration,
 };
+
+/// A scratch directory removed with its contents when the test ends.
+struct Scratch(PathBuf);
+
+impl Scratch {
+    fn new() -> Result<Self, Box<dyn Error>> {
+        Ok(Self(maestro_test_scratch::scratch_directory()?))
+    }
+}
+
+impl Drop for Scratch {
+    fn drop(&mut self) {
+        if fs::remove_dir_all(&self.0).is_err() {
+            drop(fs::remove_file(&self.0));
+        }
+    }
+}
 
 /// Opens a user directory with no child path.
 fn open_directory(root: &Path) -> io::Result<Directory> {
-    Directory::open(root, None, false)?
+    Directory::open_at(root, None, false)?
         .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "test directory disappeared"))
 }
 
 #[test]
 fn private_file_descriptors_are_not_inherited_by_child_processes() -> Result<(), Box<dyn Error>> {
-    let root = maestro_test_scratch::scratch_directory()?;
-    let directory = open_directory(&root)?;
+    let scratch = Scratch::new()?;
+    let root = &scratch.0;
+    let directory = open_directory(root)?;
     let _private = directory.create_private(OsStr::new("private"))?;
     let child = Command::new("sh")
         .args([
@@ -35,19 +60,20 @@ fn private_file_descriptors_are_not_inherited_by_child_processes() -> Result<(),
 
 #[test]
 fn opening_a_non_directory_root_is_refused() -> Result<(), Box<dyn Error>> {
-    let root = maestro_test_scratch::scratch_directory()?;
-    fs::remove_dir_all(&root)?;
-    fs::write(&root, "not a directory")?;
-    assert!(Directory::open(&root, None, false).is_err());
+    let scratch = Scratch::new()?;
+    fs::remove_dir_all(&scratch.0)?;
+    fs::write(&scratch.0, "not a directory")?;
+    assert!(Directory::open_at(&scratch.0, None, false).is_err());
     Ok(())
 }
 
 #[test]
 fn opening_a_fifo_is_nonblocking_and_private_creation_is_exclusive() -> Result<(), Box<dyn Error>> {
-    let root = maestro_test_scratch::scratch_directory()?;
-    let root_file = fs::File::open(&root)?;
+    let scratch = Scratch::new()?;
+    let root = &scratch.0;
+    let root_file = fs::File::open(root)?;
     mkfifoat(&root_file, "pipe", Mode::RWXU)?;
-    let directory = open_directory(&root)?;
+    let directory = open_directory(root)?;
     let (finished, result) = mpsc::channel();
     thread::spawn(move || {
         drop(finished.send(directory.open_regular(OsStr::new("pipe"))));
@@ -57,7 +83,7 @@ fn opening_a_fifo_is_nonblocking_and_private_creation_is_exclusive() -> Result<(
         Ok(Err(_))
     ));
 
-    let directory = open_directory(&root)?;
+    let directory = open_directory(root)?;
     fs::write(root.join("preferences.toml"), "existing")?;
     assert!(matches!(
         directory.create_private(OsStr::new("preferences.toml")),

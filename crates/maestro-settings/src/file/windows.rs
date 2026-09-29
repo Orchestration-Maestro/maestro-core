@@ -7,7 +7,7 @@
 
 use super::{
     place::FilePlace,
-    windows_logic::{already_exists, is_not_found, is_reparse_point},
+    windows_logic::{found, is_reparse_point, tolerate_existing},
 };
 use std::{
     ffi::OsStr,
@@ -20,14 +20,12 @@ use std::{
 /// Why a name is refused: a link where a file or a directory must be.
 pub(super) const LINK: &str = "a link is never followed";
 
-/// `FILE_SHARE_READ`: others may read the file while the handle is open.
-const FILE_SHARE_READ: u32 = 0x0000_0001;
-/// `FILE_SHARE_WRITE`: others may write the file while the handle is open.
-const FILE_SHARE_WRITE: u32 = 0x0000_0002;
-/// `FILE_FLAG_BACKUP_SEMANTICS`: the open may name a directory.
-const FILE_FLAG_BACKUP_SEMANTICS: u32 = 0x0200_0000;
+/// The combined `FILE_SHARE_READ | FILE_SHARE_WRITE` value.
+const FILE_SHARE_READ_WRITE: u32 = 0x0000_0003;
 /// `FILE_FLAG_OPEN_REPARSE_POINT`: a reparse point is opened itself.
 const FILE_FLAG_OPEN_REPARSE_POINT: u32 = 0x0020_0000;
+/// The combined `FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT` value.
+const FILE_FLAG_DIRECTORY_REPARSE: u32 = 0x0220_0000;
 /// `FILE_ATTRIBUTE_REPARSE_POINT`: the handle names a link or junction.
 const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x0000_0400;
 
@@ -49,13 +47,8 @@ impl Directory {
             create_directories(place)?;
         }
         let path = place.directory();
-        let held = match hold(
-            &path,
-            FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
-        ) {
-            Ok(held) => held,
-            Err(error) if is_not_found(&error) => return Ok(None),
-            Err(error) => return Err(error),
+        let Some(held) = found(hold(&path, FILE_FLAG_DIRECTORY_REPARSE))? else {
+            return Ok(None);
         };
         unlinked(&held)?;
         if !held.metadata()?.is_dir() {
@@ -67,10 +60,8 @@ impl Directory {
     /// The regular file `name`, opened for reading without following a
     /// link; `None` when it does not exist.
     pub(super) fn open_regular(&self, name: &OsStr) -> io::Result<Option<File>> {
-        let file = match hold(&self.path.join(name), FILE_FLAG_OPEN_REPARSE_POINT) {
-            Ok(file) => file,
-            Err(error) if is_not_found(&error) => return Ok(None),
-            Err(error) => return Err(error),
+        let Some(file) = found(hold(&self.path.join(name), FILE_FLAG_OPEN_REPARSE_POINT))? else {
+            return Ok(None);
         };
         unlinked(&file)?;
         regular(&file)?;
@@ -120,10 +111,7 @@ fn create_directories(place: &FilePlace) -> io::Result<()> {
     let Some(below) = place.below() else {
         return Ok(());
     };
-    match fs::create_dir(place.root().join(below)) {
-        Err(error) if !already_exists(&error) => Err(error),
-        _ => Ok(()),
-    }
+    tolerate_existing(fs::create_dir(place.root().join(below)))
 }
 
 /// Opens `path` for reading with `flags`, sharing reads and writes but
@@ -131,7 +119,7 @@ fn create_directories(place: &FilePlace) -> io::Result<()> {
 fn hold(path: &Path, flags: u32) -> io::Result<File> {
     OpenOptions::new()
         .read(true)
-        .share_mode(FILE_SHARE_READ | FILE_SHARE_WRITE)
+        .share_mode(FILE_SHARE_READ_WRITE)
         .custom_flags(flags)
         .open(path)
 }
