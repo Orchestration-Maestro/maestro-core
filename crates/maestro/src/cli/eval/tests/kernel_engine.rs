@@ -5,21 +5,23 @@
 
 use super::{
     super::{
-        engine::{KernelEngine, expected_failure},
+        engine::{KernelEngine, expected_failure, record_evidence_bytes},
         manifest::AskSettings,
         rank_settings::SourcePriorSetting,
+        reports::PrivateRow,
         rung_prompt::RungPrompt,
         runner::Engine as _,
+        runner::{SearchDiagnostic, run_ladder},
         stages::{StageFailure, ask_failure, evidence_failure, search_failure},
     },
-    support::{rung, suite},
+    support::{FakeEngine, rung, suite},
 };
 use crate::{
     failure::Failure,
     knowledge::operations::{ask::tests::register_card, tests::Scratch},
 };
-use maestro_kernel::artifact::Digest;
 use maestro_kernel::evidence::RequestBudget;
+use maestro_kernel::{artifact::Digest, evidence::Bundle};
 use maestro_kernel::{
     gateway::{Error as GatewayError, Role, RouterClient, Url},
     retrieval,
@@ -179,6 +181,46 @@ fn ask_rungs_keep_their_resolved_budget_and_evidence_settings() {
     assert_eq!(
         search.evidence.evidence_counter,
         CounterMode::Utf8AnswerBound
+    );
+}
+
+#[test]
+fn real_ladder_row_evidence_bytes_equal_the_assembled_bundle_budget() {
+    let bundle: Bundle = serde_json::from_str(
+        r#"{
+            "schema": "maestro-evidence/1",
+            "collection": "collection",
+            "generation": 1,
+            "query": "question",
+            "lang": "en",
+            "routes": {},
+            "passages": [],
+            "conflicts": [],
+            "known_gaps": [],
+            "budget": {"evidence_bytes": 42, "limit": 100},
+            "trace": []
+        }"#,
+    )
+    .unwrap();
+    let suite = suite(0, 1);
+    let mut diagnostic = SearchDiagnostic::default();
+    record_evidence_bytes(&mut diagnostic, &bundle);
+    let mut engine = FakeEngine {
+        evidence_bytes: diagnostic.evidence_bytes,
+        ..FakeEngine::default()
+    };
+    let run = run_ladder(&mut engine, &suite, 0, &[rung("r0")], |_| Ok(())).unwrap();
+    let private_row = PrivateRow::new(
+        &run[0].rows[0],
+        &run[0].diagnostics[0],
+        &run[0].rejections[0],
+        run[0].reply_caps[0],
+        false,
+    );
+
+    assert_eq!(
+        serde_json::to_value(private_row).unwrap()["evidence_bytes"],
+        bundle.budget.evidence_bytes
     );
 }
 

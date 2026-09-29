@@ -2,7 +2,10 @@
 
 use super::super::{stopped_clock::on_stopped_clock, support::projection};
 use super::{
-    backends::fake, fused_search::searchable_scheduler_kernel, kernel::Kernel, models,
+    backends::fake,
+    fused_search::{accept_all_revisions, searchable_scheduler_kernel},
+    kernel::Kernel,
+    models,
     support::cleanup,
 };
 use maestro_kernel::evidence::RequestBudget;
@@ -256,7 +259,7 @@ async fn configured_route_and_fusion_caps_bound_candidate_counts() {
             lexical_enabled: true,
             identifier_enabled: false,
             structured_enabled: false,
-            routes_limit: 2,
+            routes_limit: 100,
             fusion_pool: 2,
             rerank_depth: NonZeroUsize::new(2).unwrap(),
             rerank_enabled: false,
@@ -265,8 +268,102 @@ async fn configured_route_and_fusion_caps_bound_candidate_counts() {
     )
     .await;
 
-    assert_eq!(result.observations.route_ranks[&Route::Lexical].len(), 2);
     assert_eq!(result.ranked.len(), 2);
+    clean(&fixture).await;
+}
+
+#[tokio::test]
+async fn configured_route_limit_bounds_original_route_candidates() {
+    let fixture = published().await;
+    let baseline = run(
+        &fixture,
+        "scheduler job",
+        SearchConfiguration {
+            dense_enabled: false,
+            lexical_enabled: true,
+            identifier_enabled: false,
+            structured_enabled: false,
+            rerank_enabled: false,
+            ..SearchConfiguration::default()
+        },
+    )
+    .await;
+    assert!(baseline.observations.route_ranks[&Route::Lexical].len() > 2);
+    let limited = run(
+        &fixture,
+        "scheduler job",
+        SearchConfiguration {
+            dense_enabled: false,
+            lexical_enabled: true,
+            identifier_enabled: false,
+            structured_enabled: false,
+            routes_limit: 2,
+            fusion_pool: 100,
+            rerank_enabled: false,
+            ..SearchConfiguration::default()
+        },
+    )
+    .await;
+
+    assert_eq!(limited.observations.route_ranks[&Route::Lexical].len(), 2);
+    clean(&fixture).await;
+}
+
+#[tokio::test]
+async fn configured_identifier_limit_bounds_the_original_route_candidates() {
+    let backend = fake();
+    let kernel = Kernel::with_changed_guides(1, &|kernel, guide, mut chunks| {
+        if guide != 0 {
+            return chunks;
+        }
+        chunks[0].digest = kernel.put(b"The command repairs the local cache at ERR-042.");
+        for index in 1..3 {
+            let mut chunk = chunks[0].clone();
+            chunk.id = format!("chunk-0-identifier-{index}");
+            chunks.push(chunk);
+        }
+        chunks
+    });
+    accept_all_revisions(&kernel);
+    let embedder_card = models::embedder(3);
+    let port = models::Embedder::default();
+    let qdrant = backend.client();
+    let report = projection(&kernel, &qdrant, &port, &embedder_card)
+        .publish(&kernel.chunk_set)
+        .await
+        .unwrap();
+    let fixture = Published {
+        backend,
+        kernel,
+        qdrant,
+        embedder_card,
+        port,
+        generation: report.generation,
+    };
+    let query = "ERR-042";
+    let uncapped = run(
+        &fixture,
+        query,
+        SearchConfiguration {
+            identifier_enabled: true,
+            ..off()
+        },
+    )
+    .await;
+    assert!(uncapped.observations.route_ranks[&Route::Identifier].len() > 2);
+    let capped = run(
+        &fixture,
+        query,
+        SearchConfiguration {
+            identifier_enabled: true,
+            routes_limit: 100,
+            identifier_limit: 2,
+            ..off()
+        },
+    )
+    .await;
+
+    assert_eq!(capped.observations.route_ranks[&Route::Identifier].len(), 2);
     clean(&fixture).await;
 }
 

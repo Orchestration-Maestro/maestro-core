@@ -51,6 +51,32 @@ async fn intent_votes_never_push_an_original_candidate_out_of_the_rerank() {
 }
 
 #[tokio::test]
+async fn intent_candidates_stay_within_the_configured_fusion_pool() {
+    let fixture = published().await;
+    let port = IntentPort::new(
+        &fixture.port,
+        Some(r#"{"passage":"scheduler job definition","keywords":"scheduler"}"#),
+    );
+    let result = run_configured(
+        &fixture,
+        &port,
+        "scheduler job",
+        SearchConfiguration {
+            intent_expansion: IntentExpansion::Hyde,
+            rerank_depth: NonZeroUsize::new(1).unwrap(),
+            intent_rerank_additions: 0,
+            fusion_pool: 2,
+            ..SearchConfiguration::default()
+        },
+    )
+    .await;
+
+    assert!(result.observations.route_ranks[&Route::DenseIntent].len() > 2);
+    assert_eq!(result.ranked.len(), 2);
+    clean(&fixture).await;
+}
+
+#[tokio::test]
 async fn low_confidence_scores_only_the_candidates_the_expansion_lifted() {
     let fixture = published().await;
     let port = IntentPort::new(&fixture.port, Some(FILLER));

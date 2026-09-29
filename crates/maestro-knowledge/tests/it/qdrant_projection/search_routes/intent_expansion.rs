@@ -60,6 +60,49 @@ async fn off_never_calls_chat_and_hyde_adds_routes_without_replacing_originals()
 }
 
 #[tokio::test]
+async fn intent_route_candidates_obey_the_configured_route_limit() {
+    let fixture = published().await;
+    let port = IntentPort::new(
+        &fixture.port,
+        Some(r#"{"passage":"scheduler job definition","keywords":"scheduler"}"#),
+    );
+    let baseline = run_configured(
+        &fixture,
+        &port,
+        "scheduler job",
+        SearchConfiguration {
+            intent_expansion: IntentExpansion::Hyde,
+            rerank_enabled: false,
+            ..SearchConfiguration::default()
+        },
+    )
+    .await;
+    let baseline_count = baseline.observations.route_ranks[&Route::DenseIntent].len();
+    assert!(
+        baseline_count > 2,
+        "fixture must exceed the configured limit"
+    );
+    let limited = run_configured(
+        &fixture,
+        &port,
+        "scheduler job",
+        SearchConfiguration {
+            intent_expansion: IntentExpansion::Hyde,
+            routes_limit: 2,
+            rerank_enabled: false,
+            ..SearchConfiguration::default()
+        },
+    )
+    .await;
+
+    assert_eq!(
+        limited.observations.route_ranks[&Route::DenseIntent].len(),
+        2
+    );
+    clean(&fixture).await;
+}
+
+#[tokio::test]
 async fn failed_unsafe_and_timed_out_expansion_keep_original_results() {
     let fixture = published().await;
     let mut port = IntentPort::new(&fixture.port, None);

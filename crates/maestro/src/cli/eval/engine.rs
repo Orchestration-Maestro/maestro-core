@@ -23,6 +23,7 @@ use crate::{
 };
 use maestro_kernel::{
     artifact::Digest,
+    evidence::Bundle,
     gateway::{ModelCard, RouterClient, reply_cap},
     generation::Generation,
 };
@@ -87,6 +88,11 @@ struct Cards {
     prompt: Option<String>,
     /// The digest of the source-class table its source prior reads.
     source_classes: Option<String>,
+}
+
+/// Records the exact count already applied to the assembled bundle.
+pub(super) fn record_evidence_bytes(diagnostic: &mut SearchDiagnostic, bundle: &Bundle) {
+    diagnostic.evidence_bytes = Some(bundle.budget.evidence_bytes);
 }
 
 impl<'kernel> KernelEngine<'kernel> {
@@ -351,7 +357,7 @@ impl Engine for KernelEngine<'_> {
             .await
             .map_err(|error| evidence_failure(&error))?;
             delivered = bundle.passages.iter().map(Anchor::from).collect();
-            diagnostic.evidence_bytes = Some(bundle.budget.evidence_bytes);
+            record_evidence_bytes(&mut diagnostic, &bundle);
             diagnostic.intent_status = bundle.routes.get("intent_expansion").cloned();
             diagnostic.bundle_documents = bundle_documents(&bundle, &order);
             match stage_failure(&configuration, &bundle.routes) {

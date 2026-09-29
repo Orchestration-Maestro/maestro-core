@@ -146,6 +146,8 @@ pub(super) struct FakeEngine {
     pub(super) unreadable_after: Option<usize>,
     /// How many of the last questions' expected sections are missing.
     pub(super) expectations_missing: usize,
+    /// The evidence byte count returned by each search, when set.
+    pub(super) evidence_bytes: Option<u32>,
 }
 
 impl FakeEngine {
@@ -177,6 +179,7 @@ fn diagnostic(rung: &Rung, bundle_documents: Vec<String>) -> SearchDiagnostic {
         intent_status: None,
         intent_displaced: None,
         bundle_documents,
+        evidence_bytes: None,
         top_rerank_score: rung.configuration.rerank.as_ref().map(|_| 0.75),
         top_fused_score: Some(0.05),
         ..SearchDiagnostic::default()
@@ -282,13 +285,19 @@ impl Engine for FakeEngine {
             return Searched {
                 outcome: SearchOutcome::Ranked(ranked),
                 delivered: Vec::new(),
-                diagnostic: diagnostic(rung, others[..3].to_vec()),
+                diagnostic: SearchDiagnostic {
+                    evidence_bytes: self.evidence_bytes,
+                    ..diagnostic(rung, others[..3].to_vec())
+                },
             };
         }
         Searched {
             outcome: SearchOutcome::Ranked(vec![right.clone()]),
             delivered: vec![anchor("doc-other", "section-other")],
-            diagnostic: diagnostic(rung, vec![right]),
+            diagnostic: SearchDiagnostic {
+                evidence_bytes: self.evidence_bytes,
+                ..diagnostic(rung, vec![right])
+            },
         }
     }
 
