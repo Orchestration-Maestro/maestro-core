@@ -115,13 +115,14 @@ pub(super) fn prompt(
     ])
 }
 
-/// Builds a chat request whose template controls exactly match the registered card.
+/// Builds a chat request capped to `reply_cap` tokens, whose template
+/// controls exactly match the registered card.
 pub(super) fn chat_request(
-    request: &AskRequest,
     answerer: &RegisteredAnswerer,
     messages: Vec<Message>,
+    reply_cap: u32,
 ) -> ChatRequest {
-    let mut chat = ChatRequest::new(messages, request.budget.output_tokens);
+    let mut chat = ChatRequest::new(messages, reply_cap);
     if let Some(identity) = answerer.card.identity()
         && let Capability::Supported(controls) = &identity.invocation.reasoning
     {

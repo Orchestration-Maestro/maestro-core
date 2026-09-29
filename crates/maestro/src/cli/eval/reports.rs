@@ -15,7 +15,13 @@ use maestro_knowledge::{
     search::evidence::Anchor,
 };
 use serde::Serialize;
-use std::{collections::BTreeMap, fmt::Write as _, fs, path::Path, time::Duration};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fmt::Write as _,
+    fs,
+    path::Path,
+    time::Duration,
+};
 
 /// The contract of a rung's public report.
 const RUNG_SCHEMA: &str = "maestro-eval-ladder-rung/2";
@@ -84,6 +90,8 @@ pub(super) struct RungReport<'run> {
     delivery: &'run DeliveryScore,
     /// How many attempts each answer check refused, over every row.
     rejected_checks: BTreeMap<&'static str, usize>,
+    /// The reply caps its asks' chat calls ran with, over every row.
+    reply_caps: BTreeSet<u32>,
 }
 
 impl<'run> RungReport<'run> {
@@ -118,6 +126,7 @@ impl<'run> RungReport<'run> {
                     counts
                 },
             ),
+            reply_caps: run.reply_caps.iter().flatten().copied().collect(),
         }
     }
 
@@ -153,6 +162,7 @@ impl<'run> RungReport<'run> {
         );
         if let Some(settings) = &self.ask_settings {
             let _ = writeln!(text, "- Ask settings: {}", settings.describe());
+            let _ = writeln!(text, "- Reply cap: {}", reply_caps(&self.reply_caps));
         }
         let _ = writeln!(text, "- Scored bundle: {}", self.scored_bundle());
         text.push_str(&self.delivery.to_markdown());
@@ -208,8 +218,9 @@ pub(super) struct AskReport {
     k: u32,
     /// The evidence budget, in UTF-8 bytes.
     max_tokens: u32,
-    /// The most tokens each answerer reply generates.
-    output_tokens: u32,
+    /// The most tokens each answerer reply generates, absent when its card
+    /// sets them.
+    output_tokens: Option<u32>,
     /// The answer prompt: its version, or `file`.
     prompt: &'static str,
     /// Resolved packing settings.
@@ -235,10 +246,14 @@ impl AskReport {
     /// The settings in words: the most passages, evidence bytes, output
     /// tokens, the prompt and the search deadline.
     pub(super) fn describe(&self) -> String {
+        let output_tokens = self.output_tokens.map_or_else(
+            || "the answerer card's output tokens".to_owned(),
+            |tokens| format!("{tokens} output tokens"),
+        );
         format!(
-            "at most {} passages, {} evidence bytes, {} output tokens, prompt {}, search \
-             deadline {} ms",
-            self.k, self.max_tokens, self.output_tokens, self.prompt, self.search_deadline_ms
+            "at most {} passages, {} evidence bytes, {output_tokens}, prompt {}, search deadline \
+             {} ms",
+            self.k, self.max_tokens, self.prompt, self.search_deadline_ms
         )
     }
 }
@@ -286,6 +301,10 @@ pub(super) struct PrivateRow<'run> {
     citations: Vec<Citation<'run>>,
     /// The attempts the answer check refused before `ask` ended.
     rejections: &'run [RejectedCheck],
+    /// The most tokens each of its `ask`'s chat replies could generate,
+    /// absent when the rung does not ask or its `ask` never reached the
+    /// answerer.
+    reply_cap: Option<u32>,
 }
 
 /// A section an answer cites.
@@ -305,11 +324,13 @@ struct Citation<'run> {
 
 impl<'run> PrivateRow<'run> {
     /// The private row of `row`, whose search gave `diagnostic` and whose
-    /// `ask` ran when `asked`, after the answer check refused `rejections`.
+    /// `ask` ran when `asked`, under `reply_cap`, after the answer check
+    /// refused `rejections`.
     pub(super) fn new(
         row: &'run LadderQuestion,
         diagnostic: &'run SearchDiagnostic,
         rejections: &'run [RejectedCheck],
+        reply_cap: Option<u32>,
         asked: bool,
     ) -> Self {
         let bundle_documents = diagnostic.bundle_documents.as_slice();
@@ -357,6 +378,7 @@ impl<'run> PrivateRow<'run> {
             refusal: refusal.filter(|_| asked),
             citations,
             rejections,
+            reply_cap: reply_cap.filter(|_| asked),
         }
     }
 }
@@ -374,12 +396,17 @@ pub(super) fn write_rung(
     let private = output.join(PRIVATE);
     fs::create_dir_all(&private).map_err(|error| Failure::failed_by(&error))?;
     let mut rows = String::new();
-    for ((row, diagnostic), rejections) in
-        run.rows.iter().zip(&run.diagnostics).zip(&run.rejections)
+    let asked = run.rung.ask.is_some();
+    for (((row, diagnostic), rejections), reply_cap) in run
+        .rows
+        .iter()
+        .zip(&run.diagnostics)
+        .zip(&run.rejections)
+        .zip(&run.reply_caps)
     {
-        let asked = run.rung.ask.is_some();
-        let line = serde_json::to_string(&PrivateRow::new(row, diagnostic, rejections, asked))
-            .map_err(|error| Failure::failed_by(&error))?;
+        let private_row = PrivateRow::new(row, diagnostic, rejections, *reply_cap, asked);
+        let line =
+            serde_json::to_string(&private_row).map_err(|error| Failure::failed_by(&error))?;
         rows.push_str(&line);
         rows.push('\n');
     }
@@ -406,6 +433,16 @@ fn rejected_counts(counts: &BTreeMap<&'static str, usize>) -> String {
         .map(|(check, count)| format!("{check} {count}"))
         .collect::<Vec<_>>()
         .join(", ")
+}
+
+/// `caps` in words: each reply cap in output tokens, or "none" when no ask
+/// reached the answerer.
+fn reply_caps(caps: &BTreeSet<u32>) -> String {
+    if caps.is_empty() {
+        return "none".to_owned();
+    }
+    let caps: Vec<String> = caps.iter().map(u32::to_string).collect();
+    format!("{} output tokens", caps.join(", "))
 }
 
 /// The first of `documents`, from 1, that `row` expects.

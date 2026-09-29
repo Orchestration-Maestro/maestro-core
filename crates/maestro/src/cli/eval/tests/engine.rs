@@ -168,6 +168,7 @@ fn answer(citations: &[(&str, &str)], refusal: Option<RefusalCode>) -> Answer {
         rejections: Vec::new(),
         routes: BTreeMap::new(),
         delivered: Vec::new(),
+        reply_cap: None,
     }
 }
 

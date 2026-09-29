@@ -57,7 +57,10 @@ async fn request_bounds_accept_their_limits_and_refuse_one_past_them() {
             |request| request.budget.search_deadline_ms = 0,
             Some(budget),
         ),
-        (|request| request.budget.output_tokens = 0, Some(budget)),
+        (
+            |request| request.budget.output_tokens = Some(0),
+            Some(budget),
+        ),
         (
             |request| request.collection = " ".to_owned(),
             Some("invalid ask request: collection must not be blank"),
@@ -75,8 +78,8 @@ async fn request_bounds_accept_their_limits_and_refuse_one_past_them() {
 }
 
 #[test]
-fn an_ask_budget_defaults_to_the_chat_output_maximum_so_a_think_block_fits() {
-    assert_eq!(AskBudget::default().output_tokens, MAX_CHAT_OUTPUT_TOKENS);
+fn an_ask_budget_leaves_the_reply_cap_to_the_answerer_card() {
+    assert_eq!(AskBudget::default().output_tokens, None);
 }
 
 #[test]
@@ -85,13 +88,13 @@ fn an_ask_budget_is_within_limits_up_to_each_bound_and_not_past_it() {
         k: 50,
         max_tokens: 12_000,
         search_deadline_ms: 30_000,
-        output_tokens: 1024,
+        output_tokens: Some(MAX_CHAT_OUTPUT_TOKENS),
     };
     let past: [fn(&mut AskBudget); 4] = [
         |budget| budget.k = 51,
         |budget| budget.max_tokens = 12_001,
         |budget| budget.search_deadline_ms = 30_001,
-        |budget| budget.output_tokens = 1025,
+        |budget| budget.output_tokens = Some(MAX_CHAT_OUTPUT_TOKENS + 1),
     ];
 
     assert!(AskBudget::default().is_within_limits());
@@ -109,7 +112,7 @@ async fn answerer_outcome(model: &str, output_tokens: u32, limit: u32) -> Result
     let answerer = scratch.answerer_with_output_limit(limit);
     let mut request = request("How does the service work?");
     request.model = model.to_owned();
-    request.budget.output_tokens = output_tokens;
+    request.budget.output_tokens = Some(output_tokens);
     let port = ScriptedPort::new(&["The service uses verified instructions. [1]"]);
     let evidence = bundle(
         &request.question,
@@ -226,7 +229,7 @@ fn the_search_budget_copies_the_ask_budget() {
         k: 7,
         max_tokens: 900,
         search_deadline_ms: 1234,
-        output_tokens: 5,
+        output_tokens: Some(5),
     };
     assert_eq!(
         RequestBudget::from(budget),

@@ -57,6 +57,23 @@ mod tests {
     }
 
     #[test]
+    fn an_ask_leaves_its_output_tokens_to_the_answerer_card_unless_it_sets_them() {
+        let ask = |budget| {
+            parse(json!({
+                "collection": "docs",
+                "question": "How is the service configured?",
+                "budget": budget
+            }))
+            .expect("valid bounded ask")
+            .budget
+            .output_tokens
+        };
+        assert_eq!(ask(json!({})), None);
+        assert_eq!(ask(json!({"output_tokens": null})), None);
+        assert_eq!(ask(json!({"output_tokens": 2048})), Some(2048));
+    }
+
+    #[test]
     fn i3_ask_tool_does_not_accept_a_language_parameter() {
         assert!(
             parse(json!({

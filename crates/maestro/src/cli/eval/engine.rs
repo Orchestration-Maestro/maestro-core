@@ -235,7 +235,10 @@ fn check_output_limit(rung: &Rung, answerer: Option<&RegisteredAnswerer>) -> Res
         return Ok(());
     };
     let limit = answerer.card.fields().limits.output_tokens;
-    if limit.is_some_and(|limit| settings.budget().output_tokens > limit.get()) {
+    if limit
+        .zip(settings.budget().output_tokens)
+        .is_some_and(|(limit, requested)| requested > limit.get())
+    {
         return Err(Failure::refused(format!(
             "the rung `{}` asks for more output tokens than its answerer card allows",
             rung.name
@@ -332,6 +335,7 @@ impl Engine for KernelEngine<'_> {
             outcome: AskOutcome::Failed,
             delivered: Vec::new(),
             rejections: Vec::new(),
+            reply_cap: None,
         };
         let (Some(search), Some(held), Some(settings)) =
             (self.search_context(), &self.held, &rung.ask)
@@ -365,6 +369,7 @@ impl Engine for KernelEngine<'_> {
                     &configuration,
                 ),
                 rejections: rejected_checks(&answer),
+                reply_cap: answer.reply_cap,
                 delivered: answer.delivered,
             },
             Err(error) => Asked {
@@ -374,6 +379,7 @@ impl Engine for KernelEngine<'_> {
                 },
                 delivered: Vec::new(),
                 rejections: Vec::new(),
+                reply_cap: None,
             },
         }
     }

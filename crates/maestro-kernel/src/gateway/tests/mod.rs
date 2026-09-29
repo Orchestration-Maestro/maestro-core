@@ -8,6 +8,7 @@ mod fake;
 mod fixture;
 mod formatting;
 mod port;
+mod reply_cap;
 mod router;
 mod safety;
 mod stub;

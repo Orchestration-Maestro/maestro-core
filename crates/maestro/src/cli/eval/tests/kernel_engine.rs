@@ -109,7 +109,7 @@ fn a_search_and_an_ask_carry_the_rungs_configuration_budget_and_prompt() {
             budget: AskBudget {
                 k: 8,
                 max_tokens: 9000,
-                output_tokens: 900,
+                output_tokens: Some(900),
                 ..AskBudget::default()
             },
         }

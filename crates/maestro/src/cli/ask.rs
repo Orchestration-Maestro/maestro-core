@@ -26,7 +26,10 @@ pub(super) fn run(
         return operation_refusal(output, error);
     }
     if explain {
-        eprint!("{}", explanation(&scoped.data.rejections));
+        eprint!(
+            "{}",
+            explanation(scoped.data.reply_cap, &scoped.data.rejections)
+        );
     }
     let text = answer_text(&scoped.data)?;
     output.result(&scoped.data, &text)?;
@@ -86,14 +89,18 @@ fn answer_text(answer: &Answer) -> Result<String, Failure> {
     Ok(refusal.message.clone())
 }
 
-/// One line per rejected attempt: its failed check and offending tokens.
-fn explanation(rejections: &[Rejection]) -> String {
+/// The reply cap the chat calls ran with, when any ran, then one line per
+/// rejected attempt: its failed check and offending tokens.
+fn explanation(reply_cap: Option<u32>, rejections: &[Rejection]) -> String {
     use std::fmt::Write as _;
 
+    let mut text = reply_cap
+        .map(|tokens| format!("explain: reply cap {tokens} tokens\n"))
+        .unwrap_or_default();
     if rejections.is_empty() {
-        return "explain: no attempt was rejected\n".to_owned();
+        text.push_str("explain: no attempt was rejected\n");
+        return text;
     }
-    let mut text = String::new();
     for rejection in rejections {
         let tokens: Vec<String> = rejection
             .tokens
@@ -148,6 +155,7 @@ mod tests {
             rejections: Vec::new(),
             routes: BTreeMap::new(),
             delivered: Vec::new(),
+            reply_cap: None,
         };
         assert_eq!(
             answer_text(&answer).ok().as_deref(),
@@ -164,21 +172,28 @@ mod tests {
     }
 
     #[test]
-    fn explanation_names_each_rejected_attempt_check_and_tokens() {
-        assert_eq!(explanation(&[]), "explain: no attempt was rejected\n");
+    fn explanation_names_the_reply_cap_then_each_rejected_attempt_check_and_tokens() {
+        assert_eq!(explanation(None, &[]), "explain: no attempt was rejected\n");
         assert_eq!(
-            explanation(&[
-                Rejection {
-                    attempt: 1,
-                    check: "unsupported_literal",
-                    tokens: vec!["-FORCEALL".to_owned(), "EM_HOME".to_owned()],
-                },
-                Rejection {
-                    attempt: 2,
-                    check: "too_short",
-                    tokens: Vec::new(),
-                },
-            ]),
+            explanation(Some(2048), &[]),
+            "explain: reply cap 2048 tokens\nexplain: no attempt was rejected\n"
+        );
+        assert_eq!(
+            explanation(
+                None,
+                &[
+                    Rejection {
+                        attempt: 1,
+                        check: "unsupported_literal",
+                        tokens: vec!["-FORCEALL".to_owned(), "EM_HOME".to_owned()],
+                    },
+                    Rejection {
+                        attempt: 2,
+                        check: "too_short",
+                        tokens: Vec::new(),
+                    },
+                ]
+            ),
             "explain: attempt 1 failed unsupported_literal: \"-FORCEALL\" \"EM_HOME\"\n\
              explain: attempt 2 failed too_short: \n"
         );

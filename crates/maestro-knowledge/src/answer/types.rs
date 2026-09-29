@@ -18,10 +18,6 @@ pub const DEFAULT_MODEL: &str = "qwen3-4b";
 /// included. A safety cap: a cold answerer loaded and thought through 1024
 /// tokens in 6.5 s, and a load alone took up to 5.3 s on a busy machine.
 pub const CHAT_DEADLINE: Duration = Duration::from_secs(20);
-/// System-enforced output ceiling for one generation attempt: the chat
-/// maximum, so a thinking answerer's think block fits before its answer. It
-/// is only a cap; an answerer that does not think stops well before it.
-pub(super) const DEFAULT_OUTPUT_TOKENS: u32 = MAX_CHAT_OUTPUT_TOKENS;
 /// Number of closest passages retained in a refusal.
 pub(super) const CLOSEST_LIMIT: usize = 3;
 /// Result schema identifier.
@@ -63,8 +59,10 @@ pub struct AskBudget {
     /// reranker (each load measured 2.4-5.3 s on a busy machine) and still
     /// runs dense and rerank.
     pub search_deadline_ms: u32,
-    /// Maximum generated tokens per chat call.
-    pub output_tokens: u32,
+    /// Maximum generated tokens per chat call; absent, the answerer card's
+    /// declared output limit, or 1,024 when it declares none. Every call is
+    /// capped at 2,048.
+    pub output_tokens: Option<u32>,
 }
 
 impl Default for AskBudget {
@@ -73,7 +71,7 @@ impl Default for AskBudget {
             k: 5,
             max_tokens: 6000,
             search_deadline_ms: RequestBudget::MAX_DEADLINE_MS,
-            output_tokens: DEFAULT_OUTPUT_TOKENS,
+            output_tokens: None,
         }
     }
 }
@@ -92,14 +90,16 @@ impl From<AskBudget> for RequestBudget {
 
 impl AskBudget {
     /// Whether every bound is within what `ask` accepts: 1 to 50 passages,
-    /// 1 to 12,000 evidence bytes, 1 to 30,000 ms of search and 1 to
-    /// [`MAX_CHAT_OUTPUT_TOKENS`] output tokens.
+    /// 1 to 12,000 evidence bytes, 1 to 30,000 ms of search and, when set,
+    /// 1 to [`MAX_CHAT_OUTPUT_TOKENS`] output tokens.
     #[must_use]
     pub fn is_within_limits(&self) -> bool {
         (1..=50).contains(&self.k)
             && (1..=12_000).contains(&self.max_tokens)
             && (1..=RequestBudget::MAX_DEADLINE_MS).contains(&self.search_deadline_ms)
-            && (1..=MAX_CHAT_OUTPUT_TOKENS).contains(&self.output_tokens)
+            && self
+                .output_tokens
+                .is_none_or(|tokens| (1..=MAX_CHAT_OUTPUT_TOKENS).contains(&tokens))
     }
 }
 
@@ -317,6 +317,10 @@ pub struct Answer {
     /// evaluation only: never serialized.
     #[serde(skip)]
     pub delivered: Vec<Anchor>,
+    /// The most tokens each chat reply could generate, absent when the ask
+    /// never reached the answerer, for evaluation only: never serialized.
+    #[serde(skip)]
+    pub reply_cap: Option<u32>,
 }
 
 /// One answerer reply the host checks rejected.

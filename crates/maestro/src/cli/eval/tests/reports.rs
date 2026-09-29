@@ -54,12 +54,14 @@ fn a_private_row_holds_ids_ranks_citations_refusals_and_timings() {
         &row,
         &runs[0].diagnostics[0],
         &runs[0].rejections[0],
+        runs[0].reply_caps[0],
         true,
     ));
     let refused = to_json(&PrivateRow::new(
         &runs[0].rows[2],
         &runs[0].diagnostics[2],
         &runs[0].rejections[2],
+        runs[0].reply_caps[2],
         true,
     ));
 
@@ -85,6 +87,7 @@ fn a_private_row_holds_ids_ranks_citations_refusals_and_timings() {
             "ranked_documents",
             "refusal",
             "rejections",
+            "reply_cap",
             "search",
             "search_us",
             "top_fused_score",
@@ -115,18 +118,20 @@ fn a_private_row_holds_ids_ranks_citations_refusals_and_timings() {
 }
 
 #[test]
-fn a_private_row_carries_the_checks_the_answer_check_refused_without_tokens() {
+fn a_private_row_carries_its_reply_cap_and_the_checks_refused_without_tokens() {
     let runs = runs();
     let answered = to_json(&PrivateRow::new(
         &runs[0].rows[0],
         &runs[0].diagnostics[0],
         &runs[0].rejections[0],
+        runs[0].reply_caps[0],
         true,
     ));
     let refused = to_json(&PrivateRow::new(
         &runs[0].rows[2],
         &runs[0].diagnostics[2],
         &runs[0].rejections[2],
+        runs[0].reply_caps[2],
         true,
     ));
 
@@ -135,6 +140,7 @@ fn a_private_row_carries_the_checks_the_answer_check_refused_without_tokens() {
         json!([{"attempt": 1, "check": "unsupported_literal"}])
     );
     assert_eq!(refused["rejections"], json!([]));
+    assert_eq!(answered["reply_cap"], 2048);
 }
 
 #[test]
@@ -144,12 +150,14 @@ fn a_private_row_carries_the_top_rerank_and_fused_scores() {
         &runs[0].rows[0],
         &runs[0].diagnostics[0],
         &runs[0].rejections[0],
+        runs[0].reply_caps[0],
         true,
     ));
     let fused_only = to_json(&PrivateRow::new(
         &runs[1].rows[0],
         &runs[1].diagnostics[0],
         &runs[1].rejections[0],
+        runs[1].reply_caps[0],
         true,
     ));
 
@@ -179,6 +187,7 @@ fn a_row_of_a_rung_that_does_not_ask_holds_no_ask() {
         &row,
         &SearchDiagnostic::default(),
         &[],
+        Some(2048),
         false,
     ));
 
@@ -187,6 +196,7 @@ fn a_row_of_a_rung_that_does_not_ask_holds_no_ask() {
     assert_eq!(unasked["ask"], Value::Null);
     assert_eq!(unasked["ask_us"], Value::Null);
     assert_eq!(unasked["refusal"], Value::Null);
+    assert_eq!(unasked["reply_cap"], Value::Null);
 }
 
 #[test]
@@ -215,7 +225,7 @@ fn a_rung_report_names_its_provenance_and_scores_its_floors() {
             "ask_settings": {
                 "k": 5,
                 "max_tokens": 6000,
-                "output_tokens": 1024,
+                "output_tokens": null,
                 "prompt": "v2",
                 "evidence": {"expansion":"full_section", "evidence_counter":"utf8"},
                 "search_deadline_ms": 30_000
@@ -239,6 +249,7 @@ fn a_rung_report_names_its_provenance_and_scores_its_floors() {
                 "uncredited": 0
             },
             "rejected_checks": {"unsupported_literal": 2},
+            "reply_caps": [2048],
         })
     );
     assert_eq!(score, to_json(&runs[0].score));
@@ -270,6 +281,11 @@ fn a_rung_report_in_markdown_names_its_provenance_then_its_floors() {
     assert!(markdown.contains("- Fully delivered sections: 2/2 ("));
     assert!(markdown.contains("- Required-composition coverage: 0/0\n"));
     assert!(markdown.contains(concat!(
+        "- Ask settings: at most 5 passages, 6000 evidence bytes, the answerer card's output ",
+        "tokens, prompt v2, search deadline 30000 ms\n",
+        "- Reply cap: 2048 output tokens\n"
+    )));
+    assert!(markdown.contains(concat!(
         "- Rejected answer attempts: unsupported_literal 2; the invented-literals floor ",
         "counts delivered answers only\n"
     )));
@@ -289,6 +305,17 @@ fn an_invalid_rung_says_so_in_its_report() {
             .to_markdown()
             .contains("- INVALID: the generation or a card changed while the rung ran, or")
     );
+}
+
+#[test]
+fn a_rung_whose_asks_never_reached_the_answerer_reports_no_reply_cap() {
+    let mut runs = runs();
+    runs[0].reply_caps.fill(None);
+    let suite = suite(2, 1);
+    let report = RungReport::new(&runs[0], "docs", &suite.digest, BINARY);
+
+    assert_eq!(to_json(&report)["reply_caps"], json!([]));
+    assert!(report.to_markdown().contains("- Reply cap: none\n"));
 }
 
 #[test]
@@ -334,6 +361,7 @@ fn a_private_row_gives_its_times_in_microseconds() {
         &row,
         &SearchDiagnostic::default(),
         &[],
+        None,
         true,
     ));
 
@@ -355,6 +383,7 @@ fn a_right_document_ranked_7th_but_not_assembled_is_in_the_top_10() {
         &run.rows[0],
         &run.diagnostics[0],
         &run.rejections[0],
+        run.reply_caps[0],
         true,
     ));
 

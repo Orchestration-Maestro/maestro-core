@@ -378,7 +378,7 @@ async fn citations_are_host_resolved_without_a_language_check() {
     assert_eq!(calls[0].0, *answerer.card.digest());
     assert_eq!(calls[0].1, Room::Free);
     let chat = &calls[0].2;
-    assert_eq!(chat.max_output_tokens, request.budget.output_tokens);
+    assert_eq!(chat.max_output_tokens, 1024);
     assert_eq!(
         chat.chat_template_kwargs,
         BTreeMap::from([("enable_thinking".to_owned(), ControlValue::Boolean(false))])
@@ -470,6 +470,8 @@ mod guardrails;
 mod prompt_text;
 #[path = "tests/prompts.rs"]
 mod prompts;
+#[path = "tests/reply_cap.rs"]
+mod reply_cap;
 #[path = "tests/requests.rs"]
 mod requests;
 #[path = "tests/router_refusal.rs"]

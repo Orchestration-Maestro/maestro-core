@@ -24,6 +24,8 @@ use std::{
 const ROOM_HEADER: &str = "X-Model-Router-Room";
 /// Maximum decoded answer content accepted from the model.
 const MAX_CHAT_CONTENT_BYTES: usize = 32_768;
+// A reply at the chat ceiling fits the content cap at 16 bytes per token.
+const _: () = assert!(super::port::MAX_CHAT_OUTPUT_TOKENS as usize * 16 <= MAX_CHAT_CONTENT_BYTES);
 
 /// A client of the model router. Each call goes to the entry its card names,
 /// after the card is checked against what the model's server reports, and

@@ -82,13 +82,13 @@ fn the_comparison_names_the_provenance_of_every_rung() {
     let answerer = "a".repeat(64);
     assert!(markdown.contains(&format!(
         "- `r0`: generation 0, chunk set chunk-set, embedder card {embedder}, reranker card \
-         {RERANKER}, answerer card {answerer}; ask: at most 5 passages, 6000 evidence bytes, 1024 \
-         output tokens, prompt v2, search deadline 30000 ms\n"
+         {RERANKER}, answerer card {answerer}; ask: at most 5 passages, 6000 evidence bytes, the \
+         answerer card's output tokens, prompt v2, search deadline 30000 ms\n"
     )));
     assert!(markdown.contains(&format!(
         "- `r1`: generation 0, chunk set chunk-set, embedder card {embedder}, reranker card \
-         none, answerer card {answerer}; ask: at most 5 passages, 6000 evidence bytes, 1024 output \
-         tokens, prompt v2, search deadline 30000 ms\n"
+         none, answerer card {answerer}; ask: at most 5 passages, 6000 evidence bytes, the \
+         answerer card's output tokens, prompt v2, search deadline 30000 ms\n"
     )));
 }
 

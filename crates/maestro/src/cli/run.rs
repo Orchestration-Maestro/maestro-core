@@ -114,7 +114,7 @@ fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> 
                         max_tokens: max_tokens.unwrap_or(defaults.max_tokens),
                         search_deadline_ms: search_deadline_ms
                             .unwrap_or(defaults.search_deadline_ms),
-                        output_tokens: output_tokens.unwrap_or(defaults.output_tokens),
+                        output_tokens: *output_tokens,
                     },
                 },
                 *explain,

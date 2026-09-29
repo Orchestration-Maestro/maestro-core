@@ -176,7 +176,7 @@ async fn the_output_budget_reaches_the_chat_request() {
     let scratch = Scratch::new();
     let answerer = scratch.answerer();
     let mut request = request("How do I list the registered sources?");
-    request.budget.output_tokens = 900;
+    request.budget.output_tokens = Some(900);
     let evidence = bundle(
         &request.question,
         "en",

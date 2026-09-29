@@ -19,7 +19,9 @@ use crate::{
 };
 use maestro_kernel::{
     evidence::Bundle,
-    gateway::{Error as GatewayError, Message, ModelPort, Role, Room, RouterEntry, Speaker},
+    gateway::{
+        Error as GatewayError, Message, ModelPort, Role, Room, RouterEntry, Speaker, reply_cap,
+    },
 };
 use std::collections::BTreeMap;
 use tokio::time::timeout;
@@ -185,10 +187,11 @@ pub(super) async fn answer_bundle<P: ModelPort + Sync>(
     };
     check_answerer(request, answerer)?;
 
+    let reply_cap = reply_cap(&answerer.card, request.budget.output_tokens);
     let mut messages = prompt(request, &bundle, answer_prompt)?;
     let mut rejections = Vec::new();
     for attempt in 1..=2 {
-        let chat = chat_request(request, answerer, messages.clone());
+        let chat = chat_request(answerer, messages.clone(), reply_cap);
         let result = timeout(CHAT_DEADLINE, port.chat(&answerer.card, Room::Free, &chat))
             .await
             .map_err(|_| AskError::TimedOut)?;
@@ -196,10 +199,10 @@ pub(super) async fn answer_bundle<P: ModelPort + Sync>(
             Ok(reply) => match validate_reply(&reply, request, &bundle) {
                 Ok(Reply::NotFound) => {
                     let refusal = response.refusal(RefusalCode::NotFound);
-                    return Ok(explained(refusal, rejections));
+                    return Ok(explained(refusal, rejections, reply_cap));
                 }
                 Ok(Reply::Answer(valid)) => {
-                    return Ok(explained(response.answer(valid)?, rejections));
+                    return Ok(explained(response.answer(valid)?, rejections, reply_cap));
                 }
                 Err(invalid) => (reply, invalid),
             },
@@ -220,13 +223,15 @@ pub(super) async fn answer_bundle<P: ModelPort + Sync>(
         });
     }
     let refusal = response.refusal(RefusalCode::Unsupported);
-    Ok(explained(refusal, rejections))
+    Ok(explained(refusal, rejections, reply_cap))
 }
 
-/// Attaches the attempts rejected before `answer` for a local explanation.
-fn explained(answer: Answer, rejections: Vec<Rejection>) -> Answer {
+/// Attaches the attempts rejected before `answer` and the `reply_cap` its
+/// chat calls ran with, for a local explanation.
+fn explained(answer: Answer, rejections: Vec<Rejection>, reply_cap: u32) -> Answer {
     Answer {
         rejections,
+        reply_cap: Some(reply_cap),
         ..answer
     }
 }
@@ -261,7 +266,8 @@ fn check_answerer(request: &AskRequest, answerer: &RegisteredAnswerer) -> Result
         .fields()
         .limits
         .output_tokens
-        .is_some_and(|limit| request.budget.output_tokens > limit.get())
+        .zip(request.budget.output_tokens)
+        .is_some_and(|(limit, requested)| requested > limit.get())
     {
         return Err(AskError::InvalidRequest(
             "output limit exceeds the registered answerer card",
@@ -331,6 +337,7 @@ impl<'a> ResponseContext<'a> {
             rejections: Vec::new(),
             routes: self.bundle.routes.clone(),
             delivered: self.bundle.passages.iter().map(Anchor::from).collect(),
+            reply_cap: None,
         }
     }
 
@@ -361,6 +368,7 @@ impl<'a> ResponseContext<'a> {
             rejections: Vec::new(),
             routes: self.bundle.routes.clone(),
             delivered: self.bundle.passages.iter().map(Anchor::from).collect(),
+            reply_cap: None,
         })
     }
 }

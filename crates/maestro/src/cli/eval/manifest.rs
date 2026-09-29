@@ -82,7 +82,8 @@ pub(super) struct AskSettings {
     pub(super) k: Option<u32>,
     /// The evidence budget, in UTF-8 bytes.
     pub(super) max_tokens: Option<u32>,
-    /// The most tokens each answerer reply generates.
+    /// The most tokens each answerer reply generates; absent, the answerer
+    /// card's output limit.
     pub(super) output_tokens: Option<u32>,
     /// The answer prompt: a version, or a private prompt file.
     #[serde(alias = "answer_prompt")]
@@ -112,7 +113,7 @@ impl AskSettings {
         AskBudget {
             k: self.k.unwrap_or(default.k),
             max_tokens: self.max_tokens.unwrap_or(default.max_tokens),
-            output_tokens: self.output_tokens.unwrap_or(default.output_tokens),
+            output_tokens: self.output_tokens.or(default.output_tokens),
             ..default
         }
     }

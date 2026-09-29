@@ -12,6 +12,7 @@ use super::{
     support::{rung_json, suite},
 };
 use crate::failure::Failure;
+use maestro_kernel::gateway::MAX_CHAT_OUTPUT_TOKENS;
 use maestro_knowledge::answer::{AskBudget, PromptVersion};
 use serde_json::{Value, json};
 use std::path::Path;
@@ -69,7 +70,7 @@ fn an_object_sets_each_ask_setting_and_leaves_the_rest_at_their_defaults() {
         AskBudget {
             k: 8,
             max_tokens: 9000,
-            output_tokens: 900,
+            output_tokens: Some(900),
             ..AskBudget::default()
         }
     );
@@ -92,7 +93,7 @@ fn ask_settings_outside_asks_limits_are_refused() {
         json!({"max_tokens": 0}),
         json!({"max_tokens": 12_001}),
         json!({"output_tokens": 0}),
-        json!({"output_tokens": 1025}),
+        json!({"output_tokens": MAX_CHAT_OUTPUT_TOKENS + 1}),
     ];
     for ask in cases {
         assert!(
@@ -101,7 +102,10 @@ fn ask_settings_outside_asks_limits_are_refused() {
             refusal(&ask)
         );
     }
-    assert!(parsed(&json!({"k": 50, "max_tokens": 12_000, "output_tokens": 1024})).is_ok());
+    assert!(
+        parsed(&json!({"k": 50, "max_tokens": 12_000, "output_tokens": MAX_CHAT_OUTPUT_TOKENS}))
+            .is_ok()
+    );
 }
 
 #[test]

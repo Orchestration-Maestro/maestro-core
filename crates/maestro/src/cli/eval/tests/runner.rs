@@ -24,6 +24,7 @@ fn warm_ups_run_first_and_are_not_scored() {
     assert_eq!(ids, ["a0", "a1", "a2", "u0"]);
     assert_eq!(run.score.missing, 0);
     assert!(run.score.rejected_ids.is_empty());
+    assert_eq!(run.reply_caps, [Some(2048); 4]);
 }
 
 #[test]
@@ -164,6 +165,7 @@ fn a_rung_that_does_not_ask_shows_its_ask_floors_not_run() {
     let runs = run_ladder(&mut engine, &suite(2, 1), 1, &[retrieval], |_| Ok(())).unwrap();
 
     assert!(engine.questions("ask").is_empty());
+    assert_eq!(runs[0].reply_caps, [None; 3]);
     let statuses: Vec<(Floor, FloorStatus, bool)> = runs[0]
         .score
         .floors

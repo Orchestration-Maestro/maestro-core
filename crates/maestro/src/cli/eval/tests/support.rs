@@ -281,6 +281,7 @@ impl Engine for FakeEngine {
                 outcome: AskOutcome::Refused(RefusalCode::NotFound),
                 delivered: Vec::new(),
                 rejections: Vec::new(),
+                reply_cap: Some(2048),
             },
             |index| Asked {
                 outcome: AskOutcome::Answered {
@@ -301,6 +302,7 @@ impl Engine for FakeEngine {
                     attempt: 1,
                     check: "unsupported_literal",
                 }],
+                reply_cap: Some(2048),
             },
         )
     }

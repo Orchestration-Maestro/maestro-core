@@ -480,6 +480,7 @@ in place.
 │   │   │   │   │   ├── formatting.rs                                        # Model-card document and query formatting
 │   │   │   │   │   ├── mod.rs                                               # Tests of the model gateway: model cards, the router client against a stub
 │   │   │   │   │   ├── port.rs                                              # Tests of the port's refusals: each says what was refused and why
+│   │   │   │   │   ├── reply_cap.rs                                         # The reply cap of a chat request: the smallest of the caller's cap, the
 │   │   │   │   │   ├── router.rs                                            # Tests of the router client against a stub router: every call is bound to
 │   │   │   │   │   ├── safety.rs                                            # The router client against a misbehaving router: it never follows a
 │   │   │   │   │   ├── stub.rs                                              # A stub of the model router: a loopback HTTP server, on a thread of its
@@ -650,6 +651,7 @@ in place.
 │   │   │   │   │   ├── guardrails.rs                                        # Rust source: guardrails
 │   │   │   │   │   ├── prompt_text.rs                                       # A prompt a ladder rung supplies as text: its {data} slot holds the
 │   │   │   │   │   ├── prompts.rs                                           # The prompt versions: v1 stays today's text, v2 asks for every supporting
+│   │   │   │   │   ├── reply_cap.rs                                         # Rust source: reply cap
 │   │   │   │   │   ├── requests.rs                                          # Rust source: requests
 │   │   │   │   │   ├── router_refusal.rs                                    # A refusal the router client cannot read in full, through the answer path
 │   │   │   │   │   └── threshold.rs                                         # The reranker relevance threshold: below it, ask refuses without chat

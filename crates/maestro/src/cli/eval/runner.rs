@@ -86,6 +86,9 @@ pub(super) struct Asked {
     pub(super) delivered: Vec<Anchor>,
     /// The attempts the answer check refused before it ended, never scored.
     pub(super) rejections: Vec<RejectedCheck>,
+    /// The most tokens each of its chat replies could generate, absent when
+    /// it never reached the answerer.
+    pub(super) reply_cap: Option<u32>,
 }
 
 /// An attempt the answer check refused: the attempt and the check's code,
@@ -149,6 +152,9 @@ pub(super) struct RungRun {
     /// Each row's attempts the answer check refused, none when the rung
     /// does not ask.
     pub(super) rejections: Vec<Vec<RejectedCheck>>,
+    /// Each row's reply cap, none when the rung does not ask or its ask
+    /// never reached the answerer.
+    pub(super) reply_caps: Vec<Option<u32>>,
     /// The floors.
     pub(super) score: LadderScore,
     /// What the evidence the answerer received delivered, beside the floors.
@@ -274,6 +280,7 @@ fn run_rung(
         }
     }
     let mut rejections = Vec::with_capacity(suite.questions.len());
+    let mut reply_caps = Vec::with_capacity(suite.questions.len());
     let (rows, diagnostics): (Vec<LadderQuestion>, Vec<SearchDiagnostic>) = suite
         .questions
         .iter()
@@ -291,10 +298,12 @@ fn run_rung(
                     outcome: AskOutcome::Failed,
                     delivered: searched.delivered,
                     rejections: Vec::new(),
+                    reply_cap: None,
                 };
                 (unasked, Duration::ZERO)
             };
             rejections.push(asked.rejections);
+            reply_caps.push(asked.reply_cap);
             let outcome = asked.outcome;
             let row = LadderQuestion {
                 id: question.id.clone(),
@@ -326,6 +335,7 @@ fn run_rung(
         rows,
         diagnostics,
         rejections,
+        reply_caps,
         score,
         delivery,
     };

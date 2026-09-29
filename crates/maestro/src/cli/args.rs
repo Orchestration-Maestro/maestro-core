@@ -205,7 +205,8 @@ pub(super) enum KnowledgeCommand {
         /// 30000).
         #[arg(long)]
         search_deadline_ms: Option<u32>,
-        /// Maximum generated tokens per chat call.
+        /// Maximum generated tokens per chat call (1..=2048; default: the
+        /// answerer card's output limit, or 1024 when it declares none).
         #[arg(long)]
         output_tokens: Option<u32>,
         /// Print on stderr the check each rejected answer failed and the
