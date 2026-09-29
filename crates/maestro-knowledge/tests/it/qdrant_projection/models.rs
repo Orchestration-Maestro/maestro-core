@@ -123,7 +123,18 @@ pub(super) enum Answers {
     Never,
 }
 
-/// How a reranker's model is slow.
+/// Which model(s) never finish loading.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum SlowModels {
+    /// The embedder is still loading.
+    Embedder,
+    /// The reranker is still loading.
+    Reranker,
+    /// Both models are still loading.
+    Both,
+}
+
+/// How its reranker is slow to load or to score.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum SlowReranker {
     /// It never finishes loading, as one the router unloaded may not within
@@ -141,6 +152,8 @@ pub(super) struct Embedder {
     script: Arc<Mutex<Script>>,
     /// A gate that can pause a retrieval embedding call.
     gate: Option<Arc<Gate>>,
+    /// Whether its embedder stays cold for the whole request.
+    embed_never_ready: bool,
     /// How its reranker is slow, when it is.
     slow_reranker: Option<SlowReranker>,
 }
@@ -173,6 +186,7 @@ impl Embedder {
             Self {
                 script: Arc::new(Mutex::new(Script::default())),
                 gate: Some(gate.clone()),
+                embed_never_ready: false,
                 slow_reranker: None,
             },
             EmbedGate(gate),
@@ -187,8 +201,24 @@ impl Embedder {
         }
     }
 
-    /// Readies a slow reranker's model, and scores with it when `scoring`:
-    /// never returns when the model never loads, or never scores.
+    /// Creates a port whose selected model(s) never finish loading.
+    pub(super) fn with_slow_models(slow: SlowModels) -> Self {
+        Self {
+            embed_never_ready: matches!(slow, SlowModels::Embedder | SlowModels::Both),
+            slow_reranker: matches!(slow, SlowModels::Reranker | SlowModels::Both)
+                .then_some(SlowReranker::Loading),
+            ..Self::default()
+        }
+    }
+
+    /// Waits until the test embedder is ready.
+    async fn wait_for_embedder(&self) {
+        if self.embed_never_ready {
+            future::pending::<()>().await;
+        }
+    }
+
+    /// Waits for the reranker to load or score when the test model is slow.
     async fn wait_for_reranker(&self, scoring: bool) {
         if self.slow_reranker == Some(SlowReranker::Loading)
             || (scoring && self.slow_reranker == Some(SlowReranker::Hanging))
@@ -226,8 +256,10 @@ impl Embedder {
 
 impl ModelPort for Embedder {
     async fn prepare(&self, card: &ModelCard, _room: Room) -> Result<(), Error> {
-        if card.fields().role == Role::Reranker {
-            self.wait_for_reranker(false).await;
+        match card.fields().role {
+            Role::Embedder => self.wait_for_embedder().await,
+            Role::Reranker => self.wait_for_reranker(false).await,
+            Role::Answerer | Role::Extractor => {}
         }
         Ok(())
     }

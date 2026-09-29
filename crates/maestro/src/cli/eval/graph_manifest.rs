@@ -98,3 +98,11 @@ fn frozen_text(run: &CheckedRun, path: &Path, expected: &str) -> Result<String, 
     }
     Ok(text)
 }
+
+/// Checks that a private prompt stays inside the approved input root.
+pub(super) fn check_prompt_path(inputs: Option<&Inputs>, path: &Path) -> Result<(), Code> {
+    if let Some(inputs) = inputs {
+        inputs.run.input(path)?;
+    }
+    Ok(())
+}

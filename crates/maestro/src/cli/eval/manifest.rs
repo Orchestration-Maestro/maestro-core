@@ -5,7 +5,7 @@
 
 use super::{
     ask_settings::read_ask,
-    graph_manifest::{GraphManifest, Inputs},
+    graph_manifest::{GraphManifest, check_prompt_path},
     graph_output::Code,
     private_run::CheckedRun,
     rung_prompt::RungPrompt,
@@ -437,7 +437,8 @@ impl Manifest {
                 ..
             }) = &mut rung.ask
             {
-                check_prompt_path(private.as_ref(), &base.join(&file.file))?;
+                check_prompt_path(private.as_ref(), &base.join(&file.file))
+                    .map_err(Code::failure)?;
                 file.read(base, &rung.name)?;
             }
         }
@@ -490,6 +491,12 @@ fn check_rung(rung: &Rung) -> Result<(), Failure> {
             "a rung name is 1 to 64 lower-case letters, digits and dashes",
         ));
     }
+    check_rung_search_settings(rung)?;
+    check_rung_scores_and_cards(rung)
+}
+
+/// Validates budgets and search-only options before execution.
+fn check_rung_search_settings(rung: &Rung) -> Result<(), Failure> {
     let configuration = &rung.configuration;
     if configuration.routes.graph != GraphSelection::None {
         return Err(Code::GraphUnavailable.failure());
@@ -534,7 +541,12 @@ fn check_rung(rung: &Rung) -> Result<(), Failure> {
             .rerank
             .as_ref()
             .map(|rerank| rerank.depth.get()),
-    )?;
+    )
+}
+
+/// Validates ranking, reranking and answerer settings.
+fn check_rung_scores_and_cards(rung: &Rung) -> Result<(), Failure> {
+    let configuration = &rung.configuration;
     let routes = configuration.routes;
     if !(routes.dense || routes.lexical || routes.identifier || routes.structured) {
         return Err(Failure::refused(format!(
@@ -594,12 +606,4 @@ fn check_rung(rung: &Rung) -> Result<(), Failure> {
             .map_err(|error| Failure::refused(error.to_string()))?;
     }
     configuration.reranker().map(drop)
-}
-
-/// Private prompts pass the same path guard before their text is read.
-fn check_prompt_path(inputs: Option<&Inputs>, path: &Path) -> Result<(), Failure> {
-    if let Some(inputs) = inputs {
-        inputs.run.input(path).map_err(Code::failure)?;
-    }
-    Ok(())
 }

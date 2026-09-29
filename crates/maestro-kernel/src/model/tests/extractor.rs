@@ -167,7 +167,14 @@ fn schema(connection: &Connection) -> Vec<(String, String, Option<String>)> {
 fn the_extractor_upgrade_keeps_every_s1_record_digest_pin_and_selection() {
     let scratch = Scratch::new();
     let selected = s1_registry(&scratch);
-    assert_eq!(pending_migrations(&scratch.0).unwrap(), [EXTRACTOR_ROLE]);
+    assert_eq!(
+        pending_migrations(&scratch.0).unwrap(),
+        [
+            EXTRACTOR_ROLE,
+            "0017_unit_graphs",
+            "0018_retrieval_representations"
+        ]
+    );
     let before = rows(&scratch.outside());
     for reopening in 0..2 {
         let database = scratch.open();
@@ -239,7 +246,14 @@ fn a_failing_extractor_upgrade_changes_nothing() {
         (rows(&scratch.outside()), schema(&scratch.outside())),
         before
     );
-    assert_eq!(pending_migrations(&scratch.0).unwrap(), [EXTRACTOR_ROLE]);
+    assert_eq!(
+        pending_migrations(&scratch.0).unwrap(),
+        [
+            EXTRACTOR_ROLE,
+            "0017_unit_graphs",
+            "0018_retrieval_representations"
+        ]
+    );
 }
 
 #[test]

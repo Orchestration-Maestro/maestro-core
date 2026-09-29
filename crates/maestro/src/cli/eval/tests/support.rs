@@ -311,6 +311,7 @@ impl Engine for FakeEngine {
                 outcome: outcome.clone(),
                 delivered: Vec::new(),
                 rejections: Vec::new(),
+                reply_cap: None,
             };
         }
         answerable_index(question).map_or_else(

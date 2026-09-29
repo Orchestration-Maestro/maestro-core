@@ -23,9 +23,9 @@ pub const DISABLED_BY_CONFIGURATION: &str = "disabled by search configuration";
 const MAX_ASSEMBLY_WINDOW: Duration = Duration::from_millis(300);
 /// The largest portion of the request deadline reserved for T032.
 const MAX_T032_RESERVE: Duration = Duration::from_millis(50);
-/// Under [`StageWindow::Derived`], fusion and the rerank keep the deadline
-/// divided by this, a tenth, and at least one assembly window.
-const RANK_RESERVE_DIVISOR: u32 = 10;
+/// The later stages reserve a tenth of the request deadline when it is the
+/// larger bound, otherwise their measured assembly windows are the floor.
+const LATER_STAGE_RESERVE_DIVISOR: u32 = 10;
 
 /// How long the retrieval routes may run. A deadline is a safety cap, not
 /// a quality cutoff: by default a route runs until only the later stages'
@@ -55,11 +55,10 @@ pub(super) struct Deadlines {
     /// setup, such as loading its model, that ends later leaves the route
     /// no time.
     pub(super) routes_end: Instant,
-    /// The latest the reranker's one-time setup, such as loading its
-    /// model, and the rerank may end: evidence assembly keeps its measured
-    /// need, the T032 reserve and two assembly windows (650 ms at any
-    /// deadline from 1.5 s; it took 340-500 ms on a real collection), and
-    /// setup gets the rest, so cold models load in time.
+    /// The latest the reranker's one-time setup, such as loading its model,
+    /// and the rerank may end. After it, the larger of two windows or a tenth
+    /// of the deadline, plus the T032 reserve, pays for candidate loading,
+    /// the permission recheck and evidence assembly.
     pub(super) setup: Instant,
     /// The final retrieval cutoff, before reserving time for T032.
     pub(super) work: Instant,
@@ -102,10 +101,10 @@ pub(super) fn from_budget(
     let window = (duration / 4).min(MAX_ASSEMBLY_WINDOW);
     let reserve = (duration / 10).min(MAX_T032_RESERVE);
     let work = expires - reserve;
-    let setup = work - window * 2;
+    let setup = work - (window * 2).max(duration / LATER_STAGE_RESERVE_DIVISOR);
     let (routes, routes_end, fixed) = match stage_window {
         StageWindow::Derived => {
-            let routes_end = setup - (duration / RANK_RESERVE_DIVISOR).max(window);
+            let routes_end = setup - (duration / LATER_STAGE_RESERVE_DIVISOR).max(window);
             (routes_end, routes_end, None)
         }
         StageWindow::Fixed(fixed) => {

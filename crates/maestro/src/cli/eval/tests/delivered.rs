@@ -21,7 +21,7 @@ fn bundle() -> Bundle {
         "schema":"maestro-evidence/1", "collection":"synthetic", "generation":1,
         "query":"private-question", "lang":"en", "routes":{"structured":"ok"},
         "passages":passages,"conflicts":[],"known_gaps":[],
-        "budget":{"evidence_tokens":7000,
+        "budget":{"evidence_bytes":7000,
         "limit":12000,
         "counter":"evidence-utf8-bytes/1",
         "estimated":true},
@@ -53,7 +53,7 @@ fn graph_eval_delivered_adapter_does_not_credit_wire_dropped_supports() {
 fn graph_eval_empty_context_and_invalid_budget_never_earn_credit() {
     let mut input = bundle();
     input.passages.clear();
-    input.budget.evidence_tokens = 0;
+    input.budget.evidence_bytes = 0;
     assert!(anchors(input).unwrap().is_empty());
     let mut input = bundle();
     input.budget.limit = 1;
