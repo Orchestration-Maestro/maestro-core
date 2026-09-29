@@ -63,6 +63,7 @@ mod publish;
 mod qdrant;
 mod qdrant_adapter;
 mod rebuild;
+mod rebuild_validation;
 mod search_inputs;
 mod sparse;
 #[cfg(test)]

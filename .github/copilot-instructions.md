@@ -815,6 +815,7 @@ in place.
 │   │   │   │   ├── qdrant.rs                                                # Qdrant through its official Rust client, qdrant-client 1.19, over gRPC
 │   │   │   │   ├── qdrant_adapter.rs                                        # Conversion between backend-neutral projection operations and Qdrant's transport types
 │   │   │   │   ├── rebuild.rs                                               # A fresh, guarded replacement for a published generation whose projection
+│   │   │   │   ├── rebuild_validation.rs                                    # Validation of the frozen identity for a guarded projection rebuild
 │   │   │   │   ├── search_inputs.rs                                         # The kernel-owned search derivatives of one published generation
 │   │   │   │   ├── sparse.rs                                                # Sparse vectors: BM25 weights against the chunk set's average passage length
 │   │   │   │   └── verify.rs                                                # The structural check of a generation's collection before its alias moves

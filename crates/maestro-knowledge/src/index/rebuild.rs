@@ -9,6 +9,7 @@ use super::{
     progress::{Progress, Report},
     projection::Projection,
     publish::{Names, Step, report},
+    rebuild_validation::validate_tuple,
     search_inputs,
     verify::verify,
 };
@@ -58,7 +59,11 @@ impl RebuildState<'_> {
     }
 }
 
-impl<P: ModelPort> Projection<'_, P> {
+impl<
+    P: ModelPort,
+    R: super::projection_port::RetrievalProjectionPort<Error = super::qdrant::QdrantError>,
+> Projection<'_, P, R>
+{
     /// Publishes an explicitly requested replacement, retaining the
     /// generation captured by `guard` as its only legal predecessor.
     /// Journaled progress in `resume` continues the same replacement.
@@ -133,7 +138,7 @@ impl<P: ModelPort> Projection<'_, P> {
         }
         if let Some(current) = &published {
             self.projection
-                .exists(&collection_name(current))
+                .collection_exists(&collection_name(current))
                 .await
                 .map_err(Error::Qdrant)?;
         }
@@ -154,7 +159,7 @@ impl<P: ModelPort> Projection<'_, P> {
         ];
         let alias_target = self
             .projection
-            .alias_collection(&alias)
+            .alias_target(&alias)
             .await
             .map_err(Error::Qdrant)?;
         if let Some(found) = &alias_target
@@ -276,7 +281,7 @@ impl<P: ModelPort> Projection<'_, P> {
         }
         if !self
             .projection
-            .exists(&names.collection)
+            .collection_exists(&names.collection)
             .await
             .map_err(Error::Qdrant)?
         {
@@ -310,14 +315,14 @@ impl<P: ModelPort> Projection<'_, P> {
         }
         if self
             .projection
-            .alias_collection(&names.alias)
+            .alias_target(&names.alias)
             .await
             .map_err(Error::Qdrant)?
             .as_deref()
             != Some(names.collection.as_str())
         {
             self.projection
-                .point_alias(&names.alias, &names.collection)
+                .replace_alias(&names.alias, &names.collection)
                 .await
                 .map_err(Error::Qdrant)?;
         }
@@ -412,12 +417,12 @@ impl<P: ModelPort> Projection<'_, P> {
             });
         }
         self.projection
-            .point_alias(&names.alias, &names.collection)
+            .replace_alias(&names.alias, &names.collection)
             .await
             .map_err(Error::Qdrant)?;
         let alias_target = self
             .projection
-            .alias_collection(&names.alias)
+            .alias_target(&names.alias)
             .await
             .map_err(Error::Qdrant)?;
         if let Some(found) = alias_target
@@ -446,12 +451,12 @@ impl<P: ModelPort> Projection<'_, P> {
                     .map_err(Error::Generation)?
                     && self
                         .projection
-                        .exists(&collection_name(&current))
+                        .collection_exists(&collection_name(&current))
                         .await
                         .map_err(Error::Qdrant)?
                 {
                     self.projection
-                        .point_alias(&names.alias, &collection_name(&current))
+                        .replace_alias(&names.alias, &collection_name(&current))
                         .await
                         .map_err(Error::Qdrant)?;
                 }
@@ -507,26 +512,6 @@ fn validate_target(
     )?;
     let expected_chunks = u64::try_from(state.chunks.len()).unwrap_or(u64::MAX);
     if progress.chunks != expected_chunks || progress.indexed > expected_chunks {
-        return Err(Error::RecoveryTarget {
-            generation: generation.id,
-        });
-    }
-    Ok(())
-}
-
-/// Confirms a candidate belongs to this set, its restored card and profile.
-fn validate_tuple(
-    generation: &Generation,
-    set: &ChunkSet,
-    embedding: &str,
-    watermark: i64,
-) -> Result<(), Error> {
-    if generation.id <= watermark
-        || generation.collection_id != set.collection_id
-        || generation.chunk_set_id != set.id
-        || generation.embedding_profile != embedding
-        || generation.sparse_profile != lexical::PROFILE
-    {
         return Err(Error::RecoveryTarget {
             generation: generation.id,
         });

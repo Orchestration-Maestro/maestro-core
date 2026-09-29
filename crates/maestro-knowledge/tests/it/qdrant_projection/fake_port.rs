@@ -7,12 +7,13 @@ use super::{
 use maestro_knowledge::{
     index::{
         CollectionLayout, PointHit, Projection, ProjectionFilter, ProjectionPage, ProjectionPoint,
-        QdrantError, RetrievalProjectionPort, SparseValues,
+        QdrantError, RebuildGuard, RetrievalProjectionPort, SparseValues,
     },
     publish::verify_generation,
 };
 use std::{
     collections::{BTreeMap, HashMap},
+    ops::ControlFlow,
     sync::Mutex,
 };
 
@@ -197,4 +198,28 @@ async fn publication_and_standalone_verification_use_the_fake_port() {
         .await
         .unwrap();
     assert!(result.findings.is_empty(), "{:#?}", result.findings);
+
+    let rebuilt = Projection {
+        database: &kernel.database,
+        scopes: &kernel.scopes,
+        projection: &fake,
+        port: &model_port,
+        card: &card,
+    }
+    .republish_observed(
+        &kernel.chunk_set,
+        RebuildGuard {
+            expected_published: Some(report.generation),
+            generation_watermark: report.generation,
+        },
+        None,
+        &mut |_| ControlFlow::Continue(()),
+    )
+    .await
+    .unwrap();
+    assert_ne!(rebuilt.generation, report.generation);
+    let verified = verify_generation(&kernel.database, &kernel.scopes, &fake, rebuilt.generation)
+        .await
+        .unwrap();
+    assert!(verified.findings.is_empty(), "{:#?}", verified.findings);
 }
