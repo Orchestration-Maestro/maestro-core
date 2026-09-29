@@ -187,9 +187,7 @@ fn choice_covered(
 ) -> bool {
     ranges.iter().all(|range| {
         passages.iter().any(|passage| {
-            passage.document_id == candidate.template.document_id
-                && passage.revision_id == candidate.template.revision_id
-                && contains(passage.span, *range)
+            passage.revision_id == candidate.template.revision_id && contains(passage.span, *range)
         })
     })
 }
@@ -436,5 +434,45 @@ mod tests {
             candidate(&markdown_a, &document_a, &sections_a, 0, "First marker."),
             candidate(&markdown_a, &document_a, &sections_b, 1, "Second marker."),
         ]);
+    }
+
+    #[test]
+    fn choice_coverage_requires_the_same_revision() {
+        let markdown = "# Guide\n\nΩ marker.\n";
+        let document = document(markdown);
+        let sections = SectionIndex::new(&document, markdown).unwrap();
+        let candidate = candidate(markdown, &document, &sections, 0, "Ω marker");
+        let mut passage = candidate.template.clone();
+        passage.revision_id = "other-revision".to_owned();
+
+        assert!(!choice_covered(
+            &candidate,
+            &[candidate.required_span],
+            &[passage]
+        ));
+    }
+
+    #[test]
+    fn cluster_does_not_admit_an_unselected_member_by_its_range() {
+        let markdown = "# Guide\n\nFirst marker.\n\nSecond marker.\n";
+        let document = document(markdown);
+        let sections = SectionIndex::new(&document, markdown).unwrap();
+        let candidates = [
+            candidate(markdown, &document, &sections, 0, "First marker."),
+            candidate(markdown, &document, &sections, 1, "Second marker."),
+        ];
+        let selected = [(1, candidates[1].required_span)];
+        let mut covered = BTreeSet::new();
+        let passage = render_cluster(
+            &candidates,
+            (&document.document_id, &document.revision_id),
+            candidates[1].required_span,
+            &mut covered,
+            &selected,
+        )
+        .unwrap();
+
+        assert_eq!(passage.input_position, 1);
+        assert_eq!(covered, BTreeSet::from([1]));
     }
 }

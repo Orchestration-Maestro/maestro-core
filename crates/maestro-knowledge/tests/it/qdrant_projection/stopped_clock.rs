@@ -9,6 +9,7 @@ use std::{
     future::Future,
     pin::pin,
     sync::{Arc, LazyLock, Mutex, mpsc},
+    time::Duration,
 };
 use tokio::{sync::Notify, task, time};
 use tracing::{
@@ -35,7 +36,7 @@ pub(super) async fn on_stopped_clock<T>(
 ) -> T {
     time::pause();
     let (unhold, held) = mpsc::channel::<()>();
-    let hold = task::spawn_blocking(move || held.recv());
+    let hold = task::spawn_blocking(move || held.recv_timeout(Duration::from_secs(10)));
     let mut unhold = Some(unhold);
     let mut release = pin!(release);
     let mut work = pin!(work);

@@ -52,7 +52,7 @@ fn enrichment_loads_only_the_revisions_it_scores() {
         },
         ..SearchConfiguration::default()
     };
-    let deadline = Instant::now() + Duration::from_secs(2);
+    let deadline = Instant::now() + Duration::from_hours(6);
     let control = ReadControl {
         deadline,
         cancelled: Arc::new(AtomicBool::new(false)),

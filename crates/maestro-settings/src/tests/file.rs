@@ -161,6 +161,7 @@ fn a_second_edit_waits_for_the_first_to_end_and_reads_what_it_published() {
             before
         })
     };
+    drop(events);
     started.wait();
     assert_eq!(received.recv().unwrap(), "waiting", "the lock must hold it");
     first.publish("first\n").unwrap();

@@ -300,7 +300,11 @@ fn growth_never_recounts_the_admitted_tier() {
     )
     .unwrap();
 
-    assert_eq!(counter.0.load(Ordering::Relaxed), 3);
+    assert_eq!(
+        counter.0.load(Ordering::Relaxed),
+        3,
+        "count the admitted tier and each of the two rejected growth trials"
+    );
 }
 
 #[test]
