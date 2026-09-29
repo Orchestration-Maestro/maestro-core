@@ -2,6 +2,7 @@
 //! kernel's files, the services, each role's model card, and what doctor
 //! finds but never touches.
 
+mod doctor;
 mod findings;
 mod kernel;
 mod services;

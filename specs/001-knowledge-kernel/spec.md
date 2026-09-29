@@ -113,9 +113,10 @@ that win each role.
 **Why this priority**: every later choice (models, fusion weights, the graph)
 depends on a trustworthy measurement.
 
-**Independent Test**: `maestro eval run ctm-retrieval` produces a report with
-per-question results, metrics with confidence intervals and latency; the bake-off
-report names a winner per role with its model card.
+**Independent Test**: `maestro eval ladder --manifest <manifest>` runs every rung
+over the suite and writes, per rung, per-question rows, metrics against their
+floors and latency, then a comparison across rungs; the bake-off receipts name
+a winner per role with its model card.
 
 **Acceptance Scenarios**:
 

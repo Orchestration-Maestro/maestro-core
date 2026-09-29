@@ -159,7 +159,7 @@ pub(super) enum KnowledgeCommand {
         /// Maximum final passage count (1..=50, default 10).
         #[arg(long = "k")]
         max_passages: Option<u32>,
-        /// Maximum evidence tokens (1..=24000, default 6000).
+        /// Maximum evidence size in UTF-8 bytes (1..=24000, default 6000).
         #[arg(long)]
         max_tokens: Option<u32>,
         /// Search deadline in milliseconds (1..=30000, default 30000).
@@ -209,9 +209,10 @@ pub(super) enum KnowledgeCommand {
         /// answerer card's output limit, or 1024 when it declares none).
         #[arg(long)]
         output_tokens: Option<u32>,
-        /// Print on stderr the check each rejected answer failed and the
-        /// offending tokens. An ask that ends in an error, such as a timeout
-        /// or an unavailable answerer, prints no explanation.
+        /// Print on stderr each search route's status, such as a reranker
+        /// that did not run, then the check each rejected answer failed and
+        /// the offending tokens. An ask that ends in an error, such as a
+        /// timeout or an unavailable answerer, prints no explanation.
         #[arg(long)]
         explain: bool,
     },

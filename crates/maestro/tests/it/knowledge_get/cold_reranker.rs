@@ -46,7 +46,7 @@ fn cold_router() -> String {
 
 /// Registers a v2 reranker card in `synthetic`, evaluates it on
 /// `generation` and selects it.
-fn select_reranker(home: &Home, generation: i64) {
+pub(super) fn select_reranker(home: &Home, generation: i64) {
     let database = home.database();
     let scopes = local(&database);
     let model = database

@@ -62,7 +62,7 @@ pub(crate) struct SearchRequest {
     #[serde(rename = "k", default = "default_k")]
     #[schemars(range(min = 1, max = 50))]
     pub(crate) max_passages: u32,
-    /// Maximum evidence tokens, default 6000.
+    /// Maximum evidence size in UTF-8 bytes, not tokens, default 6000.
     #[serde(default = "default_max_tokens")]
     #[schemars(range(min = 1, max = RequestBudget::MAX_EVIDENCE_BUDGET))]
     pub(crate) max_tokens: u32,

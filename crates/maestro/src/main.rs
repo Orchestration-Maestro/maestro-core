@@ -313,20 +313,22 @@
 //! present and intact; Qdrant's gRPC health check, at `MAESTRO_QDRANT_URL`
 //! or else `http://127.0.0.1:6334`, answering as the pinned version; the
 //! model router, at `MAESTRO_ROUTER_URL` or else `http://127.0.0.1:8080`, listing
-//! its catalog, which starts no model; and each role's model card. A failed
-//! check names its next action. It then lists what it found but must not
-//! touch: the entries of the data directory the kernel does not own, as the
-//! files maestro v1 left there, and the grants of `config.toml` that reach
-//! no scope the kernel knows. It lists database-creation temporary names with
-//! a warning to never open them; it deletes nothing and exits 0 when every
-//! check passed and 1 when one failed.
+//! its catalog, which starts no model; and each role's model card, reported
+//! as not checked yet (`"checked": false`), neither passed nor failed, until
+//! its per-collection check exists. A failed check names its next action.
+//! It then lists what it found but must not touch: the entries of the data
+//! directory the kernel does not own, as the files maestro v1 left there,
+//! and the grants of `config.toml` that reach no scope the kernel knows. It
+//! lists database-creation temporary names with a warning to never open
+//! them; it deletes nothing and exits 0 when no check failed and 1 when one
+//! failed.
 //!
 //! ```json
 //! {"schema":"maestro-cli/doctor/1",
 //!  "checks":[{"name":"database","target":"/…/kernel.sqlite3","passed":true,
-//!    "detail":"intact","next_action":null},
-//!   {"name":"model_card","target":"embedder","passed":false,
-//!    "detail":"no model card is recorded for the embedder","next_action":"…"}],
+//!    "checked":true,"detail":"intact","next_action":null},
+//!   {"name":"model_card","target":"embedder","passed":false,"checked":false,
+//!    "detail":"not checked yet: …","next_action":null}],
 //!  "untouched":["/…/ledger.sqlite3","/…/material"],
 //!  "database_temporaries":[],"database_temporary_warning":null,
 //!  "unreached_grants":["workspace/other"]}

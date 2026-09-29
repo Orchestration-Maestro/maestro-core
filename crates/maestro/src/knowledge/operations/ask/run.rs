@@ -4,7 +4,7 @@ use super::super::{
     implementation::{KnowledgeError, Scoped, kernel_failure, kernel_open_failure},
     search::{
         SearchCards, bound_source_classes, evidence_failure, integrity_failure,
-        local_search_context, search_failure, selected_answerer,
+        local_search_context, search_failure, selected_answerer, selected_reranker,
     },
 };
 use crate::{
@@ -14,7 +14,6 @@ use crate::{
 };
 use maestro_kernel::{
     gateway::{ModelCard, Role, RouterClient},
-    generation::Generation,
     scope::ScopeSet,
 };
 use maestro_knowledge::{
@@ -41,7 +40,7 @@ pub(crate) fn ask_with(
             .as_ref()
             .map(|generation| generation.embedding_profile.as_str()),
     );
-    let reranker_card = reranker_card(&kernel, &scopes, &request.collection, current.as_ref())?;
+    let reranker_card = selected_reranker(&kernel.database, &scopes, &request.collection)?;
     let answerer = registered_answerer(&kernel, &scopes, request)?;
     let router_url = router_url(env::var_os(ROUTER_VARIABLE).as_deref()).map_err(|_| {
         KnowledgeError::Refused {
@@ -84,25 +83,6 @@ pub(crate) fn ask_with(
         kernel,
         scopes,
     })
-}
-
-/// Loads the generation-matched selected reranker, if one is selected.
-pub(super) fn reranker_card(
-    kernel: &Kernel,
-    scopes: &ScopeSet,
-    collection: &str,
-    generation: Option<&Generation>,
-) -> Result<Option<ModelCard>, KnowledgeError> {
-    let Some(generation) = generation else {
-        return Ok(None);
-    };
-    let selected = kernel
-        .database
-        .selected_model_card(scopes, collection, Role::Reranker)
-        .map_err(|_| kernel_failure())?;
-    Ok(selected
-        .filter(|selected| selected.evaluation.generation_id == Some(generation.id))
-        .map(|selected| selected.card))
 }
 
 /// Resolves the latest registered answerer with the requested router entry,

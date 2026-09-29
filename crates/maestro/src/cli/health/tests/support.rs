@@ -124,6 +124,7 @@ pub(super) fn failure(check: &Check) -> (&str, &str) {
     match &check.outcome {
         Outcome::Failed { problem, next } => (problem, next),
         Outcome::Passed(detail) => panic!("{} passed: {detail}", check.name),
+        Outcome::NotChecked(reason) => panic!("{} not checked: {reason}", check.name),
     }
 }
 
@@ -132,5 +133,6 @@ pub(super) fn detail(check: &Check) -> &str {
     match &check.outcome {
         Outcome::Passed(detail) => detail,
         Outcome::Failed { problem, .. } => panic!("{} failed: {problem}", check.name),
+        Outcome::NotChecked(reason) => panic!("{} not checked: {reason}", check.name),
     }
 }

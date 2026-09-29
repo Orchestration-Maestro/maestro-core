@@ -4,9 +4,12 @@
 //! what setup would still do, asked of the user manager and nothing more.
 
 use super::{
-    super::services::{
-        DEFAULT_QDRANT, DEFAULT_ROUTER, card_checks, qdrant_check, qdrant_url, router_check,
-        router_url,
+    super::{
+        check::Outcome,
+        services::{
+            DEFAULT_QDRANT, DEFAULT_ROUTER, card_checks, qdrant_check, qdrant_url, router_check,
+            router_url,
+        },
     },
     support::{detail, failure, nothing_at, serve, serve_qdrant},
 };
@@ -146,17 +149,22 @@ fn the_router_is_at_its_default_address_unless_the_environment_names_another() {
 }
 
 #[test]
-fn every_role_fails_until_the_bake_off_records_its_card() {
+fn every_role_is_not_checked_yet_until_per_collection_card_checks_exist() {
     let checks = card_checks();
     let targets: Vec<&str> = checks.iter().map(|check| check.target.as_str()).collect();
     assert_eq!(targets, ["embedder", "reranker", "answerer"]);
     for check in &checks {
         assert_eq!(check.name, "model_card");
-        let (problem, next) = failure(check);
         assert_eq!(
-            problem,
-            format!("no model card is recorded for the {}", check.target)
+            check.outcome,
+            Outcome::NotChecked(
+                "not checked yet: model cards are recorded per collection, and their \
+                 per-collection check is not built yet"
+                    .to_owned()
+            ),
+            "{check:?}"
         );
-        assert!(next.contains("bake-off") && next.contains("T030"), "{next}");
+        assert!(!check.is_checked());
+        assert_eq!(check.next(), None);
     }
 }

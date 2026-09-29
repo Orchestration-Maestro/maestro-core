@@ -88,6 +88,7 @@ in place.
 │   │   │   │   │   └── stages.rs                                            # Whether a search ran every stage its rung enables
 │   │   │   │   ├── health/                                                  # maestro doctor and status: the checks of the kernel, the search service, the router and each role's card
 │   │   │   │   │   ├── tests/                                               # Unit tests of the checks: the kernel's files, the services, the cards, what doctor must not touch
+│   │   │   │   │   │   ├── doctor.rs                                        # Doctor's verdict: a check that cannot run yet, as each role's model card
 │   │   │   │   │   │   ├── findings.rs                                      # Foreign entries of the data directory listed and left untouched; grants that reach no known scope
 │   │   │   │   │   │   ├── kernel.rs                                        # config.toml and bindings.toml refused with a fix; the database never created, damage and lost artifacts found
 │   │   │   │   │   │   ├── mod.rs                                           # The health unit tests' door: declarations only
@@ -209,6 +210,7 @@ in place.
 │   │   ├── tests/                                                           # Integration tests
 │   │   │   └── it/                                                          # The contract tests: the built binary run in a scratch home
 │   │   │       ├── knowledge_get/                                           # CLI and MCP contracts for exact knowledge retrieval
+│   │   │       │   ├── ask_republish.rs                                     # ask keeps the collection's selected reranker after a republish, as
 │   │   │       │   ├── cli_cases.rs                                         # Exact knowledge get CLI behavior
 │   │   │       │   ├── cold_reranker.rs                                     # A cold reranker costs CLI and MCP search only the rerank
 │   │   │       │   ├── evidence_ceiling.rs                                  # CLI and MCP search accept an evidence budget up to the 24,000-byte

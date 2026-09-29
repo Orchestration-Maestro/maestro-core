@@ -65,8 +65,4 @@ exclude_re = [
   '^crates/maestro-knowledge/src/corpus\.rs:226:9: replace <impl Visitor<.de> for ValueVisitor>::expecting -> fmt::Result with Ok\(Default::default\(\)\)$',
   # The default `Value` is `Value::Null`, the value `visit_unit` returns.
   '^crates/maestro-knowledge/src/corpus\.rs:252:9: replace <impl Visitor<.de> for ValueVisitor>::visit_unit -> Result<Value, E> with Ok\(Default::default\(\)\)$',
-  # whatlang scores never equal 0.5, so `<=` is equivalent to `<`.
-  '^crates/maestro-knowledge/src/query/language\.rs:30:26: replace < with <= in detect_language$',
-  # <= visits an empty tail once; the first-hit guard exits without changing results.
-  '^crates/maestro-knowledge/src/search/routes/results\.rs:57:23: replace < with <= in rank$',
 ]

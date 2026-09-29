@@ -6,12 +6,14 @@ use crate::{
     kernel::Kernel,
     knowledge::operations::{KnowledgeError, ask::run::ask_with, ensure_current_scopes},
 };
+use maestro_kernel::evidence::RouteStatus;
 use maestro_knowledge::answer::{Answer, AskRequest, Rejection};
 use serde::Serialize;
-use std::process::ExitCode;
+use std::{collections::BTreeMap, process::ExitCode};
 
 /// Runs one ask and prints the same versioned answer as the MCP tool; with
-/// `explain`, it also prints why each rejected attempt failed on stderr.
+/// `explain`, it also prints on stderr each search route's status and why
+/// each rejected attempt failed.
 pub(super) fn run(
     output: Output,
     request: &AskRequest,
@@ -28,7 +30,11 @@ pub(super) fn run(
     if explain {
         eprint!(
             "{}",
-            explanation(scoped.data.reply_cap, &scoped.data.rejections)
+            explanation(
+                &scoped.data.routes,
+                scoped.data.reply_cap,
+                &scoped.data.rejections
+            )
         );
     }
     let text = answer_text(&scoped.data)?;
@@ -89,14 +95,29 @@ fn answer_text(answer: &Answer) -> Result<String, Failure> {
     Ok(refusal.message.clone())
 }
 
-/// The reply cap the chat calls ran with, when any ran, then one line per
-/// rejected attempt: its failed check and offending tokens.
-fn explanation(reply_cap: Option<u32>, rejections: &[Rejection]) -> String {
+/// Each search route's status, so a degraded ask is visible; the reply cap
+/// the chat calls ran with, when any ran; then one line per rejected
+/// attempt: its failed check and offending tokens.
+fn explanation(
+    routes: &BTreeMap<String, RouteStatus>,
+    reply_cap: Option<u32>,
+    rejections: &[Rejection],
+) -> String {
     use std::fmt::Write as _;
 
-    let mut text = reply_cap
-        .map(|tokens| format!("explain: reply cap {tokens} tokens\n"))
-        .unwrap_or_default();
+    let mut text = String::new();
+    for (route, status) in routes {
+        // Writing to a String cannot fail.
+        let _written = match status {
+            RouteStatus::Ok => writeln!(text, "explain: route {route} ok"),
+            RouteStatus::Unavailable(reason) => {
+                writeln!(text, "explain: route {route} unavailable: {reason}")
+            }
+        };
+    }
+    if let Some(tokens) = reply_cap {
+        let _written = writeln!(text, "explain: reply cap {tokens} tokens");
+    }
     if rejections.is_empty() {
         text.push_str("explain: no attempt was rejected\n");
         return text;
@@ -122,6 +143,7 @@ fn explanation(reply_cap: Option<u32>, rejections: &[Rejection]) -> String {
 #[cfg(test)]
 mod tests {
     use super::{answer_text, explanation};
+    use maestro_kernel::evidence::RouteStatus;
     use maestro_knowledge::answer::{
         Answer, AnswerCitation, AnswerModel, AnswerRefusal, RefusalCode, Rejection,
     };
@@ -173,13 +195,18 @@ mod tests {
 
     #[test]
     fn explanation_names_the_reply_cap_then_each_rejected_attempt_check_and_tokens() {
-        assert_eq!(explanation(None, &[]), "explain: no attempt was rejected\n");
+        let routes = BTreeMap::new();
         assert_eq!(
-            explanation(Some(2048), &[]),
+            explanation(&routes, None, &[]),
+            "explain: no attempt was rejected\n"
+        );
+        assert_eq!(
+            explanation(&routes, Some(2048), &[]),
             "explain: reply cap 2048 tokens\nexplain: no attempt was rejected\n"
         );
         assert_eq!(
             explanation(
+                &routes,
                 None,
                 &[
                     Rejection {
@@ -196,6 +223,24 @@ mod tests {
             ),
             "explain: attempt 1 failed unsupported_literal: \"-FORCEALL\" \"EM_HOME\"\n\
              explain: attempt 2 failed too_short: \n"
+        );
+    }
+
+    #[test]
+    fn explanation_names_each_route_status_first() {
+        let routes = BTreeMap::from([
+            ("identifier".to_owned(), RouteStatus::Ok),
+            (
+                "rerank".to_owned(),
+                RouteStatus::Unavailable("disabled_by_configuration".to_owned()),
+            ),
+        ]);
+        assert_eq!(
+            explanation(&routes, Some(1024), &[]),
+            "explain: route identifier ok\n\
+             explain: route rerank unavailable: disabled_by_configuration\n\
+             explain: reply cap 1024 tokens\n\
+             explain: no attempt was rejected\n"
         );
     }
 }

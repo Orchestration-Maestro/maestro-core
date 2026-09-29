@@ -32,10 +32,10 @@ which installs the toolbelt CI runs, at the versions it runs, and the commit
 hooks ([details](https://github.com/Orchestration-Maestro/rust-workflows/blob/main/docs/ci.md#the-tools-on-your-machine)).
 `just check` runs the full local CI check over the commits a push sends. In the
 normal workflow, the pre-push hook runs it
-([details](https://github.com/Orchestration-Maestro/rust-workflows/blob/main/docs/ci.md#run-ci-before-you-push)). Active S1 work follows the temporary process in
+([details](https://github.com/Orchestration-Maestro/rust-workflows/blob/main/docs/ci.md#run-ci-before-you-push)). Active slice branches follow the process S1 set in
 [tasks.md](specs/001-knowledge-kernel/tasks.md#current-s1-integration-workflow):
-task branches use targeted checks and one reviewed integration pull request;
-those lane checks do not replace full CI.
+task branches use targeted checks and one reviewed integration pull request
+per slice; those lane checks do not replace full CI.
 
 ```bash
 cargo install --locked --git https://github.com/Orchestration-Maestro/rust-workflows \

@@ -1,4 +1,4 @@
-use super::{answer_failure, registered_answerer, reranker_card};
+use super::{answer_failure, registered_answerer};
 use crate::{
     kernel::Kernel,
     knowledge::operations::{KnowledgeError, tests::Scratch},
@@ -205,32 +205,6 @@ fn i4_answerer_and_evidence_failures_keep_their_public_codes() {
             message: "the local knowledge store is unavailable",
         }
     );
-}
-
-#[test]
-fn only_a_reranker_selected_for_the_searched_generation_is_used() {
-    let scratch = Scratch::new();
-    let kernel = scratch.kernel(None).expect("open test kernel");
-    let scopes = &kernel.scopes;
-    let current = kernel
-        .database
-        .published_generation(scopes, "collection")
-        .expect("read published generation")
-        .expect("published generation");
-    let card = select_reranker(&kernel, &current);
-    let selected = |generation: Option<&Generation>| {
-        reranker_card(&kernel, scopes, "collection", generation)
-            .expect("read selected reranker")
-            .map(|selected| selected.digest().clone())
-    };
-
-    assert_eq!(selected(Some(&current)), Some(card.digest().clone()));
-    let other = Generation {
-        id: current.id + 1,
-        ..current.clone()
-    };
-    assert_eq!(selected(Some(&other)), None);
-    assert_eq!(selected(None), None);
 }
 
 /// Registers a reranker card in the scratch collection, evaluates it on

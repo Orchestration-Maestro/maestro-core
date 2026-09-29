@@ -54,11 +54,8 @@ pub(crate) fn rank(hits: Vec<ScoredChunk>, limit: usize) -> Vec<ScoredChunk> {
     hits.sort_by(|left, right| right.score.total_cmp(&left.score));
     let hits_len = hits.len();
     let mut group_start = 0;
-    while group_start < hits_len {
+    while let Some(leader) = hits.get(group_start).map(|hit| hit.score) {
         let Some(group_tail) = hits.get_mut(group_start..) else {
-            break;
-        };
-        let Some(leader) = group_tail.first().map(|hit| hit.score) else {
             break;
         };
         let tolerance = 1e-5 * leader.abs().max(1.0);
