@@ -13,8 +13,8 @@ fn default_k() -> u32 {
 }
 
 /// Returns the evidence contract's default token budget for the wire schema.
-fn default_max_tokens() -> u32 {
-    RequestBudget::default().max_tokens
+fn default_evidence_bytes() -> u32 {
+    RequestBudget::default().evidence_bytes
 }
 
 /// Returns the evidence contract's default deadline for the wire schema.
@@ -75,9 +75,9 @@ pub(crate) struct SearchRequest {
     #[schemars(range(min = 1, max = 50))]
     pub(crate) max_passages: u32,
     /// Maximum evidence size in UTF-8 bytes, not tokens, default 6000.
-    #[serde(default = "default_max_tokens")]
+    #[serde(default = "default_evidence_bytes")]
     #[schemars(range(min = 1, max = RequestBudget::MAX_EVIDENCE_BUDGET))]
-    pub(crate) max_tokens: u32,
+    pub(crate) evidence_bytes: u32,
     /// Search deadline in milliseconds, default 30000.
     #[serde(default = "default_deadline_ms")]
     #[schemars(range(min = 1, max = RequestBudget::MAX_DEADLINE_MS))]
@@ -103,7 +103,7 @@ impl SearchRequest {
     pub(crate) fn budget(&self) -> RequestBudget {
         RequestBudget {
             k: self.max_passages,
-            max_tokens: self.max_tokens,
+            evidence_bytes: self.evidence_bytes,
             deadline_ms: self.deadline_ms,
         }
     }
@@ -139,7 +139,7 @@ impl SearchRequest {
         if !(1..=50).contains(&self.max_passages) {
             return Err(RequestError::InvalidK);
         }
-        if !(1..=RequestBudget::MAX_EVIDENCE_BUDGET).contains(&self.max_tokens) {
+        if !(1..=RequestBudget::MAX_EVIDENCE_BUDGET).contains(&self.evidence_bytes) {
             return Err(RequestError::InvalidMaxTokens);
         }
         if !(1..=RequestBudget::MAX_DEADLINE_MS).contains(&self.deadline_ms) {
@@ -181,7 +181,7 @@ pub(crate) enum RequestError {
     InvalidVersion,
     /// `k` is outside 1..=50.
     InvalidK,
-    /// `max_tokens` is outside 1..=[`RequestBudget::MAX_EVIDENCE_BUDGET`].
+    /// `evidence_bytes` is outside 1..=[`RequestBudget::MAX_EVIDENCE_BUDGET`].
     InvalidMaxTokens,
     /// `deadline_ms` is outside 1..=30000.
     InvalidDeadline,
@@ -201,7 +201,7 @@ impl RequestError {
             Self::TooManyIdentifiers => "too_many_identifiers",
             Self::InvalidVersion => "invalid_version",
             Self::InvalidK => "invalid_k",
-            Self::InvalidMaxTokens => "invalid_max_tokens",
+            Self::InvalidMaxTokens => "invalid_evidence_bytes",
             Self::InvalidDeadline => "invalid_deadline_ms",
         }
     }
@@ -220,7 +220,7 @@ impl RequestError {
             Self::TooManyIdentifiers => "query must contain at most 64 distinct identifiers",
             Self::InvalidVersion => "version must contain 1 to 256 UTF-8 bytes",
             Self::InvalidK => "k must be between 1 and 50",
-            Self::InvalidMaxTokens => "max_tokens must be between 1 and 24000",
+            Self::InvalidMaxTokens => "evidence_bytes must be between 1 and 24000",
             Self::InvalidDeadline => "deadline_ms must be between 1 and 30000",
         }
     }
@@ -347,7 +347,7 @@ mod tests {
         query: impl Into<String>,
         version: Option<String>,
         max_passages: Option<u32>,
-        max_tokens: Option<u32>,
+        evidence_bytes: Option<u32>,
         deadline_ms: Option<u32>,
     ) -> Result<SearchRequest, RequestError> {
         let defaults = RequestBudget::default();
@@ -356,7 +356,7 @@ mod tests {
             query: query.into(),
             version,
             max_passages: max_passages.unwrap_or(defaults.k),
-            max_tokens: max_tokens.unwrap_or(defaults.max_tokens),
+            evidence_bytes: evidence_bytes.unwrap_or(defaults.evidence_bytes),
             deadline_ms: deadline_ms.unwrap_or(defaults.deadline_ms),
         })
     }
@@ -427,7 +427,7 @@ mod tests {
 
     #[test]
     fn search_request_refuses_values_outside_each_budget_bound() {
-        for (max_passages, max_tokens, deadline_ms, expected) in [
+        for (max_passages, evidence_bytes, deadline_ms, expected) in [
             (Some(0), None, None, RequestError::InvalidK),
             (Some(51), None, None, RequestError::InvalidK),
             (None, Some(0), None, RequestError::InvalidMaxTokens),
@@ -436,14 +436,14 @@ mod tests {
             (None, None, Some(30_001), RequestError::InvalidDeadline),
         ] {
             assert_eq!(
-                search("query", None, max_passages, max_tokens, deadline_ms)
+                search("query", None, max_passages, evidence_bytes, deadline_ms)
                     .expect_err("out of bounds"),
                 expected
             );
         }
         assert_eq!(
             RequestError::InvalidMaxTokens.message(),
-            "max_tokens must be between 1 and 24000"
+            "evidence_bytes must be between 1 and 24000"
         );
     }
 
@@ -469,7 +469,7 @@ mod tests {
                 query: "query".to_owned(),
                 version: None,
                 max_passages: RequestBudget::default().k,
-                max_tokens: RequestBudget::default().max_tokens,
+                evidence_bytes: RequestBudget::default().evidence_bytes,
                 deadline_ms: RequestBudget::default().deadline_ms,
             })
             .expect_err("invalid collection"),
@@ -486,8 +486,8 @@ mod tests {
         assert_eq!(schema["properties"]["k"]["minimum"], 1);
         assert_eq!(schema["properties"]["k"]["maximum"], 50);
         assert_eq!(schema["properties"]["k"]["default"], 10);
-        assert_eq!(schema["properties"]["max_tokens"]["maximum"], 24_000);
-        assert_eq!(schema["properties"]["max_tokens"]["default"], 6000);
+        assert_eq!(schema["properties"]["evidence_bytes"]["maximum"], 24_000);
+        assert_eq!(schema["properties"]["evidence_bytes"]["default"], 6000);
         assert_eq!(schema["properties"]["deadline_ms"]["maximum"], 30_000);
         assert_eq!(schema["properties"]["deadline_ms"]["default"], 30_000);
     }

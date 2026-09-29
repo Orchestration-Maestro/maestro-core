@@ -39,7 +39,7 @@ fn search_takes_the_session_bounds_a_call_leaves_out_and_the_given_ones_first() 
     let settings = KnowledgeSettings {
         search_budget: RequestBudget {
             k: 12,
-            max_tokens: 4000,
+            evidence_bytes: 4000,
             deadline_ms: 9000,
         },
         ..KnowledgeSettings::default()
@@ -62,7 +62,7 @@ fn search_takes_the_session_bounds_a_call_leaves_out_and_the_given_ones_first() 
         panic!("a valid search");
     };
     assert_eq!(given.max_passages, 3);
-    assert_eq!(given.max_tokens, 4000);
+    assert_eq!(given.evidence_bytes, 4000);
 }
 
 #[test]

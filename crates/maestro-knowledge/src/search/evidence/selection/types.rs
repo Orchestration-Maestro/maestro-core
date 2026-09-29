@@ -24,7 +24,7 @@ pub(crate) struct SelectionBudget<'a> {
     /// Maximum number of returned passages.
     pub(crate) max_passages: usize,
     /// Maximum complete passage-array count.
-    pub(crate) max_tokens: u32,
+    pub(crate) evidence_bytes: u32,
     /// Counter selected by the request.
     pub(crate) counter: &'a EvidenceCounter,
     /// Stable contract identity echoed into the bundle.

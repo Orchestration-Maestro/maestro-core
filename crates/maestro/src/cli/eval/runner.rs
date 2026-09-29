@@ -81,6 +81,8 @@ pub(super) struct SearchDiagnostic {
     pub(super) identifiers_dropped: usize,
     /// The documents of its assembled evidence, in rank order.
     pub(super) bundle_documents: Vec<String>,
+    /// UTF-8 bytes in the assembled evidence, absent when assembly failed.
+    pub(super) evidence_bytes: Option<usize>,
     /// The top reranker score, absent when rerank did not run.
     pub(super) top_rerank_score: Option<f64>,
     /// The top fused score, absent when no fused candidate was loaded.

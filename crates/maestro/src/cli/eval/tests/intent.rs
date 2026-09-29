@@ -151,7 +151,7 @@ fn intent_off_private_rows_keep_their_bytes() {
             "0000000000000000000000000000000000000000000000000000000000000000\"}],",
             "\"bundle_documents\":[\"doc-a0\"],\"candidate_source_load_micros\":0,",
             "\"candidate_context_fallbacks\":[],\"bundle_rank\":1,",
-            "\"top_rerank_score\":0.75,\"top_fused_score\":0.05,",
+            "\"evidence_bytes\":null,\"top_rerank_score\":0.75,\"top_fused_score\":0.05,",
             "\"ask\":null,\"ask_us\":null,\"refusal\":null,",
             "\"citations\":[{\"document_id\":\"doc-a0\",\"revision_id\":\"rev\",",
             "\"chunk_id\":null,\"section_id\":\"section-a0\",\"span\":null}],\"rejections\":[],",

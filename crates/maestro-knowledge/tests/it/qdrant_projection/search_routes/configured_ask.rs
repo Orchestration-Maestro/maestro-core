@@ -79,7 +79,7 @@ async fn configured_evidence_counter_reaches_assembly() {
         version: None,
         budget: AskBudget {
             k: 3,
-            max_tokens: 1000,
+            evidence_bytes: 1000,
             search_deadline_ms: 5000,
             ..AskBudget::default()
         },

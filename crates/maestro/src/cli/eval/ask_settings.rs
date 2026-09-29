@@ -21,7 +21,7 @@ pub(super) struct AskSettings {
     /// The most passages given to the answerer.
     pub(super) k: Option<u32>,
     /// The evidence budget, in UTF-8 bytes.
-    pub(super) max_tokens: Option<u32>,
+    pub(super) evidence_bytes: Option<u32>,
     /// The most tokens each answerer reply generates; absent, the answerer
     /// card's output limit.
     pub(super) output_tokens: Option<u32>,
@@ -30,7 +30,7 @@ pub(super) struct AskSettings {
     pub(super) prompt: RungPrompt,
     /// Source-window allocation policy.
     pub(super) expansion: ExpansionMode,
-    /// Representation charged against `max_tokens`.
+    /// Representation charged against `evidence_bytes`.
     pub(super) evidence_counter: CounterMode,
     /// The SHA-256 digest, in hexadecimal, of the registered answerer card
     /// the rung asks with; absent, the latest registered answerer of the
@@ -53,7 +53,7 @@ impl AskSettings {
         let default = AskBudget::default();
         AskBudget {
             k: self.k.unwrap_or(default.k),
-            max_tokens: self.max_tokens.unwrap_or(default.max_tokens),
+            evidence_bytes: self.evidence_bytes.unwrap_or(default.evidence_bytes),
             output_tokens: self.output_tokens.or(default.output_tokens),
             ..default
         }
@@ -62,7 +62,7 @@ impl AskSettings {
     /// Refuses an evidence budget over [`RequestBudget::MAX_EVIDENCE_BUDGET`],
     /// naming the ceiling.
     pub(super) fn check_evidence_budget(&self, rung: &str) -> Result<(), Failure> {
-        match self.max_tokens {
+        match self.evidence_bytes {
             Some(bytes) if bytes > RequestBudget::MAX_EVIDENCE_BUDGET => {
                 Err(Failure::refused(format!(
                     "the rung `{rung}` asks for {bytes} evidence bytes, over the \

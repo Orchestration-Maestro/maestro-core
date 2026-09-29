@@ -35,7 +35,7 @@ fn cli_text_does_not_report_evidence_omission_when_only_inventory_was_removed() 
         "passages": [],
         "conflicts": [],
         "known_gaps": [],
-        "budget": {"evidence_tokens": 0, "limit": 12_000},
+        "budget": {"evidence_bytes": 0, "limit": 12_000},
         "trace": [],
         "inventory": {
             "kind": "documents_by_set",
@@ -81,7 +81,7 @@ fn cli_search_omits_all_evidence_semantics_before_writing_oversized_json() {
         }],
         "conflicts": [],
         "known_gaps": [],
-        "budget": {"evidence_tokens": 0, "limit": 12_000},
+        "budget": {"evidence_bytes": 0, "limit": 12_000},
         "trace": [{
             "n": 1,
             "routes": ["lexical"],
@@ -99,7 +99,7 @@ fn cli_search_omits_all_evidence_semantics_before_writing_oversized_json() {
     assert_eq!(data["passages"], json!([]));
     assert_eq!(data["conflicts"], json!([]));
     assert_eq!(data["trace"], json!([]));
-    assert_eq!(data["budget"]["evidence_tokens"], 0);
+    assert_eq!(data["budget"]["evidence_bytes"], 0);
     assert!(envelope.error.is_none());
 }
 
@@ -152,7 +152,7 @@ fn cli_text_lists_each_document_once_at_its_best_rank_with_a_readable_label() {
         "passages": passages,
         "conflicts": [],
         "known_gaps": [],
-        "budget": {"evidence_tokens": 0, "limit": 12_000},
+        "budget": {"evidence_bytes": 0, "limit": 12_000},
         "trace": (1..=4)
             .map(|n| json!({"n": n, "routes": ["lexical"], "procedural": false}))
             .collect::<Vec<_>>(),
@@ -208,7 +208,7 @@ fn text_labels_name_each_classified_passage_document() {
         "passages": [known, passage(2, "unknown", None, "source:docs")],
         "conflicts": [],
         "known_gaps": [],
-        "budget": {"evidence_tokens": 0, "limit": 12_000},
+        "budget": {"evidence_bytes": 0, "limit": 12_000},
         "trace": [],
     }))
     .unwrap();

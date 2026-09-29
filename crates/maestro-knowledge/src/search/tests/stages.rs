@@ -99,7 +99,7 @@ fn observations_keep_route_ranks_and_accept_assembled_passage_order() {
         conflicts: Vec::new(),
         known_gaps: Vec::new(),
         budget: Budget {
-            evidence_tokens: 0,
+            evidence_bytes: 0,
             limit: 1,
             counter: None,
             estimated: false,

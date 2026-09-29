@@ -82,6 +82,7 @@ fn a_private_row_holds_ids_ranks_citations_refusals_and_timings() {
             "candidate_source_load_micros",
             "citations",
             "delivered",
+            "evidence_bytes",
             "expected_rank",
             "id",
             "ranked_documents",
@@ -115,6 +116,21 @@ fn a_private_row_holds_ids_ranks_citations_refusals_and_timings() {
     assert_eq!(refused["ask"], "refused");
     assert_eq!(refused["refusal"], "not_found");
     assert_eq!(refused["expected_rank"], Value::Null);
+}
+
+#[test]
+fn private_rows_report_the_assembled_evidence_bytes() {
+    let runs = runs();
+    let mut diagnostic = runs[0].diagnostics[0].clone();
+    diagnostic.evidence_bytes = Some(42);
+    let row = to_json(&PrivateRow::new(
+        &runs[0].rows[0],
+        &diagnostic,
+        &runs[0].rejections[0],
+        runs[0].reply_caps[0],
+        true,
+    ));
+    assert_eq!(row["evidence_bytes"], 42);
 }
 
 #[test]
@@ -224,7 +240,7 @@ fn a_rung_report_names_its_provenance_and_scores_its_floors() {
             "ask": true,
             "ask_settings": {
                 "k": 5,
-                "max_tokens": 6000,
+                "evidence_bytes": 6000,
                 "output_tokens": null,
                 "prompt": "v2",
                 "evidence": {"expansion":"full_section", "evidence_counter":"utf8"},

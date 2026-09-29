@@ -74,13 +74,13 @@ fn intent_rerank_additions_accept_the_maximum_and_reject_the_next_value() {
 fn request_bounds_include_both_endpoints_and_reject_the_next_value() {
     let valid = RequestBudget {
         k: 50,
-        max_tokens: 24_000,
+        evidence_bytes: 24_000,
         deadline_ms: 30_000,
     };
     assert!(validate(&request("query", valid, 120, Some(&"v".repeat(256)))).is_ok());
     let valid_low = RequestBudget {
         k: 1,
-        max_tokens: 1,
+        evidence_bytes: 1,
         deadline_ms: 1,
     };
     assert!(validate(&request("query", valid_low, 1, None)).is_ok());
@@ -96,17 +96,17 @@ fn request_bounds_include_both_endpoints_and_reject_the_next_value() {
         ),
         (
             RequestBudget {
-                max_tokens: 0,
+                evidence_bytes: 0,
                 ..valid_low
             },
-            "max_tokens must be between 1 and 24000",
+            "evidence_bytes must be between 1 and 24000",
         ),
         (
             RequestBudget {
-                max_tokens: 24_001,
+                evidence_bytes: 24_001,
                 ..valid
             },
-            "max_tokens must be between 1 and 24000",
+            "evidence_bytes must be between 1 and 24000",
         ),
         (
             RequestBudget {

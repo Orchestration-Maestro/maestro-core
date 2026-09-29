@@ -121,12 +121,12 @@ impl KnowledgeSettings {
             },
             search_budget: RequestBudget {
                 k: read.whole("search.k")?,
-                max_tokens: read.whole("search.max_tokens")?,
+                evidence_bytes: read.whole("search.evidence_bytes")?,
                 deadline_ms: read.whole("search.deadline_ms")?,
             },
             ask_budget: AskBudget {
                 k: read.whole("ask.k")?,
-                max_tokens: read.whole("ask.max_tokens")?,
+                evidence_bytes: read.whole("ask.evidence_bytes")?,
                 search_deadline_ms: read.whole("ask.search_deadline_ms")?,
                 output_tokens: read.optional_whole("ask.output_tokens")?,
             },

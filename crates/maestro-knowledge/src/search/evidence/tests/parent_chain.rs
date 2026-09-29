@@ -37,7 +37,7 @@ fn run(
             parent_chain_order: ParentChainOrder::default(),
             expansion,
             max_passages: limit,
-            max_tokens: bytes,
+            evidence_bytes: bytes,
             counter: &counter,
             counter_info: &info,
             control: &control(),
@@ -217,7 +217,7 @@ fn full_assembly_accepts_exact_parent_header_with_trace() {
         .ranked
         .retain(|ranked| ranked.candidate.fused.chunk_id == target.id);
     input.evidence.expansion = parent_chain();
-    input.budget.max_tokens = 5500;
+    input.budget.evidence_bytes = 5500;
     let bundle = assemble_blocking(
         &fixture.database,
         &input,
@@ -278,7 +278,7 @@ fn orders_use_identical_seeds_but_reserve_context_differently() {
                 graph: &LegacyCanonicalGraph,
                 parent_chain_order,
                 max_passages: 2,
-                max_tokens: 1500,
+                evidence_bytes: 1500,
                 counter: &counter,
                 counter_info: &info,
                 control: &control(),
@@ -366,7 +366,7 @@ fn parent_chain_honors_cancelled_and_expired_controls() {
                     graph: &LegacyCanonicalGraph,
                     parent_chain_order: ParentChainOrder::default(),
                     max_passages: 2,
-                    max_tokens: 1000,
+                    evidence_bytes: 1000,
                     counter: &counter,
                     counter_info: &info,
                     control: &control,
@@ -422,7 +422,7 @@ fn conflict_tiers_clamp_shorter_chains_and_remain_atomic() {
                     graph: &LegacyCanonicalGraph,
                     parent_chain_order: order,
                     max_passages,
-                    max_tokens: 2400,
+                    evidence_bytes: 2400,
                     counter: &counter,
                     counter_info: &info,
                     control: &control(),

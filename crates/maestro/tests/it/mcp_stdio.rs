@@ -71,11 +71,11 @@ fn assert_search_tool(search: &Value) {
     assert_eq!(search["inputSchema"]["properties"]["k"]["maximum"], 50);
     assert_eq!(search["inputSchema"]["properties"]["k"]["default"], 10);
     assert_eq!(
-        search["inputSchema"]["properties"]["max_tokens"]["maximum"],
+        search["inputSchema"]["properties"]["evidence_bytes"]["maximum"],
         24_000
     );
     assert_eq!(
-        search["inputSchema"]["properties"]["max_tokens"]["default"],
+        search["inputSchema"]["properties"]["evidence_bytes"]["default"],
         6000
     );
     assert_eq!(
@@ -124,8 +124,8 @@ fn assert_ask_budget_schema(ask: &Value) {
     let budget = &ask["inputSchema"]["$defs"]["AskBudget"]["properties"];
     assert_eq!(budget["k"]["minimum"], 1);
     assert_eq!(budget["k"]["maximum"], 50);
-    assert_eq!(budget["max_tokens"]["minimum"], 1);
-    assert_eq!(budget["max_tokens"]["maximum"], 24_000);
+    assert_eq!(budget["evidence_bytes"]["minimum"], 1);
+    assert_eq!(budget["evidence_bytes"]["maximum"], 24_000);
     assert_eq!(budget["search_deadline_ms"]["minimum"], 1);
     assert_eq!(budget["search_deadline_ms"]["maximum"], 30_000);
     assert_eq!(budget["output_tokens"]["minimum"], 1);

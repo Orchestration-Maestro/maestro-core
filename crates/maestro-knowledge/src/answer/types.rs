@@ -56,7 +56,7 @@ pub struct AskBudget {
     pub k: u32,
     /// UTF-8-byte evidence budget used by the deliberately uncalibrated flow.
     #[schemars(range(min = 1, max = RequestBudget::MAX_EVIDENCE_BUDGET))]
-    pub max_tokens: u32,
+    pub evidence_bytes: u32,
     /// Search and evidence-assembly deadline in milliseconds. Its default,
     /// 30 s, is a safety cap: search loads a cold embedder and a cold
     /// reranker (each load measured 2.4-5.3 s on a busy machine) and still
@@ -74,7 +74,7 @@ impl Default for AskBudget {
     fn default() -> Self {
         Self {
             k: 5,
-            max_tokens: 6000,
+            evidence_bytes: 6000,
             search_deadline_ms: RequestBudget::MAX_DEADLINE_MS,
             output_tokens: None,
         }
@@ -87,7 +87,7 @@ impl From<AskBudget> for RequestBudget {
     fn from(budget: AskBudget) -> Self {
         Self {
             k: budget.k,
-            max_tokens: budget.max_tokens,
+            evidence_bytes: budget.evidence_bytes,
             deadline_ms: budget.search_deadline_ms,
         }
     }
@@ -101,7 +101,7 @@ impl AskBudget {
     #[must_use]
     pub fn is_within_limits(&self) -> bool {
         (1..=50).contains(&self.k)
-            && (1..=RequestBudget::MAX_EVIDENCE_BUDGET).contains(&self.max_tokens)
+            && (1..=RequestBudget::MAX_EVIDENCE_BUDGET).contains(&self.evidence_bytes)
             && (1..=RequestBudget::MAX_DEADLINE_MS).contains(&self.search_deadline_ms)
             && self
                 .output_tokens

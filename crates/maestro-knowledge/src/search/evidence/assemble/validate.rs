@@ -28,7 +28,7 @@ pub(super) fn validate_input(input: &EvidenceInput) -> Result<(), EvidenceError>
         return Err(invalid("evidence handoff text or identity is invalid"));
     }
     if !(1..=50).contains(&input.budget.k)
-        || !(1..=RequestBudget::MAX_EVIDENCE_BUDGET).contains(&input.budget.max_tokens)
+        || !(1..=RequestBudget::MAX_EVIDENCE_BUDGET).contains(&input.budget.evidence_bytes)
         || !(1..=RequestBudget::MAX_DEADLINE_MS).contains(&input.budget.deadline_ms)
         || input.ranked.len() > 120
     {

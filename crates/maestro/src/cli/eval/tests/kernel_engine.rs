@@ -83,7 +83,7 @@ fn v1_settings() -> AskSettings {
         expansion: ExpansionMode::FullSection,
         evidence_counter: CounterMode::Utf8,
         k: Some(8),
-        max_tokens: Some(9000),
+        evidence_bytes: Some(9000),
         output_tokens: Some(900),
         prompt: RungPrompt::Version(PromptVersion::V1),
         card: None,
@@ -110,7 +110,7 @@ fn a_search_and_an_ask_carry_the_rungs_configuration_budget_and_prompt() {
             version: None,
             budget: AskBudget {
                 k: 8,
-                max_tokens: 9000,
+                evidence_bytes: 9000,
                 output_tokens: Some(900),
                 ..AskBudget::default()
             },
@@ -138,9 +138,23 @@ fn a_search_carries_the_asks_budget_and_evidence_settings() {
     assert_eq!(search.configuration, candidate.configuration.search());
     assert_eq!((search.collection, search.text), ("collection", "question"));
     assert_eq!(search.budget, RequestBudget::from(AskBudget::default()));
+    candidate.ask = None;
+    candidate.search_budget = Some(RequestBudget {
+        k: 4,
+        evidence_bytes: 9_000,
+        ..RequestBudget::default()
+    });
+    assert_eq!(
+        engine
+            .search_request(&candidate, "question")
+            .budget
+            .evidence_bytes,
+        9_000
+    );
+    candidate.search_budget = None;
     candidate.ask = Some(settings.clone());
     let asking = engine.search_request(&candidate, "question").budget;
-    assert_eq!((asking.k, asking.max_tokens), (8, 9000));
+    assert_eq!((asking.k, asking.evidence_bytes), (8, 9000));
     candidate.ask = None;
     let unasked = engine.search_request(&candidate, "question").budget;
     assert_eq!(unasked, RequestBudget::from(AskBudget::default()));
@@ -159,17 +173,17 @@ fn a_search_carries_the_asks_budget_and_evidence_settings() {
         search.evidence.evidence_counter,
         CounterMode::Utf8AnswerBound
     );
-    assert_eq!((search.budget.k, search.budget.max_tokens), (8, 9000));
+    assert_eq!((search.budget.k, search.budget.evidence_bytes), (8, 9000));
     candidate.ask = Some(AskSettings::default());
     let search = engine.search_request(&candidate, "question");
     let asked = AskBudget::default();
     assert_eq!(
         (
             search.budget.k,
-            search.budget.max_tokens,
+            search.budget.evidence_bytes,
             search.budget.deadline_ms
         ),
-        (asked.k, asked.max_tokens, asked.search_deadline_ms)
+        (asked.k, asked.evidence_bytes, asked.search_deadline_ms)
     );
 }
 

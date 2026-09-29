@@ -38,7 +38,7 @@ fn bundle(text: &str) -> Bundle {
         conflicts: Vec::new(),
         known_gaps: Vec::new(),
         budget: Budget {
-            evidence_tokens: u32::try_from(text.len()).expect("short passage"),
+            evidence_bytes: u32::try_from(text.len()).expect("short passage"),
             limit: 6000,
             counter: Some("evidence-utf8-bytes/1".to_owned()),
             estimated: true,

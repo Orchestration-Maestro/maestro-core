@@ -231,7 +231,7 @@ pub(super) fn bundle() -> Bundle {
         }],
         known_gaps: vec!["no passage states the port of version 2.0.0".to_owned()],
         budget: Budget {
-            evidence_tokens: 41,
+            evidence_bytes: 41,
             limit: 6000,
             counter: None,
             estimated: false,

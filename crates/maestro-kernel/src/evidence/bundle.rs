@@ -93,7 +93,7 @@ pub struct Conflict {
 #[serde(deny_unknown_fields)]
 pub struct Budget {
     /// The evidence size in the recorded counter's units; UTF-8 bytes when estimated.
-    pub evidence_tokens: u32,
+    pub evidence_bytes: u32,
     /// The most they could take.
     pub limit: u32,
     /// The stable contract ID of the counter, if one was used.
@@ -290,8 +290,8 @@ fn check(bundle: &Bundle) -> Result<(), String> {
     for passage in &bundle.passages {
         passage.span.checked()?;
     }
-    if bundle.budget.evidence_tokens > bundle.budget.limit {
-        return Err("bundle evidence_tokens exceeds its budget limit".to_owned());
+    if bundle.budget.evidence_bytes > bundle.budget.limit {
+        return Err("bundle evidence_bytes exceeds its budget limit".to_owned());
     }
     if bundle
         .budget
@@ -319,8 +319,8 @@ fn check(bundle: &Bundle) -> Result<(), String> {
     check_parent_context(bundle)?;
     if let Some(request_budget) = &bundle.request_budget {
         request_budget.validate()?;
-        if bundle.budget.limit != request_budget.max_tokens {
-            return Err("bundle budget limit does not match request max_tokens".to_owned());
+        if bundle.budget.limit != request_budget.evidence_bytes {
+            return Err("bundle budget limit does not match request evidence_bytes".to_owned());
         }
         let passage_count = u32::try_from(bundle.passages.len())
             .map_err(|_| "bundle passage count exceeds request budget k".to_owned())?;

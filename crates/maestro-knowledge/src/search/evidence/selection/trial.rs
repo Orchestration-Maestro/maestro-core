@@ -26,7 +26,7 @@ pub(super) fn fits_trial(
     ) && spans.values().any(|choice| {
         choice.ranges().iter().any(|range| {
             range.end.saturating_sub(range.start)
-                > usize::try_from(budget.max_tokens).unwrap_or(usize::MAX)
+                > usize::try_from(budget.evidence_bytes).unwrap_or(usize::MAX)
         })
     }) {
         group_selected_spans(candidates, spans)
@@ -49,11 +49,11 @@ pub(super) fn fits_trial(
         &rendered.passages,
         budget.counter,
         budget.counter_info,
-        budget.max_tokens,
+        budget.evidence_bytes,
     )
     .map_err(EvidenceError::from)?;
     check(budget.control)?;
-    Ok((tokens <= budget.max_tokens, rendered))
+    Ok((tokens <= budget.evidence_bytes, rendered))
 }
 
 #[cfg(test)]
@@ -124,7 +124,7 @@ mod tests {
                 graph: &LegacyCanonicalGraph,
                 parent_chain_order: ParentChainOrder::default(),
                 max_passages: 5,
-                max_tokens: u32::MAX,
+                evidence_bytes: u32::MAX,
                 counter: &counter,
                 counter_info: &counter_info(&counter).unwrap(),
                 control: &control(),
@@ -172,7 +172,7 @@ mod tests {
                     graph: &LegacyCanonicalGraph,
                     parent_chain_order: ParentChainOrder::default(),
                     max_passages: 5,
-                    max_tokens: 100,
+                    evidence_bytes: 100,
                     counter: &counter,
                     counter_info: &counter_info(&counter).unwrap(),
                     control: &control(),

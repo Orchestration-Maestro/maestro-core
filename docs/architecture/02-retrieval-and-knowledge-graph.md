@@ -281,7 +281,7 @@ any text is drafted, so an unsupported conclusion is caught before generation.
   "schema": "maestro-evidence/1",
   "collection": "ctm", "generation": 7, "query": "…", "lang": "fr",
   "routes": {"dense": "ok", "lexical": "ok", "identifier": "ok", "structured": "ok", "rerank": "ok"},
-  "request_budget": {"k": 10, "max_tokens": 6000, "deadline_ms": 1500},
+  "request_budget": {"k": 10, "evidence_bytes": 6000, "deadline_ms": 1500},
   "inventory": {"kind": "documents_by_set", "set_filter": null, "total_documents": 12, "sets": [{"value": "ctm", "documents": 12}]},
   "passages": [{
     "windowed": true,
@@ -297,7 +297,7 @@ any text is drafted, so an unsupported conclusion is caught before generation.
   }],
   "conflicts": [{"entity": "…", "attribute": "default port", "passages": [1, 2]}],
   "known_gaps": ["…"],
-  "budget": {"evidence_tokens": 5870, "limit": 6000, "counter": "evidence-utf8-bytes/1", "estimated": true},
+  "budget": {"evidence_bytes": 5870, "limit": 6000, "counter": "evidence-utf8-bytes/1", "estimated": true},
   "trace": [
     {"n": 1, "score": 0.83, "routes": ["dense", "lexical"], "chunk_ids": ["chunk-a"], "procedural": true},
     {"n": 2, "score": 0.61, "routes": ["lexical"], "chunk_ids": ["chunk-b"], "procedural": false}
@@ -457,7 +457,7 @@ URIs below describe the planned surface by slice.
 | Tool | Input | Output | Slice |
 | --- | --- | --- | --- |
 | `knowledge_collections` | — | Collections visible to the caller with their published generation | S1 |
-| `knowledge_search` | `collection`, `query`, optional `version`, `k`, `max_tokens` | `maestro-evidence/1` bundle | S1 |
+| `knowledge_search` | `collection`, `query`, optional `version`, `k`, `evidence_bytes` | `maestro-evidence/1` bundle | S1 |
 | `knowledge_get` | `section_id` or `chunk_id` | Exact text with provenance | S1 |
 | `knowledge_graph_neighbors` | `entity` (ID or name), `relation_types?`, `version?`, `depth ≤ 2` | Entities and relations with evidence references | S2 |
 | `knowledge_graph_path` | `from`, `to`, `max_length ≤ 4` | Paths with evidence references | S2 |

@@ -401,7 +401,7 @@ impl AssemblyWorker<'_> {
             expansion: self.input.evidence.expansion,
             max_passages: usize::try_from(self.input.budget.k)
                 .map_err(|_| invalid("passage budget does not fit this target"))?,
-            max_tokens: self.input.budget.max_tokens,
+            evidence_bytes: self.input.budget.evidence_bytes,
             counter: self.counter,
             counter_info,
             control: self.control,

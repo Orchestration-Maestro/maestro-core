@@ -87,10 +87,10 @@ pub const BUILT_IN: &[SettingDescriptor] = &[
         "The most passages a search returns when --k (the MCP k) is not given.",
     ),
     free(
-        "search.max_tokens",
+        "search.evidence_bytes",
         integer(1, 24_000),
         "6000",
-        "A search's evidence budget, in UTF-8 bytes, when --max-tokens is not given.",
+        "A search's evidence budget, in UTF-8 bytes, when --evidence-bytes is not given.",
     ),
     free(
         "search.deadline_ms",
@@ -316,10 +316,10 @@ pub const BUILT_IN: &[SettingDescriptor] = &[
         "The most passages an answer reads when --k is not given.",
     ),
     free(
-        "ask.max_tokens",
+        "ask.evidence_bytes",
         integer(1, 24_000),
         "6000",
-        "An answer's evidence budget, in UTF-8 bytes, when --max-tokens is not given.",
+        "An answer's evidence budget, in UTF-8 bytes, when --evidence-bytes is not given.",
     ),
     free(
         "ask.search_deadline_ms",

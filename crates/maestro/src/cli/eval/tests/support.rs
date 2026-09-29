@@ -89,6 +89,7 @@ pub(super) fn rung(name: &str) -> Rung {
             source_prior: None,
         },
         ask: Some(AskSettings::default()),
+        search_budget: None,
     }
 }
 

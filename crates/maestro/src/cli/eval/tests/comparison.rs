@@ -100,7 +100,7 @@ fn the_comparison_names_each_rungs_ask_settings() {
         expansion: ExpansionMode::FullSection,
         evidence_counter: CounterMode::Utf8,
         k: Some(8),
-        max_tokens: Some(9000),
+        evidence_bytes: Some(9000),
         output_tokens: Some(900),
         prompt: RungPrompt::Version(PromptVersion::V2),
         card: None,
@@ -114,7 +114,7 @@ fn the_comparison_names_each_rungs_ask_settings() {
         json["rungs"][1]["ask_settings"],
         json!({
             "k": 8,
-            "max_tokens": 9000,
+            "evidence_bytes": 9000,
             "output_tokens": 900,
             "prompt": "v2",
             "evidence": {"expansion":"full_section", "evidence_counter":"utf8"},

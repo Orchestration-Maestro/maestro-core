@@ -21,7 +21,7 @@
 //! - `maestro knowledge collections` lists collection metadata the local
 //!   principal may read;
 //! - `maestro knowledge search --collection <id> --query <text>
-//!   [--version <version>] [--k <n>] [--max-tokens <n>]
+//!   [--version <version>] [--k <n>] [--evidence-bytes <n>]
 //!   [--deadline-ms <n>]` returns bounded `maestro-evidence/1` data under
 //!   `maestro-cli/knowledge-search/1`;
 //! - `maestro knowledge get (--chunk-id <id> | --section-id <id>)
@@ -356,7 +356,7 @@
 //! `qwen3-4b` (the `ask.model` setting); `--model` selects another registered
 //! answerer. The answer is in the question's language unless `language`
 //! names one, which `lang` then reports. `--version`,
-//! `--k`, `--max-tokens`, `--search-deadline-ms`, and `--output-tokens` bound
+//! `--k`, `--evidence-bytes`, `--search-deadline-ms`, and `--output-tokens` bound
 //! retrieval and generation.
 //! Answers cite only host-resolved passage metadata; the host checks citation
 //! numbers and command/path/version-like literals, retries one invalid reply,

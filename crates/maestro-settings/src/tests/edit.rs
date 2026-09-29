@@ -74,8 +74,8 @@ fn set_in_document_adds_a_key_to_its_table_after_the_table_last_line() {
          [search.rerank]\ndepth = 40\n"
     );
     assert_eq!(
-        set(Some(&text), "search.max_tokens", "5000"),
-        Ok(text.replace("k = 20 # mine\n", "k = 20 # mine\nmax_tokens = 5000\n"))
+        set(Some(&text), "search.evidence_bytes", "5000"),
+        Ok(text.replace("k = 20 # mine\n", "k = 20 # mine\nevidence_bytes = 5000\n"))
     );
     assert_eq!(
         set(Some(&text), "search.routes.dense", "false"),
@@ -117,10 +117,10 @@ fn set_in_document_adds_a_key_to_its_table_after_the_table_last_line() {
 fn set_in_document_adds_a_key_beside_its_dotted_siblings() {
     let text = format!("{SCHEMA}search.k = 20\n  search.rerank.depth = 40\n\n[ask]\nk = 3\n");
     assert_eq!(
-        set(Some(&text), "search.max_tokens", "5000"),
+        set(Some(&text), "search.evidence_bytes", "5000"),
         Ok(text.replace(
             "search.k = 20\n",
-            "search.k = 20\nsearch.max_tokens = 5000\n"
+            "search.k = 20\nsearch.evidence_bytes = 5000\n"
         ))
     );
     assert_eq!(
@@ -136,9 +136,9 @@ fn set_in_document_adds_a_key_beside_its_dotted_siblings() {
 fn set_in_document_keeps_crlf_line_endings_and_a_missing_last_newline() {
     let crlf = "schema = \"maestro-preferences/1\"\r\n[search]\r\nk = 20\r\n";
     assert_eq!(
-        set(Some(crlf), "search.max_tokens", "5000"),
+        set(Some(crlf), "search.evidence_bytes", "5000"),
         Ok(
-            "schema = \"maestro-preferences/1\"\r\n[search]\r\nk = 20\r\nmax_tokens = 5000\r\n"
+            "schema = \"maestro-preferences/1\"\r\n[search]\r\nk = 20\r\nevidence_bytes = 5000\r\n"
                 .to_owned()
         )
     );
@@ -148,8 +148,8 @@ fn set_in_document_keeps_crlf_line_endings_and_a_missing_last_newline() {
     );
     let unterminated = "schema = \"maestro-preferences/1\"\n[search]\nk = 20";
     assert_eq!(
-        set(Some(unterminated), "search.max_tokens", "5000"),
-        Ok(format!("{unterminated}\nmax_tokens = 5000"))
+        set(Some(unterminated), "search.evidence_bytes", "5000"),
+        Ok(format!("{unterminated}\nevidence_bytes = 5000"))
     );
     assert_eq!(
         set(Some(unterminated), "ask.k", "2"),
@@ -205,7 +205,7 @@ fn set_in_document_refuses_a_file_it_cannot_read() {
 fn unset_in_document_removes_the_key_lines_and_nothing_else() {
     let text = format!(
         "# Mine\n{SCHEMA}\n# How long\ntone = \"brief\" # short\nlanguage = \"fr\"\n\n[search]\n\
-         k = 20\nsection_prior.classes = [\n  \"changelog\",\n]\nmax_tokens = 5000"
+         k = 20\nsection_prior.classes = [\n  \"changelog\",\n]\nevidence_bytes = 5000"
     );
     assert_eq!(
         unset(&text, "tone"),
@@ -219,8 +219,8 @@ fn unset_in_document_removes_the_key_lines_and_nothing_else() {
         )))
     );
     assert_eq!(
-        unset(&text, "search.max_tokens"),
-        Ok(Some(text.replace("max_tokens = 5000", "")))
+        unset(&text, "search.evidence_bytes"),
+        Ok(Some(text.replace("evidence_bytes = 5000", "")))
     );
     assert_eq!(unset(&text, "search.rerank.depth"), Ok(None));
     let crlf = "schema = \"maestro-preferences/1\"\r\ntone = \"brief\"\r\nlanguage = \"fr\"\r\n";

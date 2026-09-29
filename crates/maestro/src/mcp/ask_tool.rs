@@ -48,7 +48,7 @@ pub(super) fn parse(
             given.take(),
             &[
                 ("k", budget.k.into()),
-                ("max_tokens", budget.max_tokens.into()),
+                ("evidence_bytes", budget.evidence_bytes.into()),
                 ("search_deadline_ms", budget.search_deadline_ms.into()),
                 ("output_tokens", budget.output_tokens.into()),
             ],
@@ -75,7 +75,7 @@ mod tests {
             model: "qwen3-8b".to_owned(),
             ask_budget: AskBudget {
                 k: 7,
-                max_tokens: 3000,
+                evidence_bytes: 3000,
                 search_deadline_ms: 8000,
                 output_tokens: Some(512),
             },

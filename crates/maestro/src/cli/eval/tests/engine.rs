@@ -116,7 +116,7 @@ fn bundle_documents_rank_by_their_passages_best_chunk_not_by_reading_order() {
         conflicts: Vec::new(),
         known_gaps: Vec::new(),
         budget: Budget {
-            evidence_tokens: 1,
+            evidence_bytes: 1,
             limit: 10,
             counter: None,
             estimated: true,

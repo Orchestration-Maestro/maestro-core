@@ -106,22 +106,22 @@ pub(crate) fn verify_counter(
 }
 
 /// The largest compact passage JSON, in bytes, that an answer-bound trial
-/// under a `max_tokens` budget may serialize to: the budget plus
+/// under a `evidence_bytes` budget may serialize to: the budget plus
 /// [`EVIDENCE_WIRE_ALLOWANCE`], so 12,000 at the default 6,000, 18,000 at
 /// 12,000 and 30,000 at the 24,000 ceiling.
-pub(crate) fn evidence_wire_ceiling(max_tokens: u32) -> usize {
-    usize::try_from(max_tokens).map_or(usize::MAX, |budget| {
+pub(crate) fn evidence_wire_ceiling(evidence_bytes: u32) -> usize {
+    usize::try_from(evidence_bytes).map_or(usize::MAX, |budget| {
         budget.saturating_add(EVIDENCE_WIRE_ALLOWANCE)
     })
 }
 
 /// Counts the compact JSON serialization of a complete passage trial under
-/// a `max_tokens` budget.
+/// a `evidence_bytes` budget.
 pub(crate) fn count_passages(
     passages: &[Passage],
     counter: &EvidenceCounter,
     info: &CounterInfo,
-    max_tokens: u32,
+    evidence_bytes: u32,
 ) -> Result<u32, CounterError> {
     if &counter_info(counter)? != info {
         return Err(CounterError::Invalid(
@@ -133,7 +133,7 @@ pub(crate) fn count_passages(
     }
     let serialized = serialized_passages(passages)?;
     if matches!(counter, EvidenceCounter::AnswerBoundUtf8Bytes)
-        && serialized.len() > evidence_wire_ceiling(max_tokens)
+        && serialized.len() > evidence_wire_ceiling(evidence_bytes)
     {
         // Admitted budgets are below this sentinel: try a smaller source window.
         return Ok(u32::MAX);

@@ -107,9 +107,9 @@ pub(super) fn validate(request: &SearchRequest<'_>) -> Result<Understood, Search
     if !(1..=50).contains(&request.budget.k) {
         return Err(invalid("k must be between 1 and 50"));
     }
-    if !(1..=RequestBudget::MAX_EVIDENCE_BUDGET).contains(&request.budget.max_tokens) {
+    if !(1..=RequestBudget::MAX_EVIDENCE_BUDGET).contains(&request.budget.evidence_bytes) {
         return Err(invalid(&format!(
-            "max_tokens must be between 1 and {}",
+            "evidence_bytes must be between 1 and {}",
             RequestBudget::MAX_EVIDENCE_BUDGET
         )));
     }

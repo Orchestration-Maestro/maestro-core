@@ -14,8 +14,8 @@ use serde::{Deserialize, Serialize};
 pub struct RequestBudget {
     /// The maximum final passage count.
     pub k: u32,
-    /// The maximum evidence-token budget.
-    pub max_tokens: u32,
+    /// The maximum evidence budget in UTF-8 bytes.
+    pub evidence_bytes: u32,
     /// The accepted deadline duration, in milliseconds.
     pub deadline_ms: u32,
 }
@@ -24,7 +24,7 @@ impl Default for RequestBudget {
     fn default() -> Self {
         Self {
             k: 10,
-            max_tokens: 6000,
+            evidence_bytes: 6000,
             deadline_ms: Self::MAX_DEADLINE_MS,
         }
     }
@@ -36,7 +36,7 @@ impl RequestBudget {
     /// under a loaded machine still completes within it.
     pub const MAX_DEADLINE_MS: u32 = 30_000;
 
-    /// The largest evidence budget, `max_tokens`, that a search or an ask
+    /// The largest evidence budget, `evidence_bytes`, that a search or an ask
     /// accepts: UTF-8 bytes under the byte counters. The 29,621-token worst
     /// case (longest prompt, 24,000 evidence bytes, two 2,048-token replies,
     /// and repair text) fits the 32,768-token card when the answer-bound
@@ -50,9 +50,9 @@ impl RequestBudget {
         if !(1..=50).contains(&self.k) {
             return Err("request budget k must be between 1 and 50".to_owned());
         }
-        if !(1..=Self::MAX_EVIDENCE_BUDGET).contains(&self.max_tokens) {
+        if !(1..=Self::MAX_EVIDENCE_BUDGET).contains(&self.evidence_bytes) {
             return Err(format!(
-                "request budget max_tokens must be between 1 and {}",
+                "request budget evidence_bytes must be between 1 and {}",
                 Self::MAX_EVIDENCE_BUDGET
             ));
         }

@@ -122,7 +122,7 @@ fn retrieval(
             query,
             version,
             max_passages,
-            max_tokens,
+            evidence_bytes,
             deadline_ms,
         } => {
             let defaults = settings.search_budget;
@@ -131,7 +131,7 @@ fn retrieval(
                 query: query.clone(),
                 version: version.clone(),
                 max_passages: max_passages.unwrap_or(defaults.k),
-                max_tokens: max_tokens.unwrap_or(defaults.max_tokens),
+                evidence_bytes: evidence_bytes.unwrap_or(defaults.evidence_bytes),
                 deadline_ms: deadline_ms.unwrap_or(defaults.deadline_ms),
             };
             match SearchRequest::from_cli(request) {
@@ -145,7 +145,7 @@ fn retrieval(
             model,
             version,
             k: max_passages,
-            max_tokens,
+            evidence_bytes,
             search_deadline_ms,
             output_tokens,
             explain,
@@ -158,7 +158,7 @@ fn retrieval(
                 version: version.clone(),
                 budget: AskBudget {
                     k: max_passages.unwrap_or(defaults.k),
-                    max_tokens: max_tokens.unwrap_or(defaults.max_tokens),
+                    evidence_bytes: evidence_bytes.unwrap_or(defaults.evidence_bytes),
                     search_deadline_ms: search_deadline_ms.unwrap_or(defaults.search_deadline_ms),
                     output_tokens: output_tokens.or(defaults.output_tokens),
                 },

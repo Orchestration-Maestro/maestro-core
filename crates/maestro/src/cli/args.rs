@@ -150,7 +150,7 @@ pub(super) struct PublishArguments {
     pub(super) again: bool,
 }
 
-// The `--max-tokens` help names this shared evidence ceiling.
+// The `--evidence-bytes` help names this shared evidence ceiling.
 const _: () = assert!(RequestBudget::MAX_EVIDENCE_BUDGET == 24_000);
 
 /// What to do with the knowledge of a collection.
@@ -232,7 +232,7 @@ pub(super) enum KnowledgeCommand {
         max_passages: Option<u32>,
         /// Maximum evidence size in UTF-8 bytes (1..=24000, default 6000).
         #[arg(long)]
-        max_tokens: Option<u32>,
+        evidence_bytes: Option<u32>,
         /// Search deadline in milliseconds (1..=30000, default 30000).
         #[arg(long)]
         deadline_ms: Option<u32>,
@@ -271,7 +271,7 @@ pub(super) enum KnowledgeCommand {
         k: Option<u32>,
         /// Maximum evidence bytes to assemble.
         #[arg(long)]
-        max_tokens: Option<u32>,
+        evidence_bytes: Option<u32>,
         /// Search and evidence deadline in milliseconds (1..=30000, default
         /// 30000).
         #[arg(long)]
@@ -401,7 +401,7 @@ mod tests {
                     model: None,
                     version: None,
                     k: None,
-                    max_tokens: None,
+                    evidence_bytes: None,
                     search_deadline_ms: None,
                     output_tokens: None,
                     explain: false,

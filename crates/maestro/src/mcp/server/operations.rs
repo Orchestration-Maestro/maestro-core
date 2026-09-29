@@ -123,7 +123,7 @@ fn search_defaults(arguments: Value, settings: &KnowledgeSettings) -> Value {
         arguments,
         &[
             ("k", budget.k.into()),
-            ("max_tokens", budget.max_tokens.into()),
+            ("evidence_bytes", budget.evidence_bytes.into()),
             ("deadline_ms", budget.deadline_ms.into()),
         ],
     )

@@ -118,7 +118,7 @@ fn run_selection(
     candidates: &[SelectionCandidate<'_>],
     conflict_units: &[BTreeSet<usize>],
     max_passages: usize,
-    max_tokens: u32,
+    evidence_bytes: u32,
 ) -> super::super::selection::SelectionResult {
     let counter = EvidenceCounter::Utf8Bytes;
     let info = counter_info(&counter).unwrap();
@@ -131,7 +131,7 @@ fn run_selection(
             parent_chain_order: ParentChainOrder::default(),
             expansion: ExpansionMode::default(),
             max_passages,
-            max_tokens,
+            evidence_bytes,
             counter: &counter,
             counter_info: &info,
             control: &read_control,
@@ -382,7 +382,7 @@ fn mandatory_whole_sibling_window_adds_before_then_stops_at_budget() {
     expected.windowed = true;
     let counter = EvidenceCounter::Utf8Bytes;
     let info = counter_info(&counter).unwrap();
-    let max_tokens = count_passages(&[expected], &counter, &info, 6_000).unwrap();
+    let evidence_bytes = count_passages(&[expected], &counter, &info, 6_000).unwrap();
     let control = control();
 
     let result = select(
@@ -393,7 +393,7 @@ fn mandatory_whole_sibling_window_adds_before_then_stops_at_budget() {
             parent_chain_order: ParentChainOrder::default(),
             expansion: ExpansionMode::default(),
             max_passages: 1,
-            max_tokens,
+            evidence_bytes,
             counter: &counter,
             counter_info: &info,
             control: &control,
@@ -441,7 +441,7 @@ fn a_failed_near_sibling_does_not_close_a_non_monotonic_farther_window() {
             parent_chain_order: ParentChainOrder::default(),
             expansion: ExpansionMode::default(),
             max_passages: 1,
-            max_tokens: 2,
+            evidence_bytes: 2,
             counter: &counter,
             counter_info: &info,
             control: &control,
@@ -486,7 +486,7 @@ fn selection_refuses_an_already_cancelled_control() {
                 parent_chain_order: ParentChainOrder::default(),
                 expansion: ExpansionMode::default(),
                 max_passages: 1,
-                max_tokens: u32::MAX,
+                evidence_bytes: u32::MAX,
                 counter: &counter,
                 counter_info: &info,
                 control: &control,

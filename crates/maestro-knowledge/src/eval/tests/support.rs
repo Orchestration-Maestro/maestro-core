@@ -113,7 +113,7 @@ pub(super) fn bundle_with(hits: &[Hit], routes: &[(&str, Option<&str>)]) -> Bund
         conflicts: Vec::new(),
         known_gaps: Vec::new(),
         budget: Budget {
-            evidence_tokens: 0,
+            evidence_bytes: 0,
             limit: 6000,
             counter: None,
             estimated: false,

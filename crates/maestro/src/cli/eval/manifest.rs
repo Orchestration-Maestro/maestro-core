@@ -6,7 +6,7 @@
 use super::rank_settings::{Context, Prior, SourcePriorSetting};
 use super::{ask_settings::read_ask, rung_prompt::RungPrompt};
 use crate::failure::Failure;
-use maestro_kernel::artifact::Digest;
+use maestro_kernel::{artifact::Digest, evidence::RequestBudget};
 use maestro_knowledge::search::{
     IntentExpansion, IntentTrigger, SearchConfiguration, SourcePrior, StageWindow,
     evidence::{EvidenceSettings, ExpansionMode, ParentChainOrder},
@@ -64,6 +64,9 @@ pub(super) struct Rung {
     /// settings.
     #[serde(deserialize_with = "read_ask")]
     pub(super) ask: Option<AskSettings>,
+    /// Search-only evidence budget; absent uses the default search budget.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) search_budget: Option<RequestBudget>,
 }
 
 /// A rung's search configuration, as the manifest writes it.

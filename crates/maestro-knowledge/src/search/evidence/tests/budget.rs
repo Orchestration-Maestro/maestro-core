@@ -287,7 +287,7 @@ fn answer_bound_wire_overflow_rejects_trial_without_aborting_selection() {
 
 #[test]
 fn answer_bound_wire_ceiling_is_the_budget_plus_the_provenance_allowance() {
-    assert_eq!(RequestBudget::default().max_tokens, DEFAULT_BUDGET);
+    assert_eq!(RequestBudget::default().evidence_bytes, DEFAULT_BUDGET);
     assert_eq!(evidence_wire_ceiling(DEFAULT_BUDGET), 12_000);
     assert_eq!(evidence_wire_ceiling(12_000), 18_000);
     assert_eq!(evidence_wire_ceiling(24_000), 30_000);

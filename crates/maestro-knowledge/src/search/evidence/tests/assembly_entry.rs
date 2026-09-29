@@ -34,7 +34,7 @@ async fn accepts_handoff_fields_at_their_exact_text_and_candidate_limits() {
             candidate
         })
         .collect();
-    input.budget.max_tokens = 24_000;
+    input.budget.evidence_bytes = 24_000;
     input.understood.identifiers = (0..64)
         .map(|index| Identifier {
             family: Family::ErrorCode,
@@ -71,7 +71,7 @@ async fn a_24000_byte_answer_bound_budget_delivers_past_the_former_12000_byte_wi
     let fixture = fixture(&[("guide.md", &guide)]);
     let mut input = evidence_input(&fixture, "How are the agent options set?");
     input.evidence.evidence_counter = CounterMode::Utf8AnswerBound;
-    input.budget.max_tokens = 24_000;
+    input.budget.evidence_bytes = 24_000;
 
     let bundle = assemble_evidence(
         Arc::new(fixture.database),
@@ -83,11 +83,7 @@ async fn a_24000_byte_answer_bound_budget_delivers_past_the_former_12000_byte_wi
 
     let wire = serde_json::to_string(&bundle.passages).unwrap().len();
     assert!(wire > 12_000, "{wire}");
-    assert!(
-        bundle.budget.evidence_tokens > 12_000,
-        "{:?}",
-        bundle.budget
-    );
+    assert!(bundle.budget.evidence_bytes > 12_000, "{:?}", bundle.budget);
     assert_eq!(bundle.budget.limit, 24_000);
 }
 
@@ -238,12 +234,12 @@ fn request_bound_cases() -> Vec<InvalidCase> {
         ),
         (
             "zero token budget",
-            |input| input.budget.max_tokens = 0,
+            |input| input.budget.evidence_bytes = 0,
             BOUNDS_ERROR,
         ),
         (
             "token budget over 24000",
-            |input| input.budget.max_tokens = 24_001,
+            |input| input.budget.evidence_bytes = 24_001,
             BOUNDS_ERROR,
         ),
         (

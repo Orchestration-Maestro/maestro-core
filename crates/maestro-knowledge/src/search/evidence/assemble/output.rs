@@ -59,11 +59,11 @@ impl AssemblyWorker<'_> {
         })
         .map_err(|_| integrity("known evidence gaps could not be constructed"))?;
         check(self.control)?;
-        let evidence_tokens = budget::count_passages(
+        let evidence_bytes = budget::count_passages(
             &parts.passages,
             self.counter,
             &counter_info,
-            self.input.budget.max_tokens,
+            self.input.budget.evidence_bytes,
         )
         .map_err(EvidenceError::from)?;
         check(self.control)?;
@@ -81,8 +81,8 @@ impl AssemblyWorker<'_> {
             conflicts: parts.emission.conflicts,
             known_gaps,
             budget: Budget {
-                evidence_tokens,
-                limit: self.input.budget.max_tokens,
+                evidence_bytes,
+                limit: self.input.budget.evidence_bytes,
                 counter: counter_info.counter,
                 estimated: counter_info.estimated,
             },

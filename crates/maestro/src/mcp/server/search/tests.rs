@@ -90,7 +90,7 @@ fn search_drops_oversized_passages_and_keeps_reduced_json_in_text() {
     assert_eq!(value["structuredContent"]["passages"], json!([]));
     assert_eq!(value["structuredContent"]["conflicts"], json!([]));
     assert_eq!(value["structuredContent"]["trace"], json!([]));
-    assert_eq!(value["structuredContent"]["budget"]["evidence_tokens"], 0);
+    assert_eq!(value["structuredContent"]["budget"]["evidence_bytes"], 0);
     assert_eq!(
         value["_meta"]["maestro/truncation"]["omitted"],
         json!(["passages"])
@@ -144,7 +144,7 @@ fn bundle(overrides: &Value) -> Bundle {
         "passages": [],
         "conflicts": [],
         "known_gaps": [],
-        "budget": {"evidence_tokens": 0, "limit": 12_000},
+        "budget": {"evidence_bytes": 0, "limit": 12_000},
         "trace": []
     });
     for (key, value) in overrides.as_object().expect("bundle overrides") {

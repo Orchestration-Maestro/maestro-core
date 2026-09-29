@@ -213,7 +213,7 @@ impl<'run> RungReport<'run> {
         format!(
             "each search's evidence, assembled under the default ask budget: at most {} \
              passages, {} evidence bytes",
-            budget.k, budget.max_tokens
+            budget.k, budget.evidence_bytes
         )
     }
 }
@@ -228,7 +228,7 @@ pub(super) struct AskReport {
     /// The most passages given to the answerer.
     k: u32,
     /// The evidence budget, in UTF-8 bytes.
-    max_tokens: u32,
+    evidence_bytes: u32,
     /// The most tokens each answerer reply generates, absent when its card
     /// sets them.
     output_tokens: Option<u32>,
@@ -246,7 +246,7 @@ impl AskReport {
         let budget = settings.budget();
         Self {
             k: budget.k,
-            max_tokens: budget.max_tokens,
+            evidence_bytes: budget.evidence_bytes,
             output_tokens: budget.output_tokens,
             prompt: settings.prompt.name(),
             evidence: settings.evidence(),
@@ -264,7 +264,7 @@ impl AskReport {
         format!(
             "at most {} passages, {} evidence bytes, {output_tokens}, prompt {}, search deadline \
              {} ms",
-            self.k, self.max_tokens, self.prompt, self.search_deadline_ms
+            self.k, self.evidence_bytes, self.prompt, self.search_deadline_ms
         )
     }
 }
@@ -308,6 +308,8 @@ pub(super) struct PrivateRow<'run> {
     candidate_context_fallbacks: &'run [String],
     /// The first of them, from 1, that is an expected document.
     bundle_rank: Option<usize>,
+    /// UTF-8 byte count of the assembled evidence, absent when assembly failed.
+    evidence_bytes: Option<usize>,
     /// The search's top reranker score, absent when rerank did not run.
     top_rerank_score: Option<f64>,
     /// The search's top fused score, absent when no fused candidate was loaded.
@@ -394,6 +396,7 @@ impl<'run> PrivateRow<'run> {
             expected_rank,
             bundle_documents,
             bundle_rank,
+            evidence_bytes: diagnostic.evidence_bytes,
             top_rerank_score: diagnostic.top_rerank_score,
             top_fused_score: diagnostic.top_fused_score,
             candidate_source_load_micros: diagnostic.candidate_source_load_micros,

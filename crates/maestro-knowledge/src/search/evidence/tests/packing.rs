@@ -16,8 +16,8 @@ const TABLE: &str = concat!(
 );
 
 /// The relevant-blocks selection of `candidates`, at most two passages
-/// within `max_tokens` bytes of answer-bound evidence.
-fn select_relevant(candidates: &[SelectionCandidate<'_>], max_tokens: u32) -> SelectionResult {
+/// within `evidence_bytes` bytes of answer-bound evidence.
+fn select_relevant(candidates: &[SelectionCandidate<'_>], evidence_bytes: u32) -> SelectionResult {
     let counter = EvidenceCounter::AnswerBoundUtf8Bytes;
     let info = counter_info(&counter).unwrap();
     select(
@@ -28,7 +28,7 @@ fn select_relevant(candidates: &[SelectionCandidate<'_>], max_tokens: u32) -> Se
             parent_chain_order: ParentChainOrder::default(),
             expansion: ExpansionMode::RelevantBlocks,
             max_passages: 2,
-            max_tokens,
+            evidence_bytes,
             counter: &counter,
             counter_info: &info,
             control: &control(),
@@ -38,15 +38,18 @@ fn select_relevant(candidates: &[SelectionCandidate<'_>], max_tokens: u32) -> Se
 }
 
 /// The relevant-blocks selection of the one candidate `marker` of the
-/// section `Values` of `markdown`, within `max_tokens` bytes.
-fn select_values(markdown: &str, marker: &str, max_tokens: u32) -> SelectionResult {
+/// section `Values` of `markdown`, within `evidence_bytes` bytes.
+fn select_values(markdown: &str, marker: &str, evidence_bytes: u32) -> SelectionResult {
     let (document, sections) = prepared(markdown, "values.md");
     let source = CandidateSource {
         markdown,
         document: &document,
         sections: &sections,
     };
-    select_relevant(&[candidate(source, "Values", marker, 0, None)], max_tokens)
+    select_relevant(
+        &[candidate(source, "Values", marker, 0, None)],
+        evidence_bytes,
+    )
 }
 
 #[test]
@@ -77,7 +80,7 @@ fn relevant_blocks_admits_another_procedure_before_expanding_first() {
                 parent_chain_order: ParentChainOrder::default(),
                 expansion,
                 max_passages: 2,
-                max_tokens: 1000,
+                evidence_bytes: 1000,
                 counter: &counter,
                 counter_info: &info,
                 control: &control,
@@ -136,7 +139,7 @@ fn relevant_table_prefix_keeps_header_and_whole_row_with_exact_span() {
             parent_chain_order: ParentChainOrder::default(),
             expansion: ExpansionMode::RelevantBlocks,
             max_passages: 2,
-            max_tokens: 300,
+            evidence_bytes: 300,
             counter: &counter,
             counter_info: &info,
             control: &control,
@@ -207,7 +210,7 @@ fn relevant_blocks_keep_complete_list_steps_and_nested_tables() {
             parent_chain_order: ParentChainOrder::default(),
             expansion: ExpansionMode::RelevantBlocks,
             max_passages: 1,
-            max_tokens: 1000,
+            evidence_bytes: 1000,
             counter: &counter,
             counter_info: &info,
             control: &control,
@@ -248,7 +251,7 @@ fn relevant_blocks_spend_leftover_budget_on_neighbors_in_rank_order() {
             parent_chain_order: ParentChainOrder::default(),
             expansion: ExpansionMode::RelevantBlocks,
             max_passages: 2,
-            max_tokens: 310,
+            evidence_bytes: 310,
             counter: &counter,
             counter_info: &info,
             control: &control,

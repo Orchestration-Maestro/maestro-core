@@ -163,7 +163,7 @@ fn each_setting_reaches_the_knowledge_operations() {
     let scratch = Scratch::new();
     scratch.user(
         "language = \"fr-CA\"\ntone = \"detailed\"\n\
-         [search]\nk = 12\nmax_tokens = 4000\ndeadline_ms = 9000\nrrf_k = 40\n\
+         [search]\nk = 12\nevidence_bytes = 4000\ndeadline_ms = 9000\nrrf_k = 40\n\
          stage_window_ms = 1200\nroutes = { dense = false, lexical = true, identifier = false, \
          structured = false }\nweights = { dense = 0.5, lexical = 2, identifier = 3, \
          structured = 0 }\nidentifier = { noise_guard = true }\n\
@@ -175,7 +175,7 @@ fn each_setting_reaches_the_knowledge_operations() {
          weight = 0.75\nrerank_additions = 4\n\
          [search.source_prior]\nweight = 0.3\nclasses = [\"community\"]\n\
          [evidence]\nexpansion = \"relevant_blocks\"\ncounter = \"utf8_answer_bound\"\n\
-         [ask]\nmodel = \"qwen3-8b\"\nprompt = \"procedure_first\"\nk = 7\nmax_tokens = 3000\n\
+         [ask]\nmodel = \"qwen3-8b\"\nprompt = \"procedure_first\"\nk = 7\nevidence_bytes = 3000\n\
          search_deadline_ms = 8000\noutput_tokens = 512\nmin_rerank_score = -1.5\n\
          [chunking]\nprofile = \"mapped-structural-chunks/2\"\n",
     );
@@ -233,7 +233,7 @@ fn each_setting_reaches_the_knowledge_operations() {
         settings.search_budget,
         RequestBudget {
             k: 12,
-            max_tokens: 4000,
+            evidence_bytes: 4000,
             deadline_ms: 9000
         }
     );
@@ -241,7 +241,7 @@ fn each_setting_reaches_the_knowledge_operations() {
         settings.ask_budget,
         AskBudget {
             k: 7,
-            max_tokens: 3000,
+            evidence_bytes: 3000,
             search_deadline_ms: 8000,
             output_tokens: Some(512)
         }
