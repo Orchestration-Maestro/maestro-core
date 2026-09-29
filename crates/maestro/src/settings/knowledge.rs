@@ -12,7 +12,7 @@ use maestro_knowledge::{
     search::{
         CandidateContext, IntentExpansion, IntentTrigger, SearchConfiguration, SectionClassSet,
         SectionPrior, SourceClassSet, SourcePrior, StageWindow,
-        evidence::{CounterMode, EvidenceSettings, ExpansionMode},
+        evidence::{CounterMode, EvidenceSettings, ExpansionMode, ParentChainOrder},
     },
 };
 use maestro_settings::{AUTO, Resolved};
@@ -111,6 +111,11 @@ impl KnowledgeSettings {
         let settings = Self {
             search,
             evidence: EvidenceSettings {
+                parent_chain_order: if read.text("evidence.parent_chain_order")? == "off" {
+                    None
+                } else {
+                    Some(read.named::<ParentChainOrder>("evidence.parent_chain_order")?)
+                },
                 expansion: read.named::<ExpansionMode>("evidence.expansion")?,
                 evidence_counter: read.named::<CounterMode>("evidence.counter")?,
             },

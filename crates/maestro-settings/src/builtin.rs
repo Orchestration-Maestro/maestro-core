@@ -281,10 +281,20 @@ pub const BUILT_IN: &[SettingDescriptor] = &[
     ),
     free(
         "evidence.expansion",
-        choice(texts!["full_section", "relevant_blocks"]),
+        choice(texts!["full_section", "relevant_blocks", "parent_chain"]),
         "full_section",
         "How evidence grows around a match: its full section first, or its matched blocks \
-         first.",
+         first, or complete parent-chain ranges first.",
+    ),
+    free(
+        "evidence.parent_chain_order",
+        choice(texts![
+            "off",
+            "minimum_complete_first",
+            "largest_fitting_parent"
+        ]),
+        "off",
+        "Admission order for parent_chain expansion only; off uses minimum_complete_first.",
     ),
     free(
         "evidence.counter",

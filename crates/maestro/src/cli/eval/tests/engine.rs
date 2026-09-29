@@ -89,6 +89,7 @@ fn passage(n: u32, document: &str) -> Passage {
 /// The trace of passage `n` over `chunks`.
 fn trace(n: u32, chunks: &[&str]) -> Trace {
     Trace {
+        parent_context_of: Vec::new(),
         n,
         score: None,
         routes: Vec::new(),

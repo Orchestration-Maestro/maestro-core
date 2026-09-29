@@ -1,20 +1,17 @@
 //! Renders trial spans as normalized, validated passages.
 
+use super::super::selection_candidate::SelectionCandidate;
 use super::super::{
-    sections::{contains, valid_span},
+    delivery_graph::{DeliveryChoice, PrimaryContribution},
+    sections::contains,
     signals::{PassageOrder, order_passages},
 };
-use super::types::SelectionCandidate;
-use maestro_kernel::{
-    artifact::Digest,
-    evidence::{Passage, Span},
-};
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    ptr,
-};
+use super::render_cluster::render_cluster;
+use maestro_kernel::evidence::{Passage, Span};
+use std::collections::{BTreeMap, BTreeSet};
 
 /// Passages rendered from a proposed set of selected source spans.
+#[derive(Default)]
 pub(super) struct RenderedTrial {
     /// Reading-ordered complete passages with one-based numbers.
     pub(super) passages: Vec<Passage>,
@@ -25,7 +22,7 @@ pub(super) struct RenderedTrial {
 /// Renders and orders one budget trial from selected candidate source spans.
 pub(super) fn render_trial(
     candidates: &[SelectionCandidate<'_>],
-    selected_spans: &BTreeMap<usize, Span>,
+    selected_spans: &BTreeMap<usize, DeliveryChoice>,
 ) -> Result<RenderedTrial, String> {
     let revisions = group_selected_spans(candidates, selected_spans)?;
     let mut ordered = Vec::new();
@@ -36,6 +33,16 @@ pub(super) fn render_trial(
         covered_candidates.append(&mut rendered.covered_candidates);
     }
     let passages = order_passages(ordered)?;
+    for (index, choice) in selected_spans {
+        let candidate = candidates
+            .get(*index)
+            .ok_or_else(|| "selected candidate disappeared".to_owned())?;
+        if choice_covered(candidate, &choice.ranges(), &passages) {
+            covered_candidates.insert(*index);
+        } else {
+            covered_candidates.remove(index);
+        }
+    }
     Ok(RenderedTrial {
         passages,
         covered_candidates,
@@ -55,31 +62,31 @@ struct RenderedRevision {
 type RevisionSelections = BTreeMap<(String, String), Vec<(usize, Span)>>;
 
 /// Validates and groups selected windows by their authorized source revision.
-fn group_selected_spans(
+pub(super) fn group_selected_spans(
     candidates: &[SelectionCandidate<'_>],
-    selected_spans: &BTreeMap<usize, Span>,
+    selected_spans: &BTreeMap<usize, DeliveryChoice>,
 ) -> Result<RevisionSelections, String> {
     let mut revisions = RevisionSelections::new();
-    for (index, span) in selected_spans {
+    for (index, choice) in selected_spans {
         let candidate = candidates
             .get(*index)
             .ok_or_else(|| "selected candidate index is invalid".to_owned())?;
-        if span.start >= span.end
-            || !valid_span(*span, candidate.markdown)
-            || !contains(candidate.expansion.extent, *span)
-            || candidate.document.document_id != candidate.template.document_id
+        choice.validate(candidate)?;
+        if candidate.document.document_id != candidate.template.document_id
             || candidate.document.revision_id != candidate.template.revision_id
             || candidate.seeds.revision_id != candidate.template.revision_id
         {
-            return Err("selected source span or identity is invalid".to_owned());
+            return Err("selected source identity is invalid".to_owned());
         }
-        revisions
-            .entry((
-                candidate.template.document_id.clone(),
-                candidate.template.revision_id.clone(),
-            ))
-            .or_default()
-            .push((*index, *span));
+        for span in choice.ranges() {
+            revisions
+                .entry((
+                    candidate.template.document_id.clone(),
+                    candidate.template.revision_id.clone(),
+                ))
+                .or_default()
+                .push((*index, span));
+        }
     }
     Ok(revisions)
 }
@@ -102,14 +109,14 @@ fn render_revision(
         )
     });
     let mut clusters = Vec::new();
-    for (_, span) in selected {
+    for (_, span) in &selected {
         if let Some(current) = clusters
             .last_mut()
             .filter(|current: &&mut Span| span.start <= current.end)
         {
             current.end = current.end.max(span.end);
         } else {
-            clusters.push(span);
+            clusters.push(*span);
         }
     }
 
@@ -117,110 +124,14 @@ fn render_revision(
     for span in clusters {
         let passage = render_cluster(
             candidates,
-            document_id,
-            revision_id,
+            (document_id, revision_id),
             span,
             &mut rendered.covered_candidates,
+            &selected,
         )?;
         rendered.passages.push(passage);
     }
     Ok(rendered)
-}
-
-/// Builds one passage from all candidate seeds covered by a merged window.
-fn render_cluster(
-    candidates: &[SelectionCandidate<'_>],
-    document_id: &str,
-    revision_id: &str,
-    span: Span,
-    covered_candidates: &mut BTreeSet<usize>,
-) -> Result<PassageOrder, String> {
-    let members: BTreeSet<_> = candidates
-        .iter()
-        .enumerate()
-        .filter(|(_, candidate)| {
-            candidate.template.document_id == document_id
-                && candidate.template.revision_id == revision_id
-                && contains(span, candidate.required_span)
-        })
-        .map(|(index, _)| index)
-        .collect();
-    if members.is_empty() {
-        return Err("selected passage contains no retained candidate seed".to_owned());
-    }
-    let representative = members
-        .iter()
-        .filter_map(|index| {
-            candidates
-                .get(*index)
-                .map(|candidate| (candidate.input_position, *index))
-        })
-        .min()
-        .map(|(_, index)| index)
-        .ok_or_else(|| "selected passage has no source candidate".to_owned())?;
-    let source = candidates
-        .get(representative)
-        .ok_or_else(|| "selected source candidate disappeared".to_owned())?;
-    let mut seeds = Vec::new();
-    let mut alternates = Vec::new();
-    let mut input_position = usize::MAX;
-    for index in &members {
-        let candidate = candidates
-            .get(*index)
-            .ok_or_else(|| "covered candidate index is invalid".to_owned())?;
-        validate_source_references(source, candidate)?;
-        seeds.extend(candidate.seeds.seeds.iter().cloned());
-        alternates.extend(candidate.template.alternates.iter().cloned());
-        input_position = input_position.min(candidate.input_position);
-        covered_candidates.insert(*index);
-    }
-    let union = super::super::spans::SpanUnion {
-        revision_id: revision_id.to_owned(),
-        span,
-        seeds,
-    };
-    let expansion = source
-        .sections
-        .expand(&union)
-        .map_err(|_| "selected passage has no valid enclosing section".to_owned())?;
-    let text = source
-        .markdown
-        .get(span.start..span.end)
-        .ok_or_else(|| "selected passage is not a UTF-8 source span".to_owned())?;
-    alternates.sort_by(|left, right| {
-        left.version
-            .cmp(&right.version)
-            .then_with(|| left.section_id.cmp(&right.section_id))
-    });
-    alternates.dedup();
-    let windowed = expansion.is_windowed(span);
-    let mut passage = source.template.clone();
-    passage.n = 0;
-    passage.section_id = expansion.section_id;
-    passage.section_path = expansion.section_path;
-    passage.span = span;
-    passage.digest = Digest::of(text.as_bytes());
-    text.clone_into(&mut passage.text);
-    passage.windowed = windowed;
-    passage.alternates = alternates.into_iter().collect();
-    Ok(PassageOrder {
-        passage,
-        input_position,
-    })
-}
-
-/// Rejects candidates that do not share the same cached source allocations.
-fn validate_source_references(
-    source: &SelectionCandidate<'_>,
-    candidate: &SelectionCandidate<'_>,
-) -> Result<(), String> {
-    if !ptr::eq(source.document, candidate.document)
-        || !ptr::eq(source.markdown, candidate.markdown)
-        || !ptr::eq(source.sections, candidate.sections)
-    {
-        return Err("one revision has inconsistent cached source references".to_owned());
-    }
-    Ok(())
 }
 
 /// Builds a valid half-open source interval containing all required spans.
@@ -234,9 +145,89 @@ pub(super) fn include_span(current: Span, addition: Span) -> Result<Span, String
     })
 }
 
+/// Maps parent-only passages to admitted primary seeds, without pretending containment.
+pub(super) fn parent_supports(
+    passages: &[Passage],
+    candidates: &[SelectionCandidate<'_>],
+    selected: &BTreeMap<usize, DeliveryChoice>,
+) -> BTreeMap<u32, Vec<String>> {
+    let mut supports = BTreeMap::new();
+    for passage in passages {
+        let mut ids = BTreeSet::new();
+        for (index, choice) in selected {
+            let Some(candidate) = candidates.get(*index) else {
+                continue;
+            };
+            if candidate.template.revision_id != passage.revision_id
+                || choice
+                    .primary
+                    .iter()
+                    .any(|part| contains(passage.span, part.span))
+                || !choice
+                    .context
+                    .iter()
+                    .any(|range| contains(passage.span, *range))
+            {
+                continue;
+            }
+            ids.extend(choice.primary.iter().map(|part| part.chunk_id.clone()));
+        }
+        if !ids.is_empty() {
+            supports.insert(passage.n, ids.into_iter().collect());
+        }
+    }
+    supports
+}
+
+/// Requires every context range, not merely the primary seed, in the complete trial.
+fn choice_covered(
+    candidate: &SelectionCandidate<'_>,
+    ranges: &[Span],
+    passages: &[Passage],
+) -> bool {
+    ranges.iter().all(|range| {
+        passages.iter().any(|passage| {
+            passage.document_id == candidate.template.document_id
+                && passage.revision_id == candidate.template.revision_id
+                && contains(passage.span, *range)
+        })
+    })
+}
+
+/// Retains seed-linked primary parts for exact per-passage trace attribution.
+pub(super) fn primary_contributions(
+    passages: &[Passage],
+    candidates: &[SelectionCandidate<'_>],
+    selected: &BTreeMap<usize, DeliveryChoice>,
+) -> BTreeMap<u32, Vec<PrimaryContribution>> {
+    let mut result = BTreeMap::new();
+    for passage in passages {
+        let mut parts = Vec::new();
+        for (index, choice) in selected {
+            let Some(candidate) = candidates.get(*index) else {
+                continue;
+            };
+            if candidate.template.revision_id == passage.revision_id {
+                parts.extend(
+                    choice
+                        .primary
+                        .iter()
+                        .filter(|part| contains(passage.span, part.span))
+                        .cloned(),
+                );
+            }
+        }
+        if !parts.is_empty() {
+            result.insert(passage.n, parts);
+        }
+    }
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::search::evidence::delivery_graph::ChoiceKind;
     use crate::search::{
         Route,
         evidence::{
@@ -246,6 +237,7 @@ mod tests {
         },
     };
     use maestro_canonicalization::{CanonicalDocument, CanonicalizeInput, canonicalize};
+    use maestro_kernel::artifact::Digest;
     use std::slice;
 
     fn document(markdown: &str) -> CanonicalDocument {
@@ -315,7 +307,14 @@ mod tests {
 
     fn assert_grouping_rejects(candidate: &SelectionCandidate<'_>, span: Span) {
         assert!(
-            group_selected_spans(slice::from_ref(candidate), &BTreeMap::from([(0, span)])).is_err()
+            group_selected_spans(
+                slice::from_ref(candidate),
+                &BTreeMap::from([(
+                    0,
+                    DeliveryChoice::canonical(candidate, vec![span], ChoiceKind::Unit)
+                )])
+            )
+            .is_err()
         );
     }
 
@@ -324,10 +323,10 @@ mod tests {
         let mut covered = BTreeSet::new();
         render_cluster(
             candidates,
-            &first.template.document_id,
-            &first.template.revision_id,
+            (&first.template.document_id, &first.template.revision_id),
             first.expansion.extent,
             &mut covered,
+            &[],
         )
         .unwrap();
         assert_eq!(covered, BTreeSet::from([0]));
@@ -338,10 +337,10 @@ mod tests {
         assert_eq!(
             render_cluster(
                 candidates,
-                &first.template.document_id,
-                &first.template.revision_id,
+                (&first.template.document_id, &first.template.revision_id),
                 first.expansion.extent,
                 &mut BTreeSet::new(),
+                &[],
             )
             .err(),
             Some("one revision has inconsistent cached source references".to_owned())

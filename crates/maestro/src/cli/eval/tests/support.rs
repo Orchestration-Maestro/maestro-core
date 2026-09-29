@@ -55,6 +55,8 @@ pub(super) fn rung(name: &str) -> Rung {
     Rung {
         name: name.to_owned(),
         configuration: RungConfiguration {
+            evidence_expansion: None,
+            parent_chain_order: None,
             intent_expansion: IntentExpansion::Off,
             intent_trigger: IntentTrigger::Always,
             intent_card: None,

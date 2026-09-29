@@ -81,11 +81,13 @@ in place.
 │   │   │   │   │   │   ├── runner.rs                                        # The ladder's run: warm-ups unscored, the rung's configuration in every
 │   │   │   │   │   │   ├── stages.rs                                        # A search fails when a stage its rung enables did not run: out of time for
 │   │   │   │   │   │   └── support.rs                                       # A synthetic suite, rungs, and a fake engine that records what it is asked
+│   │   │   │   │   ├── ask_settings.rs                                      # Ask-only ladder settings and validation
 │   │   │   │   │   ├── candidates.rs                                        # The registered cards a ladder rung may name by digest: found in the
 │   │   │   │   │   ├── command.rs                                           # Running the ladder a manifest describes, on this machine
 │   │   │   │   │   ├── comparison.rs                                        # The comparison across a ladder's rungs, maestro-eval-ladder-comparison/1
 │   │   │   │   │   ├── documents.rs                                         # The documents a ladder row scores: a search's ranked documents, the first
 │   │   │   │   │   ├── engine.rs                                            # The ladder's engine on this machine: the kernel opened for the local
+│   │   │   │   │   ├── engine_outcome.rs                                    # Converts a checked answer to the ladder's scoring outcome
 │   │   │   │   │   ├── manifest.rs                                          # The ladder's manifest, maestro-ladder-manifest/1: the suite, the
 │   │   │   │   │   ├── mod.rs                                               # maestro eval ladder: the M1 ladder, every question of a suite searched
 │   │   │   │   │   ├── rank_settings.rs                                     # Manifest adapters for optional candidate-context and section-prior policies
@@ -478,6 +480,7 @@ in place.
 │   │   │   │   │   ├── bundle.rs                                            # Bundles: maestro-evidence/1 as JSON, its evidence apart from its trace
 │   │   │   │   │   ├── lookup.rs                                            # Rust source: lookup
 │   │   │   │   │   ├── mod.rs                                               # Tests of evidence: resolving a chunk from the authority, and bundles as
+│   │   │   │   │   ├── parent_context.rs                                    # Rust source: parent context
 │   │   │   │   │   ├── resolve.rs                                           # Resolving a chunk: the exact bytes its span covers in its revision's
 │   │   │   │   │   ├── search_wire.rs                                       # Backwards-readable search inventory and request-budget fields
 │   │   │   │   │   └── support.rs                                           # What the evidence tests share: a scratch database holding one revision of
@@ -678,6 +681,7 @@ in place.
 │   │   │   │   │   ├── delivered.rs                                         # Every answer and refusal keeps, for evaluation only, the anchors of the
 │   │   │   │   │   ├── explain.rs                                           # Rust source: explain
 │   │   │   │   │   ├── guardrails.rs                                        # Rust source: guardrails
+│   │   │   │   │   ├── parent_context.rs                                    # Rust source: parent context
 │   │   │   │   │   ├── presentation.rs                                      # A presented prompt: the session's language and tone
 │   │   │   │   │   ├── prompt_text.rs                                       # A prompt a ladder rung supplies as text: its {data} slot holds the
 │   │   │   │   │   ├── prompts.rs                                           # The prompt versions: v1 stays today's text, v2 asks for every supporting
@@ -686,6 +690,7 @@ in place.
 │   │   │   │   │   ├── router_refusal.rs                                    # A refusal the router client cannot read in full, through the answer path
 │   │   │   │   │   └── threshold.rs                                         # The reranker relevance threshold: below it, ask refuses without chat
 │   │   │   │   ├── validate/                                                # Deterministic support checks for buffered answerer replies
+│   │   │   │   │   ├── edge_tests.rs                                        # Rust source: edge tests
 │   │   │   │   │   └── tests.rs                                             # Rust source: tests
 │   │   │   │   ├── generate.rs                                              # The bounded search-to-answer state machine and refusal handling
 │   │   │   │   ├── presentation.rs                                          # How an answer speaks: the session's language and tone (the owner's
@@ -892,6 +897,8 @@ in place.
 │   │   │   │   │   │   ├── mod.rs                                           # Budgeted MMR selection over validated source windows
 │   │   │   │   │   │   ├── relevant.rs                                      # Whole matched-block windows and contiguous table-header prefixes
 │   │   │   │   │   │   ├── render.rs                                        # Renders trial spans as normalized, validated passages
+│   │   │   │   │   │   ├── render_cluster.rs                                # Renders one exact source cluster and attributes supporting candidates
+│   │   │   │   │   │   ├── trial.rs                                         # Validates, renders and charges complete delivery trials
 │   │   │   │   │   │   └── types.rs                                         # Candidate metadata and final selection result
 │   │   │   │   │   ├── tests/                                               # Integration tests
 │   │   │   │   │   │   ├── assembly.rs                                      # Rust source: assembly
@@ -907,11 +914,14 @@ in place.
 │   │   │   │   │   │   ├── features.rs                                      # Rust source: features
 │   │   │   │   │   │   ├── mod.rs                                           # Rust source: mod
 │   │   │   │   │   │   ├── packing.rs                                       # Rust source: packing
+│   │   │   │   │   │   ├── parent_chain.rs                                  # Rust source: parent chain
+│   │   │   │   │   │   ├── parent_tiers.rs                                  # Rust source: parent tiers
 │   │   │   │   │   │   ├── section_expansion.rs                             # Rust source: section expansion
 │   │   │   │   │   │   ├── section_selection.rs                             # Rust source: section selection
 │   │   │   │   │   │   ├── section_validation.rs                            # Rust source: section validation
 │   │   │   │   │   │   ├── sections.rs                                      # Rust source: sections
 │   │   │   │   │   │   ├── selection.rs                                     # Rust source: selection
+│   │   │   │   │   │   ├── selection_conflict.rs                            # Rust source: selection conflict
 │   │   │   │   │   │   ├── signals.rs                                       # Rust source: signals
 │   │   │   │   │   │   ├── source.rs                                        # Rust source: source
 │   │   │   │   │   │   ├── spans.rs                                         # Rust source: spans
@@ -921,9 +931,11 @@ in place.
 │   │   │   │   │   ├── budget.rs                                            # Token-counting helpers for compact serialized evidence
 │   │   │   │   │   ├── candidate_context.rs                                 # Reuses authoritative evidence sections for reranker-only context
 │   │   │   │   │   ├── chunk_set_documents.rs                               # The documents of a chunk set by source_ref: the ladder resolves its
+│   │   │   │   │   ├── delivery_graph.rs                                    # Replaceable delivery choices derived from validated canonical structure
 │   │   │   │   │   ├── families.rs                                          # Shared candidate-family identity for conflicts and documentary versions
 │   │   │   │   │   ├── mod.rs                                               # Authoritative section reads and bounded evidence assembly
 │   │   │   │   │   ├── section_reader.rs                                    # Reads one authorized canonical section from a completed chunk set
+│   │   │   │   │   ├── selection_candidate.rs                               # Already validated source candidate metadata
 │   │   │   │   │   ├── signals.rs                                           # Rust source: signals
 │   │   │   │   │   ├── source.rs                                            # Loads and caches authoritative source records for one assembly request
 │   │   │   │   │   ├── spans.rs                                             # Candidate source-span unions

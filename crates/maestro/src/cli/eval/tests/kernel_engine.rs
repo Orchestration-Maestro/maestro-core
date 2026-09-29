@@ -24,7 +24,7 @@ use maestro_kernel::{
     gateway::{Error as GatewayError, Role, RouterClient, Url},
     retrieval,
 };
-use maestro_knowledge::search::evidence::{CounterMode, ExpansionMode};
+use maestro_knowledge::search::evidence::{CounterMode, ExpansionMode, ParentChainOrder};
 use maestro_knowledge::{
     answer::{AskBudget, AskError, AskRequest, DEFAULT_MODEL, PromptVersion},
     eval::{AskOutcome, RunError, SearchOutcome},
@@ -325,4 +325,25 @@ fn a_rung_with_an_active_source_prior_names_the_bound_table_and_searches_with_it
     );
     assert!(engine.search_context().unwrap().source_classes.is_some());
     assert_eq!(engine.provenance(&off).unwrap().source_classes, None);
+}
+
+#[test]
+fn search_only_request_carries_parent_chain_expansion_and_order() {
+    let scratch = Scratch::new();
+    let kernel = scratch.kernel(None).unwrap();
+    let port = RouterClient::new(Url::parse(NOWHERE).unwrap()).unwrap();
+    let engine =
+        KernelEngine::new(&kernel, "collection", port, Qdrant::new(NOWHERE).unwrap()).unwrap();
+    let mut rung = rung("parent");
+    rung.ask = None;
+    rung.configuration.evidence_expansion = Some(ExpansionMode::ParentChain);
+    for order in [
+        ParentChainOrder::MinimumCompleteFirst,
+        ParentChainOrder::LargestFittingParent,
+    ] {
+        rung.configuration.parent_chain_order = Some(order);
+        let request = engine.search_request(&rung, "question");
+        assert_eq!(request.evidence.expansion, ExpansionMode::ParentChain);
+        assert_eq!(request.evidence.parent_chain_order, Some(order));
+    }
 }

@@ -106,6 +106,7 @@ fn expected_bundle(fixture: &Fixture, input: &EvidenceInput) -> Bundle {
         request_budget: Some(input.budget),
         inventory: None,
         trace: vec![Trace {
+            parent_context_of: Vec::new(),
             n: 1,
             score: Some(0.8),
             routes: vec!["lexical".to_owned()],

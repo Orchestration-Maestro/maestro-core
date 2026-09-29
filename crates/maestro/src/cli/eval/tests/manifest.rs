@@ -474,3 +474,13 @@ fn rerank_header_round_trips_only_when_enabled() {
     value["rungs"][1]["configuration"]["rerank"]["header"] = json!("unknown");
     assert!(parse(&value).is_err());
 }
+
+#[test]
+fn search_only_parent_chain_settings_are_optional_and_validated() {
+    let mut value = manifest();
+    value["rungs"][0]["configuration"]["evidence_expansion"] = json!("parent_chain");
+    value["rungs"][0]["configuration"]["parent_chain_order"] = json!("largest_fitting_parent");
+    assert!(parse(&value).is_ok());
+    value["rungs"][0]["configuration"]["evidence_expansion"] = json!("full_section");
+    assert!(parse(&value).is_err());
+}

@@ -420,7 +420,12 @@ fn citation_metadata(bundle: &Bundle) -> Result<BTreeMap<u32, AnswerCitation>, A
                 .trace
                 .iter()
                 .find(|trace| trace.n == passage.n)
-                .and_then(|trace| trace.chunk_ids.first())
+                .and_then(|trace| {
+                    trace
+                        .chunk_ids
+                        .first()
+                        .or_else(|| trace.parent_context_of.first())
+                })
                 .cloned()
                 .ok_or(AskError::EvidenceIntegrity)?;
             Ok((

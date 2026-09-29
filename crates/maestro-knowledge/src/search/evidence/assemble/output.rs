@@ -2,6 +2,7 @@
 
 use super::super::{
     budget::{self, CounterInfo},
+    delivery_graph::PrimaryContribution,
     signals::{GapInput, SourceWarning, TraceInput, build_known_gaps, trace_for_passage},
     spans::SeedSpan,
     types::EvidenceError,
@@ -28,7 +29,12 @@ impl AssemblyWorker<'_> {
         counter_info: CounterInfo,
         parts: BundleParts<'_>,
     ) -> Result<Bundle, EvidenceError> {
-        let trace = self.traces(&parts.passages, &parts.seeds)?;
+        let trace = self.traces(
+            &parts.passages,
+            &parts.seeds,
+            &parts.parent_supports,
+            &parts.primary_contributions,
+        )?;
         let warning_codes = self.warning_codes(&parts.passages)?;
         let source_warnings = self.source_warnings(&parts.passages, &warning_codes)?;
         let identifiers = self
@@ -103,6 +109,8 @@ impl AssemblyWorker<'_> {
         &self,
         passages: &[Passage],
         seeds: &[SeedSpan],
+        supports: &BTreeMap<u32, Vec<String>>,
+        primary: &BTreeMap<u32, Vec<PrimaryContribution>>,
     ) -> Result<Vec<Trace>, EvidenceError> {
         passages
             .iter()
@@ -113,6 +121,8 @@ impl AssemblyWorker<'_> {
                     .get(&passage.revision_id)
                     .ok_or_else(|| integrity("passage source was not cached"))?;
                 trace_for_passage(&TraceInput {
+                    primary: primary.get(&passage.n).map_or(&[], Vec::as_slice),
+                    parent_context_of: supports.get(&passage.n).map_or(&[], Vec::as_slice),
                     number: passage.n,
                     revision_id: &passage.revision_id,
                     span: passage.span,

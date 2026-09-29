@@ -126,6 +126,8 @@ fn trace_keeps_sorted_unique_source_chunks_max_finite_score_and_ordered_routes()
         ),
     ];
     let trace = trace_for_passage(&TraceInput {
+        primary: &[],
+        parent_context_of: &[],
         number: 1,
         revision_id: "rev-a",
         span,
@@ -155,6 +157,8 @@ fn trace_refuses_empty_seed_spans() {
 
     assert_eq!(
         trace_for_passage(&TraceInput {
+            primary: &[],
+            parent_context_of: &[],
             number: 1,
             revision_id: "rev-a",
             span: Span {
@@ -184,6 +188,8 @@ fn trace_refuses_out_of_range_passage_spans() {
 
     assert_eq!(
         trace_for_passage(&TraceInput {
+            primary: &[],
+            parent_context_of: &[],
             number: 1,
             revision_id: "rev-a",
             span: Span {
@@ -210,6 +216,8 @@ fn a_partial_ordered_list_is_not_marked_procedural() {
     };
     let seeds = [seed("chunk-a", "rev-a", span, Some(0.5), &[])];
     let trace = trace_for_passage(&TraceInput {
+        primary: &[],
+        parent_context_of: &[],
         number: 1,
         revision_id: "rev-a",
         span,
@@ -237,6 +245,8 @@ fn ordinary_prose_is_not_marked_procedural() {
         &[],
     )];
     let trace = trace_for_passage(&TraceInput {
+        primary: &[],
+        parent_context_of: &[],
         number: 1,
         revision_id: "rev-a",
         span: Span {
@@ -258,6 +268,8 @@ fn trace_refuses_a_passage_without_primary_chunk_references() {
     let document = document(markdown);
     assert!(
         trace_for_passage(&TraceInput {
+            primary: &[],
+            parent_context_of: &[],
             number: 1,
             revision_id: "rev-a",
             span: Span {

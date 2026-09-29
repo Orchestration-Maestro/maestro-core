@@ -1,10 +1,11 @@
 //! Deterministic MMR ranking and conflict-atomic selection units.
 
+use super::super::selection_candidate::SelectionCandidate;
 use super::super::{
     features::{diversity_similarity, mmr_score},
     types::EvidenceError,
 };
-use super::types::{SelectionCandidate, check, integrity};
+use super::types::{check, integrity};
 use maestro_kernel::retrieval::ReadControl;
 use std::{cmp::Ordering, collections::BTreeSet};
 

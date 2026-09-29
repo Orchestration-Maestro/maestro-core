@@ -147,6 +147,7 @@ fn bundle(sections: &[Option<String>]) -> Bundle {
         inventory: None,
         trace: numbered
             .map(|(n, _)| Trace {
+                parent_context_of: Vec::new(),
                 n,
                 score: Some(1.0 / f64::from(n)),
                 routes: vec!["bm25".to_owned(), "dense".to_owned()],

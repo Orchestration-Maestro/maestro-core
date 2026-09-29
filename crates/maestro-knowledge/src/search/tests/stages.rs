@@ -140,6 +140,7 @@ fn passage(n: u32) -> Passage {
 
 fn trace(n: u32, chunk_ids: &[&str]) -> Trace {
     Trace {
+        parent_context_of: Vec::new(),
         n,
         score: None,
         routes: Vec::new(),

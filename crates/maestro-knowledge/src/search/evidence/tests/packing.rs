@@ -1,4 +1,6 @@
 use super::{CandidateSource, candidate, prepared};
+use crate::search::evidence::ParentChainOrder;
+use crate::search::evidence::delivery_graph::LegacyCanonicalGraph;
 use crate::search::evidence::tests::support::control;
 use crate::search::evidence::{
     EvidenceCounter, EvidenceSettings, ExpansionMode,
@@ -22,6 +24,8 @@ fn select_relevant(candidates: &[SelectionCandidate<'_>], max_tokens: u32) -> Se
         candidates,
         &[],
         &SelectionBudget {
+            graph: &LegacyCanonicalGraph,
+            parent_chain_order: ParentChainOrder::default(),
             expansion: ExpansionMode::RelevantBlocks,
             max_passages: 2,
             max_tokens,
@@ -69,6 +73,8 @@ fn relevant_blocks_admits_another_procedure_before_expanding_first() {
             &candidates,
             &[],
             &SelectionBudget {
+                graph: &LegacyCanonicalGraph,
+                parent_chain_order: ParentChainOrder::default(),
                 expansion,
                 max_passages: 2,
                 max_tokens: 1000,
@@ -126,6 +132,8 @@ fn relevant_table_prefix_keeps_header_and_whole_row_with_exact_span() {
         &candidates,
         &[],
         &SelectionBudget {
+            graph: &LegacyCanonicalGraph,
+            parent_chain_order: ParentChainOrder::default(),
             expansion: ExpansionMode::RelevantBlocks,
             max_passages: 2,
             max_tokens: 300,
@@ -195,6 +203,8 @@ fn relevant_blocks_keep_complete_list_steps_and_nested_tables() {
         &candidates,
         &[],
         &SelectionBudget {
+            graph: &LegacyCanonicalGraph,
+            parent_chain_order: ParentChainOrder::default(),
             expansion: ExpansionMode::RelevantBlocks,
             max_passages: 1,
             max_tokens: 1000,
@@ -234,6 +244,8 @@ fn relevant_blocks_spend_leftover_budget_on_neighbors_in_rank_order() {
         &candidates,
         &[],
         &SelectionBudget {
+            graph: &LegacyCanonicalGraph,
+            parent_chain_order: ParentChainOrder::default(),
             expansion: ExpansionMode::RelevantBlocks,
             max_passages: 2,
             max_tokens: 310,

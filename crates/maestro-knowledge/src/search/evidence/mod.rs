@@ -11,6 +11,7 @@ mod candidate_context;
 mod chunk_set_documents;
 /// Detects explicit structured disagreements in candidate tables.
 pub(super) mod conflicts;
+mod delivery_graph;
 /// Shares manifest-authorized identity and section occurrence across helpers.
 mod families;
 /// Computes case-sensitive shingles and material-difference signatures.
@@ -21,6 +22,7 @@ mod section_reader;
 mod sections;
 /// Applies atomic MMR and source-window selection under serialized budgets.
 mod selection;
+mod selection_candidate;
 /// Orders passages and derives trace metadata and known gaps.
 mod signals;
 /// Loads and caches authorized canonical source records.
@@ -38,7 +40,9 @@ pub(crate) use sections::SectionIndex;
 /// Compares numeric version components without integer conversion.
 mod versions;
 
-pub use super::assembly_settings::{CounterMode, EvidenceSettings, ExpansionMode};
+pub use super::assembly_settings::{
+    CounterMode, EvidenceSettings, ExpansionMode, ParentChainOrder,
+};
 pub use anchor::Anchor;
 pub use assemble::deadline::assemble_evidence;
 pub use chunk_set_documents::ChunkSetDocuments;

@@ -261,6 +261,7 @@ fn passage(number: u32, text: &str) -> Passage {
 
 fn trace(number: u32) -> Trace {
     Trace {
+        parent_context_of: Vec::new(),
         n: number,
         score: None,
         routes: vec!["identifier".to_owned()],

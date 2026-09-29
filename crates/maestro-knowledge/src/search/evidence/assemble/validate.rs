@@ -4,6 +4,7 @@ use super::super::super::{fusion::Route, request::EvidenceInput};
 use super::super::types::EvidenceError;
 use maestro_kernel::{
     evidence::{RequestBudget, RouteStatus},
+    generation::{Generation, GenerationState},
     retrieval::normalize_whitespace,
 };
 use std::collections::BTreeSet;
@@ -86,6 +87,30 @@ pub(super) fn validate_input(input: &EvidenceInput) -> Result<(), EvidenceError>
                 return Err(invalid("an unavailable route supplied a candidate"));
             }
         }
+    }
+    Ok(())
+}
+
+/// Checks immutable generation identity and the current publication lifecycle.
+pub(super) fn validate_generation(
+    pinned: &Generation,
+    current: &Generation,
+) -> Result<(), EvidenceError> {
+    if pinned.id != current.id
+        || pinned.collection_id != current.collection_id
+        || pinned.chunk_set_id != current.chunk_set_id
+        || pinned.embedding_profile != current.embedding_profile
+        || pinned.sparse_profile != current.sparse_profile
+    {
+        return Err(EvidenceError::Integrity(
+            "pinned generation identity changed".to_owned(),
+        ));
+    }
+    if !matches!(
+        current.state,
+        GenerationState::Published | GenerationState::Retired
+    ) {
+        return Err(EvidenceError::NotVisible);
     }
     Ok(())
 }

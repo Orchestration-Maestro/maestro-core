@@ -231,6 +231,41 @@ to retained primary seeds, not alternates; alternate sections are not extra
 votes. Final reading order groups by document/revision in best input-rank order,
 then by source span.
 
+### Opt-in parent-chain delivery
+
+`evidence.expansion = "parent_chain"` opts into complete units plus their
+required parent context. `full_section` remains the default; legacy modes keep
+the same serialized output. With parent-chain enabled,
+`evidence.parent_chain_order` accepts `minimum_complete_first` (the default
+when unset or `off`) or `largest_fitting_parent`. An explicit order outside
+parent-chain mode is refused (exit 2). Search-only ladder rungs carry the same
+optional expansion and order; answer-enabled rungs reject these overrides.
+
+The request-local, internal `DeliveryGraph` port consumes already-authorized
+canonical artifacts: it performs no independent database or network reads.
+Its legacy adapter offers exact seed-linked primary parts separately from
+required context ranges: a standalone table row plus header, the whole table,
+then its section. Nested procedure units remain whole. Persisted retrieval-view
+adapters may supply disjoint primary parts without pretending that the source
+gap is delivered. Every required part is admitted atomically; shared or adjacent
+source ranges merge before counting the actual serialized final passage array.
+A UTF-8 byte counter can reject a single over-budget required range before
+rendering; no byte bound is assumed for tokenizer counters.
+
+Conflict groups use global clamped tiers, preserving every member: minimum-first
+ascends them, largest-first descends the same tiers. Both retry lockstep growth
+after admission, because later overlaps can make a parent cheaper. Passage
+slots and source-byte accounting apply to each complete trial, not to isolated
+seed estimates. Unrelated rows gain no selection credit from a shared header.
+
+`trace.chunk_ids` means contained primary source contributions.
+`trace.parent_context_of` instead links a parent-only passage to admitted primary
+seeds in the same revision; it is omitted when empty. Duplicate, dangling,
+cross-revision or simultaneous containment/context links are rejected on read
+and write. Answer citations prefer contained chunks, then validated parent
+support; they retain the parent's own exact source span, including for closest
+passages in refusals.
+
 The bundle also carries the claims and paths used (S2), the **known gaps**
 (required evidence not found or not accessible) and, when `ask` is used, an
 **answer-support plan** that maps each planned statement to its evidence before

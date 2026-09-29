@@ -1,10 +1,10 @@
 //! Whole matched-block windows and contiguous table-header prefixes.
 
+use super::super::selection_candidate::SelectionCandidate;
 use super::super::{
     sections::{block_span, contains},
     types::EvidenceError,
 };
-use super::types::SelectionCandidate;
 use maestro_canonicalization::BlockType;
 use maestro_kernel::evidence::Span;
 use std::collections::BTreeMap;

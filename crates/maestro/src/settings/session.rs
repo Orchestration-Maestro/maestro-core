@@ -123,9 +123,12 @@ impl Session {
     ///
     /// [`Failure::Failed`] when a registered setting is missing or of
     /// another kind than its consumer reads, which the registry's tests
-    /// rule out.
+    /// rule out. Invalid user combinations are [`Failure::Refused`].
     pub(crate) fn knowledge(&self) -> Result<KnowledgeSettings, Failure> {
-        KnowledgeSettings::from_resolved(&self.resolved()).map_err(Failure::failed)
+        let settings =
+            KnowledgeSettings::from_resolved(&self.resolved()).map_err(Failure::failed)?;
+        settings.evidence.validate().map_err(Failure::refused)?;
+        Ok(settings)
     }
 }
 

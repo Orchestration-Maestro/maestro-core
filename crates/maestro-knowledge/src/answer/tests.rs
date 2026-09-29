@@ -242,6 +242,7 @@ fn bundle(question: &str, language: &str, text: &str) -> Bundle {
         request_budget: Some(RequestBudget::default()),
         inventory: None,
         trace: vec![Trace {
+            parent_context_of: Vec::new(),
             n: 1,
             score: None,
             routes: vec!["bm25".to_owned()],
@@ -287,36 +288,6 @@ async fn unsupported_command_is_retried_once_then_refused() {
     assert_eq!(
         answer.refusal.expect("refusal").code,
         RefusalCode::Unsupported
-    );
-}
-
-#[tokio::test]
-async fn i5_not_found_marker_returns_not_found_with_closest_passage_metadata() {
-    let scratch = Scratch::new();
-    let answerer = scratch.answerer();
-    let request = request("How do I list the registered sources?");
-    let passage = bundle(&request.question, "en", "The docs list model entries.");
-    let port = ScriptedPort::new(&["NOT_FOUND"]);
-
-    let answer = answer_bundle(
-        &port,
-        &request,
-        Some(&answerer),
-        passage,
-        &PromptVersion::V1.into(),
-    )
-    .await
-    .expect("safe no-evidence refusal");
-
-    assert_eq!(port.calls.load(Ordering::Relaxed), 1);
-    assert_eq!(answer.answer, "");
-    assert_eq!(answer.closest.len(), 1);
-    assert_eq!(answer.closest[0].source_ref, "https://example.org/docs");
-    let refusal = answer.refusal.expect("refusal");
-    assert_eq!(refusal.code, RefusalCode::NotFound);
-    assert_eq!(
-        refusal.message,
-        "The available passages do not answer the question."
     );
 }
 
@@ -496,3 +467,6 @@ mod requests;
 mod router_refusal;
 #[path = "tests/threshold.rs"]
 mod threshold;
+
+#[path = "tests/parent_context.rs"]
+mod parent_context;

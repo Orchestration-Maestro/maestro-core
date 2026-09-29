@@ -240,6 +240,7 @@ pub(super) fn bundle() -> Bundle {
         inventory: None,
         trace: vec![
             Trace {
+                parent_context_of: Vec::new(),
                 n: 1,
                 score: Some(0.83),
                 routes: vec!["bm25".to_owned(), "dense".to_owned()],
@@ -247,6 +248,7 @@ pub(super) fn bundle() -> Bundle {
                 procedural: false,
             },
             Trace {
+                parent_context_of: Vec::new(),
                 n: 2,
                 score: Some(0.41),
                 routes: vec!["dense".to_owned()],

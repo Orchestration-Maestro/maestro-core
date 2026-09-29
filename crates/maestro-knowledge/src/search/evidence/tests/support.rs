@@ -139,7 +139,7 @@ pub(super) fn evidence_input(fixture: &Fixture, query: &str) -> EvidenceInput {
 }
 
 /// A live read control long enough for deterministic local tests.
-pub(super) fn control() -> ReadControl {
+pub(in crate::search::evidence) fn control() -> ReadControl {
     ReadControl {
         deadline: Instant::now() + Duration::from_secs(30),
         cancelled: Arc::new(AtomicBool::new(false)),

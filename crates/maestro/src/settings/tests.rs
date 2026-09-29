@@ -3,6 +3,7 @@
 //! resolve the same files the same way.
 
 use super::{Compute, KnowledgeSettings, Session};
+use crate::failure::Failure;
 use maestro_kernel::evidence::RequestBudget;
 use maestro_knowledge::search::RerankHeader;
 use maestro_knowledge::{
@@ -225,6 +226,7 @@ fn each_setting_reaches_the_knowledge_operations() {
     assert_eq!(
         settings.evidence,
         EvidenceSettings {
+            parent_chain_order: None,
             expansion: ExpansionMode::RelevantBlocks,
             evidence_counter: CounterMode::Utf8AnswerBound,
         }
@@ -426,4 +428,24 @@ fn rerank_header_session_flag_reaches_search_and_ask_settings() {
     )
     .unwrap();
     assert_eq!(mcp.knowledge().unwrap().search, settings.search);
+}
+
+#[test]
+fn parent_chain_settings_round_trip_and_refuse_legacy_order() {
+    let scratch = Scratch::new();
+    scratch.user(concat!(
+        "[evidence]\nexpansion = \"parent_chain\"\n",
+        "parent_chain_order = \"largest_fitting_parent\"\n"
+    ));
+    let evidence = scratch.session(&[]).knowledge().unwrap().evidence;
+    assert_eq!(evidence.expansion, ExpansionMode::ParentChain);
+    assert_eq!(
+        serde_json::to_value(evidence).unwrap()["parent_chain_order"],
+        "largest_fitting_parent"
+    );
+    scratch.user("[evidence]\nparent_chain_order = \"minimum_complete_first\"\n");
+    assert!(matches!(
+        scratch.session(&[]).knowledge(),
+        Err(Failure::Refused(_))
+    ));
 }

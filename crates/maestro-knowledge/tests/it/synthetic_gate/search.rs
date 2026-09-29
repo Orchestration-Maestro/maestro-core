@@ -365,6 +365,7 @@ fn evidence_bundle(
             alternates: Vec::new(),
         });
         trace.push(Trace {
+            parent_context_of: Vec::new(),
             n: number,
             score: Some(hit.score),
             routes,
