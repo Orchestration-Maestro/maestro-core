@@ -46,7 +46,9 @@ fn record_setting_change_journals_the_change_and_setting_changes_read_it_back_in
     assert_eq!(changes.len(), 2);
     assert_eq!(changes[0], recorded);
     assert_eq!(changes[1].change, second);
-    assert!(changes[0].id < changes[1].id);
+    // The journal orders by sequence; a ULID made in the same millisecond is
+    // random past its time, so two IDs are distinct but not ordered.
+    assert_ne!(changes[0].id, changes[1].id);
     assert!(changes[0].time.ends_with('Z'), "{}", changes[0].time);
 
     let event = &database
