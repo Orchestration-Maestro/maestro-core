@@ -9,7 +9,7 @@ use super::{
     card::{ModelCard, Role, RouterEntry},
     port::{
         Candidate, ChatRequest, Error, ExtractRequest, ModelPort, Room, embedder_dimensions,
-        require,
+        require, sampling_fields,
     },
 };
 use crate::artifact::Digest;
@@ -141,7 +141,7 @@ impl RouterClient {
 
     /// Posts `body` to `path` under the model `card` names, once the card is
     /// checked, and reads an answer of at most `limit` bytes.
-    pub(super) async fn call<T: DeserializeOwned>(
+    async fn call<T: DeserializeOwned>(
         &self,
         card: &ModelCard,
         room: Room,
@@ -269,21 +269,7 @@ impl ModelPort for RouterClient {
             ),
         ]);
         if let Some(sampling) = sampling {
-            for (field, value) in [
-                ("temperature", json!(sampling.temperature)),
-                ("top_p", json!(sampling.top_p)),
-                ("top_k", json!(sampling.top_k)),
-                ("min_p", json!(sampling.min_p)),
-                ("typical_p", json!(sampling.typical_p)),
-                ("repeat_penalty", json!(sampling.repeat_penalty)),
-                ("frequency_penalty", json!(sampling.frequency_penalty)),
-                ("presence_penalty", json!(sampling.presence_penalty)),
-            ] {
-                body.insert(field.to_owned(), value);
-            }
-            if let Some(seed) = sampling.seed {
-                body.insert("seed".to_owned(), json!(seed));
-            }
+            sampling_fields(&mut body, sampling);
         }
         let answer: Completion = self
             .call(
@@ -400,13 +386,7 @@ fn has_value(value: &Value) -> bool {
 /// envelope, `{"error": {"code", "message", "type"}}`, when the body is one.
 fn refusal(status: u16, body: &[u8]) -> Error {
     let (code, message) = match serde_json::from_slice::<Envelope>(body) {
-        Ok(Envelope { error }) => (
-            error.code.and_then(|code| match code {
-                Value::String(code) => Some(code),
-                _ => None,
-            }),
-            error.message,
-        ),
+        Ok(Envelope { error }) => (error.code.and_then(named), error.message),
         Err(_) => (None, String::from_utf8_lossy(body).into_owned()),
     };
     match (status, code.as_deref()) {
@@ -417,6 +397,15 @@ fn refusal(status: u16, body: &[u8]) -> Error {
             code,
             message,
         },
+    }
+}
+
+/// A refusal's code when it is in words, as the router's are; llama.cpp's
+/// server repeats the status as a number instead.
+fn named(code: Value) -> Option<String> {
+    match code {
+        Value::String(code) => Some(code),
+        _ => None,
     }
 }
 
@@ -542,14 +531,14 @@ struct Tokens {
 
 /// `/v1/chat/completions`' answer.
 #[derive(Deserialize)]
-pub(super) struct Completion {
+struct Completion {
     /// The choices returned for the single prompt.
     choices: Vec<Choice>,
 }
 
 impl Completion {
     /// The one plain reply, if the response did not truncate or call tools.
-    pub(super) fn into_content(self) -> Result<String, Error> {
+    fn into_content(self) -> Result<String, Error> {
         completion_content(self)
     }
 }
