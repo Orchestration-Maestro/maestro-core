@@ -27,6 +27,8 @@ mod rank_policy;
 mod rank_stage;
 mod request;
 mod rerank;
+mod rerank_header;
+pub use rerank_header::RerankHeader;
 mod section_prior;
 pub use section_prior::{SectionClassSet, SectionPrior};
 mod source_class;

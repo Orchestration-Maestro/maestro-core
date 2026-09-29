@@ -6,7 +6,9 @@
 use super::{
     deadline,
     evidence::{self, Indexing, SourceCache},
+    intent::IntentExpansion,
     request::{CandidateContext, SearchConfiguration},
+    rerank_header::{RerankHeader, heading_path},
 };
 use maestro_canonicalization::{ChunkProfile, SourceSpan, chrome_spans};
 use maestro_kernel::{
@@ -38,6 +40,8 @@ pub(super) struct Settings<'a> {
 pub(super) struct Enriched {
     /// Candidates that kept their indexed chunk under bounded context.
     pub(super) fallbacks: Vec<String>,
+    /// Bounded prefixes keyed by chunk identity, separate from evidence text.
+    pub(super) headers: BTreeMap<String, String>,
     /// Candidates classified for a soft penalty.
     pub(super) penalized: BTreeSet<String>,
     /// Candidates whose source was unreadable or unexpandable, or reached
@@ -63,12 +67,21 @@ pub(super) fn enrich(
     };
     let prior = configuration.section_prior;
     let mut enriched = Enriched::default();
-    if max_bytes.is_none() && !prior.is_active() {
+    let headers =
+        configuration.rerank_enabled && configuration.rerank_header == RerankHeader::HeadingPath;
+    if max_bytes.is_none() && !prior.is_active() && !headers {
         return enriched;
     }
     let started = Instant::now();
     let depth = configuration.rerank_depth.get().min(candidates.len());
-    let candidates = candidates.get_mut(..depth).unwrap_or_default();
+    let header_depth = if headers && configuration.intent_expansion != IntentExpansion::Off {
+        depth
+            .saturating_add(configuration.intent_rerank_additions)
+            .min(candidates.len())
+    } else {
+        depth
+    };
+    let candidates = candidates.get_mut(..header_depth).unwrap_or_default();
     let control = ReadControl {
         deadline: control.deadline.min(settings.deadline),
         cancelled: control.cancelled.clone(),
@@ -81,7 +94,15 @@ pub(super) fn enrich(
         .map(|(chunk, _)| chunk.revision_id.clone())
         .collect::<Vec<_>>();
     cache.load_available(&revisions, settings.generation, CONTEXT_LOAD_WORKERS);
-    for (chunk, text) in candidates {
+    if headers {
+        enriched.headers = candidate_headers(candidates, &cache, &control);
+    }
+
+    if max_bytes.is_none() && !prior.is_active() {
+        enriched.micros = micros(started.elapsed());
+        return enriched;
+    }
+    for (chunk, text) in candidates.iter_mut().take(depth) {
         let context = deadline::open(&control)
             .then(|| cache.get(&chunk.revision_id))
             .flatten()
@@ -118,6 +139,35 @@ pub(super) fn enrich(
     }
     enriched.micros = micros(started.elapsed());
     enriched
+}
+
+/// Reads only authorized, already-validated canonical metadata from the shared cache.
+fn candidate_headers(
+    candidates: &[(&Chunk, String)],
+    cache: &SourceCache<'_>,
+    control: &ReadControl,
+) -> BTreeMap<String, String> {
+    candidates
+        .iter()
+        .filter_map(|(chunk, _)| {
+            let source = deadline::open(control)
+                .then(|| cache.get(&chunk.revision_id))
+                .flatten()?;
+            let path = chunk
+                .section_id
+                .as_ref()
+                .and_then(|id| {
+                    source
+                        .canonical
+                        .sections
+                        .iter()
+                        .find(|section| &section.section_id == id)
+                })
+                .map_or(&[][..], |section| section.heading_path.as_slice());
+            heading_path(source.canonical.source_metadata.title.as_deref(), path)
+                .map(|header| (chunk.id.clone(), header))
+        })
+        .collect()
 }
 
 /// The chunking profile of the generation's chunk set, whose page chrome a

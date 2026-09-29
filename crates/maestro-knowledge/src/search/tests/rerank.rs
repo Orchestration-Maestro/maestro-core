@@ -23,7 +23,7 @@ pub(super) struct FakePort {
     reply: Reply,
     delay: Duration,
     pub(super) calls: Mutex<Vec<RerankCall>>,
-    tokenized: Mutex<Vec<String>>,
+    pub(super) tokenized: Mutex<Vec<String>>,
     token_overrides: Vec<(String, usize)>,
 }
 
@@ -171,6 +171,7 @@ pub(super) fn card(role: Role, context_tokens: u32) -> ModelCard {
 
 pub(super) fn candidate(id: &str, fusion_score: f64, text: &str) -> Candidate {
     Candidate {
+        header: None,
         fused: Fused {
             chunk_id: id.to_owned(),
             score: fusion_score,

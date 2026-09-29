@@ -44,6 +44,8 @@ pub(super) struct Ranking {
     pub(super) status: RouteStatus,
     /// Source-loading wall time of the optional enrichment.
     pub(super) source_load_micros: u64,
+    /// Missing prefixes within the scored depth, absent when headers are off.
+    pub(super) header_missing: Option<usize>,
     /// Candidates that kept their indexed chunk under bounded context.
     pub(super) fallbacks: Vec<String>,
     /// Candidates whose optional enrichment was unavailable.
@@ -97,7 +99,24 @@ pub(super) async fn rank<P: ModelPort>(
         .iter()
         .map(|item| item.fused.chunk_id.clone())
         .collect::<Vec<_>>();
+    let header_missing = (configuration.rerank_enabled && !configuration.rerank_header.is_off())
+        .then(|| {
+            loaded
+                .candidates
+                .iter()
+                .take(
+                    configuration
+                        .rerank_depth
+                        .get()
+                        .saturating_add(pool.rerank_extra),
+                )
+                .filter(|candidate| candidate.header.is_none())
+                .count()
+        });
     let stage = span::rerank();
+    if let Some(missing) = header_missing {
+        stage.count(Count::HeaderMissing, missing);
+    }
     let (mut ranked, status) = stage
         .instrument(rerank_reusing(
             admitted,
@@ -114,6 +133,7 @@ pub(super) async fn rank<P: ModelPort>(
         ranked,
         status,
         source_load_micros: loaded.source_load_micros,
+        header_missing,
         fallbacks: loaded.fallbacks,
         context_unavailable: loaded.context_unavailable,
     })

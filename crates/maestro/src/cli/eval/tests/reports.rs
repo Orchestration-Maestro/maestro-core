@@ -410,3 +410,28 @@ fn a_right_document_ranked_7th_but_not_assembled_is_in_the_top_10() {
         (json!("top_1"), json!("fail"), json!(0))
     );
 }
+
+#[test]
+fn rerank_header_missing_is_absent_off_and_reported_even_when_zero_on() {
+    let runs = runs();
+    let run = &runs[0];
+    let diagnostic = &run.diagnostics[0];
+    let encode = |diagnostic: &SearchDiagnostic| {
+        serde_json::to_vec(&PrivateRow::new(
+            &run.rows[0],
+            diagnostic,
+            &run.rejections[0],
+            run.reply_caps[0],
+            true,
+        ))
+        .unwrap()
+    };
+    let baseline = encode(diagnostic);
+    assert!(!String::from_utf8_lossy(&baseline).contains("rerank_header_missing"));
+    let mut enabled = diagnostic.clone();
+    enabled.rerank_header_missing = Some(0);
+    let value: Value = serde_json::from_slice(&encode(&enabled)).unwrap();
+    assert_eq!(value["rerank_header_missing"], 0);
+    enabled.rerank_header_missing = None;
+    assert_eq!(encode(&enabled), baseline);
+}

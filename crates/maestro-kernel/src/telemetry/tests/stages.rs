@@ -316,3 +316,13 @@ fn futures_free_poll<F: Future>(future: F) -> F::Output {
         Poll::Pending => panic!("the future is not ready at once"),
     }
 }
+
+#[test]
+fn rerank_header_missing_is_stage_telemetry() {
+    let spans = recorded(|| {
+        let stage = span::rerank();
+        stage.count(Count::HeaderMissing, 3);
+        stage.finish(Outcome::Ok);
+    });
+    assert_eq!(spans[0].field("header_missing"), Some("3"));
+}

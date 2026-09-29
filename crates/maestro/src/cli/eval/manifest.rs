@@ -12,7 +12,8 @@ use maestro_kernel::{artifact::Digest, evidence::RequestBudget};
 use maestro_knowledge::{
     answer::AskBudget,
     search::{
-        IntentExpansion, IntentTrigger, SearchConfiguration, SourcePrior, StageWindow,
+        IntentExpansion, IntentTrigger, RerankHeader, SearchConfiguration, SourcePrior,
+        StageWindow,
         evidence::{CounterMode, EvidenceSettings, ExpansionMode},
     },
 };
@@ -260,6 +261,9 @@ pub(super) struct Rerank {
     /// Reranker-only source context.
     #[serde(default)]
     pub(super) candidate_context: Context,
+    /// Optional page title and heading prefix for every reranker window.
+    #[serde(default, skip_serializing_if = "RerankHeader::is_off")]
+    pub(super) header: RerankHeader,
 }
 
 /// Default bounded expansion deadline.
@@ -301,6 +305,7 @@ impl RungConfiguration {
             identifier_weight: self.weights.identifier,
             structured_weight: self.weights.structured,
             rerank_enabled: self.rerank.is_some(),
+            rerank_header: self.rerank.as_ref().map_or_default(|rerank| rerank.header),
             rerank_depth: self
                 .rerank
                 .as_ref()

@@ -6,6 +6,7 @@ use super::{
     fusion::Route,
     intent::{IntentExpansion, IntentTrigger, QueryExpander},
     rerank::{DEFAULT_DEPTH, Ranked, Reranker},
+    rerank_header::RerankHeader,
     routes::{dense::Embedder, error::RouteError, outcome::DroppedIdentifier},
     section_prior::SectionPrior,
     source_class::{SourceClassifier, SourcePrior},
@@ -100,6 +101,8 @@ pub struct SearchConfiguration {
     pub rerank_enabled: bool,
     /// Fused candidates passed to reranking, capped at 120.
     pub rerank_depth: NonZeroUsize,
+    /// Optional page and section heading prefix for model inputs only.
+    pub rerank_header: RerankHeader,
     /// The least top reranker score `ask` answers from, when rerank ran;
     /// search results are never filtered by it.
     pub min_rerank_score: Option<f32>,
@@ -142,6 +145,7 @@ impl Default for SearchConfiguration {
             structured_weight: 1.0,
             rerank_enabled: true,
             rerank_depth: DEFAULT_DEPTH,
+            rerank_header: RerankHeader::Off,
             min_rerank_score: None,
             rerank_blend: None,
             rerank_demotion_cap: None,
@@ -192,6 +196,8 @@ pub struct SearchObservations {
     pub assembled_passages: Vec<Vec<String>>,
     /// Wall time spent loading and validating source context, in microseconds.
     pub candidate_source_load_micros: u64,
+    /// Candidates without a heading prefix, absent when headers are off.
+    pub rerank_header_missing: Option<usize>,
     /// Candidate identities that retained the chunk because a whole unit exceeded the cap.
     pub candidate_context_fallbacks: Vec<String>,
     /// How many original top-depth candidates the intent votes put below

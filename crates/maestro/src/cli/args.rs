@@ -388,4 +388,34 @@ mod tests {
             .is_err()
         );
     }
+    #[test]
+    fn rerank_header_uses_the_session_flag_for_search_ask_and_mcp() {
+        for args in [
+            vec![
+                "knowledge",
+                "search",
+                "--collection",
+                "docs",
+                "--query",
+                "q",
+            ],
+            vec![
+                "knowledge",
+                "ask",
+                "--collection",
+                "docs",
+                "--question",
+                "q",
+            ],
+            vec!["mcp"],
+        ] {
+            let arguments = Arguments::try_parse_from(
+                ["maestro", "--set", "search.rerank.header=heading_path"]
+                    .into_iter()
+                    .chain(args),
+            )
+            .unwrap();
+            assert_eq!(arguments.set, ["search.rerank.header=heading_path"]);
+        }
+    }
 }

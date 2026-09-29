@@ -214,6 +214,7 @@ async fn the_reranker_reads_chunk_text_by_default() {
     assert_eq!(ranking.status, RouteStatus::Ok);
     assert!(ranking.fallbacks.is_empty());
     assert_eq!(ranking.context_gap(), None);
+    assert_eq!(ranking.header_missing, None);
 }
 
 #[tokio::test]
@@ -439,4 +440,102 @@ fn evidence_input(corpus: &Corpus, admitted: AdmittedSearch, ranked: Vec<Ranked>
         deadline: Instant::now() + Duration::from_secs(10),
         known_gaps: Vec::new(),
     }
+}
+
+#[tokio::test]
+async fn rerank_header_covers_intent_additions_without_changing_candidate_text() {
+    use crate::search::{IntentExpansion, RerankHeader};
+    let corpus = Corpus::new();
+    let port = FakePort::scores(vec![0.9, 0.5, 0.1]);
+    let configuration = SearchConfiguration {
+        rerank_header: RerankHeader::HeadingPath,
+        rerank_depth: NonZeroUsize::new(1).unwrap(),
+        intent_expansion: IntentExpansion::Hyde,
+        intent_rerank_additions: 2,
+        ..SearchConfiguration::default()
+    };
+    let admitted = corpus.admitted("run a task", configuration);
+    let mut pool = corpus.pool();
+    pool.rerank_extra = 2;
+    let card = card(Role::Reranker, 8192);
+    let ranking = rank_stage::rank(
+        corpus.database.clone(),
+        Some(&Reranker {
+            port: &port,
+            card: &card,
+        }),
+        &admitted,
+        "run a task",
+        pool,
+    )
+    .await
+    .unwrap();
+    assert_eq!(ranking.status, RouteStatus::Ok);
+    assert_eq!(texts(&ranking), corpus.prepared());
+    assert_eq!(ranking.header_missing, Some(0));
+    let sent = &port.calls.lock().unwrap()[0].documents;
+    for (index, heading) in ["Release notes", "Running", "Running"].iter().enumerate() {
+        assert_eq!(
+            sent[index],
+            format!("Notes > {heading}\n\n{}", corpus.prepared()[index])
+        );
+    }
+}
+
+#[tokio::test]
+async fn rerank_header_preserves_evidence_and_works_with_enriched_text() {
+    use crate::search::RerankHeader;
+    let corpus = Corpus::new();
+    let mut bundles = Vec::new();
+    for header in [RerankHeader::Off, RerankHeader::HeadingPath] {
+        let port = FakePort::scores(vec![0.5, 0.5, 0.5]);
+        let admitted = corpus.admitted(
+            "run a task",
+            SearchConfiguration {
+                rerank_header: header,
+                ..bounded()
+            },
+        );
+        let ranking = corpus.rank(&port, &admitted, "run a task").await;
+        let sent = port.calls.lock().unwrap()[0].documents.clone();
+        for (index, item) in ranking.ranked.iter().enumerate() {
+            assert_eq!(
+                sent[index],
+                format!(
+                    "{}{}",
+                    item.candidate.header.as_deref().unwrap_or_default(),
+                    item.candidate.text
+                )
+            );
+            assert_eq!(item.candidate.header.is_none(), header == RerankHeader::Off);
+        }
+        let bundle = assemble_evidence(
+            corpus.database.clone(),
+            evidence_input(&corpus, admitted, ranking.ranked),
+            EvidenceCounter::Utf8Bytes,
+        )
+        .await
+        .unwrap();
+        bundles.push(serde_json::to_vec(&bundle).unwrap());
+    }
+    assert_eq!(bundles[0], bundles[1]);
+}
+
+#[tokio::test]
+async fn rerank_header_missing_is_counted_without_changing_evidence_gaps() {
+    use crate::search::RerankHeader;
+    let corpus = Corpus::new();
+    let port = FakePort::scores(vec![0.9, 0.5, 0.1]);
+    let mut admitted = corpus.admitted(
+        "run a task",
+        SearchConfiguration {
+            rerank_header: RerankHeader::HeadingPath,
+            ..SearchConfiguration::default()
+        },
+    );
+    admitted.cutoffs.setup = Instant::now() + admitted.cutoffs.window;
+    let ranking = corpus.rank(&port, &admitted, "run a task").await;
+    assert_eq!(ranking.header_missing, Some(3));
+    assert_eq!(ranking.context_gap(), None);
+    assert_eq!(texts(&ranking), corpus.prepared());
 }

@@ -203,3 +203,20 @@ fn every_built_in_description_is_one_line_and_every_class_free() {
         assert_eq!(descriptor.class, SettingClass::Free, "{}", descriptor.key);
     }
 }
+
+#[test]
+fn rerank_header_is_an_off_by_default_closed_choice() {
+    let registry = Registry::built_in().unwrap();
+    assert_eq!(
+        registry.default_of("search.rerank.header"),
+        Some(&Value::Text("off".to_owned()))
+    );
+    let descriptor = registry.get("search.rerank.header").unwrap();
+    assert_eq!(
+        descriptor.kind,
+        SettingKind::Choice {
+            values: Cow::Owned(vec![Cow::Borrowed("off"), Cow::Borrowed("heading_path")]),
+            reserved: Cow::Borrowed(&[]),
+        }
+    );
+}

@@ -335,6 +335,7 @@ impl Engine for KernelEngine<'_> {
                 .await
                 .map_err(|error| search_failure(&error))?;
             diagnostic.top_rerank_score = top_rerank_score(&input.ranked);
+            diagnostic.rerank_header_missing = input.observations.rerank_header_missing;
             diagnostic.top_fused_score = top_fused_score(&input.ranked);
             diagnostic.intent_displaced = input.observations.intent_displaced;
             diagnostic.identifiers_dropped = input.observations.identifiers_dropped.len();

@@ -58,6 +58,8 @@ pub struct Candidate {
     pub fused: Fused,
     /// The chunk's indexed text, without truncation.
     pub text: String,
+    /// Optional bounded heading prefix, used only by the reranker.
+    pub header: Option<String>,
 }
 
 /// The model port and reranker card used for one reranking operation.
@@ -212,10 +214,15 @@ async fn prepare_documents<P: ModelPort>(
         if query
             .len()
             .saturating_add(candidate.text.len())
+            .saturating_add(candidate.header.as_ref().map_or(0, String::len))
             .saturating_add(SPECIAL_TOKENS)
             <= context_tokens
         {
-            add_document(&mut prepared, owner, candidate.text.clone());
+            add_document(
+                &mut prepared,
+                owner,
+                with_header(candidate, &candidate.text),
+            );
             continue;
         }
 
@@ -231,8 +238,22 @@ async fn prepare_documents<P: ModelPort>(
             query_tokens = Some(count);
             count
         };
+        let header_tokens = if let Some(header) = &candidate.header {
+            reranker
+                .port
+                .tokenize(reranker.card, Room::Free, header)
+                .await
+                .map_err(|_| RerankFailure::ModelUnavailable)?
+                .len()
+        } else {
+            0
+        };
         let text_budget = context_tokens
-            .checked_sub(count.saturating_add(SPECIAL_TOKENS))
+            .checked_sub(
+                count
+                    .saturating_add(SPECIAL_TOKENS)
+                    .saturating_add(header_tokens),
+            )
             .ok_or(RerankFailure::ContextLimit)?;
         let text_tokens = reranker
             .port
@@ -241,15 +262,27 @@ async fn prepare_documents<P: ModelPort>(
             .map_err(|_| RerankFailure::ModelUnavailable)?
             .len();
         if text_tokens <= text_budget {
-            add_document(&mut prepared, owner, candidate.text.clone());
+            add_document(
+                &mut prepared,
+                owner,
+                with_header(candidate, &candidate.text),
+            );
         } else {
             for window in split_text(&candidate.text, text_budget, reranker).await? {
-                add_document(&mut prepared, owner, window);
+                add_document(&mut prepared, owner, with_header(candidate, &window));
             }
         }
     }
 
     Ok(prepared)
+}
+
+/// Prefixes model text without changing the candidate used by evidence.
+fn with_header(candidate: &Candidate, text: &str) -> String {
+    candidate
+        .header
+        .as_ref()
+        .map_or_else(|| text.to_owned(), |header| format!("{header}{text}"))
 }
 
 /// Adds one reranker document and records its candidate.

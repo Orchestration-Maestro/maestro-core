@@ -234,6 +234,7 @@ async fn finish_search<P: ModelPort>(
         Err(CandidateFailure::WorkerFailed) => return Err(SearchError::WorkerFailed),
     };
     routes.observations.candidate_source_load_micros = ranking.source_load_micros;
+    routes.observations.rerank_header_missing = ranking.header_missing;
     routes.known_gaps.extend(ranking.context_gap());
     routes.observations.candidate_context_fallbacks = ranking.fallbacks;
     routes.observations.reranked_chunk_ids = ranking

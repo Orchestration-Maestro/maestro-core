@@ -163,6 +163,7 @@ impl Reader<'_, '_> {
             identifier_weight: self.number("search.weights.identifier")?,
             structured_weight: self.number("search.weights.structured")?,
             rerank_enabled: self.flag("search.rerank.enabled")?,
+            rerank_header: self.named("search.rerank.header")?,
             rerank_depth: NonZeroUsize::new(rerank_depth)
                 .ok_or_else(|| "search.rerank.depth".to_owned())?,
             min_rerank_score: self.optional_number("ask.min_rerank_score")?.map(narrow),

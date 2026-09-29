@@ -166,6 +166,12 @@ pub const BUILT_IN: &[SettingDescriptor] = &[
         "Whether the reranker reorders the fused candidates.",
     ),
     free(
+        "search.rerank.header",
+        choice(texts!["off", "heading_path"]),
+        "off",
+        "Prefix reranker inputs with the page title and heading path; off preserves input text.",
+    ),
+    free(
         "search.rerank.depth",
         integer(1, 120),
         "30",

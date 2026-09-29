@@ -304,6 +304,9 @@ pub(super) struct PrivateRow<'run> {
     bundle_documents: &'run [String],
     /// Source-context loading and validation wall time in microseconds.
     candidate_source_load_micros: u64,
+    /// Missing heading prefixes, omitted when headers are disabled.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    rerank_header_missing: Option<usize>,
     /// Candidate IDs retained as chunks after whole-unit expansion exceeded its cap.
     candidate_context_fallbacks: &'run [String],
     /// The first of them, from 1, that is an expected document.
@@ -398,6 +401,7 @@ impl<'run> PrivateRow<'run> {
             top_fused_score: diagnostic.top_fused_score,
             candidate_source_load_micros: diagnostic.candidate_source_load_micros,
             candidate_context_fallbacks: &diagnostic.candidate_context_fallbacks,
+            rerank_header_missing: diagnostic.rerank_header_missing,
             ask: asked.then_some(ask),
             ask_us: asked.then(|| micros(row.ask.elapsed)),
             refusal: refusal.filter(|_| asked),

@@ -6,6 +6,7 @@ use super::super::{
     runner::{Asked, Engine, Provenance, RejectedCheck, SearchDiagnostic, Searched},
 };
 use crate::failure::Failure;
+use maestro_knowledge::search::RerankHeader;
 use maestro_knowledge::{
     answer::RefusalCode,
     eval::{AskOutcome, SearchOutcome, SectionRef},
@@ -80,6 +81,7 @@ pub(super) fn rung(name: &str) -> Rung {
                 blend: None,
                 demotion_cap: None,
                 candidate_context: Context::default(),
+                header: RerankHeader::default(),
             }),
             min_rerank_score: None,
             section_prior: Prior::default(),
