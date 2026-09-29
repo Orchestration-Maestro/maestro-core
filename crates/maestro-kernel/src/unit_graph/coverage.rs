@@ -197,3 +197,45 @@ fn validate_partition(
     }
     require(end == source.len() as u64, "unaccounted source tail")
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Loads the versioned graph fixture without going through its validators.
+    fn fixture() -> DeliveryGraph {
+        DeliveryGraph::from_bytes(
+            include_bytes!("../../tests/fixtures/unit-graph-v1.json")
+                .strip_suffix(b"\n")
+                .unwrap(),
+        )
+        .unwrap()
+    }
+
+    /// Uses the exact original source bytes recorded by the graph fixture.
+    fn source() -> &'static str {
+        include_str!("../../tests/fixtures/unit-graph-v1.txt")
+    }
+
+    /// A zero-width span is rejected before source tiling is considered.
+    #[test]
+    fn span_rejects_an_empty_range() {
+        assert!(span(SourceRange { start: 0, end: 0 }, source()).is_err());
+    }
+
+    /// Empty mapping modes cannot pass canonical-contribution validation.
+    #[test]
+    fn collect_parts_rejects_an_empty_mapping_mode() {
+        let mut graph = fixture();
+        graph.parts[0].mappings[0].mapping_mode.clear();
+        assert!(collect_parts(&graph, source()).is_err());
+    }
+
+    /// Equal derived endpoints do not describe a contribution.
+    #[test]
+    fn collect_parts_rejects_an_empty_derived_range() {
+        let mut graph = fixture();
+        graph.parts[0].mappings[0].derived_range = (0, 0);
+        assert!(collect_parts(&graph, source()).is_err());
+    }
+}

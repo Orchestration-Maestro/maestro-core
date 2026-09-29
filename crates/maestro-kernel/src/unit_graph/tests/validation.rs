@@ -1,8 +1,9 @@
 //! Direct invariants of the current delivery-graph contract.
 use super::support::graph;
 use crate::{
+    artifact::Digest,
     store,
-    unit_graph::{ContextKind, DeliveryGraph, Error, MappingLedger, SplitMarker},
+    unit_graph::{ContextKind, DeliveryGraph, Error, MappingLedger, SplitMarker, UnitKind},
 };
 use std::error::Error as _;
 
@@ -35,6 +36,11 @@ fn malformed_delivery_graphs_are_refused() {
     changed.groups[0].children.push("section".into());
     invalid.push(changed);
     let mut changed = graph();
+    changed.groups[2]
+        .children
+        .retain(|child| child != "row-group");
+    invalid.push(changed);
+    let mut changed = graph();
     changed.groups[1].parent = None;
     invalid.push(changed);
     let mut changed = graph();
@@ -61,6 +67,9 @@ fn malformed_delivery_graphs_are_refused() {
     invalid.push(changed);
     let mut changed = graph();
     changed.units[5].parent = Some("section".into());
+    invalid.push(changed);
+    let mut changed = graph();
+    changed.units[5].kind = UnitKind::Block;
     invalid.push(changed);
     let mut changed = graph();
     changed.units[5].parent = None;
@@ -151,6 +160,25 @@ fn malformed_delivery_graphs_are_refused() {
             "malformed graph case {index} was accepted"
         );
     }
+}
+
+/// Digest verification rejects a bad source digest despite a matching ledger.
+#[test]
+fn source_digest_mismatch_is_rejected_when_mapping_digest_matches() {
+    let mut graph = graph();
+    let mut ledger = MappingLedger::from_bytes(
+        include_bytes!("../../../tests/fixtures/unit-mapping-v1.json")
+            .strip_suffix(b"\n")
+            .unwrap(),
+    )
+    .unwrap();
+    let source = include_str!("../../../tests/fixtures/unit-graph-v1.txt");
+    let wrong_source_digest = Digest::of(b"different source");
+    graph.descriptor.original_markdown_digest = wrong_source_digest.clone();
+    ledger.original_markdown_digest = wrong_source_digest;
+    graph.descriptor.mapping_digest = Digest::of(&ledger.to_bytes().unwrap());
+
+    assert!(graph.validate(&ledger, source).is_err());
 }
 
 #[test]
