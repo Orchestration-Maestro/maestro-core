@@ -7,15 +7,21 @@ use super::{
     runner::{Provenance, RejectedCheck, RungRun, SearchDiagnostic, Verdict},
 };
 use crate::failure::Failure;
-use maestro_kernel::{artifact::Digest, evidence::RequestBudget};
-use maestro_knowledge::search::evidence::EvidenceSettings;
+use maestro_kernel::{artifact::Digest, evidence::RouteStatus};
+use maestro_knowledge::search::evidence::{EvidenceSettings, ExpansionMode, ParentChainOrder};
 use maestro_knowledge::{
-    answer::{AskBudget, RefusalCode},
+    answer::RefusalCode,
     eval::{AskOutcome, DeliveryScore, LadderQuestion, LadderScore, SearchOutcome},
     search::evidence::Anchor,
 };
 use serde::Serialize;
-use std::{collections::BTreeMap, fmt::Write as _, fs, path::Path, time::Duration};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fmt::Write as _,
+    fs,
+    path::Path,
+    time::Duration,
+};
 
 /// The contract of a rung's public report.
 const RUNG_SCHEMA: &str = "maestro-eval-ladder-rung/2";
@@ -69,6 +75,8 @@ pub(super) struct RungReport<'run> {
     ladder: &'run Provenance,
     /// Its search configuration.
     configuration: &'run RungConfiguration,
+    /// The resolved budget and evidence settings used by each search.
+    search_settings: SearchReport,
     /// The deadline each of its searches ran with, in milliseconds.
     search_deadline_ms: u32,
     /// The SHA-256 of the suite's file.
@@ -82,8 +90,13 @@ pub(super) struct RungReport<'run> {
     /// median coverage, the composition cases and those complete, and the
     /// questions credited with nothing.
     delivery: &'run DeliveryScore,
+    /// Counts of expansion outcomes, absent when intent is off.
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    intent_outcomes: BTreeMap<&'static str, usize>,
     /// How many attempts each answer check refused, over every row.
     rejected_checks: BTreeMap<&'static str, usize>,
+    /// The reply caps its asks' chat calls ran with, over every row.
+    reply_caps: BTreeSet<u32>,
 }
 
 impl<'run> RungReport<'run> {
@@ -94,6 +107,7 @@ impl<'run> RungReport<'run> {
         suite_digest: &'run Digest,
         binary: Binary,
     ) -> Self {
+        let (search_budget, search_evidence) = run.rung.resolved_search_settings();
         Self {
             schema: RUNG_SCHEMA,
             rung: &run.rung.name,
@@ -106,11 +120,18 @@ impl<'run> RungReport<'run> {
             end: run.end.as_ref(),
             ladder: &run.ladder,
             configuration: &run.rung.configuration,
-            search_deadline_ms: RequestBudget::default().deadline_ms,
+            search_settings: SearchReport {
+                max_passages: search_budget.k,
+                evidence_bytes: search_budget.evidence_bytes,
+                expansion: search_evidence.expansion,
+                parent_chain_order: search_evidence.parent_chain_order,
+            },
+            search_deadline_ms: search_budget.deadline_ms,
             suite_digest: suite_digest.as_str(),
             binary,
             score: &run.score,
             delivery: &run.delivery,
+            intent_outcomes: intent_counts(&run.diagnostics),
             rejected_checks: run.rejections.iter().flatten().fold(
                 BTreeMap::new(),
                 |mut counts, rejection| {
@@ -118,6 +139,7 @@ impl<'run> RungReport<'run> {
                     counts
                 },
             ),
+            reply_caps: run.reply_caps.iter().flatten().copied().collect(),
         }
     }
 
@@ -129,6 +151,7 @@ impl<'run> RungReport<'run> {
             ("Reranker card", &self.provenance.reranker),
             ("Answerer card", &self.provenance.answerer),
             ("Prompt file", &self.provenance.prompt),
+            ("Source-class table", &self.provenance.source_classes),
         ];
         let _ = writeln!(text, "- Collection: {}", self.collection);
         let _ = writeln!(text, "- Generation: {}", self.provenance.generation);
@@ -153,8 +176,29 @@ impl<'run> RungReport<'run> {
         );
         if let Some(settings) = &self.ask_settings {
             let _ = writeln!(text, "- Ask settings: {}", settings.describe());
+            let _ = writeln!(text, "- Reply cap: {}", reply_caps(&self.reply_caps));
         }
-        let _ = writeln!(text, "- Scored bundle: {}", self.scored_bundle());
+        let expansion = match self.search_settings.expansion {
+            ExpansionMode::FullSection => "full_section",
+            ExpansionMode::RelevantBlocks => "relevant_blocks",
+            ExpansionMode::ParentChain => "parent_chain",
+        };
+        let order = match self.search_settings.parent_chain_order {
+            Some(ParentChainOrder::MinimumCompleteFirst) => "minimum_complete_first",
+            Some(ParentChainOrder::LargestFittingParent) => "largest_fitting_parent",
+            None => "none",
+        };
+        let _ = writeln!(
+            text,
+            concat!(
+                "- Search settings: at most {} passages, {} evidence bytes, ",
+                "{} expansion, {} order"
+            ),
+            self.search_settings.max_passages,
+            self.search_settings.evidence_bytes,
+            expansion,
+            order
+        );
         text.push_str(&self.delivery.to_markdown());
         let _ = writeln!(
             text,
@@ -177,24 +221,26 @@ impl<'run> RungReport<'run> {
             );
         }
         text.push('\n');
+        if !self.intent_outcomes.is_empty() {
+            let _ = writeln!(text, "- Intent outcomes: {:?}\n", self.intent_outcomes);
+        }
         text.push_str(&self.score.to_markdown());
         text
     }
+}
 
-    /// The bundle the delivery score reads, in words: what each ask's
-    /// answerer received, or each search's evidence under the default ask
-    /// budget when the rung did not ask.
-    fn scored_bundle(&self) -> String {
-        if self.ask {
-            return "the evidence each ask gave its answerer, under the ask settings".to_owned();
-        }
-        let budget = AskBudget::default();
-        format!(
-            "each search's evidence, assembled under the default ask budget: at most {} \
-             passages, {} evidence bytes",
-            budget.k, budget.max_tokens
-        )
-    }
+/// The resolved budget and evidence settings searches ran with.
+#[derive(Debug, Serialize)]
+pub(super) struct SearchReport {
+    /// Maximum passages.
+    #[serde(rename = "k")]
+    max_passages: u32,
+    /// Maximum evidence bytes.
+    evidence_bytes: u32,
+    /// Resolved evidence expansion.
+    expansion: ExpansionMode,
+    /// Resolved parent-chain order, or none.
+    parent_chain_order: Option<ParentChainOrder>,
 }
 
 /// The settings a rung's asks ran with, each resolved.
@@ -207,9 +253,10 @@ pub(super) struct AskReport {
     /// The most passages given to the answerer.
     k: u32,
     /// The evidence budget, in UTF-8 bytes.
-    max_tokens: u32,
-    /// The most tokens each answerer reply generates.
-    output_tokens: u32,
+    evidence_bytes: u32,
+    /// The most tokens each answerer reply generates, absent when its card
+    /// sets them.
+    output_tokens: Option<u32>,
     /// The answer prompt: its version, or `file`.
     prompt: &'static str,
     /// Resolved packing settings.
@@ -224,7 +271,7 @@ impl AskReport {
         let budget = settings.budget();
         Self {
             k: budget.k,
-            max_tokens: budget.max_tokens,
+            evidence_bytes: budget.evidence_bytes,
             output_tokens: budget.output_tokens,
             prompt: settings.prompt.name(),
             evidence: settings.evidence(),
@@ -235,10 +282,14 @@ impl AskReport {
     /// The settings in words: the most passages, evidence bytes, output
     /// tokens, the prompt and the search deadline.
     pub(super) fn describe(&self) -> String {
+        let output_tokens = self.output_tokens.map_or_else(
+            || "the answerer card's output tokens".to_owned(),
+            |tokens| format!("{tokens} output tokens"),
+        );
         format!(
-            "at most {} passages, {} evidence bytes, {} output tokens, prompt {}, search \
-             deadline {} ms",
-            self.k, self.max_tokens, self.output_tokens, self.prompt, self.search_deadline_ms
+            "at most {} passages, {} evidence bytes, {output_tokens}, prompt {}, search deadline \
+             {} ms",
+            self.k, self.evidence_bytes, self.prompt, self.search_deadline_ms
         )
     }
 }
@@ -251,6 +302,16 @@ pub(super) struct PrivateRow<'run> {
     id: &'run str,
     /// How its search ended: `ranked`, `failed` or `timed_out`.
     search: &'static str,
+    /// Expansion outcome only, never generated text; omitted when off.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    intent_status: Option<&'run RouteStatus>,
+    /// Original top-depth candidates the intent votes put below the rerank
+    /// depth, all still reranked; omitted when no intent voted.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    intent_displaced: Option<usize>,
+    /// How many identifiers the noise guard dropped; omitted when none.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    identifiers_dropped: Option<usize>,
     /// Its search's time, in microseconds.
     search_us: u64,
     /// The distinct documents of the search's final ranked chunks, before
@@ -272,6 +333,8 @@ pub(super) struct PrivateRow<'run> {
     candidate_context_fallbacks: &'run [String],
     /// The first of them, from 1, that is an expected document.
     bundle_rank: Option<usize>,
+    /// UTF-8 byte count of the assembled evidence, absent when assembly failed.
+    evidence_bytes: Option<u32>,
     /// The search's top reranker score, absent when rerank did not run.
     top_rerank_score: Option<f64>,
     /// The search's top fused score, absent when no fused candidate was loaded.
@@ -286,6 +349,10 @@ pub(super) struct PrivateRow<'run> {
     citations: Vec<Citation<'run>>,
     /// The attempts the answer check refused before `ask` ended.
     rejections: &'run [RejectedCheck],
+    /// The most tokens each of its `ask`'s chat replies could generate,
+    /// absent when the rung does not ask or its `ask` never reached the
+    /// answerer.
+    reply_cap: Option<u32>,
 }
 
 /// A section an answer cites.
@@ -305,11 +372,13 @@ struct Citation<'run> {
 
 impl<'run> PrivateRow<'run> {
     /// The private row of `row`, whose search gave `diagnostic` and whose
-    /// `ask` ran when `asked`, after the answer check refused `rejections`.
+    /// `ask` ran when `asked`, under `reply_cap`, after the answer check
+    /// refused `rejections`.
     pub(super) fn new(
         row: &'run LadderQuestion,
         diagnostic: &'run SearchDiagnostic,
         rejections: &'run [RejectedCheck],
+        reply_cap: Option<u32>,
         asked: bool,
     ) -> Self {
         let bundle_documents = diagnostic.bundle_documents.as_slice();
@@ -343,11 +412,16 @@ impl<'run> PrivateRow<'run> {
             id: &row.id,
             delivered: &row.delivered,
             search,
+            intent_status: diagnostic.intent_status.as_ref(),
+            intent_displaced: diagnostic.intent_displaced,
+            identifiers_dropped: Some(diagnostic.identifiers_dropped)
+                .filter(|dropped| *dropped > 0),
             search_us: micros(row.search.elapsed),
             ranked_documents,
             expected_rank,
             bundle_documents,
             bundle_rank,
+            evidence_bytes: diagnostic.evidence_bytes,
             top_rerank_score: diagnostic.top_rerank_score,
             top_fused_score: diagnostic.top_fused_score,
             candidate_source_load_micros: diagnostic.candidate_source_load_micros,
@@ -357,6 +431,7 @@ impl<'run> PrivateRow<'run> {
             refusal: refusal.filter(|_| asked),
             citations,
             rejections,
+            reply_cap: reply_cap.filter(|_| asked),
         }
     }
 }
@@ -374,12 +449,17 @@ pub(super) fn write_rung(
     let private = output.join(PRIVATE);
     fs::create_dir_all(&private).map_err(|error| Failure::failed_by(&error))?;
     let mut rows = String::new();
-    for ((row, diagnostic), rejections) in
-        run.rows.iter().zip(&run.diagnostics).zip(&run.rejections)
+    let asked = run.rung.ask.is_some();
+    for (((row, diagnostic), rejections), reply_cap) in run
+        .rows
+        .iter()
+        .zip(&run.diagnostics)
+        .zip(&run.rejections)
+        .zip(&run.reply_caps)
     {
-        let asked = run.rung.ask.is_some();
-        let line = serde_json::to_string(&PrivateRow::new(row, diagnostic, rejections, asked))
-            .map_err(|error| Failure::failed_by(&error))?;
+        let private_row = PrivateRow::new(row, diagnostic, rejections, *reply_cap, asked);
+        let line =
+            serde_json::to_string(&private_row).map_err(|error| Failure::failed_by(&error))?;
         rows.push_str(&line);
         rows.push('\n');
     }
@@ -408,6 +488,16 @@ fn rejected_counts(counts: &BTreeMap<&'static str, usize>) -> String {
         .join(", ")
 }
 
+/// `caps` in words: each reply cap in output tokens, or "none" when no ask
+/// reached the answerer.
+fn reply_caps(caps: &BTreeSet<u32>) -> String {
+    if caps.is_empty() {
+        return "none".to_owned();
+    }
+    let caps: Vec<String> = caps.iter().map(u32::to_string).collect();
+    format!("{} output tokens", caps.join(", "))
+}
+
 /// The first of `documents`, from 1, that `row` expects.
 fn first_expected(row: &LadderQuestion, documents: &[String]) -> Option<usize> {
     documents
@@ -423,4 +513,46 @@ fn first_expected(row: &LadderQuestion, documents: &[String]) -> Option<usize> {
 /// `duration` in whole microseconds, saturating.
 fn micros(duration: Duration) -> u64 {
     u64::try_from(duration.as_micros()).unwrap_or(u64::MAX)
+}
+
+/// Counts search expansion outcomes without exposing model-generated text:
+/// each guard rule and each fallback by its fixed name.
+fn intent_counts(diagnostics: &[SearchDiagnostic]) -> BTreeMap<&'static str, usize> {
+    let mut counts = BTreeMap::new();
+    for status in diagnostics
+        .iter()
+        .filter_map(|item| item.intent_status.as_ref())
+    {
+        *counts.entry(intent_outcome(status)).or_default() += 1;
+    }
+    counts
+}
+
+/// The report name of one expansion outcome.
+fn intent_outcome(status: &RouteStatus) -> &'static str {
+    const OUTCOMES: [(&str, &str); 10] = [
+        ("intent_not_triggered", "not_triggered"),
+        ("intent_deadline_exceeded", "timeout"),
+        ("intent_second_pass_unavailable", "second_pass_unavailable"),
+        ("intent_guard_malformed", "guarded_malformed"),
+        ("intent_guard_empty", "guarded_empty"),
+        ("intent_guard_oversize", "guarded_oversize"),
+        (
+            "intent_guard_protected_missing",
+            "guarded_protected_missing",
+        ),
+        ("intent_guard_added_number", "guarded_added_number"),
+        (
+            "intent_guard_identifier_missing",
+            "guarded_identifier_missing",
+        ),
+        ("intent_guard_identifier_added", "guarded_identifier_added"),
+    ];
+    match status {
+        RouteStatus::Ok => "ran",
+        RouteStatus::Unavailable(reason) => OUTCOMES
+            .iter()
+            .find(|(code, _)| code == reason)
+            .map_or("unavailable", |(_, name)| name),
+    }
 }

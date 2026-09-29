@@ -22,7 +22,7 @@ use serde_json::{Map, Number, Value};
 use std::{error, fmt, num::NonZeroU64, str::FromStr};
 
 /// The `source_ref` prefix of a document without a URL.
-const CORPUS_PATH: &str = "corpus-path:";
+pub(crate) const CORPUS_PATH: &str = "corpus-path:";
 
 /// One document of a corpus manifest. [`str::parse`] reads a line from a JSON
 /// object only, and checks its `source_ref` against its `path`, which the
@@ -146,13 +146,24 @@ impl error::Error for Error {
 /// Whether `text` is an `http` or `https` URL with a host, holding no
 /// whitespace or control character.
 fn is_web_url(text: &str) -> bool {
-    let Some(rest) = text
+    web_origin(text).is_some_and(|(host, _)| !host.is_empty())
+        && !text
+            .chars()
+            .any(|character| character.is_whitespace() || character.is_control())
+}
+
+/// The host and path of an `http` or `https` URL, as written: the path runs
+/// from the first `/` after the authority up to its query or fragment, and
+/// is empty when there is none. None for any other text.
+pub(crate) fn web_origin(text: &str) -> Option<(&str, &str)> {
+    let rest = text
         .strip_prefix("https://")
-        .or_else(|| text.strip_prefix("http://"))
-    else {
-        return false;
-    };
-    let authority = rest.split(['/', '?', '#']).next().unwrap_or_default();
+        .or_else(|| text.strip_prefix("http://"))?;
+    let end = rest.find(['/', '?', '#']).unwrap_or(rest.len());
+    let (authority, after) = rest.split_at(end);
+    let path = after
+        .strip_prefix('/')
+        .map_or("", |_| after.split(['?', '#']).next().unwrap_or_default());
     // The host follows the user information, up to the authority's last `@`,
     // and precedes the port, from its first `:`. An IPv6 address holds colons
     // but starts with `[`, so what precedes its first colon is never empty.
@@ -160,10 +171,7 @@ fn is_web_url(text: &str) -> bool {
         .rsplit_once('@')
         .map_or(authority, |(_user, host_and_port)| host_and_port);
     let host = host_and_port.split(':').next().unwrap_or_default();
-    !host.is_empty()
-        && !text
-            .chars()
-            .any(|character| character.is_whitespace() || character.is_control())
+    Some((host, path))
 }
 
 /// `extractor` or `access`: an object the contract leaves open, read with

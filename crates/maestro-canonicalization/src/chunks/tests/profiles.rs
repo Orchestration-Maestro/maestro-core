@@ -320,6 +320,17 @@ fn coverage_refuses_chrome_in_a_chunk_and_kept_text_left_out() {
 }
 
 #[test]
+fn chrome_spans_never_report_nonprimary_list_markers() {
+    let markdown = "- item\n";
+    let document = canonicalize(CanonicalizeInput::new(markdown, "list-marker")).unwrap();
+    assert!(
+        chrome_spans(&document, markdown, ChunkProfile::CompleteIdeas)
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[test]
 fn chrome_spans_name_the_original_bytes_complete_ideas_leaves_out() {
     let markdown = "# Restart Link copied to clipboard\n\nClosed\n\n<!-- image -->\n\n\
                     Restart it. Copy Copied to clipboard\n";

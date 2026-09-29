@@ -12,6 +12,8 @@ use super::super::{
 };
 use super::support::control;
 use crate::search::Route;
+use crate::search::evidence::ParentChainOrder;
+use crate::search::evidence::delivery_graph::LegacyCanonicalGraph;
 use maestro_canonicalization::{
     CanonicalDocument, CanonicalizeInput, Error as CanonicalError, TokenCounter, canonicalize,
 };
@@ -26,20 +28,23 @@ use std::{
     time::{Duration, Instant},
 };
 
-fn prepared(markdown: &str, path: &str) -> (CanonicalDocument, SectionIndex) {
+pub(in crate::search::evidence) fn prepared(
+    markdown: &str,
+    path: &str,
+) -> (CanonicalDocument, SectionIndex) {
     let document = canonicalize(CanonicalizeInput::new(markdown, path)).unwrap();
     let index = SectionIndex::new(&document, markdown).unwrap();
     (document, index)
 }
 
 #[derive(Clone, Copy)]
-struct CandidateSource<'a> {
-    markdown: &'a str,
-    document: &'a CanonicalDocument,
-    sections: &'a SectionIndex,
+pub(in crate::search::evidence) struct CandidateSource<'a> {
+    pub(in crate::search::evidence) markdown: &'a str,
+    pub(in crate::search::evidence) document: &'a CanonicalDocument,
+    pub(in crate::search::evidence) sections: &'a SectionIndex,
 }
 
-fn candidate<'a>(
+pub(in crate::search::evidence) fn candidate<'a>(
     source: CandidateSource<'a>,
     section_title: &str,
     marker: &str,
@@ -113,7 +118,7 @@ fn run_selection(
     candidates: &[SelectionCandidate<'_>],
     conflict_units: &[BTreeSet<usize>],
     max_passages: usize,
-    max_tokens: u32,
+    evidence_bytes: u32,
 ) -> super::super::selection::SelectionResult {
     let counter = EvidenceCounter::Utf8Bytes;
     let info = counter_info(&counter).unwrap();
@@ -122,9 +127,11 @@ fn run_selection(
         candidates,
         conflict_units,
         &SelectionBudget {
+            graph: &LegacyCanonicalGraph,
+            parent_chain_order: ParentChainOrder::default(),
             expansion: ExpansionMode::default(),
             max_passages,
-            max_tokens,
+            evidence_bytes,
             counter: &counter,
             counter_info: &info,
             control: &read_control,
@@ -375,16 +382,18 @@ fn mandatory_whole_sibling_window_adds_before_then_stops_at_budget() {
     expected.windowed = true;
     let counter = EvidenceCounter::Utf8Bytes;
     let info = counter_info(&counter).unwrap();
-    let max_tokens = count_passages(&[expected], &counter, &info).unwrap();
+    let evidence_bytes = count_passages(&[expected], &counter, &info, 6_000).unwrap();
     let control = control();
 
     let result = select(
         &[candidate],
         &[],
         &SelectionBudget {
-            expansion: ExpansionMode::default(),
+            graph: &LegacyCanonicalGraph,
+            parent_chain_order: ParentChainOrder::default(),
+            expansion: ExpansionMode::FullSection,
             max_passages: 1,
-            max_tokens,
+            evidence_bytes,
             counter: &counter,
             counter_info: &info,
             control: &control,
@@ -428,9 +437,11 @@ fn a_failed_near_sibling_does_not_close_a_non_monotonic_farther_window() {
         &[candidate],
         &[],
         &SelectionBudget {
-            expansion: ExpansionMode::default(),
+            graph: &LegacyCanonicalGraph,
+            parent_chain_order: ParentChainOrder::default(),
+            expansion: ExpansionMode::FullSection,
             max_passages: 1,
-            max_tokens: 2,
+            evidence_bytes: 2,
             counter: &counter,
             counter_info: &info,
             control: &control,
@@ -471,9 +482,11 @@ fn selection_refuses_an_already_cancelled_control() {
             &[candidate],
             &[],
             &SelectionBudget {
+                graph: &LegacyCanonicalGraph,
+                parent_chain_order: ParentChainOrder::default(),
                 expansion: ExpansionMode::default(),
                 max_passages: 1,
-                max_tokens: u32::MAX,
+                evidence_bytes: u32::MAX,
                 counter: &counter,
                 counter_info: &info,
                 control: &control,
@@ -483,33 +496,5 @@ fn selection_refuses_an_already_cancelled_control() {
     ));
 }
 
-#[test]
-fn conflict_units_are_omitted_atomically_when_the_passage_limit_is_one() {
-    let markdown_a = concat!(
-        "# Guide\n\n| Entity | Attribute | Value |\n",
-        "| --- | --- | --- |\n| Agent | Port | 7005 |\n"
-    );
-    let markdown_b = markdown_a.replace("7005", "7006");
-    let (document_a, sections_a) = prepared(markdown_a, "conflict-a.md");
-    let (document_b, sections_b) = prepared(&markdown_b, "conflict-b.md");
-    let source_a = CandidateSource {
-        markdown: markdown_a,
-        document: &document_a,
-        sections: &sections_a,
-    };
-    let source_b = CandidateSource {
-        markdown: &markdown_b,
-        document: &document_b,
-        sections: &sections_b,
-    };
-    let candidates = [
-        candidate(source_a, "Guide", "7005", 0, None),
-        candidate(source_b, "Guide", "7006", 1, None),
-    ];
-
-    let result = run_selection(&candidates, &[BTreeSet::from([0, 1])], 1, u32::MAX);
-
-    assert!(result.passages.is_empty());
-    assert!(result.omissions.evidence);
-    assert!(result.omissions.conflict);
-}
+#[path = "selection_conflict.rs"]
+mod selection_conflict;

@@ -21,7 +21,7 @@
 //! - `maestro knowledge collections` lists collection metadata the local
 //!   principal may read;
 //! - `maestro knowledge search --collection <id> --query <text>
-//!   [--version <version>] [--k <n>] [--max-tokens <n>]
+//!   [--version <version>] [--k <n>] [--evidence-bytes <n>]
 //!   [--deadline-ms <n>]` returns bounded `maestro-evidence/1` data under
 //!   `maestro-cli/knowledge-search/1`;
 //! - `maestro knowledge get (--chunk-id <id> | --section-id <id>)
@@ -29,8 +29,18 @@
 //!   chunk or section;
 //! - `maestro knowledge ask --collection <id> --question <text>` answers from
 //!   verified evidence or returns a safe refusal;
-//! - `maestro mcp` serves collection, search, exact-retrieval and answer tools
-//!   over stdio JSON-RPC;
+//! - `maestro model register --collection <id> --card <file> --evidence <dir>
+//!   --gguf <file>` validates and records a card with its pinned evidence;
+//! - `maestro model check --collection <id> --digest <digest>` runs and records
+//!   reranker health qualification through the router;
+//! - `maestro model select --collection <id> --role <role> --digest <digest>`
+//!   selects only a card with an eligible real evaluation;
+//! - `maestro model list --collection <id> [--role <role>]` lists cards,
+//!   evaluations and current selections;
+//! - `maestro mcp [--workspace <dir>]` serves collection, search,
+//!   exact-retrieval and answer tools over stdio JSON-RPC;
+//! - `maestro config get|set|unset|list|explain|history` reads, changes and
+//!   explains the settings, and lists their journaled changes;
 //! - `maestro job wait <id>` follows a job until it ends, and exits with its
 //!   outcome;
 //! - `maestro setup` previews the search service Maestro needs, and installs
@@ -43,6 +53,54 @@
 //!   backup API and a digest manifest, without creating or migrating it;
 //! - `maestro restore --from <dir>` checks a backup and restores it only when
 //!   the data directory has no kernel database or artifact tree.
+//!
+//! # `model register`, `check`, `select` and `list`
+//!
+//! `model register` accepts a strict `maestro-model-card/2` JSON file (including
+//! pretty-printed files), imports all digest-matching files in `--evidence`,
+//! and verifies the pinned GGUF's size and SHA-256 from `--gguf` before storing
+//! anything. Each evidence file is limited to 16 MiB, the directory to 64 MiB,
+//! and the card to 1 MiB. Re-registering its digest is a no-op. Its JSON
+//! document is `maestro-cli/model-register/1`; text output includes the digest.
+//!
+//! `model check` is currently the reranker qualification path: it scores the
+//! two built-in positive/negative pairs through the router at
+//! `MAESTRO_ROUTER_URL`, or `http://127.0.0.1:8080`. It records an immutable
+//! real evaluation and receipt whether the gate passes or fails. Its
+//! `maestro-cli/model-check/1` result gives the disposition, report digest and
+//! first failure (`null` when eligible). A completed eligible or ineligible
+//! check exits 0; a failed or interrupted router operation exits 1 after its
+//! receipt is recorded. Embedder checks refuse with a direction to
+//! `knowledge prepare`; answerer qualification is not provided here.
+//!
+//! `model select` uses only the latest real evaluation of the exact card and
+//! role, and refuses unless it is eligible. A missing evaluation or role
+//! mismatch is refused with exit 2. Registering an answerer card immediately
+//! changes the card `knowledge ask --model <entry>` uses (latest registered
+//! wins), without qualification or selection; that choice is not shown in
+//! `model list`. `model list` shows registered cards, evaluations and current
+//! role selections in text or `maestro-cli/model-list/1` JSON. All four
+//! commands apply the local principal's collection grants.
+//!
+//! JSON examples:
+//!
+//! ```json
+//! {
+//!   "schema": "maestro-cli/model-check/1", "collection": "manuals",
+//!   "digest": "<sha256>", "evaluation": "<ulid>",
+//!   "disposition": "eligible", "eligible": true, "reason": null,
+//!   "report_digest": "<sha256>"
+//! }
+//! {
+//!   "schema": "maestro-cli/model-select/1", "collection": "manuals",
+//!   "digest": "<sha256>", "role": "reranker", "selection": "<ulid>",
+//!   "evaluation": "<ulid>"
+//! }
+//! {
+//!   "schema": "maestro-cli/model-list/1", "collection": "manuals",
+//!   "cards": [], "evaluations": [], "selections": []
+//! }
+//! ```
 //!
 //! # Output and exit codes
 //!
@@ -71,6 +129,65 @@
 //! `restore` verifies that manifest, the database and every artifact before
 //! staging files beside the data directory and installing the database last.
 //! Neither command touches the files maestro v1 left there.
+//!
+//! # Settings
+//!
+//! Everything configurable is a setting of one registry
+//! (`maestro_settings::BUILT_IN`): its dotted key, what it accepts, its
+//! default, which is the behaviour before settings existed, and its S3
+//! override class. `maestro config list` names them all. A setting takes its
+//! value from the first of: a `--set KEY=VALUE` flag, repeatable and for
+//! this run only; the project file, the nearest `.maestro/config.toml`
+//! upward from the working directory, never above the home directory and
+//! none outside it; the user file, `preferences.toml` in the configuration
+//! directory; the default. Both files start with
+//! `schema = "maestro-preferences/1"` and are parsed whole and strictly: an
+//! unknown key or a wrong type refuses the command, naming the file and the
+//! key. The kernel's `config.toml`, which holds the grants, is never a
+//! settings file. A request's own flag (`--k`) or MCP argument wins for that
+//! request. Evaluation runs ignore the settings.
+//!
+//! - `language`: `auto`, the question's language, or a tag such as `fr` or
+//!   `es-419` (a 2-3 letter language, an optional script and region; others
+//!   are refused by name); code and documentation stay in English.
+//! - `tone`: `brief`, `normal` or `detailed` ("Very detailed"); it adds one
+//!   versioned instruction (`presentation/1`) to the answer prompt, prose
+//!   only.
+//! - `models.compute`: `gpu`, the machine's GPU backend, or `off`: no model
+//!   call; search keeps its keyword, exact-name and structured routes without
+//!   reranking, without intent expansion, and ask, prepare and publish
+//!   refuse with `models_off` before the kernel opens. `cpu` is refused
+//!   until after M1.
+//! - the search, evidence, ask and chunking knobs under `search.`,
+//!   `evidence.`, `ask.` and `chunking.`.
+//!
+//! `config get <key>` prints the effective value, as `config set` takes it.
+//! `config list` prints each setting with the layer that set it; `config
+//! explain [<key>]` adds the layers it overrode, what it accepts, its
+//! default and class, and the files read or skipped. `config set <key>
+//! <value> [--user|--project]` writes the user file, or the project file (a
+//! new one in the working directory when none is found); `config unset`
+//! removes the key. Both edit the file in place, keeping its comments and
+//! order, check the result strictly before they replace the file, refuse a
+//! form they cannot edit safely (an inline table) or a setting set twice with
+//! the key and the file, and journal the change as
+//! `maestro.kernel.setting.changed.v1` on the principal's stream
+//! `principal/local/settings`: who, key, old and new values, layer and file,
+//! the time being the event's; no other principal's event reader returns
+//! it. They never follow a link below the configuration directory or the
+//! project's directory, hold the file's lock (`<file>.lock`, beside it) from
+//! reading to journaling, refuse a file another program changed meanwhile,
+//! and keep the file's permissions; a new file is private. A change the
+//! journal refuses is undone and the undo confirmed; when it cannot be, the
+//! file's previous text is named in `<file>.previous`. `config history`
+//! lists the principal's changes, oldest first. `mcp` reads the user file,
+//! and a project file only through `--workspace`, a directory within home;
+//! its working directory never selects one.
+//!
+//! ```json
+//! {"schema":"maestro-cli/config-change/1","key":"tone","old":null,"new":"brief",
+//!  "layer":"user","file":"/…/maestro/preferences.toml","changed":true}
+//! ```
 //!
 //! # `knowledge collection add`
 //!
@@ -236,8 +353,10 @@
 //!
 //! Searches the visible collection once, assembles bounded evidence, and calls
 //! the registered answerer in free room. The default router entry is
-//! `qwen3-4b`; `--model` selects another registered answerer. `--version`,
-//! `--k`, `--max-tokens`, `--search-deadline-ms`, and `--output-tokens` bound
+//! `qwen3-4b` (the `ask.model` setting); `--model` selects another registered
+//! answerer. The answer is in the question's language unless `language`
+//! names one, which `lang` then reports. `--version`,
+//! `--k`, `--evidence-bytes`, `--search-deadline-ms`, and `--output-tokens` bound
 //! retrieval and generation.
 //! Answers cite only host-resolved passage metadata; the host checks citation
 //! numbers and command/path/version-like literals, retries one invalid reply,
@@ -306,27 +425,31 @@
 //!
 //! # `doctor`
 //!
-//! Runs every check, in this order: `config.toml` and `bindings.toml`; the
+//! Runs every check, in this order: `config.toml`, the settings files (the
+//! user's and the project's it read, or the one it refused, with the key),
+//! and `bindings.toml`; the
 //! kernel's database, which must exist, lack no migration this build carries
 //! (a missing one is named, never applied), open, pass SQLite's quick check
 //! and take `config.toml`'s grants; the artifact tree, each recorded artifact
 //! present and intact; Qdrant's gRPC health check, at `MAESTRO_QDRANT_URL`
 //! or else `http://127.0.0.1:6334`, answering as the pinned version; the
 //! model router, at `MAESTRO_ROUTER_URL` or else `http://127.0.0.1:8080`, listing
-//! its catalog, which starts no model; and each role's model card. A failed
-//! check names its next action. It then lists what it found but must not
-//! touch: the entries of the data directory the kernel does not own, as the
-//! files maestro v1 left there, and the grants of `config.toml` that reach
-//! no scope the kernel knows. It lists database-creation temporary names with
-//! a warning to never open them; it deletes nothing and exits 0 when every
-//! check passed and 1 when one failed.
+//! its catalog, which starts no model; and each role's model card, reported
+//! as not checked yet (`"checked": false`), neither passed nor failed, until
+//! its per-collection check exists. A failed check names its next action.
+//! It then lists what it found but must not touch: the entries of the data
+//! directory the kernel does not own, as the files maestro v1 left there,
+//! and the grants of `config.toml` that reach no scope the kernel knows. It
+//! lists database-creation temporary names with a warning to never open
+//! them; it deletes nothing and exits 0 when no check failed and 1 when one
+//! failed.
 //!
 //! ```json
 //! {"schema":"maestro-cli/doctor/1",
 //!  "checks":[{"name":"database","target":"/…/kernel.sqlite3","passed":true,
-//!    "detail":"intact","next_action":null},
-//!   {"name":"model_card","target":"embedder","passed":false,
-//!    "detail":"no model card is recorded for the embedder","next_action":"…"}],
+//!    "checked":true,"detail":"intact","next_action":null},
+//!   {"name":"model_card","target":"embedder","passed":false,"checked":false,
+//!    "detail":"not checked yet: …","next_action":null}],
 //!  "untouched":["/…/ledger.sqlite3","/…/material"],
 //!  "database_temporaries":[],"database_temporary_warning":null,
 //!  "unreached_grants":["workspace/other"]}
@@ -348,6 +471,7 @@ mod failure;
 mod kernel;
 mod knowledge;
 mod mcp;
+mod settings;
 
 use std::process::ExitCode;
 

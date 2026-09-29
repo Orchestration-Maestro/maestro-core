@@ -3,7 +3,7 @@
 use maestro_kernel::{generation::Error as GenerationError, generation::GenerationState};
 use std::{error, fmt};
 
-use crate::index::QdrantError;
+use crate::index::ProjectionError;
 
 /// Why a route could not search its pinned generation.
 #[derive(Debug)]
@@ -37,7 +37,7 @@ pub enum RouteError {
     /// The embedding response cannot be used as a dense query vector.
     InvalidVector(VectorError),
     /// Qdrant refused the route query or returned an invalid hit.
-    Qdrant(QdrantError),
+    Qdrant(ProjectionError),
 }
 
 impl fmt::Display for RouteError {

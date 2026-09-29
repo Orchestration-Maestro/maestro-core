@@ -117,7 +117,7 @@ pub(super) enum Answers {
     /// At once.
     #[default]
     AtOnce,
-    /// After this long.
+    /// After this long, which it moves the test's stopped clock by.
     After(Duration),
     /// Never.
     Never,
@@ -248,7 +248,7 @@ impl ModelPort for Embedder {
         let delay = self.script.lock().unwrap().embedding_delay;
         match delay {
             Answers::AtOnce => {}
-            Answers::After(delay) => time::sleep(delay).await,
+            Answers::After(delay) => time::advance(delay).await,
             Answers::Never => future::pending().await,
         }
         let mut vectors = FakeModels.embed(card, room, inputs).await?;

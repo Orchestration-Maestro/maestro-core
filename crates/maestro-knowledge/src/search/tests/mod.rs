@@ -15,3 +15,8 @@ mod candidate_enrichment;
 mod rank_policy;
 mod rank_stage;
 mod section_prior;
+mod source_class;
+
+mod intent;
+mod intent_guard;
+mod intent_request;

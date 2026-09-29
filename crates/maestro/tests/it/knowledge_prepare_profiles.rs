@@ -5,7 +5,7 @@ use super::{
     knowledge_publish::{StubRouter, card},
     support::{Home, Running, stream},
 };
-use maestro_kernel::gateway::Role;
+use maestro_kernel::{gateway::Role, generation::NewGeneration};
 use serde_json::Value;
 use std::net::TcpListener;
 
@@ -32,7 +32,7 @@ fn prepare(home: &Home, router: &StubRouter, profile: &[&str]) -> (Option<i32>, 
 }
 
 #[test]
-fn a_named_chunking_profile_builds_its_own_chunk_set_beside_the_default_one() {
+fn a_new_collection_defaults_to_ideas_and_keeps_explicit_structural_sets_available() {
     let home = Home::new();
     home.add_synthetic();
     let router = StubRouter::serve();
@@ -40,17 +40,17 @@ fn a_named_chunking_profile_builds_its_own_chunk_set_beside_the_default_one() {
     assert_eq!(code, Some(0), "{default}");
     assert_eq!(
         default["outcome"]["chunk_profile"],
-        "mapped-structural-chunks/2"
-    );
-    let named = ["--chunk-profile", "mapped-structural-chunks/3"];
-    let (code, ideas, _) = prepare(&home, &router, &named);
-    assert_eq!(code, Some(0), "{ideas}");
-    assert_eq!(
-        ideas["outcome"]["chunk_profile"],
         "mapped-structural-chunks/3"
     );
+    let named = ["--chunk-profile", "mapped-structural-chunks/2"];
+    let (code, structural, _) = prepare(&home, &router, &named);
+    assert_eq!(code, Some(0), "{structural}");
+    assert_eq!(
+        structural["outcome"]["chunk_profile"],
+        "mapped-structural-chunks/2"
+    );
     assert_ne!(
-        ideas["outcome"]["chunk_set"],
+        structural["outcome"]["chunk_set"],
         default["outcome"]["chunk_set"]
     );
     let (code, again, _) = prepare(&home, &router, &[]);
@@ -59,6 +59,68 @@ fn a_named_chunking_profile_builds_its_own_chunk_set_beside_the_default_one() {
         again["outcome"]["chunk_set"],
         default["outcome"]["chunk_set"]
     );
+}
+
+#[test]
+fn defaults_follow_the_published_profile_regardless_of_other_profile_recency() {
+    for complete_ideas_is_newer in [false, true] {
+        let home = Home::new();
+        home.add_synthetic();
+        let router = StubRouter::serve();
+        let explicit_structural = ["--chunk-profile", "mapped-structural-chunks/2"];
+        let explicit_ideas = ["--chunk-profile", "mapped-structural-chunks/3"];
+        let (structural, ideas) = if complete_ideas_is_newer {
+            let structural = prepare(&home, &router, &explicit_structural).1;
+            let ideas = prepare(&home, &router, &explicit_ideas).1;
+            (structural, ideas)
+        } else {
+            let ideas = prepare(&home, &router, &explicit_ideas).1;
+            let structural = prepare(&home, &router, &explicit_structural).1;
+            (structural, ideas)
+        };
+        let structural_id = structural["outcome"]["chunk_set"].as_str().unwrap();
+        let ideas_id = ideas["outcome"]["chunk_set"].as_str().unwrap();
+        pin_generation(&home, structural_id);
+
+        let (code, refreshed, _) = prepare(&home, &router, &[]);
+        assert_eq!(code, Some(0), "{refreshed}");
+        assert_eq!(
+            refreshed["outcome"]["chunk_profile"],
+            "mapped-structural-chunks/2"
+        );
+        assert_eq!(refreshed["outcome"]["chunk_set"], structural_id);
+        assert_eq!(
+            publish(&home, &router, &[]).1.as_deref(),
+            Some(structural_id)
+        );
+
+        let (code, switched, _) = prepare(&home, &router, &explicit_ideas);
+        assert_eq!(code, Some(0), "{switched}");
+        assert_eq!(
+            switched["outcome"]["chunk_profile"],
+            "mapped-structural-chunks/3"
+        );
+        assert_eq!(switched["outcome"]["chunk_set"], ideas_id);
+        assert_eq!(
+            publish(&home, &router, &explicit_ideas).1.as_deref(),
+            Some(ideas_id)
+        );
+    }
+}
+
+/// Publishes an existing generation of `chunk_set` in `home`.
+fn pin_generation(home: &Home, chunk_set: &str) {
+    let database = home.database();
+    let generation = database
+        .create_generation(&NewGeneration {
+            collection_id: "synthetic".to_owned(),
+            chunk_set_id: chunk_set.to_owned(),
+            embedding_profile: "embed:test".to_owned(),
+            sparse_profile: "bm25-en-fr/1".to_owned(),
+        })
+        .unwrap();
+    database.verify_generation(generation.id, 0).unwrap();
+    database.publish_generation(generation.id).unwrap();
 }
 
 #[test]
@@ -121,18 +183,17 @@ fn publish_without_a_chunk_set_takes_the_latest_complete_set_of_the_chunking_pro
     let home = Home::new();
     home.add_synthetic();
     let router = StubRouter::serve();
-    let (_, structural, _) = prepare(&home, &router, &[]);
-    let named = ["--chunk-profile", "mapped-structural-chunks/3"];
-    let (_, ideas, _) = prepare(&home, &router, &named);
-    let [structural, ideas] = [structural, ideas].map(|document| {
+    let (_, ideas, _) = prepare(&home, &router, &[]);
+    let named = ["--chunk-profile", "mapped-structural-chunks/2"];
+    let (_, structural, _) = prepare(&home, &router, &named);
+    let [ideas, structural] = [ideas, structural].map(|document| {
         document["outcome"]["chunk_set"]
             .as_str()
             .unwrap()
             .to_owned()
     });
-    // The newer complete set is the complete-ideas one; the default profile's is published.
-    assert_eq!(publish(&home, &router, &[]).1, Some(structural));
-    assert_eq!(publish(&home, &router, &named).1, Some(ideas));
+    assert_eq!(publish(&home, &router, &[]).1, Some(ideas));
+    assert_eq!(publish(&home, &router, &named).1, Some(structural));
     let both = [
         "--chunk-set",
         "chunk-set-any",

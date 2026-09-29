@@ -60,13 +60,14 @@ pub fn left_out_chrome(
     let layout = Layout::new(document, markdown, &mapped, profile)?;
     let mut counts = BTreeMap::new();
     for (index, unit) in mapped.units.iter().enumerate() {
-        if let Some(rule) = layout.chrome_rule(index).filter(|_| unit.primary) {
-            add(
-                &mut counts,
-                rule,
-                &chrome_ranges(layout.kept(index), unit.text.len()),
-            );
-        }
+        let Some(rule) = layout.chrome_rule(index) else {
+            continue;
+        };
+        add(
+            &mut counts,
+            rule,
+            &chrome_ranges(layout.kept(index), unit.text.len()),
+        );
     }
     Ok(counts)
 }
@@ -90,7 +91,7 @@ pub fn chrome_spans(
     let layout = Layout::new(document, markdown, &mapped, profile)?;
     let mut spans = Vec::new();
     for (index, unit) in mapped.units.iter().enumerate() {
-        if layout.chrome_rule(index).is_none() || !unit.primary {
+        if layout.chrome_rule(index).is_none() {
             continue;
         }
         for range in chrome_ranges(layout.kept(index), unit.text.len()) {

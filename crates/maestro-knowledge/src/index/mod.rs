@@ -57,10 +57,15 @@ mod names;
 mod point;
 mod progress;
 mod projection;
+mod projection_port;
 mod provenance;
+mod publication_names;
 mod publish;
 mod qdrant;
+mod qdrant_adapter;
 mod rebuild;
+mod rebuild_state;
+mod rebuild_validation;
 mod search_inputs;
 mod sparse;
 #[cfg(test)]
@@ -73,5 +78,10 @@ pub use error::{Error, Unverified};
 pub(crate) use names::{alias_name, collection_name};
 pub use progress::{Progress, Report};
 pub use projection::{Projection, ProjectionWithBatchSize};
+pub use projection_port::{
+    CollectionLayout, PointHit, ProjectionCursor, ProjectionError, ProjectionFilter,
+    ProjectionPage, ProjectionPoint, RetrievalProjectionPort, SparseValues,
+};
+pub(crate) use projection_port::{invalid_answer, payload_text};
 pub use qdrant::{Qdrant, QdrantError};
-pub use rebuild::RebuildGuard;
+pub use rebuild_state::RebuildGuard;

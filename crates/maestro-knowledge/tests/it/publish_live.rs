@@ -224,7 +224,7 @@ async fn a_chunk_set_publishes_as_a_leased_job() {
     let projection = Projection {
         database: &database,
         scopes: &scopes,
-        qdrant: &qdrant,
+        projection: &qdrant,
         port: &port,
         card: &card,
     };

@@ -12,7 +12,12 @@ use std::{error, fmt};
 use ulid::Ulid;
 
 /// The columns of an event, in the order [`event_row`] reads them.
-const COLUMNS: &str = "id, stream, sequence, type, subject, scope, time, data";
+pub(crate) const COLUMNS: &str = "id, stream, sequence, type, subject, scope, time, data";
+
+/// The type of the event of a setting's change: a principal's own, which
+/// [`Database::events`] never returns, whatever the reader's grants; only
+/// [`Database::setting_changes`] reads it back, for its principal.
+pub(crate) const SETTING_CHANGED: &str = "maestro.kernel.setting.changed.v1";
 
 /// An event as the journal records it.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -88,7 +93,8 @@ impl Database {
     /// The events `filter` selects whose scope `scopes` covers, in sequence
     /// order, as the last commit left them: a write in progress is not read.
     /// The other events of the stream are skipped, so their sequences are
-    /// missing from what is read.
+    /// missing from what is read, and so are the settings changes, which
+    /// are their principal's alone.
     ///
     /// # Errors
     ///
@@ -100,11 +106,18 @@ impl Database {
         let reader = self.reader()?;
         let mut statement = reader.prepare(&format!(
             "SELECT {COLUMNS} FROM events
-             WHERE stream = ?1 AND sequence > ?2 AND (?3 IS NULL OR type = ?3) AND {}
+             WHERE stream = ?1 AND sequence > ?2 AND (?3 IS NULL OR type = ?3)
+             AND events.type <> ?5 AND {}
              ORDER BY sequence",
             ScopeSet::condition("events.scope", 4)
         ))?;
-        let parameters = params![filter.stream, after, filter.r#type, scopes.parameter()];
+        let parameters = params![
+            filter.stream,
+            after,
+            filter.r#type,
+            scopes.parameter(),
+            SETTING_CHANGED
+        ];
         let events = statement
             .query_map(parameters, event_row)?
             .collect::<Result<_, _>>()?;
@@ -184,7 +197,7 @@ pub(crate) fn record(
 
 /// The event of a row of [`COLUMNS`]. An ID that is not a ULID, data that is
 /// not JSON serde reads, or a negative sequence is an error, never a guess.
-fn event_row(row: &Row<'_>) -> rusqlite::Result<Event> {
+pub(crate) fn event_row(row: &Row<'_>) -> rusqlite::Result<Event> {
     let id: String = row.get(0)?;
     let data: String = row.get(7)?;
     Ok(Event {

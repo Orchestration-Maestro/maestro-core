@@ -95,6 +95,7 @@ mod metric;
 mod record;
 mod report_validation;
 mod reports;
+mod reranker_health;
 mod run;
 mod run_v2;
 #[cfg(test)]
@@ -115,6 +116,10 @@ pub use reports::{
     CohortStatistics, Estimate, Expected, Failure, FailureClass, Header, HeaderV2, ItemStatus,
     MeasurementCohort, Metrics, QuestionResult, Report, Schema, Subgroup, SubgroupStatistics,
     TrialMode,
+};
+pub use reranker_health::{
+    HealthReceipt, RerankerEvaluation, RerankerHealth, check_reranker_health,
+    evaluate_and_record_reranker_health, record_reranker_health,
 };
 pub use run::run;
 pub use run_v2::{AttemptEvent, run_v2, run_v2_observed};

@@ -142,7 +142,6 @@ fn coverage_permille(section: &SectionRef, anchors: &[Anchor]) -> u32 {
         .iter()
         .filter(|anchor| same_revision(section, anchor))
         .map(|anchor| [anchor.span[0].max(start), anchor.span[1].min(end)])
-        .filter(|span| span[0] < span[1])
         .collect();
     spans.sort_unstable();
     let mut covered = 0;

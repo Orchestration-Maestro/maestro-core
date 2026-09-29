@@ -3,40 +3,25 @@
 use super::{
     admission::{AdmittedSearch, admit_request, ensure_permissions},
     candidates::Failure as CandidateFailure,
-    deadline::{DEADLINE_EXCEEDED, DISABLED_BY_CONFIGURATION},
-    fusion::{Fused, Route, RouteList},
-    query::Query,
-    rank_stage,
-    request::{EvidenceInput, SearchContext, SearchError, SearchObservations, SearchRequest},
-    rerank::Ranked,
-    route_execution::{
-        add_named_route, add_route, dense_outcome, join_route_futures, lexical_outcome,
-        prepare_reranker, route_list, route_outcome, structured_outcome,
-    },
-    routes::{
-        identifier::search_identifiers_enabled,
-        outcome::{RouteOutcome, StructuredOutcome},
-    },
+    deadline::DEADLINE_EXCEEDED,
+    fusion::Route,
+    intent::{IntentExpansion, IntentTrigger},
+    intent_routes, rank_stage,
+    request::{EvidenceInput, SearchContext, SearchError, SearchRequest},
+    rerank::{Ranked, top_rerank_score},
+    route_execution::{add_named_route, prepare_reranker},
+    route_search::{self, Originals, RouteResults},
 };
-use crate::query::QueryKind;
+use crate::index::RetrievalProjectionPort;
 use maestro_kernel::{
-    evidence::{Inventory, RouteStatus},
+    evidence::RouteStatus,
     gateway::ModelPort,
     telemetry::{
         span,
-        stage::{Count, Outcome, Stage},
+        stage::{Count, Outcome},
     },
 };
-use std::{
-    collections::{BTreeMap, HashMap, HashSet},
-    future::Future,
-    mem,
-};
-
-/// The dense and lexical routes' bounded candidate pool.
-const DENSE_LIMIT: usize = 100;
-/// The single reciprocal-rank fusion pool limit.
-const FUSION_POOL: usize = 120;
+use std::mem;
 
 /// Retrieves a pinned, scoped and deadline-bounded evidence handoff for T032.
 ///
@@ -48,8 +33,8 @@ const FUSION_POOL: usize = 120;
 ///
 /// Returns [`SearchError`] when admission, permissions, or candidate integrity
 /// cannot be established within the request deadline.
-pub async fn search<P: ModelPort>(
-    context: &SearchContext<'_, P>,
+pub async fn search<P: ModelPort, R: RetrievalProjectionPort>(
+    context: &SearchContext<'_, P, R>,
     request: &SearchRequest<'_>,
 ) -> Result<EvidenceInput, SearchError> {
     let stage = span::search();
@@ -57,15 +42,30 @@ pub async fn search<P: ModelPort>(
         .instrument(async {
             let admitted = admit_request(context, request).await?;
             // Boxed: the routes' future is large, and ask nests this one.
-            let (routes, ()) = tokio::join!(
-                Box::pin(execute_routes(context, &admitted)),
+            // Fusion runs as soon as the routes end, while the reranker may
+            // still be readying.
+            let ((originals, routes), ()) = tokio::join!(
+                Box::pin(async {
+                    let (originals, intent) = route_search::execute(context, &admitted).await;
+                    let routes = route_search::results(&admitted, &originals, intent);
+                    (originals, routes)
+                }),
                 prepare_reranker(
                     context.reranker.as_ref(),
                     admitted.configuration.rerank_enabled,
                     &admitted.cutoffs,
                 ),
             );
-            finish_search(context, request, admitted, routes).await
+            if admitted.configuration.intent_expansion == IntentExpansion::Hyde
+                && matches!(
+                    admitted.configuration.intent_trigger,
+                    IntentTrigger::LowConfidence { .. }
+                )
+            {
+                conditional_search(context, request, admitted, originals, routes).await
+            } else {
+                finish_search(context, request, admitted, routes).await
+            }
         })
         .await;
     if let Ok(input) = &result {
@@ -75,6 +75,96 @@ pub async fn search<P: ModelPort>(
     }
     stage.finish(result.as_ref().map_or_else(search_outcome, |_| Outcome::Ok));
     result
+}
+
+/// Reuses the original votes only when the first ranking needs expansion,
+/// judged by its best rerank score, whatever rank policies put first. An
+/// expansion that adds nothing, or a second pass that ranks worse, keeps
+/// the first ranking with the intent statuses attached.
+async fn conditional_search<P: ModelPort, R: RetrievalProjectionPort>(
+    context: &SearchContext<'_, P, R>,
+    request: &SearchRequest<'_>,
+    admitted: AdmittedSearch,
+    originals: Originals,
+    routes: RouteResults,
+) -> Result<EvidenceInput, SearchError> {
+    let mut first = finish_search(context, request, admitted.clone(), routes).await?;
+    if !admitted
+        .configuration
+        .intent_trigger
+        .should_expand(top_rerank_score(&first.ranked))
+    {
+        first.routes.insert(
+            "intent_expansion".to_owned(),
+            RouteStatus::Unavailable("intent_not_triggered".to_owned()),
+        );
+        return Ok(first);
+    }
+    let intent = intent_routes::execute(context, &admitted).await;
+    if intent
+        .outcomes
+        .iter()
+        .all(|(_, outcome)| outcome.hits.is_empty())
+    {
+        if let Some(status) = intent.status {
+            first.routes.insert("intent_expansion".to_owned(), status);
+        }
+        for (route, outcome) in intent.outcomes {
+            first.routes.insert(route.name().to_owned(), outcome.status);
+            first.observations.route_ranks.insert(route, Vec::new());
+        }
+        ensure_permissions(
+            context.database.clone(),
+            context.principal,
+            &admitted.scopes,
+            admitted.cutoffs.expires,
+        )
+        .await?;
+        return Ok(first);
+    }
+    let mut routes = route_search::results(&admitted, &originals, intent);
+    // The reranker scores only what the first pass did not.
+    routes.known_scores = first
+        .ranked
+        .iter()
+        .filter_map(|item| {
+            item.score
+                .map(|score| (item.candidate.fused.chunk_id.clone(), score))
+        })
+        .collect();
+    let second = finish_search(context, request, admitted, routes).await?;
+    if ranks_as_well(&first, &second) {
+        Ok(second)
+    } else {
+        Ok(keep_first(first, &second))
+    }
+}
+
+/// Whether the `second` pass ranked at least as well as the `first`: it
+/// reranked whenever the first did, and loaded candidates whenever the
+/// first had some.
+fn ranks_as_well(first: &EvidenceInput, second: &EvidenceInput) -> bool {
+    let reranked = |input: &EvidenceInput| input.routes.get("rerank") == Some(&RouteStatus::Ok);
+    (reranked(second) || !reranked(first)) && (!second.ranked.is_empty() || first.ranked.is_empty())
+}
+
+/// The `first` ranking with the `second` pass's intent routes, and the
+/// reason the second pass was not kept.
+fn keep_first(mut first: EvidenceInput, second: &EvidenceInput) -> EvidenceInput {
+    for route in [Route::DenseIntent, Route::LexicalIntent] {
+        if let Some(status) = second.routes.get(route.name()) {
+            first.routes.insert(route.name().to_owned(), status.clone());
+        }
+        if let Some(ranks) = second.observations.route_ranks.get(&route) {
+            first.observations.route_ranks.insert(route, ranks.clone());
+        }
+    }
+    first.observations.intent_displaced = second.observations.intent_displaced;
+    first.routes.insert(
+        "intent_expansion".to_owned(),
+        RouteStatus::Unavailable("intent_second_pass_unavailable".to_owned()),
+    );
+    first
 }
 
 /// How a search that failed with `error` ended: refused by its contract or
@@ -91,241 +181,10 @@ pub(super) const fn search_outcome(error: &SearchError) -> Outcome {
     }
 }
 
-/// Runs `route` as the stage `stage`, which records its hits and outcome.
-async fn traced_route(stage: Stage, route: impl Future<Output = RouteOutcome>) -> RouteOutcome {
-    let outcome = stage.instrument(route).await;
-    stage.count(Count::Candidates, outcome.hits.len());
-    stage.finish(route_outcome(&outcome.status));
-    outcome
-}
-
-/// The route votes, statuses and exact document inventory produced in parallel.
-struct RouteResults {
-    /// The one fused list bounded for T031.
-    fused: Vec<Fused>,
-    /// Revision IDs retained independently from fusion for kernel validation.
-    expected_revisions: HashMap<String, Vec<String>>,
-    /// Each route's independent availability status.
-    routes: BTreeMap<String, RouteStatus>,
-    /// The complete structured result, kept outside passage fusion.
-    inventory: Option<Inventory>,
-    /// Every degradation known before evidence expansion.
-    known_gaps: Vec<String>,
-    /// Scoped candidate ranks observed before fusion.
-    observations: SearchObservations,
-}
-
-/// Runs the structured `route` as its stage, which records its hits and
-/// outcome, when the question is `global`; else neither runs.
-async fn traced_structured(
-    global: bool,
-    enabled: bool,
-    route: impl Future<Output = StructuredOutcome>,
-) -> Option<StructuredOutcome> {
-    if !global {
-        return None;
-    }
-    let stage = span::route_structured();
-    let outcome = if enabled {
-        stage.instrument(route).await
-    } else {
-        StructuredOutcome {
-            route: RouteOutcome {
-                hits: Vec::new(),
-                status: RouteStatus::Unavailable(DISABLED_BY_CONFIGURATION.to_owned()),
-            },
-            inventory: None,
-        }
-    };
-    stage.count(Count::Candidates, outcome.route.hits.len());
-    stage.finish(route_outcome(&outcome.route.status));
-    Some(outcome)
-}
-
-/// Polls all applicable routes concurrently, then creates one RRF list per route.
-async fn execute_routes<P: ModelPort>(
-    context: &SearchContext<'_, P>,
-    admitted: &AdmittedSearch,
-) -> RouteResults {
-    let query = Query {
-        generation: &admitted.generation,
-        scopes: &admitted.scopes,
-        text: &admitted.understood.normalized,
-        limit: DENSE_LIMIT,
-        version: admitted.version.as_deref(),
-        qdrant: context.qdrant,
-    };
-    let structured_request = match admitted.structured_error.as_deref() {
-        Some(error) => Err(error),
-        None => Ok(admitted.structured_request.as_ref()),
-    };
-    let configuration = admitted.configuration;
-    // Boxed: an async function keeps a future it takes by value beside the
-    // copy it polls, so each wrapper below would double the routes' futures,
-    // and a debug build copies them through its poll frames on the stack.
-    let (dense, lexical, identifier, structured) = join_route_futures(
-        traced_route(
-            span::route_dense(),
-            Box::pin(dense_outcome(
-                configuration.dense_enabled,
-                &query,
-                context.embedder.as_ref(),
-                &admitted.cutoffs,
-            )),
-        ),
-        traced_route(
-            span::route_lexical(),
-            Box::pin(lexical_outcome(
-                configuration.lexical_enabled,
-                &query,
-                admitted.cutoffs.routes,
-            )),
-        ),
-        traced_route(
-            span::route_identifier(),
-            Box::pin(search_identifiers_enabled(
-                configuration.identifier_enabled,
-                &query,
-                context.database.clone(),
-                &admitted.understood,
-                admitted.cutoffs.routes,
-            )),
-        ),
-        traced_structured(
-            admitted.understood.kind == QueryKind::Global,
-            configuration.structured_enabled,
-            structured_outcome(
-                &query,
-                context.database.clone(),
-                structured_request,
-                admitted.cutoffs.routes,
-            ),
-        ),
-    )
-    .await;
-    let mut lists = vec![
-        route_list(Route::Dense, &dense),
-        route_list(Route::Lexical, &lexical),
-        route_list(Route::Identifier, &identifier),
-    ];
-    if let Some(structured) = &structured {
-        lists.push(route_list(Route::Structured, &structured.route));
-    }
-    let observations = route_observations(&dense, &lexical, &identifier, structured.as_ref());
-    let fused = traced_fuse(&lists, configuration);
-    let expected_revisions = revisions_for_fused(
-        &fused,
-        [&dense, &lexical, &identifier]
-            .into_iter()
-            .chain(structured.iter().map(|outcome| &outcome.route)),
-    );
-    let mut known_gaps = Vec::new();
-    if !admitted.version_documented
-        && let Some(version) = admitted.version.as_deref()
-    {
-        known_gaps.push(format!(
-            "requested version {version:?} has no documents in the pinned generation"
-        ));
-    }
-    let (routes, known_gaps, inventory) = route_metadata(
-        &dense,
-        &lexical,
-        &identifier,
-        structured.as_ref(),
-        known_gaps,
-    );
-    RouteResults {
-        fused,
-        expected_revisions,
-        routes,
-        inventory,
-        known_gaps,
-        observations,
-    }
-}
-
-/// Records each route's status, its degradation gaps and the structured inventory.
-fn route_metadata(
-    dense: &RouteOutcome,
-    lexical: &RouteOutcome,
-    identifier: &RouteOutcome,
-    structured: Option<&StructuredOutcome>,
-    mut known_gaps: Vec<String>,
-) -> (
-    BTreeMap<String, RouteStatus>,
-    Vec<String>,
-    Option<Inventory>,
-) {
-    let mut routes = BTreeMap::new();
-    for (route, outcome) in [
-        (Route::Dense, dense),
-        (Route::Lexical, lexical),
-        (Route::Identifier, identifier),
-    ] {
-        add_route(&mut routes, &mut known_gaps, route, &outcome.status);
-    }
-    let inventory = structured.and_then(|outcome| outcome.inventory.clone());
-    if let Some(outcome) = structured {
-        add_route(
-            &mut routes,
-            &mut known_gaps,
-            Route::Structured,
-            &outcome.route.status,
-        );
-    }
-    (routes, known_gaps, inventory)
-}
-
-/// Captures each route's candidate order before fusion.
-fn route_observations(
-    dense: &RouteOutcome,
-    lexical: &RouteOutcome,
-    identifier: &RouteOutcome,
-    structured: Option<&StructuredOutcome>,
-) -> SearchObservations {
-    let mut route_ranks = BTreeMap::from([
-        (Route::Dense, observed_chunk_ids(dense)),
-        (Route::Lexical, observed_chunk_ids(lexical)),
-        (Route::Identifier, observed_chunk_ids(identifier)),
-    ]);
-    if let Some(structured) = structured {
-        route_ranks.insert(Route::Structured, observed_chunk_ids(&structured.route));
-    }
-    SearchObservations {
-        route_ranks,
-        ..SearchObservations::default()
-    }
-}
-
-/// Retains candidate identities in their route-provided rank order.
-fn observed_chunk_ids(outcome: &RouteOutcome) -> Vec<String> {
-    outcome
-        .hits
-        .iter()
-        .map(|hit| hit.chunk_id.clone())
-        .collect()
-}
-
-/// Fuses the routes' `lists` into one pool, as the fusion stage.
-fn traced_fuse(
-    lists: &[RouteList],
-    configuration: super::request::SearchConfiguration,
-) -> Vec<Fused> {
-    let stage = span::fuse();
-    let fused = stage.in_scope(|| {
-        super::fusion::fuse_weighted(lists, FUSION_POOL, configuration.rrf_k, |route| {
-            configuration.weight(route)
-        })
-    });
-    stage.count(Count::Candidates, fused.len());
-    stage.finish(Outcome::Ok);
-    fused
-}
-
 /// Loads exact candidates, reranks until the setup cutoff, which leaves
 /// evidence assembly its time, or degrades safely, and rechecks permissions.
-async fn finish_search<P: ModelPort>(
-    context: &SearchContext<'_, P>,
+async fn finish_search<P: ModelPort, R: RetrievalProjectionPort>(
+    context: &SearchContext<'_, P, R>,
     request: &SearchRequest<'_>,
     admitted: AdmittedSearch,
     mut routes: RouteResults,
@@ -342,6 +201,8 @@ async fn finish_search<P: ModelPort>(
     let pool = rank_stage::Pool {
         fused: mem::take(&mut routes.fused),
         expected_revisions: mem::take(&mut routes.expected_revisions),
+        rerank_extra: routes.rerank_extra,
+        known_scores: mem::take(&mut routes.known_scores),
     };
     let ranking = match rank_stage::rank(
         context.database.clone(),
@@ -433,25 +294,34 @@ fn evidence_input(
     }
 }
 
-/// Retains revision identities for every fused candidate to validate kernel ownership.
-fn revisions_for_fused<'a>(
-    fused: &[Fused],
-    outcomes: impl Iterator<Item = &'a RouteOutcome>,
-) -> HashMap<String, Vec<String>> {
-    let wanted: HashSet<&str> = fused
-        .iter()
-        .map(|candidate| candidate.chunk_id.as_str())
-        .collect();
-    let mut revisions = HashMap::new();
-    for outcome in outcomes {
-        for hit in &outcome.hits {
-            if wanted.contains(hit.chunk_id.as_str()) {
-                revisions
-                    .entry(hit.chunk_id.clone())
-                    .or_insert_with(Vec::new)
-                    .push(hit.revision_id.clone());
-            }
-        }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::search::request::SearchObservations;
+    use std::collections::{BTreeMap, HashMap};
+
+    #[test]
+    fn candidate_timeout_marks_rerank_unavailable_and_records_the_gap() {
+        let mut routes = RouteResults {
+            fused: Vec::new(),
+            expected_revisions: HashMap::new(),
+            routes: BTreeMap::new(),
+            inventory: None,
+            known_gaps: Vec::new(),
+            observations: SearchObservations::default(),
+            rerank_extra: 0,
+            known_scores: HashMap::new(),
+        };
+
+        candidate_timeout(&mut routes);
+
+        assert_eq!(
+            routes.known_gaps,
+            ["candidate text loading timed out".to_owned()]
+        );
+        assert_eq!(
+            routes.routes.get("rerank"),
+            Some(&RouteStatus::Unavailable(DEADLINE_EXCEEDED.to_owned()))
+        );
     }
-    revisions
 }

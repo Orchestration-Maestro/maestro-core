@@ -406,7 +406,7 @@ Kernel tables, beside the document tables of
 | `maestro-collection/1` | Strict JSON of [01 §1](../../docs/architecture/01-knowledge-pipeline.md#1-collections-sources-and-scopes) (ADR-0014) |
 | `maestro-evidence/1` | Passages with title, section path, version, `source_ref`, digest, span and text; conflict flags; known gaps; routes and their availability; trace apart |
 | Events | `maestro.knowledge.{import.completed, revision.held, generation.published, generation.retired}.v1`, CloudEvents envelope, schemas in `schemas/events/` |
-| CLI | `knowledge collection add`, `knowledge import`, `knowledge quality`, `knowledge prepare`, `knowledge publish`, `knowledge status`, `knowledge verify`, `knowledge search`, `knowledge ask`; `eval run`, `eval compare`, `eval bakeoff`; `job wait`; `setup`, `status`, `doctor`, `backup`, `restore` |
+| CLI | `knowledge collection add`, `knowledge import`, `knowledge quality`, `knowledge prepare`, `knowledge publish`, `knowledge verify`, `knowledge status`, `knowledge collections`, `knowledge search`, `knowledge get`, `knowledge ask`; `eval ladder` (for M1 it replaces `eval run`, `eval compare` and `eval bakeoff`); `job wait`; `setup`, `status`, `doctor`, `mcp`, `backup`, `restore` |
 | MCP | The four tools of D12, inputs and outputs as in [02 §9](../../docs/architecture/02-retrieval-and-knowledge-graph.md#9-mcp-tools-knowledge) |
 
 ## Research
@@ -426,21 +426,28 @@ Kernel tables, beside the document tables of
 
 The end-to-end proof of M1, run on the reference workstation:
 
-1. `maestro setup`, then `maestro doctor`: every check passes or names its fix.
+1. `maestro setup`, then `maestro doctor`: every check passes or names its fix,
+   and it exits 0. Each role's model card shows "not checked yet" until its
+   per-collection check exists (post-M1 queue).
 2. `maestro knowledge collection add <collection.json>`, `import`, `quality`,
    `prepare`: the current owner-pinned private receipt is fully accounted for,
    each revision has a disposition, and the report stays private.
-3. `maestro eval bakeoff`: a model card per role, every attempt kept.
+3. The model bake-off (T030, T037): each candidate's card recorded in the
+   kernel's registry, measured as a rung of
+   `maestro eval ladder --manifest <private manifest>`, every rung's reports
+   kept; the winner's evaluation and selection recorded per role.
 4. `maestro knowledge publish --collection <collection-id> --card <card-id>`:
    a verified generation, the alias switched, the event journaled.
-5. `maestro eval run ctm-retrieval` and `ctm-answers`: SC-S1-002, SC-S1-003 and
-   SC-S1-008 met, the reports kept private.
+5. `maestro eval ladder --manifest <private manifest>`: each rung searches and
+   asks every question of the private golden suite; SC-S1-002, SC-S1-003 and
+   SC-S1-008 scored against their floors, the reports kept private.
 6. From Pi, Codex, Claude Code and Copilot CLI: `knowledge_search` returns cited
    passages (SC-S1-005); p95 measured (SC-S1-004).
-7. `maestro backup`, restore the scratch kernel, then use T033b's approved
-   `publish --again` projection-rebuild path and compare identical synthetic
-   rankings (SC-S1-006). This end-to-end rebuild flow remains unverified until
-   T033b is integrated.
+7. `maestro backup`, restore the scratch kernel, then rebuild the lost
+   projection with `maestro knowledge publish --again` and its chunk set, and
+   compare identical synthetic rankings (SC-S1-006): the rebuild drill,
+   `crates/maestro/tests/it/rebuild_drill/`, run by the Qdrant integration
+   workflow.
 
 ## Complexity Tracking
 

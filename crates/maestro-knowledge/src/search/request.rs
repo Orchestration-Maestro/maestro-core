@@ -4,11 +4,16 @@ use super::{
     assembly_settings::EvidenceSettings,
     deadline::StageWindow,
     fusion::Route,
+    intent::{IntentExpansion, IntentTrigger, QueryExpander},
     rerank::{DEFAULT_DEPTH, Ranked, Reranker},
-    routes::{dense::Embedder, error::RouteError},
+    routes::{dense::Embedder, error::RouteError, outcome::DroppedIdentifier},
     section_prior::SectionPrior,
+    source_class::{SourceClassifier, SourcePrior},
 };
-use crate::{index::Qdrant, query::Understood};
+use crate::{
+    index::{Qdrant, RetrievalProjectionPort},
+    query::Understood,
+};
 use maestro_kernel::{
     evidence::{Bundle, Inventory, RequestBudget, RouteStatus},
     generation::Generation,
@@ -61,6 +66,23 @@ pub enum CandidateContext {
     reason = "each route and rerank stage has an independent enable switch"
 )]
 pub struct SearchConfiguration {
+    /// Optional additive hypothetical-document retrieval.
+    pub intent_expansion: IntentExpansion,
+    /// Expand always or only after weak original ranking.
+    pub intent_trigger: IntentTrigger,
+    /// Maximum model expansion time, capped by the search deadline.
+    pub intent_deadline_ms: u32,
+    /// RRF multiplier for each extra intent route.
+    pub intent_weight: f64,
+    /// The most candidates the intent votes may add to the rerank beyond
+    /// the original top-depth, which the rerank always keeps.
+    pub intent_rerank_additions: usize,
+    /// Maximum candidates each general retrieval route returns.
+    pub routes_limit: usize,
+    /// Maximum identifier candidates, additionally bounded by `routes_limit`.
+    pub identifier_limit: usize,
+    /// Maximum candidates retained through fusion, no greater than 120.
+    pub fusion_pool: usize,
     /// Whether dense retrieval runs.
     pub dense_enabled: bool,
     /// Whether lexical retrieval runs.
@@ -69,6 +91,10 @@ pub struct SearchConfiguration {
     pub identifier_enabled: bool,
     /// Whether structured retrieval may run for Global questions.
     pub structured_enabled: bool,
+    /// Whether the identifier route drops identifiers too common to rank
+    /// from both of its legs, and fusion takes no hits from an unavailable
+    /// route.
+    pub identifier_noise_guard: bool,
     /// RRF denominator constant.
     pub rrf_k: NonZeroU32,
     /// Dense route's RRF contribution multiplier.
@@ -98,6 +124,18 @@ pub struct SearchConfiguration {
     /// How long the retrieval routes may run; derived from the request's
     /// budget unless an experiment or a test fixes it.
     pub stage_window: StageWindow,
+    /// Soft preference for official sources; it needs a source classifier
+    /// in the search context, and ranks as before without one.
+    pub source_prior: SourcePrior,
+}
+
+impl SearchConfiguration {
+    /// Default candidate limit for dense, lexical and intent routes.
+    pub const DEFAULT_ROUTES_LIMIT: usize = 100;
+    /// Default identifier-route candidate cap.
+    pub const DEFAULT_IDENTIFIER_LIMIT: usize = 20;
+    /// Default fusion pool and its hard handoff ceiling.
+    pub const MAX_FUSION_POOL: usize = 120;
 }
 
 impl Default for SearchConfiguration {
@@ -105,10 +143,19 @@ impl Default for SearchConfiguration {
         #[expect(clippy::expect_used, reason = "60 is the fixed nonzero default")]
         let rrf_k = NonZeroU32::new(60).expect("default RRF K is nonzero");
         Self {
+            intent_expansion: IntentExpansion::Off,
+            intent_trigger: IntentTrigger::Always,
+            intent_deadline_ms: 4000,
+            intent_weight: 1.0,
+            intent_rerank_additions: 10,
+            routes_limit: Self::DEFAULT_ROUTES_LIMIT,
+            identifier_limit: Self::DEFAULT_IDENTIFIER_LIMIT,
+            fusion_pool: Self::MAX_FUSION_POOL,
             dense_enabled: true,
             lexical_enabled: true,
             identifier_enabled: true,
             structured_enabled: true,
+            identifier_noise_guard: false,
             rrf_k,
             dense_weight: 1.0,
             lexical_weight: 1.0,
@@ -122,6 +169,7 @@ impl Default for SearchConfiguration {
             candidate_context: CandidateContext::Chunk,
             section_prior: SectionPrior::Off,
             stage_window: StageWindow::Derived,
+            source_prior: SourcePrior::default(),
         }
     }
 }
@@ -131,6 +179,7 @@ impl SearchConfiguration {
     #[must_use]
     pub const fn weight(self, route: Route) -> f64 {
         match route {
+            Route::DenseIntent | Route::LexicalIntent => self.intent_weight,
             Route::Dense => self.dense_weight,
             Route::Lexical => self.lexical_weight,
             Route::Identifier => self.identifier_weight,
@@ -142,6 +191,7 @@ impl SearchConfiguration {
     #[must_use]
     pub fn weights_are_valid(self) -> bool {
         [
+            self.intent_weight,
             self.dense_weight,
             self.lexical_weight,
             self.identifier_weight,
@@ -165,6 +215,12 @@ pub struct SearchObservations {
     pub candidate_source_load_micros: u64,
     /// Candidate identities that retained the chunk because a whole unit exceeded the cap.
     pub candidate_context_fallbacks: Vec<String>,
+    /// How many original top-depth candidates the intent votes put below
+    /// the rerank depth, all still reranked; none when no intent voted.
+    pub intent_displaced: Option<usize>,
+    /// The identifiers the noise guard dropped from the identifier route,
+    /// and why.
+    pub identifiers_dropped: Vec<DroppedIdentifier>,
 }
 
 impl SearchObservations {
@@ -205,28 +261,34 @@ impl<'a> SearchRequest<'a> {
 }
 
 /// Trusted dependencies and caller identity for one search.
-pub struct SearchContext<'a, P> {
+pub struct SearchContext<'a, P, R = Qdrant> {
     /// The kernel database shared by owned blocking readers.
     pub database: Arc<Database>,
     /// The caller resolved by a trusted transport, never request JSON.
     pub principal: &'a str,
-    /// Qdrant containing the pinned generation's physical collection.
-    pub qdrant: &'a Qdrant,
+    /// Backend holding the pinned generation's physical collection.
+    pub qdrant: &'a R,
     /// The generation's matching embedder, absent when no card is available.
     pub embedder: Option<Embedder<'a, P>>,
+    /// Optional explicitly configured expansion model; unused when expansion is off.
+    pub intent_expander: Option<Box<dyn QueryExpander + 'a>>,
     /// The configured reranker, when available.
     pub reranker: Option<Reranker<'a, P>>,
+    /// The source classifier the source prior reads, when one is configured.
+    pub source_classes: Option<Arc<dyn SourceClassifier>>,
 }
 
-impl<P> fmt::Debug for SearchContext<'_, P> {
+impl<P, R: RetrievalProjectionPort> fmt::Debug for SearchContext<'_, P, R> {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter
             .debug_struct("SearchContext")
             .field("database", &"Database")
             .field("principal", &self.principal)
-            .field("qdrant", &self.qdrant)
+            .field("projection", &self.qdrant)
             .field("has_embedder", &self.embedder.is_some())
+            .field("has_intent_expander", &self.intent_expander.is_some())
             .field("has_reranker", &self.reranker.is_some())
+            .field("source_classes", &self.source_classes)
             .finish()
     }
 }

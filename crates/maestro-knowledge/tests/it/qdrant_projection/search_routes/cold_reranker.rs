@@ -3,6 +3,7 @@
 //! The search returns the fused order within its deadline, with the rerank
 //! reported unavailable.
 
+use super::super::stopped_clock::{StageEnd, on_stopped_clock};
 use super::configured_search::{clean, context, published};
 use super::models::{self, SlowReranker};
 use maestro_kernel::{
@@ -41,17 +42,25 @@ async fn search_with_slow_reranker(slow: SlowReranker) -> (RouteStatus, usize, D
         },
         configuration: SearchConfiguration::default(),
     };
-    let started = Instant::now();
-    let input = Box::pin(search(&search_context, &request)).await.unwrap();
-    let left = input.deadline.saturating_duration_since(Instant::now());
-    let bundle = assemble_evidence(
-        fixture.kernel.database.clone(),
-        input,
-        EvidenceCounter::Utf8Bytes,
-    )
-    .await
-    .unwrap();
-    assert!(started.elapsed() < DEADLINE, "{:?}", started.elapsed());
+    let searched = async {
+        let started = Instant::now();
+        let input = Box::pin(search(&search_context, &request)).await.unwrap();
+        let left = input.deadline.saturating_duration_since(Instant::now());
+        let bundle = assemble_evidence(
+            fixture.kernel.database.clone(),
+            input,
+            EvidenceCounter::Utf8Bytes,
+        )
+        .await
+        .unwrap();
+        assert!(started.elapsed() < DEADLINE, "{:?}", started.elapsed());
+        (left, bundle)
+    };
+    // The clock stands still until fusion ended, when the search waits on
+    // the reranker and its cutoff alone; it then moves only to that cutoff,
+    // so what a loaded host takes costs the search no time.
+    let fused = StageEnd::watch("retrieval.fuse");
+    let (left, bundle) = on_stopped_clock(fused.ended(), searched).await;
     let outcome = (
         bundle.routes["rerank"].clone(),
         fixture.port.rerank_calls(),

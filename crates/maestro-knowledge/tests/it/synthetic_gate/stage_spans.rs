@@ -298,6 +298,7 @@ async fn traced_search(
     text: &str,
 ) -> Result<EvidenceInput, SearchError> {
     let context = SearchContext {
+        intent_expander: None,
         database: published.database.clone(),
         principal: PRINCIPAL,
         qdrant,
@@ -309,6 +310,7 @@ async fn traced_search(
             port: &published.models,
             card,
         }),
+        source_classes: None,
     };
     let request = SearchRequest {
         evidence: EvidenceSettings::default(),

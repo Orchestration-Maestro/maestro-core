@@ -58,16 +58,53 @@ async fn an_expired_permission_recheck_reports_its_deadline() {
 }
 
 #[test]
+fn route_limits_and_fusion_pool_are_bounded_and_depth_may_equal_the_pool() {
+    for (field, name) in [
+        (0, "routes_limit"),
+        (1, "identifier_limit"),
+        (2, "fusion_pool"),
+    ] {
+        for value in [0, 121] {
+            let mut request = request("query", RequestBudget::default(), 1, None);
+            match field {
+                0 => request.configuration.routes_limit = value,
+                1 => request.configuration.identifier_limit = value,
+                _ => request.configuration.fusion_pool = value,
+            }
+            rejected(&request, &format!("{name} must be between 1 and 120"));
+        }
+    }
+    let mut request = request("query", RequestBudget::default(), 5, None);
+    request.configuration.fusion_pool = 5;
+    assert!(validate(&request).is_ok());
+    request.configuration.fusion_pool = 4;
+    rejected(&request, "rerank depth cannot exceed fusion_pool");
+}
+
+#[test]
+fn intent_rerank_additions_accept_the_maximum_and_reject_the_next_value() {
+    let budget = RequestBudget::default();
+    for additions in [0, 120] {
+        let mut request = request("query", budget, 1, None);
+        request.configuration.intent_rerank_additions = additions;
+        assert!(validate(&request).is_ok(), "{additions}");
+    }
+    let mut request = request("query", budget, 1, None);
+    request.configuration.intent_rerank_additions = 121;
+    rejected(&request, "intent rerank additions must be at most 120");
+}
+
+#[test]
 fn request_bounds_include_both_endpoints_and_reject_the_next_value() {
     let valid = RequestBudget {
         k: 50,
-        max_tokens: 12_000,
+        evidence_bytes: 24_000,
         deadline_ms: 30_000,
     };
     assert!(validate(&request("query", valid, 120, Some(&"v".repeat(256)))).is_ok());
     let valid_low = RequestBudget {
         k: 1,
-        max_tokens: 1,
+        evidence_bytes: 1,
         deadline_ms: 1,
     };
     assert!(validate(&request("query", valid_low, 1, None)).is_ok());
@@ -83,17 +120,17 @@ fn request_bounds_include_both_endpoints_and_reject_the_next_value() {
         ),
         (
             RequestBudget {
-                max_tokens: 0,
+                evidence_bytes: 0,
                 ..valid_low
             },
-            "max_tokens must be between 1 and 12000",
+            "evidence_bytes must be between 1 and 24000",
         ),
         (
             RequestBudget {
-                max_tokens: 12_001,
+                evidence_bytes: 24_001,
                 ..valid
             },
-            "max_tokens must be between 1 and 12000",
+            "evidence_bytes must be between 1 and 24000",
         ),
         (
             RequestBudget {
@@ -190,7 +227,9 @@ fn each_route_weight_must_be_finite_and_nonnegative() {
 
 #[test]
 fn ranking_settings_reject_nonfinite_weights_and_invalid_context_bounds() {
-    use crate::search::{CandidateContext, SectionClassSet, SectionPrior};
+    use crate::search::{
+        CandidateContext, SectionClassSet, SectionPrior, SourceClassSet, SourcePrior,
+    };
     let mut request = SearchRequest::new("docs", "question", None, RequestBudget::default());
     for weight in [f32::NAN, f32::INFINITY, -0.01, 1.01] {
         request.configuration.rerank_blend = Some(weight);
@@ -202,6 +241,15 @@ fn ranking_settings_reject_nonfinite_weights_and_invalid_context_bounds() {
         };
         assert!(validate(&request).is_err());
         request.configuration.section_prior = SectionPrior::Off;
+        request.configuration.source_prior = SourcePrior::Soft {
+            weight,
+            classes: SourceClassSet::default(),
+        };
+        assert_eq!(
+            validate(&request).unwrap_err().to_string(),
+            "invalid search request: source prior weight must be between 0 and 1"
+        );
+        request.configuration.source_prior = SourcePrior::Off;
     }
     for max_bytes in [0, 1501] {
         request.configuration.candidate_context = CandidateContext::BoundedSection { max_bytes };
@@ -214,4 +262,47 @@ fn ranking_settings_reject_nonfinite_weights_and_invalid_context_bounds() {
         request.configuration.rerank_blend = Some(1.0);
         assert!(validate(&request).is_ok());
     }
+}
+
+#[test]
+fn admission_bounds_the_intent_deadline_and_threshold() {
+    use crate::search::IntentTrigger;
+    let with = |configuration: SearchConfiguration| SearchRequest {
+        configuration,
+        ..request("question", RequestBudget::default(), 30, None)
+    };
+    for milliseconds in [1, 5000] {
+        let accepted = with(SearchConfiguration {
+            intent_deadline_ms: milliseconds,
+            ..SearchConfiguration::default()
+        });
+        assert!(validate(&accepted).is_ok(), "{milliseconds}");
+    }
+    for milliseconds in [0, 5001] {
+        rejected(
+            &with(SearchConfiguration {
+                intent_deadline_ms: milliseconds,
+                ..SearchConfiguration::default()
+            }),
+            "intent deadline must be between 1 and 5000 milliseconds",
+        );
+    }
+    for threshold in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+        rejected(
+            &with(SearchConfiguration {
+                intent_trigger: IntentTrigger::LowConfidence {
+                    min_top_rerank: threshold,
+                },
+                ..SearchConfiguration::default()
+            }),
+            "intent confidence threshold must be finite",
+        );
+    }
+    let finite = with(SearchConfiguration {
+        intent_trigger: IntentTrigger::LowConfidence {
+            min_top_rerank: -1.0,
+        },
+        ..SearchConfiguration::default()
+    });
+    assert!(validate(&finite).is_ok());
 }

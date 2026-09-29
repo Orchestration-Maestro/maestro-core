@@ -1,7 +1,7 @@
 //! Optional position-only rerank policies; model and fusion scores remain untouched.
 
 use super::rerank::Ranked;
-use std::num::NonZeroU32;
+use std::{collections::BTreeMap, num::NonZeroU32};
 
 /// Fuses reranked and fused positions as rank fusion does,
 /// `(1 - w) / (k + reranked + 1) + w / (k + fused + 1)`, with the search's
@@ -55,5 +55,35 @@ pub(super) fn cap_demotion(ranked: &mut [Ranked], fused_ids: &[String], cap: Opt
         {
             window.rotate_right(1);
         }
+    }
+}
+
+/// Multiplies each candidate's reciprocal final-rank score `1 / (position +
+/// 1)` by its multiplier in `multipliers` (1 when absent) and reorders by
+/// the result, so a penalized rank r moves to about r / multiplier; on equal
+/// scores the less penalized candidate goes first, so any penalty demotes
+/// strictly. No penalty leaves the order untouched.
+#[expect(
+    clippy::cast_precision_loss,
+    reason = "search bounds the candidate pool to 120"
+)]
+pub(super) fn demote(ranked: &mut [Ranked], multipliers: &BTreeMap<String, f64>) {
+    if multipliers.is_empty() {
+        return;
+    }
+    let mut ordered = ranked
+        .iter()
+        .enumerate()
+        .map(|(position, item)| {
+            let multiplier = multipliers
+                .get(&item.candidate.fused.chunk_id)
+                .copied()
+                .unwrap_or(1.0);
+            (item.clone(), multiplier / (position + 1) as f64, multiplier)
+        })
+        .collect::<Vec<_>>();
+    ordered.sort_by(|left, right| right.1.total_cmp(&left.1).then(right.2.total_cmp(&left.2)));
+    for (target, (item, _, _)) in ranked.iter_mut().zip(ordered) {
+        *target = item;
     }
 }

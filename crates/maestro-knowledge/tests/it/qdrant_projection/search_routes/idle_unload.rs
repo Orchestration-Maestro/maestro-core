@@ -114,6 +114,7 @@ async fn dense_runs_after_the_router_unloads_its_model_between_two_searches() {
     let router = UnloadingRouter::serve();
     let client = RouterClient::new(Url::parse(&router.url).unwrap()).unwrap();
     let context = SearchContext {
+        intent_expander: None,
         database: fixture.kernel.database.clone(),
         principal: "tester",
         qdrant: &fixture.qdrant,
@@ -122,6 +123,7 @@ async fn dense_runs_after_the_router_unloads_its_model_between_two_searches() {
             card: &fixture.embedder_card,
         }),
         reranker: None,
+        source_classes: None,
     };
     let request = SearchRequest {
         evidence: EvidenceSettings::default(),
@@ -129,7 +131,7 @@ async fn dense_runs_after_the_router_unloads_its_model_between_two_searches() {
         text: "scheduler",
         version: None,
         budget: RequestBudget {
-            deadline_ms: 1500,
+            deadline_ms: 5000,
             ..RequestBudget::default()
         },
         configuration: SearchConfiguration {

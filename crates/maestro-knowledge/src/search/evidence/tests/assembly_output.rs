@@ -85,7 +85,7 @@ fn expected_bundle(fixture: &Fixture, input: &EvidenceInput) -> Bundle {
         windowed: false,
         alternates: Vec::new(),
     };
-    let evidence_tokens =
+    let evidence_bytes =
         u32::try_from(serde_json::to_vec(from_ref(&passage)).unwrap().len()).unwrap();
     Bundle {
         schema: Schema::V1,
@@ -98,14 +98,15 @@ fn expected_bundle(fixture: &Fixture, input: &EvidenceInput) -> Bundle {
         conflicts: Vec::new(),
         known_gaps: Vec::new(),
         budget: Budget {
-            evidence_tokens,
-            limit: input.budget.max_tokens,
+            evidence_bytes,
+            limit: input.budget.evidence_bytes,
             counter: Some("evidence-utf8-bytes/1".to_owned()),
             estimated: true,
         },
         request_budget: Some(input.budget),
         inventory: None,
         trace: vec![Trace {
+            parent_context_of: Vec::new(),
             n: 1,
             score: Some(0.8),
             routes: vec!["lexical".to_owned()],
@@ -190,7 +191,7 @@ async fn unresolved_candidates_and_budgeted_identifiers_have_exact_gaps() {
     unresolved_input.ranked = vec![first];
     let mut budgeted_input = evidence_input(&fixture, "How can I fix ERR_404?");
     budgeted_input.budget.k = 1;
-    budgeted_input.budget.max_tokens = 1;
+    budgeted_input.budget.evidence_bytes = 1;
     let database = Arc::new(fixture.database);
 
     let unresolved = assemble_evidence(

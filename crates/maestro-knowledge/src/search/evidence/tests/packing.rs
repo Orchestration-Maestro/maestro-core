@@ -1,10 +1,56 @@
 use super::{CandidateSource, candidate, prepared};
+use crate::search::evidence::ParentChainOrder;
+use crate::search::evidence::delivery_graph::LegacyCanonicalGraph;
 use crate::search::evidence::tests::support::control;
 use crate::search::evidence::{
     EvidenceCounter, EvidenceSettings, ExpansionMode,
     budget::counter_info,
-    selection::{SelectionBudget, select},
+    selection::{SelectionBudget, SelectionCandidate, SelectionResult, select},
 };
+
+/// A table whose header, one body row and a later row a relevant block may
+/// keep apart.
+const TABLE: &str = concat!(
+    "# Values\n\n| Name | Value |\n| --- | --- |\n",
+    "| matched | yes |\n| later | no |\n"
+);
+
+/// The relevant-blocks selection of `candidates`, at most two passages
+/// within `evidence_bytes` bytes of answer-bound evidence.
+fn select_relevant(candidates: &[SelectionCandidate<'_>], evidence_bytes: u32) -> SelectionResult {
+    let counter = EvidenceCounter::AnswerBoundUtf8Bytes;
+    let info = counter_info(&counter).unwrap();
+    select(
+        candidates,
+        &[],
+        &SelectionBudget {
+            graph: &LegacyCanonicalGraph,
+            parent_chain_order: ParentChainOrder::default(),
+            expansion: ExpansionMode::RelevantBlocks,
+            max_passages: 2,
+            evidence_bytes,
+            counter: &counter,
+            counter_info: &info,
+            control: &control(),
+        },
+    )
+    .unwrap()
+}
+
+/// The relevant-blocks selection of the one candidate `marker` of the
+/// section `Values` of `markdown`, within `evidence_bytes` bytes.
+fn select_values(markdown: &str, marker: &str, evidence_bytes: u32) -> SelectionResult {
+    let (document, sections) = prepared(markdown, "values.md");
+    let source = CandidateSource {
+        markdown,
+        document: &document,
+        sections: &sections,
+    };
+    select_relevant(
+        &[candidate(source, "Values", marker, 0, None)],
+        evidence_bytes,
+    )
+}
 
 #[test]
 fn relevant_blocks_admits_another_procedure_before_expanding_first() {
@@ -30,9 +76,11 @@ fn relevant_blocks_admits_another_procedure_before_expanding_first() {
             &candidates,
             &[],
             &SelectionBudget {
+                graph: &LegacyCanonicalGraph,
+                parent_chain_order: ParentChainOrder::default(),
                 expansion,
                 max_passages: 2,
-                max_tokens: 1000,
+                evidence_bytes: 1000,
                 counter: &counter,
                 counter_info: &info,
                 control: &control,
@@ -50,9 +98,9 @@ fn relevant_blocks_admits_another_procedure_before_expanding_first() {
 }
 
 #[test]
-fn named_counter_defaults_preserve_legacy_and_exact_refuses() {
+fn evidence_defaults_select_parent_chain_and_utf8_counting() {
     let defaults: EvidenceSettings = serde_json::from_str("{}").unwrap();
-    assert_eq!(defaults.expansion, ExpansionMode::FullSection);
+    assert_eq!(defaults.expansion, ExpansionMode::ParentChain);
     assert!(matches!(
         defaults.counter().unwrap(),
         EvidenceCounter::Utf8Bytes
@@ -87,9 +135,11 @@ fn relevant_table_prefix_keeps_header_and_whole_row_with_exact_span() {
         &candidates,
         &[],
         &SelectionBudget {
+            graph: &LegacyCanonicalGraph,
+            parent_chain_order: ParentChainOrder::default(),
             expansion: ExpansionMode::RelevantBlocks,
             max_passages: 2,
-            max_tokens: 300,
+            evidence_bytes: 300,
             counter: &counter,
             counter_info: &info,
             control: &control,
@@ -105,35 +155,34 @@ fn relevant_table_prefix_keeps_header_and_whole_row_with_exact_span() {
 }
 
 #[test]
-fn over_budget_table_prefix_falls_back_without_truncating_a_row() {
-    let markdown =
-        "# Values\n\n| Name | Value |\n| --- | --- |\n| matched | yes |\n| later | no |\n";
-    let (document, sections) = prepared(markdown, "fallback.md");
-    let source = CandidateSource {
-        markdown,
-        document: &document,
-        sections: &sections,
-    };
-    let candidates = [candidate(source, "Values", "matched", 0, None)];
-    let counter = EvidenceCounter::AnswerBoundUtf8Bytes;
-    let info = counter_info(&counter).unwrap();
-    let control = control();
-    let packed = select(
-        &candidates,
-        &[],
-        &SelectionBudget {
-            expansion: ExpansionMode::RelevantBlocks,
-            max_passages: 2,
-            max_tokens: 1,
-            counter: &counter,
-            counter_info: &info,
-            control: &control,
-        },
-    )
-    .unwrap();
-    assert_eq!(packed.omissions.table_prefix_fallbacks, 1);
+fn an_over_budget_table_prefix_is_omitted_without_truncating_a_row() {
+    let packed = select_values(TABLE, "matched", 1);
+    assert_eq!(packed.omissions.table_prefix_omissions, 1);
     assert!(packed.omissions.evidence);
     assert!(packed.passages.is_empty());
+}
+
+#[test]
+fn an_over_budget_block_outside_a_table_omits_no_table_prefix() {
+    let packed = select_values("# Values\n\nMatched paragraph.\n", "Matched", 1);
+    assert_eq!(packed.omissions.table_prefix_omissions, 0);
+    assert!(packed.omissions.evidence);
+    assert!(packed.passages.is_empty());
+}
+
+#[test]
+fn a_seed_ending_where_a_body_row_starts_keeps_the_whole_table() {
+    let packed = select_values(TABLE, "| Name | Value |\n| --- | --- |\n", 1000);
+    assert_eq!(packed.passages.len(), 1);
+    assert!(packed.passages[0].text.contains("| later | no |"));
+}
+
+#[test]
+fn a_seed_in_the_header_keeps_the_whole_table() {
+    let packed = select_values(TABLE, "Name", 1000);
+    assert_eq!(packed.passages.len(), 1);
+    assert!(packed.passages[0].text.contains("| matched | yes |"));
+    assert!(packed.passages[0].text.contains("| later | no |"));
 }
 
 #[test]
@@ -157,9 +206,11 @@ fn relevant_blocks_keep_complete_list_steps_and_nested_tables() {
         &candidates,
         &[],
         &SelectionBudget {
+            graph: &LegacyCanonicalGraph,
+            parent_chain_order: ParentChainOrder::default(),
             expansion: ExpansionMode::RelevantBlocks,
             max_passages: 1,
-            max_tokens: 1000,
+            evidence_bytes: 1000,
             counter: &counter,
             counter_info: &info,
             control: &control,
@@ -196,9 +247,11 @@ fn relevant_blocks_spend_leftover_budget_on_neighbors_in_rank_order() {
         &candidates,
         &[],
         &SelectionBudget {
+            graph: &LegacyCanonicalGraph,
+            parent_chain_order: ParentChainOrder::default(),
             expansion: ExpansionMode::RelevantBlocks,
             max_passages: 2,
-            max_tokens: 310,
+            evidence_bytes: 310,
             counter: &counter,
             counter_info: &info,
             control: &control,

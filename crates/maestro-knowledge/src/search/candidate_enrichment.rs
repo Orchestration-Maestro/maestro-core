@@ -4,6 +4,7 @@
 //! the enrichment cutoff, keeps the indexed chunk text and no penalty.
 
 use super::{
+    deadline,
     evidence::{self, Indexing, SourceCache},
     request::{CandidateContext, SearchConfiguration},
 };
@@ -14,7 +15,6 @@ use maestro_kernel::{
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
-    sync::atomic::Ordering,
     time::{Duration, Instant},
 };
 
@@ -43,6 +43,9 @@ pub(super) struct Enriched {
     /// Candidates whose source was unreadable or unexpandable, or reached
     /// after the cutoff.
     pub(super) unavailable: usize,
+    /// Revisions submitted for source loading in tests.
+    #[cfg(test)]
+    pub(super) requested_revisions: BTreeSet<String>,
     /// Source-loading and expansion wall time.
     pub(super) micros: u64,
 }
@@ -81,8 +84,12 @@ pub(super) fn enrich(
         .map(|(chunk, _)| chunk.revision_id.clone())
         .collect::<Vec<_>>();
     cache.load_available(&revisions, settings.generation, CONTEXT_LOAD_WORKERS);
+    #[cfg(test)]
+    {
+        enriched.requested_revisions = cache.requested_revisions();
+    }
     for (chunk, text) in candidates {
-        let context = open(&control)
+        let context = deadline::open(&control)
             .then(|| cache.get(&chunk.revision_id))
             .flatten()
             .and_then(|source| {
@@ -135,12 +142,7 @@ fn chunk_profile(
     ChunkProfile::named(&set.chunk_profile)
 }
 
-/// Whether enrichment may still read: neither cancelled nor past its cutoff.
-fn open(control: &ReadControl) -> bool {
-    !control.cancelled.load(Ordering::Relaxed) && Instant::now() < control.deadline
-}
-
 /// Whole microseconds, saturating.
-fn micros(elapsed: Duration) -> u64 {
+pub(super) fn micros(elapsed: Duration) -> u64 {
     u64::try_from(elapsed.as_micros()).unwrap_or(u64::MAX)
 }

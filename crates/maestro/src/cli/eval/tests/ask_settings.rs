@@ -12,6 +12,7 @@ use super::{
     support::{rung_json, suite},
 };
 use crate::failure::Failure;
+use maestro_kernel::{evidence::RequestBudget, gateway::MAX_CHAT_OUTPUT_TOKENS};
 use maestro_knowledge::answer::{AskBudget, PromptVersion};
 use serde_json::{Value, json};
 use std::path::Path;
@@ -58,7 +59,7 @@ fn true_and_false_still_parse_and_true_asks_as_ask_does_by_default() {
 #[test]
 fn an_object_sets_each_ask_setting_and_leaves_the_rest_at_their_defaults() {
     let settings = parsed(&json!({
-        "k": 8, "max_tokens": 9000, "output_tokens": 900, "prompt": "v1",
+        "k": 8, "evidence_bytes": 9000, "output_tokens": 900, "prompt": "v1",
     }))
     .unwrap()
     .unwrap();
@@ -68,8 +69,8 @@ fn an_object_sets_each_ask_setting_and_leaves_the_rest_at_their_defaults() {
         settings.budget(),
         AskBudget {
             k: 8,
-            max_tokens: 9000,
-            output_tokens: 900,
+            evidence_bytes: 9000,
+            output_tokens: Some(900),
             ..AskBudget::default()
         }
     );
@@ -89,10 +90,9 @@ fn ask_settings_outside_asks_limits_are_refused() {
     let cases = [
         json!({"k": 0}),
         json!({"k": 51}),
-        json!({"max_tokens": 0}),
-        json!({"max_tokens": 12_001}),
+        json!({"evidence_bytes": 0}),
         json!({"output_tokens": 0}),
-        json!({"output_tokens": 1025}),
+        json!({"output_tokens": MAX_CHAT_OUTPUT_TOKENS + 1}),
     ];
     for ask in cases {
         assert!(
@@ -101,7 +101,23 @@ fn ask_settings_outside_asks_limits_are_refused() {
             refusal(&ask)
         );
     }
-    assert!(parsed(&json!({"k": 50, "max_tokens": 12_000, "output_tokens": 1024})).is_ok());
+    assert!(
+        parsed(
+            &json!({"k": 50, "evidence_bytes": 24_000, "output_tokens": MAX_CHAT_OUTPUT_TOKENS})
+        )
+        .is_ok()
+    );
+}
+
+#[test]
+fn a_rung_asks_up_to_the_24000_byte_evidence_ceiling_and_is_refused_past_it() {
+    let ceiling = parsed(&json!({"evidence_bytes": 24_000})).unwrap().unwrap();
+
+    assert_eq!(RequestBudget::from(ceiling.budget()).evidence_bytes, 24_000);
+    assert_eq!(
+        refusal(&json!({"evidence_bytes": 24_001})),
+        "the rung `r0` asks for 24001 evidence bytes, over the 24000-byte ceiling"
+    );
 }
 
 #[test]
@@ -132,7 +148,7 @@ fn a_rung_report_records_its_resolved_ask_settings_and_prompt() {
         to_json(&set)["ask_settings"],
         json!({
             "k": 5,
-            "max_tokens": 6000,
+            "evidence_bytes": 6000,
             "output_tokens": 900,
             "prompt": "v2",
             "evidence": {"expansion":"full_section", "evidence_counter":"utf8"},
@@ -146,8 +162,8 @@ fn a_rung_report_records_its_resolved_ask_settings_and_prompt() {
     assert_eq!(to_json(&unasked)["search_deadline_ms"], json!(30_000));
     let unasked_markdown = unasked.to_markdown();
     assert!(unasked_markdown.contains(concat!(
-        "- Scored bundle: each search's evidence, assembled under the default ask budget: ",
-        "at most 5 passages, 6000 evidence bytes\n"
+        "- Search settings: at most 5 passages, 6000 evidence bytes, full_section ",
+        "expansion, none order\n"
     )));
     assert!(
         unasked
@@ -163,7 +179,7 @@ fn a_rung_report_records_its_resolved_ask_settings_and_prompt() {
 fn packing_knobs_are_typed_and_exact_refuses_without_silent_estimation() {
     let settings = parsed(&json!({
         "expansion": "relevant_blocks", "evidence_counter": "utf8_answer_bound",
-        "answer_prompt": "procedure_first", "max_tokens": 9000
+        "answer_prompt": "procedure_first", "evidence_bytes": 9000
     }))
     .unwrap()
     .unwrap();
@@ -174,7 +190,7 @@ fn packing_knobs_are_typed_and_exact_refuses_without_silent_estimation() {
         })
     );
     assert_eq!(settings.prompt.name(), "procedure_first");
-    assert_eq!(settings.budget().max_tokens, 9000);
+    assert_eq!(settings.budget().evidence_bytes, 9000);
     assert!(
         refusal(&json!({"evidence_counter":"exact"}))
             .contains("resolved answerer's tokenizer must be qualified")

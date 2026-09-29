@@ -4,8 +4,14 @@ use super::types::{EvidenceCounter, EvidenceError};
 use maestro_kernel::evidence::Passage;
 use std::{error, fmt};
 
-/// Independent wire-size ceiling for answer-bound UTF-8 budgeting.
-const MAX_EVIDENCE_WIRE_BYTES: usize = 12_000;
+/// The answer-bound wire's allowance above the budget, in bytes, for the
+/// passage JSON the answerer never reads: section, document and revision
+/// IDs, source reference, span, digest, window flag and alternates. With
+/// digest IDs and a 100-byte URL that is about 520 bytes a passage and 105
+/// an alternate, so about ten passages fit. It is the room the former fixed
+/// 12,000-byte ceiling left above the default 6,000-byte budget, which keeps
+/// the default's selection unchanged.
+const EVIDENCE_WIRE_ALLOWANCE: usize = 6_000;
 
 /// The counter identity and estimate flag written into the bundle.
 #[derive(Debug, PartialEq, Eq)]
@@ -99,11 +105,23 @@ pub(crate) fn verify_counter(
     Ok(())
 }
 
-/// Counts the compact JSON serialization of a complete passage trial.
+/// The largest compact passage JSON, in bytes, that an answer-bound trial
+/// under a `evidence_bytes` budget may serialize to: the budget plus
+/// [`EVIDENCE_WIRE_ALLOWANCE`], so 12,000 at the default 6,000, 18,000 at
+/// 12,000 and 30,000 at the 24,000 ceiling.
+pub(crate) fn evidence_wire_ceiling(evidence_bytes: u32) -> usize {
+    usize::try_from(evidence_bytes).map_or(usize::MAX, |budget| {
+        budget.saturating_add(EVIDENCE_WIRE_ALLOWANCE)
+    })
+}
+
+/// Counts the compact JSON serialization of a complete passage trial under
+/// a `evidence_bytes` budget.
 pub(crate) fn count_passages(
     passages: &[Passage],
     counter: &EvidenceCounter,
     info: &CounterInfo,
+    evidence_bytes: u32,
 ) -> Result<u32, CounterError> {
     if &counter_info(counter)? != info {
         return Err(CounterError::Invalid(
@@ -115,7 +133,7 @@ pub(crate) fn count_passages(
     }
     let serialized = serialized_passages(passages)?;
     if matches!(counter, EvidenceCounter::AnswerBoundUtf8Bytes)
-        && serialized.len() > MAX_EVIDENCE_WIRE_BYTES
+        && serialized.len() > evidence_wire_ceiling(evidence_bytes)
     {
         // Admitted budgets are below this sentinel: try a smaller source window.
         return Ok(u32::MAX);

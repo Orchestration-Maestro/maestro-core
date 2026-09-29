@@ -85,12 +85,30 @@ fn without_chrome(markdown: &str, span: Span, chrome: &[SourceSpan]) -> Option<S
     let mut text = String::new();
     let mut cursor = span.start;
     for cut in chrome {
-        let (start, end) = (cut.start.max(cursor), cut.end.min(span.end));
-        if start < end {
-            text.push_str(markdown.get(cursor..start)?);
-            cursor = end;
-        }
+        let start = cut.start.clamp(cursor, span.end);
+        let end = cut.end.clamp(start, span.end);
+        text.push_str(markdown.get(cursor..start)?);
+        cursor = end;
     }
     text.push_str(markdown.get(cursor..span.end)?);
     Some(text)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn context_clips_chrome_cuts_at_the_span_end() {
+        let markdown = "0123456789";
+        let chrome = [
+            SourceSpan { start: 5, end: 8 },
+            SourceSpan { start: 8, end: 10 },
+        ];
+
+        assert_eq!(
+            without_chrome(markdown, Span { start: 2, end: 6 }, &chrome).as_deref(),
+            Some("234")
+        );
+    }
 }

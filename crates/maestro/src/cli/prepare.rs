@@ -110,11 +110,11 @@ pub(super) fn run(
     )
 }
 
-/// The chunking profile whose chunker version is `name`, the default one when
-/// none is named; refused, naming the known profiles, when it is unknown.
+/// The chunking profile whose chunker version is `name`, /3 when none is
+/// named; refused, naming the known profiles, when it is unknown.
 pub(super) fn chunk_profile(name: Option<&str>) -> Result<ChunkProfile, Failure> {
     let Some(name) = name else {
-        return Ok(ChunkProfile::default());
+        return Ok(ChunkProfile::CompleteIdeas);
     };
     ChunkProfile::named(name).ok_or_else(|| {
         let known: Vec<_> = ChunkProfile::ALL
@@ -126,6 +126,32 @@ pub(super) fn chunk_profile(name: Option<&str>) -> Result<ChunkProfile, Failure>
             known.join(", ")
         ))
     })
+}
+
+/// The published generation's profile, or `fallback` when no generation exists.
+pub(super) fn profile_for_collection(
+    kernel: &Kernel,
+    collection_id: &str,
+    fallback: ChunkProfile,
+) -> Result<ChunkProfile, Failure> {
+    let Some(generation) = kernel
+        .database
+        .published_generation(&kernel.scopes, collection_id)
+        .map_err(|error| Failure::failed_by(&error))?
+    else {
+        return Ok(fallback);
+    };
+    let chunk_set = kernel
+        .database
+        .chunk_set(&kernel.scopes, &generation.chunk_set_id)
+        .map_err(|error| Failure::failed_by(&error))?
+        .ok_or_else(|| {
+            Failure::failed(format!(
+                "published generation {} refers to missing chunk set {}",
+                generation.id, generation.chunk_set_id
+            ))
+        })?;
+    chunk_profile(Some(&chunk_set.chunk_profile))
 }
 
 /// Qualifies a legacy card through its original path or loads and checks v2 evidence.

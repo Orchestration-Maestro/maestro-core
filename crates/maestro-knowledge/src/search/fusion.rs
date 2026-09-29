@@ -6,6 +6,10 @@ use std::num::NonZeroU32;
 /// A retrieval route contributing ranked chunks to fusion.
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum Route {
+    /// Hypothetical-document dense retrieval.
+    DenseIntent,
+    /// Generated terminology lexical retrieval.
+    LexicalIntent,
     /// Dense vector retrieval.
     Dense,
     /// Lexical retrieval.
@@ -21,6 +25,8 @@ impl Route {
     #[must_use]
     pub const fn name(self) -> &'static str {
         match self {
+            Self::DenseIntent => "dense_intent",
+            Self::LexicalIntent => "lexical_intent",
             Self::Dense => "dense",
             Self::Lexical => "lexical",
             Self::Identifier => "identifier",

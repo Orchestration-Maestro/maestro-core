@@ -4,23 +4,23 @@
 //! owner's files. Relative paths resolve from the manifest's directory.
 
 use super::{
+    ask_settings::read_ask,
     graph_manifest::{GraphManifest, Inputs},
     graph_output::Code,
     private_run::CheckedRun,
-    rank_settings::{Context, Prior},
     rung_prompt::RungPrompt,
 };
-use crate::failure::Failure;
-use maestro_kernel::artifact::Digest;
-use maestro_knowledge::{
-    answer::AskBudget,
-    search::{
-        SearchConfiguration, StageWindow,
-        evidence::{CounterMode, EvidenceSettings, ExpansionMode},
-    },
+use super::{
+    manifest_checks::{check_intent, check_pipeline_limits},
+    rank_settings::{Context, Prior, SourcePriorSetting},
 };
-use serde::{Deserialize, Deserializer, Serialize, de};
-use serde_json::Value;
+use crate::failure::Failure;
+use maestro_kernel::{artifact::Digest, evidence::RequestBudget};
+use maestro_knowledge::search::{
+    IntentExpansion, IntentTrigger, SearchConfiguration, SourcePrior, StageWindow,
+    evidence::{EvidenceSettings, ExpansionMode, ParentChainOrder},
+};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::{
     collections::BTreeSet,
     fs,
@@ -28,6 +28,8 @@ use std::{
     path::{Path, PathBuf},
     time::Duration,
 };
+
+pub(super) use super::ask_settings::AskSettings;
 
 /// The contract a manifest follows.
 const SCHEMA: &str = "maestro-ladder-manifest/1";
@@ -75,80 +77,9 @@ pub(super) struct Rung {
     /// settings.
     #[serde(deserialize_with = "read_ask")]
     pub(super) ask: Option<AskSettings>,
-}
-
-/// A rung's `ask` settings; each one absent is `ask`'s default.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
-#[serde(default, deny_unknown_fields)]
-#[expect(
-    clippy::min_ident_chars,
-    reason = "ask's budget names this limit k, as the manifest does"
-)]
-pub(super) struct AskSettings {
-    /// The most passages given to the answerer.
-    pub(super) k: Option<u32>,
-    /// The evidence budget, in UTF-8 bytes.
-    pub(super) max_tokens: Option<u32>,
-    /// The most tokens each answerer reply generates.
-    pub(super) output_tokens: Option<u32>,
-    /// The answer prompt: a version, or a private prompt file.
-    #[serde(alias = "answer_prompt")]
-    pub(super) prompt: RungPrompt,
-    /// Source-window allocation policy.
-    pub(super) expansion: ExpansionMode,
-    /// Representation charged against `max_tokens`.
-    pub(super) evidence_counter: CounterMode,
-    /// The SHA-256 digest, in hexadecimal, of the registered answerer card
-    /// the rung asks with; absent, the latest registered answerer of the
-    /// default model.
-    pub(super) card: Option<String>,
-}
-
-impl AskSettings {
-    /// Assembly settings carried alongside the search configuration and budget.
-    pub(super) fn evidence(&self) -> EvidenceSettings {
-        EvidenceSettings {
-            expansion: self.expansion,
-            evidence_counter: self.evidence_counter,
-        }
-    }
-    /// The budget `ask` runs under: [`AskBudget::default`] with these
-    /// settings.
-    pub(super) fn budget(&self) -> AskBudget {
-        let default = AskBudget::default();
-        AskBudget {
-            k: self.k.unwrap_or(default.k),
-            max_tokens: self.max_tokens.unwrap_or(default.max_tokens),
-            output_tokens: self.output_tokens.unwrap_or(default.output_tokens),
-            ..default
-        }
-    }
-
-    /// The digest of the answerer card the rung names, if any.
-    ///
-    /// # Errors
-    ///
-    /// [`Failure::Refused`] for a card that is not a SHA-256 digest.
-    pub(super) fn answerer_card(&self) -> Result<Option<Digest>, Failure> {
-        self.card
-            .as_deref()
-            .map(|card| {
-                Digest::parse(card)
-                    .map_err(|_| Failure::refused("a rung's answerer card is not a SHA-256 digest"))
-            })
-            .transpose()
-    }
-}
-
-/// Reads a rung's `ask`: `false`, `true` for the default settings, or its
-/// settings.
-fn read_ask<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<AskSettings>, D::Error> {
-    match Value::deserialize(deserializer)? {
-        Value::Bool(asks) => Ok(asks.then(AskSettings::default)),
-        value => AskSettings::deserialize(value)
-            .map(Some)
-            .map_err(de::Error::custom),
-    }
+    /// Search-only evidence budget; absent uses the default search budget.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) search_budget: Option<RequestBudget>,
 }
 
 /// Closed graph rung selection, separate from the unchanged S1 route configuration.
@@ -168,8 +99,49 @@ pub(super) enum GraphSelection {
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub(super) struct RungConfiguration {
+    /// Optional evidence expansion; absent retains `full_section` behavior.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) evidence_expansion: Option<ExpansionMode>,
+    /// Optional admission order, valid only for parent-chain expansion.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) parent_chain_order: Option<ParentChainOrder>,
+    /// Optional hypothetical-document retrieval; absent means off.
+    #[serde(default)]
+    pub(super) intent_expansion: IntentExpansion,
+    /// Run beside originals or only after a weak first ranking.
+    #[serde(default)]
+    pub(super) intent_trigger: IntentTrigger,
+    /// Explicit registered answerer-role card for expansion, independent of ask.
+    #[serde(default)]
+    pub(super) intent_card: Option<String>,
+    /// Maximum expansion model duration in milliseconds.
+    #[serde(default = "default_intent_deadline")]
+    pub(super) intent_deadline_ms: u32,
+    /// RRF weight of each additional intent route.
+    #[serde(
+        default,
+        deserialize_with = "read_intent_weight",
+        serialize_with = "write_intent_weight"
+    )]
+    pub(super) intent_weight: Option<f64>,
+    /// The most candidates intent votes add to the rerank beyond its depth.
+    #[serde(default = "default_intent_rerank_additions")]
+    pub(super) intent_rerank_additions: usize,
+    /// Maximum dense, lexical and intent candidates.
+    #[serde(default = "default_routes_limit")]
+    pub(super) routes_limit: usize,
+    /// Identifier candidates, additionally bounded by `routes_limit`.
+    #[serde(default = "default_identifier_limit")]
+    pub(super) identifier_limit: usize,
+    /// Maximum candidates retained by fusion, at most 120.
+    #[serde(default = "default_fusion_pool")]
+    pub(super) fusion_pool: usize,
     /// The routes that run.
     pub(super) routes: Routes,
+    /// Whether the identifier route drops identifiers too common to rank,
+    /// and fusion takes no hits from an unavailable route; absent, off.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub(super) identifier_noise_guard: bool,
     /// The reciprocal rank fusion constant K.
     pub(super) rrf_k: NonZeroU32,
     /// Each route's weight in fusion.
@@ -188,6 +160,9 @@ pub(super) struct RungConfiguration {
     /// the routes' windows derive from the search deadline.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(super) stage_window_ms: Option<NonZeroU32>,
+    /// The source prior; absent, search's default, official-first.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) source_prior: Option<SourcePriorSetting>,
 }
 
 /// Which routes run.
@@ -244,18 +219,104 @@ pub(super) struct Rerank {
     pub(super) candidate_context: Context,
 }
 
+/// Default bounded expansion deadline.
+fn default_intent_deadline() -> u32 {
+    SearchConfiguration::default().intent_deadline_ms
+}
+
+/// Default per-route candidate limit.
+fn default_routes_limit() -> usize {
+    SearchConfiguration::DEFAULT_ROUTES_LIMIT
+}
+
+/// Default identifier-route candidate cap.
+fn default_identifier_limit() -> usize {
+    SearchConfiguration::DEFAULT_IDENTIFIER_LIMIT
+}
+
+/// Default fusion pool size.
+fn default_fusion_pool() -> usize {
+    SearchConfiguration::MAX_FUSION_POOL
+}
+
+/// A present manifest weight must be a number; an omitted weight stays unset until search builds.
+fn read_intent_weight<'de, D>(deserializer: D) -> Result<Option<f64>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    f64::deserialize(deserializer).map(Some)
+}
+
+/// Preserve the serialized default while keeping `SearchConfiguration` its single source.
+#[expect(
+    clippy::ref_option,
+    reason = "serde serialize_with requires a reference to the serialized field type"
+)]
+fn write_intent_weight<S>(weight: &Option<f64>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    weight
+        .unwrap_or_else(|| SearchConfiguration::default().intent_weight)
+        .serialize(serializer)
+}
+
+/// Default number of intent additions to the rerank.
+fn default_intent_rerank_additions() -> usize {
+    SearchConfiguration::default().intent_rerank_additions
+}
+
+impl Rung {
+    /// Resolved request budget and evidence settings shared by execution and reporting.
+    pub(super) fn resolved_search_settings(&self) -> (RequestBudget, EvidenceSettings) {
+        if let Some(ask) = &self.ask {
+            return (ask.budget().into(), ask.evidence());
+        }
+        (
+            self.search_budget.unwrap_or(RequestBudget {
+                k: 5,
+                evidence_bytes: 6_000,
+                ..RequestBudget::default()
+            }),
+            self.configuration.evidence(),
+        )
+    }
+}
+
 impl RungConfiguration {
+    /// Search-only delivery settings, with legacy defaults when the fields are absent.
+    pub(super) fn evidence(&self) -> EvidenceSettings {
+        EvidenceSettings {
+            expansion: self
+                .evidence_expansion
+                .unwrap_or(ExpansionMode::FullSection),
+            parent_chain_order: self.parent_chain_order,
+            ..EvidenceSettings::default()
+        }
+    }
+
     /// The configuration search runs under.
     #[expect(
         clippy::expect_used,
-        reason = "manifest validation checks section prior before execution"
+        reason = "manifest validation checks both priors before execution"
     )]
     pub(super) fn search(&self) -> SearchConfiguration {
         SearchConfiguration {
+            intent_expansion: self.intent_expansion,
+            intent_trigger: self.intent_trigger,
+            intent_deadline_ms: self.intent_deadline_ms,
+            intent_weight: self
+                .intent_weight
+                .unwrap_or_else(|| SearchConfiguration::default().intent_weight),
+            intent_rerank_additions: self.intent_rerank_additions,
+            routes_limit: self.routes_limit,
+            identifier_limit: self.identifier_limit,
+            fusion_pool: self.fusion_pool,
             dense_enabled: self.routes.dense,
             lexical_enabled: self.routes.lexical,
             identifier_enabled: self.routes.identifier,
             structured_enabled: self.routes.structured,
+            identifier_noise_guard: self.identifier_noise_guard,
             rrf_k: self.rrf_k,
             dense_weight: self.weights.dense,
             lexical_weight: self.weights.lexical,
@@ -282,6 +343,12 @@ impl RungConfiguration {
             stage_window: self.stage_window_ms.map_or(StageWindow::Derived, |window| {
                 StageWindow::Fixed(Duration::from_millis(u64::from(window.get())))
             }),
+            source_prior: self
+                .source_prior
+                .as_ref()
+                .map_or_else(SourcePrior::default, |prior| {
+                    prior.search().expect("validated source prior")
+                }),
         }
     }
 
@@ -427,6 +494,47 @@ fn check_rung(rung: &Rung) -> Result<(), Failure> {
     if configuration.routes.graph != GraphSelection::None {
         return Err(Code::GraphUnavailable.failure());
     }
+    if let Some(budget) = rung.search_budget
+        && budget.evidence_bytes > RequestBudget::MAX_EVIDENCE_BUDGET
+    {
+        return Err(Failure::refused(format!(
+            "the rung `{}` asks for {} evidence bytes, over the {}-byte ceiling",
+            rung.name,
+            budget.evidence_bytes,
+            RequestBudget::MAX_EVIDENCE_BUDGET
+        )));
+    }
+    if rung.ask.is_some() && rung.search_budget.is_some() {
+        return Err(Failure::refused("search_budget requires ask false"));
+    }
+    check_intent(
+        configuration.intent_expansion,
+        configuration.intent_trigger,
+        configuration.intent_deadline_ms,
+        configuration.intent_rerank_additions,
+        configuration.intent_card.as_deref(),
+    )?;
+    configuration
+        .evidence()
+        .validate()
+        .map_err(|error| Failure::refused(error.to_string()))?;
+    if rung.ask.is_some()
+        && (configuration.evidence_expansion.is_some()
+            || configuration.parent_chain_order.is_some())
+    {
+        return Err(Failure::refused(
+            "search-only evidence settings require ask false",
+        ));
+    }
+    check_pipeline_limits(
+        configuration.routes_limit,
+        configuration.identifier_limit,
+        configuration.fusion_pool,
+        configuration
+            .rerank
+            .as_ref()
+            .map(|rerank| rerank.depth.get()),
+    )?;
     let routes = configuration.routes;
     if !(routes.dense || routes.lexical || routes.identifier || routes.structured) {
         return Err(Failure::refused(format!(
@@ -435,6 +543,11 @@ fn check_rung(rung: &Rung) -> Result<(), Failure> {
         )));
     }
     configuration.section_prior.search()?;
+    configuration
+        .source_prior
+        .as_ref()
+        .map(SourcePriorSetting::search)
+        .transpose()?;
     if let Some(rerank) = &configuration.rerank {
         rerank.candidate_context.check()?;
         if rerank
@@ -467,6 +580,7 @@ fn check_rung(rung: &Rung) -> Result<(), Failure> {
         )));
     }
     if let Some(settings) = &rung.ask {
+        settings.check_evidence_budget(&rung.name)?;
         if !settings.budget().is_within_limits() {
             return Err(Failure::refused(format!(
                 "the rung `{}` has ask settings outside ask's limits",

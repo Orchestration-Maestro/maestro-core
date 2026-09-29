@@ -73,6 +73,12 @@ in place.
 │   │   │   │   │   ├── restore.rs                                           # Rust source: restore
 │   │   │   │   │   ├── test_support.rs                                      # Rust source: test support
 │   │   │   │   │   └── tests.rs                                             # Rust source: tests
+│   │   │   │   ├── config/                                                  # maestro config: the settings, read, explained, changed and their
+│   │   │   │   │   ├── change.rs                                            # config set and config unset: one setting written in one preferences
+│   │   │   │   │   ├── history.rs                                           # config history: the journaled changes of the local principal's
+│   │   │   │   │   ├── mod.rs                                               # maestro config: the settings, read, explained, changed and their
+│   │   │   │   │   ├── show.rs                                              # config get, config list and config explain: a session's effective
+│   │   │   │   │   └── tests.rs                                             # config set and config unset: the file they choose, the edit, and the
 │   │   │   │   ├── eval/                                                    # maestro eval ladder: the M1 ladder, every question of a suite searched
 │   │   │   │   │   ├── tests/                                               # Tests of the ladder command: its manifest, its run over a fake engine, its
 │   │   │   │   │   │   ├── ask_settings.rs                                  # A rung's ask: true asks as ask does by default, false does not
@@ -80,15 +86,20 @@ in place.
 │   │   │   │   │   │   ├── delivered.rs                                     # Only post-context, post-wire evidence earns complete-proof credit
 │   │   │   │   │   │   ├── engine.rs                                        # The engine's pieces that need no search service: a rung's reranker taken
 │   │   │   │   │   │   ├── graph_ladder.rs                                  # Existing ladder rows earn graph credit only from successful delivered anchors
+│   │   │   │   │   │   ├── intent.rs                                        # Intent expansion on the ladder: a HyDE rung's card reaches search and
 │   │   │   │   │   │   ├── kernel_engine.rs                                 # The engine on a real kernel, with the router and the search service
 │   │   │   │   │   │   ├── manifest.rs                                      # The manifest: what it holds, where its paths lead, and each refusal
+│   │   │   │   │   │   ├── manifest_defaults.rs                             # Rust source: manifest defaults
 │   │   │   │   │   │   ├── mod.rs                                           # Tests of the ladder command: its manifest, its run over a fake engine, its
+│   │   │   │   │   │   ├── noise_guard.rs                                   # The identifier noise guard on the ladder: a guarded search's row counts
 │   │   │   │   │   │   ├── private_run.rs                                   # Shared admission, private path IO and loopback normalization seams
 │   │   │   │   │   │   ├── reports.rs                                       # What a ladder writes: private rows with IDs, ranks, citations, refusal
 │   │   │   │   │   │   ├── rung_answerer.rs                                 # A rung's answerer and prompt: ask.card names a registered answerer card
 │   │   │   │   │   │   ├── runner.rs                                        # The ladder's run: warm-ups unscored, the rung's configuration in every
 │   │   │   │   │   │   ├── stages.rs                                        # A search fails when a stage its rung enables did not run: out of time for
 │   │   │   │   │   │   └── support.rs                                       # A synthetic suite, rungs, and a fake engine that records what it is asked
+│   │   │   │   │   ├── ask_settings.rs                                      # Ask-only ladder settings and validation
+│   │   │   │   │   ├── candidates.rs                                        # The registered cards a ladder rung may name by digest: found in the
 │   │   │   │   │   ├── command.rs                                           # Running the ladder a manifest describes, on this machine
 │   │   │   │   │   ├── comparison.rs                                        # The comparison across a ladder's rungs, maestro-eval-ladder-comparison/1
 │   │   │   │   │   ├── delivered.rs                                         # Adapter from delivered evidence to the graph scorer's source coordinates
@@ -97,12 +108,14 @@ in place.
 │   │   │   │   │   ├── draft_journal.rs                                     # Private receipt files with an OS-held lock; crashes retain consumed reservations
 │   │   │   │   │   ├── draft_manifest.rs                                    # Frozen acceptance inventory and local drafting settings, admitted before private source reads
 │   │   │   │   │   ├── engine.rs                                            # The ladder's engine on this machine: the kernel opened for the local
+│   │   │   │   │   ├── engine_outcome.rs                                    # Converts a checked answer to the ladder's scoring outcome
 │   │   │   │   │   ├── graph.rs                                             # Inference-free graph checks using only the scoped scratch authority
 │   │   │   │   │   ├── graph_draft.rs                                       # Bounded, resumable local drafting; only aggregate counters cross the CLI boundary
 │   │   │   │   │   ├── graph_ladder.rs                                      # Graph metrics on the existing ladder; no second execution engine or raw public output
 │   │   │   │   │   ├── graph_manifest.rs                                    # Versioned, strict manifest shared by inference-free check and private ladder scoring
 │   │   │   │   │   ├── graph_output.rs                                      # Private evaluation's single public error boundary; raw causes stay on disk
 │   │   │   │   │   ├── manifest.rs                                          # The ladder's manifest, maestro-ladder-manifest/1: the suite, the
+│   │   │   │   │   ├── manifest_checks.rs                                   # Validation for search behavior configured by ladder rungs
 │   │   │   │   │   ├── mod.rs                                               # maestro eval ladder: the M1 ladder, every question of a suite searched
 │   │   │   │   │   ├── private_run.rs                                       # Reusable private-run approval, resolved-path isolation and explicit kernel open
 │   │   │   │   │   ├── private_write.rs                                     # Durable no-overwrite publication for admitted private paths
@@ -120,10 +133,12 @@ in place.
 │   │   │   │   │   └── tests.rs                                             # How knowledge graph build classifies the kernel's refusals of a claim
 │   │   │   │   ├── health/                                                  # maestro doctor and status: the checks of the kernel, the search service, the router and each role's card
 │   │   │   │   │   ├── tests/                                               # Unit tests of the checks: the kernel's files, the services, the cards, what doctor must not touch
+│   │   │   │   │   │   ├── doctor.rs                                        # Doctor's verdict: a check that cannot run yet, as each role's model card
 │   │   │   │   │   │   ├── findings.rs                                      # Foreign entries of the data directory listed and left untouched; grants that reach no known scope
 │   │   │   │   │   │   ├── kernel.rs                                        # config.toml and bindings.toml refused with a fix; the database never created, damage and lost artifacts found
 │   │   │   │   │   │   ├── mod.rs                                           # The health unit tests' door: declarations only
 │   │   │   │   │   │   ├── services.rs                                      # Qdrant at the pinned version, the router's catalog, each role's card; next actions from what setup would do
+│   │   │   │   │   │   ├── settings.rs                                      # The settings check: the preferences files a session reads, or the one
 │   │   │   │   │   │   └── support.rs                                       # What the health tests share: a scratch kernel directory, a one-answer HTTP stub, a closed address
 │   │   │   │   │   ├── check.rs                                             # A check of the machine: its target, and what it saw, or its problem and next action
 │   │   │   │   │   ├── doctor.rs                                            # maestro doctor: every check, each failure with its next action, what it must not touch; exit 1 on a failure
@@ -131,6 +146,7 @@ in place.
 │   │   │   │   │   ├── kernel.rs                                            # The kernel's checks: configuration files, the database opened only if it exists and checked whole, the artifacts
 │   │   │   │   │   ├── mod.rs                                               # The checks' door: declarations only
 │   │   │   │   │   ├── services.rs                                          # Qdrant answering as the pinned version, the router listing its catalog, each role's model card
+│   │   │   │   │   ├── settings.rs                                          # The settings check: which preferences files a session reads, the user's
 │   │   │   │   │   └── status.rs                                            # maestro status: the kernel, Qdrant and the router ready or not, and each readable collection; exits 0
 │   │   │   │   ├── publish/                                                 # Explicit replacement of a lost projection and frozen resume identity
 │   │   │   │   │   ├── mod.rs                                               # Explicit replacement of a lost projection and frozen resume identity
@@ -179,6 +195,7 @@ in place.
 │   │   │   │   ├── import.rs                                                # knowledge import: a leased job in the foreground, its ID first; a rerun follows, takes over or supersedes
 │   │   │   │   ├── lease.rs                                                 # The lease of a job run in the foreground: Holder::run's heartbeat thread and each step renew it
 │   │   │   │   ├── mod.rs                                                   # The commands' door: declarations only
+│   │   │   │   ├── model.rs                                                 # Registering and listing scoped model cards
 │   │   │   │   ├── output.rs                                                # How a command prints: text, or one JSON document under --json; diagnostics on stderr
 │   │   │   │   ├── prepare.rs                                               # knowledge prepare: T023's chunking as a leased job
 │   │   │   │   ├── quality.rs                                               # knowledge quality: the gate as a leased job; its inputs the ledger beside the declaration and the revisions
@@ -194,13 +211,19 @@ in place.
 │   │   │   │   │   │   ├── run.rs                                           # One local ask operation shared by CLI and MCP
 │   │   │   │   │   │   └── tests.rs                                         # Rust source: tests
 │   │   │   │   │   ├── implementation.rs                                    # Scoped application operations shared by CLI and MCP
+│   │   │   │   │   ├── intent_tests.rs                                      # Production searches take their query expander from the collection's
 │   │   │   │   │   ├── mod.rs                                               # Source-scoped kernel operations for the CLI and MCP read surfaces
 │   │   │   │   │   ├── search.rs                                            # Scoped search followed by the approved evidence assembly handoff
+│   │   │   │   │   ├── search_request_tests.rs                              # Rust source: search request tests
 │   │   │   │   │   ├── stack_tests.rs                                       # Search fits half the stack of a Windows main thread
 │   │   │   │   │   └── tests.rs                                             # Rust source: tests
 │   │   │   │   ├── output/                                                  # Shared response bounds and semantic search truncation for CLI and MCP
 │   │   │   │   │   ├── mod.rs                                               # Shared response bounds and semantic search truncation for CLI and MCP
 │   │   │   │   │   ├── policy.rs                                            # Shared response bounds and semantic search truncation for CLI and MCP
+│   │   │   │   │   └── tests.rs                                             # Rust source: tests
+│   │   │   │   ├── source_classes/                                          # The source-class table this machine binds as source_classes: the
+│   │   │   │   │   ├── load.rs                                              # Loading the bound source-class table
+│   │   │   │   │   ├── mod.rs                                               # The source-class table this machine binds as source_classes: the
 │   │   │   │   │   └── tests.rs                                             # Rust source: tests
 │   │   │   │   ├── mod.rs                                                   # Scoped knowledge operations shared by the CLI and stdio MCP server
 │   │   │   │   └── requests.rs                                              # Strict arguments shared by the CLI and MCP tools
@@ -231,14 +254,21 @@ in place.
 │   │   │   │   ├── outcome.rs                                               # How a tool call ended, for its span: by the public code of the error it
 │   │   │   │   ├── run.rs                                                   # Runs the stdio MCP server without sending diagnostics to stdout
 │   │   │   │   └── transport.rs                                             # Stdio JSON-RPC framing with complete-line and complete-response byte bounds
+│   │   │   ├── settings/                                                    # The session's settings, resolved once for the CLI and the MCP server, and
+│   │   │   │   ├── knowledge.rs                                             # The knowledge operations' settings, read from a session's resolved
+│   │   │   │   ├── mod.rs                                                   # The session's settings, resolved once for the CLI and the MCP server, and
+│   │   │   │   ├── session.rs                                               # A session's settings: the registry, the files it reads and the explicit
+│   │   │   │   └── tests.rs                                                 # The session's settings: every default is today's behaviour, each
 │   │   │   ├── failure.rs                                                   # Failures at the CLI and local-kernel boundary
 │   │   │   ├── kernel.rs                                                    # The kernel opened for the local principal and its configured scopes
 │   │   │   └── main.rs                                                      # The binary root: the commands, their output, exit codes and JSON schemas documented
 │   │   ├── tests/                                                           # Integration tests
 │   │   │   └── it/                                                          # The contract tests: the built binary run in a scratch home
 │   │   │       ├── knowledge_get/                                           # CLI and MCP contracts for exact knowledge retrieval
+│   │   │       │   ├── ask_republish.rs                                     # ask keeps the collection's selected reranker after a republish, as
 │   │   │       │   ├── cli_cases.rs                                         # Exact knowledge get CLI behavior
 │   │   │       │   ├── cold_reranker.rs                                     # A cold reranker costs CLI and MCP search only the rerank
+│   │   │       │   ├── evidence_ceiling.rs                                  # CLI and MCP search accept evidence up to the 24,000-byte ceiling and refuse one byte past it
 │   │   │       │   ├── knowledge_search.rs                                  # CLI and MCP search through the shared scoped evidence pipeline
 │   │   │       │   ├── mcp_and_authorization.rs                             # MCP parity, permission refresh, and exact-retrieval refusal cases
 │   │   │       │   ├── mod.rs                                               # CLI and MCP contracts for exact knowledge retrieval
@@ -282,8 +312,11 @@ in place.
 │   │   │       ├── main.rs                                                  # The one integration-test crate of the binary
 │   │   │       ├── mcp_clients.rs                                           # Client-like MCP stdio round trips over the synthetic collection
 │   │   │       ├── mcp_stdio.rs                                             # The stdio MCP server's process boundary and advertised tools
+│   │   │       ├── model_cli.rs                                             # Registration and listing of scoped model cards through the public CLI
+│   │   │       ├── model_cli_registration.rs                                # Registration input, grant, and router-failure contract tests
 │   │   │       ├── publish_again.rs                                         # Help for explicit projection recovery
 │   │   │       ├── quality_gates.rs                                         # knowledge quality: its report, a rerun, a gate after an import, the ledger first, failures and refusals
+│   │   │       ├── settings_config.rs                                       # maestro config: the user file preferences.toml, the project file
 │   │   │       ├── setup_installs.rs                                        # maestro setup: the preview writes nothing, a wrong download is refused; elsewhere manual steps, exit 2
 │   │   │       ├── status_summaries.rs                                      # maestro status: services ready or down, the readable collections, nothing created on a fresh machine
 │   │   │       └── support.rs                                               # What the contract tests share: a scratch home, the synthetic collection, the binary under a deadline
@@ -358,6 +391,40 @@ in place.
 │   │   │   │   ├── mod.rs                                                   # Token counting: the TokenCounter seam, and the qualified local executable that fills it
 │   │   │   │   ├── native.rs                                                # The pinned native tokenizer: verified artifacts and one counter process per input
 │   │   │   │   └── process.rs                                               # The counter subprocess: bounded pipes, a timeout and a child that is always reaped
+│   │   │   ├── unit_graph/                                                  # Opt-in /4 mapped delivery graph and digest-pinned ranking view
+│   │   │   │   ├── tests/                                                   # Unit graph profile and delivery contract regressions
+│   │   │   │   │   ├── build_producer.rs                                    # Rust source: build producer
+│   │   │   │   │   ├── c1.rs                                                # Rust source: c1
+│   │   │   │   │   ├── c2.rs                                                # Rust source: c2
+│   │   │   │   │   ├── c3.rs                                                # Rust source: c3
+│   │   │   │   │   ├── c4.rs                                                # Rust source: c4
+│   │   │   │   │   ├── c5.rs                                                # Rust source: c5
+│   │   │   │   │   ├── groups_producer.rs                                   # Rust source: groups producer
+│   │   │   │   │   ├── helpers.rs                                           # Rust source: helpers
+│   │   │   │   │   ├── i1.rs                                                # Rust source: i1
+│   │   │   │   │   ├── i2.rs                                                # Rust source: i2
+│   │   │   │   │   ├── i3.rs                                                # Rust source: i3
+│   │   │   │   │   ├── i4.rs                                                # Rust source: i4
+│   │   │   │   │   ├── i5.rs                                                # Rust source: i5
+│   │   │   │   │   ├── i6.rs                                                # Rust source: i6
+│   │   │   │   │   ├── i7.rs                                                # Rust source: i7
+│   │   │   │   │   ├── mod.rs                                               # Unit graph profile and delivery contract regressions
+│   │   │   │   │   ├── producer_rows.rs                                     # Rust source: producer rows
+│   │   │   │   │   └── producer_rows_more.rs                                # Rust source: producer rows more
+│   │   │   │   ├── build.rs                                                 # Build a delivery graph from checked canonical mappings and ranked views
+│   │   │   │   ├── build_units.rs                                           # Assemble complete delivery units from primary canonical mappings
+│   │   │   │   ├── group_helpers.rs                                         # Canonical source ancestry and stable identifiers for graph groups
+│   │   │   │   ├── group_links.rs                                           # Reciprocal group links and source-ordered structural occurrences
+│   │   │   │   ├── groups.rs                                                # Deterministic page, section, table, procedure and code ancestry
+│   │   │   │   ├── ledger.rs                                                # Exactly-once primary ownership and explicit source exclusions
+│   │   │   │   ├── mod.rs                                                   # Opt-in /4 mapped delivery graph and digest-pinned ranking view
+│   │   │   │   ├── prepared.rs                                              # Retrieval preparation from ancestor headings and typed context relations
+│   │   │   │   ├── profile.rs                                               # Digest-pinned /4 graph and ranking rules
+│   │   │   │   ├── serialization.rs                                         # Stable graph payload serialization and digest
+│   │   │   │   ├── table_packing.rs                                         # Whole-table packing when its complete prepared input fits the pinned counter limit
+│   │   │   │   ├── types.rs                                                 # Deterministic, digest-bound /4 delivery records
+│   │   │   │   ├── validation.rs                                            # Verify the producer's separate mapping artifact and source partition
+│   │   │   │   └── wire_types.rs                                            # Private serde DTOs for the versioned graph and mapping payloads
 │   │   │   ├── validate/                                                    # Structural checks against the preserved bytes; no guessed repairs
 │   │   │   │   ├── blocks.rs                                                # Block checks: children, parents, assets, attributes, inline content and tables
 │   │   │   │   ├── mod.rs                                                   # Structural checks against the preserved bytes; no guessed repairs
@@ -386,6 +453,19 @@ in place.
 │   │   │   ├── source_units.rs                                              # Mapped source units: derived-text ranges and how each run relates to original source
 │   │   │   └── store.rs                                                     # Immutable snapshots, accessed through directory handles without following symlinks
 │   │   ├── tests/                                                           # Integration tests
+│   │   │   ├── fixtures/                                                    # Test fixtures
+│   │   │   │   ├── unit-graph-v1.built.json                                 # JSON data: unit graph v1.built
+│   │   │   │   ├── unit-graph-v1.built.md                                   # Sample document: Product guide
+│   │   │   │   ├── unit-graph-v1.code_in_list.json                          # JSON data: unit graph v1.code in list
+│   │   │   │   ├── unit-graph-v1.code_in_list.md                            # Sample document: T
+│   │   │   │   ├── unit-graph-v1.nested_list.json                           # JSON data: unit graph v1.nested list
+│   │   │   │   ├── unit-graph-v1.nested_list.md                             # Sample document: T
+│   │   │   │   ├── unit-graph-v1.table_in_list.json                         # JSON data: unit graph v1.table in list
+│   │   │   │   ├── unit-graph-v1.table_in_list.md                           # Sample document: T
+│   │   │   │   ├── unit-mapping-v1.built.json                               # JSON data: unit mapping v1.built
+│   │   │   │   ├── unit-mapping-v1.code_in_list.json                        # JSON data: unit mapping v1.code in list
+│   │   │   │   ├── unit-mapping-v1.nested_list.json                         # JSON data: unit mapping v1.nested list
+│   │   │   │   └── unit-mapping-v1.table_in_list.json                       # JSON data: unit mapping v1.table in list
 │   │   │   └── it/                                                          # The crate's integration tests, built as one test crate
 │   │   │       ├── cli_contract/                                            # The command-line tool's contract: arguments, exit codes and saved documents
 │   │   │       │   ├── fixture.rs                                           # The scratch directory each command-line test runs the tool in
@@ -440,7 +520,9 @@ in place.
 │   │   │   ├── 0013_graph_claim_vocabulary.sql                              # File: 0013 graph claim vocabulary
 │   │   │   ├── 0014_graph_builds.sql                                        # File: 0013 graph builds
 │   │   │   ├── 0015_graph_resolution.sql                                    # File: 0015 graph resolution
-│   │   │   └── 0016_extractor_role.sql                                      # File: 0016 extractor role
+│   │   │   ├── 0016_extractor_role.sql                                      # File: 0016 extractor role
+│   │   │   ├── 0017_unit_graphs.sql                                         # File: 0017 unit graphs
+│   │   │   └── 0018_retrieval_representations.sql                           # File: 0018 retrieval representations
 │   │   ├── src/                                                             # The crate's sources
 │   │   │   ├── artifact/                                                    # Content-addressed artifacts: immutable bytes stored, and read back, by their
 │   │   │   │   ├── digest.rs                                                # A SHA-256 digest: the name every artifact is stored under
@@ -499,6 +581,7 @@ in place.
 │   │   │   │   │   ├── bundle.rs                                            # Bundles: maestro-evidence/1 as JSON, its evidence apart from its trace
 │   │   │   │   │   ├── lookup.rs                                            # Rust source: lookup
 │   │   │   │   │   ├── mod.rs                                               # Tests of evidence: resolving a chunk from the authority, and bundles as
+│   │   │   │   │   ├── parent_context.rs                                    # Rust source: parent context
 │   │   │   │   │   ├── resolve.rs                                           # Resolving a chunk: the exact bytes its span covers in its revision's
 │   │   │   │   │   ├── search_wire.rs                                       # Backwards-readable search inventory and request-budget fields
 │   │   │   │   │   └── support.rs                                           # What the evidence tests share: a scratch database holding one revision of
@@ -553,6 +636,7 @@ in place.
 │   │   │   │   │   ├── mod.rs                                               # Tests of the model gateway: model cards, the router client against a stub
 │   │   │   │   │   ├── port.rs                                              # Tests of the port's refusals: each says what was refused and why
 │   │   │   │   │   ├── render.rs                                            # Rendering preserves generation framing and refuses unsupported adapters
+│   │   │   │   │   ├── reply_cap.rs                                         # The reply cap of a chat request: the smallest of the caller's cap, the
 │   │   │   │   │   ├── router.rs                                            # Tests of the router client against a stub router: every call is bound to
 │   │   │   │   │   ├── safety.rs                                            # The router client against a misbehaving router: it never follows a
 │   │   │   │   │   ├── stub.rs                                              # A stub of the model router: a loopback HTTP server, on a thread of its
@@ -650,7 +734,15 @@ in place.
 │   │   │   │   ├── mod.rs                                                   # Scoped model-card, evaluation and selection persistence
 │   │   │   │   ├── read.rs                                                  # Scoped model registry readers with artifact and row-metadata verification
 │   │   │   │   ├── records.rs                                               # Public metadata for immutable model registrations, evaluations and selections
+│   │   │   │   ├── registration.rs                                          # Importing and registering a strict v2 model card with its pinned evidence
 │   │   │   │   └── write.rs                                                 # Scoped transactional model registry writers
+│   │   │   ├── representation/                                              # Immutable representation manifests and one-time generation binding
+│   │   │   │   ├── error.rs                                                 # Representation-set boundary errors
+│   │   │   │   ├── mod.rs                                                   # Immutable representation manifests and one-time generation binding
+│   │   │   │   ├── read.rs                                                  # Scoped representation metadata and individual revision-shard reads
+│   │   │   │   ├── record.rs                                                # Representation set lifecycle, revision shards and generation binding
+│   │   │   │   ├── types.rs                                                 # Immutable revision shards and representation-set metadata
+│   │   │   │   └── validation.rs                                            # Canonical shard validation and relational set completion
 │   │   │   ├── retrieval/                                                   # Controlled, scope-bound retrieval and its shared literal search rules
 │   │   │   │   ├── tests/                                                   # Tests for exact identifier search inputs
 │   │   │   │   │   ├── deadlines.rs                                         # Cancellation and real-clock bounds on SQLite reads
@@ -688,12 +780,17 @@ in place.
 │   │   │   │   ├── path.rs                                                  # Scope paths: a workspace, then optionally a collection, then optionally a
 │   │   │   │   ├── right.rs                                                 # The rights a grant gives on a scope
 │   │   │   │   └── set.rs                                                   # The scopes a principal may read, found for one request, and the condition
+│   │   │   ├── settings/                                                    # The journal of settings changes: every maestro config set and config
+│   │   │   │   ├── change.rs                                                # Recording a setting's change and reading a principal's changes back
+│   │   │   │   ├── mod.rs                                                   # The journal of settings changes: every maestro config set and config
+│   │   │   │   └── tests.rs                                                 # The journal of settings changes: each change recorded with its time and
 │   │   │   ├── store/                                                       # The kernel's database: one SQLite file beside the artifact store, holding
 │   │   │   │   ├── tests/                                                   # Tests of the kernel database: its migrations, its connections, the
 │   │   │   │   │   ├── artifacts.rs                                         # Artifacts: stored, recorded with their size, media type and pins, and read
 │   │   │   │   │   ├── checks.rs                                            # SQLite's quick check, damage reported as found; each recorded artifact present and intact, or named
 │   │   │   │   │   ├── connections.rs                                       # Connections: one writer shared by every thread, readers of their own, the
 │   │   │   │   │   ├── garbage.rs                                           # Garbage collection: it lists before it removes, removes only artifacts
+│   │   │   │   │   ├── graph_migrations.rs                                  # Graph migrations upgrade populated legacy stores and roll back failed DDL
 │   │   │   │   │   ├── migrations.rs                                        # Migrations: applied in number order, each once, recorded by name, and a
 │   │   │   │   │   ├── mod.rs                                               # Tests of the kernel database: its migrations, its connections, the
 │   │   │   │   │   └── support.rs                                           # What the database tests share: scratch directories, the digests of their
@@ -711,11 +808,42 @@ in place.
 │   │   │   │   ├── mod.rs                                                   # Telemetry: pinned span names and component health (building block B11)
 │   │   │   │   ├── span.rs                                                  # The spans the kernel opens, and the names they carry, pinned in one place
 │   │   │   │   └── stage.rs                                                 # One traced stage of a knowledge operation: its span, the outcome it ends
+│   │   │   ├── unit_graph/                                                  # Digest-bound delivery graphs and source-scoped persistence
+│   │   │   │   ├── tests/                                                   # Graph persistence and source authorization regressions
+│   │   │   │   │   ├── mod.rs                                               # Graph persistence and source authorization regressions
+│   │   │   │   │   ├── records.rs                                           # Record/read atomicity and hidden-ancestry refusal
+│   │   │   │   │   ├── representations.rs                                   # Revision shards complete frozen representation sets and bind once
+│   │   │   │   │   ├── scale.rs                                             # Synthetic graph size and indexed candidate lookup, without row explosion
+│   │   │   │   │   ├── support.rs                                           # Synthetic source, graph and kernel records shared by persistence tests
+│   │   │   │   │   └── validation.rs                                        # Direct invariants of the current delivery-graph contract
+│   │   │   │   ├── coverage.rs                                              # Exact ownership and source accounting, with structural references by ID
+│   │   │   │   ├── error.rs                                                 # Refusals at the graph wire and persistence boundary
+│   │   │   │   ├── group_parts.rs                                           # Canonical graph array and node part ordering
+│   │   │   │   ├── hierarchy.rs                                             # Structural ancestry and context derivation without transitive storage
+│   │   │   │   ├── mapping.rs                                               # Source accounting and explicitly typed context dependencies
+│   │   │   │   ├── membership.rs                                            # Retrieval membership identity, ordering and content coverage
+│   │   │   │   ├── mod.rs                                                   # Digest-bound delivery graphs and source-scoped persistence
+│   │   │   │   ├── read.rs                                                  # One authorized candidate revision maps to one immutable graph artifact
+│   │   │   │   ├── record.rs                                                # Atomic graph membership and artifact pins, after existing chunk recording
+│   │   │   │   ├── serialization.rs                                         # Canonical JSON serialization: typed field order, exact bytes, no extra keys
+│   │   │   │   ├── types.rs                                                 # Kernel-owned delivery graph wire values, independent of canonicalization
+│   │   │   │   └── validation.rs                                            # Validate the immutable graph before it crosses the persistence boundary
 │   │   │   ├── binding.rs                                                   # Named bindings: the local paths that the logical names of committed files
 │   │   │   ├── filesystem.rs                                                # The files and directories the kernel creates: its owner's only, and each
 │   │   │   ├── lib.rs                                                       # The kernel of Maestro: the single authoritative store every later
 │   │   │   ├── paths.rs                                                     # Where the kernel keeps its data: $XDG_DATA_HOME/maestro when that names an
 │   │   │   └── vocabulary.rs                                                # The closed graph vocabulary, shared by claims and schema migration
+│   │   ├── tests/                                                           # Integration tests
+│   │   │   ├── fixtures/                                                    # Test fixtures
+│   │   │   │   ├── unit-graph-v1.json                                       # JSON data: unit graph v1
+│   │   │   │   ├── unit-graph-v1.txt                                        # Text: unit graph v1
+│   │   │   │   └── unit-mapping-v1.json                                     # JSON data: unit mapping v1
+│   │   │   └── it/                                                          # It
+│   │   │       ├── main.rs                                                  # Kernel integration tests for the unit-graph wire contract and producer conformance
+│   │   │       ├── unit_graph_code_leadin.rs                                # The kernel accepts code groups without an optional lead-in relation
+│   │   │       ├── unit_graph_nested_producer.rs                            # Kernel conformance for nested procedure, code and table producer graphs
+│   │   │       ├── unit_graph_producer.rs                                   # Kernel conformance against the canonicalization producer snapshot
+│   │   │       └── unit_graph_wire.rs                                       # The shared B06/B07 wire fixture is a canonical, validated CAS payload
 │   │   └── Cargo.toml                                                       # Crate manifest: The single authoritative store of Maestro, starting with its content-addressed artifacts
 │   ├── maestro-knowledge/                                                   # Maestro knowledge
 │   │   ├── src/                                                             # The crate's sources
@@ -724,14 +852,19 @@ in place.
 │   │   │   │   │   ├── delivered.rs                                         # Every answer and refusal keeps, for evaluation only, the anchors of the
 │   │   │   │   │   ├── explain.rs                                           # Rust source: explain
 │   │   │   │   │   ├── guardrails.rs                                        # Rust source: guardrails
+│   │   │   │   │   ├── parent_context.rs                                    # Rust source: parent context
+│   │   │   │   │   ├── presentation.rs                                      # A presented prompt: the session's language and tone
 │   │   │   │   │   ├── prompt_text.rs                                       # A prompt a ladder rung supplies as text: its {data} slot holds the
 │   │   │   │   │   ├── prompts.rs                                           # The prompt versions: v1 stays today's text, v2 asks for every supporting
+│   │   │   │   │   ├── reply_cap.rs                                         # Rust source: reply cap
 │   │   │   │   │   ├── requests.rs                                          # Rust source: requests
 │   │   │   │   │   ├── router_refusal.rs                                    # A refusal the router client cannot read in full, through the answer path
 │   │   │   │   │   └── threshold.rs                                         # The reranker relevance threshold: below it, ask refuses without chat
 │   │   │   │   ├── validate/                                                # Deterministic support checks for buffered answerer replies
+│   │   │   │   │   ├── edge_tests.rs                                        # Rust source: edge tests
 │   │   │   │   │   └── tests.rs                                             # Rust source: tests
 │   │   │   │   ├── generate.rs                                              # The bounded search-to-answer state machine and refusal handling
+│   │   │   │   ├── presentation.rs                                          # How an answer speaks: the session's language and tone (the owner's
 │   │   │   │   ├── prompt.rs                                                # The evidence-only prompt and registered chat-template controls
 │   │   │   │   ├── tests.rs                                                 # Rust source: tests
 │   │   │   │   ├── types.rs                                                 # Typed ask requests, results, refusals, and trusted dependencies
@@ -778,6 +911,7 @@ in place.
 │   │   │   │   │   ├── mod.rs                                               # Tests of the evaluation runner: how it ranks and judges each question
 │   │   │   │   │   ├── ranking.rs                                           # A bundle lists its passages in reading order, so the runner ranks them
 │   │   │   │   │   ├── report.rs                                            # A report is a strict JSON artifact, maestro-eval-report/1: it writes and
+│   │   │   │   │   ├── reranker_health.rs                                   # The reranker health gate admits only finite, separated public-pair scores
 │   │   │   │   │   ├── run.rs                                               # run resolves each expected section of a suite in the canonical document
 │   │   │   │   │   ├── support.rs                                           # What the evaluation tests share: questions, bundles built from the hits a
 │   │   │   │   │   ├── v2.rs                                                # Report v2 retains failed attempts and their timing cohort
@@ -799,6 +933,7 @@ in place.
 │   │   │   │   ├── mod.rs                                                   # The evaluation runner (plan D13; FR-S1-009, SC-S1-008): every retrieval
 │   │   │   │   ├── record.rs                                                # Recording a report in the kernel, under the collection, generation and suite it names
 │   │   │   │   ├── report_validation.rs                                     # V1 and v2 report-reader rules, shared with the v2 writer
+│   │   │   │   ├── reranker_health.rs                                       # Health qualification for rerankers, with public paired examples and a card-bound receipt
 │   │   │   │   ├── run.rs                                                   # A run: every question of a suite, resolved in the generation it
 │   │   │   │   └── run_v2.rs                                                # Strict v2 attempt execution and aggregation
 │   │   │   ├── graph/                                                       # The knowledge graph's construction (specs/002-knowledge-graph): claims
@@ -835,7 +970,9 @@ in place.
 │   │   │   │   │   ├── lengths.rs                                           # The lengths the sparse vectors are weighed against, with no passage or no term
 │   │   │   │   │   ├── mod.rs                                               # Tests of the projection's parts no publication reaches
 │   │   │   │   │   ├── point.rs                                             # Point IDs: the UUIDv5 of the chunk's ID, pinned by Python's uuid
-│   │   │   │   │   └── qdrant.rs                                            # A Qdrant out of reach: the client's error is the cause of the refusal
+│   │   │   │   │   ├── qdrant.rs                                            # A Qdrant out of reach: the client's error is the cause of the refusal
+│   │   │   │   │   ├── qdrant_adapter.rs                                    # Unit tests of the Qdrant adapter's hit conversion
+│   │   │   │   │   └── verify.rs                                            # Tests for the published vector-layout diagnostic
 │   │   │   │   ├── batches.rs                                               # Writing a generation's points a batch at a time, each shown to the caller to journal
 │   │   │   │   ├── dense.rs                                                 # Dense vectors: a batch embedded in free room within a deadline, then checked
 │   │   │   │   ├── error.rs                                                 # Why a publication stopped, and the check a generation's collection failed
@@ -844,10 +981,15 @@ in place.
 │   │   │   │   ├── point.rs                                                 # Points: each chunk under the UUIDv5 of its ID, with its two vectors and its payload
 │   │   │   │   ├── progress.rs                                              # A publication's progress after each batch, which a job journals, and its report
 │   │   │   │   ├── projection.rs                                            # What a publication works with
+│   │   │   │   ├── projection_port.rs                                       # Backend-neutral operations and values for a generation's retrieval projection
 │   │   │   │   ├── provenance.rs                                            # What a chunk's point carries of its revision: version, source kind, scope tags, sections
+│   │   │   │   ├── publication_names.rs                                     # Stable backend collection names and publication reports
 │   │   │   │   ├── publish.rs                                               # Publishing a chunk set as a generation: built or resumed, checked, then behind the alias
 │   │   │   │   ├── qdrant.rs                                                # Qdrant through its official Rust client, qdrant-client 1.19, over gRPC
+│   │   │   │   ├── qdrant_adapter.rs                                        # Conversion between backend-neutral projection operations and Qdrant's transport types
 │   │   │   │   ├── rebuild.rs                                               # A fresh, guarded replacement for a published generation whose projection
+│   │   │   │   ├── rebuild_state.rs                                         # Snapshot types for one guarded generation replacement
+│   │   │   │   ├── rebuild_validation.rs                                    # Validation of the frozen identity for a guarded projection rebuild
 │   │   │   │   ├── search_inputs.rs                                         # The kernel-owned search derivatives of one published generation
 │   │   │   │   ├── sparse.rs                                                # Sparse vectors: BM25 weights against the chunk set's average passage length
 │   │   │   │   └── verify.rs                                                # The structural check of a generation's collection before its alias moves
@@ -965,9 +1107,12 @@ in place.
 │   │   │   │   │   │   └── validation.rs                                    # Validates canonical block links and source spans before evidence expansion
 │   │   │   │   │   ├── selection/                                           # Budgeted MMR selection over validated source windows
 │   │   │   │   │   │   ├── algorithm.rs                                     # MMR ordering, atomic conflict units and budget-driven source windows
+│   │   │   │   │   │   ├── mmr.rs                                           # Deterministic MMR ranking and conflict-atomic selection units
 │   │   │   │   │   │   ├── mod.rs                                           # Budgeted MMR selection over validated source windows
 │   │   │   │   │   │   ├── relevant.rs                                      # Whole matched-block windows and contiguous table-header prefixes
 │   │   │   │   │   │   ├── render.rs                                        # Renders trial spans as normalized, validated passages
+│   │   │   │   │   │   ├── render_cluster.rs                                # Renders one exact source cluster and attributes supporting candidates
+│   │   │   │   │   │   ├── trial.rs                                         # Validates, renders and charges complete delivery trials
 │   │   │   │   │   │   └── types.rs                                         # Candidate metadata and final selection result
 │   │   │   │   │   ├── tests/                                               # Integration tests
 │   │   │   │   │   │   ├── assembly.rs                                      # Rust source: assembly
@@ -983,11 +1128,14 @@ in place.
 │   │   │   │   │   │   ├── features.rs                                      # Rust source: features
 │   │   │   │   │   │   ├── mod.rs                                           # Rust source: mod
 │   │   │   │   │   │   ├── packing.rs                                       # Rust source: packing
+│   │   │   │   │   │   ├── parent_chain.rs                                  # Rust source: parent chain
+│   │   │   │   │   │   ├── parent_tiers.rs                                  # Rust source: parent tiers
 │   │   │   │   │   │   ├── section_expansion.rs                             # Rust source: section expansion
 │   │   │   │   │   │   ├── section_selection.rs                             # Rust source: section selection
 │   │   │   │   │   │   ├── section_validation.rs                            # Rust source: section validation
 │   │   │   │   │   │   ├── sections.rs                                      # Rust source: sections
 │   │   │   │   │   │   ├── selection.rs                                     # Rust source: selection
+│   │   │   │   │   │   ├── selection_conflict.rs                            # Rust source: selection conflict
 │   │   │   │   │   │   ├── signals.rs                                       # Rust source: signals
 │   │   │   │   │   │   ├── source.rs                                        # Rust source: source
 │   │   │   │   │   │   ├── spans.rs                                         # Rust source: spans
@@ -997,9 +1145,11 @@ in place.
 │   │   │   │   │   ├── budget.rs                                            # Token-counting helpers for compact serialized evidence
 │   │   │   │   │   ├── candidate_context.rs                                 # Reuses authoritative evidence sections for reranker-only context
 │   │   │   │   │   ├── chunk_set_documents.rs                               # The documents of a chunk set by source_ref: the ladder resolves its
+│   │   │   │   │   ├── delivery_graph.rs                                    # Replaceable delivery choices derived from validated canonical structure
 │   │   │   │   │   ├── families.rs                                          # Shared candidate-family identity for conflicts and documentary versions
 │   │   │   │   │   ├── mod.rs                                               # Authoritative section reads and bounded evidence assembly
 │   │   │   │   │   ├── section_reader.rs                                    # Reads one authorized canonical section from a completed chunk set
+│   │   │   │   │   ├── selection_candidate.rs                               # Already validated source candidate metadata
 │   │   │   │   │   ├── signals.rs                                           # Rust source: signals
 │   │   │   │   │   ├── source.rs                                            # Loads and caches authoritative source records for one assembly request
 │   │   │   │   │   ├── spans.rs                                             # Candidate source-span unions
@@ -1009,6 +1159,8 @@ in place.
 │   │   │   │   │   ├── dense.rs                                             # Dense diagnostic search through the generation's own embedder and vector
 │   │   │   │   │   ├── error.rs                                             # Typed failures for the admission and diagnostic routes
 │   │   │   │   │   ├── identifier.rs                                        # Exact identifier search from Qdrant payloads and the kernel identifier index
+│   │   │   │   │   ├── identifier_cursor.rs                                 # Backend-neutral cursor ordering for identifier payload pagination
+│   │   │   │   │   ├── identifier_payload.rs                                # Validation of identifier-route payload results
 │   │   │   │   │   ├── lexical.rs                                           # BM25 diagnostic search, using the generation's recorded analyzer profile
 │   │   │   │   │   ├── mod.rs                                               # Independent route diagnostics
 │   │   │   │   │   ├── outcome.rs                                           # A route's hits and its independent availability status
@@ -1021,6 +1173,9 @@ in place.
 │   │   │   │   │   ├── deadlines.rs                                         # Rust source: deadlines
 │   │   │   │   │   ├── fusion.rs                                            # Rust source: fusion
 │   │   │   │   │   ├── handoff.rs                                           # Route joining and rerank handoff boundaries
+│   │   │   │   │   ├── intent.rs                                            # Guarded additive intent expansion contracts
+│   │   │   │   │   ├── intent_guard.rs                                      # The expansion guard: quantities in any spelling, protected constraint
+│   │   │   │   │   ├── intent_request.rs                                    # The expansion port: the one chat request the HyDE adapter sends, the
 │   │   │   │   │   ├── inventory_query.rs                                   # Exact English and French inventory-query grammar
 │   │   │   │   │   ├── mod.rs                                               # Rust source: mod
 │   │   │   │   │   ├── rank_policy.rs                                       # Rust source: rank policy
@@ -1029,6 +1184,7 @@ in place.
 │   │   │   │   │   ├── route_setup.rs                                       # A route's one-time setup, such as loading its model, is not route time
 │   │   │   │   │   ├── routes.rs                                            # Pure route helpers: Qdrant scope filters and ranked-hit cleanup
 │   │   │   │   │   ├── section_prior.rs                                     # The soft section prior: strict demotion and precise, bilingual exemptions
+│   │   │   │   │   ├── source_class.rs                                      # Source classes: the table adapter, the class vocabulary and the prior
 │   │   │   │   │   ├── stages.rs                                            # The outcome each end of a search, a route or the rerank gives its stage
 │   │   │   │   │   ├── support.rs                                           # Scratch kernel records for the bounded candidate handoff
 │   │   │   │   │   ├── top_scores.rs                                        # Rust source: top scores
@@ -1040,6 +1196,11 @@ in place.
 │   │   │   │   ├── deadline.rs                                              # Absolute cutoffs shared by routes, candidate loading and T032 handoff
 │   │   │   │   ├── filter.rs                                                # Qdrant's in-route filter for the scopes admitted to one request
 │   │   │   │   ├── fusion.rs                                                # Reciprocal rank fusion over independent retrieval routes
+│   │   │   │   ├── hyde.rs                                                  # The hypothetical-document expander: a configured answerer card, called
+│   │   │   │   ├── intent.rs                                                # Optional query expansion behind a replaceable port; generated text is
+│   │   │   │   ├── intent_guard.rs                                          # The mechanical guard every expansion passes before it may vote
+│   │   │   │   ├── intent_routes.rs                                         # Independent additive routes over guarded model-generated retrieval inputs
+│   │   │   │   ├── intent_words.rs                                          # Per-language word lists of the expansion guard: data, not rules
 │   │   │   │   ├── inventory_query.rs                                       # Exact natural-language grammar for S1 document and version inventories
 │   │   │   │   ├── mod.rs                                                   # Rust source: mod
 │   │   │   │   ├── orchestrate.rs                                           # Admission, parallel route execution, fusion and the bounded T032 handoff
@@ -1050,7 +1211,10 @@ in place.
 │   │   │   │   ├── request.rs                                               # Retrieval results handed to T032 without assembling an evidence bundle
 │   │   │   │   ├── rerank.rs                                                # Reranks the head of a fused list without truncating candidate text
 │   │   │   │   ├── route_execution.rs                                       # Deadline-bounded leaf-route calls and their independent public statuses
-│   │   │   │   └── section_prior.rs                                         # Configured section classes and an optional soft reciprocal-rank penalty
+│   │   │   │   ├── route_search.rs                                          # Cached original routes and additive fusion for one pinned search
+│   │   │   │   ├── section_prior.rs                                         # Configured section classes and an optional soft reciprocal-rank penalty
+│   │   │   │   ├── source_class.rs                                          # Source classes: the port that names where a document comes from, and the
+│   │   │   │   └── source_class_table.rs                                    # The default source classifier: a strict maestro-source-classes/1 JSON
 │   │   │   ├── answer.rs                                                    # Evidence-grounded answering with bounded generation and one validation retry
 │   │   │   ├── collection.rs                                                # A collection's declaration: maestro-collection/1, the strict JSON that
 │   │   │   ├── corpus.rs                                                    # A corpus manifest: maestro-corpus/1, one JSON line per document, through
@@ -1094,6 +1258,7 @@ in place.
 │   │   │       │   │   └── state.rs                                         # What the fake keeps, and the refusals and hollow answers a test asked for
 │   │   │       │   ├── projection_rebuild/                                  # Crash recovery assertions for lost or partially published projections
 │   │   │       │   │   ├── alias_guards.rs                                  # The published alias a guarded replacement restores or refuses to leave
+│   │   │       │   │   ├── counter_contract.rs                              # Recovery matches the v2 counter identity exactly
 │   │   │       │   │   ├── crash_boundaries.rs                              # Crash boundaries around alias and kernel publication
 │   │   │       │   │   ├── mod.rs                                           # Crash recovery assertions for lost or partially published projections
 │   │   │       │   │   ├── rebuild_tests.rs                                 # Explicit replacement of a lost published projection
@@ -1105,9 +1270,14 @@ in place.
 │   │   │       │   │   ├── configured_search.rs                             # Request configuration controls the real fused search pipeline
 │   │   │       │   │   ├── fused_search.rs                                  # The public search handoff fuses available routes when dense metadata is absent
 │   │   │       │   │   ├── fused_search_admission_pinning.rs                # Search admission and generation-pinning acceptance tests
+│   │   │       │   │   ├── identifier_noise_guard.rs                        # The identifier noise guard: a too-common identifier gets no payload votes
 │   │   │       │   │   ├── identifier_route.rs                              # Exact identifiers combine payload equality with the scoped kernel index
 │   │   │       │   │   ├── identifier_route_resilience.rs                   # Independent exact-identifier leg failures and empty results
 │   │   │       │   │   ├── idle_unload.rs                                   # A long-lived router client reloads a model the router unloaded
+│   │   │       │   │   ├── intent_expansion.rs                              # Real search admission and fusion with a controlled expansion model
+│   │   │       │   │   ├── intent_fallbacks.rs                              # An expanded search never ends worse than the original one: a failed or
+│   │   │       │   │   ├── intent_port.rs                                   # A model port whose expansion chat and reranker a test scripts, over the
+│   │   │       │   │   ├── intent_rerank_set.rs                             # What the rerank scores once intent routes voted: the original top-depth
 │   │   │       │   │   ├── mod.rs                                           # Dense and lexical routes against the shared fake and, when configured, real Qdrant
 │   │   │       │   │   ├── route_behavior.rs                                # Behavior of dense and lexical searches over the generation-pinned collection
 │   │   │       │   │   ├── route_errors.rs                                  # Refusals from admission, profiles and dense embedding
@@ -1119,6 +1289,8 @@ in place.
 │   │   │       │   ├── alias_moves.rs                                       # The alias moves only to a generation whose collection passes its checks
 │   │   │       │   ├── backends.rs                                          # The Qdrant servers a test runs against, and what it reads back from them
 │   │   │       │   ├── built_generations.rs                                 # A generation builds in its own collection; its points, payloads and IDs
+│   │   │       │   ├── fake_port.rs                                         # Publication and standalone verification through a transport-independent projection fake
+│   │   │       │   ├── fake_port_failures.rs                                # Failure, resume, and rollback tests for the fake projection port
 │   │   │       │   ├── kernel.rs                                            # A kernel holding a complete chunk set to publish, in a scratch directory
 │   │   │       │   ├── mod.rs                                               # The Qdrant projection (T026), against a fake Qdrant and a real one when named
 │   │   │       │   ├── models.rs                                            # The embedder the tests publish through, which records and spoils calls on demand
@@ -1128,6 +1300,7 @@ in place.
 │   │   │       │   ├── scratch_cleanup.rs                                   # A kernel's scratch directory, which may sit on tmpfs, is gone once the
 │   │   │       │   ├── server_version.rs                                    # The client reads the server's version from its health check
 │   │   │       │   ├── stopped_builds.rs                                    # Refusals before any work, unreadable chunks, and a Qdrant that refuses or is out of reach
+│   │   │       │   ├── stopped_clock.rs                                     # A stopped clock, for the searches whose deadlines a loaded host must not
 │   │   │       │   └── support.rs                                           # What the projection's tests share: a publication and the names it gives
 │   │   │       ├── quality_gate/                                            # The quality gate (T020) through the import, the ledger and the kernel
 │   │   │       │   ├── gate_report.rs                                       # The report as JSON, and the stops: unknown collection, broken artifact
@@ -1189,6 +1362,45 @@ in place.
 │   │   │       ├── suite_resolution.rs                                      # Resolving an expected section in its canonicalized document: a heading path
 │   │   │       └── synthetic_collection.rs                                  # The public synthetic collection, tests/fixtures/synthetic, which stands in
 │   │   └── Cargo.toml                                                       # Crate manifest: The knowledge pipeline of Maestro, starting with the collection and corpus contracts it imports through
+│   ├── maestro-settings/                                                    # Maestro settings
+│   │   ├── src/                                                             # The crate's sources
+│   │   │   ├── edit/                                                        # Editing a preferences file in place: where its keys are, and the set and
+│   │   │   │   ├── change.rs                                                # config set and config unset on a preferences file's text
+│   │   │   │   ├── document.rs                                              # Where a preferences file writes each key and table, from the spans of
+│   │   │   │   └── mod.rs                                                   # Editing a preferences file in place: where its keys are, and the set and
+│   │   │   ├── file/                                                        # A preferences file's own I/O: its directory opened without following a
+│   │   │   │   ├── bounded.rs                                               # Bounded reads of a preferences file: no further than [MAX_FILE_BYTES]
+│   │   │   │   ├── edit.rs                                                  # One edit of a preferences file, from reading it to keeping or undoing
+│   │   │   │   ├── layers.rs                                                # The file adapter of [LayerSource]: the user's preferences.toml in
+│   │   │   │   ├── mod.rs                                                   # A preferences file's own I/O: its directory opened without following a
+│   │   │   │   ├── place.rs                                                 # Where a preferences file lives: a directory the caller trusts, the one
+│   │   │   │   ├── tests.rs                                                 # Tests for the file adapter's private platform operations
+│   │   │   │   ├── unix.rs                                                  # Unix: every name below the trusted directory resolves against an open
+│   │   │   │   ├── windows.rs                                               # Windows: names resolve by path, but the directory of the file is held
+│   │   │   │   └── windows_logic.rs                                         # Platform-neutral Windows decisions, tested on every host
+│   │   │   ├── tests/                                                       # The settings crate's tests, one module per source module, and the proof
+│   │   │   │   ├── discovery.rs                                             # Project-file discovery: the nearest .maestro/config.toml upward from the
+│   │   │   │   ├── edit.rs                                                  # config set and config unset on a file's text: only the value's bytes
+│   │   │   │   ├── file.rs                                                  # One edit of a preferences file: serialized by its lock, refused when
+│   │   │   │   ├── language.rs                                              # The BCP 47 subset of language: canonical case, and each refused form
+│   │   │   │   ├── layer.rs                                                 # A preferences file parsed strictly: its schema marker required, every key
+│   │   │   │   ├── mod.rs                                                   # The settings crate's tests, one module per source module, and the proof
+│   │   │   │   ├── registry.rs                                              # The registry: every descriptor checked once, the built-in ones included
+│   │   │   │   ├── resolve.rs                                               # Resolution: per key, an explicit --set, then the project file, then the
+│   │   │   │   ├── store.rs                                                 # The file adapter: bounded reads naming the file
+│   │   │   │   ├── synthetic.rs                                             # Adding a setting is one descriptor: a synthetic one, appended to the
+│   │   │   │   └── value.rs                                                 # Values: each kind read from the command line's text and from a file's
+│   │   │   ├── builtin.rs                                                   # The settings Maestro ships, one descriptor each
+│   │   │   ├── descriptor.rs                                                # A setting's descriptor: everything Maestro knows about one setting, as
+│   │   │   ├── discovery.rs                                                 # Where a session finds its project file (plan D6): the nearest
+│   │   │   ├── language.rs                                                  # The language tags language accepts: the bounded BCP 47 subset S3 ruled
+│   │   │   ├── layer.rs                                                     # One preferences file, maestro-preferences/1, parsed strictly (plan D6
+│   │   │   ├── lib.rs                                                       # Maestro's settings: everything configurable, in one registry of
+│   │   │   ├── registry.rs                                                  # The registry: the descriptors of every setting Maestro knows, each checked
+│   │   │   ├── resolve.rs                                                   # Resolution (S3 FR-S3-014, plan D6): each key takes the value of the
+│   │   │   ├── store.rs                                                     # The port a session reads its preferences layers through
+│   │   │   └── value.rs                                                     # A setting's value: read from the command line's text or a file's TOML
+│   │   └── Cargo.toml                                                       # Crate manifest: Maestro's settings: the registry of every setting, its layered files and their resolution
 │   └── maestro-test-scratch/                                                # Maestro test scratch
 │       ├── src/                                                             # The crate's sources
 │       │   ├── lib.rs                                                       # Where the workspace's tests create their scratch directories
@@ -1229,6 +1441,8 @@ in place.
 │   │   ├── 08-traceability.md                                               # 08 Traceability
 │   │   ├── 09-reverse-engineering.md                                        # 09 Reverse engineering and provenance
 │   │   └── README.md                                                        # Status: design of record, 2026-09-23, completed 2026-09-24
+│   ├── contracts/                                                           # Contracts
+│   │   └── unit-graph-v1.md                                                 # Unit graph wire contract v1
 │   ├── how-to/                                                              # How to
 │   │   └── knowledge-mcp.md                                                 # Connect a client to Maestro's knowledge MCP server
 │   └── standards/                                                           # Standards

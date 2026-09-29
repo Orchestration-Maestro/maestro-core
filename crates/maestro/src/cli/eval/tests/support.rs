@@ -9,7 +9,7 @@ use crate::failure::Failure;
 use maestro_knowledge::{
     answer::RefusalCode,
     eval::{AskOutcome, SearchOutcome, SectionRef},
-    search::{SearchConfiguration, evidence::Anchor},
+    search::{IntentExpansion, IntentTrigger, SearchConfiguration, evidence::Anchor},
     suite::Suite,
 };
 use serde_json::{Value, json};
@@ -54,6 +54,17 @@ pub(super) fn rung(name: &str) -> Rung {
     Rung {
         name: name.to_owned(),
         configuration: RungConfiguration {
+            evidence_expansion: None,
+            parent_chain_order: None,
+            intent_expansion: IntentExpansion::Off,
+            intent_trigger: IntentTrigger::Always,
+            intent_card: None,
+            intent_deadline_ms: 4000,
+            intent_weight: Some(1.0),
+            intent_rerank_additions: 10,
+            routes_limit: SearchConfiguration::DEFAULT_ROUTES_LIMIT,
+            identifier_limit: SearchConfiguration::DEFAULT_IDENTIFIER_LIMIT,
+            fusion_pool: SearchConfiguration::MAX_FUSION_POOL,
             routes: Routes {
                 graph: GraphSelection::None,
                 dense: true,
@@ -61,6 +72,7 @@ pub(super) fn rung(name: &str) -> Rung {
                 identifier: true,
                 structured: false,
             },
+            identifier_noise_guard: false,
             rrf_k: NonZeroU32::new(20).unwrap(),
             weights: Weights {
                 dense: 2.0,
@@ -78,8 +90,10 @@ pub(super) fn rung(name: &str) -> Rung {
             min_rerank_score: None,
             section_prior: Prior::default(),
             stage_window_ms: None,
+            source_prior: None,
         },
         ask: Some(AskSettings::default()),
+        search_budget: None,
     }
 }
 
@@ -135,6 +149,8 @@ pub(super) struct FakeEngine {
     pub(super) unreadable_after: Option<usize>,
     /// How many of the last questions' expected sections are missing.
     pub(super) expectations_missing: usize,
+    /// The evidence byte count returned by each search, when set.
+    pub(super) evidence_bytes: Option<u32>,
 }
 
 impl FakeEngine {
@@ -163,7 +179,10 @@ impl FakeEngine {
 /// reranker score of 0.75 when `rung` reranks, and a top fused score of 0.05.
 fn diagnostic(rung: &Rung, bundle_documents: Vec<String>) -> SearchDiagnostic {
     SearchDiagnostic {
+        intent_status: None,
+        intent_displaced: None,
         bundle_documents,
+        evidence_bytes: None,
         top_rerank_score: rung.configuration.rerank.as_ref().map(|_| 0.75),
         top_fused_score: Some(0.05),
         ..SearchDiagnostic::default()
@@ -208,6 +227,7 @@ impl Engine for FakeEngine {
             ));
         }
         Ok(Provenance {
+            intent: None,
             generation: self.generation.get(),
             chunk_set: "chunk-set".to_owned(),
             embedder: (!self.no_embedder).then(|| "e".repeat(64)),
@@ -218,6 +238,7 @@ impl Engine for FakeEngine {
                 .map(|rerank| rerank.card.clone()),
             answerer: (!self.no_answerer).then(|| "a".repeat(64)),
             prompt: None,
+            source_classes: None,
         })
     }
 
@@ -267,13 +288,19 @@ impl Engine for FakeEngine {
             return Searched {
                 outcome: SearchOutcome::Ranked(ranked),
                 delivered: Vec::new(),
-                diagnostic: diagnostic(rung, others[..3].to_vec()),
+                diagnostic: SearchDiagnostic {
+                    evidence_bytes: self.evidence_bytes,
+                    ..diagnostic(rung, others[..3].to_vec())
+                },
             };
         }
         Searched {
             outcome: SearchOutcome::Ranked(vec![right.clone()]),
             delivered: vec![anchor("doc-other", "section-other")],
-            diagnostic: diagnostic(rung, vec![right]),
+            diagnostic: SearchDiagnostic {
+                evidence_bytes: self.evidence_bytes,
+                ..diagnostic(rung, vec![right])
+            },
         }
     }
 
@@ -291,6 +318,7 @@ impl Engine for FakeEngine {
                 outcome: AskOutcome::Refused(RefusalCode::NotFound),
                 delivered: Vec::new(),
                 rejections: Vec::new(),
+                reply_cap: Some(2048),
             },
             |index| Asked {
                 outcome: AskOutcome::Answered {
@@ -311,6 +339,7 @@ impl Engine for FakeEngine {
                     attempt: 1,
                     check: "unsupported_literal",
                 }],
+                reply_cap: Some(2048),
             },
         )
     }

@@ -1,13 +1,13 @@
 //! Absolute cutoffs shared by routes, candidate loading and T032 handoff.
 
-use maestro_kernel::evidence::RequestBudget;
+use maestro_kernel::{evidence::RequestBudget, retrieval::ReadControl};
 use std::{
     future::Future,
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
     },
-    time::Duration,
+    time::{Duration, Instant as StdInstant},
 };
 use tokio::{
     task::spawn_blocking,
@@ -23,6 +23,9 @@ pub const DISABLED_BY_CONFIGURATION: &str = "disabled by search configuration";
 const MAX_ASSEMBLY_WINDOW: Duration = Duration::from_millis(300);
 /// The largest portion of the request deadline reserved for T032.
 const MAX_T032_RESERVE: Duration = Duration::from_millis(50);
+/// Under [`StageWindow::Derived`], fusion and the rerank keep the deadline
+/// divided by this, a tenth, and at least one assembly window.
+const RANK_RESERVE_DIVISOR: u32 = 10;
 
 /// How long the retrieval routes may run. A deadline is a safety cap, not
 /// a quality cutoff: by default a route runs until only the later stages'
@@ -79,9 +82,9 @@ impl Deadlines {
     }
 
     /// The latest optional reranker enrichment may read sources: one
-    /// assembly window before `setup`, so the rerank keeps its time. The
-    /// later stages' reserve before `setup` is at least one window, so it
-    /// never precedes `routes_end`.
+    /// assembly window before `setup`, so the rerank keeps its time. Only
+    /// under [`StageWindow::Derived`] does the later-stage reserve ensure it
+    /// never precedes `routes_end`; fixed windows may end later.
     pub(super) fn enrichment(&self) -> Instant {
         self.setup - self.window
     }
@@ -102,10 +105,14 @@ pub(super) fn from_budget(
     let setup = work - window * 2;
     let (routes, routes_end, fixed) = match stage_window {
         StageWindow::Derived => {
-            let routes_end = setup - (duration / 10).max(window);
+            let routes_end = setup - (duration / RANK_RESERVE_DIVISOR).max(window);
             (routes_end, routes_end, None)
         }
-        StageWindow::Fixed(fixed) => ((started + fixed).min(setup), setup, Some(fixed)),
+        StageWindow::Fixed(fixed) => {
+            // A window past the deadline ends at `setup` all the same.
+            let fixed = fixed.min(duration);
+            ((started + fixed).min(setup), setup, Some(fixed))
+        }
     };
     Deadlines {
         expires,
@@ -116,6 +123,18 @@ pub(super) fn from_budget(
         window,
         fixed,
     }
+}
+
+/// The kernel read deadline of the cutoff `deadline`: now, on the standard
+/// clock, plus the time left until it on tokio's.
+///
+/// Kernel reads compare against the standard clock. Converting the tokio
+/// instant itself would give the same deadline, except on a paused tokio
+/// clock, which tests stop so that no deadline passes: the converted
+/// deadline would still pass in real time. The time left freezes with the
+/// clock.
+pub(super) fn std_deadline(deadline: Instant) -> StdInstant {
+    StdInstant::now() + deadline.saturating_duration_since(Instant::now())
 }
 
 /// A deadline elapsed before its future completed.
@@ -174,4 +193,15 @@ impl Drop for CancelOnDrop {
     fn drop(&mut self) {
         self.0.store(true, Ordering::Relaxed);
     }
+}
+
+/// Whether optional enrichment may still read under `control`: neither
+/// cancelled nor past its cutoff.
+pub(super) fn open(control: &ReadControl) -> bool {
+    open_at(control, StdInstant::now())
+}
+
+/// Whether optional enrichment remains open at the supplied real-clock instant.
+pub(super) fn open_at(control: &ReadControl, now: StdInstant) -> bool {
+    !control.cancelled.load(Ordering::Relaxed) && now < control.deadline
 }

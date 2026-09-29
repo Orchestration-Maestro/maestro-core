@@ -1,12 +1,12 @@
 use super::ask::tests::select_reranker;
-use super::search::{search_with, selected_reranker};
+use super::search::{bound_source_classes, search_with, selected_reranker};
 use super::{KnowledgeError, collections_with, get_with, section_read_failure};
-use crate::knowledge::SearchRequest;
 use crate::{
     failure::Failure,
     kernel::{Kernel, pinned_embedder},
     knowledge::GetRequest,
 };
+use crate::{knowledge::SearchRequest, settings::KnowledgeSettings};
 use maestro_kernel::gateway::{
     CardFields, Limits, ModelCard, Role, RouterClient, RouterEntry, Url,
 };
@@ -281,7 +281,14 @@ async fn search_refuses_a_temporary_grant_revoked_before_delivery() {
     let model_port = RouterClient::new(Url::parse("http://127.0.0.1:8080").unwrap()).unwrap();
     let qdrant = Qdrant::new("http://127.0.0.1:1").unwrap();
 
-    let result = Box::pin(search_with(kernel, &request, &model_port, &qdrant)).await;
+    let result = Box::pin(search_with(
+        kernel,
+        &request,
+        &KnowledgeSettings::default(),
+        &model_port,
+        &qdrant,
+    ))
+    .await;
 
     assert!(matches!(result, Err(ACCESS_CHANGED)));
 }
@@ -393,5 +400,44 @@ fn section_reader_errors_map_to_privacy_safe_public_failures() {
             code: "kernel_unavailable",
             message: "the local knowledge store is unavailable",
         }
+    );
+}
+
+#[test]
+fn searches_refuse_an_invalid_bound_source_class_table() {
+    let scratch = Scratch::new();
+    let kernel = scratch.kernel(None).unwrap();
+    assert!(bound_source_classes(&kernel.config_dir).unwrap().is_none());
+    let path = kernel.config_dir.join("source-classes.json");
+    fs::write(&path, "{}").unwrap();
+    fs::write(
+        kernel.config_dir.join("bindings.toml"),
+        format!("source_classes = '{}'\n", path.display()),
+    )
+    .unwrap();
+    assert_eq!(
+        bound_source_classes(&kernel.config_dir).err(),
+        Some(KnowledgeError::Refused {
+            code: "invalid_configuration",
+            message: "the source-class table is invalid",
+        })
+    );
+    fs::write(
+        &path,
+        r#"{"schema": "maestro-source-classes/1", "rules": []}"#,
+    )
+    .unwrap();
+    assert!(bound_source_classes(&kernel.config_dir).unwrap().is_some());
+    fs::write(
+        kernel.config_dir.join("bindings.toml"),
+        "corpus_root = 'relative'\n",
+    )
+    .unwrap();
+    assert_eq!(
+        bound_source_classes(&kernel.config_dir).err(),
+        Some(KnowledgeError::Refused {
+            code: "invalid_configuration",
+            message: "the bindings file is invalid; run `maestro doctor`",
+        })
     );
 }

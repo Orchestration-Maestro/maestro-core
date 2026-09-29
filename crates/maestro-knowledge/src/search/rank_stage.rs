@@ -3,11 +3,11 @@
 
 use super::{
     admission::AdmittedSearch,
-    candidates::{self, Failure},
+    candidates::{self, Failure, Penalized},
     fusion::Fused,
     rank_policy,
     request::SearchConfiguration,
-    rerank::{Ranked, Reranker, rerank_candidates},
+    rerank::{Candidate, Ranked, Reranker, rerank_candidates},
     route_execution::route_outcome,
 };
 use maestro_kernel::{
@@ -17,7 +17,9 @@ use maestro_kernel::{
     telemetry::{span, stage::Count},
 };
 use std::{
-    collections::{BTreeSet, HashMap},
+    cmp::Ordering,
+    collections::{BTreeMap, HashMap},
+    num::NonZeroUsize,
     sync::Arc,
 };
 
@@ -27,6 +29,10 @@ pub(super) struct Pool {
     pub(super) fused: Vec<Fused>,
     /// Every route revision that must agree with each kernel chunk.
     pub(super) expected_revisions: HashMap<String, Vec<String>>,
+    /// Candidates reranked beyond the configured depth.
+    pub(super) rerank_extra: usize,
+    /// Scores an earlier rerank of this search gave, by chunk ID.
+    pub(super) known_scores: HashMap<String, f64>,
 }
 
 /// The final order and what the stage observed on the way.
@@ -82,6 +88,7 @@ pub(super) async fn rank<P: ModelPort>(
             context_deadline: admitted.cutoffs.enrichment(),
             configuration,
             query: query.to_owned(),
+            source_classes: admitted.source_classes.clone(),
         },
     )
     .await?;
@@ -92,14 +99,12 @@ pub(super) async fn rank<P: ModelPort>(
         .collect::<Vec<_>>();
     let stage = span::rerank();
     let (mut ranked, status) = stage
-        .instrument(rerank_candidates(
-            &admitted.understood,
+        .instrument(rerank_reusing(
+            admitted,
             loaded.candidates,
             reranker,
-            configuration
-                .rerank_enabled
-                .then_some(configuration.rerank_depth),
-            admitted.cutoffs.setup,
+            pool.rerank_extra,
+            &pool.known_scores,
         ))
         .await;
     apply_rank_policies(&mut ranked, &fused_ids, configuration, &loaded.penalized);
@@ -114,12 +119,84 @@ pub(super) async fn rank<P: ModelPort>(
     })
 }
 
-/// Blends, applies the soft prior, then enforces final top-ten demotion bounds.
+/// Reranks the configured depth and `extra` more candidates until the
+/// setup cutoff, as [`rerank_candidates`] does, but sends the reranker only
+/// those without a score in `known`: a second pass scores only what the
+/// first did not.
+async fn rerank_reusing<P: ModelPort>(
+    admitted: &AdmittedSearch,
+    candidates: Vec<Candidate>,
+    reranker: Option<&Reranker<'_, P>>,
+    extra: usize,
+    known: &HashMap<String, f64>,
+) -> (Vec<Ranked>, RouteStatus) {
+    let configuration = admitted.configuration;
+    let (understood, deadline) = (&admitted.understood, admitted.cutoffs.setup);
+    let depth = configuration
+        .rerank_enabled
+        .then(|| configuration.rerank_depth.saturating_add(extra));
+    let Some(head) = depth.filter(|_| !candidates.is_empty()) else {
+        return rerank_candidates(understood, candidates, reranker, depth, deadline).await;
+    };
+    let (fresh, mut items): (Vec<_>, Vec<_>) = candidates
+        .into_iter()
+        .enumerate()
+        .map(|(index, candidate)| {
+            let score = known
+                .get(&candidate.fused.chunk_id)
+                .copied()
+                .filter(|_| index < head.get());
+            (index, Ranked { candidate, score })
+        })
+        .partition(|(index, item)| *index < head.get() && item.score.is_none());
+    let mut status = RouteStatus::Ok;
+    if let Some(count) = NonZeroUsize::new(fresh.len()) {
+        let indices = fresh
+            .iter()
+            .map(|(index, item)| (item.candidate.fused.chunk_id.clone(), *index))
+            .collect::<HashMap<_, _>>();
+        let candidates = fresh.into_iter().map(|(_, item)| item.candidate).collect();
+        let (ranked, fresh_status) =
+            rerank_candidates(understood, candidates, reranker, Some(count), deadline).await;
+        status = fresh_status;
+        items.extend(ranked.into_iter().map(|item| {
+            let index = indices.get(&item.candidate.fused.chunk_id).copied();
+            (index.unwrap_or(usize::MAX), item)
+        }));
+    }
+    if status != RouteStatus::Ok {
+        // As a failed rerank does: every candidate in fused order.
+        for (_, item) in &mut items {
+            item.score = None;
+        }
+    }
+    items.sort_by(by_score_then_fused);
+    (items.into_iter().map(|(_, item)| item).collect(), status)
+}
+
+/// The rerank's order: scored candidates by descending score, then the
+/// rest; ties keep the fused order.
+fn by_score_then_fused(
+    (left_index, left): &(usize, Ranked),
+    (right_index, right): &(usize, Ranked),
+) -> Ordering {
+    match (left.score, right.score) {
+        (Some(left_score), Some(right_score)) => right_score
+            .total_cmp(&left_score)
+            .then_with(|| left_index.cmp(right_index)),
+        (Some(_), None) => Ordering::Less,
+        (None, Some(_)) => Ordering::Greater,
+        (None, None) => left_index.cmp(right_index),
+    }
+}
+
+/// Blends, applies the soft priors in one demotion, then enforces final
+/// top-ten demotion bounds.
 pub(super) fn apply_rank_policies(
     ranked: &mut [Ranked],
     fused_ids: &[String],
     configuration: SearchConfiguration,
-    penalized: &BTreeSet<String>,
+    penalized: &Penalized,
 ) {
     rank_policy::blend(
         ranked,
@@ -127,6 +204,18 @@ pub(super) fn apply_rank_policies(
         configuration.rerank_blend,
         configuration.rrf_k,
     );
-    configuration.section_prior.apply(ranked, penalized);
+    let mut multipliers = BTreeMap::new();
+    for (multiplier, ids) in [
+        (configuration.section_prior.multiplier(), &penalized.section),
+        (configuration.source_prior.multiplier(), &penalized.source),
+    ] {
+        let Some(multiplier) = multiplier else {
+            continue;
+        };
+        for id in ids {
+            *multipliers.entry(id.clone()).or_insert(1.0) *= multiplier;
+        }
+    }
+    rank_policy::demote(ranked, &multipliers);
     rank_policy::cap_demotion(ranked, fused_ids, configuration.rerank_demotion_cap);
 }

@@ -122,27 +122,22 @@ impl Database {
             .filter(|identifier| seen.insert(identifier.as_str()))
             .cloned()
             .collect::<Vec<_>>();
-        let too_common =
+        let common =
             too_common_identifiers(&transaction, read, &requested_identifiers, sqlite_limit)?;
-        let active_identifiers = requested_identifiers
+        let (too_common, active_identifiers): (Vec<_>, Vec<_>) = requested_identifiers
             .into_iter()
-            .filter(|identifier| !too_common.contains(identifier))
-            .collect::<Vec<_>>();
+            .partition(|identifier| common.contains(identifier));
         let hits = if active_identifiers.is_empty() {
             Vec::new()
         } else {
             indexed_hits(&transaction, read, &active_identifiers, sqlite_limit)?
         };
-        let skipped_too_common = !too_common.is_empty();
         read.control.check()?;
         transaction
             .commit()
             .map_err(|error| classify(error, read.control))?;
         read.control.check()?;
-        Ok(IdentifierSearchResult {
-            hits,
-            skipped_too_common,
-        })
+        Ok(IdentifierSearchResult { hits, too_common })
     }
 }
 

@@ -6,7 +6,7 @@ use super::{
 };
 #[cfg(test)]
 use crate::failure::Failure;
-use crate::kernel::Kernel;
+use crate::{kernel::Kernel, settings::KnowledgeSettings};
 #[cfg(test)]
 use maestro_kernel::gateway::{ModelCard, Url};
 use maestro_kernel::gateway::{ModelPort, RouterClient};
@@ -26,20 +26,25 @@ pub(in crate::mcp) struct KnowledgeServer<P = RouterClient> {
     pub(super) model_port: Arc<P>,
     /// Qdrant bound to the configured search service.
     pub(super) qdrant: Arc<Qdrant>,
+    /// The session's settings: what every tool call runs with, fixed for the
+    /// server's life.
+    pub(super) settings: Arc<KnowledgeSettings>,
     /// Test-only startup cards to exercise warming without a model registry fixture.
     #[cfg(test)]
     pub(super) warmup_cards: Option<Vec<ModelCard>>,
 }
 
 impl<P: ModelPort + Send + Sync + 'static> KnowledgeServer<P> {
-    /// Creates the read-only local knowledge server with its configured ports.
-    pub(in crate::mcp) fn new(model_port: P, qdrant: Qdrant) -> Self {
+    /// Creates the read-only local knowledge server with its configured ports
+    /// and the session's `settings`.
+    pub(in crate::mcp) fn new(model_port: P, qdrant: Qdrant, settings: KnowledgeSettings) -> Self {
         Self {
             workers: Arc::new(Semaphore::new(WORKER_LIMIT)),
             open_kernel: Arc::new(Kernel::open),
             call_deadline: CALL_DEADLINE,
             model_port: Arc::new(model_port),
             qdrant: Arc::new(qdrant),
+            settings: Arc::new(settings),
             #[cfg(test)]
             warmup_cards: None,
         }
@@ -73,6 +78,7 @@ impl<P: ModelPort + Send + Sync + 'static> KnowledgeServer<P> {
             call_deadline,
             model_port: Arc::new(model_port),
             qdrant: Arc::new(qdrant),
+            settings: Arc::default(),
             warmup_cards: Some(warmup_cards),
         }
     }
@@ -86,6 +92,7 @@ impl KnowledgeServer<RouterClient> {
             RouterClient::new(Url::parse("http://127.0.0.1:8080").expect("default router URL"))
                 .expect("default router client"),
             Qdrant::new("http://127.0.0.1:6334").expect("default Qdrant client"),
+            KnowledgeSettings::default(),
         )
     }
 

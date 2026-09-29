@@ -2,16 +2,14 @@
 //! refined or split past the maximum.
 use super::ideas::{Piece, absorb_small, pieces};
 use super::limits::{MAX_TOKENS, TARGET_TOKENS};
-use super::refusal::structure_error;
 use super::structure::{Body, Layout};
 use crate::{error::Error, prepared_inputs::ChunkContent};
 use std::collections::{BTreeMap, VecDeque};
 
 /// Pack a document's pieces into drafts: combine compatible pieces up to the target; an idea over
 /// the maximum continues atom by atom, an atom over it is refined or split; then number each
-/// unit's parts. A refinement that hands a body back unchanged would never end, so it refuses the
-/// body's first unit by name. Under a profile with a minimum, a small draft then joins the draft
-/// before it.
+/// unit's parts. `Layout::refine` always returns smaller bodies, so refinement ends. Under a
+/// profile with a minimum, a small draft then joins the draft before it.
 pub(crate) fn build_drafts(
     layout: &Layout<'_>,
     count: &mut impl FnMut(&str) -> Result<usize, Error>,
@@ -44,10 +42,6 @@ pub(crate) fn build_drafts(
         match piece {
             Piece::Idea(atoms) => requeue(&mut pending, atoms),
             Piece::Atom(atom) => match layout.refine(&atom)? {
-                Some(refined) if refined.contains(&atom) => {
-                    let first = atom.fragments.first().ok_or_else(structure_error)?;
-                    return Err(layout.oversized(first.contribution.unit_index));
-                }
                 Some(refined) => requeue(&mut pending, refined),
                 None => result.extend(layout.split_unit(&atom, count)?),
             },

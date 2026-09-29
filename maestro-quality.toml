@@ -12,6 +12,10 @@
 license-policy = "enforce"
 artifact-key = "maestro-core"
 platforms = "macos windows"
+mutation-windows = [
+  "crates/maestro-settings/src/file/windows.rs",
+  "crates/maestro-canonicalization/src/filesystem/windows.rs",
+]
 
 # The seams of the canonicalization crate that keep one caller: each door is a
 # subsystem, and its one outside caller is the stage that composes it.
@@ -26,6 +30,12 @@ rule = "ARC-005"
 path = "crates/maestro-canonicalization/src/chunk_split/mod.rs"
 item = "validate_preparation"
 reason = "chunk replay reruns the splitter and so lives beside its rules"
+
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-canonicalization/src/chunks/mod.rs"
+item = "chunk_documents"
+reason = "the /4 CompleteIdeas control view reuses the existing /3 packing and verified counting path"
 
 [[exception]]
 rule = "ARC-005"
@@ -215,12 +225,6 @@ path = "crates/maestro-knowledge/src/search/mod.rs"
 item = "search"
 reason = "ask is its only in-crate caller; CLI, MCP and integration-test consumers are in other crates"
 
-[[exception]]
-rule = "ARC-005"
-path = "crates/maestro-knowledge/src/search/mod.rs"
-item = "top_rerank_score"
-reason = "ask's relevance threshold is its only in-crate caller; the ladder's private rows in the maestro crate read it too"
-
 # The quality gate's reader of the revisions it lets through: the gate owns
 # eligibility, so the preparation (T023) reads it rather than deciding again,
 # and the gate's contract tests call it from outside the crate's sources.
@@ -295,21 +299,6 @@ path = "crates/maestro/src/mcp/mod.rs"
 item = "run"
 reason = "the MCP module owns bounded transport and server startup; the CLI dispatcher selects its single stdio entry point"
 
-# Route windows are wall-clock budgets over real gRPC, where a paused clock
-# advances while a loopback reply is in flight: the real-path route-window
-# tests make a dependency answer late, about 400 ms, as a loaded host does.
-[[exception]]
-rule = "TST-001"
-path = "crates/maestro-knowledge/tests/it/qdrant_projection/fake/query.rs"
-item = "run"
-reason = "a slow dependency is the input under test: route windows are wall-clock budgets over real gRPC"
-
-[[exception]]
-rule = "TST-001"
-path = "crates/maestro-knowledge/tests/it/qdrant_projection/models.rs"
-item = "embed"
-reason = "a slow dependency is the input under test: route windows are wall-clock budgets over real gRPC"
-
 # The words this repository means that the spell checker reads as mistakes:
 # Exemple, French test input for the canonicalizer; RTO, the recovery time
 # objective beside RPO; WRONLY, the POSIX open flag as rustix names it;
@@ -321,7 +310,8 @@ reason = "a slow dependency is the input under test: route windows are wall-cloc
 # of the synthetic collection in tests/fixtures/synthetic; celle, celles and
 # toi, French stopwords of the lexical analyzer, as sur is too, and requet and
 # schedul, stems its golden test pins; flate, of flate2, the compression crate
-# qdrant-client's tonic brings, which supply-chain/config.toml exempts.
+# qdrant-client's tonic brings, which supply-chain/config.toml exempts; nd,
+# the ordinal ending of 2nd that the intent guard reads as a quantity.
 [typos]
 words = [
   "Exemple",
@@ -351,4 +341,11 @@ words = [
   "requet",
   "schedul",
   "flate",
+  "nd",
 ]
+
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-kernel/src/unit_graph/mod.rs"
+item = "GraphKey"
+reason = "the public source-scoped graph read key belongs to graph storage; representation completion also reads each graph through this boundary"

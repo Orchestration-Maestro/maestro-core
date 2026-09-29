@@ -232,7 +232,7 @@ fn prepare_publish(
     let projection = Projection {
         database: context.database,
         scopes: context.scopes,
-        qdrant: context.qdrant,
+        projection: context.qdrant,
         port: &models,
         card: &card,
     };
@@ -469,7 +469,7 @@ fn profiles(
             "utf8-bytes/estimated-test-adapter".to_owned(),
         ),
         ("k".to_owned(), "10".to_owned()),
-        ("max_tokens".to_owned(), "6000".to_owned()),
+        ("evidence_bytes".to_owned(), "6000".to_owned()),
         ("deadline_ms".to_owned(), "10000".to_owned()),
         ("model_card".to_owned(), card.digest().as_str().to_owned()),
         ("model_inference".to_owned(), "fake-models/1".to_owned()),

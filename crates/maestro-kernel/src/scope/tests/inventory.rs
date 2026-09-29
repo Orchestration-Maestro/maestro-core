@@ -17,12 +17,13 @@ use std::{
 
 /// The readers of unscoped bookkeeping that open a reader: each takes no
 /// `ScopeSet`, and the scope module's docs give its reason.
-const UNSCOPED: [&str; 6] = [
+const UNSCOPED: [&str; 7] = [
     "artifact",
     "check_artifacts",
     "cursor",
     "garbage",
     "quick_check",
+    "setting_changes",
     "visible",
 ];
 

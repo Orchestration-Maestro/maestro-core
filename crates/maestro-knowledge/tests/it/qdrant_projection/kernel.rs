@@ -63,15 +63,34 @@ impl Kernel {
     /// occurring in the source `mirror`, and a complete chunk set of their
     /// chunks, from the first guide's.
     pub(super) fn with_guides(guides: usize) -> Self {
-        Self::with_changed_guides(guides, &|_, _, chunks| chunks)
+        Self::with_counter_contract(guides, "router/1:sha256:test")
+    }
+
+    /// A complete chunk set stamped with `counter_contract_id`.
+    pub(super) fn with_counter_contract(guides: usize, counter_contract_id: &str) -> Self {
+        Self::with_changed_guides_and_counter(guides, counter_contract_id, &|_, _, chunks| chunks)
     }
 
     /// [`Kernel::with_guides`], each guide's chunks changed by `change`
     /// first, given the kernel and the guide's number.
     pub(super) fn with_changed_guides(guides: usize, change: &Change) -> Self {
+        Self::with_changed_guides_and_counter(guides, "router/1:sha256:test", change)
+    }
+
+    /// [`Kernel::with_changed_guides`] with an explicit chunk counter contract.
+    fn with_changed_guides_and_counter(
+        guides: usize,
+        counter_contract_id: &str,
+        change: &Change,
+    ) -> Self {
         let kernel = Self::empty();
         kernel.record_collection();
-        kernel.record_chunk_set(&kernel.chunk_set, guides, change);
+        kernel.record_chunk_set_with_counter(
+            &kernel.chunk_set,
+            guides,
+            counter_contract_id,
+            change,
+        );
         kernel
             .database
             .complete_chunk_set(&kernel.chunk_set, &kernel.manifest(&kernel.chunk_set))
@@ -195,12 +214,23 @@ impl Kernel {
     /// guides in it, each guide's changed by `change`, recording each guide's
     /// document, revision and occurrences first.
     fn record_chunk_set(&self, id: &str, guides: usize, change: &Change) {
+        self.record_chunk_set_with_counter(id, guides, "router/1:sha256:test", change);
+    }
+
+    /// Begins the chunk set `id` with its explicit counter contract.
+    fn record_chunk_set_with_counter(
+        &self,
+        id: &str,
+        guides: usize,
+        counter_contract_id: &str,
+        change: &Change,
+    ) {
         self.database
             .begin_chunk_set(&NewChunkSet {
                 id,
                 collection_id: &self.collection,
                 chunk_profile: "mapped-structural-chunks/2",
-                counter_contract_id: "router/1:sha256:test",
+                counter_contract_id,
             })
             .unwrap();
         for guide in 0..guides {

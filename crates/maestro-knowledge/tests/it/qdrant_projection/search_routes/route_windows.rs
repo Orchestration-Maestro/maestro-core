@@ -1,9 +1,14 @@
 //! A route's window comes from the request's budget, less the time the later
 //! stages keep: a route slower than a fixed window still contributes, and
 //! one that outlasts the budget is dropped with the search still ending
-//! within its deadline and evidence assembly keeping its time.
+//! within its deadline and evidence assembly keeping its time. Each search
+//! runs on a stopped clock, which only the doubles' slow answers and the
+//! cutoffs move, however loaded the host.
 
-use super::super::fake::SlowQuery;
+use super::super::{
+    fake::SlowQuery,
+    stopped_clock::{StageEnd, on_stopped_clock},
+};
 use super::configured_search::{Published, clean, context, published};
 use super::models::{self, Answers, SlowReranker};
 use maestro_kernel::{
@@ -15,7 +20,7 @@ use maestro_knowledge::search::{
     evidence::{EvidenceCounter, EvidenceSettings, assemble_evidence},
     search,
 };
-use std::{collections::BTreeMap, time::Duration};
+use std::{collections::BTreeMap, future, time::Duration};
 use tokio::time::Instant;
 use tonic::Code;
 
@@ -27,6 +32,21 @@ const ROUTES_END: Duration = Duration::from_millis(550);
 /// Longer than the fixed 300 ms route window the routes used to have, and
 /// shorter than [`ROUTES_END`].
 const SLOW: Duration = Duration::from_millis(400);
+/// The fixed route window of the experiments' knob.
+const FIXED: Duration = Duration::from_millis(300);
+
+/// When a search's stopped clock may move on to its next cutoff.
+#[derive(Clone, Copy)]
+enum Clock {
+    /// Never: only the doubles' slow answers move it.
+    Held,
+    /// Once the stage span of this name records its outcome, when the other
+    /// routes wait on nothing but a cutoff.
+    HeldUntil(&'static str),
+}
+
+/// Until the lexical route ended, for a search whose dense route hangs.
+const UNTIL_LEXICAL: Clock = Clock::HeldUntil("retrieval.route.lexical");
 
 /// How one search ended.
 struct Searched {
@@ -42,10 +62,15 @@ struct Searched {
     passages: usize,
 }
 
-/// Searches `fixture` for "scheduler" within `deadline`, reranking with a
-/// reranker when `reranks`, then assembles its evidence.
-async fn search_within(fixture: &Published, deadline: Duration, reranks: bool) -> Searched {
-    search_with_window(fixture, deadline, reranks, StageWindow::Derived).await
+/// Searches `fixture` for "scheduler" within `deadline` on `clock`,
+/// reranking with a reranker when `reranks`, then assembles its evidence.
+async fn search_within(
+    fixture: &Published,
+    deadline: Duration,
+    reranks: bool,
+    clock: Clock,
+) -> Searched {
+    search_with_window(fixture, deadline, reranks, StageWindow::Derived, clock).await
 }
 
 /// Searches as [`search_within`] does, with the route window `stage_window`.
@@ -54,6 +79,7 @@ async fn search_with_window(
     deadline: Duration,
     reranks: bool,
     stage_window: StageWindow,
+    clock: Clock,
 ) -> Searched {
     let reranker_card = models::card(Role::Reranker, 3);
     let search_context = context(fixture, reranks.then_some(&reranker_card));
@@ -71,31 +97,40 @@ async fn search_with_window(
             ..SearchConfiguration::default()
         },
     };
-    let started = Instant::now();
-    let input = Box::pin(search(&search_context, &request)).await.unwrap();
-    let elapsed = started.elapsed();
-    let left = input.deadline.saturating_duration_since(Instant::now());
-    let routes = input.routes.clone();
-    let route_hits = input
-        .observations
-        .route_ranks
-        .iter()
-        .map(|(route, ranks)| (*route, ranks.len()))
-        .collect();
-    let bundle = assemble_evidence(
-        fixture.kernel.database.clone(),
-        input,
-        EvidenceCounter::Utf8Bytes,
-    )
-    .await
-    .unwrap();
-    assert!(started.elapsed() < deadline, "{:?}", started.elapsed());
-    Searched {
-        routes,
-        route_hits,
-        elapsed,
-        left,
-        passages: bundle.passages.len(),
+    let searched = async {
+        let started = Instant::now();
+        let input = Box::pin(search(&search_context, &request)).await.unwrap();
+        let elapsed = started.elapsed();
+        let left = input.deadline.saturating_duration_since(Instant::now());
+        let routes = input.routes.clone();
+        let route_hits = input
+            .observations
+            .route_ranks
+            .iter()
+            .map(|(route, ranks)| (*route, ranks.len()))
+            .collect();
+        let bundle = assemble_evidence(
+            fixture.kernel.database.clone(),
+            input,
+            EvidenceCounter::Utf8Bytes,
+        )
+        .await
+        .unwrap();
+        assert!(started.elapsed() < deadline, "{:?}", started.elapsed());
+        Searched {
+            routes,
+            route_hits,
+            elapsed,
+            left,
+            passages: bundle.passages.len(),
+        }
+    };
+    match clock {
+        Clock::Held => on_stopped_clock(future::pending(), searched).await,
+        Clock::HeldUntil(stage) => {
+            let end = StageEnd::watch(stage);
+            on_stopped_clock(end.ended(), searched).await
+        }
     }
 }
 
@@ -148,7 +183,7 @@ async fn a_dense_query_slower_than_a_fixed_window_still_contributes() {
     let fixture = published().await;
     fixture.port.delay_embeddings(Answers::After(SLOW));
 
-    let searched = search_within(&fixture, DEADLINE, false).await;
+    let searched = search_within(&fixture, DEADLINE, false, Clock::Held).await;
 
     assert_contributed(&searched, Route::Dense);
     assert!(searched.elapsed >= SLOW, "{:?}", searched.elapsed);
@@ -160,7 +195,7 @@ async fn a_lexical_query_slower_than_a_fixed_window_still_contributes() {
     let fixture = published().await;
     slow_query(&fixture, "bm25", Some(SLOW), None);
 
-    let searched = search_within(&fixture, DEADLINE, false).await;
+    let searched = search_within(&fixture, DEADLINE, false, Clock::Held).await;
 
     assert_contributed(&searched, Route::Lexical);
     assert!(searched.elapsed >= SLOW, "{:?}", searched.elapsed);
@@ -172,7 +207,7 @@ async fn a_dense_query_outlasting_the_budget_is_dropped_within_the_deadline() {
     let fixture = published().await;
     fixture.port.delay_embeddings(Answers::Never);
 
-    let searched = search_within(&fixture, DEADLINE, false).await;
+    let searched = search_within(&fixture, DEADLINE, false, UNTIL_LEXICAL).await;
 
     assert_dropped_at_the_routes_end(&searched, Route::Dense);
     assert_eq!(searched.routes["lexical"], RouteStatus::Ok);
@@ -185,7 +220,8 @@ async fn a_lexical_query_outlasting_the_budget_is_dropped_within_the_deadline() 
     let fixture = published().await;
     slow_query(&fixture, "bm25", None, None);
 
-    let searched = search_within(&fixture, DEADLINE, false).await;
+    let clock = Clock::HeldUntil("retrieval.route.dense");
+    let searched = search_within(&fixture, DEADLINE, false, clock).await;
 
     assert_dropped_at_the_routes_end(&searched, Route::Lexical);
     assert_eq!(searched.routes["dense"], RouteStatus::Ok);
@@ -199,7 +235,7 @@ async fn evidence_assembly_keeps_its_reserve_behind_a_hanging_route_and_rerank()
     fixture.port = models::Embedder::with_slow_reranker(SlowReranker::Hanging);
     fixture.port.delay_embeddings(Answers::Never);
 
-    let searched = search_within(&fixture, DEADLINE, true).await;
+    let searched = search_within(&fixture, DEADLINE, true, UNTIL_LEXICAL).await;
 
     assert_dropped_at_the_routes_end(&searched, Route::Dense);
     assert_eq!(
@@ -207,8 +243,8 @@ async fn evidence_assembly_keeps_its_reserve_behind_a_hanging_route_and_rerank()
         RouteStatus::Unavailable(DEADLINE_EXCEEDED.to_owned())
     );
     // The rerank ends at 850 ms; the 650 ms after it are assembly's, less
-    // the scheduling of a loaded test host.
-    assert_left(&searched, Duration::from_millis(600));
+    // the millisecond the timer's deadline rounds up to.
+    assert_left(&searched, Duration::from_millis(649));
     clean(&fixture).await;
 }
 
@@ -229,7 +265,7 @@ async fn a_slow_refused_connection_ends_its_route_with_its_own_reason() {
         );
     }
 
-    let searched = search_within(&fixture, DEADLINE, false).await;
+    let searched = search_within(&fixture, DEADLINE, false, Clock::Held).await;
 
     assert_eq!(
         searched.routes["dense"],
@@ -247,13 +283,14 @@ async fn a_slow_refused_connection_ends_its_route_with_its_own_reason() {
 #[tokio::test]
 async fn a_fixed_window_for_experiments_drops_a_route_slower_than_it() {
     let fixture = published().await;
-    fixture.port.delay_embeddings(Answers::After(SLOW));
+    fixture.port.delay_embeddings(Answers::Never);
 
     let searched = search_with_window(
         &fixture,
         DEADLINE,
         false,
-        StageWindow::Fixed(Duration::from_millis(300)),
+        StageWindow::Fixed(FIXED),
+        UNTIL_LEXICAL,
     )
     .await;
 
@@ -261,6 +298,11 @@ async fn a_fixed_window_for_experiments_drops_a_route_slower_than_it() {
         searched.routes["dense"],
         RouteStatus::Unavailable(DEADLINE_EXCEEDED.to_owned())
     );
-    assert!(searched.elapsed < SLOW, "{:?}", searched.elapsed);
+    // The window, not the routes' end, dropped it.
+    assert!(
+        FIXED <= searched.elapsed && searched.elapsed < SLOW,
+        "{:?}",
+        searched.elapsed
+    );
     clean(&fixture).await;
 }

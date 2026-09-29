@@ -51,7 +51,7 @@ fn truncation_keeps_the_highest_ranked_real_passage_and_counts_drops() {
         [1]
     );
     assert_eq!(
-        bounded.bundle.budget.evidence_tokens as usize,
+        bounded.bundle.budget.evidence_bytes as usize,
         serde_json::to_vec(&bounded.bundle.passages).unwrap().len()
     );
     assert!(serde_json::to_value(&bounded.bundle).is_ok());
@@ -150,7 +150,7 @@ fn inventory_is_reduced_only_after_all_oversized_passages_are_dropped() {
         sets.len() + bounded.truncation.inventory_items,
         total_groups
     );
-    assert_eq!(bounded.bundle.budget.evidence_tokens, 0);
+    assert_eq!(bounded.bundle.budget.evidence_bytes, 0);
     assert!(
         bounded
             .bundle
@@ -198,7 +198,7 @@ fn assert_reduced_text_and_warning(result: &CallToolResult) {
 }
 
 fn bundle(passages: Vec<Passage>, group_count: usize) -> Bundle {
-    let evidence_tokens = u32::try_from(serde_json::to_vec(&passages).unwrap().len()).unwrap();
+    let evidence_bytes = u32::try_from(serde_json::to_vec(&passages).unwrap().len()).unwrap();
     let groups = (0..group_count)
         .map(|number| InventoryCount {
             value: Some(format!("{number:04}-{}", "x".repeat(26))),
@@ -222,7 +222,7 @@ fn bundle(passages: Vec<Passage>, group_count: usize) -> Bundle {
             .collect(),
         known_gaps: Vec::new(),
         budget: Budget {
-            evidence_tokens,
+            evidence_bytes,
             limit: 12_000,
             counter: Some("evidence-utf8-bytes/1".to_owned()),
             estimated: true,
@@ -261,6 +261,7 @@ fn passage(number: u32, text: &str) -> Passage {
 
 fn trace(number: u32) -> Trace {
     Trace {
+        parent_context_of: Vec::new(),
         n: number,
         score: None,
         routes: vec!["identifier".to_owned()],

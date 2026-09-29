@@ -18,8 +18,10 @@ use crate::{
     },
 };
 use maestro_kernel::{
-    evidence::Bundle,
-    gateway::{Error as GatewayError, Message, ModelPort, Role, Room, RouterEntry, Speaker},
+    evidence::{Bundle, RequestBudget},
+    gateway::{
+        Error as GatewayError, Message, ModelPort, Role, Room, RouterEntry, Speaker, reply_cap,
+    },
 };
 use std::collections::BTreeMap;
 use tokio::time::timeout;
@@ -120,9 +122,10 @@ pub(super) async fn answer_relevant<P: ModelPort + Sync>(
     plan: AnswerPlan<'_>,
 ) -> Result<Answer, AskError> {
     if plan.is_below_threshold() {
-        let language = response_language(request);
+        let language = speaking(request, plan.answer_prompt);
+        let message = below_threshold_message(language.texts);
         let response = ResponseContext::new(request, &bundle, answerer, language)?;
-        return Ok(response.refused(RefusalCode::NoEvidence, below_threshold_message(language)));
+        return Ok(response.refused(RefusalCode::NoEvidence, message));
     }
     answer_bundle(port, request, answerer, bundle, plan.answer_prompt).await
 }
@@ -149,12 +152,49 @@ fn validate_request(request: &AskRequest) -> Result<(), AskError> {
     if RouterEntry::parse(&request.model).is_err() {
         return Err(AskError::InvalidRequest("model must be one router entry"));
     }
+    if !(1..=RequestBudget::MAX_EVIDENCE_BUDGET).contains(&request.budget.evidence_bytes) {
+        const _: () = assert!(RequestBudget::MAX_EVIDENCE_BUDGET == 24_000);
+        return Err(AskError::InvalidRequest(
+            "evidence_bytes must be between 1 and 24000",
+        ));
+    }
     if !request.budget.is_within_limits() {
         return Err(AskError::InvalidRequest(
             "ask budget is outside accepted limits",
         ));
     }
     Ok(())
+}
+
+/// The language a response speaks: its host-owned texts', and the tag its
+/// `lang` reports.
+#[derive(Debug, Clone)]
+struct Speaking {
+    /// The language of the host-owned texts: French for a French tag,
+    /// English for every other.
+    texts: ResponseLanguage,
+    /// The tag `lang` reports.
+    tag: String,
+}
+
+/// The explicit language `answer_prompt` presents, else the question's.
+fn speaking(request: &AskRequest, answer_prompt: &AnswerPrompt) -> Speaking {
+    if let Some(tag) = &answer_prompt.presentation().language {
+        let french = tag.split('-').next() == Some(ResponseLanguage::French.code());
+        return Speaking {
+            texts: if french {
+                ResponseLanguage::French
+            } else {
+                ResponseLanguage::English
+            },
+            tag: tag.clone(),
+        };
+    }
+    let texts = response_language(request);
+    Speaking {
+        texts,
+        tag: texts.code().to_owned(),
+    }
 }
 
 /// Best-effort response metadata; an unknown question language is not a refusal.
@@ -175,7 +215,7 @@ pub(super) async fn answer_bundle<P: ModelPort + Sync>(
     answer_prompt: &AnswerPrompt,
 ) -> Result<Answer, AskError> {
     validate_request(request)?;
-    let language = response_language(request);
+    let language = speaking(request, answer_prompt);
     let response = ResponseContext::new(request, &bundle, answerer, language)?;
     if bundle.passages.is_empty() {
         return Ok(response.refusal(RefusalCode::NoEvidence));
@@ -185,10 +225,11 @@ pub(super) async fn answer_bundle<P: ModelPort + Sync>(
     };
     check_answerer(request, answerer)?;
 
+    let reply_cap = reply_cap(&answerer.card, request.budget.output_tokens);
     let mut messages = prompt(request, &bundle, answer_prompt)?;
     let mut rejections = Vec::new();
     for attempt in 1..=2 {
-        let chat = chat_request(request, answerer, messages.clone());
+        let chat = chat_request(answerer, messages.clone(), reply_cap);
         let result = timeout(CHAT_DEADLINE, port.chat(&answerer.card, Room::Free, &chat))
             .await
             .map_err(|_| AskError::TimedOut)?;
@@ -196,10 +237,10 @@ pub(super) async fn answer_bundle<P: ModelPort + Sync>(
             Ok(reply) => match validate_reply(&reply, request, &bundle) {
                 Ok(Reply::NotFound) => {
                     let refusal = response.refusal(RefusalCode::NotFound);
-                    return Ok(explained(refusal, rejections));
+                    return Ok(explained(refusal, rejections, reply_cap));
                 }
                 Ok(Reply::Answer(valid)) => {
-                    return Ok(explained(response.answer(valid)?, rejections));
+                    return Ok(explained(response.answer(valid)?, rejections, reply_cap));
                 }
                 Err(invalid) => (reply, invalid),
             },
@@ -220,13 +261,15 @@ pub(super) async fn answer_bundle<P: ModelPort + Sync>(
         });
     }
     let refusal = response.refusal(RefusalCode::Unsupported);
-    Ok(explained(refusal, rejections))
+    Ok(explained(refusal, rejections, reply_cap))
 }
 
-/// Attaches the attempts rejected before `answer` for a local explanation.
-fn explained(answer: Answer, rejections: Vec<Rejection>) -> Answer {
+/// Attaches the attempts rejected before `answer` and the `reply_cap` its
+/// chat calls ran with, for a local explanation.
+fn explained(answer: Answer, rejections: Vec<Rejection>, reply_cap: u32) -> Answer {
     Answer {
         rejections,
+        reply_cap: Some(reply_cap),
         ..answer
     }
 }
@@ -261,7 +304,8 @@ fn check_answerer(request: &AskRequest, answerer: &RegisteredAnswerer) -> Result
         .fields()
         .limits
         .output_tokens
-        .is_some_and(|limit| request.budget.output_tokens > limit.get())
+        .zip(request.budget.output_tokens)
+        .is_some_and(|(limit, requested)| requested > limit.get())
     {
         return Err(AskError::InvalidRequest(
             "output limit exceeds the registered answerer card",
@@ -276,8 +320,8 @@ struct ResponseContext<'a> {
     request: &'a AskRequest,
     /// The verified evidence bundle that bounds the answer.
     bundle: &'a Bundle,
-    /// The checked response language.
-    language: ResponseLanguage,
+    /// The response language.
+    language: Speaking,
     /// The registered answerer identity, when one is available.
     answerer: Option<&'a RegisteredAnswerer>,
     /// Source-resolved citation metadata indexed by passage number.
@@ -292,7 +336,7 @@ impl<'a> ResponseContext<'a> {
         request: &'a AskRequest,
         bundle: &'a Bundle,
         answerer: Option<&'a RegisteredAnswerer>,
-        language: ResponseLanguage,
+        language: Speaking,
     ) -> Result<Self, AskError> {
         let passages = citation_metadata(bundle)?;
         let closest = passages.values().take(CLOSEST_LIMIT).cloned().collect();
@@ -308,7 +352,7 @@ impl<'a> ResponseContext<'a> {
 
     /// Builds a host-written refusal without returning passage text.
     fn refusal(&self, code: RefusalCode) -> Answer {
-        self.refused(code, refusal_message(code, self.language))
+        self.refused(code, refusal_message(code, self.language.texts))
     }
 
     /// Builds a refusal with `code` and the host-written `message`.
@@ -318,7 +362,7 @@ impl<'a> ResponseContext<'a> {
             collection: self.bundle.collection.clone(),
             generation: self.bundle.generation,
             question: self.request.question.clone(),
-            lang: self.language.code().to_owned(),
+            lang: self.language.tag.clone(),
             answer: String::new(),
             citations: Vec::new(),
             model: model_metadata(self.request, self.answerer),
@@ -331,6 +375,7 @@ impl<'a> ResponseContext<'a> {
             rejections: Vec::new(),
             routes: self.bundle.routes.clone(),
             delivered: self.bundle.passages.iter().map(Anchor::from).collect(),
+            reply_cap: None,
         }
     }
 
@@ -351,7 +396,7 @@ impl<'a> ResponseContext<'a> {
             collection: self.bundle.collection.clone(),
             generation: self.bundle.generation,
             question: self.request.question.clone(),
-            lang: self.language.code().to_owned(),
+            lang: self.language.tag.clone(),
             answer: valid.text,
             citations,
             model: model_metadata(self.request, self.answerer),
@@ -361,6 +406,7 @@ impl<'a> ResponseContext<'a> {
             rejections: Vec::new(),
             routes: self.bundle.routes.clone(),
             delivered: self.bundle.passages.iter().map(Anchor::from).collect(),
+            reply_cap: None,
         })
     }
 }
@@ -375,7 +421,12 @@ fn citation_metadata(bundle: &Bundle) -> Result<BTreeMap<u32, AnswerCitation>, A
                 .trace
                 .iter()
                 .find(|trace| trace.n == passage.n)
-                .and_then(|trace| trace.chunk_ids.first())
+                .and_then(|trace| {
+                    trace
+                        .chunk_ids
+                        .first()
+                        .or_else(|| trace.parent_context_of.first())
+                })
                 .cloned()
                 .ok_or(AskError::EvidenceIntegrity)?;
             Ok((

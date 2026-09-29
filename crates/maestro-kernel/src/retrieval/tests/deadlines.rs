@@ -9,6 +9,21 @@ use std::{
 };
 
 #[test]
+fn read_control_rejects_deadline_and_cancellation() {
+    let expired = ReadControl {
+        deadline: Instant::now(),
+        cancelled: Arc::new(AtomicBool::new(false)),
+    };
+    assert!(matches!(expired.check(), Err(Error::TimedOut)));
+
+    let cancelled = ReadControl {
+        deadline: Instant::now() + Duration::from_secs(5),
+        cancelled: Arc::new(AtomicBool::new(true)),
+    };
+    assert!(matches!(cancelled.check(), Err(Error::Cancelled)));
+}
+
+#[test]
 fn preexpired_and_cancelled_reads_stop_before_opening_sql() {
     let search = SearchDb::new("Install the tool with --force.");
     let expired = ReadControl {

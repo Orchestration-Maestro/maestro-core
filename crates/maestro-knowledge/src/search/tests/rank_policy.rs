@@ -1,4 +1,4 @@
-use super::rerank::candidate;
+use super::{rerank::candidate, section_prior::apply};
 use crate::search::{
     Ranked, SectionClassSet, SectionPrior,
     rank_policy::{blend, cap_demotion},
@@ -153,13 +153,16 @@ fn section_prior_is_soft_stable_and_keeps_scores() {
     ];
     let original = ranked.clone();
     let penalized = BTreeSet::from(["generic".to_owned()]);
-    SectionPrior::Off.apply(&mut ranked, &penalized);
+    apply(SectionPrior::Off, &mut ranked, &penalized);
     assert_eq!(ranked, original);
-    SectionPrior::Soft {
-        weight: 0.75,
-        classes: SectionClassSet::default(),
-    }
-    .apply(&mut ranked, &penalized);
+    apply(
+        SectionPrior::Soft {
+            weight: 0.75,
+            classes: SectionClassSet::default(),
+        },
+        &mut ranked,
+        &penalized,
+    );
     assert_eq!(ids(&ranked), ["procedure", "other", "generic"]);
     assert_eq!(ranked[2], original[0]);
 }

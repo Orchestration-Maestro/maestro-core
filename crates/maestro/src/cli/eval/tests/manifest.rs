@@ -6,14 +6,15 @@ use super::{
 };
 use crate::{cli::output::Output, failure::Failure};
 use maestro_knowledge::search::{
-    CandidateContext, SearchConfiguration, SectionClassSet, SectionPrior, StageWindow,
+    CandidateContext, SearchConfiguration, SectionClassSet, SectionPrior, SourceClassSet,
+    SourcePrior, StageWindow,
 };
 use maestro_test_scratch::scratch_directory;
 use serde_json::{Value, json};
 use std::{fs, num::NonZeroU32, path::Path, time::Duration};
 
 /// A manifest of the rungs `r0` and `r1`.
-fn manifest() -> Value {
+pub(super) fn manifest() -> Value {
     json!({
         "schema": "maestro-ladder-manifest/1",
         "suite": "suite.jsonl",
@@ -40,12 +41,12 @@ fn manifest() -> Value {
 }
 
 /// The manifest `value`, parsed from the directory `/ladder`.
-fn parse(value: &Value) -> Result<Manifest, Failure> {
+pub(super) fn parse(value: &Value) -> Result<Manifest, Failure> {
     Manifest::parse(&value.to_string(), Path::new("/ladder"))
 }
 
 /// The reason `value` is refused.
-fn refusal(value: &Value) -> String {
+pub(super) fn refusal(value: &Value) -> String {
     match parse(value) {
         Err(Failure::Refused(reason)) => reason,
         other => panic!("expected a refusal, got {other:?}"),
@@ -166,7 +167,7 @@ fn each_rung_search_would_refuse_is_refused() {
         (
             "/rungs/1/configuration/rerank/depth",
             json!(121),
-            "more than 120",
+            "cannot exceed its fusion pool",
         ),
         (
             "/rungs/1/configuration/rerank/card",
@@ -345,4 +346,143 @@ fn rank_knobs_round_trip_and_refuse_unknown_or_out_of_range_values() {
         *invalid_value.pointer_mut(pointer).unwrap() = invalid;
         assert!(parse(&invalid_value).is_err(), "{pointer}");
     }
+}
+
+#[test]
+fn the_source_prior_defaults_to_official_first_and_is_set_per_rung() {
+    let mut value = manifest();
+    let parsed = parse(&value).unwrap();
+    let default = &parsed.rungs[1].configuration;
+    assert_eq!(default.search().source_prior, SourcePrior::default());
+    assert!(
+        serde_json::to_value(default)
+            .unwrap()
+            .get("source_prior")
+            .is_none()
+    );
+
+    value["rungs"][0]["configuration"]["source_prior"] = json!({"mode": "off"});
+    value["rungs"][1]["configuration"]["source_prior"] =
+        json!({"mode": "soft", "weight": 0.25, "classes": ["community", "third_party"]});
+    let parsed = parse(&value).unwrap();
+    assert_eq!(
+        parsed.rungs[0].configuration.search().source_prior,
+        SourcePrior::Off
+    );
+    let mut classes = SourceClassSet::default();
+    assert!(classes.insert("community"));
+    assert!(classes.insert("third_party"));
+    let config = &parsed.rungs[1].configuration;
+    assert_eq!(
+        config.search().source_prior,
+        SourcePrior::Soft {
+            weight: 0.25,
+            classes
+        }
+    );
+    assert_eq!(
+        serde_json::to_value(config).unwrap()["source_prior"]["classes"],
+        json!(["community", "third_party"])
+    );
+    for (pointer, invalid) in [
+        ("/rungs/1/configuration/source_prior/weight", json!(1.01)),
+        ("/rungs/1/configuration/source_prior/weight", json!(-0.01)),
+        (
+            "/rungs/1/configuration/source_prior/classes",
+            json!(["vendor"]),
+        ),
+    ] {
+        let mut invalid_value = value.clone();
+        *invalid_value.pointer_mut(pointer).unwrap() = invalid;
+        assert!(parse(&invalid_value).is_err(), "{pointer}");
+    }
+}
+
+#[test]
+fn the_identifier_noise_guard_is_off_unless_a_rung_turns_it_on() {
+    let mut value = manifest();
+    let parsed = parse(&value).unwrap();
+    let default = &parsed.rungs[1].configuration;
+    assert!(!default.search().identifier_noise_guard);
+    assert!(
+        serde_json::to_value(default)
+            .unwrap()
+            .get("identifier_noise_guard")
+            .is_none()
+    );
+
+    value["rungs"][1]["configuration"]["identifier_noise_guard"] = json!(true);
+    let parsed = parse(&value).unwrap();
+    let guarded = &parsed.rungs[1].configuration;
+    assert!(guarded.search().identifier_noise_guard);
+    assert!(
+        !parsed.rungs[0]
+            .configuration
+            .search()
+            .identifier_noise_guard
+    );
+    assert_eq!(
+        serde_json::to_value(guarded).unwrap()["identifier_noise_guard"],
+        json!(true)
+    );
+}
+
+#[test]
+fn route_limits_and_fusion_pool_are_configurable_and_bounded() {
+    let mut value = manifest();
+    let configuration = &mut value["rungs"][1]["configuration"];
+    configuration["routes_limit"] = json!(64);
+    configuration["identifier_limit"] = json!(8);
+    configuration["fusion_pool"] = json!(40);
+    configuration["rerank"]["depth"] = json!(41);
+    assert!(refusal(&value).contains("rerank depth cannot exceed its fusion pool"));
+
+    value["rungs"][1]["configuration"]["rerank"]["depth"] = json!(40);
+    let parsed = parse(&value).unwrap();
+    let search = parsed.rungs[1].configuration.search();
+    assert_eq!(search.routes_limit, 64);
+    assert_eq!(search.identifier_limit, 8);
+    assert_eq!(search.fusion_pool, 40);
+
+    value["rungs"][1]["configuration"]["fusion_pool"] = json!(121);
+    assert!(refusal(&value).contains("fusion_pool must be between 1 and 120"));
+    value["rungs"][1]["configuration"]["fusion_pool"] = json!(40);
+    value["rungs"][1]["configuration"]["routes_limit"] = json!(0);
+    assert!(refusal(&value).contains("routes_limit must be between 1 and 120"));
+    value["rungs"][1]["configuration"]["routes_limit"] = json!(100);
+    for limit in [0, 121] {
+        value["rungs"][1]["configuration"]["identifier_limit"] = json!(limit);
+        assert!(refusal(&value).contains("identifier_limit must be between 1 and 120"));
+    }
+}
+
+#[test]
+fn search_budget_is_checked_during_manifest_parse() {
+    let mut value = manifest();
+    value["rungs"][0]["search_budget"] =
+        json!({"k": 5, "evidence_bytes": 24001, "deadline_ms": 30000});
+    assert!(refusal(&value).contains("over the 24000-byte ceiling"));
+
+    value["rungs"][0]["search_budget"] =
+        json!({"k": 5, "evidence_bytes": 6000, "deadline_ms": 30000});
+    value["rungs"][0]["ask"] = json!(true);
+    assert!(refusal(&value).contains("search_budget requires ask false"));
+}
+
+#[test]
+fn search_only_parent_chain_settings_are_optional_and_validated() {
+    let mut value = manifest();
+    value["rungs"][0]["configuration"]["evidence_expansion"] = json!("parent_chain");
+    value["rungs"][0]["configuration"]["parent_chain_order"] = json!("largest_fitting_parent");
+    assert!(parse(&value).is_ok());
+    value["rungs"][0]["configuration"]["evidence_expansion"] = json!("full_section");
+    assert!(parse(&value).is_err());
+
+    value["rungs"][0]["ask"] = json!(true);
+    value["rungs"][0]["configuration"]["evidence_expansion"] = json!("relevant_blocks");
+    value["rungs"][0]["configuration"]
+        .as_object_mut()
+        .unwrap()
+        .remove("parent_chain_order");
+    assert!(refusal(&value).contains("search-only evidence settings"));
 }

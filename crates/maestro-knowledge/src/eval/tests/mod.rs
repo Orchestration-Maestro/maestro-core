@@ -18,6 +18,7 @@ mod ladder_spans;
 mod metrics;
 mod ranking;
 mod report;
+mod reranker_health;
 mod run;
 mod support;
 mod v2;

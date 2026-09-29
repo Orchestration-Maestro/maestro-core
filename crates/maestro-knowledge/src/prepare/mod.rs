@@ -19,8 +19,10 @@
 //! they occur kept as an occurrence; near duplicates are grouped with their
 //! confirmed Jaccard, never deleted; and each revision's chunks are cut by
 //! maestro-canonicalization's chunker under the chunking profile its
-//! [`Preparation`] names, `mapped-structural-chunks/2` by default, each with
-//! its exact prepared input stored as the artifact its digest names. A
+//! [`Preparation`] names. In this crate, `ChunkProfile::default()` remains
+//! `mapped-structural-chunks/2`, while maestro-settings selects `/3` as the
+//! default for collection preparation and publish. Each chunk has its exact
+//! prepared input stored as the artifact its digest names. A
 //! revision the chunker refuses, such as one with a unit that cannot fit 700
 //! tokens with its context, gets no chunk, and its refusal, which names the
 //! unit, is recorded with the chunk set. The chunk set completes with its

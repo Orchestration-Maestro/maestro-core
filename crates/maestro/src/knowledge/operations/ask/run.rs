@@ -2,30 +2,42 @@
 
 use super::super::{
     implementation::{KnowledgeError, Scoped, kernel_failure, kernel_open_failure},
-    search::{evidence_failure, integrity_failure, local_search_context, search_failure},
+    search::{
+        SearchCards, bound_source_classes, evidence_failure, integrity_failure,
+        local_search_context, search_failure, selected_answerer, selected_reranker,
+    },
 };
 use crate::{
     cli::health::{QDRANT_VARIABLE, ROUTER_VARIABLE, qdrant_url, router_url},
     failure::Failure,
     kernel::{Kernel, pinned_embedder},
+    settings::{Compute, KnowledgeSettings},
 };
 use maestro_kernel::{
     gateway::{ModelCard, Role, RouterClient},
-    generation::Generation,
     scope::ScopeSet,
 };
 use maestro_knowledge::{
-    answer::{Answer, AnswerContext, AskError, AskRequest, RegisteredAnswerer, ask},
+    answer::{Answer, AnswerContext, AskError, AskRequest, RegisteredAnswerer, ask_configured},
     index::Qdrant,
 };
 use std::env;
 use tokio::runtime::Builder;
 
-/// Opens the local kernel, resolves its scoped cards and runs one buffered ask.
+/// Opens the local kernel, resolves its scoped cards and runs one buffered
+/// ask under `settings`; refused, before the kernel opens, when models are
+/// off.
 pub(crate) fn ask_with(
     open_kernel: impl FnOnce() -> Result<Kernel, Failure>,
     request: &AskRequest,
+    settings: &KnowledgeSettings,
 ) -> Result<Scoped<Answer>, KnowledgeError> {
+    if settings.compute == Compute::Off {
+        return Err(KnowledgeError::Refused {
+            code: "models_off",
+            message: "models.compute is off: ask needs a model; use knowledge search",
+        });
+    }
     let kernel = open_kernel().map_err(|failure| kernel_open_failure(&failure))?;
     let scopes = kernel.scopes.clone();
     let current = kernel
@@ -38,7 +50,7 @@ pub(crate) fn ask_with(
             .as_ref()
             .map(|generation| generation.embedding_profile.as_str()),
     );
-    let reranker_card = reranker_card(&kernel, &scopes, &request.collection, current.as_ref())?;
+    let reranker_card = selected_reranker(&kernel.database, &scopes, &request.collection)?;
     let answerer = registered_answerer(&kernel, &scopes, request)?;
     let router_url = router_url(env::var_os(ROUTER_VARIABLE).as_deref()).map_err(|_| {
         KnowledgeError::Refused {
@@ -52,13 +64,18 @@ pub(crate) fn ask_with(
         code: "invalid_configuration",
         message: "the search service URL is invalid",
     })?;
-    let search = local_search_context(
+    let intent_card = selected_answerer(&kernel.database, &scopes, &request.collection)?;
+    let mut search = local_search_context(
         &kernel.database,
         &qdrant,
         &port,
-        embedder_card.as_ref(),
-        reranker_card.as_ref(),
+        SearchCards {
+            embedder: embedder_card.as_ref(),
+            reranker: reranker_card.as_ref(),
+            intent: intent_card.as_ref(),
+        },
     );
+    search.source_classes = bound_source_classes(&kernel.config_dir)?;
     let context = AnswerContext {
         search,
         port: &port,
@@ -68,33 +85,21 @@ pub(crate) fn ask_with(
         .enable_all()
         .build()
         .map_err(|_| kernel_failure())?;
+    let asked = ask_configured(
+        &context,
+        request,
+        settings.search,
+        settings.evidence,
+        &settings.prompt,
+    );
     let data = runtime
-        .block_on(ask(&context, request))
+        .block_on(asked)
         .map_err(|error| answer_failure(&error))?;
     Ok(Scoped {
         data,
         kernel,
         scopes,
     })
-}
-
-/// Loads the generation-matched selected reranker, if one is selected.
-pub(super) fn reranker_card(
-    kernel: &Kernel,
-    scopes: &ScopeSet,
-    collection: &str,
-    generation: Option<&Generation>,
-) -> Result<Option<ModelCard>, KnowledgeError> {
-    let Some(generation) = generation else {
-        return Ok(None);
-    };
-    let selected = kernel
-        .database
-        .selected_model_card(scopes, collection, Role::Reranker)
-        .map_err(|_| kernel_failure())?;
-    Ok(selected
-        .filter(|selected| selected.evaluation.generation_id == Some(generation.id))
-        .map(|selected| selected.card))
 }
 
 /// Resolves the latest registered answerer with the requested router entry,

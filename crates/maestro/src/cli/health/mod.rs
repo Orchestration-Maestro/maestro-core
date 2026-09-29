@@ -9,6 +9,7 @@ pub(super) mod doctor;
 mod findings;
 mod kernel;
 mod services;
+mod settings;
 pub(super) mod status;
 #[cfg(test)]
 mod tests;

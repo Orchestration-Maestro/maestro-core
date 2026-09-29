@@ -4,9 +4,14 @@ use super::{
     super::requests::SearchRequest,
     implementation::{KnowledgeError, Scoped, ensure_current_scopes},
 };
-use crate::kernel::{Kernel, pinned_embedder};
+use crate::{
+    kernel::{Kernel, pinned_embedder},
+    knowledge::source_classes,
+    settings::KnowledgeSettings,
+};
 use maestro_kernel::{
-    evidence::Bundle,
+    binding::Bindings,
+    evidence::{Bundle, RequestBudget},
     gateway::{ModelCard, ModelPort, Role},
     scope::{LOCAL, ScopeSet},
     store::Database,
@@ -14,13 +19,14 @@ use maestro_kernel::{
 use maestro_knowledge::{
     index::Qdrant,
     search::{
-        Reranker, SearchContext, SearchError, SearchRequest as PipelineRequest,
+        HydeExpander, QueryExpander, Reranker, SearchContext, SearchError,
+        SearchRequest as PipelineRequest, SourceClassifier,
         evidence::{EvidenceError, assemble_evidence},
         routes::{dense::Embedder, error::RouteError},
         search,
     },
 };
-use std::sync::Arc;
+use std::{path::Path, sync::Arc};
 use tokio::{task::spawn_blocking, time::Instant};
 
 /// The bundle plus its request-entry cutoff for bounded transport formatting.
@@ -29,30 +35,51 @@ pub(crate) struct SearchData {
     pub(crate) bundle: Bundle,
     /// T032's accepted deadline, enforced through formatting and delivery.
     pub(crate) deadline: Instant,
+    /// The source classifier the search ranked with, for the text view's
+    /// labels.
+    pub(crate) source_classes: Option<Arc<dyn SourceClassifier>>,
+}
+
+/// The cards one search runs with, all optional.
+#[derive(Clone, Copy, Default)]
+pub(crate) struct SearchCards<'a> {
+    /// The embedder of the generation's dense vectors.
+    pub(crate) embedder: Option<&'a ModelCard>,
+    /// The reranker.
+    pub(crate) reranker: Option<&'a ModelCard>,
+    /// The answerer that expands queries when a request turns expansion
+    /// on; a card that cannot expand leaves search without an expander.
+    pub(crate) intent: Option<&'a ModelCard>,
 }
 
 /// The local principal's search context over `database` and `qdrant`, with
-/// the embedder and the reranker of the cards given, both served by `port`.
-pub(crate) fn local_search_context<'a, P>(
+/// the models of `cards`, all served by `port`.
+pub(crate) fn local_search_context<'a, P: ModelPort + Sync>(
     database: &Arc<Database>,
     qdrant: &'a Qdrant,
     port: &'a P,
-    embedder: Option<&'a ModelCard>,
-    reranker: Option<&'a ModelCard>,
+    cards: SearchCards<'a>,
 ) -> SearchContext<'a, P> {
     SearchContext {
+        intent_expander: cards
+            .intent
+            .and_then(|card| HydeExpander::new(port, card).ok())
+            .map(|expander| Box::new(expander) as Box<dyn QueryExpander + 'a>),
         database: Arc::clone(database),
         principal: LOCAL,
         qdrant,
-        embedder: embedder.map(|card| Embedder { port, card }),
-        reranker: reranker.map(|card| Reranker { port, card }),
+        embedder: cards.embedder.map(|card| Embedder { port, card }),
+        reranker: cards.reranker.map(|card| Reranker { port, card }),
+        source_classes: None,
     }
 }
 
-/// Searches through the pinned generation and assembles its canonical evidence.
-pub(crate) async fn search_with<P: ModelPort>(
+/// Searches through the pinned generation under `settings` and assembles its
+/// canonical evidence.
+pub(crate) async fn search_with<P: ModelPort + Sync>(
     kernel: Kernel,
     request: &SearchRequest,
+    settings: &KnowledgeSettings,
     model_port: &P,
     qdrant: &Qdrant,
 ) -> Result<Scoped<SearchData>, KnowledgeError> {
@@ -63,7 +90,8 @@ pub(crate) async fn search_with<P: ModelPort>(
     let card_scopes = scopes.clone();
     let artifacts = kernel.artifacts.clone();
     let collection = request.collection.clone();
-    let (embedder, reranker) = spawn_blocking(move || {
+    let config_dir = kernel.config_dir.clone();
+    let (embedder, reranker, intent, source_classes) = spawn_blocking(move || {
         let generation = card_database
             .published_generation(&card_scopes, &collection)
             .map_err(|_| kernel_failure())?;
@@ -74,23 +102,24 @@ pub(crate) async fn search_with<P: ModelPort>(
                 .map(|generation| generation.embedding_profile.as_str()),
         );
         let reranker = selected_reranker(&card_database, &card_scopes, &collection)?;
-        Ok::<_, KnowledgeError>((embedder, reranker))
+        let intent = selected_answerer(&card_database, &card_scopes, &collection)?;
+        let source_classes = bound_source_classes(&config_dir)?;
+        Ok::<_, KnowledgeError>((embedder, reranker, intent, source_classes))
     })
     .await
     .map_err(|_| kernel_failure())??;
-    let context = local_search_context(
+    let mut context = local_search_context(
         &database,
         qdrant,
         model_port,
-        embedder.as_ref(),
-        reranker.as_ref(),
+        SearchCards {
+            embedder: embedder.as_ref(),
+            reranker: reranker.as_ref(),
+            intent: intent.as_ref(),
+        },
     );
-    let pipeline_request = PipelineRequest::new(
-        &request.collection,
-        &request.query,
-        request.version.as_deref(),
-        budget,
-    );
+    context.source_classes.clone_from(&source_classes);
+    let pipeline_request = pipeline_request(request, settings, budget);
     let input = search(&context, &pipeline_request)
         .await
         .map_err(|error| search_failure(&error))?;
@@ -117,10 +146,54 @@ pub(crate) async fn search_with<P: ModelPort>(
         return Err(deadline_failure());
     }
     Ok(Scoped {
-        data: SearchData { bundle, deadline },
+        data: SearchData {
+            bundle,
+            deadline,
+            source_classes,
+        },
         kernel,
         scopes,
     })
+}
+
+/// Builds the search pipeline input with the caller's effective settings.
+pub(super) fn pipeline_request<'a>(
+    request: &'a SearchRequest,
+    settings: &KnowledgeSettings,
+    budget: RequestBudget,
+) -> PipelineRequest<'a> {
+    PipelineRequest {
+        configuration: settings.search,
+        evidence: settings.evidence,
+        ..PipelineRequest::new(
+            &request.collection,
+            &request.query,
+            request.version.as_deref(),
+            budget,
+        )
+    }
+}
+
+/// The table the `source_classes` binding names, if any.
+///
+/// # Errors
+///
+/// `invalid_configuration` when the bindings file is invalid, or the bound
+/// table cannot be read or is invalid, each with its own message.
+pub(super) fn bound_source_classes(
+    config_dir: &Path,
+) -> Result<Option<Arc<dyn SourceClassifier>>, KnowledgeError> {
+    Bindings::load(config_dir).map_err(|_| KnowledgeError::Refused {
+        code: "invalid_configuration",
+        message: "the bindings file is invalid; run `maestro doctor`",
+    })?;
+    match source_classes::load(config_dir) {
+        Ok(table) => Ok(table.map(|table| table as Arc<dyn SourceClassifier>)),
+        Err(_) => Err(KnowledgeError::Refused {
+            code: "invalid_configuration",
+            message: "the source-class table is invalid",
+        }),
+    }
 }
 
 /// Freezes the configured real reranker once for this request.
@@ -129,8 +202,28 @@ pub(super) fn selected_reranker(
     scopes: &ScopeSet,
     collection: &str,
 ) -> Result<Option<ModelCard>, KnowledgeError> {
+    selected_card(database, scopes, collection, Role::Reranker)
+}
+
+/// Freezes the collection's selected answerer once for this request: the
+/// card that expands queries when a request turns expansion on.
+pub(super) fn selected_answerer(
+    database: &Database,
+    scopes: &ScopeSet,
+    collection: &str,
+) -> Result<Option<ModelCard>, KnowledgeError> {
+    selected_card(database, scopes, collection, Role::Answerer)
+}
+
+/// The card selected for `role` in `collection`, if any.
+fn selected_card(
+    database: &Database,
+    scopes: &ScopeSet,
+    collection: &str,
+    role: Role,
+) -> Result<Option<ModelCard>, KnowledgeError> {
     Ok(database
-        .selected_model_card(scopes, collection, Role::Reranker)
+        .selected_model_card(scopes, collection, role)
         .map_err(|_| kernel_failure())?
         .map(|selected| selected.card))
 }

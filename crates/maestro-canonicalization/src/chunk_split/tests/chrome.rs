@@ -15,6 +15,14 @@ fn a_paragraph_of_an_xml_element_with_attributes_stays_indexed() {
 }
 
 #[test]
+fn a_self_closing_known_element_is_page_chrome() {
+    assert_eq!(
+        prepared("# Image\n\n<img/>\n\nCaption.\n"),
+        ["Image\n\nCaption."]
+    );
+}
+
+#[test]
 fn a_paragraph_of_a_placeholder_element_stays_indexed() {
     let markdown = "# Paths\n\nReplace the placeholder:\n\n<name>\n";
     let texts = prepared(markdown);

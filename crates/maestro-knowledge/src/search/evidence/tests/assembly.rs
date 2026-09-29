@@ -162,7 +162,7 @@ async fn returns_authoritative_source_bytes_and_echoes_the_complete_budget() {
     );
     assert!(bundle.budget.estimated);
     assert_eq!(
-        bundle.budget.evidence_tokens,
+        bundle.budget.evidence_bytes,
         u32::try_from(serde_json::to_vec(&bundle.passages).unwrap().len()).unwrap()
     );
     assert_eq!(bundle.trace.len(), bundle.passages.len());

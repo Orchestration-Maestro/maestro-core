@@ -1,7 +1,10 @@
 //! The soft section prior: strict demotion and precise, bilingual exemptions.
 
 use super::rerank::candidate;
-use crate::search::{Ranked, SectionClassSet, SectionPrior};
+use crate::search::{
+    Ranked, SearchConfiguration, SectionClassSet, SectionPrior, candidates::Penalized,
+    rank_stage::apply_rank_policies,
+};
 use std::collections::BTreeSet;
 
 fn ranked(ids: &[&str]) -> Vec<Ranked> {
@@ -20,6 +23,19 @@ fn order(ranked: &[Ranked]) -> Vec<&str> {
         .collect()
 }
 
+/// Applies `prior` alone to `ranked`, penalizing `section`.
+pub(super) fn apply(prior: SectionPrior, ranked: &mut [Ranked], section: &BTreeSet<String>) {
+    let configuration = SearchConfiguration {
+        section_prior: prior,
+        ..SearchConfiguration::default()
+    };
+    let penalized = Penalized {
+        section: section.clone(),
+        ..Penalized::default()
+    };
+    apply_rank_policies(ranked, &[], configuration, &penalized);
+}
+
 fn soft(weight: f32, names: &[&str]) -> SectionPrior {
     let mut classes = SectionClassSet::default();
     for name in names {
@@ -32,7 +48,7 @@ fn soft(weight: f32, names: &[&str]) -> SectionPrior {
 fn half_weight_moves_a_penalized_first_below_the_second() {
     let mut items = ranked(&["generic", "procedure", "other"]);
     let penalized = BTreeSet::from(["generic".to_owned()]);
-    soft(0.5, &[]).apply(&mut items, &penalized);
+    apply(soft(0.5, &[]), &mut items, &penalized);
     assert_eq!(order(&items), ["procedure", "generic", "other"]);
 }
 
@@ -40,7 +56,7 @@ fn half_weight_moves_a_penalized_first_below_the_second() {
 fn a_penalized_rank_moves_to_its_rank_over_one_minus_weight() {
     let mut items = ranked(&["0", "1", "2", "3", "4"]);
     let penalized = BTreeSet::from(["0".to_owned()]);
-    soft(0.75, &[]).apply(&mut items, &penalized);
+    apply(soft(0.75, &[]), &mut items, &penalized);
     assert_eq!(order(&items), ["1", "2", "3", "0", "4"]);
 }
 

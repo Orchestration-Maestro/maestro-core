@@ -8,7 +8,12 @@ use super::{
 use crate::artifact::Digest;
 use serde::Serialize;
 use serde_json::{Map, Number, Value};
-use std::{collections::BTreeMap, error, fmt, future::Future, num::NonZeroUsize};
+use std::{
+    collections::BTreeMap,
+    error, fmt,
+    future::Future,
+    num::{NonZeroU32, NonZeroUsize},
+};
 
 /// The calls a model answers, each bound to the card of the model that
 /// answers it: an embedding needs an embedder's card, a reranking a
@@ -277,15 +282,37 @@ pub(super) fn embedder_dimensions(card: &ModelCard) -> Result<NonZeroUsize, Erro
     }
 }
 
-/// Hard per-call generation ceiling for local answer requests.
-pub const MAX_CHAT_OUTPUT_TOKENS: u32 = 1024;
+/// The kernel's safety ceiling on the tokens of one chat reply, whatever the
+/// caller or the answerer's card asks for. Two bounds set it. The chat
+/// deadline, 20 s: a cold answerer loaded and thought through 1,024 tokens in
+/// 6.5 s, so 2,048 take at most twice that, while 4,096 could pass the
+/// deadline. The router client's 32,768-byte content cap: 2,048 tokens fit it
+/// at 16 bytes per token, four times what text averages.
+pub const MAX_CHAT_OUTPUT_TOKENS: u32 = 2048;
+
+/// The reply cap of an answerer whose card declares no output limit.
+pub const DEFAULT_CHAT_OUTPUT_TOKENS: u32 = 1024;
+
+/// The most tokens one chat reply of `card`'s model may generate: the
+/// smallest of the caller's `requested` cap, the card's declared output
+/// limit and [`MAX_CHAT_OUTPUT_TOKENS`]. A card that declares no limit
+/// stands for [`DEFAULT_CHAT_OUTPUT_TOKENS`] when the caller sets none.
+#[must_use]
+pub fn reply_cap(card: &ModelCard, requested: Option<u32>) -> u32 {
+    let declared = card.fields().limits.output_tokens.map(NonZeroU32::get);
+    let wanted = requested.or(declared).unwrap_or(DEFAULT_CHAT_OUTPUT_TOKENS);
+    declared
+        .map_or(wanted, |declared| wanted.min(declared))
+        .min(MAX_CHAT_OUTPUT_TOKENS)
+}
 
 /// One non-streaming chat prompt with bounded output and template controls.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ChatRequest {
     /// The messages sent to the answerer.
     pub messages: Vec<Message>,
-    /// Maximum generated tokens; callers choose a smaller calibrated bound.
+    /// Maximum generated tokens, at most [`MAX_CHAT_OUTPUT_TOKENS`]; [`reply_cap`]
+    /// gives an answerer's.
     pub max_output_tokens: u32,
     /// Exact supported chat-template controls, not arbitrary router options.
     pub chat_template_kwargs: BTreeMap<String, ControlValue>,
@@ -313,9 +340,11 @@ impl ChatRequest {
                 .map(|identity| &identity.invocation.sampling),
         )?;
         if !(1..=MAX_CHAT_OUTPUT_TOKENS).contains(&self.max_output_tokens) {
-            return Err(invalid_request(
-                "output limit must be between 1 and 1024 tokens",
-            ));
+            return Err(Error::InvalidRequest {
+                reason: format!(
+                    "output limit must be between 1 and {MAX_CHAT_OUTPUT_TOKENS} tokens"
+                ),
+            });
         }
         if card
             .fields()

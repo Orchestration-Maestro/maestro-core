@@ -181,6 +181,25 @@ fn a_step_stays_with_its_substeps_where_the_target_would_have_ended_the_chunk() 
 }
 
 #[test]
+fn the_second_of_two_steps_that_do_not_fit_together_starts_its_own_chunk_whole() {
+    let mut markdown = String::new();
+    for step in 1..=2 {
+        writeln!(markdown, "{step}. Step {step} {}", "x".repeat(20)).unwrap();
+        for sub in 0..2 {
+            writeln!(markdown, "   - Sub {step}.{sub} {}", "y ".repeat(100)).unwrap();
+        }
+    }
+    let (_, chunks) = idea_chunks(&markdown).unwrap();
+    let holding: Vec<_> = chunks
+        .iter()
+        .filter(|chunk| chunk.body_text.contains("Step 2 "))
+        .collect();
+    assert_eq!(holding.len(), 1);
+    assert!(holding[0].body_text.contains("Sub 2.0 "));
+    assert!(holding[0].body_text.contains("Sub 2.1 "));
+}
+
+#[test]
 fn an_oversized_step_continues_under_its_parent_between_whole_substeps() {
     let mut substeps = String::new();
     for sub in 0..6 {

@@ -1,6 +1,8 @@
 //! The reranker relevance threshold: below it, `ask` refuses without chat.
 
 use super::*;
+use crate::search::{Candidate, Fused, Ranked, top_rerank_score};
+use std::collections::BTreeMap;
 
 const PASSAGE: &str = "The local service uses verified instructions.";
 const REPLY: &str = "The local service uses verified instructions. [1]";
@@ -84,6 +86,31 @@ async fn a_top_score_at_or_above_the_threshold_answers() {
 #[tokio::test]
 async fn without_a_rerank_score_the_threshold_does_nothing() {
     let (answer, calls) = answer_with("How does it work?", relevance(Some(0.5), None)).await;
+
+    assert_eq!(calls, 1);
+    assert!(answer.refusal.is_none());
+}
+
+/// A ranked candidate `id` with the reranker score `score`.
+fn ranked(id: &str, score: f64) -> Ranked {
+    Ranked {
+        candidate: Candidate {
+            fused: Fused {
+                chunk_id: id.to_owned(),
+                score: 0.0,
+                ranks: BTreeMap::new(),
+            },
+            text: String::new(),
+        },
+        score: Some(score),
+    }
+}
+
+#[tokio::test]
+async fn a_prior_that_demotes_the_best_scored_passage_still_answers() {
+    let demoted = [ranked("official", 0.5), ranked("repository", 0.9)];
+    let plan = relevance(Some(0.6), top_rerank_score(&demoted));
+    let (answer, calls) = answer_with("How does it work?", plan).await;
 
     assert_eq!(calls, 1);
     assert!(answer.refusal.is_none());

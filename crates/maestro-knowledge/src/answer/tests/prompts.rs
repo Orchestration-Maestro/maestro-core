@@ -38,6 +38,13 @@ const V2_USER: &str = "Answer the question from the passages, in full sentences.
                        [1] or [1, 2]. When the passages do not directly answer the question, \
                        reply exactly NOT_FOUND.\nQuestion and evidence data (JSON):\n";
 
+/// The procedure guidance `procedure_first` adds to both v2 messages.
+const PROCEDURE_FIRST: &str = concat!(
+    "Examine every passage. Put the directly applicable procedure first. Preserve its ",
+    "platform and state prerequisites. Use other passages only when relevant; ",
+    "not every passage needs a citation."
+);
+
 /// The prompt of `version` for one question over one passage.
 fn prompt_of(version: PromptVersion) -> Vec<Message> {
     let request = request("How do I list the registered sources?");
@@ -176,7 +183,7 @@ async fn the_output_budget_reaches_the_chat_request() {
     let scratch = Scratch::new();
     let answerer = scratch.answerer();
     let mut request = request("How do I list the registered sources?");
-    request.budget.output_tokens = 900;
+    request.budget.output_tokens = Some(900);
     let evidence = bundle(
         &request.question,
         "en",
@@ -273,7 +280,12 @@ fn procedure_first_looks_at_all_passages_without_requiring_all_citations() {
 #[test]
 fn procedure_first_preserves_v2_citation_grammar_and_refusal_contract() {
     let messages = prompt_of(PromptVersion::ProcedureFirst);
-    assert!(messages[0].content.starts_with(V2_SYSTEM));
-    assert!(messages[1].content.contains("such as [1] or [1, 2]"));
-    assert!(messages[1].content.contains("reply exactly NOT_FOUND"));
+    assert_eq!(
+        messages[0].content,
+        format!("{V2_SYSTEM} {PROCEDURE_FIRST}")
+    );
+    // The v2 user message follows the guidance whole, so its `NOT_FOUND`
+    // exit stays last before the data.
+    let v2_user = &prompt_of(PromptVersion::V2)[1].content;
+    assert_eq!(messages[1].content, format!("{PROCEDURE_FIRST} {v2_user}"));
 }

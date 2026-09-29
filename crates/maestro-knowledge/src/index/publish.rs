@@ -6,9 +6,9 @@ use super::{
     batches::{BATCH, Target},
     dense::embedding_profile,
     error::{Error, Unverified},
-    names::{alias_name, collection_name},
     progress::{Progress, Report},
     projection::{Projection, ProjectionWithBatchSize},
+    publication_names::{Names, report},
     search_inputs,
     verify::{vectors, verify},
 };
@@ -49,7 +49,7 @@ impl Step {
     }
 }
 
-impl<P: ModelPort> Projection<'_, P> {
+impl<P: ModelPort, R: super::projection_port::RetrievalProjectionPort> Projection<'_, P, R> {
     /// Publishes the complete chunk set `chunk_set` as a generation of its
     /// collection, and returns its report: [`Projection::publish_observed`],
     /// resuming nothing and observed by no one.
@@ -152,10 +152,10 @@ impl<P: ModelPort> Projection<'_, P> {
         let names = Names::of(&generation);
         if step == Step::Done {
             if !self
-                .qdrant
-                .exists(&names.collection)
+                .projection
+                .collection_exists(&names.collection)
                 .await
-                .map_err(Error::Qdrant)?
+                .map_err(Error::from)?
             {
                 return Err(Error::MissingCollection(names.collection));
             }
@@ -189,10 +189,10 @@ impl<P: ModelPort> Projection<'_, P> {
         )
         .await?;
         traced_step(span::publish_switch_alias(), async {
-            self.qdrant
-                .point_alias(&names.alias, &names.collection)
+            self.projection
+                .replace_alias(&names.alias, &names.collection)
                 .await
-                .map_err(Error::Qdrant)
+                .map_err(Error::from)
         })
         .await?;
         let retired = traced_step(span::publish_kernel(), async {
@@ -239,7 +239,7 @@ impl<P: ModelPort> Projection<'_, P> {
     }
 
     /// Prevents a v2 card from reusing chunks counted for another identity.
-    fn check_counter_contract(&self, set: &ChunkSet) -> Result<(), Error> {
+    pub(super) fn check_counter_contract(&self, set: &ChunkSet) -> Result<(), Error> {
         if self.card.identity().is_none() {
             return Ok(());
         }
@@ -333,32 +333,36 @@ impl<P: ModelPort> Projection<'_, P> {
     /// `dimensions`: a collection with others fails the generation.
     pub(super) async fn ensure(&self, names: &Names, dimensions: u64) -> Result<bool, Error> {
         let collection = &names.collection;
-        let created = if self
-            .qdrant
-            .exists(collection)
+        let layout = self
+            .projection
+            .collection_layout(collection)
             .await
-            .map_err(Error::Qdrant)?
-        {
-            let parameters = self
-                .qdrant
-                .parameters(collection)
-                .await
-                .map_err(Error::Qdrant)?;
-            if let Err(reason) = vectors(&parameters, dimensions) {
+            .map_err(Error::from)?;
+        let created = if let Some(layout) = layout {
+            if let Err(reason) = vectors(&layout, dimensions) {
                 return self.fail(names.generation, reason, None).await;
             }
             false
         } else {
-            self.qdrant
-                .create(collection, dimensions)
+            self.projection
+                .create_collection(
+                    collection,
+                    super::projection_port::CollectionLayout {
+                        dense_dimensions: dimensions,
+                        dense_present: true,
+                        dense_distance: "Cosine".to_owned(),
+                        sparse_present: true,
+                        sparse_modifier: Some("Idf".to_owned()),
+                    },
+                )
                 .await
-                .map_err(Error::Qdrant)?;
+                .map_err(Error::from)?;
             true
         };
-        self.qdrant
-            .index_search_fields(collection)
+        self.projection
+            .index_payload_fields(collection)
             .await
-            .map_err(Error::Qdrant)?;
+            .map_err(Error::from)?;
         Ok(created)
     }
 
@@ -372,9 +376,9 @@ impl<P: ModelPort> Projection<'_, P> {
         chunks: &[Chunk],
         rollback: Option<&str>,
     ) -> Result<u64, Error> {
-        match verify(self.qdrant, &names.collection, dimensions, chunks)
+        match verify(self.projection, &names.collection, dimensions, chunks)
             .await
-            .map_err(Error::Qdrant)?
+            .map_err(Error::from)?
         {
             Ok(points) => Ok(points),
             Err(reason) => {
@@ -398,21 +402,23 @@ impl<P: ModelPort> Projection<'_, P> {
             .map_err(Error::Generation)?;
         if let Some((alias, collection)) = rollback
             && self
-                .qdrant
-                .exists(collection)
+                .projection
+                .collection_exists(collection)
                 .await
-                .map_err(Error::Qdrant)?
+                .map_err(Error::from)?
         {
-            self.qdrant
-                .point_alias(alias, collection)
+            self.projection
+                .replace_alias(alias, collection)
                 .await
-                .map_err(Error::Qdrant)?;
+                .map_err(Error::from)?;
         }
         Err(Error::Unverified { generation, reason })
     }
 }
 
-impl<P: ModelPort> ProjectionWithBatchSize<'_, P> {
+impl<P: ModelPort, R: super::projection_port::RetrievalProjectionPort>
+    ProjectionWithBatchSize<'_, P, R>
+{
     /// Publishes `chunk_set` with the test-selected batch size, without
     /// observing progress.
     ///
@@ -464,48 +470,4 @@ async fn traced_step<T>(
     let result = stage.instrument(work).await;
     stage.finish(result.as_ref().map_or_else(Error::outcome, |_| Outcome::Ok));
     result
-}
-
-/// The names of a generation in Qdrant.
-#[derive(Debug)]
-pub(super) struct Names {
-    /// Its generation ID.
-    pub(super) generation: i64,
-    /// Its collection, `maestro-<collection>-g<n>`.
-    pub(super) collection: String,
-    /// Its collection's alias, `maestro-<collection>`.
-    pub(super) alias: String,
-}
-
-impl Names {
-    /// The names of `generation` in Qdrant.
-    pub(super) fn of(generation: &Generation) -> Self {
-        Self {
-            generation: generation.id,
-            collection: collection_name(generation),
-            alias: alias_name(generation),
-        }
-    }
-}
-
-/// The report of `generation`, which publishes `set` under `names` with
-/// `points`, and retired the generation `retired`.
-pub(super) fn report(
-    set: &ChunkSet,
-    generation: &Generation,
-    names: &Names,
-    points: u64,
-    retired: Option<i64>,
-) -> Report {
-    Report {
-        collection: set.collection_id.clone(),
-        chunk_set: set.id.clone(),
-        generation: generation.id,
-        qdrant_collection: names.collection.clone(),
-        alias: names.alias.clone(),
-        points,
-        embedding_profile: generation.embedding_profile.clone(),
-        sparse_profile: generation.sparse_profile.clone(),
-        retired,
-    }
 }

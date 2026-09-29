@@ -138,7 +138,7 @@ fn bundle(sections: &[Option<String>]) -> Bundle {
         conflicts: Vec::new(),
         known_gaps: Vec::new(),
         budget: Budget {
-            evidence_tokens: 0,
+            evidence_bytes: 0,
             limit: 6000,
             counter: None,
             estimated: false,
@@ -147,6 +147,7 @@ fn bundle(sections: &[Option<String>]) -> Bundle {
         inventory: None,
         trace: numbered
             .map(|(n, _)| Trace {
+                parent_context_of: Vec::new(),
                 n,
                 score: Some(1.0 / f64::from(n)),
                 routes: vec!["bm25".to_owned(), "dense".to_owned()],

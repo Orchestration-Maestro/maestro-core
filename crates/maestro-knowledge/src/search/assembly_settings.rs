@@ -7,10 +7,23 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "snake_case")]
 pub enum ExpansionMode {
     /// Preserve full-section-first allocation.
-    #[default]
     FullSection,
     /// Admit matched whole blocks before expanding neighboring context.
     RelevantBlocks,
+    /// Admit the smallest complete parent-chain choice as exact separate ranges, then grow.
+    #[default]
+    ParentChain,
+}
+
+/// Order for admitting complete parent-chain choices with identical ranked seeds.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ParentChainOrder {
+    /// Reserve the smallest complete unit before growing context.
+    #[default]
+    MinimumCompleteFirst,
+    /// Prefer the largest complete parent that fits the remaining budget.
+    LargestFittingParent,
 }
 
 /// Named counter policy; exact mode refuses until answerer qualification is available.
@@ -27,11 +40,24 @@ pub enum CounterMode {
 }
 
 /// Evidence settings carried alongside search configuration and request bounds.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct EvidenceSettings {
     /// How to allocate source context.
     pub expansion: ExpansionMode,
+    /// Optional order override, valid only for parent-chain expansion.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parent_chain_order: Option<ParentChainOrder>,
     /// Which representation and unit to charge.
     pub evidence_counter: CounterMode,
+}
+
+impl Default for EvidenceSettings {
+    fn default() -> Self {
+        Self {
+            expansion: ExpansionMode::default(),
+            parent_chain_order: Some(ParentChainOrder::default()),
+            evidence_counter: CounterMode::default(),
+        }
+    }
 }

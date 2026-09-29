@@ -17,11 +17,13 @@ use super::{
     },
     ledger::{DuplicateLedger, duplicate_ledger},
     types::{BundleParts, CandidateData, LoadedCandidate},
+    validate::validate_generation,
 };
+use crate::search::evidence::delivery_graph::LegacyCanonicalGraph;
 use maestro_kernel::{
     document::Revision,
     evidence::Bundle,
-    generation::{Generation, GenerationState},
+    generation::Generation,
     retrieval::{Error as RetrievalError, ReadControl, SearchRead},
     store::Database,
     telemetry::{
@@ -178,6 +180,8 @@ impl AssemblyWorker<'_> {
             let bundle = self.finish(
                 counter_info,
                 BundleParts {
+                    primary_contributions: selection.primary_contributions,
+                    parent_supports: selection.parent_supports,
                     passages: selection.passages,
                     seeds: all_seeds,
                     candidate_texts: proposed_texts,
@@ -392,10 +396,12 @@ impl AssemblyWorker<'_> {
             })
             .collect::<Result<Vec<_>, EvidenceError>>()?;
         let budget = SelectionBudget {
+            graph: &LegacyCanonicalGraph,
+            parent_chain_order: self.input.evidence.parent_chain_order.unwrap_or_default(),
             expansion: self.input.evidence.expansion,
             max_passages: usize::try_from(self.input.budget.k)
                 .map_err(|_| invalid("passage budget does not fit this target"))?,
-            max_tokens: self.input.budget.max_tokens,
+            evidence_bytes: self.input.budget.evidence_bytes,
             counter: self.counter,
             counter_info,
             control: self.control,
@@ -418,25 +424,6 @@ fn phase<T>(
             .map_or_else(EvidenceError::outcome, |_| Outcome::Ok),
     );
     result
-}
-
-/// Checks immutable generation identity and the current publication lifecycle.
-fn validate_generation(pinned: &Generation, current: &Generation) -> Result<(), EvidenceError> {
-    if pinned.id != current.id
-        || pinned.collection_id != current.collection_id
-        || pinned.chunk_set_id != current.chunk_set_id
-        || pinned.embedding_profile != current.embedding_profile
-        || pinned.sparse_profile != current.sparse_profile
-    {
-        return Err(integrity("pinned generation identity changed"));
-    }
-    if !matches!(
-        current.state,
-        GenerationState::Published | GenerationState::Retired
-    ) {
-        return Err(EvidenceError::NotVisible);
-    }
-    Ok(())
 }
 
 /// Reads a literal string field from immutable revision metadata.

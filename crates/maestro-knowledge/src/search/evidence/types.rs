@@ -1,6 +1,6 @@
 //! Public evidence request types and their stable error boundary.
 
-use super::super::assembly_settings::{CounterMode, EvidenceSettings};
+use super::super::assembly_settings::{CounterMode, EvidenceSettings, ExpansionMode};
 use maestro_canonicalization::{Error as CanonicalError, TokenCounter};
 use maestro_kernel::{
     chunk_set, document, generation, retrieval, store, telemetry::stage::Outcome,
@@ -31,11 +31,25 @@ impl fmt::Debug for EvidenceCounter {
 }
 
 impl EvidenceSettings {
+    /// Rejects a parent-chain order attached to a legacy expansion strategy.
+    ///
+    /// # Errors
+    /// An explicit order is invalid unless parent-chain expansion is enabled.
+    pub fn validate(self) -> Result<(), EvidenceError> {
+        if self.parent_chain_order.is_some() && self.expansion != ExpansionMode::ParentChain {
+            return Err(EvidenceError::InvalidRequest(
+                "parent_chain_order requires parent_chain expansion".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
     /// Resolves the named counter without silently substituting an estimate.
     ///
     /// # Errors
     /// Exact mode is unavailable until the resolved answerer's tokenizer is qualified.
     pub fn counter(self) -> Result<EvidenceCounter, EvidenceError> {
+        self.validate()?;
         match self.evidence_counter {
             CounterMode::Utf8 => Ok(EvidenceCounter::Utf8Bytes),
             CounterMode::Utf8AnswerBound => Ok(EvidenceCounter::AnswerBoundUtf8Bytes),
@@ -55,6 +69,7 @@ impl EvidenceSettings {
     /// # Errors
     /// The counter's strategy differs from the configured one.
     pub(crate) fn check_counter(self, counter: &EvidenceCounter) -> Result<(), EvidenceError> {
+        self.validate()?;
         let configured = match counter {
             EvidenceCounter::Utf8Bytes => CounterMode::Utf8,
             EvidenceCounter::AnswerBoundUtf8Bytes => CounterMode::Utf8AnswerBound,

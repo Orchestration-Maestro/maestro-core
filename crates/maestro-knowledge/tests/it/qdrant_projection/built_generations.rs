@@ -9,6 +9,7 @@ use super::{
     kernel::{Kernel, VERSION},
     models::{Embedder, embedder},
     search_routes::support::create_collection,
+    stopped_clock::on_stopped_clock,
     support::{alias_of, collection_of, point_id, projection, publish},
 };
 use maestro_kernel::{
@@ -28,7 +29,7 @@ use qdrant_client::{
     qdrant::{Distance, Modifier, vector_output::Vector, vectors_config::Config},
 };
 use serde_json::{Value, json};
-use std::{collections::BTreeSet, num::NonZeroUsize, ops::ControlFlow, slice};
+use std::{collections::BTreeSet, future, num::NonZeroUsize, ops::ControlFlow, slice};
 
 #[tokio::test]
 async fn a_markerless_published_generation_degrades_then_republishes_without_early_alias_move() {
@@ -60,11 +61,13 @@ async fn a_markerless_published_generation_degrades_then_republishes_without_ear
     backend.point_alias(&alias, &old_collection).await;
 
     let context: SearchContext<'_, Embedder> = SearchContext {
+        intent_expander: None,
         database: kernel.database.clone(),
         principal: "tester",
         qdrant: &qdrant,
         embedder: None,
         reranker: None,
+        source_classes: None,
     };
     let identifier = SearchRequest::new(
         &kernel.collection,
@@ -72,7 +75,12 @@ async fn a_markerless_published_generation_degrades_then_republishes_without_ear
         None,
         RequestBudget::default(),
     );
-    let identifier_result = Box::pin(search(&context, &identifier)).await.unwrap();
+    // On a stopped clock: no route deadline passes, so a loaded host cannot
+    // turn the missing projection into a passed deadline.
+    let identifier_result =
+        on_stopped_clock(future::pending(), Box::pin(search(&context, &identifier)))
+            .await
+            .unwrap();
     assert_eq!(
         identifier_result.routes.get("identifier"),
         Some(&RouteStatus::Unavailable(
@@ -87,7 +95,10 @@ async fn a_markerless_published_generation_degrades_then_republishes_without_ear
         text: "how many documents",
         ..identifier
     };
-    let inventory_result = Box::pin(search(&context, &inventory)).await.unwrap();
+    let inventory_result =
+        on_stopped_clock(future::pending(), Box::pin(search(&context, &inventory)))
+            .await
+            .unwrap();
     assert_eq!(
         inventory_result.routes.get("structured"),
         Some(&RouteStatus::Unavailable(
@@ -101,7 +112,7 @@ async fn a_markerless_published_generation_degrades_then_republishes_without_ear
     let report = Projection {
         database: &kernel.database,
         scopes: &kernel.scopes,
-        qdrant: &qdrant,
+        projection: &qdrant,
         port: &port,
         card: &card,
     }

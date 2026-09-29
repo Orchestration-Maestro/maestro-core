@@ -1,6 +1,6 @@
 //! The services' checks: Qdrant answering its gRPC health check as the
 //! pinned version; the model router listing its catalog, which starts no
-//! model; and each role's model card, which the bake-off records (T030).
+//! model; and each role's model card, not checked yet.
 //! Each waits at most [`PATIENCE`] for an answer.
 
 use super::check::Check;
@@ -141,19 +141,19 @@ pub(super) fn router_check(url: Result<Url, String>) -> Check {
     }
 }
 
-/// The check of each M1 role's model card: none is recorded before the
-/// bake-off records one per role (T030).
+/// Model cards are recorded per collection, and their per-collection check is
+/// not built yet, so each role is reported as not checked, never as failed.
+/// The extractor's check comes with its selection (S2 G20).
 pub(super) fn card_checks() -> Vec<Check> {
     // The extractor's check comes with its selection (S2 G20).
     [Role::Embedder, Role::Reranker, Role::Answerer]
         .iter()
         .map(|role| {
-            Check::failed(
+            Check::not_checked(
                 "model_card",
                 &role.to_string(),
-                format!("no model card is recorded for the {role}"),
-                "the model bake-off records a card for each role (T030, \
-                 `maestro eval bakeoff`)",
+                "not checked yet: model cards are recorded per collection, and their \
+                 per-collection check is not built yet",
             )
         })
         .collect()

@@ -6,6 +6,7 @@
 
 use super::manifest::Rung;
 use crate::failure::Failure;
+use maestro_kernel::evidence::RouteStatus;
 use maestro_knowledge::{
     eval::{
         Ask, AskOutcome, DeliveryScore, LadderQuestion, LadderScore, Located, Search,
@@ -27,6 +28,9 @@ pub(super) struct Provenance {
     pub(super) chunk_set: String,
     /// The digest of the embedder's card, absent when none matches.
     pub(super) embedder: Option<String>,
+    /// The explicitly configured expansion card, absent when off.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) intent: Option<String>,
     /// The digest of the rung's reranker card, absent when reranking is off.
     pub(super) reranker: Option<String>,
     /// The digest of the rung's answerer card, absent when none is
@@ -35,6 +39,10 @@ pub(super) struct Provenance {
     /// The SHA-256 of the rung's prompt file, absent when it asks with a
     /// prompt version or does not ask.
     pub(super) prompt: Option<String>,
+    /// The digest of the source-class table the rung's source prior reads,
+    /// absent when the prior is off or no table is bound.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) source_classes: Option<String>,
 }
 
 impl Provenance {
@@ -66,8 +74,17 @@ pub(super) struct Searched {
 pub(super) struct SearchDiagnostic {
     /// Original anchors remaining after the shared context and wire bounds.
     pub(super) delivered: Vec<Located>,
+    /// Expansion outcome, absent when intent is off.
+    pub(super) intent_status: Option<RouteStatus>,
+    /// Original top-depth candidates the intent votes put below the rerank
+    /// depth, all still reranked; absent when no intent voted.
+    pub(super) intent_displaced: Option<usize>,
+    /// How many identifiers the noise guard dropped from the identifier route.
+    pub(super) identifiers_dropped: usize,
     /// The documents of its assembled evidence, in rank order.
     pub(super) bundle_documents: Vec<String>,
+    /// UTF-8 bytes in the assembled evidence, absent when assembly failed.
+    pub(super) evidence_bytes: Option<u32>,
     /// The top reranker score, absent when rerank did not run.
     pub(super) top_rerank_score: Option<f64>,
     /// The top fused score, absent when no fused candidate was loaded.
@@ -88,6 +105,9 @@ pub(super) struct Asked {
     pub(super) delivered: Vec<Anchor>,
     /// The attempts the answer check refused before it ended, never scored.
     pub(super) rejections: Vec<RejectedCheck>,
+    /// The most tokens each of its chat replies could generate, absent when
+    /// it never reached the answerer.
+    pub(super) reply_cap: Option<u32>,
 }
 
 /// An attempt the answer check refused: the attempt and the check's code,
@@ -151,6 +171,9 @@ pub(super) struct RungRun {
     /// Each row's attempts the answer check refused, none when the rung
     /// does not ask.
     pub(super) rejections: Vec<Vec<RejectedCheck>>,
+    /// Each row's reply cap, none when the rung does not ask or its ask
+    /// never reached the answerer.
+    pub(super) reply_caps: Vec<Option<u32>>,
     /// The floors.
     pub(super) score: LadderScore,
     /// What the evidence the answerer received delivered, beside the floors.
@@ -276,6 +299,7 @@ fn run_rung(
         }
     }
     let mut rejections = Vec::with_capacity(suite.questions.len());
+    let mut reply_caps = Vec::with_capacity(suite.questions.len());
     let (rows, diagnostics): (Vec<LadderQuestion>, Vec<SearchDiagnostic>) = suite
         .questions
         .iter()
@@ -293,10 +317,12 @@ fn run_rung(
                     outcome: AskOutcome::Failed,
                     delivered: searched.delivered,
                     rejections: Vec::new(),
+                    reply_cap: None,
                 };
                 (unasked, Duration::ZERO)
             };
             rejections.push(asked.rejections);
+            reply_caps.push(asked.reply_cap);
             let outcome = asked.outcome;
             let row = LadderQuestion {
                 id: question.id.clone(),
@@ -328,6 +354,7 @@ fn run_rung(
         rows,
         diagnostics,
         rejections,
+        reply_caps,
         score,
         delivery,
     };

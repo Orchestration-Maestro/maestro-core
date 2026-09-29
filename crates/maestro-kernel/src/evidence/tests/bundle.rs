@@ -89,7 +89,7 @@ fn a_bundle_writes_maestro_evidence_1_and_reads_back_equal() {
         ],
         "conflicts": [{"entity": "agent", "attribute": "default port", "passages": [1, 2]}],
         "known_gaps": ["no passage states the port of version 2.0.0"],
-        "budget": {"evidence_tokens": 41, "limit": 6000},
+        "budget": {"evidence_bytes": 41, "limit": 6000},
         "trace": [
             {"n": 1, "score": 0.83, "routes": ["bm25", "dense"], "procedural": false},
             {"n": 2, "score": 0.41, "routes": ["dense"], "procedural": true},
@@ -141,7 +141,7 @@ fn malformed_optional_assembly_fields_are_refused() {
     estimated_without_counter["budget"]["estimated"] = json!(true);
     invalid.push(estimated_without_counter);
     let mut over_budget = original.clone();
-    over_budget["budget"]["evidence_tokens"] = json!(6001);
+    over_budget["budget"]["evidence_bytes"] = json!(6001);
     invalid.push(over_budget);
     let mut reversed_window = original;
     reversed_window["passages"][0]["windowed"] = json!(true);
@@ -163,7 +163,7 @@ fn invalid_assembly_fields_are_refused_before_a_bundle_is_written() {
     estimate_without_counter.budget.estimated = true;
     invalid.push(estimate_without_counter);
     let mut over_budget = bundle();
-    over_budget.budget.evidence_tokens = over_budget.budget.limit + 1;
+    over_budget.budget.evidence_bytes = over_budget.budget.limit + 1;
     invalid.push(over_budget);
     for chunk_ids in [vec![" ".to_owned()], vec!["chunk-a".to_owned(); 2]] {
         let mut bad_trace = bundle();

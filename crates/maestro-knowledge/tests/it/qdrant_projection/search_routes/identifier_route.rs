@@ -48,7 +48,7 @@ pub(super) async fn publish_command(backend: &Backend) -> PublishedCommand {
 }
 
 /// Publishes a prepared kernel as one searchable physical generation.
-async fn publish_kernel(backend: &Backend, kernel: Kernel) -> PublishedCommand {
+pub(super) async fn publish_kernel(backend: &Backend, kernel: Kernel) -> PublishedCommand {
     let lead = kernel
         .chunks()
         .into_iter()
@@ -119,6 +119,7 @@ pub(super) async fn identifier_search_until(
         scopes: &fixture.kernel.scopes,
         text,
         limit,
+        identifier_limit: limit,
         version,
         qdrant: &fixture.qdrant,
     };
@@ -146,6 +147,7 @@ async fn empty_scopes_and_zero_limit_skip_both_identifier_legs() {
             scopes,
             text: "ERR-042",
             limit,
+            identifier_limit: limit,
             version: None,
             qdrant: &fixture.qdrant,
         };
@@ -183,6 +185,7 @@ async fn identifier_route_accepts_64_and_refuses_65_distinct_values() {
         scopes: &fixture.kernel.scopes,
         text: &text,
         limit: 20,
+        identifier_limit: 20,
         version: None,
         qdrant: &fixture.qdrant,
     };
@@ -217,6 +220,7 @@ async fn identifier_route_accepts_64_and_refuses_65_distinct_values() {
         scopes: &fixture.kernel.scopes,
         text: &text,
         limit: 20,
+        identifier_limit: 20,
         version: None,
         qdrant: &fixture.qdrant,
     };
@@ -431,6 +435,7 @@ async fn bare_plain_words_are_left_to_lexical_search() {
             scopes: &fixture.kernel.scopes,
             text: "ctm",
             limit: 20,
+            identifier_limit: 20,
             version: None,
             qdrant: &fixture.qdrant,
         })

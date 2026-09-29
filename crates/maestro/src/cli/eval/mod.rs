@@ -1,6 +1,8 @@
 //! `maestro eval ladder`: the M1 ladder, every question of a suite searched
 //! and asked under each rung's configuration, scored and reported.
 
+mod ask_settings;
+mod candidates;
 mod command;
 mod comparison;
 mod delivered;
@@ -9,12 +11,14 @@ mod draft_io;
 mod draft_journal;
 mod draft_manifest;
 mod engine;
+mod engine_outcome;
 mod graph;
 mod graph_draft;
 mod graph_ladder;
 mod graph_manifest;
 mod graph_output;
 mod manifest;
+mod manifest_checks;
 mod private_run;
 mod private_write;
 mod rank_settings;

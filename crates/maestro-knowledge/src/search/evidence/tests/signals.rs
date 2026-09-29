@@ -3,7 +3,7 @@ use super::super::signals::{
     append_distinct_gaps, build_known_gaps, order_passages, trace_for_passage,
 };
 use super::super::spans::SeedSpan;
-use crate::search::Route;
+use crate::search::{Route, evidence::delivery_graph::PrimaryContribution};
 use maestro_canonicalization::{CanonicalDocument, CanonicalizeInput, canonicalize};
 use maestro_kernel::artifact::Digest;
 use maestro_kernel::evidence::{Alternate, Passage, Span};
@@ -126,6 +126,8 @@ fn trace_keeps_sorted_unique_source_chunks_max_finite_score_and_ordered_routes()
         ),
     ];
     let trace = trace_for_passage(&TraceInput {
+        primary: &[],
+        parent_context_of: &[],
         number: 1,
         revision_id: "rev-a",
         span,
@@ -155,6 +157,8 @@ fn trace_refuses_empty_seed_spans() {
 
     assert_eq!(
         trace_for_passage(&TraceInput {
+            primary: &[],
+            parent_context_of: &[],
             number: 1,
             revision_id: "rev-a",
             span: Span {
@@ -184,6 +188,8 @@ fn trace_refuses_out_of_range_passage_spans() {
 
     assert_eq!(
         trace_for_passage(&TraceInput {
+            primary: &[],
+            parent_context_of: &[],
             number: 1,
             revision_id: "rev-a",
             span: Span {
@@ -210,6 +216,8 @@ fn a_partial_ordered_list_is_not_marked_procedural() {
     };
     let seeds = [seed("chunk-a", "rev-a", span, Some(0.5), &[])];
     let trace = trace_for_passage(&TraceInput {
+        primary: &[],
+        parent_context_of: &[],
         number: 1,
         revision_id: "rev-a",
         span,
@@ -237,6 +245,8 @@ fn ordinary_prose_is_not_marked_procedural() {
         &[],
     )];
     let trace = trace_for_passage(&TraceInput {
+        primary: &[],
+        parent_context_of: &[],
         number: 1,
         revision_id: "rev-a",
         span: Span {
@@ -258,6 +268,8 @@ fn trace_refuses_a_passage_without_primary_chunk_references() {
     let document = document(markdown);
     assert!(
         trace_for_passage(&TraceInput {
+            primary: &[],
+            parent_context_of: &[],
             number: 1,
             revision_id: "rev-a",
             span: Span {
@@ -280,6 +292,24 @@ fn computed_gaps_append_once_without_reordering_inherited_entries() {
         ["inherited", "new", "new", "another"].map(str::to_owned),
     );
     assert_eq!(gaps, ["inherited", "inherited", "new", "another"]);
+}
+
+#[test]
+fn table_prefixes_the_budget_omitted_are_counted_in_one_gap() {
+    let gaps = build_known_gaps(GapInput {
+        omissions: OmissionStatus {
+            table_prefix_omissions: 2,
+            ..OmissionStatus::default()
+        },
+        ..GapInput::default()
+    })
+    .unwrap();
+    assert!(
+        gaps.contains(
+            &"Table-prefix candidates omitted by the evidence or passage budget: 2.".to_owned()
+        ),
+        "{gaps:?}"
+    );
 }
 
 #[test]
@@ -337,7 +367,7 @@ fn known_gaps_use_inventory_wording_and_exact_identifier_boundaries() {
             requested_version: Some("2"),
             latest_undetermined: true,
             omissions: OmissionStatus {
-                table_prefix_fallbacks: 0,
+                table_prefix_omissions: 0,
                 evidence: true,
                 conflict: true,
             },
@@ -365,4 +395,97 @@ fn known_gaps_use_inventory_wording_and_exact_identifier_boundaries() {
             "Passage 1 source warning: canonical-warning",
         ]
     );
+}
+
+#[test]
+fn a_primary_part_from_another_chunk_does_not_contain_this_seed() {
+    let markdown = "A source passage.";
+    let document = document(markdown);
+    let passage_span = Span { start: 2, end: 8 };
+    let seeds = [seed(
+        "seed-a",
+        "rev-a",
+        Span { start: 0, end: 10 },
+        Some(0.8),
+        &[Route::Lexical],
+    )];
+    let primary = [PrimaryContribution {
+        chunk_id: "seed-b".to_owned(),
+        span: passage_span,
+    }];
+    let parent_context_of = ["seed-b".to_owned()];
+    let trace = trace_for_passage(&TraceInput {
+        primary: &primary,
+        parent_context_of: &parent_context_of,
+        number: 1,
+        revision_id: "rev-a",
+        span: passage_span,
+        seeds: &seeds,
+        document: &document,
+        markdown,
+    })
+    .unwrap();
+
+    assert!(trace.chunk_ids.is_empty());
+}
+
+#[test]
+fn a_seed_outside_the_passage_is_not_attributed_to_another_primary_part() {
+    let markdown = "A source passage.";
+    let document = document(markdown);
+    let passage_span = Span { start: 4, end: 8 };
+    let seeds = [seed(
+        "seed-a",
+        "rev-a",
+        Span { start: 0, end: 6 },
+        Some(0.8),
+        &[Route::Lexical],
+    )];
+    let primary = [PrimaryContribution {
+        chunk_id: "seed-a".to_owned(),
+        span: Span { start: 2, end: 3 },
+    }];
+    let parent_context_of = ["parent".to_owned()];
+    let trace = trace_for_passage(&TraceInput {
+        primary: &primary,
+        parent_context_of: &parent_context_of,
+        number: 1,
+        revision_id: "rev-a",
+        span: passage_span,
+        seeds: &seeds,
+        document: &document,
+        markdown,
+    })
+    .unwrap();
+
+    assert!(trace.chunk_ids.is_empty());
+}
+
+#[test]
+fn an_unrelated_seed_does_not_contribute_score_or_routes() {
+    let markdown = "A source passage.";
+    let document = document(markdown);
+    let passage_span = Span { start: 0, end: 1 };
+    let seeds = [seed(
+        "seed-a",
+        "rev-a",
+        Span { start: 2, end: 3 },
+        Some(0.8),
+        &[Route::Lexical],
+    )];
+    let parent_context_of = ["parent".to_owned()];
+    let trace = trace_for_passage(&TraceInput {
+        primary: &[],
+        parent_context_of: &parent_context_of,
+        number: 1,
+        revision_id: "rev-a",
+        span: passage_span,
+        seeds: &seeds,
+        document: &document,
+        markdown,
+    })
+    .unwrap();
+
+    assert_eq!(trace.score, None);
+    assert!(trace.routes.is_empty());
 }

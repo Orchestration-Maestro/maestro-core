@@ -14,6 +14,7 @@ workspace = true
 clap.workspace = true
 maestro-kernel.workspace = true
 maestro-knowledge.workspace = true
+maestro-settings.workspace = true
 rmcp.workspace = true
 rusqlite = { workspace = true, features = ["backup"] }
 schemars.workspace = true

@@ -5,7 +5,7 @@
 //! resume; or at a check the generation's collection failed, which fails
 //! the generation for good.
 
-use super::{dense::Failure, qdrant::QdrantError};
+use super::{dense::Failure, projection_port::ProjectionError, qdrant::QdrantError};
 use crate::prepare;
 use maestro_kernel::{
     artifact::Digest,
@@ -218,6 +218,12 @@ impl fmt::Display for Error {
             }
             Self::Search(error) => write!(formatter, "the search projection failed: {error}"),
         }
+    }
+}
+
+impl From<ProjectionError> for Error {
+    fn from(error: ProjectionError) -> Self {
+        Self::Qdrant(error.into())
     }
 }
 

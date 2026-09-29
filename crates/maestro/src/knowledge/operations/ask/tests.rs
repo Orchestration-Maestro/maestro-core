@@ -1,4 +1,4 @@
-use super::{answer_failure, registered_answerer, reranker_card};
+use super::{answer_failure, registered_answerer};
 use crate::{
     kernel::Kernel,
     knowledge::operations::{KnowledgeError, tests::Scratch},
@@ -207,37 +207,18 @@ fn i4_answerer_and_evidence_failures_keep_their_public_codes() {
     );
 }
 
-#[test]
-fn only_a_reranker_selected_for_the_searched_generation_is_used() {
-    let scratch = Scratch::new();
-    let kernel = scratch.kernel(None).expect("open test kernel");
-    let scopes = &kernel.scopes;
-    let current = kernel
-        .database
-        .published_generation(scopes, "collection")
-        .expect("read published generation")
-        .expect("published generation");
-    let card = select_reranker(&kernel, &current);
-    let selected = |generation: Option<&Generation>| {
-        reranker_card(&kernel, scopes, "collection", generation)
-            .expect("read selected reranker")
-            .map(|selected| selected.digest().clone())
-    };
-
-    assert_eq!(selected(Some(&current)), Some(card.digest().clone()));
-    let other = Generation {
-        id: current.id + 1,
-        ..current.clone()
-    };
-    assert_eq!(selected(Some(&other)), None);
-    assert_eq!(selected(None), None);
-}
-
 /// Registers a reranker card in the scratch collection, evaluates it on
 /// `generation` and selects it; returns the card.
 pub(crate) fn select_reranker(kernel: &Kernel, generation: &Generation) -> ModelCard {
-    let scopes = &kernel.scopes;
     let (id, card) = register_card(kernel, "collection", Role::Reranker, "rerank", b"reranker");
+    select_card(kernel, generation, Role::Reranker, &id);
+    card
+}
+
+/// Evaluates the registered card `id` of `role` on `generation` and
+/// selects it for `role` in the scratch collection.
+pub(crate) fn select_card(kernel: &Kernel, generation: &Generation, role: Role, id: &str) {
+    let scopes = &kernel.scopes;
     let card_id = id.parse().expect("registration ULID");
     let evaluation = kernel
         .database
@@ -247,7 +228,7 @@ pub(crate) fn select_reranker(kernel: &Kernel, generation: &Generation) -> Model
                 run_id: "run",
                 collection_id: "collection",
                 card_id,
-                role: Role::Reranker,
+                role,
                 mode: EvaluationMode::Real,
                 generation_id: Some(generation.id),
                 disposition: EvaluationDisposition::Eligible,
@@ -262,15 +243,14 @@ pub(crate) fn select_reranker(kernel: &Kernel, generation: &Generation) -> Model
             scopes,
             &NewModelSelection {
                 collection_id: "collection",
-                role: Role::Reranker,
+                role,
                 card_id,
                 evaluation_id: evaluation.id,
                 selected_by: "owner",
                 reason: "approved",
             },
         )
-        .expect("select reranker");
-    card
+        .expect("select the card");
 }
 
 /// Registers a small v2 answerer card and returns its immutable registry ID.

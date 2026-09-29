@@ -10,6 +10,8 @@ mod alias_moves;
 mod backends;
 mod built_generations;
 mod fake;
+mod fake_port;
+mod fake_port_failures;
 mod kernel;
 mod models;
 mod projection_rebuild;
@@ -20,6 +22,7 @@ mod scratch_cleanup;
 mod search_routes;
 mod server_version;
 mod stopped_builds;
+mod stopped_clock;
 mod support;
 
 pub(crate) use backends::synthetic_fake_qdrant_url;

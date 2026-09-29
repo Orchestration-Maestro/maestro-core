@@ -1,7 +1,8 @@
 use super::super::deadline::{
-    BlockingFailure, DeadlineElapsed, Deadlines, StageWindow, from_budget, run_blocking, until,
+    BlockingFailure, DeadlineElapsed, Deadlines, StageWindow, from_budget, open_at, run_blocking,
+    std_deadline, until,
 };
-use maestro_kernel::evidence::RequestBudget;
+use maestro_kernel::{evidence::RequestBudget, retrieval::ReadControl};
 use std::{
     sync::{
         Arc,
@@ -14,6 +15,20 @@ use tokio::{
     sync::oneshot,
     time::{Duration, Instant, advance, sleep},
 };
+
+#[test]
+fn enrichment_cutoff_is_exclusive_at_the_deadline() {
+    let now = StdInstant::now();
+    let deadline = now + StdDuration::from_secs(1);
+    let control = ReadControl {
+        deadline,
+        cancelled: Arc::new(AtomicBool::new(false)),
+    };
+
+    assert!(open_at(&control, now));
+    assert!(!open_at(&control, deadline));
+    assert!(!open_at(&control, deadline + StdDuration::from_nanos(1)));
+}
 
 /// The cutoffs of a request that started at `started` with a deadline of
 /// `deadline_ms` and the route window `stage_window`.
@@ -110,6 +125,42 @@ fn a_fixed_route_window_starts_when_its_setup_ends_and_never_passes_the_setup_bo
     );
     let too_long = cutoffs(started, 1500, StageWindow::Fixed(Duration::from_secs(2)));
     assert_eq!(too_long.routes, too_long.setup);
+}
+
+#[test]
+fn a_fixed_route_window_past_the_deadline_is_the_deadline() {
+    let started = Instant::now();
+    let unbounded = cutoffs(started, 30_000, StageWindow::Fixed(Duration::MAX));
+    assert_eq!(unbounded.fixed, Some(Duration::from_secs(30)));
+    assert_eq!(unbounded.routes, unbounded.setup);
+    assert_eq!(unbounded.route_after(unbounded.setup), unbounded.routes_end);
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_kernel_deadline_is_the_time_left_on_the_paused_clock_from_now() {
+    let deadline = Instant::now() + Duration::from_millis(300);
+    for _ in 0..2 {
+        // Real time passes between the two reads; the paused time left does
+        // not.
+        let before = StdInstant::now();
+        let kernel = std_deadline(deadline);
+        let after = StdInstant::now();
+        assert!(
+            before + StdDuration::from_millis(300) <= kernel,
+            "{kernel:?}"
+        );
+        assert!(
+            kernel <= after + StdDuration::from_millis(300),
+            "{kernel:?}"
+        );
+    }
+    advance(Duration::from_secs(1)).await;
+    let before = StdInstant::now();
+    let passed = std_deadline(deadline);
+    assert!(
+        before <= passed && passed <= StdInstant::now(),
+        "{passed:?}"
+    );
 }
 
 #[tokio::test(start_paused = true)]

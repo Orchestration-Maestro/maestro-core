@@ -5,31 +5,35 @@
 
 use super::{
     super::{
-        engine::{KernelEngine, expected_failure},
+        engine::{KernelEngine, expected_failure, record_evidence_bytes},
         manifest::AskSettings,
+        rank_settings::SourcePriorSetting,
+        reports::PrivateRow,
         rung_prompt::RungPrompt,
         runner::Engine as _,
+        runner::{SearchDiagnostic, run_ladder},
         stages::{StageFailure, ask_failure, evidence_failure, search_failure},
     },
-    support::{rung, suite},
+    support::{FakeEngine, rung, suite},
 };
 use crate::{
     failure::Failure,
     knowledge::operations::{ask::tests::register_card, tests::Scratch},
 };
 use maestro_kernel::evidence::RequestBudget;
+use maestro_kernel::{artifact::Digest, evidence::Bundle};
 use maestro_kernel::{
     gateway::{Error as GatewayError, Role, RouterClient, Url},
     retrieval,
 };
-use maestro_knowledge::search::evidence::{CounterMode, ExpansionMode};
+use maestro_knowledge::search::evidence::{CounterMode, ExpansionMode, ParentChainOrder};
 use maestro_knowledge::{
     answer::{AskBudget, AskError, AskRequest, DEFAULT_MODEL, PromptVersion},
     eval::{AskOutcome, RunError, SearchOutcome},
     index::Qdrant,
     search::{SearchError, evidence::EvidenceError, routes::error::RouteError},
 };
-use std::io;
+use std::{fs, io};
 
 /// An address where nothing listens.
 const NOWHERE: &str = "http://127.0.0.1:1";
@@ -81,7 +85,7 @@ fn v1_settings() -> AskSettings {
         expansion: ExpansionMode::FullSection,
         evidence_counter: CounterMode::Utf8,
         k: Some(8),
-        max_tokens: Some(9000),
+        evidence_bytes: Some(9000),
         output_tokens: Some(900),
         prompt: RungPrompt::Version(PromptVersion::V1),
         card: None,
@@ -108,8 +112,8 @@ fn a_search_and_an_ask_carry_the_rungs_configuration_budget_and_prompt() {
             version: None,
             budget: AskBudget {
                 k: 8,
-                max_tokens: 9000,
-                output_tokens: 900,
+                evidence_bytes: 9000,
+                output_tokens: Some(900),
                 ..AskBudget::default()
             },
         }
@@ -123,33 +127,54 @@ fn a_search_and_an_ask_carry_the_rungs_configuration_budget_and_prompt() {
 }
 
 #[test]
-fn a_search_carries_the_asks_budget_and_evidence_settings() {
+fn search_only_rungs_keep_their_legacy_budget_and_expansion() {
     let scratch = Scratch::new();
     let kernel = scratch.kernel(None).unwrap();
     let port = RouterClient::new(Url::parse(NOWHERE).unwrap()).unwrap();
     let engine =
         KernelEngine::new(&kernel, "collection", port, Qdrant::new(NOWHERE).unwrap()).unwrap();
-    let settings = v1_settings();
-
     let mut candidate = rung("r0");
-    let search = engine.search_request(&candidate, "question");
-    assert_eq!(search.configuration, candidate.configuration.search());
-    assert_eq!((search.collection, search.text), ("collection", "question"));
-    assert_eq!(search.budget, RequestBudget::from(AskBudget::default()));
-    candidate.ask = Some(settings.clone());
-    let asking = engine.search_request(&candidate, "question").budget;
-    assert_eq!((asking.k, asking.max_tokens), (8, 9000));
     candidate.ask = None;
-    let unasked = engine.search_request(&candidate, "question").budget;
-    assert_eq!(unasked, RequestBudget::from(AskBudget::default()));
+
     let search = engine.search_request(&candidate, "question");
-    assert_eq!(search.configuration, candidate.configuration.search());
-    assert_eq!((search.collection, search.text), ("collection", "question"));
-    assert_eq!(search.budget, RequestBudget::from(AskBudget::default()));
+    assert_eq!((search.budget.k, search.budget.evidence_bytes), (5, 6_000));
+    assert_eq!(search.evidence.expansion, ExpansionMode::FullSection);
+    assert_eq!(search.evidence.parent_chain_order, None);
+    candidate.search_budget = Some(RequestBudget {
+        k: 4,
+        evidence_bytes: 9_000,
+        ..RequestBudget::default()
+    });
+    assert_eq!(
+        engine.search_request(&candidate, "question").budget,
+        candidate.search_budget.unwrap()
+    );
+}
+
+#[test]
+fn ask_rungs_keep_their_resolved_budget_and_evidence_settings() {
+    let scratch = Scratch::new();
+    let kernel = scratch.kernel(None).unwrap();
+    let port = RouterClient::new(Url::parse(NOWHERE).unwrap()).unwrap();
+    let engine =
+        KernelEngine::new(&kernel, "collection", port, Qdrant::new(NOWHERE).unwrap()).unwrap();
+    let mut candidate = rung("r0");
+    candidate.ask = Some(AskSettings::default());
+    let defaults = engine.search_request(&candidate, "question");
+    assert_eq!(
+        (defaults.budget.k, defaults.budget.evidence_bytes),
+        (5, 6_000)
+    );
+    assert_eq!(defaults.evidence.expansion, ExpansionMode::FullSection);
+    assert_eq!(defaults.evidence.parent_chain_order, None);
+
+    candidate.ask = Some(v1_settings());
+    let asking = engine.search_request(&candidate, "question");
+    assert_eq!((asking.budget.k, asking.budget.evidence_bytes), (8, 9000));
     candidate.ask = Some(AskSettings {
         expansion: ExpansionMode::RelevantBlocks,
         evidence_counter: CounterMode::Utf8AnswerBound,
-        ..settings
+        ..AskSettings::default()
     });
     let search = engine.search_request(&candidate, "question");
     assert_eq!(search.evidence.expansion, ExpansionMode::RelevantBlocks);
@@ -157,17 +182,45 @@ fn a_search_carries_the_asks_budget_and_evidence_settings() {
         search.evidence.evidence_counter,
         CounterMode::Utf8AnswerBound
     );
-    assert_eq!((search.budget.k, search.budget.max_tokens), (8, 9000));
-    candidate.ask = Some(AskSettings::default());
-    let search = engine.search_request(&candidate, "question");
-    let asked = AskBudget::default();
+}
+
+#[test]
+fn real_ladder_row_evidence_bytes_equal_the_assembled_bundle_budget() {
+    let bundle: Bundle = serde_json::from_str(
+        r#"{
+            "schema": "maestro-evidence/1",
+            "collection": "collection",
+            "generation": 1,
+            "query": "question",
+            "lang": "en",
+            "routes": {},
+            "passages": [],
+            "conflicts": [],
+            "known_gaps": [],
+            "budget": {"evidence_bytes": 42, "limit": 100},
+            "trace": []
+        }"#,
+    )
+    .unwrap();
+    let suite = suite(0, 1);
+    let mut diagnostic = SearchDiagnostic::default();
+    record_evidence_bytes(&mut diagnostic, &bundle);
+    let mut engine = FakeEngine {
+        evidence_bytes: diagnostic.evidence_bytes,
+        ..FakeEngine::default()
+    };
+    let run = run_ladder(&mut engine, &suite, 0, &[rung("r0")], |_| Ok(())).unwrap();
+    let private_row = PrivateRow::new(
+        &run[0].rows[0],
+        &run[0].diagnostics[0],
+        &run[0].rejections[0],
+        run[0].reply_caps[0],
+        false,
+    );
+
     assert_eq!(
-        (
-            search.budget.k,
-            search.budget.max_tokens,
-            search.budget.deadline_ms
-        ),
-        (asked.k, asked.max_tokens, asked.search_deadline_ms)
+        serde_json::to_value(private_row).unwrap()["evidence_bytes"],
+        bundle.budget.evidence_bytes
     );
 }
 
@@ -290,5 +343,58 @@ fn an_ask_is_out_of_time_when_its_search_evidence_or_answerer_is() {
     ];
     for (error, expected) in cases {
         assert_eq!(ask_failure(&error), expected, "{error:?}");
+    }
+}
+
+#[test]
+fn a_rung_with_an_active_source_prior_names_the_bound_table_and_searches_with_it() {
+    let table = r#"{"schema": "maestro-source-classes/1", "rules": []}"#;
+    let scratch = Scratch::new();
+    let kernel = scratch.kernel(None).unwrap();
+    let path = kernel.config_dir.join("source-classes.json");
+    fs::write(&path, table).unwrap();
+    fs::write(
+        kernel.config_dir.join("bindings.toml"),
+        format!("source_classes = '{}'\n", path.display()),
+    )
+    .unwrap();
+    let (_, reranker) = register_card(&kernel, "collection", Role::Reranker, "rerank", b"r");
+    let mut official_first = rung("r0");
+    official_first.configuration.routes.dense = false;
+    official_first.configuration.rerank.as_mut().unwrap().card =
+        reranker.digest().as_str().to_owned();
+    let mut off = official_first.clone();
+    off.configuration.source_prior = Some(SourcePriorSetting::Off);
+    let port = RouterClient::new(Url::parse(NOWHERE).unwrap()).unwrap();
+    let mut engine =
+        KernelEngine::new(&kernel, "collection", port, Qdrant::new(NOWHERE).unwrap()).unwrap();
+
+    let (start, _) = engine.start(&official_first, &suite(0, 1)).unwrap();
+    assert_eq!(
+        start.source_classes.as_deref(),
+        Some(Digest::of(table.as_bytes()).as_str())
+    );
+    assert!(engine.search_context().unwrap().source_classes.is_some());
+    assert_eq!(engine.provenance(&off).unwrap().source_classes, None);
+}
+
+#[test]
+fn search_only_request_carries_parent_chain_expansion_and_order() {
+    let scratch = Scratch::new();
+    let kernel = scratch.kernel(None).unwrap();
+    let port = RouterClient::new(Url::parse(NOWHERE).unwrap()).unwrap();
+    let engine =
+        KernelEngine::new(&kernel, "collection", port, Qdrant::new(NOWHERE).unwrap()).unwrap();
+    let mut rung = rung("parent");
+    rung.ask = None;
+    rung.configuration.evidence_expansion = Some(ExpansionMode::ParentChain);
+    for order in [
+        ParentChainOrder::MinimumCompleteFirst,
+        ParentChainOrder::LargestFittingParent,
+    ] {
+        rung.configuration.parent_chain_order = Some(order);
+        let request = engine.search_request(&rung, "question");
+        assert_eq!(request.evidence.expansion, ExpansionMode::ParentChain);
+        assert_eq!(request.evidence.parent_chain_order, Some(order));
     }
 }

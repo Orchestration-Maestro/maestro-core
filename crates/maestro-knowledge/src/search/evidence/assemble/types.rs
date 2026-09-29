@@ -2,6 +2,7 @@
 
 use super::super::{
     conflicts::ConflictEmission,
+    delivery_graph::PrimaryContribution,
     families::CandidateFamily,
     features::DiversityFeatures,
     sections::Expansion,
@@ -9,7 +10,7 @@ use super::super::{
     spans::{SeedSpan, SpanUnion},
 };
 use maestro_kernel::{chunk_set::Chunk, evidence::Passage};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// Candidate source data after scoped lookup and its stable rank are joined.
 pub(super) struct LoadedCandidate {
@@ -41,6 +42,10 @@ pub(super) struct CandidateData {
 
 /// Final bundle inputs after candidate selection and conflict numbering.
 pub(super) struct BundleParts<'a> {
+    /// Seed-linked exact primary parts, absent for legacy assembly.
+    pub(super) primary_contributions: BTreeMap<u32, Vec<PrimaryContribution>>,
+    /// Admitted seeds supporting exact parent-only passage ranges.
+    pub(super) parent_supports: BTreeMap<u32, Vec<String>>,
     /// Final source passages in reading order.
     pub(super) passages: Vec<Passage>,
     /// Every loaded primary chunk seed, before candidate suppression.

@@ -1,5 +1,6 @@
 //! Typed ask requests, results, refusals, and trusted dependencies.
 
+use super::presentation::{Presentation, Tone};
 use crate::search::{
     SearchContext, SearchError,
     evidence::{Anchor, EvidenceError},
@@ -18,10 +19,6 @@ pub const DEFAULT_MODEL: &str = "qwen3-4b";
 /// included. A safety cap: a cold answerer loaded and thought through 1024
 /// tokens in 6.5 s, and a load alone took up to 5.3 s on a busy machine.
 pub const CHAT_DEADLINE: Duration = Duration::from_secs(20);
-/// System-enforced output ceiling for one generation attempt: the chat
-/// maximum, so a thinking answerer's think block fits before its answer. It
-/// is only a cap; an answerer that does not think stops well before it.
-pub(super) const DEFAULT_OUTPUT_TOKENS: u32 = MAX_CHAT_OUTPUT_TOKENS;
 /// Number of closest passages retained in a refusal.
 pub(super) const CLOSEST_LIMIT: usize = 3;
 /// Result schema identifier.
@@ -55,25 +52,31 @@ impl ResponseLanguage {
 )]
 pub struct AskBudget {
     /// Maximum passages assembled from search.
+    #[schemars(range(min = 1, max = 50))]
     pub k: u32,
     /// UTF-8-byte evidence budget used by the deliberately uncalibrated flow.
-    pub max_tokens: u32,
+    #[schemars(range(min = 1, max = RequestBudget::MAX_EVIDENCE_BUDGET))]
+    pub evidence_bytes: u32,
     /// Search and evidence-assembly deadline in milliseconds. Its default,
     /// 30 s, is a safety cap: search loads a cold embedder and a cold
     /// reranker (each load measured 2.4-5.3 s on a busy machine) and still
     /// runs dense and rerank.
+    #[schemars(range(min = 1, max = RequestBudget::MAX_DEADLINE_MS))]
     pub search_deadline_ms: u32,
-    /// Maximum generated tokens per chat call.
-    pub output_tokens: u32,
+    /// Maximum generated tokens per chat call; absent, the answerer card's
+    /// declared output limit, or 1,024 when it declares none. Every call is
+    /// capped at 2,048.
+    #[schemars(range(min = 1, max = MAX_CHAT_OUTPUT_TOKENS))]
+    pub output_tokens: Option<u32>,
 }
 
 impl Default for AskBudget {
     fn default() -> Self {
         Self {
             k: 5,
-            max_tokens: 6000,
+            evidence_bytes: 6000,
             search_deadline_ms: RequestBudget::MAX_DEADLINE_MS,
-            output_tokens: DEFAULT_OUTPUT_TOKENS,
+            output_tokens: None,
         }
     }
 }
@@ -84,7 +87,7 @@ impl From<AskBudget> for RequestBudget {
     fn from(budget: AskBudget) -> Self {
         Self {
             k: budget.k,
-            max_tokens: budget.max_tokens,
+            evidence_bytes: budget.evidence_bytes,
             deadline_ms: budget.search_deadline_ms,
         }
     }
@@ -92,14 +95,17 @@ impl From<AskBudget> for RequestBudget {
 
 impl AskBudget {
     /// Whether every bound is within what `ask` accepts: 1 to 50 passages,
-    /// 1 to 12,000 evidence bytes, 1 to 30,000 ms of search and 1 to
-    /// [`MAX_CHAT_OUTPUT_TOKENS`] output tokens.
+    /// 1 to [`RequestBudget::MAX_EVIDENCE_BUDGET`] evidence bytes, 1 to
+    /// 30,000 ms of search and, when set, 1 to [`MAX_CHAT_OUTPUT_TOKENS`]
+    /// output tokens.
     #[must_use]
     pub fn is_within_limits(&self) -> bool {
         (1..=50).contains(&self.k)
-            && (1..=12_000).contains(&self.max_tokens)
+            && (1..=RequestBudget::MAX_EVIDENCE_BUDGET).contains(&self.evidence_bytes)
             && (1..=RequestBudget::MAX_DEADLINE_MS).contains(&self.search_deadline_ms)
-            && (1..=MAX_CHAT_OUTPUT_TOKENS).contains(&self.output_tokens)
+            && self
+                .output_tokens
+                .is_none_or(|tokens| (1..=MAX_CHAT_OUTPUT_TOKENS).contains(&tokens))
     }
 }
 
@@ -174,14 +180,40 @@ impl PromptText {
     }
 }
 
-/// The prompt the answerer is given: a version's constant texts, or a
-/// ladder rung's own. The host checks of a reply are the same for both.
+/// The prompt the answerer is given: a version's constant texts, those
+/// texts presented in a session's language and tone, or a ladder rung's own.
+/// The host checks of a reply are the same for all three.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AnswerPrompt {
     /// The constant texts of a prompt version.
     Version(PromptVersion),
+    /// A version's texts in a session's language and tone, as the CLI and
+    /// the MCP server ask; an evaluation never uses it.
+    Presented {
+        /// The prompt version.
+        version: PromptVersion,
+        /// The session's language and tone.
+        presentation: Presentation,
+    },
     /// A ladder rung's own texts.
     Text(PromptText),
+}
+
+impl AnswerPrompt {
+    /// The language and tone it answers in: the question's language and the
+    /// normal tone unless it is presented.
+    #[must_use]
+    pub fn presentation(&self) -> &Presentation {
+        /// The presentation of an unpresented prompt.
+        static UNPRESENTED: Presentation = Presentation {
+            language: None,
+            tone: Tone::Normal,
+        };
+        match self {
+            Self::Presented { presentation, .. } => presentation,
+            Self::Version(_) | Self::Text(_) => &UNPRESENTED,
+        }
+    }
 }
 
 impl From<PromptVersion> for AnswerPrompt {
@@ -317,6 +349,10 @@ pub struct Answer {
     /// evaluation only: never serialized.
     #[serde(skip)]
     pub delivered: Vec<Anchor>,
+    /// The most tokens each chat reply could generate, absent when the ask
+    /// never reached the answerer, for evaluation only: never serialized.
+    #[serde(skip)]
+    pub reply_cap: Option<u32>,
 }
 
 /// One answerer reply the host checks rejected.

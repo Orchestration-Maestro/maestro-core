@@ -109,6 +109,23 @@ fn a_symlink_at_a_name_is_never_followed() {
     fs::remove_dir_all(&base).unwrap();
 }
 
+#[test]
+fn a_disk_scratch_directory_is_new_under_the_temporary_directory() {
+    let directory = super::disk_scratch_directory().unwrap();
+    assert_eq!(directory.parent(), Some(env::temp_dir().as_path()));
+    assert!(directory.is_dir(), "{}", directory.display());
+    fs::remove_dir(&directory).unwrap();
+}
+
+#[test]
+fn a_nonexistent_base_error_is_not_treated_as_a_name_collision() {
+    let parent = scratch_directory().unwrap();
+    let missing = parent.join("missing");
+    let error = create_in(&missing, ["candidate".to_owned()]).unwrap_err();
+    assert_eq!(error.kind(), ErrorKind::NotFound);
+    fs::remove_dir(&parent).unwrap();
+}
+
 #[cfg(unix)]
 #[test]
 fn a_new_directory_is_owner_only() {

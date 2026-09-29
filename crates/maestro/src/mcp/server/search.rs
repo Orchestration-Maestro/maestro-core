@@ -35,6 +35,7 @@ pub(super) async fn call_search<P: ModelPort + Send + Sync + 'static>(
     let opener = server.open_kernel.clone();
     let model_port = server.model_port.clone();
     let qdrant = server.qdrant.clone();
+    let settings = server.settings.clone();
     let cancellation = context.ct.clone();
     let worker_cancellation = cancellation.clone();
     let request_id = context.id.clone();
@@ -49,8 +50,14 @@ pub(super) async fn call_search<P: ModelPort + Send + Sync + 'static>(
             }
             Err(_) => return Ok(operation_error(kernel_unavailable()).into()),
         };
-        let scoped = match search_with(kernel, &request, model_port.as_ref(), qdrant.as_ref()).await
-        {
+        let searched = search_with(
+            kernel,
+            &request,
+            &settings,
+            model_port.as_ref(),
+            qdrant.as_ref(),
+        );
+        let scoped = match searched.await {
             Ok(scoped) => scoped,
             Err(error) => return Ok(operation_error(error).into()),
         };

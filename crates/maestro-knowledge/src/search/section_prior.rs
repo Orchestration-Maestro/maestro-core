@@ -1,8 +1,5 @@
 //! Configured section classes and an optional soft reciprocal-rank penalty.
 
-use super::rerank::Ranked;
-use std::collections::BTreeSet;
-
 /// Enabled named section classes; unknown names cannot enter the set.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct SectionClassSet(u8);
@@ -107,34 +104,12 @@ impl SectionPrior {
         matches!(self, Self::Soft { classes, .. } if classes.0 != 0)
     }
 
-    /// Applies the configured penalty without changing any stored raw score.
-    /// Each item scores `multiplier / (position + 1)`, so a penalized item at
-    /// rank r moves to about r / (1 - weight); on equal scores the
-    /// unpenalized item goes first, so any positive weight demotes strictly.
-    #[expect(
-        clippy::cast_precision_loss,
-        reason = "search bounds the candidate pool to 120"
-    )]
-    pub(super) fn apply(self, ranked: &mut [Ranked], penalized: &BTreeSet<String>) {
-        let Self::Soft { weight, .. } = self else {
-            return;
-        };
-        let mut ordered = ranked
-            .iter()
-            .enumerate()
-            .map(|(position, item)| {
-                let demoted = penalized.contains(&item.candidate.fused.chunk_id);
-                let multiplier = if demoted {
-                    1.0 - f64::from(weight)
-                } else {
-                    1.0
-                };
-                (item.clone(), multiplier / (position + 1) as f64, demoted)
-            })
-            .collect::<Vec<_>>();
-        ordered.sort_by(|left, right| right.1.total_cmp(&left.1).then(left.2.cmp(&right.2)));
-        for (target, (item, _, _)) in ranked.iter_mut().zip(ordered) {
-            *target = item;
+    /// The reciprocal-rank multiplier of a penalized candidate; the shared
+    /// demotion moves a penalized rank r to about r / (1 - weight).
+    pub(super) fn multiplier(self) -> Option<f64> {
+        match self {
+            Self::Off => None,
+            Self::Soft { weight, .. } => Some(1.0 - f64::from(weight)),
         }
     }
 }

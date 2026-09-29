@@ -6,6 +6,7 @@ mod args;
 mod ask;
 mod backup;
 mod collection;
+mod config;
 mod eval;
 mod filesystem;
 mod foreground;
@@ -13,6 +14,7 @@ mod graph;
 pub(crate) mod health;
 mod import;
 mod lease;
+mod model;
 mod output;
 mod prepare;
 /// Explicit replacement of a lost published projection.
