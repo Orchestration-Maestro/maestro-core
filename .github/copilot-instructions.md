@@ -721,6 +721,7 @@ in place.
 │   │   │   │   │   ├── mod.rs                                               # Tests of the evaluation runner: how it ranks and judges each question
 │   │   │   │   │   ├── ranking.rs                                           # A bundle lists its passages in reading order, so the runner ranks them
 │   │   │   │   │   ├── report.rs                                            # A report is a strict JSON artifact, maestro-eval-report/1: it writes and
+│   │   │   │   │   ├── reranker_health.rs                                   # The reranker health gate admits only finite, separated public-pair scores
 │   │   │   │   │   ├── run.rs                                               # run resolves each expected section of a suite in the canonical document
 │   │   │   │   │   ├── support.rs                                           # What the evaluation tests share: questions, bundles built from the hits a
 │   │   │   │   │   ├── v2.rs                                                # Report v2 retains failed attempts and their timing cohort
@@ -742,6 +743,7 @@ in place.
 │   │   │   │   ├── mod.rs                                                   # The evaluation runner (plan D13; FR-S1-009, SC-S1-008): every retrieval
 │   │   │   │   ├── record.rs                                                # Recording a report in the kernel, under the collection, generation and suite it names
 │   │   │   │   ├── report_validation.rs                                     # V1 and v2 report-reader rules, shared with the v2 writer
+│   │   │   │   ├── reranker_health.rs                                       # Health qualification for rerankers, with public paired examples and a card-bound receipt
 │   │   │   │   ├── run.rs                                                   # A run: every question of a suite, resolved in the generation it
 │   │   │   │   └── run_v2.rs                                                # Strict v2 attempt execution and aggregation
 │   │   │   ├── import/                                                      # Importing a collection's corpus through its maestro-corpus/1 manifests
@@ -1044,6 +1046,7 @@ in place.
 │   │   │       │   │   └── state.rs                                         # What the fake keeps, and the refusals and hollow answers a test asked for
 │   │   │       │   ├── projection_rebuild/                                  # Crash recovery assertions for lost or partially published projections
 │   │   │       │   │   ├── alias_guards.rs                                  # The published alias a guarded replacement restores or refuses to leave
+│   │   │       │   │   ├── counter_contract.rs                              # Recovery refuses chunk sets counted for a different v2 card
 │   │   │       │   │   ├── crash_boundaries.rs                              # Crash boundaries around alias and kernel publication
 │   │   │       │   │   ├── mod.rs                                           # Crash recovery assertions for lost or partially published projections
 │   │   │       │   │   ├── rebuild_tests.rs                                 # Explicit replacement of a lost published projection

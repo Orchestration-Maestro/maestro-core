@@ -101,6 +101,7 @@ impl<P: ModelPort> Projection<'_, P> {
     ) -> Result<RebuildState<'a>, Error> {
         let dimensions = self.dimensions()?;
         let set = self.complete(chunk_set)?;
+        self.check_counter_contract(&set)?;
         let expected_embedding = embedding_profile(self.card);
         let chunks = self
             .database
