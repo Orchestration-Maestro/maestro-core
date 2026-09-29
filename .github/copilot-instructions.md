@@ -800,7 +800,9 @@ in place.
 │   │   │   │   │   ├── lengths.rs                                           # The lengths the sparse vectors are weighed against, with no passage or no term
 │   │   │   │   │   ├── mod.rs                                               # Tests of the projection's parts no publication reaches
 │   │   │   │   │   ├── point.rs                                             # Point IDs: the UUIDv5 of the chunk's ID, pinned by Python's uuid
-│   │   │   │   │   └── qdrant.rs                                            # A Qdrant out of reach: the client's error is the cause of the refusal
+│   │   │   │   │   ├── qdrant.rs                                            # A Qdrant out of reach: the client's error is the cause of the refusal
+│   │   │   │   │   ├── qdrant_adapter.rs                                    # Unit tests of the Qdrant adapter's hit conversion
+│   │   │   │   │   └── verify.rs                                            # Tests for the published vector-layout diagnostic
 │   │   │   │   ├── batches.rs                                               # Writing a generation's points a batch at a time, each shown to the caller to journal
 │   │   │   │   ├── dense.rs                                                 # Dense vectors: a batch embedded in free room within a deadline, then checked
 │   │   │   │   ├── error.rs                                                 # Why a publication stopped, and the check a generation's collection failed

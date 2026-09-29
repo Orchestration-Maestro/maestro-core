@@ -17,10 +17,7 @@ use super::{
         outcome::{IdentifierOutcome, RouteOutcome, StructuredOutcome},
     },
 };
-use crate::{
-    index::{ProjectionError, RetrievalProjectionPort},
-    query::QueryKind,
-};
+use crate::{index::RetrievalProjectionPort, query::QueryKind};
 use maestro_kernel::{
     evidence::{Inventory, RouteStatus},
     gateway::ModelPort,
@@ -114,7 +111,7 @@ pub(super) type Originals = (
 );
 
 /// Runs unconditional expansion in parallel, but defers a confidence-triggered model.
-pub(super) async fn execute<P: ModelPort, R: RetrievalProjectionPort<Error = ProjectionError>>(
+pub(super) async fn execute<P: ModelPort, R: RetrievalProjectionPort>(
     context: &SearchContext<'_, P, R>,
     admitted: &AdmittedSearch,
 ) -> (Originals, IntentRoutes) {
@@ -285,7 +282,7 @@ fn rerank_set(
 }
 
 /// Runs unchanged original routes independently of optional expansion.
-async fn original_routes<P: ModelPort, R: RetrievalProjectionPort<Error = ProjectionError>>(
+async fn original_routes<P: ModelPort, R: RetrievalProjectionPort>(
     context: &SearchContext<'_, P, R>,
     admitted: &AdmittedSearch,
 ) -> (

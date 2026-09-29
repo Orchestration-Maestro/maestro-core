@@ -12,7 +12,7 @@ use super::{
     route_execution::{add_named_route, prepare_reranker},
     route_search::{self, Originals, RouteResults},
 };
-use crate::index::{ProjectionError, RetrievalProjectionPort};
+use crate::index::RetrievalProjectionPort;
 use maestro_kernel::{
     evidence::RouteStatus,
     gateway::ModelPort,
@@ -33,7 +33,7 @@ use std::mem;
 ///
 /// Returns [`SearchError`] when admission, permissions, or candidate integrity
 /// cannot be established within the request deadline.
-pub async fn search<P: ModelPort, R: RetrievalProjectionPort<Error = ProjectionError>>(
+pub async fn search<P: ModelPort, R: RetrievalProjectionPort>(
     context: &SearchContext<'_, P, R>,
     request: &SearchRequest<'_>,
 ) -> Result<EvidenceInput, SearchError> {
@@ -81,7 +81,7 @@ pub async fn search<P: ModelPort, R: RetrievalProjectionPort<Error = ProjectionE
 /// judged by its best rerank score, whatever rank policies put first. An
 /// expansion that adds nothing, or a second pass that ranks worse, keeps
 /// the first ranking with the intent statuses attached.
-async fn conditional_search<P: ModelPort, R: RetrievalProjectionPort<Error = ProjectionError>>(
+async fn conditional_search<P: ModelPort, R: RetrievalProjectionPort>(
     context: &SearchContext<'_, P, R>,
     request: &SearchRequest<'_>,
     admitted: AdmittedSearch,
@@ -183,7 +183,7 @@ pub(super) const fn search_outcome(error: &SearchError) -> Outcome {
 
 /// Loads exact candidates, reranks until the setup cutoff, which leaves
 /// evidence assembly its time, or degrades safely, and rechecks permissions.
-async fn finish_search<P: ModelPort, R: RetrievalProjectionPort<Error = ProjectionError>>(
+async fn finish_search<P: ModelPort, R: RetrievalProjectionPort>(
     context: &SearchContext<'_, P, R>,
     request: &SearchRequest<'_>,
     admitted: AdmittedSearch,

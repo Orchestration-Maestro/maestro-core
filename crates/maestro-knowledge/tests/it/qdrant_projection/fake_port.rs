@@ -33,6 +33,7 @@ use tokio::time::Instant;
 struct FakePort {
     collections: Mutex<HashMap<String, FakeCollection>>,
     aliases: Mutex<HashMap<String, String>>,
+    fail_on: Mutex<Option<&'static str>>,
 }
 
 #[derive(Debug, Default)]
@@ -46,15 +47,42 @@ impl FakePort {
     fn error() -> ProjectionError {
         ProjectionError::new("fake port operation is unsupported")
     }
-}
 
-impl FakePort {
-    fn search_hits(&self, name: &str) -> Result<Vec<PointHit>, ProjectionError> {
+    fn fail(&self, operation: &'static str) {
+        *self.fail_on.lock().unwrap() = Some(operation);
+    }
+
+    fn maybe_fail(&self, operation: &'static str) -> Result<(), ProjectionError> {
+        if *self.fail_on.lock().unwrap() == Some(operation) {
+            Err(ProjectionError::new(format!("fake refused {operation}")))
+        } else {
+            Ok(())
+        }
+    }
+
+    fn drop_point(&self, collection: &str, id: &str) {
+        if let Some(collection) = self.collections.lock().unwrap().get_mut(collection) {
+            collection.points.remove(id);
+        }
+    }
+
+    fn clear_failure(&self) {
+        *self.fail_on.lock().unwrap() = None;
+    }
+
+    fn search_hits(
+        &self,
+        name: &str,
+        filter: &ProjectionFilter,
+        limit: usize,
+    ) -> Result<Vec<PointHit>, ProjectionError> {
         let collections = self.collections.lock().unwrap();
         let collection = collections.get(name).ok_or_else(Self::error)?;
         Ok(collection
             .points
             .values()
+            .filter(|point| matches_filter(point, filter))
+            .take(limit)
             .cloned()
             .map(|mut point| {
                 point.score = Some(0.75);
@@ -64,21 +92,40 @@ impl FakePort {
     }
 }
 
+fn matches_filter(point: &PointHit, filter: &ProjectionFilter) -> bool {
+    match filter {
+        ProjectionFilter::AnyString { field, values } => point
+            .payload
+            .get(field)
+            .and_then(serde_json::Value::as_array)
+            .is_some_and(|actual| {
+                actual
+                    .iter()
+                    .filter_map(serde_json::Value::as_str)
+                    .any(|actual| values.iter().any(|value| value == actual))
+            }),
+        ProjectionFilter::ExactString { field, value } => {
+            point.payload.get(field).and_then(serde_json::Value::as_str) == Some(value)
+        }
+        ProjectionFilter::All(filters) => {
+            filters.iter().all(|filter| matches_filter(point, filter))
+        }
+    }
+}
+
 #[expect(
     clippy::unused_async_trait_impl,
     reason = "The in-memory fake has no I/O to await."
 )]
 impl RetrievalProjectionPort for FakePort {
-    type Error = ProjectionError;
-
-    async fn collection_exists(&self, name: &str) -> Result<bool, Self::Error> {
+    async fn collection_exists(&self, name: &str) -> Result<bool, ProjectionError> {
         Ok(self.collections.lock().unwrap().contains_key(name))
     }
     async fn create_collection(
         &self,
         name: &str,
         layout: CollectionLayout,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<(), ProjectionError> {
         self.collections.lock().unwrap().insert(
             name.to_owned(),
             FakeCollection {
@@ -88,7 +135,10 @@ impl RetrievalProjectionPort for FakePort {
         );
         Ok(())
     }
-    async fn collection_layout(&self, name: &str) -> Result<Option<CollectionLayout>, Self::Error> {
+    async fn collection_layout(
+        &self,
+        name: &str,
+    ) -> Result<Option<CollectionLayout>, ProjectionError> {
         Ok(self
             .collections
             .lock()
@@ -96,7 +146,7 @@ impl RetrievalProjectionPort for FakePort {
             .get(name)
             .and_then(|collection| collection.layout.clone()))
     }
-    async fn index_payload_fields(&self, name: &str) -> Result<(), Self::Error> {
+    async fn index_payload_fields(&self, name: &str) -> Result<(), ProjectionError> {
         let mut collections = self.collections.lock().unwrap();
         let collection = collections.get_mut(name).ok_or_else(Self::error)?;
         collection.fields.extend(
@@ -105,7 +155,10 @@ impl RetrievalProjectionPort for FakePort {
         );
         Ok(())
     }
-    async fn payload_fields(&self, name: &str) -> Result<BTreeMap<String, String>, Self::Error> {
+    async fn payload_fields(
+        &self,
+        name: &str,
+    ) -> Result<BTreeMap<String, String>, ProjectionError> {
         self.collections
             .lock()
             .unwrap()
@@ -117,7 +170,8 @@ impl RetrievalProjectionPort for FakePort {
         &self,
         name: &str,
         points: Vec<ProjectionPoint>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<(), ProjectionError> {
+        self.maybe_fail("upsert_points")?;
         let mut collections = self.collections.lock().unwrap();
         let collection = collections.get_mut(name).ok_or_else(Self::error)?;
         for point in points {
@@ -132,7 +186,7 @@ impl RetrievalProjectionPort for FakePort {
         }
         Ok(())
     }
-    async fn count_points(&self, name: &str) -> Result<u64, Self::Error> {
+    async fn count_points(&self, name: &str) -> Result<u64, ProjectionError> {
         self.collections
             .lock()
             .unwrap()
@@ -140,7 +194,7 @@ impl RetrievalProjectionPort for FakePort {
             .map(|collection| u64::try_from(collection.points.len()).unwrap_or(u64::MAX))
             .ok_or_else(Self::error)
     }
-    async fn point_ids(&self, name: &str, ids: &[String]) -> Result<Vec<String>, Self::Error> {
+    async fn point_ids(&self, name: &str, ids: &[String]) -> Result<Vec<String>, ProjectionError> {
         let collections = self.collections.lock().unwrap();
         let collection = collections.get(name).ok_or_else(Self::error)?;
         Ok(ids
@@ -149,7 +203,7 @@ impl RetrievalProjectionPort for FakePort {
             .cloned()
             .collect())
     }
-    async fn payloads(&self, name: &str, ids: &[String]) -> Result<Vec<PointHit>, Self::Error> {
+    async fn payloads(&self, name: &str, ids: &[String]) -> Result<Vec<PointHit>, ProjectionError> {
         let collections = self.collections.lock().unwrap();
         let collection = collections.get(name).ok_or_else(Self::error)?;
         Ok(ids
@@ -161,35 +215,35 @@ impl RetrievalProjectionPort for FakePort {
         &self,
         collection: &str,
         _: Vec<f32>,
-        _: usize,
-        _: ProjectionFilter,
-    ) -> Result<Vec<PointHit>, Self::Error> {
-        self.search_hits(collection)
+        limit: usize,
+        filter: ProjectionFilter,
+    ) -> Result<Vec<PointHit>, ProjectionError> {
+        self.search_hits(collection, &filter, limit)
     }
     async fn search_sparse(
         &self,
         collection: &str,
         _: SparseValues,
-        _: usize,
-        _: ProjectionFilter,
-    ) -> Result<Vec<PointHit>, Self::Error> {
-        self.search_hits(collection)
+        limit: usize,
+        filter: ProjectionFilter,
+    ) -> Result<Vec<PointHit>, ProjectionError> {
+        self.search_hits(collection, &filter, limit)
     }
     async fn scroll(
         &self,
         collection: &str,
-        _: ProjectionFilter,
+        filter: ProjectionFilter,
         _: Option<ProjectionCursor>,
-    ) -> Result<ProjectionPage, Self::Error> {
+    ) -> Result<ProjectionPage, ProjectionError> {
         Ok(ProjectionPage {
-            points: self.search_hits(collection)?,
+            points: self.search_hits(collection, &filter, 64)?,
             next: None,
         })
     }
-    async fn alias_target(&self, alias: &str) -> Result<Option<String>, Self::Error> {
+    async fn alias_target(&self, alias: &str) -> Result<Option<String>, ProjectionError> {
         Ok(self.aliases.lock().unwrap().get(alias).cloned())
     }
-    async fn replace_alias(&self, alias: &str, collection: &str) -> Result<(), Self::Error> {
+    async fn replace_alias(&self, alias: &str, collection: &str) -> Result<(), ProjectionError> {
         if !self.collections.lock().unwrap().contains_key(collection) {
             return Err(Self::error());
         }
@@ -199,10 +253,67 @@ impl RetrievalProjectionPort for FakePort {
             .insert(alias.to_owned(), collection.to_owned());
         Ok(())
     }
-    async fn remove_collection(&self, name: &str) -> Result<(), Self::Error> {
-        self.collections.lock().unwrap().remove(name);
-        Ok(())
-    }
+}
+
+#[test]
+fn fake_search_enforces_scope_version_filters_and_limit() {
+    let fake = FakePort::default();
+    fake.fail("upsert_points");
+    assert!(fake.maybe_fail("upsert_points").is_err());
+    fake.clear_failure();
+    fake.collections.lock().unwrap().insert(
+        "collection".to_owned(),
+        FakeCollection {
+            points: [
+                (
+                    "allowed".to_owned(),
+                    PointHit {
+                        id: "allowed".to_owned(),
+                        score: None,
+                        payload: [
+                            ("scope_tags".to_owned(), serde_json::json!(["read"])),
+                            ("version".to_owned(), serde_json::json!("v1")),
+                        ]
+                        .into(),
+                    },
+                ),
+                (
+                    "outside".to_owned(),
+                    PointHit {
+                        id: "outside".to_owned(),
+                        score: None,
+                        payload: [
+                            ("scope_tags".to_owned(), serde_json::json!(["admin"])),
+                            ("version".to_owned(), serde_json::json!("v1")),
+                        ]
+                        .into(),
+                    },
+                ),
+            ]
+            .into(),
+            ..FakeCollection::default()
+        },
+    );
+    let hits = fake
+        .search_hits(
+            "collection",
+            &ProjectionFilter::All(vec![
+                ProjectionFilter::AnyString {
+                    field: "scope_tags".to_owned(),
+                    values: vec!["read".to_owned()],
+                },
+                ProjectionFilter::ExactString {
+                    field: "version".to_owned(),
+                    value: "v1".to_owned(),
+                },
+            ]),
+            1,
+        )
+        .unwrap();
+    assert_eq!(
+        hits.iter().map(|hit| hit.id.as_str()).collect::<Vec<_>>(),
+        ["allowed"]
+    );
 }
 
 #[tokio::test]
@@ -295,4 +406,33 @@ async fn publication_and_standalone_verification_use_the_fake_port() {
     )
     .await;
     assert!(!identifiers.hits.is_empty());
+
+    assert_dropped_point_is_reported(&fake, &kernel, &report.qdrant_collection, report.generation)
+        .await;
+}
+
+/// Confirms a missing fake point is reported as a projection count mismatch.
+async fn assert_dropped_point_is_reported(
+    fake: &FakePort,
+    kernel: &Kernel,
+    collection: &str,
+    generation: i64,
+) {
+    let id = fake
+        .collections
+        .lock()
+        .unwrap()
+        .get(collection)
+        .and_then(|collection| collection.points.keys().next().cloned())
+        .unwrap();
+    fake.drop_point(collection, &id);
+    let verification = verify_generation(&kernel.database, &kernel.scopes, fake, generation)
+        .await
+        .unwrap();
+    assert!(
+        verification
+            .findings
+            .iter()
+            .any(|finding| finding.contains("point count mismatch"))
+    );
 }

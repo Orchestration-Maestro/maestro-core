@@ -5,7 +5,7 @@ use super::{
     results::{ScoredChunk, chunks, rank},
 };
 use crate::{
-    index::{ProjectionError, RetrievalProjectionPort, SparseValues},
+    index::{RetrievalProjectionPort, SparseValues},
     lexical,
     search::{filter::query_filter, query::Query},
 };
@@ -16,7 +16,7 @@ use crate::{
 ///
 /// [`RouteError::ProfileMismatch`] when the generation recorded another
 /// analyzer, and [`RouteError::Qdrant`] when Qdrant fails.
-pub async fn search_bm25<R: RetrievalProjectionPort<Error = ProjectionError>>(
+pub async fn search_bm25<R: RetrievalProjectionPort>(
     query: &Query<'_, R>,
 ) -> Result<Vec<ScoredChunk>, RouteError> {
     if query.generation.sparse_profile != lexical::PROFILE {

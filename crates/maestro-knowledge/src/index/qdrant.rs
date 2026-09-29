@@ -347,19 +347,6 @@ impl Qdrant {
             .map(|entry| entry.collection_name))
     }
 
-    /// Deletes a physical collection during an explicitly guarded rebuild.
-    ///
-    /// # Errors
-    ///
-    /// [`QdrantError::Client`] when Qdrant refuses or cannot answer.
-    pub(super) async fn delete_collection(&self, collection: &str) -> Result<(), QdrantError> {
-        self.client
-            .delete_collection(collection)
-            .await
-            .map(drop)
-            .map_err(QdrantError::Client)
-    }
-
     /// Points the alias `alias` at the collection `collection`, in one
     /// action: Qdrant's `create_alias` replaces the alias it names, while a
     /// list of actions is not applied atomically (a `delete_alias` stays done

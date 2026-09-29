@@ -7,7 +7,7 @@ use super::{
     results::ScoredChunk,
 };
 use crate::{
-    index::{ProjectionCursor, ProjectionError, ProjectionFilter, RetrievalProjectionPort},
+    index::{ProjectionCursor, ProjectionFilter, RetrievalProjectionPort},
     query::{PROFILE, Understood},
     search::{
         deadline::{self, DEADLINE_EXCEEDED, DISABLED_BY_CONFIGURATION},
@@ -50,7 +50,7 @@ const TOO_COMMON: &str = "identifier too common";
 /// The two legs run concurrently. A completed leg's hits survive failure or
 /// timeout in the other; common kernel identifiers are reported as degraded.
 /// One Identifier route remains one fusion vote.
-pub async fn search_identifiers<R: RetrievalProjectionPort<Error = ProjectionError>>(
+pub async fn search_identifiers<R: RetrievalProjectionPort>(
     query: &Query<'_, R>,
     database: Arc<Database>,
     understood: &Understood,
@@ -64,7 +64,7 @@ pub async fn search_identifiers<R: RetrievalProjectionPort<Error = ProjectionErr
 /// [`search_identifiers`] with the noise guard: an identifier the kernel
 /// leg skips as too common is dropped from the payload leg too, and the
 /// route is unavailable only when a leg fails or every identifier is dropped.
-pub async fn search_identifiers_guarded<R: RetrievalProjectionPort<Error = ProjectionError>>(
+pub async fn search_identifiers_guarded<R: RetrievalProjectionPort>(
     query: &Query<'_, R>,
     database: Arc<Database>,
     understood: &Understood,
@@ -81,9 +81,7 @@ pub async fn search_identifiers_guarded<R: RetrievalProjectionPort<Error = Proje
 }
 
 /// Executes identifier search as `mode` says.
-pub(in crate::search) async fn search_identifiers_as<
-    R: RetrievalProjectionPort<Error = ProjectionError>,
->(
+pub(in crate::search) async fn search_identifiers_as<R: RetrievalProjectionPort>(
     mode: IdentifierMode,
     query: &Query<'_, R>,
     database: Arc<Database>,
@@ -141,7 +139,7 @@ pub(in crate::search) async fn search_identifiers_as<
 /// Runs the kernel leg, then the payload leg on the identifiers the kernel
 /// leg did not skip as too common; when it skipped them all, the payload
 /// leg does not run.
-async fn guarded_legs<R: RetrievalProjectionPort<Error = ProjectionError>>(
+async fn guarded_legs<R: RetrievalProjectionPort>(
     query: &Query<'_, R>,
     database: Arc<Database>,
     identifiers: &[String],
@@ -272,7 +270,7 @@ async fn ready_projection(
 }
 
 /// Searches filtered payload pages in the pinned physical collection.
-async fn payload_leg<R: RetrievalProjectionPort<Error = ProjectionError>>(
+async fn payload_leg<R: RetrievalProjectionPort>(
     query: &Query<'_, R>,
     identifiers: &[String],
     limit: usize,
@@ -344,7 +342,7 @@ struct KernelOutcome {
 }
 
 /// Reads an exact, scope-filtered kernel leg on a cancellable blocking worker.
-async fn kernel_leg<R: RetrievalProjectionPort<Error = ProjectionError>>(
+async fn kernel_leg<R: RetrievalProjectionPort>(
     query: &Query<'_, R>,
     database: Arc<Database>,
     identifiers: &[String],

@@ -49,13 +49,7 @@ impl Step {
     }
 }
 
-impl<
-    P: ModelPort,
-    R: super::projection_port::RetrievalProjectionPort<
-            Error = super::projection_port::ProjectionError,
-        >,
-> Projection<'_, P, R>
-{
+impl<P: ModelPort, R: super::projection_port::RetrievalProjectionPort> Projection<'_, P, R> {
     /// Publishes the complete chunk set `chunk_set` as a generation of its
     /// collection, and returns its report: [`Projection::publish_observed`],
     /// resuming nothing and observed by no one.
@@ -422,12 +416,8 @@ impl<
     }
 }
 
-impl<
-    P: ModelPort,
-    R: super::projection_port::RetrievalProjectionPort<
-            Error = super::projection_port::ProjectionError,
-        >,
-> ProjectionWithBatchSize<'_, P, R>
+impl<P: ModelPort, R: super::projection_port::RetrievalProjectionPort>
+    ProjectionWithBatchSize<'_, P, R>
 {
     /// Publishes `chunk_set` with the test-selected batch size, without
     /// observing progress.

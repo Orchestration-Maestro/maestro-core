@@ -14,7 +14,7 @@ use super::{
         structured::search_structured,
     },
 };
-use crate::index::{ProjectionError, RetrievalProjectionPort};
+use crate::index::RetrievalProjectionPort;
 use maestro_kernel::{
     evidence::RouteStatus,
     gateway::{ModelPort, Role, Room},
@@ -71,10 +71,7 @@ const UNSUPPORTED_INVENTORY: &str = concat!(
 /// `cutoffs.routes_end`, not route time. A setup the port refuses, or
 /// one still loading at that bound, leaves the route unavailable without
 /// its window.
-pub(super) async fn dense_outcome<
-    P: ModelPort,
-    R: RetrievalProjectionPort<Error = ProjectionError>,
->(
+pub(super) async fn dense_outcome<P: ModelPort, R: RetrievalProjectionPort>(
     enabled: bool,
     query: &Query<'_, R>,
     embedder: Option<&Embedder<'_, P>>,
@@ -143,7 +140,7 @@ pub(super) async fn prepare_reranker<P: ModelPort>(
 }
 
 /// Executes lexical search with its independent route cutoff.
-pub(super) async fn lexical_outcome<R: RetrievalProjectionPort<Error = ProjectionError>>(
+pub(super) async fn lexical_outcome<R: RetrievalProjectionPort>(
     enabled: bool,
     query: &Query<'_, R>,
     deadline: Instant,

@@ -17,13 +17,14 @@ pub(super) fn scope_filter(scopes: &ScopeSet) -> ProjectionFilter {
 /// Adds an exact metadata version to the in-Qdrant authorization filter.
 pub(super) fn query_filter(scopes: &ScopeSet, version: Option<&str>) -> ProjectionFilter {
     let scope = scope_filter(scopes);
-    version.map_or(scope.clone(), |version| {
-        ProjectionFilter::All(vec![
+    match version {
+        None => scope,
+        Some(version) => ProjectionFilter::All(vec![
             scope,
             ProjectionFilter::ExactString {
                 field: "version".to_owned(),
                 value: version.to_owned(),
             },
-        ])
-    })
+        ]),
+    }
 }

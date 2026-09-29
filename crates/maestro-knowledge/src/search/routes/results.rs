@@ -1,7 +1,9 @@
 //! Route-order results and the common first-hit deduplication rule.
 
 use super::error::RouteError;
-use crate::index::{PointHit, ProjectionError};
+use crate::index::{
+    PointHit, invalid_answer as projection_invalid_answer, payload_text as projection_payload_text,
+};
 use std::collections::HashSet;
 
 /// A chunk returned by one independent route, with its route score.
@@ -75,19 +77,14 @@ pub(crate) fn rank(hits: Vec<ScoredChunk>, limit: usize) -> Vec<ScoredChunk> {
 
 /// Gets a string payload field from one Qdrant hit.
 fn payload_text(point: &PointHit, key: &str) -> Result<String, RouteError> {
-    point
-        .payload
-        .get(key)
-        .and_then(serde_json::Value::as_str)
+    projection_payload_text(point, key)
         .map(str::to_owned)
         .ok_or_else(|| invalid_answer(&format!("hit payload lacks string {key}")))
 }
 
 /// Wraps a malformed answer from Qdrant as an invalid answer error.
 fn invalid_answer(reason: &str) -> RouteError {
-    RouteError::Qdrant(ProjectionError::new(format!(
-        "Qdrant's answer is not what was asked for: {reason}"
-    )))
+    RouteError::Qdrant(projection_invalid_answer(reason))
 }
 
 #[cfg(test)]

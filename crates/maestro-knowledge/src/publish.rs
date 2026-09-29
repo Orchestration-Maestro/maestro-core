@@ -94,7 +94,7 @@ impl error::Error for Error {
 pub async fn verify_generation(
     database: &Database,
     scopes: &ScopeSet,
-    qdrant: &impl RetrievalProjectionPort<Error = ProjectionError>,
+    qdrant: &impl RetrievalProjectionPort,
     id: i64,
 ) -> Result<Verification, Error> {
     let generation = database

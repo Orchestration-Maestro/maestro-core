@@ -5,7 +5,7 @@ use super::{
     results::{ScoredChunk, chunks, rank},
 };
 use crate::{
-    index::{ProjectionError, RetrievalProjectionPort, embedding_profile},
+    index::{RetrievalProjectionPort, embedding_profile},
     search::{filter::query_filter, query::Query},
 };
 use maestro_kernel::gateway::{ModelCard, ModelPort, Role, Room};
@@ -34,7 +34,7 @@ pub struct Embedder<'a, P> {
 /// embedder, [`RouteError::EmbedderUnavailable`] when its model port refuses,
 /// has no free room, times out or is unreachable, [`RouteError::InvalidVector`]
 /// when its response is malformed, and [`RouteError::Qdrant`] when Qdrant fails.
-pub async fn search_dense<P: ModelPort, R: RetrievalProjectionPort<Error = ProjectionError>>(
+pub async fn search_dense<P: ModelPort, R: RetrievalProjectionPort>(
     query: &Query<'_, R>,
     embedder: &Embedder<'_, P>,
 ) -> Result<Vec<ScoredChunk>, RouteError> {

@@ -23,13 +23,7 @@ use maestro_kernel::{
 };
 use std::ops::ControlFlow;
 
-impl<
-    P: ModelPort,
-    R: super::projection_port::RetrievalProjectionPort<
-            Error = super::projection_port::ProjectionError,
-        >,
-> Projection<'_, P, R>
-{
+impl<P: ModelPort, R: super::projection_port::RetrievalProjectionPort> Projection<'_, P, R> {
     /// Publishes an explicitly requested replacement, retaining the
     /// generation captured by `guard` as its only legal predecessor.
     /// Journaled progress in `resume` continues the same replacement.

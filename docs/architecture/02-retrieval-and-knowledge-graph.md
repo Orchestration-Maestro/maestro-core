@@ -252,6 +252,11 @@ source ranges merge before counting the actual serialized final passage array.
 A UTF-8 byte counter can reject a single over-budget required range before
 rendering; no byte bound is assumed for tokenizer counters.
 
+Knowledge retrieval crosses the `RetrievalProjectionPort`: publication,
+verification, rebuild, and search use backend-neutral projection data and
+filters, while the Qdrant adapter owns transport conversion. This keeps the
+projection backend replaceable without changing retrieval callers.
+
 Conflict groups use global clamped tiers, preserving every member: minimum-first
 ascends them, largest-first descends the same tiers. Both retry lockstep growth
 after admission, because later overlaps can make a parent cheaper. Passage

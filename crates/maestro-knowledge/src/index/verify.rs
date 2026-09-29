@@ -24,7 +24,7 @@ const LOOKUP: usize = 1000;
 ///
 /// [`ProjectionError`] when the projection backend fails, which checks nothing.
 pub(super) async fn verify(
-    qdrant: &impl RetrievalProjectionPort<Error = ProjectionError>,
+    qdrant: &impl RetrievalProjectionPort,
     collection: &str,
     dimensions: u64,
     chunks: &[Chunk],
@@ -75,8 +75,7 @@ pub(super) fn vectors(layout: &CollectionLayout, dimensions: u64) -> Result<(), 
     let dense = if layout.dense_present {
         format!(
             "a dense vector `dense` of {} dimensions compared by {}",
-            layout.dense_dimensions,
-            layout.dense_distance.to_ascii_uppercase()
+            layout.dense_dimensions, layout.dense_distance
         )
     } else {
         "no dense vector `dense`".to_owned()
@@ -84,11 +83,7 @@ pub(super) fn vectors(layout: &CollectionLayout, dimensions: u64) -> Result<(), 
     let sparse = if layout.sparse_present {
         format!(
             "a sparse vector `bm25` weighted by {} modifier",
-            layout
-                .sparse_modifier
-                .as_deref()
-                .unwrap_or("no")
-                .to_ascii_uppercase()
+            layout.sparse_modifier.as_deref().unwrap_or("no")
         )
     } else {
         "no sparse vector `bm25`".to_owned()

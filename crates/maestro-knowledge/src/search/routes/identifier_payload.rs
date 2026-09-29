@@ -2,15 +2,15 @@
 
 use super::results::ScoredChunk;
 use crate::{
-    index::{PointHit, ProjectionError},
+    index::{PointHit, ProjectionError, invalid_answer as projection_invalid_answer, payload_text},
     query::PROFILE,
 };
 
 /// Validates the required string and string-array fields of a payload hit.
 pub(super) fn payload_hit(point: &PointHit) -> Result<ScoredChunk, ProjectionError> {
-    let chunk_id = payload_text(point, "chunk_id")?;
-    let revision_id = payload_text(point, "revision_id")?;
-    if payload_text(point, "identifier_profile")? != PROFILE {
+    let chunk_id = required_text(point, "chunk_id")?;
+    let revision_id = required_text(point, "revision_id")?;
+    if required_text(point, "identifier_profile")? != PROFILE {
         return Err(invalid_answer(
             "Qdrant returned an invalid identifier profile",
         ));
@@ -38,17 +38,40 @@ pub(super) fn payload_hit(point: &PointHit) -> Result<ScoredChunk, ProjectionErr
 
 /// Wraps malformed payload or scroll answers in a backend error.
 pub(super) fn invalid_answer(reason: &str) -> ProjectionError {
-    ProjectionError::new(format!(
-        "Qdrant's answer is not what was asked for: {reason}"
-    ))
+    projection_invalid_answer(reason)
 }
 
-/// Gets a string-valued field from a projection payload.
-fn payload_text(point: &PointHit, field: &str) -> Result<String, ProjectionError> {
-    point
-        .payload
-        .get(field)
-        .and_then(serde_json::Value::as_str)
+/// Reads and validates one required string field of a Qdrant payload.
+fn required_text(point: &PointHit, field: &str) -> Result<String, ProjectionError> {
+    payload_text(point, field)
         .map(str::to_owned)
         .ok_or_else(|| invalid_answer(&format!("Qdrant hit lacks string {field}")))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::payload_hit;
+    use crate::index::PointHit;
+    use serde_json::json;
+    use std::collections::BTreeMap;
+
+    fn hit(profile: serde_json::Value, identifiers: serde_json::Value) -> PointHit {
+        PointHit {
+            id: "point".to_owned(),
+            score: None,
+            payload: BTreeMap::from([
+                ("chunk_id".to_owned(), json!("chunk")),
+                ("revision_id".to_owned(), json!("revision")),
+                ("identifier_profile".to_owned(), profile),
+                ("identifiers".to_owned(), identifiers),
+            ]),
+        }
+    }
+
+    #[test]
+    fn validates_profile_and_string_identifier_values() {
+        assert!(payload_hit(&hit(json!("wrong"), json!(["a"]))).is_err());
+        assert!(payload_hit(&hit(json!("identifier-v1"), json!([1]))).is_err());
+        assert!(payload_hit(&hit(json!("identifier-v1"), json!("not an array"))).is_err());
+    }
 }

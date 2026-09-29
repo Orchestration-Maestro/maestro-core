@@ -11,10 +11,7 @@ use super::{
     route_execution::{dense_outcome, lexical_outcome},
     routes::outcome::RouteOutcome,
 };
-use crate::{
-    index::{ProjectionError, RetrievalProjectionPort},
-    query::Understood,
-};
+use crate::{index::RetrievalProjectionPort, query::Understood};
 use maestro_kernel::{evidence::RouteStatus, gateway::ModelPort};
 use std::time::Duration;
 use tokio::time::Instant;
@@ -28,7 +25,7 @@ pub(super) struct IntentRoutes {
 }
 
 /// Runs beside original retrieval, so a failed expansion cannot consume its window.
-pub(super) async fn execute<P: ModelPort, R: RetrievalProjectionPort<Error = ProjectionError>>(
+pub(super) async fn execute<P: ModelPort, R: RetrievalProjectionPort>(
     context: &SearchContext<'_, P, R>,
     admitted: &AdmittedSearch,
 ) -> IntentRoutes {

@@ -3,6 +3,7 @@
 use super::{
     error::{Error, Unverified},
     names::collection_name,
+    payload_text,
     point::point_id,
     projection::Projection,
     projection_port::{PointHit, RetrievalProjectionPort},
@@ -73,9 +74,7 @@ pub(super) fn record_batch(
         .map_err(Error::Search)
 }
 
-impl<P: ModelPort, R: RetrievalProjectionPort<Error = super::projection_port::ProjectionError>>
-    Projection<'_, P, R>
-{
+impl<P: ModelPort, R: RetrievalProjectionPort> Projection<'_, P, R> {
     /// Rechecks manifest membership, every prepared input, each exact payload
     /// and its keyword indexes before making this generation searchable.
     pub(super) async fn verify_search(
@@ -162,6 +161,9 @@ fn check_payloads(
     mut expected: HashMap<String, (&Chunk, Vec<String>)>,
 ) -> Result<(), String> {
     for point in points {
+        if point.id.is_empty() {
+            return Err("a published search point has no point ID".to_owned());
+        }
         let id = point.id.clone();
         let Some((chunk, identifiers)) = expected.remove(&id) else {
             return Err("a published search point has an unexpected point ID".to_owned());
@@ -183,11 +185,6 @@ fn check_payloads(
     } else {
         Err("a published search point is missing".to_owned())
     }
-}
-
-/// Reads one string payload field.
-fn payload_text<'a>(point: &'a PointHit, field: &str) -> Option<&'a str> {
-    point.payload.get(field).and_then(serde_json::Value::as_str)
 }
 
 /// Reads a payload keyword array, refusing any non-string item.
@@ -290,6 +287,10 @@ mod tests {
         let good = payload(&chunk.id, &chunk.revision_id, PROFILE, &json!(["ERR-42"]));
         assert!(check_payloads(vec![point(&id, good.clone())], expected(&chunk, &id)).is_ok());
 
+        assert_eq!(
+            check_payloads(vec![point("", good.clone())], expected(&chunk, &id)).unwrap_err(),
+            "a published search point has no point ID"
+        );
         assert!(
             check_payloads(
                 vec![point("unexpected", good.clone())],

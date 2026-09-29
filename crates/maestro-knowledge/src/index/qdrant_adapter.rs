@@ -11,11 +11,11 @@ use qdrant_client::{
     Payload,
     qdrant::{
         Condition, Distance, Filter, Modifier, NamedVectors, PayloadSchemaType, PointId,
-        PointStruct, RetrievedPoint, ScoredPoint, SparseVector, Vector, point_id::PointIdOptions,
-        vectors_config::Config,
+        PointStruct, RetrievedPoint, ScoredPoint, SparseVector, Value, Vector,
+        point_id::PointIdOptions, vectors_config::Config,
     },
 };
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 impl From<QdrantError> for ProjectionError {
     fn from(error: QdrantError) -> Self {
@@ -33,9 +33,7 @@ impl From<ProjectionError> for QdrantError {
 }
 
 impl RetrievalProjectionPort for Qdrant {
-    type Error = ProjectionError;
-
-    async fn collection_exists(&self, collection: &str) -> Result<bool, Self::Error> {
+    async fn collection_exists(&self, collection: &str) -> Result<bool, ProjectionError> {
         self.exists(collection).await.map_err(Into::into)
     }
 
@@ -43,7 +41,7 @@ impl RetrievalProjectionPort for Qdrant {
         &self,
         collection: &str,
         layout: CollectionLayout,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<(), ProjectionError> {
         if !layout.dense_present
             || layout.dense_distance != "Cosine"
             || !layout.sparse_present
@@ -59,7 +57,7 @@ impl RetrievalProjectionPort for Qdrant {
     async fn collection_layout(
         &self,
         collection: &str,
-    ) -> Result<Option<CollectionLayout>, Self::Error> {
+    ) -> Result<Option<CollectionLayout>, ProjectionError> {
         if !self.exists(collection).await? {
             return Ok(None);
         }
@@ -97,7 +95,7 @@ impl RetrievalProjectionPort for Qdrant {
         }))
     }
 
-    async fn index_payload_fields(&self, collection: &str) -> Result<(), Self::Error> {
+    async fn index_payload_fields(&self, collection: &str) -> Result<(), ProjectionError> {
         self.index_search_fields(collection)
             .await
             .map_err(Into::into)
@@ -106,7 +104,7 @@ impl RetrievalProjectionPort for Qdrant {
     async fn payload_fields(
         &self,
         collection: &str,
-    ) -> Result<BTreeMap<String, String>, Self::Error> {
+    ) -> Result<BTreeMap<String, String>, ProjectionError> {
         Ok(self
             .payload_indexes(collection)
             .await?
@@ -126,7 +124,7 @@ impl RetrievalProjectionPort for Qdrant {
         &self,
         collection: &str,
         points: Vec<ProjectionPoint>,
-    ) -> Result<(), Self::Error> {
+    ) -> Result<(), ProjectionError> {
         let points = points
             .into_iter()
             .map(|point| {
@@ -148,7 +146,7 @@ impl RetrievalProjectionPort for Qdrant {
             .map_err(Into::into)
     }
 
-    async fn count_points(&self, collection: &str) -> Result<u64, Self::Error> {
+    async fn count_points(&self, collection: &str) -> Result<u64, ProjectionError> {
         Qdrant::count(self, collection).await.map_err(Into::into)
     }
 
@@ -156,7 +154,7 @@ impl RetrievalProjectionPort for Qdrant {
         &self,
         collection: &str,
         ids: &[String],
-    ) -> Result<Vec<String>, Self::Error> {
+    ) -> Result<Vec<String>, ProjectionError> {
         Qdrant::found(self, collection, ids)
             .await
             .map_err(Into::into)
@@ -166,12 +164,13 @@ impl RetrievalProjectionPort for Qdrant {
         &self,
         collection: &str,
         ids: &[String],
-    ) -> Result<Vec<PointHit>, Self::Error> {
-        self.payload_points(collection, ids)
+    ) -> Result<Vec<PointHit>, ProjectionError> {
+        Ok(self
+            .payload_points(collection, ids)
             .await?
             .into_iter()
-            .map(|point| payload_hit(point).map_err(Into::into))
-            .collect()
+            .map(payload_hit)
+            .collect())
     }
 
     async fn search_dense(
@@ -180,12 +179,13 @@ impl RetrievalProjectionPort for Qdrant {
         vector: Vec<f32>,
         limit: usize,
         filter: ProjectionFilter,
-    ) -> Result<Vec<PointHit>, Self::Error> {
-        self.query_dense(collection, vector, limit, to_filter(filter))
+    ) -> Result<Vec<PointHit>, ProjectionError> {
+        Ok(self
+            .query_dense(collection, vector, limit, to_filter(filter))
             .await?
             .into_iter()
-            .map(|point| scored_hit(point).map_err(Into::into))
-            .collect()
+            .map(scored_hit)
+            .collect())
     }
 
     async fn search_sparse(
@@ -194,16 +194,17 @@ impl RetrievalProjectionPort for Qdrant {
         vector: SparseValues,
         limit: usize,
         filter: ProjectionFilter,
-    ) -> Result<Vec<PointHit>, Self::Error> {
+    ) -> Result<Vec<PointHit>, ProjectionError> {
         let sparse = SparseVector {
             indices: vector.indices,
             values: vector.values,
         };
-        self.query_sparse(collection, sparse, limit, to_filter(filter))
+        Ok(self
+            .query_sparse(collection, sparse, limit, to_filter(filter))
             .await?
             .into_iter()
-            .map(|point| scored_hit(point).map_err(Into::into))
-            .collect()
+            .map(scored_hit)
+            .collect())
     }
 
     async fn scroll(
@@ -211,7 +212,7 @@ impl RetrievalProjectionPort for Qdrant {
         collection: &str,
         filter: ProjectionFilter,
         cursor: Option<ProjectionCursor>,
-    ) -> Result<ProjectionPage, Self::Error> {
+    ) -> Result<ProjectionPage, ProjectionError> {
         let offset = cursor.map(|cursor| match cursor {
             ProjectionCursor::Number(number) => PointId::from(number),
             ProjectionCursor::Text(id) => PointId::from(id.as_str()),
@@ -219,30 +220,26 @@ impl RetrievalProjectionPort for Qdrant {
         let page = self
             .scroll_page(collection, to_filter(filter), offset)
             .await?;
-        let points = page
-            .result
-            .into_iter()
-            .map(|point| payload_hit(point).map_err(ProjectionError::from))
-            .collect::<Result<Vec<_>, _>>()?;
+        let points = page.result.into_iter().map(payload_hit).collect::<Vec<_>>();
         let next = page
             .next_page_offset
-            .and_then(|id| id.point_id_options)
-            .map(point_id_cursor);
+            .map(|id| {
+                id.point_id_options.map(point_id_cursor).ok_or_else(|| {
+                    QdrantError::InvalidAnswer("scroll cursor has no point ID".to_owned())
+                })
+            })
+            .transpose()?;
         Ok(ProjectionPage { points, next })
     }
 
-    async fn alias_target(&self, alias: &str) -> Result<Option<String>, Self::Error> {
+    async fn alias_target(&self, alias: &str) -> Result<Option<String>, ProjectionError> {
         self.alias_collection(alias).await.map_err(Into::into)
     }
 
-    async fn replace_alias(&self, alias: &str, collection: &str) -> Result<(), Self::Error> {
+    async fn replace_alias(&self, alias: &str, collection: &str) -> Result<(), ProjectionError> {
         self.point_alias(alias, collection)
             .await
             .map_err(Into::into)
-    }
-
-    async fn remove_collection(&self, collection: &str) -> Result<(), Self::Error> {
-        self.delete_collection(collection).await.map_err(Into::into)
     }
 }
 
@@ -266,48 +263,33 @@ fn to_filter(filter: ProjectionFilter) -> Filter {
     Filter::must(conditions)
 }
 
-/// Converts a Qdrant payload response into a neutral point hit.
-fn payload_hit(point: RetrievedPoint) -> Result<PointHit, QdrantError> {
-    let id = point
-        .id
+/// Converts Qdrant payload fields and a point ID into a neutral hit.
+pub(super) fn point_hit(
+    id: Option<PointId>,
+    payload: HashMap<String, Value>,
+    score: Option<f64>,
+) -> PointHit {
+    let id = id
         .and_then(|id| id.point_id_options)
-        .map(point_id_string)
-        .ok_or_else(|| QdrantError::InvalidAnswer("payload point has no identifier".to_owned()))?;
-    let payload = serde_json::to_value(point.payload)
-        .map_err(|error| QdrantError::InvalidAnswer(error.to_string()))?;
-    let payload = payload
-        .as_object()
-        .cloned()
-        .unwrap_or_default()
-        .into_iter()
-        .collect();
-    Ok(PointHit {
+        .map_or_else(String::new, point_id_string);
+    PointHit {
         id,
-        score: None,
-        payload,
-    })
+        score,
+        payload: payload
+            .into_iter()
+            .map(|(key, value)| (key, value.into_json()))
+            .collect(),
+    }
 }
 
-/// Converts a Qdrant ranked response into a neutral point hit.
-fn scored_hit(point: ScoredPoint) -> Result<PointHit, QdrantError> {
-    let id = point
-        .id
-        .and_then(|id| id.point_id_options)
-        .map(point_id_string)
-        .ok_or_else(|| QdrantError::InvalidAnswer("scored point has no identifier".to_owned()))?;
-    let payload = serde_json::to_value(point.payload)
-        .map_err(|error| QdrantError::InvalidAnswer(error.to_string()))?;
-    let payload = payload
-        .as_object()
-        .cloned()
-        .unwrap_or_default()
-        .into_iter()
-        .collect();
-    Ok(PointHit {
-        id,
-        score: Some(f64::from(point.score)),
-        payload,
-    })
+/// Converts a Qdrant payload-only point to a neutral hit.
+fn payload_hit(point: RetrievedPoint) -> PointHit {
+    point_hit(point.id, point.payload, None)
+}
+
+/// Converts a ranked Qdrant point to a neutral hit.
+fn scored_hit(point: ScoredPoint) -> PointHit {
+    point_hit(point.id, point.payload, Some(f64::from(point.score)))
 }
 
 /// Converts Qdrant's typed point identifier into a backend-neutral cursor.

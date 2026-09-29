@@ -44,13 +44,7 @@ pub(super) struct Target<'a> {
     pub(super) chunks: &'a [Chunk],
 }
 
-impl<
-    P: ModelPort,
-    R: super::projection_port::RetrievalProjectionPort<
-            Error = super::projection_port::ProjectionError,
-        >,
-> Projection<'_, P, R>
-{
+impl<P: ModelPort, R: super::projection_port::RetrievalProjectionPort> Projection<'_, P, R> {
     /// Writes the points of the chunks of `target` after its first `start`,
     /// in batches of `batch_size`, and shows `observer` the progress once each
     /// batch is written. The sparse vectors are weighed against the average

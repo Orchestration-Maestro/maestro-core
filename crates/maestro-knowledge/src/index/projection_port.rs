@@ -51,6 +51,18 @@ pub struct PointHit {
     pub payload: BTreeMap<String, Value>,
 }
 
+/// Reads a string-valued field from a neutral projection payload.
+pub(crate) fn payload_text<'a>(point: &'a PointHit, field: &str) -> Option<&'a str> {
+    point.payload.get(field).and_then(Value::as_str)
+}
+
+/// Formats a backend response that violates the projection contract.
+pub(crate) fn invalid_answer(reason: &str) -> ProjectionError {
+    ProjectionError::new(format!(
+        "Qdrant's answer is not what was asked for: {reason}"
+    ))
+}
+
 /// Supported backend-independent filter predicates.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ProjectionFilter {
@@ -147,46 +159,46 @@ impl error::Error for ProjectionError {
     reason = "The port deliberately exposes asynchronous operations for its local adapters."
 )]
 pub trait RetrievalProjectionPort: fmt::Debug {
-    /// The adapter's operational error, with no transport client types.
-    type Error: error::Error + Send + Sync + 'static;
-
     /// Whether a physical collection exists.
-    async fn collection_exists(&self, collection: &str) -> Result<bool, Self::Error>;
+    async fn collection_exists(&self, collection: &str) -> Result<bool, ProjectionError>;
     /// Create a physical collection with the current named vector layout.
     async fn create_collection(
         &self,
         collection: &str,
         layout: CollectionLayout,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<(), ProjectionError>;
     /// Read the current named vector layout, or `None` when absent.
     async fn collection_layout(
         &self,
         collection: &str,
-    ) -> Result<Option<CollectionLayout>, Self::Error>;
+    ) -> Result<Option<CollectionLayout>, ProjectionError>;
     /// Create keyword indexes for supported payload fields.
-    async fn index_payload_fields(&self, collection: &str) -> Result<(), Self::Error>;
+    async fn index_payload_fields(&self, collection: &str) -> Result<(), ProjectionError>;
     /// Read indexed payload field names and their backend-neutral kinds.
     async fn payload_fields(
         &self,
         collection: &str,
-    ) -> Result<BTreeMap<String, String>, Self::Error>;
+    ) -> Result<BTreeMap<String, String>, ProjectionError>;
     /// Upsert points and wait until they have been applied.
     async fn upsert_points(
         &self,
         collection: &str,
         points: Vec<ProjectionPoint>,
-    ) -> Result<(), Self::Error>;
+    ) -> Result<(), ProjectionError>;
     /// Count points exactly.
-    async fn count_points(&self, collection: &str) -> Result<u64, Self::Error>;
+    async fn count_points(&self, collection: &str) -> Result<u64, ProjectionError>;
     /// Return IDs from `ids` which currently exist.
-    async fn point_ids(&self, collection: &str, ids: &[String])
-    -> Result<Vec<String>, Self::Error>;
+    async fn point_ids(
+        &self,
+        collection: &str,
+        ids: &[String],
+    ) -> Result<Vec<String>, ProjectionError>;
     /// Read payloads for the requested physical point IDs.
     async fn payloads(
         &self,
         collection: &str,
         ids: &[String],
-    ) -> Result<Vec<PointHit>, Self::Error>;
+    ) -> Result<Vec<PointHit>, ProjectionError>;
     /// Query the named dense route with an authorization filter.
     async fn search_dense(
         &self,
@@ -194,7 +206,7 @@ pub trait RetrievalProjectionPort: fmt::Debug {
         vector: Vec<f32>,
         limit: usize,
         filter: ProjectionFilter,
-    ) -> Result<Vec<PointHit>, Self::Error>;
+    ) -> Result<Vec<PointHit>, ProjectionError>;
     /// Query the named BM25 route with an authorization filter.
     async fn search_sparse(
         &self,
@@ -202,18 +214,16 @@ pub trait RetrievalProjectionPort: fmt::Debug {
         vector: SparseValues,
         limit: usize,
         filter: ProjectionFilter,
-    ) -> Result<Vec<PointHit>, Self::Error>;
+    ) -> Result<Vec<PointHit>, ProjectionError>;
     /// Read one page for the exact identifier route.
     async fn scroll(
         &self,
         collection: &str,
         filter: ProjectionFilter,
         cursor: Option<ProjectionCursor>,
-    ) -> Result<ProjectionPage, Self::Error>;
+    ) -> Result<ProjectionPage, ProjectionError>;
     /// Resolve the collection named by an alias.
-    async fn alias_target(&self, alias: &str) -> Result<Option<String>, Self::Error>;
+    async fn alias_target(&self, alias: &str) -> Result<Option<String>, ProjectionError>;
     /// Atomically point an alias at a physical collection.
-    async fn replace_alias(&self, alias: &str, collection: &str) -> Result<(), Self::Error>;
-    /// Delete a physical collection during guarded cleanup.
-    async fn remove_collection(&self, collection: &str) -> Result<(), Self::Error>;
+    async fn replace_alias(&self, alias: &str, collection: &str) -> Result<(), ProjectionError>;
 }

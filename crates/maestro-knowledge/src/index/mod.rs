@@ -82,5 +82,6 @@ pub use projection_port::{
     CollectionLayout, PointHit, ProjectionCursor, ProjectionError, ProjectionFilter,
     ProjectionPage, ProjectionPoint, RetrievalProjectionPort, SparseValues,
 };
+pub(crate) use projection_port::{invalid_answer, payload_text};
 pub use qdrant::{Qdrant, QdrantError};
 pub use rebuild_state::RebuildGuard;
