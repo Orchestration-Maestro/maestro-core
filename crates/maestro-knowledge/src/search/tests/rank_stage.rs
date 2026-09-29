@@ -9,9 +9,9 @@ use crate::{
     },
     query::understand,
     search::{
-        CandidateContext, EvidenceInput, Hit, Ranked, Route, RouteList, SearchConfiguration,
-        SearchObservations, SectionClassSet, SectionPrior, SourceClassSet, SourceClassTable,
-        SourceClassifier, SourcePrior,
+        CandidateContext, EvidenceInput, Hit, Ranked, Route, RouteList, RuntimeClock,
+        SearchConfiguration, SearchObservations, SectionClassSet, SectionPrior, SourceClassSet,
+        SourceClassTable, SourceClassifier, SourcePrior,
         admission::AdmittedSearch,
         deadline,
         evidence::{EvidenceCounter, EvidenceSettings, assemble_evidence},
@@ -121,6 +121,7 @@ impl Corpus {
                 },
                 configuration.stage_window,
             ),
+            clock: Arc::new(RuntimeClock::current()),
             configuration,
             source_classes: None,
         }
@@ -474,6 +475,7 @@ fn evidence_input(corpus: &Corpus, admitted: AdmittedSearch, ranked: Vec<Ranked>
         inventory: None,
         budget: RequestBudget::default(),
         deadline: Instant::now() + Duration::from_secs(10),
+        clock: Arc::new(RuntimeClock::current()),
         known_gaps: Vec::new(),
     }
 }

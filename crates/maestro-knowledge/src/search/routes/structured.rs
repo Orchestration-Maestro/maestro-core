@@ -24,9 +24,9 @@ pub async fn search_structured<R>(
     let scopes = query.scopes.clone();
     let version = query.version.map(str::to_owned);
     let request = request.clone();
-    let clock = deadline::RuntimeClock::current();
+    let clock = query.clock.clone();
     match deadline::run_blocking(deadline, move |cancelled| {
-        let control = deadline::read_control(deadline, cancelled, clock.clone());
+        let control = deadline::read_control(deadline, cancelled, clock);
         let read = SearchRead {
             generation: &generation,
             scopes: &scopes,

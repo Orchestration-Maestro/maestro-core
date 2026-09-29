@@ -1,10 +1,9 @@
 //! Complete, pinned-generation inventory reads.
 
 use super::support::SearchDb;
-use crate::retrieval::SystemClock;
 use crate::{
     evidence::{Inventory, InventoryCount},
-    retrieval::{InventoryRequest, ReadControl, SearchMember, SearchRead},
+    retrieval::{InventoryRequest, ReadControl, SearchMember, SearchRead, SystemClock},
 };
 use std::{
     sync::{Arc, atomic::AtomicBool},

@@ -296,6 +296,7 @@ async fn original_routes<P: ModelPort, R: RetrievalProjectionPort>(
         identifier_limit: admitted.configuration.identifier_limit,
         version: admitted.version.as_deref(),
         projection: context.projection,
+        clock: &admitted.clock,
     };
     let structured_request = match admitted.structured_error.as_deref() {
         Some(error) => Err(error),

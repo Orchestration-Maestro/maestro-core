@@ -1,10 +1,9 @@
 //! Exact version existence in a pinned, scoped generation.
 
 use super::support::SearchDb;
-use crate::retrieval::SystemClock;
 use crate::{
     document::RevisionStatus,
-    retrieval::{ReadControl, SearchMember, SearchRead},
+    retrieval::{ReadControl, SearchMember, SearchRead, SystemClock},
 };
 use std::{
     sync::{Arc, atomic::AtomicBool},

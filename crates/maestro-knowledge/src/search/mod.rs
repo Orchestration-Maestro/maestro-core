@@ -5,7 +5,7 @@ mod assembly_settings;
 mod candidate_enrichment;
 mod candidates;
 mod deadline;
-pub use deadline::{DEADLINE_EXCEEDED, DISABLED_BY_CONFIGURATION, StageWindow};
+pub use deadline::{DEADLINE_EXCEEDED, DISABLED_BY_CONFIGURATION, RuntimeClock, StageWindow};
 /// Public evidence assembly for ranked T029c search handoffs.
 pub mod evidence;
 mod filter;

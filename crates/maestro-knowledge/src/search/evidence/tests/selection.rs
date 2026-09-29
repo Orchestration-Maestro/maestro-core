@@ -1,4 +1,3 @@
-use maestro_kernel::retrieval::SystemClock;
 #[path = "packing.rs"]
 mod packing;
 
@@ -21,7 +20,7 @@ use maestro_canonicalization::{
 use maestro_kernel::{
     artifact::Digest,
     evidence::{Passage, Span},
-    retrieval::ReadControl,
+    retrieval::{ReadControl, SystemClock},
 };
 use std::{
     collections::BTreeSet,

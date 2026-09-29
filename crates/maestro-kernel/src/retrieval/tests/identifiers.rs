@@ -1,10 +1,9 @@
 //! Controlled exact-index identifier reads.
 
 use super::support::SearchDb;
-use crate::retrieval::SystemClock;
 use crate::retrieval::{
-    ChunkHit, Error, IdentifierSearchResult, ReadControl, SearchRead, contains_identifier,
-    normalize_whitespace,
+    ChunkHit, Error, IdentifierSearchResult, ReadControl, SearchRead, SystemClock,
+    contains_identifier, normalize_whitespace,
 };
 use std::{
     sync::{Arc, atomic::AtomicBool},

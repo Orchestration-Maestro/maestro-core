@@ -11,7 +11,7 @@ use super::{
 use maestro_kernel::{
     chunk_set::Chunk,
     generation::Generation,
-    retrieval::{self, ReadControl, SearchRead},
+    retrieval::{self, Clock, ReadControl, SearchRead},
     scope::ScopeSet,
     store::Database,
 };
@@ -50,6 +50,8 @@ pub(super) struct Request {
     pub(super) deadline: Instant,
     /// The earlier cutoff after which enrichment keeps chunk text.
     pub(super) context_deadline: Instant,
+    /// The clock the blocking worker reads both cutoffs with.
+    pub(super) clock: Arc<dyn Clock>,
     /// Validated optional ranking policies.
     pub(super) configuration: SearchConfiguration,
     /// Query used only to exempt explicitly requested section classes.
@@ -119,6 +121,7 @@ pub(super) async fn load(database: Arc<Database>, request: Request) -> Result<Lo
         expected_revisions,
         deadline,
         context_deadline,
+        clock,
         configuration,
         query,
         source_classes,
@@ -133,9 +136,8 @@ pub(super) async fn load(database: Arc<Database>, request: Request) -> Result<Lo
         .iter()
         .map(|candidate| candidate.chunk_id.clone())
         .collect::<Vec<_>>();
-    let clock = deadline::RuntimeClock::current();
     deadline::run_blocking(deadline, move |cancelled| {
-        let control = deadline::read_control(deadline, cancelled, clock.clone());
+        let control = deadline::read_control(deadline, cancelled, clock);
         let read = SearchRead {
             generation: &generation,
             scopes: &scopes,

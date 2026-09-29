@@ -1013,6 +1013,7 @@ in place.
 │   │   │   │   │   │   ├── assembly_versions.rs                             # Rust source: assembly versions
 │   │   │   │   │   │   ├── budget.rs                                        # Rust source: budget
 │   │   │   │   │   │   ├── candidate_context.rs                             # Rust source: candidate context
+│   │   │   │   │   │   ├── clock_cutoffs.rs                                 # Evidence assembly and source loading read their cutoff on the clock the
 │   │   │   │   │   │   ├── conflict_emission.rs                             # Rust source: conflict emission
 │   │   │   │   │   │   ├── conflict_structures.rs                           # Rust source: conflict structures
 │   │   │   │   │   │   ├── conflicts.rs                                     # Rust source: conflicts
@@ -1061,6 +1062,7 @@ in place.
 │   │   │   │   ├── tests/                                                   # Integration tests
 │   │   │   │   │   ├── admission.rs                                         # Request-boundary checks before generation admission
 │   │   │   │   │   ├── candidate_enrichment.rs                              # Opt-in reranker enrichment degrades to the indexed chunk, never to a failed search
+│   │   │   │   │   ├── clock.rs                                             # A settable clock for the blocking stages' cutoff tests
 │   │   │   │   │   ├── deadlines.rs                                         # Rust source: deadlines
 │   │   │   │   │   ├── fusion.rs                                            # Rust source: fusion
 │   │   │   │   │   ├── handoff.rs                                           # Route joining and rerank handoff boundaries
@@ -1076,6 +1078,7 @@ in place.
 │   │   │   │   │   ├── routes.rs                                            # Pure route helpers: Qdrant scope filters and ranked-hit cleanup
 │   │   │   │   │   ├── section_prior.rs                                     # The soft section prior: strict demotion and precise, bilingual exemptions
 │   │   │   │   │   ├── source_class.rs                                      # Source classes: the table adapter, the class vocabulary and the prior
+│   │   │   │   │   ├── stage_clocks.rs                                      # Each blocking search stage reads its cutoff on the clock its request
 │   │   │   │   │   ├── stages.rs                                            # The outcome each end of a search, a route or the rerank gives its stage
 │   │   │   │   │   ├── support.rs                                           # Scratch kernel records for the bounded candidate handoff
 │   │   │   │   │   ├── top_scores.rs                                        # Rust source: top scores
@@ -1434,7 +1437,6 @@ in place.
 ├── Cargo.toml                                                               # Workspace manifest: its members and the lints every member inherits
 ├── LICENSE                                                                  # The licence this repository is distributed under
 ├── README.md                                                                # The local runtime of Maestro: knowledge kernel, retrieval, orchestration and the command-line tools
-├── clock-seam-report.md                                                     # Clock seam report
 ├── justfile                                                                 # List every recipe and what it does; this is what just alone prints
 ├── maestro-quality.toml                                                     # The organization's quality rules as this repository shapes them: the inputs its CI caller passes, the seams that keep one caller
 ├── rust-toolchain.toml                                                      # The pinned Rust toolchain

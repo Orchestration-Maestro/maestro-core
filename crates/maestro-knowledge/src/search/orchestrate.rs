@@ -289,6 +289,7 @@ fn evidence_input(
         inventory: routes.inventory,
         budget: request.budget,
         deadline: admitted.cutoffs.expires,
+        clock: admitted.clock,
         known_gaps: routes.known_gaps,
         observations: routes.observations,
     }

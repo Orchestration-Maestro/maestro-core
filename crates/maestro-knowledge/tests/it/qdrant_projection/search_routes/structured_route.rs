@@ -6,10 +6,10 @@ use maestro_kernel::{
     document::{Disposition, Outcome},
     evidence::{Inventory, InventoryCount, RouteStatus},
     generation::GenerationState,
-    retrieval::InventoryRequest,
+    retrieval::{Clock, InventoryRequest},
 };
-use maestro_knowledge::search::{Query, routes::structured::search_structured};
-use std::time::Duration;
+use maestro_knowledge::search::{Query, RuntimeClock, routes::structured::search_structured};
+use std::{sync::Arc, time::Duration};
 use tokio::time::Instant;
 
 #[tokio::test]
@@ -46,6 +46,7 @@ async fn inventory_counts_each_eligible_member_once_independent_of_limit() {
         .unwrap();
     assert_eq!(generation.state, GenerationState::Published);
     let request = InventoryRequest::DocumentsBySet { set: None };
+    let clock: Arc<dyn Clock> = Arc::new(RuntimeClock::current());
     let query = Query {
         generation: &generation,
         scopes: &kernel.scopes,
@@ -54,6 +55,7 @@ async fn inventory_counts_each_eligible_member_once_independent_of_limit() {
         identifier_limit: 1,
         version: None,
         projection: &qdrant,
+        clock: &clock,
     };
     let outcome = search_structured(
         &query,

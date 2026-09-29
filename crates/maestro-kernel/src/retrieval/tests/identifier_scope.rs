@@ -1,8 +1,7 @@
 use super::super::identifiers::indexed_hits;
-use crate::retrieval::SystemClock;
 use crate::{
     generation::{Generation, GenerationState},
-    retrieval::{ReadControl, SearchRead},
+    retrieval::{ReadControl, SearchRead, SystemClock},
     scope::{Scope, ScopeSet},
 };
 use rusqlite::{Connection, TransactionBehavior};

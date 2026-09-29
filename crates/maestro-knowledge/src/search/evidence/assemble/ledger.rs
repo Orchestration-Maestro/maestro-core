@@ -200,8 +200,22 @@ fn check(control: &ReadControl) -> Result<(), DuplicateLedgerError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::search::tests::clock::{control_at, just_before};
     use maestro_canonicalization::ChunkProfile;
-    use std::error::Error as _;
+    use std::{
+        error::Error as _,
+        time::{Duration, Instant},
+    };
+
+    #[test]
+    fn check_times_out_exactly_when_the_clock_reaches_the_deadline() {
+        let deadline = Instant::now() + Duration::from_secs(3600);
+        assert!(check(&control_at(deadline, just_before(deadline))).is_ok());
+        assert!(matches!(
+            check(&control_at(deadline, deadline)),
+            Err(DuplicateLedgerError::TimedOut)
+        ));
+    }
 
     fn manifest() -> Manifest {
         Manifest::new(

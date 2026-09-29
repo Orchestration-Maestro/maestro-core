@@ -1,11 +1,11 @@
 //! Tests for search-member, readiness and generation projection storage.
 
 use super::{storage::input_count, support::SearchDb};
-use crate::retrieval::SystemClock;
 use crate::{
     generation::NewGeneration,
     retrieval::{
         Error, IDENTIFIER_PROFILE, ReadControl, SearchMember, SearchProjection, SearchRead,
+        SystemClock,
     },
     scope::{Right, Scope},
     store::{self, Database},

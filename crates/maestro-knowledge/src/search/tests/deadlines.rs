@@ -2,8 +2,10 @@ use super::super::deadline::{
     BlockingFailure, DeadlineElapsed, Deadlines, RuntimeClock, StageWindow, from_budget, open_at,
     run_blocking, until,
 };
-use maestro_kernel::retrieval::SystemClock;
-use maestro_kernel::{evidence::RequestBudget, retrieval::ReadControl};
+use maestro_kernel::{
+    evidence::RequestBudget,
+    retrieval::{Clock, ReadControl, SystemClock},
+};
 use std::{
     sync::{
         Arc,
@@ -158,8 +160,6 @@ fn a_fixed_route_window_past_the_deadline_is_the_deadline() {
 
 #[tokio::test]
 async fn runtime_clock_tracks_system_clock_without_paused_time() {
-    use maestro_kernel::retrieval::{Clock, SystemClock};
-
     let runtime_clock = RuntimeClock::current();
     let runtime_now = runtime_clock.now();
     let system_now = SystemClock.now();
@@ -172,20 +172,28 @@ async fn runtime_clock_tracks_system_clock_without_paused_time() {
 }
 
 #[tokio::test(start_paused = true)]
-async fn blocking_clock_control_ignores_a_real_stall_but_observes_expiry() {
-    let cutoff = Instant::now() + Duration::from_millis(10);
+async fn a_blocking_control_reads_the_paused_clock_not_real_time() {
+    let cutoff = Instant::now() + Duration::from_secs(3600);
     let control = ReadControl {
         deadline: cutoff.into_std(),
         clock: Arc::new(RuntimeClock::current()),
         cancelled: Arc::new(AtomicBool::new(false)),
     };
-    let before = control.now();
-    thread::sleep(StdDuration::from_millis(25));
+    assert_eq!(control.now(), Instant::now().into_std());
     assert!(control.now() < control.deadline);
 
-    advance(Duration::from_millis(10)).await;
-    assert!(control.now() >= control.deadline);
-    assert!(control.now() > before);
+    advance(Duration::from_secs(3600)).await;
+    assert_eq!(control.now(), control.deadline);
+}
+
+#[tokio::test(start_paused = true)]
+async fn runtime_clock_reads_the_paused_clock_from_a_thread_outside_the_runtime() {
+    let clock = RuntimeClock::current();
+    advance(Duration::from_secs(3600)).await;
+    let paused_now = Instant::now().into_std();
+
+    let read = thread::spawn(move || clock.now()).join().unwrap();
+    assert!(read >= paused_now, "{read:?} is before {paused_now:?}");
 }
 
 #[tokio::test(start_paused = true)]

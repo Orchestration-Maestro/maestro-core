@@ -20,8 +20,6 @@ use super::{
     validate::validate_generation,
 };
 use crate::search::evidence::delivery_graph::LegacyCanonicalGraph;
-#[cfg(test)]
-use maestro_kernel::retrieval::SystemClock;
 use maestro_kernel::{
     document::Revision,
     evidence::Bundle,
@@ -33,8 +31,6 @@ use maestro_kernel::{
         stage::{Count, Outcome, Stage},
     },
 };
-#[cfg(test)]
-use std::time::Instant;
 use std::{
     collections::{BTreeMap, BTreeSet},
     sync::atomic::Ordering,
@@ -469,19 +465,19 @@ fn map_kernel_error(error: RetrievalError) -> EvidenceError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{
-        sync::{Arc, atomic::AtomicBool},
-        time::Duration,
-    };
+    use crate::search::tests::clock::{control_at, just_before};
+    use std::time::{Duration, Instant};
 
     #[test]
-    fn request_check_refuses_an_already_cancelled_read() {
-        let control = ReadControl {
-            deadline: Instant::now() + Duration::from_secs(1),
-            clock: Arc::new(SystemClock),
-            cancelled: Arc::new(AtomicBool::new(true)),
-        };
-
-        assert!(matches!(check(&control), Err(EvidenceError::TimedOut)));
+    fn request_check_refuses_a_cancelled_read_and_one_at_its_deadline() {
+        let deadline = Instant::now() + Duration::from_secs(3600);
+        let live = control_at(deadline, just_before(deadline));
+        assert!(check(&live).is_ok());
+        live.cancelled.store(true, Ordering::Relaxed);
+        assert!(matches!(check(&live), Err(EvidenceError::TimedOut)));
+        assert!(matches!(
+            check(&control_at(deadline, deadline)),
+            Err(EvidenceError::TimedOut)
+        ));
     }
 }

@@ -4,6 +4,7 @@ use super::{
     kernel::Kernel,
     models::{Embedder, embedder},
 };
+use maestro_kernel::retrieval::Clock;
 use maestro_knowledge::{
     index::{
         CollectionLayout, PayloadFieldKind, PointHit, Projection, ProjectionCursor,
@@ -13,7 +14,7 @@ use maestro_knowledge::{
     publish::verify_generation,
     query::understand,
     search::{
-        Query,
+        Query, RuntimeClock,
         routes::{
             dense::{Embedder as SearchEmbedder, search_dense},
             identifier::search_identifiers,
@@ -24,7 +25,7 @@ use maestro_knowledge::{
 use std::{
     collections::{BTreeMap, HashMap},
     ops::ControlFlow,
-    sync::Mutex,
+    sync::{Arc, Mutex},
     time::Duration,
 };
 use tokio::time::Instant;
@@ -382,6 +383,7 @@ async fn publication_and_standalone_verification_use_the_fake_port() {
         .generation(&kernel.scopes, rebuilt.generation)
         .unwrap()
         .unwrap();
+    let clock: Arc<dyn Clock> = Arc::new(RuntimeClock::current());
     let query = Query {
         generation: &generation,
         scopes: &kernel.scopes,
@@ -390,6 +392,7 @@ async fn publication_and_standalone_verification_use_the_fake_port() {
         identifier_limit: 5,
         version: None,
         projection: &fake,
+        clock: &clock,
     };
     let hits = search_bm25(&query).await.unwrap();
     assert!(!hits.is_empty());

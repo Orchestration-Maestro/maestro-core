@@ -1,6 +1,6 @@
 //! Runs evidence assembly under the handoff's absolute deadline.
 
-use super::super::super::{deadline, request::EvidenceInput};
+use super::super::super::request::EvidenceInput;
 use super::super::types::{EvidenceCounter, EvidenceError};
 use super::{engine, validate};
 use maestro_kernel::{
@@ -68,10 +68,9 @@ async fn assemble_until_deadline(
     }
 
     let deadline = input.deadline;
-    let clock = deadline::RuntimeClock::current();
     let control = ReadControl {
         deadline: deadline.into_std(),
-        clock: Arc::new(clock),
+        clock: input.clock.clone(),
         cancelled: Arc::new(AtomicBool::new(false)),
     };
     let _cancellation = CancellationOnDrop(control.cancelled.clone());

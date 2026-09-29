@@ -12,12 +12,13 @@ use super::{
 use maestro_kernel::{
     gateway::{ModelPort, Room},
     generation::GenerationState,
+    retrieval::Clock,
     scope::{Right, Scope},
 };
 use maestro_knowledge::{
     lexical::{self, query_vector},
     search::{
-        Query,
+        Query, RuntimeClock,
         routes::{
             dense::{Embedder, search_dense},
             lexical::search_bm25,
@@ -25,7 +26,7 @@ use maestro_knowledge::{
     },
 };
 use qdrant_client::qdrant::CreateAliasBuilder;
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet, sync::Arc};
 
 #[tokio::test]
 async fn both_routes_apply_the_scope_filter_before_top_k() {
@@ -78,6 +79,7 @@ async fn both_routes_apply_the_scope_filter_before_top_k() {
         )
         .await;
 
+        let clock: Arc<dyn Clock> = Arc::new(RuntimeClock::current());
         let query = Query {
             generation: &generation,
             scopes: &scopes,
@@ -86,6 +88,7 @@ async fn both_routes_apply_the_scope_filter_before_top_k() {
             identifier_limit: 1,
             version: None,
             projection: &qdrant,
+            clock: &clock,
         };
         let embedder = Embedder {
             port: &port,
@@ -117,6 +120,7 @@ async fn dense_route_embeds_the_card_formatted_query() {
             lexical::PROFILE,
         );
         create_collection(&backend, &generation, &card).await;
+        let clock: Arc<dyn Clock> = Arc::new(RuntimeClock::current());
         let query = Query {
             generation: &generation,
             scopes: &scopes,
@@ -125,6 +129,7 @@ async fn dense_route_embeds_the_card_formatted_query() {
             identifier_limit: 1,
             version: None,
             projection: &qdrant,
+            clock: &clock,
         };
         let embedder = Embedder {
             port: &port,
@@ -164,6 +169,7 @@ async fn a_second_source_grant_cannot_search_another_sources_duplicate() {
             .grant("mirror-reader", &mirror, Right::Read, "test")
             .unwrap();
         let scopes = kernel.database.visible("mirror-reader").unwrap();
+        let clock: Arc<dyn Clock> = Arc::new(RuntimeClock::current());
         let query = Query {
             generation: &generation,
             scopes: &scopes,
@@ -172,6 +178,7 @@ async fn a_second_source_grant_cannot_search_another_sources_duplicate() {
             identifier_limit: 10,
             version: None,
             projection: &qdrant,
+            clock: &clock,
         };
         let embedder = Embedder {
             port: &port,
@@ -242,6 +249,7 @@ async fn routes_pinned_to_an_older_generation_ignore_the_moved_alias() {
             .await
             .unwrap();
 
+        let clock: Arc<dyn Clock> = Arc::new(RuntimeClock::current());
         let query = Query {
             generation: &old,
             scopes: &scopes,
@@ -250,6 +258,7 @@ async fn routes_pinned_to_an_older_generation_ignore_the_moved_alias() {
             identifier_limit: 1,
             version: None,
             projection: &qdrant,
+            clock: &clock,
         };
         let embedder = Embedder {
             port: &port,
@@ -337,6 +346,7 @@ async fn each_route_caps_results_at_k_and_deduplicates_chunks() {
         )
         .await;
 
+        let clock: Arc<dyn Clock> = Arc::new(RuntimeClock::current());
         let query = Query {
             generation: &generation,
             scopes: &scopes,
@@ -345,6 +355,7 @@ async fn each_route_caps_results_at_k_and_deduplicates_chunks() {
             identifier_limit: 3,
             version: None,
             projection: &qdrant,
+            clock: &clock,
         };
         let embedder = Embedder {
             port: &port,

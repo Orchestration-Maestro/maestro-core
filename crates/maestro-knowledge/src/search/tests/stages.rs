@@ -9,7 +9,8 @@ use crate::{
     index::Qdrant,
     query::understand,
     search::{
-        DISABLED_BY_CONFIGURATION, Query, Reranker, Route, SearchError, SearchObservations,
+        DISABLED_BY_CONFIGURATION, Query, Reranker, Route, RuntimeClock, SearchError,
+        SearchObservations,
         deadline::{DEADLINE_EXCEEDED, Deadlines, StageWindow, from_budget},
         orchestrate::search_outcome,
         rerank::rerank_candidates,
@@ -26,16 +27,17 @@ use maestro_kernel::{
     artifact::Digest,
     evidence::{Budget, Bundle, Passage, RequestBudget, RouteStatus, Schema, Span, Trace},
     gateway::Role,
-    retrieval::InventoryRequest,
+    retrieval::{Clock, InventoryRequest},
     telemetry::stage::Outcome,
 };
-use std::{collections::BTreeMap, num::NonZeroUsize};
+use std::{collections::BTreeMap, num::NonZeroUsize, sync::Arc};
 use tokio::time::{Duration, Instant};
 
 #[tokio::test]
 async fn disabled_routes_short_circuit_and_enabled_failures_remain_unavailable() {
     let fixture = CandidateDb::new(b"prepared text", "docs");
     let qdrant = Qdrant::new("http://127.0.0.1:1").unwrap();
+    let clock: Arc<dyn Clock> = Arc::new(RuntimeClock::current());
     let query = Query {
         generation: &fixture.generation,
         scopes: &fixture.scopes,
@@ -44,6 +46,7 @@ async fn disabled_routes_short_circuit_and_enabled_failures_remain_unavailable()
         identifier_limit: 20,
         version: None,
         projection: &qdrant,
+        clock: &clock,
     };
     let port = FakePort::scores(Vec::new());
     let embedder_card = card(Role::Embedder, 128);
@@ -214,6 +217,7 @@ fn a_search_refused_by_its_contract_or_rights_is_refused_not_failed() {
 async fn each_route_and_the_rerank_report_a_passed_deadline_as_its_code() {
     let fixture = CandidateDb::new(b"prepared text", "docs");
     let qdrant = Qdrant::new("http://127.0.0.1:1").unwrap();
+    let clock: Arc<dyn Clock> = Arc::new(RuntimeClock::current());
     let query = Query {
         generation: &fixture.generation,
         scopes: &fixture.scopes,
@@ -222,6 +226,7 @@ async fn each_route_and_the_rerank_report_a_passed_deadline_as_its_code() {
         identifier_limit: 20,
         version: None,
         projection: &qdrant,
+        clock: &clock,
     };
     let port = FakePort::scores(vec![1.0]);
     let embedder_card = card(Role::Embedder, 128);

@@ -8,11 +8,10 @@ use crate::prepare::tests::scratch::{
     clear_chunk_set_manifest, corrupt_artifact, replace_chunk_set_manifest,
 };
 use maestro_canonicalization::TokenCounter;
-use maestro_kernel::retrieval::SystemClock;
 use maestro_kernel::{
     chunk_set::NewChunkSet,
     evidence::{Inventory, RouteStatus},
-    retrieval::ReadControl,
+    retrieval::{ReadControl, SystemClock},
     scope::{Right, Scope},
 };
 use std::{

@@ -17,7 +17,7 @@ use crate::{
 use maestro_kernel::{
     evidence::{Bundle, Inventory, RequestBudget, RouteStatus},
     generation::Generation,
-    retrieval,
+    retrieval::{self, Clock},
     scope::ScopeSet,
     store::Database,
 };
@@ -385,6 +385,8 @@ pub struct EvidenceInput {
     pub budget: RequestBudget,
     /// The absolute deadline shared with T032.
     pub deadline: Instant,
+    /// The clock evidence assembly's blocking worker reads `deadline` with.
+    pub clock: Arc<dyn Clock>,
     /// Gaps known before evidence expansion.
     pub known_gaps: Vec<String>,
 }

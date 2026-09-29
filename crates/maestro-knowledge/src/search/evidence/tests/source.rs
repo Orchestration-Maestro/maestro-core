@@ -3,8 +3,10 @@ use crate::{
     prepare::tests::scratch::{corrupt_artifact, fail_revision, quarantine_revision, revision_of},
     search::evidence::{source::SourceCache, types::EvidenceError},
 };
-use maestro_kernel::retrieval::SystemClock;
-use maestro_kernel::{evidence::Span, retrieval::ReadControl};
+use maestro_kernel::{
+    evidence::Span,
+    retrieval::{ReadControl, SystemClock},
+};
 use std::{
     sync::{Arc, atomic::AtomicBool},
     time::{Duration, Instant},

@@ -9,12 +9,15 @@ use super::{
     kernel::Kernel,
     support::{cleanup, identifier_point, upsert},
 };
-use maestro_kernel::evidence::{RequestBudget, RouteStatus};
+use maestro_kernel::{
+    evidence::{RequestBudget, RouteStatus},
+    retrieval::Clock,
+};
 use maestro_knowledge::{
     query::understand,
     search::{
         DroppedIdentifier, EvidenceInput, IdentifierOutcome, Query, Route, RouteOutcome,
-        SearchConfiguration, SearchContext, SearchRequest,
+        RuntimeClock, SearchConfiguration, SearchContext, SearchRequest,
         evidence::EvidenceSettings,
         routes::{
             dense::Embedder,
@@ -24,7 +27,7 @@ use maestro_knowledge::{
     },
 };
 use qdrant_client::qdrant::{condition::ConditionOneOf, r#match::MatchValue};
-use std::{future, time::Duration};
+use std::{future, sync::Arc, time::Duration};
 use tokio::time::Instant;
 use tonic::Code;
 
@@ -51,6 +54,7 @@ async fn identifier_search_limits(
     route_limit: usize,
     identifier_limit: usize,
 ) -> RouteOutcome {
+    let clock: Arc<dyn Clock> = Arc::new(RuntimeClock::current());
     let query = Query {
         generation: &fixture.generation,
         scopes: &fixture.kernel.scopes,
@@ -59,6 +63,7 @@ async fn identifier_search_limits(
         identifier_limit,
         version: None,
         projection: &fixture.qdrant,
+        clock: &clock,
     };
     search_identifiers(
         &query,
@@ -112,8 +117,9 @@ async fn smaller_shared_route_limit_bounds_identifier_candidates_too() {
 
 /// Runs the identifier route on `text` with the noise guard on.
 async fn guarded(fixture: &PublishedCommand, text: &str) -> IdentifierOutcome {
+    let clock: Arc<dyn Clock> = Arc::new(RuntimeClock::current());
     search_identifiers_guarded(
-        &query(fixture, text),
+        &query(fixture, text, &clock),
         fixture.kernel.database.clone(),
         &understand(text),
         Instant::now() + Duration::from_secs(5),
@@ -122,7 +128,7 @@ async fn guarded(fixture: &PublishedCommand, text: &str) -> IdentifierOutcome {
 }
 
 /// A route query over the fixture's generation, with no version filter.
-fn query<'a>(fixture: &'a PublishedCommand, text: &'a str) -> Query<'a> {
+fn query<'a>(fixture: &'a PublishedCommand, text: &'a str, clock: &'a Arc<dyn Clock>) -> Query<'a> {
     Query {
         generation: &fixture.generation,
         scopes: &fixture.kernel.scopes,
@@ -131,6 +137,7 @@ fn query<'a>(fixture: &'a PublishedCommand, text: &'a str) -> Query<'a> {
         identifier_limit: 20,
         version: None,
         projection: &fixture.qdrant,
+        clock,
     }
 }
 
@@ -169,8 +176,9 @@ async fn a_too_common_identifier_gets_no_payload_votes_with_the_guard_on() {
     let scrolls = || backend.fake.as_ref().unwrap().scroll_filters().len();
 
     let before = scrolls();
+    let clock: Arc<dyn Clock> = Arc::new(RuntimeClock::current());
     let off = search_identifiers(
-        &query(&fixture, "9.0.22"),
+        &query(&fixture, "9.0.22", &clock),
         fixture.kernel.database.clone(),
         &understand("9.0.22"),
         Instant::now() + Duration::from_secs(5),
@@ -223,8 +231,9 @@ async fn a_lone_rare_identifier_votes_as_it_does_without_the_guard() {
     let backend = fake();
     let fixture = publish_command(&backend).await;
 
+    let clock: Arc<dyn Clock> = Arc::new(RuntimeClock::current());
     let off = search_identifiers(
-        &query(&fixture, "ERR-042"),
+        &query(&fixture, "ERR-042", &clock),
         fixture.kernel.database.clone(),
         &understand("ERR-042"),
         Instant::now() + Duration::from_secs(5),

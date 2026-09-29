@@ -336,15 +336,15 @@ fn order_payload_hits(hits: Vec<ScoredChunk>, limit: usize) -> Vec<ScoredChunk> 
 }
 
 /// The exact kernel hits and the high-frequency identifiers it skipped.
-struct KernelOutcome {
+pub(in crate::search) struct KernelOutcome {
     /// Ranked chunks returned by the kernel identifier leg.
-    hits: Vec<ScoredChunk>,
+    pub(in crate::search) hits: Vec<ScoredChunk>,
     /// The identifiers the kernel skipped as above the route's fetch limit.
     too_common: Vec<String>,
 }
 
 /// Reads an exact, scope-filtered kernel leg on a cancellable blocking worker.
-async fn kernel_leg<R: RetrievalProjectionPort>(
+pub(in crate::search) async fn kernel_leg<R: RetrievalProjectionPort>(
     query: &Query<'_, R>,
     database: Arc<Database>,
     identifiers: &[String],
@@ -355,9 +355,9 @@ async fn kernel_leg<R: RetrievalProjectionPort>(
     let scopes = query.scopes.clone();
     let version = query.version.map(str::to_owned);
     let identifiers = identifiers.to_vec();
-    let clock = deadline::RuntimeClock::current();
+    let clock = query.clock.clone();
     match deadline::run_blocking(deadline, move |cancelled| {
-        let control = deadline::read_control(deadline, cancelled, clock.clone());
+        let control = deadline::read_control(deadline, cancelled, clock);
         let read = SearchRead {
             generation: &generation,
             scopes: &scopes,

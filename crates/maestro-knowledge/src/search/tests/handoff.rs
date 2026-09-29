@@ -19,11 +19,10 @@ use crate::{
         },
     },
 };
-use maestro_kernel::retrieval::SystemClock;
 use maestro_kernel::{
     evidence::RouteStatus,
     gateway::Role,
-    retrieval::{Error as RetrievalError, ReadControl},
+    retrieval::{Error as RetrievalError, ReadControl, SystemClock},
     store::Error as StoreError,
 };
 use rusqlite::Error as SqliteError;

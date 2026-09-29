@@ -6,8 +6,7 @@ use crate::search::{
     candidate_enrichment::{self, Settings},
     candidates,
 };
-use maestro_kernel::retrieval::ReadControl;
-use maestro_kernel::retrieval::SystemClock;
+use maestro_kernel::retrieval::{ReadControl, SystemClock};
 use std::{
     collections::BTreeSet,
     num::NonZeroUsize,

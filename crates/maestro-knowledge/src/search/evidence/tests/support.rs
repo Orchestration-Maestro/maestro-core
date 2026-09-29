@@ -9,12 +9,11 @@ use crate::{
     query::understand,
     search::{Candidate, EvidenceInput, Hit, Ranked, Route, RouteList, SearchObservations, fuse},
 };
-use maestro_kernel::retrieval::SystemClock;
 use maestro_kernel::{
     document::Outcome,
     evidence::{RequestBudget, RouteStatus},
     generation::{Generation, NewGeneration},
-    retrieval::ReadControl,
+    retrieval::{ReadControl, SystemClock},
     scope::ScopeSet,
     store::Database,
 };
@@ -134,6 +133,7 @@ pub(super) fn evidence_input(fixture: &Fixture, query: &str) -> EvidenceInput {
         inventory: None,
         budget: RequestBudget::default(),
         deadline: TokioInstant::now() + Duration::from_secs(10),
+        clock: Arc::new(SystemClock),
         known_gaps: Vec::new(),
     }
 }

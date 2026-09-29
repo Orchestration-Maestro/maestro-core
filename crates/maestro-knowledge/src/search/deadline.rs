@@ -28,11 +28,16 @@ pub const DISABLED_BY_CONFIGURATION: &str = "disabled by search configuration";
 /// In production, when time is not paused, Tokio's clock tracks the system
 /// monotonic clock. Capturing the handle lets blocking workers read it safely.
 #[derive(Clone, Debug)]
-pub(super) struct RuntimeClock(Handle);
+pub struct RuntimeClock(Handle);
 
 impl RuntimeClock {
     /// Captures the currently entered runtime for blocking workers.
-    pub(super) fn current() -> Self {
+    ///
+    /// # Panics
+    ///
+    /// When called outside a Tokio runtime.
+    #[must_use]
+    pub fn current() -> Self {
         Self(Handle::current())
     }
 }
@@ -44,15 +49,15 @@ impl Clock for RuntimeClock {
     }
 }
 
-/// Builds a read control using the runtime clock for its absolute cutoff.
+/// Builds a read control whose absolute cutoff `clock` reads.
 pub(super) fn read_control(
     deadline: Instant,
     cancelled: Arc<AtomicBool>,
-    clock: RuntimeClock,
+    clock: Arc<dyn Clock>,
 ) -> ReadControl {
     ReadControl {
         deadline: deadline.into_std(),
-        clock: Arc::new(clock),
+        clock,
         cancelled,
     }
 }
