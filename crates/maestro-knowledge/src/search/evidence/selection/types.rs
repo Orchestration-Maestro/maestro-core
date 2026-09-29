@@ -10,7 +10,6 @@ use maestro_kernel::{evidence::Passage, retrieval::ReadControl};
 use std::{
     collections::{BTreeMap, BTreeSet},
     sync::atomic::Ordering as AtomicOrdering,
-    time::Instant,
 };
 
 /// Limits and exact counter shared by every complete-trial measurement.
@@ -49,7 +48,7 @@ pub(crate) struct SelectionResult {
 
 /// Stops before or after trial work when cancellation or expiry fires.
 pub(super) fn check(control: &ReadControl) -> Result<(), EvidenceError> {
-    if control.cancelled.load(AtomicOrdering::Relaxed) || Instant::now() >= control.deadline {
+    if control.cancelled.load(AtomicOrdering::Relaxed) || control.now() >= control.deadline {
         Err(EvidenceError::TimedOut)
     } else {
         Ok(())

@@ -1,3 +1,4 @@
+use maestro_kernel::retrieval::SystemClock;
 #[path = "packing.rs"]
 mod packing;
 
@@ -474,6 +475,7 @@ fn selection_refuses_an_already_cancelled_control() {
     let info = counter_info(&counter).unwrap();
     let control = ReadControl {
         deadline: Instant::now() + Duration::from_secs(1),
+        clock: Arc::new(SystemClock),
         cancelled: Arc::new(AtomicBool::new(true)),
     };
 

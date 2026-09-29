@@ -184,16 +184,14 @@ async fn admit(
 ) -> Result<(ScopeSet, Generation, bool), SearchError> {
     let principal = principal.to_owned();
     let collection = collection.to_owned();
+    let clock = deadline::RuntimeClock::current();
     match deadline::run_blocking(deadline, move |cancelled| {
         let scopes = database
             .visible(&principal)
             .map_err(|error| SearchError::Kernel(retrieval::Error::Store(error)))?;
         let generation = pin(&database, &scopes, &collection).map_err(SearchError::Admission)?;
         let version_documented = if let Some(version) = version.as_deref() {
-            let control = retrieval::ReadControl {
-                deadline: deadline::std_deadline(deadline),
-                cancelled,
-            };
+            let control = deadline::read_control(deadline, cancelled, clock.clone());
             let read = retrieval::SearchRead {
                 generation: &generation,
                 scopes: &scopes,

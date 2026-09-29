@@ -1,6 +1,7 @@
 //! Cancellation and real-clock bounds on SQLite reads.
 
 use super::support::SearchDb;
+use crate::retrieval::SystemClock;
 use crate::retrieval::{Error, InventoryRequest, ReadControl, SearchRead};
 use std::{
     slice,
@@ -12,12 +13,14 @@ use std::{
 fn read_control_rejects_deadline_and_cancellation() {
     let expired = ReadControl {
         deadline: Instant::now(),
+        clock: Arc::new(SystemClock),
         cancelled: Arc::new(AtomicBool::new(false)),
     };
     assert!(matches!(expired.check(), Err(Error::TimedOut)));
 
     let cancelled = ReadControl {
         deadline: Instant::now() + Duration::from_secs(5),
+        clock: Arc::new(SystemClock),
         cancelled: Arc::new(AtomicBool::new(true)),
     };
     assert!(matches!(cancelled.check(), Err(Error::Cancelled)));
@@ -28,6 +31,7 @@ fn preexpired_and_cancelled_reads_stop_before_opening_sql() {
     let search = SearchDb::new("Install the tool with --force.");
     let expired = ReadControl {
         deadline: Instant::now(),
+        clock: Arc::new(SystemClock),
         cancelled: Arc::new(AtomicBool::new(false)),
     };
     let read = SearchRead {
@@ -45,6 +49,7 @@ fn preexpired_and_cancelled_reads_stop_before_opening_sql() {
 
     let cancelled = ReadControl {
         deadline: Instant::now() + Duration::from_secs(5),
+        clock: Arc::new(SystemClock),
         cancelled: Arc::new(AtomicBool::new(true)),
     };
     let read = SearchRead {
@@ -64,6 +69,7 @@ fn progress_handler_interrupts_a_long_recursive_read() {
     let search = SearchDb::new("Install the tool with --force.");
     let control = ReadControl {
         deadline: Instant::now() + Duration::from_millis(20),
+        clock: Arc::new(SystemClock),
         cancelled: Arc::new(AtomicBool::new(false)),
     };
     let reader = super::super::read::controlled_reader(&search.database, &control).unwrap();

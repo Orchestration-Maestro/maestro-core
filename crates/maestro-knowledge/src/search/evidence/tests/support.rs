@@ -9,6 +9,7 @@ use crate::{
     query::understand,
     search::{Candidate, EvidenceInput, Hit, Ranked, Route, RouteList, SearchObservations, fuse},
 };
+use maestro_kernel::retrieval::SystemClock;
 use maestro_kernel::{
     document::Outcome,
     evidence::{RequestBudget, RouteStatus},
@@ -141,6 +142,7 @@ pub(super) fn evidence_input(fixture: &Fixture, query: &str) -> EvidenceInput {
 pub(in crate::search::evidence) fn control() -> ReadControl {
     ReadControl {
         deadline: Instant::now() + Duration::from_secs(30),
+        clock: Arc::new(SystemClock),
         cancelled: Arc::new(AtomicBool::new(false)),
     }
 }

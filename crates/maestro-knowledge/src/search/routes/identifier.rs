@@ -17,7 +17,7 @@ use crate::{
 };
 use maestro_kernel::{
     evidence::RouteStatus,
-    retrieval::{self, ReadControl, SearchRead},
+    retrieval::{self, SearchRead},
     scope::ScopeSet,
     store::Database,
 };
@@ -355,11 +355,9 @@ async fn kernel_leg<R: RetrievalProjectionPort>(
     let scopes = query.scopes.clone();
     let version = query.version.map(str::to_owned);
     let identifiers = identifiers.to_vec();
+    let clock = deadline::RuntimeClock::current();
     match deadline::run_blocking(deadline, move |cancelled| {
-        let control = ReadControl {
-            deadline: deadline::std_deadline(deadline),
-            cancelled,
-        };
+        let control = deadline::read_control(deadline, cancelled, clock.clone());
         let read = SearchRead {
             generation: &generation,
             scopes: &scopes,

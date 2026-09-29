@@ -7,6 +7,7 @@ use crate::search::{
     candidates,
 };
 use maestro_kernel::retrieval::ReadControl;
+use maestro_kernel::retrieval::SystemClock;
 use std::{
     collections::BTreeSet,
     num::NonZeroUsize,
@@ -55,6 +56,7 @@ fn enrichment_loads_only_the_revisions_it_scores() {
     let deadline = Instant::now() + Duration::from_hours(6);
     let control = ReadControl {
         deadline,
+        clock: Arc::new(SystemClock),
         cancelled: Arc::new(AtomicBool::new(false)),
     };
     let enriched = candidate_enrichment::enrich(

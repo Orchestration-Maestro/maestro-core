@@ -8,6 +8,7 @@ use crate::prepare::tests::scratch::{
     clear_chunk_set_manifest, corrupt_artifact, replace_chunk_set_manifest,
 };
 use maestro_canonicalization::TokenCounter;
+use maestro_kernel::retrieval::SystemClock;
 use maestro_kernel::{
     chunk_set::NewChunkSet,
     evidence::{Inventory, RouteStatus},
@@ -466,6 +467,7 @@ fn an_expired_ledger_read_is_refused_before_loading_the_chunk_set() {
     let fixture = fixture(&[("guide.md", "# Guide\n\nA small guide.\n")]);
     let control = ReadControl {
         deadline: Instant::now(),
+        clock: Arc::new(SystemClock),
         cancelled: Arc::new(AtomicBool::new(false)),
     };
 

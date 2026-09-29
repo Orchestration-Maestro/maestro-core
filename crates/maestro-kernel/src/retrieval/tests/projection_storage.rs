@@ -1,6 +1,7 @@
 //! Tests for search-member, readiness and generation projection storage.
 
 use super::{storage::input_count, support::SearchDb};
+use crate::retrieval::SystemClock;
 use crate::{
     generation::NewGeneration,
     retrieval::{
@@ -155,6 +156,7 @@ fn search_chunks_is_pinned_scoped_versioned_and_independent_of_search_readiness(
     let search = SearchDb::new("Install the tool with --force.");
     let control = ReadControl {
         deadline: Instant::now() + Duration::from_secs(5),
+        clock: Arc::new(SystemClock),
         cancelled: Arc::new(AtomicBool::new(false)),
     };
     let read = SearchRead {

@@ -11,7 +11,7 @@ use maestro_kernel::{
     chunk_set::Chunk,
     document::{Disposition, Outcome},
     generation::{Generation, GenerationState},
-    retrieval::{IDENTIFIER_PROFILE, ReadControl, SearchRead},
+    retrieval::{IDENTIFIER_PROFILE, ReadControl, SearchRead, SystemClock},
 };
 use qdrant_client::qdrant::value::Kind;
 use std::{
@@ -96,6 +96,7 @@ fn assert_kernel_identifiers(kernel: &Kernel, generation: &Generation, chunk: &C
     assert_eq!(indexed_count, 1);
     let control = ReadControl {
         deadline: Instant::now() + Duration::from_secs(5),
+        clock: Arc::new(SystemClock),
         cancelled: Arc::new(AtomicBool::new(false)),
     };
     let read = SearchRead {

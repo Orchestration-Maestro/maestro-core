@@ -239,7 +239,7 @@ mod bounds_tests {
     use crate::{
         evidence::InventoryCount,
         generation::{Generation, GenerationState},
-        retrieval::{Error, ReadControl, SearchRead},
+        retrieval::{Error, ReadControl, SearchRead, SystemClock},
         scope::{Scope, ScopeSet},
     };
     use rusqlite::Connection;
@@ -266,6 +266,7 @@ mod bounds_tests {
         let scopes = ScopeSet::default_workspace();
         let control = ReadControl {
             deadline: Instant::now() + Duration::from_secs(5),
+            clock: Arc::new(SystemClock),
             cancelled: Arc::new(AtomicBool::new(false)),
         };
         let read = SearchRead {
@@ -359,6 +360,7 @@ mod bounds_tests {
         };
         let control = ReadControl {
             deadline: Instant::now() + Duration::from_secs(5),
+            clock: Arc::new(SystemClock),
             cancelled: Arc::new(AtomicBool::new(false)),
         };
         let read = SearchRead {

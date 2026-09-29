@@ -1,6 +1,7 @@
 //! Controlled exact-index identifier reads.
 
 use super::support::SearchDb;
+use crate::retrieval::SystemClock;
 use crate::retrieval::{
     ChunkHit, Error, IdentifierSearchResult, ReadControl, SearchRead, contains_identifier,
     normalize_whitespace,
@@ -15,6 +16,7 @@ fn identifier_hits_requires_readiness_then_returns_exact_matches() {
     let search = SearchDb::with_input_population(&["Install the tool with --force."], 20);
     let control = ReadControl {
         deadline: Instant::now() + Duration::from_secs(5),
+        clock: Arc::new(SystemClock),
         cancelled: Arc::new(AtomicBool::new(false)),
     };
     let read = SearchRead {
@@ -52,6 +54,7 @@ fn empty_identifier_calls_need_no_marker_and_sixty_four_ids_are_allowed() {
     let search = SearchDb::new("Install the tool with --force.");
     let control = ReadControl {
         deadline: Instant::now() + Duration::from_secs(5),
+        clock: Arc::new(SystemClock),
         cancelled: Arc::new(AtomicBool::new(false)),
     };
     let read = SearchRead {
@@ -281,6 +284,7 @@ fn identifier_hits_rejects_limits_that_do_not_fit_sqlite() {
     search.ready();
     let control = ReadControl {
         deadline: Instant::now() + Duration::from_secs(5),
+        clock: Arc::new(SystemClock),
         cancelled: Arc::new(AtomicBool::new(false)),
     };
     let read = SearchRead {
@@ -312,6 +316,7 @@ fn search_result_limit(
 ) -> IdentifierSearchResult {
     let control = ReadControl {
         deadline: Instant::now() + Duration::from_secs(5),
+        clock: Arc::new(SystemClock),
         cancelled: Arc::new(AtomicBool::new(false)),
     };
     let read = SearchRead {

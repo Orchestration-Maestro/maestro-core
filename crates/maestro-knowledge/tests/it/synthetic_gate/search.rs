@@ -7,7 +7,7 @@ use maestro_kernel::{
     evidence::{Budget, Bundle, Passage, RequestBudget, RouteStatus, Schema, Trace},
     gateway::ModelCard,
     generation::Generation,
-    retrieval::{Error as RetrievalError, ReadControl, SearchRead},
+    retrieval::{Error as RetrievalError, ReadControl, SearchRead, SystemClock},
     scope::ScopeSet,
     store::Database,
 };
@@ -240,6 +240,7 @@ fn authorized_chunks(
     let ids: Vec<String> = ranked.iter().map(|hit| hit.chunk_id.clone()).collect();
     let control = ReadControl {
         deadline: attempt.started + DEADLINE,
+        clock: Arc::new(SystemClock),
         cancelled: Arc::new(AtomicBool::new(false)),
     };
     let read = SearchRead {

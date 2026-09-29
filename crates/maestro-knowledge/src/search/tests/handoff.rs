@@ -19,6 +19,7 @@ use crate::{
         },
     },
 };
+use maestro_kernel::retrieval::SystemClock;
 use maestro_kernel::{
     evidence::RouteStatus,
     gateway::Role,
@@ -131,6 +132,7 @@ fn candidate_control_stops_for_deadline_or_cancellation_independently() {
     let cancelled = Arc::new(AtomicBool::new(false));
     let control = ReadControl {
         deadline: StdInstant::now() + StdDuration::from_secs(1),
+        clock: Arc::new(SystemClock),
         cancelled: cancelled.clone(),
     };
     assert!(check_control(&control).is_ok());
@@ -144,6 +146,7 @@ fn candidate_control_stops_for_deadline_or_cancellation_independently() {
         deadline: StdInstant::now()
             .checked_sub(StdDuration::from_secs(1))
             .unwrap_or_else(StdInstant::now),
+        clock: Arc::new(SystemClock),
         cancelled: Arc::new(AtomicBool::new(false)),
     };
     assert!(matches!(

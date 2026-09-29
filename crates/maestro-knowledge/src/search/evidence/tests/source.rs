@@ -3,6 +3,7 @@ use crate::{
     prepare::tests::scratch::{corrupt_artifact, fail_revision, quarantine_revision, revision_of},
     search::evidence::{source::SourceCache, types::EvidenceError},
 };
+use maestro_kernel::retrieval::SystemClock;
 use maestro_kernel::{evidence::Span, retrieval::ReadControl};
 use std::{
     sync::{Arc, atomic::AtomicBool},
@@ -194,6 +195,7 @@ fn source_cache_refuses_an_already_cancelled_read() {
     let revision = revision_of(&fixture.database, &fixture.scopes, "guide.md");
     let read_control = ReadControl {
         deadline: Instant::now() + Duration::from_secs(1),
+        clock: Arc::new(SystemClock),
         cancelled: Arc::new(AtomicBool::new(true)),
     };
     let mut cache = SourceCache::new(&fixture.database, &fixture.scopes, &read_control);
@@ -226,6 +228,7 @@ fn parallel_source_loads_refuse_expiry_during_a_batch() {
     let deadline = Instant::now() + Duration::from_millis(5);
     let read_control = ReadControl {
         deadline,
+        clock: Arc::new(SystemClock),
         cancelled: Arc::new(AtomicBool::new(false)),
     };
     let mut cache = SourceCache::new(&fixture.database, &fixture.scopes, &read_control);

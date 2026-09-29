@@ -20,6 +20,8 @@ use super::{
     validate::validate_generation,
 };
 use crate::search::evidence::delivery_graph::LegacyCanonicalGraph;
+#[cfg(test)]
+use maestro_kernel::retrieval::SystemClock;
 use maestro_kernel::{
     document::Revision,
     evidence::Bundle,
@@ -31,10 +33,11 @@ use maestro_kernel::{
         stage::{Count, Outcome, Stage},
     },
 };
+#[cfg(test)]
+use std::time::Instant;
 use std::{
     collections::{BTreeMap, BTreeSet},
     sync::atomic::Ordering,
-    time::Instant,
 };
 
 /// A request worker holding its pinned authority and source cache.
@@ -447,7 +450,7 @@ pub(super) fn invalid(reason: &str) -> EvidenceError {
 
 /// Checks cancellation and the original absolute deadline.
 pub(super) fn check(control: &ReadControl) -> Result<(), EvidenceError> {
-    if control.cancelled.load(Ordering::Relaxed) || Instant::now() >= control.deadline {
+    if control.cancelled.load(Ordering::Relaxed) || control.now() >= control.deadline {
         Err(EvidenceError::TimedOut)
     } else {
         Ok(())
@@ -475,6 +478,7 @@ mod tests {
     fn request_check_refuses_an_already_cancelled_read() {
         let control = ReadControl {
             deadline: Instant::now() + Duration::from_secs(1),
+            clock: Arc::new(SystemClock),
             cancelled: Arc::new(AtomicBool::new(true)),
         };
 

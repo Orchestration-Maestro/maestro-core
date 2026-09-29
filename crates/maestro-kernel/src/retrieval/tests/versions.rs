@@ -1,6 +1,7 @@
 //! Exact version existence in a pinned, scoped generation.
 
 use super::support::SearchDb;
+use crate::retrieval::SystemClock;
 use crate::{
     document::RevisionStatus,
     retrieval::{ReadControl, SearchMember, SearchRead},
@@ -15,6 +16,7 @@ fn version_exists_matches_only_the_exact_pinned_revision_version() {
     let search = SearchDb::new("Install the tool with --force.");
     let control = ReadControl {
         deadline: Instant::now() + Duration::from_secs(5),
+        clock: Arc::new(SystemClock),
         cancelled: Arc::new(AtomicBool::new(false)),
     };
     let read = |version| SearchRead {
@@ -90,6 +92,7 @@ fn version_exists_ignores_a_version_only_carried_by_a_duplicate_member() {
 fn control() -> ReadControl {
     ReadControl {
         deadline: Instant::now() + Duration::from_secs(5),
+        clock: Arc::new(SystemClock),
         cancelled: Arc::new(AtomicBool::new(false)),
     }
 }

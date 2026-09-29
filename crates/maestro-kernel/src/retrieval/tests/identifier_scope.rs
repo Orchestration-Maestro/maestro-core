@@ -1,4 +1,5 @@
 use super::super::identifiers::indexed_hits;
+use crate::retrieval::SystemClock;
 use crate::{
     generation::{Generation, GenerationState},
     retrieval::{ReadControl, SearchRead},
@@ -98,6 +99,7 @@ fn identifier_index_filters_scope_before_its_hit_limit() {
     };
     let control = ReadControl {
         deadline: Instant::now() + Duration::from_secs(5),
+        clock: Arc::new(SystemClock),
         cancelled: Arc::new(AtomicBool::new(false)),
     };
     let read = SearchRead {

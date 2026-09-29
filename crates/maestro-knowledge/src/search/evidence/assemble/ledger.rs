@@ -15,7 +15,6 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     error, fmt,
     sync::atomic::Ordering,
-    time::Instant,
 };
 
 /// Manifest-backed duplicate facts for one pinned chunk set.
@@ -191,7 +190,7 @@ fn validate_manifest(
 fn check(control: &ReadControl) -> Result<(), DuplicateLedgerError> {
     if control.cancelled.load(Ordering::Relaxed) {
         Err(DuplicateLedgerError::Cancelled)
-    } else if Instant::now() >= control.deadline {
+    } else if control.now() >= control.deadline {
         Err(DuplicateLedgerError::TimedOut)
     } else {
         Ok(())

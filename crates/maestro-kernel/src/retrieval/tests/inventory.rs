@@ -1,6 +1,7 @@
 //! Complete, pinned-generation inventory reads.
 
 use super::support::SearchDb;
+use crate::retrieval::SystemClock;
 use crate::{
     evidence::{Inventory, InventoryCount},
     retrieval::{InventoryRequest, ReadControl, SearchMember, SearchRead},
@@ -16,6 +17,7 @@ fn inventory_counts_member_metadata_and_returns_its_own_support_chunk() {
     search.ready();
     let control = ReadControl {
         deadline: Instant::now() + Duration::from_secs(5),
+        clock: Arc::new(SystemClock),
         cancelled: Arc::new(AtomicBool::new(false)),
     };
     let read = SearchRead {
@@ -66,6 +68,7 @@ fn duplicate_documents_count_independently_without_borrowed_supports() {
     ]);
     let control = ReadControl {
         deadline: Instant::now() + Duration::from_secs(5),
+        clock: Arc::new(SystemClock),
         cancelled: Arc::new(AtomicBool::new(false)),
     };
     let read = SearchRead {
@@ -111,6 +114,7 @@ fn inventory_applies_exact_set_and_version_filters_before_its_counts() {
     search.ready();
     let control = ReadControl {
         deadline: Instant::now() + Duration::from_secs(5),
+        clock: Arc::new(SystemClock),
         cancelled: Arc::new(AtomicBool::new(false)),
     };
     let read = SearchRead {

@@ -1434,6 +1434,7 @@ in place.
 ├── Cargo.toml                                                               # Workspace manifest: its members and the lints every member inherits
 ├── LICENSE                                                                  # The licence this repository is distributed under
 ├── README.md                                                                # The local runtime of Maestro: knowledge kernel, retrieval, orchestration and the command-line tools
+├── clock-seam-report.md                                                     # Clock seam report
 ├── justfile                                                                 # List every recipe and what it does; this is what just alone prints
 ├── maestro-quality.toml                                                     # The organization's quality rules as this repository shapes them: the inputs its CI caller passes, the seams that keep one caller
 ├── rust-toolchain.toml                                                      # The pinned Rust toolchain

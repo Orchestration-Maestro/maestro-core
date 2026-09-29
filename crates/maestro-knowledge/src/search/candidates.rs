@@ -18,7 +18,6 @@ use maestro_kernel::{
 use std::{
     collections::{BTreeSet, HashMap},
     sync::{Arc, atomic::Ordering},
-    time::Instant as StdInstant,
 };
 use tokio::time::Instant;
 
@@ -134,11 +133,9 @@ pub(super) async fn load(database: Arc<Database>, request: Request) -> Result<Lo
         .iter()
         .map(|candidate| candidate.chunk_id.clone())
         .collect::<Vec<_>>();
+    let clock = deadline::RuntimeClock::current();
     deadline::run_blocking(deadline, move |cancelled| {
-        let control = ReadControl {
-            deadline: deadline::std_deadline(deadline),
-            cancelled,
-        };
+        let control = deadline::read_control(deadline, cancelled, clock.clone());
         let read = SearchRead {
             generation: &generation,
             scopes: &scopes,
@@ -177,14 +174,13 @@ pub(super) async fn load(database: Arc<Database>, request: Request) -> Result<Lo
                 configuration,
                 query: &query,
                 generation: &generation,
-                deadline: deadline::std_deadline(context_deadline),
+                deadline: context_deadline.into_std(),
             },
             &mut texts,
         );
         let enrichment = ReadControl {
-            deadline: control
-                .deadline
-                .min(deadline::std_deadline(context_deadline)),
+            deadline: control.deadline.min(context_deadline.into_std()),
+            clock: control.clock.clone(),
             cancelled: control.cancelled.clone(),
         };
         let source = source_class::penalized(
@@ -223,7 +219,7 @@ pub(super) fn classify_read(error: retrieval::Error) -> Failure {
 
 /// Stops artifact reads at cancellation or the absolute deadline.
 pub(super) fn check_control(control: &ReadControl) -> Result<(), Failure> {
-    if control.cancelled.load(Ordering::Relaxed) || StdInstant::now() >= control.deadline {
+    if control.cancelled.load(Ordering::Relaxed) || control.now() >= control.deadline {
         Err(Failure::TimedOut)
     } else {
         Ok(())
