@@ -289,6 +289,9 @@ fn validate_provenance(provenance: &Provenance) -> Result<(), CardError> {
 /// Enforces role-specific dimensions, formats, sampling, and output limits.
 fn validate_role(identity: &CardIdentity) -> Result<(), CardError> {
     let no_embedding_profile = non_embedding_profile_is_not_applicable(identity);
+    let generates = no_embedding_profile
+        && matches!(identity.invocation.sampling, Sampling::Configured(_))
+        && identity.invocation.limits.output_tokens.is_some();
     let valid = match identity.role {
         Role::Embedder => {
             matches!(identity.invocation.dimensions, Dimensions::Measured(_))
@@ -308,11 +311,10 @@ fn validate_role(identity: &CardIdentity) -> Result<(), CardError> {
                 && matches!(identity.invocation.reasoning, Capability::NotApplicable)
                 && identity.invocation.limits.output_tokens.is_none()
         }
-        Role::Answerer => {
-            no_embedding_profile
-                && matches!(identity.invocation.sampling, Sampling::Configured(_))
-                && identity.invocation.limits.output_tokens.is_some()
-        }
+        Role::Answerer => generates,
+        // The constrained call's prompt goes through the chat template, which
+        // the router's `/props` check pins only where the card records it.
+        Role::Extractor => generates && matches!(identity.formats.template, Template::Digest(_)),
     };
     if valid {
         Ok(())

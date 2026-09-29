@@ -4,6 +4,7 @@
 mod card;
 mod catalog;
 mod chat;
+mod extractor_card;
 mod fake;
 mod fixture;
 mod formatting;

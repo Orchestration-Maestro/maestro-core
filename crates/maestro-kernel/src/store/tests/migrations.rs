@@ -195,16 +195,17 @@ fn model_card_migration_applies_after_0008_and_after_0010_search() {
     );
     drop(reader);
 
+    // 0016 rebuilds the tables of 0009, so a binary lacking one lacks both.
     let without_model_cards: Vec<_> = MIGRATIONS
         .iter()
-        .filter(|(name, _)| *name != "0009_model_cards")
+        .filter(|(name, _)| !matches!(*name, "0009_model_cards" | "0016_extractor_role"))
         .copied()
         .collect();
     let scratch = Scratch::new();
     drop(scratch.open_with(&without_model_cards).unwrap());
     assert_eq!(
         pending_migrations(&scratch.0).unwrap(),
-        ["0009_model_cards"]
+        ["0009_model_cards", "0016_extractor_role"]
     );
     drop(scratch.open_with(MIGRATIONS).unwrap());
     let outside = scratch.outside();
@@ -244,7 +245,8 @@ fn graph_claim_migration_adds_empty_claim_tables_and_keeps_existing_records() {
             "0012_graph_claims",
             "0013_graph_claim_vocabulary",
             "0014_graph_builds",
-            "0015_graph_resolution"
+            "0015_graph_resolution",
+            "0016_extractor_role"
         ]
     );
 
@@ -450,7 +452,11 @@ fn graph_build_migration_upgrades_claim_storage_once_without_backfilling() {
     drop(scratch.open_with(&preceding).unwrap());
     assert_eq!(
         pending_migrations(&scratch.0).unwrap(),
-        ["0014_graph_builds", "0015_graph_resolution"]
+        [
+            "0014_graph_builds",
+            "0015_graph_resolution",
+            "0016_extractor_role"
+        ]
     );
     drop(scratch.open());
     let reader = scratch.outside();

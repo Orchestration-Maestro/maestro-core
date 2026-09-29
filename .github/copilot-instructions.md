@@ -419,7 +419,8 @@ in place.
 │   │   │   ├── 0012_graph_claims.sql                                        # File: 0012 graph claims
 │   │   │   ├── 0013_graph_claim_vocabulary.sql                              # File: 0013 graph claim vocabulary
 │   │   │   ├── 0014_graph_builds.sql                                        # File: 0013 graph builds
-│   │   │   └── 0015_graph_resolution.sql                                    # File: 0015 graph resolution
+│   │   │   ├── 0015_graph_resolution.sql                                    # File: 0015 graph resolution
+│   │   │   └── 0016_extractor_role.sql                                      # File: 0016 extractor role
 │   │   ├── src/                                                             # The crate's sources
 │   │   │   ├── artifact/                                                    # Content-addressed artifacts: immutable bytes stored, and read back, by their
 │   │   │   │   ├── digest.rs                                                # A SHA-256 digest: the name every artifact is stored under
@@ -525,6 +526,7 @@ in place.
 │   │   │   │   │   ├── card.rs                                              # Tests of model cards: strict JSON artifacts whose digest is their
 │   │   │   │   │   ├── catalog.rs                                           # The router's catalog: GET /v1/models in no room; refusals kept, a bad entry name an invalid answer
 │   │   │   │   │   ├── chat.rs                                              # Chat sends one bounded, non-streaming prompt and refuses unusable replies
+│   │   │   │   │   ├── extractor_card.rs                                    # Extractor cards: v2 only, with a pinned chat template, and no other role's calls.
 │   │   │   │   │   ├── fake.rs                                              # Tests of the deterministic fake: its outputs are fixed by its inputs, the
 │   │   │   │   │   ├── fixture.rs                                           # What the gateway's tests share: a scratch store, a card for each role, and
 │   │   │   │   │   ├── formatting.rs                                        # Model-card document and query formatting
@@ -608,6 +610,7 @@ in place.
 │   │   │   │   ├── tests/                                                   # Contracts for registry identity, writes, reads, scopes and SQL guards
 │   │   │   │   │   ├── concurrency.rs                                       # Concurrent model registry writes stay idempotent
 │   │   │   │   │   ├── errors.rs                                            # Model-registry error text and source chaining
+│   │   │   │   │   ├── extractor.rs                                         # The extractor role in the model registry, and the upgrade that adds it.
 │   │   │   │   │   ├── guards.rs                                            # Model registry write preconditions, eligibility, and transaction rollback tests
 │   │   │   │   │   ├── history.rs                                           # Exact evaluation-selection joins, insertion ordering, and selection history
 │   │   │   │   │   ├── journal.rs                                           # Transactional model-registry journal event contents and rollback

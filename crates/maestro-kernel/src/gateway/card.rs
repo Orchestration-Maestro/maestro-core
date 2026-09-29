@@ -22,9 +22,11 @@
 //! `build_info` and `template_digest` the SHA-256 of the chat template, both
 //! as the model's server reports them through `/props`; an embedder alone
 //! records `dimensions`. `output_tokens` is null for a model that generates
-//! nothing, and each suite result names the digest of its report. New
-//! candidates use v2 immutable identities; evaluations and selections are
-//! separate records and never change a card digest.
+//! nothing, and each suite result names the digest of its report. The
+//! extractor role exists in `maestro-model-card/2` alone, so a v1 card
+//! naming it is refused. New candidates use v2 immutable identities;
+//! evaluations and selections are separate records and never change a card
+//! digest.
 
 pub use super::card_types::{CardError, CardFields, Limits, Role, RouterEntry, SuiteResult};
 use super::card_v2::{CARD_SCHEMA_V2, Capability, CardIdentity, CardV2Json, TextFormat};
@@ -274,6 +276,9 @@ impl CardJson {
         }
         match (self.role, self.dimensions) {
             (Role::Embedder, None) => return Err(invalid("an embedder's card records dimensions")),
+            (Role::Extractor, _) => {
+                return Err(invalid("an extractor's card is maestro-model-card/2 only"));
+            }
             (Role::Reranker | Role::Answerer, Some(_)) => {
                 return Err(invalid(format_args!(
                     "a {}'s card records no dimensions",

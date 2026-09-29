@@ -235,12 +235,13 @@ pub(super) fn ulid(text: &str, index: usize) -> rusqlite::Result<Ulid> {
     Ulid::from_string(text).map_err(|error| unreadable(index, error))
 }
 
-/// Parses one of the three recorded model roles.
+/// Parses one of the recorded model roles.
 pub(super) fn parse_role(text: &str, index: usize) -> rusqlite::Result<Role> {
     enum_value(text, index, "model role", |value| match value {
         "embedder" => Some(Role::Embedder),
         "reranker" => Some(Role::Reranker),
         "answerer" => Some(Role::Answerer),
+        "extractor" => Some(Role::Extractor),
         _ => None,
     })
 }

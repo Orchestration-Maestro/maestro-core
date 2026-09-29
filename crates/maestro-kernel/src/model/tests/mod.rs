@@ -2,6 +2,7 @@
 
 mod concurrency;
 mod errors;
+mod extractor;
 mod guards;
 mod history;
 mod journal;

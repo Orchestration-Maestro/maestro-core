@@ -27,6 +27,7 @@ pub(super) fn card(home: &Home, role: Role) -> Digest {
         Role::Embedder => ("embed", Some(3)),
         Role::Reranker => ("rerank", None),
         Role::Answerer => ("answer", None),
+        Role::Extractor => ("extract", None),
     };
     let fields = CardFields {
         role,

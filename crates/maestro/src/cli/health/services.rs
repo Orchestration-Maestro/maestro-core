@@ -141,10 +141,11 @@ pub(super) fn router_check(url: Result<Url, String>) -> Check {
     }
 }
 
-/// The check of each role's model card: none is recorded before the
+/// The check of each M1 role's model card: none is recorded before the
 /// bake-off records one per role (T030).
 pub(super) fn card_checks() -> Vec<Check> {
-    Role::ALL
+    // The extractor's check comes with its selection (S2 G20).
+    [Role::Embedder, Role::Reranker, Role::Answerer]
         .iter()
         .map(|role| {
             Check::failed(

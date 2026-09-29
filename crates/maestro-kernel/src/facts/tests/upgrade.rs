@@ -115,7 +115,8 @@ fn assert_refused_without_changes(mode: &str) {
         [
             "0013_graph_claim_vocabulary",
             "0014_graph_builds",
-            "0015_graph_resolution"
+            "0015_graph_resolution",
+            "0016_extractor_role"
         ]
     );
 }
