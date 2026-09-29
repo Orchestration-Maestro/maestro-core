@@ -41,15 +41,20 @@ pub async fn search<P: ModelPort>(
         .instrument(async {
             let admitted = admit_request(context, request).await?;
             // Boxed: the routes' future is large, and ask nests this one.
-            let ((originals, intent), ()) = tokio::join!(
-                Box::pin(route_search::execute(context, &admitted)),
+            // Fusion runs as soon as the routes end, while the reranker may
+            // still be readying.
+            let ((originals, routes), ()) = tokio::join!(
+                Box::pin(async {
+                    let (originals, intent) = route_search::execute(context, &admitted).await;
+                    let routes = route_search::results(&admitted, &originals, intent);
+                    (originals, routes)
+                }),
                 prepare_reranker(
                     context.reranker.as_ref(),
                     admitted.configuration.rerank_enabled,
                     &admitted.cutoffs,
                 ),
             );
-            let routes = route_search::results(&admitted, &originals, intent);
             if admitted.configuration.intent_expansion == IntentExpansion::Hyde
                 && matches!(
                     admitted.configuration.intent_trigger,
