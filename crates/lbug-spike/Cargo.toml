@@ -25,3 +25,7 @@ required-features = ["engine"]
 [[example]]
 name = "open_query"
 required-features = ["engine"]
+
+[[example]]
+name = "open_reopen"
+required-features = ["engine"]

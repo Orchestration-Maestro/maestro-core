@@ -52,7 +52,8 @@ in place.
 ├── crates/                                                                  # The workspace's crates
 │   ├── lbug-spike/                                                          # Lbug spike
 │   │   ├── examples/                                                        # Worked examples
-│   │   │   └── open_query.rs                                                # The smallest program that links LadybugDB: open an in-memory database
+│   │   │   ├── open_query.rs                                                # The smallest program that links LadybugDB: open an in-memory database
+│   │   │   └── open_reopen.rs                                               # G26's measurement of the embedded graph on disk: create a scratch
 │   │   ├── src/                                                             # The crate's sources
 │   │   │   └── lib.rs                                                       # Throwaway S2 G25 probe of the lbug crate (LadybugDB)
 │   │   ├── tests/                                                           # Integration tests
@@ -135,6 +136,7 @@ in place.
 │   │   │   │   │   ├── tests/                                               # Unit tests of the checks: the kernel's files, the services, the cards, what doctor must not touch
 │   │   │   │   │   │   ├── doctor.rs                                        # Doctor's verdict: a check that cannot run yet, as each role's model card
 │   │   │   │   │   │   ├── findings.rs                                      # Foreign entries of the data directory listed and left untouched; grants that reach no known scope
+│   │   │   │   │   │   ├── graph.rs                                         # The embedded graph's check: off with no probe at all, a selected engine
 │   │   │   │   │   │   ├── kernel.rs                                        # config.toml and bindings.toml refused with a fix; the database never created, damage and lost artifacts found
 │   │   │   │   │   │   ├── mod.rs                                           # The health unit tests' door: declarations only
 │   │   │   │   │   │   ├── services.rs                                      # Qdrant at the pinned version, the router's catalog, each role's card; next actions from what setup would do
@@ -143,6 +145,7 @@ in place.
 │   │   │   │   │   ├── check.rs                                             # A check of the machine: its target, and what it saw, or its problem and next action
 │   │   │   │   │   ├── doctor.rs                                            # maestro doctor: every check, each failure with its next action, what it must not touch; exit 1 on a failure
 │   │   │   │   │   ├── findings.rs                                          # What doctor lists and never touches: entries the kernel does not own, as maestro v1's, and unreached grants
+│   │   │   │   │   ├── graph.rs                                             # The embedded graph's check, which status and doctor run: the selected
 │   │   │   │   │   ├── kernel.rs                                            # The kernel's checks: configuration files, the database opened only if it exists and checked whole, the artifacts
 │   │   │   │   │   ├── mod.rs                                               # The checks' door: declarations only
 │   │   │   │   │   ├── services.rs                                          # Qdrant answering as the pinned version, the router listing its catalog, each role's model card
@@ -170,6 +173,7 @@ in place.
 │   │   │   │   │   │   ├── support.rs                                       # What the install tests share: a scratch home, fake curl, tar and systemctl that log, a small release
 │   │   │   │   │   │   └── unit.rs                                          # The service's layout and unit: loopback, telemetry off, data under the kernel's; paths escaped or refused
 │   │   │   │   │   ├── command.rs                                           # maestro setup: the preview, the steps taken with --yes, the document printed; the readiness doctor asks
+│   │   │   │   │   ├── graph.rs                                             # The embedded graph's part of maestro setup: it previews, and with
 │   │   │   │   │   ├── mod.rs                                               # The setup's door: declarations only
 │   │   │   │   │   ├── release.rs                                           # The pinned Qdrant 1.19.1 archive and binary digests, the ports, and the manual steps elsewhere
 │   │   │   │   │   ├── service.rs                                           # The layout, the unit, the survey of what is missing, and the steps that install it, each checked first
@@ -255,6 +259,7 @@ in place.
 │   │   │   │   ├── run.rs                                                   # Runs the stdio MCP server without sending diagnostics to stdout
 │   │   │   │   └── transport.rs                                             # Stdio JSON-RPC framing with complete-line and complete-response byte bounds
 │   │   │   ├── settings/                                                    # The session's settings, resolved once for the CLI and the MCP server, and
+│   │   │   │   ├── graph.rs                                                 # The configured local graph engine
 │   │   │   │   ├── knowledge.rs                                             # The knowledge operations' settings, read from a session's resolved
 │   │   │   │   ├── mod.rs                                                   # The session's settings, resolved once for the CLI and the MCP server, and
 │   │   │   │   ├── session.rs                                               # A session's settings: the registry, the files it reads and the explicit
@@ -299,6 +304,7 @@ in place.
 │   │   │       ├── graph_draft_bounds.rs                                    # Private drafting file bounds and receipt schema regressions
 │   │   │       ├── graph_draft_redirect.rs                                  # A drafting endpoint that redirects fails the window, and the redirect's
 │   │   │       ├── graph_eval.rs                                            # Graph evaluation refuses unsafe input without opening a default kernel
+│   │   │       ├── graph_operations.rs                                      # G26: setup, status and doctor account for the local embedded graph
 │   │   │       ├── graph_resume.rs                                          # Durable CLI resume and separate attachment, using real authority and rule artifacts
 │   │   │       ├── import_jobs.rs                                           # knowledge import end to end, rerun, live holder refused, stale one superseded, leases taken over
 │   │   │       ├── job_waits.rs                                             # job wait follows a job to its end and exits with its outcome; an unreadable job is unknown
@@ -1446,6 +1452,7 @@ in place.
 │   ├── contracts/                                                           # Contracts
 │   │   └── unit-graph-v1.md                                                 # Unit graph wire contract v1
 │   ├── how-to/                                                              # How to
+│   │   ├── knowledge-graph.md                                               # Prepare and check the local knowledge graph
 │   │   └── knowledge-mcp.md                                                 # Connect a client to Maestro's knowledge MCP server
 │   └── standards/                                                           # Standards
 │       ├── engineering.md                                                   # Engineering rules in maestro-core

@@ -17,6 +17,7 @@ cuts them into token-budgeted chunks; later capabilities arrive slice by slice
 | --- | --- |
 | Understand the design | [docs/architecture](docs/architecture/README.md) |
 | Connect a client to the knowledge MCP server | [docs/how-to/knowledge-mcp.md](docs/how-to/knowledge-mcp.md) |
+| Prepare and check the local knowledge graph | [docs/how-to/knowledge-graph.md](docs/how-to/knowledge-graph.md) |
 | See why a choice was made | [docs/adr](docs/adr/README.md) |
 | Learn the vocabulary | [CONTEXT.md](CONTEXT.md) |
 | Follow the active slice | [S1 knowledge kernel](specs/001-knowledge-kernel/spec.md) |

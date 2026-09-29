@@ -431,6 +431,13 @@ server, port, Docker, JVM or first-use download; health never mutates a graph.
   time, binary size, RSS and disk from the qualified runtime; diagnostics name
   actionable repairs without deleting files or fetching assets.
 
+G26 notes: `graph.engine` and the `engine` feature exist, but `maestro` links
+no engine yet. Health reads graph files through `PublishedGraph` (G26's adapter
+publishes none) and opens them through `PublishedFile`/`OpenGraph` with fakes in
+its tests. The Red item "cleanup refuses live readers and non-owned files"
+moves to G27, the first task that writes graph files: no receipt names them
+before then. Measurements are in research.md.
+
 ### G27 [US2, US5] Expose the typed-edge port and verify unpublished projection builds
 
 **Time:** 4 h. **After:** G25, G09, G10, G31.
@@ -468,6 +475,13 @@ only entity-to-entity claims produce edges.
   `capped cargo nextest run -p maestro-kernel store::tests::migrations`. No
   engine I/O in SQLite transactions, lbug types in the public port, or changed
   pinned reads. Catalog edges require catalog authority, not evidence spans.
+
+From G26: the kernel-receipt `PublishedGraph` adapter and the lbug
+`PublishedFile`/`OpenGraph` adapter (read-only, no-follow open) of
+`C/src/cli/health/graph.rs`, the `engine` feature's `lbug` dependency, a CI job
+that builds `--features engine` and runs its tests and mutants (the
+`mutation-windows` precedent), and a cleanup command that refuses live readers
+and files the receipt does not name all belong to G27.
 
 ### G28 [US5] Load the frozen snapshot with one resumable batch loader
 

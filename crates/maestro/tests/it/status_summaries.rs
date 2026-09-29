@@ -37,10 +37,11 @@ fn status_summarizes_the_services_and_the_collections_the_local_principal_reads(
     assert_eq!(document["schema"], "maestro-cli/status/1");
     let services = services(&document);
     let names: Vec<&str> = services.iter().map(|(name, _)| *name).collect();
-    assert_eq!(names, ["kernel", "qdrant", "router"]);
+    assert_eq!(names, ["kernel", "graph", "qdrant", "router"]);
     assert_eq!(services[0], ("kernel", true));
+    assert_eq!(services[1], ("graph", true));
     assert_eq!(
-        services[2],
+        services[3],
         ("router", false),
         "nothing answers where it looks"
     );

@@ -8,6 +8,7 @@
 use super::{
     check::Check,
     findings::{directory_findings, unreached_grants},
+    graph,
     kernel::{Opened, artifacts_check, bindings_check, config_check, database_check},
     services::{
         QDRANT_VARIABLE, ROUTER_VARIABLE, card_checks, qdrant_check, qdrant_url, router_check,
@@ -84,7 +85,14 @@ pub(in crate::cli) fn run(output: Output, flags: &[String]) -> Result<ExitCode, 
     let (config, read) = config_check(&config_dir);
     let (database, opened) = database_check(&data, read.as_ref());
     let settings = settings_check(&config_dir, Session::for_cli(flags));
-    let mut checks = vec![config, settings, bindings_check(&config_dir), database];
+    let graph = graph::check(&environment, Session::for_cli(flags));
+    let mut checks = vec![
+        config,
+        settings,
+        bindings_check(&config_dir),
+        database,
+        graph,
+    ];
     checks.push(artifacts_check(&data, opened.as_ref()));
     checks.push(qdrant_check(
         &qdrant_url(env::var_os(QDRANT_VARIABLE).as_deref()),

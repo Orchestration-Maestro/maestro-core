@@ -10,6 +10,11 @@ publish.workspace = true
 [lints]
 workspace = true
 
+[features]
+# The embedded graph engine, LadybugDB: `graph.engine = "lbug"` is accepted
+# only in a build with it. G27 adds the engine adapter behind it.
+engine = []
+
 [dependencies]
 clap.workspace = true
 maestro-kernel.workspace = true

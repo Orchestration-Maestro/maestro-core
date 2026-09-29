@@ -35,7 +35,10 @@ fn check<'a>(document: &'a Value, name: &str) -> &'a Value {
 fn assert_next_action_matches_outcome(check: &Value) {
     let next = &check["next_action"];
     if check["checked"] == false {
-        assert_eq!(check["name"], "model_card", "{check}");
+        assert!(
+            matches!(check["name"].as_str(), Some("model_card" | "graph")),
+            "{check}"
+        );
         assert_eq!(check["passed"], false, "{check}");
         assert!(next.is_null(), "{check}");
     } else if check["passed"] == false {
@@ -68,6 +71,7 @@ fn every_failed_check_names_its_next_action() {
             "settings",
             "bindings",
             "database",
+            "graph",
             "artifacts",
             "qdrant",
             "router",
@@ -126,7 +130,7 @@ fn the_report_for_people_puts_each_next_action_under_its_failure() {
     );
     assert_eq!(
         lines.last().copied(),
-        Some(format!("{failures} of 10 checks failed.").as_str())
+        Some(format!("{failures} of 11 checks failed.").as_str())
     );
     assert!(
         !text.stdout.contains("left untouched") && !text.stdout.contains("reach no known scope"),

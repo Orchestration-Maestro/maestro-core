@@ -380,6 +380,13 @@ pub const BUILT_IN: &[SettingDescriptor] = &[
          and ask refuses. cpu comes after M1.",
     ),
     free(
+        "graph.engine",
+        choice(texts!["none", "lbug"]),
+        "none",
+        "The local knowledge graph: none, no graph; lbug, the embedded LadybugDB engine, in \
+         a maestro built with the engine feature. No graph server, port or download.",
+    ),
+    free(
         "chunking.profile",
         choice(texts![
             "mapped-structural-chunks/2",

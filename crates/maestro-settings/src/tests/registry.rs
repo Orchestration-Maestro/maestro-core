@@ -90,6 +90,18 @@ fn measured_search_defaults_are_registered() {
 }
 
 #[test]
+fn the_graph_engine_is_off_by_default_and_takes_no_path() {
+    let registry = Registry::built_in().unwrap();
+    assert_eq!(
+        registry.default_of("graph.engine"),
+        Some(&Value::Text("none".to_owned()))
+    );
+    let kind = &registry.get("graph.engine").unwrap().kind;
+    assert_eq!(kind.parse_text("lbug"), Ok(Value::Text("lbug".to_owned())));
+    assert!(kind.parse_text("/elsewhere/graph.lbug").is_err());
+}
+
+#[test]
 fn both_rerank_thresholds_accept_negative_values() {
     let registry = Registry::built_in().unwrap();
     for key in ["search.intent.min_top_rerank", "ask.min_rerank_score"] {

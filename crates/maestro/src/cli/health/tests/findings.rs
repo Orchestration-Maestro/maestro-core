@@ -23,6 +23,7 @@ fn the_entries_the_kernel_does_not_own_are_listed_and_left_untouched() {
     }
     fs::create_dir(data.join("qdrant")).unwrap();
     fs::create_dir(data.join("artifacts")).unwrap();
+    fs::create_dir(data.join("graph")).unwrap();
     for file in [
         "ledger.sqlite3",
         "ledger.sqlite3-wal",

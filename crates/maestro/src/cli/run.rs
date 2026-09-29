@@ -106,8 +106,8 @@ fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> 
             eval::check_graph(output, manifest)
         }
         Noun::Job(JobCommand::Wait { id }) => wait::run(&Kernel::open()?, output, *id),
-        Noun::Setup { yes } => setup::run(output, *yes),
-        Noun::Status => health::status::run(output),
+        Noun::Setup { yes } => setup::run(output, *yes, &arguments.set),
+        Noun::Status => health::status::run(output, &arguments.set),
         Noun::Doctor => health::doctor::run(output, &arguments.set),
         Noun::Backup { to } => backup::run_backup(output, to),
         Noun::Restore { from } => backup::run_restore(output, from),

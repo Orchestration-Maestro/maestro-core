@@ -2,7 +2,7 @@
 //! setting reaches the knowledge operations, and the CLI and the MCP server
 //! resolve the same files the same way.
 
-use super::{Compute, KnowledgeSettings, Session};
+use super::{Compute, GraphEngine, KnowledgeSettings, Session};
 use crate::failure::Failure;
 use maestro_kernel::evidence::RequestBudget;
 use maestro_knowledge::{
@@ -281,7 +281,16 @@ fn each_setting_reaches_the_knowledge_operations() {
 }
 
 #[test]
-fn every_registered_setting_is_read_by_the_knowledge_settings() {
+fn the_graph_engine_is_none_unless_lbug_is_selected() {
+    let scratch = Scratch::new();
+    let engine = |flags: &[&str]| GraphEngine::from_session(&scratch.session(flags)).unwrap();
+    assert_eq!(engine(&[]), GraphEngine::None);
+    assert_eq!(engine(&["graph.engine=lbug"]), GraphEngine::Lbug);
+    assert_eq!(engine(&["graph.engine=none"]), GraphEngine::None);
+}
+
+#[test]
+fn every_registered_setting_is_read_by_the_knowledge_or_graph_settings() {
     let scratch = Scratch::new();
     let branches: [&[&str]; 2] = [
         &[],
@@ -295,7 +304,9 @@ fn every_registered_setting_is_read_by_the_knowledge_settings() {
     for flags in branches {
         let session = scratch.session(flags);
         read.extend(KnowledgeSettings::read(&session.resolved()).unwrap().1);
+        GraphEngine::from_session(&session).unwrap();
     }
+    read.insert(GraphEngine::KEY.to_owned());
     let registry = Registry::built_in().unwrap();
     let registered: BTreeSet<String> = registry
         .descriptors()

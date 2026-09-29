@@ -346,3 +346,56 @@ the final recheck.
 - CI runs 36450975727, 36456020747, 36459384197, 36499193190, 36499213702,
   36500536360, 36501591821, 36505582019, 36509489496 and 36512955122 on
   `Orchestration-Maestro/maestro-core`.
+
+## G26: packaging and read-only local diagnostics
+
+G26 adds the setting `graph.engine` (`none` by default, or `lbug`) and the
+`maestro` crate's `engine` feature, without which `lbug` is refused by setup
+and reported by health. The feature holds no engine code yet: the lbug adapter
+of the health port, and a CI job that builds `--features engine` to run its
+tests and mutants (as `mutation-windows` does for Windows code), belong to
+G27. Default builds therefore still compile no C++.
+
+- **Setup** previews, and with `--yes` creates, `<data directory>/graph`,
+  mode `0700` on Unix, on every platform, before the unchanged Qdrant part.
+  It downloads nothing, opens no engine and removes nothing.
+- **Health** (`status`, `doctor`) is read-only. It reports the graph off with
+  no probe, the engine missing from the build, the directory missing, shared,
+  relocated (a link) or not a directory, then asks the `PublishedGraph` port
+  for the receipt's files. Each file must lie inside the graph directory with
+  no link on the way before `PublishedFile::open_read_only` is called; it is
+  opened read-only, queried with `RETURN 1`, closed, reopened and queried
+  again. An open refused with "lock" in the engine's message is a writer's
+  lock (G25's messages on Windows); any other refusal, or a failed query, is
+  a corrupt or unreadable file to rebuild. The production adapter publishes
+  nothing until G27 writes the receipt, so an enabled check stops at "no graph
+  is published yet" with zero opens. Tests drive every state with fakes.
+- **Cleanup**: no command. Offline rebuild and reader-safe removal are
+  documented in `docs/how-to/knowledge-graph.md`. The Red item "cleanup
+  refuses live readers and non-owned files" moves to G27: before its receipt
+  nothing says which files are the graph's, and on Linux and macOS the
+  advisory lock cannot keep a reader out.
+
+### Measurements
+
+Linux x86-64 (WSL2, 8 threads), 2026-09-29, network off: every run below ran
+in `unshare -rn`, a network namespace holding only a down loopback. The engine
+numbers come from the lbug-spike crate's engine build (the C++ debug build of
+`.cargo/lbug-debug-flags.cmake`, the only one this machine reuses), through
+`examples/open_reopen.rs` on a scratch database of 1,000 nodes; three runs.
+
+| Measure | Result |
+| --- | --- |
+| Install (`maestro --set graph.engine=lbug setup --yes`, engine-feature build) | under 10 ms wall per run (`time` reports 0.00 s), 18.4-18.6 MB peak RSS; the directory created `drwx------`; no download, no engine open |
+| Create 1,000 nodes and close | 4.8-5.8 s (one query per node) |
+| Open read-only | 56-68 ms; with `RETURN 1`: 64-77 ms |
+| Reopen read-only | 54-57 ms; with `RETURN 1`: 55-58 ms |
+| Disk | one file, `graph.lbug`, 2,142,208 bytes; no WAL left after close |
+| Peak RSS of the measuring process | 118.4-119.0 MB (G25: 105 MB for one in-memory query) |
+| Binary size | debug example 86.4 MB, 60.8 MB with debug sections stripped; `maestro` itself links no engine until G27. G25's release measure stands: lbug adds about 19.4 MB to a stripped binary |
+
+Commands: `capped cargo build -p lbug-spike --features engine --example
+open_reopen --locked --offline`, then `unshare -rn /usr/bin/time -v
+target/debug/examples/open_reopen <empty scratch directory>`. The logs are in
+the G26 report. The `graph_operations` tests ran in the same namespace, in the
+default and the `engine` builds.

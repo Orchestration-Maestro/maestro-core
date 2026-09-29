@@ -43,12 +43,12 @@
 //!   explains the settings, and lists their journaled changes;
 //! - `maestro job wait <id>` follows a job until it ends, and exits with its
 //!   outcome;
-//! - `maestro setup` previews the search service Maestro needs, and installs
-//!   it with `--yes`;
+//! - `maestro setup` previews the local graph's directory and the search
+//!   service Maestro needs, and makes them with `--yes`;
 //! - `maestro status` summarizes which services and collections are ready;
-//! - `maestro doctor` checks the kernel, the search service, the model
-//!   router and each role's model card, naming the next action for every
-//!   failure;
+//! - `maestro doctor` checks the kernel, the local graph, the search
+//!   service, the model router and each role's model card, naming the next
+//!   action for every failure;
 //! - `maestro backup --to <dir>` backs up the kernel with SQLite's online
 //!   backup API and a digest manifest, without creating or migrating it;
 //! - `maestro restore --from <dir>` checks a backup and restores it only when
@@ -158,6 +158,9 @@
 //!   reranking, without intent expansion, and ask, prepare and publish
 //!   refuse with `models_off` before the kernel opens. `cpu` is refused
 //!   until after M1.
+//! - `graph.engine`: `none`, no graph, or `lbug`, the embedded `LadybugDB`
+//!   engine, which only a build with the `engine` feature holds. `setup`
+//!   prepares its directory; `status` and `doctor` check it read-only.
 //! - the search, evidence, ask and chunking knobs under `search.`,
 //!   `evidence.`, `ask.` and `chunking.`.
 //!
@@ -379,7 +382,12 @@
 //!
 //! # `setup`
 //!
-//! Installs Qdrant 1.19.1, the search service, as the systemd user unit
+//! First the local graph: with `graph.engine = "lbug"`, it creates the
+//! graph's directory, `graph` under the data directory, mode 0700 on Unix,
+//! or restores that mode; it downloads nothing, opens no graph and removes
+//! nothing, on every platform. A build without the `engine` feature refuses
+//! `lbug`, and a link or a file in the directory's place is refused. Then it
+//! installs Qdrant 1.19.1, the search service, as the systemd user unit
 //! `maestro-qdrant.service`: its archive is downloaded over HTTPS with the
 //! system's `curl`, refused unless its SHA-256 and that of the binary it
 //! holds are the ones pinned in the code, and the binary goes under the data
@@ -394,20 +402,24 @@
 //! installs on Linux on x86-64 with systemd only; elsewhere it prints the
 //! manual steps and exits 2. Where no systemd user manager runs for the
 //! user, as on WSL unless `/etc/wsl.conf` sets `systemd=true` under
-//! `[boot]`, it exits 2 before any step, saying so.
+//! `[boot]`, it exits 2 before any step, saying so. When the search
+//! service's part is refused or fails, the graph's part is printed alone
+//! first, `maestro-cli/setup-graph/1` under `--json`.
 //!
 //! ```json
 //! {"schema":"maestro-cli/setup/1","version":"1.19.1","service":"maestro-qdrant.service",
 //!  "binary":"/…/qdrant/bin/qdrant","storage":"/…/qdrant/storage",
 //!  "snapshots":"/…/qdrant/snapshots","unit":"/…/systemd/user/maestro-qdrant.service",
 //!  "http":"127.0.0.1:6333","grpc":"127.0.0.1:6334",
+//!  "graph":{"engine":"none","directory":null,"action":"disabled","changed":false},
 //!  "steps":["install","write_unit","reload","enable","restart"],"changed":false}
 //! ```
 //!
 //! # `status`
 //!
-//! Reports the kernel, Qdrant and the model router, each ready or not with
-//! what its check saw. Qdrant's gRPC API is at `MAESTRO_QDRANT_URL` or else
+//! Reports the kernel, the local graph, Qdrant and the model router, each
+//! ready or not with what its check saw; the graph is ready while it is off
+//! or none is published yet. Qdrant's gRPC API is at `MAESTRO_QDRANT_URL` or else
 //! `http://127.0.0.1:6334`. It also reports each collection the local
 //! principal reads with its documents and its published generation. It exits
 //! 0 whatever is down.
@@ -415,6 +427,8 @@
 //! ```json
 //! {"schema":"maestro-cli/status/1",
 //!  "services":[{"name":"kernel","target":"/…/kernel.sqlite3","ready":true,"detail":"intact"},
+//!   {"name":"graph","target":"/…/graph","ready":true,
+//!    "detail":"the graph is off (graph.engine = none)"},
 //!   {"name":"qdrant","target":"http://127.0.0.1:6334","ready":true,
 //!    "detail":"Qdrant 1.19.1 answers"},
 //!   {"name":"router","target":"http://127.0.0.1:8080/","ready":true,
@@ -430,9 +444,15 @@
 //! and `bindings.toml`; the
 //! kernel's database, which must exist, lack no migration this build carries
 //! (a missing one is named, never applied), open, pass SQLite's quick check
-//! and take `config.toml`'s grants; the artifact tree, each recorded artifact
-//! present and intact; Qdrant's gRPC health check, at `MAESTRO_QDRANT_URL`
-//! or else `http://127.0.0.1:6334`, answering as the pinned version; the
+//! and take `config.toml`'s grants; the local graph, read-only: off (not
+//! checked), the engine missing from the build, its directory missing,
+//! shared, a link or not a directory, then each graph file the kernel
+//! published, refused outside the directory or through a link, opened
+//! read-only, queried, closed and reopened, a writer's lock or a corrupt
+//! file named (none is published before G27: not checked); the artifact
+//! tree, each recorded artifact present and intact; Qdrant's gRPC health
+//! check, at `MAESTRO_QDRANT_URL` or else `http://127.0.0.1:6334`,
+//! answering as the pinned version; the
 //! model router, at `MAESTRO_ROUTER_URL` or else `http://127.0.0.1:8080`, listing
 //! its catalog, which starts no model; and each role's model card, reported
 //! as not checked yet (`"checked": false`), neither passed nor failed, until
