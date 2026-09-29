@@ -14,8 +14,8 @@ pub(super) fn found<T>(result: io::Result<T>) -> io::Result<Option<T>> {
 /// Treats a directory-creation race as success.
 pub(super) fn tolerate_existing(result: io::Result<()>) -> io::Result<()> {
     match result {
-        Err(error) if already_exists(&error) => Ok(()),
-        result => result,
+        Err(error) if !already_exists(&error) => Err(error),
+        _ => Ok(()),
     }
 }
 
