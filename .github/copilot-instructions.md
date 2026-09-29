@@ -800,6 +800,7 @@ in place.
 │   │   │   │   │   ├── lengths.rs                                           # The lengths the sparse vectors are weighed against, with no passage or no term
 │   │   │   │   │   ├── mod.rs                                               # Tests of the projection's parts no publication reaches
 │   │   │   │   │   ├── point.rs                                             # Point IDs: the UUIDv5 of the chunk's ID, pinned by Python's uuid
+│   │   │   │   │   ├── projection_port.rs                                   # Contract checks for a backend-neutral retrieval projection port
 │   │   │   │   │   └── qdrant.rs                                            # A Qdrant out of reach: the client's error is the cause of the refusal
 │   │   │   │   ├── batches.rs                                               # Writing a generation's points a batch at a time, each shown to the caller to journal
 │   │   │   │   ├── dense.rs                                                 # Dense vectors: a batch embedded in free room within a deadline, then checked
@@ -809,9 +810,11 @@ in place.
 │   │   │   │   ├── point.rs                                                 # Points: each chunk under the UUIDv5 of its ID, with its two vectors and its payload
 │   │   │   │   ├── progress.rs                                              # A publication's progress after each batch, which a job journals, and its report
 │   │   │   │   ├── projection.rs                                            # What a publication works with
+│   │   │   │   ├── projection_port.rs                                       # Backend-neutral operations and values for a generation's retrieval projection
 │   │   │   │   ├── provenance.rs                                            # What a chunk's point carries of its revision: version, source kind, scope tags, sections
 │   │   │   │   ├── publish.rs                                               # Publishing a chunk set as a generation: built or resumed, checked, then behind the alias
 │   │   │   │   ├── qdrant.rs                                                # Qdrant through its official Rust client, qdrant-client 1.19, over gRPC
+│   │   │   │   ├── qdrant_adapter.rs                                        # Conversion between backend-neutral projection operations and Qdrant's transport types
 │   │   │   │   ├── rebuild.rs                                               # A fresh, guarded replacement for a published generation whose projection
 │   │   │   │   ├── search_inputs.rs                                         # The kernel-owned search derivatives of one published generation
 │   │   │   │   ├── sparse.rs                                                # Sparse vectors: BM25 weights against the chunk set's average passage length
