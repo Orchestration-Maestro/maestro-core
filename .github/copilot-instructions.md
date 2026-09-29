@@ -673,6 +673,11 @@ in place.
 │   │   │   ├── filesystem.rs                                                # The files and directories the kernel creates: its owner's only, and each
 │   │   │   ├── lib.rs                                                       # The kernel of Maestro: the single authoritative store every later
 │   │   │   └── paths.rs                                                     # Where the kernel keeps its data: $XDG_DATA_HOME/maestro when that names an
+│   │   ├── tests/                                                           # Integration tests
+│   │   │   └── fixtures/                                                    # Test fixtures
+│   │   │       ├── unit-graph-v1.json                                       # JSON data: unit graph v1
+│   │   │       ├── unit-graph-v1.txt                                        # Text: unit graph v1
+│   │   │       └── unit-mapping-v1.json                                     # JSON data: unit mapping v1
 │   │   └── Cargo.toml                                                       # Crate manifest: The single authoritative store of Maestro, starting with its content-addressed artifacts
 │   ├── maestro-knowledge/                                                   # Maestro knowledge
 │   │   ├── src/                                                             # The crate's sources
@@ -1225,6 +1230,8 @@ in place.
 │   │   ├── 08-traceability.md                                               # 08 Traceability
 │   │   ├── 09-reverse-engineering.md                                        # 09 Reverse engineering and provenance
 │   │   └── README.md                                                        # Status: design of record, 2026-09-23, completed 2026-09-24
+│   ├── contracts/                                                           # Contracts
+│   │   └── unit-graph-v1.md                                                 # Unit graph wire contract v1
 │   ├── how-to/                                                              # How to
 │   │   └── knowledge-mcp.md                                                 # Connect a client to Maestro's knowledge MCP server
 │   └── standards/                                                           # Standards
