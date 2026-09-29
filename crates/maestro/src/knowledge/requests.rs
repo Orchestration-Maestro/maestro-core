@@ -22,6 +22,18 @@ fn default_deadline_ms() -> u32 {
     RequestBudget::default().deadline_ms
 }
 
+/// `arguments` with each of `defaults` a call leaves out inserted: the
+/// session's settings fill what a tool call omits, and what it gives wins.
+/// Anything but an object is left as it is, for the strict parse to refuse.
+pub(crate) fn with_defaults(mut arguments: Value, defaults: &[(&str, Value)]) -> Value {
+    if let Value::Object(object) = &mut arguments {
+        for (name, value) in defaults {
+            object.entry(*name).or_insert_with(|| value.clone());
+        }
+    }
+    arguments
+}
+
 /// The arguments for exact retrieval through one scoped identifier.
 #[derive(Debug, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]

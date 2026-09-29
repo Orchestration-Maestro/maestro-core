@@ -837,6 +837,7 @@ dependencies = [
  "clap",
  "maestro-kernel",
  "maestro-knowledge",
+ "maestro-settings",
  "maestro-test-scratch",
  "qdrant-client",
  "rmcp",
@@ -908,6 +909,17 @@ dependencies = [
  "tracing",
  "uuid",
  "whatlang",
+]
+
+[[package]]
+name = "maestro-settings"
+version = "0.1.0"
+dependencies = [
+ "maestro-test-scratch",
+ "rustix",
+ "serde",
+ "serde_json",
+ "toml",
 ]
 
 [[package]]

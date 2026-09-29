@@ -1,6 +1,6 @@
 use super::{
     knowledge_server::KnowledgeServer,
-    operations::{CollectionsRequest, InputFailure, parse_operation},
+    operations::{CollectionsRequest, InputFailure, Operation, parse_operation},
     response::{get_result, operation_error},
 };
 use crate::{
@@ -8,7 +8,9 @@ use crate::{
     knowledge::operations::{GetData, GetExcerpt, KnowledgeError},
     knowledge::{RESPONSE_LIMIT_BYTES, RefreshScratch, RequestError},
     mcp::transport::BoundedStdio,
+    settings::KnowledgeSettings,
 };
+use maestro_kernel::evidence::RequestBudget;
 use maestro_test_scratch::scratch_directory;
 use rmcp::{ServerHandler, ServiceExt, model::ProtocolVersion};
 use serde_json::{Value, json};
@@ -33,6 +35,37 @@ mod search_workers;
 pub(super) const HANG_GUARD: Duration = Duration::from_secs(30);
 
 #[test]
+fn search_takes_the_session_bounds_a_call_leaves_out_and_the_given_ones_first() {
+    let settings = KnowledgeSettings {
+        search_budget: RequestBudget {
+            k: 12,
+            max_tokens: 4000,
+            deadline_ms: 9000,
+        },
+        ..KnowledgeSettings::default()
+    };
+    let filled = parse_operation(
+        "knowledge_search",
+        json!({"collection": "docs", "query": "question"}),
+        &settings,
+    );
+    let Ok(Operation::Search(filled)) = filled else {
+        panic!("a valid search");
+    };
+    assert_eq!(filled.budget(), settings.search_budget);
+    let given = parse_operation(
+        "knowledge_search",
+        json!({"collection": "docs", "query": "question", "k": 3}),
+        &settings,
+    );
+    let Ok(Operation::Search(given)) = given else {
+        panic!("a valid search");
+    };
+    assert_eq!(given.max_passages, 3);
+    assert_eq!(given.max_tokens, 4000);
+}
+
+#[test]
 fn empty_collection_arguments_are_strict_and_refuse_identity_fields() {
     assert!(CollectionsRequest::parse(json!({})).is_ok());
     assert!(matches!(
@@ -46,6 +79,7 @@ fn malformed_search_arguments_are_tool_errors_before_worker_admission() {
     let error = match parse_operation(
         "knowledge_search",
         json!({"collection": "collection", "query": "question", "principal": "other"}),
+        &KnowledgeSettings::default(),
     ) {
         Err(InputFailure::Tool { code, .. }) => code,
         Err(InputFailure::Protocol(_)) | Ok(_) => panic!("malformed search arguments refused"),

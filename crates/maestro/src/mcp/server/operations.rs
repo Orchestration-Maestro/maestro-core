@@ -12,7 +12,8 @@ use crate::{
     knowledge::operations::{
         ask::run::ask_with, collections_with, ensure_current_scopes, get_with,
     },
-    knowledge::{GetRequest, RequestError, SearchRequest},
+    knowledge::{GetRequest, RequestError, SearchRequest, with_defaults},
+    settings::KnowledgeSettings,
 };
 use maestro_knowledge::answer::AskRequest;
 use rmcp::{
@@ -23,7 +24,7 @@ use rmcp::{
 use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::Value;
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 use tokio::{sync::OwnedSemaphorePermit, task::spawn_blocking, time::sleep};
 
 /// The empty strict argument object for `knowledge_collections`.
@@ -56,8 +57,9 @@ pub(super) enum BlockingOperation {
     Collections,
     /// Retrieve one exact source-backed chunk or section.
     Get(GetRequest),
-    /// Answer from evidence, or return a safe refusal.
-    Ask(AskRequest),
+    /// Answer from evidence under the session's settings, or return a safe
+    /// refusal.
+    Ask(AskRequest, Arc<KnowledgeSettings>),
 }
 
 /// Input errors distinguish malformed protocol requests from expected tool refusals.
@@ -73,8 +75,13 @@ pub(super) enum InputFailure {
     },
 }
 
-/// Parses strict tool arguments without consulting the kernel.
-pub(super) fn parse_operation(name: &str, arguments: Value) -> Result<Operation, InputFailure> {
+/// Parses strict tool arguments without consulting the kernel; `settings`
+/// fill the bounds and model a call leaves out.
+pub(super) fn parse_operation(
+    name: &str,
+    arguments: Value,
+    settings: &KnowledgeSettings,
+) -> Result<Operation, InputFailure> {
     match name {
         "knowledge_collections" => CollectionsRequest::parse(arguments)
             .map(|_| Operation::Collections)
@@ -88,26 +95,38 @@ pub(super) fn parse_operation(name: &str, arguments: Value) -> Result<Operation,
                 code: error.code(),
                 message: error.message(),
             }),
-        "knowledge_search" => SearchRequest::parse(arguments)
+        "knowledge_search" => SearchRequest::parse(search_defaults(arguments, settings))
             .map(Operation::Search)
             .map_err(|error| InputFailure::Tool {
                 code: error.code(),
                 message: error.message(),
             }),
-        "knowledge_ask" => {
-            ask::parse(arguments)
-                .map(Operation::Ask)
-                .map_err(|error| InputFailure::Tool {
-                    code: error.code(),
-                    message: error.message(),
-                })
-        }
+        "knowledge_ask" => ask::parse(arguments, settings)
+            .map(Operation::Ask)
+            .map_err(|error| InputFailure::Tool {
+                code: error.code(),
+                message: error.message(),
+            }),
         _ => Err(InputFailure::Protocol(McpError::new(
             ErrorCode::INVALID_PARAMS,
             "unknown tool",
             None,
         ))),
     }
+}
+
+/// The search `arguments` with the session's bounds for those a call leaves
+/// out.
+fn search_defaults(arguments: Value, settings: &KnowledgeSettings) -> Value {
+    let budget = settings.search_budget;
+    with_defaults(
+        arguments,
+        &[
+            ("k", budget.k.into()),
+            ("max_tokens", budget.max_tokens.into()),
+            ("deadline_ms", budget.deadline_ms.into()),
+        ],
+    )
 }
 
 /// Runs a synchronous operation on one bounded blocking worker.
@@ -177,7 +196,7 @@ fn run_operation(
             "collections",
         ),
         BlockingOperation::Get(_) => ("the exact excerpt exceeds the response limit", "excerpt"),
-        BlockingOperation::Ask(_) => ("the answer exceeds the response limit", "answer"),
+        BlockingOperation::Ask(..) => ("the answer exceeds the response limit", "answer"),
     };
     let (result, admitted) = match operation {
         BlockingOperation::Collections => match collections_with(|| open_kernel()) {
@@ -204,17 +223,20 @@ fn run_operation(
             ),
             Err(error) => (Ok(operation_error(error)), None),
         },
-        BlockingOperation::Ask(request) => match ask_with(|| open_kernel(), &request) {
-            Ok(scoped) => {
-                let value = serde_json::to_value(scoped.data)
-                    .map_err(|_| McpError::internal_error("response serialization failed", None));
-                (
-                    value.map(CallToolResult::structured),
-                    Some((scoped.kernel, scoped.scopes)),
-                )
+        BlockingOperation::Ask(request, settings) => {
+            match ask_with(|| open_kernel(), &request, &settings) {
+                Ok(scoped) => {
+                    let value = serde_json::to_value(scoped.data).map_err(|_| {
+                        McpError::internal_error("response serialization failed", None)
+                    });
+                    (
+                        value.map(CallToolResult::structured),
+                        Some((scoped.kernel, scoped.scopes)),
+                    )
+                }
+                Err(error) => (Ok(operation_error(error)), None),
             }
-            Err(error) => (Ok(operation_error(error)), None),
-        },
+        }
     };
     let result = result?;
     let response_fits = response_fits(&result, response.request_id, response.protocol_version)?;

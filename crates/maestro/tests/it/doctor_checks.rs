@@ -65,6 +65,7 @@ fn every_failed_check_names_its_next_action() {
         names,
         [
             "config",
+            "settings",
             "bindings",
             "database",
             "artifacts",
@@ -125,7 +126,7 @@ fn the_report_for_people_puts_each_next_action_under_its_failure() {
     );
     assert_eq!(
         lines.last().copied(),
-        Some(format!("{failures} of 9 checks failed.").as_str())
+        Some(format!("{failures} of 10 checks failed.").as_str())
     );
     assert!(
         !text.stdout.contains("left untouched") && !text.stdout.contains("reach no known scope"),

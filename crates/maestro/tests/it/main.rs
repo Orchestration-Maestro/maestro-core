@@ -25,6 +25,7 @@ mod mcp_stdio;
 mod publish_again;
 mod quality_gates;
 mod rebuild_drill;
+mod settings_config;
 mod setup_installs;
 mod status_summaries;
 mod support;

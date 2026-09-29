@@ -1,12 +1,12 @@
 use super::ask::tests::select_reranker;
 use super::search::{bound_source_classes, search_with, selected_reranker};
 use super::{KnowledgeError, collections_with, get_with, section_read_failure};
-use crate::knowledge::SearchRequest;
 use crate::{
     failure::Failure,
     kernel::{Kernel, pinned_embedder},
     knowledge::GetRequest,
 };
+use crate::{knowledge::SearchRequest, settings::KnowledgeSettings};
 use maestro_kernel::gateway::{
     CardFields, Limits, ModelCard, Role, RouterClient, RouterEntry, Url,
 };
@@ -281,7 +281,14 @@ async fn search_refuses_a_temporary_grant_revoked_before_delivery() {
     let model_port = RouterClient::new(Url::parse("http://127.0.0.1:8080").unwrap()).unwrap();
     let qdrant = Qdrant::new("http://127.0.0.1:1").unwrap();
 
-    let result = Box::pin(search_with(kernel, &request, &model_port, &qdrant)).await;
+    let result = Box::pin(search_with(
+        kernel,
+        &request,
+        &KnowledgeSettings::default(),
+        &model_port,
+        &qdrant,
+    ))
+    .await;
 
     assert!(matches!(result, Err(ACCESS_CHANGED)));
 }

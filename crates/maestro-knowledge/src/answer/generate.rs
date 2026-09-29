@@ -122,9 +122,10 @@ pub(super) async fn answer_relevant<P: ModelPort + Sync>(
     plan: AnswerPlan<'_>,
 ) -> Result<Answer, AskError> {
     if plan.is_below_threshold() {
-        let language = response_language(request);
+        let language = speaking(request, plan.answer_prompt);
+        let message = below_threshold_message(language.texts);
         let response = ResponseContext::new(request, &bundle, answerer, language)?;
-        return Ok(response.refused(RefusalCode::NoEvidence, below_threshold_message(language)));
+        return Ok(response.refused(RefusalCode::NoEvidence, message));
     }
     answer_bundle(port, request, answerer, bundle, plan.answer_prompt).await
 }
@@ -164,6 +165,37 @@ fn validate_request(request: &AskRequest) -> Result<(), AskError> {
     Ok(())
 }
 
+/// The language a response speaks: its host-owned texts', and the tag its
+/// `lang` reports.
+#[derive(Debug, Clone)]
+struct Speaking {
+    /// The language of the host-owned texts: French for a French tag,
+    /// English for every other.
+    texts: ResponseLanguage,
+    /// The tag `lang` reports.
+    tag: String,
+}
+
+/// The explicit language `answer_prompt` presents, else the question's.
+fn speaking(request: &AskRequest, answer_prompt: &AnswerPrompt) -> Speaking {
+    if let Some(tag) = &answer_prompt.presentation().language {
+        let french = tag.split('-').next() == Some(ResponseLanguage::French.code());
+        return Speaking {
+            texts: if french {
+                ResponseLanguage::French
+            } else {
+                ResponseLanguage::English
+            },
+            tag: tag.clone(),
+        };
+    }
+    let texts = response_language(request);
+    Speaking {
+        texts,
+        tag: texts.code().to_owned(),
+    }
+}
+
 /// Best-effort response metadata; an unknown question language is not a refusal.
 fn response_language(request: &AskRequest) -> ResponseLanguage {
     match understand(&request.question).language {
@@ -182,7 +214,7 @@ pub(super) async fn answer_bundle<P: ModelPort + Sync>(
     answer_prompt: &AnswerPrompt,
 ) -> Result<Answer, AskError> {
     validate_request(request)?;
-    let language = response_language(request);
+    let language = speaking(request, answer_prompt);
     let response = ResponseContext::new(request, &bundle, answerer, language)?;
     if bundle.passages.is_empty() {
         return Ok(response.refusal(RefusalCode::NoEvidence));
@@ -287,8 +319,8 @@ struct ResponseContext<'a> {
     request: &'a AskRequest,
     /// The verified evidence bundle that bounds the answer.
     bundle: &'a Bundle,
-    /// The checked response language.
-    language: ResponseLanguage,
+    /// The response language.
+    language: Speaking,
     /// The registered answerer identity, when one is available.
     answerer: Option<&'a RegisteredAnswerer>,
     /// Source-resolved citation metadata indexed by passage number.
@@ -303,7 +335,7 @@ impl<'a> ResponseContext<'a> {
         request: &'a AskRequest,
         bundle: &'a Bundle,
         answerer: Option<&'a RegisteredAnswerer>,
-        language: ResponseLanguage,
+        language: Speaking,
     ) -> Result<Self, AskError> {
         let passages = citation_metadata(bundle)?;
         let closest = passages.values().take(CLOSEST_LIMIT).cloned().collect();
@@ -319,7 +351,7 @@ impl<'a> ResponseContext<'a> {
 
     /// Builds a host-written refusal without returning passage text.
     fn refusal(&self, code: RefusalCode) -> Answer {
-        self.refused(code, refusal_message(code, self.language))
+        self.refused(code, refusal_message(code, self.language.texts))
     }
 
     /// Builds a refusal with `code` and the host-written `message`.
@@ -329,7 +361,7 @@ impl<'a> ResponseContext<'a> {
             collection: self.bundle.collection.clone(),
             generation: self.bundle.generation,
             question: self.request.question.clone(),
-            lang: self.language.code().to_owned(),
+            lang: self.language.tag.clone(),
             answer: String::new(),
             citations: Vec::new(),
             model: model_metadata(self.request, self.answerer),
@@ -363,7 +395,7 @@ impl<'a> ResponseContext<'a> {
             collection: self.bundle.collection.clone(),
             generation: self.bundle.generation,
             question: self.request.question.clone(),
-            lang: self.language.code().to_owned(),
+            lang: self.language.tag.clone(),
             answer: valid.text,
             citations,
             model: model_metadata(self.request, self.answerer),

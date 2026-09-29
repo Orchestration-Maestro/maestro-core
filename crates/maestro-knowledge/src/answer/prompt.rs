@@ -56,9 +56,9 @@ const V2_USER: &str = "Answer the question from the passages, in full sentences.
                        [1] or [1, 2]. When the passages do not directly answer the question, \
                        reply exactly NOT_FOUND.";
 
-/// Constructs the one system instruction of `answer_prompt` and one
-/// JSON-delimited question/evidence message: after a version's user
-/// instruction, or in the data slot of a prompt text.
+/// Constructs the one system instruction of `answer_prompt`, presented in
+/// its language and tone, and one JSON-delimited question/evidence message:
+/// after a version's user instruction, or in the data slot of a prompt text.
 pub(super) fn prompt(
     request: &AskRequest,
     bundle: &Bundle,
@@ -84,17 +84,10 @@ pub(super) fn prompt(
     .replace('<', "\\u003c")
     .replace('>', "\\u003e");
     let (system, user) = match answer_prompt {
-        AnswerPrompt::Version(version) => {
-            let (system, user) = match version {
-                PromptVersion::V1 => (V1_SYSTEM.to_owned(), V1_USER.to_owned()),
-                PromptVersion::V2 => (V2_SYSTEM.to_owned(), V2_USER.to_owned()),
-                PromptVersion::ProcedureFirst => (
-                    format!("{V2_SYSTEM} {PROCEDURE_FIRST}"),
-                    format!("{PROCEDURE_FIRST} {V2_USER}"),
-                ),
-            };
+        AnswerPrompt::Version(version) | AnswerPrompt::Presented { version, .. } => {
+            let (system, user) = version_texts(*version);
             (
-                system,
+                answer_prompt.presentation().system(&system),
                 format!("{user}\nQuestion and evidence data (JSON):\n{data}"),
             )
         }
@@ -113,6 +106,18 @@ pub(super) fn prompt(
             content: user,
         },
     ])
+}
+
+/// The system and user texts of `version`.
+fn version_texts(version: PromptVersion) -> (String, String) {
+    match version {
+        PromptVersion::V1 => (V1_SYSTEM.to_owned(), V1_USER.to_owned()),
+        PromptVersion::V2 => (V2_SYSTEM.to_owned(), V2_USER.to_owned()),
+        PromptVersion::ProcedureFirst => (
+            format!("{V2_SYSTEM} {PROCEDURE_FIRST}"),
+            format!("{PROCEDURE_FIRST} {V2_USER}"),
+        ),
+    }
 }
 
 /// Builds a chat request capped to `reply_cap` tokens, whose template

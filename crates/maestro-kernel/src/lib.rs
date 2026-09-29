@@ -32,5 +32,6 @@ pub mod model;
 pub mod paths;
 pub mod retrieval;
 pub mod scope;
+pub mod settings;
 pub mod store;
 pub mod telemetry;

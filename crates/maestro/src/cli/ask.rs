@@ -5,29 +5,36 @@ use crate::{
     failure::Failure,
     kernel::Kernel,
     knowledge::operations::{KnowledgeError, ask::run::ask_with, ensure_current_scopes},
+    settings::KnowledgeSettings,
 };
 use maestro_kernel::evidence::RouteStatus;
 use maestro_knowledge::answer::{Answer, AskRequest, Rejection};
 use serde::Serialize;
 use std::{collections::BTreeMap, process::ExitCode};
 
-/// Runs one ask and prints the same versioned answer as the MCP tool; with
-/// `explain`, it also prints on stderr each search route's status and why
-/// each rejected attempt failed.
+/// Runs one ask under `settings` and prints the same versioned answer as
+/// the MCP tool; with `explain`, it also prints on stderr the prompt's
+/// presentation, each search route's status and why each rejected attempt
+/// failed.
 pub(super) fn run(
     output: Output,
     request: &AskRequest,
     explain: bool,
+    settings: &KnowledgeSettings,
     open_kernel: impl FnOnce() -> Result<Kernel, Failure>,
 ) -> Result<ExitCode, Failure> {
-    let mut scoped = match ask_with(open_kernel, request) {
+    let mut scoped = match ask_with(open_kernel, request, settings) {
         Ok(scoped) => scoped,
-        Err(error) => return operation_refusal(output, error),
+        Err(error) => return refusal(output, ASK_ERROR, error),
     };
     if let Err(error) = ensure_current_scopes(&mut scoped.kernel, &scoped.scopes) {
-        return operation_refusal(output, error);
+        return refusal(output, ASK_ERROR, error);
     }
     if explain {
+        eprintln!(
+            "explain: prompt {}",
+            settings.prompt.presentation().identity()
+        );
         eprint!(
             "{}",
             explanation(
@@ -42,15 +49,23 @@ pub(super) fn run(
     Ok(ExitCode::SUCCESS)
 }
 
-/// Prints one safe error document and applies the CLI's refusal exit mapping.
-fn operation_refusal(output: Output, error: KnowledgeError) -> Result<ExitCode, Failure> {
+/// The schema of an ask's error document.
+const ASK_ERROR: &str = "maestro-cli/knowledge-ask-error/1";
+
+/// Prints one safe error document of `schema` and applies the CLI's refusal
+/// exit mapping; prepare and publish refuse this way too.
+pub(super) fn refusal(
+    output: Output,
+    schema: &str,
+    error: KnowledgeError,
+) -> Result<ExitCode, Failure> {
     let (code, message, exit) = match error {
         KnowledgeError::Refused { code, message } => (code, message, ExitCode::from(2)),
         KnowledgeError::Failed { code, message } => (code, message, ExitCode::from(1)),
     };
     output.refusal(
         &AskErrorEnvelope {
-            schema: "maestro-cli/knowledge-ask-error/1",
+            schema,
             error: AskErrorBody { code, message },
         },
         message,
@@ -60,9 +75,9 @@ fn operation_refusal(output: Output, error: KnowledgeError) -> Result<ExitCode, 
 
 /// The bounded public shape for an ask input or execution failure.
 #[derive(Debug, Serialize)]
-struct AskErrorEnvelope {
+struct AskErrorEnvelope<'a> {
     /// Versioned CLI error contract.
-    schema: &'static str,
+    schema: &'a str,
     /// Privacy-safe error code and reason.
     error: AskErrorBody,
 }

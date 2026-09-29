@@ -90,11 +90,15 @@ impl Home {
         self.0.join("config").join("maestro")
     }
 
-    /// The binary with `arguments`, set to run in this home.
+    /// The binary with `arguments`, set to run in this home: its home
+    /// directory too (`HOME`, `USERPROFILE` on Windows), so no project file
+    /// of the machine's is ever discovered.
     pub(crate) fn command(&self, arguments: &[&str]) -> Command {
         let mut command = Command::new(env!("CARGO_BIN_EXE_maestro"));
         command
             .args(arguments)
+            .env("HOME", &self.0)
+            .env("USERPROFILE", &self.0)
             .env("XDG_DATA_HOME", self.0.join("data"))
             .env("XDG_CONFIG_HOME", self.0.join("config"))
             .stdin(Stdio::null())

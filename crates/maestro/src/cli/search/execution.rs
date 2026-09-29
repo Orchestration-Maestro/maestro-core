@@ -11,6 +11,7 @@ use crate::{
         RequestError, SearchRequest,
         operations::{KnowledgeError, ensure_current_scopes, search_with},
     },
+    settings::KnowledgeSettings,
 };
 use maestro_kernel::{evidence::Bundle, gateway::RouterClient, scope::ScopeSet, store::Database};
 use maestro_knowledge::{
@@ -30,8 +31,13 @@ pub(in crate::cli) fn ports() -> Result<(RouterClient, Qdrant), Failure> {
     Ok((router, qdrant))
 }
 
-/// Executes one search and prints the same bundle returned by MCP.
-pub(in crate::cli) fn run(output: Output, request: &SearchRequest) -> Result<ExitCode, Failure> {
+/// Executes one search under `settings` and prints the same bundle returned
+/// by MCP.
+pub(in crate::cli) fn run(
+    output: Output,
+    request: &SearchRequest,
+    settings: &KnowledgeSettings,
+) -> Result<ExitCode, Failure> {
     let kernel = match Kernel::open() {
         Ok(kernel) => kernel,
         Err(Failure::Refused(_)) => {
@@ -82,7 +88,7 @@ pub(in crate::cli) fn run(output: Output, request: &SearchRequest) -> Result<Exi
         .enable_all()
         .build()
         .map_err(|_| Failure::failed("could not start the search runtime"))?;
-    match runtime.block_on(search_with(kernel, request, &model_port, &qdrant)) {
+    match runtime.block_on(search_with(kernel, request, settings, &model_port, &qdrant)) {
         Ok(mut scoped) => {
             let deadline = scoped.data.deadline;
             if Instant::now() >= deadline {

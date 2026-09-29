@@ -9,4 +9,4 @@ pub(crate) mod source_classes;
 #[cfg(test)]
 pub(crate) use operations::tests::Scratch as RefreshScratch;
 pub(crate) use output::RESPONSE_LIMIT_BYTES;
-pub(crate) use requests::{GetRequest, RequestError, SearchRequest};
+pub(crate) use requests::{GetRequest, RequestError, SearchRequest, with_defaults};

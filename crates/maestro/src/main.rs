@@ -29,8 +29,10 @@
 //!   chunk or section;
 //! - `maestro knowledge ask --collection <id> --question <text>` answers from
 //!   verified evidence or returns a safe refusal;
-//! - `maestro mcp` serves collection, search, exact-retrieval and answer tools
-//!   over stdio JSON-RPC;
+//! - `maestro mcp [--workspace <dir>]` serves collection, search,
+//!   exact-retrieval and answer tools over stdio JSON-RPC;
+//! - `maestro config get|set|unset|list|explain|history` reads, changes and
+//!   explains the settings, and lists their journaled changes;
 //! - `maestro job wait <id>` follows a job until it ends, and exits with its
 //!   outcome;
 //! - `maestro setup` previews the search service Maestro needs, and installs
@@ -71,6 +73,65 @@
 //! `restore` verifies that manifest, the database and every artifact before
 //! staging files beside the data directory and installing the database last.
 //! Neither command touches the files maestro v1 left there.
+//!
+//! # Settings
+//!
+//! Everything configurable is a setting of one registry
+//! (`maestro_settings::BUILT_IN`): its dotted key, what it accepts, its
+//! default, which is the behaviour before settings existed, and its S3
+//! override class. `maestro config list` names them all. A setting takes its
+//! value from the first of: a `--set KEY=VALUE` flag, repeatable and for
+//! this run only; the project file, the nearest `.maestro/config.toml`
+//! upward from the working directory, never above the home directory and
+//! none outside it; the user file, `preferences.toml` in the configuration
+//! directory; the default. Both files start with
+//! `schema = "maestro-preferences/1"` and are parsed whole and strictly: an
+//! unknown key or a wrong type refuses the command, naming the file and the
+//! key. The kernel's `config.toml`, which holds the grants, is never a
+//! settings file. A request's own flag (`--k`) or MCP argument wins for that
+//! request. Evaluation runs ignore the settings.
+//!
+//! - `language`: `auto`, the question's language, or a tag such as `fr` or
+//!   `es-419` (a 2-3 letter language, an optional script and region; others
+//!   are refused by name); code and documentation stay in English.
+//! - `tone`: `brief`, `normal` or `detailed` ("Very detailed"); it adds one
+//!   versioned instruction (`presentation/1`) to the answer prompt, prose
+//!   only.
+//! - `models.compute`: `gpu`, the machine's GPU backend, or `off`: no model
+//!   call; search keeps its keyword, exact-name and structured routes without
+//!   reranking, without intent expansion, and ask, prepare and publish
+//!   refuse with `models_off` before the kernel opens. `cpu` is refused
+//!   until after M1.
+//! - the search, evidence, ask and chunking knobs under `search.`,
+//!   `evidence.`, `ask.` and `chunking.`.
+//!
+//! `config get <key>` prints the effective value, as `config set` takes it.
+//! `config list` prints each setting with the layer that set it; `config
+//! explain [<key>]` adds the layers it overrode, what it accepts, its
+//! default and class, and the files read or skipped. `config set <key>
+//! <value> [--user|--project]` writes the user file, or the project file (a
+//! new one in the working directory when none is found); `config unset`
+//! removes the key. Both edit the file in place, keeping its comments and
+//! order, check the result strictly before they replace the file, refuse a
+//! form they cannot edit safely (an inline table) or a setting set twice with
+//! the key and the file, and journal the change as
+//! `maestro.kernel.setting.changed.v1` on the principal's stream
+//! `principal/local/settings`: who, key, old and new values, layer and file,
+//! the time being the event's; no other principal's event reader returns
+//! it. They never follow a link below the configuration directory or the
+//! project's directory, hold the file's lock (`<file>.lock`, beside it) from
+//! reading to journaling, refuse a file another program changed meanwhile,
+//! and keep the file's permissions; a new file is private. A change the
+//! journal refuses is undone and the undo confirmed; when it cannot be, the
+//! file's previous text is named in `<file>.previous`. `config history`
+//! lists the principal's changes, oldest first. `mcp` reads the user file,
+//! and a project file only through `--workspace`, a directory within home;
+//! its working directory never selects one.
+//!
+//! ```json
+//! {"schema":"maestro-cli/config-change/1","key":"tone","old":null,"new":"brief",
+//!  "layer":"user","file":"/…/maestro/preferences.toml","changed":true}
+//! ```
 //!
 //! # `knowledge collection add`
 //!
@@ -236,7 +297,9 @@
 //!
 //! Searches the visible collection once, assembles bounded evidence, and calls
 //! the registered answerer in free room. The default router entry is
-//! `qwen3-4b`; `--model` selects another registered answerer. `--version`,
+//! `qwen3-4b` (the `ask.model` setting); `--model` selects another registered
+//! answerer. The answer is in the question's language unless `language`
+//! names one, which `lang` then reports. `--version`,
 //! `--k`, `--max-tokens`, `--search-deadline-ms`, and `--output-tokens` bound
 //! retrieval and generation.
 //! Answers cite only host-resolved passage metadata; the host checks citation
@@ -306,7 +369,9 @@
 //!
 //! # `doctor`
 //!
-//! Runs every check, in this order: `config.toml` and `bindings.toml`; the
+//! Runs every check, in this order: `config.toml`, the settings files (the
+//! user's and the project's it read, or the one it refused, with the key),
+//! and `bindings.toml`; the
 //! kernel's database, which must exist, lack no migration this build carries
 //! (a missing one is named, never applied), open, pass SQLite's quick check
 //! and take `config.toml`'s grants; the artifact tree, each recorded artifact
@@ -350,6 +415,7 @@ mod failure;
 mod kernel;
 mod knowledge;
 mod mcp;
+mod settings;
 
 use std::process::ExitCode;
 

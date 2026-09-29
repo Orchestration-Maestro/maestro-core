@@ -1,5 +1,6 @@
 //! Typed ask requests, results, refusals, and trusted dependencies.
 
+use super::presentation::{Presentation, Tone};
 use crate::search::{
     SearchContext, SearchError,
     evidence::{Anchor, EvidenceError},
@@ -175,14 +176,40 @@ impl PromptText {
     }
 }
 
-/// The prompt the answerer is given: a version's constant texts, or a
-/// ladder rung's own. The host checks of a reply are the same for both.
+/// The prompt the answerer is given: a version's constant texts, those
+/// texts presented in a session's language and tone, or a ladder rung's own.
+/// The host checks of a reply are the same for all three.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AnswerPrompt {
     /// The constant texts of a prompt version.
     Version(PromptVersion),
+    /// A version's texts in a session's language and tone, as the CLI and
+    /// the MCP server ask; an evaluation never uses it.
+    Presented {
+        /// The prompt version.
+        version: PromptVersion,
+        /// The session's language and tone.
+        presentation: Presentation,
+    },
     /// A ladder rung's own texts.
     Text(PromptText),
+}
+
+impl AnswerPrompt {
+    /// The language and tone it answers in: the question's language and the
+    /// normal tone unless it is presented.
+    #[must_use]
+    pub fn presentation(&self) -> &Presentation {
+        /// The presentation of an unpresented prompt.
+        static UNPRESENTED: Presentation = Presentation {
+            language: None,
+            tone: Tone::Normal,
+        };
+        match self {
+            Self::Presented { presentation, .. } => presentation,
+            Self::Version(_) | Self::Text(_) => &UNPRESENTED,
+        }
+    }
 }
 
 impl From<PromptVersion> for AnswerPrompt {

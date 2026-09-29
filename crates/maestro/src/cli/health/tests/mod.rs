@@ -6,4 +6,5 @@ mod doctor;
 mod findings;
 mod kernel;
 mod services;
+mod settings;
 mod support;

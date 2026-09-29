@@ -13,10 +13,12 @@ use super::{
         QDRANT_VARIABLE, ROUTER_VARIABLE, card_checks, qdrant_check, qdrant_url, router_check,
         router_url,
     },
+    settings::settings_check,
 };
 use crate::{
     cli::{output::Output, setup},
     failure::Failure,
+    settings::Session,
 };
 use maestro_kernel::paths::{self, Environment};
 use serde::Serialize;
@@ -67,20 +69,22 @@ struct CheckDocument<'a> {
     next_action: Option<&'a str>,
 }
 
-/// Runs every check, then prints them with what doctor found but must not
-/// touch, and exits 1 when a check failed.
+/// Runs every check, the settings' with the `--set` flags `flags`, then
+/// prints them with what doctor found but must not touch, and exits 1 when
+/// a check failed.
 ///
 /// # Errors
 ///
 /// [`Failure::Failed`] when the kernel's directories cannot be resolved, or
 /// its database, once it opened, cannot be read.
-pub(in crate::cli) fn run(output: Output) -> Result<ExitCode, Failure> {
+pub(in crate::cli) fn run(output: Output, flags: &[String]) -> Result<ExitCode, Failure> {
     let environment = Environment::current();
     let data = paths::data_dir(&environment).map_err(|error| Failure::failed_by(&error))?;
     let config_dir = paths::config_dir(&environment).map_err(|error| Failure::failed_by(&error))?;
     let (config, read) = config_check(&config_dir);
     let (database, opened) = database_check(&data, read.as_ref());
-    let mut checks = vec![config, bindings_check(&config_dir), database];
+    let settings = settings_check(&config_dir, Session::for_cli(flags));
+    let mut checks = vec![config, settings, bindings_check(&config_dir), database];
     checks.push(artifacts_check(&data, opened.as_ref()));
     checks.push(qdrant_check(
         &qdrant_url(env::var_os(QDRANT_VARIABLE).as_deref()),

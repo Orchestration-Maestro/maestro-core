@@ -7,7 +7,7 @@ use super::{
     KnowledgeError, SearchCards, ask::tests::register_reasoning_answerer, local_search_context,
     search_with, tests::Scratch,
 };
-use crate::knowledge::SearchRequest;
+use crate::{knowledge::SearchRequest, settings::KnowledgeSettings};
 use maestro_kernel::{
     evidence::{RequestBudget, RouteStatus},
     gateway::{RouterClient, Url},
@@ -48,7 +48,13 @@ fn a_search_runs_within_half_a_windows_main_thread_stack() {
                 .build()
                 .expect("search runtime");
             runtime
-                .block_on(search_with(kernel, &request, &model_port, &qdrant))
+                .block_on(search_with(
+                    kernel,
+                    &request,
+                    &KnowledgeSettings::default(),
+                    &model_port,
+                    &qdrant,
+                ))
                 .map(|_| ())
         })
         .expect("spawn the bounded search thread")

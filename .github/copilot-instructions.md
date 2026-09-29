@@ -60,6 +60,12 @@ in place.
 │   │   │   │   │   ├── restore.rs                                           # Rust source: restore
 │   │   │   │   │   ├── test_support.rs                                      # Rust source: test support
 │   │   │   │   │   └── tests.rs                                             # Rust source: tests
+│   │   │   │   ├── config/                                                  # maestro config: the settings, read, explained, changed and their
+│   │   │   │   │   ├── change.rs                                            # config set and config unset: one setting written in one preferences
+│   │   │   │   │   ├── history.rs                                           # config history: the journaled changes of the local principal's
+│   │   │   │   │   ├── mod.rs                                               # maestro config: the settings, read, explained, changed and their
+│   │   │   │   │   ├── show.rs                                              # config get, config list and config explain: a session's effective
+│   │   │   │   │   └── tests.rs                                             # config set and config unset: the file they choose, the edit, and the
 │   │   │   │   ├── eval/                                                    # maestro eval ladder: the M1 ladder, every question of a suite searched
 │   │   │   │   │   ├── tests/                                               # Tests of the ladder command: its manifest, its run over a fake engine, its
 │   │   │   │   │   │   ├── ask_settings.rs                                  # A rung's ask: true asks as ask does by default, false does not
@@ -93,6 +99,7 @@ in place.
 │   │   │   │   │   │   ├── kernel.rs                                        # config.toml and bindings.toml refused with a fix; the database never created, damage and lost artifacts found
 │   │   │   │   │   │   ├── mod.rs                                           # The health unit tests' door: declarations only
 │   │   │   │   │   │   ├── services.rs                                      # Qdrant at the pinned version, the router's catalog, each role's card; next actions from what setup would do
+│   │   │   │   │   │   ├── settings.rs                                      # The settings check: the preferences files a session reads, or the one
 │   │   │   │   │   │   └── support.rs                                       # What the health tests share: a scratch kernel directory, a one-answer HTTP stub, a closed address
 │   │   │   │   │   ├── check.rs                                             # A check of the machine: its target, and what it saw, or its problem and next action
 │   │   │   │   │   ├── doctor.rs                                            # maestro doctor: every check, each failure with its next action, what it must not touch; exit 1 on a failure
@@ -100,6 +107,7 @@ in place.
 │   │   │   │   │   ├── kernel.rs                                            # The kernel's checks: configuration files, the database opened only if it exists and checked whole, the artifacts
 │   │   │   │   │   ├── mod.rs                                               # The checks' door: declarations only
 │   │   │   │   │   ├── services.rs                                          # Qdrant answering as the pinned version, the router listing its catalog, each role's model card
+│   │   │   │   │   ├── settings.rs                                          # The settings check: which preferences files a session reads, the user's
 │   │   │   │   │   └── status.rs                                            # maestro status: the kernel, Qdrant and the router ready or not, and each readable collection; exits 0
 │   │   │   │   ├── publish/                                                 # Explicit replacement of a lost projection and frozen resume identity
 │   │   │   │   │   ├── mod.rs                                               # Explicit replacement of a lost projection and frozen resume identity
@@ -204,6 +212,11 @@ in place.
 │   │   │   │   ├── outcome.rs                                               # How a tool call ended, for its span: by the public code of the error it
 │   │   │   │   ├── run.rs                                                   # Runs the stdio MCP server without sending diagnostics to stdout
 │   │   │   │   └── transport.rs                                             # Stdio JSON-RPC framing with complete-line and complete-response byte bounds
+│   │   │   ├── settings/                                                    # The session's settings, resolved once for the CLI and the MCP server, and
+│   │   │   │   ├── knowledge.rs                                             # The knowledge operations' settings, read from a session's resolved
+│   │   │   │   ├── mod.rs                                                   # The session's settings, resolved once for the CLI and the MCP server, and
+│   │   │   │   ├── session.rs                                               # A session's settings: the registry, the files it reads and the explicit
+│   │   │   │   └── tests.rs                                                 # The session's settings: every default is today's behaviour, each
 │   │   │   ├── failure.rs                                                   # Failures at the CLI and local-kernel boundary
 │   │   │   ├── kernel.rs                                                    # The kernel opened for the local principal and its configured scopes
 │   │   │   └── main.rs                                                      # The binary root: the commands, their output, exit codes and JSON schemas documented
@@ -253,6 +266,7 @@ in place.
 │   │   │       ├── mcp_stdio.rs                                             # The stdio MCP server's process boundary and advertised tools
 │   │   │       ├── publish_again.rs                                         # Help for explicit projection recovery
 │   │   │       ├── quality_gates.rs                                         # knowledge quality: its report, a rerun, a gate after an import, the ledger first, failures and refusals
+│   │   │       ├── settings_config.rs                                       # maestro config: the user file preferences.toml, the project file
 │   │   │       ├── setup_installs.rs                                        # maestro setup: the preview writes nothing, a wrong download is refused; elsewhere manual steps, exit 2
 │   │   │       ├── status_summaries.rs                                      # maestro status: services ready or down, the readable collections, nothing created on a fresh machine
 │   │   │       └── support.rs                                               # What the contract tests share: a scratch home, the synthetic collection, the binary under a deadline
@@ -624,6 +638,10 @@ in place.
 │   │   │   │   ├── path.rs                                                  # Scope paths: a workspace, then optionally a collection, then optionally a
 │   │   │   │   ├── right.rs                                                 # The rights a grant gives on a scope
 │   │   │   │   └── set.rs                                                   # The scopes a principal may read, found for one request, and the condition
+│   │   │   ├── settings/                                                    # The journal of settings changes: every maestro config set and config
+│   │   │   │   ├── change.rs                                                # Recording a setting's change and reading a principal's changes back
+│   │   │   │   ├── mod.rs                                                   # The journal of settings changes: every maestro config set and config
+│   │   │   │   └── tests.rs                                                 # The journal of settings changes: each change recorded with its time and
 │   │   │   ├── store/                                                       # The kernel's database: one SQLite file beside the artifact store, holding
 │   │   │   │   ├── tests/                                                   # Tests of the kernel database: its migrations, its connections, the
 │   │   │   │   │   ├── artifacts.rs                                         # Artifacts: stored, recorded with their size, media type and pins, and read
@@ -659,6 +677,7 @@ in place.
 │   │   │   │   │   ├── delivered.rs                                         # Every answer and refusal keeps, for evaluation only, the anchors of the
 │   │   │   │   │   ├── explain.rs                                           # Rust source: explain
 │   │   │   │   │   ├── guardrails.rs                                        # Rust source: guardrails
+│   │   │   │   │   ├── presentation.rs                                      # A presented prompt: the session's language and tone
 │   │   │   │   │   ├── prompt_text.rs                                       # A prompt a ladder rung supplies as text: its {data} slot holds the
 │   │   │   │   │   ├── prompts.rs                                           # The prompt versions: v1 stays today's text, v2 asks for every supporting
 │   │   │   │   │   ├── reply_cap.rs                                         # Rust source: reply cap
@@ -668,6 +687,7 @@ in place.
 │   │   │   │   ├── validate/                                                # Deterministic support checks for buffered answerer replies
 │   │   │   │   │   └── tests.rs                                             # Rust source: tests
 │   │   │   │   ├── generate.rs                                              # The bounded search-to-answer state machine and refusal handling
+│   │   │   │   ├── presentation.rs                                          # How an answer speaks: the session's language and tone (the owner's
 │   │   │   │   ├── prompt.rs                                                # The evidence-only prompt and registered chat-template controls
 │   │   │   │   ├── tests.rs                                                 # Rust source: tests
 │   │   │   │   ├── types.rs                                                 # Typed ask requests, results, refusals, and trusted dependencies
@@ -1107,6 +1127,43 @@ in place.
 │   │   │       ├── suite_resolution.rs                                      # Resolving an expected section in its canonicalized document: a heading path
 │   │   │       └── synthetic_collection.rs                                  # The public synthetic collection, tests/fixtures/synthetic, which stands in
 │   │   └── Cargo.toml                                                       # Crate manifest: The knowledge pipeline of Maestro, starting with the collection and corpus contracts it imports through
+│   ├── maestro-settings/                                                    # Maestro settings
+│   │   ├── src/                                                             # The crate's sources
+│   │   │   ├── edit/                                                        # Editing a preferences file in place: where its keys are, and the set and
+│   │   │   │   ├── change.rs                                                # config set and config unset on a preferences file's text
+│   │   │   │   ├── document.rs                                              # Where a preferences file writes each key and table, from the spans of
+│   │   │   │   └── mod.rs                                                   # Editing a preferences file in place: where its keys are, and the set and
+│   │   │   ├── file/                                                        # A preferences file's own I/O: its directory opened without following a
+│   │   │   │   ├── bounded.rs                                               # Bounded reads of a preferences file: no further than [MAX_FILE_BYTES]
+│   │   │   │   ├── edit.rs                                                  # One edit of a preferences file, from reading it to keeping or undoing
+│   │   │   │   ├── layers.rs                                                # The file adapter of [LayerSource]: the user's preferences.toml in
+│   │   │   │   ├── mod.rs                                                   # A preferences file's own I/O: its directory opened without following a
+│   │   │   │   ├── place.rs                                                 # Where a preferences file lives: a directory the caller trusts, the one
+│   │   │   │   ├── unix.rs                                                  # Unix: every name below the trusted directory resolves against an open
+│   │   │   │   └── windows.rs                                               # Windows: names resolve by path, but the directory of the file is held
+│   │   │   ├── tests/                                                       # The settings crate's tests, one module per source module, and the proof
+│   │   │   │   ├── discovery.rs                                             # Project-file discovery: the nearest .maestro/config.toml upward from the
+│   │   │   │   ├── edit.rs                                                  # config set and config unset on a file's text: only the value's bytes
+│   │   │   │   ├── file.rs                                                  # One edit of a preferences file: serialized by its lock, refused when
+│   │   │   │   ├── language.rs                                              # The BCP 47 subset of language: canonical case, and each refused form
+│   │   │   │   ├── layer.rs                                                 # A preferences file parsed strictly: its schema marker required, every key
+│   │   │   │   ├── mod.rs                                                   # The settings crate's tests, one module per source module, and the proof
+│   │   │   │   ├── registry.rs                                              # The registry: every descriptor checked once, the built-in ones included
+│   │   │   │   ├── resolve.rs                                               # Resolution: per key, an explicit --set, then the project file, then the
+│   │   │   │   ├── store.rs                                                 # The file adapter: bounded reads naming the file, and whole-file writes
+│   │   │   │   ├── synthetic.rs                                             # Adding a setting is one descriptor: a synthetic one, appended to the
+│   │   │   │   └── value.rs                                                 # Values: each kind read from the command line's text and from a file's
+│   │   │   ├── builtin.rs                                                   # The settings Maestro ships, one descriptor each
+│   │   │   ├── descriptor.rs                                                # A setting's descriptor: everything Maestro knows about one setting, as
+│   │   │   ├── discovery.rs                                                 # Where a session finds its project file (plan D6): the nearest
+│   │   │   ├── language.rs                                                  # The language tags language accepts: the bounded BCP 47 subset S3 ruled
+│   │   │   ├── layer.rs                                                     # One preferences file, maestro-preferences/1, parsed strictly (plan D6
+│   │   │   ├── lib.rs                                                       # Maestro's settings: everything configurable, in one registry of
+│   │   │   ├── registry.rs                                                  # The registry: the descriptors of every setting Maestro knows, each checked
+│   │   │   ├── resolve.rs                                                   # Resolution (S3 FR-S3-014, plan D6): each key takes the value of the
+│   │   │   ├── store.rs                                                     # The port a session reads its preferences layers through, and its file
+│   │   │   └── value.rs                                                     # A setting's value: read from the command line's text or a file's TOML
+│   │   └── Cargo.toml                                                       # Crate manifest: Maestro's settings: the registry of every setting, its layered files and their resolution
 │   └── maestro-test-scratch/                                                # Maestro test scratch
 │       ├── src/                                                             # The crate's sources
 │       │   ├── lib.rs                                                       # Where the workspace's tests create their scratch directories

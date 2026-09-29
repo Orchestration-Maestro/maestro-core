@@ -3,20 +3,26 @@
 //! when the operation failed and 2 for a usage error or a refused input.
 
 use super::{
-    args::{Arguments, CollectionCommand, EvalCommand, JobCommand, KnowledgeCommand, Noun},
-    ask, backup, collection, eval, health, import,
+    args::{
+        Arguments, CollectionCommand, ConfigCommand, EvalCommand, JobCommand, KnowledgeCommand,
+        Noun, PublishArguments, Target,
+    },
+    ask, backup, collection,
+    config::{self, Change, Places},
+    eval, health, import,
     output::{Output, diagnose},
     prepare, publish, quality, retrieve, search, setup, status, verify, wait,
 };
 use crate::{
     failure::Failure,
     kernel::Kernel,
-    knowledge::{GetRequest, RequestError, SearchRequest},
+    knowledge::{GetRequest, RequestError, SearchRequest, operations::KnowledgeError},
     mcp::run::run as run_mcp,
+    settings::{Compute, KnowledgeSettings, Session},
 };
 use clap::Parser as _;
-use maestro_kernel::evidence::RequestBudget;
-use maestro_knowledge::answer::{AskBudget, AskRequest, DEFAULT_MODEL};
+use maestro_knowledge::answer::{AskBudget, AskRequest};
+use maestro_settings::{LayerName, Registry, parse_flags};
 use std::process::ExitCode;
 
 /// Runs the command the process's arguments name, and returns its exit code.
@@ -49,9 +55,12 @@ fn run(arguments: &Arguments) -> ExitCode {
     }
 }
 
-/// Runs the command `arguments` name; `setup`, `backup` and `restore` open no
-/// kernel for writing, and `status` and `doctor` never create or migrate it.
+/// Runs the command `arguments` name, once its `--set` flags are checked;
+/// `setup`, `backup` and `restore` open no kernel for writing, and `status`
+/// and `doctor` never create or migrate it.
 fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> {
+    let registry = Registry::built_in().map_err(|error| Failure::failed_by(&error))?;
+    parse_flags(&registry, &arguments.set).map_err(|error| Failure::refused_by(&error))?;
     match &arguments.noun {
         Noun::Knowledge(KnowledgeCommand::Collections) => {
             retrieve::collections(output, Kernel::open)
@@ -68,15 +77,54 @@ fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> 
             collection.as_deref(),
             *generation,
         ),
-        Noun::Knowledge(KnowledgeCommand::Search {
+        Noun::Knowledge(
+            command @ (KnowledgeCommand::Search { .. } | KnowledgeCommand::Ask { .. }),
+        ) => {
+            let settings = Session::for_cli(&arguments.set)?.knowledge()?;
+            retrieval(output, command, &settings)
+        }
+        Noun::Knowledge(
+            command @ (KnowledgeCommand::Prepare { .. } | KnowledgeCommand::Publish { .. }),
+        ) => {
+            let settings = Session::for_cli(&arguments.set)?.knowledge()?;
+            modelled(output, command, &settings, Kernel::open)
+        }
+        Noun::Knowledge(command) => knowledge(&Kernel::open()?, output, command),
+        Noun::Mcp { workspace } => {
+            let settings = Session::for_mcp(workspace.as_deref(), &arguments.set)?.knowledge()?;
+            let (model_port, qdrant) = search::ports()?;
+            run_mcp(model_port, qdrant, settings)?;
+            Ok(ExitCode::SUCCESS)
+        }
+        Noun::Config(command) => config_command(output, command, &arguments.set),
+        Noun::Eval(EvalCommand::Ladder { manifest }) => eval::run(output, manifest),
+        Noun::Job(JobCommand::Wait { id }) => wait::run(&Kernel::open()?, output, *id),
+        Noun::Setup { yes } => setup::run(output, *yes),
+        Noun::Status => health::status::run(output),
+        Noun::Doctor => health::doctor::run(output, &arguments.set),
+        Noun::Backup { to } => backup::run_backup(output, to),
+        Noun::Restore { from } => backup::run_restore(output, from),
+    }
+}
+
+/// Runs `knowledge search` or `knowledge ask` under `settings`: a flag the
+/// command line gives wins for its own request, and the settings give the
+/// rest.
+fn retrieval(
+    output: Output,
+    command: &KnowledgeCommand,
+    settings: &KnowledgeSettings,
+) -> Result<ExitCode, Failure> {
+    match command {
+        KnowledgeCommand::Search {
             collection,
             query,
             version,
             max_passages,
             max_tokens,
             deadline_ms,
-        }) => {
-            let defaults = RequestBudget::default();
+        } => {
+            let defaults = settings.search_budget;
             let request = SearchRequest {
                 collection: collection.clone(),
                 query: query.clone(),
@@ -86,11 +134,11 @@ fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> 
                 deadline_ms: deadline_ms.unwrap_or(defaults.deadline_ms),
             };
             match SearchRequest::from_cli(request) {
-                Ok(request) => search::run(output, &request),
+                Ok(request) => search::run(output, &request, settings),
                 Err(error) => search::invalid_request(output, error),
             }
         }
-        Noun::Knowledge(KnowledgeCommand::Ask {
+        KnowledgeCommand::Ask {
             collection,
             question,
             model,
@@ -100,40 +148,88 @@ fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> 
             search_deadline_ms,
             output_tokens,
             explain,
-        }) => {
-            let defaults = AskBudget::default();
-            ask::run(
-                output,
-                &AskRequest {
-                    collection: collection.clone(),
-                    question: question.clone(),
-                    model: model.clone().unwrap_or_else(|| DEFAULT_MODEL.to_owned()),
-                    version: version.clone(),
-                    budget: AskBudget {
-                        k: max_passages.unwrap_or(defaults.k),
-                        max_tokens: max_tokens.unwrap_or(defaults.max_tokens),
-                        search_deadline_ms: search_deadline_ms
-                            .unwrap_or(defaults.search_deadline_ms),
-                        output_tokens: *output_tokens,
-                    },
+        } => {
+            let defaults = settings.ask_budget;
+            let request = AskRequest {
+                collection: collection.clone(),
+                question: question.clone(),
+                model: model.clone().unwrap_or_else(|| settings.model.clone()),
+                version: version.clone(),
+                budget: AskBudget {
+                    k: max_passages.unwrap_or(defaults.k),
+                    max_tokens: max_tokens.unwrap_or(defaults.max_tokens),
+                    search_deadline_ms: search_deadline_ms.unwrap_or(defaults.search_deadline_ms),
+                    output_tokens: output_tokens.or(defaults.output_tokens),
                 },
-                *explain,
-                Kernel::open,
-            )
+            };
+            ask::run(output, &request, *explain, settings, Kernel::open)
         }
-        Noun::Knowledge(command) => knowledge(&Kernel::open()?, output, command),
-        Noun::Mcp => {
-            let (model_port, qdrant) = search::ports()?;
-            run_mcp(model_port, qdrant)?;
-            Ok(ExitCode::SUCCESS)
+        _ => Err(Failure::failed(
+            "knowledge retrieval bypassed its scoped dispatch path",
+        )),
+    }
+}
+
+/// Runs `knowledge prepare` or `knowledge publish` under `settings`, in the
+/// kernel `open_kernel` opens; refused with `models_off`, before the kernel
+/// opens, when models are off: both call the model router.
+fn modelled(
+    output: Output,
+    command: &KnowledgeCommand,
+    settings: &KnowledgeSettings,
+    open_kernel: impl FnOnce() -> Result<Kernel, Failure>,
+) -> Result<ExitCode, Failure> {
+    let (name, message) = if matches!(command, KnowledgeCommand::Prepare { .. }) {
+        (
+            "prepare",
+            "models.compute is off: prepare calls the model router",
+        )
+    } else {
+        (
+            "publish",
+            "models.compute is off: publish calls the model router",
+        )
+    };
+    if settings.compute == Compute::Off {
+        let code = "models_off";
+        let error = KnowledgeError::Refused { code, message };
+        return ask::refusal(
+            output,
+            &format!("maestro-cli/knowledge-{name}-error/1"),
+            error,
+        );
+    }
+    let kernel = open_kernel()?;
+    match command {
+        KnowledgeCommand::Prepare {
+            collection,
+            card,
+            chunk_profile,
+        } => {
+            let profile = chunk_profile
+                .as_deref()
+                .unwrap_or(settings.chunk_profile.chunker_version());
+            prepare::run(&kernel, output, collection, card, Some(profile))
         }
-        Noun::Eval(EvalCommand::Ladder { manifest }) => eval::run(output, manifest),
-        Noun::Job(JobCommand::Wait { id }) => wait::run(&Kernel::open()?, output, *id),
-        Noun::Setup { yes } => setup::run(output, *yes),
-        Noun::Status => health::status::run(output),
-        Noun::Doctor => health::doctor::run(output),
-        Noun::Backup { to } => backup::run_backup(output, to),
-        Noun::Restore { from } => backup::run_restore(output, from),
+        KnowledgeCommand::Publish { arguments } => {
+            let profile = arguments.chunk_profile.clone().or_else(|| {
+                arguments
+                    .chunk_set
+                    .is_none()
+                    .then(|| settings.chunk_profile.chunker_version().to_owned())
+            });
+            let arguments = PublishArguments {
+                collection: arguments.collection.clone(),
+                card: arguments.card.clone(),
+                chunk_set: arguments.chunk_set.clone(),
+                chunk_profile: profile,
+                again: arguments.again,
+            };
+            publish::run(&kernel, output, &arguments)
+        }
+        _ => Err(Failure::failed(
+            "a model command bypassed its dispatch path",
+        )),
     }
 }
 
@@ -151,20 +247,57 @@ fn knowledge(
             import::run(kernel, output, collection, *again)
         }
         KnowledgeCommand::Quality { collection } => quality::run(kernel, output, collection),
-        KnowledgeCommand::Prepare {
-            collection,
-            card,
-            chunk_profile,
-        } => prepare::run(kernel, output, collection, card, chunk_profile.as_deref()),
-        KnowledgeCommand::Publish { arguments } => publish::run(kernel, output, arguments),
         KnowledgeCommand::Verify { collection } => verify::run(kernel, output, collection),
         KnowledgeCommand::Status { collection } => status::run(kernel, output, collection),
         KnowledgeCommand::Collections
         | KnowledgeCommand::Get { .. }
         | KnowledgeCommand::Search { .. }
-        | KnowledgeCommand::Ask { .. } => Err(Failure::failed(
+        | KnowledgeCommand::Ask { .. }
+        | KnowledgeCommand::Prepare { .. }
+        | KnowledgeCommand::Publish { .. } => Err(Failure::failed(
             "knowledge retrieval bypassed its scoped dispatch path",
         )),
+    }
+}
+
+/// Runs the settings command `command`, with the `--set` flags `flags`.
+fn config_command(
+    output: Output,
+    command: &ConfigCommand,
+    flags: &[String],
+) -> Result<ExitCode, Failure> {
+    match command {
+        ConfigCommand::Get { key } => config::get(output, &Session::for_cli(flags)?, key),
+        ConfigCommand::List => config::list(output, &Session::for_cli(flags)?),
+        ConfigCommand::Explain { key } => {
+            config::explain(output, &Session::for_cli(flags)?, key.as_deref())
+        }
+        ConfigCommand::Set { key, value, target } => {
+            let change = Change {
+                key,
+                value: Some(value),
+                layer: layer(target),
+            };
+            config::change(output, change, &Places::current()?, Kernel::open)
+        }
+        ConfigCommand::Unset { key, target } => {
+            let change = Change {
+                key,
+                value: None,
+                layer: layer(target),
+            };
+            config::change(output, change, &Places::current()?, Kernel::open)
+        }
+        ConfigCommand::History => config::history(output, Kernel::open),
+    }
+}
+
+/// The file `target` names: the user file unless --project.
+const fn layer(target: &Target) -> LayerName {
+    if target.project {
+        LayerName::Project
+    } else {
+        LayerName::User
     }
 }
 

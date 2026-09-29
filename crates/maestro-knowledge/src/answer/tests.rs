@@ -482,6 +482,8 @@ mod delivered;
 mod explain;
 #[path = "tests/guardrails.rs"]
 mod guardrails;
+#[path = "tests/presentation.rs"]
+mod presentation;
 #[path = "tests/prompt_text.rs"]
 mod prompt_text;
 #[path = "tests/prompts.rs"]

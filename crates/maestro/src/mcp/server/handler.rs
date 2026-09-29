@@ -80,7 +80,7 @@ impl<P: ModelPort + Send + Sync + 'static> KnowledgeServer<P> {
         context: RequestContext<RoleServer>,
     ) -> Result<CallToolResponse, McpError> {
         let arguments = Value::Object(request.arguments.unwrap_or_default());
-        let operation = match parse_operation(request.name.as_ref(), arguments) {
+        let operation = match parse_operation(request.name.as_ref(), arguments, &self.settings) {
             Ok(operation) => operation,
             Err(InputFailure::Protocol(error)) => return Err(error),
             Err(InputFailure::Tool { code, message }) => {
@@ -101,7 +101,7 @@ impl<P: ModelPort + Send + Sync + 'static> KnowledgeServer<P> {
             Operation::Search(request) => search::call_search(self, request, permit, context).await,
             Operation::Ask(request) => {
                 call_blocking_operation(
-                    BlockingOperation::Ask(request),
+                    BlockingOperation::Ask(request, self.settings.clone()),
                     permit,
                     self.open_kernel.clone(),
                     ASK_CALL_DEADLINE,

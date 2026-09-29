@@ -11,23 +11,33 @@ use crate::{
     cli::health::{QDRANT_VARIABLE, ROUTER_VARIABLE, qdrant_url, router_url},
     failure::Failure,
     kernel::{Kernel, pinned_embedder},
+    settings::{Compute, KnowledgeSettings},
 };
 use maestro_kernel::{
     gateway::{ModelCard, Role, RouterClient},
     scope::ScopeSet,
 };
 use maestro_knowledge::{
-    answer::{Answer, AnswerContext, AskError, AskRequest, RegisteredAnswerer, ask},
+    answer::{Answer, AnswerContext, AskError, AskRequest, RegisteredAnswerer, ask_configured},
     index::Qdrant,
 };
 use std::env;
 use tokio::runtime::Builder;
 
-/// Opens the local kernel, resolves its scoped cards and runs one buffered ask.
+/// Opens the local kernel, resolves its scoped cards and runs one buffered
+/// ask under `settings`; refused, before the kernel opens, when models are
+/// off.
 pub(crate) fn ask_with(
     open_kernel: impl FnOnce() -> Result<Kernel, Failure>,
     request: &AskRequest,
+    settings: &KnowledgeSettings,
 ) -> Result<Scoped<Answer>, KnowledgeError> {
+    if settings.compute == Compute::Off {
+        return Err(KnowledgeError::Refused {
+            code: "models_off",
+            message: "models.compute is off: ask needs a model; use knowledge search",
+        });
+    }
     let kernel = open_kernel().map_err(|failure| kernel_open_failure(&failure))?;
     let scopes = kernel.scopes.clone();
     let current = kernel
@@ -75,8 +85,15 @@ pub(crate) fn ask_with(
         .enable_all()
         .build()
         .map_err(|_| kernel_failure())?;
+    let asked = ask_configured(
+        &context,
+        request,
+        settings.search,
+        settings.evidence,
+        &settings.prompt,
+    );
     let data = runtime
-        .block_on(ask(&context, request))
+        .block_on(asked)
         .map_err(|error| answer_failure(&error))?;
     Ok(Scoped {
         data,

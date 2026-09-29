@@ -7,6 +7,7 @@ use super::{
 use crate::{
     kernel::{Kernel, pinned_embedder},
     knowledge::source_classes,
+    settings::KnowledgeSettings,
 };
 use maestro_kernel::{
     binding::Bindings,
@@ -73,10 +74,12 @@ pub(crate) fn local_search_context<'a, P: ModelPort + Sync>(
     }
 }
 
-/// Searches through the pinned generation and assembles its canonical evidence.
+/// Searches through the pinned generation under `settings` and assembles its
+/// canonical evidence.
 pub(crate) async fn search_with<P: ModelPort + Sync>(
     kernel: Kernel,
     request: &SearchRequest,
+    settings: &KnowledgeSettings,
     model_port: &P,
     qdrant: &Qdrant,
 ) -> Result<Scoped<SearchData>, KnowledgeError> {
@@ -116,12 +119,16 @@ pub(crate) async fn search_with<P: ModelPort + Sync>(
         },
     );
     context.source_classes.clone_from(&source_classes);
-    let pipeline_request = PipelineRequest::new(
-        &request.collection,
-        &request.query,
-        request.version.as_deref(),
-        budget,
-    );
+    let pipeline_request = PipelineRequest {
+        configuration: settings.search,
+        evidence: settings.evidence,
+        ..PipelineRequest::new(
+            &request.collection,
+            &request.query,
+            request.version.as_deref(),
+            budget,
+        )
+    };
     let input = search(&context, &pipeline_request)
         .await
         .map_err(|error| search_failure(&error))?;

@@ -14,6 +14,10 @@ pub(super) struct Arguments {
     /// stderr.
     #[arg(long, global = true)]
     pub(super) json: bool,
+    /// Set a setting for this run only, over the project and user files;
+    /// repeatable. `maestro config list` names every setting.
+    #[arg(long = "set", global = true, value_name = "KEY=VALUE")]
+    pub(super) set: Vec<String>,
     /// What to work on.
     #[command(subcommand)]
     pub(super) noun: Noun,
@@ -43,7 +47,17 @@ pub(super) enum Noun {
     /// role's model card, naming the next action for every failure.
     Doctor,
     /// Serve the local knowledge tools over stdio MCP.
-    Mcp,
+    Mcp {
+        /// The workspace whose project file (`.maestro/config.toml`, found
+        /// upward within home) the server reads; without it, only the user
+        /// file. The server's working directory never selects one.
+        #[arg(long, value_name = "DIR")]
+        workspace: Option<PathBuf>,
+    },
+    /// Every configurable behaviour: the user file `preferences.toml`, the
+    /// project file `.maestro/config.toml`, and `--set`.
+    #[command(subcommand)]
+    Config(ConfigCommand),
     /// Back up the kernel to a new or empty directory.
     Backup {
         /// The directory to write.
@@ -216,6 +230,60 @@ pub(super) enum KnowledgeCommand {
         #[arg(long)]
         explain: bool,
     },
+}
+
+/// What to do with the settings.
+#[derive(Debug, Subcommand)]
+pub(super) enum ConfigCommand {
+    /// Print a setting's effective value.
+    Get {
+        /// The setting's dotted key, such as `tone`.
+        key: String,
+    },
+    /// Write a setting in the user file, or with --project the project
+    /// file, keeping the file's comments and order; the change is journaled.
+    Set {
+        /// The setting's dotted key.
+        key: String,
+        /// Its value, as `config get` prints it: `brief`, `20`, `0.5`, `off`,
+        /// `changelog,conversion`.
+        value: String,
+        /// The file to write.
+        #[command(flatten)]
+        target: Target,
+    },
+    /// Remove a setting from the user file, or with --project the project
+    /// file; the change is journaled.
+    Unset {
+        /// The setting's dotted key.
+        key: String,
+        /// The file to write.
+        #[command(flatten)]
+        target: Target,
+    },
+    /// List every setting with its effective value and the layer that set it.
+    List,
+    /// Explain a setting, or every one: its value, the layer that set it,
+    /// the layers it overrode, what it accepts, and the files read.
+    Explain {
+        /// The setting's dotted key; every setting without one.
+        key: Option<String>,
+    },
+    /// List the journaled changes of settings, oldest first.
+    History,
+}
+
+/// Which preferences file `config set` and `config unset` write.
+#[derive(Debug, Args)]
+pub(super) struct Target {
+    /// The user file, `preferences.toml` in the configuration directory: the
+    /// default.
+    #[arg(long, conflicts_with = "project")]
+    pub(super) user: bool,
+    /// The project file: the nearest `.maestro/config.toml` upward from the
+    /// working directory, within home, or a new one in the working directory.
+    #[arg(long)]
+    pub(super) project: bool,
 }
 
 /// What to do with a collection's declaration.
