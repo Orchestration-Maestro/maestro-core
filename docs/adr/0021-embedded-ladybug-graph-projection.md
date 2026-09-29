@@ -100,6 +100,66 @@ ordered neighbors, paths, claims, evidence and coverage, excluding only timings
 and transport IDs. Retained generations and other collections survive. No
 model rerun, Qdrant claim source or graph backup is needed.
 
+## The carried lbug fork
+
+G25 found that `lbug` 0.20.4 links system OpenSSL for its extension installer
+alone, with no switch to drop it (bar item 2). Upstream's optional-OpenSSL pull
+requests, LadybugDB/ladybug#777 and #796, closed unmerged. The owner chose on
+2026-09-28 to keep LadybugDB and carry a small patch.
+
+The patch lives in the organization's repository
+[`Orchestration-Maestro/lbug`](https://github.com/Orchestration-Maestro/lbug):
+the crates.io 0.20.4 crate imported unmodified, then the patch commits.
+The workspace keeps `lbug = "=0.20.4"` with default features off, and
+`[patch.crates-io]` replaces it with the fork at commit `4301d51`
+(`Cargo.lock` pins the full hash). Its DEP-001 exception in
+`maestro-quality.toml` allows that one git source, and `supply-chain`
+records its vet exemption.
+
+- **OpenSSL-free** (`575d94f`): a default Cargo feature,
+  `extension_installer`, keeps upstream's behaviour. Without it, the CMake
+  option `LBUG_EXTENSION_INSTALLER=OFF` skips `find_package(OpenSSL 3)`,
+  `INSTALL` fails with a clear error instead of downloading over HTTPS or
+  plain HTTP, and `build.rs` links neither `ssl` nor `crypto`. A static link
+  also stops building the unused shared library.
+- **CMake reuse** (`03c5460`, `4301d51`): with `LBUG_REUSE_CMAKE_BUILD`
+  (set in `.cargo/config.toml`), the C++ build lives in one directory per
+  target directory, profile and compiler settings, and a finished build is
+  reused within that target directory whatever features, `RUSTFLAGS` or
+  package selection Cargo builds the crate for: `-p` against `--workspace`,
+  a feature check, or a CI cache restore with fresh source timestamps. A
+  build into another target directory pays its own C++ build: coverage
+  (`llvm-cov-target`), the gate's second release build for hardening
+  (`rust-target-verify`), and a mutation run with its own target. The
+  archive links `-bundle`, so the 2.6 GB debug archive is no longer copied
+  into every rlib (7 GB of rustc memory), and a finished build drops its
+  object files.
+
+Without a fork patch, `.cargo/config.toml` also points `CMAKE_TOOLCHAIN_FILE`
+(read by cmake-rs, whose one user in the workspace is lbug) at
+`.cargo/lbug-debug-flags.cmake`. It builds the engine's CMake "Debug" type
+without debug information (`-O0`; MSVC `/Ob0 /Od /RTC1` with `cl` named, since
+a toolchain file stops cmake-rs from naming the compiler): cmake-rs picks
+"Debug" for any Rust opt-level 0, whatever the profile's `debug` says, so a
+profile override cannot drop `-g`. Release builds keep their flags, but the
+file applies to them too, so cmake-rs's own cross-compile setup and compiler
+naming are off in every build type. The reused CMake build does not see that
+file: after editing it, delete `target/*/build/lbug-cmake-*` and CI's target
+cache.
+
+Until the organization's CI caches the C++ build, lbug stays opt-in: only
+`crates/lbug-spike` depends on it, behind its `engine` feature, off by
+default, so no default workspace build compiles the engine. G25 measured a
+clean debug build of it at 10-15 minutes on Linux and macOS runners and
+about 26 on Windows, and the gate builds it in four target directories
+(`specs/002-knowledge-graph/research.md`). Making lbug a default dependency
+(G27) waits for that CI change.
+
+The fork's README says how to move to a new upstream version: import the new
+crate, cherry-pick the patch commits, update the pin. When an upstream release
+makes OpenSSL optional, drop the fork, its DEP-001 exception and its vet
+exemption.
+
 ## Considered options
 
 - **Neo4j/neo4rs first (ADR-0004):** a separate service, not built in S2. A
