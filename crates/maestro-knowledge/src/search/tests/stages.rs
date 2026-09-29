@@ -43,7 +43,7 @@ async fn disabled_routes_short_circuit_and_enabled_failures_remain_unavailable()
         limit: 10,
         identifier_limit: 20,
         version: None,
-        qdrant: &qdrant,
+        projection: &qdrant,
     };
     let port = FakePort::scores(Vec::new());
     let embedder_card = card(Role::Embedder, 128);
@@ -221,7 +221,7 @@ async fn each_route_and_the_rerank_report_a_passed_deadline_as_its_code() {
         limit: 10,
         identifier_limit: 20,
         version: None,
-        qdrant: &qdrant,
+        projection: &qdrant,
     };
     let port = FakePort::scores(vec![1.0]);
     let embedder_card = card(Role::Embedder, 128);

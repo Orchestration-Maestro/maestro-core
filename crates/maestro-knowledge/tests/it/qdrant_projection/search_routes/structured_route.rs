@@ -53,7 +53,7 @@ async fn inventory_counts_each_eligible_member_once_independent_of_limit() {
         limit: 1,
         identifier_limit: 1,
         version: None,
-        qdrant: &qdrant,
+        projection: &qdrant,
     };
     let outcome = search_structured(
         &query,

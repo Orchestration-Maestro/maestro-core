@@ -160,7 +160,7 @@ fn search_context_debug_redacts_its_database_connection() {
         intent_expander: None,
         database: database.database.clone(),
         principal: "reader",
-        qdrant: &qdrant,
+        projection: &qdrant,
         embedder: None,
         reranker: None,
         source_classes: None,
@@ -269,7 +269,7 @@ fn route_errors_keep_fixed_failure_categories() {
         "search profile mismatch"
     );
     assert_eq!(
-        route_error_reason(&RouteError::Qdrant(ProjectionError::new(
+        route_error_reason(&RouteError::Projection(ProjectionError::new(
             "Qdrant's answer is not what was asked for: private response details",
         ))),
         "Qdrant search failed"

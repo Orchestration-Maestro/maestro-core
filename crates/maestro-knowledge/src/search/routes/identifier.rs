@@ -1,4 +1,4 @@
-//! Exact identifier search from Qdrant payloads and the kernel identifier index.
+//! Exact identifier search from projection backend payloads and the kernel identifier index.
 
 use super::{
     identifier_cursor::advances,
@@ -301,15 +301,15 @@ async fn payload_leg<R: RetrievalProjectionPort>(
         let page = time::timeout_at(
             deadline,
             query
-                .qdrant
+                .projection
                 .scroll(&query.collection(), filter.clone(), offset.clone()),
         )
         .await
         .map_err(|_| DEADLINE_EXCEEDED.to_owned())?
-        .map_err(|_| "Qdrant payload search failed".to_owned())?;
+        .map_err(|_| "projection backend payload search failed".to_owned())?;
         for point in page.points {
             let hit = payload_hit(&point)
-                .map_err(|_| "Qdrant returned an invalid search payload".to_owned())?;
+                .map_err(|_| "projection backend returned an invalid search payload".to_owned())?;
             if !seen.insert(hit.chunk_id.clone()) {
                 continue;
             }
@@ -322,7 +322,9 @@ async fn payload_leg<R: RetrievalProjectionPort>(
             return Ok(order_payload_hits(hits, limit));
         };
         if !advances(offset.as_ref(), &next) {
-            return Err(invalid_answer("Qdrant scroll pagination did not advance").to_string());
+            return Err(
+                invalid_answer("projection backend scroll pagination did not advance").to_string(),
+            );
         }
         offset = Some(next);
     }

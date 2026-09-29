@@ -166,7 +166,7 @@ pub(super) fn route_error_reason(error: &RouteError) -> &'static str {
     match error {
         RouteError::EmbedderUnavailable { .. } => "embedder unavailable",
         RouteError::ProfileMismatch { .. } => "search profile mismatch",
-        RouteError::Qdrant(_) => "Qdrant search failed",
+        RouteError::Projection(_) => "Qdrant search failed",
         RouteError::InvalidVector(_) => "invalid query vector",
         RouteError::GenerationLookup(_)
         | RouteError::UnknownGeneration { .. }

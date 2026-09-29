@@ -267,7 +267,7 @@ pub struct SearchContext<'a, P, R = Qdrant> {
     /// The caller resolved by a trusted transport, never request JSON.
     pub principal: &'a str,
     /// Backend holding the pinned generation's physical collection.
-    pub qdrant: &'a R,
+    pub projection: &'a R,
     /// The generation's matching embedder, absent when no card is available.
     pub embedder: Option<Embedder<'a, P>>,
     /// Optional explicitly configured expansion model; unused when expansion is off.
@@ -284,7 +284,7 @@ impl<P, R: RetrievalProjectionPort> fmt::Debug for SearchContext<'_, P, R> {
             .debug_struct("SearchContext")
             .field("database", &"Database")
             .field("principal", &self.principal)
-            .field("projection", &self.qdrant)
+            .field("projection", &self.projection)
             .field("has_embedder", &self.embedder.is_some())
             .field("has_intent_expander", &self.intent_expander.is_some())
             .field("has_reranker", &self.reranker.is_some())

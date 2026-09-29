@@ -33,7 +33,7 @@ pub struct Embedder<'a, P> {
 /// [`RouteError::ProfileMismatch`] when the card is not the generation's
 /// embedder, [`RouteError::EmbedderUnavailable`] when its model port refuses,
 /// has no free room, times out or is unreachable, [`RouteError::InvalidVector`]
-/// when its response is malformed, and [`RouteError::Qdrant`] when Qdrant fails.
+/// when its response is malformed, and [`RouteError::Projection`] when projection backend fails.
 pub async fn search_dense<P: ModelPort, R: RetrievalProjectionPort>(
     query: &Query<'_, R>,
     embedder: &Embedder<'_, P>,
@@ -82,7 +82,7 @@ pub async fn search_dense<P: ModelPort, R: RetrievalProjectionPort>(
     check_vector(vector, dimensions)?;
 
     let points = query
-        .qdrant
+        .projection
         .search_dense(
             &query.collection(),
             vector.clone(),
@@ -90,11 +90,11 @@ pub async fn search_dense<P: ModelPort, R: RetrievalProjectionPort>(
             query_filter(query.scopes, query.version),
         )
         .await
-        .map_err(RouteError::Qdrant)?;
+        .map_err(RouteError::Projection)?;
     Ok(rank(chunks(points)?, query.limit))
 }
 
-/// Refuses an embedding whose shape or values cannot be used as a Qdrant vector.
+/// Refuses an embedding whose shape or values cannot be used as a projection backend vector.
 fn check_vector(vector: &[f32], dimensions: NonZeroUsize) -> Result<(), RouteError> {
     let expected = dimensions.get();
     if vector.len() != expected {

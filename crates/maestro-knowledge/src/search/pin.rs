@@ -1,4 +1,4 @@
-//! Pins the published generation before any route touches Qdrant.
+//! Pins the published generation before any route touches projection backend.
 
 use super::routes::error::RouteError;
 use maestro_kernel::{

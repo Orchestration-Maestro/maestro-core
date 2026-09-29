@@ -64,7 +64,7 @@ async fn a_markerless_published_generation_degrades_then_republishes_without_ear
         intent_expander: None,
         database: kernel.database.clone(),
         principal: "tester",
-        qdrant: &qdrant,
+        projection: &qdrant,
         embedder: None,
         reranker: None,
         source_classes: None,

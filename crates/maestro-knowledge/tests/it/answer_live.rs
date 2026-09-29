@@ -59,7 +59,7 @@ async fn asks_with_the_registered_qwen3_4b_answerer() {
             intent_expander: None,
             database,
             principal: LOCAL,
-            qdrant: &qdrant,
+            projection: &qdrant,
             embedder: Some(Embedder {
                 port: &port,
                 card: &embedder_card,

@@ -60,7 +60,7 @@ pub(super) fn context<'a>(
         intent_expander: None,
         database: fixture.kernel.database.clone(),
         principal: "tester",
-        qdrant: &fixture.qdrant,
+        projection: &fixture.qdrant,
         embedder: Some(Embedder {
             port: &fixture.port,
             card: &fixture.embedder_card,

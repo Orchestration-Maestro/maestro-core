@@ -6,9 +6,9 @@ use super::{
 };
 use maestro_knowledge::{
     index::{
-        CollectionLayout, PointHit, Projection, ProjectionCursor, ProjectionError,
-        ProjectionFilter, ProjectionPage, ProjectionPoint, RebuildGuard, RetrievalProjectionPort,
-        SparseValues,
+        CollectionLayout, PayloadFieldKind, PointHit, Projection, ProjectionCursor,
+        ProjectionError, ProjectionFilter, ProjectionPage, ProjectionPoint, RebuildGuard,
+        RetrievalProjectionPort, SparseValues,
     },
     publish::verify_generation,
     query::understand,
@@ -40,7 +40,7 @@ pub(super) struct FakePort {
 pub(super) struct FakeCollection {
     pub(super) layout: Option<CollectionLayout>,
     pub(super) points: HashMap<String, PointHit>,
-    pub(super) fields: BTreeMap<String, String>,
+    pub(super) fields: BTreeMap<String, PayloadFieldKind>,
 }
 
 impl FakePort {
@@ -161,14 +161,14 @@ impl RetrievalProjectionPort for FakePort {
         let collection = collections.get_mut(name).ok_or_else(Self::error)?;
         collection.fields.extend(
             ["scope_tags", "identifiers", "identifier_profile", "version"]
-                .map(|field| (field.to_owned(), "keyword".to_owned())),
+                .map(|field| (field.to_owned(), PayloadFieldKind::Keyword)),
         );
         Ok(())
     }
     async fn payload_fields(
         &self,
         name: &str,
-    ) -> Result<BTreeMap<String, String>, ProjectionError> {
+    ) -> Result<BTreeMap<String, PayloadFieldKind>, ProjectionError> {
         self.collections
             .lock()
             .unwrap()
@@ -389,7 +389,7 @@ async fn publication_and_standalone_verification_use_the_fake_port() {
         limit: 5,
         identifier_limit: 5,
         version: None,
-        qdrant: &fake,
+        projection: &fake,
     };
     let hits = search_bm25(&query).await.unwrap();
     assert!(!hits.is_empty());

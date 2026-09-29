@@ -1,4 +1,4 @@
-//! Qdrant's in-route filter for the scopes admitted to one request.
+//! projection backend's in-route filter for the scopes admitted to one request.
 
 use crate::index::ProjectionFilter;
 use maestro_kernel::scope::ScopeSet;
@@ -14,7 +14,7 @@ pub(super) fn scope_filter(scopes: &ScopeSet) -> ProjectionFilter {
     }
 }
 
-/// Adds an exact metadata version to the in-Qdrant authorization filter.
+/// Adds an exact metadata version to the in-projection backend authorization filter.
 pub(super) fn query_filter(scopes: &ScopeSet, version: Option<&str>) -> ProjectionFilter {
     let scope = scope_filter(scopes);
     match version {

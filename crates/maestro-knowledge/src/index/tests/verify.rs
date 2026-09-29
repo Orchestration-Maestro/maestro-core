@@ -1,15 +1,16 @@
 //! Tests for the published vector-layout diagnostic.
 
-use crate::index::{CollectionLayout, Unverified};
+use crate::index::{CollectionLayout, DenseDistance, DenseLayout, SparseModifier, Unverified};
 
 #[test]
 fn vector_mismatch_preserves_backend_layout_names() {
     let layout = CollectionLayout {
-        dense_dimensions: 8,
-        dense_present: true,
-        dense_distance: "Euclid".to_owned(),
+        dense: Some(DenseLayout {
+            dimensions: 8,
+            distance: DenseDistance::Euclid,
+        }),
         sparse_present: true,
-        sparse_modifier: Some("None".to_owned()),
+        sparse_modifier: Some(SparseModifier::None),
     };
     assert_eq!(
         super::super::verify::vectors(&layout, 8),
@@ -24,9 +25,10 @@ fn vector_mismatch_preserves_backend_layout_names() {
     );
 
     let layout = CollectionLayout {
-        dense_dimensions: 8,
-        dense_present: true,
-        dense_distance: "Cosine".to_owned(),
+        dense: Some(DenseLayout {
+            dimensions: 8,
+            distance: DenseDistance::Cosine,
+        }),
         sparse_present: false,
         sparse_modifier: None,
     };

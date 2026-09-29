@@ -150,7 +150,7 @@ pub(super) async fn search_with(
     let context = SearchContext {
         database: fixture.kernel.database.clone(),
         principal: "tester",
-        qdrant: &fixture.qdrant,
+        projection: &fixture.qdrant,
         embedder: Some(Embedder {
             port,
             card: &fixture.embedder_card,

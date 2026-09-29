@@ -163,7 +163,7 @@ pub(super) fn retrieve(
         limit: ROUTE_LIMIT,
         identifier_limit: ROUTE_LIMIT,
         version: None,
-        qdrant: context.qdrant,
+        projection: context.qdrant,
     };
     let embedder = Embedder {
         port: context.models,

@@ -163,7 +163,7 @@ async fn dense_route(
         limit: 10,
         identifier_limit: 10,
         version: None,
-        qdrant: &qdrant,
+        projection: &qdrant,
     };
     let port = LoadingModel::new(setup, hangs, refuses_setup);
     let embedder = Embedder {

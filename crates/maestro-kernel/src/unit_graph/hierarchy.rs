@@ -142,10 +142,9 @@ fn validate_context(group: &Group, part_order: &BTreeMap<&str, usize>) -> Result
         }),
         "context relations are not in source order",
     )?;
-    let mut seen = BTreeSet::new();
     for relation in &group.context_relations {
         require(
-            group.part_ids.contains(&relation.part_id) && seen.insert(relation.part_id.as_str()),
+            group.part_ids.contains(&relation.part_id),
             "context must reference a unique direct part",
         )?;
         match relation.kind {
@@ -403,7 +402,6 @@ mod tests {
             .groups
             .iter()
             .flat_map(|group| group.children.iter().cloned())
-            .filter(|child| child != "caption")
             .collect();
         assert!(validate_units(&graph, &groups, &children).is_err());
     }

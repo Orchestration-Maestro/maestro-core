@@ -95,7 +95,7 @@ impl<P: ModelPort, R: RetrievalProjectionPort> Projection<'_, P, R> {
             .await
             .map_err(Error::from)?;
         for field in ["scope_tags", "identifiers", "identifier_profile", "version"] {
-            if indexes.get(field).map(String::as_str) != Some("keyword") {
+            if indexes.get(field) != Some(&super::projection_port::PayloadFieldKind::Keyword) {
                 return Ok(Err(Unverified::Search {
                     reason: format!("the keyword index for {field} is missing"),
                 }));

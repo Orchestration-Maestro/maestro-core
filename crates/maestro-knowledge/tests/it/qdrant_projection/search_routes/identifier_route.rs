@@ -121,7 +121,7 @@ pub(super) async fn identifier_search_until(
         limit,
         identifier_limit: limit,
         version,
-        qdrant: &fixture.qdrant,
+        projection: &fixture.qdrant,
     };
     search_identifiers(
         &query,
@@ -149,7 +149,7 @@ async fn empty_scopes_and_zero_limit_skip_both_identifier_legs() {
             limit,
             identifier_limit: limit,
             version: None,
-            qdrant: &fixture.qdrant,
+            projection: &fixture.qdrant,
         };
         let outcome = search_identifiers(
             &query,
@@ -187,7 +187,7 @@ async fn identifier_route_accepts_64_and_refuses_65_distinct_values() {
         limit: 20,
         identifier_limit: 20,
         version: None,
-        qdrant: &fixture.qdrant,
+        projection: &fixture.qdrant,
     };
     let filters_before = backend.fake.as_ref().unwrap().scroll_filters().len();
 
@@ -222,7 +222,7 @@ async fn identifier_route_accepts_64_and_refuses_65_distinct_values() {
         limit: 20,
         identifier_limit: 20,
         version: None,
-        qdrant: &fixture.qdrant,
+        projection: &fixture.qdrant,
     };
     let outcome = search_identifiers(
         &query,
@@ -437,7 +437,7 @@ async fn bare_plain_words_are_left_to_lexical_search() {
             limit: 20,
             identifier_limit: 20,
             version: None,
-            qdrant: &fixture.qdrant,
+            projection: &fixture.qdrant,
         })
         .await
         .unwrap();

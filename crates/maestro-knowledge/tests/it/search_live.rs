@@ -240,7 +240,7 @@ async fn questions_run_against_the_published_generation() {
         intent_expander: None,
         database: Arc::clone(&database),
         principal: LOCAL,
-        qdrant: &qdrant,
+        projection: &qdrant,
         embedder: Some(Embedder {
             port: &port,
             card: &embedder_card,

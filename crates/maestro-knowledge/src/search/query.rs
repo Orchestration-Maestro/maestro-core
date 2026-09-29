@@ -19,7 +19,7 @@ pub struct Query<'a, R = Qdrant> {
     /// The exact version filter selected for this request.
     pub version: Option<&'a str>,
     /// The backend holding the generation's collection.
-    pub qdrant: &'a R,
+    pub projection: &'a R,
 }
 
 impl<R> Query<'_, R> {

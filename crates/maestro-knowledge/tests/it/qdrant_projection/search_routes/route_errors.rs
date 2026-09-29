@@ -41,7 +41,7 @@ async fn lexical_route_refuses_a_generation_with_another_sparse_profile() {
         limit: 10,
         identifier_limit: 10,
         version: None,
-        qdrant: &qdrant,
+        projection: &qdrant,
     };
     assert!(matches!(
         search_bm25(&query).await,
@@ -71,7 +71,7 @@ async fn dense_route_refuses_a_card_with_dimensions_from_another_generation() {
         limit: 10,
         identifier_limit: 10,
         version: None,
-        qdrant: &qdrant,
+        projection: &qdrant,
     };
     let embedder = Embedder {
         port: &port,
@@ -115,7 +115,7 @@ async fn no_free_room_is_typed_and_does_not_touch_qdrant() {
         limit: 10,
         identifier_limit: 10,
         version: None,
-        qdrant: &qdrant,
+        projection: &qdrant,
     };
     let failed = Embedder {
         port: &port,
@@ -133,7 +133,7 @@ async fn no_free_room_is_typed_and_does_not_touch_qdrant() {
     };
     assert!(matches!(
         search_dense(&query, &retry).await,
-        Err(RouteError::Qdrant(_))
+        Err(RouteError::Projection(_))
     ));
 }
 
@@ -158,7 +158,7 @@ async fn dense_route_types_bad_dimensions_and_non_finite_vectors() {
         limit: 10,
         identifier_limit: 10,
         version: None,
-        qdrant: &qdrant,
+        projection: &qdrant,
     };
     for fault in [Fault::Dimensions, Fault::NotANumber] {
         let port = models::Embedder::default();
@@ -237,7 +237,7 @@ async fn empty_scope_and_zero_limit_routes_return_without_model_or_qdrant() {
         limit: 10,
         identifier_limit: 10,
         version: None,
-        qdrant: &qdrant,
+        projection: &qdrant,
     };
     let zero_limit_query = Query {
         generation: &generation,
@@ -246,7 +246,7 @@ async fn empty_scope_and_zero_limit_routes_return_without_model_or_qdrant() {
         limit: 0,
         identifier_limit: 0,
         version: None,
-        qdrant: &qdrant,
+        projection: &qdrant,
     };
     let embedder = Embedder {
         port: &port,

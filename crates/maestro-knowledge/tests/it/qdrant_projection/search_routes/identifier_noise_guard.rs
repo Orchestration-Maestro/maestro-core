@@ -58,7 +58,7 @@ async fn identifier_search_limits(
         limit: route_limit,
         identifier_limit,
         version: None,
-        qdrant: &fixture.qdrant,
+        projection: &fixture.qdrant,
     };
     search_identifiers(
         &query,
@@ -130,7 +130,7 @@ fn query<'a>(fixture: &'a PublishedCommand, text: &'a str) -> Query<'a> {
         limit: 20,
         identifier_limit: 20,
         version: None,
-        qdrant: &fixture.qdrant,
+        projection: &fixture.qdrant,
     }
 }
 
@@ -251,7 +251,7 @@ async fn search_guarded(fixture: &PublishedCommand, text: &str, guard: bool) -> 
         intent_expander: None,
         database: fixture.kernel.database.clone(),
         principal: "tester",
-        qdrant: &fixture.qdrant,
+        projection: &fixture.qdrant,
         embedder: None::<Embedder<'_, super::models::Embedder>>,
         reranker: None,
         source_classes: None,
