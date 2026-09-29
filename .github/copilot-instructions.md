@@ -888,6 +888,7 @@ in place.
 │   │   │   │   │   │   └── validation.rs                                    # Validates canonical block links and source spans before evidence expansion
 │   │   │   │   │   ├── selection/                                           # Budgeted MMR selection over validated source windows
 │   │   │   │   │   │   ├── algorithm.rs                                     # MMR ordering, atomic conflict units and budget-driven source windows
+│   │   │   │   │   │   ├── mmr.rs                                           # Deterministic MMR ranking and conflict-atomic selection units
 │   │   │   │   │   │   ├── mod.rs                                           # Budgeted MMR selection over validated source windows
 │   │   │   │   │   │   ├── relevant.rs                                      # Whole matched-block windows and contiguous table-header prefixes
 │   │   │   │   │   │   ├── render.rs                                        # Renders trial spans as normalized, validated passages

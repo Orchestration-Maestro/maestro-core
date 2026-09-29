@@ -6,14 +6,14 @@ use super::super::{
     features::DiversityFeatures,
     sections::{Expansion, SectionIndex},
     spans::SpanUnion,
-    types::EvidenceCounter,
+    types::{EvidenceCounter, EvidenceError},
 };
 use maestro_canonicalization::CanonicalDocument;
 use maestro_kernel::{
     evidence::{Passage, Span},
     retrieval::ReadControl,
 };
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet, sync::atomic::Ordering as AtomicOrdering, time::Instant};
 
 /// One already-validated source candidate and its full canonical expansion.
 pub(crate) struct SelectionCandidate<'a> {
@@ -61,4 +61,18 @@ pub(crate) struct SelectionResult {
     pub(crate) selected_candidates: BTreeSet<usize>,
     /// Stable omission categories for known-gap generation.
     pub(crate) omissions: super::super::signals::OmissionStatus,
+}
+
+/// Stops before or after trial work when cancellation or expiry fires.
+pub(super) fn check(control: &ReadControl) -> Result<(), EvidenceError> {
+    if control.cancelled.load(AtomicOrdering::Relaxed) || Instant::now() >= control.deadline {
+        Err(EvidenceError::TimedOut)
+    } else {
+        Ok(())
+    }
+}
+
+/// Converts helper diagnostics to the stable, text-free integrity boundary.
+pub(super) fn integrity(reason: &str) -> EvidenceError {
+    EvidenceError::Integrity(reason.to_owned())
 }

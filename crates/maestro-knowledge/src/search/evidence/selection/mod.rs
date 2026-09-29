@@ -1,6 +1,7 @@
 //! Budgeted MMR selection over validated source windows.
 
 mod algorithm;
+mod mmr;
 mod relevant;
 mod render;
 mod types;
