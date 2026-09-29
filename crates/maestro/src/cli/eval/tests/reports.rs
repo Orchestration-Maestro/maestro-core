@@ -14,8 +14,9 @@ use maestro_knowledge::{
     answer::RefusalCode,
     eval::{AskOutcome, SearchOutcome},
 };
+use maestro_test_scratch::scratch_directory;
 use serde_json::{Value, json};
-use std::{env, fs, process, time::Duration};
+use std::{fs, time::Duration};
 
 /// The binary the tests' reports name.
 pub(super) const BINARY: Binary = Binary {
@@ -49,10 +50,18 @@ fn a_private_row_holds_ids_ranks_citations_refusals_and_timings() {
         citations[0].chunk_id = Some("chunk-a0".to_owned());
         citations[0].span = Some([12, 34]);
     }
-    let answered = to_json(&PrivateRow::new(&row, &runs[0].diagnostics[0], true));
+    let answered = to_json(&PrivateRow::new(
+        &row,
+        &runs[0].diagnostics[0],
+        &runs[0].rejections[0],
+        runs[0].reply_caps[0],
+        true,
+    ));
     let refused = to_json(&PrivateRow::new(
         &runs[0].rows[2],
         &runs[0].diagnostics[2],
+        &runs[0].rejections[2],
+        runs[0].reply_caps[2],
         true,
     ));
 
@@ -69,11 +78,17 @@ fn a_private_row_holds_ids_ranks_citations_refusals_and_timings() {
             "ask_us",
             "bundle_documents",
             "bundle_rank",
+            "candidate_context_fallbacks",
+            "candidate_source_load_micros",
             "citations",
+            "delivered",
+            "evidence_bytes",
             "expected_rank",
             "id",
             "ranked_documents",
             "refusal",
+            "rejections",
+            "reply_cap",
             "search",
             "search_us",
             "top_fused_score",
@@ -104,16 +119,61 @@ fn a_private_row_holds_ids_ranks_citations_refusals_and_timings() {
 }
 
 #[test]
+fn private_rows_report_the_assembled_evidence_bytes() {
+    let runs = runs();
+    let mut diagnostic = runs[0].diagnostics[0].clone();
+    diagnostic.evidence_bytes = Some(42);
+    let row = to_json(&PrivateRow::new(
+        &runs[0].rows[0],
+        &diagnostic,
+        &runs[0].rejections[0],
+        runs[0].reply_caps[0],
+        true,
+    ));
+    assert_eq!(row["evidence_bytes"], 42);
+}
+
+#[test]
+fn a_private_row_carries_its_reply_cap_and_the_checks_refused_without_tokens() {
+    let runs = runs();
+    let answered = to_json(&PrivateRow::new(
+        &runs[0].rows[0],
+        &runs[0].diagnostics[0],
+        &runs[0].rejections[0],
+        runs[0].reply_caps[0],
+        true,
+    ));
+    let refused = to_json(&PrivateRow::new(
+        &runs[0].rows[2],
+        &runs[0].diagnostics[2],
+        &runs[0].rejections[2],
+        runs[0].reply_caps[2],
+        true,
+    ));
+
+    assert_eq!(
+        answered["rejections"],
+        json!([{"attempt": 1, "check": "unsupported_literal"}])
+    );
+    assert_eq!(refused["rejections"], json!([]));
+    assert_eq!(answered["reply_cap"], 2048);
+}
+
+#[test]
 fn a_private_row_carries_the_top_rerank_and_fused_scores() {
     let runs = runs();
     let reranked = to_json(&PrivateRow::new(
         &runs[0].rows[0],
         &runs[0].diagnostics[0],
+        &runs[0].rejections[0],
+        runs[0].reply_caps[0],
         true,
     ));
     let fused_only = to_json(&PrivateRow::new(
         &runs[1].rows[0],
         &runs[1].diagnostics[0],
+        &runs[1].rejections[0],
+        runs[1].reply_caps[0],
         true,
     ));
 
@@ -139,13 +199,20 @@ fn a_row_of_a_rung_that_does_not_ask_holds_no_ask() {
     let mut row = runs[0].rows[2].clone();
     row.search.outcome = SearchOutcome::TimedOut;
     row.ask.outcome = AskOutcome::Refused(RefusalCode::NotFound);
-    let unasked = to_json(&PrivateRow::new(&row, &SearchDiagnostic::default(), false));
+    let unasked = to_json(&PrivateRow::new(
+        &row,
+        &SearchDiagnostic::default(),
+        &[],
+        Some(2048),
+        false,
+    ));
 
     assert_eq!(unasked["search"], "timed_out");
     assert_eq!(unasked["ranked_documents"], json!([]));
     assert_eq!(unasked["ask"], Value::Null);
     assert_eq!(unasked["ask_us"], Value::Null);
     assert_eq!(unasked["refusal"], Value::Null);
+    assert_eq!(unasked["reply_cap"], Value::Null);
 }
 
 #[test]
@@ -167,19 +234,44 @@ fn a_rung_report_names_its_provenance_and_scores_its_floors() {
     assert_eq!(
         json,
         json!({
-            "schema": "maestro-eval-ladder-rung/1",
+            "schema": "maestro-eval-ladder-rung/2",
             "rung": "r0",
             "verdict": "PASS",
             "ask": true,
-            "ask_settings": {"k": 5, "max_tokens": 6000, "output_tokens": 700, "prompt": "v1"},
+            "ask_settings": {
+                "k": 5,
+                "evidence_bytes": 6000,
+                "output_tokens": null,
+                "prompt": "v2",
+                "evidence": {"expansion":"full_section", "evidence_counter":"utf8"},
+                "search_deadline_ms": 30_000
+            },
             "warm_ups": 1,
             "collection": "docs",
             "provenance": provenance,
             "end": provenance,
             "ladder": provenance,
             "configuration": to_json(&runs[0].rung.configuration),
+            "search_settings": {
+                "k": 5,
+                "evidence_bytes": 6000,
+                "expansion": "full_section",
+                "parent_chain_order": null
+            },
+            "search_deadline_ms": 30_000,
             "suite_digest": suite.digest.as_str(),
             "binary": {"version": "0.1.0", "commit": "abc123"},
+            "delivery": {
+                "answerable": 2,
+                "delivered": 2,
+                "fully_delivered": 2,
+                "median_coverage_permille": 1000,
+                "composition_cases": 0,
+                "compositions_delivered": 0,
+                "uncredited": 0
+            },
+            "rejected_checks": {"unsupported_literal": 2},
+            "reply_caps": [2048],
         })
     );
     assert_eq!(score, to_json(&runs[0].score));
@@ -196,6 +288,7 @@ fn a_rung_report_in_markdown_names_its_provenance_then_its_floors() {
     assert!(markdown.contains("- Generation: 0\n"));
     assert!(markdown.contains(&format!("- Reranker card: {RERANKER}\n")));
     assert!(markdown.contains("- Prompt file: none\n"));
+    assert!(markdown.contains("- Source-class table: none\n"));
     assert!(markdown.contains("- Binary: 0.1.0 (abc123)\n"));
     assert!(markdown.contains(concat!(
         "- Citation scoring: same document and pinned revision; exact section ID or a cited ",
@@ -204,12 +297,28 @@ fn a_rung_report_in_markdown_names_its_provenance_then_its_floors() {
         "citation of that revision.\n"
     )));
     assert!(markdown.contains("| Right document top-10 | 2/2 (100.0%) |"));
+    assert!(markdown.contains(concat!(
+        "- Search settings: at most 5 passages, 6000 evidence bytes, full_section ",
+        "expansion, none order\n"
+    )));
+    assert!(markdown.contains("- Delivered-section recall: 2/2 (same document"));
+    assert!(markdown.contains("- Fully delivered sections: 2/2 ("));
+    assert!(markdown.contains("- Required-composition coverage: 0/0\n"));
+    assert!(markdown.contains(concat!(
+        "- Ask settings: at most 5 passages, 6000 evidence bytes, the answerer card's output ",
+        "tokens, prompt v2, search deadline 30000 ms\n",
+        "- Reply cap: 2048 output tokens\n"
+    )));
+    assert!(markdown.contains(concat!(
+        "- Rejected answer attempts: unsupported_literal 2; the invented-literals floor ",
+        "counts delivered answers only\n"
+    )));
 }
 
 #[test]
 fn an_invalid_rung_says_so_in_its_report() {
     let mut runs = runs();
-    runs[0].end.generation = 7;
+    runs[0].end.as_mut().unwrap().generation = 7;
     let suite = suite(2, 1);
     let report = RungReport::new(&runs[0], "docs", &suite.digest, BINARY);
 
@@ -223,10 +332,21 @@ fn an_invalid_rung_says_so_in_its_report() {
 }
 
 #[test]
+fn a_rung_whose_asks_never_reached_the_answerer_reports_no_reply_cap() {
+    let mut runs = runs();
+    runs[0].reply_caps.fill(None);
+    let suite = suite(2, 1);
+    let report = RungReport::new(&runs[0], "docs", &suite.digest, BINARY);
+
+    assert_eq!(to_json(&report)["reply_caps"], json!([]));
+    assert!(report.to_markdown().contains("- Reply cap: none\n"));
+}
+
+#[test]
 fn the_files_hold_no_question_text() {
     let runs = runs();
     let suite = suite(2, 1);
-    let output = env::temp_dir().join(format!("maestro-ladder-reports-{}", process::id()));
+    let output = scratch_directory().unwrap();
     for run in &runs {
         let report = RungReport::new(run, "docs", &suite.digest, BINARY);
         write_rung(&output, run, &report).unwrap();
@@ -261,7 +381,13 @@ fn a_private_row_gives_its_times_in_microseconds() {
     let mut row = runs[0].rows[0].clone();
     row.search.elapsed = Duration::from_micros(1_234_567);
     row.ask.elapsed = Duration::from_micros(7_654_321);
-    let json = to_json(&PrivateRow::new(&row, &SearchDiagnostic::default(), true));
+    let json = to_json(&PrivateRow::new(
+        &row,
+        &SearchDiagnostic::default(),
+        &[],
+        None,
+        true,
+    ));
 
     assert_eq!(
         (json["search_us"].clone(), json["ask_us"].clone()),
@@ -277,7 +403,13 @@ fn a_right_document_ranked_7th_but_not_assembled_is_in_the_top_10() {
     };
     let runs = run_ladder(&mut engine, &suite(2, 1), 0, &[rung("r0")], |_| Ok(())).unwrap();
     let run = &runs[0];
-    let row = to_json(&PrivateRow::new(&run.rows[0], &run.diagnostics[0], true));
+    let row = to_json(&PrivateRow::new(
+        &run.rows[0],
+        &run.diagnostics[0],
+        &run.rejections[0],
+        run.reply_caps[0],
+        true,
+    ));
 
     assert_eq!(row["expected_rank"], 7);
     assert_eq!(row["ranked_documents"].as_array().unwrap().len(), 10);

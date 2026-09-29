@@ -83,7 +83,7 @@ pub(crate) fn truncate_search_bundle(
             bundle.known_gaps.retain(|gap| !names_passage(gap, number));
             original_gap_count -= before - bundle.known_gaps.len();
             truncation.passages += 1;
-            update_evidence_tokens(&mut bundle)?;
+            update_evidence_bytes(&mut bundle)?;
             continue;
         }
         if drop_inventory_item(&mut bundle) {
@@ -177,16 +177,16 @@ fn drop_inventory_item(bundle: &mut Bundle) -> bool {
 }
 
 /// Refreshes the bundle's counter after whole passages were removed.
-fn update_evidence_tokens(bundle: &mut Bundle) -> Result<(), SearchOutputError> {
+fn update_evidence_bytes(bundle: &mut Bundle) -> Result<(), SearchOutputError> {
     if bundle.passages.is_empty() {
-        bundle.budget.evidence_tokens = 0;
+        bundle.budget.evidence_bytes = 0;
         return Ok(());
     }
     if bundle.budget.counter.as_deref() != Some("evidence-utf8-bytes/1") {
         return Err(SearchOutputError::Format);
     }
     let bytes = serde_json::to_vec(&bundle.passages).map_err(|_| SearchOutputError::Format)?;
-    bundle.budget.evidence_tokens =
+    bundle.budget.evidence_bytes =
         u32::try_from(bytes.len()).map_err(|_| SearchOutputError::Format)?;
     Ok(())
 }

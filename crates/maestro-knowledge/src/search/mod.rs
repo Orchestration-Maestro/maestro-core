@@ -1,33 +1,57 @@
 //! Independent retrieval routes, fusion and reranking for knowledge search.
 
 mod admission;
+mod assembly_settings;
+mod candidate_enrichment;
 mod candidates;
 mod deadline;
-pub use deadline::{DEADLINE_EXCEEDED, DISABLED_BY_CONFIGURATION};
+pub use deadline::{DEADLINE_EXCEEDED, DISABLED_BY_CONFIGURATION, StageWindow};
 /// Public evidence assembly for ranked T029c search handoffs.
 pub mod evidence;
 mod filter;
 mod fusion;
+mod hyde;
+pub use hyde::{HYDE_PROMPT_VERSION, HydeCardError, HydeExpander};
+mod intent;
+mod intent_guard;
+mod intent_routes;
+mod intent_words;
 mod inventory_query;
+pub use intent::{
+    Expansion, ExpansionFailure, ExpansionFuture, IntentExpansion, IntentTrigger, QueryExpander,
+};
 mod orchestrate;
 mod pin;
 mod query;
+mod rank_policy;
+mod rank_stage;
 mod request;
 mod rerank;
+mod section_prior;
+pub use section_prior::{SectionClassSet, SectionPrior};
+mod source_class;
+pub use source_class::{
+    Classification, SourceClass, SourceClassSet, SourceClassifier, SourceMetadata, SourcePrior,
+    classify_revision,
+};
+mod source_class_table;
+pub use source_class_table::{SourceClassTable, TableError};
 mod route_execution;
+mod route_search;
 pub mod routes;
 #[cfg(test)]
 mod tests;
 
 pub use fusion::{Fused, Hit, Route, RouteList, fuse, fuse_weighted};
-pub use orchestrate::{NO_FUSED_CANDIDATES, search};
+pub use orchestrate::search;
 pub use pin::pin;
 pub use query::Query;
 pub use request::{
-    EvidenceInput, SearchConfiguration, SearchContext, SearchError, SearchObservations,
-    SearchRequest,
+    CandidateContext, EvidenceInput, SearchConfiguration, SearchContext, SearchError,
+    SearchObservations, SearchRequest,
 };
 pub use rerank::{
-    Candidate, Ranked, Reranked, Reranker, rerank, top_fused_score, top_rerank_score,
+    Candidate, NO_FUSED_CANDIDATES, Ranked, Reranked, Reranker, rerank, top_fused_score,
+    top_rerank_score,
 };
-pub use routes::outcome::{RouteOutcome, StructuredOutcome};
+pub use routes::outcome::{DroppedIdentifier, IdentifierOutcome, RouteOutcome, StructuredOutcome};

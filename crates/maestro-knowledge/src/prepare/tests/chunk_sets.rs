@@ -12,7 +12,8 @@ use super::{
     support::{BUILD, MODEL_FILE, OTHER_FILE, card},
 };
 use crate::prepare::{
-    Error, RouterTokenizer, TokenizerQualification, chunk_set_id, chunk_set_id_for_card, prepare,
+    ChunkProfile, Error, Preparation, RouterTokenizer, TokenizerQualification, chunk_set_id,
+    chunk_set_id_for_card, prepare, prepare_observed,
 };
 use maestro_canonicalization::{CHUNKER_VERSION, PREPARATION_PROFILE, TokenCounter as _};
 use maestro_kernel::{
@@ -23,6 +24,7 @@ use maestro_kernel::{
     store::Database,
 };
 use serde_json::json;
+use std::ops::ControlFlow;
 
 /// The corpus the tests prepare: a guide of two sections of 400 words each,
 /// which the chunker keeps apart, and a paragraph of 900 words, which it
@@ -172,8 +174,8 @@ fn a_card_identifies_the_chunk_set_without_qualifying_the_router() {
     let card = card(Role::Embedder, MODEL_FILE, BUILD);
     let (_, tokenizer) = tokenizer();
     assert_eq!(
-        chunk_set_id_for_card(&database, &scopes, COLLECTION, &card).unwrap(),
-        chunk_set_id(&database, &scopes, COLLECTION, &tokenizer).unwrap()
+        chunk_set_id_for_card(&database, &scopes, Preparation::of(COLLECTION), &card).unwrap(),
+        chunk_set_id(&database, &scopes, Preparation::of(COLLECTION), &tokenizer).unwrap()
     );
 }
 
@@ -241,6 +243,70 @@ fn another_counter_makes_another_chunk_set_and_leaves_the_first_as_it_is() {
     assert_eq!(scratch.rows("chunk_sets"), 2);
 }
 
+/// A page with a heading's copy-link label and a collapsed image's label
+/// before its placeholder: page chrome under the complete-ideas profile.
+const CHROME_PAGE: &str =
+    "# Restart Link copied to clipboard\n\nClosed\n\n<!-- image -->\n\nRestart the service.\n";
+
+#[test]
+fn another_chunking_profile_makes_another_chunk_set_and_leaves_the_first_as_it_is() {
+    let scratch = Scratch::new();
+    corpus(&scratch);
+    scratch.corpus(&[("chrome.md", CHROME_PAGE)]);
+    let database = scratch.database();
+    let scopes = scratch.import(&database);
+    decide_all(&database, &scopes, Outcome::Accepted);
+    let (_, tokenizer) = tokenizer();
+    let first = prepare(&database, &scopes, COLLECTION, &tokenizer).unwrap();
+    assert!(first.chrome.is_empty());
+    let first_set = chunk_set_of(&database, &scopes, &first);
+    assert!(manifest_of(&database, &first_set).get("chrome").is_none());
+    let before = chunks_of(&database, &scopes, &first);
+    let ideas = Preparation {
+        collection: COLLECTION,
+        profile: ChunkProfile::CompleteIdeas,
+    };
+    let named = chunk_set_id(&database, &scopes, ideas, &tokenizer).unwrap();
+    let mut unobserved = |_: &_| ControlFlow::Continue(());
+    let second = prepare_observed(&database, &scopes, ideas, &tokenizer, &mut unobserved).unwrap();
+    assert_eq!(second.chunk_set, named);
+    assert_ne!(second.chunk_set, first.chunk_set);
+    assert_eq!(second.chunk_profile, "mapped-structural-chunks/3");
+    let set = chunk_set_of(&database, &scopes, &second);
+    assert_eq!(
+        (set.chunk_profile.as_str(), set.state),
+        ("mapped-structural-chunks/3", ChunkSetState::Complete)
+    );
+    let manifest = manifest_of(&database, &set);
+    assert_eq!(manifest["chunk_profile"], "mapped-structural-chunks/3");
+    assert_eq!(
+        manifest["preparation_profile"],
+        "canonical-context-parts/v2"
+    );
+    let chrome = json!({
+        "heading_suffix": {"units": 1, "bytes": 25},
+        "label_before_image": {"units": 1, "bytes": 6},
+        "markup": {"units": 1, "bytes": 15},
+    });
+    assert_eq!(manifest["chrome"], chrome);
+    assert_eq!(json!(second.chrome), chrome);
+    let chrome_page = revision_of(&database, &scopes, "chrome.md");
+    let inputs: Vec<String> = chunks_of(&database, &scopes, &second)
+        .iter()
+        .filter(|chunk| chunk.revision_id == chrome_page)
+        .map(|chunk| String::from_utf8(database.get(&chunk.digest).unwrap()).unwrap())
+        .collect();
+    assert_eq!(inputs, ["Restart\n\nRestart the service."]);
+    assert_eq!(chunks_of(&database, &scopes, &first), before);
+    let after = chunks_of(&database, &scopes, &second);
+    assert!(
+        after
+            .iter()
+            .all(|chunk| before.iter().all(|old| old.id != chunk.id))
+    );
+    assert_eq!(scratch.rows("chunk_sets"), 2);
+}
+
 #[test]
 fn the_chunk_set_a_preparation_builds_is_named_before_it_starts() {
     let scratch = Scratch::new();
@@ -250,17 +316,18 @@ fn the_chunk_set_a_preparation_builds_is_named_before_it_starts() {
     let [guide, long] = ["guide.md", "long.md"].map(|path| revision_of(&database, &scopes, path));
     decide(&database, &guide, Outcome::Accepted);
     let (_, tokenizer) = tokenizer();
-    let named = chunk_set_id(&database, &scopes, COLLECTION, &tokenizer).unwrap();
+    let named = chunk_set_id(&database, &scopes, Preparation::of(COLLECTION), &tokenizer).unwrap();
     assert!(named.starts_with("chunk-set-"));
     assert_eq!(scratch.rows("chunk_sets"), 0, "naming it records nothing");
     // A revision accepted since, or another counter, names another set.
     decide(&database, &long, Outcome::Accepted);
-    let accepted = chunk_set_id(&database, &scopes, COLLECTION, &tokenizer).unwrap();
+    let accepted =
+        chunk_set_id(&database, &scopes, Preparation::of(COLLECTION), &tokenizer).unwrap();
     assert_ne!(accepted, named);
     let other =
         RouterTokenizer::qualify(Goldens::new(), card(Role::Embedder, OTHER_FILE, BUILD)).unwrap();
     assert_ne!(
-        chunk_set_id(&database, &scopes, COLLECTION, &other).unwrap(),
+        chunk_set_id(&database, &scopes, Preparation::of(COLLECTION), &other).unwrap(),
         accepted
     );
     let report = prepare(&database, &scopes, COLLECTION, &tokenizer).unwrap();
@@ -274,7 +341,7 @@ fn the_chunk_set_a_preparation_builds_is_named_before_it_starts() {
         .unwrap();
     let partial = database.visible("partial").unwrap();
     assert!(matches!(
-        chunk_set_id(&database, &partial, COLLECTION, &tokenizer),
+        chunk_set_id(&database, &partial, Preparation::of(COLLECTION), &tokenizer),
         Err(Error::NotVisible(_))
     ));
 }

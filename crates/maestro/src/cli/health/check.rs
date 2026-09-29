@@ -1,12 +1,15 @@
 //! A check of the machine: what it looked at, and whether it passed,
-//! saying what it saw, or failed, saying what is wrong and the next action
-//! that fixes it.
+//! saying what it saw, failed, saying what is wrong and the next action
+//! that fixes it, or cannot run yet, saying why.
 
 /// What a check found.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) enum Outcome {
     /// It passed, and saw this.
     Passed(String),
+    /// It cannot run yet, for the reason given; neither a pass nor a
+    /// failure.
+    NotChecked(String),
     /// It failed.
     Failed {
         /// What is wrong.
@@ -37,6 +40,15 @@ impl Check {
         }
     }
 
+    /// The check `name` of `target`, which cannot run yet, for `reason`.
+    pub(super) fn not_checked(name: &'static str, target: &str, reason: impl Into<String>) -> Self {
+        Self {
+            name,
+            target: target.to_owned(),
+            outcome: Outcome::NotChecked(reason.into()),
+        }
+    }
+
     /// The check `name` of `target`, which failed on `problem`, fixed by
     /// `next`.
     pub(super) fn failed(
@@ -55,10 +67,12 @@ impl Check {
         }
     }
 
-    /// What it saw when it passed, or what is wrong when it failed.
+    /// What it saw when it passed, what is wrong when it failed, or why it
+    /// cannot run yet.
     pub(super) fn detail(&self) -> &str {
         match &self.outcome {
             Outcome::Passed(detail)
+            | Outcome::NotChecked(detail)
             | Outcome::Failed {
                 problem: detail, ..
             } => detail,
@@ -68,8 +82,13 @@ impl Check {
     /// The next action, when it failed.
     pub(super) fn next(&self) -> Option<&str> {
         match &self.outcome {
-            Outcome::Passed(_) => None,
+            Outcome::Passed(_) | Outcome::NotChecked(_) => None,
             Outcome::Failed { next, .. } => Some(next),
         }
+    }
+
+    /// Whether it ran, passed or failed.
+    pub(super) fn is_checked(&self) -> bool {
+        !matches!(self.outcome, Outcome::NotChecked(_))
     }
 }

@@ -8,7 +8,7 @@ use serde_json::{Value, json};
 fn valid_wire() -> Value {
     let mut value = serde_json::to_value(bundle()).unwrap();
     value["routes"]["structured"] = json!("ok");
-    value["request_budget"] = json!({"k": 10, "max_tokens": 6000, "deadline_ms": 1500});
+    value["request_budget"] = json!({"k": 10, "evidence_bytes": 6000, "deadline_ms": 1500});
     value["inventory"] = json!({
         "kind": "documents_by_set",
         "set_filter": null,
@@ -27,8 +27,8 @@ fn optional_search_fields_round_trip_and_old_bundles_remain_unchanged() {
         RequestBudget::default(),
         RequestBudget {
             k: 10,
-            max_tokens: 6000,
-            deadline_ms: 1500,
+            evidence_bytes: 6000,
+            deadline_ms: 30_000,
         }
     );
     let old = serde_json::to_value(bundle()).unwrap();
@@ -41,8 +41,8 @@ fn optional_search_fields_round_trip_and_old_bundles_remain_unchanged() {
 
     let mut value = old;
     value["routes"]["structured"] = json!("ok");
-    value["budget"]["evidence_tokens"] = json!(6000);
-    value["request_budget"] = json!({"k": 2, "max_tokens": 6000, "deadline_ms": 1500});
+    value["budget"]["evidence_bytes"] = json!(6000);
+    value["request_budget"] = json!({"k": 2, "evidence_bytes": 6000, "deadline_ms": 1500});
     value["inventory"] = json!({
         "kind": "versions",
         "set_filter": null,
@@ -66,10 +66,10 @@ fn request_budget_fields_enforce_their_bounds() {
     for (pointer, replacement) in [
         ("/request_budget/k", json!(0)),
         ("/request_budget/k", json!(51)),
-        ("/request_budget/max_tokens", json!(0)),
-        ("/request_budget/deadline_ms", json!(10_001)),
+        ("/request_budget/evidence_bytes", json!(0)),
+        ("/request_budget/deadline_ms", json!(30_001)),
         ("/budget/limit", json!(5999)),
-        ("/budget/evidence_tokens", json!(6001)),
+        ("/budget/evidence_bytes", json!(6001)),
     ] {
         let mut invalid = valid.clone();
         *invalid.pointer_mut(pointer).unwrap() = replacement;
@@ -81,6 +81,26 @@ fn request_budget_fields_enforce_their_bounds() {
     let mut unknown_key = valid;
     unknown_key["request_budget"]["extra"] = json!(true);
     assert_invalid(unknown_key);
+}
+
+#[test]
+fn a_request_budget_accepts_the_24000_byte_evidence_ceiling_and_names_it_past_it() {
+    let mut at_ceiling = valid_wire();
+    at_ceiling["request_budget"]["evidence_bytes"] = json!(24_000);
+    at_ceiling["budget"]["limit"] = json!(24_000);
+    assert!(serde_json::from_value::<Bundle>(at_ceiling.clone()).is_ok());
+    let mut past = at_ceiling;
+    past["request_budget"]["evidence_bytes"] = json!(24_001);
+    past["budget"]["limit"] = json!(24_001);
+
+    let error = serde_json::from_value::<Bundle>(past)
+        .unwrap_err()
+        .to_string();
+
+    assert!(
+        error.contains("evidence_bytes must be between 1 and 24000"),
+        "{error}"
+    );
 }
 
 #[test]

@@ -2,17 +2,21 @@
 use super::identity::{PreparedGroups, insert_prepared_group};
 use super::validation::{invalid_chunks, validate_chunks, validate_coverage};
 use super::*;
+use crate::chunk_profile::ChunkProfile;
+use crate::chunk_split::Layout;
 use crate::dedup::{DedupInput, DedupScope, RevisionKey, WarningPolicy};
 use crate::document::CanonicalDocument;
 use crate::error::Error;
 use crate::model::{CanonicalizeInput, Severity};
 use crate::pipeline::canonicalize;
 use crate::replay::validate_document;
+use crate::source_units::MappedDocument;
 use crate::tokenizer::TokenCounter;
 use std::cell::Cell;
 
 mod counter;
 mod identity;
+mod profiles;
 mod replay;
 
 fn scope(documents: &[&CanonicalDocument]) -> DedupScope {
@@ -31,6 +35,15 @@ fn scope(documents: &[&CanonicalDocument]) -> DedupScope {
 
 fn fake_count(input: &str) -> usize {
     input.chars().count() + 2
+}
+
+/// A document's layout under the structural profile.
+fn structural<'a>(
+    doc: &'a CanonicalDocument,
+    markdown: &'a str,
+    mapped: &'a MappedDocument,
+) -> Layout<'a> {
+    Layout::new(doc, markdown, mapped, ChunkProfile::Structural).unwrap()
 }
 
 /// The stand-in counter of these tests: `fake_count` IDs, one per character between BOS 0 and
@@ -101,6 +114,7 @@ fn authorization_and_all_replays_precede_every_counter_call() {
         &scope(&[&valid]),
         &inputs,
         WarningPolicy::Preserve,
+        ChunkProfile::Structural,
         &never_called,
     )
     .unwrap_err();
@@ -110,6 +124,7 @@ fn authorization_and_all_replays_precede_every_counter_call() {
             &scope(&[]),
             &inputs[..1],
             WarningPolicy::Preserve,
+            ChunkProfile::Structural,
             &never_called
         )
         .is_err()
@@ -119,6 +134,7 @@ fn authorization_and_all_replays_precede_every_counter_call() {
             &scope(&[&valid, &invalid]),
             &inputs,
             WarningPolicy::Preserve,
+            ChunkProfile::Structural,
             &never_called
         )
         .is_err()
@@ -128,6 +144,7 @@ fn authorization_and_all_replays_precede_every_counter_call() {
             &scope(&[&valid]),
             &[inputs[0], inputs[0]],
             WarningPolicy::Preserve,
+            ChunkProfile::Structural,
             &never_called
         )
         .is_err()
@@ -146,11 +163,21 @@ fn warning_policy_and_empty_content_are_explicit() {
         markdown,
     };
     let never_called = TestCounter::new("test/unqualified");
-    assert!(chunk_documents(&scope, &[input], WarningPolicy::Reject, &never_called).is_err());
+    assert!(
+        chunk_documents(
+            &scope,
+            &[input],
+            WarningPolicy::Reject,
+            ChunkProfile::Structural,
+            &never_called
+        )
+        .is_err()
+    );
     let preserved = chunk_documents(
         &scope,
         &[input],
         WarningPolicy::Preserve,
+        ChunkProfile::Structural,
         &TestCounter::new("test/unqualified"),
     )
     .unwrap();
@@ -160,7 +187,14 @@ fn warning_policy_and_empty_content_are_explicit() {
             .warnings
             .is_empty()
     );
-    let empty = chunk_documents(&scope, &[], WarningPolicy::Reject, &never_called).unwrap();
+    let empty = chunk_documents(
+        &scope,
+        &[],
+        WarningPolicy::Reject,
+        ChunkProfile::Structural,
+        &never_called,
+    )
+    .unwrap();
     assert!(empty.chunks.is_empty());
     for markdown in ["", "---\ntitle: Metadata\n---\n"] {
         let doc = canonicalize(CanonicalizeInput::new(markdown, "rejected-empty")).unwrap();
@@ -173,6 +207,7 @@ fn warning_policy_and_empty_content_are_explicit() {
                     markdown
                 }],
                 WarningPolicy::Preserve,
+                ChunkProfile::Structural,
                 &never_called
             )
             .is_err()
@@ -193,6 +228,7 @@ fn warning_policy_and_empty_content_are_explicit() {
             markdown,
         }],
         WarningPolicy::Preserve,
+        ChunkProfile::Structural,
         &never_called,
     )
     .unwrap();
@@ -218,9 +254,23 @@ fn counts_are_cached_by_complete_bytes_only_within_one_authorized_call() {
         },
     ];
     let counter = TestCounter::new("test/unqualified");
-    chunk_documents(&scope, &inputs, WarningPolicy::Preserve, &counter).unwrap();
+    chunk_documents(
+        &scope,
+        &inputs,
+        WarningPolicy::Preserve,
+        ChunkProfile::Structural,
+        &counter,
+    )
+    .unwrap();
     assert_eq!(counter.tokenizations.get(), 1);
-    chunk_documents(&scope, &inputs, WarningPolicy::Preserve, &counter).unwrap();
+    chunk_documents(
+        &scope,
+        &inputs,
+        WarningPolicy::Preserve,
+        ChunkProfile::Structural,
+        &counter,
+    )
+    .unwrap();
     assert_eq!(counter.tokenizations.get(), 2);
 }
 
@@ -247,6 +297,7 @@ fn structural_matrix_survives_full_authorization_and_dual_accounting() {
                 markdown,
             }],
             WarningPolicy::Preserve,
+            ChunkProfile::Structural,
             &TestCounter::new("test/unqualified"),
         )
         .unwrap();

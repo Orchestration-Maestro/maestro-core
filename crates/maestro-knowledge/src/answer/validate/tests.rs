@@ -38,7 +38,7 @@ fn bundle(text: &str) -> Bundle {
         conflicts: Vec::new(),
         known_gaps: Vec::new(),
         budget: Budget {
-            evidence_tokens: u32::try_from(text.len()).expect("short passage"),
+            evidence_bytes: u32::try_from(text.len()).expect("short passage"),
             limit: 6000,
             counter: Some("evidence-utf8-bytes/1".to_owned()),
             estimated: true,
@@ -46,6 +46,7 @@ fn bundle(text: &str) -> Bundle {
         request_budget: Some(RequestBudget::default()),
         inventory: None,
         trace: vec![Trace {
+            parent_context_of: Vec::new(),
             n: 1,
             score: None,
             routes: vec!["bm25".to_owned()],
@@ -221,8 +222,9 @@ fn i8_fake_missing_and_malformed_citations_are_rejected() {
     for reply in [
         "The service uses documented defaults.",
         "The service uses documented defaults [2].",
-        "The service uses documented defaults [x].",
-        "The service uses documented defaults [0].",
+        "The service uses documented defaults [-].",
+        "The service uses documented defaults [1;2].",
+        "The service uses documented defaults [1, 1].",
         "The service uses documented defaults [1]. ]",
         "The service uses documented defaults [1.",
     ] {
@@ -336,6 +338,7 @@ fn bracketed_link_text_is_text_and_digits_in_brackets_are_citations() {
             vec![1],
         ),
         ("Open an item with the documented call [2, 1].", vec![1, 2]),
+        ("Open an item with the documented call [x] [1].", vec![1]),
         (
             "Open an item with the documented call [2,1][1].",
             vec![1, 2],
@@ -349,6 +352,7 @@ fn bracketed_link_text_is_text_and_digits_in_brackets_are_citations() {
     for (reply, marker) in [
         ("Open an item with the documented call [1, ].", "[1, ]"),
         ("Open an item with the documented call [1, 3].", "[3]"),
+        ("Open an item with the documented call [0, 1].", "[0, 1]"),
     ] {
         assert!(
             matches!(
@@ -423,6 +427,9 @@ fn each_literal_source_is_checked_once_in_its_own_region() {
             "List them with the command below.\n```\ntool list all\n```",
             &["tool list all"],
         ),
+        // The command-before-flag pairing runs over the whole reply and
+        // skips the fence line, so the prose word before a fenced flag is
+        // its command: this fails closed.
         (
             "Run the command below\n```\n--all\n```",
             &["--all", "below"],
@@ -455,34 +462,5 @@ fn backtick_spans_and_token_edges_are_cut_on_character_boundaries() {
     assert_eq!(trim_token_edges(""), "");
 }
 
-#[test]
-fn a_line_that_only_starts_with_three_backticks_is_still_checked() {
-    let evidence = bundle("The scheduler stops when asked.");
-    assert_eq!(
-        rejected_literals("```halt``` stops the scheduler [1].", &evidence),
-        Some(vec!["halt".to_owned()])
-    );
-    assert_eq!(
-        unsupported_literals("Stop it:\n```bash\nhalt\n```", "How?", &evidence),
-        ["halt"]
-    );
-}
-
-#[test]
-fn french_guillemets_around_a_literal_are_edge_punctuation() {
-    let evidence = bundle("Le service lit sa configuration dans «/opt/ctm».");
-    assert_eq!(
-        rejected_literals(
-            "Le service lit sa configuration dans «/opt/ctm» [1].",
-            &evidence
-        ),
-        None
-    );
-    assert_eq!(
-        rejected_literals(
-            "Le service lit sa configuration dans «/opt/autre» [1].",
-            &evidence
-        ),
-        Some(vec!["/opt/autre".to_owned()])
-    );
-}
+#[path = "edge_tests.rs"]
+mod edge_tests;

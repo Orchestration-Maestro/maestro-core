@@ -145,11 +145,29 @@ For example, call `knowledge_search` with:
 A successful search returns `maestro-evidence/1`, including the selected
 collection and published generation, cited passages, and route status. Keep
 that provenance and any truncation/budget information when using a client that
-summarizes tool output. Search budget defaults are `k: 10`, `max_tokens: 6000`,
-and `deadline_ms: 1500`; accepted maxima are `k: 50`, `max_tokens: 12000`, and
-`deadline_ms: 10000`. The token budget is an estimate unless the configured
-route provides exact token counting. `knowledge_ask` is grounded in returned
-evidence and can refuse when the evidence does not support an answer.
+summarizes tool output. Search budget defaults are `k: 10`, `evidence_bytes: 12000`,
+and `deadline_ms: 30000` (a safety cap, not a quality cutoff: a search after
+the router unloaded its models loads them again, which took up to 5 s each on a
+busy machine, and still runs every route); accepted maxima are `k: 50`,
+`evidence_bytes: 24000`, and `deadline_ms: 30000`.
+`evidence_bytes` counts UTF-8 bytes of evidence, about 4 bytes per English or
+French token: 12000 bytes is roughly 3,000 tokens, not 12,000. The answer budget
+stays at 6,000 bytes. About 24 KB of passages is the practical MCP maximum:
+MCP carries the evidence bundle twice in a tool result. `knowledge_ask` is
+grounded in returned evidence and can refuse when the evidence does not support
+an answer.
+
+Search pipeline caps are settings in `maestro config list`: `search.routes.limit`
+(default 100, range 1..120) bounds dense, lexical and intent routes;
+`search.routes.identifier_limit` (default 20, range 1..120) bounds identifier
+results further, so its effective cap is the smaller setting. `search.fusion_pool`
+(default 120, range 1..120) bounds fusion, and `search.rerank.depth` may not
+exceed it. The model remains selected with `maestro model select`; the `/4`
+chunk profile awaits post-M1 measurement; 2.5 seconds is a measurement bar,
+not a runtime setting. `knowledge_search` has a 30 s cap; each answer attempt
+has a 20 s cap, including the answerer's load. The server ends a search call after 40 s and an ask
+call after 55 s, under the 60 s tool timeout common to MCP clients; a warm
+search takes under 1.5 s and a warm ask under 10 s.
 
 A local stdio process does not make a remote model's processing local. Before
 using a remote provider, confirm that the provider/account and the collection

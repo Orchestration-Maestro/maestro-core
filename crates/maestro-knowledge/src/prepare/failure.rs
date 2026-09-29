@@ -35,6 +35,9 @@ pub enum Error {
     Manifest(serde_json::Error),
     /// Search members could not be validated or recorded.
     Search(retrieval::Error),
+    /// The page chrome of a revision an interrupted preparation chunked
+    /// could not be counted again as it resumed.
+    Chrome(maestro_canonicalization::Error),
 }
 
 impl fmt::Display for Error {
@@ -62,6 +65,10 @@ impl fmt::Display for Error {
                 write!(formatter, "the chunk set's manifest is not valid: {error}")
             }
             Self::Search(error) => write!(formatter, "the search projection failed: {error}"),
+            Self::Chrome(error) => write!(
+                formatter,
+                "the chrome of a revision chunked before cannot be counted again: {error}"
+            ),
         }
     }
 }
@@ -75,6 +82,7 @@ impl error::Error for Error {
             Self::Artifacts(error) => Some(error),
             Self::Manifest(error) => Some(error),
             Self::Search(error) => Some(error),
+            Self::Chrome(error) => Some(error),
             Self::NotVisible(_) | Self::Failed(_) | Self::Stopped => None,
         }
     }

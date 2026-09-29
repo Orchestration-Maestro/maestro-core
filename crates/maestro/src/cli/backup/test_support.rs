@@ -1,22 +1,14 @@
+use maestro_test_scratch::scratch_directory;
 use std::{
-    env, fs,
+    fs,
     path::{Path, PathBuf},
-    process,
-    sync::atomic::{AtomicUsize, Ordering},
 };
 
 pub(super) struct Scratch(PathBuf);
 
 impl Scratch {
-    pub(super) fn new(name: &str) -> Self {
-        static NEXT: AtomicUsize = AtomicUsize::new(0);
-        let path = env::temp_dir().join(format!(
-            "maestro-backup-{name}-{}-{}",
-            process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
-        fs::create_dir_all(&path).unwrap();
-        Self(path)
+    pub(super) fn new(_name: &str) -> Self {
+        Self(scratch_directory().unwrap())
     }
 
     pub(super) fn path(&self) -> &Path {

@@ -5,17 +5,20 @@
 
 mod compare;
 mod degraded;
+mod delivered;
 mod documents;
 mod failures;
 mod groups;
 mod intervals;
 mod ladder;
+mod ladder_languages;
 mod ladder_resolve;
 mod ladder_rows;
 mod ladder_spans;
 mod metrics;
 mod ranking;
 mod report;
+mod reranker_health;
 mod run;
 mod support;
 mod v2;

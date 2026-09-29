@@ -144,6 +144,30 @@ fn parallel_source_loads_cache_each_unique_authorized_revision_once() {
 }
 
 #[test]
+fn parallel_source_loads_keep_a_revision_the_request_already_verified() {
+    let fixture = fixture(&[
+        ("first.md", "# First\n\nThe first source.\n"),
+        ("second.md", "# Second\n\nThe second source.\n"),
+    ]);
+    let first = revision_of(&fixture.database, &fixture.scopes, "first.md");
+    let second = revision_of(&fixture.database, &fixture.scopes, "second.md");
+    let read_control = control();
+    let mut cache = SourceCache::new(&fixture.database, &fixture.scopes, &read_control);
+    cache.load(&first, &fixture.generation).unwrap();
+    fail_revision(&fixture.scratch, &first);
+
+    cache
+        .load_many_with_workers(&[first.clone(), second.clone()], &fixture.generation, 4)
+        .unwrap();
+
+    assert_eq!(
+        cache.get(&first).unwrap().markdown,
+        "# First\n\nThe first source.\n"
+    );
+    assert_eq!(cache.load_counts(&second), Some((1, 1)));
+}
+
+#[test]
 fn parallel_source_load_errors_follow_candidate_order_not_completion_order() {
     let fixture = fixture(&[("guide.md", "# Guide\n\nPrivate source.\n")]);
     let first = revision_of(&fixture.database, &fixture.scopes, "guide.md");

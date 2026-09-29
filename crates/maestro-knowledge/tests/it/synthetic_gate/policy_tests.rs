@@ -5,6 +5,7 @@ use maestro_kernel::{
     gateway::FakeModels,
 };
 use maestro_knowledge::{eval::Report, prepare::RouterTokenizer};
+use maestro_test_scratch::scratch_root;
 use serde_json::json;
 use std::{env, error::Error, fs};
 
@@ -15,7 +16,7 @@ use super::{
 #[test]
 fn synthetic_inference_requires_unchanged_native_tokenizer_canaries() -> Result<(), Box<dyn Error>>
 {
-    let root = TestDirectory::new("maestro-synthetic-card")?;
+    let root = TestDirectory::new()?;
     let store = Store::new(&root.path);
     let card = SyntheticModels::card(&store).unwrap();
     assert!(RouterTokenizer::qualify(FakeModels, card.clone()).is_err());
@@ -37,6 +38,7 @@ fn pipeline_uses_fake_qdrant_for_import_quality_prepare_publish_and_evaluation()
     let public = public_output(&output).unwrap();
     assert!(!public.contains(env!("CARGO_MANIFEST_DIR")));
     assert!(!public.contains(env::temp_dir().to_string_lossy().as_ref()));
+    assert!(!public.contains(scratch_root().unwrap().to_string_lossy().as_ref()));
     if let Some(home) = env::var_os("HOME") {
         assert!(!public.contains(home.to_string_lossy().as_ref()));
     }
@@ -57,7 +59,7 @@ fn a_dead_qdrant_endpoint_fails_at_the_first_dense_query() {
 fn baseline_files_are_strict_and_quality_regressions_fail() -> Result<(), Box<dyn Error>> {
     let baseline_report = report([1.0, 1.0, 1.0, 1.0, 1.0, 0.0], 1).unwrap();
     let worse = report([0.0, 1.0, 1.0, 1.0, 1.0, 0.0], 2).unwrap();
-    let directory = TestDirectory::new("maestro-synthetic-baseline")?;
+    let directory = TestDirectory::new()?;
     let path = directory.path.join("baseline.json");
     let bytes = serde_json::to_vec(&baseline_report).unwrap();
     fs::write(&path, &bytes).unwrap();

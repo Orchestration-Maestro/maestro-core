@@ -2,7 +2,8 @@
 //! action, then what it found but must not touch. It neither creates nor
 //! migrates the kernel, and deletes nothing; once the kernel's database
 //! opens, it applies `config.toml`'s grants, as every command does. It exits
-//! 0 when every check passed, and 1 when one failed.
+//! 0 when no check failed, a check that cannot run yet included, and 1 when
+//! one failed.
 
 use super::{
     check::Check,
@@ -12,10 +13,12 @@ use super::{
         QDRANT_VARIABLE, ROUTER_VARIABLE, card_checks, qdrant_check, qdrant_url, router_check,
         router_url,
     },
+    settings::settings_check,
 };
 use crate::{
     cli::{output::Output, setup},
     failure::Failure,
+    settings::Session,
 };
 use maestro_kernel::paths::{self, Environment};
 use serde::Serialize;
@@ -57,26 +60,31 @@ struct CheckDocument<'a> {
     target: &'a str,
     /// Whether it passed.
     passed: bool,
+    /// Whether it ran: `false` for a check that cannot run yet, which
+    /// neither passed nor failed.
+    checked: bool,
     /// What it saw, or what is wrong.
     detail: &'a str,
     /// The next action, when it failed.
     next_action: Option<&'a str>,
 }
 
-/// Runs every check, then prints them with what doctor found but must not
-/// touch, and exits 1 when a check failed.
+/// Runs every check, the settings' with the `--set` flags `flags`, then
+/// prints them with what doctor found but must not touch, and exits 1 when
+/// a check failed.
 ///
 /// # Errors
 ///
 /// [`Failure::Failed`] when the kernel's directories cannot be resolved, or
 /// its database, once it opened, cannot be read.
-pub(in crate::cli) fn run(output: Output) -> Result<ExitCode, Failure> {
+pub(in crate::cli) fn run(output: Output, flags: &[String]) -> Result<ExitCode, Failure> {
     let environment = Environment::current();
     let data = paths::data_dir(&environment).map_err(|error| Failure::failed_by(&error))?;
     let config_dir = paths::config_dir(&environment).map_err(|error| Failure::failed_by(&error))?;
     let (config, read) = config_check(&config_dir);
     let (database, opened) = database_check(&data, read.as_ref());
-    let mut checks = vec![config, bindings_check(&config_dir), database];
+    let settings = settings_check(&config_dir, Session::for_cli(flags));
+    let mut checks = vec![config, settings, bindings_check(&config_dir), database];
     checks.push(artifacts_check(&data, opened.as_ref()));
     checks.push(qdrant_check(
         &qdrant_url(env::var_os(QDRANT_VARIABLE).as_deref()),
@@ -108,13 +116,11 @@ pub(in crate::cli) fn run(output: Output) -> Result<ExitCode, Failure> {
             .collect(),
         _ => Vec::new(),
     };
-    let failed = checks.iter().filter(|check| check.next().is_some()).count();
     let text = text(
         &checks,
         &untouched,
         (&database_temporaries, database_temporary_warning),
         &unreached,
-        failed,
     );
     let document = DoctorDocument {
         schema: SCHEMA,
@@ -125,11 +131,21 @@ pub(in crate::cli) fn run(output: Output) -> Result<ExitCode, Failure> {
         unreached_grants: unreached,
     };
     output.result(&document, &text)?;
-    Ok(if failed == 0 {
+    Ok(exit_code(&checks))
+}
+
+/// 0 when no check failed, a check that cannot run yet included; else 1.
+pub(super) fn exit_code(checks: &[Check]) -> ExitCode {
+    if failures(checks) == 0 {
         ExitCode::SUCCESS
     } else {
         ExitCode::from(1)
-    })
+    }
+}
+
+/// How many checks failed.
+fn failures(checks: &[Check]) -> usize {
+    checks.iter().filter(|check| check.next().is_some()).count()
 }
 
 /// `check` as the document prints it.
@@ -137,7 +153,8 @@ fn check_document(check: &Check) -> CheckDocument<'_> {
     CheckDocument {
         name: check.name,
         target: &check.target,
-        passed: check.next().is_none(),
+        passed: check.is_checked() && check.next().is_none(),
+        checked: check.is_checked(),
         detail: check.detail(),
         next_action: check.next(),
     }
@@ -145,18 +162,22 @@ fn check_document(check: &Check) -> CheckDocument<'_> {
 
 /// The report for people: each check on a line, a failure's next action on
 /// the line below it, then database temporaries, what doctor left untouched,
-/// the grants that reach nothing, and how many checks failed.
-fn text(
+/// the grants that reach nothing, and how many checks failed or could not
+/// run yet.
+pub(super) fn text(
     checks: &[Check],
     untouched: &[String],
     temporary_names: (&[String], Option<&str>),
     unreached: &[String],
-    failed: usize,
 ) -> String {
     let (database_temporaries, database_temporary_warning) = temporary_names;
     let mut lines = Vec::new();
     for check in checks {
-        let verdict = if check.next().is_some() { "FAIL" } else { "ok" };
+        let verdict = match (check.is_checked(), check.next()) {
+            (false, _) => "skip",
+            (true, Some(_)) => "FAIL",
+            (true, None) => "ok",
+        };
         lines.push(format!(
             "{verdict:<5} {:<10} {}: {}",
             check.name,
@@ -183,10 +204,15 @@ fn text(
             unreached.join(", ")
         ));
     }
-    lines.push(if failed == 0 {
-        "Every check passed.".to_owned()
-    } else {
-        format!("{failed} of {} checks failed.", checks.len())
+    let failed = failures(checks);
+    let unchecked = checks.iter().filter(|check| !check.is_checked()).count();
+    lines.push(match (failed, unchecked) {
+        (0, 0) => "Every check passed.".to_owned(),
+        (0, _) => format!(
+            "No check failed; {unchecked} of {} are not checked yet.",
+            checks.len()
+        ),
+        _ => format!("{failed} of {} checks failed.", checks.len()),
     });
     lines.join("\n")
 }

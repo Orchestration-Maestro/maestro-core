@@ -430,7 +430,16 @@ provenance.
 
 ## 7. L5 Chunking
 
-Profile `mapped-structural-chunks/1` from the existing crate:
+The global default is `mapped-structural-chunks/3` for a collection with no
+published generation; it leaves page chrome out of indexed text and keeps a
+section's introductions, steps, code and tables together. Once a generation is
+published, its chunk-set profile is the default for prepare and publish, even
+when another profile has a newer complete set. This pin prevents routine
+refreshes or publish-only commands from switching profiles. Explicit
+`--chunk-profile` overrides the pin; `--chunk-set` selects that exact set.
+Publish without `--chunk-set` chooses the latest complete set of the pinned
+profile, or of the global default when there is no published generation.
+`mapped-structural-chunks/2` remains selectable and indexes page chrome:
 
 - Structural units (sections, then blocks); **target 500 and hard maximum 700
   tokens of the complete prepared input**: context parts (title, heading path),
@@ -631,8 +640,8 @@ separate budgets; interactive work has priority over ingestion.
 maestro knowledge collection add <collection.json>
 maestro knowledge import   --collection <collection-id> [--again]
 maestro knowledge quality  --collection <collection-id>
-maestro knowledge prepare  --collection <collection-id> --card <card-id>
-maestro knowledge publish  --collection <collection-id> --card <card-id> [--chunk-set <id>]
+maestro knowledge prepare  --collection <collection-id> --card <card-id> [--chunk-profile <profile>]
+maestro knowledge publish  --collection <collection-id> --card <card-id> [--chunk-set <id> | --chunk-profile <profile>]
 maestro knowledge status   --collection <collection-id>
 maestro knowledge verify   --collection <collection-id>
 maestro knowledge sync     --collection <collection-id> [--full]   # S6: acquisition refresh

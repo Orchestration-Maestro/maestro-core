@@ -33,12 +33,13 @@ async fn i4_invalid_gateway_answers_retry_then_refuse_as_unsupported() {
 }
 
 #[tokio::test]
-async fn i8_chat_deadline_expires_after_ten_seconds() {
+async fn i8_chat_deadline_expires_after_twenty_seconds() {
     let scratch = Scratch::new();
     let answerer = scratch.answerer();
     let request = request("How does the service work?");
     let port = ScriptedPort::never_resolves();
     time::pause();
+    let started = time::Instant::now();
 
     let result = answer_bundle(
         &port,
@@ -55,6 +56,11 @@ async fn i8_chat_deadline_expires_after_ten_seconds() {
 
     assert!(matches!(result, Err(AskError::TimedOut)));
     assert_eq!(port.calls.load(Ordering::Relaxed), 1);
+    // A cold answerer loads and thinks through 1024 tokens in about 10 s
+    // under load; the cap leaves it twice that.
+    let elapsed = started.elapsed();
+    assert!(elapsed >= time::Duration::from_secs(20), "{elapsed:?}");
+    assert!(elapsed < time::Duration::from_secs(21), "{elapsed:?}");
 }
 
 #[tokio::test]

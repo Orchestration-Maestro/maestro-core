@@ -3,17 +3,16 @@
 //! nothing answers at, and a failed check's parts.
 
 use super::super::check::{Check, Outcome};
+use maestro_test_scratch::scratch_directory;
 use qdrant_client::qdrant::{
     HealthCheckReply, HealthCheckRequest,
     qdrant_server::{Qdrant as QdrantService, QdrantServer},
 };
 use std::{
-    env, fs,
+    fs,
     io::{BufRead as _, BufReader, Write as _},
     net::TcpListener,
     path::PathBuf,
-    process,
-    sync::atomic::{AtomicUsize, Ordering},
     thread,
 };
 use tokio::runtime::Builder;
@@ -29,12 +28,7 @@ pub(super) struct Scratch(PathBuf);
 
 impl Scratch {
     pub(super) fn new() -> Self {
-        static NEXT: AtomicUsize = AtomicUsize::new(0);
-        let path = env::temp_dir().join(format!(
-            "maestro-cli-health-{}-{}",
-            process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
+        let path = scratch_directory().unwrap();
         fs::create_dir_all(path.join("data")).unwrap();
         fs::create_dir_all(path.join("config")).unwrap();
         Self(path)
@@ -130,6 +124,7 @@ pub(super) fn failure(check: &Check) -> (&str, &str) {
     match &check.outcome {
         Outcome::Failed { problem, next } => (problem, next),
         Outcome::Passed(detail) => panic!("{} passed: {detail}", check.name),
+        Outcome::NotChecked(reason) => panic!("{} not checked: {reason}", check.name),
     }
 }
 
@@ -138,5 +133,6 @@ pub(super) fn detail(check: &Check) -> &str {
     match &check.outcome {
         Outcome::Passed(detail) => detail,
         Outcome::Failed { problem, .. } => panic!("{} failed: {problem}", check.name),
+        Outcome::NotChecked(reason) => panic!("{} not checked: {reason}", check.name),
     }
 }

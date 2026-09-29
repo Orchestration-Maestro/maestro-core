@@ -4,6 +4,15 @@ use super::types::{EvidenceCounter, EvidenceError};
 use maestro_kernel::evidence::Passage;
 use std::{error, fmt};
 
+/// The answer-bound wire's allowance above the budget, in bytes, for the
+/// passage JSON the answerer never reads: section, document and revision
+/// IDs, source reference, span, digest, window flag and alternates. With
+/// digest IDs and a 100-byte URL that is about 520 bytes a passage and 105
+/// an alternate, so about ten passages fit. It is the room the former fixed
+/// 12,000-byte ceiling left above the default 6,000-byte budget, which keeps
+/// the default's selection unchanged.
+const EVIDENCE_WIRE_ALLOWANCE: usize = 6_000;
+
 /// The counter identity and estimate flag written into the bundle.
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) struct CounterInfo {
@@ -61,6 +70,10 @@ pub(crate) fn counter_info(counter: &EvidenceCounter) -> Result<CounterInfo, Cou
             counter: Some("evidence-utf8-bytes/1".to_owned()),
             estimated: true,
         }),
+        EvidenceCounter::AnswerBoundUtf8Bytes => Ok(CounterInfo {
+            counter: Some("evidence-answer-bound-utf8-bytes/1".to_owned()),
+            estimated: true,
+        }),
         EvidenceCounter::Exact(counter) => {
             let contract = counter.contract_id();
             if contract.trim().is_empty() {
@@ -92,11 +105,23 @@ pub(crate) fn verify_counter(
     Ok(())
 }
 
-/// Counts the compact JSON serialization of a complete passage trial.
+/// The largest compact passage JSON, in bytes, that an answer-bound trial
+/// under a `evidence_bytes` budget may serialize to: the budget plus
+/// [`EVIDENCE_WIRE_ALLOWANCE`], so 12,000 at the default 6,000, 18,000 at
+/// 12,000 and 30,000 at the 24,000 ceiling.
+pub(crate) fn evidence_wire_ceiling(evidence_bytes: u32) -> usize {
+    usize::try_from(evidence_bytes).map_or(usize::MAX, |budget| {
+        budget.saturating_add(EVIDENCE_WIRE_ALLOWANCE)
+    })
+}
+
+/// Counts the compact JSON serialization of a complete passage trial under
+/// a `evidence_bytes` budget.
 pub(crate) fn count_passages(
     passages: &[Passage],
     counter: &EvidenceCounter,
     info: &CounterInfo,
+    evidence_bytes: u32,
 ) -> Result<u32, CounterError> {
     if &counter_info(counter)? != info {
         return Err(CounterError::Invalid(
@@ -107,14 +132,39 @@ pub(crate) fn count_passages(
         return Ok(0);
     }
     let serialized = serialized_passages(passages)?;
+    if matches!(counter, EvidenceCounter::AnswerBoundUtf8Bytes)
+        && serialized.len() > evidence_wire_ceiling(evidence_bytes)
+    {
+        // Admitted budgets are below this sentinel: try a smaller source window.
+        return Ok(u32::MAX);
+    }
     let count = match counter {
         EvidenceCounter::Utf8Bytes => serialized.len(),
+        EvidenceCounter::AnswerBoundUtf8Bytes => answer_bound_passages(passages)?.len(),
         EvidenceCounter::Exact(counter) => counter
             .token_ids(&serialized)
             .map_err(CounterError::Counter)?
             .len(),
     };
     u32::try_from(count).map_err(|_| CounterError::Invalid("evidence token count exceeds u32"))
+}
+
+/// Serializes the answer-bound fields, excluding provenance and wire metadata.
+fn answer_bound_passages(passages: &[Passage]) -> Result<String, CounterError> {
+    let answer_bound = passages
+        .iter()
+        .map(|passage| {
+            serde_json::json!({
+                "n": passage.n,
+                "title": passage.title,
+                "section_path": passage.section_path,
+                "text": passage.text,
+            })
+        })
+        .collect::<Vec<_>>();
+    serde_json::to_string(&answer_bound)
+        .map(|text| text.replace('<', "\\u003c").replace('>', "\\u003e"))
+        .map_err(CounterError::Json)
 }
 
 /// Serializes only passages, the evidence budget's counted input.

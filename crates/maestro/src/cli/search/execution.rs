@@ -11,10 +11,14 @@ use crate::{
         RequestError, SearchRequest,
         operations::{KnowledgeError, ensure_current_scopes, search_with},
     },
+    settings::KnowledgeSettings,
 };
-use maestro_kernel::gateway::RouterClient;
-use maestro_knowledge::index::Qdrant;
-use std::{env, process::ExitCode};
+use maestro_kernel::{evidence::Bundle, gateway::RouterClient, scope::ScopeSet, store::Database};
+use maestro_knowledge::{
+    index::Qdrant,
+    search::{SourceClassifier, classify_revision},
+};
+use std::{collections::BTreeMap, env, process::ExitCode};
 use tokio::{runtime::Builder, time::Instant};
 
 /// Builds the configured model-router and Qdrant clients without contacting either service.
@@ -27,8 +31,13 @@ pub(in crate::cli) fn ports() -> Result<(RouterClient, Qdrant), Failure> {
     Ok((router, qdrant))
 }
 
-/// Executes one search and prints the same bundle returned by MCP.
-pub(in crate::cli) fn run(output: Output, request: &SearchRequest) -> Result<ExitCode, Failure> {
+/// Executes one search under `settings` and prints the same bundle returned
+/// by MCP.
+pub(in crate::cli) fn run(
+    output: Output,
+    request: &SearchRequest,
+    settings: &KnowledgeSettings,
+) -> Result<ExitCode, Failure> {
     let kernel = match Kernel::open() {
         Ok(kernel) => kernel,
         Err(Failure::Refused(_)) => {
@@ -79,7 +88,7 @@ pub(in crate::cli) fn run(output: Output, request: &SearchRequest) -> Result<Exi
         .enable_all()
         .build()
         .map_err(|_| Failure::failed("could not start the search runtime"))?;
-    match runtime.block_on(search_with(kernel, request, &model_port, &qdrant)) {
+    match runtime.block_on(search_with(kernel, request, settings, &model_port, &qdrant)) {
         Ok(mut scoped) => {
             let deadline = scoped.data.deadline;
             if Instant::now() >= deadline {
@@ -89,7 +98,17 @@ pub(in crate::cli) fn run(output: Output, request: &SearchRequest) -> Result<Exi
             if Instant::now() >= deadline {
                 return deadline_error(output);
             }
-            let text = search_text(&scoped.data.bundle, &document);
+            let labels = if output.is_json() {
+                BTreeMap::new()
+            } else {
+                passage_labels(
+                    scoped.data.source_classes.as_deref(),
+                    &scoped.data.bundle,
+                    &scoped.kernel.database,
+                    &scoped.scopes,
+                )
+            };
+            let text = search_text(&scoped.data.bundle, &document, &labels);
             ensure_current_scopes(&mut scoped.kernel, &scoped.scopes).map_err(knowledge_failure)?;
             if Instant::now() >= deadline {
                 return deadline_error(output);
@@ -141,4 +160,25 @@ fn knowledge_failure(error: KnowledgeError) -> Failure {
         KnowledgeError::Refused { message, .. } => Failure::refused(message),
         KnowledgeError::Failed { message, .. } => Failure::failed(message),
     }
+}
+
+/// The source label of each classified passage document of `bundle`, by
+/// id, read through `scopes`; none without a source classifier.
+pub(super) fn passage_labels(
+    classifier: Option<&dyn SourceClassifier>,
+    bundle: &Bundle,
+    database: &Database,
+    scopes: &ScopeSet,
+) -> BTreeMap<String, String> {
+    let Some(classifier) = classifier else {
+        return BTreeMap::new();
+    };
+    bundle
+        .passages
+        .iter()
+        .filter_map(|passage| {
+            classify_revision(classifier, database, scopes, &passage.revision_id)
+                .map(|found| (passage.document_id.clone(), found.label))
+        })
+        .collect()
 }

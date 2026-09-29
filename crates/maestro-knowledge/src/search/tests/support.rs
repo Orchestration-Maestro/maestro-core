@@ -1,5 +1,6 @@
 //! Scratch kernel records for the bounded candidate handoff.
 
+use crate::search::SearchConfiguration;
 use crate::search::{candidates, fusion::Fused};
 use maestro_kernel::{
     artifact::Digest,
@@ -10,12 +11,12 @@ use maestro_kernel::{
     scope::{Right, Scope, ScopeSet},
     store::Database,
 };
+use maestro_test_scratch::scratch_directory;
 use serde_json::{Map, Value};
 use std::{
     collections::{BTreeMap, HashMap},
-    env, fs,
+    fs,
     path::PathBuf,
-    process,
     sync::{
         Arc,
         atomic::{AtomicUsize, Ordering},
@@ -91,8 +92,12 @@ impl CandidateDb {
                 score: 1.0,
                 ranks: BTreeMap::new(),
             }],
+            configuration: SearchConfiguration::default(),
+            query: "query".to_owned(),
+            source_classes: None,
             expected_revisions: HashMap::from([(chunk_id.to_owned(), expected_revisions)]),
             deadline: Instant::now() + Duration::from_secs(2),
+            context_deadline: Instant::now() + Duration::from_secs(2),
         }
     }
 
@@ -218,13 +223,7 @@ struct Scratch(PathBuf);
 
 impl Scratch {
     fn new() -> Self {
-        let path = env::temp_dir().join(format!(
-            "maestro-search-candidate-{}-{}",
-            process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
-        fs::create_dir(&path).unwrap();
-        Self(path)
+        Self(scratch_directory().unwrap())
     }
 }
 

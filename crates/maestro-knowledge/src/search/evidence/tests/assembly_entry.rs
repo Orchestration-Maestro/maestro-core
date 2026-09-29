@@ -1,11 +1,11 @@
-use super::super::{EvidenceCounter, EvidenceError, assemble_evidence};
+use super::super::{CounterMode, EvidenceCounter, EvidenceError, assemble_evidence};
 use super::support::{evidence_input, fixture};
 use crate::{
     query::{Family, Identifier},
     search::{EvidenceInput, Route},
 };
 use maestro_kernel::{evidence::RouteStatus, store::Database, telemetry::stage::Outcome};
-use std::{num::NonZeroU32, sync::Arc};
+use std::{fmt::Write as _, num::NonZeroU32, sync::Arc};
 
 type InvalidCase = (&'static str, fn(&mut EvidenceInput), &'static str);
 
@@ -34,6 +34,7 @@ async fn accepts_handoff_fields_at_their_exact_text_and_candidate_limits() {
             candidate
         })
         .collect();
+    input.budget.evidence_bytes = 24_000;
     input.understood.identifiers = (0..64)
         .map(|index| Identifier {
             family: Family::ErrorCode,
@@ -50,6 +51,40 @@ async fn accepts_handoff_fields_at_their_exact_text_and_candidate_limits() {
     .unwrap();
 
     assert!(bundle.passages.is_empty());
+    assert_eq!(bundle.budget.limit, 24_000);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_24000_byte_answer_bound_budget_delivers_past_the_former_12000_byte_wire() {
+    let mut guide = "# Guide\n\n".to_owned();
+    for step in 1..=8 {
+        write!(guide, "## Step {step}\n\n").unwrap();
+        for index in 0..40 {
+            write!(
+                guide,
+                "Step {step} sets agent option o{step}x{index} to {index}. "
+            )
+            .unwrap();
+        }
+        guide.push_str("\n\n");
+    }
+    let fixture = fixture(&[("guide.md", &guide)]);
+    let mut input = evidence_input(&fixture, "How are the agent options set?");
+    input.evidence.evidence_counter = CounterMode::Utf8AnswerBound;
+    input.budget.evidence_bytes = 24_000;
+
+    let bundle = assemble_evidence(
+        Arc::new(fixture.database),
+        input,
+        EvidenceCounter::AnswerBoundUtf8Bytes,
+    )
+    .await
+    .unwrap();
+
+    let wire = serde_json::to_string(&bundle.passages).unwrap().len();
+    assert!(wire > 12_000, "{wire}");
+    assert!(bundle.budget.evidence_bytes > 12_000, "{:?}", bundle.budget);
+    assert_eq!(bundle.budget.limit, 24_000);
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -64,6 +99,38 @@ async fn rejects_each_invalid_handoff_field_at_the_public_entry_point() {
     for (name, change, expected_reason) in invalid_cases() {
         assert_invalid_case(&database, &base, name, change, expected_reason).await;
     }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn refuses_a_counter_other_than_the_configured_evidence_counter() {
+    let fixture = fixture(&[("guide.md", "# Guide\n\nA source passage.\n")]);
+    let base = evidence_input(&fixture, "What does the guide document say?");
+    let database = Arc::new(fixture.database);
+    let mismatches = [
+        (CounterMode::Utf8AnswerBound, EvidenceCounter::Utf8Bytes),
+        (CounterMode::Exact, EvidenceCounter::Utf8Bytes),
+        (CounterMode::Utf8, EvidenceCounter::AnswerBoundUtf8Bytes),
+    ];
+    for (setting, counter) in mismatches {
+        let mut input = base.clone();
+        input.evidence.evidence_counter = setting;
+        let error = assemble_evidence(database.clone(), input, counter)
+            .await
+            .unwrap_err();
+        assert!(
+            matches!(
+                &error,
+                EvidenceError::InvalidRequest(reason)
+                    if reason == "evidence counter differs from the configured evidence_counter"
+            ),
+            "{setting:?}: {error:?}"
+        );
+    }
+    let mut input = base;
+    input.evidence.evidence_counter = CounterMode::Utf8AnswerBound;
+    assemble_evidence(database, input, EvidenceCounter::AnswerBoundUtf8Bytes)
+        .await
+        .expect("the configured counter is accepted");
 }
 
 async fn assert_invalid_case(
@@ -167,12 +234,12 @@ fn request_bound_cases() -> Vec<InvalidCase> {
         ),
         (
             "zero token budget",
-            |input| input.budget.max_tokens = 0,
+            |input| input.budget.evidence_bytes = 0,
             BOUNDS_ERROR,
         ),
         (
-            "token budget over 12000",
-            |input| input.budget.max_tokens = 12001,
+            "token budget over 24000",
+            |input| input.budget.evidence_bytes = 24_001,
             BOUNDS_ERROR,
         ),
         (
@@ -181,8 +248,8 @@ fn request_bound_cases() -> Vec<InvalidCase> {
             BOUNDS_ERROR,
         ),
         (
-            "deadline budget over 10000",
-            |input| input.budget.deadline_ms = 10001,
+            "deadline budget over 30000",
+            |input| input.budget.deadline_ms = 30001,
             BOUNDS_ERROR,
         ),
         (

@@ -1,6 +1,21 @@
 //! End-to-end selection and retry of journaled publication attempts.
 
 use super::*;
+use maestro_knowledge::index::Error as IndexError;
+
+#[test]
+fn only_a_lost_collection_outside_a_recovery_names_the_command_that_recovers_it() {
+    let lost = IndexError::MissingCollection("points".to_owned());
+    let stopped = IndexError::Stopped;
+    let hint = "; recover explicitly with `again`";
+
+    assert_eq!(
+        publish::failure_message(&lost, false, "again"),
+        format!("{lost}{hint}")
+    );
+    assert!(!publish::failure_message(&lost, true, "again").contains(hint));
+    assert!(!publish::failure_message(&stopped, false, "again").contains(hint));
+}
 
 #[test]
 fn selected_inputs_does_not_adopt_a_failed_job_with_a_different_frozen_tuple() {

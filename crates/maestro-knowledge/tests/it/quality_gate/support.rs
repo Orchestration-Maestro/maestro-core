@@ -12,14 +12,12 @@ use maestro_kernel::{
     store::Database,
 };
 use maestro_knowledge::{collection::Declaration, import};
+use maestro_test_scratch::scratch_directory;
 use serde_json::{Value, json};
 use std::{
-    env,
     fmt::Write as _,
     fs,
     path::{Path, PathBuf},
-    process,
-    sync::atomic::{AtomicUsize, Ordering},
 };
 
 /// Who the gate names as the decider of what its checks decide.
@@ -52,12 +50,7 @@ pub(super) struct Scratch(PathBuf);
 impl Scratch {
     /// A directory of its own for one test.
     pub(super) fn new() -> Self {
-        static NEXT: AtomicUsize = AtomicUsize::new(0);
-        let path = env::temp_dir().join(format!(
-            "maestro-knowledge-quality-{}-{}",
-            process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
+        let path = scratch_directory().unwrap();
         fs::create_dir_all(path.join("corpus")).unwrap();
         Self(path)
     }

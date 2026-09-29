@@ -113,9 +113,10 @@ that win each role.
 **Why this priority**: every later choice (models, fusion weights, the graph)
 depends on a trustworthy measurement.
 
-**Independent Test**: `maestro eval run ctm-retrieval` produces a report with
-per-question results, metrics with confidence intervals and latency; the bake-off
-report names a winner per role with its model card.
+**Independent Test**: `maestro eval ladder --manifest <manifest>` runs every rung
+over the suite and writes, per rung, per-question rows, metrics against their
+floors and latency, then a comparison across rungs; the bake-off receipts name
+a winner per role with its model card.
 
 **Acceptance Scenarios**:
 
@@ -342,20 +343,120 @@ collections and generations are ready and how to fix what is not.
 ## Traceability
 
 [08](../../docs/architecture/08-traceability.md) records design dispositions;
-those statuses are not delivery evidence. The earlier aggregate claim that S1
-touches 94 rows has not been reconciled into an approved row inventory (for
-example, §11.3 contains ten rows, not the previously counted nine). Current
-integrated examples are `9c21827` (grouped evaluation labels count once),
-`25bbc47` (stable dense and lexical ties), and `d30573d` (the synthetic
-retrieval regression gate). These commits are examples, not a complete map or a
-claim that all 94 rows are delivered.
+those statuses are not delivery evidence. The 94 rows listed below are the
+rows S1 answers for: 93 delivered in whole or in part, and row 53 kept as a
+visible deferral (owner-approved keys, 2026-09-28, MR-07). A key is the
+numbered 08 section and the row's exact first cell; the same ID in
+two sections is two rows. The list reconciles the earlier aggregate of 94 by
+section rather than assuming it: §11.3 contributes 9 of its 10 rows
+(`rag.N011 techniques` was not tested in S1), §12 contributes 11, and §15
+contributes A4, A5, A7, A9 and A14 besides A1, A6, A22 and A26. Row 53,
+`rag.N016 agent`, delivers nothing in S1 and stays so that its deferral to S2
+is visible.
 
-T039 owns the owner-approved exact row keys, each delivered portion and its
-task, integrated code/test evidence, and named remaining slice. Its check must
-reject missing, duplicate, or extra keys. Until that map is approved and
-completed, this spec makes no complete 94-row delivery claim. Each FR-S1 and
+[08 §20.4](../../docs/architecture/08-traceability.md#204-approved-s1-row-keys)
+maps each key to its delivered portion, tasks, commits, tests and named
+remaining slice; `crates/maestro-conventions/tests/s1_traceability/` refuses a
+missing, duplicate or extra key in this list or in that map. Each FR-S1 and
 SC-S1 item is mapped to its commits and tests, or marked open with its owner,
 in [08 §20](../../docs/architecture/08-traceability.md#20-s1-delivery-evidence).
+
+| # | Section | Row |
+| ---: | --- | --- |
+| 1 | §3 | `owner.m001.llamacpp` |
+| 2 | §3 | `owner.m058` |
+| 3 | §3 | `owner.n007` |
+| 4 | §3 | `owner.n020` |
+| 5 | §3 | `owner.n029, n065` |
+| 6 | §3 | `owner.n031` |
+| 7 | §3 | `owner.n047, n053` |
+| 8 | §3 | `owner.n062` |
+| 9 | §3 | `owner.session` |
+| 10 | §10 | `chat.M048, M057 layers, delivery.§6.1` |
+| 11 | §10 | `chat.M048 tools` |
+| 12 | §10 | `chat.M057 CI` |
+| 13 | §10 | `chat.M059 streams` |
+| 14 | §10 | `chat.M059 provenance` |
+| 15 | §10 | `chat.M059 pitfalls` |
+| 16 | §10 | `chat.M059 tracing` |
+| 17 | §10 | `chat.M059 benchmarks` |
+| 18 | §10 | `chat.M059 capitalize B–H` |
+| 19 | §11.1 | `rag.N011 two circuits` |
+| 20 | §11.1 | `ingest scope` |
+| 21 | §11.1 | `rag.N046 filter` |
+| 22 | §11.1 | `product.CD2` |
+| 23 | §11.2 | `rag.N052 quality` |
+| 24 | §11.3 | `rag.N054–N056` |
+| 25 | §11.3 | `rag.N060 A01–A34` |
+| 26 | §11.3 | `rag.N038 dedup` |
+| 27 | §11.3 | `rag.N060 near-dup` |
+| 28 | §11.3 | `rag.N060 B01–B13` |
+| 29 | §11.3 | `rag.N052 chunk policy` |
+| 30 | §11.3 | `rag.N011 sizes` |
+| 31 | §11.3 | `rag.N064 tokenizer` |
+| 32 | §11.3 | `rag.N067 contracts` |
+| 33 | §11.4 | `rag.N070 EmbeddingProfile` |
+| 34 | §11.4 | `rag.N070 Bm25Profile` |
+| 35 | §11.4 | `rag.N070 index` |
+| 36 | §11.4 | `rag.N070 publication` |
+| 37 | §11.4 | `rag.N070 diagnostics` |
+| 38 | §11.4 | `rag.N038 statistics` |
+| 39 | §11.4 | `rag.N011, N016 automation` |
+| 40 | §11.4 | `rag.N052 recompute` |
+| 41 | §11.4 | `rag.N075 first deliverable` |
+| 42 | §11.5 | `rag.N038 context` |
+| 43 | §11.5 | `rag.N038 identity dedup` |
+| 44 | §11.5 | `rag.N038 RRF` |
+| 45 | §11.5 | `rag.N038 budgets` |
+| 46 | §11.5 | `rag.N038 rerank` |
+| 47 | §11.5 | `rag.N038 context dedup` |
+| 48 | §11.5 | `rag.N038 EvidenceBundle` |
+| 49 | §11.5 | `rag.N038 answer` |
+| 50 | §11.5 | `rag.N038 degradation` |
+| 51 | §11.5 | `rag.N016 interfaces` |
+| 52 | §11.5 | `rag.N016 tools` |
+| 53 | §11.5 | `rag.N016 agent` |
+| 54 | §11.5 | `rag.N016 local` |
+| 55 | §11.5 | `rag.N016 permissions` |
+| 56 | §11.5 | `rag.N011 evaluation` |
+| 57 | §11.5 | `product.CD3` |
+| 58 | §12 | `delivery.U03 (F7–F8)` |
+| 59 | §12 | `delivery.U11 (D2–D3)` |
+| 60 | §12 | `delivery.U13` |
+| 61 | §12 | `delivery.U14` |
+| 62 | §12 | `delivery.U15` |
+| 63 | §12 | `delivery.U16` |
+| 64 | §12 | `delivery.C03 Rust-first, explicit native dependencies, justified Python` |
+| 65 | §12 | `delivery.C14–C16 catalog MCP, shared Qdrant, separate knowledge ACLs` |
+| 66 | §12 | `delivery.C18–C21 layered tests, runner, real controls, honest tiers` |
+| 67 | §12 | `delivery.C22–C24 telemetry streams, coverage, units` |
+| 68 | §12 | `delivery.C25–C29 provider qualification, benchmarks, corpus, taxonomy, promotion loop` |
+| 69 | §6 | `chat.M059 model profile` |
+| 70 | §6 | `chat.M059 capitalize A` |
+| 71 | §6 | `rag.N075 profiles` |
+| 72 | §7 | `chat.M006 audit` |
+| 73 | §8 | `chat.M031 separation` |
+| 74 | §9 | `chat.M006 CLI` |
+| 75 | §9 | `product.GD2, GD4, GD5` |
+| 76 | §11.6 | `rag.N023 roles` |
+| 77 | §11.6 | `rag.N052 publication` |
+| 78 | §13.2 | `product.CD2` |
+| 79 | §13.2 | `product.CD3` |
+| 80 | §13.2 | `product.GD1–GD5` |
+| 81 | §14 | `core storage` |
+| 82 | §14 | `core scale` |
+| 83 | §14 | `core native` |
+| 84 | §14 | `core baseline` |
+| 85 | §15 | `A1` |
+| 86 | §15 | `A4` |
+| 87 | §15 | `A5` |
+| 88 | §15 | `A6` |
+| 89 | §15 | `A7` |
+| 90 | §15 | `A9` |
+| 91 | §15 | `A14` |
+| 92 | §15 | `A22` |
+| 93 | §15 | `A26` |
+| 94 | §17 | `Operational bindings: endpoints, accounts, data scopes, exclusion registries, budgets` |
 
 ## Assumptions
 

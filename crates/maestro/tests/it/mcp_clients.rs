@@ -8,7 +8,7 @@ use serde_json::{Value, json};
 use std::io::Write as _;
 
 #[test]
-fn documented_stdio_session_lists_searches_and_asks_on_synthetic_data() {
+fn documented_stdio_session_lists_tools_searches_and_refuses_an_ask_with_an_invalid_model() {
     let home = Home::new();
     published_glossary(&home, SET_ID, (0, None));
     let (child, mut input) = home.start_with_stdin(&["mcp"]);

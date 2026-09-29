@@ -170,6 +170,37 @@ documents. At 120 documents the p95 is 1.41 to 1.42 s, which leaves under
 rest of a search, 80 is the deepest measured depth that fits. The ladder
 measures again on the real corpus, so 80 is where it starts, not a setting.
 
+**T037 outcome:** on the real corpus, depth 80 did not finish inside the
+1.5 s search budget in ladder run 1, and depth 30 won (run 3: top-10 81/84,
+top-1 69/84, search p95 0.76 s). The default depth is now 30.
+
+**Cold start (owner, 2026-09-28; reserve updated 2026-09-29):** a deadline is
+a safety cap, not a quality cutoff. Search and ask default to a 30 s deadline;
+SC-S1-004's 1.5 s remains the warm p95 target. A cold search can serialize
+embedder and reranker admission at the router. The setup/rerank cutoff now
+leaves evidence assembly the larger of two assembly windows or a tenth of the
+request deadline, plus the T032 reserve. This is 650 ms at 1.5 s and 3.05 s
+at 30 s. After a late reranker, the reserve pays for candidate loading, the
+permission recheck and evidence assembly. Under a load average near 19, each
+model load took 2.4-5.3 s; on 2026-09-29 the scratch router loaded the
+embedder in 3.2 s and the 8B reranker in 23.3 s. The CLI returned at 29.918 s
+wall time with rerank degraded, leaving only 82 ms after assembly: the older
+fixed 650 ms reserve was too small under page-cache and model-load pressure.
+The route cutoff still keeps
+a tenth of the deadline, at least 300 ms, before setup (23.95 s of 30 s with
+the new reserve). Under host load, fixed
+300 ms route windows had dropped dense at 301-309 ms with 29 s unused. Below
+about 6 s this route reserve is under the rerank's measured 0.36-0.6 s, so a
+route that runs to its end there costs the rerank instead. A fixed window
+stays as a knob for experiments (`stage_window_ms`). Each answer attempt has
+20 s, the answerer's load included: a cold Qwen3-4B loaded and thought
+through 1,024 tokens in 6.5 s. Every cap stays under 60 s, a common MCP
+client tool timeout. The router client asks for each model before every
+search, so a long-lived MCP server reloads a model the router unloaded while
+idle. Ladder runs search at the default deadline (10 s from the cold-start
+change, 30 s since), and their reports record it; runs 1-3 searched at 1.5 s
+and asked at 6 s.
+
 Measured by T008 on 2026-09-26 on the reference workstation:
 
 | Part | What ran |
@@ -297,6 +328,9 @@ That leaves reranking 1.2 s at p95: **depth 80 fits** (0.90 and 1.13 s) and
 depth 120 does not (1.41 and 1.42 s). The margin at 80 is thin, 70 ms in the
 slower pass. Each pair adds about 11 ms, so each 0.1 s more that retrieval
 needs costs about 9 pairs of depth.
+
+On the real corpus the rest of a search took more than 0.3 s, so depth 80
+overran the budget; T037 set the default to 30 (see the T037 outcome above).
 
 ### On the CPU
 

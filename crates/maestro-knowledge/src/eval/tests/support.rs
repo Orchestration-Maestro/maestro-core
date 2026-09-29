@@ -113,7 +113,7 @@ pub(super) fn bundle_with(hits: &[Hit], routes: &[(&str, Option<&str>)]) -> Bund
         conflicts: Vec::new(),
         known_gaps: Vec::new(),
         budget: Budget {
-            evidence_tokens: 0,
+            evidence_bytes: 0,
             limit: 6000,
             counter: None,
             estimated: false,
@@ -123,6 +123,7 @@ pub(super) fn bundle_with(hits: &[Hit], routes: &[(&str, Option<&str>)]) -> Bund
         trace: hits
             .iter()
             .map(|hit| Trace {
+                parent_context_of: Vec::new(),
                 n: hit.n,
                 score: hit.score,
                 routes: hit.routes.iter().map(|&route| route.to_owned()).collect(),

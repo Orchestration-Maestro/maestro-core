@@ -342,7 +342,7 @@ fn add_observation(graph: &mut ConflictGraph, fact: &FactCandidate<'_>) {
 fn components(graph: &BTreeMap<usize, BTreeSet<usize>>) -> Vec<BTreeSet<usize>> {
     let mut remaining: BTreeSet<_> = graph.keys().copied().collect();
     let mut components = Vec::new();
-    while let Some(start) = remaining.iter().next().copied() {
+    while let Some(start) = remaining.pop_first() {
         let mut pending = vec![start];
         let mut component = BTreeSet::new();
         while let Some(index) = pending.pop() {
@@ -357,4 +357,24 @@ fn components(graph: &BTreeMap<usize, BTreeSet<usize>>) -> Vec<BTreeSet<usize>> 
         components.push(component);
     }
     components
+}
+
+#[cfg(test)]
+mod tests {
+    use super::components;
+    use std::collections::{BTreeMap, BTreeSet};
+
+    #[test]
+    fn conflict_components_are_connected_sets_and_always_consume_the_graph() {
+        let graph = BTreeMap::from([
+            (1, BTreeSet::from([2])),
+            (2, BTreeSet::from([1, 3])),
+            (3, BTreeSet::from([2])),
+            (7, BTreeSet::new()),
+        ]);
+        assert_eq!(
+            components(&graph),
+            [BTreeSet::from([1, 2, 3]), BTreeSet::from([7])]
+        );
+    }
 }

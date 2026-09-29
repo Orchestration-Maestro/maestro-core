@@ -1,5 +1,6 @@
 //! Public evidence request types and their stable error boundary.
 
+use super::super::assembly_settings::{CounterMode, EvidenceSettings, ExpansionMode};
 use maestro_canonicalization::{Error as CanonicalError, TokenCounter};
 use maestro_kernel::{
     chunk_set, document, generation, retrieval, store, telemetry::stage::Outcome,
@@ -8,8 +9,10 @@ use std::{error, fmt, sync::Arc};
 
 /// How the complete serialized passage array is measured.
 pub enum EvidenceCounter {
-    /// Count UTF-8 bytes as an explicitly marked estimate.
+    /// Count UTF-8 bytes of complete serialized passages as an explicitly marked estimate.
     Utf8Bytes,
+    /// Count UTF-8 bytes of the answer-bound passage fields, excluding provenance.
+    AnswerBoundUtf8Bytes,
     /// Count exact token IDs from a verified tokenizer contract.
     Exact(Arc<dyn TokenCounter + Send + Sync>),
 }
@@ -18,10 +21,66 @@ impl fmt::Debug for EvidenceCounter {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Utf8Bytes => formatter.write_str("Utf8Bytes"),
+            Self::AnswerBoundUtf8Bytes => formatter.write_str("AnswerBoundUtf8Bytes"),
             Self::Exact(counter) => formatter
                 .debug_tuple("Exact")
                 .field(&counter.contract_id())
                 .finish(),
+        }
+    }
+}
+
+impl EvidenceSettings {
+    /// Rejects a parent-chain order attached to a legacy expansion strategy.
+    ///
+    /// # Errors
+    /// An explicit order is invalid unless parent-chain expansion is enabled.
+    pub fn validate(self) -> Result<(), EvidenceError> {
+        if self.parent_chain_order.is_some() && self.expansion != ExpansionMode::ParentChain {
+            return Err(EvidenceError::InvalidRequest(
+                "parent_chain_order requires parent_chain expansion".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Resolves the named counter without silently substituting an estimate.
+    ///
+    /// # Errors
+    /// Exact mode is unavailable until the resolved answerer's tokenizer is qualified.
+    pub fn counter(self) -> Result<EvidenceCounter, EvidenceError> {
+        self.validate()?;
+        match self.evidence_counter {
+            CounterMode::Utf8 => Ok(EvidenceCounter::Utf8Bytes),
+            CounterMode::Utf8AnswerBound => Ok(EvidenceCounter::AnswerBoundUtf8Bytes),
+            CounterMode::Exact => Err(EvidenceError::InvalidRequest(
+                concat!(
+                    "exact evidence counting is unavailable: ",
+                    "the resolved answerer's tokenizer must be qualified"
+                )
+                .to_owned(),
+            )),
+        }
+    }
+
+    /// Refuses a counter other than the one `evidence_counter` names, so the
+    /// setting stays the single source of the applied counter.
+    ///
+    /// # Errors
+    /// The counter's strategy differs from the configured one.
+    pub(crate) fn check_counter(self, counter: &EvidenceCounter) -> Result<(), EvidenceError> {
+        self.validate()?;
+        let configured = match counter {
+            EvidenceCounter::Utf8Bytes => CounterMode::Utf8,
+            EvidenceCounter::AnswerBoundUtf8Bytes => CounterMode::Utf8AnswerBound,
+            EvidenceCounter::Exact(_) => CounterMode::Exact,
+        };
+        if configured == self.evidence_counter {
+            Ok(())
+        } else {
+            Err(EvidenceError::InvalidRequest(
+                "evidence counter differs from the configured evidence_counter".to_owned(),
+            ))
         }
     }
 }

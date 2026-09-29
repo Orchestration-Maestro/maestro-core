@@ -13,7 +13,7 @@ not from document metadata or possession of a content hash.
 
 ```rust
 use maestro_canonicalization::{
-    CanonicalizeInput, DedupInput, DedupScope, Error, NativeTokenizer,
+    CanonicalizeInput, ChunkProfile, DedupInput, DedupScope, Error, NativeTokenizer,
     RevisionKey, WarningPolicy, canonicalize, chunk_documents,
 };
 
@@ -31,7 +31,7 @@ fn main() -> Result<(), Error> {
     let tokenizer = NativeTokenizer::open()?;
     let batch = chunk_documents(
         &scope, &[DedupInput { document: &document, markdown }],
-        WarningPolicy::Preserve, &tokenizer,
+        WarningPolicy::Preserve, ChunkProfile::Structural, &tokenizer,
     )?;
     assert_eq!(batch.chunks[0].content.prepared_input, "Hello world");
     assert_eq!(batch.chunks[0].content.token_count, 4);
@@ -43,7 +43,8 @@ The qualified GGUF, native counter, libraries and source fingerprints must alrea
 exist where the local binding says (see [TOKENIZER.md](TOKENIZER.md)).
 See [TOKENIZER.md](TOKENIZER.md) for qualification, prerequisites and limitations.
 `chunk_documents` counts through any `TokenCounter`; that counter's contract ID
-enters every chunk and prepared-input identity (ADR-0008).
+enters every chunk and prepared-input identity (ADR-0008), as the names of the
+[profile](#profiles) it chunks under do.
 
 ## Contract
 
@@ -53,8 +54,10 @@ under the explicit warning policy. Only then are runtime artifacts verified and
 source text prepared. A successful batch is returned only after final artifact
 revalidation. Any refusal returns no partial batch.
 
-The profiles are `mapped-structural-chunks/2`, `canonical-context-parts/v1` and
-`ordered-input-parts/v1`. Complete input means the verbatim concatenation of
+`ChunkProfile::default()` in this crate remains `mapped-structural-chunks/2`,
+`canonical-context-parts/v1` and `ordered-input-parts/v1`; maestro-settings selects
+`mapped-structural-chunks/3` as the default for collection preparation and publish.
+Complete input means the verbatim concatenation of
 `input_parts`; the counter's BOS/EOS and all context/separators count toward **target 500,
 hard maximum 700**. There is no artificial minimum, clipping, hidden normalization,
 truncation or primary-body overlap. Counts are cached by exact complete strings
@@ -79,6 +82,51 @@ A unit that cannot fit the hard maximum with its mandatory context is refused by
 name, never by its text: `the unit <unit ID> of block <block ID> at bytes
 [<start>, <end>) does not fit in 700 tokens with its context`, the span being
 the block's in the original Markdown.
+
+## Profiles
+
+A `ChunkProfile` selects the packing and preparation rules. Both of its names
+enter every chunk and prepared-input identity and the prepared chunk set's
+identity, so each profile builds its own chunk set and generation, and the chunks
+the default profile gave stay reproducible while another is tried. Unit
+identities come from the mapping both profiles share. The chunker reads a
+profile's rules as one value (packing scope, minimum size, chrome rules) and
+never compares profiles, so a new profile is a new set of rules.
+
+A profile's output never changes under its name: each profile's serialized batch
+of its test pages is pinned by digest, and a change to its rules or its output
+is a new profile, `mapped-structural-chunks/4`, beside the others.
+
+| Profile | Names | What shares a chunk | What the prepared input leaves out |
+| --- | --- | --- | --- |
+| `Structural` (the Rust type default) | `mapped-structural-chunks/2`, `canonical-context-parts/v1` | Compatible blocks of one section and one container, up to the target | Nothing |
+| `CompleteIdeas` (the maestro-settings default) | `mapped-structural-chunks/3`, `canonical-context-parts/v2` | A section's blocks across their containers: an introduction with its steps, a caption and code with the table after them, one table per chunk. A chunk ends only between whole steps, a list item with its substeps, and whole rows; a step too large for one chunk continues between its innermost list items under its repeated parent. A chunk under 150 tokens joins the chunk before it in its section when both fit 700 | Page chrome: a heading's trailing copy-link label, a paragraph's trailing copy-button label, a paragraph that is only a copy button's label, the state label of a collapsed image right before its image placeholder, and a paragraph or HTML block that holds nothing but HTML comments and tags of the elements `a`, `br`, `img`, `div`, `span`, `p`, `hr` and the table parts, such as an image placeholder or an empty anchor; a tag of any other name, such as an XML setting or a placeholder, keeps the block |
+
+### Opt-in /4 delivery graph
+
+`UnitProfile` adds `/4` graph and mapping artifacts without changing `/2` or `/3`.
+The default ranking remains `/3 CompleteIdeas`; `/4` units are per canonical block,
+headings are group `heading` parts rather than delivery units, and only complete
+small tables are packed. Per-kind verified-token limits apply to `V2Unit` and
+oversize refusals are typed; the `/3` control does not refuse a page that `/3`
+indexes. The graph and source-mapping artifact have separate versioned digests.
+Heading ranges remain mapped graph parts, not units or exclusions; only
+ineligible content is excluded. Section, paragraph and procedure packing, bounded
+row groups, and code-plus-table packing are post-M1 scope. The built contract
+snapshot and mapping fixture live in
+`tests/fixtures/unit-graph-v1.built.json` and `unit-mapping-v1.built.json`.
+
+Chrome is left out of the indexed text, never out of the source: the canonical
+document and the original Markdown are unchanged, each kept part maps to its
+exact original bytes, and each unit's coverage records the ranges left out as
+`chrome_ranges` beside its primary ranges, with the `chrome_rule` that left them
+out; together they cover its full eligible text. `ChunkDocument::chrome` counts
+them per rule, units and bytes, and `left_out_chrome` gives the same counts
+without chunking. `chrome_spans` gives the original bytes a profile leaves out
+and `indexed_title` a heading title as it indexes it, so a reader that shows
+source text in place of a chunk, such as the reranker's bounded section, shows
+it as the profile indexed it. Label text inside a table cell stays. Sections are never
+merged, and a short section stays short.
 
 ## Coordinates and coverage
 

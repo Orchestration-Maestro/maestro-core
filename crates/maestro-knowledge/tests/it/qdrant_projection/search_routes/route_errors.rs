@@ -39,6 +39,7 @@ async fn lexical_route_refuses_a_generation_with_another_sparse_profile() {
         scopes: &collection_scopes(&kernel),
         text: TEXT,
         limit: 10,
+        identifier_limit: 10,
         version: None,
         qdrant: &qdrant,
     };
@@ -68,6 +69,7 @@ async fn dense_route_refuses_a_card_with_dimensions_from_another_generation() {
         scopes: &collection_scopes(&kernel),
         text: TEXT,
         limit: 10,
+        identifier_limit: 10,
         version: None,
         qdrant: &qdrant,
     };
@@ -111,6 +113,7 @@ async fn no_free_room_is_typed_and_does_not_touch_qdrant() {
         scopes: &scopes,
         text: TEXT,
         limit: 10,
+        identifier_limit: 10,
         version: None,
         qdrant: &qdrant,
     };
@@ -153,6 +156,7 @@ async fn dense_route_types_bad_dimensions_and_non_finite_vectors() {
         scopes: &scopes,
         text: TEXT,
         limit: 10,
+        identifier_limit: 10,
         version: None,
         qdrant: &qdrant,
     };
@@ -231,6 +235,7 @@ async fn empty_scope_and_zero_limit_routes_return_without_model_or_qdrant() {
         scopes: &empty_scopes,
         text: TEXT,
         limit: 10,
+        identifier_limit: 10,
         version: None,
         qdrant: &qdrant,
     };
@@ -239,6 +244,7 @@ async fn empty_scope_and_zero_limit_routes_return_without_model_or_qdrant() {
         scopes: &scopes,
         text: TEXT,
         limit: 0,
+        identifier_limit: 0,
         version: None,
         qdrant: &qdrant,
     };

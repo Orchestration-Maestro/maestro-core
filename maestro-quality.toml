@@ -12,6 +12,10 @@
 license-policy = "enforce"
 artifact-key = "maestro-core"
 platforms = "macos windows"
+mutation-windows = [
+  "crates/maestro-settings/src/file/windows.rs",
+  "crates/maestro-canonicalization/src/filesystem/windows.rs",
+]
 
 # The seams of the canonicalization crate that keep one caller: each door is a
 # subsystem, and its one outside caller is the stage that composes it.
@@ -35,12 +39,6 @@ reason = "public API of maestro-catalog: the default known-settings adapter the 
 
 [[exception]]
 rule = "ARC-005"
-path = "crates/maestro-canonicalization/src/chunk_mapping/mod.rs"
-item = "map_document"
-reason = "the chunker maps each document through the source mapper"
-
-[[exception]]
-rule = "ARC-005"
 path = "crates/maestro-canonicalization/src/chunk_split/mod.rs"
 item = "build_drafts"
 reason = "the chunker packs a mapped document through the structural splitter"
@@ -50,6 +48,12 @@ rule = "ARC-005"
 path = "crates/maestro-canonicalization/src/chunk_split/mod.rs"
 item = "validate_preparation"
 reason = "chunk replay reruns the splitter and so lives beside its rules"
+
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-canonicalization/src/chunks/mod.rs"
+item = "chunk_documents"
+reason = "the /4 CompleteIdeas control view reuses the existing /3 packing and verified counting path"
 
 [[exception]]
 rule = "ARC-005"
@@ -194,6 +198,12 @@ path = "crates/maestro-knowledge/src/query/mod.rs"
 item = "INVENTORY_VERSION_FORMS"
 reason = "understanding and inventory parsing must share version forms to mask quoted set text consistently"
 
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-knowledge/src/query/mod.rs"
+item = "backtick_runs"
+reason = "query understanding and the answer's literal check must split backtick runs the same way"
+
 # Independent retrieval routes stay separate from orchestration and one another.
 [[exception]]
 rule = "ARC-005"
@@ -226,12 +236,6 @@ rule = "ARC-005"
 path = "crates/maestro-knowledge/src/search/mod.rs"
 item = "search"
 reason = "ask is its only in-crate caller; CLI, MCP and integration-test consumers are in other crates"
-
-[[exception]]
-rule = "ARC-005"
-path = "crates/maestro-knowledge/src/search/mod.rs"
-item = "top_rerank_score"
-reason = "ask's relevance threshold is its only in-crate caller; the ladder's private rows in the maestro crate read it too"
 
 # The quality gate's reader of the revisions it lets through: the gate owns
 # eligibility, so the preparation (T023) reads it rather than deciding again,
@@ -307,6 +311,8 @@ reason = "the MCP module owns bounded transport and server startup; the CLI disp
 # schedul, stems its golden test pins; flate, of flate2, the compression crate
 # qdrant-client's tonic brings, which supply-chain/config.toml exempts;
 # ratatui, the proposed TUI crate's proper name in S3's owner-action register.
+# qdrant-client's tonic brings, which supply-chain/config.toml exempts; nd,
+# the ordinal ending of 2nd that the intent guard reads as a quantity.
 [typos]
 words = [
   "Exemple",
@@ -337,4 +343,11 @@ words = [
   "schedul",
   "flate",
   "ratatui",
+  "nd",
 ]
+
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-kernel/src/unit_graph/mod.rs"
+item = "GraphKey"
+reason = "the public source-scoped graph read key belongs to graph storage; representation completion also reads each graph through this boundary"

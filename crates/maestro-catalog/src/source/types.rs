@@ -5,7 +5,7 @@
 //! Each kind is registered as a [`KindDescriptor`](super::KindDescriptor):
 //! its directory, file layout, format, where its metadata sits, its typed
 //! fields, the kinds its `requires` may name and the stages it admits. A
-//! rule no descriptor can state is a [`KindRules`](super::KindRules) hook
+//! rule no descriptor can state is a [`KindRules`](crate::source::rules::KindRules) hook
 //! registered beside it. Adding a kind is one descriptor plus fixtures.
 //! The built-in kinds, each resource unique within its kind as `kind:name`:
 //!

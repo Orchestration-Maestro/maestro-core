@@ -213,6 +213,17 @@ fn backtick_commands_include_each_code_span_and_keep_the_longest_claim() {
 }
 
 #[test]
+fn a_backtick_span_closes_on_its_own_run_length_and_an_unclosed_run_ends_the_scan() {
+    assert_family_found("Use ``run `x` now`` here", Family::Command, "run `x` now");
+    assert!(
+        understand("Use ``open then `closed`")
+            .identifiers
+            .iter()
+            .all(|identifier| identifier.family != Family::Command)
+    );
+}
+
+#[test]
 fn earlier_identifier_family_claims_an_overlapping_span() {
     assert_eq!(
         understand("`config.xml`").identifiers,

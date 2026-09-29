@@ -5,17 +5,17 @@ use super::{
     support::CandidateDb,
 };
 use crate::{
-    index::{Qdrant, QdrantError},
+    index::{ProjectionError, Qdrant},
     query::understand,
     search::{
         DISABLED_BY_CONFIGURATION, SearchContext, SearchError,
         candidates::{self, Failure as CandidateFailure, check_control, classify_read},
-        orchestrate::rerank_candidates,
         rerank::Reranker,
+        rerank::rerank_candidates,
         route_execution::{join_route_futures, route_error_reason},
         routes::{
             error::RouteError,
-            outcome::{RouteOutcome, StructuredOutcome},
+            outcome::{IdentifierOutcome, RouteOutcome, StructuredOutcome},
         },
     },
 };
@@ -157,11 +157,13 @@ fn search_context_debug_redacts_its_database_connection() {
     let database = CandidateDb::new(b"prepared text", "docs");
     let qdrant = Qdrant::new("http://127.0.0.1:6334").unwrap();
     let context = SearchContext::<()> {
+        intent_expander: None,
         database: database.database.clone(),
         principal: "reader",
         qdrant: &qdrant,
         embedder: None,
         reranker: None,
+        source_classes: None,
     };
 
     let debug = format!("{context:?}");
@@ -267,8 +269,8 @@ fn route_errors_keep_fixed_failure_categories() {
         "search profile mismatch"
     );
     assert_eq!(
-        route_error_reason(&RouteError::Qdrant(QdrantError::InvalidAnswer(
-            "private response details".to_owned(),
+        route_error_reason(&RouteError::Qdrant(ProjectionError::new(
+            "Qdrant's answer is not what was asked for: private response details",
         ))),
         "Qdrant search failed"
     );
@@ -294,7 +296,10 @@ async fn all_route_futures_start_together_and_one_failure_keeps_the_others() {
             },
             async move {
                 identifier_barrier.wait().await;
-                available()
+                IdentifierOutcome {
+                    route: available(),
+                    dropped: Vec::new(),
+                }
             },
             async move {
                 structured_barrier.wait().await;
@@ -313,7 +318,7 @@ async fn all_route_futures_start_together_and_one_failure_keeps_the_others() {
         RouteStatus::Unavailable("dense unavailable".to_owned())
     );
     assert_eq!(outcomes.1.status, RouteStatus::Ok);
-    assert_eq!(outcomes.2.status, RouteStatus::Ok);
+    assert_eq!(outcomes.2.route.status, RouteStatus::Ok);
     assert_eq!(outcomes.3.unwrap().route.status, RouteStatus::Ok);
 }
 

@@ -1,3 +1,5 @@
+//! The top reranker and fused scores of a ranked list.
+
 use super::rerank::candidate;
 use crate::search::{Ranked, top_fused_score, top_rerank_score};
 
@@ -9,10 +11,23 @@ fn ranked(id: &str, fusion_score: f64, score: Option<f64>) -> Ranked {
 }
 
 #[test]
-fn the_top_rerank_score_is_the_first_ranked_candidates() {
+fn the_top_rerank_score_is_the_highest_in_any_order() {
     let ranked = [
-        ranked("a", 0.01, Some(0.8)),
-        ranked("b", 0.03, Some(0.2)),
+        ranked("a", 0.01, Some(0.2)),
+        ranked("b", 0.03, Some(0.8)),
+        ranked("c", 0.02, None),
+    ];
+
+    assert_eq!(top_rerank_score(&ranked), Some(0.8));
+}
+
+#[test]
+fn the_top_rerank_score_is_the_highest_after_a_policy_reorders_the_list() {
+    // A blend, prior or cap can put a fused-top candidate with a lower
+    // reranker score first.
+    let ranked = [
+        ranked("a", 0.03, Some(0.2)),
+        ranked("b", 0.01, Some(0.8)),
         ranked("c", 0.02, None),
     ];
 

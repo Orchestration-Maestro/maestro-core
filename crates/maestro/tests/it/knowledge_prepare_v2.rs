@@ -76,7 +76,7 @@ fn v2_card(home: &Home, model: &Digest, qualification: Digest) -> Digest {
 }
 
 /// A valid v2 embedder identity for the weights `model`.
-fn identity(model: &Digest, qualification_digest: Digest) -> CardIdentity {
+pub(super) fn identity(model: &Digest, qualification_digest: Digest) -> CardIdentity {
     CardIdentity {
         role: Role::Embedder,
         router_entry: RouterEntry::parse("embed").unwrap(),

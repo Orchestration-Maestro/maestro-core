@@ -1,7 +1,7 @@
 use super::super::assemble::assemble_blocking;
 use super::{
     super::{EvidenceCounter, EvidenceError, assemble_evidence},
-    support::{Fixture, control, evidence_input, fixture},
+    support::{Fixture, control, evidence_input, exact_evidence_input, fixture},
 };
 use crate::prepare::tests::scratch::{
     corrupt_artifact, quarantine_revision, replace_chunk_set_manifest, replace_revision_canonical,
@@ -358,7 +358,7 @@ async fn grants_added_before_assembly_are_detected() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn late_grant_or_eligibility_changes_abort_before_delivery() {
     let first_fixture = fixture(&[("guide.md", "# Guide\n\nAn authoritative source.\n")]);
-    let input = evidence_input(&first_fixture, "What does the guide say?");
+    let input = exact_evidence_input(&first_fixture, "What does the guide say?");
     let database = Arc::new(first_fixture.database);
     let run = blocked_verify_counter();
     let task = tokio::spawn(assemble_evidence(database.clone(), input, run.counter));
@@ -374,7 +374,7 @@ async fn late_grant_or_eligibility_changes_abort_before_delivery() {
     ));
 
     let fixture = fixture(&[("guide.md", "# Guide\n\nAn authoritative source.\n")]);
-    let input = evidence_input(&fixture, "What does the guide say?");
+    let input = exact_evidence_input(&fixture, "What does the guide say?");
     let revision_id = revision_of(&fixture.database, &fixture.scopes, "guide.md");
     let run = blocked_verify_counter();
     let task = tokio::spawn(assemble_evidence(
@@ -396,7 +396,7 @@ async fn late_grant_or_eligibility_changes_abort_before_delivery() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn a_panicking_counter_is_reported_as_worker_failed() {
     let fixture = fixture(&[("guide.md", "# Guide\n\nAn authoritative source.\n")]);
-    let input = evidence_input(&fixture, "What does the guide say?");
+    let input = exact_evidence_input(&fixture, "What does the guide say?");
 
     let error = assemble_evidence(
         Arc::new(fixture.database),

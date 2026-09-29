@@ -1,10 +1,10 @@
 //! Ownership checks for the destructive kernel and Qdrant portions.
 
 use maestro_kernel::gateway::Url;
+use maestro_test_scratch::scratch_directory;
 use std::{
     env, fs, io,
     path::{Path, PathBuf},
-    process,
 };
 
 const QDRANT_URL: &str = "http://127.0.0.1:16534";
@@ -201,21 +201,13 @@ pub(super) fn wipe_kernel(root: &Path, data: &Path, backup: &Path) -> Result<(),
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{
-        fs,
-        sync::atomic::{AtomicUsize, Ordering},
-    };
+    use std::fs;
 
     struct Scratch(PathBuf);
 
     impl Scratch {
         fn new() -> Self {
-            static NEXT: AtomicUsize = AtomicUsize::new(0);
-            let path = env::temp_dir().join(format!(
-                "maestro-t033b-safety-{}-{}",
-                process::id(),
-                NEXT.fetch_add(1, Ordering::Relaxed)
-            ));
+            let path = scratch_directory().unwrap();
             fs::create_dir_all(path.join("data/maestro")).unwrap();
             fs::create_dir_all(path.join("backup")).unwrap();
             Self(path)
@@ -240,8 +232,7 @@ mod tests {
     #[test]
     fn wipe_layout_rejects_paths_outside_the_owned_root() {
         let scratch = Scratch::new();
-        let outside = env::temp_dir().join(format!("maestro-t033b-outside-{}", process::id()));
-        fs::create_dir_all(&outside).unwrap();
+        let outside = scratch_directory().unwrap();
         let refused = validate_wipe_layout(&scratch.0, &outside, &scratch.0.join("backup"));
         fs::remove_dir_all(&outside).unwrap();
         assert!(refused.is_err());
@@ -253,8 +244,7 @@ mod tests {
         use std::os::unix::fs::symlink;
 
         let scratch = Scratch::new();
-        let outside = env::temp_dir().join(format!("maestro-t033b-symlink-{}", process::id()));
-        fs::create_dir_all(&outside).unwrap();
+        let outside = scratch_directory().unwrap();
         let data = scratch.0.join("data/maestro");
         fs::remove_dir(&data).unwrap();
         symlink(&outside, &data).unwrap();

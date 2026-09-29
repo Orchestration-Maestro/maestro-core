@@ -1,6 +1,7 @@
 //! The embedder the tests publish through: the deterministic fake models of
 //! the gateway, behind a port that records each embedding call and can
-//! spoil the vectors of one call, or refuse it, as a real embedder might.
+//! spoil the vectors of one call, or refuse it, as a real embedder might,
+//! and whose reranker can be slow to load or to score.
 
 use maestro_kernel::{
     artifact::{Digest, Store},
@@ -10,24 +11,21 @@ use maestro_kernel::{
         card_v2::{Capability, TextFormat},
     },
 };
+use maestro_test_scratch::scratch_directory;
 use serde_json::Value;
 use std::{
     collections::BTreeMap,
-    env, fs,
+    fs, future,
     num::{NonZeroU32, NonZeroUsize},
-    process,
-    sync::{
-        Arc, Mutex,
-        atomic::{AtomicUsize, Ordering},
-    },
+    sync::{Arc, Mutex},
+    time::Duration,
 };
-use tokio::sync::Notify;
+use tokio::{sync::Notify, time};
 
 /// The card of a model filling `role` from the router's entry `embed`, of
 /// `dimensions` when it is an embedder, recorded in a store that is gone
 /// once it is made.
 pub(super) fn card(role: Role, dimensions: usize) -> ModelCard {
-    static NEXT: AtomicUsize = AtomicUsize::new(0);
     let fields = CardFields {
         role,
         router_entry: RouterEntry::parse("embed").unwrap(),
@@ -41,11 +39,7 @@ pub(super) fn card(role: Role, dimensions: usize) -> ModelCard {
         },
         suite_results: Vec::new(),
     };
-    let root = env::temp_dir().join(format!(
-        "maestro-knowledge-qdrant-card-{}-{}",
-        process::id(),
-        NEXT.fetch_add(1, Ordering::Relaxed)
-    ));
+    let root = scratch_directory().unwrap();
     let card = ModelCard::record(&Store::new(&root), &fields).unwrap();
     fs::remove_dir_all(&root).unwrap();
     card
@@ -67,7 +61,6 @@ pub(super) fn v2_embedder_with_query_prefix() -> ModelCard {
 }
 
 fn v2_card_from_fixture(query_prefix: bool) -> ModelCard {
-    static NEXT: AtomicUsize = AtomicUsize::new(0);
     let value: Value = serde_json::from_str(include_str!(
         "../../fixtures/synthetic/evals/model-card-v2.json"
     ))
@@ -79,11 +72,7 @@ fn v2_card_from_fixture(query_prefix: bool) -> ModelCard {
             suffix: String::new(),
         });
     }
-    let root = env::temp_dir().join(format!(
-        "maestro-knowledge-qdrant-v2-card-{}-{}",
-        process::id(),
-        NEXT.fetch_add(1, Ordering::Relaxed)
-    ));
+    let root = scratch_directory().unwrap();
     let card = ModelCard::record_v2(&Store::new(&root), &identity).unwrap();
     fs::remove_dir_all(root).unwrap();
     card
@@ -117,6 +106,42 @@ struct Script {
     faults: BTreeMap<usize, Fault>,
     /// Number of calls the fake reranker received.
     rerank_calls: usize,
+    /// When each embedding call answers: late, as a loaded host's
+    /// embedder does, or never.
+    embedding_delay: Answers,
+}
+
+/// When an embedding call answers.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(super) enum Answers {
+    /// At once.
+    #[default]
+    AtOnce,
+    /// After this long, which it moves the test's stopped clock by.
+    After(Duration),
+    /// Never.
+    Never,
+}
+
+/// Which model(s) never finish loading.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum SlowModels {
+    /// The embedder is still loading.
+    Embedder,
+    /// The reranker is still loading.
+    Reranker,
+    /// Both models are still loading.
+    Both,
+}
+
+/// How its reranker is slow to load or to score.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum SlowReranker {
+    /// It never finishes loading, as one the router unloaded may not within
+    /// a search: neither its setup nor a call returns.
+    Loading,
+    /// It loads at once, then never scores.
+    Hanging,
 }
 
 /// The fake models, with each embedding call recorded, and a fault for the
@@ -127,6 +152,10 @@ pub(super) struct Embedder {
     script: Arc<Mutex<Script>>,
     /// A gate that can pause a retrieval embedding call.
     gate: Option<Arc<Gate>>,
+    /// Whether its embedder stays cold for the whole request.
+    embed_never_ready: bool,
+    /// How its reranker is slow, when it is.
+    slow_reranker: Option<SlowReranker>,
 }
 
 #[derive(Debug, Default)]
@@ -157,9 +186,50 @@ impl Embedder {
             Self {
                 script: Arc::new(Mutex::new(Script::default())),
                 gate: Some(gate.clone()),
+                embed_never_ready: false,
+                slow_reranker: None,
             },
             EmbedGate(gate),
         )
+    }
+
+    /// Creates a port whose reranker is `slow`.
+    pub(super) fn with_slow_reranker(slow: SlowReranker) -> Self {
+        Self {
+            slow_reranker: Some(slow),
+            ..Self::default()
+        }
+    }
+
+    /// Creates a port whose selected model(s) never finish loading.
+    pub(super) fn with_slow_models(slow: SlowModels) -> Self {
+        Self {
+            embed_never_ready: matches!(slow, SlowModels::Embedder | SlowModels::Both),
+            slow_reranker: matches!(slow, SlowModels::Reranker | SlowModels::Both)
+                .then_some(SlowReranker::Loading),
+            ..Self::default()
+        }
+    }
+
+    /// Waits until the test embedder is ready.
+    async fn wait_for_embedder(&self) {
+        if self.embed_never_ready {
+            future::pending::<()>().await;
+        }
+    }
+
+    /// Waits for the reranker to load or score when the test model is slow.
+    async fn wait_for_reranker(&self, scoring: bool) {
+        if self.slow_reranker == Some(SlowReranker::Loading)
+            || (scoring && self.slow_reranker == Some(SlowReranker::Hanging))
+        {
+            future::pending::<()>().await;
+        }
+    }
+
+    /// Makes every later embedding call answer as `delay` says.
+    pub(super) fn delay_embeddings(&self, delay: Answers) {
+        self.script.lock().unwrap().embedding_delay = delay;
     }
 
     /// The number of rerank calls made so far.
@@ -185,6 +255,15 @@ impl Embedder {
 }
 
 impl ModelPort for Embedder {
+    async fn prepare(&self, card: &ModelCard, _room: Room) -> Result<(), Error> {
+        match card.fields().role {
+            Role::Embedder => self.wait_for_embedder().await,
+            Role::Reranker => self.wait_for_reranker(false).await,
+            Role::Answerer => {}
+        }
+        Ok(())
+    }
+
     async fn embed(
         &self,
         card: &ModelCard,
@@ -198,6 +277,12 @@ impl ModelPort for Embedder {
             script.rooms.push(room);
             script.faults.get(&call).copied()
         };
+        let delay = self.script.lock().unwrap().embedding_delay;
+        match delay {
+            Answers::AtOnce => {}
+            Answers::After(delay) => time::advance(delay).await,
+            Answers::Never => future::pending().await,
+        }
         let mut vectors = FakeModels.embed(card, room, inputs).await?;
         if let Some(gate) = &self.gate {
             gate.started.notify_one();
@@ -227,6 +312,7 @@ impl ModelPort for Embedder {
         documents: &[String],
     ) -> Result<Vec<f64>, Error> {
         self.script.lock().unwrap().rerank_calls += 1;
+        self.wait_for_reranker(true).await;
         FakeModels.rerank(card, room, query, documents).await
     }
 

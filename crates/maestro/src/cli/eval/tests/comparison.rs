@@ -12,6 +12,7 @@ use super::{
     reports::{BINARY, runs, to_json},
     support::{FakeEngine, RERANKER, rung, suite},
 };
+use maestro_knowledge::search::evidence::{CounterMode, ExpansionMode};
 use maestro_knowledge::{
     answer::PromptVersion,
     eval::{Measure, score_ladder},
@@ -81,13 +82,13 @@ fn the_comparison_names_the_provenance_of_every_rung() {
     let answerer = "a".repeat(64);
     assert!(markdown.contains(&format!(
         "- `r0`: generation 0, chunk set chunk-set, embedder card {embedder}, reranker card \
-         {RERANKER}, answerer card {answerer}; ask: 5 passages, 6000 evidence bytes, 700 \
-         output tokens, prompt v1\n"
+         {RERANKER}, answerer card {answerer}; ask: at most 5 passages, 6000 evidence bytes, the \
+         answerer card's output tokens, prompt v2, search deadline 30000 ms\n"
     )));
     assert!(markdown.contains(&format!(
         "- `r1`: generation 0, chunk set chunk-set, embedder card {embedder}, reranker card \
-         none, answerer card {answerer}; ask: 5 passages, 6000 evidence bytes, 700 output \
-         tokens, prompt v1\n"
+         none, answerer card {answerer}; ask: at most 5 passages, 6000 evidence bytes, the \
+         answerer card's output tokens, prompt v2, search deadline 30000 ms\n"
     )));
 }
 
@@ -96,8 +97,10 @@ fn the_comparison_names_each_rungs_ask_settings() {
     let mut runs = runs();
     runs[0].rung.ask = None;
     runs[1].rung.ask = Some(AskSettings {
+        expansion: ExpansionMode::FullSection,
+        evidence_counter: CounterMode::Utf8,
         k: Some(8),
-        max_tokens: Some(9000),
+        evidence_bytes: Some(9000),
         output_tokens: Some(900),
         prompt: RungPrompt::Version(PromptVersion::V2),
         card: None,
@@ -109,7 +112,14 @@ fn the_comparison_names_each_rungs_ask_settings() {
     assert_eq!(json["rungs"][0]["ask_settings"], Value::Null);
     assert_eq!(
         json["rungs"][1]["ask_settings"],
-        json!({"k": 8, "max_tokens": 9000, "output_tokens": 900, "prompt": "v2"})
+        json!({
+            "k": 8,
+            "evidence_bytes": 9000,
+            "output_tokens": 900,
+            "prompt": "v2",
+            "evidence": {"expansion":"full_section", "evidence_counter":"utf8"},
+            "search_deadline_ms": 30_000
+        })
     );
     let markdown = comparison.to_markdown();
     let embedder = "e".repeat(64);
@@ -118,9 +128,10 @@ fn the_comparison_names_each_rungs_ask_settings() {
         "- `r0`: generation 0, chunk set chunk-set, embedder card {embedder}, reranker card \
          {RERANKER}, answerer card {answerer}; no ask\n"
     )));
-    assert!(
-        markdown.contains("; ask: 8 passages, 9000 evidence bytes, 900 output tokens, prompt v2\n")
-    );
+    assert!(markdown.contains(
+        "; ask: at most 8 passages, 9000 evidence bytes, 900 output tokens, prompt v2, \
+         search deadline 30000 ms\n"
+    ));
 }
 
 #[test]
@@ -214,5 +225,4 @@ fn a_rung_that_does_not_ask_shows_not_run_and_no_change() {
         "{row}"
     );
     assert!(row.ends_with(" | not run | not run |"), "{row}");
-    assert_eq!(row.split(" | ").nth(9), Some("not run"), "{row}");
 }

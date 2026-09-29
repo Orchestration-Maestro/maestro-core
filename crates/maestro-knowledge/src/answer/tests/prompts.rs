@@ -1,5 +1,6 @@
-//! The prompt versions: v1 stays today's text, v2 asks for the passages that
-//! state each sentence and a direct answer, and both keep the host checks.
+//! The prompt versions: v1 keeps the first text; v2, the default, asks for
+//! the passages that state each sentence and a direct answer; both keep the
+//! host checks.
 
 use super::*;
 use maestro_kernel::gateway::Message;
@@ -37,6 +38,13 @@ const V2_USER: &str = "Answer the question from the passages, in full sentences.
                        [1] or [1, 2]. When the passages do not directly answer the question, \
                        reply exactly NOT_FOUND.\nQuestion and evidence data (JSON):\n";
 
+/// The procedure guidance `procedure_first` adds to both v2 messages.
+const PROCEDURE_FIRST: &str = concat!(
+    "Examine every passage. Put the directly applicable procedure first. Preserve its ",
+    "platform and state prerequisites. Use other passages only when relevant; ",
+    "not every passage needs a citation."
+);
+
 /// The prompt of `version` for one question over one passage.
 fn prompt_of(version: PromptVersion) -> Vec<Message> {
     let request = request("How do I list the registered sources?");
@@ -45,15 +53,23 @@ fn prompt_of(version: PromptVersion) -> Vec<Message> {
 }
 
 #[test]
-fn the_default_prompt_is_v1_and_keeps_todays_text() {
-    let messages = prompt_of(PromptVersion::default());
+fn v1_keeps_todays_text() {
+    let messages = prompt_of(PromptVersion::V1);
 
-    assert_eq!(PromptVersion::default(), PromptVersion::V1);
     assert_eq!(messages[0].content, V1_SYSTEM);
     assert!(messages[1].content.starts_with(
         "Answer the question in full sentences, with passage markers such as [1] after the \
          sentences they support.\nQuestion and evidence data (JSON):\n"
     ));
+}
+
+#[test]
+fn the_default_prompt_is_v2_the_ladder_measured_best() {
+    assert_eq!(PromptVersion::default(), PromptVersion::V2);
+    assert_eq!(
+        prompt_of(PromptVersion::default()),
+        prompt_of(PromptVersion::V2)
+    );
 }
 
 #[test]
@@ -148,7 +164,7 @@ async fn an_answer_above_the_threshold_uses_the_relevance_prompt() {
         "Sources are listed by the service.",
     );
     let port = ScriptedPort::new(&["Sources are listed by the service. [1]"]);
-    let relevance = Relevance {
+    let relevance = AnswerPlan {
         min_rerank_score: None,
         top_rerank_score: None,
         answer_prompt: &PromptVersion::V2.into(),
@@ -167,7 +183,7 @@ async fn the_output_budget_reaches_the_chat_request() {
     let scratch = Scratch::new();
     let answerer = scratch.answerer();
     let mut request = request("How do I list the registered sources?");
-    request.budget.output_tokens = 900;
+    request.budget.output_tokens = Some(900);
     let evidence = bundle(
         &request.question,
         "en",
@@ -241,4 +257,35 @@ async fn v2_strips_a_think_block_and_answers_not_found() {
 
     assert_eq!(answer.answer, "");
     assert_eq!(answer.refusal.expect("refusal").code, RefusalCode::NotFound);
+}
+
+#[test]
+fn procedure_first_looks_at_all_passages_without_requiring_all_citations() {
+    let messages = prompt_of(PromptVersion::ProcedureFirst);
+    assert!(messages[0].content.contains("Examine every passage"));
+    assert!(messages[0].content.contains("platform and state"));
+    assert!(
+        messages[0]
+            .content
+            .contains("not every passage needs a citation")
+    );
+    assert!(
+        messages[1]
+            .content
+            .contains("directly applicable procedure first")
+    );
+    assert_eq!(PromptVersion::ProcedureFirst.name(), "procedure_first");
+}
+
+#[test]
+fn procedure_first_preserves_v2_citation_grammar_and_refusal_contract() {
+    let messages = prompt_of(PromptVersion::ProcedureFirst);
+    assert_eq!(
+        messages[0].content,
+        format!("{V2_SYSTEM} {PROCEDURE_FIRST}")
+    );
+    // The v2 user message follows the guidance whole, so its `NOT_FOUND`
+    // exit stays last before the data.
+    let v2_user = &prompt_of(PromptVersion::V2)[1].content;
+    assert_eq!(messages[1].content, format!("{PROCEDURE_FIRST} {v2_user}"));
 }

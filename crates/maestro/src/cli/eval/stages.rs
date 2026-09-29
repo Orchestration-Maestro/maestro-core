@@ -5,8 +5,12 @@
 //! checked: they skip some questions by design.
 
 use maestro_kernel::evidence::RouteStatus;
-use maestro_knowledge::search::{
-    DEADLINE_EXCEEDED, NO_FUSED_CANDIDATES, Route, SearchConfiguration,
+use maestro_knowledge::{
+    answer::AskError,
+    search::{
+        DEADLINE_EXCEEDED, NO_FUSED_CANDIDATES, Route, SearchConfiguration, SearchError,
+        evidence::EvidenceError,
+    },
 };
 use std::collections::BTreeMap;
 
@@ -50,4 +54,43 @@ pub(super) fn stage_failure(
             }
             Some(RouteStatus::Unavailable(_)) | None => Some(StageFailure::Failed),
         })
+}
+
+/// How a search that returned `error` ended: out of time when its admission
+/// or a permission check ran out of time, failed otherwise.
+pub(super) const fn search_failure(error: &SearchError) -> StageFailure {
+    match error {
+        SearchError::AdmissionTimedOut | SearchError::PermissionCheckTimedOut => {
+            StageFailure::TimedOut
+        }
+        SearchError::InvalidRequest { .. }
+        | SearchError::Admission(_)
+        | SearchError::Kernel(_)
+        | SearchError::EvidenceLoad { .. }
+        | SearchError::PermissionsChanged
+        | SearchError::WorkerFailed => StageFailure::Failed,
+    }
+}
+
+/// How evidence assembly that returned `error` ended.
+pub(super) const fn evidence_failure(error: &EvidenceError) -> StageFailure {
+    if matches!(error, EvidenceError::TimedOut) {
+        StageFailure::TimedOut
+    } else {
+        StageFailure::Failed
+    }
+}
+
+/// How an `ask` that returned `error` ended: out of time when its search,
+/// its evidence or its answerer ran out of time, failed otherwise.
+pub(super) const fn ask_failure(error: &AskError) -> StageFailure {
+    match error {
+        AskError::TimedOut => StageFailure::TimedOut,
+        AskError::Search(error) => search_failure(error),
+        AskError::Evidence(error) => evidence_failure(error),
+        AskError::InvalidRequest(_)
+        | AskError::Backend(_)
+        | AskError::EvidenceIntegrity
+        | AskError::Json(_) => StageFailure::Failed,
+    }
 }

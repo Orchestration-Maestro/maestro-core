@@ -55,19 +55,19 @@ fn mcp_advertises_search_with_strict_object_arguments() {
     assert_eq!(search["inputSchema"]["properties"]["k"]["maximum"], 50);
     assert_eq!(search["inputSchema"]["properties"]["k"]["default"], 10);
     assert_eq!(
-        search["inputSchema"]["properties"]["max_tokens"]["maximum"],
+        search["inputSchema"]["properties"]["evidence_bytes"]["maximum"],
+        24_000
+    );
+    assert_eq!(
+        search["inputSchema"]["properties"]["evidence_bytes"]["default"],
         12_000
     );
     assert_eq!(
-        search["inputSchema"]["properties"]["max_tokens"]["default"],
-        6000
-    );
-    assert_eq!(
         search["inputSchema"]["properties"]["deadline_ms"]["maximum"],
-        10_000
+        30_000
     );
     assert_eq!(
         search["inputSchema"]["properties"]["deadline_ms"]["default"],
-        1500
+        30_000
     );
 }

@@ -1,5 +1,8 @@
-use super::super::deadline::{BlockingFailure, DeadlineElapsed, run_blocking, until};
-use maestro_kernel::evidence::RequestBudget;
+use super::super::deadline::{
+    BlockingFailure, DeadlineElapsed, Deadlines, StageWindow, from_budget, open_at, run_blocking,
+    std_deadline, until,
+};
+use maestro_kernel::{evidence::RequestBudget, retrieval::ReadControl};
 use std::{
     sync::{
         Arc,
@@ -14,51 +17,167 @@ use tokio::{
 };
 
 #[test]
-fn budgets_derive_the_capped_route_window_and_t032_reserve() {
-    let started = Instant::now();
-    let short = super::super::deadline::from_budget(
-        started,
-        RequestBudget {
-            deadline_ms: 1,
-            ..RequestBudget::default()
-        },
-    );
-    assert_eq!(short.expires, started + Duration::from_millis(1));
-    assert_eq!(short.routes, started + Duration::from_micros(250));
-    assert_eq!(short.work, started + Duration::from_micros(900));
-    assert_eq!(short.setup, started + Duration::from_micros(400));
+fn enrichment_cutoff_is_exclusive_at_the_deadline() {
+    let now = StdInstant::now();
+    let deadline = now + StdDuration::from_secs(1);
+    let control = ReadControl {
+        deadline,
+        cancelled: Arc::new(AtomicBool::new(false)),
+    };
 
-    let long = super::super::deadline::from_budget(
+    assert!(open_at(&control, now));
+    assert!(!open_at(&control, deadline));
+    assert!(!open_at(&control, deadline + StdDuration::from_nanos(1)));
+}
+
+/// The cutoffs of a request that started at `started` with a deadline of
+/// `deadline_ms` and the route window `stage_window`.
+fn cutoffs(started: Instant, deadline_ms: u32, stage_window: StageWindow) -> Deadlines {
+    from_budget(
         started,
         RequestBudget {
-            deadline_ms: 10_000,
+            deadline_ms,
             ..RequestBudget::default()
         },
-    );
-    assert_eq!(long.expires, started + Duration::from_secs(10));
-    assert_eq!(long.routes, started + Duration::from_millis(300));
-    assert_eq!(long.work, started + Duration::from_millis(9_950));
-    assert_eq!(long.setup, started + Duration::from_millis(9_350));
+        stage_window,
+    )
 }
 
 #[test]
-fn a_route_window_starts_when_its_setup_ends_and_never_passes_the_deadline() {
+fn one_millisecond_budget_keeps_its_minimum_cutoffs() {
     let started = Instant::now();
-    let cutoffs = super::super::deadline::from_budget(
+    let short = cutoffs(started, 1, StageWindow::Derived);
+    assert_eq!(short.expires, started + Duration::from_millis(1));
+    assert_eq!(short.work, started + Duration::from_micros(900));
+    assert_eq!(short.setup, started + Duration::from_micros(400));
+    // One assembly window, a quarter of the deadline, exceeds a tenth here.
+    assert_eq!(short.routes_end, started + Duration::from_micros(150));
+    assert_eq!(short.routes, short.routes_end);
+}
+
+#[test]
+fn one_point_five_second_budget_keeps_the_t032_reserve() {
+    let started = Instant::now();
+    let minimum = cutoffs(started, 1500, StageWindow::Derived);
+    assert_eq!(minimum.setup, started + Duration::from_millis(850));
+    assert_eq!(minimum.expires - minimum.setup, Duration::from_millis(650));
+    assert_eq!(minimum.routes_end, started + Duration::from_millis(550));
+}
+
+#[test]
+fn ten_and_thirty_second_budgets_scale_the_reserve() {
+    let started = Instant::now();
+    let ten_seconds = cutoffs(started, 10_000, StageWindow::Derived);
+    assert_eq!(ten_seconds.expires, started + Duration::from_secs(10));
+    assert_eq!(ten_seconds.work, started + Duration::from_millis(9_950));
+    // Assembly gets max(two windows, a tenth of the deadline), plus T032.
+    assert_eq!(ten_seconds.setup, started + Duration::from_millis(8_950));
+    assert_eq!(
+        ten_seconds.routes_end,
+        started + Duration::from_millis(7_950)
+    );
+    assert_eq!(ten_seconds.routes, ten_seconds.routes_end);
+
+    let thirty_seconds = cutoffs(started, 30_000, StageWindow::Derived);
+    assert_eq!(thirty_seconds.work, started + Duration::from_millis(29_950));
+    assert_eq!(
+        thirty_seconds.setup,
+        started + Duration::from_millis(26_950)
+    );
+    assert_eq!(
+        thirty_seconds.routes_end,
+        started + Duration::from_millis(23_950)
+    );
+    assert_eq!(thirty_seconds.routes, thirty_seconds.routes_end);
+}
+
+#[test]
+fn optional_enrichment_ends_one_assembly_window_before_setup_after_the_routes() {
+    let started = Instant::now();
+    for (deadline_ms, enrichment) in [
+        (1, Duration::from_micros(150)),
+        (10_000, Duration::from_millis(8_650)),
+        (30_000, Duration::from_millis(26_650)),
+    ] {
+        let derived = cutoffs(started, deadline_ms, StageWindow::Derived);
+        assert_eq!(derived.enrichment(), started + enrichment);
+        assert!(derived.routes_end <= derived.enrichment());
+    }
+}
+
+#[test]
+fn a_derived_route_runs_until_the_routes_end_wherever_it_starts() {
+    let started = Instant::now();
+    let derived = cutoffs(started, 1500, StageWindow::Derived);
+    // Fusion and the rerank keep one assembly window, 300 ms, over a tenth
+    // of the deadline.
+    assert_eq!(derived.routes_end, started + Duration::from_millis(550));
+    for ready in [0, 300, 549, 700] {
+        assert_eq!(
+            derived.route_after(started + Duration::from_millis(ready)),
+            derived.routes_end
+        );
+    }
+}
+
+#[test]
+fn a_fixed_route_window_starts_when_its_setup_ends_and_never_passes_the_setup_bound() {
+    let started = Instant::now();
+    let fixed = cutoffs(
         started,
-        RequestBudget {
-            deadline_ms: 1500,
-            ..RequestBudget::default()
-        },
+        1500,
+        StageWindow::Fixed(Duration::from_millis(300)),
     );
-    assert_eq!(cutoffs.setup, started + Duration::from_millis(850));
+    assert_eq!(fixed.setup, started + Duration::from_millis(850));
+    assert_eq!(fixed.routes_end, fixed.setup);
+    assert_eq!(fixed.routes, started + Duration::from_millis(300));
     assert_eq!(
-        cutoffs.route_after(started + Duration::from_millis(700)),
-        started + Duration::from_millis(1000)
+        fixed.route_after(started + Duration::from_millis(500)),
+        started + Duration::from_millis(800)
     );
+    // Past the setup bound starts evidence assembly's time: 650 ms, of
+    // which it took 340-500 ms on a real collection.
     assert_eq!(
-        cutoffs.route_after(started + Duration::from_millis(1400)),
-        started + Duration::from_millis(1150)
+        fixed.route_after(started + Duration::from_millis(700)),
+        started + Duration::from_millis(850)
+    );
+    let too_long = cutoffs(started, 1500, StageWindow::Fixed(Duration::from_secs(2)));
+    assert_eq!(too_long.routes, too_long.setup);
+}
+
+#[test]
+fn a_fixed_route_window_past_the_deadline_is_the_deadline() {
+    let started = Instant::now();
+    let unbounded = cutoffs(started, 30_000, StageWindow::Fixed(Duration::MAX));
+    assert_eq!(unbounded.fixed, Some(Duration::from_secs(30)));
+    assert_eq!(unbounded.routes, unbounded.setup);
+    assert_eq!(unbounded.route_after(unbounded.setup), unbounded.routes_end);
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_kernel_deadline_is_the_time_left_on_the_paused_clock_from_now() {
+    let deadline = Instant::now() + Duration::from_millis(300);
+    for _ in 0..2 {
+        // Real time passes between the two reads; the paused time left does
+        // not.
+        let before = StdInstant::now();
+        let kernel = std_deadline(deadline);
+        let after = StdInstant::now();
+        assert!(
+            before + StdDuration::from_millis(300) <= kernel,
+            "{kernel:?}"
+        );
+        assert!(
+            kernel <= after + StdDuration::from_millis(300),
+            "{kernel:?}"
+        );
+    }
+    advance(Duration::from_secs(1)).await;
+    let before = StdInstant::now();
+    let passed = std_deadline(deadline);
+    assert!(
+        before <= passed && passed <= StdInstant::now(),
+        "{passed:?}"
     );
 }
 

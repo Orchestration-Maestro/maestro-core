@@ -223,18 +223,21 @@ impl Qdrant {
         limit: usize,
         filter: Filter,
     ) -> Result<Vec<ScoredPoint>, QdrantError> {
-        self.client
-            .query(
+        // Boxed: the client's query future is about 9 KB, which every search
+        // future above this one would otherwise carry and copy.
+        Box::pin(
+            self.client.query(
                 QueryPointsBuilder::new(collection)
                     .using(DENSE)
                     .query(vector)
                     .limit(u64::try_from(limit).unwrap_or(u64::MAX))
                     .filter(filter)
                     .with_payload(true),
-            )
-            .await
-            .map(|response| response.result)
-            .map_err(QdrantError::Client)
+            ),
+        )
+        .await
+        .map(|response| response.result)
+        .map_err(QdrantError::Client)
     }
 
     /// Queries the named sparse vector `SPARSE`, applying `filter` in Qdrant
@@ -251,18 +254,21 @@ impl Qdrant {
         limit: usize,
         filter: Filter,
     ) -> Result<Vec<ScoredPoint>, QdrantError> {
-        self.client
-            .query(
+        // Boxed: the client's query future is about 9 KB, which every search
+        // future above this one would otherwise carry and copy.
+        Box::pin(
+            self.client.query(
                 QueryPointsBuilder::new(collection)
                     .using(SPARSE)
                     .query(VectorInput::new_sparse(vector.indices, vector.values))
                     .limit(u64::try_from(limit).unwrap_or(u64::MAX))
                     .filter(filter)
                     .with_payload(true),
-            )
-            .await
-            .map(|response| response.result)
-            .map_err(QdrantError::Client)
+            ),
+        )
+        .await
+        .map(|response| response.result)
+        .map_err(QdrantError::Client)
     }
 
     /// Writes `points` into the collection `collection`, replacing any of the

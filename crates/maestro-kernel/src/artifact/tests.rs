@@ -2,6 +2,7 @@
 //! the same outcomes on Linux, macOS and Windows.
 
 use super::{Digest, Error, Store, store::NEXT_TEMPORARY};
+use maestro_test_scratch::scratch_directory;
 #[cfg(unix)]
 use std::os::unix::fs::{PermissionsExt as _, symlink};
 use std::{
@@ -9,10 +10,7 @@ use std::{
     fs::{self, File},
     path::{Path, PathBuf},
     process,
-    sync::{
-        Barrier,
-        atomic::{AtomicUsize, Ordering},
-    },
+    sync::{Barrier, atomic::Ordering},
     thread,
     time::{Duration, SystemTime},
 };
@@ -26,14 +24,7 @@ struct Scratch(PathBuf);
 
 impl Scratch {
     fn new() -> Self {
-        static NEXT: AtomicUsize = AtomicUsize::new(0);
-        let path = env::temp_dir().join(format!(
-            "maestro-kernel-artifact-{}-{}",
-            process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
-        fs::create_dir(&path).unwrap();
-        Self(path)
+        Self(scratch_directory().unwrap())
     }
 }
 

@@ -6,10 +6,9 @@
 use super::{
     error::Unverified,
     point::point_id,
-    qdrant::{DENSE, Qdrant, QdrantError, SPARSE},
+    projection_port::{CollectionLayout, ProjectionError, RetrievalProjectionPort},
 };
 use maestro_kernel::chunk_set::Chunk;
-use qdrant_client::qdrant::{CollectionParams, Distance, Modifier, vectors_config::Config};
 use std::collections::HashSet;
 
 /// How many point IDs one request looks up.
@@ -23,27 +22,31 @@ const LOOKUP: usize = 1000;
 ///
 /// # Errors
 ///
-/// [`QdrantError`] when Qdrant fails, which checks nothing.
+/// [`ProjectionError`] when the projection backend fails, which checks nothing.
 pub(super) async fn verify(
-    qdrant: &Qdrant,
+    qdrant: &impl RetrievalProjectionPort,
     collection: &str,
     dimensions: u64,
     chunks: &[Chunk],
-) -> Result<Result<u64, Unverified>, QdrantError> {
-    if !qdrant.exists(collection).await? {
+) -> Result<Result<u64, Unverified>, ProjectionError> {
+    let Some(layout) = qdrant.collection_layout(collection).await? else {
         return Ok(Err(Unverified::NoCollection));
-    }
-    if let Err(unverified) = vectors(&qdrant.parameters(collection).await?, dimensions) {
+    };
+    if let Err(unverified) = vectors(&layout, dimensions) {
         return Ok(Err(unverified));
     }
     let expected = u64::try_from(chunks.len()).unwrap_or(u64::MAX);
-    let found = qdrant.count(collection).await?;
+    let found = qdrant.count_points(collection).await?;
     if found != expected {
         return Ok(Err(Unverified::Count { expected, found }));
     }
     for batch in chunks.chunks(LOOKUP) {
         let ids: Vec<String> = batch.iter().map(|chunk| point_id(&chunk.id)).collect();
-        let present: HashSet<String> = qdrant.found(collection, &ids).await?.into_iter().collect();
+        let present: HashSet<String> = qdrant
+            .point_ids(collection, &ids)
+            .await?
+            .into_iter()
+            .collect();
         let missing = batch
             .iter()
             .zip(&ids)
@@ -57,49 +60,34 @@ pub(super) async fn verify(
     Ok(Ok(found))
 }
 
-/// Refuses a collection of `parameters` unless its dense vector [`DENSE`]
-/// has `dimensions` compared by cosine and its sparse vector [`SPARSE`] is
+/// Refuses a collection of `parameters` unless its dense vector `DENSE`
+/// has `dimensions` compared by cosine and its sparse vector `SPARSE` is
 /// weighted by IDF.
-pub(super) fn vectors(parameters: &CollectionParams, dimensions: u64) -> Result<(), Unverified> {
-    let dense = match parameters
-        .vectors_config
-        .as_ref()
-        .and_then(|config| config.config.as_ref())
-    {
-        Some(Config::ParamsMap(named)) => named.map.get(DENSE),
-        Some(Config::Params(_)) | None => None,
-    };
-    let modifier = parameters
-        .sparse_vectors_config
-        .as_ref()
-        .and_then(|sparse| sparse.map.get(SPARSE))
-        .map(|sparse| sparse.modifier);
-    let matches = dense.is_some_and(|dense| {
-        dense.size == dimensions && dense.distance == i32::from(Distance::Cosine)
-    }) && modifier == Some(Some(i32::from(Modifier::Idf)));
+pub(super) fn vectors(layout: &CollectionLayout, dimensions: u64) -> Result<(), Unverified> {
+    let matches = layout.dense_present
+        && layout.dense_dimensions == dimensions
+        && layout.dense_distance == "Cosine"
+        && layout.sparse_present
+        && layout.sparse_modifier.as_deref() == Some("Idf");
     if matches {
         return Ok(());
     }
-    let dense = dense.map_or_else(
-        || format!("no dense vector `{DENSE}`"),
-        |dense| {
-            let distance = Distance::try_from(dense.distance)
-                .map_or("unknown", |distance| distance.as_str_name());
-            format!(
-                "a dense vector `{DENSE}` of {} dimensions compared by {distance}",
-                dense.size
-            )
-        },
-    );
-    let sparse = modifier.map_or_else(
-        || format!("no sparse vector `{SPARSE}`"),
-        |modifier| {
-            let modifier = modifier
-                .and_then(|modifier| Modifier::try_from(modifier).ok())
-                .map_or("no", |modifier| modifier.as_str_name());
-            format!("a sparse vector `{SPARSE}` weighted by {modifier} modifier")
-        },
-    );
+    let dense = if layout.dense_present {
+        format!(
+            "a dense vector `dense` of {} dimensions compared by {}",
+            layout.dense_dimensions, layout.dense_distance
+        )
+    } else {
+        "no dense vector `dense`".to_owned()
+    };
+    let sparse = if layout.sparse_present {
+        format!(
+            "a sparse vector `bm25` weighted by {} modifier",
+            layout.sparse_modifier.as_deref().unwrap_or("no")
+        )
+    } else {
+        "no sparse vector `bm25`".to_owned()
+    };
     Err(Unverified::Vectors {
         dimensions,
         found: format!("{dense} and {sparse}"),

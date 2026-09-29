@@ -70,7 +70,9 @@ fn a_registration_that_loses_the_race_returns_the_committed_identical_card() {
     let (card, scopes, registrant) = (&card, &scopes, &registrant);
     let registered = thread::scope(|workers| {
         let registration = workers.spawn(move || {
-            started.recv().unwrap();
+            // Bounded: a writer that fails before its insert fails the test
+            // instead of leaving this thread waiting forever.
+            started.recv_timeout(Duration::from_secs(10)).unwrap();
             registrant.record_model_card(
                 scopes,
                 &NewModelCard {

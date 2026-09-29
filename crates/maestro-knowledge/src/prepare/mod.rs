@@ -18,14 +18,16 @@
 //! place, and named with why. Exact duplicates are prepared once, each place
 //! they occur kept as an occurrence; near duplicates are grouped with their
 //! confirmed Jaccard, never deleted; and each revision's chunks are cut by
-//! maestro-canonicalization's chunker under its profile
-//! `mapped-structural-chunks/2`, each with its exact prepared input stored as
-//! the artifact its digest names. A revision the chunker refuses, such as
-//! one with a unit that cannot fit 700 tokens with its context, gets no
-//! chunk, and its refusal, which names the unit, is recorded with the chunk
-//! set. The chunk set completes with its manifest, `maestro-chunk-set/1`,
-//! only once every eligible revision is settled, so interrupted work never
-//! reads as complete; a rerun resumes it.
+//! maestro-canonicalization's chunker under the chunking profile its
+//! [`Preparation`] names. In this crate, `ChunkProfile::default()` remains
+//! `mapped-structural-chunks/2`, while maestro-settings selects `/3` as the
+//! default for collection preparation and publish. Each chunk has its exact
+//! prepared input stored as the artifact its digest names. A
+//! revision the chunker refuses, such as one with a unit that cannot fit 700
+//! tokens with its context, gets no chunk, and its refusal, which names the
+//! unit, is recorded with the chunk set. The chunk set completes with its
+//! manifest, `maestro-chunk-set/1`, only once every eligible revision is
+//! settled, so interrupted work never reads as complete; a rerun resumes it.
 //!
 //! A preparation is a library operation, run as a leased job: its caller
 //! submits the job with the chunk set it will build, [`chunk_set_id`], as its
@@ -49,10 +51,11 @@ mod router_tokenizer;
 #[cfg(test)]
 pub(crate) mod tests;
 
-pub use collection::{chunk_set_id, chunk_set_id_for_card, prepare, prepare_observed};
+pub use collection::{Preparation, chunk_set_id, chunk_set_id_for_card, prepare, prepare_observed};
 pub use error::TokenizerError;
 pub use failure::Error;
+pub use maestro_canonicalization::ChunkProfile;
 pub(crate) use manifest::search_members;
 pub use qualification::{QualificationError, QualificationMode, TokenizerQualification};
-pub use report::{Ineligibility, LeftOut, Refusal, Report};
+pub use report::{Chrome, Ineligibility, LeftOut, Refusal, Report};
 pub use router_tokenizer::RouterTokenizer;

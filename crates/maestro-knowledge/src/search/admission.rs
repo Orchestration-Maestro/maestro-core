@@ -1,9 +1,13 @@
 //! Request bounds, scope snapshots and generation admission.
 
-use super::request::{SearchConfiguration, SearchContext, SearchError, SearchRequest};
+use super::request::{
+    CandidateContext, SearchConfiguration, SearchContext, SearchError, SearchRequest,
+};
+use super::source_class::SourceClassifier;
 use super::{deadline, inventory_query::inventory_request, pin};
 use crate::query::{Understood, understand};
 use maestro_kernel::{
+    evidence::RequestBudget,
     gateway::ModelPort,
     generation::Generation,
     retrieval::{self, InventoryRequest},
@@ -14,6 +18,7 @@ use std::{collections::HashSet, sync::Arc};
 use tokio::time::Instant;
 
 /// One admitted request pinned to a generation, scope snapshot and cutoff set.
+#[derive(Clone)]
 pub(super) struct AdmittedSearch {
     /// The deterministic interpretation of the original question.
     pub(super) understood: Understood,
@@ -35,11 +40,13 @@ pub(super) struct AdmittedSearch {
     pub(super) cutoffs: deadline::Deadlines,
     /// Validated execution settings frozen before route access.
     pub(super) configuration: SearchConfiguration,
+    /// The source classifier the source prior reads, when one is configured.
+    pub(super) source_classes: Option<Arc<dyn SourceClassifier>>,
 }
 
 /// Validates request bounds and pins its generation before route access.
-pub(super) async fn admit_request<P: ModelPort>(
-    context: &SearchContext<'_, P>,
+pub(super) async fn admit_request<P: ModelPort, R>(
+    context: &SearchContext<'_, P, R>,
     request: &SearchRequest<'_>,
 ) -> Result<AdmittedSearch, SearchError> {
     let started = Instant::now();
@@ -49,7 +56,8 @@ pub(super) async fn admit_request<P: ModelPort>(
         Err(error) => (None, Some(error.to_string())),
     };
     let version = request.version.map(str::to_owned);
-    let cutoffs = deadline::from_budget(started, request.budget);
+    let cutoffs =
+        deadline::from_budget(started, request.budget, request.configuration.stage_window);
     let (admission_scopes, generation, version_documented) = admit(
         context.database.clone(),
         context.principal,
@@ -69,6 +77,7 @@ pub(super) async fn admit_request<P: ModelPort>(
         scopes: Arc::new(admission_scopes),
         cutoffs,
         configuration: request.configuration,
+        source_classes: context.source_classes.clone(),
     })
 }
 
@@ -98,17 +107,63 @@ pub(super) fn validate(request: &SearchRequest<'_>) -> Result<Understood, Search
     if !(1..=50).contains(&request.budget.k) {
         return Err(invalid("k must be between 1 and 50"));
     }
-    if !(1..=12_000).contains(&request.budget.max_tokens) {
-        return Err(invalid("max_tokens must be between 1 and 12000"));
+    if !(1..=RequestBudget::MAX_EVIDENCE_BUDGET).contains(&request.budget.evidence_bytes) {
+        return Err(invalid(&format!(
+            "evidence_bytes must be between 1 and {}",
+            RequestBudget::MAX_EVIDENCE_BUDGET
+        )));
     }
-    if !(1..=10_000).contains(&request.budget.deadline_ms) {
-        return Err(invalid("deadline_ms must be between 1 and 10000"));
+    if !(1..=RequestBudget::MAX_DEADLINE_MS).contains(&request.budget.deadline_ms) {
+        return Err(invalid("deadline_ms must be between 1 and 30000"));
+    }
+    for (name, value) in [
+        ("routes_limit", request.configuration.routes_limit),
+        ("identifier_limit", request.configuration.identifier_limit),
+        ("fusion_pool", request.configuration.fusion_pool),
+    ] {
+        if !(1..=120).contains(&value) {
+            return Err(invalid(&format!("{name} must be between 1 and 120")));
+        }
     }
     if request.configuration.rerank_depth.get() > 120 {
         return Err(invalid("rerank depth must be between 1 and 120"));
     }
+    if request.configuration.rerank_depth.get() > request.configuration.fusion_pool {
+        return Err(invalid("rerank depth cannot exceed fusion_pool"));
+    }
+    if !(1..=5000).contains(&request.configuration.intent_deadline_ms) {
+        return Err(invalid(
+            "intent deadline must be between 1 and 5000 milliseconds",
+        ));
+    }
+    if request.configuration.intent_rerank_additions > 120 {
+        return Err(invalid("intent rerank additions must be at most 120"));
+    }
+    if !request.configuration.intent_trigger.is_valid() {
+        return Err(invalid("intent confidence threshold must be finite"));
+    }
     if !request.configuration.weights_are_valid() {
         return Err(invalid("route weights must be finite and nonnegative"));
+    }
+    if request
+        .configuration
+        .rerank_blend
+        .is_some_and(|blend| !blend.is_finite() || !(0.0..=1.0).contains(&blend))
+    {
+        return Err(invalid("rerank blend must be between 0 and 1"));
+    }
+    if !request.configuration.section_prior.is_valid() {
+        return Err(invalid("section prior weight must be between 0 and 1"));
+    }
+    if !request.configuration.source_prior.is_valid() {
+        return Err(invalid("source prior weight must be between 0 and 1"));
+    }
+    if let CandidateContext::BoundedSection { max_bytes } = request.configuration.candidate_context
+        && !(1..=1500).contains(&max_bytes)
+    {
+        return Err(invalid(
+            "candidate context max_bytes must be between 1 and 1500",
+        ));
     }
     if request
         .version
@@ -136,7 +191,7 @@ async fn admit(
         let generation = pin(&database, &scopes, &collection).map_err(SearchError::Admission)?;
         let version_documented = if let Some(version) = version.as_deref() {
             let control = retrieval::ReadControl {
-                deadline: deadline.into_std(),
+                deadline: deadline::std_deadline(deadline),
                 cancelled,
             };
             let read = retrieval::SearchRead {

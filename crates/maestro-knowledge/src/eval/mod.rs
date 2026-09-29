@@ -83,32 +83,41 @@
 
 mod bootstrap;
 mod compare;
+mod delivered;
 mod error;
 mod judge;
 mod ladder;
 mod ladder_markdown;
+mod ladder_score;
 mod merge;
 mod metric;
 mod record;
 mod report_validation;
 mod reports;
+mod reranker_health;
 mod run;
 mod run_v2;
 #[cfg(test)]
 mod tests;
 
 pub use compare::{Comparison, compare};
+pub use delivered::{DeliveryScore, score_delivery};
 pub use error::{AggregateError, CompareError, RunError};
 pub use ladder::{
     ANSWERED_PERCENT, Ask, AskOutcome, Floor, FloorResult, FloorStatus, LadderQuestion,
-    LadderScore, Measure, Search, SearchOutcome, SectionRef, resolve_expected, score_ladder,
+    LadderScore, LanguageCounts, Measure, Search, SearchOutcome, SectionRef, resolve_expected,
 };
+pub use ladder_score::score_ladder;
 pub use merge::merge_v2_attempts;
 pub use record::{RecordError, record};
 pub use reports::{
     CohortStatistics, Estimate, Expected, Failure, FailureClass, Header, HeaderV2, ItemStatus,
     MeasurementCohort, Metrics, QuestionResult, Report, Schema, Subgroup, SubgroupStatistics,
     TrialMode,
+};
+pub use reranker_health::{
+    HealthReceipt, RerankerEvaluation, RerankerHealth, check_reranker_health,
+    evaluate_and_record_reranker_health, record_reranker_health,
 };
 pub use run::run;
 pub use run_v2::{AttemptEvent, run_v2, run_v2_observed};

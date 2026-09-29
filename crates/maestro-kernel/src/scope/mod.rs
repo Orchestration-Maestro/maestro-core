@@ -55,6 +55,9 @@
 //!   stream's last sequence, a position rather than an event;
 //! - [`Database::visible`](crate::store::Database::visible): a principal's
 //!   grants, which are what a set is made of;
+//! - [`Database::setting_changes`](crate::store::Database::setting_changes):
+//!   a principal's own changes to its preferences files, keys and values
+//!   only, which serve `maestro config history`: they name no record;
 //! - [`store::pending_migrations`](crate::store::pending_migrations): the
 //!   migrations a database lacks, or the one it records that this binary
 //!   lacks, read from the file opened read-only, which serve `maestro

@@ -103,6 +103,8 @@ pub(super) struct ResolvedExpected {
     pub revision_id: String,
     /// The expected section's half-open source extent.
     pub span: Option<[usize; 2]>,
+    /// The part of a composed answer it gives, as the suite names it.
+    pub component: Option<String>,
 }
 
 /// The sections and documents each question of `suite` expects, unranked,
@@ -227,6 +229,7 @@ fn resolve_name<E>(
         },
         revision_id: document.revision_id.clone(),
         span,
+        component: name.component.clone(),
     })
 }
 

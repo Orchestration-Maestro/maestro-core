@@ -1,4 +1,4 @@
-use super::{answer_failure, registered_answerer, reranker_card};
+use super::{answer_failure, registered_answerer};
 use crate::{
     kernel::Kernel,
     knowledge::operations::{KnowledgeError, tests::Scratch},
@@ -99,35 +99,34 @@ fn default_request() -> AskRequest {
 }
 
 #[test]
-fn default_resolution_skips_a_thinking_card_registered_later() {
+fn default_resolution_takes_a_thinking_card_registered_later() {
     let scratch = Scratch::new();
     let kernel = scratch.kernel(None).expect("open test kernel");
     let request = default_request();
     register_answerer(&kernel, "qwen3-4b", b"older answerer");
-    let (plain, _) = register_reasoning_answerer(&kernel, b"plain answerer", false);
+    register_reasoning_answerer(&kernel, b"plain answerer", false);
 
     let (thinking, _) = register_reasoning_answerer(&kernel, b"thinking answerer", true);
 
     let resolved = registered_answerer(&kernel, &kernel.scopes, &request)
         .expect("read scoped card registry")
-        .expect("the plain answerer");
-    assert_eq!(resolved.id, plain);
-    assert_ne!(resolved.id, thinking);
+        .expect("the thinking answerer");
+    assert_eq!(resolved.id, thinking);
 }
 
 #[test]
-fn only_a_thinking_card_leaves_the_default_unresolved() {
+fn a_plain_card_registered_after_a_thinking_one_is_the_default() {
     let scratch = Scratch::new();
     let kernel = scratch.kernel(None).expect("open test kernel");
     let request = default_request();
-
     register_reasoning_answerer(&kernel, b"thinking answerer", true);
 
-    assert!(
-        registered_answerer(&kernel, &kernel.scopes, &request)
-            .expect("read scoped card registry")
-            .is_none()
-    );
+    let (plain, _) = register_reasoning_answerer(&kernel, b"plain answerer", false);
+
+    let resolved = registered_answerer(&kernel, &kernel.scopes, &request)
+        .expect("read scoped card registry")
+        .expect("the plain answerer");
+    assert_eq!(resolved.id, plain);
 }
 
 #[test]
@@ -208,17 +207,18 @@ fn i4_answerer_and_evidence_failures_keep_their_public_codes() {
     );
 }
 
-#[test]
-fn only_a_reranker_selected_for_the_searched_generation_is_used() {
-    let scratch = Scratch::new();
-    let kernel = scratch.kernel(None).expect("open test kernel");
+/// Registers a reranker card in the scratch collection, evaluates it on
+/// `generation` and selects it; returns the card.
+pub(crate) fn select_reranker(kernel: &Kernel, generation: &Generation) -> ModelCard {
+    let (id, card) = register_card(kernel, "collection", Role::Reranker, "rerank", b"reranker");
+    select_card(kernel, generation, Role::Reranker, &id);
+    card
+}
+
+/// Evaluates the registered card `id` of `role` on `generation` and
+/// selects it for `role` in the scratch collection.
+pub(crate) fn select_card(kernel: &Kernel, generation: &Generation, role: Role, id: &str) {
     let scopes = &kernel.scopes;
-    let current = kernel
-        .database
-        .published_generation(scopes, "collection")
-        .expect("read published generation")
-        .expect("published generation");
-    let (id, card) = register_card(&kernel, "collection", Role::Reranker, "rerank", b"reranker");
     let card_id = id.parse().expect("registration ULID");
     let evaluation = kernel
         .database
@@ -228,9 +228,9 @@ fn only_a_reranker_selected_for_the_searched_generation_is_used() {
                 run_id: "run",
                 collection_id: "collection",
                 card_id,
-                role: Role::Reranker,
+                role,
                 mode: EvaluationMode::Real,
-                generation_id: Some(current.id),
+                generation_id: Some(generation.id),
                 disposition: EvaluationDisposition::Eligible,
                 manifest: b"manifest",
                 report: b"report",
@@ -243,27 +243,14 @@ fn only_a_reranker_selected_for_the_searched_generation_is_used() {
             scopes,
             &NewModelSelection {
                 collection_id: "collection",
-                role: Role::Reranker,
+                role,
                 card_id,
                 evaluation_id: evaluation.id,
                 selected_by: "owner",
                 reason: "approved",
             },
         )
-        .expect("select reranker");
-    let selected = |generation: Option<&Generation>| {
-        reranker_card(&kernel, scopes, "collection", generation)
-            .expect("read selected reranker")
-            .map(|selected| selected.digest().clone())
-    };
-
-    assert_eq!(selected(Some(&current)), Some(card.digest().clone()));
-    let other = Generation {
-        id: current.id + 1,
-        ..current.clone()
-    };
-    assert_eq!(selected(Some(&other)), None);
-    assert_eq!(selected(None), None);
+        .expect("select the card");
 }
 
 /// Registers a small v2 answerer card and returns its immutable registry ID.
@@ -377,7 +364,7 @@ fn card_identity(kernel: &Kernel, role: Role, entry: &str, weights: &[u8]) -> Ca
         invocation: RuntimeLimits {
             limits: Limits {
                 context_tokens: NonZeroU32::new(4096).expect("nonzero context"),
-                output_tokens: answerer.then(|| NonZeroU32::new(128).expect("nonzero output")),
+                output_tokens: answerer.then(|| NonZeroU32::new(1024).expect("nonzero output")),
             },
             dimensions: Dimensions::NotApplicable,
             sampling: if answerer {

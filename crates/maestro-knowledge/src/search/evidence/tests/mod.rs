@@ -16,3 +16,10 @@ mod source;
 mod spans;
 mod support;
 mod versions;
+
+mod candidate_context;
+mod parent_chain;
+mod parent_tiers;
+
+pub(super) use selection::{CandidateSource, candidate, prepared};
+pub(super) use support::control;

@@ -1,52 +1,57 @@
-//! Packing a document's atoms into drafts: combined up to the target, refined or split past the
-//! maximum.
+//! Packing a document's ideas into drafts: combined up to the target, broken into smaller ideas,
+//! refined or split past the maximum.
+use super::ideas::{Piece, absorb_small, pieces};
 use super::limits::{MAX_TOKENS, TARGET_TOKENS};
-use super::refusal::structure_error;
-use super::structure::{Body, Layout, layout};
-use crate::{
-    document::CanonicalDocument, error::Error, prepared_inputs::ChunkContent,
-    source_units::MappedDocument,
-};
+use super::structure::{Body, Layout};
+use crate::{error::Error, prepared_inputs::ChunkContent};
 use std::collections::{BTreeMap, VecDeque};
 
-/// Pack a document's atoms into drafts: combine compatible atoms up to the target, refine or split
-/// what exceeds the maximum, then number each unit's parts. A refinement that hands a body back
-/// unchanged would never end, so it refuses the body's first unit by name.
+/// Pack a document's pieces into drafts: combine compatible pieces up to the target; an idea over
+/// the maximum continues atom by atom, an atom over it is refined or split; then number each
+/// unit's parts. `Layout::refine` always returns smaller bodies, so refinement ends. Under a
+/// profile with a minimum, a small draft then joins the draft before it.
 pub(crate) fn build_drafts(
-    document: &CanonicalDocument,
-    markdown: &str,
-    mapped: &MappedDocument,
+    layout: &Layout<'_>,
     count: &mut impl FnMut(&str) -> Result<usize, Error>,
 ) -> Result<Vec<ChunkContent>, Error> {
-    let layout = layout(document, markdown, mapped)?;
-    let mut pending: VecDeque<_> = layout.atoms()?.into();
+    let mut pending: VecDeque<_> = pieces(layout, layout.atoms()?).into();
     let mut current: Option<(Body, ChunkContent)> = None;
     let mut result = Vec::new();
-    while let Some(atom) = pending.pop_front() {
-        if let Some((body, prepared)) = current.take() {
-            if let Some((combined, candidate)) = grown(&layout, &body, &atom, count)? {
+    while let Some(piece) = pending.pop_front() {
+        let body = piece.body();
+        if let Some((open, prepared)) = current.take() {
+            if let Some((combined, candidate)) = layout.grown(&open, &body, count)? {
                 current = settle(&mut result, combined, candidate);
+                continue;
+            }
+            if let Piece::Idea(atoms) = &piece
+                && layout.prepare(&body, count)?.token_count > MAX_TOKENS
+            {
+                // Too large for any chunk: its atoms may still join the open draft.
+                requeue(&mut pending, atoms.clone());
+                current = Some((open, prepared));
                 continue;
             }
             result.push(prepared);
         }
-        let prepared = layout.prepare(&atom, count)?;
+        let prepared = layout.prepare(&body, count)?;
         if prepared.token_count <= MAX_TOKENS {
-            current = settle(&mut result, atom, prepared);
-        } else if let Some(refined) = layout.refine(&atom)? {
-            if refined.contains(&atom) {
-                let first = atom.fragments.first().ok_or_else(structure_error)?;
-                return Err(layout.oversized(first.contribution.unit_index));
-            }
-            for piece in refined.into_iter().rev() {
-                pending.push_front(piece);
-            }
-        } else {
-            result.extend(layout.split_unit(&atom, count)?);
+            current = settle(&mut result, body, prepared);
+            continue;
+        }
+        match piece {
+            Piece::Idea(atoms) => requeue(&mut pending, atoms),
+            Piece::Atom(atom) => match layout.refine(&atom)? {
+                Some(refined) => requeue(&mut pending, refined),
+                None => result.extend(layout.split_unit(&atom, count)?),
+            },
         }
     }
     if let Some((_, prepared)) = current {
         result.push(prepared);
+    }
+    if let Some(min_tokens) = layout.rules().min_tokens {
+        result = absorb_small(layout, result, min_tokens, count)?;
     }
     let mut ordinals = BTreeMap::new();
     for chunk in &mut result {
@@ -61,20 +66,11 @@ pub(crate) fn build_drafts(
     Ok(result)
 }
 
-/// The open draft grown by an atom, when the two are compatible and their combined chunk stays
-/// within the maximum.
-fn grown(
-    layout: &Layout<'_>,
-    body: &Body,
-    atom: &Body,
-    count: &mut impl FnMut(&str) -> Result<usize, Error>,
-) -> Result<Option<(Body, ChunkContent)>, Error> {
-    if !layout.compatible(body, atom) {
-        return Ok(None);
+/// Put `atoms` back at the front of the pending pieces, in order, each a piece alone.
+fn requeue(pending: &mut VecDeque<Piece>, atoms: Vec<Body>) {
+    for atom in atoms.into_iter().rev() {
+        pending.push_front(Piece::Atom(atom));
     }
-    let combined = combine(body, atom);
-    let candidate = layout.prepare(&combined, count)?;
-    Ok((candidate.token_count <= MAX_TOKENS).then_some((combined, candidate)))
 }
 
 /// A draft that reached the target is complete and joins the result; a smaller one stays open.
@@ -89,24 +85,4 @@ fn settle(
     } else {
         Some((body, prepared))
     }
-}
-
-/// Two bodies as one: the fragments appended, and the column windows of one row merged.
-fn combine(left: &Body, right: &Body) -> Body {
-    let mut result = left.clone();
-    result.fragments.extend(right.fragments.iter().cloned());
-    for window in &right.windows {
-        if let Some(last) = result
-            .windows
-            .last_mut()
-            .filter(|last| last.row_id == window.row_id)
-        {
-            last.columns.extend(&window.columns);
-            last.columns.sort_unstable();
-            last.columns.dedup();
-        } else {
-            result.windows.push(window.clone());
-        }
-    }
-    result
 }

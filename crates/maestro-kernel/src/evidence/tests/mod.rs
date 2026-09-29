@@ -3,6 +3,7 @@
 
 mod bundle;
 mod lookup;
+mod parent_context;
 mod resolve;
 mod search_wire;
 mod support;

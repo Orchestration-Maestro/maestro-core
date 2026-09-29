@@ -93,7 +93,7 @@ pub struct Conflict {
 #[serde(deny_unknown_fields)]
 pub struct Budget {
     /// The evidence size in the recorded counter's units; UTF-8 bytes when estimated.
-    pub evidence_tokens: u32,
+    pub evidence_bytes: u32,
     /// The most they could take.
     pub limit: u32,
     /// The stable contract ID of the counter, if one was used.
@@ -125,6 +125,13 @@ pub struct Trace {
         deserialize_with = "read_chunk_ids"
     )]
     pub chunk_ids: Vec<String>,
+    /// Admitted source seeds for which this passage supplies parent context, not containment.
+    #[serde(
+        default,
+        skip_serializing_if = "Vec::is_empty",
+        deserialize_with = "read_chunk_ids"
+    )]
+    pub parent_context_of: Vec<String>,
     /// Whether the passage is a procedure.
     pub procedural: bool,
 }
@@ -283,8 +290,8 @@ fn check(bundle: &Bundle) -> Result<(), String> {
     for passage in &bundle.passages {
         passage.span.checked()?;
     }
-    if bundle.budget.evidence_tokens > bundle.budget.limit {
-        return Err("bundle evidence_tokens exceeds its budget limit".to_owned());
+    if bundle.budget.evidence_bytes > bundle.budget.limit {
+        return Err("bundle evidence_bytes exceeds its budget limit".to_owned());
     }
     if bundle
         .budget
@@ -309,10 +316,11 @@ fn check(bundle: &Bundle) -> Result<(), String> {
         check_conflict(conflict, &numbers)?;
     }
     check_trace(&bundle.trace, &numbers)?;
+    check_parent_context(bundle)?;
     if let Some(request_budget) = &bundle.request_budget {
         request_budget.validate()?;
-        if bundle.budget.limit != request_budget.max_tokens {
-            return Err("bundle budget limit does not match request max_tokens".to_owned());
+        if bundle.budget.limit != request_budget.evidence_bytes {
+            return Err("bundle budget limit does not match request evidence_bytes".to_owned());
         }
         let passage_count = u32::try_from(bundle.passages.len())
             .map_err(|_| "bundle passage count exceeds request budget k".to_owned())?;
@@ -448,4 +456,38 @@ impl<'de> Visitor<'de> for RoutesVisitor {
         }
         Ok(routes)
     }
+}
+
+/// Requires explicit context support to resolve to a contained seed of the same revision.
+fn check_parent_context(bundle: &Bundle) -> Result<(), String> {
+    let mut contained = BTreeSet::new();
+    for trace in &bundle.trace {
+        let passage = bundle
+            .passages
+            .iter()
+            .find(|passage| passage.n == trace.n)
+            .ok_or_else(|| "context trace passage is missing".to_owned())?;
+        for id in &trace.chunk_ids {
+            contained.insert((&passage.revision_id, id));
+        }
+    }
+    for trace in &bundle.trace {
+        let passage = bundle
+            .passages
+            .iter()
+            .find(|passage| passage.n == trace.n)
+            .ok_or_else(|| "context trace passage is missing".to_owned())?;
+        let mut unique = BTreeSet::new();
+        for id in &trace.parent_context_of {
+            if !unique.insert(id) || !contained.contains(&(&passage.revision_id, id)) {
+                return Err(
+                    "parent context must name a unique admitted seed of its revision".to_owned(),
+                );
+            }
+            if trace.chunk_ids.contains(id) {
+                return Err("parent context cannot also claim seed containment".to_owned());
+            }
+        }
+    }
+    Ok(())
 }

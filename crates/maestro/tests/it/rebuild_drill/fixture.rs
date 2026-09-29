@@ -17,7 +17,7 @@ use maestro_kernel::{
 };
 use maestro_knowledge::{
     index::Qdrant,
-    search::{Reranker, routes::dense::Embedder},
+    search::{Reranker, SearchConfiguration, routes::dense::Embedder},
 };
 use serde_json::Value;
 use std::{
@@ -142,7 +142,8 @@ pub(super) fn frozen_template(input: FrozenInputs<'_>) -> Frozen {
         .to_owned(),
         model_identity: "FakeModels synthetic protocol simulation/1".to_owned(),
         qualification_digest: Digest::of(native_parity().as_bytes()).as_str().to_owned(),
-        rerank_depth: 80,
+        rerank_depth: u32::try_from(SearchConfiguration::default().rerank_depth.get())
+            .expect("the default depth fits u32"),
         point_ids: Vec::new(),
     }
 }

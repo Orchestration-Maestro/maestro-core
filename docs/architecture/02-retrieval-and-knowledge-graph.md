@@ -231,6 +231,46 @@ to retained primary seeds, not alternates; alternate sections are not extra
 votes. Final reading order groups by document/revision in best input-rank order,
 then by source span.
 
+### Parent-chain delivery
+
+`evidence.expansion = "parent_chain"` delivers complete units plus their
+required parent context. Legacy modes keep
+the same serialized output. With parent-chain enabled,
+`evidence.parent_chain_order` accepts `minimum_complete_first` (the default)
+or `largest_fitting_parent`. An explicit order outside
+parent-chain mode is refused (exit 2). Search-only ladder rungs carry the same
+optional expansion and order; answer-enabled rungs reject these overrides.
+
+The request-local, internal `DeliveryGraph` port consumes already-authorized
+canonical artifacts: it performs no independent database or network reads.
+Its legacy adapter offers exact seed-linked primary parts separately from
+required context ranges: a standalone table row plus header, the whole table,
+then its section. Nested procedure units remain whole. Persisted retrieval-view
+adapters may supply disjoint primary parts without pretending that the source
+gap is delivered. Every required part is admitted atomically; shared or adjacent
+source ranges merge before counting the actual serialized final passage array.
+A UTF-8 byte counter can reject a single over-budget required range before
+rendering; no byte bound is assumed for tokenizer counters.
+
+Knowledge retrieval crosses the `RetrievalProjectionPort`: publication,
+verification, rebuild, and search use backend-neutral projection data and
+filters, while the Qdrant adapter owns transport conversion. This keeps the
+projection backend replaceable without changing retrieval callers.
+
+Conflict groups use global clamped tiers, preserving every member: minimum-first
+ascends them, largest-first descends the same tiers. Both retry lockstep growth
+after admission, because later overlaps can make a parent cheaper. Passage
+slots and source-byte accounting apply to each complete trial, not to isolated
+seed estimates. Unrelated rows gain no selection credit from a shared header.
+
+`trace.chunk_ids` means contained primary source contributions.
+`trace.parent_context_of` instead links a parent-only passage to admitted primary
+seeds in the same revision; it is omitted when empty. Duplicate, dangling,
+cross-revision or simultaneous containment/context links are rejected on read
+and write. Answer citations prefer contained chunks, then validated parent
+support; they retain the parent's own exact source span, including for closest
+passages in refusals.
+
 The bundle also carries the claims and paths used (S2), the **known gaps**
 (required evidence not found or not accessible) and, when `ask` is used, an
 **answer-support plan** that maps each planned statement to its evidence before
@@ -241,7 +281,7 @@ any text is drafted, so an unsupported conclusion is caught before generation.
   "schema": "maestro-evidence/1",
   "collection": "ctm", "generation": 7, "query": "…", "lang": "fr",
   "routes": {"dense": "ok", "lexical": "ok", "identifier": "ok", "structured": "ok", "rerank": "ok"},
-  "request_budget": {"k": 10, "max_tokens": 6000, "deadline_ms": 1500},
+  "request_budget": {"k": 10, "evidence_bytes": 12000, "deadline_ms": 1500},
   "inventory": {"kind": "documents_by_set", "set_filter": null, "total_documents": 12, "sets": [{"value": "ctm", "documents": 12}]},
   "passages": [{
     "windowed": true,
@@ -257,7 +297,7 @@ any text is drafted, so an unsupported conclusion is caught before generation.
   }],
   "conflicts": [{"entity": "…", "attribute": "default port", "passages": [1, 2]}],
   "known_gaps": ["…"],
-  "budget": {"evidence_tokens": 5870, "limit": 6000, "counter": "evidence-utf8-bytes/1", "estimated": true},
+  "budget": {"evidence_bytes": 5870, "limit": 12000, "counter": "evidence-utf8-bytes/1", "estimated": true},
   "trace": [
     {"n": 1, "score": 0.83, "routes": ["dense", "lexical"], "chunk_ids": ["chunk-a"], "procedural": true},
     {"n": 2, "score": 0.61, "routes": ["lexical"], "chunk_ids": ["chunk-b"], "procedural": false}
@@ -417,7 +457,7 @@ URIs below describe the planned surface by slice.
 | Tool | Input | Output | Slice |
 | --- | --- | --- | --- |
 | `knowledge_collections` | — | Collections visible to the caller with their published generation | S1 |
-| `knowledge_search` | `collection`, `query`, optional `version`, `k`, `max_tokens` | `maestro-evidence/1` bundle | S1 |
+| `knowledge_search` | `collection`, `query`, optional `version`, `k`, `evidence_bytes` | `maestro-evidence/1` bundle | S1 |
 | `knowledge_get` | `section_id` or `chunk_id` | Exact text with provenance | S1 |
 | `knowledge_graph_neighbors` | `entity` (ID or name), `relation_types?`, `version?`, `depth ≤ 2` | Entities and relations with evidence references | S2 |
 | `knowledge_graph_path` | `from`, `to`, `max_length ≤ 4` | Paths with evidence references | S2 |

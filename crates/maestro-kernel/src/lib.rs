@@ -30,7 +30,11 @@ pub mod journal;
 /// these dispositions only after applying those semantics.
 pub mod model;
 pub mod paths;
+pub mod representation;
 pub mod retrieval;
 pub mod scope;
+pub mod settings;
 pub mod store;
 pub mod telemetry;
+
+pub mod unit_graph;

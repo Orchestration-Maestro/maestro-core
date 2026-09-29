@@ -15,11 +15,12 @@ clap.workspace = true
 maestro-catalog.workspace = true
 maestro-kernel.workspace = true
 maestro-knowledge.workspace = true
+maestro-settings.workspace = true
 rmcp.workspace = true
 rusqlite = { workspace = true, features = ["backup"] }
 schemars.workspace = true
 serde.workspace = true
-serde_json.workspace = true
+serde_json = { workspace = true, features = ["float_roundtrip"] }
 sha2.workspace = true
 tokio = { workspace = true, features = [
   "io-util",
@@ -32,6 +33,7 @@ tokio = { workspace = true, features = [
 ulid.workspace = true
 
 [dev-dependencies]
+maestro-test-scratch.workspace = true
 qdrant-client.workspace = true
 tonic.workspace = true
 tracing.workspace = true

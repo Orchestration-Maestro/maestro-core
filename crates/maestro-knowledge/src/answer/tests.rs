@@ -3,7 +3,7 @@ use super::{
     RefusalCode, RegisteredAnswerer, Rejection,
 };
 use super::{
-    generate::{Relevance, answer_bundle, answer_relevant},
+    generate::{AnswerPlan, answer_bundle, answer_relevant},
     prompt::prompt,
 };
 use maestro_kernel::{
@@ -14,6 +14,7 @@ use maestro_kernel::{
         card_v2::{Capability, ControlValue},
     },
 };
+use maestro_test_scratch::scratch_directory;
 #[expect(
     dead_code,
     reason = "the shared v2 fixture also contains an unused embedder card"
@@ -23,10 +24,9 @@ mod v2_golden;
 
 use std::{
     collections::{BTreeMap, VecDeque},
-    env, fs,
+    fs,
     future::{self, Future},
     path::PathBuf,
-    process,
     sync::{
         Mutex,
         atomic::{AtomicUsize, Ordering},
@@ -168,15 +168,24 @@ impl Scratch {
     }
 
     fn new() -> Self {
-        static NEXT: AtomicUsize = AtomicUsize::new(0);
-        let path = env::temp_dir().join(format!(
-            "maestro-answer-{}-{}",
-            process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
-        fs::create_dir(&path).expect("create scratch card store");
-        Self(path)
+        Self(scratch_directory().unwrap())
     }
+}
+
+/// A v2 answerer card whose template sets `enable_thinking` to `thinking`,
+/// recorded in a store that is gone once it is made.
+pub(crate) fn reasoning_answerer(thinking: bool) -> ModelCard {
+    let scratch = Scratch::new();
+    let mut card = scratch.answerer().card;
+    if thinking {
+        let mut identity = card.identity().expect("v2 identity").clone();
+        identity.invocation.reasoning = Capability::Supported(BTreeMap::from([(
+            "enable_thinking".to_owned(),
+            ControlValue::Boolean(true),
+        )]));
+        card = ModelCard::record_v2(&Store::new(&scratch.0), &identity).expect("v2 card");
+    }
+    card
 }
 
 impl Drop for Scratch {
@@ -225,7 +234,7 @@ fn bundle(question: &str, language: &str, text: &str) -> Bundle {
         conflicts: Vec::new(),
         known_gaps: Vec::new(),
         budget: Budget {
-            evidence_tokens: u32::try_from(text.len()).expect("small test passage"),
+            evidence_bytes: u32::try_from(text.len()).expect("small test passage"),
             limit: 6000,
             counter: Some("evidence-utf8-bytes/1".to_owned()),
             estimated: true,
@@ -233,6 +242,7 @@ fn bundle(question: &str, language: &str, text: &str) -> Bundle {
         request_budget: Some(RequestBudget::default()),
         inventory: None,
         trace: vec![Trace {
+            parent_context_of: Vec::new(),
             n: 1,
             score: None,
             routes: vec!["bm25".to_owned()],
@@ -278,36 +288,6 @@ async fn unsupported_command_is_retried_once_then_refused() {
     assert_eq!(
         answer.refusal.expect("refusal").code,
         RefusalCode::Unsupported
-    );
-}
-
-#[tokio::test]
-async fn i5_not_found_marker_returns_not_found_with_closest_passage_metadata() {
-    let scratch = Scratch::new();
-    let answerer = scratch.answerer();
-    let request = request("How do I list the registered sources?");
-    let passage = bundle(&request.question, "en", "The docs list model entries.");
-    let port = ScriptedPort::new(&["NOT_FOUND"]);
-
-    let answer = answer_bundle(
-        &port,
-        &request,
-        Some(&answerer),
-        passage,
-        &PromptVersion::V1.into(),
-    )
-    .await
-    .expect("safe no-evidence refusal");
-
-    assert_eq!(port.calls.load(Ordering::Relaxed), 1);
-    assert_eq!(answer.answer, "");
-    assert_eq!(answer.closest.len(), 1);
-    assert_eq!(answer.closest[0].source_ref, "https://example.org/docs");
-    let refusal = answer.refusal.expect("refusal");
-    assert_eq!(refusal.code, RefusalCode::NotFound);
-    assert_eq!(
-        refusal.message,
-        "The available passages do not answer the question."
     );
 }
 
@@ -385,7 +365,7 @@ async fn citations_are_host_resolved_without_a_language_check() {
     assert_eq!(calls[0].0, *answerer.card.digest());
     assert_eq!(calls[0].1, Room::Free);
     let chat = &calls[0].2;
-    assert_eq!(chat.max_output_tokens, request.budget.output_tokens);
+    assert_eq!(chat.max_output_tokens, 1024);
     assert_eq!(
         chat.chat_template_kwargs,
         BTreeMap::from([("enable_thinking".to_owned(), ControlValue::Boolean(false))])
@@ -467,15 +447,26 @@ async fn i2_short_undetected_question_reaches_the_answerer() {
     assert!(answer.refusal.is_none());
 }
 
+#[path = "tests/delivered.rs"]
+mod delivered;
 #[path = "tests/explain.rs"]
 mod explain;
 #[path = "tests/guardrails.rs"]
 mod guardrails;
+#[path = "tests/presentation.rs"]
+mod presentation;
 #[path = "tests/prompt_text.rs"]
 mod prompt_text;
 #[path = "tests/prompts.rs"]
 mod prompts;
+#[path = "tests/reply_cap.rs"]
+mod reply_cap;
 #[path = "tests/requests.rs"]
 mod requests;
+#[path = "tests/router_refusal.rs"]
+mod router_refusal;
 #[path = "tests/threshold.rs"]
 mod threshold;
+
+#[path = "tests/parent_context.rs"]
+mod parent_context;

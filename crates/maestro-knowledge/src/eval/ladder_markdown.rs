@@ -1,12 +1,13 @@
 //! The ladder's score as a Markdown table.
 
-use super::ladder::{Floor, FloorResult, FloorStatus, LadderScore, Measure};
+use super::ladder::{Floor, FloorResult, FloorStatus, LadderScore, LanguageCounts, Measure};
 use std::fmt::Write as _;
 
 impl LadderScore {
     /// The score as a Markdown table, one row per floor, then the supported
-    /// answers, the false refusals, the failed searches and asks, and the rows
-    /// missing or rejected.
+    /// answers, the false refusals, the failed searches and asks, those
+    /// `ask` gives not run when it did not, the rows missing or rejected, and
+    /// a table of counts per language.
     #[must_use]
     pub fn to_markdown(&self) -> String {
         let mut table = String::from("| Floor | Measured | Target | Status |\n");
@@ -30,26 +31,52 @@ impl LadderScore {
         } else {
             self.rejected_ids.join(", ")
         };
-        let failed_asks = if self.asked {
-            format!("{}/{questions}", self.failed_asks)
-        } else {
-            "not run".to_owned()
+        let asked = |count: usize, of: usize| {
+            if self.asked {
+                format!("{count}/{of}")
+            } else {
+                "not run".to_owned()
+            }
         };
         let _ = write!(
             table,
-            "\nSupported answers: {}/{}\nFalse refusals: {}/{}\n\
-             Failed searches: {}/{questions}\nFailed asks: {failed_asks}\n\
+            "\nSupported answers: {}\nFalse refusals: {}\n\
+             Failed searches: {}/{questions}\nFailed asks: {}\n\
              Missing rows: {}\nRejected rows: {rejected}\nAll floors: {}\n",
-            self.supported_answers,
-            self.answerable,
-            self.false_refusals,
-            self.answerable,
+            asked(self.supported_answers, self.answerable),
+            asked(self.false_refusals, self.answerable),
             self.failed_searches,
+            asked(self.failed_asks, questions),
             self.missing,
             if self.passed { "PASS" } else { "FAIL" }
         );
+        if !self.languages.is_empty() {
+            table.push_str(
+                "\n| Language | Top-10 | Refused | False refusals | Supported answers |\n\
+                 | --- | --- | --- | --- | --- |\n",
+            );
+            for language in &self.languages {
+                table.push_str(&language_row(language));
+            }
+        }
         table
     }
+}
+
+/// `counts` as a row of the table per language.
+fn language_row(counts: &LanguageCounts) -> String {
+    let of = |count: Option<usize>, of: usize| {
+        count.map_or_else(|| "not run".to_owned(), |count| format!("{count}/{of}"))
+    };
+    format!(
+        "| {} | {}/{} | {} | {} | {} |\n",
+        counts.language,
+        counts.top_10,
+        counts.answerable,
+        of(counts.refused, counts.unanswerable),
+        of(counts.false_refusals, counts.answerable),
+        of(counts.supported_answers, counts.answerable)
+    )
 }
 
 /// The title of `floor` in the table.

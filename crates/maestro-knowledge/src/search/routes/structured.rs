@@ -14,8 +14,8 @@ use std::sync::Arc;
 use tokio::time::Instant;
 
 /// Counts the pinned generation's manifest members for one exact inventory request.
-pub async fn search_structured(
-    query: &Query<'_>,
+pub async fn search_structured<R>(
+    query: &Query<'_, R>,
     database: Arc<Database>,
     request: &InventoryRequest,
     deadline: Instant,
@@ -26,7 +26,7 @@ pub async fn search_structured(
     let request = request.clone();
     match deadline::run_blocking(deadline, move |cancelled| {
         let control = ReadControl {
-            deadline: deadline.into_std(),
+            deadline: deadline::std_deadline(deadline),
             cancelled,
         };
         let read = SearchRead {

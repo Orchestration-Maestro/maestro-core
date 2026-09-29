@@ -3,7 +3,9 @@
 //! duplicates, the chunks and their tokens, each refusal with its reason,
 //! and each document it left out with why.
 
+use maestro_canonicalization::{ChromeCount, ChromeRule};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 /// What a preparation reports, as JSON: the counts, then the refusals and the
 /// documents left out. Every document with a revision is counted once, as
@@ -44,6 +46,11 @@ pub struct Report {
     pub chunks: u64,
     /// The tokens of their prepared inputs.
     pub tokens: u64,
+    /// The page chrome its chunking profile left out of the prepared
+    /// inputs of the revisions it chunked, per rule: units and bytes. Absent
+    /// when it left none out.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub chrome: Chrome,
     /// The eligible revisions it refused to chunk.
     pub refused: u64,
     /// Why, for each, in revision order.
@@ -51,6 +58,17 @@ pub struct Report {
     /// Each document left out, with its latest revision and why, in document
     /// order.
     pub left_out_documents: Vec<LeftOut>,
+}
+
+/// Page chrome left out, per rule.
+pub type Chrome = BTreeMap<ChromeRule, ChromeCount>;
+
+/// Adds `more` into `chrome`, rule by rule.
+pub(super) fn add_chrome(chrome: &mut Chrome, more: Chrome) {
+    for (rule, count) in more {
+        let total = chrome.entry(rule).or_default();
+        *total = total.plus(count);
+    }
 }
 
 /// An eligible revision the preparation refused to chunk, with the reason:

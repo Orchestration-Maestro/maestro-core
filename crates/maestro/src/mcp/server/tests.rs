@@ -1,6 +1,6 @@
 use super::{
     knowledge_server::KnowledgeServer,
-    operations::{CollectionsRequest, InputFailure, parse_operation},
+    operations::{CollectionsRequest, InputFailure, Operation, parse_operation},
     response::{get_result, operation_error},
 };
 use crate::{
@@ -8,19 +8,16 @@ use crate::{
     knowledge::operations::{GetData, GetExcerpt, KnowledgeError},
     knowledge::{RESPONSE_LIMIT_BYTES, RefreshScratch, RequestError},
     mcp::transport::BoundedStdio,
+    settings::KnowledgeSettings,
 };
+use maestro_kernel::evidence::RequestBudget;
+use maestro_test_scratch::scratch_directory;
 use rmcp::{ServerHandler, ServiceExt, model::ProtocolVersion};
 use serde_json::{Value, json};
 use std::{
-    env, fs,
+    fs,
     path::PathBuf,
-    process,
-    sync::{
-        Arc, Barrier,
-        atomic::{AtomicUsize, Ordering},
-        mpsc,
-    },
-    thread,
+    sync::{Arc, Barrier, mpsc},
     time::Duration,
 };
 use tokio::{
@@ -30,11 +27,43 @@ use tokio::{
     time::timeout,
 };
 
+mod call_deadlines;
 mod search_workers;
 
 /// A bound that only stops a hung test; it is generous so a loaded
 /// machine cannot fail a correct run.
 pub(super) const HANG_GUARD: Duration = Duration::from_secs(30);
+
+#[test]
+fn search_takes_the_session_bounds_a_call_leaves_out_and_the_given_ones_first() {
+    let settings = KnowledgeSettings {
+        search_budget: RequestBudget {
+            k: 12,
+            evidence_bytes: 4000,
+            deadline_ms: 9000,
+        },
+        ..KnowledgeSettings::default()
+    };
+    let filled = parse_operation(
+        "knowledge_search",
+        json!({"collection": "docs", "query": "question"}),
+        &settings,
+    );
+    let Ok(Operation::Search(filled)) = filled else {
+        panic!("a valid search");
+    };
+    assert_eq!(filled.budget(), settings.search_budget);
+    let given = parse_operation(
+        "knowledge_search",
+        json!({"collection": "docs", "query": "question", "k": 3}),
+        &settings,
+    );
+    let Ok(Operation::Search(given)) = given else {
+        panic!("a valid search");
+    };
+    assert_eq!(given.max_passages, 3);
+    assert_eq!(given.evidence_bytes, 4000);
+}
 
 #[test]
 fn empty_collection_arguments_are_strict_and_refuse_identity_fields() {
@@ -50,6 +79,7 @@ fn malformed_search_arguments_are_tool_errors_before_worker_admission() {
     let error = match parse_operation(
         "knowledge_search",
         json!({"collection": "collection", "query": "question", "principal": "other"}),
+        &KnowledgeSettings::default(),
     ) {
         Err(InputFailure::Tool { code, .. }) => code,
         Err(InputFailure::Protocol(_)) | Ok(_) => panic!("malformed search arguments refused"),
@@ -313,12 +343,7 @@ struct ServerHome(PathBuf);
 
 impl ServerHome {
     fn new() -> Self {
-        static NEXT: AtomicUsize = AtomicUsize::new(0);
-        let root = env::temp_dir().join(format!(
-            "maestro-mcp-server-{}-{}",
-            process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
+        let root = scratch_directory().unwrap();
         let data = root.join("data");
         let config = root.join("config");
         fs::create_dir_all(&data).expect("create data directory");
@@ -349,15 +374,6 @@ impl ServerHome {
 
 impl Drop for ServerHome {
     fn drop(&mut self) {
-        // A cancelled search worker can still hold the kernel open for a
-        // moment after the test ends, and Windows refuses to delete an open
-        // file, so retry briefly before giving up.
-        for _ in 0..50 {
-            if fs::remove_dir_all(&self.0).is_ok() || !self.0.exists() {
-                return;
-            }
-            thread::sleep(Duration::from_millis(100));
-        }
         fs::remove_dir_all(&self.0).expect("remove isolated MCP home");
     }
 }

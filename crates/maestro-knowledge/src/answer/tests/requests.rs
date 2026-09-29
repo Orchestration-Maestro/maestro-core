@@ -1,5 +1,5 @@
-use super::super::generate::request_budget;
 use super::*;
+use maestro_kernel::gateway::MAX_CHAT_OUTPUT_TOKENS;
 use std::error::Error as _;
 
 /// A change to a valid request, and the error it must cause, if any.
@@ -34,7 +34,8 @@ async fn request_bounds_accept_their_limits_and_refuse_one_past_them() {
     let question = "invalid ask request: question must contain 1 to 8192 UTF-8 bytes";
     let version = "invalid ask request: version must contain 1 to 256 UTF-8 bytes";
     let budget = "invalid ask request: ask budget is outside accepted limits";
-    let cases: [BoundCase; 12] = [
+    let evidence = "invalid ask request: evidence_bytes must be between 1 and 24000";
+    let cases: [BoundCase; 14] = [
         (|_| {}, None),
         (|request| request.question = " ".to_owned(), Some(question)),
         (|request| request.question = "q".repeat(8192), None),
@@ -52,12 +53,20 @@ async fn request_bounds_accept_their_limits_and_refuse_one_past_them() {
             Some(version),
         ),
         (|request| request.budget.k = 0, Some(budget)),
-        (|request| request.budget.max_tokens = 0, Some(budget)),
+        (|request| request.budget.evidence_bytes = 0, Some(evidence)),
+        (|request| request.budget.evidence_bytes = 24_000, None),
+        (
+            |request| request.budget.evidence_bytes = 24_001,
+            Some(evidence),
+        ),
         (
             |request| request.budget.search_deadline_ms = 0,
             Some(budget),
         ),
-        (|request| request.budget.output_tokens = 0, Some(budget)),
+        (
+            |request| request.budget.output_tokens = Some(0),
+            Some(budget),
+        ),
         (
             |request| request.collection = " ".to_owned(),
             Some("invalid ask request: collection must not be blank"),
@@ -75,18 +84,23 @@ async fn request_bounds_accept_their_limits_and_refuse_one_past_them() {
 }
 
 #[test]
+fn an_ask_budget_leaves_the_reply_cap_to_the_answerer_card() {
+    assert_eq!(AskBudget::default().output_tokens, None);
+}
+
+#[test]
 fn an_ask_budget_is_within_limits_up_to_each_bound_and_not_past_it() {
     let at_bounds = AskBudget {
         k: 50,
-        max_tokens: 12_000,
-        search_deadline_ms: 10_000,
-        output_tokens: 1024,
+        evidence_bytes: 24_000,
+        search_deadline_ms: 30_000,
+        output_tokens: Some(MAX_CHAT_OUTPUT_TOKENS),
     };
     let past: [fn(&mut AskBudget); 4] = [
         |budget| budget.k = 51,
-        |budget| budget.max_tokens = 12_001,
-        |budget| budget.search_deadline_ms = 10_001,
-        |budget| budget.output_tokens = 1025,
+        |budget| budget.evidence_bytes = 24_001,
+        |budget| budget.search_deadline_ms = 30_001,
+        |budget| budget.output_tokens = Some(MAX_CHAT_OUTPUT_TOKENS + 1),
     ];
 
     assert!(AskBudget::default().is_within_limits());
@@ -104,7 +118,7 @@ async fn answerer_outcome(model: &str, output_tokens: u32, limit: u32) -> Result
     let answerer = scratch.answerer_with_output_limit(limit);
     let mut request = request("How does the service work?");
     request.model = model.to_owned();
-    request.budget.output_tokens = output_tokens;
+    request.budget.output_tokens = Some(output_tokens);
     let port = ScriptedPort::new(&["The service uses verified instructions. [1]"]);
     let evidence = bundle(
         &request.question,
@@ -208,6 +222,10 @@ fn ask_errors_render_their_reason_and_keep_their_source() {
     });
     assert_eq!(backend.to_string(), "the answerer is unavailable");
     assert!(backend.source().is_some());
+    assert_eq!(
+        AskError::TimedOut.to_string(),
+        "the answerer exceeded its 20-second deadline"
+    );
     assert!(AskError::TimedOut.source().is_none());
 }
 
@@ -215,15 +233,15 @@ fn ask_errors_render_their_reason_and_keep_their_source() {
 fn the_search_budget_copies_the_ask_budget() {
     let budget = AskBudget {
         k: 7,
-        max_tokens: 900,
+        evidence_bytes: 900,
         search_deadline_ms: 1234,
-        output_tokens: 5,
+        output_tokens: Some(5),
     };
     assert_eq!(
-        request_budget(budget),
+        RequestBudget::from(budget),
         RequestBudget {
             k: 7,
-            max_tokens: 900,
+            evidence_bytes: 900,
             deadline_ms: 1234,
         }
     );

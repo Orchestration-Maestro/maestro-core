@@ -7,12 +7,11 @@ use maestro_kernel::{
     scope::{Right, ScopeSet},
     store::Database,
 };
+use maestro_test_scratch::scratch_directory;
 use serde_json::json;
 use std::{
-    env, fs,
+    fs,
     path::PathBuf,
-    process,
-    sync::atomic::{AtomicUsize, Ordering},
     time::{Duration, SystemTime},
 };
 
@@ -23,14 +22,7 @@ pub(super) struct Scratch(PathBuf);
 
 impl Scratch {
     pub(super) fn new() -> Self {
-        static NEXT: AtomicUsize = AtomicUsize::new(0);
-        let path = env::temp_dir().join(format!(
-            "maestro-cli-unit-{}-{}",
-            process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
-        fs::create_dir(&path).unwrap();
-        Self(path)
+        Self(scratch_directory().unwrap())
     }
 
     /// The kernel's database in this directory.

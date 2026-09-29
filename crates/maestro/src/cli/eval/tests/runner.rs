@@ -3,7 +3,7 @@
 
 use super::{
     super::runner::{Verdict, run_ladder},
-    support::{FakeEngine, rung, suite},
+    support::{FakeEngine, anchor, rung, suite},
 };
 use crate::failure::Failure;
 use maestro_knowledge::eval::{Floor, FloorStatus, Measure};
@@ -24,6 +24,7 @@ fn warm_ups_run_first_and_are_not_scored() {
     assert_eq!(ids, ["a0", "a1", "a2", "u0"]);
     assert_eq!(run.score.missing, 0);
     assert!(run.score.rejected_ids.is_empty());
+    assert_eq!(run.reply_caps, [Some(2048); 4]);
 }
 
 #[test]
@@ -73,7 +74,7 @@ fn a_rung_whose_generation_changes_is_invalid() {
     };
     let runs = run_ladder(&mut engine, &suite(2, 1), 0, &[rung("r0")], |_| Ok(())).unwrap();
 
-    assert_ne!(runs[0].start, runs[0].end);
+    assert_ne!(Some(&runs[0].start), runs[0].end.as_ref());
     assert_eq!(runs[0].verdict(), Verdict::Invalid);
     assert!(runs[0].score.passed);
 }
@@ -89,7 +90,7 @@ fn a_rung_that_starts_on_another_generation_than_the_first_is_invalid() {
 
     assert_eq!(runs[0].verdict(), Verdict::Pass);
     for run in &runs[1..] {
-        assert_eq!(run.start, run.end);
+        assert_eq!(Some(&run.start), run.end.as_ref());
         assert_eq!(run.ladder, runs[0].start);
         assert_eq!(run.verdict(), Verdict::Invalid);
     }
@@ -164,6 +165,7 @@ fn a_rung_that_does_not_ask_shows_its_ask_floors_not_run() {
     let runs = run_ladder(&mut engine, &suite(2, 1), 1, &[retrieval], |_| Ok(())).unwrap();
 
     assert!(engine.questions("ask").is_empty());
+    assert_eq!(runs[0].reply_caps, [None; 3]);
     let statuses: Vec<(Floor, FloorStatus, bool)> = runs[0]
         .score
         .floors
@@ -188,7 +190,47 @@ fn a_rung_that_does_not_ask_shows_its_ask_floors_not_run() {
     );
     assert_eq!(runs[0].score.failed_asks, 0);
     assert!(!runs[0].score.asked);
+    assert!(
+        runs[0]
+            .score
+            .to_markdown()
+            .contains("\nSupported answers: not run\nFalse refusals: not run\n")
+    );
     assert_eq!(runs[0].verdict(), Verdict::Fail);
+}
+
+#[test]
+fn the_delivery_score_reads_the_bundle_the_answerer_received() {
+    let mut engine = FakeEngine::default();
+    let mut retrieval = rung("search-only");
+    retrieval.ask = None;
+    let runs = run_ladder(
+        &mut engine,
+        &suite(2, 1),
+        0,
+        &[rung("asks"), retrieval],
+        |_| Ok(()),
+    )
+    .unwrap();
+
+    let (asks, search_only) = (&runs[0], &runs[1]);
+    assert_eq!(asks.rows[1].delivered, [anchor("doc-a1", "section-a1")]);
+    assert!(asks.rows[2].delivered.is_empty());
+    assert_eq!(
+        (asks.delivery.delivered, asks.delivery.fully_delivered),
+        (2, 2)
+    );
+    assert_eq!(
+        search_only.rows[1].delivered,
+        [anchor("doc-other", "section-other")]
+    );
+    assert_eq!(
+        (
+            search_only.delivery.answerable,
+            search_only.delivery.delivered
+        ),
+        (2, 0)
+    );
 }
 
 #[test]
@@ -210,12 +252,14 @@ fn a_rung_that_cannot_run_is_refused_before_any_search() {
 }
 
 #[test]
-fn more_warm_ups_than_questions_are_refused() {
+fn more_warm_ups_than_questions_are_refused_and_as_many_are_not() {
     let mut engine = FakeEngine::default();
     let result = run_ladder(&mut engine, &suite(2, 1), 4, &[rung("r0")], |_| Ok(()));
 
     assert!(matches!(result, Err(Failure::Refused(reason)) if reason.contains("warm-ups")));
     assert!(engine.calls.borrow().is_empty());
+    let every = run_ladder(&mut engine, &suite(2, 1), 3, &[rung("r0")], |_| Ok(()));
+    assert_eq!(every.unwrap()[0].warm_ups, 3);
 }
 
 #[test]
@@ -236,4 +280,50 @@ fn a_recording_failure_stops_the_ladder() {
     assert!(matches!(result, Err(Failure::Failed(_))));
     assert_eq!(recorded, ["r0"]);
     assert!(engine.calls.borrow().iter().all(|call| call.rung == "r0"));
+}
+
+#[test]
+fn a_rung_whose_end_cannot_be_read_is_recorded_invalid_then_stops_the_ladder() {
+    let mut engine = FakeEngine {
+        unreadable_after: Some(1),
+        ..FakeEngine::default()
+    };
+    let mut recorded = Vec::new();
+
+    let stopped = run_ladder(
+        &mut engine,
+        &suite(2, 1),
+        0,
+        &[rung("r0"), rung("r1")],
+        |run| {
+            recorded.push(run.clone());
+            Ok(())
+        },
+    );
+
+    assert!(matches!(stopped, Err(Failure::Failed(_))), "{stopped:?}");
+    assert_eq!(recorded.len(), 1);
+    assert_eq!(recorded[0].end, None);
+    assert_eq!(recorded[0].rows.len(), 3);
+    assert_eq!(recorded[0].verdict(), Verdict::Invalid);
+}
+
+#[test]
+fn a_rung_whose_expected_sections_miss_a_question_is_refused_before_any_search() {
+    let mut engine = FakeEngine {
+        expectations_missing: 1,
+        ..FakeEngine::default()
+    };
+
+    let refused = run_ladder(&mut engine, &suite(2, 1), 0, &[rung("r0")], |_| Ok(()));
+
+    assert!(
+        matches!(
+            &refused,
+            Err(Failure::Refused(reason)) if reason
+                == "the rung `r0` resolved expected sections for 2 of the suite's 3 questions"
+        ),
+        "{refused:?}"
+    );
+    assert!(engine.calls.borrow().is_empty());
 }

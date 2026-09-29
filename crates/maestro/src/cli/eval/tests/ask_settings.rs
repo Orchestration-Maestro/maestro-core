@@ -9,16 +9,17 @@ use super::{
         rung_prompt::RungPrompt,
     },
     reports::{BINARY, runs, to_json},
-    support::{rung, suite},
+    support::{rung_json, suite},
 };
 use crate::failure::Failure;
+use maestro_kernel::{evidence::RequestBudget, gateway::MAX_CHAT_OUTPUT_TOKENS};
 use maestro_knowledge::answer::{AskBudget, PromptVersion};
 use serde_json::{Value, json};
 use std::path::Path;
 
 /// A manifest of one rung whose `ask` is `ask`.
 pub(super) fn manifest(ask: &Value) -> Value {
-    let mut rung = serde_json::to_value(rung("r0")).unwrap();
+    let mut rung = rung_json("r0");
     rung["ask"] = ask.clone();
     json!({
         "schema": "maestro-ladder-manifest/1",
@@ -51,14 +52,14 @@ fn true_and_false_still_parse_and_true_asks_as_ask_does_by_default() {
     assert_eq!(parsed(&json!(false)).unwrap(), None);
     assert_eq!(asks, AskSettings::default());
     assert_eq!(asks.budget(), AskBudget::default());
-    assert_eq!(asks.prompt, RungPrompt::Version(PromptVersion::V1));
+    assert_eq!(asks.prompt, RungPrompt::Version(PromptVersion::V2));
     assert_eq!(parsed(&json!({})).unwrap(), Some(AskSettings::default()));
 }
 
 #[test]
 fn an_object_sets_each_ask_setting_and_leaves_the_rest_at_their_defaults() {
     let settings = parsed(&json!({
-        "k": 8, "max_tokens": 9000, "output_tokens": 900, "prompt": "v2",
+        "k": 8, "evidence_bytes": 9000, "output_tokens": 900, "prompt": "v1",
     }))
     .unwrap()
     .unwrap();
@@ -68,12 +69,12 @@ fn an_object_sets_each_ask_setting_and_leaves_the_rest_at_their_defaults() {
         settings.budget(),
         AskBudget {
             k: 8,
-            max_tokens: 9000,
-            output_tokens: 900,
+            evidence_bytes: 9000,
+            output_tokens: Some(900),
             ..AskBudget::default()
         }
     );
-    assert_eq!(settings.prompt, RungPrompt::Version(PromptVersion::V2));
+    assert_eq!(settings.prompt, RungPrompt::Version(PromptVersion::V1));
     assert_eq!(
         only_k.budget(),
         AskBudget {
@@ -81,7 +82,7 @@ fn an_object_sets_each_ask_setting_and_leaves_the_rest_at_their_defaults() {
             ..AskBudget::default()
         }
     );
-    assert_eq!(only_k.prompt, RungPrompt::Version(PromptVersion::V1));
+    assert_eq!(only_k.prompt, RungPrompt::Version(PromptVersion::V2));
 }
 
 #[test]
@@ -89,10 +90,9 @@ fn ask_settings_outside_asks_limits_are_refused() {
     let cases = [
         json!({"k": 0}),
         json!({"k": 51}),
-        json!({"max_tokens": 0}),
-        json!({"max_tokens": 12_001}),
+        json!({"evidence_bytes": 0}),
         json!({"output_tokens": 0}),
-        json!({"output_tokens": 1025}),
+        json!({"output_tokens": MAX_CHAT_OUTPUT_TOKENS + 1}),
     ];
     for ask in cases {
         assert!(
@@ -101,7 +101,23 @@ fn ask_settings_outside_asks_limits_are_refused() {
             refusal(&ask)
         );
     }
-    assert!(parsed(&json!({"k": 50, "max_tokens": 12_000, "output_tokens": 1024})).is_ok());
+    assert!(
+        parsed(
+            &json!({"k": 50, "evidence_bytes": 24_000, "output_tokens": MAX_CHAT_OUTPUT_TOKENS})
+        )
+        .is_ok()
+    );
+}
+
+#[test]
+fn a_rung_asks_up_to_the_24000_byte_evidence_ceiling_and_is_refused_past_it() {
+    let ceiling = parsed(&json!({"evidence_bytes": 24_000})).unwrap().unwrap();
+
+    assert_eq!(RequestBudget::from(ceiling.budget()).evidence_bytes, 24_000);
+    assert_eq!(
+        refusal(&json!({"evidence_bytes": 24_001})),
+        "the rung `r0` asks for 24001 evidence bytes, over the 24000-byte ceiling"
+    );
 }
 
 #[test]
@@ -113,31 +129,6 @@ fn an_unknown_prompt_or_setting_is_refused() {
     assert!(v3.contains("unknown variant `v3`"), "{v3}");
     assert!(thinking.contains("unknown field `thinking`"), "{thinking}");
     assert!(number.contains("not maestro-ladder-manifest/1"), "{number}");
-}
-
-#[test]
-fn a_rung_writes_its_ask_as_true_false_or_its_settings() {
-    let settings = AskSettings {
-        k: Some(8),
-        prompt: RungPrompt::Version(PromptVersion::V2),
-        ..AskSettings::default()
-    };
-    let mut asks = rung("r0");
-    let mut quiet = rung("r0");
-    quiet.ask = None;
-    let mut set = rung("r0");
-    set.ask = Some(settings);
-
-    assert_eq!(to_json(&asks)["ask"], json!(true));
-    assert_eq!(to_json(&quiet)["ask"], json!(false));
-    assert_eq!(
-        to_json(&set)["ask"],
-        json!({
-            "k": 8, "max_tokens": null, "output_tokens": null, "prompt": "v2", "card": null,
-        })
-    );
-    asks.ask = parsed(&to_json(&set)["ask"]).unwrap();
-    assert_eq!(asks, set);
 }
 
 #[test]
@@ -155,12 +146,55 @@ fn a_rung_report_records_its_resolved_ask_settings_and_prompt() {
 
     assert_eq!(
         to_json(&set)["ask_settings"],
-        json!({"k": 5, "max_tokens": 6000, "output_tokens": 900, "prompt": "v2"})
+        json!({
+            "k": 5,
+            "evidence_bytes": 6000,
+            "output_tokens": 900,
+            "prompt": "v2",
+            "evidence": {"expansion":"full_section", "evidence_counter":"utf8"},
+            "search_deadline_ms": 30_000
+        })
     );
     assert!(set.to_markdown().contains(
-        "- Ask settings: 5 passages, 6000 evidence bytes, 900 output tokens, prompt v2\n"
+        "- Ask settings: at most 5 passages, 6000 evidence bytes, 900 output tokens, prompt v2, \
+         search deadline 30000 ms\n"
     ));
+    assert_eq!(to_json(&unasked)["search_deadline_ms"], json!(30_000));
+    let unasked_markdown = unasked.to_markdown();
+    assert!(unasked_markdown.contains(concat!(
+        "- Search settings: at most 5 passages, 6000 evidence bytes, full_section ",
+        "expansion, none order\n"
+    )));
+    assert!(
+        unasked
+            .to_markdown()
+            .contains("- Search deadline: 30000 ms\n")
+    );
     assert_eq!(to_json(&unasked)["ask"], json!(false));
     assert_eq!(to_json(&unasked)["ask_settings"], Value::Null);
     assert!(!unasked.to_markdown().contains("Ask settings"));
+}
+
+#[test]
+fn packing_knobs_are_typed_and_exact_refuses_without_silent_estimation() {
+    let settings = parsed(&json!({
+        "expansion": "relevant_blocks", "evidence_counter": "utf8_answer_bound",
+        "answer_prompt": "procedure_first", "evidence_bytes": 9000
+    }))
+    .unwrap()
+    .unwrap();
+    assert_eq!(
+        serde_json::to_value(settings.evidence()).unwrap(),
+        json!({
+            "expansion": "relevant_blocks", "evidence_counter": "utf8_answer_bound"
+        })
+    );
+    assert_eq!(settings.prompt.name(), "procedure_first");
+    assert_eq!(settings.budget().evidence_bytes, 9000);
+    assert!(
+        refusal(&json!({"evidence_counter":"exact"}))
+            .contains("resolved answerer's tokenizer must be qualified")
+    );
+    assert!(refusal(&json!({"expansion":"truncate"})).contains("unknown variant"));
+    assert!(refusal(&json!({"evidence_counter":"approximate"})).contains("unknown variant"));
 }

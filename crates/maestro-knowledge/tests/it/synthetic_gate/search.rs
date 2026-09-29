@@ -161,6 +161,7 @@ pub(super) fn retrieve(
         scopes: context.scopes,
         text: &question.question,
         limit: ROUTE_LIMIT,
+        identifier_limit: ROUTE_LIMIT,
         version: None,
         qdrant: context.qdrant,
     };
@@ -365,6 +366,7 @@ fn evidence_bundle(
             alternates: Vec::new(),
         });
         trace.push(Trace {
+            parent_context_of: Vec::new(),
             n: number,
             score: Some(hit.score),
             routes,
@@ -407,14 +409,14 @@ fn test_bundle(
         conflicts: Vec::new(),
         known_gaps: Vec::new(),
         budget: Budget {
-            evidence_tokens: budget,
+            evidence_bytes: budget,
             limit: u32::try_from(MAX_BYTES).unwrap_or(u32::MAX),
             counter: None,
             estimated: false,
         },
         request_budget: Some(RequestBudget {
             k: u32::try_from(PASSAGE_LIMIT).unwrap_or(u32::MAX),
-            max_tokens: u32::try_from(MAX_BYTES).unwrap_or(u32::MAX),
+            evidence_bytes: u32::try_from(MAX_BYTES).unwrap_or(u32::MAX),
             deadline_ms: u32::try_from(DEADLINE.as_millis()).unwrap_or(u32::MAX),
         }),
         inventory: None,

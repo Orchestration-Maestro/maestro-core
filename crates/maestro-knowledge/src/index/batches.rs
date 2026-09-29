@@ -22,7 +22,6 @@ use maestro_kernel::{
         stage::{Count, Outcome},
     },
 };
-use qdrant_client::qdrant::PointStruct;
 use std::{ops::ControlFlow, time::Duration};
 
 /// The production number of chunks one batch represents and writes.
@@ -45,7 +44,7 @@ pub(super) struct Target<'a> {
     pub(super) chunks: &'a [Chunk],
 }
 
-impl<P: ModelPort> Projection<'_, P> {
+impl<P: ModelPort, R: super::projection_port::RetrievalProjectionPort> Projection<'_, P, R> {
     /// Writes the points of the chunks of `target` after its first `start`,
     /// in batches of `batch_size`, and shows `observer` the progress once each
     /// batch is written. The sparse vectors are weighed against the average
@@ -102,10 +101,10 @@ impl<P: ModelPort> Projection<'_, P> {
                 failure,
             })?;
             let points = self.points(batch, &inputs, &dense, &lengths)?;
-            self.qdrant
-                .upsert(target.collection, points)
+            self.projection
+                .upsert_points(target.collection, points)
                 .await
-                .map_err(Error::Qdrant)?;
+                .map_err(Error::from)?;
             indexed += u64::try_from(batch.len()).unwrap_or(u64::MAX);
             let progress = Progress {
                 generation: target.generation,
@@ -144,7 +143,7 @@ impl<P: ModelPort> Projection<'_, P> {
         inputs: &[String],
         dense: &[Vec<f32>],
         lengths: &Lengths,
-    ) -> Result<Vec<PointStruct>, Error> {
+    ) -> Result<Vec<super::projection_port::ProjectionPoint>, Error> {
         let mut points = Vec::with_capacity(batch.len());
         let mut represented = inputs.iter().zip(dense);
         for run in batch.chunk_by(|first, next| first.revision_id == next.revision_id) {

@@ -1,14 +1,22 @@
 //! Scoped prepared-input loading for the fused candidate IDs only.
 
-use super::{deadline, fusion::Fused, rerank::Candidate};
+use super::{
+    candidate_enrichment::{self, Enriched, Settings},
+    deadline,
+    fusion::Fused,
+    request::SearchConfiguration,
+    rerank::Candidate,
+    source_class::{self, SourceClassifier},
+};
 use maestro_kernel::{
+    chunk_set::Chunk,
     generation::Generation,
     retrieval::{self, ReadControl, SearchRead},
     scope::ScopeSet,
     store::Database,
 };
 use std::{
-    collections::HashMap,
+    collections::{BTreeSet, HashMap},
     sync::{Arc, atomic::Ordering},
     time::Instant as StdInstant,
 };
@@ -41,13 +49,69 @@ pub(super) struct Request {
     pub(super) expected_revisions: HashMap<String, Vec<String>>,
     /// The shared text-loading and reranking cutoff.
     pub(super) deadline: Instant,
+    /// The earlier cutoff after which enrichment keeps chunk text.
+    pub(super) context_deadline: Instant,
+    /// Validated optional ranking policies.
+    pub(super) configuration: SearchConfiguration,
+    /// Query used only to exempt explicitly requested section classes.
+    pub(super) query: String,
+    /// The source classifier the source prior reads, when one is configured.
+    pub(super) source_classes: Option<Arc<dyn SourceClassifier>>,
+}
+
+/// The candidates each soft prior penalizes.
+#[derive(Debug, Default)]
+pub(super) struct Penalized {
+    /// Those whose section class the section prior penalizes.
+    pub(super) section: BTreeSet<String>,
+    /// Those whose source class the source prior penalizes.
+    pub(super) source: BTreeSet<String>,
+}
+
+/// Loaded candidates and opt-in context diagnostics.
+#[derive(Debug, Default)]
+pub(super) struct Loaded {
+    /// Prepared or expanded reranker inputs in fused order.
+    pub(super) candidates: Vec<Candidate>,
+    /// Source-loading wall time, including validation.
+    pub(super) source_load_micros: u64,
+    /// Chunks kept under bounded context: an oversized mandatory unit, an
+    /// unavailable source, or the enrichment cutoff.
+    pub(super) fallbacks: Vec<String>,
+    /// Candidates classified for a soft penalty.
+    pub(super) penalized: Penalized,
+    /// Candidates whose enrichment was unavailable.
+    pub(super) context_unavailable: usize,
+}
+
+impl Loaded {
+    /// The candidates of `fused` with their `texts`, and what enrichment and
+    /// the source classification found.
+    fn new(
+        fused: Vec<Fused>,
+        texts: Vec<(&Chunk, String)>,
+        enriched: Enriched,
+        source: BTreeSet<String>,
+    ) -> Self {
+        Self {
+            candidates: fused
+                .into_iter()
+                .zip(texts)
+                .map(|(fused, (_, text))| Candidate { fused, text })
+                .collect(),
+            source_load_micros: enriched.micros,
+            fallbacks: enriched.fallbacks,
+            penalized: Penalized {
+                section: enriched.penalized,
+                source,
+            },
+            context_unavailable: enriched.unavailable,
+        }
+    }
 }
 
 /// Loads each fused chunk's strict UTF-8 prepared input in fused order.
-pub(super) async fn load(
-    database: Arc<Database>,
-    request: Request,
-) -> Result<Vec<Candidate>, Failure> {
+pub(super) async fn load(database: Arc<Database>, request: Request) -> Result<Loaded, Failure> {
     let Request {
         generation,
         scopes,
@@ -55,9 +119,13 @@ pub(super) async fn load(
         fused,
         expected_revisions,
         deadline,
+        context_deadline,
+        configuration,
+        query,
+        source_classes,
     } = request;
     if fused.is_empty() {
-        return Ok(Vec::new());
+        return Ok(Loaded::default());
     }
     if Instant::now() >= deadline {
         return Err(Failure::TimedOut);
@@ -68,7 +136,7 @@ pub(super) async fn load(
         .collect::<Vec<_>>();
     deadline::run_blocking(deadline, move |cancelled| {
         let control = ReadControl {
-            deadline: deadline.into_std(),
+            deadline: deadline::std_deadline(deadline),
             cancelled,
         };
         let read = SearchRead {
@@ -82,8 +150,8 @@ pub(super) async fn load(
             .into_iter()
             .map(|chunk| (chunk.id.clone(), chunk))
             .collect::<HashMap<_, _>>();
-        let mut candidates = Vec::with_capacity(fused.len());
-        for fused in fused {
+        let mut texts = Vec::with_capacity(fused.len());
+        for fused in &fused {
             check_control(&control)?;
             let chunk = chunks.get(&fused.chunk_id).ok_or(Failure::EvidenceLoad)?;
             if !expected_revisions
@@ -101,10 +169,35 @@ pub(super) async fn load(
                 .map_err(|_| Failure::EvidenceLoad)?;
             check_control(&control)?;
             let text = String::from_utf8(bytes).map_err(|_| Failure::EvidenceLoad)?;
-            candidates.push(Candidate { fused, text });
+            texts.push((chunk, text));
         }
+        let enriched = candidate_enrichment::enrich(
+            (&database, &scopes, &control),
+            &Settings {
+                configuration,
+                query: &query,
+                generation: &generation,
+                deadline: deadline::std_deadline(context_deadline),
+            },
+            &mut texts,
+        );
+        let enrichment = ReadControl {
+            deadline: control
+                .deadline
+                .min(deadline::std_deadline(context_deadline)),
+            cancelled: control.cancelled.clone(),
+        };
+        let source = source_class::penalized(
+            (&database, &scopes, &enrichment),
+            source_classes.as_deref(),
+            configuration.source_prior,
+            texts
+                .iter()
+                .take(configuration.rerank_depth.get())
+                .map(|(chunk, _)| *chunk),
+        );
         check_control(&control)?;
-        Ok(candidates)
+        Ok(Loaded::new(fused, texts, enriched, source))
     })
     .await
     .map_err(|error| match error {

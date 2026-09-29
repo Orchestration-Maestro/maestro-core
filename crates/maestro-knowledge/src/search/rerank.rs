@@ -1,12 +1,16 @@
 //! Reranks the head of a fused list without truncating candidate text.
 
-use super::{deadline::DEADLINE_EXCEEDED, fusion::Fused};
+use super::{
+    deadline::{DEADLINE_EXCEEDED, DISABLED_BY_CONFIGURATION},
+    fusion::Fused,
+};
+use crate::query::Understood;
 use maestro_kernel::{
     evidence::RouteStatus,
     gateway::{ModelCard, ModelPort, Role, Room},
 };
 use std::{cmp::Ordering, num::NonZeroUsize, time::Duration};
-use tokio::time::timeout;
+use tokio::time::{Instant, timeout};
 
 /// Reserved model tokens for the query and document's special tokens.
 const SPECIAL_TOKENS: usize = 16;
@@ -42,9 +46,10 @@ impl RerankFailure {
     }
 }
 
-/// The initial reranking depth measured by T008.
+/// The reranking depth the T037 ladder measured best: depth 80 overran the
+/// 1.5 s search budget.
 pub(super) const DEFAULT_DEPTH: NonZeroUsize =
-    NonZeroUsize::new(80).expect("default depth is nonzero");
+    NonZeroUsize::new(30).expect("default depth is nonzero");
 
 /// A fused candidate and the prepared text read by the reranker.
 #[derive(Clone, Debug, PartialEq)]
@@ -73,11 +78,11 @@ pub struct Ranked {
     pub score: Option<f64>,
 }
 
-/// The reranker score of the first of `ranked`, the highest one; none when
-/// rerank did not run.
+/// The highest reranker score of `ranked`, whatever their order: a rank
+/// policy can put another candidate first. None when rerank did not run.
 #[must_use]
 pub fn top_rerank_score(ranked: &[Ranked]) -> Option<f64> {
-    ranked.first().and_then(|item| item.score)
+    ranked.iter().filter_map(|item| item.score).reduce(f64::max)
 }
 
 /// The highest fused score of `ranked`, whatever their order.
@@ -360,3 +365,61 @@ fn unavailable(candidates: Vec<Candidate>, reason: RerankFailure) -> Reranked {
         status: RouteStatus::Unavailable(reason.code().to_owned()),
     }
 }
+
+/// Reranks loaded candidates or returns the safe fused-order fallback.
+pub(super) async fn rerank_candidates<P: ModelPort>(
+    understood: &Understood,
+    candidates: Vec<Candidate>,
+    reranker: Option<&Reranker<'_, P>>,
+    depth: Option<NonZeroUsize>,
+    deadline: Instant,
+) -> (Vec<Ranked>, RouteStatus) {
+    if candidates.is_empty() {
+        return (
+            Vec::new(),
+            RouteStatus::Unavailable(NO_FUSED_CANDIDATES.to_owned()),
+        );
+    }
+    let Some(depth) = depth else {
+        return (
+            fused_order(candidates),
+            RouteStatus::Unavailable(DISABLED_BY_CONFIGURATION.to_owned()),
+        );
+    };
+    let Some(reranker) = reranker else {
+        return (
+            fused_order(candidates),
+            RouteStatus::Unavailable("no reranker configured".to_owned()),
+        );
+    };
+    let remaining = deadline.saturating_duration_since(Instant::now());
+    if remaining.is_zero() {
+        return (
+            fused_order(candidates),
+            RouteStatus::Unavailable(DEADLINE_EXCEEDED.to_owned()),
+        );
+    }
+    let result = rerank(
+        &understood.normalized,
+        candidates,
+        reranker,
+        depth,
+        remaining,
+    )
+    .await;
+    (result.ranked, result.status)
+}
+
+/// Keeps the fused order when no reranker can run.
+fn fused_order(candidates: Vec<Candidate>) -> Vec<Ranked> {
+    candidates
+        .into_iter()
+        .map(|candidate| Ranked {
+            candidate,
+            score: None,
+        })
+        .collect()
+}
+
+/// The rerank status reason when fusion gave no candidate to rerank.
+pub const NO_FUSED_CANDIDATES: &str = "no fused candidates";

@@ -8,3 +8,5 @@ mod errors;
 mod lengths;
 mod point;
 mod qdrant;
+mod qdrant_adapter;
+mod verify;

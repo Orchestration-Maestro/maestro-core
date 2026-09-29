@@ -10,13 +10,15 @@ use crate::{
     query::understand,
     search::{
         DISABLED_BY_CONFIGURATION, Query, Reranker, Route, SearchError, SearchObservations,
-        deadline::{DEADLINE_EXCEEDED, Deadlines, from_budget},
-        orchestrate::{rerank_candidates, route_outcome, search_outcome},
+        deadline::{DEADLINE_EXCEEDED, Deadlines, StageWindow, from_budget},
+        orchestrate::search_outcome,
+        rerank::rerank_candidates,
+        route_execution::route_outcome,
         route_execution::{dense_outcome, lexical_outcome, structured_outcome},
         routes::{
             dense::Embedder,
             error::RouteError,
-            identifier::{search_identifiers, search_identifiers_enabled},
+            identifier::{IdentifierMode, search_identifiers, search_identifiers_as},
         },
     },
 };
@@ -39,6 +41,7 @@ async fn disabled_routes_short_circuit_and_enabled_failures_remain_unavailable()
         scopes: &fixture.scopes,
         text: "ERR-042",
         limit: 10,
+        identifier_limit: 20,
         version: None,
         qdrant: &qdrant,
     };
@@ -48,18 +51,23 @@ async fn disabled_routes_short_circuit_and_enabled_failures_remain_unavailable()
         port: &port,
         card: &embedder_card,
     };
-    let cutoffs = from_budget(Instant::now(), RequestBudget::default());
+    let cutoffs = from_budget(
+        Instant::now(),
+        RequestBudget::default(),
+        StageWindow::Derived,
+    );
     let disabled_dense = dense_outcome(false, &query, Some(&embedder), &cutoffs).await;
     assert!(port.calls.lock().unwrap().is_empty());
     let disabled_lexical = lexical_outcome(false, &query, Instant::now()).await;
-    let disabled_identifier = search_identifiers_enabled(
-        false,
+    let disabled_identifier = search_identifiers_as(
+        IdentifierMode::Off,
         &query,
         fixture.database.clone(),
         &understand("ERR-042"),
         Instant::now(),
     )
-    .await;
+    .await
+    .route;
     for outcome in [disabled_dense, disabled_lexical, disabled_identifier] {
         assert_eq!(
             outcome.status,
@@ -92,7 +100,7 @@ fn observations_keep_route_ranks_and_accept_assembled_passage_order() {
         conflicts: Vec::new(),
         known_gaps: Vec::new(),
         budget: Budget {
-            evidence_tokens: 0,
+            evidence_bytes: 0,
             limit: 1,
             counter: None,
             estimated: false,
@@ -133,6 +141,7 @@ fn passage(n: u32) -> Passage {
 
 fn trace(n: u32, chunk_ids: &[&str]) -> Trace {
     Trace {
+        parent_context_of: Vec::new(),
         n,
         score: None,
         routes: Vec::new(),
@@ -210,6 +219,7 @@ async fn each_route_and_the_rerank_report_a_passed_deadline_as_its_code() {
         scopes: &fixture.scopes,
         text: "ERR-042",
         limit: 10,
+        identifier_limit: 20,
         version: None,
         qdrant: &qdrant,
     };
@@ -227,9 +237,11 @@ async fn each_route_and_the_rerank_report_a_passed_deadline_as_its_code() {
     let cutoffs = Deadlines {
         expires: passed,
         routes: passed,
+        routes_end: passed,
         setup: passed,
         work: passed,
         window: Duration::ZERO,
+        fixed: None,
     };
     let dense = dense_outcome(true, &query, Some(&embedder), &cutoffs).await;
     let lexical = lexical_outcome(true, &query, passed).await;

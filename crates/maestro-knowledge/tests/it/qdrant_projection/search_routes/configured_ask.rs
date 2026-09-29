@@ -3,6 +3,7 @@
 use super::configured_search::{clean, context, published};
 use super::models;
 use maestro_kernel::gateway::Role;
+use maestro_knowledge::search::evidence::{CounterMode, EvidenceSettings};
 use maestro_knowledge::{
     answer::{
         AnswerContext, AskBudget, AskRequest, DEFAULT_MODEL, PromptVersion, RefusalCode, ask,
@@ -42,6 +43,7 @@ async fn ask_runs_its_search_with_the_given_configuration() {
         &answer_context,
         &request,
         lexical_only,
+        EvidenceSettings::default(),
         &PromptVersion::V2.into(),
     ))
     .await
@@ -59,6 +61,53 @@ async fn ask_runs_its_search_with_the_given_configuration() {
         Some(RefusalCode::AnswererUnavailable)
     );
 
+    clean(&fixture).await;
+}
+
+#[tokio::test]
+async fn configured_evidence_counter_reaches_assembly() {
+    let fixture = published().await;
+    let answer_context = AnswerContext {
+        search: context(&fixture, None),
+        port: &fixture.port,
+        answerer: None,
+    };
+    let request = AskRequest {
+        collection: fixture.kernel.collection.clone(),
+        question: "scheduler job-0".to_owned(),
+        model: DEFAULT_MODEL.to_owned(),
+        version: None,
+        budget: AskBudget {
+            k: 3,
+            evidence_bytes: 1000,
+            search_deadline_ms: 5000,
+            ..AskBudget::default()
+        },
+    };
+    let configuration = SearchConfiguration {
+        dense_enabled: false,
+        identifier_enabled: false,
+        structured_enabled: false,
+        rerank_enabled: false,
+        ..SearchConfiguration::default()
+    };
+    let answer = Box::pin(ask_configured(
+        &answer_context,
+        &request,
+        configuration,
+        EvidenceSettings {
+            evidence_counter: CounterMode::Utf8AnswerBound,
+            ..EvidenceSettings::default()
+        },
+        &PromptVersion::V2.into(),
+    ))
+    .await
+    .unwrap();
+
+    assert_eq!(
+        answer.refusal.map(|refusal| refusal.code),
+        Some(RefusalCode::AnswererUnavailable)
+    );
     clean(&fixture).await;
 }
 
@@ -97,6 +146,7 @@ async fn ask_refuses_below_the_relevance_threshold_only_when_rerank_ran() {
                 answer_context,
                 request,
                 configuration,
+                EvidenceSettings::default(),
                 &PromptVersion::V1.into(),
             ))
             .await

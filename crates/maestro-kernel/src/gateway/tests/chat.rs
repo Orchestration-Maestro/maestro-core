@@ -6,8 +6,8 @@ use super::super::{
 };
 use super::{
     super::{
-        ChatRequest, Error, Message, ModelCard, ModelPort, Role, Room, RouterClient, RouterEntry,
-        Speaker,
+        ChatRequest, Error, MAX_CHAT_OUTPUT_TOKENS, Message, ModelCard, ModelPort, Role, Room,
+        RouterClient, RouterEntry, Speaker,
     },
     fixture::{BUILD, TEMPLATE, card},
     stub::{Reply, StubRouter, answer, free},
@@ -443,7 +443,7 @@ async fn an_output_limit_outside_the_local_bound_is_refused_before_http() {
         .chat(
             &card(Role::Answerer),
             Room::Free,
-            &ChatRequest::new(vec![user("Use the evidence.")], 1025),
+            &ChatRequest::new(vec![user("Use the evidence.")], MAX_CHAT_OUTPUT_TOKENS + 1),
         )
         .await
         .expect_err("oversized generation budget");

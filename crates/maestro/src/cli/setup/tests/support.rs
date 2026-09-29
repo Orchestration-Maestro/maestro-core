@@ -6,31 +6,27 @@
 
 use super::super::{release::Release, service::Layout, tools::Tools};
 use maestro_kernel::artifact::Digest;
+use maestro_test_scratch::disk_scratch_directory;
 use std::{
     collections::BTreeMap,
-    env,
     fs::{self, Permissions},
     os::unix::fs::PermissionsExt as _,
     path::{Path, PathBuf},
-    process::{self, Command},
-    sync::atomic::{AtomicUsize, Ordering},
+    process::Command,
     time::SystemTime,
 };
 
 /// A new scratch directory, removed with everything in it when dropped:
 /// `data/maestro` is the kernel's data directory, `config` the
 /// configuration home, and `tools` holds the fake tools, their log and
-/// the state of the fake user manager.
+/// the state of the fake user manager. It sits on disk, since the tests run
+/// the fake tools and RAM-backed scratch such as `/dev/shm` is often mounted
+/// `noexec`.
 pub(in crate::cli) struct Home(PathBuf);
 
 impl Home {
     pub(in crate::cli) fn new() -> Self {
-        static NEXT: AtomicUsize = AtomicUsize::new(0);
-        let root = env::temp_dir().join(format!(
-            "maestro-cli-setup-{}-{}",
-            process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
+        let root = disk_scratch_directory().unwrap();
         for directory in ["data/maestro", "config", "tools/state"] {
             fs::create_dir_all(root.join(directory)).unwrap();
         }

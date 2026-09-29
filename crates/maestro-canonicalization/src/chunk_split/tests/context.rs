@@ -61,7 +61,7 @@ fn a_section_that_is_not_a_heading_is_a_structure_error() {
     doc.blocks.last_mut().unwrap().parent_section_id = Some(intro);
     let mapped = map_document(&doc, markdown).unwrap();
     let mut count = |text: &str| Ok(text.chars().count() + 2);
-    assert!(build_drafts(&doc, markdown, &mapped, &mut count).is_err());
+    assert!(build_drafts(&structural(&doc, markdown, &mapped), &mut count).is_err());
 }
 
 #[test]
@@ -70,7 +70,7 @@ fn a_piece_inside_deletions_repeats_only_the_delimiters_it_lacks() {
     let markdown = "~~x ~~y~~ z~~\n";
     let doc = canonicalize(CanonicalizeInput::new(markdown, "deletions")).unwrap();
     let mapped = map_document(&doc, markdown).unwrap();
-    let layout = layout(&doc, markdown, &mapped).unwrap();
+    let layout = structural(&doc, markdown, &mapped);
     let parts = |start, end| {
         let fragment = Fragment {
             contribution: Contribution {
@@ -98,7 +98,7 @@ fn only_units_mapped_as_primary_text_are_primary() {
     let markdown = "- item\n";
     let doc = canonicalize(CanonicalizeInput::new(markdown, "primary")).unwrap();
     let mapped = map_document(&doc, markdown).unwrap();
-    let layout = layout(&doc, markdown, &mapped).unwrap();
+    let layout = structural(&doc, markdown, &mapped);
     let marker = mapped
         .units
         .iter()

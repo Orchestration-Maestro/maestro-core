@@ -5,43 +5,67 @@ use crate::{
     failure::Failure,
     kernel::Kernel,
     knowledge::operations::{KnowledgeError, ask::run::ask_with, ensure_current_scopes},
+    settings::KnowledgeSettings,
 };
+use maestro_kernel::evidence::RouteStatus;
 use maestro_knowledge::answer::{Answer, AskRequest, Rejection};
 use serde::Serialize;
-use std::process::ExitCode;
+use std::{collections::BTreeMap, process::ExitCode};
 
-/// Runs one ask and prints the same versioned answer as the MCP tool; with
-/// `explain`, it also prints why each rejected attempt failed on stderr.
+/// Runs one ask under `settings` and prints the same versioned answer as
+/// the MCP tool; with `explain`, it also prints on stderr the prompt's
+/// presentation, each search route's status and why each rejected attempt
+/// failed.
 pub(super) fn run(
     output: Output,
     request: &AskRequest,
     explain: bool,
+    settings: &KnowledgeSettings,
     open_kernel: impl FnOnce() -> Result<Kernel, Failure>,
 ) -> Result<ExitCode, Failure> {
-    let mut scoped = match ask_with(open_kernel, request) {
+    let mut scoped = match ask_with(open_kernel, request, settings) {
         Ok(scoped) => scoped,
-        Err(error) => return operation_refusal(output, error),
+        Err(error) => return refusal(output, ASK_ERROR, error),
     };
     if let Err(error) = ensure_current_scopes(&mut scoped.kernel, &scoped.scopes) {
-        return operation_refusal(output, error);
+        return refusal(output, ASK_ERROR, error);
     }
     if explain {
-        eprint!("{}", explanation(&scoped.data.rejections));
+        eprintln!(
+            "explain: prompt {}",
+            settings.prompt.presentation().identity()
+        );
+        eprint!(
+            "{}",
+            explanation(
+                &scoped.data.routes,
+                scoped.data.reply_cap,
+                &scoped.data.rejections
+            )
+        );
     }
     let text = answer_text(&scoped.data)?;
     output.result(&scoped.data, &text)?;
     Ok(ExitCode::SUCCESS)
 }
 
-/// Prints one safe error document and applies the CLI's refusal exit mapping.
-fn operation_refusal(output: Output, error: KnowledgeError) -> Result<ExitCode, Failure> {
+/// The schema of an ask's error document.
+const ASK_ERROR: &str = "maestro-cli/knowledge-ask-error/1";
+
+/// Prints one safe error document of `schema` and applies the CLI's refusal
+/// exit mapping; prepare and publish refuse this way too.
+pub(super) fn refusal(
+    output: Output,
+    schema: &str,
+    error: KnowledgeError,
+) -> Result<ExitCode, Failure> {
     let (code, message, exit) = match error {
         KnowledgeError::Refused { code, message } => (code, message, ExitCode::from(2)),
         KnowledgeError::Failed { code, message } => (code, message, ExitCode::from(1)),
     };
     output.refusal(
         &AskErrorEnvelope {
-            schema: "maestro-cli/knowledge-ask-error/1",
+            schema,
             error: AskErrorBody { code, message },
         },
         message,
@@ -51,9 +75,9 @@ fn operation_refusal(output: Output, error: KnowledgeError) -> Result<ExitCode, 
 
 /// The bounded public shape for an ask input or execution failure.
 #[derive(Debug, Serialize)]
-struct AskErrorEnvelope {
+struct AskErrorEnvelope<'a> {
     /// Versioned CLI error contract.
-    schema: &'static str,
+    schema: &'a str,
     /// Privacy-safe error code and reason.
     error: AskErrorBody,
 }
@@ -86,14 +110,33 @@ fn answer_text(answer: &Answer) -> Result<String, Failure> {
     Ok(refusal.message.clone())
 }
 
-/// One line per rejected attempt: its failed check and offending tokens.
-fn explanation(rejections: &[Rejection]) -> String {
+/// Each search route's status, so a degraded ask is visible; the reply cap
+/// the chat calls ran with, when any ran; then one line per rejected
+/// attempt: its failed check and offending tokens.
+fn explanation(
+    routes: &BTreeMap<String, RouteStatus>,
+    reply_cap: Option<u32>,
+    rejections: &[Rejection],
+) -> String {
     use std::fmt::Write as _;
 
-    if rejections.is_empty() {
-        return "explain: no attempt was rejected\n".to_owned();
-    }
     let mut text = String::new();
+    for (route, status) in routes {
+        // Writing to a String cannot fail.
+        let _written = match status {
+            RouteStatus::Ok => writeln!(text, "explain: route {route} ok"),
+            RouteStatus::Unavailable(reason) => {
+                writeln!(text, "explain: route {route} unavailable: {reason}")
+            }
+        };
+    }
+    if let Some(tokens) = reply_cap {
+        let _written = writeln!(text, "explain: reply cap {tokens} tokens");
+    }
+    if rejections.is_empty() {
+        text.push_str("explain: no attempt was rejected\n");
+        return text;
+    }
     for rejection in rejections {
         let tokens: Vec<String> = rejection
             .tokens
@@ -115,6 +158,7 @@ fn explanation(rejections: &[Rejection]) -> String {
 #[cfg(test)]
 mod tests {
     use super::{answer_text, explanation};
+    use maestro_kernel::evidence::RouteStatus;
     use maestro_knowledge::answer::{
         Answer, AnswerCitation, AnswerModel, AnswerRefusal, RefusalCode, Rejection,
     };
@@ -147,6 +191,8 @@ mod tests {
             closest: Vec::new(),
             rejections: Vec::new(),
             routes: BTreeMap::new(),
+            delivered: Vec::new(),
+            reply_cap: None,
         };
         assert_eq!(
             answer_text(&answer).ok().as_deref(),
@@ -163,23 +209,53 @@ mod tests {
     }
 
     #[test]
-    fn explanation_names_each_rejected_attempt_check_and_tokens() {
-        assert_eq!(explanation(&[]), "explain: no attempt was rejected\n");
+    fn explanation_names_the_reply_cap_then_each_rejected_attempt_check_and_tokens() {
+        let routes = BTreeMap::new();
         assert_eq!(
-            explanation(&[
-                Rejection {
-                    attempt: 1,
-                    check: "unsupported_literal",
-                    tokens: vec!["-FORCEALL".to_owned(), "EM_HOME".to_owned()],
-                },
-                Rejection {
-                    attempt: 2,
-                    check: "too_short",
-                    tokens: Vec::new(),
-                },
-            ]),
+            explanation(&routes, None, &[]),
+            "explain: no attempt was rejected\n"
+        );
+        assert_eq!(
+            explanation(&routes, Some(2048), &[]),
+            "explain: reply cap 2048 tokens\nexplain: no attempt was rejected\n"
+        );
+        assert_eq!(
+            explanation(
+                &routes,
+                None,
+                &[
+                    Rejection {
+                        attempt: 1,
+                        check: "unsupported_literal",
+                        tokens: vec!["-FORCEALL".to_owned(), "EM_HOME".to_owned()],
+                    },
+                    Rejection {
+                        attempt: 2,
+                        check: "too_short",
+                        tokens: Vec::new(),
+                    },
+                ]
+            ),
             "explain: attempt 1 failed unsupported_literal: \"-FORCEALL\" \"EM_HOME\"\n\
              explain: attempt 2 failed too_short: \n"
+        );
+    }
+
+    #[test]
+    fn explanation_names_each_route_status_first() {
+        let routes = BTreeMap::from([
+            ("identifier".to_owned(), RouteStatus::Ok),
+            (
+                "rerank".to_owned(),
+                RouteStatus::Unavailable("disabled_by_configuration".to_owned()),
+            ),
+        ]);
+        assert_eq!(
+            explanation(&routes, Some(1024), &[]),
+            "explain: route identifier ok\n\
+             explain: route rerank unavailable: disabled_by_configuration\n\
+             explain: reply cap 1024 tokens\n\
+             explain: no attempt was rejected\n"
         );
     }
 }

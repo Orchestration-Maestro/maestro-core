@@ -2,6 +2,7 @@
 //! from these types, whose comments are the help it prints.
 
 use clap::{Args, Parser, Subcommand};
+use maestro_kernel::evidence::RequestBudget;
 use std::path::PathBuf;
 use ulid::Ulid;
 
@@ -14,6 +15,10 @@ pub(super) struct Arguments {
     /// stderr.
     #[arg(long, global = true)]
     pub(super) json: bool,
+    /// Set a setting for this run only, over the project and user files;
+    /// repeatable. `maestro config list` names every setting.
+    #[arg(long = "set", global = true, value_name = "KEY=VALUE")]
+    pub(super) set: Vec<String>,
     /// What to work on.
     #[command(subcommand)]
     pub(super) noun: Noun,
@@ -25,6 +30,9 @@ pub(super) enum Noun {
     /// Collections, their imports and their status.
     #[command(subcommand)]
     Knowledge(KnowledgeCommand),
+    /// Register, qualify, select and list model cards.
+    #[command(subcommand)]
+    Model(ModelCommand),
     /// Jobs: long work run under a lease.
     #[command(subcommand)]
     Job(JobCommand),
@@ -46,7 +54,17 @@ pub(super) enum Noun {
     /// role's model card, naming the next action for every failure.
     Doctor,
     /// Serve the local knowledge tools over stdio MCP.
-    Mcp,
+    Mcp {
+        /// The workspace whose project file (`.maestro/config.toml`, found
+        /// upward within home) the server reads; without it, only the user
+        /// file. The server's working directory never selects one.
+        #[arg(long, value_name = "DIR")]
+        workspace: Option<PathBuf>,
+    },
+    /// Every configurable behaviour: the user file `preferences.toml`, the
+    /// project file `.maestro/config.toml`, and `--set`.
+    #[command(subcommand)]
+    Config(ConfigCommand),
     /// Back up the kernel to a new or empty directory.
     Backup {
         /// The directory to write.
@@ -61,6 +79,56 @@ pub(super) enum Noun {
     },
 }
 
+/// What to do with registered model cards.
+#[derive(Debug, Subcommand)]
+pub(super) enum ModelCommand {
+    /// Register a strict v2 model card and import its pinned evidence for a collection.
+    Register {
+        /// The collection whose registry records the card.
+        #[arg(long)]
+        collection: String,
+        /// The v2 card JSON file.
+        #[arg(long)]
+        card: PathBuf,
+        /// The directory containing digest-named evidence files.
+        #[arg(long, value_name = "DIR")]
+        evidence: PathBuf,
+        /// The GGUF file pinned by the card.
+        #[arg(long, value_name = "FILE")]
+        gguf: PathBuf,
+    },
+    /// Qualify a registered reranker card through the model router.
+    Check {
+        /// The collection whose card is checked.
+        #[arg(long)]
+        collection: String,
+        /// The registered card's SHA-256 digest.
+        #[arg(long)]
+        digest: String,
+    },
+    /// Select a card for a role, only after a real eligible evaluation.
+    Select {
+        /// The collection whose role is selected.
+        #[arg(long)]
+        collection: String,
+        /// The role to select.
+        #[arg(long)]
+        role: String,
+        /// The registered card's SHA-256 digest.
+        #[arg(long)]
+        digest: String,
+    },
+    /// List cards, evaluations and current role selections.
+    List {
+        /// The collection to list.
+        #[arg(long)]
+        collection: String,
+        /// Restrict all results to one role.
+        #[arg(long)]
+        role: Option<String>,
+    },
+}
+
 /// The explicit inputs to a publication.
 #[derive(Debug, Args)]
 pub(super) struct PublishArguments {
@@ -70,13 +138,23 @@ pub(super) struct PublishArguments {
     /// The recorded embedder model card's SHA-256 digest.
     #[arg(long)]
     pub(super) card: String,
-    /// The complete chunk set to publish; defaults to the latest complete set.
+    /// The complete chunk set to publish; defaults to the latest complete set
+    /// of the chunking profile.
     #[arg(long)]
     pub(super) chunk_set: Option<String>,
+    /// The chunking profile whose latest complete set is published when no
+    /// chunk set is named, by its chunker version: mapped-structural-chunks/3,
+    /// the default, as for prepare. A set of another profile is published
+    /// only when named.
+    #[arg(long, value_name = "PROFILE", conflicts_with = "chunk_set")]
+    pub(super) chunk_profile: Option<String>,
     /// Build a new generation instead of reusing an already published one.
     #[arg(long)]
     pub(super) again: bool,
 }
+
+// The `--evidence-bytes` help names this shared evidence ceiling.
+const _: () = assert!(RequestBudget::MAX_EVIDENCE_BUDGET == 24_000);
 
 /// What to do with the knowledge of a collection.
 #[derive(Debug, Subcommand)]
@@ -114,6 +192,12 @@ pub(super) enum KnowledgeCommand {
         /// The recorded embedder model card's SHA-256 digest.
         #[arg(long)]
         card: String,
+        /// The chunking profile, by its chunker version: mapped-structural-chunks/3, the
+        /// default, or mapped-structural-chunks/2, which indexes page chrome and packs compatible
+        /// blocks within one section and container. Another profile makes another chunk set; the
+        /// published one stays as it is.
+        #[arg(long, value_name = "PROFILE")]
+        chunk_profile: Option<String>,
     },
     /// Publish a complete chunk set as a verified Qdrant generation, as a job.
     Publish {
@@ -149,10 +233,10 @@ pub(super) enum KnowledgeCommand {
         /// Maximum final passage count (1..=50, default 10).
         #[arg(long = "k")]
         max_passages: Option<u32>,
-        /// Maximum evidence tokens (1..=12000, default 6000).
+        /// Maximum evidence size in UTF-8 bytes (1..=24000, default 12000).
         #[arg(long)]
-        max_tokens: Option<u32>,
-        /// Search deadline in milliseconds (1..=10000, default 1500).
+        evidence_bytes: Option<u32>,
+        /// Search deadline in milliseconds (1..=30000, default 30000).
         #[arg(long)]
         deadline_ms: Option<u32>,
     },
@@ -188,20 +272,79 @@ pub(super) enum KnowledgeCommand {
         /// Maximum number of passages to assemble.
         #[arg(long)]
         k: Option<u32>,
-        /// Maximum evidence bytes to assemble.
+        /// Maximum evidence size in UTF-8 bytes (1..=24000, default 6000), about
+        /// 4 bytes per English or French token.
         #[arg(long)]
-        max_tokens: Option<u32>,
-        /// Search and evidence deadline in milliseconds.
+        evidence_bytes: Option<u32>,
+        /// Search and evidence deadline in milliseconds (1..=30000, default
+        /// 30000).
         #[arg(long)]
         search_deadline_ms: Option<u32>,
-        /// Maximum generated tokens per chat call.
+        /// Maximum generated tokens per chat call (1..=2048; default: the
+        /// answerer card's output limit, or 1024 when it declares none).
         #[arg(long)]
         output_tokens: Option<u32>,
-        /// Print on stderr the check each rejected answer failed and the
-        /// offending tokens.
+        /// Print on stderr each search route's status, such as a reranker
+        /// that did not run, then the check each rejected answer failed and
+        /// the offending tokens. An ask that ends in an error, such as a
+        /// timeout or an unavailable answerer, prints no explanation.
         #[arg(long)]
         explain: bool,
     },
+}
+
+/// What to do with the settings.
+#[derive(Debug, Subcommand)]
+pub(super) enum ConfigCommand {
+    /// Print a setting's effective value.
+    Get {
+        /// The setting's dotted key, such as `tone`.
+        key: String,
+    },
+    /// Write a setting in the user file, or with --project the project
+    /// file, keeping the file's comments and order; the change is journaled.
+    Set {
+        /// The setting's dotted key.
+        key: String,
+        /// Its value, as `config get` prints it: `brief`, `20`, `0.5`, `off`,
+        /// `changelog,conversion`.
+        value: String,
+        /// The file to write.
+        #[command(flatten)]
+        target: Target,
+    },
+    /// Remove a setting from the user file, or with --project the project
+    /// file; the change is journaled.
+    Unset {
+        /// The setting's dotted key.
+        key: String,
+        /// The file to write.
+        #[command(flatten)]
+        target: Target,
+    },
+    /// List every setting with its effective value and the layer that set it.
+    List,
+    /// Explain a setting, or every one: its value, the layer that set it,
+    /// the layers it overrode, what it accepts, and the files read.
+    Explain {
+        /// The setting's dotted key; every setting without one.
+        key: Option<String>,
+    },
+    /// List the journaled changes of settings, oldest first.
+    History,
+}
+
+/// Which preferences file `config set` and `config unset` write.
+#[derive(Debug, Args)]
+pub(super) struct Target {
+    /// The user file, `preferences.toml` in the configuration directory: the
+    /// default.
+    #[arg(long, conflicts_with = "project")]
+    pub(super) user: bool,
+    /// The project file: the nearest `.maestro/config.toml` upward from the
+    /// working directory, within home, or a new one in the working directory.
+    #[arg(long)]
+    pub(super) project: bool,
 }
 
 /// What to do with a collection's declaration.
@@ -273,7 +416,7 @@ mod tests {
                     model: None,
                     version: None,
                     k: None,
-                    max_tokens: None,
+                    evidence_bytes: None,
                     search_deadline_ms: None,
                     output_tokens: None,
                     explain: false,

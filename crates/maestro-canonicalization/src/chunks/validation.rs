@@ -1,18 +1,18 @@
 //! Replay checks: coverage and every prepared part must rebuild from the mapped source.
 use super::batch::UnitCoverage;
 use crate::chunk_mapping::{map_accounting, mapped_slice};
-use crate::chunk_split::{MAX_TOKENS, validate_preparation};
-use crate::document::CanonicalDocument;
+use crate::chunk_split::{Layout, MAX_TOKENS, validate_preparation};
 use crate::error::Error;
 use crate::prepared_inputs::{ChunkContent, Contribution, InputPart, InputRole};
 use crate::source_units::{MappedDocument, MappingRun, OriginMode, TextRange};
 
-/// Check that the chunks' fragments cover each primary unit's text exactly once and in order;
-/// returns each unit's ranges.
+/// Check that the chunks' fragments cover the part of each primary unit's text the profile
+/// indexes exactly once and in order, and nothing of its chrome; returns each unit's ranges.
 pub(super) fn validate_coverage(
-    mapped: &MappedDocument,
+    layout: &Layout<'_>,
     chunks: &[ChunkContent],
 ) -> Result<Vec<UnitCoverage>, Error> {
+    let mapped = layout.mapped;
     let mut ranges = vec![Vec::new(); mapped.units.len()];
     let mut previous_unit = None;
     for fragment in chunks.iter().flat_map(|chunk| &chunk.fragments) {
@@ -36,34 +36,61 @@ pub(super) fn validate_coverage(
             continue;
         }
         ranges.sort_unstable_by_key(|range| (range.start, range.end));
-        let mut next = 0;
+        let kept = layout.kept(unit_index);
+        let (start, end) = kept.map_or((0, 0), |kept| (kept.start, kept.end));
+        let mut next = start;
         for range in &ranges {
             if range.start != next {
                 return Err(invalid_chunks());
             }
             next = range.end;
         }
-        if next != unit.text.len() {
+        if next != end {
             return Err(invalid_chunks());
         }
         coverage.push(UnitCoverage {
             unit_index,
             primary_ranges: ranges,
+            chrome_ranges: chrome_ranges(kept, unit.text.len()),
+            chrome_rule: layout.chrome_rule(unit_index),
         });
     }
     Ok(coverage)
 }
 
+/// The ranges of a unit of `length` bytes left out as chrome around its kept part: all of it
+/// when nothing is kept.
+pub(super) fn chrome_ranges(kept: Option<TextRange>, length: usize) -> Vec<TextRange> {
+    let Some(kept) = kept else {
+        return vec![TextRange {
+            start: 0,
+            end: length,
+        }];
+    };
+    [
+        TextRange {
+            start: 0,
+            end: kept.start,
+        },
+        TextRange {
+            start: kept.end,
+            end: length,
+        },
+    ]
+    .into_iter()
+    .filter(|range| range.start < range.end)
+    .collect()
+}
+
 /// Rebuild every chunk from the mapped source and recount it: its parts, mappings, body text,
 /// fragment order and preparation must all match.
 pub(super) fn validate_chunks(
-    document: &CanonicalDocument,
-    markdown: &str,
-    mapped: &MappedDocument,
+    layout: &Layout<'_>,
     chunks: &[ChunkContent],
     count: &mut impl FnMut(&str) -> Result<usize, Error>,
 ) -> Result<(), Error> {
-    if mapped.accounting != map_accounting(document, markdown, &mapped.units)? {
+    let (mapped, markdown) = (layout.mapped, layout.markdown);
+    if mapped.accounting != map_accounting(layout.document, markdown, &mapped.units)? {
         return Err(invalid_chunks());
     }
     for chunk in chunks {
@@ -102,7 +129,7 @@ pub(super) fn validate_chunks(
         }
         check_fragment_order(chunk, &primary)?;
     }
-    validate_preparation(document, markdown, mapped, chunks, count)
+    validate_preparation(layout, chunks, count)
 }
 
 /// A formatting separator contributes no source and maps as formatting only.

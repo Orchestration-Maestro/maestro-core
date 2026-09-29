@@ -7,11 +7,13 @@ mod ask;
 mod backup;
 mod catalog;
 mod collection;
+mod config;
 mod eval;
 mod foreground;
 pub(crate) mod health;
 mod import;
 mod lease;
+mod model;
 mod output;
 mod prepare;
 /// Explicit replacement of a lost published projection.

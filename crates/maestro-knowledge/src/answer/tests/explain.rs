@@ -104,6 +104,6 @@ fn the_prompt_asks_for_sentences_not_a_bare_marker() {
 }
 
 #[test]
-fn ask_searches_long_enough_to_load_a_cold_embedder() {
-    assert_eq!(AskBudget::default().search_deadline_ms, 6000);
+fn ask_searches_long_enough_to_load_a_cold_embedder_and_reranker() {
+    assert_eq!(AskBudget::default().search_deadline_ms, 30_000);
 }

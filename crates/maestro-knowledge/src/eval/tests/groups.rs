@@ -84,6 +84,26 @@ fn suite_expected_sections_reject_a_blank_group() {
 }
 
 #[test]
+fn suite_expected_sections_accept_a_component_beside_a_group_and_refuse_a_blank_one() {
+    let with = |component: &str| {
+        let mut line: Value = serde_json::from_str(&suite_line(Some("same-answer"))).unwrap();
+        line["expected"][0]["component"] = json!(component);
+        line.to_string().parse::<Suite>()
+    };
+
+    let suite = with("condition").unwrap();
+    let expected = &suite.questions[0].expected[0];
+    assert_eq!(
+        (expected.group.as_deref(), expected.component.as_deref()),
+        (Some("same-answer"), Some("condition"))
+    );
+    let error = with("  ").unwrap_err();
+    assert!(error.to_string().contains("component must not be blank"));
+    let unnamed: Suite = suite_line(None).parse().unwrap();
+    assert_eq!(unnamed.questions[0].expected[0].component, None);
+}
+
+#[test]
 fn suite_expected_sections_accept_a_missing_group() {
     assert!(suite_line(None).parse::<Suite>().is_ok());
 }

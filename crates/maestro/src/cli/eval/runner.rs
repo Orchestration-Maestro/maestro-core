@@ -6,11 +6,13 @@
 
 use super::manifest::Rung;
 use crate::failure::Failure;
+use maestro_kernel::evidence::RouteStatus;
 use maestro_knowledge::{
     eval::{
-        Ask, AskOutcome, LadderQuestion, LadderScore, Search, SearchOutcome, SectionRef,
-        score_ladder,
+        Ask, AskOutcome, DeliveryScore, LadderQuestion, LadderScore, Search, SearchOutcome,
+        SectionRef, score_delivery, score_ladder,
     },
+    search::evidence::Anchor,
     suite::Suite,
 };
 use serde::Serialize;
@@ -26,6 +28,9 @@ pub(super) struct Provenance {
     pub(super) chunk_set: String,
     /// The digest of the embedder's card, absent when none matches.
     pub(super) embedder: Option<String>,
+    /// The explicitly configured expansion card, absent when off.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) intent: Option<String>,
     /// The digest of the rung's reranker card, absent when reranking is off.
     pub(super) reranker: Option<String>,
     /// The digest of the rung's answerer card, absent when none is
@@ -34,6 +39,10 @@ pub(super) struct Provenance {
     /// The SHA-256 of the rung's prompt file, absent when it asks with a
     /// prompt version or does not ask.
     pub(super) prompt: Option<String>,
+    /// The digest of the source-class table the rung's source prior reads,
+    /// absent when the prior is off or no table is bound.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) source_classes: Option<String>,
 }
 
 impl Provenance {
@@ -53,6 +62,9 @@ pub(super) struct Searched {
     /// How it ended: when ranked, the distinct documents of its final ranked
     /// chunks, before evidence assembly, the first 10, which the floors score.
     pub(super) outcome: SearchOutcome,
+    /// The anchors of its evidence, assembled under the rung's ask budget:
+    /// scored when the rung does not ask.
+    pub(super) delivered: Vec<Anchor>,
     /// What else it gave, never scored.
     pub(super) diagnostic: SearchDiagnostic,
 }
@@ -60,12 +72,50 @@ pub(super) struct Searched {
 /// What a search gave beyond what the floors score: diagnostics only.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub(super) struct SearchDiagnostic {
+    /// Expansion outcome, absent when intent is off.
+    pub(super) intent_status: Option<RouteStatus>,
+    /// Original top-depth candidates the intent votes put below the rerank
+    /// depth, all still reranked; absent when no intent voted.
+    pub(super) intent_displaced: Option<usize>,
+    /// How many identifiers the noise guard dropped from the identifier route.
+    pub(super) identifiers_dropped: usize,
     /// The documents of its assembled evidence, in rank order.
     pub(super) bundle_documents: Vec<String>,
+    /// UTF-8 bytes in the assembled evidence, absent when assembly failed.
+    pub(super) evidence_bytes: Option<u32>,
     /// The top reranker score, absent when rerank did not run.
     pub(super) top_rerank_score: Option<f64>,
-    /// The top fused score, absent when nothing was fused.
+    /// The top fused score, absent when no fused candidate was loaded.
     pub(super) top_fused_score: Option<f64>,
+    /// Source-context loading and validation wall time in microseconds.
+    pub(super) candidate_source_load_micros: u64,
+    /// Candidate identities whose oversized source units retained indexed input.
+    pub(super) candidate_context_fallbacks: Vec<String>,
+}
+
+/// What an `ask` gave the ladder.
+#[derive(Debug, Clone, PartialEq)]
+pub(super) struct Asked {
+    /// How it ended.
+    pub(super) outcome: AskOutcome,
+    /// The anchors of the bundle its answerer was given, none when it
+    /// failed before one was assembled.
+    pub(super) delivered: Vec<Anchor>,
+    /// The attempts the answer check refused before it ended, never scored.
+    pub(super) rejections: Vec<RejectedCheck>,
+    /// The most tokens each of its chat replies could generate, absent when
+    /// it never reached the answerer.
+    pub(super) reply_cap: Option<u32>,
+}
+
+/// An attempt the answer check refused: the attempt and the check's code,
+/// never the reply's tokens, which are answer text.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub(super) struct RejectedCheck {
+    /// The attempt, from 1.
+    pub(super) attempt: u8,
+    /// The stable code of the failed check, such as `unsupported_literal`.
+    pub(super) check: &'static str,
 }
 
 /// The machine a ladder runs on: the kernel, the router and the search
@@ -96,7 +146,7 @@ pub(super) trait Engine {
     fn search(&self, rung: &Rung, question: &str) -> Searched;
 
     /// Asks `question` as `rung` configures.
-    fn ask(&self, rung: &Rung, question: &str) -> AskOutcome;
+    fn ask(&self, rung: &Rung, question: &str) -> Asked;
 }
 
 /// One rung's run.
@@ -106,8 +156,8 @@ pub(super) struct RungRun {
     pub(super) rung: Rung,
     /// What it ran against at its start.
     pub(super) start: Provenance,
-    /// What it ran against at its end.
-    pub(super) end: Provenance,
+    /// What it ran against at its end, absent when that could not be read.
+    pub(super) end: Option<Provenance>,
     /// What the ladder's first rung ran against at its start.
     pub(super) ladder: Provenance,
     /// The questions it ran first, unscored.
@@ -116,8 +166,16 @@ pub(super) struct RungRun {
     pub(super) rows: Vec<LadderQuestion>,
     /// Each row's search diagnostic.
     pub(super) diagnostics: Vec<SearchDiagnostic>,
+    /// Each row's attempts the answer check refused, none when the rung
+    /// does not ask.
+    pub(super) rejections: Vec<Vec<RejectedCheck>>,
+    /// Each row's reply cap, none when the rung does not ask or its ask
+    /// never reached the answerer.
+    pub(super) reply_caps: Vec<Option<u32>>,
     /// The floors.
     pub(super) score: LadderScore,
+    /// What the evidence the answerer received delivered, beside the floors.
+    pub(super) delivery: DeliveryScore,
 }
 
 /// A rung's verdict.
@@ -129,7 +187,7 @@ pub(super) enum Verdict {
     /// A floor does not pass.
     Fail,
     /// The generation or a card changed while it ran, or differs from the
-    /// first rung's.
+    /// first rung's, or what it ran against at its end could not be read.
     Invalid,
 }
 
@@ -147,7 +205,7 @@ impl Verdict {
 impl RungRun {
     /// Its verdict.
     pub(super) fn verdict(&self) -> Verdict {
-        if self.start != self.end || !self.start.matches(&self.ladder) {
+        if self.end.as_ref() != Some(&self.start) || !self.start.matches(&self.ladder) {
             Verdict::Invalid
         } else if self.score.passed {
             Verdict::Pass
@@ -165,7 +223,9 @@ impl RungRun {
 ///
 /// [`Failure::Refused`] for more warm-ups than questions and for a rung that
 /// cannot run, before any search; the errors of [`Engine::start`] and of
-/// `record`, which stop the ladder.
+/// `record`, which stop the ladder; and the error of reading what a rung ran
+/// against at its end, which stops the ladder once that rung, INVALID, is
+/// recorded.
 pub(super) fn run_ladder(
     engine: &mut impl Engine,
     suite: &Suite,
@@ -184,8 +244,11 @@ pub(super) fn run_ladder(
     let mut runs: Vec<RungRun> = Vec::with_capacity(rungs.len());
     for rung in rungs {
         let ladder = runs.first().map(|first| first.start.clone());
-        let run = run_rung(engine, suite, warm_ups, rung, ladder)?;
+        let (run, end_failure) = run_rung(engine, suite, warm_ups, rung, ladder)?;
         record(&run)?;
+        if let Some(failure) = end_failure {
+            return Err(failure);
+        }
         runs.push(run);
     }
     Ok(runs)
@@ -209,21 +272,32 @@ fn check_cards(rung: &Rung, provenance: &Provenance) -> Result<(), Failure> {
     Ok(())
 }
 
-/// Runs `rung`: its warm-ups, then every question, then its score.
+/// Runs `rung`: its warm-ups, then every question, then its score; with the
+/// failure to read what it ran against at its end, if any.
 fn run_rung(
     engine: &mut impl Engine,
     suite: &Suite,
     warm_ups: usize,
     rung: &Rung,
     ladder: Option<Provenance>,
-) -> Result<RungRun, Failure> {
+) -> Result<(RungRun, Option<Failure>), Failure> {
     let (start, expected) = engine.start(rung, suite)?;
+    if expected.len() != suite.questions.len() {
+        return Err(Failure::refused(format!(
+            "the rung `{}` resolved expected sections for {} of the suite's {} questions",
+            rung.name,
+            expected.len(),
+            suite.questions.len()
+        )));
+    }
     for question in suite.questions.iter().take(warm_ups) {
         engine.search(rung, &question.question);
         if rung.ask.is_some() {
             engine.ask(rung, &question.question);
         }
     }
+    let mut rejections = Vec::with_capacity(suite.questions.len());
+    let mut reply_caps = Vec::with_capacity(suite.questions.len());
     let (rows, diagnostics): (Vec<LadderQuestion>, Vec<SearchDiagnostic>) = suite
         .questions
         .iter()
@@ -234,28 +308,42 @@ fn run_rung(
                 outcome: searched.outcome,
                 elapsed,
             };
-            let (outcome, elapsed) = if rung.ask.is_some() {
+            let (asked, elapsed) = if rung.ask.is_some() {
                 timed(|| engine.ask(rung, &question.question))
             } else {
-                (AskOutcome::Failed, Duration::ZERO)
+                let unasked = Asked {
+                    outcome: AskOutcome::Failed,
+                    delivered: searched.delivered,
+                    rejections: Vec::new(),
+                    reply_cap: None,
+                };
+                (unasked, Duration::ZERO)
             };
+            rejections.push(asked.rejections);
+            reply_caps.push(asked.reply_cap);
+            let outcome = asked.outcome;
             let row = LadderQuestion {
                 id: question.id.clone(),
                 expected,
                 search,
                 ask: Ask { outcome, elapsed },
+                delivered: asked.delivered,
             };
             (row, searched.diagnostic)
         })
         .unzip();
-    let end = engine.provenance(rung)?;
+    let (end, end_failure) = match engine.provenance(rung) {
+        Ok(end) => (Some(end), None),
+        Err(failure) => (None, Some(failure)),
+    };
     let score = score_ladder(suite, &rows);
+    let delivery = score_delivery(suite, &rows, rung.ask.is_some());
     let score = if rung.ask.is_some() {
         score
     } else {
         score.without_asks()
     };
-    Ok(RungRun {
+    let run = RungRun {
         rung: rung.clone(),
         ladder: ladder.unwrap_or_else(|| start.clone()),
         start,
@@ -263,8 +351,12 @@ fn run_rung(
         warm_ups,
         rows,
         diagnostics,
+        rejections,
+        reply_caps,
         score,
-    })
+        delivery,
+    };
+    Ok((run, end_failure))
 }
 
 /// What `operation` gives, and how long it took.

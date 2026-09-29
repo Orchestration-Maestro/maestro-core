@@ -10,16 +10,14 @@ use maestro_kernel::{
     scope::{LOCAL, ScopeSet},
     store::Database,
 };
+use maestro_test_scratch::{disk_scratch_directory, scratch_directory};
 use serde_json::{Value, json};
 use std::{
     env, fs,
     io::{BufRead, BufReader, Read},
     path::{Path, PathBuf},
     process::{self, Child, Command, Stdio},
-    sync::{
-        atomic::{AtomicUsize, Ordering},
-        mpsc::{self, Receiver, RecvTimeoutError},
-    },
+    sync::mpsc::{self, Receiver, RecvTimeoutError},
     thread,
     time::{Duration, Instant, SystemTime},
 };
@@ -35,10 +33,13 @@ pub(crate) const IMPORT: &str = "knowledge.import";
 /// The resource an import of `synthetic` holds.
 const SYNTHETIC_IMPORT: &str = "collection/synthetic/import";
 
-/// A new empty directory under the platform's temporary directory, removed
-/// with everything in it when dropped: `data/` is `XDG_DATA_HOME` and
-/// `config/` is `XDG_CONFIG_HOME` for the binary run in it.
-pub(crate) struct Home(PathBuf);
+/// A new empty scratch directory, removed with everything in it when
+/// dropped: `data/` is `XDG_DATA_HOME` and `config/` is `XDG_CONFIG_HOME`
+/// for the binary run in it. The second directory, on disk, holds the fake
+/// tools a test runs: RAM-backed scratch such as `/dev/shm` is often
+/// mounted `noexec`, and `PATH` lookup would then skip the fakes and find
+/// the real tools.
+pub(crate) struct Home(PathBuf, PathBuf);
 
 impl Home {
     /// A home whose `config.toml` grants the local principal the whole
@@ -55,15 +56,10 @@ impl Home {
     /// A home with empty data and configuration directories: no grant, no
     /// binding.
     pub(crate) fn bare() -> Self {
-        static NEXT: AtomicUsize = AtomicUsize::new(0);
-        let path = env::temp_dir().join(format!(
-            "maestro-cli-{}-{}",
-            process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
+        let path = scratch_directory().unwrap();
         fs::create_dir_all(path.join("data").join("maestro")).unwrap();
         fs::create_dir_all(path.join("config").join("maestro")).unwrap();
-        Self(path)
+        Self(path, disk_scratch_directory().unwrap())
     }
 
     /// Writes `text` as the kernel's `config.toml`.
@@ -74,6 +70,13 @@ impl Home {
     /// The home's own directory, for files a test writes beside the kernel.
     pub(crate) fn root(&self) -> &Path {
         &self.0
+    }
+
+    /// The directory, on disk, for the programs a test runs: the fake tools,
+    /// shell scripts, which only Unix runs.
+    #[cfg(unix)]
+    pub(crate) fn tools(&self) -> &Path {
+        &self.1
     }
 
     /// The kernel's data directory, `maestro` under `XDG_DATA_HOME`.
@@ -87,11 +90,15 @@ impl Home {
         self.0.join("config").join("maestro")
     }
 
-    /// The binary with `arguments`, set to run in this home.
+    /// The binary with `arguments`, set to run in this home: its home
+    /// directory too (`HOME`, `USERPROFILE` on Windows), so no project file
+    /// of the machine's is ever discovered.
     pub(crate) fn command(&self, arguments: &[&str]) -> Command {
         let mut command = Command::new(env!("CARGO_BIN_EXE_maestro"));
         command
             .args(arguments)
+            .env("HOME", &self.0)
+            .env("USERPROFILE", &self.0)
             .env("XDG_DATA_HOME", self.0.join("data"))
             .env("XDG_CONFIG_HOME", self.0.join("config"))
             .stdin(Stdio::null())
@@ -107,11 +114,7 @@ impl Home {
 
     /// Starts the binary with piped stdin and its usual bounded output readers.
     pub(crate) fn start_with_stdin(&self, arguments: &[&str]) -> (Running, process::ChildStdin) {
-        let mut command = self.command(arguments);
-        command.stdin(Stdio::piped());
-        let mut child = command.spawn().unwrap();
-        let input = child.stdin.take().unwrap();
-        (Running::from_child(child), input)
+        Running::with_stdin(self.command(arguments))
     }
 
     /// Runs the binary with `arguments` in this home to its end.
@@ -148,6 +151,7 @@ impl Home {
 impl Drop for Home {
     fn drop(&mut self) {
         fs::remove_dir_all(&self.0).unwrap();
+        fs::remove_dir_all(&self.1).unwrap();
     }
 }
 
@@ -287,6 +291,14 @@ impl Running {
     pub(crate) fn of(mut command: Command) -> Self {
         let child = command.spawn().unwrap();
         Self::from_child(child)
+    }
+
+    /// Starts `command` with piped stdin and the usual bounded output readers.
+    pub(crate) fn with_stdin(mut command: Command) -> (Self, process::ChildStdin) {
+        command.stdin(Stdio::piped());
+        let mut child = command.spawn().unwrap();
+        let input = child.stdin.take().unwrap();
+        (Self::from_child(child), input)
     }
 
     /// Captures a spawned child with the same bounded output readers.

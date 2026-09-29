@@ -37,6 +37,11 @@ impl Output {
         }
     }
 
+    /// Whether it prints one JSON document instead of text.
+    pub(super) const fn is_json(self) -> bool {
+        self.json
+    }
+
     /// Prints `line` for people; nothing under `--json`.
     ///
     /// # Errors
@@ -87,4 +92,15 @@ fn print(line: &str) -> Result<(), Failure> {
 pub(super) fn diagnose(line: &str) {
     let mut stderr = io::stderr().lock();
     drop(writeln!(stderr, "{line}"));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Output;
+
+    #[test]
+    fn output_preserves_its_json_mode() {
+        assert!(!Output::new(false).is_json());
+        assert!(Output::new(true).is_json());
+    }
 }

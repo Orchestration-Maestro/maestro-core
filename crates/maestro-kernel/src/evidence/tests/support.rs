@@ -9,14 +9,9 @@ use crate::{
     scope::{Right, ScopeSet},
     store::{self, Database},
 };
+use maestro_test_scratch::scratch_directory;
 use serde_json::{Map, Value};
-use std::{
-    collections::BTreeMap,
-    env, fs,
-    path::PathBuf,
-    process,
-    sync::atomic::{AtomicUsize, Ordering},
-};
+use std::{collections::BTreeMap, fs, path::PathBuf};
 
 /// The original Markdown of the revision `rev-a`: two sections that state
 /// different default ports, the second with a dash that takes three bytes.
@@ -36,14 +31,7 @@ pub(super) struct Scratch(PathBuf);
 
 impl Scratch {
     pub(super) fn new() -> Self {
-        static NEXT: AtomicUsize = AtomicUsize::new(0);
-        let path = env::temp_dir().join(format!(
-            "maestro-kernel-evidence-{}-{}",
-            process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
-        fs::create_dir(&path).unwrap();
-        Self(path)
+        Self(scratch_directory().unwrap())
     }
 
     /// The kernel database of this directory, with the revision `rev-a` of
@@ -243,7 +231,7 @@ pub(super) fn bundle() -> Bundle {
         }],
         known_gaps: vec!["no passage states the port of version 2.0.0".to_owned()],
         budget: Budget {
-            evidence_tokens: 41,
+            evidence_bytes: 41,
             limit: 6000,
             counter: None,
             estimated: false,
@@ -252,6 +240,7 @@ pub(super) fn bundle() -> Bundle {
         inventory: None,
         trace: vec![
             Trace {
+                parent_context_of: Vec::new(),
                 n: 1,
                 score: Some(0.83),
                 routes: vec!["bm25".to_owned(), "dense".to_owned()],
@@ -259,6 +248,7 @@ pub(super) fn bundle() -> Bundle {
                 procedural: false,
             },
             Trace {
+                parent_context_of: Vec::new(),
                 n: 2,
                 score: Some(0.41),
                 routes: vec!["dense".to_owned()],

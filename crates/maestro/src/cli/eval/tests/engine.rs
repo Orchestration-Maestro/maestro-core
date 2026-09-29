@@ -2,8 +2,11 @@
 //! by digest without selection, the retrieval rank of a bundle's documents,
 //! and what an answer gives the ladder.
 
-use super::super::engine::{
-    answer_outcome, bundle_documents, candidate_reranker, ranked_documents,
+use super::super::{
+    candidates::candidate_reranker,
+    documents::{bundle_documents, ranked_documents},
+    engine::{answer_outcome, asked_reply_cap, rejected_checks},
+    runner::RejectedCheck,
 };
 use crate::{
     failure::Failure,
@@ -12,12 +15,15 @@ use crate::{
 use maestro_kernel::{
     artifact::Digest,
     evidence::{Budget, Bundle, Passage, RouteStatus, Schema, Span, Trace},
-    gateway::Role,
+    gateway::{Error as GatewayError, Role},
 };
 use maestro_knowledge::{
-    answer::{Answer, AnswerCitation, AnswerModel, AnswerRefusal, RefusalCode},
+    answer::{
+        Answer, AnswerCitation, AnswerModel, AnswerRefusal, AskError, RefusalCode,
+        RegisteredAnswerer, Rejection,
+    },
     eval::{AskOutcome, SectionRef},
-    search::{DEADLINE_EXCEEDED, SearchConfiguration, evidence::ChunkSetDocuments},
+    search::{DEADLINE_EXCEEDED, SearchConfiguration, SearchError, evidence::ChunkSetDocuments},
 };
 use std::collections::BTreeMap;
 
@@ -83,6 +89,7 @@ fn passage(n: u32, document: &str) -> Passage {
 /// The trace of passage `n` over `chunks`.
 fn trace(n: u32, chunks: &[&str]) -> Trace {
     Trace {
+        parent_context_of: Vec::new(),
         n,
         score: None,
         routes: Vec::new(),
@@ -109,7 +116,7 @@ fn bundle_documents_rank_by_their_passages_best_chunk_not_by_reading_order() {
         conflicts: Vec::new(),
         known_gaps: Vec::new(),
         budget: Budget {
-            evidence_tokens: 1,
+            evidence_bytes: 1,
             limit: 10,
             counter: None,
             estimated: true,
@@ -145,12 +152,12 @@ fn answer(citations: &[(&str, &str)], refusal: Option<RefusalCode>) -> Answer {
             .enumerate()
             .map(|(index, (source_ref, section))| AnswerCitation {
                 n: u32::try_from(index + 1).unwrap(),
-                chunk_id: "chunk".to_owned(),
+                chunk_id: format!("chunk-{}", index + 1),
                 section_id: Some((*section).to_owned()),
                 source_ref: (*source_ref).to_owned(),
                 title: String::new(),
                 section_path: Vec::new(),
-                span: [0, 1],
+                span: [index + 1, index + 2],
             })
             .collect(),
         model: AnswerModel {
@@ -165,6 +172,8 @@ fn answer(citations: &[(&str, &str)], refusal: Option<RefusalCode>) -> Answer {
         closest: Vec::new(),
         rejections: Vec::new(),
         routes: BTreeMap::new(),
+        delivered: Vec::new(),
+        reply_cap: None,
     }
 }
 
@@ -196,16 +205,18 @@ fn an_answer_gives_its_citations_documents_or_its_refusal() {
                 SectionRef {
                     document_id: "document".to_owned(),
                     revision_id: Some("revision".to_owned()),
-                    chunk_id: Some("chunk".to_owned()),
+                    chunk_id: Some("chunk-1".to_owned()),
                     section_id: Some("section".to_owned()),
-                    span: Some([0, 1]),
+                    span: Some([1, 2]),
+                    component: None,
                 },
                 SectionRef {
                     document_id: String::new(),
                     revision_id: None,
-                    chunk_id: Some("chunk".to_owned()),
+                    chunk_id: Some("chunk-2".to_owned()),
                     section_id: Some("s".to_owned()),
-                    span: Some([0, 1]),
+                    span: Some([2, 3]),
+                    component: None,
                 },
             ],
             invented_literals: 0,
@@ -307,4 +318,74 @@ fn the_ranked_list_holds_each_ranked_chunks_document_once_the_first_10() {
         ranked_documents(&order, |chunk| documents.document_of_chunk(chunk)),
         ["document"]
     );
+}
+
+#[test]
+fn an_answers_rejected_attempts_keep_their_checks_without_their_tokens() {
+    let mut repaired = answer(&[("source:docs", "section")], None);
+    repaired.rejections = vec![
+        Rejection {
+            attempt: 1,
+            check: "unsupported_literal",
+            tokens: vec!["secret".to_owned()],
+        },
+        Rejection {
+            attempt: 2,
+            check: "citation",
+            tokens: Vec::new(),
+        },
+    ];
+
+    assert_eq!(
+        rejected_checks(&repaired),
+        [
+            RejectedCheck {
+                attempt: 1,
+                check: "unsupported_literal",
+            },
+            RejectedCheck {
+                attempt: 2,
+                check: "citation",
+            },
+        ]
+    );
+}
+
+#[test]
+fn an_answer_hands_the_reply_cap_its_chats_ran_with_to_the_ladder() {
+    let answered = Answer {
+        reply_cap: Some(2048),
+        ..answer(&[], None)
+    };
+
+    assert_eq!(asked_reply_cap(&Ok(answered), None, None), Some(2048));
+}
+
+#[test]
+fn a_chat_that_timed_out_or_failed_keeps_the_reply_cap_it_was_asked_with() {
+    let scratch = Scratch::new();
+    let kernel = scratch.kernel(None).unwrap();
+    let (id, card) = register_card(&kernel, "collection", Role::Answerer, "qwen3-4b", b"a");
+    let answerer = RegisteredAnswerer { id, card };
+    let unavailable = GatewayError::Unavailable {
+        reason: "the router is down".to_owned(),
+    };
+
+    for failed in [AskError::TimedOut, AskError::Backend(unavailable)] {
+        assert_eq!(
+            asked_reply_cap(&Err(failed), Some(&answerer), Some(900)),
+            Some(900)
+        );
+    }
+}
+
+#[test]
+fn an_ask_that_failed_before_its_chat_has_no_reply_cap() {
+    let scratch = Scratch::new();
+    let kernel = scratch.kernel(None).unwrap();
+    let (id, card) = register_card(&kernel, "collection", Role::Answerer, "qwen3-4b", b"a");
+    let answerer = RegisteredAnswerer { id, card };
+    let searched = Err(AskError::Search(SearchError::AdmissionTimedOut));
+
+    assert_eq!(asked_reply_cap(&searched, Some(&answerer), Some(900)), None);
 }

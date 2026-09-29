@@ -23,4 +23,5 @@ tracing.workspace = true
 ulid.workspace = true
 
 [dev-dependencies]
+maestro-test-scratch.workspace = true
 tokio = { workspace = true, features = ["macros", "rt"] }

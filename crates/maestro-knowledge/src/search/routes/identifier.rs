@@ -1,8 +1,13 @@
 //! Exact identifier search from Qdrant payloads and the kernel identifier index.
 
-use super::{outcome::RouteOutcome, results::ScoredChunk};
+use super::{
+    identifier_cursor::advances,
+    identifier_payload::{invalid_answer, payload_hit},
+    outcome::{DroppedIdentifier, IdentifierOutcome, RouteOutcome},
+    results::ScoredChunk,
+};
 use crate::{
-    index::QdrantError,
+    index::{ProjectionCursor, ProjectionFilter, RetrievalProjectionPort},
     query::{PROFILE, Understood},
     search::{
         deadline::{self, DEADLINE_EXCEEDED, DISABLED_BY_CONFIGURATION},
@@ -16,14 +21,27 @@ use maestro_kernel::{
     scope::ScopeSet,
     store::Database,
 };
-use qdrant_client::qdrant::{
-    Condition, PointId, RetrievedPoint, point_id::PointIdOptions, value::Kind,
-};
 use std::{
     collections::HashSet,
     sync::{Arc, atomic::Ordering},
 };
 use tokio::time::{self, Instant};
+
+/// How the identifier route runs, as the search configuration sets it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(in crate::search) enum IdentifierMode {
+    /// The route does not run.
+    Off,
+    /// Both legs run concurrently on every identifier.
+    On,
+    /// The kernel leg runs first, and the payload leg only on the
+    /// identifiers the kernel leg did not skip as too common.
+    Guarded,
+}
+
+/// Why the noise guard drops an identifier that matches more chunks than
+/// the route can rank.
+const TOO_COMMON: &str = "identifier too common";
 
 /// Finds identifiers in a pinned generation using exact payloads and indexed scoped rows.
 ///
@@ -32,36 +50,64 @@ use tokio::time::{self, Instant};
 /// The two legs run concurrently. A completed leg's hits survive failure or
 /// timeout in the other; common kernel identifiers are reported as degraded.
 /// One Identifier route remains one fusion vote.
-pub async fn search_identifiers(
-    query: &Query<'_>,
+pub async fn search_identifiers<R: RetrievalProjectionPort>(
+    query: &Query<'_, R>,
     database: Arc<Database>,
     understood: &Understood,
     deadline: Instant,
 ) -> RouteOutcome {
-    search_identifiers_enabled(true, query, database, understood, deadline).await
+    search_identifiers_as(IdentifierMode::On, query, database, understood, deadline)
+        .await
+        .route
 }
 
-/// Executes identifier search only when enabled by the request configuration.
-pub(in crate::search) async fn search_identifiers_enabled(
-    enabled: bool,
-    query: &Query<'_>,
+/// [`search_identifiers`] with the noise guard: an identifier the kernel
+/// leg skips as too common is dropped from the payload leg too, and the
+/// route is unavailable only when a leg fails or every identifier is dropped.
+pub async fn search_identifiers_guarded<R: RetrievalProjectionPort>(
+    query: &Query<'_, R>,
     database: Arc<Database>,
     understood: &Understood,
     deadline: Instant,
-) -> RouteOutcome {
-    if !enabled {
-        return unavailable(Vec::new(), DISABLED_BY_CONFIGURATION);
+) -> IdentifierOutcome {
+    search_identifiers_as(
+        IdentifierMode::Guarded,
+        query,
+        database,
+        understood,
+        deadline,
+    )
+    .await
+}
+
+/// Executes identifier search as `mode` says.
+pub(in crate::search) async fn search_identifiers_as<R: RetrievalProjectionPort>(
+    mode: IdentifierMode,
+    query: &Query<'_, R>,
+    database: Arc<Database>,
+    understood: &Understood,
+    deadline: Instant,
+) -> IdentifierOutcome {
+    let route = |route| IdentifierOutcome {
+        route,
+        dropped: Vec::new(),
+    };
+    if mode == IdentifierMode::Off {
+        return route(unavailable(Vec::new(), DISABLED_BY_CONFIGURATION));
     }
     let identifiers = unique_identifiers(understood);
     if identifiers.is_empty() || query.limit == 0 || query.scopes.is_empty() {
-        return ok(Vec::new());
+        return route(ok(Vec::new()));
     }
     if identifiers.len() > 64 {
-        return unavailable(Vec::new(), "kernel: too many identifier values");
+        return route(unavailable(
+            Vec::new(),
+            "kernel: too many identifier values",
+        ));
     }
-    let limit = query.limit.min(20);
+    let limit = query.limit.min(query.identifier_limit);
     if Instant::now() >= deadline {
-        return unavailable(Vec::new(), DEADLINE_EXCEEDED);
+        return route(unavailable(Vec::new(), DEADLINE_EXCEEDED));
     }
     if let Err(reason) = ready_projection(
         database.clone(),
@@ -71,39 +117,112 @@ pub(in crate::search) async fn search_identifiers_enabled(
     )
     .await
     {
-        return unavailable(Vec::new(), &reason);
+        return route(unavailable(Vec::new(), &reason));
     }
 
-    let (payload, kernel) = tokio::join!(
-        payload_leg(query, &identifiers, limit, deadline),
-        kernel_leg(query, database, &identifiers, limit, deadline),
-    );
+    let (payload, kernel) = if mode == IdentifierMode::Guarded {
+        guarded_legs(query, database, &identifiers, limit, deadline).await
+    } else {
+        tokio::join!(
+            payload_leg(query, &identifiers, limit, deadline),
+            kernel_leg(query, database, &identifiers, limit, deadline),
+        )
+    };
     if matches!((&payload, &kernel), (Err(payload), Err(kernel))
         if payload == DEADLINE_EXCEEDED && kernel == DEADLINE_EXCEEDED)
     {
-        return unavailable(Vec::new(), DEADLINE_EXCEEDED);
+        return route(unavailable(Vec::new(), DEADLINE_EXCEEDED));
     }
+    merged(payload, kernel, mode, identifiers.len(), limit)
+}
+
+/// Runs the kernel leg, then the payload leg on the identifiers the kernel
+/// leg did not skip as too common; when it skipped them all, the payload
+/// leg does not run.
+async fn guarded_legs<R: RetrievalProjectionPort>(
+    query: &Query<'_, R>,
+    database: Arc<Database>,
+    identifiers: &[String],
+    limit: usize,
+    deadline: Instant,
+) -> (
+    Result<Vec<ScoredChunk>, String>,
+    Result<KernelOutcome, String>,
+) {
+    let kernel = kernel_leg(query, database, identifiers, limit, deadline).await;
+    let kept = match &kernel {
+        Ok(kernel) => identifiers
+            .iter()
+            .filter(|identifier| !kernel.too_common.contains(identifier))
+            .cloned()
+            .collect(),
+        Err(_) => identifiers.to_vec(),
+    };
+    let payload = if kept.is_empty() {
+        Ok(Vec::new())
+    } else {
+        payload_leg(query, &kept, limit, deadline).await
+    };
+    (payload, kernel)
+}
+
+/// Merges the legs' hits, payload first, and states why the route is
+/// degraded, if it is; guarded, the too-common identifiers are dropped and
+/// degrade the route only when they are all of its `requested` identifiers.
+fn merged(
+    payload: Result<Vec<ScoredChunk>, String>,
+    kernel: Result<KernelOutcome, String>,
+    mode: IdentifierMode,
+    requested: usize,
+    limit: usize,
+) -> IdentifierOutcome {
     let mut hits = Vec::new();
     let mut seen = HashSet::new();
     let mut reasons = Vec::new();
+    let mut dropped = Vec::new();
     match payload {
         Ok(payload) => extend_unique(&mut hits, &mut seen, payload, limit),
         Err(reason) => reasons.push(format!("payload: {}", nonblank(&reason, "unavailable"))),
     }
     match kernel {
+        Ok(kernel) if mode == IdentifierMode::Guarded => {
+            extend_unique(&mut hits, &mut seen, kernel.hits, limit);
+            if kernel.too_common.len() == requested {
+                reasons.push(all_too_common(&kernel.too_common));
+            }
+            dropped = kernel
+                .too_common
+                .into_iter()
+                .map(|identifier| DroppedIdentifier {
+                    identifier,
+                    reason: TOO_COMMON.to_owned(),
+                })
+                .collect();
+        }
         Ok(kernel) => {
             extend_unique(&mut hits, &mut seen, kernel.hits, limit);
-            if kernel.skipped_too_common {
-                reasons.push("kernel: identifier too common".to_owned());
+            if !kernel.too_common.is_empty() {
+                reasons.push(format!("kernel: {TOO_COMMON}"));
             }
         }
         Err(reason) => reasons.push(format!("kernel: {}", nonblank(&reason, "unavailable"))),
     }
-    if reasons.is_empty() {
+    let route = if reasons.is_empty() {
         ok(hits)
     } else {
         unavailable(hits, &reasons.join("; "))
-    }
+    };
+    IdentifierOutcome { route, dropped }
+}
+
+/// The reason a guarded route gives when it dropped every identifier as
+/// too common, naming them.
+fn all_too_common(identifiers: &[String]) -> String {
+    let quoted: Vec<_> = identifiers
+        .iter()
+        .map(|identifier| format!("{identifier:?}"))
+        .collect();
+    format!("kernel: {TOO_COMMON}: {}", quoted.join(", "))
 }
 
 /// Deduplicates query identifier texts in their first-seen family order.
@@ -151,8 +270,8 @@ async fn ready_projection(
 }
 
 /// Searches filtered payload pages in the pinned physical collection.
-async fn payload_leg(
-    query: &Query<'_>,
+async fn payload_leg<R: RetrievalProjectionPort>(
+    query: &Query<'_, R>,
     identifiers: &[String],
     limit: usize,
     deadline: Instant,
@@ -160,14 +279,18 @@ async fn payload_leg(
     if Instant::now() >= deadline {
         return Err(DEADLINE_EXCEEDED.to_owned());
     }
-    let mut filter = query_filter(query.scopes, query.version);
-    filter
-        .must
-        .push(Condition::matches("identifier_profile", PROFILE.to_owned()));
-    filter
-        .must
-        .push(Condition::matches("identifiers", identifiers.to_vec()));
-    let mut offset: Option<PointId> = None;
+    let filter = ProjectionFilter::All(vec![
+        query_filter(query.scopes, query.version),
+        ProjectionFilter::ExactString {
+            field: "identifier_profile".to_owned(),
+            value: PROFILE.to_owned(),
+        },
+        ProjectionFilter::AnyString {
+            field: "identifiers".to_owned(),
+            values: identifiers.to_vec(),
+        },
+    ]);
+    let mut offset: Option<ProjectionCursor> = None;
     let candidate_limit = limit.saturating_mul(2);
     let mut hits = Vec::new();
     let mut seen = HashSet::new();
@@ -179,12 +302,12 @@ async fn payload_leg(
             deadline,
             query
                 .qdrant
-                .scroll_page(&query.collection(), filter.clone(), offset.clone()),
+                .scroll(&query.collection(), filter.clone(), offset.clone()),
         )
         .await
         .map_err(|_| DEADLINE_EXCEEDED.to_owned())?
         .map_err(|_| "Qdrant payload search failed".to_owned())?;
-        for point in page.result {
+        for point in page.points {
             let hit = payload_hit(&point)
                 .map_err(|_| "Qdrant returned an invalid search payload".to_owned())?;
             if !seen.insert(hit.chunk_id.clone()) {
@@ -195,7 +318,7 @@ async fn payload_leg(
                 return Ok(order_payload_hits(hits, limit));
             }
         }
-        let Some(next) = page.next_page_offset else {
+        let Some(next) = page.next else {
             return Ok(order_payload_hits(hits, limit));
         };
         if !advances(offset.as_ref(), &next) {
@@ -210,51 +333,17 @@ fn order_payload_hits(hits: Vec<ScoredChunk>, limit: usize) -> Vec<ScoredChunk> 
     super::results::rank(hits, limit)
 }
 
-/// Validates the required string and string-array fields of a payload hit.
-fn payload_hit(point: &RetrievedPoint) -> Result<ScoredChunk, QdrantError> {
-    let chunk_id = payload_text(point, "chunk_id")?;
-    let revision_id = payload_text(point, "revision_id")?;
-    if payload_text(point, "identifier_profile")? != PROFILE {
-        return Err(invalid_answer(
-            "Qdrant returned an invalid identifier profile",
-        ));
-    }
-    let Some(Kind::ListValue(values)) = point
-        .payload
-        .get("identifiers")
-        .and_then(|value| value.kind.as_ref())
-    else {
-        return Err(invalid_answer(
-            "Qdrant hit lacks a string-array identifiers field",
-        ));
-    };
-    if values
-        .values
-        .iter()
-        .any(|value| !matches!(value.kind.as_ref(), Some(Kind::StringValue(_))))
-    {
-        return Err(invalid_answer(
-            "Qdrant hit has a malformed identifiers array",
-        ));
-    }
-    Ok(ScoredChunk {
-        chunk_id,
-        revision_id,
-        score: 1.0,
-    })
-}
-
-/// The exact kernel hits and any high-frequency identifiers it skipped.
+/// The exact kernel hits and the high-frequency identifiers it skipped.
 struct KernelOutcome {
     /// Ranked chunks returned by the kernel identifier leg.
     hits: Vec<ScoredChunk>,
-    /// Whether the kernel skipped an identifier above the route's fetch limit.
-    skipped_too_common: bool,
+    /// The identifiers the kernel skipped as above the route's fetch limit.
+    too_common: Vec<String>,
 }
 
 /// Reads an exact, scope-filtered kernel leg on a cancellable blocking worker.
-async fn kernel_leg(
-    query: &Query<'_>,
+async fn kernel_leg<R: RetrievalProjectionPort>(
+    query: &Query<'_, R>,
     database: Arc<Database>,
     identifiers: &[String],
     limit: usize,
@@ -266,7 +355,7 @@ async fn kernel_leg(
     let identifiers = identifiers.to_vec();
     match deadline::run_blocking(deadline, move |cancelled| {
         let control = ReadControl {
-            deadline: deadline.into_std(),
+            deadline: deadline::std_deadline(deadline),
             cancelled,
         };
         let read = SearchRead {
@@ -289,45 +378,13 @@ async fn kernel_leg(
                     score: 1.0,
                 })
                 .collect(),
-            skipped_too_common: result.skipped_too_common,
+            too_common: result.too_common,
         }),
         Ok(Err(error)) => Err(retrieval_reason(&error)),
         Err(deadline::BlockingFailure::TimedOut) => Err(DEADLINE_EXCEEDED.to_owned()),
         Err(deadline::BlockingFailure::WorkerFailed) => {
             Err("kernel identifier search failed".to_owned())
         }
-    }
-}
-
-/// Whether a Qdrant scroll cursor strictly advances its typed point ID.
-pub(super) fn advances(previous: Option<&PointId>, next: &PointId) -> bool {
-    let Some(previous) = previous else {
-        return true;
-    };
-    match (
-        previous.point_id_options.as_ref(),
-        next.point_id_options.as_ref(),
-    ) {
-        (Some(PointIdOptions::Num(previous)), Some(PointIdOptions::Num(next))) => next > previous,
-        (Some(PointIdOptions::Uuid(previous)), Some(PointIdOptions::Uuid(next))) => next > previous,
-        _ => false,
-    }
-}
-
-/// Wraps malformed payload or scroll answers in Qdrant's typed invalid-answer error.
-fn invalid_answer(reason: &str) -> QdrantError {
-    QdrantError::InvalidAnswer(reason.to_owned())
-}
-
-/// Gets a string-valued field from a Qdrant payload.
-fn payload_text(point: &RetrievedPoint, field: &str) -> Result<String, QdrantError> {
-    match point
-        .payload
-        .get(field)
-        .and_then(|value| value.kind.as_ref())
-    {
-        Some(Kind::StringValue(value)) => Ok(value.clone()),
-        _ => Err(invalid_answer(&format!("Qdrant hit lacks string {field}"))),
     }
 }
 

@@ -36,7 +36,7 @@ fn identifier_hits_requires_readiness_then_returns_exact_matches() {
         .identifier_hits(&read, &identifiers, 10)
         .unwrap();
     assert_eq!(result.hits.len(), 1);
-    assert!(!result.skipped_too_common);
+    assert!(result.too_common.is_empty());
     assert_eq!(
         result
             .hits
@@ -118,7 +118,7 @@ fn identifiers_at_the_fetch_limit_are_kept() {
 
     let result = search_result_limit(&search, &["ctm"], LIMIT);
     assert_eq!(result.hits.len(), LIMIT);
-    assert!(!result.skipped_too_common);
+    assert!(result.too_common.is_empty());
 }
 
 #[test]
@@ -131,7 +131,7 @@ fn identifiers_one_over_the_fetch_limit_are_skipped() {
 
     let result = search_result_limit(&search, &["ctm"], LIMIT);
     assert!(result.hits.is_empty());
-    assert!(result.skipped_too_common);
+    assert_eq!(result.too_common, ["ctm"]);
 }
 
 #[test]
@@ -143,8 +143,8 @@ fn too_broad_identifiers_are_skipped_while_rare_matches_are_kept() {
     let search = SearchDb::with_inputs(&inputs);
     search.ready();
 
-    let result = search_result_limit(&search, &["ctm", "rare"], LIMIT);
-    assert!(result.skipped_too_common);
+    let result = search_result_limit(&search, &["rare", "ctm", "ctm"], LIMIT);
+    assert_eq!(result.too_common, ["ctm"]);
     assert_eq!(
         result
             .hits

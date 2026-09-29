@@ -13,16 +13,15 @@ use maestro_kernel::{
     scope::{Right, ScopeSet},
     store::Database,
 };
+use maestro_test_scratch::scratch_directory;
 use serde_json::json;
 use std::{
     cell::RefCell,
     collections::BTreeMap,
-    env, fs,
+    fs,
     io::{self, BufRead, Read},
     ops::ControlFlow,
     path::PathBuf,
-    process,
-    sync::atomic::{AtomicUsize, Ordering},
 };
 
 /// How many documents the streaming test imports.
@@ -38,14 +37,7 @@ struct Scratch(PathBuf);
 
 impl Scratch {
     fn new() -> Self {
-        static NEXT: AtomicUsize = AtomicUsize::new(0);
-        let path = env::temp_dir().join(format!(
-            "maestro-knowledge-streaming-{}-{}",
-            process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
-        fs::create_dir(&path).unwrap();
-        Self(path)
+        Self(scratch_directory().unwrap())
     }
 }
 

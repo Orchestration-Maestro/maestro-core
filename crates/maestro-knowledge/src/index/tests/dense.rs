@@ -10,15 +10,13 @@ use maestro_kernel::{
         RouterEntry,
     },
 };
+use maestro_test_scratch::scratch_directory;
 use std::{
-    env, fs,
+    fs,
     future::{self, Future},
     num::{NonZeroU32, NonZeroUsize},
-    process,
-    sync::{
-        Arc, Mutex,
-        atomic::{AtomicUsize, Ordering},
-    },
+    slice,
+    sync::{Arc, Mutex},
     time::Duration,
 };
 
@@ -68,7 +66,6 @@ impl ModelPort for Silent {
 /// An embedder's card of 4 dimensions, recorded in a store that is gone
 /// once it is made.
 fn card() -> ModelCard {
-    static NEXT: AtomicUsize = AtomicUsize::new(0);
     let fields = CardFields {
         role: Role::Embedder,
         router_entry: RouterEntry::parse("embed").unwrap(),
@@ -82,11 +79,7 @@ fn card() -> ModelCard {
         },
         suite_results: Vec::new(),
     };
-    let root = env::temp_dir().join(format!(
-        "maestro-knowledge-dense-{}-{}",
-        process::id(),
-        NEXT.fetch_add(1, Ordering::Relaxed)
-    ));
+    let root = scratch_directory().unwrap();
     let card = ModelCard::record(&Store::new(&root), &fields).unwrap();
     fs::remove_dir_all(&root).unwrap();
     card
@@ -132,11 +125,7 @@ impl ModelPort for RecordingEmbedder {
 
 #[tokio::test]
 async fn indexing_formats_v2_documents_once_before_embedding() {
-    let root = env::temp_dir().join(format!(
-        "maestro-knowledge-dense-v2-{}-{}",
-        process::id(),
-        0
-    ));
+    let root = scratch_directory().unwrap();
     let card =
         ModelCard::record_v2(&Store::new(&root), &identity(Digest::of(b"qualification"))).unwrap();
     fs::remove_dir_all(root).unwrap();
@@ -146,6 +135,65 @@ async fn indexing_formats_v2_documents_once_before_embedding() {
         .await
         .unwrap();
     assert_eq!(port.0.lock().unwrap().as_slice(), [["doc: raw passage"]]);
+}
+
+#[tokio::test]
+async fn a_document_starting_with_its_card_prefix_is_formatted_as_raw_text() {
+    let root = scratch_directory().unwrap();
+    let card =
+        ModelCard::record_v2(&Store::new(&root), &identity(Digest::of(b"qualification"))).unwrap();
+    fs::remove_dir_all(root).unwrap();
+    let port = RecordingEmbedder::default();
+    let inputs = ["doc: text that is part of the document".to_owned()];
+
+    embed(&port, &card, &inputs, Duration::from_secs(1))
+        .await
+        .unwrap();
+
+    assert_eq!(
+        port.0.lock().unwrap().as_slice(),
+        [["doc: doc: text that is part of the document"]]
+    );
+}
+
+#[tokio::test]
+async fn single_and_batch_v2_embedding_agree_with_once_formatted_inputs() {
+    let root = scratch_directory().unwrap();
+    let card =
+        ModelCard::record_v2(&Store::new(&root), &identity(Digest::of(b"qualification"))).unwrap();
+    fs::remove_dir_all(root).unwrap();
+    let port = RecordingEmbedder::default();
+    let inputs = ["first passage".to_owned(), "second passage".to_owned()];
+    let batch = embed(&port, &card, &inputs, Duration::from_secs(5))
+        .await
+        .unwrap();
+    let mut singles = Vec::new();
+    let batch_inputs = port.0.lock().unwrap().clone();
+    for input in &inputs {
+        singles.extend(
+            embed(&port, &card, slice::from_ref(input), Duration::from_secs(5))
+                .await
+                .unwrap(),
+        );
+    }
+    let calls = port.0.lock().unwrap().clone();
+
+    assert_eq!(
+        batch_inputs,
+        [["doc: first passage", "doc: second passage"]]
+    );
+    assert_eq!(
+        calls,
+        [
+            vec![
+                "doc: first passage".to_owned(),
+                "doc: second passage".to_owned()
+            ],
+            vec!["doc: first passage".to_owned()],
+            vec!["doc: second passage".to_owned()],
+        ]
+    );
+    assert_eq!(batch, singles);
 }
 
 #[tokio::test]

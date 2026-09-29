@@ -28,7 +28,7 @@ fn a_chunk_names_each_container_once_outermost_first() {
     let markdown = "- one\n- two\n";
     let doc = canonicalize(CanonicalizeInput::new(markdown, "containers")).unwrap();
     let mapped = map_document(&doc, markdown).unwrap();
-    let chunks = build_drafts(&doc, markdown, &mapped, &mut fake()).unwrap();
+    let chunks = build_drafts(&structural(&doc, markdown, &mapped), &mut fake()).unwrap();
     let ids: Vec<_> = doc
         .blocks
         .iter()
@@ -55,13 +55,13 @@ fn table_windows_must_match_their_rows_in_order() {
     let markdown = "| a | b |\n|---|---|\n| c | d |\n| e | f |\n";
     let doc = canonicalize(CanonicalizeInput::new(markdown, "windows")).unwrap();
     let mapped = map_document(&doc, markdown).unwrap();
-    let chunks = build_drafts(&doc, markdown, &mapped, &mut fake()).unwrap();
-    validate_preparation(&doc, markdown, &mapped, &chunks, &mut fake()).unwrap();
+    let chunks = build_drafts(&structural(&doc, markdown, &mapped), &mut fake()).unwrap();
+    validate_preparation(&structural(&doc, markdown, &mapped), &chunks, &mut fake()).unwrap();
     let chunk = chunks
         .iter()
         .find(|chunk| chunk.table_windows.len() >= 2)
         .unwrap();
-    let layout = layout(&doc, markdown, &mapped).unwrap();
+    let layout = structural(&doc, markdown, &mapped);
     // Each altered chunk is prepared from its own windows, so only the window checks refuse it.
     let mut swapped = chunk.table_windows.clone();
     swapped.swap(0, 1);
@@ -77,6 +77,13 @@ fn table_windows_must_match_their_rows_in_order() {
             windows,
         };
         let altered = layout.prepare(&body, &mut fake()).unwrap();
-        assert!(validate_preparation(&doc, markdown, &mapped, &[altered], &mut fake()).is_err());
+        assert!(
+            validate_preparation(
+                &structural(&doc, markdown, &mapped),
+                &[altered],
+                &mut fake()
+            )
+            .is_err()
+        );
     }
 }

@@ -30,6 +30,25 @@ fn check<'a>(document: &'a Value, name: &str) -> &'a Value {
         .unwrap()
 }
 
+/// A failure names its next action; a pass, or a check that cannot run yet
+/// (only a model card), names none.
+fn assert_next_action_matches_outcome(check: &Value) {
+    let next = &check["next_action"];
+    if check["checked"] == false {
+        assert_eq!(check["name"], "model_card", "{check}");
+        assert_eq!(check["passed"], false, "{check}");
+        assert!(next.is_null(), "{check}");
+    } else if check["passed"] == false {
+        assert!(
+            next.as_str().is_some_and(|next| !next.is_empty()),
+            "a failure names its next action: {check}"
+        );
+    } else {
+        assert_eq!(check["passed"], true, "{check}");
+        assert!(next.is_null(), "{check}");
+    }
+}
+
 #[test]
 fn every_failed_check_names_its_next_action() {
     let home = Home::bare();
@@ -46,6 +65,7 @@ fn every_failed_check_names_its_next_action() {
         names,
         [
             "config",
+            "settings",
             "bindings",
             "database",
             "artifacts",
@@ -57,16 +77,7 @@ fn every_failed_check_names_its_next_action() {
         ]
     );
     for check in checks(&document) {
-        let next = &check["next_action"];
-        if check["passed"] == false {
-            assert!(
-                next.as_str().is_some_and(|next| !next.is_empty()),
-                "a failure names its next action: {check}"
-            );
-        } else {
-            assert_eq!(check["passed"], true, "{check}");
-            assert!(next.is_null(), "{check}");
-        }
+        assert_next_action_matches_outcome(check);
     }
     assert_eq!(check(&document, "config")["detail"], "valid");
     assert_eq!(
@@ -98,7 +109,16 @@ fn the_report_for_people_puts_each_next_action_under_its_failure() {
             );
         })
         .count();
-    assert!(failures >= 6, "{}", text.stdout);
+    assert!(failures >= 3, "{}", text.stdout);
+    assert_eq!(
+        lines
+            .iter()
+            .filter(|line| line.starts_with("skip  model_card "))
+            .count(),
+        3,
+        "{}",
+        text.stdout
+    );
     assert!(
         lines[0].starts_with("ok    config ") && lines[0].ends_with("config.toml: valid"),
         "{}",
@@ -106,7 +126,7 @@ fn the_report_for_people_puts_each_next_action_under_its_failure() {
     );
     assert_eq!(
         lines.last().copied(),
-        Some(format!("{failures} of 9 checks failed.").as_str())
+        Some(format!("{failures} of 10 checks failed.").as_str())
     );
     assert!(
         !text.stdout.contains("left untouched") && !text.stdout.contains("reach no known scope"),
@@ -215,7 +235,7 @@ fn assert_configured_database(database: &Path, migration_count: i64) {
 fn failed_check_count(document: &Value) -> usize {
     checks(document)
         .iter()
-        .filter(|check| check["passed"] == false)
+        .filter(|check| check["checked"] == true && check["passed"] == false)
         .count()
 }
 

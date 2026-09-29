@@ -2,6 +2,7 @@
 #![cfg(test)]
 
 mod catalog_traceability;
+mod s1_traceability;
 
 use maestro_conventions::{
     broken_links, counted_lines, names_a_personal_directory, repository_files, root,

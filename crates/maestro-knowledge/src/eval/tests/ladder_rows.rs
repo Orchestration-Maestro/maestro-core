@@ -157,7 +157,8 @@ fn a_score_without_asks_shows_its_ask_floors_not_run() {
     for question in &mut questions {
         question.ask = ask_ending(AskOutcome::Failed);
     }
-    let score = score(&questions).without_asks();
+    let asked = score(&questions);
+    let score = asked.clone().without_asks();
 
     let not_run: Vec<Floor> = score
         .floors
@@ -182,6 +183,12 @@ fn a_score_without_asks_shows_its_ask_floors_not_run() {
     let markdown = score.to_markdown();
     assert!(markdown.contains("| Ask p95 | not run | not run | UNAVAILABLE |\n"));
     assert!(markdown.contains("Failed asks: not run\n"));
+    assert!(markdown.contains("\nSupported answers: not run\nFalse refusals: not run\n"));
+    assert!(
+        asked
+            .to_markdown()
+            .contains("\nSupported answers: 0/84\nFalse refusals: 0/84\n")
+    );
     let json = serde_json::to_value(&score).unwrap();
     assert_eq!(json["asked"], false);
     assert_eq!(

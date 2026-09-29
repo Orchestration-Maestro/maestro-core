@@ -6,6 +6,7 @@ use maestro_kernel::retrieval::contains_identifier;
 use std::collections::{BTreeMap, BTreeSet};
 
 use super::{
+    delivery_graph::PrimaryContribution,
     sections::{block_span, contains, valid_span},
     spans::SeedSpan,
 };
@@ -43,6 +44,8 @@ pub(crate) struct SourceWarning<'a> {
 /// Which optional evidence omissions should produce a gap.
 #[derive(Default)]
 pub(crate) struct OmissionStatus {
+    /// Table-prefix candidates the evidence or passage budget omitted.
+    pub(crate) table_prefix_omissions: usize,
     /// Some candidate evidence did not fit the evidence or passage budget.
     pub(crate) evidence: bool,
     /// A conflict unit could not fit as a whole.
@@ -87,6 +90,10 @@ pub(crate) struct TraceInput<'a> {
     pub(crate) span: Span,
     /// All candidate seeds eligible for this trace.
     pub(crate) seeds: &'a [SeedSpan],
+    /// Seed-linked exact primary contributions for disjoint retrieval views.
+    pub(crate) primary: &'a [PrimaryContribution],
+    /// Explicit parent-context seed references, validated against the completed bundle.
+    pub(crate) parent_context_of: &'a [String],
     /// Canonical source document used for structural signals.
     pub(crate) document: &'a CanonicalDocument,
     /// Authoritative original Markdown text.
@@ -147,6 +154,8 @@ pub(crate) fn trace_for_passage(input: &TraceInput<'_>) -> Result<Trace, String>
         seeds,
         document,
         markdown,
+        parent_context_of,
+        primary,
     } = *input;
     if !valid_span(span, markdown) {
         return Err("passage span is invalid".to_owned());
@@ -158,7 +167,13 @@ pub(crate) fn trace_for_passage(input: &TraceInput<'_>) -> Result<Trace, String>
         if seed.span.start >= seed.span.end || !valid_span(seed.span, markdown) {
             return Err("candidate seed span is invalid".to_owned());
         }
-        if !contains(span, seed.span) {
+        let contained = contains(span, seed.span)
+            || primary.iter().any(|part| {
+                part.chunk_id == seed.chunk_id
+                    && contains(seed.span, part.span)
+                    && contains(span, part.span)
+            });
+        if !contained && !parent_context_of.contains(&seed.chunk_id) {
             continue;
         }
         if seed.chunk_id.trim().is_empty() {
@@ -170,10 +185,12 @@ pub(crate) fn trace_for_passage(input: &TraceInput<'_>) -> Result<Trace, String>
             }
             score = Some(score.map_or(candidate_score, |best: f64| best.max(candidate_score)));
         }
-        chunk_ids.insert(seed.chunk_id.clone());
+        if contained {
+            chunk_ids.insert(seed.chunk_id.clone());
+        }
         routes.extend(seed.routes.iter().map(|route| route.name().to_owned()));
     }
-    if chunk_ids.is_empty() {
+    if chunk_ids.is_empty() && parent_context_of.is_empty() {
         return Err("passage has no primary chunk references".to_owned());
     }
     let procedural =
@@ -193,6 +210,7 @@ pub(crate) fn trace_for_passage(input: &TraceInput<'_>) -> Result<Trace, String>
                 Ok(list_span.is_some_and(|list_span| contains(span, list_span)))
             })?;
     Ok(Trace {
+        parent_context_of: parent_context_of.to_vec(),
         n: number,
         score,
         routes: routes.into_iter().collect(),
@@ -246,6 +264,12 @@ pub(crate) fn build_known_gaps(mut input: GapInput<'_>) -> Result<Vec<String>, S
         additions.push(format!(
             "Passage {} is a window; surrounding section text is omitted.",
             passage.n
+        ));
+    }
+    if input.omissions.table_prefix_omissions > 0 {
+        additions.push(format!(
+            "Table-prefix candidates omitted by the evidence or passage budget: {}.",
+            input.omissions.table_prefix_omissions
         ));
     }
     if input.omissions.evidence {

@@ -16,3 +16,4 @@ mod server;
 mod state;
 
 pub(super) use server::{FAKE_VERSION, FakeQdrant};
+pub(super) use state::SlowQuery;

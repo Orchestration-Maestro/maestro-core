@@ -4,6 +4,7 @@
 //! to or from an INVALID rung, and a floor a rung did not run shows "not run".
 
 use super::{
+    manifest::COMPARISON_NAME,
     reports::{AskReport, Binary, write},
     runner::{Provenance, RungRun, Verdict},
 };
@@ -40,8 +41,8 @@ struct ComparedRung<'run> {
     verdict: Verdict,
     /// What it ran against at its start.
     provenance: &'run Provenance,
-    /// What it ran against at its end.
-    end: &'run Provenance,
+    /// What it ran against at its end, absent when it could not be read.
+    end: Option<&'run Provenance>,
     /// The settings its asks ran with, absent when it did not ask.
     ask_settings: Option<AskReport>,
     /// Each floor, and its change from the previous rung.
@@ -123,7 +124,7 @@ impl<'run> Comparison<'run> {
                 rung: &run.rung.name,
                 verdict,
                 provenance: &run.start,
-                end: &run.end,
+                end: run.end.as_ref(),
                 ask_settings: run.rung.ask.as_ref().map(AskReport::new),
                 floors,
                 supported_answers,
@@ -187,7 +188,7 @@ impl<'run> Comparison<'run> {
                     || "no ask".to_owned(),
                     |settings| format!("ask: {}", settings.describe())
                 ),
-                if start == rung.end {
+                if rung.end == Some(start) {
                     ""
                 } else {
                     "; changed while it ran"
@@ -206,8 +207,11 @@ impl<'run> Comparison<'run> {
 pub(super) fn write_comparison(output: &Path, comparison: &Comparison<'_>) -> Result<(), Failure> {
     let json =
         serde_json::to_string_pretty(comparison).map_err(|error| Failure::failed_by(&error))?;
-    write(&output.join("ladder.json"), &json)?;
-    write(&output.join("ladder.md"), &comparison.to_markdown())
+    write(&output.join(format!("{COMPARISON_NAME}.json")), &json)?;
+    write(
+        &output.join(format!("{COMPARISON_NAME}.md")),
+        &comparison.to_markdown(),
+    )
 }
 
 /// A card's digest in the table, or "none".
