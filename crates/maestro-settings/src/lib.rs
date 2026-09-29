@@ -6,7 +6,7 @@
 //! - [`Registry`]: the descriptors, checked once.
 //! - [`Layer`]: one `maestro-preferences/1` file, parsed strictly: an
 //!   unknown key or a wrong type is refused with the key named.
-//! - [`resolve`]: built-in defaults, then the user file
+//! - [`resolve()`]: built-in defaults, then the user file
 //!   (`preferences.toml` in the configuration directory), then the project
 //!   file (`.maestro/config.toml`, S3's workspace file, found by
 //!   [`discover_project_file`]), then the `--set` flags, each value with the
