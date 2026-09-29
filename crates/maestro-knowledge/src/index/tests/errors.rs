@@ -10,8 +10,18 @@ use maestro_kernel::{
     telemetry::stage::Outcome,
 };
 use qdrant_client::QdrantError as ClientError;
-use std::{error::Error as _, time::Duration};
+use std::{error::Error as _, io, time::Duration};
 use tonic::Status;
+
+#[test]
+fn projection_port_error_keeps_its_adapter_cause() {
+    let error = super::super::ProjectionError::with_source(
+        "adapter failed",
+        io::Error::other("transport closed"),
+    );
+    assert_eq!(error.to_string(), "adapter failed");
+    assert_eq!(error.source().unwrap().to_string(), "transport closed");
+}
 
 #[test]
 fn a_refusal_before_any_work_or_at_a_check_has_no_cause() {

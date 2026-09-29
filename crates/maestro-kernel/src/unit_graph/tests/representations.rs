@@ -4,13 +4,24 @@ use crate::{
     artifact::Digest,
     generation::NewGeneration,
     representation::{
-        RepresentationKey, RepresentationLayout, RepresentationMember, RepresentationSetSpec,
-        RepresentationShard, RepresentationState,
+        Error as RepresentationError, RepresentationKey, RepresentationLayout,
+        RepresentationMember, RepresentationSetSpec, RepresentationShard, RepresentationState,
     },
     scope::ScopeSet,
     store::Error as StoreError,
-    unit_graph::DeliveryGraph,
+    unit_graph::{DeliveryGraph, Error as GraphError},
 };
+
+#[test]
+fn representation_errors_format_json_and_preserve_graph_causes() {
+    let malformed = RepresentationShard::from_bytes(b"{").unwrap_err();
+    assert!(malformed.to_string().starts_with("representation JSON:"));
+
+    let graph = GraphError::from(serde_json::from_slice::<DeliveryGraph>(b"{").unwrap_err());
+    let expected = graph.to_string();
+    let wrapped = RepresentationError::from(graph);
+    assert_eq!(wrapped.to_string(), expected);
+}
 
 #[test]
 fn representation_shards_begin_repeat_conflict_and_fail() {
@@ -265,7 +276,23 @@ fn representation_failed_state_cannot_complete() {
         .unwrap();
     db.complete_chunk_set("set", &graph_digest).unwrap();
     db.fail_representation_set(&scope, &key).unwrap();
+    assert_eq!(
+        db.representation_set(&scope, &key).unwrap().unwrap().state,
+        RepresentationState::Failed
+    );
     assert!(db.complete_representation_set(&scope, &key).is_err());
+}
+
+#[test]
+fn representation_shards_require_both_identity_fields() {
+    let graph = graph();
+    let digest = graph.descriptor.mapping_digest.clone();
+    let mut shard = shard(&graph, &digest, "set", 1);
+    shard.revision_id.clear();
+    assert!(RepresentationShard::from_bytes(&shard.to_bytes().unwrap()).is_err());
+    shard.revision_id = "revision".into();
+    shard.representation_set_id.clear();
+    assert!(RepresentationShard::from_bytes(&shard.to_bytes().unwrap()).is_err());
 }
 
 #[test]
