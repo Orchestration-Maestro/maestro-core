@@ -398,6 +398,9 @@ impl StubRouter {
 
 fn serve_one(listener: &TcpListener, scores: [f64; 2]) -> IoResult<()> {
     let (stream, _) = listener.accept()?;
+    // Windows hands the accepted socket the listener's non-blocking mode;
+    // Linux does not. Reads below expect a blocking stream on every host.
+    stream.set_nonblocking(false)?;
     answer_request(stream, scores);
     Ok(())
 }
