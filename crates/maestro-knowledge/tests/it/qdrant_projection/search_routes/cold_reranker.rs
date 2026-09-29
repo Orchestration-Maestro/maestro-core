@@ -171,7 +171,7 @@ async fn both_models_still_loading_degrade_only_their_routes_and_return_within_d
 }
 
 #[tokio::test]
-async fn repeated_warm_searches_return_byte_identical_bundles() {
+async fn warm_search_is_byte_deterministic() {
     let fixture = published().await;
     let reranker_card = models::card(Role::Reranker, 3);
     let search_context = context(&fixture, Some(&reranker_card));

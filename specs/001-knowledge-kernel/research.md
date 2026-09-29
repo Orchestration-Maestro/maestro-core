@@ -180,11 +180,13 @@ SC-S1-004's 1.5 s remains the warm p95 target. A cold search can serialize
 embedder and reranker admission at the router. The setup/rerank cutoff now
 leaves evidence assembly the larger of two assembly windows or a tenth of the
 request deadline, plus the T032 reserve. This is 650 ms at 1.5 s and 3.05 s
-at 30 s. Under a load average near 19, each model load took 2.4-5.3 s; on
-2026-09-29 the scratch router loaded the embedder in 3.2 s and the 8B reranker
-in 23.3 s. A 30 s cold search then returned at 29.918 s with rerank degraded,
-leaving only 82 ms after assembly: the older fixed 650 ms reserve was too
-small under page-cache and model-load pressure. The route cutoff still keeps
+at 30 s. After a late reranker, the reserve pays for candidate loading, the
+permission recheck and evidence assembly. Under a load average near 19, each
+model load took 2.4-5.3 s; on 2026-09-29 the scratch router loaded the
+embedder in 3.2 s and the 8B reranker in 23.3 s. The CLI returned at 29.918 s
+wall time with rerank degraded, leaving only 82 ms after assembly: the older
+fixed 650 ms reserve was too small under page-cache and model-load pressure.
+The route cutoff still keeps
 a tenth of the deadline, at least 300 ms, before setup (23.95 s of 30 s with
 the new reserve). Under host load, fixed
 300 ms route windows had dropped dense at 301-309 ms with 29 s unused. Below

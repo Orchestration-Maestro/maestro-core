@@ -211,8 +211,7 @@ impl Embedder {
         }
     }
 
-    /// Readies a slow reranker's model, and scores with it when `scoring`:
-    /// never returns when the model never loads, or never scores.
+    /// Waits until the test embedder is ready.
     async fn wait_for_embedder(&self) {
         if self.embed_never_ready {
             future::pending::<()>().await;

@@ -55,9 +55,10 @@ pub(super) struct Deadlines {
     /// setup, such as loading its model, that ends later leaves the route
     /// no time.
     pub(super) routes_end: Instant,
-    /// The latest the reranker's one-time setup, such as loading its
-    /// model, and the rerank may end: evidence assembly keeps the larger of
-    /// two windows or a tenth of the request deadline, plus the T032 reserve.
+    /// The latest the reranker's one-time setup, such as loading its model,
+    /// and the rerank may end. After it, the larger of two windows or a tenth
+    /// of the deadline, plus the T032 reserve, pays for candidate loading,
+    /// the permission recheck and evidence assembly.
     pub(super) setup: Instant,
     /// The final retrieval cutoff, before reserving time for T032.
     pub(super) work: Instant,
