@@ -14,14 +14,14 @@ use std::{
     path::{Component, Path, PathBuf},
 };
 
-/// `FILE_SHARE_READ`: others may read the file while the handle is open.
-const FILE_SHARE_READ: u32 = 0x0000_0001;
-/// `FILE_SHARE_WRITE`: others may write the file while the handle is open.
-const FILE_SHARE_WRITE: u32 = 0x0000_0002;
+/// Allow concurrent reads and writes, but not deletion or renaming, while held.
+const FILE_SHARE_READ_WRITE: u32 = 0x0000_0003;
 /// `FILE_FLAG_BACKUP_SEMANTICS`: the open may name a directory.
 const FILE_FLAG_BACKUP_SEMANTICS: u32 = 0x0200_0000;
 /// `FILE_FLAG_OPEN_REPARSE_POINT`: a reparse point is opened itself, never followed.
 const FILE_FLAG_OPEN_REPARSE_POINT: u32 = 0x0020_0000;
+/// Open a directory handle and open reparse points themselves so callers can refuse them.
+const OPEN_REPARSE_DIRECTORY_FLAGS: u32 = 0x0220_0000;
 /// `FILE_ATTRIBUTE_DIRECTORY`: the handle names a directory.
 const FILE_ATTRIBUTE_DIRECTORY: u32 = 0x0000_0010;
 /// `FILE_ATTRIBUTE_REPARSE_POINT`: the handle names a reparse point, a link or junction among them.
@@ -129,10 +129,7 @@ fn open_child(mut directory: Directory, name: &OsStr, create: bool) -> io::Resul
 
 /// Hold a directory that is neither a link nor a junction open against renaming and deletion.
 fn hold_directory(path: &Path) -> io::Result<File> {
-    let held = hold(
-        path,
-        FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
-    )?;
+    let held = hold(path, OPEN_REPARSE_DIRECTORY_FLAGS)?;
     let attributes = refuse_reparse_point(&held)?;
     if attributes & FILE_ATTRIBUTE_DIRECTORY == 0 {
         return Err(io::Error::new(ErrorKind::NotADirectory, "not a directory"));
@@ -144,7 +141,7 @@ fn hold_directory(path: &Path) -> io::Result<File> {
 fn hold(path: &Path, flags: u32) -> io::Result<File> {
     OpenOptions::new()
         .read(true)
-        .share_mode(FILE_SHARE_READ | FILE_SHARE_WRITE)
+        .share_mode(FILE_SHARE_READ_WRITE)
         .custom_flags(flags)
         .open(path)
 }
@@ -166,7 +163,7 @@ fn refuse_reparse_point(file: &File) -> io::Result<u32> {
 pub fn open_nofollow(path: &Path) -> io::Result<File> {
     let file = OpenOptions::new()
         .read(true)
-        .custom_flags(FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT)
+        .custom_flags(OPEN_REPARSE_DIRECTORY_FLAGS)
         .open(path)?;
     refuse_reparse_point(&file)?;
     Ok(file)

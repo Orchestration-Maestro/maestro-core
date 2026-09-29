@@ -12,6 +12,30 @@ use std::{
     path::{Component, Path},
 };
 
+/// Read only, reject links, avoid FIFO blocking, and keep the descriptor out of child processes.
+const READ_REGULAR_FLAGS: OFlags = OFlags::RDONLY
+    .union(OFlags::NOFOLLOW)
+    .union(OFlags::NONBLOCK)
+    .union(OFlags::CLOEXEC);
+/// Write only, create exclusively without following links, and keep the descriptor out of children.
+const CREATE_NEW_FLAGS: OFlags = OFlags::WRONLY
+    .union(OFlags::CREATE)
+    .union(OFlags::EXCL)
+    .union(OFlags::NOFOLLOW)
+    .union(OFlags::CLOEXEC);
+/// Give a created file owner-only read and write access.
+const CREATE_NEW_MODE: Mode = Mode::RUSR.union(Mode::WUSR);
+/// Open directories read-only, without following links or inheriting descriptors.
+const OPEN_CHILD_FLAGS: OFlags = OFlags::RDONLY
+    .union(OFlags::DIRECTORY)
+    .union(OFlags::NOFOLLOW)
+    .union(OFlags::CLOEXEC);
+/// Read without following links or blocking on FIFOs; do not inherit the descriptor.
+const OPEN_NOFOLLOW_FLAGS: OFlags = OFlags::RDONLY
+    .union(OFlags::CLOEXEC)
+    .union(OFlags::NOFOLLOW)
+    .union(OFlags::NONBLOCK);
+
 /// An open directory: names inside it resolve against the handle, never against a path.
 #[derive(Debug)]
 pub struct Directory(File);
@@ -39,12 +63,7 @@ impl Directory {
     /// # Errors
     /// Returns an error if the name is unsafe, linked, non-regular, or unreadable.
     pub fn read_regular(&self, name: &str) -> io::Result<Vec<u8>> {
-        let fd = openat(
-            &self.0,
-            name,
-            OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::NONBLOCK | OFlags::CLOEXEC,
-            Mode::empty(),
-        )?;
+        let fd = openat(&self.0, name, READ_REGULAR_FLAGS, Mode::empty())?;
         let mut file = File::from(fd);
         if !file.metadata()?.is_file() {
             return Err(io::Error::other("artifact is not a regular file"));
@@ -59,12 +78,7 @@ impl Directory {
     /// # Errors
     /// Returns an error if the name exists, is unsafe, or cannot be created.
     pub fn create_new(&self, name: &str) -> io::Result<File> {
-        let fd = openat(
-            &self.0,
-            name,
-            OFlags::WRONLY | OFlags::CREATE | OFlags::EXCL | OFlags::NOFOLLOW | OFlags::CLOEXEC,
-            Mode::RUSR | Mode::WUSR,
-        )?;
+        let fd = openat(&self.0, name, CREATE_NEW_FLAGS, CREATE_NEW_MODE)?;
         Ok(File::from(fd))
     }
 
@@ -88,7 +102,7 @@ impl Directory {
 
 /// Open one child directory without following a link, creating it first when asked and absent.
 fn open_child(directory: &File, name: &OsStr, create: bool) -> io::Result<OwnedFd> {
-    let flags = OFlags::RDONLY | OFlags::DIRECTORY | OFlags::NOFOLLOW | OFlags::CLOEXEC;
+    let flags = OPEN_CHILD_FLAGS;
     match openat(directory, name, flags, Mode::empty()) {
         Ok(child) => Ok(child),
         Err(Errno::NOENT) if create => {
@@ -109,10 +123,6 @@ fn open_child(directory: &File, name: &OsStr, create: bool) -> io::Result<OwnedF
 /// # Errors
 /// Returns an error if the path is linked or cannot be opened.
 pub fn open_nofollow(path: &Path) -> io::Result<File> {
-    let fd = open(
-        path,
-        OFlags::RDONLY | OFlags::CLOEXEC | OFlags::NOFOLLOW | OFlags::NONBLOCK,
-        Mode::empty(),
-    )?;
+    let fd = open(path, OPEN_NOFOLLOW_FLAGS, Mode::empty())?;
     Ok(File::from(fd))
 }
