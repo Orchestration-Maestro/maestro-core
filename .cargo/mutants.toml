@@ -4,10 +4,6 @@
 # back as missed and its exclusion is reviewed again (tasks.md, T019).
 test_tool = "nextest"
 exclude_re = [
-  # Compiled only for Windows, the one file named whole: the Linux mutation run
-  # builds none of it, so no test there can see its mutants. The Windows CI leg
-  # runs its tests (ADR-0018).
-  '^crates/maestro-canonicalization/src/filesystem/windows\.rs:',
   # OFlags and Mode bits are disjoint, so `a ^ b` equals `a | b`.
   '^crates/maestro-canonicalization/src/filesystem/unix\.rs:87:32: replace \| with \^ in open_child$',
   '^crates/maestro-canonicalization/src/filesystem/unix\.rs:87:52: replace \| with \^ in open_child$',

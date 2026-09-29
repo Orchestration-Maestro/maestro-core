@@ -12,6 +12,10 @@
 license-policy = "enforce"
 artifact-key = "maestro-core"
 platforms = "macos windows"
+mutation-windows = [
+  "crates/maestro-settings/src/file/windows.rs",
+  "crates/maestro-canonicalization/src/filesystem/windows.rs",
+]
 
 # The seams of the canonicalization crate that keep one caller: each door is a
 # subsystem, and its one outside caller is the stage that composes it.
