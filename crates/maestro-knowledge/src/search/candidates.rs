@@ -136,7 +136,7 @@ pub(super) async fn load(database: Arc<Database>, request: Request) -> Result<Lo
         .collect::<Vec<_>>();
     deadline::run_blocking(deadline, move |cancelled| {
         let control = ReadControl {
-            deadline: deadline.into_std(),
+            deadline: deadline::std_deadline(deadline),
             cancelled,
         };
         let read = SearchRead {
@@ -177,12 +177,14 @@ pub(super) async fn load(database: Arc<Database>, request: Request) -> Result<Lo
                 configuration,
                 query: &query,
                 generation: &generation,
-                deadline: context_deadline.into_std(),
+                deadline: deadline::std_deadline(context_deadline),
             },
             &mut texts,
         );
         let enrichment = ReadControl {
-            deadline: control.deadline.min(context_deadline.into_std()),
+            deadline: control
+                .deadline
+                .min(deadline::std_deadline(context_deadline)),
             cancelled: control.cancelled.clone(),
         };
         let source = source_class::penalized(

@@ -28,7 +28,7 @@ pub(super) async fn run(
     let vector_name = request.using.unwrap_or_else(|| "dense".to_owned());
     if let Some(slow) = fake.slow_query(&vector_name) {
         match slow.delay {
-            Some(delay) => time::sleep(delay).await,
+            Some(delay) => time::advance(delay).await,
             None => future::pending().await,
         }
         if let Some(code) = slow.refusal {

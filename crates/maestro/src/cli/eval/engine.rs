@@ -21,12 +21,12 @@ use crate::{
 };
 use maestro_kernel::{
     artifact::Digest,
-    gateway::{ModelCard, RouterClient},
+    gateway::{ModelCard, RouterClient, reply_cap},
     generation::Generation,
 };
 use maestro_knowledge::{
     answer::{
-        Answer, AnswerContext, AnswerPrompt, AskBudget, AskRequest, DEFAULT_MODEL,
+        Answer, AnswerContext, AnswerPrompt, AskBudget, AskError, AskRequest, DEFAULT_MODEL,
         RegisteredAnswerer, ask_configured,
     },
     eval::{AskOutcome, RunError, SearchOutcome, SectionRef, resolve_expected},
@@ -405,6 +405,11 @@ impl Engine for KernelEngine<'_> {
             settings.evidence(),
             &prompt,
         )));
+        let cap = asked_reply_cap(
+            &asked,
+            held.cards.answerer.as_ref(),
+            request.budget.output_tokens,
+        );
         match asked {
             Ok(answer) => Asked {
                 outcome: answer_outcome(
@@ -414,7 +419,7 @@ impl Engine for KernelEngine<'_> {
                     &configuration,
                 ),
                 rejections: rejected_checks(&answer),
-                reply_cap: answer.reply_cap,
+                reply_cap: cap,
                 delivered: answer.delivered,
             },
             Err(error) => Asked {
@@ -424,9 +429,27 @@ impl Engine for KernelEngine<'_> {
                 },
                 delivered: Vec::new(),
                 rejections: Vec::new(),
-                reply_cap: None,
+                reply_cap: cap,
             },
         }
+    }
+}
+
+/// The reply cap the chats of an `ask` that returned `asked` ran with: the
+/// answer's; for a chat that timed out or failed, the cap `answerer`'s card
+/// gives the `requested` output tokens; none when the ask failed before its
+/// chat.
+pub(super) fn asked_reply_cap(
+    asked: &Result<Answer, AskError>,
+    answerer: Option<&RegisteredAnswerer>,
+    requested: Option<u32>,
+) -> Option<u32> {
+    match asked {
+        Ok(answer) => answer.reply_cap,
+        Err(AskError::TimedOut | AskError::Backend(_)) => {
+            answerer.map(|answerer| reply_cap(&answerer.card, requested))
+        }
+        Err(_) => None,
     }
 }
 

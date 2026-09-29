@@ -85,9 +85,13 @@ pub(crate) fn select(
             trial_spans.extend(relevant);
             if try_spans(candidates, &mut selected, trial_spans, budget)? {
                 accepted.extend_from_slice(&unit.candidates);
-                continue;
+            } else {
+                // Each relevant window lies within its mandatory window,
+                // which cannot fit either.
+                omissions.table_prefix_omissions += prefixes;
+                omit(&mut omissions, &unit);
             }
-            omissions.table_prefix_fallbacks += prefixes;
+            continue;
         }
 
         let mandatory = candidate_spans(candidates, &unit.candidates, |candidate| {
@@ -101,8 +105,7 @@ pub(crate) fn select(
         trial_spans.extend(mandatory);
         let (fits, rendered) = fits_trial(candidates, &trial_spans, budget)?;
         if !fits {
-            omissions.evidence = true;
-            omissions.conflict |= unit.conflict;
+            omit(&mut omissions, &unit);
             continue;
         }
 
@@ -113,18 +116,13 @@ pub(crate) fn select(
             rendered,
             budget.control,
         )?;
-        accepted.extend_from_slice(&unit.candidates);
-        if budget.expansion == ExpansionMode::FullSection {
-            for index in &unit.candidates {
-                add_optional_siblings(candidates, *index, &mut selected, budget)?;
-            }
+        for index in &unit.candidates {
+            add_optional_siblings(candidates, *index, &mut selected, budget)?;
         }
     }
 
-    if budget.expansion == ExpansionMode::RelevantBlocks {
-        for index in accepted {
-            add_optional_siblings(candidates, index, &mut selected, budget)?;
-        }
+    for index in accepted {
+        add_optional_siblings(candidates, index, &mut selected, budget)?;
     }
     check(budget.control)?;
     Ok(SelectionResult {
@@ -146,6 +144,12 @@ fn try_spans(
         accept_trial(candidates, selected, spans, rendered, budget.control)?;
     }
     Ok(fits)
+}
+
+/// Records that `unit` did not fit the evidence or passage budget.
+fn omit(omissions: &mut OmissionStatus, unit: &SelectionUnit) {
+    omissions.evidence = true;
+    omissions.conflict |= unit.conflict;
 }
 
 /// A conflict-atomic group or one ordinary candidate.

@@ -58,7 +58,8 @@ pub(super) struct State {
 pub(in super::super) struct SlowQuery {
     /// The named vector of the query: `dense` or `bm25`.
     pub(in super::super) using: &'static str,
-    /// How long the query waits before it answers; `None` never answers.
+    /// How long the query waits before it answers, moving the test's stopped
+    /// clock by it; `None` never answers.
     pub(in super::super) delay: Option<Duration>,
     /// The code it is refused with once it waited, or `None` to answer.
     pub(in super::super) refusal: Option<Code>,

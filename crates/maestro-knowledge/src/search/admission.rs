@@ -179,7 +179,7 @@ async fn admit(
         let generation = pin(&database, &scopes, &collection).map_err(SearchError::Admission)?;
         let version_documented = if let Some(version) = version.as_deref() {
             let control = retrieval::ReadControl {
-                deadline: deadline.into_std(),
+                deadline: deadline::std_deadline(deadline),
                 cancelled,
             };
             let read = retrieval::SearchRead {

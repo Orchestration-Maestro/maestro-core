@@ -184,7 +184,9 @@ by the T032 reserve plus two assembly windows of 300 ms, 650 ms at any
 deadline from 1.5 s, and a model still loading then costs only its own
 stage. The routes run until fusion and the rerank also keep a tenth of the
 deadline, at least 300 ms (26.35 s of 30 s): under host load, fixed 300 ms
-route windows had dropped dense at 301-309 ms with 29 s unused. A fixed
+route windows had dropped dense at 301-309 ms with 29 s unused. Below about
+6 s this reserve is under the rerank's measured 0.36-0.6 s, so a route that
+runs to its end there costs the rerank instead. A fixed
 window stays as a knob for experiments (`stage_window_ms`). Each
 answer attempt has 20 s, the answerer's load included: a cold Qwen3-4B loaded
 and thought through 1,024 tokens in 6.5 s. Every cap stays under 60 s, a

@@ -2,7 +2,7 @@
 //!
 //! When the selected reranker's model never finishes loading, both return
 //! the fused order, with the rerank reported unavailable, not an error. The
-//! searches ask for a 1.5 s deadline, not the 30 s default, to stay quick.
+//! searches ask for a 3 s deadline, not the 30 s default, to stay quick.
 
 use super::super::{
     knowledge_prepare_v2::identity,
@@ -28,7 +28,7 @@ use std::{
 
 const QUERY: &str = "What does --force do?";
 /// The deadline the searches ask for, in milliseconds.
-const DEADLINE_MS: u32 = 1500;
+const DEADLINE_MS: u32 = 3000;
 
 /// Serves a loopback router whose models never finish loading: it takes
 /// every request and never answers. Returns its URL.

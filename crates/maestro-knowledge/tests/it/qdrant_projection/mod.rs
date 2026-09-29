@@ -20,6 +20,7 @@ mod scratch_cleanup;
 mod search_routes;
 mod server_version;
 mod stopped_builds;
+mod stopped_clock;
 mod support;
 
 pub(crate) use backends::synthetic_fake_qdrant_url;

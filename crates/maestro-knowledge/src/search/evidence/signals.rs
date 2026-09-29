@@ -43,8 +43,8 @@ pub(crate) struct SourceWarning<'a> {
 /// Which optional evidence omissions should produce a gap.
 #[derive(Default)]
 pub(crate) struct OmissionStatus {
-    /// Table-prefix trials that fell back to whole-sibling windows.
-    pub(crate) table_prefix_fallbacks: usize,
+    /// Table-prefix candidates the evidence or passage budget omitted.
+    pub(crate) table_prefix_omissions: usize,
     /// Some candidate evidence did not fit the evidence or passage budget.
     pub(crate) evidence: bool,
     /// A conflict unit could not fit as a whole.
@@ -250,10 +250,10 @@ pub(crate) fn build_known_gaps(mut input: GapInput<'_>) -> Result<Vec<String>, S
             passage.n
         ));
     }
-    if input.omissions.table_prefix_fallbacks > 0 {
+    if input.omissions.table_prefix_omissions > 0 {
         additions.push(format!(
-            "Table-prefix trials falling back to whole-sibling windows: {}.",
-            input.omissions.table_prefix_fallbacks
+            "Table-prefix candidates omitted by the evidence or passage budget: {}.",
+            input.omissions.table_prefix_omissions
         ));
     }
     if input.omissions.evidence {

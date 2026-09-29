@@ -266,7 +266,7 @@ async fn kernel_leg(
     let identifiers = identifiers.to_vec();
     match deadline::run_blocking(deadline, move |cancelled| {
         let control = ReadControl {
-            deadline: deadline.into_std(),
+            deadline: deadline::std_deadline(deadline),
             cancelled,
         };
         let read = SearchRead {

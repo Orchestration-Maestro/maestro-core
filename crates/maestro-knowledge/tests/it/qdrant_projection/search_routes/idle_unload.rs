@@ -131,7 +131,7 @@ async fn dense_runs_after_the_router_unloads_its_model_between_two_searches() {
         text: "scheduler",
         version: None,
         budget: RequestBudget {
-            deadline_ms: 1500,
+            deadline_ms: 5000,
             ..RequestBudget::default()
         },
         configuration: SearchConfiguration {

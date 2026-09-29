@@ -23,6 +23,9 @@ pub const DISABLED_BY_CONFIGURATION: &str = "disabled by search configuration";
 const MAX_ASSEMBLY_WINDOW: Duration = Duration::from_millis(300);
 /// The largest portion of the request deadline reserved for T032.
 const MAX_T032_RESERVE: Duration = Duration::from_millis(50);
+/// Under [`StageWindow::Derived`], fusion and the rerank keep the deadline
+/// divided by this, a tenth, and at least one assembly window.
+const RANK_RESERVE_DIVISOR: u32 = 10;
 
 /// How long the retrieval routes may run. A deadline is a safety cap, not
 /// a quality cutoff: by default a route runs until only the later stages'
@@ -79,9 +82,9 @@ impl Deadlines {
     }
 
     /// The latest optional reranker enrichment may read sources: one
-    /// assembly window before `setup`, so the rerank keeps its time. The
-    /// later stages' reserve before `setup` is at least one window, so it
-    /// never precedes `routes_end`.
+    /// assembly window before `setup`, so the rerank keeps its time. Under
+    /// [`StageWindow::Derived`], the later stages' reserve before `setup` is
+    /// at least one window, so it never precedes `routes_end`.
     pub(super) fn enrichment(&self) -> Instant {
         self.setup - self.window
     }
@@ -102,10 +105,14 @@ pub(super) fn from_budget(
     let setup = work - window * 2;
     let (routes, routes_end, fixed) = match stage_window {
         StageWindow::Derived => {
-            let routes_end = setup - (duration / 10).max(window);
+            let routes_end = setup - (duration / RANK_RESERVE_DIVISOR).max(window);
             (routes_end, routes_end, None)
         }
-        StageWindow::Fixed(fixed) => ((started + fixed).min(setup), setup, Some(fixed)),
+        StageWindow::Fixed(fixed) => {
+            // A window past the deadline ends at `setup` all the same.
+            let fixed = fixed.min(duration);
+            ((started + fixed).min(setup), setup, Some(fixed))
+        }
     };
     Deadlines {
         expires,
@@ -116,6 +123,18 @@ pub(super) fn from_budget(
         window,
         fixed,
     }
+}
+
+/// The kernel read deadline of the cutoff `deadline`: now, on the standard
+/// clock, plus the time left until it on tokio's.
+///
+/// Kernel reads compare against the standard clock. Converting the tokio
+/// instant itself would give the same deadline, except on a paused tokio
+/// clock, which tests stop so that no deadline passes: the converted
+/// deadline would still pass in real time. The time left freezes with the
+/// clock.
+pub(super) fn std_deadline(deadline: Instant) -> StdInstant {
+    StdInstant::now() + deadline.saturating_duration_since(Instant::now())
 }
 
 /// A deadline elapsed before its future completed.

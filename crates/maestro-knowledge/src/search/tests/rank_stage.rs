@@ -44,11 +44,13 @@ const GUIDE: &str = "# Running\n\nStart here.\n\n1. Select a task.\n2. Press Run
 /// release note, then the guide's introduction and its steps, which the
 /// chunker splits apart.
 struct Corpus {
-    _scratch: Scratch,
     database: Arc<Database>,
     scopes: ScopeSet,
     generation: Generation,
     chunks: Vec<Chunk>,
+    /// Last, as fields drop in order: Windows refuses to remove a database
+    /// still open.
+    _scratch: Scratch,
 }
 
 impl Corpus {
@@ -81,11 +83,11 @@ impl Corpus {
         });
         assert_eq!(chunks.len(), 3);
         Self {
-            _scratch: scratch,
             database,
             scopes,
             generation,
             chunks,
+            _scratch: scratch,
         }
     }
 

@@ -5,7 +5,7 @@
 use super::super::{
     candidates::candidate_reranker,
     documents::{bundle_documents, ranked_documents},
-    engine::{answer_outcome, rejected_checks},
+    engine::{answer_outcome, asked_reply_cap, rejected_checks},
     runner::RejectedCheck,
 };
 use crate::{
@@ -15,12 +15,15 @@ use crate::{
 use maestro_kernel::{
     artifact::Digest,
     evidence::{Budget, Bundle, Passage, RouteStatus, Schema, Span, Trace},
-    gateway::Role,
+    gateway::{Error as GatewayError, Role},
 };
 use maestro_knowledge::{
-    answer::{Answer, AnswerCitation, AnswerModel, AnswerRefusal, RefusalCode, Rejection},
+    answer::{
+        Answer, AnswerCitation, AnswerModel, AnswerRefusal, AskError, RefusalCode,
+        RegisteredAnswerer, Rejection,
+    },
     eval::{AskOutcome, SectionRef},
-    search::{DEADLINE_EXCEEDED, SearchConfiguration, evidence::ChunkSetDocuments},
+    search::{DEADLINE_EXCEEDED, SearchConfiguration, SearchError, evidence::ChunkSetDocuments},
 };
 use std::collections::BTreeMap;
 
@@ -345,4 +348,43 @@ fn an_answers_rejected_attempts_keep_their_checks_without_their_tokens() {
             },
         ]
     );
+}
+
+#[test]
+fn an_answer_hands_the_reply_cap_its_chats_ran_with_to_the_ladder() {
+    let answered = Answer {
+        reply_cap: Some(2048),
+        ..answer(&[], None)
+    };
+
+    assert_eq!(asked_reply_cap(&Ok(answered), None, None), Some(2048));
+}
+
+#[test]
+fn a_chat_that_timed_out_or_failed_keeps_the_reply_cap_it_was_asked_with() {
+    let scratch = Scratch::new();
+    let kernel = scratch.kernel(None).unwrap();
+    let (id, card) = register_card(&kernel, "collection", Role::Answerer, "qwen3-4b", b"a");
+    let answerer = RegisteredAnswerer { id, card };
+    let unavailable = GatewayError::Unavailable {
+        reason: "the router is down".to_owned(),
+    };
+
+    for failed in [AskError::TimedOut, AskError::Backend(unavailable)] {
+        assert_eq!(
+            asked_reply_cap(&Err(failed), Some(&answerer), Some(900)),
+            Some(900)
+        );
+    }
+}
+
+#[test]
+fn an_ask_that_failed_before_its_chat_has_no_reply_cap() {
+    let scratch = Scratch::new();
+    let kernel = scratch.kernel(None).unwrap();
+    let (id, card) = register_card(&kernel, "collection", Role::Answerer, "qwen3-4b", b"a");
+    let answerer = RegisteredAnswerer { id, card };
+    let searched = Err(AskError::Search(SearchError::AdmissionTimedOut));
+
+    assert_eq!(asked_reply_cap(&searched, Some(&answerer), Some(900)), None);
 }

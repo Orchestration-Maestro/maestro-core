@@ -1044,6 +1044,7 @@ in place.
 │   │   │       │   ├── scratch_cleanup.rs                                   # A kernel's scratch directory, which may sit on tmpfs, is gone once the
 │   │   │       │   ├── server_version.rs                                    # The client reads the server's version from its health check
 │   │   │       │   ├── stopped_builds.rs                                    # Refusals before any work, unreadable chunks, and a Qdrant that refuses or is out of reach
+│   │   │       │   ├── stopped_clock.rs                                     # A stopped clock, for the searches whose deadlines a loaded host must not
 │   │   │       │   └── support.rs                                           # What the projection's tests share: a publication and the names it gives
 │   │   │       ├── quality_gate/                                            # The quality gate (T020) through the import, the ledger and the kernel
 │   │   │       │   ├── gate_report.rs                                       # The report as JSON, and the stops: unknown collection, broken artifact

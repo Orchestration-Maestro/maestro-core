@@ -1,6 +1,6 @@
 //! Request configuration controls the real fused search pipeline.
 
-use super::super::support::projection;
+use super::super::{stopped_clock::on_stopped_clock, support::projection};
 use super::{
     backends::fake, fused_search::searchable_scheduler_kernel, kernel::Kernel, models,
     support::cleanup,
@@ -18,6 +18,7 @@ use maestro_knowledge::{
         SearchContext, SearchRequest, routes::dense::Embedder, search,
     },
 };
+use std::future;
 
 pub(super) struct Published {
     pub(super) backend: super::backends::Backend,
@@ -98,9 +99,12 @@ fn off() -> SearchConfiguration {
     }
 }
 
+/// Searches `fixture` for `text` under `configuration`, on a stopped clock:
+/// no route deadline passes, so a loaded host cannot drop a route.
 async fn run(fixture: &Published, text: &str, configuration: SearchConfiguration) -> EvidenceInput {
     let context = context(fixture, None);
-    Box::pin(search(&context, &request(fixture, text, configuration)))
+    let request = request(fixture, text, configuration);
+    on_stopped_clock(future::pending(), Box::pin(search(&context, &request)))
         .await
         .unwrap()
 }

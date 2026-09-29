@@ -283,6 +283,24 @@ fn computed_gaps_append_once_without_reordering_inherited_entries() {
 }
 
 #[test]
+fn table_prefixes_the_budget_omitted_are_counted_in_one_gap() {
+    let gaps = build_known_gaps(GapInput {
+        omissions: OmissionStatus {
+            table_prefix_omissions: 2,
+            ..OmissionStatus::default()
+        },
+        ..GapInput::default()
+    })
+    .unwrap();
+    assert!(
+        gaps.contains(
+            &"Table-prefix candidates omitted by the evidence or passage budget: 2.".to_owned()
+        ),
+        "{gaps:?}"
+    );
+}
+
+#[test]
 fn known_gaps_use_inventory_wording_and_exact_identifier_boundaries() {
     assert_eq!(
         build_known_gaps(GapInput::default()).unwrap(),
@@ -337,7 +355,7 @@ fn known_gaps_use_inventory_wording_and_exact_identifier_boundaries() {
             requested_version: Some("2"),
             latest_undetermined: true,
             omissions: OmissionStatus {
-                table_prefix_fallbacks: 0,
+                table_prefix_omissions: 0,
                 evidence: true,
                 conflict: true,
             },

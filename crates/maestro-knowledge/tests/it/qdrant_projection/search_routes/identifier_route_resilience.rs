@@ -107,7 +107,7 @@ async fn a_payload_timeout_keeps_the_completed_kernel_hit() {
         "ERR-042",
         20,
         None,
-        Instant::now() + Duration::from_millis(200),
+        Instant::now() + Duration::from_secs(1),
     )
     .await;
     assert!(matches!(

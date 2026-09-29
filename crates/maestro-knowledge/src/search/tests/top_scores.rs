@@ -22,6 +22,19 @@ fn the_top_rerank_score_is_the_highest_in_any_order() {
 }
 
 #[test]
+fn the_top_rerank_score_is_the_highest_after_a_policy_reorders_the_list() {
+    // A blend, prior or cap can put a fused-top candidate with a lower
+    // reranker score first.
+    let ranked = [
+        ranked("a", 0.03, Some(0.2)),
+        ranked("b", 0.01, Some(0.8)),
+        ranked("c", 0.02, None),
+    ];
+
+    assert_eq!(top_rerank_score(&ranked), Some(0.8));
+}
+
+#[test]
 fn no_rerank_score_means_rerank_did_not_run() {
     assert_eq!(top_rerank_score(&[ranked("a", 0.01, None)]), None);
     assert_eq!(top_rerank_score(&[]), None);
