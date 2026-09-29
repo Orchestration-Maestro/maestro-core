@@ -15,19 +15,24 @@ pub(super) fn render_cluster(
     selected: &[(usize, Span)],
 ) -> Result<PassageOrder, String> {
     let (document_id, revision_id) = identity;
-    let members: BTreeSet<_> = candidates
+    let mut members: BTreeSet<_> = candidates
         .iter()
         .enumerate()
-        .filter(|(index, candidate)| {
+        .filter(|(_, candidate)| {
             candidate.template.document_id == document_id
                 && candidate.template.revision_id == revision_id
-                && (contains(span, candidate.required_span)
-                    || selected
-                        .iter()
-                        .any(|(member, range)| member == index && contains(span, *range)))
+                && contains(span, candidate.required_span)
         })
         .map(|(index, _)| index)
         .collect();
+    members.extend(selected.iter().filter_map(|(index, range)| {
+        candidates.get(*index).and_then(|candidate| {
+            (candidate.template.document_id == document_id
+                && candidate.template.revision_id == revision_id
+                && contains(span, *range))
+            .then_some(*index)
+        })
+    }));
     if members.is_empty() {
         return Err("selected passage contains no retained candidate seed".to_owned());
     }
