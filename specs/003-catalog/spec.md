@@ -1,6 +1,6 @@
 # Feature Specification: Catalog
 
-**Feature Branch**: `docs/s3-analyze-fixes`, from `feat/s3-integration` at `0be954b`
+**Feature Branch**: `docs/s3-model-cards`, from `feat/s3-integration` at `fd39783`
 
 **Created**: 2026-09-28
 
@@ -234,6 +234,31 @@ tests into `maestro-filesystem` (C04a), and the S2 G27 public typed-edge port fo
 S3's separate catalog dependency projection (C27a). S3 supplies the edge schema
 and adapters; these are not evidence-span claims. C00 records these boundaries
 and the hook disposition below in architecture 03/06/08.
+
+### Owner amendments, 2026-09-28 evening
+
+The manifest must grow by adding kind descriptors and fixtures, not by editing
+checker/compiler/installer branches. C03 owns the data-driven registry (6 h):
+serde-able built-in descriptors with a loader seam, not file-loaded kinds yet.
+Existing input/resource limits remain security bounds, not an unlimited-memory
+promise. Model cards are the only new production kind in this amendment.
+
+Under [ADR-0011](../../docs/adr/0011-models-chosen-by-bake-off.md), bake-off winners
+arrive as versioned manifest changes approved by the owner. The manifest declares
+the model and job; the kernel retains immutable cards, evaluations, selections
+and the fingerprinted card each answer actually used. Declaration, registration,
+explicit selection records and observation are different states. M059's agent-session model
+profiles remain separate; neither a profile preference nor installing a catalog
+selects a kernel model.
+
+S1's `feat/s1-settings` work owns the shared settings registry, strict user/project
+parsing, `config get/set/unset/list/explain` and journalled changes. C05a, C05b,
+C05d, C17 and C18 extend that registry rather than build another. C05h trust,
+catalog classes, locks and session delivery sit above it. The supervisor confirmed
+that the landed S3 rules prevail: user `preferences.toml` stays separate from
+authority `config.toml`, workspace discovery is safely bounded, MCP uses explicit
+`--workspace` or user preferences, tags/tones keep their current grammar, and
+evaluation ignores preferences. No default-workspace setting is introduced.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -483,6 +508,14 @@ invalid graph rule and policy fixture through the real checks.
    **Then** they remain data; compilation never runs them.
 4. **Given** an untrusted pull request, **When** CI checks it, **Then** it has no
    signing or production credentials; only the protected release path attests.
+5. **Given** a synthetic new kind descriptor, **When** the unchanged generic
+   machinery checks, compiles, reads and installs it, **Then** its fields,
+   references and digests survive; removing the descriptor refuses the kind.
+6. **Given** an owner-approved model-card declaration, **When** explicitly
+   registered from an admitted catalog, **Then** the kernel records the exact
+   immutable identity without fabricating evaluation/selection records. S1's
+   latest-registration answerer lookup may use it on a later ask for the same
+   router entry; a manifest change cannot rewrite an earlier answer's card.
 
 ### Edge Cases
 
@@ -756,6 +789,45 @@ invalid graph rule and policy fixture through the real checks.
   Kernel-internal XDG config/data/state writes follow kernel rules and grant
   agents/tools no access. External host targets require explicit folder trust;
   Pi/Codex/Claude tool enforcement waits for the named S4 hook qualification.
+- **FR-S3-037**: A resource kind expressible with the supported formats and
+  operations MUST require only one declarative descriptor/registry entry plus
+  positive and refusal fixtures. Shared checker, compiler, reader and installer
+  code MUST NOT change. The descriptor names its version, source shape, strict
+  fields, references and constraints; it may select an existing special-rule
+  hook, never supply executable code. New special semantics belong in an isolated,
+  separately tested hook/consumer, not kind switches in generic machinery.
+  [D12](plan.md#d12-kind-extensibility-and-model-cards) lists permitted and forbidden
+  changes. Unknown kinds/versions still refuse; bounds, trust and ownership apply
+  to every kind. Built-in serde-able descriptors and a loader seam suffice in S3;
+  loading descriptors from files or executing plugins is not required.
+- **FR-S3-038**: Add `model-card` as reviewed, versioned catalog content with
+  common resource metadata, role and the exact kernel v2 `CardIdentity`, including
+  logical router entry, model-file fingerprint, sampling, output limit,
+  chat-template digest/explicit absence and qualification provenance. Preserve
+  every v2 field and unsupported/unavailable state, not a reduced parallel schema.
+  Author human-facing declarations in TOML under `model-cards/` (ADR-0014);
+  the kernel owns canonical card JSON and its fingerprint. No secrets or machine
+  paths are permitted; bindings stay local. Intended jobs are embedder, reranker,
+  answerer, extractor and query_expander, but unsupported kernel roles refuse,
+  never alias/fallback. Extractor support depends on S2 G17; query_expander waits
+  for S1's named role follow-up. M059 `profiles/models/` and `model_profile`
+  continue to configure agent sessions; they neither replace these cards nor
+  qualify or select a kernel job.
+- **FR-S3-039**: Maestro MUST check the declaration before explicit, scoped
+  registration through the existing kernel model registry. Installed registration
+  uses the same current trust/compatibility admission as other catalog consumers;
+  missing qualification artifacts, invalid identity, unsupported role or denied
+  scope refuses without a registration/selection change. Registration is
+  idempotent and never implicit in check, compile, install or update. The kernel
+  remains authority for evaluations, selections and what ran: each answer retains
+  its immutable card identity despite manifest edits, updates or removal. Preserve
+  S1's current answerer lookup: explicit registration under an existing router
+  entry can change which card a later ask resolves, without a selection record.
+  S1's named post-M1 explicit-answerer-selection follow-up owns that fix, not S3.
+  New bake-off winners require an owner-approved manifest change; existing
+  selection-record APIs still require exact-card real evaluation. A reviewed
+  declaration is neither a real evaluation nor S4 qualification. No model
+  download, router reconfiguration or fabricated evaluation/selection is added.
 
 ### Key Entities
 
@@ -776,6 +848,9 @@ invalid graph rule and policy fixture through the real checks.
 - **Update proposal and receipt**: exact managed release identities, verified
   change/permission/hook diff, decision and rollback artifacts; never authority
   to skip current trust or replace an active session's pins.
+- **Model-card declaration**: reviewed resource metadata plus a kernel v2 identity;
+  distinct from an agent-session model profile and from a searchable discovery card.
+  The kernel registration/fingerprint, not the current manifest, identifies what ran.
 - **Discovery card and route result**: searchable description versus exact
   definitions; results bind eligible candidates to the consulted snapshot.
 - **Policy/qualification evidence**: rule decisions and measured role/profile
@@ -856,6 +931,23 @@ invalid graph rule and policy fixture through the real checks.
   isolation and all built-in deny data on Linux/macOS/Windows. Shared port
   contract tests cover every default adapter; changing adapters cannot weaken
   the policy floor.
+- **SC-S3-013**: Inject one test-only kind descriptor and fixtures without editing
+  production checker/compiler/reader/installer logic. Check → compile twice →
+  read → install → resolve preserves its kind, fields, references and digests;
+  identical inputs yield identical bundles. Missing required field, unknown key,
+  dangling reference and absent/unsupported descriptor each refuse before
+  activation. C03 proves source extension; C10/C11/C12/C16 extend the same fixture
+  through the existing lifecycle. No production synthetic kind is shipped.
+- **SC-S3-014**: Round-trip a synthetic v2 model declaration through the catalog
+  and kernel with identical canonical card digest. Re-registering is a no-op;
+  changing weights, template, sampling or output limit creates a different card.
+  Reject secrets/paths, invalid identity, absent evidence, unsupported roles and
+  unauthorized or revoked/expired catalog registration. Check/compile/install/
+  update and changing `model_profile` make zero selection calls. After registering
+  a replacement and removing its catalog, an earlier answer's recorded card still
+  resolves unchanged; a later same-entry ask retains S1's latest-registration
+  behavior, not a fabricated selection receipt. Retain legacy-v1 reads and prove
+  synthetic evidence cannot select a real winner.
 
 ## Out of Scope
 
@@ -873,6 +965,10 @@ invalid graph rule and policy fixture through the real checks.
 - Updates to Cargo dependencies, host clients, models, pinned `gh`, Qdrant setup
   or the router runtime. Owner-managed components have the named notify-only
   follow-up in architecture 06/08, not an S3 automatic installation path.
+- File-loaded kind descriptors, plugin execution, new kernel model roles, model
+  downloads and automatic winner selection. Declaring model cards does not add
+  agent execution or replace M059 profiles. S1's query-expander role follow-up
+  owns that currently unsupported role; S2 G17 owns extractor support.
 - S1 cleanup, answer calibration, corpus deduplication, Qdrant Edge, unrelated
   gate changes and the post-M1 backlog. Reuse approved privacy checks when they
   land; do not fold their implementation into S3.
@@ -891,8 +987,8 @@ unmapped candidate, and checks both this table and the JSON with negative cases.
 
 | Exact 08 row key | S3 portion; remaining boundary | Tasks |
 | --- | --- | --- |
-| `owner.catalog` | Fresh content and later comparison | C02, C21, C21b, C29 |
-| `owner.m001.manifest` | Catalog definitions; InnerSource operation stays S5 | C03, C21, C21b |
+| `owner.catalog` | Fresh content, owner-approved model cards and later comparison | C02, C02a, C21, C21b, C29 |
+| `owner.m001.manifest` | Descriptor-extensible catalog definitions and model cards; InnerSource operation stays S5 | C03, C03a, C02a, C10, C11, C12, C16, C21, C21b |
 | `owner.m001.team` | Role declarations; execution stays S4 | C21b, C22a, C22b |
 | `owner.m001.cli` | Project bootstrap | C04a, C04, C05 |
 | `owner.m001.load` | Bootstrap/preferences; human approvals remain | C05, C17, C18 |
@@ -903,7 +999,7 @@ unmapped candidate, and checks both this table and the JSON with negative cases.
 | `owner.m032` | Restrictive settings; governed enforcement stays S4 | C17, C18, C19 |
 | `chat.M006 layers` | Definitions through verified install; enforcement stays S4 | C03, C10, C16 |
 | `chat.M006 layout, M023 layout` | Required v1 content only; capability expansion stays S5 | C02, C21, C21b |
-| `chat.M006 compiler` | Strict definitions and static graph checks | C03, C22a, C22b |
+| `chat.M006 compiler` | Descriptor-driven strict definitions and static graph checks | C03, C03a, C10, C11, C22a, C22b |
 | `chat.M006 explain` | Every effective setting's provenance | C17, C18 |
 | `chat.M006 lockfile` | Exact pins; live execution qualification stays S4 | C18 |
 | `chat.M006 project file` | Small non-authoritative descriptor | C05 |
@@ -926,8 +1022,8 @@ unmapped candidate, and checks both this table and the JSON with negative cases.
 | `chat.M019 machine contracts` | Static schema validation; acceptance stays S4 | C19, C21, C21b, C22b |
 | `chat.M039 superpowers` | Explicit stages and preserved approval obligations | C21b, C29 |
 | `delivery.R08` | Independent review declarations; runtime contexts stay S4 | C21b, C22a |
-| `chat.M036 models` | Profile declarations; provider qualification stays S4 | C21, C21b |
-| `chat.M059 model profile` | Profile identities and pins; live evidence stays S4 | C18, C21, C21b |
+| `chat.M036 models` | Kernel model-card declarations/registration and separate agent profiles; provider qualification stays S4 | C03a, C02a, C16, C18, C21, C21b |
+| `chat.M059 model profile` | Agent-session profile identities and pins, distinct from kernel model cards; live evidence stays S4 | C03a, C02a, C18, C21, C21b |
 | `chat.M006 broker` | Shared native evaluator only; authoritative broker stays S4 | C19, C20 |
 | `chat.M006, M023 step 8` | Normalize supported native operations | C20 |
 | `chat.M006 destructive` | Real policy fixtures by effect/scope | C19, C21 |
@@ -951,17 +1047,17 @@ unmapped candidate, and checks both this table and the JSON with negative cases.
 | `product.GD2, GD4, GD5` | Four MCP clients, local access and Copilot hook; other hooks stay S4 | C00, C06, C07, C08, C20, C28 |
 | `chat.M048 real controls` | Real verification/Cedar and allow/deny neighbours | C09, C13, C13a, C19, C28 |
 | `chat.M057 CI` | Zero relevant tests cannot pass; honest statuses | C15, C28 |
-| `chat.M059 provenance` | Observed/unsupported/not-run kept distinct | C08, C18, C28 |
+| `chat.M059 provenance` | Declared model cards, kernel registrations and observations kept distinct | C03a, C08, C16, C18, C28 |
 | `delivery.U02` | Catalog consistency; translation comparison after M3 | C03, C21, C21b, C29 |
 | `delivery.U05` | Consumption, compiler, closure and overrides | C10, C11, C17, C22a, C22b |
 | `delivery.U09` | Deterministic bootstrap and projection | C04a, C04, C05, C06, C07 |
 | `delivery.U13` | Catalog routing; S1 retains retrieval/model qualification | C23, C24a, C24, C25, C26 |
 | `delivery.U17` | Bundle trust/lifecycle; general InnerSource stays S5 | C09, C15, C16, C16b, C28 |
-| `core storage` | Scoped kernel authority, rebuildable projections | C12, C25, C27a |
+| `core storage` | Scoped kernel authority including immutable model cards, rebuildable projections | C03a, C12, C16, C25, C27a |
 | `core verification` | Organization gates, no S3 exception | C28 |
 | `delivery.§1.5` | Exact S3 delivery evidence; other slices retain their portions | C00, C28 |
-| `chat.M006 CLI` | Bootstrap, projection, doctor, catalog lifecycle, settings and policy CLI; other commands stay S4/S5 | C05, C06, C07, C13, C13a, C16, C16b, C17, C18, C19 |
-| `chat.M036 objects` | Catalog resource kinds and declarative references; runtime objects stay S4 | C03, C21, C21b |
+| `chat.M006 CLI` | Bootstrap, projection, doctor, catalog lifecycle, explicit model-card registration, settings and policy CLI; other commands stay S4/S5 | C05, C06, C07, C13, C13a, C16, C16b, C17, C18, C19 |
+| `chat.M036 objects` | Descriptor-extensible resource kinds including model cards; runtime objects stay S4 | C03, C03a, C02a, C10, C11, C12, C16, C21, C21b |
 | `delivery.§2.2` | Catalog-release contract; runtime envelopes stay S4 and ingestion policy stays S6 | C10, C11 |
 | `chat.M019 roles` | Earlier roles deferred to C29 comparison after M3, not seeded | C29 |
 | `chat.M023 step 13` | Stop-on-collision owned writes; three-way merge remains separately specified | C04, C05 |
@@ -990,8 +1086,8 @@ later slice. No similarity or unapproved closure fallback replaces C27a/C27.
 
 ### Owner amendment coverage (2026-09-28 11:25–12:05)
 
-The frozen C00 rows above stay unchanged. These requirements refine existing
-rows, so no new traceability JSON row or inventory-test change is needed:
+This earlier amendment keeps the C00 key set. These requirements refine existing
+rows, so no new traceability JSON key or inventory-test change is needed:
 
 | Requirement | Existing row family | Tasks |
 | --- | --- | --- |
@@ -1012,6 +1108,24 @@ rows, so no new traceability JSON row or inventory-test change is needed:
 C28 must include these supplemental portions in its existing-row evidence.
 They do not claim delivery or S4 launch qualification. The named S4 handoff and
 owner-managed notify-only follow-up are recorded in architecture 06/08.
+
+### Evening amendment coverage (2026-09-28)
+
+The inventory table above and traceability JSON retain all 85 approved keys and six exclusions;
+only portions and task mappings change. Model-card qualification does not satisfy
+M059's remaining S4 agent-session qualification.
+
+| Requirement | Existing row family | Tasks |
+| --- | --- | --- |
+| FR-S3-037 | Kinds/compiler: `owner.m001.manifest`, `chat.M006 compiler`, `chat.M036 objects` | C03, C10, C11, C12, C16 |
+| FR-S3-038 | Model declarations/profiles: `chat.M036 models`, `chat.M059 model profile` | C03a, C02a, C18 |
+| FR-S3-039 | Runtime authority: `core storage`, `chat.M059 provenance`, `chat.M006 CLI` | C03a, C02a, C18, C16 |
+| SC-S3-013 | Extension proof: `delivery.§1.5` | C03, C10, C11, C12, C16, C28 |
+| SC-S3-014 | Card/provenance proof: `delivery.§1.5` | C03a, C18, C16, C28 |
+
+C28 includes these portions in M3 evidence. The shared S1 settings prerequisite
+changes ownership of reusable implementation, not the existing FR-S3-014/027–031
+or their safety, authority and delivery acceptance criteria.
 
 ## Assumptions
 

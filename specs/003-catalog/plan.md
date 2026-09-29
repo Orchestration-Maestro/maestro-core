@@ -1,9 +1,9 @@
 # Implementation Plan: Catalog
 
-**Branch**: `docs/s3-analyze-fixes` (base `0be954b`) | **Date**: 2026-09-28 | **Spec**: [spec.md](spec.md)
+**Branch**: `docs/s3-model-cards` (base `fd39783`) | **Date**: 2026-09-28 | **Spec**: [spec.md](spec.md)
 
 **Input**: the approved S3 draft, owner decisions of 2026-09-28 01:56, 08:12,
-11:25, 11:50, 11:55, 12:00 and 12:05,
+11:25, 11:50, 11:55, 12:00, 12:05 and evening kind/model-card/settings amendments,
 and the supervisor's specification-review ruling,
 architecture [03](../../docs/architecture/03-agent-orchestration.md),
 [06](../../docs/architecture/06-roadmap.md) and
@@ -24,7 +24,9 @@ Then complete M3: deterministic bundles, verified installation, current trust
 records, startup update proposals/auto policy, settings, policies, graph
 validation and measured routing. Reuse the
 kernel, knowledge pipeline and existing CLI/MCP server. A catalog declares
-workflows; S4 will execute them. Do not open the earlier catalog before M3.
+workflows; S4 will execute them. Model cards become one additional declarative
+kind, reusing the kernel registry rather than replacing it. Do not open the
+earlier catalog before M3.
 
 ## Technical Context
 
@@ -119,7 +121,7 @@ C28. Named future tests are required evidence, not claims that they already pass
 | --- | --- | --- |
 | C-001, C-005 | Maps before affected work; durable evidence | C00 inventory conventions suite/review; C02 creates MAN maps before content; C13/C15 update maps, C28 verifies holders and evidence |
 | FND-002, FND-003, P-001 | Required content only; no engine | C02/C21/C21b scope review against 08 and C03 unused-resource refusal |
-| P-004, P-005 | Reuse seams, adapters only for real variations | C04a pure-move review; C05a/C05i/C05e/C16c port contract tests |
+| P-004, P-005 | Reuse seams, adapters only for real variations | C04a pure-move review; S1 settings reuse in C05a/C05b/C05d/C17/C18; C03/C10/C11/C12/C16 descriptor-only extension proof; C03a kernel-card adapter tests; C05i/C05e/C16c port contract tests |
 | P-011, P-013, SEC-003 | Typed bounded hostile inputs | C03 source, C05a preference, C11 archive and C13 verifier boundary tests, including every D2 limit |
 | P-012, P-014 | Scoped, least-privilege admission | C14 shared admission tests; C16b installed-consumer refusal; C09 credential measurement and C28 OA4 review |
 | ENF-001, SEC-001 | Derived paths and synthetic public material | Conventions personal-path test and C08/C28 privacy review; live private receipts stay outside CORE |
@@ -171,7 +173,8 @@ approval); M3 acceptance remains pending.
 crates/maestro-catalog/
 ├── Cargo.toml
 └── src/
-    ├── source/                # bounded source types, references and checks
+    ├── source/                # kind descriptors, bounded source types and checks
+    ├── model_cards/           # declaration validation and existing kernel registry adapter
     ├── files/                 # owned write plans, apply, remove and recovery
     ├── bootstrap/             # inspect, compose, descriptor and lock
     ├── hosts/                 # Copilot and Pi projections
@@ -202,7 +205,9 @@ beside their subject. [Tasks](tasks.md) name leaf files and registration seams.
 In `maestro-manifests`, use the architecture 03 §1.1 layout: `agents/base/`,
 `skills/`, `instructions/`, `workflows/`, `contracts/`, `policies/`,
 `profiles/models/`, `mcp/`, `hooks/`, `settings/`, `presets/`, `bootstrap/`,
-`evals/` and `CODEOWNERS`. Seed only required directories. No earlier catalog is
+`evals/` and `CODEOWNERS`, plus `model-cards/` for this amendment's kernel model
+declarations (not `profiles/models/` agent-session preferences). Seed only
+required directories. No earlier catalog is
 read, copied or imported to populate them.
 
 **Structure decision**: kernel records stay in the kernel; catalog processing
@@ -520,8 +525,8 @@ index was used rather than inventing a generation. Statuses are `candidates`,
 `catalog_resolve` returns exact definitions; `catalog_search` browses kinds.
 The authenticated caller context is host-bound, not a raw filter from the model.
 
-Cards use a separate scoped catalog collection and verified generation per
-bundle. A stale/missing index triggers explicit lexical fallback only when the
+Discovery cards (not model-card identities) use a separate scoped catalog
+collection and verified generation per bundle. A stale/missing index triggers explicit lexical fallback only when the
 bundle is still authorized and valid. Every cache includes visibility,
 snapshot, trust/policy revision, runtime constraints and retrieval profile.
 Use the protocol above for workflow IDs, not S1 document-section labels; keep
@@ -572,9 +577,29 @@ publication. Report missing prerequisites, including shell availability on
 Windows. `.maestro/project.toml` contains preset, lock, capabilities and context
 files only. It cannot redefine policy, hooks or authentication.
 
+#### Shared S1 settings implementation
+
+The evening owner decision assigns the serde-able setting descriptors, strict
+user/project parsing, four-layer resolver, `maestro config get/set/unset/list/explain`
+and change journal to S1's `feat/s1-settings`. Its integrated public API is a
+prerequisite of C05a, C05b, C05d, C17 and C18. Those tasks add catalog descriptors,
+init planning, trust-boundary integration, answer presentation and lock/explanation
+views over it, not another registry, parser, resolver or config command family.
+S1 owns the shared module paths; the S3 file lists name only adapters/tests and
+existing integration call sites. Bind them to the landed API before dispatch.
+C05h trust and C05e session delivery remain S3 responsibilities above the registry.
+
+The supervisor explicitly reconciled the potential file/discovery conflict in
+favor of the landed S3 contract: `preferences.toml` separate from authority
+`config.toml`, `.maestro/config.toml` within home/journal-trusted boundaries,
+explicit flags > workspace > user > defaults, and MCP explicit `--workspace` or
+user preferences only. No default-workspace key; retain the BCP 47 subset, tone
+values and evaluation isolation below. A differing S1 landing blocks integration
+of the affected adapter and needs a ruling, never silent schema migration.
+
 #### Workspace preference schema and ownership
 
-C05a adds `.maestro/config.toml` at the explicit init workspace root (the current
+C05a extends S1's schema with init planning for `.maestro/config.toml` at the explicit init workspace root (the current
 working directory for init), separate from that descriptor and the lock. Never
 write an ancestor's config when initializing a nested workspace. Preview the
 config with all other files and use C04's digest-bound owned writes and D11's
@@ -634,7 +659,7 @@ than changing collection/source-policy JSON.
   each ignored widening. D9's approval and idle rules still constrain catalogs;
   runtime releases are propose-only and MCP never activates either target.
 - `[overrides]`: only parameter keys documented with type, range and class in
-  C17's checked setting registry. The initial exposed keys are `model_profile`
+  the shared S1 setting registry, extended by C17. The initial exposed keys are `model_profile`
   (`fast`, `balanced`, `deep`, bounded by role/provider qualification) and
   `routing_candidates` (integer 1–3, bounded by the existing ceiling). A stored
   profile is a preference, never qualification or permission to execute it.
@@ -653,7 +678,9 @@ uses D11's existing kernel journal, not a second database or common crate.
 
 #### Every-session discovery and resolution
 
-C05b canonicalizes the CLI working directory once. Inside home, discovery walks
+C05b extends S1's discovery/resolution adapter with S3 trust integration and
+regression coverage; it does not reimplement the walk or precedence.
+Canonicalize the CLI working directory once. Inside home, discovery walks
 upward no farther than the user's home directory inclusive. Outside home, read
 no workspace file until a containing folder is explicitly trusted in the local
 kernel journal; then walk only within that approved root, never above it. With
@@ -837,7 +864,9 @@ menu on stdout. Plain/scripted and TUI paths call one planner/validator/writer.
 
 ### D7 Settings, policies and graph checks
 
-C17 precedes init's configuration tasks. Free values use
+C17 extends S1's shared setting descriptors with catalog classes and restrictions;
+no catalog-private setting registry or resolver is added. It precedes init's
+configuration tasks. Free values use
 explicit flags > workspace file > user-level config > built-in defaults.
 Resolve bounded consent/budgets by narrowing across layers, not by selecting a
 winning layer first. Language/tone are free; `updates` and `[overrides]` use
@@ -1021,8 +1050,9 @@ small ports, not a plugin runtime, service layer or speculative common crate.
 Use typed inputs/results, constructor injection and a small composition root;
 no filesystem, terminal, provider SDK or client types cross the domain ports.
 Keep pure parsing/resolution/instruction construction beside their source-named
-tests. Config/instruction types and the delivery port live in maestro-catalog;
-the binary supplies the MCP adapter, so catalog never depends on CLI/MCP types
+tests. Shared setting types/parsing/resolution belong to S1's registry; catalog
+adapters, instruction types and the delivery port live in maestro-catalog.
+The binary supplies the MCP adapter, so catalog never depends on CLI/MCP types
 or on the binary. Human interface translation stays in the binary's presentation
 module; knowledge accepts only mapped presentation inputs, never a catalog dependency. Register an adapter once; callers do not switch on a host or release kind.
 
@@ -1128,6 +1158,108 @@ each with an allowed neighbour and
 zero executor calls on denial. Record it beside the already-deferred S4 hooks
 in 06/08; configuration or instructions alone are not containment.
 
+### D12 Kind extensibility and model cards
+
+**Descriptor contract.** C03 supplies serde-able built-in descriptors behind a
+loader seam. A descriptor names the kind/schema version, source location/format,
+strict field shape, reference fields and declarative constraints. Check, compile,
+read and install consume the same registry and common resource envelope; descriptor
+registration is data, not a kind-specific branch. Descriptors can name existing
+special-rule hooks (for example the kernel's card validator). A hook is isolated
+and tested only for semantics that cannot be described as data. Untrusted content
+cannot load code or register a hook. File-loaded descriptors are a later step.
+
+| A new kind may require | It must not require |
+| --- | --- |
+| One descriptor constant/registry entry with field/reference rules | Editing generic checker/compiler/reader/installer logic or adding kind switches |
+| Positive/negative fixtures and resource owners/08/workflow references | A per-kind bundle format, storage table, migration or install command |
+| Selecting an existing validator hook or native mapping | Duplicating validators, changing callers or executing source content |
+| A separately reviewed hook/consumer for genuinely new semantics | Calling new runtime behavior a descriptor-only extension or granting authority |
+| A runtime release containing the new built-in descriptor | Removing unknown-kind/version refusal or raising D2 limits implicitly |
+
+C03 injects a test-only kind through the loader seam; no new parser or hook is
+needed for it. C10/C11/C12/C16 carry that same fixture through deterministic
+compile, read, scoped persistence and install/resolve, including refusal when the
+descriptor is absent. This is the measurable growth guarantee, not infinite input
+size. Unsupported source directories continue to refuse until described. Existing
+per-kind graph/host rules remain hooks, not exceptions to shared trust or bounds.
+
+**One additional kind: `model-card`.** C03a adds its descriptor and a thin adapter;
+C02a authors only owner-approved cards needed by the two workflows. Human-authored
+`model-cards/<id>.toml` holds common ID/version/owner/maturity/08/workflow metadata
+plus `identity`, deserialized as the kernel's exact `CardIdentity`. The catalog
+resource digest covers that declaration; the model-card fingerprint is the
+kernel's canonical `maestro-model-card/2` JSON digest, not a TOML hash.
+
+Reuse the types at S1 `d882fe5`,
+`crates/maestro-kernel/src/gateway/card_v2/types.rs:29–46`, without copying them:
+
+| Identity group | Fields retained |
+| --- | --- |
+| Role and weights | `role`, logical `router_entry`; upstream ID/revision, source/licence URLs, GGUF digest/bytes/quantization, named adapter/draft/projector digests |
+| Formats | Tokenizer digest/derivation, qualification digest, template digest or explicit absence, system/tool/document/query formats, embedding pooling/normalization |
+| Invocation | Context/output limits, dimensions, complete sampling/seed, reasoning controls, llama.cpp build, runtime binary digest, backend and typed resolved flags |
+| Resources | Offload/devices, memory estimate/provenance, slots, KV/cache policy, batch/micro-batch, reference hardware and qualified limits with measured/unavailable states |
+| Provenance | Identity/qualification dates, method, exact tool versions and supporting artifact digests |
+
+The intended jobs are embedder, reranker, answerer, extractor and query_expander.
+S1 `d882fe5` supports only the first three (`gateway/card_types.rs:13–24`). S2 G17
+owns extractor support. S1's named post-M1 query-expander-role follow-up owns that
+role; the current intent port uses an answerer card and is not an alias S3 may
+register as query_expander. Unsupported roles refuse check/compile/registration
+with a diagnostic; do not ship placeholder cards or extend kernel roles here.
+M3 proves refusal for planned unsupported roles; it need not wait for those roles
+to ship cards for supported jobs. V1 reads retain their exact historical identity;
+new registration remains v2-only.
+
+Expose a pure kernel-owned `ModelCard::from_identity(&CardIdentity)` constructor
+if no equivalent exists at landing, sharing validation/canonical serialization
+with `record_v2`; never write artifacts during a catalog check. Reuse
+`Database::record_model_card` and `NewModelCard` (`model/write.rs:33–108` and
+`model/records.rs:22–29`) for explicit scoped registration. The adapter requires
+all referenced qualification/evidence artifacts already present and digest-valid
+in local kernel storage; it does not fetch them. No machine paths, credential
+literals or credential-bearing URLs may enter declarations, flags or provenance.
+Router entries obey the existing logical-name grammar; paths/credentials resolve
+through runtime bindings. A declared file fingerprint is not proof that a router
+alias served those weights; preserve the kernel's declared/observed distinction.
+
+C16 exposes `maestro catalog register-model-card ID --collection COLLECTION` from
+an installed, currently admitted snapshot, using C18's exact lock/resolver and
+C03a's adapter. No authoring-source or MCP registration mode. Check, compile,
+install and update never call it implicitly; generic installation only stores
+resources. Return the declaration/version/bundle identity and kernel card ID/digest.
+Re-registering the same card is a no-op. Refusal leaves registrations/selections
+unchanged; no model download, load, router mutation or evaluation/selection-record
+write occurs.
+
+A bake-off winner is an owner-approved manifest change under ADR-0011, including
+the exact card and evidence references, not a mutable built-in model default.
+Registration fabricates no evaluation or selection record: the existing kernel
+selection API still requires an eligible real evaluation of that exact
+card/role/collection (`model/write.rs:160–190`). **S1 compatibility caveat:**
+`crates/maestro/src/knowledge/operations/ask/run.rs:100–122` at `d882fe5` chooses
+the latest registered answerer for the requested router entry. Explicitly
+registering a different card for that entry can therefore change a later ask;
+zero selection-record writes does not mean future resolution is unchanged.
+Preserve and test this behavior and the earlier answer's exact card identity.
+S1's named post-M1 explicit-answerer-selection follow-up will move answerer lookup
+to selection records, as for rerankers; S3 does not implement that change.
+A reviewed resource's maturity is not model
+qualification or S4 agent qualification. Private evaluation content stays private;
+only approved public identities/digests go into MAN. Later source edits, catalog
+removal and updates cannot rewrite/delete registered cards or earlier answers'
+card references; the kernel stays authority for what ran.
+
+**M059 is unchanged.** `profiles/models/<agent-role>.toml` and bounded
+`model_profile = fast|balanced|deep` select allowed agent-session configurations,
+including provider controls and later S4 qualification. They do not choose the
+kernel's embedder/reranker/answerer/extractor/expander. A local agent profile may
+reference a compatible exact model-card identity, but no automatic conversion,
+selection or new profile schema is needed for this amendment. C18 explains both
+identities without merging their authority; changing the preference leaves kernel
+selections and existing answer receipts unchanged.
+
 ## Data model
 
 Reuse kernel artifacts, scopes, journal and transactions; do not duplicate
@@ -1155,13 +1287,14 @@ an edit to an applied migration.
 | Workspace/user preferences | Versioned TOML at the nearest workspace root or platform configuration home; language/tone, update policy and allowlisted overrides with provenance, never authority |
 | Workspace trust approval | User-local kernel answer, canonical path and approval receipt, keyed by canonical root and changed only through explicit user trust administration; never a workspace field or a second authority database |
 | Update state and receipt | Per-installation release-check attempt/result, exact verified proposal, idle/activation lease, prior artifact/state pins and linked apply/rollback receipt; reuse kernel transactions and the shared lifecycle |
-| Project lock | Bundle/components, runtime and host versions, model identity/quantization/template/build, supported OS/sandbox profiles; unsupported values explicit, never authoritative |
+| Model-card registration | Existing kernel model-card artifacts/registry, evaluations and selections; no second model table. Catalog declaration/version/bundle identity is provenance, never authority for what ran |
+| Project lock | Bundle/components, runtime and host versions, exact model-card digest distinct from M059 agent-profile identity, model quantization/template/build, supported OS/sandbox profiles; unsupported values explicit, never authoritative |
 | Owned operation | Target root, relative path or owned JSON entry, previous/proposed digest, operation progress; recovery and removal preserve user edits |
 
 ## Contracts
 
-C03/C09 freeze source/bundle schemas and C05a freezes the preference schema
-below before their consumers are written. Authoring and compiled schemas are distinct. Unknown versions fail;
+C03/C09 freeze source/bundle schemas; C05a/C17 extend S1's shared preference
+schema below before their catalog consumers are written. Authoring and compiled schemas are distinct. Unknown versions fail;
 there is no raw SDK configuration passthrough.
 
 | Surface | Contract |
@@ -1171,6 +1304,7 @@ there is no raw SDK configuration passthrough.
 | Catalog authority | `maestro catalog authority set --catalog-repository OWNER/REPO --catalog-workflow PATH --catalog-issuer URL --runtime-repository OWNER/REPO --runtime-workflow PATH --runtime-issuer URL --gh-path FILE --gh-sha256 HEX [--confirm HEX]`; D2's complete proposal/revision confirmation, terminal default-no or exact proposal digest, journalled atomic provisioning/rotation; never `--yes`, environment approval or MCP |
 | Release assets | Canonical SemVer `VERSION` without leading `v` maps exactly to tag `vVERSION`. Payloads: `maestro-catalog-VERSION.tar` and `maestro-catalog-VERSION.spdx.json`; checksum file: `SHA256SUMS`. One lowercase SHA-256, two ASCII spaces, exact basename and LF per payload, sorted by basename; no paths, duplicates or extra entries. Attestation subjects are those two exact payload names/digests under D2's publisher/source bindings. C15 workflow checks and C16 download fixtures assert this same contract |
 | Install/update | `maestro catalog install VERSION`, `maestro catalog update`; verified compatible releases only, explicit project lock update, no authoring or unsigned option |
+| Model-card registration | `maestro catalog register-model-card ID --collection COLLECTION`; exact admitted installed declaration through C18/C14 to C03a and the existing scoped kernel registry; explicit, idempotent, no fabricated evaluation/selection record, download or MCP equivalent; D12 records S1's latest-registered-answerer caveat |
 | Bootstrap | `maestro init` opens plain prompts first, later the approved TUI; `--preset knowledge-client\|rust-service`, `--language TAG`, `--tone brief\|normal\|detailed`, `--updates off\|propose`, `--set KEY=VALUE`, `--yes` support scripts. Preview by default, `--apply` to write, `--plain`/`--no-color` for fallbacks; `--catalog-dir DIR` selects labelled authoring-only mode |
 | Session preferences | Global `--language`, `--tone` and free `--set` values override the safely discovered workspace file, user `preferences.toml`, then defaults; update/budget values only narrow. No language set means question-language answers. MCP uses `--workspace DIR` only, otherwise user preferences; no roots-based discovery in S3 |
 | Workspace trust | `maestro trust add DIR` asks default-no on a terminal; otherwise needs exact canonical `--confirm-path DIR`, never `--yes`/`--json`; missing confirmation exits 2. Refuse filesystem/drive/mount roots, HOME and kernel-internal directories. `maestro trust list`/`remove DIR` read/change user-local authority only |
@@ -1222,8 +1356,13 @@ there is no raw SDK configuration passthrough.
    Collect real `incompatible` and synthetic routing results,
    release SBOM/checksum/attestation verification, M1 and final three-OS CI.
 
-Every task has a red-first check, bounded files and a ≤4 h budget including its
-local checks. Split overruns into fresh, independently testable follow-ups;
+C28 also requires SC-S3-013's descriptor-only lifecycle proof and SC-S3-014's
+card round-trip/history/refusal proof, plus owner-reviewed C02a content. A model
+card never counts as S4 qualification. Missing S1 settings or required kernel
+role support is a named prerequisite, not something a fixture can qualify.
+
+Every task has a red-first check and bounded files. Budgets include local checks:
+≤4 h except C03's explicitly approved 6 h registry/checker task. Split overruns into fresh, independently testable follow-ups;
 never weaken a boundary to finish. Only the supervisor integrates. Mutation and
 coverage run in CI, with zero misses/timeouts required before main merge, not
 as a workstation landing job. Re-estimate after C08.
@@ -1248,7 +1387,7 @@ which names only M3 acceptance and eventual main release below.
 
 | ID | Owner action | Needed by |
 | --- | --- | --- |
-| OA1 | Create public `Orchestration-Maestro/maestro-manifests` with its first reviewed generic content; assign maintainer/backup and security/platform owners; configure visibility, rulesets, required checks, CODEOWNERS protection and organization properties | MAN C02/C21/C21b/C15 only; C23 fixtures and all CORE consumers are independent |
+| OA1 | Create public `Orchestration-Maestro/maestro-manifests` with its first reviewed generic content; assign maintainer/backup and security/platform owners; configure visibility, rulesets, required checks, CODEOWNERS protection and organization properties | MAN C02/C02a/C21/C21b/C15 only; C23 fixtures and all CORE consumers are independent |
 | OA2 | **Approved 2026-09-28:** S3 may probe/test the already-installed Copilot CLI, Pi, Claude Code and Codex, each in an isolated temporary home. C01 records every exact installed version as its pin, including adapters used. No installs/upgrades, changes to real owner configuration or enterprise policy. Anything beyond this scope requires fresh OA2 approval; private/provider data approval remains OA6 | C01, C06–C08, C20, C28 may use this bounded scope; unavailable tools/access or broader operations remain blocked. C01's evidence gates C03's format; no later CORE fixture-code gate from live receipts |
 | OA4 | Bind separate catalog/runtime repository/workflow/issuer identities, protected environments and emergency/rotation authority. Supply checksum-verified standalone pinned `gh` and repository-bound read-only fine-grained `GH_TOKEN` (or equivalently minimal login), with C09-measured read permissions only; doctor reports detectable excess scopes; authorize any unlisted-licence organization allowlist change, not a second D4 library approval | C09's owned 08 §17 closure and C28 live trust proof; no C09/C13 implementation-start gate |
 | OA5 | Publish checksum-pinned compiler and catalog canary/stable bundles/attestations. Enable the catalog publisher's six-hour trust schedule with protected `id-token: write`/`attestations: write` permissions and minimum publication access; enable hourly missed-refresh alerts to maintainer/backup. Perform withdrawal/rotation/missed-run drills. Supply C28's clean WSL user/container with released `maestro`, pinned `gh`, basic shell utilities and read authentication, but no checkout/Rust/Python | C28 release/clean-environment proof; C15 workflow code and C16 fixture tests do not wait |
@@ -1257,6 +1396,11 @@ which names only M3 acceptance and eventual main release below.
 | OA8 | After M3, grant access to the earlier catalog and approve any recovery work, provenance/licence obligations and separate publication PRs | C29 and later recovery tasks |
 | OA9 | **Approved 2026-09-28:** ratatui + crossterm for the TUI under ADR-0020. C05f still measures minimum features/dependencies/licences/native links and vet before adoption. Owner visual acceptance of C05k's branded keyboard/plain/no-color walkthrough remains pending | Library choice resolved; C05f measurements precede C05k. Visual acceptance gates C28, never the first plain C08. No parser dependency or decision |
 | OA10 | **Approved by the owner, 2026-09-28:** amend D5's absolute routing bar to held-out matchable top-1 ≥ 90 % (correct first selection). The original top-3 ≥ 90 % wording is retained as history, not the current bar | Quality target resolved; C24/C26 apply the top-1 gate and report both metrics; C28 verifies evidence against the amended bar before final quality acceptance |
+
+The evening model-card decision also requires the owner to approve each winner's
+manifest change and supply approved public card identities/evidence references for
+C02a. It grants no new model download, private-data access or evaluation approval;
+missing input blocks MAN content, not C03a's synthetic CORE adapter tests.
 
 The lane's authorized signed push to its own branch is not a product release.
 It does not create a repository, change shared settings, activate workflows,
@@ -1280,19 +1424,19 @@ publish a tag, install clients or send private data to a provider.
 | S2 G25/G27 late or incompatible | C27a owns catalog schema/adapters; S2 owns the public port. Block impact/M3 until qualified; no fabricated evidence claims or implicit fallback |
 | Migration collision across slices | Supervisor allocates above all landed/reserved numbers on main, S1/S2/S3 and deployment-modes |
 | S2/S3 shared retrieval or MCP changes | Serialize C26 with S2 G12/G14 and all MCP dispatch edits; cover every retrieval branch present at landing, including R4 graph, or prove catalog queries cannot enter it |
+| S1 settings or kernel roles differ at landing | Reuse integrated APIs; retain S3 preference/authority/discovery rules. Extractor waits for G17, query_expander refuses until S1's role follow-up; no silent alias or second registry |
 
-Recomputed after round 2: **54 tasks total 180 lane-hours**, each at most
-four hours; all 48 requirements (36 FR, 12 SC) map to tasks. C13a adds three
-hours for explicit authority provisioning/rotation and its independent CLI
-refusal tests; C13 retains its four-hour verifier/record budget.
-**70 hours to the owner-loop checkpoint** = original 29 + 33 for C05a–C05j
-without the later C05f measurement + 4 for C05l migration + 4 for C17 moved
-before init. Then **107 more hours to M3**, including C05f (2), C05k (4),
-C13a (3), C16c–C16g (15) and C20's extra trust-hook hour; **3 hours** remain
-post-M3. Total to M3 is **177 hours**.
-Compared with the reviewed 169-hour plan, C05k and C05l add 4 hours each;
-C16e's former 4 hours split into propose-only C16e (2) and C16g (2).
-Allow **196–204 lane-hours** with the unchanged 16–24-hour review/CI reserve. Re-estimate calendar delivery
+Recomputed for the evening amendment: **56 tasks total 188 lane-hours**;
+all **53 requirements (39 FR, 14 SC)** map to tasks. The previous 180 h becomes
+188 h: C03 grows from 4 to its approved 6 h, C03a adds 4 h and C02a adds 2 h.
+Every other task stays at most 4 h; reuse of S1 settings does not claim unmeasured
+savings or include that S1 lane's effort in S3 totals.
+**72 hours to the owner-loop checkpoint** = its previous 70 h + C03's 2 h.
+C03a/C02a's independent 6 h path does not gate C08. Phase 1 contains 78 h of
+work overall; phases 2–4 contain 26 + 54 + 24 h, and C28/C29 contain 3 h each.
+After the first checkpoint, **113 more hours to M3** and **3 hours** post-M3
+remain: **185 hours to M3**, 188 h total. Allow **204–212 lane-hours** with the
+unchanged 16–24-hour review/CI reserve. Re-estimate calendar delivery
 after C08; the draft's 7–10-day M3 estimate did not include the added projection
 and task splits and is not a commitment. At six lanes/eight effective hours,
 total effort still does not divide the serial dependencies by six. M1 may finish

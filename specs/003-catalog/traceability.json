@@ -3,15 +3,15 @@
   "rows": [
     {
       "source_row": "owner.catalog",
-      "s3_portion": "Fresh content and later comparison",
-      "tasks": ["C02", "C21", "C21b", "C29"],
-      "remaining": "S3: implement fresh content and C28 evidence, then C29 comparison after M3 and OA8 access"
+      "s3_portion": "Fresh content, owner-approved model cards and later comparison",
+      "tasks": ["C02", "C02a", "C21", "C21b", "C29"],
+      "remaining": "S3: implement fresh content and model cards with owner approval, then C28 evidence and C29 comparison after M3 and OA8 access"
     },
     {
       "source_row": "owner.m001.manifest",
-      "s3_portion": "Catalog definitions; InnerSource operation stays S5",
-      "tasks": ["C03", "C21", "C21b"],
-      "remaining": "S3: definitions and C28 evidence; S5: InnerSource operation"
+      "s3_portion": "Descriptor-extensible catalog definitions and model cards; InnerSource operation stays S5",
+      "tasks": ["C03", "C03a", "C02a", "C10", "C11", "C12", "C16", "C21", "C21b"],
+      "remaining": "S3: descriptor-only extension and model-card declarations/registration with C28 evidence; S5: InnerSource operation"
     },
     {
       "source_row": "owner.m001.team",
@@ -75,9 +75,9 @@
     },
     {
       "source_row": "chat.M006 compiler",
-      "s3_portion": "Strict definitions and static graph checks",
-      "tasks": ["C03", "C22a", "C22b"],
-      "remaining": "S3: all twelve static graph rules and rejection of unsupported constructs; S4: runtime execution of validated graphs"
+      "s3_portion": "Descriptor-driven strict definitions and static graph checks",
+      "tasks": ["C03", "C03a", "C10", "C11", "C22a", "C22b"],
+      "remaining": "S3: extensible definitions/model-card validation, all twelve static graph rules and rejection of unsupported constructs; S4: runtime execution of validated graphs"
     },
     {
       "source_row": "chat.M006 explain",
@@ -213,15 +213,15 @@
     },
     {
       "source_row": "chat.M036 models",
-      "s3_portion": "Profile declarations; provider qualification stays S4",
-      "tasks": ["C21", "C21b"],
-      "remaining": "S3: bounded profile declarations and unsupported diagnostics; S4: provider/role qualification"
+      "s3_portion": "Kernel model-card declarations/registration and separate agent profiles; provider qualification stays S4",
+      "tasks": ["C03a", "C02a", "C16", "C18", "C21", "C21b"],
+      "remaining": "S3: owner-reviewed kernel card declarations/registration, bounded agent profile declarations and unsupported diagnostics; S4: provider/role qualification"
     },
     {
       "source_row": "chat.M059 model profile",
-      "s3_portion": "Profile identities and pins; live evidence stays S4",
-      "tasks": ["C18", "C21", "C21b"],
-      "remaining": "S3: distinct profile identities and pins; S4: live qualification evidence"
+      "s3_portion": "Agent-session profile identities and pins, distinct from kernel model cards; live evidence stays S4",
+      "tasks": ["C03a", "C02a", "C18", "C21", "C21b"],
+      "remaining": "S3: distinct agent-profile and kernel-card identities/pins without selection by preference; S4: live agent-session qualification"
     },
     {
       "source_row": "chat.M006 broker",
@@ -363,9 +363,9 @@
     },
     {
       "source_row": "chat.M059 provenance",
-      "s3_portion": "Observed/unsupported/not-run kept distinct",
-      "tasks": ["C08", "C18", "C28"],
-      "remaining": "S3: honest catalog and host receipts; S4: governed execution observations"
+      "s3_portion": "Declared model cards, kernel registrations and observations kept distinct",
+      "tasks": ["C03a", "C08", "C16", "C18", "C28"],
+      "remaining": "S3: model-card declaration/registration/history and honest catalog/host observed/unsupported/not-run evidence; S4: governed execution observations"
     },
     {
       "source_row": "delivery.U02",
@@ -399,9 +399,9 @@
     },
     {
       "source_row": "core storage",
-      "s3_portion": "Scoped kernel authority, rebuildable projections",
-      "tasks": ["C12", "C25", "C27a"],
-      "remaining": "S3: kernel catalog records and rebuildable scoped projections; S2: G25 qualification and G27 public port"
+      "s3_portion": "Scoped kernel authority including immutable model cards, rebuildable projections",
+      "tasks": ["C03a", "C12", "C16", "C25", "C27a"],
+      "remaining": "S3: reuse kernel model registry and catalog records without a second model store, plus rebuildable scoped projections; S2: G25 qualification and G27 public port"
     },
     {
       "source_row": "core verification",
@@ -417,15 +417,15 @@
     },
     {
       "source_row": "chat.M006 CLI",
-      "s3_portion": "Bootstrap, projection, doctor, catalog lifecycle, settings and policy CLI; other commands stay S4/S5",
+      "s3_portion": "Bootstrap, projection, doctor, catalog lifecycle, explicit model-card registration, settings and policy CLI; other commands stay S4/S5",
       "tasks": ["C05", "C06", "C07", "C13", "C13a", "C16", "C16b", "C17", "C18", "C19"],
-      "remaining": "S3: checked catalog CLI and C28 evidence; S4: run, session and governed lifecycle commands; S5: capability scaffolding and contribution commands"
+      "remaining": "S3: checked catalog CLI including explicit admitted model-card registration and C28 evidence; S4: run, session and governed lifecycle commands; S5: capability scaffolding and contribution commands"
     },
     {
       "source_row": "chat.M036 objects",
-      "s3_portion": "Catalog resource kinds and declarative references; runtime objects stay S4",
-      "tasks": ["C03", "C21", "C21b"],
-      "remaining": "S3: strict resource kinds and required declarations; S4: runtime sessions, handoffs and execution objects"
+      "s3_portion": "Descriptor-extensible resource kinds including model cards; runtime objects stay S4",
+      "tasks": ["C03", "C03a", "C02a", "C10", "C11", "C12", "C16", "C21", "C21b"],
+      "remaining": "S3: generic kind lifecycle, required declarations and model-card registration; S4: runtime sessions, handoffs and execution objects"
     },
     {
       "source_row": "delivery.§2.2",
