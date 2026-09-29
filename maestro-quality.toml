@@ -314,3 +314,9 @@ words = [
   "flate",
   "nd",
 ]
+
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-kernel/src/unit_graph/mod.rs"
+item = "GraphKey"
+reason = "the public source-scoped graph read key belongs to graph storage; representation completion also reads each graph through this boundary"

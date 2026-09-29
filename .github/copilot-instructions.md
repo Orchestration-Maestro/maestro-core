@@ -421,7 +421,9 @@ in place.
 │   │   │   ├── 0008_document_guards.sql                                     # The guards of the documents: each keeps its id, collection, source and source reference
 │   │   │   ├── 0009_model_cards.sql                                         # V2 cards, evaluations, selections and immutable triggers
 │   │   │   ├── 0010_search.sql                                              # File: 0010 search
-│   │   │   └── 0011_exact_identifiers.sql                                   # Exact, publish-time identifier membership
+│   │   │   ├── 0011_exact_identifiers.sql                                   # Exact, publish-time identifier membership
+│   │   │   ├── 0017_unit_graphs.sql                                         # File: 0017 unit graphs
+│   │   │   └── 0018_retrieval_representations.sql                           # File: 0018 retrieval representations
 │   │   ├── src/                                                             # The crate's sources
 │   │   │   ├── artifact/                                                    # Content-addressed artifacts: immutable bytes stored, and read back, by their
 │   │   │   │   ├── digest.rs                                                # A SHA-256 digest: the name every artifact is stored under
@@ -605,6 +607,13 @@ in place.
 │   │   │   │   ├── read.rs                                                  # Scoped model registry readers with artifact and row-metadata verification
 │   │   │   │   ├── records.rs                                               # Public metadata for immutable model registrations, evaluations and selections
 │   │   │   │   └── write.rs                                                 # Scoped transactional model registry writers
+│   │   │   ├── representation/                                              # Immutable representation manifests and one-time generation binding
+│   │   │   │   ├── error.rs                                                 # Representation-set boundary errors
+│   │   │   │   ├── mod.rs                                                   # Immutable representation manifests and one-time generation binding
+│   │   │   │   ├── read.rs                                                  # Scoped representation metadata and individual revision-shard reads
+│   │   │   │   ├── record.rs                                                # Representation set lifecycle, revision shards and generation binding
+│   │   │   │   ├── types.rs                                                 # Immutable revision shards and representation-set metadata
+│   │   │   │   └── validation.rs                                            # Canonical shard validation and relational set completion
 │   │   │   ├── retrieval/                                                   # Controlled, scope-bound retrieval and its shared literal search rules
 │   │   │   │   ├── tests/                                                   # Tests for exact identifier search inputs
 │   │   │   │   │   ├── deadlines.rs                                         # Cancellation and real-clock bounds on SQLite reads
@@ -652,6 +661,7 @@ in place.
 │   │   │   │   │   ├── checks.rs                                            # SQLite's quick check, damage reported as found; each recorded artifact present and intact, or named
 │   │   │   │   │   ├── connections.rs                                       # Connections: one writer shared by every thread, readers of their own, the
 │   │   │   │   │   ├── garbage.rs                                           # Garbage collection: it lists before it removes, removes only artifacts
+│   │   │   │   │   ├── graph_migrations.rs                                  # Graph migrations upgrade populated legacy stores and roll back failed DDL
 │   │   │   │   │   ├── migrations.rs                                        # Migrations: applied in number order, each once, recorded by name, and a
 │   │   │   │   │   ├── mod.rs                                               # Tests of the kernel database: its migrations, its connections, the
 │   │   │   │   │   └── support.rs                                           # What the database tests share: scratch directories, the digests of their
@@ -669,15 +679,35 @@ in place.
 │   │   │   │   ├── mod.rs                                                   # Telemetry: pinned span names and component health (building block B11)
 │   │   │   │   ├── span.rs                                                  # The spans the kernel opens, and the names they carry, pinned in one place
 │   │   │   │   └── stage.rs                                                 # One traced stage of a knowledge operation: its span, the outcome it ends
+│   │   │   ├── unit_graph/                                                  # Digest-bound delivery graphs and source-scoped persistence
+│   │   │   │   ├── tests/                                                   # Graph persistence and source authorization regressions
+│   │   │   │   │   ├── mod.rs                                               # Graph persistence and source authorization regressions
+│   │   │   │   │   ├── records.rs                                           # Record/read atomicity and hidden-ancestry refusal
+│   │   │   │   │   ├── representations.rs                                   # Revision shards complete frozen representation sets and bind once
+│   │   │   │   │   ├── scale.rs                                             # Synthetic graph size and indexed candidate lookup, without row explosion
+│   │   │   │   │   └── support.rs                                           # Synthetic source, graph and kernel records shared by persistence tests
+│   │   │   │   ├── coverage.rs                                              # Exact ownership and source accounting, with structural references by ID
+│   │   │   │   ├── error.rs                                                 # Refusals at the graph wire and persistence boundary
+│   │   │   │   ├── group_parts.rs                                           # Canonical graph array and node part ordering
+│   │   │   │   ├── hierarchy.rs                                             # Structural ancestry and context derivation without transitive storage
+│   │   │   │   ├── mapping.rs                                               # Source accounting and explicitly typed context dependencies
+│   │   │   │   ├── membership.rs                                            # Retrieval membership identity, ordering and content coverage
+│   │   │   │   ├── mod.rs                                                   # Digest-bound delivery graphs and source-scoped persistence
+│   │   │   │   ├── read.rs                                                  # One authorized candidate revision maps to one immutable graph artifact
+│   │   │   │   ├── record.rs                                                # Atomic graph membership and artifact pins, after existing chunk recording
+│   │   │   │   ├── serialization.rs                                         # Canonical JSON serialization: typed field order, exact bytes, no extra keys
+│   │   │   │   ├── types.rs                                                 # Kernel-owned delivery graph wire values, independent of canonicalization
+│   │   │   │   └── validation.rs                                            # Validate the immutable graph before it crosses the persistence boundary
 │   │   │   ├── binding.rs                                                   # Named bindings: the local paths that the logical names of committed files
 │   │   │   ├── filesystem.rs                                                # The files and directories the kernel creates: its owner's only, and each
 │   │   │   ├── lib.rs                                                       # The kernel of Maestro: the single authoritative store every later
 │   │   │   └── paths.rs                                                     # Where the kernel keeps its data: $XDG_DATA_HOME/maestro when that names an
 │   │   ├── tests/                                                           # Integration tests
-│   │   │   └── fixtures/                                                    # Test fixtures
-│   │   │       ├── unit-graph-v1.json                                       # JSON data: unit graph v1
-│   │   │       ├── unit-graph-v1.txt                                        # Text: unit graph v1
-│   │   │       └── unit-mapping-v1.json                                     # JSON data: unit mapping v1
+│   │   │   ├── fixtures/                                                    # Test fixtures
+│   │   │   │   ├── unit-graph-v1.json                                       # JSON data: unit graph v1
+│   │   │   │   ├── unit-graph-v1.txt                                        # Text: unit graph v1
+│   │   │   │   └── unit-mapping-v1.json                                     # JSON data: unit mapping v1
+│   │   │   └── unit_graph_wire.rs                                           # The shared B06/B07 wire fixture is a canonical, validated CAS payload
 │   │   └── Cargo.toml                                                       # Crate manifest: The single authoritative store of Maestro, starting with its content-addressed artifacts
 │   ├── maestro-knowledge/                                                   # Maestro knowledge
 │   │   ├── src/                                                             # The crate's sources
