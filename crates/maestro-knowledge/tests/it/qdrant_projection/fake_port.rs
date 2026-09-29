@@ -30,17 +30,17 @@ use std::{
 use tokio::time::Instant;
 
 #[derive(Debug, Default)]
-struct FakePort {
-    collections: Mutex<HashMap<String, FakeCollection>>,
-    aliases: Mutex<HashMap<String, String>>,
-    fail_on: Mutex<Option<&'static str>>,
+pub(super) struct FakePort {
+    pub(super) collections: Mutex<HashMap<String, FakeCollection>>,
+    pub(super) aliases: Mutex<HashMap<String, String>>,
+    fail_on: Mutex<Option<(&'static str, usize)>>,
 }
 
 #[derive(Debug, Default)]
-struct FakeCollection {
-    layout: Option<CollectionLayout>,
-    points: HashMap<String, PointHit>,
-    fields: BTreeMap<String, String>,
+pub(super) struct FakeCollection {
+    pub(super) layout: Option<CollectionLayout>,
+    pub(super) points: HashMap<String, PointHit>,
+    pub(super) fields: BTreeMap<String, String>,
 }
 
 impl FakePort {
@@ -49,18 +49,28 @@ impl FakePort {
     }
 
     fn fail(&self, operation: &'static str) {
-        *self.fail_on.lock().unwrap() = Some(operation);
+        *self.fail_on.lock().unwrap() = Some((operation, 0));
+    }
+
+    pub(super) fn fail_after(&self, operation: &'static str, successful_calls: usize) {
+        *self.fail_on.lock().unwrap() = Some((operation, successful_calls));
     }
 
     fn maybe_fail(&self, operation: &'static str) -> Result<(), ProjectionError> {
-        if *self.fail_on.lock().unwrap() == Some(operation) {
-            Err(ProjectionError::new(format!("fake refused {operation}")))
-        } else {
-            Ok(())
+        let mut failure = self.fail_on.lock().unwrap();
+        if let Some((target, remaining)) = failure.as_mut()
+            && *target == operation
+        {
+            if *remaining == 0 {
+                *failure = None;
+                return Err(ProjectionError::new(format!("fake refused {operation}")));
+            }
+            *remaining -= 1;
         }
+        Ok(())
     }
 
-    fn drop_point(&self, collection: &str, id: &str) {
+    pub(super) fn drop_point(&self, collection: &str, id: &str) {
         if let Some(collection) = self.collections.lock().unwrap().get_mut(collection) {
             collection.points.remove(id);
         }

@@ -1124,6 +1124,7 @@ in place.
 │   │   │       │   ├── backends.rs                                          # The Qdrant servers a test runs against, and what it reads back from them
 │   │   │       │   ├── built_generations.rs                                 # A generation builds in its own collection; its points, payloads and IDs
 │   │   │       │   ├── fake_port.rs                                         # Publication and standalone verification through a transport-independent projection fake
+│   │   │       │   ├── fake_port_failures.rs                                # Failure, resume, and rollback tests for the fake projection port
 │   │   │       │   ├── kernel.rs                                            # A kernel holding a complete chunk set to publish, in a scratch directory
 │   │   │       │   ├── mod.rs                                               # The Qdrant projection (T026), against a fake Qdrant and a real one when named
 │   │   │       │   ├── models.rs                                            # The embedder the tests publish through, which records and spoils calls on demand
