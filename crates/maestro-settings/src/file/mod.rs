@@ -7,6 +7,8 @@ mod bounded;
 mod edit;
 mod layers;
 mod place;
+#[cfg(all(test, target_os = "linux"))]
+mod tests;
 #[cfg(unix)]
 mod unix;
 #[cfg(windows)]

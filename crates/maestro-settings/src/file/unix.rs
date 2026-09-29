@@ -2,7 +2,6 @@
 //! directory, never a path, with `O_NOFOLLOW`, so a link swapped in after a
 //! check is refused rather than followed (rustix's `openat` family).
 
-use super::place::FilePlace;
 use rustix::{
     fs::{AtFlags, FileType, Mode, OFlags, mkdirat, open, openat, renameat, statat, unlinkat},
     io::Errno,
@@ -11,6 +10,7 @@ use std::{
     ffi::OsStr,
     fs::{self, File},
     io,
+    path::Path,
 };
 
 /// Why a name is refused: a link where a file or a directory must be.
@@ -21,30 +21,36 @@ pub(super) const LINK: &str = "a link is never followed";
 pub(super) struct Directory(File);
 
 impl Directory {
-    /// The directory of `place`: its trusted directory opened by path, then
-    /// the directory below it opened without following a link. Missing
+    /// `root_path`, then `below` opened without following a link. Missing
     /// directories are created when `create`, else `None`.
-    pub(super) fn open(place: &FilePlace, create: bool) -> io::Result<Option<Self>> {
+    pub(super) fn open(
+        root_path: &Path,
+        below: Option<&OsStr>,
+        create: bool,
+    ) -> io::Result<Option<Self>> {
         if create {
-            fs::create_dir_all(place.root())?;
+            fs::create_dir_all(root_path)?;
         }
-        let flags = OFlags::RDONLY | OFlags::DIRECTORY | OFlags::CLOEXEC;
-        let root = match open(place.root(), flags, Mode::empty()) {
+        // Each union combines distinct single-bit flags; RDONLY is zero and omitted.
+        let root_flags = OFlags::DIRECTORY.union(OFlags::CLOEXEC);
+        let root = match open(root_path, root_flags, Mode::empty()) {
             Ok(root) => File::from(root),
             Err(Errno::NOENT) => return Ok(None),
             Err(error) => return Err(error.into()),
         };
-        let Some(below) = place.below() else {
+        let Some(below) = below else {
             return Ok(Some(Self(root)));
         };
-        let flags = flags | OFlags::NOFOLLOW;
-        let opened = match openat(&root, below, flags, Mode::empty()) {
+        let below_flags = OFlags::DIRECTORY
+            .union(OFlags::CLOEXEC)
+            .union(OFlags::NOFOLLOW);
+        let opened = match openat(&root, below, below_flags, Mode::empty()) {
             Err(Errno::NOENT) if create => {
                 match mkdirat(&root, below, Mode::RWXU) {
                     Ok(()) | Err(Errno::EXIST) => {}
                     Err(error) => return Err(error.into()),
                 }
-                openat(&root, below, flags, Mode::empty())
+                openat(&root, below, below_flags, Mode::empty())
             }
             opened => opened,
         };
@@ -58,7 +64,9 @@ impl Directory {
     /// The regular file `name`, opened for reading without following a
     /// link or blocking on a FIFO; `None` when it does not exist.
     pub(super) fn open_regular(&self, name: &OsStr) -> io::Result<Option<File>> {
-        let flags = OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::NONBLOCK | OFlags::CLOEXEC;
+        let flags = OFlags::NOFOLLOW
+            .union(OFlags::NONBLOCK)
+            .union(OFlags::CLOEXEC);
         let file = match openat(&self.0, name, flags, Mode::empty()) {
             Ok(file) => File::from(file),
             Err(Errno::NOENT) => return Ok(None),
@@ -69,8 +77,11 @@ impl Directory {
 
     /// The lock file `name`, created when absent, never through a link.
     pub(super) fn lock_file(&self, name: &OsStr) -> io::Result<File> {
-        let flags = OFlags::RDWR | OFlags::CREATE | OFlags::NOFOLLOW | OFlags::CLOEXEC;
-        openat(&self.0, name, flags, Mode::RUSR | Mode::WUSR)
+        let flags = OFlags::RDWR
+            .union(OFlags::CREATE)
+            .union(OFlags::NOFOLLOW)
+            .union(OFlags::CLOEXEC);
+        openat(&self.0, name, flags, Mode::RUSR.union(Mode::WUSR))
             .map_err(|error| refusal(&self.0, name, error))
             .map(File::from)
             .and_then(regular)
@@ -79,13 +90,16 @@ impl Directory {
     /// A new file `name`, readable and writable by its owner alone; a name
     /// that exists, link or not, is refused.
     pub(super) fn create_private(&self, name: &OsStr) -> io::Result<File> {
-        let flags =
-            OFlags::WRONLY | OFlags::CREATE | OFlags::EXCL | OFlags::NOFOLLOW | OFlags::CLOEXEC;
+        let flags = OFlags::WRONLY
+            .union(OFlags::CREATE)
+            .union(OFlags::EXCL)
+            .union(OFlags::NOFOLLOW)
+            .union(OFlags::CLOEXEC);
         Ok(File::from(openat(
             &self.0,
             name,
             flags,
-            Mode::RUSR | Mode::WUSR,
+            Mode::RUSR.union(Mode::WUSR),
         )?))
     }
 

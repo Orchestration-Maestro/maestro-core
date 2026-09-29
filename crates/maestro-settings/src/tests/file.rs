@@ -84,6 +84,50 @@ fn an_edit_publishes_the_whole_file_and_keeps_only_the_file_and_its_lock() {
     assert_eq!(scratch.names(), ["config.toml", "config.toml.lock"]);
 }
 
+#[cfg(target_os = "linux")]
+#[test]
+fn a_fifo_cannot_be_used_as_the_trusted_directory() {
+    use rustix::fs::{Mode, mkfifoat};
+    use std::time::Duration;
+
+    let scratch = Scratch::new();
+    let root = fs::File::open(&scratch.0).unwrap();
+    mkfifoat(&root, "root-pipe", Mode::RWXU).unwrap();
+    let path = scratch.0.join("root-pipe");
+    let (finished, result) = mpsc::channel();
+    thread::spawn(move || {
+        finished
+            .send(FileEdit::begin(FilePlace::user(&path), false, || {}))
+            .unwrap();
+    });
+    assert!(matches!(
+        result.recv_timeout(Duration::from_secs(1)),
+        Ok(Err(_))
+    ));
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn an_edit_does_not_pass_the_trusted_directory_to_child_processes() {
+    use std::process::Command;
+
+    let scratch = Scratch::new();
+    let _edit = FileEdit::begin(FilePlace::user(&scratch.0), true, || {}).unwrap();
+    let child = Command::new("sh")
+        .args([
+            "-c",
+            "for fd in /proc/self/fd/*; do readlink \"$fd\" || true; done",
+        ])
+        .output()
+        .unwrap();
+    assert!(child.status.success());
+    let descriptors = String::from_utf8_lossy(&child.stdout);
+    assert!(
+        !descriptors.contains(scratch.0.to_str().unwrap()),
+        "{descriptors}"
+    );
+}
+
 #[test]
 fn an_edit_that_would_create_nothing_creates_no_directory() {
     let scratch = Scratch::new();

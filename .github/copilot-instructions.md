@@ -1252,6 +1252,7 @@ in place.
 │   │   │   │   ├── layers.rs                                                # The file adapter of [LayerSource]: the user's preferences.toml in
 │   │   │   │   ├── mod.rs                                                   # A preferences file's own I/O: its directory opened without following a
 │   │   │   │   ├── place.rs                                                 # Where a preferences file lives: a directory the caller trusts, the one
+│   │   │   │   ├── tests.rs                                                 # Tests for the file adapter's private platform operations
 │   │   │   │   ├── unix.rs                                                  # Unix: every name below the trusted directory resolves against an open
 │   │   │   │   ├── windows.rs                                               # Windows: names resolve by path, but the directory of the file is held
 │   │   │   │   └── windows_logic.rs                                         # Platform-neutral Windows decisions, tested on every host
