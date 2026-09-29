@@ -8,7 +8,9 @@ use std::{
     fmt,
     future::Future,
     pin::pin,
+    sync::mpsc::RecvTimeoutError,
     sync::{Arc, LazyLock, Mutex, mpsc},
+    time::Duration,
 };
 use tokio::{sync::Notify, task, time};
 use tracing::{
@@ -35,7 +37,7 @@ pub(super) async fn on_stopped_clock<T>(
 ) -> T {
     time::pause();
     let (unhold, held) = mpsc::channel::<()>();
-    let hold = task::spawn_blocking(move || held.recv());
+    let hold = task::spawn_blocking(move || held.recv_timeout(Duration::from_secs(10)));
     let mut unhold = Some(unhold);
     let mut release = pin!(release);
     let mut work = pin!(work);
@@ -46,7 +48,11 @@ pub(super) async fn on_stopped_clock<T>(
         }
     };
     drop(unhold);
-    hold.await.unwrap().unwrap_err();
+    assert_eq!(
+        hold.await.unwrap(),
+        Err(RecvTimeoutError::Disconnected),
+        "clock held 10 s without a release"
+    );
     time::resume();
     output
 }
