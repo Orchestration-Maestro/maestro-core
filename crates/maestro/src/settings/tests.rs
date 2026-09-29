@@ -114,6 +114,14 @@ fn every_default_is_the_measured_default() {
 }
 
 #[test]
+fn rerank_depth_cannot_exceed_the_configured_fusion_pool() {
+    let scratch = Scratch::new();
+    scratch.user("[search]\nfusion_pool = 20\n[search.rerank]\ndepth = 21\n");
+    let error = scratch.session(&[]).knowledge().unwrap_err().to_string();
+    assert!(error.contains("search.rerank.depth (21) must not exceed search.fusion_pool (20)"));
+}
+
+#[test]
 fn the_descriptors_name_exactly_the_values_their_consumers_accept() {
     let registry = Registry::built_in().unwrap();
     let values = |key: &str| match &registry.get(key).unwrap().kind {
@@ -162,13 +170,19 @@ fn the_descriptors_name_exactly_the_values_their_consumers_accept() {
 }
 
 #[test]
+#[expect(
+    clippy::too_many_lines,
+    reason = "this full configuration assertion pins every mapped setting"
+)]
 fn each_setting_reaches_the_knowledge_operations() {
     let scratch = Scratch::new();
     scratch.user(
         "language = \"fr-CA\"\ntone = \"detailed\"\n\
          [search]\nk = 12\nevidence_bytes = 4000\ndeadline_ms = 9000\nrrf_k = 40\n\
-         stage_window_ms = 1200\nroutes = { dense = false, lexical = true, identifier = false, \
-         structured = false }\nweights = { dense = 0.5, lexical = 2, identifier = 3, \
+         stage_window_ms = 1200\n\
+         routes = { dense = false, lexical = true, identifier = false, \
+         structured = false, limit = 32, identifier_limit = 8 }\n\
+         weights = { dense = 0.5, lexical = 2, identifier = 3, \
          structured = 0 }\nidentifier = { noise_guard = true }\n\
          [search.rerank]\ndepth = 50\nblend = 0.25\ndemotion_cap = 4\n\
          context = \"bounded_section\"\n\
@@ -201,6 +215,9 @@ fn each_setting_reaches_the_knowledge_operations() {
             identifier_weight: 3.0,
             structured_weight: 0.0,
             rerank_enabled: true,
+            routes_limit: 32,
+            identifier_limit: 8,
+            fusion_pool: 120,
             rerank_depth: NonZeroUsize::new(50).unwrap(),
             min_rerank_score: Some(-1.5),
             rerank_blend: Some(0.25),

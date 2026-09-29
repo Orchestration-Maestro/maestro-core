@@ -77,6 +77,12 @@ pub struct SearchConfiguration {
     /// The most candidates the intent votes may add to the rerank beyond
     /// the original top-depth, which the rerank always keeps.
     pub intent_rerank_additions: usize,
+    /// Maximum candidates each general retrieval route returns.
+    pub routes_limit: usize,
+    /// Maximum identifier candidates, additionally bounded by `routes_limit`.
+    pub identifier_limit: usize,
+    /// Maximum candidates retained through fusion, no greater than 120.
+    pub fusion_pool: usize,
     /// Whether dense retrieval runs.
     pub dense_enabled: bool,
     /// Whether lexical retrieval runs.
@@ -123,6 +129,15 @@ pub struct SearchConfiguration {
     pub source_prior: SourcePrior,
 }
 
+impl SearchConfiguration {
+    /// Default candidate limit for dense, lexical and intent routes.
+    pub const DEFAULT_ROUTES_LIMIT: usize = 100;
+    /// Default identifier-route candidate cap.
+    pub const DEFAULT_IDENTIFIER_LIMIT: usize = 20;
+    /// Default fusion pool and its hard handoff ceiling.
+    pub const MAX_FUSION_POOL: usize = 120;
+}
+
 impl Default for SearchConfiguration {
     fn default() -> Self {
         #[expect(clippy::expect_used, reason = "60 is the fixed nonzero default")]
@@ -133,6 +148,9 @@ impl Default for SearchConfiguration {
             intent_deadline_ms: 4000,
             intent_weight: 1.0,
             intent_rerank_additions: 10,
+            routes_limit: Self::DEFAULT_ROUTES_LIMIT,
+            identifier_limit: Self::DEFAULT_IDENTIFIER_LIMIT,
+            fusion_pool: Self::MAX_FUSION_POOL,
             dense_enabled: true,
             lexical_enabled: true,
             identifier_enabled: true,

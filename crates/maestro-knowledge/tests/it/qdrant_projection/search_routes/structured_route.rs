@@ -51,6 +51,7 @@ async fn inventory_counts_each_eligible_member_once_independent_of_limit() {
         scopes: &kernel.scopes,
         text: "how many documents",
         limit: 1,
+        identifier_limit: 1,
         version: None,
         qdrant: &qdrant,
     };

@@ -84,6 +84,9 @@ fn a_stage_the_rung_disables_never_fails_the_search() {
         dense_enabled: false,
         lexical_enabled: false,
         rerank_enabled: false,
+        routes_limit: 100,
+        identifier_limit: 20,
+        fusion_pool: 120,
         ..SearchConfiguration::default()
     };
     for stage in ["dense", "lexical", "rerank"] {

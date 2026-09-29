@@ -58,7 +58,8 @@ pub(super) async fn execute<P: ModelPort, R: RetrievalProjectionPort>(
         generation: &admitted.generation,
         scopes: &admitted.scopes,
         text: &expansion.passage,
-        limit: 100,
+        limit: admitted.configuration.routes_limit,
+        identifier_limit: admitted.configuration.identifier_limit,
         version: admitted.version.as_deref(),
         qdrant: context.qdrant,
     };

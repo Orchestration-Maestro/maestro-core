@@ -387,6 +387,7 @@ async fn publication_and_standalone_verification_use_the_fake_port() {
         scopes: &kernel.scopes,
         text: "guide",
         limit: 5,
+        identifier_limit: 5,
         version: None,
         qdrant: &fake,
     };

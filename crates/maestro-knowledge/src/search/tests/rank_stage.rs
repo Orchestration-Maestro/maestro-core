@@ -276,6 +276,9 @@ async fn a_disabled_rerank_expands_nothing() {
     let port = FakePort::scores(vec![0.9, 0.5, 0.1]);
     let configuration = SearchConfiguration {
         rerank_enabled: false,
+        routes_limit: 100,
+        identifier_limit: 20,
+        fusion_pool: 120,
         ..bounded()
     };
     let admitted = corpus.admitted("run a task", configuration);

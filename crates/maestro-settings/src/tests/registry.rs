@@ -60,6 +60,18 @@ fn built_in_registry_is_valid_and_resolves_each_default() {
 fn measured_search_defaults_are_registered() {
     let registry = Registry::built_in().unwrap();
     assert_eq!(
+        registry.default_of("search.routes.limit"),
+        Some(&Value::Integer(100))
+    );
+    assert_eq!(
+        registry.default_of("search.routes.identifier_limit"),
+        Some(&Value::Integer(20))
+    );
+    assert_eq!(
+        registry.default_of("search.fusion_pool"),
+        Some(&Value::Integer(120))
+    );
+    assert_eq!(
         registry.default_of("search.evidence_bytes"),
         Some(&Value::Integer(12_000))
     );

@@ -83,6 +83,7 @@ async fn both_routes_apply_the_scope_filter_before_top_k() {
             scopes: &scopes,
             text: TEXT,
             limit: 1,
+            identifier_limit: 1,
             version: None,
             qdrant: &qdrant,
         };
@@ -121,6 +122,7 @@ async fn dense_route_embeds_the_card_formatted_query() {
             scopes: &scopes,
             text: TEXT,
             limit: 1,
+            identifier_limit: 1,
             version: None,
             qdrant: &qdrant,
         };
@@ -167,6 +169,7 @@ async fn a_second_source_grant_cannot_search_another_sources_duplicate() {
             scopes: &scopes,
             text: &text,
             limit: 10,
+            identifier_limit: 10,
             version: None,
             qdrant: &qdrant,
         };
@@ -244,6 +247,7 @@ async fn routes_pinned_to_an_older_generation_ignore_the_moved_alias() {
             scopes: &scopes,
             text: TEXT,
             limit: 1,
+            identifier_limit: 1,
             version: None,
             qdrant: &qdrant,
         };
@@ -338,6 +342,7 @@ async fn each_route_caps_results_at_k_and_deduplicates_chunks() {
             scopes: &scopes,
             text: TEXT,
             limit: 3,
+            identifier_limit: 3,
             version: None,
             qdrant: &qdrant,
         };

@@ -123,6 +123,20 @@ pub const BUILT_IN: &[SettingDescriptor] = &[
         "Whether the structured route may run for global questions, in searches and asks.",
     ),
     free(
+        "search.routes.limit",
+        integer(1, 120),
+        "100",
+        "The maximum dense, lexical and intent candidates; identifier retrieval also uses \
+         its identifier limit.",
+    ),
+    free(
+        "search.routes.identifier_limit",
+        integer(1, 120),
+        "20",
+        "The maximum identifier candidates, additionally bounded by \
+         search.routes.limit.",
+    ),
+    free(
         "search.identifier.noise_guard",
         SettingKind::Flag,
         "false",
@@ -164,6 +178,12 @@ pub const BUILT_IN: &[SettingDescriptor] = &[
         SettingKind::Flag,
         "true",
         "Whether the reranker reorders the fused candidates.",
+    ),
+    free(
+        "search.fusion_pool",
+        integer(1, 120),
+        "120",
+        "The maximum candidates retained by fusion; rerank depth cannot exceed this value.",
     ),
     free(
         "search.rerank.depth",

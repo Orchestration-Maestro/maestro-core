@@ -160,7 +160,18 @@ impl Reader<'_, '_> {
     /// The search configuration.
     fn search(&self) -> Result<SearchConfiguration, String> {
         let rerank_depth: usize = self.whole("search.rerank.depth")?;
+        let fusion_pool: usize = self.whole("search.fusion_pool")?;
+        let identifier_limit: usize = self.whole("search.routes.identifier_limit")?;
+        if rerank_depth > fusion_pool {
+            return Err(format!(
+                "search.rerank.depth ({rerank_depth}) must not exceed \
+                 search.fusion_pool ({fusion_pool})"
+            ));
+        }
         Ok(SearchConfiguration {
+            routes_limit: self.whole("search.routes.limit")?,
+            identifier_limit,
+            fusion_pool,
             dense_enabled: self.flag("search.routes.dense")?,
             lexical_enabled: self.flag("search.routes.lexical")?,
             identifier_enabled: self.flag("search.routes.identifier")?,

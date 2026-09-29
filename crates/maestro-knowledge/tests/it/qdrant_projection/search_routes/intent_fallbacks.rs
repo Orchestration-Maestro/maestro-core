@@ -219,6 +219,9 @@ async fn a_rejected_expansion_names_the_rule_it_broke() {
             SearchConfiguration {
                 intent_expansion: IntentExpansion::Hyde,
                 rerank_enabled: false,
+                routes_limit: 100,
+                identifier_limit: 20,
+                fusion_pool: 120,
                 ..SearchConfiguration::default()
             },
         )

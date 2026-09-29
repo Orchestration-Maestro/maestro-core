@@ -68,6 +68,9 @@ fn a_manifest_holds_its_rungs_and_resolves_its_paths_from_its_directory() {
             dense_enabled: false,
             structured_enabled: false,
             rerank_enabled: false,
+            routes_limit: 100,
+            identifier_limit: 20,
+            fusion_pool: 120,
             ..SearchConfiguration::default()
         }
     );
@@ -94,6 +97,9 @@ fn a_rungs_configuration_sets_every_knob_of_search() {
             identifier_weight: 1.0,
             structured_weight: 1.0,
             rerank_enabled: true,
+            routes_limit: 100,
+            identifier_limit: 20,
+            fusion_pool: 120,
             rerank_depth: search.rerank_depth,
             min_rerank_score: Some(0.25),
             stage_window: StageWindow::Fixed(Duration::from_millis(250)),
@@ -167,7 +173,7 @@ fn each_rung_search_would_refuse_is_refused() {
         (
             "/rungs/1/configuration/rerank/depth",
             json!(121),
-            "more than 120",
+            "cannot exceed its fusion pool",
         ),
         (
             "/rungs/1/configuration/rerank/card",
@@ -423,6 +429,30 @@ fn the_identifier_noise_guard_is_off_unless_a_rung_turns_it_on() {
         serde_json::to_value(guarded).unwrap()["identifier_noise_guard"],
         json!(true)
     );
+}
+
+#[test]
+fn route_limits_and_fusion_pool_are_configurable_and_bounded() {
+    let mut value = manifest();
+    let configuration = &mut value["rungs"][1]["configuration"];
+    configuration["routes_limit"] = json!(64);
+    configuration["identifier_limit"] = json!(8);
+    configuration["fusion_pool"] = json!(40);
+    configuration["rerank"]["depth"] = json!(41);
+    assert!(refusal(&value).contains("rerank depth cannot exceed its fusion pool"));
+
+    value["rungs"][1]["configuration"]["rerank"]["depth"] = json!(40);
+    let parsed = parse(&value).unwrap();
+    let search = parsed.rungs[1].configuration.search();
+    assert_eq!(search.routes_limit, 64);
+    assert_eq!(search.identifier_limit, 8);
+    assert_eq!(search.fusion_pool, 40);
+
+    value["rungs"][1]["configuration"]["fusion_pool"] = json!(121);
+    assert!(refusal(&value).contains("fusion_pool must be between 1 and 120"));
+    value["rungs"][1]["configuration"]["fusion_pool"] = json!(40);
+    value["rungs"][1]["configuration"]["routes_limit"] = json!(0);
+    assert!(refusal(&value).contains("routes_limit must be between 1 and 120"));
 }
 
 #[test]

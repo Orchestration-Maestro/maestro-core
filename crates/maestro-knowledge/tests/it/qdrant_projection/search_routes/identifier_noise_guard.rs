@@ -13,8 +13,8 @@ use maestro_kernel::evidence::{RequestBudget, RouteStatus};
 use maestro_knowledge::{
     query::understand,
     search::{
-        DroppedIdentifier, EvidenceInput, IdentifierOutcome, Query, Route, SearchConfiguration,
-        SearchContext, SearchRequest,
+        DroppedIdentifier, EvidenceInput, IdentifierOutcome, Query, Route, RouteOutcome,
+        SearchConfiguration, SearchContext, SearchRequest,
         evidence::EvidenceSettings,
         routes::{
             dense::Embedder,
@@ -30,7 +30,7 @@ use tonic::Code;
 
 /// Twenty-one guides whose every chunk carries the version `9.0.22`, one more than the
 /// route's limit of twenty, and a lead chunk carrying the rare `ERR-042`.
-fn crowded_kernel() -> Kernel {
+pub(super) fn crowded_kernel() -> Kernel {
     Kernel::with_changed_guides(22, &|kernel, guide, mut chunks| {
         let text: &[u8] = if guide == 0 {
             b"The ctm command repairs the local cache at ERR-042."
@@ -42,6 +42,61 @@ fn crowded_kernel() -> Kernel {
         }
         chunks
     })
+}
+
+/// Searches one literal with separate general and identifier candidate caps.
+async fn identifier_search_limits(
+    fixture: &PublishedCommand,
+    text: &str,
+    route_limit: usize,
+    identifier_limit: usize,
+) -> RouteOutcome {
+    let query = Query {
+        generation: &fixture.generation,
+        scopes: &fixture.kernel.scopes,
+        text,
+        limit: route_limit,
+        identifier_limit,
+        version: None,
+        qdrant: &fixture.qdrant,
+    };
+    search_identifiers(
+        &query,
+        fixture.kernel.database.clone(),
+        &understand(text),
+        Instant::now() + Duration::from_secs(5),
+    )
+    .await
+}
+
+#[tokio::test]
+async fn identifier_limit_bounds_identifier_route_candidates() {
+    let backend = fake();
+    let kernel = Kernel::with_changed_guides(2, &|kernel, _, mut chunks| {
+        chunks[0].digest = kernel.put(b"Install version 9.0.22 of the tool.");
+        chunks
+    });
+    accept_all_revisions(&kernel);
+    let fixture = publish_kernel(&backend, kernel).await;
+    let result = identifier_search_limits(&fixture, "9.0.22", 100, 2).await;
+    assert_eq!(result.status, RouteStatus::Ok);
+    assert_eq!(result.hits.len(), 2);
+    cleanup(&backend, &[&fixture.generation]).await;
+}
+
+#[tokio::test]
+async fn smaller_shared_route_limit_bounds_identifier_candidates_too() {
+    let backend = fake();
+    let kernel = crowded_kernel();
+    accept_all_revisions(&kernel);
+    let fixture = publish_kernel(&backend, kernel).await;
+    let result = identifier_search_limits(&fixture, "9.0.22", 1, 20).await;
+    assert_eq!(
+        result.status,
+        RouteStatus::Unavailable("kernel: identifier too common".to_owned())
+    );
+    assert!(result.hits.len() <= 1);
+    cleanup(&backend, &[&fixture.generation]).await;
 }
 
 /// Runs the identifier route on `text` with the noise guard on.
@@ -62,6 +117,7 @@ fn query<'a>(fixture: &'a PublishedCommand, text: &'a str) -> Query<'a> {
         scopes: &fixture.kernel.scopes,
         text,
         limit: 20,
+        identifier_limit: 20,
         version: None,
         qdrant: &fixture.qdrant,
     }
@@ -202,6 +258,9 @@ async fn search_guarded(fixture: &PublishedCommand, text: &str, guard: bool) -> 
             dense_enabled: false,
             structured_enabled: false,
             rerank_enabled: false,
+            routes_limit: 100,
+            identifier_limit: 20,
+            fusion_pool: 120,
             identifier_noise_guard: guard,
             ..SearchConfiguration::default()
         },

@@ -20,6 +20,9 @@ async fn run(fixture: &Published, port: &IntentPort<'_>, mode: IntentExpansion) 
             intent_expansion: mode,
             intent_deadline_ms: 100,
             rerank_enabled: false,
+            routes_limit: 100,
+            identifier_limit: 20,
+            fusion_pool: 120,
             ..SearchConfiguration::default()
         },
     )
@@ -159,6 +162,9 @@ async fn intent_runs_terminology_route_without_original_word_overlap_or_a_score(
         SearchConfiguration {
             dense_enabled: false,
             rerank_enabled: false,
+            routes_limit: 100,
+            identifier_limit: 20,
+            fusion_pool: 120,
             intent_expansion: IntentExpansion::Hyde,
             intent_trigger: IntentTrigger::LowConfidence {
                 min_top_rerank: 1.0,

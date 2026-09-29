@@ -101,6 +101,15 @@ pub(super) struct RungConfiguration {
     /// The most candidates intent votes add to the rerank beyond its depth.
     #[serde(default = "default_intent_rerank_additions")]
     pub(super) intent_rerank_additions: usize,
+    /// Maximum dense, lexical and intent candidates.
+    #[serde(default = "default_routes_limit")]
+    pub(super) routes_limit: usize,
+    /// Identifier candidates, additionally bounded by `routes_limit`.
+    #[serde(default = "default_identifier_limit")]
+    pub(super) identifier_limit: usize,
+    /// Maximum candidates retained by fusion, at most 120.
+    #[serde(default = "default_fusion_pool")]
+    pub(super) fusion_pool: usize,
     /// The routes that run.
     pub(super) routes: Routes,
     /// Whether the identifier route drops identifiers too common to rank,
@@ -186,6 +195,21 @@ fn default_intent_deadline() -> u32 {
     SearchConfiguration::default().intent_deadline_ms
 }
 
+/// Default per-route candidate limit.
+fn default_routes_limit() -> usize {
+    SearchConfiguration::DEFAULT_ROUTES_LIMIT
+}
+
+/// Default identifier-route candidate cap.
+fn default_identifier_limit() -> usize {
+    SearchConfiguration::DEFAULT_IDENTIFIER_LIMIT
+}
+
+/// Default fusion pool size.
+fn default_fusion_pool() -> usize {
+    SearchConfiguration::MAX_FUSION_POOL
+}
+
 /// A present manifest weight must be a number; an omitted weight stays unset until search builds.
 fn read_intent_weight<'de, D>(deserializer: D) -> Result<Option<f64>, D::Error>
 where
@@ -237,6 +261,9 @@ impl RungConfiguration {
                 .intent_weight
                 .unwrap_or_else(|| SearchConfiguration::default().intent_weight),
             intent_rerank_additions: self.intent_rerank_additions,
+            routes_limit: self.routes_limit,
+            identifier_limit: self.identifier_limit,
+            fusion_pool: self.fusion_pool,
             dense_enabled: self.routes.dense,
             lexical_enabled: self.routes.lexical,
             identifier_enabled: self.routes.identifier,
@@ -379,6 +406,35 @@ impl Manifest {
     }
 }
 
+/// Validates limits shared by search routes, fusion and reranking.
+fn check_pipeline_limits(configuration: &RungConfiguration) -> Result<(), Failure> {
+    if !(1..=SearchConfiguration::MAX_FUSION_POOL).contains(&configuration.routes_limit) {
+        return Err(Failure::refused(
+            "a rung's routes_limit must be between 1 and 120",
+        ));
+    }
+    if !(1..=SearchConfiguration::MAX_FUSION_POOL).contains(&configuration.identifier_limit) {
+        return Err(Failure::refused(
+            "a rung's identifier_limit must be between 1 and 120",
+        ));
+    }
+    if !(1..=SearchConfiguration::MAX_FUSION_POOL).contains(&configuration.fusion_pool) {
+        return Err(Failure::refused(
+            "a rung's fusion_pool must be between 1 and 120",
+        ));
+    }
+    if configuration
+        .rerank
+        .as_ref()
+        .is_some_and(|rerank| rerank.depth.get() > configuration.fusion_pool)
+    {
+        return Err(Failure::refused(
+            "a rung's rerank depth cannot exceed its fusion pool",
+        ));
+    }
+    Ok(())
+}
+
 /// Refuses a rung whose name cannot name a file or whose configuration search
 /// would refuse.
 fn check_rung(rung: &Rung) -> Result<(), Failure> {
@@ -407,6 +463,7 @@ fn check_rung(rung: &Rung) -> Result<(), Failure> {
             "search-only evidence settings require ask false",
         ));
     }
+    check_pipeline_limits(configuration)?;
     let routes = configuration.routes;
     if !(routes.dense || routes.lexical || routes.identifier || routes.structured) {
         return Err(Failure::refused(format!(

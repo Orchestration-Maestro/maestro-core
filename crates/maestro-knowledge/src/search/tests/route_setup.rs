@@ -161,6 +161,7 @@ async fn dense_route(
         scopes: &fixture.scopes,
         text: "ERR-042",
         limit: 10,
+        identifier_limit: 10,
         version: None,
         qdrant: &qdrant,
     };

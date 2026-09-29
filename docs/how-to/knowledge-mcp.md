@@ -122,7 +122,16 @@ counts UTF-8 bytes of evidence, about 4 bytes per English or French token:
 12000 bytes is roughly 3,000 tokens, not 12,000. The answer budget stays at 6,000 bytes. About 24 KB of passages is the practical MCP maximum:
 MCP carries the evidence bundle twice in a tool result. `knowledge_ask` is
 grounded in returned evidence and can refuse when the evidence does not support
-an answer. Its search has the same 30 s cap, and each answer attempt 20 s, the
+an answer.
+
+Search pipeline caps are settings in `maestro config list`: `search.routes.limit`
+(default 100, range 1..120) bounds dense, lexical and intent routes;
+`search.routes.identifier_limit` (default 20, range 1..120) bounds identifier
+results further, so its effective cap is the smaller setting. `search.fusion_pool`
+(default 120, range 1..120) bounds fusion, and `search.rerank.depth` may not
+exceed it. The model remains selected with `maestro model select`; the `/4`
+chunk profile awaits post-M1 measurement; 2.5 seconds is a measurement bar,
+not a runtime setting. Its search has the same 30 s cap, and each answer attempt 20 s, the
 answerer's load included. The server ends a search call after 40 s and an ask
 call after 55 s, under the 60 s tool timeout common to MCP clients; a warm
 search takes under 1.5 s and a warm ask under 10 s.

@@ -12,8 +12,10 @@ pub struct Query<'a, R = Qdrant> {
     pub scopes: &'a ScopeSet,
     /// The text to search.
     pub text: &'a str,
-    /// The maximum number of chunks to return.
+    /// The maximum number of chunks to return from general routes.
     pub limit: usize,
+    /// Additional cap for identifier candidates.
+    pub identifier_limit: usize,
     /// The exact version filter selected for this request.
     pub version: Option<&'a str>,
     /// The backend holding the generation's collection.

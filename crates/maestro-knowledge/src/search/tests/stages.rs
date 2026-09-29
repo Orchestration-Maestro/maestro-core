@@ -41,6 +41,7 @@ async fn disabled_routes_short_circuit_and_enabled_failures_remain_unavailable()
         scopes: &fixture.scopes,
         text: "ERR-042",
         limit: 10,
+        identifier_limit: 20,
         version: None,
         qdrant: &qdrant,
     };
@@ -218,6 +219,7 @@ async fn each_route_and_the_rerank_report_a_passed_deadline_as_its_code() {
         scopes: &fixture.scopes,
         text: "ERR-042",
         limit: 10,
+        identifier_limit: 20,
         version: None,
         qdrant: &qdrant,
     };

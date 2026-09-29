@@ -62,6 +62,9 @@ pub(super) fn rung(name: &str) -> Rung {
             intent_deadline_ms: 4000,
             intent_weight: Some(1.0),
             intent_rerank_additions: 10,
+            routes_limit: 100,
+            identifier_limit: 20,
+            fusion_pool: 120,
             routes: Routes {
                 dense: true,
                 lexical: true,

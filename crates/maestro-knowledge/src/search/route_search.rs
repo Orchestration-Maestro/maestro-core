@@ -31,11 +31,6 @@ use std::{
     future::Future,
 };
 
-/// The dense and lexical routes' bounded candidate pool.
-const DENSE_LIMIT: usize = 100;
-/// The single reciprocal-rank fusion pool limit.
-const FUSION_POOL: usize = 120;
-
 /// Runs `route` as the stage `stage`, which records its hits and outcome.
 async fn traced_route(stage: Stage, route: impl Future<Output = RouteOutcome>) -> RouteOutcome {
     traced(stage, route, |outcome| outcome).await
@@ -148,7 +143,7 @@ pub(super) fn results(
         .clone_from(&identifier.dropped);
     let mut rerank_extra = 0;
     let fused = if intent.outcomes.is_empty() {
-        traced_fuse(&lists, configuration, FUSION_POOL)
+        traced_fuse(&lists, configuration, configuration.fusion_pool)
     } else {
         let depth = configuration.rerank_depth.get();
         // The original order alone, untraced: only its top-depth is kept.
@@ -169,6 +164,7 @@ pub(super) fn results(
             traced_fuse(&lists, configuration, usize::MAX),
             depth,
             configuration.intent_rerank_additions,
+            configuration.fusion_pool,
         );
         rerank_extra = set.added;
         observations.intent_displaced = Some(set.displaced);
@@ -256,6 +252,7 @@ fn rerank_set(
     combined: Vec<Fused>,
     depth: usize,
     additions: usize,
+    fusion_pool: usize,
 ) -> RerankSet {
     let displaced = combined
         .iter()
@@ -272,7 +269,7 @@ fn rerank_set(
     let (mut fused, rest): (Vec<_>, Vec<_>) = combined.into_iter().partition(|candidate| {
         kept.contains(&candidate.chunk_id) || added.contains(&candidate.chunk_id)
     });
-    let room = FUSION_POOL.saturating_sub(fused.len());
+    let room = fusion_pool.saturating_sub(fused.len());
     fused.extend(rest.into_iter().take(room));
     RerankSet {
         fused,
@@ -295,7 +292,8 @@ async fn original_routes<P: ModelPort, R: RetrievalProjectionPort>(
         generation: &admitted.generation,
         scopes: &admitted.scopes,
         text: &admitted.understood.normalized,
-        limit: DENSE_LIMIT,
+        limit: admitted.configuration.routes_limit,
+        identifier_limit: admitted.configuration.identifier_limit,
         version: admitted.version.as_deref(),
         qdrant: context.qdrant,
     };

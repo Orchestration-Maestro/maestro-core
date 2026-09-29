@@ -35,6 +35,9 @@ async fn ask_runs_its_search_with_the_given_configuration() {
         identifier_enabled: false,
         structured_enabled: false,
         rerank_enabled: false,
+        routes_limit: 100,
+        identifier_limit: 20,
+        fusion_pool: 120,
         ..SearchConfiguration::default()
     };
 
@@ -89,6 +92,9 @@ async fn configured_evidence_counter_reaches_assembly() {
         identifier_enabled: false,
         structured_enabled: false,
         rerank_enabled: false,
+        routes_limit: 100,
+        identifier_limit: 20,
+        fusion_pool: 120,
         ..SearchConfiguration::default()
     };
     let answer = Box::pin(ask_configured(
@@ -135,6 +141,9 @@ async fn ask_refuses_below_the_relevance_threshold_only_when_rerank_ran() {
         identifier_enabled: false,
         structured_enabled: false,
         rerank_enabled: true,
+        routes_limit: 100,
+        identifier_limit: 20,
+        fusion_pool: 120,
         min_rerank_score,
         ..SearchConfiguration::default()
     };
@@ -173,6 +182,9 @@ async fn ask_refuses_below_the_relevance_threshold_only_when_rerank_ran() {
     );
     let rerank_off = SearchConfiguration {
         rerank_enabled: false,
+        routes_limit: 100,
+        identifier_limit: 20,
+        fusion_pool: 120,
         ..reranked(Some(f32::MAX))
     };
     assert_eq!(

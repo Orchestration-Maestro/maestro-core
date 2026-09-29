@@ -105,7 +105,7 @@ pub(in crate::search) async fn search_identifiers_as<R: RetrievalProjectionPort>
             "kernel: too many identifier values",
         ));
     }
-    let limit = query.limit.min(20);
+    let limit = query.limit.min(query.identifier_limit);
     if Instant::now() >= deadline {
         return route(unavailable(Vec::new(), DEADLINE_EXCEEDED));
     }

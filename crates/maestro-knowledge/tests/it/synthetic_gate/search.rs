@@ -161,6 +161,7 @@ pub(super) fn retrieve(
         scopes: context.scopes,
         text: &question.question,
         limit: ROUTE_LIMIT,
+        identifier_limit: ROUTE_LIMIT,
         version: None,
         qdrant: context.qdrant,
     };
