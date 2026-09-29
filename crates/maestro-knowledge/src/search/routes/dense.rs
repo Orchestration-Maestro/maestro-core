@@ -26,8 +26,7 @@ pub struct Embedder<'a, P> {
 
 /// Searches the generation's dense vectors after embedding in `Room::Free`.
 ///
-/// Current `ModelCard` and `ModelPort` contracts carry no query instruction
-/// (T030 follow-up); this route applies no model prefix or instruction.
+/// Each document token-count and embedding request formats its raw input once.
 ///
 /// # Errors
 ///

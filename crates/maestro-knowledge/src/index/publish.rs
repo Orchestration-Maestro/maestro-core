@@ -239,7 +239,7 @@ impl<P: ModelPort> Projection<'_, P> {
     }
 
     /// Prevents a v2 card from reusing chunks counted for another identity.
-    fn check_counter_contract(&self, set: &ChunkSet) -> Result<(), Error> {
+    pub(super) fn check_counter_contract(&self, set: &ChunkSet) -> Result<(), Error> {
         if self.card.identity().is_none() {
             return Ok(());
         }

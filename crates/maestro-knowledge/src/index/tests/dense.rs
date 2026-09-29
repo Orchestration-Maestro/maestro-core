@@ -15,6 +15,7 @@ use std::{
     fs,
     future::{self, Future},
     num::{NonZeroU32, NonZeroUsize},
+    slice,
     sync::{Arc, Mutex},
     time::Duration,
 };
@@ -134,6 +135,65 @@ async fn indexing_formats_v2_documents_once_before_embedding() {
         .await
         .unwrap();
     assert_eq!(port.0.lock().unwrap().as_slice(), [["doc: raw passage"]]);
+}
+
+#[tokio::test]
+async fn a_document_starting_with_its_card_prefix_is_formatted_as_raw_text() {
+    let root = scratch_directory().unwrap();
+    let card =
+        ModelCard::record_v2(&Store::new(&root), &identity(Digest::of(b"qualification"))).unwrap();
+    fs::remove_dir_all(root).unwrap();
+    let port = RecordingEmbedder::default();
+    let inputs = ["doc: text that is part of the document".to_owned()];
+
+    embed(&port, &card, &inputs, Duration::from_secs(1))
+        .await
+        .unwrap();
+
+    assert_eq!(
+        port.0.lock().unwrap().as_slice(),
+        [["doc: doc: text that is part of the document"]]
+    );
+}
+
+#[tokio::test]
+async fn single_and_batch_v2_embedding_agree_with_once_formatted_inputs() {
+    let root = scratch_directory().unwrap();
+    let card =
+        ModelCard::record_v2(&Store::new(&root), &identity(Digest::of(b"qualification"))).unwrap();
+    fs::remove_dir_all(root).unwrap();
+    let port = RecordingEmbedder::default();
+    let inputs = ["first passage".to_owned(), "second passage".to_owned()];
+    let batch = embed(&port, &card, &inputs, Duration::from_secs(5))
+        .await
+        .unwrap();
+    let mut singles = Vec::new();
+    let batch_inputs = port.0.lock().unwrap().clone();
+    for input in &inputs {
+        singles.extend(
+            embed(&port, &card, slice::from_ref(input), Duration::from_secs(5))
+                .await
+                .unwrap(),
+        );
+    }
+    let calls = port.0.lock().unwrap().clone();
+
+    assert_eq!(
+        batch_inputs,
+        [["doc: first passage", "doc: second passage"]]
+    );
+    assert_eq!(
+        calls,
+        [
+            vec![
+                "doc: first passage".to_owned(),
+                "doc: second passage".to_owned()
+            ],
+            vec!["doc: first passage".to_owned()],
+            vec!["doc: second passage".to_owned()],
+        ]
+    );
+    assert_eq!(batch, singles);
 }
 
 #[tokio::test]
