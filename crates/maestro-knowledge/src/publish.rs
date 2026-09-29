@@ -90,7 +90,7 @@ impl error::Error for Error {
 /// [`Error::UnknownGeneration`] and [`Error::UnknownChunkSet`] when the
 /// caller's scopes read neither, [`Error::Generation`] or [`Error::ChunkSet`]
 /// when the kernel fails, [`Error::Artifact`] for another artifact-store
-/// failure, and [`Error::Projection`] when the projection backend fails.
+/// failure, and [`Error::Qdrant`] when the projection backend fails.
 pub async fn verify_generation(
     database: &Database,
     scopes: &ScopeSet,

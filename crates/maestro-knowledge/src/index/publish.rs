@@ -94,7 +94,7 @@ impl<
     ///
     /// Before any work, [`Error::NotAnEmbedder`], [`Error::UnknownChunkSet`]
     /// and [`Error::Incomplete`]. Part way, [`Error::Embedding`],
-    /// [`Error::Unreadable`], [`Error::Projection`] and [`Error::Stopped`], and
+    /// [`Error::Unreadable`], [`Error::Qdrant`] and [`Error::Stopped`], and
     /// the kernel's failures, all of which leave the generation as it was, so
     /// a rerun resumes it; [`Error::MissingCollection`] when a published
     /// generation's collection is gone; and [`Error::Unverified`] when a

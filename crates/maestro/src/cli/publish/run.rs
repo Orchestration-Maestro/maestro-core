@@ -142,7 +142,7 @@ impl Publication<'_> {
         let projection = Projection {
             database: &self.kernel.database,
             scopes: &self.kernel.scopes,
-            qdrant: self.qdrant,
+            projection: self.qdrant,
             port: &client,
             card: self.card,
         };

@@ -60,8 +60,8 @@ pub(super) async fn verify(
     Ok(Ok(found))
 }
 
-/// Refuses a collection of `parameters` unless its dense vector [`DENSE`]
-/// has `dimensions` compared by cosine and its sparse vector [`SPARSE`] is
+/// Refuses a collection of `parameters` unless its dense vector `DENSE`
+/// has `dimensions` compared by cosine and its sparse vector `SPARSE` is
 /// weighted by IDF.
 pub(super) fn vectors(layout: &CollectionLayout, dimensions: u64) -> Result<(), Unverified> {
     let matches = layout.dense_present
