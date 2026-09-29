@@ -62,13 +62,18 @@ mod tests {
     use crate::search::assembly_settings::ParentChainOrder;
     use crate::search::evidence::{
         budget::counter_info,
-        delivery_graph::{ChoiceKind, LegacyCanonicalGraph},
+        delivery_graph::{ChoiceKind, DeliveryChoice, LegacyCanonicalGraph},
         tests::{CandidateSource, candidate, control, prepared},
         types::EvidenceCounter,
     };
 
     use maestro_canonicalization::{Error, TokenCounter};
-    use std::{slice, sync::Arc};
+    use maestro_kernel::evidence::Span;
+    use std::{
+        collections::{BTreeMap, BTreeSet},
+        slice,
+        sync::Arc,
+    };
 
     struct OneToken;
     impl TokenCounter for OneToken {
@@ -81,6 +86,54 @@ mod tests {
         fn token_ids(&self, _: &str) -> Result<Vec<u32>, Error> {
             Ok(vec![1])
         }
+    }
+
+    #[test]
+    fn parent_chain_trials_cover_only_selected_candidates() {
+        let markdown = "# Guide\n\nAlpha text. Beta text.\n";
+        let (document, sections) = prepared(markdown, "selected-trial.md");
+        let source = CandidateSource {
+            markdown,
+            document: &document,
+            sections: &sections,
+        };
+        let candidates = [
+            candidate(source, "Guide", "Alpha", 0, None),
+            candidate(source, "Guide", "Beta", 1, None),
+        ];
+        let first = &candidates[0];
+        let second = &candidates[1];
+        let spans = BTreeMap::from([(
+            0,
+            DeliveryChoice::canonical(
+                first,
+                vec![Span {
+                    start: first.required_span.start,
+                    end: second.required_span.end,
+                }],
+                ChoiceKind::Section,
+            ),
+        )]);
+        let counter = EvidenceCounter::Utf8Bytes;
+
+        let result = fits_trial(
+            &candidates,
+            &spans,
+            &SelectionBudget {
+                expansion: ExpansionMode::ParentChain,
+                graph: &LegacyCanonicalGraph,
+                parent_chain_order: ParentChainOrder::default(),
+                max_passages: 5,
+                max_tokens: u32::MAX,
+                counter: &counter,
+                counter_info: &counter_info(&counter).unwrap(),
+                control: &control(),
+            },
+        )
+        .unwrap();
+
+        assert!(result.0);
+        assert_eq!(result.1.covered_candidates, BTreeSet::from([0]));
     }
 
     #[test]

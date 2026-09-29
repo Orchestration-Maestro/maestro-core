@@ -1,8 +1,24 @@
 //! Opt-in reranker enrichment degrades to the indexed chunk, never to a failed search.
 
 use super::support::CandidateDb;
-use crate::search::{CandidateContext, SectionClassSet, SectionPrior, candidates};
-use std::slice;
+use crate::search::{
+    CandidateContext, IntentExpansion, SearchConfiguration, SectionClassSet, SectionPrior,
+    candidate_enrichment::{self, Settings},
+    candidates,
+};
+use maestro_kernel::retrieval::ReadControl;
+use std::{
+    collections::BTreeSet,
+    num::NonZeroUsize,
+    slice,
+    sync::{Arc, atomic::AtomicBool},
+    time::{Duration, Instant},
+};
+
+#[test]
+fn elapsed_microseconds_preserve_the_measured_value() {
+    assert_eq!(candidate_enrichment::micros(Duration::from_micros(42)), 42);
+}
 
 fn all_classes() -> SectionClassSet {
     let mut classes = SectionClassSet::default();
@@ -10,6 +26,52 @@ fn all_classes() -> SectionClassSet {
         assert!(classes.insert(name));
     }
     classes
+}
+
+#[test]
+fn enrichment_loads_only_the_revisions_it_scores() {
+    let db = CandidateDb::new(b"prepared text", "docs");
+    let chunks = db
+        .database
+        .chunks(&db.scopes, &db.generation.chunk_set_id)
+        .unwrap();
+    let mut extra = chunks[0].clone();
+    extra.id = "extra-candidate".to_owned();
+    extra.revision_id = "extra-revision".to_owned();
+    let mut candidates = vec![
+        (&chunks[0], "prepared text".to_owned()),
+        (&extra, "unscored text".to_owned()),
+    ];
+    let configuration = SearchConfiguration {
+        rerank_depth: NonZeroUsize::new(1).unwrap(),
+        intent_expansion: IntentExpansion::Hyde,
+        intent_rerank_additions: 1,
+        section_prior: SectionPrior::Soft {
+            weight: 0.5,
+            classes: all_classes(),
+        },
+        ..SearchConfiguration::default()
+    };
+    let deadline = Instant::now() + Duration::from_secs(2);
+    let control = ReadControl {
+        deadline,
+        cancelled: Arc::new(AtomicBool::new(false)),
+    };
+    let enriched = candidate_enrichment::enrich(
+        (&db.database, &db.scopes, &control),
+        &Settings {
+            configuration,
+            query: "generic question",
+            generation: &db.generation,
+            deadline,
+        },
+        &mut candidates,
+    );
+
+    assert_eq!(
+        enriched.requested_revisions,
+        BTreeSet::from([db.revision_id.clone()])
+    );
 }
 
 #[tokio::test]

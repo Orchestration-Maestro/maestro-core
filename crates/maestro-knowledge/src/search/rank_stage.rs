@@ -135,7 +135,7 @@ async fn rerank_reusing<P: ModelPort>(
     let depth = configuration
         .rerank_enabled
         .then(|| configuration.rerank_depth.saturating_add(extra));
-    let Some(head) = depth.filter(|_| !known.is_empty() && !candidates.is_empty()) else {
+    let Some(head) = depth.filter(|_| !candidates.is_empty()) else {
         return rerank_candidates(understood, candidates, reranker, depth, deadline).await;
     };
     let (fresh, mut items): (Vec<_>, Vec<_>) = candidates

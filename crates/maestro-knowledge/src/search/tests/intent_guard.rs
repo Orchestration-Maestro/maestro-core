@@ -41,6 +41,7 @@ fn a_numeral_and_the_questions_ordinal_are_one_quantity() {
     }
     for passage in [
         "Notify only after the 2nd failure.",
+        "Notify only after 3x failure.",
         "Notify only after 4 failures.",
         "Notify after the third failure.",
     ] {

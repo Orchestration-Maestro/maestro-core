@@ -166,6 +166,8 @@ async fn public_pair_health_receipt_is_bound_to_the_exact_card() {
     let receipt = serde_json::to_value(health.receipt()).unwrap();
     assert_eq!(receipt["card_digest"], fixture.card.digest().as_str());
     assert_eq!(receipt["qualification_method"], "native_runtime");
+    assert_eq!(receipt["pairs"][0]["spread"], 0.7 - 0.2);
+    assert_eq!(receipt["pairs"][1]["spread"], 0.4 - 0.1);
     assert_eq!(
         port.calls.lock().unwrap().as_slice(),
         [
@@ -215,6 +217,17 @@ async fn a_health_receipt_cannot_be_recorded_against_another_card() {
 }
 
 #[tokio::test]
+async fn a_spread_exactly_at_the_minimum_is_eligible() {
+    let fixture = Fixture::new();
+    let health =
+        check_reranker_health(&ScoredPairs::new([[0.1, 0.0], [0.2, 0.0]]), &fixture.card).await;
+
+    assert_eq!(health.disposition(), EvaluationDisposition::Eligible);
+    let receipt = serde_json::to_value(health.receipt()).unwrap();
+    assert_eq!(receipt["pairs"][0]["spread"], 0.1);
+}
+
+#[tokio::test]
 async fn missing_pair_scores_are_ineligible() {
     let fixture = Fixture::new();
     let port = ScoredPairs::with_score_vectors([Vec::new(), vec![0.5, 0.0]]);
@@ -241,6 +254,14 @@ async fn nonfinite_reversed_flat_and_below_spread_scores_are_ineligible() {
         let health = check_reranker_health(&port, &fixture.card).await;
         assert_eq!(health.disposition(), EvaluationDisposition::Ineligible);
         assert!(health.failure().is_some());
+        if scores[0][0].is_nan() || scores[0][1].is_nan() {
+            assert!(
+                health
+                    .failure()
+                    .unwrap()
+                    .contains("pair scores must be finite")
+            );
+        }
     }
 }
 

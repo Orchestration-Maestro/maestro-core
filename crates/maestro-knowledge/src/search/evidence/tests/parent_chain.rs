@@ -1,5 +1,5 @@
 use super::super::{
-    EvidenceCounter, ExpansionMode,
+    EvidenceCounter, EvidenceSettings, ExpansionMode,
     budget::{count_passages, counter_info},
     selection::{SelectionBudget, SelectionCandidate, SelectionResult, select},
 };
@@ -9,6 +9,7 @@ use super::{
 };
 use crate::search::evidence::ParentChainOrder;
 use crate::search::evidence::delivery_graph::LegacyCanonicalGraph;
+use maestro_kernel::evidence::Span;
 use std::{collections::BTreeSet, fmt::Write as _};
 
 fn table() -> String {
@@ -50,10 +51,34 @@ fn parent_chain() -> ExpansionMode {
 }
 
 #[test]
+fn parent_chain_order_requires_parent_chain_expansion() {
+    for expansion in [ExpansionMode::FullSection, ExpansionMode::RelevantBlocks] {
+        assert!(
+            EvidenceSettings {
+                expansion,
+                parent_chain_order: Some(ParentChainOrder::LargestFittingParent),
+                ..EvidenceSettings::default()
+            }
+            .validate()
+            .is_err()
+        );
+    }
+    assert!(
+        EvidenceSettings {
+            expansion: ExpansionMode::ParentChain,
+            parent_chain_order: Some(ParentChainOrder::LargestFittingParent),
+            ..EvidenceSettings::default()
+        }
+        .validate()
+        .is_ok()
+    );
+}
+
+#[test]
 fn deep_row_and_header_are_exact_separate_passages() {
     let markdown = table();
     let (document, sections) = prepared(&markdown, "table.md");
-    let candidates = [candidate(
+    let mut row = candidate(
         CandidateSource {
             markdown: &markdown,
             document: &document,
@@ -63,7 +88,13 @@ fn deep_row_and_header_are_exact_separate_passages() {
         "row-180",
         0,
         None,
-    )];
+    );
+    let row_start = markdown.find("| row-180").unwrap();
+    row.required_span = Span {
+        start: row_start,
+        end: row_start + "| row-180 | Unicode Ω value |\n".len(),
+    };
+    let candidates = [row];
     let legacy = run(&candidates, &[], ExpansionMode::RelevantBlocks, 2, 1300);
     assert!(legacy.passages.is_empty());
     let result = run(&candidates, &[], parent_chain(), 2, 1300);

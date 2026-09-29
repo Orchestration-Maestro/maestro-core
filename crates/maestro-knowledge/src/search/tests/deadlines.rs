@@ -1,8 +1,8 @@
 use super::super::deadline::{
-    BlockingFailure, DeadlineElapsed, Deadlines, StageWindow, from_budget, run_blocking,
+    BlockingFailure, DeadlineElapsed, Deadlines, StageWindow, from_budget, open_at, run_blocking,
     std_deadline, until,
 };
-use maestro_kernel::evidence::RequestBudget;
+use maestro_kernel::{evidence::RequestBudget, retrieval::ReadControl};
 use std::{
     sync::{
         Arc,
@@ -15,6 +15,20 @@ use tokio::{
     sync::oneshot,
     time::{Duration, Instant, advance, sleep},
 };
+
+#[test]
+fn enrichment_cutoff_is_exclusive_at_the_deadline() {
+    let now = StdInstant::now();
+    let deadline = now + StdDuration::from_secs(1);
+    let control = ReadControl {
+        deadline,
+        cancelled: Arc::new(AtomicBool::new(false)),
+    };
+
+    assert!(open_at(&control, now));
+    assert!(!open_at(&control, deadline));
+    assert!(!open_at(&control, deadline + StdDuration::from_nanos(1)));
+}
 
 /// The cutoffs of a request that started at `started` with a deadline of
 /// `deadline_ms` and the route window `stage_window`.

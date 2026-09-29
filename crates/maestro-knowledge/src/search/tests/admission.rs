@@ -58,6 +58,19 @@ async fn an_expired_permission_recheck_reports_its_deadline() {
 }
 
 #[test]
+fn intent_rerank_additions_accept_the_maximum_and_reject_the_next_value() {
+    let budget = RequestBudget::default();
+    for additions in [0, 120] {
+        let mut request = request("query", budget, 1, None);
+        request.configuration.intent_rerank_additions = additions;
+        assert!(validate(&request).is_ok(), "{additions}");
+    }
+    let mut request = request("query", budget, 1, None);
+    request.configuration.intent_rerank_additions = 121;
+    rejected(&request, "intent rerank additions must be at most 120");
+}
+
+#[test]
 fn request_bounds_include_both_endpoints_and_reject_the_next_value() {
     let valid = RequestBudget {
         k: 50,

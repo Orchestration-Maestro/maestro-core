@@ -204,12 +204,46 @@ fn order(ranking: &Ranking) -> Vec<&str> {
 }
 
 #[tokio::test]
+async fn a_known_score_outside_rerank_depth_is_not_reused() {
+    let corpus = Corpus::new();
+    let port = FakePort::scores(vec![0.9, 0.5]);
+    let configuration = SearchConfiguration {
+        rerank_depth: NonZeroUsize::new(2).unwrap(),
+        ..SearchConfiguration::default()
+    };
+    let admitted = corpus.admitted("run a task", configuration);
+    let reranker_card = card(Role::Reranker, 8192);
+    let reranker = Reranker {
+        port: &port,
+        card: &reranker_card,
+    };
+    let mut pool = corpus.pool();
+    pool.known_scores.insert(corpus.id(2).to_owned(), 10.0);
+
+    let ranking = rank_stage::rank(
+        corpus.database.clone(),
+        Some(&reranker),
+        &admitted,
+        "run a task",
+        pool,
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(order(&ranking), [corpus.id(0), corpus.id(1), corpus.id(2)]);
+    assert_eq!(ranking.ranked[2].score, None);
+    assert_eq!(port.calls.lock().unwrap()[0].documents.len(), 2);
+}
+
+#[tokio::test]
 async fn the_reranker_reads_chunk_text_by_default() {
     let corpus = Corpus::new();
     let port = FakePort::scores(vec![0.9, 0.5, 0.1]);
     let admitted = corpus.admitted("run a task", SearchConfiguration::default());
     let ranking = corpus.rank(&port, &admitted, "run a task").await;
-    assert_eq!(port.calls.lock().unwrap()[0].documents, corpus.prepared());
+    let calls = port.calls.lock().unwrap();
+    assert_eq!(calls.len(), 1);
+    assert_eq!(calls[0].documents, corpus.prepared());
     assert_eq!(texts(&ranking), corpus.prepared());
     assert_eq!(ranking.status, RouteStatus::Ok);
     assert!(ranking.fallbacks.is_empty());

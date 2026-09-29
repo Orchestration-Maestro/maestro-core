@@ -85,11 +85,10 @@ fn without_chrome(markdown: &str, span: Span, chrome: &[SourceSpan]) -> Option<S
     let mut text = String::new();
     let mut cursor = span.start;
     for cut in chrome {
-        let (start, end) = (cut.start.max(cursor), cut.end.min(span.end));
-        if start < end {
-            text.push_str(markdown.get(cursor..start)?);
-            cursor = end;
-        }
+        let start = cut.start.clamp(cursor, span.end);
+        let end = cut.end.clamp(start, span.end);
+        text.push_str(markdown.get(cursor..start)?);
+        cursor = end;
     }
     text.push_str(markdown.get(cursor..span.end)?);
     Some(text)

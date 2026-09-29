@@ -198,5 +198,10 @@ impl Drop for CancelOnDrop {
 /// Whether optional enrichment may still read under `control`: neither
 /// cancelled nor past its cutoff.
 pub(super) fn open(control: &ReadControl) -> bool {
-    !control.cancelled.load(Ordering::Relaxed) && StdInstant::now() < control.deadline
+    open_at(control, StdInstant::now())
+}
+
+/// Whether optional enrichment remains open at the supplied real-clock instant.
+pub(super) fn open_at(control: &ReadControl, now: StdInstant) -> bool {
+    !control.cancelled.load(Ordering::Relaxed) && now < control.deadline
 }

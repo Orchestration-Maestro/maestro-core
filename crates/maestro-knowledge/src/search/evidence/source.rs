@@ -14,6 +14,8 @@ use maestro_kernel::{
     scope::ScopeSet,
     store::Database,
 };
+#[cfg(test)]
+use std::sync::Mutex;
 use std::{
     collections::{BTreeMap, BTreeSet},
     sync::atomic::{AtomicUsize, Ordering},
@@ -55,6 +57,8 @@ pub(crate) struct SourceCache<'a> {
     sources: BTreeMap<String, EvidenceSource>,
     #[cfg(test)]
     load_counts: BTreeMap<String, ArtifactLoadCounts>,
+    #[cfg(test)]
+    requested_revisions: Mutex<BTreeSet<String>>,
 }
 
 #[cfg(test)]
@@ -78,6 +82,8 @@ impl<'a> SourceCache<'a> {
             sources: BTreeMap::new(),
             #[cfg(test)]
             load_counts: BTreeMap::new(),
+            #[cfg(test)]
+            requested_revisions: Mutex::new(BTreeSet::new()),
         }
     }
 
@@ -148,6 +154,11 @@ impl<'a> SourceCache<'a> {
         if missing.is_empty() {
             return Ok(Vec::new());
         }
+        #[cfg(test)]
+        self.requested_revisions
+            .lock()
+            .unwrap()
+            .extend(missing.iter().cloned());
 
         let worker_count = worker_limit
             .clamp(1, MAX_SOURCE_LOAD_WORKERS)
@@ -233,6 +244,12 @@ impl<'a> SourceCache<'a> {
         self.load_counts
             .get(revision_id)
             .map(|counts| (counts.canonical, counts.original))
+    }
+
+    /// The distinct revisions submitted for source loading in this request.
+    #[cfg(test)]
+    pub(crate) fn requested_revisions(&self) -> BTreeSet<String> {
+        self.requested_revisions.lock().unwrap().clone()
     }
 
     /// Loads and validates one revision's scoped records and exact artifacts.

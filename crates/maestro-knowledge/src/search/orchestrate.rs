@@ -293,3 +293,35 @@ fn evidence_input(
         observations: routes.observations,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::search::request::SearchObservations;
+    use std::collections::{BTreeMap, HashMap};
+
+    #[test]
+    fn candidate_timeout_marks_rerank_unavailable_and_records_the_gap() {
+        let mut routes = RouteResults {
+            fused: Vec::new(),
+            expected_revisions: HashMap::new(),
+            routes: BTreeMap::new(),
+            inventory: None,
+            known_gaps: Vec::new(),
+            observations: SearchObservations::default(),
+            rerank_extra: 0,
+            known_scores: HashMap::new(),
+        };
+
+        candidate_timeout(&mut routes);
+
+        assert_eq!(
+            routes.known_gaps,
+            ["candidate text loading timed out".to_owned()]
+        );
+        assert_eq!(
+            routes.routes.get("rerank"),
+            Some(&RouteStatus::Unavailable(DEADLINE_EXCEEDED.to_owned()))
+        );
+    }
+}

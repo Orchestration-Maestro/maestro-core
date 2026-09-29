@@ -130,6 +130,20 @@ fn another_document_revision_or_a_touching_span_delivers_nothing() {
 }
 
 #[test]
+fn an_empty_section_extent_is_treated_as_whole_when_its_revision_is_delivered() {
+    let mut empty = section("s1");
+    empty.span = Some([10, 10]);
+    let named = Anchor {
+        section_id: Some("s1".to_owned()),
+        ..anchor([10, 11])
+    };
+    let score = one(vec![empty], vec![named]);
+
+    assert_eq!((score.delivered, score.fully_delivered), (1, 1));
+    assert_eq!(score.median_coverage_permille, Some(1000));
+}
+
+#[test]
 fn a_heading_line_overlap_delivers_a_section_but_not_whole() {
     let score = one(vec![section("s1")], vec![anchor([5, 11])]);
 
