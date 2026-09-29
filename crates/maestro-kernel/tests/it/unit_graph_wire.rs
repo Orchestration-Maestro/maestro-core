@@ -6,26 +6,26 @@ use maestro_kernel::{
     artifact::Digest,
     unit_graph::{
         DeliveryGraph, Exclusion, GroupKind, MappingContribution, MappingEntry, MappingLedger,
-        Part, RetrievalMembership, SourceRange, SplitMarker,
+        Part, SourceRange, SplitMarker,
     },
 };
 
 /// Repository text hygiene adds exactly one LF; CAS serialization does not.
 fn graph_bytes() -> &'static [u8] {
-    include_bytes!("fixtures/unit-graph-v1.json")
+    include_bytes!("../fixtures/unit-graph-v1.json")
         .strip_suffix(b"\n")
         .unwrap()
 }
 
 #[test]
 fn unit_graph_wire_golden_round_trip() {
-    let mapping = include_bytes!("fixtures/unit-mapping-v1.json")
+    let mapping = include_bytes!("../fixtures/unit-mapping-v1.json")
         .strip_suffix(b"\n")
         .unwrap();
     let graph = DeliveryGraph::from_bytes(graph_bytes()).unwrap();
     let ledger = MappingLedger::from_bytes(mapping).unwrap();
     graph
-        .validate(&ledger, include_str!("fixtures/unit-graph-v1.txt"))
+        .validate(&ledger, include_str!("../fixtures/unit-graph-v1.txt"))
         .unwrap();
     assert_eq!(graph.to_bytes().unwrap(), graph_bytes());
     assert!(
@@ -38,7 +38,7 @@ fn unit_graph_wire_golden_round_trip() {
     assert_eq!(ledger.to_bytes().unwrap(), mapping);
     assert_eq!(
         Digest::of(graph_bytes()).as_str(),
-        "f1a6562264b5d0d406204c7c57b43a61babbeb36e8416e1386ef3edc012d3664"
+        "8717210bb0b68d26265e7c2478d3a10c32932bc811bb068ba14f093672a2d01d"
     );
     assert_eq!(
         Digest::of(mapping).as_str(),
@@ -60,11 +60,11 @@ fn unit_graph_wire_refuses_noncanonical_and_duplicate_fields() {
 
 #[test]
 fn unit_graph_wire_rejects_unaccounted_or_unlinked_content() {
-    let mapping = include_bytes!("fixtures/unit-mapping-v1.json")
+    let mapping = include_bytes!("../fixtures/unit-mapping-v1.json")
         .strip_suffix(b"\n")
         .unwrap();
     let ledger = MappingLedger::from_bytes(mapping).unwrap();
-    let source = include_str!("fixtures/unit-graph-v1.txt");
+    let source = include_str!("../fixtures/unit-graph-v1.txt");
     let original: serde_json::Value = serde_json::from_slice(graph_bytes()).unwrap();
     for (pointer, value) in [
         ("/units/0/part_ids/0", serde_json::json!("missing")),
@@ -95,9 +95,9 @@ fn unit_graph_wire_rejects_unaccounted_or_unlinked_content() {
 
 #[test]
 fn unit_graph_wire_refuses_duplicate_primary_owners() {
-    let source = include_str!("fixtures/unit-graph-v1.txt");
+    let source = include_str!("../fixtures/unit-graph-v1.txt");
     let ledger = MappingLedger::from_bytes(
-        include_bytes!("fixtures/unit-mapping-v1.json")
+        include_bytes!("../fixtures/unit-mapping-v1.json")
             .strip_suffix(b"\n")
             .unwrap(),
     )
@@ -113,9 +113,9 @@ fn unit_graph_wire_refuses_duplicate_primary_owners() {
 
 #[test]
 fn unit_graph_wire_refuses_unowned_primary_parts() {
-    let source = include_str!("fixtures/unit-graph-v1.txt");
+    let source = include_str!("../fixtures/unit-graph-v1.txt");
     let ledger = MappingLedger::from_bytes(
-        include_bytes!("fixtures/unit-mapping-v1.json")
+        include_bytes!("../fixtures/unit-mapping-v1.json")
             .strip_suffix(b"\n")
             .unwrap(),
     )
@@ -124,7 +124,25 @@ fn unit_graph_wire_refuses_unowned_primary_parts() {
     graph.units[3].part_ids.remove(0);
     assert_eq!(
         graph.validate(&ledger, source).unwrap_err().to_string(),
-        "invalid graph: part has no primary unit owner"
+        "invalid graph: part has no unit, heading or context owner"
+    );
+}
+
+#[test]
+fn unit_graph_wire_refuses_heading_parts_owned_by_units() {
+    let source = include_str!("../fixtures/unit-graph-v1.txt");
+    let ledger = MappingLedger::from_bytes(
+        include_bytes!("../fixtures/unit-mapping-v1.json")
+            .strip_suffix(b"\n")
+            .unwrap(),
+    )
+    .unwrap();
+    let mut graph = DeliveryGraph::from_bytes(graph_bytes()).unwrap();
+    let heading_id = graph.groups[0].part_ids[0].clone();
+    graph.units[0].part_ids.insert(0, heading_id);
+    assert_eq!(
+        graph.validate(&ledger, source).unwrap_err().to_string(),
+        "invalid graph: heading part cannot have a primary unit owner"
     );
 }
 
@@ -132,7 +150,7 @@ fn unit_graph_wire_refuses_unowned_primary_parts() {
 fn unit_graph_wire_context_is_derived_from_typed_ancestor_relations() {
     let mut graph = DeliveryGraph::from_bytes(graph_bytes()).unwrap();
     let ledger = MappingLedger::from_bytes(
-        include_bytes!("fixtures/unit-mapping-v1.json")
+        include_bytes!("../fixtures/unit-mapping-v1.json")
             .strip_suffix(b"\n")
             .unwrap(),
     )
@@ -144,7 +162,7 @@ fn unit_graph_wire_context_is_derived_from_typed_ancestor_relations() {
     graph.groups[2].context_relations.remove(1);
     assert!(
         graph
-            .validate(&ledger, include_str!("fixtures/unit-graph-v1.txt"))
+            .validate(&ledger, include_str!("../fixtures/unit-graph-v1.txt"))
             .is_err()
     );
 }
@@ -152,12 +170,12 @@ fn unit_graph_wire_context_is_derived_from_typed_ancestor_relations() {
 #[test]
 fn unit_graph_wire_parent_parts_and_section_identity_are_exact() {
     let ledger = MappingLedger::from_bytes(
-        include_bytes!("fixtures/unit-mapping-v1.json")
+        include_bytes!("../fixtures/unit-mapping-v1.json")
             .strip_suffix(b"\n")
             .unwrap(),
     )
     .unwrap();
-    let source = include_str!("fixtures/unit-graph-v1.txt");
+    let source = include_str!("../fixtures/unit-graph-v1.txt");
     let mut graph = DeliveryGraph::from_bytes(graph_bytes()).unwrap();
     graph.groups[0].part_ids.pop();
     assert!(
@@ -174,9 +192,9 @@ fn unit_graph_wire_parent_parts_and_section_identity_are_exact() {
 
 #[test]
 fn unit_graph_wire_enforces_canonical_order_parentage_context_and_searchability() {
-    let source = include_str!("fixtures/unit-graph-v1.txt");
+    let source = include_str!("../fixtures/unit-graph-v1.txt");
     let ledger = MappingLedger::from_bytes(
-        include_bytes!("fixtures/unit-mapping-v1.json")
+        include_bytes!("../fixtures/unit-mapping-v1.json")
             .strip_suffix(b"\n")
             .unwrap(),
     )
@@ -245,9 +263,9 @@ fn unit_graph_wire_enforces_canonical_order_parentage_context_and_searchability(
 #[test]
 fn unit_graph_wire_checks_schema_profile_and_continuation() {
     use SplitMarker;
-    let source = include_str!("fixtures/unit-graph-v1.txt");
+    let source = include_str!("../fixtures/unit-graph-v1.txt");
     let ledger = MappingLedger::from_bytes(
-        include_bytes!("fixtures/unit-mapping-v1.json")
+        include_bytes!("../fixtures/unit-mapping-v1.json")
             .strip_suffix(b"\n")
             .unwrap(),
     )
@@ -268,10 +286,10 @@ fn unit_graph_wire_checks_schema_profile_and_continuation() {
 
 #[test]
 fn unit_graph_wire_accounts_a_valid_exclusion() {
-    let source = include_str!("fixtures/unit-graph-v1.txt");
+    let source = include_str!("../fixtures/unit-graph-v1.txt");
     let mut graph = DeliveryGraph::from_bytes(graph_bytes()).unwrap();
     let mut ledger = MappingLedger::from_bytes(
-        include_bytes!("fixtures/unit-mapping-v1.json")
+        include_bytes!("../fixtures/unit-mapping-v1.json")
             .strip_suffix(b"\n")
             .unwrap(),
     )
@@ -311,56 +329,64 @@ fn unit_graph_wire_accounts_a_valid_exclusion() {
 
 #[test]
 fn unit_graph_wire_tiles_utf8_parts_only_at_character_boundaries() {
-    let source = include_str!("fixtures/unit-graph-v1.txt");
+    let mut source = include_str!("../fixtures/unit-graph-v1.txt").to_owned();
+    source.replace_range(28..32, "éxy");
     let mut graph = DeliveryGraph::from_bytes(graph_bytes()).unwrap();
     let mut ledger = MappingLedger::from_bytes(
-        include_bytes!("fixtures/unit-mapping-v1.json")
+        include_bytes!("../fixtures/unit-mapping-v1.json")
             .strip_suffix(b"\n")
             .unwrap(),
     )
     .unwrap();
-    graph.parts[0].ranges[0].end = 5;
-    graph.parts[0].mappings[0].derived_range = (0, 5);
-    ledger.contributions[0].range.end = 5;
-    ledger.contributions[0].mapping.derived_range = (0, 5);
+    let source_digest = Digest::of(source.as_bytes());
+    graph.descriptor.original_markdown_digest = source_digest.clone();
+    ledger.original_markdown_digest = source_digest;
+
+    graph.parts[4].ranges[0].end = 30;
+    graph.parts[4].mappings[0].derived_range = (0, 2);
     let second = Part {
         part_id: "part-split".into(),
-        ranges: vec![SourceRange { start: 5, end: 8 }],
+        ranges: vec![SourceRange { start: 30, end: 32 }],
         mappings: vec![MappingContribution {
-            unit_id: "canonical-0".into(),
-            derived_range: (5, 8),
+            unit_id: "canonical-4".into(),
+            derived_range: (2, 4),
             mapping_mode: "exact".into(),
         }],
     };
-    graph.parts.insert(1, second);
-    graph.units[0].part_ids.insert(1, "part-split".into());
-    graph.retrieval_views[0].memberships.insert(
-        0,
-        RetrievalMembership {
-            unit_id: "heading".into(),
-            primary_part_ids: vec!["part-0".into(), "part-split".into()],
-        },
-    );
+    graph.parts.insert(5, second);
+    graph.units[3].part_ids.insert(1, "part-split".into());
+    for membership in graph
+        .retrieval_views
+        .iter_mut()
+        .flat_map(|view| &mut view.memberships)
+    {
+        if membership.unit_id == "gap" {
+            membership.primary_part_ids.push("part-split".into());
+        }
+    }
+    ledger.contributions[4].range.end = 30;
+    ledger.contributions[4].mapping.derived_range = (0, 2);
     ledger.contributions.insert(
-        1,
+        5,
         MappingEntry {
-            range: SourceRange { start: 5, end: 8 },
-            mapping: graph.parts[1].mappings[0].clone(),
+            range: SourceRange { start: 30, end: 32 },
+            mapping: graph.parts[5].mappings[0].clone(),
         },
     );
     graph.descriptor.mapping_digest = Digest::of(&ledger.to_bytes().unwrap());
-    assert!(
-        graph.validate(&ledger, source).is_ok(),
-        "{:?}",
-        graph.validate(&ledger, source)
-    );
-    graph.parts[0].ranges[0].end = 6;
-    graph.parts[1].ranges[0].start = 6;
-    ledger.contributions[0].range.end = 6;
-    ledger.contributions[1].range.start = 6;
+    assert!(graph.validate(&ledger, &source).is_ok());
+
+    graph.parts[4].ranges[0].end = 29;
+    graph.parts[4].mappings[0].derived_range = (0, 1);
+    graph.parts[5].ranges[0].start = 29;
+    graph.parts[5].mappings[0].derived_range = (1, 4);
+    ledger.contributions[4].range.end = 29;
+    ledger.contributions[4].mapping.derived_range = (0, 1);
+    ledger.contributions[5].range.start = 29;
+    ledger.contributions[5].mapping.derived_range = (1, 4);
     graph.descriptor.mapping_digest = Digest::of(&ledger.to_bytes().unwrap());
     assert!(
-        graph.validate(&ledger, source).is_err(),
+        graph.validate(&ledger, &source).is_err(),
         "a range cannot split the UTF-8 encoding of é"
     );
 }

@@ -19,7 +19,7 @@ fn span(range: SourceRange, source: &str) -> Result<(), Error> {
     )
 }
 
-/// Verifies unique graph-wide parts, ownership, mapping, and source tiling.
+/// Verifies part references, unit ownership, mapping, and source tiling.
 pub(super) fn validate(
     graph: &DeliveryGraph,
     ledger: &MappingLedger,
@@ -76,8 +76,11 @@ fn collect_parts<'a>(
     Ok(parts)
 }
 
-/// Builds the unique primary owner of every part and validates references.
-fn primary_owners(graph: &DeliveryGraph, parts: &BTreeMap<&str, &Part>) -> Result<(), Error> {
+/// Checks unique unit owners, group-only headings, and referenced context parts.
+fn primary_owners<'a>(
+    graph: &'a DeliveryGraph,
+    parts: &BTreeMap<&'a str, &Part>,
+) -> Result<(), Error> {
     let mut owners = BTreeSet::new();
     for unit in &graph.units {
         for part_id in &unit.part_ids {
@@ -91,9 +94,28 @@ fn primary_owners(graph: &DeliveryGraph, parts: &BTreeMap<&str, &Part>) -> Resul
             )?;
         }
     }
+    let headings: BTreeSet<_> = graph
+        .groups
+        .iter()
+        .filter_map(|group| group.heading.as_deref())
+        .collect();
+    let context_parts: BTreeSet<_> = graph
+        .groups
+        .iter()
+        .flat_map(|group| group.context_relations.iter())
+        .map(|relation| relation.part_id.as_str())
+        .collect();
     require(
-        owners.len() == parts.len(),
-        "part has no primary unit owner",
+        headings
+            .iter()
+            .all(|heading| parts.contains_key(heading) && !owners.contains(heading)),
+        "heading part cannot have a primary unit owner",
+    )?;
+    require(
+        parts.keys().all(|part| {
+            owners.contains(part) || headings.contains(part) || context_parts.contains(part)
+        }),
+        "part has no unit, heading or context owner",
     )?;
     for group in &graph.groups {
         require(
@@ -118,7 +140,7 @@ fn primary_owners(graph: &DeliveryGraph, parts: &BTreeMap<&str, &Part>) -> Resul
     Ok(())
 }
 
-/// Checks exact one-to-one primary range and mapping ledger equality.
+/// Checks exact one-to-one graph-part range and mapping ledger equality.
 fn validate_mappings(graph: &DeliveryGraph, ledger: &MappingLedger) -> Result<(), Error> {
     let mut owned = BTreeMap::new();
     for part in &graph.parts {
@@ -142,7 +164,7 @@ fn validate_mappings(graph: &DeliveryGraph, ledger: &MappingLedger) -> Result<()
     Ok(())
 }
 
-/// Checks that owned source bytes plus exclusions exactly tile the original.
+/// Checks that all part ranges plus ineligible exclusions tile the original.
 fn validate_partition(
     graph: &DeliveryGraph,
     ledger: &MappingLedger,

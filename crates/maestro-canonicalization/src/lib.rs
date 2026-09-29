@@ -56,6 +56,6 @@ pub use unit_graph::{
     ContextRelation, CoverageEntry, DeliveryGraph, DeliveryUnit, Exclusion, FamilyKey,
     GraphDescriptor, Group, GroupKind, MappingArtifact, MappingContribution, MappingEntry,
     PartRole, RankedUnit, RetrievalMembership, RetrievalView, SourcePart, SourceRange, SplitMarker,
-    UnitBatch, UnitGraphInput, UnitKind, UnitProfile, UnitSizeLimits, serialize_graph,
-    serialize_mapping, unit_documents,
+    UnitBatch, UnitGraphError, UnitGraphInput, UnitKind, UnitProfile, UnitSizeLimits,
+    serialize_graph, serialize_mapping, unit_documents,
 };

@@ -1,6 +1,7 @@
 //! Whole-table packing when its complete prepared input fits the pinned counter limit.
 use super::{
-    prepared::{prepared_text, size_limit},
+    group_helpers::{SourceIndex, first_start},
+    prepared::{MappedTextIndex, prepared_text, size_limit},
     profile::UnitProfile,
     types::{DeliveryUnit, PartRole, SplitMarker, UnitGraphInput, UnitKind},
 };
@@ -8,15 +9,22 @@ use crate::{
     content::{Block, BlockType},
     error::Error,
     hashing::digest,
-    source_units::MappedDocument,
     tokenizer::TokenCounter,
 };
-use std::collections::BTreeSet;
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    slice,
+};
 
 /// Replace complete source rows with one complete-table unit only when the verified counter fits.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "The packer consumes distinct document, mapping, graph, profile, and counter inputs."
+)]
 pub(super) fn pack_small_tables(
     input: &UnitGraphInput<'_>,
-    mapped: &MappedDocument,
+    mapped_index: &MappedTextIndex<'_>,
+    index: &SourceIndex<'_>,
     units: &mut Vec<DeliveryUnit>,
     profile: UnitProfile,
     counter: &(impl TokenCounter + ?Sized),
@@ -27,45 +35,43 @@ pub(super) fn pack_small_tables(
         .iter()
         .filter(|block| block.block_type == BlockType::Table)
         .collect();
+    let mut units_by_block = BTreeMap::<String, Vec<usize>>::new();
+    for (unit_index, unit) in units.iter().enumerate() {
+        units_by_block
+            .entry(unit.source_block_id.clone())
+            .or_default()
+            .push(unit_index);
+    }
     for table in tables {
-        let source_blocks: BTreeSet<_> = input
-            .document
-            .blocks
+        let source_blocks: BTreeSet<_> = index
+            .descendants(&table.block_id)
             .iter()
-            .filter(|block| {
-                matches!(block.block_type, BlockType::TableHead | BlockType::TableRow)
-                    && block_below(input, block, &table.block_id)
-            })
+            .filter(|block| matches!(block.block_type, BlockType::TableHead | BlockType::TableRow))
             .map(|block| block.block_id.as_str())
             .collect();
-        let candidates: Vec<_> = units
+        let candidate_indices: Vec<_> = source_blocks
             .iter()
-            .filter(|unit| source_blocks.contains(unit.source_block_id.as_str()))
+            .flat_map(|block_id| units_by_block.get(*block_id).into_iter().flatten().copied())
             .collect();
-        if candidates.is_empty() {
+        if candidate_indices.is_empty() {
             continue;
         }
+        let candidates: Vec<_> = candidate_indices
+            .iter()
+            .filter_map(|index| units.get(*index))
+            .collect();
         let candidate_ids: BTreeSet<_> =
             candidates.iter().map(|unit| unit.unit_id.clone()).collect();
         let complete = complete_table_unit(table, &candidates, input)?;
+        drop(candidates);
         if counter
-            .token_ids(&prepared_text(&complete, mapped, &[], &[])?)?
+            .token_ids(&prepared_text(&complete, mapped_index, &[], &[])?)?
             .len()
             <= size_limit(profile, UnitKind::Table)
         {
             units.retain(|unit| !candidate_ids.contains(&unit.unit_id));
             units.push(complete);
-            units.sort_by_key(|unit| {
-                (
-                    unit.parts
-                        .iter()
-                        .flat_map(|part| &part.ranges)
-                        .map(|range| range.start)
-                        .min()
-                        .unwrap_or(usize::MAX),
-                    unit.unit_id.clone(),
-                )
-            });
+            units.sort_by_key(|unit| (first_start(&unit.parts), unit.unit_id.clone()));
         }
     }
     Ok(())
@@ -83,13 +89,7 @@ fn complete_table_unit(
         .filter(|part| part.role == PartRole::Primary)
         .cloned()
         .collect();
-    parts.sort_by_key(|part| {
-        part.ranges
-            .iter()
-            .map(|range| range.start)
-            .min()
-            .unwrap_or(usize::MAX)
-    });
+    parts.sort_by_key(|part| first_start(slice::from_ref(part)));
     for (ordinal, part) in parts.iter_mut().enumerate() {
         part.ordinal = ordinal;
     }
@@ -112,34 +112,8 @@ fn complete_table_unit(
         source_block_id: table.block_id.clone(),
         section_id: table.parent_section_id.clone(),
         heading_path: table.heading_path.clone(),
-        occurrence: 0,
-        parent_id: table
-            .parent_block_id
-            .as_ref()
-            .map(|parent| format!("block-{parent}")),
+        parent_id: None,
         parts,
         split: SplitMarker::Whole,
     })
-}
-
-/// Check whether the block is equal to or below the ancestor in canonical parent links.
-fn block_below(input: &UnitGraphInput<'_>, block: &Block, ancestor: &str) -> bool {
-    let mut current = block;
-    loop {
-        if current.block_id == ancestor {
-            return true;
-        }
-        let Some(parent) = current.parent_block_id.as_deref() else {
-            return false;
-        };
-        let Some(next) = input
-            .document
-            .blocks
-            .iter()
-            .find(|candidate| candidate.block_id == parent)
-        else {
-            return false;
-        };
-        current = next;
-    }
 }

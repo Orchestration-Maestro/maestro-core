@@ -1,13 +1,14 @@
 //! Build a delivery graph from checked canonical mappings and ranked views.
 use super::{
+    group_helpers::{SourceIndex, sha},
     prepared::{
-        PreparedInputs, prepared_text, size_limit, unit_context_parts, unit_heading_parts,
-        validate_unit_sizes,
+        GraphIndex, MappedTextIndex, prepared_text, size_limit, unit_all_context_parts_indexed,
+        unit_context_parts_indexed, unit_heading_parts_indexed,
     },
     profile::{RankedUnit, UnitProfile},
     types::{
         DeliveryGraph, DeliveryUnit, GraphDescriptor, PartRole, RetrievalMembership, RetrievalView,
-        SourceRange, UnitBatch, UnitGraphInput,
+        SourceRange, UnitBatch, UnitGraphError, UnitGraphInput,
     },
 };
 use crate::{
@@ -20,25 +21,23 @@ use crate::{
     source_units::MappedDocument,
     tokenizer::TokenCounter,
 };
-use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
 
 /// Build the opt-in /4 graph and the selected retrieval ranking views.
 ///
 /// # Errors
 /// Refuses invalid authorization, canonical mappings, counters, unsupported rules, and any
-/// ambiguous or incomplete source mapping.
+/// ambiguous or incomplete source mapping. An oversized complete unit returns a typed refusal
+/// only under `V2Unit`; `CompleteIdeas` does not apply the `/4` size refusal.
 pub fn unit_documents<'a>(
     scope: &'a DedupScope,
     inputs: &[UnitGraphInput<'a>],
     warning_policy: WarningPolicy,
     profile: UnitProfile,
     counter: &(impl TokenCounter + ?Sized),
-) -> Result<UnitBatch<'a>, Error> {
+) -> Result<UnitBatch<'a>, UnitGraphError> {
     if !profile.size_limits().all_within_verified_counter_cap() {
-        return Err(Error(
-            "unit profile limits exceed the verified counter cap".into(),
-        ));
+        return Err(Error("unit profile limits exceed the verified counter cap".into()).into());
     }
     counter.verify()?;
     let dedup_inputs: Vec<_> = inputs
@@ -52,7 +51,8 @@ pub fn unit_documents<'a>(
     let mut graphs = Vec::with_capacity(inputs.len());
     let mut mappings = Vec::with_capacity(inputs.len());
     for occurrence in &deduplication.occurrences {
-        let (graph, mapping) = build_occurrence(scope, inputs, occurrence, profile, counter)?;
+        let (graph, mapping) =
+            build_occurrence(scope, inputs, occurrence, warning_policy, profile, counter)?;
         graphs.push(graph);
         mappings.push(mapping);
     }
@@ -66,13 +66,18 @@ pub fn unit_documents<'a>(
 }
 
 /// Build and validate one retained source occurrence.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "Each argument is an independent caller-owned build input."
+)]
 fn build_occurrence(
     scope: &DedupScope,
     inputs: &[UnitGraphInput<'_>],
     occurrence: &DedupOccurrence<'_>,
+    warning_policy: WarningPolicy,
     profile: UnitProfile,
     counter: &(impl TokenCounter + ?Sized),
-) -> Result<(DeliveryGraph, super::types::MappingArtifact), Error> {
+) -> Result<(DeliveryGraph, super::types::MappingArtifact), UnitGraphError> {
     let input = inputs
         .iter()
         .find(|input| {
@@ -81,23 +86,40 @@ fn build_occurrence(
         })
         .ok_or_else(|| Error("unit graph input identity mismatch".into()))?;
     let mapped = map_document(occurrence.document, occurrence.markdown)?;
-    let mut units = super::build_units::build_units(input, &mapped)?;
-    super::table_packing::pack_small_tables(input, &mapped, &mut units, profile, counter)?;
-    let group_records = super::groups::build_groups(input, &mut units, &mapped)?;
-    let prepared = PreparedInputs {
-        units: &units,
-        mapped: &mapped,
-        groups: &group_records.groups,
-        context_relations: &group_records.context_relations,
+    let source_index = SourceIndex::new(input, &mapped);
+    let mapped_text_index = MappedTextIndex::new(&mapped);
+    let (chrome_units, chrome_exclusions) =
+        super::ledger::chrome_markup(occurrence.document, occurrence.markdown, &mapped)?;
+    let source_exclusions = chrome_exclusions;
+    let source_namespace = if input.source_namespace.trim().is_empty() {
+        format!("local:{}", occurrence.document.document_id)
+    } else {
+        input.source_namespace.to_owned()
     };
-    validate_unit_sizes(&prepared, profile, counter)?;
+    let mut units = super::build_units::build_units(input, &mapped, &chrome_units)?;
+    super::table_packing::pack_small_tables(
+        input,
+        &mapped_text_index,
+        &source_index,
+        &mut units,
+        profile,
+        counter,
+    )?;
+    let group_records =
+        super::groups::build_groups(input, &mut units, &source_index, &source_namespace)?;
+    let graph_index = GraphIndex::new(
+        &units,
+        &group_records.groups,
+        &group_records.context_relations,
+    );
     let view_context = ViewBuildContext {
         scope,
         input,
         mapped: &mapped,
         units: &units,
-        groups: &group_records.groups,
-        context_relations: &group_records.context_relations,
+        graph_index: &graph_index,
+        mapped_text_index: &mapped_text_index,
+        warning_policy,
     };
     let retrieval_views = build_views(&view_context, profile, counter)?;
     let original_markdown_digest = occurrence
@@ -117,20 +139,18 @@ fn build_occurrence(
         "rendering-separators-as-mappings/1",
     ))?;
     let coverage = super::ledger::coverage_ledger(&units);
-    let exclusions = super::ledger::exclusions(occurrence.document, &mapped)?;
-    let mapping = super::ledger::mapping_artifact(&original_markdown_digest, &units, &exclusions)?;
+    let exclusions = super::ledger::exclusions(occurrence.document, &mapped, &source_exclusions)?;
+    let mapping = super::ledger::mapping_artifact(
+        &original_markdown_digest,
+        &units,
+        &group_records.groups,
+        &exclusions,
+    )?;
     let mapping_digest = super::serialization::mapping_digest(&mapping)?;
     let descriptor = GraphDescriptor {
         schema_version: "maestro-unit-graph/1".into(),
         collection_id: input.collection_id.into(),
-        source_namespace: if input.source_namespace.trim().is_empty() {
-            format!(
-                "local:{}:{}",
-                occurrence.document.document_id, occurrence.document.revision_id
-            )
-        } else {
-            input.source_namespace.into()
-        },
+        source_namespace,
         document_id: occurrence.document.document_id.clone(),
         revision_id: occurrence.document.revision_id.clone(),
         original_markdown_digest,
@@ -167,10 +187,12 @@ struct ViewBuildContext<'a> {
     mapped: &'a MappedDocument,
     /// Delivery units built from the source mappings.
     units: &'a [DeliveryUnit],
-    /// Structural groups whose typed relations determine context.
-    groups: &'a [super::types::Group],
-    /// Typed context dependencies owned by ancestor groups.
-    context_relations: &'a [super::types::ContextRelationRecord],
+    /// Per-document group, part and relation lookups.
+    graph_index: &'a GraphIndex<'a>,
+    /// Per-document mapped source text lookup.
+    mapped_text_index: &'a MappedTextIndex<'a>,
+    /// Caller policy for /3 replay through the same authorized occurrence.
+    warning_policy: WarningPolicy,
 }
 
 /// Build retrieval views from /3 packing or the independently counted mapped units.
@@ -178,25 +200,20 @@ fn build_views(
     context: &ViewBuildContext<'_>,
     profile: UnitProfile,
     counter: &(impl TokenCounter + ?Sized),
-) -> Result<Vec<RetrievalView>, Error> {
+) -> Result<Vec<RetrievalView>, UnitGraphError> {
     match profile.ranked_unit() {
         RankedUnit::CompleteIdeas => {
-            let scope = DedupScope {
-                tenant_id: context.scope.tenant_id.clone(),
-                workspace_id: context.scope.workspace_id.clone(),
-                authorized_revisions: context.scope.authorized_revisions.clone(),
-            };
             let batch = chunk_documents(
-                &scope,
+                context.scope,
                 &[DedupInput {
                     document: context.input.document,
                     markdown: context.input.markdown,
                 }],
-                WarningPolicy::Preserve,
+                context.warning_policy,
                 ChunkProfile::CompleteIdeas,
                 counter,
             )?;
-            chunk_views(context, &batch.chunks)
+            Ok(chunk_views(context, &batch.chunks)?)
         }
         RankedUnit::V2Unit => unit_views(context, profile, counter),
     }
@@ -228,11 +245,9 @@ fn chunk_views(
                 .collect();
             ranges.sort_unstable();
             ranges.dedup();
-            let unit = context
-                .units
-                .iter()
-                .find(|candidate| part_uses_unit(candidate, &source.unit_id))
-                .ok_or_else(|| Error("retrieval view references missing delivery unit".into()))?;
+            let Some(unit) = context.graph_index.unit_for_source(&source.unit_id) else {
+                continue;
+            };
             let membership =
                 memberships
                     .entry(unit.unit_id.clone())
@@ -255,20 +270,11 @@ fn chunk_views(
                     })
                     .map(|part| part.part_id.clone()),
             );
-            membership.primary_ranges.extend(ranges);
+            membership.primary_ranges.extend(ranges.iter().copied());
         }
         for membership in memberships.values_mut() {
-            if let Some(unit) = context
-                .units
-                .iter()
-                .find(|unit| unit.unit_id == membership.unit_id)
-            {
-                let contexts = unit_context_parts(
-                    unit,
-                    context.units,
-                    context.groups,
-                    context.context_relations,
-                )?;
+            if let Some(unit) = context.graph_index.unit(&membership.unit_id) {
+                let contexts = unit_all_context_parts_indexed(unit, context.graph_index)?;
                 membership
                     .context_part_ids
                     .extend(contexts.iter().map(|part| part.part_id.clone()));
@@ -283,12 +289,14 @@ fn chunk_views(
             membership.context_ranges.sort_unstable();
             membership.context_ranges.dedup();
         }
+        if memberships.is_empty() {
+            continue;
+        }
         let mut memberships: Vec<_> = memberships.into_values().collect();
         memberships.sort_by_key(|membership| {
             context
-                .units
-                .iter()
-                .position(|unit| unit.unit_id == membership.unit_id)
+                .graph_index
+                .unit_position(&membership.unit_id)
                 .unwrap_or(usize::MAX)
         });
         let view_id = format!("view-{}", sha(&chunk.chunk_id)?);
@@ -309,6 +317,7 @@ fn chunk_views(
 }
 
 /// Build one counted V2 retrieval view per mapped delivery unit.
+/// Remove repeated identifiers while preserving their first ordered occurrence.
 fn retain_ordered<T: Ord + Clone>(values: &mut Vec<T>) {
     let mut seen = BTreeSet::new();
     values.retain(|value| seen.insert(value.clone()));
@@ -319,23 +328,19 @@ fn unit_views(
     context: &ViewBuildContext<'_>,
     profile: UnitProfile,
     counter: &(impl TokenCounter + ?Sized),
-) -> Result<Vec<RetrievalView>, Error> {
+) -> Result<Vec<RetrievalView>, UnitGraphError> {
     let mut views = Vec::new();
     for delivery in context.units {
-        let contexts = unit_context_parts(
-            delivery,
-            context.units,
-            context.groups,
-            context.context_relations,
-        )?;
-        let headings = unit_heading_parts(delivery, context.units, context.groups)?;
-        let prepared_input = prepared_text(delivery, context.mapped, &contexts, &headings)?;
+        let contexts = unit_context_parts_indexed(delivery, context.graph_index)?;
+        let headings = unit_heading_parts_indexed(delivery, context.graph_index)?;
+        let prepared_input =
+            prepared_text(delivery, context.mapped_text_index, &contexts, &headings)?;
         let tokens = counter.token_ids(&prepared_input)?.len();
         if tokens > size_limit(profile, delivery.kind) {
-            return Err(Error(format!(
-                "oversized_unit_refusal: {} has no mapped structural continuation",
-                delivery.unit_id
-            )));
+            return Err(UnitGraphError::OversizedUnitRefusal {
+                unit_id: delivery.unit_id.clone(),
+                unit_kind: delivery.kind,
+            });
         }
         let prepared_input_digest = digest(prepared_input.as_bytes());
         let chunk_id = format!(
@@ -376,19 +381,4 @@ fn unit_views(
         });
     }
     Ok(views)
-}
-
-/// Find a delivery unit containing a mapping from `unit_id`.
-fn part_uses_unit(unit: &DeliveryUnit, unit_id: &str) -> bool {
-    unit.parts
-        .iter()
-        .filter(|part| part.role == PartRole::Primary)
-        .flat_map(|part| &part.mappings)
-        .any(|mapping| mapping.unit_id == unit_id)
-}
-
-/// Hash deterministic JSON identity bytes.
-fn sha(value: &impl Serialize) -> Result<String, Error> {
-    let bytes = serde_json::to_vec(value).map_err(|error| Error(error.to_string()))?;
-    Ok(digest(&bytes))
 }

@@ -1,12 +1,12 @@
 //! Unit graph profile and delivery contract regressions.
 use super::*;
-use crate::chunk_mapping::map_document;
 use crate::hashing::digest;
 use crate::{
     CanonicalizeInput, DedupScope, Error, RevisionKey, TokenCounter, WarningPolicy, canonicalize,
     unit_documents,
 };
-use std::cell::Cell;
+use crate::{chunk_mapping::map_document, chunk_split::MAX_TOKENS};
+use std::{cell::Cell, collections::BTreeSet};
 
 #[test]
 fn ranked_rules_are_digest_pinned_without_changing_legacy_profiles() {
@@ -19,7 +19,66 @@ fn ranked_rules_are_digest_pinned_without_changing_legacy_profiles() {
         v2.profile_digest().unwrap()
     );
     assert!(complete.size_limits().all_within_verified_counter_cap());
-    assert!(complete.size_limits().provisional());
+}
+
+#[test]
+fn every_profile_limit_rejects_zero_and_values_above_counter_cap() {
+    let maximum = MAX_TOKENS;
+    let valid = UnitSizeLimits {
+        section_tokens: maximum,
+        table_tokens: maximum,
+        row_tokens: maximum,
+        procedure_tokens: maximum,
+        code_tokens: maximum,
+        paragraphs_tokens: maximum,
+    };
+    assert!(valid.all_within_verified_counter_cap());
+    for limit in 0..6 {
+        assert!(!set_limit(valid, limit, 0).all_within_verified_counter_cap());
+        assert!(!set_limit(valid, limit, maximum + 1).all_within_verified_counter_cap());
+    }
+}
+
+#[test]
+fn unit_profile_refuses_limits_over_the_counter_cap_before_counting() {
+    let markdown = "# T\n\nbody\n";
+    let document = canonicalize(CanonicalizeInput::new(markdown, "limit.md")).unwrap();
+    let scope = DedupScope {
+        tenant_id: "tenant".into(),
+        workspace_id: "collection".into(),
+        authorized_revisions: [RevisionKey {
+            document_id: document.document_id.clone(),
+            revision_id: document.revision_id.clone(),
+        }]
+        .into(),
+    };
+    let input = UnitGraphInput {
+        document: &document,
+        markdown,
+        collection_id: "collection",
+        source_namespace: "synthetic",
+    };
+    let mut profile = UnitProfile::new(RankedUnit::V2Unit);
+    profile.size_limits.code_tokens = MAX_TOKENS + 1;
+    let counter = Counter(Cell::new(0));
+    let error =
+        unit_documents(&scope, &[input], WarningPolicy::Preserve, profile, &counter).unwrap_err();
+    assert!(
+        matches!(error, UnitGraphError::InvalidInput(ref error) if error.0.contains("counter cap"))
+    );
+    assert_eq!(counter.0.get(), 0);
+}
+
+fn set_limit(mut limits: UnitSizeLimits, index: usize, value: usize) -> UnitSizeLimits {
+    match index {
+        0 => limits.section_tokens = value,
+        1 => limits.table_tokens = value,
+        2 => limits.row_tokens = value,
+        3 => limits.procedure_tokens = value,
+        4 => limits.code_tokens = value,
+        _ => limits.paragraphs_tokens = value,
+    }
+    limits
 }
 
 #[test]
@@ -29,15 +88,18 @@ fn shared_wire_fixtures_round_trip_byte_for_byte() {
         "/../maestro-kernel/tests/fixtures/unit-graph-v1.json"
     ));
     let graph_cas = graph_bytes.strip_suffix(b"\n").unwrap();
-    let graph: DeliveryGraph = serde_json::from_slice(graph_cas).unwrap();
-    assert_eq!(serialize_graph(&graph).unwrap(), graph_cas);
+    let graph = serialization::parse_wire_graph(graph_cas).unwrap();
+    assert_eq!(
+        serialization::serialize_wire_graph(&graph).unwrap(),
+        graph_cas
+    );
     assert_eq!(
         digest(graph_cas),
-        "b90ab0cfbc601bf7c7f5c14161dd07d1e9d66d49978d47fd5702657db6311b96"
+        "8717210bb0b68d26265e7c2478d3a10c32932bc811bb068ba14f093672a2d01d"
     );
     let mut unknown_field = graph_cas.to_vec();
     unknown_field.splice(1..1, b"\"unknown\":null,".iter().copied());
-    assert!(serde_json::from_slice::<DeliveryGraph>(&unknown_field).is_err());
+    assert!(serialization::parse_wire_graph(&unknown_field).is_err());
     let descriptor_key = b"\"descriptor\":";
     let descriptor_start = graph_cas
         .windows(descriptor_key.len())
@@ -56,10 +118,10 @@ fn shared_wire_fixtures_round_trip_byte_for_byte() {
     duplicate_json.extend_from_slice(b",\"descriptor\":");
     duplicate_json.extend_from_slice(descriptor);
     duplicate_json.push(b'}');
-    let duplicate = serde_json::from_slice::<DeliveryGraph>(&duplicate_json).unwrap_err();
+    let duplicate = serialization::parse_wire_graph(&duplicate_json).unwrap_err();
     assert!(duplicate.to_string().contains("duplicate field"));
     assert!(
-        !String::from_utf8(serialize_graph(&graph).unwrap())
+        !String::from_utf8(serialization::serialize_wire_graph(&graph).unwrap())
             .unwrap()
             .contains("graph_digest")
     );
@@ -69,11 +131,14 @@ fn shared_wire_fixtures_round_trip_byte_for_byte() {
         "/../maestro-kernel/tests/fixtures/unit-mapping-v1.json"
     ));
     let mapping_cas = mapping_bytes.strip_suffix(b"\n").unwrap();
-    let mapping: MappingArtifact = serde_json::from_slice(mapping_cas).unwrap();
-    assert_eq!(serialize_mapping(&mapping).unwrap(), mapping_cas);
+    let mapping = serialization::parse_wire_mapping(mapping_cas).unwrap();
+    assert_eq!(
+        serialization::serialize_wire_mapping(&mapping).unwrap(),
+        mapping_cas
+    );
     assert_eq!(
         digest(mapping_cas),
-        "12b519c85c8781cbca1a4acf0a867f3dcf6b4d6350b6d3f80f3d8f1bb5ec5abe"
+        "de4b7353da814a92f84c8ffcf8cd03a055d7dc8d770e62bc09b282a2431bb4dd"
     );
 }
 
@@ -154,18 +219,18 @@ fn both_ranking_rules_keep_primary_delivery_graph_and_exact_source_ranges() {
     let right_bytes = serialize_graph(right).unwrap();
     assert_eq!(
         digest(&left_bytes),
-        "af9a59a880b1ff42a8fdc55daf1976b0f59b43eeede471087ef63267c2e00c77"
+        "9f14e9a6ea741a94aa50d428616f36c228a8b4a813f037359233b23ab8be3627"
     );
     assert_eq!(
         digest(&right_bytes),
-        "8e0d1394691478db1eeb0700c8644106425b73904312ab71222f2cae7b2568e1"
+        "5858d5a0902ec42b7505c49e4d4da70d6c07f731e6d55428f7a3992e8c5d6f53"
     );
     assert_eq!(left_bytes, serialize_graph(left).unwrap());
 }
 
 #[test]
 fn producer_snapshot_matches_valid_source_fixture_and_contract_rules() {
-    let markdown = include_str!("../../tests/fixtures/unit-graph-v1.built.md");
+    let markdown = include_str!("../../../tests/fixtures/unit-graph-v1.built.md");
     let document = canonicalize(CanonicalizeInput::new(markdown, "page.md")).unwrap();
     let scope = DedupScope {
         tenant_id: "tenant".into(),
@@ -192,6 +257,7 @@ fn producer_snapshot_matches_valid_source_fixture_and_contract_rules() {
     .unwrap();
     let graph = batch.graphs.first().unwrap();
     assert_producer_snapshot(graph);
+    assert_wire_structure(graph);
     let repeated = unit_documents(
         &scope,
         &[input],
@@ -206,16 +272,54 @@ fn producer_snapshot_matches_valid_source_fixture_and_contract_rules() {
     );
     assert_producer_structure(graph);
     assert_producer_contexts(graph, &document, markdown);
-    assert_invalid_parent_is_rejected(graph, batch.mappings.first().unwrap(), markdown);
 }
 
 /// Compare deterministic producer bytes to the owned valid-source snapshot.
 fn assert_producer_snapshot(graph: &DeliveryGraph) {
     let bytes = serialize_graph(graph).unwrap();
-    let snapshot = include_bytes!("../../tests/fixtures/unit-graph-v1.built.json");
+    let snapshot = include_bytes!("../../../tests/fixtures/unit-graph-v1.built.json");
     assert_eq!(bytes, snapshot.strip_suffix(b"\n").unwrap());
     assert_eq!(bytes, serialize_graph(graph).unwrap());
     assert!(!bytes.ends_with(b"\n"));
+}
+
+/// Check wire part references and direct group-part ownership.
+fn assert_wire_structure(graph: &DeliveryGraph) {
+    let bytes = serialize_graph(graph).unwrap();
+    let wire = serialization::parse_wire_graph(&bytes).unwrap();
+    let part_ids: BTreeSet<_> = wire
+        .parts
+        .iter()
+        .map(|part| part.part_id.as_str())
+        .collect();
+    for unit in &wire.units {
+        assert!(
+            unit.part_ids
+                .iter()
+                .all(|part_id| part_ids.contains(part_id.as_str()))
+        );
+    }
+    for group in &wire.groups {
+        let expected: Vec<_> = group
+            .heading
+            .iter()
+            .map(String::as_str)
+            .chain(
+                group
+                    .context_relations
+                    .iter()
+                    .map(|relation| relation.part_id.as_str()),
+            )
+            .collect();
+        assert_eq!(
+            group
+                .part_ids
+                .iter()
+                .map(String::as_str)
+                .collect::<Vec<_>>(),
+            expected
+        );
+    }
 }
 
 /// Check table, section-family and part-role producer invariants.
@@ -227,7 +331,7 @@ fn assert_producer_structure(graph: &DeliveryGraph) {
             .iter()
             .filter(|group| group.kind == GroupKind::Row)
             .count(),
-        2
+        0
     );
     assert!(
         graph
@@ -308,102 +412,31 @@ fn assert_producer_contexts(
         );
         if unit_kind == UnitKind::Code {
             let mapped = map_document(document, markdown).unwrap();
-            let headings = prepared::unit_heading_parts(unit, &graph.units, &graph.groups).unwrap();
-            let contexts = prepared::unit_context_parts(
-                unit,
-                &graph.units,
-                &graph.groups,
-                &graph.context_relations,
-            )
-            .unwrap();
-            let prepared = prepared::prepared_text(unit, &mapped, &contexts, &headings).unwrap();
+            let mapped_index = prepared::MappedTextIndex::new(&mapped);
+            let graph_index =
+                prepared::GraphIndex::new(&graph.units, &graph.groups, &graph.context_relations);
+            let headings = prepared::unit_heading_parts_indexed(unit, &graph_index).unwrap();
+            let contexts = prepared::unit_context_parts_indexed(unit, &graph_index).unwrap();
+            let prepared =
+                prepared::prepared_text(unit, &mapped_index, &contexts, &headings).unwrap();
             assert!(prepared.starts_with("Product guide / Installation"));
             assert!(prepared.contains("Where: Set the deployment target."));
         }
     }
 }
 
-/// Prove reciprocal links do not permit a Code unit under a Procedure group.
-fn assert_invalid_parent_is_rejected(
-    graph: &DeliveryGraph,
-    mapping: &MappingArtifact,
-    markdown: &str,
-) {
-    let mut invalid = graph.clone();
-    let code = invalid
-        .units
-        .iter()
-        .find(|unit| unit.kind == UnitKind::Code)
-        .unwrap()
-        .unit_id
-        .clone();
-    let code_group = invalid
-        .groups
-        .iter()
-        .find(|group| group.kind == GroupKind::Code)
-        .unwrap()
-        .group_id
-        .clone();
-    let procedure_group = invalid
-        .groups
-        .iter()
-        .find(|group| group.kind == GroupKind::Procedure)
-        .unwrap()
-        .group_id
-        .clone();
-    let lead_in = invalid
-        .context_relations
-        .iter()
-        .find(|relation| {
-            relation.group_id == procedure_group && relation.kind == ContextRelation::LeadIn
-        })
-        .unwrap()
-        .part_id
-        .clone();
-    let code_index = invalid
-        .units
-        .iter()
-        .position(|unit| unit.unit_id == code)
-        .unwrap();
-    let procedure_index = invalid
-        .groups
-        .iter()
-        .position(|group| group.group_id == procedure_group)
-        .unwrap();
-    let code_group_index = invalid
-        .groups
-        .iter()
-        .position(|group| group.group_id == code_group)
-        .unwrap();
-    invalid.groups[code_group_index]
-        .children
-        .retain(|child| child != &code);
-    invalid.groups[procedure_index].children.push(code.clone());
-    invalid.units[code_index].parent_id = Some(procedure_group);
-    let context_part = invalid.groups[procedure_index]
-        .parts
-        .iter()
-        .find(|part| part.part_id == lead_in)
-        .unwrap();
-    let context_ranges = context_part.ranges.clone();
-    for membership in invalid
-        .retrieval_views
-        .iter_mut()
-        .flat_map(|view| &mut view.memberships)
-    {
-        if membership.unit_id == code {
-            membership.context_part_ids = vec![lead_in.clone()];
-            membership.context_ranges = context_ranges.clone();
-        }
-    }
-    invalid.descriptor.graph_digest = serialization::graph_digest(&invalid).unwrap();
-    assert!(
-        validation::validate_graph(&invalid, mapping, markdown)
-            .unwrap_err()
-            .to_string()
-            .contains("parent kind")
-    );
-}
+mod c1;
+mod c2;
+mod c3;
+mod c4;
+mod c5;
+mod i1;
+mod i2;
+mod i3;
+mod i4;
+mod i5;
+mod i6;
+mod i7;
 
 struct Counter(Cell<usize>);
 

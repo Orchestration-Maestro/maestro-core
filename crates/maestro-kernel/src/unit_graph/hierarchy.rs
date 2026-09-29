@@ -45,13 +45,6 @@ pub(super) fn validate(graph: &DeliveryGraph) -> Result<(), Error> {
                 }),
                 "code group requires a code child unit",
             )?;
-            require(
-                group
-                    .context_relations
-                    .iter()
-                    .any(|relation| relation.kind == ContextKind::LeadIn),
-                "code group requires a lead_in relation",
-            )?;
         }
     }
     validate_units(graph, &groups, &children)?;

@@ -1,10 +1,8 @@
 //! Digest-pinned /4 graph and ranking rules.
-use crate::{chunk_split::MAX_TOKENS, error::Error, hashing::digest};
-use serde::{Deserialize, Serialize};
+use crate::{chunk_profile::ChunkProfile, chunk_split::MAX_TOKENS, error::Error, hashing::digest};
 
 /// Retrieval-unit construction rules for the two /4 comparison arms.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RankedUnit {
     /// Reuse /3 complete-idea retrieval packing as the control arm.
     CompleteIdeas,
@@ -25,7 +23,7 @@ impl RankedUnit {
 }
 
 /// Explicit counter-based limits for each kind; all values are provisional pending measurement.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct UnitSizeLimits {
     /// Maximum verified tokens for section units.
     pub section_tokens: usize,
@@ -58,17 +56,10 @@ impl UnitSizeLimits {
             && self.paragraphs_tokens > 0
             && self.paragraphs_tokens <= MAX_TOKENS
     }
-
-    /// The profile's limits remain provisional until paired measurement pins final values.
-    #[must_use]
-    pub const fn provisional(self) -> bool {
-        let _ = self;
-        true
-    }
 }
 
 /// Rules that produce the /4 delivery graph and one pinned ranking view.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct UnitProfile {
     /// The retrieval ranking unit policy.
     pub ranked_unit: RankedUnit,
@@ -123,12 +114,27 @@ impl UnitProfile {
     /// # Errors
     /// Returns an error if the profile record cannot be serialized.
     pub fn profile_digest(self) -> Result<String, Error> {
+        let ranked_unit = match self.ranked_unit {
+            RankedUnit::CompleteIdeas => "complete_ideas",
+            RankedUnit::V2Unit => "v2_unit",
+        };
+        let limits = self.size_limits;
         let bytes = serde_json::to_vec(&(
             "unit-profile/1",
-            self,
+            ranked_unit,
+            [
+                limits.section_tokens,
+                limits.table_tokens,
+                limits.row_tokens,
+                limits.procedure_tokens,
+                limits.code_tokens,
+                limits.paragraphs_tokens,
+            ],
             "required-context/2",
             "heading-path-from-ancestors/1",
             "family-normalization/1",
+            ChunkProfile::CompleteIdeas.chunker_version(),
+            ChunkProfile::CompleteIdeas.preparation_profile(),
         ))
         .map_err(|error| Error(error.to_string()))?;
         Ok(format!("sha256:{}", digest(&bytes)))

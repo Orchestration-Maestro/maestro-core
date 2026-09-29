@@ -1,11 +1,11 @@
 //! Deterministic page, section, table, procedure and code ancestry.
 use super::{
     group_helpers::{
-        block_below, normalize, part_maps_under, preceding_lead_in, row_parts, section_group_id,
-        sha, structural_group_id, unit_maps_under,
+        SourceIndex, first_start, heading_part, normalize, preceding_lead_in, row_parts,
+        section_group_id, sha, structural_group_id,
     },
     group_links::{
-        assign_family_occurrences, assign_unit_occurrences, group_parts, order_context_relations,
+        assign_family_occurrences, group_parts, group_parts_with_heading, order_context_relations,
         wire_parentage,
     },
     types::{
@@ -16,9 +16,11 @@ use super::{
 use crate::{
     content::{Block, BlockType},
     error::Error,
-    source_units::MappedDocument,
 };
-use std::collections::BTreeMap;
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    slice,
+};
 
 /// Groups and explicit typed context edges from one mapped source.
 pub(super) struct GroupRecords {
@@ -42,26 +44,28 @@ struct FamilyContext {
 
 impl FamilyContext {
     /// Build one family key with normalized heading components.
-    fn key(&self, heading_path: &[String], occurrence: usize) -> FamilyKey {
+    fn key(&self, heading_path: &[String]) -> FamilyKey {
         FamilyKey {
             collection_id: self.collection_id.clone(),
             source_namespace: self.source_namespace.clone(),
             path_segment: self.path_segment.clone(),
             page_title: self.page_title.clone(),
             heading_path: heading_path.iter().map(|part| normalize(part)).collect(),
-            occurrence,
+            occurrence: 0,
         }
     }
 }
 
 /// Shared mapped input for structural group builders.
-struct GroupBuilder<'a, 'doc> {
+struct GroupBuilder<'a, 'doc, 'idx> {
     /// Canonical document and source identity.
     input: &'a UnitGraphInput<'doc>,
     /// Primary delivery ownership.
     units: &'a [DeliveryUnit],
-    /// Mapped source units used to resolve canonical block ancestry.
-    mapped: &'a MappedDocument,
+    /// Precomputed canonical blocks, mappings and ancestry.
+    index: &'idx SourceIndex<'idx>,
+    /// Unit indices grouped under each canonical ancestor block.
+    units_by_ancestor: BTreeMap<String, Vec<usize>>,
     /// Root page group ID.
     page_id: String,
     /// Stable group IDs keyed by canonical section ID.
@@ -70,18 +74,11 @@ struct GroupBuilder<'a, 'doc> {
     family: FamilyContext,
 }
 
-impl GroupBuilder<'_, '_> {
+impl GroupBuilder<'_, '_, '_> {
     /// Build root and nested section groups.
     fn section_groups(&self) -> Result<Vec<Group>, Error> {
         let mut groups = Vec::with_capacity(self.input.document.sections.len());
-        let mut occurrences = BTreeMap::<Vec<String>, usize>::new();
         for section in &self.input.document.sections {
-            let heading_key = section
-                .heading_path
-                .iter()
-                .map(|part| normalize(part))
-                .collect::<Vec<_>>();
-            let occurrence = occurrences.entry(heading_key).or_default();
             let group_id = section_group_id(self.input, &section.section_id)?;
             let parent_id = section
                 .parent_section_id
@@ -89,6 +86,7 @@ impl GroupBuilder<'_, '_> {
                 .and_then(|id| self.section_ids.get(id))
                 .cloned()
                 .or_else(|| Some(self.page_id.clone()));
+            let heading = heading_part(self.index, &section.section_id)?;
             let children: Vec<_> = self
                 .units
                 .iter()
@@ -103,16 +101,17 @@ impl GroupBuilder<'_, '_> {
                 section_id: Some(section.section_id.clone()),
                 parent_id,
                 children: children.iter().map(|unit| unit.unit_id.clone()).collect(),
-                parts: group_parts(
+                parts: group_parts_with_heading(
                     children
                         .iter()
                         .flat_map(|unit| unit.parts.iter())
                         .filter(|part| part.role == PartRole::Primary)
                         .cloned(),
+                    heading.clone(),
                 ),
-                family: self.family.key(&section.heading_path, *occurrence),
+                heading: heading.map(|part| part.part_id),
+                family: self.family.key(&section.heading_path),
             });
-            *occurrence += 1;
         }
         Ok(groups)
     }
@@ -123,30 +122,30 @@ impl GroupBuilder<'_, '_> {
             groups: Vec::new(),
             context_relations: Vec::new(),
         };
-        for (index, block) in self
-            .input
-            .document
-            .blocks
-            .iter()
-            .enumerate()
-            .filter(|(_, block)| {
-                matches!(
-                    block.block_type,
-                    BlockType::Table | BlockType::List | BlockType::Code
-                )
-            })
-        {
-            let children = self.children_for(block);
+        for block in self.input.document.blocks.iter().filter(|block| {
+            matches!(
+                block.block_type,
+                BlockType::Table | BlockType::List | BlockType::Code
+            )
+        }) {
+            if block.block_type == BlockType::List && self.index.nested_list(&block.block_id) {
+                continue;
+            }
+            let children = if block.block_type == BlockType::List {
+                self.procedure_children(block)
+            } else {
+                self.children_for(block)
+            };
             if children.is_empty() {
                 continue;
             }
             if block.block_type == BlockType::Table {
-                let (table, rows, relations) = self.table_group(block, index, &children)?;
+                let (table, rows, relations) = self.table_group(block, &children)?;
                 records.groups.push(table);
                 records.groups.extend(rows);
                 records.context_relations.extend(relations);
             } else {
-                let (group, relations) = self.lead_in_group(block, index, &children)?;
+                let (group, relations) = self.lead_in_group(block, &children)?;
                 records.groups.push(group);
                 records.context_relations.extend(relations);
             }
@@ -158,29 +157,28 @@ impl GroupBuilder<'_, '_> {
     fn table_group(
         &self,
         block: &Block,
-        index: usize,
         children: &[&DeliveryUnit],
     ) -> Result<(Group, Vec<Group>, Vec<ContextRelationRecord>), Error> {
         let group_id = structural_group_id(self.input, block)?;
         let section_id = block.parent_section_id.clone();
         let parent_id = self.section_parent(section_id.as_deref());
         let rows: Vec<_> = self
-            .input
-            .document
-            .blocks
+            .index
+            .descendants(&block.block_id)
             .iter()
-            .filter(|candidate| {
-                candidate.block_type == BlockType::TableRow
-                    && block_below(self.input, candidate, &block.block_id)
-            })
+            .copied()
+            .filter(|candidate| candidate.block_type == BlockType::TableRow)
+            .collect();
+        let row_unit_ids: BTreeSet<_> = rows
+            .iter()
+            .flat_map(|row| self.unit_indices_under(&row.block_id))
+            .filter_map(|index| self.units.get(*index))
+            .map(|unit| unit.unit_id.as_str())
             .collect();
         let table_children: Vec<_> = children
             .iter()
             .filter(|unit| {
-                unit.kind == UnitKind::Table
-                    || !rows
-                        .iter()
-                        .any(|row| unit_maps_under(unit, row, self.input, self.mapped))
+                unit.kind == UnitKind::Table || !row_unit_ids.contains(unit.unit_id.as_str())
             })
             .map(|unit| unit.unit_id.clone())
             .collect();
@@ -190,7 +188,14 @@ impl GroupBuilder<'_, '_> {
             .filter(|part| part.role == PartRole::Primary)
             .collect();
         let relations = self.header_relations(block, &group_id, &table_parts);
-        let row_groups = self.row_groups(&group_id, &rows, children, &table_parts)?;
+        let packed = children
+            .iter()
+            .any(|unit| unit.kind == UnitKind::Table && unit.source_block_id == block.block_id);
+        let row_groups = if packed {
+            Vec::new()
+        } else {
+            self.row_groups(&group_id, &rows, &table_parts)?
+        };
         let row_ids = row_groups.iter().map(|group| group.group_id.clone());
         let group = Group {
             group_id,
@@ -199,7 +204,8 @@ impl GroupBuilder<'_, '_> {
             parent_id,
             children: table_children.into_iter().chain(row_ids).collect(),
             parts: group_parts(table_parts.into_iter()),
-            family: self.family.key(&block.heading_path, index),
+            heading: None,
+            family: self.family.key(&block.heading_path),
         };
         Ok((group, row_groups, relations))
     }
@@ -209,20 +215,17 @@ impl GroupBuilder<'_, '_> {
         &self,
         table_id: &str,
         rows: &[&Block],
-        table_children: &[&DeliveryUnit],
         table_parts: &[SourcePart],
     ) -> Result<Vec<Group>, Error> {
         let mut groups = Vec::new();
-        for (index, row) in rows.iter().enumerate() {
-            let row_units: Vec<_> = table_children
+        for row in rows {
+            let row_units: Vec<_> = self
+                .unit_indices_under(&row.block_id)
                 .iter()
-                .filter(|unit| {
-                    unit.kind != UnitKind::Table
-                        && unit_maps_under(unit, row, self.input, self.mapped)
-                })
-                .copied()
+                .filter_map(|index| self.units.get(*index))
+                .filter(|unit| unit.kind != UnitKind::Table)
                 .collect();
-            let row_parts = row_parts(&row_units, row, table_parts, self.input, self.mapped);
+            let row_parts = row_parts(&row_units, row, table_parts, self.index);
             if row_parts.is_empty() {
                 continue;
             }
@@ -241,7 +244,8 @@ impl GroupBuilder<'_, '_> {
                 parent_id: Some(table_id.to_owned()),
                 children: row_units.iter().map(|unit| unit.unit_id.clone()).collect(),
                 parts: group_parts(row_parts.into_iter()),
-                family: self.family.key(&row.heading_path, index),
+                heading: None,
+                family: self.family.key(&row.heading_path),
             });
         }
         Ok(groups)
@@ -251,7 +255,6 @@ impl GroupBuilder<'_, '_> {
     fn lead_in_group(
         &self,
         block: &Block,
-        index: usize,
         children: &[&DeliveryUnit],
     ) -> Result<(Group, Vec<ContextRelationRecord>), Error> {
         let group_id = structural_group_id(self.input, block)?;
@@ -261,7 +264,7 @@ impl GroupBuilder<'_, '_> {
             .flat_map(|unit| unit.parts.iter().cloned())
             .collect();
         let mut relations = Vec::new();
-        if let Some(introduction) = preceding_lead_in(self.input, block) {
+        if let Some(introduction) = preceding_lead_in(self.index, block) {
             for part in self
                 .units
                 .iter()
@@ -289,7 +292,8 @@ impl GroupBuilder<'_, '_> {
             parent_id: self.section_parent(section_id.as_deref()),
             children: children.iter().map(|unit| unit.unit_id.clone()).collect(),
             parts: group_parts(parts.into_iter()),
-            family: self.family.key(&block.heading_path, index),
+            heading: None,
+            family: self.family.key(&block.heading_path),
         };
         Ok((group, relations))
     }
@@ -315,19 +319,46 @@ impl GroupBuilder<'_, '_> {
 
     /// Check if a primary part maps into this table's header block.
     fn is_header_part(&self, part: &SourcePart, table: &Block) -> bool {
-        self.input.document.blocks.iter().any(|header| {
-            header.block_type == BlockType::TableHead
-                && block_below(self.input, header, &table.block_id)
-                && part_maps_under(part, header, self.input, self.mapped)
-        })
+        self.index
+            .descendants(&table.block_id)
+            .iter()
+            .filter(|header| header.block_type == BlockType::TableHead)
+            .any(|header| self.index.part_maps_under(part, &header.block_id))
     }
 
     /// Return source-order delivery units belonging below a structural block.
     fn children_for(&self, block: &Block) -> Vec<&DeliveryUnit> {
-        self.units
+        self.unit_indices_under(&block.block_id)
             .iter()
-            .filter(|unit| unit_maps_under(unit, block, self.input, self.mapped))
+            .filter_map(|index| self.units.get(*index))
             .collect()
+    }
+
+    /// Keep list descendants except units claimed by a nested table or code group.
+    fn procedure_children(&self, block: &Block) -> Vec<&DeliveryUnit> {
+        self.children_for(block)
+            .into_iter()
+            .filter(|unit| {
+                let lineage = self.index.lineage(&unit.source_block_id);
+                let Some(list_position) = lineage.iter().position(|id| id == &block.block_id)
+                else {
+                    return false;
+                };
+                lineage.get(..list_position).is_some_and(|ancestors| {
+                    !ancestors
+                        .iter()
+                        .any(|ancestor| self.index.is_table_or_code(ancestor))
+                })
+            })
+            .collect()
+    }
+
+    /// Return unit indices whose source blocks lie under one canonical block.
+    fn unit_indices_under(&self, block_id: &str) -> &[usize] {
+        self.units_by_ancestor
+            .get(block_id)
+            .map(Vec::as_slice)
+            .unwrap_or_default()
     }
 
     /// Resolve a section parent, falling back to the page group.
@@ -343,7 +374,8 @@ impl GroupBuilder<'_, '_> {
 pub(super) fn build_groups(
     input: &UnitGraphInput<'_>,
     units: &mut [DeliveryUnit],
-    mapped: &MappedDocument,
+    index: &SourceIndex<'_>,
+    source_namespace: &str,
 ) -> Result<GroupRecords, Error> {
     let title = input
         .document
@@ -352,14 +384,6 @@ pub(super) fn build_groups(
         .find(|block| block.block_type == BlockType::Heading)
         .map(|block| normalize(&block.retrieval_text))
         .unwrap_or_default();
-    let source_namespace = if input.source_namespace.trim().is_empty() {
-        format!(
-            "local:{}:{}",
-            input.document.document_id, input.document.revision_id
-        )
-    } else {
-        input.source_namespace.to_owned()
-    };
     let source_path = input
         .document
         .source_reference
@@ -367,7 +391,7 @@ pub(super) fn build_groups(
         .unwrap_or(&input.document.document_id);
     let family = FamilyContext {
         collection_id: input.collection_id.to_owned(),
-        source_namespace,
+        source_namespace: source_namespace.to_owned(),
         path_segment: source_path
             .rsplit('/')
             .next()
@@ -390,31 +414,31 @@ pub(super) fn build_groups(
             ))
         })
         .collect::<Result<_, Error>>()?;
+    let mut units_by_ancestor = BTreeMap::<String, Vec<usize>>::new();
+    for (unit_index, unit) in units.iter().enumerate() {
+        for ancestor in index.ancestors_of(&unit.source_block_id) {
+            units_by_ancestor
+                .entry(ancestor.to_owned())
+                .or_default()
+                .push(unit_index);
+        }
+    }
     let builder = GroupBuilder {
         input,
         units,
-        mapped,
+        index,
+        units_by_ancestor,
         page_id: page_id.clone(),
         section_ids,
         family,
     };
-    let mut groups = vec![page_group(input, units, &page_id, &builder.family)?];
+    let mut groups = vec![page_group(input, units, &page_id, &builder.family, index)?];
     groups.extend(builder.section_groups()?);
     let mut structural = builder.structural_groups()?;
     groups.append(&mut structural.groups);
     wire_parentage(&mut groups, units);
-    groups.sort_by_key(|group| {
-        let start = group
-            .parts
-            .iter()
-            .flat_map(|part| &part.ranges)
-            .map(|range| range.start)
-            .min()
-            .unwrap_or(usize::MAX);
-        (start, group.group_id.clone())
-    });
+    groups.sort_by_key(|group| (first_start(&group.parts), group.group_id.clone()));
     assign_family_occurrences(&mut groups);
-    assign_unit_occurrences(units);
     order_context_relations(&groups, &mut structural.context_relations);
     Ok(GroupRecords {
         groups,
@@ -428,7 +452,16 @@ fn page_group(
     units: &[DeliveryUnit],
     page_id: &str,
     family: &FamilyContext,
+    index: &SourceIndex<'_>,
 ) -> Result<Group, Error> {
+    let heading = input
+        .document
+        .blocks
+        .iter()
+        .find(|block| block.block_type == BlockType::Heading)
+        .map(|block| heading_part(index, &block.block_id))
+        .transpose()?
+        .flatten();
     Ok(Group {
         group_id: page_id.to_owned(),
         kind: GroupKind::Page,
@@ -448,13 +481,15 @@ fn page_group(
                     .map(|unit| unit.unit_id.clone()),
             )
             .collect(),
-        parts: group_parts(
+        parts: group_parts_with_heading(
             units
                 .iter()
                 .flat_map(|unit| unit.parts.iter())
                 .filter(|part| part.role == PartRole::Primary)
                 .cloned(),
+            heading.clone(),
         ),
-        family: family.key(&[], 0),
+        heading: heading.map(|part| part.part_id),
+        family: family.key(slice::from_ref(&family.page_title)),
     })
 }

@@ -346,6 +346,35 @@ in place.
 │   │   │   │   ├── mod.rs                                                   # Token counting: the TokenCounter seam, and the qualified local executable that fills it
 │   │   │   │   ├── native.rs                                                # The pinned native tokenizer: verified artifacts and one counter process per input
 │   │   │   │   └── process.rs                                               # The counter subprocess: bounded pipes, a timeout and a child that is always reaped
+│   │   │   ├── unit_graph/                                                  # Opt-in /4 mapped delivery graph and digest-pinned ranking view
+│   │   │   │   ├── tests/                                                   # Unit graph profile and delivery contract regressions
+│   │   │   │   │   ├── c1.rs                                                # Rust source: c1
+│   │   │   │   │   ├── c2.rs                                                # Rust source: c2
+│   │   │   │   │   ├── c3.rs                                                # Rust source: c3
+│   │   │   │   │   ├── c4.rs                                                # Rust source: c4
+│   │   │   │   │   ├── c5.rs                                                # Rust source: c5
+│   │   │   │   │   ├── i1.rs                                                # Rust source: i1
+│   │   │   │   │   ├── i2.rs                                                # Rust source: i2
+│   │   │   │   │   ├── i3.rs                                                # Rust source: i3
+│   │   │   │   │   ├── i4.rs                                                # Rust source: i4
+│   │   │   │   │   ├── i5.rs                                                # Rust source: i5
+│   │   │   │   │   ├── i6.rs                                                # Rust source: i6
+│   │   │   │   │   ├── i7.rs                                                # Rust source: i7
+│   │   │   │   │   └── mod.rs                                               # Unit graph profile and delivery contract regressions
+│   │   │   │   ├── build.rs                                                 # Build a delivery graph from checked canonical mappings and ranked views
+│   │   │   │   ├── build_units.rs                                           # Assemble complete delivery units from primary canonical mappings
+│   │   │   │   ├── group_helpers.rs                                         # Canonical source ancestry and stable identifiers for graph groups
+│   │   │   │   ├── group_links.rs                                           # Reciprocal group links and source-ordered structural occurrences
+│   │   │   │   ├── groups.rs                                                # Deterministic page, section, table, procedure and code ancestry
+│   │   │   │   ├── ledger.rs                                                # Exactly-once primary ownership and explicit source exclusions
+│   │   │   │   ├── mod.rs                                                   # Opt-in /4 mapped delivery graph and digest-pinned ranking view
+│   │   │   │   ├── prepared.rs                                              # Retrieval preparation from ancestor headings and typed context relations
+│   │   │   │   ├── profile.rs                                               # Digest-pinned /4 graph and ranking rules
+│   │   │   │   ├── serialization.rs                                         # Stable graph payload serialization and digest
+│   │   │   │   ├── table_packing.rs                                         # Whole-table packing when its complete prepared input fits the pinned counter limit
+│   │   │   │   ├── types.rs                                                 # Deterministic, digest-bound /4 delivery records
+│   │   │   │   ├── validation.rs                                            # Reject malformed graph identities, source ranges and exact memberships
+│   │   │   │   └── wire_types.rs                                            # Private serde DTOs for the versioned graph and mapping payloads
 │   │   │   ├── validate/                                                    # Structural checks against the preserved bytes; no guessed repairs
 │   │   │   │   ├── blocks.rs                                                # Block checks: children, parents, assets, attributes, inline content and tables
 │   │   │   │   ├── mod.rs                                                   # Structural checks against the preserved bytes; no guessed repairs
@@ -374,6 +403,19 @@ in place.
 │   │   │   ├── source_units.rs                                              # Mapped source units: derived-text ranges and how each run relates to original source
 │   │   │   └── store.rs                                                     # Immutable snapshots, accessed through directory handles without following symlinks
 │   │   ├── tests/                                                           # Integration tests
+│   │   │   ├── fixtures/                                                    # Test fixtures
+│   │   │   │   ├── unit-graph-v1.built.json                                 # JSON data: unit graph v1.built
+│   │   │   │   ├── unit-graph-v1.built.md                                   # Sample document: Product guide
+│   │   │   │   ├── unit-graph-v1.code_in_list.json                          # JSON data: unit graph v1.code in list
+│   │   │   │   ├── unit-graph-v1.code_in_list.md                            # Sample document: T
+│   │   │   │   ├── unit-graph-v1.nested_list.json                           # JSON data: unit graph v1.nested list
+│   │   │   │   ├── unit-graph-v1.nested_list.md                             # Sample document: T
+│   │   │   │   ├── unit-graph-v1.table_in_list.json                         # JSON data: unit graph v1.table in list
+│   │   │   │   ├── unit-graph-v1.table_in_list.md                           # Sample document: T
+│   │   │   │   ├── unit-mapping-v1.built.json                               # JSON data: unit mapping v1.built
+│   │   │   │   ├── unit-mapping-v1.code_in_list.json                        # JSON data: unit mapping v1.code in list
+│   │   │   │   ├── unit-mapping-v1.nested_list.json                         # JSON data: unit mapping v1.nested list
+│   │   │   │   └── unit-mapping-v1.table_in_list.json                       # JSON data: unit mapping v1.table in list
 │   │   │   └── it/                                                          # The crate's integration tests, built as one test crate
 │   │   │       ├── cli_contract/                                            # The command-line tool's contract: arguments, exit codes and saved documents
 │   │   │       │   ├── fixture.rs                                           # The scratch directory each command-line test runs the tool in
@@ -709,7 +751,12 @@ in place.
 │   │   │   │   ├── unit-graph-v1.json                                       # JSON data: unit graph v1
 │   │   │   │   ├── unit-graph-v1.txt                                        # Text: unit graph v1
 │   │   │   │   └── unit-mapping-v1.json                                     # JSON data: unit mapping v1
-│   │   │   └── unit_graph_wire.rs                                           # The shared B06/B07 wire fixture is a canonical, validated CAS payload
+│   │   │   └── it/                                                          # It
+│   │   │       ├── main.rs                                                  # Kernel integration tests for the unit-graph wire contract and producer conformance
+│   │   │       ├── unit_graph_code_leadin.rs                                # The kernel accepts code groups without an optional lead-in relation
+│   │   │       ├── unit_graph_nested_producer.rs                            # Kernel conformance for nested procedure, code and table producer graphs
+│   │   │       ├── unit_graph_producer.rs                                   # Kernel conformance against the canonicalization producer snapshot
+│   │   │       └── unit_graph_wire.rs                                       # The shared B06/B07 wire fixture is a canonical, validated CAS payload
 │   │   └── Cargo.toml                                                       # Crate manifest: The single authoritative store of Maestro, starting with its content-addressed artifacts
 │   ├── maestro-knowledge/                                                   # Maestro knowledge
 │   │   ├── src/                                                             # The crate's sources

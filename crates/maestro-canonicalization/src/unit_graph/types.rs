@@ -1,6 +1,6 @@
 //! Deterministic, digest-bound /4 delivery records.
-use crate::{dedup::Deduplication, document::CanonicalDocument};
-use serde::{Deserialize, Serialize};
+use crate::{dedup::Deduplication, document::CanonicalDocument, error::Error};
+use std::{error, fmt};
 
 /// One source revision with trusted family namespace context.
 #[derive(Clone, Copy, Debug)]
@@ -16,8 +16,7 @@ pub struct UnitGraphInput<'a> {
 }
 
 /// Delivery content kind; groups are not embedding points.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum UnitKind {
     /// Complete section delivery unit.
     Section,
@@ -36,8 +35,7 @@ pub enum UnitKind {
 }
 
 /// Role a source use plays in a delivery unit.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum PartRole {
     /// Primary source contribution owned exactly once.
     Primary,
@@ -46,8 +44,7 @@ pub enum PartRole {
 }
 
 /// Exact byte range in original Markdown.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SourceRange {
     /// Inclusive UTF-8 byte offset.
     pub start: usize,
@@ -56,8 +53,7 @@ pub struct SourceRange {
 }
 
 /// Canonical mapping contribution and its source coordinates.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MappingContribution {
     /// Canonical source unit identity.
     pub unit_id: String,
@@ -68,8 +64,7 @@ pub struct MappingContribution {
 }
 
 /// Exact boundary for an unsplittable oversize contribution.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SplitMarker {
     /// Unit is complete and within its configured limit.
     Whole,
@@ -83,8 +78,7 @@ pub enum SplitMarker {
 }
 
 /// One complete delivery unit and all exact source uses.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DeliveryUnit {
     /// Stable digest-derived identifier.
     pub unit_id: String,
@@ -96,8 +90,6 @@ pub struct DeliveryUnit {
     pub section_id: Option<String>,
     /// Actual canonical heading ancestry.
     pub heading_path: Vec<String>,
-    /// Occurrence among same-kind siblings.
-    pub occurrence: usize,
     /// Innermost structural parent.
     pub parent_id: Option<String>,
     /// Ordered source parts and mapping contributions.
@@ -107,20 +99,18 @@ pub struct DeliveryUnit {
 }
 
 /// Typed relation for a required source-context use.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ContextRelation {
     /// Table header required by its selected rows.
     HeaderToTable,
     /// Caption source required by its table.
     CaptionToTable,
-    /// Procedure or code lead-in required by its content.
+    /// Procedure, code, or section lead-in required by its content.
     LeadIn,
 }
 
 /// Explicit group relation to a required context part.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ContextRelationRecord {
     /// Group requiring this context.
     pub group_id: String,
@@ -133,8 +123,7 @@ pub struct ContextRelationRecord {
 }
 
 /// One exact use of original-source bytes in a delivery unit.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SourcePart {
     /// Stable part identity.
     pub part_id: String,
@@ -149,8 +138,7 @@ pub struct SourcePart {
 }
 
 /// One original-source contribution paired with its canonical mapping.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MappingEntry {
     /// Exact original Markdown range.
     pub range: SourceRange,
@@ -159,8 +147,7 @@ pub struct MappingEntry {
 }
 
 /// Separate versioned canonical mapping CAS artifact.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MappingArtifact {
     /// Wire-schema version.
     pub schema_version: String,
@@ -173,8 +160,7 @@ pub struct MappingArtifact {
 }
 
 /// One owned primary mapping in the source coverage ledger.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CoverageEntry {
     /// Primary source range.
     pub range: SourceRange,
@@ -185,8 +171,7 @@ pub struct CoverageEntry {
 }
 
 /// Explicitly excluded source bytes and reason.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Exclusion {
     /// Excluded original source range.
     pub range: SourceRange,
@@ -195,8 +180,7 @@ pub struct Exclusion {
 }
 
 /// Exact links from one ranked chunk/view to delivery units.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RetrievalMembership {
     /// Delivery unit identity.
     pub unit_id: String,
@@ -211,8 +195,7 @@ pub struct RetrievalMembership {
 }
 
 /// One retrieval representation of indexed content.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RetrievalView {
     /// Pinned ranking-unit value.
     pub rank_policy: String,
@@ -229,8 +212,7 @@ pub struct RetrievalView {
 }
 
 /// Nonembedded ancestry group in source order.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum GroupKind {
     /// Whole row or bounded row group.
     Row,
@@ -249,8 +231,7 @@ pub enum GroupKind {
 }
 
 /// Exact family comparison key; namespace must be supplied by a trusted caller.
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct FamilyKey {
     /// Collection identity.
     pub collection_id: String,
@@ -267,8 +248,7 @@ pub struct FamilyKey {
 }
 
 /// Parent group with ordered children and exact dependencies.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Group {
     /// Stable identity.
     pub group_id: String,
@@ -282,13 +262,14 @@ pub struct Group {
     pub children: Vec<String>,
     /// Exact source parts and dependencies.
     pub parts: Vec<SourcePart>,
+    /// Heading part, when this group represents a heading.
+    pub heading: Option<String>,
     /// Structural comparison family.
     pub family: FamilyKey,
 }
 
 /// Immutable graph identity and digest metadata.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GraphDescriptor {
     /// Wire-schema version.
     pub schema_version: String,
@@ -313,14 +294,56 @@ pub struct GraphDescriptor {
     /// Verified token-counter contract.
     pub counter_contract: String,
     /// CAS digest of the serialized artifact, carried outside its JSON bytes.
-    #[serde(skip)]
     pub graph_digest: String,
     /// Canonical source mapping digest.
     pub mapping_digest: String,
 }
 
+/// Typed refusal raised when a V2 unit exceeds its configured counter limit.
+#[derive(Debug)]
+pub enum UnitGraphError {
+    /// Another validation or mapping error prevented graph construction.
+    InvalidInput(Error),
+    /// One complete delivery unit exceeds its configured size limit.
+    OversizedUnitRefusal {
+        /// Stable delivery unit identity.
+        unit_id: String,
+        /// Delivery unit kind.
+        unit_kind: UnitKind,
+    },
+}
+
+impl From<Error> for UnitGraphError {
+    fn from(error: Error) -> Self {
+        Self::InvalidInput(error)
+    }
+}
+
+impl fmt::Display for UnitGraphError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvalidInput(error) => fmt::Display::fmt(error, formatter),
+            Self::OversizedUnitRefusal { unit_id, unit_kind } => {
+                write!(
+                    formatter,
+                    "oversized_unit_refusal: {unit_id} ({unit_kind:?})"
+                )
+            }
+        }
+    }
+}
+
+impl error::Error for UnitGraphError {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        match self {
+            Self::InvalidInput(error) => Some(error),
+            Self::OversizedUnitRefusal { .. } => None,
+        }
+    }
+}
+
 /// All independent delivery parts and ranking views for one authorized batch.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct UnitBatch<'a> {
     /// Rules for this batch.
     pub profile: super::profile::UnitProfile,
@@ -332,9 +355,8 @@ pub struct UnitBatch<'a> {
     pub mappings: Vec<MappingArtifact>,
 }
 
-/// Graph payload whose digest is carried by its descriptor.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
+/// In-memory graph model, serialized through the strict private wire DTO.
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DeliveryGraph {
     /// Graph identity and outside-payload digests.
     pub descriptor: GraphDescriptor,
