@@ -27,9 +27,14 @@ use std::{
 pub(super) fn read_bounded(path: &Path) -> Result<Option<String>, SettingsError> {
     match File::open(path) {
         Ok(file) => read_text(file, path).map(Some),
-        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
+        Err(error) if not_found(&error) => Ok(None),
         Err(error) => Err(unreadable(path, &error)),
     }
+}
+
+/// Whether a file operation reports that its path is missing.
+fn not_found(error: &io::Error) -> bool {
+    error.kind() == io::ErrorKind::NotFound
 }
 
 /// The text of the regular file `name` in `directory`, whose path is
@@ -83,5 +88,17 @@ pub(super) fn unreadable(path: &Path, error: &io::Error) -> SettingsError {
     SettingsError::Io {
         path: path.to_path_buf(),
         reason: error.to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::not_found;
+    use std::io::{Error, ErrorKind};
+
+    #[test]
+    fn only_not_found_is_a_missing_file() {
+        assert!(not_found(&Error::from(ErrorKind::NotFound)));
+        assert!(!not_found(&Error::from(ErrorKind::PermissionDenied)));
     }
 }

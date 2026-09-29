@@ -11,6 +11,8 @@ mod place;
 mod unix;
 #[cfg(windows)]
 mod windows;
+#[cfg(any(windows, test))]
+mod windows_logic;
 
 pub use edit::{FileEdit, FileError, RestoreError};
 pub use layers::FileLayers;

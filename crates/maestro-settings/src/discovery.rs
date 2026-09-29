@@ -108,12 +108,29 @@ fn kind(path: &Path) -> Result<Option<Kind>, String> {
         Ok(metadata) if metadata.is_dir() => Ok(Some(Kind::Directory)),
         Ok(metadata) if metadata.is_file() => Ok(Some(Kind::File)),
         Ok(_) => Err(skipped(path, "not a regular file")),
-        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
+        Err(error) if not_found(&error) => Ok(None),
         Err(error) => Err(skipped(path, &format!("cannot be read: {error}"))),
     }
+}
+
+/// Whether a filesystem operation reports a missing path.
+fn not_found(error: &io::Error) -> bool {
+    error.kind() == io::ErrorKind::NotFound
 }
 
 /// The warning of `path` skipped for `reason`.
 fn skipped(path: &Path, reason: &str) -> String {
     format!("{}: skipped: {reason}", path.display())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::not_found;
+    use std::io::{Error, ErrorKind};
+
+    #[test]
+    fn only_not_found_is_a_missing_path() {
+        assert!(not_found(&Error::from(ErrorKind::NotFound)));
+        assert!(!not_found(&Error::from(ErrorKind::PermissionDenied)));
+    }
 }

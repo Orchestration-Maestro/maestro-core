@@ -15,6 +15,11 @@ fn refusal(text: &str) -> String {
 }
 
 #[test]
+fn file_size_limit_is_64_kibibytes() {
+    assert_eq!(MAX_FILE_BYTES, 64 * 1024);
+}
+
+#[test]
 fn parse_reads_every_form_toml_writes_a_setting_in() {
     let layer = Layer::parse(
         &registry(),
@@ -43,6 +48,7 @@ fn parse_reads_every_form_toml_writes_a_setting_in() {
     assert_eq!(read, expected);
     assert_eq!(layer.get("tone"), Some(&Value::Text("brief".to_owned())));
     assert_eq!(layer.get("search.rrf_k"), None);
+    assert!(!layer.is_empty());
 }
 
 #[test]
@@ -53,6 +59,19 @@ fn parse_reads_a_file_of_the_schema_alone_as_an_empty_layer() {
     )
     .unwrap();
     assert!(layer.is_empty());
+}
+
+#[test]
+fn borrowed_layer_iteration_yields_each_setting_in_key_order() {
+    let layer = Layer::parse(
+        &registry(),
+        "schema = \"maestro-preferences/1\"\ntone = \"brief\"\nsearch.k = 8\n",
+    )
+    .unwrap();
+    let entries: Vec<_> = (&layer).into_iter().collect();
+    assert_eq!(entries.len(), 2);
+    assert_eq!(entries[0].0, "search.k");
+    assert_eq!(entries[1].0, "tone");
 }
 
 #[test]

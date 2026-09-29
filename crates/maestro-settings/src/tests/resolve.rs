@@ -46,6 +46,15 @@ fn layers(user_body: &str, project_body: &str) -> Layers {
 }
 
 #[test]
+fn source_names_and_display_are_stable() {
+    assert_eq!(LayerName::User.name(), "user");
+    assert_eq!(LayerName::Project.name(), "project");
+    assert_eq!(Source::Default.to_string(), "default");
+    assert_eq!(user().to_string(), "user file user.toml");
+    assert_eq!(Source::Flag.to_string(), "--set flag");
+}
+
+#[test]
 fn resolve_takes_each_key_from_the_first_layer_that_sets_it() {
     let registry = registry();
     let flags = parse_flags(&registry, &["tone=detailed".to_owned()]).unwrap();

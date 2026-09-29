@@ -147,6 +147,19 @@ fn a_file_another_program_changed_since_it_was_read_is_never_overwritten() {
 }
 
 #[test]
+fn write_errors_are_not_file_refusals() {
+    let scratch = Scratch::new();
+    let mut original = begin(&scratch);
+    original.publish("old\n").unwrap();
+    original.keep();
+    let mut edit = begin(&scratch);
+    fs::create_dir(edit.recovery_path()).unwrap();
+    let error = edit.publish("new\n").unwrap_err();
+    assert!(matches!(error, FileError::Write { .. }));
+    assert!(!error.is_refusal());
+}
+
+#[test]
 fn undo_puts_back_the_old_file_or_removes_a_new_one() {
     let scratch = Scratch::new();
     let mut edit = begin(&scratch);

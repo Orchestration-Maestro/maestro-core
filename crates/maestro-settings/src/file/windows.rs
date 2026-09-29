@@ -5,7 +5,10 @@
 //! itself and refused, never followed. The constants are Win32's documented
 //! values; the standard library exposes the flags safely.
 
-use super::place::FilePlace;
+use super::{
+    place::FilePlace,
+    windows_logic::{already_exists, is_not_found, is_reparse_point},
+};
 use std::{
     ffi::OsStr,
     fs::{self, File, OpenOptions},
@@ -51,7 +54,7 @@ impl Directory {
             FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
         ) {
             Ok(held) => held,
-            Err(error) if error.kind() == ErrorKind::NotFound => return Ok(None),
+            Err(error) if is_not_found(&error) => return Ok(None),
             Err(error) => return Err(error),
         };
         unlinked(&held)?;
@@ -66,7 +69,7 @@ impl Directory {
     pub(super) fn open_regular(&self, name: &OsStr) -> io::Result<Option<File>> {
         let file = match hold(&self.path.join(name), FILE_FLAG_OPEN_REPARSE_POINT) {
             Ok(file) => file,
-            Err(error) if error.kind() == ErrorKind::NotFound => return Ok(None),
+            Err(error) if is_not_found(&error) => return Ok(None),
             Err(error) => return Err(error),
         };
         unlinked(&file)?;
@@ -118,7 +121,7 @@ fn create_directories(place: &FilePlace) -> io::Result<()> {
         return Ok(());
     };
     match fs::create_dir(place.root().join(below)) {
-        Err(error) if error.kind() != ErrorKind::AlreadyExists => Err(error),
+        Err(error) if !already_exists(&error) => Err(error),
         _ => Ok(()),
     }
 }
@@ -135,7 +138,10 @@ fn hold(path: &Path, flags: u32) -> io::Result<File> {
 
 /// [`LINK`] when `file` names a reparse point.
 fn unlinked(file: &File) -> io::Result<()> {
-    if file.metadata()?.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0 {
+    if is_reparse_point(
+        file.metadata()?.file_attributes(),
+        FILE_ATTRIBUTE_REPARSE_POINT,
+    ) {
         return Err(io::Error::other(LINK));
     }
     Ok(())

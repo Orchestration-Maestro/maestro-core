@@ -1253,7 +1253,8 @@ in place.
 │   │   │   │   ├── mod.rs                                                   # A preferences file's own I/O: its directory opened without following a
 │   │   │   │   ├── place.rs                                                 # Where a preferences file lives: a directory the caller trusts, the one
 │   │   │   │   ├── unix.rs                                                  # Unix: every name below the trusted directory resolves against an open
-│   │   │   │   └── windows.rs                                               # Windows: names resolve by path, but the directory of the file is held
+│   │   │   │   ├── windows.rs                                               # Windows: names resolve by path, but the directory of the file is held
+│   │   │   │   └── windows_logic.rs                                         # Platform-neutral Windows decisions, tested on every host
 │   │   │   ├── tests/                                                       # The settings crate's tests, one module per source module, and the proof
 │   │   │   │   ├── discovery.rs                                             # Project-file discovery: the nearest .maestro/config.toml upward from the
 │   │   │   │   ├── edit.rs                                                  # config set and config unset on a file's text: only the value's bytes

@@ -41,6 +41,11 @@ fn built_in_registry_is_valid_and_resolves_each_default() {
         registry.default_of("ask.min_rerank_score"),
         Some(&Value::Off)
     );
+    assert_eq!(
+        registry.default_of("search.intent.min_top_rerank"),
+        Some(&Value::Off)
+    );
+    assert_eq!(registry.default_of("ask.output_tokens"), Some(&Value::Off));
     assert_eq!(registry.default_of("nothing"), None);
     assert!(registry.get("search.rerank.depth").is_some());
     assert!(registry.get("search.rerank").is_none());
@@ -49,6 +54,26 @@ fn built_in_registry_is_valid_and_resolves_each_default() {
     assert!(!registry.is_table("search.rerank.depth"));
     assert!(!registry.is_table("searc"));
     assert!(!registry.is_table(""));
+}
+
+#[test]
+fn both_rerank_thresholds_accept_negative_values() {
+    let registry = Registry::built_in().unwrap();
+    for key in ["search.intent.min_top_rerank", "ask.min_rerank_score"] {
+        assert_eq!(
+            registry.get(key).unwrap().kind.parse_text("-1"),
+            Ok(Value::Number(-1.0)),
+            "{key}"
+        );
+    }
+}
+
+#[test]
+fn setting_class_names_are_stable() {
+    assert_eq!(SettingClass::Free.name(), "free");
+    assert_eq!(SettingClass::Bounded.name(), "bounded");
+    assert_eq!(SettingClass::Additive.name(), "additive");
+    assert_eq!(SettingClass::Locked.name(), "locked");
 }
 
 #[test]
