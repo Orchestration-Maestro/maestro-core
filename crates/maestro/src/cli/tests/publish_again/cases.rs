@@ -365,7 +365,7 @@ fn publish_preflight_refuses_missing_unknown_and_incomplete_chunk_sets() {
     assert!(matches!(
         publish::run(&fixture.kernel, Output::new(true), &empty),
         Err(Failure::Refused(message))
-            if message == "collection empty has no complete chunk set of mapped-structural-chunks/2"
+            if message == "collection empty has no complete chunk set of mapped-structural-chunks/3"
     ));
 }
 

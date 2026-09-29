@@ -57,10 +57,6 @@ impl Corpus {
     fn new() -> Self {
         let scratch = Scratch::new();
         scratch.corpus(&[("release.md", RELEASE), ("guide.md", GUIDE)]);
-        Self::from_scratch(scratch)
-    }
-
-    fn from_scratch(scratch: Scratch) -> Self {
         let database = Arc::new(scratch.database());
         let scopes = scratch.import(&database);
         decide_all(&database, &scopes, Outcome::Accepted);

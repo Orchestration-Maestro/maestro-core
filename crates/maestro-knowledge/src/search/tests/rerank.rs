@@ -23,7 +23,7 @@ pub(super) struct FakePort {
     reply: Reply,
     delay: Duration,
     pub(super) calls: Mutex<Vec<RerankCall>>,
-    pub(super) tokenized: Mutex<Vec<String>>,
+    tokenized: Mutex<Vec<String>>,
     token_overrides: Vec<(String, usize)>,
 }
 

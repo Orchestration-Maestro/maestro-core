@@ -362,6 +362,6 @@ pub const BUILT_IN: &[SettingDescriptor] = &[
             "mapped-structural-chunks/3"
         ]),
         "mapped-structural-chunks/3",
-        "The chunking profile prepare uses, and publish selects when no chunk set is named.",
+        "Default for new collections; published profiles persist unless --chunk-profile overrides.",
     ),
 ];

@@ -97,7 +97,7 @@ impl Loaded {
             candidates: fused
                 .into_iter()
                 .zip(texts)
-                .map(|(fused, (_chunk, text))| Candidate { fused, text })
+                .map(|(fused, (_, text))| Candidate { fused, text })
                 .collect(),
             source_load_micros: enriched.micros,
             fallbacks: enriched.fallbacks,

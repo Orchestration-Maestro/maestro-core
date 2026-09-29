@@ -206,18 +206,31 @@ fn modelled(
             card,
             chunk_profile,
         } => {
-            let profile = chunk_profile
-                .as_deref()
-                .unwrap_or(settings.chunk_profile.chunker_version());
-            prepare::run(&kernel, output, collection, card, Some(profile))
+            let profile = match chunk_profile.as_deref() {
+                Some(profile) => profile.to_owned(),
+                None => {
+                    prepare::profile_for_collection(&kernel, collection, settings.chunk_profile)?
+                        .chunker_version()
+                        .to_owned()
+                }
+            };
+            prepare::run(&kernel, output, collection, card, Some(&profile))
         }
         KnowledgeCommand::Publish { arguments } => {
-            let profile = arguments.chunk_profile.clone().or_else(|| {
-                arguments
-                    .chunk_set
-                    .is_none()
-                    .then(|| settings.chunk_profile.chunker_version().to_owned())
-            });
+            let profile = if arguments.chunk_set.is_none() {
+                Some(match arguments.chunk_profile.as_deref() {
+                    Some(profile) => profile.to_owned(),
+                    None => prepare::profile_for_collection(
+                        &kernel,
+                        &arguments.collection,
+                        settings.chunk_profile,
+                    )?
+                    .chunker_version()
+                    .to_owned(),
+                })
+            } else {
+                arguments.chunk_profile.clone()
+            };
             let arguments = PublishArguments {
                 collection: arguments.collection.clone(),
                 card: arguments.card.clone(),

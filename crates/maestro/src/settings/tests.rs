@@ -92,7 +92,7 @@ fn defaults() -> KnowledgeSettings {
 }
 
 #[test]
-fn every_default_is_the_behaviour_before_settings_existed() {
+fn every_default_is_the_measured_default() {
     let today = KnowledgeSettings {
         search: SearchConfiguration::default(),
         evidence: EvidenceSettings::default(),
@@ -177,7 +177,7 @@ fn each_setting_reaches_the_knowledge_operations() {
          [evidence]\nexpansion = \"relevant_blocks\"\ncounter = \"utf8_answer_bound\"\n\
          [ask]\nmodel = \"qwen3-8b\"\nprompt = \"procedure_first\"\nk = 7\nmax_tokens = 3000\n\
          search_deadline_ms = 8000\noutput_tokens = 512\nmin_rerank_score = -1.5\n\
-         [chunking]\nprofile = \"mapped-structural-chunks/3\"\n",
+         [chunking]\nprofile = \"mapped-structural-chunks/2\"\n",
     );
     let settings = scratch.session(&[]).knowledge().unwrap();
     let mut classes = SectionClassSet::default();
@@ -257,7 +257,7 @@ fn each_setting_reaches_the_knowledge_operations() {
             },
         }
     );
-    assert_eq!(settings.chunk_profile, ChunkProfile::CompleteIdeas);
+    assert_eq!(settings.chunk_profile, ChunkProfile::Structural);
 }
 
 #[test]

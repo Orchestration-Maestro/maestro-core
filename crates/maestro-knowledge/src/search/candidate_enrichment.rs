@@ -81,11 +81,7 @@ pub(super) fn enrich(
         .map(|(chunk, _)| chunk.revision_id.clone())
         .collect::<Vec<_>>();
     cache.load_available(&revisions, settings.generation, CONTEXT_LOAD_WORKERS);
-    if max_bytes.is_none() && !prior.is_active() {
-        enriched.micros = micros(started.elapsed());
-        return enriched;
-    }
-    for (chunk, text) in candidates.iter_mut().take(depth) {
+    for (chunk, text) in candidates {
         let context = deadline::open(&control)
             .then(|| cache.get(&chunk.revision_id))
             .flatten()
