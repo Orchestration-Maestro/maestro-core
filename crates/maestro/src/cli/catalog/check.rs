@@ -1,0 +1,128 @@
+//! `catalog check --catalog-dir DIR`: the strict source checker over a
+//! catalog directory, with the built-in kinds, the production limits and the
+//! frozen architecture 08 rows and the shipped settings. It prints each
+//! diagnostic with its path and key, and exits 2 when the catalog is refused
+//! and 1 when a file or directory cannot be read.
+
+use crate::{cli::output::Output, failure::Failure};
+use maestro_catalog::{
+    limits::Limits,
+    source::{Catalog, Directory, Known, Refusal, builtin, check, frozen_rows, shipped_settings},
+};
+use serde::Serialize;
+use std::{path::Path, process::ExitCode};
+
+/// The schema of the document `catalog check` prints under `--json`.
+const SCHEMA: &str = "maestro-cli/catalog-check/1";
+
+/// What `catalog check` prints under `--json`.
+#[derive(Debug, Serialize)]
+struct CheckDocument<'a> {
+    /// [`SCHEMA`].
+    schema: &'static str,
+    /// `passed`, `refused`, or `failed` when a file could not be read.
+    status: &'static str,
+    /// Each checked resource, sorted by ID; none when refused.
+    resources: Vec<ResourceLine<'a>>,
+    /// Each diagnostic, sorted; none when passed.
+    diagnostics: Vec<DiagnosticLine<'a>>,
+}
+
+/// One checked resource.
+#[derive(Debug, Serialize)]
+struct ResourceLine<'a> {
+    /// Its `kind:name` ID.
+    id: String,
+    /// Its primary file, relative to the catalog.
+    path: &'a str,
+    /// Its owner.
+    owner: &'a str,
+    /// Its declared stage.
+    maturity: &'static str,
+}
+
+/// One diagnostic.
+#[derive(Debug, Serialize)]
+struct DiagnosticLine<'a> {
+    /// The file, relative to the catalog; empty for the whole catalog.
+    path: &'a str,
+    /// The dotted key; empty for the whole file.
+    key: &'a str,
+    /// What is wrong.
+    message: &'a str,
+}
+
+/// The document of a passed check.
+fn passed(catalog: &Catalog) -> CheckDocument<'_> {
+    CheckDocument {
+        schema: SCHEMA,
+        status: "passed",
+        resources: catalog
+            .resources
+            .iter()
+            .map(|resource| ResourceLine {
+                id: resource.id.to_string(),
+                path: &resource.path,
+                owner: &resource.metadata.owner,
+                maturity: resource.metadata.maturity.as_str(),
+            })
+            .collect(),
+        diagnostics: Vec::new(),
+    }
+}
+
+/// The document of a refused or failed check.
+fn refused(refusal: &Refusal) -> CheckDocument<'_> {
+    CheckDocument {
+        schema: SCHEMA,
+        status: if refusal.unreadable() {
+            "failed"
+        } else {
+            "refused"
+        },
+        resources: Vec::new(),
+        diagnostics: refusal
+            .diagnostics
+            .iter()
+            .map(|diagnostic| DiagnosticLine {
+                path: &diagnostic.path,
+                key: &diagnostic.key,
+                message: &diagnostic.message,
+            })
+            .collect(),
+    }
+}
+
+/// Checks the catalog in `catalog_dir`, and prints the result.
+///
+/// # Errors
+///
+/// [`Failure::Failed`] when a built-in kind cannot be registered or stdout
+/// cannot be written to.
+pub(in crate::cli) fn run(output: Output, catalog_dir: &Path) -> Result<ExitCode, Failure> {
+    let registry = builtin().map_err(Failure::failed)?;
+    let (rows, settings) = (frozen_rows(), shipped_settings());
+    let known = Known {
+        rows: &rows,
+        settings: &settings,
+    };
+    match check(
+        &Directory::new(catalog_dir),
+        &registry,
+        &Limits::PRODUCTION,
+        known,
+    ) {
+        Ok(catalog) => {
+            let text = format!(
+                "catalog check passed: {} resources",
+                catalog.resources.len()
+            );
+            output.result(&passed(&catalog), &text)?;
+            Ok(ExitCode::SUCCESS)
+        }
+        Err(refusal) => {
+            output.refusal(&refused(&refusal), &refusal.to_string())?;
+            Ok(ExitCode::from(if refusal.unreadable() { 1 } else { 2 }))
+        }
+    }
+}

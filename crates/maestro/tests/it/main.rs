@@ -5,6 +5,7 @@
 
 mod backup_restore;
 mod backup_restore_targets;
+mod catalog_check;
 mod catalog_host_probe;
 mod cli_contract;
 mod collection_status;

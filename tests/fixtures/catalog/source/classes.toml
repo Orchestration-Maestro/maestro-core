@@ -1,0 +1,35 @@
+[classes]
+free = ["language", "tone"]
+bounded = [
+  "updates",
+  "model_profile",
+  "reasoning_effort",
+  "max_output_tokens",
+  "inference_writers",
+  "workspace_writers",
+  "delegation_depth",
+  "tool_calls",
+  "repair_attempts",
+  "routing_candidates",
+  "mcp_call_timeout",
+  "cross_project_memory",
+  "mcp_apps",
+  "extensions",
+  "schedules",
+]
+additive = []
+locked = [
+  "raw_prompt_logging",
+  "raw_reasoning_logging",
+  "provider_fallback",
+  "evidence_validation",
+  "result_validation",
+  "discovered_executable_hooks",
+]
+
+[metadata]
+schema = "maestro-source/1"
+owner = "@synthetic/platform"
+maturity = "reviewed"
+rows = ["chat.M036 classes, M039 policy"]
+workflows = ["ctm-question"]

@@ -43,6 +43,14 @@
 //!   backup API and a digest manifest, without creating or migrating it;
 //! - `maestro restore --from <dir>` checks a backup and restores it only when
 //!   the data directory has no kernel database or artifact tree.
+//! - `maestro catalog check --catalog-dir <dir>` checks a catalog's authoring
+//!   sources strictly, as bounded data, running none of their content. It
+//!   prints `catalog check passed: <n> resources`, or each diagnostic as
+//!   `path: key: message` on stderr, at most 1,000 then a count of the rest;
+//!   it exits 2 when the catalog is refused and 1 when a file or directory
+//!   cannot be read. Under `--json`, `maestro-cli/catalog-check/1` holds
+//!   `status` (`passed`, `refused` or `failed`), `resources` and
+//!   `diagnostics`.
 //!
 //! # Output and exit codes
 //!

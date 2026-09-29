@@ -60,6 +60,9 @@ in place.
 │   │   │   │   │   ├── restore.rs                                           # Rust source: restore
 │   │   │   │   │   ├── test_support.rs                                      # Rust source: test support
 │   │   │   │   │   └── tests.rs                                             # Rust source: tests
+│   │   │   │   ├── catalog/                                                 # catalog: the catalog's authoring commands
+│   │   │   │   │   ├── check.rs                                             # catalog check --catalog-dir DIR: the strict source checker over a
+│   │   │   │   │   └── mod.rs                                               # catalog: the catalog's authoring commands
 │   │   │   │   ├── eval/                                                    # maestro eval ladder: the M1 ladder, every question of a suite searched
 │   │   │   │   │   ├── tests/                                               # Tests of the ladder command: its manifest, its run over a fake engine, its
 │   │   │   │   │   │   ├── ask_settings.rs                                  # A rung's ask: true asks as ask does by default, false does not
@@ -229,6 +232,7 @@ in place.
 │   │   │       │   └── wipe_safety.rs                                       # Ownership checks for the destructive kernel and Qdrant portions
 │   │   │       ├── backup_restore.rs                                        # Backup and restore: online copies keep the database, artifacts and leased
 │   │   │       ├── backup_restore_targets.rs                                # Rust source: backup restore targets
+│   │   │       ├── catalog_check.rs                                         # catalog check --catalog-dir DIR: the strict source checker as its
 │   │   │       ├── cli_contract.rs                                          # JSON on stdout, diagnostics on stderr, exit codes 0, 1 and 2, the job ID first
 │   │   │       ├── collection_status.rs                                     # knowledge status of the synthetic collection: counts, dispositions and a generation
 │   │   │       ├── doctor_checks.rs                                         # maestro doctor: each failure names its next action, the router its address; v1 files listed, untouched
@@ -367,6 +371,54 @@ in place.
 │   │   ├── TOKENIZER.md                                                     # Local GGUF tokenizer
 │   │   ├── VERIFICATION.md                                                  # Initial verification — 2026-09-21 (historical)
 │   │   └── tokenizer-contract.json                                          # JSON data: tokenizer contract
+│   ├── maestro-catalog/                                                     # Maestro catalog
+│   │   ├── data/                                                            # Data
+│   │   │   └── known-rows.txt                                               # Text: known rows
+│   │   ├── src/                                                             # The crate's sources
+│   │   │   ├── limits/                                                      # The one immutable set of numeric limits every catalog input path shares
+│   │   │   │   ├── mod.rs                                                   # The one immutable set of numeric limits every catalog input path shares
+│   │   │   │   ├── tests.rs                                                 # Plan D2's production constants, asserted once here; every boundary test
+│   │   │   │   └── values.rs                                                # The limit values, one immutable [Limits]
+│   │   │   ├── source/                                                      # The strict checker of a catalog's authoring sources: a registry of
+│   │   │   │   ├── kinds/                                                   # The built-in kinds: each a descriptor and, where a rule is truly
+│   │   │   │   │   ├── agent.rs                                             # agent: a Copilot custom agent profile and its <name>.maestro.toml
+│   │   │   │   │   ├── builtin.rs                                           # The registry of the built-in kinds
+│   │   │   │   │   ├── instructions.rs                                      # instructions: a Copilot .instructions.md file and its
+│   │   │   │   │   ├── mcp.rs                                               # mcp: an approved MCP server, its launch and its tool allowlist
+│   │   │   │   │   ├── mod.rs                                               # The built-in kinds: each a descriptor and, where a rule is truly
+│   │   │   │   │   ├── preset.rs                                            # preset: a project preset, the root of a declared closure, and the
+│   │   │   │   │   ├── settings.rs                                          # settings: settings/classes.toml, the one override class of every
+│   │   │   │   │   └── skill.rs                                             # skill: an Agent Skills SKILL.md, whose Maestro data sits in the
+│   │   │   │   ├── tests/                                                   # The source checker's tests: the valid synthetic catalog and each of its
+│   │   │   │   │   ├── accepted.rs                                          # The valid catalog passes, and its typed resources hold exactly what the
+│   │   │   │   │   ├── bounds.rs                                            # D2's source limits at small injected values: each exact boundary passes
+│   │   │   │   │   ├── coverage.rs                                          # Refusals each guard owns alone: tool names and lists, agent sections
+│   │   │   │   │   ├── directory.rs                                         # The filesystem adapter: a bounded read, links never followed, and a
+│   │   │   │   │   ├── extension.rs                                         # The owner's scaling requirement: a new kind is one descriptor plus
+│   │   │   │   │   ├── hostile.rs                                           # Hostile sources inside D2's limits: YAML aliases that expand past their
+│   │   │   │   │   ├── layout.rs                                            # The catalog's layout: agent and sidecar pairing, duplicate IDs, entries
+│   │   │   │   │   ├── mod.rs                                               # The source checker's tests: the valid synthetic catalog and each of its
+│   │   │   │   │   ├── references.rs                                        # References across resources: dangling names and tools, dependency
+│   │   │   │   │   ├── registry.rs                                          # The kind registry: a synthetic kind added from a descriptor alone is
+│   │   │   │   │   ├── rulings.rs                                           # The C03 round-two rulings: skill metadata reads only maestro
+│   │   │   │   │   ├── schema.rs                                            # Each file's strict schema: duplicate and unknown keys, wrong types
+│   │   │   │   │   ├── support.rs                                           # An in-memory [SourceTree] adapter holding the valid synthetic catalog
+│   │   │   │   │   └── yaml.rs                                              # YAML read node by node at injected limits: the exact node budget and
+│   │   │   │   ├── check.rs                                                 # The checker: discovery, each resource read by its kind, then the checks
+│   │   │   │   ├── descriptor.rs                                            # A kind described as data: where its files live, how they are written
+│   │   │   │   ├── graph.rs                                                 # The dependency graph across resources, its nodes numbered in ID order
+│   │   │   │   ├── load.rs                                                  # One discovered resource read from its files, as its kind's descriptor
+│   │   │   │   ├── metadata.rs                                              # The Maestro metadata every resource declares, read the same way wherever
+│   │   │   │   ├── mod.rs                                                   # The strict checker of a catalog's authoring sources: a registry of
+│   │   │   │   ├── parse.rs                                                 # Bounded, strict parsing into checked values
+│   │   │   │   ├── registry.rs                                              # The kinds a checker knows: each a [KindDescriptor] and, for rules no
+│   │   │   │   ├── rules.rs                                                 # A kind's rules beyond its descriptor: a hook, which a descriptor selects
+│   │   │   │   ├── tree.rs                                                  # The port through which the checker reads a catalog's files, and its
+│   │   │   │   ├── types.rs                                                 # The catalog's authoring schema, maestro-source/1, as typed data
+│   │   │   │   ├── walk.rs                                                  # Discovery: the catalog's top level, then each registered kind's
+│   │   │   │   └── yaml.rs                                                  # YAML frontmatter read node by node, never as a whole generic tree first
+│   │   │   └── lib.rs                                                       # The Maestro catalog: its shared security limits and the strict checker of
+│   │   └── Cargo.toml                                                       # Crate manifest: The Maestro catalog: strict, bounded checks of its authoring sources
 │   ├── maestro-conventions/                                                 # Maestro conventions
 │   │   ├── src/                                                             # The crate's sources
 │   │   │   └── lib.rs                                                       # Helpers for the repository's policy tests: the files the repository holds
@@ -1122,11 +1174,22 @@ in place.
 ├── tests/                                                                   # Test data shared by the workspace's crates
 │   └── fixtures/                                                            # Test fixtures
 │       ├── catalog/                                                         # Catalog
-│       │   └── hosts/                                                       # Hosts
-│       │       ├── metadata.agent.md                                        # Synthetic agent for the catalog host format probe
-│       │       ├── pi.md                                                    # Synthetic agent for the catalog host format probe
-│       │       ├── sidecar.agent.md                                         # Synthetic agent for the catalog host format probe
-│       │       └── sidecar.maestro.toml                                     # TOML settings: sidecar.maestro
+│       │   ├── hosts/                                                       # Hosts
+│       │   │   ├── metadata.agent.md                                        # Synthetic agent for the catalog host format probe
+│       │   │   ├── pi.md                                                    # Synthetic agent for the catalog host format probe
+│       │   │   ├── sidecar.agent.md                                         # Synthetic agent for the catalog host format probe
+│       │   │   └── sidecar.maestro.toml                                     # TOML settings: sidecar.maestro
+│       │   └── source/                                                      # Source
+│       │       ├── valid-skill/                                             # Valid skill
+│       │       │   └── SKILL.md                                             # Synthetic skill that cites evidence from the public synthetic glossary
+│       │       ├── classes.toml                                             # TOML settings: classes
+│       │       ├── invalid.agent.md                                         # Synthetic agent that carries metadata Copilot ignores
+│       │       ├── mcp.toml                                                 # TOML settings: mcp
+│       │       ├── preset.toml                                              # TOML settings: preset
+│       │       ├── valid.agent.md                                           # Synthetic agent that answers from the public synthetic glossary
+│       │       ├── valid.instructions.maestro.toml                          # TOML settings: valid.instructions.maestro
+│       │       ├── valid.instructions.md                                    # Sample document: valid.instructions
+│       │       └── valid.maestro.toml                                       # TOML settings: valid.maestro
 │       └── synthetic/                                                       # The public synthetic collection and its suite, which stand in for the private corpus in public CI (ADR-0009)
 │           ├── corpus/                                                      # The collection's one source: its maestro-corpus/1 manifest beside the Markdown documents it names
 │           │   ├── en/                                                      # The documents written in English

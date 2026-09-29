@@ -1,0 +1,6 @@
+schema = "maestro-source/1"
+owner = "@synthetic/knowledge"
+maturity = "reviewed"
+rows = ["chat.M036 objects"]
+workflows = ["ctm-question"]
+requires = ["skill:valid-skill", "instructions:valid"]

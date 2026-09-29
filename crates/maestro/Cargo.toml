@@ -12,6 +12,7 @@ workspace = true
 
 [dependencies]
 clap.workspace = true
+maestro-catalog.workspace = true
 maestro-kernel.workspace = true
 maestro-knowledge.workspace = true
 rmcp.workspace = true

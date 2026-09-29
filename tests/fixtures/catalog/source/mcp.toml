@@ -1,0 +1,10 @@
+command = "maestro"
+args = ["mcp"]
+tools = ["knowledge_search", "knowledge_get"]
+
+[metadata]
+schema = "maestro-source/1"
+owner = "@synthetic/knowledge"
+maturity = "reviewed"
+rows = ["chat.M036 objects"]
+workflows = ["ctm-question"]

@@ -5,6 +5,7 @@
 mod args;
 mod ask;
 mod backup;
+mod catalog;
 mod collection;
 mod eval;
 mod foreground;

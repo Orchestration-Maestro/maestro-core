@@ -835,6 +835,7 @@ name = "maestro"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "maestro-catalog",
  "maestro-kernel",
  "maestro-knowledge",
  "qdrant-client",
@@ -861,6 +862,17 @@ dependencies = [
  "serde_json",
  "serde_yaml_ng",
  "sha2",
+]
+
+[[package]]
+name = "maestro-catalog"
+version = "0.1.0"
+dependencies = [
+ "pulldown-cmark",
+ "serde",
+ "serde_json",
+ "serde_yaml_ng",
+ "toml",
 ]
 
 [[package]]

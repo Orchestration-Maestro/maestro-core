@@ -31,6 +31,9 @@ pub(super) enum Noun {
     /// Evaluations of a collection's search and answers.
     #[command(subcommand)]
     Eval(EvalCommand),
+    /// The catalog's authoring sources.
+    #[command(subcommand)]
+    Catalog(CatalogCommand),
     /// Preview the search service Maestro needs, or install it with --yes.
     Setup {
         /// Take the steps the preview lists, rather than only print them.
@@ -208,6 +211,17 @@ pub(super) enum CollectionCommand {
     Add {
         /// The declaration: a `maestro-collection/1` file.
         declaration: PathBuf,
+    },
+}
+
+/// What to do with a catalog's authoring sources.
+#[derive(Debug, Subcommand)]
+pub(super) enum CatalogCommand {
+    /// Check a catalog's sources strictly, running none of its content.
+    Check {
+        /// The catalog's directory.
+        #[arg(long, value_name = "DIR")]
+        catalog_dir: PathBuf,
     },
 }
 
