@@ -7,7 +7,10 @@ use super::{
         embeddings_limit, ranking_limit, read_bounded, render_limit, tokens_limit,
     },
     card::{ModelCard, Role, RouterEntry},
-    port::{ChatRequest, Error, ModelPort, Room, embedder_dimensions, require},
+    port::{
+        Candidate, ChatRequest, Error, ExtractRequest, ModelPort, Room, embedder_dimensions,
+        require,
+    },
 };
 use crate::artifact::Digest;
 use reqwest::{Client, RequestBuilder, Url, redirect::Policy};
@@ -138,7 +141,7 @@ impl RouterClient {
 
     /// Posts `body` to `path` under the model `card` names, once the card is
     /// checked, and reads an answer of at most `limit` bytes.
-    async fn call<T: DeserializeOwned>(
+    pub(super) async fn call<T: DeserializeOwned>(
         &self,
         card: &ModelCard,
         room: Room,
@@ -179,7 +182,7 @@ impl ModelPort for RouterClient {
                 &json!({"input": inputs}),
             )
             .await?;
-        let vectors = by_index(
+        let vectors = super::body::by_index(
             inputs.len(),
             answer
                 .data
@@ -212,7 +215,7 @@ impl ModelPort for RouterClient {
         let body = json!({"query": query, "documents": documents});
         let limit = ranking_limit(documents.len());
         let answer: Ranking = self.call(card, room, ("v1/rerank", limit), &body).await?;
-        by_index(
+        super::body::by_index(
             documents.len(),
             answer
                 .results
@@ -291,6 +294,23 @@ impl ModelPort for RouterClient {
             )
             .await?;
         answer.into_content()
+    }
+
+    async fn extract(
+        &self,
+        card: &ModelCard,
+        request: &ExtractRequest,
+    ) -> Result<Vec<Candidate>, Error> {
+        let body = super::extract::request_body(card, request)?;
+        let answer: Completion = self
+            .call(
+                card,
+                Room::Free,
+                ("v1/chat/completions", MAX_CHAT_BODY_BYTES),
+                &body,
+            )
+            .await?;
+        super::extract::decode_content(&answer.into_content()?)
     }
 }
 
@@ -380,7 +400,13 @@ fn has_value(value: &Value) -> bool {
 /// envelope, `{"error": {"code", "message", "type"}}`, when the body is one.
 fn refusal(status: u16, body: &[u8]) -> Error {
     let (code, message) = match serde_json::from_slice::<Envelope>(body) {
-        Ok(Envelope { error }) => (error.code.and_then(named), error.message),
+        Ok(Envelope { error }) => (
+            error.code.and_then(|code| match code {
+                Value::String(code) => Some(code),
+                _ => None,
+            }),
+            error.message,
+        ),
         Err(_) => (None, String::from_utf8_lossy(body).into_owned()),
     };
     match (status, code.as_deref()) {
@@ -392,38 +418,6 @@ fn refusal(status: u16, body: &[u8]) -> Error {
             message,
         },
     }
-}
-
-/// A refusal's code when it is in words, as the router's are; llama.cpp's
-/// server repeats the status as a number instead.
-fn named(code: Value) -> Option<String> {
-    match code {
-        Value::String(code) => Some(code),
-        _ => None,
-    }
-}
-
-/// Places each answer at its index: every input answered exactly once.
-fn by_index<T>(
-    count: usize,
-    answers: impl IntoIterator<Item = (usize, T)>,
-) -> Result<Vec<T>, Error> {
-    let mut placed: Vec<Option<T>> = (0..count).map(|_| None).collect();
-    for (index, answer) in answers {
-        let slot = placed
-            .get_mut(index)
-            .filter(|slot| slot.is_none())
-            .ok_or_else(|| {
-                invalid(format!(
-                    "answer {index} is outside the {count} inputs, or repeated"
-                ))
-            })?;
-        *slot = Some(answer);
-    }
-    placed
-        .into_iter()
-        .collect::<Option<Vec<T>>>()
-        .ok_or_else(|| invalid(format!("fewer answers than the {count} inputs")))
 }
 
 /// An [`Error::InvalidAnswer`] saying how.
@@ -548,14 +542,14 @@ struct Tokens {
 
 /// `/v1/chat/completions`' answer.
 #[derive(Deserialize)]
-struct Completion {
+pub(super) struct Completion {
     /// The choices returned for the single prompt.
     choices: Vec<Choice>,
 }
 
 impl Completion {
     /// The one plain reply, if the response did not truncate or call tools.
-    fn into_content(self) -> Result<String, Error> {
+    pub(super) fn into_content(self) -> Result<String, Error> {
         completion_content(self)
     }
 }

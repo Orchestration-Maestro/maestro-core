@@ -5,7 +5,10 @@ use super::{
     card::{CardFields, ModelCard, Role},
     card_v2::{Capability, ControlValue, Sampling, SamplingParameters},
 };
-use crate::artifact::Digest;
+use crate::{
+    artifact::Digest,
+    vocabulary::{EntityKind, Predicate},
+};
 use serde::Serialize;
 use serde_json::{Map, Number, Value};
 use std::{
@@ -14,6 +17,92 @@ use std::{
     future::Future,
     num::{NonZeroU32, NonZeroUsize},
 };
+
+/// One source text submitted for extraction. The gateway fixes authority,
+/// vocabulary, sampling, template controls and output ceiling.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExtractRequest {
+    /// The source text, kept private so callers cannot add authority fields.
+    pub(super) input: String,
+}
+
+impl ExtractRequest {
+    /// Makes a request from nonempty source text.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::InvalidRequest`] when the input is empty or whitespace.
+    pub fn new(input: &str) -> Result<Self, Error> {
+        if input.trim().is_empty() {
+            return Err(Error::InvalidRequest {
+                reason: "extraction input must not be empty".to_owned(),
+            });
+        }
+        Ok(Self {
+            input: input.to_owned(),
+        })
+    }
+}
+
+/// A typed extraction suggestion with no source authority or approval.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Candidate {
+    /// The typed subject.
+    pub subject: EntityName,
+    /// A claimable predicate from the shared closed vocabulary.
+    pub predicate: Predicate,
+    /// The predicate's typed entity or literal object.
+    pub object: CandidateObject,
+}
+
+/// An entity identified by its source spelling.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EntityName {
+    /// Its closed-vocabulary kind.
+    pub kind: EntityKind,
+    /// Its exact spelling in the source.
+    pub name: String,
+}
+
+/// The object shape permitted by the predicate.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum CandidateObject {
+    /// Entity-valued relation object.
+    Entity(EntityName),
+    /// `DEFAULTS_TO` literal object, preserved as text.
+    Literal {
+        /// The closed kind of literal.
+        kind: LiteralKind,
+        /// The exact source text.
+        value: String,
+    },
+}
+
+/// A closed literal kind accepted in extraction output.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LiteralKind {
+    /// Uninterpreted text.
+    Text,
+    /// Boolean literal.
+    Boolean,
+    /// Integer literal.
+    Integer,
+    /// Decimal literal.
+    Decimal,
+}
+
+impl LiteralKind {
+    /// Parses one of the four supported literal-kind names.
+    pub(super) fn parse(value: &str) -> Option<Self> {
+        match value {
+            "Text" => Some(Self::Text),
+            "Boolean" => Some(Self::Boolean),
+            "Integer" => Some(Self::Integer),
+            "Decimal" => Some(Self::Decimal),
+            _ => None,
+        }
+    }
+}
 
 /// The calls a model answers, each bound to the card of the model that
 /// answers it: an embedding needs an embedder's card, a reranking a
@@ -79,6 +168,17 @@ pub trait ModelPort {
         room: Room,
         request: &ChatRequest,
     ) -> impl Future<Output = Result<String, Error>> + Send;
+
+    /// One bounded, closed-schema extraction from an Extractor card. A
+    /// successful response is a whole set of typed candidates or an error.
+    fn extract(
+        &self,
+        card: &ModelCard,
+        request: &ExtractRequest,
+    ) -> impl Future<Output = Result<Vec<Candidate>, Error>> + Send {
+        let _ = (card, request);
+        async { Err(Error::Unsupported) }
+    }
 }
 
 /// Where a call lets the router load its model when the model is not loaded
@@ -165,7 +265,7 @@ pub enum Error {
         /// refusal.
         message: String,
     },
-    /// This adapter does not support exact chat-template rendering.
+    /// This adapter does not support the requested model-port operation.
     Unsupported,
     /// The caller's chat request violates the bounded request contract.
     InvalidRequest {
@@ -222,7 +322,7 @@ impl fmt::Display for Error {
                 code: None,
                 message,
             } => write!(formatter, "refused with {status}: {message}"),
-            Self::Unsupported => formatter.write_str("chat-template rendering is unsupported"),
+            Self::Unsupported => formatter.write_str("this model-port operation is unsupported"),
             Self::InvalidRequest { reason } => {
                 write!(formatter, "invalid chat request: {reason}")
             }

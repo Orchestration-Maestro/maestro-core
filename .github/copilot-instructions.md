@@ -629,6 +629,7 @@ in place.
 │   │   │   │   │   ├── card.rs                                              # Tests of model cards: strict JSON artifacts whose digest is their
 │   │   │   │   │   ├── catalog.rs                                           # The router's catalog: GET /v1/models in no room; refusals kept, a bad entry name an invalid answer
 │   │   │   │   │   ├── chat.rs                                              # Chat sends one bounded, non-streaming prompt and refuses unusable replies
+│   │   │   │   │   ├── extract.rs                                           # Extraction is closed, card-bound and atomic: malformed replies admit no candidates
 │   │   │   │   │   ├── extractor_card.rs                                    # Extractor cards: v2 only, with a pinned chat template, and no other role's calls.
 │   │   │   │   │   ├── fake.rs                                              # Tests of the deterministic fake: its outputs are fixed by its inputs, the
 │   │   │   │   │   ├── fixture.rs                                           # What the gateway's tests share: a scratch store, a card for each role, and
@@ -648,6 +649,7 @@ in place.
 │   │   │   │   ├── body.rs                                                  # Bounded answers: each call reads at most what its endpoint can
 │   │   │   │   ├── card.rs                                                  # Model cards: what was evaluated of a model filling a role (D8), kept as
 │   │   │   │   ├── card_types.rs                                            # Shared model-card vocabulary, independent of v1 and v2 encodings
+│   │   │   │   ├── extract.rs                                               # Closed, card-bound requests and candidates for constrained extraction
 │   │   │   │   ├── fake.rs                                                  # The deterministic fake behind the model port, which public CI uses since it
 │   │   │   │   ├── mod.rs                                                   # The model gateway (building block B10): every model, embedder, reranker
 │   │   │   │   ├── port.rs                                                  # The model port: the calls every way of reaching a model answers, each
