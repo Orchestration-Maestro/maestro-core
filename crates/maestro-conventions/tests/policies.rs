@@ -88,6 +88,71 @@ fn every_member_inherits_the_workspace_lints() {
 }
 
 #[test]
+fn positional_mutant_exclusions_match_their_source_operator() {
+    let root = root();
+    let path = root.join(".cargo/mutants.toml");
+    let config: toml::Value = toml::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+    let entries = config["exclude_re"].as_array().unwrap();
+    let mut failures = Vec::new();
+    let mut positional_entries = 0;
+    for entry in entries.iter().filter_map(toml::Value::as_str) {
+        let Some((position, replacement)) = entry.split_once(": replace ") else {
+            continue;
+        };
+        if !replacement.contains(" in ") {
+            continue;
+        }
+        let position = position.strip_prefix('^').unwrap_or(position);
+        let Some((position, column)) = position.rsplit_once(':') else {
+            failures.push(format!("{entry}: missing column"));
+            continue;
+        };
+        let Some((file, line)) = position.rsplit_once(':') else {
+            failures.push(format!("{entry}: missing line"));
+            continue;
+        };
+        let file = file.replace("\\.", ".");
+        let operator = replacement
+            .split_once(" with ")
+            .map(|(operator, _)| operator.replace('\\', ""));
+        let Some(operator) = operator else {
+            failures.push(format!("{entry}: missing replaced operator"));
+            continue;
+        };
+        let source = fs::read_to_string(root.join(&file));
+        let (Ok(line), Ok(column)) = (line.parse::<usize>(), column.parse::<usize>()) else {
+            failures.push(format!("{entry}: missing numeric line or column"));
+            continue;
+        };
+        positional_entries += 1;
+        let found = source.ok().and_then(|source| {
+            source
+                .lines()
+                .nth(line.checked_sub(1)?)?
+                .get(column.checked_sub(1)?..)
+                .map(str::to_owned)
+        });
+        if !found
+            .as_deref()
+            .is_some_and(|source| source.starts_with(&operator))
+        {
+            failures.push(format!(
+                "{entry}: position holds {found:?}, expected {operator:?}"
+            ));
+        }
+    }
+    assert!(
+        positional_entries > 0,
+        "no positional mutant exclusions found"
+    );
+    assert!(
+        failures.is_empty(),
+        "dead mutant exclusions:\\n{}",
+        failures.join("\\n")
+    );
+}
+
+#[test]
 fn every_relative_link_and_anchor_resolves() {
     let root = root();
     let broken: Vec<String> = repository_files(&root)
