@@ -106,7 +106,7 @@ impl Document {
     pub(super) fn next_header(&self, offset: usize, text: &str) -> usize {
         self.headers()
             .map(|span| span.start)
-            .filter(|start| *start > offset)
+            .filter(|start| *start >= offset)
             .min()
             .unwrap_or(text.len())
     }

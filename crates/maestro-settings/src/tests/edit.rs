@@ -101,6 +101,16 @@ fn set_in_document_adds_a_key_to_its_table_after_the_table_last_line() {
         set(Some(&empty_table), "search.k", "3"),
         Ok(format!("{SCHEMA}[search]\nk = 3\n\n[ask]\n"))
     );
+    let adjacent_empty_table = format!("{SCHEMA}[search]\n[ask]\nk = 2\n");
+    assert_eq!(
+        set(Some(&adjacent_empty_table), "search.k", "3"),
+        Ok(format!("{SCHEMA}[search]\nk = 3\n[ask]\nk = 2\n"))
+    );
+    let empty_table_at_end = format!("{SCHEMA}[search]\n");
+    assert_eq!(
+        set(Some(&empty_table_at_end), "search.k", "3"),
+        Ok(format!("{SCHEMA}[search]\nk = 3\n"))
+    );
 }
 
 #[test]
