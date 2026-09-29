@@ -6,7 +6,7 @@ use super::{
     fusion::Route,
     intent::{IntentExpansion, IntentTrigger, QueryExpander},
     rerank::{DEFAULT_DEPTH, Ranked, Reranker},
-    routes::{dense::Embedder, error::RouteError},
+    routes::{dense::Embedder, error::RouteError, outcome::DroppedIdentifier},
     section_prior::SectionPrior,
     source_class::{SourceClassifier, SourcePrior},
 };
@@ -82,6 +82,10 @@ pub struct SearchConfiguration {
     pub identifier_enabled: bool,
     /// Whether structured retrieval may run for Global questions.
     pub structured_enabled: bool,
+    /// Whether the identifier route drops identifiers too common to rank
+    /// from both of its legs, and fusion takes no hits from an unavailable
+    /// route.
+    pub identifier_noise_guard: bool,
     /// RRF denominator constant.
     pub rrf_k: NonZeroU32,
     /// Dense route's RRF contribution multiplier.
@@ -130,6 +134,7 @@ impl Default for SearchConfiguration {
             lexical_enabled: true,
             identifier_enabled: true,
             structured_enabled: true,
+            identifier_noise_guard: false,
             rrf_k,
             dense_weight: 1.0,
             lexical_weight: 1.0,
@@ -192,6 +197,9 @@ pub struct SearchObservations {
     /// How many original top-depth candidates the intent votes put below
     /// the rerank depth, all still reranked; none when no intent voted.
     pub intent_displaced: Option<usize>,
+    /// The identifiers the noise guard dropped from the identifier route,
+    /// and why.
+    pub identifiers_dropped: Vec<DroppedIdentifier>,
 }
 
 impl SearchObservations {

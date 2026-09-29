@@ -48,7 +48,7 @@ pub(super) async fn publish_command(backend: &Backend) -> PublishedCommand {
 }
 
 /// Publishes a prepared kernel as one searchable physical generation.
-async fn publish_kernel(backend: &Backend, kernel: Kernel) -> PublishedCommand {
+pub(super) async fn publish_kernel(backend: &Backend, kernel: Kernel) -> PublishedCommand {
     let lead = kernel
         .chunks()
         .into_iter()

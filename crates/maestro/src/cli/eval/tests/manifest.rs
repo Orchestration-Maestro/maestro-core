@@ -427,3 +427,32 @@ fn the_source_prior_defaults_to_official_first_and_is_set_per_rung() {
         assert!(parse(&invalid_value).is_err(), "{pointer}");
     }
 }
+
+#[test]
+fn the_identifier_noise_guard_is_off_unless_a_rung_turns_it_on() {
+    let mut value = manifest();
+    let parsed = parse(&value).unwrap();
+    let default = &parsed.rungs[1].configuration;
+    assert!(!default.search().identifier_noise_guard);
+    assert!(
+        serde_json::to_value(default)
+            .unwrap()
+            .get("identifier_noise_guard")
+            .is_none()
+    );
+
+    value["rungs"][1]["configuration"]["identifier_noise_guard"] = json!(true);
+    let parsed = parse(&value).unwrap();
+    let guarded = &parsed.rungs[1].configuration;
+    assert!(guarded.search().identifier_noise_guard);
+    assert!(
+        !parsed.rungs[0]
+            .configuration
+            .search()
+            .identifier_noise_guard
+    );
+    assert_eq!(
+        serde_json::to_value(guarded).unwrap()["identifier_noise_guard"],
+        json!(true)
+    );
+}

@@ -18,7 +18,7 @@ use crate::{
         routes::{
             dense::Embedder,
             error::RouteError,
-            identifier::{search_identifiers, search_identifiers_enabled},
+            identifier::{IdentifierMode, search_identifiers, search_identifiers_as},
         },
     },
 };
@@ -58,14 +58,15 @@ async fn disabled_routes_short_circuit_and_enabled_failures_remain_unavailable()
     let disabled_dense = dense_outcome(false, &query, Some(&embedder), &cutoffs).await;
     assert!(port.calls.lock().unwrap().is_empty());
     let disabled_lexical = lexical_outcome(false, &query, Instant::now()).await;
-    let disabled_identifier = search_identifiers_enabled(
-        false,
+    let disabled_identifier = search_identifiers_as(
+        IdentifierMode::Off,
         &query,
         fixture.database.clone(),
         &understand("ERR-042"),
         Instant::now(),
     )
-    .await;
+    .await
+    .route;
     for outcome in [disabled_dense, disabled_lexical, disabled_identifier] {
         assert_eq!(
             outcome.status,

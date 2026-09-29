@@ -123,6 +123,13 @@ pub const BUILT_IN: &[SettingDescriptor] = &[
         "Whether the structured route may run for global questions, in searches and asks.",
     ),
     free(
+        "search.identifier.noise_guard",
+        SettingKind::Flag,
+        "false",
+        "Whether the identifier route drops identifiers too common to rank, and fusion \
+         takes no hits from an unavailable route, in searches and asks.",
+    ),
+    free(
         "search.rrf_k",
         integer(1, 1000),
         "60",

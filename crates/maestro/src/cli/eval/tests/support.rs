@@ -66,6 +66,7 @@ pub(super) fn rung(name: &str) -> Rung {
                 identifier: true,
                 structured: false,
             },
+            identifier_noise_guard: false,
             rrf_k: NonZeroU32::new(20).unwrap(),
             weights: Weights {
                 dense: 2.0,

@@ -184,6 +184,10 @@ pub(super) struct RungConfiguration {
     pub(super) intent_rerank_additions: usize,
     /// The routes that run.
     pub(super) routes: Routes,
+    /// Whether the identifier route drops identifiers too common to rank,
+    /// and fusion takes no hits from an unavailable route; absent, off.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub(super) identifier_noise_guard: bool,
     /// The reciprocal rank fusion constant K.
     pub(super) rrf_k: NonZeroU32,
     /// Each route's weight in fusion.
@@ -290,6 +294,7 @@ impl RungConfiguration {
             lexical_enabled: self.routes.lexical,
             identifier_enabled: self.routes.identifier,
             structured_enabled: self.routes.structured,
+            identifier_noise_guard: self.identifier_noise_guard,
             rrf_k: self.rrf_k,
             dense_weight: self.weights.dense,
             lexical_weight: self.weights.lexical,

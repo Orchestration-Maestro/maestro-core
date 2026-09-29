@@ -155,6 +155,7 @@ impl Reader<'_, '_> {
             lexical_enabled: self.flag("search.routes.lexical")?,
             identifier_enabled: self.flag("search.routes.identifier")?,
             structured_enabled: self.flag("search.routes.structured")?,
+            identifier_noise_guard: self.flag("search.identifier.noise_guard")?,
             rrf_k: NonZeroU32::new(self.whole("search.rrf_k")?)
                 .ok_or_else(|| "search.rrf_k".to_owned())?,
             dense_weight: self.number("search.weights.dense")?,

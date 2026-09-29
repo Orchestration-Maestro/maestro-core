@@ -1,6 +1,9 @@
 //! Exact identifier search from Qdrant payloads and the kernel identifier index.
 
-use super::{outcome::RouteOutcome, results::ScoredChunk};
+use super::{
+    outcome::{DroppedIdentifier, IdentifierOutcome, RouteOutcome},
+    results::ScoredChunk,
+};
 use crate::{
     index::QdrantError,
     query::{PROFILE, Understood},
@@ -25,6 +28,22 @@ use std::{
 };
 use tokio::time::{self, Instant};
 
+/// How the identifier route runs, as the search configuration sets it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(in crate::search) enum IdentifierMode {
+    /// The route does not run.
+    Off,
+    /// Both legs run concurrently on every identifier.
+    On,
+    /// The kernel leg runs first, and the payload leg only on the
+    /// identifiers the kernel leg did not skip as too common.
+    Guarded,
+}
+
+/// Why the noise guard drops an identifier that matches more chunks than
+/// the route can rank.
+const TOO_COMMON: &str = "identifier too common";
+
 /// Finds identifiers in a pinned generation using exact payloads and indexed scoped rows.
 ///
 /// Plain words are left to lexical search; this route indexes only identifiers
@@ -38,30 +57,58 @@ pub async fn search_identifiers(
     understood: &Understood,
     deadline: Instant,
 ) -> RouteOutcome {
-    search_identifiers_enabled(true, query, database, understood, deadline).await
+    search_identifiers_as(IdentifierMode::On, query, database, understood, deadline)
+        .await
+        .route
 }
 
-/// Executes identifier search only when enabled by the request configuration.
-pub(in crate::search) async fn search_identifiers_enabled(
-    enabled: bool,
+/// [`search_identifiers`] with the noise guard: an identifier the kernel
+/// leg skips as too common is dropped from the payload leg too, and the
+/// route is unavailable only when a leg fails or every identifier is dropped.
+pub async fn search_identifiers_guarded(
     query: &Query<'_>,
     database: Arc<Database>,
     understood: &Understood,
     deadline: Instant,
-) -> RouteOutcome {
-    if !enabled {
-        return unavailable(Vec::new(), DISABLED_BY_CONFIGURATION);
+) -> IdentifierOutcome {
+    search_identifiers_as(
+        IdentifierMode::Guarded,
+        query,
+        database,
+        understood,
+        deadline,
+    )
+    .await
+}
+
+/// Executes identifier search as `mode` says.
+pub(in crate::search) async fn search_identifiers_as(
+    mode: IdentifierMode,
+    query: &Query<'_>,
+    database: Arc<Database>,
+    understood: &Understood,
+    deadline: Instant,
+) -> IdentifierOutcome {
+    let route = |route| IdentifierOutcome {
+        route,
+        dropped: Vec::new(),
+    };
+    if mode == IdentifierMode::Off {
+        return route(unavailable(Vec::new(), DISABLED_BY_CONFIGURATION));
     }
     let identifiers = unique_identifiers(understood);
     if identifiers.is_empty() || query.limit == 0 || query.scopes.is_empty() {
-        return ok(Vec::new());
+        return route(ok(Vec::new()));
     }
     if identifiers.len() > 64 {
-        return unavailable(Vec::new(), "kernel: too many identifier values");
+        return route(unavailable(
+            Vec::new(),
+            "kernel: too many identifier values",
+        ));
     }
     let limit = query.limit.min(20);
     if Instant::now() >= deadline {
-        return unavailable(Vec::new(), DEADLINE_EXCEEDED);
+        return route(unavailable(Vec::new(), DEADLINE_EXCEEDED));
     }
     if let Err(reason) = ready_projection(
         database.clone(),
@@ -71,39 +118,112 @@ pub(in crate::search) async fn search_identifiers_enabled(
     )
     .await
     {
-        return unavailable(Vec::new(), &reason);
+        return route(unavailable(Vec::new(), &reason));
     }
 
-    let (payload, kernel) = tokio::join!(
-        payload_leg(query, &identifiers, limit, deadline),
-        kernel_leg(query, database, &identifiers, limit, deadline),
-    );
+    let (payload, kernel) = if mode == IdentifierMode::Guarded {
+        guarded_legs(query, database, &identifiers, limit, deadline).await
+    } else {
+        tokio::join!(
+            payload_leg(query, &identifiers, limit, deadline),
+            kernel_leg(query, database, &identifiers, limit, deadline),
+        )
+    };
     if matches!((&payload, &kernel), (Err(payload), Err(kernel))
         if payload == DEADLINE_EXCEEDED && kernel == DEADLINE_EXCEEDED)
     {
-        return unavailable(Vec::new(), DEADLINE_EXCEEDED);
+        return route(unavailable(Vec::new(), DEADLINE_EXCEEDED));
     }
+    merged(payload, kernel, mode, identifiers.len(), limit)
+}
+
+/// Runs the kernel leg, then the payload leg on the identifiers the kernel
+/// leg did not skip as too common; when it skipped them all, the payload
+/// leg does not run.
+async fn guarded_legs(
+    query: &Query<'_>,
+    database: Arc<Database>,
+    identifiers: &[String],
+    limit: usize,
+    deadline: Instant,
+) -> (
+    Result<Vec<ScoredChunk>, String>,
+    Result<KernelOutcome, String>,
+) {
+    let kernel = kernel_leg(query, database, identifiers, limit, deadline).await;
+    let kept = match &kernel {
+        Ok(kernel) => identifiers
+            .iter()
+            .filter(|identifier| !kernel.too_common.contains(identifier))
+            .cloned()
+            .collect(),
+        Err(_) => identifiers.to_vec(),
+    };
+    let payload = if kept.is_empty() {
+        Ok(Vec::new())
+    } else {
+        payload_leg(query, &kept, limit, deadline).await
+    };
+    (payload, kernel)
+}
+
+/// Merges the legs' hits, payload first, and states why the route is
+/// degraded, if it is; guarded, the too-common identifiers are dropped and
+/// degrade the route only when they are all of its `requested` identifiers.
+fn merged(
+    payload: Result<Vec<ScoredChunk>, String>,
+    kernel: Result<KernelOutcome, String>,
+    mode: IdentifierMode,
+    requested: usize,
+    limit: usize,
+) -> IdentifierOutcome {
     let mut hits = Vec::new();
     let mut seen = HashSet::new();
     let mut reasons = Vec::new();
+    let mut dropped = Vec::new();
     match payload {
         Ok(payload) => extend_unique(&mut hits, &mut seen, payload, limit),
         Err(reason) => reasons.push(format!("payload: {}", nonblank(&reason, "unavailable"))),
     }
     match kernel {
+        Ok(kernel) if mode == IdentifierMode::Guarded => {
+            extend_unique(&mut hits, &mut seen, kernel.hits, limit);
+            if kernel.too_common.len() == requested {
+                reasons.push(all_too_common(&kernel.too_common));
+            }
+            dropped = kernel
+                .too_common
+                .into_iter()
+                .map(|identifier| DroppedIdentifier {
+                    identifier,
+                    reason: TOO_COMMON.to_owned(),
+                })
+                .collect();
+        }
         Ok(kernel) => {
             extend_unique(&mut hits, &mut seen, kernel.hits, limit);
-            if kernel.skipped_too_common {
-                reasons.push("kernel: identifier too common".to_owned());
+            if !kernel.too_common.is_empty() {
+                reasons.push(format!("kernel: {TOO_COMMON}"));
             }
         }
         Err(reason) => reasons.push(format!("kernel: {}", nonblank(&reason, "unavailable"))),
     }
-    if reasons.is_empty() {
+    let route = if reasons.is_empty() {
         ok(hits)
     } else {
         unavailable(hits, &reasons.join("; "))
-    }
+    };
+    IdentifierOutcome { route, dropped }
+}
+
+/// The reason a guarded route gives when it dropped every identifier as
+/// too common, naming them.
+fn all_too_common(identifiers: &[String]) -> String {
+    let quoted: Vec<_> = identifiers
+        .iter()
+        .map(|identifier| format!("{identifier:?}"))
+        .collect();
+    format!("kernel: {TOO_COMMON}: {}", quoted.join(", "))
 }
 
 /// Deduplicates query identifier texts in their first-seen family order.
@@ -244,12 +364,12 @@ fn payload_hit(point: &RetrievedPoint) -> Result<ScoredChunk, QdrantError> {
     })
 }
 
-/// The exact kernel hits and any high-frequency identifiers it skipped.
+/// The exact kernel hits and the high-frequency identifiers it skipped.
 struct KernelOutcome {
     /// Ranked chunks returned by the kernel identifier leg.
     hits: Vec<ScoredChunk>,
-    /// Whether the kernel skipped an identifier above the route's fetch limit.
-    skipped_too_common: bool,
+    /// The identifiers the kernel skipped as above the route's fetch limit.
+    too_common: Vec<String>,
 }
 
 /// Reads an exact, scope-filtered kernel leg on a cancellable blocking worker.
@@ -289,7 +409,7 @@ async fn kernel_leg(
                     score: 1.0,
                 })
                 .collect(),
-            skipped_too_common: result.skipped_too_common,
+            too_common: result.too_common,
         }),
         Ok(Err(error)) => Err(retrieval_reason(&error)),
         Err(deadline::BlockingFailure::TimedOut) => Err(DEADLINE_EXCEEDED.to_owned()),

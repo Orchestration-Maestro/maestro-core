@@ -15,7 +15,7 @@ use crate::{
         route_execution::{join_route_futures, route_error_reason},
         routes::{
             error::RouteError,
-            outcome::{RouteOutcome, StructuredOutcome},
+            outcome::{IdentifierOutcome, RouteOutcome, StructuredOutcome},
         },
     },
 };
@@ -296,7 +296,10 @@ async fn all_route_futures_start_together_and_one_failure_keeps_the_others() {
             },
             async move {
                 identifier_barrier.wait().await;
-                available()
+                IdentifierOutcome {
+                    route: available(),
+                    dropped: Vec::new(),
+                }
             },
             async move {
                 structured_barrier.wait().await;
@@ -315,7 +318,7 @@ async fn all_route_futures_start_together_and_one_failure_keeps_the_others() {
         RouteStatus::Unavailable("dense unavailable".to_owned())
     );
     assert_eq!(outcomes.1.status, RouteStatus::Ok);
-    assert_eq!(outcomes.2.status, RouteStatus::Ok);
+    assert_eq!(outcomes.2.route.status, RouteStatus::Ok);
     assert_eq!(outcomes.3.unwrap().route.status, RouteStatus::Ok);
 }
 

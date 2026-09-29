@@ -35,7 +35,7 @@ pub(super) fn searchable_scheduler_kernel() -> Kernel {
 }
 
 /// Marks each revision represented in the fixture as eligible for search.
-fn accept_all_revisions(kernel: &Kernel) {
+pub(super) fn accept_all_revisions(kernel: &Kernel) {
     let mut revisions = HashSet::new();
     for chunk in kernel.chunks() {
         if revisions.insert(chunk.revision_id.clone()) {

@@ -7,14 +7,14 @@ use super::{
     intent::IntentTrigger,
     intent_routes::{self, IntentRoutes},
     query::Query,
-    request::{SearchContext, SearchObservations},
+    request::{SearchConfiguration, SearchContext, SearchObservations},
     route_execution::{
         add_route, dense_outcome, join_route_futures, lexical_outcome, observed_chunk_ids,
         revisions_for_fused, route_list, route_observations, route_outcome, structured_outcome,
     },
     routes::{
-        identifier::search_identifiers_enabled,
-        outcome::{RouteOutcome, StructuredOutcome},
+        identifier::{IdentifierMode, search_identifiers_as},
+        outcome::{IdentifierOutcome, RouteOutcome, StructuredOutcome},
     },
 };
 use crate::query::QueryKind;
@@ -38,10 +38,21 @@ const FUSION_POOL: usize = 120;
 
 /// Runs `route` as the stage `stage`, which records its hits and outcome.
 async fn traced_route(stage: Stage, route: impl Future<Output = RouteOutcome>) -> RouteOutcome {
-    let outcome = stage.instrument(route).await;
+    traced(stage, route, |outcome| outcome).await
+}
+
+/// Runs `route` as the stage `stage`, which records the hits and outcome
+/// of the route outcome `part` finds in its output.
+async fn traced<O>(
+    stage: Stage,
+    route: impl Future<Output = O>,
+    part: impl Fn(&O) -> &RouteOutcome,
+) -> O {
+    let output = stage.instrument(route).await;
+    let outcome = part(&output);
     stage.count(Count::Candidates, outcome.hits.len());
     stage.finish(route_outcome(&outcome.status));
-    outcome
+    output
 }
 
 /// The route votes, statuses and exact document inventory produced in parallel.
@@ -95,7 +106,7 @@ async fn traced_structured(
 pub(super) type Originals = (
     RouteOutcome,
     RouteOutcome,
-    RouteOutcome,
+    IdentifierOutcome,
     Option<StructuredOutcome>,
 );
 
@@ -128,15 +139,13 @@ pub(super) fn results(
 ) -> RouteResults {
     let (dense, lexical, identifier, structured) = originals;
     let configuration = admitted.configuration;
-    let mut lists = vec![
-        route_list(Route::Dense, dense),
-        route_list(Route::Lexical, lexical),
-        route_list(Route::Identifier, identifier),
-    ];
-    if let Some(structured) = &structured {
-        lists.push(route_list(Route::Structured, &structured.route));
-    }
-    let mut observations = route_observations(dense, lexical, identifier, structured.as_ref());
+    let guard = configuration.identifier_noise_guard;
+    let mut lists = original_lists(originals, guard);
+    let mut observations =
+        route_observations(dense, lexical, &identifier.route, structured.as_ref());
+    observations
+        .identifiers_dropped
+        .clone_from(&identifier.dropped);
     let mut rerank_extra = 0;
     let fused = if intent.outcomes.is_empty() {
         traced_fuse(&lists, configuration, FUSION_POOL)
@@ -153,7 +162,7 @@ pub(super) fn results(
             intent
                 .outcomes
                 .iter()
-                .map(|(route, outcome)| route_list(*route, outcome)),
+                .map(|(route, outcome)| route_list(*route, outcome, guard)),
         );
         let set = rerank_set(
             &kept,
@@ -172,7 +181,7 @@ pub(super) fn results(
     };
     let expected_revisions = revisions_for_fused(
         &fused,
-        [dense, lexical, identifier]
+        [dense, lexical, &identifier.route]
             .into_iter()
             .chain(structured.iter().map(|outcome| &outcome.route))
             .chain(intent.outcomes.iter().map(|(_, outcome)| outcome)),
@@ -185,8 +194,13 @@ pub(super) fn results(
             "requested version {version:?} has no documents in the pinned generation"
         ));
     }
-    let (mut routes, known_gaps, inventory) =
-        route_metadata(dense, lexical, identifier, structured.as_ref(), known_gaps);
+    let (mut routes, known_gaps, inventory) = route_metadata(
+        dense,
+        lexical,
+        &identifier.route,
+        structured.as_ref(),
+        known_gaps,
+    );
     if let Some(status) = intent.status {
         routes.insert("intent_expansion".to_owned(), status);
     }
@@ -203,6 +217,25 @@ pub(super) fn results(
         rerank_extra,
         known_scores: HashMap::new(),
     }
+}
+
+/// The original routes' fusion lists; with `drop_unavailable`, an
+/// unavailable route's list is empty.
+fn original_lists(originals: &Originals, drop_unavailable: bool) -> Vec<RouteList> {
+    let (dense, lexical, identifier, structured) = originals;
+    let mut lists = vec![
+        route_list(Route::Dense, dense, drop_unavailable),
+        route_list(Route::Lexical, lexical, drop_unavailable),
+        route_list(Route::Identifier, &identifier.route, drop_unavailable),
+    ];
+    if let Some(structured) = structured {
+        lists.push(route_list(
+            Route::Structured,
+            &structured.route,
+            drop_unavailable,
+        ));
+    }
+    lists
 }
 
 /// The combined pool in rerank order, and what the intent votes changed.
@@ -255,7 +288,7 @@ async fn original_routes<P: ModelPort>(
 ) -> (
     RouteOutcome,
     RouteOutcome,
-    RouteOutcome,
+    IdentifierOutcome,
     Option<StructuredOutcome>,
 ) {
     let query = Query {
@@ -292,15 +325,16 @@ async fn original_routes<P: ModelPort>(
                 admitted.cutoffs.routes,
             )),
         ),
-        traced_route(
+        traced(
             span::route_identifier(),
-            Box::pin(search_identifiers_enabled(
-                configuration.identifier_enabled,
+            Box::pin(search_identifiers_as(
+                identifier_mode(configuration),
                 &query,
                 context.database.clone(),
                 &admitted.understood,
                 admitted.cutoffs.routes,
             )),
+            |outcome: &IdentifierOutcome| &outcome.route,
         ),
         traced_structured(
             admitted.understood.kind == QueryKind::Global,
@@ -314,6 +348,18 @@ async fn original_routes<P: ModelPort>(
         ),
     )
     .await
+}
+
+/// How `configuration` runs the identifier route.
+const fn identifier_mode(configuration: SearchConfiguration) -> IdentifierMode {
+    match (
+        configuration.identifier_enabled,
+        configuration.identifier_noise_guard,
+    ) {
+        (false, _) => IdentifierMode::Off,
+        (true, false) => IdentifierMode::On,
+        (true, true) => IdentifierMode::Guarded,
+    }
 }
 
 /// Records each route's status, its degradation gaps and the structured inventory.
@@ -352,7 +398,7 @@ fn route_metadata(
 /// stage.
 fn traced_fuse(
     lists: &[RouteList],
-    configuration: super::request::SearchConfiguration,
+    configuration: SearchConfiguration,
     limit: usize,
 ) -> Vec<Fused> {
     let stage = span::fuse();

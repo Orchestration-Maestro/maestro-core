@@ -10,7 +10,7 @@ use super::{
     routes::{
         dense::{self, Embedder},
         error::RouteError,
-        outcome::{RouteOutcome, StructuredOutcome},
+        outcome::{IdentifierOutcome, RouteOutcome, StructuredOutcome},
         structured::search_structured,
     },
 };
@@ -47,13 +47,13 @@ pub(super) async fn join_route_futures<D, L, I, S>(
 ) -> (
     RouteOutcome,
     RouteOutcome,
-    RouteOutcome,
+    IdentifierOutcome,
     Option<StructuredOutcome>,
 )
 where
     D: Future<Output = RouteOutcome>,
     L: Future<Output = RouteOutcome>,
-    I: Future<Output = RouteOutcome>,
+    I: Future<Output = IdentifierOutcome>,
     S: Future<Output = Option<StructuredOutcome>>,
 {
     tokio::join!(dense, lexical, identifier, structured)
@@ -193,13 +193,20 @@ pub(super) async fn structured_outcome(
     }
 }
 
-/// Builds one route's RRF list without changing its score or rank order.
-pub(super) fn route_list(route: Route, outcome: &RouteOutcome) -> RouteList {
+/// Builds one route's RRF list without changing its score or rank order;
+/// with `drop_unavailable`, an unavailable route's list is empty.
+pub(super) fn route_list(
+    route: Route,
+    outcome: &RouteOutcome,
+    drop_unavailable: bool,
+) -> RouteList {
+    let fused = !drop_unavailable || outcome.status == RouteStatus::Ok;
     RouteList {
         route,
         hits: outcome
             .hits
             .iter()
+            .filter(|_| fused)
             .map(|hit| Hit {
                 chunk_id: hit.chunk_id.clone(),
                 score: hit.score,

@@ -284,6 +284,9 @@ pub(super) struct PrivateRow<'run> {
     /// depth, all still reranked; omitted when no intent voted.
     #[serde(skip_serializing_if = "Option::is_none")]
     intent_displaced: Option<usize>,
+    /// How many identifiers the noise guard dropped; omitted when none.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    identifiers_dropped: Option<usize>,
     /// Its search's time, in microseconds.
     search_us: u64,
     /// The distinct documents of the search's final ranked chunks, before
@@ -384,6 +387,8 @@ impl<'run> PrivateRow<'run> {
             search,
             intent_status: diagnostic.intent_status.as_ref(),
             intent_displaced: diagnostic.intent_displaced,
+            identifiers_dropped: Some(diagnostic.identifiers_dropped)
+                .filter(|dropped| *dropped > 0),
             search_us: micros(row.search.elapsed),
             ranked_documents,
             expected_rank,

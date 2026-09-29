@@ -165,7 +165,7 @@ fn each_setting_reaches_the_knowledge_operations() {
          [search]\nk = 12\nmax_tokens = 4000\ndeadline_ms = 9000\nrrf_k = 40\n\
          stage_window_ms = 1200\nroutes = { dense = false, lexical = true, identifier = false, \
          structured = false }\nweights = { dense = 0.5, lexical = 2, identifier = 3, \
-         structured = 0 }\n\
+         structured = 0 }\nidentifier = { noise_guard = true }\n\
          [search.rerank]\ndepth = 50\nblend = 0.25\ndemotion_cap = 4\n\
          context = \"bounded_section\"\n\
          context_max_bytes = 900\n\
@@ -190,6 +190,7 @@ fn each_setting_reaches_the_knowledge_operations() {
             lexical_enabled: true,
             identifier_enabled: false,
             structured_enabled: false,
+            identifier_noise_guard: true,
             rrf_k: NonZeroU32::new(40).unwrap(),
             dense_weight: 0.5,
             lexical_weight: 2.0,
@@ -294,6 +295,7 @@ fn compute_off_switches_off_every_model_stage_and_keeps_the_code_routes() {
     assert!(!settings.search.rerank_enabled);
     assert!(settings.search.lexical_enabled);
     assert!(settings.search.identifier_enabled);
+    assert!(!settings.search.identifier_noise_guard);
     assert!(settings.search.structured_enabled);
     let refused = Session::at(
         &scratch.config(),

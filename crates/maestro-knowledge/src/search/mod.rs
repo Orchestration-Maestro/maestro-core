@@ -54,4 +54,4 @@ pub use rerank::{
     Candidate, NO_FUSED_CANDIDATES, Ranked, Reranked, Reranker, rerank, top_fused_score,
     top_rerank_score,
 };
-pub use routes::outcome::{RouteOutcome, StructuredOutcome};
+pub use routes::outcome::{DroppedIdentifier, IdentifierOutcome, RouteOutcome, StructuredOutcome};

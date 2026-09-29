@@ -8,6 +8,7 @@ mod configured_ask;
 mod configured_search;
 mod fused_search;
 mod fused_search_admission_pinning;
+mod identifier_noise_guard;
 mod identifier_route;
 mod identifier_route_resilience;
 mod idle_unload;

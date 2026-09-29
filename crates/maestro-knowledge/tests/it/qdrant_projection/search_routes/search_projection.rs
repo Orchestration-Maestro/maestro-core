@@ -108,7 +108,7 @@ fn assert_kernel_identifiers(kernel: &Kernel, generation: &Generation, chunk: &C
         .database
         .identifier_hits(&read, &["ERR-042".to_owned()], 10)
         .unwrap();
-    assert!(!indexed.skipped_too_common);
+    assert!(indexed.too_common.is_empty());
     assert!(indexed.hits.iter().any(|hit| hit.chunk_id == chunk.id));
     assert!(
         kernel

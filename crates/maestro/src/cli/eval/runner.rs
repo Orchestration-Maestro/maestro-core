@@ -77,6 +77,8 @@ pub(super) struct SearchDiagnostic {
     /// Original top-depth candidates the intent votes put below the rerank
     /// depth, all still reranked; absent when no intent voted.
     pub(super) intent_displaced: Option<usize>,
+    /// How many identifiers the noise guard dropped from the identifier route.
+    pub(super) identifiers_dropped: usize,
     /// The documents of its assembled evidence, in rank order.
     pub(super) bundle_documents: Vec<String>,
     /// The top reranker score, absent when rerank did not run.

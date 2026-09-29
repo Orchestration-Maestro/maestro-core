@@ -75,6 +75,7 @@ in place.
 │   │   │   │   │   │   ├── kernel_engine.rs                                 # The engine on a real kernel, with the router and the search service
 │   │   │   │   │   │   ├── manifest.rs                                      # The manifest: what it holds, where its paths lead, and each refusal
 │   │   │   │   │   │   ├── mod.rs                                           # Tests of the ladder command: its manifest, its run over a fake engine, its
+│   │   │   │   │   │   ├── noise_guard.rs                                   # The identifier noise guard on the ladder: a guarded search's row counts
 │   │   │   │   │   │   ├── reports.rs                                       # What a ladder writes: private rows with IDs, ranks, citations, refusal
 │   │   │   │   │   │   ├── rung_answerer.rs                                 # A rung's answerer and prompt: ask.card names a registered answerer card
 │   │   │   │   │   │   ├── runner.rs                                        # The ladder's run: warm-ups unscored, the rung's configuration in every
@@ -1039,6 +1040,7 @@ in place.
 │   │   │       │   │   ├── configured_search.rs                             # Request configuration controls the real fused search pipeline
 │   │   │       │   │   ├── fused_search.rs                                  # The public search handoff fuses available routes when dense metadata is absent
 │   │   │       │   │   ├── fused_search_admission_pinning.rs                # Search admission and generation-pinning acceptance tests
+│   │   │       │   │   ├── identifier_noise_guard.rs                        # The identifier noise guard: a too-common identifier gets no payload votes
 │   │   │       │   │   ├── identifier_route.rs                              # Exact identifiers combine payload equality with the scoped kernel index
 │   │   │       │   │   ├── identifier_route_resilience.rs                   # Independent exact-identifier leg failures and empty results
 │   │   │       │   │   ├── idle_unload.rs                                   # A long-lived router client, as the MCP server shares, reloads a model the
