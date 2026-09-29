@@ -29,6 +29,12 @@ reason = "chunk replay reruns the splitter and so lives beside its rules"
 
 [[exception]]
 rule = "ARC-005"
+path = "crates/maestro-canonicalization/src/chunks/mod.rs"
+item = "chunk_documents"
+reason = "the /4 CompleteIdeas control view reuses the existing /3 packing and verified counting path"
+
+[[exception]]
+rule = "ARC-005"
 path = "crates/maestro-canonicalization/src/validate/mod.rs"
 item = "validate_structure"
 reason = "the pipeline runs the structural validator, a subsystem of its own"

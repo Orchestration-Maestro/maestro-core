@@ -102,6 +102,20 @@ is a new profile, `mapped-structural-chunks/4`, beside the others.
 | `Structural` (the Rust type default) | `mapped-structural-chunks/2`, `canonical-context-parts/v1` | Compatible blocks of one section and one container, up to the target | Nothing |
 | `CompleteIdeas` (the maestro-settings default) | `mapped-structural-chunks/3`, `canonical-context-parts/v2` | A section's blocks across their containers: an introduction with its steps, a caption and code with the table after them, one table per chunk. A chunk ends only between whole steps, a list item with its substeps, and whole rows; a step too large for one chunk continues between its innermost list items under its repeated parent. A chunk under 150 tokens joins the chunk before it in its section when both fit 700 | Page chrome: a heading's trailing copy-link label, a paragraph's trailing copy-button label, a paragraph that is only a copy button's label, the state label of a collapsed image right before its image placeholder, and a paragraph or HTML block that holds nothing but HTML comments and tags of the elements `a`, `br`, `img`, `div`, `span`, `p`, `hr` and the table parts, such as an image placeholder or an empty anchor; a tag of any other name, such as an XML setting or a placeholder, keeps the block |
 
+### Opt-in /4 delivery graph
+
+`UnitProfile` adds `/4` graph and mapping artifacts without changing `/2` or `/3`.
+The default ranking remains `/3 CompleteIdeas`; `/4` units are per canonical block,
+headings are group `heading` parts rather than delivery units, and only complete
+small tables are packed. Per-kind verified-token limits apply to `V2Unit` and
+oversize refusals are typed; the `/3` control does not refuse a page that `/3`
+indexes. The graph and source-mapping artifact have separate versioned digests.
+Heading ranges remain mapped graph parts, not units or exclusions; only
+ineligible content is excluded. Section, paragraph and procedure packing, bounded
+row groups, and code-plus-table packing are post-M1 scope. The built contract
+snapshot and mapping fixture live in
+`tests/fixtures/unit-graph-v1.built.json` and `unit-mapping-v1.built.json`.
+
 Chrome is left out of the indexed text, never out of the source: the canonical
 document and the original Markdown are unchanged, each kept part maps to its
 exact original bytes, and each unit's coverage records the ranges left out as
