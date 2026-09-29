@@ -32,7 +32,11 @@ fn bind(directory: &Path, table: Option<&str>) {
 fn nothing_bound_means_no_classifier() {
     let directory = config();
     assert!(load(&directory).unwrap().is_none());
-    fs::write(directory.join("bindings.toml"), "corpus_root = '/'\n").unwrap();
+    fs::write(
+        directory.join("bindings.toml"),
+        format!("corpus_root = '{}'\n", directory.display()),
+    )
+    .unwrap();
     assert!(load(&directory).unwrap().is_none());
     fs::remove_dir_all(directory).unwrap();
 }
