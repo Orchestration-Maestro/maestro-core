@@ -10,8 +10,9 @@ use super::{
 use qdrant_client::{
     Payload,
     qdrant::{
-        Condition, Distance, Filter, Modifier, NamedVectors, PointId, PointStruct, SparseVector,
-        Vector, point_id::PointIdOptions, vectors_config::Config,
+        Condition, Distance, Filter, Modifier, NamedVectors, PayloadSchemaType, PointId,
+        PointStruct, RetrievedPoint, ScoredPoint, SparseVector, Vector, point_id::PointIdOptions,
+        vectors_config::Config,
     },
 };
 use std::collections::BTreeMap;
@@ -28,13 +29,16 @@ impl RetrievalProjectionPort for Qdrant {
         collection: &str,
         layout: CollectionLayout,
     ) -> Result<(), Self::Error> {
-        if !layout.dense_cosine || !layout.sparse_idf {
+        if !layout.dense_present
+            || layout.dense_distance != "Cosine"
+            || !layout.sparse_present
+            || layout.sparse_modifier.as_deref() != Some("Idf")
+        {
             return Err(QdrantError::InvalidAnswer(
                 "unsupported retrieval vector layout".to_owned(),
             ));
         }
-        self.create(collection, layout.dense_dimensions).await?;
-        self.index_search_fields(collection).await
+        self.create(collection, layout.dense_dimensions).await
     }
 
     async fn collection_layout(
@@ -56,16 +60,25 @@ impl RetrievalProjectionPort for Qdrant {
                     None
                 }
             });
-        let sparse_idf = params
+        let sparse = params
             .sparse_vectors_config
             .as_ref()
-            .and_then(|config| config.map.get(SPARSE))
+            .and_then(|config| config.map.get(SPARSE));
+        let dense_distance = dense.map_or_else(String::new, |dense| {
+            Distance::try_from(dense.distance)
+                .map_or("unknown", |distance| distance.as_str_name())
+                .to_owned()
+        });
+        let sparse_modifier = sparse
             .and_then(|vector| vector.modifier)
-            .is_some_and(|modifier| modifier == i32::from(Modifier::Idf));
-        Ok(dense.map(|dense| CollectionLayout {
-            dense_dimensions: dense.size,
-            dense_cosine: dense.distance == i32::from(Distance::Cosine),
-            sparse_idf,
+            .and_then(|modifier| Modifier::try_from(modifier).ok())
+            .map(|modifier| modifier.as_str_name().to_owned());
+        Ok(Some(CollectionLayout {
+            dense_dimensions: dense.map_or(0, |dense| dense.size),
+            dense_present: dense.is_some(),
+            dense_distance,
+            sparse_present: sparse.is_some(),
+            sparse_modifier,
         }))
     }
 
@@ -81,11 +94,18 @@ impl RetrievalProjectionPort for Qdrant {
             .payload_indexes(collection)
             .await?
             .into_iter()
-            .map(|(field, kind)| (field, kind.to_string()))
+            .map(|(field, kind)| {
+                let kind = if kind == i32::from(PayloadSchemaType::Keyword) {
+                    "keyword".to_owned()
+                } else {
+                    kind.to_string()
+                };
+                (field, kind)
+            })
             .collect())
     }
 
-    async fn upsert(
+    async fn upsert_points(
         &self,
         collection: &str,
         points: Vec<ProjectionPoint>,
@@ -109,11 +129,15 @@ impl RetrievalProjectionPort for Qdrant {
         Qdrant::upsert(self, collection, points).await
     }
 
-    async fn count(&self, collection: &str) -> Result<u64, Self::Error> {
+    async fn count_points(&self, collection: &str) -> Result<u64, Self::Error> {
         Qdrant::count(self, collection).await
     }
 
-    async fn found(&self, collection: &str, ids: &[String]) -> Result<Vec<String>, Self::Error> {
+    async fn point_ids(
+        &self,
+        collection: &str,
+        ids: &[String],
+    ) -> Result<Vec<String>, Self::Error> {
         Qdrant::found(self, collection, ids).await
     }
 
@@ -129,7 +153,7 @@ impl RetrievalProjectionPort for Qdrant {
             .collect()
     }
 
-    async fn query_dense(
+    async fn search_dense(
         &self,
         collection: &str,
         vector: Vec<f32>,
@@ -143,7 +167,7 @@ impl RetrievalProjectionPort for Qdrant {
             .collect()
     }
 
-    async fn query_sparse(
+    async fn search_sparse(
         &self,
         collection: &str,
         vector: SparseValues,
@@ -179,7 +203,7 @@ impl RetrievalProjectionPort for Qdrant {
         let next = page
             .next_page_offset
             .and_then(|id| id.point_id_options)
-            .and_then(point_id_string);
+            .map(point_id_string);
         Ok(ProjectionPage { points, next })
     }
 
@@ -191,19 +215,20 @@ impl RetrievalProjectionPort for Qdrant {
         self.point_alias(alias, collection).await
     }
 
-    async fn delete_collection(&self, collection: &str) -> Result<(), Self::Error> {
+    async fn remove_collection(&self, collection: &str) -> Result<(), Self::Error> {
         self.delete_collection(collection).await
     }
 }
 
+/// Converts backend-neutral predicates into Qdrant conditions.
 fn to_filter(filter: ProjectionFilter) -> Filter {
     fn append(filter: ProjectionFilter, conditions: &mut Vec<Condition>) {
         match filter {
             ProjectionFilter::AnyString { field, values } => {
-                conditions.push(Condition::matches(field, values))
+                conditions.push(Condition::matches(field, values));
             }
             ProjectionFilter::ExactString { field, value } => {
-                conditions.push(Condition::matches(field, value))
+                conditions.push(Condition::matches(field, value));
             }
             ProjectionFilter::All(filters) => filters
                 .into_iter()
@@ -215,11 +240,12 @@ fn to_filter(filter: ProjectionFilter) -> Filter {
     Filter::must(conditions)
 }
 
-fn payload_hit(point: qdrant_client::qdrant::RetrievedPoint) -> Result<PointHit, QdrantError> {
+/// Converts a Qdrant payload response into a neutral point hit.
+fn payload_hit(point: RetrievedPoint) -> Result<PointHit, QdrantError> {
     let id = point
         .id
         .and_then(|id| id.point_id_options)
-        .and_then(point_id_string)
+        .map(point_id_string)
         .ok_or_else(|| QdrantError::InvalidAnswer("payload point has no identifier".to_owned()))?;
     let payload = serde_json::to_value(point.payload)
         .map_err(|error| QdrantError::InvalidAnswer(error.to_string()))?;
@@ -236,11 +262,12 @@ fn payload_hit(point: qdrant_client::qdrant::RetrievedPoint) -> Result<PointHit,
     })
 }
 
-fn scored_hit(point: qdrant_client::qdrant::ScoredPoint) -> Result<PointHit, QdrantError> {
+/// Converts a Qdrant ranked response into a neutral point hit.
+fn scored_hit(point: ScoredPoint) -> Result<PointHit, QdrantError> {
     let id = point
         .id
         .and_then(|id| id.point_id_options)
-        .and_then(point_id_string)
+        .map(point_id_string)
         .ok_or_else(|| QdrantError::InvalidAnswer("scored point has no identifier".to_owned()))?;
     let payload = serde_json::to_value(point.payload)
         .map_err(|error| QdrantError::InvalidAnswer(error.to_string()))?;
@@ -257,9 +284,10 @@ fn scored_hit(point: qdrant_client::qdrant::ScoredPoint) -> Result<PointHit, Qdr
     })
 }
 
-fn point_id_string(id: PointIdOptions) -> Option<String> {
-    Some(match id {
+/// Converts Qdrant's typed point identifier into its stable string form.
+fn point_id_string(id: PointIdOptions) -> String {
+    match id {
         PointIdOptions::Uuid(uuid) => uuid,
         PointIdOptions::Num(number) => number.to_string(),
-    })
+    }
 }

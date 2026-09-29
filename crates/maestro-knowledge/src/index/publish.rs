@@ -49,7 +49,11 @@ impl Step {
     }
 }
 
-impl<P: ModelPort> Projection<'_, P> {
+impl<
+    P: ModelPort,
+    R: super::projection_port::RetrievalProjectionPort<Error = super::qdrant::QdrantError>,
+> Projection<'_, P, R>
+{
     /// Publishes the complete chunk set `chunk_set` as a generation of its
     /// collection, and returns its report: [`Projection::publish_observed`],
     /// resuming nothing and observed by no one.
@@ -152,8 +156,8 @@ impl<P: ModelPort> Projection<'_, P> {
         let names = Names::of(&generation);
         if step == Step::Done {
             if !self
-                .qdrant
-                .exists(&names.collection)
+                .projection
+                .collection_exists(&names.collection)
                 .await
                 .map_err(Error::Qdrant)?
             {
@@ -189,8 +193,8 @@ impl<P: ModelPort> Projection<'_, P> {
         )
         .await?;
         traced_step(span::publish_switch_alias(), async {
-            self.qdrant
-                .point_alias(&names.alias, &names.collection)
+            self.projection
+                .replace_alias(&names.alias, &names.collection)
                 .await
                 .map_err(Error::Qdrant)
         })
@@ -333,30 +337,34 @@ impl<P: ModelPort> Projection<'_, P> {
     /// `dimensions`: a collection with others fails the generation.
     pub(super) async fn ensure(&self, names: &Names, dimensions: u64) -> Result<bool, Error> {
         let collection = &names.collection;
-        let created = if self
-            .qdrant
-            .exists(collection)
+        let layout = self
+            .projection
+            .collection_layout(collection)
             .await
-            .map_err(Error::Qdrant)?
-        {
-            let parameters = self
-                .qdrant
-                .parameters(collection)
-                .await
-                .map_err(Error::Qdrant)?;
-            if let Err(reason) = vectors(&parameters, dimensions) {
+            .map_err(Error::Qdrant)?;
+        let created = if let Some(layout) = layout {
+            if let Err(reason) = vectors(&layout, dimensions) {
                 return self.fail(names.generation, reason, None).await;
             }
             false
         } else {
-            self.qdrant
-                .create(collection, dimensions)
+            self.projection
+                .create_collection(
+                    collection,
+                    super::projection_port::CollectionLayout {
+                        dense_dimensions: dimensions,
+                        dense_present: true,
+                        dense_distance: "Cosine".to_owned(),
+                        sparse_present: true,
+                        sparse_modifier: Some("Idf".to_owned()),
+                    },
+                )
                 .await
                 .map_err(Error::Qdrant)?;
             true
         };
-        self.qdrant
-            .index_search_fields(collection)
+        self.projection
+            .index_payload_fields(collection)
             .await
             .map_err(Error::Qdrant)?;
         Ok(created)
@@ -372,7 +380,7 @@ impl<P: ModelPort> Projection<'_, P> {
         chunks: &[Chunk],
         rollback: Option<&str>,
     ) -> Result<u64, Error> {
-        match verify(self.qdrant, &names.collection, dimensions, chunks)
+        match verify(self.projection, &names.collection, dimensions, chunks)
             .await
             .map_err(Error::Qdrant)?
         {
@@ -398,13 +406,13 @@ impl<P: ModelPort> Projection<'_, P> {
             .map_err(Error::Generation)?;
         if let Some((alias, collection)) = rollback
             && self
-                .qdrant
-                .exists(collection)
+                .projection
+                .collection_exists(collection)
                 .await
                 .map_err(Error::Qdrant)?
         {
-            self.qdrant
-                .point_alias(alias, collection)
+            self.projection
+                .replace_alias(alias, collection)
                 .await
                 .map_err(Error::Qdrant)?;
         }
@@ -412,7 +420,11 @@ impl<P: ModelPort> Projection<'_, P> {
     }
 }
 
-impl<P: ModelPort> ProjectionWithBatchSize<'_, P> {
+impl<
+    P: ModelPort,
+    R: super::projection_port::RetrievalProjectionPort<Error = super::qdrant::QdrantError>,
+> ProjectionWithBatchSize<'_, P, R>
+{
     /// Publishes `chunk_set` with the test-selected batch size, without
     /// observing progress.
     ///

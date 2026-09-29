@@ -132,7 +132,7 @@ impl<P: ModelPort> Projection<'_, P> {
             });
         }
         if let Some(current) = &published {
-            self.qdrant
+            self.projection
                 .exists(&collection_name(current))
                 .await
                 .map_err(Error::Qdrant)?;
@@ -153,7 +153,7 @@ impl<P: ModelPort> Projection<'_, P> {
             expected_alias,
         ];
         let alias_target = self
-            .qdrant
+            .projection
             .alias_collection(&alias)
             .await
             .map_err(Error::Qdrant)?;
@@ -275,7 +275,7 @@ impl<P: ModelPort> Projection<'_, P> {
             });
         }
         if !self
-            .qdrant
+            .projection
             .exists(&names.collection)
             .await
             .map_err(Error::Qdrant)?
@@ -283,7 +283,7 @@ impl<P: ModelPort> Projection<'_, P> {
             return Err(Error::MissingCollection(names.collection.clone()));
         }
         let points = match verify(
-            self.qdrant,
+            self.projection,
             &names.collection,
             state.dimensions,
             &state.chunks,
@@ -309,14 +309,14 @@ impl<P: ModelPort> Projection<'_, P> {
             });
         }
         if self
-            .qdrant
+            .projection
             .alias_collection(&names.alias)
             .await
             .map_err(Error::Qdrant)?
             .as_deref()
             != Some(names.collection.as_str())
         {
-            self.qdrant
+            self.projection
                 .point_alias(&names.alias, &names.collection)
                 .await
                 .map_err(Error::Qdrant)?;
@@ -411,12 +411,12 @@ impl<P: ModelPort> Projection<'_, P> {
                 found: current,
             });
         }
-        self.qdrant
+        self.projection
             .point_alias(&names.alias, &names.collection)
             .await
             .map_err(Error::Qdrant)?;
         let alias_target = self
-            .qdrant
+            .projection
             .alias_collection(&names.alias)
             .await
             .map_err(Error::Qdrant)?;
@@ -445,12 +445,12 @@ impl<P: ModelPort> Projection<'_, P> {
                     .published_generation(self.scopes, &state.set.collection_id)
                     .map_err(Error::Generation)?
                     && self
-                        .qdrant
+                        .projection
                         .exists(&collection_name(&current))
                         .await
                         .map_err(Error::Qdrant)?
                 {
-                    self.qdrant
+                    self.projection
                         .point_alias(&names.alias, &collection_name(&current))
                         .await
                         .map_err(Error::Qdrant)?;

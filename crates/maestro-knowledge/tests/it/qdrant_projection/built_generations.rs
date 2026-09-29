@@ -112,7 +112,7 @@ async fn a_markerless_published_generation_degrades_then_republishes_without_ear
     let report = Projection {
         database: &kernel.database,
         scopes: &kernel.scopes,
-        qdrant: &qdrant,
+        projection: &qdrant,
         port: &port,
         card: &card,
     }

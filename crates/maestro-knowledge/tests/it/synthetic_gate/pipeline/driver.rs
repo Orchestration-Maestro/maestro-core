@@ -232,7 +232,7 @@ fn prepare_publish(
     let projection = Projection {
         database: context.database,
         scopes: context.scopes,
-        qdrant: context.qdrant,
+        projection: context.qdrant,
         port: &models,
         card: &card,
     };

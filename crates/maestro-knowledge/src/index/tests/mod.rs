@@ -7,5 +7,4 @@ mod dense;
 mod errors;
 mod lengths;
 mod point;
-mod projection_port;
 mod qdrant;

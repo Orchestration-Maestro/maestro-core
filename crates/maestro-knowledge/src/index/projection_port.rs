@@ -1,17 +1,21 @@
 //! Backend-neutral operations and values for a generation's retrieval projection.
 
 use serde_json::Value;
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, fmt};
 
 /// The named vector layout required by current dense and sparse retrieval.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CollectionLayout {
     /// The dimension count of the named dense vector.
     pub dense_dimensions: u64,
-    /// Whether the named dense vector uses cosine distance.
-    pub dense_cosine: bool,
-    /// Whether the named BM25 sparse vector uses IDF weighting.
-    pub sparse_idf: bool,
+    /// Whether the named dense vector is present.
+    pub dense_present: bool,
+    /// The backend-neutral name of its distance function.
+    pub dense_distance: String,
+    /// Whether the named BM25 sparse vector is present.
+    pub sparse_present: bool,
+    /// Its modifier name, or absent when no modifier is set.
+    pub sparse_modifier: Option<String>,
 }
 
 /// A point ready to store in a generation's projection.
@@ -78,10 +82,13 @@ pub struct ProjectionPage {
 }
 
 /// Operations used to publish, verify, rebuild, and search a generation.
-#[allow(async_fn_in_trait)]
-pub trait RetrievalProjectionPort: std::fmt::Debug {
+#[expect(
+    async_fn_in_trait,
+    reason = "The port deliberately exposes asynchronous operations for its local adapters."
+)]
+pub trait RetrievalProjectionPort: fmt::Debug {
     /// The adapter's operational error, with no transport client types.
-    type Error: std::fmt::Debug + std::fmt::Display;
+    type Error: fmt::Debug + fmt::Display;
 
     /// Whether a physical collection exists.
     async fn collection_exists(&self, collection: &str) -> Result<bool, Self::Error>;
@@ -104,15 +111,16 @@ pub trait RetrievalProjectionPort: std::fmt::Debug {
         collection: &str,
     ) -> Result<BTreeMap<String, String>, Self::Error>;
     /// Upsert points and wait until they have been applied.
-    async fn upsert(
+    async fn upsert_points(
         &self,
         collection: &str,
         points: Vec<ProjectionPoint>,
     ) -> Result<(), Self::Error>;
     /// Count points exactly.
-    async fn count(&self, collection: &str) -> Result<u64, Self::Error>;
+    async fn count_points(&self, collection: &str) -> Result<u64, Self::Error>;
     /// Return IDs from `ids` which currently exist.
-    async fn found(&self, collection: &str, ids: &[String]) -> Result<Vec<String>, Self::Error>;
+    async fn point_ids(&self, collection: &str, ids: &[String])
+    -> Result<Vec<String>, Self::Error>;
     /// Read payloads for the requested physical point IDs.
     async fn payloads(
         &self,
@@ -120,7 +128,7 @@ pub trait RetrievalProjectionPort: std::fmt::Debug {
         ids: &[String],
     ) -> Result<Vec<PointHit>, Self::Error>;
     /// Query the named dense route with an authorization filter.
-    async fn query_dense(
+    async fn search_dense(
         &self,
         collection: &str,
         vector: Vec<f32>,
@@ -128,7 +136,7 @@ pub trait RetrievalProjectionPort: std::fmt::Debug {
         filter: ProjectionFilter,
     ) -> Result<Vec<PointHit>, Self::Error>;
     /// Query the named BM25 route with an authorization filter.
-    async fn query_sparse(
+    async fn search_sparse(
         &self,
         collection: &str,
         vector: SparseValues,
@@ -147,5 +155,5 @@ pub trait RetrievalProjectionPort: std::fmt::Debug {
     /// Atomically point an alias at a physical collection.
     async fn replace_alias(&self, alias: &str, collection: &str) -> Result<(), Self::Error>;
     /// Delete a physical collection during guarded cleanup.
-    async fn delete_collection(&self, collection: &str) -> Result<(), Self::Error>;
+    async fn remove_collection(&self, collection: &str) -> Result<(), Self::Error>;
 }

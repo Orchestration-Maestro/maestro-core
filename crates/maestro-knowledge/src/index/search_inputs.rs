@@ -5,6 +5,7 @@ use super::{
     names::collection_name,
     point::point_id,
     projection::Projection,
+    projection_port::{PointHit, RetrievalProjectionPort},
 };
 use crate::{
     prepare::search_members,
@@ -17,9 +18,6 @@ use maestro_kernel::{
     retrieval::{Error as RetrievalError, SearchInput, SearchMember},
     scope::ScopeSet,
     store::Database,
-};
-use qdrant_client::qdrant::{
-    PayloadSchemaType, RetrievedPoint, point_id::PointIdOptions, value::Kind,
 };
 use std::collections::HashMap;
 
@@ -75,7 +73,9 @@ pub(super) fn record_batch(
         .map_err(Error::Search)
 }
 
-impl<P: ModelPort> Projection<'_, P> {
+impl<P: ModelPort, R: RetrievalProjectionPort<Error = super::qdrant::QdrantError>>
+    Projection<'_, P, R>
+{
     /// Rechecks manifest membership, every prepared input, each exact payload
     /// and its keyword indexes before making this generation searchable.
     pub(super) async fn verify_search(
@@ -91,12 +91,12 @@ impl<P: ModelPort> Projection<'_, P> {
             };
         }
         let indexes = self
-            .qdrant
-            .payload_indexes(&collection_name(generation))
+            .projection
+            .payload_fields(&collection_name(generation))
             .await
             .map_err(Error::Qdrant)?;
         for field in ["scope_tags", "identifiers", "identifier_profile", "version"] {
-            if indexes.get(field) != Some(&(PayloadSchemaType::Keyword as i32)) {
+            if indexes.get(field).map(String::as_str) != Some("keyword") {
                 return Ok(Err(Unverified::Search {
                     reason: format!("the keyword index for {field} is missing"),
                 }));
@@ -121,8 +121,8 @@ impl<P: ModelPort> Projection<'_, P> {
                 .collect();
             let point_ids: Vec<String> = expected.keys().cloned().collect();
             let points = self
-                .qdrant
-                .payload_points(&collection_name(generation), &point_ids)
+                .projection
+                .payloads(&collection_name(generation), &point_ids)
                 .await
                 .map_err(Error::Qdrant)?;
             if points.len() != batch.len() {
@@ -158,21 +158,11 @@ fn verification_write_error(error: Error) -> Result<Unverified, Error> {
 /// Checks that each retrieved point's stable ID and exact search payload
 /// match the owning kernel chunk and its prepared input.
 fn check_payloads(
-    points: Vec<RetrievedPoint>,
+    points: Vec<PointHit>,
     mut expected: HashMap<String, (&Chunk, Vec<String>)>,
 ) -> Result<(), String> {
     for point in points {
-        let Some(id) = point
-            .id
-            .as_ref()
-            .and_then(|id| id.point_id_options.as_ref())
-        else {
-            return Err("a published search point has no point ID".to_owned());
-        };
-        let id = match id {
-            PointIdOptions::Uuid(id) => id.clone(),
-            PointIdOptions::Num(id) => id.to_string(),
-        };
+        let id = point.id.clone();
         let Some((chunk, identifiers)) = expected.remove(&id) else {
             return Err("a published search point has an unexpected point ID".to_owned());
         };
@@ -196,33 +186,18 @@ fn check_payloads(
 }
 
 /// Reads one string payload field.
-fn payload_text<'a>(point: &'a RetrievedPoint, field: &str) -> Option<&'a str> {
-    match point
-        .payload
-        .get(field)
-        .and_then(|value| value.kind.as_ref())
-    {
-        Some(Kind::StringValue(value)) => Some(value),
-        _ => None,
-    }
+fn payload_text<'a>(point: &'a PointHit, field: &str) -> Option<&'a str> {
+    point.payload.get(field).and_then(serde_json::Value::as_str)
 }
 
 /// Reads a payload keyword array, refusing any non-string item.
-fn payload_identifiers(point: &RetrievedPoint) -> Option<Vec<String>> {
-    let Some(Kind::ListValue(identifiers)) = point
+fn payload_identifiers(point: &PointHit) -> Option<Vec<String>> {
+    point
         .payload
-        .get("identifiers")
-        .and_then(|value| value.kind.as_ref())
-    else {
-        return None;
-    };
-    identifiers
-        .values
+        .get("identifiers")?
+        .as_array()?
         .iter()
-        .map(|value| match value.kind.as_ref() {
-            Some(Kind::StringValue(value)) => Some(value.clone()),
-            _ => None,
-        })
+        .map(|value| value.as_str().map(str::to_owned))
         .collect()
 }
 
@@ -232,16 +207,13 @@ mod tests {
         Error, PROFILE, RetrievalError, Unverified, check_payloads, point_id, record_batch,
         verification_write_error,
     };
+    use crate::index::projection_port::PointHit;
     use crate::prepare::tests::scratch::Scratch;
     use maestro_kernel::{
         artifact::Digest,
         chunk_set::Chunk,
         evidence::Span,
         scope::{Right, Scope},
-    };
-    use qdrant_client::{
-        Payload,
-        qdrant::{PointId, RetrievedPoint, point_id::PointIdOptions},
     };
     use serde_json::{Value, json};
     use std::collections::HashMap;
@@ -257,34 +229,28 @@ mod tests {
         }
     }
 
-    fn payload(chunk: &str, revision: &str, profile: &str, identifiers: &Value) -> Payload {
-        Payload::try_from(json!({
+    fn payload(chunk: &str, revision: &str, profile: &str, identifiers: &Value) -> Value {
+        json!({
             "chunk_id": chunk,
             "revision_id": revision,
             "identifier_profile": profile,
             "identifiers": identifiers,
-        }))
-        .unwrap()
+        })
     }
 
-    fn point(id: Option<PointId>, payload: Payload) -> RetrievedPoint {
-        RetrievedPoint {
-            id,
-            payload: payload.into(),
-            vectors: None,
-            shard_key: None,
-            order_value: None,
+    fn point(id: &str, payload: Value) -> PointHit {
+        PointHit {
+            id: id.to_owned(),
+            score: None,
+            payload: match payload {
+                Value::Object(payload) => payload.into_iter().collect(),
+                _ => panic!("test payload must be an object"),
+            },
         }
     }
 
     fn expected<'a>(chunk: &'a Chunk, id: &str) -> HashMap<String, (&'a Chunk, Vec<String>)> {
         HashMap::from([(id.to_owned(), (chunk, vec!["ERR-42".to_owned()]))])
-    }
-
-    fn uuid(id: &str) -> PointId {
-        PointId {
-            point_id_options: Some(PointIdOptions::Uuid(id.to_owned())),
-        }
     }
 
     #[test]
@@ -322,22 +288,11 @@ mod tests {
         let chunk = chunk();
         let id = point_id(&chunk.id);
         let good = payload(&chunk.id, &chunk.revision_id, PROFILE, &json!(["ERR-42"]));
-        assert!(
-            check_payloads(
-                vec![point(Some(uuid(&id)), good.clone())],
-                expected(&chunk, &id)
-            )
-            .is_ok()
-        );
+        assert!(check_payloads(vec![point(&id, good.clone())], expected(&chunk, &id)).is_ok());
 
         assert!(
-            check_payloads(vec![point(None, good.clone())], expected(&chunk, &id))
-                .unwrap_err()
-                .contains("no point ID")
-        );
-        assert!(
             check_payloads(
-                vec![point(Some(uuid("unexpected")), good.clone())],
+                vec![point("unexpected", good.clone())],
                 expected(&chunk, &id)
             )
             .unwrap_err()
@@ -351,7 +306,7 @@ mod tests {
         assert!(
             check_payloads(
                 vec![point(
-                    Some(uuid(&id)),
+                    &id,
                     payload(
                         "another-chunk",
                         &chunk.revision_id,
@@ -367,7 +322,7 @@ mod tests {
         assert!(
             check_payloads(
                 vec![point(
-                    Some(uuid(&id)),
+                    &id,
                     payload(
                         &chunk.id,
                         &chunk.revision_id,
@@ -383,7 +338,7 @@ mod tests {
         assert!(
             check_payloads(
                 vec![point(
-                    Some(uuid(&id)),
+                    &id,
                     payload(&chunk.id, &chunk.revision_id, PROFILE, &json!("not-a-list")),
                 )],
                 expected(&chunk, &id)
@@ -394,7 +349,7 @@ mod tests {
         assert!(
             check_payloads(
                 vec![point(
-                    Some(uuid(&id)),
+                    &id,
                     payload(
                         &chunk.id,
                         &chunk.revision_id,
@@ -412,12 +367,7 @@ mod tests {
     #[test]
     fn search_payload_check_accepts_numeric_point_ids() {
         let chunk = chunk();
-        let numeric = PointId {
-            point_id_options: Some(PointIdOptions::Num(42)),
-        };
         let payload = payload(&chunk.id, &chunk.revision_id, PROFILE, &json!(["ERR-42"]));
-        assert!(
-            check_payloads(vec![point(Some(numeric), payload)], expected(&chunk, "42")).is_ok()
-        );
+        assert!(check_payloads(vec![point("42", payload)], expected(&chunk, "42")).is_ok());
     }
 }

@@ -16,7 +16,7 @@ async fn newly_built_generations_have_a_keyword_scope_tags_index() {
         let report = Projection {
             database: &kernel.database,
             scopes: &kernel.scopes,
-            qdrant: &qdrant,
+            projection: &qdrant,
             port: &port,
             card: &card,
         }

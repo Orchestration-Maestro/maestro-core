@@ -800,7 +800,6 @@ in place.
 │   │   │   │   │   ├── lengths.rs                                           # The lengths the sparse vectors are weighed against, with no passage or no term
 │   │   │   │   │   ├── mod.rs                                               # Tests of the projection's parts no publication reaches
 │   │   │   │   │   ├── point.rs                                             # Point IDs: the UUIDv5 of the chunk's ID, pinned by Python's uuid
-│   │   │   │   │   ├── projection_port.rs                                   # Contract checks for a backend-neutral retrieval projection port
 │   │   │   │   │   └── qdrant.rs                                            # A Qdrant out of reach: the client's error is the cause of the refusal
 │   │   │   │   ├── batches.rs                                               # Writing a generation's points a batch at a time, each shown to the caller to journal
 │   │   │   │   ├── dense.rs                                                 # Dense vectors: a batch embedded in free room within a deadline, then checked
@@ -1117,6 +1116,7 @@ in place.
 │   │   │       │   ├── alias_moves.rs                                       # The alias moves only to a generation whose collection passes its checks
 │   │   │       │   ├── backends.rs                                          # The Qdrant servers a test runs against, and what it reads back from them
 │   │   │       │   ├── built_generations.rs                                 # A generation builds in its own collection; its points, payloads and IDs
+│   │   │       │   ├── fake_port.rs                                         # Publication and standalone verification through a transport-independent projection fake
 │   │   │       │   ├── kernel.rs                                            # A kernel holding a complete chunk set to publish, in a scratch directory
 │   │   │       │   ├── mod.rs                                               # The Qdrant projection (T026), against a fake Qdrant and a real one when named
 │   │   │       │   ├── models.rs                                            # The embedder the tests publish through, which records and spoils calls on demand

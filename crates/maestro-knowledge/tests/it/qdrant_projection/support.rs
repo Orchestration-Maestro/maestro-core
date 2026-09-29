@@ -17,7 +17,7 @@ pub(super) fn projection<'a>(
     Projection {
         database: &kernel.database,
         scopes: &kernel.scopes,
-        qdrant,
+        projection: qdrant,
         port: embedder,
         card,
     }

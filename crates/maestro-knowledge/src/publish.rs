@@ -1,7 +1,7 @@
 //! Verification of a published generation against the kernel artifacts and
 //! the Qdrant alias it serves.
 
-use crate::index::{Qdrant, QdrantError, alias_name, collection_name};
+use crate::index::{QdrantError, RetrievalProjectionPort, alias_name, collection_name};
 use maestro_kernel::{
     artifact,
     chunk_set::{self, ChunkSetState},
@@ -86,7 +86,7 @@ impl error::Error for Error {
 pub async fn verify_generation(
     database: &Database,
     scopes: &ScopeSet,
-    qdrant: &Qdrant,
+    qdrant: &impl RetrievalProjectionPort<Error = QdrantError>,
     id: i64,
 ) -> Result<Verification, Error> {
     let generation = database
@@ -137,7 +137,7 @@ pub async fn verify_generation(
     }
     let qdrant_collection = collection_name(&generation);
     let points = qdrant
-        .count(&qdrant_collection)
+        .count_points(&qdrant_collection)
         .await
         .map_err(Error::Qdrant)?;
     let chunk_count = u64::try_from(chunks.len()).unwrap_or(u64::MAX);
@@ -152,10 +152,7 @@ pub async fn verify_generation(
         ));
     }
     let alias = alias_name(&generation);
-    let alias_target = qdrant
-        .alias_collection(&alias)
-        .await
-        .map_err(Error::Qdrant)?;
+    let alias_target = qdrant.alias_target(&alias).await.map_err(Error::Qdrant)?;
     if alias_target.as_deref() != Some(qdrant_collection.as_str()) {
         findings.push(format!(
             "alias {alias} names {}, not generation collection {qdrant_collection}",

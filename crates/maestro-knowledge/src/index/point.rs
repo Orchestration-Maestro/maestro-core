@@ -3,15 +3,11 @@
 
 use super::{
     error::Error,
+    projection_port::{ProjectionPoint, SparseValues},
     provenance::Provenance,
-    qdrant::{DENSE, SPARSE},
 };
 use crate::{lexical::SparseVector, query::PROFILE as IDENTIFIER_PROFILE};
 use maestro_kernel::chunk_set::Chunk;
-use qdrant_client::{
-    Payload,
-    qdrant::{NamedVectors, PointStruct, Vector},
-};
 use serde_json::{Map, Value, json};
 use sha1::{Digest as _, Sha1};
 use uuid::{Builder, Uuid};
@@ -53,13 +49,14 @@ pub(super) fn point(
     dense: &[f32],
     sparse: Option<&SparseVector>,
     identifiers: &[String],
-) -> Result<PointStruct, Error> {
+) -> Result<ProjectionPoint, Error> {
     let (indices, values) = sparse.map_or((&[][..], &[][..]), |vector| {
         (vector.indices(), vector.values())
     });
-    let vectors = NamedVectors::default()
-        .add_vector(DENSE, Vector::new_dense(dense))
-        .add_vector(SPARSE, Vector::new_sparse(indices, values));
+    let sparse = SparseValues {
+        indices: indices.to_vec(),
+        values: values.to_vec(),
+    };
     let payload: Map<String, Value> = [
         ("chunk_id", json!(chunk.id)),
         ("revision_id", json!(chunk.revision_id)),
@@ -73,9 +70,10 @@ pub(super) fn point(
     .into_iter()
     .map(|(field, value)| (field.to_owned(), value))
     .collect();
-    Ok(PointStruct::new(
-        point_id(&chunk.id),
-        vectors,
-        Payload::from(payload),
-    ))
+    Ok(ProjectionPoint {
+        id: point_id(&chunk.id),
+        dense: dense.to_vec(),
+        sparse,
+        payload: payload.into_iter().collect(),
+    })
 }
