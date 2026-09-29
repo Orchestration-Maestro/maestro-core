@@ -69,6 +69,7 @@ in place.
 │   │   │   │   │   │   ├── kernel_engine.rs                                 # The engine on a real kernel, with the router and the search service
 │   │   │   │   │   │   ├── manifest.rs                                      # The manifest: what it holds, where its paths lead, and each refusal
 │   │   │   │   │   │   ├── mod.rs                                           # Tests of the ladder command: its manifest, its run over a fake engine, its
+│   │   │   │   │   │   ├── question_parts.rs                                # A rung's question parts: the manifest's knob and glossary pin, the
 │   │   │   │   │   │   ├── reports.rs                                       # What a ladder writes: private rows with IDs, ranks, citations, refusal
 │   │   │   │   │   │   ├── rung_answerer.rs                                 # A rung's answerer and prompt: ask.card names a registered answerer card
 │   │   │   │   │   │   ├── runner.rs                                        # The ladder's run: warm-ups unscored, the rung's configuration in every
@@ -81,6 +82,7 @@ in place.
 │   │   │   │   │   ├── engine.rs                                            # The ladder's engine on this machine: the kernel opened for the local
 │   │   │   │   │   ├── manifest.rs                                          # The ladder's manifest, maestro-ladder-manifest/1: the suite, the
 │   │   │   │   │   ├── mod.rs                                               # maestro eval ladder: the M1 ladder, every question of a suite searched
+│   │   │   │   │   ├── question_parts.rs                                    # A rung's question parts: its manifest's question_parts, the glossary
 │   │   │   │   │   ├── rank_settings.rs                                     # Manifest adapters for optional candidate-context and section-prior policies
 │   │   │   │   │   ├── reports.rs                                           # What a ladder writes: for each rung, its private rows, one JSON line per
 │   │   │   │   │   ├── rung_prompt.rs                                       # A rung's answer prompt: a prompt version, or a private prompt file of
@@ -868,12 +870,14 @@ in place.
 │   │   │   │   │   │   ├── mod.rs                                           # Budgeted MMR selection over validated source windows
 │   │   │   │   │   │   ├── relevant.rs                                      # Whole matched-block windows and contiguous table-header prefixes
 │   │   │   │   │   │   ├── render.rs                                        # Renders trial spans as normalized, validated passages
-│   │   │   │   │   │   └── types.rs                                         # Candidate metadata and final selection result
+│   │   │   │   │   │   ├── types.rs                                         # Candidate metadata and final selection result
+│   │   │   │   │   │   └── units.rs                                         # Selection units: conflict-atomic groups, then ordinary candidates, in
 │   │   │   │   │   ├── tests/                                               # Integration tests
 │   │   │   │   │   │   ├── assembly.rs                                      # Rust source: assembly
 │   │   │   │   │   │   ├── assembly_authority.rs                            # Rust source: assembly authority
 │   │   │   │   │   │   ├── assembly_entry.rs                                # Rust source: assembly entry
 │   │   │   │   │   │   ├── assembly_output.rs                               # Rust source: assembly output
+│   │   │   │   │   │   ├── assembly_parts.rs                                # Assembly reserves the best passage of each question part the search
 │   │   │   │   │   │   ├── assembly_versions.rs                             # Rust source: assembly versions
 │   │   │   │   │   │   ├── budget.rs                                        # Rust source: budget
 │   │   │   │   │   │   ├── candidate_context.rs                             # Rust source: candidate context
@@ -883,6 +887,7 @@ in place.
 │   │   │   │   │   │   ├── features.rs                                      # Rust source: features
 │   │   │   │   │   │   ├── mod.rs                                           # Rust source: mod
 │   │   │   │   │   │   ├── packing.rs                                       # Rust source: packing
+│   │   │   │   │   │   ├── reservation.rs                                   # Each question part's best passage is admitted before any other, within
 │   │   │   │   │   │   ├── section_expansion.rs                             # Rust source: section expansion
 │   │   │   │   │   │   ├── section_selection.rs                             # Rust source: section selection
 │   │   │   │   │   │   ├── section_validation.rs                            # Rust source: section validation
@@ -920,12 +925,15 @@ in place.
 │   │   │   │   │   ├── candidate_enrichment.rs                              # Opt-in reranker enrichment degrades to the indexed chunk, never to a failed search
 │   │   │   │   │   ├── deadlines.rs                                         # Rust source: deadlines
 │   │   │   │   │   ├── fusion.rs                                            # Rust source: fusion
+│   │   │   │   │   ├── glossary.rs                                          # The glossary expander: literal whole-word matching without case or
 │   │   │   │   │   ├── handoff.rs                                           # Route joining and rerank handoff boundaries
 │   │   │   │   │   ├── intent.rs                                            # Guarded additive intent expansion contracts
 │   │   │   │   │   ├── intent_guard.rs                                      # The expansion guard: quantities in any spelling, protected constraint
 │   │   │   │   │   ├── intent_request.rs                                    # The expansion port: the one chat request the HyDE adapter sends, the
 │   │   │   │   │   ├── inventory_query.rs                                   # Exact English and French inventory-query grammar
 │   │   │   │   │   ├── mod.rs                                               # Rust source: mod
+│   │   │   │   │   ├── part_search.rs                                       # Each part's best passage joins the whole question's ranking within the
+│   │   │   │   │   ├── question_split.rs                                    # The default splitter: English and French relation phrases and
 │   │   │   │   │   ├── rank_policy.rs                                       # Rust source: rank policy
 │   │   │   │   │   ├── rank_stage.rs                                        # The search's candidate stage end to end: exact texts, optional context
 │   │   │   │   │   ├── rerank.rs                                            # Rust source: rerank
@@ -944,6 +952,7 @@ in place.
 │   │   │   │   ├── deadline.rs                                              # Absolute cutoffs shared by routes, candidate loading and T032 handoff
 │   │   │   │   ├── filter.rs                                                # Qdrant's in-route filter for the scopes admitted to one request
 │   │   │   │   ├── fusion.rs                                                # Reciprocal rank fusion over independent retrieval routes
+│   │   │   │   ├── glossary.rs                                              # A query expander over a collection's glossary: a strict, size-bounded
 │   │   │   │   ├── hyde.rs                                                  # The hypothetical-document expander: a configured answerer card, called
 │   │   │   │   ├── intent.rs                                                # Optional query expansion behind a replaceable port; generated text is
 │   │   │   │   ├── intent_guard.rs                                          # The mechanical guard every expansion passes before it may vote
@@ -952,10 +961,14 @@ in place.
 │   │   │   │   ├── inventory_query.rs                                       # Exact natural-language grammar for S1 document and version inventories
 │   │   │   │   ├── mod.rs                                                   # Rust source: mod
 │   │   │   │   ├── orchestrate.rs                                           # Admission, parallel route execution, fusion and the bounded T032 handoff
+│   │   │   │   ├── part_search.rs                                           # A compound question ranked part by part
 │   │   │   │   ├── pin.rs                                                   # Pins the published generation before any route touches Qdrant
 │   │   │   │   ├── query.rs                                                 # The scopes and generation admitted for a search
+│   │   │   │   ├── question_parts.rs                                        # Compound questions ranked part by part, behind a replaceable splitter
 │   │   │   │   ├── rank_policy.rs                                           # Optional position-only rerank policies; model and fusion scores remain untouched
 │   │   │   │   ├── rank_stage.rs                                            # The candidate stage of a search: exact loading, optional enrichment
+│   │   │   │   ├── ranked.rs                                                # One ranked search of an admitted question: parallel route execution
+│   │   │   │   ├── relation_splitter.rs                                     # The default question splitter: a part starts at a relation phrase, such
 │   │   │   │   ├── request.rs                                               # Retrieval results handed to T032 without assembling an evidence bundle
 │   │   │   │   ├── rerank.rs                                                # Reranks the head of a fused list without truncating candidate text
 │   │   │   │   ├── route_execution.rs                                       # Deadline-bounded leaf-route calls and their independent public statuses
@@ -1025,6 +1038,7 @@ in place.
 │   │   │       │   │   ├── intent_port.rs                                   # A model port whose expansion chat and reranker a test scripts, over the
 │   │   │       │   │   ├── intent_rerank_set.rs                             # What the rerank scores once intent routes voted: the original top-depth
 │   │   │       │   │   ├── mod.rs                                           # Dense and lexical routes against the shared fake and, when configured, real Qdrant
+│   │   │       │   │   ├── question_parts.rs                                # Compound questions through search: the whole question ranks as before
 │   │   │       │   │   ├── route_behavior.rs                                # Behavior of dense and lexical searches over the generation-pinned collection
 │   │   │       │   │   ├── route_errors.rs                                  # Refusals from admission, profiles and dense embedding
 │   │   │       │   │   ├── route_windows.rs                                 # A route's window comes from the request's budget, less the time the later

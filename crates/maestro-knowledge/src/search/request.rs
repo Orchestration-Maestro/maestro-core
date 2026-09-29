@@ -5,6 +5,7 @@ use super::{
     deadline::StageWindow,
     fusion::Route,
     intent::{IntentExpansion, IntentTrigger, QueryExpander},
+    question_parts::{PartsRecord, QuestionParts, QuestionSplitter},
     rerank::{DEFAULT_DEPTH, Ranked, Reranker},
     routes::{dense::Embedder, error::RouteError},
     section_prior::SectionPrior,
@@ -114,6 +115,9 @@ pub struct SearchConfiguration {
     /// Soft preference for official sources; it needs a source classifier
     /// in the search context, and ranks as before without one.
     pub source_prior: SourcePrior,
+    /// Whether a compound question's parts are also ranked, each against
+    /// its own words, and the bundle keeps each part's best passage.
+    pub question_parts: QuestionParts,
 }
 
 impl Default for SearchConfiguration {
@@ -144,6 +148,7 @@ impl Default for SearchConfiguration {
             section_prior: SectionPrior::Off,
             stage_window: StageWindow::Derived,
             source_prior: SourcePrior::default(),
+            question_parts: QuestionParts::Off,
         }
     }
 }
@@ -192,6 +197,10 @@ pub struct SearchObservations {
     /// How many original top-depth candidates the intent votes put below
     /// the rerank depth, all still reranked; none when no intent voted.
     pub intent_displaced: Option<usize>,
+    /// The question's parts, each part's bridge and best passage, or why it
+    /// was not split; none when parts are off. Assembly reserves each
+    /// part's best passage.
+    pub question_parts: Option<PartsRecord>,
 }
 
 impl SearchObservations {
@@ -247,6 +256,12 @@ pub struct SearchContext<'a, P> {
     pub reranker: Option<Reranker<'a, P>>,
     /// The source classifier the source prior reads, when one is configured.
     pub source_classes: Option<Arc<dyn SourceClassifier>>,
+    /// The splitter of compound questions; absent, the relation-phrase
+    /// splitter. Unused when parts are off.
+    pub question_splitter: Option<Arc<dyn QuestionSplitter>>,
+    /// Adds documentation words to each part, such as a collection's
+    /// glossary; absent, parts are ranked with their own words only.
+    pub part_bridge: Option<Arc<dyn QueryExpander + 'a>>,
 }
 
 impl<P> fmt::Debug for SearchContext<'_, P> {
@@ -260,6 +275,8 @@ impl<P> fmt::Debug for SearchContext<'_, P> {
             .field("has_intent_expander", &self.intent_expander.is_some())
             .field("has_reranker", &self.reranker.is_some())
             .field("source_classes", &self.source_classes)
+            .field("has_question_splitter", &self.question_splitter.is_some())
+            .field("has_part_bridge", &self.part_bridge.is_some())
             .finish()
     }
 }

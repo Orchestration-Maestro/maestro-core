@@ -34,7 +34,7 @@ use std::{
 /// The dense and lexical routes' bounded candidate pool.
 const DENSE_LIMIT: usize = 100;
 /// The single reciprocal-rank fusion pool limit.
-const FUSION_POOL: usize = 120;
+pub(super) const FUSION_POOL: usize = 120;
 
 /// Runs `route` as the stage `stage`, which records its hits and outcome.
 async fn traced_route(stage: Stage, route: impl Future<Output = RouteOutcome>) -> RouteOutcome {

@@ -36,6 +36,7 @@ fn relevant_blocks_admits_another_procedure_before_expanding_first() {
                 counter: &counter,
                 counter_info: &info,
                 control: &control,
+                reserved: &[],
             },
         )
         .unwrap()
@@ -93,6 +94,7 @@ fn relevant_table_prefix_keeps_header_and_whole_row_with_exact_span() {
             counter: &counter,
             counter_info: &info,
             control: &control,
+            reserved: &[],
         },
     )
     .unwrap();
@@ -128,6 +130,7 @@ fn over_budget_table_prefix_falls_back_without_truncating_a_row() {
             counter: &counter,
             counter_info: &info,
             control: &control,
+            reserved: &[],
         },
     )
     .unwrap();
@@ -163,6 +166,7 @@ fn relevant_blocks_keep_complete_list_steps_and_nested_tables() {
             counter: &counter,
             counter_info: &info,
             control: &control,
+            reserved: &[],
         },
     )
     .unwrap();
@@ -202,6 +206,7 @@ fn relevant_blocks_spend_leftover_budget_on_neighbors_in_rank_order() {
             counter: &counter,
             counter_info: &info,
             control: &control,
+            reserved: &[],
         },
     )
     .unwrap();

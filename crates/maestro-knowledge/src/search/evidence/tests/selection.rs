@@ -1,5 +1,7 @@
 #[path = "packing.rs"]
 mod packing;
+#[path = "reservation.rs"]
+mod reservation;
 
 use super::super::{
     ExpansionMode,
@@ -128,6 +130,7 @@ fn run_selection(
             counter: &counter,
             counter_info: &info,
             control: &read_control,
+            reserved: &[],
         },
     )
     .unwrap()
@@ -388,6 +391,7 @@ fn mandatory_whole_sibling_window_adds_before_then_stops_at_budget() {
             counter: &counter,
             counter_info: &info,
             control: &control,
+            reserved: &[],
         },
     )
     .unwrap();
@@ -434,6 +438,7 @@ fn a_failed_near_sibling_does_not_close_a_non_monotonic_farther_window() {
             counter: &counter,
             counter_info: &info,
             control: &control,
+            reserved: &[],
         },
     )
     .unwrap();
@@ -477,6 +482,7 @@ fn selection_refuses_an_already_cancelled_control() {
                 counter: &counter,
                 counter_info: &info,
                 control: &control,
+                reserved: &[],
             }
         ),
         Err(EvidenceError::TimedOut)

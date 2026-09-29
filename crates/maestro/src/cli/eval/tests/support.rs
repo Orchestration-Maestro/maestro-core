@@ -9,7 +9,9 @@ use crate::failure::Failure;
 use maestro_knowledge::{
     answer::RefusalCode,
     eval::{AskOutcome, SearchOutcome, SectionRef},
-    search::{IntentExpansion, IntentTrigger, SearchConfiguration, evidence::Anchor},
+    search::{
+        IntentExpansion, IntentTrigger, QuestionParts, SearchConfiguration, evidence::Anchor,
+    },
     suite::Suite,
 };
 use serde_json::{Value, json};
@@ -84,6 +86,8 @@ pub(super) fn rung(name: &str) -> Rung {
             section_prior: Prior::default(),
             stage_window_ms: None,
             source_prior: None,
+            question_parts: QuestionParts::Off,
+            glossary: None,
         },
         ask: Some(AskSettings::default()),
     }
@@ -226,6 +230,7 @@ impl Engine for FakeEngine {
             answerer: (!self.no_answerer).then(|| "a".repeat(64)),
             prompt: None,
             source_classes: None,
+            glossary: None,
         })
     }
 

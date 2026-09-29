@@ -4,6 +4,7 @@
 //! owner's files. Relative paths resolve from the manifest's directory.
 
 use super::{
+    question_parts::{glossary_pin, is_off},
     rank_settings::{Context, Prior, SourcePriorSetting},
     rung_prompt::RungPrompt,
 };
@@ -12,7 +13,8 @@ use maestro_kernel::{artifact::Digest, evidence::RequestBudget};
 use maestro_knowledge::{
     answer::AskBudget,
     search::{
-        IntentExpansion, IntentTrigger, SearchConfiguration, SourcePrior, StageWindow,
+        IntentExpansion, IntentTrigger, QuestionParts, SearchConfiguration, SourcePrior,
+        StageWindow,
         evidence::{CounterMode, EvidenceSettings, ExpansionMode},
     },
 };
@@ -205,6 +207,13 @@ pub(super) struct RungConfiguration {
     /// The source prior; absent, search's default, official-first.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(super) source_prior: Option<SourcePriorSetting>,
+    /// Whether a compound question's parts are also ranked; absent, off.
+    #[serde(default, skip_serializing_if = "is_off")]
+    pub(super) question_parts: QuestionParts,
+    /// The SHA-256 of the collection's bound glossary, which then bridges
+    /// each part; absent, parts are ranked with their own words.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) glossary: Option<String>,
 }
 
 /// Which routes run.
@@ -322,6 +331,7 @@ impl RungConfiguration {
                 .map_or_else(SourcePrior::default, |prior| {
                     prior.search().expect("validated source prior")
                 }),
+            question_parts: self.question_parts,
         }
     }
 
@@ -443,6 +453,10 @@ fn check_rung(rung: &Rung) -> Result<(), Failure> {
     }
     let configuration = &rung.configuration;
     check_intent(configuration)?;
+    glossary_pin(
+        configuration.question_parts,
+        configuration.glossary.as_deref(),
+    )?;
     let routes = configuration.routes;
     if !(routes.dense || routes.lexical || routes.identifier || routes.structured) {
         return Err(Failure::refused(format!(

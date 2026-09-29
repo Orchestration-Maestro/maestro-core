@@ -352,6 +352,13 @@ impl AssemblyWorker<'_> {
             local_indices.insert(*original, local);
         }
         let required_spans = conflict_required_spans(candidates, findings)?;
+        let reserved = self
+            .input
+            .observations
+            .question_parts
+            .as_ref()
+            .map(|parts| parts.reserved().map(str::to_owned).collect::<Vec<_>>())
+            .unwrap_or_default();
         let mut conflict_units = Vec::new();
         for finding in findings {
             let members = finding
@@ -399,6 +406,7 @@ impl AssemblyWorker<'_> {
             counter: self.counter,
             counter_info,
             control: self.control,
+            reserved: &reserved,
         };
         selection::select(&selection_candidates, &conflict_units, &budget)
             .map(|result| (result, indices))

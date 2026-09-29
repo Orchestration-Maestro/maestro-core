@@ -4,6 +4,7 @@
 
 use super::{
     manifest::{AskSettings, RungConfiguration},
+    question_parts::{PartsRow, part_counts},
     runner::{Provenance, RejectedCheck, RungRun, SearchDiagnostic, Verdict},
 };
 use crate::failure::Failure;
@@ -94,6 +95,10 @@ pub(super) struct RungReport<'run> {
     /// Counts of expansion outcomes, absent when intent is off.
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     intent_outcomes: BTreeMap<&'static str, usize>,
+    /// How many questions were split, and how many stayed whole for each
+    /// reason; absent when parts are off.
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    question_parts: BTreeMap<&'static str, usize>,
     /// How many attempts each answer check refused, over every row.
     rejected_checks: BTreeMap<&'static str, usize>,
     /// The reply caps its asks' chat calls ran with, over every row.
@@ -126,6 +131,11 @@ impl<'run> RungReport<'run> {
             score: &run.score,
             delivery: &run.delivery,
             intent_outcomes: intent_counts(&run.diagnostics),
+            question_parts: part_counts(
+                run.diagnostics
+                    .iter()
+                    .filter_map(|diagnostic| diagnostic.question_parts.as_ref()),
+            ),
             rejected_checks: run.rejections.iter().flatten().fold(
                 BTreeMap::new(),
                 |mut counts, rejection| {
@@ -146,6 +156,7 @@ impl<'run> RungReport<'run> {
             ("Answerer card", &self.provenance.answerer),
             ("Prompt file", &self.provenance.prompt),
             ("Source-class table", &self.provenance.source_classes),
+            ("Glossary", &self.provenance.glossary),
         ];
         let _ = writeln!(text, "- Collection: {}", self.collection);
         let _ = writeln!(text, "- Generation: {}", self.provenance.generation);
@@ -197,6 +208,9 @@ impl<'run> RungReport<'run> {
         text.push('\n');
         if !self.intent_outcomes.is_empty() {
             let _ = writeln!(text, "- Intent outcomes: {:?}\n", self.intent_outcomes);
+        }
+        if !self.question_parts.is_empty() {
+            let _ = writeln!(text, "- Question parts: {:?}\n", self.question_parts);
         }
         text.push_str(&self.score.to_markdown());
         text
@@ -284,6 +298,10 @@ pub(super) struct PrivateRow<'run> {
     /// depth, all still reranked; omitted when no intent voted.
     #[serde(skip_serializing_if = "Option::is_none")]
     intent_displaced: Option<usize>,
+    /// Its parts and each part's best passage, or why it was not split,
+    /// without their words; omitted when parts are off.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    question_parts: Option<PartsRow<'run>>,
     /// Its search's time, in microseconds.
     search_us: u64,
     /// The distinct documents of the search's final ranked chunks, before
@@ -384,6 +402,7 @@ impl<'run> PrivateRow<'run> {
             search,
             intent_status: diagnostic.intent_status.as_ref(),
             intent_displaced: diagnostic.intent_displaced,
+            question_parts: diagnostic.question_parts.as_ref().map(PartsRow::new),
             search_us: micros(row.search.elapsed),
             ranked_documents,
             expected_rank,

@@ -126,6 +126,8 @@ pub(super) async fn capture_question<P: ModelPort>(
             card: capture.reranker.card,
         }),
         source_classes: None,
+        question_splitter: None,
+        part_bridge: None,
     };
     let evidence = search::search(&context, &request)
         .await

@@ -164,6 +164,8 @@ fn search_context_debug_redacts_its_database_connection() {
         embedder: None,
         reranker: None,
         source_classes: None,
+        question_splitter: None,
+        part_bridge: None,
     };
 
     let debug = format!("{context:?}");

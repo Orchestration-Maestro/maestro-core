@@ -7,6 +7,7 @@ mod engine;
 mod intent;
 mod kernel_engine;
 mod manifest;
+mod question_parts;
 mod reports;
 mod rung_answerer;
 mod runner;

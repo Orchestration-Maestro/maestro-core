@@ -15,6 +15,7 @@ mod intent_expansion;
 mod intent_fallbacks;
 mod intent_port;
 mod intent_rerank_set;
+mod question_parts;
 mod route_behavior;
 mod route_errors;
 mod route_windows;

@@ -1,4 +1,5 @@
-//! Per-language word lists of the expansion guard: data, not rules.
+//! Per-language word lists of the expansion guard and the question
+//! splitter: data, not rules.
 
 /// One language's constraint vocabulary, all lower case.
 pub(super) struct Lexicon {
@@ -14,6 +15,10 @@ pub(super) struct Lexicon {
     pub(super) quantities: &'static [(&'static str, u32)],
     /// Ordinal endings after a numeral, as in "3rd" or "3e".
     pub(super) ordinal_endings: &'static [&'static str],
+    /// Conditionals that, like a relation, may open a question's part.
+    pub(super) conditionals: &'static [&'static str],
+    /// Question words, which never make a part's words on their own.
+    pub(super) question_words: &'static [&'static str],
 }
 
 /// The languages whose constraint words the guard knows.
@@ -50,6 +55,8 @@ const ENGLISH: Lexicon = Lexicon {
         ("tenth", 10),
     ],
     ordinal_endings: &["st", "nd", "rd", "th"],
+    conditionals: &["when", "whenever", "if"],
+    question_words: &["how", "what", "which", "where", "why", "who"],
 };
 
 /// French.
@@ -89,4 +96,16 @@ const FRENCH: Lexicon = Lexicon {
         ("dixième", 10),
     ],
     ordinal_endings: &["e", "er", "re", "ème", "eme", "ième"],
+    conditionals: &[
+        "quand",
+        "lorsque",
+        "lorsqu'il",
+        "lorsqu'elle",
+        "si",
+        "s'il",
+        "s'ils",
+    ],
+    question_words: &[
+        "comment", "quel", "quelle", "quels", "quelles", "pourquoi", "où", "combien",
+    ],
 };

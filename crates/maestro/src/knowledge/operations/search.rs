@@ -70,6 +70,8 @@ pub(crate) fn local_search_context<'a, P: ModelPort + Sync>(
         embedder: cards.embedder.map(|card| Embedder { port, card }),
         reranker: cards.reranker.map(|card| Reranker { port, card }),
         source_classes: None,
+        question_splitter: None,
+        part_bridge: None,
     }
 }
 

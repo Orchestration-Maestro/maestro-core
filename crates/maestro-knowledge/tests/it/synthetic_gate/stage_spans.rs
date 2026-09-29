@@ -311,6 +311,8 @@ async fn traced_search(
             card,
         }),
         source_classes: None,
+        question_splitter: None,
+        part_bridge: None,
     };
     let request = SearchRequest {
         evidence: EvidenceSettings::default(),

@@ -68,6 +68,8 @@ async fn asks_with_the_registered_qwen3_4b_answerer() {
                 .as_ref()
                 .map(|card| Reranker { port: &port, card }),
             source_classes: None,
+            question_splitter: None,
+            part_bridge: None,
         },
         port: &port,
         answerer: Some(answerer),

@@ -20,3 +20,7 @@ mod source_class;
 mod intent;
 mod intent_guard;
 mod intent_request;
+
+mod glossary;
+mod part_search;
+mod question_split;

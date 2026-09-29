@@ -67,6 +67,8 @@ async fn a_markerless_published_generation_degrades_then_republishes_without_ear
         embedder: None,
         reranker: None,
         source_classes: None,
+        question_splitter: None,
+        part_bridge: None,
     };
     let identifier = SearchRequest::new(
         &kernel.collection,

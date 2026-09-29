@@ -161,6 +161,8 @@ pub(super) async fn search_with(
             card: &reranker,
         }),
         source_classes: None,
+        question_splitter: None,
+        part_bridge: None,
     };
     let request = SearchRequest {
         configuration,

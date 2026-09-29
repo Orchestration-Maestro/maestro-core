@@ -2,6 +2,7 @@ mod assembly;
 mod assembly_authority;
 mod assembly_entry;
 mod assembly_output;
+mod assembly_parts;
 mod assembly_versions;
 mod budget;
 mod conflict_emission;

@@ -7,6 +7,7 @@ mod comparison;
 mod documents;
 mod engine;
 mod manifest;
+mod question_parts;
 mod rank_settings;
 mod reports;
 mod rung_prompt;

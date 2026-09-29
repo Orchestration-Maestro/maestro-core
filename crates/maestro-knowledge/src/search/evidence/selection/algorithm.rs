@@ -11,6 +11,7 @@ use super::{
     relevant::{relevant_span, table_prefixes},
     render::{RenderedTrial, include_span, render_trial},
     types::{SelectionBudget, SelectionCandidate, SelectionResult},
+    units::{SelectionUnit, selection_units},
 };
 use maestro_kernel::{
     evidence::{Passage, Span},
@@ -36,7 +37,13 @@ pub(crate) fn select(
         ..SelectionState::default()
     };
     let mut omissions = OmissionStatus::default();
-    let mut accepted = Vec::new();
+    let mut accepted = reserve(
+        candidates,
+        &mut pending,
+        &mut selected,
+        &mut omissions,
+        budget,
+    )?;
 
     while !pending.is_empty() {
         check(budget.control)?;
@@ -90,13 +97,7 @@ pub(crate) fn select(
             omissions.table_prefix_fallbacks += prefixes;
         }
 
-        let mandatory = candidate_spans(candidates, &unit.candidates, |candidate| {
-            candidate
-                .expansion
-                .window_plan(candidate.required_span)
-                .map(|plan| plan.mandatory)
-                .map_err(|_| integrity("candidate has no safe mandatory source window"))
-        })?;
+        let mandatory = candidate_spans(candidates, &unit.candidates, mandatory_span)?;
         let mut trial_spans = selected.spans.clone();
         trial_spans.extend(mandatory);
         let (fits, rendered) = fits_trial(candidates, &trial_spans, budget)?;
@@ -134,6 +135,82 @@ pub(crate) fn select(
     })
 }
 
+/// Admits the unit of each reserved chunk before any other, all at their
+/// mandatory windows first, so that each question part keeps a passage
+/// within the budget, then widens each as the expansion mode does while
+/// the budget holds; returns the candidates it admitted.
+fn reserve(
+    candidates: &[SelectionCandidate<'_>],
+    pending: &mut Vec<SelectionUnit>,
+    selected: &mut SelectionState,
+    omissions: &mut OmissionStatus,
+    budget: &SelectionBudget<'_>,
+) -> Result<Vec<usize>, EvidenceError> {
+    let mut admitted = Vec::new();
+    for chunk in budget.reserved {
+        let Some(position) = pending.iter().position(|unit| {
+            unit.candidates
+                .iter()
+                .any(|index| holds_chunk(candidates.get(*index), chunk))
+        }) else {
+            continue;
+        };
+        let unit = pending.remove(position);
+        let mut trial_spans = selected.spans.clone();
+        trial_spans.extend(candidate_spans(
+            candidates,
+            &unit.candidates,
+            mandatory_span,
+        )?);
+        if try_spans(candidates, selected, trial_spans, budget)? {
+            admitted.push(unit);
+        } else {
+            omissions.evidence = true;
+            omissions.conflict |= unit.conflict;
+        }
+    }
+    let mut accepted = Vec::new();
+    for unit in admitted {
+        let wider = if budget.expansion == ExpansionMode::FullSection {
+            candidate_spans(candidates, &unit.candidates, |candidate| {
+                Ok(candidate.expansion.extent)
+            })?
+        } else {
+            candidate_spans(candidates, &unit.candidates, relevant_span)?
+        };
+        let mut trial_spans = selected.spans.clone();
+        trial_spans.extend(wider);
+        try_spans(candidates, selected, trial_spans, budget)?;
+        if budget.expansion == ExpansionMode::FullSection {
+            for index in &unit.candidates {
+                add_optional_siblings(candidates, *index, selected, budget)?;
+            }
+        }
+        accepted.extend_from_slice(&unit.candidates);
+    }
+    Ok(accepted)
+}
+
+/// Whether `candidate` has a seed of `chunk`.
+fn holds_chunk(candidate: Option<&SelectionCandidate<'_>>, chunk: &str) -> bool {
+    candidate.is_some_and(|candidate| {
+        candidate
+            .seeds
+            .seeds
+            .iter()
+            .any(|seed| seed.chunk_id == chunk)
+    })
+}
+
+/// The smallest safe source window of `candidate`.
+fn mandatory_span(candidate: &SelectionCandidate<'_>) -> Result<Span, EvidenceError> {
+    candidate
+        .expansion
+        .window_plan(candidate.required_span)
+        .map(|plan| plan.mandatory)
+        .map_err(|_| integrity("candidate has no safe mandatory source window"))
+}
+
 /// Accepts a complete trial only when both passage and representation limits fit.
 fn try_spans(
     candidates: &[SelectionCandidate<'_>],
@@ -146,14 +223,6 @@ fn try_spans(
         accept_trial(candidates, selected, spans, rendered, budget.control)?;
     }
     Ok(fits)
-}
-
-/// A conflict-atomic group or one ordinary candidate.
-struct SelectionUnit {
-    /// Source candidate indexes grouped into this selection unit.
-    candidates: Vec<usize>,
-    /// Whether all members must be selected atomically.
-    conflict: bool,
 }
 
 /// Current atomic selection and its rendered source passages.
@@ -227,84 +296,6 @@ fn update_max_similarity(
         }
     }
     Ok(())
-}
-
-/// Merges overlapping conflict groups before adding ordinary singleton candidates.
-fn selection_units(
-    candidates: &[SelectionCandidate<'_>],
-    conflict_units: &[BTreeSet<usize>],
-) -> Result<Vec<SelectionUnit>, EvidenceError> {
-    // ponytail: O(n²) group merging at the 120-candidate cap; use disjoint sets if it rises.
-    let mut groups = Vec::<BTreeSet<usize>>::new();
-    for incoming in conflict_units {
-        if incoming.is_empty() {
-            return Err(integrity("conflict unit has no candidates"));
-        }
-        if incoming
-            .iter()
-            .any(|index| candidates.get(*index).is_none())
-        {
-            return Err(integrity("conflict unit names a missing candidate"));
-        }
-        let mut merged = incoming.clone();
-        loop {
-            let overlap = groups.iter().position(|group| !group.is_disjoint(&merged));
-            let Some(overlap) = overlap else {
-                break;
-            };
-            let group = groups.remove(overlap);
-            merged.extend(group);
-        }
-        groups.push(merged);
-    }
-    let mut conflicted = BTreeSet::new();
-    let mut units = Vec::new();
-    for group in groups {
-        conflicted.extend(group.iter().copied());
-        units.push(SelectionUnit {
-            candidates: ordered_candidates(candidates, group)?,
-            conflict: true,
-        });
-    }
-    for index in 0..candidates.len() {
-        if !conflicted.contains(&index) {
-            units.push(SelectionUnit {
-                candidates: vec![index],
-                conflict: false,
-            });
-        }
-    }
-    units.sort_by_key(|unit| {
-        unit.candidates
-            .iter()
-            .filter_map(|index| {
-                candidates
-                    .get(*index)
-                    .map(|candidate| (candidate.input_position, *index))
-            })
-            .min()
-            .unwrap_or((usize::MAX, usize::MAX))
-    });
-    Ok(units)
-}
-
-/// Sorts a unit by original candidate order, then stable index.
-fn ordered_candidates(
-    candidates: &[SelectionCandidate<'_>],
-    indices: BTreeSet<usize>,
-) -> Result<Vec<usize>, EvidenceError> {
-    let mut ordered = indices.into_iter().collect::<Vec<_>>();
-    if ordered.iter().any(|index| candidates.get(*index).is_none()) {
-        return Err(integrity("selection unit names a missing candidate"));
-    }
-    ordered.sort_by_key(|index| {
-        candidates
-            .get(*index)
-            .map_or((usize::MAX, *index), |candidate| {
-                (candidate.input_position, *index)
-            })
-    });
-    Ok(ordered)
 }
 
 /// Returns the pending unit with the highest member MMR score.

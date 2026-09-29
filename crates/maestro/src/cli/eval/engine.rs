@@ -8,6 +8,7 @@ use super::{
     candidates::{candidate_answerer, candidate_reranker},
     documents::{bundle_documents, ranked_documents},
     manifest::{AskSettings, Rung},
+    question_parts::rung_glossary,
     runner::{Asked, Engine, Provenance, RejectedCheck, SearchDiagnostic, Searched},
     stages::{StageFailure, ask_failure, evidence_failure, search_failure, stage_failure},
 };
@@ -32,8 +33,8 @@ use maestro_knowledge::{
     eval::{AskOutcome, RunError, SearchOutcome, SectionRef, resolve_expected},
     index::Qdrant,
     search::{
-        HydeExpander, IntentExpansion, SearchConfiguration, SearchContext, SearchRequest,
-        SourceClassTable, SourceClassifier,
+        Glossary, HydeExpander, IntentExpansion, QueryExpander, SearchConfiguration, SearchContext,
+        SearchRequest, SourceClassTable, SourceClassifier,
         evidence::{Anchor, ChunkSetDocuments, assemble_evidence},
         search, top_fused_score, top_rerank_score,
     },
@@ -85,6 +86,8 @@ struct Cards {
     prompt: Option<String>,
     /// The digest of the source-class table its source prior reads.
     source_classes: Option<String>,
+    /// The glossary it pins, which bridges each question part.
+    glossary: Option<Arc<Glossary>>,
 }
 
 impl<'kernel> KernelEngine<'kernel> {
@@ -152,6 +155,12 @@ impl<'kernel> KernelEngine<'kernel> {
             .as_ref()
             .filter(|_| rung.configuration.search().source_prior.is_active())
             .map(|table| table.digest().as_str().to_owned());
+        let glossary = rung_glossary(
+            kernel,
+            &self.collection,
+            rung.configuration.question_parts,
+            rung.configuration.glossary.as_deref(),
+        )?;
         Ok(Cards {
             generation,
             embedder,
@@ -160,6 +169,7 @@ impl<'kernel> KernelEngine<'kernel> {
             answerer,
             prompt,
             source_classes,
+            glossary,
         })
     }
 
@@ -257,6 +267,10 @@ impl<'kernel> KernelEngine<'kernel> {
             .source_classes
             .clone()
             .map(|table| table as Arc<dyn SourceClassifier>);
+        context.part_bridge = cards
+            .glossary
+            .clone()
+            .map(|glossary| glossary as Arc<dyn QueryExpander>);
         Some(context)
     }
 }
@@ -337,6 +351,9 @@ impl Engine for KernelEngine<'_> {
             diagnostic.top_rerank_score = top_rerank_score(&input.ranked);
             diagnostic.top_fused_score = top_fused_score(&input.ranked);
             diagnostic.intent_displaced = input.observations.intent_displaced;
+            diagnostic
+                .question_parts
+                .clone_from(&input.observations.question_parts);
             diagnostic.candidate_source_load_micros =
                 input.observations.candidate_source_load_micros;
             diagnostic
@@ -458,6 +475,10 @@ impl Cards {
                 .map(|answerer| card_digest(&answerer.card)),
             prompt: self.prompt.clone(),
             source_classes: self.source_classes.clone(),
+            glossary: self
+                .glossary
+                .as_ref()
+                .map(|glossary| glossary.digest().as_str().to_owned()),
         }
     }
 }

@@ -66,6 +66,8 @@ pub(super) fn context<'a>(
             card,
         }),
         source_classes: None,
+        question_splitter: None,
+        part_bridge: None,
     }
 }
 

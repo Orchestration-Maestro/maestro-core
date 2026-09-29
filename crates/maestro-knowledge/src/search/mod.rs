@@ -10,6 +10,8 @@ pub use deadline::{DEADLINE_EXCEEDED, DISABLED_BY_CONFIGURATION, StageWindow};
 pub mod evidence;
 mod filter;
 mod fusion;
+mod glossary;
+pub use glossary::{Glossary, GlossaryError, MAX_GLOSSARY_BYTES};
 mod hyde;
 pub use hyde::{HYDE_PROMPT_VERSION, HydeCardError, HydeExpander};
 mod intent;
@@ -21,11 +23,19 @@ pub use intent::{
     Expansion, ExpansionFailure, ExpansionFuture, IntentExpansion, IntentTrigger, QueryExpander,
 };
 mod orchestrate;
+mod part_search;
 mod pin;
 mod query;
+mod question_parts;
+pub use question_parts::{
+    PartRecord, PartsRecord, QuestionParts, QuestionSplit, QuestionSplitter, Unsplit,
+};
 mod rank_policy;
 mod rank_stage;
+mod ranked;
+mod relation_splitter;
 mod request;
+pub use relation_splitter::RelationSplitter;
 mod rerank;
 mod section_prior;
 pub use section_prior::{SectionClassSet, SectionPrior};

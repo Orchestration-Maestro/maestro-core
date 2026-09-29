@@ -82,6 +82,8 @@ pub enum ExpansionFailure {
     IdentifierMissing,
     /// An identifier the question does not state was added.
     IdentifierAdded,
+    /// A deterministic expander found nothing to add to the question.
+    NoMatch,
 }
 
 impl ExpansionFailure {
@@ -98,6 +100,7 @@ impl ExpansionFailure {
             Self::AddedNumber => "intent_guard_added_number",
             Self::IdentifierMissing => "intent_guard_identifier_missing",
             Self::IdentifierAdded => "intent_guard_identifier_added",
+            Self::NoMatch => "intent_no_match",
         }
     }
 }

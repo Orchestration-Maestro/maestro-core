@@ -51,10 +51,7 @@ pub(super) async fn admit_request<P: ModelPort>(
 ) -> Result<AdmittedSearch, SearchError> {
     let started = Instant::now();
     let understood = validate(request)?;
-    let (structured_request, structured_error) = match inventory_request(&understood) {
-        Ok(request) => (request, None),
-        Err(error) => (None, Some(error.to_string())),
-    };
+    let (structured_request, structured_error) = structured(&understood);
     let version = request.version.map(str::to_owned);
     let cutoffs =
         deadline::from_budget(started, request.budget, request.configuration.stage_window);
@@ -79,6 +76,30 @@ pub(super) async fn admit_request<P: ModelPort>(
         configuration: request.configuration,
         source_classes: context.source_classes.clone(),
     })
+}
+
+impl AdmittedSearch {
+    /// The same admission for `text`, one part of the question: its own
+    /// understanding and inventory request, under the one pinned
+    /// generation, scope snapshot, cutoffs and configuration.
+    pub(super) fn for_text(&self, text: &str) -> Self {
+        let understood = understand(text);
+        let (structured_request, structured_error) = structured(&understood);
+        Self {
+            understood,
+            structured_request,
+            structured_error,
+            ..self.clone()
+        }
+    }
+}
+
+/// The inventory request `understood` makes, or why it is malformed.
+fn structured(understood: &Understood) -> (Option<InventoryRequest>, Option<String>) {
+    match inventory_request(understood) {
+        Ok(request) => (request, None),
+        Err(error) => (None, Some(error.to_string())),
+    }
 }
 
 /// Checks all request bounds and performs deterministic local understanding.

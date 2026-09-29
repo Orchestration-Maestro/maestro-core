@@ -51,6 +51,9 @@ pub(crate) struct SelectionBudget<'a> {
     pub(crate) counter_info: &'a CounterInfo,
     /// Shared cancellation and deadline control.
     pub(crate) control: &'a ReadControl,
+    /// The chunks of each question part's best passage, in part order,
+    /// admitted before any other; empty when the question has no parts.
+    pub(crate) reserved: &'a [String],
 }
 
 /// Selected, ordered passages and budget omissions.

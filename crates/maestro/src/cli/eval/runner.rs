@@ -12,7 +12,7 @@ use maestro_knowledge::{
         Ask, AskOutcome, DeliveryScore, LadderQuestion, LadderScore, Search, SearchOutcome,
         SectionRef, score_delivery, score_ladder,
     },
-    search::evidence::Anchor,
+    search::{PartsRecord, evidence::Anchor},
     suite::Suite,
 };
 use serde::Serialize;
@@ -43,6 +43,10 @@ pub(super) struct Provenance {
     /// absent when the prior is off or no table is bound.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub(super) source_classes: Option<String>,
+    /// The digest of the glossary that bridges the rung's question parts,
+    /// absent when it pins none.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) glossary: Option<String>,
 }
 
 impl Provenance {
@@ -87,6 +91,9 @@ pub(super) struct SearchDiagnostic {
     pub(super) candidate_source_load_micros: u64,
     /// Candidate identities whose oversized source units retained indexed input.
     pub(super) candidate_context_fallbacks: Vec<String>,
+    /// The question's parts and each part's best passage, or why it was not
+    /// split; absent when parts are off.
+    pub(super) question_parts: Option<PartsRecord>,
 }
 
 /// What an `ask` gave the ladder.

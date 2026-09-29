@@ -249,6 +249,8 @@ async fn questions_run_against_the_published_generation() {
             .as_ref()
             .map(|card| Reranker { port: &port, card }),
         source_classes: None,
+        question_splitter: None,
+        part_bridge: None,
     };
 
     for question in &questions {
