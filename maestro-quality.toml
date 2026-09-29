@@ -12,6 +12,9 @@
 license-policy = "enforce"
 artifact-key = "maestro-core"
 platforms = "macos windows"
+# Split mutation testing across remote runners, the count chosen from the
+# mutants of the change (maestro-rust-workflows v4.4.0).
+mutation-shards = 0
 mutation-windows = [
   "crates/maestro-settings/src/file/windows.rs",
   "crates/maestro-canonicalization/src/filesystem/windows.rs",
