@@ -110,11 +110,8 @@ impl<'a> MappedTextIndex<'a> {
     }
 }
 
-/// Resolve heading parts from section and page ancestors.
-pub(super) fn unit_heading_parts_indexed(
-    unit: &DeliveryUnit,
-    index: &GraphIndex<'_>,
-) -> Result<Vec<SourcePart>, Error> {
+/// Return ancestors from nearest to farthest, rejecting missing groups and cycles.
+fn ancestors<'a>(unit: &DeliveryUnit, index: &GraphIndex<'a>) -> Result<Vec<&'a Group>, Error> {
     let mut ancestors = Vec::new();
     let mut visited = BTreeSet::new();
     let mut parent = unit.parent_id.as_deref();
@@ -127,10 +124,20 @@ pub(super) fn unit_heading_parts_indexed(
         let group = index
             .groups
             .get(group_id)
+            .copied()
             .ok_or_else(|| Error("delivery unit has an unknown group ancestor".into()))?;
-        ancestors.push(*group);
+        ancestors.push(group);
         parent = group.parent_id.as_deref();
     }
+    Ok(ancestors)
+}
+
+/// Resolve heading parts from section and page ancestors.
+pub(super) fn unit_heading_parts_indexed(
+    unit: &DeliveryUnit,
+    index: &GraphIndex<'_>,
+) -> Result<Vec<SourcePart>, Error> {
+    let mut ancestors = ancestors(unit, index)?;
     ancestors.reverse();
     let mut headings = Vec::new();
     let mut seen = BTreeSet::new();
@@ -174,19 +181,13 @@ pub(super) fn unit_context_parts_indexed(
         .collect();
     let mut context_ids = BTreeSet::new();
     let mut contexts = Vec::new();
-    let mut visited = BTreeSet::new();
-    let mut parent = unit.parent_id.as_deref();
-    while let Some(group_id) = parent {
-        if !visited.insert(group_id) {
-            return Err(Error(
-                "delivery unit group ancestry contains a cycle".into(),
-            ));
-        }
-        let group = index
-            .groups
-            .get(group_id)
-            .ok_or_else(|| Error("delivery unit has an unknown group ancestor".into()))?;
-        for relation in index.relations_by_group.get(group_id).into_iter().flatten() {
+    for group in ancestors(unit, index)? {
+        for relation in index
+            .relations_by_group
+            .get(group.group_id.as_str())
+            .into_iter()
+            .flatten()
+        {
             if primary_ids.contains(relation.part_id.as_str())
                 || !context_ids.insert(relation.part_id.as_str())
             {
@@ -197,7 +198,6 @@ pub(super) fn unit_context_parts_indexed(
             })?;
             contexts.push((*part).clone());
         }
-        parent = group.parent_id.as_deref();
     }
     contexts.sort_by_key(|part| (first_start(slice::from_ref(part)), part.part_id.clone()));
     Ok(contexts)

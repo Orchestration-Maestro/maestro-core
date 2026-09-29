@@ -178,21 +178,21 @@ fn build_occurrence(
 
 /// Inputs shared by both ranking-view implementations.
 #[derive(Clone, Copy)]
-struct ViewBuildContext<'a> {
+pub(super) struct ViewBuildContext<'a> {
     /// Trusted authorization scope.
-    scope: &'a DedupScope,
+    pub(super) scope: &'a DedupScope,
     /// Current source occurrence.
-    input: &'a UnitGraphInput<'a>,
+    pub(super) input: &'a UnitGraphInput<'a>,
     /// Exact mapped source.
-    mapped: &'a MappedDocument,
+    pub(super) mapped: &'a MappedDocument,
     /// Delivery units built from the source mappings.
-    units: &'a [DeliveryUnit],
+    pub(super) units: &'a [DeliveryUnit],
     /// Per-document group, part and relation lookups.
-    graph_index: &'a GraphIndex<'a>,
+    pub(super) graph_index: &'a GraphIndex<'a>,
     /// Per-document mapped source text lookup.
-    mapped_text_index: &'a MappedTextIndex<'a>,
+    pub(super) mapped_text_index: &'a MappedTextIndex<'a>,
     /// Caller policy for /3 replay through the same authorized occurrence.
-    warning_policy: WarningPolicy,
+    pub(super) warning_policy: WarningPolicy,
 }
 
 /// Build retrieval views from /3 packing or the independently counted mapped units.
@@ -220,7 +220,7 @@ fn build_views(
 }
 
 /// Link each /3 fragment to its exact mapped source ranges.
-fn chunk_views(
+pub(super) fn chunk_views(
     context: &ViewBuildContext<'_>,
     chunks: &[RetrievalChunk],
 ) -> Result<Vec<RetrievalView>, Error> {
@@ -318,7 +318,7 @@ fn chunk_views(
 
 /// Build one counted V2 retrieval view per mapped delivery unit.
 /// Remove repeated identifiers while preserving their first ordered occurrence.
-fn retain_ordered<T: Ord + Clone>(values: &mut Vec<T>) {
+pub(super) fn retain_ordered<T: Ord + Clone>(values: &mut Vec<T>) {
     let mut seen = BTreeSet::new();
     values.retain(|value| seen.insert(value.clone()));
 }
@@ -382,6 +382,3 @@ fn unit_views(
     }
     Ok(views)
 }
-
-#[cfg(test)]
-mod tests;

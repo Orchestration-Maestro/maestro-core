@@ -350,16 +350,14 @@ in place.
 │   │   │   │   ├── native.rs                                                # The pinned native tokenizer: verified artifacts and one counter process per input
 │   │   │   │   └── process.rs                                               # The counter subprocess: bounded pipes, a timeout and a child that is always reaped
 │   │   │   ├── unit_graph/                                                  # Opt-in /4 mapped delivery graph and digest-pinned ranking view
-│   │   │   │   ├── build/                                                   # Build a delivery graph from checked canonical mappings and ranked views
-│   │   │   │   │   └── tests.rs                                             # Rust source: tests
-│   │   │   │   ├── groups/                                                  # Deterministic page, section, table, procedure and code ancestry
-│   │   │   │   │   └── tests.rs                                             # Rust source: tests
 │   │   │   │   ├── tests/                                                   # Unit graph profile and delivery contract regressions
+│   │   │   │   │   ├── build_producer.rs                                    # Rust source: build producer
 │   │   │   │   │   ├── c1.rs                                                # Rust source: c1
 │   │   │   │   │   ├── c2.rs                                                # Rust source: c2
 │   │   │   │   │   ├── c3.rs                                                # Rust source: c3
 │   │   │   │   │   ├── c4.rs                                                # Rust source: c4
 │   │   │   │   │   ├── c5.rs                                                # Rust source: c5
+│   │   │   │   │   ├── groups_producer.rs                                   # Rust source: groups producer
 │   │   │   │   │   ├── helpers.rs                                           # Rust source: helpers
 │   │   │   │   │   ├── i1.rs                                                # Rust source: i1
 │   │   │   │   │   ├── i2.rs                                                # Rust source: i2
@@ -980,8 +978,6 @@ in place.
 │   │   │   │   │   │   ├── types.rs                                         # Owned intermediate records shared by the assembly worker's small modules
 │   │   │   │   │   │   └── validate.rs                                      # Validates the bounded T029c handoff before any blocking work starts
 │   │   │   │   │   ├── conflicts/                                           # Conflicts
-│   │   │   │   │   │   ├── detect/                                          # Groups exact table facts into context- and manifest-authorized conflicts
-│   │   │   │   │   │   │   └── tests.rs                                     # Rust source: tests
 │   │   │   │   │   │   ├── detect.rs                                        # Rust source: detect
 │   │   │   │   │   │   ├── emit.rs                                          # Converts selected conflict facts into passage-numbered bundle signals
 │   │   │   │   │   │   ├── mod.rs                                           # Rust source: mod

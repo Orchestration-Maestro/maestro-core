@@ -31,15 +31,15 @@ pub(super) struct GroupRecords {
 }
 
 /// Stable source-family fields reused for every group in one page.
-struct FamilyContext {
+pub(super) struct FamilyContext {
     /// Collection owning this source family.
-    collection_id: String,
+    pub(super) collection_id: String,
     /// Namespace separating otherwise equal source paths.
-    source_namespace: String,
+    pub(super) source_namespace: String,
     /// Final source path component.
-    path_segment: String,
+    pub(super) path_segment: String,
     /// Normalized document title.
-    page_title: String,
+    pub(super) page_title: String,
 }
 
 impl FamilyContext {
@@ -57,21 +57,21 @@ impl FamilyContext {
 }
 
 /// Shared mapped input for structural group builders.
-struct GroupBuilder<'a, 'doc, 'idx> {
+pub(super) struct GroupBuilder<'a, 'doc, 'idx> {
     /// Canonical document and source identity.
-    input: &'a UnitGraphInput<'doc>,
+    pub(super) input: &'a UnitGraphInput<'doc>,
     /// Primary delivery ownership.
-    units: &'a [DeliveryUnit],
+    pub(super) units: &'a [DeliveryUnit],
     /// Precomputed canonical blocks, mappings and ancestry.
-    index: &'idx SourceIndex<'idx>,
+    pub(super) index: &'idx SourceIndex<'idx>,
     /// Unit indices grouped under each canonical ancestor block.
-    units_by_ancestor: BTreeMap<String, Vec<usize>>,
+    pub(super) units_by_ancestor: BTreeMap<String, Vec<usize>>,
     /// Root page group ID.
-    page_id: String,
+    pub(super) page_id: String,
     /// Stable group IDs keyed by canonical section ID.
-    section_ids: BTreeMap<String, String>,
+    pub(super) section_ids: BTreeMap<String, String>,
     /// Stable source-family fields.
-    family: FamilyContext,
+    pub(super) family: FamilyContext,
 }
 
 impl GroupBuilder<'_, '_, '_> {
@@ -154,7 +154,7 @@ impl GroupBuilder<'_, '_, '_> {
     }
 
     /// Build the aggregate table group and its row children.
-    fn table_group(
+    pub(super) fn table_group(
         &self,
         block: &Block,
         children: &[&DeliveryUnit],
@@ -354,7 +354,7 @@ impl GroupBuilder<'_, '_, '_> {
     }
 
     /// Return unit indices whose source blocks lie under one canonical block.
-    fn unit_indices_under(&self, block_id: &str) -> &[usize] {
+    pub(super) fn unit_indices_under(&self, block_id: &str) -> &[usize] {
         self.units_by_ancestor
             .get(block_id)
             .map(Vec::as_slice)
@@ -493,6 +493,3 @@ fn page_group(
         family: family.key(slice::from_ref(&family.page_title)),
     })
 }
-
-#[cfg(test)]
-mod tests;

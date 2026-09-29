@@ -1,4 +1,12 @@
+use super::super::{
+    build::{ViewBuildContext, chunk_views, retain_ordered},
+    prepared::{GraphIndex, MappedTextIndex},
+    profile::{RankedUnit, UnitProfile},
+    types::{PartRole, UnitGraphInput},
+};
 use super::*;
+use crate::{chunk_mapping::map_document, chunks::RetrievalChunk};
+use std::collections::BTreeSet;
 
 struct TestCounter;
 

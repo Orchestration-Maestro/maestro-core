@@ -1,11 +1,17 @@
-use super::*;
-use crate::{
-    CanonicalizeInput, DedupScope, Error, RevisionKey, SourceRange, SplitMarker, TokenCounter,
-    WarningPolicy, canonicalize,
-    chunk_mapping::map_document,
-    unit_graph::{UnitProfile, profile::RankedUnit, unit_documents},
+use super::super::{
+    group_helpers::SourceIndex,
+    groups::{FamilyContext, GroupBuilder},
+    profile::RankedUnit,
 };
-use std::cell::Cell;
+use crate::{
+    CanonicalizeInput, DedupScope, DeliveryUnit, Error, PartRole, RevisionKey, SourcePart,
+    SourceRange, SplitMarker, TokenCounter, UnitGraphInput, UnitKind, UnitProfile, WarningPolicy,
+    canonicalize, chunk_mapping::map_document, content::BlockType, unit_documents,
+};
+use std::{
+    cell::Cell,
+    collections::{BTreeMap, BTreeSet},
+};
 
 #[test]
 fn table_group_contains_exact_row_groups_and_not_their_units() {

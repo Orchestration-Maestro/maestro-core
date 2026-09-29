@@ -350,6 +350,16 @@ fn cyclic_group_ancestry_is_rejected_before_traversal_repeats() {
         },
     }];
     let index = prepared::GraphIndex::new(slice::from_ref(&unit), &groups, &[]);
-    assert!(prepared::unit_heading_parts_indexed(&unit, &index).is_err());
-    assert!(prepared::unit_context_parts_indexed(&unit, &index).is_err());
+    assert_eq!(
+        prepared::unit_heading_parts_indexed(&unit, &index)
+            .unwrap_err()
+            .to_string(),
+        "delivery unit group ancestry contains a cycle"
+    );
+    assert_eq!(
+        prepared::unit_context_parts_indexed(&unit, &index)
+            .unwrap_err()
+            .to_string(),
+        "delivery unit group ancestry contains a cycle"
+    );
 }
