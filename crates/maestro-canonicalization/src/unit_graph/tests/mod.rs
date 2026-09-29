@@ -144,6 +144,11 @@ fn shared_wire_fixtures_round_trip_byte_for_byte() {
 
 #[test]
 fn unknown_ranked_rules_never_downgrade() {
+    assert_eq!(
+        RankedUnit::named("CompleteIdeas"),
+        Some(RankedUnit::CompleteIdeas)
+    );
+    assert_eq!(RankedUnit::named("V2Unit"), Some(RankedUnit::V2Unit));
     assert!(RankedUnit::named("future-unit-rule").is_none());
 }
 
@@ -430,6 +435,7 @@ mod c2;
 mod c3;
 mod c4;
 mod c5;
+mod helpers;
 mod i1;
 mod i2;
 mod i3;
@@ -437,6 +443,8 @@ mod i4;
 mod i5;
 mod i6;
 mod i7;
+mod producer_rows;
+mod producer_rows_more;
 
 struct Counter(Cell<usize>);
 

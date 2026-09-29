@@ -342,7 +342,12 @@ fn add_observation(graph: &mut ConflictGraph, fact: &FactCandidate<'_>) {
 fn components(graph: &BTreeMap<usize, BTreeSet<usize>>) -> Vec<BTreeSet<usize>> {
     let mut remaining: BTreeSet<_> = graph.keys().copied().collect();
     let mut components = Vec::new();
+    let mut component_budget = remaining.len();
     while let Some(start) = remaining.iter().next().copied() {
+        if component_budget == 0 {
+            break;
+        }
+        component_budget -= 1;
         let mut pending = vec![start];
         let mut component = BTreeSet::new();
         while let Some(index) = pending.pop() {
@@ -358,3 +363,6 @@ fn components(graph: &BTreeMap<usize, BTreeSet<usize>>) -> Vec<BTreeSet<usize>> 
     }
     components
 }
+
+#[cfg(test)]
+mod tests;

@@ -350,12 +350,17 @@ in place.
 │   │   │   │   ├── native.rs                                                # The pinned native tokenizer: verified artifacts and one counter process per input
 │   │   │   │   └── process.rs                                               # The counter subprocess: bounded pipes, a timeout and a child that is always reaped
 │   │   │   ├── unit_graph/                                                  # Opt-in /4 mapped delivery graph and digest-pinned ranking view
+│   │   │   │   ├── build/                                                   # Build a delivery graph from checked canonical mappings and ranked views
+│   │   │   │   │   └── tests.rs                                             # Rust source: tests
+│   │   │   │   ├── groups/                                                  # Deterministic page, section, table, procedure and code ancestry
+│   │   │   │   │   └── tests.rs                                             # Rust source: tests
 │   │   │   │   ├── tests/                                                   # Unit graph profile and delivery contract regressions
 │   │   │   │   │   ├── c1.rs                                                # Rust source: c1
 │   │   │   │   │   ├── c2.rs                                                # Rust source: c2
 │   │   │   │   │   ├── c3.rs                                                # Rust source: c3
 │   │   │   │   │   ├── c4.rs                                                # Rust source: c4
 │   │   │   │   │   ├── c5.rs                                                # Rust source: c5
+│   │   │   │   │   ├── helpers.rs                                           # Rust source: helpers
 │   │   │   │   │   ├── i1.rs                                                # Rust source: i1
 │   │   │   │   │   ├── i2.rs                                                # Rust source: i2
 │   │   │   │   │   ├── i3.rs                                                # Rust source: i3
@@ -363,7 +368,9 @@ in place.
 │   │   │   │   │   ├── i5.rs                                                # Rust source: i5
 │   │   │   │   │   ├── i6.rs                                                # Rust source: i6
 │   │   │   │   │   ├── i7.rs                                                # Rust source: i7
-│   │   │   │   │   └── mod.rs                                               # Unit graph profile and delivery contract regressions
+│   │   │   │   │   ├── mod.rs                                               # Unit graph profile and delivery contract regressions
+│   │   │   │   │   ├── producer_rows.rs                                     # Rust source: producer rows
+│   │   │   │   │   └── producer_rows_more.rs                                # Rust source: producer rows more
 │   │   │   │   ├── build.rs                                                 # Build a delivery graph from checked canonical mappings and ranked views
 │   │   │   │   ├── build_units.rs                                           # Assemble complete delivery units from primary canonical mappings
 │   │   │   │   ├── group_helpers.rs                                         # Canonical source ancestry and stable identifiers for graph groups
@@ -973,6 +980,8 @@ in place.
 │   │   │   │   │   │   ├── types.rs                                         # Owned intermediate records shared by the assembly worker's small modules
 │   │   │   │   │   │   └── validate.rs                                      # Validates the bounded T029c handoff before any blocking work starts
 │   │   │   │   │   ├── conflicts/                                           # Conflicts
+│   │   │   │   │   │   ├── detect/                                          # Groups exact table facts into context- and manifest-authorized conflicts
+│   │   │   │   │   │   │   └── tests.rs                                     # Rust source: tests
 │   │   │   │   │   │   ├── detect.rs                                        # Rust source: detect
 │   │   │   │   │   │   ├── emit.rs                                          # Converts selected conflict facts into passage-numbered bundle signals
 │   │   │   │   │   │   ├── mod.rs                                           # Rust source: mod

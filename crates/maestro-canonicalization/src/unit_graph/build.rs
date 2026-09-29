@@ -382,3 +382,6 @@ fn unit_views(
     }
     Ok(views)
 }
+
+#[cfg(test)]
+mod tests;

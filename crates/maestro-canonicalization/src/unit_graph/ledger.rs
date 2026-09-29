@@ -109,7 +109,7 @@ pub(super) fn chrome_markup(
         }
     }
     exclusions.sort_by_key(|entry| (entry.range.start, entry.range.end));
-    exclusions.dedup_by(|left, right| left.range == right.range && left.reason == right.reason);
+    exclusions.dedup_by(|left, right| left.range == right.range);
     Ok((unit_ids, exclusions))
 }
 

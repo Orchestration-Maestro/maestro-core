@@ -116,8 +116,14 @@ pub(super) fn unit_heading_parts_indexed(
     index: &GraphIndex<'_>,
 ) -> Result<Vec<SourcePart>, Error> {
     let mut ancestors = Vec::new();
+    let mut visited = BTreeSet::new();
     let mut parent = unit.parent_id.as_deref();
     while let Some(group_id) = parent {
+        if !visited.insert(group_id) {
+            return Err(Error(
+                "delivery unit group ancestry contains a cycle".into(),
+            ));
+        }
         let group = index
             .groups
             .get(group_id)
@@ -168,8 +174,14 @@ pub(super) fn unit_context_parts_indexed(
         .collect();
     let mut context_ids = BTreeSet::new();
     let mut contexts = Vec::new();
+    let mut visited = BTreeSet::new();
     let mut parent = unit.parent_id.as_deref();
     while let Some(group_id) = parent {
+        if !visited.insert(group_id) {
+            return Err(Error(
+                "delivery unit group ancestry contains a cycle".into(),
+            ));
+        }
         let group = index
             .groups
             .get(group_id)

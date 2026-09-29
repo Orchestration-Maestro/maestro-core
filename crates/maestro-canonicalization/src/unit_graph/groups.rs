@@ -493,3 +493,6 @@ fn page_group(
         family: family.key(slice::from_ref(&family.page_title)),
     })
 }
+
+#[cfg(test)]
+mod tests;
