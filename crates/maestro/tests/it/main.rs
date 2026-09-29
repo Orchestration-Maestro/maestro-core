@@ -23,6 +23,7 @@ mod machine;
 mod mcp_clients;
 mod mcp_stdio;
 mod model_cli;
+mod model_cli_registration;
 mod publish_again;
 mod quality_gates;
 mod rebuild_drill;

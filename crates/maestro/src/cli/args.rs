@@ -79,14 +79,20 @@ pub(super) enum Noun {
 /// What to do with registered model cards.
 #[derive(Debug, Subcommand)]
 pub(super) enum ModelCommand {
-    /// Register a canonical v2 model card for a collection.
+    /// Register a strict v2 model card and import its pinned evidence for a collection.
     Register {
         /// The collection whose registry records the card.
         #[arg(long)]
         collection: String,
-        /// The canonical v2 card JSON file.
+        /// The v2 card JSON file.
         #[arg(long)]
         card: PathBuf,
+        /// The directory containing digest-named evidence files.
+        #[arg(long, value_name = "DIR")]
+        evidence: PathBuf,
+        /// The GGUF file pinned by the card.
+        #[arg(long, value_name = "FILE")]
+        gguf: PathBuf,
     },
     /// Qualify a registered reranker card through the model router.
     Check {

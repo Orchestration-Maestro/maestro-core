@@ -271,6 +271,7 @@ in place.
 │   │   │       ├── mcp_clients.rs                                           # Client-like MCP stdio round trips over the synthetic collection
 │   │   │       ├── mcp_stdio.rs                                             # The stdio MCP server's process boundary and advertised tools
 │   │   │       ├── model_cli.rs                                             # Registration and listing of scoped model cards through the public CLI
+│   │   │       ├── model_cli_registration.rs                                # Registration input, grant, and router-failure contract tests
 │   │   │       ├── publish_again.rs                                         # Help for explicit projection recovery
 │   │   │       ├── quality_gates.rs                                         # knowledge quality: its report, a rerun, a gate after an import, the ledger first, failures and refusals
 │   │   │       ├── settings_config.rs                                       # maestro config: the user file preferences.toml, the project file
@@ -652,6 +653,7 @@ in place.
 │   │   │   │   ├── mod.rs                                                   # Scoped model-card, evaluation and selection persistence
 │   │   │   │   ├── read.rs                                                  # Scoped model registry readers with artifact and row-metadata verification
 │   │   │   │   ├── records.rs                                               # Public metadata for immutable model registrations, evaluations and selections
+│   │   │   │   ├── registration.rs                                          # Importing and registering a strict v2 model card with its pinned evidence
 │   │   │   │   └── write.rs                                                 # Scoped transactional model registry writers
 │   │   │   ├── representation/                                              # Immutable representation manifests and one-time generation binding
 │   │   │   │   ├── error.rs                                                 # Representation-set boundary errors

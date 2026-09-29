@@ -4,15 +4,16 @@ use super::{args::ModelCommand, collection, output::Output};
 use crate::{failure::Failure, kernel::Kernel};
 use maestro_kernel::{
     artifact::Digest,
-    gateway::{ModelCard, Role, RouterClient, card_v2::CardIdentity},
+    gateway::{CardError, Role, RouterClient},
     model::{
-        CardRecord, EvaluationDisposition, EvaluationMode, EvaluationRecord, NewModelSelection,
-        SelectedModelCard,
+        CardRecord, Error as ModelError, EvaluationDisposition, EvaluationMode, EvaluationRecord,
+        ModelCardRegistrationError, NewModelSelection, SelectedModelCard, register_model_card,
     },
+    store::Error as StoreError,
 };
 use maestro_knowledge::eval::{RerankerEvaluation, evaluate_and_record_reranker_health};
-use serde::{Deserialize, Serialize};
-use std::{env, fs, path::Path, process::ExitCode};
+use serde::Serialize;
+use std::{env, path::Path, process::ExitCode};
 use tokio::runtime::Builder;
 use ulid::Ulid;
 
@@ -28,7 +29,21 @@ pub(super) fn run(
     command: &ModelCommand,
 ) -> Result<ExitCode, Failure> {
     match command {
-        ModelCommand::Register { collection, card } => register(kernel, output, collection, card),
+        ModelCommand::Register {
+            collection,
+            card,
+            evidence,
+            gguf,
+        } => register(
+            kernel,
+            output,
+            collection,
+            RegistrationFiles {
+                card,
+                evidence,
+                gguf,
+            },
+        ),
         ModelCommand::Check { collection, digest } => check(kernel, output, collection, digest),
         ModelCommand::Select {
             collection,
@@ -41,40 +56,35 @@ pub(super) fn run(
     }
 }
 
-/// Registers one canonical v2 card, returning its digest; repeated registrations are unchanged.
+/// Input paths required to register a v2 card.
+#[derive(Clone, Copy)]
+struct RegistrationFiles<'a> {
+    /// The v2 card JSON document.
+    card: &'a Path,
+    /// The digest-named directory of pinned evidence files.
+    evidence: &'a Path,
+    /// The GGUF file pinned by the card.
+    gguf: &'a Path,
+}
+
+/// Registers a v2 card, returning its digest; repeated registrations are unchanged.
 fn register(
     kernel: &Kernel,
     output: Output,
     collection_id: &str,
-    path: &Path,
+    files: RegistrationFiles<'_>,
 ) -> Result<ExitCode, Failure> {
     collection::declared(kernel, collection_id)?;
-    let bytes = fs::read(path)
-        .map_err(|error| Failure::refused(format!("cannot read {}: {error}", path.display())))?;
-    let written: CardDocument = serde_json::from_slice(&bytes)
-        .map_err(|error| Failure::refused(format!("invalid v2 model card: {error}")))?;
-    if written.schema != "maestro-model-card/2" {
-        return Err(Failure::refused(format!(
-            "card schema {:?} is not maestro-model-card/2",
-            written.schema
-        )));
-    }
-    let canonical = serde_json::to_vec(&written).map_err(|error| Failure::failed_by(&error))?;
-    if canonical != bytes {
-        return Err(Failure::refused("v2 model card JSON is not canonical"));
-    }
-    let card = ModelCard::record_v2(&kernel.artifacts, &written.identity)
-        .map_err(|error| Failure::refused_by(&error))?;
-    let record = kernel
-        .database
-        .record_model_card(
-            &kernel.scopes,
-            &maestro_kernel::model::NewModelCard {
-                collection_id,
-                card: &card,
-            },
-        )
-        .map_err(|error| Failure::refused_by(&error))?;
+    let (record, outcome) = register_model_card(
+        &kernel.database,
+        &kernel.scopes,
+        collection_id,
+        &kernel.artifacts,
+        files.card,
+        files.evidence,
+        Some(files.gguf),
+    )
+    .map_err(|error| registration_failure(&error))?;
     let digest = record.digest.as_str();
     let document = RegisteredCard {
         schema: REGISTER_SCHEMA,
@@ -85,7 +95,7 @@ fn register(
     output.result(
         &document,
         &format!(
-            "model card {} registered for {collection_id} ({})",
+            "model card {} {outcome} for {collection_id} ({})",
             digest, record.role
         ),
     )?;
@@ -147,7 +157,7 @@ fn check(
         ))
         .map_err(|error| Failure::failed_by(&error))?;
     let disposition = disposition(health.disposition());
-    let reason = health.failure().unwrap_or("");
+    let reason = health.failure();
     let document = CheckedCard {
         schema: "maestro-cli/model-check/1",
         collection: collection_id,
@@ -156,17 +166,24 @@ fn check(
         disposition,
         eligible: health.disposition() == EvaluationDisposition::Eligible,
         reason,
+        report_digest: record.report_digest.as_str(),
     };
-    let text = if reason.is_empty() {
+    let text = if let Some(reason) = reason {
+        format!("model card {} is not eligible: {reason}", digest.as_str())
+    } else {
         format!(
             "model card {} is eligible; evaluation {}",
             digest.as_str(),
             record.id
         )
-    } else {
-        format!("model card {} is not eligible: {reason}", digest.as_str())
     };
     output.result(&document, &text)?;
+    if matches!(
+        health.disposition(),
+        EvaluationDisposition::Failed | EvaluationDisposition::Interrupted
+    ) {
+        return Err(Failure::failed(text));
+    }
     Ok(ExitCode::SUCCESS)
 }
 
@@ -220,15 +237,20 @@ fn select(
             record.card_id == card_record.id
                 && record.role == role
                 && record.mode == EvaluationMode::Real
-                && record.disposition == EvaluationDisposition::Eligible
         })
         .ok_or_else(|| {
             Failure::refused(format!(
-                "selection requires an eligible real evaluation of the exact card and role; \
-                 check {} first",
+                "selection requires a real evaluation of the exact card and role; check {} first",
                 digest.as_str()
             ))
         })?;
+    if evaluation.disposition != EvaluationDisposition::Eligible {
+        return Err(Failure::refused(format!(
+            "the latest real evaluation of card {} is {}, not eligible",
+            digest.as_str(),
+            disposition(evaluation.disposition)
+        )));
+    }
     let selected = kernel
         .database
         .record_model_selection(
@@ -242,7 +264,7 @@ fn select(
                 reason: "explicit maestro model select",
             },
         )
-        .map_err(|error| Failure::refused_by(&error))?;
+        .map_err(|error| model_failure(&error))?;
     let document = SelectedCard {
         schema: "maestro-cli/model-select/1",
         collection: collection_id,
@@ -302,7 +324,9 @@ struct CheckedCard<'a> {
     /// Whether the card passed the gate.
     eligible: bool,
     /// First qualification failure, if any.
-    reason: &'a str,
+    reason: Option<&'a str>,
+    /// Content digest of the recorded health report.
+    report_digest: &'a str,
 }
 
 /// Lists cards, evaluations and one current selection for each requested role.
@@ -382,6 +406,36 @@ fn list(
     Ok(ExitCode::SUCCESS)
 }
 
+/// Maps registration validation errors to refusals and I/O/storage errors to failures.
+fn registration_failure(error: &ModelCardRegistrationError) -> Failure {
+    match error {
+        ModelCardRegistrationError::Unauthorized | ModelCardRegistrationError::Invalid(_) => {
+            Failure::refused_by(error)
+        }
+        ModelCardRegistrationError::Model(error) => model_failure(error),
+        ModelCardRegistrationError::Integrity(_)
+        | ModelCardRegistrationError::Store(_)
+        | ModelCardRegistrationError::Io(_) => Failure::failed_by(&error),
+    }
+}
+
+/// Maps registry validation refusals while preserving database and artifact failures.
+fn model_failure(error: &ModelError) -> Failure {
+    match error {
+        ModelError::Unauthorized
+        | ModelError::Invalid(_)
+        | ModelError::Card(CardError::Invalid(_)) => Failure::refused_by(error),
+        ModelError::Store(StoreError::Sqlite(rusqlite::Error::SqliteFailure(sqlite, _)))
+            if sqlite.code == rusqlite::ErrorCode::ConstraintViolation =>
+        {
+            Failure::refused_by(error)
+        }
+        ModelError::Card(CardError::Store(_)) | ModelError::Integrity(_) | ModelError::Store(_) => {
+            Failure::failed_by(error)
+        }
+    }
+}
+
 /// Parses the requested role or returns all roles in stable card order.
 fn roles(role: Option<&str>) -> Result<Vec<Role>, Failure> {
     match role {
@@ -393,16 +447,6 @@ fn roles(role: Option<&str>) -> Result<Vec<Role>, Failure> {
             "unknown model role {other:?}; expected embedder, reranker or answerer"
         ))),
     }
-}
-
-/// Canonical v2 model-card file's strict JSON shape.
-#[derive(Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-struct CardDocument {
-    /// The required v2 schema identifier.
-    schema: String,
-    /// The validated immutable model identity.
-    identity: CardIdentity,
 }
 
 /// Registration output.
@@ -481,13 +525,7 @@ impl EvaluationSummary {
                 EvaluationMode::Real => "real",
                 EvaluationMode::Synthetic => "synthetic",
             },
-            disposition: match record.disposition {
-                EvaluationDisposition::Eligible => "eligible",
-                EvaluationDisposition::Ineligible => "ineligible",
-                EvaluationDisposition::Blocked => "blocked",
-                EvaluationDisposition::Failed => "failed",
-                EvaluationDisposition::Interrupted => "interrupted",
-            },
+            disposition: disposition(record.disposition),
         }
     }
 }

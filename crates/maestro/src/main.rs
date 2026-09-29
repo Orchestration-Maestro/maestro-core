@@ -29,8 +29,8 @@
 //!   chunk or section;
 //! - `maestro knowledge ask --collection <id> --question <text>` answers from
 //!   verified evidence or returns a safe refusal;
-//! - `maestro model register --collection <id> --card <file>` records a
-//!   canonical v2 model card and prints its digest;
+//! - `maestro model register --collection <id> --card <file> --evidence <dir>
+//!   --gguf <file>` validates and records a card with its pinned evidence;
 //! - `maestro model check --collection <id> --digest <digest>` runs and records
 //!   reranker health qualification through the router;
 //! - `maestro model select --collection <id> --role <role> --digest <digest>`
@@ -56,25 +56,51 @@
 //!
 //! # `model register`, `check`, `select` and `list`
 //!
-//! `model register` accepts a canonical `maestro-model-card/2` JSON file,
-//! validates its identity, and records it in the collection's scoped registry.
-//! Re-registering its digest is a no-op. Its JSON document is
-//! `maestro-cli/model-register/1`; text output includes the digest.
+//! `model register` accepts a strict `maestro-model-card/2` JSON file (including
+//! pretty-printed files), imports all digest-matching files in `--evidence`,
+//! and verifies the pinned GGUF's size and SHA-256 from `--gguf` before storing
+//! anything. Each evidence file is limited to 16 MiB, the directory to 64 MiB,
+//! and the card to 1 MiB. Re-registering its digest is a no-op. Its JSON
+//! document is `maestro-cli/model-register/1`; text output includes the digest.
 //!
 //! `model check` is currently the reranker qualification path: it scores the
 //! two built-in positive/negative pairs through the router at
 //! `MAESTRO_ROUTER_URL`, or `http://127.0.0.1:8080`. It records an immutable
 //! real evaluation and receipt whether the gate passes or fails. Its
-//! `maestro-cli/model-check/1` result gives the disposition and first failure;
-//! a failed gate is a completed check, not a command failure. Embedder checks
-//! refuse with a direction to `knowledge prepare`; answerer qualification is
-//! not provided here.
+//! `maestro-cli/model-check/1` result gives the disposition, report digest and
+//! first failure (`null` when eligible). A completed eligible or ineligible
+//! check exits 0; a failed or interrupted router operation exits 1 after its
+//! receipt is recorded. Embedder checks refuse with a direction to
+//! `knowledge prepare`; answerer qualification is not provided here.
 //!
-//! `model select` relies on the kernel's exact-card, exact-role eligible-real
-//! evaluation rule. A missing evaluation or a role mismatch is refused with
-//! exit 2. `model list` shows registered cards, evaluations and the current
-//! selection in text or `maestro-cli/model-list/1` JSON. All four commands
-//! apply the local principal's collection grants.
+//! `model select` uses only the latest real evaluation of the exact card and
+//! role, and refuses unless it is eligible. A missing evaluation or role
+//! mismatch is refused with exit 2. Registering an answerer card immediately
+//! changes the card `knowledge ask --model <entry>` uses (latest registered
+//! wins), without qualification or selection; that choice is not shown in
+//! `model list`. `model list` shows registered cards, evaluations and current
+//! role selections in text or `maestro-cli/model-list/1` JSON. All four
+//! commands apply the local principal's collection grants.
+//!
+//! JSON examples:
+//!
+//! ```json
+//! {
+//!   "schema": "maestro-cli/model-check/1", "collection": "manuals",
+//!   "digest": "<sha256>", "evaluation": "<ulid>",
+//!   "disposition": "eligible", "eligible": true, "reason": null,
+//!   "report_digest": "<sha256>"
+//! }
+//! {
+//!   "schema": "maestro-cli/model-select/1", "collection": "manuals",
+//!   "digest": "<sha256>", "role": "reranker", "selection": "<ulid>",
+//!   "evaluation": "<ulid>"
+//! }
+//! {
+//!   "schema": "maestro-cli/model-list/1", "collection": "manuals",
+//!   "cards": [], "evaluations": [], "selections": []
+//! }
+//! ```
 //!
 //! # Output and exit codes
 //!
