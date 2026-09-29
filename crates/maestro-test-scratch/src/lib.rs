@@ -137,20 +137,17 @@ fn create_in(base: &Path, names: impl IntoIterator<Item = String>) -> io::Result
     ))
 }
 
-/// A builder of one directory at a time, readable, writable and searchable
-/// by its owner alone.
-#[cfg(unix)]
+/// A builder of one directory at a time, owner-only on Unix and inheriting
+/// its temporary directory's access list on Windows.
 fn owner_only() -> DirBuilder {
-    let mut builder = DirBuilder::new();
-    builder.mode(0o700);
+    let builder = DirBuilder::new();
+    #[cfg(unix)]
+    let builder = {
+        let mut builder = builder;
+        builder.mode(0o700);
+        builder
+    };
     builder
-}
-
-/// A builder of one directory at a time; on Windows the new directory
-/// inherits the access list of the user's own temporary directory.
-#[cfg(not(unix))]
-fn owner_only() -> DirBuilder {
-    DirBuilder::new()
 }
 
 /// `PREFIX` and 16 hexadecimal digits another user cannot predict: a hash

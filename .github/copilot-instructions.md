@@ -74,6 +74,7 @@ in place.
 │   │   │   │   │   │   ├── intent.rs                                        # Intent expansion on the ladder: a HyDE rung's card reaches search and
 │   │   │   │   │   │   ├── kernel_engine.rs                                 # The engine on a real kernel, with the router and the search service
 │   │   │   │   │   │   ├── manifest.rs                                      # The manifest: what it holds, where its paths lead, and each refusal
+│   │   │   │   │   │   ├── manifest_defaults.rs                             # Rust source: manifest defaults
 │   │   │   │   │   │   ├── mod.rs                                           # Tests of the ladder command: its manifest, its run over a fake engine, its
 │   │   │   │   │   │   ├── noise_guard.rs                                   # The identifier noise guard on the ladder: a guarded search's row counts
 │   │   │   │   │   │   ├── reports.rs                                       # What a ladder writes: private rows with IDs, ranks, citations, refusal

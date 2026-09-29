@@ -61,7 +61,7 @@ pub(super) fn rung(name: &str) -> Rung {
             intent_trigger: IntentTrigger::Always,
             intent_card: None,
             intent_deadline_ms: 4000,
-            intent_weight: 1.0,
+            intent_weight: Some(1.0),
             intent_rerank_additions: 10,
             routes: Routes {
                 dense: true,

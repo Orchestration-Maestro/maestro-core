@@ -11,7 +11,7 @@ use maestro_knowledge::search::{
     IntentExpansion, IntentTrigger, RerankHeader, SearchConfiguration, SourcePrior, StageWindow,
     evidence::{EvidenceSettings, ExpansionMode, ParentChainOrder},
 };
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::{
     collections::BTreeSet,
     fs,
@@ -89,8 +89,12 @@ pub(super) struct RungConfiguration {
     #[serde(default = "default_intent_deadline")]
     pub(super) intent_deadline_ms: u32,
     /// RRF weight of each additional intent route.
-    #[serde(default = "default_intent_weight")]
-    pub(super) intent_weight: f64,
+    #[serde(
+        default,
+        deserialize_with = "read_intent_weight",
+        serialize_with = "write_intent_weight"
+    )]
+    pub(super) intent_weight: Option<f64>,
     /// The most candidates intent votes add to the rerank beyond its depth.
     #[serde(default = "default_intent_rerank_additions")]
     pub(super) intent_rerank_additions: usize,
@@ -182,9 +186,26 @@ fn default_intent_deadline() -> u32 {
     SearchConfiguration::default().intent_deadline_ms
 }
 
-/// Default expansion vote weight.
-fn default_intent_weight() -> f64 {
-    SearchConfiguration::default().intent_weight
+/// A present manifest weight must be a number; an omitted weight stays unset until search builds.
+fn read_intent_weight<'de, D>(deserializer: D) -> Result<Option<f64>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    f64::deserialize(deserializer).map(Some)
+}
+
+/// Preserve the serialized default while keeping `SearchConfiguration` its single source.
+#[expect(
+    clippy::ref_option,
+    reason = "serde serialize_with requires a reference to the serialized field type"
+)]
+fn write_intent_weight<S>(weight: &Option<f64>, serializer: S) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    weight
+        .unwrap_or_else(|| SearchConfiguration::default().intent_weight)
+        .serialize(serializer)
 }
 
 /// Default number of intent additions to the rerank.
@@ -212,7 +233,9 @@ impl RungConfiguration {
             intent_expansion: self.intent_expansion,
             intent_trigger: self.intent_trigger,
             intent_deadline_ms: self.intent_deadline_ms,
-            intent_weight: self.intent_weight,
+            intent_weight: self
+                .intent_weight
+                .unwrap_or_else(|| SearchConfiguration::default().intent_weight),
             intent_rerank_additions: self.intent_rerank_additions,
             dense_enabled: self.routes.dense,
             lexical_enabled: self.routes.lexical,

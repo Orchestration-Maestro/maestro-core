@@ -7,6 +7,7 @@ mod engine;
 mod intent;
 mod kernel_engine;
 mod manifest;
+mod manifest_defaults;
 mod noise_guard;
 mod reports;
 mod rung_answerer;

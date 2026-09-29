@@ -66,7 +66,7 @@ fn step(layout: &Layout<'_>, atom: &Body) -> Option<(Option<String>, String)> {
     let item = layout
         .ancestors(unit)
         .iter()
-        .find(|block| matches!(block.block_type, BlockType::ListItem))?;
+        .find(|block| block.block_type == BlockType::ListItem)?;
     Some((layout.section(unit), item.block_id.clone()))
 }
 

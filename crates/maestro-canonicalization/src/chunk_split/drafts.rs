@@ -8,9 +8,8 @@ use std::collections::{BTreeMap, VecDeque};
 
 /// Pack a document's pieces into drafts: combine compatible pieces up to the target; an idea over
 /// the maximum continues atom by atom, an atom over it is refined or split; then number each
-/// unit's parts. A refinement that hands a body back unchanged would never end, so it refuses the
-/// body's first unit by name. Under a profile with a minimum, a small draft then joins the draft
-/// before it.
+/// unit's parts. `Layout::refine` always returns smaller bodies, so refinement ends. Under a
+/// profile with a minimum, a small draft then joins the draft before it.
 pub(crate) fn build_drafts(
     layout: &Layout<'_>,
     count: &mut impl FnMut(&str) -> Result<usize, Error>,

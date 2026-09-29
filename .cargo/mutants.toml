@@ -43,8 +43,6 @@ exclude_re = [
   # A column past the row's width also fails the rebuild, with the same error;
   # a window without columns matches no fragment.
   '^crates/maestro-canonicalization/src/chunk_split/replay\.rs:85:13: replace \|\| with && in order_windows$',
-  # At `end == closing.end` the delimiter would extend `end` to itself.
-  '^crates/maestro-canonicalization/src/chunk_split/prepare\.rs:224:69: replace < with <= in normalized_range$',
   # `normalized_range` refuses a range that ends where an opening delimiter
   # ends, so `>=` adds no range `>` lacks.
   '^crates/maestro-canonicalization/src/chunk_split/context\.rs:446:67: replace > with >= in Layout<.+>::fragment_parts$',
