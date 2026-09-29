@@ -27,7 +27,7 @@ pub(super) fn normalized_range(
         let next = unit
             .envelopes
             .iter()
-            .filter(|envelope| envelope.closing.start <= end && end < envelope.closing.end)
+            .filter(|envelope| (envelope.closing.start..envelope.closing.end).contains(&end))
             .map(|envelope| envelope.closing.end)
             .max();
         match next {

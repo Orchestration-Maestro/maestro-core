@@ -23,7 +23,7 @@ pub(crate) fn run(
         .map_err(|_| Failure::Failed("could not start the MCP runtime".to_owned()))?;
     runtime.block_on(async {
         let transport = BoundedStdio::new(io::stdin(), io::stdout());
-        let models = settings.compute == Compute::Gpu;
+        let models = warms_models(settings.compute);
         let server = KnowledgeServer::new(model_port, qdrant, settings);
         let warmup = server.warmup();
         let service = Box::pin(server.serve(transport))
@@ -39,4 +39,20 @@ pub(crate) fn run(
             )),
         }
     })
+}
+
+/// Whether MCP startup should warm model-backed routes.
+fn warms_models(compute: Compute) -> bool {
+    compute == Compute::Gpu
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Compute, warms_models};
+
+    #[test]
+    fn model_warmup_tracks_the_compute_setting() {
+        assert!(warms_models(Compute::Gpu));
+        assert!(!warms_models(Compute::Off));
+    }
 }

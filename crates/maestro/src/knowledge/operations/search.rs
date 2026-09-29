@@ -11,7 +11,7 @@ use crate::{
 };
 use maestro_kernel::{
     binding::Bindings,
-    evidence::Bundle,
+    evidence::{Bundle, RequestBudget},
     gateway::{ModelCard, ModelPort, Role},
     scope::{LOCAL, ScopeSet},
     store::Database,
@@ -119,16 +119,7 @@ pub(crate) async fn search_with<P: ModelPort + Sync>(
         },
     );
     context.source_classes.clone_from(&source_classes);
-    let pipeline_request = PipelineRequest {
-        configuration: settings.search,
-        evidence: settings.evidence,
-        ..PipelineRequest::new(
-            &request.collection,
-            &request.query,
-            request.version.as_deref(),
-            budget,
-        )
-    };
+    let pipeline_request = pipeline_request(request, settings, budget);
     let input = search(&context, &pipeline_request)
         .await
         .map_err(|error| search_failure(&error))?;
@@ -163,6 +154,24 @@ pub(crate) async fn search_with<P: ModelPort + Sync>(
         kernel,
         scopes,
     })
+}
+
+/// Builds the search pipeline input with the caller's effective settings.
+pub(super) fn pipeline_request<'a>(
+    request: &'a SearchRequest,
+    settings: &KnowledgeSettings,
+    budget: RequestBudget,
+) -> PipelineRequest<'a> {
+    PipelineRequest {
+        configuration: settings.search,
+        evidence: settings.evidence,
+        ..PipelineRequest::new(
+            &request.collection,
+            &request.query,
+            request.version.as_deref(),
+            budget,
+        )
+    }
 }
 
 /// The table the `source_classes` binding names, if any.

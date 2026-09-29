@@ -176,6 +176,7 @@ in place.
 │   │   │   │   │   ├── intent_tests.rs                                      # Production searches take their query expander from the collection's
 │   │   │   │   │   ├── mod.rs                                               # Source-scoped kernel operations for the CLI and MCP read surfaces
 │   │   │   │   │   ├── search.rs                                            # Scoped search followed by the approved evidence assembly handoff
+│   │   │   │   │   ├── search_request_tests.rs                              # Rust source: search request tests
 │   │   │   │   │   ├── stack_tests.rs                                       # Search fits half the stack of a Windows main thread
 │   │   │   │   │   └── tests.rs                                             # Rust source: tests
 │   │   │   │   ├── output/                                                  # Shared response bounds and semantic search truncation for CLI and MCP

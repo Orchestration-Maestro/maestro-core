@@ -7,6 +7,8 @@ mod implementation;
 mod intent_tests;
 mod search;
 #[cfg(test)]
+mod search_request_tests;
+#[cfg(test)]
 mod stack_tests;
 #[cfg(test)]
 pub(crate) mod tests;

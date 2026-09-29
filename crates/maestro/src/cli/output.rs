@@ -93,3 +93,14 @@ pub(super) fn diagnose(line: &str) {
     let mut stderr = io::stderr().lock();
     drop(writeln!(stderr, "{line}"));
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Output;
+
+    #[test]
+    fn output_preserves_its_json_mode() {
+        assert!(!Output::new(false).is_json());
+        assert!(Output::new(true).is_json());
+    }
+}

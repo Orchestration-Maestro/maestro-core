@@ -2,7 +2,6 @@
 //! refined or split past the maximum.
 use super::ideas::{Piece, absorb_small, pieces};
 use super::limits::{MAX_TOKENS, TARGET_TOKENS};
-use super::refusal::structure_error;
 use super::structure::{Body, Layout};
 use crate::{error::Error, prepared_inputs::ChunkContent};
 use std::collections::{BTreeMap, VecDeque};
@@ -44,10 +43,6 @@ pub(crate) fn build_drafts(
         match piece {
             Piece::Idea(atoms) => requeue(&mut pending, atoms),
             Piece::Atom(atom) => match layout.refine(&atom)? {
-                Some(refined) if refined.contains(&atom) => {
-                    let first = atom.fragments.first().ok_or_else(structure_error)?;
-                    return Err(layout.oversized(first.contribution.unit_index));
-                }
                 Some(refined) => requeue(&mut pending, refined),
                 None => result.extend(layout.split_unit(&atom, count)?),
             },

@@ -376,6 +376,12 @@ fn intent_manifest_requires_explicit_card_and_preserves_default_off() {
     assert_eq!(configuration.intent_deadline_ms, 250);
     value["rungs"][0]["configuration"]["intent_deadline_ms"] = json!(5001);
     assert!(refusal(&value).contains("intent deadline"));
+
+    value["rungs"][0]["configuration"]["intent_deadline_ms"] = json!(250);
+    value["rungs"][0]["configuration"]["intent_rerank_additions"] = json!(120);
+    assert!(parse(&value).is_ok(), "the maximum additions are accepted");
+    value["rungs"][0]["configuration"]["intent_rerank_additions"] = json!(121);
+    assert!(refusal(&value).contains("intent rerank additions"));
 }
 
 #[test]
@@ -483,4 +489,12 @@ fn search_only_parent_chain_settings_are_optional_and_validated() {
     assert!(parse(&value).is_ok());
     value["rungs"][0]["configuration"]["evidence_expansion"] = json!("full_section");
     assert!(parse(&value).is_err());
+
+    value["rungs"][0]["ask"] = json!(true);
+    value["rungs"][0]["configuration"]["evidence_expansion"] = json!("relevant_blocks");
+    value["rungs"][0]["configuration"]
+        .as_object_mut()
+        .unwrap()
+        .remove("parent_chain_order");
+    assert!(refusal(&value).contains("search-only evidence settings"));
 }

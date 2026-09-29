@@ -90,7 +90,11 @@ pub fn chrome_spans(
     let layout = Layout::new(document, markdown, &mapped, profile)?;
     let mut spans = Vec::new();
     for (index, unit) in mapped.units.iter().enumerate() {
-        if layout.chrome_rule(index).is_none() || !unit.primary {
+        if layout
+            .chrome_rule(index)
+            .as_ref()
+            .is_none_or(|_| !unit.primary)
+        {
             continue;
         }
         for range in chrome_ranges(layout.kept(index), unit.text.len()) {

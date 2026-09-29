@@ -55,6 +55,10 @@ fn set_get_unset_and_history_keep_the_grants_file_untouched() {
     assert_eq!(fs::read_to_string(&user).unwrap(), SCHEMA);
     let history = home.run(&["--json", "config", "history"]);
     assert_eq!(history.code, Some(0), "{history:?}");
+    let history_text = home.run(&["config", "history"]);
+    assert_eq!(history_text.code, Some(0), "{history_text:?}");
+    assert!(history_text.stdout.contains("tone: unset -> \"brief\""));
+    assert!(history_text.stdout.contains("tone: \"brief\" -> unset"));
     let changes: Vec<Value> = history.json()["changes"]
         .as_array()
         .unwrap()
@@ -134,6 +138,14 @@ fn set_in_the_project_edits_the_file_in_place_and_list_shows_its_layer() {
     let (nested, project_file) = layered(&home);
     let text = home.run_in(&nested, &["config", "explain", "language"]);
     assert_eq!(text.code, Some(0), "{text:?}");
+    assert!(text.stdout.contains(&format!(
+        "user file: {}",
+        home.config().join("preferences.toml").display()
+    )));
+    assert!(
+        text.stdout
+            .contains(&format!("project file: {}", project_file.display()))
+    );
     assert!(
         text.stdout.contains(&format!(
             "language = \"fr\"\n  set by: project file {}\n  overrides: user file {} (\"es\")",
