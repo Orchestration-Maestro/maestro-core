@@ -76,7 +76,7 @@ fn assert_search_tool(search: &Value) {
     );
     assert_eq!(
         search["inputSchema"]["properties"]["evidence_bytes"]["default"],
-        6000
+        12_000
     );
     assert_eq!(
         search["inputSchema"]["properties"]["deadline_ms"]["maximum"],

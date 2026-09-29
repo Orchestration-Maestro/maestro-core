@@ -96,7 +96,10 @@ fn every_default_is_the_measured_default() {
     let today = KnowledgeSettings {
         search: SearchConfiguration::default(),
         evidence: EvidenceSettings::default(),
-        search_budget: RequestBudget::default(),
+        search_budget: RequestBudget {
+            evidence_bytes: RequestBudget::DEFAULT_SEARCH_EVIDENCE_BYTES,
+            ..RequestBudget::default()
+        },
         ask_budget: AskBudget::default(),
         model: DEFAULT_MODEL.to_owned(),
         prompt: AnswerPrompt::Presented {
@@ -416,7 +419,10 @@ fn parent_chain_settings_round_trip_and_refuse_legacy_order() {
         serde_json::to_value(evidence).unwrap()["parent_chain_order"],
         "largest_fitting_parent"
     );
-    scratch.user("[evidence]\nparent_chain_order = \"minimum_complete_first\"\n");
+    scratch.user(concat!(
+        "[evidence]\nexpansion = \"full_section\"\n",
+        "parent_chain_order = \"largest_fitting_parent\"\n"
+    ));
     assert!(matches!(
         scratch.session(&[]).knowledge(),
         Err(Failure::Refused(_))

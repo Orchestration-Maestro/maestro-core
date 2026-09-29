@@ -98,9 +98,9 @@ fn relevant_blocks_admits_another_procedure_before_expanding_first() {
 }
 
 #[test]
-fn named_counter_defaults_preserve_legacy_and_exact_refuses() {
+fn evidence_defaults_select_parent_chain_and_utf8_counting() {
     let defaults: EvidenceSettings = serde_json::from_str("{}").unwrap();
-    assert_eq!(defaults.expansion, ExpansionMode::FullSection);
+    assert_eq!(defaults.expansion, ExpansionMode::ParentChain);
     assert!(matches!(
         defaults.counter().unwrap(),
         EvidenceCounter::Utf8Bytes

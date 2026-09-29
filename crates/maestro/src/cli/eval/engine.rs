@@ -23,6 +23,7 @@ use crate::{
 };
 use maestro_kernel::{
     artifact::Digest,
+    evidence::RequestBudget,
     gateway::{ModelCard, RouterClient, reply_cap},
     generation::Generation,
 };
@@ -228,8 +229,10 @@ impl<'kernel> KernelEngine<'kernel> {
     ) -> SearchRequest<'a> {
         let budget = rung.ask.as_ref().map_or_else(
             || {
-                rung.search_budget
-                    .unwrap_or_else(|| AskBudget::default().into())
+                rung.search_budget.unwrap_or(RequestBudget {
+                    evidence_bytes: RequestBudget::DEFAULT_SEARCH_EVIDENCE_BYTES,
+                    ..RequestBudget::default()
+                })
             },
             |settings| settings.budget().into(),
         );

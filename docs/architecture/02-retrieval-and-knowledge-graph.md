@@ -231,13 +231,13 @@ to retained primary seeds, not alternates; alternate sections are not extra
 votes. Final reading order groups by document/revision in best input-rank order,
 then by source span.
 
-### Opt-in parent-chain delivery
+### Parent-chain delivery
 
-`evidence.expansion = "parent_chain"` opts into complete units plus their
-required parent context. `full_section` remains the default; legacy modes keep
+`evidence.expansion = "parent_chain"` delivers complete units plus their
+required parent context. Legacy modes keep
 the same serialized output. With parent-chain enabled,
-`evidence.parent_chain_order` accepts `minimum_complete_first` (the default
-when unset or `off`) or `largest_fitting_parent`. An explicit order outside
+`evidence.parent_chain_order` accepts `minimum_complete_first` (the default)
+or `largest_fitting_parent`. An explicit order outside
 parent-chain mode is refused (exit 2). Search-only ladder rungs carry the same
 optional expansion and order; answer-enabled rungs reject these overrides.
 
@@ -281,7 +281,7 @@ any text is drafted, so an unsupported conclusion is caught before generation.
   "schema": "maestro-evidence/1",
   "collection": "ctm", "generation": 7, "query": "…", "lang": "fr",
   "routes": {"dense": "ok", "lexical": "ok", "identifier": "ok", "structured": "ok", "rerank": "ok"},
-  "request_budget": {"k": 10, "evidence_bytes": 6000, "deadline_ms": 1500},
+  "request_budget": {"k": 10, "evidence_bytes": 12000, "deadline_ms": 1500},
   "inventory": {"kind": "documents_by_set", "set_filter": null, "total_documents": 12, "sets": [{"value": "ctm", "documents": 12}]},
   "passages": [{
     "windowed": true,
@@ -297,7 +297,7 @@ any text is drafted, so an unsupported conclusion is caught before generation.
   }],
   "conflicts": [{"entity": "…", "attribute": "default port", "passages": [1, 2]}],
   "known_gaps": ["…"],
-  "budget": {"evidence_bytes": 5870, "limit": 6000, "counter": "evidence-utf8-bytes/1", "estimated": true},
+  "budget": {"evidence_bytes": 5870, "limit": 12000, "counter": "evidence-utf8-bytes/1", "estimated": true},
   "trace": [
     {"n": 1, "score": 0.83, "routes": ["dense", "lexical"], "chunk_ids": ["chunk-a"], "procedural": true},
     {"n": 2, "score": 0.61, "routes": ["lexical"], "chunk_ids": ["chunk-b"], "procedural": false}

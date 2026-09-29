@@ -12,9 +12,9 @@ fn default_k() -> u32 {
     RequestBudget::default().k
 }
 
-/// Returns the evidence contract's default token budget for the wire schema.
+/// Returns the default search evidence budget for the wire schema.
 fn default_evidence_bytes() -> u32 {
-    RequestBudget::default().evidence_bytes
+    RequestBudget::DEFAULT_SEARCH_EVIDENCE_BYTES
 }
 
 /// Returns the evidence contract's default deadline for the wire schema.
@@ -74,7 +74,7 @@ pub(crate) struct SearchRequest {
     #[serde(rename = "k", default = "default_k")]
     #[schemars(range(min = 1, max = 50))]
     pub(crate) max_passages: u32,
-    /// Maximum evidence size in UTF-8 bytes, not tokens, default 6000.
+    /// Maximum evidence size in UTF-8 bytes, not tokens, default 12000.
     #[serde(default = "default_evidence_bytes")]
     #[schemars(range(min = 1, max = RequestBudget::MAX_EVIDENCE_BUDGET))]
     pub(crate) evidence_bytes: u32,
@@ -469,7 +469,7 @@ mod tests {
                 query: "query".to_owned(),
                 version: None,
                 max_passages: RequestBudget::default().k,
-                evidence_bytes: RequestBudget::default().evidence_bytes,
+                evidence_bytes: RequestBudget::DEFAULT_SEARCH_EVIDENCE_BYTES,
                 deadline_ms: RequestBudget::default().deadline_ms,
             })
             .expect_err("invalid collection"),
@@ -487,7 +487,7 @@ mod tests {
         assert_eq!(schema["properties"]["k"]["maximum"], 50);
         assert_eq!(schema["properties"]["k"]["default"], 10);
         assert_eq!(schema["properties"]["evidence_bytes"]["maximum"], 24_000);
-        assert_eq!(schema["properties"]["evidence_bytes"]["default"], 6000);
+        assert_eq!(schema["properties"]["evidence_bytes"]["default"], 12_000);
         assert_eq!(schema["properties"]["deadline_ms"]["maximum"], 30_000);
         assert_eq!(schema["properties"]["deadline_ms"]["default"], 30_000);
     }

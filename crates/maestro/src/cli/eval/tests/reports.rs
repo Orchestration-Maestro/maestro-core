@@ -243,7 +243,7 @@ fn a_rung_report_names_its_provenance_and_scores_its_floors() {
                 "evidence_bytes": 6000,
                 "output_tokens": null,
                 "prompt": "v2",
-                "evidence": {"expansion":"full_section", "evidence_counter":"utf8"},
+                "evidence": {"expansion":"parent_chain", "evidence_counter":"utf8"},
                 "search_deadline_ms": 30_000
             },
             "warm_ups": 1,

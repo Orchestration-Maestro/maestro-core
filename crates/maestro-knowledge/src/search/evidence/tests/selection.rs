@@ -391,7 +391,7 @@ fn mandatory_whole_sibling_window_adds_before_then_stops_at_budget() {
         &SelectionBudget {
             graph: &LegacyCanonicalGraph,
             parent_chain_order: ParentChainOrder::default(),
-            expansion: ExpansionMode::default(),
+            expansion: ExpansionMode::FullSection,
             max_passages: 1,
             evidence_bytes,
             counter: &counter,
@@ -439,7 +439,7 @@ fn a_failed_near_sibling_does_not_close_a_non_monotonic_farther_window() {
         &SelectionBudget {
             graph: &LegacyCanonicalGraph,
             parent_chain_order: ParentChainOrder::default(),
-            expansion: ExpansionMode::default(),
+            expansion: ExpansionMode::FullSection,
             max_passages: 1,
             evidence_bytes: 2,
             counter: &counter,

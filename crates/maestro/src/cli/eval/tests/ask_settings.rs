@@ -151,7 +151,7 @@ fn a_rung_report_records_its_resolved_ask_settings_and_prompt() {
             "evidence_bytes": 6000,
             "output_tokens": 900,
             "prompt": "v2",
-            "evidence": {"expansion":"full_section", "evidence_counter":"utf8"},
+            "evidence": {"expansion":"parent_chain", "evidence_counter":"utf8"},
             "search_deadline_ms": 30_000
         })
     );

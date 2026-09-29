@@ -134,10 +134,14 @@ fn a_search_carries_the_asks_budget_and_evidence_settings() {
     let settings = v1_settings();
 
     let mut candidate = rung("r0");
+    candidate.ask = None;
     let search = engine.search_request(&candidate, "question");
     assert_eq!(search.configuration, candidate.configuration.search());
     assert_eq!((search.collection, search.text), ("collection", "question"));
-    assert_eq!(search.budget, RequestBudget::from(AskBudget::default()));
+    assert_eq!(
+        search.budget.evidence_bytes,
+        RequestBudget::DEFAULT_SEARCH_EVIDENCE_BYTES
+    );
     candidate.ask = None;
     candidate.search_budget = Some(RequestBudget {
         k: 4,
@@ -157,11 +161,17 @@ fn a_search_carries_the_asks_budget_and_evidence_settings() {
     assert_eq!((asking.k, asking.evidence_bytes), (8, 9000));
     candidate.ask = None;
     let unasked = engine.search_request(&candidate, "question").budget;
-    assert_eq!(unasked, RequestBudget::from(AskBudget::default()));
+    assert_eq!(
+        unasked.evidence_bytes,
+        RequestBudget::DEFAULT_SEARCH_EVIDENCE_BYTES
+    );
     let search = engine.search_request(&candidate, "question");
     assert_eq!(search.configuration, candidate.configuration.search());
     assert_eq!((search.collection, search.text), ("collection", "question"));
-    assert_eq!(search.budget, RequestBudget::from(AskBudget::default()));
+    assert_eq!(
+        search.budget.evidence_bytes,
+        RequestBudget::DEFAULT_SEARCH_EVIDENCE_BYTES
+    );
     candidate.ask = Some(AskSettings {
         expansion: ExpansionMode::RelevantBlocks,
         evidence_counter: CounterMode::Utf8AnswerBound,

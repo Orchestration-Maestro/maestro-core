@@ -62,7 +62,10 @@ impl Default for KnowledgeSettings {
         Self {
             search: SearchConfiguration::default(),
             evidence: EvidenceSettings::default(),
-            search_budget: RequestBudget::default(),
+            search_budget: RequestBudget {
+                evidence_bytes: RequestBudget::DEFAULT_SEARCH_EVIDENCE_BYTES,
+                ..RequestBudget::default()
+            },
             ask_budget: AskBudget::default(),
             model: DEFAULT_MODEL.to_owned(),
             prompt: AnswerPrompt::Presented {
@@ -108,15 +111,17 @@ impl KnowledgeSettings {
         if !models {
             search.intent_expansion = IntentExpansion::Off;
         }
+        let expansion = read.named::<ExpansionMode>("evidence.expansion")?;
+        let parent_chain_order = match read.text("evidence.parent_chain_order")? {
+            "off" => None,
+            "minimum_complete_first" if expansion != ExpansionMode::ParentChain => None,
+            _ => Some(read.named::<ParentChainOrder>("evidence.parent_chain_order")?),
+        };
         let settings = Self {
             search,
             evidence: EvidenceSettings {
-                parent_chain_order: if read.text("evidence.parent_chain_order")? == "off" {
-                    None
-                } else {
-                    Some(read.named::<ParentChainOrder>("evidence.parent_chain_order")?)
-                },
-                expansion: read.named::<ExpansionMode>("evidence.expansion")?,
+                parent_chain_order,
+                expansion,
                 evidence_counter: read.named::<CounterMode>("evidence.counter")?,
             },
             search_budget: RequestBudget {

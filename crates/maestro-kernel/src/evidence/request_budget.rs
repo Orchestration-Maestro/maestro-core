@@ -31,6 +31,9 @@ impl Default for RequestBudget {
 }
 
 impl RequestBudget {
+    /// The default search evidence budget, in UTF-8 bytes.
+    pub const DEFAULT_SEARCH_EVIDENCE_BYTES: u32 = 12_000;
+
     /// The longest deadline a search accepts, in milliseconds. It is a
     /// safety cap, not a quality cutoff: a search that loads cold models
     /// under a loaded machine still completes within it.

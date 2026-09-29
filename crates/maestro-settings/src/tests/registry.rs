@@ -57,6 +57,27 @@ fn built_in_registry_is_valid_and_resolves_each_default() {
 }
 
 #[test]
+fn measured_search_defaults_are_registered() {
+    let registry = Registry::built_in().unwrap();
+    assert_eq!(
+        registry.default_of("search.evidence_bytes"),
+        Some(&Value::Integer(12_000))
+    );
+    assert_eq!(
+        registry.default_of("ask.evidence_bytes"),
+        Some(&Value::Integer(6_000))
+    );
+    assert_eq!(
+        registry.default_of("evidence.expansion"),
+        Some(&Value::Text("parent_chain".to_owned()))
+    );
+    assert_eq!(
+        registry.default_of("evidence.parent_chain_order"),
+        Some(&Value::Text("minimum_complete_first".to_owned()))
+    );
+}
+
+#[test]
 fn both_rerank_thresholds_accept_negative_values() {
     let registry = Registry::built_in().unwrap();
     for key in ["search.intent.min_top_rerank", "ask.min_rerank_score"] {

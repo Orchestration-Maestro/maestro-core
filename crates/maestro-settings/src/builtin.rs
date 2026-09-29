@@ -89,7 +89,7 @@ pub const BUILT_IN: &[SettingDescriptor] = &[
     free(
         "search.evidence_bytes",
         integer(1, 24_000),
-        "6000",
+        "12000",
         "A search's evidence budget, in UTF-8 bytes, when --evidence-bytes is not given.",
     ),
     free(
@@ -276,7 +276,7 @@ pub const BUILT_IN: &[SettingDescriptor] = &[
     free(
         "evidence.expansion",
         choice(texts!["full_section", "relevant_blocks", "parent_chain"]),
-        "full_section",
+        "parent_chain",
         "How evidence grows around a match: its full section first, or its matched blocks \
          first, or complete parent-chain ranges first.",
     ),
@@ -287,8 +287,9 @@ pub const BUILT_IN: &[SettingDescriptor] = &[
             "minimum_complete_first",
             "largest_fitting_parent"
         ]),
-        "off",
-        "Admission order for parent_chain expansion only; off uses minimum_complete_first.",
+        "minimum_complete_first",
+        "Admission order for parent_chain expansion only; minimum_complete_first reserves the \
+         smallest complete unit first.",
     ),
     free(
         "evidence.counter",

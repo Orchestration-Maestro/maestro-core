@@ -113,13 +113,13 @@ For example, call `knowledge_search` with:
 A successful search returns `maestro-evidence/1`, including the selected
 collection and published generation, cited passages, and route status. Keep
 that provenance and any truncation/budget information when using a client that
-summarizes tool output. Search budget defaults are `k: 10`, `evidence_bytes: 6000`,
+summarizes tool output. Search budget defaults are `k: 10`, `evidence_bytes: 12000`,
 and `deadline_ms: 30000` (a safety cap, not a quality cutoff: a search after
 the router unloaded its models loads them again, which took up to 5 s each on a
 busy machine, and still runs every route); accepted maxima are `k: 50`,
 `evidence_bytes: 24000`, and `deadline_ms: 30000`. Despite its name, `evidence_bytes`
 counts UTF-8 bytes of evidence, about 4 bytes per English or French token:
-6000 bytes is roughly 1,500 tokens, not 6,000. About 24 KB of passages is the practical MCP maximum:
+12000 bytes is roughly 3,000 tokens, not 12,000. The answer budget stays at 6,000 bytes. About 24 KB of passages is the practical MCP maximum:
 MCP carries the evidence bundle twice in a tool result. `knowledge_ask` is
 grounded in returned evidence and can refuse when the evidence does not support
 an answer. Its search has the same 30 s cap, and each answer attempt 20 s, the
