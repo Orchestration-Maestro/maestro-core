@@ -293,11 +293,16 @@ async fn a_refused_setup_leaves_the_route_unavailable_at_once() {
 /// The request start and cutoffs of a search under a 1.5 s budget and the
 /// route window `window`.
 fn search_cutoffs(window: StageWindow) -> (Instant, Deadlines) {
+    search_cutoffs_for(1500, window)
+}
+
+/// The request start and cutoffs of a search with `deadline_ms` and `window`.
+fn search_cutoffs_for(deadline_ms: u32, window: StageWindow) -> (Instant, Deadlines) {
     let started = Instant::now();
     let cutoffs = from_budget(
         started,
         RequestBudget {
-            deadline_ms: 1500,
+            deadline_ms,
             ..RequestBudget::default()
         },
         window,
@@ -315,13 +320,24 @@ async fn rerank_after_setup(
     setup: Duration,
     hangs: bool,
 ) -> (RouteStatus, Duration, usize) {
+    rerank_after_setup_for(1500, role, enabled, setup, hangs).await
+}
+
+/// What reranking does with `deadline_ms`, when its model takes `setup` to load.
+async fn rerank_after_setup_for(
+    deadline_ms: u32,
+    role: Role,
+    enabled: bool,
+    setup: Duration,
+    hangs: bool,
+) -> (RouteStatus, Duration, usize) {
     let reranker_card = card(role, 128);
     let port = LoadingModel::new(setup, hangs, false);
     let reranker = Reranker {
         port: &port,
         card: &reranker_card,
     };
-    let (started, cutoffs) = search_cutoffs(StageWindow::Derived);
+    let (started, cutoffs) = search_cutoffs_for(deadline_ms, StageWindow::Derived);
     prepare_reranker(Some(&reranker), enabled, &cutoffs).await;
     let (_, status) = rerank_candidates(
         &understand("ERR-042"),
@@ -336,6 +352,40 @@ async fn rerank_after_setup(
         started.elapsed(),
         port.reranks.load(Ordering::Relaxed),
     )
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_reranker_ready_just_before_the_thirty_second_setup_bound_still_runs() {
+    assert_eq!(
+        rerank_after_setup_for(
+            30_000,
+            Role::Reranker,
+            true,
+            Duration::from_millis(26_949),
+            false,
+        )
+        .await,
+        (RouteStatus::Ok, Duration::from_millis(26_949), 1)
+    );
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_reranker_ready_just_after_the_thirty_second_setup_bound_degrades() {
+    assert_eq!(
+        rerank_after_setup_for(
+            30_000,
+            Role::Reranker,
+            true,
+            Duration::from_millis(26_951),
+            false,
+        )
+        .await,
+        (
+            RouteStatus::Unavailable(DEADLINE_EXCEEDED.to_owned()),
+            Duration::from_millis(26_950),
+            0
+        )
+    );
 }
 
 #[tokio::test(start_paused = true)]

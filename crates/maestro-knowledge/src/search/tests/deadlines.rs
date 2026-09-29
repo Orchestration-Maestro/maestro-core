@@ -44,33 +44,51 @@ fn cutoffs(started: Instant, deadline_ms: u32, stage_window: StageWindow) -> Dea
 }
 
 #[test]
-fn budgets_derive_the_route_end_the_setup_bound_and_the_t032_reserve() {
+fn one_millisecond_budget_keeps_its_minimum_cutoffs() {
     let started = Instant::now();
     let short = cutoffs(started, 1, StageWindow::Derived);
     assert_eq!(short.expires, started + Duration::from_millis(1));
     assert_eq!(short.work, started + Duration::from_micros(900));
     assert_eq!(short.setup, started + Duration::from_micros(400));
-    // Fusion and the rerank keep one assembly window, a quarter of the
-    // deadline, over a tenth of it.
+    // One assembly window, a quarter of the deadline, exceeds a tenth here.
     assert_eq!(short.routes_end, started + Duration::from_micros(150));
     assert_eq!(short.routes, short.routes_end);
+}
 
-    let long = cutoffs(started, 10_000, StageWindow::Derived);
-    assert_eq!(long.expires, started + Duration::from_secs(10));
-    assert_eq!(long.work, started + Duration::from_millis(9_950));
-    // Evidence assembly keeps its measured need at any deadline: the T032
-    // reserve and two assembly windows, 650 ms; setup gets the rest.
-    assert_eq!(long.setup, started + Duration::from_millis(9_350));
-    // Fusion and the rerank keep a tenth of the deadline; the routes get
-    // the rest.
-    assert_eq!(long.routes_end, started + Duration::from_millis(8_350));
-    assert_eq!(long.routes, long.routes_end);
+#[test]
+fn one_point_five_second_budget_keeps_the_t032_reserve() {
+    let started = Instant::now();
+    let minimum = cutoffs(started, 1500, StageWindow::Derived);
+    assert_eq!(minimum.setup, started + Duration::from_millis(850));
+    assert_eq!(minimum.expires - minimum.setup, Duration::from_millis(650));
+    assert_eq!(minimum.routes_end, started + Duration::from_millis(550));
+}
 
-    let cap = cutoffs(started, 30_000, StageWindow::Derived);
-    assert_eq!(cap.work, started + Duration::from_millis(29_950));
-    assert_eq!(cap.setup, started + Duration::from_millis(29_350));
-    assert_eq!(cap.routes_end, started + Duration::from_millis(26_350));
-    assert_eq!(cap.routes, cap.routes_end);
+#[test]
+fn ten_and_thirty_second_budgets_scale_the_reserve() {
+    let started = Instant::now();
+    let ten_seconds = cutoffs(started, 10_000, StageWindow::Derived);
+    assert_eq!(ten_seconds.expires, started + Duration::from_secs(10));
+    assert_eq!(ten_seconds.work, started + Duration::from_millis(9_950));
+    // Assembly gets max(two windows, a tenth of the deadline), plus T032.
+    assert_eq!(ten_seconds.setup, started + Duration::from_millis(8_950));
+    assert_eq!(
+        ten_seconds.routes_end,
+        started + Duration::from_millis(7_950)
+    );
+    assert_eq!(ten_seconds.routes, ten_seconds.routes_end);
+
+    let thirty_seconds = cutoffs(started, 30_000, StageWindow::Derived);
+    assert_eq!(thirty_seconds.work, started + Duration::from_millis(29_950));
+    assert_eq!(
+        thirty_seconds.setup,
+        started + Duration::from_millis(26_950)
+    );
+    assert_eq!(
+        thirty_seconds.routes_end,
+        started + Duration::from_millis(23_950)
+    );
+    assert_eq!(thirty_seconds.routes, thirty_seconds.routes_end);
 }
 
 #[test]
@@ -78,8 +96,8 @@ fn optional_enrichment_ends_one_assembly_window_before_setup_after_the_routes() 
     let started = Instant::now();
     for (deadline_ms, enrichment) in [
         (1, Duration::from_micros(150)),
-        (10_000, Duration::from_millis(9_050)),
-        (30_000, Duration::from_millis(29_050)),
+        (10_000, Duration::from_millis(8_650)),
+        (30_000, Duration::from_millis(26_650)),
     ] {
         let derived = cutoffs(started, deadline_ms, StageWindow::Derived);
         assert_eq!(derived.enrichment(), started + enrichment);
