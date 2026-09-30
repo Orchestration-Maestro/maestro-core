@@ -208,14 +208,14 @@ pub fn pending_migrations(data: &Path) -> Result<Vec<&'static str>, Error> {
 
 /// A kernel connection opened read-only for health checks.
 #[derive(Debug)]
-pub struct HealthDatabase {
+pub(crate) struct HealthDatabase {
     /// The checked, read-only database connection. Health never writes grants or migrations.
     pub(crate) connection: Connection,
 }
 
 /// Outcome of checking kernel readiness without creating or migrating it.
 #[derive(Debug)]
-pub enum HealthOpen {
+pub(crate) enum HealthOpen {
     /// No kernel database file exists.
     Missing,
     /// The file is valid but lacks migrations this binary requires.
@@ -225,13 +225,17 @@ pub enum HealthOpen {
 }
 
 /// Open an existing kernel for health without creating files, migrating, or applying grants.
+/// An existing WAL database may create or retain its `-wal` and `-shm` sidecars.
 ///
 /// # Errors
 /// Returns [`Error::UnknownMigration`] for a schema newer than this binary, or a store error
 /// when the existing file cannot be read.
-pub fn open_health_in(data: &Path) -> Result<HealthOpen, Error> {
+pub(crate) fn open_health_in(data: &Path) -> Result<HealthOpen, Error> {
     let path = path::absolute(data.join(FILE)).map_err(|source| io_error(data, source))?;
-    if !path.exists() {
+    if !path
+        .try_exists()
+        .map_err(|source| io_error(&path, source))?
+    {
         return Ok(HealthOpen::Missing);
     }
     let connection = configured(Connection::open_with_flags(

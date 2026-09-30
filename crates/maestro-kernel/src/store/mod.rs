@@ -48,12 +48,12 @@
 //! never artifacts: a collection leaves them alone.
 
 pub(crate) mod artifacts;
-mod database;
+pub(crate) mod database;
 mod error;
 mod migration;
 #[cfg(test)]
 mod tests;
 
 pub use artifacts::{Artifact, ArtifactCheck};
-pub use database::{Database, HealthDatabase, HealthOpen, open_health_in, pending_migrations};
+pub use database::{Database, pending_migrations};
 pub use error::Error;

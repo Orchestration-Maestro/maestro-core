@@ -5,10 +5,12 @@ use crate::{
     artifact::Digest,
     job::{self, Lease, NewJob},
     scope::{ScopeSet, collection_path},
-    store::{Database, HealthDatabase},
+    store::database::{HealthDatabase, HealthOpen, open_health_in},
+    store::{self, Database},
 };
 use rusqlite::{OptionalExtension as _, params};
 use serde_json::json;
+use std::path::Path;
 
 /// Stored projection-readiness receipt columns before decoding.
 type ProjectionReceiptRow = (String, String, String, String, i64, i64, i64, String);
@@ -212,8 +214,8 @@ impl HealthDatabase {
     /// Retired receipts are omitted; a current generation without readiness remains visible.
     ///
     /// # Errors
-    /// Returns a store error when generation or receipt data is unreadable or malformed.
-    pub fn current_projection_inventory(
+    /// Returns a facts error when generation or receipt data is unreadable or malformed.
+    pub(crate) fn current_projection_inventory(
         &self,
         scopes: &ScopeSet,
     ) -> Result<Vec<ProjectionInventory>, Error> {
@@ -255,5 +257,42 @@ impl HealthDatabase {
             })
         })
         .collect()
+    }
+}
+
+/// Read-only status and receipt inventory for the kernel's graph projections.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum InventoryState {
+    /// No kernel database exists.
+    Missing,
+    /// The database lacks migrations required by this binary.
+    NeedsMigration(Vec<&'static str>),
+    /// The database records a migration this binary does not carry.
+    NewerSchema(String),
+    /// Current published generations visible to the principal.
+    Ready(Vec<ProjectionInventory>),
+}
+
+/// Open a kernel read-only and list the graph projection receipts visible to `principal`.
+///
+/// # Errors
+/// Returns a facts error wrapping store failures or malformed receipt data.
+pub fn projection_inventory_in(data: &Path, principal: &str) -> Result<InventoryState, Error> {
+    let health = match open_health_in(data) {
+        Ok(health) => health,
+        Err(store::Error::UnknownMigration(name)) => {
+            return Ok(InventoryState::NewerSchema(name));
+        }
+        Err(error) => return Err(error.into()),
+    };
+    match health {
+        HealthOpen::Missing => Ok(InventoryState::Missing),
+        HealthOpen::NeedsMigration(names) => Ok(InventoryState::NeedsMigration(names)),
+        HealthOpen::Ready(kernel) => {
+            let scopes = kernel.visible(principal)?;
+            kernel
+                .current_projection_inventory(&scopes)
+                .map(InventoryState::Ready)
+        }
     }
 }

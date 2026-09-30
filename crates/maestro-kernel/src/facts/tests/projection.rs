@@ -4,11 +4,14 @@ use super::support::{Scratch, build_job, execute, granted, label, plan, timing};
 use crate::{
     artifact::Digest,
     document::Collection,
-    facts::{Batch, Error, ProjectionReceipt, Rejection},
+    facts::{Batch, Error, ProjectionReceipt, Rejection, projection_inventory_in},
     generation::NewGeneration,
     job::{self, JobState},
-    scope::{Scope, ScopeSet},
-    store::{Database, HealthOpen, open_health_in},
+    scope::{Right, Scope, ScopeSet},
+    store::{
+        Database,
+        database::{HealthOpen, open_health_in},
+    },
 };
 use serde_json::json;
 use std::{collections::BTreeMap, thread};
@@ -254,6 +257,82 @@ fn health_inventory_is_scoped_ordered_and_decodes_the_exact_receipt() {
     assert!(
         health
             .current_projection_inventory(&denied)
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[test]
+fn projection_inventory_preserves_typed_receipt_decode_errors() {
+    let (scratch, database, all, receipt) = attached();
+    let lease = projection_lease(&database, receipt.generation_id);
+    database
+        .record_projection_ready(&all, &receipt, &lease)
+        .unwrap();
+    database.publish_generation(receipt.generation_id).unwrap();
+    let scope: Scope = "workspace/default/collection/graph".parse().unwrap();
+    database
+        .grant("inventory-reader", &scope, Right::Read, "test")
+        .unwrap();
+    drop(database);
+
+    let outside = scratch.outside();
+    outside
+        .execute("DROP TRIGGER graph_projection_receipts_never_changed", [])
+        .unwrap();
+    outside
+        .execute(
+            "UPDATE graph_projection_receipts SET content_digest =
+             'zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz'
+             WHERE generation_id = ?1",
+            [receipt.generation_id],
+        )
+        .unwrap();
+    assert!(matches!(
+        projection_inventory_in(&scratch.0, "inventory-reader"),
+        Err(Error::Conflict(_))
+    ));
+}
+
+#[test]
+fn health_inventory_omits_retired_receipts_and_unpublished_verified_generations() {
+    let (scratch, database, all, receipt) = attached();
+    let lease = projection_lease(&database, receipt.generation_id);
+    database
+        .record_projection_ready(&all, &receipt, &lease)
+        .unwrap();
+    database.publish_generation(receipt.generation_id).unwrap();
+    database.retire_generation(receipt.generation_id).unwrap();
+    execute(
+        &database,
+        "INSERT INTO chunk_sets (id, collection_id, chunk_profile, counter_contract_id, state)
+         VALUES ('future-set', 'graph', 'structural/1', 'native', 'building')",
+    )
+    .unwrap();
+    execute(
+        &database,
+        "UPDATE chunk_sets SET state = 'complete', manifest_digest =
+         '4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945'
+         WHERE id = 'future-set'",
+    )
+    .unwrap();
+    let verified = database
+        .create_generation(&NewGeneration {
+            collection_id: "graph".to_owned(),
+            chunk_set_id: "future-set".to_owned(),
+            embedding_profile: "embed:test".to_owned(),
+            sparse_profile: "bm25-en-fr/1".to_owned(),
+        })
+        .unwrap()
+        .id;
+    database.verify_generation(verified, 0).unwrap();
+
+    let HealthOpen::Ready(health) = open_health_in(&scratch.0).unwrap() else {
+        panic!("expected current kernel");
+    };
+    assert!(
+        health
+            .current_projection_inventory(&all)
             .unwrap()
             .is_empty()
     );
