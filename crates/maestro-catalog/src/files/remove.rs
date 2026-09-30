@@ -1,7 +1,8 @@
 //! Remove only committed, digest-matching owned file names.
 use super::{
+    names::ownership_name,
     plan::{digest, split_path, validate_id, validate_relative_path},
-    recovery::{ownership_name, state_directory},
+    recovery::state_directory,
 };
 use maestro_filesystem::Directory;
 use serde::Deserialize;

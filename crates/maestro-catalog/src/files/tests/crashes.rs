@@ -1,7 +1,81 @@
 use super::super::apply::apply_with_failure;
+use super::super::{
+    names::{journal_name, ownership_name},
+    plan::validate_relative_path,
+};
 use super::support::Scratch;
 use crate::files::{FileInput, FilePlan, apply, recover, remove};
 use std::fs;
+
+#[test]
+fn every_id_derived_state_component_is_windows_safe() {
+    for point in [0, 100, 101] {
+        let scratch = Scratch::new();
+        let plan = FilePlan::preview(
+            &scratch.path,
+            [FileInput::new("target", b"planned".to_vec())],
+        )
+        .unwrap();
+        let error = apply_with_failure(&scratch.path, &plan, Some(point)).unwrap_err();
+        assert!(error.to_string().contains("injected"), "{error}");
+        for entry in fs::read_dir(scratch.path.join(".maestro-files")).unwrap() {
+            let name = entry.unwrap().file_name().into_string().unwrap();
+            assert!(
+                validate_relative_path(&name).is_ok(),
+                "ID-derived state component is not Windows-safe: {name}"
+            );
+            assert!(
+                name.bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-')),
+                "unexpected state component byte: {name}"
+            );
+        }
+    }
+}
+
+#[test]
+fn portable_state_names_preserve_distinct_plan_ids_and_record_bytes() {
+    let scratch = Scratch::new();
+    let inputs = [FileInput::new("target", b"planned".to_vec())];
+    let plan = FilePlan::preview(&scratch.path, inputs.clone()).unwrap();
+    // Hand-computed SHA-256 of length-prefixed "target" and "planned".
+    let id = "sha256:f2f4a7d30e5f1bd26ee8accf0d8be8bfdb80c0523cc245e9b869b895286db70d";
+    assert_eq!(plan.id(), id);
+    let changed = FilePlan::preview(
+        &scratch.path,
+        [FileInput::new("target", b"changed".to_vec())],
+    )
+    .unwrap();
+    assert_ne!(journal_name(id), journal_name(changed.id()));
+    assert_ne!(ownership_name(id), ownership_name(changed.id()));
+    assert_ne!(journal_name(id), ownership_name(id));
+
+    assert!(apply_with_failure(&scratch.path, &plan, Some(0)).is_err());
+    let state = scratch.path.join(".maestro-files");
+    let journal: toml::Value =
+        toml::from_str(&fs::read_to_string(state.join(journal_name(id))).unwrap()).unwrap();
+    assert_eq!(journal["id"].as_str(), Some(id));
+    assert_eq!(
+        journal["entries"][0]["digest"].as_str(),
+        Some("sha256:9b0f1b10aff55228716a1fbbc59bda8fe735ed14ccd5e2c5226a9ab72a48d47e")
+    );
+    recover(&scratch.path, id).unwrap();
+    let ownership: toml::Value =
+        toml::from_str(&fs::read_to_string(state.join(ownership_name(id))).unwrap()).unwrap();
+    assert_eq!(ownership["id"].as_str(), Some(id));
+    assert_eq!(
+        ownership["files"][0]["digest"],
+        journal["entries"][0]["digest"]
+    );
+    assert!(
+        FilePlan::preview(&scratch.path, inputs)
+            .unwrap()
+            .is_applied()
+    );
+    remove(&scratch.path, id).unwrap();
+    assert!(!state.join(ownership_name(id)).exists());
+    assert!(!scratch.path.join("target").exists());
+}
 
 #[test]
 fn every_interrupted_write_or_ownership_commit_recovers_idempotently() {
@@ -30,7 +104,7 @@ fn every_interrupted_write_or_ownership_commit_recovers_idempotently() {
                 !scratch
                     .path
                     .join(".maestro-files")
-                    .join(format!("ownership-{}.toml", plan.id()))
+                    .join(ownership_name(plan.id()))
                     .exists()
             );
         }
@@ -60,7 +134,7 @@ fn interrupted_temporary_records_do_not_block_retry_or_leave_torn_published_file
         !scratch
             .path
             .join(".maestro-files")
-            .join(format!("ownership-{}.toml", second.id()))
+            .join(ownership_name(second.id()))
             .exists()
     );
 }
@@ -111,7 +185,7 @@ fn replay_preview_requires_complete_unchanged_ownership_and_applies_as_noop() {
         scratch
             .path
             .join(".maestro-files")
-            .join(format!("ownership-{}.toml", first.id()))
+            .join(ownership_name(first.id()))
             .exists()
     );
 

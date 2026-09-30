@@ -1,6 +1,8 @@
 //! Shared digest-bound file plans, durable ownership, and crash-safe removal.
 /// Exclusive writes and the final ownership commit.
 mod apply;
+/// Portable names for ID-derived state records.
+mod names;
 /// Immutable previews and hostile relative-path validation.
 mod plan;
 /// Durable journals and restart recovery.
