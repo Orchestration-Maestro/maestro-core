@@ -21,7 +21,7 @@ impl Operation {
     /// # Errors
     /// Oversized, malformed or unknown fields.
     pub fn parse(text: &str, limits: &Limits) -> Result<Self, String> {
-        bound(text, limits)?;
+        bound_json(text, limits)?;
         serde_json::from_str(text).map_err(|error| error.to_string())
     }
 }
@@ -168,6 +168,7 @@ pub fn test_cases(root: &Path, limits: &Limits) -> Result<Vec<Case>, String> {
         "core/evals/scenarios/policy-neighbours.json"
     };
     let text = read(root, Path::new(relative), limits)?;
+    bound_json(&text, limits)?;
     let cases: Vec<Case> = serde_json::from_str(&text).map_err(|error| error.to_string())?;
     if cases.is_empty() {
         return Err("zero policy test cases discovered".into());
@@ -182,4 +183,37 @@ pub fn test_cases(root: &Path, limits: &Limits) -> Result<Vec<Case>, String> {
         }
     }
     Ok(cases)
+}
+
+/// Bounds JSON containers before any parser allocates a tree.
+/// Quotes and escapes are skipped; the subsequent parser validates syntax.
+pub(super) fn bound_json(text: &str, limits: &Limits) -> Result<(), String> {
+    bound(text, limits)?;
+    let mut depth: usize = 0;
+    let mut quoted = false;
+    let mut escaped = false;
+    for byte in text.bytes() {
+        if escaped {
+            escaped = false;
+        } else if quoted && byte == b'\\' {
+            escaped = true;
+        } else if byte == b'"' {
+            quoted = !quoted;
+        } else if !quoted {
+            match byte {
+                b'{' | b'[' => {
+                    depth += 1;
+                }
+                b'}' | b']' => depth = depth.saturating_sub(1),
+                _ => {}
+            }
+        }
+        if depth > limits.source_depth {
+            return Err(format!(
+                "policy JSON depth exceeds {} levels",
+                limits.source_depth
+            ));
+        }
+    }
+    Ok(())
 }

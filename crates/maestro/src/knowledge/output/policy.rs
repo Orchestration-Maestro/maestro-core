@@ -1,6 +1,7 @@
 //! Shared response bounds and semantic search truncation for CLI and MCP.
 
 use maestro_kernel::evidence::{Bundle, Inventory, TRUNCATED_INVENTORY_GAP_PREFIX};
+use maestro_kernel::json::canonical;
 use rmcp::{
     ErrorData as McpError,
     model::{
@@ -101,19 +102,19 @@ pub(crate) fn search_tool_result(
     truncation: SearchTruncation,
 ) -> Result<CallToolResult, SearchOutputError> {
     let value = serde_json::to_value(bundle).map_err(|_| SearchOutputError::Format)?;
-    let mut result = CallToolResult::structured(value);
+    let mut result = structured(value);
     if truncation.is_truncated() {
         let warning = truncation_warning(truncation);
         let mut metadata = MetaObject::new();
         metadata.0.insert(
             "maestro/truncation".to_owned(),
-            json!({
+            canonical(json!({
                 "truncated": true,
                 "limit_bytes": RESPONSE_LIMIT_BYTES,
                 "omitted": truncation.omitted(),
                 "dropped": truncation,
                 "warning": warning,
-            }),
+            })),
         );
         result = result.with_meta(Some(metadata));
         result.content.push(ContentBlock::text(warning));
@@ -238,4 +239,10 @@ fn truncation_warning(truncation: SearchTruncation) -> String {
         "Search result truncated: dropped {} passages and {} inventory items; not exhaustive.",
         truncation.passages, truncation.inventory_items
     )
+}
+
+/// Creates SDK structured output only after sorting its opaque JSON.
+/// The SDK copies these bytes into a text block as well as structured content.
+pub(crate) fn structured(value: serde_json::Value) -> CallToolResult {
+    CallToolResult::structured(canonical(value))
 }

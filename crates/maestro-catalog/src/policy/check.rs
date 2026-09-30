@@ -1,6 +1,6 @@
 //! Cedar schema validation and authorization, fail-closed on every diagnostic.
 
-use super::schema::{Check, Decision, HostFacts, Operation, TrustedFacts, read};
+use super::schema::{Check, Decision, HostFacts, Operation, TrustedFacts, bound_json, read};
 use crate::{
     limits::Limits,
     source::{Directory, EntryKind, SourceTree as _},
@@ -103,7 +103,7 @@ impl PolicyChecker for Cedar {
         } else {
             Decision::Deny
         };
-        if decision == Decision::Deny && facts.is_none() && operation.action != "read" {
+        if decision == Decision::Deny && facts.is_none() {
             errors.push("needs trusted host facts (C20)".into());
         }
         Check {
@@ -160,6 +160,7 @@ pub fn load(root: &Path, limits: &Limits) -> Result<Cedar, String> {
         "core/policies/schema.cedarschema.json"
     };
     let schema = read(root, Path::new(schema_path), limits)?;
+    bound_json(&schema, limits)?;
     let entries = Directory::new(root)
         .list(directory)
         .map_err(|error| error.to_string())?;

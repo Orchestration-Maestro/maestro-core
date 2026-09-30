@@ -35,7 +35,7 @@ pub(in crate::cli) fn get(
         "class": descriptor.class.name(),
         "diagnostics": diagnostics,
     });
-    output.result(&document, &setting.value().to_string())?;
+    output.json_result(&document, &setting.value().to_string())?;
     Ok(ExitCode::SUCCESS)
 }
 
@@ -67,7 +67,7 @@ pub(in crate::cli) fn list(output: Output, session: &Session) -> Result<ExitCode
         settings.push(setting_json(session, descriptor, setting, &diagnostics));
     }
     let document = json!({"schema": "maestro-cli/config-list/1", "settings": settings});
-    output.result(&document, text.trim_end())?;
+    output.json_result(&document, text.trim_end())?;
     Ok(ExitCode::SUCCESS)
 }
 
@@ -104,7 +104,7 @@ pub(in crate::cli) fn explain(
         "files": files_json(session),
         "settings": settings,
     });
-    output.result(&document, text.trim_end())?;
+    output.json_result(&document, text.trim_end())?;
     Ok(ExitCode::SUCCESS)
 }
 

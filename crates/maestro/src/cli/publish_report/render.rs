@@ -1,6 +1,7 @@
 //! Reconciled output for the historical publication and current projection.
 
 use crate::{failure::Failure, kernel::Kernel};
+use maestro_kernel::json::canonical;
 use maestro_kernel::{
     gateway::ModelCard,
     generation::Generation,
@@ -47,6 +48,7 @@ pub(in crate::cli) struct PublishDocument<'a> {
     /// The historical job state.
     pub(in crate::cli) state: String,
     /// The immutable historical outcome.
+    #[serde(serialize_with = "maestro_kernel::json::serialize_canonical")]
     pub(in crate::cli) outcome: &'a Value,
     /// The generation recorded by the historical outcome.
     pub(in crate::cli) historical_generation: Option<i64>,
@@ -177,7 +179,7 @@ pub(in crate::cli) fn publish_line(
         line.push('`');
     } else if job.state != JobState::Succeeded {
         line.push_str("; outcome ");
-        line.push_str(&job.outcome.as_ref().unwrap_or(&Value::Null).to_string());
+        line.push_str(&canonical(job.outcome.as_ref().unwrap_or(&Value::Null).clone()).to_string());
     }
     line
 }

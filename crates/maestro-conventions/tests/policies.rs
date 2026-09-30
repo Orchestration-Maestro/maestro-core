@@ -138,3 +138,45 @@ fn every_relative_link_and_anchor_resolves() {
         .collect();
     assert!(broken.is_empty(), "broken links: {broken:?}");
 }
+
+/// Serialized opaque fields whose serde attributes omit the canonical adapter.
+fn noncanonical_fields(source: &str) -> Vec<&str> {
+    let mut attributes = String::new();
+    let mut serialized = false;
+    let mut offenders = Vec::new();
+    for line in source.lines().map(str::trim) {
+        if line.starts_with("#[derive(") {
+            serialized = line.contains("Serialize");
+        }
+        if line.starts_with("///") || line.is_empty() {
+            continue;
+        }
+        if line.starts_with("#[") || line.starts_with("serialize_with") {
+            attributes.push_str(line);
+            continue;
+        }
+        if serialized
+            && line.contains(':')
+            && line.ends_with(',')
+            && line.contains("Value")
+            && !attributes.contains("maestro_kernel::json::serialize_canonical")
+        {
+            offenders.push(line);
+        }
+        attributes.clear();
+    }
+    offenders
+}
+
+#[test]
+fn opaque_canonical_fields_require_canonical_serialization() {
+    for module in ["model", "document", "content", "dedup"] {
+        let path = root().join(format!("crates/maestro-canonicalization/src/{module}.rs"));
+        let source = fs::read_to_string(path).unwrap();
+        assert!(
+            noncanonical_fields(&source).is_empty(),
+            "{module}: opaque fields lack canonical serialization: {:?}",
+            noncanonical_fields(&source)
+        );
+    }
+}

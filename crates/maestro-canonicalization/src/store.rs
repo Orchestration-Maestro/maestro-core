@@ -324,3 +324,23 @@ mod tests {
         })
     }
 }
+
+#[cfg(test)]
+mod json_order_tests {
+    use super::*;
+    use crate::{CanonicalizeInput, canonicalize};
+
+    #[test]
+    fn snapshot_encoding_keeps_pre_cedar_bytes() {
+        let mut input = CanonicalizeInput::new("Body\n", "doc.md");
+        input.metadata.extraction =
+            Some(serde_json::from_str(r#"{"z":{"z":2,"a":1},"a":0}"#).unwrap());
+        let document = canonicalize(input).unwrap();
+        let bytes = encode(&document).unwrap();
+        assert_eq!(bytes.last(), Some(&b'\n'));
+        assert_eq!(
+            digest(&bytes),
+            "b7e9e0b059e154fc972f691fc9578dfb3b11c70ead09707a4187e020bb09f007"
+        );
+    }
+}

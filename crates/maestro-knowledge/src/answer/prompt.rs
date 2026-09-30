@@ -3,6 +3,7 @@
 use super::types::{
     AnswerPrompt, AskError, AskRequest, DATA_SLOT, PromptVersion, RegisteredAnswerer,
 };
+use maestro_kernel::json::canonical;
 use maestro_kernel::{
     evidence::Bundle,
     gateway::{ChatRequest, Message, Speaker, card_v2::Capability},
@@ -76,10 +77,10 @@ pub(super) fn prompt(
             })
         })
         .collect::<Vec<Value>>();
-    let data = serde_json::to_string(&json!({
+    let data = serde_json::to_string(&canonical(json!({
         "question": request.question,
         "passages": passages,
-    }))
+    })))
     .map_err(AskError::Json)?
     .replace('<', "\\u003c")
     .replace('>', "\\u003e");

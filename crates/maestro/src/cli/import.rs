@@ -139,7 +139,7 @@ pub(super) fn step(
     match holder.step(&data) {
         Ok(()) => {
             // A step is journaled whether or not stdout still takes it.
-            drop(output.text(&format!("step {data}")));
+            drop(output.step(&data));
             ControlFlow::Continue(())
         }
         Err(error) => {

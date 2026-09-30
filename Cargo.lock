@@ -1348,6 +1348,7 @@ name = "maestro-canonicalization"
 version = "0.1.0"
 dependencies = [
  "maestro-filesystem",
+ "maestro-kernel",
  "pulldown-cmark",
  "serde",
  "serde_json",

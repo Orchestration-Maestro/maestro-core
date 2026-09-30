@@ -157,7 +157,7 @@ pub(in crate::cli) fn run_with(
             shown(old),
             path.display()
         );
-        output.result(&document(false, old), &line)?;
+        output.json_result(&document(false, old), &line)?;
         return Ok(ExitCode::SUCCESS);
     };
     let kernel = open_kernel()?;
@@ -191,7 +191,7 @@ pub(in crate::cli) fn run_with(
         path.display(),
         shown(old.as_ref())
     );
-    output.result(&document(true, old.as_ref()), &line)?;
+    output.json_result(&document(true, old.as_ref()), &line)?;
     Ok(ExitCode::SUCCESS)
 }
 

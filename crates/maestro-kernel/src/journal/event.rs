@@ -2,6 +2,7 @@
 //! and read back in sequence order.
 
 use super::error::Error;
+use crate::json::canonical;
 use crate::{
     scope::{InvalidScope, Scope, ScopeSet},
     store::{self, Database},
@@ -188,7 +189,7 @@ pub(crate) fn record(
             event.r#type,
             event.subject,
             scope.as_str(),
-            event.data.to_string(),
+            canonical(event.data.clone()).to_string(),
         ],
         event_row,
     )?;

@@ -3,7 +3,8 @@
 use crate::{
     limits::Limits,
     policy::{
-        Cedar, Decision, HostFacts, Operation, PolicyChecker, TrustedFacts, load, test_cases,
+        Cedar, Decision, HostFacts, NoFacts, Operation, PolicyChecker, TrustedFacts, load,
+        test_cases,
     },
 };
 use std::{cell::Cell, path::PathBuf};
@@ -267,4 +268,73 @@ fn all_policy_parse_diagnostics_are_retained() {
     .unwrap_err();
     assert!(error.contains("unknown_one"), "{error}");
     assert!(error.contains("unknown_two"), "{error}");
+}
+
+#[test]
+fn identity_dependent_reads_explain_absent_host_facts() {
+    let checker = Cedar::new(
+        include_str!("../../../../../tests/fixtures/catalog/policy/schema.json"),
+        "permit(principal == Actor::\"local-user\", action == Action::\"read\", resource);",
+    )
+    .unwrap();
+    let result = checker.check(
+        &Operation {
+            action: "read".into(),
+            target: "public".into(),
+        },
+        &NoFacts,
+    );
+    assert_eq!(result.decision, Decision::Deny);
+    assert_eq!(result.diagnostics, ["needs trusted host facts (C20)"]);
+}
+
+#[test]
+fn policy_schema_and_cases_enforce_exact_container_depth() {
+    let schema_limits = Limits {
+        source_depth: 8,
+        ..Limits::PRODUCTION
+    };
+    assert!(load(&fixtures(), &schema_limits).is_ok());
+    let error = load(
+        &fixtures(),
+        &Limits {
+            source_depth: 7,
+            ..schema_limits
+        },
+    )
+    .unwrap_err();
+    assert!(error.contains("depth"), "{error}");
+    let case_limits = Limits {
+        source_depth: 3,
+        ..Limits::PRODUCTION
+    };
+    assert!(test_cases(&fixtures(), &case_limits).is_ok());
+    let error = test_cases(
+        &fixtures(),
+        &Limits {
+            source_depth: 2,
+            ..case_limits
+        },
+    )
+    .unwrap_err();
+    assert!(error.contains("depth"), "{error}");
+}
+
+#[test]
+fn policy_json_depth_counts_containers_not_quoted_or_escaped_brackets() {
+    let limits = Limits {
+        source_depth: 1,
+        ..Limits::PRODUCTION
+    };
+    let text = r#"{"action":"read[{}]\\\"","target":"[public]"}"#;
+    assert!(Operation::parse(text, &limits).is_ok());
+    let error = Operation::parse(
+        text,
+        &Limits {
+            source_depth: 0,
+            ..limits
+        },
+    )
+    .unwrap_err();
+    assert!(error.contains("depth"), "{error}");
 }

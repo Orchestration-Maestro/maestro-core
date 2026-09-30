@@ -388,3 +388,18 @@ fn mcp_resolves_a_relative_workspace_and_refuses_a_file() {
         "--workspace project/README.md: the path is not a directory: no project file is read"
     );
 }
+
+#[test]
+fn config_raw_json_keeps_pre_cedar_bytes() {
+    let home = Home::new();
+    let output = home.run(&["config", "get", "tone", "--json"]);
+    assert_eq!(output.code, Some(0), "{output:?}");
+    assert_eq!(
+        output.stdout,
+        concat!(
+            "{\"class\":\"free\",\"diagnostics\":[],\"key\":\"tone\",",
+            "\"schema\":\"maestro-cli/config-get/1\",\"source\":{\"layer\":\"default\"},",
+            "\"value\":\"normal\"}\n",
+        )
+    );
+}

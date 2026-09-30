@@ -4,7 +4,9 @@
 //! stdout's first line in text, stderr's under `--json`.
 
 use crate::failure::Failure;
+use maestro_kernel::json::canonical;
 use serde::Serialize;
+use serde_json::Value;
 use std::io::{self, Write as _};
 use ulid::Ulid;
 
@@ -51,6 +53,14 @@ impl Output {
         if self.json { Ok(()) } else { print(line) }
     }
 
+    /// Prints a foreground job's step with the historic sorted JSON bytes.
+    ///
+    /// # Errors
+    /// [`Failure::Failed`] when stdout cannot be written to.
+    pub(super) fn step(self, data: &Value) -> Result<(), Failure> {
+        self.text(&format!("step {}", canonical(data.clone())))
+    }
+
     /// Prints a refusal document as JSON, or its diagnostic on stderr for people.
     pub(super) fn refusal(
         self,
@@ -63,6 +73,15 @@ impl Output {
             diagnose(diagnostic);
             Ok(())
         }
+    }
+
+    /// Prints an opaque JSON document in the pre-Cedar sorted-object order.
+    /// Typed documents must use `result` to keep their declared field order.
+    ///
+    /// # Errors
+    /// [`Failure::Failed`] when stdout cannot be written to.
+    pub(super) fn json_result(self, document: &Value, text: &str) -> Result<(), Failure> {
+        self.result(&canonical(document.clone()), text)
     }
 
     /// Prints the command's result: `document` under `--json`, else `text`.

@@ -8,6 +8,7 @@ use super::{
     },
     types::KernelOpener,
 };
+use crate::knowledge::output::structured;
 use crate::{
     knowledge::operations::{
         ask::run::ask_with, collections_with, ensure_current_scopes, get_with,
@@ -229,10 +230,7 @@ fn run_operation(
                     let value = serde_json::to_value(scoped.data).map_err(|_| {
                         McpError::internal_error("response serialization failed", None)
                     });
-                    (
-                        value.map(CallToolResult::structured),
-                        Some((scoped.kernel, scoped.scopes)),
-                    )
+                    (value.map(structured), Some((scoped.kernel, scoped.scopes)))
                 }
                 Err(error) => (Ok(operation_error(error)), None),
             }

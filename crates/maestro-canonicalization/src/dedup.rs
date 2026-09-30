@@ -6,6 +6,7 @@ use crate::error::Error;
 use crate::hashing::digest;
 use crate::model::Severity;
 use crate::replay::validate_document;
+use maestro_kernel::json::canonical;
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet, btree_map::Entry};
 
@@ -352,7 +353,7 @@ fn canonical_bytes(doc: &CanonicalDocument) -> Result<Vec<u8>, Error> {
     let extractor_content: Vec<_> = doc
         .extractor_blocks
         .iter()
-        .map(|block| &block.structured_content)
+        .map(|block| canonical(block.structured_content.clone()))
         .collect();
     json_bytes(&(
         Representation::Canonical.profile(),
@@ -361,7 +362,10 @@ fn canonical_bytes(doc: &CanonicalDocument) -> Result<Vec<u8>, Error> {
         &doc.parser_options,
         &doc.source_metadata.title,
         &doc.source_metadata.language,
-        &doc.source_metadata.extra,
+        canonical(
+            serde_json::to_value(&doc.source_metadata.extra)
+                .map_err(|error| Error(error.to_string()))?,
+        ),
         extractor_content,
         blocks,
     ))
@@ -422,6 +426,34 @@ mod tests {
         assert_eq!(
             profiles,
             BTreeSet::from(["canonical-structured/v1", "original-utf8/v1"])
+        );
+    }
+}
+
+#[cfg(test)]
+mod json_order_tests {
+    use super::*;
+    use crate::{CanonicalizeInput, ExtractorBlock, canonicalize};
+
+    #[test]
+    fn comparison_bytes_keep_pre_cedar_opaque_key_order() {
+        let mut input = CanonicalizeInput::new("Body\n", "doc.md");
+        input.metadata.extra.insert(
+            "synthetic".into(),
+            serde_json::from_str(r#"{"z":{"z":2,"a":1},"a":0}"#).unwrap(),
+        );
+        input.extractor_blocks.push(ExtractorBlock {
+            extractor_id: "synthetic".into(),
+            markdown_spans: vec![],
+            original_locations: vec![],
+            structured_content: serde_json::from_str(r#"{"z":2,"a":1}"#).unwrap(),
+        });
+        let document = canonicalize(input).unwrap();
+        let bytes = canonical_bytes(&document).unwrap();
+        eprintln!("DEDUP {}", String::from_utf8(bytes.clone()).unwrap());
+        assert_eq!(
+            digest(&bytes),
+            "15b0220fbe7bb5c0a833d9a83c156b8f9c25309f40d620ccd9e0a74a8135957c"
         );
     }
 }

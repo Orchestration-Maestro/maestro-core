@@ -453,6 +453,7 @@ in place.
 │   │   │       ├── chunk_native.rs                                          # Explicit local acceptance: never treat an ignored native test as a pass
 │   │   │       ├── dialect_properties.rs                                    # Generated Markdown dialects keep their spans, meaning and round trips, deterministically
 │   │   │       ├── document_contract.rs                                     # The canonical document's contract: structure, spans and provenance as the source gives them
+│   │   │       ├── json_bytes.rs                                            # Opaque JSON has sorted keys; typed records retain declared field order
 │   │   │       ├── main.rs                                                  # The crate's integration tests, built as one test crate: each module proves
 │   │   │       ├── phase_a_acceptance.rs                                    # Phase A acceptance: every source byte is accounted for and no content is silently hidden
 │   │   │       └── validation_boundary.rs                                   # Regression checks for review findings at the source and JSON trust boundaries

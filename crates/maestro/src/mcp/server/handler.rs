@@ -17,6 +17,7 @@ use crate::knowledge::{
     GetRequest, SearchRequest,
     operations::{CollectionsData, GetData},
 };
+use maestro_kernel::json::canonical;
 use maestro_kernel::{evidence::Bundle, gateway::ModelPort, telemetry::span};
 use rmcp::{
     ErrorData as McpError, ServerHandler,
@@ -28,7 +29,7 @@ use rmcp::{
     service::{RequestContext, RoleServer},
 };
 use serde_json::{Value, json};
-use std::sync::Arc;
+use std::{iter, mem, sync::Arc};
 
 impl<P: ModelPort + Send + Sync + 'static> ServerHandler for KnowledgeServer<P> {
     fn get_info(&self) -> ServerConfig {
@@ -192,5 +193,43 @@ fn tool_definitions() -> Result<Vec<Tool>, McpError> {
             .idempotent(true),
     );
     let ask = ask::definition()?;
-    Ok(vec![collections, get, search, ask])
+    let mut tools = vec![collections, get, search, ask];
+    for tool in &mut tools {
+        for schema in iter::once(&mut tool.input_schema).chain(tool.output_schema.iter_mut()) {
+            let map = Arc::make_mut(schema);
+            if let Value::Object(sorted) = canonical(Value::Object(mem::take(map))) {
+                *map = sorted;
+            }
+        }
+    }
+    Ok(tools)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn advertised_tool_schemas_keep_pre_cedar_sorted_bytes() {
+        let tools = tool_definitions().unwrap();
+        let get = tools
+            .iter()
+            .find(|tool| tool.name == "knowledge_get")
+            .unwrap();
+        assert_eq!(
+            get.input_schema["oneOf"][0].to_string(),
+            r#"{"not":{"required":["section_id"]},"required":["chunk_id"]}"#
+        );
+        for tool in tools {
+            for schema in [Some(tool.input_schema), tool.output_schema]
+                .into_iter()
+                .flatten()
+            {
+                let value = Value::Object((*schema).clone());
+                let mut expected = value.clone();
+                expected.sort_all_objects();
+                assert_eq!(value.to_string(), expected.to_string());
+            }
+        }
+    }
 }

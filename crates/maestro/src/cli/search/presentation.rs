@@ -26,6 +26,7 @@ pub(super) struct CliEnvelope {
     schema: &'static str,
     /// The complete bundle shared with MCP, when successful.
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(serialize_with = "maestro_kernel::json::serialize_canonical")]
     pub(super) data: Option<Value>,
     /// A privacy-safe refusal or failure.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -248,5 +249,23 @@ mod tests {
     fn cli_envelope_fit_check_includes_all_serialized_bytes() {
         let envelope = success(Value::String("x".repeat(RESPONSE_LIMIT_BYTES)));
         assert!(!fits(&envelope).expect("serialize CLI envelope"));
+    }
+}
+
+#[cfg(test)]
+mod json_order_tests {
+    use super::*;
+
+    #[test]
+    fn search_envelope_keeps_schema_first_and_sorted_opaque_data() {
+        let data = serde_json::from_str(r#"{"z":{"z":2,"a":1},"a":0}"#).unwrap();
+        assert_eq!(
+            serde_json::to_string(&success(data)).unwrap(),
+            concat!(
+                "{\"schema\":\"maestro-cli/knowledge-search/1\",",
+                "\"data\":{\"a\":0,\"z\":{\"a\":1,\"z\":2}},",
+                "\"truncated\":false,\"limit_bytes\":65536}",
+            )
+        );
     }
 }
