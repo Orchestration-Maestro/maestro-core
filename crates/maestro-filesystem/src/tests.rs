@@ -11,7 +11,7 @@ use std::{
     os::unix::fs::{PermissionsExt, symlink},
     sync::mpsc,
     thread,
-    time::Duration,
+    time::{Duration, Instant},
 };
 #[cfg(windows)]
 use std::{path::Component, sync::Barrier, thread};
@@ -188,13 +188,15 @@ fn remove_verified_removes_only_matching_regular_files() {
     let directory = Directory::open(&root, Path::new(""), false).unwrap();
     assert_eq!(
         directory
-            .remove_verified("../file", b"expected")
+            .remove_verified("../file", b"expected", None)
             .unwrap_err()
             .kind(),
         io::ErrorKind::InvalidInput
     );
     assert_eq!(fs::read(root.join("file")).unwrap(), b"expected");
-    directory.remove_verified("file", b"expected").unwrap();
+    directory
+        .remove_verified("file", b"expected", None)
+        .unwrap();
     assert!(!root.join("file").exists());
     drop(directory);
     fs::remove_dir_all(root).unwrap();
@@ -205,13 +207,21 @@ fn remove_verified_refuses_edited_or_replaced_bytes() {
     let root = scratch();
     let directory = Directory::open(&root, Path::new(""), false).unwrap();
     fs::write(root.join("edited"), b"new bytes").unwrap();
-    assert!(directory.remove_verified("edited", b"old bytes").is_err());
+    assert!(
+        directory
+            .remove_verified("edited", b"old bytes", None)
+            .is_err()
+    );
     assert_eq!(fs::read(root.join("edited")).unwrap(), b"new bytes");
 
     fs::write(root.join("original"), b"old bytes").unwrap();
     fs::rename(root.join("original"), root.join("saved")).unwrap();
     fs::write(root.join("original"), b"replacement").unwrap();
-    assert!(directory.remove_verified("original", b"old bytes").is_err());
+    assert!(
+        directory
+            .remove_verified("original", b"old bytes", None)
+            .is_err()
+    );
     assert_eq!(fs::read(root.join("original")).unwrap(), b"replacement");
     drop(directory);
     fs::remove_dir_all(root).unwrap();
@@ -233,7 +243,7 @@ fn remove_verified_quarantine_never_replaces_a_planted_name() {
         .unwrap();
     }
     let directory = Directory::open(&root, Path::new(""), false).unwrap();
-    directory.remove_verified(name, b"expected").unwrap();
+    directory.remove_verified(name, b"expected", None).unwrap();
     assert!(!root.join(name).exists());
     for counter in 0..128 {
         assert_eq!(
@@ -249,12 +259,49 @@ fn remove_verified_quarantine_never_replaces_a_planted_name() {
     fs::remove_dir_all(root).unwrap();
 }
 
+#[cfg(unix)]
+#[test]
+fn remove_verified_restore_never_replaces_a_concurrently_recreated_name() {
+    let root = scratch();
+    let old_bytes = vec![b'o'; 16 * 1024 * 1024];
+    fs::write(root.join("file"), &old_bytes).unwrap();
+    let directory = Directory::open(&root, Path::new(""), false).unwrap();
+    let recreate_root = root.clone();
+    let (recreated, remove_result) = thread::scope(|scope| {
+        let recreator = scope.spawn(move || {
+            let deadline = Instant::now() + Duration::from_secs(3);
+            while Instant::now() < deadline && recreate_root.join("file").exists() {
+                thread::yield_now();
+            }
+            if recreate_root.join("file").exists() {
+                return false;
+            }
+            fs::write(recreate_root.join("file"), b"recreated").unwrap();
+            true
+        });
+        let remove_result = directory.remove_verified("file", b"expected", None);
+        (recreator.join().unwrap(), remove_result)
+    });
+    assert!(recreated, "recreator did not observe the quarantine window");
+    assert!(remove_result.is_err());
+    assert_eq!(fs::read(root.join("file")).unwrap(), b"recreated");
+    assert!(fs::read_dir(&root).unwrap().any(|entry| {
+        entry
+            .unwrap()
+            .file_name()
+            .to_string_lossy()
+            .contains("maestro-quarantine")
+    }));
+    drop(directory);
+    fs::remove_dir_all(root).unwrap();
+}
+
 #[test]
 fn remove_verified_refuses_directories_before_quarantine() {
     let root = scratch();
     fs::create_dir(root.join("directory")).unwrap();
     let directory = Directory::open(&root, Path::new(""), false).unwrap();
-    assert!(directory.remove_verified("directory", b"").is_err());
+    assert!(directory.remove_verified("directory", b"", None).is_err());
     assert!(root.join("directory").is_dir());
     drop(directory);
     fs::remove_dir_all(root).unwrap();
@@ -267,7 +314,11 @@ fn remove_verified_refuses_links_without_removing_the_target() {
     fs::write(root.join("target"), b"expected").unwrap();
     symlink(root.join("target"), root.join("link")).unwrap();
     let directory = Directory::open(&root, Path::new(""), false).unwrap();
-    assert!(directory.remove_verified("link", b"expected").is_err());
+    assert!(
+        directory
+            .remove_verified("link", b"expected", None)
+            .is_err()
+    );
     assert_eq!(fs::read(root.join("target")).unwrap(), b"expected");
     assert!(
         fs::symlink_metadata(root.join("link"))
@@ -292,7 +343,7 @@ fn remove_verified_refuses_reparse_points() {
         .unwrap();
     assert!(created.success());
     let directory = Directory::open(&root, Path::new(""), false).unwrap();
-    assert!(directory.remove_verified("junction", b"").is_err());
+    assert!(directory.remove_verified("junction", b"", None).is_err());
     assert!(root.join("junction").exists());
     assert!(root.join("target").is_dir());
     drop(directory);

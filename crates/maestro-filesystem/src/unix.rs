@@ -120,7 +120,12 @@ impl Directory {
     ///
     /// # Errors
     /// Returns an error if the entry changes, is not regular, or cannot be safely restored/removed.
-    pub fn remove_verified(&self, name: &str, expected: &[u8]) -> io::Result<()> {
+    pub fn remove_verified(
+        &self,
+        name: &str,
+        expected: &[u8],
+        expected_identity: Option<(u64, u64)>,
+    ) -> io::Result<()> {
         if name.is_empty()
             || name.contains('/')
             || name.contains('\\')
@@ -145,8 +150,28 @@ impl Directory {
                 Err(error) => return Err(error.into()),
             }
         };
-        match self.read_regular(&quarantine) {
-            Ok(bytes) if bytes == expected => {
+        let opened = (|| {
+            let fd = openat(
+                &self.0,
+                quarantine.as_str(),
+                READ_REGULAR_FLAGS,
+                Mode::empty(),
+            )?;
+            let mut file = File::from(fd);
+            let metadata = file.metadata()?;
+            if !metadata.is_file() {
+                return Err(io::Error::other("artifact is not a regular file"));
+            }
+            let identity_matches = expected_identity.is_none_or(|(device, inode)| {
+                use std::os::unix::fs::MetadataExt;
+                metadata.dev() == device && metadata.ino() == inode
+            });
+            let mut bytes = Vec::new();
+            file.read_to_end(&mut bytes)?;
+            Ok((bytes, identity_matches))
+        })();
+        match opened {
+            Ok((bytes, true)) if bytes == expected => {
                 Ok(unlinkat(&self.0, quarantine.as_str(), AtFlags::empty())?)
             }
             Ok(_) | Err(_) => {

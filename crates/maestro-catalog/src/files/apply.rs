@@ -4,12 +4,14 @@ use super::{
     recovery::{journal_name, ownership_name, read_optional, record_bytes, state_directory},
 };
 use maestro_filesystem::Directory;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+#[cfg(unix)]
+use std::fs::Metadata;
 use std::{
     fs::File,
     io::{self, ErrorKind, Write},
     path::Path,
-    process,
+    process, str,
     sync::atomic::{AtomicUsize, Ordering},
 };
 
@@ -32,6 +34,18 @@ struct OwnedFile<'a> {
     path: &'a str,
     /// The bytes' SHA-256 digest.
     digest: &'a str,
+    /// Stable Unix identity; absent on platforms without a stable std identity.
+    #[serde(default)]
+    identity: Option<FileIdentity>,
+}
+
+/// Stable filesystem identity recorded for a created target on Unix.
+#[derive(Serialize)]
+struct FileIdentity {
+    /// Device number from the open file's metadata.
+    device: u64,
+    /// Inode number from the open file's metadata.
+    inode: u64,
 }
 
 /// Apply a previewed plan, publishing ownership only after every exclusive create is durable.
@@ -67,14 +81,12 @@ pub(super) fn apply_with_failure(
     let state = state_directory(root)?;
     let journal = journal_name(&plan.id);
     let journal_bytes = record_bytes(plan)?;
-    let ownership = ownership_record(plan);
-    let ownership_bytes = record_bytes(&ownership)?;
     let ownership_path = ownership_name(&plan.id);
     match read_optional(&state, &ownership_path)? {
-        Some(existing) if existing == ownership_bytes => {
+        Some(existing) if ownership_matches(&existing, plan)? => {
             verify_owned_files(root, plan)?;
             if read_optional(&state, &journal)?.is_some() {
-                state.remove_verified(&journal, &journal_bytes)?;
+                state.remove_verified(&journal, &journal_bytes, None)?;
             }
             return Ok(());
         }
@@ -98,6 +110,7 @@ pub(super) fn apply_with_failure(
     }
     fail_if_requested(fail_after, 0)?;
 
+    let mut owned_files = Vec::with_capacity(plan.entries.len());
     for (index, file) in plan.entries.iter().enumerate() {
         let (parent, name) = split_path(&file.path)?;
         let directory = Directory::open(root, &parent, true)?;
@@ -113,6 +126,17 @@ pub(super) fn apply_with_failure(
                 let mut output = directory.create_new(name)?;
                 output.write_all(&file.bytes)?;
                 output.sync_all()?;
+                #[cfg(unix)]
+                let metadata = output.metadata()?;
+                #[cfg(unix)]
+                let identity = Some(file_identity(&metadata));
+                #[cfg(windows)]
+                let identity = None;
+                owned_files.push(OwnedFile {
+                    path: &file.path,
+                    digest: &file.digest,
+                    identity,
+                });
             }
             Err(error) => return Err(error),
         }
@@ -120,6 +144,10 @@ pub(super) fn apply_with_failure(
     }
 
     fail_if_requested(fail_after, plan.entries.len() * 2 + 1)?;
+    let ownership_bytes = record_bytes(&Ownership {
+        id: &plan.id,
+        files: owned_files,
+    })?;
     write_new(
         &state,
         &ownership_path,
@@ -150,18 +178,47 @@ fn verify_owned_files(root: &Path, plan: &FilePlan) -> io::Result<()> {
     Ok(())
 }
 
-/// Build the ownership payload published after every file write.
-fn ownership_record(plan: &FilePlan) -> Ownership<'_> {
-    Ownership {
-        id: &plan.id,
-        files: plan
-            .entries
+/// Existing ownership fields needed to validate an idempotent apply.
+#[derive(Deserialize)]
+struct ExistingOwnership {
+    /// The immutable plan identity.
+    id: String,
+    /// The planned file names and digests.
+    files: Vec<ExistingOwnedFile>,
+}
+
+/// Stable ownership fields for one existing target.
+#[derive(Deserialize)]
+struct ExistingOwnedFile {
+    /// The root-relative name.
+    path: String,
+    /// SHA-256 digest.
+    digest: String,
+}
+
+/// Compare the immutable ownership fields against the replayed plan.
+fn ownership_matches(bytes: &[u8], plan: &FilePlan) -> io::Result<bool> {
+    let text =
+        str::from_utf8(bytes).map_err(|error| io::Error::new(ErrorKind::InvalidData, error))?;
+    let existing: ExistingOwnership =
+        toml::from_str(text).map_err(|error| io::Error::new(ErrorKind::InvalidData, error))?;
+    Ok(existing.id == plan.id
+        && existing.files.len() == plan.entries.len()
+        && existing
+            .files
             .iter()
-            .map(|entry| OwnedFile {
-                path: &entry.path,
-                digest: &entry.digest,
-            })
-            .collect(),
+            .zip(&plan.entries)
+            .all(|(owned, entry)| owned.path == entry.path && owned.digest == entry.digest))
+}
+
+/// Read stable identity from metadata of the newly-created file on Unix.
+#[cfg(unix)]
+fn file_identity(metadata: &Metadata) -> FileIdentity {
+    use std::os::unix::fs::MetadataExt;
+
+    FileIdentity {
+        device: metadata.dev(),
+        inode: metadata.ino(),
     }
 }
 

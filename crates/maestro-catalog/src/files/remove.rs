@@ -23,6 +23,18 @@ struct OwnedFile {
     path: String,
     /// SHA-256 of the bytes published by the plan.
     digest: String,
+    /// Stable Unix file identity; absent in records from platforms without one.
+    #[serde(default)]
+    identity: Option<FileIdentity>,
+}
+
+/// Stable Unix identity of the opened target.
+#[derive(Deserialize)]
+struct FileIdentity {
+    /// Device number.
+    device: u64,
+    /// Inode number.
+    inode: u64,
 }
 
 /// Remove only files whose current bytes match the ownership record for `id`.
@@ -71,7 +83,15 @@ pub fn remove(root: &Path, id: &str) -> io::Result<()> {
         };
         match directory.read_regular(file_name) {
             Ok(current) if digest(&current) == owned.digest => {
-                verified.push((directory, file_name.to_owned(), current));
+                verified.push((
+                    directory,
+                    file_name.to_owned(),
+                    current,
+                    owned
+                        .identity
+                        .as_ref()
+                        .map(|identity| (identity.device, identity.inode)),
+                ));
             }
             Ok(_) => {
                 return Err(io::Error::other(format!(
@@ -83,9 +103,9 @@ pub fn remove(root: &Path, id: &str) -> io::Result<()> {
             Err(error) => return Err(error),
         }
     }
-    for (directory, file_name, current) in verified {
-        directory.remove_verified(&file_name, &current)?;
+    for (directory, file_name, current, identity) in verified {
+        directory.remove_verified(&file_name, &current, identity)?;
     }
-    state.remove_verified(&name, &bytes)?;
+    state.remove_verified(&name, &bytes, None)?;
     Ok(())
 }

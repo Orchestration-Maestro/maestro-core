@@ -132,7 +132,18 @@ impl Directory {
     ///
     /// # Errors
     /// Returns an error if the entry changes, is not regular, or cannot be safely restored/removed.
-    pub fn remove_verified(&self, name: &str, expected: &[u8]) -> io::Result<()> {
+    pub fn remove_verified(
+        &self,
+        name: &str,
+        expected: &[u8],
+        expected_identity: Option<(u64, u64)>,
+    ) -> io::Result<()> {
+        if expected_identity.is_some() {
+            return Err(io::Error::new(
+                ErrorKind::Unsupported,
+                "stable file identity is unavailable on Windows",
+            ));
+        }
         if name.is_empty()
             || name.contains('/')
             || name.contains('\\')
