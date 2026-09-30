@@ -153,6 +153,9 @@ impl Frontier for Database {
         }
         let deadline = lease::bounds(request.lease)?;
         self.write(|tx| {
+            if deadline <= Instant::now() {
+                return Err(Error::Lost);
+            }
             let scope = lease::held(tx, writer, request.lease.now)?;
             let (at, expires) = times(tx, request.lease.now, request.lease.term)?;
             let update = "UPDATE acquisition_frontier SET attempts = attempts + 1,

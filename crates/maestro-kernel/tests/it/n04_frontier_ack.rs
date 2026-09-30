@@ -173,3 +173,51 @@ fn n04_ack_rechecks_monotonic_item_deadline_after_waiting_for_writer() {
         None
     );
 }
+
+#[test]
+fn n04_dispatch_refuses_expired_deadline_after_waiting_for_writer() {
+    let root = Scratch::new();
+    let db = Database::open_in(&root).unwrap();
+    let frontier: &dyn Frontier = &db;
+    let source = writer(frontier, now());
+    let row = frontier.enqueue(&source, &item(), now()).unwrap();
+    let outside = rusqlite::Connection::open(root.join("kernel.sqlite3")).unwrap();
+    outside.execute_batch("BEGIN IMMEDIATE;").unwrap();
+    let mut bounded = dispatch(now());
+    bounded.lease.term = Duration::from_millis(200);
+    bounded.max_attempts = 1;
+    let (started, entered) = channel();
+    let (finished, result) = channel();
+    thread::scope(|threads| {
+        let worker = threads.spawn(|| {
+            started.send(()).unwrap();
+            finished
+                .send(frontier.lease(&source, row.id, bounded))
+                .unwrap();
+        });
+        entered.recv_timeout(Duration::from_secs(5)).unwrap();
+        // The dispatch cannot finish while SQLite's writer is held.
+        assert!(matches!(
+            result.recv_timeout(Duration::from_millis(400)),
+            Err(RecvTimeoutError::Timeout)
+        ));
+        outside.execute_batch("ROLLBACK;").unwrap();
+        let outcome = result.recv_timeout(Duration::from_secs(5)).unwrap();
+        worker.join().unwrap();
+        assert!(
+            matches!(outcome, Err(Error::Lost)),
+            "expired dispatch must refuse without consuming an attempt: {outcome:?}"
+        );
+    });
+    let visible = scopes(&db);
+    let pending = frontier.page(&visible, "docs", None, 1).unwrap();
+    assert_eq!(pending[0].attempts, 0);
+    assert_eq!(pending[0].epoch, 0);
+    bounded.lease.term = Duration::from_secs(30);
+    let granted = frontier.lease(&source, row.id, bounded).unwrap();
+    assert!(granted.deadline > Instant::now());
+    assert_eq!(granted.epoch, 1);
+    let dispatched = frontier.page(&visible, "docs", None, 1).unwrap();
+    assert_eq!(dispatched[0].attempts, 1);
+    assert_eq!(dispatched[0].epoch, 1);
+}
