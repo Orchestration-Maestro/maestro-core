@@ -6,8 +6,10 @@
 **Created**: 2026-09-28
 
 **Status**: Owner-approved direction, revised after supervisor review;
-implementation and qualification pending. The 100-question suite and precision
-review protocol below are **pending owner confirmation**.
+implementation and qualification pending. The owner approved the fusion design,
+**200 answerable graph families plus 20 unanswerable** and the three fork
+patch categories on 2026-09-30. The precision-review protocol still needs
+owner confirmation; approval is not qualification evidence.
 
 **Input**: the S2 draft plan, including the owner's approval of every open
 recommendation at 01:56 on 2026-09-28. Milestone M2: **Relationships answered**.
@@ -19,6 +21,8 @@ Architecture: [02](../../docs/architecture/02-retrieval-and-knowledge-graph.md),
 [ADR-0021](../../docs/adr/0021-embedded-ladybug-graph-projection.md) amends the
 Neo4j-first choice in ADR-0004. This specification governs S2 where older
 architecture text still describes Neo4j, vector linking or global graph search.
+The 2026-09-30 fusion amendment also governs descriptor linking and passage
+transitions; ADR-0021/0002 amendments are proposed separately, not finalized here.
 G01 reconciles the design references with embedded-first S2 and names the
 deferred algorithms; design agreement is not qualification or delivery evidence.
 
@@ -86,11 +90,26 @@ these are obligations, not passing evidence. Security IDs also follow the
   failed-4B result, exact assets/licences and revised estimate precede a trial;
   held-out construction or question results never select the extractor.
 
+### Owner decisions, 2026-09-30
+
+- **D6 — Decided:** adopt passage-first fusion: retain S1, question-only R4,
+  scoped deterministic claim-first multilingual linking and a separate bounded
+  passage-transition development route (FR-S2-025). Select routes on development
+  only; no new model, library or graph engine is approved.
+- **D7 — Decided:** freeze 200 independent answerable graph families (50 each
+  for relationships, dependencies, version differences and multi-hop), plus 20
+  unanswerable families. G06 records the power table before G07/G08 freeze.
+  All three arms answer both the 220-question graph and unchanged 100-question
+  golden suites in all three repeats: **2,880 mandatory requests**.
+- **D8 — Decided:** the fork patches are approved: E01/E02 rooted filesystem
+  operations, E03 external native cache and E03b source-default builds with
+  automatic prebuilt downloads removed. Adopt only a freshly qualified combined
+  immutable pin. This does not waive the true-cold build bar or feature gates.
+
 ## Needs owner action
 
 | Action | Trigger / blocked work | Recommendation |
 | --- | --- | --- |
-| Confirm the 100-question suite | Before G07/G08 freeze; pending owner confirmation | Twenty per type, all 100 held out, 80 answerable independent families; development uses pilot/synthetic cases only. |
 | Confirm the precision reviewer | Before G05 pilot review and G08/G20/G23 acceptance review; pending owner confirmation | A different local model family from the router catalog checks every accepted claim/chain, including rule-made claims. Pin its card and record claim/chain ID, disposition and reason; owner resolves flags on a local review page. |
 | Record the approved pilot receipt | Before G05 private reads; G05 gates private acceptance, not public engine construction | Bind `PRIVATE/graph/receipts/pilot-inputs.json` to U2's one deterministically selected 9.0.22 table, script/window/input digests and 12:53 approval evidence. No additional scope decision is pending. |
 | Record the approved acceptance receipt | Before G07/G08 freeze or any acceptance-source read | Bind `PRIVATE/graph/receipts/acceptance-inputs.json` to the approved whole published `ctm` generation, document/version inventory, digests and bounded window policy, local-only. Pilot permission alone is insufficient. |
@@ -114,8 +133,8 @@ Only the owner reads flagged text on the local review page.
 
 ## Open questions
 
-The suite and independent local reviewer protocol remain **pending owner
-confirmation**. U2's scopes and I1's trigger are approved; their actual private
+The independent local reviewer protocol remains **pending owner confirmation**.
+The suite size is approved by D7. U2's scopes and I1's trigger are approved; their actual private
 receipts still must be recorded and verified before use. No approval lowers
 D3's thresholds. A conditional Qwen3-8B trial still needs the development-only
 failed-4B result, exact asset/licence receipt and revised estimate.
@@ -207,8 +226,14 @@ explicitly incomplete/refused, never a confident unsupported shortcut.
    gaps; no dangling link or citation is delivered as complete.
 4. **Given** an invented command, inferred transitivity or unresolved
    contradiction in a generated answer, **When** validated, **Then** one retry
-   is allowed, followed by refusal if still invalid. Scores are uncalibrated,
-   not truth probabilities.
+   is allowed inside the same 20 s request deadline, followed by refusal if
+   still invalid. Scores are uncalibrated, not truth probabilities.
+5. **Given** a French paraphrase without an exact seed, **When** linking runs,
+   **Then** only admitted descriptors compete before top-k; similarity neither
+   merges identities nor proves a claim, and unresolved questions remain NIL.
+6. **Given** source-linked passage hits, **When** the passage route expands,
+   **Then** bounded authorized new passages may enter fusion without echo votes;
+   a transition is never delivered as a documentary relationship proof.
 
 ### User Story 4 - Measure graph gain before shipping it (Priority: P1)
 
@@ -224,19 +249,19 @@ answerer, context budget, sampling and input snapshot for every variant. Rerun
 
 **Acceptance Scenarios**:
 
-1. **Given** the provisional 100 FR/EN questions, twenty each for relationships,
-   dependencies, version differences, multi-hop and unanswerable cases, **When**
-   frozen after owner confirmation, **Then** a different local model family
+1. **Given** the approved 220 FR/EN questions, fifty each for relationships,
+   dependencies, version differences and multi-hop plus twenty unanswerable, **When**
+   frozen after review, **Then** a different local model family
    has reviewed every chain and the owner has ruled on flagged wording or
    answerability on a local review page.
-2. **Given** all 100 acceptance questions are held out, **When** rules, windows
+2. **Given** all 220 graph acceptance questions are held out, **When** rules, windows
    or prompts are tuned, **Then** only pilot and synthetic development cases
    may guide changes. Each acceptance question has one independent family;
    equivalent versions and alternate proofs do not multiply the score.
 3. **Given** rules and rules-plus-4B extraction, **When** compared over three
    runs, **Then** precision, recall, quote validity, tokens, throughput and
    memory are retained, including rejected candidates and failed attempts.
-4. **Given** no significant proof gain or a retrieval regression, **When** M2
+4. **Given** no significant proof gain or a retrieval/answer/refusal regression, **When** M2
    is judged, **Then** losing fusion is disabled and unmet exits block M2.
 
 ### User Story 5 - Operate and rebuild without a graph server (Priority: P1)
@@ -260,9 +285,10 @@ paths, claims, evidence and coverage. Repeat after authoritative backup/restore.
    resumes, **Then** partial data stays invisible and durable batches are not
    counted twice.
 3. **Given** the kernel and artifacts only, **When** graph files are rebuilt,
-   **Then** ordered semantic results are identical, except timings and
-   transport IDs. No extraction model, Qdrant claim source or live-file copy
-   is needed.
+   **Then** ordered graph/transition results and canonical descriptor contents,
+   IDs, pointers and scope payloads are identical, except timings and transport
+   IDs. Re-embedding may use the pinned existing embedding profile; no extraction
+   or generative model, Qdrant claim authority or live-file copy is needed.
 4. **Given** a relocated install, **When** setup or doctor runs offline,
    **Then** it needs no graph daemon, port, Docker, JVM or first-use download;
    corruption, lock and permission failures name a safe next action.
@@ -291,7 +317,11 @@ paths, claims, evidence and coverage. Repeat after authoritative backup/restore.
   evidence plus a supervisor-approved dated Windows/macOS CI plan can permit
   implementation only with working gate-preserving cross-target Clippy recipes.
   M2 requires actual three-OS builds/tests, cross-target Clippy, cancellation,
-  independent processes and recovery evidence.
+  independent processes and recovery evidence. Requalify the combined
+  E01/E02/E03/E03b pin, including source-default/no-download external builds,
+  rooted native filesystem operations and true-cold versus cache-hit timings.
+  Default builds remain engine-free; required feature coverage/mutation and
+  M2 release packaging with `--features engine` cover the shipped engine.
 - **FR-S2-002**: The kernel MUST own immutable entities, qualified claims,
   supports, aliases, mentions and review records. Claims carry typed endpoints
   and predicates, conditions/environment, version/world validity (unknown is
@@ -304,18 +334,23 @@ paths, claims, evidence and coverage. Repeat after authoritative backup/restore.
 - **FR-S2-004**: Construction MUST reuse canonical block references and one
   strict, digest-bound, data-only `DEFAULTS_TO` table rule. Its object is a
   typed literal, never an invented entity. Literals stay in claim properties;
-  no literal, Document or Section nodes are projected in S2. Rule packs execute
-  no scripts. Rejected candidates and their reasons remain inspectable.
+  no literal, Document or Section nodes are projected as claim entities.
+  FR-S2-025 permits passage application-ID nodes only in a separate retrieval
+  transition family, never as claim endpoints or documentary proof links.
+  Rule packs execute no scripts. Rejected candidates and their reasons remain inspectable.
 - **FR-S2-005**: Builds MUST be bounded, leased, resumable and idempotent. A
   generation freezes its claim set and extraction profile, attaches verified
   claims once and pins them at admission. No model or engine I/O occurs inside
   SQLite transactions; partial builds are not queryable.
-- **FR-S2-006**: The same normalized name and exact source spelling, within
-  one kind and collection, MUST resolve reversibly to one entity across
-  documents. Distinct spellings that normalize alike, or the same name in two
+- **FR-S2-006**: Absent an unresolved source-backed namespace collision, the
+  same normalized name and exact source spelling within one kind and collection
+  MUST resolve reversibly to one entity across documents. Distinct spellings that normalize alike, or the same name in two
   kinds, remain distinct/ambiguous for review. Keep sourced aliases, reviewed
   decisions, supersession and version/condition boundaries; never overwrite
-  contradictions or unknown validity.
+  contradictions or unknown validity. Audit same-name unrelated documentary
+  namespaces within one collection before freeze: an unresolved collision
+  blocks automatic resolution and is retained for review, not silently merged.
+  Any identity-key change requires a separate ruling with synthetic cases.
 - **FR-S2-007**: LadybugDB MUST be the only graph-read engine, including pilot
   neighbors and all paths, behind G27's projection port. SQLite serves claim
   authority and evidence checks only, never graph queries. The disposable
@@ -324,41 +359,72 @@ paths, claims, evidence and coverage. Repeat after authoritative backup/restore.
   keyed by claim application ID with predicate, literal type/lexeme, generation
   and the claim's qualifiers/support references; `entity_facts` reads it through
   the port. It creates no literal node or edge and grants no semantic truth.
-  Entity-to-entity claims alone create edges and count toward path length.
+  Entity-to-entity claims alone create proof edges and count toward proof-path
+  length. FR-S2-025 retrieval transitions are a distinct family with separate
+  passage-hop limits, never interchangeable with claim or S3 catalog edges.
   Its file ownership and reader model MUST match G25; no unsafe lock bypass
-  or daemon.
+  or daemon. Native opens/metadata/mutations MUST stay rooted in held safe
+  directory capabilities or fail closed; preflight followed by path reopen is
+  insufficient. No extension, COPY or alternate filesystem bypass is allowed.
 - **FR-S2-008**: One G25-qualified parameterized-batch loader MUST fill a fresh
   unpublished projection build from the frozen kernel snapshot. Close/reopen,
   counts, IDs, digests, schema and indexes MUST pass verification before kernel
   readiness exposes it. Resuming that loader is not a second incremental engine.
-  Retained generations and other collections remain untouched.
+  Retained generations and other collections remain untouched. Descriptor and
+  passage-transition projections MUST have digest-bound builders and verified
+  generation/scope readiness; neither is an alternate claim authority or a
+  second graph loader.
 - **FR-S2-009**: Cypher MUST apply scope, eligibility, generation, version and
   conditions at every hop before selection or limits. Local depth is at most
   two, path length four and evidence 50 items; expansion, execution time and
-  cancellation are bounded. Shortest means shortest admissible path.
+  cancellation are bounded. Shortest means shortest admissible path. Descriptor
+  lookup MUST pre-filter authorized collection, pinned generation, requested
+  version and eligibility inside Qdrant before top-k/seed caps; an unrepresentable
+  admitted scope fails closed. Passage transitions filter each hop before caps.
 - **FR-S2-010**: The kernel MUST recheck every result's entities, claims and
   supports against the pinned generation, current grants and eligibility
-  before delivery. Hidden and unknown IDs have the same observable response.
+  before delivery. Descriptor candidates MUST also pass current-authority
+  checks before traversal; pre-filtering and final rechecks are both mandatory.
+  Transition passages and verified-mention identities receive the same checks.
+  Hidden and unknown IDs have the same observable response.
 - **FR-S2-011**: R4 MUST use question-only seeds and preserve supports through
   deterministic, one-based RRF and ties. It MUST not add echo votes or regress
   graph-disabled search. A configured graph `none` is disabled with zero calls,
   not unavailable. A selected but missing/stale/locked/rebuilding graph means
   R4 `unavailable`, not SQL or Neo4j fallback. Stale means its attachment's
-  generation is not the published generation at request admission.
+  generation is not the published generation at request admission. R4 MUST NOT
+  seed from dense/BM25 passage hits. Try exact names/identifiers/reviewed aliases
+  first; whenever no exact seed exists, the development-selected linker matches
+  the question directly to deterministic verified-span claim/triple descriptors
+  ahead of entity-name-only descriptors, using the existing multilingual model.
+  No LLM descriptor prose or online generative translation/NER. Keep separate
+  pointers for disjoint spans; concatenated index text is not a contiguous quote.
+  Similarity changes retrieval priority only, not identity, alias, claim or truth.
+  Freeze caps and thresholds separately for EN→EN, FR→FR, FR→EN and EN→FR on
+  development data with NIL cases in every direction; no per-product dictionary.
+  Start development with at most five seeds, retaining competing senses and
+  testing endpoint competition. Measure golden trigger frequency and lookup cost;
+  leave semantic linking off if development evidence cannot justify it.
 - **FR-S2-012**: Graph evidence MUST use `maestro-evidence/2`, carried through
   `EvidenceInput`; non-graph `/1` remains compatible and rejects unknown graph
   fields. Graph contracts carry generation, claims, paths, supports and coverage.
 - **FR-S2-013**: Whole proofs MUST survive ranking, token accounting and wire
   bounds or be removed with explicit gaps/refusal. Rechunking remaps source
   spans to the pinned chunks; neither overlap nor version collapse removes a
-  necessary link, condition or contradiction.
+  necessary link, condition or contradiction. Report candidate/pre-fusion/
+  post-packing proof attrition and exact citation/support coverage separately;
+  route recall never substitutes for delivered complete-proof scoring.
 - **FR-S2-014**: CLI and MCP MUST share scoped operations for neighbors, path,
   entity resolve and evidence trace, with versioned JSON, deadlines, explicit
   ambiguity/coverage and bounded complete responses. No generic SQL/Cypher tool.
 - **FR-S2-015**: Graph answers MUST use an at-most-4B local answerer, at most
   one retry and the S1 command guards. Acceptance runs pin G08's frozen card.
   Every conclusion needs complete cited proof; no inferred transitivity,
-  invented links or absence claims.
+  invented links or absence claims. The one absolute **20 s end-to-end request
+  deadline** includes admission/queue waits, retrieval, model loading, generation,
+  validation, final response delivery and the retry; stages never reset it.
+  Deadline exhaustion cancels remaining work and earns no support/refusal credit.
+  Report unsupported conclusions separately from citation presence.
 - **FR-S2-016**: The model registry and gateway MUST distinguish the extractor
   role, qualification and selection. Constrained extraction uses a closed JSON
   schema, card-bound sampling and `Room::Free`. Output is limited to 1,024
@@ -375,13 +441,26 @@ paths, claims, evidence and coverage. Repeat after authoritative backup/restore.
   without duplicated embeddings. Passage-only keeps S1's default Dense,
   Lexical, Identifier and Structured routes with graph `none`, unchanged
   weights and the same reranker. Freeze that definition before G07/G08.
+  On development data compare A, A+R4, A+passage transitions and their combination
+  immediately, without waiting for R4 failure. Freeze whether fused acceptance
+  arm C includes transitions and semantic linking; graph-only B uses R4 proofs
+  and reports any descriptor dependency, never hidden passage retrieval.
+  Every acceptance arm answers both suites: (220 graph + 100 golden) × 3 arms ×
+  3 repeats = **2,880 requests**, not a retrieval-only substitute. The golden
+  suite remains 84 answerable entries and 16 unanswerable; translated entries
+  are not assumed to be independent families.
   Score construction, retrieval and answers separately; compare with same-run
   passage-only and keep G08 as a drift check. Retain every attempt; rerun
   `ctm-retrieval` with its non-regression gate in every run. Local drafting,
   review and owner-page/decision commands MUST have owning tasks and private
   outputs; `eval graph check` remains inference-free.
 - **FR-S2-019**: Rebuild MUST use SQLite/artifacts only and pass ordered result
-  equality after deleting disposable graph files and after backup/restore.
+  equality after deleting disposable graph/transition files and the descriptor
+  collection and after authoritative backup/restore. Reconstruct descriptors
+  from verified authority/artifacts with the frozen builder/embedding profile;
+  compare canonical text, IDs, source pointers and scope payloads, not approximate
+  ANN ordering or storage bytes. No projection backup or LLM-written text is
+  required to reconstruct authority.
 - **FR-S2-020**: Foreground projection and local telemetry consumers MUST reuse
   S1 durable cursors, deduplicate effects and acknowledge only durable work.
   No background daemon or OTLP exporter is introduced.
@@ -396,7 +475,9 @@ paths, claims, evidence and coverage. Repeat after authoritative backup/restore.
   rebuild and reader-safe removal.
 - **FR-S2-023**: G27 MUST expose a public typed-edge projection port at
   `crates/maestro-knowledge/src/graph/projection/port.rs`, using application IDs,
-  pinned generations, scopes and authoritative edge-family records only.
+  pinned generations, scopes and authoritative edge-family records. FR-S2-025
+  additionally permits a separate deterministic source-derived retrieval family;
+  those records are never documentary claims or claim-path edges.
   Alongside entity-to-entity edges it MUST expose scoped `entity_facts` for
   literal-valued subject claim records; G04 neighbors returns these records and
   typed neighbors when present. Other slices use the port for their own typed
@@ -411,8 +492,13 @@ paths, claims, evidence and coverage. Repeat after authoritative backup/restore.
   G31 upgrades G02's literal-only authority to this closed vocabulary; G11,
   G19 and G27 wait for it. G18's schema, G19's refusals and plan A4's queries
   use the same list;
-  no candidate extends it. M2's source-backed graph must cover these subsets
-  for the corresponding answerable question classes, without inferred edges:
+  no candidate extends it. Scope is documentation, not customer schedules:
+  documented job types/events must fit the closed documentary vocabulary without
+  inventing an instance-level `Job` kind or coercing event satisfaction into
+  `DEPENDS_ON`. Missing vocabulary needs a narrow source-backed ADR before
+  freeze. C27a catalog edges remain separate. M2's source-backed graph must
+  cover these subsets for the corresponding answerable question classes,
+  without inferred edges:
 
   | Question class | Required supported vocabulary |
   | --- | --- |
@@ -424,6 +510,23 @@ paths, claims, evidence and coverage. Repeat after authoritative backup/restore.
   G07 checks this coverage against approved source anchors before suite freeze;
   absent source support blocks the affected suite coverage, never licenses
   invented claims. Unanswerable items require no fabricated graph link.
+- **FR-S2-025**: A separately switchable bounded passage-transition route MUST
+  derive links deterministically from verified source structure, resolved source
+  cross-references and shared verified entity mentions. Retain derivation/source
+  provenance and stable passage application IDs in a rebuildable projection;
+  generate shared-entity neighbors on demand, not a quadratic clique. Seed from
+  admitted dense/lexical passage hits, filter authorization/eligibility/version
+  before every cap, and recheck before delivery. Freeze seed/hop/per-entity
+  fan-out/visited/time limits on development; high-degree hubs cannot exhaust
+  all work. Cross-version expansion requires an explicit comparison request.
+  Fuse newly discovered passages as a dependent passage route with parent/origin
+  attribution and stable source deduplication; unchanged seed echoes earn no
+  additional vote. Answer only from original passages under S1's support guards,
+  never from transition edges. Relation-semantic review is not required for a
+  retrieval hint, but source/identity verification is. Persisted graph reads
+  use LadybugDB only; no SQLite traversal or extra engine. Run the development
+  ablation before held-out freeze, measuring bridge recall, delivered proofs,
+  lookup support/refusals, latency and indexing/review cost under equal budgets.
 
 ### Key Entities
 
@@ -435,6 +538,9 @@ paths, claims, evidence and coverage. Repeat after authoritative backup/restore.
   with budgets, leases, checkpoints and acceptance/rejection receipts.
 - **Graph attachment / projection receipt**: the frozen claim set attached to
   a kernel generation, and evidence that its disposable files were verified.
+- **Descriptor / passage transition**: deterministic disposable retrieval data
+  keyed by source/application IDs and scoped generation/profile digests; neither
+  descriptor similarity nor passage reachability is claim authority.
 - **Proof group / coverage**: a complete chain and all required supports, plus
   what the bounded graph operation examined or could not establish.
 
@@ -447,27 +553,37 @@ paths, claims, evidence and coverage. Repeat after authoritative backup/restore.
   with failures retained. Pilot success alone never closes M2.
 - **SC-S2-002**: Pairing improves complete-proof recall by at least **five
   percentage points** over **same-run passage-only**, with the paired 95%
-  interval strictly above zero. The provisional suite has **100 held-out
-  questions**, twenty per type: **80 answerable**, twenty unanswerable, one
-  independent family per item. All 100 are acceptance-only; development uses
-  pilot/synthetic cases. Four new complete proofs among 80, with no loss,
-  give the smallest gain that meets both gates: five points. This suite size
-  is **pending owner confirmation**. Report each type and stage, and retain
+  interval strictly above zero. The approved suite has **220 held-out questions**:
+  **200 answerable** (50 per answerable class), twenty unanswerable, one independent
+  family per item. All 220 are acceptance-only; development uses pilot/synthetic
+  cases. Ten new complete proofs among 200 with no loss meet the five-point
+  boundary; nine do not. G06 records the power table before G07/G08 freeze;
+  repeated runs do not enlarge the family denominator. Report each type and
+  stage, and retain
   G08's S1 result as a separate drift check, not the M2 gain comparator.
 - **SC-S2-003**: Relation precision is at least **95%** by point estimate;
   accepted evidence spans/quotes and answer command exactness are **100%**
   valid. The independent-model review protocol below is **pending owner
   confirmation**; unresolved flagged claims cannot be silently accepted.
 - **SC-S2-004**: Supported-answer rate does not decrease under the frozen
-  at-most-4B answerer; correct refusal on all twenty unanswerable questions is
-  at least **80%** (at least 16/20), in every run.
+  at-most-4B answerer versus same-run passage-only on the 200 answerable graph
+  families; correct refusal on all twenty graph unanswerables is at least **80%**
+  (16/20). On unchanged golden v2.2, supported-answer rate on **84 answerable
+  entries** and correct-refusal rate on **all 16 unanswerable entries** MUST each
+  equal or exceed same-run passage-only in every repeat. Errors/timeouts earn no
+  support/refusal credit. All three arms answer both suites in all three repeats.
 - **SC-S2-005**: On the reference workstation's private graph, warm p95 graph
   time is at most **500 ms**, p95 graph search is **under 2.5 s**, and p95 complete
   ask is **under 10 s**. Cold/loading and unavailable cohorts are reported apart.
   Synthetic 10,000/100,000-edge profiling is a separate explicit benchmark.
+  Every request also has the single **20 s hard end-to-end deadline** in
+  FR-S2-015; per-attempt generation timeouts cannot qualify this boundary.
 - **SC-S2-006**: Delete/rebuild and authoritative backup/restore produce
   identical ordered neighbors, paths, claims, evidence and coverage, excluding
   only timings and transport IDs; retained pins and other collections survive.
+  Include deterministic passage-transition results and descriptor text, IDs,
+  separate source pointers, scope payloads and builder/embedding/profile digests.
+  Use deterministic lookup fixtures, not byte-identical approximate ANN ordering.
 - **SC-S2-007**: G25 meets plan A1's pass bar and native CI actually passes on
   Linux, Windows and macOS, including separate writer/CLI/MCP processes.
   Coverage is at least **95% changed-line / 90% total**; before merge, stable
@@ -492,23 +608,27 @@ graph from held-out results.
 
 | Gate | Population and pass decision |
 | --- | --- |
-| Complete-proof gain | Each of the 80 independent answerable families contributes one paired 0/1 result: one allowed proof counts only when every required anchor is in the delivered evidence bundle under the shared context budget, after the wire limit. Route, pre-fusion and pre-delivery recall are diagnostic only. Draw 2,000 paired resamples with replacement, seed 0, using S1's generator. Sort deltas; the two-sided 95% percentile interval uses the 50th and 1,950th ordered values (one-based). Pass only when the observed delta is at least 0.05 and the 50th value is strictly positive. G06 tests 4 wins/0 losses and 3 wins/0 losses. Duplicate families are rejected, not counted as independent samples. |
+| Complete-proof gain | Each of the 200 independent answerable families contributes one paired 0/1 result: one allowed proof counts only when every required anchor is in the delivered evidence bundle under the shared context budget, after the wire limit. Route, pre-fusion and pre-delivery recall are diagnostic only. Draw 2,000 paired resamples with replacement, seed 0, using S1's generator. Sort deltas; the two-sided 95% percentile interval uses the 50th and 1,950th ordered values (one-based). Pass only when the observed delta is at least 0.05 and the 50th value is strictly positive. G06 tests 10 wins/0 losses and 9 wins/0 losses at N=200, and retains the historical N=80 power examples as diagnostics only. Duplicate families are rejected, not counted as independent samples. |
 | Relation precision | An independent different local model family from the router catalog checks every accepted held-out claim's semantics, including rule-made claims; the owner rules on flagged claims on a local review page. Pin the reviewer card independently of the extractor. The point estimate must be at least 0.95. No unresolved reviews or empty denominator passes. This reviewer protocol is pending owner confirmation. |
 | Retrieval and supported answers | In every run, `ctm-graph` Recall@10, MRR@10 and supported-answer point estimates for pairing must each be at least the same-run passage-only value. G08 drift is reported separately; S1 tuning is not credited as graph gain. |
-| `ctm-retrieval` non-regression | In every run, pairing-minus-same-run-passage-only point deltas for both Recall@10 and MRR@10 must be ≥0 on the unchanged suite. A negative delta blocks M2 and disables losing fusion (US4 AS4). Report the seeded paired 95% interval using the same 2,000-resample/seed-0 method; the interval is diagnostic only, not a gate. |
+| `ctm-retrieval` non-regression | In every run, pairing-minus-same-run-passage-only point deltas for both Recall@10 and MRR@10 must be ≥0 on the unchanged suite. Golden supported-answer rate on 84 answerable entries and correct refusal on all 16 unanswerables must also each be ≥ same-run A. Errors/timeouts earn zero credit. Any regression blocks M2 and disables losing fusion (US4 AS4). Report the seeded paired 95% interval using the same 2,000-resample/seed-0 method; the interval is diagnostic only, not a gate. |
 | Refusal and validity | At least 16 of all 20 unanswerable questions are correctly refused per run; errors/timeouts earn no refusal credit. Every accepted span, quote and command must pass exactness, not a sample. |
-| Latency and repetitions | Warm runs use the frozen private graph with models loaded. Measure `retrieval.route.graph` and each graph tool's server time against 500 ms; end-to-end search/ask use their own limits. Use nearest-rank p95 over every predeclared warm attempt, retaining failures/timeouts as failed attempts. All three stochastic runs must pass every applicable gate independently; do not average away a failing run or pool repeats as extra questions. Missing or inconclusive evidence blocks acceptance. |
+| Latency and repetitions | Warm runs use the frozen private graph with models loaded. Measure `retrieval.route.graph` and each graph tool's server time against 500 ms; end-to-end search/ask use their own limits. Use nearest-rank p95 over every predeclared warm attempt, retaining failures/timeouts as failed attempts. One 20 s hard request deadline includes queue/loading/retry time and cancels remaining work. All three stochastic runs must pass every applicable gate independently; do not average away a failing run or pool repeats as extra questions. Missing or inconclusive evidence blocks acceptance. |
 
 ## Out of Scope
 
 No Neo4j dependency/service in S2; no SQL traversal fallback at M2. Later
 user-selected Neo4j belongs behind deployment-modes D07's graph port, not a
-forbidden future backend. No vector/fuzzy entity linking, dense-seeded
-expansion, community summaries, PPR, Leiden, global graph analytics or duplicated
-vector store. These require measured gain and a later plan. Backend selection
+forbidden future backend. Scoped deterministic descriptor candidate linking
+(FR-S2-011) and dense/lexical-seeded passage transitions (FR-S2-025) are in scope;
+identity merging by vector similarity and passage-hit seeding of R4 are not.
+No graph-engine vector/FTS extension, duplicated vector store, community
+summaries, PPR, Leiden or global graph analytics. Those require measured gain
+and a later plan. Backend selection
 belongs to deployment-modes D07, not S2's shared typed-edge API.
 
-Qdrant Server stays unchanged. The parallel Qdrant Edge evaluation is separate
+Qdrant Server deployment stays unchanged; descriptors extend its projection
+contents only. The parallel Qdrant Edge evaluation is separate
 and does not qualify it for S2. Catalog semantics belong to S3; S2 provides only
 the shared G27 port. No S6 acquisition, S7 UI, workflow daemon, HTTP API or
 OTLP exporter. Release-delta deduplication, heading cleanup, general answer

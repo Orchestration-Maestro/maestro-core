@@ -3,8 +3,11 @@
 **Branch**: `docs/s2-spec` | **Date**: 2026-09-28 | **Spec**: [spec.md](spec.md)
 
 **Input**: the approved S2 draft and its 2026-09-28 01:56 owner decision.
-Tasks: [tasks.md](tasks.md). D1–D5 remain decided; the revised 100-question
-suite and local precision-review protocol remain pending owner confirmation.
+Tasks: [tasks.md](tasks.md). D1–D8 are decided, including the 2026-09-30
+fusion design, 200 answerable graph families plus 20 unanswerable, and the
+three fork patch categories. Only the local precision-review protocol remains
+pending owner confirmation. ADR-0021/0002 amendments are ledger proposals;
+this plan governs the approved scope until those records are reconciled.
 U2's private scopes and I1's development-only 8B trigger were approved at 12:53.
 This plan includes
 the supervisor's review ruling and cross-slice projection seam.
@@ -21,7 +24,10 @@ loader; it needs no model/service and is not M2. No task waits for M1 release.
 SQLite claims and artifacts remain authoritative; SQLite never answers graph
 queries. LadybugDB is the only S2 neighbor/path engine from the pilot onward:
 an in-process projection behind G27's port, rebuilt from frozen kernel claims.
-G11 extends the same engine with bounded Cypher paths. A selected but missing
+G11 extends the same engine with bounded Cypher paths. G35 adds deterministic
+source descriptors beside passages in Qdrant; G36/G37 add a separately scoped
+passage-transition projection/route. G38 compares these additions on development
+from the start, preserving question-only R4 and the unchanged S1 comparator. A selected but missing
 graph is unavailable, not a fallback; graph `none` is disabled without calls.
 Reuse S1 jobs, evidence, evaluation, CLI and MCP. G27 exposes the shared application-ID
 typed-edge port; deployment-modes D07 later wraps it for backend choice,
@@ -40,7 +46,10 @@ infer a compatible version from an older architecture example.
 
 **Storage**: kernel SQLite in WAL mode and content-addressed artifacts; one
 owned graph area below the resolved data directory. File layout and process
-ownership follow G25's safe mode. Qdrant Server stays the passage projection.
+ownership follow G25's safe mode. Qdrant Server remains the vector infrastructure
+for passage embeddings and G35's separately versioned descriptor collection.
+LadybugDB holds typed proofs and a distinct passage-transition retrieval family;
+none of these projections supplies its own authority.
 No engine file becomes a backup authority.
 
 **Testing**: focused Rust tests first, synthetic public integration fixtures,
@@ -58,7 +67,9 @@ Windows/macOS toolchains, plus local Clippy for `x86_64-pc-windows-gnu` and
 **Project Type**: existing Cargo workspace; libraries plus CLI/MCP binary.
 
 **Performance Goals**: p95 graph at most 500 ms, graph search under 2.5 s and
-complete ask under 10 s on the reference workstation. Profile synthetic
+complete ask under 10 s on the reference workstation, with one absolute 20 s
+request deadline including queues, loading, retrieval, generation, validation,
+final response delivery and the single retry. Profile synthetic
 10,000/100,000-edge graphs and separate cold, warm and unavailable cohorts.
 
 **Constraints**: no new daemon, graph port, Docker, JVM, unsafe wrapper or
@@ -68,9 +79,11 @@ Local depth at most two, path length four, evidence 50; finite expansion/time
 caps and cancellation are mandatory. G11 records the measured expansion cap in
 its query profile; reaching it discloses incomplete coverage.
 
-**Scale/Scope**: one approved subset/version for the pilot; provisionally 100
-FR/EN acceptance questions, twenty per type, all held out (80 answerable,
-one independent family per item). Suite size is pending owner confirmation.
+**Scale/Scope**: one approved subset/version for the pilot; 220 approved FR/EN
+graph questions, fifty per answerable class and twenty unanswerable, all held
+out (200 answerable independent families). Golden v2.2 stays 84 answerable
+entries plus 16 unanswerable, not 84 assumed-independent families. Mandatory
+acceptance is (220 + 100) × 3 arms × 3 repeats = **2,880 answered requests**.
 Development uses pilot/synthetic cases only. Source scope/counts/receipts stay
 private. The estimate assumes 4B extraction; Qwen3-8B or an engine re-plan needs
 a revised estimate.
@@ -105,6 +118,11 @@ This amendment rebased onto `79b6502`: G02 (`a176f26`) has landed
 upgrade; the historical G02 task is not credited for it. G03 is integrated as
 `79b6502`: `graph/rules.rs` already provides the `Extractor` port and `resolve`,
 which G10 will move/extend rather than duplicate.
+
+The fusion amendment is based on validated research Revision 2 (2026-09-30)
+and its independent review, against `edcce756b35128719b6754b3d72d1de50ad22433`.
+These are design inputs, not new benchmark results. Research §5 is implemented
+by the FR/task mapping below; private source text was not needed to plan it.
 
 The separate G25 lane writes the supervisor's G25 report and publishes
 sanitized evidence in `specs/002-knowledge-graph/research.md`. That is an
@@ -177,6 +195,8 @@ crates/maestro-knowledge/src/
 │   ├── query.rs        # bounded graph operation orchestration
 │   ├── cypher.rs       # parameterized templates and native cancellation
 │   ├── resolve.rs      # sourced exact names and reviewed aliases
+│   ├── descriptors/    # deterministic source text and scoped Qdrant projection
+│   ├── passages/       # deterministic transition projection and bounded reads
 │   ├── extract/        # offline model windows and retained rejections
 │   └── consumer.rs     # foreground cursor-driven projection effects
 ├── eval/graph/         # labels, complete-proof scoring and comparisons
@@ -343,6 +363,47 @@ operations estimates if Neo4j is chosen. Separately, approved deployment-modes
 work adds a later user-selected external Neo4j adapter. Neither is a runtime
 fallback; G25 failure is not a prerequisite for that separate planned adapter.
 
+#### Approved fork prerequisites and feature boundary (2026-09-30)
+
+The old pin's research verdict is **not adopted; row 3 fails**. Its measured
+added clean workspace cost is +10:32 to +16:04 on Linux, +16:35 to +26:38 on
+Windows and +10:40 to +12:55 on macOS (`research.md`, Row 3). An external cache
+can remove repeated compilation, not qualify a genuinely empty-cache build.
+Report true source-cold, fresh Cargo target with compatible native-cache hit,
+and warm Rust-only edit separately; retain the ≤15-minute true-cold delta bar.
+
+D8 approves E01/E02 rooted no-follow Unix/Windows operations, E03's external
+cache keyed by source/target/compiler/profile/native flags, and E03b's removal
+of automatic prebuilt downloads with source builds as the default. The final
+40-character fork SHA must include all three categories; `Cargo.lock` must pin
+that identical commit. No future SHA is invented. G25 requalifies all six rows
+on the combined pin, with three-OS out-of-repository/env-unset/empty-cache builds
+and zero trapped network fetch attempts, licences/NOTICE/vet, native links,
+prepared batches, cancellation, independent processes and kill/reopen evidence.
+A complete native operation/caller audit covers opens, metadata, rename/copy,
+mkdir/unlink, spill/WAL/checkpoint and disabled extensions/COPY/alternate VFS;
+unsafe or unsupported operations fail closed rather than reopen ambient paths.
+
+G27 remains the umbrella for its approved 14 E-slices (task table below), not a
+four-hour engine implementation. E05/E06 contracts landed at this baseline;
+that does not qualify the remaining native adapter. Keep the adapter private
+inside `maestro-knowledge/graph/projection/engine/`, behind opt-in `engine`,
+forwarded by the CLI. Default workspace builds never compile lbug. G22 builds
+M2 with `cargo build -p maestro --release --locked --features engine`.
+
+The gate release adds exactly `coverage-features` and `mutation-engine`:
+combine default and engine coverage under unchanged thresholds; route exact
+engine-owned files to required package-local `--features engine` mutation
+workers, retaining default and Windows ownership. No global mutation features
+or `test_workspace = true`. Reconcile discovered/planned/executed unions,
+reject missing/cancelled/baseline-failed work and any added configuration-induced
+unviable mutants; preserve feature-absent tests through capability injection.
+Every native slice updates exact ownership in its commit. Keep 30-minute shards,
+8 GiB local cap and three Cargo jobs. Lint-only cross-target artifacts are not
+runtime/release evidence. G25/G27/G22 update stale default-dependency wording in
+research/ADR-0020/0021 when the qualified pin lands, not in this document-only
+amendment. Engine vectors, FTS, PPR and global search remain deferred.
+
 ### A2 Claims and source verification
 
 Store immutable claims, not model conclusions. The rule/extractor submits a
@@ -361,7 +422,7 @@ and model confidence.
 
 | Authoritative record | Required content and invariant |
 | --- | --- |
-| Entity | Collection/application ID, kind, normalized name and exact source spelling; matching all four identity components resolves reversibly to one entity across documents. |
+| Entity | Collection/application ID, kind, normalized name and exact source spelling; matching all four identity components resolves reversibly to one entity across documents unless a source-backed namespace collision remains unresolved. |
 | Claim | Application ID, typed subject/predicate/object, conditions/environment, version and world-valid bounds, record time, extractor/profile and review state. `DEFAULTS_TO` has a literal object, not another entity. |
 | Support | Claim ID, revision/block ID, original half-open byte span, quote digest; nonempty verified supports before acceptance. |
 | Mention/alias/review | Source support, proposed/resolved identity, decision and supersession history; ambiguity is retained. |
@@ -375,7 +436,9 @@ kinds is never automatically merged. Decisions are reversible and source-backed.
 A `DEFAULTS_TO` object is a typed literal (text, boolean, integer or decimal)
 with its exact source lexeme. No floating-point rewrite of a decimal or guessed
 unit/type is allowed. Literals are claim properties, not projection nodes;
-Document/Section nodes are not projected either. Claims keep revision/block
+Document/Section claim nodes are not projected either. G36's separate passage
+application-ID family may represent source structure for retrieval only; it
+cannot create a claim endpoint, proof edge or literal hop. Claims keep revision/block
 references, and literal-valued defaults do not create entity-to-entity paths.
 G03's integrated rule tests cover literal/node boundaries and cross-document
 subject grouping/collisions. G10 preserves and extends `rules::resolve` with
@@ -386,7 +449,14 @@ predicates after G02/G03, before G11/G19/G27. Its next-free migration preserves
 valid 0012 rows/digests/history; out-of-vocabulary legacy rows refuse the whole
 upgrade unchanged, with an ID-only diagnostic, never an invented mapping.
 G18/G19 share those choices; G07 requires source-backed coverage for the
-dependency, multi-hop, default and version question subsets.
+dependency, multi-hop, default and version question subsets. This is documentary
+knowledge, not customer schedule instances: no instance `Job` kind and no event
+satisfaction coerced into `DEPENDS_ON`. C27a catalog edges cannot fill coverage.
+G10 tests identically named concepts in unrelated source-backed namespaces within
+one collection; unresolved collisions block automatic resolution for review.
+A changed identity key or missing documentary vocabulary needs a narrow ruling/
+ADR with positive and negative synthetic cases before G07 freeze; never a
+per-product mapping file or silent semantic change.
 
 Version ranges are half-open where ordered bounds are known. Unknown validity
 is explicit, never replaced by capture time. Conditions are typed data from the
@@ -440,7 +510,9 @@ G27 owns the public typed-edge API at
 `crates/maestro-knowledge/src/graph/projection/port.rs`. Other slices project
 and read their own frozen, kernel-authoritative typed edges through operations
 on collection/generation/application IDs and explicit edge families. Scope and
-eligibility constraints stay inside reads. No raw Cypher, engine IDs or lbug
+eligibility constraints stay inside reads. G36 adds an explicitly separate
+source-derived passage-transition/membership family through that same port;
+it is rebuildable retrieval data, never a claim or catalog assertion. No raw Cypher, engine IDs or lbug
 types escape. All lbug calls stay in `G/projection/` and `G/cypher.rs`.
 
 The same port's scoped `entity_facts` exposes literal-valued knowledge claims
@@ -484,9 +556,11 @@ current permissions and source eligibility. A projection receipt or earlier
 scope snapshot does not replace this check. Unknown and forbidden requests
 share error shapes and disclose no counts, aliases or hidden intermediates.
 
-R4 resolves exact identifiers/names and reviewed aliases from the question
-only, using deterministic FR/EN linking without a model. Simple lookup keeps S1
-routes; relationship/path questions add R4. Each candidate retains its whole
+R4 resolves exact identifiers/names and reviewed aliases from the question only.
+When there is no exact seed, G14 invokes the development-selected deterministic
+semantic linker described below; no undefined relationship-question classifier
+controls that trigger. Ambiguous exact matches stay ambiguous. Simple lookups
+retain S1 passage evidence; R4 never uses dense/BM25-hit seeds. Each candidate retains its whole
 claim path and support IDs through one-based RRF (K = 60), stable ties and
 reranking. A graph echo of its seed is explanatory, not corroboration. No
 transitive relation is inferred merely because two edges form a path.
@@ -497,7 +571,63 @@ Rank, evidence budget and final 64 KiB response policy operate on whole proof
 groups. Charge graph proof metadata as well as passages; keep exact versus
 estimated token accounting explicit. If no complete group fits, disclose a
 sanitized known gap and refuse a conclusion requiring it. Nothing reports a
-missing relation as corpus-wide absence.
+missing relation as corpus-wide absence. G13/G16 report candidate, pre-fusion,
+post-packing and final-wire proof attrition; exact citation coverage is distinct
+from supported conclusions and unsupported-conclusion rate.
+
+#### A4a Deterministic claim-first linking (G35/G14)
+
+G35 owns a small descriptor projection port and Qdrant adapter using the existing
+embedding gateway/model/profile, not a second vector store. Build entity text
+from exact name + closed kind + verified defining sentence; claim/triple text
+also includes the authoritative predicate and both endpoints' sourced context.
+Index concatenation preserves separate original source pointers for every span;
+it never invents a contiguous quote or LLM prose. Freeze builder, embedding,
+profile and generation digests. Share reusable embeddings/projection output
+across arms when their model/preprocessing identities match.
+
+Try exact resolution first. Match the question directly against claim/triple
+descriptors before entity-name-only descriptors. Inside Qdrant, apply authorized
+collection, pinned generation, requested version and eligibility **before top-k
+and seed caps**; fail closed if the admitted scope cannot be represented.
+Recheck current authority before traversal and delivery. Test many disallowed
+high-scoring candidates that would otherwise exhaust the cap, hidden/unknown
+parity, revocation, homonyms, wrong-version decoys and competing endpoints.
+Similarity supplies priority only: no identity/alias/claim write or extra vote.
+
+Start development at five entity seeds maximum; freeze selected caps and a
+threshold for each of EN→EN, FR→FR, FR→EN and EN→FR using paraphrases and NIL
+cases in each direction. No per-product threshold or dictionary, online
+translation, generative NER or triple-filter LLM. G38 selects the profile or
+leaves semantic linking off if delivered-proof gain/cost cannot justify it.
+G08/G23 measure lookup time and trigger frequency on all golden questions.
+
+#### A4b Passage transitions as dependent retrieval (G36/G37)
+
+G36 deterministically derives links between passage application IDs from verified
+source structure, resolved source cross-references and shared verified entity
+mentions. Retain derivation/provenance under a separate retrieval family;
+relation-semantic review is unnecessary for a hint, but source endpoints and
+mention identities must be verified. Keep inverted entity membership and expand
+shared neighbors on demand; never materialize a quadratic clique. No literal
+node, relation claim or transitive truth follows from a transition.
+
+Use the existing Ladybug projection port and G28 loader for persisted structure,
+cross-reference links and membership; no second graph engine or SQLite traversal.
+A narrow passage-index adapter exposes admitted bounded expansion without native
+types leaking into callers. Freeze seed count, hop count, per-entity fan-out,
+visited-passage cap and elapsed-time budget on development. Scope, eligibility,
+pin and version filter every hop before caps. High-degree entities cannot take
+all work; compare versions only when explicitly requested. Recheck grants at
+delivery and disclose incomplete coverage on cancellation/bounds.
+
+G37 seeds only from admitted dense/lexical candidates, unlike R4. Return new
+original passages to existing fusion/reranking, retaining parent/origin attribution
+and deduplicating stable source identities. An unchanged seed echo earns no new
+vote. A transition itself is neither a proof edge nor a citation; final support
+must pass S1 guards and the same evidence/wire budgets. Graph `none` disables
+both graph routes without engine calls; a failed transition projection reports
+its own unavailable state without hiding R4 or passage-route failures.
 
 ### A5 Wire and application contracts
 
@@ -556,11 +686,12 @@ packing. Route/pre-fusion/pre-delivery recall is diagnostic only; partial chains
 and duplicate alternate copies earn no extra complete-proof credit.
 Construction precision judges relation semantics, not just matched text.
 
-G07 uses G34's bounded local drafting runner for the provisional 100 FR/EN
-questions, twenty per type, pending owner suite-size confirmation. All 100 are held-out acceptance, with 80 answerable independent
-families and twenty unanswerable ones. Equivalent versions/alternate copies
+G07 uses G34's bounded local drafting runner for the approved 220 FR/EN
+questions: fifty each for relationships, dependencies, version differences and
+multi-hop, plus twenty unanswerable. All 220 are held-out acceptance, with
+200 answerable independent families and twenty unanswerable ones. Equivalent versions/alternate copies
 stay within one item; duplicates cannot inflate the effective sample size.
-Development uses only pilot/synthetic cases, not a slice of those 100. G08's
+Development uses only pilot/synthetic cases, not a slice of those 220. G08's
 G32 independent different-local-family runner checks every chain; the owner
 rules on flags through G33's local page and digest-bound decision import. Freeze suite/corpus/
 profile/family digests and the passage-only route definition before acceptance.
@@ -591,9 +722,9 @@ Identifier/Structured still use kernel SQLite; do not discard them. Pairing's
 comparator is that same-run rung; G08 is a historical drift check. Alternate
 run order, keep every attempt and apply the spec's exact 2,000-resample,
 seed-0 paired percentile rule: 50th ordered delta strictly positive and observed
-gain at least 0.05. Four wins and no losses among 80 prove the five-point
-boundary in G06's synthetic check; three wins fail. No pooling three repeats as
-240 independent questions.
+gain at least 0.05. Ten wins and no losses among 200 prove the five-point
+boundary in G06's synthetic check; nine wins fail. Keep historical N=80 power
+fixtures separately. No pooling three repeats as 600 independent families.
 
 Every run must separately pass relation precision, exactness, ≥16/20 correct
 refusals, and non-decreasing `ctm-graph` retrieval/supported-answer point
@@ -604,8 +735,101 @@ per-type/stage results. On unchanged `ctm-retrieval`, pairing-minus-same-run-
 passage-only Recall@10 and MRR@10 point deltas must each be ≥0 in every run;
 a negative delta blocks M2 and disables losing fusion. Report the same seeded
 paired 95% interval as diagnostic only, never as a non-regression gate.
+Golden supported-answer rate on all 84 answerable entries and correct refusal
+on all 16 unanswerables must each be at least same-run A in every repeat.
+Errors/timeouts earn zero support/refusal credit. All three arms answer both
+suites: 220 × 3 × 3 = 1,980 graph requests and 100 × 3 × 3 = 900 golden requests,
+**2,880 mandatory requests** total. Retrieval-only runs cannot replace them.
 All three runs must pass; missing, failed or inconclusive evidence blocks M2.
 Disable losing fusion without changing the thresholds.
+
+#### Development controls, power and cost (G06/G19/G38)
+
+Before G07/G08 freeze, G38 runs A (unchanged S1), A+R4, A+passage transitions
+and A+R4+transitions together on synthetic/public development data. The approved
+one-table pilot cannot qualify multi-hop gain; additional private development
+needs a disjoint receipt. Check oracle vocabulary/seeds/proof packing first;
+then compare exact versus claim-first linking and rules versus rules+4B. Select
+and freeze the extractor on the approved real pilot development evidence with
+synthetic checks, before G07/G08; additional private multi-hop windows need a
+new disjoint receipt. Apply I1 only to its registered development failure. Never wait for R4 failure to
+try passage transitions. Freeze whether C uses transitions and linking before
+held-out labels/results can affect selection; B is R4 proofs only, with any
+Qdrant descriptor dependency declared. Keep identical embedding/reranker/reader,
+weights, context/wire caps and deadline across controls and acceptance arms.
+Measure bridge recall, delivered proof, simple-lookup support/refusals, linking
+NIL errors, latency and indexing/review costs with each route's attribution.
+A combined gain is not automatically a gain from reviewed claims.
+
+G06 records D7 and reproduces this Revision 2 power grid before suite freeze.
+It is a CPU simulation, **not corpus performance**: 5,000 independent datasets
+per cell; homogeneous family deltas +1/−1/0; outer PCG64 seed
+`20260930 + 100*N + rate_index`, four rates in table order. Inner S1 SplitMix64
+seed 0 resets per dataset, 2,000 paired resamples, one-based bounds 50/1,950,
+observed gain ≥0.05 and lower bound >0. Reuse equal-N draw weights, not a normal
+approximation. Maximum Monte Carlo standard error is 0.0071; three repeats on
+the same families are dependent, so never cube these probabilities.
+
+| True wins / losses / net | N=80 | N=120 | N=200 (approved) |
+| --- | ---: | ---: | ---: |
+| 5% / 0% / +5 pp | 0.5724 | 0.5444 | 0.5470 |
+| 10% / 5% / +5 pp | 0.1888 | 0.2686 | 0.4332 |
+| 15% / 5% / +10 pp | 0.5006 | 0.6962 | 0.8978 |
+| 10% / 0% / +10 pp | 0.9680 | 0.9834 | 0.9968 |
+
+The joint gate still rejects roughly half the datasets at the exact true 5 pp
+boundary: N=200 CI-only power is 0.9884 at 5% wins/no losses, but joint power
+is 0.5470. Failure means insufficient passing evidence, not proof of no benefit.
+At historical N=80, wins/losses 4/0 pass (+1.25 to +10.00 pp interval); 5/1,
+6/2 and 8/4 fail (0.00 to +11.25, −1.25 to +12.50, −3.75 to +13.75 pp).
+Do not substitute these old four-win examples for the new 200-family gate.
+
+G19 first times a fixed token-length-stratified development-window sample,
+retaining input/output tokens, wall/GPU seconds, accepted/rejected candidates,
+retries and peak VRAM/RSS. A 30-minute GPU reservation is a checkpoint budget,
+not a promised completion time. Offline work yields to interactive admission;
+load/eviction/queue costs remain in cold/contended diagnostics. Use one absolute
+20 s request deadline for G14/G16/G23, never a fresh timeout per stage or retry.
+A per-generation-attempt 20 s harness limit is not end-to-end qualification.
+
+Cost accounting distinguishes requests, extraction, review and human waits:
+
+| Work | Derived quantity; not measured runtime |
+| --- | --- |
+| Mandatory acceptance | 2,880 requests × 20 s = 16 h serial online ceiling, excluding startup/teardown/recovery/review. At an assumed 5 s mean: 4 h. |
+| Change from the old 80-answerable option | +120 graph chain labels, +1,080 requests, +6 h deadline-derived ceiling; same corpus need not increase extraction scope. |
+| Extraction | Actual frozen window count W × measured mean GPU seconds/window ÷ 3,600; use wall seconds separately for wall hours. |
+| Local semantic review | Accepted claim count C × measured review GPU seconds/claim ÷ 3,600, with retries/batches separately reported. |
+| Owner review | C × flagged fraction f × mean minutes/flag t ÷ 60 human-hours; no measured f or t yet. Labeling and local-model review are additional. |
+
+S1 had 13,596 units, not necessarily 13,596 extraction windows. A conditional
+one-window-per-unit scenario takes 3.7767 × measured seconds/window hours:
+1/5/10 hypothetical seconds imply 3.78/18.88/37.77 hours. At 512 output tokens
+and S1 answer diagnostics' roughly 180–235 tokens/s, decode alone would be
+2.18–2.84 s/window or 8.23–10.74 h for those units. This is a conditional
+answer-rate-derived envelope, not measured extractor throughput or a guaranteed
+G19 bound: prefill, reasoning, retries, loading and review add work. Replace
+unit count and rates with G19's actual window calibration before a broad job.
+Development controls and whole-generation extraction/review are outside the
+2,880-request total; the small literal pilot cannot stand in for acceptance.
+
+#### Rationale: retain S1's measured first stages
+
+Revision 2 reconciles the S1 bake-off rather than treating alternate first
+stages as unexplored. S1 measured BGE-M3 full-pool MaxSim (exact flat scans, not
+a dense shortlist or ANN/PLAID), bge-sparse, multilingual SPLADE and MILCO.
+Sample contended p95 values were 67.59 ms, 2.17 ms and 57.08 ms for the three
+sparse candidates; full MILCO was 208.46 ms. They are not quiet production
+qualifications. SPLADE truncated 434 sample inputs; MILCO's inherited-head
+licence provenance remains unresolved. The real pipeline found no general
+first-stage gain after its stronger sorter, with a documented answer missing
+from the top 100 as an exception. Keep the selected S1 routes/reranker; reopen
+only for matched end-to-end candidate-recall gains within the same budgets.
+Sources: S1 ledger `retrieval-bakeoff.md:151,332–358` and
+`search-pipeline-breakdown.md:27`, as validated in fusion research Revision 2.
+HippoRAG 2's query-to-triple evidence motivates G35/G14, not a promise of local
+multilingual accuracy. Full PPR, global summaries and multi-round agents have
+not earned their latency/review cost under this small-reader contract.
 
 ### A7 Local operations and equality proof
 
@@ -620,8 +844,14 @@ G30 freezes kernel state and a query matrix including hidden hops, versions,
 contradictions, multiple collections and retained generations. Save ordered
 neighbors, paths, claims, evidence and coverage; close all handles and drain
 readers; delete only owned disposable LadybugDB files; rebuild from the kernel
-without models, Qdrant claims or graph backup; compare exactly, excluding only
-timing and transport IDs. Repeat the same loader after interrupted batches.
+without extraction/generative models, Qdrant claim authority or graph backup;
+compare exactly, excluding only timing and transport IDs. Also delete the
+owned descriptor collection and transition projection, rebuild from authority
+with frozen builder/embedding/profile digests, and compare canonical descriptor
+text, application IDs, disjoint pointers and scope payloads plus deterministic
+lookup/transition fixtures. Reuse embedding outputs or re-embed with the pinned
+existing model; no backed-up vector projection is required. Approximate ANN
+ordering/storage bytes are not equality criteria. Repeat the same loader after interrupted batches.
 G22 repeats after SQLite/artifact backup/restore, with interrupted and corrupt
 states and separate writer/CLI/MCP processes on all three operating systems.
 
@@ -729,7 +959,8 @@ private workflow tools; no lane fills the gap with an ad-hoc text-dumping script
    a prerequisite for G10's public identity implementation.
 3. **Proof safety:** hidden-hop, revocation, version/condition, generation,
    fan-out, cancel, rechunking and whole-proof budget/wire checks pass.
-4. **M2 quality:** G08 drift receipt, construction score and the same-run
+4. **M2 quality:** G38 development selection precedes G07/G08 freeze; G08
+   drift receipt, construction score and the same-run
    three-rung comparison meet all gate rules in all three runs. G23 need not
    wait for G22's recovery drill; both still gate release.
 5. **Operations/release:** G30 equality, restore, real three-OS CI, Pi/Claude
@@ -738,41 +969,31 @@ private workflow tools; no lane fills the gap with an ad-hoc text-dumping script
 
 ## Delivery and estimate
 
-The [33 tasks](tasks.md) keep stable IDs, with **G25 first**, G29 removed and
-G31–G34 added. Each is at most four hours including targeted gates. Total:
-**124 lane-hours**, up from 108; the four new tasks add 4 h each. The pilot plus
-its prerequisites is **61 lane-hours**, up from 41, with a **42-hour** dependency
-path (formerly 30): it now includes G06 and all four new tasks. G09/G31 precede
-G10 (migration/resolver edits); G34 precedes G32 (shared manifest). These two
-extra ownership dependencies add no critical-path time. G06 follows G03, not
-G04. G06/G09/G31 can
-run beside qualified packaging once their inputs exist; G04 starts after
-G25/G28/G03 and G05 waits for G32/G33's actual review tools.
+The task accounting and exact dependency calculation are in
+[tasks.md](tasks.md#dependencies-and-parallel-opportunities). There are 37 stable
+G IDs: 36 bounded tasks total **136 lane-hours**, plus G27's 14-slice umbrella
+whose former 4 h is excluded. E-slice ranges are estimates from observed lanes,
+not measured future durations: **40–86 h**, giving the arithmetic full-plan
+sum **176–222 lane-hours**. This includes already landed work, not remaining
+work. G27-zero dependency accounting is **71 h** overall and **42 h** for the
+**61 h** pilot ancestor set; these are bounded-G subtotals, not delivery times.
+The E prerequisite path and `67 + max(4, U)` / `38 + max(4, U)` full/pilot
+formulas in tasks.md account explicitly for the unresolved G27 join duration U. Runtime,
+human review, native CI and release/re-pin waits are outside fixed G-task hours.
+No aggregate-work quotient is a delivery-date promise.
 
-Six lanes at eight hours/day give a **3.0–3.2-day** aggregate-work quotient with
-the 20–28-hour native CI/review reserve (**144–152 total**), not a delivery floor.
-The dependency-only critical path is **59 hours**, up from 52, or **7.375
-eight-hour working days** before external waits. The overall planning estimate
-remains **9–12 working days**; the pilot alone needs at least **5.25 working
-days**, plus approval/qualification waits. Critical path:
-G01 → G02 → G03 → G09 → G10 → G27 → G28 → G04 → G32 → G33 → G05 → G07
-→ G08 → G20 → G23 → G24. G22 can run beside private acceptance; both must finish
-before G24, which waits for every task. The added review/page prerequisites,
-not G06, now control the private acceptance path.
-
-Split an overrun into independently testable tasks before dispatch, without
-waiving acceptance. At most six lanes; GPU and projection writers are serialized
-where their resources conflict. The supervisor owns dispatch/review/integration;
-lanes never start subagents. `[P]` marks tasks eligible for another lane once
-inputs exist, not permission to race file edits. G09/G31 precede G10 and G34
-precedes G32 to serialize their shared files.
-Other migration/CLI registration hunks are narrow supervisor-rebased exceptions;
-all other shared-file collisions require serialized ownership.
+G01–G34 retain their IDs (G29 removed); G35–G38 add descriptor projection,
+passage projection, dependent passage fusion and development selection.
+Tasks are ordered by prerequisites; shared files serialize, while public work
+and fork qualification can overlap. At most five building lanes under the
+workspace's current overall agent cap; the supervisor owns dispatch and
+integration. Lanes never start subagents. Any task expected to exceed its
+bounded allocation is split before dispatch, without weakening acceptance.
 
 ## Complexity Tracking
 
-None approved. The pilot and full graph use the same LadybugDB projection port
-and loader; no SQLite graph-read path or fallback exists. New files appear with
+No gate exception approved. The pilot, proof graph and passage transitions use
+the same LadybugDB projection port and loader; no SQLite graph-read path or fallback exists. New files appear with
 working behavior; existing S1 helpers and contracts are extended, not cloned.
 
 ## Risks and deferrals
@@ -788,5 +1009,5 @@ working behavior; existing S1 helpers and contracts are extended, not cloned.
 S1's graph-specific duplicate/support handling is covered in G10/G13 and graph
 budgets in G13/G23. This does not implement general release-delta deduplication
 or republish cleaned headings. Catalog, acquisition, UI and advanced graph
-methods remain outside S2. Qdrant Server is unchanged while Edge is evaluated
+methods remain outside S2. Qdrant Server deployment is unchanged while Edge is evaluated
 on its own evidence.
