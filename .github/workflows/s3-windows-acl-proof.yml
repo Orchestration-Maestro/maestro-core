@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner: [windows-2025]
+        runner: [ubuntu-24.04, windows-2025, macos-15]
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 45
     permissions:
@@ -82,7 +82,5 @@ jobs:
             tar -xzf "$archive" -C nextest-bin
             echo "$RUNNER_TEMP/nextest-bin" >> "$GITHUB_PATH"
           fi
-      - name: Red proof without disabling ACL-bypass privileges
-        run: |
-          cargo nextest run --locked -p maestro-filesystem \
-            a_create_failure_is_not_retried_as_a_missing_directory --no-fail-fast
+      - name: Filesystem suite with the verified ACL privilege premise
+        run: cargo nextest run --locked -p maestro-filesystem --no-fail-fast
