@@ -107,19 +107,35 @@ validation.
 ### 2.2 S6 — native acquisition
 
 Native acquisition replaces the Python producers **source family by source
-family**, each one only after its connector matches the Python output on a
-fixture set and a sampled live diff (see [roadmap S6](06-roadmap.md)). The
-approach is a staged native engine with explicit adapters; a native shell
-around the Python collectors is only a comparison harness, and a big-bang
-rewrite is rejected. Until cutover, the Python route (Crawl4AI, Docling and its
-scheduled refresh) remains the producer and the comparison oracle. Vendor
-mechanisms are specified privately (ADR-0009); this section states the generic
-requirements the native engine must meet. Connectors run as source-connector
-extensions that lease items from the core-owned frontier
-([07 §4.1](07-extensibility.md#41-what-an-extension-can-be)).
+family**, after frozen fixture comparison, a separately authorized sampled live
+diff and S1 retrieval qualification (see [roadmap S6](06-roadmap.md)). The
+approach is a staged Rust engine with replaceable adapters, not a big-bang
+rewrite or a native shell around Python collectors. Until a family's approved
+cutover its legacy route remains the production writer; afterwards it is
+comparison-only. Known legacy defects need source-grounded independent review,
+not blind output parity. The owner's **2026-09-30** decision permits only
+crawl4ai (Python, out of process) for unavoidable browser work (§2.2.2), not a
+Python producer, extractor or connector.
 
-The private repository owns the product-specific source list and eligibility
-rules. This public section specifies generic acquisition controls only.
+**Delivery dependency: S1 only**, not its M1 release and not S3/S4 delivery.
+S6 supplies direct manifest-file policy and a qualified **local subprocess
+connector adapter** now. Private connectors remain source-connector extensions
+under ADR-0013, leasing from the core-owned frontier and speaking the shared
+Maestro Extension Protocol ([07 §4](07-extensibility.md#4-the-extension-system)).
+S4 is a later replaceable host, not a prerequisite for live access. N43–N45
+must prove pinned artifacts, principal isolation, brokered egress, protected
+sessions, bounded resources and owned-process stop/reap before activation;
+missing controls block that adapter, never permit an unsandboxed substitute.
+N05 keeps grants behind a separately protected owner-authenticated writer.
+
+Small policy-source, profile-registry, transport, connector and scheduling ports
+keep their callers unchanged when adapters are replaced or disabled. N55 later
+plugs in S3 catalog and S4 host/scheduler adapters; no second authority, general
+extension host or scheduler is introduced. These are S6 delivery requirements,
+not evidence that the adapters have shipped.
+
+Vendor mechanisms and the product-specific source list and eligibility rules
+stay private (ADR-0009). This public section specifies generic controls only.
 
 #### 2.2.1 Frontier and scheduling
 
@@ -129,7 +145,8 @@ rules. This public section specifies generic acquisition controls only.
 | **Modes** | *Full* revalidates every known in-scope item; *incremental* enumerates complete change windows with overlap and clock skew, verifies the oldest items first and takes every newly discovered item; *resume* reapplies current authorization and policy before continuing pending work. |
 | **Change detection** | The source's own change signal first (a search index's last-modified date compared with our `collected_at` plus skew; an API catalogue's availability date; a repository HEAD), then validators (ETag, Last-Modified) and representation-aware content keys. A text-only hash is never the change key: links, metadata and HTML changes matter. |
 | **Partitions** | Where a service caps result sets, enumeration subdivides deterministically into partitions small enough to list completely; coverage is accounted per partition; an unsplittable or unstable window stays incomplete. No remote snapshot is claimed where none exists. |
-| **Scheduling** | Schedules ([07 §2](07-extensibility.md#2-entry-points)) run each source at its declared cadence; `maestro knowledge sync` runs it on demand. A failed source does not stop independent sources; dependent stages are blocked unless a verified prior revision is explicitly selected. |
+| **Scheduling** | Command-line and local timer adapters invoke the same admitted sync operation now (N14, N42), under explicit one-off/manual/watch policy and current grants. S4's scheduler ([07 §2](07-extensibility.md#2-entry-points)) plugs in later through N55; a trigger owns no second queue or authority. A failed source does not stop independent sources; dependent stages are blocked unless a verified prior revision is explicitly selected. |
+| **Concurrent runs** | One kernel-owned frontier, fenced source writers, no duplicate in-flight request within the same identity/authorization/representation context, aggregate per-origin pacing and resource budgets, idempotent captures and isolated staging (N04, N10–N12, N37). Publication serializes through S1's compare-current switch and source-revision-set check; stale candidates reconcile/rebuild rather than overwrite accepted updates (N40). Search/ask keep serving verified generations; ingestion yields to interactive work. |
 | **Limits** | Attempts, pages, partitions, body/DOM/archive bytes, time, redirects, depth, disk and process-tree resources are bounded per run, with separate limits for multi-GB assets and bounded document bodies. A missing required budget blocks admission; reaching a cap ends the run with a partial receipt and durable pending items, never a completeness claim. Cancellation stops owned work and reaps processes; a client timeout is not cancellation. |
 | **Politeness** | Per-origin pacing, bounded retry profiles per source (backoff on HTTP 429 with a ceiling), `Retry-After` honoured within operator limits; authentication expiry uses the normal renewal flow and blocks only when renewal fails or needs a person. |
 | **Watermarks** | Advance only after the covered partitions and accepted state are committed; a capped or partial run leaves explicit pending work. |
@@ -137,21 +154,38 @@ rules. This public section specifies generic acquisition controls only.
 
 #### 2.2.2 Transports
 
-Each source declares one of three transports:
+Each source selects a digest-bound acquisition profile declaring one of three
+transports, an installed replaceable adapter and its required capabilities.
+Rendered profiles also declare finite, non-executable readiness predicates,
+poll/stability bounds and a deadline. Disabled, unqualified or unsupported
+adapters refuse before launch; readiness timeout is not partial success or
+permission to fall back. These definitions and references need separate approval,
+not automatic extraction-profile adaptation (N03, N46).
 
 | Transport | Mechanism | When |
 | --- | --- | --- |
-| `http` | reqwest 0.13, redirects handled manually with the egress policy evaluated before every hop, DNS re-resolved, private and metadata addresses refused | Hosts without bot protection: repository APIs and archives, signed asset URLs |
+| `http` | reqwest, redirects admitted manually before every hop; resolve/classify every candidate address and pin the checked address to the connection with hostname TLS validation; no second DNS resolution or ambient proxy; private and metadata addresses refused | Hosts without bot protection: repository APIs and archives, signed asset URLs |
 | `browser_request` | Requests issued **through a real Chromium network stack** (CDP), so the TLS and HTTP/2 fingerprint is the browser's | Hosts behind bot protection that fingerprints the client's TLS and HTTP stack, where changing headers does not help |
 | `browser_render` | Full page navigation with explicit readiness conditions per site profile; auto-submitting SSO forms complete in the page | JavaScript-built pages and single-sign-on handshakes |
 
-**Crawler engine:** Spider (2.53, Rust) driving Chrome over CDP is the
-candidate. A bounded spike on one real authenticated documentation page gave
-byte-identical selected HTML and identical structure (tables, rows, cells,
-links, lists) to Crawl4AI. Maestro's frontier stays the single owner of URL
-state; Spider is used as the fetch and render engine behind it, never as a
-second queue. chromiumoxide 0.9 is the fallback CDP driver if Spider cannot
-expose the per-request policy hooks the egress rules need.
+**Crawler and browser roles — owner decision, 2026-09-30:** Spider remains the
+Rust crawl adapter, with defaults/extras and chrome/chromey switched off, over
+Maestro's admitted transport and kernel-owned leases (N13). It owns neither a
+second frontier nor browser rendering. **crawl4ai (Python, out of process) is
+the only production browser-render adapter**, and only when JavaScript/Chromium
+makes browser work unavoidable. It replaces Spider's chromey route; there is no
+chromiumoxide or other production browser fallback. A `browser_request` profile
+must actually use Chromium's network stack and qualify that capability or refuse.
+
+N02 records the named ADR-0020 exception, pinned adapter/Python/browser artifact
+closure, licences and removal condition; N46 qualifies the adapter on each
+claimed platform before use. The minimal adapter may perform only admitted
+browser operations and bounded readiness, never frontier ownership, conversion,
+inference, embedding or publication. No runtime downloads. All requests,
+subresources, WebSockets, service workers, prefetch, WebRTC and DNS pass the same
+checked-address admission path or are blocked; an unenforceable channel blocks
+qualification. Credentials remain origin-bound and cancellation reaps owned
+processes. Historical HTML parity is not proof of these controls.
 
 #### 2.2.3 Sessions and authentication (private connectors)
 
@@ -223,11 +257,44 @@ recorded commit never excuses a missing or corrupted local tree.
 
 The executable source policy is strict JSON (ADR-0014). The review-only
 proposal (`maestro-ingestion-policy-proposal/1`, `draft_not_executable`) is
-refused by the runtime parser. Exclusion registries (unwanted URLs, knowledge
-base exclusions, promotion decisions) are sanitized operator exports, frozen and
-hashed with the policy; a missing, corrupt or unreviewed required registry
-blocks the affected source before any network access. Historical exceptions are
-explicit promotion decisions, never renewed automatically.
+refused by the runtime parser. Required registries are immutable and digest-bound
+to the policy. They need independent review or, only for **new**
+`exclude_from_knowledge` or `asset_only` entries, machine-qualified activation
+under the closed allow-list and the owner's approved mandatory matrix
+(2026-09-30; N03, N15, N32–N35). Missing, corrupt or unqualified evidence blocks
+the source before any request. Machine qualification is never labeled human review.
+Historical exceptions remain separately approved promotions, never renewed
+automatically; machine qualification cannot change `deny_fetch` or edit, remove,
+replace or shorten existing exclusions. Expiry holds eligibility for separate
+approval, never automatically re-admits content.
+
+**Automatic configuration** has exactly five change classes: selection of
+immutable qualified extraction profiles, cleanup rules, supported S1 chunking
+strategy within the qualified model limit, dedup keys, and the new narrowing
+exclusion/asset-only entries above. Protected effective values must remain equal,
+including through profile substitution. Every other field requires separate
+approval; a mixed proposal is held in full even if quality scores pass. The
+[fixed mandatory matrix](../../specs/006-native-acquisition/spec.md#fixed-mandatory-gate-matrix-oa1)
+requires policy/allow-list/privacy, fidelity, duplicate, chunk, lifecycle/atomicity/
+rollback and retrieval gates, on changed and unchanged cohorts. No missing suite,
+baseline, gold or inconclusive result passes; thresholds and matrix definitions
+cannot adapt themselves. N29–N35 infer evidence-backed proposals, track drift and
+persistence/rate limits, and activate passing proposals automatically only at a
+safe run boundary. The first completed post-activation run repeats the matrix
+before publication; failure preserves the prior index and restores only a
+still-authorized configuration, otherwise holds for owner action.
+
+**Manifest write authority:** the same proposal/activation port serves the local
+file now and a later immutable catalog baseline. The resolved manifest pins the
+baseline plus separate digest-bound proposals/activations; it never rewrites a
+trusted bundle (N03, N30, N34; later N55). Compare-and-swap refuses stale edits;
+a changed, revoked or untrusted baseline holds overlays until explicitly rebound
+and requalified. In-flight processing stays pinned, but current revocations apply
+immediately. Configuration cannot write grants or activate connectors. Samples,
+proposals, drift/gate/activation reports and transitive evidence inherit source
+scopes and remain in protected storage. Authorized local inspection resolves
+opaque handles; ordinary logs/notifiers receive only fixed content-free status
+and access-checked handles, never private URLs, excerpts or reports (N06).
 
 **Decision order**, each step able to stop the request:
 
@@ -257,7 +324,10 @@ Policy is evaluated before every request, every redirect hop, every browser
 subresource and every resumed item: destination IPs are re-resolved and
 private, link-local and metadata addresses refused; credentials never cross
 origins; downloaded scripts cannot grant new egress. Local test servers use a
-separate test-only network grant, never a production switch.
+separate test-only network grant, never a production switch. This private-network
+prohibition remains until N48 lands the separately approved OA2 amendment and its
+enforcement; each named origin still needs an owner-authenticated expiring grant.
+N01 grants no private-network permission.
 
 #### 2.2.8 Captures
 
@@ -294,13 +364,20 @@ native connector ships:
 
 Goal: Markdown that preserves every technical element a practitioner needs.
 Commands, parameters, tables, warnings and prerequisites are content, not
-decoration.
+decoration. First-party extraction and connectors are Rust; the §2.2.2 browser
+exception grants no conversion role. One manifest-bound profile registry selects
+qualified paths from content and structure, not filenames alone. Adding a type
+or structure adds a profile and, only if needed, a pinned isolated Rust extractor
+plug-in; callers do not change (N15–N19). Disabled/missing/unqualified registries
+refuse dependent work without an implicit trusted fallback. Unknown media retain
+safe text, metadata and bounded assets with partial/unsupported/held status, never
+silent omission or searchable acceptance.
 
 | Input | Path | Notes |
 | --- | --- | --- |
-| HTML (vendor docs, KB, community) | Structured HTML only (the stored `content_html` / selected DOM, **never a flattened text field**, which loses table structure) → site-profile selectors → htmd 0.5.5 with custom handlers; dom_smoothie 0.18 readability only as a fallback, and only if the fidelity suite shows it adds value over htmd alone | Site selectors first; readability heuristics can drop prerequisites, code and tables |
-| Internal wikis | The platform's API before HTML scraping: stable page and block IDs, hierarchy, revisions, attachments, change cursors and effective permissions | Each wiki product needs its own supported mapping before it is advertised |
-| PDF, Office | Bake-off between **Xberg** (Rust core, formerly Kreuzberg; the `xberg` 1.2 and legacy `kreuzberg` 4.x crates are both published, the qualified line is pinned) and **docling.rs** (the Rust port of Docling; its full PDF path uses PDFium, ONNX Runtime and model assets), with the current **Python Docling** as the comparison oracle | Docling stays a justified exception only if both Rust candidates lose required structure; OCR and layout engines (Tesseract, PaddleOCR, model-based) are explicit profile features, never implicit downloads |
+| HTML (vendor docs, KB, community) | Structured HTML only (the stored `content_html` / selected DOM, **never a flattened text field**, which loses table structure) → site-profile selectors → htmd, checked against Xberg's built-in converter on the same gold; no converter chain | Owner direction, 2026-09-30; N02 audits artifacts/features, N20 qualifies fidelity. dom_smoothie remains an unselected, separately approved candidate; readability may lose prerequisites, code and tables |
+| Internal wikis | The platform's API before HTML scraping: stable page and block IDs, hierarchy, revisions, attachments, change cursors and effective permissions | Strict declarative mappings under the same port (N47); a second supported product needs configuration/fixtures, not product-specific core code. Missing permission semantics refuse; private-origin access still waits for N48 and its exact grant |
+| PDF, Office | Unchanged owner-approved native bake-off: **Xberg 1.3.0 (1.x MIT)** minimal native PDF/Rust layout/OCR versus **docling.rs** (`docling` 1.78.0, defaults off, `pdf-text`), not the same-named service SDK; separately approved ML comparison only (N02, N21) | Python Docling is comparison-only after family cutover, never a production extraction fallback. Rust uses tract by default for layout/OCR; dynamic ONNX Runtime is table-only, never auto-downloaded. Pin every weight offline and check its licence; qualified winner per profile, not a blanket feature approval |
 | Spreadsheets | `calamine` | Tables and formulas preserved |
 | Images, audio, video, scans | OCR, transcription and visual interpretation as **derived records** with source references, method, uncertainty and provenance (owner decision); originals kept independently | Interpretations never become accepted knowledge automatically; each profile is authorized and evaluated separately |
 | Markdown | Parsed directly | Never round-tripped through a document converter |
@@ -333,10 +410,12 @@ tables with header detection (spans flattened with an explicit note, never
 dropped); admonitions as labelled blockquotes; definition and nested lists;
 absolute links, heading anchors, images as `![alt](asset:digest)`.
 
-**Fidelity receipt** per document: counts of headings, code blocks, tables,
-rows, cells, list items, links and images in the source and in the Markdown,
-plus extractor name, version, options and warnings. Escalation to another
-extractor is triggered by missing or garbled **structure**, not merely by the
+**Fidelity receipt** per document, held documents included: counts of headings,
+code blocks, tables, rows, cells, list items, links and images in the source and
+in the Markdown, plus correspondence/content checks, extractor name, version,
+options and warnings (N16, N28). Matching counts alone never prove fidelity;
+unavailable source measurements remain unknown, not zero or passed. Escalation
+to another extractor is triggered by missing or garbled **structure**, not merely by the
 absence of text. A loss above the profile's tolerance (default: zero code
 blocks or tables lost) refuses the document with the diff. Extraction never
 applies question-specific filtering that would remove material later questions
@@ -427,6 +506,19 @@ Four distinct fingerprints, never confused:
 
 Dedup decisions form a ledger that retrieval consults for duplicate-source
 provenance.
+
+**Learned term aliases — owner approval, 2026-09-30 (N29):** ingestion learns
+short forms or variants only from explicit source definitions with exact
+supporting spans. Candidates are reviewable and reversible; retain source/profile
+digests, context, permissions, uncertainty and conflicting scoped expansions.
+No hand-written product list, similarity-only inference, silent identity merge
+or automatic approval. The versioned candidate seam is compatible with S2's
+reviewed `ALIAS_OF` identity records, not an extracted graph claim or an S2
+delivery prerequisite. Review/reversal preserves the original evidence; candidate
+discovery is not a sixth automatic configuration-change class. Search-time query
+expansion over approved, still-authorized aliases is later S1 work, not S6.
+Term aliases remain distinct from source-reference continuity, duplicate groups
+and the current-generation publication alias.
 
 ## 7. L5 Chunking
 
@@ -644,7 +736,7 @@ maestro knowledge prepare  --collection <collection-id> --card <card-id> [--chun
 maestro knowledge publish  --collection <collection-id> --card <card-id> [--chunk-set <id> | --chunk-profile <profile>]
 maestro knowledge status   --collection <collection-id>
 maestro knowledge verify   --collection <collection-id>
-maestro knowledge sync     --collection <collection-id> [--full]   # S6: acquisition refresh
+maestro knowledge acquire sync --manifest <manifest.json> --mode full   # S6: planned refresh
 ```
 
 Noun-then-verb grammar, `--json` versioned output on stdout and diagnostics on
