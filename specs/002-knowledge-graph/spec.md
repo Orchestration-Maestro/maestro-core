@@ -121,7 +121,7 @@ Every sensitive approval receipt records its scope, target, expiry and approval
 evidence (SEC-005), including pilot/acceptance inputs, additional-client use and
 the live upgrade. Missing, expired or out-of-scope approval blocks that action.
 
-For G05, G07, G08, G20 and G23, a lane runs Maestro commands with only aggregate
+For G05, G07, G08, G20, G23 and G38, a lane runs Maestro commands with only aggregate
 metrics, IDs and digests in their visible output; standard error carries only
 fixed codes, IDs and digests, never raw parser/model/router error text. No
 private text enters a hosted model's context. Extraction and review use local models through the
@@ -287,8 +287,9 @@ paths, claims, evidence and coverage. Repeat after authoritative backup/restore.
 3. **Given** the kernel and artifacts only, **When** graph files are rebuilt,
    **Then** ordered graph/transition results and canonical descriptor contents,
    IDs, pointers and scope payloads are identical, except timings and transport
-   IDs. Re-embedding may use the pinned existing embedding profile; no extraction
-   or generative model, Qdrant claim authority or live-file copy is needed.
+   IDs. Graph-file rebuild, including transitions, needs no model; only
+   descriptor re-embedding may use the pinned existing embedding profile.
+   Neither rebuild uses Qdrant claim authority or a live-file copy.
 4. **Given** a relocated install, **When** setup or doctor runs offline,
    **Then** it needs no graph daemon, port, Docker, JVM or first-use download;
    corruption, lock and permission failures name a safe next action.
@@ -456,7 +457,9 @@ paths, claims, evidence and coverage. Repeat after authoritative backup/restore.
   outputs; `eval graph check` remains inference-free.
 - **FR-S2-019**: Rebuild MUST use SQLite/artifacts only and pass ordered result
   equality after deleting disposable graph/transition files and the descriptor
-  collection and after authoritative backup/restore. Reconstruct descriptors
+  collection and after authoritative backup/restore. Graph-file rebuild,
+  including transitions, MUST need no model. Only descriptor re-embedding may
+  use the pinned existing embedding profile. Reconstruct descriptors
   from verified authority/artifacts with the frozen builder/embedding profile;
   compare canonical text, IDs, source pointers and scope payloads, not approximate
   ANN ordering or storage bytes. No projection backup or LLM-written text is

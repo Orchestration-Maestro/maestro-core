@@ -143,7 +143,7 @@ Rows name planned holders, not claimed passes; record evidence or blockers.
 | FND-002, FND-003, P-001, P-002, P-004, P-005 | Supervisor review of G01/G27/G28: rules-first pilot, reused S1 runner, one engine/loader and a typed-edge API for S2/S3; no speculative backend framework. |
 | P-011, P-013 | G03/G06/G12/G18 test closed decoders, duplicate/unknown keys and malformed or incomplete output. |
 | P-012, P-014 | G02/G31's scoped typed writes and G11/G15's per-hop/current-grant refusal tests preserve one authority and least privilege. |
-| SEC-001 | G06/G32/G33/G34 test sanitized success/error channels and direct private writes; G05/G07/G08/G20/G23 use these tools, exposing only aggregates, IDs and digests. Public fixtures are synthetic. |
+| SEC-001 | G06/G32/G33/G34 test sanitized success/error channels and direct private writes; G05/G07/G08/G20/G23/G38 and G19's reopened calibration use these tools, exposing only aggregates, IDs and digests. Public fixtures are synthetic. |
 | SEC-002 | G03 data-only rule refusals and G19 source-instruction injection tests cannot change authority, predicates or bounds. |
 | SEC-003 | G26 rejects caller-supplied engine paths; G02/G11/G15 test quote, scope and final-delivery boundaries. |
 | SEC-005 | G05/G07 reject missing, expired or incomplete scope/target/expiry/evidence receipts; G24 verifies owner live-upgrade authorization. |
@@ -152,7 +152,7 @@ Rows name planned holders, not claimed passes; record evidence or blockers.
 | ENF-002 | G25 supplies working cross-Clippy recipes before engine implementation; G22/G24 require actual native Linux/Windows/macOS builds/tests. |
 | ENF-005 | Each task's Red step records a failing test or rejected missing/invalid receipt before Green. |
 | ENF-006, ENF-008 | Local targeted gates and commit hooks precede lane `--no-verify` pushes under the recorded integration workflow; required CI, independent review and the supervisor's integration check still gate landing. No gate is weakened. |
-| ENF-012 | G01/G07/G08/G20 freeze fixture/source/profile/card/graph digests; G25 pins engine/features and locked Cargo inputs; G20 records extractor assets before use. |
+| ENF-012 | G01/G07/G08/G20 freeze fixture/source/profile/card/graph digests; G25 pins engine/features and locked Cargo inputs; G38 step 0 registers exact extractor asset/card/licence digests and writes the sole pre-use receipt without inference; G19 verifies it before calibration and G20 before acceptance use. |
 | TST-001, TST-003 | Required CI test-policy checks; G06's deterministic scoring tests and G25/G30's modules in the existing `tests/it/main.rs`, not extra native-linked binaries. |
 | COV-001, COV-002 | G24 verifies required CI's ≥90% total and ≥95% changed-line coverage, plus zero missed mutants/timeouts before merge. |
 | HYG-003 | Hygiene hook rejects large committed fixtures; G11 generates the 100,000-edge profile at test time. |
@@ -677,7 +677,10 @@ estimate before a trial; pin exact assets/licences/GPU costs before use.
 Never substitute the 27B router entry or enlarge the answerer.
 
 G06 extends the existing evaluator and CLI ladder with graph labels/checks and
-three separate score layers. Each frozen question records required semantic
+three separate score layers. Its reopened amendment owns the single scorer's
+proof-attrition, citation-support coverage and unsupported-conclusion diagnostics;
+G13/G16 provide observations and G23 consumes its scores, not a second scorer.
+Each frozen question records required semantic
 links, conditions/version, original source anchors, acceptable alternative
 complete proofs and an unanswerable reason when appropriate. Complete-proof
 recall counts a question only when every required anchor of one allowed proof
@@ -745,13 +748,13 @@ Disable losing fusion without changing the thresholds.
 
 #### Development controls, power and cost (G06/G19/G38)
 
-Before G07/G08 freeze, G38 runs A (unchanged S1), A+R4, A+passage transitions
+Before G08 final freeze, G38 runs A (unchanged S1), A+R4, A+passage transitions
 and A+R4+transitions together on synthetic/public development data. The approved
 one-table pilot cannot qualify multi-hop gain; additional private development
 needs a disjoint receipt. Check oracle vocabulary/seeds/proof packing first;
 then compare exact versus claim-first linking and rules versus rules+4B. Select
 and freeze the extractor on the approved real pilot development evidence with
-synthetic checks, before G07/G08; additional private multi-hop windows need a
+synthetic checks, before G08 final freeze; additional private multi-hop windows need a
 new disjoint receipt. Apply I1 only to its registered development failure. Never wait for R4 failure to
 try passage transitions. Freeze whether C uses transitions and linking before
 held-out labels/results can affect selection; B is R4 proofs only, with any
@@ -759,12 +762,27 @@ Qdrant descriptor dependency declared. Keep identical embedding/reranker/reader,
 weights, context/wire caps and deadline across controls and acceptance arms.
 Measure bridge recall, delivered proof, simple-lookup support/refusals, linking
 NIL errors, latency and indexing/review costs with each route's attribution.
-A combined gain is not automatically a gain from reviewed claims.
+A combined gain is not automatically a gain from reviewed claims. G07 drafting
+consumes only frozen source/arm-A inputs and does not wait for G38; G08 final
+freeze consumes its selected C/linking/extractor profile. G38 records exact
+asset/card/licence digests in the model registry and private `extractor-card.json`
+in inference-free step 0, dispatchable as soon as approved candidate inputs
+exist. It must finish before G19's reopened calibration, which verifies the
+receipt before its first call; G38 selection still waits for G19. G20 verifies
+the same sole-writer receipt rather than first creating it later.
 
 G06 records D7 and reproduces this Revision 2 power grid before suite freeze.
 It is a CPU simulation, **not corpus performance**: 5,000 independent datasets
-per cell; homogeneous family deltas +1/−1/0; outer PCG64 seed
-`20260930 + 100*N + rate_index`, four rates in table order. Inner S1 SplitMix64
+per cell; homogeneous family deltas +1/−1/0. Appendix A's reference environment
+is Python 3.13.15 and NumPy 2.5.2, one BLAS thread. For each N in (80, 120, 200)
+and each **zero-based** `rate_index` in table order, initialize a fresh
+`Generator(PCG64(seed))`, where `seed = 20260930 + 100*N + rate_index`;
+NumPy initializes PCG64 through its default `SeedSequence(seed)` semantics.
+Generate uniform arrays in **250-row batches**, each row containing N families
+in family-ID order, until 5,000 rows have been consumed. For rates
+(0.05, 0), (0.10, 0.05), (0.15, 0.05), (0.10, 0), a draw below `p_win` is +1,
+else below `p_win + p_loss` is −1, otherwise 0. Preserve row/column draw order.
+Inner S1 SplitMix64
 seed 0 resets per dataset, 2,000 paired resamples, one-based bounds 50/1,950,
 observed gain ≥0.05 and lower bound >0. Reuse equal-N draw weights, not a normal
 approximation. Maximum Monte Carlo standard error is 0.0071; three repeats on
@@ -844,14 +862,16 @@ G30 freezes kernel state and a query matrix including hidden hops, versions,
 contradictions, multiple collections and retained generations. Save ordered
 neighbors, paths, claims, evidence and coverage; close all handles and drain
 readers; delete only owned disposable LadybugDB files; rebuild from the kernel
-without extraction/generative models, Qdrant claim authority or graph backup;
+without any model, Qdrant claim authority or graph backup;
 compare exactly, excluding only timing and transport IDs. Also delete the
 owned descriptor collection and transition projection, rebuild from authority
 with frozen builder/embedding/profile digests, and compare canonical descriptor
 text, application IDs, disjoint pointers and scope payloads plus deterministic
-lookup/transition fixtures. Reuse embedding outputs or re-embed with the pinned
-existing model; no backed-up vector projection is required. Approximate ANN
-ordering/storage bytes are not equality criteria. Repeat the same loader after interrupted batches.
+lookup/transition fixtures. Graph-file rebuild, including transitions, needs
+no model; only descriptor re-embedding may use the pinned existing embedding
+profile when reusable outputs are absent; no backed-up vector projection is
+required. Approximate ANN ordering/storage bytes are not equality criteria.
+Repeat the same loader after interrupted batches.
 G22 repeats after SQLite/artifact backup/restore, with interrupted and corrupt
 states and separate writer/CLI/MCP processes on all three operating systems.
 
@@ -879,8 +899,8 @@ head. Never renumber an already integrated migration or rewrite S1 history.
 
 ### Scratch isolation before every private run
 
-G05, G07, G08, G20 and G23 use new isolated scratch kernels; they never open
-the owner's live kernel with an S2 binary. G05/G07/G08/G20 restore a **named,
+G05, G07, G08, G20, G23 and G38 use new isolated scratch kernels; they never open
+the owner's live kernel with an S2 binary. G05/G07/G08/G20/G38 restore a **named,
 digest-checked S1 backup**. G23 restores G20's digest-frozen authoritative
 scratch backup containing the M2 claim set, then verifies or rebuilds its
 projection without re-extraction. G06/G07 test that `eval graph check` cannot
@@ -912,7 +932,7 @@ authorize a live upgrade after a fresh named backup. Lanes do not upgrade it.
 
 ### Private executors and inference locality
 
-For G05/G07/G08/G20/G23 the lane runs Maestro commands in that scratch
+For G05/G07/G08/G20/G23/G38 the lane runs Maestro commands in that scratch
 environment; visible output is limited to aggregate metrics, IDs and digests.
 Private sources, prompts, labels, quotes and review pages never enter a hosted
 model's context, including hosted review. G06 owns safe summary/error emission
@@ -959,7 +979,8 @@ private workflow tools; no lane fills the gap with an ad-hoc text-dumping script
    a prerequisite for G10's public identity implementation.
 3. **Proof safety:** hidden-hop, revocation, version/condition, generation,
    fan-out, cancel, rechunking and whole-proof budget/wire checks pass.
-4. **M2 quality:** G38 development selection precedes G07/G08 freeze; G08
+4. **M2 quality:** G07 drafting can overlap G38 development selection; G08
+   final freeze consumes the selected development profile. G08
    drift receipt, construction score and the same-run
    three-rung comparison meet all gate rules in all three runs. G23 need not
    wait for G22's recovery drill; both still gate release.
@@ -971,14 +992,20 @@ private workflow tools; no lane fills the gap with an ad-hoc text-dumping script
 
 The task accounting and exact dependency calculation are in
 [tasks.md](tasks.md#dependencies-and-parallel-opportunities). There are 37 stable
-G IDs: 36 bounded tasks total **136 lane-hours**, plus G27's 14-slice umbrella
-whose former 4 h is excluded. E-slice ranges are estimates from observed lanes,
-not measured future durations: **40–86 h**, giving the arithmetic full-plan
-sum **176–222 lane-hours**. This includes already landed work, not remaining
-work. G27-zero dependency accounting is **71 h** overall and **42 h** for the
-**61 h** pilot ancestor set; these are bounded-G subtotals, not delivery times.
-The E prerequisite path and `67 + max(4, U)` / `38 + max(4, U)` full/pilot
-formulas in tasks.md account explicitly for the unresolved G27 join duration U. Runtime,
+G IDs: 36 initial task budgets total **136 lane-hours**, plus **9 h** in five
+explicitly dispatched reopened follow-ups (G06/G10/G18/G31/G19), for **145 h**
+of bounded G work. Their delta/budget/dispatch table is in tasks.md; landed base
+evidence does not complete these new obligations. G27's former 4 h is excluded.
+Its 14 E-slice ranges are estimates from observed lanes, not measured future
+durations: **40–86 h**, giving the arithmetic full-plan sum **185–231 lane-hours**.
+This includes already landed base work, not a remaining-work estimate.
+G27-zero dependency accounting, with reopening hours added to their task nodes,
+is **70 h** overall and **45 h** for the **67 h** pilot ancestor set; these are
+bounded-G subtotals, not delivery times. G07 drafting no longer waits for G38;
+G08 final freeze does. The E prerequisite path and `66 + max(4, U)` /
+`41 + max(4, U)` full/pilot formulas in tasks.md account explicitly for the
+unresolved G27 join duration U. G38 step 0 stays within its 4 h budget; these
+conservative task-level paths take no early-handoff overlap credit. Runtime,
 human review, native CI and release/re-pin waits are outside fixed G-task hours.
 No aggregate-work quotient is a delivery-date promise.
 

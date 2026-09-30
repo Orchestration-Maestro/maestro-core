@@ -25,8 +25,9 @@ it is not a prerequisite to writing these documents or a result assumed here.
 Stable IDs preserve the draft's references; G29's second loader is removed.
 **G25 is first**; public construction starts beside it, but pilot reads wait.
 Tasks are dependency-ordered, not numeric. There are **37 G tasks**: 36 bounded
-tasks total **136 lane-hours**, each at most four hours including targeted gates,
-plus G27's 14-slice umbrella. Its old 4 h is excluded, not counted twice.
+initial task budgets total **136 lane-hours**, each at most four hours including
+targeted gates, plus **9 h** of separately dispatched amendment follow-ups below
+(**145 bounded lane-hours**) and G27's 14-slice umbrella. Its old 4 h is excluded, not counted twice.
 G27's E-slice ranges and the exact dependency accounting appear below.
 Every task has a failing check, exact file targets and acceptance criteria.
 Split an overrun before dispatch rather than omit a check. Native CI waits are
@@ -56,6 +57,28 @@ modules under `C/tests/it/` and `N/tests/it/` register in their existing
 generated guide updates are shared-file edits, not wider scope. Each migration
 takes the next free number at landing, coordinated by the supervisor with S3
 and deployment modes. `NNNN` means that assigned number, not a reservation.
+
+## Reopened by the 2026-09-30 amendment
+
+These are new obligations on existing task IDs, not credit for their landed
+implementations. The supervisor dispatches one follow-up lane per row, using
+that task's existing Files/Test/Acceptance and the delta below. Each bounded
+estimate includes targeted gates; calibration runtime, GPU admission and human
+review waits remain separate. If a delta cannot fit, split before dispatch.
+
+| Task | Delta | Bounded hours | Dispatch trigger |
+| --- | --- | ---: | --- |
+| G06 | Golden 84/16 answer/refusal gates, power-table reproduction, 2,880-request completeness and the single scorer's proof-attrition/citation-support diagnostics. | 3 h | Landed scorer available; dispatch after this amendment, before G07/G08 freeze or G38 measurement. |
+| G10 | Same-name documentary namespace audit and refusal/review tests; no silent identity-key change. | 2 h | Landed resolver and G31 follow-up available; before G35 linking/projection and G38 selection. |
+| G18 | Explicit instance `Job` and event-satisfaction-as-dependency refusal tests on the constrained gateway. | 1 h | Landed extraction gateway available; before G19 calibration and G38 inference. |
+| G31 | Matching `Job`/event refusal cases at the closed claim-authority boundary. | 1 h | Landed vocabulary available; before G10 audit and downstream G11/G19/G27 qualification. |
+| G19 | Fixed-window timed calibration with token/wall/GPU/rejection/retry receipts and documentary-scope checks. | 2 h | Landed extractor plus G10/G18/G31 follow-ups and G38 step 0's pre-use card receipt; approved development receipt and GPU slot before timing; before G38 selection. |
+
+Total incremental budget: **9 h**, additional to the initial 136 h, not a
+replacement or claim of remaining-project effort. Reopened tasks retain their
+requirement ownership. For the conservative full-plan DAG below, add each row's
+hours to its named task and require that follow-up before its downstream
+consumers; an already landed base never satisfies the amended completion gate.
 
 ## S2 integration workflow and global gates
 
@@ -276,7 +299,7 @@ G10 preserves and extends that resolver; it does not introduce a second one.
 
 **Time:** 4 h. **After:** G01, G03.
 **Files:** `N/src/eval/graph/labels.rs`, `N/src/eval/graph/score.rs`,
-`N/src/eval/graph/tests.rs`, `N/src/eval/ladder.rs`,
+`N/src/eval/graph/gates.rs`, `N/src/eval/graph/tests.rs`, `N/src/eval/ladder.rs`,
 `N/src/eval/bootstrap.rs`, `C/src/cli/eval/graph.rs`,
 `C/src/cli/eval/runner.rs`, `C/src/cli/eval/manifest.rs`,
 `C/src/cli/eval/command.rs`, `C/src/cli/eval/graph_output.rs`,
@@ -285,7 +308,7 @@ G10 preserves and extends that resolver; it does not introduce a second one.
 `S2/research.md`.
 **Test:** `capped cargo nextest run -p maestro-knowledge eval::graph` and
 `capped cargo nextest run -p maestro graph_eval`.
-**Acceptance:** FR-S2-018, SC-S2-002, SC-S2-003, SC-S2-004; digest-bound
+**Acceptance:** FR-S2-013, FR-S2-015, FR-S2-018, SC-S2-002, SC-S2-003, SC-S2-004; digest-bound
 labels and hand-computed stage scores, using S1 statistics rather than a second
 runner. Add only `eval graph check`; runs/comparisons use `eval ladder`.
 
@@ -322,7 +345,12 @@ runner. Add only `eval graph check`; runs/comparisons use `eval ladder`.
   joint gate, outer PCG64 seeds and rates as specified there). Save parameters,
   counts and results in `S2/research.md`; the table is simulation, not corpus
   performance. Disclose the exact-5-pp boundary and dependent-repeat limits.
-  G06 owns the scorer changes; later tasks consume this one runner.
+  G06 owns candidate/pre-fusion/post-packing/final-wire proof-attrition,
+  citation-support coverage and unsupported-conclusion scoring, with explicit
+  denominators and fixtures distinguishing present citations from supported
+  conclusions. G13/G16 supply observations; G23 reports this single scorer's
+  output, never a second implementation. The reopened budget above owns these
+  changes; landed scorer evidence alone does not complete the amendment.
 
 ### G34 [US4] [P] Draft private questions with a bounded local runner
 
@@ -600,8 +628,9 @@ batch loader fills an unpublished projection build; no COPY/CSV or second loader
   preserve withdrawal/retirement membership without changing published files.
 - [ ] **Check.** Run both Test commands; clean/resumed IDs/digests/counts
   match. Record this loader's rebuild time and peak disk; G11 alone records its
-  later explicit scale benchmark. No extraction model, Qdrant claim authority
-  or live-file copy. Orchestrate G35's optional descriptor rebuild/readiness
+  later explicit scale benchmark. Graph-file rebuild, including transitions,
+  needs no model, Qdrant claim authority or live-file copy. Only descriptor
+  re-embedding may use the pinned existing embedding profile. Orchestrate G35's optional descriptor rebuild/readiness
   from the same snapshot/profile; the rule-only pilot leaves it disabled.
   G36 extends this single graph loader with transitions later, not a second
   engine. Backup/restore never requires saving descriptor projection storage.
@@ -1029,9 +1058,13 @@ G03's block/quote checks and G02's authoritative write, with retained rejections
   candidates/rejections before advancing durable progress.
 - [ ] **Check.** Run both Test commands; clean and resumed runs respect the
   same cumulative work/token budget. Public tests use synthetic prompts only;
-  no answer, summary or model-invented quote becomes source evidence.
-  Before broad extraction, time a fixed token-length-stratified development
-  window sample with input/output tokens, wall/GPU seconds, peak VRAM/RSS,
+  no answer, summary or model-invented quote becomes source evidence. Keep
+  documentary scope: no instance `Job` or event satisfaction coerced into a
+  dependency; the G18/G31 refusal checks also hold through this pipeline.
+  Before broad extraction, verify G38 step 0's registered asset/card/licence
+  digests and receipt before the first extractor call; missing/mismatched
+  receipts refuse. Use G38's Executor / inference guards and plan Validation's
+  scratch environment. Time a fixed token-length-stratified development window sample with input/output tokens, wall/GPU seconds, peak VRAM/RSS,
   rejections and retries. A 30-minute reservation is a checkpoint, not throughput
   evidence. Apply plan A6's actual-window sensitivity and C×f×t/60 owner-hours
   accounting; document unknown rates instead of calling 13,596 units windows.
@@ -1039,23 +1072,40 @@ G03's block/quote checks and G02's authoritative write, with retained rejections
 ### G38 [US4] Select linking and passage fusion on development only
 
 **Time:** 4 h active lane work; GPU execution/review waits are measured separately.
-**After:** G05, G06, G16, G19, G35, G36, G37.
+**After:** G05, G06, G16, G19, G35, G36, G37 for selection; step 0 below is
+an earlier inference-free handoff, not a wait for completed G19.
 **Files:** `N/src/eval/graph/development.rs`, `N/src/eval/graph/tests/development.rs`,
 `C/src/cli/eval/manifest.rs`, `C/src/cli/eval/tests/manifest.rs`,
 `tests/fixtures/synthetic/graph/development.jsonl`, `S2/research.md`,
 `PRIVATE/graph/receipts/development-manifest.json`,
-`PRIVATE/graph/receipts/development-selection.json`.
+`PRIVATE/graph/receipts/development-selection.json`,
+`PRIVATE/graph/receipts/extractor-card.json`.
 **Test:** `capped cargo nextest run -p maestro-knowledge eval::graph` and
 `capped cargo nextest run -p maestro cli::eval::tests::manifest`; then the
-existing `maestro eval ladder --manifest` on the approved development manifest.
+existing `maestro eval ladder --manifest` on the approved development manifest,
+with plan Validation's scratch environment.
 **Acceptance:** FR-S2-011, FR-S2-016, FR-S2-018, FR-S2-021, FR-S2-025, SC-S2-002, SC-S2-004,
 SC-S2-005; a frozen profile chosen without held-out questions or failures.
+**Executor / inference:** lane-run Maestro commands expose aggregate metrics,
+IDs and digests only; extraction and answering use local models through the
+router, never hosted context. Independent review uses the pinned different local
+model family and G33's owner flag rulings. Use plan Validation's scratch
+restore/bindings and refuse missing, expired or overlapping private receipts.
 
 - [ ] **Red.** Refuse overlapping development/acceptance families, unapproved
   private inputs, changed models/budgets between arms or selecting C from
-  held-out outcomes. Oracle source chains must fit closed vocabulary and final
+  held-out outcomes. Refuse missing or mismatched asset/card/licence digests
+  before the first inference call. Oracle source chains must fit closed vocabulary and final
   budgets before retrieval is judged; gold-seeded results are upper bounds.
-- [ ] **Green.** Start A, A+R4, A+transitions and A+R4+transitions together on
+- [ ] **Step 0 — pre-use receipt.** Dispatch as soon as the approved candidate's
+  exact assets/licence evidence and model-registry registration inputs exist,
+  before G19's reopened calibration. Register asset, card and licence digests
+  in the model registry and write `extractor-card.json` with those digests and
+  GPU cost evidence (D2, ENF-012), without inference. G38 is the sole receipt
+  writer; G19 and G20 verify it before calls. Repeat this pre-use step for any
+  I1-approved 8B candidate. Selection still waits for completed G19.
+- [ ] **Green.** Bind every candidate call to the step-0 receipt. Start A, A+R4,
+  A+transitions and A+R4+transitions together on
   synthetic/public development, not after R4 fails. Within R4 compare exact
   versus claim-first linking and rules versus rules+4B; select the extractor
   using the approved real pilot development receipt with synthetic checks,
@@ -1067,7 +1117,7 @@ SC-S2-005; a frozen profile chosen without held-out questions or failures.
   seed/NIL errors, trigger cost, latency and indexing/review cost by route.
 - [ ] **Check.** Run Test and retain every development attempt. Freeze chosen
   C route combination, optional semantic linking, direction-specific thresholds,
-  seed/hop/fan-out/visited/time caps and digests before G07/G08. B remains R4
+  seed/hop/fan-out/visited/time caps and digests before G08 final freeze. B remains R4
   proofs only; descriptor lookup is a declared dependency, not hidden passages.
   Semantic linking may remain off on poor gain/cost. D/E development requests
   are additional to the 2,880 mandatory acceptance requests, never substituted.
@@ -1076,7 +1126,7 @@ SC-S2-005; a frozen profile chosen without held-out questions or failures.
 
 ### G07 [US4] Draft the private graph questions
 
-**Time:** 4 h. **After:** G05, G06, G34, G38; D7-approved suite size and recorded
+**Time:** 4 h. **After:** G05, G06, G34; D7-approved suite size and recorded
 receipt for the approved whole published `ctm` generation, local-only.
 **Files:** `PRIVATE/evals/ctm/ctm-graph.jsonl`,
 `PRIVATE/evals/ctm/ctm-graph-splits.json`,
@@ -1115,6 +1165,9 @@ rulings precede freeze.
   Check documentary rather than customer-instance semantics; do not add `Job`,
   misuse event satisfaction or count C27a catalog edges as documentary proofs. Hand
   off the draft digest for G08 without calling an unreviewed set a golden set.
+  G07 consumes frozen source/arm-A inputs, not G38 output, so drafting may
+  overlap development. G08 alone consumes G38's selected C/linking/extractor
+  profile for final suite freeze; drafts/results never guide G38 tuning.
 
 ### G08 [US4] Review every chain and record the S1 baseline
 
@@ -1175,8 +1228,10 @@ enters hosted context.
   failed attempts are missing, synthetic evidence is called real or a candidate
   violates the precision floor despite exact quotes. Reject missing graph
   selection rules, graph digest mismatch and extractor selection on held-out data.
-- [ ] **Green.** Before use, record the exact Qwen3-4B asset/card digests,
-  licences and GPU costs in `extractor-card.json` (D2, ENF-012). Restore the named
+- [ ] **Green.** Before acceptance use, verify G38's `extractor-card.json`,
+  exact asset/card/licence digests and GPU cost evidence (D2, ENF-012); missing
+  or changed receipts refuse rather than recording an asset after first use.
+  Restore the named
   backup with private Qdrant bindings; never open the live kernel. Verify G38's
   preregistered development gold set/trigger and selected-card receipt. Record
   the first-complete-run graph selection rule before acceptance extraction;
@@ -1241,8 +1296,9 @@ ordered semantic equality, not only equal node counts or query success.
   batches, not a second loader. Delete and rebuild G35's descriptor collection
   and G36's transitions too; compare canonical descriptor text/IDs/disjoint
   pointers/scope payloads/profile digests and deterministic lookup/transition
-  fixtures, not approximate ANN ordering. Use no extraction/generative model,
-  graph/descriptor backup or Qdrant authority; pinned re-embedding is allowed.
+  fixtures, not approximate ANN ordering. Graph-file/transition rebuild needs
+  no model; only descriptor re-embedding may use the pinned embedding profile.
+  Use no graph/descriptor backup or Qdrant authority.
 - [ ] **Check.** Run Test across collections, retained generations, hidden
   hops and version conditions. Prove deletion really occurred and other
   collections/kernel/artifacts survived; record process/pin evidence.
@@ -1384,7 +1440,7 @@ G24 waits for every task, not only the quality report.
 | G06 | G34 local drafting tooling can run beside public native work; actual private drafting still waits for G05 and the frozen receipt. |
 | G04 and G34 | G32 reviewer/capture, then G33 owner page, unblock G05; G11/G12 proof work can proceed beside these tools. G34 precedes G32 for their shared manifest. |
 | G28 and G25 | G04 pilot neighbors can start immediately (G03 already landed); G11 adds paths after G04. |
-| G05 and G38 | G07/G08 private suite and baseline follow development selection, with recorded receipts and reviewer confirmation. |
+| G05 and G34 | G07 drafts source/arm-A questions independently of G38; G08 final freeze additionally waits for G38 selection, recorded receipts and reviewer confirmation. |
 | G27 and G35 | G28's single loader and S3 C27a's catalog-edge consumer use the shared typed-edge port; coordinate its public contract. |
 | G13 and G35 | G14 R4 and G15 tools proceed with a shared contract; G36 follows G11, G37 joins both routes, then G16/G38. |
 
@@ -1400,26 +1456,31 @@ behavior, not a framework assembled before the first useful result.
 
 ### Recomputed effort and dependency accounting
 
-The G-heading inventory is 37 tasks (G01–G38 except removed G29); 36 have fixed
-budgets totaling **136 h**, and G27 is the 14-slice umbrella with no duplicate
-four-hour allocation. Its E-slice estimates sum to **40–86 h**. The only combined
-effort range is their arithmetic sum, **176–222 lane-hours**, not elapsed time
-or an estimate of remaining work: already landed tasks/slices remain in the
-full-plan inventory. Extraction, acceptance runtime, human review and external
-native CI/gate-release waits are additional, not silently priced at zero.
+The G-heading inventory is 37 tasks (G01–G38 except removed G29): 36 initial
+budgets total **136 h**, five reopened follow-ups add **9 h**, and G27 is the
+14-slice umbrella with no duplicate four-hour allocation. Bounded G work is
+**145 h**. E-slice estimates still sum to **40–86 h**; the arithmetic full-plan
+range is **185–231 lane-hours**, not elapsed time or remaining work. Already
+landed base tasks/slices remain in this inventory, but their new deltas are
+explicitly budgeted and dispatched separately. Extraction, acceptance runtime,
+human review and external native CI/gate-release waits remain additional.
 
 For a reproducible dependency-only calculation, give G27 weight zero solely
-to isolate the bounded G work, use each task's **After** edges, and make G24
-wait for all other tasks. The longest weighted path is **71 h**:
-G01 → G02 → G03 → G09 → G10 → G35 → G28 → G04 → G11 → G13 → G14 → G37 →
-G16 → G38 → G07 → G08 → G20 → G23 → G24. G31 ties G09 as an alternate branch.
-The pilot's ancestor set costs **61 h** with a **42 h** longest path:
-G01 → G02 → G03 → G09 → G10 → G35 → G28 → G04 → G32 → G33 → G05.
-These are G-only subtotals, not permission to skip G27 or native qualification.
+to isolate bounded G work, add each reopened row's hours to its named task,
+use **After** edges and make G24 wait for all tasks/follow-ups. With the unused
+G38 prerequisite removed from G07, the longest weighted path is **70 h**:
+G01 → G02 → G03 → G31 → G10 → G35 → G28 → G04 → G11 → G13 → G14 → G37 →
+G16 → G38 → G08 → G20 → G23 → G24. G31's follow-up breaks its former tie with G09.
+The pilot's ancestor set costs **67 h** with a **45 h** longest path:
+G01 → G02 → G03 → G31 → G10 → G35 → G28 → G04 → G32 → G33 → G05.
+These conservative full-plan paths include base work plus reopened deltas,
+not a remaining-work clock or permission to skip G27/native qualification.
+G38 step 0 stays inside its 4 h budget; no early-handoff overlap credit is taken
+in these conservative task-level upper-bound paths.
 
 If U is the actual G27 completion duration after its G10/G31/G25 join, the
-collapsed G DAG has full path **67 + max(4, U) h**, pilot path
-**38 + max(4, U) h**. U is not the sum of E ranges: fork/E05/E06 work overlaps
+collapsed G DAG has full path **66 + max(4, U) h**, pilot path
+**41 + max(4, U) h**. U is not the sum of E ranges: fork/E05/E06 work overlaps
 upstream G work, E09/E10 overlap, and qualification/re-pin waits are external.
 The E prerequisite path above must be combined with actual dispatch/completion
 receipts before making a calendar estimate. No single critical-path duration
@@ -1448,9 +1509,9 @@ replaces planning claims with integrated evidence/blockers before release.
 | FR-S2-010 | G04, G11, G36, G14, G15 |
 | FR-S2-011 | G35, G14, G38 |
 | FR-S2-012 | G12 |
-| FR-S2-013 | G13, G15, G37, G16 |
+| FR-S2-013 | G06, G13, G15, G37, G16 |
 | FR-S2-014 | G04, G15 |
-| FR-S2-015 | G16 |
+| FR-S2-015 | G06, G16 |
 | FR-S2-016 | G17, G18, G38, G20 |
 | FR-S2-017 | G19 |
 | FR-S2-018 | G06, G34, G32, G33, G38, G07, G08, G20, G23 |
