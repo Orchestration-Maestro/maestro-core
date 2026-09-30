@@ -1,6 +1,8 @@
 //! Additional validation cases for the generic projection writer.
 
+use super::super::contract::{edge, fact};
 use super::*;
+use maestro_kernel::facts::{EntityKind, EntityName, Predicate};
 
 #[test]
 fn writer_rejects_wrong_generation_and_denied_scope_before_backend_writes() {

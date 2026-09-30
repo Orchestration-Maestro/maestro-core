@@ -12,10 +12,7 @@ use crate::graph::projection::{
 };
 use maestro_kernel::{
     artifact::Digest,
-    facts::{
-        Claim, ClaimRecord, EntityKind, EntityName, Literal, LiteralKind, Object, Predicate,
-        ProjectionReceipt, Provenance, ReviewState, Validity,
-    },
+    facts::ProjectionReceipt,
     scope::{Right, Scope, ScopeSet},
     store::Database,
 };
@@ -276,66 +273,11 @@ impl ProjectionBackend for Fake {
     }
 }
 
-fn fact(scope: &ProjectionScope) -> super::super::EntityFact {
-    super::super::EntityFact {
-        claim: ClaimRecord {
-            id: Digest::of(b"claim"),
-            collection_id: scope.collection_id.clone(),
-            claim: Claim {
-                subject: EntityName {
-                    kind: EntityKind::Parameter,
-                    name: "mode".to_owned(),
-                },
-                predicate: Predicate::DefaultsTo,
-                object: Object::Literal(Literal {
-                    kind: LiteralKind::Text,
-                    lexeme: "fast".to_owned(),
-                }),
-                conditions: BTreeMap::new(),
-                version: Validity::Unknown,
-                world: Validity::Unknown,
-                provenance: Provenance {
-                    extractor: "test".to_owned(),
-                    profile: Digest::of(b"profile"),
-                },
-                supports: Vec::new(),
-            },
-            review: ReviewState::Unreviewed,
-            recorded_at: "2026-01-01T00:00:00Z".to_owned(),
-        },
-        subject: Digest::of(b"entity"),
-        scope: scope.clone(),
-    }
-}
-
-pub(super) struct BackendContract<'a> {
-    pub(super) scopes: &'a ScopeSet,
-    pub(super) denied_scopes: &'a ScopeSet,
-    pub(super) scope: &'a ProjectionScope,
-    pub(super) edges: &'a [ProjectionEdge],
-    pub(super) facts: &'a [super::super::EntityFact],
-    pub(super) expected: &'a BuildVerification,
-}
-
 pub(super) fn verified_backend_contract<B: ProjectionBackend>(
     backend: &mut B,
-    contract: &BackendContract<'_>,
+    contract: &super::contract::BackendContract<'_>,
 ) {
     super::contract::run(backend, contract);
-}
-
-fn edge(generation_id: i64, family: EdgeFamily) -> ProjectionEdge {
-    ProjectionEdge {
-        id: Digest::of(format!("edge-{generation_id}-{family:?}").as_bytes()),
-        scope: ProjectionScope {
-            collection_id: "c".to_owned(),
-            generation_id,
-        },
-        family,
-        source: Digest::of(b"source"),
-        target: Digest::of(b"target"),
-        relation: Predicate::Requires.as_str().to_owned(),
-    }
 }
 
 #[test]
@@ -348,38 +290,16 @@ fn backend_contract_keeps_families_separate_and_publishes_only_verified_builds()
     let denied = database.visible("no-grants").unwrap();
     let mut backend = Fake::default();
     let edges = [
-        edge(3, EdgeFamily::KnowledgeClaim),
+        super::contract::edge(3, EdgeFamily::KnowledgeClaim),
         ProjectionEdge {
             relation: "depends_on".to_owned(),
             source: Digest::of(b"catalog-source"),
-            ..edge(3, EdgeFamily::CatalogDependency)
+            ..super::contract::edge(3, EdgeFamily::CatalogDependency)
         },
     ];
-    let facts = [fact(&scope)];
-    let expected = BuildVerification {
-        schema: "maestro-typed-edges/1".to_owned(),
-        family_counts: BTreeMap::from([
-            (EdgeFamily::KnowledgeClaim, 1),
-            (EdgeFamily::CatalogDependency, 1),
-        ]),
-        fact_count: 1,
-        content_digest: content::digest(&edges, &facts).unwrap(),
-        indexes: BTreeSet::from([
-            "edge_by_scope_family_source".to_owned(),
-            "fact_by_scope_subject".to_owned(),
-        ]),
-    };
-    verified_backend_contract(
-        &mut backend,
-        &BackendContract {
-            scopes: &all,
-            denied_scopes: &denied,
-            scope: &scope,
-            edges: &edges,
-            facts: &facts,
-            expected: &expected,
-        },
-    );
+    let facts = [super::contract::fact(&scope)];
+    let fixture = super::contract::fixture(&all, &denied, &scope, &edges, &facts);
+    verified_backend_contract(&mut backend, &fixture);
     drop(database);
     fs::remove_dir_all(path).unwrap();
     assert!(
@@ -406,7 +326,7 @@ fn catalog_edges_round_trip_only_in_their_family_pin_and_scope() {
     let (path, database, scopes) = scoped();
     let catalog = ProjectionEdge {
         relation: "depends_on".to_owned(),
-        ..edge(9, EdgeFamily::CatalogDependency)
+        ..super::contract::edge(9, EdgeFamily::CatalogDependency)
     };
     let mut backend = Fake::default();
     let mut writer = ProjectionWriter::create(&mut backend, scope.clone()).unwrap();
@@ -478,7 +398,11 @@ fn failed_batch_does_not_publish_or_leave_a_partial_batch() {
     let mut writer = ProjectionWriter::create(&mut backend, scope.clone()).unwrap();
     assert!(
         writer
-            .write_batch(&all, &[edge(4, EdgeFamily::CatalogDependency)], &[])
+            .write_batch(
+                &all,
+                &[super::contract::edge(4, EdgeFamily::CatalogDependency)],
+                &[]
+            )
             .is_err()
     );
     drop(writer);

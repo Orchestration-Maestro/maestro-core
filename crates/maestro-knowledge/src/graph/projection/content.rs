@@ -201,29 +201,52 @@ mod tests {
             "projection.db",
             "g.short.lbdb",
             &format!("g{}.lbdb", "a".repeat(63)),
+            &format!("g{}..lbdb", "a".repeat(63)),
+            &format!("g{}.lbdb", "A".repeat(64)),
             &format!("{stem}.LBDB"),
         ] {
             assert!(!is_canonical_basename(invalid));
         }
-        assert!(!stem.starts_with(other_stem) && !other_stem.starts_with(stem));
-        for suffix in [".wal", ".shadow", ".tmp", ".lock", ".checkpoint"] {
-            assert!(!format!("{stem}{suffix}").starts_with(other_stem));
-            assert!(!format!("{other_stem}{suffix}").starts_with(stem));
-        }
+        assert!(is_canonical_basename(&name));
+        assert!(!other.starts_with(&format!("{stem}.")));
+        assert!(!name.starts_with(&format!("{other_stem}.")));
     }
 
     #[test]
-    fn content_digest_sorts_rows_and_changes_with_each_field() {
+    fn content_digest_golden_vectors_and_sorting() {
         let first = edge("c", 1, "requires");
+        let second = edge("c", 1, "provides");
+        let only_fact = fact();
         assert_eq!(
             digest(slice::from_ref(&first), &[]).unwrap().as_str(),
             "8dff3db5d2ca38349bd4c4c3432a6af9cf88e3d9091810b890db0f6d2215963e"
         );
-        let second = edge("c", 1, "provides");
+        assert_eq!(
+            digest(&[], slice::from_ref(&only_fact)).unwrap().as_str(),
+            "08ad8aaed1176ad3a7cb464d7a802dfac5a925d8a7255ed47a0a4fd32046dc5d"
+        );
+        assert_eq!(
+            digest(
+                &[first.clone(), second.clone()],
+                slice::from_ref(&only_fact)
+            )
+            .unwrap()
+            .as_str(),
+            "fafff101b76184cc449a7236da4afafa16a11361c30772c738853021c9591dbb"
+        );
         assert_eq!(
             digest(&[first.clone(), second.clone()], &[]).unwrap(),
-            digest(&[second.clone(), first.clone()], &[]).unwrap()
+            digest(&[second, first], &[]).unwrap()
         );
+        assert_ne!(
+            encode_row(b'E', &["same"]).unwrap(),
+            encode_row(b'F', &["same"]).unwrap()
+        );
+    }
+
+    #[test]
+    fn edge_digest_changes_with_each_field() {
+        let first = edge("c", 1, "requires");
         let mut changed_id = first.clone();
         changed_id.id = Digest::of(b"different-id");
         let mut changed_source = first.clone();
@@ -246,36 +269,40 @@ mod tests {
                 digest(&[changed], &[]).unwrap()
             );
         }
-        assert_ne!(
-            encode_row(b'E', &["same"]).unwrap(),
-            encode_row(b'F', &["same"]).unwrap()
-        );
+    }
+
+    #[test]
+    fn fact_digest_changes_with_each_field() {
         let baseline = fact();
         let baseline_digest = digest(&[], slice::from_ref(&baseline)).unwrap();
-        let mut changed = baseline.clone();
-        changed.claim.id = Digest::of(b"other-claim");
-        assert_ne!(digest(&[], &[changed]).unwrap(), baseline_digest);
-        let mut changed = baseline.clone();
-        changed.subject = Digest::of(b"other-subject");
-        assert_ne!(digest(&[], &[changed]).unwrap(), baseline_digest);
-        let mut changed = baseline.clone();
-        changed.claim.claim.predicate = Predicate::Configures;
-        assert_ne!(digest(&[], &[changed]).unwrap(), baseline_digest);
-        let mut changed = baseline.clone();
-        if let Object::Literal(literal) = &mut changed.claim.claim.object {
+        let mut changed_claim = baseline.clone();
+        changed_claim.claim.id = Digest::of(b"other-claim");
+        let mut changed_subject = baseline.clone();
+        changed_subject.subject = Digest::of(b"other-subject");
+        let mut changed_predicate = baseline.clone();
+        changed_predicate.claim.claim.predicate = Predicate::Configures;
+        let mut changed_kind = baseline.clone();
+        if let Object::Literal(literal) = &mut changed_kind.claim.claim.object {
             literal.kind = LiteralKind::Boolean;
         }
-        assert_ne!(digest(&[], &[changed]).unwrap(), baseline_digest);
-        let mut changed = baseline.clone();
-        if let Object::Literal(literal) = &mut changed.claim.claim.object {
+        let mut changed_lexeme = baseline.clone();
+        if let Object::Literal(literal) = &mut changed_lexeme.claim.claim.object {
             literal.lexeme = "slow".to_owned();
         }
-        assert_ne!(digest(&[], &[changed]).unwrap(), baseline_digest);
-        let mut changed = baseline.clone();
-        changed.scope.collection_id = "another".to_owned();
-        assert_ne!(digest(&[], &[changed]).unwrap(), baseline_digest);
-        let mut changed = baseline;
-        changed.scope.generation_id = 2;
-        assert_ne!(digest(&[], &[changed]).unwrap(), baseline_digest);
+        let mut changed_collection = baseline.clone();
+        changed_collection.scope.collection_id = "another".to_owned();
+        let mut changed_generation = baseline;
+        changed_generation.scope.generation_id = 2;
+        for changed in [
+            changed_claim,
+            changed_subject,
+            changed_predicate,
+            changed_kind,
+            changed_lexeme,
+            changed_collection,
+            changed_generation,
+        ] {
+            assert_ne!(digest(&[], &[changed]).unwrap(), baseline_digest);
+        }
     }
 }

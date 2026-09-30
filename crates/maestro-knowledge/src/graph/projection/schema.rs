@@ -5,8 +5,8 @@
 //! collection, generation). Each field is UTF-8 preceded by a u32 big-endian
 //! byte length. Rows sort by encoded bytes; the SHA-256 input is the
 //! `maestro-projection-content/1` tag, u64 big-endian row count, then rows.
-//! Receipt names hash the `maestro-projection-name/1` tag and the
-//! length-delimited version tag, collection, decimal generation, and claim-set ID; the
+//! Receipt names hash length-delimited fields: the `maestro-projection-name/1` tag,
+//! collection, decimal generation, and claim-set ID; the
 //! basename is `g` plus 64 lowercase hex digits plus `.lbdb`. Fixed-width
 //! dot-free stems cannot be prefixes or native companion stems of each other.
 

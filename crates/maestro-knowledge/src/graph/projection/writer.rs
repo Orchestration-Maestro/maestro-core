@@ -265,9 +265,7 @@ impl ProjectionReader {
         {
             return Err(ProjectionError::NotReady);
         }
-        if !super::content::is_canonical_basename(&receipt.file_name)
-            || super::content::basename(&scope, &receipt.claim_set_id)
-                != Ok(receipt.file_name.clone())
+        if super::content::basename(&scope, &receipt.claim_set_id) != Ok(receipt.file_name.clone())
         {
             return Err(ProjectionError::NotReady);
         }
