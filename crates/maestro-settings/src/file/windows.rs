@@ -57,14 +57,15 @@ impl Directory {
         Ok(Some(Self { path, _held: held }))
     }
 
-    /// The regular file `name`, opened for reading without following a
-    /// link; `None` when it does not exist.
+    /// The settings file `name`, opened for reading without following a
+    /// link; `None` when it does not exist. Callers pass fixed settings file
+    /// names. Windows refuses a directory without backup semantics, and
+    /// `unlinked` refuses reparse points.
     pub(super) fn open_regular(&self, name: &OsStr) -> io::Result<Option<File>> {
         let Some(file) = found(hold(&self.path.join(name), FILE_FLAG_OPEN_REPARSE_POINT))? else {
             return Ok(None);
         };
         unlinked(&file)?;
-        regular(&file)?;
         Ok(Some(file))
     }
 
@@ -78,7 +79,6 @@ impl Directory {
             .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT)
             .open(self.path.join(name))?;
         unlinked(&file)?;
-        regular(&file)?;
         Ok(file)
     }
 
@@ -135,11 +135,58 @@ fn unlinked(file: &File) -> io::Result<()> {
     Ok(())
 }
 
-/// An error when `file` is not a regular file.
-fn regular(file: &File) -> io::Result<()> {
-    if file.metadata()?.is_file() {
+#[cfg(test)]
+mod tests {
+    use super::{Directory, FilePlace, LINK};
+    use std::{
+        error::Error,
+        ffi::OsStr,
+        fs, io,
+        os::windows::fs::symlink_file,
+        path::{Path, PathBuf},
+    };
+
+    struct Scratch(PathBuf);
+
+    impl Scratch {
+        fn new() -> Result<Self, Box<dyn Error>> {
+            Ok(Self(maestro_test_scratch::scratch_directory()?))
+        }
+    }
+
+    impl Drop for Scratch {
+        fn drop(&mut self) {
+            drop(fs::remove_dir_all(&self.0));
+        }
+    }
+
+    fn directory(root: &Path) -> io::Result<Directory> {
+        Directory::open(&FilePlace::user(root), false)?
+            .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "test directory disappeared"))
+    }
+
+    #[test]
+    fn open_regular_reports_file_symlink_as_link() -> Result<(), Box<dyn Error>> {
+        let scratch = Scratch::new()?;
+        fs::write(scratch.0.join("target"), "contents")?;
+        symlink_file("target", scratch.0.join("linked"))?;
+
+        let error = directory(&scratch.0)?
+            .open_regular(OsStr::new("linked"))
+            .expect_err("file symlink must be refused");
+        assert_eq!(error.to_string(), LINK);
         Ok(())
-    } else {
-        Err(io::Error::other("not a regular file"))
+    }
+
+    #[test]
+    fn open_regular_refuses_directories_before_opening_a_handle() -> Result<(), Box<dyn Error>> {
+        let scratch = Scratch::new()?;
+        fs::create_dir(scratch.0.join("directory"))?;
+        assert!(
+            directory(&scratch.0)?
+                .open_regular(OsStr::new("directory"))
+                .is_err()
+        );
+        Ok(())
     }
 }
