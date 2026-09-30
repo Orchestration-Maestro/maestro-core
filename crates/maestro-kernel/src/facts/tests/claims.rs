@@ -375,8 +375,8 @@ fn event_and_job_type_kinds_cannot_extend_depends_on_at_the_authority() {
     refuse_authority_kinds(&[
         ("Event", "Component"),
         ("Concept", "JobType"),
-        ("Event", "JobType"),
-        ("JobType", "Event"),
+        ("Component", "Event"),
+        ("JobType", "Component"),
     ]);
 }
 
