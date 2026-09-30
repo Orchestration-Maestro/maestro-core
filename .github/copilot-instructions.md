@@ -1471,6 +1471,7 @@ in place.
 │       ├── research/                                                        # Research
 │       │   ├── dependencies.md                                              # C09 dependency measurements
 │       │   ├── hosts.md                                                     # Catalog host format probe (C01)
+│       │   ├── interface.md                                                 # Init terminal dependency measurements (C05f)
 │       │   └── trust.md                                                     # C09 public attestation probe and trust measurements
 │       ├── plan.md                                                          # Implementation Plan: Catalog
 │       ├── spec.md                                                          # Feature Specification: Catalog
