@@ -148,6 +148,7 @@ in place.
 │   │   │   │   │   ├── import_endings.rs                                    # An import ends its job succeeded with its report or failed saying why; each step journaled, or a lost lease stops it
 │   │   │   │   │   ├── lease_heartbeats.rs                                  # A foreground job's lease, held only by Holder::run: renewed at each heartbeat and step, never after a takeover
 │   │   │   │   │   ├── mod.rs                                               # The unit tests' door: declarations only
+│   │   │   │   │   ├── model_failures.rs                                    # Registration constraint failures are refused; other database errors fail.
 │   │   │   │   │   ├── publication_resume.rs                                # A new publication attempt resumes from the last step of its predecessor
 │   │   │   │   │   ├── supersessions.rs                                     # An import supersedes its resource's holder once no live lease holds it, and leaves a live one alone
 │   │   │   │   │   ├── support.rs                                           # What the unit tests share: a scratch kernel and a job leased in it, held or lost
@@ -272,6 +273,7 @@ in place.
 │   │   │       ├── mcp_stdio.rs                                             # The stdio MCP server's process boundary and advertised tools
 │   │   │       ├── model_cli.rs                                             # Registration and listing of scoped model cards through the public CLI
 │   │   │       ├── model_cli_registration.rs                                # Registration input, grant, and router-failure contract tests
+│   │   │       ├── model_cli_selection.rs                                   # Selection reads only the evaluations of the exact card it selects
 │   │   │       ├── publish_again.rs                                         # Help for explicit projection recovery
 │   │   │       ├── quality_gates.rs                                         # knowledge quality: its report, a rerun, a gate after an import, the ledger first, failures and refusals
 │   │   │       ├── settings_config.rs                                       # maestro config: the user file preferences.toml, the project file
