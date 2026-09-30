@@ -397,5 +397,6 @@ numbers come from the lbug-spike crate's engine build (the C++ debug build of
 Commands: `capped cargo build -p lbug-spike --features engine --example
 open_reopen --locked --offline`, then `unshare -rn /usr/bin/time -v
 target/debug/examples/open_reopen <empty scratch directory>`. The logs are in
-the G26 report. The `graph_operations` tests ran in the same namespace, in the
+the ledger's `.superpowers/sdd/s2-knowledge-graph/g26-evidence/`, outside this
+repository. The `graph_operations` tests ran in the same namespace, in the
 default and the `engine` builds.

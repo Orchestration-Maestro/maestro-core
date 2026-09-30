@@ -31,6 +31,9 @@ pub(super) struct GraphSetup {
     pub(super) action: &'static str,
     /// Whether setup created or secured the directory.
     pub(super) changed: bool,
+    /// Why setup refused the graph, omitted for accepted graph states.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) detail: Option<String>,
 }
 
 /// Previews the graph's part of setup for `engine`, and takes it when `yes`.
@@ -52,6 +55,7 @@ pub(super) fn run(
             directory: None,
             action: "disabled",
             changed: false,
+            detail: None,
         });
     }
     if !ENGINE_BUILT {
@@ -100,6 +104,7 @@ fn prepare(directory: &Path, yes: bool) -> Result<GraphSetup, Failure> {
         directory: Some(directory.display().to_string()),
         action,
         changed,
+        detail: None,
     })
 }
 

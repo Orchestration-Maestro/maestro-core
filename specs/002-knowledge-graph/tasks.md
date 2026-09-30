@@ -481,7 +481,9 @@ From G26: the kernel-receipt `PublishedGraph` adapter and the lbug
 `C/src/cli/health/graph.rs`, the `engine` feature's `lbug` dependency, a CI job
 that builds `--features engine` and runs its tests and mutants (the
 `mutation-windows` precedent), and a cleanup command that refuses live readers
-and files the receipt does not name all belong to G27.
+and files the receipt does not name all belong to G27. The lbug adapter must
+classify only its actual platform lock messages as locked; do not match the
+generic substring `"lock"`, which also occurs in unrelated corruption errors.
 
 ### G28 [US5] Load the frozen snapshot with one resumable batch loader
 

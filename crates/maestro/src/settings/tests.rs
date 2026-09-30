@@ -304,9 +304,8 @@ fn every_registered_setting_is_read_by_the_knowledge_or_graph_settings() {
     for flags in branches {
         let session = scratch.session(flags);
         read.extend(KnowledgeSettings::read(&session.resolved()).unwrap().1);
-        GraphEngine::from_session(&session).unwrap();
+        read.extend(GraphEngine::read(&session).unwrap().1);
     }
-    read.insert(GraphEngine::KEY.to_owned());
     let registry = Registry::built_in().unwrap();
     let registered: BTreeSet<String> = registry
         .descriptors()

@@ -49,7 +49,7 @@ fn an_off_graph_is_reported_off_and_never_probed_or_created() {
     );
 }
 
-#[cfg(not(feature = "engine"))]
+#[cfg(all(not(feature = "engine"), unix))]
 #[test]
 fn lbug_in_a_build_without_the_engine_is_named_and_nothing_is_created() {
     let home = Home::bare();
@@ -66,15 +66,36 @@ fn lbug_in_a_build_without_the_engine_is_named_and_nothing_is_created() {
         .to_owned();
     assert!(next.contains("`engine` feature"), "{next}");
 
-    let setup = home.run(&["--set", "graph.engine=lbug", "setup", "--yes"]);
-    assert_eq!(setup.code, Some(2), "{setup:?}");
-    assert_eq!(setup.stdout, "");
-    assert!(setup.stderr.contains("`engine` feature"), "{setup:?}");
+    let (setup, calls, stderr) = setup_offline(
+        &home,
+        &["--set", "graph.engine=lbug", "--json", "setup", "--yes"],
+    );
+    assert_eq!(setup["graph"]["action"], "refused", "{setup}");
+    assert!(
+        setup["graph"]["detail"]
+            .as_str()
+            .unwrap()
+            .contains("`engine` feature")
+    );
+    assert!(stderr.contains("`engine` feature"), "{stderr}");
+    assert!(calls.contains("systemctl"), "Qdrant still ran: {calls}");
     assert!(!home.data().join("graph").exists());
     assert!(
         !home.data().join("qdrant").exists(),
-        "the service untouched"
+        "the service refusal remains unchanged"
     );
+}
+
+#[cfg(unix)]
+#[test]
+fn setup_refuses_a_settings_file_error_and_still_reports_qdrant() {
+    let home = Home::bare();
+    fs::write(home.config().join("preferences.toml"), "schema = [\n").unwrap();
+    let setup = home.run(&["setup"]);
+    assert_eq!(setup.code, Some(2), "{setup:?}");
+    assert!(setup.stdout.starts_with("Graph: refused:"), "{setup:?}");
+    assert!(setup.stderr.contains("preferences.toml"), "{setup:?}");
+    assert!(!home.data().join("qdrant").exists());
 }
 
 #[test]
@@ -98,7 +119,7 @@ fn an_engine_path_from_the_caller_is_refused_before_anything_opens() {
 /// calls: no systemd user manager runs, so the search service's part is
 /// refused. Returns what it printed and the tools it called.
 #[cfg(unix)]
-fn setup_offline(home: &Home, arguments: &[&str]) -> (Value, String) {
+fn setup_offline(home: &Home, arguments: &[&str]) -> (Value, String, String) {
     use std::{env, os::unix::fs::PermissionsExt as _};
     let tools = home.tools();
     let calls = tools.join("calls");
@@ -117,14 +138,18 @@ fn setup_offline(home: &Home, arguments: &[&str]) -> (Value, String) {
     let output = command.output().unwrap();
     assert_eq!(output.status.code(), Some(2), "{output:?}");
     let document = serde_json::from_slice(&output.stdout).unwrap();
-    (document, fs::read_to_string(calls).unwrap_or_default())
+    (
+        document,
+        fs::read_to_string(calls).unwrap_or_default(),
+        String::from_utf8(output.stderr).unwrap(),
+    )
 }
 
 #[cfg(unix)]
 #[test]
 fn an_off_graph_setup_downloads_nothing_and_writes_nothing() {
     let home = Home::bare();
-    let (document, calls) = setup_offline(&home, &["--json", "setup", "--yes"]);
+    let (document, calls, _) = setup_offline(&home, &["--json", "setup", "--yes"]);
     assert_eq!(document["graph"]["action"], "disabled", "{document}");
     assert!(!home.data().join("graph").exists());
     assert!(
@@ -143,10 +168,10 @@ fn with_the_engine_setup_owns_the_directory_and_health_opens_nothing_yet() {
     assert_eq!(detail(&missing), "the graph directory is missing");
 
     let lbug = ["--set", "graph.engine=lbug", "--json", "setup"];
-    let (preview, _) = setup_offline(&home, &lbug);
+    let (preview, _, _) = setup_offline(&home, &lbug);
     assert_eq!(preview["graph"]["action"], "create_directory", "{preview}");
     assert!(!graph_directory.exists());
-    let (applied, calls) = setup_offline(&home, &[&lbug[..], &["--yes"]].concat());
+    let (applied, calls, _) = setup_offline(&home, &[&lbug[..], &["--yes"]].concat());
     assert_eq!(applied["graph"]["changed"], true, "{applied}");
     assert!(graph_directory.is_dir());
     assert!(!calls.contains("curl") && !calls.contains("tar"), "{calls}");

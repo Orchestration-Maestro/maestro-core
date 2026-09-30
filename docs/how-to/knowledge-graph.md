@@ -11,11 +11,13 @@ and `doctor` never look for graph files.
 
 ## Select the engine
 
-The engine is in a `maestro` built with the `engine` feature only:
+Build `maestro` with the `engine` feature to unlock the `lbug` setting:
 
 ```sh
 cargo build --release -p maestro --features engine
 ```
+
+Today the feature only unlocks the setting; the engine arrives with G27.
 
 Select it for every run, or for one run:
 
@@ -26,8 +28,9 @@ maestro --set graph.engine=lbug status
 
 `graph.engine` accepts `none` or `lbug`. No setting or flag takes a graph file
 path: Maestro places the graph under its own data directory. A build without the
-engine refuses `setup` when `lbug` is selected, and `status` and `doctor` report
-the engine as missing from the build.
+engine refuses the graph part of `setup` when `lbug` is selected, but still
+runs the search-service part; `status` and `doctor` report the engine as
+missing from the build.
 
 ## Create the graph's directory
 
@@ -43,10 +46,11 @@ directory. Setup downloads nothing, opens no database and removes nothing. It
 refuses a graph directory that is a link or not a directory.
 
 The graph's part comes first and runs on every platform. The search service's
-part follows unchanged: where it is refused, as on a platform setup does not
-install Qdrant on, setup prints the graph's part alone
-(`maestro-cli/setup-graph/1` under `--json`), then the same refusal, with the
-same exit code.
+part follows unchanged. If the search-service part is refused, setup prints
+only the graph's part first (`maestro-cli/setup-graph/1` under `--json`), then
+reports the unchanged search-service refusal and exit code. If the graph part
+is refused, setup reports its detail and still runs the search-service part;
+the search-service failure's exit code takes precedence.
 
 ## Check it
 

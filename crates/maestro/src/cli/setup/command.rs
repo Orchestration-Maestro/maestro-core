@@ -10,7 +10,7 @@ use super::{
     tools::Tools,
 };
 use crate::{
-    cli::output::Output,
+    cli::output::{Output, diagnose},
     failure::Failure,
     settings::{GraphEngine, Session},
 };
@@ -82,21 +82,45 @@ pub(in crate::cli) enum Readiness {
 ///
 /// # Errors
 ///
-/// [`Failure::Refused`] for a graph engine this build lacks or a graph path
-/// that is a link or no directory; on a platform setup does not install on,
-/// with the manual steps, where no systemd user manager runs, or for a path
-/// no unit can hold, before any service step; [`Failure::Failed`] when the
-/// settings or a directory cannot be resolved or a step fails.
+/// As [`service`], when its part is refused or fails. A graph refusal is
+/// reported independently and does not prevent the service part from running.
 pub(in crate::cli) fn run(
     output: Output,
     yes: bool,
     flags: &[String],
 ) -> Result<ExitCode, Failure> {
     let environment = Environment::current();
-    let engine = GraphEngine::from_session(&Session::for_cli(flags)?)?;
-    let graph = graph::run(&environment, engine, yes)?;
+    let graph = Session::for_cli(flags)
+        .and_then(|session| GraphEngine::from_session(&session))
+        .and_then(|engine| graph::run(&environment, engine, yes));
+    let (graph, graph_refusal) = match graph {
+        Ok(graph) => (graph, None),
+        Err(failure) => {
+            let detail = failure.to_string();
+            (
+                GraphSetup {
+                    engine: "unknown",
+                    directory: None,
+                    action: "refused",
+                    changed: false,
+                    detail: Some(detail.clone()),
+                },
+                Some(detail),
+            )
+        }
+    };
+    if let Some(detail) = &graph_refusal {
+        diagnose(detail);
+    }
     match service(&environment, yes) {
-        Ok(service) => report(output, &service, &graph),
+        Ok(service) => {
+            report(output, &service, &graph)?;
+            Ok(if graph_refusal.is_some() {
+                ExitCode::from(2)
+            } else {
+                ExitCode::SUCCESS
+            })
+        }
         Err(failure) => {
             let document = GraphDocument {
                 schema: GRAPH_SCHEMA,
@@ -237,7 +261,10 @@ fn report(output: Output, service: &Service<'_>, graph: &GraphSetup) -> Result<E
 }
 
 /// The `graph`'s part, for people.
-fn graph_text(graph: &GraphSetup) -> String {
+pub(super) fn graph_text(graph: &GraphSetup) -> String {
+    if let Some(detail) = &graph.detail {
+        return format!("Graph: refused: {detail}");
+    }
     let Some(directory) = &graph.directory else {
         return "Graph: off (graph.engine = none), nothing to do.".to_owned();
     };

@@ -3,6 +3,8 @@
 //! directory, each path written as systemd reads it back.
 
 use super::super::{
+    command::graph_text,
+    graph::GraphSetup,
     release::QDRANT,
     service::{Layout, unit_text},
 };
@@ -13,6 +15,52 @@ use std::{ffi::OsStr, os::unix::ffi::OsStrExt as _, path::Path};
 /// configuration home `/config`.
 fn layout(data: &str) -> Layout {
     Layout::new(Path::new(data), Path::new("/config"))
+}
+
+#[test]
+fn graph_setup_text_covers_every_action_and_changed_state() {
+    for (action, changed, expected) in [
+        (
+            "create_directory",
+            true,
+            "Graph: the embedded engine's directory /data/graph, created.",
+        ),
+        (
+            "create_directory",
+            false,
+            concat!(
+                "Graph: the embedded engine's directory /data/graph, to create, which ",
+                "`maestro setup --yes` does."
+            ),
+        ),
+        (
+            "secure_permissions",
+            true,
+            "Graph: the embedded engine's directory /data/graph, given mode 0700.",
+        ),
+        (
+            "secure_permissions",
+            false,
+            concat!(
+                "Graph: the embedded engine's directory /data/graph, to give mode 0700, which ",
+                "`maestro setup --yes` does."
+            ),
+        ),
+        (
+            "ready",
+            false,
+            "Graph: the embedded engine's directory /data/graph, in place.",
+        ),
+    ] {
+        let graph = GraphSetup {
+            engine: "lbug",
+            directory: Some("/data/graph".to_owned()),
+            action,
+            changed,
+            detail: None,
+        };
+        assert_eq!(graph_text(&graph), expected, "{action}, changed={changed}");
+    }
 }
 
 #[test]

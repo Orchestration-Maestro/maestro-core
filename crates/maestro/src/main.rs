@@ -386,8 +386,10 @@
 //! graph's directory, `graph` under the data directory, mode 0700 on Unix,
 //! or restores that mode; it downloads nothing, opens no graph and removes
 //! nothing, on every platform. A build without the `engine` feature refuses
-//! `lbug`, and a link or a file in the directory's place is refused. Then it
-//! installs Qdrant 1.19.1, the search service, as the systemd user unit
+//! the graph part of setup for `lbug`, and a link or a file in the directory's
+//! place is refused. A graph
+//! refusal is reported but does not prevent the search-service part from
+//! running. It installs Qdrant 1.19.1, the search service, as the systemd user unit
 //! `maestro-qdrant.service`: its archive is downloaded over HTTPS with the
 //! system's `curl`, refused unless its SHA-256 and that of the binary it
 //! holds are the ones pinned in the code, and the binary goes under the data
@@ -404,7 +406,8 @@
 //! user, as on WSL unless `/etc/wsl.conf` sets `systemd=true` under
 //! `[boot]`, it exits 2 before any step, saying so. When the search
 //! service's part is refused or fails, the graph's part is printed alone
-//! first, `maestro-cli/setup-graph/1` under `--json`.
+//! first, `maestro-cli/setup-graph/1` under `--json`. The search-service
+//! failure's exit code takes precedence over a graph refusal.
 //!
 //! ```json
 //! {"schema":"maestro-cli/setup/1","version":"1.19.1","service":"maestro-qdrant.service",
