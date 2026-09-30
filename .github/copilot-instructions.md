@@ -1430,6 +1430,7 @@ in place.
 │   │   └── tasks.md                                                         # Knowledge Kernel and Hybrid RAG Implementation Tasks
 │   └── 003-catalog/                                                         # 003 catalog
 │       ├── research/                                                        # Research
+│       │   ├── dependencies.md                                              # C09 dependency measurements
 │       │   └── hosts.md                                                     # Catalog host format probe (C01)
 │       ├── plan.md                                                          # Implementation Plan: Catalog
 │       ├── spec.md                                                          # Feature Specification: Catalog
@@ -1447,17 +1448,20 @@ in place.
 │       │   │   ├── pi.md                                                    # Synthetic agent for the catalog host format probe
 │       │   │   ├── sidecar.agent.md                                         # Synthetic agent for the catalog host format probe
 │       │   │   └── sidecar.maestro.toml                                     # TOML settings: sidecar.maestro
-│       │   └── source/                                                      # Source
-│       │       ├── valid-skill/                                             # Valid skill
-│       │       │   └── SKILL.md                                             # Synthetic skill that cites evidence from the public synthetic glossary
-│       │       ├── classes.toml                                             # TOML settings: classes
-│       │       ├── invalid.agent.md                                         # Synthetic agent that carries metadata Copilot ignores
-│       │       ├── mcp.toml                                                 # TOML settings: mcp
-│       │       ├── preset.toml                                              # TOML settings: preset
-│       │       ├── valid.agent.md                                           # Synthetic agent that answers from the public synthetic glossary
-│       │       ├── valid.instructions.maestro.toml                          # TOML settings: valid.instructions.maestro
-│       │       ├── valid.instructions.md                                    # Sample document: valid.instructions
-│       │       └── valid.maestro.toml                                       # TOML settings: valid.maestro
+│       │   ├── source/                                                      # Source
+│       │   │   ├── valid-skill/                                             # Valid skill
+│       │   │   │   └── SKILL.md                                             # Synthetic skill that cites evidence from the public synthetic glossary
+│       │   │   ├── classes.toml                                             # TOML settings: classes
+│       │   │   ├── invalid.agent.md                                         # Synthetic agent that carries metadata Copilot ignores
+│       │   │   ├── mcp.toml                                                 # TOML settings: mcp
+│       │   │   ├── preset.toml                                              # TOML settings: preset
+│       │   │   ├── valid.agent.md                                           # Synthetic agent that answers from the public synthetic glossary
+│       │   │   ├── valid.instructions.maestro.toml                          # TOML settings: valid.instructions.maestro
+│       │   │   ├── valid.instructions.md                                    # Sample document: valid.instructions
+│       │   │   └── valid.maestro.toml                                       # TOML settings: valid.maestro
+│       │   └── trust/                                                       # Trust
+│       │       ├── valid.json                                               # JSON data: valid
+│       │       └── wrong-signer.json                                        # JSON data: wrong signer
 │       └── synthetic/                                                       # The public synthetic collection and its suite, which stand in for the private corpus in public CI (ADR-0009)
 │           ├── corpus/                                                      # The collection's one source: its maestro-corpus/1 manifest beside the Markdown documents it names
 │           │   ├── en/                                                      # The documents written in English
