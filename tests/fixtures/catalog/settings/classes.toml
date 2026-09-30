@@ -72,10 +72,3 @@ locked = [
   "result_validation",
   "discovered_executable_hooks",
 ]
-
-[metadata]
-schema = "maestro-source/1"
-owner = "@synthetic/platform"
-maturity = "reviewed"
-rows = ["chat.M036 classes, M039 policy"]
-workflows = ["ctm-question"]

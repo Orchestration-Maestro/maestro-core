@@ -5,8 +5,12 @@
 use super::support::{MemoryTree, assert_refused, check_under};
 use crate::{
     limits::Limits,
-    source::{Known, ResourceId, builtin, check, frozen_rows, shipped_settings},
+    source::{Known, ResourceId, builtin, check, frozen_rows},
 };
+use maestro_settings::{
+    BUILT_IN, Registry as SettingsRegistry, SettingClass, SettingDescriptor, SettingKind,
+};
+use std::borrow::Cow;
 
 /// The valid agent profile's path.
 const AGENT: &str = "agents/base/valid.agent.md";
@@ -181,8 +185,18 @@ fn mcp_args_are_an_ordered_list_that_may_repeat() {
 
 #[test]
 fn injected_settings_replace_the_shipped_ones() {
-    let mut settings = shipped_settings();
-    settings.insert("colour".to_owned());
+    let mut descriptors = BUILT_IN.to_vec();
+    descriptors.push(SettingDescriptor {
+        key: Cow::Borrowed("colour"),
+        kind: SettingKind::Choice {
+            values: Cow::Borrowed(&[Cow::Borrowed("blue")]),
+            reserved: Cow::Borrowed(&[]),
+        },
+        default: Cow::Borrowed("blue"),
+        description: Cow::Borrowed("A synthetic setting for the catalog port test."),
+        class: SettingClass::Free,
+    });
+    let settings = SettingsRegistry::new(&descriptors).unwrap();
     let rows = frozen_rows();
     let known = Known {
         rows: &rows,

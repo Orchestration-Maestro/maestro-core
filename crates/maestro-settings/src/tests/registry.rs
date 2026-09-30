@@ -263,6 +263,38 @@ fn every_built_in_description_is_one_line_and_every_class_free() {
 }
 
 #[test]
+fn catalog_settings_are_appended_without_changing_existing_entries() {
+    let registry = Registry::built_in().unwrap();
+    assert_eq!(BUILT_IN[1].key, "tone");
+    for (key, default) in [
+        ("updates", "propose"),
+        ("model_profile", "balanced"),
+        ("reasoning_effort", "default"),
+        ("inference_writers", "1"),
+        ("workspace_writers", "1"),
+        ("delegation_depth", "2"),
+        ("tool_calls", "40"),
+        ("repair_attempts", "2"),
+        ("routing_candidates", "3"),
+        ("mcp_call_timeout", "30000"),
+        ("cross_project_memory", "false"),
+        ("mcp_apps", "false"),
+        ("extensions", "false"),
+        ("schedules", "false"),
+        ("raw_prompt_logging", "false"),
+        ("raw_reasoning_logging", "false"),
+        ("provider_fallback", "none"),
+        ("evidence_validation", "true"),
+        ("result_validation", "true"),
+        ("discovered_executable_hooks", "false"),
+    ] {
+        assert_eq!(registry.get(key).unwrap().default, default, "{key}");
+    }
+    assert!(registry.get("max_output_tokens").is_none());
+    assert!(registry.get("ask.output_tokens").is_some());
+}
+
+#[test]
 fn rerank_header_is_not_a_registered_setting() {
     let registry = Registry::built_in().unwrap();
     assert!(registry.get("search.rerank.header").is_none());

@@ -8,6 +8,7 @@ use crate::{
         frozen_rows, shipped_settings,
     },
 };
+use maestro_settings::Registry as SettingsRegistry;
 use std::{
     collections::{BTreeMap, BTreeSet},
     io,
@@ -183,7 +184,7 @@ pub(super) fn check_by(
     registry: &Registry,
     limits: &Limits,
 ) -> Result<Catalog, Refusal> {
-    let (rows, settings) = (frozen_rows(), shipped_settings());
+    let (rows, settings) = (frozen_rows(), SettingsRegistry::built_in().unwrap());
     let known = Known {
         rows: &rows,
         settings: &settings,

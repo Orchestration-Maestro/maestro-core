@@ -1,13 +1,13 @@
 //! `catalog check --catalog-dir DIR`: the strict source checker over a
 //! catalog directory, with the built-in kinds, the production limits and the
-//! frozen architecture 08 rows and the shipped settings. It prints each
+//! frozen architecture 08 rows and S1's canonical settings registry. It prints each
 //! diagnostic with its path and key, and exits 2 when the catalog is refused
 //! and 1 when a file or directory cannot be read.
 
 use crate::{cli::output::Output, failure::Failure};
 use maestro_catalog::{
     limits::Limits,
-    source::{Catalog, Directory, Known, Refusal, builtin, check, frozen_rows, shipped_settings},
+    source::{Catalog, Directory, Known, Refusal, builtin, check, frozen_rows},
 };
 use serde::Serialize;
 use std::{path::Path, process::ExitCode};
@@ -101,7 +101,10 @@ fn refused(refusal: &Refusal) -> CheckDocument<'_> {
 /// cannot be written to.
 pub(in crate::cli) fn run(output: Output, catalog_dir: &Path) -> Result<ExitCode, Failure> {
     let registry = builtin().map_err(Failure::failed)?;
-    let (rows, settings) = (frozen_rows(), shipped_settings());
+    let (rows, settings) = (
+        frozen_rows(),
+        maestro_settings::Registry::built_in().map_err(Failure::failed)?,
+    );
     let known = Known {
         rows: &rows,
         settings: &settings,

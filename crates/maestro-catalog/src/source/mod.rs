@@ -20,7 +20,7 @@ mod yaml;
 
 pub use check::check;
 pub use descriptor::{Field, FieldType, Format, KindDescriptor, Layout, MetadataPlace};
-pub use kinds::{builtin, builtin_hooks, shipped_settings};
+pub use kinds::{builtin, builtin_hooks};
 pub use registry::{Registration, Registry};
 pub use tree::{Directory, Entry, EntryKind, SourceTree};
 pub use types::{

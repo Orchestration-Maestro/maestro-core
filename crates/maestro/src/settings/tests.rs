@@ -4,6 +4,7 @@
 
 use super::{Compute, KnowledgeSettings, Session};
 use crate::failure::Failure;
+use maestro_catalog::settings::SettingClasses;
 use maestro_kernel::evidence::RequestBudget;
 use maestro_knowledge::{
     answer::{AnswerPrompt, AskBudget, DEFAULT_MODEL, Presentation, PromptVersion, Tone},
@@ -281,7 +282,7 @@ fn each_setting_reaches_the_knowledge_operations() {
 }
 
 #[test]
-fn every_registered_setting_is_read_by_the_knowledge_settings() {
+fn every_registered_setting_is_read_by_a_consumer() {
     let scratch = Scratch::new();
     let branches: [&[&str]; 2] = [
         &[],
@@ -301,7 +302,16 @@ fn every_registered_setting_is_read_by_the_knowledge_settings() {
         .descriptors()
         .map(|descriptor| descriptor.key.to_string())
         .collect();
-    assert_eq!(read, registered);
+    let classes = SettingClasses::parse(
+        include_str!("../../../../tests/fixtures/catalog/settings/classes.toml"),
+        &registry,
+    )
+    .unwrap();
+    let catalog: BTreeSet<String> = classes.keys().map(str::to_owned).collect();
+    assert_eq!(
+        read.union(&catalog).cloned().collect::<BTreeSet<_>>(),
+        registered
+    );
 }
 
 #[test]

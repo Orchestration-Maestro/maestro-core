@@ -1,54 +1,27 @@
 //! `settings`: `settings/classes.toml`, the one override class of every
 //! setting Maestro knows (architecture 03 §1.6). Its hook refuses unknown
 //! classes and keys, and a key with no class or two. The known settings
-//! reach it through the [`KnownSettings`](crate::source::KnownSettings) port;
-//! [`shipped_settings`] is its default adapter until S1's settings registry
-//! supplies them.
+//! reach it through the [`KnownSettings`] port,
+//! backed by S1's canonical settings registry.
 
 use crate::source::{
     descriptor::{Field, FieldType, Format, KindDescriptor, Layout, MetadataPlace},
     parse::once,
     rules::KindRules,
-    types::{Known, Maturity, Problems, Resource, Value},
+    types::{Known, KnownSettings, Maturity, Problems, Resource, Value},
 };
-use std::collections::{BTreeMap, BTreeSet};
-
-/// Every setting key Maestro ships a default for: architecture 03 §1.6.
-const SHIPPED_SETTINGS: [&str; 23] = [
-    "language",
-    "tone",
-    "updates",
-    "model_profile",
-    "reasoning_effort",
-    "max_output_tokens",
-    "inference_writers",
-    "workspace_writers",
-    "delegation_depth",
-    "tool_calls",
-    "repair_attempts",
-    "routing_candidates",
-    "mcp_call_timeout",
-    "cross_project_memory",
-    "mcp_apps",
-    "extensions",
-    "schedules",
-    "raw_prompt_logging",
-    "raw_reasoning_logging",
-    "provider_fallback",
-    "evidence_validation",
-    "result_validation",
-    "discovered_executable_hooks",
-];
-
-/// The settings Maestro ships defaults for, the default
-/// [`KnownSettings`](crate::source::KnownSettings) adapter.
-#[must_use]
-pub fn shipped_settings() -> BTreeSet<String> {
-    SHIPPED_SETTINGS.into_iter().map(str::to_owned).collect()
-}
+use std::collections::BTreeMap;
 
 /// The override classes (architecture 03 §1.6).
 const CLASSES: [&str; 4] = ["free", "bounded", "additive", "locked"];
+
+impl KnownSettings for maestro_settings::Registry {
+    fn keys(&self) -> Vec<&str> {
+        self.descriptors()
+            .map(|descriptor| descriptor.key.as_ref())
+            .collect()
+    }
+}
 
 /// The settings kind.
 pub(super) fn descriptor() -> KindDescriptor {

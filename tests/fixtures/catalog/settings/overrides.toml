@@ -1,0 +1,5 @@
+[overrides]
+model_profile = "balanced"
+routing_candidates = 3
+language = "en"
+tone = "normal"

@@ -4,8 +4,9 @@
 use super::support::{MemoryTree, check_under};
 use crate::{
     limits::Limits,
-    source::{Maturity, Metadata, ResourceId, Value, frozen_rows, shipped_settings},
+    source::{Maturity, Metadata, ResourceId, Value, frozen_rows},
 };
+use maestro_settings::Registry as SettingsRegistry;
 use std::{collections::BTreeSet, fs, path::Path};
 
 /// The ID `kind:name`.
@@ -113,11 +114,13 @@ fn valid_preset_and_classes_keep_their_values() {
         .values()
         .map(|keys| keys.texts().unwrap().len())
         .sum();
-    assert_eq!(classified, shipped_settings().len());
     assert_eq!(
-        classes["free"],
-        Value::List(vec![text("language"), text("tone")])
+        classified,
+        SettingsRegistry::built_in().unwrap().descriptors().len()
     );
+    let free = classes["free"].texts().unwrap();
+    assert!(free.contains(&"language"));
+    assert!(free.contains(&"tone"));
 }
 
 #[test]

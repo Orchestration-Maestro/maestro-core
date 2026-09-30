@@ -872,6 +872,7 @@ version = "0.1.0"
 dependencies = [
  "maestro-filesystem",
  "maestro-kernel",
+ "maestro-settings",
  "pulldown-cmark",
  "serde",
  "serde_json",

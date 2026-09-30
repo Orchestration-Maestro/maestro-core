@@ -11,4 +11,3 @@ mod settings;
 mod skill;
 
 pub use builtin::{builtin, builtin_hooks};
-pub use settings::shipped_settings;

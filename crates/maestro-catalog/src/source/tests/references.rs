@@ -130,26 +130,18 @@ fn every_setting_has_exactly_one_known_class() {
     assert_refused(vec![
         (
             "unknown key",
-            edited(
-                CLASSES,
-                "free = [\"language\", \"tone\"]",
-                "free = [\"language\", \"tone\", \"colour\"]",
-            ),
-            "settings/classes.toml: classes.free: unknown setting \"colour\"",
+            edited(CLASSES, "additive = []", "additive = [\"colour\"]"),
+            "settings/classes.toml: classes.additive: unknown setting \"colour\"",
         ),
         (
             "unclassified key",
-            edited(
-                CLASSES,
-                "free = [\"language\", \"tone\"]",
-                "free = [\"language\"]",
-            ),
-            "settings/classes.toml: classes: setting \"tone\" has no class",
+            edited(CLASSES, "\"model_profile\", ", ""),
+            "settings/classes.toml: classes: setting \"model_profile\" has no class",
         ),
         (
             "doubly classified key",
-            edited(CLASSES, "additive = []", "additive = [\"tone\"]"),
-            "settings/classes.toml: classes: setting \"tone\" has two classes",
+            edited(CLASSES, "additive = []", "additive = [\"model_profile\"]"),
+            "settings/classes.toml: classes: setting \"model_profile\" has two classes",
         ),
         (
             "preset key",

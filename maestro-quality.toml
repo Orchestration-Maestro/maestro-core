@@ -33,12 +33,6 @@ reason = "public API of maestro-catalog: the seam through which kinds loaded as 
 
 [[exception]]
 rule = "ARC-005"
-path = "crates/maestro-catalog/src/source/kinds/mod.rs"
-item = "shipped_settings"
-reason = "public API of maestro-catalog: the default known-settings adapter the maestro crate's catalog check passes; ARC-005 does not count cross-crate callers"
-
-[[exception]]
-rule = "ARC-005"
 path = "crates/maestro-canonicalization/src/chunk_split/mod.rs"
 item = "build_drafts"
 reason = "the chunker packs a mapped document through the structural splitter"
