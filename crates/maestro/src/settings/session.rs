@@ -9,18 +9,12 @@ use super::knowledge::KnowledgeSettings;
 use crate::failure::Failure;
 use maestro_catalog::{
     limits::Limits,
-    settings::{
-        self, NoWorkspaceTrust, ResolvedSettings, SessionPreferences, WorkspacePreferences,
-    },
+    settings::{self, ResolvedSettings, WorkspacePreferences},
 };
-use maestro_kernel::paths::{self, Environment};
 use maestro_settings::{
     Discovery, FileLayers, Flag, Layers, Registry, Resolved, parse_flags, resolve,
 };
-use std::{
-    env,
-    path::{Path, PathBuf},
-};
+use std::path::Path;
 
 /// One session's settings.
 #[derive(Debug)]
@@ -38,77 +32,21 @@ pub(crate) struct Session {
 }
 
 impl Session {
-    /// The command line's session: the user file, the project file found
-    /// from the working directory, and `flags`.
+    /// Resolve the injected source once with its discovery metadata and flags.
     ///
     /// # Errors
     ///
-    /// [`Failure::Refused`] naming a file or flag that is refused, and
-    /// [`Failure::Failed`] when the configuration directory cannot be found.
-    pub(crate) fn for_cli(flags: &[String]) -> Result<Self, Failure> {
-        let start = env::current_dir().ok();
-        Self::at(
-            &config_dir()?,
-            start.as_deref(),
-            env::home_dir().as_deref(),
-            flags,
-        )
-    }
-
-    /// The MCP server's session: the user file, the project file found from
-    /// `workspace` when one is given, and `flags`.
-    ///
-    /// # Errors
-    ///
-    /// As [`Session::for_cli`], and [`Failure::Refused`] for a workspace
-    /// whose project file cannot be read, outside home among others.
-    pub(crate) fn for_mcp(workspace: Option<&Path>, flags: &[String]) -> Result<Self, Failure> {
-        Self::for_mcp_at(&config_dir()?, workspace, env::home_dir().as_deref(), flags)
-    }
-
-    /// [`Session::for_mcp`] with the directories given.
-    pub(crate) fn for_mcp_at(
+    /// [`Failure::Refused`] naming a refused preference file or flag.
+    pub(crate) fn from_preferences(
         config_dir: &Path,
-        workspace: Option<&Path>,
-        home: Option<&Path>,
-        flags: &[String],
-    ) -> Result<Self, Failure> {
-        if let Some(workspace) = workspace
-            && !workspace.is_dir()
-        {
-            return Err(Failure::refused(format!(
-                "--workspace {}: the path is not a directory: no project file is read",
-                workspace.display()
-            )));
-        }
-        Self::at(config_dir, workspace, home, flags)
-    }
-
-    /// The session of the user file in `config_dir`, the project file found
-    /// from `start` within `home` (none without a start), and `flags`.
-    ///
-    /// # Errors
-    ///
-    /// [`Failure::Refused`] naming a file or flag that is refused.
-    pub(crate) fn at(
-        config_dir: &Path,
-        start: Option<&Path>,
-        home: Option<&Path>,
+        source: &dyn WorkspacePreferences,
+        discovery: Discovery,
         flags: &[String],
     ) -> Result<Self, Failure> {
         let registry = Registry::built_in().map_err(|error| Failure::failed_by(&error))?;
-        let snapshot = SessionPreferences::load(
-            config_dir,
-            start,
-            home,
-            &NoWorkspaceTrust,
-            &Limits::PRODUCTION,
-        )
-        .map_err(Failure::refused)?;
-        let layers = snapshot
+        let layers = source
             .layers(&registry, &Limits::PRODUCTION)
             .map_err(Failure::refused)?;
-        let discovery = snapshot.discovery;
         if let Some(note) = &discovery.note {
             eprintln!("{note}");
         }
@@ -180,9 +118,4 @@ impl WorkspacePreferences for Session {
     fn layers(&self, _registry: &Registry, _limits: &Limits) -> Result<Layers, String> {
         Ok(self.layers.clone())
     }
-}
-
-/// The kernel's configuration directory, which holds the user file.
-fn config_dir() -> Result<PathBuf, Failure> {
-    paths::config_dir(&Environment::current()).map_err(|error| Failure::failed_by(&error))
 }

@@ -24,6 +24,17 @@ impl Home {
         let path = self.0.join(directory);
         fs::create_dir_all(path.join(".maestro")).unwrap();
         fs::write(path.join(".maestro/config.toml"), text).unwrap();
+        // Safe fixtures have explicit modes, independent of the process umask.
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt as _;
+            fs::set_permissions(path.join(".maestro"), fs::Permissions::from_mode(0o755)).unwrap();
+            fs::set_permissions(
+                path.join(".maestro/config.toml"),
+                fs::Permissions::from_mode(0o644),
+            )
+            .unwrap();
+        }
         path
     }
     pub(super) fn load(&self, start: Option<&Path>) -> Result<SessionPreferences, String> {

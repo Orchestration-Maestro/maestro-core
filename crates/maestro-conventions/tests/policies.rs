@@ -3,6 +3,9 @@
 
 mod catalog_traceability;
 mod s1_traceability;
+mod unsafe_policy;
+
+use unsafe_policy::unsafe_boundary_violation;
 
 use maestro_conventions::{
     broken_links, counted_lines, names_a_personal_directory, repository_files, root,
@@ -196,33 +199,4 @@ fn unsafe_is_confined_to_windows_handle_security() {
         offenders.is_empty(),
         "unsafe boundary violations: {offenders:?}"
     );
-}
-
-/// Ignore whitespace so formatting cannot evade the source-level boundary check.
-fn unsafe_boundary_violation(text: &str) -> bool {
-    let compact: String = text
-        .chars()
-        .filter(|character| !character.is_whitespace())
-        .collect();
-    let unsafe_block = ["unsafe", "{"].concat();
-    let lint = ["unsafe", "_code"].concat();
-    compact.contains(&unsafe_block)
-        || compact.split("allow(").skip(1).any(|attribute| {
-            attribute
-                .split(')')
-                .next()
-                .is_some_and(|lints| lints.contains(&lint))
-        })
-}
-
-#[test]
-fn unsafe_boundary_policy_rejects_formatted_blocks_and_lint_escape() {
-    for planted in [
-        ["unsafe", " { }"].concat(),
-        ["unsafe", "\n{ }"].concat(),
-        ["#[allow(", "unsafe", "_code)]"].concat(),
-    ] {
-        assert!(unsafe_boundary_violation(&planted));
-    }
-    assert!(!unsafe_boundary_violation("fn safe() {}"));
 }

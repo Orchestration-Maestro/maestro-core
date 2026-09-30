@@ -1,5 +1,5 @@
 //! Every process pins the same safe preference snapshot before effects.
-use super::support::{Home, initialize_mcp};
+use super::support::{Home, initialize_mcp, make_safe_preferences_path};
 use serde_json::json;
 use std::{
     fs,
@@ -11,6 +11,8 @@ fn project(home: &Home, body: &str) -> PathBuf {
     let root = home.root().join("project");
     fs::create_dir_all(root.join(".maestro")).unwrap();
     fs::write(root.join(".maestro/config.toml"), body).unwrap();
+    make_safe_preferences_path(&root.join(".maestro"));
+    make_safe_preferences_path(&root.join(".maestro/config.toml"));
     root
 }
 
@@ -34,6 +36,8 @@ fn nearest_file_replaces_ancestors_and_restart_observes_edits() {
     let file = root.join("nested/.maestro/config.toml");
     fs::write(&file, "schema = 'maestro-preferences/1'\nlanguage = 'ja'\n").unwrap();
     let nested = root.join("nested");
+    make_safe_preferences_path(&nested.join(".maestro"));
+    make_safe_preferences_path(&file);
     let result = home.run_in(&nested, &["--json", "config", "get", "tone"]);
     assert_eq!(result.code, Some(0), "{result:?}");
     assert_eq!(result.json()["value"], "normal");
@@ -65,6 +69,35 @@ fn explicit_mcp_workspace_outside_home_warns_and_falls_back_without_parsing() {
     let result = child.finish();
     assert_eq!(result.code, Some(0), "{result:?}");
     assert!(result.stderr.contains("maestro trust add"), "{result:?}");
+}
+
+#[test]
+fn doctor_emits_the_startup_fallback_warning_once() {
+    let home = Home::bare();
+    let outside = Home::bare();
+    let mut command = home.command(&["--json", "doctor"]);
+    command.current_dir(outside.root());
+    command.env("MAESTRO_ROUTER_URL", "http://127.0.0.1:0");
+    command.env("MAESTRO_QDRANT_URL", "http://127.0.0.1:0");
+    let result = super::support::Running::of(command).finish();
+    assert_eq!(
+        result.stderr.matches("maestro trust add").count(),
+        1,
+        "{result:?}"
+    );
+    let document = result.json();
+    let settings = document["checks"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|check| check["name"] == "settings")
+        .unwrap();
+    assert!(
+        settings["detail"]
+            .as_str()
+            .unwrap()
+            .contains("outside home")
+    );
 }
 
 #[test]

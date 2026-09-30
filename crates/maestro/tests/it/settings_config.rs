@@ -3,7 +3,7 @@
 //! explanation and their journaled history; the kernel's `config.toml` is
 //! never read or written; `doctor` names a refused key; and models off.
 
-use super::support::{Home, initialize_mcp};
+use super::support::{Home, initialize_mcp, make_safe_preferences_path};
 use serde_json::{Value, json};
 use std::{fs, io::Write as _, path::PathBuf};
 
@@ -20,6 +20,8 @@ fn project(home: &Home, body: &str) -> PathBuf {
         format!("{SCHEMA}{body}"),
     )
     .unwrap();
+    make_safe_preferences_path(&directory.join(".maestro"));
+    make_safe_preferences_path(&directory.join(".maestro/config.toml"));
     directory
 }
 

@@ -8,9 +8,10 @@ use maestro_settings::{FileLayers, Layer, Layers, MAX_FILE_BYTES, Registry, Valu
 use serde::Serialize;
 use std::{collections::BTreeMap, fmt::Write as _, path::Path};
 
-/// Replaceable source of strictly parsed preferences for the explicit init root.
+/// Replaceable source of strictly parsed preferences selected for the session.
 pub trait WorkspacePreferences {
-    /// Read preferences only, never user authority or ancestor configuration.
+    /// Read preferences only, never user authority. The session selects the nearest
+    /// safe workspace file and never merges ancestor configuration.
     ///
     /// # Errors
     /// Returns a named file, schema, registry or bounds refusal.

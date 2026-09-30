@@ -469,3 +469,18 @@ impl Ended {
         document
     }
 }
+
+/// Safe fixtures use explicit owner-only-write modes, independent of the umask.
+#[cfg(unix)]
+pub(crate) fn make_safe_preferences_path(path: &Path) {
+    use std::os::unix::fs::PermissionsExt as _;
+    fs::set_permissions(
+        path,
+        fs::Permissions::from_mode(if path.is_dir() { 0o755 } else { 0o644 }),
+    )
+    .unwrap();
+}
+
+/// Windows fixtures inherit the owner-only scratch directory's DACL.
+#[cfg(windows)]
+pub(crate) fn make_safe_preferences_path(_path: &Path) {}

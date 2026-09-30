@@ -26,6 +26,7 @@ mod quality;
 mod retrieve;
 mod run;
 mod search;
+pub(crate) mod session;
 mod setup;
 mod status;
 #[cfg(test)]

@@ -170,6 +170,7 @@ in place.
 │   │   │   │   ├── quality.rs                                               # knowledge quality: the gate as a leased job; its inputs the ledger beside the declaration and the revisions
 │   │   │   │   ├── retrieve.rs                                              # CLI adapters for the shared, permission-scoped read operations
 │   │   │   │   ├── run.rs                                                   # Parses the arguments, opens the kernel, runs the command, returns its exit code
+│   │   │   │   ├── session.rs                                               # CLI composition root for the process's immutable preferences snapshot
 │   │   │   │   ├── status.rs                                                # knowledge status: documents, revisions by status and disposition, generations
 │   │   │   │   ├── verify.rs                                                # knowledge verify: checks a published generation as a leased job
 │   │   │   │   └── wait.rs                                                  # job wait: a job's stream followed to its end, the command exiting with its outcome; the follower
@@ -570,7 +571,8 @@ in place.
 │   │   │   │   ├── keys.rs                                                  # The 08 row keys the owner approved for S1 on 2026-09-28 (MR-07)
 │   │   │   │   ├── mod.rs                                                   # MR-07: the owner-approved S1 row keys and their delivery map
 │   │   │   │   └── row_key_checks.rs                                        # The spec and 08 §20.4 carry exactly the approved keys, each an 08 row
-│   │   │   └── policies.rs                                                  # The repository's policies, checked on every pull request by cargo test
+│   │   │   ├── policies.rs                                                  # The repository's policies, checked on every pull request by cargo test
+│   │   │   └── unsafe_policy.rs                                             # The held-handle boundary scanner and its regression cases
 │   │   └── Cargo.toml                                                       # Crate manifest: Tests that hold the maestro-core repository to its own policies
 │   ├── maestro-filesystem/                                                  # Maestro filesystem
 │   │   ├── src/                                                             # The crate's sources

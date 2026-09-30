@@ -11,7 +11,7 @@ use super::{
     config::{self, Change, Places},
     eval, health, import, init, model,
     output::{Output, diagnose},
-    policy, prepare, publish, quality, retrieve, search, setup, status, verify, wait,
+    policy, prepare, publish, quality, retrieve, search, session, setup, status, verify, wait,
 };
 use crate::{
     failure::Failure,
@@ -63,8 +63,8 @@ fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> 
     let registry = Registry::built_in().map_err(|error| Failure::failed_by(&error))?;
     parse_flags(&registry, &flags).map_err(|error| Failure::refused_by(&error))?;
     let session = match &arguments.noun {
-        Noun::Mcp { workspace } => Session::for_mcp(workspace.as_deref(), &flags)?,
-        _ => Session::for_cli(&flags)?,
+        Noun::Mcp { workspace } => session::for_mcp(workspace.as_deref(), &flags)?,
+        _ => session::for_cli(&flags)?,
     };
     match &arguments.noun {
         Noun::Model(command) => model::run(&Kernel::open()?, output, command),
@@ -123,7 +123,7 @@ fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> 
         Noun::Job(JobCommand::Wait { id }) => wait::run(&Kernel::open()?, output, *id),
         Noun::Setup { yes } => setup::run(output, *yes),
         Noun::Status => health::status::run(output),
-        Noun::Doctor => health::doctor::run(output, &flags),
+        Noun::Doctor => health::doctor::run(output, &session),
         Noun::Backup { to } => backup::run_backup(output, to),
         Noun::Restore { from } => backup::run_restore(output, from),
     }
