@@ -1300,6 +1300,8 @@ in place.
 │   │   │   ├── lib.rs                                                       # Clock and stage signals used only by the workspace's tests
 │   │   │   ├── stage_end.rs                                                 # Watches the outcome fields of tracing stages for a held-clock release
 │   │   │   └── stopped.rs                                                   # Holds Tokio time still while ordinary test work runs
+│   │   ├── tests/                                                           # Integration tests
+│   │   │   └── stage_end.rs                                                 # Stage completion must wait for the watched span's outcome
 │   │   └── Cargo.toml                                                       # Crate manifest: Stopped Tokio time and stage completion signals for workspace tests
 │   └── maestro-test-scratch/                                                # Maestro test scratch
 │       ├── src/                                                             # The crate's sources
