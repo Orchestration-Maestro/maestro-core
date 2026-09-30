@@ -313,7 +313,7 @@ pub(super) fn job_row(row: &Row<'_>) -> rusqlite::Result<Job> {
 
 /// The integer of column `index`, which the jobs table keeps at zero or
 /// above.
-pub(super) fn unsigned(row: &Row<'_>, index: usize) -> rusqlite::Result<u64> {
+pub(crate) fn unsigned(row: &Row<'_>, index: usize) -> rusqlite::Result<u64> {
     let value: i64 = row.get(index)?;
     u64::try_from(value).map_err(|_| rusqlite::Error::IntegralValueOutOfRange(index, value))
 }

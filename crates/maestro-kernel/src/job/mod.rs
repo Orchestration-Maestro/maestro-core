@@ -55,8 +55,8 @@
 //! or in a new attempt, reads its last step and continues after it.
 
 mod error;
-mod events;
-mod lease;
+pub(crate) mod events;
+pub(crate) mod lease;
 mod outcome;
 mod progress;
 mod record;
@@ -66,5 +66,6 @@ mod tests;
 
 pub use error::Error;
 pub use events::{CANCELLED, CREATED, FAILED, PROGRESSED, SUCCEEDED, TAKEN, TAKEN_OVER, stream};
+pub(crate) use record::unsigned;
 pub use record::{Job, Lease, NewJob};
 pub use state::JobState;

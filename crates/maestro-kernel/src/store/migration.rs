@@ -58,6 +58,10 @@ pub(super) const MIGRATIONS: &[(&str, &str)] = &[
         "0018_retrieval_representations",
         include_str!("../../migrations/0018_retrieval_representations.sql"),
     ),
+    (
+        "0019_acquisition_frontier",
+        include_str!("../../migrations/0019_acquisition_frontier.sql"),
+    ),
 ];
 
 /// Applies to `connection` each of `migrations` it does not record yet, in

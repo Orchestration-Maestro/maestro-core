@@ -60,6 +60,12 @@ path = "crates/maestro-canonicalization/src/filesystem/mod.rs"
 item = "open_nofollow"
 reason = "the artifact check's link-free open, one function on each platform"
 
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-kernel/src/job/mod.rs"
+item = "NewJob"
+reason = "the public job submission contract serves higher-level crates; acquisition is its sole in-crate caller"
+
 # The journal's filter, which jobs alone use outside the journal for now, to
 # read a job's last step: the lane that adds a second reader of a stream, the
 # binary's job wait (T022) among them, removes it when the rule reports it

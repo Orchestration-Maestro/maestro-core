@@ -6,6 +6,7 @@
 //! model-card/evaluation/selection registry, telemetry and capability registry
 //! for higher-level workflows.
 
+pub mod acquisition;
 pub mod artifact;
 pub mod binding;
 pub mod capability;

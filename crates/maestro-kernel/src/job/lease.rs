@@ -174,7 +174,7 @@ pub(super) fn renewal(
 
 /// The heartbeat and the expiry of a lease taken or renewed at `now` for
 /// `term`, as the kernel records them.
-fn times(
+pub(crate) fn times(
     connection: &Connection,
     now: SystemTime,
     term: Duration,

@@ -510,8 +510,15 @@ in place.
 │   │   │   ├── 0010_search.sql                                                          # File: 0010 search
 │   │   │   ├── 0011_exact_identifiers.sql                                               # Exact, publish-time identifier membership
 │   │   │   ├── 0017_unit_graphs.sql                                                     # File: 0017 unit graphs
-│   │   │   └── 0018_retrieval_representations.sql                                       # File: 0018 retrieval representations
+│   │   │   ├── 0018_retrieval_representations.sql                                       # File: 0018 retrieval representations
+│   │   │   └── 0019_acquisition_frontier.sql                                            # File: 0019 acquisition frontier
 │   │   ├── src/                                                                         # The crate's sources
+│   │   │   ├── acquisition/                                                             # Kernel-owned acquisition work, exposed through a replaceable frontier port
+│   │   │   │   ├── error.rs                                                             # Refusals from the frontier port; no refused operation acknowledges work
+│   │   │   │   ├── frontier.rs                                                          # Replaceable frontier contract and the kernel SQLite adapter
+│   │   │   │   ├── lease.rs                                                             # Fencing handles: durable authority time plus a local monotonic deadline
+│   │   │   │   ├── mod.rs                                                               # Kernel-owned acquisition work, exposed through a replaceable frontier port
+│   │   │   │   └── record.rs                                                            # Durable request identities and item rows; contexts are never normalized together
 │   │   │   ├── artifact/                                                                # Content-addressed artifacts: immutable bytes stored, and read back, by their
 │   │   │   │   ├── digest.rs                                                            # A SHA-256 digest: the name every artifact is stored under
 │   │   │   │   ├── mod.rs                                                               # Content-addressed artifacts: immutable bytes stored, and read back, by their
@@ -799,6 +806,9 @@ in place.
 │   │   │   │   └── unit-mapping-v1.json                                                 # JSON data: unit mapping v1
 │   │   │   └── it/                                                                      # It
 │   │   │       ├── main.rs                                                              # Kernel integration tests for the unit-graph wire contract and producer conformance
+│   │   │       ├── n04_frontier_ack.rs                                                  # N04 acknowledgement integrity, atomic journal writes and immutable source binding
+│   │   │       ├── n04_frontier_support.rs                                              # Synthetic fixtures for the N04 replaceable frontier contract
+│   │   │       ├── n04_persist_frontier_leases_and_fenced_submissions.rs                # N04 frontier contract: durable work, exclusive leases and fenced acknowledgement
 │   │   │       ├── unit_graph_code_leadin.rs                                            # The kernel accepts code groups without an optional lead-in relation
 │   │   │       ├── unit_graph_nested_producer.rs                                        # Kernel conformance for nested procedure, code and table producer graphs
 │   │   │       ├── unit_graph_producer.rs                                               # Kernel conformance against the canonicalization producer snapshot
