@@ -15,7 +15,7 @@ use maestro_knowledge::{
     },
 };
 use maestro_settings::{
-    LayerName, PROJECT_DIRECTORY, PROJECT_FILE, Registry, SettingKind, Source, USER_FILE,
+    LayerName, PROJECT_DIRECTORY, PROJECT_FILE, Registry, SettingKind, Source, USER_FILE, Value,
 };
 use maestro_test_scratch::scratch_directory;
 use std::{
@@ -111,6 +111,16 @@ fn every_default_is_the_measured_default() {
     };
     assert_eq!(defaults(), today);
     assert_eq!(KnowledgeSettings::default(), today);
+    let registry = Registry::built_in().unwrap();
+    assert_eq!(
+        registry.default_of("ask.model"),
+        Some(&Value::Text(today.model.clone()))
+    );
+    assert_eq!(
+        registry.default_of("ask.evidence_bytes"),
+        Some(&Value::Integer(i64::from(today.ask_budget.evidence_bytes)))
+    );
+    assert_eq!(registry.default_of("ask.output_tokens"), Some(&Value::Off));
 }
 
 #[test]

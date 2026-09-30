@@ -324,7 +324,7 @@ pub const BUILT_IN: &[SettingDescriptor] = &[
     free(
         "ask.model",
         SettingKind::Name,
-        "qwen3-4b",
+        "ask-gemma4-e4b-nonthinking",
         "The answerer's router entry when --model (the MCP model) is not given.",
     ),
     free(

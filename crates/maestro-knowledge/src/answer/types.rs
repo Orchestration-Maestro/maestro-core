@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, error, fmt, time::Duration};
 
 /// Default local answerer router entry.
-pub const DEFAULT_MODEL: &str = "qwen3-4b";
+pub const DEFAULT_MODEL: &str = "ask-gemma4-e4b-nonthinking";
 /// Maximum time allowed for each buffered chat call, the answerer's load
 /// included. A safety cap: a cold answerer loaded and thought through 1024
 /// tokens in 6.5 s, and a load alone took up to 5.3 s on a busy machine.

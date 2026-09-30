@@ -122,10 +122,11 @@ fn prompt_versions_are_named_v1_and_v2() {
 }
 
 #[tokio::test]
-async fn a_v2_ask_sends_the_v2_prompt_and_the_cards_controls() {
+async fn a_gemma_default_ask_sends_its_sampling_and_nonthinking_control() {
     let scratch = Scratch::new();
-    let answerer = scratch.answerer();
-    let request = request("How do I list the registered sources?");
+    let answerer = scratch.answerer_for_model("ask-gemma4-e4b-nonthinking", 1024, false);
+    let mut request = request("How do I list the registered sources?");
+    request.model = "ask-gemma4-e4b-nonthinking".to_owned();
     let evidence = bundle(
         &request.question,
         "en",
@@ -144,9 +145,26 @@ async fn a_v2_ask_sends_the_v2_prompt_and_the_cards_controls() {
     .expect("validated answer");
 
     assert!(answer.refusal.is_none());
+    let identity = answerer.card.identity().expect("Gemma card identity");
+    assert_eq!(identity.router_entry.as_str(), "ask-gemma4-e4b-nonthinking");
+    assert_eq!(
+        identity.invocation.sampling,
+        Sampling::Configured(SamplingParameters {
+            temperature: 1.0,
+            top_p: 0.95,
+            top_k: 64,
+            min_p: 0.0,
+            typical_p: 1.0,
+            repeat_penalty: 1.0,
+            frequency_penalty: 0.0,
+            presence_penalty: 0.0,
+            seed: Some(0),
+        })
+    );
     let calls = port.chat_calls.lock().expect("chat-call lock");
     let chat = &calls[0].2;
     assert_eq!(chat.messages[0].content, V2_SYSTEM);
+    assert_eq!(chat.max_output_tokens, 1024);
     assert_eq!(
         chat.chat_template_kwargs,
         BTreeMap::from([("enable_thinking".to_owned(), ControlValue::Boolean(false))])

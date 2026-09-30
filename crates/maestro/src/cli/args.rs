@@ -260,7 +260,7 @@ pub(super) enum KnowledgeCommand {
         /// The question to answer.
         #[arg(long)]
         question: String,
-        /// A registered answerer router entry; defaults to qwen3-4b.
+        /// A registered answerer router entry; defaults to ask-gemma4-e4b-nonthinking.
         #[arg(long)]
         model: Option<String>,
         /// Restrict search to this exact version.
@@ -407,6 +407,33 @@ mod tests {
                     output_tokens: None,
                     explain: false,
                 }) if collection == "docs" && question == "How is the service configured?"
+            ));
+        }
+    }
+
+    #[test]
+    fn knowledge_ask_keeps_explicit_model_and_evidence_overrides() {
+        for (evidence_bytes, expected_bytes) in [("6000", 6000), ("3000", 3000)] {
+            let parsed = Arguments::try_parse_from([
+                "maestro",
+                "knowledge",
+                "ask",
+                "--collection",
+                "docs",
+                "--question",
+                "How is the service configured?",
+                "--model",
+                "qwen3-4b",
+                "--evidence-bytes",
+                evidence_bytes,
+            ]);
+            assert!(matches!(
+                parsed.map(|arguments| arguments.noun),
+                Ok(Noun::Knowledge(KnowledgeCommand::Ask {
+                    model: Some(model),
+                    evidence_bytes: Some(bytes),
+                    ..
+                })) if model == "qwen3-4b" && bytes == expected_bytes
             ));
         }
     }
