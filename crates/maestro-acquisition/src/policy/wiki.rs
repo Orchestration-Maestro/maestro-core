@@ -4,7 +4,7 @@ use super::resource::Resource;
 use super::{shape, shape::RequiredNullable};
 use maestro_knowledge::collection::PolicyReference as Ref;
 use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, de};
 
 /// Declarative `FieldStep`; unknown predicates refuse.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
@@ -26,7 +26,23 @@ pub enum FieldStep {
 }
 
 /// At most 32 literal field/index steps.
-pub type FieldPath = Vec<FieldStep>;
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
+#[serde(transparent)]
+pub struct FieldPath(
+    /// Literal steps, validated together on decoding.
+    #[serde(deserialize_with = "field_steps")]
+    #[schemars(length(max = 32))]
+    pub Vec<FieldStep>,
+);
+
+/// One decoder shared by mapping, pagination and nullable tombstone paths.
+fn field_steps<'de, D: Deserializer<'de>>(decoder: D) -> Result<Vec<FieldStep>, D::Error> {
+    let steps = shape::objects(decoder)?;
+    if steps.len() > 32 {
+        return Err(de::Error::custom("field path step limit"));
+    }
+    Ok(steps)
+}
 
 /// Declarative Pagination; unknown predicates refuse.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
@@ -39,20 +55,16 @@ pub enum Pagination {
         #[serde(deserialize_with = "shape::text")]
         request_field: String,
         /// Explicit `response_path`.
-        #[serde(deserialize_with = "shape::objects")]
         response_path: FieldPath,
         /// Explicit `terminal_path`.
-        #[serde(deserialize_with = "shape::objects")]
         terminal_path: FieldPath,
     },
     /// `next_link`.
     #[serde(rename = "next_link")]
     NextLink {
         /// Explicit `response_path`.
-        #[serde(deserialize_with = "shape::objects")]
         response_path: FieldPath,
         /// Explicit `terminal_path`.
-        #[serde(deserialize_with = "shape::objects")]
         terminal_path: FieldPath,
     },
 }
@@ -117,19 +129,14 @@ pub struct WikiMapping {
     #[serde(deserialize_with = "shape::path")]
     pub item_endpoint: String,
     /// Declared `items_path`; no inferred default.
-    #[serde(deserialize_with = "shape::objects")]
     pub items_path: FieldPath,
     /// Declared `identity_path`; no inferred default.
-    #[serde(deserialize_with = "shape::objects")]
     pub identity_path: FieldPath,
     /// Declared `parent_path`; no inferred default.
-    #[serde(deserialize_with = "shape::objects")]
     pub parent_path: FieldPath,
     /// Declared `revision_path`; no inferred default.
-    #[serde(deserialize_with = "shape::objects")]
     pub revision_path: FieldPath,
     /// Declared `content_path`; no inferred default.
-    #[serde(deserialize_with = "shape::objects")]
     pub content_path: FieldPath,
     /// Declared `content_kind`; no inferred default.
     #[serde(deserialize_with = "shape::name")]
@@ -139,10 +146,8 @@ pub struct WikiMapping {
     #[schemars(with = "RequiredNullable<Ref>")]
     pub block_mapping: Option<Ref>,
     /// Declared `attachments_path`; no inferred default.
-    #[serde(deserialize_with = "shape::objects")]
     pub attachments_path: FieldPath,
     /// Declared `permissions_path`; no inferred default.
-    #[serde(deserialize_with = "shape::objects")]
     pub permissions_path: FieldPath,
     /// Declared `permission_semantics`; no inferred default.
     #[serde(deserialize_with = "shape::name")]

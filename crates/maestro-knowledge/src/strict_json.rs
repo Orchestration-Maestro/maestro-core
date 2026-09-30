@@ -24,7 +24,7 @@ const MAX_ITEMS: usize = 20_000;
 const MAX_ARRAY: usize = 10_000;
 
 /// Parse strictly before typed deserialization can discard duplicate keys.
-fn bounded(bytes: &[u8]) -> serde_json::Result<Value> {
+pub(crate) fn bounded(bytes: &[u8]) -> serde_json::Result<Value> {
     if bytes.len() > MAX_BYTES {
         return Err(serde_json::Error::io(io::Error::new(
             ErrorKind::InvalidData,
@@ -99,9 +99,6 @@ impl<'de> Visitor<'de> for Node<'_> {
         Ok(Value::Null)
     }
     fn visit_str<E: de::Error>(self, value: &str) -> Result<Value, E> {
-        if value.len() > 8192 || value.contains('\0') {
-            return Err(E::custom("configuration string limit"));
-        }
         Ok(Value::String(value.into()))
     }
     fn visit_map<A: MapAccess<'de>>(mut self, mut map: A) -> Result<Value, A::Error> {
@@ -143,7 +140,24 @@ impl<'de> Visitor<'de> for Node<'_> {
 /// # Errors
 /// Invalid shapes, duplicate keys and exceeded defensive format limits refuse.
 pub fn parse<T: DeserializeOwned>(bytes: &[u8]) -> serde_json::Result<T> {
-    object(bounded(bytes)?)
+    let value = bounded(bytes)?;
+    strings(&value)?;
+    object(value)
+}
+
+/// Additional string restrictions for acquisition resources and v2 collections.
+pub(crate) fn strings(value: &Value) -> serde_json::Result<()> {
+    match value {
+        Value::String(text) if text.len() > 8192 || text.contains('\0') => {
+            Err(serde_json::Error::io(io::Error::new(
+                ErrorKind::InvalidData,
+                "configuration string limit",
+            )))
+        }
+        Value::Object(fields) => fields.values().try_for_each(strings),
+        Value::Array(items) => items.iter().try_for_each(strings),
+        _ => Ok(()),
+    }
 }
 /// Decode only a JSON object into a typed record.
 ///

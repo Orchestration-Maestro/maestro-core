@@ -6,7 +6,6 @@ use serde::{
     Deserialize, Deserializer,
     de::{self},
 };
-use std::net::IpAddr;
 use std::{borrow::Cow, marker::PhantomData};
 
 pub(super) use maestro_knowledge::strict_json::{
@@ -54,7 +53,7 @@ fn valid_host(host: &str) -> bool {
                     .bytes()
                     .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
         })
-        && host.parse::<IpAddr>().is_err()
+        && Url::parse(&format!("https://{host}/")).is_ok_and(|url| url.domain() == Some(host))
 }
 /// Parse an unambiguous HTTPS URL without credentials or encoded separators.
 pub(super) fn checked_url(text: &str) -> Option<Url> {

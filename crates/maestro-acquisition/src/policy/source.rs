@@ -206,6 +206,7 @@ pub struct Robots {
     pub agent: String,
     /// Declared `r#override`; no inferred default.
     #[serde(deserialize_with = "shape::nullable_object")]
+    #[schemars(with = "RequiredNullable<Ref>")]
     pub r#override: Option<Ref>,
     /// Declared `rules_max_bytes`; no inferred default.
     pub rules_max_bytes: NonZeroU64,

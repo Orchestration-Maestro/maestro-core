@@ -121,7 +121,11 @@ impl FromStr for Declaration {
     /// [`Error::Json`] when the text is not strict JSON of the contract's
     /// shape, and [`Error::DuplicateSource`] when two sources share an id.
     fn from_str(text: &str) -> Result<Self, Error> {
-        let declaration: Self = strict_json::parse(text.as_bytes()).map_err(Error::Json)?;
+        let value = strict_json::bounded(text.as_bytes()).map_err(Error::Json)?;
+        if value.get("schema").and_then(serde_json::Value::as_str) != Some("maestro-collection/1") {
+            strict_json::strings(&value).map_err(Error::Json)?;
+        }
+        let declaration: Self = strict_json::object(value).map_err(Error::Json)?;
         match repeated_id(&declaration.sources) {
             Some(id) => Err(Error::DuplicateSource(id.to_owned())),
             None => Ok(declaration),

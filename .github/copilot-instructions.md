@@ -310,6 +310,7 @@ in place.
 │   │   │   └── it/                                                                      # It
 │   │   │       ├── main.rs                                                              # N03's synthetic integration contracts, in one test binary
 │   │   │       ├── n03_implement_strict_source_policy_and_local_baseline_resolution.rs  # N03: malformed policy closure must refuse before caller-side effects
+│   │   │       ├── n03_review_fixes.rs                                                  # Four ruled N03 parser and schema regressions
 │   │   │       └── support.rs                                                           # Complete independently authored synthetic policy fixtures
 │   │   ├── Cargo.toml                                                                   # Crate manifest: Strict source policies and immutable baseline resolution for native acquisition
 │   │   └── README.md                                                                    # N03 implements strict source-policy declarations and immutable local baseline resolution

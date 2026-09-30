@@ -76,6 +76,15 @@ scope, and never widens access. Paths resolve at run time from named bindings
 only. A missing binding is a typed refusal before any work starts; unknown or
 duplicate keys, dangling references and non-finite budgets are rejected.
 
+Both `maestro-collection/1` and `maestro-collection/2` declarations are limited
+by the format to 4,194,304 bytes, 32 nested containers, 20,000 total object
+members and array elements, and 10,000 elements per array. These are defensive
+configuration ceilings, not acquisition budgets. Version one retains its
+existing per-field string semantics (including unrestricted titles and profile
+strings). Version two additionally refuses string values over 8,192 UTF-8
+bytes or containing NUL. Version one forbids `source_policy`; version two
+requires it explicitly, as null or an exact `{id, digest}` resource reference.
+
 The owner's product collection is private. Its scope rules, source inventory,
 counts, content, quality ledger and acceptance receipts remain in the private
 collection repository. Public CI uses synthetic fixtures only; the public
