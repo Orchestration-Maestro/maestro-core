@@ -73,7 +73,7 @@ pub fn recover(root: &Path, id: &str) -> io::Result<()> {
 }
 
 /// Apply a plan with a test-only interruption point after each durable stage.
-pub(super) fn apply_with_failure(
+pub(crate) fn apply_with_failure(
     root: &Path,
     plan: &FilePlan,
     fail_after: Option<usize>,

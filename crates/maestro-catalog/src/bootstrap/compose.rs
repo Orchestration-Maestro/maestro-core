@@ -1,5 +1,6 @@
 //! Resolve explicit preset names through a replaceable source port.
-use crate::{files::FileInput, limits::Limits, source::tree::read_bounded};
+use crate::{files::FileInput, limits::Limits};
+use maestro_filesystem::Directory;
 use serde::de::{self, Deserialize, Deserializer, MapAccess, SeqAccess, Visitor};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -20,6 +21,8 @@ pub struct Preset {
     pub files: FileBytes,
     /// Source manifest and template files, keyed by catalog-relative path.
     pub source_files: FileBytes,
+    /// Executable names to report without invoking them.
+    pub tools: Vec<String>,
 }
 
 /// Replaceable source of preset definitions and their inert file bytes.
@@ -52,7 +55,11 @@ impl<'a> DirectoryPresets<'a> {
 struct PresetManifest {
     /// The preset identifier, which must match the requested name.
     name: String,
-    /// Source files beneath the `base/` or `rust/` overlay directories.
+    /// One top-level overlay directory beneath bootstrap.
+    overlay: String,
+    /// Required executable names, never commands or paths.
+    tools: Vec<String>,
+    /// Source files beneath the declared overlay directory.
     files: Vec<String>,
 }
 
@@ -68,41 +75,77 @@ impl PresetPort for DirectoryPresets<'_> {
 /// Read and validate one requested preset.
 fn load_preset(root: &Path, name: &str) -> Result<Preset, String> {
     let manifest_path = format!("bootstrap/{name}.toml");
-    let bytes = read_bounded(root, &manifest_path, Limits::PRODUCTION.source_file_bytes)
-        .map_err(|error| error.to_string())?;
+    let bytes = read_preset_file(root, &manifest_path)?;
     let text = str::from_utf8(&bytes).map_err(|error| error.to_string())?;
     let manifest: PresetManifest = toml::from_str(text).map_err(|error| error.to_string())?;
     if manifest.name != name {
         return Err(format!("preset name mismatch in {manifest_path}"));
     }
-    let (files, mut source_files) = load_preset_files(root, manifest.files)?;
+    validate_top_level_name(&manifest.overlay)?;
+    for tool in &manifest.tools {
+        validate_top_level_name(tool)?;
+    }
+    let (files, mut source_files) = load_preset_files(root, &manifest.overlay, manifest.files)?;
     source_files.insert(manifest_path, bytes);
     Ok(Preset {
         name: name.to_owned(),
         files,
         source_files,
+        tools: manifest.tools,
     })
 }
 
 /// Read a preset's files, mapping both overlays to project-root-relative paths.
-fn load_preset_files(root: &Path, sources: Vec<String>) -> Result<(FileBytes, FileBytes), String> {
+fn load_preset_files(
+    root: &Path,
+    overlay: &str,
+    sources: Vec<String>,
+) -> Result<(FileBytes, FileBytes), String> {
     let mut source_files = BTreeMap::new();
     let files = sources
         .into_iter()
         .map(|source| {
             let relative = source
-                .strip_prefix("base/")
-                .or_else(|| source.strip_prefix("rust/"))
-                .ok_or_else(|| format!("preset file must be beneath base/ or rust/: {source}"))?;
+                .strip_prefix(&format!("{overlay}/"))
+                .ok_or_else(|| format!("preset file must be beneath {overlay}/: {source}"))?;
             validate_source_path(relative)?;
             let source_path = format!("bootstrap/{source}");
-            let bytes = read_bounded(root, &source_path, Limits::PRODUCTION.source_file_bytes)
-                .map_err(|error| error.to_string())?;
+            let bytes = read_preset_file(root, &source_path)?;
             source_files.insert(source_path, bytes.clone());
             Ok((relative.to_owned(), bytes))
         })
         .collect::<Result<BTreeMap<_, _>, String>>()?;
     Ok((files, source_files))
+}
+
+/// Read every manifest and template through held handles and refuse oversized bytes.
+fn read_preset_file(root: &Path, relative: &str) -> Result<Vec<u8>, String> {
+    validate_source_path(relative)?;
+    let path = Path::new(relative);
+    let parent = path
+        .parent()
+        .ok_or_else(|| format!("invalid preset path: {relative}"))?;
+    let name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| format!("invalid preset path: {relative}"))?;
+    let bytes = Directory::open(root, parent, false)
+        .and_then(|directory| directory.read_regular(name))
+        .map_err(|error| format!("cannot read {relative}: {error}"))?;
+    let limit = Limits::PRODUCTION.source_file_bytes;
+    if u64::try_from(bytes.len()).map_or(true, |length| length > limit) {
+        return Err(format!("{relative} is larger than {limit} bytes"));
+    }
+    Ok(bytes)
+}
+
+/// An overlay or executable is a single name, not a path or command line.
+fn validate_top_level_name(name: &str) -> Result<(), String> {
+    validate_source_path(name)?;
+    if name.contains('/') || name.chars().any(char::is_whitespace) {
+        return Err(format!("expected a single top-level name: {name}"));
+    }
+    Ok(())
 }
 
 /// Refuse path components that could leave a preset's overlay directory.
@@ -114,17 +157,6 @@ fn validate_source_path(path: &str) -> Result<(), String> {
         return Err(format!("unsafe preset file path: {path}"));
     }
     Ok(())
-}
-
-/// Compose selected presets, rejecting duplicate selection, file collisions and invalid JSON.
-///
-/// # Errors
-/// Returns a diagnostic for missing presets, collisions or invalid generated JSON.
-pub fn compose(port: &dyn PresetPort, names: &[String]) -> Result<Vec<FileInput>, String> {
-    if names.is_empty() {
-        return Err("select at least one preset".to_owned());
-    }
-    compose_resolved(port.resolve(names)?)
 }
 
 /// Compose already-resolved presets and return their generated files.

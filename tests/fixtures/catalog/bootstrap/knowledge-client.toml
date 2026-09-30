@@ -1,2 +1,4 @@
 name = "knowledge-client"
 files = ["base/.github/copilot-instructions.md"]
+overlay = "base"
+tools = ["sh"]

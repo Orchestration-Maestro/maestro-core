@@ -26,6 +26,7 @@ pub struct FilePlan {
     /// Files in deterministic path order.
     pub(super) entries: Vec<PlannedFile>,
     /// Whether this exact plan already has committed ownership.
+    #[serde(skip)]
     pub(super) applied: bool,
 }
 
@@ -195,7 +196,7 @@ pub(super) fn ownership_matches(bytes: &[u8], plan: &FilePlan) -> io::Result<boo
 }
 
 /// Compute a lowercase SHA-256 digest with its algorithm prefix.
-pub(super) fn digest(bytes: &[u8]) -> String {
+pub(crate) fn digest(bytes: &[u8]) -> String {
     let mut digest = String::from("sha256:");
     for byte in Sha256::digest(bytes) {
         digest.push(char::from_digit(u32::from(byte >> 4), 16).unwrap_or('0'));

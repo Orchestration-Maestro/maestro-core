@@ -5,6 +5,6 @@ mod project;
 #[cfg(test)]
 mod tests;
 
-pub use compose::{DirectoryPresets, Preset, PresetPort, compose};
+pub use compose::{DirectoryPresets, Preset, PresetPort};
 pub use inspect::{Inspection, inspect};
-pub use project::{BootstrapPreview, apply, preview};
+pub use project::{BootstrapPreview, Prerequisite, apply, preview};

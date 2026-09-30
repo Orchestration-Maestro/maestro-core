@@ -14,3 +14,7 @@ mod tests;
 pub use apply::{apply, recover};
 pub use plan::{FileInput, FilePlan};
 pub use remove::remove;
+
+#[cfg(test)]
+pub(crate) use apply::apply_with_failure;
+pub(crate) use plan::digest;

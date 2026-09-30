@@ -90,11 +90,6 @@ impl Directory {
     }
 }
 
-/// Read a bounded regular catalog file through the filesystem source adapter.
-pub(crate) fn read_bounded(root: &Path, relative: &str, max_bytes: u64) -> io::Result<Vec<u8>> {
-    Directory::new(root).read(relative, max_bytes)
-}
-
 impl SourceTree for Directory {
     fn list(&self, directory: &str) -> io::Result<Vec<Entry>> {
         let mut entries = Vec::new();

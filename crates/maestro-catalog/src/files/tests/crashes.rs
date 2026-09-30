@@ -194,3 +194,17 @@ fn traversal_and_reserved_paths_are_rejected_before_a_file_is_created() {
     assert!(remove(&scratch.path, "../../outside").is_err());
     assert!(!scratch.path.join(".maestro-files").exists());
 }
+
+#[test]
+fn replay_journal_recovers_after_owned_files_are_removed() {
+    let scratch = Scratch::new();
+    let inputs = [FileInput::new("target", b"planned".to_vec())];
+    let first = FilePlan::preview(&scratch.path, inputs.clone()).unwrap();
+    apply(&scratch.path, &first).unwrap();
+    let replay = FilePlan::preview(&scratch.path, inputs).unwrap();
+    assert!(replay.is_applied());
+    remove(&scratch.path, replay.id()).unwrap();
+    assert!(apply_with_failure(&scratch.path, &replay, Some(1)).is_err());
+    recover(&scratch.path, replay.id()).unwrap();
+    assert_eq!(fs::read(scratch.path.join("target")).unwrap(), b"planned");
+}

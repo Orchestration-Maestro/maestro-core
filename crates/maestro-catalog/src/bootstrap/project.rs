@@ -1,8 +1,12 @@
 //! Preview and apply project files through C04's digest-bound writer.
 use super::{compose::PresetPort, inspect::Inspection};
-use crate::files::{FileInput, FilePlan, apply as apply_files};
+use crate::files::{FileInput, FilePlan, apply as apply_files, digest};
 use serde::Serialize;
-use std::{fmt::Write as _, io, path::Path};
+use std::{
+    collections::BTreeSet,
+    env, fs, io,
+    path::{Path, PathBuf},
+};
 
 /// The complete init proposal, including authoring-only descriptor and source lock.
 #[derive(Debug)]
@@ -11,6 +15,17 @@ pub struct BootstrapPreview {
     pub plan: FilePlan,
     /// Resolved project inspection.
     pub inspection: Inspection,
+    /// Availability of each manifest-declared prerequisite on the current PATH.
+    pub prerequisites: Vec<Prerequisite>,
+}
+
+/// A manifest-declared tool's availability, checked without executing it.
+#[derive(Debug, Serialize)]
+pub struct Prerequisite {
+    /// Executable name from the preset manifest.
+    pub tool: String,
+    /// Whether PATH contains an executable for this name.
+    pub found: bool,
 }
 
 /// The project-local declaration; it contains no authority, policy or hooks.
@@ -18,6 +33,8 @@ pub struct BootstrapPreview {
 struct ProjectDescriptor<'a> {
     /// Descriptor schema version.
     schema: &'static str,
+    /// Root-relative authoring lock, never installation authority.
+    lock: &'static str,
     /// Explicitly selected presets.
     presets: &'a [String],
     /// Declared capabilities, empty until a preset specifies supported data.
@@ -57,8 +74,21 @@ pub fn preview(
     port: &dyn PresetPort,
     names: &[String],
 ) -> Result<BootstrapPreview, String> {
+    if names.is_empty() {
+        return Err("select at least one preset".to_owned());
+    }
     let inspection = super::inspect::inspect(root).map_err(|error| error.to_string())?;
     let presets = port.resolve(names)?;
+    let prerequisites = presets
+        .iter()
+        .flat_map(|preset| &preset.tools)
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .map(|tool| Prerequisite {
+            tool: tool.clone(),
+            found: tool_found(tool),
+        })
+        .collect();
     let sources = presets
         .iter()
         .flat_map(|preset| preset.source_files.iter())
@@ -70,6 +100,7 @@ pub fn preview(
     let mut files = super::compose::compose_resolved(presets)?;
     let descriptor = ProjectDescriptor {
         schema: "maestro-project/1",
+        lock: ".maestro/authoring.lock.json",
         presets: names,
         capabilities: &[],
         context_files: &[],
@@ -98,7 +129,11 @@ pub fn preview(
         serde_json::to_vec_pretty(&lock).map_err(|error| error.to_string())?,
     ));
     let plan = FilePlan::preview(root, files).map_err(|error| error.to_string())?;
-    Ok(BootstrapPreview { plan, inspection })
+    Ok(BootstrapPreview {
+        plan,
+        inspection,
+        prerequisites,
+    })
 }
 
 /// Apply a previously displayed preview through C04's single owned-file writer.
@@ -109,12 +144,54 @@ pub fn apply(root: &Path, preview: &BootstrapPreview) -> io::Result<()> {
     apply_files(root, &preview.plan)
 }
 
-/// SHA-256 digest of bytes using the source lock's stable lowercase form.
-fn digest(bytes: &[u8]) -> String {
-    use sha2::{Digest as _, Sha256};
-    let mut hex = String::with_capacity(64);
-    for byte in Sha256::digest(bytes) {
-        let _ = write!(&mut hex, "{byte:02x}");
+/// Look up executable names on PATH without running any tool or installer.
+fn tool_found(tool: &str) -> bool {
+    let Some(path) = env::var_os("PATH") else {
+        return false;
+    };
+    let extensions = if cfg!(windows) {
+        env::var("PATHEXT").unwrap_or_else(|_| ".COM;.EXE;.BAT;.CMD".to_owned())
+    } else {
+        String::new()
+    };
+    let candidates = tool_candidates(tool, &extensions);
+    env::split_paths(&path).any(|directory| {
+        candidates
+            .iter()
+            .any(|candidate| is_executable(&directory.join(candidate)))
+    })
+}
+
+/// Expand Windows PATH extensions; empty extensions preserve Unix's exact-name lookup.
+pub(super) fn tool_candidates(tool: &str, extensions: &str) -> Vec<PathBuf> {
+    let mut candidates = vec![PathBuf::from(tool)];
+    if Path::new(tool).extension().is_none() {
+        candidates.extend(
+            extensions
+                .split(';')
+                .filter(|extension| extension.starts_with('.'))
+                .map(|extension| PathBuf::from(format!("{tool}{extension}"))),
+        );
     }
-    format!("sha256:{hex}")
+    candidates
+}
+
+/// A PATH entry must be a file and, on Unix, have an executable permission bit.
+fn is_executable(path: &Path) -> bool {
+    let Ok(metadata) = fs::metadata(path) else {
+        return false;
+    };
+    if !metadata.is_file() {
+        return false;
+    }
+    // Windows execution uses PATHEXT, not Unix permission bits.
+    #[cfg(windows)]
+    {
+        true
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        metadata.permissions().mode() & 0o111 != 0
+    }
 }

@@ -1,9 +1,12 @@
 //! `maestro init`: inert fixture composition, preview-only default and owned apply.
-use super::support::Home;
+use super::support::{Home, Running};
 use std::{fs, path::PathBuf};
 
 fn fixtures() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/catalog")
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/fixtures/catalog")
+        .canonicalize()
+        .unwrap()
 }
 
 #[test]
@@ -32,6 +35,10 @@ fn catalog_init_previews_without_writes_or_script_execution() {
             .stdout
             .contains("authoring convenience; not a verified install")
     );
+    let document: serde_json::Value = serde_json::from_str(&result.stdout).unwrap();
+    assert_eq!(document["applied"], false);
+    assert_eq!(document["already_applied"], false);
+    assert!(document["files"].get("applied").is_none());
     assert!(!root.join(".maestro/project.toml").exists());
     assert!(!root.join(".github/copilot-instructions.md").exists());
     assert!(!marker.exists());
@@ -99,4 +106,91 @@ fn catalog_init_apply_writes_composition_and_identical_rerun_is_noop() {
     let rerun = home.run_in(&root, &args);
     assert_eq!(rerun.code, Some(0), "{rerun:?}");
     assert_eq!(fs::read(&guide).unwrap(), guide_bytes);
+    assert!(
+        rerun.stdout.contains("Already applied; no files written."),
+        "{rerun:?}"
+    );
+}
+
+#[test]
+fn catalog_init_reports_found_and_missing_manifest_tools_without_execution() {
+    let home = Home::bare();
+    let root = home.root().join("project");
+    let catalog = home.root().join("catalog");
+    fs::create_dir_all(&root).unwrap();
+    fs::create_dir_all(catalog.join("bootstrap/custom")).unwrap();
+    fs::write(
+        catalog.join("bootstrap/custom.toml"),
+        concat!(
+            "name = \"custom\"\noverlay = \"custom\"\n",
+            "files = [\"custom/target.md\"]\n",
+            "tools = [\"marker-tool\", \"maestro-c05-missing-tool\"]\n"
+        ),
+    )
+    .unwrap();
+    fs::write(catalog.join("bootstrap/custom/target.md"), b"inert").unwrap();
+    let bin = home.root().join("bin");
+    fs::create_dir(&bin).unwrap();
+    let marker = root.join("tool-ran");
+    let tool = bin.join(if cfg!(windows) {
+        "marker-tool.cmd"
+    } else {
+        "marker-tool"
+    });
+    fs::write(&tool, format!("touch {}", marker.display())).unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&tool, fs::Permissions::from_mode(0o700)).unwrap();
+    }
+    let mut command = home.command(&[
+        "--json",
+        "init",
+        "--catalog-dir",
+        catalog.to_str().unwrap(),
+        "--preset",
+        "custom",
+    ]);
+    command
+        .current_dir(&root)
+        .env("PATH", &bin)
+        .env("PATHEXT", ".CMD;.EXE");
+    let result = Running::of(command).finish();
+    assert_eq!(result.code, Some(0), "{result:?}");
+    let document: serde_json::Value = serde_json::from_str(&result.stdout).unwrap();
+    assert_eq!(
+        document["prerequisites"],
+        serde_json::json!([
+            {"tool": "maestro-c05-missing-tool", "found": false},
+            {"tool": "marker-tool", "found": true}
+        ])
+    );
+    assert!(!root.join("target.md").exists());
+    assert!(!marker.exists());
+}
+
+#[cfg(unix)]
+#[test]
+fn catalog_init_never_claims_applied_when_the_writer_refuses() {
+    use std::os::unix::fs::PermissionsExt;
+    let home = Home::bare();
+    let root = home.root().join("readonly");
+    fs::create_dir(&root).unwrap();
+    fs::set_permissions(&root, fs::Permissions::from_mode(0o500)).unwrap();
+    let catalog = fixtures();
+    let result = home.run_in(
+        &root,
+        &[
+            "init",
+            "--catalog-dir",
+            catalog.to_str().unwrap(),
+            "--preset",
+            "knowledge-client",
+            "--apply",
+        ],
+    );
+    fs::set_permissions(&root, fs::Permissions::from_mode(0o700)).unwrap();
+    assert_eq!(result.code, Some(2), "{result:?}");
+    assert!(!result.stdout.contains("\"applied\": true"), "{result:?}");
+    assert!(!root.join(".maestro/project.toml").exists());
 }
