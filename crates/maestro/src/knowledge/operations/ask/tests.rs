@@ -21,7 +21,7 @@ use maestro_kernel::{
     store::Error as StoreError,
 };
 use maestro_knowledge::{
-    answer::{AskBudget, AskError, AskRequest},
+    answer::{AskBudget, AskError, AskRequest, DEFAULT_MODEL},
     search::{SearchError, evidence::EvidenceError},
 };
 use std::{
@@ -35,10 +35,11 @@ use std::{
 fn unregistered_default_answerer_is_not_resolved() {
     let scratch = Scratch::new();
     let kernel = scratch.kernel(None).expect("open test kernel");
+    register_answerer(&kernel, "qwen3-4b", b"registered Qwen answerer");
     let request = AskRequest {
         collection: "collection".to_owned(),
         question: "How can I configure the service?".to_owned(),
-        model: "qwen3-4b".to_owned(),
+        model: DEFAULT_MODEL.to_owned(),
         version: None,
         budget: AskBudget::default(),
     };
@@ -99,7 +100,7 @@ fn default_request() -> AskRequest {
 }
 
 #[test]
-fn default_resolution_uses_the_last_matching_nonthinking_card() {
+fn a_thinking_card_registered_later_is_the_default() {
     let scratch = Scratch::new();
     let kernel = scratch.kernel(None).expect("open test kernel");
     let request = default_request();
@@ -111,17 +112,17 @@ fn default_resolution_uses_the_last_matching_nonthinking_card() {
     );
     register_answerer(&kernel, "other-model", b"later different alias");
 
-    let (thinking, _) = register_reasoning_answerer_for_entry(
+    let (latest_thinking, _) = register_reasoning_answerer_for_entry(
         &kernel,
         "ask-gemma4-e4b-nonthinking",
         b"thinking answerer",
-        false,
+        true,
     );
 
     let resolved = registered_answerer(&kernel, &kernel.scopes, &request)
         .expect("read scoped card registry")
-        .expect("the selected nonthinking answerer");
-    assert_eq!(resolved.id, thinking);
+        .expect("the selected thinking answerer");
+    assert_eq!(resolved.id, latest_thinking);
 }
 
 #[test]

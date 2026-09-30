@@ -230,7 +230,7 @@ pub struct AskRequest {
     pub collection: String,
     /// Original user question.
     pub question: String,
-    /// Registered answerer router entry; omitted requests use `qwen3-4b`.
+    /// Registered answerer router entry; omitted requests use [`DEFAULT_MODEL`].
     #[serde(default = "default_model")]
     pub model: String,
     /// Exact version filter, when supplied.
