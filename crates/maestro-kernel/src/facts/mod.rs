@@ -25,6 +25,7 @@ mod build;
 mod build_read;
 mod build_types;
 mod error;
+mod projection;
 mod quote;
 mod read;
 mod resolve;
@@ -34,7 +35,8 @@ mod types;
 mod write;
 
 pub use build_types::{
-    Batch, BatchReceipt, Budget, BuildPlan, BuildRecord, GraphAttachment, Rejection,
+    Batch, BatchReceipt, Budget, BuildPlan, BuildRecord, GraphAttachment, ProjectionReceipt,
+    Rejection,
 };
 pub use error::Error;
 pub use types::{

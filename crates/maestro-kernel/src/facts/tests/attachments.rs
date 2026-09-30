@@ -8,7 +8,7 @@ use super::support::{
 };
 use crate::{
     artifact::Digest,
-    facts::{Batch, Claim, Error},
+    facts::{Batch, Claim, Error, ProjectionReceipt},
     generation::NewGeneration,
     job::{self, Lease},
     scope::ScopeSet,
@@ -98,6 +98,21 @@ fn a_generation_gets_one_finished_claim_set_before_it_is_published() {
         "attaching the same set again changes nothing"
     );
     database.verify_generation(pinned, 1).unwrap();
+    database
+        .record_projection_ready(
+            &all,
+            &ProjectionReceipt {
+                collection_id: "graph".to_owned(),
+                generation_id: pinned,
+                claim_set_id: attachment.claim_set_id.clone(),
+                file_name: format!("projection-{pinned}.db"),
+                schema_version: "maestro-typed-edges/1".to_owned(),
+                knowledge_edge_count: 0,
+                entity_fact_count: 1,
+                content_digest: Digest::of(b"verified projection"),
+            },
+        )
+        .unwrap();
     database.publish_generation(pinned).unwrap();
 
     let mut later_claims = vec![label(), retries()];

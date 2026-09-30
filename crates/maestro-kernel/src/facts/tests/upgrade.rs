@@ -118,7 +118,8 @@ fn assert_refused_without_changes(mode: &str) {
             "0015_graph_resolution",
             "0016_extractor_role",
             "0017_unit_graphs",
-            "0018_retrieval_representations"
+            "0018_retrieval_representations",
+            "0019_graph_projection"
         ]
     );
 }

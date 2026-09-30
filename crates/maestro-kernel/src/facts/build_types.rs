@@ -79,6 +79,27 @@ impl BuildRecord {
         self.batches.iter().map(|batch| batch.rejected).sum()
     }
 }
+/// Verified disposable projection identity recorded by the kernel.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProjectionReceipt {
+    /// Collection whose generation is projected.
+    pub collection_id: String,
+    /// Exact immutable generation pin.
+    pub generation_id: i64,
+    /// Kernel-authoritative claim set this file represents.
+    pub claim_set_id: Digest,
+    /// Single owned filename; it is never a caller-supplied path.
+    pub file_name: String,
+    /// Projection schema checked after close/reopen.
+    pub schema_version: String,
+    /// Count of entity-to-entity knowledge claims projected as edges.
+    pub knowledge_edge_count: usize,
+    /// Count of literal-valued subject claim facts (never edges).
+    pub entity_fact_count: usize,
+    /// Digest of verified projection application-ID content.
+    pub content_digest: Digest,
+}
+
 /// Immutable claim set attached to a generation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GraphAttachment {

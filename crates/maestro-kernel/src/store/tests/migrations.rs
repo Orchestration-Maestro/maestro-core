@@ -248,7 +248,8 @@ fn graph_claim_migration_adds_empty_claim_tables_and_keeps_existing_records() {
             "0015_graph_resolution",
             "0016_extractor_role",
             "0017_unit_graphs",
-            "0018_retrieval_representations"
+            "0018_retrieval_representations",
+            "0019_graph_projection"
         ]
     );
 
@@ -459,7 +460,8 @@ fn graph_build_migration_upgrades_claim_storage_once_without_backfilling() {
             "0015_graph_resolution",
             "0016_extractor_role",
             "0017_unit_graphs",
-            "0018_retrieval_representations"
+            "0018_retrieval_representations",
+            "0019_graph_projection"
         ]
     );
     drop(scratch.open());

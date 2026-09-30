@@ -528,7 +528,8 @@ in place.
 │   │   │   ├── 0015_graph_resolution.sql                                    # File: 0015 graph resolution
 │   │   │   ├── 0016_extractor_role.sql                                      # File: 0016 extractor role
 │   │   │   ├── 0017_unit_graphs.sql                                         # File: 0017 unit graphs
-│   │   │   └── 0018_retrieval_representations.sql                           # File: 0018 retrieval representations
+│   │   │   ├── 0018_retrieval_representations.sql                           # File: 0018 retrieval representations
+│   │   │   └── 0019_graph_projection.sql                                    # File: 0019 graph projection
 │   │   ├── src/                                                             # The crate's sources
 │   │   │   ├── artifact/                                                    # Content-addressed artifacts: immutable bytes stored, and read back, by their
 │   │   │   │   ├── digest.rs                                                # A SHA-256 digest: the name every artifact is stored under
@@ -606,6 +607,7 @@ in place.
 │   │   │   │   │   ├── builds.rs                                            # Graph builds: batches recorded in order under the job's lease, each with
 │   │   │   │   │   ├── claims.rs                                            # Admitting claims: a whole set or nothing, unreviewed, recorded once by
 │   │   │   │   │   ├── mod.rs                                               # Tests of claims: admitting a verified set or nothing, reading it back
+│   │   │   │   │   ├── projection.rs                                        # Rust source: projection
 │   │   │   │   │   ├── resolution.rs                                        # Immutable sourced resolution snapshots and current-grant checks
 │   │   │   │   │   ├── resolution_guards.rs                                 # Frozen reviews, request coverage and rowid replacement regressions
 │   │   │   │   │   ├── schema.rs                                            # What the schema refuses whoever writes: replacing, changing or deleting
@@ -619,6 +621,7 @@ in place.
 │   │   │   │   ├── build_types.rs                                           # Frozen build inputs and durable receipts
 │   │   │   │   ├── error.rs                                                 # Why the kernel refused to admit or read claims
 │   │   │   │   ├── mod.rs                                                   # The knowledge graph's authority (specs/002-knowledge-graph, FR-S2-002 and
+│   │   │   │   ├── projection.rs                                            # Kernel-controlled verification receipts for immutable graph projections
 │   │   │   │   ├── quote.rs                                                 # Verifying a claim's support from the authority: the revision is one the
 │   │   │   │   ├── read.rs                                                  # Reading a claim set: whole, or not at all when the caller's scopes do not
 │   │   │   │   ├── resolve.rs                                               # Immutable source-backed identity review snapshots over frozen claim sets
@@ -945,6 +948,15 @@ in place.
 │   │   │   │   ├── run.rs                                                   # A run: every question of a suite, resolved in the generation it
 │   │   │   │   └── run_v2.rs                                                # Strict v2 attempt execution and aggregation
 │   │   │   ├── graph/                                                       # The knowledge graph's construction (specs/002-knowledge-graph): claims
+│   │   │   │   ├── projection/                                              # Public typed-edge and literal-fact projection ports and unpublished build writer
+│   │   │   │   │   ├── tests/                                               # Contracts of the public graph projection port and backend-neutral writer
+│   │   │   │   │   │   ├── mod.rs                                           # Contracts of the public graph projection port and backend-neutral writer
+│   │   │   │   │   │   ├── port.rs                                          # Rust source: port
+│   │   │   │   │   │   └── writer.rs                                        # Rust source: writer
+│   │   │   │   │   ├── mod.rs                                               # Public typed-edge and literal-fact projection ports and unpublished build writer
+│   │   │   │   │   ├── port.rs                                              # Public application-ID boundary for disposable typed-edge projections
+│   │   │   │   │   ├── schema.rs                                            # Versioned schema identifiers shared by writers, verifiers, and readers
+│   │   │   │   │   └── writer.rs                                            # Atomic backend-neutral writes and verification of unpublished projections
 │   │   │   │   ├── tests/                                                   # Tests of the first table rule: its closed form, the claims it extracts
 │   │   │   │   │   ├── build.rs                                             # Every frozen build field participates in submission identity
 │   │   │   │   │   ├── mod.rs                                               # Tests of the first table rule: its closed form, the claims it extracts
@@ -1362,6 +1374,7 @@ in place.
 │   │   │       ├── live_router.rs                                           # What the live tests share: the router their variables name, and its embedder's model card
 │   │   │       ├── main.rs                                                  # The crate's integration tests, built as one test crate: each module proves
 │   │   │       ├── prepare_live.rs                                          # knowledge prepare on this machine's kernel as a leased job, live: the chunk count, wall time and router calls
+│   │   │       ├── projection_port.rs                                       # A public consumer uses only application IDs, pinned scopes, and edge families
 │   │   │       ├── publish_live.rs                                          # A chunk set of this machine's kernel published into Qdrant as a leased job, live: the embed and upsert rates
 │   │   │       ├── quality_ledger.rs                                        # maestro-quality-ledger/1: strict rules a line; a missing ledger is empty
 │   │   │       ├── router_parity.rs                                         # The router tokenizer's parity with the native counter, live: an explicit

@@ -172,7 +172,8 @@ fn the_extractor_upgrade_keeps_every_s1_record_digest_pin_and_selection() {
         [
             EXTRACTOR_ROLE,
             "0017_unit_graphs",
-            "0018_retrieval_representations"
+            "0018_retrieval_representations",
+            "0019_graph_projection"
         ]
     );
     let before = rows(&scratch.outside());
@@ -251,7 +252,8 @@ fn a_failing_extractor_upgrade_changes_nothing() {
         [
             EXTRACTOR_ROLE,
             "0017_unit_graphs",
-            "0018_retrieval_representations"
+            "0018_retrieval_representations",
+            "0019_graph_projection"
         ]
     );
 }
