@@ -296,8 +296,8 @@ pub(in crate::cli) struct Arguments {
         conflicts_with = "rule"
     )]
     pub(in crate::cli) window_policy: Option<PathBuf>,
-    /// Whole-plan input and reserved-output estimate. N=1 crash retry per
-    /// source; actual spend ≤ frozen plan estimate + N × largest source cost.
+    /// Whole-plan input and reserved-output estimate limit for one job.
+    /// A crash resumes that job; a failed-job rerun spends up to its own estimate.
     #[arg(
         long,
         value_name = "N",

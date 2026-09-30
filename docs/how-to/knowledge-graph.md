@@ -31,14 +31,16 @@ labels or results. Model replies provide typed candidates and a verbatim quote
 pointer; Maestro accepts a quote only when it occurs exactly once in the same
 source window and records the source's original revision, block, byte span and
 digest as evidence. Source instructions cannot change the closed vocabulary or
-build authority. The token budget is a whole-plan estimate: the card tokenizer
-counts system-prompt-plus-window input and reserves the full 1,024-token output
-ceiling per call. It is recomputed for every clean or resumed run, so resume
-never resets the limit. Each source may be retried once after a crash; another
-retry is refused. This is not an exact spend cap: actual spend ≤ frozen plan
-estimate + N × largest source's window cost, with N=1. Per-window durable token
-accounting is deferred. The card, prompt, policy, profile and budget digests
-remain frozen in job inputs.
+build authority. The token budget is an estimate limit for one job: the card
+tokenizer counts system-prompt-plus-window input and reserves the full
+1,024-token output estimate per call. Resume reruns the whole-plan preflight,
+but reuses committed batches. A crash can restart at most one source across
+that job's lease-resume chain; the estimated spend is therefore at most the
+plan estimate plus one largest-source window cost. Rerunning a failed job
+starts a new job and spends again, up to its own estimate. This is not an exact
+spend cap; per-window durable token accounting is deferred. The card, prompt,
+policy, profile and budget digests remain frozen in job inputs. The policy
+digest hashes the policy file bytes, so even whitespace changes its digest.
 
 ## Select the engine
 
