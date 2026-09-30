@@ -3,14 +3,15 @@
 use super::support::{Scratch, build_job, execute, granted, label, plan, timing};
 use crate::{
     artifact::Digest,
+    document::Collection,
     facts::{Batch, Error, ProjectionReceipt, Rejection},
     generation::NewGeneration,
     job::{self, JobState},
     scope::{Scope, ScopeSet},
-    store::Database,
+    store::{Database, HealthOpen, open_health_in},
 };
 use serde_json::json;
-use std::thread;
+use std::{collections::BTreeMap, thread};
 
 fn attached() -> (Scratch, Database, ScopeSet, ProjectionReceipt) {
     let scratch = Scratch::new();
@@ -188,6 +189,73 @@ fn a_projection_receipt_is_once_only_and_scoped_to_its_generation() {
         reader
             .execute("DELETE FROM graph_projection_receipts", [])
             .is_err()
+    );
+}
+
+#[test]
+fn health_inventory_is_scoped_ordered_and_decodes_the_exact_receipt() {
+    let (scratch, database, all, receipt) = attached();
+    let lease = projection_lease(&database, receipt.generation_id);
+    database
+        .record_projection_ready(&all, &receipt, &lease)
+        .unwrap();
+    database.publish_generation(receipt.generation_id).unwrap();
+    database
+        .record_collection(&Collection {
+            id: "alpha".to_owned(),
+            title: "Alpha collection".to_owned(),
+            visibility: "private".to_owned(),
+            profiles: BTreeMap::new(),
+        })
+        .unwrap();
+    execute(
+        &database,
+        "INSERT INTO chunk_sets (id, collection_id, chunk_profile, counter_contract_id, state)
+         VALUES ('alpha-set', 'alpha', 'structural/1', 'native', 'building')",
+    )
+    .unwrap();
+    execute(
+        &database,
+        "UPDATE chunk_sets SET state = 'complete', manifest_digest =
+         '4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945'
+         WHERE id = 'alpha-set'",
+    )
+    .unwrap();
+    let alpha = database
+        .create_generation(&NewGeneration {
+            collection_id: "alpha".to_owned(),
+            chunk_set_id: "alpha-set".to_owned(),
+            embedding_profile: "embed:test".to_owned(),
+            sparse_profile: "bm25-en-fr/1".to_owned(),
+        })
+        .unwrap()
+        .id;
+    database.verify_generation(alpha, 0).unwrap();
+    database.publish_generation(alpha).unwrap();
+
+    let health = match open_health_in(&scratch.0).unwrap() {
+        HealthOpen::Ready(health) => health,
+        other => panic!("expected current kernel, got {other:?}"),
+    };
+    let inventory = health.current_projection_inventory(&all).unwrap();
+    assert_eq!(inventory.len(), 2);
+    assert_eq!(inventory[0].collection_id, "alpha");
+    assert_eq!(inventory[0].generation_id, alpha);
+    assert_eq!(inventory[0].receipt, None);
+    assert_eq!(inventory[1].collection_id, receipt.collection_id);
+    assert_eq!(inventory[1].generation_id, receipt.generation_id);
+    assert_eq!(inventory[1].receipt.as_ref(), Some(&receipt));
+
+    let denied = granted(
+        &database,
+        "health-denied",
+        "workspace/default/collection/other",
+    );
+    assert!(
+        health
+            .current_projection_inventory(&denied)
+            .unwrap()
+            .is_empty()
     );
 }
 

@@ -8,6 +8,12 @@
 # and `clippy-level: pedantic` would deny on the command line the lints the
 # block allows on purpose, similar_names among them. The platforms beside
 # Linux are ADR-0016's first-class targets, so the tests run on each.
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-kernel/src/store/mod.rs"
+item = "HealthDatabase"
+reason = "the scoped projection inventory reads through the kernel's opaque read-only health connection"
+
 [ci]
 license-policy = "enforce"
 artifact-key = "maestro-core"

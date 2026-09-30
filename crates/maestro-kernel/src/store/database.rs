@@ -206,6 +206,47 @@ pub fn pending_migrations(data: &Path) -> Result<Vec<&'static str>, Error> {
         .collect())
 }
 
+/// A kernel connection opened read-only for health checks.
+#[derive(Debug)]
+pub struct HealthDatabase {
+    /// The checked, read-only database connection. Health never writes grants or migrations.
+    pub(crate) connection: Connection,
+}
+
+/// Outcome of checking kernel readiness without creating or migrating it.
+#[derive(Debug)]
+pub enum HealthOpen {
+    /// No kernel database file exists.
+    Missing,
+    /// The file is valid but lacks migrations this binary requires.
+    NeedsMigration(Vec<&'static str>),
+    /// The existing kernel is current and held read-only.
+    Ready(HealthDatabase),
+}
+
+/// Open an existing kernel for health without creating files, migrating, or applying grants.
+///
+/// # Errors
+/// Returns [`Error::UnknownMigration`] for a schema newer than this binary, or a store error
+/// when the existing file cannot be read.
+pub fn open_health_in(data: &Path) -> Result<HealthOpen, Error> {
+    let path = path::absolute(data.join(FILE)).map_err(|source| io_error(data, source))?;
+    if !path.exists() {
+        return Ok(HealthOpen::Missing);
+    }
+    let connection = configured(Connection::open_with_flags(
+        &path,
+        OpenFlags::SQLITE_OPEN_READ_ONLY,
+    )?)?;
+    let pending = pending(&connection, MIGRATIONS)?;
+    if !pending.is_empty() {
+        return Ok(HealthOpen::NeedsMigration(
+            pending.into_iter().map(|(name, _)| name).collect(),
+        ));
+    }
+    Ok(HealthOpen::Ready(HealthDatabase { connection }))
+}
+
 /// `connection` with the settings every connection of the kernel has: a 5 s
 /// wait for another's lock, foreign keys enforced, and recursive triggers, so
 /// that a row a `REPLACE` removes fires its delete triggers. Without them,

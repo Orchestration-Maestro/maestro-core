@@ -5,13 +5,50 @@ use crate::{
     artifact::Digest,
     job::{self, Lease, NewJob},
     scope::{ScopeSet, collection_path},
-    store::Database,
+    store::{Database, HealthDatabase},
 };
 use rusqlite::{OptionalExtension as _, params};
 use serde_json::json;
 
 /// Stored projection-readiness receipt columns before decoding.
 type ProjectionReceiptRow = (String, String, String, String, i64, i64, i64, String);
+
+/// A current published generation and its readiness receipt, if present.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProjectionInventory {
+    /// Collection owning this current generation.
+    pub collection_id: String,
+    /// Published generation identifier.
+    pub generation_id: i64,
+    /// Exact stored readiness receipt, absent when the projection is not ready.
+    pub receipt: Option<ProjectionReceipt>,
+}
+
+/// Decode the stored columns with the same validation used by normal receipt lookup.
+fn decode_receipt(
+    generation_id: i64,
+    row: ProjectionReceiptRow,
+) -> Result<ProjectionReceipt, Error> {
+    let (collection_id, set, file_name, schema_version, edges, catalog_edges, facts, digest) = row;
+    Ok(ProjectionReceipt {
+        collection_id,
+        generation_id,
+        claim_set_id: Digest::parse(&set).map_err(|error| {
+            Error::Conflict(format!("invalid projection claim-set id: {error}"))
+        })?,
+        file_name,
+        schema_version,
+        knowledge_edge_count: usize::try_from(edges)
+            .map_err(|_| Error::Conflict("invalid projection edge count".to_owned()))?,
+        catalog_dependency_edge_count: usize::try_from(catalog_edges)
+            .map_err(|_| Error::Conflict("invalid projection catalog count".to_owned()))?,
+        entity_fact_count: usize::try_from(facts)
+            .map_err(|_| Error::Conflict("invalid projection fact count".to_owned()))?,
+        content_digest: Digest::parse(&digest).map_err(|error| {
+            Error::Conflict(format!("invalid projection content digest: {error}"))
+        })?,
+    })
+}
 
 impl Database {
     /// Record projection readiness for a verified, attached generation. The
@@ -166,38 +203,57 @@ impl Database {
                 },
             )
             .optional()?;
-        row.map(
-            |(
-                collection_id,
-                set,
-                file_name,
-                schema_version,
-                edges,
-                catalog_edges,
-                facts,
-                digest,
-            )| {
-                Ok(ProjectionReceipt {
-                    collection_id,
-                    generation_id: generation,
-                    claim_set_id: Digest::parse(&set).map_err(|error| {
-                        Error::Conflict(format!("invalid projection claim-set id: {error}"))
-                    })?,
-                    file_name,
-                    schema_version,
-                    knowledge_edge_count: usize::try_from(edges)
-                        .map_err(|_| Error::Conflict("invalid projection edge count".to_owned()))?,
-                    catalog_dependency_edge_count: usize::try_from(catalog_edges).map_err(
-                        |_| Error::Conflict("invalid projection catalog count".to_owned()),
-                    )?,
-                    entity_fact_count: usize::try_from(facts)
-                        .map_err(|_| Error::Conflict("invalid projection fact count".to_owned()))?,
-                    content_digest: Digest::parse(&digest).map_err(|error| {
-                        Error::Conflict(format!("invalid projection content digest: {error}"))
-                    })?,
+        row.map(|row| decode_receipt(generation, row)).transpose()
+    }
+}
+
+impl HealthDatabase {
+    /// List current published generations visible to `scopes`, in collection and generation order.
+    /// Retired receipts are omitted; a current generation without readiness remains visible.
+    ///
+    /// # Errors
+    /// Returns a store error when generation or receipt data is unreadable or malformed.
+    pub fn current_projection_inventory(
+        &self,
+        scopes: &ScopeSet,
+    ) -> Result<Vec<ProjectionInventory>, Error> {
+        let mut statement = self.connection.prepare(&format!(
+            "SELECT g.collection_id, g.id, r.collection_id, r.claim_set_id, r.file_name,
+                    r.schema_version, r.knowledge_edge_count, r.catalog_dependency_edge_count,
+                    r.entity_fact_count, r.content_digest
+             FROM generations g LEFT JOIN graph_projection_receipts r ON r.generation_id = g.id
+             WHERE g.state = 'published' AND {}
+             ORDER BY g.collection_id, g.id",
+            ScopeSet::collection_condition("g.collection_id", 1)
+        ))?;
+        let rows = statement.query_map([scopes.parameter()], |row| {
+            let receipt = row
+                .get::<_, Option<String>>(2)?
+                .map(|collection_id| {
+                    Ok::<_, rusqlite::Error>((
+                        collection_id,
+                        row.get(3)?,
+                        row.get(4)?,
+                        row.get(5)?,
+                        row.get(6)?,
+                        row.get(7)?,
+                        row.get(8)?,
+                        row.get(9)?,
+                    ))
                 })
-            },
-        )
-        .transpose()
+                .transpose()?;
+            Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?, receipt))
+        })?;
+        rows.map(|row| {
+            let (collection_id, generation_id, receipt) = row?;
+            Ok(ProjectionInventory {
+                collection_id,
+                generation_id,
+                receipt: receipt
+                    .map(|receipt| decode_receipt(generation_id, receipt))
+                    .transpose()?,
+            })
+        })
+        .collect()
     }
 }

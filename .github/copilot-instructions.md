@@ -810,6 +810,7 @@ in place.
 │   │   │   │   │   ├── connections.rs                                       # Connections: one writer shared by every thread, readers of their own, the
 │   │   │   │   │   ├── garbage.rs                                           # Garbage collection: it lists before it removes, removes only artifacts
 │   │   │   │   │   ├── graph_migrations.rs                                  # Graph migrations upgrade populated legacy stores and roll back failed DDL
+│   │   │   │   │   ├── health.rs                                            # Read-only health opens never create or migrate kernel state
 │   │   │   │   │   ├── migrations.rs                                        # Migrations: applied in number order, each once, recorded by name, and a
 │   │   │   │   │   ├── mod.rs                                               # Tests of the kernel database: its migrations, its connections, the
 │   │   │   │   │   └── support.rs                                           # What the database tests share: scratch directories, the digests of their
@@ -974,6 +975,7 @@ in place.
 │   │   │   │   │   ├── content.rs                                           # Frozen application-ID encodings for projection content and receipt names
 │   │   │   │   │   ├── mod.rs                                               # Public typed-edge and literal-fact projection ports and unpublished build writer
 │   │   │   │   │   ├── port.rs                                              # Public application-ID boundary for disposable typed-edge projections
+│   │   │   │   │   ├── receipts.rs                                          # Read-only kernel readiness inventory used by graph health probes
 │   │   │   │   │   ├── schema.rs                                            # Versioned schema identifiers shared by writers, verifiers, and readers
 │   │   │   │   │   └── writer.rs                                            # Atomic backend-neutral writes and verification of unpublished projections
 │   │   │   │   ├── tests/                                                   # Tests of the first table rule: its closed form, the claims it extracts

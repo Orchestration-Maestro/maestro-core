@@ -55,5 +55,5 @@ mod migration;
 mod tests;
 
 pub use artifacts::{Artifact, ArtifactCheck};
-pub use database::{Database, pending_migrations};
+pub use database::{Database, HealthDatabase, HealthOpen, open_health_in, pending_migrations};
 pub use error::Error;

@@ -3,6 +3,11 @@
 pub mod port;
 
 mod content;
+#[expect(
+    dead_code,
+    reason = "the E09 health adapter consumes this readiness port"
+)]
+mod receipts;
 mod schema;
 pub(crate) mod writer;
 pub use port::{
