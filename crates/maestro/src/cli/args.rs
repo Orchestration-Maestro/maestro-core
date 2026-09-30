@@ -20,9 +20,28 @@ pub(super) struct Arguments {
     /// repeatable. `maestro config list` names every setting.
     #[arg(long = "set", global = true, value_name = "KEY=VALUE")]
     pub(super) set: Vec<String>,
+    /// Answer language for this session, as a supported BCP 47 tag.
+    #[arg(long, global = true)]
+    pub(super) language: Option<String>,
+    /// Answer tone for this session: brief, normal or detailed.
+    #[arg(long, global = true)]
+    pub(super) tone: Option<String>,
     /// What to work on.
     #[command(subcommand)]
     pub(super) noun: Noun,
+}
+
+impl Arguments {
+    /// Explicit flags only: no parser default can mask a stored preference.
+    pub(super) fn settings(&self) -> Vec<String> {
+        let mut flags = self.set.clone();
+        for (key, value) in [("language", &self.language), ("tone", &self.tone)] {
+            if let Some(value) = value {
+                flags.push(format!("{key}={value}"));
+            }
+        }
+        flags
+    }
 }
 
 /// What a command works on, or the machine it sets up and checks.
@@ -462,20 +481,19 @@ mod tests {
     }
 
     #[test]
-    fn i3_knowledge_ask_does_not_accept_a_language_option() {
-        assert!(
-            Arguments::try_parse_from([
-                "maestro",
-                "knowledge",
-                "ask",
-                "--collection",
-                "docs",
-                "--question",
-                "How is the service configured?",
-                "--language",
-                "fr",
-            ])
-            .is_err()
-        );
+    fn knowledge_ask_accepts_the_explicit_global_language_option() {
+        let arguments = Arguments::try_parse_from([
+            "maestro",
+            "knowledge",
+            "ask",
+            "--collection",
+            "docs",
+            "--question",
+            "How is the service configured?",
+            "--language",
+            "fr",
+        ])
+        .unwrap();
+        assert_eq!(arguments.settings(), ["language=fr"]);
     }
 }

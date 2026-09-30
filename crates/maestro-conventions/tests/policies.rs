@@ -180,3 +180,49 @@ fn opaque_canonical_fields_require_canonical_serialization() {
         );
     }
 }
+
+/// Unsafe operations and lint exceptions are confined to the held-handle Windows adapter.
+#[test]
+fn unsafe_is_confined_to_windows_handle_security() {
+    let boundary = Path::new("crates/maestro-filesystem/src/windows_security.rs");
+    let offenders: Vec<_> = text_files()
+        .into_iter()
+        .filter(|(file, _)| file.extension().is_some_and(|extension| extension == "rs"))
+        .filter(|(file, _)| file != boundary)
+        .filter(|(_, text)| unsafe_boundary_violation(text))
+        .map(|(file, _)| file)
+        .collect();
+    assert!(
+        offenders.is_empty(),
+        "unsafe boundary violations: {offenders:?}"
+    );
+}
+
+/// Ignore whitespace so formatting cannot evade the source-level boundary check.
+fn unsafe_boundary_violation(text: &str) -> bool {
+    let compact: String = text
+        .chars()
+        .filter(|character| !character.is_whitespace())
+        .collect();
+    let unsafe_block = ["unsafe", "{"].concat();
+    let lint = ["unsafe", "_code"].concat();
+    compact.contains(&unsafe_block)
+        || compact.split("allow(").skip(1).any(|attribute| {
+            attribute
+                .split(')')
+                .next()
+                .is_some_and(|lints| lints.contains(&lint))
+        })
+}
+
+#[test]
+fn unsafe_boundary_policy_rejects_formatted_blocks_and_lint_escape() {
+    for planted in [
+        ["unsafe", " { }"].concat(),
+        ["unsafe", "\n{ }"].concat(),
+        ["#[allow(", "unsafe", "_code)]"].concat(),
+    ] {
+        assert!(unsafe_boundary_violation(&planted));
+    }
+    assert!(!unsafe_boundary_violation("fn safe() {}"));
+}

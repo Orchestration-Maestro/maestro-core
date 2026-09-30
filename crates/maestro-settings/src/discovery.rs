@@ -52,25 +52,47 @@ pub fn discover_project_file(start: &Path, home: Option<&Path>) -> Discovery {
             "the directory is outside the home directory: no project file is read".to_owned(),
         );
     }
+    discover_project_with(&start, &home, |directory| {
+        candidate(directory).map(|file| file.map(|file| (file, ())))
+    })
+    .0
+}
+
+/// Walk a canonical directory up to an inclusive approved boundary, selecting one candidate.
+///
+/// The caller resolves `start` and `boundary` once, authorizes the boundary, and supplies a
+/// held-handle reader. Its callback must reject mount roots, links, unsafe metadata and swaps.
+/// `Ok(None)` continues, `Err` warns and continues, and `Ok(Some((path, snapshot)))` stops.
+/// The returned snapshot is the callback's value: this function never reopens a selected file.
+/// No candidate above `boundary`, outside it, or at a filesystem root is visited.
+#[must_use]
+pub fn discover_project_with<T>(
+    start: &Path,
+    boundary: &Path,
+    mut candidate: impl FnMut(&Path) -> Result<Option<(PathBuf, T)>, String>,
+) -> (Discovery, Option<T>) {
     let mut discovery = Discovery::default();
+    if !start.is_absolute() || !boundary.is_absolute() || !start.starts_with(boundary) {
+        discovery.note = Some("directory is outside the approved boundary".to_owned());
+        return (discovery, None);
+    }
     for directory in start.ancestors() {
-        // A file system's root is never a project.
         if directory.parent().is_none() {
             break;
         }
         match candidate(directory) {
-            Ok(Some(file)) => {
+            Ok(Some((file, snapshot))) => {
                 discovery.file = Some(file);
-                break;
+                return (discovery, Some(snapshot));
             }
             Ok(None) => {}
             Err(skipped) => discovery.skipped.push(skipped),
         }
-        if directory == home {
+        if directory == boundary {
             break;
         }
     }
-    discovery
+    (discovery, None)
 }
 
 /// The project file of `directory`: `Ok(None)` when it has none, and the

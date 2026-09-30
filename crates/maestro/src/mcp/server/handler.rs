@@ -35,9 +35,12 @@ impl<P: ModelPort + Send + Sync + 'static> ServerHandler for KnowledgeServer<P> 
     fn get_info(&self) -> ServerConfig {
         ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
             .with_server_info(Implementation::new("maestro", env!("CARGO_PKG_VERSION")))
-            .with_instructions(concat!(
-                "Search visible published collections, read their exact source-backed chunks ",
-                "and sections, or answer from passages granted to the local principal.",
+            .with_instructions(format!(
+                concat!(
+                    "Search visible published collections, read their exact source-backed chunks ",
+                    "and sections, or answer from passages granted to the local principal. {}",
+                ),
+                self.preference_context
             ))
     }
 

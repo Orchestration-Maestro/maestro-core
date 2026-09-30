@@ -7,11 +7,15 @@
 
 use super::knowledge::KnowledgeSettings;
 use crate::failure::Failure;
-use maestro_catalog::settings::{self, ResolvedSettings};
+use maestro_catalog::{
+    limits::Limits,
+    settings::{
+        self, NoWorkspaceTrust, ResolvedSettings, SessionPreferences, WorkspacePreferences,
+    },
+};
 use maestro_kernel::paths::{self, Environment};
 use maestro_settings::{
-    Discovery, FileLayers, Flag, LayerSource as _, Layers, Registry, Resolved,
-    discover_project_file, parse_flags, resolve,
+    Discovery, FileLayers, Flag, Layers, Registry, Resolved, parse_flags, resolve,
 };
 use std::{
     env,
@@ -69,14 +73,15 @@ impl Session {
         home: Option<&Path>,
         flags: &[String],
     ) -> Result<Self, Failure> {
-        let session = Self::at(config_dir, workspace, home, flags)?;
-        if let (Some(workspace), Some(note)) = (workspace, &session.discovery.note) {
+        if let Some(workspace) = workspace
+            && !workspace.is_dir()
+        {
             return Err(Failure::refused(format!(
-                "--workspace {}: {note}",
+                "--workspace {}: the path is not a directory: no project file is read",
                 workspace.display()
             )));
         }
-        Ok(session)
+        Self::at(config_dir, workspace, home, flags)
     }
 
     /// The session of the user file in `config_dir`, the project file found
@@ -92,18 +97,26 @@ impl Session {
         flags: &[String],
     ) -> Result<Self, Failure> {
         let registry = Registry::built_in().map_err(|error| Failure::failed_by(&error))?;
-        let discovery = start.map_or_else(
-            || Discovery {
-                note: Some("no working directory to start from".to_owned()),
-                ..Discovery::default()
-            },
-            |start| discover_project_file(start, home),
-        );
+        let snapshot = SessionPreferences::load(
+            config_dir,
+            start,
+            home,
+            &NoWorkspaceTrust,
+            &Limits::PRODUCTION,
+        )
+        .map_err(Failure::refused)?;
+        let layers = snapshot
+            .layers(&registry, &Limits::PRODUCTION)
+            .map_err(Failure::refused)?;
+        let discovery = snapshot.discovery;
+        if let Some(note) = &discovery.note {
+            eprintln!("{note}");
+        }
+        for skipped in &discovery.skipped {
+            eprintln!("{skipped}");
+        }
         let files = FileLayers::new(config_dir, discovery.file.clone());
         let flags = parse_flags(&registry, flags).map_err(|error| Failure::refused_by(&error))?;
-        let layers = files
-            .layers(&registry)
-            .map_err(|error| Failure::refused_by(&error))?;
         Ok(Self {
             registry,
             files,
@@ -111,6 +124,24 @@ impl Session {
             layers,
             flags,
         })
+    }
+
+    /// Path-free, immutable initialization provenance for model-visible MCP instructions.
+    pub(crate) fn mcp_context(&self) -> String {
+        let origin = if self.discovery.file.is_some() {
+            "workspace-selected (explicit --workspace)"
+        } else if self.discovery.note.is_some() {
+            "user/default fallback; explicit workspace outside home or unavailable"
+        } else if self.layers.user.is_some() {
+            "user preferences; no workspace file selected"
+        } else {
+            "built-in defaults; no workspace file selected"
+        };
+        format!(
+            "Preferences: {origin}. Workspace overrides require --workspace. \
+            Preferences are fixed for this session; restart for edits; \
+            tool arguments cannot replace them."
+        )
     }
 
     /// Every setting's effective value, with the layer that set it.
@@ -142,6 +173,12 @@ impl Session {
         }
         settings.evidence.validate().map_err(Failure::refused)?;
         Ok(settings)
+    }
+}
+
+impl WorkspacePreferences for Session {
+    fn layers(&self, _registry: &Registry, _limits: &Limits) -> Result<Layers, String> {
+        Ok(self.layers.clone())
     }
 }
 

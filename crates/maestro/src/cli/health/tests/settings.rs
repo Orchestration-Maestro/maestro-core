@@ -17,7 +17,7 @@ fn settings_check_names_the_files_read_and_what_it_found() {
     assert_eq!(check.target, user.display().to_string());
     assert_eq!(
         detail(&check),
-        "user file absent (defaults apply); no project file: no working directory to start from"
+        "user file absent (defaults apply); no project file found"
     );
     scratch.configure(
         USER_FILE,
@@ -25,9 +25,9 @@ fn settings_check_names_the_files_read_and_what_it_found() {
     );
     let work = scratch.data();
     let session = Session::at(&scratch.config(), Some(&work), None, &[]);
-    assert_eq!(
-        detail(&settings_check(&scratch.config(), session)),
-        "user file read; no project file: no home directory is known: no project file is read"
+    assert!(
+        detail(&settings_check(&scratch.config(), session))
+            .contains("outside home without workspace trust")
     );
     let session = Session::at(&scratch.config(), Some(&work), Some(&scratch.data()), &[]);
     assert_eq!(
