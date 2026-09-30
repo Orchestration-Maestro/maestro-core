@@ -13,20 +13,27 @@ ports. Local adapters work without S3/S4. A factored S1 import transaction accep
 mapped extraction; S1 alone prepares, embeds and publishes.
 
 **Tech Stack:** Rust 1.98.1, edition 2024, MSRV 1.98; existing SQLite, serde,
-reqwest, Tokio, Markdown and model ports. New libraries are approval-blocked.
+reqwest, Tokio, Markdown and model ports. Owner-selected tools still need exact
+artifact/feature audits and qualification; other new libraries remain approval-blocked.
 
-**Spec:** [spec.md](spec.md), Revision 2, 62 FRs and 15 SCs.
-**Research:** [research.md](research.md), Revision 2.1 (source-register completion only), sources accessed 2026-09-30.
+**Spec:** [spec.md](spec.md), Revision 2.1, 62 FRs and 15 SCs.
+**Research:** [research.md](research.md), Revision 2.2 (dated owner decisions and validation fixes), sources accessed 2026-09-30.
 **Tasks:** [tasks.md](tasks.md).
 **Branch:** `docs/s6-spec-set`, from S1 `0204846f7640e7219021b0b38daa60b4c4f98ee4`;
 the supervisor creates `feat/s6-integration` after review.
-**Status:** proposed implementation design, not adopted libraries, live authority,
-qualification results or independent approval. Spec requirements prevail over
-research alternatives: no Python extractor/connector/producer qualifies cutover.
-Research's term-alias question is outside S6; source-reference continuity and
-publication aliases are in scope, synonym dictionaries are not. The spec also
-settles the Xberg name; research's older naming question is not an open scope
-decision, while adoption of a particular version remains OA5-blocked.
+**Status:** revised design after validation and the owner's 2026-09-30 decisions;
+not implementation, live authority, qualification results or independent approval.
+Rust owns producers, extraction and connectors. Only unavoidable browser rendering
+uses crawl4ai (Python, out of process) under the named ADR-0020 exception below;
+that exception is not a Python producer/extractor/connector fallback.
+**Alias scope approved, 2026-09-30:** ingestion automatically learns term aliases
+(other names for the same thing) from explicit source definitions, with supporting
+spans. Candidates are reviewable/reversible, never hand-written product lists or
+silent merges. Preserve an S2 `ALIAS_OF`-compatible identity seam; search-time query
+expansion over approved aliases is a later S1 item, not S6 implementation.
+Source-reference continuity and publication aliases remain separately required.
+Xberg 1.x (MIT) and the unchanged native docling bake-off are approved directions,
+not a measured winner or blanket feature approval.
 
 ## Global constraints
 
@@ -34,8 +41,9 @@ decision, while adoption of a particular version remains OA5-blocked.
   downstream qualification evidence still blocks the gate that needs it.
 - The manifest is processing-configuration authority; it cannot grant access.
   Questions do not crawl. Grants require a separate owner-authenticated writer.
-- First-party producers, extractors and connectors are Rust. Native components
-  need named OA5/ADR-0020 exceptions. No implicit download or hidden fallback.
+- First-party producers, extractors and connectors are Rust. The sole non-Rust
+  browser adapter is out-of-process crawl4ai for unavoidable Chromium work;
+  native components need named OA5/ADR-0020 records. No implicit download or hidden fallback.
 - Preserve source bytes, permissions and losses. Unknown is not zero or passed;
   held, partial and unsupported outputs are not searchable admission.
 - Only the five automatic change classes in spec §Fixed mandatory gate matrix
@@ -47,11 +55,11 @@ decision, while adoption of a particular version remains OA5-blocked.
 | --- | --- |
 | Workspace | New `maestro-acquisition` library over `maestro-kernel` and `maestro-knowledge`; existing `maestro` CLI binds ports. No separate daemon/database, general extension runtime or agent-driven crawler. |
 | Storage | Existing kernel SQLite WAL, artifacts, jobs and journal; new frontier/capture/receipt records are kernel-owned. Network, conversion and models run outside transactions. Forward-only migration gets the next free number at landing, not a reserved number here. |
-| Dependencies | Reuse root Cargo versions, including reqwest 0.13.5, pulldown-cmark 0.13.4, whatlang 0.18.0 and serde. Spider, converters, robots, codecs and containment helpers remain pending owner approval; no dependency is added by this plan. |
+| Dependencies | Reuse root Cargo versions, including reqwest 0.13.5, pulldown-cmark 0.13.4, whatlang 0.18.0 and serde. The dated owner shortlist below is approved; N02 audits exact features/artifacts before adoption. Unselected robots, codecs and containment helpers still need owner approval. No dependency is added by this plan. |
 | Platforms | Linux, Windows and macOS. Unit contracts run everywhere; actual browser/process containment and offline extraction must be tested on each claimed environment. An unavailable control blocks that adapter, never chooses an unsandboxed implementation. |
 | Tests | Rust unit and existing single-binary integration suites, independently authored synthetic fixtures, real child-process denial/crash tests, separately approved local private comparisons. Tests first; code coverage/mutation gates run in CI. |
 | Performance | No invented crawl-throughput target. Enforce approved OA3 budgets and inherited S1 release/interactive latency floors. Report observed CPU/RAM/VRAM/storage, pending work and cold/warm latency under named hardware/configuration. |
-| Scale | Owner-frozen families/media/strata, not a guessed corpus size. OA3's proposed defaults are inputs, not measured capacity; OA4c bounds every live sample. Parser/protocol ceilings below are independent defensive format limits. |
+| Scale | Owner-frozen families/media/strata, not a guessed corpus size. OA3's approved defaults are inputs, not measured capacity; pending OA4c bounds every live sample. Parser/protocol ceilings below are independent defensive format limits. |
 | Execution | Manual command first, local timer later, both invoke the same operation. Protected sources use admitted subprocess connectors. Independent sources continue after a typed source-local failure; stop-all and revocations always win. |
 
 ### Existing seams and explicit gaps
@@ -76,13 +84,19 @@ the in-process core ingestion seam. Option (a), corpus/2 interchange, is deferre
 until an external/offline producer requires it. Adapter processes still cross
 an untrusted governed boundary; they do not call Rust APIs inside the core.
 
-| Adoption group | Recommendation from research; all pending OA5/ADR-0020 |
+### Owner tool decisions — 2026-09-30
+
+The owner answered yes to the shortlist, with the amendment: “rust only except we
+have no choice for js page or chromium use python alternative like crawl4ai”.
+N02 records that named ADR-0020 exception before N46 implements the render adapter.
+
+| Adoption group | Approved direction; exact audits and qualification still required |
 | --- | --- |
-| Crawl/browser | Reuse reqwest; evaluate Spider 2.53.9 with defaults disabled as a leased fetch/render adapter. Its chrome path uses chromey; use one qualified browser stack. chromiumoxide is a replacement only if control hooks fail, not a second default. Chromium needs its named native exception. [research §§2, 3.1; P1, P3, P27] |
-| Technical HTML | Site selectors plus htmd 0.5.5; dom_smoothie 0.18.2 only a gated selection fallback. Compare Xberg's already-transitive html-to-markdown-rs before retaining two converters; never chain converters. [research §3.2; P9–P11, P27] |
-| Documents/OCR | Offline bake-off Xberg 1.3.0 minimal native PDF/Rust layout/OCR versus docling 1.78.0 `default-features = false, pdf-text`; one qualified path/profile. Prefer tract-supported layout; ocrs/RTen are bounded alternatives, not assumed multilingual support. `docling-rs` is a service SDK, not this converter. [research §3.3; P5, P6, P24–P28] |
+| Crawl/browser | Spider for crawling with its extras/defaults switched off; reuse reqwest and kernel-owned leases. For unavoidable JavaScript/Chromium work use **crawl4ai**, Python out of process behind `AdmittedTransport`, not Spider's chromey path. Pin browser/runtime/adapter artifacts and allow only declared browser capabilities. No chromey/chromiumoxide fallback or second production browser stack. [research §§2, 3.1; P1, P2, P27] |
+| Technical HTML | htmd for HTML to text, checked against Xberg's built-in `html-to-markdown-rs`; site selectors preserve technical structure. No converter chain. dom_smoothie remains an unselected, separately approved fallback candidate. [research §3.2; P9–P11, P27] |
+| Documents/OCR | Xberg 1.x (MIT) against the native docling.rs converter on our files; adopt the qualified winner per profile. Keep the researched pins/baselines unchanged: Xberg 1.3.0 minimal native PDF/Rust layout/OCR versus `docling` 1.78.0 `default-features = false, pdf-text`, with separately approved ML comparison only. The owner's “docling-rs” refers to this bake-off, not the same-named service SDK. **tract by default for layout/OCR; ONNX Runtime only for table models, loaded dynamically and never auto-downloaded.** Pin weights offline and check every weight licence before use. [research §3.3; P5, P6, P24–P28] |
 | Spreadsheet/detection/helpers | calamine 0.36.1 for cells plus separate formulas; reuse Xberg's infer if selected, otherwise evaluate infer 0.22.0. Reuse whatlang with abstention; evaluate texting_robots 0.2.2 against RFC 9309 and minimum ZIP/TAR codecs. No tree_magic_mini embedded database, new language detector or ADWIN without a demonstrated need and approval. [research §§3.4–3.5; D1–D5, P16, P20–P21] |
-| Sessions/native assets | Existing read-only KeePassXC mechanism first, separately approved external component, not plaintext unlock files. keyring/keepass/secrecy/zeroize only if needed and approved. ONNX-only table models may require dynamic ORT; PDFium/full docling ML is an optional comparison. Xberg/docling feature edges enabling `download-binaries` must be split upstream or by an approved audited patch before adoption; adding dynamic loading alone does not remove additive download features. [research §§3.3, 3.7–3.8, 6; P17–P19, P23, P27] |
+| Sessions/native assets | Existing read-only KeePassXC mechanism remains a separately approved external component, not plaintext unlock files. keyring/keepass/secrecy/zeroize only if needed and approved. PDFium/full docling ML remains an optional comparison, not a new production exception. Xberg/docling feature edges enabling `download-binaries` must be split upstream or by an approved audited patch before adoption; adding dynamic loading alone does not remove additive download features. [research §§3.3, 3.7–3.8, 6; P17–P19, P23, P27] |
 
 N02 records exact features, added packages, duplicates, native links, licence and
 model-weight terms against the then-current lock. Research's historical counts
@@ -92,22 +106,25 @@ engine is adopted simply because the research lists it.
 
 ### Approval ledger and blocked effects
 
-| Approval | Work allowed before approval | Blocked until receipt exists |
+| Approval | Owner decision — 2026-09-30 | Remaining boundary |
 | --- | --- | --- |
-| OA1 | Synthetic test design and non-qualifying probes | Q1–Q5 qualification, automatic activation, qualified publication and family cutover; recommend spec's exact targets/matrix and deterministic equality or approved non-inferiority protocol. |
-| OA2 | Default-deny implementation and isolated synthetic private-range cases | Architecture private-network amendment and live named-origin access; origin grant remains separately necessary. |
-| OA3 | Enforceable budget implementation and fixture envelopes | Live concurrency/adaptation without an approved envelope. Use spec's proposed defaults only after approval. |
-| OA4a/OA4b | Synthetic source/account/authority fixtures | Real source inventory, protected account/preflight, robots overrides and source grants. Authority command must enforce separation before any live grant. |
-| OA4c/OA4d/OA5 | Public fixture design and source inspection | Private reads/comparison/retention, each family retirement, new library/component/model adoption respectively. No task authorizes itself. |
+| OA1 | **Approved:** Q1–Q5, fixed matrix/protocol, deterministic equality or nondeterministic **δ = 0.01**. | Freeze suite/cohorts/baseline before results; missing or failed evidence still holds qualification/activation/cutover. |
+| OA2 | **Approved:** internal wikis one named origin at a time, owner approval and expiry. | N48 lands the architecture amendment; each exact-origin authenticated grant remains necessary. No global allowance. |
+| OA3 | **Approved:** spec's operating envelopes as proposed, unchanged. | Enforce them; source-specific variations need approval. Capacity is not measured and GPU scheduling remains separately authorized. |
+| OA4a/OA4b | **Approved:** private vendor connector one source family at a time; first preflight one source/account/target, 180 seconds, two protected reads, one login cycle, zero retries; no robots override by default. | Exact origins/seeds/entitlement/account and expiring source grants still need the owner-authenticated command; exceptional robots overrides need their own receipt. |
+| OA5 | **Approved:** required M6 file/media scope and the tool shortlist above, including only the named crawl4ai browser exception. | N02 records exact artifact/feature/licence/exception evidence; winner selection and profile/platform/model qualification still need results. Unselected dependencies/exceptions need approval. |
+| Alias | **Approved:** automatically learned source-defined term-alias candidates with supporting spans, reviewable/reversible, no hand-written product list or silent merge. | N29 records candidates and the S2-compatible identity seam; approved-alias query expansion is later S1 work only. |
+| OA4c / OA4d | **Pending:** private data comparison use / each family's retirement. | No private comparison or retirement without its own receipt. |
 
 ## Constitution check
 
 The workspace-installed `.specify/memory/constitution.md` delegates to the
 organization rules and repository [rule map](../../docs/standards/engineering.md).
-No new exception is granted here. Pre-design: scope is explicit, downstream reuse
-is established, private reads are not needed for planning. Post-design: no known
-unresolved design conflict; effects remain blocked at named approval/qualification
-boundaries. A planned enforcing test is not a passing test.
+The owner-approved crawl4ai exception must be recorded by N02; no broader exception
+is granted here. Scope and downstream reuse are explicit; private reads are not
+needed for planning. Effects remain blocked at named grant/qualification boundaries,
+and the newly approved alias-candidate scope remains evidence-bound. A planned
+enforcing test is not a passing test.
 
 | Rule IDs touched | Enforcing task, test or review |
 | --- | --- |
@@ -130,7 +147,10 @@ boundaries. A planned enforcing test is not a passing test.
 ### Architecture amendments before code
 
 N01 is a documentation-only prerequisite to every S6 code task. It changes all
-four decided locations and corresponding 08 rows together:
+four decided locations and corresponding 08 rows together, and records the
+2026-09-30 browser amendment in 01 §2.2.2 and 06/08's native-cutover wording:
+crawl4ai replaces Spider's chromey path only for unavoidable browser work. N02
+records its named ADR-0020 role/artifact exception; Rust still owns the producer:
 
 | Location | Amendment and 08 row reconciliation |
 | --- | --- |
@@ -203,8 +223,8 @@ from a URL, media label or profile.
 | Record / exact schema | Fields in addition to Resource, or complete fields for nested records |
 | --- | --- |
 | Collection link | Extend the existing collection declaration with a versioned, optional `source_policy: Ref`; old S1-only declarations remain valid but cannot acquire. Place it under the capability hierarchy in spec. The decoder's version change must preserve old read compatibility rather than silently add keys to old strict input. |
-| `maestro-source-policy/1` | `sources: Source[]`, `registries: Ref[]`, `profiles: Ref`, `address_table: Ref`, `aggregate_limits: Limits`, `adaptation: AdaptationPolicy`, `retention_rule: Ref`, `qualification: Ref`. No secrets or machine paths. |
-| `Source` | `id`, `origins: Origin[]`, `seeds: Url[]`, `discovery: Discovery[]`, `selectors: Selector[]`, `decisions: Ref[]`, `promotions: Ref[]`, `robots: Robots`, `limits: Limits`, `identity: IdentityRule`, `auth_role: Id?`, `connector: Ref?`, `wiki_mapping: Ref?`, `selected_profiles: Ref[]`, `sync: SyncPolicy`. |
+| `maestro-source-policy/1` | `sources: Source[]`, `registries: Ref[]`, `profiles: Ref`, `acquisition_profiles: Ref[]`, `address_table: Ref`, `aggregate_limits: Limits`, `adaptation: AdaptationPolicy`, `retention_rule: Ref`, `qualification: Ref`. No secrets or machine paths. |
+| `Source` | `id`, `origins: Origin[]`, `seeds: Url[]`, `discovery: Discovery[]`, `selectors: Selector[]`, `decisions: Ref[]`, `promotions: Ref[]`, `robots: Robots`, `limits: Limits`, `identity: IdentityRule`, `auth_role: Id?`, `connector: Ref?`, `wiki_mapping: Ref?`, `acquisition_profile: Ref`, `selected_profiles: Ref[]`, `sync: SyncPolicy`. |
 | `Origin` | `id: Id`, `scheme` fixed `https`, `host` canonical DNS name, `port` 1–65535, `path_prefixes: Text[]`, `purpose` one of `content/authentication/asset`, `private_grant: Id?`. Match path boundaries after one unambiguous URL parse; encoded separators/ambiguous hosts refuse. |
 | `Discovery` | Tagged union: `links {depth}`, `sitemap {url}`, `api {mapping: Ref}`, `repository {owner, repository, ref, paths, submodules, large_files}`. No keywords/guessed identifiers as enumeration. Repository lists are explicit selections, not booleans enabling everything. |
 | `Selector` | `source_id`, `origin: Id?`, `path_prefix: Text?`, `object_ids: Id[]`, `versions: Text[]`, `channels: Id[]`, `media_types: Text[]`; conjunction of present fields, disjunction of list values. All-null/all-empty selector refuses; no scripts, regex execution or hidden precedence. |
@@ -212,17 +232,58 @@ from a URL, media label or profile.
 | `maestro-source-promotions/1` | `entries` with decision fields but action fixed `promote_knowledge`. Separate approval only; promotion never defeats denial/robots/grant limits. |
 | `Robots` / `IdentityRule` | Robots: `agent`, `override: Ref?`, `rules_max_bytes`, `cache_ttl_ms`. Identity: `version`, `meaningful_queries`, `ignored_tracking_queries`, `query_order: preserve/sort`, `repeated_queries: preserve/reject`, `fragment: discard_for_fetch`, `migration: Ref?`. Unknown query names refuse; display link remains distinct. |
 | `SyncPolicy` | `mode: manual/one_off/watch`, `timer_period_ms: positive?`, `overlap_ms`, `clock_skew_ms`, `revision_fields: Text[]`; watch requires explicit finite cadence. Content cannot enable it. |
-| `Limits` | Positive `requests`, `pages`, `partitions`, `redirects`, `depth`, `elapsed_ms`, `wire_bytes`, `dom_bytes`, `asset_bytes`, `staging_bytes`, `free_reserve_bytes`, `cpu_millicores`, `memory_bytes`, `source_runs`, `origin_concurrency`, `origin_interval_ms`; nonnegative `retries`, `max_backoff_ms`, `gpu_batches`, `gpu_bytes`; `decode: DecodeLimits`. Every effective limit is the minimum of host, grant, collection and run ceilings. Zero GPU disables GPU work. |
-| `DecodeLimits` | Positive `expanded_bytes`, `expansion_ratio`, `nested_levels`, `members`, `decoded_pixels`, `elapsed_ms`, `memory_bytes`; `xml_entities` fixed `disabled`. One cumulative accounting object follows every HTTP/container/image/PDF/Office decode; no unchecked intermediate allocation. |
+| `Limits` | **Ceilings (`min`):** positive `requests`, `pages`, `partitions`, `redirects`, `depth`, `elapsed_ms`, `wire_bytes`, `dom_bytes`, `asset_bytes`, `staging_bytes`, `cpu_millicores`, `memory_bytes`, `source_runs`, `origin_concurrency`; nonnegative `retries`, `max_backoff_ms`, `gpu_batches`, `gpu_bytes`. **Floors (`max`):** positive `free_reserve_bytes`, `gpu_reserve_bytes`, `origin_interval_ms`. Nested `decode: DecodeLimits` composes by its own kinds. Zero GPU disables GPU work. |
+| `DecodeLimits` | **Ceilings (`min`):** positive `expanded_bytes`, `expansion_ratio`, `nested_levels`, `members`, `decoded_pixels`, `elapsed_ms`, `memory_bytes`. `xml_entities` is an exact invariant fixed `disabled`, not a numeric bound. One cumulative accounting object follows every HTTP/container/image/PDF/Office decode; no unchecked intermediate allocation. |
 | `maestro-wiki-mapping/1` | Resource plus `origin_id`, `list_endpoint`, `item_endpoint`, `items_path`, `identity_path`, `parent_path`, `revision_path`, `content_path`, `content_kind: html/markdown/blocks`, `block_mapping: Ref?`, `attachments_path`, `permissions_path`, `permission_semantics: explicit_scopes/inherit_with_restrictions`, `pagination: Pagination`, `withdrawal: explicit_tombstone/complete_inventory`, `tombstone_path: FieldPath?`. Missing effective-permission semantics refuse. Endpoints are admitted relative paths, not executable templates; bounded literal/ID segment substitution only. |
 | `FieldPath` / `Pagination` | FieldPath is an array of at most 32 typed `field {name: Text}` or `index {value: u32}` steps; total mapping nodes obey config limits. Pagination is `cursor {request_field, response_path, terminal_path}` or `next_link {response_path, terminal_path}`. Preserve entire typed continuation object; empty items is not terminal. Next links are always re-admitted. |
 | `maestro-wiki-block-mapping/1` | Resource plus `blocks_path`, `block_id_path`, `parent_id_path`, `kind_path`, `text_path`, `children_path`, `kind_rules` mapping declared kind IDs to existing structural block kinds and typed payload paths. Unknown kinds remain explicit unsupported units; no prose synthesis, scripts or inferred permission inheritance. |
-| `AdaptationPolicy` | `matrix: Ref`, `thresholds: Ref`, `baseline: Ref`, `minimum_sample`, `consecutive_runs`, `activation_interval_ms`, `automatic_classes` fixed subset of spec's five classes. Definitions, matrix, thresholds, cadence and budgets are protected. |
+| `AdaptationPolicy` | `matrix: Ref`, `thresholds: Ref`, `baseline: Ref`; positive **floors (`max`)** `minimum_sample`, `consecutive_runs`, `activation_interval_ms`; `automatic_classes` fixed subset of spec's five classes. Definitions, matrix, thresholds, cadence and budgets are protected. |
 | `maestro-acquisition-manifest/1` | Resource plus `baseline: Ref`, `baseline_kind: local/catalog`, `proposals: Ref[]`, `activations: Ref[]`, `active: Ref`, `effective_digest`. Digest covers canonical baseline bytes plus ordered activation identities, not file whitespace. Baseline bytes are immutable; direct-file updates use atomic compare-and-swap. |
 
-No absent budget receives an unbounded default. OA3 approval supplies the spec's
-proposed operating values or an explicitly approved stricter/different envelope;
-the schema itself grants none. Tests pin an envelope and exercise each limit.
+Compose each bound across host, grant, collection, source/origin and run by its
+kind, never by precedence order: **ceilings use `min`; floors use `max`**. The
+same rule applies to any additional “at least” constraint, including required
+server delay and minimum timer cadence/overlap/skew windows. Other declared
+settings/references remain exact validated values, not numbers to minimize.
+Robots `rules_max_bytes` and `cache_ttl_ms` are ceilings. N10 mixes 1,000/100 ms
+interval floors with 1/4 request-concurrency ceilings: result 1,000 ms and 1.
+A server delay exceeding the backoff/elapsed ceiling leaves work pending; never
+shorten the delay. N11 mixes 30/10 GiB disk-reserve floors with 20/10 GiB staging
+ceilings: result 30 GiB and 10 GiB. GPU headroom subtracts the effective reserve
+floor (OA3: 2 GiB), clamped at zero, before applying the `gpu_bytes` ceiling.
+Impossible combinations hold/pause, not relax one side. All compose identically
+regardless of input order; current stricter controls also apply on resume.
+
+No absent budget receives an unbounded default. OA3's 2026-09-30 approval supplies
+the spec's operating values; variations need explicit approval. The schema grants
+no access. Tests pin an envelope and exercise each field's kind.
+
+### Acquisition profiles and declarative browser readiness
+
+| Record / exact schema | Complete fields beyond Resource, or nested fields |
+| --- | --- |
+| `maestro-acquisition-profile/1` | `transport: http/browser_request/browser_render`, `adapter: Ref`, `required_capabilities: Id[]`, `readiness: Readiness?`, `qualification: Ref`. The adapter ref pins an installed declaration whose digest binds executable/runtime/browser artifacts, supported transports and platforms. No source-provided executable path. |
+| `Readiness` | `document_state: dom_content_loaded/load`, `all_of: ReadyCondition[]` (1–32 conditions), positive `timeout_ms`, `poll_interval_ms`, `stable_for_ms`. `poll_interval_ms ≤ timeout_ms` and `stable_for_ms ≤ timeout_ms`. Conditions must remain true throughout the stability window; completion or failure is bounded by the effective run/transport deadline. |
+| `ReadyCondition` | Tagged union: `element_present {selector: DomPath}`, `element_text {selector: DomPath, contains: Text}`, `element_absent {selector: DomPath}`. `DomPath` has 1–32 steps of `tag: Id`, `attributes` (0–8 exact `{name: Id, value: Text}` pairs); direct-child paths only, no executable CSS/JavaScript/regex. Text comparisons are literal. |
+
+Every Source's `acquisition_profile` resolves by ID **and digest** within
+`acquisition_profiles`; the run, request and capture bind that digest. HTTP and
+browser-request profiles require `readiness: null`; browser-render requires the
+bounded record. Timeout is a ceiling (`min`); minimum poll/stability requirements
+are floors (`max`). Invalid bounds, unsupported predicates/capabilities, disabled
+or unqualified adapters and substituted artifacts refuse before launch. Readiness
+failure is typed pending/held, never a successful partial document; network-idle
+alone cannot qualify readiness. No scripts, arbitrary callbacks or runtime downloads.
+
+Composition injects the adapter behind `AdmittedTransport`; changing only an
+approved profile/reference selects an installed qualified adapter without caller
+edits. The production crawl adapter is Spider with extras off; the sole non-Rust
+browser adapter is crawl4ai out of process for unavoidable Chromium work. A
+`browser_request` capability must actually use Chromium's network stack and pass
+N46, or refuse; it is not an HTTP impersonation fallback. Synthetic substitute
+and disabled adapters prove replacement without approving another production
+stack. Acquisition transport, adapter and readiness definitions/references are
+protected, **not** the automatically mutable extraction `selected_profiles`.
 
 ### Data model, state and capture/receipt formats
 
@@ -242,6 +303,7 @@ form a competing evidence store.
 | `maestro-fidelity/1` | Attempt/source/output digests; measured and unknown structural inventories; correspondence pairs for headings, code, lists, table/row/cell/span, links/assets and media-specific units; exact literal mismatches, unsupported/lost units, applicable gold/profile refs, outcome and reasons. Counts alone never pass. Unknown source measurements remain null with reason. |
 | `maestro-acquisition-receipt/1` | Unique immutable run/attempt ID, frozen inputs and current tightening decisions, partition inventory pages, distinct-item stage dispositions, attempt counters separately, budget usage, errors/holds and downstream revision/generation refs. Terminal `complete/partial/blocked/failed/cancelled`; only complete is successful completion. |
 | Source alias/migration | Existing and replacement source refs/document IDs, evidence, versioned mapping, collection/access context, effective/reversal refs. Preserve byte-equal legacy `source_ref` by default; similarity or canonical HTML tags do not authorize identity changes. |
+| `maestro-term-alias-candidate/1` | Resource plus `term: Text`, `expansion: Text` (both nonempty), `language: Text?`, `context: Ref`, `evidence` (nonempty capture/revision refs with exact supporting spans and profile digest), `relation` fixed `ALIAS_OF`, `state: proposed/approved/rejected/revoked`, `review: Ref?`, `supersedes: Ref?`, `reversal: Ref?`. Immutable state-change records retain reviewer/evidence and current scope; approved/rejected/revoked transitions require explicit review, never model inference alone. This is a candidate interchange seam compatible with S2's reviewed `ALIAS_OF` records, not a second graph or an identity merge. |
 | Qualification/cutover | Frozen inventory/support matrix, suite/gold, input arms, actual tool artifacts, Q1–Q5 outcomes, per-item diff dispositions, independent reviewer, owner approval, producer switch epoch, scheduled refresh/rollback refs. Every family is separate; all approved families are required for M6. |
 
 Frontier transitions are `pending → leased → captured → extraction_pending →
@@ -253,6 +315,19 @@ work to pending, with a higher epoch. Captures commit before stage acknowledgeme
 replay verifies/reuses immutable digests. No network occurs in SQLite writes.
 
 ### Profile registry and extractor port
+
+Callers consume the `ProfileRegistry` port below, never the registry's storage
+or concrete detector implementation. `resolve` validates the exact immutable
+registry and its qualification closure for the principal; `select` consumes that
+checked handle, bounded detection/structure evidence and the policy's eligible
+extraction-profile refs. It returns a digest-bound selected profile with reasons,
+or explicit unknown/ambiguous held outcome. Core revalidates returned refs and
+protected effective fields against the checked policy; an adapter cannot grant
+qualification or authority. Neither operation performs acquisition or model loads.
+A substitute must pass the same contract. A disabled adapter returns
+`RegistryUnavailable(disabled)` from both operations: no implicit default,
+extractor launch, network call or searchable admission. Existing retained captures
+remain inspectable under current access, but dependent acquisition is blocked.
 
 `maestro-extraction-registry/1` has Resource fields, `profiles: Profile[]`,
 `unknown_profile: Ref`, `qualification: Ref`. A Profile has `id/version`,
@@ -294,8 +369,9 @@ async futures without exposing a particular runtime to callers.
 | Port | Operations and guarantees |
 | --- | --- |
 | `PolicySource` | `resolve(collection, principal) → CheckedPolicy`; same strict validator for local reviewed baseline and later catalog baseline. Validates digests/trust but neither creates grants nor activates connectors. |
+| `ProfileRegistry` | `resolve(registry_ref, principal) → CheckedRegistry/RegistryUnavailable`; `select(checked_registry, bounded_evidence, eligible_refs) → ProfileSelection/RegistryUnavailable`. `ProfileSelection` is `selected {profile: Ref, evidence: Ref[]}` or `held {reason: unknown/ambiguous, safe_profile: Ref, evidence: Ref[]}`; unavailable reasons include disabled/missing/corrupt/unqualified. Same pure selection and validation contract for local, substitute and disabled adapters. |
 | `Authority` | `decide(principal, operation, target, now) → Permit/Refusal`; read-only to pipeline. Owner command separately creates/revokes exact-scope grants with authenticated confirmation and audit. |
-| `AdmittedTransport` | `fetch(lease, request, permit, budget) → CaptureCandidate/TypedFailure`; resolves/classifies every address/hop, pins checked address with hostname TLS validation, origin-binds credentials, ignores ambient proxies; bounded stream, cancellation and owned-process stop. Browser channels use this path or are blocked. |
+| `AdmittedTransport` | `fetch(lease, request, acquisition_profile, permit, budget) → CaptureCandidate/TypedFailure`; checked digest-bound profile selects the injected adapter and bounded readiness; resolves/classifies every address/hop, pins checked address with hostname TLS validation, origin-binds credentials, ignores ambient proxies; bounded stream, cancellation and owned-process stop. Browser channels use this path or are blocked. |
 | `Extractor` | `extract(capture_handle, profile, budget) → ExtractionAttempt`; capabilities are explicit, artifacts checked at each launch, no network/credential access. |
 | `ConfigurationWriter` | `propose(expected_baseline, expected_active, proposal) → ProposalRef`; `activate(expected_baseline, expected_active, candidate, gate_receipt) → ActivationRef/Conflict`; `rollback(expected_active, previous, current_authority) → ActivationRef/Held`. All callers use the same port for direct-file and later catalog-backed baselines. |
 | `ConnectorHost` | `activate(declaration, authority)`, `invoke(operation, bounded_input)`, `deactivate(reason)`; local supervisor first, S4 adapter later. Every invocation rechecks principal, current grant and lease epoch; stop reaps only owned processes. |
@@ -391,6 +467,25 @@ resolves an access-checked opaque handle. Journal/log/notifier payloads contain
 only fixed status codes and opaque handles, never private URLs/excerpts or a
 purportedly sanitized report. Current access checks apply even to historical handles.
 
+### Learned term-alias candidates and later search seam
+
+N29 learns aliases automatically only where source text defines a short form or
+variant, for example an acronym and its expansion. Preserve the exact defining
+span in immutable source evidence; similarity or global spelling normalization
+alone is not evidence that terms mean the same thing. No hand-written per-product
+list. Conflicting expansions retain separate scoped candidates with ambiguity,
+not an automatically chosen identity. Private evidence inherits source scopes.
+
+Persist candidates as kernel-scoped artifacts and append review/reversal records;
+do not silently merge terms, document IDs or permissions. The versioned candidate
+record above exposes an S2 `ALIAS_OF`-compatible evidence/identity seam without
+requiring S2 delivery. S2's pinned spec (`edcce756`, `spec.md:408–410`) treats
+`ALIAS_OF` as a reviewed identity record, not an extracted claim predicate;
+S6 must not submit inferred candidates as approved S2 claims. Automatic candidate
+discovery is not automatic approval and does not add a sixth configuration-change class. Later S1 search may consume
+only approved, still-authorized records through that seam for query expansion;
+S6 implements no query expansion, ranking change or hand-maintained product list.
+
 ### S1 mapped-ingestion seam and identity continuity
 
 N26 factors `import/entry.rs` into a shared `import/ingest.rs` core-side call:
@@ -399,6 +494,33 @@ verified Markdown bytes/digest, stable collection/source/source_ref, S1 metadata
 existing typed extractor blocks/assets, raw-capture and fidelity refs plus approved
 quality disposition. Both corpus/1 import and S6 call this transaction; corpus/1
 supplies empty structural additions, preserving existing behavior and identities.
+
+**Native semantic asset-inventory binding:** N26 computes a versioned digest over
+sorted unique relevant-asset records `(stable destination, AssetStatus, content
+Digest or null, byte length or null)`: SHA-256 of compact UTF-8 JSON containing
+the `maestro.native_assets/1` version tag and the destination-sorted tuple array,
+using the existing serde representation of AssetStatus. Relevant assets are those
+referenced by Markdown/extractor blocks or required by the fidelity profile. Available records
+must resolve to verified bytes/digest/length; missing/unchecked records explicitly
+carry null when bytes are unknown. Conflicting duplicate destinations refuse.
+Exclude run IDs, attempt times, machine-local storage paths, signed URLs and transient errors;
+these are receipt observations, not semantic revision inputs. The existing
+`CanonicalizeInput.assets` remains the destination/status map; full records stay
+in the linked extraction evidence.
+
+Bind the digest before the single canonicalization call using core-reserved
+`SourceMetadata.extra["maestro.native_assets/1"]`; native input rejects
+source-supplied collisions.
+That map is already in S1's revision preimage (`pipeline.rs:44–52`), so no global
+hash change or second canonicalizer is needed. Only native mapped ingestion adds
+the key (including an empty-inventory digest); corpus/1 never adds it and keeps
+its document/revision identities byte-for-byte. Repeating an equal semantic
+inventory is unchanged; **missing → available**, changed asset bytes or any other
+semantic inventory change produces a **new immutable revision**, even with equal
+Markdown, metadata, blocks, permissions and profile. The old inventory remains
+resolvable and is never overwritten by import's unchanged branch. Raw Markdown
+and prepared-input content hashes stay distinct; asset changes need not force
+embedding when prepared input is identical.
 
 The core independently checks artifact lengths/digests, span UTF-8 boundaries,
 source mappings and asset references, calls `canonicalize` once and preserves the
@@ -487,8 +609,8 @@ N52 extends the existing S1 evaluator, not a new scoring implementation. Pin
 actual current generation, suite/gold v2.2 where applicable, relevance semantics,
 access, aliases, models/runtime/hardware and route/final metrics. Deterministic
 arms require metric equality overall and each predefined nonempty stratum. For
-nondeterminism use the **owner-approved** delta (recommended 0.01), three paired
-repetitions and seeded 2,000 question-level bootstrap resamples as spec proposes;
+nondeterminism use **δ = 0.01, approved 2026-09-30**, three paired repetitions
+and seeded 2,000 question-level bootstrap resamples as the approved spec requires;
 lower 95% bound ≥−delta, except false-abstention upper bound ≤delta. Report every
 lost question for independent source-grounded disposition without changing gold,
 removing questions or excusing aggregate failure. Changing S1 baseline before
@@ -513,8 +635,10 @@ replaced by cross-target lint or synthetic tests.
 
 The new library separates acquisition from an already substantial knowledge crate;
 the kernel retains state and S1 retains indexing. Ports exist only for requirements
-that need replaceable local/later adapters. No graph, term-alias engine, adaptive
-statistics package, scheduler runtime, converter chain or corpus/2 format is added.
+that need replaceable local/later adapters. No graph, adaptive statistics package,
+scheduler runtime, converter chain or corpus/2 format is added. N29 learns
+source-evidenced term-alias candidates under the dated owner decision; a search
+query-expansion engine remains later S1 work, not an S6 dependency.
 N09 introduces transport-side cumulative decode accounting; N16 extends that same
 accounting contract across parser/asset IPC rather than introducing a second meter.
 N33–N35 can land against synthetic gate receipts before every real matrix producer
@@ -523,4 +647,5 @@ N49 and N52 supply actual required evidence. This separates code dependencies fr
 runtime qualification and never permits a synthetic gate receipt in production.
 N02/N17–N22 may discover a library/containment infeasibility; report the affected
 adapter as blocked and request a design ruling, never weaken the spec. Pending
-owner receipts are explicit execution blockers, not unanswered schema decisions.
+OA4c/OA4d receipts remain explicit execution blockers, not permission to stall
+unrelated work or fabricate private comparison/retirement approval.

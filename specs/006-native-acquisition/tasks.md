@@ -3,13 +3,31 @@
 > **For agentic workers:** use superpowers:executing-plans for the single task in
 > your brief. Never start subagents or push an integration branch.
 
-**Input:** [spec.md](spec.md) Revision 2, [research.md](research.md) Revision 2.1,
+**Input:** [spec.md](spec.md) Revision 2.1, [research.md](research.md) Revision 2.2,
 and [plan.md](plan.md), including its data model, schemas, ports and quickstart.
 **Status:** all tasks are planned, not implemented. Only the supervisor records
-integrated completion. **55 tasks, 325 estimated lane-hours**: N01–N54 are
-M6-path work (319 h); N55 is a later adapter integration (6 h), outside M6.
+integrated completion. **55 tasks, 327 estimated lane-hours**: N01–N54 are
+M6-path work (321 h); N55 is a later adapter integration (6 h), outside M6.
 
 ## Global execution contract
+
+**Owner decisions, 2026-09-30:** OA1 Q1–Q5/matrix/protocol with δ = 0.01, OA2
+named-origin wiki policy, OA3 envelopes, OA4a/OA4b family/preflight policy and OA5
+media scope/tool shortlist are approved, not awaiting another yes. Spider extras
+are off; htmd is checked against Xberg's converter; the Xberg 1.x MIT/native
+docling.rs bake-off is unchanged; tract is the layout/OCR default, dynamic offline
+ORT is table-only, and every weight is pinned offline with its licence checked.
+N02 records the sole Python exception: out-of-process crawl4ai for unavoidable
+browser work, replacing Spider's chromey route. N46 must qualify it.
+
+Below, **Approval blockers** names remaining exact grants, unselected components,
+artifact/feature audits and qualification evidence, not a request to reapprove
+those rules. Actual source/account/origin receipts remain mandatory. **OA4c and OA4d are
+pending. Alias is approved, 2026-09-30:** automatically learned source-defined
+term aliases with supporting spans, reviewable/reversible candidates, no product
+list or silent merge, S2 `ALIAS_OF`-compatible identity seam. Search query expansion
+is a later S1 item only. N29 includes the candidate records/tests; its estimate is
+increased by 2 h (planning judgment, not measured duration), with totals recomputed.
 
 1. Each task is one independently reviewable commit with its named test cycle.
    Read the current lane rules and moving S1 seams before touching code. If the
@@ -72,24 +90,24 @@ Land decided amendments and measured adoption decisions; no code before N01.
 
 **Files:** `docs/architecture/{01-knowledge-pipeline.md,06-roadmap.md,08-traceability.md}`; `specs/006-native-acquisition/{plan.md,tasks.md}`.
 
-**Requirements:** FR-S6-008, FR-S6-017, FR-S6-040, FR-S6-043, FR-S6-046, FR-S6-061; SC-S6-012.
+**Requirements:** FR-S6-008, FR-S6-017, FR-S6-040, FR-S6-043, FR-S6-046, FR-S6-060, FR-S6-061; SC-S6-012.
 
 1. **Red:** Compare every spec traceability row and the four amendment locations with the pinned S1 text; retain the before-state showing S4 waits and review-only registry wording.
-2. **Green:** Apply exactly the four decided amendments and reconcile all 08 keys listed in plan Phase 1; leave OA2 private-network prohibition intact. Record enforcing N-task owners, not completion claims.
+2. **Green:** Apply the four decided amendments and reconcile all 08 keys listed in plan Phase 1; also update 01 §2.2.2 and 06/08's native-cutover wording for the 2026-09-30 crawl4ai-only browser exception instead of Spider/chromey. N02 records its ADR-0020 artifacts/role. Leave the private-network prohibition for the separate approved N48 amendment and exact-origin grants. Record enforcing N-task owners, not completion claims.
 3. **Check and commit:** Run the documented fixture/probe command, recording the exact invocation and output; for Markdown run `rumdl check --disable MD013,MD041 specs/006-native-acquisition` plus normal hooks. All four amendments land before code; all 62 FRs/15 SCs retain owners; no S3/S4 delivery prerequisite or unapproved private-network permission remains in S6 wording. Run the applicable global gates, retain evidence and make one signed commit.
 
-- [ ] N02 Measure and record the minimal dependency decisions in `docs/adr/0020-rust-libraries-with-named-dependency-exceptions.md` (6 h).
+- [ ] N02 Measure dependencies and record the crawl4ai exception in `docs/adr/0020-rust-libraries-with-named-dependency-exceptions.md` (6 h).
 
-### N02 — Measure and record the minimal dependency decisions
+### N02 — Measure dependencies and record the crawl4ai exception
 
-**After:** N01. **Approval blockers:** OA5 before candidate execution/adoption and each native/model exception; source inspection and proposal may proceed.
+**After:** N01. **Approval blockers:** Approved shortlist may be audited; exact artifacts/features/licences and any unselected library/native/model exception still need records before adoption. OA4c remains pending for private files.
 
 **Files:** `docs/adr/0020-rust-libraries-with-named-dependency-exceptions.md`; `specs/006-native-acquisition/research.md`; `Cargo.toml`; `Cargo.lock`; `maestro-quality.toml`; `supply-chain/audits.toml`.
 
 **Requirements:** FR-S6-013, FR-S6-024, FR-S6-027, FR-S6-056, FR-S6-060; SC-S6-006, SC-S6-011, SC-S6-012.
 
 1. **Red:** Capture the actual integration lock and candidate feature trees; demonstrate download-binaries, duplicate HTML/CDP stacks and native-links conflicts where present, never reuse historical counts.
-2. **Green:** Resolve only the research shortlist in a disposable offline/provisioned probe. Record packages, duplicate versions, links, licences, model terms and platform controls. Request named owner decisions; change workspace dependencies only for approved candidates, with exact exception/removal conditions.
+2. **Green:** Resolve the 2026-09-30 approved shortlist in a disposable offline/provisioned probe. Record packages, duplicate versions, links, licences, model terms and platform controls. Record the named **crawl4ai browser-render-only ADR-0020 exception**: Python out of process only for unavoidable JavaScript/Chromium, pinned adapter/Python/browser closure, licence/attribution review, no frontier/conversion/model/publication role, no downloads, and removal when a qualified Rust browser adapter meets the same controls. Spider extras/chrome/chromey stay off. Keep the Xberg 1.3.0/native docling 1.78.0 bake-off unchanged; tract is default layout/OCR, dynamic ORT table-only, weights pinned offline/licence-checked. Unselected dependencies/patches still need approval.
 3. **Check and commit:** Run the documented fixture/probe command, recording the exact invocation and output; for Markdown run `rumdl check --disable MD013,MD041 specs/006-native-acquisition` plus normal hooks. Research has observed deltas or explicit blockers for each needed library; no unapproved adoption. Every later dependency addition repeats the measurement against its current lock. Run the applicable global gates, retain evidence and make one signed commit.
 
 ## Phase 2: Foundations
@@ -104,12 +122,12 @@ Strict configuration, kernel authority/frontier and protected receipts block eve
 
 **Files:** `crates/maestro-acquisition/{Cargo.toml,src/lib.rs,src/ports.rs,src/policy/schema.rs,src/policy/resolve.rs}`; `crates/maestro-knowledge/src/collection.rs`.
 
-**Requirements:** FR-S6-001, FR-S6-002, FR-S6-003, FR-S6-008, FR-S6-050, FR-S6-061; SC-S6-001, SC-S6-012.
+**Requirements:** FR-S6-001, FR-S6-002, FR-S6-003, FR-S6-008, FR-S6-013, FR-S6-050, FR-S6-061; SC-S6-001, SC-S6-012.
 
 **Test file:** `crates/maestro-acquisition/tests/it/n03_implement_strict_source_policy_and_local_baseline_resolution.rs`; test names begin `n03_`.
 
-1. **Red:** Feed nested duplicate/unknown keys, oversized/deep JSON, unresolved digests, missing exclusion registry, review-only/unqualified profiles and contradictory selectors; assert zero transport/session starts.
-2. **Green:** Create the first working crate with typed v1 schemas from plan, bounded parsing, collection-link version compatibility and PolicySource direct-file adapter. Resolve immutable local or synthetic catalog baselines through one validator; no connector activation.
+1. **Red:** Feed nested duplicate/unknown keys, oversized/deep JSON, unresolved digests, missing exclusion registry, review-only/unqualified profiles and contradictory selectors; assert zero transport/session starts. Add acquisition-profile cases: invalid transport/adapter ref, wrong digest, unsupported capability, browser-render without readiness, HTTP with readiness, unbounded/inconsistent timeout/poll/stability bounds and executable/script predicates. Each refuses before launch.
+2. **Green:** Create the first working crate with typed v1 schemas from plan, including Source.acquisition_profile, maestro-acquisition-profile/1 and bounded Readiness/ReadyCondition, collection-link version compatibility and PolicySource direct-file adapter. Resolve exact acquisition/extraction refs and immutable local or synthetic catalog baselines through one validator; no connector activation or hidden default transport.
 3. **Check and commit:** Run `capped cargo test -p maestro-acquisition --locked n03_ -- --nocapture`. Strict schema round trips are deterministic; old S1 collection declarations still import but cannot acquire; registry evidence binds exact immutable digests. Run the applicable global gates, retain evidence and make one signed commit.
 
 - [ ] N04 Persist frontier leases and fenced submissions in `crates/maestro-kernel/src/acquisition/{mod.rs,frontier.rs,lease.rs}` (6 h).
@@ -216,7 +234,7 @@ Independent test: public allowed/denied/robots/redirect/attachment fixture compl
 
 ### N10 — Conform robots and aggregate origin pacing
 
-**After:** N02, N07. **Approval blockers:** OA5 for robots library; OA4b for live override; OA3 for live pacing envelope.
+**After:** N02, N07. **Approval blockers:** OA5 for unselected robots library; OA4b for each live override; enforce the approved OA3 pacing envelope.
 
 **Files:** `crates/maestro-acquisition/src/transport/{robots.rs,pacing.rs}`.
 
@@ -224,15 +242,15 @@ Independent test: public allowed/denied/robots/redirect/attachment fixture compl
 
 **Test file:** `crates/maestro-acquisition/tests/it/n10_conform_robots_and_aggregate_origin_pacing.rs`; test names begin `n10_`.
 
-1. **Red:** Use RFC 9309 matching cases, unreadable rules, missing/expired scoped override, simultaneous HTTP/browser demand and Retry-After longer than allowed backoff.
-2. **Green:** Integrate the approved minimal parser behind the existing policy contract; one origin permit ledger spans all transports. Enforce robots before request, finite retries, pacing and deferred work for excessive server delay.
+1. **Red:** Use RFC 9309 matching cases, unreadable rules, missing/expired scoped override, simultaneous HTTP/browser demand and Retry-After longer than allowed backoff. Mix origin_interval_ms floors 1,000/100 ms with origin_concurrency ceilings 1/4 across host/grant/collection/source/run; require 1,000 ms and 1 regardless of order, including resume and live tightening. A min-composed floor must fail this test.
+2. **Green:** Integrate the approved minimal parser behind the existing policy contract; one origin permit ledger spans all transports. Compose ceilings with min and interval/server-delay floors with max. Enforce robots before request, finite retries and pacing; if required delay exceeds backoff/elapsed ceiling, leave work pending rather than shorten it.
 3. **Check and commit:** Run `capped cargo test -p maestro-acquisition --locked n10_ -- --nocapture`. No ignore-all switch, override inference or origin overshoot; robots override requires OA4b receipt, inaccessible rules fail closed. Run the applicable global gates, retain evidence and make one signed commit.
 
 - [ ] N11 [P] [US1] Account aggregate resources and interactive priority in `crates/maestro-acquisition/src/transport/budget.rs` (6 h).
 
 ### N11 — Account aggregate resources and interactive priority
 
-**After:** N04. **Approval blockers:** OA3 for live operating envelope and GPU work; synthetic budgets only before it.
+**After:** N04. **Approval blockers:** Enforce the approved OA3 envelope; exact live grants and GPU-job authorization remain necessary.
 
 **Files:** `crates/maestro-acquisition/src/transport/budget.rs`; `crates/maestro-acquisition/src/lifecycle/resources.rs`.
 
@@ -240,8 +258,8 @@ Independent test: public allowed/denied/robots/redirect/attachment fixture compl
 
 **Test file:** `crates/maestro-acquisition/tests/it/n11_account_aggregate_resources_and_interactive_priority.rs`; test names begin `n11_`.
 
-1. **Red:** Admit individually valid runs whose sum exceeds CPU/RAM/GPU/staging limits, exhaust reserved disk during streaming, and start interactive work while ingestion holds a batch.
-2. **Green:** Implement shared/per-run reservations with actual usage and checkpoint/pause. GPU admission observes current headroom/reserve and never evicts interactive models. Unenforceable or missing limits refuse; cancellation releases owned reservations.
+1. **Red:** Admit individually valid runs whose sum exceeds CPU/RAM/GPU/staging limits, exhaust reserved disk during streaming, and start interactive work while ingestion holds a batch. Mix free_reserve_bytes floors 30/10 GiB with staging_bytes ceilings 20/10 GiB: require 30 GiB reserve and 10 GiB cap in every precedence order. Test 2/1 GiB GPU reserve floors, zero GPU cap, resume tightening and incompatible floor/ceiling combinations; weaker min-composed reserves must fail.
+2. **Green:** Implement the plan's field-kind table: min for every ceiling, max for each at-least floor, no absent/unbounded defaults. Shared/per-run reservations track actual usage and checkpoint/pause before effective reserve floors are crossed. GPU headroom subtracts its max-composed reserve, clamps at zero and then applies its min-composed ceiling; never evict interactive models. Incompatible or unenforceable bounds hold; cancellation releases owned reservations.
 3. **Check and commit:** Run `capped cargo test -p maestro-acquisition --locked n11_ -- --nocapture`. Combined usage cannot exceed approved limits; reserved free space is maintained; pending work exposes budget reason and interactive floors are measured later in N40. Run the applicable global gates, retain evidence and make one signed commit.
 
 - [ ] N12 [US1] Commit immutable captures and reconciled run outcomes in `crates/maestro-acquisition/src/capture/{envelope.rs,commit.rs}` (6 h).
@@ -273,14 +291,14 @@ Independent test: public allowed/denied/robots/redirect/attachment fixture compl
 **Test file:** `crates/maestro-acquisition/tests/it/n13_durably_enumerate_public_links_and_bounded_partitions.rs`; test names begin `n13_`.
 
 1. **Red:** Change links without changing visible text; truncate/unstabilize a partition, return empty nonterminal batches, replay cursors and fail one discovered item.
-2. **Green:** Durably enqueue every eligible link before acknowledging discovery, retain revision/validator/permission/link/representation keys and complete partition evidence. Keep pending checkpoint distinct from accepted snapshot; advance watermarks only for committed complete windows.
+2. **Green:** Use approved Spider with defaults/extras off as a bounded leased crawl adapter over N09's admitted transport, never an independent network route or authoritative queue. Durably enqueue every eligible link before acknowledging discovery, retain revision/validator/permission/link/representation keys and complete partition evidence. Keep pending checkpoint distinct from accepted snapshot; advance watermarks only for committed complete windows.
 3. **Check and commit:** Run `capped cargo test -p maestro-acquisition --locked n13_ -- --nocapture`. R1/R2/R4/R6 are reproduced then fixed; no text-only shortcut, keyword-search enumeration or false complete watermark. Run the applicable global gates, retain evidence and make one signed commit.
 
 - [ ] N14 [US1] Expose public preview and manual sync MVP in `crates/maestro/src/acquisition/{mod.rs,command.rs,output.rs}` (6 h).
 
 ### N14 — Expose public preview and manual sync MVP
 
-**After:** N13. **Approval blockers:** OA3/OA4a for real public source; fixture flow needs no private/live grant.
+**After:** N13. **Approval blockers:** OA4a exact grant for a real public source; enforce approved OA3 limits. Synthetic fixture flow needs no live grant.
 
 **Files:** `crates/maestro/src/acquisition/{mod.rs,command.rs,output.rs}`; `crates/maestro/src/cli/{args.rs,run.rs}`; `docs/how-to/acquisition.md`.
 
@@ -300,17 +318,17 @@ Independent test: every required media cohort has exact source-backed fidelity/h
 
 ### N15 — Route content through one extensible profile registry
 
-**After:** N03, N06. **Approval blockers:** OA5 for new detector/plug-in; OA1 for qualification.
+**After:** N03, N06. **Approval blockers:** OA5 for unselected detector/plug-in; observed qualification under the approved OA1 targets.
 
-**Files:** `crates/maestro-acquisition/src/extraction/{registry.rs,detect.rs}`.
+**Files:** `crates/maestro-acquisition/src/extraction/{registry.rs,detect.rs}`; `crates/maestro-acquisition/src/ports.rs`.
 
-**Requirements:** FR-S6-023, FR-S6-041, FR-S6-050, FR-S6-056; SC-S6-006, SC-S6-013.
+**Requirements:** FR-S6-023, FR-S6-041, FR-S6-050, FR-S6-056; SC-S6-006, SC-S6-012, SC-S6-013.
 
 **Test file:** `crates/maestro-acquisition/tests/it/n15_route_content_through_one_extensible_profile_registry.rs`; test names begin `n15_`.
 
-1. **Red:** Use misleading extensions, conflicting magic/container hints, encrypted/malformed files, unqualified profile and a new synthetic Rust parser capability without changing callers.
-2. **Green:** Implement strict immutable registry and deterministic detector/structure predicates; verify approved artifact capabilities and explicit unknown profile. Retain bounded safe text/metadata/assets with partial/unsupported status, never arbitrary trusted fallback.
-3. **Check and commit:** Run `capped cargo test -p maestro-acquisition --locked n15_ -- --nocapture`. All media, including images/audio/video, get accountable outcomes; missing gold or capabilities cannot make a profile qualified. Run the applicable global gates, retain evidence and make one signed commit.
+1. **Red:** Use misleading extensions, conflicting magic/container hints, encrypted/malformed files, unqualified profile and a new synthetic Rust parser capability without changing callers. Run the same resolve/select contract against a substitute registry and a disabled adapter: disabled returns RegistryUnavailable(disabled), with zero fetch/extractor/model starts and no default profile; forged substitute digests/qualification refuse.
+2. **Green:** Implement ProfileRegistry.resolve/select as defined in plan, with immutable checked handles and deterministic bounded detector/structure evidence. Inject local/substitute/disabled adapters without consumer edits; core verifies returned refs/protected fields. Retain safe bounded partial text/metadata/assets under an explicit unknown outcome, never arbitrary trusted fallback or side effects during selection.
+3. **Check and commit:** Run `capped cargo test -p maestro-acquisition --locked n15_ -- --nocapture`. Local and substitute adapters have identical checked outcomes; disabled fails closed. All media, including images/audio/video, get accountable outcomes when enabled; missing gold or capabilities cannot make a profile qualified. Run the applicable global gates, retain evidence and make one signed commit.
 
 - [ ] N16 [US2] Define extraction, fidelity and cumulative decode contracts in `crates/maestro-acquisition/src/extraction/{contract.rs,fidelity.rs,decode.rs}` (6 h).
 
@@ -380,7 +398,7 @@ Independent test: every required media cohort has exact source-backed fidelity/h
 
 ### N20 — Preserve technical HTML with one qualified conversion path
 
-**After:** N02, N16, N17. **Approval blockers:** OA5 selected HTML libraries; OA1 for profile qualification.
+**After:** N02, N16, N17. **Approval blockers:** N02 exact HTML-library audit; observed profile qualification under approved OA1 targets.
 
 **Files:** `crates/maestro-acquisition/src/extraction/html.rs`; `crates/maestro-acquisition/tests/fixtures/html/`.
 
@@ -389,28 +407,28 @@ Independent test: every required media cohort has exact source-backed fidelity/h
 **Test file:** `crates/maestro-acquisition/tests/it/n20_preserve_technical_html_with_one_qualified_conversion_path.rs`; test names begin `n20_`.
 
 1. **Red:** Use nested/span tables, layout-table wrappers, short prerequisites, exact whitespace/code, links/assets and login/challenge shells; demonstrate any selector/readability loss first.
-2. **Green:** Integrate approved selectors plus converter without flattening or converter chains. Preserve correspondence into Markdown and original DOM locators; optional readability selection is a distinct recorded gated attempt, not silent fallback.
+2. **Green:** Integrate selectors plus the approved htmd direction, checked against Xberg's built-in converter on the same fixed technical-HTML gold, without flattening or converter chains. Preserve correspondence into Markdown and original DOM locators; optional readability selection is a distinct recorded gated attempt, not silent fallback.
 3. **Check and commit:** Run `capped cargo test -p maestro-acquisition --locked n20_ -- --nocapture`. Q1 exact literals/cell associations pass on frozen cohort; unsafe loss or sign-in shell is held with original bytes. Run the applicable global gates, retain evidence and make one signed commit.
 
 - [ ] N21 [P] [US2] Run the offline native document bake-off in `specs/006-native-acquisition/research.md` (8 h).
 
 ### N21 — Run the offline native document bake-off
 
-**After:** N02, N16, N17. **Approval blockers:** OA5 exact candidates/models/native exceptions; OA1 frozen quality targets.
+**After:** N02, N16, N17. **Approval blockers:** N02 exact candidate/model/exception audits; freeze evidence under approved OA1 targets. OA4c remains pending before comparison on private files.
 
 **Files:** `specs/006-native-acquisition/research.md`; `crates/maestro-acquisition/tests/fixtures/documents/`; `docs/adr/0020-rust-libraries-with-named-dependency-exceptions.md`.
 
 **Requirements:** FR-S6-024, FR-S6-027, FR-S6-036, FR-S6-060; SC-S6-006, SC-S6-011.
 
 1. **Red:** Freeze PDF/Office/scan fixtures before outcomes; build and execute with network denied and models preprovisioned. Show hidden download-binaries or Tesseract feature edges fail the proposed pure-Rust/offline profile.
-2. **Green:** Compare pinned Xberg minimal native PDF/Rust layout/OCR against docling pdf-text and only separately approved ML alternatives. Record exact code/cell/order losses, dependency/native/model closures and select one path per profile, not aggregate marketing scores.
+2. **Green:** Run the owner-approved unchanged Xberg 1.3.0 MIT/native docling 1.78.0 bake-off: minimal native PDF/Rust layout/OCR against docling pdf-text and only separately approved ML comparisons. Use tract by default for layout/OCR; any dynamic ORT use is table-only with no downloads, and each pinned offline weight needs its own licence check. Record exact code/cell/order losses, dependency/native/model closures and select one path per profile, not aggregate marketing scores.
 3. **Check and commit:** Run the documented fixture/probe command, recording the exact invocation and output; for Markdown run `rumdl check --disable MD013,MD041 specs/006-native-acquisition` plus normal hooks. Observed per-profile result and owner decision, or honest held status; no Python path counts as native. ORT feature patch/adoption needs explicit approval. Run the applicable global gates, retain evidence and make one signed commit.
 
 - [ ] N22 [US2] Implement mapped PDF and separately authorized OCR in `crates/maestro-acquisition/src/extraction/pdf.rs` (8 h).
 
 ### N22 — Implement mapped PDF and separately authorized OCR
 
-**After:** N21. **Approval blockers:** OA1 and OA5 PDF/OCR/model profile qualification.
+**After:** N21. **Approval blockers:** N02 audited PDF/OCR/model artifacts and observed qualification under approved OA1 targets.
 
 **Files:** `crates/maestro-acquisition/src/extraction/pdf.rs`.
 
@@ -426,7 +444,7 @@ Independent test: every required media cohort has exact source-backed fidelity/h
 
 ### N23 — Implement Office and spreadsheet structure preservation
 
-**After:** N21. **Approval blockers:** OA1 and OA5 selected Office/spreadsheet profiles.
+**After:** N21. **Approval blockers:** N02 audited Office/spreadsheet artifacts and observed qualification under approved OA1 targets.
 
 **Files:** `crates/maestro-acquisition/src/extraction/{office.rs,spreadsheet.rs}`.
 
@@ -442,7 +460,7 @@ Independent test: every required media cohort has exact source-backed fidelity/h
 
 ### N24 — Normalize Markdown, text and structured records directly
 
-**After:** N16, N17. **Approval blockers:** OA5 for any missing format parser; OA1 for qualification.
+**After:** N16, N17. **Approval blockers:** OA5 for any unselected format parser; observed qualification under approved OA1 targets.
 
 **Files:** `crates/maestro-acquisition/src/extraction/{markdown.rs,text.rs,structured.rs}`.
 
@@ -482,15 +500,15 @@ Independent test: every required media cohort has exact source-backed fidelity/h
 
 **Test file:** `crates/maestro-knowledge/tests/it/n26_factor_s1_mapped_ingestion_without_changing_corpus_1.rs`; test names begin `n26_`.
 
-1. **Red:** Run mapped PDF table/image fixture through existing import and show missing typed blocks/assets; pin corpus/1 identity output, conflict/hold behavior and unknown-coordinate case.
-2. **Green:** Factor the existing integrity/identity/revision/disposition/journal path into ingest_mapped; wire existing CanonicalizeInput fields, link raw capture/fidelity separately and preserve Markdown original_digest semantics. Both corpus/1 and S6 use the same transaction.
-3. **Check and commit:** Run `capped cargo test -p maestro-knowledge --locked n26_ -- --nocapture`. Block/page/cell/asset mappings survive stored artifacts; corpus/1 unchanged identities and source_ref bytes hold; no parallel importer/canonical store or implicit alias migration. Run the applicable global gates, retain evidence and make one signed commit.
+1. **Red:** Run mapped PDF table/image fixture through existing import and show missing typed blocks/assets; pin corpus/1 document/revision IDs, conflict/hold behavior and unknown-coordinate case. Native regression: identical Markdown, source metadata, blocks, permissions and profile; only semantic asset inventory changes missing→available (then available bytes change). Require a new immutable revision, both stored inventories resolvable and unchanged replay for equal inventory. Also reject forged core-reserved inventory metadata; reordered inventory/operational-only changes must not churn IDs.
+2. **Green:** Factor the existing integrity/identity/revision/disposition/journal path into ingest_mapped; wire CanonicalizeInput fields and link raw capture/fidelity separately. Compute the sorted semantic inventory digest and bind it through core-reserved SourceMetadata.extra["maestro.native_assets/1"] before canonicalization; validate available asset bytes. corpus/1 never adds that key and retains byte-for-byte IDs; Markdown original_digest and prepared-input identity remain distinct. Both paths use the same transaction.
+3. **Check and commit:** Run `capped cargo test -p maestro-knowledge --locked n26_ -- --nocapture`. Asset-only revisions no longer hit the unchanged branch; old evidence is immutable, equal semantic inventory is idempotent, and block/page/cell/asset mappings survive. corpus/1 golden IDs/source_ref bytes hold; no parallel importer/canonical store or implicit alias migration. Run the applicable global gates, retain evidence and make one signed commit.
 
 - [ ] N27 [US2] Connect accepted outputs to S1 preparation and publication in `crates/maestro-acquisition/src/lifecycle/ingest.rs` (6 h).
 
 ### N27 — Connect accepted outputs to S1 preparation and publication
 
-**After:** N20, N26. **Approval blockers:** OA1 qualified targets; OA3/approved model resources for real embedding.
+**After:** N20, N26. **Approval blockers:** Observed OA1 qualification; approved model resources for real embedding within OA3 limits.
 
 **Files:** `crates/maestro-acquisition/src/lifecycle/ingest.rs`; `crates/maestro-knowledge/src/import/ingest.rs`.
 
@@ -522,21 +540,21 @@ Independent test: every required media cohort has exact source-backed fidelity/h
 
 Independent test: two unrelated synthetic sources yield complete evidence/unknown proposals; every automatic class and matrix/forbidden-field refusal, conflict and postcheck rollback is exercised.
 
-- [ ] N29 [P] [US3] Infer evidence-backed profiles from bounded samples in `crates/maestro-acquisition/src/adaptation/{sample.rs,infer.rs}` (6 h).
+- [ ] N29 [P] [US3] Infer evidence-backed profiles and term aliases in `crates/maestro-acquisition/src/adaptation/{sample.rs,infer.rs,aliases.rs}` (8 h).
 
-### N29 — Infer evidence-backed profiles from bounded samples
+### N29 — Infer evidence-backed profiles and term aliases
 
-**After:** N15, N16, N24. **Approval blockers:** OA4c for real private samples; OA3 sampling envelope.
+**After:** N15, N16, N24. **Approval blockers:** OA4c for real private samples; approved OA3 envelope must be enforced. Term-alias scope approved 2026-09-30; no S2 delivery dependency.
 
-**Files:** `crates/maestro-acquisition/src/adaptation/{sample.rs,infer.rs}`.
+**Files:** `crates/maestro-acquisition/src/adaptation/{sample.rs,infer.rs,aliases.rs}`.
 
 **Requirements:** FR-S6-041, FR-S6-042, FR-S6-043, FR-S6-062; SC-S6-013.
 
 **Test file:** `crates/maestro-acquisition/tests/it/n29_infer_evidence_backed_profiles_from_bounded_samples.rs`; test names begin `n29_`.
 
-1. **Red:** Use two unrelated synthetic layouts and insufficient/ambiguous samples; require kinds, headings, tables/code, navigation, language, duplicate/version families and aliases each have observations or explicit unknown.
-2. **Green:** Sample through normal access/rate/resource admission; reuse parser/whatlang/S1 grouping signals. Produce candidate immutable profile references and typed rule proposals with pinned samples/source/profile digests and uncertainty, never new entitlement or core-specific product mapping.
-3. **Check and commit:** Run `capped cargo test -p maestro-acquisition --locked n29_ -- --nocapture`. All inference fields are accounted for, samples cannot widen scope and private canaries retain transitive tags. Run the applicable global gates, retain evidence and make one signed commit.
+1. **Red:** Use two unrelated synthetic layouts and insufficient/ambiguous samples; require every inference field to have observations or explicit unknown. Include source-defined acronyms/expansions and spelling variants with exact defining spans, conflicting expansions in different scopes and a similar-looking term with no definition. Only supported aliases become candidates; guessed aliases, a hard-coded product list, automatic approval/merge and cross-scope evidence must fail. Review/reversal retains old evidence and source-reference IDs.
+2. **Green:** Sample through normal access/rate/resource admission; reuse parser/whatlang/S1 grouping signals. Produce immutable profile references and typed rule proposals with pinned evidence/uncertainty. Automatically learn term-alias candidates only from explicit source definitions; store plan's maestro-term-alias-candidate/1 records and append explicit review/reversal evidence through scoped kernel artifacts. Preserve ambiguity and an S2 reviewed ALIAS_OF-compatible identity seam; no graph/permission/identity merge and no hand-written per-product list. Name the approved-record seam for later S1 query expansion but implement no search changes.
+3. **Check and commit:** Run `capped cargo test -p maestro-acquisition --locked n29_ -- --nocapture`. All fields are accounted for; aliases have resolvable defining spans, reversible reviewed state and scoped ambiguous neighbours. Candidate inference never counts as approval, a sixth automatic-change class or query expansion. Samples cannot widen scope and private canaries retain transitive tags. Run the applicable global gates, retain evidence and make one signed commit.
 
 - [ ] N30 [P] [US3] Implement proposal and activation manifest write port in `crates/maestro-acquisition/src/adaptation/{manifest.rs,writer.rs}` (6 h).
 
@@ -558,7 +576,7 @@ Independent test: two unrelated synthetic sources yield complete evidence/unknow
 
 ### N31 — Detect drift with durable persistence accounting
 
-**After:** N29, N30. **Approval blockers:** OA3 approved sample/drift/persistence/rate envelope.
+**After:** N29, N30. **Approval blockers:** None for synthetic work; enforce the approved OA3 sample/drift/persistence/rate envelope.
 
 **Files:** `crates/maestro-acquisition/src/adaptation/drift.rs`.
 
@@ -590,7 +608,7 @@ Independent test: two unrelated synthetic sources yield complete evidence/unknow
 
 ### N33 — Evaluate the fixed mandatory matrix against pinned cohorts
 
-**After:** N27, N32. **Approval blockers:** OA1 targets/matrix/protocol and an approved suite/baseline.
+**After:** N27, N32. **Approval blockers:** An approved suite/baseline and observed evidence under the approved OA1 targets/matrix/protocol.
 
 **Files:** `crates/maestro-acquisition/src/adaptation/gates.rs`.
 
@@ -606,7 +624,7 @@ Independent test: two unrelated synthetic sources yield complete evidence/unknow
 
 ### N34 — Automatically activate passing proposals with CAS
 
-**After:** N31, N32, N33. **Approval blockers:** OA1/OA3 activation protocol/envelope.
+**After:** N31, N32, N33. **Approval blockers:** Observed mandatory OA1 gate evidence; enforce the approved OA3 envelope.
 
 **Files:** `crates/maestro-acquisition/src/adaptation/activate.rs`.
 
@@ -622,7 +640,7 @@ Independent test: two unrelated synthetic sources yield complete evidence/unknow
 
 ### N35 — Gate first post-activation publication and safe rollback
 
-**After:** N34. **Approval blockers:** OA1/OA3; current authorization for rollback target.
+**After:** N34. **Approval blockers:** Mandatory OA1 evidence and current rollback-target authorization; approved OA3 limits remain enforced.
 
 **Files:** `crates/maestro-acquisition/src/adaptation/postcheck.rs`.
 
@@ -706,7 +724,7 @@ Independent test: five lifecycle modes equal uninterrupted reference, and overla
 
 ### N40 — Fence concurrent collection publication and preserve readers
 
-**After:** N11, N27, N35, N37, N39. **Approval blockers:** OA3 live concurrency and approved model/GPU measurement window.
+**After:** N11, N27, N35, N37, N39. **Approval blockers:** Approved model/GPU measurement window and exact live grants; enforce approved OA3 concurrency limits.
 
 **Files:** `crates/maestro-acquisition/src/lifecycle/publish.rs`; `crates/maestro-knowledge/src/index/publish.rs`.
 
@@ -738,7 +756,7 @@ Independent test: five lifecycle modes equal uninterrupted reference, and overla
 
 ### N42 — Add local recurring triggers and stop controls
 
-**After:** N14, N37. **Approval blockers:** OA3 approved cadence/envelope and OA4a active source grant.
+**After:** N14, N37. **Approval blockers:** OA4a exact active source grant; enforce approved OA3 cadence/envelope.
 
 **Files:** `crates/maestro/src/acquisition/timer.rs`; `crates/maestro-acquisition/src/lifecycle/schedule.rs`; `docs/how-to/acquisition.md`.
 
@@ -806,17 +824,17 @@ Independent test: two accounts/collections and two declarative wiki mappings pro
 
 ### N46 — Qualify one browser route with all egress channels controlled
 
-**After:** N02, N10, N12, N45. **Approval blockers:** OA5 browser/library native exception; OA4b protected sessions; OA3 envelope.
+**After:** N02, N10, N12, N45. **Approval blockers:** N02's record/audit of the approved crawl4ai exception and platform qualification; exact OA4b session grants; enforce approved OA3 envelope.
 
-**Files:** `crates/maestro-acquisition/src/transport/browser.rs`.
+**Files:** `crates/maestro-acquisition/src/transport/browser.rs`; `adapters/crawl4ai/{render.py,requirements.lock}`.
 
-**Requirements:** FR-S6-006, FR-S6-013, FR-S6-014, FR-S6-019, FR-S6-051, FR-S6-052; SC-S6-001, SC-S6-003, SC-S6-012.
+**Requirements:** FR-S6-006, FR-S6-013, FR-S6-014, FR-S6-019, FR-S6-051, FR-S6-052, FR-S6-060; SC-S6-001, SC-S6-003, SC-S6-011, SC-S6-012.
 
 **Test file:** `crates/maestro-acquisition/tests/it/n46_qualify_one_browser_route_with_all_egress_channels_controlled.rs`; test names begin `n46_`.
 
-1. **Red:** Test WebSocket/service worker/prefetch/WebRTC/independent DNS, redirected subresources, cross-origin credentials, delayed readiness, login shells and owned browser cancellation on each claimed OS.
-2. **Green:** Bind approved Spider/chromey or replacement route to same checked-address broker and origin budget. Block channels that cannot traverse it; pin browser build/flags and profile-defined readiness. Request/render outputs retain distinct capture labels.
-3. **Check and commit:** Run `capped cargo test -p maestro-acquisition --locked n46_ -- --nocapture`. Every denied channel has zero destination effects; unsupported interception/control blocks transport qualification rather than weakening admission. Run the applicable global gates, retain evidence and make one signed commit.
+1. **Red:** Test WebSocket/service worker/prefetch/WebRTC/independent DNS, redirected subresources, cross-origin credentials, delayed readiness, login shells and owned browser cancellation on each claimed OS. Change only approved acquisition-profile refs to select HTTP/browser-request/browser-render and a synthetic substitute/disabled adapter; callers stay identical. Reject unsupported Chromium capabilities, mismatched profile/artifact digests and script readiness. Test predicate success, stability-window reset and timeout with no partial success/fallback. Inject crawl4ai extraction/frontier/model calls and another non-Rust browser adapter: both must refuse.
+2. **Green:** Bind **crawl4ai (Python, out of process)** behind AdmittedTransport using the checked-address broker, aggregate origin budget and owned-process controls. The pinned minimal shim handles only declared browser operations/readiness, never crawling state, conversion, inference or publication. Disable unrelated crawl4ai features and downloads; Spider chrome/chromey is off. Resolve the strict digest-bound transport/readiness profile, evaluate bounded declarative predicates and block channels that cannot traverse admission. Request/render outputs retain distinct capture labels.
+3. **Check and commit:** Run `capped cargo test -p maestro-acquisition --locked n46_ -- --nocapture`. Configuration-only adapter/readiness substitution and disabled-adapter refusals pass without caller changes; every denied channel has zero destination effects. The named render-only exception passes inventory validation, broader Python roles fail; unsupported controls/capabilities block qualification rather than weaken admission. Run the applicable global gates, retain evidence and make one signed commit.
 
 - [ ] N47 [P] [US5] Map two wiki products with configuration only in `crates/maestro-acquisition/src/connector/wiki.rs` (6 h).
 
@@ -838,7 +856,7 @@ Independent test: two accounts/collections and two declarative wiki mappings pro
 
 ### N48 — Add separately approved exact-origin private-network access
 
-**After:** N08, N44. **Approval blockers:** OA2 architecture amendment AND OA4a/OA4b exact-origin grant; synthetic denied cases before approval.
+**After:** N08, N44. **Approval blockers:** OA2 policy amendment approved 2026-09-30; land it here with enforcement. Exact OA4a/OA4b owner-authenticated origin grant and expiry still block live access.
 
 **Files:** `docs/architecture/{01-knowledge-pipeline.md,08-traceability.md}`; `crates/maestro-acquisition/src/policy/private_origin.rs`.
 
@@ -847,7 +865,7 @@ Independent test: two accounts/collections and two declarative wiki mappings pro
 **Test file:** `crates/maestro-acquisition/tests/it/n48_add_separately_approved_exact_origin_private_network_access.rs`; test names begin `n48_`.
 
 1. **Red:** Exercise approved private-unicast range and adjacent denied range, expired grant, changed DNS/redirect/subresource and metadata/loopback/link-local destinations.
-2. **Green:** Only after OA2 receipt amend exact 01/08 prohibition to the named-origin contract. Enforce destination-range/approver/reason/expiry binding on every connection and recheck; no general private-network switch or override of other denied classes.
+2. **Green:** Record the 2026-09-30 OA2 decision and amend exact 01/08 prohibition to the named-origin contract. Enforce destination-range/approver/reason/expiry binding on every connection and recheck; no general private-network switch or override of other denied classes.
 3. **Check and commit:** Run `capped cargo test -p maestro-acquisition --locked n48_ -- --nocapture`. Production positive case is unavailable before OA2 plus exact owner-authenticated grant; every other denied class remains denied. Run the applicable global gates, retain evidence and make one signed commit.
 
 ## Phase 8: US6 — retire one producer with evidence (P2)
@@ -883,8 +901,8 @@ Independent test: frozen family fixture/live/retrieval results, single native wr
 **Test file:** `crates/maestro-acquisition/tests/it/n50_compare_fixture_producers_against_source_grounded_gold.rs`; test names begin `n50_`.
 
 1. **Red:** Use synthetic legacy/native outputs with a known legacy loss, missing/extra item and source revision changing between observations; raw byte equality must not excuse a defect.
-2. **Green:** Build bounded item/fact/structure diff reports over matched captures and all lifecycle modes. Retain every discrepancy, classify producer versus source-time difference, require independent source-grounded disposition and reject non-Rust production inventories regardless of parity.
-3. **Check and commit:** Run `capped cargo test -p maestro-acquisition --locked n50_ -- --nocapture`. Frozen fixture gold passes Q4 with zero unexplained differences; Python may remain comparison-only, never a production exception counted toward M6. Run the applicable global gates, retain evidence and make one signed commit.
+2. **Green:** Build bounded item/fact/structure diff reports over matched captures and all lifecycle modes. Retain every discrepancy, classify producer versus source-time difference, require independent source-grounded disposition and reject non-Rust producer/extractor/connector inventories or browser roles beyond the exact FR-S6-060 crawl4ai exception, regardless of parity.
+3. **Check and commit:** Run `capped cargo test -p maestro-acquisition --locked n50_ -- --nocapture`. Frozen fixture gold passes Q4 with zero unexplained differences; Python may remain comparison-only or in the named, audited crawl4ai render-only role; no other Python path counts toward M6. Run the applicable global gates, retain evidence and make one signed commit.
 
 - [ ] N51 [US6] Run authorized stratified family live comparison in `crates/maestro/src/acquisition/qualify.rs` (6 h).
 
@@ -906,7 +924,7 @@ Independent test: frozen family fixture/live/retrieval results, single native wr
 
 ### N52 — Run frozen S1 retrieval equality or non-inferiority
 
-**After:** N33, N50. **Approval blockers:** OA1 protocol/delta/suite and OA4c private comparison; approved model/GPU resources.
+**After:** N33, N50. **Approval blockers:** OA1 protocol/δ = 0.01 approved 2026-09-30; exact suite/baseline and pending OA4c private comparison remain necessary, plus approved model/GPU resources.
 
 **Files:** `crates/maestro-knowledge/src/eval/acquisition.rs`; `crates/maestro-knowledge/tests/it/acquisition_eval.rs`; `$PRIVATE_EVIDENCE/families/<family-id>/retrieval.json`.
 
@@ -950,7 +968,7 @@ N54 closes M6 only on complete evidence. N55 does not gate M6 and cannot turn ca
 
 1. **Red:** Remove one family receipt, platform result, live stratum, combined Q5 result or mutation shard from a synthetic completion inventory; M6 must remain blocked.
 2. **Green:** Check all approved families plus final combined native generation Q5, actual three-OS qualification and independent reviews, coverage/mutant completeness, secret-free evidence and existing private vulnerability/signed-release/SBOM controls. Recompute FR/SC/task totals; report blockers without lowering thresholds.
-3. **Check and commit:** Run the documented fixture/probe command, recording the exact invocation and output; for Markdown run `rumdl check --disable MD013,MD041 specs/006-native-acquisition` plus normal hooks. M6 only with every approved family native, zero production Python, approved scoped rollback evidence, ≥90% overall/≥95% changed-line coverage, zero missed mutants/timeouts and complete three-platform tests. No planning checkbox is proof. Run the applicable global gates, retain evidence and make one signed commit.
+3. **Check and commit:** Run the documented fixture/probe command, recording the exact invocation and output; for Markdown run `rumdl check --disable MD013,MD041 specs/006-native-acquisition` plus normal hooks. M6 only with every approved family native, zero Python producers/extractors/connectors and only the named crawl4ai render exception, approved scoped rollback evidence, ≥90% overall/≥95% changed-line coverage, zero missed mutants/timeouts and complete three-platform tests. No planning checkbox is proof. Run the applicable global gates, retain evidence and make one signed commit.
 
 - [ ] N55 [P] Coordinate later catalog and host adapters outside M6 in `crates/maestro-acquisition/src/policy/catalog.rs` (6 h).
 
@@ -972,21 +990,21 @@ N54 closes M6 only on complete evidence. N55 does not gate M6 and cannot turn ca
 
 The `After` lists above are the authoritative DAG; every edge points to an earlier
 ID. Story presentation is priority order, not a requirement to serialize ready
-stories. M6 does not wait for N55. A blocked OA2/private-origin acceptance cannot
-be silently removed from N54: obtain the decision or report M6 held.
+stories. M6 does not wait for N55. A blocked private-origin grant or qualification cannot be silently removed from
+N54: OA2's policy is approved, but missing origin/effect evidence still holds M6.
 
 | Work group | Tasks | Hours |
 | --- | --- | --- |
 | Setup/foundations | 6 | 33 |
 | US1 | 8 | 44 |
 | US2 | 14 | 98 |
-| US3 | 7 | 36 |
+| US3 | 7 | 38 |
 | US4 | 7 | 34 |
 | US5 | 6 | 38 |
 | US6 | 5 | 30 |
 | Final acceptance N54 | 1 | 6 |
 | Later adapters N55 | 1 | 6 |
-| **Total** | **55** | **325** |
+| **Total** | **55** | **327** |
 
 | Story | Ready parallel example |
 | --- | --- |
@@ -1030,7 +1048,7 @@ and criterion. Mapping does not mean implementation or approval is complete.
 | FR-S6-010 | N13, N36, N37, N41 |
 | FR-S6-011 | N13, N36, N47 |
 | FR-S6-012 | N13, N36, N39, N47 |
-| FR-S6-013 | N02, N09, N14, N42, N46 |
+| FR-S6-013 | N02, N03, N09, N14, N42, N46 |
 | FR-S6-014 | N04, N09, N11, N17, N18, N19, N37, N46 |
 | FR-S6-015 | N06, N09, N12 |
 | FR-S6-016 | N06, N12, N14, N37 |
@@ -1077,7 +1095,7 @@ and criterion. Mapping does not mean implementation or approval is complete.
 | FR-S6-057 | N30, N34 |
 | FR-S6-058 | N31, N35 |
 | FR-S6-059 | N09, N16, N17, N18, N19, N22, N23, N25, N28 |
-| FR-S6-060 | N02, N21, N50, N53, N54 |
+| FR-S6-060 | N01, N02, N21, N46, N50, N53, N54 |
 | FR-S6-061 | N01, N03, N30, N34, N55 |
 | FR-S6-062 | N06, N29, N30, N34, N54 |
 
@@ -1093,8 +1111,8 @@ and criterion. Mapping does not mean implementation or approval is complete.
 | SC-S6-008 | N27, N35, N38, N39, N40 |
 | SC-S6-009 | N36, N49, N50, N51, N54 |
 | SC-S6-010 | N33, N52, N54 |
-| SC-S6-011 | N02, N21, N42, N50, N53, N54 |
-| SC-S6-012 | N01, N02, N03, N14, N17, N18, N19, N28, N30, N42, N43, N44, N46, N54, N55 |
+| SC-S6-011 | N02, N21, N42, N46, N50, N53, N54 |
+| SC-S6-012 | N01, N02, N03, N14, N15, N17, N18, N19, N28, N30, N42, N43, N44, N46, N54, N55 |
 | SC-S6-013 | N06, N15, N24, N29, N43, N54 |
 | SC-S6-014 | N06, N30, N31, N32, N33, N34, N35, N54 |
 | SC-S6-015 | N04, N10, N11, N34, N37, N40, N54 |
