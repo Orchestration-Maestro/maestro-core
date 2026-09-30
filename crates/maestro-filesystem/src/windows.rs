@@ -6,7 +6,7 @@
 //! the single-bit constants are Win32's documented values, and each combined value is checked
 //! against its bits at compile time. The local filesystem must support hard links; directories
 //! are not flushed, which Windows does only through a writable handle (ADR-0018).
-use super::{read::read_limited, root::resolve};
+use super::{read::read_limited, root::resolve, windows_security::private_metadata};
 use std::{
     ffi::OsStr,
     fs::{self, File, OpenOptions},
@@ -78,6 +78,93 @@ impl Directory {
             }
         }
         Ok(directory)
+    }
+
+    /// Hold a canonical directory without resolving links a second time.
+    ///
+    /// # Errors
+    /// Refuses relative paths, reparse points and unreadable components.
+    pub fn open_canonical(path: &Path) -> io::Result<Self> {
+        if !path.is_absolute() {
+            return Err(io::Error::other("directory must be canonical and absolute"));
+        }
+        let start: PathBuf = path
+            .components()
+            .take_while(|part| matches!(part, Component::Prefix(_) | Component::RootDir))
+            .collect();
+        let mut directory = Self {
+            held: vec![hold(&start, FILE_FLAG_BACKUP_SEMANTICS)?],
+            path: start,
+        };
+        for part in path.components() {
+            if let Component::Normal(name) = part {
+                directory = open_child(directory, name, false)?;
+            }
+        }
+        Ok(directory)
+    }
+
+    /// Hold the already-held parent; no ancestor is reopened by path.
+    ///
+    /// # Errors
+    /// Returns an error for root or a failed handle duplication.
+    pub fn parent(&self) -> io::Result<Self> {
+        let path = self
+            .path
+            .parent()
+            .ok_or_else(|| io::Error::other("no parent"))?;
+        Ok(Self {
+            path: path.to_path_buf(),
+            held: self
+                .held
+                .iter()
+                .take(self.held.len().saturating_sub(1))
+                .map(File::try_clone)
+                .collect::<io::Result<_>>()?,
+        })
+    }
+
+    /// Hold one child without following a reparse point.
+    ///
+    /// # Errors
+    /// Refuses missing, linked or unreadable children.
+    pub fn child(&self, name: &str) -> io::Result<Self> {
+        let clone = Self {
+            path: self.path.clone(),
+            held: self
+                .held
+                .iter()
+                .map(File::try_clone)
+                .collect::<io::Result<_>>()?,
+        };
+        open_child(clone, OsStr::new(name), false)
+    }
+
+    /// Whether this directory is the drive/share anchor.
+    ///
+    /// # Errors
+    /// This host's held ancestry makes root detection infallible.
+    pub fn is_mount_root(&self) -> io::Result<bool> {
+        Ok(self.held.len() == 1)
+    }
+
+    /// Bounded preferences read with owner SID and DACL checks on both held handles.
+    ///
+    /// # Errors
+    /// Refuses unsafe/unverifiable ACLs, foreign ownership, reparse points and limits.
+    pub fn read_preferences(&self, name: &str, max_bytes: u64) -> io::Result<Vec<u8>> {
+        let directory = self
+            .held
+            .last()
+            .ok_or_else(|| io::Error::other("no held directory"))?;
+        private_metadata(directory)?;
+        let file = hold(&self.path.join(name), FILE_FLAG_OPEN_REPARSE_POINT)?;
+        refuse_reparse_point(&file)?;
+        if !file.metadata()?.is_file() {
+            return Err(io::Error::other("preferences are not a regular file"));
+        }
+        private_metadata(&file)?;
+        read_limited(file, max_bytes)
     }
 
     /// The bytes of a regular file in the directory, never read through a link.

@@ -59,8 +59,13 @@ fn run(arguments: &Arguments) -> ExitCode {
 /// `setup`, `backup` and `restore` open no kernel for writing, and `status`
 /// and `doctor` never create or migrate it.
 fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> {
+    let flags = arguments.settings();
     let registry = Registry::built_in().map_err(|error| Failure::failed_by(&error))?;
-    parse_flags(&registry, &arguments.set).map_err(|error| Failure::refused_by(&error))?;
+    parse_flags(&registry, &flags).map_err(|error| Failure::refused_by(&error))?;
+    let session = match &arguments.noun {
+        Noun::Mcp { workspace } => Session::for_mcp(workspace.as_deref(), &flags)?,
+        _ => Session::for_cli(&flags)?,
+    };
     match &arguments.noun {
         Noun::Model(command) => model::run(&Kernel::open()?, output, command),
         Noun::Knowledge(KnowledgeCommand::Collections) => {
@@ -81,34 +86,43 @@ fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> 
         Noun::Knowledge(
             command @ (KnowledgeCommand::Search { .. } | KnowledgeCommand::Ask { .. }),
         ) => {
-            let settings = Session::for_cli(&arguments.set)?.knowledge()?;
+            let settings = session.knowledge()?;
             retrieval(output, command, &settings)
         }
         Noun::Knowledge(
             command @ (KnowledgeCommand::Prepare { .. } | KnowledgeCommand::Publish { .. }),
         ) => {
-            let settings = Session::for_cli(&arguments.set)?.knowledge()?;
+            let settings = session.knowledge()?;
             modelled(output, command, &settings, Kernel::open)
         }
         Noun::Knowledge(command) => knowledge(&Kernel::open()?, output, command),
-        Noun::Mcp { workspace } => {
-            let settings = Session::for_mcp(workspace.as_deref(), &arguments.set)?.knowledge()?;
+        Noun::Mcp { .. } => {
+            let settings = session.knowledge()?;
             let (model_port, qdrant) = search::ports()?;
-            run_mcp(model_port, qdrant, settings)?;
+            run_mcp(model_port, qdrant, settings, session.mcp_context())?;
             Ok(ExitCode::SUCCESS)
         }
-        Noun::Config(command) => config_command(output, command, &arguments.set),
+        Noun::Config(command) => config_command(output, command, &session),
         Noun::Eval(EvalCommand::Ladder { manifest }) => eval::run(output, manifest),
         Noun::Catalog(CatalogCommand::Check { catalog_dir }) => catalog::check(output, catalog_dir),
         Noun::Init {
             catalog_dir,
             presets,
             apply,
-        } => init::run(output, catalog_dir, presets, *apply, &arguments.set),
+        } => init::run(
+            output,
+            catalog_dir,
+            presets,
+            *apply,
+            init::PreferenceChoices {
+                source: &session,
+                choices: &flags,
+            },
+        ),
         Noun::Job(JobCommand::Wait { id }) => wait::run(&Kernel::open()?, output, *id),
         Noun::Setup { yes } => setup::run(output, *yes),
         Noun::Status => health::status::run(output),
-        Noun::Doctor => health::doctor::run(output, &arguments.set),
+        Noun::Doctor => health::doctor::run(output, &flags),
         Noun::Backup { to } => backup::run_backup(output, to),
         Noun::Restore { from } => backup::run_restore(output, from),
     }
@@ -284,14 +298,12 @@ fn knowledge(
 fn config_command(
     output: Output,
     command: &ConfigCommand,
-    flags: &[String],
+    session: &Session,
 ) -> Result<ExitCode, Failure> {
     match command {
-        ConfigCommand::Get { key } => config::get(output, &Session::for_cli(flags)?, key),
-        ConfigCommand::List => config::list(output, &Session::for_cli(flags)?),
-        ConfigCommand::Explain { key } => {
-            config::explain(output, &Session::for_cli(flags)?, key.as_deref())
-        }
+        ConfigCommand::Get { key } => config::get(output, session, key),
+        ConfigCommand::List => config::list(output, session),
+        ConfigCommand::Explain { key } => config::explain(output, session, key.as_deref()),
         ConfigCommand::Set { key, value, target } => {
             let change = Change {
                 key,

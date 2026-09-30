@@ -399,14 +399,15 @@ fn the_mcp_session_reads_a_project_only_through_an_explicit_workspace_inside_hom
         Some(&scratch.home()),
         &[],
     )
-    .unwrap_err()
-    .to_string();
-    assert_eq!(
-        outside,
-        format!(
-            "--workspace {}: the directory is outside the home directory: no project file is read",
-            scratch.0.display()
-        )
+    .unwrap();
+    assert!(outside.files.project.is_none());
+    assert_eq!(outside.resolved().text("tone"), Some("normal"));
+    assert!(
+        outside
+            .discovery
+            .note
+            .unwrap()
+            .contains("maestro trust add")
     );
 }
 

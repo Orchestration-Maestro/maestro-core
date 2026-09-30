@@ -3,7 +3,7 @@
 //! explanation and their journaled history; the kernel's `config.toml` is
 //! never read or written; `doctor` names a refused key; and models off.
 
-use super::support::Home;
+use super::support::{Home, initialize_mcp};
 use serde_json::{Value, json};
 use std::{fs, io::Write as _, path::PathBuf};
 
@@ -231,19 +231,16 @@ fn a_refused_key_is_named_by_config_and_by_doctor() {
         format!("{}: unknown key \"search.foo\"", user.display())
     );
     let doctor = home.run(&["--json", "doctor"]);
-    assert_eq!(doctor.code, Some(1), "{doctor:?}");
-    let check = doctor.json()["checks"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .find(|check| check["name"] == "settings")
-        .unwrap()
-        .clone();
-    assert_eq!(check["passed"], false);
+    assert_eq!(doctor.code, Some(2), "{doctor:?}");
     assert_eq!(
-        check["detail"],
+        doctor.stderr.trim(),
         format!("{}: unknown key \"search.foo\"", user.display())
     );
+    assert!(
+        doctor.stdout.is_empty(),
+        "startup refuses before health effects"
+    );
+    fs::remove_file(&user).unwrap();
     let refused = home.run(&["config", "set", "search.k", "0"]);
     assert_eq!(refused.code, Some(2), "{refused:?}");
     assert_eq!(
@@ -339,18 +336,21 @@ fn models_off_refuses_ask_on_the_command_line_and_over_mcp() {
 }
 
 #[test]
-fn mcp_refuses_a_workspace_outside_home() {
+fn mcp_warns_and_uses_user_defaults_for_a_workspace_outside_home() {
     let home = Home::bare();
     let outside = home.root().parent().unwrap().to_path_buf();
-    let served = home.run(&["mcp", "--workspace", outside.to_str().unwrap()]);
-    assert_eq!(served.code, Some(2), "{served:?}");
-    assert!(
-        served
-            .stderr
-            .trim()
-            .ends_with("the directory is outside the home directory: no project file is read"),
-        "{served:?}"
-    );
+    let (child, mut input) = home.start_with_stdin(&[
+        "--set",
+        "models.compute=off",
+        "mcp",
+        "--workspace",
+        outside.to_str().unwrap(),
+    ]);
+    initialize_mcp(&mut input);
+    drop(input);
+    let served = child.finish();
+    assert_eq!(served.code, Some(0), "{served:?}");
+    assert!(served.stderr.contains("maestro trust add"), "{served:?}");
 }
 
 #[test]

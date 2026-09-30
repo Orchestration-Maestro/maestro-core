@@ -4,9 +4,8 @@ use maestro_catalog::{
     bootstrap::{self, DirectoryPresets, Prerequisite},
     files::FilePlan,
     limits::Limits,
-    settings::{FilePreferences, PreferencesDraft, draft_preferences},
+    settings::{PreferencesDraft, WorkspacePreferences, draft_preferences},
 };
-use maestro_kernel::paths::{Environment, config_dir};
 use serde::Serialize;
 use std::{env, path::Path, process::ExitCode};
 
@@ -32,23 +31,30 @@ struct InitDocument<'a> {
     preferences: Option<&'a PreferencesDraft>,
 }
 
+/// Confirmed explicit draft choices over the already validated session port.
+#[derive(Clone, Copy)]
+pub(super) struct PreferenceChoices<'a> {
+    /// Storage-independent, immutable preference snapshot.
+    pub(super) source: &'a dyn WorkspacePreferences,
+    /// Only explicitly supplied command-line choices.
+    pub(super) choices: &'a [String],
+}
+
 /// Preview a composed project and, when requested, apply it through C04.
 pub(super) fn run(
     output: Output,
     catalog_dir: &Path,
     presets: &[String],
     should_apply: bool,
-    choices: &[String],
+    preference_choices: PreferenceChoices<'_>,
 ) -> Result<ExitCode, Failure> {
+    let PreferenceChoices { source, choices } = preference_choices;
     let root = env::current_dir().map_err(|error| Failure::failed_by(&error))?;
     let preferences = if choices.is_empty() {
         None
     } else {
-        let config =
-            config_dir(&Environment::current()).map_err(|error| Failure::failed_by(&error))?;
-        let source = FilePreferences::new(&config, &root);
         Some(
-            draft_preferences(&root, &source, choices, &Limits::PRODUCTION)
+            draft_preferences(&root, source, choices, &Limits::PRODUCTION)
                 .map_err(Failure::refused)?,
         )
     };

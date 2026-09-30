@@ -873,6 +873,7 @@ dependencies = [
  "maestro-filesystem",
  "maestro-kernel",
  "maestro-settings",
+ "maestro-test-scratch",
  "pulldown-cmark",
  "serde",
  "serde_json",
@@ -894,6 +895,7 @@ name = "maestro-filesystem"
 version = "0.1.0"
 dependencies = [
  "rustix",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -939,6 +941,7 @@ dependencies = [
 name = "maestro-settings"
 version = "0.1.0"
 dependencies = [
+ "maestro-filesystem",
  "maestro-test-scratch",
  "rustix",
  "serde",
