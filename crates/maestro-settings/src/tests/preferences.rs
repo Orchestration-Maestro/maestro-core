@@ -66,19 +66,22 @@ fn file_reads_and_edits_round_trip_both_forms_without_duplicates() {
             assert!(added.contains("[overrides]"));
         }
     }
-    let duplicate = format!("{SCHEMA}tone = 'brief'\n[overrides]\ntone = 'normal'\n");
-    fs::write(scratch.join("preferences.toml"), &duplicate).unwrap();
-    assert!(FileLayers::new(&scratch, None).layers(&registry).is_err());
-    assert!(
-        set_in_document(
-            &registry,
-            Some(&duplicate),
-            "tone",
-            &Value::Text("brief".into())
-        )
-        .is_err()
-    );
-    assert!(unset_in_document(&registry, &duplicate, "tone").is_err());
+    for (key, first, second) in [("tone", "brief", "normal"), ("language", "en", "fr")] {
+        let duplicate = format!("{SCHEMA}{key} = '{first}'\n[overrides]\n{key} = '{second}'\n");
+        fs::write(scratch.join("preferences.toml"), &duplicate).unwrap();
+        assert!(
+            FileLayers::new(&scratch, None).layers(&registry).is_err(),
+            "{key}"
+        );
+        assert!(
+            set_in_document(&registry, Some(&duplicate), key, &Value::Text(first.into())).is_err(),
+            "{key}"
+        );
+        assert!(
+            unset_in_document(&registry, &duplicate, key).is_err(),
+            "{key}"
+        );
+    }
     fs::remove_dir_all(scratch).unwrap();
 }
 
@@ -104,6 +107,30 @@ fn bounded_preferences_use_registry_keys_in_overrides() {
     ] {
         assert!(
             Layer::parse_preferences(&registry, &format!("{SCHEMA}{body}"), 1024, 4).is_err(),
+            "{body}"
+        );
+    }
+}
+
+#[test]
+fn bounded_preferences_refuse_unknown_empty_tables() {
+    let registry = Registry::built_in().unwrap();
+    for (body, key) in [
+        ("[overrides.\"tone.extra\"]\n", "tone.extra"),
+        ("[overrides.evidence.unknown]\n", "evidence.unknown"),
+        ("[\"tone.extra\"]\n", "tone.extra"),
+    ] {
+        assert_eq!(
+            Layer::parse_preferences(&registry, &format!("{SCHEMA}{body}"), 1024, 4),
+            Err(crate::LayerError::UnknownKey(key.into())),
+            "{body}"
+        );
+    }
+    for body in ["[overrides.evidence]\n", "[evidence]\n"] {
+        assert!(
+            Layer::parse_preferences(&registry, &format!("{SCHEMA}{body}"), 1024, 4)
+                .unwrap()
+                .is_empty(),
             "{body}"
         );
     }

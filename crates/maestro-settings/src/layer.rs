@@ -100,7 +100,11 @@ impl Layer {
             });
         }
         let mut layer = Self::default();
-        let reader = Reader { registry, text };
+        let reader = Reader {
+            registry,
+            text,
+            strict_tables: overrides,
+        };
         for (key, value) in root {
             if overrides && key.get_ref() == "overrides" {
                 reader.overrides(value, &mut layer.0)?;
@@ -160,6 +164,8 @@ struct Reader<'registry, 'text> {
     registry: &'registry Registry,
     /// The file's text, for what a refusal found.
     text: &'text str,
+    /// Only directional descriptor prefixes are tables in opt-in preferences.
+    strict_tables: bool,
 }
 
 impl Reader<'_, '_> {
@@ -207,7 +213,17 @@ impl Reader<'_, '_> {
             }
             return Ok(());
         }
-        if !self.registry.is_table(path) {
+        let is_table = if self.strict_tables {
+            self.registry.descriptors().any(|descriptor| {
+                descriptor
+                    .key
+                    .strip_prefix(path)
+                    .is_some_and(|rest| rest.starts_with('.'))
+            })
+        } else {
+            self.registry.is_table(path)
+        };
+        if !is_table {
             return Err(LayerError::UnknownKey(path.to_owned()));
         }
         let DeValue::Table(table) = value.get_ref() else {
