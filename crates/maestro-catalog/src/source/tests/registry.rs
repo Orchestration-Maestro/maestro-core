@@ -163,6 +163,24 @@ fn delegated_fields_require_the_named_registered_validator() {
 }
 
 #[test]
+fn registry_refuses_a_delegated_field_with_the_wrong_validator_name() {
+    let mut matching = builtin()
+        .unwrap()
+        .kind("model-card")
+        .unwrap()
+        .descriptor
+        .clone();
+    matching.kind = "matching-card".to_owned();
+    matching.directory = "matching-cards".to_owned();
+    assert_eq!(register(matching.clone()), Ok(()));
+
+    matching.fields[1].kind = FieldType::Delegated {
+        validator: "preset-settings".to_owned(),
+    };
+    assert!(register(matching).unwrap_err().contains("identity"));
+}
+
+#[test]
 fn registry_refuses_delegation_not_declared_by_selected_hook() {
     let model_card = builtin()
         .unwrap()
