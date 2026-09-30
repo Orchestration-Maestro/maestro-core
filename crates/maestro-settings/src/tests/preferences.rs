@@ -137,6 +137,26 @@ fn bounded_preferences_refuse_unknown_empty_tables() {
 }
 
 #[test]
+fn bounded_preferences_tables_require_complete_segments() {
+    let registry = Registry::built_in().unwrap();
+    for path in ["sea", "ask.mod"] {
+        assert_eq!(
+            Layer::parse_preferences(&registry, &format!("{SCHEMA}[overrides.{path}]\n"), 1024, 4),
+            Err(crate::LayerError::UnknownKey(path.into())),
+            "{path}"
+        );
+    }
+    for path in ["search", "ask"] {
+        assert!(
+            Layer::parse_preferences(&registry, &format!("{SCHEMA}[overrides.{path}]\n"), 1024, 4)
+                .unwrap()
+                .is_empty(),
+            "{path}"
+        );
+    }
+}
+
+#[test]
 fn bounded_preferences_exact_and_one_past_limits() {
     let registry = Registry::built_in().unwrap();
     let text = format!("{SCHEMA}[overrides]\nsearch.routes.dense = false\n");
