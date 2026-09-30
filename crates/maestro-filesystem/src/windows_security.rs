@@ -4,12 +4,22 @@
     reason = "the sole audited held-handle Win32 security boundary"
 )]
 #![deny(clippy::undocumented_unsafe_blocks)]
+#[cfg(test)]
+use std::slice;
 use std::{
     ffi::c_void,
     fs::File,
     io,
     os::windows::io::{AsRawHandle as _, FromRawHandle as _, OwnedHandle},
     ptr,
+};
+#[cfg(test)]
+use windows_sys::Win32::{
+    Foundation::{ERROR_NOT_ALL_ASSIGNED, ERROR_SUCCESS, GetLastError, LUID},
+    Security::{
+        AdjustTokenPrivileges, LUID_AND_ATTRIBUTES, LookupPrivilegeValueW, SE_PRIVILEGE_ENABLED,
+        TOKEN_ADJUST_PRIVILEGES, TOKEN_PRIVILEGES, TokenPrivileges,
+    },
 };
 use windows_sys::Win32::{
     Foundation::{GENERIC_ALL, GENERIC_WRITE, LocalFree},
@@ -219,4 +229,160 @@ fn check_allow(ace: *mut c_void, writers: &[PSID]) -> io::Result<()> {
         return Err(io::Error::other("other-writable preferences"));
     }
     Ok(())
+}
+
+/// Temporarily disable ACL-bypass privileges; relies on nextest's one-process-per-test isolation.
+#[cfg(test)]
+pub(super) struct DisabledAclBypass {
+    /// The process token, kept open until its previous privilege state is restored.
+    token: OwnedHandle,
+    /// Privilege identifiers used to verify the fixture's premise by reading the token back.
+    luids: [LUID; 2],
+    /// Previous states returned by Windows, including empty states for unchanged privileges.
+    previous: [TOKEN_PRIVILEGES; 2],
+}
+
+#[cfg(test)]
+impl DisabledAclBypass {
+    /// Disable backup and restore privileges, restoring even a partially completed change on error.
+    pub(super) fn new() -> io::Result<Self> {
+        let mut handle = ptr::null_mut();
+        // SAFETY: the pseudo-process handle is valid; output is a writable handle slot.
+        if unsafe {
+            OpenProcessToken(
+                GetCurrentProcess(),
+                TOKEN_QUERY | TOKEN_ADJUST_PRIVILEGES,
+                &raw mut handle,
+            )
+        } == 0
+        {
+            return Err(io::Error::last_os_error());
+        }
+        // SAFETY: successful OpenProcessToken transfers a unique handle closed by OwnedHandle.
+        let token = unsafe { OwnedHandle::from_raw_handle(handle) };
+        let mut guard = Self {
+            token,
+            luids: [LUID::default(); 2],
+            previous: [TOKEN_PRIVILEGES::default(); 2],
+        };
+        for (index, name) in ["SeBackupPrivilege", "SeRestorePrivilege"]
+            .into_iter()
+            .enumerate()
+        {
+            let name: Vec<u16> = name.encode_utf16().chain([0]).collect();
+            // SAFETY: name is terminated and alive; the LUID output slot is writable.
+            if unsafe {
+                LookupPrivilegeValueW(ptr::null(), name.as_ptr(), &raw mut guard.luids[index])
+            } == 0
+            {
+                return Err(io::Error::last_os_error());
+            }
+            let disabled = TOKEN_PRIVILEGES {
+                PrivilegeCount: 1,
+                Privileges: [LUID_AND_ATTRIBUTES {
+                    Luid: guard.luids[index],
+                    Attributes: 0,
+                }],
+            };
+            let mut needed = 0;
+            // SAFETY: the token is live; both states hold one privilege and outputs are writable.
+            let adjusted = unsafe {
+                AdjustTokenPrivileges(
+                    guard.token.as_raw_handle(),
+                    0,
+                    &raw const disabled,
+                    u32::try_from(size_of::<TOKEN_PRIVILEGES>()).unwrap(),
+                    &raw mut guard.previous[index],
+                    &raw mut needed,
+                )
+            };
+            // SAFETY: GetLastError has no pointer or lifetime requirements; read immediately.
+            let error = unsafe { GetLastError() };
+            if adjusted == 0 || (error != ERROR_SUCCESS && error != ERROR_NOT_ALL_ASSIGNED) {
+                return Err(io::Error::from_raw_os_error(error.cast_signed()));
+            }
+            // A token without the privilege cannot bypass the ACL; readback verifies this too.
+        }
+        Ok(guard)
+    }
+
+    /// Read the current token back; absent privileges count as disabled, never as enabled.
+    pub(super) fn both_disabled(&self) -> io::Result<bool> {
+        let mut needed = 0;
+        // SAFETY: this sizing call writes only the length; no buffer is supplied.
+        unsafe {
+            GetTokenInformation(
+                self.token.as_raw_handle(),
+                TokenPrivileges,
+                ptr::null_mut(),
+                0,
+                &raw mut needed,
+            );
+        }
+        let offset = std::mem::offset_of!(TOKEN_PRIVILEGES, Privileges);
+        if (needed as usize) < offset {
+            return Err(io::Error::last_os_error());
+        }
+        let mut buffer = vec![0u64; (needed as usize).div_ceil(8)];
+        // SAFETY: buffer is sufficiently sized/aligned and the token handle remains live.
+        if unsafe {
+            GetTokenInformation(
+                self.token.as_raw_handle(),
+                TokenPrivileges,
+                buffer.as_mut_ptr().cast(),
+                needed,
+                &raw mut needed,
+            )
+        } == 0
+        {
+            return Err(io::Error::last_os_error());
+        }
+        // SAFETY: the initialized buffer has at least the four-byte privilege-count header.
+        let count = unsafe { *buffer.as_ptr().cast::<u32>() } as usize;
+        if count > ((needed as usize) - offset) / size_of::<LUID_AND_ATTRIBUTES>() {
+            return Err(io::Error::other("invalid token privilege count"));
+        }
+        // SAFETY: offset preserves alignment, count is bounded by initialized returned bytes,
+        // and the owning buffer remains alive throughout the slice traversal.
+        let privileges = unsafe {
+            slice::from_raw_parts(
+                buffer
+                    .as_ptr()
+                    .byte_add(offset)
+                    .cast::<LUID_AND_ATTRIBUTES>(),
+                count,
+            )
+        };
+        Ok(!privileges.iter().any(|privilege| {
+            self.luids.iter().any(|luid| {
+                privilege.Luid.LowPart == luid.LowPart && privilege.Luid.HighPart == luid.HighPart
+            }) && privilege.Attributes & SE_PRIVILEGE_ENABLED != 0
+        }))
+    }
+}
+
+#[cfg(test)]
+impl Drop for DisabledAclBypass {
+    fn drop(&mut self) {
+        for previous in &self.previous {
+            // SAFETY: the token is live and each previous state was returned by Windows;
+            // no previous-state output buffer is requested during restoration.
+            let restored = unsafe {
+                AdjustTokenPrivileges(
+                    self.token.as_raw_handle(),
+                    0,
+                    previous,
+                    0,
+                    ptr::null_mut(),
+                    ptr::null_mut(),
+                )
+            };
+            // SAFETY: GetLastError has no pointer or lifetime requirements; read immediately.
+            let error = unsafe { GetLastError() };
+            assert!(
+                restored != 0 && error == ERROR_SUCCESS,
+                "restoring token privileges: {error}"
+            );
+        }
+    }
 }

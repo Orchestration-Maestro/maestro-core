@@ -413,6 +413,11 @@ fn a_create_failure_is_not_retried_as_a_missing_directory() {
         .unwrap();
     assert!(denied.success());
 
+    let privileges = super::windows_security::DisabledAclBypass::new().unwrap();
+    assert!(
+        privileges.both_disabled().unwrap(),
+        "backup and restore privileges must be disabled before the ACL probe"
+    );
     let error = Directory::open(&root, Path::new("locked/new"), true).unwrap_err();
     let restored = process::Command::new("icacls")
         .arg(&locked)
