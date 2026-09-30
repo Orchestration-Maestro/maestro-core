@@ -91,25 +91,29 @@ pub(super) fn select(
 
 /// Every eligible revision in stable document order.
 fn all_sources(kernel: &Kernel, collection: &str) -> Result<Vec<Revision>, Failure> {
-    let mut revisions = quality::eligible(&kernel.database, &kernel.scopes, collection)
-        .map_err(|error| Failure::failed_by(&error))?;
+    let revisions = eligible_sources(kernel, collection)?;
     if revisions.is_empty() {
         return Err(Failure::refused(format!(
             "the collection {collection} has no eligible revisions"
         )));
     }
+    Ok(revisions)
+}
+
+/// Eligible revisions in stable document order.
+fn eligible_sources(kernel: &Kernel, collection: &str) -> Result<Vec<Revision>, Failure> {
+    let mut revisions = quality::eligible(&kernel.database, &kernel.scopes, collection)
+        .map_err(|error| Failure::failed_by(&error))?;
     revisions.sort_by(|left, right| left.document_id.cmp(&right.document_id));
     Ok(revisions)
 }
 
 /// Eligible revisions whose original digest is bound to the rule, in document order.
 fn sources(kernel: &Kernel, collection: &str, rule: &TableRule) -> Result<Vec<Revision>, Failure> {
-    let mut eligible: Vec<Revision> =
-        quality::eligible(&kernel.database, &kernel.scopes, collection)
-            .map_err(|error| Failure::failed_by(&error))?
-            .into_iter()
-            .filter(|revision| revision.original_digest == *rule.source_sha256())
-            .collect();
+    let mut eligible: Vec<Revision> = eligible_sources(kernel, collection)?
+        .into_iter()
+        .filter(|revision| revision.original_digest == *rule.source_sha256())
+        .collect();
     if eligible.is_empty() {
         return Err(Failure::refused(format!(
             "no eligible revision of the collection {collection} has the rule's source digest \
