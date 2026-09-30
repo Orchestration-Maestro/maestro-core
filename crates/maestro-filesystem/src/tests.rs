@@ -404,54 +404,24 @@ fn a_create_failure_is_not_retried_as_a_missing_directory() {
     let root = scratch();
     let locked = root.join("locked");
     fs::create_dir(&locked).unwrap();
-    let output = process::Command::new("whoami")
-        .arg("/user")
-        .output()
-        .unwrap();
-    let identity = String::from_utf8(output.stdout).unwrap();
-    let sid = identity
-        .trim()
-        .rsplit(',')
-        .next()
-        .unwrap()
-        .trim_matches('"');
     let account = env::var("USERNAME").unwrap();
-    println!("RUST USERNAME={account:?}, current identity={identity:?}");
-    process::Command::new("whoami")
-        .arg("/all")
+    let denied = process::Command::new("icacls")
+        .arg(&locked)
+        .arg("/deny")
+        .arg(format!("{account}:(AD)"))
         .status()
         .unwrap();
-    for (principal, rights) in [
-        (account.clone(), "AD"),
-        (format!("*{sid}"), "AD"),
-        (format!("*{sid}"), "WD,AD"),
-    ] {
-        let denied = process::Command::new("icacls")
-            .arg(&locked)
-            .arg("/deny")
-            .arg(format!("{principal}:({rights})"))
-            .status()
-            .unwrap();
-        assert!(denied.success());
-        process::Command::new("icacls")
-            .arg(&locked)
-            .status()
-            .unwrap();
-        let direct = fs::create_dir(locked.join("direct"));
-        println!("RUST principal={principal:?} rights={rights}: direct create={direct:?}");
-        let opened = Directory::open(&root, Path::new("locked/new"), true);
-        println!("RUST principal={principal:?} rights={rights}: held create={opened:?}");
-        drop(opened);
-        let restored = process::Command::new("icacls")
-            .arg(&locked)
-            .arg("/remove:d")
-            .arg(&principal)
-            .status()
-            .unwrap();
-        assert!(restored.success());
-        drop(fs::remove_dir(locked.join("direct")));
-        drop(fs::remove_dir(locked.join("new")));
-    }
+    assert!(denied.success());
+
+    let error = Directory::open(&root, Path::new("locked/new"), true).unwrap_err();
+    let restored = process::Command::new("icacls")
+        .arg(&locked)
+        .arg("/remove:d")
+        .arg(&account)
+        .status()
+        .unwrap();
+    assert!(restored.success());
+    assert_eq!(error.kind(), io::ErrorKind::PermissionDenied);
     fs::remove_dir_all(root).unwrap();
 }
 

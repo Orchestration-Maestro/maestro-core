@@ -1,4 +1,5 @@
 //! Preview immutable file bytes, validate relative names, and bind content digests.
+use super::names::ownership_name;
 use maestro_filesystem::Directory;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -158,7 +159,7 @@ fn is_committed_and_unchanged(root: &Path, plan: &FilePlan) -> io::Result<bool> 
         Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(false),
         Err(error) => return Err(error),
     };
-    let name = format!("ownership-{}.toml", plan.id);
+    let name = ownership_name(&plan.id);
     let record = match state.read_regular(&name) {
         Ok(record) => record,
         Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(false),

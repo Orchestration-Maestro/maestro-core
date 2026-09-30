@@ -1,7 +1,8 @@
 //! Apply exclusive file plans, commit ownership last, and recover proven states.
 use super::{
+    names::{journal_name, ownership_name},
     plan::{FilePlan, digest, ownership_matches, split_path},
-    recovery::{journal_name, ownership_name, read_optional, record_bytes, state_directory},
+    recovery::{read_optional, record_bytes, state_directory},
 };
 use maestro_filesystem::Directory;
 use serde::Serialize;

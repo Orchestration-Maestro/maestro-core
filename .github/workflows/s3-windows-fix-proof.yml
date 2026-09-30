@@ -82,40 +82,10 @@ jobs:
             tar -xzf "$archive" -C nextest-bin
             echo "$RUNNER_TEMP/nextest-bin" >> "$GITHUB_PATH"
           fi
-      - name: Diagnose the Windows deny fixture against the current token
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          whoami /all
-          $identity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
-          $sid = $identity.User.Value
-          Write-Output "USERNAME=$env:USERNAME; identity=$($identity.Name); SID=$sid"
-          $root = Join-Path ([System.IO.Path]::GetTempPath()) "s3-acl-probe"
-          New-Item -ItemType Directory -Path $root -Force | Out-Null
-          foreach ($probe in @(
-            @{ Name = "username-ad"; Principal = $env:USERNAME; Rights = "AD" },
-            @{ Name = "sid-ad"; Principal = "*$sid"; Rights = "AD" },
-            @{ Name = "sid-wd-ad"; Principal = "*$sid"; Rights = "WD,AD" }
-          )) {
-            $path = Join-Path $root $probe.Name
-            New-Item -ItemType Directory -Path $path -Force | Out-Null
-            & icacls $path /deny "$($probe.Principal):($($probe.Rights))"
-            & icacls $path
-            try {
-              [System.IO.Directory]::CreateDirectory((Join-Path $path "new")) | Out-Null
-              Write-Output "$($probe.Name): CREATE SUCCEEDED"
-            } catch {
-              Write-Output "$($probe.Name): CREATE FAILED $($_.Exception)"
-            } finally {
-              & icacls $path /remove:d $probe.Principal
-            }
-          }
-          Remove-Item -Recurse -Force $root
-      - name: Instrument the Windows Rust fixture
-        if: runner.os == 'Windows'
+      - name: Native full workspace tests
         run: |
           set -o pipefail
-          cargo nextest run -p maestro-filesystem --locked a_create_failure_is_not_retried_as_a_missing_directory --no-capture 2>&1 | tee "$RUNNER_TEMP/s3-nextest.log"
+          cargo nextest run --workspace --locked --no-fail-fast 2>&1 | tee "$RUNNER_TEMP/s3-nextest.log"
       - name: Preserve native test evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1

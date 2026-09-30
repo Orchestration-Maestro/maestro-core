@@ -108,6 +108,7 @@ fn same_card_registration_returns_the_kernel_record_without_selection_changes() 
             .unwrap()
             .is_none()
     );
+    drop(database);
     fs::remove_dir_all(root).unwrap();
 }
 
@@ -144,5 +145,6 @@ fn explicit_registration_refuses_unreviewed_and_unauthorized_declarations() {
     let reviewed = Declaration::from_resource(&checked_model_card(VALID)).unwrap();
     let refused = register(&database, &scopes, "synthetic", &reviewed).unwrap_err();
     assert_eq!(refused, "the collection is not writable in this scope");
+    drop(database);
     fs::remove_dir_all(root).unwrap();
 }

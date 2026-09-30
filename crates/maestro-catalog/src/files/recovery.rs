@@ -1,5 +1,8 @@
 //! Read and validate write-ahead journals through the shared held-handle filesystem.
-use super::plan::{FilePlan, PlannedFile, validate_id, validate_plan};
+use super::{
+    names::journal_name,
+    plan::{FilePlan, PlannedFile, validate_id, validate_plan},
+};
 use maestro_filesystem::Directory;
 use std::{io, path::Path, str};
 
@@ -18,16 +21,6 @@ const STATE_DIR: &str = ".maestro-files";
 /// Open the private state directory through the shared held-handle implementation.
 pub(super) fn state_directory(root: &Path) -> io::Result<Directory> {
     Directory::open(root, Path::new(STATE_DIR), true)
-}
-
-/// Name the write-ahead journal for one immutable plan.
-pub(super) fn journal_name(id: &str) -> String {
-    format!("journal-{id}.toml")
-}
-
-/// Name the committed ownership record for one immutable plan.
-pub(super) fn ownership_name(id: &str) -> String {
-    format!("ownership-{id}.toml")
 }
 
 /// Encode one internal state record as TOML bytes.

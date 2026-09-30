@@ -482,6 +482,7 @@ in place.
 │   │   │   │   │   └── support.rs                                           # Rust source: support
 │   │   │   │   ├── apply.rs                                                 # Apply exclusive file plans, commit ownership last, and recover proven states
 │   │   │   │   ├── mod.rs                                                   # Shared digest-bound file plans, durable ownership, and crash-safe removal
+│   │   │   │   ├── names.rs                                                 # Portable state-file names; plan identities inside records keep their original bytes
 │   │   │   │   ├── plan.rs                                                  # Preview immutable file bytes, validate relative names, and bind content digests
 │   │   │   │   ├── recovery.rs                                              # Read and validate write-ahead journals through the shared held-handle filesystem
 │   │   │   │   └── remove.rs                                                # Remove only committed, digest-matching owned file names
