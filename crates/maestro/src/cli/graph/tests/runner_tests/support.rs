@@ -34,7 +34,7 @@ use std::{
 };
 
 #[derive(Debug)]
-pub(super) struct CountingModels {
+pub(in crate::cli::graph) struct CountingModels {
     extracts: Arc<AtomicUsize>,
     tokenizes: Arc<AtomicUsize>,
 }
@@ -88,10 +88,10 @@ impl ModelPort for CountingModels {
     }
 }
 
-pub(super) struct Fixture {
-    pub(super) root: PathBuf,
-    pub(super) kernel: Kernel,
-    pub(super) revisions: Vec<Revision>,
+pub(in crate::cli::graph) struct Fixture {
+    pub(in crate::cli::graph) root: PathBuf,
+    pub(in crate::cli::graph) kernel: Kernel,
+    pub(in crate::cli::graph) revisions: Vec<Revision>,
 }
 
 impl Drop for Fixture {
@@ -100,7 +100,7 @@ impl Drop for Fixture {
     }
 }
 
-pub(super) fn fixture(markdowns: &[&str]) -> Fixture {
+pub(in crate::cli::graph) fn fixture(markdowns: &[&str]) -> Fixture {
     let root = maestro_test_scratch::scratch_directory().unwrap();
     let database = Database::open_in(&root).unwrap();
     database
@@ -180,7 +180,7 @@ pub(super) fn fixture(markdowns: &[&str]) -> Fixture {
     }
 }
 
-pub(super) fn extractor(
+pub(in crate::cli::graph) fn extractor(
     fixture: &Fixture,
     budget: usize,
 ) -> (

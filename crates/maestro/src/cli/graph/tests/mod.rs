@@ -111,4 +111,4 @@ fn durable_build_refusals_exit_two_and_lease_failures_exit_one() {
     assert_eq!(claim_failure(&error).code(), ExitCode::from(1));
 }
 
-mod runner_tests;
+pub(super) mod runner_tests;

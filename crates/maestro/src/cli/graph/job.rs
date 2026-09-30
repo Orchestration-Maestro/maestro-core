@@ -263,10 +263,17 @@ pub(super) fn check(job: &Job) -> Result<(), Failure> {
 #[cfg(test)]
 mod tests {
     use super::{
-        Event, MAX_SOURCE_RETRIES, SOURCE_STARTED, Ulid, job, next_source_attempt,
-        within_retry_limit,
+        Event, MAX_SOURCE_RETRIES, SOURCE_STARTED, Ulid, check_token_budget, job,
+        next_source_attempt, within_retry_limit,
     };
+    use crate::{
+        cli::graph::tests::runner_tests::support::{extractor, fixture},
+        failure::Failure,
+    };
+    use maestro_kernel::artifact::Digest;
+    use maestro_knowledge::graph::rules::TableRule;
     use serde_json::json;
+    use std::slice;
 
     fn progress(stream: &str, sequence: u64, revision: &str) -> Event {
         Event {
@@ -300,5 +307,90 @@ mod tests {
         ];
         assert!(within_retry_limit(&resumed, "revision-b"));
         assert_eq!(next_source_attempt(&resumed, "revision-a"), None);
+    }
+
+    #[test]
+    fn check_token_budget_accepts_exact_limit_and_returns_estimate() {
+        let fixture = fixture(&["Source text.\n"]);
+        let (extractor, _, _, _) = extractor(&fixture, 1025);
+        assert_eq!(
+            check_token_budget(&fixture.kernel.database, &fixture.revisions, &extractor).unwrap(),
+            Some(1025)
+        );
+    }
+
+    #[test]
+    fn check_token_budget_refuses_one_token_over_limit() {
+        let fixture = fixture(&["Source text.\n"]);
+        let (extractor, _, _, _) = extractor(&fixture, 1024);
+        let result = check_token_budget(&fixture.kernel.database, &fixture.revisions, &extractor);
+        assert!(matches!(result, Err(Failure::Refused(message))
+        if message == "graph extraction token budget exceeded (1025 > 1024)"));
+    }
+
+    #[test]
+    fn check_token_budget_accumulates_individually_fitting_sources() {
+        let fixture = fixture(&["First source.\n", "Second source.\n"]);
+        let (extractor, _, _, _) = extractor(&fixture, 1025);
+        for revision in &fixture.revisions {
+            assert_eq!(
+                check_token_budget(
+                    &fixture.kernel.database,
+                    slice::from_ref(revision),
+                    &extractor
+                )
+                .unwrap(),
+                Some(1025)
+            );
+        }
+        let result = check_token_budget(&fixture.kernel.database, &fixture.revisions, &extractor);
+        assert!(matches!(result, Err(Failure::Refused(message))
+        if message == "graph extraction token budget exceeded (2050 > 1025)"));
+    }
+
+    #[test]
+    fn check_token_budget_refuses_unreadable_source() {
+        let mut fixture = fixture(&["Source text.\n"]);
+        fixture.revisions[0].canonical_digest = Digest::of(b"missing artifact");
+        let (extractor, _, _, _) = extractor(&fixture, 1025);
+        let result = check_token_budget(&fixture.kernel.database, &fixture.revisions, &extractor);
+        assert!(matches!(result, Err(Failure::Refused(message))
+        if message == "graph source cannot be read for token accounting"));
+    }
+
+    #[test]
+    fn check_token_budget_refuses_unavailable_estimate() {
+        let oversized = "x".repeat(4096 * 9);
+        let fixture = fixture(&[&oversized]);
+        let (extractor, _, _, _) = extractor(&fixture, 1025);
+        let result = check_token_budget(&fixture.kernel.database, &fixture.revisions, &extractor);
+        assert!(matches!(result, Err(Failure::Refused(message))
+        if message == "graph token estimate is unavailable"));
+    }
+
+    #[test]
+    fn check_token_budget_without_budget_does_not_read_sources() {
+        let mut fixture = fixture(&["Source text.\n"]);
+        fixture.revisions[0].canonical_digest = Digest::of(b"missing artifact");
+        let rule = TableRule::parse(
+            &json!({
+                "schema": "maestro-graph-table-rule/1",
+                "id": "synthetic",
+                "source_sha256": Digest::of(b"synthetic"),
+                "heading_path": ["Defaults"],
+                "columns": ["Name", "Type", "Value"],
+                "subject_column": "Name",
+                "type_column": "Type",
+                "lexeme_column": "Value",
+                "subject_kind": "Parameter",
+                "predicate": "DEFAULTS_TO"
+            })
+            .to_string(),
+        )
+        .unwrap();
+        assert_eq!(
+            check_token_budget(&fixture.kernel.database, &fixture.revisions, &rule).unwrap(),
+            None
+        );
     }
 }

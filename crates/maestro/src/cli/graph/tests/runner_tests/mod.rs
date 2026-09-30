@@ -1,4 +1,4 @@
-mod support;
+pub(in crate::cli::graph) mod support;
 
 use super::super::job::{self as graph_job, Work};
 use crate::{cli::output::Output, failure::Failure};
