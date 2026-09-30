@@ -126,6 +126,17 @@ impl Directory {
         expected: &[u8],
         expected_identity: Option<(u64, u64)>,
     ) -> io::Result<()> {
+        self.remove_verified_with(name, expected, expected_identity, || {})
+    }
+
+    /// Remove a verified file, invoking `after_quarantine` immediately after its rename.
+    pub(crate) fn remove_verified_with(
+        &self,
+        name: &str,
+        expected: &[u8],
+        expected_identity: Option<(u64, u64)>,
+        after_quarantine: impl FnOnce(),
+    ) -> io::Result<()> {
         if name.is_empty()
             || name.contains('/')
             || name.contains('\\')
@@ -150,6 +161,7 @@ impl Directory {
                 Err(error) => return Err(error.into()),
             }
         };
+        after_quarantine();
         let opened = (|| {
             let fd = openat(
                 &self.0,

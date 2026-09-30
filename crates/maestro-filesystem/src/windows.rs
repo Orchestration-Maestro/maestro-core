@@ -138,6 +138,17 @@ impl Directory {
         expected: &[u8],
         expected_identity: Option<(u64, u64)>,
     ) -> io::Result<()> {
+        self.remove_verified_with(name, expected, expected_identity, || {})
+    }
+
+    /// Remove a verified file, invoking `after_quarantine` immediately after its rename.
+    pub(crate) fn remove_verified_with(
+        &self,
+        name: &str,
+        expected: &[u8],
+        expected_identity: Option<(u64, u64)>,
+        after_quarantine: impl FnOnce(),
+    ) -> io::Result<()> {
         if expected_identity.is_some() {
             return Err(io::Error::new(
                 ErrorKind::Unsupported,
@@ -174,6 +185,7 @@ impl Directory {
             fs::remove_dir(self.path.join(&quarantine))?;
             return Err(error);
         }
+        after_quarantine();
         match self.read_regular(&quarantine_file) {
             Ok(bytes) if bytes == expected => {
                 self.remove_file(&quarantine_file)?;

@@ -11,7 +11,7 @@ use std::{
     os::unix::fs::{PermissionsExt, symlink},
     sync::mpsc,
     thread,
-    time::{Duration, Instant},
+    time::Duration,
 };
 #[cfg(windows)]
 use std::{path::Component, sync::Barrier, thread};
@@ -259,30 +259,14 @@ fn remove_verified_quarantine_never_replaces_a_planted_name() {
     fs::remove_dir_all(root).unwrap();
 }
 
-#[cfg(unix)]
 #[test]
 fn remove_verified_restore_never_replaces_a_concurrently_recreated_name() {
     let root = scratch();
-    let old_bytes = vec![b'o'; 16 * 1024 * 1024];
-    fs::write(root.join("file"), &old_bytes).unwrap();
+    fs::write(root.join("file"), b"old bytes").unwrap();
     let directory = Directory::open(&root, Path::new(""), false).unwrap();
-    let recreate_root = root.clone();
-    let (recreated, remove_result) = thread::scope(|scope| {
-        let recreator = scope.spawn(move || {
-            let deadline = Instant::now() + Duration::from_secs(3);
-            while Instant::now() < deadline && recreate_root.join("file").exists() {
-                thread::yield_now();
-            }
-            if recreate_root.join("file").exists() {
-                return false;
-            }
-            fs::write(recreate_root.join("file"), b"recreated").unwrap();
-            true
-        });
-        let remove_result = directory.remove_verified("file", b"expected", None);
-        (recreator.join().unwrap(), remove_result)
+    let remove_result = directory.remove_verified_with("file", b"expected", None, || {
+        fs::write(root.join("file"), b"recreated").unwrap();
     });
-    assert!(recreated, "recreator did not observe the quarantine window");
     assert!(remove_result.is_err());
     assert_eq!(fs::read(root.join("file")).unwrap(), b"recreated");
     assert!(fs::read_dir(&root).unwrap().any(|entry| {
