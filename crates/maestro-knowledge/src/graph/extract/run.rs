@@ -40,7 +40,7 @@ pub struct ModelExtractor<P> {
     prompt_digest: Digest,
     /// Window policy identity recorded in durable job inputs.
     policy_digest: Digest,
-    /// Cumulative input and reserved-output token ceiling.
+    /// Whole-plan input and reserved-output estimate limit.
     token_budget: usize,
     /// Current-thread runtime kept outside any caller runtime.
     runtime: Runtime,
@@ -180,11 +180,13 @@ pub(super) fn candidate_claim(
     window: &Window,
     provenance: &Provenance,
 ) -> Result<Claim, &'static str> {
+    if !candidate.predicate.is_claimable() {
+        return Err("predicate is not claimable");
+    }
     let span = locate_quote(window, &candidate.quote)?;
     let quote = source
         .markdown()
         .get(span.start..span.end)
-        .filter(|quote| *quote == candidate.quote)
         .ok_or("quote source mismatch")?;
     Ok(Claim {
         subject: candidate.subject,
@@ -215,6 +217,7 @@ fn append_candidates(
     candidates: Vec<Candidate>,
 ) {
     for candidate in candidates {
+        // ponytail: O(n²) scan; output is capped at 1,024 tokens, key claims if that cap grows.
         match candidate_claim(candidate, source, window, provenance) {
             Ok(claim) if !result.claims.contains(&claim) => result.claims.push(claim),
             Ok(_) => {}

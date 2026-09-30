@@ -1,5 +1,7 @@
 //! Synthetic window and quote-pointer checks; no model or vendor data is used.
 
+mod dedup;
+
 use super::run::{ModelExtractor, candidate_claim};
 use super::{Window, WindowPolicy, locate_quote, windows};
 use crate::graph::{rules::Extractor as GraphExtractor, verify::Source};
@@ -80,7 +82,20 @@ fn window_policy_is_versioned_bounded_and_closed() {
 #[test]
 fn windows_are_exact_utf8_source_ranges_and_stay_within_one_block() {
     let text = "# Heading\n\nText with café.\n";
-    let source = source(text);
+    let original = source(text);
+    let mut canonical = original.canonical().clone();
+    assert!(canonical.blocks.len() >= 2);
+    let parent_id = canonical.blocks[0].block_id.clone();
+    canonical.blocks[0].source_spans = vec![SourceSpan {
+        start: 0,
+        end: text.len(),
+    }];
+    canonical.blocks[1].parent_block_id = Some(parent_id);
+    let source = Source::new(
+        original.revision_id().to_owned(),
+        canonical,
+        text.to_owned(),
+    );
     let result = windows(&source, &policy(12, 3, 20)).expect("source windows");
     assert!(!result.is_empty());
     for window in result {
@@ -89,12 +104,20 @@ fn windows_are_exact_utf8_source_ranges_and_stay_within_one_block() {
             text.get(window.span.start..window.span.end),
             Some(window.text.as_str())
         );
+        let block = source
+            .canonical()
+            .blocks
+            .iter()
+            .find(|block| block.block_id == window.block_id)
+            .expect("window block exists");
         assert!(
             source
                 .canonical()
                 .blocks
                 .iter()
-                .any(|block| block.block_id == window.block_id)
+                .all(|child| child.parent_block_id.as_deref() != Some(&block.block_id)),
+            "window spans parent block {} and its children",
+            block.block_id
         );
     }
 }
@@ -323,78 +346,6 @@ fn model_extractor_uses_deterministic_port_and_counts_cumulative_reserved_tokens
     let cost = GraphExtractor::estimated_tokens(&extractor, &source).expect("token estimate");
     assert_eq!(cost, 1025);
     let extraction = GraphExtractor::extract(&extractor, &source);
-    assert_eq!(extraction.claims.len(), 1);
-    assert!(extraction.rejections.is_empty());
-    fs::remove_dir_all(path).expect("remove synthetic card");
-}
-
-#[test]
-fn duplicate_model_candidates_produce_one_claim_and_a_successful_extraction() {
-    let text = "Command launch requires component core.\n";
-    let source = source(text);
-    let candidate = Candidate {
-        subject: EntityName {
-            kind: EntityKind::Command,
-            name: "launch".into(),
-        },
-        predicate: Predicate::Requires,
-        object: Object::Entity(EntityName {
-            kind: EntityKind::Component,
-            name: "core".into(),
-        }),
-        quote: "Command launch requires component core".into(),
-    };
-    let (path, card) = test_card();
-    let extractor = ModelExtractor::new(
-        DeterministicExtractor {
-            candidates: vec![candidate.clone(), candidate],
-            refuse: false,
-        },
-        card,
-        policy(128, 0, 8),
-        Digest::of(b"policy"),
-        2048,
-    )
-    .expect("model extraction runtime");
-
-    let extraction = GraphExtractor::extract(&extractor, &source);
-
-    assert_eq!(extraction.claims.len(), 1);
-    assert!(extraction.rejections.is_empty());
-    fs::remove_dir_all(path).expect("remove synthetic card");
-}
-
-#[test]
-fn overlap_quote_produces_one_claim_and_a_successful_batch() {
-    let text = "0123456789abcdefghij";
-    let source = source(text);
-    let candidate = Candidate {
-        subject: EntityName {
-            kind: EntityKind::Command,
-            name: "launch".into(),
-        },
-        predicate: Predicate::Requires,
-        object: Object::Entity(EntityName {
-            kind: EntityKind::Component,
-            name: "core".into(),
-        }),
-        quote: "89ab".into(),
-    };
-    let (path, card) = test_card();
-    let extractor = ModelExtractor::new(
-        DeterministicExtractor {
-            candidates: vec![candidate],
-            refuse: false,
-        },
-        card,
-        policy(12, 4, 8),
-        Digest::of(b"policy"),
-        2048,
-    )
-    .expect("model extraction runtime");
-
-    let extraction = GraphExtractor::extract(&extractor, &source);
-
     assert_eq!(extraction.claims.len(), 1);
     assert!(extraction.rejections.is_empty());
     fs::remove_dir_all(path).expect("remove synthetic card");

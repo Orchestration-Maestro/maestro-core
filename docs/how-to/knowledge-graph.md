@@ -33,10 +33,11 @@ source window and records the source's original revision, block, byte span and
 digest as evidence. Source instructions cannot change the closed vocabulary or
 build authority. The token budget is an estimate limit for one job: the card
 tokenizer counts system-prompt-plus-window input and reserves the full
-1,024-token output estimate per call. Resume reruns the whole-plan preflight,
-but reuses committed batches. A crash can restart at most one source across
-that job's lease-resume chain; the estimated spend is therefore at most the
-plan estimate plus one largest-source window cost. Rerunning a failed job
+1,024-token output estimate per call. For one frozen input set, resume
+reruns the whole-plan preflight but reuses committed batches. A crash can
+restart at most one source across that job's
+lease-resume chain; estimated spend is at most plan estimate plus one
+largest-source window cost. Rerunning a failed job
 starts a new job and spends again, up to its own estimate. This is not an exact
 spend cap; per-window durable token accounting is deferred. The card, prompt,
 policy, profile and budget digests remain frozen in job inputs. The policy

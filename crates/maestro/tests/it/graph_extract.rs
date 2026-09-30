@@ -1,6 +1,24 @@
 //! Model graph extraction is an explicit, mutually exclusive build mode.
 
-use std::process::Command;
+use super::{
+    graph_build::{COLLECTION, pilot},
+    support::{Home, local},
+};
+use maestro_kernel::{
+    facts::{Budget, BuildPlan},
+    job::NewJob,
+    journal::Filter,
+    scope::collection_path,
+};
+use maestro_knowledge::{
+    graph::{
+        build,
+        rules::{Extractor as _, TableRule},
+    },
+    quality,
+};
+use serde_json::json;
+use std::{process::Command, time::UNIX_EPOCH};
 
 #[test]
 fn graph_build_help_documents_explicit_model_inputs() {
@@ -19,8 +37,66 @@ fn graph_build_help_documents_explicit_model_inputs() {
         assert!(help.contains(flag), "missing {flag} in {help}");
     }
     assert!(
-        help.contains("crash retry"),
-        "retry bound is absent: {help}"
+        help.contains("estimate limit for one job"),
+        "estimate scope is absent: {help}"
+    );
+    assert!(
+        help.contains("failed-job rerun spends up to its own estimate"),
+        "retry scope is absent: {help}"
+    );
+}
+
+#[test]
+fn model_extractor_inputs_and_estimate_are_frozen_in_the_job_created_event() {
+    let home = Home::new();
+    let rule = pilot(&home);
+    let parsed = TableRule::parse(&std::fs::read_to_string(rule).unwrap()).unwrap();
+    let database = home.database();
+    let scopes = local(&database);
+    let revisions = quality::eligible(&database, &scopes, COLLECTION).unwrap();
+    let plan = BuildPlan {
+        collection_id: COLLECTION.into(),
+        provenance: parsed.provenance(),
+        sources: revisions
+            .iter()
+            .map(|revision| revision.id.clone())
+            .collect(),
+        budget: Budget {
+            max_claims: 100,
+            max_rejections: 100,
+        },
+    };
+    let inputs = build::inputs(
+        &plan,
+        Some(json!({"card_digest":"card","prompt_digest":"prompt",
+            "window_policy_digest":"policy","estimated_tokens":1025})),
+    );
+    let scope = collection_path(COLLECTION).parse().unwrap();
+    let job = database
+        .submit_job(
+            &NewJob {
+                kind: "knowledge.graph.build",
+                inputs: &inputs,
+                scope: &scope,
+                resource: Some("graph-build:synthetic-graph"),
+            },
+            UNIX_EPOCH,
+        )
+        .unwrap();
+    let created = database
+        .events(
+            &scopes,
+            &Filter {
+                stream: &maestro_kernel::job::stream(job.id),
+                after: 0,
+                r#type: Some(maestro_kernel::job::CREATED),
+            },
+        )
+        .unwrap();
+
+    assert_eq!(
+        created[0].data["inputs"]["extractor_inputs"]["estimated_tokens"],
+        1025
     );
 }
 

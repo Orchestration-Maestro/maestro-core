@@ -126,6 +126,10 @@ in place.
 │   │   │   │   │   ├── runner.rs                                            # The ladder's run: every rung's cards checked first, then each rung in
 │   │   │   │   │   └── stages.rs                                            # Whether a search ran every stage its rung enables
 │   │   │   │   ├── graph/                                                   # knowledge graph: the commands over a collection's knowledge graph
+│   │   │   │   │   ├── tests/                                               # How knowledge graph build classifies the kernel's refusals of a claim
+│   │   │   │   │   │   ├── runner_tests/                                    # Runner tests
+│   │   │   │   │   │   │   └── support.rs                                   # Rust source: support
+│   │   │   │   │   │   └── runner_tests.rs                                  # Rust source: runner tests
 │   │   │   │   │   ├── attach.rs                                            # Attachment is separate leased work; completed extraction is never repeated
 │   │   │   │   │   ├── build.rs                                             # knowledge graph build: a collection's claims built with one strict
 │   │   │   │   │   ├── extract_output.rs                                    # Aggregate-only output for model-backed graph extraction
@@ -648,6 +652,7 @@ in place.
 │   │   │   │   │   ├── formatting.rs                                        # Model-card document and query formatting
 │   │   │   │   │   ├── mod.rs                                               # Tests of the model gateway: model cards, the router client against a stub
 │   │   │   │   │   ├── port.rs                                              # Tests of the port's refusals: each says what was refused and why
+│   │   │   │   │   ├── prompt_digest.rs                                     # The extractor identity binds every fixed input sent with its request
 │   │   │   │   │   ├── render.rs                                            # Rendering preserves generation framing and refuses unsupported adapters
 │   │   │   │   │   ├── reply_cap.rs                                         # The reply cap of a chat request: the smallest of the caller's cap, the
 │   │   │   │   │   ├── router.rs                                            # Tests of the router client against a stub router: every call is bound to
@@ -952,6 +957,8 @@ in place.
 │   │   │   │   └── run_v2.rs                                                # Strict v2 attempt execution and aggregation
 │   │   │   ├── graph/                                                       # The knowledge graph's construction (specs/002-knowledge-graph): claims
 │   │   │   │   ├── extract/                                                 # Bounded model extraction over canonical source windows
+│   │   │   │   │   ├── tests/                                               # Synthetic window and quote-pointer checks; no model or vendor data is used
+│   │   │   │   │   │   └── dedup.rs                                         # Duplicate claim identity and post-review source rejection checks
 │   │   │   │   │   ├── mod.rs                                               # Bounded model extraction over canonical source windows
 │   │   │   │   │   ├── run.rs                                               # Candidate extraction and source-only evidence construction
 │   │   │   │   │   ├── tests.rs                                             # Synthetic window and quote-pointer checks; no model or vendor data is used

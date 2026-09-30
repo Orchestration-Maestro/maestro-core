@@ -24,7 +24,7 @@ pub(super) struct Inputs<'a> {
     pub(super) extractor_card: Option<&'a str>,
     /// Optional window-policy path.
     pub(super) window_policy_path: Option<&'a Path>,
-    /// Optional cumulative token ceiling.
+    /// Optional whole-plan estimate limit.
     pub(super) token_budget: Option<usize>,
 }
 

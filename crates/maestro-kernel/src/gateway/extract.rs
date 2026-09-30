@@ -61,10 +61,15 @@ pub fn extraction_system_prompt() -> String {
     )
 }
 
-/// Digest of the exact fixed system prompt used by constrained extraction.
+/// Digest of the complete fixed extraction prompt contract.
 #[must_use]
 pub fn extraction_prompt_digest() -> Digest {
-    Digest::of(extraction_system_prompt().as_bytes())
+    let identity = json!({
+        "system_prompt": extraction_system_prompt(),
+        "response_format": response_format(),
+        "user_message_template": "{window_text}",
+    });
+    Digest::of(identity.to_string().as_bytes())
 }
 
 /// The closed JSON-schema response format sent with every extraction call.

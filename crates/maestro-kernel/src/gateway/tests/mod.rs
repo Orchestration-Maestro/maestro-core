@@ -10,6 +10,7 @@ mod fake;
 mod fixture;
 mod formatting;
 mod port;
+mod prompt_digest;
 mod render;
 mod reply_cap;
 mod router;

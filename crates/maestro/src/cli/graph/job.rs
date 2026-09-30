@@ -50,7 +50,14 @@ pub(super) struct Built {
 
 /// Submit or resume exactly this plan, using the existing foreground lease runner.
 pub(super) fn run(kernel: &Kernel, output: Output, work: &Work<'_>) -> Result<Built, Failure> {
-    let inputs = build::inputs(work.plan, work.extractor.job_inputs());
+    let estimate = check_token_budget(&kernel.database, work.revisions, work.extractor)?;
+    let extractor_inputs = work.extractor.job_inputs().map(|mut inputs| {
+        if let Some(estimate) = estimate {
+            inputs["estimated_tokens"] = json!(estimate);
+        }
+        inputs
+    });
+    let inputs = build::inputs(work.plan, extractor_inputs);
     let scope = collection_path(&work.plan.collection_id)
         .parse()
         .map_err(|error| Failure::refused_by(&error))?;
@@ -94,7 +101,6 @@ impl Work<'_> {
                     .begin_graph_build(&kernel.scopes, lease, self.plan)
             })
             .map_err(|error| claim_failure(&error))?;
-        check_token_budget(&kernel.database, self.revisions, self.extractor)?;
         let mut claims: usize = current.batches.iter().map(|batch| batch.claims.len()).sum();
         for (ordinal, revision) in self
             .revisions
@@ -135,14 +141,14 @@ impl Work<'_> {
     }
 }
 
-/// Verifies the full run's cumulative token estimate before extraction begins.
+/// Verifies the full-plan estimate before job submission and extraction.
 fn check_token_budget(
     database: &Database,
     revisions: &[Revision],
     extractor: &dyn Extractor,
-) -> Result<(), Failure> {
+) -> Result<Option<usize>, Failure> {
     let Some(limit) = extractor.token_budget() else {
-        return Ok(());
+        return Ok(None);
     };
     let mut estimated = 0_usize;
     for revision in revisions {
@@ -161,7 +167,7 @@ fn check_token_budget(
             "graph extraction token budget exceeded ({estimated} > {limit})"
         )));
     }
-    Ok(())
+    Ok(Some(estimated))
 }
 
 /// Records one source start and refuses after its durable retry allowance is spent.

@@ -131,9 +131,6 @@ pub fn locate_quote(window: &Window, quote: &str) -> Result<SourceSpan, &'static
     while let Some(relative) = window.text[from..].find(quote) {
         let start = from + relative;
         let end = start + quote.len();
-        if !window.text.is_char_boundary(start) || !window.text.is_char_boundary(end) {
-            return Err("quote splits a UTF-8 character");
-        }
         if found.is_some() {
             return Err("ambiguous quote");
         }

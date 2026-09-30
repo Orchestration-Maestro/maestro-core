@@ -98,9 +98,30 @@ pub(super) fn document(input: Input<'_>) -> Document<'_> {
             .map(|rejection| RejectionDocument {
                 revision: &rejection.revision_id,
                 block: rejection.block_id.as_deref(),
-                code: "candidate_rejected",
+                code: rejection_code(&rejection.reason),
             })
             .collect(),
+    }
+}
+
+/// Maps fixed extraction refusal reasons to sanitized output codes.
+fn rejection_code(reason: &str) -> &'static str {
+    match reason {
+        "source verification failed" => "source_verification_failed",
+        "extractor call refused" => "extractor_call_refused",
+        "block belongs to another revision" => "foreign_source_block",
+        "ambiguous source block span" => "ambiguous_source_span",
+        "invalid source block span" => "invalid_source_span",
+        "window count exceeds policy" => "window_limit_exceeded",
+        "window policy splits a UTF-8 character" => "window_splits_character",
+        "window overlap prevents progress" => "window_overlap_prevents_progress",
+        "predicate is not claimable" => "predicate_not_claimable",
+        "empty quote" => "empty_quote",
+        "quote is not in its source window" => "quote_not_in_window",
+        "ambiguous quote" => "ambiguous_quote",
+        "quote source mismatch" => "quote_source_mismatch",
+        "quote splits a UTF-8 character" => "quote_splits_character",
+        _ => "candidate_rejected",
     }
 }
 
@@ -114,10 +135,16 @@ pub(super) fn summary(document: &Document<'_>) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{Input, document};
+    use super::{Input, document, rejection_code};
     use maestro_kernel::{artifact::Digest, facts::Provenance};
     use maestro_knowledge::graph::rules::Rejection;
     use ulid::Ulid;
+
+    #[test]
+    fn fixed_rejection_reasons_map_to_closed_output_codes() {
+        assert_eq!(rejection_code("empty quote"), "empty_quote");
+        assert_eq!(rejection_code("PRIVATE_MODEL_QUOTE"), "candidate_rejected");
+    }
 
     #[test]
     fn model_written_rejection_text_is_never_serialized() {

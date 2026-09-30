@@ -64,10 +64,12 @@ fn graph_model_inputs_freeze_card_prompt_window_profile_and_token_budget() {
             "prompt_digest": "prompt",
             "window_policy_digest": "window",
             "profile_digest": "profile",
-            "token_budget": 4096
+            "token_budget": 4096,
+            "estimated_tokens": 1025
         })),
     );
     assert_eq!(frozen["extractor_inputs"]["token_budget"], 4096);
+    assert_eq!(frozen["extractor_inputs"]["estimated_tokens"], 1025);
     assert_eq!(frozen["extractor_inputs"]["prompt_digest"], "prompt");
     let changed = inputs(
         &plan,
@@ -76,8 +78,12 @@ fn graph_model_inputs_freeze_card_prompt_window_profile_and_token_budget() {
             "prompt_digest": "prompt",
             "window_policy_digest": "window",
             "profile_digest": "profile",
-            "token_budget": 4097
+            "token_budget": 4097,
+            "estimated_tokens": 1025
         })),
     );
     assert_ne!(frozen, changed);
+    let mut changed_estimate = frozen.clone();
+    changed_estimate["extractor_inputs"]["estimated_tokens"] = json!(1026);
+    assert_ne!(frozen, changed_estimate);
 }

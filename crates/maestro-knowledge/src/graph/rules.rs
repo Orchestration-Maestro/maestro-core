@@ -97,7 +97,7 @@ pub trait Extractor {
     /// The claims `source` gives, and what it rejected.
     fn extract(&self, source: &Source) -> Extraction;
 
-    /// A cumulative bound for model input and reserved output tokens, if needed.
+    /// The model input and reserved-output estimate limit, if needed.
     fn token_budget(&self) -> Option<usize> {
         None
     }
