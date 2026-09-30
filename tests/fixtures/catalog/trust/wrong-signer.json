@@ -1,30 +1,37 @@
 {
   "fixture": "public-wrong-signer-control",
-  "probe_status": "blocked-before-identity-check",
-  "is_verification_evidence": false,
-  "artifact": {
-    "repository": "cli/cli",
-    "release": "v2.98.0",
-    "asset": "gh_2.98.0_linux_amd64.tar.gz",
-    "sha256": "3b8ac6b30336802fc1a858d7c084e11cdf24ac1a761ca90b68022d7d729208de"
+  "artifact_sha256": "3b8ac6b30336802fc1a858d7c084e11cdf24ac1a761ca90b68022d7d729208de",
+  "repository_lookup": "cli/cli",
+  "verifier": {
+    "version": "gh version 2.98.0 (2026-08-20)",
+    "sha256": "62885b97de6a0cd85e616cdd94bcda908bf5cf1018094385892b05cea3537163",
+    "pinned_by_OA4": false
   },
-  "wrong_expected_identity": {
-    "repository": "github/docs",
-    "signer_workflow": "github/docs/.github/workflows/releases.yml"
+  "offline_probe": {
+    "argv": [
+      "gh", "attestation", "verify", "<artifact>", "-R", "cli/cli",
+      "--bundle", "bundles.jsonl",
+      "--signer-workflow", "github/docs/.github/workflows/releases.yml",
+      "--format", "json"
+    ],
+    "exit_code": 1,
+    "stdout_bytes": 0,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stderr_bytes": 45,
+    "stderr": "Error: verifying with issuer \"sigstore.dev\"\n",
+    "stderr_sha256": "486941643d59bcaec905305a9ad2843539956d60f735745f77a05db562cfda19",
+    "interpretation": "Attestation bundle was loaded; verifier rejected the deliberately mismatched signer identity."
   },
-  "command": [
-    "gh",
-    "attestation",
-    "verify",
-    "<artifact>",
-    "-R",
-    "github/docs",
-    "--signer-workflow",
-    "github/docs/.github/workflows/releases.yml",
-    "--format",
-    "json"
-  ],
-  "exit_code": 4,
-  "stderr": "To get started with GitHub CLI, please run: gh auth login\nAlternatively, populate the GH_TOKEN environment variable with a GitHub API authentication token.",
-  "reason": "The verifier refused to start the API lookup without authentication; wrong-signer rejection was not measured. This failure is deliberately not represented as a wrong-signer verification result."
+  "online_probe": {
+    "argv": [
+      "gh", "attestation", "verify", "<artifact>", "-R", "cli/cli",
+      "--signer-workflow", "github/docs/.github/workflows/releases.yml",
+      "--format", "json"
+    ],
+    "exit_code_without_credential": 4,
+    "stderr_sha256": "69f5519080eaf4c3a8900ff6c94fe8295d61829c17161fb23806005b55bc84b9",
+    "pending": "OA4 online lookup, its API call count, and least-scope credential binding; a broad-scope local login was not used"
+  },
+  "bundle_jsonl_sha256": "afa4c46c4a2bc05e0e905b7299c426ac03971fc767d06dcd2a6d2d0d282796ca",
+  "is_verification_evidence": true
 }

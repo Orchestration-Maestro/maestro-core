@@ -1431,7 +1431,8 @@ in place.
 │   └── 003-catalog/                                                         # 003 catalog
 │       ├── research/                                                        # Research
 │       │   ├── dependencies.md                                              # C09 dependency measurements
-│       │   └── hosts.md                                                     # Catalog host format probe (C01)
+│       │   ├── hosts.md                                                     # Catalog host format probe (C01)
+│       │   └── trust.md                                                     # C09 public attestation probe and trust measurements
 │       ├── plan.md                                                          # Implementation Plan: Catalog
 │       ├── spec.md                                                          # Feature Specification: Catalog
 │       ├── tasks.md                                                         # Catalog Implementation Tasks
