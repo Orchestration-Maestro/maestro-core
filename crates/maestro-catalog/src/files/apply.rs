@@ -55,12 +55,7 @@ pub fn apply(root: &Path, plan: &FilePlan) -> io::Result<()> {
 /// Returns an error for absent or malformed journals, ambiguous creates, and changed files.
 pub fn recover(root: &Path, id: &str) -> io::Result<()> {
     let plan = super::recovery::read_journal(root, id)?;
-    apply_pending(root, &plan)
-}
-
-/// Resume a journal only when no unowned target obscures a pending exclusive create.
-pub(super) fn apply_pending(root: &Path, plan: &FilePlan) -> io::Result<()> {
-    apply_with_failure(root, plan, None)
+    apply_with_failure(root, &plan, None)
 }
 
 /// Apply a plan with a test-only interruption point after each durable stage.

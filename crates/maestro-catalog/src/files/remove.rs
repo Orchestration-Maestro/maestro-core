@@ -28,7 +28,11 @@ struct OwnedFile {
 /// Remove only files whose current bytes match the ownership record for `id`.
 ///
 /// All paths are checked before the first removal, and each name is removed through the shared
-/// filesystem's verified quarantine operation. A missing file is treated as prior progress.
+/// filesystem's verified quarantine operation. A missing file is treated as prior progress. Created
+/// parent directories are intentionally retained. On Windows, std exposes no stable file identity,
+/// so a deleted file recreated with identical bytes cannot be distinguished yet; Windows removal
+/// remains subject to the recorded file-identity dependency follow-up. On Unix, unlink follows
+/// digest verification by name, so an open writer can change bytes after verification.
 ///
 /// # Errors
 /// Returns an error for malformed ownership, edited content, unsafe paths, or filesystem failure.

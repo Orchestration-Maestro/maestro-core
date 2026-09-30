@@ -3,7 +3,6 @@ use super::plan::{FilePlan, PlannedFile, validate_id, validate_plan};
 use maestro_filesystem::Directory;
 use std::{io, path::Path, str};
 
-/// Hidden directory for journals and ownership records.
 /// Serialized form of one write-ahead file plan.
 #[derive(serde::Deserialize)]
 struct Journal {
