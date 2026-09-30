@@ -216,7 +216,8 @@ fn append_candidates(
 ) {
     for candidate in candidates {
         match candidate_claim(candidate, source, window, provenance) {
-            Ok(claim) => result.claims.push(claim),
+            Ok(claim) if !result.claims.contains(&claim) => result.claims.push(claim),
+            Ok(_) => {}
             Err(reason) => {
                 result
                     .rejections

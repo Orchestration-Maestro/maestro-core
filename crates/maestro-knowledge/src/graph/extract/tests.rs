@@ -329,6 +329,78 @@ fn model_extractor_uses_deterministic_port_and_counts_cumulative_reserved_tokens
 }
 
 #[test]
+fn duplicate_model_candidates_produce_one_claim_and_a_successful_extraction() {
+    let text = "Command launch requires component core.\n";
+    let source = source(text);
+    let candidate = Candidate {
+        subject: EntityName {
+            kind: EntityKind::Command,
+            name: "launch".into(),
+        },
+        predicate: Predicate::Requires,
+        object: Object::Entity(EntityName {
+            kind: EntityKind::Component,
+            name: "core".into(),
+        }),
+        quote: "Command launch requires component core".into(),
+    };
+    let (path, card) = test_card();
+    let extractor = ModelExtractor::new(
+        DeterministicExtractor {
+            candidates: vec![candidate.clone(), candidate],
+            refuse: false,
+        },
+        card,
+        policy(128, 0, 8),
+        Digest::of(b"policy"),
+        2048,
+    )
+    .expect("model extraction runtime");
+
+    let extraction = GraphExtractor::extract(&extractor, &source);
+
+    assert_eq!(extraction.claims.len(), 1);
+    assert!(extraction.rejections.is_empty());
+    fs::remove_dir_all(path).expect("remove synthetic card");
+}
+
+#[test]
+fn overlap_quote_produces_one_claim_and_a_successful_batch() {
+    let text = "0123456789abcdefghij";
+    let source = source(text);
+    let candidate = Candidate {
+        subject: EntityName {
+            kind: EntityKind::Command,
+            name: "launch".into(),
+        },
+        predicate: Predicate::Requires,
+        object: Object::Entity(EntityName {
+            kind: EntityKind::Component,
+            name: "core".into(),
+        }),
+        quote: "89ab".into(),
+    };
+    let (path, card) = test_card();
+    let extractor = ModelExtractor::new(
+        DeterministicExtractor {
+            candidates: vec![candidate],
+            refuse: false,
+        },
+        card,
+        policy(12, 4, 8),
+        Digest::of(b"policy"),
+        2048,
+    )
+    .expect("model extraction runtime");
+
+    let extraction = GraphExtractor::extract(&extractor, &source);
+
+    assert_eq!(extraction.claims.len(), 1);
+    assert!(extraction.rejections.is_empty());
+    fs::remove_dir_all(path).expect("remove synthetic card");
+}
+
+#[test]
 fn model_port_refusal_is_retained_without_model_text() {
     let source = source("Some source.\n");
     let (path, card) = test_card();
