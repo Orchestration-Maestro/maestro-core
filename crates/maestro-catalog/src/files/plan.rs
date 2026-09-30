@@ -215,8 +215,15 @@ fn is_windows_device_name(component: &str) -> bool {
         stem.to_ascii_uppercase().as_str(),
         "CON" | "PRN" | "AUX" | "NUL"
     ) || bytes.len() == 4
-        && (bytes[..3].eq_ignore_ascii_case(b"COM") || bytes[..3].eq_ignore_ascii_case(b"LPT"))
-        && matches!(bytes[3], b'1'..=b'9')
+        && (bytes
+            .get(..3)
+            .is_some_and(|prefix| prefix.eq_ignore_ascii_case(b"COM"))
+            || bytes
+                .get(..3)
+                .is_some_and(|prefix| prefix.eq_ignore_ascii_case(b"LPT")))
+        && bytes
+            .get(3)
+            .is_some_and(|digit| matches!(digit, b'1'..=b'9'))
 }
 
 /// Validate an externally supplied plan identifier before using it in a state-file name.

@@ -172,13 +172,13 @@ fn write_new(directory: &Directory, name: &str, bytes: &[u8], tear: bool) -> io:
         let temporary = format!(".{name}.tmp-{}-{sequence}", process::id());
         match directory.create_new(&temporary) {
             Ok(file) => break (temporary, file),
-            Err(error) if error.kind() == ErrorKind::AlreadyExists => continue,
+            Err(error) if error.kind() == ErrorKind::AlreadyExists => {}
             Err(error) => return Err(error),
         }
     };
     directory.sync()?;
     if tear {
-        file.write_all(&bytes[..bytes.len() / 2])?;
+        file.write_all(bytes.get(..bytes.len() / 2).unwrap_or_default())?;
         file.sync_all()?;
         return Err(io::Error::other("injected torn state-record write"));
     }
