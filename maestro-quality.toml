@@ -333,3 +333,9 @@ rule = "ARC-005"
 path = "crates/maestro-kernel/src/unit_graph/mod.rs"
 item = "GraphKey"
 reason = "the public source-scoped graph read key belongs to graph storage; representation completion also reads each graph through this boundary"
+
+[[exception]]
+rule = "TST-001"
+path = "crates/maestro-test-clock/src/stopped.rs"
+item = "work_is_constructed_on_the_stopped_clock"
+reason = "proves paused Tokio time ignores real time; the assertion is equality on paused time, so it is deterministic whatever the sleep length; 20 ms"

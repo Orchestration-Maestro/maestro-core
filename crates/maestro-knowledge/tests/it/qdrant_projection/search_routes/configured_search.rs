@@ -107,7 +107,7 @@ fn off() -> SearchConfiguration {
 async fn run(fixture: &Published, text: &str, configuration: SearchConfiguration) -> EvidenceInput {
     let context = context(fixture, None);
     let request = request(fixture, text, configuration);
-    on_stopped_clock(future::pending(), Box::pin(search(&context, &request)))
+    on_stopped_clock(future::pending(), || Box::pin(search(&context, &request)))
         .await
         .unwrap()
 }

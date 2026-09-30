@@ -97,7 +97,7 @@ async fn search_with_window(
             ..SearchConfiguration::default()
         },
     };
-    let searched = async {
+    let searched = || async {
         let started = Instant::now();
         let input = Box::pin(search(&search_context, &request)).await.unwrap();
         let elapsed = started.elapsed();

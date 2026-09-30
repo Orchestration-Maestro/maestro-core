@@ -410,19 +410,22 @@ async fn publication_and_standalone_verification_use_the_fake_port() {
     );
 
     let understood = understand("ERR-042");
-    let identifier_query = Query {
-        text: "ERR-042",
-        ..query
-    };
-    let identifiers = on_stopped_clock(
-        future::pending(),
+    let identifiers = on_stopped_clock(future::pending(), || async {
+        let clock: Arc<dyn Clock> = Arc::new(RuntimeClock::current());
+        let identifier_query = Query {
+            text: "ERR-042",
+            clock: &clock,
+            ..query
+        };
+
         search_identifiers(
             &identifier_query,
             kernel.database.clone(),
             &understood,
             Instant::now() + Duration::from_secs(2),
-        ),
-    )
+        )
+        .await
+    })
     .await;
     assert!(!identifiers.hits.is_empty());
 

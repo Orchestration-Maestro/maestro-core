@@ -214,7 +214,7 @@ async fn a_known_score_outside_rerank_depth_is_not_reused() {
         rerank_depth: NonZeroUsize::new(2).unwrap(),
         ..SearchConfiguration::default()
     };
-    on_stopped_clock(future::pending(), async {
+    on_stopped_clock(future::pending(), || async {
         let admitted = corpus.admitted("run a task", configuration);
         let reranker_card = card(Role::Reranker, 8192);
         let reranker = Reranker {
@@ -245,7 +245,7 @@ async fn a_known_score_outside_rerank_depth_is_not_reused() {
 async fn the_reranker_reads_chunk_text_by_default() {
     let corpus = Corpus::new();
     let port = FakePort::scores(vec![0.9, 0.5, 0.1]);
-    on_stopped_clock(future::pending(), async {
+    on_stopped_clock(future::pending(), || async {
         let admitted = corpus.admitted("run a task", SearchConfiguration::default());
         let ranking = corpus.rank(&port, &admitted, "run a task").await;
         let calls = port.calls.lock().unwrap();
@@ -267,7 +267,7 @@ async fn bounded_context_reaches_the_reranker_only_within_its_depth() {
         rerank_depth: NonZeroUsize::new(2).unwrap(),
         ..bounded()
     };
-    on_stopped_clock(future::pending(), async {
+    on_stopped_clock(future::pending(), || async {
         let admitted = corpus.admitted("run a task", configuration);
         let ranking = corpus.rank(&port, &admitted, "run a task").await;
         let sent = port.calls.lock().unwrap()[0].documents.clone();
@@ -293,7 +293,7 @@ async fn a_disabled_rerank_expands_nothing() {
         fusion_pool: 120,
         ..bounded()
     };
-    on_stopped_clock(future::pending(), async {
+    on_stopped_clock(future::pending(), || async {
         let admitted = corpus.admitted("run a task", configuration);
         let ranking = corpus.rank(&port, &admitted, "run a task").await;
         assert!(port.calls.lock().unwrap().is_empty());
@@ -307,7 +307,7 @@ async fn a_disabled_rerank_expands_nothing() {
 async fn bounded_context_leaves_the_bundle_byte_identical() {
     let corpus = Corpus::new();
     let port = FakePort::scores(vec![0.5, 0.5, 0.5]);
-    on_stopped_clock(future::pending(), async {
+    on_stopped_clock(future::pending(), || async {
         let mut bundles = Vec::new();
         for configuration in [SearchConfiguration::default(), bounded()] {
             let admitted = corpus.admitted("run a task", configuration);
@@ -334,7 +334,7 @@ async fn the_prior_demotes_a_release_note_for_a_generic_question_before_the_cap(
         ..SearchConfiguration::default()
     };
     let port = FakePort::scores(vec![0.9, 0.5, 0.1]);
-    on_stopped_clock(future::pending(), async {
+    on_stopped_clock(future::pending(), || async {
         let admitted = corpus.admitted("run a task", configuration);
         let demoted = corpus.rank(&port, &admitted, "run a task").await;
         assert_eq!(order(&demoted), [intro, release, steps]);
@@ -364,7 +364,7 @@ async fn enrichment_past_its_cutoff_keeps_chunk_text_and_reports_a_gap() {
         section_prior: prior(0.5),
         ..bounded()
     };
-    on_stopped_clock(future::pending(), async {
+    on_stopped_clock(future::pending(), || async {
         let mut admitted = corpus.admitted("run a task", configuration);
         let enrichment_cutoff = Instant::now();
         admitted.cutoffs.setup = enrichment_cutoff + admitted.cutoffs.window;
@@ -410,7 +410,7 @@ async fn the_source_prior_ranks_an_official_page_before_a_community_page() {
         source_prior: official_first(0.5),
         ..SearchConfiguration::default()
     };
-    on_stopped_clock(future::pending(), async {
+    on_stopped_clock(future::pending(), || async {
         let mut admitted = corpus.admitted("run a task", configuration);
         admitted.source_classes = Some(community("release"));
         let demoted = corpus.rank(&port, &admitted, "run a task").await;
@@ -437,7 +437,7 @@ async fn without_a_table_or_with_the_prior_off_the_order_is_unchanged() {
     let corpus = Corpus::new();
     let fused = [corpus.id(0), corpus.id(1), corpus.id(2)];
     let port = FakePort::scores(vec![0.9, 0.5, 0.1]);
-    on_stopped_clock(future::pending(), async {
+    on_stopped_clock(future::pending(), || async {
         for (prior, table) in [
             (SourcePrior::Off, Some(community("release"))),
             (official_first(0.5), None),
@@ -467,7 +467,7 @@ async fn the_source_prior_classifies_only_within_the_rerank_depth() {
         ..SearchConfiguration::default()
     };
     let port = FakePort::scores(vec![0.9, 0.5]);
-    on_stopped_clock(future::pending(), async {
+    on_stopped_clock(future::pending(), || async {
         let mut admitted = corpus.admitted("run a task", configuration);
         admitted.source_classes = Some(community("guide"));
         let ranking = corpus.rank(&port, &admitted, "run a task").await;
@@ -484,7 +484,7 @@ async fn source_classification_past_the_enrichment_cutoff_penalizes_nothing() {
         source_prior: official_first(0.5),
         ..SearchConfiguration::default()
     };
-    on_stopped_clock(future::pending(), async {
+    on_stopped_clock(future::pending(), || async {
         let mut admitted = corpus.admitted("run a task", configuration);
         admitted.source_classes = Some(community("release"));
         let enrichment_cutoff = Instant::now();

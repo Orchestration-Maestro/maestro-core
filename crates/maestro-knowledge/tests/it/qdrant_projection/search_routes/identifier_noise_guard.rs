@@ -54,26 +54,27 @@ async fn identifier_search_limits(
     route_limit: usize,
     identifier_limit: usize,
 ) -> RouteOutcome {
-    let clock: Arc<dyn Clock> = Arc::new(RuntimeClock::current());
-    let query = Query {
-        generation: &fixture.generation,
-        scopes: &fixture.kernel.scopes,
-        text,
-        limit: route_limit,
-        identifier_limit,
-        version: None,
-        projection: &fixture.qdrant,
-        clock: &clock,
-    };
-    on_stopped_clock(
-        future::pending(),
+    on_stopped_clock(future::pending(), || async {
+        let clock: Arc<dyn Clock> = Arc::new(RuntimeClock::current());
+        let query = Query {
+            generation: &fixture.generation,
+            scopes: &fixture.kernel.scopes,
+            text,
+            limit: route_limit,
+            identifier_limit,
+            version: None,
+            projection: &fixture.qdrant,
+            clock: &clock,
+        };
+
         search_identifiers(
             &query,
             fixture.kernel.database.clone(),
             &understand(text),
             Instant::now() + Duration::from_secs(5),
-        ),
-    )
+        )
+        .await
+    })
     .await
 }
 
@@ -120,16 +121,16 @@ async fn smaller_shared_route_limit_bounds_identifier_candidates_too() {
 
 /// Runs the identifier route on `text` with the noise guard on.
 async fn guarded(fixture: &PublishedCommand, text: &str) -> IdentifierOutcome {
-    let clock: Arc<dyn Clock> = Arc::new(RuntimeClock::current());
-    on_stopped_clock(
-        future::pending(),
+    on_stopped_clock(future::pending(), || async {
+        let clock: Arc<dyn Clock> = Arc::new(RuntimeClock::current());
         search_identifiers_guarded(
             &query(fixture, text, &clock),
             fixture.kernel.database.clone(),
             &understand(text),
             Instant::now() + Duration::from_secs(5),
-        ),
-    )
+        )
+        .await
+    })
     .await
 }
 
@@ -182,16 +183,16 @@ async fn a_too_common_identifier_gets_no_payload_votes_with_the_guard_on() {
     let scrolls = || backend.fake.as_ref().unwrap().scroll_filters().len();
 
     let before = scrolls();
-    let clock: Arc<dyn Clock> = Arc::new(RuntimeClock::current());
-    let off = on_stopped_clock(
-        future::pending(),
+    let off = on_stopped_clock(future::pending(), || async {
+        let clock: Arc<dyn Clock> = Arc::new(RuntimeClock::current());
         search_identifiers(
             &query(&fixture, "9.0.22", &clock),
             fixture.kernel.database.clone(),
             &understand("9.0.22"),
             Instant::now() + Duration::from_secs(5),
-        ),
-    )
+        )
+        .await
+    })
     .await;
     assert_eq!(
         off.status,
@@ -240,16 +241,16 @@ async fn a_lone_rare_identifier_votes_as_it_does_without_the_guard() {
     let backend = fake();
     let fixture = publish_command(&backend).await;
 
-    let clock: Arc<dyn Clock> = Arc::new(RuntimeClock::current());
-    let off = on_stopped_clock(
-        future::pending(),
+    let off = on_stopped_clock(future::pending(), || async {
+        let clock: Arc<dyn Clock> = Arc::new(RuntimeClock::current());
         search_identifiers(
             &query(&fixture, "ERR-042", &clock),
             fixture.kernel.database.clone(),
             &understand("ERR-042"),
             Instant::now() + Duration::from_secs(5),
-        ),
-    )
+        )
+        .await
+    })
     .await;
     let on = guarded(&fixture, "ERR-042").await;
     assert_eq!(on.route, off);
@@ -294,7 +295,7 @@ async fn search_guarded(fixture: &PublishedCommand, text: &str, guard: bool) -> 
             ..SearchConfiguration::default()
         },
     };
-    on_stopped_clock(future::pending(), Box::pin(search(&context, &request)))
+    on_stopped_clock(future::pending(), || Box::pin(search(&context, &request)))
         .await
         .unwrap()
 }

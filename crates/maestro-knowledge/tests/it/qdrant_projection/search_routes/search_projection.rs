@@ -146,7 +146,7 @@ async fn publication_indexes_exact_identifiers_and_marks_search_ready() {
         let card = models::embedder(3);
         let port = models::Embedder::default();
         let qdrant = backend.client();
-        on_stopped_clock(future::pending(), async {
+        on_stopped_clock(future::pending(), || async {
             let report = projection(&kernel, &qdrant, &port, &card)
                 .publish(&kernel.chunk_set)
                 .await

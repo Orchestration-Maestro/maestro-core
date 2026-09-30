@@ -148,12 +148,13 @@ pub(in crate::search::evidence) fn control() -> ReadControl {
 }
 
 /// Assembles after fixture setup, with both clocks held still.
+/// Callers may build fixtures early: both clock values reset after the pause.
 pub(super) async fn assemble_on_stopped_clock(
     database: Arc<Database>,
     mut input: EvidenceInput,
     counter: EvidenceCounter,
 ) -> Result<Bundle, EvidenceError> {
-    on_stopped_clock(future::pending(), async move {
+    on_stopped_clock(future::pending(), || async move {
         input.deadline = TokioInstant::now() + HANDOFF_WINDOW;
         input.clock = Arc::new(RuntimeClock::current());
         assemble_evidence(database, input, counter).await

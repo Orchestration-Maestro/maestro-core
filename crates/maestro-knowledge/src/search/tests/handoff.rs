@@ -204,41 +204,41 @@ fn sqlite_store_failures_remain_kernel_errors_not_evidence_corruption() {
 #[tokio::test]
 async fn candidate_loading_refuses_each_untrusted_kernel_claim_before_rerank() {
     let mismatched = CandidateDb::new(b"prepared text", "docs");
-    let result = on_stopped_clock(
-        future::pending(),
+    let result = on_stopped_clock(future::pending(), || async {
         candidates::load(
             mismatched.database.clone(),
             mismatched.request(&mismatched.chunk_id, vec!["foreign-revision".to_owned()]),
-        ),
-    )
+        )
+        .await
+    })
     .await;
     assert!(matches!(result, Err(CandidateFailure::EvidenceLoad)));
 
     let wrong_set = CandidateDb::new(b"prepared text", "docs");
-    let result = on_stopped_clock(
-        future::pending(),
+    let result = on_stopped_clock(future::pending(), || async {
         candidates::load(
             wrong_set.database.clone(),
             wrong_set.request(
                 "chunk-from-another-set",
                 vec![wrong_set.revision_id.clone()],
             ),
-        ),
-    )
+        )
+        .await
+    })
     .await;
     assert!(matches!(result, Err(CandidateFailure::EvidenceLoad)));
 
     let out_of_scope = CandidateDb::new(b"prepared text", "private");
-    let result = on_stopped_clock(
-        future::pending(),
+    let result = on_stopped_clock(future::pending(), || async {
         candidates::load(
             out_of_scope.database.clone(),
             out_of_scope.request(
                 &out_of_scope.chunk_id,
                 vec![out_of_scope.revision_id.clone()],
             ),
-        ),
-    )
+        )
+        .await
+    })
     .await;
     assert!(matches!(result, Err(CandidateFailure::EvidenceLoad)));
 }
@@ -247,27 +247,27 @@ async fn candidate_loading_refuses_each_untrusted_kernel_claim_before_rerank() {
 async fn candidate_loading_refuses_corrupt_artifacts_and_invalid_utf8() {
     let corrupt = CandidateDb::new(b"prepared text", "docs");
     corrupt.corrupt_artifact();
-    let result = on_stopped_clock(
-        future::pending(),
+    let result = on_stopped_clock(future::pending(), || async {
         candidates::load(
             corrupt.database.clone(),
             corrupt.request(&corrupt.chunk_id, vec![corrupt.revision_id.clone()]),
-        ),
-    )
+        )
+        .await
+    })
     .await;
     assert!(matches!(result, Err(CandidateFailure::EvidenceLoad)));
 
     let invalid_utf8 = CandidateDb::new(&[0xff], "docs");
-    let result = on_stopped_clock(
-        future::pending(),
+    let result = on_stopped_clock(future::pending(), || async {
         candidates::load(
             invalid_utf8.database.clone(),
             invalid_utf8.request(
                 &invalid_utf8.chunk_id,
                 vec![invalid_utf8.revision_id.clone()],
             ),
-        ),
-    )
+        )
+        .await
+    })
     .await;
     assert!(matches!(result, Err(CandidateFailure::EvidenceLoad)));
 }

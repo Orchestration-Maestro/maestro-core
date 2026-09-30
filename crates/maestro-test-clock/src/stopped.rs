@@ -8,9 +8,12 @@ use std::{
 };
 use tokio::{task, time};
 
-/// Runs `work` on tokio's paused clock, held still until `release` ends;
+/// Calls `work` only after pausing tokio's clock, then runs its future with
+/// the clock held still until `release` ends;
 /// from then on the clock moves only to the runtime's next timer, when every
-/// task waits. Real time resumes when `work` ends.
+/// task waits. Real time resumes when `work` ends. Construct requests,
+/// deadlines and clocks inside `work`; build clock-independent fixtures
+/// before calling this helper.
 ///
 /// Paused alone, tokio advances the clock to the next timer whenever the
 /// runtime waits, and a loopback gRPC reply in flight is such a wait: its
@@ -29,16 +32,16 @@ use tokio::{task, time};
     clippy::unwrap_used,
     reason = "a failed holder task must fail the calling test"
 )]
-pub async fn on_stopped_clock<T>(
+pub async fn on_stopped_clock<T, F: Future<Output = T>>(
     release: impl Future<Output = ()>,
-    work: impl Future<Output = T>,
+    work: impl FnOnce() -> F,
 ) -> T {
     time::pause();
     let (unhold, held) = mpsc::channel::<()>();
     let hold = task::spawn_blocking(move || held.recv_timeout(Duration::from_secs(10)));
     let mut unhold = Some(unhold);
     let mut release = pin!(release);
-    let mut work = pin!(work);
+    let mut work = pin!(work());
     let output = loop {
         tokio::select! {
             output = &mut work => break output,
@@ -53,4 +56,22 @@ pub async fn on_stopped_clock<T>(
     );
     time::resume();
     output
+}
+
+#[cfg(test)]
+mod tests {
+    use super::on_stopped_clock;
+    use std::{future, thread, time::Duration};
+    use tokio::time::Instant;
+
+    #[tokio::test]
+    async fn work_is_constructed_on_the_stopped_clock() {
+        let work = || {
+            let before = Instant::now();
+            thread::sleep(Duration::from_millis(20));
+            assert_eq!(Instant::now(), before);
+            future::ready(42)
+        };
+        assert_eq!(on_stopped_clock(future::pending(), work).await, 42);
+    }
 }

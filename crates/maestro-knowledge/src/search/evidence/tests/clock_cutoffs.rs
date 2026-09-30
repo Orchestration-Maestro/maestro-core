@@ -27,7 +27,7 @@ fn cutoff() -> Instant {
 #[tokio::test]
 async fn evidence_assembly_reads_its_cutoff_on_the_handoff_clock() {
     let fixture = fixture(&[GUIDE]);
-    on_stopped_clock(future::pending(), async {
+    on_stopped_clock(future::pending(), || async {
         let mut input = evidence_input(&fixture, "What does the guide say?");
         input.deadline = TokioInstant::now() + Duration::from_secs(3600);
         let cutoff = input.deadline.into_std();

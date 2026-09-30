@@ -48,66 +48,63 @@ async fn inventory_counts_each_eligible_member_once_independent_of_limit() {
         .unwrap();
     assert_eq!(generation.state, GenerationState::Published);
     let request = InventoryRequest::DocumentsBySet { set: None };
-    let clock: Arc<dyn Clock> = Arc::new(RuntimeClock::current());
-    let query = Query {
-        generation: &generation,
-        scopes: &kernel.scopes,
-        text: "how many documents",
-        limit: 1,
-        identifier_limit: 1,
-        version: None,
-        projection: &qdrant,
-        clock: &clock,
-    };
-    let outcome = on_stopped_clock(
-        future::pending(),
-        search_structured(
+    on_stopped_clock(future::pending(), || async {
+        let clock: Arc<dyn Clock> = Arc::new(RuntimeClock::current());
+        let query = Query {
+            generation: &generation,
+            scopes: &kernel.scopes,
+            text: "how many documents",
+            limit: 1,
+            identifier_limit: 1,
+            version: None,
+            projection: &qdrant,
+            clock: &clock,
+        };
+        let outcome = search_structured(
             &query,
             kernel.database.clone(),
             &request,
             Instant::now() + Duration::from_secs(5),
-        ),
-    )
-    .await;
-    assert_eq!(outcome.route.status, RouteStatus::Ok);
-    assert_eq!(
-        outcome.inventory,
-        Some(Inventory::DocumentsBySet {
-            set_filter: None,
-            total_documents: 2,
-            sets: vec![InventoryCount {
-                value: None,
-                documents: 2,
-            }],
-        })
-    );
-    assert_eq!(outcome.route.hits.len(), 2);
-    assert!(
-        outcome
-            .route
-            .hits
-            .windows(2)
-            .all(|pair| pair[0].chunk_id < pair[1].chunk_id)
-    );
-    assert!(
-        outcome
-            .route
-            .hits
-            .iter()
-            .all(|hit| (hit.score - 1.0).abs() < f64::EPSILON)
-    );
+        )
+        .await;
+        assert_eq!(outcome.route.status, RouteStatus::Ok);
+        assert_eq!(
+            outcome.inventory,
+            Some(Inventory::DocumentsBySet {
+                set_filter: None,
+                total_documents: 2,
+                sets: vec![InventoryCount {
+                    value: None,
+                    documents: 2,
+                }],
+            })
+        );
+        assert_eq!(outcome.route.hits.len(), 2);
+        assert!(
+            outcome
+                .route
+                .hits
+                .windows(2)
+                .all(|pair| pair[0].chunk_id < pair[1].chunk_id)
+        );
+        assert!(
+            outcome
+                .route
+                .hits
+                .iter()
+                .all(|hit| (hit.score - 1.0).abs() < f64::EPSILON)
+        );
 
-    let wide_query = Query { limit: 50, ..query };
-    let wide = on_stopped_clock(
-        future::pending(),
-        search_structured(
+        let wide_query = Query { limit: 50, ..query };
+        let wide = search_structured(
             &wide_query,
             kernel.database.clone(),
             &request,
             Instant::now() + Duration::from_secs(5),
-        ),
-    )
+        )
+        .await;
+        assert_eq!(outcome.inventory, wide.inventory);
+    })
     .await;
-    assert_eq!(outcome.inventory, wide.inventory);
     cleanup(&backend, &[&generation]).await;
 }

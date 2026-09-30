@@ -44,7 +44,7 @@ async fn search_with_slow_reranker(slow: SlowReranker) -> (RouteStatus, usize, D
         },
         configuration: SearchConfiguration::default(),
     };
-    let searched = async {
+    let searched = || async {
         let started = Instant::now();
         let input = Box::pin(search(&search_context, &request)).await.unwrap();
         let left = input.deadline.saturating_duration_since(Instant::now());
@@ -102,7 +102,7 @@ async fn search_with_cold_models(slow: SlowModels) -> (RouteStatus, RouteStatus,
         },
         configuration: SearchConfiguration::default(),
     };
-    let searched = async {
+    let searched = || async {
         let started = Instant::now();
         let input = Box::pin(search(&search_context, &request)).await.unwrap();
         let left = input.deadline.saturating_duration_since(Instant::now());
@@ -188,10 +188,9 @@ async fn warm_search_is_byte_deterministic() {
     };
     let mut serialized = Vec::new();
     for _ in 0..2 {
-        let input = on_stopped_clock(
-            future::pending(),
-            Box::pin(search(&search_context, &request)),
-        )
+        let input = on_stopped_clock(future::pending(), || {
+            Box::pin(search(&search_context, &request))
+        })
         .await
         .unwrap();
         let bundle = assemble_evidence(

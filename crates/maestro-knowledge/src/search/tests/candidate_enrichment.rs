@@ -69,16 +69,16 @@ fn enrichment_loads_only_the_revisions_it_scores() {
 #[tokio::test]
 async fn an_unreadable_source_keeps_the_chunk_text_and_records_the_fallback() {
     let db = CandidateDb::new(b"prepared text", "docs");
-    let mut request = db.request(&db.chunk_id, vec![db.revision_id.clone()]);
-    request.configuration.candidate_context = CandidateContext::BoundedSection { max_bytes: 1500 };
-    request.configuration.section_prior = SectionPrior::Soft {
-        weight: 0.5,
-        classes: all_classes(),
-    };
-    let loaded = on_stopped_clock(
-        future::pending(),
-        candidates::load(db.database.clone(), request),
-    )
+    let loaded = on_stopped_clock(future::pending(), || async {
+        let mut request = db.request(&db.chunk_id, vec![db.revision_id.clone()]);
+        request.configuration.candidate_context =
+            CandidateContext::BoundedSection { max_bytes: 1500 };
+        request.configuration.section_prior = SectionPrior::Soft {
+            weight: 0.5,
+            classes: all_classes(),
+        };
+        candidates::load(db.database.clone(), request).await
+    })
     .await
     .unwrap();
     assert_eq!(loaded.candidates.len(), 1);
@@ -91,15 +91,14 @@ async fn an_unreadable_source_keeps_the_chunk_text_and_records_the_fallback() {
 #[tokio::test]
 async fn an_unreadable_source_never_fails_a_prior_only_search() {
     let db = CandidateDb::new(b"prepared text", "docs");
-    let mut request = db.request(&db.chunk_id, vec![db.revision_id.clone()]);
-    request.configuration.section_prior = SectionPrior::Soft {
-        weight: 0.5,
-        classes: all_classes(),
-    };
-    let loaded = on_stopped_clock(
-        future::pending(),
-        candidates::load(db.database.clone(), request),
-    )
+    let loaded = on_stopped_clock(future::pending(), || async {
+        let mut request = db.request(&db.chunk_id, vec![db.revision_id.clone()]);
+        request.configuration.section_prior = SectionPrior::Soft {
+            weight: 0.5,
+            classes: all_classes(),
+        };
+        candidates::load(db.database.clone(), request).await
+    })
     .await
     .unwrap();
     assert_eq!(loaded.candidates[0].text, "prepared text");
@@ -111,15 +110,14 @@ async fn an_unreadable_source_never_fails_a_prior_only_search() {
 #[tokio::test]
 async fn a_prior_without_classes_reads_no_source() {
     let db = CandidateDb::new(b"prepared text", "docs");
-    let mut request = db.request(&db.chunk_id, vec![db.revision_id.clone()]);
-    request.configuration.section_prior = SectionPrior::Soft {
-        weight: 0.5,
-        classes: SectionClassSet::default(),
-    };
-    let loaded = on_stopped_clock(
-        future::pending(),
-        candidates::load(db.database.clone(), request),
-    )
+    let loaded = on_stopped_clock(future::pending(), || async {
+        let mut request = db.request(&db.chunk_id, vec![db.revision_id.clone()]);
+        request.configuration.section_prior = SectionPrior::Soft {
+            weight: 0.5,
+            classes: SectionClassSet::default(),
+        };
+        candidates::load(db.database.clone(), request).await
+    })
     .await
     .unwrap();
     assert_eq!(loaded.candidates[0].text, "prepared text");

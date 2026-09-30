@@ -61,41 +61,38 @@ fn low_confidence(mode: IntentExpansion) -> SearchConfiguration {
 async fn a_failed_or_hanging_second_rerank_keeps_the_first_ranking() {
     let fixture = published().await;
     let off = IntentPort::new(&fixture.port, Some(FILLER));
-    let first = on_stopped_clock(
-        future::pending(),
+    let first = on_stopped_clock(future::pending(), || async {
         Box::pin(search_with(
             &fixture,
             &off,
             "scheduler job",
             low_confidence(IntentExpansion::Off),
             small_budget(),
-        )),
-    )
+        ))
+        .await
+    })
     .await
     .unwrap();
     for fault in [RerankFault::Fails, RerankFault::Hangs] {
         let mut port = IntentPort::new(&fixture.port, Some(FILLER));
         port.rerank_fault = Some((1, fault));
-        let result = on_stopped_clock(
-            second_rerank_started(&port),
-            Box::pin(async {
-                let started = Instant::now();
-                let result = search_with(
-                    &fixture,
-                    &port,
-                    "scheduler job",
-                    low_confidence(IntentExpansion::Hyde),
-                    small_budget(),
-                )
-                .await
-                .unwrap();
-                assert!(
-                    started.elapsed() <= Duration::from_millis(1500),
-                    "{fault:?}"
-                );
-                result
-            }),
-        )
+        let result = on_stopped_clock(second_rerank_started(&port), || async {
+            let started = Instant::now();
+            let result = Box::pin(search_with(
+                &fixture,
+                &port,
+                "scheduler job",
+                low_confidence(IntentExpansion::Hyde),
+                small_budget(),
+            ))
+            .await
+            .unwrap();
+            assert!(
+                started.elapsed() <= Duration::from_millis(1500),
+                "{fault:?}"
+            );
+            result
+        })
         .await;
         assert_eq!(port.rerank_calls.load(Ordering::SeqCst), 2, "{fault:?}");
         assert_eq!(result.ranked, first.ranked, "{fault:?}");
@@ -127,9 +124,9 @@ async fn always_mode_at_a_small_budget_still_reranks_the_originals() {
         async {
             tokio::join!(chat_started(&port), routes.ended());
         },
-        Box::pin(async {
+        || async {
             let started = Instant::now();
-            let result = search_with(
+            let result = Box::pin(search_with(
                 &fixture,
                 &port,
                 "scheduler job",
@@ -139,12 +136,12 @@ async fn always_mode_at_a_small_budget_still_reranks_the_originals() {
                     ..SearchConfiguration::default()
                 },
                 small_budget(),
-            )
+            ))
             .await
             .unwrap();
             assert!(started.elapsed() <= Duration::from_millis(1500));
             result
-        }),
+        },
     )
     .await;
     assert_eq!(

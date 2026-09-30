@@ -97,7 +97,7 @@ async fn identifier_search_with(
     limit: usize,
     version: Option<&str>,
 ) -> RouteOutcome {
-    on_stopped_clock(future::pending(), async {
+    on_stopped_clock(future::pending(), || async {
         identifier_search_until(
             fixture,
             text,
@@ -148,26 +148,27 @@ async fn empty_scopes_and_zero_limit_skip_both_identifier_legs() {
     let filters_before = backend.fake.as_ref().unwrap().scroll_filters().len();
 
     for (scopes, limit) in [(&empty_scopes, 20), (&fixture.kernel.scopes, 0)] {
-        let clock: Arc<dyn Clock> = Arc::new(RuntimeClock::current());
-        let query = Query {
-            generation: &fixture.generation,
-            scopes,
-            text: "ERR-042",
-            limit,
-            identifier_limit: limit,
-            version: None,
-            projection: &fixture.qdrant,
-            clock: &clock,
-        };
-        let outcome = on_stopped_clock(
-            future::pending(),
+        let outcome = on_stopped_clock(future::pending(), || async {
+            let clock: Arc<dyn Clock> = Arc::new(RuntimeClock::current());
+            let query = Query {
+                generation: &fixture.generation,
+                scopes,
+                text: "ERR-042",
+                limit,
+                identifier_limit: limit,
+                version: None,
+                projection: &fixture.qdrant,
+                clock: &clock,
+            };
+
             search_identifiers(
                 &query,
                 fixture.kernel.database.clone(),
                 &understood,
                 Instant::now() + Duration::from_secs(5),
-            ),
-        )
+            )
+            .await
+        })
         .await;
         assert_eq!(outcome.status, RouteStatus::Ok);
         assert!(outcome.hits.is_empty());
