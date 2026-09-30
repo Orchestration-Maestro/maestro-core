@@ -179,14 +179,13 @@ mod tests {
     }
 
     #[test]
-    fn open_regular_refuses_directories_before_opening_a_handle() -> Result<(), Box<dyn Error>> {
+    fn open_regular_refuses_directories_at_open() -> Result<(), Box<dyn Error>> {
         let scratch = Scratch::new()?;
         fs::create_dir(scratch.0.join("directory"))?;
-        assert!(
-            directory(&scratch.0)?
-                .open_regular(OsStr::new("directory"))
-                .is_err()
-        );
+        let error = directory(&scratch.0)?
+            .open_regular(OsStr::new("directory"))
+            .expect_err("opening a directory without backup semantics must fail");
+        assert_eq!(error.kind(), io::ErrorKind::PermissionDenied);
         Ok(())
     }
 }
