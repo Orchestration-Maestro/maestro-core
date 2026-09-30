@@ -165,6 +165,7 @@ in place.
 │   │   │   │   ├── mod.rs                                                   # The commands' door: declarations only
 │   │   │   │   ├── model.rs                                                 # Registering and listing scoped model cards
 │   │   │   │   ├── output.rs                                                # How a command prints: text, or one JSON document under --json; diagnostics on stderr
+│   │   │   │   ├── policy.rs                                                # Effect-free authoring policy checks and synthetic neighbour tests
 │   │   │   │   ├── prepare.rs                                               # knowledge prepare: T023's chunking as a leased job
 │   │   │   │   ├── quality.rs                                               # knowledge quality: the gate as a leased job; its inputs the ledger beside the declaration and the revisions
 │   │   │   │   ├── retrieve.rs                                              # CLI adapters for the shared, permission-scoped read operations
@@ -269,6 +270,7 @@ in place.
 │   │   │       ├── backup_restore_targets.rs                                # Rust source: backup restore targets
 │   │   │       ├── catalog_check.rs                                         # catalog check --catalog-dir DIR: the strict source checker as its
 │   │   │       ├── catalog_init.rs                                          # maestro init: inert fixture composition, preview-only default and owned apply
+│   │   │       ├── catalog_policy.rs                                        # Real Cedar through the effect-free policy CLI
 │   │   │       ├── catalog_preferences.rs                                   # Preference init is a side-effect-free draft until C05j supplies real trust
 │   │   │       ├── cli_contract.rs                                          # JSON on stdout, diagnostics on stderr, exit codes 0, 1 and 2, the job ID first
 │   │   │       ├── collection_status.rs                                     # knowledge status of the synthetic collection: counts, dispositions and a generation
@@ -494,6 +496,13 @@ in place.
 │   │   │   │   ├── mod.rs                                                   # Model-card declarations and their thin adapter to the kernel registry
 │   │   │   │   ├── register.rs                                              # Explicit scoped registration of an already checked declaration
 │   │   │   │   └── tests.rs                                                 # Rust source: tests
+│   │   │   ├── policy/                                                      # Effect-free Cedar checking and separately supplied trusted host facts
+│   │   │   │   ├── tests/                                                   # Integration tests
+│   │   │   │   │   ├── check.rs                                             # Allow/deny/error neighbours reach Cedar, never an effect executor
+│   │   │   │   │   └── mod.rs                                               # Rust source: mod
+│   │   │   │   ├── check.rs                                                 # Cedar schema validation and authorization, fail-closed on every diagnostic
+│   │   │   │   ├── mod.rs                                                   # Effect-free Cedar checking and separately supplied trusted host facts
+│   │   │   │   └── schema.rs                                                # Normalized data, separate host facts, and bounded authoring test inputs
 │   │   │   ├── settings/                                                    # Typed restrictive resolution over the canonical S1 settings descriptors
 │   │   │   │   ├── tests/                                                   # Settings contracts over shared S1 descriptors and preference adapters
 │   │   │   │   │   ├── mod.rs                                               # Settings contracts over shared S1 descriptors and preference adapters
@@ -861,6 +870,7 @@ in place.
 │   │   │   │   └── validation.rs                                            # Validate the immutable graph before it crosses the persistence boundary
 │   │   │   ├── binding.rs                                                   # Named bindings: the local paths that the logical names of committed files
 │   │   │   ├── filesystem.rs                                                # The files and directories the kernel creates: its owner's only, and each
+│   │   │   ├── json.rs                                                      # Explicit sorted-object JSON for stable identities and presentation
 │   │   │   ├── lib.rs                                                       # The kernel of Maestro: the single authoritative store every later
 │   │   │   └── paths.rs                                                     # Where the kernel keeps its data: $XDG_DATA_HOME/maestro when that names an
 │   │   ├── tests/                                                           # Integration tests
@@ -1502,6 +1512,10 @@ in place.
 │       │   ├── model-cards/                                                 # Model cards
 │       │   │   ├── invalid.toml                                             # TOML settings: invalid
 │       │   │   └── valid.toml                                               # TOML settings: valid
+│       │   ├── policy/                                                      # Policy
+│       │   │   ├── cases.json                                               # JSON data: cases
+│       │   │   ├── rules.cedar                                              # File: rules
+│       │   │   └── schema.json                                              # JSON data: schema
 │       │   ├── settings/                                                    # Settings
 │       │   │   ├── user-preferences.toml                                    # TOML settings: user preferences
 │       │   │   └── workspace.toml                                           # TOML settings: workspace

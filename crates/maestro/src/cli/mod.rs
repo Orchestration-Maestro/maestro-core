@@ -16,6 +16,7 @@ mod init;
 mod lease;
 mod model;
 mod output;
+mod policy;
 mod prepare;
 /// Explicit replacement of a lost published projection.
 mod publish;

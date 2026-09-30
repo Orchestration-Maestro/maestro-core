@@ -11,6 +11,7 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+cedar-policy.workspace = true
 maestro-filesystem.workspace = true
 maestro-kernel.workspace = true
 maestro-settings.workspace = true

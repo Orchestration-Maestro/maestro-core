@@ -338,3 +338,54 @@ rule = "ARC-005"
 path = "crates/maestro-kernel/src/unit_graph/mod.rs"
 item = "GraphKey"
 reason = "the public source-scoped graph read key belongs to graph storage; representation completion also reads each graph through this boundary"
+
+[[exception]]
+rule = "DEP-001"
+path = "block-buffer@0.10.4"
+reason = "Cedar 4.13.0 adoption (C19, ADR-0020): lalrpop 0.22.2 uses sha3 0.10.9/digest 0.10; remove when lalrpop adopts sha3 on digest 0.11 and block-buffer 0.12"
+
+[[exception]]
+rule = "DEP-001"
+path = "cpufeatures@0.2.17"
+reason = "Cedar 4.13.0 adoption (C19, ADR-0020): lalrpop 0.22.2 uses sha3 0.10.9; remove when lalrpop adopts sha3 on cpufeatures 0.3"
+
+[[exception]]
+rule = "DEP-001"
+path = "crypto-common@0.1.7"
+reason = "Cedar 4.13.0 adoption (C19, ADR-0020): lalrpop 0.22.2 uses sha3 0.10.9/digest 0.10; remove when lalrpop adopts sha3 on digest 0.11 and crypto-common 0.2"
+
+[[exception]]
+rule = "DEP-001"
+path = "digest@0.10.7"
+reason = "Cedar 4.13.0 adoption (C19, ADR-0020): lalrpop 0.22.2 uses sha3 0.10.9; remove when lalrpop adopts sha3 on digest 0.11"
+
+[[exception]]
+rule = "DEP-001"
+path = "darling@0.20.11"
+reason = "Cedar 4.13.0 adoption (C19, ADR-0020): Cedar uses serde_with 3.24 on darling 0.24 while qdrant-client uses derive_builder 0.20 on darling 0.20; remove when derive_builder adopts darling 0.24"
+
+[[exception]]
+rule = "DEP-001"
+path = "darling_core@0.20.11"
+reason = "Cedar 4.13.0 adoption (C19, ADR-0020): Cedar uses serde_with 3.24 on darling_core 0.24 while qdrant-client uses derive_builder 0.20 on darling_core 0.20; remove when derive_builder adopts darling_core 0.24"
+
+[[exception]]
+rule = "DEP-001"
+path = "darling_macro@0.20.11"
+reason = "Cedar 4.13.0 adoption (C19, ADR-0020): Cedar uses serde_with 3.24 on darling_macro 0.24 while qdrant-client uses derive_builder 0.20 on darling_macro 0.20; remove when derive_builder adopts darling_macro 0.24"
+
+[[exception]]
+rule = "DEP-001"
+path = "itertools@0.14.0"
+reason = "Cedar 4.13.0 adoption (C19, ADR-0020): lalrpop 0.22.2 and prost-derive 0.14 use itertools 0.14 while Cedar uses 0.15; remove when lalrpop and prost-derive adopt itertools 0.15"
+
+[[exception]]
+rule = "DEP-001"
+path = "unicode-width@0.1.14"
+reason = "Cedar 4.13.0 adoption (C19, ADR-0020): miette 7.6 uses unicode-width 0.1 while Cedar formatter pretty 0.12.5 uses 0.2; remove when miette adopts unicode-width 0.2"
+
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-catalog/src/source/mod.rs"
+item = "Directory"
+reason = "public source-tree adapter used by the CLI source checker and policy loader; keep the existing port instead of duplicating discovery (ARC-005 does not count cross-crate callers)"

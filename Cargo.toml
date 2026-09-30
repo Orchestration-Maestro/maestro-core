@@ -10,6 +10,8 @@ license = "MIT"
 publish = false
 
 [workspace.dependencies]
+# Real evaluator and validator, measured in C09; optional features stay off.
+cedar-policy = { version = "=4.13.0", default-features = false }
 # The command line's grammar, derived: clap_derive 4.6 builds on syn 3, as the
 # workspace does. No colour, no suggestions: fewer crates to vet.
 clap = { version = "4.6.7", default-features = false, features = [
@@ -44,7 +46,8 @@ rusqlite = { version = "0.40.2", default-features = false, features = [
 rustix = { version = "=1.1.5", features = ["fs"] }
 schemars = "1.2.2"
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+# Cedar core requires preserve_order; make every package test use the same map semantics.
+serde_json = { version = "1", features = ["preserve_order"] }
 serde_yaml_ng = "0.10"
 # SHA-1 for name-based UUIDs alone (UUIDv5), beside sha2 on digest 0.11.
 sha1 = { version = "0.11.0", default-features = false }

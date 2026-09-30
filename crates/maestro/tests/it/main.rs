@@ -8,6 +8,7 @@ mod backup_restore_targets;
 mod catalog_check;
 mod catalog_host_probe;
 mod catalog_init;
+mod catalog_policy;
 mod catalog_preferences;
 mod cli_contract;
 mod collection_status;

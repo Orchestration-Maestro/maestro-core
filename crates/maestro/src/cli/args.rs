@@ -1,6 +1,7 @@
 //! The command line's grammar, noun then verb (plan D12), as clap derives it
 //! from these types, whose comments are the help it prints.
 
+use super::policy::PolicyCommand;
 use clap::{Args, Parser, Subcommand};
 use maestro_kernel::evidence::RequestBudget;
 use std::path::PathBuf;
@@ -42,6 +43,9 @@ pub(super) enum Noun {
     /// The catalog's authoring sources.
     #[command(subcommand)]
     Catalog(CatalogCommand),
+    /// Effect-free authoring policy checks and neighbour tests.
+    #[command(subcommand)]
+    Policy(PolicyCommand),
     /// Preview a project bootstrap; only --apply writes files.
     /// Use --set language=en, --set tone=brief, --set updates=off or a
     /// documented `config list` key to draft preferences (preview only until C05j).

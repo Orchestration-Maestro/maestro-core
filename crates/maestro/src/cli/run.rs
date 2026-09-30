@@ -11,7 +11,7 @@ use super::{
     config::{self, Change, Places},
     eval, health, import, init, model,
     output::{Output, diagnose},
-    prepare, publish, quality, retrieve, search, setup, status, verify, wait,
+    policy, prepare, publish, quality, retrieve, search, setup, status, verify, wait,
 };
 use crate::{
     failure::Failure,
@@ -100,6 +100,7 @@ fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> 
         Noun::Config(command) => config_command(output, command, &arguments.set),
         Noun::Eval(EvalCommand::Ladder { manifest }) => eval::run(output, manifest),
         Noun::Catalog(CatalogCommand::Check { catalog_dir }) => catalog::check(output, catalog_dir),
+        Noun::Policy(command) => policy::run(output, command),
         Noun::Init {
             catalog_dir,
             presets,

@@ -1023,14 +1023,14 @@ dependency/CLI registrations from the shared list, including adoption-time
 `maestro-quality.toml`/`supply-chain/audits.toml` for measured Cedar requirements.
 **Requirements:** FR-S3-016, SC-S3-005.
 
-- [ ] **Step 1: Red.** Write allow/deny fixtures before policies for default
+- [x] **Step 1: Red.** Write allow/deny fixtures before policies for default
   deny, destructive effects, protected paths, egress and MCP tools. Include
   schema errors, missing trusted facts, evaluation errors and zero discovered
   tests; a spy must see zero executor calls on refusal.
-- [ ] **Step 2: Green.** Wire the real Cedar evaluator/schema and policy
+- [x] **Step 2: Green.** Wire the real Cedar evaluator/schema and policy
   check/test CLI. Inspect all diagnostics, deny on errors and keep approval-needed
   distinct from permission granted. Checking never executes the requested effect.
-- [ ] **Step 3: Check.** Run
+- [x] **Step 3: Check.** Run
   `~/.local/bin/capped cargo nextest run -p maestro-catalog policy::tests` and
   `~/.local/bin/capped cargo nextest run -p maestro catalog_policy`.
 
@@ -1113,7 +1113,7 @@ unsupported. A smaller language needs an approved 08 disposition, not omission.
 `core/policies/{default-deny,destructive-operations,protected-paths}.cedar`,
 `core/policies/{egress-deny-by-default,mcp-allowlist}.cedar`,
 `core/policies/schema.cedarschema.json`, `core/hooks/pre-tool-use.json`,
-`core/evals/scenarios/policy-neighbours.yaml`, `core/capability.toml`,
+`core/evals/scenarios/policy-neighbours.json`, `core/capability.toml`,
 `presets/knowledge-client.toml`, `settings/README.md`, `CODEOWNERS`.
 Discovery cards are metadata of exact resources, not authority. Shared policies,
 hook and Maestro profiles are core; the application workflow is optional and
