@@ -11,3 +11,5 @@ mod resolve;
 mod store;
 mod synthetic;
 mod value;
+
+mod preferences;

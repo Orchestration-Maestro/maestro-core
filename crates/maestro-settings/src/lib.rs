@@ -4,6 +4,8 @@
 //! - [`SettingDescriptor`]: one setting as data (dotted key, kind, default,
 //!   description, S3 override class); [`BUILT_IN`] lists them all.
 //! - [`Registry`]: the descriptors, checked once.
+//! - [`Layer::parse_preferences`]: the bounded shared file parser, accepting
+//!   flat keys and `[overrides]` over the same descriptors.
 //! - [`Layer`]: one `maestro-preferences/1` file, parsed strictly: an
 //!   unknown key or a wrong type is refused with the key named.
 //! - [`resolve()`]: built-in defaults, then the user file
@@ -45,7 +47,7 @@ pub use discovery::{Discovery, PROJECT_DIRECTORY, PROJECT_FILE, discover_project
 pub use edit::{EditError, set_in_document, unset_in_document};
 pub use file::{FileEdit, FileError, FileLayers, FilePlace, RestoreError};
 pub use language::canonical_language;
-pub use layer::{Layer, LayerError, MAX_FILE_BYTES, SCHEMA};
+pub use layer::{Layer, LayerError, MAX_FILE_BYTES, MAX_FILE_DEPTH, SCHEMA};
 pub use registry::{Registry, RegistryError, SCHEMA_KEY};
 pub use resolve::{
     Flag, LayerName, Layers, Resolved, ResolvedSetting, SettingsError, Source, parse_flags, resolve,

@@ -104,7 +104,7 @@ fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> 
             catalog_dir,
             presets,
             apply,
-        } => init::run(output, catalog_dir, presets, *apply),
+        } => init::run(output, catalog_dir, presets, *apply, &arguments.set),
         Noun::Job(JobCommand::Wait { id }) => wait::run(&Kernel::open()?, output, *id),
         Noun::Setup { yes } => setup::run(output, *yes),
         Noun::Status => health::status::run(output),

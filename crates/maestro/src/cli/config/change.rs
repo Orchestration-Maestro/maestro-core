@@ -18,8 +18,9 @@ use maestro_kernel::{
     settings::SettingChange,
 };
 use maestro_settings::{
-    FileEdit, FileError, FilePlace, Layer, LayerName, PROJECT_DIRECTORY, PROJECT_FILE, Registry,
-    SettingClass, USER_FILE, Value, discover_project_file, set_in_document, unset_in_document,
+    FileEdit, FileError, FilePlace, Layer, LayerName, MAX_FILE_BYTES, MAX_FILE_DEPTH,
+    PROJECT_DIRECTORY, PROJECT_FILE, Registry, SettingClass, USER_FILE, Value,
+    discover_project_file, set_in_document, unset_in_document,
 };
 use serde_json::json;
 use std::{
@@ -244,10 +245,12 @@ fn edit(
 ) -> Result<Option<(String, Option<Value>)>, Failure> {
     let refuse = |error: &dyn Error| Failure::refused(format!("{}: {error}", path.display()));
     let old = match before {
-        Some(text) => Layer::parse(registry, text)
-            .map_err(|error| refuse(&error))?
-            .get(key)
-            .cloned(),
+        Some(text) => {
+            Layer::parse_preferences(registry, text, MAX_FILE_BYTES as u64, MAX_FILE_DEPTH)
+                .map_err(|error| refuse(&error))?
+                .get(key)
+                .cloned()
+        }
         None => None,
     };
     if old.as_ref() == new {

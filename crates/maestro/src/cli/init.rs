@@ -3,7 +3,10 @@ use crate::{cli::output::Output, failure::Failure};
 use maestro_catalog::{
     bootstrap::{self, DirectoryPresets, Prerequisite},
     files::FilePlan,
+    limits::Limits,
+    settings::{FilePreferences, PreferencesDraft, draft_preferences},
 };
+use maestro_kernel::paths::{Environment, config_dir};
 use serde::Serialize;
 use std::{env, path::Path, process::ExitCode};
 
@@ -24,6 +27,9 @@ struct InitDocument<'a> {
     root: &'a Path,
     /// The C04 digest-bound file plan.
     files: &'a FilePlan,
+    /// Separate root-local preference draft; no persistence until C05j.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    preferences: Option<&'a PreferencesDraft>,
 }
 
 /// Preview a composed project and, when requested, apply it through C04.
@@ -32,8 +38,26 @@ pub(super) fn run(
     catalog_dir: &Path,
     presets: &[String],
     should_apply: bool,
+    choices: &[String],
 ) -> Result<ExitCode, Failure> {
     let root = env::current_dir().map_err(|error| Failure::failed_by(&error))?;
+    let preferences = if choices.is_empty() {
+        None
+    } else {
+        let config =
+            config_dir(&Environment::current()).map_err(|error| Failure::failed_by(&error))?;
+        let source = FilePreferences::new(&config, &root);
+        Some(
+            draft_preferences(&root, &source, choices, &Limits::PRODUCTION)
+                .map_err(Failure::refused)?,
+        )
+    };
+    if should_apply && preferences.is_some() {
+        return Err(Failure::refused(
+            "preference persistence requires C05j's real workspace trust guard; \
+             use preview without --apply",
+        ));
+    }
     let provider = DirectoryPresets::new(catalog_dir);
     let preview = bootstrap::preview(&root, &provider, presets).map_err(Failure::refused)?;
     let already_applied = preview.plan.is_applied();
@@ -45,6 +69,7 @@ pub(super) fn run(
         prerequisites: &preview.prerequisites,
         root: &root,
         files: &preview.plan,
+        preferences: preferences.as_ref(),
     };
     let text =
         serde_json::to_string_pretty(&document).map_err(|error| Failure::failed_by(&error))?;

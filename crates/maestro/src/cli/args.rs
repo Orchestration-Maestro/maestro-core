@@ -43,6 +43,8 @@ pub(super) enum Noun {
     #[command(subcommand)]
     Catalog(CatalogCommand),
     /// Preview a project bootstrap; only --apply writes files.
+    /// Use --set language=en, --set tone=brief, --set updates=off or a
+    /// documented `config list` key to draft preferences (preview only until C05j).
     Init {
         /// Reviewed authoring catalog directory.
         #[arg(long, value_name = "DIR")]

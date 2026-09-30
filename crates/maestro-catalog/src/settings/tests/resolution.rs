@@ -1,16 +1,19 @@
-use super::resolve as restrictive_resolve;
+use super::super::resolve as restrictive_resolve;
 use crate::source::KnownSettings;
 use maestro_settings::{BUILT_IN, Flag, Layer, Layers, Registry, Value};
 use std::{borrow::Cow, collections::BTreeMap, path::PathBuf};
 
 #[derive(Default)]
-pub(super) struct TestLayers {
-    pub(super) flags: BTreeMap<String, Value>,
-    pub(super) workspace: BTreeMap<String, Value>,
-    pub(super) user: BTreeMap<String, Value>,
+pub(in crate::settings) struct TestLayers {
+    pub(in crate::settings) flags: BTreeMap<String, Value>,
+    pub(in crate::settings) workspace: BTreeMap<String, Value>,
+    pub(in crate::settings) user: BTreeMap<String, Value>,
 }
 
-pub(super) fn resolve(registry: &Registry, layers: &TestLayers) -> super::ResolvedSettings {
+pub(in crate::settings) fn resolve(
+    registry: &Registry,
+    layers: &TestLayers,
+) -> super::super::ResolvedSettings {
     let flags = layers
         .flags
         .iter()
@@ -36,11 +39,11 @@ fn to_layer(values: &BTreeMap<String, Value>) -> Option<Layer> {
     (!values.is_empty()).then_some(layer)
 }
 
-pub(super) fn registry() -> Registry {
+pub(in crate::settings) fn registry() -> Registry {
     Registry::built_in().unwrap()
 }
 
-pub(super) fn value(registry: &Registry, key: &str, text: &str) -> Value {
+pub(in crate::settings) fn value(registry: &Registry, key: &str, text: &str) -> Value {
     registry.get(key).unwrap().kind.parse_text(text).unwrap()
 }
 

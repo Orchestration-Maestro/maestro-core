@@ -269,6 +269,7 @@ in place.
 │   │   │       ├── backup_restore_targets.rs                                # Rust source: backup restore targets
 │   │   │       ├── catalog_check.rs                                         # catalog check --catalog-dir DIR: the strict source checker as its
 │   │   │       ├── catalog_init.rs                                          # maestro init: inert fixture composition, preview-only default and owned apply
+│   │   │       ├── catalog_preferences.rs                                   # Preference init is a side-effect-free draft until C05j supplies real trust
 │   │   │       ├── cli_contract.rs                                          # JSON on stdout, diagnostics on stderr, exit codes 0, 1 and 2, the job ID first
 │   │   │       ├── collection_status.rs                                     # knowledge status of the synthetic collection: counts, dispositions and a generation
 │   │   │       ├── doctor_checks.rs                                         # maestro doctor: each failure names its next action, the router its address; v1 files listed, untouched
@@ -493,10 +494,14 @@ in place.
 │   │   │   │   ├── register.rs                                              # Explicit scoped registration of an already checked declaration
 │   │   │   │   └── tests.rs                                                 # Rust source: tests
 │   │   │   ├── settings/                                                    # Typed restrictive resolution over the canonical S1 settings descriptors
+│   │   │   │   ├── tests/                                                   # Settings contracts over shared S1 descriptors and preference adapters
+│   │   │   │   │   ├── mod.rs                                               # Settings contracts over shared S1 descriptors and preference adapters
+│   │   │   │   │   ├── preferences.rs                                       # Strict init drafts use the same S1 file/parser API as all preference consumers
+│   │   │   │   │   └── resolution.rs                                        # Rust source: resolution
 │   │   │   │   ├── mod.rs                                                   # Typed restrictive resolution over the canonical S1 settings descriptors
+│   │   │   │   ├── preferences.rs                                           # Side-effect-free init preferences over S1's registry, parser and file adapter
 │   │   │   │   ├── resolve.rs                                               # Typed restrictive resolution over four preference layers; storage and parsing stay in S1
-│   │   │   │   ├── resolve_round2.rs                                        # Rust source: resolve round2
-│   │   │   │   └── tests.rs                                                 # Rust source: tests
+│   │   │   │   └── resolve_round2.rs                                        # Rust source: resolve round2
 │   │   │   ├── source/                                                      # The strict checker of a catalog's authoring sources: a registry of
 │   │   │   │   ├── kinds/                                                   # The built-in kinds: each a descriptor and, where a rule is truly
 │   │   │   │   │   ├── agent.rs                                             # agent: a Copilot custom agent profile and its <name>.maestro.toml
@@ -1374,6 +1379,7 @@ in place.
 │   │   │   │   ├── language.rs                                              # The BCP 47 subset of language: canonical case, and each refused form
 │   │   │   │   ├── layer.rs                                                 # A preferences file parsed strictly: its schema marker required, every key
 │   │   │   │   ├── mod.rs                                                   # The settings crate's tests, one module per source module, and the proof
+│   │   │   │   ├── preferences.rs                                           # Additive bounded preferences and legacy compatibility through the shared parser
 │   │   │   │   ├── registry.rs                                              # The registry: every descriptor checked once, the built-in ones included
 │   │   │   │   ├── resolve.rs                                               # Resolution: per key, an explicit --set, then the project file, then the
 │   │   │   │   ├── store.rs                                                 # The file adapter: bounded reads naming the file, and whole-file writes
@@ -1494,6 +1500,9 @@ in place.
 │       │   ├── model-cards/                                                 # Model cards
 │       │   │   ├── invalid.toml                                             # TOML settings: invalid
 │       │   │   └── valid.toml                                               # TOML settings: valid
+│       │   ├── settings/                                                    # Settings
+│       │   │   ├── user-preferences.toml                                    # TOML settings: user preferences
+│       │   │   └── workspace.toml                                           # TOML settings: workspace
 │       │   ├── source/                                                      # Source
 │       │   │   ├── valid-skill/                                             # Valid skill
 │       │   │   │   └── SKILL.md                                             # Synthetic skill that cites evidence from the public synthetic glossary

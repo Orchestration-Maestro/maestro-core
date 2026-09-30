@@ -7,11 +7,11 @@ use super::unix::Directory;
 #[cfg(windows)]
 use super::windows::Directory;
 use super::{
-    bounded::{read_bounded, read_in, unreadable},
+    bounded::{read_bounded, read_in_bounded, unreadable},
     place::FilePlace,
 };
 use crate::{
-    layer::Layer,
+    layer::{Layer, MAX_FILE_BYTES, MAX_FILE_DEPTH},
     registry::Registry,
     resolve::{LayerName, Layers, SettingsError},
     store::{LayerSource, USER_FILE},
@@ -50,16 +50,34 @@ impl FileLayers {
 
 impl LayerSource for FileLayers {
     fn layers(&self, registry: &Registry) -> Result<Layers, SettingsError> {
+        self.preferences(registry, MAX_FILE_BYTES as u64, MAX_FILE_DEPTH)
+    }
+}
+
+impl FileLayers {
+    /// Read user and project preferences through S1's parser with injected bounds.
+    /// Neither path is the kernel's user authority config.
+    ///
+    /// # Errors
+    /// Returns a file, schema, registry or limit refusal, naming the path.
+    pub fn preferences(
+        &self,
+        registry: &Registry,
+        max_bytes: u64,
+        max_depth: usize,
+    ) -> Result<Layers, SettingsError> {
         let read = |path: &Path,
                     text: Option<String>|
          -> Result<Option<(PathBuf, Layer)>, SettingsError> {
             let Some(text) = text else {
                 return Ok(None);
             };
-            let layer = Layer::parse(registry, &text).map_err(|error| SettingsError::File {
-                path: path.to_path_buf(),
-                error,
-            })?;
+            let layer = Layer::parse_preferences(registry, &text, max_bytes, max_depth).map_err(
+                |error| SettingsError::File {
+                    path: path.to_path_buf(),
+                    error,
+                },
+            )?;
             Ok(Some((path.to_path_buf(), layer)))
         };
         let project = match &self.project {
@@ -68,12 +86,12 @@ impl LayerSource for FileLayers {
                     path: path.clone(),
                     reason: "not a file in a directory".to_owned(),
                 })?;
-                read(path, read_place(&place)?)?
+                read(path, read_place(&place, max_bytes)?)?
             }
             None => None,
         };
         Ok(Layers {
-            user: read(&self.user, read_bounded(&self.user)?)?,
+            user: read(&self.user, read_bounded(&self.user, max_bytes)?)?,
             project,
         })
     }
@@ -81,11 +99,11 @@ impl LayerSource for FileLayers {
 
 /// The text of the file of `place`, `None` when it or its directory does
 /// not exist, read without following a link below its trusted directory.
-fn read_place(place: &FilePlace) -> Result<Option<String>, SettingsError> {
+fn read_place(place: &FilePlace, max_bytes: u64) -> Result<Option<String>, SettingsError> {
     let path = place.path();
     let opened = Directory::open(place, false).map_err(|error| unreadable(&path, &error))?;
     let Some(directory) = opened else {
         return Ok(None);
     };
-    read_in(&directory, place.name(), &path)
+    read_in_bounded(&directory, place.name(), &path, max_bytes)
 }
