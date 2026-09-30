@@ -221,8 +221,15 @@ fn template_size_at_limit_is_complete_and_one_past_is_refused() {
     assert_eq!(presets[0].files["target.md"], bytes);
     fs::write(&template, vec![b'x'; limit + 1]).unwrap();
     let error = super::preview(&scratch.0, &provider, &selected).unwrap_err();
+    assert!(
+        error.starts_with("cannot read bootstrap/base/target.md:"),
+        "{error}"
+    );
     assert!(error.contains("larger than"), "{error}");
+    assert_eq!(fs::read_dir(&scratch.0).unwrap().count(), 1);
+    assert!(!scratch.0.join("target.md").exists());
     assert!(!scratch.0.join(".maestro").exists());
+    assert!(!scratch.0.join(".maestro-files").exists());
 }
 
 #[test]

@@ -17,7 +17,7 @@ use std::{
 use std::{path::Component, sync::Barrier, thread};
 
 /// A new empty directory whose name is unique within the test process.
-fn scratch() -> PathBuf {
+pub(super) fn scratch() -> PathBuf {
     static NEXT: AtomicUsize = AtomicUsize::new(0);
     let root = env::temp_dir().join(format!(
         "maestro-filesystem-{}-{}",

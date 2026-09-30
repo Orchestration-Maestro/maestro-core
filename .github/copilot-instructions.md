@@ -554,7 +554,9 @@ in place.
 │   │   └── Cargo.toml                                                       # Crate manifest: Tests that hold the maestro-core repository to its own policies
 │   ├── maestro-filesystem/                                                  # Maestro filesystem
 │   │   ├── src/                                                             # The crate's sources
+│   │   │   ├── bounded_tests.rs                                             # Rust source: bounded tests
 │   │   │   ├── lib.rs                                                       # Filesystem access that never follows a link below the root its caller names, which resolves
+│   │   │   ├── read.rs                                                      # Platform-independent byte limit for reads through an already-held file handle
 │   │   │   ├── root.rs                                                      # The root a caller names, resolved once, and the names the store appends below it
 │   │   │   ├── tests.rs                                                     # Rust source: tests
 │   │   │   ├── unix.rs                                                      # Unix filesystem access: every name resolves against an open directory, never a path

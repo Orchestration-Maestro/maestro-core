@@ -2,7 +2,7 @@
 //! rustix's `openat` family closes the check-then-open ancestor/symlink race. The local filesystem
 //! must support hard links, directory fsync, and `renameat2` with `RENAME_NOREPLACE`; Linux drvfs
 //! and NFS return `EINVAL` and fail closed without that support.
-use super::root::resolve;
+use super::{read::read_limited, root::resolve};
 use rustix::fd::OwnedFd;
 use rustix::fs::{
     AtFlags, Mode, OFlags, RenameFlags, linkat, mkdirat, open, openat, renameat_with, unlinkat,
@@ -73,14 +73,29 @@ impl Directory {
     /// # Errors
     /// Returns an error if the name is unsafe, linked, non-regular, or unreadable.
     pub fn read_regular(&self, name: &str) -> io::Result<Vec<u8>> {
-        let fd = openat(&self.0, name, READ_REGULAR_FLAGS, Mode::empty())?;
-        let mut file = File::from(fd);
-        if !file.metadata()?.is_file() {
-            return Err(io::Error::other("artifact is not a regular file"));
-        }
+        let mut file = self.open_regular(name)?;
         let mut bytes = Vec::new();
         file.read_to_end(&mut bytes)?;
         Ok(bytes)
+    }
+
+    /// The bytes of a regular file, never read through a link or beyond `max_bytes + 1`.
+    ///
+    /// # Errors
+    /// Returns `io::ErrorKind::FileTooLarge` when the file exceeds `max_bytes`, or an error
+    /// if the name is unsafe, linked, non-regular, or unreadable.
+    pub fn read_regular_bounded(&self, name: &str, max_bytes: u64) -> io::Result<Vec<u8>> {
+        read_limited(self.open_regular(name)?, max_bytes)
+    }
+
+    /// Open a regular file through the held directory without following a link.
+    fn open_regular(&self, name: &str) -> io::Result<File> {
+        let fd = openat(&self.0, name, READ_REGULAR_FLAGS, Mode::empty())?;
+        let file = File::from(fd);
+        if !file.metadata()?.is_file() {
+            return Err(io::Error::other("artifact is not a regular file"));
+        }
+        Ok(file)
     }
 
     /// Create a file the name must not already hold, link or not, writable by its owner alone.

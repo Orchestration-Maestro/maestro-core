@@ -129,14 +129,11 @@ fn read_preset_file(root: &Path, relative: &str) -> Result<Vec<u8>, String> {
         .file_name()
         .and_then(|name| name.to_str())
         .ok_or_else(|| format!("invalid preset path: {relative}"))?;
-    let bytes = Directory::open(root, parent, false)
-        .and_then(|directory| directory.read_regular(name))
-        .map_err(|error| format!("cannot read {relative}: {error}"))?;
-    let limit = Limits::PRODUCTION.source_file_bytes;
-    if u64::try_from(bytes.len()).map_or(true, |length| length > limit) {
-        return Err(format!("{relative} is larger than {limit} bytes"));
-    }
-    Ok(bytes)
+    Directory::open(root, parent, false)
+        .and_then(|directory| {
+            directory.read_regular_bounded(name, Limits::PRODUCTION.source_file_bytes)
+        })
+        .map_err(|error| format!("cannot read {relative}: {error}"))
 }
 
 /// An overlay or executable is a single name, not a path or command line.
