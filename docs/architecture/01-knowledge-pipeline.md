@@ -121,7 +121,7 @@ Python producer, extractor or connector.
 S6 supplies direct manifest-file policy and a qualified **local subprocess
 connector adapter** now. Private connectors remain source-connector extensions
 under ADR-0013, leasing from the core-owned frontier and speaking the shared
-Maestro Extension Protocol ([07 §4](07-extensibility.md#4-the-extension-system)).
+Maestro Extension Protocol ([07 §4](07-extensibility.md#4-extensions)).
 S4 is a later replaceable host, not a prerequisite for live access. N43–N45
 must prove pinned artifacts, principal isolation, brokered egress, protected
 sessions, bounded resources and owned-process stop/reap before activation;
