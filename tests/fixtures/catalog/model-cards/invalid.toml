@@ -1,0 +1,13 @@
+version = "2"
+
+[metadata]
+schema = "maestro-source/1"
+owner = "@synthetic/models"
+maturity = "reviewed"
+rows = ["chat.M036 models"]
+workflows = ["knowledge"]
+
+[identity]
+role = "embedder"
+router_entry = "embed"
+unknown_identity_key = true

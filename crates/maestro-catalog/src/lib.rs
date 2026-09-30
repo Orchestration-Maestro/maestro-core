@@ -3,4 +3,5 @@
 //! template, script or hook.
 #![forbid(unsafe_code)]
 pub mod limits;
+mod model_cards;
 pub mod source;

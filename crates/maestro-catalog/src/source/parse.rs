@@ -242,6 +242,10 @@ fn field_problems(key: &str, kind: &FieldType, value: &Value, problems: &mut Pro
             Value::Table(entries) => fields(entries, inner, key, problems),
             _ => problems.push((key.to_owned(), "must be a table".to_owned())),
         },
+        FieldType::Delegated { .. } => match value {
+            Value::Table(_) => {}
+            _ => problems.push((key.to_owned(), "must be a table".to_owned())),
+        },
         FieldType::Text | FieldType::Integer | FieldType::Number | FieldType::Boolean => {
             if let Some(message) = scalar_problem(kind, value) {
                 problems.push((key.to_owned(), message.to_owned()));

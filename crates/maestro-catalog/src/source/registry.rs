@@ -127,10 +127,40 @@ fn shape_problem(descriptor: &KindDescriptor) -> Option<String> {
         "only a Markdown kind has a body".to_owned()
     } else if descriptor.lifecycle.contains(&Maturity::Qualified) {
         "qualified needs S4 evidence; no S3 kind admits it".to_owned()
+    } else if let Some((field, validator)) =
+        delegated_problem(&descriptor.fields, None, descriptor.hook.as_ref())
+    {
+        format!("delegated field {field:?} requires hook {validator:?}")
     } else {
         return name_field_problem(descriptor);
     };
     Some(format!("kind {}: {problem}", descriptor.kind))
+}
+
+/// Finds a delegated field that has no matching registered hook name.
+fn delegated_problem<'a>(
+    fields: &'a [super::descriptor::Field],
+    prefix: Option<&'a str>,
+    hook: Option<&'a String>,
+) -> Option<(String, String)> {
+    for field in fields {
+        let path = prefix.map_or_else(
+            || field.key.clone(),
+            |prefix| format!("{prefix}.{}", field.key),
+        );
+        match &field.kind {
+            FieldType::Delegated { validator } if hook.map(String::as_str) != Some(validator) => {
+                return Some((path, validator.clone()));
+            }
+            FieldType::Table { fields } => {
+                if let Some(problem) = delegated_problem(fields, Some(&path), hook) {
+                    return Some(problem);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
 }
 
 /// Why `descriptor`'s name field is not one of its text fields, if it is not.

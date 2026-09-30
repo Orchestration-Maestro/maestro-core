@@ -10,13 +10,18 @@ use super::{
 };
 use crate::{
     limits::Limits,
-    source::{Float, KindDescriptor, Registry, ResourceId, Value, builtin},
+    source::{Float, KindDescriptor, Registry, ResourceId, Value, builtin, builtin_hooks},
 };
 use serde::Deserialize;
 
 /// The built-in kinds and `descriptor`.
 fn with(descriptor: KindDescriptor) -> Registry {
-    let mut registry = builtin().unwrap();
+    let mut registry = builtin_hooks();
+    for registration in builtin().unwrap().registrations() {
+        if registration.descriptor.kind != descriptor.kind {
+            registry.register(registration.descriptor.clone()).unwrap();
+        }
+    }
     registry.register(descriptor).unwrap();
     registry
 }

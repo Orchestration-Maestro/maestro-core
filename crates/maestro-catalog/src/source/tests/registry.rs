@@ -144,6 +144,21 @@ fn registry_refuses_a_descriptor_that_contradicts_itself() {
 }
 
 #[test]
+fn delegated_fields_require_the_named_registered_validator() {
+    let mut descriptor = glossary();
+    descriptor.fields.push(Field::required(
+        "identity",
+        FieldType::Delegated {
+            validator: "model-card".to_owned(),
+        },
+    ));
+    assert_eq!(
+        register(descriptor),
+        Err("kind glossary: delegated field \"identity\" requires hook \"model-card\"".to_owned())
+    );
+}
+
+#[test]
 fn registry_admits_a_name_field_that_is_a_text_field_and_a_known_hook() {
     let mut descriptor = glossary();
     descriptor.name_field = Some("term".to_owned());
@@ -179,6 +194,7 @@ fn builtin_kinds_loaded_from_data_check_like_the_originals() {
             "instructions",
             "mcp",
             "preset",
+            "model-card",
             "settings"
         ]
     );

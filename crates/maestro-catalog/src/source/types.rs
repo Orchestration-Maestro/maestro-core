@@ -24,6 +24,8 @@
 //! - `settings`: `settings/classes.toml`, which every catalog holds,
 //!   metadata in its `[metadata]` table; its hook gives each setting one
 //!   class.
+//! - `model-card`: `model-cards/<name>.toml`, with a kernel-validated v2
+//!   identity delegated whole to the model-card hook.
 //!
 //! A top-level directory with no registered kind (`workflows`, `policies`
 //! and the other later kinds today) is refused as "no kind registered",
@@ -71,7 +73,8 @@
 //!    only for the agent's sections and server references, the settings
 //!    classes and the preset's setting keys. A new kind whose fields are
 //!    text, numbers, booleans, lists and nested tables is one descriptor
-//!    plus fixtures (a model card's identity included).
+//!    plus fixtures. Model-card `identity` alone delegates its complete
+//!    nested shape to the kernel hook, without loosening other table checks.
 //!
 //! # Rulings (supervisor, 2026-09-28, C03 round two)
 //!

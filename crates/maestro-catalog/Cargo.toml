@@ -11,6 +11,7 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
+maestro-kernel.workspace = true
 pulldown-cmark.workspace = true
 serde.workspace = true
 serde_yaml_ng.workspace = true

@@ -467,6 +467,11 @@ in place.
 │   │   │   │   ├── mod.rs                                                   # The one immutable set of numeric limits every catalog input path shares
 │   │   │   │   ├── tests.rs                                                 # Plan D2's production constants, asserted once here; every boundary test
 │   │   │   │   └── values.rs                                                # The limit values, one immutable [Limits]
+│   │   │   ├── model_cards/                                                 # Model-card declarations and their thin adapter to the kernel registry
+│   │   │   │   ├── declaration.rs                                           # A model-card declaration uses catalog metadata plus the kernel's full v2 identity
+│   │   │   │   ├── mod.rs                                                   # Model-card declarations and their thin adapter to the kernel registry
+│   │   │   │   ├── register.rs                                              # Explicit scoped registration of an already checked declaration
+│   │   │   │   └── tests.rs                                                 # Rust source: tests
 │   │   │   ├── source/                                                      # The strict checker of a catalog's authoring sources: a registry of
 │   │   │   │   ├── kinds/                                                   # The built-in kinds: each a descriptor and, where a rule is truly
 │   │   │   │   │   ├── agent.rs                                             # agent: a Copilot custom agent profile and its <name>.maestro.toml
@@ -474,6 +479,7 @@ in place.
 │   │   │   │   │   ├── instructions.rs                                      # instructions: a Copilot .instructions.md file and its
 │   │   │   │   │   ├── mcp.rs                                               # mcp: an approved MCP server, its launch and its tool allowlist
 │   │   │   │   │   ├── mod.rs                                               # The built-in kinds: each a descriptor and, where a rule is truly
+│   │   │   │   │   ├── model_card.rs                                        # model-card: a strict catalog declaration of the kernel's v2 identity
 │   │   │   │   │   ├── preset.rs                                            # preset: a project preset, the root of a declared closure, and the
 │   │   │   │   │   ├── settings.rs                                          # settings: settings/classes.toml, the one override class of every
 │   │   │   │   │   └── skill.rs                                             # skill: an Agent Skills SKILL.md, whose Maestro data sits in the
@@ -486,6 +492,7 @@ in place.
 │   │   │   │   │   ├── hostile.rs                                           # Hostile sources inside D2's limits: YAML aliases that expand past their
 │   │   │   │   │   ├── layout.rs                                            # The catalog's layout: agent and sidecar pairing, duplicate IDs, entries
 │   │   │   │   │   ├── mod.rs                                               # The source checker's tests: the valid synthetic catalog and each of its
+│   │   │   │   │   ├── model_card.rs                                        # Rust source: model card
 │   │   │   │   │   ├── references.rs                                        # References across resources: dangling names and tools, dependency
 │   │   │   │   │   ├── registry.rs                                          # The kind registry: registrations stay distinct, each descriptor is
 │   │   │   │   │   ├── rulings.rs                                           # The C03 round-two rulings: skill metadata reads only maestro
@@ -1449,6 +1456,9 @@ in place.
 │       │   │   ├── pi.md                                                    # Synthetic agent for the catalog host format probe
 │       │   │   ├── sidecar.agent.md                                         # Synthetic agent for the catalog host format probe
 │       │   │   └── sidecar.maestro.toml                                     # TOML settings: sidecar.maestro
+│       │   ├── model-cards/                                                 # Model cards
+│       │   │   ├── invalid.toml                                             # TOML settings: invalid
+│       │   │   └── valid.toml                                               # TOML settings: valid
 │       │   ├── source/                                                      # Source
 │       │   │   ├── valid-skill/                                             # Valid skill
 │       │   │   │   └── SKILL.md                                             # Synthetic skill that cites evidence from the public synthetic glossary

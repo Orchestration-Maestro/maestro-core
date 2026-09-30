@@ -9,6 +9,7 @@ mod directory;
 mod extension;
 mod hostile;
 mod layout;
+mod model_card;
 mod references;
 mod registry;
 mod rulings;

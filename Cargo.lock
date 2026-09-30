@@ -870,6 +870,7 @@ dependencies = [
 name = "maestro-catalog"
 version = "0.1.0"
 dependencies = [
+ "maestro-kernel",
  "pulldown-cmark",
  "serde",
  "serde_json",

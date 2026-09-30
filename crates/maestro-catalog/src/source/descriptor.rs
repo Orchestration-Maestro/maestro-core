@@ -166,6 +166,12 @@ pub enum FieldType {
     ScalarTable,
     /// A table whose values are lists of strings.
     ListTable,
+    /// A nested table whose exact serde shape is delegated to the named
+    /// kind hook, which is the single authority for that schema.
+    Delegated {
+        /// Must name the descriptor's registered hook.
+        validator: String,
+    },
     /// A nested table with its own typed fields, kept whole for the kind's
     /// hook.
     Table {

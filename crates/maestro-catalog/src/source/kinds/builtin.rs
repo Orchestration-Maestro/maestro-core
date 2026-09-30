@@ -3,7 +3,7 @@
 
 use super::{
     agent::{self, AgentRules},
-    instructions, mcp,
+    instructions, mcp, model_card,
     preset::{self, PresetRules},
     settings::{self, SettingsRules},
     skill,
@@ -12,10 +12,11 @@ use crate::source::{registry::Registry, rules::KindRules};
 
 /// The hooks a descriptor may select, by name. Content never supplies code:
 /// a new hook is reviewed code added here.
-const HOOKS: [(&str, &dyn KindRules); 3] = [
+const HOOKS: [(&str, &dyn KindRules); 4] = [
     ("agent-profile", &AgentRules),
     ("preset-settings", &PresetRules),
     ("settings-classes", &SettingsRules),
+    ("model-card", &model_card::ModelCardRules),
 ];
 
 /// An empty registry whose descriptors may select the built-in hooks: the
@@ -39,6 +40,7 @@ pub fn builtin() -> Result<Registry, String> {
         instructions::descriptor(),
         mcp::descriptor(),
         preset::descriptor(),
+        model_card::descriptor(),
         settings::descriptor(),
     ] {
         registry.register(descriptor)?;

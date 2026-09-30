@@ -1,0 +1,120 @@
+version = "2"
+
+[metadata]
+schema = "maestro-source/1"
+owner = "@synthetic/models"
+maturity = "reviewed"
+rows = ["chat.M036 models"]
+workflows = ["knowledge"]
+
+[identity]
+role = "embedder"
+router_entry = "embed"
+
+[identity.weights]
+upstream_model_id = "org/model"
+upstream_revision = "0123456789abcdef"
+source_url = "https://example.invalid/model"
+licence_id = "apache-2.0"
+licence_terms_source = "https://example.invalid/license"
+gguf_digest = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+gguf_bytes = 1024
+quantization = "Q8_0"
+adapters = {}
+drafts = {}
+projectors = {}
+
+[identity.formats]
+tokenizer_digest = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+tokenizer_derivation = "gguf_embedded"
+qualification_digest = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+system_format = ""
+
+[identity.formats.template]
+state = "absent"
+
+[identity.formats.tool_format]
+state = "unsupported"
+
+[identity.formats.document]
+state = "supported"
+value = { prefix = "", suffix = "" }
+
+[identity.formats.query]
+state = "supported"
+value = { prefix = "Instruct: retrieve\\nQuery: ", suffix = "" }
+
+[identity.formats.embedding]
+state = "supported"
+value = { pooling = "last_token", normalization = "l2" }
+
+[identity.invocation]
+llama_cpp_build = "b1234-abcdef"
+runtime_binary_digest = "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+backend = "cuda"
+server_flags = { "--model" = { type = "asset", value = { name = "weights", digest = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" } } }
+
+[identity.invocation.limits]
+context_tokens = 4096
+
+[identity.invocation.dimensions]
+state = "measured"
+value = 1024
+
+[identity.invocation.sampling]
+state = "not_applicable"
+
+[identity.invocation.reasoning]
+state = "not_applicable"
+
+[identity.resources]
+batch_size = 512
+micro_batch_size = 128
+slots = 1
+cache_policy = "keep_loaded"
+
+[identity.resources.offload]
+mode = "explicit_devices"
+devices = ["gpu0"]
+
+[identity.resources.memory_estimate]
+bytes = 2000000000
+source = "publisher estimate"
+
+[identity.resources.kv_cache]
+key = "q8_0"
+value = "q8_0"
+
+[identity.resources.hardware]
+device = "RTX 5090"
+driver_version = "616.56"
+host_cpu = "test cpu"
+
+[identity.resources.hardware.host_memory_bytes]
+state = "unavailable"
+reason = "not measured"
+
+[identity.resources.qualified_limits.context_tokens]
+state = "measured"
+value = 4096
+provenance = "qualification run"
+
+[identity.resources.qualified_limits.output_tokens]
+state = "unavailable"
+reason = "not applicable"
+
+[identity.resources.qualified_limits.concurrency]
+state = "measured"
+value = 1
+provenance = "qualification run"
+
+[identity.resources.qualified_limits.peak_memory_bytes]
+state = "unavailable"
+reason = "not measured"
+
+[identity.provenance]
+identity_created = "2026-09-27"
+qualification_created = "2026-09-27"
+qualification_method = "native_tokenizer"
+tool_versions = { "llama.cpp" = "b1234" }
+artifacts = { "native-qualification" = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc" }
