@@ -1433,6 +1433,17 @@ core/Maestro or an attempted override refuses. Presets require capability roots,
 not globs; discovery alone never selects a capability. One-folder removal must
 leave unrelated selections working and diagnose every remaining dangling edge.
 
+Core membership is checked, not curated in another list: a resource under
+`core/` is admissible only when every shipped preset requires it through that
+preset's forward `requires` closure. Evaluate all public `presets/` entries,
+including each selection's mandatory core root, using declared edges only.
+Refuse any missing membership with the qualified resource and preset IDs.
+C33 tests a delivery reviewer moved to core but absent from knowledge-client's
+closure, with a common resource required by every preset as the passing
+neighbour. A core resource reached only through a core → capability edge
+still refuses even if every preset reaches it; dependency direction is checked
+independently. Neither folder containment nor usage labels add a requirement.
+
 #### Shared roots, templates and ownership
 
 `presets/` is the sole selection source. Extend its descriptor with optional
@@ -1529,7 +1540,9 @@ private approvals are excluded from these 6–10 hours.
 | Checkable boundary | Named required tests | Tasks |
 | --- | --- | --- |
 | Separate roots and self-contained ownership | `owner_roots_reject_misplaced_content`, `owner_discovery_is_bounded`, `owner_mirror_mismatch_refuses`, `duplicate_namespace_refuses` | C30–C32, C34 |
+| Core membership in every shipped preset | `core_delivery_resource_refuses`, `core_common_resource_accepts`, `core_via_capability_refuses` | C33 |
 | Qualified-only edges and removability | `cross_root_paths_refuse`, `core_cannot_require_capability`, `core_capability_workflow_label_refuses`, `core_workflow_label_schema_neighbours`, `removed_capability_dangling_reference_refuses`, `capability_removal_leaves_core_unchanged`, `unrelated_selection_survives_removal` | C33, C34 |
+| Architecture example references | `owner_first_example_references_accept`, `legacy_example_references_refuse`: owner-relative graph fixtures with declared qualified agents/skills/contracts/policies pass; type-first placement, paths, basename aliases and undeclared references refuse | C22a, C22b |
 | Additive-only private source | `overlay_cannot_shadow_public`, `public_closure_cannot_require_private`, `missing_overlay_preserves_public_selection`, `combined_sources_share_limits` | C42 (S6) |
 | Generated per-root ownership | `codeowners_drift_refuses`, `removed_owner_rule_refuses` | C35 |
 | `/2` cutover, closure and native aliases | `old_or_mixed_layout_refuses`, `old_authoring_lock_requires_preview`, `core_selected_once`, `distinct_inventory_output_collision_refuses`, `native_alias_collision_refuses` | C32, C34, C36, C37, C40 |
@@ -1540,7 +1553,11 @@ bootstrap and CLI regressions plus the normal three-OS gates/review. C38 checks
 Markdown/links and exact requirement-to-task coverage. Keep the 13 existing
 source fixture modules' native-name, sidecar, inert-script, bounds and traversal
 refusals while migrating their IDs, paths and schema. Baseline work is not
-re-estimated; C30–C43 itemize only the approved incremental change.
+re-estimated; C30–C43 itemize only the approved incremental change. The core
+membership check reuses the preset closure traversal and C33's existing fixture
+neighbours; C22a/C22b add reference cases to their existing valid/invalid pairs.
+These fix-round clarifications stay within the current task estimates, with no
+new task, dependency edge or budget increase.
 
 ## Data model
 

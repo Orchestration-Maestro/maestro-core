@@ -279,15 +279,22 @@ An analyzer:
   cannot read the repository, reach the network beyond its declared allowlist,
   or write canonical knowledge.
 
+This S8 analyzer-extension excerpt uses an illustrative capability root and
+owner, not an approved identity or S3 seed. Its future descriptor must register
+the owner-relative `extensions/` subtree; S3 still refuses this unregistered
+kind. The owning `capability.toml` declares
+`extension:reverse-engineering/joern-analyzer` in its `requires`.
+
 ```toml
-# maestro-manifests: extensions/joern-analyzer/extension.toml
-id = "joern-analyzer"
+# maestro-manifests: capabilities/engineering/reverse-engineering/extensions/joern-analyzer/extension.toml
+id = "extension:reverse-engineering/joern-analyzer"
+name = "joern-analyzer"
 version = "1.0.0"
-owner = "@org/platform"
+owner = "@org/platform"                  # illustrative mirror of the owner root
 kind = "analyzer"
 transport = "process"
 command = ["joern-analyzer", "--stdio"]
-requires = { maestro-events = "^1", maestro-operations = "^1" }
+requires = ["policy:core/default-deny", "policy:core/protected-paths", "policy:core/egress-deny-by-default"]
 
 [[subscribe]]
 types = ["maestro.analysis.job.ready.v1"]
@@ -306,6 +313,11 @@ memory = "8GiB"
 cpu = "4"
 in_flight = 1
 ```
+
+`requires` contains only qualified catalog resource IDs. Runtime compatibility
+still requires exactly `maestro-events` ^1 and `maestro-operations` ^1. Their
+machine-readable protocol field belongs to the future S4/S8 extension schema,
+not to `requires`; no field is invented here.
 
 **The analyzer contract**, in the shape of the extractor contract of
 [01 §3](01-knowledge-pipeline.md#3-l2-extraction-and-normalization): every

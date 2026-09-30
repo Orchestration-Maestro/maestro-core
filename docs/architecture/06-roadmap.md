@@ -21,7 +21,7 @@ not fixture work. This scoped exception is recorded in
 | **S0 Foundation** | Clean `maestro-core` (canonicalization only) under org gates; the repositories S1 needs published; Spec Kit | 4–6 days (measured scope) | — | — |
 | **S1 Knowledge kernel + hybrid RAG** | Kernel building blocks; Control-M collection imported, published and searchable through MCP; eval suites; first model bake-off | 12–15 days | S0 | **M1 "Ask Control-M"** |
 | **S2 Knowledge graph** | Fact store, extraction, entity resolution, Neo4j projection, graph route, graph evals | 10–15 days | S1 | **M2 "Relationships answered"** |
-| **S3 Catalog** | Copilot-native catalog v1, settings classes and overrides, compile/release/install/update with freshness and revocation, `maestro init`, host projection, intent routing, policies and static graph checks | 191 lane-hours plus review/CI reserve ([plan](../../specs/003-catalog/plan.md#risks-and-estimates)) | S1 live evidence for C08/C28 and M1 release for M3 exit; S2 G25/G27 for impact | **M3 "Catalog installable"** |
+| **S3 Catalog** | Copilot-native catalog v1, settings classes and overrides, compile/release/install/update with freshness and revocation, `maestro init`, host projection, intent routing, policies and static graph checks | 218–230 lane-hours plus review/CI reserve; deferred S6 contracts separate ([plan](../../specs/003-catalog/plan.md#risks-and-estimates)) | S1 live evidence for C08/C28 and M1 release for M3 exit; S2 G25/G27 for impact | **M3 "Catalog installable"** |
 | **S4 Orchestration runtime** | Workflow graphs, durable engine, daemon, Copilot SDK + llama.cpp sessions, Cedar broker, sandbox, contracts, interrupts, extension host and event stream, test kit | 18–24 days | S3 | **M4 "First governed workflow"** |
 | **S5 Capabilities + InnerSource** | Monitoring, Product Owner and Control-M orchestration-planning capabilities; scaffolder; scenario runner; a contributed capability | 10–15 days | S4 | **M5 "First contributed capability"** |
 | **S6 Native acquisition** | Frontier, fetchers, extraction, policy; private BMC connectors; Python retired source by source | 15–25 days | S1 | **M6 "Python retired"** |
@@ -196,13 +196,18 @@ precedence, conversational/artifact separation, four-client instruction delivery
 menu accessibility/visual acceptance, trust-backed real file denials, and startup
 off/propose/catalog-auto/approval/rollback/offline cases. Plain init serves C08
 without TUI/OA9; branded visual acceptance is required before M3, not the first
-owner loop. The revised task set is
-[57 tasks / 191 lane-hours](../../specs/003-catalog/tasks.md), including the evening
-amendment and C16h's 3 h split. C08's dependency closure remains 72 h; M3 requires
-188 h, then C29 3 h. With the unchanged 16–24 h review/CI reserve, allow 207–215 h;
-the older calendar estimate is not a commitment for this expanded scope. Configuration, path trust,
-release sources and client delivery remain small modules with explicit ports;
-new adapters do not change callers or weaken mandatory controls.
+owner loop. After the 2026-09-30 owner-first amendment, S3 has
+[68 tasks / 218–230 lane-hours](../../specs/003-catalog/tasks.md#critical-paths-and-effort),
+including C16h's split, C30–C39's migration and C40's native projection delta.
+C08's dependency closure is 103–115 h; C28 M3 requires 215–227 h, then C29 adds
+3 h. With the unchanged 16–24 h review/CI reserve, allow 234–254 h for S3.
+Deferred S6 collection contracts C41–C43 add 3 tasks / 6–10 h separately; they
+never gate M3 and include no crawler. The earlier 57-task / 191 h total,
+72 h C08 and 188 h M3 are historical baseline figures, not current or remaining
+work. These are whole-plan estimates, not a promise to spend completed tasks'
+hours again or a calendar commitment. Configuration, path trust, release
+sources and client delivery remain small modules with explicit ports; new
+adapters do not change callers or weaken mandatory controls.
 
 Before C17, the supervisor synchronizes S1's landed registry/kernel APIs into S3.
 The 21:02 ruling makes S1 registry names canonical; C17 adds only missing catalog

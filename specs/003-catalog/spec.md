@@ -897,7 +897,7 @@ invalid graph rule and policy fixture through the real checks.
   answerer, extractor and query_expander, but unsupported kernel roles refuse,
   never alias/fallback. Use the kernel's own unknown-role refusal, not a hard-coded
   planned-role table. Extractor support depends on S2 G17, integrated before M3
-  with S2; query_expander remains unsupported until S1's named role follow-up. M059 `profiles/models/` and `model_profile`
+  with S2; query_expander remains unsupported until S1's named role follow-up. M059 owner-relative `profiles/models/` and `model_profile`
   continue to configure agent sessions; they neither replace these cards nor
   qualify or select a kernel job.
 - **FR-S3-039**: Maestro MUST check the declaration before explicit, scoped
@@ -946,6 +946,13 @@ invalid graph rule and policy fixture through the real checks.
   MUST be covered by the corresponding requirement. Reject basename aliases,
   cross-root file paths/includes and undeclared edges. Capabilities may require
   core or other capabilities, but core MUST never require an optional capability.
+  A resource under `core/` MUST be required by every shipped preset through that
+  preset's forward `requires` closure. Check all public `presets/` entries, not
+  only the selected preset: start with the mandatory core root and follow
+  declared edges, never folder contents. Refuse any core resource missing from
+  a preset's closure and name both qualified IDs in the diagnostic. A core
+  resource reachable only through a core → capability edge still refuses;
+  all-preset reachability never waives the dependency-direction rule.
   Workflow usage labels MUST NOT create dependencies, select resources or grant
   authority. Core labels may be omitted/empty, or name only core workflows;
   reject a core label naming a capability workflow. C33 removes such reverse

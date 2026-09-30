@@ -150,7 +150,7 @@ its released predecessor.
 | `bridge` | Relays the stream to a broker | NATS JetStream or Kafka for team-scale consumers |
 | `source-connector` | Leases frontier items and submits captures through `knowledge.capture.submit` | Private vendor connectors (ADR-0009): the frontier stays core-owned |
 | `extractor` | Converts one media type to canonical Markdown under the extractor contract ([01 §3](01-knowledge-pipeline.md#3-l2-extraction-and-normalization)) | A format the core does not support |
-| `tool-provider` | Exposes agent tools | An MCP server declared in `mcp/*.toml` (existing path in [03](03-agent-orchestration.md)) |
+| `tool-provider` | Exposes agent tools | An MCP server declared in owner-relative `mcp/*.toml`, with a qualified `mcp` ID in the consumer's `requires` ([03](03-agent-orchestration.md)) |
 | `exporter` | Writes projections or reports elsewhere | A dashboard feed, an archive |
 | `analyzer` | Leases an analysis job and submits findings about one target revision, with their evidence, coverage and limits ([09 §8](09-reverse-engineering.md#8-analyzers-are-extensions)) | A licence scanner, a code-property-graph query runner, an authorized traffic recorder |
 
@@ -160,15 +160,22 @@ integration: durable events and commands, which MCP does not provide.
 
 ### 4.2 Declaration
 
+This S4 extension-kind excerpt uses an illustrative capability root and owner,
+not an approved identity or S3 seed. The future descriptor must register the
+owner-relative `extensions/` subtree before it can pass source checking; S3
+still refuses this unregistered kind. The owning `capability.toml` declares
+`extension:notifications/run-notifier` in its `requires`.
+
 ```toml
-# maestro-manifests: extensions/run-notifier/extension.toml
-id = "run-notifier"
+# maestro-manifests: capabilities/engineering/notifications/extensions/run-notifier/extension.toml
+id = "extension:notifications/run-notifier"
+name = "run-notifier"
 version = "1.0.0"
-owner = "@org/platform"
+owner = "@org/platform"                  # illustrative mirror of the owner root
 kind = "subscriber"
 transport = "process"                    # process | webhook | bridge
 command = ["run-notifier", "--stdio"]    # a released, checksum-pinned artifact
-requires = { maestro-events = "^1", maestro-operations = "^1" }
+requires = ["policy:core/default-deny", "policy:core/protected-paths", "policy:core/egress-deny-by-default"]
 
 [[subscribe]]
 types = ["maestro.run.completed.v1", "maestro.run.cancelled.v1"]
@@ -188,6 +195,11 @@ cpu = "0.2"
 in_flight = 32
 ```
 
+`requires` contains only qualified catalog resource IDs, not protocol names.
+Runtime compatibility still requires exactly `maestro-events` ^1 and
+`maestro-operations` ^1. Their machine-readable protocol field belongs to the
+future S4 extension schema, not to `requires`; no field is invented here.
+
 The catalog compiler validates the declaration like any resource: known event
 types and majors, operations that exist, effects covered by Cedar policies,
 limits within organizational ceilings. The artifact the command runs is
@@ -206,7 +218,7 @@ supervises extensions:
   Protocol*: `initialize` (versions, capabilities), `events.deliver` /
   `events.ack` (push) or `events.poll` (pull), `ops.invoke`, `health`,
   `shutdown`. Small on purpose; any language can implement it.
-- **Principal**: `Extension::"run-notifier"` in Cedar with exactly the declared
+- **Principal**: `Extension::"extension:notifications/run-notifier"` in Cedar with exactly the declared
   grants; an extension cannot widen its own grants, and its outputs are
   untrusted data like any tool output.
 - **Lifecycle**: start on activation, health checks, restart with backoff,
@@ -218,11 +230,11 @@ supervises extensions:
 
 ```text
 maestro extension list                      # declared in installed bundles, with state
-maestro extension inspect run-notifier      # declaration, grants, effects, cursor, lag, dead letters
-maestro extension activate run-notifier     # explicit, audited; creates the cursor
-maestro extension deactivate run-notifier   # pauses delivery; cursor kept
-maestro extension replay run-notifier --dead-letter
-maestro extension remove run-notifier       # deletes the cursor after confirmation
+maestro extension inspect extension:notifications/run-notifier
+maestro extension activate extension:notifications/run-notifier     # explicit, audited
+maestro extension deactivate extension:notifications/run-notifier   # cursor kept
+maestro extension replay extension:notifications/run-notifier --dead-letter
+maestro extension remove extension:notifications/run-notifier       # confirm cursor deletion
 ```
 
 ### 4.4 Later options

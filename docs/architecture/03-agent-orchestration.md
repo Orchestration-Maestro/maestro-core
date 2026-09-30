@@ -106,6 +106,18 @@ workflow, roles, contracts, skills, profiles and evaluation belong to
 must not carry them. Maestro's canonical persona and system prompt live in
 `core/agents/maestro.agent.md`, never hard-coded runtime text.
 
+**Core-membership rule (FR-S3-042):** a resource under `core/` is admissible
+only if every shipped preset requires it through that preset's forward
+`requires` closure. Check all public `presets/` entries, not just the selected
+preset; include the mandatory core root, then follow declared edges, never
+folder contents or workflow labels. Refuse a core resource absent from any
+preset's closure, naming the qualified resource and preset in the diagnostic.
+C33 tests a relocated `agent:core/reviewer` absent from
+`preset:knowledge-client`, beside a common resource required by every preset.
+A resource reached only through a core → capability edge still refuses: closure
+membership never waives the dependency-direction rule. No hand-kept core list
+or resource-name exception substitutes for this check.
+
 **Checkable segregation.** These are required checker/CI tests, not conventions
 that reviewers alone enforce. [S3 D13](../../specs/003-catalog/plan.md#d13-owner-first-source-migration)
 defines the contracts and named fixtures.
@@ -114,7 +126,7 @@ defines the contracts and named fixtures.
 | --- | --- | --- |
 | FR-S3-040: separate roots | Reject type-first roots, misplaced/unknown resource subtrees, nested owners and private data in public inputs; accept the exact owner/shared layout | C30, C31 |
 | FR-S3-041: one self-contained owner root | Exactly one approved GitHub owner/team in each `capability.toml`; reject missing/multiple owners, namespace reuse and resource-owner mirror mismatch | C32, C34 |
-| FR-S3-042: explicit dependencies only | Every resource dependency, local or cross-owner, is a typed qualified ID in `requires`; reject file paths/includes, core-to-capability edges and core labels naming capability workflows; capability-to-capability edges require explicit declarations | C33, C34 |
+| FR-S3-042: explicit dependencies and common core | Every resource dependency, local or cross-owner, is a typed qualified ID in `requires`; refuse core resources outside any shipped preset's forward closure, file paths/includes, core-to-capability edges and core labels naming capability workflows; capability-to-capability edges require explicit declarations | C33, C34 |
 | FR-S3-043: removable capability | Remove one capability folder; core stays valid and byte-identical, unrelated selections still check, and every surviving dependant reference refuses with source-aware diagnostics | C33 |
 | FR-S3-044: additive private overlay | Reject duplicate public/core IDs or paths even for identical bytes, owner/trust overrides and public-to-private dependencies; a missing overlay disables only its private preset | C42 (S6); C33 checks public references now |
 | FR-S3-045: generated ownership | Generate anchored CODEOWNERS per owner root and shared-root rules from core's owner record; reject drift in CI | C35 |
@@ -591,27 +603,49 @@ earlier catalog is imported, copied or opened while S3 is written.
 
 ### 2.2 Example
 
+Reference-focused frontmatter excerpt, not an executable seed. C22a/C22b copy
+these exact owner-relative paths and resource references into otherwise valid
+fixtures; production graphs also need complete metadata, initial-state handling
+and output production on every successful path under §2.3. Node/state names,
+tool names and the parser below are graph-local or host vocabulary, not catalog
+resource aliases. Every catalog reference is a qualified ID declared in `requires`.
+
 ```yaml
-# workflows/feature-delivery/workflow.md frontmatter
-id: feature-delivery
+# capabilities/engineering/delivery/workflows/feature-delivery/workflow.md
+id: workflow:delivery/feature-delivery
+name: feature-delivery
 version: 1.2.0
+requires:
+  - agent:delivery/planner
+  - agent:delivery/coder
+  - agent:delivery/reviewer
+  - skill:delivery/spec-compliance
+  - skill:delivery/security-review
+  - contract:delivery/delivery
+  - contract:delivery/plan
+  - contract:delivery/patch
+  - contract:delivery/test-report
+  - contract:delivery/review
+  - policy:core/destructive-operations
+  - policy:core/protected-paths
+  - policy:core/egress-deny-by-default
 inputs:  { task: string, repository: repo-ref }
-outputs: contracts/delivery.schema.json
+outputs: contract:delivery/delivery
 state:
-  plan:     { contract: contracts/plan.schema.json,        reducer: set }
-  patch:    { contract: contracts/patch.schema.json,       reducer: set }
-  tests:    { contract: contracts/test-report.schema.json, reducer: set }
-  reviews:  { contract: contracts/review.schema.json,      reducer: append }
+  plan:     { contract: "contract:delivery/plan",        reducer: set }
+  patch:    { contract: "contract:delivery/patch",       reducer: set }
+  tests:    { contract: "contract:delivery/test-report", reducer: set }
+  reviews:  { contract: "contract:delivery/review",      reducer: append }
 nodes:
-  plan:     { kind: agent, agent: planner,  writes: plan }
-  code:     { kind: agent, agent: coder,    reads: [plan, tests, reviews], writes: patch,
+  plan:     { kind: agent, agent: "agent:delivery/planner", writes: plan }
+  code:     { kind: agent, agent: "agent:delivery/coder", reads: [plan, tests, reviews], writes: patch,
               tools: [edit, shell] }
   test:     { kind: step,  run: "cargo nextest run --message-format libtest-json",
               parser: nextest-json, writes: tests }
-  spec:     { kind: agent, agent: reviewer, skill: spec-compliance, reads: [plan, patch],
-              writes: reviews, independent_of: [code] }
-  security: { kind: agent, agent: reviewer, skill: security-review, reads: [patch],
-              writes: reviews, independent_of: [code] }
+  spec:     { kind: agent, agent: "agent:delivery/reviewer", skill: "skill:delivery/spec-compliance",
+              reads: [plan, patch], writes: reviews, independent_of: [code] }
+  security: { kind: agent, agent: "agent:delivery/reviewer", skill: "skill:delivery/security-review",
+              reads: [patch], writes: reviews, independent_of: [code] }
   reviewed: { kind: join, policy: all }
   approve:  { kind: gate, human: true, shows: [patch, tests, reviews] }
 edges:
@@ -626,7 +660,7 @@ edges:
                         max_iterations: 2 }
   - reviewed -> approve: { when: "all(reviews, r => r.verdict == 'approved')" }
 budgets: { tokens: 600000, wall: 60m, tool_calls: 400 }
-policies: [destructive-operations, protected-paths, egress-deny-by-default]
+policies: ["policy:core/destructive-operations", "policy:core/protected-paths", "policy:core/egress-deny-by-default"]
 ```
 
 ### 2.3 Compile-time validation
@@ -636,9 +670,10 @@ that fails a rule is not part of a bundle; unsupported constructs are rejected,
 never silently omitted. S4 executes validated graphs and enforces these
 requirements at runtime; static success supplies no execution qualification.
 
-1. Every referenced agent, skill, contract, policy and subgraph resolves in the
-   bundle with reviewed evidence for S3 compilation; S4 execution raises the
-   threshold to qualified (§1.2).
+1. Every referenced agent, skill, contract, policy and subgraph is a typed
+   qualified ID in the workflow's declared `requires` and resolves in the bundle
+   with reviewed evidence for S3 compilation; paths, basename aliases and
+   undeclared edges refuse. S4 execution raises the threshold to qualified (§1.2).
 2. Every node is reachable from the start and can reach a terminal node.
 3. Every cycle contains a back-edge with `max_iterations`.
 4. Every condition parses and type-checks against the source node's contract
@@ -779,7 +814,7 @@ optional workflow, never the default.
 | `model`, `provider` | The node's provider profile (§3.2) |
 | `system_message` | Agent body + required instructions + the session's language/tone and English-artifact/log fragment + required skills + node contract + inputs/evidence, within the context budget (§3.4); test actual launch/resume/delegation payloads on both providers |
 | `available_tools` / `excluded_tools` | Node declaration ∩ policy; everything else excluded |
-| `mcp_servers` | Maestro's read tools (knowledge, catalog) + approved servers from `mcp/*.toml` |
+| `mcp_servers` | Maestro's read tools (knowledge, catalog) + approved servers from owner-relative `mcp/*.toml`, covered by qualified `mcp` requirements |
 | hooks, permission handler | The broker (§4); elicitation and user-input handlers raise interrupts |
 
 - A host tool, `submit_result(payload)`, is the **only way a node completes**;
@@ -793,8 +828,10 @@ optional workflow, never the default.
 | `copilot` | GitHub-managed models through the Copilot runtime | Model per role from the profiles; organizational Copilot policy applies |
 | `llamacpp` | BYOK: OpenAI-compatible provider pointing at the local router (`http://127.0.0.1:8080/v1`, completions wire API) | Models are the router's catalog entries |
 
-`profiles/models/<role>.toml` lists the allowed profiles per role and provider,
-filled from bake-off results (see [05 §3](05-platform-and-operations.md#3-model-selection)).
+Owner-relative `profiles/models/<role>.toml` lists the allowed profiles per role
+and provider: Maestro's under `core/`, delivery roles' under
+`capabilities/engineering/delivery/`. These are filled from bake-off results
+(see [05 §3](05-platform-and-operations.md#3-model-selection)).
 A node picks within that list. There is **no automatic fallback** between
 providers; an unavailable provider fails the node with a typed error that an edge
 may route. Policy can pin nodes that handle private data to local providers.
@@ -820,8 +857,9 @@ callbacks (`with_hooks`) is separate from native file hooks
 `subagentStop`, `preCompact`, `permissionRequest`, `notification`) are not Rust
 hook variants and need their own adapter and tests.
 
-**MCP servers** are declared in `mcp/<server>.toml`: registry ID, transport,
-endpoint or executable digest, credential reference, allowed tools, timeout,
+**MCP servers** are declared in owner-relative `mcp/<server>.toml`, with a
+qualified `mcp:namespace/server` requirement on each consuming resource:
+registry ID, transport, endpoint or executable digest, credential reference, allowed tools, timeout,
 maximum result size, output contracts, resource and prompt rules and the agents
 allowed to use them. A tool newly advertised by a server is not approved;
 resources and prompts are checked by URI, access, MIME type, size and
@@ -972,8 +1010,11 @@ qualifies provenance, scope, retention and correction; see
 | L4 real services | Sandbox enforcement, daemon crash/restart, Qdrant and Neo4j | Containment and durability | Hosted providers |
 | L5 live | Authorized runs on Copilot and llama.cpp against a canary repository | Qualification cards per role and model | Untested roles, models and platforms |
 
-Scenario files in `maestro-manifests/evals/scenarios` drive L1–L3 through a
-released runner, so contributors test a workflow without building the runtime.
+Scenario files live in their owner's `evals/scenarios/`, for example
+`capabilities/engineering/delivery/evals/scenarios/` in `maestro-manifests`.
+Their workflow/resource references use qualified IDs in declared `requires`,
+never paths or basenames. They drive L1–L3 through a released runner, so
+contributors test a workflow without building the runtime.
 
 | Rule | Design |
 | --- | --- |

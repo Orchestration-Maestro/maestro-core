@@ -101,8 +101,9 @@ and refusal metrics as any candidate, and are never chosen for the label.
    cache settings, measured hardware limits, suite results and date. Two
    quantizations or two templates of one model are two cards; an alias or a
    `/v1/models` answer never proves which weights run. Under ADR-0011, the winner
-   arrives as an **owner-approved manifest change** in `model-cards/`, carrying
-   the exact kernel v2 identity and approved public evidence references. The
+   arrives as an **owner-approved manifest change** in owner-relative
+   `model-cards/` (seed: `core/model-cards/`), carrying the exact kernel v2
+   identity and approved public evidence references. The
    manifest declares; the kernel retains immutable cards, evaluations and
    selections. Explicit catalog registration requires all evidence already local;
    each machine qualifies its own backend/runtime/hardware-bound card. A returned

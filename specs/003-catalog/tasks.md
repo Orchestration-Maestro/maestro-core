@@ -1043,13 +1043,20 @@ pass, denied/error neighbours deny, and model text cannot supply trusted facts.
 **Files:** `crates/maestro-catalog/src/graph/{mod.rs,types.rs,topology.rs}`,
 `crates/maestro-catalog/src/graph/tests/{mod.rs,topology.rs}`,
 `tests/fixtures/catalog/graphs/{topology-valid.md,topology-invalid.md}`.
-**Requirements:** FR-S3-003, FR-S3-019, SC-S3-005.
+**Requirements:** FR-S3-003, FR-S3-019, FR-S3-042, SC-S3-005.
 
 - [ ] **Step 1: Red.** Cover missing/ineligible references, unreachable nodes,
   paths without terminals, unbounded cycles/maps/subgraph depth and impossible
   reviewer independence, including a mandatory reviewer omitted from closure.
   Reviewed-evidence members compile; placeholder/authored/retired members refuse,
   and compilation alone never creates route-eligible S4 qualification.
+  Add `owner_first_example_references_accept`: copy architecture 03 §2.2's
+  owner-relative workflow location and qualified agent/skill `requires` and
+  references into the otherwise valid topology fixture. Pair it with
+  `legacy_example_references_refuse`: move that fixture to a type-first root,
+  replace an agent/skill ID with its basename or a source path, or remove its
+  declared requirement. Each independent mutation must refuse with the source
+  and offending reference, not fall back to a same-named resource.
 - [ ] **Step 2: Green.** Build exact dependency closures and topology checks
   for rules 1, 2, 3, 6 and 9 of architecture 03 §2.3. Reject unknown constructs;
   do not build a scheduler, engine or general plugin graph framework.
@@ -1067,13 +1074,22 @@ loops and independent reviewers pass without treating source labels as evidence.
 `tests/fixtures/catalog/graphs/{contracts-valid.md,contracts-invalid.md}`;
 wire full checks into `source/check.rs`; adopting the measured schema validator
 owns its `maestro-quality.toml`/`supply-chain/audits.toml` entries.
-**Requirements:** FR-S3-016, FR-S3-019, SC-S3-005.
+**Requirements:** FR-S3-016, FR-S3-019, FR-S3-042, SC-S3-005.
 
 - [ ] **Step 1: Red.** Test condition types, exact router edges, tool-policy
   coverage, required sandbox, budgets, read-before-write and a successful path
   missing its output, plus valid neighbours and hostile condition text. Rule 10
   refuses a budget above a Bounded range in the shared S1 setting descriptor,
   never a catalog `settings/classes.toml` authority.
+  Add `owner_first_example_references_accept` in this suite: copy architecture
+  03 §2.2's qualified output/state contracts, policies and matching `requires`
+  into the otherwise valid contract fixture. Pair it with
+  `legacy_example_references_refuse`: independently restore
+  `contracts/delivery.schema.json`, a basename contract/policy, or an undeclared
+  qualified reference. Refuse each mutation; restoring the declared qualified
+  IDs passes. The reference excerpt alone is not a complete valid workflow;
+  the fixtures must still satisfy all twelve rules, including initial-state and
+  successful-path output production.
 - [ ] **Step 2: Green.** Implement rules 4, 5, 7, 8, 10, 11 and 12 with real
   JSON Schema validation. Accept only the specified small condition language;
   check all successful paths, not merely one convenient traversal.
@@ -2152,6 +2168,15 @@ removal proof. This is shown apart from the proposal's original subtotal.
   omitted or empty; a core-named workflow is accepted in a synthetic registered
   fixture, while any capability-named core label refuses. Core bytes must remain
   identical after capability deletion.
+  Add `core_delivery_resource_refuses`: relocate a reviewed delivery reviewer
+  to `core/agents/reviewer.agent.md` as `agent:core/reviewer`, update its owner
+  mirror and delivery references, but leave it outside
+  `preset:knowledge-client`'s closure. Refuse with both qualified IDs, even when
+  a different preset is selected. Beside it, `core_common_resource_accepts`
+  requires one common core resource from every shipped preset and passes.
+  Add `core_via_capability_refuses`: make a core resource reachable only along
+  `capability:core` → `capability:delivery` → `agent:core/reviewer`; even if
+  every preset reaches it, the prohibited core → capability edge must refuse.
 - [ ] **Step 2: Green.** Parse only fully typed/qualified `requires`, even
   locally. Workflow labels are namespaced, non-selecting usage metadata, never
   dependencies or grants. Allow omitted/empty `workflows` only on core resources
@@ -2159,7 +2184,13 @@ removal proof. This is shown apart from the proposal's original subtotal.
   seeded today. Remove reverse core-to-capability labels from migrated fixtures;
   actual dependencies belong to capability workflows' forward `requires`.
   Required/unused-resource checks derive from those closures; retain the
-  unresolved-workflow-kind boundary. Match `mcp-servers` value `qa/test-runner` and tool
+  unresolved-workflow-kind boundary. Admit a resource under `core/` only when
+  every shipped preset requires it through that preset's forward `requires`
+  closure. Check all public `presets/` entries, not just the selected preset,
+  including the mandatory core root. Reuse the existing graph traversal;
+  containment/labels cannot add edges and core → capability still refuses.
+  Name the resource and every preset missing it in refusal diagnostics.
+  Match `mcp-servers` value `qa/test-runner` and tool
   `qa/test-runner/run_tests` to required `mcp:qa/test-runner`, splitting the tool
   at its last slash. Refuse undeclared hook edges/path includes; reuse graph,
   cycle and reviewed-closure algorithms. An unresolved private ID in public
@@ -2168,8 +2199,10 @@ removal proof. This is shown apart from the proposal's original subtotal.
   and `catalog_check` in maestro; assert source/ID-specific missing-reference
   diagnostics and no same-basename fallback after folder removal.
 
-**Acceptance:** every dependency is declared; removing a folder cannot silently
-change another selection's meaning.
+**Acceptance:** every dependency is declared and every core resource belongs to
+all shipped preset closures without a core → capability edge; removing a folder
+cannot silently change another selection's meaning. The membership assertion
+and named neighbours fit the existing 3–4 h graph-check task; no estimate change.
 
 ### C34 Single owner records and mandatory core [US1, US5] (1–2 h)
 
@@ -2548,7 +2581,7 @@ Regenerated from the task Requirements lines; ranges are expanded exactly.
 | FR-S3-039 | C03a, C02a, C18, C16h |
 | FR-S3-040 | C38, C30, C31, C41 |
 | FR-S3-041 | C38, C32, C34, C35 |
-| FR-S3-042 | C38, C33, C34, C36 |
+| FR-S3-042 | C22a, C22b, C38, C33, C34, C36 |
 | FR-S3-043 | C38, C33 |
 | FR-S3-044 | C38, C42 |
 | FR-S3-045 | C38, C35 |
