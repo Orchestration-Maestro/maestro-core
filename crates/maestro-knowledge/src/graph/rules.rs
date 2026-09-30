@@ -27,7 +27,7 @@ use maestro_kernel::{
     },
 };
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+use serde_json::{Value, json};
 use std::{
     collections::{BTreeMap, BTreeSet},
     error, fmt,
@@ -96,6 +96,25 @@ pub trait Extractor {
 
     /// The claims `source` gives, and what it rejected.
     fn extract(&self, source: &Source) -> Extraction;
+
+    /// A cumulative bound for model input and reserved output tokens, if needed.
+    fn token_budget(&self) -> Option<usize> {
+        None
+    }
+
+    /// Conservative token cost of extracting this source, including output reserve.
+    ///
+    /// # Errors
+    ///
+    /// Returns a fixed refusal when the source cannot be accounted within its bounds.
+    fn estimated_tokens(&self, _source: &Source) -> Result<usize, &'static str> {
+        Ok(0)
+    }
+
+    /// Additional immutable inputs to record in the durable job submission.
+    fn job_inputs(&self) -> Option<Value> {
+        None
+    }
 }
 
 /// The claims an extractor found in a source, in source order, and what it

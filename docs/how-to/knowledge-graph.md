@@ -9,6 +9,34 @@ be rebuilt from them.
 The graph is off by default (`graph.engine = "none"`). Then `setup`, `status`
 and `doctor` never look for graph files.
 
+## Build graph claims
+
+`maestro knowledge graph build` uses exactly one extractor. Rule builds keep
+using `--rule PATH`. Offline model builds require all three explicit options:
+`--extractor-card DIGEST`, `--window-policy PATH`, and `--token-budget N`.
+The card must be a registered `Extractor` card. The versioned policy is closed
+JSON, for example:
+
+```json
+{
+  "schema": "maestro-graph-window-policy/1",
+  "max_window_bytes": 4096,
+  "overlap_bytes": 128,
+  "max_windows": 64
+}
+```
+
+Tune that policy only on pilot/synthetic development failures, never held-out
+labels or results. Model replies provide typed candidates and a verbatim quote
+pointer; Maestro accepts a quote only when it occurs exactly once in the same
+source window and records the source's original revision, block, byte span and
+digest as evidence. Source instructions cannot change the closed vocabulary or
+build authority. The token budget is cumulative across every source window; it
+counts the card tokenizer's system-prompt-plus-window input and reserves the
+full 1,024-token output ceiling per call. That estimate is recomputed on resume,
+while the card, prompt, policy, profile and budget digests remain frozen in the
+job inputs.
+
 ## Select the engine
 
 Build `maestro` with the `engine` feature to unlock the `lbug` setting:

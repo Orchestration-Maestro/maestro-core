@@ -22,6 +22,7 @@ mod tests;
 
 pub use card::{CardError, CardFields, Limits, ModelCard, Role, RouterEntry, SuiteResult};
 pub use card_v2::CardIdentity;
+pub use extract::{extraction_prompt_digest, extraction_system_prompt};
 pub use fake::FakeModels;
 pub use port::{
     Candidate, ChatRequest, DEFAULT_CHAT_OUTPUT_TOKENS, Error, ExtractRequest,

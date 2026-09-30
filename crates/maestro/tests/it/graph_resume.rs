@@ -68,7 +68,7 @@ fn graph_resume_committed_batch_survives_takeover_without_source_io() {
                 max_rejections: 1_000_000,
             },
         };
-        let inputs = runner::inputs(&plan);
+        let inputs = runner::inputs(&plan, None);
         let scope = collection_path(COLLECTION).parse().unwrap();
         let resource = format!("graph-build:{COLLECTION}");
         let new = NewJob {
@@ -394,7 +394,7 @@ fn resume_prefix(limit: usize) {
             max_rejections: 1_000_000,
         },
     };
-    let inputs = runner::inputs(&plan);
+    let inputs = runner::inputs(&plan, None);
     let scope = collection_path(COLLECTION).parse().unwrap();
     let resource = format!("graph-build:{COLLECTION}");
     let new = NewJob {

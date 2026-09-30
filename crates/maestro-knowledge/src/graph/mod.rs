@@ -3,6 +3,7 @@
 //! located in the revision's original bytes before the kernel admits it.
 
 pub mod build;
+pub mod extract;
 /// Application-ID typed-edge and literal-fact graph projection contract.
 pub mod projection;
 pub mod resolve;

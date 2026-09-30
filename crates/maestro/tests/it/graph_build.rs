@@ -338,7 +338,7 @@ fn a_build_that_admits_nothing_prints_its_rejections_and_exits_2() {
     assert!(text.stdout.starts_with("job "), "{text:?}");
     assert!(
         text.stderr
-            .contains("the rule admitted no claim: 1 rejected (1 retained)\nrejected rev-"),
+            .contains("the extractor admitted no claim: 1 rejected (1 retained)\nrejected rev-"),
         "{text:?}"
     );
     assert!(text.stderr.contains(" -: no table under"), "{text:?}");

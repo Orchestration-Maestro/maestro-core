@@ -10,14 +10,29 @@ use maestro_kernel::{
     facts::{Batch, BuildPlan, Rejection},
     store,
 };
-use serde_json::{Value, json};
+use serde_json::{Map, Value, json};
 
 /// Canonical submission inputs: every field of the frozen plan participates.
 #[must_use]
-pub fn inputs(plan: &BuildPlan) -> Value {
-    json!({"collection": plan.collection_id, "extractor": plan.provenance.extractor,
-        "profile": plan.provenance.profile.as_str(), "sources": plan.sources,
-        "max_claims": plan.budget.max_claims, "max_rejections": plan.budget.max_rejections})
+pub fn inputs(plan: &BuildPlan, extractor_inputs: Option<Value>) -> Value {
+    let mut inputs = Map::from_iter([
+        ("collection".to_owned(), json!(plan.collection_id)),
+        ("extractor".to_owned(), json!(plan.provenance.extractor)),
+        (
+            "profile".to_owned(),
+            json!(plan.provenance.profile.as_str()),
+        ),
+        ("sources".to_owned(), json!(plan.sources)),
+        ("max_claims".to_owned(), json!(plan.budget.max_claims)),
+        (
+            "max_rejections".to_owned(),
+            json!(plan.budget.max_rejections),
+        ),
+    ]);
+    if let Some(extra) = extractor_inputs {
+        inputs.insert("extractor_inputs".to_owned(), extra);
+    }
+    Value::Object(inputs)
 }
 
 /// Extract one source through the replaceable extractor; no authority writes occur.

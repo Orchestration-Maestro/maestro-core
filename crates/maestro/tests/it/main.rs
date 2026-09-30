@@ -12,6 +12,7 @@ mod doctor_checks;
 mod fakes;
 mod graph_build;
 mod graph_eval;
+mod graph_extract;
 mod graph_operations;
 mod graph_resume;
 mod import_jobs;

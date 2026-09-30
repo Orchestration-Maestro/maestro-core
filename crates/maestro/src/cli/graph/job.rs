@@ -15,8 +15,9 @@ use maestro_kernel::{
     facts::{BuildPlan, BuildRecord, ClaimSetRecord},
     job::{Job, JobState, NewJob},
     scope::collection_path,
+    store::Database,
 };
-use maestro_knowledge::graph::{build, rules::Extractor};
+use maestro_knowledge::graph::{build, rules::Extractor, verify::Source};
 use serde_json::{Value, json};
 use ulid::Ulid;
 
@@ -42,7 +43,7 @@ pub(super) struct Built {
 
 /// Submit or resume exactly this plan, using the existing foreground lease runner.
 pub(super) fn run(kernel: &Kernel, output: Output, work: &Work<'_>) -> Result<Built, Failure> {
-    let inputs = build::inputs(work.plan);
+    let inputs = build::inputs(work.plan, work.extractor.job_inputs());
     let scope = collection_path(&work.plan.collection_id)
         .parse()
         .map_err(|error| Failure::refused_by(&error))?;
@@ -86,6 +87,7 @@ impl Work<'_> {
                     .begin_graph_build(&kernel.scopes, lease, self.plan)
             })
             .map_err(|error| claim_failure(&error))?;
+        check_token_budget(&kernel.database, self.revisions, self.extractor)?;
         let mut claims: usize = current.batches.iter().map(|batch| batch.claims.len()).sum();
         for (ordinal, revision) in self
             .revisions
@@ -121,6 +123,35 @@ impl Work<'_> {
         }
         Ok(())
     }
+}
+
+/// Verifies the full run's cumulative token estimate before extraction begins.
+fn check_token_budget(
+    database: &Database,
+    revisions: &[Revision],
+    extractor: &dyn Extractor,
+) -> Result<(), Failure> {
+    let Some(limit) = extractor.token_budget() else {
+        return Ok(());
+    };
+    let mut estimated = 0_usize;
+    for revision in revisions {
+        let Ok(source) = Source::read(database, revision) else {
+            return Err(Failure::refused(
+                "graph source cannot be read for token accounting",
+            ));
+        };
+        let Ok(cost) = extractor.estimated_tokens(&source) else {
+            return Err(Failure::refused("graph token estimate is unavailable"));
+        };
+        estimated = estimated.saturating_add(cost);
+    }
+    if estimated > limit {
+        return Err(Failure::refused(format!(
+            "graph extraction token budget exceeded ({estimated} > {limit})"
+        )));
+    }
+    Ok(())
 }
 
 /// Preserve failure classification in the durable job outcome for followers.

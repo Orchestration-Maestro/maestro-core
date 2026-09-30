@@ -2,6 +2,8 @@
 
 pub(super) mod attach;
 pub(super) mod build;
+mod extract_output;
+mod extractor;
 mod failure;
 mod job;
 #[cfg(test)]

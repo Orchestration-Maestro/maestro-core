@@ -69,7 +69,8 @@ fn extraction_decode_reuses_claim_types_and_rejects_invalid_lexemes() {
     let mut candidates = vec![json!({
         "subject": {"kind": "Parameter", "name": "mode"},
         "predicate": "REQUIRES",
-        "object": {"type": "entity", "kind": "Command", "name": "run"}
+        "object": {"type": "entity", "kind": "Command", "name": "run"},
+        "quote": "Parameter mode requires command run"
     })];
     for (kind, value) in [
         ("text", "safe"),
@@ -80,12 +81,14 @@ fn extraction_decode_reuses_claim_types_and_rejects_invalid_lexemes() {
         candidates.push(json!({
             "subject": {"kind": "Parameter", "name": "mode"},
             "predicate": "DEFAULTS_TO",
-            "object": {"type": "literal", "kind": kind, "value": value}
+            "object": {"type": "literal", "kind": kind, "value": value},
+            "quote": "The default value is present in this source."
         }));
     }
     let content = json!({"candidates": candidates}).to_string();
     let decoded = decode(&content).expect("valid entity and literals");
     assert_eq!(decoded.len(), 5);
+    assert_eq!(decoded[0].quote, "Parameter mode requires command run");
     assert!(matches!(
         decoded[0].object,
         Object::Entity(FactEntityName {
@@ -139,6 +142,11 @@ fn extraction_decode_refuses_alias_duplicate_unknown_and_mismatched_shapes() {
             r#"{"candidates":[{"subject":{"kind":"Parameter","name":"mode"},"#,
             r#""predicate":"DEFAULTS_TO","object":{"type":"entity","kind":"Parameter","#,
             r#""name":"safe"}}]}"#,
+        ),
+        concat!(
+            r#"{"candidates":[{"subject":{"kind":"Parameter","name":"mode"},"#,
+            r#""predicate":"REQUIRES","object":{"type":"entity","kind":"Command","#,
+            r#""name":"run"}}]}"#,
         ),
     ] {
         assert!(matches!(
@@ -202,7 +210,7 @@ fn expected_response_format() -> Value {
     let candidate = json!({
         "type": "object",
         "additionalProperties": false,
-        "required": ["subject", "predicate", "object"],
+        "required": ["subject", "predicate", "object", "quote"],
         "properties": {
             "subject": entity_name,
             "predicate": {"type": "string", "enum": predicates},
@@ -227,7 +235,8 @@ fn expected_response_format() -> Value {
                         "value": {"type": "string"}
                     }
                 }
-            ]}
+            ]},
+            "quote": {"type": "string", "minLength": 1}
         }
     });
     json!({
@@ -288,6 +297,9 @@ async fn router_posts_closed_schema_pinned_settings_and_free_room() {
         .as_str()
         .expect("system prompt");
     assert_eq!(requests[1].body["messages"][0]["role"], "system");
+    assert!(system.contains("Preserve negation"));
+    assert!(system.contains("hypothetical"));
+    assert!(system.contains("Quote exact supporting text"));
     assert!(
         EntityKind::ALL
             .iter()

@@ -54,6 +54,8 @@ pub struct Candidate {
     pub predicate: Predicate,
     /// The predicate's typed entity or literal object.
     pub object: Object,
+    /// Verbatim source text offered only as a quote pointer, never evidence.
+    pub quote: String,
 }
 
 /// The calls a model answers, each bound to the card of the model that

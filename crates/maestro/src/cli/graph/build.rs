@@ -1,4 +1,4 @@
-//! Resumable rule builds backed by leased kernel receipts.
+//! Resumable graph builds backed by leased kernel receipts.
 
 use super::super::{collection, output::Output};
 use crate::{failure::Failure, kernel::Kernel};
@@ -7,12 +7,9 @@ use maestro_kernel::{
     evidence::Span,
     facts::{self, Budget, BuildPlan, ClaimRecord, ClaimSetRecord, Provenance, ReviewState},
 };
-use maestro_knowledge::{
-    graph::rules::{Extractor, Rejection, TableRule, resolve},
-    quality,
-};
+use maestro_knowledge::graph::rules::{Rejection, resolve};
 use serde::Serialize;
-use std::{fs, num::NonZeroUsize, path::PathBuf, process::ExitCode};
+use std::{num::NonZeroUsize, path::PathBuf, process::ExitCode};
 use ulid::Ulid;
 
 /// The schema of the document it prints under `--json`.
@@ -174,9 +171,7 @@ struct ColliderDocument {
 ///
 /// # Errors
 ///
-/// [`Failure::Refused`] when the rule file cannot be read or is not a strict
-/// table rule, the collection was not added, no eligible revision has the
-/// rule's source digest, or the kernel refuses the claims;
+/// [`Failure::Refused`] when the extractor inputs or collection are invalid;
 /// [`Failure::Failed`] when the kernel fails.
 pub(in crate::cli) fn run(
     kernel: &Kernel,
@@ -184,17 +179,18 @@ pub(in crate::cli) fn run(
     arguments: &Arguments,
 ) -> Result<ExitCode, Failure> {
     let collection = &arguments.collection;
-    let rule = &arguments.rule;
-    let text = fs::read_to_string(rule).map_err(|error| {
-        Failure::refused(format!(
-            "the rule {} cannot be read: {error}",
-            rule.display()
-        ))
-    })?;
-    let rule = TableRule::parse(&text).map_err(|error| Failure::refused_by(&error))?;
     collection::declared(kernel, collection)?;
-    let revisions = sources(kernel, collection, &rule)?;
-    let provenance = rule.provenance();
+    let (extractor, revisions) = super::extractor::select(
+        kernel,
+        collection,
+        super::extractor::Inputs {
+            rule_path: arguments.rule.as_deref(),
+            extractor_card: arguments.extractor_card.as_deref(),
+            window_policy_path: arguments.window_policy.as_deref(),
+            token_budget: arguments.token_budget,
+        },
+    )?;
+    let provenance = extractor.provenance();
     let plan = BuildPlan {
         collection_id: collection.clone(),
         provenance: provenance.clone(),
@@ -210,7 +206,7 @@ pub(in crate::cli) fn run(
     let work = super::job::Work {
         plan: &plan,
         revisions: &revisions,
-        extractor: &rule,
+        extractor: extractor.as_ref(),
     };
     let result = super::job::run(kernel, output, &work)?;
     let rejections: Vec<_> = result
@@ -230,12 +226,33 @@ pub(in crate::cli) fn run(
         rejected: result.record.rejected(),
         rejections: &rejections,
     };
+    if arguments.extractor_card.is_some() {
+        let document = super::extract_output::document(super::extract_output::Input {
+            collection,
+            provenance: &provenance,
+            revisions: &revisions,
+            job: result.job,
+            record: result.set.as_ref(),
+            rejected: result.record.rejected(),
+            rejections: &rejections,
+        });
+        let message = super::extract_output::summary(&document);
+        if result.set.is_none() {
+            output.refusal(&document, &message)?;
+            return Ok(ExitCode::from(2));
+        }
+        if let Some(generation) = arguments.generation {
+            super::attach::attach(kernel, output, result.job, generation)?;
+        }
+        output.result(&document, &message)?;
+        return Ok(ExitCode::SUCCESS);
+    }
     let document = built.document(result.job, result.set.as_ref());
     if result.set.is_none() {
         output.refusal(
             &document,
             &format!(
-                "the rule admitted no claim: {} rejected ({} retained)\n{}",
+                "the extractor admitted no claim: {} rejected ({} retained)\n{}",
                 built.rejected,
                 rejections.len(),
                 rejected(&rejections)
@@ -256,9 +273,38 @@ pub(in crate::cli) struct Arguments {
     /// The collection's declared ID.
     #[arg(long)]
     pub(in crate::cli) collection: String,
-    /// Strict standalone table rule.
-    #[arg(long, value_name = "PATH")]
-    pub(in crate::cli) rule: PathBuf,
+    /// Strict standalone table rule (exclusive with the model extractor options).
+    #[arg(
+        long,
+        value_name = "PATH",
+        conflicts_with_all = ["extractor_card", "window_policy", "token_budget"]
+    )]
+    pub(in crate::cli) rule: Option<PathBuf>,
+    /// Registered Extractor model-card digest for bounded model extraction.
+    #[arg(
+        long,
+        value_name = "SHA256",
+        requires_all = ["window_policy", "token_budget"],
+        conflicts_with = "rule"
+    )]
+    pub(in crate::cli) extractor_card: Option<String>,
+    /// Versioned window policy JSON; its digest is frozen into the build profile.
+    #[arg(
+        long,
+        value_name = "PATH",
+        requires = "extractor_card",
+        conflicts_with = "rule"
+    )]
+    pub(in crate::cli) window_policy: Option<PathBuf>,
+    /// Required cumulative input-plus-output-reserve token limit for model extraction.
+    #[arg(
+        long,
+        value_name = "N",
+        value_parser = positive_claim_budget,
+        requires = "extractor_card",
+        conflicts_with = "rule"
+    )]
+    pub(in crate::cli) token_budget: Option<usize>,
     /// Attach the completed build to this unpublished generation.
     #[arg(long)]
     pub(in crate::cli) generation: Option<i64>,
@@ -270,37 +316,12 @@ pub(in crate::cli) struct Arguments {
     pub(in crate::cli) max_retained_rejections: usize,
 }
 
-/// Parse a nonzero, platform-sized claim budget at the argument boundary.
+/// Parse a nonzero, platform-sized claim or token budget at the argument boundary.
 fn positive_claim_budget(value: &str) -> Result<usize, String> {
     value
         .parse::<NonZeroUsize>()
         .map(NonZeroUsize::get)
         .map_err(|_| format!("expected a value in range 1..={}", usize::MAX))
-}
-
-/// The eligible revisions of `collection`, as the quality gate defines
-/// them, whose original has `rule`'s source digest, ordered by document.
-///
-/// # Errors
-///
-/// [`Failure::Refused`] when there is none, [`Failure::Failed`] when the
-/// kernel fails.
-fn sources(kernel: &Kernel, collection: &str, rule: &TableRule) -> Result<Vec<Revision>, Failure> {
-    let mut eligible: Vec<Revision> =
-        quality::eligible(&kernel.database, &kernel.scopes, collection)
-            .map_err(|error| Failure::failed_by(&error))?
-            .into_iter()
-            .filter(|revision| revision.original_digest == *rule.source_sha256())
-            .collect();
-    if eligible.is_empty() {
-        return Err(Failure::refused(format!(
-            "no eligible revision of the collection {collection} has the rule's source digest \
-             sha256:{}",
-            rule.source_sha256().as_str()
-        )));
-    }
-    eligible.sort_by(|left, right| left.document_id.cmp(&right.document_id));
-    Ok(eligible)
 }
 
 impl Built<'_> {

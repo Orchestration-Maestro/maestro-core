@@ -128,6 +128,8 @@ in place.
 │   │   │   │   ├── graph/                                                   # knowledge graph: the commands over a collection's knowledge graph
 │   │   │   │   │   ├── attach.rs                                            # Attachment is separate leased work; completed extraction is never repeated
 │   │   │   │   │   ├── build.rs                                             # knowledge graph build: a collection's claims built with one strict
+│   │   │   │   │   ├── extract_output.rs                                    # Aggregate-only output for model-backed graph extraction
+│   │   │   │   │   ├── extractor.rs                                         # Selects the explicit table-rule or registered model extractor and its sources
 │   │   │   │   │   ├── failure.rs                                           # Shared classification of graph authority failures
 │   │   │   │   │   ├── job.rs                                               # Foreground graph builds: extraction outside the fence lock, atomic receipts inside it
 │   │   │   │   │   ├── mod.rs                                               # knowledge graph: the commands over a collection's knowledge graph
@@ -304,6 +306,7 @@ in place.
 │   │   │       ├── graph_draft_bounds.rs                                    # Private drafting file bounds and receipt schema regressions
 │   │   │       ├── graph_draft_redirect.rs                                  # A drafting endpoint that redirects fails the window, and the redirect's
 │   │   │       ├── graph_eval.rs                                            # Graph evaluation refuses unsafe input without opening a default kernel
+│   │   │       ├── graph_extract.rs                                         # Model graph extraction is an explicit, mutually exclusive build mode
 │   │   │       ├── graph_operations.rs                                      # G26: setup, status and doctor account for the local embedded graph
 │   │   │       ├── graph_resume.rs                                          # Durable CLI resume and separate attachment, using real authority and rule artifacts
 │   │   │       ├── import_jobs.rs                                           # knowledge import end to end, rerun, live holder refused, stale one superseded, leases taken over
@@ -948,6 +951,11 @@ in place.
 │   │   │   │   ├── run.rs                                                   # A run: every question of a suite, resolved in the generation it
 │   │   │   │   └── run_v2.rs                                                # Strict v2 attempt execution and aggregation
 │   │   │   ├── graph/                                                       # The knowledge graph's construction (specs/002-knowledge-graph): claims
+│   │   │   │   ├── extract/                                                 # Bounded model extraction over canonical source windows
+│   │   │   │   │   ├── mod.rs                                               # Bounded model extraction over canonical source windows
+│   │   │   │   │   ├── run.rs                                               # Candidate extraction and source-only evidence construction
+│   │   │   │   │   ├── tests.rs                                             # Synthetic window and quote-pointer checks; no model or vendor data is used
+│   │   │   │   │   └── windows.rs                                           # Versioned, source-byte-bounded windows and quote pointers
 │   │   │   │   ├── projection/                                              # Public typed-edge and literal-fact projection ports and unpublished build writer
 │   │   │   │   │   ├── tests/                                               # Contracts of the public graph projection port and backend-neutral writer
 │   │   │   │   │   │   ├── writer/                                          # Writer
