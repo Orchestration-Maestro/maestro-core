@@ -424,6 +424,18 @@ mod tests {
         assert!(validate_units(&graph, &groups, &children).is_ok());
     }
 
+    /// Context comes from the named unit's own ancestors, and an unknown
+    /// unit is not found.
+    #[test]
+    fn required_context_follows_the_named_unit() {
+        let graph = graph();
+        assert_eq!(required_context(&graph, "lead-in").unwrap(), ["part-6"]);
+        assert!(matches!(
+            required_context(&graph, "missing"),
+            Err(Error::NotFound)
+        ));
+    }
+
     /// An ancestry cycle is rejected independently of other graph contracts.
     #[test]
     fn acyclic_check_rejects_parent_cycles() {

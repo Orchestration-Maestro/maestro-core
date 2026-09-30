@@ -191,4 +191,46 @@ mod tests {
             }
         }
     }
+
+    /// Only a range longer than the budget is refused unseen; one exactly
+    /// the budget's size is rendered and measured like any other trial.
+    #[test]
+    fn a_range_of_exactly_the_byte_budget_is_measured() {
+        let markdown = format!("# Guide\n\n{}", "large source ".repeat(10));
+        let (document, sections) = prepared(&markdown, "exact.md");
+        let candidate = candidate(
+            CandidateSource {
+                markdown: &markdown,
+                document: &document,
+                sections: &sections,
+            },
+            "Guide",
+            "source",
+            0,
+            None,
+        );
+        let extent = candidate.expansion.extent;
+        let choices = BTreeMap::from([(
+            0,
+            DeliveryChoice::canonical(&candidate, vec![extent], ChoiceKind::Section),
+        )]);
+        let counter = EvidenceCounter::Utf8Bytes;
+        let (fits, rendered) = fits_trial(
+            slice::from_ref(&candidate),
+            &choices,
+            &SelectionBudget {
+                expansion: ExpansionMode::FullSection,
+                graph: &LegacyCanonicalGraph,
+                parent_chain_order: ParentChainOrder::default(),
+                max_passages: 5,
+                evidence_bytes: u32::try_from(extent.end - extent.start).unwrap(),
+                counter: &counter,
+                counter_info: &counter_info(&counter).unwrap(),
+                control: &control(),
+            },
+        )
+        .unwrap();
+        assert!(!fits, "the passage's JSON adds to its source bytes");
+        assert_eq!(rendered.passages.len(), 1);
+    }
 }

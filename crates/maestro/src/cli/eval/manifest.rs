@@ -246,7 +246,6 @@ impl Rung {
         (
             self.search_budget.unwrap_or(RequestBudget {
                 k: 5,
-                evidence_bytes: 6_000,
                 ..RequestBudget::default()
             }),
             self.configuration.evidence(),

@@ -31,7 +31,9 @@ use maestro_knowledge::{
     answer::{AskBudget, AskError, AskRequest, DEFAULT_MODEL, PromptVersion},
     eval::{AskOutcome, RunError, SearchOutcome},
     index::Qdrant,
-    search::{SearchError, evidence::EvidenceError, routes::error::RouteError},
+    search::{
+        SearchConfiguration, SearchError, evidence::EvidenceError, routes::error::RouteError,
+    },
 };
 use std::{fs, io};
 
@@ -137,6 +139,8 @@ fn search_only_rungs_keep_their_legacy_budget_and_expansion() {
     candidate.ask = None;
 
     let search = engine.search_request(&candidate, "question");
+    assert_eq!(search.configuration, candidate.configuration.search());
+    assert_ne!(search.configuration, SearchConfiguration::default());
     assert_eq!((search.budget.k, search.budget.evidence_bytes), (5, 6_000));
     assert_eq!(search.evidence.expansion, ExpansionMode::FullSection);
     assert_eq!(search.evidence.parent_chain_order, None);

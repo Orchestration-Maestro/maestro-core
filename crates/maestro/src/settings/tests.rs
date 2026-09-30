@@ -119,6 +119,9 @@ fn rerank_depth_cannot_exceed_the_configured_fusion_pool() {
     scratch.user("[search]\nfusion_pool = 20\n[search.rerank]\ndepth = 21\n");
     let error = scratch.session(&[]).knowledge().unwrap_err().to_string();
     assert!(error.contains("search.rerank.depth (21) must not exceed search.fusion_pool (20)"));
+    scratch.user("[search]\nfusion_pool = 20\n[search.rerank]\ndepth = 20\n");
+    let search = scratch.session(&[]).knowledge().unwrap().search;
+    assert_eq!(search.rerank_depth.get(), search.fusion_pool);
 }
 
 #[test]
@@ -436,6 +439,12 @@ fn parent_chain_settings_round_trip_and_refuse_legacy_order() {
         serde_json::to_value(evidence).unwrap()["parent_chain_order"],
         "largest_fitting_parent"
     );
+    scratch.user(concat!(
+        "[evidence]\nexpansion = \"parent_chain\"\n",
+        "parent_chain_order = \"off\"\n"
+    ));
+    let evidence = scratch.session(&[]).knowledge().unwrap().evidence;
+    assert_eq!(evidence.parent_chain_order, None);
     scratch.user(concat!(
         "[evidence]\nexpansion = \"full_section\"\n",
         "parent_chain_order = \"largest_fitting_parent\"\n"

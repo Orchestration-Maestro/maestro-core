@@ -462,6 +462,10 @@ fn search_budget_is_checked_during_manifest_parse() {
     value["rungs"][0]["search_budget"] =
         json!({"k": 5, "evidence_bytes": maximum + 1, "deadline_ms": 30000});
     assert!(refusal(&value).contains(&format!("over the {maximum}-byte ceiling")));
+    value["rungs"][0]["search_budget"] =
+        json!({"k": 5, "evidence_bytes": maximum, "deadline_ms": 30000});
+    let budget = parse(&value).unwrap().rungs[0].search_budget.unwrap();
+    assert_eq!(budget.evidence_bytes, maximum);
 
     value["rungs"][0]["search_budget"] =
         json!({"k": 5, "evidence_bytes": 6000, "deadline_ms": 30000});

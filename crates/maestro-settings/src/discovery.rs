@@ -149,4 +149,18 @@ mod tests {
             Err(reason) if reason.contains("cannot be read")
         ));
     }
+
+    /// A device is neither a directory, a link nor a regular file. Unix
+    /// only: Windows has no device path a test can read metadata of.
+    #[cfg(unix)]
+    #[test]
+    fn device_metadata_is_not_a_regular_file() {
+        use std::fs;
+
+        let device = Path::new("/dev/null");
+        assert!(matches!(
+            kind_of(device, fs::symlink_metadata(device)),
+            Err(reason) if reason.ends_with("skipped: not a regular file")
+        ));
+    }
 }
