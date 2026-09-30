@@ -1,25 +1,12 @@
 //! Read-only kernel readiness inventory used by graph health probes.
 
-use maestro_kernel::facts::{self, Error, InventoryState, ProjectionInventory};
+use maestro_kernel::facts::{self, Error, InventoryState};
 use std::path::{Path, PathBuf};
-
-/// A current receipt inventory or an unavailable kernel state.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum ReceiptInventoryState {
-    /// The kernel database does not exist.
-    Missing,
-    /// The existing kernel lacks migrations required by this binary.
-    NeedsMigration(Vec<&'static str>),
-    /// The database records a migration this binary does not carry.
-    NewerSchema(String),
-    /// Current published generations visible to the principal.
-    Ready(Vec<ProjectionInventory>),
-}
 
 /// Replaceable read-only source for readiness checks; health never repairs the kernel.
 pub(crate) trait ProjectionReceiptInventory {
     /// Open the kernel read-only and list readiness receipts visible to `principal`.
-    fn inventory(&self, principal: &str) -> Result<ReceiptInventoryState, Error>;
+    fn inventory(&self, principal: &str) -> Result<InventoryState, Error>;
 }
 
 /// Production receipt inventory backed by the existing kernel file.
@@ -39,15 +26,8 @@ impl KernelProjectionReceipts {
 }
 
 impl ProjectionReceiptInventory for KernelProjectionReceipts {
-    fn inventory(&self, principal: &str) -> Result<ReceiptInventoryState, Error> {
-        match facts::projection_inventory_in(&self.data, principal)? {
-            InventoryState::Missing => Ok(ReceiptInventoryState::Missing),
-            InventoryState::NeedsMigration(names) => {
-                Ok(ReceiptInventoryState::NeedsMigration(names))
-            }
-            InventoryState::NewerSchema(name) => Ok(ReceiptInventoryState::NewerSchema(name)),
-            InventoryState::Ready(inventory) => Ok(ReceiptInventoryState::Ready(inventory)),
-        }
+    fn inventory(&self, principal: &str) -> Result<InventoryState, Error> {
+        facts::projection_inventory_in(&self.data, principal)
     }
 }
 
@@ -61,11 +41,11 @@ mod tests {
 
     struct FakeReceipts {
         calls: Cell<usize>,
-        result: ReceiptInventoryState,
+        result: InventoryState,
     }
 
     impl ProjectionReceiptInventory for FakeReceipts {
-        fn inventory(&self, _principal: &str) -> Result<ReceiptInventoryState, Error> {
+        fn inventory(&self, _principal: &str) -> Result<InventoryState, Error> {
             self.calls.set(self.calls.get() + 1);
             Ok(self.result.clone())
         }
@@ -81,7 +61,7 @@ mod tests {
         let receipts = KernelProjectionReceipts::new(&data);
         assert_eq!(
             receipts.inventory("local").unwrap(),
-            ReceiptInventoryState::Missing
+            InventoryState::Missing
         );
     }
 
@@ -99,7 +79,7 @@ mod tests {
         let receipts = KernelProjectionReceipts::new(&data);
         assert_eq!(
             receipts.inventory("local").unwrap(),
-            ReceiptInventoryState::NeedsMigration(vec!["0019_graph_projection"])
+            InventoryState::NeedsMigration(vec!["0019_graph_projection"])
         );
     }
 
@@ -117,7 +97,7 @@ mod tests {
         let receipts = KernelProjectionReceipts::new(&data);
         assert_eq!(
             receipts.inventory("local").unwrap(),
-            ReceiptInventoryState::NewerSchema("9999_future".to_owned())
+            InventoryState::NewerSchema("9999_future".to_owned())
         );
     }
 
@@ -128,7 +108,7 @@ mod tests {
         let receipts = KernelProjectionReceipts::new(&data);
         assert_eq!(
             receipts.inventory("local").unwrap(),
-            ReceiptInventoryState::Ready(Vec::new())
+            InventoryState::Ready(Vec::new())
         );
     }
 
@@ -136,11 +116,11 @@ mod tests {
     fn health_can_inject_a_readiness_inventory_without_opening_a_kernel() {
         let fake = FakeReceipts {
             calls: Cell::new(0),
-            result: ReceiptInventoryState::Missing,
+            result: InventoryState::Missing,
         };
         assert_eq!(
             fake.inventory("no-grants").unwrap(),
-            ReceiptInventoryState::Missing
+            InventoryState::Missing
         );
         assert_eq!(fake.calls.get(), 1);
     }
