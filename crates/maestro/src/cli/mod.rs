@@ -12,6 +12,7 @@ mod eval;
 mod foreground;
 pub(crate) mod health;
 mod import;
+mod init;
 mod lease;
 mod model;
 mod output;

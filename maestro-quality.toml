@@ -31,6 +31,13 @@ path = "crates/maestro-catalog/src/source/kinds/mod.rs"
 item = "builtin_hooks"
 reason = "public API of maestro-catalog: the seam through which kinds loaded as data register with the built-in hooks; ARC-005 does not count cross-crate callers"
 
+# Remove after C06 or C07 adds the next owned-file adapter caller.
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-catalog/src/files/mod.rs"
+item = "apply"
+reason = "C04's shared owned-file write port: C05 bootstrap is first; C06/C07 projections and C16 install are next"
+
 [[exception]]
 rule = "ARC-005"
 path = "crates/maestro-canonicalization/src/chunk_split/mod.rs"

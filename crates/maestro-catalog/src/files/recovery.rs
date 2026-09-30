@@ -71,6 +71,7 @@ pub(super) fn read_journal(root: &Path, id: &str) -> io::Result<FilePlan> {
     let plan = FilePlan {
         id: journal.id,
         entries: journal.entries,
+        applied: false,
     };
     if plan.id != id {
         return Err(io::Error::new(

@@ -13,7 +13,7 @@ mod registry;
 mod rules;
 #[cfg(test)]
 pub(crate) mod tests;
-mod tree;
+pub(crate) mod tree;
 mod types;
 mod walk;
 mod yaml;

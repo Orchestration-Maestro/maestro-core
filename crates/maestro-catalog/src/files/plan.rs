@@ -1,10 +1,12 @@
 //! Preview immutable file bytes, validate relative names, and bind content digests.
+use maestro_filesystem::Directory;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
     collections::BTreeSet,
     io,
     path::{Component, Path, PathBuf},
+    str,
 };
 
 /// One intended file and its bytes at preview time.
@@ -23,6 +25,26 @@ pub struct FilePlan {
     pub(super) id: String,
     /// Files in deterministic path order.
     pub(super) entries: Vec<PlannedFile>,
+    /// Whether this exact plan already has committed ownership.
+    pub(super) applied: bool,
+}
+
+/// Existing committed ownership fields needed for a replayed plan.
+#[derive(Deserialize)]
+struct ExistingOwnership {
+    /// The immutable plan identity.
+    id: String,
+    /// Planned paths and their content digests.
+    files: Vec<ExistingOwnedFile>,
+}
+
+/// One file entry in an existing ownership record.
+#[derive(Deserialize)]
+struct ExistingOwnedFile {
+    /// Root-relative file name.
+    path: String,
+    /// SHA-256 digest.
+    digest: String,
 }
 
 /// One canonical file path and its intended bytes and digest.
@@ -73,17 +95,13 @@ impl FilePlan {
             }
         }
         let mut entries = Vec::with_capacity(inputs.len());
+        let mut has_existing_target = false;
         for input in inputs {
             validate_no_ancestor_conflicts(&input.path, &paths)?;
             let (parent, name) = split_path(&input.path)?;
-            match maestro_filesystem::Directory::open(root, &parent, false) {
+            match Directory::open(root, &parent, false) {
                 Ok(directory) => match directory.read_regular(name) {
-                    Ok(_) => {
-                        return Err(io::Error::new(
-                            io::ErrorKind::AlreadyExists,
-                            "preview target exists",
-                        ));
-                    }
+                    Ok(_) => has_existing_target = true,
                     Err(error) if error.kind() == io::ErrorKind::NotFound => {}
                     Err(error) => return Err(error),
                 },
@@ -103,7 +121,19 @@ impl FilePlan {
             ));
         }
         let id = plan_identity(&entries)?;
-        Ok(Self { id, entries })
+        let mut plan = Self {
+            id,
+            entries,
+            applied: false,
+        };
+        plan.applied = is_committed_and_unchanged(root, &plan)?;
+        if has_existing_target && !plan.applied {
+            return Err(io::Error::new(
+                io::ErrorKind::AlreadyExists,
+                "preview target exists without matching committed ownership",
+            ));
+        }
+        Ok(plan)
     }
 
     /// Stable digest identifying this exact plan.
@@ -111,6 +141,57 @@ impl FilePlan {
     pub fn id(&self) -> &str {
         &self.id
     }
+
+    /// Whether this preview exactly replays files already owned by the same plan.
+    #[must_use]
+    pub const fn is_applied(&self) -> bool {
+        self.applied
+    }
+}
+
+/// Check the committed record and held-handle bytes for an exact plan replay.
+/// This only returns an already applied state; removal separately checks identity before unlinking.
+fn is_committed_and_unchanged(root: &Path, plan: &FilePlan) -> io::Result<bool> {
+    let state = match Directory::open(root, Path::new(".maestro-files"), false) {
+        Ok(state) => state,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(false),
+        Err(error) => return Err(error),
+    };
+    let name = format!("ownership-{}.toml", plan.id);
+    let record = match state.read_regular(&name) {
+        Ok(record) => record,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(false),
+        Err(error) => return Err(error),
+    };
+    if !ownership_matches(&record, plan)? {
+        return Ok(false);
+    }
+    for entry in &plan.entries {
+        let (parent, name) = split_path(&entry.path)?;
+        let directory = Directory::open(root, &parent, false)?;
+        if digest(&directory.read_regular(name)?) != entry.digest {
+            return Err(io::Error::other(format!(
+                "owned file changed: {}",
+                entry.path
+            )));
+        }
+    }
+    Ok(true)
+}
+
+/// Compare a committed ownership record's identity and planned byte digests.
+pub(super) fn ownership_matches(bytes: &[u8], plan: &FilePlan) -> io::Result<bool> {
+    let text =
+        str::from_utf8(bytes).map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+    let existing: ExistingOwnership =
+        toml::from_str(text).map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+    Ok(existing.id == plan.id
+        && existing.files.len() == plan.entries.len()
+        && existing
+            .files
+            .iter()
+            .zip(&plan.entries)
+            .all(|(owned, entry)| owned.path == entry.path && owned.digest == entry.digest))
 }
 
 /// Compute a lowercase SHA-256 digest with its algorithm prefix.

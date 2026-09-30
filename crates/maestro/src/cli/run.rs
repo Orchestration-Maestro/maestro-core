@@ -9,7 +9,7 @@ use super::{
     },
     ask, backup, catalog, collection,
     config::{self, Change, Places},
-    eval, health, import, model,
+    eval, health, import, init, model,
     output::{Output, diagnose},
     prepare, publish, quality, retrieve, search, setup, status, verify, wait,
 };
@@ -100,6 +100,11 @@ fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> 
         Noun::Config(command) => config_command(output, command, &arguments.set),
         Noun::Eval(EvalCommand::Ladder { manifest }) => eval::run(output, manifest),
         Noun::Catalog(CatalogCommand::Check { catalog_dir }) => catalog::check(output, catalog_dir),
+        Noun::Init {
+            catalog_dir,
+            presets,
+            apply,
+        } => init::run(output, catalog_dir, presets, *apply),
         Noun::Job(JobCommand::Wait { id }) => wait::run(&Kernel::open()?, output, *id),
         Noun::Setup { yes } => setup::run(output, *yes),
         Noun::Status => health::status::run(output),

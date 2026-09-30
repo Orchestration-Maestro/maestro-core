@@ -1,17 +1,17 @@
 //! Apply exclusive file plans, commit ownership last, and recover proven states.
 use super::{
-    plan::{FilePlan, digest, split_path},
+    plan::{FilePlan, digest, ownership_matches, split_path},
     recovery::{journal_name, ownership_name, read_optional, record_bytes, state_directory},
 };
 use maestro_filesystem::Directory;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 #[cfg(unix)]
 use std::fs::Metadata;
 use std::{
     fs::File,
     io::{self, ErrorKind, Write},
     path::Path,
-    process, str,
+    process,
     sync::atomic::{AtomicUsize, Ordering},
 };
 
@@ -176,39 +176,6 @@ fn verify_owned_files(root: &Path, plan: &FilePlan) -> io::Result<()> {
         }
     }
     Ok(())
-}
-
-/// Existing ownership fields needed to validate an idempotent apply.
-#[derive(Deserialize)]
-struct ExistingOwnership {
-    /// The immutable plan identity.
-    id: String,
-    /// The planned file names and digests.
-    files: Vec<ExistingOwnedFile>,
-}
-
-/// Stable ownership fields for one existing target.
-#[derive(Deserialize)]
-struct ExistingOwnedFile {
-    /// The root-relative name.
-    path: String,
-    /// SHA-256 digest.
-    digest: String,
-}
-
-/// Compare the immutable ownership fields against the replayed plan.
-fn ownership_matches(bytes: &[u8], plan: &FilePlan) -> io::Result<bool> {
-    let text =
-        str::from_utf8(bytes).map_err(|error| io::Error::new(ErrorKind::InvalidData, error))?;
-    let existing: ExistingOwnership =
-        toml::from_str(text).map_err(|error| io::Error::new(ErrorKind::InvalidData, error))?;
-    Ok(existing.id == plan.id
-        && existing.files.len() == plan.entries.len()
-        && existing
-            .files
-            .iter()
-            .zip(&plan.entries)
-            .all(|(owned, entry)| owned.path == entry.path && owned.digest == entry.digest))
 }
 
 /// Read stable identity from metadata of the newly-created file on Unix.

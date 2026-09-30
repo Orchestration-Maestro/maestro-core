@@ -42,6 +42,18 @@ pub(super) enum Noun {
     /// The catalog's authoring sources.
     #[command(subcommand)]
     Catalog(CatalogCommand),
+    /// Preview a project bootstrap; only --apply writes files.
+    Init {
+        /// Reviewed authoring catalog directory.
+        #[arg(long, value_name = "DIR")]
+        catalog_dir: PathBuf,
+        /// Explicit preset name; repeat to compose overlays.
+        #[arg(long = "preset", required = true)]
+        presets: Vec<String>,
+        /// Apply the displayed digest-bound plan.
+        #[arg(long)]
+        apply: bool,
+    },
     /// Preview the search service Maestro needs, or install it with --yes.
     Setup {
         /// Take the steps the preview lists, rather than only print them.

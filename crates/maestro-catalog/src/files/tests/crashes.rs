@@ -96,6 +96,51 @@ fn recovery_refuses_an_identical_user_file_without_committing_ownership() {
 }
 
 #[test]
+fn replay_preview_requires_complete_unchanged_ownership_and_applies_as_noop() {
+    let scratch = Scratch::new();
+    let inputs = [
+        FileInput::new("one", b"one".to_vec()),
+        FileInput::new("two", b"two".to_vec()),
+    ];
+    let first = FilePlan::preview(&scratch.path, inputs.clone()).unwrap();
+    apply(&scratch.path, &first).unwrap();
+    let replay = FilePlan::preview(&scratch.path, inputs.clone()).unwrap();
+    assert!(replay.is_applied());
+    apply(&scratch.path, &replay).unwrap();
+    assert!(
+        scratch
+            .path
+            .join(".maestro-files")
+            .join(format!("ownership-{}.toml", first.id()))
+            .exists()
+    );
+
+    fs::remove_file(scratch.path.join("two")).unwrap();
+    assert!(
+        FilePlan::preview(&scratch.path, inputs.clone()).is_err(),
+        "partial owned set accepted"
+    );
+    fs::write(scratch.path.join("two"), b"changed").unwrap();
+    assert!(
+        FilePlan::preview(&scratch.path, inputs).is_err(),
+        "changed owned bytes accepted"
+    );
+}
+
+#[test]
+fn identical_unowned_files_and_different_plan_records_are_refused() {
+    let scratch = Scratch::new();
+    let input = FileInput::new("target", b"same".to_vec());
+    let first = FilePlan::preview(&scratch.path, [input.clone()]).unwrap();
+    fs::write(scratch.path.join("target"), b"same").unwrap();
+    assert!(FilePlan::preview(&scratch.path, [input.clone()]).is_err());
+    fs::remove_file(scratch.path.join("target")).unwrap();
+    apply(&scratch.path, &first).unwrap();
+    let changed_plan = FileInput::new("target", b"different".to_vec());
+    assert!(FilePlan::preview(&scratch.path, [changed_plan]).is_err());
+}
+
+#[test]
 fn path_validation_rejects_aliases_on_case_insensitive_and_windows_filesystems() {
     let scratch = Scratch::new();
     for path in [

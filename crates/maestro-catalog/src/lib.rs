@@ -3,6 +3,7 @@
 //! template, script or hook.
 #![forbid(unsafe_code)]
 /// Digest-bound, recoverable writes and removal for catalog-owned files.
+pub mod bootstrap;
 pub mod files;
 pub mod limits;
 mod model_cards;

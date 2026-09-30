@@ -1,0 +1,2 @@
+name = "rust-service"
+files = ["rust/.maestro/recipes.json"]

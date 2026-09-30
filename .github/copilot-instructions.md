@@ -160,6 +160,7 @@ in place.
 │   │   │   │   ├── collection.rs                                            # knowledge collection add, and the declaration a later command finds for a collection
 │   │   │   │   ├── foreground.rs                                            # A job run in the foreground: submitted or found by its key, taken or followed, a stale holder superseded
 │   │   │   │   ├── import.rs                                                # knowledge import: a leased job in the foreground, its ID first; a rerun follows, takes over or supersedes
+│   │   │   │   ├── init.rs                                                  # maestro init: show the complete authoring plan and apply only on request
 │   │   │   │   ├── lease.rs                                                 # The lease of a job run in the foreground: Holder::run's heartbeat thread and each step renew it
 │   │   │   │   ├── mod.rs                                                   # The commands' door: declarations only
 │   │   │   │   ├── model.rs                                                 # Registering and listing scoped model cards
@@ -267,6 +268,7 @@ in place.
 │   │   │       ├── backup_restore.rs                                        # Backup and restore: online copies keep the database, artifacts and leased
 │   │   │       ├── backup_restore_targets.rs                                # Rust source: backup restore targets
 │   │   │       ├── catalog_check.rs                                         # catalog check --catalog-dir DIR: the strict source checker as its
+│   │   │       ├── catalog_init.rs                                          # maestro init: inert fixture composition, preview-only default and owned apply
 │   │   │       ├── cli_contract.rs                                          # JSON on stdout, diagnostics on stderr, exit codes 0, 1 and 2, the job ID first
 │   │   │       ├── collection_status.rs                                     # knowledge status of the synthetic collection: counts, dispositions and a generation
 │   │   │       ├── doctor_checks.rs                                         # maestro doctor: each failure names its next action, the router its address; v1 files listed, untouched
@@ -463,6 +465,12 @@ in place.
 │   │   ├── data/                                                            # Data
 │   │   │   └── known-rows.txt                                               # Text: known rows
 │   │   ├── src/                                                             # The crate's sources
+│   │   │   ├── bootstrap/                                                   # Inspect a project and plan a preset composition without executing its files
+│   │   │   │   ├── compose.rs                                               # Resolve explicit preset names through a replaceable source port
+│   │   │   │   ├── inspect.rs                                               # Read a project inventory as inert data; no script or build tool is launched
+│   │   │   │   ├── mod.rs                                                   # Inspect a project and plan a preset composition without executing its files
+│   │   │   │   ├── project.rs                                               # Preview and apply project files through C04's digest-bound writer
+│   │   │   │   └── tests.rs                                                 # Rust source: tests
 │   │   │   ├── files/                                                       # Shared digest-bound file plans, durable ownership, and crash-safe removal
 │   │   │   │   ├── tests/                                                   # Integration tests
 │   │   │   │   │   ├── crashes.rs                                           # Rust source: crashes
@@ -1467,6 +1475,15 @@ in place.
 ├── tests/                                                                   # Test data shared by the workspace's crates
 │   └── fixtures/                                                            # Test fixtures
 │       ├── catalog/                                                         # Catalog
+│       │   ├── bootstrap/                                                   # Bootstrap
+│       │   │   ├── base/                                                    # Base
+│       │   │   │   └── .github/                                             # GitHub metadata, templates and workflows
+│       │   │   │       └── copilot-instructions.md                          # This guide, written by rust-gate guide at every commit
+│       │   │   ├── rust/                                                    # Rust
+│       │   │   │   └── .maestro/                                            # .maestro
+│       │   │   │       └── recipes.json                                     # JSON data: recipes
+│       │   │   ├── knowledge-client.toml                                    # TOML settings: knowledge client
+│       │   │   └── rust-service.toml                                        # TOML settings: rust service
 │       │   ├── hosts/                                                       # Hosts
 │       │   │   ├── metadata.agent.md                                        # Synthetic agent for the catalog host format probe
 │       │   │   ├── pi.md                                                    # Synthetic agent for the catalog host format probe
