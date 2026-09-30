@@ -3,14 +3,7 @@
 //! metadata fields the rulings admit.
 
 use super::support::{MemoryTree, assert_refused, check_under};
-use crate::{
-    limits::Limits,
-    source::{Known, ResourceId, builtin, check, frozen_rows},
-};
-use maestro_settings::{
-    BUILT_IN, Registry as SettingsRegistry, SettingClass, SettingDescriptor, SettingKind,
-};
-use std::borrow::Cow;
+use crate::{limits::Limits, source::ResourceId};
 
 /// The valid agent profile's path.
 const AGENT: &str = "agents/base/valid.agent.md";
@@ -67,7 +60,7 @@ fn foreign_skill_metadata_keys_are_ignored_never_read() {
         "  author: someone-else\n  version: \"2.0\"\n  maestro.maturity",
     );
     let catalog = check_under(&tree, &Limits::PRODUCTION).unwrap();
-    let skill = &catalog.resources[5];
+    let skill = &catalog.resources[4];
     assert_eq!(skill.metadata.owner, "@synthetic/knowledge");
 }
 
@@ -99,7 +92,7 @@ fn resources_may_declare_a_version() {
         Some("1.2.0")
     );
     assert_eq!(
-        catalog.resources[5].metadata.version.as_deref(),
+        catalog.resources[4].metadata.version.as_deref(),
         Some("0.3")
     );
     assert_refused(vec![(
@@ -181,36 +174,4 @@ fn mcp_args_are_an_ordered_list_that_may_repeat() {
         .find(|resource| resource.id == id)
         .unwrap();
     assert_eq!(server.fields["args"].texts(), Some(vec!["-v", "mcp", "-v"]));
-}
-
-#[test]
-fn injected_settings_replace_the_shipped_ones() {
-    let mut descriptors = BUILT_IN.to_vec();
-    descriptors.push(SettingDescriptor {
-        key: Cow::Borrowed("colour"),
-        kind: SettingKind::Choice {
-            values: Cow::Borrowed(&[Cow::Borrowed("blue")]),
-            reserved: Cow::Borrowed(&[]),
-        },
-        default: Cow::Borrowed("blue"),
-        description: Cow::Borrowed("A synthetic setting for the catalog port test."),
-        class: SettingClass::Free,
-    });
-    let settings = SettingsRegistry::new(&descriptors).unwrap();
-    let rows = frozen_rows();
-    let known = Known {
-        rows: &rows,
-        settings: &settings,
-    };
-    let tree = edited(PRESET, "tone = \"normal\"", "colour = \"blue\"");
-    let lines: Vec<String> = check(&tree, &builtin().unwrap(), &Limits::PRODUCTION, known)
-        .unwrap_err()
-        .diagnostics
-        .iter()
-        .map(ToString::to_string)
-        .collect();
-    assert_eq!(
-        lines,
-        ["settings/classes.toml: classes: setting \"colour\" has no class"]
-    );
 }

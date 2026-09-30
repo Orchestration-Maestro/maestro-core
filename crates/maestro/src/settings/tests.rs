@@ -4,7 +4,6 @@
 
 use super::{Compute, KnowledgeSettings, Session};
 use crate::failure::Failure;
-use maestro_catalog::settings::SettingClasses;
 use maestro_kernel::evidence::RequestBudget;
 use maestro_knowledge::{
     answer::{AnswerPrompt, AskBudget, DEFAULT_MODEL, Presentation, PromptVersion, Tone},
@@ -297,21 +296,33 @@ fn every_registered_setting_is_read_by_a_consumer() {
         let session = scratch.session(flags);
         read.extend(KnowledgeSettings::read(&session.resolved()).unwrap().1);
     }
-    let registry = Registry::built_in().unwrap();
-    let registered: BTreeSet<String> = registry
-        .descriptors()
-        .map(|descriptor| descriptor.key.to_string())
-        .collect();
-    let classes = SettingClasses::parse(
-        include_str!("../../../../tests/fixtures/catalog/settings/classes.toml"),
-        &registry,
-    )
-    .unwrap();
-    let catalog: BTreeSet<String> = classes.keys().map(str::to_owned).collect();
-    assert_eq!(
-        read.union(&catalog).cloned().collect::<BTreeSet<_>>(),
-        registered
-    );
+    let catalog = [
+        "updates",
+        "model_profile",
+        "reasoning_effort",
+        "inference_writers",
+        "workspace_writers",
+        "delegation_depth",
+        "tool_calls",
+        "repair_attempts",
+        "routing_candidates",
+        "mcp_call_timeout",
+        "cross_project_memory",
+        "mcp_apps",
+        "extensions",
+        "schedules",
+        "raw_prompt_logging",
+        "raw_reasoning_logging",
+        "provider_fallback",
+        "evidence_validation",
+        "result_validation",
+        "discovered_executable_hooks",
+    ]
+    .into_iter()
+    .map(str::to_owned)
+    .collect::<BTreeSet<_>>();
+    assert!(read.is_disjoint(&catalog));
+    assert_eq!(read.union(&catalog).count(), read.len() + catalog.len());
 }
 
 #[test]

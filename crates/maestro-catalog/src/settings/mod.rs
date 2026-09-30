@@ -1,10 +1,8 @@
-//! Restrictive catalog settings classes and typed resolution over the S1 registry.
+//! Typed restrictive resolution over the canonical S1 settings descriptors.
 
-mod classes;
 mod resolve;
 
-pub use classes::{SettingClassError, SettingClasses};
-pub use resolve::{ResolveDiagnostic, ResolvedSettings, ResolvedValue, resolve};
+pub use resolve::{Layer, ResolveDiagnostic, ResolvedSettings, ResolvedValue, resolve};
 
 #[cfg(test)]
 mod tests;

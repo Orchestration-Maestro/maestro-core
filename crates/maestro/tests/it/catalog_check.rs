@@ -6,7 +6,7 @@ use serde_json::json;
 use std::{fs, path::PathBuf};
 
 /// The synthetic source fixtures, where each file of the valid catalog lives.
-const VALID: [(&str, &str); 8] = [
+const VALID: [(&str, &str); 7] = [
     ("agents/base/valid.agent.md", "valid.agent.md"),
     ("agents/base/valid.maestro.toml", "valid.maestro.toml"),
     ("skills/valid-skill/SKILL.md", "valid-skill/SKILL.md"),
@@ -20,7 +20,6 @@ const VALID: [(&str, &str); 8] = [
     ),
     ("mcp/maestro.toml", "mcp.toml"),
     ("presets/knowledge-client.toml", "preset.toml"),
-    ("settings/classes.toml", "classes.toml"),
 ];
 
 /// Writes the valid synthetic catalog under `home`, and returns its root.
@@ -43,7 +42,7 @@ fn catalog_check_passes_the_valid_catalog() {
     let result = home.run(&["catalog", "check", "--catalog-dir", root.to_str().unwrap()]);
     assert_eq!(
         (result.code, result.stdout.as_str(), result.stderr.as_str()),
-        (Some(0), "catalog check passed: 6 resources\n", ""),
+        (Some(0), "catalog check passed: 5 resources\n", ""),
     );
 }
 
@@ -92,34 +91,6 @@ fn catalog_check_refuses_an_invalid_agent_with_exit_2() {
             .stderr
             .contains("agents/base/valid.agent.md: metadata: unknown key\n"),
         "{result:?}"
-    );
-}
-
-#[test]
-fn catalog_check_refusal_lists_diagnostics_under_json() {
-    let home = Home::bare();
-    let root = valid_catalog(&home);
-    fs::remove_file(root.join("settings/classes.toml")).unwrap();
-    let result = home.run(&[
-        "--json",
-        "catalog",
-        "check",
-        "--catalog-dir",
-        root.to_str().unwrap(),
-    ]);
-    assert_eq!(result.code, Some(2), "{result:?}");
-    assert_eq!(
-        result.json(),
-        json!({
-            "schema": "maestro-cli/catalog-check/1",
-            "status": "refused",
-            "resources": [],
-            "diagnostics": [{
-                "path": "settings/classes.toml",
-                "key": "",
-                "message": "missing: every setting needs exactly one class",
-            }],
-        })
     );
 }
 

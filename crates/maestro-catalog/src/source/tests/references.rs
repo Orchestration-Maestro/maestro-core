@@ -1,5 +1,5 @@
 //! References across resources: dangling names and tools, dependency
-//! cycles, closure maturity and setting classes.
+//! cycles, closure maturity and preset setting keys.
 
 use super::support::{MemoryTree, assert_refused};
 
@@ -9,8 +9,6 @@ const SIDECAR: &str = "agents/base/valid.maestro.toml";
 const SKILL: &str = "skills/valid-skill/SKILL.md";
 /// The valid preset's path.
 const PRESET: &str = "presets/knowledge-client.toml";
-/// The valid settings classes' path.
-const CLASSES: &str = "settings/classes.toml";
 
 /// The valid catalog with `from` replaced by `to` in `path`.
 fn edited(path: &str, from: &str, to: &str) -> MemoryTree {
@@ -126,27 +124,10 @@ fn closure_members_must_be_reviewed_beside_a_reviewed_neighbour() {
 }
 
 #[test]
-fn every_setting_has_exactly_one_known_class() {
-    assert_refused(vec![
-        (
-            "unknown key",
-            edited(CLASSES, "additive = []", "additive = [\"colour\"]"),
-            "settings/classes.toml: classes.additive: unknown setting \"colour\"",
-        ),
-        (
-            "unclassified key",
-            edited(CLASSES, "\"model_profile\", ", ""),
-            "settings/classes.toml: classes: setting \"model_profile\" has no class",
-        ),
-        (
-            "doubly classified key",
-            edited(CLASSES, "additive = []", "additive = [\"model_profile\"]"),
-            "settings/classes.toml: classes: setting \"model_profile\" has two classes",
-        ),
-        (
-            "preset key",
-            edited(PRESET, "tone = \"normal\"", "colour = \"blue\""),
-            "presets/knowledge-client.toml: settings.colour: unknown setting",
-        ),
-    ]);
+fn preset_unknown_setting_keys_are_refused() {
+    assert_refused(vec![(
+        "preset key",
+        edited(PRESET, "tone = \"normal\"", "colour = \"blue\""),
+        "presets/knowledge-client.toml: settings.colour: unknown setting",
+    )]);
 }

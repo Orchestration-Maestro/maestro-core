@@ -96,11 +96,6 @@ fn unsupported_kinds_stray_entries_and_links_are_refused() {
             "skills/valid-skill/run.sh: not a resource file of this directory",
         ),
         (
-            "missing settings classes",
-            valid.clone().without("settings/classes.toml"),
-            "settings/classes.toml: missing: every setting needs exactly one class",
-        ),
-        (
             "link",
             valid.clone().with_link("agents/base/linked.agent.md"),
             "agents/base/linked.agent.md: links and special files are not read",

@@ -48,6 +48,8 @@ fn set_get_unset_and_history_keep_the_grants_file_untouched() {
             "key": "tone",
             "value": "brief",
             "source": {"layer": "user", "path": user},
+            "class": "free",
+            "diagnostics": [],
         })
     );
     let unset = home.run(&["config", "unset", "tone"]);
@@ -147,11 +149,8 @@ fn set_in_the_project_edits_the_file_in_place_and_list_shows_its_layer() {
             .contains(&format!("project file: {}", project_file.display()))
     );
     assert!(
-        text.stdout.contains(&format!(
-            "language = \"fr\"\n  set by: project file {}\n  overrides: user file {} (\"es\")",
-            project_file.display(),
-            home.config().join("preferences.toml").display()
-        )),
+        text.stdout
+            .contains("language = \"fr\"\n  set by: workspace\n  class: free"),
         "{}",
         text.stdout
     );
@@ -163,10 +162,57 @@ fn set_in_the_project_edits_the_file_in_place_and_list_shows_its_layer() {
     );
     let listed = home.run_in(&nested, &["config", "list"]);
     assert!(
-        listed.stdout.contains("tone = \"detailed\"  (project)\n"),
+        listed
+            .stdout
+            .contains("tone = \"detailed\"  (workspace; class free)\n"),
         "{}",
         listed.stdout
     );
+}
+
+#[test]
+fn restrictive_resolution_is_used_by_config_and_locked_settings_refuse_mutation() {
+    let home = Home::new();
+    fs::write(
+        home.config().join("preferences.toml"),
+        format!("{SCHEMA}ask.output_tokens = 100\nupdates = \"propose\"\n"),
+    )
+    .unwrap();
+    let explained = home.run(&[
+        "--json",
+        "--set",
+        "ask.output_tokens=off",
+        "config",
+        "explain",
+        "ask.output_tokens",
+    ]);
+    assert_eq!(explained.code, Some(0), "{explained:?}");
+    let setting = &explained.json()["settings"][0];
+    assert_eq!(setting["value"], 100);
+    assert_eq!(setting["class"], "bounded");
+    assert_eq!(setting["source"]["layer"], "user");
+    assert!(
+        setting["diagnostics"][0]
+            .as_str()
+            .unwrap()
+            .contains("flag budget widening")
+    );
+
+    let listed = home.run(&["--json", "config", "list"]);
+    assert_eq!(listed.code, Some(0), "{listed:?}");
+    let listed_json = listed.json();
+    let raw = listed_json["settings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|setting| setting["key"] == "raw_prompt_logging")
+        .unwrap();
+    assert_eq!(raw["class"], "locked");
+
+    let set = home.run(&["config", "set", "raw_prompt_logging", "true"]);
+    assert_eq!(set.code, Some(2), "{set:?}");
+    let flag = home.run(&["--set", "evidence_validation=false", "config", "list"]);
+    assert_eq!(flag.code, Some(2), "{flag:?}");
 }
 
 #[test]

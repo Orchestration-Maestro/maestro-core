@@ -57,7 +57,6 @@ fn source_depth_boundary() {
         [
             "mcp/maestro.toml: deeper than 2 levels",
             "presets/knowledge-client.toml: deeper than 2 levels",
-            "settings/classes.toml: deeper than 2 levels",
         ]
     );
 }
@@ -85,13 +84,13 @@ fn yaml_frontmatter_depth_boundary() {
 #[test]
 fn catalog_resources_boundary() {
     let exact = Limits {
-        catalog_resources: 6,
+        catalog_resources: 5,
         ..Limits::PRODUCTION
     };
     assert_eq!(refusal_under(&exact), Vec::<String>::new());
     let past = Limits {
-        catalog_resources: 5,
+        catalog_resources: 4,
         ..Limits::PRODUCTION
     };
-    assert_eq!(refusal_under(&past), ["catalog: more than 5 resources"]);
+    assert_eq!(refusal_under(&past), ["catalog: more than 4 resources"]);
 }

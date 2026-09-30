@@ -12,21 +12,42 @@ macro_rules! texts {
     };
 }
 
-/// A free setting of `key`, `kind` and `default`, described by
-/// `description`.
-const fn free(
+/// A setting descriptor with its declared override class.
+const fn setting(
     key: &'static str,
     kind: SettingKind,
     default: &'static str,
     description: &'static str,
+    class: SettingClass,
 ) -> SettingDescriptor {
     SettingDescriptor {
         key: Cow::Borrowed(key),
         kind,
         default: Cow::Borrowed(default),
         description: Cow::Borrowed(description),
-        class: SettingClass::Free,
+        class,
     }
+}
+
+/// Declares one descriptor with the Free override class.
+macro_rules! free {
+    ($key:expr, $kind:expr, $default:expr, $description:expr $(,)?) => {
+        setting($key, $kind, $default, $description, SettingClass::Free)
+    };
+}
+
+/// Declares one descriptor with the Bounded override class.
+macro_rules! bounded {
+    ($key:expr, $kind:expr, $default:expr, $description:expr $(,)?) => {
+        setting($key, $kind, $default, $description, SettingClass::Bounded)
+    };
+}
+
+/// Declares one descriptor with the Locked override class.
+macro_rules! locked {
+    ($key:expr, $kind:expr, $default:expr, $description:expr $(,)?) => {
+        setting($key, $kind, $default, $description, SettingClass::Locked)
+    };
 }
 
 /// A whole number from `min` to `max`.
@@ -65,208 +86,177 @@ const fn choice(values: Texts) -> SettingKind {
 const WEIGHT: SettingKind = number(0.0, 100.0, false);
 
 /// Every setting Maestro knows, grouped as `config list` shows them.
+#[rustfmt::skip]
 pub const BUILT_IN: &[SettingDescriptor] = &[
-    free(
-        "language",
+    free!("language",
         SettingKind::Language,
         "auto",
         "The conversation language: auto answers in the question's language; a tag such as \
          fr or es-419 answers in that one. Code and documentation stay in English.",
     ),
-    free(
-        "tone",
+    free!("tone",
         choice(texts!["brief", "normal", "detailed"]),
         "normal",
         "How much an answer explains: brief, normal, or detailed (shown as Very detailed). \
          Prose only; code and documents are unchanged.",
     ),
-    free(
-        "search.k",
+    free!("search.k",
         integer(1, 50),
         "10",
-        "The most passages a search returns when --k (the MCP k) is not given.",
+        "The most passages a search returns when --k (the MCP k) is not given."
     ),
-    free(
-        "search.evidence_bytes",
+    free!("search.evidence_bytes",
         integer(1, 24_000),
         "12000",
-        "A search's evidence budget, in UTF-8 bytes, when --evidence-bytes is not given.",
+        "A search's evidence budget, in UTF-8 bytes, when --evidence-bytes is not given."
     ),
-    free(
-        "search.deadline_ms",
+    free!("search.deadline_ms",
         integer(1, 30_000),
         "30000",
-        "A search's deadline in milliseconds when --deadline-ms is not given.",
+        "A search's deadline in milliseconds when --deadline-ms is not given."
     ),
-    free(
-        "search.routes.dense",
+    free!("search.routes.dense",
         SettingKind::Flag,
         "true",
-        "Whether the dense (embedding) route runs, in searches and asks.",
+        "Whether the dense (embedding) route runs, in searches and asks."
     ),
-    free(
-        "search.routes.lexical",
+    free!("search.routes.lexical",
         SettingKind::Flag,
         "true",
-        "Whether the lexical route runs, in searches and asks.",
+        "Whether the lexical route runs, in searches and asks."
     ),
-    free(
-        "search.routes.identifier",
+    free!("search.routes.identifier",
         SettingKind::Flag,
         "true",
-        "Whether the exact-identifier route runs, in searches and asks.",
+        "Whether the exact-identifier route runs, in searches and asks."
     ),
-    free(
-        "search.routes.structured",
+    free!("search.routes.structured",
         SettingKind::Flag,
         "true",
-        "Whether the structured route may run for global questions, in searches and asks.",
+        "Whether the structured route may run for global questions, in searches and asks."
     ),
-    free(
-        "search.routes.limit",
+    free!("search.routes.limit",
         integer(1, 120),
         "100",
         "The maximum dense, lexical and intent candidates; identifier retrieval also uses \
          its identifier limit.",
     ),
-    free(
-        "search.routes.identifier_limit",
+    free!("search.routes.identifier_limit",
         integer(1, 120),
         "20",
         "The maximum identifier candidates, additionally bounded by \
          search.routes.limit.",
     ),
-    free(
-        "search.identifier.noise_guard",
+    free!("search.identifier.noise_guard",
         SettingKind::Flag,
         "false",
         "Whether the identifier route drops identifiers too common to rank, and fusion \
          takes no hits from an unavailable route, in searches and asks.",
     ),
-    free(
-        "search.rrf_k",
+    free!("search.rrf_k",
         integer(1, 1000),
         "60",
-        "The reciprocal rank fusion constant K.",
+        "The reciprocal rank fusion constant K."
     ),
-    free(
-        "search.weights.dense",
+    free!("search.weights.dense",
         WEIGHT,
         "1.0",
-        "The dense route's weight in fusion.",
+        "The dense route's weight in fusion."
     ),
-    free(
-        "search.weights.lexical",
+    free!("search.weights.lexical",
         WEIGHT,
         "1.0",
-        "The lexical route's weight in fusion.",
+        "The lexical route's weight in fusion."
     ),
-    free(
-        "search.weights.identifier",
+    free!("search.weights.identifier",
         WEIGHT,
         "1.0",
-        "The exact-identifier route's weight in fusion.",
+        "The exact-identifier route's weight in fusion."
     ),
-    free(
-        "search.weights.structured",
+    free!("search.weights.structured",
         WEIGHT,
         "1.0",
-        "The structured route's weight in fusion.",
+        "The structured route's weight in fusion."
     ),
-    free(
-        "search.rerank.enabled",
+    free!("search.rerank.enabled",
         SettingKind::Flag,
         "true",
-        "Whether the reranker reorders the fused candidates.",
+        "Whether the reranker reorders the fused candidates."
     ),
-    free(
-        "search.fusion_pool",
+    free!("search.fusion_pool",
         integer(1, 120),
         "120",
-        "The maximum candidates retained by fusion; rerank depth cannot exceed this value.",
+        "The maximum candidates retained by fusion; rerank depth cannot exceed this value."
     ),
-    free(
-        "search.rerank.depth",
+    free!("search.rerank.depth",
         integer(1, 120),
         "30",
-        "How many fused candidates the reranker reads.",
+        "How many fused candidates the reranker reads."
     ),
-    free(
-        "search.rerank.blend",
+    free!("search.rerank.blend",
         number(0.0, 1.0, true),
         "off",
         "The fused position's weight in a fusion with the rerank order; off keeps the \
          rerank order.",
     ),
-    free(
-        "search.rerank.demotion_cap",
+    free!("search.rerank.demotion_cap",
         optional_integer(0, 120),
         "off",
-        "The most positions reranking may drop a fused top-10 candidate; off sets no cap.",
+        "The most positions reranking may drop a fused top-10 candidate; off sets no cap."
     ),
-    free(
-        "search.rerank.context",
+    free!("search.rerank.context",
         choice(texts!["chunk", "bounded_section"]),
         "chunk",
         "What the reranker reads: the indexed chunk, or its whole section when that fits \
          search.rerank.context_max_bytes.",
     ),
-    free(
-        "search.rerank.context_max_bytes",
+    free!("search.rerank.context_max_bytes",
         integer(1, 1500),
         "1500",
-        "The most bytes of section context the reranker reads under bounded_section.",
+        "The most bytes of section context the reranker reads under bounded_section."
     ),
-    free(
-        "search.section_prior.weight",
+    free!("search.section_prior.weight",
         number(0.0, 1.0, true),
         "off",
         "How much of their fusion score the sections of search.section_prior.classes lose, \
          unless the question names them; off leaves the order as it is.",
     ),
-    free(
-        "search.section_prior.classes",
+    free!("search.section_prior.classes",
         SettingKind::ChoiceList {
             values: texts!["changelog", "release_notes", "conversion"],
         },
         "changelog,release_notes,conversion",
-        "The section classes search.section_prior.weight applies to.",
+        "The section classes search.section_prior.weight applies to."
     ),
-    free(
-        "search.stage_window_ms",
+    free!("search.stage_window_ms",
         optional_integer(1, 30_000),
         "off",
         "A fixed route window in milliseconds, for experiments; off derives it from the \
          deadline.",
     ),
-    free(
-        "search.intent.expansion",
+    free!("search.intent.expansion",
         choice(texts!["off", "hyde"]),
         "off",
         "Whether a search adds a guarded hypothetical passage, written by the collection's \
          answerer, as extra retrieval routes: off, or hyde.",
     ),
-    free(
-        "search.intent.min_top_rerank",
+    free!("search.intent.min_top_rerank",
         number(-100.0, 100.0, true),
         "off",
         "Under hyde, expand only when the best rerank score is below this one; off expands \
          every search.",
     ),
-    free(
-        "search.intent.deadline_ms",
+    free!("search.intent.deadline_ms",
         integer(1, 5000),
         "4000",
-        "The most milliseconds the intent expansion may take, within the search deadline.",
+        "The most milliseconds the intent expansion may take, within the search deadline."
     ),
-    free(
-        "search.intent.weight",
+    free!("search.intent.weight",
         WEIGHT,
         "1.0",
-        "Each intent route's weight in fusion.",
+        "Each intent route's weight in fusion."
     ),
-    free(
-        "search.intent.rerank_additions",
+    free!("search.intent.rerank_additions",
         integer(0, 120),
         "10",
         concat!(
@@ -274,15 +264,13 @@ pub const BUILT_IN: &[SettingDescriptor] = &[
             "candidates can exceed search.fusion_pool."
         ),
     ),
-    free(
-        "search.source_prior.weight",
+    free!("search.source_prior.weight",
         number(0.0, 1.0, true),
         "0.6",
         "How much of their fusion score documents of search.source_prior.classes lose, so \
          official pages rank first; off leaves the order as it is.",
     ),
-    free(
-        "search.source_prior.classes",
+    free!("search.source_prior.classes",
         SettingKind::ChoiceList {
             values: texts![
                 "official_docs",
@@ -294,17 +282,15 @@ pub const BUILT_IN: &[SettingDescriptor] = &[
             ],
         },
         "official_code,community,third_party,internal_code",
-        "The source classes search.source_prior.weight applies to.",
+        "The source classes search.source_prior.weight applies to."
     ),
-    free(
-        "evidence.expansion",
+    free!("evidence.expansion",
         choice(texts!["full_section", "relevant_blocks", "parent_chain"]),
         "parent_chain",
         "How evidence grows around a match: its full section first, or its matched blocks \
          first, or complete parent-chain ranges first.",
     ),
-    free(
-        "evidence.parent_chain_order",
+    free!("evidence.parent_chain_order",
         choice(texts![
             "off",
             "minimum_complete_first",
@@ -314,59 +300,50 @@ pub const BUILT_IN: &[SettingDescriptor] = &[
         "Admission order for parent_chain expansion only; minimum_complete_first reserves the \
          smallest complete unit first.",
     ),
-    free(
-        "evidence.counter",
+    free!("evidence.counter",
         choice(texts!["utf8", "utf8_answer_bound"]),
         "utf8",
         "What the evidence budget counts: every passage byte, or only the bytes the \
          answerer reads.",
     ),
-    free(
-        "ask.model",
+    free!("ask.model",
         SettingKind::Name,
         "qwen3-4b",
-        "The answerer's router entry when --model (the MCP model) is not given.",
+        "The answerer's router entry when --model (the MCP model) is not given."
     ),
-    free(
-        "ask.prompt",
+    free!("ask.prompt",
         choice(texts!["v1", "v2", "procedure_first"]),
         "v2",
-        "The answer prompt's version.",
+        "The answer prompt's version."
     ),
-    free(
-        "ask.k",
+    free!("ask.k",
         integer(1, 50),
         "5",
-        "The most passages an answer reads when --k is not given.",
+        "The most passages an answer reads when --k is not given."
     ),
-    free(
-        "ask.evidence_bytes",
+    free!("ask.evidence_bytes",
         integer(1, 24_000),
         "6000",
-        "An answer's evidence budget, in UTF-8 bytes, when --evidence-bytes is not given.",
+        "An answer's evidence budget, in UTF-8 bytes, when --evidence-bytes is not given."
     ),
-    free(
-        "ask.search_deadline_ms",
+    free!("ask.search_deadline_ms",
         integer(1, 30_000),
         "30000",
-        "An answer's search deadline in milliseconds when --search-deadline-ms is not given.",
+        "An answer's search deadline in milliseconds when --search-deadline-ms is not given."
     ),
-    free(
-        "ask.output_tokens",
+    bounded!("ask.output_tokens",
         optional_integer(1, 2048),
         "off",
         "The most tokens each answerer reply generates when --output-tokens is not given; \
          off takes the answerer card's output limit, or 1024 when it declares none.",
     ),
-    free(
-        "ask.min_rerank_score",
+    free!("ask.min_rerank_score",
         number(-100.0, 100.0, true),
         "off",
         "The least top reranker score an answer is given passages from; off answers \
          whatever the score. Search results are never filtered by it.",
     ),
-    free(
-        "models.compute",
+    free!("models.compute",
         SettingKind::Choice {
             values: texts!["off", "gpu"],
             reserved: Cow::Borrowed(&[ReservedValue {
@@ -379,8 +356,7 @@ pub const BUILT_IN: &[SettingDescriptor] = &[
          only: search keeps its keyword, exact-name and structured routes without reranking, \
          and ask refuses. cpu comes after M1.",
     ),
-    free(
-        "chunking.profile",
+    free!("chunking.profile",
         choice(texts![
             "mapped-structural-chunks/2",
             "mapped-structural-chunks/3"
@@ -388,124 +364,104 @@ pub const BUILT_IN: &[SettingDescriptor] = &[
         "mapped-structural-chunks/3",
         "Default for new collections; published profiles persist unless --chunk-profile overrides.",
     ),
-    free(
-        "updates",
+    bounded!("updates",
         choice(texts!["off", "propose", "auto"]),
         "propose",
         "Updates narrow off < propose < auto; auto is user-only; runtime and MCP never auto-apply.",
     ),
-    free(
-        "model_profile",
+    bounded!("model_profile",
         choice(texts!["fast", "balanced", "deep"]),
         "balanced",
         "Qualified models per role; a stored profile is not qualification or execution permission.",
     ),
-    free(
-        "reasoning_effort",
+    bounded!("reasoning_effort",
         choice(texts!["default"]),
         "default",
-        "Model default; unsupported requested levels diagnose rather than being ignored.",
+        "Model default; unsupported requested levels diagnose rather than being ignored."
     ),
-    free(
-        "inference_writers",
+    bounded!("inference_writers",
         integer(1, 1),
         "1",
-        "Maximum concurrent inference requests; default one.",
+        "Maximum concurrent inference requests; default one."
     ),
-    free(
-        "workspace_writers",
+    bounded!("workspace_writers",
         integer(1, 1),
         "1",
-        "Maximum concurrent workspace writers; default one.",
+        "Maximum concurrent workspace writers; default one."
     ),
-    free(
-        "delegation_depth",
+    bounded!("delegation_depth",
         integer(0, 2),
         "2",
-        "Maximum delegation depth; default two.",
+        "Maximum delegation depth; default two."
     ),
-    free(
-        "tool_calls",
+    bounded!("tool_calls",
         integer(0, 40),
         "40",
-        "Maximum tool calls per run; default forty.",
+        "Maximum tool calls per run; default forty."
     ),
-    free(
-        "repair_attempts",
+    bounded!("repair_attempts",
         integer(0, 2),
         "2",
-        "Maximum contract repair attempts; default two.",
+        "Maximum contract repair attempts; default two."
     ),
-    free(
-        "routing_candidates",
+    bounded!("routing_candidates",
         integer(1, 3),
         "3",
-        "Maximum routing candidates; default three.",
+        "Maximum routing candidates; default three."
     ),
-    free(
-        "mcp_call_timeout",
+    bounded!("mcp_call_timeout",
         integer(1, 30_000),
         "30000",
-        "MCP call timeout in milliseconds within the server profile.",
+        "MCP call timeout in milliseconds within the server profile."
     ),
-    free(
-        "cross_project_memory",
+    bounded!("cross_project_memory",
         SettingKind::Flag,
         "false",
-        "Cross-project memory is off until qualified.",
+        "Cross-project memory is off until qualified."
     ),
-    free(
-        "mcp_apps",
+    bounded!("mcp_apps",
         SettingKind::Flag,
         "false",
-        "MCP Apps are off until activated.",
+        "MCP Apps are off until activated."
     ),
-    free(
-        "extensions",
+    bounded!("extensions",
         SettingKind::Flag,
         "false",
-        "Extensions are off until activated.",
+        "Extensions are off until activated."
     ),
-    free(
-        "schedules",
+    bounded!("schedules",
         SettingKind::Flag,
         "false",
-        "Schedules are off until activated.",
+        "Schedules are off until activated."
     ),
-    free(
-        "raw_prompt_logging",
+    locked!("raw_prompt_logging",
         SettingKind::Flag,
         "false",
-        "Raw prompt logging is off in the initial profile.",
+        "Raw prompt logging is off in the initial profile."
     ),
-    free(
-        "raw_reasoning_logging",
+    locked!("raw_reasoning_logging",
         SettingKind::Flag,
         "false",
-        "Raw reasoning logging is off in the initial profile.",
+        "Raw reasoning logging is off in the initial profile."
     ),
-    free(
-        "provider_fallback",
+    locked!("provider_fallback",
         choice(texts!["none"]),
         "none",
-        "Provider fallback is disabled in the initial profile.",
+        "Provider fallback is disabled in the initial profile."
     ),
-    free(
-        "evidence_validation",
+    locked!("evidence_validation",
         SettingKind::Flag,
         "true",
-        "Evidence validation is on in the initial profile.",
+        "Evidence validation is on in the initial profile."
     ),
-    free(
-        "result_validation",
+    locked!("result_validation",
         SettingKind::Flag,
         "true",
-        "Result validation is on in the initial profile.",
+        "Result validation is on in the initial profile."
     ),
-    free(
-        "discovered_executable_hooks",
+    locked!("discovered_executable_hooks",
         SettingKind::Flag,
         "false",
-        "Discovered executable hooks are off in the initial profile.",
+        "Discovered executable hooks are off in the initial profile."
     ),
 ];

@@ -5,7 +5,7 @@ use crate::{
     limits::Limits,
     source::{
         Catalog, Entry, EntryKind, Known, Refusal, Registry, Resource, SourceTree, builtin, check,
-        frozen_rows, shipped_settings,
+        frozen_rows,
     },
 };
 use maestro_settings::Registry as SettingsRegistry;
@@ -26,7 +26,7 @@ macro_rules! fixture {
 }
 
 /// The files of the valid catalog: where each lives and its fixture.
-pub(super) const VALID: [(&str, &str); 11] = [
+pub(super) const VALID: [(&str, &str); 10] = [
     ("agents/base/valid.agent.md", fixture!("valid.agent.md")),
     (
         "agents/base/valid.maestro.toml",
@@ -46,7 +46,6 @@ pub(super) const VALID: [(&str, &str); 11] = [
     ),
     ("mcp/maestro.toml", fixture!("mcp.toml")),
     ("presets/knowledge-client.toml", fixture!("preset.toml")),
-    ("settings/classes.toml", fixture!("classes.toml")),
     (
         "bootstrap/base/README.md",
         "Copied as data {{ never rendered }}\n",

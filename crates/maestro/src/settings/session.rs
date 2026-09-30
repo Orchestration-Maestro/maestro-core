@@ -7,6 +7,7 @@
 
 use super::knowledge::KnowledgeSettings;
 use crate::failure::Failure;
+use maestro_catalog::settings::{self, ResolvedSettings};
 use maestro_kernel::paths::{self, Environment};
 use maestro_settings::{
     Discovery, FileLayers, Flag, LayerSource as _, Layers, Registry, Resolved,
@@ -117,6 +118,11 @@ impl Session {
         resolve(&self.registry, &self.layers, &self.flags)
     }
 
+    /// Applies catalog restrictions to S1's already parsed values and provenance.
+    pub(crate) fn catalog_resolved(&self) -> ResolvedSettings {
+        settings::resolve(&self.registry, &self.resolved())
+    }
+
     /// The knowledge operations' settings.
     ///
     /// # Errors
@@ -125,8 +131,15 @@ impl Session {
     /// another kind than its consumer reads, which the registry's tests
     /// rule out. Invalid user combinations are [`Failure::Refused`].
     pub(crate) fn knowledge(&self) -> Result<KnowledgeSettings, Failure> {
-        let settings =
+        let mut settings =
             KnowledgeSettings::from_resolved(&self.resolved()).map_err(Failure::failed)?;
+        if let Some(output_tokens) = self
+            .catalog_resolved()
+            .integer("ask.output_tokens")
+            .and_then(|value| u32::try_from(value).ok())
+        {
+            settings.ask_budget.output_tokens = Some(output_tokens);
+        }
         settings.evidence.validate().map_err(Failure::refused)?;
         Ok(settings)
     }

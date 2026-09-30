@@ -21,9 +21,6 @@
 //! - `mcp`: `mcp/<name>.toml`, metadata in its `[metadata]` table.
 //! - `preset`: `presets/<name>.toml`, a closure root, metadata in its
 //!   `[metadata]` table; its hook refuses unknown setting keys.
-//! - `settings`: `settings/classes.toml`, which every catalog holds,
-//!   metadata in its `[metadata]` table; its hook gives each setting one
-//!   class.
 //! - `model-card`: `model-cards/<name>.toml`, with a kernel-validated v2
 //!   identity delegated whole to the model-card hook.
 //!
@@ -64,9 +61,8 @@
 //!    its members' hook edges reach, itself included, must be `reviewed`
 //!    with a nonempty owner. `qualified` needs S4 evidence, so no S3 kind
 //!    admits it. References are typed `kind:name`.
-//! 5. `settings/classes.toml` gives each known setting exactly one class; a
-//!    preset's `[settings]` values are strings, integers or booleans, whose
-//!    ranges C17 checks.
+//! 5. S1 descriptors declare each setting's sole override class; preset
+//!    `[settings]` values are checked against those canonical descriptors.
 //! 6. The owner's scaling requirement: kinds are registered descriptors
 //!    that serialize as data, so a later step can load them from files. A
 //!    descriptor selects a hook by name from a fixed table; hooks exist
@@ -420,6 +416,17 @@ pub trait KnownSettings {
 impl KnownSettings for BTreeSet<String> {
     fn keys(&self) -> Vec<&str> {
         self.iter().map(String::as_str).collect()
+    }
+}
+
+impl KnownSettings for maestro_settings::Registry {
+    fn keys(&self) -> Vec<&str> {
+        let mut keys: Vec<_> = self
+            .descriptors()
+            .map(|descriptor| descriptor.key.as_ref())
+            .collect();
+        keys.sort_unstable();
+        keys
     }
 }
 

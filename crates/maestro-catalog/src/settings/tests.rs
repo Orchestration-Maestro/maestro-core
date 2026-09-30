@@ -1,4 +1,4 @@
-use super::{SettingClasses, resolve as restrictive_resolve};
+use super::resolve as restrictive_resolve;
 use crate::source::KnownSettings;
 use maestro_settings::{BUILT_IN, Flag, Layer, Layers, Registry, Value};
 use std::{borrow::Cow, collections::BTreeMap, path::PathBuf};
@@ -10,11 +10,7 @@ struct TestLayers {
     user: BTreeMap<String, Value>,
 }
 
-fn resolve(
-    registry: &Registry,
-    classes: &SettingClasses,
-    layers: &TestLayers,
-) -> super::ResolvedSettings {
+fn resolve(registry: &Registry, layers: &TestLayers) -> super::ResolvedSettings {
     let flags = layers
         .flags
         .iter()
@@ -30,7 +26,7 @@ fn resolve(
         user: user.map(|layer| (PathBuf::from("user.toml"), layer)),
     };
     let s1_resolved = maestro_settings::resolve(registry, &s1_layers, &flags);
-    restrictive_resolve(registry, classes, &s1_resolved)
+    restrictive_resolve(registry, &s1_resolved)
 }
 
 fn to_layer(values: &BTreeMap<String, Value>) -> Option<Layer> {
@@ -48,18 +44,67 @@ fn value(registry: &Registry, key: &str, text: &str) -> Value {
     registry.get(key).unwrap().kind.parse_text(text).unwrap()
 }
 
-fn classes(registry: &Registry) -> SettingClasses {
-    SettingClasses::parse(
-        include_str!("../../../../tests/fixtures/catalog/settings/classes.toml"),
-        registry,
-    )
-    .unwrap()
+#[test]
+fn s1_descriptors_declare_the_architecture_override_classes() {
+    let registry = registry();
+    for key in [
+        "updates",
+        "model_profile",
+        "reasoning_effort",
+        "ask.output_tokens",
+    ] {
+        assert_eq!(registry.get(key).unwrap().class.name(), "bounded", "{key}");
+    }
+    for key in [
+        "raw_prompt_logging",
+        "raw_reasoning_logging",
+        "provider_fallback",
+        "evidence_validation",
+        "result_validation",
+        "discovered_executable_hooks",
+    ] {
+        assert_eq!(registry.get(key).unwrap().class.name(), "locked", "{key}");
+    }
+}
+
+#[test]
+fn a_synthetic_s1_class_is_catalog_visible_and_drives_resolution() {
+    let mut descriptors = BUILT_IN.to_vec();
+    descriptors.push(maestro_settings::SettingDescriptor {
+        key: Cow::Borrowed("synthetic.permission"),
+        kind: maestro_settings::SettingKind::Flag,
+        default: Cow::Borrowed("false"),
+        description: Cow::Borrowed("A synthetic bounded setting."),
+        class: maestro_settings::SettingClass::Bounded,
+    });
+    let registry = Registry::new(&descriptors).unwrap();
+    assert!(KnownSettings::keys(&registry).contains(&"synthetic.permission"));
+    let mut layers = TestLayers::default();
+    layers
+        .user
+        .insert("synthetic.permission".to_owned(), Value::Flag(true));
+    layers
+        .workspace
+        .insert("synthetic.permission".to_owned(), Value::Flag(true));
+    let resolved = resolve(&registry, &layers);
+    let value = resolved
+        .get("synthetic.permission")
+        .unwrap()
+        .as_ref()
+        .unwrap();
+    assert_eq!(value.value(), &Value::Flag(true));
+    assert_eq!(value.source(), "user");
 }
 
 #[test]
 fn catalog_known_settings_are_the_canonical_s1_registry_keys() {
     let registry = registry();
     let keys = registry.keys();
+    assert_eq!(keys, {
+        let mut sorted = keys.clone();
+        sorted.sort_unstable();
+        sorted
+    });
     assert_eq!(keys.len(), BUILT_IN.len());
     assert!(keys.contains(&"ask.output_tokens"));
     assert!(!keys.contains(&"max_output_tokens"));
@@ -67,29 +112,8 @@ fn catalog_known_settings_are_the_canonical_s1_registry_keys() {
 }
 
 #[test]
-fn classes_require_every_canonical_key_exactly_once() {
-    let registry = registry();
-    let classes = include_str!("../../../../tests/fixtures/catalog/settings/classes.toml");
-    assert!(SettingClasses::parse(classes, &registry).is_ok());
-    let partial = "[classes]\nfree = [\"language\"]\nbounded = []\nadditive = []\nlocked = []\n";
-    assert!(SettingClasses::parse(partial, &registry).is_err());
-}
-
-#[test]
-fn classes_reject_unknown_and_doubly_classified_keys() {
-    let registry = registry();
-    for text in [
-        "[classes]\nfree = [\"invented.key\"]\nbounded = []\nadditive = []\nlocked = []\n",
-        "[classes]\nfree = [\"language\"]\nbounded = [\"language\"]\nadditive = []\nlocked = []\n",
-    ] {
-        assert!(SettingClasses::parse(text, &registry).is_err(), "{text}");
-    }
-}
-
-#[test]
 fn free_values_resolve_flag_workspace_user_then_default() {
     let registry = registry();
-    let classes = classes(&registry);
     let mut layers = TestLayers::default();
     layers
         .user
@@ -100,33 +124,23 @@ fn free_values_resolve_flag_workspace_user_then_default() {
     layers
         .flags
         .insert("language".to_owned(), value(&registry, "language", "ja"));
-    let resolved = resolve(&registry, &classes, &layers);
+    let resolved = resolve(&registry, &layers);
     assert_eq!(resolved.text("language"), Some("ja"));
     assert_eq!(
         resolved.get("language").unwrap().as_ref().unwrap().source(),
         "flag"
     );
     layers.flags.clear();
-    assert_eq!(
-        resolve(&registry, &classes, &layers).text("language"),
-        Some("es")
-    );
+    assert_eq!(resolve(&registry, &layers).text("language"), Some("es"));
     layers.workspace.clear();
-    assert_eq!(
-        resolve(&registry, &classes, &layers).text("language"),
-        Some("fr")
-    );
+    assert_eq!(resolve(&registry, &layers).text("language"), Some("fr"));
     layers.user.clear();
-    assert_eq!(
-        resolve(&registry, &classes, &layers).text("language"),
-        Some("auto")
-    );
+    assert_eq!(resolve(&registry, &layers).text("language"), Some("auto"));
 }
 
 #[test]
 fn updates_are_a_ceiling_and_workspace_auto_cannot_widen_user_propose() {
     let registry = registry();
-    let classes = classes(&registry);
     let mut layers = TestLayers::default();
     layers
         .user
@@ -134,7 +148,7 @@ fn updates_are_a_ceiling_and_workspace_auto_cannot_widen_user_propose() {
     layers
         .workspace
         .insert("updates".to_owned(), value(&registry, "updates", "auto"));
-    let resolved = resolve(&registry, &classes, &layers);
+    let resolved = resolve(&registry, &layers);
     assert_eq!(resolved.text("updates"), Some("propose"));
     assert_eq!(resolved.diagnostics().len(), 1);
 }
@@ -142,7 +156,6 @@ fn updates_are_a_ceiling_and_workspace_auto_cannot_widen_user_propose() {
 #[test]
 fn off_dominates_update_values_and_flags_cannot_raise_the_ceiling() {
     let registry = registry();
-    let classes = classes(&registry);
     let mut layers = TestLayers::default();
     layers
         .user
@@ -153,61 +166,115 @@ fn off_dominates_update_values_and_flags_cannot_raise_the_ceiling() {
     layers
         .flags
         .insert("updates".to_owned(), value(&registry, "updates", "auto"));
-    assert_eq!(
-        resolve(&registry, &classes, &layers).text("updates"),
-        Some("off")
+    assert_eq!(resolve(&registry, &layers).text("updates"), Some("off"));
+}
+
+#[test]
+fn optional_budget_off_cannot_widen_a_user_integer_ceiling() {
+    let registry = registry();
+    let mut layers = TestLayers::default();
+    layers.user.insert(
+        "ask.output_tokens".to_owned(),
+        value(&registry, "ask.output_tokens", "100"),
     );
+    layers.flags.insert(
+        "ask.output_tokens".to_owned(),
+        value(&registry, "ask.output_tokens", "off"),
+    );
+    let resolved = resolve(&registry, &layers);
+    assert_eq!(resolved.integer("ask.output_tokens"), Some(100));
+    assert_eq!(resolved.diagnostics().len(), 1);
+    assert_eq!(
+        resolved
+            .get("ask.output_tokens")
+            .unwrap()
+            .as_ref()
+            .unwrap()
+            .overridden()
+            .len(),
+        1
+    );
+}
+
+#[test]
+fn workspace_off_narrows_user_updates_propose() {
+    let registry = registry();
+    let layers = TestLayers {
+        user: BTreeMap::from([("updates".to_owned(), value(&registry, "updates", "propose"))]),
+        workspace: BTreeMap::from([("updates".to_owned(), value(&registry, "updates", "off"))]),
+        ..TestLayers::default()
+    };
+    let resolved = resolve(&registry, &layers);
+    assert_eq!(resolved.text("updates"), Some("off"));
+    let chosen = resolved.get("updates").unwrap().as_ref().unwrap();
+    assert_eq!(chosen.source(), "workspace");
+    assert!(chosen.overridden().iter().any(|(layer, value)| {
+        layer.name() == "user" && value == &Value::Text("propose".to_owned())
+    }));
 }
 
 #[test]
 fn budget_values_take_the_minimum_across_all_layers() {
     let registry = registry();
-    let classes = classes(&registry);
     let mut layers = TestLayers::default();
-    layers
-        .user
-        .insert("search.k".to_owned(), value(&registry, "search.k", "9"));
-    layers
-        .workspace
-        .insert("search.k".to_owned(), value(&registry, "search.k", "7"));
-    layers
-        .flags
-        .insert("search.k".to_owned(), value(&registry, "search.k", "8"));
-    let resolved = resolve(&registry, &classes, &layers);
-    assert_eq!(resolved.integer("search.k"), Some(7));
-    let chosen = resolved.get("search.k").unwrap().as_ref().unwrap();
+    layers.user.insert(
+        "ask.output_tokens".to_owned(),
+        value(&registry, "ask.output_tokens", "100"),
+    );
+    layers.workspace.insert(
+        "ask.output_tokens".to_owned(),
+        value(&registry, "ask.output_tokens", "70"),
+    );
+    layers.flags.insert(
+        "ask.output_tokens".to_owned(),
+        value(&registry, "ask.output_tokens", "80"),
+    );
+    let resolved = resolve(&registry, &layers);
+    assert_eq!(resolved.integer("ask.output_tokens"), Some(70));
+    let chosen = resolved.get("ask.output_tokens").unwrap().as_ref().unwrap();
     assert_eq!(chosen.source(), "workspace");
-    assert_eq!(chosen.overridden().len(), 3);
-    assert_eq!(resolved.diagnostics().len(), 2);
+    assert_eq!(chosen.overridden().len(), 2);
+    assert_eq!(resolved.diagnostics().len(), 1);
 }
 
 #[test]
 fn locked_values_and_unknown_flag_keys_are_rejected() {
     let registry = registry();
-    let classes = classes(&registry);
     let mut layers = TestLayers::default();
     layers.flags.insert(
         "raw_prompt_logging".to_owned(),
         value(&registry, "raw_prompt_logging", "true"),
     );
-    let resolved = resolve(&registry, &classes, &layers);
+    let resolved = resolve(&registry, &layers);
     assert!(resolved.get("raw_prompt_logging").unwrap().is_err());
-    let secret_flag = "api_token=synthetic-secret-literal".to_owned();
-    assert!(maestro_settings::parse_flags(&registry, &[secret_flag]).is_err());
 }
 
 #[test]
-fn bounded_permissions_intersect_and_cannot_be_enabled_by_a_workspace() {
+fn user_may_enable_bounded_permissions_but_workspace_cannot_widen_them() {
     let registry = registry();
-    let classes = classes(&registry);
     let mut layers = TestLayers::default();
+    layers
+        .user
+        .insert("mcp_apps".to_owned(), value(&registry, "mcp_apps", "true"));
+    assert_eq!(
+        resolve(&registry, &layers)
+            .get("mcp_apps")
+            .unwrap()
+            .as_ref()
+            .unwrap()
+            .value(),
+        &Value::Flag(true)
+    );
     layers
         .workspace
         .insert("mcp_apps".to_owned(), value(&registry, "mcp_apps", "true"));
-    let resolved = resolve(&registry, &classes, &layers);
+    layers
+        .user
+        .insert("mcp_apps".to_owned(), value(&registry, "mcp_apps", "false"));
+    let resolved = resolve(&registry, &layers);
     assert_eq!(
         resolved.get("mcp_apps").unwrap().as_ref().unwrap().value(),
-        &value(&registry, "mcp_apps", "false")
+        &Value::Flag(false)
     );
     assert_eq!(resolved.diagnostics().len(), 1);
 }
@@ -215,14 +282,13 @@ fn bounded_permissions_intersect_and_cannot_be_enabled_by_a_workspace() {
 #[test]
 fn locked_validation_checks_cannot_be_dropped() {
     let registry = registry();
-    let classes = classes(&registry);
     let mut layers = TestLayers::default();
     layers.workspace.insert(
         "evidence_validation".to_owned(),
         value(&registry, "evidence_validation", "false"),
     );
     assert!(
-        resolve(&registry, &classes, &layers)
+        resolve(&registry, &layers)
             .get("evidence_validation")
             .unwrap()
             .is_err()
@@ -234,9 +300,8 @@ fn locked_validation_checks_cannot_be_dropped() {
 }
 
 #[test]
-fn model_profile_user_ceiling_rejects_wider_workspace_and_flag_values() {
+fn model_profile_and_effort_use_free_precedence_within_descriptor_values() {
     let registry = registry();
-    let classes = classes(&registry);
     let mut layers = TestLayers::default();
     layers.user.insert(
         "model_profile".to_owned(),
@@ -250,29 +315,24 @@ fn model_profile_user_ceiling_rejects_wider_workspace_and_flag_values() {
         "model_profile".to_owned(),
         value(&registry, "model_profile", "balanced"),
     );
-    let resolved = resolve(&registry, &classes, &layers);
-    assert_eq!(resolved.text("model_profile"), Some("fast"));
-    assert_eq!(resolved.diagnostics().len(), 2);
+    let resolved = resolve(&registry, &layers);
+    assert_eq!(resolved.text("model_profile"), Some("balanced"));
+    assert!(resolved.diagnostics().is_empty());
 }
 
 #[test]
 fn only_user_preferences_can_enable_automatic_updates() {
     let registry = registry();
-    let classes = classes(&registry);
     let layers = TestLayers {
         user: BTreeMap::from([("updates".to_owned(), value(&registry, "updates", "auto"))]),
         ..TestLayers::default()
     };
-    assert_eq!(
-        resolve(&registry, &classes, &layers).text("updates"),
-        Some("auto")
-    );
+    assert_eq!(resolve(&registry, &layers).text("updates"), Some("auto"));
 }
 
 #[test]
 fn routing_candidates_use_the_restrictive_user_limit() {
     let registry = registry();
-    let classes = classes(&registry);
     let layers = TestLayers {
         flags: BTreeMap::from([(
             "routing_candidates".to_owned(),
@@ -287,7 +347,7 @@ fn routing_candidates_use_the_restrictive_user_limit() {
             value(&registry, "routing_candidates", "1"),
         )]),
     };
-    let resolved = resolve(&registry, &classes, &layers);
+    let resolved = resolve(&registry, &layers);
     assert_eq!(resolved.integer("routing_candidates"), Some(1));
     assert_eq!(
         resolved
@@ -314,12 +374,9 @@ fn additive_checks_accumulate_without_dropping_the_default() {
         },
         default: Cow::Borrowed("lint"),
         description: Cow::Borrowed("Synthetic additive checks."),
-        class: maestro_settings::SettingClass::Free,
+        class: maestro_settings::SettingClass::Additive,
     });
     let registry = Registry::new(&descriptors).unwrap();
-    let class_text = include_str!("../../../../tests/fixtures/catalog/settings/classes.toml")
-        .replace("additive = []", "additive = [\"extra_checks\"]");
-    let classes = SettingClasses::parse(&class_text, &registry).unwrap();
     let mut layers = TestLayers::default();
     layers.user.insert(
         "extra_checks".to_owned(),
@@ -329,7 +386,7 @@ fn additive_checks_accumulate_without_dropping_the_default() {
         "extra_checks".to_owned(),
         value(&registry, "extra_checks", "docs"),
     );
-    let resolved = resolve(&registry, &classes, &layers);
+    let resolved = resolve(&registry, &layers);
     assert_eq!(
         resolved
             .get("extra_checks")
@@ -348,15 +405,11 @@ fn additive_checks_accumulate_without_dropping_the_default() {
 #[test]
 fn capability_values_are_scoped_to_their_key() {
     let registry = registry();
-    let classes = classes(&registry);
     let mut layers = TestLayers::default();
     layers
         .flags
         .insert("search.k".to_owned(), value(&registry, "search.k", "4"));
-    assert_eq!(
-        resolve(&registry, &classes, &layers).integer("ask.k"),
-        Some(5)
-    );
+    assert_eq!(resolve(&registry, &layers).integer("ask.k"), Some(5));
 }
 
 #[test]
@@ -369,7 +422,6 @@ fn s1_descriptor_order_is_preserved_and_catalog_additions_are_appended() {
 #[test]
 fn resolution_does_not_depend_on_map_insertion_order() {
     let registry = registry();
-    let classes = classes(&registry);
     let layers = TestLayers {
         flags: BTreeMap::from([
             ("search.k".to_owned(), value(&registry, "search.k", "4")),
@@ -377,8 +429,5 @@ fn resolution_does_not_depend_on_map_insertion_order() {
         ]),
         ..TestLayers::default()
     };
-    assert_eq!(
-        resolve(&registry, &classes, &layers).integer("search.k"),
-        Some(4)
-    );
+    assert_eq!(resolve(&registry, &layers).integer("search.k"), Some(4));
 }

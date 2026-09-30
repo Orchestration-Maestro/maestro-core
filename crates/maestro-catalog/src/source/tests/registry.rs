@@ -250,8 +250,7 @@ fn builtin_kinds_loaded_from_data_check_like_the_originals() {
             "instructions",
             "mcp",
             "preset",
-            "model-card",
-            "settings"
+            "model-card"
         ]
     );
     assert_eq!(
@@ -282,15 +281,6 @@ fn builtin_kinds_loaded_from_data_check_like_the_originals() {
                     "colour = \"blue\"",
                 ),
                 "presets/knowledge-client.toml: settings.colour: unknown setting",
-            ),
-            (
-                "settings hook",
-                MemoryTree::valid().edit(
-                    "settings/classes.toml",
-                    "additive = []",
-                    "additive = []\nopen = []",
-                ),
-                "settings/classes.toml: classes.open: unknown class",
             ),
         ],
     );

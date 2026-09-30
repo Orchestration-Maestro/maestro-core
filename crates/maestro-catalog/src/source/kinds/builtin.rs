@@ -5,17 +5,15 @@ use super::{
     agent::{self, AgentRules},
     instructions, mcp, model_card,
     preset::{self, PresetRules},
-    settings::{self, SettingsRules},
     skill,
 };
 use crate::source::{registry::Registry, rules::KindRules};
 
 /// The hooks a descriptor may select, by name. Content never supplies code:
 /// a new hook is reviewed code added here.
-const HOOKS: [(&str, &dyn KindRules, &[&str]); 4] = [
+const HOOKS: [(&str, &dyn KindRules, &[&str]); 3] = [
     ("agent-profile", &AgentRules, &[]),
     ("preset-settings", &PresetRules, &[]),
-    ("settings-classes", &SettingsRules, &[]),
     ("model-card", &model_card::ModelCardRules, &["identity"]),
 ];
 
@@ -26,8 +24,7 @@ pub fn builtin_hooks() -> Registry {
     Registry::with_hooks(&HOOKS)
 }
 
-/// The built-in kinds: agent, skill, instructions, MCP server, preset and
-/// settings classes, each registered and so validated like any other.
+/// The built-in kinds: agent, skill, instructions, MCP server, preset and model card.
 ///
 /// # Errors
 ///
@@ -41,7 +38,6 @@ pub fn builtin() -> Result<Registry, String> {
         mcp::descriptor(),
         preset::descriptor(),
         model_card::descriptor(),
-        settings::descriptor(),
     ] {
         registry.register(descriptor)?;
     }

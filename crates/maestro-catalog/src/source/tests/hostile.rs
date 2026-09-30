@@ -67,7 +67,7 @@ fn yaml_aliases_expanding_past_twice_the_frontmatter_bytes_are_refused() {
 
 #[test]
 fn a_chain_of_4095_resources_is_checked_on_a_1_mib_stack() {
-    let names: Vec<String> = (0..4_089).map(|index| format!("chain-{index}")).collect();
+    let names: Vec<String> = (0..4_090).map(|index| format!("chain-{index}")).collect();
     let last = names.len() - 1;
     let tree = with_skills(&names, |index| {
         if index == last {

@@ -6,7 +6,6 @@ use crate::{
     limits::Limits,
     source::{Maturity, Metadata, ResourceId, Value, frozen_rows},
 };
-use maestro_settings::Registry as SettingsRegistry;
 use std::{collections::BTreeSet, fs, path::Path};
 
 /// The ID `kind:name`.
@@ -37,7 +36,6 @@ fn valid_catalog_passes_with_every_resource_sorted_by_id() {
             "instructions:valid",
             "mcp:maestro",
             "preset:knowledge-client",
-            "settings:classes",
             "skill:valid-skill",
         ]
     );
@@ -74,7 +72,7 @@ fn valid_agent_round_trips_its_profile_and_sidecar() {
 #[test]
 fn valid_skill_reads_its_maestro_metadata_strings() {
     let catalog = check_under(&MemoryTree::valid(), &Limits::PRODUCTION).unwrap();
-    let skill = &catalog.resources[5];
+    let skill = &catalog.resources[4];
     assert_eq!(skill.metadata.rows, ["chat.M019 descriptor"]);
     assert_eq!(skill.metadata.owner, "@synthetic/knowledge");
     assert!(skill.metadata.requires.is_empty());
@@ -91,7 +89,7 @@ fn skill_lists_split_on_semicolons_and_trim() {
     );
     let catalog = check_under(&tree, &Limits::PRODUCTION).unwrap();
     assert_eq!(
-        catalog.resources[5].metadata.rows,
+        catalog.resources[4].metadata.rows,
         [
             "chat.M019 descriptor",
             "delivery.C04 readiness, owners, dependencies without invalid frontmatter",
@@ -100,27 +98,13 @@ fn skill_lists_split_on_semicolons_and_trim() {
 }
 
 #[test]
-fn valid_preset_and_classes_keep_their_values() {
+fn valid_preset_keeps_its_values() {
     let catalog = check_under(&MemoryTree::valid(), &Limits::PRODUCTION).unwrap();
     let Value::Table(settings) = &catalog.resources[3].fields["settings"] else {
         panic!("no settings table: {:?}", catalog.resources[3]);
     };
     assert_eq!(settings["language"], text("en"));
     assert_eq!(settings["routing_candidates"], Value::Integer(3));
-    let Value::Table(classes) = &catalog.resources[4].fields["classes"] else {
-        panic!("no classes table: {:?}", catalog.resources[4]);
-    };
-    let classified: usize = classes
-        .values()
-        .map(|keys| keys.texts().unwrap().len())
-        .sum();
-    assert_eq!(
-        classified,
-        SettingsRegistry::built_in().unwrap().descriptors().len()
-    );
-    let free = classes["free"].texts().unwrap();
-    assert!(free.contains(&"language"));
-    assert!(free.contains(&"tone"));
 }
 
 #[test]
@@ -139,9 +123,9 @@ fn discovered_placeholder_outside_every_closure_passes() {
             "maestro.maturity: placeholder",
         );
     let catalog = check_under(&tree, &Limits::PRODUCTION).unwrap();
-    assert_eq!(catalog.resources[5].id, id("skill", "draft"));
+    assert_eq!(catalog.resources[4].id, id("skill", "draft"));
     assert_eq!(
-        catalog.resources[5].metadata.maturity,
+        catalog.resources[4].metadata.maturity,
         Maturity::Placeholder
     );
 }
@@ -156,7 +140,7 @@ fn skill_scripts_and_references_are_data_the_checker_skips() {
         .with("skills/valid-skill/references/notes.md", "# Notes\n");
     let catalog = check_under(&tree, &Limits::PRODUCTION).unwrap();
     assert_eq!(
-        catalog.resources[5].data,
+        catalog.resources[4].data,
         [
             "skills/valid-skill/references",
             "skills/valid-skill/scripts"
@@ -203,7 +187,6 @@ fn each_resource_lists_the_files_it_owns() {
                 &["presets/knowledge-client.toml".to_owned()][..],
                 0
             ),
-            ("settings", &["settings/classes.toml".to_owned()][..], 0),
             ("skill", &["skills/valid-skill/SKILL.md".to_owned()][..], 0),
         ]
     );

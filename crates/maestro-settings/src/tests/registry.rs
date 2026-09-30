@@ -235,30 +235,48 @@ fn new_refuses_kinds_and_defaults_that_cannot_hold_together() {
 }
 
 #[test]
-fn new_refuses_the_classes_s3_resolves_until_its_resolver_lands() {
-    for class in [SettingClass::Bounded, SettingClass::Additive] {
+fn registry_accepts_every_declared_override_class() {
+    for class in [
+        SettingClass::Free,
+        SettingClass::Bounded,
+        SettingClass::Additive,
+        SettingClass::Locked,
+    ] {
         let mut descriptor = flag("a");
         descriptor.class = class;
-        assert_eq!(
-            refusal(&[descriptor]),
-            format!(
-                "setting \"a\": the {} class is resolved by S3's restrictive resolution, \
-                 not yet available",
-                class.name()
-            )
-        );
+        assert!(Registry::new(&[descriptor]).is_ok(), "{}", class.name());
     }
-    let mut locked = flag("a");
-    locked.class = SettingClass::Locked;
-    assert!(Registry::new(&[locked]).is_ok());
 }
-
 #[test]
-fn every_built_in_description_is_one_line_and_every_class_free() {
+fn every_built_in_description_is_one_line_and_classes_match_architecture() {
     for descriptor in BUILT_IN {
         assert!(!descriptor.description.is_empty(), "{}", descriptor.key);
         assert!(!descriptor.description.contains('\n'), "{}", descriptor.key);
-        assert_eq!(descriptor.class, SettingClass::Free, "{}", descriptor.key);
+        let expected = match descriptor.key.as_ref() {
+            "raw_prompt_logging"
+            | "raw_reasoning_logging"
+            | "provider_fallback"
+            | "evidence_validation"
+            | "result_validation"
+            | "discovered_executable_hooks" => SettingClass::Locked,
+            "updates"
+            | "model_profile"
+            | "reasoning_effort"
+            | "ask.output_tokens"
+            | "inference_writers"
+            | "workspace_writers"
+            | "delegation_depth"
+            | "tool_calls"
+            | "repair_attempts"
+            | "routing_candidates"
+            | "mcp_call_timeout"
+            | "cross_project_memory"
+            | "mcp_apps"
+            | "extensions"
+            | "schedules" => SettingClass::Bounded,
+            _ => SettingClass::Free,
+        };
+        assert_eq!(descriptor.class, expected, "{}", descriptor.key);
     }
 }
 

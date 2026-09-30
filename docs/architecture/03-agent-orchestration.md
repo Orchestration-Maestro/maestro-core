@@ -65,7 +65,6 @@ model-cards/<id>.toml                        # owner-approved kernel v2 identiti
 mcp/<server>.toml                            # approved MCP servers and tool allowlists
 extensions/<name>/extension.toml             # event subscribers and connectors (07)
 hooks/<name>.json                            # native Copilot hook projections
-settings/classes.toml                        # every configurable key and its one override class
 presets/<name>.toml                          # project presets (defaults, recipes, capabilities)
 bootstrap/base/  bootstrap/<language>/       # project templates: base + language overlays
 evals/scenarios/<name>.yaml                  # scenario tests for workflows and agents
@@ -292,10 +291,10 @@ runs through the S4 engine.
 
 ### 1.6 Configuration and overrides
 
-Every configurable key has **exactly one** override class in
-`settings/classes.toml`; an unknown, unclassified or doubly classified key is
-rejected by the compiler and by the runtime. The key inventory comes through a
-port from S1's shared settings registry, not a second `KNOWN_SETTINGS` list.
+Every configurable key has exactly one override class, declared on its S1
+registry descriptor. An unknown key is rejected by the compiler and runtime.
+The key inventory comes through a port from S1's shared settings registry,
+not a second `KNOWN_SETTINGS` list.
 **Supervisor ruling, 21:02: S1 registry names are canonical**; for example,
 `ask.output_tokens` replaces the catalog's `max_output_tokens` spelling. After the
 supervisor synchronizes landed S1 APIs into S3, C17 adds only missing catalog

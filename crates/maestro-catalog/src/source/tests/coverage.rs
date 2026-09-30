@@ -120,15 +120,6 @@ fn embedded_metadata_must_be_a_table_and_classes_known() {
             ),
             "presets/knowledge-client.toml: metadata: must be a table",
         ),
-        (
-            "unknown class",
-            edited(
-                "settings/classes.toml",
-                "additive = []",
-                "additive = []\nopen = []",
-            ),
-            "settings/classes.toml: classes.open: unknown class",
-        ),
     ]);
 }
 

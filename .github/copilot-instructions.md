@@ -484,6 +484,10 @@ in place.
 │   │   │   │   ├── mod.rs                                                   # Model-card declarations and their thin adapter to the kernel registry
 │   │   │   │   ├── register.rs                                              # Explicit scoped registration of an already checked declaration
 │   │   │   │   └── tests.rs                                                 # Rust source: tests
+│   │   │   ├── settings/                                                    # Typed restrictive resolution over the canonical S1 settings descriptors
+│   │   │   │   ├── mod.rs                                                   # Typed restrictive resolution over the canonical S1 settings descriptors
+│   │   │   │   ├── resolve.rs                                               # Typed restrictive resolution over four preference layers; storage and parsing stay in S1
+│   │   │   │   └── tests.rs                                                 # Rust source: tests
 │   │   │   ├── source/                                                      # The strict checker of a catalog's authoring sources: a registry of
 │   │   │   │   ├── kinds/                                                   # The built-in kinds: each a descriptor and, where a rule is truly
 │   │   │   │   │   ├── agent.rs                                             # agent: a Copilot custom agent profile and its <name>.maestro.toml
@@ -493,7 +497,6 @@ in place.
 │   │   │   │   │   ├── mod.rs                                               # The built-in kinds: each a descriptor and, where a rule is truly
 │   │   │   │   │   ├── model_card.rs                                        # model-card: a strict catalog declaration of the kernel's v2 identity
 │   │   │   │   │   ├── preset.rs                                            # preset: a project preset, the root of a declared closure, and the
-│   │   │   │   │   ├── settings.rs                                          # settings: settings/classes.toml, the one override class of every
 │   │   │   │   │   └── skill.rs                                             # skill: an Agent Skills SKILL.md, whose Maestro data sits in the
 │   │   │   │   ├── tests/                                                   # The source checker's tests: the valid synthetic catalog and each of its
 │   │   │   │   │   ├── accepted.rs                                          # The valid catalog passes, and its typed resources hold exactly what the
@@ -1474,7 +1477,6 @@ in place.
 │       │   ├── source/                                                      # Source
 │       │   │   ├── valid-skill/                                             # Valid skill
 │       │   │   │   └── SKILL.md                                             # Synthetic skill that cites evidence from the public synthetic glossary
-│       │   │   ├── classes.toml                                             # TOML settings: classes
 │       │   │   ├── invalid.agent.md                                         # Synthetic agent that carries metadata Copilot ignores
 │       │   │   ├── mcp.toml                                                 # TOML settings: mcp
 │       │   │   ├── preset.toml                                              # TOML settings: preset

@@ -64,7 +64,7 @@ fn directory_checks_the_valid_catalog_without_running_its_scripts() {
         &builtin().unwrap(),
         &Limits::PRODUCTION,
     );
-    assert_eq!(catalog.map(|catalog| catalog.resources.len()), Ok(6));
+    assert_eq!(catalog.map(|catalog| catalog.resources.len()), Ok(5));
     assert!(!marker.exists());
 }
 
