@@ -23,15 +23,22 @@ startup updates, user-approved path trust and small replaceable ports. The eveni
 amendment adds descriptor-only kinds, owner-approved model cards and S1 settings
 reuse; round 2 incorporates the 21:02 review ruling, explicit C16h registration,
 the owner's 20:48 registry-generated every-setting editor and 20:50 later glossary/
-source-class kinds. Research, data model and contracts are in the plan.
+source-class kinds. The owner-first amendment (2026-09-30) adds C30–C43
+under D13: strict owner segregation, `/2` source/output migration, native aliases
+and deferred S6 collection contracts. Research, data model and contracts are in
+the plan.
 
 **Format:** `Cnn [USn] title (hours)`, with red/green/check steps. IDs preserve
 the approved draft, with explicit review splits. Physical order below is
-dependency order, not numeric order. **57 tasks, 191 lane-hours**, each at most
-four hours including local checks except the supervisor-approved 6 h C03 registry
-work; review/CI reserve is separate. All checkboxes
-start open: a plan is not implementation evidence. Only the supervisor ticks
-integrated work.
+historical phase order, with the migration appendix's `After` edges authoritative.
+**71 tasks, 224–240 lane-hours**, including **68 S3 tasks, 218–230 h** and
+**3 deferred S6 tasks, 6–10 h**. The original 57 tasks/191 h stay unchanged;
+C30–C39 add the proposed 24–34 h plus the supervisor-approved 1 h core-label
+fix in C33 (25–35 h); C40 adds 2–4 h, C41–C43 add 6–10 h. Every new task is
+at most four hours; C03 retains its approved 6 h exception. The unchanged
+16–24 h baseline review/CI reserve is separate; C39 already prices migration
+verification/review, so it is not added twice. Open checkboxes are plans, not
+implementation evidence. Only the supervisor ticks integrated work.
 
 ## Global Constraints
 
@@ -286,27 +293,37 @@ can affect a later same-entry ask under S1's existing lookup, never rewrite hist
 
 ### C02 Minimal catalog seed [US1, US5] (2 h)
 
-**After:** C00, C03; OA1 repository and ownership established by the owner.
-**Files (MAN):** `agents/base/maestro.agent.md`,
-`skills/knowledge-evidence/SKILL.md`, `instructions/knowledge.instructions.md`,
-`mcp/maestro.toml`, `presets/{knowledge-client.toml,rust-service.toml}`,
-`bootstrap/base/.github/copilot-instructions.md`,
-`bootstrap/rust/.github/instructions/rust.instructions.md`,
-`bootstrap/rust/.maestro/recipes.json`, `settings/classes.toml`, `CODEOWNERS`,
-`README.md`, `docs/standards/{engineering.md,security.md}`,
-`agents/base/maestro.maestro.toml`. The agent's `name: maestro` matches its stem.
+**After:** C00, C03, C39; OA1 owner identities and protections established.
+The README-only repository exists; seed publication waits for the `/2` migration.
+**Files (MAN):** `core/capability.toml`,
+`core/agents/{maestro.agent.md,maestro.maestro.toml}`,
+`core/skills/knowledge-evidence/SKILL.md`,
+`core/instructions/{knowledge.instructions.md,knowledge.maestro.toml}`,
+`core/mcp/maestro.toml`, `capabilities/engineering/rust/capability.toml`,
+`capabilities/engineering/rust/instructions/{rust.instructions.md,rust.maestro.toml}`,
+`capabilities/orchestration/application-workflow/capability.toml`,
+`presets/{knowledge-client.toml,rust-service.toml}`,
+`bootstrap/{core.toml,rust.toml}`,
+`bootstrap/core/.github/copilot-instructions.md`,
+`bootstrap/rust/.maestro/recipes.json`, `settings/README.md`, `CODEOWNERS`,
+`README.md`, `docs/standards/{engineering.md,security.md}`.
+The agent's `name: maestro` matches its stem. The canonical persona/system
+prompt lives in that agent body, not runtime code.
 Skill `metadata:` is specification-backed inside `SKILL.md`; a host warning
 reopens ADR-0005's sidecar decision, not an automatic skill sidecar.
 **Requirements:** FR-S3-001, FR-S3-002, FR-S3-003, FR-S3-007.
 
 - [ ] **Step 1: Red.** Create the MAN C-001 rule maps before affected content
   work, naming gates/tests/reviews including SEC-011's C15/C28 holders; then
-  run C03's check against a seed missing its required
-  knowledge skill/reference and an unclassified setting; retain the refusals.
+  run the migrated checker against a seed missing its required
+  `skill:core/knowledge-evidence` and an unknown S1 setting; retain the refusals.
 - [ ] **Step 2: Green.** Write only the knowledge preset, Maestro and the
-  knowledge resources `ctm-question` will need, then the Rust overlay. Attach
-  owners, honest maturity, source-row keys and explicit MCP tools; generate
-  CODEOWNERS from the resource ownership model, not a competing owner list.
+  knowledge resources `ctm-question` will need, then the Rust capability.
+  Populate exact qualified capability/preset requirements and named core/Rust
+  inventories. Attach approved owners, honest maturity, source-row keys and
+  namespaced MCP tools; generate CODEOWNERS from the owner records.
+  `settings/README.md` only points to S1's registry. No QA/delivery resources,
+  collection descriptors or empty roles are seeded here.
 - [ ] **Step 3: Check.** Run
   `"$MAESTRO_BIN" catalog check --catalog-dir "$MANIFESTS"`; validate
   `recipes.json` as strict JSON. C08 runs C01's real probes on this seed; their
@@ -320,8 +337,10 @@ unqualified-role claim. Release CI arrives in C15 with a released compiler.
 
 **After:** C02, C03a; OA1 and owner-supplied approved public card identities/evidence
 references. Extractor content waits for S2 G17; do not invent query_expander data.
-**Files (MAN):** `model-cards/*.toml` for the owner-approved workflow dependencies
-only, `presets/knowledge-client.toml`, `CODEOWNERS`, `README.md`.
+**Files (MAN):** `core/model-cards/*.toml` for the owner-approved workflow
+dependencies only, `core/capability.toml`, `presets/knowledge-client.toml`,
+`CODEOWNERS`, `README.md`. Use qualified model-card IDs and core owner mirrors;
+canonical kernel identity bytes remain unchanged.
 **Requirements:** FR-S3-001, FR-S3-003, FR-S3-038, FR-S3-039.
 
 - [ ] **Step 1: Red.** Check a missing/dangling card reference and an authored
@@ -448,13 +467,17 @@ search results cannot change configuration or grant a permission.
 **Files:**
 `crates/maestro-catalog/src/bootstrap/{mod.rs,inspect.rs,compose.rs,project.rs,tests.rs}`,
 `crates/maestro/src/cli/init.rs`, `crates/maestro/tests/it/catalog_init.rs`,
-`tests/fixtures/catalog/bootstrap/{knowledge-client.toml,rust-service.toml}`,
-`tests/fixtures/catalog/bootstrap/base/.github/copilot-instructions.md`,
-`tests/fixtures/catalog/bootstrap/rust/.maestro/recipes.json`;
+`tests/fixtures/catalog/bootstrap/presets/{knowledge-client.toml,rust-service.toml}`,
+`tests/fixtures/catalog/bootstrap/bootstrap/{core.toml,rust.toml}`,
+`tests/fixtures/catalog/bootstrap/bootstrap/core/.github/copilot-instructions.md`,
+`tests/fixtures/catalog/bootstrap/bootstrap/rust/.maestro/recipes.json`,
+`tests/fixtures/catalog/bootstrap/core/capability.toml`,
+`tests/fixtures/catalog/bootstrap/capabilities/engineering/rust/capability.toml`;
+these are target fixture paths, migrated in C36/C37, not a second charge to C05;
 CLI registration files from the shared list.
 **Requirements:** FR-S3-004, FR-S3-005, SC-S3-004.
 
-- [ ] **Step 1: Red.** Test base and base-plus-Rust composed outputs, every
+- [ ] **Step 1: Red.** Test core and core-plus-Rust composed outputs, every
   dotfile, strict generated JSON, collisions, changed preview, rerun and
   interrupted apply. Plant a repository script that records any invocation.
 - [ ] **Step 2: Green.** Inspect without running scripts; resolve explicit
@@ -471,7 +494,7 @@ install. Descriptor fields cannot override authentication, policy or hooks.
 
 ### C05a Strict workspace and user preferences [US1, US3] (3 h)
 
-**After:** C05, C17; S1 settings shared schema/parser integrated. D6's complete
+**After:** C05, C17, C37; S1 settings shared schema/parser integrated. D6's complete
 BCP 47 subset needs no dependency or OA9.
 **Files:** `crates/maestro-catalog/src/settings/preferences.rs` (init-plan adapter
 consuming S1 descriptors/parser; no `preference_files.rs` parser copy),
@@ -842,6 +865,10 @@ prove an outside-trust write is refused rather than silently granting a folder.
 **Files:** `crates/maestro-catalog/src/hosts/pi.rs`,
 `crates/maestro-catalog/src/hosts/tests/pi.rs`,
 `crates/maestro/tests/it/catalog_pi.rs`; register Pi in the existing projector.
+Source fixtures use `core/agents/maestro.agent.md` and
+`capabilities/engineering/qa/agents/reviewer.agent.md` with owner-local sidecars.
+C40 adds qualified-name mapping/collision probes; never read a type-first source
+or flatten IDs before building its checked closure.
 **Requirements:** FR-S3-006, FR-S3-007, FR-S3-031, FR-S3-036,
 SC-S3-001, SC-S3-004, SC-S3-010, SC-S3-012.
 
@@ -874,7 +901,7 @@ containment, whose hook obligation remains S4.
 ### C08 First owner loop [US1] (2 h)
 
 **After:** C02, C05a, C05b, C05c, C05d, C05e, C05g, C05h, C05i, C05j, C05l,
-C06, C07; integrated T034/T035 and completed T038 live evidence;
+C06, C07, C40; integrated T034/T035 and completed T038 live evidence;
 OA2/OA6 for real hosts or private data.
 **Files:** `crates/maestro/tests/it/catalog_owner_loop.rs`,
 `docs/how-to/catalog.md`, `docs/how-to/knowledge-mcp.md`;
@@ -902,8 +929,10 @@ SC-S3-001, SC-S3-004, SC-S3-010, SC-S3-012.
   authorized live flow; record client/provider versions and all observed states.
 
 **Acceptance:** first useful checkpoint, not M3. A client-like test alone is
-insufficient. Re-estimate remaining work from the 72-hour checkpoint, excluding
-C03a/C02a's independent 6 h card path and external S1-settings/owner waits.
+insufficient. Re-estimate remaining work from the amended dependency-closure
+hours below; the old 72-hour baseline is historical, not a remaining-work claim.
+C31 reuses the landed model-card descriptor, but owner-approved C02a content
+still does not gate this loop. External S1-settings/owner waits are excluded.
 
 ## Phase 2: Menu, settings, policy and required content [US1, US3, US5]
 
@@ -1043,7 +1072,8 @@ owns its `maestro-quality.toml`/`supply-chain/audits.toml` entries.
 - [ ] **Step 1: Red.** Test condition types, exact router edges, tool-policy
   coverage, required sandbox, budgets, read-before-write and a successful path
   missing its output, plus valid neighbours and hostile condition text. Rule 10
-  refuses a budget above a Bounded range in checked `settings/classes.toml`.
+  refuses a budget above a Bounded range in the shared S1 setting descriptor,
+  never a catalog `settings/classes.toml` authority.
 - [ ] **Step 2: Green.** Implement rules 4, 5, 7, 8, 10, 11 and 12 with real
   JSON Schema validation. Accept only the specified small condition language;
   check all successful paths, not merely one convenient traversal.
@@ -1058,13 +1088,20 @@ unsupported. A smaller language needs an approved 08 disposition, not omission.
 ### C21 Knowledge workflow and shared policies [US3, US5] (3 h)
 
 **After:** C02, C17, C19, C22b.
-**Files (MAN):** `workflows/ctm-question/workflow.md`,
-`contracts/answer.schema.json`, `profiles/models/maestro.toml`,
-`policies/{default-deny,destructive-operations,protected-paths}.cedar`,
-`policies/{egress-deny-by-default,mcp-allowlist}.cedar`,
-`policies/schema.cedarschema.json`, `hooks/pre-tool-use.json`,
-`settings/classes.toml`, `evals/scenarios/{ctm-question,policy-neighbours}.yaml`,
-`CODEOWNERS`. Discovery cards are metadata of the exact resources, not authority.
+**Files (MAN):**
+`capabilities/orchestration/application-workflow/workflows/ctm-question/workflow.md`,
+`capabilities/orchestration/application-workflow/contracts/answer.schema.json`,
+`capabilities/orchestration/application-workflow/evals/scenarios/ctm-question.yaml`,
+`capabilities/orchestration/application-workflow/capability.toml`,
+`core/profiles/models/maestro.toml`,
+`core/policies/{default-deny,destructive-operations,protected-paths}.cedar`,
+`core/policies/{egress-deny-by-default,mcp-allowlist}.cedar`,
+`core/policies/schema.cedarschema.json`, `core/hooks/pre-tool-use.json`,
+`core/evals/scenarios/policy-neighbours.yaml`, `core/capability.toml`,
+`presets/knowledge-client.toml`, `settings/README.md`, `CODEOWNERS`.
+Discovery cards are metadata of exact resources, not authority. Shared policies,
+hook and Maestro profiles are core; the application workflow is optional and
+requires core, never the reverse. No private collection ID enters this preset.
 **Requirements:** FR-S3-001, FR-S3-003, FR-S3-016, FR-S3-018, FR-S3-019.
 
 - [ ] **Step 1: Red.** Write missing knowledge-skill/answer-contract cases and
@@ -1084,14 +1121,16 @@ policy neighbours and graph checks pass; no invented qualification or vendor tex
 ### C21b Feature-delivery workflow [US3, US5] (3 h)
 
 **After:** C21.
-**Files (MAN):** `workflows/feature-delivery/workflow.md`,
-`agents/base/{planner,coder,tester,reviewer}.agent.md`,
+**Files (MAN):** owner root `capabilities/engineering/delivery/`, with exact
+relative files `capability.toml`, `workflows/feature-delivery/workflow.md`,
+`agents/{planner,coder,tester,reviewer}.agent.md`,
 `contracts/{plan,patch,test-report,review,delivery}.schema.json`,
 `profiles/models/{planner,coder,tester,reviewer}.toml`,
 `skills/{spec-compliance,security-review}/SKILL.md`,
-`evals/scenarios/feature-delivery.yaml`, `CODEOWNERS`.
-C01's agent-sidecar decision requires
-`agents/base/{planner,coder,tester,reviewer}.maestro.toml`;
+`evals/scenarios/feature-delivery.yaml`; global `presets/rust-service.toml`
+and generated `CODEOWNERS`.
+C01's agent-sidecar decision requires owner-relative
+`agents/{planner,coder,tester,reviewer}.maestro.toml`;
 each agent's name equals its stem. The two `SKILL.md` files follow C01's
 specification-backed `metadata:` format; a host warning reopens the ADR-0005
 sidecar decision.
@@ -1104,7 +1143,10 @@ sidecar decision.
   contracts and declarative workflow; builder is a deterministic step. Declare
   fast/balanced/deep for `copilot` and `llamacpp`, marking absent S4 support
   unsupported.
-  Reuse C21's policies and preserve any imported approval obligations.
+  Require C21's core policy IDs explicitly and preserve imported approval
+  obligations. `preset:rust-service` may select `capability:delivery`; neither
+  core nor the knowledge-client preset may require delivery. Test the latter
+  closure contains none of these optional roles, contracts or skills.
 - [ ] **Step 3: Check.** Run `"$MAESTRO_BIN" catalog check --catalog-dir "$MANIFESTS"`
   and the feature-delivery scenarios through its graph/contract checks.
 
@@ -1115,7 +1157,7 @@ independent reviews and honest qualification states; no unused role is added.
 
 ### C10 Deterministic bundle compiler [US2, US5] (3 h)
 
-**After:** C03, C09, C22b; compile CORE fixtures, not owner-published content.
+**After:** C03, C09, C22b, C39; compile CORE fixtures, not owner-published content.
 **Files:** `crates/maestro-catalog/src/bundle/{mod.rs,manifest.rs,write.rs}`,
 `crates/maestro-catalog/src/bundle/tests/{mod.rs,write.rs}`,
 `crates/maestro/src/cli/catalog/compile.rs`,
@@ -1673,7 +1715,7 @@ named S4 qualification obligation.
 supervisor. No MAN content/repository or publisher input.
 **Files:** `tests/fixtures/catalog/routing/{routing.jsonl,review.json,split.json,eligibility.json,check.jq,digests.json,bundle.tar,README.md}`;
 checked synthetic source under `tests/fixtures/catalog/routing/source/`:
-`workflows/{answer,change,review,test,build,docs,security,release,triage,migrate}/workflow.md`
+`capabilities/engineering/qa/workflows/{answer,change,review,test,build,docs,security,release,triage,migrate}/workflow.md`
 and only the contracts/roles/policies these ten synthetic workflows reference.
 **Requirements:** FR-S3-020, SC-S3-006.
 
@@ -1889,7 +1931,7 @@ this M3 exit; a bounded in-memory fallback requires its own explicit approval.
 
 **After:** C08, C03a, C02a, C05f, C05k and OA9 visual acceptance, C15, C16, C16b,
 C16c, C16d, C16e, C16f, C16g, C16h, C17, C18, C19, C20, C21, C21b, C22b, C23,
-C24, C25, C26, C27; integrated T034/T035, T038 live registrations, M1 release,
+C24, C25, C26, C27, C39, C40; integrated T034/T035, T038 live registrations, M1 release,
 final CI and OA4/OA5/OA7 live trust/release/evidence actions. OA10 is approved
 by the owner, 2026-09-28: the quality target is held-out matchable top-1 ≥ 90 %,
 not an unresolved decision.
@@ -1902,7 +1944,7 @@ verify MAN's rule map without editing another lane's checkout. Private receipts
 remain private.
 **Requirements:** FR-S3-017, SC-S3-001, SC-S3-002, SC-S3-003, SC-S3-004, SC-S3-005,
 SC-S3-006, SC-S3-007, SC-S3-008, SC-S3-009, SC-S3-010, SC-S3-011, SC-S3-012,
-SC-S3-013, SC-S3-014.
+SC-S3-013, SC-S3-014, SC-S3-015, SC-S3-016.
 
 - [ ] **Step 1: Red.** Write the shell acceptance harness; fail its preflight
   if `command -v cargo`, `command -v rustc` or `command -v python3` succeeds,
@@ -1972,20 +2014,409 @@ no recovered source files in this task.
 **Acceptance:** every item is accounted for; useful recoveries become separate
 reviewed tasks/PRs, not an unreviewed extension of this comparison commit.
 
+## Owner-first migration (2026-09-30)
+
+C30–C39 are the proposed **24–34 h S3 increment plus 1 h** approved by the
+supervisor for core-workflow-label segregation in C33: **25–35 h**. C40 is the
+**2–4 h native increment**, and C41–C43 the **6–10 h deferred S6 contract**.
+The combined increment is **33–49 h**, versus the proposal's original 32–48 h. These estimates
+are incremental to landed/planned tasks, not replacements for their budgets.
+No content seed is published until C39 passes. C41–C43 never gate C02/C08/M3;
+unsupported nonempty collection content refuses until that later work lands.
+QA is synthetic demonstration content only. All tests named here are required
+future cases, not claims that the current `/1` implementation already has them.
+
+### C38 Owner-first architecture, plan and README [US1, US5] (3–4 h)
+
+**After:** C00; approved owner-first proposal and supervisor segregation rulings.
+**Files:** `docs/architecture/03-agent-orchestration.md`,
+`specs/003-catalog/{spec.md,plan.md,tasks.md,traceability.json}` (the inventory's
+85 keys/six exclusions stay fixed); separately MAN `README.md` only.
+**Requirements:** FR-S3-040–048, SC-S3-009.
+
+- [ ] **Step 1: Red.** Check the existing source/output markers, owner paths,
+  six segregation requirements and task coverage against the proposal. Retain
+  the missing `/2`/migration-task failure and the exact 57-task/191-hour baseline.
+- [ ] **Step 2: Green.** Amend architecture 03 §1.1/§1.2, D13, C02's exact
+  file list and affected C02a/C05/C07/C21/C21b paths. Document `maestro-source/2`,
+  `maestro-cli/catalog-check/2`, `maestro-project/2` and
+  `maestro-authoring-lock/2`. Keep delivery separate from core; name the sole
+  inventory-name selector exception and the deferred S6 contract. Replace the
+  MAN README with the tree, root boundaries, QA/MCP authoring steps and private
+  mount limits; create no resource, vendor content or owner identity.
+- [ ] **Step 3: Check.** Run rumdl, offline lychee, the `catalog_traceability`
+  conventions suite and an exact FR/SC-to-task/budget/DAG recomputation. Commit
+  CORE normally and push only its lane branch; commit/push MAN and open its
+  README-only PR against main. Record commands, exits, hashes and hour deltas.
+
+**Acceptance:** six falsifiable segregation rules and complete mappings; no
+source/runtime implementation or private-data read, and no delivered claim.
+
+### C30 Bounded owner-root discovery [US1, US5] (3–4 h)
+
+**After:** C38, C03.
+**Files:** `crates/maestro-catalog/src/source/{descriptor.rs,registry.rs,walk.rs}`,
+`crates/maestro-catalog/src/source/tests/{directory.rs,layout.rs,bounds.rs,registry.rs}`.
+**Requirements:** FR-S3-040, FR-S3-046, SC-S3-015.
+
+- [ ] **Step 1: Red.** Add `owner_roots_reject_misplaced_content` and
+  `owner_discovery_is_bounded`: valid core/capability neighbours, type-first
+  roots, nested/empty-owner abuse, mount overlap, unsafe fixed directories,
+  links and ambiguous descriptor locations. Check exact/one-past injected bounds
+  before parsing, including empty owners; preserve D2 production limits.
+- [ ] **Step 2: Green.** Add descriptor catalog/owner scope and safe fixed
+  relative directories, plus owner-root single-file placement. Discover only
+  core and domain/capability leaves; retain namespace/local-path context and
+  full file sets. No recursive glob or per-kind walker switch. Unknown nonempty
+  resource trees refuse; shared docs are explicitly non-resource, not ignored
+  resource entry points. Register no collection kind here.
+- [ ] **Step 3: Check.** Run capped nextest `source::tests` in maestro-catalog;
+  retain mount overlap/depth, descriptor round-trip and bounds refusals.
+
+**Acceptance:** deterministic bounded discovery under separate owner/shared
+roots; no path/include can borrow another owner's resource bytes.
+
+### C31 Owner-scoped descriptors and capability roots [US1, US5] (3–4 h)
+
+**After:** C30, C03a.
+**Files:** `crates/maestro-catalog/src/source/kinds/{builtin.rs,agent.rs,skill.rs,instructions.rs,mcp.rs,model_card.rs,preset.rs,capability.rs}`,
+`crates/maestro-catalog/src/source/{descriptor.rs,registry.rs}`,
+`crates/maestro-catalog/src/source/tests/{registry.rs,layout.rs,extension.rs}`;
+necessary module registration only.
+**Requirements:** FR-S3-040, FR-S3-046, SC-S3-013, SC-S3-015.
+
+- [ ] **Step 1: Red.** Round-trip every scoped descriptor; reject ambiguous
+  owner-root `capability.toml`, a preset inside core, bad `templates` list shape
+  and nonempty unregistered collections. Keep finite-float/nested-table hook
+  delivery and native stem/sidecar refusal fixtures.
+- [ ] **Step 2: Green.** Set agent folders to `[""]` under owner-relative
+  `agents/`; scope skill/instructions/MCP/model-card directories to owners.
+  Add the capability closure-root descriptor; preset stays global and gains
+  optional `templates: TextList`. Increment changed built-in shape versions
+  to 2; new capability descriptor starts at 1. Preserve existing metadata
+  locations/hooks and kernel card validation, not copied identity fields.
+- [ ] **Step 3: Check.** Run capped nextest `source::tests` and `model_cards::tests`
+  in maestro-catalog; demonstrate a test-only owner-scoped descriptor without
+  generic checker changes. The next task completes the `/2` ID cutover.
+
+**Acceptance:** descriptor-driven placement, with unsupported collection/kind
+content refused rather than admitted by its folder name.
+
+### C32 Qualified IDs and source-schema cutover [US1, US5] (2–3 h)
+
+**After:** C31.
+**Files:** `crates/maestro-catalog/src/source/{types.rs,parse.rs,load.rs,metadata.rs}`,
+`crates/maestro-catalog/src/source/tests/{accepted.rs,bounds.rs,coverage.rs,directory.rs,extension.rs,hostile.rs,layout.rs,model_card.rs,references.rs,registry.rs,rulings.rs,schema.rs,support.rs}`,
+`tests/fixtures/catalog/source/`, `tests/fixtures/catalog/model-cards/`,
+`crates/maestro/src/cli/catalog/check.rs`, `crates/maestro/tests/it/catalog_check.rs`.
+Fixture-directory edits are only the existing fixtures' schema/path/ID migration.
+**Requirements:** FR-S3-002, FR-S3-041, FR-S3-046, SC-S3-016.
+
+- [ ] **Step 1: Red.** Test same-local-name acceptance across owners versus
+  duplicate full ID/path, `duplicate_namespace_refuses` across two domains,
+  reserved core, segment boundaries and `old_or_mixed_layout_refuses`.
+  Assert schema markers and diagnostic IDs, not only successful parsing.
+- [ ] **Step 2: Green.** Carry namespace/local name through loading and identity;
+  use `kind:namespace/local-name`, except `capability:namespace` and
+  `preset:name`. Keep source `name` local. Switch to `maestro-source/2` and
+  `maestro-cli/catalog-check/2`; refuse old/mixed inputs with a migration
+  diagnostic. Migrate the 13 named source-test modules and fixtures without
+  deleting existing bounds, sidecar, inert-script or traversal assertions.
+- [ ] **Step 3: Check.** Run capped nextest `source::tests` in maestro-catalog
+  and `catalog_check` in maestro. Domain relocation preserves the ID but changes
+  source provenance; no basename alias resolves a missing qualified ID.
+
+**Acceptance:** qualified round-trips and explicit `/1` refusal, not dual layout.
+
+### C33 Qualified references and removable capabilities [US1, US5] (3–4 h)
+
+**After:** C32.
+**Files:** `crates/maestro-catalog/src/source/{check.rs,metadata.rs}`,
+`crates/maestro-catalog/src/source/kinds/{agent.rs,capability.rs}`,
+`crates/maestro-catalog/src/source/tests/{references.rs,layout.rs,accepted.rs,schema.rs,support.rs}`.
+**Requirements:** FR-S3-042, FR-S3-043, FR-S3-046, SC-S3-015, SC-S3-016.
+
+**Estimate amendment:** original 2–3 h plus supervisor-approved 1 h for removing
+reverse workflow labels from core, its schema neighbours and unchanged-core
+removal proof. This is shown apart from the proposal's original subtotal.
+
+- [ ] **Step 1: Red.** Add `cross_root_paths_refuse`, cross-owner cycle and
+  missing/unreviewed dependency neighbours, plus
+  `removed_capability_dangling_reference_refuses` and
+  `unrelated_selection_survives_removal`. Remove one whole QA fixture folder;
+  the public graph refuses remaining references, then passes after only its
+  dependants are explicitly removed. Never silently omit the missing resource.
+  Add `core_capability_workflow_label_refuses`,
+  `capability_removal_leaves_core_unchanged` and
+  `core_workflow_label_schema_neighbours`: core resource/manifest labels may be
+  omitted or empty; a core-named workflow is accepted in a synthetic registered
+  fixture, while any capability-named core label refuses. Core bytes must remain
+  identical after capability deletion.
+- [ ] **Step 2: Green.** Parse only fully typed/qualified `requires`, even
+  locally. Workflow labels are namespaced, non-selecting usage metadata, never
+  dependencies or grants. Allow omitted/empty `workflows` only on core resources
+  and its owner manifest; labels there may name only core workflows, with none
+  seeded today. Remove reverse core-to-capability labels from migrated fixtures;
+  actual dependencies belong to capability workflows' forward `requires`.
+  Required/unused-resource checks derive from those closures; retain the
+  unresolved-workflow-kind boundary. Match `mcp-servers` value `qa/test-runner` and tool
+  `qa/test-runner/run_tests` to required `mcp:qa/test-runner`, splitting the tool
+  at its last slash. Refuse undeclared hook edges/path includes; reuse graph,
+  cycle and reviewed-closure algorithms. An unresolved private ID in public
+  data is a refusal now; S6 adds source-visibility checks later.
+- [ ] **Step 3: Check.** Run capped nextest `source::tests` in maestro-catalog
+  and `catalog_check` in maestro; assert source/ID-specific missing-reference
+  diagnostics and no same-basename fallback after folder removal.
+
+**Acceptance:** every dependency is declared; removing a folder cannot silently
+change another selection's meaning.
+
+### C34 Single owner records and mandatory core [US1, US5] (1–2 h)
+
+**After:** C33.
+**Files:** `crates/maestro-catalog/src/source/kinds/capability.rs`,
+`crates/maestro-catalog/src/source/{check.rs,metadata.rs}`,
+`crates/maestro-catalog/src/source/tests/{rulings.rs,references.rs,schema.rs}`.
+**Requirements:** FR-S3-041, FR-S3-042, FR-S3-046, SC-S3-015, SC-S3-016.
+
+- [ ] **Step 1: Red.** Add `owner_mirror_mismatch_refuses`,
+  `core_cannot_require_capability` and `core_selected_once`. Refuse absent,
+  multiple or malformed owners, namespace mismatch, missing/unreviewed
+  core/Maestro and attempted core replacement. Use synthetic identity strings;
+  offline validation cannot claim observed GitHub approval. OA1/protected review
+  approves actual owner identities and changes, not a source-supplied grant.
+- [ ] **Step 2: Green.** Validate the one capability owner record and every
+  resource mirror through the checker boundary. Add reviewed `capability:core`
+  once to selections and require reviewed `agent:core/maestro`; preserve all
+  reviewed-closure checks. Core cannot require a capability; capability-to-core
+  and explicit capability-to-capability references are valid neighbours.
+- [ ] **Step 3: Check.** Run capped nextest `source::tests` in maestro-catalog.
+  Confirm a knowledge-client fixture excludes optional delivery resources;
+  labels and owner declarations grant no runtime or publisher authority.
+
+**Acceptance:** one approved owner per root and one canonical default Maestro.
+
+### C35 Generated per-owner CODEOWNERS [US5] (2–3 h)
+
+**After:** C34.
+**Files:** `crates/maestro-catalog/src/source/{ownership.rs,tests/ownership.rs}`,
+`crates/maestro/src/cli/catalog/{codeowners.rs,mod.rs}`,
+`crates/maestro/src/cli/args.rs`, `crates/maestro/tests/it/catalog_codeowners.rs`;
+MAN `.github/workflows/check.yml` and `CODEOWNERS` when C02 creates content.
+The CORE task owns renderer/CLI fixtures; MAN wiring is serialized with C02/C15.
+**Requirements:** FR-S3-041, FR-S3-045, SC-S3-015.
+
+- [ ] **Step 1: Red.** Add `codeowners_drift_refuses` and
+  `removed_owner_rule_refuses`: exact anchored rules, reordered input stability,
+  missing/extra/edited rules, stale removed capability and shared-root owner
+  mismatch. Test a changed mirror is refused before rendering.
+- [ ] **Step 2: Green.** Generate each owner folder's rule from its single
+  approved record; derive shared presets/bootstrap/docs/settings/governance
+  rules from core's same owner. `maestro catalog codeowners --catalog-dir DIR`
+  renders to stdout; `--check` compares the tracked file and refuses drift
+  without writing. Normal `catalog check` checks owner mirrors. CI runs the
+  renderer/check path and requires no diff; do not configure repository settings.
+- [ ] **Step 3: Check.** Run capped nextest `source::tests::ownership` in
+  maestro-catalog and `catalog_codeowners` in maestro. C02/C15 record MAN's
+  generation/check exit and zero diff with its approved pinned compiler.
+
+**Acceptance:** one ownership model and deterministic drift detection; no manual
+wildcard or extra owner list, no runtime authority inferred from GitHub labels.
+
+### C36 Capability-based preset and template composition [US1] (3–4 h)
+
+**After:** C34, C05.
+**Files:** `crates/maestro-catalog/src/bootstrap/{compose.rs,tests.rs}`,
+`crates/maestro-catalog/src/source/kinds/preset.rs`,
+`tests/fixtures/catalog/bootstrap/` (C05's target paths),
+`crates/maestro/tests/it/catalog_init.rs`.
+**Requirements:** FR-S3-004, FR-S3-042, FR-S3-047, SC-S3-004, SC-S3-016.
+
+- [ ] **Step 1: Red.** Test core-only, QA and Rust checked selections;
+  `core_selected_once`, unknown/unsafe inventory names, cross-bootstrap paths
+  and `distinct_inventory_output_collision_refuses`, including identical bytes.
+  Keep oversized/truncated/symlink input, strict JSON and no-script markers.
+- [ ] **Step 2: Green.** Extend the existing `PresetPort` adapter to resolve
+  public `presets/` and their exact capability closures, then optional named
+  inventories `bootstrap/{core,rust}.toml`. Only `templates` selects inventories;
+  each inventory reads explicit files inside its bootstrap directory. Include
+  core/its inventory once; distinct sources colliding at an output still refuse.
+  Move Rust instruction/sidecar fixtures to the Rust capability. Use S1's
+  settings registry, never `settings/classes.toml` in the catalog.
+- [ ] **Step 3: Check.** Run capped nextest `bootstrap::tests` in maestro-catalog
+  and `catalog_init` in maestro. Both full compositions validate; preview writes
+  nothing and no template/script is executed.
+
+**Acceptance:** one selection authority and bounded composition, no preset/glob
+or file-include path around the checker.
+
+### C37 Source-bound project and authoring-lock outputs [US1] (2–3 h)
+
+**After:** C36.
+**Files:** `crates/maestro-catalog/src/bootstrap/{project.rs,tests.rs}`,
+`crates/maestro/src/cli/init.rs`, `crates/maestro/tests/it/catalog_init.rs`.
+**Requirements:** FR-S3-046, FR-S3-047, SC-S3-004, SC-S3-016.
+
+- [ ] **Step 1: Red.** Add `old_authoring_lock_requires_preview`; assert exact
+  selected capabilities and complete owner/resource/sidecar/preset/inventory/
+  template lock membership. Mutate each source class, revision and path;
+  apply/replay must refuse until a fresh preview, preserving user bytes.
+- [ ] **Step 2: Green.** Emit `maestro-project/2` and
+  `maestro-authoring-lock/2`, with source identity/revision/digests for every
+  selected input. Refuse old locks rather than silently translating source
+  identity. Keep source and installed trust modes distinct; reuse C04 unchanged.
+- [ ] **Step 3: Check.** Run capped nextest `bootstrap::tests` in maestro-catalog
+  and `catalog_init` in maestro, including held-handle read bounds, stale plans,
+  replay, crash recovery, rerun, user edits and owned removal.
+
+**Acceptance:** a complete reproducible authoring selection, never an attested
+install or implicit authority migration.
+
+### C39 Migration verification and review reserve [US1, US5] (3–4 h)
+
+**After:** C35, C37.
+**Files:** only fixes in C30–C37's named source/test/fixture files;
+`specs/003-catalog/research/owner-first-migration.md` for public evidence.
+**Requirements:** SC-S3-008, SC-S3-009, SC-S3-015, SC-S3-016.
+
+- [ ] **Step 1: Red.** Require an evidence matrix for every six-rule neighbour,
+  source/CLI `/2` marker, descriptor version, migrated fixture family and old-lock
+  refusal; absent/zero-test evidence fails this acceptance review.
+- [ ] **Step 2: Green.** Repair only migration regressions, retaining C04,
+  source bounds, namespace collisions, settings authority and kernel card
+  fingerprints. Run focused source/bootstrap/CLI checks, normal workspace and
+  three-target checks, then independent review; do not run local mutations.
+- [ ] **Step 3: Check.** Record exact commands/exits/test totals, three-OS CI,
+  normal hooks, Markdown/links, generated CODEOWNERS drift proof and task
+  mappings. Record mutation/coverage evidence from CI when available, never
+  invented local results. Native live evidence is C40/C08; S6 is separate.
+
+**Acceptance:** the public owner-first checker/bootstrap migration is ready for
+C02 seed publication. This 3–4 h is the proposal's migration reserve, not a
+second addition to the baseline 16–24 h review/CI reserve.
+
+### C40 Owner-qualified native projection delta [US1] (2–4 h)
+
+**After:** C07, C33, C37; OA2 for pinned live host probes.
+**Files:** `crates/maestro-catalog/src/hosts/{copilot.rs,pi.rs}`,
+`crates/maestro-catalog/src/hosts/tests/{copilot.rs,pi.rs}`,
+`crates/maestro/tests/it/{catalog_copilot.rs,catalog_pi.rs}`,
+`specs/003-catalog/research/hosts.md`.
+**Requirements:** FR-S3-006, SC-S3-001, SC-S3-016.
+
+- [ ] **Step 1: Red.** Add `native_alias_collision_refuses` for non-injective
+  hyphen joining, host normalization/length limits and user shadows; test
+  `qa/test-planning` → `qa-test-planning` with MCP server/tool rewrites and
+  reserved agent alias `maestro`. Partial name-only rewriting must fail.
+- [ ] **Step 2: Green.** Map source IDs, paths and references together through
+  existing host adapters; record exact source-to-native mapping in provenance.
+  Keep source local-name validation and C01's opposite user/project precedence
+  checks. No slash-support assumption, model fallback or provider installation.
+- [ ] **Step 3: Check.** Run focused catalog_copilot/catalog_pi tests and the
+  C07/C08 pinned live discovery/MCP/restart probes under OA2. Keep missing
+  evidence blocked and in-session reload not-run until actually measured.
+
+**Acceptance:** incremental alias/collision proof, not a re-estimate of both
+planned host adapters; registration alone never launches a server.
+
+### C41 S6 collection descriptor contract [US5] (2–3 h)
+
+**After:** C31, C34, C39; S6 contract work, not an M3 prerequisite.
+**Files:** `crates/maestro-catalog/src/source/kinds/{builtin.rs,collection.rs}`,
+`crates/maestro-catalog/src/source/tests/collection.rs`,
+`tests/fixtures/catalog/collections/{public.toml,invalid.toml}`;
+necessary module registration only. No MAN collection seed in this task.
+**Requirements:** FR-S3-040, FR-S3-048, SC-S3-017.
+
+- [ ] **Step 1: Red.** Test descriptor absence, exact owner-relative
+  `knowledge/collections/<name>/collection.toml` placement, strict fields,
+  binding-only credentials/storage, unknown keys, URL/limit shape and unsupported
+  versions/types. `collection_install_is_offline` observes zero fetch calls.
+- [ ] **Step 2: Green.** Register the collection descriptor and isolated
+  contract validator using supported descriptor shapes; no generic checker
+  branch or second collection registry. Preserve named owner, qualified ID,
+  schema, provenance requirements and independent runtime ACLs.
+- [ ] **Step 3: Check.** Run capped nextest `source::tests::collection` in
+  maestro-catalog with synthetic fixtures; show a removed descriptor refuses
+  nonempty collection content rather than ignoring the knowledge subtree.
+
+**Acceptance:** catalog contract only; no crawling, provider provisioning,
+private URL approval or collection activation.
+
+### C42 S6 additive private-source mount [US5] (2–4 h)
+
+**After:** C41, C35, C37; private access remains separately approved.
+**Files:** `crates/maestro-catalog/src/source/{tree.rs,overlay.rs}`,
+`crates/maestro-catalog/src/source/tests/overlay.rs`,
+`crates/maestro-catalog/src/bootstrap/project.rs`,
+`crates/maestro/src/cli/catalog/check.rs`, `crates/maestro/tests/it/catalog_overlay.rs`;
+necessary module registration only; synthetic sources, no private checkout.
+**Requirements:** FR-S3-044, SC-S3-015, SC-S3-017.
+
+- [ ] **Step 1: Red.** Add `overlay_cannot_shadow_public`,
+  `public_closure_cannot_require_private`,
+  `missing_overlay_preserves_public_selection` and `combined_sources_share_limits`.
+  Cover duplicate bytes/IDs/paths, symlinks, owner/core/trust overrides,
+  self-authorized publisher, indirect private edges and reordered sources.
+- [ ] **Step 2: Green.** Add the explicit opt-in pinned `SourceTree` adapter,
+  restricted to the CTM collection subtree under application-workflow and its
+  private preset. The mount adds no owner manifest; public ownership remains
+  authoritative and private publishing/access authorization stays separate.
+  Check public alone first, then combined inputs with aggregate limits and
+  source-aware diagnostics/locks. Never last-wins or silently shadow.
+- [ ] **Step 3: Check.** Run capped nextest `source::tests::overlay` and
+  `bootstrap::tests` in maestro-catalog, plus `catalog_overlay` in maestro.
+  Verify missing/unauthorized mounts leave public presets usable; public release
+  fixtures package no private bytes and offline checks make zero network calls.
+
+**Acceptance:** additive composition only; private corpus/evidence stays outside
+catalog inputs, public CI and public releases.
+
+### C43 S6 URL approval and provenance contract [US5] (2–3 h)
+
+**After:** C41, C42; exact private URLs require separate owner approval.
+**Files:** `crates/maestro-catalog/src/source/kinds/collection.rs`,
+`crates/maestro-catalog/src/source/tests/collection.rs`,
+`specs/003-catalog/research/collection-contract.md` for the S6 handoff.
+**Requirements:** FR-S3-048, SC-S3-017.
+
+- [ ] **Step 1: Red.** Add `empty_approval_never_fetches`,
+  `exclusion_wins_on_redirect` and `retained_original_has_provenance` using
+  synthetic HTTPS URLs. Refuse off-origin/path/version/type, unapproved redirect,
+  denied access, credential-bearing URL, login/error page and forbidden binary
+  contract cases; verify exclusions win and empty approval admits no URL.
+- [ ] **Step 2: Green.** Specify/check `[approved_urls]` exact URLs or explicit
+  origin/path-prefix rules, exclusion precedence, allowed versions/types and
+  crawl bounds. Require seed/discovered-link/every-redirect access checks and
+  URL/version/digest/transformation provenance. Audit chrome removal/exact-body
+  deduplication; keep admitted originals under private retention policy. Do not
+  authorize relevance-based deletion or deletion of existing evidence.
+- [ ] **Step 3: Check.** Run capped nextest `source::tests::collection`, Markdown
+  and offline links. The handoff distinguishes pure contract/fixture validation
+  from later crawler enforcement; check/install never fetch, and no real private
+  URL, corpus read, ingestion or provisioning occurs here.
+
+**Acceptance:** a falsifiable S6 consumer contract, not a crawler or a claim that
+private collection setup/content approval is complete.
+
 ## Dependencies & Execution Order
 
-The **After** line is authoritative, including external prerequisites. Every
-internal predecessor occurs earlier above. Tasks in one phase are not all
-parallel: the following are safe file-separated examples after their own
-predecessors land; shared registration changes still serialize.
+The **After** line is authoritative, including external prerequisites. The
+historical phases precede the migration appendix in this document, not execution
+order. The DAG must remain acyclic. Migrate C38 → C30 → C31 → C32 → C33 → C34,
+then C35 alongside C36 → C37, joining at C39 before C02 or C10. C05a consumes
+C37's new outputs; C40 joins native adapters before C08. C41–C43 are a separate
+S6 handoff and never enter the M3 gate. Shared registration files serialize.
+
+The following are safe file-separated examples after their own predecessors land:
 
 | Ready work | Can overlap | Do not overlap |
 | --- | --- | --- |
 | C00 recorded | C01 live probe, C04a filesystem move and C09 measurements | C03 waits for C01's evidence-backed per-kind format decision |
-| C03 complete | C04 after C04a, C17 after S1 settings, C03a cards and C02 content in MAN | Two writers to the same CLI/module registration; C02a joins C02/C03a |
-| C05 complete | C05a preferences and optional C05f TUI measurements | No parser dependency; C05f/OA9 never gate plain init |
+| C03 complete | C04 after C04a, C17 after S1 settings, C03a cards and C30 discovery after C38 | C02 content waits for C39 migration verification and OA1; C02a joins C02/C03a |
+| C05/C37 complete | C05a preferences and optional C05f TUI measurements | No parser dependency; C05f/OA9 never gate plain init |
 | C05b complete | C05h/C05i/C05j trust; C05c/C05l/C05d/C05e presentation | C05g plain flow joins trust and C05c, not MCP delivery |
-| C05e/C05j complete | C06 fixture code after C01, without C05g/C05k; optional renderer after C05g/C05f/OA9 | C07 waits for C06's shared projection command |
+| C05e/C05j complete | C06 fixture code after C01, without C05g/C05k; optional renderer after C05g/C05f/OA9 | C07 waits for C06; C40 adds qualified aliases before C08 |
 | C09 complete | C19 policy work and source-independent trust research | Dependency-lock updates from multiple lanes |
 | C11 complete | C12 records; independent MAN content | C13 authority records wait for C12; coordinate migrations with every slice |
 | C10/C14/C22b complete | C23 CORE labels/compiled fixtures; C25 CORE cards | Scoring before labels freeze; MAN content is not an input |
@@ -1994,8 +2425,9 @@ The format chain is C00 → C01 → C03; integrated C01 confirms agent sidecars.
 Skill metadata rests on the Agent Skills specification, not the silent
 unknown-key control; a host warning reopens ADR-0005's sidecar decision.
 Independent C04a/C09 work can start at C00. C04/C05 and C17 follow C03 without
-a MAN seed prerequisite. C03a follows C03; C02a follows C02/C03a plus approved
-owner content. This independent MAN card path joins C28, not C08/C15/C21;
+a MAN seed prerequisite. C03a follows C03 and is reused by C31's descriptor
+migration; C02a follows C02/C03a plus approved owner content. This independent
+MAN card-content path joins C28, not C08/C15/C21;
 shared MAN files require rebasing, not a winner-content dependency.
 C05a/C05b/C05d/C17/C18 also require integrated S1 settings and extend it. The
 supervisor records the S1-to-S3 sync before C17 under the 21:02 canonical-name
@@ -2009,6 +2441,7 @@ input. C05f → C05k (OA9 library approval recorded) is an independent later
 renderer path, joined at C28 with visual evidence, never a first-loop gate.
 
 Trust/compiler code: C09 → C19 → C22a → C22b → C10 → C11 → C12 → C13 → C14;
+C10 also waits for C39's owner-first migration;
 C18 also needs C17. C15's MAN workflow code can land without OA4/OA5, but it
 is not a C16 input: C16 uses verified CORE artifacts and code only, with C13a's
 explicit authority CLI after C13. C11 also needs C03a's hook for model-card
@@ -2031,32 +2464,42 @@ C27, C05k/OA9, OA4/OA5/OA7 and final CI. C29 starts only after accepted M3.
 
 ### Critical paths and effort
 
-Recomputed from every authoritative `After` line and task estimate: **57 tasks,
-191 lane-hours**, with 53 requirements (39 FR, 14 SC). Phases 1–4 sum to
-78 + 26 + 57 + 24 = 185 h; C28/C29 add 3 h each. Every predecessor exists and
-appears earlier; there are no cycles. C03 is the only task above 4 h (approved 6 h).
+Recomputed from task headings, Requirements and authoritative `After` lines:
+**71 tasks, 224–240 lane-hours; 65 requirements (48 FR, 17 SC)**. Every internal
+predecessor exists and the DAG is acyclic. New estimates are ranges from the
+approved proposal; sums below add every lower/upper endpoint independently.
+C03 retains the sole approved 6 h exception; every new task is at most 4 h.
+
+| Budget | Tasks | Lane-hours |
+| --- | ---: | ---: |
+| Unchanged baseline (phases 1–4: 78 + 26 + 57 + 24; C28/C29: 3 each) | 57 | 191 |
+| S3 migration C30–C39: proposed 24–34 h plus C33 core-label fix 1 h, including documents and migration verification/review | 10 | 25–35 |
+| Native projection delta C40 | 1 | 2–4 |
+| S3 subtotal, including post-M3 C29 | 68 | 218–230 |
+| Deferred S6 catalog contracts C41–C43, no crawler | 3 | 6–10 |
+| Combined planned total | 71 | 224–240 |
 
 | Checkpoint | Dependency-closure effort | Internal longest path |
 | --- | --- | --- |
-| C08 owner loop | 72 h | 45 h |
-| C28 M3 | 188 h (all tasks except C29) | 65 h |
-| C29 post-M3 comparison | 191 h | 68 h |
+| C08 owner loop | 103–115 h (33 tasks) | 58–66 h |
+| C28 M3 | 215–227 h (67 tasks; no C29/S6) | 75–82 h |
+| C29 post-M3 comparison | 218–230 h (68 tasks; no S6) | 78–85 h |
+| C43 S6 contract handoff | 55–69 h (20-task prerequisite closure, not additional effort) | 38–49 h |
 
-C08's path is C00 → C01 → C03 → C04 → C05 → C05a → C05b → C05c → C05d →
-C05e → C06 → C07 → C08. C03a/C02a do not gate it. Another 116 h of effort
-remains from that checkpoint to M3, then 3 h for C29; review/CI adds the
-unchanged 16–24 h reserve, for 207–215 h total.
+The original 72 h C08/188 h M3/191 h total and 45/65/68 h paths are historical
+baseline values, not the amended schedule or remaining work. C31 now reuses
+C03a's landed descriptor; owner-approved C02a content still gates only C28.
+Another **112 h** of S3 effort follows the amended owner-loop dependency closure
+to M3, then **3 h** for C29. C41–C43 add **6–10 h** separately and never gate
+M3. This is whole-plan accounting: completed tasks retain their original
+budgets, not a claim that their hours must be spent again.
 
-All six tied M3 paths share the prefix C00 → C01 → C03 → **C17 or C19** →
-C22a → C22b → C10 → C11 → C12 → C13 → C14 → C18 → C16, followed by one of:
-
-1. C16b → C16c → C16d → C16f → C28.
-2. C16b → C16c → C16e → C16g → C16f → C28.
-3. C16h → C24a → C24 → C26 → C28.
-
-C29 extends each by 3 h. These are weighted DAG lower bounds, excluding review,
-CI, shared-file serialization and external waits (S1 sync, owner actions, M1,
-S2 qualification and live hosts), not calendar estimates or qualification evidence.
+The unchanged baseline review/CI reserve adds **16–24 h**: **234–254 h for S3**
+or **240–264 h including S6 contracts**. C39's 3–4 h migration verification/review
+is already in the migration subtotal and is not added again. Longest paths are
+weighted DAG lower bounds, not calendar promises; queue time, shared-file
+serialization and external waits (S1 sync, owner actions, M1, S2 qualification,
+live hosts) are excluded. Re-estimate remaining delivery after C08.
 
 ### Requirements coverage
 
@@ -2065,11 +2508,11 @@ Regenerated from the task Requirements lines; ranges are expanded exactly.
 | Requirement | Tasks |
 | --- | --- |
 | FR-S3-001 | C00, C03, C03a, C02, C02a, C21, C21b |
-| FR-S3-002 | C01, C03, C03a, C02 |
+| FR-S3-002 | C01, C03, C03a, C02, C32 |
 | FR-S3-003 | C03, C02, C02a, C22a, C21, C21b, C15 |
-| FR-S3-004 | C05 |
+| FR-S3-004 | C05, C36 |
 | FR-S3-005 | C04a, C04, C05, C05j |
-| FR-S3-006 | C01, C06, C07 |
+| FR-S3-006 | C01, C06, C07, C40 |
 | FR-S3-007 | C02, C06, C07, C08 |
 | FR-S3-008 | C09, C10 |
 | FR-S3-009 | C11, C16 |
@@ -2103,20 +2546,32 @@ Regenerated from the task Requirements lines; ranges are expanded exactly.
 | FR-S3-037 | C03, C10, C11, C12, C16 |
 | FR-S3-038 | C03a, C02a, C18 |
 | FR-S3-039 | C03a, C02a, C18, C16h |
-| SC-S3-001 | C01, C06, C07, C08, C28 |
+| FR-S3-040 | C38, C30, C31, C41 |
+| FR-S3-041 | C38, C32, C34, C35 |
+| FR-S3-042 | C38, C33, C34, C36 |
+| FR-S3-043 | C38, C33 |
+| FR-S3-044 | C38, C42 |
+| FR-S3-045 | C38, C35 |
+| FR-S3-046 | C38, C30, C31, C32, C33, C34, C37 |
+| FR-S3-047 | C38, C36, C37 |
+| FR-S3-048 | C38, C41, C43 |
+| SC-S3-001 | C01, C06, C07, C08, C28, C40 |
 | SC-S3-002 | C10, C15, C16, C28 |
 | SC-S3-003 | C11, C12, C13, C13a, C14, C15, C16, C16h, C16b, C28 |
-| SC-S3-004 | C04a, C04, C05, C06, C07, C08, C28 |
+| SC-S3-004 | C04a, C04, C05, C06, C07, C08, C28, C36, C37 |
 | SC-S3-005 | C03, C17, C19, C22a, C22b, C18, C20, C28 |
 | SC-S3-006 | C23, C24a, C24, C26, C28 |
 | SC-S3-007 | C25, C26, C27a, C27, C28 |
-| SC-S3-008 | C28 |
-| SC-S3-009 | C00, C28 |
+| SC-S3-008 | C28, C39 |
+| SC-S3-009 | C00, C28, C38, C39 |
 | SC-S3-010 | C05a, C05b, C05j, C05c, C05l, C05d, C05e, C05g, C06, C07, C08, C05f, C05k, C16d, C28 |
 | SC-S3-011 | C16c, C16d, C16e, C16g, C16f, C28 |
 | SC-S3-012 | C05h, C05i, C05j, C05g, C06, C07, C08, C16d, C16f, C20, C28 |
-| SC-S3-013 | C03, C10, C11, C12, C16, C28 |
+| SC-S3-013 | C03, C10, C11, C12, C16, C28, C31 |
 | SC-S3-014 | C03a, C11, C18, C16, C16h, C28 |
+| SC-S3-015 | C28, C30, C31, C33, C34, C35, C39, C42 |
+| SC-S3-016 | C28, C32, C33, C34, C36, C37, C39, C40 |
+| SC-S3-017 | C41, C42, C43 |
 
 ## Implementation Strategy
 
@@ -2141,7 +2596,7 @@ OA7 below names only M3 acceptance and eventual main release.
 
 | Action group | Register | Tasks waiting |
 | --- | --- | --- |
-| Create manifests repository, owners and protections; approve public model-card winner changes | OA1 and evening card decision | OA1 gates MAN landing: C02, C02a, C21, C21b, C15. Winner approval gates only C02a and its C28 acceptance, never C15/C21, C23 or CORE consumers |
+| Repository created (README/MIT only); supply owners/protections and approve public model-card winner changes | OA1 and evening card decision | OA1 gates MAN landing: C02, C02a, C21, C21b, C15. Winner approval gates only C02a and its C28 acceptance, never C15/C21, C23 or CORE consumers |
 | **Approved 2026-09-28:** probe/test already-installed Copilot CLI, Pi, Claude Code and Codex, each in an isolated temporary home; C01 pins exact installed versions. No installs/upgrades, real owner configuration or enterprise policy changes; broader scope needs fresh approval | OA2 | Bounded C01, C06, C07, C08, C20, C28 host tests; missing access still blocks and OA6 data approval remains separate |
 | Bind publishers and standalone pinned `gh` with repository-bound read-only fine-grained authentication; authorized maintainer handles any unlisted licence | OA4 | C09's publisher-row evidence closure and C28, not verifier/dependency implementation |
 | Publish compiler/catalog; enable six-hour trust attestations/hourly alerts; supply clean environment and drills; authorize private/model access | OA5, OA6 | C28 release proof; C08/C23/C26 only for the requested private/model access |

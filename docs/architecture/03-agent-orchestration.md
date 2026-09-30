@@ -50,39 +50,132 @@ These are design boundaries, not claims that the diagram above is delivered.
 
 ### 1.1 Layout
 
+**Owner-approved amendment, 2026-09-30:** owner-first, with strict segregation.
+This is the target `maestro-source/2` layout, not a claim that the checker has
+migrated. Publish C02's seed only after the migration checks in
+[S3 tasks](../../specs/003-catalog/tasks.md#owner-first-migration-2026-09-30).
+
 ```text
-agents/base/maestro.agent.md                 # the orchestrator
-agents/base/<role>.agent.md                  # only the roles a v1 workflow needs (§2.6)
-agents/capabilities/<capability>/<role>.agent.md
-skills/<name>/SKILL.md  (+ references/, scripts/)
-instructions/<name>.instructions.md
-prompts/<name>.prompt.md
-workflows/<name>/workflow.md                 # graph spec (frontmatter) + documentation (body)
-contracts/<name>.schema.json                 # JSON Schema 2020-12
-policies/*.cedar  policies/schema.cedarschema.json
-profiles/models/<role>.toml                  # allowed provider/model profiles per role
-model-cards/<id>.toml                        # owner-approved kernel v2 identities, not agent profiles
-mcp/<server>.toml                            # approved MCP servers and tool allowlists
-extensions/<name>/extension.toml             # event subscribers and connectors (07)
-hooks/<name>.json                            # native Copilot hook projections
-presets/<name>.toml                          # project presets (defaults, recipes, capabilities)
-bootstrap/base/  bootstrap/<language>/       # project templates: base + language overlays
-evals/scenarios/<name>.yaml                  # scenario tests for workflows and agents
-CODEOWNERS                                   # generated from one ownership model
+maestro-manifests/
+├── core/
+│   ├── capability.toml
+│   ├── agents/{maestro.agent.md,maestro.maestro.toml}
+│   ├── skills/knowledge-evidence/SKILL.md
+│   ├── instructions/{knowledge.instructions.md,knowledge.maestro.toml}
+│   ├── mcp/maestro.toml
+│   └── model-cards/<approved-card>.toml
+├── capabilities/engineering/qa/             # example, not C02 seed content
+│   ├── capability.toml
+│   ├── agents/{reviewer.agent.md,reviewer.maestro.toml}
+│   ├── skills/test-planning/SKILL.md
+│   ├── instructions/{quality.instructions.md,quality.maestro.toml}
+│   ├── mcp/test-runner.toml
+│   └── knowledge/collections/qa-public/collection.toml
+├── capabilities/engineering/rust/
+│   ├── capability.toml
+│   └── instructions/{rust.instructions.md,rust.maestro.toml}
+├── capabilities/engineering/delivery/       # C21b, not C02
+│   ├── capability.toml
+│   ├── workflows/feature-delivery/workflow.md
+│   └── agents/                             # only required delivery roles
+├── capabilities/orchestration/application-workflow/
+│   ├── capability.toml
+│   └── knowledge/collections/              # private CTM mount awaits S6
+├── presets/{knowledge-client.toml,rust-service.toml,qa.toml}
+├── bootstrap/{core.toml,rust.toml}          # inventories, not presets
+├── bootstrap/core/.github/copilot-instructions.md
+├── bootstrap/rust/.maestro/recipes.json
+├── settings/README.md                      # S1 reference, no settings authority
+├── docs/standards/{engineering.md,security.md}
+└── {CODEOWNERS,README.md,LICENSE}           # generated ownership rules
 ```
 
+Braces mean separate files. QA illustrates adding one folder, not new seed
+scope. Every owner root supports `agents/`, `skills/`, `instructions/`, `mcp/`
+and `knowledge/`; omit unused directories. A kind must be registered before
+nonempty content is admitted: collections await S6, model cards need approved
+identities, and later workflows/contracts/policies/profiles/hooks/evals follow
+their owner rather than restoring type-first roots. Do not create empty roles.
+
+Core holds only what every install needs: Maestro, shared knowledge resources,
+shared policies, the hook and Maestro's agent-session profiles. The generic
+`ctm-question` workflow, answer contract and evaluation belong to
+`capabilities/orchestration/application-workflow/`. The feature-delivery
+workflow, roles, contracts, skills, profiles and evaluation belong to
+`capabilities/engineering/delivery/`, not core; a knowledge-client selection
+must not carry them. Maestro's canonical persona and system prompt live in
+`core/agents/maestro.agent.md`, never hard-coded runtime text.
+
+**Checkable segregation.** These are required checker/CI tests, not conventions
+that reviewers alone enforce. [S3 D13](../../specs/003-catalog/plan.md#d13-owner-first-source-migration)
+defines the contracts and named fixtures.
+
+| Rule | Required refusal or passing neighbour | Checker task |
+| --- | --- | --- |
+| FR-S3-040: separate roots | Reject type-first roots, misplaced/unknown resource subtrees, nested owners and private data in public inputs; accept the exact owner/shared layout | C30, C31 |
+| FR-S3-041: one self-contained owner root | Exactly one approved GitHub owner/team in each `capability.toml`; reject missing/multiple owners, namespace reuse and resource-owner mirror mismatch | C32, C34 |
+| FR-S3-042: explicit dependencies only | Every resource dependency, local or cross-owner, is a typed qualified ID in `requires`; reject file paths/includes, core-to-capability edges and core labels naming capability workflows; capability-to-capability edges require explicit declarations | C33, C34 |
+| FR-S3-043: removable capability | Remove one capability folder; core stays valid and byte-identical, unrelated selections still check, and every surviving dependant reference refuses with source-aware diagnostics | C33 |
+| FR-S3-044: additive private overlay | Reject duplicate public/core IDs or paths even for identical bytes, owner/trust overrides and public-to-private dependencies; a missing overlay disables only its private preset | C42 (S6); C33 checks public references now |
+| FR-S3-045: generated ownership | Generate anchored CODEOWNERS per owner root and shared-root rules from core's owner record; reject drift in CI | C35 |
+
+Workflow labels are non-selecting usage metadata, never dependencies or grants.
+Core resources and its owner manifest may omit or empty `workflows`; if present,
+labels may name only core workflows. A core label naming a capability workflow
+refuses. C33 removes reverse labels and keeps forward requirements on capability
+workflows instead; graph checks derive required/unused resources from those
+closures. There is no core workflow in the seed; core-labelled workflow
+acceptance is fixture-only until one exists.
+
+Resource dependencies have no file/include escape hatch. Preset `templates`
+is the sole shared-root inventory selector: inventory names only, not paths;
+each inventory reads explicit files only within `bootstrap/`. It is not a
+resource dependency or a new resource kind. The private source lives outside
+this repository, with an explicitly pinned, opt-in additive mount; public
+CI/releases never fetch, package or index it. Checking and registration do not
+crawl or launch an MCP server, and selection grants no runtime authority.
+
 ### 1.2 Formats: Copilot-native first
+
+Canonical resource IDs are `kind:namespace/local-name`, for example
+`agent:core/maestro` and `skill:qa/test-planning`. Exceptions are owner closure
+roots `capability:core`/`capability:qa` and global `preset:knowledge-client`.
+Reserve `core`; capability leaf namespaces are globally unique even across
+domains, so a domain move preserves IDs. Each segment retains the lowercase
+hyphenated grammar and 64-character limit. Local names may repeat under
+different owners; full IDs, source paths and namespaces may not. No basename
+aliases are accepted. Every selection includes reviewed `capability:core`
+exactly once, requiring reviewed `agent:core/maestro`; core never requires an
+optional capability. Presets require exact capability roots, not globs.
+
+Source `name` remains local and matches its stem/directory. Host projection
+rewrites names, paths and references together (`qa/test-planning` becomes
+`qa-test-planning`), reserving native agent alias `maestro` for core. Reject
+length/normalization collisions and user shadows; joining with a hyphen is not
+injective. C40/C07/C08 re-probe hosts, never assume slash support. Agent MCP
+references use `mcp-servers: ["qa/test-runner"]` and tool
+`qa/test-runner/run_tests` (split at the last slash); both must resolve to the
+checked server/tool and the declared `mcp:qa/test-runner` requirement.
 
 | Resource | Format | Maestro additions |
 | --- | --- | --- |
 | Agent | Copilot custom agent profile `.agent.md`: YAML frontmatter (`name`, `description`, `tools`, `mcp-servers`, optional `model`) + Markdown body | Integrated [C01 evidence](../../specs/003-catalog/research/hosts.md) (`0be954b`) confirms `<stem>.maestro.toml` sidecars: Copilot CLI 1.0.88 warns and ignores agent `metadata:`. Each catalog agent's stem must equal its `name:` for one-to-one pairing. Keys: `id`, `version`, `owner`, `maturity`, required skills and instructions, policies, contracts, allowed profiles, discovery card |
 | Skill | Agent Skills `SKILL.md`: frontmatter `name`, `description`, optional `license`, `metadata`, `allowed-tools` | Same keys under the Agent Skills specification's `metadata` field; C01's unknown-key control is silent, not proof of support. A host warning on skill metadata reopens the ADR-0005 sidecar decision |
-| Instructions | Copilot `.instructions.md` with `applyTo` globs | — |
+| Instructions | Owner-relative `instructions/<name>.instructions.md` with `applyTo` globs | Paired `<name>.maestro.toml` for strict common metadata and qualified requirements |
 | Prompt | Copilot `.prompt.md` | — |
 | Workflow graph | `workflow.md`: graph spec in YAML frontmatter, human documentation in the body | Maestro-specific (§2) |
 | Contract | JSON Schema 2020-12 + named semantic validators | — |
 | Policy | Cedar policies + a Cedar schema | — |
-| Model card | `model-cards/<id>.toml` | Common resource metadata, a model-card `version` field and the exact nested kernel v2 `CardIdentity`; canonical JSON/fingerprint remain kernel-owned |
+| Model card | Owner-relative `model-cards/<local-name>.toml`; seed cards under `core/` | Common resource metadata, a model-card `version` field and the exact nested kernel v2 `CardIdentity`; canonical JSON/fingerprint remain kernel-owned |
+| Owner closure | One `capability.toml` at `core/` or a capability leaf | Namespace, one approved owner/team, schema, maturity, rows, namespaced workflow labels and exact `requires`; resource owners are checked/generated mirrors |
+| MCP server | One owner-relative `mcp/<server>.toml` | Server definition and allowed tools; register by adding the file and a qualified `requires` reference, never a Rust branch or implicit launch |
+| Preset | Global `presets/<name>.toml` | Exact capability requirements and optional `templates` inventory names; no source file paths or directory globs |
+
+**Version boundary:** `maestro-source/2`, changed descriptor versions,
+`maestro-cli/catalog-check/2`, `maestro-project/2` and
+`maestro-authoring-lock/2` move together. Reject old/mixed layouts with a migration
+diagnostic; old source locks require a fresh preview, never silent rebinding.
+Kernel `maestro-model-card/2` identity and the preference schema do not change.
 
 The agent body keeps a fixed structure (Purpose, Responsibilities, Inputs,
 Working sequence, Outputs, Boundaries) that the linter checks. The separation of

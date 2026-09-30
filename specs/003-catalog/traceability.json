@@ -333,9 +333,9 @@
     },
     {
       "source_row": "chat.M019 overlays",
-      "s3_portion": "Base plus Rust composed output",
+      "s3_portion": "Core plus Rust composed output",
       "tasks": ["C02", "C05"],
-      "remaining": "S3: base and Rust composition checks, with additional overlays unscheduled until project demand"
+      "remaining": "S3: core and Rust composition checks, with additional capabilities unscheduled until project demand"
     },
     {
       "source_row": "chat.M006 native",

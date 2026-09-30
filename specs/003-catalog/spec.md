@@ -1,6 +1,6 @@
 # Feature Specification: Catalog
 
-**Feature Branch**: `docs/s3-model-cards`, from `feat/s3-integration` at `fd39783`
+**Feature Branch**: `docs/s3-owner-first-layout`, from `feat/s3-integration` at `4e8f6da`
 
 **Created**: 2026-09-28
 
@@ -281,6 +281,38 @@ After the glossary spike shows value, the glossary and source-class table become
 reviewed, versioned catalog kinds per collection, not only kernel bindings. They
 are named later work, not additional production kinds or M3 tasks in this amendment.
 
+### Owner-first amendment, 2026-09-30
+
+The owner approved the owner-first layout: "layout ok make sure to well
+segregate it". Architecture [03 §1.1](../../docs/architecture/03-agent-orchestration.md#11-layout)
+and [D13](plan.md#d13-owner-first-source-migration) define the target, not a
+claim that the landed `/1` checker supports it. Migrate before C02 publishes
+content; the new manifests repository initially holds only README and MIT
+licence. There is one source layout, not a dual-layout compatibility layer.
+
+Core contains only common resources, including the canonical Maestro persona
+and system prompt at `core/agents/maestro.agent.md`. Optional delivery roles
+and the feature-delivery workflow live in `capabilities/engineering/delivery/`;
+a knowledge-client selection must not carry them. Generic application-workflow
+resources and private collection descriptors stay separately owned. QA is an
+example, not additional seed content. No private source was consulted for this
+amendment, and none is authorized by it.
+
+Every resource dependency uses qualified `requires`, including local ones.
+Core never depends on capabilities; capabilities may depend on core or another
+capability only through declared requirements. The sole shared-root selector
+is preset `templates`, containing inventory names, never paths/includes;
+inventories read only inside `bootstrap/`. It adds no template resource kind.
+
+Use `maestro-source/2`, increment changed descriptor versions, and migrate
+check-output, project and authoring-lock contracts to `/2`. Refuse old/mixed
+layouts with a diagnostic and require fresh preview for old locks. The approved
+proposal budgets C30–C39 at 24–34 incremental S3 hours; the supervisor's later
+core-label segregation ruling adds 1 h in C33, making 25–35 h. C40 adds 2–4
+native-projection hours, and C41–C43 reserve 6–10 S6 catalog-contract hours. Collection crawling/ingestion, corpus
+migration, provisioning and private-content approval are not part of that work.
+The original 57-task, 191-hour budget is unchanged, not charged again as migration.
+
 ## User Scenarios & Testing *(mandatory)*
 
 ### User Story 1 - Start a project and ask a cited question (Priority: P1)
@@ -303,7 +335,7 @@ content in public tests; keep any approved private proof private.
    `maestro init --catalog-dir "$REVIEWED_CATALOG" --preset knowledge-client`,
    **Then** I see every proposed file and collision, and nothing is written
    until `--apply`; the output says authoring convenience, not verified install.
-2. **Given** base and Rust templates, **When** each composition is applied,
+2. **Given** core and Rust templates, **When** each composition is applied,
    **Then** generated JSON is strict, the project descriptor stays small,
    scripts are not run and copied workflows remain inactive.
 3. **Given** a supported pinned host, **When** I project the profile,
@@ -596,7 +628,8 @@ invalid graph rule and policy fixture through the real checks.
   `authored`, `reviewed`, `qualified`, `retired`. S3 compiles declared closures
   whose members are `reviewed`, the highest pre-S4 stage: the declared stage
   plus a named owner on content admitted through OA1's protected-branch
-  CODEOWNERS review. C03 checks stage and nonempty owner; C15 enforces protected
+  CODEOWNERS review. C03 checks stage; the owner-first migration also checks
+  the single owner record and matching resource mirrors. C15 enforces protected
   publication. A local authoring check validates a declaration, not completion
   of remote review; no new review-reference field is required. Record each stage
   and owner in the lock and show them in preview/explain. `qualified` requires
@@ -606,7 +639,7 @@ invalid graph rule and policy fixture through the real checks.
   supported native mapping; a **route-eligible** executable closure additionally
   requires every member's S4 qualification and all caller/runtime/trust checks.
   Projecting instructions in convenience mode is not workflow execution.
-- **FR-S3-004**: `maestro init` MUST inspect without scripts, compose base plus
+- **FR-S3-004**: `maestro init` MUST inspect without scripts, compose core plus
   Rust, preview all files including dotfiles, require explicit apply, validate
   composed output and write only the small descriptor, workspace config, lock
   and owned files.
@@ -616,6 +649,10 @@ invalid graph rule and policy fixture through the real checks.
 - **FR-S3-006**: Project to Copilot and Pi with explicit tools, dependencies and
   provider loading, no model fallback, collision/shadow checks, preserved
   unrelated registrations and honest registered/observed/stale/failed states.
+  Owner-first projection MUST rewrite owner-qualified names, paths and MCP
+  references together, reserve native agent alias `maestro` for core, and refuse
+  host length/normalization collisions. Source names remain local; live probes
+  qualify projected aliases rather than assume hosts accept slashes.
 - **FR-S3-007**: The knowledge checkpoint MUST reuse S1 tools and T038 cases,
   preserving citations, refusals, scope denial and unavailable/uncalibrated
   markers. Codex and Claude Code receive MCP registration guidance, not agent
@@ -853,7 +890,8 @@ invalid graph rule and policy fixture through the real checks.
   sampling, output limit,
   chat-template digest/explicit absence and qualification provenance. Preserve
   every v2 field and unsupported/unavailable state, not a reduced parallel schema.
-  Author human-facing declarations in TOML under `model-cards/` (ADR-0014);
+  Author human-facing declarations in owner-relative `model-cards/` (ADR-0014),
+  with the seed's approved cards under `core/model-cards/`;
   the kernel owns canonical card JSON and its fingerprint. No secrets or machine
   paths are permitted; bindings stay local. Intended jobs are embedder, reranker,
   answerer, extractor and query_expander, but unsupported kernel roles refuse,
@@ -883,6 +921,99 @@ invalid graph rule and policy fixture through the real checks.
   selection-record APIs still require exact-card real evaluation. A reviewed
   declaration is neither a real evaluation nor S4 qualification. No model
   download, router reconfiguration or fabricated evaluation/selection is added.
+- **FR-S3-040**: The checker MUST keep `core/`, each
+  `capabilities/<domain>/<capability>/`, shared `presets/`, `bootstrap/`, `docs/`
+  and `settings/`, and private overlay inputs separate. Discover bounded owner
+  roots before parsing, exactly one capability leaf deep within each domain.
+  Reject type-first roots, nested owners, unknown nonempty resource subtrees,
+  overlapping descriptor locations, links and traversal. Shared documents are
+  not resource trees; `settings/README.md` is the sole settings reference, not
+  a second authority. Nonempty collection trees refuse until the S6 descriptor
+  is registered. No recursive glob or silently ignored subtree is allowed.
+- **FR-S3-041**: Every owner root MUST be self-contained with exactly one
+  `capability.toml` declaring its namespace, one approved GitHub user/team,
+  schema, maturity, rows, namespaced workflow usage labels and exact entry
+  `requires`. Core resources and the core manifest may omit or empty their
+  `workflows` labels under FR-S3-042; capability resources keep their labels.
+  Namespace MUST match `core` or the capability directory's leaf. Resource owner
+  metadata is a checked/generated mirror of that root, never an independent
+  owner list. Reject missing/multiple/malformed owners, mismatches, ambiguous
+  ownership and duplicate namespaces; domain changes do not change identity.
+  OA1/protected review approves identities and owner changes; an offline checker
+  validates shape and consistency, not completed remote approval or permission.
+- **FR-S3-042**: All resource dependencies, within or between owner roots,
+  MUST use typed qualified IDs in declared `requires`; native MCP/tool references
+  MUST be covered by the corresponding requirement. Reject basename aliases,
+  cross-root file paths/includes and undeclared edges. Capabilities may require
+  core or other capabilities, but core MUST never require an optional capability.
+  Workflow usage labels MUST NOT create dependencies, select resources or grant
+  authority. Core labels may be omitted/empty, or name only core workflows;
+  reject a core label naming a capability workflow. C33 removes such reverse
+  labels and uses the capability workflow's forward `requires` instead. Removing
+  a capability MUST leave core valid and byte-identical. Graph checks derive
+  required/unused resources from declared forward closures, not usage labels.
+  Presets require capability roots rather than globs. The only shared-root
+  inventory selector is preset `templates`: inventory names only, resolved to
+  explicit bounded file lists inside `bootstrap/`, never an include mechanism
+  or an exception for owner-root resource dependencies.
+- **FR-S3-043**: A capability MUST be removable as one folder. After removal,
+  the checker MUST refuse every surviving dangling reference with its source
+  identity/path and missing qualified ID; it MUST NOT silently drop dependencies
+  or fall back to another owner's same local name. Once dependent selections
+  are removed or explicitly changed, unrelated core/capability selections pass
+  unchanged. Discovery of an unused capability does not select it.
+- **FR-S3-044**: The S6 private overlay MUST be explicit, pinned and additive
+  only, through the same `SourceTree` checking seam. Public checking runs alone
+  first, followed by a combined check with aggregate limits and source-aware
+  diagnostics/locks. Refuse duplicate IDs/paths even with identical bytes,
+  public/core shadowing, owner/trust overrides, symlinks and self-authorized
+  publishers. The CTM mount is restricted to its approved collection subtree
+  and private preset; it cannot supply a second owner manifest. Public presets
+  and their transitive closures MUST never require private IDs. Missing or
+  unauthorized private sources disable only private selection, not public use.
+  Public CI/releases MUST never fetch, package or index private inputs.
+- **FR-S3-045**: Generate anchored CODEOWNERS rules from each public owner
+  root's single approved owner record. Shared roots and governance files derive
+  ownership from core's record; no second hand-maintained owner list. CI MUST
+  regenerate and refuse a nonempty diff, including missing, edited, extra or
+  stale capability rules. Resource checks reject mirror drift independently.
+  GitHub identities and protected-review setup require owner input; generating
+  a file does not configure protection or confer authority.
+- **FR-S3-046**: Use only `maestro-source/2` with canonical
+  `kind:namespace/local-name` resource IDs, exceptions `capability:namespace`
+  and global `preset:name`. Reserve `core`; all segments use the existing
+  lowercase hyphenated grammar with at most 64 characters. Permit identical
+  local names under distinct owners, never duplicate full IDs, namespaces,
+  source paths or descriptor placements. Namespaced workflow labels remain
+  labels until their kind is implemented. Every selection MUST include reviewed
+  `capability:core` exactly once with reviewed `agent:core/maestro`; missing,
+  overridden or unreviewed core/Maestro refuses. Increment changed descriptor
+  versions and emit `maestro-cli/catalog-check/2`, `maestro-project/2` and
+  `maestro-authoring-lock/2`; refuse old/mixed source layouts and old locks with
+  actionable migration/fresh-preview diagnostics, never silent rebinding.
+  Kernel model-card identities and S1 preference schemas are unchanged.
+- **FR-S3-047**: Public `presets/` MUST be the sole selection source. Compose
+  checked capability closures and optional named `templates`; inventories
+  `bootstrap/core.toml` and `bootstrap/rust.toml` select explicit inert files,
+  not independent presets. Include shared core/its template inventory once;
+  refuse distinct-source output collisions even for identical bytes. Populate
+  project capabilities from the closure and lock every selected owner manifest,
+  resource/sidecar, preset and inventory/template input with its source identity,
+  revision and digest. Changed input or an old lock requires a new preview.
+  Preserve held-handle bounds, strict generated JSON, preview-only/no-write,
+  collision, owned-removal and inert-script guarantees; C04 is unchanged.
+- **FR-S3-048**: The deferred S6 collection descriptor MUST be owner-relative
+  `knowledge/collections/<name>/collection.toml`. Its `[approved_urls]` defines
+  exact HTTPS URLs or explicit origin/path-prefix rules, exclusions that win,
+  allowed versions/types and crawl bounds, plus credential/storage binding
+  references, never secrets or machine paths. Empty approval means no fetch.
+  Contract tests MUST require access/approval checks on seeds, discovered URLs
+  and each redirect, private URL/version/digest/transformation provenance,
+  forbidden-content rejection and audited chrome removal/exact-body deduplication.
+  Retain admitted originals under private retention policy; this amendment
+  authorizes no relevance-based passage deletion or removal of existing evidence.
+  Offline check/descriptor installation MUST make zero fetches and not crawl.
+  Runtime collection ACLs remain independent; no private URL is invented here.
 
 ### Key Entities
 
@@ -927,7 +1058,7 @@ invalid graph rule and policy fixture through the real checks.
 - **SC-S3-003**: Tamper, wrong signer, incompatibility, expiry, revocation, replay,
   interruption and old-backup cases all fail closed. Offline use shows its
   remaining window and refuses at expiry; no cache bypasses admission.
-- **SC-S3-004**: Base and base-plus-Rust composition tests cover every generated
+- **SC-S3-004**: Core and core-plus-Rust composition tests cover every generated
   file; all collision, race, crash-recovery and owned-removal cases pass.
 - **SC-S3-005**: Every setting has one class, every policy has passing allow/deny
   neighbours, and every graph validation rule has a passing and failing case.
@@ -1014,6 +1145,28 @@ invalid graph rule and policy fixture through the real checks.
   a selection receipt. Mark this test as a record of the known S1 post-M1
   explicit-answerer-selection gap, to change deliberately with that fix.
   C16h owns the CLI/history suite. Retain legacy-v1 reads.
+- **SC-S3-015**: Each of FR-S3-040–045 has a named passing neighbour and
+  refusal test in C30–C35/C42. Include misplaced roots, owner mismatch, undeclared
+  cross-owner paths, core-to-capability dependency or workflow label, one-folder
+  deletion with a dangling reference but unchanged valid core, additive-overlay
+  shadowing and generated CODEOWNERS drift. Core schema neighbours cover omitted,
+  empty and core-named labels (fixture-only workflow today); capability-named
+  core labels refuse.
+  Run public checks without a private checkout; S6's synthetic overlay suite is
+  a later gate, not a condition for publishing the public S3 seed.
+- **SC-S3-016**: C32–C40 cover qualified-ID round-trips, same-local-name
+  acceptance, duplicate namespace/full-ID refusal, mandatory core/Maestro,
+  namespaced MCP server/tool resolution, `/1` and mixed-layout refusal, all `/2`
+  outputs, source-bound replay and fresh preview. Core-only, QA and Rust synthetic
+  selections pass without delivery leakage; distinct template output collisions
+  refuse. Copilot/Pi alias probes and user-shadow tests run on pinned hosts;
+  a missing live probe remains blocked, not passed.
+- **SC-S3-017**: C41–C43 (S6) check collection placement, URL allow/exclude
+  precedence, redirect/access refusal and provenance using synthetic data only.
+  Prove zero network calls during check/install; duplicate private/public inputs,
+  public-to-private dependencies, missing/unauthorized mounts and aggregate-limit
+  overflow refuse without disabling public presets. No crawler, private-content
+  seed or corpus migration is claimed by these catalog-contract tests.
 
 ## Out of Scope
 
@@ -1041,6 +1194,9 @@ invalid graph rule and policy fixture through the real checks.
 - Glossary and source-class table production catalog kinds: after the glossary
   spike shows value, each is reviewed, versioned and per collection. C03's
   synthetic glossary tests are not delivery of that later feature.
+- Actual collection crawling/ingestion, corpus migration, provider/storage
+  provisioning and private URL/content approval. C41–C43 are deferred S6
+  catalog contracts only, not S3/M3 delivery or permission to read private data.
 - S1 cleanup, answer calibration, corpus deduplication, Qdrant Edge, unrelated
   gate changes and the post-M1 backlog. Reuse approved privacy checks when they
   land; do not fold their implementation into S3.
@@ -1114,7 +1270,7 @@ unmapped candidate, and checks both this table and the JSON with negative cases.
 | `chat.M031 delivery` | Frozen baseline before hybrid | C23, C24, C26 |
 | `chat.M031 service` | Existing server, no separate catalog service | C24a, C24 |
 | `chat.M019 bootstrap, M023 step 13` | Inspect/preview/apply/validate/ownership | C04, C05 |
-| `chat.M019 overlays` | Base plus Rust composed output | C02, C05 |
+| `chat.M019 overlays` | Core plus Rust composed output | C02, C05 |
 | `chat.M006 native` | Convenience projection, drift and owned removal | C06, C07, C20 |
 | `product.GD2, GD4, GD5` | Four MCP clients, local access and Copilot hook; other hooks stay S4 | C00, C06, C07, C08, C20, C28 |
 | `chat.M048 real controls` | Real verification/Cedar and allow/deny neighbours | C09, C13, C13a, C19, C28 |
@@ -1198,6 +1354,29 @@ M059's remaining S4 agent-session qualification.
 C28 includes these portions in M3 evidence. The shared S1 settings prerequisite
 changes ownership of reusable implementation, not the existing FR-S3-014/027–031
 or their safety, authority and delivery acceptance criteria.
+
+### Owner-first amendment coverage (2026-09-30)
+
+The 85-key C00 inventory and six exclusions remain unchanged. These supplemental
+requirements refine the existing layout/ownership/bootstrap/native row families;
+the S6 collection/overlay portion stays explicitly deferred, not M3 evidence.
+[Task coverage](tasks.md#requirements-coverage) is regenerated from every task's
+Requirements line, including these obligations.
+
+| Requirement | Existing row family or later boundary | Tasks |
+| --- | --- | --- |
+| FR-S3-040 | Layout: chat.M006 layout, M023 layout | C30, C31, C38, C41 |
+| FR-S3-041 | Ownership: chat.M019 ownership | C32, C34, C35, C38 |
+| FR-S3-042 | Closure: delivery.C06 closure, merge, explanation, one override class | C33, C34, C36, C38 |
+| FR-S3-043 | Layout/closure: owner.m001.manifest | C33, C38 |
+| FR-S3-044 | S6 private collection boundary; public source checks remain S3 | C38, C42 |
+| FR-S3-045 | Ownership/publication: chat.M019 ownership | C35, C38 |
+| FR-S3-046 | Source/compiler: chat.M006 compiler | C30, C31, C32, C33, C34, C37, C38 |
+| FR-S3-047 | Bootstrap: chat.M019 bootstrap, M023 step 13 | C36, C37, C38 |
+| FR-S3-048 | S6 collection contract, no crawler | C38, C41, C43 |
+| SC-S3-015 | Delivery proof: delivery.§1.5; overlay proof deferred to S6 | C28, C30, C31, C33, C34, C35, C39, C42 |
+| SC-S3-016 | Delivery proof: delivery.§1.5 | C28, C32, C33, C34, C36, C37, C39, C40 |
+| SC-S3-017 | S6 contract proof only | C41, C42, C43 |
 
 ## Assumptions
 
