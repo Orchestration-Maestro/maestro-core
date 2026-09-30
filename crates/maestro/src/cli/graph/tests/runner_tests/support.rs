@@ -8,15 +8,17 @@ use maestro_kernel::{
     },
     facts::{Budget, BuildPlan},
     gateway::{
-        CardFields, ChatRequest, Error, ExtractRequest, FakeModels, Limits, ModelCard, ModelPort,
-        Role, Room, RouterEntry,
+        Candidate, CardFields, ChatRequest, Error, ExtractRequest, FakeModels, Limits, ModelCard,
+        ModelPort, Role, Room, RouterEntry,
     },
     scope::Right,
+    store::Database,
 };
 use maestro_knowledge::graph::{
     build,
     extract::{ModelExtractor, WindowPolicy},
     rules::Extractor,
+    verify::Source as GraphSource,
 };
 use serde_json::{Map, json};
 use std::{
@@ -80,7 +82,7 @@ impl ModelPort for CountingModels {
         &self,
         _card: &ModelCard,
         _request: &ExtractRequest,
-    ) -> impl Future<Output = Result<Vec<maestro_kernel::gateway::Candidate>, Error>> + Send {
+    ) -> impl Future<Output = Result<Vec<Candidate>, Error>> + Send {
         self.extracts.fetch_add(1, Ordering::Relaxed);
         ready(Ok(Vec::new()))
     }
@@ -100,7 +102,7 @@ impl Drop for Fixture {
 
 pub(super) fn fixture(markdowns: &[&str]) -> Fixture {
     let root = maestro_test_scratch::scratch_directory().unwrap();
-    let database = maestro_kernel::store::Database::open_in(&root).unwrap();
+    let database = Database::open_in(&root).unwrap();
     database
         .grant(
             "graph-test",
@@ -242,13 +244,12 @@ pub(super) fn frozen_inputs(
     plan: &BuildPlan,
     revisions: &[Revision],
     extractor: &dyn Extractor,
-    database: &maestro_kernel::store::Database,
+    database: &Database,
 ) -> serde_json::Value {
     let estimate = revisions
         .iter()
         .map(|revision| {
-            let source =
-                maestro_knowledge::graph::verify::Source::read(database, revision).unwrap();
+            let source = GraphSource::read(database, revision).unwrap();
             extractor.estimated_tokens(&source).unwrap()
         })
         .sum::<usize>();

@@ -20,7 +20,7 @@ use maestro_kernel::{
 };
 use maestro_knowledge::graph::{build, rules::Extractor, verify::Source};
 use serde_json::{Value, json};
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet, iter};
 use ulid::Ulid;
 
 /// Maximum additional attempts for one source after its first started extraction.
@@ -51,12 +51,13 @@ pub(super) struct Built {
 /// Submit or resume exactly this plan, using the existing foreground lease runner.
 pub(super) fn run(kernel: &Kernel, output: Output, work: &Work<'_>) -> Result<Built, Failure> {
     let estimate = check_token_budget(&kernel.database, work.revisions, work.extractor)?;
-    let extractor_inputs = work.extractor.job_inputs().map(|mut inputs| {
-        if let Some(estimate) = estimate {
-            inputs["estimated_tokens"] = json!(estimate);
-        }
-        inputs
-    });
+    let mut extractor_inputs = work.extractor.job_inputs();
+    if let (Some(estimate), Some(inputs)) = (estimate, extractor_inputs.as_mut()) {
+        let object = inputs
+            .as_object_mut()
+            .ok_or_else(|| Failure::failed("graph extractor inputs are not an object"))?;
+        object.insert("estimated_tokens".to_owned(), json!(estimate));
+    }
     let inputs = build::inputs(work.plan, extractor_inputs);
     let scope = collection_path(&work.plan.collection_id)
         .parse()
@@ -214,7 +215,7 @@ fn within_retry_limit(events: &[Event], revision_id: &str) -> bool {
     let distinct_revisions = starts
         .iter()
         .filter_map(|event| event.data.get("revision").and_then(Value::as_str))
-        .chain(std::iter::once(revision_id))
+        .chain(iter::once(revision_id))
         .collect::<BTreeSet<_>>()
         .len();
     starts

@@ -128,16 +128,16 @@ in place.
 │   │   │   │   ├── graph/                                                   # knowledge graph: the commands over a collection's knowledge graph
 │   │   │   │   │   ├── tests/                                               # How knowledge graph build classifies the kernel's refusals of a claim
 │   │   │   │   │   │   ├── runner_tests/                                    # Runner tests
+│   │   │   │   │   │   │   ├── mod.rs                                       # Rust source: mod
 │   │   │   │   │   │   │   └── support.rs                                   # Rust source: support
-│   │   │   │   │   │   └── runner_tests.rs                                  # Rust source: runner tests
+│   │   │   │   │   │   └── mod.rs                                           # How knowledge graph build classifies the kernel's refusals of a claim
 │   │   │   │   │   ├── attach.rs                                            # Attachment is separate leased work; completed extraction is never repeated
 │   │   │   │   │   ├── build.rs                                             # knowledge graph build: a collection's claims built with one strict
 │   │   │   │   │   ├── extract_output.rs                                    # Aggregate-only output for model-backed graph extraction
 │   │   │   │   │   ├── extractor.rs                                         # Selects the explicit table-rule or registered model extractor and its sources
 │   │   │   │   │   ├── failure.rs                                           # Shared classification of graph authority failures
 │   │   │   │   │   ├── job.rs                                               # Foreground graph builds: extraction outside the fence lock, atomic receipts inside it
-│   │   │   │   │   ├── mod.rs                                               # knowledge graph: the commands over a collection's knowledge graph
-│   │   │   │   │   └── tests.rs                                             # How knowledge graph build classifies the kernel's refusals of a claim
+│   │   │   │   │   └── mod.rs                                               # knowledge graph: the commands over a collection's knowledge graph
 │   │   │   │   ├── health/                                                  # maestro doctor and status: the checks of the kernel, the search service, the router and each role's card
 │   │   │   │   │   ├── tests/                                               # Unit tests of the checks: the kernel's files, the services, the cards, what doctor must not touch
 │   │   │   │   │   │   ├── doctor.rs                                        # Doctor's verdict: a check that cannot run yet, as each role's model card
@@ -958,10 +958,10 @@ in place.
 │   │   │   ├── graph/                                                       # The knowledge graph's construction (specs/002-knowledge-graph): claims
 │   │   │   │   ├── extract/                                                 # Bounded model extraction over canonical source windows
 │   │   │   │   │   ├── tests/                                               # Synthetic window and quote-pointer checks; no model or vendor data is used
-│   │   │   │   │   │   └── dedup.rs                                         # Duplicate claim identity and post-review source rejection checks
+│   │   │   │   │   │   ├── dedup.rs                                         # Duplicate claim identity and post-review source rejection checks
+│   │   │   │   │   │   └── mod.rs                                           # Synthetic window and quote-pointer checks; no model or vendor data is used
 │   │   │   │   │   ├── mod.rs                                               # Bounded model extraction over canonical source windows
 │   │   │   │   │   ├── run.rs                                               # Candidate extraction and source-only evidence construction
-│   │   │   │   │   ├── tests.rs                                             # Synthetic window and quote-pointer checks; no model or vendor data is used
 │   │   │   │   │   └── windows.rs                                           # Versioned, source-byte-bounded windows and quote pointers
 │   │   │   │   ├── projection/                                              # Public typed-edge and literal-fact projection ports and unpublished build writer
 │   │   │   │   │   ├── tests/                                               # Contracts of the public graph projection port and backend-neutral writer

@@ -6,7 +6,7 @@ use super::{
 };
 use maestro_kernel::{
     facts::{Budget, BuildPlan},
-    job::NewJob,
+    job::{self, NewJob},
     journal::Filter,
     scope::collection_path,
 };
@@ -18,7 +18,7 @@ use maestro_knowledge::{
     quality,
 };
 use serde_json::json;
-use std::{process::Command, time::UNIX_EPOCH};
+use std::{fs, process::Command, time::UNIX_EPOCH};
 
 #[test]
 fn graph_build_help_documents_explicit_model_inputs() {
@@ -50,7 +50,7 @@ fn graph_build_help_documents_explicit_model_inputs() {
 fn model_extractor_inputs_and_estimate_are_frozen_in_the_job_created_event() {
     let home = Home::new();
     let rule = pilot(&home);
-    let parsed = TableRule::parse(&std::fs::read_to_string(rule).unwrap()).unwrap();
+    let parsed = TableRule::parse(&fs::read_to_string(rule).unwrap()).unwrap();
     let database = home.database();
     let scopes = local(&database);
     let revisions = quality::eligible(&database, &scopes, COLLECTION).unwrap();
@@ -87,9 +87,9 @@ fn model_extractor_inputs_and_estimate_are_frozen_in_the_job_created_event() {
         .events(
             &scopes,
             &Filter {
-                stream: &maestro_kernel::job::stream(job.id),
+                stream: &job::stream(job.id),
                 after: 0,
-                r#type: Some(maestro_kernel::job::CREATED),
+                r#type: Some(job::CREATED),
             },
         )
         .unwrap();

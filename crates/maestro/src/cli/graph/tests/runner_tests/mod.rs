@@ -3,7 +3,7 @@ mod support;
 use super::super::job::{self as graph_job, Work};
 use crate::{cli::output::Output, failure::Failure};
 use maestro_kernel::{
-    job::{JobState, LeaseTiming, NewJob},
+    job::{self as kernel_job, JobState, LeaseTiming, NewJob},
     journal::Filter,
     scope::collection_path,
 };
@@ -109,9 +109,9 @@ fn failed_job_rerun_gets_its_own_preflight_and_retry_budget() {
         .events(
             &fixture.kernel.scopes,
             &Filter {
-                stream: &maestro_kernel::job::stream(built.job),
+                stream: &kernel_job::stream(built.job),
                 after: 0,
-                r#type: Some(maestro_kernel::job::CREATED),
+                r#type: Some(kernel_job::CREATED),
             },
         )
         .unwrap();
