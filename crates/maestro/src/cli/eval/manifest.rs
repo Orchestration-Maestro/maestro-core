@@ -246,7 +246,8 @@ impl Rung {
         (
             self.search_budget.unwrap_or(RequestBudget {
                 k: 5,
-                ..RequestBudget::default()
+                evidence_bytes: 6_000,
+                deadline_ms: RequestBudget::MAX_DEADLINE_MS,
             }),
             self.configuration.evidence(),
         )

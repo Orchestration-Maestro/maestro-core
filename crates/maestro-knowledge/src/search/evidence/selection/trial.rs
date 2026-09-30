@@ -25,8 +25,9 @@ pub(super) fn fits_trial(
         EvidenceCounter::Utf8Bytes | EvidenceCounter::AnswerBoundUtf8Bytes
     ) && spans.values().any(|choice| {
         choice.ranges().iter().any(|range| {
+            // JSON wrappers always make a passage longer than its source range.
             range.end.saturating_sub(range.start)
-                > usize::try_from(budget.evidence_bytes).unwrap_or(usize::MAX)
+                >= usize::try_from(budget.evidence_bytes).unwrap_or(usize::MAX)
         })
     }) {
         group_selected_spans(candidates, spans)
@@ -192,10 +193,9 @@ mod tests {
         }
     }
 
-    /// Only a range longer than the budget is refused unseen; one exactly
-    /// the budget's size is rendered and measured like any other trial.
+    /// An exact-budget byte range is impossible under either JSON byte counter.
     #[test]
-    fn a_range_of_exactly_the_byte_budget_is_measured() {
+    fn an_exact_budget_byte_range_is_not_materialized() {
         let markdown = format!("# Guide\n\n{}", "large source ".repeat(10));
         let (document, sections) = prepared(&markdown, "exact.md");
         let candidate = candidate(
@@ -214,23 +214,28 @@ mod tests {
             0,
             DeliveryChoice::canonical(&candidate, vec![extent], ChoiceKind::Section),
         )]);
-        let counter = EvidenceCounter::Utf8Bytes;
-        let (fits, rendered) = fits_trial(
-            slice::from_ref(&candidate),
-            &choices,
-            &SelectionBudget {
-                expansion: ExpansionMode::FullSection,
-                graph: &LegacyCanonicalGraph,
-                parent_chain_order: ParentChainOrder::default(),
-                max_passages: 5,
-                evidence_bytes: u32::try_from(extent.end - extent.start).unwrap(),
-                counter: &counter,
-                counter_info: &counter_info(&counter).unwrap(),
-                control: &control(),
-            },
-        )
-        .unwrap();
-        assert!(!fits, "the passage's JSON adds to its source bytes");
-        assert_eq!(rendered.passages.len(), 1);
+        let evidence_bytes = u32::try_from(extent.end - extent.start).unwrap();
+        for counter in [
+            EvidenceCounter::Utf8Bytes,
+            EvidenceCounter::AnswerBoundUtf8Bytes,
+        ] {
+            let (fits, rendered) = fits_trial(
+                slice::from_ref(&candidate),
+                &choices,
+                &SelectionBudget {
+                    expansion: ExpansionMode::FullSection,
+                    graph: &LegacyCanonicalGraph,
+                    parent_chain_order: ParentChainOrder::default(),
+                    max_passages: 5,
+                    evidence_bytes,
+                    counter_info: &counter_info(&counter).unwrap(),
+                    counter: &counter,
+                    control: &control(),
+                },
+            )
+            .unwrap();
+            assert!(!fits);
+            assert!(rendered.passages.is_empty());
+        }
     }
 }
