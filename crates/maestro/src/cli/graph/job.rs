@@ -13,13 +13,20 @@ use crate::{
 use maestro_kernel::{
     document::Revision,
     facts::{BuildPlan, BuildRecord, ClaimSetRecord},
-    job::{Job, JobState, NewJob},
-    scope::collection_path,
+    job::{self, Job, JobState, NewJob},
+    journal::{Event, Filter},
+    scope::{ScopeSet, collection_path},
     store::Database,
 };
 use maestro_knowledge::graph::{build, rules::Extractor, verify::Source};
 use serde_json::{Value, json};
+use std::collections::BTreeSet;
 use ulid::Ulid;
+
+/// Maximum additional attempts for one source after its first started extraction.
+const MAX_SOURCE_RETRIES: usize = 1;
+/// Durable job progress event written immediately before a source extraction.
+const SOURCE_STARTED: &str = "maestro.graph.build.source_started.v1";
 
 /// Frozen work supplied to the foreground holder.
 pub(super) struct Work<'a> {
@@ -95,6 +102,9 @@ impl Work<'_> {
             .enumerate()
             .skip(current.batches.len())
         {
+            if self.extractor.token_budget().is_some() {
+                start_source_attempt(&kernel.database, &kernel.scopes, holder, revision)?;
+            }
             let batch = build::extract(&kernel.database, self.extractor, revision, ordinal)
                 .map_err(|error| Failure::failed_by(&error))?;
             claims = claims.saturating_add(batch.claims.len());
@@ -154,6 +164,78 @@ fn check_token_budget(
     Ok(())
 }
 
+/// Records one source start and refuses after its durable retry allowance is spent.
+fn start_source_attempt(
+    database: &Database,
+    scopes: &ScopeSet,
+    holder: &Holder<'_>,
+    revision: &Revision,
+) -> Result<(), Failure> {
+    let mut history = Vec::new();
+    let mut visited = BTreeSet::new();
+    let mut current = Some(holder.job_id());
+    while let Some(job_id) = current {
+        if !visited.insert(job_id) {
+            return Err(Failure::failed(
+                "graph job attempt history contains a cycle",
+            ));
+        }
+        let stream = job::stream(job_id);
+        let events = database
+            .events(
+                scopes,
+                &Filter {
+                    stream: &stream,
+                    after: 0,
+                    r#type: None,
+                },
+            )
+            .map_err(|error| Failure::failed_by(&error))?;
+        current = previous_attempt(&events)?;
+        history.extend(events);
+        if next_source_attempt(&history, &revision.id).is_none() {
+            return Err(Failure::refused("graph source retry limit exceeded"));
+        }
+    }
+    let attempt = next_source_attempt(&history, &revision.id)
+        .ok_or_else(|| Failure::refused("graph source retry limit exceeded"))?;
+    holder
+        .step(&json!({
+            "kind": SOURCE_STARTED,
+            "revision": revision.id,
+            "attempt": attempt,
+        }))
+        .map_err(|error| Failure::failed_by(&error))
+}
+
+/// The previous job attempt linked by the job's creation event, if any.
+fn previous_attempt(events: &[Event]) -> Result<Option<Ulid>, Failure> {
+    let created = events
+        .iter()
+        .find(|event| event.r#type == job::CREATED)
+        .ok_or_else(|| Failure::failed("graph job attempt has no creation event"))?;
+    match created.data.get("previous_attempt") {
+        None => Ok(None),
+        Some(Value::String(id)) => Ulid::from_string(id)
+            .map(Some)
+            .map_err(|_| Failure::failed("graph job attempt has an invalid predecessor")),
+        Some(_) => Err(Failure::failed(
+            "graph job attempt has an invalid predecessor",
+        )),
+    }
+}
+
+/// The next permitted start number for `revision_id`, or none after its retry ceiling.
+fn next_source_attempt(events: &[Event], revision_id: &str) -> Option<usize> {
+    let prior_attempts = events
+        .iter()
+        .filter(|event| event.r#type == job::PROGRESSED)
+        .filter(|event| event.data.get("kind").and_then(Value::as_str) == Some(SOURCE_STARTED))
+        .filter(|event| event.data.get("revision").and_then(Value::as_str) == Some(revision_id))
+        .count();
+    (prior_attempts <= MAX_SOURCE_RETRIES).then_some(prior_attempts + 1)
+}
+
 /// Preserve failure classification in the durable job outcome for followers.
 pub(super) fn outcome(result: Result<(), Failure>) -> (JobState, Value) {
     match result {
@@ -178,5 +260,67 @@ pub(super) fn check(job: &Job) -> Result<(), Failure> {
         Err(Failure::refused(message))
     } else {
         Err(Failure::failed(message))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        Event, MAX_SOURCE_RETRIES, SOURCE_STARTED, Ulid, job, next_source_attempt, previous_attempt,
+    };
+    use serde_json::json;
+
+    fn progress(stream: &str, sequence: u64, revision: &str) -> Event {
+        Event {
+            id: Ulid::nil(),
+            stream: stream.to_owned(),
+            sequence,
+            r#type: job::PROGRESSED.to_owned(),
+            subject: stream.to_owned(),
+            scope: "workspace/default/collection/test".to_owned(),
+            time: "2026-01-01T00:00:00Z".to_owned(),
+            data: json!({"kind": SOURCE_STARTED, "revision": revision}),
+        }
+    }
+
+    fn creation(previous: Option<&str>) -> Event {
+        Event {
+            id: Ulid::nil(),
+            stream: "job/test".to_owned(),
+            sequence: 1,
+            r#type: job::CREATED.to_owned(),
+            subject: "job/test".to_owned(),
+            scope: "workspace/default/collection/test".to_owned(),
+            time: "2026-01-01T00:00:00Z".to_owned(),
+            data: match previous {
+                Some(id) => json!({"previous_attempt": id}),
+                None => json!({"inputs": {}}),
+            },
+        }
+    }
+
+    #[test]
+    fn job_retry_history_uses_the_persisted_predecessor_link() {
+        let previous = Ulid::nil();
+        assert_eq!(previous_attempt(&[creation(None)]).unwrap(), None);
+        assert_eq!(
+            previous_attempt(&[creation(Some(&previous.to_string()))]).unwrap(),
+            Some(previous)
+        );
+        assert!(previous_attempt(&[creation(Some("invalid"))]).is_err());
+    }
+
+    #[test]
+    fn a_crashed_source_can_resume_once_but_cannot_retry_again() {
+        let events = [
+            progress("job/previous-attempt", 1, "revision-a"),
+            progress("job/current-attempt", 1, "revision-b"),
+            progress("job/current-attempt", 2, "revision-a"),
+        ];
+        assert_eq!(MAX_SOURCE_RETRIES, 1);
+        assert_eq!(next_source_attempt(&[], "revision-a"), Some(1));
+        assert_eq!(next_source_attempt(&events, "revision-a"), None);
+        assert_eq!(next_source_attempt(&events, "revision-b"), Some(2));
+        assert_eq!(next_source_attempt(&events, "revision-c"), Some(1));
     }
 }

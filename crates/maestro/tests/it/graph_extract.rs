@@ -18,6 +18,10 @@ fn graph_build_help_documents_explicit_model_inputs() {
     ] {
         assert!(help.contains(flag), "missing {flag} in {help}");
     }
+    assert!(
+        help.contains("crash retry"),
+        "retry bound is absent: {help}"
+    );
 }
 
 #[test]

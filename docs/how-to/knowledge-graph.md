@@ -31,11 +31,14 @@ labels or results. Model replies provide typed candidates and a verbatim quote
 pointer; Maestro accepts a quote only when it occurs exactly once in the same
 source window and records the source's original revision, block, byte span and
 digest as evidence. Source instructions cannot change the closed vocabulary or
-build authority. The token budget is cumulative across every source window; it
-counts the card tokenizer's system-prompt-plus-window input and reserves the
-full 1,024-token output ceiling per call. That estimate is recomputed on resume,
-while the card, prompt, policy, profile and budget digests remain frozen in the
-job inputs.
+build authority. The token budget is a whole-plan estimate: the card tokenizer
+counts system-prompt-plus-window input and reserves the full 1,024-token output
+ceiling per call. It is recomputed for every clean or resumed run, so resume
+never resets the limit. Each source may be retried once after a crash; another
+retry is refused. This is not an exact spend cap: actual spend ≤ frozen plan
+estimate + N × largest source's window cost, with N=1. Per-window durable token
+accounting is deferred. The card, prompt, policy, profile and budget digests
+remain frozen in job inputs.
 
 ## Select the engine
 

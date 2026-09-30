@@ -296,7 +296,8 @@ pub(in crate::cli) struct Arguments {
         conflicts_with = "rule"
     )]
     pub(in crate::cli) window_policy: Option<PathBuf>,
-    /// Required cumulative input-plus-output-reserve token limit for model extraction.
+    /// Whole-plan input and reserved-output estimate. N=1 crash retry per
+    /// source; actual spend ≤ frozen plan estimate + N × largest source cost.
     #[arg(
         long,
         value_name = "N",
