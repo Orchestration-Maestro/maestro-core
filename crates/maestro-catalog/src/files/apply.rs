@@ -7,9 +7,14 @@ use maestro_filesystem::Directory;
 use serde::Serialize;
 use std::{
     fs::File,
-    io::{self, Write},
+    io::{self, ErrorKind, Write},
     path::Path,
+    process,
+    sync::atomic::{AtomicUsize, Ordering},
 };
+
+/// Unique process-local suffixes for unpublished state-record files.
+static NEXT_TEMP: AtomicUsize = AtomicUsize::new(0);
 
 /// A completed transaction's durable ownership record.
 #[derive(Serialize)]
@@ -67,16 +72,6 @@ pub(super) fn apply_with_failure(
     let state = state_directory(root)?;
     let journal = journal_name(&plan.id);
     let journal_bytes = record_bytes(plan)?;
-    match read_optional(&state, &journal)? {
-        Some(existing) if existing == journal_bytes => {}
-        Some(_) => {
-            return Err(io::Error::new(
-                io::ErrorKind::AlreadyExists,
-                "conflicting file journal",
-            ));
-        }
-        None => write_new(&state, &journal, &journal_bytes)?,
-    }
     let ownership = ownership_record(plan);
     let ownership_bytes = record_bytes(&ownership)?;
     let ownership_path = ownership_name(&plan.id);
@@ -90,11 +85,21 @@ pub(super) fn apply_with_failure(
         }
         Some(_) => {
             return Err(io::Error::new(
-                io::ErrorKind::AlreadyExists,
+                ErrorKind::AlreadyExists,
                 "conflicting ownership record",
             ));
         }
         None => {}
+    }
+    match read_optional(&state, &journal)? {
+        Some(existing) if existing == journal_bytes => {}
+        Some(_) => {
+            return Err(io::Error::new(
+                ErrorKind::AlreadyExists,
+                "conflicting file journal",
+            ));
+        }
+        None => write_new(&state, &journal, &journal_bytes, fail_after == Some(100))?,
     }
     fail_if_requested(fail_after, 0)?;
 
@@ -104,11 +109,11 @@ pub(super) fn apply_with_failure(
         match directory.read_regular(name) {
             Ok(_) => {
                 return Err(io::Error::new(
-                    io::ErrorKind::AlreadyExists,
+                    ErrorKind::AlreadyExists,
                     "planned target already exists; ownership cannot be proven",
                 ));
             }
-            Err(error) if error.kind() == io::ErrorKind::NotFound => {
+            Err(error) if error.kind() == ErrorKind::NotFound => {
                 fail_if_requested(fail_after, index * 2 + 1)?;
                 let mut output = directory.create_new(name)?;
                 output.write_all(&file.bytes)?;
@@ -120,7 +125,12 @@ pub(super) fn apply_with_failure(
     }
 
     fail_if_requested(fail_after, plan.entries.len() * 2 + 1)?;
-    write_new(&state, &ownership_path, &ownership_bytes)?;
+    write_new(
+        &state,
+        &ownership_path,
+        &ownership_bytes,
+        fail_after == Some(101),
+    )?;
     fail_if_requested(fail_after, plan.entries.len() * 2 + 2)?;
     state.remove_file(&journal)?;
     Ok(())
@@ -160,11 +170,28 @@ fn ownership_record(plan: &FilePlan) -> Ownership<'_> {
     }
 }
 
-/// Exclusively create and flush one file under a held directory.
-fn write_new(directory: &Directory, name: &str, bytes: &[u8]) -> io::Result<()> {
-    let mut file: File = directory.create_new(name)?;
+/// Write a complete state record privately, then publish it atomically without replacement.
+fn write_new(directory: &Directory, name: &str, bytes: &[u8], tear: bool) -> io::Result<()> {
+    let (temporary, mut file): (String, File) = loop {
+        let sequence = NEXT_TEMP.fetch_add(1, Ordering::Relaxed);
+        let temporary = format!(".{name}.tmp-{}-{sequence}", process::id());
+        match directory.create_new(&temporary) {
+            Ok(file) => break (temporary, file),
+            Err(error) if error.kind() == ErrorKind::AlreadyExists => continue,
+            Err(error) => return Err(error),
+        }
+    };
+    directory.sync()?;
+    if tear {
+        file.write_all(&bytes[..bytes.len() / 2])?;
+        file.sync_all()?;
+        return Err(io::Error::other("injected torn state-record write"));
+    }
     file.write_all(bytes)?;
-    file.sync_all()
+    file.sync_all()?;
+    drop(file);
+    directory.link(&temporary, name)?;
+    directory.remove_file(&temporary)
 }
 
 /// Stop at a named durable boundary in crash-contract tests.

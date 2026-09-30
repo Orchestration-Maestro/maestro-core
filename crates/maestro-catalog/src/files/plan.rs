@@ -56,8 +56,15 @@ impl FilePlan {
         let mut inputs: Vec<_> = inputs.into_iter().collect();
         inputs.sort_by(|left, right| left.path.cmp(&right.path));
         let mut paths = BTreeSet::new();
+        let mut folded_paths = BTreeSet::new();
         for input in &inputs {
             validate_relative_path(&input.path)?;
+            if !folded_paths.insert(input.path.to_ascii_lowercase()) {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "duplicate planned path",
+                ));
+            }
             if !paths.insert(input.path.clone()) {
                 return Err(io::Error::new(
                     io::ErrorKind::InvalidInput,
@@ -161,14 +168,27 @@ mod byte_string {
 
 /// Refuse absolute, traversing, empty, or platform-ambiguous relative file names.
 pub(super) fn validate_relative_path(path: &str) -> io::Result<()> {
-    if path.is_empty() || path.contains('\\') || path.split('/').next() == Some(".maestro-files") {
+    if path.is_empty()
+        || path.contains('\\')
+        || path
+            .split('/')
+            .next()
+            .is_some_and(|part| part.eq_ignore_ascii_case(".maestro-files"))
+    {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
             "unsafe planned path",
         ));
     }
     for part in path.split('/') {
-        if part.is_empty() || part == "." || part == ".." {
+        if part.is_empty()
+            || part == "."
+            || part == ".."
+            || part.contains(':')
+            || part.ends_with('.')
+            || part.ends_with(' ')
+            || is_windows_device_name(part)
+        {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 "unsafe planned path",
@@ -185,6 +205,18 @@ pub(super) fn validate_relative_path(path: &str) -> io::Result<()> {
         ));
     }
     Ok(())
+}
+
+/// Refuse DOS device names, whose device stem remains special even with an extension.
+fn is_windows_device_name(component: &str) -> bool {
+    let stem = component.split('.').next().unwrap_or(component);
+    let bytes = stem.as_bytes();
+    matches!(
+        stem.to_ascii_uppercase().as_str(),
+        "CON" | "PRN" | "AUX" | "NUL"
+    ) || bytes.len() == 4
+        && (bytes[..3].eq_ignore_ascii_case(b"COM") || bytes[..3].eq_ignore_ascii_case(b"LPT"))
+        && matches!(bytes[3], b'1'..=b'9')
 }
 
 /// Validate an externally supplied plan identifier before using it in a state-file name.
@@ -215,8 +247,15 @@ pub(super) fn validate_id(id: &str) -> io::Result<()> {
 /// Validate journal contents before they are allowed to cause filesystem effects.
 pub(super) fn validate_plan(plan: &FilePlan) -> io::Result<()> {
     let mut paths = BTreeSet::new();
+    let mut folded_paths = BTreeSet::new();
     for entry in &plan.entries {
         validate_relative_path(&entry.path)?;
+        if !folded_paths.insert(entry.path.to_ascii_lowercase()) {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "duplicate journal path",
+            ));
+        }
         if !paths.insert(entry.path.as_str()) {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,

@@ -92,13 +92,21 @@ impl Directory {
         Ok(File::from(fd))
     }
 
+    /// Flush this directory's entries to stable storage.
+    ///
+    /// # Errors
+    /// Returns an error if the directory cannot be flushed.
+    pub fn sync(&self) -> io::Result<()> {
+        self.0.sync_all()
+    }
+
     /// Link `from` as `to`, never replacing `to`, then flush the directory's entries.
     ///
     /// # Errors
     /// Returns an error if the link cannot be created or the directory cannot be flushed.
     pub fn link(&self, from: &str, to: &str) -> io::Result<()> {
         linkat(&self.0, from, &self.0, to, AtFlags::empty())?;
-        self.0.sync_all()
+        self.sync()
     }
 
     /// Remove `name` only if its bytes still match `expected`, without following links.

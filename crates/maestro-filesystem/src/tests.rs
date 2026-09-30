@@ -249,6 +249,17 @@ fn remove_verified_quarantine_never_replaces_a_planted_name() {
     fs::remove_dir_all(root).unwrap();
 }
 
+#[test]
+fn remove_verified_refuses_directories_before_quarantine() {
+    let root = scratch();
+    fs::create_dir(root.join("directory")).unwrap();
+    let directory = Directory::open(&root, Path::new(""), false).unwrap();
+    assert!(directory.remove_verified("directory", b"").is_err());
+    assert!(root.join("directory").is_dir());
+    drop(directory);
+    fs::remove_dir_all(root).unwrap();
+}
+
 #[cfg(unix)]
 #[test]
 fn remove_verified_refuses_links_without_removing_the_target() {
@@ -282,6 +293,7 @@ fn remove_verified_refuses_reparse_points() {
     assert!(created.success());
     let directory = Directory::open(&root, Path::new(""), false).unwrap();
     assert!(directory.remove_verified("junction", b"").is_err());
+    assert!(root.join("junction").exists());
     assert!(root.join("target").is_dir());
     drop(directory);
     fs::remove_dir_all(root).unwrap();

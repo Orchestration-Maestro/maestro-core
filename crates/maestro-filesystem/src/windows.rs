@@ -106,6 +106,14 @@ impl Directory {
             .open(self.path.join(name))
     }
 
+    /// Flush this directory's entries. Windows cannot flush a directory through std.
+    ///
+    /// # Errors
+    /// This operation currently cannot report a flush error.
+    pub fn sync(&self) -> io::Result<()> {
+        Ok(())
+    }
+
     /// Link `from` as `to`, never replacing `to`. The directory is not flushed.
     ///
     /// # Errors
