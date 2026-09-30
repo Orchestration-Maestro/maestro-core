@@ -1,0 +1,271 @@
+//! Preview immutable file bytes, validate relative names, and bind content digests.
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use std::{
+    collections::BTreeSet,
+    io,
+    path::{Component, Path, PathBuf},
+};
+
+/// One intended file and its bytes at preview time.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FileInput {
+    /// Root-relative, slash-separated file name.
+    pub path: String,
+    /// The complete bytes to write.
+    pub bytes: Vec<u8>,
+}
+
+/// An immutable, digest-bound set of files previewed against an empty target set.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct FilePlan {
+    /// Digest of the ordered relative paths and intended bytes.
+    pub(super) id: String,
+    /// Files in deterministic path order.
+    pub(super) entries: Vec<PlannedFile>,
+}
+
+/// One canonical file path and its intended bytes and digest.
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub(super) struct PlannedFile {
+    /// The normalized root-relative file name.
+    pub(super) path: String,
+    /// Exact bytes encoded as hex in the recovery journal.
+    #[serde(with = "byte_string")]
+    pub(super) bytes: Vec<u8>,
+    /// SHA-256 of `bytes`.
+    pub(super) digest: String,
+}
+
+impl FileInput {
+    /// Construct a file input for a root-relative path.
+    pub fn new(path: impl Into<String>, bytes: impl Into<Vec<u8>>) -> Self {
+        Self {
+            path: path.into(),
+            bytes: bytes.into(),
+        }
+    }
+}
+
+impl FilePlan {
+    /// Preview new files, refusing collisions and paths that are not normalized relatives.
+    ///
+    /// # Errors
+    /// Returns an error for invalid paths, collisions, duplicate names, or filesystem failures.
+    pub fn preview(root: &Path, inputs: impl IntoIterator<Item = FileInput>) -> io::Result<Self> {
+        let mut inputs: Vec<_> = inputs.into_iter().collect();
+        inputs.sort_by(|left, right| left.path.cmp(&right.path));
+        let mut paths = BTreeSet::new();
+        for input in &inputs {
+            validate_relative_path(&input.path)?;
+            if !paths.insert(input.path.clone()) {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "duplicate planned path",
+                ));
+            }
+        }
+        let mut entries = Vec::with_capacity(inputs.len());
+        for input in inputs {
+            validate_no_ancestor_conflicts(&input.path, &paths)?;
+            let (parent, name) = split_path(&input.path)?;
+            match maestro_filesystem::Directory::open(root, &parent, false) {
+                Ok(directory) => match directory.read_regular(name) {
+                    Ok(_) => {
+                        return Err(io::Error::new(
+                            io::ErrorKind::AlreadyExists,
+                            "preview target exists",
+                        ));
+                    }
+                    Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+                    Err(error) => return Err(error),
+                },
+                Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+                Err(error) => return Err(error),
+            }
+            entries.push(PlannedFile {
+                digest: digest(&input.bytes),
+                path: input.path,
+                bytes: input.bytes,
+            });
+        }
+        if entries.is_empty() {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "empty file plan",
+            ));
+        }
+        let id = plan_identity(&entries)?;
+        Ok(Self { id, entries })
+    }
+
+    /// Stable digest identifying this exact plan.
+    #[must_use]
+    pub fn id(&self) -> &str {
+        &self.id
+    }
+}
+
+/// Compute a lowercase SHA-256 digest with its algorithm prefix.
+pub(super) fn digest(bytes: &[u8]) -> String {
+    let mut digest = String::from("sha256:");
+    for byte in Sha256::digest(bytes) {
+        digest.push(char::from_digit(u32::from(byte >> 4), 16).unwrap_or('0'));
+        digest.push(char::from_digit(u32::from(byte & 0x0f), 16).unwrap_or('0'));
+    }
+    digest
+}
+
+/// Split a validated slash-separated file name into parent and leaf components.
+pub(super) fn split_path(path: &str) -> io::Result<(PathBuf, &str)> {
+    let target = Path::new(path);
+    let name = target
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "invalid planned path"))?;
+    let parent = target.parent().unwrap_or_else(|| Path::new(""));
+    Ok((parent.to_path_buf(), name))
+}
+
+/// Encode arbitrary file bytes as journal-safe hexadecimal text.
+mod byte_string {
+    use serde::{Deserialize, Deserializer, Serializer, de};
+    use std::str;
+
+    /// Serialize bytes as a TOML-compatible hexadecimal string.
+    pub(super) fn serialize<S: Serializer>(bytes: &[u8], serializer: S) -> Result<S::Ok, S::Error> {
+        let mut encoded = String::with_capacity(bytes.len() * 2);
+        for byte in bytes {
+            encoded.push(char::from_digit(u32::from(byte >> 4), 16).unwrap_or('0'));
+            encoded.push(char::from_digit(u32::from(byte & 0x0f), 16).unwrap_or('0'));
+        }
+        serializer.serialize_str(&encoded)
+    }
+
+    /// Decode a validated hexadecimal journal string into exact bytes.
+    pub(super) fn deserialize<'de, D: Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<Vec<u8>, D::Error> {
+        let encoded = String::deserialize(deserializer)?;
+        if encoded.len() % 2 != 0 {
+            return Err(de::Error::custom("invalid file bytes"));
+        }
+        let mut decoded = Vec::with_capacity(encoded.len() / 2);
+        for pair in encoded.as_bytes().as_chunks::<2>().0 {
+            let digits = str::from_utf8(pair).map_err(de::Error::custom)?;
+            decoded.push(u8::from_str_radix(digits, 16).map_err(de::Error::custom)?);
+        }
+        Ok(decoded)
+    }
+}
+
+/// Refuse absolute, traversing, empty, or platform-ambiguous relative file names.
+pub(super) fn validate_relative_path(path: &str) -> io::Result<()> {
+    if path.is_empty() || path.contains('\\') || path.split('/').next() == Some(".maestro-files") {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "unsafe planned path",
+        ));
+    }
+    for part in path.split('/') {
+        if part.is_empty() || part == "." || part == ".." {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "unsafe planned path",
+            ));
+        }
+    }
+    for component in Path::new(path).components() {
+        if let Component::Normal(_) = component {
+            continue;
+        }
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "unsafe planned path",
+        ));
+    }
+    Ok(())
+}
+
+/// Validate an externally supplied plan identifier before using it in a state-file name.
+pub(super) fn validate_id(id: &str) -> io::Result<()> {
+    let Some(digits) = id.strip_prefix("sha256:") else {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "invalid file plan id",
+        ));
+    };
+    if digits.len() != 64 {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "invalid file plan id",
+        ));
+    }
+    for digit in digits.bytes() {
+        if !digit.is_ascii_digit() && !(b'a'..=b'f').contains(&digit) {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "invalid file plan id",
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Validate journal contents before they are allowed to cause filesystem effects.
+pub(super) fn validate_plan(plan: &FilePlan) -> io::Result<()> {
+    let mut paths = BTreeSet::new();
+    for entry in &plan.entries {
+        validate_relative_path(&entry.path)?;
+        if !paths.insert(entry.path.as_str()) {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "duplicate journal path",
+            ));
+        }
+        if digest(&entry.bytes) != entry.digest {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "journal digest mismatch",
+            ));
+        }
+    }
+    if plan.entries.is_empty() || plan_identity(&plan.entries)? != plan.id {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "journal plan identity mismatch",
+        ));
+    }
+    Ok(())
+}
+
+/// Reject two planned paths where one must be both a file and a directory.
+fn validate_no_ancestor_conflicts(path: &str, paths: &BTreeSet<String>) -> io::Result<()> {
+    let mut parent_path = path;
+    while let Some((parent, _)) = parent_path.rsplit_once('/') {
+        if paths.contains(parent) {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "planned file is an ancestor of another file",
+            ));
+        }
+        parent_path = parent;
+    }
+    Ok(())
+}
+
+/// Hash length-prefixed paths and contents so concatenation cannot alias another plan.
+fn plan_identity(entries: &[PlannedFile]) -> io::Result<String> {
+    let mut identity = Vec::new();
+    for entry in entries {
+        let path_length = u64::try_from(entry.path.len())
+            .map_err(|_| io::Error::other("plan path exceeds supported length"))?;
+        let bytes_length = u64::try_from(entry.bytes.len())
+            .map_err(|_| io::Error::other("planned file exceeds supported size"))?;
+        identity.extend_from_slice(&path_length.to_be_bytes());
+        identity.extend_from_slice(entry.path.as_bytes());
+        identity.extend_from_slice(&bytes_length.to_be_bytes());
+        identity.extend_from_slice(&entry.bytes);
+    }
+    Ok(digest(&identity))
+}

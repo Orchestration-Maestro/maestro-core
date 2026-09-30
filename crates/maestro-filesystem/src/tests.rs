@@ -182,6 +182,112 @@ fn link_never_replaces_its_destination() {
 }
 
 #[test]
+fn remove_verified_removes_only_matching_regular_files() {
+    let root = scratch();
+    fs::write(root.join("file"), b"expected").unwrap();
+    let directory = Directory::open(&root, Path::new(""), false).unwrap();
+    assert_eq!(
+        directory
+            .remove_verified("../file", b"expected")
+            .unwrap_err()
+            .kind(),
+        io::ErrorKind::InvalidInput
+    );
+    assert_eq!(fs::read(root.join("file")).unwrap(), b"expected");
+    directory.remove_verified("file", b"expected").unwrap();
+    assert!(!root.join("file").exists());
+    drop(directory);
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn remove_verified_refuses_edited_or_replaced_bytes() {
+    let root = scratch();
+    let directory = Directory::open(&root, Path::new(""), false).unwrap();
+    fs::write(root.join("edited"), b"new bytes").unwrap();
+    assert!(directory.remove_verified("edited", b"old bytes").is_err());
+    assert_eq!(fs::read(root.join("edited")).unwrap(), b"new bytes");
+
+    fs::write(root.join("original"), b"old bytes").unwrap();
+    fs::rename(root.join("original"), root.join("saved")).unwrap();
+    fs::write(root.join("original"), b"replacement").unwrap();
+    assert!(directory.remove_verified("original", b"old bytes").is_err());
+    assert_eq!(fs::read(root.join("original")).unwrap(), b"replacement");
+    drop(directory);
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn remove_verified_quarantine_never_replaces_a_planted_name() {
+    let root = scratch();
+    let name = "file";
+    fs::write(root.join(name), b"expected").unwrap();
+    for counter in 0..128 {
+        fs::write(
+            root.join(format!(
+                ".{name}.maestro-quarantine-{}-{counter}",
+                process::id()
+            )),
+            b"planted",
+        )
+        .unwrap();
+    }
+    let directory = Directory::open(&root, Path::new(""), false).unwrap();
+    directory.remove_verified(name, b"expected").unwrap();
+    assert!(!root.join(name).exists());
+    for counter in 0..128 {
+        assert_eq!(
+            fs::read(root.join(format!(
+                ".{name}.maestro-quarantine-{}-{counter}",
+                process::id()
+            )))
+            .unwrap(),
+            b"planted"
+        );
+    }
+    drop(directory);
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[cfg(unix)]
+#[test]
+fn remove_verified_refuses_links_without_removing_the_target() {
+    let root = scratch();
+    fs::write(root.join("target"), b"expected").unwrap();
+    symlink(root.join("target"), root.join("link")).unwrap();
+    let directory = Directory::open(&root, Path::new(""), false).unwrap();
+    assert!(directory.remove_verified("link", b"expected").is_err());
+    assert_eq!(fs::read(root.join("target")).unwrap(), b"expected");
+    assert!(
+        fs::symlink_metadata(root.join("link"))
+            .unwrap()
+            .file_type()
+            .is_symlink()
+    );
+    drop(directory);
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[cfg(windows)]
+#[test]
+fn remove_verified_refuses_reparse_points() {
+    let root = scratch();
+    fs::create_dir(root.join("target")).unwrap();
+    let created = process::Command::new("cmd")
+        .args(["/C", "mklink", "/J"])
+        .arg(root.join("junction"))
+        .arg(root.join("target"))
+        .status()
+        .unwrap();
+    assert!(created.success());
+    let directory = Directory::open(&root, Path::new(""), false).unwrap();
+    assert!(directory.remove_verified("junction", b"").is_err());
+    assert!(root.join("target").is_dir());
+    drop(directory);
+    fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn remove_file_removes_the_name() {
     let root = scratch();
     fs::write(root.join("file"), "contents").unwrap();

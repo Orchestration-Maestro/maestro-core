@@ -3,14 +3,21 @@
 //! must support hard links and directory fsync.
 use super::root::resolve;
 use rustix::fd::OwnedFd;
-use rustix::fs::{AtFlags, Mode, OFlags, linkat, mkdirat, open, openat, unlinkat};
+use rustix::fs::{
+    AtFlags, Mode, OFlags, RenameFlags, linkat, mkdirat, open, openat, renameat_with, unlinkat,
+};
 use rustix::io::Errno;
 use std::{
     ffi::OsStr,
     fs::File,
     io::{self, Read},
     path::{Component, Path},
+    process,
+    sync::atomic::{AtomicUsize, Ordering},
 };
+
+/// The next process-local suffix for a collision-free quarantine name.
+static NEXT_QUARANTINE: AtomicUsize = AtomicUsize::new(0);
 
 /// Read only, reject links, avoid FIFO blocking, and keep the descriptor out of child processes.
 const READ_REGULAR_FLAGS: OFlags = OFlags::RDONLY
@@ -91,6 +98,52 @@ impl Directory {
     pub fn link(&self, from: &str, to: &str) -> io::Result<()> {
         linkat(&self.0, from, &self.0, to, AtFlags::empty())?;
         self.0.sync_all()
+    }
+
+    /// Remove `name` only if its bytes still match `expected`, without following links.
+    ///
+    /// The entry is first atomically renamed to a collision-free quarantine name relative to this
+    /// held directory. A mismatch is restored without replacing a concurrently-created name.
+    ///
+    /// # Errors
+    /// Returns an error if the entry changes, is not regular, or cannot be safely restored/removed.
+    pub fn remove_verified(&self, name: &str, expected: &[u8]) -> io::Result<()> {
+        if name.is_empty()
+            || name.contains('/')
+            || name.contains('\\')
+            || name == "."
+            || name == ".."
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "name is not one file",
+            ));
+        }
+        let quarantine = loop {
+            let counter = NEXT_QUARANTINE.fetch_add(1, Ordering::Relaxed);
+            let candidate = format!(".{name}.maestro-quarantine-{}-{counter}", process::id());
+            match renameat_with(&self.0, name, &self.0, &candidate, RenameFlags::NOREPLACE) {
+                Ok(()) => break candidate,
+                Err(Errno::EXIST) => {}
+                Err(error) => return Err(error.into()),
+            }
+        };
+        match self.read_regular(&quarantine) {
+            Ok(bytes) if bytes == expected => {
+                Ok(unlinkat(&self.0, quarantine.as_str(), AtFlags::empty())?)
+            }
+            Ok(_) | Err(_) => {
+                if let Err(error) = self.link(&quarantine, name) {
+                    return Err(io::Error::other(format!(
+                        "verified removal refused; changed bytes retained at {quarantine}: {error}"
+                    )));
+                }
+                self.remove_file(&quarantine)?;
+                Err(io::Error::other(
+                    "verified removal refused: file bytes changed",
+                ))
+            }
+        }
     }
 
     /// Remove a name from the directory; a link is removed, never followed.

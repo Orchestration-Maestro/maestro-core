@@ -870,11 +870,13 @@ dependencies = [
 name = "maestro-catalog"
 version = "0.1.0"
 dependencies = [
+ "maestro-filesystem",
  "maestro-kernel",
  "pulldown-cmark",
  "serde",
  "serde_json",
  "serde_yaml_ng",
+ "sha2",
  "toml",
 ]
 

@@ -13,7 +13,12 @@ use std::{
     io::{self, ErrorKind, Read},
     os::windows::fs::{MetadataExt, OpenOptionsExt},
     path::{Component, Path, PathBuf},
+    process,
+    sync::atomic::{AtomicUsize, Ordering},
 };
+
+/// The next process-local suffix for a collision-free quarantine name.
+static NEXT_QUARANTINE: AtomicUsize = AtomicUsize::new(0);
 
 /// `FILE_SHARE_READ`: others may read the file while the handle is open.
 const FILE_SHARE_READ: u32 = 0x0000_0001;
@@ -107,6 +112,51 @@ impl Directory {
     /// Returns an error if the link cannot be created.
     pub fn link(&self, from: &str, to: &str) -> io::Result<()> {
         fs::hard_link(self.path.join(from), self.path.join(to))
+    }
+
+    /// Remove `name` only if its bytes still match `expected`, without following links.
+    ///
+    /// The entry is first renamed to a collision-free quarantine name inside this held directory.
+    /// Verification opens that name without following reparse points. A mismatch is restored with
+    /// a non-replacing hard link; changed bytes are never removed.
+    ///
+    /// # Errors
+    /// Returns an error if the entry changes, is not regular, or cannot be safely restored/removed.
+    pub fn remove_verified(&self, name: &str, expected: &[u8]) -> io::Result<()> {
+        if name.is_empty()
+            || name.contains('/')
+            || name.contains('\\')
+            || name == "."
+            || name == ".."
+        {
+            return Err(io::Error::new(
+                ErrorKind::InvalidInput,
+                "name is not one file",
+            ));
+        }
+        let quarantine = loop {
+            let counter = NEXT_QUARANTINE.fetch_add(1, Ordering::Relaxed);
+            let candidate = format!(".{name}.maestro-quarantine-{}-{counter}", process::id());
+            match fs::rename(self.path.join(name), self.path.join(&candidate)) {
+                Ok(()) => break candidate,
+                Err(error) if error.kind() == ErrorKind::AlreadyExists => {}
+                Err(error) => return Err(error),
+            }
+        };
+        match self.read_regular(&quarantine) {
+            Ok(bytes) if bytes == expected => self.remove_file(&quarantine),
+            Ok(_) | Err(_) => {
+                if let Err(error) = self.link(&quarantine, name) {
+                    return Err(io::Error::other(format!(
+                        "verified removal refused; changed bytes retained at {quarantine}: {error}"
+                    )));
+                }
+                self.remove_file(&quarantine)?;
+                Err(io::Error::other(
+                    "verified removal refused: file bytes changed",
+                ))
+            }
+        }
     }
 
     /// Remove a name from the directory; a link is removed, never followed.

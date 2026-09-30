@@ -2,6 +2,8 @@
 //! its authoring sources. Checking reads files as bounded data; it never runs a
 //! template, script or hook.
 #![forbid(unsafe_code)]
+/// Digest-bound, recoverable writes and removal for catalog-owned files.
+pub mod files;
 pub mod limits;
 mod model_cards;
 pub mod source;

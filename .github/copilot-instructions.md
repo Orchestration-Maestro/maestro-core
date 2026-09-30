@@ -463,6 +463,18 @@ in place.
 │   │   ├── data/                                                            # Data
 │   │   │   └── known-rows.txt                                               # Text: known rows
 │   │   ├── src/                                                             # The crate's sources
+│   │   │   ├── files/                                                       # Shared digest-bound file plans, durable ownership, and crash-safe removal
+│   │   │   │   ├── tests/                                                   # Integration tests
+│   │   │   │   │   ├── crashes.rs                                           # Rust source: crashes
+│   │   │   │   │   ├── mod.rs                                               # Rust source: mod
+│   │   │   │   │   ├── races.rs                                             # Rust source: races
+│   │   │   │   │   ├── removal.rs                                           # Rust source: removal
+│   │   │   │   │   └── support.rs                                           # Rust source: support
+│   │   │   │   ├── apply.rs                                                 # Apply exclusive file plans, commit ownership last, and recover proven states
+│   │   │   │   ├── mod.rs                                                   # Shared digest-bound file plans, durable ownership, and crash-safe removal
+│   │   │   │   ├── plan.rs                                                  # Preview immutable file bytes, validate relative names, and bind content digests
+│   │   │   │   ├── recovery.rs                                              # Read and validate write-ahead journals through the shared held-handle filesystem
+│   │   │   │   └── remove.rs                                                # Remove only committed, digest-matching owned file names
 │   │   │   ├── limits/                                                      # The one immutable set of numeric limits every catalog input path shares
 │   │   │   │   ├── mod.rs                                                   # The one immutable set of numeric limits every catalog input path shares
 │   │   │   │   ├── tests.rs                                                 # Plan D2's production constants, asserted once here; every boundary test
