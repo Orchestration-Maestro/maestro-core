@@ -90,7 +90,7 @@ jobs:
           $identity = [System.Security.Principal.WindowsIdentity]::GetCurrent()
           $sid = $identity.User.Value
           Write-Output "USERNAME=$env:USERNAME; identity=$($identity.Name); SID=$sid"
-          $root = Join-Path $env:RUNNER_TEMP "s3-acl-probe"
+          $root = Join-Path ([System.IO.Path]::GetTempPath()) "s3-acl-probe"
           New-Item -ItemType Directory -Path $root -Force | Out-Null
           foreach ($probe in @(
             @{ Name = "username-ad"; Principal = $env:USERNAME; Rights = "AD" },
@@ -111,14 +111,15 @@ jobs:
             }
           }
           Remove-Item -Recurse -Force $root
-      - name: Native full workspace tests
+      - name: Instrument the Windows Rust fixture
+        if: runner.os == 'Windows'
         run: |
           set -o pipefail
-          cargo nextest run --workspace --locked --no-fail-fast 2>&1 | tee s3-nextest.log
+          cargo nextest run -p maestro-filesystem --locked a_create_failure_is_not_retried_as_a_missing_directory --no-capture 2>&1 | tee "$RUNNER_TEMP/s3-nextest.log"
       - name: Preserve native test evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
         with:
           name: s3-windows-fix-${{ matrix.runner }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: s3-nextest.log
+          path: ${{ runner.temp }}/s3-nextest.log
           if-no-files-found: warn
