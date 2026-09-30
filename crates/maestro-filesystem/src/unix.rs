@@ -1,6 +1,7 @@
 //! Unix filesystem access: every name resolves against an open directory, never a path.
 //! rustix's `openat` family closes the check-then-open ancestor/symlink race. The local filesystem
-//! must support hard links and directory fsync.
+//! must support hard links, directory fsync, and `renameat2` with `RENAME_NOREPLACE`; Linux drvfs
+//! and NFS return `EINVAL` and fail closed without that support.
 use super::root::resolve;
 use rustix::fd::OwnedFd;
 use rustix::fs::{
@@ -102,8 +103,12 @@ impl Directory {
 
     /// Remove `name` only if its bytes still match `expected`, without following links.
     ///
-    /// The entry is first atomically renamed to a collision-free quarantine name relative to this
-    /// held directory. A mismatch is restored without replacing a concurrently-created name.
+    /// The entry is first atomically renamed to a predictable, visible quarantine name relative to
+    /// this held directory. A mismatch is restored without replacing a concurrently-created name.
+    /// If restoration meets a reappeared name, or a crash occurs between rename and unlink, the old
+    /// bytes remain in the hidden quarantine; a resumed catalog removal then has no ownership
+    /// record to proceed from. Verification precedes unlink-by-name, so a writer holding an open
+    /// descriptor can still change bytes after verification.
     ///
     /// # Errors
     /// Returns an error if the entry changes, is not regular, or cannot be safely restored/removed.
@@ -118,6 +123,10 @@ impl Directory {
                 io::ErrorKind::InvalidInput,
                 "name is not one file",
             ));
+        }
+        let original = openat(&self.0, name, OPEN_NOFOLLOW_FLAGS, Mode::empty())?;
+        if !File::from(original).metadata()?.is_file() {
+            return Err(io::Error::other("artifact is not a regular file"));
         }
         let quarantine = loop {
             let counter = NEXT_QUARANTINE.fetch_add(1, Ordering::Relaxed);
@@ -151,7 +160,8 @@ impl Directory {
     /// # Errors
     /// Returns an error if the name cannot be removed.
     pub fn remove_file(&self, name: &str) -> io::Result<()> {
-        Ok(unlinkat(&self.0, name, AtFlags::empty())?)
+        unlinkat(&self.0, name, AtFlags::empty())?;
+        self.0.sync_all()
     }
 }
 

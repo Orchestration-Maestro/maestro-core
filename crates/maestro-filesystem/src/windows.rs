@@ -116,9 +116,11 @@ impl Directory {
 
     /// Remove `name` only if its bytes still match `expected`, without following links.
     ///
-    /// The entry is first renamed to a collision-free quarantine name inside this held directory.
-    /// Verification opens that name without following reparse points. A mismatch is restored with
-    /// a non-replacing hard link; changed bytes are never removed.
+    /// The entry is first renamed into an exclusively created quarantine directory inside this held
+    /// directory. Verification opens it without following reparse points. A mismatch is restored
+    /// with a non-replacing hard link; changed bytes are never removed. The predictable quarantine
+    /// directory is visible, so another process creating a file inside it during the rename window
+    /// can prevent safe completion.
     ///
     /// # Errors
     /// Returns an error if the entry changes, is not regular, or cannot be safely restored/removed.
@@ -134,24 +136,38 @@ impl Directory {
                 "name is not one file",
             ));
         }
+        let original = open_nofollow(&self.path.join(name))?;
+        if !original.metadata()?.is_file() {
+            return Err(io::Error::other("artifact is not a regular file"));
+        }
+        drop(original);
         let quarantine = loop {
             let counter = NEXT_QUARANTINE.fetch_add(1, Ordering::Relaxed);
             let candidate = format!(".{name}.maestro-quarantine-{}-{counter}", process::id());
-            match fs::rename(self.path.join(name), self.path.join(&candidate)) {
+            match fs::create_dir(self.path.join(&candidate)) {
                 Ok(()) => break candidate,
                 Err(error) if error.kind() == ErrorKind::AlreadyExists => {}
                 Err(error) => return Err(error),
             }
         };
-        match self.read_regular(&quarantine) {
-            Ok(bytes) if bytes == expected => self.remove_file(&quarantine),
+        let quarantine_file = format!("{quarantine}/file");
+        if let Err(error) = fs::rename(self.path.join(name), self.path.join(&quarantine_file)) {
+            fs::remove_dir(self.path.join(&quarantine))?;
+            return Err(error);
+        }
+        match self.read_regular(&quarantine_file) {
+            Ok(bytes) if bytes == expected => {
+                self.remove_file(&quarantine_file)?;
+                fs::remove_dir(self.path.join(&quarantine))
+            }
             Ok(_) | Err(_) => {
-                if let Err(error) = self.link(&quarantine, name) {
+                if let Err(error) = self.link(&quarantine_file, name) {
                     return Err(io::Error::other(format!(
                         "verified removal refused; changed bytes retained at {quarantine}: {error}"
                     )));
                 }
-                self.remove_file(&quarantine)?;
+                self.remove_file(&quarantine_file)?;
+                fs::remove_dir(self.path.join(&quarantine))?;
                 Err(io::Error::other(
                     "verified removal refused: file bytes changed",
                 ))
