@@ -67,12 +67,22 @@ pub(crate) trait ProjectionBackend {
         edges: &[ProjectionEdge],
         facts: &[EntityFact],
     ) -> Result<(), String>;
-    /// Close, reopen and verify the unpublished file's schema, indexes, counts and digest.
+    /// Close, reopen and verify the latest unpublished content; leave the session writable.
+    ///
+    /// A subsequent batch invalidates this verification, so publication verifies again.
     fn verify_unpublished(&mut self, scope: &ProjectionScope) -> Result<BuildVerification, String>;
-    /// Atomically make this verified file immutable and visible to readers.
-    fn publish_unpublished(&mut self, scope: &ProjectionScope) -> Result<(), String>;
-    /// Open only the immutable published file for this exact collection pin.
-    fn open_published(&self, scope: &ProjectionScope) -> Result<Self::Reader, String>;
+    /// Atomically install this verified file under the exact receipt basename.
+    fn publish_unpublished(
+        &mut self,
+        scope: &ProjectionScope,
+        file_name: &str,
+    ) -> Result<(), String>;
+    /// Open only the immutable file named by this exact readiness receipt.
+    fn open_published(
+        &self,
+        scope: &ProjectionScope,
+        receipt: &ProjectionReceipt,
+    ) -> Result<Self::Reader, String>;
 }
 
 /// Catalog-owned closed vocabulary; absence of a port fails closed.
@@ -157,6 +167,7 @@ impl<'a, B: ProjectionBackend> ProjectionWriter<'a, B> {
     pub(crate) fn verify_and_publish(
         &mut self,
         expected: &BuildVerification,
+        claim_set_id: &Digest,
     ) -> Result<BuildVerification, ProjectionError> {
         let found = self
             .backend
@@ -170,8 +181,10 @@ impl<'a, B: ProjectionBackend> ProjectionWriter<'a, B> {
         {
             return Err(ProjectionError::NotReady);
         }
+        let file_name = super::content::basename(&self.scope, claim_set_id)
+            .map_err(ProjectionError::Backend)?;
         self.backend
-            .publish_unpublished(&self.scope)
+            .publish_unpublished(&self.scope, &file_name)
             .map_err(ProjectionError::Backend)?;
         Ok(found)
     }
@@ -252,8 +265,14 @@ impl ProjectionReader {
         {
             return Err(ProjectionError::NotReady);
         }
+        if !super::content::is_canonical_basename(&receipt.file_name)
+            || super::content::basename(&scope, &receipt.claim_set_id)
+                != Ok(receipt.file_name.clone())
+        {
+            return Err(ProjectionError::NotReady);
+        }
         let reader = backend
-            .open_published(&scope)
+            .open_published(&scope, &receipt)
             .map_err(ProjectionError::Backend)?;
         let verified = reader.verification().map_err(ProjectionError::Backend)?;
         let mapped = receipt_from_verification(

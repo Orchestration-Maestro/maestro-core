@@ -2,6 +2,7 @@
 
 pub mod port;
 
+mod content;
 mod schema;
 pub(crate) mod writer;
 pub use port::{

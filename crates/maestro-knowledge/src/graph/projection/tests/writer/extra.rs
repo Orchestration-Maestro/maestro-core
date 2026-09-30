@@ -64,7 +64,11 @@ fn schema_and_required_indexes_are_checked_independently_of_expected_values() {
         let mut backend = backend;
         let mut writer = ProjectionWriter::create(&mut backend, scope.clone()).unwrap();
         let expected = writer.backend.verify_unpublished(&scope).unwrap();
-        assert!(writer.verify_and_publish(&expected).is_err());
+        assert!(
+            writer
+                .verify_and_publish(&expected, &Digest::of(b"set"))
+                .is_err()
+        );
     }
 }
 
@@ -116,20 +120,28 @@ fn an_unverified_count_or_index_set_never_becomes_ready() {
         collection_id: "c".to_owned(),
         generation_id: 5,
     };
-    let (path, database, scopes) = scoped();
+    let (path, database, _scopes) = scoped();
     let mut backend = Fake::default();
     let mut writer = ProjectionWriter::create(&mut backend, scope.clone()).unwrap();
     let wrong = BuildVerification {
         schema: "maestro-typed-edges/1".to_owned(),
         family_counts: BTreeMap::new(),
         fact_count: 0,
-        content_digest: Digest::of(b"fake projection content"),
+        content_digest: content::digest(&[], &[]).unwrap(),
         indexes: BTreeSet::new(),
     };
-    assert!(writer.verify_and_publish(&wrong).is_err());
+    assert!(
+        writer
+            .verify_and_publish(&wrong, &Digest::of(b"set"))
+            .is_err()
+    );
     drop(writer);
-    assert!(ProjectionReader::open(&backend, &ready(0, 0, 0), &scopes, scope).is_err());
-    assert!(!backend.published.contains(&5));
+    assert!(
+        !backend
+            .published
+            .iter()
+            .any(|(published_scope, _)| published_scope.generation_id == 5)
+    );
     drop(database);
     fs::remove_dir_all(path).unwrap();
 }

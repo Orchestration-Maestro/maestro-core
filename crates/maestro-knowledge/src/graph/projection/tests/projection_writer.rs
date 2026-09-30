@@ -1,8 +1,11 @@
 //! Backend-neutral projection writer and reader contract tests.
 
-use super::super::writer::{
-    BuildVerification, CatalogRelationVocabulary, ProjectionBackend, ProjectionBackendReader,
-    ProjectionReader, ProjectionReadiness, ProjectionWriter,
+use super::super::{
+    content,
+    writer::{
+        BuildVerification, CatalogRelationVocabulary, ProjectionBackend, ProjectionBackendReader,
+        ProjectionReader, ProjectionReadiness, ProjectionWriter,
+    },
 };
 use crate::graph::projection::{
     EdgeFamily, ProjectionEdge, ProjectionError, ProjectionScope, TypedEdgeProjection,
@@ -43,7 +46,7 @@ struct Fake {
     pending: BTreeMap<i64, Vec<ProjectionEdge>>,
     fact_counts: BTreeMap<i64, usize>,
     pending_facts: BTreeMap<i64, Vec<super::super::EntityFact>>,
-    published: BTreeSet<i64>,
+    published: BTreeSet<(ProjectionScope, String)>,
     fail_batch: bool,
     schema: Option<String>,
     omit_edge_index: bool,
@@ -54,6 +57,7 @@ struct FakeReader {
     edges: Vec<ProjectionEdge>,
     facts: Vec<super::super::EntityFact>,
     fact_count: usize,
+    digest: Digest,
 }
 impl ProjectionBackendReader for FakeReader {
     fn verification(&self) -> Result<BuildVerification, String> {
@@ -65,7 +69,7 @@ impl ProjectionBackendReader for FakeReader {
             schema: "maestro-typed-edges/1".to_owned(),
             family_counts,
             fact_count: self.fact_count,
-            content_digest: Digest::of(b"fake projection content"),
+            content_digest: self.digest.clone(),
             indexes: BTreeSet::from([
                 "edge_by_scope_family_source".to_owned(),
                 "fact_by_scope_subject".to_owned(),
@@ -93,36 +97,39 @@ impl ProjectionBackendReader for FakeReader {
             .collect())
     }
 }
-struct Ready {
-    knowledge: usize,
-    catalog: usize,
-    facts: usize,
-}
+struct Ready(ProjectionReceipt);
 impl ProjectionReadiness for Ready {
     fn projection_ready(
         &self,
         _scopes: &ScopeSet,
         scope: &ProjectionScope,
     ) -> Result<Option<ProjectionReceipt>, String> {
-        Ok(Some(ProjectionReceipt {
-            collection_id: scope.collection_id.clone(),
-            generation_id: scope.generation_id,
-            claim_set_id: Digest::of(b"set"),
-            file_name: "projection.db".to_owned(),
-            schema_version: "maestro-typed-edges/1".to_owned(),
-            knowledge_edge_count: self.knowledge,
-            catalog_dependency_edge_count: self.catalog,
-            entity_fact_count: self.facts,
-            content_digest: Digest::of(b"fake projection content"),
-        }))
+        Ok((self.0.collection_id == scope.collection_id
+            && self.0.generation_id == scope.generation_id)
+            .then(|| self.0.clone()))
     }
 }
-fn ready(knowledge: usize, catalog: usize, facts: usize) -> Ready {
-    Ready {
-        knowledge,
-        catalog,
-        facts,
-    }
+fn ready(scope: &ProjectionScope, build: &BuildVerification) -> Ready {
+    let claim_set_id = Digest::of(b"set");
+    Ready(ProjectionReceipt {
+        collection_id: scope.collection_id.clone(),
+        generation_id: scope.generation_id,
+        claim_set_id: claim_set_id.clone(),
+        file_name: content::basename(scope, &claim_set_id).unwrap(),
+        schema_version: build.schema.clone(),
+        knowledge_edge_count: build
+            .family_counts
+            .get(&EdgeFamily::KnowledgeClaim)
+            .copied()
+            .unwrap_or(0),
+        catalog_dependency_edge_count: build
+            .family_counts
+            .get(&EdgeFamily::CatalogDependency)
+            .copied()
+            .unwrap_or(0),
+        entity_fact_count: build.fact_count,
+        content_digest: build.content_digest.clone(),
+    })
 }
 impl ProjectionBackend for Fake {
     type Reader = FakeReader;
@@ -131,7 +138,11 @@ impl ProjectionBackend for Fake {
         Ok(())
     }
     fn create_unpublished(&mut self, scope: &ProjectionScope) -> Result<(), String> {
-        if self.published.contains(&scope.generation_id) {
+        if self
+            .published
+            .iter()
+            .any(|(published_scope, _)| published_scope == scope)
+        {
             return Err("already published".to_owned());
         }
         Ok(())
@@ -143,12 +154,35 @@ impl ProjectionBackend for Fake {
         edges: &[ProjectionEdge],
         facts: &[super::super::EntityFact],
     ) -> Result<(), String> {
-        if self.published.contains(&scope.generation_id) {
+        if self
+            .published
+            .iter()
+            .any(|(published_scope, _)| published_scope == scope)
+        {
             return Err("already published".to_owned());
         }
         if self.fail_batch {
             self.fail_batch = false;
             return Err("batch aborted".to_owned());
+        }
+        let existing_edges = self
+            .pending
+            .get(&scope.generation_id)
+            .map_or(&[][..], Vec::as_slice);
+        let existing_facts = self
+            .pending_facts
+            .get(&scope.generation_id)
+            .map_or(&[][..], Vec::as_slice);
+        if edges
+            .iter()
+            .any(|edge| existing_edges.iter().any(|existing| existing.id == edge.id))
+            || facts.iter().any(|fact| {
+                existing_facts
+                    .iter()
+                    .any(|existing| existing.claim.id == fact.claim.id)
+            })
+        {
+            return Err("duplicate record ID".to_owned());
         }
         self.pending
             .entry(scope.generation_id)
@@ -185,34 +219,58 @@ impl ProjectionBackend for Fake {
                 .unwrap_or_else(|| "maestro-typed-edges/1".to_owned()),
             family_counts,
             fact_count: *self.fact_counts.get(&scope.generation_id).unwrap_or(&0),
-            content_digest: Digest::of(b"fake projection content"),
+            content_digest: content::digest(
+                rows,
+                self.pending_facts
+                    .get(&scope.generation_id)
+                    .map_or(&[][..], Vec::as_slice),
+            )?,
             indexes,
         })
     }
 
-    fn publish_unpublished(&mut self, scope: &ProjectionScope) -> Result<(), String> {
-        if self.published.contains(&scope.generation_id) {
-            return Err("already published".to_owned());
+    fn publish_unpublished(
+        &mut self,
+        scope: &ProjectionScope,
+        file_name: &str,
+    ) -> Result<(), String> {
+        if self
+            .published
+            .iter()
+            .any(|(published_scope, _)| published_scope == scope)
+            || !content::is_canonical_basename(file_name)
+        {
+            return Err("invalid or already published".to_owned());
         }
-        self.published.insert(scope.generation_id);
+        self.published.insert((scope.clone(), file_name.to_owned()));
         Ok(())
     }
 
-    fn open_published(&self, scope: &ProjectionScope) -> Result<Self::Reader, String> {
-        if !self.published.contains(&scope.generation_id) {
-            return Err("not published".to_owned());
+    fn open_published(
+        &self,
+        scope: &ProjectionScope,
+        receipt: &ProjectionReceipt,
+    ) -> Result<Self::Reader, String> {
+        if !self
+            .published
+            .contains(&(scope.clone(), receipt.file_name.clone()))
+        {
+            return Err("wrong receipt name".to_owned());
         }
+        let edges = self
+            .pending
+            .get(&scope.generation_id)
+            .cloned()
+            .unwrap_or_default();
+        let facts = self
+            .pending_facts
+            .get(&scope.generation_id)
+            .cloned()
+            .unwrap_or_default();
         Ok(FakeReader {
-            edges: self
-                .pending
-                .get(&scope.generation_id)
-                .cloned()
-                .unwrap_or_default(),
-            facts: self
-                .pending_facts
-                .get(&scope.generation_id)
-                .cloned()
-                .unwrap_or_default(),
+            digest: content::digest(&edges, &facts)?,
+            edges,
+            facts,
             fact_count: *self.fact_counts.get(&scope.generation_id).unwrap_or(&0),
         })
     }
@@ -252,6 +310,7 @@ fn fact(scope: &ProjectionScope) -> super::super::EntityFact {
 
 pub(super) struct BackendContract<'a> {
     pub(super) scopes: &'a ScopeSet,
+    pub(super) denied_scopes: &'a ScopeSet,
     pub(super) scope: &'a ProjectionScope,
     pub(super) edges: &'a [ProjectionEdge],
     pub(super) facts: &'a [super::super::EntityFact],
@@ -262,82 +321,7 @@ pub(super) fn verified_backend_contract<B: ProjectionBackend>(
     backend: &mut B,
     contract: &BackendContract<'_>,
 ) {
-    assert!(
-        ProjectionReader::open(
-            backend,
-            &ready(1, 0, 1),
-            contract.scopes,
-            contract.scope.clone()
-        )
-        .is_err()
-    );
-    let mut writer = ProjectionWriter::create(backend, contract.scope.clone()).unwrap();
-    let before = writer.backend.verify_unpublished(contract.scope).unwrap();
-    writer.backend.inject_batch_failure().unwrap();
-    assert!(
-        writer
-            .write_batch(contract.scopes, contract.edges, contract.facts)
-            .is_err()
-    );
-    assert_eq!(
-        writer.backend.verify_unpublished(contract.scope).unwrap(),
-        before
-    );
-    writer
-        .write_batch(contract.scopes, contract.edges, contract.facts)
-        .unwrap();
-    assert_eq!(
-        writer.verify_and_publish(contract.expected).unwrap(),
-        *contract.expected
-    );
-    drop(writer);
-    let reader = ProjectionReader::open(
-        backend,
-        &ready(1, 0, 1),
-        contract.scopes,
-        contract.scope.clone(),
-    )
-    .unwrap();
-    assert_eq!(reader.scope(), contract.scope);
-    assert_eq!(
-        reader
-            .entity_facts(contract.scopes, contract.scope, &contract.facts[0].subject)
-            .unwrap(),
-        contract.facts
-    );
-    let entity = contract.edges[0].source.clone();
-    assert_eq!(
-        reader
-            .neighbors(
-                contract.scopes,
-                contract.scope,
-                EdgeFamily::KnowledgeClaim,
-                &entity
-            )
-            .unwrap(),
-        vec![contract.edges[0].clone()]
-    );
-    let other_pin = ProjectionScope {
-        generation_id: contract.scope.generation_id + 1,
-        ..contract.scope.clone()
-    };
-    assert!(
-        reader
-            .neighbors(
-                contract.scopes,
-                &other_pin,
-                EdgeFamily::KnowledgeClaim,
-                &entity
-            )
-            .is_err()
-    );
-    assert!(backend.create_unpublished(contract.scope).is_err());
-    assert!(
-        backend
-            .write_batch(contract.scope, contract.edges, contract.facts)
-            .is_err()
-    );
-    assert!(backend.publish_unpublished(contract.scope).is_err());
+    super::contract::run(backend, contract);
 }
 
 fn edge(generation_id: i64, family: EdgeFamily) -> ProjectionEdge {
@@ -361,23 +345,35 @@ fn backend_contract_keeps_families_separate_and_publishes_only_verified_builds()
         generation_id: 3,
     };
     let (path, database, all) = scoped();
+    let denied = database.visible("no-grants").unwrap();
     let mut backend = Fake::default();
-    let edges = [edge(3, EdgeFamily::KnowledgeClaim)];
+    let edges = [
+        edge(3, EdgeFamily::KnowledgeClaim),
+        ProjectionEdge {
+            relation: "depends_on".to_owned(),
+            source: Digest::of(b"catalog-source"),
+            ..edge(3, EdgeFamily::CatalogDependency)
+        },
+    ];
+    let facts = [fact(&scope)];
     let expected = BuildVerification {
         schema: "maestro-typed-edges/1".to_owned(),
-        family_counts: BTreeMap::from([(EdgeFamily::KnowledgeClaim, 1)]),
+        family_counts: BTreeMap::from([
+            (EdgeFamily::KnowledgeClaim, 1),
+            (EdgeFamily::CatalogDependency, 1),
+        ]),
         fact_count: 1,
-        content_digest: Digest::of(b"fake projection content"),
+        content_digest: content::digest(&edges, &facts).unwrap(),
         indexes: BTreeSet::from([
             "edge_by_scope_family_source".to_owned(),
             "fact_by_scope_subject".to_owned(),
         ]),
     };
-    let facts = [fact(&scope)];
     verified_backend_contract(
         &mut backend,
         &BackendContract {
             scopes: &all,
+            denied_scopes: &denied,
             scope: &scope,
             edges: &edges,
             facts: &facts,
@@ -386,7 +382,12 @@ fn backend_contract_keeps_families_separate_and_publishes_only_verified_builds()
     );
     drop(database);
     fs::remove_dir_all(path).unwrap();
-    assert!(backend.published.contains(&3));
+    assert!(
+        backend
+            .published
+            .iter()
+            .any(|(published_scope, _)| published_scope.generation_id == 3)
+    );
 }
 
 struct CatalogRelations;
@@ -424,9 +425,13 @@ fn catalog_edges_round_trip_only_in_their_family_pin_and_scope() {
         )
         .unwrap();
     let build = writer.backend.verify_unpublished(&scope).unwrap();
-    writer.verify_and_publish(&build).unwrap();
+    writer
+        .verify_and_publish(&build, &Digest::of(b"set"))
+        .unwrap();
     drop(writer);
-    let reader = ProjectionReader::open(&backend, &ready(0, 1, 0), &scopes, scope.clone()).unwrap();
+    let latest = backend.verify_unpublished(&scope).unwrap();
+    let reader =
+        ProjectionReader::open(&backend, &ready(&scope, &latest), &scopes, scope.clone()).unwrap();
     let source = catalog.source.clone();
     assert_eq!(
         reader
@@ -480,7 +485,12 @@ fn failed_batch_does_not_publish_or_leave_a_partial_batch() {
     drop(database);
     fs::remove_dir_all(path).unwrap();
     assert!(backend.pending.get(&4).is_none_or(Vec::is_empty));
-    assert!(!backend.published.contains(&4));
+    assert!(
+        !backend
+            .published
+            .iter()
+            .any(|(published_scope, _)| published_scope.generation_id == 4)
+    );
 }
 
 #[cfg(test)]
