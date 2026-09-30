@@ -42,6 +42,7 @@ in place.
 │   │   ├── dependabot-auto-merge.yml                                        # Dependabot auto-merge
 │   │   ├── event-schemas.yml                                                # Released event schema compatibility
 │   │   ├── integration.yml                                                  # Qdrant integration: the projection's tests against a Qdrant 1.19 image pinned by digest
+│   │   ├── s3-c05b-portability.yml                                          # C05b portability legs (temporary)
 │   │   └── scorecard.yml                                                    # OpenSSF Scorecard
 │   ├── CODEOWNERS                                                           # Who reviews each path
 │   ├── copilot-instructions.md                                              # This guide, written by rust-gate guide at every commit

@@ -1,0 +1,106 @@
+name: C05b portability legs (temporary)
+# Proof only: this test-branch commit is never integrated.
+"on":
+  pull_request:
+    branches: [feat/s3-integration]
+permissions:
+  contents: read
+concurrency:
+  group: c05b-portability-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  portability:
+    name: C05b portability on ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, windows-2025, macos-15]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    env:
+      CARGO_BUILD_JOBS: 3
+      NEXTEST_TEST_THREADS: 3
+      CARGO_PROFILE_DEV_DEBUG: line-tables-only
+      CARGO_PROFILE_TEST_DEBUG: line-tables-only
+    steps:
+      - name: Check out the exact proof revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Install the pinned toolchain
+        run: |
+          set -euo pipefail
+          toolchain=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)
+          rustup toolchain install "$toolchain" --profile minimal
+          echo "RUSTUP_TOOLCHAIN=$toolchain" >> "$GITHUB_ENV"
+      - name: Restore compiler and registry cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git/db
+            target
+          key: ${{ runner.os }}-c05b-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
+      - name: Install the pinned nextest binary after checksum verification
+        run: |
+          set -euo pipefail
+          case "$RUNNER_OS" in
+            Windows)
+              archive=cargo-nextest-0.9.146-x86_64-pc-windows-msvc.zip
+              digest=0fa689815c8157e4633225b6b173184b3d546eb6ffb754c3d0e6ea5973284a20
+              ;;
+            macOS)
+              archive=cargo-nextest-0.9.146-universal-apple-darwin.tar.gz
+              digest=39785160b3c2f6ed9a765049cf4fa79f3b39aa02eb7598a5a0e2a1a0b9ffb9a8
+              ;;
+            Linux)
+              archive=cargo-nextest-0.9.146-x86_64-unknown-linux-musl.tar.gz
+              digest=b64617e8640624e8f9ba99819e37d7971154e97836d7ae4774fed4715501a6aa
+              ;;
+          esac
+          cd "$RUNNER_TEMP"
+          curl --fail --location --retry 3 --proto '=https' \
+            "https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-0.9.146/$archive" \
+            --output "$archive"
+          printf '%s  %s\n' "$digest" "$archive" > nextest-checksum.txt
+          if command -v sha256sum >/dev/null; then
+            sha256sum --check nextest-checksum.txt
+          else
+            shasum -a 256 --check nextest-checksum.txt
+          fi
+          mkdir nextest-bin
+          if [ "$RUNNER_OS" = Windows ]; then
+            unzip "$archive" -d nextest-bin
+            cygpath -w "$RUNNER_TEMP/nextest-bin" >> "$GITHUB_PATH"
+          else
+            tar -xzf "$archive" -C nextest-bin
+            echo "$RUNNER_TEMP/nextest-bin" >> "$GITHUB_PATH"
+          fi
+      - name: Real planted-file and owner or DACL discovery probes
+        run: cargo nextest run --locked -p maestro-catalog settings::tests::discovery --no-fail-fast
+      - name: S1 boundary, held snapshot and ancestor swap regressions
+        run: cargo nextest run --locked -p maestro-settings discovery --no-fail-fast
+      - name: CLI and MCP every-session process probes
+        run: cargo nextest run --locked -p maestro catalog_session_preferences --no-fail-fast
+      - name: Check out the S3 baseline for the Windows deny probe
+        if: runner.os == 'Windows'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: 3a4e6e49c3cf647418ad18bda469727d47fefd52
+          path: baseline
+          persist-credentials: false
+      - name: Baseline Windows add-directory deny probe
+        if: runner.os == 'Windows'
+        continue-on-error: true
+        run: |
+          cargo nextest run --manifest-path baseline/Cargo.toml --locked \
+            -p maestro-filesystem a_create_failure_is_not_retried_as_a_missing_directory \
+            --no-fail-fast
+      - name: Filesystem held-handle regressions
+        run: cargo nextest run --locked -p maestro-filesystem --no-fail-fast
