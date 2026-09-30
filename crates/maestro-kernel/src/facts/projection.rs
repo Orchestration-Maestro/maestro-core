@@ -1,29 +1,34 @@
 //! Kernel-controlled verification receipts for immutable graph projections.
 
 use super::{build_types::ProjectionReceipt, error::Error};
-use crate::{artifact::Digest, scope::ScopeSet, store::Database};
+use crate::{
+    artifact::Digest,
+    job::{self, Lease, NewJob},
+    scope::{ScopeSet, collection_path},
+    store::Database,
+};
 use rusqlite::{OptionalExtension as _, params};
+use serde_json::json;
+
+/// Stored projection-readiness receipt columns before decoding.
+type ProjectionReceiptRow = (String, String, String, String, i64, i64, i64, String);
 
 impl Database {
-    /// Record projection readiness only for a verified, attached generation whose
-    /// edge and fact counts exactly match its frozen kernel claim set.
+    /// Record projection readiness for a verified, attached generation. The
+    /// kernel rechecks knowledge-edge and fact counts; catalog counts come from
+    /// the verified backend build.
     ///
     /// # Errors
-    /// Refuses unauthorized scopes, invalid filenames, count mismatches,
-    /// unpublished attachments, duplicate receipts, and store failures.
+    /// Refuses unauthorized scopes, expired or mismatched project leases,
+    /// invalid receipt identities, unattached or unverified generations,
+    /// count mismatches, duplicate receipts, and store failures.
     pub fn record_projection_ready(
         &self,
         scopes: &ScopeSet,
         receipt: &ProjectionReceipt,
+        lease: &Lease,
     ) -> Result<(), Error> {
         if receipt.generation_id <= 0
-            || receipt.file_name.is_empty()
-            || !receipt.file_name.is_ascii()
-            || receipt.file_name == "."
-            || receipt.file_name == ".."
-            || receipt.file_name.contains('/')
-            || receipt.file_name.contains('\\')
-            || receipt.file_name.contains(':')
             || !receipt
                 .file_name
                 .bytes()
@@ -40,6 +45,20 @@ impl Database {
             ));
         }
         self.write(|transaction| {
+            let holder = job::validate_lease(transaction, lease)?;
+            let inputs = json!({"generation": receipt.generation_id});
+            let expected_job = NewJob {
+                kind: "knowledge.graph.project",
+                inputs: &inputs,
+                scope: &holder.scope,
+                resource: None,
+            };
+            if holder.scope.as_str() != collection_path(&receipt.collection_id)
+                || holder.kind != expected_job.kind
+                || holder.idempotency_key != job::idempotency_key(&expected_job)
+            {
+                return Err(Error::Unauthorized);
+            }
             let expected: Option<(String, i64, i64)> = transaction
                 .query_row(
                     &format!(
@@ -85,13 +104,16 @@ impl Database {
             }
             let edge_count = i64::try_from(receipt.knowledge_edge_count)
                 .map_err(|_| Error::Conflict("projection edge count is too large".to_owned()))?;
+            let catalog_count = i64::try_from(receipt.catalog_dependency_edge_count)
+                .map_err(|_| Error::Conflict("projection catalog count is too large".to_owned()))?;
             let fact_count = i64::try_from(receipt.entity_fact_count)
                 .map_err(|_| Error::Conflict("projection fact count is too large".to_owned()))?;
             transaction.execute(
                 "INSERT INTO graph_projection_receipts
                  (generation_id, collection_id, claim_set_id, file_name, schema_version,
-                  knowledge_edge_count, entity_fact_count, content_digest)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                  knowledge_edge_count, catalog_dependency_edge_count,
+                  entity_fact_count, content_digest)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
                 params![
                     receipt.generation_id,
                     receipt.collection_id,
@@ -99,6 +121,7 @@ impl Database {
                     receipt.file_name,
                     receipt.schema_version,
                     edge_count,
+                    catalog_count,
                     fact_count,
                     receipt.content_digest.as_str(),
                 ],
@@ -116,12 +139,13 @@ impl Database {
         scopes: &ScopeSet,
         generation: i64,
     ) -> Result<Option<ProjectionReceipt>, Error> {
-        let row: Option<(String, String, String, String, i64, i64, String)> = self
+        let row: Option<ProjectionReceiptRow> = self
             .reader()?
             .query_row(
                 &format!(
                     "SELECT r.collection_id, r.claim_set_id, r.file_name, r.schema_version,
-                            r.knowledge_edge_count, r.entity_fact_count, r.content_digest
+                            r.knowledge_edge_count, r.catalog_dependency_edge_count,
+                            r.entity_fact_count, r.content_digest
                      FROM graph_projection_receipts r
                      JOIN generations g ON g.id = r.generation_id
                      WHERE r.generation_id = ?1 AND {}",
@@ -137,12 +161,22 @@ impl Database {
                         row.get(4)?,
                         row.get(5)?,
                         row.get(6)?,
+                        row.get(7)?,
                     ))
                 },
             )
             .optional()?;
         row.map(
-            |(collection_id, set, file_name, schema_version, edges, facts, digest)| {
+            |(
+                collection_id,
+                set,
+                file_name,
+                schema_version,
+                edges,
+                catalog_edges,
+                facts,
+                digest,
+            )| {
                 Ok(ProjectionReceipt {
                     collection_id,
                     generation_id: generation,
@@ -153,6 +187,9 @@ impl Database {
                     schema_version,
                     knowledge_edge_count: usize::try_from(edges)
                         .map_err(|_| Error::Conflict("invalid projection edge count".to_owned()))?,
+                    catalog_dependency_edge_count: usize::try_from(catalog_edges).map_err(
+                        |_| Error::Conflict("invalid projection catalog count".to_owned()),
+                    )?,
                     entity_fact_count: usize::try_from(facts)
                         .map_err(|_| Error::Conflict("invalid projection fact count".to_owned()))?,
                     content_digest: Digest::parse(&digest).map_err(|error| {

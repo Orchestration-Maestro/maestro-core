@@ -52,18 +52,8 @@ pub struct EntityFact {
     pub scope: ProjectionScope,
 }
 
-/// Read and write operations exposed to projection consumers and producers.
+/// Read operations exposed to projection consumers.
 pub trait TypedEdgeProjection {
-    /// Write application-ID edges in the selected family and generation.
-    ///
-    /// # Errors
-    /// Refuses a scope mismatch, invalid family record, or backend failure.
-    fn write_edges(
-        &mut self,
-        scopes: &ScopeSet,
-        edges: &[ProjectionEdge],
-    ) -> Result<(), ProjectionError>;
-
     /// Read scoped edges adjacent to `entity` without crossing family or pin.
     ///
     /// # Errors

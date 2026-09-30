@@ -94,6 +94,8 @@ pub struct ProjectionReceipt {
     pub schema_version: String,
     /// Count of entity-to-entity knowledge claims projected as edges.
     pub knowledge_edge_count: usize,
+    /// Count of catalog dependency edges verified by the projection backend.
+    pub catalog_dependency_edge_count: usize,
     /// Count of literal-valued subject claim facts (never edges).
     pub entity_fact_count: usize,
     /// Digest of verified projection application-ID content.

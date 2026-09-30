@@ -950,9 +950,11 @@ in place.
 │   │   │   ├── graph/                                                       # The knowledge graph's construction (specs/002-knowledge-graph): claims
 │   │   │   │   ├── projection/                                              # Public typed-edge and literal-fact projection ports and unpublished build writer
 │   │   │   │   │   ├── tests/                                               # Contracts of the public graph projection port and backend-neutral writer
+│   │   │   │   │   │   ├── writer/                                          # Writer
+│   │   │   │   │   │   │   └── extra.rs                                     # Additional validation cases for the generic projection writer
 │   │   │   │   │   │   ├── mod.rs                                           # Contracts of the public graph projection port and backend-neutral writer
 │   │   │   │   │   │   ├── port.rs                                          # Rust source: port
-│   │   │   │   │   │   └── writer.rs                                        # Rust source: writer
+│   │   │   │   │   │   └── projection_writer.rs                             # Backend-neutral projection writer and reader contract tests
 │   │   │   │   │   ├── mod.rs                                               # Public typed-edge and literal-fact projection ports and unpublished build writer
 │   │   │   │   │   ├── port.rs                                              # Public application-ID boundary for disposable typed-edge projections
 │   │   │   │   │   ├── schema.rs                                            # Versioned schema identifiers shared by writers, verifiers, and readers

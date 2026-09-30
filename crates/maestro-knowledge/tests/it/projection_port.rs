@@ -14,23 +14,6 @@ use std::{error::Error, fs, path::Path, sync::Mutex};
 struct FakePort(Mutex<Vec<ProjectionEdge>>);
 
 impl TypedEdgeProjection for FakePort {
-    fn write_edges(
-        &mut self,
-        scopes: &ScopeSet,
-        edges: &[ProjectionEdge],
-    ) -> Result<(), ProjectionError> {
-        for edge in edges {
-            if !scopes.covers(&scope_for(&edge.scope.collection_id)?) {
-                return Err(ProjectionError::Unauthorized);
-            }
-        }
-        self.0
-            .get_mut()
-            .map_err(|_| ProjectionError::Backend("fake lock poisoned".to_owned()))?
-            .extend_from_slice(edges);
-        Ok(())
-    }
-
     fn neighbors(
         &self,
         scopes: &ScopeSet,
@@ -107,8 +90,7 @@ fn public_port_pins_reads_to_application_ids_and_one_edge_family() -> Result<(),
             target: target.clone(),
             relation: "DEPENDS_ON".to_owned(),
         });
-    let mut port = FakePort(Mutex::new(Vec::new()));
-    port.write_edges(&scopes, &records)?;
+    let port = FakePort(Mutex::new(records.to_vec()));
     assert_eq!(
         port.neighbors(&scopes, &pin, EdgeFamily::KnowledgeClaim, &source)?,
         [records[0].clone()]

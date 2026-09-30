@@ -1,3 +1,5 @@
+//! Projection readiness receipt and lease validation tests.
+
 use super::support::{Scratch, build_job, execute, granted, label, plan, timing};
 use crate::{
     artifact::Digest,
@@ -8,6 +10,7 @@ use crate::{
     store::Database,
 };
 use serde_json::json;
+use std::thread;
 
 fn attached() -> (Scratch, Database, ScopeSet, ProjectionReceipt) {
     let scratch = Scratch::new();
@@ -80,20 +83,57 @@ fn attached() -> (Scratch, Database, ScopeSet, ProjectionReceipt) {
         file_name: format!("projection-{generation}.db"),
         schema_version: "maestro-typed-edges/1".to_owned(),
         knowledge_edge_count: 0,
+        catalog_dependency_edge_count: 0,
         entity_fact_count: 1,
         content_digest: Digest::of(b"verified projection"),
     };
     (scratch, database, all, receipt)
 }
 
+fn projection_lease(database: &Database, generation: i64) -> job::Lease {
+    let scope: Scope = "workspace/default/collection/graph".parse().unwrap();
+    let inputs = json!({"generation": generation});
+    let job = database
+        .submit_job(
+            &job::NewJob {
+                kind: "knowledge.graph.project",
+                inputs: &inputs,
+                scope: &scope,
+                resource: None,
+            },
+            timing(4).now,
+        )
+        .unwrap();
+    job.lease.unwrap_or_else(|| {
+        database
+            .take_job(job.id, "projector", timing(4).now, timing(4).term)
+            .unwrap()
+    })
+}
+
 #[test]
 fn readiness_is_kernel_controlled_and_matches_the_attached_claim_set() {
     let (_scratch, database, all, mut receipt) = attached();
+    let lease = projection_lease(&database, receipt.generation_id);
+    let claim_set_id = receipt.claim_set_id.clone();
     receipt.entity_fact_count = 0;
     assert!(matches!(
-        database.record_projection_ready(&all, &receipt),
+        database.record_projection_ready(&all, &receipt, &lease),
         Err(Error::Conflict(_))
     ));
+    receipt.entity_fact_count = 1;
+    receipt.knowledge_edge_count = 1;
+    assert!(matches!(
+        database.record_projection_ready(&all, &receipt, &lease),
+        Err(Error::Conflict(_))
+    ));
+    receipt.knowledge_edge_count = 0;
+    receipt.claim_set_id = Digest::of(b"wrong claim set");
+    assert!(matches!(
+        database.record_projection_ready(&all, &receipt, &lease),
+        Err(Error::Conflict(_))
+    ));
+    receipt.claim_set_id = claim_set_id;
     assert_eq!(
         database
             .projection_ready(&all, receipt.generation_id)
@@ -102,7 +142,9 @@ fn readiness_is_kernel_controlled_and_matches_the_attached_claim_set() {
     );
 
     receipt.entity_fact_count = 1;
-    database.record_projection_ready(&all, &receipt).unwrap();
+    database
+        .record_projection_ready(&all, &receipt, &lease)
+        .unwrap();
     assert_eq!(
         database
             .projection_ready(&all, receipt.generation_id)
@@ -114,9 +156,12 @@ fn readiness_is_kernel_controlled_and_matches_the_attached_claim_set() {
 #[test]
 fn a_projection_receipt_is_once_only_and_scoped_to_its_generation() {
     let (scratch, database, all, receipt) = attached();
-    database.record_projection_ready(&all, &receipt).unwrap();
+    let lease = projection_lease(&database, receipt.generation_id);
+    database
+        .record_projection_ready(&all, &receipt, &lease)
+        .unwrap();
     assert!(matches!(
-        database.record_projection_ready(&all, &receipt),
+        database.record_projection_ready(&all, &receipt, &lease),
         Err(Error::Conflict(_))
     ));
     let denied = granted(
@@ -147,11 +192,103 @@ fn a_projection_receipt_is_once_only_and_scoped_to_its_generation() {
 }
 
 #[test]
+fn concurrent_readiness_recorders_have_one_winner() {
+    let (_scratch, database, all, receipt) = attached();
+    let lease = projection_lease(&database, receipt.generation_id);
+    let (first, second) = thread::scope(|scope| {
+        let first = scope.spawn(|| database.record_projection_ready(&all, &receipt, &lease));
+        let second = scope.spawn(|| database.record_projection_ready(&all, &receipt, &lease));
+        (first.join().unwrap(), second.join().unwrap())
+    });
+    assert_ne!(first.is_ok(), second.is_ok());
+    assert!(matches!(
+        first.err().or_else(|| second.err()),
+        Some(Error::Conflict(_))
+    ));
+}
+
+#[test]
+fn raw_receipt_insert_must_match_the_generation_attachment() {
+    let (scratch, _database, _all, receipt) = attached();
+    let outside = scratch.outside();
+    assert!(
+        outside
+            .execute(
+                "INSERT INTO graph_projection_receipts
+         (generation_id, collection_id, claim_set_id, file_name, schema_version,
+          knowledge_edge_count, catalog_dependency_edge_count, entity_fact_count, content_digest)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+                rusqlite::params![
+                    receipt.generation_id,
+                    receipt.collection_id,
+                    receipt.claim_set_id.as_str(),
+                    receipt.file_name,
+                    receipt.schema_version,
+                    1_i64,
+                    0_i64,
+                    1_i64,
+                    receipt.content_digest.as_str()
+                ],
+            )
+            .is_err()
+    );
+}
+
+#[test]
+fn projection_readiness_rejects_an_expired_projection_lease() {
+    let (_scratch, database, all, receipt) = attached();
+    let lease = projection_lease(&database, receipt.generation_id);
+    database
+        .take_job(lease.job, "takeover", timing(100).now, timing(100).term)
+        .unwrap();
+    assert!(matches!(
+        database.record_projection_ready(&all, &receipt, &lease),
+        Err(Error::Job(job::Error::Lost { .. }))
+    ));
+    assert_eq!(
+        database
+            .projection_ready(&all, receipt.generation_id)
+            .unwrap(),
+        None
+    );
+}
+
+#[test]
+fn a_building_generation_cannot_record_projection_readiness() {
+    let (_scratch, database, all, receipt) = attached();
+    let lease = projection_lease(&database, receipt.generation_id);
+    execute(
+        &database,
+        &format!(
+            "UPDATE generations SET state = 'building' WHERE id = {}",
+            receipt.generation_id
+        ),
+    )
+    .unwrap();
+    assert!(matches!(
+        database.record_projection_ready(&all, &receipt, &lease),
+        Err(Error::Unauthorized)
+    ));
+}
+
+#[test]
+fn projection_readiness_rejects_a_nonpositive_generation() {
+    let (_scratch, database, all, mut receipt) = attached();
+    let lease = projection_lease(&database, receipt.generation_id);
+    receipt.generation_id = 0;
+    assert!(matches!(
+        database.record_projection_ready(&all, &receipt, &lease),
+        Err(Error::Conflict(_))
+    ));
+}
+
+#[test]
 fn projection_readiness_rejects_a_path_instead_of_a_owned_filename() {
     let (_scratch, database, all, mut receipt) = attached();
+    let lease = projection_lease(&database, receipt.generation_id);
     receipt.file_name = "../outside.db".to_owned();
     assert!(matches!(
-        database.record_projection_ready(&all, &receipt),
+        database.record_projection_ready(&all, &receipt, &lease),
         Err(Error::Conflict(_))
     ));
     assert_eq!(

@@ -1,3 +1,5 @@
+//! Application-ID projection model tests.
+
 use super::super::{EdgeFamily, ProjectionEdge, ProjectionScope};
 use maestro_kernel::{artifact::Digest, facts::Predicate};
 

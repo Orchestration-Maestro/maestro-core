@@ -95,14 +95,7 @@ reason = "the public knowledge event catalogue: the lifecycle writer journals ea
 
 # Scope name rules are public: maestro-knowledge's parser applies them to
 # collection and source ids, which the rule does not count, and the kernel's
-# record writers apply them again. A second caller in the crate removes these,
-# which the rule then reports stale.
-[[exception]]
-rule = "ARC-005"
-path = "crates/maestro-kernel/src/job/mod.rs"
-item = "NewJob"
-reason = "the job module owns the public submission contract; attachment validation reuses its canonical identity, while ARC-005 does not count CLI and knowledge consumers"
-
+# record writers apply them again.
 [[exception]]
 rule = "ARC-005"
 path = "crates/maestro-kernel/src/scope/mod.rs"
@@ -113,7 +106,7 @@ reason = "the scope module owns the public name rule: maestro-knowledge's parser
 rule = "ARC-005"
 path = "crates/maestro-kernel/src/job/mod.rs"
 item = "LeaseTiming"
-reason = "the lease module owns the shared timing contract; graph writes and the CLI holder use it, but ARC-005 does not count cross-crate consumers"
+reason = "one shared lease timing value crosses the kernel write seam, CLI holder and integration-test helpers"
 
 [[exception]]
 rule = "ARC-005"

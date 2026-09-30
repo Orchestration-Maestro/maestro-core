@@ -10,6 +10,7 @@ CREATE TABLE graph_projection_receipts (
   ),
   schema_version TEXT NOT NULL CHECK (schema_version = 'maestro-typed-edges/1'),
   knowledge_edge_count INTEGER NOT NULL CHECK (knowledge_edge_count >= 0),
+  catalog_dependency_edge_count INTEGER NOT NULL CHECK (catalog_dependency_edge_count >= 0),
   entity_fact_count INTEGER NOT NULL CHECK (entity_fact_count >= 0),
   content_digest TEXT NOT NULL CHECK (length(content_digest) = 64),
   verified_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
@@ -35,11 +36,6 @@ BEGIN
   SELECT RAISE(ABORT, 'projection receipt must match a verified generation attachment and its claim counts');
 END;
 
-CREATE TRIGGER graph_projection_receipts_never_replaced
-BEFORE INSERT ON graph_projection_receipts
-WHEN EXISTS (SELECT 1 FROM graph_projection_receipts WHERE generation_id = NEW.generation_id)
-BEGIN SELECT RAISE(ABORT, 'projection readiness is recorded once'); END;
-
 CREATE TRIGGER graph_projection_receipts_never_changed
 BEFORE UPDATE ON graph_projection_receipts
 BEGIN SELECT RAISE(ABORT, 'projection readiness never changes'); END;
@@ -47,10 +43,3 @@ BEGIN SELECT RAISE(ABORT, 'projection readiness never changes'); END;
 CREATE TRIGGER graph_projection_receipts_never_deleted
 BEFORE DELETE ON graph_projection_receipts
 BEGIN SELECT RAISE(ABORT, 'projection readiness is retained'); END;
-
-CREATE TRIGGER graph_projection_publish_requires_readiness
-BEFORE UPDATE OF state ON generations
-WHEN NEW.state = 'published'
-  AND EXISTS (SELECT 1 FROM graph_attachments WHERE generation_id = NEW.id)
-  AND NOT EXISTS (SELECT 1 FROM graph_projection_receipts WHERE generation_id = NEW.id)
-BEGIN SELECT RAISE(ABORT, 'an attached projection must be verified before generation publication'); END;

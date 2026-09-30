@@ -3,7 +3,7 @@
 pub mod port;
 
 mod schema;
-pub mod writer;
+pub(crate) mod writer;
 pub use port::{
     EdgeFamily, EntityFact, ProjectionEdge, ProjectionError, ProjectionScope, TypedEdgeProjection,
 };
