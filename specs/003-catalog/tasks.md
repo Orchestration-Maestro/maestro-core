@@ -544,7 +544,7 @@ metadata only, keeping ADR-0018's module layout after C04a),
 `crates/maestro/tests/it/catalog_session_preferences.rs`.
 **Requirements:** FR-S3-014, FR-S3-028, SC-S3-010.
 
-- [ ] **Step 1: Red.** Test home-bounded and explicitly trusted external-root
+- [x] **Step 1: Red.** Test home-bounded and explicitly trusted external-root
   discovery, nested configs, missing config, links and ancestor swaps. Plant
   valid and invalid foreign-owned/other-writable files, unreadable candidates,
   a /tmp parent and a /mnt/c-style parent, with safe user-owned neighbours.
@@ -553,7 +553,7 @@ metadata only, keeping ADR-0018's module layout after C04a),
   absent language, masked invalid keys, explicit/default flags, ignored ancestors,
   workspace auto over user propose, user off and budget-only narrowing. No grant
   reconciliation runs; explicit MCP --workspace uses these same checks.
-- [ ] **Step 2: Green.** Reuse S1's session discovery/resolver through C05a's port
+- [x] **Step 2: Green.** Reuse S1's session discovery/resolver through C05a's port
   and C17, including provenance; add S3 trust integration and preserve its CLI/MCP
   startup wiring before effects. Reuse ADR-0018 reads with held-handle uid/mode or owner SID/DACL checks
   on directory and file; never select mount/drive roots. MCP without --workspace

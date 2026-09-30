@@ -43,7 +43,9 @@ pub use builtin::BUILT_IN;
 pub use descriptor::{
     Reserved, ReservedValue, SettingClass, SettingDescriptor, SettingKind, Text, Texts,
 };
-pub use discovery::{Discovery, PROJECT_DIRECTORY, PROJECT_FILE, discover_project_file};
+pub use discovery::{
+    Discovery, PROJECT_DIRECTORY, PROJECT_FILE, discover_project_file, discover_project_with,
+};
 pub use edit::{EditError, set_in_document, unset_in_document};
 pub use file::{FileEdit, FileError, FileLayers, FilePlace, RestoreError};
 pub use language::canonical_language;

@@ -109,7 +109,11 @@ fn catalog_preferences_apply_refuses_without_touching_root_ancestor_or_authority
     fs::create_dir_all(&root).unwrap();
     let ancestor = root.parent().unwrap().join(".maestro/config.toml");
     fs::create_dir(ancestor.parent().unwrap()).unwrap();
-    fs::write(&ancestor, b"ancestor unchanged").unwrap();
+    fs::write(
+        &ancestor,
+        b"schema = 'maestro-preferences/1'\n# ancestor unchanged\n",
+    )
+    .unwrap();
     home.configure("[access]\nread = ['workspace/default']\n");
     let authority = fs::read(home.config().join("config.toml")).unwrap();
     let result = preview(&home, &root, "FR", "brief", true);
@@ -117,7 +121,10 @@ fn catalog_preferences_apply_refuses_without_touching_root_ancestor_or_authority
     assert!(result.stderr.contains("C05j"), "{result:?}");
     assert!(!root.join(".maestro").exists());
     assert!(!root.join(".github").exists());
-    assert_eq!(fs::read(&ancestor).unwrap(), b"ancestor unchanged");
+    assert_eq!(
+        fs::read(&ancestor).unwrap(),
+        b"schema = 'maestro-preferences/1'\n# ancestor unchanged\n"
+    );
     assert_eq!(
         fs::read(home.config().join("config.toml")).unwrap(),
         authority

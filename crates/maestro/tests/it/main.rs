@@ -9,6 +9,7 @@ mod catalog_check;
 mod catalog_host_probe;
 mod catalog_init;
 mod catalog_preferences;
+mod catalog_session_preferences;
 mod cli_contract;
 mod collection_status;
 mod doctor_checks;

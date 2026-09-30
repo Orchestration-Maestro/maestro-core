@@ -7,12 +7,12 @@ use rustix::fd::OwnedFd;
 use rustix::fs::{
     AtFlags, Mode, OFlags, RenameFlags, linkat, mkdirat, open, openat, renameat_with, unlinkat,
 };
-use rustix::io::Errno;
+use rustix::{io::Errno, process::getuid};
 use std::{
     ffi::OsStr,
     fs::File,
     io::{self, Read},
-    path::{Component, Path},
+    path::{Component, Path, PathBuf},
     process,
     sync::atomic::{AtomicUsize, Ordering},
 };
@@ -48,7 +48,7 @@ const OPEN_NOFOLLOW_FLAGS: OFlags = OFlags::RDONLY
 
 /// An open directory: names inside it resolve against the handle, never against a path.
 #[derive(Debug)]
-pub struct Directory(File);
+pub struct Directory(File, PathBuf);
 
 impl Directory {
     /// Open the directory `below` names under the caller's `root`: the root resolves once, then
@@ -65,7 +65,83 @@ impl Directory {
                 directory = File::from(open_child(&directory, name, create)?);
             }
         }
-        Ok(Self(directory))
+        Ok(Self(directory, path))
+    }
+
+    /// Hold a previously canonicalized directory without resolving its path again.
+    ///
+    /// # Errors
+    /// Refuses relative paths, links and unreadable components.
+    pub fn open_canonical(path: &Path) -> io::Result<Self> {
+        if !path.is_absolute() {
+            return Err(io::Error::other("directory must be canonical and absolute"));
+        }
+        let mut directory = File::open("/")?;
+        for component in path.components() {
+            if let Component::Normal(name) = component {
+                directory = File::from(open_child(&directory, name, false)?);
+            }
+        }
+        Ok(Self(directory, path.to_path_buf()))
+    }
+
+    /// Hold the parent reached from this directory's handle, never a new path walk.
+    ///
+    /// # Errors
+    /// Returns an error for an inaccessible parent or root.
+    pub fn parent(&self) -> io::Result<Self> {
+        let path = self
+            .1
+            .parent()
+            .ok_or_else(|| io::Error::other("no parent"))?;
+        let fd = openat(&self.0, "..", OPEN_CHILD_FLAGS, Mode::empty())?;
+        Ok(Self(File::from(fd), path.to_path_buf()))
+    }
+
+    /// Hold a single child without following links.
+    ///
+    /// # Errors
+    /// Refuses absent, linked or inaccessible children.
+    pub fn child(&self, name: &str) -> io::Result<Self> {
+        let fd = open_child(&self.0, OsStr::new(name), false)?;
+        Ok(Self(File::from(fd), self.1.join(name)))
+    }
+
+    /// Whether this held directory is a filesystem or mount root.
+    ///
+    /// # Errors
+    /// Returns an error when held metadata cannot be verified.
+    pub fn is_mount_root(&self) -> io::Result<bool> {
+        use std::os::unix::fs::MetadataExt as _;
+        if self.1.parent().is_none() || drive_mount(&self.1) {
+            return Ok(true);
+        }
+        Ok(self.0.metadata()?.dev() != self.parent()?.0.metadata()?.dev())
+    }
+
+    /// Read only an owner-only-writable directory/file pair, checked on held handles.
+    ///
+    /// # Errors
+    /// Refuses foreign owners, group/world write, unreadable files, swaps and limits.
+    pub fn read_preferences(&self, name: &str, max_bytes: u64) -> io::Result<Vec<u8>> {
+        self.verify_named()?;
+        private_metadata(&self.0)?;
+        let file = self.open_regular(name)?;
+        private_metadata(&file)?;
+        let bytes = read_limited(file, max_bytes)?;
+        self.verify_named()?;
+        Ok(bytes)
+    }
+
+    /// Refuse replacement of this directory or a link in its ancestor chain.
+    fn verify_named(&self) -> io::Result<()> {
+        use std::os::unix::fs::MetadataExt as _;
+        let held = self.0.metadata()?;
+        let named = Self::open_canonical(&self.1)?.0.metadata()?;
+        if held.dev() != named.dev() || held.ino() != named.ino() {
+            return Err(io::Error::other("directory changed during discovery"));
+        }
+        Ok(())
     }
 
     /// The bytes of a regular file in the directory, never read through a link.
@@ -249,4 +325,28 @@ fn open_child(directory: &File, name: &OsStr, create: bool) -> io::Result<OwnedF
 pub fn open_nofollow(path: &Path) -> io::Result<File> {
     let fd = open(path, OPEN_NOFOLLOW_FLAGS, Mode::empty())?;
     Ok(File::from(fd))
+}
+
+/// Windows drive mounts under WSL are never workspace roots, even on user-owned drvfs.
+fn drive_mount(path: &Path) -> bool {
+    path.parent() == Some(Path::new("/mnt"))
+        && path.file_name().is_some_and(|name| {
+            let name = name.as_encoded_bytes();
+            name.len() == 1 && name.first().is_some_and(u8::is_ascii_alphabetic)
+        })
+}
+
+/// Verify owner/write and owner-read bits using metadata from the open descriptor.
+fn private_metadata(file: &File) -> io::Result<()> {
+    use std::os::unix::fs::MetadataExt as _;
+    let metadata = file.metadata()?;
+    if metadata.uid() != getuid().as_raw()
+        || metadata.mode() & 0o022 != 0
+        || metadata.mode() & 0o400 == 0
+    {
+        return Err(io::Error::other(
+            "foreign-owned, other-writable or unreadable preferences",
+        ));
+    }
+    Ok(())
 }

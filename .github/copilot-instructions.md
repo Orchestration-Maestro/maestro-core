@@ -270,6 +270,7 @@ in place.
 │   │   │       ├── catalog_check.rs                                         # catalog check --catalog-dir DIR: the strict source checker as its
 │   │   │       ├── catalog_init.rs                                          # maestro init: inert fixture composition, preview-only default and owned apply
 │   │   │       ├── catalog_preferences.rs                                   # Preference init is a side-effect-free draft until C05j supplies real trust
+│   │   │       ├── catalog_session_preferences.rs                           # Every process pins the same safe preference snapshot before effects
 │   │   │       ├── cli_contract.rs                                          # JSON on stdout, diagnostics on stderr, exit codes 0, 1 and 2, the job ID first
 │   │   │       ├── collection_status.rs                                     # knowledge status of the synthetic collection: counts, dispositions and a generation
 │   │   │       ├── doctor_checks.rs                                         # maestro doctor: each failure names its next action, the router its address; v1 files listed, untouched
@@ -495,9 +496,12 @@ in place.
 │   │   │   │   └── tests.rs                                                 # Rust source: tests
 │   │   │   ├── settings/                                                    # Typed restrictive resolution over the canonical S1 settings descriptors
 │   │   │   │   ├── tests/                                                   # Settings contracts over shared S1 descriptors and preference adapters
+│   │   │   │   │   ├── discovery.rs                                         # Real planted files on every host, with no mocked owner/write metadata
+│   │   │   │   │   ├── discovery_windows.rs                                 # Real Windows ACL, unreadability and reparse-point probes, run on the CI host
 │   │   │   │   │   ├── mod.rs                                               # Settings contracts over shared S1 descriptors and preference adapters
 │   │   │   │   │   ├── preferences.rs                                       # Strict init drafts use the same S1 file/parser API as all preference consumers
 │   │   │   │   │   └── resolution.rs                                        # Rust source: resolution
+│   │   │   │   ├── discovery.rs                                             # Safe session snapshots over S1's bounded parser and discovery walk
 │   │   │   │   ├── mod.rs                                                   # Typed restrictive resolution over the canonical S1 settings descriptors
 │   │   │   │   ├── preferences.rs                                           # Side-effect-free init preferences over S1's registry, parser and file adapter
 │   │   │   │   ├── resolve.rs                                               # Typed restrictive resolution over four preference layers; storage and parsing stay in S1
@@ -565,7 +569,8 @@ in place.
 │   │   │   ├── root.rs                                                      # The root a caller names, resolved once, and the names the store appends below it
 │   │   │   ├── tests.rs                                                     # Rust source: tests
 │   │   │   ├── unix.rs                                                      # Unix filesystem access: every name resolves against an open directory, never a path
-│   │   │   └── windows.rs                                                   # Windows filesystem access: held directories and open flags that never follow a link
+│   │   │   ├── windows.rs                                                   # Windows filesystem access: held directories and open flags that never follow a link
+│   │   │   └── windows_security.rs                                          # The sole unsafe boundary: security information belongs to an already-held handle
 │   │   └── Cargo.toml                                                       # Crate manifest
 │   ├── maestro-kernel/                                                      # Maestro kernel
 │   │   ├── migrations/                                                      # The kernel database's migrations, embedded and applied in number order

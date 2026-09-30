@@ -29,6 +29,8 @@ pub(in crate::mcp) struct KnowledgeServer<P = RouterClient> {
     /// The session's settings: what every tool call runs with, fixed for the
     /// server's life.
     pub(super) settings: Arc<KnowledgeSettings>,
+    /// Path-free session origin, fixed at process startup.
+    pub(super) preference_context: String,
     /// Test-only startup cards to exercise warming without a model registry fixture.
     #[cfg(test)]
     pub(super) warmup_cards: Option<Vec<ModelCard>>,
@@ -45,9 +47,16 @@ impl<P: ModelPort + Send + Sync + 'static> KnowledgeServer<P> {
             model_port: Arc::new(model_port),
             qdrant: Arc::new(qdrant),
             settings: Arc::new(settings),
+            preference_context: String::new(),
             #[cfg(test)]
             warmup_cards: None,
         }
+    }
+
+    /// Attach local preference provenance without any filesystem paths.
+    pub(in crate::mcp) fn with_preferences(mut self, context: String) -> Self {
+        self.preference_context = context;
+        self
     }
 
     /// Creates an unpolled startup task; callers spawn it only after serving begins.
@@ -79,6 +88,7 @@ impl<P: ModelPort + Send + Sync + 'static> KnowledgeServer<P> {
             model_port: Arc::new(model_port),
             qdrant: Arc::new(qdrant),
             settings: Arc::default(),
+            preference_context: String::new(),
             warmup_cards: Some(warmup_cards),
         }
     }
