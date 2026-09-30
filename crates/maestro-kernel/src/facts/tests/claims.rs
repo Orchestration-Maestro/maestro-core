@@ -1,6 +1,11 @@
 //! Admitting claims: a whole set or nothing, unreviewed, recorded once by
 //! their content, read back equal after a reopen, and refused when their
 //! form or their scope is wrong.
+//!
+//! Architecture 02 §8.2 imposes no predicate domain or range limits. Refusing
+//! event satisfaction disguised as `DEPENDS_ON` between listed kinds belongs
+//! to G18's constrained gateway and review, not name matching here. A narrower
+//! authority rule needs an ADR under FR-S2-024.
 
 use super::support::{
     COLLECTION, LABEL_ROW, Scratch, counts, default_claim, execute, granted, label, quoting,
@@ -8,9 +13,11 @@ use super::support::{
 };
 use crate::{
     artifact::Digest,
-    facts::{Claim, ClaimSet, Error, LiteralKind, ReviewState, Validity},
+    facts::{Claim, ClaimSet, EntityKind, Error, LiteralKind, ReviewState, Validity},
     scope::ScopeSet,
+    store,
 };
+use rusqlite::{Error as SqliteError, ErrorCode, ffi::SQLITE_CONSTRAINT_CHECK};
 use std::collections::BTreeMap;
 
 #[test]
@@ -329,6 +336,48 @@ fn a_claim_of_the_wrong_form_is_refused_and_nothing_is_recorded() {
         );
     }
     assert_eq!(counts(&scratch), [0; 4]);
+}
+
+/// Unlisted endpoint kinds must fail the authority's CHECK, leaving all claim
+/// tables empty even when bypassing typed claim construction.
+fn refuse_authority_kinds(cases: &[(&str, &str)]) {
+    let scratch = Scratch::new();
+    let database = scratch.open();
+    for (subject, object) in cases {
+        let sql = format!(
+            "INSERT INTO claims (id, collection_id, subject_kind, subject_name,
+             predicate, object_kind, object_name, conditions_json, version_known,
+             world_known, extractor, profile_digest, support_count)
+             VALUES ('raw', 'graph', '{subject}', 'scheduled-run', 'DEPENDS_ON',
+             '{object}', 'documented-type', '{{}}', 0, 0, 'test', 'profile', 1)"
+        );
+        let error = execute(&database, &sql).unwrap_err();
+        assert!(
+            matches!(error, store::Error::Sqlite(SqliteError::SqliteFailure(code, _))
+                if code.code == ErrorCode::ConstraintViolation
+                    && code.extended_code == SQLITE_CONSTRAINT_CHECK),
+            "{subject} -> {object}: {error:?}"
+        );
+        assert_eq!(counts(&scratch), [0; 4], "{subject} -> {object}");
+    }
+}
+
+#[test]
+fn an_instance_job_kind_is_refused_at_both_authority_endpoints() {
+    assert_eq!(EntityKind::parse("Job"), None);
+    refuse_authority_kinds(&[("Job", "Component"), ("Component", "Job")]);
+}
+
+#[test]
+fn event_and_job_type_kinds_cannot_extend_depends_on_at_the_authority() {
+    assert_eq!(EntityKind::parse("Event"), None);
+    assert_eq!(EntityKind::parse("JobType"), None);
+    refuse_authority_kinds(&[
+        ("Event", "Component"),
+        ("Concept", "JobType"),
+        ("Event", "JobType"),
+        ("JobType", "Event"),
+    ]);
 }
 
 #[test]
