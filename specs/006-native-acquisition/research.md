@@ -1,5 +1,7 @@
 # S6 research: Rust-first, adaptive acquisition
 
+**N02 audit — 2026-09-30:** §3.9 records fresh disposable dependency resolutions against S6 integration `e16cad0`, licence-policy checks and pinned public artifact/model-term inspection. No library, patch, Python environment, browser, runtime or weight is adopted. Revision 2.2's owner decisions and bake-off remain unchanged; resolution/source evidence is not build, security, fidelity or platform qualification.
+
 **Revision 2.2 — 2026-09-30:** Records the owner's tool/policy approvals and browser amendment: crawl4ai is the sole non-Rust browser adapter, Python out of process only where JavaScript/Chromium is unavoidable; Spider's chromey production route is replaced. The document bake-off candidates are unchanged. Adds the validated native asset-identity requirement and the later same-day approval of automatically learned source-evidenced term-alias candidates; OA4c and OA4d remain pending. These are decisions/design fixes, not new measurements.
 
 **Revision 2.1: source register completed (P24–P28, D5); no conclusion changed.**
@@ -8,16 +10,16 @@
 
 **Recommend a Rust-owned acquisition engine, not a new ingestion stack:** use Spider for crawling with extras off, crawl4ai behind the replaceable fetch/render port only for unavoidable browser work, selectors plus htmd checked against Xberg's converter for technical HTML, and the unchanged pinned Xberg versus docling.rs extraction bake-off. Feed the existing S1 canonicalization, deduplication, structural chunking, model router and publication pipeline. Make adaptation a manifest-bounded choice among qualified profiles—not permission to install software, widen access, rewrite evidence or publish unverified output.
 
-**Status:** source research complete; owner tool directions are approved as recorded in §8. Exact dependency/artifact audits, the bake-off result and quality qualification remain open. No protected site was contacted, no credentials or browser databases were opened, and no conversion or retrieval benchmark was run for this document fix. The earlier private mechanism report is separate and was not read in this fix round.
+**Status:** source research and N02's current-lock resolution audit are recorded; owner tool directions are approved as recorded in §8. Adoption, exact production artifact/feature/licence closure, the bake-off result and quality/platform qualification remain open. No protected site was contacted, no credentials or browser databases were opened, and no conversion or retrieval benchmark was run. The earlier private mechanism report is separate and was not read.
 
 ## 1. Evidence and boundaries
 
 All external sources below were accessed **2026-09-30**. Registry versions and publication dates are observations, not recommended automatic upgrades. GitHub default branches and documentation can change; lock an exact release, feature set, model digest and configuration before qualification.
 
-- **Observed:** public registry metadata, published crate manifests, upstream documentation, local architecture and S1 source inspection.
+- **Observed:** public registry metadata, published crate manifests, upstream documentation, local architecture/S1 source inspection and N02's disposable lock/feature/licence probes (§3.9).
 - **Upstream measured:** numerical results reported by a project's authors; not independently reproduced here.
 - **Proposed/inferred:** the recommendations and adaptive design below. Platform portability is not a passing Maestro build.
-- **Not established:** corpus-wide extraction parity, cross-platform browser/session parity, current dependency deltas, extraction performance, or end-to-end retrieval improvement.
+- **Not established:** corpus-wide extraction parity, cross-platform browser/session parity, offline builds/execution, extraction performance, or end-to-end retrieval improvement.
 
 Local references use `maestro-core/` as the root. S1 code and ADR-0020 were read at **`0204846f7640e7219021b0b38daa60b4c4f98ee4`**, the locally available `origin/feat/s1-integration`; this was not fetched or modified. Architecture files were read from the main checkout at **`60b9bd2acbc4315f8dc71d106b9ef92896fc51f5`**. The distinction matters: the main checkout does not contain all S1 implementation.
 
@@ -214,7 +216,219 @@ Credential and archive choices are separate: existing KeePassXC is an explicitly
 
 ADR-0020 already records a **2026-09-26, 128-crate baseline**, not today's workspace: dom_smoothie 0.18.2 added 45 crates with one forced duplicate; docling 1.69.2's minimum/default trees added 120–363 with 9–23 duplicates; Spider 2.53.9 added 186–331 with 15–38 duplicates. Spider defaults also forced an incompatible second SQLite `links` dependency (`docs/adr/0020-…:22-34`). Those historical measurements must not be reused as measurements of Xberg, docling 1.78.0 or the current S1 lock.
 
-Before adoption: resolve the exact minimal profile against the integration lock; record added packages, forced duplicates and native `links`; name every DEP-001 exception with its removal condition; obtain owner library approval; audit licences and `cargo vet`; build/test on Linux, Windows and macOS with network-disabled extraction and provisioned assets. No dependency graph was resolved or compiled here, so the new counts are **unknown**, not zero. An out-of-process adapter can isolate a native-link conflict, but does not waive these obligations or make process separation a sandbox. [ADR-0020:16-20,46-57; ADR-0013:5-23]
+Before adoption: resolve the exact minimal profile against the integration lock; record added packages, forced duplicates and native `links`; name every DEP-001 exception with its removal condition; obtain owner library approval; audit licences and `cargo vet`; build/test on Linux, Windows and macOS with network-disabled extraction and provisioned assets. Revision 2 did not resolve or compile a graph; N02's new resolution counts are below, with production qualification still blocked. An out-of-process adapter can isolate a native-link conflict, but does not waive these obligations or make process separation a sandbox. [ADR-0020; ADR-0013:5-23]
+
+### 3.9 N02 measured dependency probe
+
+**Baseline:** S6 integration `e16cad0f82e329d6a3971379078cc2560d00d7d8`,
+`Cargo.lock` SHA-256
+`a5dbab1ef6675583fa4c3f434ce5fa279c21081767708eba2b4a2ebfd77d97cb`.
+Observed **229 packages: 221 registry packages and eight workspace packages**.
+Existing duplicate-name groups are `base64` 0.22.1/0.23.1,
+`getrandom` 0.2.17/0.4.3, `hashbrown` 0.15.5/0.17.1,
+`syn` 2.0.119/3.0.6 and `windows-sys` 0.52.0/0.61.2.
+Existing Cargo `links` declarations are `libsqlite3-sys` 0.38.2 (`sqlite3`),
+`ring` 0.17.14 (`ring_core_0_17_14_`) and `wasm-bindgen-shared` 0.2.129
+(`wasm_bindgen`). The historical §3.8/ADR table is not this baseline.
+
+Each profile used a fresh copy of the complete baseline workspace/lock plus one
+dependency-only `crates/maestro-s6n02-probe` member. Its sources/index were
+provisioned in a separate scratch `CARGO_HOME`; all final metadata/feature trees
+replayed with `--locked --offline`. There were **19 profiles: 18 resolved and one
+SQLite-link refusal**. No build script, extractor, browser or model ran. Initial
+missing-cache failures were followed only by registry-source provisioning; they
+are not offline-build results. All 18 successful locks retained every baseline
+package/version: **zero removals or upgrades**.
+
+**Counting:** closure = unique packages reachable from the probe member in the
+all-target resolved graph, including build dependencies, excluding that member.
+Added = `(name, version, source)` entries absent from the original lock, not the
+sum of candidate trees. Changed duplicate groups = names with multiple resulting
+versions and at least one version not in the baseline; unchanged baseline groups
+are excluded. This includes third/fourth versions and new names duplicated wholly
+inside a candidate. Cargo `links` is an inventory signal, not proof of a C library:
+`rayon-core`, `prettyplease` and `defmt` also declare it.
+
+#### Per-profile observations
+
+All rows set `default-features = false` except the explicitly unsafe Spider-defaults
+diagnostic. Pins and features below are **probe inputs**, not adoptions. `L0` means
+no added Cargo `links`; the other link inventories follow the table. Licence exit
+0 means the measured profile passed the rendered org licence policy, **not** model,
+native-distribution, vet or owner approval. Exit 4 is a recorded adoption blocker.
+
+| Profile | Closure | Added | Changed duplicate groups | Exact dependency / selected features | Added links | Licence exit |
+| --- | ---: | ---: | ---: | --- | --- | ---: |
+| `spider-min` | 251 | 107 | 10 | spider =2.53.9; none | L1 | 4 |
+| `htmd-min` | 37 | 18 | 0 | htmd =0.5.5; none | L0 | 0 |
+| `xberg-native` | 323 | 205 | 15 | xberg =1.3.0; pdf-native | L2 | 4 |
+| `xberg-tract` | 554 | 367 | 25 | xberg =1.3.0; pdf-native, layout-tract, sceptre-ocr-tract | L3 | 4 |
+| `docling-text` | 219 | 132 | 9 | docling =1.78.0; pdf-text | L4 | 4 |
+| `tract-min` | 114 | 58 | 3 | tract-onnx =0.23.8; none (transformers off) | L0 | 0 |
+| `calamine-min` | 36 | 14 | 0 | calamine =0.36.1; none | L0 | 0 |
+| `infer-std` | 32 | 2 | 0 | infer =0.22.0; std (includes cfb) | L0 | 0 |
+| `robots-min` | 34 | 12 | 3 | texting_robots =0.2.2; none | L0 | 0 |
+| `zip-deflate` | 20 | 2 | 0 | zip =8.6.0; deflate-flate2 | L0 | 0 |
+| `tar-min` | 4 | 2 | 0 | tar =0.4.46; none (xattr off) | L0 | 0 |
+| `combined-shortlist` | 664 | 475 | 53 | union of the above, using xberg-tract; tract-onnx transitive | L1 + L3 + L4 | 4 |
+| `spider-defaults-hazard` | unresolved | unknown | unknown | spider =2.53.9; defaults, diagnostic only | SQLite conflict | not run |
+| `spider-chrome-hazard` | 298 | 151 | 19 | spider =2.53.9; chrome, diagnostic only | L1 | 4 |
+| `xberg-paddle-hazard` | 580 | 392 | 26 | xberg =1.3.0; pdf-native, layout-tract, paddle-ocr-tract, diagnostic only | L3 + OpenSSL/Tesseract | 4 |
+| `xberg-ort-hazard` | 537 | 351 | 23 | xberg =1.3.0; pdf-native, layout-detection, ort-dynamic, diagnostic only | L3 + ORT | 4 |
+| `docling-ml-hazard` | 407 | 269 | 22 | docling =1.78.0; pdf, diagnostic only | L4 + Oniguruma/ORT | 4 |
+| `docling-browser-hazard` | 291 | 158 | 14 | docling =1.78.0; pdf-text, web-browser, diagnostic only | L4 | 4 |
+| `double-cdp-hazard` | 429 | 253 | 29 | Spider chrome + docling pdf-text/web-browser, diagnostic only | L1 + L4 | 4 |
+
+| Added-link code | Package version → exact Cargo `links` |
+| --- | --- |
+| L1 | aws-lc-rs 1.18.1 → `aws_lc_rs_1_18_1_sys`; aws-lc-sys 0.45.0 → `aws_lc_0_45_0`; zstd-sys 2.1.0+zstd.1.5.7 → `zstd` |
+| L2 | rayon-core 1.13.0 → `rayon-core` |
+| L3 | aws-lc-rs/aws-lc-sys as L1; prettyplease 0.3.0 → `prettyplease03`; rayon-core as L2 |
+| L4 | defmt 1.1.1 → `defmt`; rayon-core as L2 |
+| Diagnostic-only extras | openssl-sys 0.9.117 → `openssl`; xberg-tesseract 1.3.0 → `xberg_tesseract`; ort-sys 2.0.0-rc.13 → `onnxruntime`; onig_sys 69.9.3 → `onig` |
+
+No independent addition is needed for existing reqwest **0.13.5** (MIT OR
+Apache-2.0), pulldown-cmark **0.13.4** (MIT), or whatlang **0.18.0** (MIT).
+Their current-lock addition delta is zero; changing their features/version still
+needs a new measurement. Xberg already resolves infer **0.22.0** and
+html-to-markdown-rs **3.15.1**. Xberg's tract profile resolves all eight tract-family
+packages at **0.23.8**, with sceptre **0.7.2**; the direct tract row is an audit
+control, not a recommendation to introduce a second inference API.
+
+#### Exact duplicate versions in the minimal independent profiles
+
+These lists exclude only unchanged baseline groups. Zero-group rows in the table
+really have zero *changed* groups, not a duplicate-free whole workspace.
+
+| Profile | Changed duplicate-name groups and all resulting versions |
+| --- | --- |
+| spider-min | core-foundation 0.9.4/0.10.1; foldhash 0.1.5/0.2.0; getrandom 0.2.17/0.3.4/0.4.3; hashbrown 0.14.5/0.15.5/0.17.1; phf, phf_shared each 0.11.3/0.13.1; r-efi 5.3.0/6.0.0; rand 0.8.8/0.9.5/0.10.3; rand_core 0.6.4/0.9.5/0.10.1; reqwest 0.12.28/0.13.5 |
+| xberg-native | alloc-no-stdlib 2.0.4/3.0.0; alloc-stdlib 0.2.4/0.3.0; brotli-decompressor 5.0.3/6.0.1; fax 0.2.7/0.3.0; getrandom 0.2.17/0.3.4/0.4.3; miniz_oxide 0.8.9/0.9.1; pastey 0.1.1/0.2.3; phf, phf_codegen, phf_generator, phf_shared each 0.13.1/0.14.0; r-efi 5.3.0/6.0.0; rand 0.9.5/0.10.3; rand_core 0.9.5/0.10.1; weezl 0.1.12/0.2.1 |
+| xberg-tract | xberg-native groups above, plus core-foundation 0.9.4/0.10.1; darling, darling_core, darling_macro each 0.20.11/0.24.1; dirs 6.0.0/7.0.0; foldhash 0.1.5/0.2.0; glam 0.30.10/0.31.1/0.32.1/0.33.11; hashbrown 0.15.5/0.16.1/0.17.1; itertools 0.14.0/0.15.0; wasi 0.11.1+wasi-snapshot-preview1/0.14.7+wasi-0.2.4 |
+| docling-text | bitflags 1.3.2/2.13.2; block-buffer 0.10.4/0.12.1; cpufeatures 0.2.17/0.3.1; crypto-common 0.1.7/0.2.2; digest 0.10.7/0.11.3; miniz_oxide 0.8.9/0.9.1; png 0.17.16/0.18.1; sha2 0.10.9/0.11.0; weezl 0.1.12/0.2.1 |
+| tract-min | foldhash 0.1.5/0.2.0; hashbrown 0.15.5/0.16.1/0.17.1; itertools 0.14.0/0.15.0 |
+| robots-min | regex-automata 0.1.10/0.4.18; thiserror, thiserror-impl each 1.0.69/2.0.21 |
+
+The combined comparison is not an adoption proposal and its 475 additions are
+not additive per-row totals. It exposes three HTML parser versions:
+`html5ever` **0.38.0/0.39.0/0.40.1** and `markup5ever`
+**0.38.0/0.39.0/0.40.0**, plus `lopdf` **0.44.0/0.45.0** and
+`quick-xml` **0.41.0/0.42.0**. Measure the selected winner's final profile anew;
+retain htmd alongside Xberg's converter only after the fidelity comparison, never
+as a converter chain. Every adopted duplicate needs a named forcing-library and
+version-specific removal condition in DEP-001, not a blanket 53-name waiver.
+
+#### Red evidence, downloads and platform controls
+
+| Observed profile / published source | Consequence before qualification |
+| --- | --- |
+| Spider defaults | Resolver exit 101: sqlx-sqlite 0.8.0 requests libsqlite3-sys ^0.28.0, conflicting with the baseline 0.38.2 `sqlite3` link. No valid default-profile count exists. Keep defaults/disk/NUMA/io_uring/splice extras off; do not patch core SQLite to accommodate it. |
+| Spider minimum | spider_fingerprint 2.39.0 has additive `dynamic-versions`, and its build dependency is reqwest 0.12.28. Published `build.rs:659–784` attempts two Chrome-version HTTP reads, despite chrome being off. Cargo `--offline` does not sandbox build scripts. An upstream feature split or separately approved audited patch/offline build control is still needed; no such patch was made. AWS-LC/zstd native toolchains also need declared approval/platform evidence. |
+| Xberg minimum/tract | Native PDF has no PDFium, ORT or Tesseract; the tract profile adds no ORT/Tesseract either. Rust inference still has platform assembler/toolchain requirements (`tract-linalg` build script). `hf-hub` and model-fetch code remain in the tract closure: preprovision/check every weight and prove network denial/missing-cache refusal. Other media/accelerator features are not qualified by this probe. |
+| Xberg ORT diagnostic | ort/ort-sys 2.0.0-rc.13 enable `download-binaries` together with `load-dynamic`/`disable-linking`; additive features are not subtracted. The macOS dependency also adds CoreML. No table-only, download-free production profile was qualified; upstream split or owner-approved audited patch and per-model offline ABI/platform evidence are blockers. This layout diagnostic does not approve ORT as layout/OCR. |
+| Xberg Paddle diagnostic | paddle-ocr-tract enables `ocr`, resolving xberg-tesseract and its vendored build route. Its build script downloads/builds Leptonica/Tesseract sources; `links` and OpenSSL enter the closure. It is not the default Rust-only OCR profile; the native exception or feature fix is unapproved. |
+| docling pdf-text / ML | pdf-text avoids PDFium/ORT; pdf/ML resolves pdfium-render 0.8.37, onig_sys and ORT with download-binaries. ML/native assets remain comparison-only and need separate approval, feature repair and W/M/L offline qualification. The docling text baseline is not ML parity. |
+| Browser diagnostics | Spider chrome resolves chromey 2.58.2 (its ^2.54 requirement is not an exact pin); docling web-browser resolves headless_chrome 1.0.22. Combining them creates two CDP stacks, even without a chromiumoxide fallback. Both production routes are off under the crawl4ai-only decision; no third CDP library was adopted or needed to prove the duplication. |
+| Helpers / existing libraries | Minimum ZIP uses flate2, not default native codecs; TAR xattr is off. calamine/infer/robots resolve without added links. Their format/hostile-input/RFC behavior and three-platform builds are untested here. Unselected codecs, secret stores, robots alternatives and containment helpers still require individual approval. |
+
+#### Licence-policy findings
+
+The baseline gate reported `advisories ok, bans ok, licenses ok, sources ok`
+(exit 0). Per-profile checks used that rendered policy, with **only the scratch
+`graph.all-features` set false** to check the declared minimal profile, not every
+optional upstream feature. No allowlist, workspace exception or audit was changed.
+The following failures are blockers, not licence approvals inferred from root MIT:
+
+| Profile | Root licence | Rejected closure terms / packages |
+| --- | --- | --- |
+| Spider minimum | MIT | MPL-2.0: cssparser 0.35.0, cssparser-macros 0.6.1, dtoa-short 0.3.5, selectors 0.27.0. CDLA-Permissive-2.0: webpki-roots/webpki-root-certs 1.0.9. |
+| Xberg native | MIT | BSD-2-Clause: arrayref 0.3.9, comrak 0.55.0. Unicode-DFS-2016: finl_unicode 1.5.0. MPL-2.0: option-ext 0.2.0. CC0-1.0: tiny-keccak 2.0.2. |
+| Xberg tract | MIT; tract-onnx MIT OR Apache-2.0 | Native-profile failures plus BSD-2-Clause git-version/git-version-macro 0.3.9, MPL-2.0 colored 3.1.1, CDLA-Permissive-2.0 webpki-root-certs 1.0.9. |
+| docling text | MIT | MPL-2.0: cssparser 0.37.0, cssparser-macros 0.7.1, dtoa-short 0.3.5, selectors 0.38.0. ML adds BSD-2-Clause/NCSA/CDLA obligations; web-browser additionally rejects GPL-3.0-or-later auto_generate_cdp 0.4.6. |
+| Minimal helpers | htmd Apache-2.0; calamine/infer/zip MIT; tract-onnx/texting_robots/tar MIT OR Apache-2.0 | All seven standalone helper-profile licence checks exit 0. This does not approve unselected libraries or bypass vet. |
+
+#### Model terms and crawl4ai closure
+
+No weight was downloaded or used. Pinned public model-card inspection found:
+
+| Candidate asset | Published pin / terms evidence | Remaining blocker |
+| --- | --- | --- |
+| Xberg RT-DETR | xberg-io/layout-models revision `c6bf493e2f7b0b9a29a5870da9880c14e20ff0a3`, rtdetr/model.onnx source SHA-256 `3bf2fb0ee6df87435b7ae47f0f3930ec3dc97ec56fd824acc6d57bc7a6b89ef2`; pinned card says Apache-2.0, Docling/IBM lineage. | Verify actual local bytes and original/conversion licence/notice lineage before use; card metadata alone is not final approval. |
+| Xberg TATR / table models | Same layout revision; source TATR SHA-256 `c11f4033da75e9c4d41c403ef356e89caa0a37a7d111b55461e7d5ba856bb6b6`. The card says TATR is MIT (Microsoft/Xenova), despite repository-level Apache-2.0 metadata. Paddle model repository revision `bfaf0b492cfc1dee0c73245fc5860bfdcf2c3443` says Apache-2.0. | Select exact table models/runtime; the Paddle card describes older OCR exports, not complete SLANeXt per-artifact terms. No blanket weight licence; provenance, local digest and dynamic-ORT feature repair remain required. |
+| Sceptre OCR examples | sceptre 0.7.2 source uses `main` plus file hashes. Observed craft repo revision `5569f7c684f6a0718aaad1c3d994ab8585b50df9` and English revision `11f8e6857741ac8e7151a327c5a4b0030edafa84`; cards say Apache-2.0 and EasyOCR/export lineage. | These are example terms, not approved language coverage. Pin chosen revisions/files/digests and verify every language/model's terms offline; upstream `main` is not an immutable deployment pin. |
+| docling text / optional ML | pdf-text has no ML weights. Optional ML models/PDFium/ORT are not provisioned or licence-qualified in this probe. | Exact assets, terms, ABI and separate comparison approval remain unknown; no Python Docling production extractor. |
+| crawl4ai browser-only | PyPI 0.9.4 reports Python >=3.10 and Apache-2.0; published v0.9.4 LICENSE adds mandatory attribution. Wheel/source hashes and the narrow accepted role are in ADR-0020. Mandatory requirements include Playwright/Patchright >=1.49.0 and LLM/extraction packages even with extras off. | No Python dependency lock, exact interpreter/browser/runtime/native-asset digests, distribution-term review or platform containment evidence exists yet. A version range or py3-none-any wheel is not a qualified closure. Setup installs both browsers; do not run it or any model/doctor downloader. |
+
+Model-card primary sources are the immutable [layout card](https://huggingface.co/xberg-io/layout-models/blob/c6bf493e2f7b0b9a29a5870da9880c14e20ff0a3/README.md),
+[Paddle card](https://huggingface.co/xberg-io/paddleocr-onnx-models/blob/bfaf0b492cfc1dee0c73245fc5860bfdcf2c3443/README.md),
+[CRAFT card](https://huggingface.co/xberg-io/sceptre-craft_mlt_25k/blob/5569f7c684f6a0718aaad1c3d994ab8585b50df9/README.md) and
+[English card](https://huggingface.co/xberg-io/sceptre-english_g2/blob/11f8e6857741ac8e7151a327c5a4b0030edafa84/README.md).
+The [PyPI 0.9.4 release metadata](https://pypi.org/pypi/crawl4ai/0.9.4/json),
+[release pyproject](https://github.com/unclecode/crawl4ai/blob/v0.9.4/pyproject.toml),
+[setup source](https://github.com/unclecode/crawl4ai/blob/v0.9.4/crawl4ai/install.py) and
+[licence](https://github.com/unclecode/crawl4ai/blob/v0.9.4/LICENSE) support the
+browser closure/download/attribution findings. Published Cargo source archives,
+not changing default branches, support the Rust feature/build-script findings.
+
+#### Repeating the probe without adoption
+
+Use an empty, disposable `$PROBE` outside the checkout. Provision its private
+`$CARGO_HOME` index/source archives first; do not install a crate, Python package,
+browser, native runtime or weight. For each independent row, start again from the
+baseline snapshot and write only that row's dependency into the scratch member.
+The following shows the Spider minimum; substituting the table's exact pins and
+features reproduces the other input profiles. The initial unlocked resolution is
+allowed **only in scratch**, because adding a dependency necessarily changes its
+lock; subsequent measurements are locked/offline.
+
+```bash
+export CARGO_BUILD_JOBS=3
+mkdir -p "$PROBE"
+git archive e16cad0f82e329d6a3971379078cc2560d00d7d8 | tar -x -C "$PROBE"
+cd "$PROBE"
+capped cargo metadata --locked --offline --format-version 1 > baseline.json
+mkdir -p crates/maestro-s6n02-probe/src
+printf '//! Disposable dependency probe.\n' > crates/maestro-s6n02-probe/src/lib.rs
+cat > crates/maestro-s6n02-probe/Cargo.toml <<'TOML'
+[package]
+name = "maestro-s6n02-probe"
+version = "0.0.0"
+edition = "2024"
+publish = false
+[dependencies]
+spider = { version = "=2.53.9", default-features = false }
+TOML
+capped cargo metadata --offline --format-version 1 > resolved.json
+capped cargo metadata --locked --offline --format-version 1 > measured.json
+capped cargo tree --locked --offline --target all -e features > features.txt
+capped cargo tree --locked --offline --target all -d > duplicates.txt
+capped cargo tree --locked --offline --target all -p maestro-s6n02-probe \
+  --prefix none > closure.txt
+# PROFILE_DENY is the rendered org policy, copied in scratch with
+# graph.all-features=false; every licence allow/reject rule stays unchanged.
+capped cargo deny --locked --offline --manifest-path "$PROBE/Cargo.toml" \
+  --config "$PROFILE_DENY" check licenses
+```
+
+Compare `Cargo.lock` name/version/source sets and metadata node features/`links`/
+licences to the saved baseline; count unique nodes, not indented tree lines.
+Current receipts hold each generated lock, exact feature trees and command exit
+codes. No DEP-001 exception, vet exemption or workspace dependency was added.
+Later adoption must repeat against its current integration lock, name every
+forced duplicate/removal condition, obtain unresolved licence/native/model/patch
+approvals and pass vet plus actual three-OS offline build/execution controls.
+OA4c (private file comparison) and OA4d (family retirement) remain pending;
+synthetic bake-off preparation does not need private data.
+
+**Explicit adoption blockers; the approved direction is not being re-requested:**
+
+| Boundary | Exact unresolved item |
+| --- | --- |
+| Licences / duplicate audits | Owner decisions for MPL-2.0, BSD-2-Clause, Unicode-DFS-2016, CC0-1.0, CDLA-Permissive-2.0 and diagnostic NCSA/GPL-3.0-or-later closures above; no allowlist edit here. Final forcing-library/duplicate-removal records and new normal-dependency safe-to-deploy vet evidence are absent. |
+| Feature fixes / native exceptions | Spider fingerprint dynamic-versions/offline-build edge; Xberg ORT download-binaries/table-only split and unsolicited macOS CoreML; docling ML download edge; Paddle tract's Tesseract/Leptonica edge. Every proposed upstream patch needs explicit approval. New AWS-LC/zstd assets, and any optional OpenSSL/PDFium/Oniguruma/Tesseract runtime, require named native-artifact approval/qualification before that profile can be adopted. |
+| Models / browser closure | Each chosen layout/OCR/table weight still needs local bytes/digest, complete original/export terms and platform/operator qualification. crawl4ai still needs exact Python/transitive-wheel/automation/Chromium/native-asset pins, attribution-term approval and N46's real containment/egress/lifecycle evidence; its inspected wheel is not a qualified deployment. |
+| Unselected libraries / unmeasured features | dom_smoothie, keyring, keepass, secrecy, zeroize, alternate robots/containment helpers and additional native archive codecs are not approved additions by this audit. No need/pin has been selected for these optional adapters. Xberg's other media/accelerator features and docling optional ML require their own current-lock measurements and exact approval before use; no full/default profile is silently accepted. |
+| Source / cutover authority | OA4c and OA4d remain pending. No private file comparison, source-family retirement or live source/account grant follows from a dependency-resolution pass. |
 
 ## 4. Reuse S1 from canonical blocks through embeddings
 
