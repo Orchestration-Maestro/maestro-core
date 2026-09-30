@@ -21,8 +21,9 @@ use maestro_knowledge::{
         routes::{identifier::search_identifiers, lexical::search_bm25},
     },
 };
+use maestro_test_clock::on_stopped_clock;
 use qdrant_client::qdrant::{Condition, Filter, condition::ConditionOneOf, r#match::MatchValue};
-use std::{sync::Arc, time::Duration};
+use std::{future, sync::Arc, time::Duration};
 use tokio::time::Instant;
 use tonic::Code;
 
@@ -96,13 +97,16 @@ async fn identifier_search_with(
     limit: usize,
     version: Option<&str>,
 ) -> RouteOutcome {
-    identifier_search_until(
-        fixture,
-        text,
-        limit,
-        version,
-        Instant::now() + Duration::from_secs(5),
-    )
+    on_stopped_clock(future::pending(), async {
+        identifier_search_until(
+            fixture,
+            text,
+            limit,
+            version,
+            Instant::now() + Duration::from_secs(5),
+        )
+        .await
+    })
     .await
 }
 
@@ -155,11 +159,14 @@ async fn empty_scopes_and_zero_limit_skip_both_identifier_legs() {
             projection: &fixture.qdrant,
             clock: &clock,
         };
-        let outcome = search_identifiers(
-            &query,
-            fixture.kernel.database.clone(),
-            &understood,
-            Instant::now() + Duration::from_secs(5),
+        let outcome = on_stopped_clock(
+            future::pending(),
+            search_identifiers(
+                &query,
+                fixture.kernel.database.clone(),
+                &understood,
+                Instant::now() + Duration::from_secs(5),
+            ),
         )
         .await;
         assert_eq!(outcome.status, RouteStatus::Ok);
@@ -184,26 +191,9 @@ async fn identifier_route_accepts_64_and_refuses_65_distinct_values() {
         .join(" ");
     let understood = understand(&text);
     assert_eq!(understood.identifiers.len(), 65);
-    let clock: Arc<dyn Clock> = Arc::new(RuntimeClock::current());
-    let query = Query {
-        generation: &fixture.generation,
-        scopes: &fixture.kernel.scopes,
-        text: &text,
-        limit: 20,
-        identifier_limit: 20,
-        version: None,
-        projection: &fixture.qdrant,
-        clock: &clock,
-    };
     let filters_before = backend.fake.as_ref().unwrap().scroll_filters().len();
 
-    let outcome = search_identifiers(
-        &query,
-        fixture.kernel.database.clone(),
-        &understood,
-        Instant::now() + Duration::from_secs(5),
-    )
-    .await;
+    let outcome = identifier_search_with(&fixture, &text, 20, None).await;
     assert_eq!(
         outcome.status,
         RouteStatus::Unavailable("kernel: too many identifier values".to_owned())
@@ -221,23 +211,7 @@ async fn identifier_route_accepts_64_and_refuses_65_distinct_values() {
         .join(" ");
     let understood = understand(&text);
     assert_eq!(understood.identifiers.len(), 64);
-    let query = Query {
-        generation: &fixture.generation,
-        scopes: &fixture.kernel.scopes,
-        text: &text,
-        limit: 20,
-        identifier_limit: 20,
-        version: None,
-        projection: &fixture.qdrant,
-        clock: &clock,
-    };
-    let outcome = search_identifiers(
-        &query,
-        fixture.kernel.database.clone(),
-        &understood,
-        Instant::now() + Duration::from_secs(5),
-    )
-    .await;
+    let outcome = identifier_search_with(&fixture, &text, 20, None).await;
     assert_eq!(outcome.status, RouteStatus::Ok);
     assert!(
         backend.fake.as_ref().unwrap().scroll_filters().len() > filters_before,

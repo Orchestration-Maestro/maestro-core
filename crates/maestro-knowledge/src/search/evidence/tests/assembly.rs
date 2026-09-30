@@ -3,6 +3,7 @@ use super::super::assemble::{
     ledger::{DuplicateLedgerError, duplicate_ledger},
 };
 use super::super::{EvidenceCounter, EvidenceError, assemble_evidence};
+use super::support::assemble_on_stopped_clock;
 use super::support::{control, evidence_input, exact_evidence_input, fixture};
 use crate::prepare::tests::scratch::{
     clear_chunk_set_manifest, corrupt_artifact, replace_chunk_set_manifest,
@@ -23,7 +24,10 @@ use std::{
     },
     time::{Duration, Instant},
 };
-use tokio::{task::spawn_blocking, time::Instant as TokioInstant};
+use tokio::{
+    task::spawn_blocking,
+    time::{Instant as TokioInstant, advance},
+};
 
 #[test]
 fn parallel_source_loads_emit_the_same_bundle_bytes_as_sequential_loads() {
@@ -127,7 +131,7 @@ fn blocking_counter() -> BlockingCounterRun {
     }
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test]
 async fn returns_authoritative_source_bytes_and_echoes_the_complete_budget() {
     let fixture = fixture(&[(
         "guide.md",
@@ -136,7 +140,7 @@ async fn returns_authoritative_source_bytes_and_echoes_the_complete_budget() {
     let input = evidence_input(&fixture, "What does the guide document say?");
     let database = Arc::new(fixture.database);
 
-    let bundle = assemble_evidence(database, input.clone(), EvidenceCounter::Utf8Bytes)
+    let bundle = assemble_on_stopped_clock(database, input.clone(), EvidenceCounter::Utf8Bytes)
         .await
         .unwrap();
 
@@ -169,12 +173,12 @@ async fn returns_authoritative_source_bytes_and_echoes_the_complete_budget() {
     assert!(bundle.trace.iter().all(|trace| trace.routes == ["lexical"]));
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test]
 async fn an_unversioned_single_document_has_no_latest_order_gap() {
     let fixture = fixture(&[("guide.md", "# Guide\n\nA source passage.\n")]);
     let input = evidence_input(&fixture, "What does the guide document say?");
 
-    let bundle = assemble_evidence(
+    let bundle = assemble_on_stopped_clock(
         Arc::new(fixture.database),
         input,
         EvidenceCounter::Utf8Bytes,
@@ -185,7 +189,7 @@ async fn an_unversioned_single_document_has_no_latest_order_gap() {
     assert_eq!(bundle.known_gaps, Vec::<String>::new());
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test]
 async fn an_inventory_is_echoed_without_inventing_supporting_passages() {
     let fixture = fixture(&[("guide.md", "# Guide\n\nA source passage.\n")]);
     let mut input = evidence_input(&fixture, "How many documents exist?");
@@ -200,7 +204,7 @@ async fn an_inventory_is_echoed_without_inventing_supporting_passages() {
         .insert("structured".to_owned(), RouteStatus::Ok);
     let database = Arc::new(fixture.database);
 
-    let bundle = assemble_evidence(database, input.clone(), EvidenceCounter::Utf8Bytes)
+    let bundle = assemble_on_stopped_clock(database, input.clone(), EvidenceCounter::Utf8Bytes)
         .await
         .unwrap();
 
@@ -214,7 +218,7 @@ async fn an_inventory_is_echoed_without_inventing_supporting_passages() {
     assert_eq!(bundle.known_gaps, [inventory_gap]);
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test]
 async fn changed_read_grants_stop_assembly_before_source_expansion() {
     let fixture = fixture(&[("guide.md", "# Guide\n\nPrivate source.\n")]);
     let input = evidence_input(&fixture, "What is in the guide?");
@@ -225,14 +229,14 @@ async fn changed_read_grants_stop_assembly_before_source_expansion() {
         .unwrap();
     let database = Arc::new(fixture.database);
 
-    let error = assemble_evidence(database, input, EvidenceCounter::Utf8Bytes)
+    let error = assemble_on_stopped_clock(database, input, EvidenceCounter::Utf8Bytes)
         .await
         .unwrap_err();
 
     assert!(matches!(error, EvidenceError::PermissionsChanged));
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test]
 async fn expired_deadlines_and_inconsistent_understanding_are_rejected() {
     let fixture = fixture(&[("guide.md", "# Guide\n\nSource.\n")]);
     let mut input = evidence_input(&fixture, "What is in the guide?");
@@ -249,19 +253,19 @@ async fn expired_deadlines_and_inconsistent_understanding_are_rejected() {
 
     input.deadline = TokioInstant::now() + Duration::from_secs(1);
     input.understood.normalized = "a different query".to_owned();
-    let error = assemble_evidence(database, input, EvidenceCounter::Utf8Bytes)
+    let error = assemble_on_stopped_clock(database, input, EvidenceCounter::Utf8Bytes)
         .await
         .unwrap_err();
     assert!(matches!(error, EvidenceError::InvalidRequest(_)));
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test]
 async fn caller_cancellation_stops_after_a_blocking_counter_returns() {
     let fixture = fixture(&[("guide.md", "# Guide\n\nSource passage.\n")]);
     let input = exact_evidence_input(&fixture, "What is in the guide?");
     let database = Arc::new(fixture.database);
     let blocked = blocking_counter();
-    let task = tokio::spawn(assemble_evidence(database, input, blocked.counter));
+    let task = tokio::spawn(assemble_on_stopped_clock(database, input, blocked.counter));
 
     wait_for(blocked.entered).await;
     assert_eq!(tokio::spawn(async { 7 }).await.unwrap(), 7);
@@ -274,7 +278,7 @@ async fn caller_cancellation_stops_after_a_blocking_counter_returns() {
     assert_eq!(blocked.verify_calls.load(Ordering::Relaxed), 1);
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test(start_paused = true)]
 async fn a_blocked_counter_cannot_outlive_the_inherited_deadline() {
     let fixture = fixture(&[("guide.md", "# Guide\n\nSource passage.\n")]);
     let mut input = exact_evidence_input(&fixture, "What is in the guide?");
@@ -284,6 +288,7 @@ async fn a_blocked_counter_cannot_outlive_the_inherited_deadline() {
     let task = tokio::spawn(assemble_evidence(database, input, blocked.counter));
 
     wait_for(blocked.entered).await;
+    advance(Duration::from_secs(2)).await;
     assert!(matches!(task.await.unwrap(), Err(EvidenceError::TimedOut)));
     blocked.release.send(()).unwrap();
     wait_for(blocked.finished).await;

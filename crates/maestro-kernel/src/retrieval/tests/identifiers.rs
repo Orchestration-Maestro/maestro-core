@@ -1,23 +1,15 @@
 //! Controlled exact-index identifier reads.
 
+use super::clock::control;
 use super::support::SearchDb;
 use crate::retrieval::{
-    ChunkHit, Error, IdentifierSearchResult, ReadControl, SearchRead, SystemClock,
-    contains_identifier, normalize_whitespace,
-};
-use std::{
-    sync::{Arc, atomic::AtomicBool},
-    time::{Duration, Instant},
+    ChunkHit, Error, IdentifierSearchResult, SearchRead, contains_identifier, normalize_whitespace,
 };
 
 #[test]
 fn identifier_hits_requires_readiness_then_returns_exact_matches() {
     let search = SearchDb::with_input_population(&["Install the tool with --force."], 20);
-    let control = ReadControl {
-        deadline: Instant::now() + Duration::from_secs(5),
-        clock: Arc::new(SystemClock),
-        cancelled: Arc::new(AtomicBool::new(false)),
-    };
+    let control = control();
     let read = SearchRead {
         generation: &search.generation,
         scopes: &search.scopes,
@@ -51,11 +43,7 @@ fn identifier_hits_requires_readiness_then_returns_exact_matches() {
 #[test]
 fn empty_identifier_calls_need_no_marker_and_sixty_four_ids_are_allowed() {
     let search = SearchDb::new("Install the tool with --force.");
-    let control = ReadControl {
-        deadline: Instant::now() + Duration::from_secs(5),
-        clock: Arc::new(SystemClock),
-        cancelled: Arc::new(AtomicBool::new(false)),
-    };
+    let control = control();
     let read = SearchRead {
         generation: &search.generation,
         scopes: &search.scopes,
@@ -281,11 +269,7 @@ fn exact_values_are_not_interpreted_as_query_syntax() {
 fn identifier_hits_rejects_limits_that_do_not_fit_sqlite() {
     let search = SearchDb::new("Install the tool with --force.");
     search.ready();
-    let control = ReadControl {
-        deadline: Instant::now() + Duration::from_secs(5),
-        clock: Arc::new(SystemClock),
-        cancelled: Arc::new(AtomicBool::new(false)),
-    };
+    let control = control();
     let read = SearchRead {
         generation: &search.generation,
         scopes: &search.scopes,
@@ -313,11 +297,7 @@ fn search_result_limit(
     identifiers: &[&str],
     limit: usize,
 ) -> IdentifierSearchResult {
-    let control = ReadControl {
-        deadline: Instant::now() + Duration::from_secs(5),
-        clock: Arc::new(SystemClock),
-        cancelled: Arc::new(AtomicBool::new(false)),
-    };
+    let control = control();
     let read = SearchRead {
         generation: &search.generation,
         scopes: &search.scopes,

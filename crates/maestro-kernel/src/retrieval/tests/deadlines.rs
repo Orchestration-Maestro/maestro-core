@@ -1,34 +1,17 @@
 //! Cancellation and clock bounds on SQLite reads.
 
 use super::super::read::{classify, controlled_reader};
-use super::support::SearchDb;
-use crate::retrieval::{Clock, Error, InventoryRequest, ReadControl, SearchRead, SystemClock};
+use super::{
+    clock::{ManualClock, control},
+    support::SearchDb,
+};
+use crate::retrieval::{Error, InventoryRequest, ReadControl, SearchRead, SystemClock};
 use rusqlite::Connection;
 use std::{
     slice,
-    sync::{Arc, Mutex, atomic::AtomicBool},
+    sync::{Arc, atomic::AtomicBool},
     time::{Duration, Instant},
 };
-
-/// A clock that reads the instant the test last set.
-#[derive(Debug)]
-struct ManualClock(Mutex<Instant>);
-
-impl ManualClock {
-    fn at(now: Instant) -> Arc<Self> {
-        Arc::new(Self(Mutex::new(now)))
-    }
-
-    fn set(&self, now: Instant) {
-        *self.0.lock().unwrap() = now;
-    }
-}
-
-impl Clock for ManualClock {
-    fn now(&self) -> Instant {
-        *self.0.lock().unwrap()
-    }
-}
 
 /// The last instant before `deadline`: a read may still run.
 fn just_before(deadline: Instant) -> Instant {
@@ -110,9 +93,8 @@ fn read_control_rejects_deadline_and_cancellation() {
     assert!(matches!(expired.check(), Err(Error::TimedOut)));
 
     let cancelled = ReadControl {
-        deadline: Instant::now() + Duration::from_secs(5),
-        clock: Arc::new(SystemClock),
         cancelled: Arc::new(AtomicBool::new(true)),
+        ..control()
     };
     assert!(matches!(cancelled.check(), Err(Error::Cancelled)));
 }
@@ -139,9 +121,8 @@ fn preexpired_and_cancelled_reads_stop_before_opening_sql() {
     ));
 
     let cancelled = ReadControl {
-        deadline: Instant::now() + Duration::from_secs(5),
-        clock: Arc::new(SystemClock),
         cancelled: Arc::new(AtomicBool::new(true)),
+        ..control()
     };
     let read = SearchRead {
         control: &cancelled,
@@ -158,12 +139,12 @@ fn preexpired_and_cancelled_reads_stop_before_opening_sql() {
 #[test]
 fn progress_handler_interrupts_a_long_recursive_read() {
     let search = SearchDb::new("Install the tool with --force.");
-    let control = ReadControl {
-        deadline: Instant::now() + Duration::from_millis(20),
-        clock: Arc::new(SystemClock),
-        cancelled: Arc::new(AtomicBool::new(false)),
-    };
+    let deadline = Instant::now() + Duration::from_millis(20);
+    let clock = ManualClock::at(just_before(deadline));
+    let control = control_on(deadline, clock.clone());
     let reader = controlled_reader(&search.database, &control).unwrap();
+    // The first SQLite progress callback runs before expiry; the second expires.
+    clock.advance_after_reads(1, deadline);
     let interrupted = long_read(&reader);
     assert!(matches!(
         interrupted.map_err(|error| classify(error, &control)),

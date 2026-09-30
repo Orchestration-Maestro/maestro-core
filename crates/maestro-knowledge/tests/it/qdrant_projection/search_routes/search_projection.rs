@@ -1,5 +1,6 @@
 //! Publication's identifier payload and readiness marker.
 
+use super::super::stopped_clock::on_stopped_clock;
 use super::super::support::{point_id, projection};
 use super::{
     backends::{Backend, backends},
@@ -11,10 +12,12 @@ use maestro_kernel::{
     chunk_set::Chunk,
     document::{Disposition, Outcome},
     generation::{Generation, GenerationState},
-    retrieval::{IDENTIFIER_PROFILE, ReadControl, SearchRead, SystemClock},
+    retrieval::{IDENTIFIER_PROFILE, ReadControl, SearchRead},
 };
+use maestro_knowledge::search::RuntimeClock;
 use qdrant_client::qdrant::value::Kind;
 use std::{
+    future,
     sync::{Arc, atomic::AtomicBool},
     time::{Duration, Instant},
 };
@@ -96,7 +99,7 @@ fn assert_kernel_identifiers(kernel: &Kernel, generation: &Generation, chunk: &C
     assert_eq!(indexed_count, 1);
     let control = ReadControl {
         deadline: Instant::now() + Duration::from_secs(5),
-        clock: Arc::new(SystemClock),
+        clock: Arc::new(RuntimeClock::current()),
         cancelled: Arc::new(AtomicBool::new(false)),
     };
     let read = SearchRead {
@@ -143,23 +146,26 @@ async fn publication_indexes_exact_identifiers_and_marks_search_ready() {
         let card = models::embedder(3);
         let port = models::Embedder::default();
         let qdrant = backend.client();
-        let report = projection(&kernel, &qdrant, &port, &card)
-            .publish(&kernel.chunk_set)
-            .await
-            .unwrap();
-        let generation = kernel
-            .database
-            .generation(&kernel.scopes, report.generation)
-            .unwrap()
-            .unwrap();
-        let chunk = kernel
-            .chunks()
-            .into_iter()
-            .find(|chunk| chunk.id == "chunk-0-lead")
-            .unwrap();
-        assert_published_identifiers(&backend, &report.qdrant_collection, &chunk).await;
-        assert_kernel_identifiers(&kernel, &generation, &chunk);
-        assert_eq!(generation.state, GenerationState::Published);
-        cleanup(&backend, &[&generation]).await;
+        on_stopped_clock(future::pending(), async {
+            let report = projection(&kernel, &qdrant, &port, &card)
+                .publish(&kernel.chunk_set)
+                .await
+                .unwrap();
+            let generation = kernel
+                .database
+                .generation(&kernel.scopes, report.generation)
+                .unwrap()
+                .unwrap();
+            let chunk = kernel
+                .chunks()
+                .into_iter()
+                .find(|chunk| chunk.id == "chunk-0-lead")
+                .unwrap();
+            assert_published_identifiers(&backend, &report.qdrant_collection, &chunk).await;
+            assert_kernel_identifiers(&kernel, &generation, &chunk);
+            assert_eq!(generation.state, GenerationState::Published);
+            cleanup(&backend, &[&generation]).await;
+        })
+        .await;
     }
 }

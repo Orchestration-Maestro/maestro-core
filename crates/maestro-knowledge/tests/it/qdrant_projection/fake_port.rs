@@ -22,6 +22,8 @@ use maestro_knowledge::{
         },
     },
 };
+use maestro_test_clock::on_stopped_clock;
+use std::future;
 use std::{
     collections::{BTreeMap, HashMap},
     ops::ControlFlow,
@@ -412,11 +414,14 @@ async fn publication_and_standalone_verification_use_the_fake_port() {
         text: "ERR-042",
         ..query
     };
-    let identifiers = search_identifiers(
-        &identifier_query,
-        kernel.database.clone(),
-        &understood,
-        Instant::now() + Duration::from_secs(2),
+    let identifiers = on_stopped_clock(
+        future::pending(),
+        search_identifiers(
+            &identifier_query,
+            kernel.database.clone(),
+            &understood,
+            Instant::now() + Duration::from_secs(2),
+        ),
     )
     .await;
     assert!(!identifiers.hits.is_empty());

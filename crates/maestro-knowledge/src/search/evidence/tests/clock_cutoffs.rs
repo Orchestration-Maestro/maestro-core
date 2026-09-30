@@ -9,8 +9,9 @@ use crate::{
     search::tests::clock::{ManualClock, control_at, just_before},
 };
 use maestro_kernel::retrieval::ReadControl;
+use maestro_test_clock::on_stopped_clock;
 use std::{
-    slice,
+    future, slice,
     sync::{Arc, atomic::AtomicBool},
     time::{Duration, Instant},
 };
@@ -26,23 +27,26 @@ fn cutoff() -> Instant {
 #[tokio::test]
 async fn evidence_assembly_reads_its_cutoff_on_the_handoff_clock() {
     let fixture = fixture(&[GUIDE]);
-    let mut input = evidence_input(&fixture, "What does the guide say?");
-    input.deadline = TokioInstant::now() + Duration::from_secs(3600);
-    let cutoff = input.deadline.into_std();
-    let mut late = input.clone();
-    input.clock = ManualClock::at(just_before(cutoff));
-    late.clock = ManualClock::at(cutoff);
-    let database = Arc::new(fixture.database);
+    on_stopped_clock(future::pending(), async {
+        let mut input = evidence_input(&fixture, "What does the guide say?");
+        input.deadline = TokioInstant::now() + Duration::from_secs(3600);
+        let cutoff = input.deadline.into_std();
+        let mut late = input.clone();
+        input.clock = ManualClock::at(just_before(cutoff));
+        late.clock = ManualClock::at(cutoff);
+        let database = Arc::new(fixture.database);
 
-    assert!(
-        assemble_evidence(database.clone(), input, EvidenceCounter::Utf8Bytes)
-            .await
-            .is_ok()
-    );
-    assert!(matches!(
-        assemble_evidence(database, late, EvidenceCounter::Utf8Bytes).await,
-        Err(EvidenceError::TimedOut)
-    ));
+        assert!(
+            assemble_evidence(database.clone(), input, EvidenceCounter::Utf8Bytes)
+                .await
+                .is_ok()
+        );
+        assert!(matches!(
+            assemble_evidence(database, late, EvidenceCounter::Utf8Bytes).await,
+            Err(EvidenceError::TimedOut)
+        ));
+    })
+    .await;
 }
 
 #[test]

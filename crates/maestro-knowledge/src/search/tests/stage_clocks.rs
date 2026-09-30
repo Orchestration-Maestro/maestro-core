@@ -19,6 +19,8 @@ use maestro_kernel::{
     evidence::RouteStatus,
     retrieval::{self, Clock, InventoryRequest},
 };
+use maestro_test_clock::on_stopped_clock;
+use std::future;
 use std::{
     sync::Arc,
     time::{Duration, Instant as StdInstant},
@@ -52,15 +54,18 @@ async fn admission_reads_its_cutoff_on_the_admitted_clock() {
     let deadline = cutoff();
     let [before, at] = clocks(deadline);
     let admit_on = |clock| {
-        admit(
-            fixture.database.clone(),
-            Admission {
-                principal: "reader".to_owned(),
-                collection: fixture.generation.collection_id.clone(),
-                version: Some("1.0".to_owned()),
-                deadline,
-                clock,
-            },
+        on_stopped_clock(
+            future::pending(),
+            admit(
+                fixture.database.clone(),
+                Admission {
+                    principal: "reader".to_owned(),
+                    collection: fixture.generation.collection_id.clone(),
+                    version: Some("1.0".to_owned()),
+                    deadline,
+                    clock,
+                },
+            ),
         )
     };
 
@@ -80,7 +85,10 @@ async fn candidate_loading_reads_its_cutoff_on_the_request_clock() {
         request.deadline = deadline;
         request.context_deadline = deadline;
         request.clock = clock;
-        candidates::load(fixture.database.clone(), request)
+        on_stopped_clock(
+            future::pending(),
+            candidates::load(fixture.database.clone(), request),
+        )
     };
     let [before, at] = clocks(deadline);
 
@@ -106,23 +114,29 @@ async fn the_identifier_kernel_leg_reads_its_cutoff_on_the_query_clock() {
         clock,
     };
 
-    let found = kernel_leg(
-        &query(&before),
-        fixture.database.clone(),
-        &identifiers,
-        10,
-        deadline,
+    let found = on_stopped_clock(
+        future::pending(),
+        kernel_leg(
+            &query(&before),
+            fixture.database.clone(),
+            &identifiers,
+            10,
+            deadline,
+        ),
     )
     .await
     .unwrap();
     assert_eq!(found.hits.len(), 1);
     assert_eq!(
-        kernel_leg(
-            &query(&at),
-            fixture.database.clone(),
-            &identifiers,
-            10,
-            deadline
+        on_stopped_clock(
+            future::pending(),
+            kernel_leg(
+                &query(&at),
+                fixture.database.clone(),
+                &identifiers,
+                10,
+                deadline
+            )
         )
         .await
         .err()
@@ -149,15 +163,22 @@ async fn the_structured_route_reads_its_cutoff_on_the_query_clock() {
         clock,
     };
 
-    let counted = search_structured(
-        &query(&before),
-        fixture.database.clone(),
-        &request,
-        deadline,
+    let counted = on_stopped_clock(
+        future::pending(),
+        search_structured(
+            &query(&before),
+            fixture.database.clone(),
+            &request,
+            deadline,
+        ),
     )
     .await;
     assert_eq!(counted.route.status, RouteStatus::Ok);
-    let late = search_structured(&query(&at), fixture.database.clone(), &request, deadline).await;
+    let late = on_stopped_clock(
+        future::pending(),
+        search_structured(&query(&at), fixture.database.clone(), &request, deadline),
+    )
+    .await;
     assert_eq!(
         late.route.status,
         RouteStatus::Unavailable(DEADLINE_EXCEEDED.to_owned())

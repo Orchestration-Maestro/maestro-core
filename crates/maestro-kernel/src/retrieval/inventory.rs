@@ -236,18 +236,15 @@ fn supports(
 #[cfg(test)]
 mod bounds_tests {
     use super::{groups, selected_sql, total_documents};
+    use crate::retrieval::tests::clock::control;
     use crate::{
         evidence::InventoryCount,
         generation::{Generation, GenerationState},
-        retrieval::{Error, ReadControl, SearchRead, SystemClock},
+        retrieval::{Error, SearchRead},
         scope::{Scope, ScopeSet},
     };
     use rusqlite::Connection;
     use std::collections::BTreeSet;
-    use std::{
-        sync::{Arc, atomic::AtomicBool},
-        time::{Duration, Instant},
-    };
 
     #[test]
     fn inventory_group_bound_is_exact() {
@@ -264,11 +261,7 @@ mod bounds_tests {
             published_at: None,
         };
         let scopes = ScopeSet::default_workspace();
-        let control = ReadControl {
-            deadline: Instant::now() + Duration::from_secs(5),
-            clock: Arc::new(SystemClock),
-            cancelled: Arc::new(AtomicBool::new(false)),
-        };
+        let control = control();
         let read = SearchRead {
             generation: &generation,
             scopes: &scopes,
@@ -358,11 +351,7 @@ mod bounds_tests {
             point_count: None,
             published_at: None,
         };
-        let control = ReadControl {
-            deadline: Instant::now() + Duration::from_secs(5),
-            clock: Arc::new(SystemClock),
-            cancelled: Arc::new(AtomicBool::new(false)),
-        };
+        let control = control();
         let read = SearchRead {
             generation: &generation,
             scopes: &scopes,

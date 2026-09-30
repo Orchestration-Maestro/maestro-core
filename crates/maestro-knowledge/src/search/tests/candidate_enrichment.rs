@@ -1,19 +1,14 @@
 //! Opt-in reranker enrichment degrades to the indexed chunk, never to a failed search.
 
-use super::support::CandidateDb;
+use super::{clock::control, support::CandidateDb};
 use crate::search::{
     CandidateContext, IntentExpansion, SearchConfiguration, SectionClassSet, SectionPrior,
     candidate_enrichment::{self, Settings},
     candidates,
 };
-use maestro_kernel::retrieval::{ReadControl, SystemClock};
-use std::{
-    collections::BTreeSet,
-    num::NonZeroUsize,
-    slice,
-    sync::{Arc, atomic::AtomicBool},
-    time::{Duration, Instant},
-};
+use maestro_test_clock::on_stopped_clock;
+use std::future;
+use std::{collections::BTreeSet, num::NonZeroUsize, slice, time::Duration};
 
 #[test]
 fn elapsed_microseconds_preserve_the_measured_value() {
@@ -52,12 +47,8 @@ fn enrichment_loads_only_the_revisions_it_scores() {
         },
         ..SearchConfiguration::default()
     };
-    let deadline = Instant::now() + Duration::from_hours(6);
-    let control = ReadControl {
-        deadline,
-        clock: Arc::new(SystemClock),
-        cancelled: Arc::new(AtomicBool::new(false)),
-    };
+    let control = control();
+    let deadline = control.deadline;
     let enriched = candidate_enrichment::enrich(
         (&db.database, &db.scopes, &control),
         &Settings {
@@ -84,9 +75,12 @@ async fn an_unreadable_source_keeps_the_chunk_text_and_records_the_fallback() {
         weight: 0.5,
         classes: all_classes(),
     };
-    let loaded = candidates::load(db.database.clone(), request)
-        .await
-        .unwrap();
+    let loaded = on_stopped_clock(
+        future::pending(),
+        candidates::load(db.database.clone(), request),
+    )
+    .await
+    .unwrap();
     assert_eq!(loaded.candidates.len(), 1);
     assert_eq!(loaded.candidates[0].text, "prepared text");
     assert_eq!(loaded.fallbacks, slice::from_ref(&db.chunk_id));
@@ -102,9 +96,12 @@ async fn an_unreadable_source_never_fails_a_prior_only_search() {
         weight: 0.5,
         classes: all_classes(),
     };
-    let loaded = candidates::load(db.database.clone(), request)
-        .await
-        .unwrap();
+    let loaded = on_stopped_clock(
+        future::pending(),
+        candidates::load(db.database.clone(), request),
+    )
+    .await
+    .unwrap();
     assert_eq!(loaded.candidates[0].text, "prepared text");
     assert!(loaded.fallbacks.is_empty());
     assert!(loaded.penalized.section.is_empty());
@@ -119,9 +116,12 @@ async fn a_prior_without_classes_reads_no_source() {
         weight: 0.5,
         classes: SectionClassSet::default(),
     };
-    let loaded = candidates::load(db.database.clone(), request)
-        .await
-        .unwrap();
+    let loaded = on_stopped_clock(
+        future::pending(),
+        candidates::load(db.database.clone(), request),
+    )
+    .await
+    .unwrap();
     assert_eq!(loaded.candidates[0].text, "prepared text");
     assert_eq!(loaded.context_unavailable, 0);
 }

@@ -1,4 +1,5 @@
-use super::super::{CounterMode, EvidenceCounter, EvidenceError, assemble_evidence};
+use super::super::{CounterMode, EvidenceCounter, EvidenceError};
+use super::support::assemble_on_stopped_clock;
 use super::support::{evidence_input, fixture};
 use crate::{
     query::{Family, Identifier},
@@ -19,7 +20,7 @@ const RERANK_SCORE_ERROR: &str = "unavailable reranking cannot supply candidate 
 const MISSING_ROUTE_ERROR: &str = "candidate route status is missing";
 const UNAVAILABLE_ROUTE_ERROR: &str = "an unavailable route supplied a candidate";
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test]
 async fn accepts_handoff_fields_at_their_exact_text_and_candidate_limits() {
     let fixture = fixture(&[("guide.md", "# Guide\n\nA source passage.\n")]);
     let mut input = evidence_input(&fixture, "What does the guide document say?");
@@ -42,7 +43,7 @@ async fn accepts_handoff_fields_at_their_exact_text_and_candidate_limits() {
         })
         .collect();
 
-    let bundle = assemble_evidence(
+    let bundle = assemble_on_stopped_clock(
         Arc::new(fixture.database),
         input,
         EvidenceCounter::Utf8Bytes,
@@ -54,7 +55,7 @@ async fn accepts_handoff_fields_at_their_exact_text_and_candidate_limits() {
     assert_eq!(bundle.budget.limit, 24_000);
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test]
 async fn a_24000_byte_answer_bound_budget_delivers_past_the_former_12000_byte_wire() {
     let mut guide = "# Guide\n\n".to_owned();
     for step in 1..=8 {
@@ -73,7 +74,7 @@ async fn a_24000_byte_answer_bound_budget_delivers_past_the_former_12000_byte_wi
     input.evidence.evidence_counter = CounterMode::Utf8AnswerBound;
     input.budget.evidence_bytes = 24_000;
 
-    let bundle = assemble_evidence(
+    let bundle = assemble_on_stopped_clock(
         Arc::new(fixture.database),
         input,
         EvidenceCounter::AnswerBoundUtf8Bytes,
@@ -87,12 +88,12 @@ async fn a_24000_byte_answer_bound_budget_delivers_past_the_former_12000_byte_wi
     assert_eq!(bundle.budget.limit, 24_000);
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test]
 async fn rejects_each_invalid_handoff_field_at_the_public_entry_point() {
     let fixture = fixture(&[("guide.md", "# Guide\n\nA source passage.\n")]);
     let base = evidence_input(&fixture, "What does the guide document say?");
     let database = Arc::new(fixture.database);
-    assemble_evidence(database.clone(), base.clone(), EvidenceCounter::Utf8Bytes)
+    assemble_on_stopped_clock(database.clone(), base.clone(), EvidenceCounter::Utf8Bytes)
         .await
         .expect("the control handoff is valid");
 
@@ -101,7 +102,7 @@ async fn rejects_each_invalid_handoff_field_at_the_public_entry_point() {
     }
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+#[tokio::test]
 async fn refuses_a_counter_other_than_the_configured_evidence_counter() {
     let fixture = fixture(&[("guide.md", "# Guide\n\nA source passage.\n")]);
     let base = evidence_input(&fixture, "What does the guide document say?");
@@ -114,7 +115,7 @@ async fn refuses_a_counter_other_than_the_configured_evidence_counter() {
     for (setting, counter) in mismatches {
         let mut input = base.clone();
         input.evidence.evidence_counter = setting;
-        let error = assemble_evidence(database.clone(), input, counter)
+        let error = assemble_on_stopped_clock(database.clone(), input, counter)
             .await
             .unwrap_err();
         assert!(
@@ -128,7 +129,7 @@ async fn refuses_a_counter_other_than_the_configured_evidence_counter() {
     }
     let mut input = base;
     input.evidence.evidence_counter = CounterMode::Utf8AnswerBound;
-    assemble_evidence(database, input, EvidenceCounter::AnswerBoundUtf8Bytes)
+    assemble_on_stopped_clock(database, input, EvidenceCounter::AnswerBoundUtf8Bytes)
         .await
         .expect("the configured counter is accepted");
 }
@@ -142,7 +143,7 @@ async fn assert_invalid_case(
 ) {
     let mut input = base.clone();
     change(&mut input);
-    let error = assemble_evidence(database.clone(), input, EvidenceCounter::Utf8Bytes)
+    let error = assemble_on_stopped_clock(database.clone(), input, EvidenceCounter::Utf8Bytes)
         .await
         .unwrap_err();
     match error {

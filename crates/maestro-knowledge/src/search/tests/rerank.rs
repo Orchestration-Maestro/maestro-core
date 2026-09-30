@@ -94,7 +94,9 @@ impl ModelPort for FakePort {
         let reply = self.reply.clone();
         let delay = self.delay;
         async move {
-            sleep(delay).await;
+            if !delay.is_zero() {
+                sleep(delay).await;
+            }
             match reply {
                 Reply::Scores(scores) => Ok(scores),
                 Reply::NoRoom => Err(Error::Unavailable {
@@ -196,7 +198,7 @@ fn ids(ranked: &[Ranked]) -> Vec<&str> {
         .collect()
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn maps_scores_to_document_positions_before_sorting() {
     let port = FakePort::scores(vec![0.1, 0.9, 0.5]);
     let card = card(Role::Reranker, 128);
@@ -233,7 +235,7 @@ async fn maps_scores_to_document_positions_before_sorting() {
     assert_eq!(calls[0].documents, ["alpha", "beta", "gamma"]);
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn default_depth_sends_thirty_once_and_keeps_the_unscored_tail() {
     let port = FakePort::scores((0..30).map(f64::from).collect());
     let card = card(Role::Reranker, 128);
@@ -270,7 +272,7 @@ async fn default_depth_sends_thirty_once_and_keeps_the_unscored_tail() {
     assert!(result.ranked[30..].iter().all(|item| item.score.is_none()));
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn long_text_is_windowed_without_loss_and_short_text_skips_tokenization() {
     let port = FakePort::scores(vec![0.2, 0.9, 0.4]);
     let card = card(Role::Reranker, 21);
@@ -329,7 +331,7 @@ fn assert_unavailable(result: &Reranked, expected_ids: &[&str]) -> String {
     reason.clone()
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn unicode_windows_preserve_character_boundaries() {
     let port = FakePort::scores(vec![0.2, 0.9]);
     let card = card(Role::Reranker, 21);
@@ -444,7 +446,7 @@ async fn every_failure_falls_back_in_fused_order_with_a_reason() {
     }
 }
 
-#[tokio::test]
+#[tokio::test(start_paused = true)]
 async fn equal_rerank_scores_keep_fused_order_and_scores_separate() {
     let port = FakePort::scores(vec![0.0, -0.0, 0.0]);
     let card = card(Role::Reranker, 128);

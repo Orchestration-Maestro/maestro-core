@@ -2,6 +2,7 @@ use super::super::deadline::{
     BlockingFailure, DeadlineElapsed, Deadlines, RuntimeClock, StageWindow, from_budget, open_at,
     run_blocking, until,
 };
+use super::clock::control_at;
 use maestro_kernel::{
     evidence::RequestBudget,
     retrieval::{Clock, ReadControl, SystemClock},
@@ -23,11 +24,7 @@ use tokio::{
 fn enrichment_cutoff_is_exclusive_at_the_deadline() {
     let now = StdInstant::now();
     let deadline = now + StdDuration::from_secs(1);
-    let control = ReadControl {
-        deadline,
-        clock: Arc::new(SystemClock),
-        cancelled: Arc::new(AtomicBool::new(false)),
-    };
+    let control = control_at(deadline, now);
 
     assert!(open_at(&control, now));
     assert!(!open_at(&control, deadline));

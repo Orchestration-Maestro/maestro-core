@@ -1,24 +1,17 @@
 //! Complete, pinned-generation inventory reads.
 
+use super::clock::control;
 use super::support::SearchDb;
 use crate::{
     evidence::{Inventory, InventoryCount},
-    retrieval::{InventoryRequest, ReadControl, SearchMember, SearchRead, SystemClock},
-};
-use std::{
-    sync::{Arc, atomic::AtomicBool},
-    time::{Duration, Instant},
+    retrieval::{InventoryRequest, SearchMember, SearchRead},
 };
 
 #[test]
 fn inventory_counts_member_metadata_and_returns_its_own_support_chunk() {
     let search = SearchDb::new("Install the tool with --force.");
     search.ready();
-    let control = ReadControl {
-        deadline: Instant::now() + Duration::from_secs(5),
-        clock: Arc::new(SystemClock),
-        cancelled: Arc::new(AtomicBool::new(false)),
-    };
+    let control = control();
     let read = SearchRead {
         generation: &search.generation,
         scopes: &search.scopes,
@@ -65,11 +58,7 @@ fn duplicate_documents_count_independently_without_borrowed_supports() {
             representative_revision_id: "rev-a".to_owned(),
         },
     ]);
-    let control = ReadControl {
-        deadline: Instant::now() + Duration::from_secs(5),
-        clock: Arc::new(SystemClock),
-        cancelled: Arc::new(AtomicBool::new(false)),
-    };
+    let control = control();
     let read = SearchRead {
         generation: &search.generation,
         scopes: &search.scopes,
@@ -111,11 +100,7 @@ fn duplicate_documents_count_independently_without_borrowed_supports() {
 fn inventory_applies_exact_set_and_version_filters_before_its_counts() {
     let search = SearchDb::new("Install the tool with --force.");
     search.ready();
-    let control = ReadControl {
-        deadline: Instant::now() + Duration::from_secs(5),
-        clock: Arc::new(SystemClock),
-        cancelled: Arc::new(AtomicBool::new(false)),
-    };
+    let control = control();
     let read = SearchRead {
         generation: &search.generation,
         scopes: &search.scopes,

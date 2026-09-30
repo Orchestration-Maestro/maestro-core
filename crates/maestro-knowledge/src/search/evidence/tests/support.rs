@@ -1,6 +1,11 @@
 //! A prepared chunk set and generation for evidence-path tests.
 
-use crate::search::evidence::{CounterMode, EvidenceSettings};
+use super::super::{EvidenceCounter, EvidenceError, assemble_evidence};
+use crate::search::{
+    RuntimeClock,
+    evidence::{CounterMode, EvidenceSettings},
+    tests::clock::{ManualClock, control as stopped_control},
+};
 use crate::{
     prepare::{
         ChunkProfile, Preparation, prepare_observed,
@@ -11,19 +16,18 @@ use crate::{
 };
 use maestro_kernel::{
     document::Outcome,
-    evidence::{RequestBudget, RouteStatus},
+    evidence::{Bundle, RequestBudget, RouteStatus},
     generation::{Generation, NewGeneration},
-    retrieval::{ReadControl, SystemClock},
+    retrieval::ReadControl,
     scope::ScopeSet,
     store::Database,
 };
-use std::{
-    collections::BTreeMap,
-    ops::ControlFlow,
-    sync::{Arc, atomic::AtomicBool},
-    time::{Duration, Instant},
-};
+use maestro_test_clock::on_stopped_clock;
+use std::{collections::BTreeMap, future, ops::ControlFlow, sync::Arc, time::Duration};
 use tokio::time::Instant as TokioInstant;
+
+/// The existing handoff allowance; fixture setup never spends it.
+const HANDOFF_WINDOW: Duration = Duration::from_secs(10);
 
 /// One synthetic, authorized corpus prepared and pinned to a generation.
 pub(super) struct Fixture {
@@ -132,17 +136,27 @@ pub(super) fn evidence_input(fixture: &Fixture, query: &str) -> EvidenceInput {
         ]),
         inventory: None,
         budget: RequestBudget::default(),
-        deadline: TokioInstant::now() + Duration::from_secs(10),
-        clock: Arc::new(SystemClock),
+        deadline: TokioInstant::now() + HANDOFF_WINDOW,
+        clock: ManualClock::at(TokioInstant::now().into_std()),
         known_gaps: Vec::new(),
     }
 }
 
-/// A live read control long enough for deterministic local tests.
+/// A live read control whose clock never advances by itself.
 pub(in crate::search::evidence) fn control() -> ReadControl {
-    ReadControl {
-        deadline: Instant::now() + Duration::from_secs(30),
-        clock: Arc::new(SystemClock),
-        cancelled: Arc::new(AtomicBool::new(false)),
-    }
+    stopped_control()
+}
+
+/// Assembles after fixture setup, with both clocks held still.
+pub(super) async fn assemble_on_stopped_clock(
+    database: Arc<Database>,
+    mut input: EvidenceInput,
+    counter: EvidenceCounter,
+) -> Result<Bundle, EvidenceError> {
+    on_stopped_clock(future::pending(), async move {
+        input.deadline = TokioInstant::now() + HANDOFF_WINDOW;
+        input.clock = Arc::new(RuntimeClock::current());
+        assemble_evidence(database, input, counter).await
+    })
+    .await
 }

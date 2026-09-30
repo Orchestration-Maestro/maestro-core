@@ -671,6 +671,7 @@ in place.
 │   │   │   │   └── validation.rs                                            # Canonical shard validation and relational set completion
 │   │   │   ├── retrieval/                                                   # Controlled, scope-bound retrieval and its shared literal search rules
 │   │   │   │   ├── tests/                                                   # Tests for exact identifier search inputs
+│   │   │   │   │   ├── clock.rs                                             # A settable clock shared by controlled-read tests
 │   │   │   │   │   ├── deadlines.rs                                         # Cancellation and real-clock bounds on SQLite reads
 │   │   │   │   │   ├── errors.rs                                            # Nonblank retrieval refusals and preserved store error sources
 │   │   │   │   │   ├── identifier_scope.rs                                  # Rust source: identifier scope
@@ -1294,6 +1295,12 @@ in place.
 │   │   │   ├── store.rs                                                     # The port a session reads its preferences layers through, and its file
 │   │   │   └── value.rs                                                     # A setting's value: read from the command line's text or a file's TOML
 │   │   └── Cargo.toml                                                       # Crate manifest: Maestro's settings: the registry of every setting, its layered files and their resolution
+│   ├── maestro-test-clock/                                                  # Maestro test clock
+│   │   ├── src/                                                             # The crate's sources
+│   │   │   ├── lib.rs                                                       # Clock and stage signals used only by the workspace's tests
+│   │   │   ├── stage_end.rs                                                 # Watches the outcome fields of tracing stages for a held-clock release
+│   │   │   └── stopped.rs                                                   # Holds Tokio time still while ordinary test work runs
+│   │   └── Cargo.toml                                                       # Crate manifest: Stopped Tokio time and stage completion signals for workspace tests
 │   └── maestro-test-scratch/                                                # Maestro test scratch
 │       ├── src/                                                             # The crate's sources
 │       │   ├── lib.rs                                                       # Where the workspace's tests create their scratch directories

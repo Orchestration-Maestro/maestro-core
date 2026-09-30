@@ -65,11 +65,14 @@ async fn identifier_search_limits(
         projection: &fixture.qdrant,
         clock: &clock,
     };
-    search_identifiers(
-        &query,
-        fixture.kernel.database.clone(),
-        &understand(text),
-        Instant::now() + Duration::from_secs(5),
+    on_stopped_clock(
+        future::pending(),
+        search_identifiers(
+            &query,
+            fixture.kernel.database.clone(),
+            &understand(text),
+            Instant::now() + Duration::from_secs(5),
+        ),
     )
     .await
 }
@@ -118,11 +121,14 @@ async fn smaller_shared_route_limit_bounds_identifier_candidates_too() {
 /// Runs the identifier route on `text` with the noise guard on.
 async fn guarded(fixture: &PublishedCommand, text: &str) -> IdentifierOutcome {
     let clock: Arc<dyn Clock> = Arc::new(RuntimeClock::current());
-    search_identifiers_guarded(
-        &query(fixture, text, &clock),
-        fixture.kernel.database.clone(),
-        &understand(text),
-        Instant::now() + Duration::from_secs(5),
+    on_stopped_clock(
+        future::pending(),
+        search_identifiers_guarded(
+            &query(fixture, text, &clock),
+            fixture.kernel.database.clone(),
+            &understand(text),
+            Instant::now() + Duration::from_secs(5),
+        ),
     )
     .await
 }
@@ -177,11 +183,14 @@ async fn a_too_common_identifier_gets_no_payload_votes_with_the_guard_on() {
 
     let before = scrolls();
     let clock: Arc<dyn Clock> = Arc::new(RuntimeClock::current());
-    let off = search_identifiers(
-        &query(&fixture, "9.0.22", &clock),
-        fixture.kernel.database.clone(),
-        &understand("9.0.22"),
-        Instant::now() + Duration::from_secs(5),
+    let off = on_stopped_clock(
+        future::pending(),
+        search_identifiers(
+            &query(&fixture, "9.0.22", &clock),
+            fixture.kernel.database.clone(),
+            &understand("9.0.22"),
+            Instant::now() + Duration::from_secs(5),
+        ),
     )
     .await;
     assert_eq!(
@@ -232,11 +241,14 @@ async fn a_lone_rare_identifier_votes_as_it_does_without_the_guard() {
     let fixture = publish_command(&backend).await;
 
     let clock: Arc<dyn Clock> = Arc::new(RuntimeClock::current());
-    let off = search_identifiers(
-        &query(&fixture, "ERR-042", &clock),
-        fixture.kernel.database.clone(),
-        &understand("ERR-042"),
-        Instant::now() + Duration::from_secs(5),
+    let off = on_stopped_clock(
+        future::pending(),
+        search_identifiers(
+            &query(&fixture, "ERR-042", &clock),
+            fixture.kernel.database.clone(),
+            &understand("ERR-042"),
+            Instant::now() + Duration::from_secs(5),
+        ),
     )
     .await;
     let on = guarded(&fixture, "ERR-042").await;

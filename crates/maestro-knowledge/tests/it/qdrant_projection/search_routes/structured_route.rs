@@ -9,6 +9,8 @@ use maestro_kernel::{
     retrieval::{Clock, InventoryRequest},
 };
 use maestro_knowledge::search::{Query, RuntimeClock, routes::structured::search_structured};
+use maestro_test_clock::on_stopped_clock;
+use std::future;
 use std::{sync::Arc, time::Duration};
 use tokio::time::Instant;
 
@@ -57,11 +59,14 @@ async fn inventory_counts_each_eligible_member_once_independent_of_limit() {
         projection: &qdrant,
         clock: &clock,
     };
-    let outcome = search_structured(
-        &query,
-        kernel.database.clone(),
-        &request,
-        Instant::now() + Duration::from_secs(5),
+    let outcome = on_stopped_clock(
+        future::pending(),
+        search_structured(
+            &query,
+            kernel.database.clone(),
+            &request,
+            Instant::now() + Duration::from_secs(5),
+        ),
     )
     .await;
     assert_eq!(outcome.route.status, RouteStatus::Ok);
@@ -93,11 +98,14 @@ async fn inventory_counts_each_eligible_member_once_independent_of_limit() {
     );
 
     let wide_query = Query { limit: 50, ..query };
-    let wide = search_structured(
-        &wide_query,
-        kernel.database.clone(),
-        &request,
-        Instant::now() + Duration::from_secs(5),
+    let wide = on_stopped_clock(
+        future::pending(),
+        search_structured(
+            &wide_query,
+            kernel.database.clone(),
+            &request,
+            Instant::now() + Duration::from_secs(5),
+        ),
     )
     .await;
     assert_eq!(outcome.inventory, wide.inventory);
