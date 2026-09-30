@@ -8,6 +8,7 @@ use toml::de::DeTable;
 /// A choice of `values`.
 fn choice(values: &'static [&'static str]) -> SettingKind {
     SettingKind::Choice {
+        ordered: false,
         values: values.iter().map(|value| Cow::Borrowed(*value)).collect(),
         reserved: Cow::Borrowed(&[]),
     }
@@ -167,6 +168,7 @@ fn parse_text_reads_choices_languages_and_names() {
 #[test]
 fn a_reserved_choice_value_is_refused_with_its_reason_wherever_it_is_read() {
     let compute = SettingKind::Choice {
+        ordered: false,
         values: Cow::Borrowed(&[Cow::Borrowed("off"), Cow::Borrowed("gpu")]),
         reserved: Cow::Borrowed(&[ReservedValue {
             value: Cow::Borrowed("cpu"),

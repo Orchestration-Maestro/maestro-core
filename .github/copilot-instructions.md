@@ -487,6 +487,7 @@ in place.
 │   │   │   ├── settings/                                                    # Typed restrictive resolution over the canonical S1 settings descriptors
 │   │   │   │   ├── mod.rs                                                   # Typed restrictive resolution over the canonical S1 settings descriptors
 │   │   │   │   ├── resolve.rs                                               # Typed restrictive resolution over four preference layers; storage and parsing stay in S1
+│   │   │   │   ├── resolve_round2.rs                                        # Rust source: resolve round2
 │   │   │   │   └── tests.rs                                                 # Rust source: tests
 │   │   │   ├── source/                                                      # The strict checker of a catalog's authoring sources: a registry of
 │   │   │   │   ├── kinds/                                                   # The built-in kinds: each a descriptor and, where a rule is truly

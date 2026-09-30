@@ -147,7 +147,9 @@ fn check_descriptor(descriptor: &SettingDescriptor) -> Result<(), String> {
     let sound = match &descriptor.kind {
         SettingKind::Integer { min, max, .. } => min <= max,
         SettingKind::Number { min, max, .. } => min.is_finite() && max.is_finite() && min <= max,
-        SettingKind::Choice { values, reserved } => {
+        SettingKind::Choice {
+            values, reserved, ..
+        } => {
             let names: Vec<Text> = reserved
                 .iter()
                 .map(|reserved| reserved.value.clone())

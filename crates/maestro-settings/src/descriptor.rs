@@ -66,6 +66,9 @@ pub enum SettingKind {
     },
     /// One of `values`.
     Choice {
+        /// Whether the values declare a low-to-high restriction order.
+        #[serde(default)]
+        ordered: bool,
         /// The accepted values.
         values: Texts,
         /// Values named but not available yet, each refused with its reason.

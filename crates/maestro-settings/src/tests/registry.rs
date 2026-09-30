@@ -119,7 +119,7 @@ fn descriptors_round_trip_through_serde() {
         tone,
         serde_json::json!({
             "key": "tone",
-            "kind": {"type": "choice", "values": ["brief", "normal", "detailed"]},
+            "kind": {"type": "choice", "ordered": false, "values": ["brief", "normal", "detailed"]},
             "default": "normal",
             "description": BUILT_IN[1].description,
             "class": "free",
@@ -208,6 +208,7 @@ fn new_refuses_kinds_and_defaults_that_cannot_hold_together() {
     }
     let mut descriptor = flag("a");
     descriptor.kind = SettingKind::Choice {
+        ordered: false,
         values: Cow::Borrowed(&[Cow::Borrowed("off"), Cow::Borrowed("gpu")]),
         reserved: Cow::Borrowed(&[ReservedValue {
             value: Cow::Borrowed("gpu"),
@@ -220,6 +221,7 @@ fn new_refuses_kinds_and_defaults_that_cannot_hold_together() {
         "setting \"a\": its values are empty, repeated, or hold a comma"
     );
     descriptor.kind = SettingKind::Choice {
+        ordered: false,
         values: Cow::Borrowed(&[Cow::Borrowed("off"), Cow::Borrowed("gpu")]),
         reserved: Cow::Borrowed(&[ReservedValue {
             value: Cow::Borrowed("cpu"),

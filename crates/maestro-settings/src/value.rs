@@ -127,7 +127,9 @@ impl SettingKind {
             Self::Flag => text.parse().ok().map(Value::Flag),
             Self::Integer { .. } => text.parse().ok().and_then(|integer| self.integer(integer)),
             Self::Number { .. } => text.parse().ok().and_then(|number| self.number(number)),
-            Self::Choice { values, reserved } => {
+            Self::Choice {
+                values, reserved, ..
+            } => {
                 if let Some(reserved) = reserved.iter().find(|reserved| reserved.value == text) {
                     return Err(ValueError(reserved.reason.to_string()));
                 }

@@ -4,13 +4,13 @@ use maestro_settings::{BUILT_IN, Flag, Layer, Layers, Registry, Value};
 use std::{borrow::Cow, collections::BTreeMap, path::PathBuf};
 
 #[derive(Default)]
-struct TestLayers {
-    flags: BTreeMap<String, Value>,
-    workspace: BTreeMap<String, Value>,
-    user: BTreeMap<String, Value>,
+pub(super) struct TestLayers {
+    pub(super) flags: BTreeMap<String, Value>,
+    pub(super) workspace: BTreeMap<String, Value>,
+    pub(super) user: BTreeMap<String, Value>,
 }
 
-fn resolve(registry: &Registry, layers: &TestLayers) -> super::ResolvedSettings {
+pub(super) fn resolve(registry: &Registry, layers: &TestLayers) -> super::ResolvedSettings {
     let flags = layers
         .flags
         .iter()
@@ -36,11 +36,11 @@ fn to_layer(values: &BTreeMap<String, Value>) -> Option<Layer> {
     (!values.is_empty()).then_some(layer)
 }
 
-fn registry() -> Registry {
+pub(super) fn registry() -> Registry {
     Registry::built_in().unwrap()
 }
 
-fn value(registry: &Registry, key: &str, text: &str) -> Value {
+pub(super) fn value(registry: &Registry, key: &str, text: &str) -> Value {
     registry.get(key).unwrap().kind.parse_text(text).unwrap()
 }
 
@@ -234,7 +234,7 @@ fn budget_values_take_the_minimum_across_all_layers() {
     let chosen = resolved.get("ask.output_tokens").unwrap().as_ref().unwrap();
     assert_eq!(chosen.source(), "workspace");
     assert_eq!(chosen.overridden().len(), 2);
-    assert_eq!(resolved.diagnostics().len(), 1);
+    assert!(resolved.diagnostics().is_empty());
 }
 
 #[test]

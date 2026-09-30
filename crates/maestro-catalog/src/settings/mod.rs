@@ -5,4 +5,6 @@ mod resolve;
 pub use resolve::{Layer, ResolveDiagnostic, ResolvedSettings, ResolvedValue, resolve};
 
 #[cfg(test)]
+mod resolve_round2;
+#[cfg(test)]
 mod tests;

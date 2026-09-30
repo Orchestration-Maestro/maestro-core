@@ -75,7 +75,13 @@ const fn number(min: f64, max: f64, off: bool) -> SettingKind {
 
 /// One of `values`.
 const fn choice(values: Texts) -> SettingKind {
+    ordered_choice(values, false)
+}
+
+/// One of `values`, whose declaration also provides its restriction order.
+const fn ordered_choice(values: Texts, ordered: bool) -> SettingKind {
     SettingKind::Choice {
+        ordered,
         values,
         reserved: Cow::Borrowed(&[]),
     }
@@ -345,6 +351,7 @@ pub const BUILT_IN: &[SettingDescriptor] = &[
     ),
     free!("models.compute",
         SettingKind::Choice {
+            ordered: false,
             values: texts!["off", "gpu"],
             reserved: Cow::Borrowed(&[ReservedValue {
                 value: Cow::Borrowed("cpu"),
@@ -365,7 +372,7 @@ pub const BUILT_IN: &[SettingDescriptor] = &[
         "Default for new collections; published profiles persist unless --chunk-profile overrides.",
     ),
     bounded!("updates",
-        choice(texts!["off", "propose", "auto"]),
+        ordered_choice(texts!["off", "propose", "auto"], true),
         "propose",
         "Updates narrow off < propose < auto; auto is user-only; runtime and MCP never auto-apply.",
     ),

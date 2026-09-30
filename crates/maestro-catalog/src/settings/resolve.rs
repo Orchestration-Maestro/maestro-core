@@ -211,11 +211,11 @@ fn bounded(
     candidates: Vec<(Layer, Value)>,
     diagnostics: &mut Vec<ResolveDiagnostic>,
 ) -> Result<ResolvedValue, ResolveDiagnostic> {
-    if let SettingKind::Choice { values, .. } = kind
-        && values
-            .iter()
-            .map(Cow::as_ref)
-            .eq(["off", "propose", "auto"])
+    if let SettingKind::Choice {
+        ordered: true,
+        values,
+        ..
+    } = kind
     {
         return ordered_choice(key, values, default, candidates, diagnostics);
     }
@@ -294,7 +294,7 @@ fn bounded_numeric(
                 ));
             }
             (Value::Integer(bound), Value::Integer(requested))
-                if (optional || *layer != Layer::User)
+                if *layer != Layer::User
                     && (if optional {
                         requested > bound
                     } else {
