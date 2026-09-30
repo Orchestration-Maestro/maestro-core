@@ -1365,13 +1365,18 @@ in place.
 │   │   ├── plan.md                                                          # Implementation Plan: Foundation
 │   │   ├── spec.md                                                          # Feature Specification: Foundation
 │   │   └── tasks.md                                                         # Foundation Implementation Tasks
-│   └── 001-knowledge-kernel/                                                # 001 knowledge kernel
-│       ├── checklists/                                                      # Checklists
-│       │   └── requirements.md                                              # Specification Quality Checklist: Knowledge kernel and hybrid RAG
-│       ├── plan.md                                                          # Implementation Plan: Knowledge kernel and hybrid RAG
-│       ├── research.md                                                      # Research: Knowledge kernel and hybrid RAG
-│       ├── spec.md                                                          # Feature Specification: Knowledge kernel and hybrid RAG
-│       └── tasks.md                                                         # Knowledge Kernel and Hybrid RAG Implementation Tasks
+│   ├── 001-knowledge-kernel/                                                # 001 knowledge kernel
+│   │   ├── checklists/                                                      # Checklists
+│   │   │   └── requirements.md                                              # Specification Quality Checklist: Knowledge kernel and hybrid RAG
+│   │   ├── plan.md                                                          # Implementation Plan: Knowledge kernel and hybrid RAG
+│   │   ├── research.md                                                      # Research: Knowledge kernel and hybrid RAG
+│   │   ├── spec.md                                                          # Feature Specification: Knowledge kernel and hybrid RAG
+│   │   └── tasks.md                                                         # Knowledge Kernel and Hybrid RAG Implementation Tasks
+│   └── 006-native-acquisition/                                              # 006 native acquisition
+│       ├── plan.md                                                          # Native Acquisition Implementation Plan
+│       ├── research.md                                                      # S6 research: Rust-first, adaptive acquisition
+│       ├── spec.md                                                          # Feature Specification: Native acquisition
+│       └── tasks.md                                                         # Native Acquisition Implementation Tasks
 ├── supply-chain/                                                            # cargo-vet audits, configuration and imports
 │   ├── audits.toml                                                          # cargo-vet audits file
 │   ├── config.toml                                                          # cargo-vet config file
