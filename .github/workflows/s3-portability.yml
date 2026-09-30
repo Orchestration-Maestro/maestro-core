@@ -1,0 +1,96 @@
+name: S3 portability legs (temporary)
+# Proof only: this test-branch commit is never integrated.
+"on":
+  pull_request:
+    branches: [feat/s3-integration]
+permissions:
+  contents: read
+concurrency:
+  group: s3-portability-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  portability:
+    name: S3 portability on ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, windows-2025, macos-15]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 150
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+    env:
+      CARGO_BUILD_JOBS: 3
+      NEXTEST_TEST_THREADS: 3
+      CARGO_PROFILE_DEV_DEBUG: line-tables-only
+      CARGO_PROFILE_TEST_DEBUG: line-tables-only
+    steps:
+      - name: Check out the exact proof revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - name: Install the pinned toolchain
+        run: |
+          set -euo pipefail
+          toolchain=$(sed -n 's/^channel = "\(.*\)"$/\1/p' rust-toolchain.toml)
+          rustup toolchain install "$toolchain" --profile minimal
+          echo "RUSTUP_TOOLCHAIN=$toolchain" >> "$GITHUB_ENV"
+      - name: Restore compiler and registry cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9  # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git/db
+            target
+          key: ${{ runner.os }}-s3-portability-${{ hashFiles('Cargo.lock', 'rust-toolchain.toml') }}
+      - name: Install the pinned nextest binary after checksum verification
+        run: |
+          set -euo pipefail
+          case "$RUNNER_OS" in
+            Windows)
+              archive=cargo-nextest-0.9.146-x86_64-pc-windows-msvc.zip
+              digest=0fa689815c8157e4633225b6b173184b3d546eb6ffb754c3d0e6ea5973284a20
+              ;;
+            macOS)
+              archive=cargo-nextest-0.9.146-universal-apple-darwin.tar.gz
+              digest=39785160b3c2f6ed9a765049cf4fa79f3b39aa02eb7598a5a0e2a1a0b9ffb9a8
+              ;;
+            Linux)
+              archive=cargo-nextest-0.9.146-x86_64-unknown-linux-musl.tar.gz
+              digest=b64617e8640624e8f9ba99819e37d7971154e97836d7ae4774fed4715501a6aa
+              ;;
+          esac
+          cd "$RUNNER_TEMP"
+          curl --fail --location --retry 3 --proto '=https' \
+            "https://github.com/nextest-rs/nextest/releases/download/cargo-nextest-0.9.146/$archive" \
+            --output "$archive"
+          printf '%s  %s\n' "$digest" "$archive" > nextest-checksum.txt
+          if command -v sha256sum >/dev/null; then
+            sha256sum --check nextest-checksum.txt
+          else
+            shasum -a 256 --check nextest-checksum.txt
+          fi
+          mkdir nextest-bin
+          if [ "$RUNNER_OS" = Windows ]; then
+            unzip "$archive" -d nextest-bin
+            cygpath -w "$RUNNER_TEMP/nextest-bin" >> "$GITHUB_PATH"
+          else
+            tar -xzf "$archive" -C nextest-bin
+            echo "$RUNNER_TEMP/nextest-bin" >> "$GITHUB_PATH"
+          fi
+      - name: Test the workspace without fail-fast
+        run: |
+          set -euo pipefail
+          cargo nextest run --workspace --locked --no-fail-fast 2>&1 \
+            | tee "$RUNNER_TEMP/s3-nextest.log"
+      - name: Upload test output even on failure
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: s3-portability-${{ matrix.runner }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/s3-nextest.log
+          if-no-files-found: warn
