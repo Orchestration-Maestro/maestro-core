@@ -14,7 +14,11 @@ pub(super) const NOT_RESOURCES: [&str; 5] =
 
 /// The hooks a descriptor may select, each by its name. Content never
 /// supplies code: a hook is reviewed code in the built-in table.
-pub(super) type Hooks = &'static [(&'static str, &'static dyn KindRules)];
+pub(super) type Hooks = &'static [(
+    &'static str,
+    &'static dyn KindRules,
+    &'static [&'static str],
+)];
 
 /// One registered kind.
 #[derive(Debug, Clone)]
@@ -64,6 +68,20 @@ impl Registry {
         if let Some(problem) = shape_problem(&descriptor) {
             return Err(problem);
         }
+        if let Some((field, validator)) = delegated_problem(
+            &descriptor.fields,
+            None,
+            descriptor.hook.as_deref(),
+            self.hooks,
+        ) {
+            return Err(format!(
+                concat!(
+                    "kind {}: delegated field {:?} requires a declared ",
+                    "top-level path for hook {:?}"
+                ),
+                descriptor.kind, field, validator
+            ));
+        }
         let rules = hook(&descriptor, self.hooks)?;
         self.kinds.push(Registration { descriptor, rules });
         Ok(())
@@ -101,8 +119,8 @@ fn hook(
     };
     hooks
         .iter()
-        .find(|(known, _)| known == name)
-        .map(|(_, rules)| Some(*rules))
+        .find(|(known, _, _)| known == name)
+        .map(|(_, rules, _)| Some(*rules))
         .ok_or_else(|| format!("kind {}: unknown hook {name:?}", descriptor.kind))
 }
 
@@ -127,21 +145,18 @@ fn shape_problem(descriptor: &KindDescriptor) -> Option<String> {
         "only a Markdown kind has a body".to_owned()
     } else if descriptor.lifecycle.contains(&Maturity::Qualified) {
         "qualified needs S4 evidence; no S3 kind admits it".to_owned()
-    } else if let Some((field, validator)) =
-        delegated_problem(&descriptor.fields, None, descriptor.hook.as_ref())
-    {
-        format!("delegated field {field:?} requires hook {validator:?}")
     } else {
         return name_field_problem(descriptor);
     };
     Some(format!("kind {}: {problem}", descriptor.kind))
 }
 
-/// Finds a delegated field that has no matching registered hook name.
-fn delegated_problem<'a>(
-    fields: &'a [super::descriptor::Field],
-    prefix: Option<&'a str>,
-    hook: Option<&'a String>,
+/// Finds a delegated field not declared as a top-level path by its hook.
+fn delegated_problem(
+    fields: &[super::descriptor::Field],
+    prefix: Option<&str>,
+    hook: Option<&str>,
+    hooks: Hooks,
 ) -> Option<(String, String)> {
     for field in fields {
         let path = prefix.map_or_else(
@@ -149,11 +164,18 @@ fn delegated_problem<'a>(
             |prefix| format!("{prefix}.{}", field.key),
         );
         match &field.kind {
-            FieldType::Delegated { validator } if hook.map(String::as_str) != Some(validator) => {
-                return Some((path, validator.clone()));
+            FieldType::Delegated { validator } => {
+                let declared =
+                    hook.and_then(|name| hooks.iter().find(|(known, _, _)| *known == name));
+                if prefix.is_some()
+                    || validator != hook.unwrap_or_default()
+                    || !declared.is_some_and(|(_, _, paths)| paths.contains(&field.key.as_str()))
+                {
+                    return Some((path, validator.clone()));
+                }
             }
             FieldType::Table { fields } => {
-                if let Some(problem) = delegated_problem(fields, Some(&path), hook) {
+                if let Some(problem) = delegated_problem(fields, Some(&path), hook, hooks) {
                     return Some(problem);
                 }
             }

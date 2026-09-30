@@ -1,4 +1,8 @@
+//! Tests for checked model-card declarations and scoped registration.
+
 use super::{declaration::Declaration, register::register};
+use crate::source::Maturity;
+use crate::source::tests::support::checked_model_card;
 use maestro_kernel::{
     document::Collection,
     gateway::{ModelCard, Role},
@@ -13,50 +17,43 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
+const KERNEL_V2_GOLDEN_DIGEST: &str =
+    "fbaa5c760ee799f3ddaf4d7c07ff34b431824544f7a7595084d4ce8e3f346323";
+
 const VALID: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../../tests/fixtures/catalog/model-cards/valid.toml"
 ));
-const INVALID: &str = include_str!(concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/../../tests/fixtures/catalog/model-cards/invalid.toml"
-));
-
 #[test]
 fn declaration_preserves_the_kernel_identity_and_declares_version_separately() {
-    let declaration: Declaration = toml::from_str(VALID).unwrap();
+    let declaration = Declaration::from_resource(&checked_model_card(VALID)).unwrap();
     assert_eq!(declaration.version, "2");
-    assert!(!declaration.metadata.contains_key("version"));
+    assert_eq!(declaration.maturity, Maturity::Reviewed);
     let card = ModelCard::from_identity(&declaration.identity).unwrap();
     assert_eq!(card.identity(), Some(&declaration.identity));
-}
-
-#[test]
-fn kernel_identity_refuses_an_unknown_nested_field_and_role() {
-    let unknown = VALID.replace(
-        "router_entry = \"embed\"",
-        "router_entry = \"embed\"\nunknown_identity_key = true",
-    );
-    assert!(toml::from_str::<Declaration>(&unknown).is_err());
-
-    let unsupported = VALID.replace("role = \"embedder\"", "role = \"query_expander\"");
-    let error = toml::from_str::<Declaration>(&unsupported)
-        .unwrap_err()
-        .to_string();
-    assert!(
-        error.contains("unknown variant `query_expander`"),
-        "{error}"
+    assert_eq!(
+        format!("{:?}", card.digest()),
+        format!("Digest({KERNEL_V2_GOLDEN_DIGEST:?})")
     );
 }
 
 #[test]
-fn invalid_fixture_is_refused_by_kernel_identity_deserialization() {
-    assert!(toml::from_str::<Declaration>(INVALID).is_err());
+fn changing_identity_changes_its_kernel_fingerprint() {
+    let resource = checked_model_card(VALID);
+    let original = Declaration::from_resource(&resource).unwrap();
+    let mut changed = original.identity.clone();
+    changed.weights.upstream_revision.push('x');
+    let original_digest = ModelCard::from_identity(&original.identity)
+        .unwrap()
+        .digest()
+        .clone();
+    let changed_digest = ModelCard::from_identity(&changed).unwrap().digest().clone();
+    assert_ne!(original_digest, changed_digest);
 }
 
 #[test]
 fn same_card_registration_returns_the_kernel_record_without_selection_changes() {
-    let mut declaration: Declaration = toml::from_str(VALID).unwrap();
+    let mut declaration = Declaration::from_resource(&checked_model_card(VALID)).unwrap();
     let root = test_root();
     fs::create_dir_all(&root).unwrap();
     let database = Database::open(&root.join("kernel.sqlite3"), &root.join("artifacts")).unwrap();
@@ -79,7 +76,11 @@ fn same_card_registration_returns_the_kernel_record_without_selection_changes() 
         )
         .unwrap();
     let scopes = database.visible("catalog-test").unwrap();
-    assert!(register(&database, &scopes, "synthetic", &declaration).is_err());
+    let missing_evidence = register(&database, &scopes, "synthetic", &declaration).unwrap_err();
+    assert!(
+        missing_evidence.contains("no artifact is recorded under"),
+        "{missing_evidence}"
+    );
     assert!(
         database
             .model_cards(&scopes, "synthetic", Role::Embedder)
@@ -121,7 +122,7 @@ fn test_root() -> PathBuf {
 #[test]
 fn explicit_registration_refuses_unreviewed_and_unauthorized_declarations() {
     let authored = VALID.replace("maturity = \"reviewed\"", "maturity = \"authored\"");
-    let declaration: Declaration = toml::from_str(&authored).unwrap();
+    let declaration = Declaration::from_resource(&checked_model_card(&authored)).unwrap();
     let root = env::temp_dir().join(format!("maestro-card-test-{}", process::id()));
     drop(fs::remove_dir_all(&root));
     fs::create_dir_all(&root).unwrap();
@@ -140,7 +141,7 @@ fn explicit_registration_refuses_unreviewed_and_unauthorized_declarations() {
         register(&database, &scopes, "synthetic", &declaration),
         Err("model-card registration requires reviewed maturity".to_owned())
     );
-    let reviewed: Declaration = toml::from_str(VALID).unwrap();
+    let reviewed = Declaration::from_resource(&checked_model_card(VALID)).unwrap();
     let refused = register(&database, &scopes, "synthetic", &reviewed).unwrap_err();
     assert_eq!(refused, "the collection is not writable in this scope");
     fs::remove_dir_all(root).unwrap();

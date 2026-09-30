@@ -12,11 +12,11 @@ use crate::source::{registry::Registry, rules::KindRules};
 
 /// The hooks a descriptor may select, by name. Content never supplies code:
 /// a new hook is reviewed code added here.
-const HOOKS: [(&str, &dyn KindRules); 4] = [
-    ("agent-profile", &AgentRules),
-    ("preset-settings", &PresetRules),
-    ("settings-classes", &SettingsRules),
-    ("model-card", &model_card::ModelCardRules),
+const HOOKS: [(&str, &dyn KindRules, &[&str]); 4] = [
+    ("agent-profile", &AgentRules, &[]),
+    ("preset-settings", &PresetRules, &[]),
+    ("settings-classes", &SettingsRules, &[]),
+    ("model-card", &model_card::ModelCardRules, &["identity"]),
 ];
 
 /// An empty registry whose descriptors may select the built-in hooks: the

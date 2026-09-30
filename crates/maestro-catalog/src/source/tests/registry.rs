@@ -154,7 +154,63 @@ fn delegated_fields_require_the_named_registered_validator() {
     ));
     assert_eq!(
         register(descriptor),
-        Err("kind glossary: delegated field \"identity\" requires hook \"model-card\"".to_owned())
+        Err(concat!(
+            "kind glossary: delegated field \"identity\" requires a declared ",
+            "top-level path for hook \"model-card\""
+        )
+        .to_owned())
+    );
+}
+
+#[test]
+fn registry_refuses_delegation_not_declared_by_selected_hook() {
+    let model_card = builtin()
+        .unwrap()
+        .kind("model-card")
+        .unwrap()
+        .descriptor
+        .clone();
+    let mut cloned = model_card;
+    cloned.kind = "smuggle".to_owned();
+    cloned.directory = "smuggles".to_owned();
+    cloned.fields.push(Field::required(
+        "payload",
+        FieldType::Delegated {
+            validator: "model-card".to_owned(),
+        },
+    ));
+    assert!(register(cloned).unwrap_err().contains("payload"));
+
+    let mut glossary = glossary();
+    glossary.hook = Some("settings-classes".to_owned());
+    glossary.fields.push(Field::required(
+        "blob",
+        FieldType::Delegated {
+            validator: "settings-classes".to_owned(),
+        },
+    ));
+    assert!(register(glossary).unwrap_err().contains("blob"));
+}
+
+#[test]
+fn registry_refuses_nested_delegated_field() {
+    let mut descriptor = glossary();
+    descriptor.hook = Some("model-card".to_owned());
+    descriptor.fields.push(Field::required(
+        "payload",
+        FieldType::Table {
+            fields: vec![Field::required(
+                "identity",
+                FieldType::Delegated {
+                    validator: "model-card".to_owned(),
+                },
+            )],
+        },
+    ));
+    assert!(
+        register(descriptor)
+            .unwrap_err()
+            .contains("payload.identity")
     );
 }
 

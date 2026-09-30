@@ -12,7 +12,7 @@ mod parse;
 mod registry;
 mod rules;
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 mod tree;
 mod types;
 mod walk;

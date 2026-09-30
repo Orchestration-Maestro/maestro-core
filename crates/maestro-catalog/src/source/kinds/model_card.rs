@@ -3,7 +3,7 @@
 use crate::source::{
     descriptor::{Field, FieldType, Format, KindDescriptor, Layout, MetadataPlace},
     rules::KindRules,
-    types::{Known, Maturity, Problems, Resource},
+    types::{Known, Maturity, Problems, Resource, Value},
 };
 use maestro_kernel::gateway::{CardIdentity, ModelCard};
 
@@ -52,7 +52,20 @@ impl KindRules for ModelCardRules {
         _known: Known<'_>,
         problems: &mut Problems,
     ) {
-        match declaration_identity(resource) {
+        if resource
+            .fields
+            .get("version")
+            .and_then(|value| value.text())
+            != Some("2")
+        {
+            problems.push(("version".to_owned(), "must be \"2\"".to_owned()));
+        }
+        let identity = resource
+            .fields
+            .get("identity")
+            .ok_or_else(|| "missing".to_owned())
+            .and_then(Value::decode::<CardIdentity>);
+        match identity {
             Ok(identity) => {
                 if let Err(error) = ModelCard::from_identity(&identity) {
                     problems.push(("identity".to_owned(), error.to_string()));
@@ -61,13 +74,4 @@ impl KindRules for ModelCardRules {
             Err(error) => problems.push(("identity".to_owned(), error)),
         }
     }
-}
-
-/// Decodes the complete subtree as the kernel's canonical v2 identity.
-pub(super) fn declaration_identity(resource: &Resource) -> Result<CardIdentity, String> {
-    resource
-        .fields
-        .get("identity")
-        .ok_or_else(|| "missing".to_owned())?
-        .decode()
 }

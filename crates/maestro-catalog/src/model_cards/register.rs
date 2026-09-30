@@ -1,6 +1,7 @@
 //! Explicit scoped registration of an already checked declaration.
 
 use super::declaration::Declaration;
+use crate::source::Maturity;
 use maestro_kernel::{
     gateway::ModelCard,
     model::{CardRecord, NewModelCard},
@@ -25,12 +26,7 @@ pub(super) fn register(
     collection_id: &str,
     declaration: &Declaration,
 ) -> Result<CardRecord, String> {
-    if declaration
-        .metadata
-        .get("maturity")
-        .and_then(toml::Value::as_str)
-        != Some("reviewed")
-    {
+    if declaration.maturity != Maturity::Reviewed {
         return Err("model-card registration requires reviewed maturity".to_owned());
     }
     let card =

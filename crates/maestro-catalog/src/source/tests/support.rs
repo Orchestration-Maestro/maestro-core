@@ -4,7 +4,7 @@
 use crate::{
     limits::Limits,
     source::{
-        Catalog, Entry, EntryKind, Known, Refusal, Registry, SourceTree, builtin, check,
+        Catalog, Entry, EntryKind, Known, Refusal, Registry, Resource, SourceTree, builtin, check,
         frozen_rows, shipped_settings,
     },
 };
@@ -59,7 +59,7 @@ pub(super) const INVALID_AGENT: &str = fixture!("invalid.agent.md");
 
 /// A catalog held in memory.
 #[derive(Debug, Clone, Default)]
-pub(super) struct MemoryTree {
+pub(crate) struct MemoryTree {
     /// Each file's relative path and bytes.
     files: BTreeMap<String, Vec<u8>>,
     /// Paths listed as links.
@@ -70,14 +70,14 @@ pub(super) struct MemoryTree {
 
 impl MemoryTree {
     /// The valid synthetic catalog.
-    pub(super) fn valid() -> Self {
+    pub(crate) fn valid() -> Self {
         VALID
             .into_iter()
             .fold(Self::default(), |tree, (path, text)| tree.with(path, text))
     }
 
     /// This catalog with `path` holding `text`.
-    pub(super) fn with(mut self, path: &str, text: &str) -> Self {
+    pub(crate) fn with(mut self, path: &str, text: &str) -> Self {
         self.files.insert(path.to_owned(), text.as_bytes().to_vec());
         self
     }
@@ -163,6 +163,19 @@ impl SourceTree for MemoryTree {
     }
 }
 
+/// Parses and checks the model-card fixture through the production checker.
+pub(crate) fn checked_model_card(text: &str) -> Resource {
+    check_under(
+        &MemoryTree::valid().with("model-cards/synthetic.toml", text),
+        &Limits::PRODUCTION,
+    )
+    .unwrap()
+    .resources
+    .into_iter()
+    .find(|resource| resource.id.kind == "model-card")
+    .unwrap()
+}
+
 /// Checks `tree` against `registry` under `limits`, with the frozen 08 rows
 /// and the shipped settings.
 pub(super) fn check_by(
@@ -180,7 +193,7 @@ pub(super) fn check_by(
 
 /// Checks `tree` under `limits` against the built-in kinds, the frozen 08
 /// rows and the shipped settings.
-pub(super) fn check_under(tree: &MemoryTree, limits: &Limits) -> Result<Catalog, Refusal> {
+pub(crate) fn check_under(tree: &MemoryTree, limits: &Limits) -> Result<Catalog, Refusal> {
     check_by(tree, &builtin().unwrap(), limits)
 }
 

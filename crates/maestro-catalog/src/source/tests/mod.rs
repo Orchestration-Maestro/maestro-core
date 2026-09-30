@@ -14,5 +14,5 @@ mod references;
 mod registry;
 mod rulings;
 mod schema;
-mod support;
+pub(crate) mod support;
 mod yaml;
