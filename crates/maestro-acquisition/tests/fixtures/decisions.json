@@ -1,0 +1,49 @@
+{
+  "schema": "maestro-source-decisions/1",
+  "id": "decisions",
+  "version": 1,
+  "collection_id": "garden",
+  "visibility": "public",
+  "scope_tags": [
+    "workspace/default/collection/garden"
+  ],
+  "owner_ref": {
+    "id": "owner",
+    "digest": "0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "entries": [
+    {
+      "id": "no-assets",
+      "selector": {
+        "source_id": "notes",
+        "origin": "content",
+        "path_prefix": "/docs",
+        "object_ids": [],
+        "versions": [],
+        "channels": [],
+        "media_types": []
+      },
+      "action": "asset_only",
+      "reason_code": "binary",
+      "explanation": "Keep original bytes only.",
+      "authority": {
+        "id": "owner",
+        "digest": "0000000000000000000000000000000000000000000000000000000000000000"
+      },
+      "evidence": [
+        {
+          "id": "evidence",
+          "digest": "0000000000000000000000000000000000000000000000000000000000000000"
+        }
+      ],
+      "effective_at": "2026-09-30T00:00:00Z",
+      "review_at": "2026-10-30T00:00:00Z",
+      "expires_at": null,
+      "reversal": null
+    }
+  ],
+  "qualification": {
+    "id": "qualification",
+    "digest": "0000000000000000000000000000000000000000000000000000000000000000"
+  }
+}

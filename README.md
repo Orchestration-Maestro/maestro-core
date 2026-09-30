@@ -5,7 +5,8 @@
 
 The local runtime of Maestro: a knowledge kernel, retrieval and a command-line
 application. The workspace contains `maestro-canonicalization`,
-`maestro-conventions`, `maestro-kernel`, `maestro-knowledge` and `maestro`.
+`maestro-conventions`, `maestro-kernel`, `maestro-knowledge`,
+[`maestro-acquisition`](crates/maestro-acquisition/README.md) and `maestro`.
 [`maestro-canonicalization`](crates/maestro-canonicalization/README.md) turns
 Markdown into provenance-bearing canonical documents, groups duplicates and
 cuts them into token-budgeted chunks; later capabilities arrive slice by slice

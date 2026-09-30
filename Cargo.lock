@@ -854,6 +854,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "maestro-acquisition"
+version = "0.1.0"
+dependencies = [
+ "maestro-kernel",
+ "maestro-knowledge",
+ "maestro-test-scratch",
+ "reqwest",
+ "schemars",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "maestro-canonicalization"
 version = "0.1.0"
 dependencies = [

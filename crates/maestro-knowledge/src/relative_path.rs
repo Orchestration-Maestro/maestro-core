@@ -1,7 +1,7 @@
 //! Paths that a declaration or a manifest gives relative to a directory, which
 //! they may not leave.
 
-use serde::{Deserialize, Deserializer, de};
+use serde::{Deserialize, Deserializer, Serialize, de};
 use std::path::{Path, PathBuf};
 
 /// A path relative to a directory it cannot leave: `/` between its segments,
@@ -11,7 +11,8 @@ use std::path::{Path, PathBuf};
 /// path is joined to) or a file's data stream (`notes.md:draft`), where Linux
 /// reads both as part of a name, and the path must mean the same on every
 /// platform (ADR-0018).
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
+#[serde(transparent)]
 pub struct RelativePath(String);
 
 impl RelativePath {
