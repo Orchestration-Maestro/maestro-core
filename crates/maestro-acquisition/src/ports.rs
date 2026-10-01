@@ -9,13 +9,14 @@ use crate::{
         decisions::{Decisions, Promotion},
         identity::IdentityMigration,
         schema::SourcePolicy,
+        shape::valid_id,
     },
     refusal::Refusal,
     transport::address::AddressTable,
 };
 use maestro_kernel::{artifact::Digest, scope::ScopeSet};
 use maestro_knowledge::collection::Declaration;
-use maestro_knowledge::collection::PolicyReference as Ref;
+use maestro_knowledge::{collection::PolicyReference as Ref, strict_json::MAX_BYTES};
 use std::collections::BTreeMap;
 use std::fmt::Debug;
 
@@ -80,6 +81,43 @@ pub trait ResourceSource: Debug {
         reference: &Ref,
         principal: &Principal<'_>,
     ) -> Result<ImmutableResource, Refusal>;
+}
+
+/// Cache exact bytes once per logical ID; admission checks remain caller-owned.
+pub(crate) fn read_resource(
+    source: &dyn ResourceSource,
+    principal: &Principal<'_>,
+    cache: &mut BTreeMap<String, ImmutableResource>,
+    reference: &Ref,
+    review: &impl Fn(&ImmutableResource) -> Result<(), Refusal>,
+) -> Result<ImmutableResource, Refusal> {
+    if !valid_id(&reference.id) {
+        return Err(Refusal::Invalid);
+    }
+    if let Some(resource) = cache.get(&reference.id) {
+        return if resource.reference == *reference {
+            Ok(resource.clone())
+        } else {
+            Err(Refusal::Digest)
+        };
+    }
+    if cache.len() >= 1000 {
+        return Err(Refusal::Invalid);
+    }
+    let resource = source.read(reference, principal)?;
+    if resource.reference != *reference
+        || resource.bytes.len() > MAX_BYTES
+        || Digest::of(&resource.bytes) != reference.digest
+        || resource.admission.digest != reference.digest
+    {
+        return Err(Refusal::Digest);
+    }
+    review(&resource)?;
+    cache.insert(reference.id.clone(), resource.clone());
+    for member in &resource.admission.references {
+        read_resource(source, principal, cache, member, review)?;
+    }
+    Ok(resource)
 }
 
 /// Read-only source-policy resolution; no installation/activation side effects.

@@ -6,15 +6,15 @@ use super::{
     identity::{FetchIdentity, IdentityMigration},
     resource::Resource,
     schema::SourcePolicy,
-    shape,
     source::{Discovery, Source},
 };
 use crate::{
-    ports::{AdmissionStatus, CheckedPolicy, ImmutableResource, Principal, ResourceSource},
+    ports::{
+        AdmissionStatus, CheckedPolicy, ImmutableResource, Principal, ResourceSource, read_resource,
+    },
     refusal::Refusal,
     transport::address::{AddressResource, AddressTable},
 };
-use maestro_kernel::artifact::Digest;
 use maestro_knowledge::collection::PolicyReference as Ref;
 use maestro_knowledge::{
     collection::{Declaration, Schema},
@@ -199,38 +199,20 @@ struct Closure<'a> {
 impl Closure<'_> {
     /// Read and validate the exact immutable bytes and external admission summary.
     fn read(&mut self, reference: &Ref) -> Result<ImmutableResource, Refusal> {
-        if !shape::valid_id(&reference.id) {
-            return Err(Refusal::Invalid);
-        }
-        if let Some(resource) = self.resources.get(&reference.id) {
-            return if &resource.reference == reference {
-                Ok(resource.clone())
-            } else {
-                Err(Refusal::Digest)
-            };
-        }
-        if self.resources.len() >= 1000 {
-            return Err(Refusal::Invalid);
-        }
-        let resource = self.source.read(reference, self.principal)?;
-        if &resource.reference != reference
-            || resource.bytes.len() > strict_json::MAX_BYTES
-            || Digest::of(&resource.bytes) != reference.digest
-            || resource.admission.digest != reference.digest
-        {
-            return Err(Refusal::Digest);
-        }
-        if resource.admission.status != AdmissionStatus::Reviewed
-            || resource.admission.platform != self.principal.platform
-        {
-            return Err(Refusal::Unqualified);
-        }
-        self.resources
-            .insert(reference.id.clone(), resource.clone());
-        for member in &resource.admission.references {
-            self.read(member)?;
-        }
-        Ok(resource)
+        read_resource(
+            self.source,
+            self.principal,
+            &mut self.resources,
+            reference,
+            &|resource| {
+                if resource.admission.status != AdmissionStatus::Reviewed
+                    || resource.admission.platform != self.principal.platform
+                {
+                    return Err(Refusal::Unqualified);
+                }
+                Ok(())
+            },
+        )
     }
     /// Common typed resource fields and owner evidence.
     fn resource<S>(

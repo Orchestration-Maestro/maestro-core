@@ -7,7 +7,7 @@
 //! flush is skipped, as ADR-0018 records for the snapshot store.
 
 #[cfg(unix)]
-use std::env;
+use rustix::process::geteuid;
 #[cfg(unix)]
 use std::os::unix::fs::{DirBuilderExt as _, OpenOptionsExt as _};
 use std::{
@@ -26,7 +26,7 @@ static NEXT_FILE: AtomicU64 = AtomicU64::new(0);
 /// or group/other write. Windows ACL ownership awaits ADR-0018's shared adapter.
 ///
 /// # Errors
-/// Unprotected roots or failed metadata/probe operations fail closed.
+/// Unprotected roots or failed metadata operations fail closed.
 pub fn protected_root(root: &Path) -> io::Result<()> {
     let metadata = fs::symlink_metadata(root)?;
     if metadata.file_type().is_symlink() {
@@ -49,15 +49,7 @@ pub fn protected_root(root: &Path) -> io::Result<()> {
         if metadata.mode() & 0o022 != 0 {
             return Err(io::ErrorKind::PermissionDenied.into());
         }
-        // A create-new probe belongs to the process's effective UID, not an
-        // environment-supplied user name. It is outside the untrusted root.
-        let probe = temporary(&env::temp_dir());
-        let file = new_file().open(&probe)?;
-        let owner = file.metadata().map(|value| value.uid());
-        drop(file);
-        fs::remove_file(&probe)?;
-        sync_directory(&env::temp_dir(), |_, error| error)?;
-        if metadata.uid() != owner? {
+        if metadata.uid() != geteuid().as_raw() {
             return Err(io::ErrorKind::PermissionDenied.into());
         }
     }

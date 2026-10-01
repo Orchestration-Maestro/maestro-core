@@ -9,7 +9,11 @@ use crate::{
     policy::{identity::FetchIdentity, source::Robots},
 };
 use maestro_kernel::artifact::Digest;
-use std::{fmt::Debug, mem::take, str::from_utf8};
+use std::{
+    fmt::{Debug, Write as _},
+    mem::take,
+    str::from_utf8,
+};
 
 /// Replaceable parser result: rules cannot dispatch or grant overrides.
 pub trait RobotsRules: Debug + Send + Sync {
@@ -29,8 +33,6 @@ pub enum OverrideDecision {
 /// Exact read-only authority request; caller identity belongs to the adapter.
 #[derive(Debug)]
 pub struct OverrideRequest<'a> {
-    /// Closed consumer operation: always `robots_override`.
-    pub operation: &'static str,
     /// Exact source namespace, not inferred from a robots rule.
     pub source_id: &'a str,
     /// Exact canonical HTTPS origin, including nondefault port.
@@ -227,17 +229,7 @@ fn normalize(text: &str) -> Result<String, Refusal> {
 }
 /// One byte to uppercase percent encoding, without formatting allocations.
 fn push_escape(result: &mut String, byte: u8) {
-    result.push('%');
-    result.push(
-        char::from_digit(u32::from(byte / 16), 16)
-            .unwrap_or_default()
-            .to_ascii_uppercase(),
-    );
-    result.push(
-        char::from_digit(u32::from(byte % 16), 16)
-            .unwrap_or_default()
-            .to_ascii_uppercase(),
-    );
+    write!(result, "%{byte:02X}").unwrap_or_default();
 }
 /// Consume literal segments only forwards. An anchored final segment is fixed
 /// at the suffix first, so ambiguous stars never cause backtracking.
@@ -420,7 +412,6 @@ impl RobotsCache {
         }
         if let Some(receipt) = &policy.r#override {
             let request = OverrideRequest {
-                operation: "robots_override",
                 source_id: identity.source_id(),
                 origin: &origin,
                 receipt,

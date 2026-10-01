@@ -5,9 +5,9 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 /// Parse the documented fixed-width UTC spelling without a time dependency.
 pub(crate) fn parse(text: &str) -> Result<SystemTime, Refusal> {
     // The shared strict date decoder checks leap years, bounds and exact fields.
-    let encoded = serde_json::to_string(text).map_err(|_| Refusal::Invalid)?;
-    let mut decoder = serde_json::Deserializer::from_str(&encoded);
-    super::shape::time(&mut decoder).map_err(|_| Refusal::Invalid)?;
+    super::shape::valid_time(text)
+        .then_some(())
+        .ok_or(Refusal::Invalid)?;
     let parts: Vec<u64> = text
         .split(['-', 'T', ':', 'Z'])
         .filter(|part| !part.is_empty())

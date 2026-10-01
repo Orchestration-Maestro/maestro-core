@@ -263,7 +263,6 @@ fn n10_cache_status_ttl_and_scope_fail_closed() {
 struct Authority(OverrideDecision);
 impl RobotsOverride for Authority {
     fn decide(&self, request: &OverrideRequest<'_>) -> OverrideDecision {
-        assert_eq!(request.operation, "robots_override");
         assert_eq!(request.source_id, "notes");
         assert_eq!(request.origin, "https://docs.example.test");
         self.0.clone()

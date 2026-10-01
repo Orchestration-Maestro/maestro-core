@@ -11,12 +11,12 @@ use crate::{
     policy::resolve::parse_resource,
     ports::{
         AdmissionStatus, CheckedPolicy, ImmutableResource, Principal, ProfileRegistry,
-        ResourceSource,
+        ResourceSource, read_resource,
     },
     refusal::Refusal,
 };
-use maestro_kernel::{artifact::Digest, scope::Scope};
-use maestro_knowledge::{collection::PolicyReference as Ref, strict_json::MAX_BYTES};
+use maestro_kernel::scope::Scope;
+use maestro_knowledge::collection::PolicyReference as Ref;
 use std::collections::{BTreeMap, BTreeSet};
 
 impl Profile {
@@ -172,32 +172,13 @@ struct Resources<'a> {
 impl Resources<'_> {
     /// Shared byte verification; qualification is checked separately by role.
     fn read(&mut self, reference: &Ref) -> Result<ImmutableResource, RegistryUnavailable> {
-        if !id_valid(&reference.id) {
-            return Err(RegistryUnavailable::Corrupt);
-        }
-        if let Some(value) = self.cache.get(&reference.id) {
-            return if value.reference == *reference {
-                Ok(value.clone())
-            } else {
-                Err(RegistryUnavailable::Corrupt)
-            };
-        }
-        if self.cache.len() >= 1000 {
-            return Err(RegistryUnavailable::Corrupt);
-        }
-        let value = self.source.read(reference, self.principal)?;
-        if value.reference != *reference
-            || value.bytes.len() > MAX_BYTES
-            || Digest::of(&value.bytes) != reference.digest
-            || value.admission.digest != reference.digest
-        {
-            return Err(RegistryUnavailable::Corrupt);
-        }
-        self.cache.insert(reference.id.clone(), value.clone());
-        for member in &value.admission.references {
-            self.read(member)?;
-        }
-        Ok(value)
+        Ok(read_resource(
+            self.source,
+            self.principal,
+            &mut self.cache,
+            reference,
+            &|_| Ok(()),
+        )?)
     }
     /// External reviewed qualification, never granted by wire state.
     fn own_qualified(&self, resource: &ImmutableResource) -> bool {
