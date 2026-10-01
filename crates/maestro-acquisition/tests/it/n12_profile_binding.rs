@@ -19,17 +19,21 @@ fn n12_http_profile_cannot_be_relabelled_as_rendered_dom() {
 }
 #[test]
 fn n12_transport_definition_move_changes_no_schema_or_wire_bytes() {
-    assert_eq!(
-        serde_json::to_vec(&schemars::schema_for!(SourcePolicy)).unwrap(),
-        include_bytes!("../fixtures/n12-policy-schema.json")
+    // Compare parsed values: schema key order follows serde_json's map
+    // backend, and `preserve_order` builds must accept the same contract.
+    let golden = |bytes: &[u8]| -> serde_json::Value {
+        let json = bytes
             .strip_suffix(b"\n")
-            .expect("golden fixture ends with exactly one LF")
+            .expect("golden fixture ends with exactly one LF");
+        serde_json::from_slice(json).unwrap()
+    };
+    assert_eq!(
+        serde_json::to_value(schemars::schema_for!(SourcePolicy)).unwrap(),
+        golden(include_bytes!("../fixtures/n12-policy-schema.json"))
     );
     assert_eq!(
-        serde_json::to_vec(&schemars::schema_for!(AcquisitionProfile)).unwrap(),
-        include_bytes!("../fixtures/n12-profile-schema.json")
-            .strip_suffix(b"\n")
-            .expect("golden fixture ends with exactly one LF")
+        serde_json::to_value(schemars::schema_for!(AcquisitionProfile)).unwrap(),
+        golden(include_bytes!("../fixtures/n12-profile-schema.json"))
     );
     assert_eq!(
         serde_json::to_vec(&[
