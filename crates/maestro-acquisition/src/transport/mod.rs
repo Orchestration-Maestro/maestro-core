@@ -12,3 +12,6 @@ pub mod robots;
 pub mod robots_store;
 pub mod stream;
 mod wire_quota;
+
+#[cfg(test)]
+mod http_history_tests;

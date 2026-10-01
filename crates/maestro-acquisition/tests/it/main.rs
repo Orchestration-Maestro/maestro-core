@@ -56,3 +56,23 @@ mod n32_change_guards;
 mod n32_enforce_the_closed_automatic_change_allow_list;
 mod n32_support;
 mod support;
+
+mod n12_commit_immutable_captures_and_reconciled_run_outcomes;
+mod n12_outcomes;
+mod n12_support;
+
+mod n12_receipts;
+
+mod n12_golden;
+
+mod n12_edges;
+
+mod n12_secrets;
+
+mod n12_transfer;
+
+mod n12_ports;
+
+mod n12_profile_binding;
+
+mod n12_parents;

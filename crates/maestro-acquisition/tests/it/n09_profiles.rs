@@ -8,7 +8,7 @@ use serde_json::json;
 
 /// One already-qualified synthetic profile, rebound through the actual validator.
 #[expect(clippy::indexing_slicing, reason = "authored profile fixture fields")]
-fn browser(kind: &str) -> CheckedPolicy {
+pub(super) fn browser(kind: &str) -> CheckedPolicy {
     let (mut collection, mut catalog) = n07::fixture();
     support::put(
         &mut catalog,

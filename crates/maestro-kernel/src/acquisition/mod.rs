@@ -15,3 +15,13 @@ pub use receipt::{
     Stage, StageItem,
 };
 pub use record::{Item, NewItem};
+
+mod capture;
+mod envelope;
+mod headers;
+pub use capture::{CaptureContext, Captures, PreparedCapture};
+pub use envelope::{
+    CaptureEnvelope, HeaderReason, RedirectHop, Representation, SAFE_HEADERS, SafeHeader,
+    SafeIdentity, Transport,
+};
+pub use headers::{safe_header_names, safe_headers, safe_media};

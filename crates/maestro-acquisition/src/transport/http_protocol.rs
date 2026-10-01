@@ -5,9 +5,8 @@ use super::{
 };
 use crate::policy::identity::FetchIdentity;
 use hyper::{body::Incoming, client::conn::http1};
-use reqwest::header::{
-    CONTENT_LENGTH, CONTENT_TYPE, HeaderMap, HeaderName, HeaderValue, LOCATION, RETRY_AFTER,
-};
+use maestro_kernel::acquisition::{RedirectHop, safe_header_names};
+use reqwest::header::{CONTENT_LENGTH, HeaderMap, HeaderName, HeaderValue, LOCATION, RETRY_AFTER};
 use std::fmt;
 
 /// Authorized transient response, not a capture envelope or publish permission.
@@ -23,6 +22,8 @@ pub struct Response {
     pub headers: HeaderMap,
     /// Admitted final fetch identity, protected from diagnostic output.
     pub identity: FetchIdentity,
+    /// Redacted redirect response history, never raw Location values.
+    pub redirects: Vec<RedirectHop>,
     /// Redirect-only protected target; never part of safe capture metadata.
     pub(super) location: Option<HeaderValue>,
     /// Retry-only protected server floor, never exported as safe metadata.
@@ -55,9 +56,12 @@ pub(super) async fn read_response(
     let location = response.headers().get(LOCATION).cloned();
     let retry_after = response.headers().get(RETRY_AFTER).cloned();
     let mut headers = HeaderMap::new();
-    for name in [CONTENT_TYPE] {
-        if let Some(value) = response.headers().get(&name) {
-            headers.insert(name, value.clone());
+    for name in safe_header_names().map_err(|_| Failure::Configuration)? {
+        for value in response.headers().get_all(name.as_str()) {
+            headers.append(
+                HeaderName::from_bytes(name.as_bytes()).map_err(|_| Failure::Configuration)?,
+                value.clone(),
+            );
         }
     }
     let (body, wire_body) = if robots && (status == 404 || status == 410) {
@@ -93,6 +97,7 @@ pub(super) async fn read_response(
         status,
         headers,
         identity,
+        redirects: Vec::new(),
         location,
         retry_after,
     })

@@ -868,6 +868,7 @@ dependencies = [
  "maestro-knowledge",
  "maestro-test-scratch",
  "reqwest",
+ "rusqlite",
  "rustix",
  "rustls",
  "rustls-native-certs",

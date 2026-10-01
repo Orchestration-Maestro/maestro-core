@@ -36,5 +36,6 @@ tokio-rustls.workspace = true
 rustix.workspace = true
 
 [dev-dependencies]
+rusqlite.workspace = true
 maestro-test-scratch.workspace = true
 tokio = { workspace = true, features = ["test-util"] }

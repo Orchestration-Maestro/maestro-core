@@ -22,6 +22,7 @@ use crate::{
 use http_body_util::Empty;
 use hyper::{Request as WireRequest, body::Bytes};
 use hyper_util::rt::TokioIo;
+use maestro_kernel::acquisition::{RedirectHop, SafeIdentity};
 use reqwest::header::{ACCEPT_ENCODING, CONNECTION, HOST, HeaderValue};
 use std::{
     collections::BTreeSet,
@@ -172,6 +173,7 @@ where
         let mut url = fetch.request.url.to_owned();
         let mut visited = BTreeSet::new();
         let mut redirects = 0;
+        let mut history = Vec::new();
         let mut retries = 0;
         let mut retry_until = 0;
         let mut kind = fetch.request.kind;
@@ -236,15 +238,25 @@ where
                 kind = RequestKind::Retry;
                 continue;
             }
-            let response = result?;
+            let mut response = result?;
             if !redirect(response.status) {
                 accounting.validate()?;
+                response.redirects = history;
                 return Ok(response);
             }
             if redirects >= accounting.limits().redirects.get() {
                 return Err(Failure::RedirectLimit);
             }
             redirects += 1;
+            retain_hop(
+                &mut history,
+                accounting,
+                RedirectHop {
+                    identity: SafeIdentity::new(response.identity.as_str())
+                        .map_err(|_| Failure::Content)?,
+                    status: response.status,
+                },
+            )?;
             let location = response
                 .location
                 .as_ref()
@@ -450,4 +462,21 @@ fn millis(now: StdInstant, epoch: StdInstant) -> Result<u64, Failure> {
             .as_millis(),
     )
     .map_err(|_| Failure::Configuration)
+}
+
+/// Retain only redacted metadata, without growing history past the memory bound.
+pub(super) fn retain_hop(
+    history: &mut Vec<RedirectHop>,
+    accounting: &mut Accounting,
+    hop: RedirectHop,
+) -> Result<(), Failure> {
+    let bytes = hop
+        .identity
+        .retained_bytes()
+        .checked_add(size_of::<RedirectHop>() as u64)
+        .ok_or(Failure::Memory)?;
+    accounting.metadata(bytes)?;
+    history.try_reserve_exact(1).map_err(|_| Failure::Memory)?;
+    history.push(hop);
+    Ok(())
 }

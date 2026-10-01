@@ -4,6 +4,8 @@
 //! starts transports/sessions, activates connectors or chooses default adapters.
 /// Scoped proposal overlays, atomic activation and durable notification recovery.
 pub mod adaptation;
+/// Immutable scoped capture preparation and truthful run outcomes.
+pub mod capture;
 pub mod extraction;
 mod files;
 pub mod lifecycle;

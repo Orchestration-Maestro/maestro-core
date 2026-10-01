@@ -7,20 +7,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::num::NonZeroU64;
 
-/// The closed set of Transport values.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub enum Transport {
-    /// `http`.
-    #[serde(rename = "http")]
-    Http,
-    /// `browser_request`.
-    #[serde(rename = "browser_request")]
-    BrowserRequest,
-    /// `browser_render`.
-    #[serde(rename = "browser_render")]
-    BrowserRender,
-}
+pub use maestro_kernel::acquisition::Transport;
 
 /// The closed set of `DocumentState` values.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]

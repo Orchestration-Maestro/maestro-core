@@ -312,6 +312,11 @@ in place.
 │   │   │   │   ├── recovery_tests.rs                                                    # Each transition guard is checked directly, without lineage checks masking it
 │   │   │   │   ├── storage.rs                                                           # Local overlay I/O and protected receipt identity helpers
 │   │   │   │   └── writer.rs                                                            # Immutable baseline plus scoped local overlays; pointer replacement commits
+│   │   │   ├── capture/                                                                 # Immutable captures and content-free distinct-item run outcomes
+│   │   │   │   ├── commit.rs                                                            # N11 accounting before kernel-owned immutable capture preparation
+│   │   │   │   ├── envelope.rs                                                          # N09 response projection into the single kernel-owned envelope contract
+│   │   │   │   ├── mod.rs                                                               # Immutable captures and content-free distinct-item run outcomes
+│   │   │   │   └── outcome.rs                                                           # Content-free outcomes over N06's authoritative stage inventories
 │   │   │   ├── extraction/                                                              # Immutable extraction profiles and bounded pure selection
 │   │   │   │   ├── detect.rs                                                            # Bounded deterministic evidence matching; no parser, network or model starts
 │   │   │   │   ├── mod.rs                                                               # Immutable extraction profiles and bounded pure selection
@@ -347,6 +352,7 @@ in place.
 │   │   │   │   ├── failure.rs                                                           # Content-free transport and decode refusal contract
 │   │   │   │   ├── floor.rs                                                             # Non-removable IANA snapshot (2025-10-09), multicast and metadata denials
 │   │   │   │   ├── http.rs                                                              # Bounded HTTP/1 over one freshly admitted pinned connection per hop
+│   │   │   │   ├── http_history_tests.rs                                                # Hop metadata refuses before the history grows, including empty bodies
 │   │   │   │   ├── http_protocol.rs                                                     # Bounded response parser, transient metadata and manual redirect spelling
 │   │   │   │   ├── mod.rs                                                               # Rust source: mod
 │   │   │   │   ├── pacing.rs                                                            # One injected atomic origin ledger shared by HTTP, browser and resumed runs
@@ -367,6 +373,11 @@ in place.
 │   │   │   │   ├── collection.json                                                      # JSON data: collection
 │   │   │   │   ├── decisions.json                                                       # JSON data: decisions
 │   │   │   │   ├── http.json                                                            # JSON data: http
+│   │   │   │   ├── n12-envelope.json                                                    # JSON data: n12 envelope
+│   │   │   │   ├── n12-headers.json                                                     # JSON data: n12 headers
+│   │   │   │   ├── n12-identity.json                                                    # JSON data: n12 identity
+│   │   │   │   ├── n12-policy-schema.json                                               # SourcePolicy: the plan’s strict wire record
+│   │   │   │   ├── n12-profile-schema.json                                              # AcquisitionProfile: the plan’s strict wire record
 │   │   │   │   ├── policy.json                                                          # JSON data: policy
 │   │   │   │   └── profile-definition-v1.txt                                            # Text: profile definition v1
 │   │   │   └── it/                                                                      # It
@@ -405,6 +416,17 @@ in place.
 │   │   │       ├── n11_resource_edges.rs                                                # N11 concurrent admission, overflow and resume edge contracts
 │   │   │       ├── n11_review_regressions.rs                                            # N11 review regressions for composed ceilings and retained allocation ownership
 │   │   │       ├── n11_support.rs                                                       # Shared synthetic explicit N11 host/settings fixtures
+│   │   │       ├── n12_commit_immutable_captures_and_reconciled_run_outcomes.rs         # N12's immutable capture, verified acknowledgment and redaction contracts
+│   │   │       ├── n12_edges.rs                                                         # Adjacent denied capture boundaries and real scoped-store failure cases
+│   │   │       ├── n12_golden.rs                                                        # Typed golden preimages stay byte-equal under serde_json/preserve_order
+│   │   │       ├── n12_outcomes.rs                                                      # Distinct stage inventories reconcile independently of dispatch attempts
+│   │   │       ├── n12_parents.rs                                                       # Derived captures require a verified acknowledged parent in the same scope/source
+│   │   │       ├── n12_ports.rs                                                         # Real persistence interrupted at the consumer boundary, without a second store
+│   │   │       ├── n12_profile_binding.rs                                               # Checked profiles cannot be bypassed by changing both provenance labels
+│   │   │       ├── n12_receipts.rs                                                      # Reconciled inventories finalize N06's unique immutable run receipts
+│   │   │       ├── n12_secrets.rs                                                       # Secret canaries across envelopes, hops, journal output, errors and files
+│   │   │       ├── n12_support.rs                                                       # Synthetic scoped capture fixtures; no live authority is granted
+│   │   │       ├── n12_transfer.rs                                                      # Transfer encoding never changes payload capture identity or provenance label
 │   │   │       ├── n15_bounds.rs                                                        # Independent shape/qualification guard neighbours, not parser-error mutants
 │   │   │       ├── n15_policy_binding.rs                                                # Genuine admitted handles exercise each core policy binding independently
 │   │   │       ├── n15_qualification_closure.rs                                         # Shared/cyclic closures remain bounded by the existing logical resource cache
@@ -627,16 +649,22 @@ in place.
 │   │   │   ├── 0017_unit_graphs.sql                                                     # File: 0017 unit graphs
 │   │   │   ├── 0018_retrieval_representations.sql                                       # File: 0018 retrieval representations
 │   │   │   ├── 0019_acquisition_frontier.sql                                            # File: 0019 acquisition frontier
-│   │   │   └── 0020_acquisition_receipts.sql                                            # File: 0020 acquisition receipts
+│   │   │   ├── 0020_acquisition_receipts.sql                                            # File: 0020 acquisition receipts
+│   │   │   └── 0021_acquisition_captures.sql                                            # File: 0021 acquisition captures
 │   │   ├── src/                                                                         # The crate's sources
 │   │   │   ├── acquisition/                                                             # Kernel-owned acquisition work, exposed through a replaceable frontier port
+│   │   │   │   ├── capture.rs                                                           # Verified immutable capture preparation before fenced stage acknowledgment
+│   │   │   │   ├── derivations.json                                                     # JSON data: derivations
+│   │   │   │   ├── envelope.rs                                                          # One immutable capture contract shared by admitted transports and the kernel
 │   │   │   │   ├── error.rs                                                             # Refusals from the frontier port; no refused operation acknowledges work
 │   │   │   │   ├── frontier.rs                                                          # Replaceable frontier contract and the kernel SQLite adapter
+│   │   │   │   ├── headers.rs                                                           # Exact data-defined header selection and content-free unsafe value evidence
 │   │   │   │   ├── lease.rs                                                             # Fencing handles: durable authority time plus a local monotonic deadline
 │   │   │   │   ├── mod.rs                                                               # Kernel-owned acquisition work, exposed through a replaceable frontier port
 │   │   │   │   ├── privacy.rs                                                           # Content-free output types and opaque, transitively scoped artifact handles
 │   │   │   │   ├── receipt.rs                                                           # Unique run attempts, immutable receipt snapshots and bounded stage inventories
-│   │   │   │   └── record.rs                                                            # Durable request identities and item rows; contexts are never normalized together
+│   │   │   │   ├── record.rs                                                            # Durable request identities and item rows; contexts are never normalized together
+│   │   │   │   └── safe-headers.json                                                    # JSON data: safe headers
 │   │   │   ├── artifact/                                                                # Content-addressed artifacts: immutable bytes stored, and read back, by their
 │   │   │   │   ├── digest.rs                                                            # A SHA-256 digest: the name every artifact is stored under
 │   │   │   │   ├── mod.rs                                                               # Content-addressed artifacts: immutable bytes stored, and read back, by their

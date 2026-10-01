@@ -37,6 +37,8 @@ pub struct Accounting {
     members: u64,
     /// Current fixed parser/codec workspaces; never hidden in body buffers.
     workspace: u64,
+    /// Owned redacted metadata retained across hops.
+    metadata: u64,
     /// Trusted clock port; production Tokio time remains pausable in tests.
     clock: Arc<dyn Clock>,
 }
@@ -59,6 +61,7 @@ impl Accounting {
             run_deadline: None,
             members: 0,
             workspace: 0,
+            metadata: 0,
             clock,
         }
     }
@@ -152,6 +155,16 @@ impl Accounting {
     pub fn members(&self) -> u64 {
         self.members
     }
+    /// Reserve hop metadata before the retained history allocation grows.
+    pub(super) fn metadata(&mut self, bytes: u64) -> Result<(), Failure> {
+        let old = self.metadata;
+        self.metadata = old.checked_add(bytes).ok_or(Failure::Memory)?;
+        if let Err(error) = self.retained(self.expanded) {
+            self.metadata = old;
+            return Err(error);
+        }
+        Ok(())
+    }
     /// Admit one member before allocating or starting its decoder.
     ///
     /// # Errors
@@ -182,6 +195,7 @@ impl Accounting {
             .checked_add(expanded)
             .and_then(|bytes| bytes.checked_mul(2))
             .and_then(|bytes| bytes.checked_add(self.workspace))
+            .and_then(|bytes| bytes.checked_add(self.metadata))
             .ok_or(Failure::Memory)?;
         self.memory(bytes)
     }

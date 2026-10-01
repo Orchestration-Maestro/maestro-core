@@ -145,3 +145,34 @@ pub(super) fn held(
         .optional()?;
     scope.ok_or(Error::Lost)
 }
+
+/// Recheck both dispatch epochs, holder and expiries in the committing transaction.
+pub(super) fn dispatched(
+    tx: &Transaction<'_>,
+    writer: &SourceLease,
+    item: &ItemLease,
+    now: SystemTime,
+) -> Result<(String, Option<String>), Error> {
+    if item.deadline <= Instant::now() || item.source_epoch != writer.epoch {
+        return Err(Error::Lost);
+    }
+    let scope = held(tx, writer, now)?;
+    let (at, _) = times(tx, now, Duration::ZERO)?;
+    let captured: Option<Option<String>> = tx
+        .query_row(
+            "SELECT capture FROM acquisition_frontier
+        WHERE id = ?1 AND source = ?2 AND writer_epoch = ?3 AND lease_epoch = ?4
+        AND lease_holder = ?5 AND lease_expires > ?6",
+            params![
+                item.item.to_string(),
+                writer.source,
+                i64::try_from(writer.epoch).map_err(|_| Error::Lost)?,
+                i64::try_from(item.epoch).map_err(|_| Error::Lost)?,
+                item.holder,
+                at
+            ],
+            |row| row.get(0),
+        )
+        .optional()?;
+    Ok((scope, captured.ok_or(Error::Lost)?))
+}

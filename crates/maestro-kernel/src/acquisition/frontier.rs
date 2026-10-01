@@ -12,7 +12,7 @@ use crate::{
 };
 use rusqlite::{OptionalExtension as _, params};
 use serde_json::json;
-use std::time::{Duration, Instant, SystemTime};
+use std::time::{Instant, SystemTime};
 use ulid::Ulid;
 
 /// Durable acquisition queue. Callers depend on this port, not a concrete store.
@@ -206,28 +206,8 @@ impl Frontier for Database {
         // Verify bytes outside the write; pinning inside it refuses a concurrent collection.
         self.get(artifact)?;
         self.write(|tx| {
-            if item.deadline <= Instant::now() || item.source_epoch != writer.epoch {
-                return Err(Error::Lost);
-            }
-            let scope = lease::held(tx, writer, now)?;
-            let (at, _) = times(tx, now, Duration::ZERO)?;
-            let captured: Option<Option<String>> = tx
-                .query_row(
-                    "SELECT capture FROM acquisition_frontier
-                WHERE id = ?1 AND source = ?2 AND writer_epoch = ?3 AND lease_epoch = ?4
-                AND lease_holder = ?5 AND lease_expires > ?6",
-                    params![
-                        item.item.to_string(),
-                        writer.source,
-                        i64::try_from(writer.epoch).map_err(|_| Error::Lost)?,
-                        i64::try_from(item.epoch).map_err(|_| Error::Lost)?,
-                        item.holder,
-                        at
-                    ],
-                    |row| row.get(0),
-                )
-                .optional()?;
-            match captured.ok_or(Error::Lost)? {
+            let (scope, captured) = lease::dispatched(tx, writer, item, now)?;
+            match captured {
                 Some(previous) if previous == artifact.as_str() => return Ok(()),
                 Some(_) => return Err(Error::Conflict),
                 None => {}
