@@ -297,6 +297,7 @@ in place.
 │   ├── maestro-acquisition/                                                             # N03 implements strict source-policy declarations and immutable local baseline resolution
 │   │   ├── src/                                                                         # The crate's sources
 │   │   │   ├── adaptation/                                                              # Scoped local overlays and replaceable activation policy and commit ports
+│   │   │   │   ├── change.rs                                                            # Pure closed automatic-change control over freshly resolved, typed values
 │   │   │   │   ├── golden-activation-recovery.json                                      # JSON data: golden activation recovery
 │   │   │   │   ├── golden-activation.json                                               # JSON data: golden activation
 │   │   │   │   ├── golden-effective.json                                                # JSON data: golden effective
@@ -394,6 +395,9 @@ in place.
 │   │   │       ├── n30_support.rs                                                       # Synthetic write-port conformance; no installed catalog admission is claimed
 │   │   │       ├── n30_transition_regressions.rs                                        # Recovery must prove an exact pointer transition before delivery
 │   │   │       ├── n30_write_guards.rs                                                  # Individual safety guards and recovery identity proofs for N30
+│   │   │       ├── n32_change_guards.rs                                                 # Isolated boundary probes for N32's pure controls
+│   │   │       ├── n32_enforce_the_closed_automatic_change_allow_list.rs                # Pure synthetic N32 controls; runtime artifact contracts belong to N34
+│   │   │       ├── n32_support.rs                                                       # Pure synthetic N32 controls; runtime artifact contracts belong to N34
 │   │   │       └── support.rs                                                           # Complete independently authored synthetic policy fixtures
 │   │   ├── Cargo.toml                                                                   # Crate manifest: Strict source policies and immutable baseline resolution for native acquisition
 │   │   └── README.md                                                                    # N03 implements strict source-policy declarations and immutable local baseline resolution

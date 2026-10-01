@@ -243,7 +243,7 @@ fn promotion_active(promotion: &Promotion, now: &str) -> bool {
             .is_none_or(|expires| time_key(now) < time_key(expires))
 }
 /// Strict UTC shape permits lexical tuple ordering, with fractional zero equal.
-fn time_key(text: &str) -> (&str, &str) {
+pub(crate) fn time_key(text: &str) -> (&str, &str) {
     let text = text.trim_end_matches('Z');
     let (seconds, fraction) = text.split_once('.').unwrap_or((text, ""));
     (seconds, fraction.trim_end_matches('0'))

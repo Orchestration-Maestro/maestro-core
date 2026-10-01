@@ -2,7 +2,7 @@
 pub mod acquisition;
 pub mod authority;
 pub mod authority_socket;
-mod checks;
+pub(crate) mod checks;
 pub mod decision;
 pub mod decisions;
 pub mod identity;

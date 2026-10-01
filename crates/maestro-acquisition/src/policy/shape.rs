@@ -192,7 +192,7 @@ pub(super) fn time<'de, D: Deserializer<'de>>(decoder: D) -> Result<String, D::E
     checked(decoder, valid_time)
 }
 /// Validate date, seconds and an optional fractional-second part without a new dependency.
-pub(super) fn valid_time(text: &str) -> bool {
+pub(crate) fn valid_time(text: &str) -> bool {
     let Some((date, clock)) = text.split_once('T') else {
         return false;
     };

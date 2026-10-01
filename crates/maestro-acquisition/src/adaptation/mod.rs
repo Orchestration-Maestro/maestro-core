@@ -1,4 +1,5 @@
 //! Scoped local overlays and replaceable activation policy and commit ports.
+pub mod change;
 #[cfg(test)]
 mod golden;
 mod lineage;

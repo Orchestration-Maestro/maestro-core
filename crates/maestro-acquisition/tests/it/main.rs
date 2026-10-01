@@ -32,4 +32,7 @@ mod n30_review_regressions;
 mod n30_support;
 mod n30_transition_regressions;
 mod n30_write_guards;
+mod n32_change_guards;
+mod n32_enforce_the_closed_automatic_change_allow_list;
+mod n32_support;
 mod support;

@@ -75,7 +75,7 @@ pub(super) fn policy(policy: &SourcePolicy) -> Result<(), Refusal> {
 }
 
 /// A selector is a nonempty conjunction over one declared source/origin.
-pub(super) fn selector(selector: &Selector, source: &Source) -> Result<(), Refusal> {
+pub(crate) fn selector(selector: &Selector, source: &Source) -> Result<(), Refusal> {
     if selector.source_id != source.id
         || selector
             .origin
