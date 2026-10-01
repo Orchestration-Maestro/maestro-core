@@ -168,7 +168,9 @@ Strict configuration, kernel authority/frontier and protected receipts block eve
 
 **After:** N04. **Approval blockers:** None for synthetic work.
 
-**Files:** `crates/maestro-kernel/src/acquisition/{receipt.rs,privacy.rs}`; `crates/maestro/src/acquisition/inspect.rs`.
+**Files:** `crates/maestro-kernel/src/acquisition/{receipt.rs,privacy.rs}`; kernel migration/registration.
+
+The authorized kernel view lands here; N14 registers the CLI inspect binding once, with working acquisition.
 
 **Requirements:** FR-S6-015, FR-S6-016, FR-S6-062; SC-S6-002, SC-S6-013, SC-S6-014.
 
@@ -300,7 +302,7 @@ Independent test: public allowed/denied/robots/redirect/attachment fixture compl
 
 **After:** N13. **Approval blockers:** OA4a exact grant for a real public source; enforce approved OA3 limits. Synthetic fixture flow needs no live grant.
 
-**Files:** `crates/maestro/src/acquisition/{mod.rs,command.rs,output.rs}`; `crates/maestro/src/cli/{args.rs,run.rs}`; `docs/how-to/acquisition.md`.
+**Files:** `crates/maestro/src/acquisition/{mod.rs,command.rs,output.rs,inspect.rs}`; `crates/maestro/src/cli/{args.rs,run.rs}`; `docs/how-to/acquisition.md`.
 
 **Requirements:** FR-S6-001, FR-S6-002, FR-S6-008, FR-S6-013, FR-S6-016; SC-S6-001, SC-S6-002, SC-S6-012.
 
