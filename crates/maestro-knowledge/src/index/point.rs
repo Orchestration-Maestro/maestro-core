@@ -21,7 +21,7 @@ const NAMESPACE: Uuid = Uuid::from_u128(0x8cfb_99af_c40a_5a27_a068_e1e2_97c9_12d
 /// passage, its scope, source revision, profiles and place (01 §7), so the
 /// same chunk set gives the same point IDs, and writing a batch again
 /// changes nothing.
-pub(super) fn point_id(chunk_id: &str) -> String {
+pub(crate) fn point_id(chunk_id: &str) -> String {
     let digest = Sha1::new()
         .chain_update(NAMESPACE.as_bytes())
         .chain_update(chunk_id)

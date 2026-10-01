@@ -957,6 +957,19 @@ in place.
 │   │   │   │   ├── run.rs                                                   # A run: every question of a suite, resolved in the generation it
 │   │   │   │   └── run_v2.rs                                                # Strict v2 attempt execution and aggregation
 │   │   │   ├── graph/                                                       # The knowledge graph's construction (specs/002-knowledge-graph): claims
+│   │   │   │   ├── descriptors/                                             # Deterministic, disposable source descriptors beside passage projections
+│   │   │   │   │   ├── build.rs                                             # Deterministic text construction from a frozen source view
+│   │   │   │   │   ├── embedding.rs                                         # Descriptor embeddings through the existing dense gateway and checks
+│   │   │   │   │   ├── mod.rs                                               # Deterministic, disposable source descriptors beside passage projections
+│   │   │   │   │   ├── port.rs                                              # Small optional projection and embedding boundary, independent of graph readiness
+│   │   │   │   │   ├── qdrant.rs                                            # Descriptor adapter over the existing retrieval projection infrastructure
+│   │   │   │   │   ├── source.rs                                            # Read-only authority reader for generation-bound original artifacts
+│   │   │   │   │   ├── tests.rs                                             # Source-only composition and fail-closed pointer checks
+│   │   │   │   │   ├── tests_backend.rs                                     # Synthetic transport double for the existing retrieval port, not a second store
+│   │   │   │   │   ├── tests_embedding.rs                                   # Compatible outputs are shared across arms; mismatches cannot inherit readiness
+│   │   │   │   │   ├── tests_projection.rs                                  # Rebuild equality and backend-scoped deterministic lookup fixtures
+│   │   │   │   │   ├── tests_source.rs                                      # Real kernel authority survives disposable descriptor deletion
+│   │   │   │   │   └── types.rs                                             # Canonical disposable descriptor values; concatenated text is never a quote
 │   │   │   │   ├── extract/                                                 # Bounded model extraction over canonical source windows
 │   │   │   │   │   ├── tests/                                               # Synthetic window and quote-pointer checks; no model or vendor data is used
 │   │   │   │   │   │   ├── dedup.rs                                         # Duplicate claim identity and post-review source rejection checks
@@ -1385,6 +1398,7 @@ in place.
 │   │   │       ├── collection_contract.rs                                   # maestro-collection/1: a strict declaration parses into typed values; an
 │   │   │       ├── corpus_contract.rs                                       # maestro-corpus/1: one line per document parses into typed values; an
 │   │   │       ├── eval_synthetic.rs                                        # The evaluation runner over the public synthetic suite (T014), end to end
+│   │   │       ├── graph_descriptors.rs                                     # The public descriptor adapter deletes and recreates its actual gRPC collection
 │   │   │       ├── graph_fixture.rs                                         # G01's synthetic pilot contract, not the G03 production rule engine
 │   │   │       ├── lexical_accents.rs                                       # Properties of bm25-en-fr/1 over generated texts: a text and the same
 │   │   │       ├── lexical_fold.rs                                          # Folding in bm25-en-fr/1: every letter of Latin-1 Supplement and Latin
@@ -1582,7 +1596,8 @@ in place.
 │           │   └── synthetic.jsonl                                          # The suite synthetic: one maestro-suite/1 question per line, French and English, each with the sections that answer it
 │           ├── graph/                                                       # Graph
 │           │   ├── defaults.json                                            # JSON data: defaults
-│           │   └── defaults.md                                              # Sample document: Lantern controller
+│           │   ├── defaults.md                                              # Sample document: Lantern controller
+│           │   └── descriptors.json                                         # JSON data: descriptors
 │           ├── .rumdl.toml                                                  # The synthetic collection is test input, not documentation: one of its documents repeats a heading under the same parent, as authors do
 │           └── collection.json                                              # The maestro-collection/1 declaration of the public collection synthetic
 ├── .editorconfig                                                            # Editor settings that survive the editor

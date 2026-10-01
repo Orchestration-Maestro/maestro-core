@@ -588,18 +588,18 @@ loading, not E11. G25 and G22 retain final qualification obligations.
 **Acceptance:** FR-S2-008, FR-S2-011, FR-S2-019, SC-S2-006; disposable deterministic
 claim-first descriptor data under the existing Qdrant/model infrastructure.
 
-- [ ] **Red.** Reject unverified/wrong-generation spans, invented defining text,
+- [x] **Red.** Reject unverified/wrong-generation spans, invented defining text,
   missing endpoint context and conflated disjoint source pointers. Freeze text,
   IDs and scope payload vectors; deletion must not lose claim authority. A
   changed builder/model/profile cannot reuse an incompatible projection receipt.
-- [ ] **Green.** Add the narrow descriptor projection port/Qdrant adapter;
+- [x] **Green.** Add the narrow descriptor projection port/Qdrant adapter;
   deterministically compose name/kind/defining sentence and claim predicate plus
   both endpoints' sourced context. Persist separate pointers, collection/pin/
   version/eligibility payloads and builder/embedding/profile digests. Embed with
   the existing gateway; share compatible outputs across arms. No LLM prose,
   identity merge, new library or second vector store. Keep optional descriptor
   readiness distinct so the rule-only pilot needs no embedding model.
-- [ ] **Check.** Run Test with fake embeddings and synthetic source data; delete
+- [x] **Check.** Run Test with fake embeddings and synthetic source data; delete
   and recreate the collection from authority/artifacts. Compare canonical text,
   IDs/pointers/payloads and deterministic lookup fixtures, not ANN byte ordering.
   Re-embedding may use the pinned existing embedding profile; extraction or
