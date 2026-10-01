@@ -259,7 +259,7 @@ fn n12_accepted_evidence_refuses_raw_body_acknowledgment() {
 #[test]
 fn n12_accepted_evidence_refuses_wrong_scope_item_or_corrupt_payloads() {
     accepted_evidence(0);
-    for case in 3..7 {
+    for case in 3..8 {
         accepted_evidence(case);
     }
 }
@@ -340,6 +340,7 @@ fn accepted_evidence(case: u8) {
             )
             .unwrap();
         }
+        7 => frontier.first_mut().unwrap().capture = Some(Digest::of(b"stale frontier capture")),
         _ => {}
     }
     assert_eq!(
