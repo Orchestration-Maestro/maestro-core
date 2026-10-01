@@ -3,11 +3,12 @@
 //! built-in descriptor loaded back from data checks exactly as the original.
 
 use super::support::{MemoryTree, assert_refused_by, check_by};
+use crate::source::kinds::legacy as builtin;
 use crate::{
     limits::Limits,
     source::{
         Field, FieldType, Format, KindDescriptor, Layout, Maturity, MetadataPlace,
-        RegistrationError, Registry, builtin, builtin_hooks,
+        RegistrationError, Registry, builtin_hooks,
     },
 };
 

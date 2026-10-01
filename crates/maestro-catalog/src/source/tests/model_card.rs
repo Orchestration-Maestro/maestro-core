@@ -1,11 +1,11 @@
 //! Tests for catalog model-card validation through its kernel hook.
 
-use super::support::{MemoryTree, assert_refused, check_under};
-use crate::limits::Limits;
+use super::support::{MemoryTree, assert_refused_by, check_by};
+use crate::{limits::Limits, source::builtin};
 
 fn with_model_card() -> MemoryTree {
-    MemoryTree::valid().with(
-        "model-cards/synthetic.toml",
+    MemoryTree::default().with(
+        "core/llm/models/embedder/synthetic.toml",
         include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/../../tests/fixtures/catalog/model-cards/valid.toml"
@@ -15,7 +15,7 @@ fn with_model_card() -> MemoryTree {
 
 #[test]
 fn valid_model_card_passes_with_kernel_identity_hook() {
-    let catalog = check_under(&with_model_card(), &Limits::PRODUCTION).unwrap();
+    let catalog = check_by(&with_model_card(), &builtin().unwrap(), &Limits::PRODUCTION).unwrap();
     assert!(
         catalog
             .resources
@@ -46,34 +46,39 @@ fn invalid_nested_identity_is_refused_by_the_kernel_hook() {
         "source_url = \"https://example.invalid/model\"",
         "source_url = \"https://u:p@example.invalid/m\"",
     );
-    assert_refused(vec![
-        (
-            "unknown nested model-card identity key",
-            MemoryTree::valid().with("model-cards/synthetic.toml", &invalid),
-            "identity: unknown field `unknown_identity_key`",
-        ),
-        (
-            "unsupported role",
-            MemoryTree::valid().with("model-cards/synthetic.toml", &unsupported),
-            "unknown variant `query_expander`",
-        ),
-        (
-            "machine path",
-            MemoryTree::valid().with("model-cards/synthetic.toml", &machine_path),
-            concat!(
-                "identity: not a valid maestro-model-card/1 or maestro-model-card/2 ",
-                "model card: upstream_model_id is a machine path"
+    assert_refused_by(
+        &builtin().unwrap(),
+        vec![
+            (
+                "unknown nested model-card identity key",
+                MemoryTree::default().with("core/llm/models/embedder/synthetic.toml", &invalid),
+                "identity: unknown field `unknown_identity_key`",
             ),
-        ),
-        (
-            "URL credentials",
-            MemoryTree::valid().with("model-cards/synthetic.toml", &credentialed_url),
-            concat!(
-                "identity: not a valid maestro-model-card/1 or maestro-model-card/2 ",
-                "model card: source_url must be an HTTP(S) URL without credentials"
+            (
+                "unsupported role",
+                MemoryTree::default().with("core/llm/models/embedder/synthetic.toml", &unsupported),
+                "unknown variant `query_expander`",
             ),
-        ),
-    ]);
+            (
+                "machine path",
+                MemoryTree::default()
+                    .with("core/llm/models/embedder/synthetic.toml", &machine_path),
+                concat!(
+                    "identity: not a valid maestro-model-card/1 or maestro-model-card/2 ",
+                    "model card: upstream_model_id is a machine path"
+                ),
+            ),
+            (
+                "URL credentials",
+                MemoryTree::default()
+                    .with("core/llm/models/embedder/synthetic.toml", &credentialed_url),
+                concat!(
+                    "identity: not a valid maestro-model-card/1 or maestro-model-card/2 ",
+                    "model card: source_url must be an HTTP(S) URL without credentials"
+                ),
+            ),
+        ],
+    );
 }
 
 #[test]
@@ -83,11 +88,14 @@ fn declaration_version_must_be_two() {
         "/../../tests/fixtures/catalog/model-cards/valid.toml"
     ));
     let invalid = valid.replace("version = \"2\"", "version = \"1\"");
-    assert_refused(vec![(
-        "unsupported model-card declaration version",
-        MemoryTree::valid().with("model-cards/synthetic.toml", &invalid),
-        "version: must be \"2\"",
-    )]);
+    assert_refused_by(
+        &builtin().unwrap(),
+        vec![(
+            "unsupported model-card declaration version",
+            MemoryTree::default().with("core/llm/models/embedder/synthetic.toml", &invalid),
+            "version: must be \"2\"",
+        )],
+    );
 }
 
 #[test]
@@ -104,11 +112,14 @@ fn delegated_identity_non_table_is_refused_by_the_kernel_hook() {
         .next()
         .unwrap();
     let invalid = format!("version = \"2\"\nidentity = \"x\"\n[metadata]{metadata}");
-    assert_refused(vec![(
-        "non-table identity",
-        MemoryTree::valid().with("model-cards/synthetic.toml", &invalid),
-        "identity: invalid type: string \"x\", expected struct CardIdentity",
-    )]);
+    assert_refused_by(
+        &builtin().unwrap(),
+        vec![(
+            "non-table identity",
+            MemoryTree::default().with("core/llm/models/embedder/synthetic.toml", &invalid),
+            "identity: invalid type: string \"x\", expected struct CardIdentity",
+        )],
+    );
 }
 
 #[test]
@@ -118,9 +129,12 @@ fn undeclared_neighbor_to_delegated_identity_still_refuses() {
         "/../../tests/fixtures/catalog/model-cards/valid.toml"
     ));
     let invalid = valid.replace("version = \"2\"", "version = \"2\"\nextra = true");
-    assert_refused(vec![(
-        "undeclared top-level neighbor",
-        MemoryTree::valid().with("model-cards/synthetic.toml", &invalid),
-        "extra: unknown key",
-    )]);
+    assert_refused_by(
+        &builtin().unwrap(),
+        vec![(
+            "undeclared top-level neighbor",
+            MemoryTree::default().with("core/llm/models/embedder/synthetic.toml", &invalid),
+            "extra: unknown key",
+        )],
+    );
 }

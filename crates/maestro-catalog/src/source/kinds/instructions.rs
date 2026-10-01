@@ -3,16 +3,16 @@
 //! (supervisor ruling, C03). No hook.
 
 use crate::source::{
-    descriptor::{Field, FieldType, Format, KindDescriptor, Layout, MetadataPlace},
+    descriptor::{Field, FieldType, Format, KindDescriptor, Layout, MetadataPlace, Scope},
     types::Maturity,
 };
 
 /// The instructions kind.
 pub(super) fn descriptor() -> KindDescriptor {
     KindDescriptor {
-        scopes: Vec::new(),
+        scopes: vec![Scope::Core, Scope::Team, Scope::Language, Scope::Standard],
         kind: "instructions".to_owned(),
-        version: 1,
+        version: 2,
         directory: "instructions".to_owned(),
         layout: Layout::Files {
             suffix: ".instructions.md".to_owned(),

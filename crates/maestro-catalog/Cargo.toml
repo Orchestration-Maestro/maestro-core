@@ -16,6 +16,7 @@ maestro-filesystem.workspace = true
 maestro-kernel.workspace = true
 maestro-settings.workspace = true
 pulldown-cmark.workspace = true
+semver.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 serde_yaml_ng.workspace = true

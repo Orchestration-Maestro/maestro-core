@@ -19,7 +19,7 @@ pub struct KindDescriptor {
     /// The top-level catalog directory holding its resources.
     pub directory: String,
     /// V4 scopes in which `directory` is a relative placement. An empty list
-    /// retains the pre-cutover builtin layout until C31/C32 migrate it.
+    /// denotes a legacy descriptor, never mixed with scoped registrations.
     #[serde(default)]
     pub scopes: Vec<Scope>,
     /// How its files are laid out in that directory.
@@ -112,6 +112,11 @@ pub enum Layout {
         file: String,
         /// The subfolders kept as data.
         data: Vec<String>,
+    },
+    /// One fixed file at each area root; its name comes from the area.
+    Area {
+        /// The area descriptor filename.
+        file: String,
     },
     /// One file with a fixed name, the kind's one resource.
     Single {

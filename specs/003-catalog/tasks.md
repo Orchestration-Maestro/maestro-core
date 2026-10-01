@@ -2238,10 +2238,10 @@ source/runtime implementation or private-data read, and no delivered claim.
 **Requirements:** FR-S3-040, FR-S3-046, SC-S3-013, SC-S3-015.
 **Named tests:** `area_package_placement_roundtrips`, `role_card_path_matches_identity`, `ambiguous_area_descriptor_refuses`; required cases, not reported results.
 
-- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+- [x] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
   below; run the focused fixture/check command and retain the failure.
-- [ ] **Step 2: Green.** Scope existing shapes to registered areas; register package closure roots and preset area/inventory selectors, preserving native metadata/hooks. Move cards to llm/models/<role>; retain exact kernel validator/fingerprint. Changed descriptor versions increment for the one pending /2 cutover. MCP is registered config in C45/C47, never a new mcp resource.
-- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+- [x] **Step 2: Green.** Scope existing shapes to registered areas; register package closure roots and preset area/inventory selectors, preserving native metadata/hooks. Move cards to llm/models/<role>; retain exact kernel validator/fingerprint. Changed descriptor versions increment for the one pending /2 cutover. MCP is registered config in C45/C47, never a new mcp resource.
+- [x] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
   capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
   Record nonzero test counts, exact exits, applicable lane gates and review.
 

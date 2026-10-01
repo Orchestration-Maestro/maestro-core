@@ -6,19 +6,18 @@ use serde_json::json;
 use std::{fs, path::PathBuf};
 
 /// The synthetic source fixtures, where each file of the valid catalog lives.
-const VALID: [(&str, &str); 7] = [
-    ("agents/base/valid.agent.md", "valid.agent.md"),
-    ("agents/base/valid.maestro.toml", "valid.maestro.toml"),
+const VALID: [(&str, &str); 6] = [
+    ("core/agents/valid.agent.md", "valid.agent.md"),
+    ("core/agents/valid.maestro.toml", "valid.maestro.toml"),
     ("skills/valid-skill/SKILL.md", "valid-skill/SKILL.md"),
     (
-        "instructions/valid.instructions.md",
+        "core/instructions/valid.instructions.md",
         "valid.instructions.md",
     ),
     (
-        "instructions/valid.maestro.toml",
+        "core/instructions/valid.maestro.toml",
         "valid.instructions.maestro.toml",
     ),
-    ("mcp/maestro.toml", "mcp.toml"),
     ("presets/knowledge-client.toml", "preset.toml"),
 ];
 
@@ -30,7 +29,16 @@ fn valid_catalog(home: &Home) -> PathBuf {
     for (file, fixture) in VALID {
         let path = root.join(file);
         fs::create_dir_all(path.parent().unwrap()).unwrap();
-        fs::copy(fixtures.join(fixture), path).unwrap();
+        let text = fs::read_to_string(fixtures.join(fixture)).unwrap();
+        let text = match fixture {
+            "valid.agent.md" => text.replace("\"maestro/knowledge_search\", ", ""),
+            "preset.toml" => format!(
+                "name = \"knowledge-client\"\n{}",
+                text.replace(", \"mcp:maestro\"", "")
+            ),
+            _ => text,
+        };
+        fs::write(path, text).unwrap();
     }
     root
 }
@@ -42,7 +50,7 @@ fn catalog_check_passes_the_valid_catalog() {
     let result = home.run(&["catalog", "check", "--catalog-dir", root.to_str().unwrap()]);
     assert_eq!(
         (result.code, result.stdout.as_str(), result.stderr.as_str()),
-        (Some(0), "catalog check passed: 5 resources\n", ""),
+        (Some(0), "catalog check passed: 4 resources\n", ""),
     );
 }
 
@@ -65,7 +73,7 @@ fn catalog_check_reports_each_resource_under_json() {
         document["resources"][0],
         json!({
             "id": "agent:valid",
-            "path": "agents/base/valid.agent.md",
+            "path": "core/agents/valid.agent.md",
             "owner": "@synthetic/knowledge",
             "maturity": "reviewed",
         })
@@ -81,7 +89,7 @@ fn catalog_check_refuses_an_invalid_agent_with_exit_2() {
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/catalog/source");
     fs::copy(
         fixtures.join("invalid.agent.md"),
-        root.join("agents/base/valid.agent.md"),
+        root.join("core/agents/valid.agent.md"),
     )
     .unwrap();
     let result = home.run(&["catalog", "check", "--catalog-dir", root.to_str().unwrap()]);
@@ -89,7 +97,7 @@ fn catalog_check_refuses_an_invalid_agent_with_exit_2() {
     assert!(
         result
             .stderr
-            .contains("agents/base/valid.agent.md: metadata: unknown key\n"),
+            .contains("core/agents/valid.agent.md: metadata: unknown key\n"),
         "{result:?}"
     );
 }

@@ -209,6 +209,8 @@ fn shape_problem(descriptor: &KindDescriptor) -> Option<String> {
         "its name is not a lower-case hyphenated name".to_owned()
     } else if descriptor.version == 0 {
         "its version must be 1 or more".to_owned()
+    } else if descriptor.scopes.is_empty() && matches!(descriptor.layout, Layout::Area { .. }) {
+        "an area root requires registered scopes".to_owned()
     } else if descriptor.scopes.is_empty()
         && (!is_name(&descriptor.directory)
             || NOT_RESOURCES.contains(&descriptor.directory.as_str()))

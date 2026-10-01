@@ -523,13 +523,16 @@ in place.
 │   │   │   │   │   ├── agent.rs                                             # agent: a Copilot custom agent profile and its <name>.maestro.toml
 │   │   │   │   │   ├── builtin.rs                                           # The registry of the built-in kinds and the fixed table of hooks their
 │   │   │   │   │   ├── instructions.rs                                      # instructions: a Copilot .instructions.md file and its
+│   │   │   │   │   ├── legacy.rs                                            # Test-only pre-cutover fixtures, removed by C32's single schema cutover
 │   │   │   │   │   ├── mcp.rs                                               # mcp: an approved MCP server, its launch and its tool allowlist
 │   │   │   │   │   ├── mod.rs                                               # The built-in kinds: each a descriptor and, where a rule is truly
 │   │   │   │   │   ├── model_card.rs                                        # model-card: a strict catalog declaration of the kernel's v2 identity
+│   │   │   │   │   ├── package.rs                                           # Area closure roots; ownership and layer semantics are checked by later tasks
 │   │   │   │   │   ├── preset.rs                                            # preset: a project preset, the root of a declared closure, and the
 │   │   │   │   │   └── skill.rs                                             # skill: an Agent Skills SKILL.md, whose Maestro data sits in the
 │   │   │   │   ├── tests/                                                   # The source checker's tests: the valid synthetic catalog and each of its
 │   │   │   │   │   ├── accepted.rs                                          # The valid catalog passes, and its typed resources hold exactly what the
+│   │   │   │   │   ├── area_packages.rs                                     # C31 scoped builtin placement and kernel-role neighbours
 │   │   │   │   │   ├── area_support.rs                                      # Data-only v4 fixtures; builtin migration belongs to C31/C32
 │   │   │   │   │   ├── bounds.rs                                            # D2's source limits at small injected values: each exact boundary passes
 │   │   │   │   │   ├── coverage.rs                                          # Refusals each guard owns alone: tool names and lists, agent sections

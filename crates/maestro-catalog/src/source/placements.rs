@@ -56,7 +56,7 @@ pub(super) fn occupied(descriptor: &KindDescriptor) -> Vec<String> {
                 .map(|folder| join(&directory, folder))
                 .collect(),
             Layout::Folder { .. } => vec![join(&directory, "*")],
-            Layout::Single { file, .. } => vec![join(&directory, file)],
+            Layout::Single { file, .. } | Layout::Area { file } => vec![join(&directory, file)],
         })
         .collect()
 }
@@ -97,6 +97,12 @@ pub(super) fn problem(descriptor: &KindDescriptor) -> Option<String> {
                 && data
                     .iter()
                     .all(|asset| !asset.is_empty() && safe(asset, false) && asset != file)
+        }
+        Layout::Area { file } => {
+            descriptor.directory.is_empty()
+                && !file.is_empty()
+                && !file.contains('/')
+                && safe(file, false)
         }
         Layout::Single { file, name } => {
             !file.is_empty() && !file.contains('/') && safe(file, false) && is_name(name)
@@ -140,7 +146,7 @@ fn scope_problem(descriptor: &KindDescriptor) -> Option<String> {
     match &descriptor.layout {
         Layout::Files { folders, .. } => relative.extend(folders.iter().cloned()),
         Layout::Folder { data, .. } => relative.extend(data.iter().cloned()),
-        Layout::Single { .. } => {}
+        Layout::Single { .. } | Layout::Area { .. } => {}
     }
     for scope in &descriptor.scopes {
         if *scope == Scope::Root {

@@ -1,11 +1,12 @@
 //! An in-memory [`SourceTree`] adapter holding the valid synthetic catalog,
 //! and the helpers that mutate and check it.
 
+use crate::source::kinds::legacy as builtin;
 use crate::{
     limits::Limits,
     source::{
-        Catalog, Entry, EntryKind, Known, Refusal, Registry, Resource, SourceTree, builtin, check,
-        frozen_rows,
+        Catalog, Entry, EntryKind, Known, Refusal, Registry, Resource, SourceTree,
+        builtin as scoped_builtin, check, frozen_rows,
     },
 };
 use maestro_settings::Registry as SettingsRegistry;
@@ -165,8 +166,9 @@ impl SourceTree for MemoryTree {
 
 /// Parses and checks the model-card fixture through the production checker.
 pub(crate) fn checked_model_card(text: &str) -> Resource {
-    check_under(
-        &MemoryTree::valid().with("model-cards/synthetic.toml", text),
+    check_by(
+        &MemoryTree::default().with("core/llm/models/embedder/synthetic.toml", text),
+        &scoped_builtin().unwrap(),
         &Limits::PRODUCTION,
     )
     .unwrap()

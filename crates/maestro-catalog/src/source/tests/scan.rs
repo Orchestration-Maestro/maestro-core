@@ -1,9 +1,10 @@
 //! Aggregate snapshot trust-boundary neighbours, independent of content guards.
 
 use super::support::{MemoryTree, check_by};
+use crate::source::kinds::legacy as builtin;
 use crate::{
     limits::Limits,
-    source::{Cause, Entry, EntryKind, Registry, SourceTree, builtin, walk::walk},
+    source::{Cause, Entry, EntryKind, Registry, SourceTree, walk::walk},
 };
 use std::{cell::Cell, io};
 

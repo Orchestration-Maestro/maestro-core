@@ -3,6 +3,7 @@
 //! and the filesystem adapter.
 
 mod accepted;
+mod area_packages;
 mod area_support;
 mod bounds;
 mod coverage;

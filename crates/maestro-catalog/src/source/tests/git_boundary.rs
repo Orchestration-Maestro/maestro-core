@@ -120,7 +120,7 @@ fn github_and_other_dot_entries_remain_presented() {
 #[test]
 fn legacy_check_refuses_nested_git_administration() {
     use super::support::VALID;
-    use crate::source::builtin;
+    use crate::source::kinds::legacy as builtin;
     let root = Scratch::new();
     fs::remove_file(root.0.join("package.toml")).unwrap();
     for (file, text) in VALID {

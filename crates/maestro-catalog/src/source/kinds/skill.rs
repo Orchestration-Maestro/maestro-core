@@ -3,24 +3,26 @@
 //! joined by `;`. No hook: the descriptor states it all.
 
 use crate::source::{
-    descriptor::{Field, FieldType, Format, KindDescriptor, Layout, MetadataPlace},
+    descriptor::{Field, FieldType, Format, KindDescriptor, Layout, MetadataPlace, Scope},
     types::Maturity,
 };
 
 /// The skill kind.
 pub(super) fn descriptor() -> KindDescriptor {
     KindDescriptor {
-        scopes: Vec::new(),
+        scopes: vec![
+            Scope::Common,
+            Scope::Core,
+            Scope::Team,
+            Scope::Language,
+            Scope::Standard,
+        ],
         kind: "skill".to_owned(),
-        version: 1,
+        version: 2,
         directory: "skills".to_owned(),
         layout: Layout::Folder {
             file: "SKILL.md".to_owned(),
-            data: vec![
-                "references".to_owned(),
-                "scripts".to_owned(),
-                "assets".to_owned(),
-            ],
+            data: Vec::new(),
         },
         format: Format::Markdown,
         metadata: MetadataPlace::Strings {

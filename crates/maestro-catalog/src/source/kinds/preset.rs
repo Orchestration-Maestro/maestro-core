@@ -2,7 +2,7 @@
 //! settings it seeds. Its hook refuses a setting Maestro does not know.
 
 use crate::source::{
-    descriptor::{Field, FieldType, Format, KindDescriptor, Layout, MetadataPlace},
+    descriptor::{Field, FieldType, Format, KindDescriptor, Layout, MetadataPlace, Scope},
     rules::KindRules,
     types::{Known, Maturity, Problems, Resource, Value},
 };
@@ -10,9 +10,9 @@ use crate::source::{
 /// The preset kind.
 pub(super) fn descriptor() -> KindDescriptor {
     KindDescriptor {
-        scopes: Vec::new(),
+        scopes: vec![Scope::Root],
         kind: "preset".to_owned(),
-        version: 1,
+        version: 2,
         directory: "presets".to_owned(),
         layout: Layout::Files {
             suffix: ".toml".to_owned(),
@@ -22,9 +22,11 @@ pub(super) fn descriptor() -> KindDescriptor {
         metadata: MetadataPlace::Table {
             key: "metadata".to_owned(),
         },
-        name_field: None,
+        name_field: Some("name".to_owned()),
         fields: vec![
+            Field::required("name", FieldType::Text),
             Field::required("description", FieldType::Text),
+            Field::optional("templates", FieldType::TextList),
             Field::optional("settings", FieldType::ScalarTable),
         ],
         body: false,

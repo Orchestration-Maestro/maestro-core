@@ -1366,6 +1366,7 @@ dependencies = [
  "maestro-settings",
  "maestro-test-scratch",
  "pulldown-cmark",
+ "semver",
  "serde",
  "serde_json",
  "serde_yaml_ng",

@@ -3,15 +3,16 @@
 
 use super::{
     agent::{self, AgentRules},
-    instructions, mcp, model_card,
+    instructions, model_card, package,
     preset::{self, PresetRules},
     skill,
 };
-use crate::source::{registry::Registry, rules::KindRules};
+use crate::source::{descriptor::Scope, registry::Registry, rules::KindRules};
 
 /// The hooks a descriptor may select, by name. Content never supplies code:
 /// a new hook is reviewed code added here.
-const HOOKS: [(&str, &dyn KindRules, &[&str]); 3] = [
+const HOOKS: [(&str, &dyn KindRules, &[&str]); 4] = [
+    ("area-package", &package::PackageRules, &[]),
     ("agent-profile", &AgentRules, &[]),
     ("preset-settings", &PresetRules, &[]),
     ("model-card", &model_card::ModelCardRules, &["identity"]),
@@ -24,7 +25,7 @@ pub fn builtin_hooks() -> Registry {
     Registry::with_hooks(&HOOKS)
 }
 
-/// The built-in kinds: agent, skill, instructions, MCP server, preset and model card.
+/// The built-in kinds: area roots, agent, skill, instructions, preset and model card.
 ///
 /// # Errors
 ///
@@ -35,7 +36,9 @@ pub fn builtin() -> Result<Registry, String> {
         agent::descriptor(),
         skill::descriptor(),
         instructions::descriptor(),
-        mcp::descriptor(),
+        package::descriptor("package", vec![Scope::Common, Scope::Core, Scope::Team]),
+        package::descriptor("language", vec![Scope::Language]),
+        package::descriptor("standard", vec![Scope::Standard]),
         preset::descriptor(),
         model_card::descriptor(),
     ] {

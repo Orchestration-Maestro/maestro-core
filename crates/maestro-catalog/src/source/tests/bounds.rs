@@ -3,6 +3,7 @@
 
 use super::support::{MemoryTree, VALID, check_under};
 use crate::limits::Limits;
+use crate::source::kinds::legacy as builtin;
 
 /// The lines of the refusal of the valid catalog under `limits`, or none.
 fn refusal_under(limits: &Limits) -> Vec<String> {
@@ -142,7 +143,7 @@ fn aggregate_walk_limit_refuses() {
 
 #[test]
 fn aggregate_walk_counts_unchecked_legacy_support_and_depth() {
-    use crate::source::{builtin, walk::walk};
+    use crate::source::walk::walk;
     let tree = MemoryTree::default().with("docs/nested/notes.txt", "abc");
     let bounds = Limits {
         archive_entries: 2,

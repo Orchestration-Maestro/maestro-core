@@ -161,6 +161,8 @@ impl Walker<'_> {
             }
             Layout::Folder { file, data } => self.folders(descriptor, file, data),
             Layout::Single { file, name } => self.single(descriptor, file, name),
+            // Registration permits area roots only in scoped registries.
+            Layout::Area { .. } => Ok(()),
         }
     }
 

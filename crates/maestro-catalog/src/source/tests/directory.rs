@@ -2,9 +2,10 @@
 //! check that runs none of the catalog's scripts.
 
 use super::support::{VALID, check_by};
+use crate::source::kinds::legacy as builtin;
 use crate::{
     limits::Limits,
-    source::{Directory, SourceTree, builtin},
+    source::{Directory, SourceTree},
 };
 use std::{fs, io, path::PathBuf};
 

@@ -5,7 +5,7 @@
 //! a server launch, whose reviewed form the projection renders.
 
 use crate::source::{
-    descriptor::{Field, FieldType, Format, KindDescriptor, Layout, MetadataPlace},
+    descriptor::{Field, FieldType, Format, KindDescriptor, Layout, MetadataPlace, Scope},
     parse::{is_name, is_tool},
     rules::KindRules,
     types::{Known, Maturity, Problems, Resource, ResourceId, Value},
@@ -26,13 +26,13 @@ const SECTIONS: [&str; 6] = [
 /// The agent kind.
 pub(super) fn descriptor() -> KindDescriptor {
     KindDescriptor {
-        scopes: Vec::new(),
+        scopes: vec![Scope::Core, Scope::Team],
         kind: "agent".to_owned(),
-        version: 1,
+        version: 2,
         directory: "agents".to_owned(),
         layout: Layout::Files {
             suffix: ".agent.md".to_owned(),
-            folders: vec!["base".to_owned(), "capabilities/*".to_owned()],
+            folders: vec![String::new()],
         },
         format: Format::Markdown,
         metadata: MetadataPlace::Sidecar {

@@ -1,7 +1,7 @@
 //! `model-card`: a strict catalog declaration of the kernel's v2 identity.
 
 use crate::source::{
-    descriptor::{Field, FieldType, Format, KindDescriptor, Layout, MetadataPlace},
+    descriptor::{Field, FieldType, Format, KindDescriptor, Layout, MetadataPlace, Scope},
     rules::KindRules,
     types::{Known, Maturity, Problems, Resource, Value},
 };
@@ -10,13 +10,13 @@ use maestro_kernel::gateway::{CardIdentity, ModelCard};
 /// The model-card kind.
 pub(super) fn descriptor() -> KindDescriptor {
     KindDescriptor {
-        scopes: Vec::new(),
+        scopes: vec![Scope::Core, Scope::Team],
         kind: "model-card".to_owned(),
-        version: 1,
-        directory: "model-cards".to_owned(),
+        version: 2,
+        directory: "llm/models".to_owned(),
         layout: Layout::Files {
             suffix: ".toml".to_owned(),
-            folders: vec![String::new()],
+            folders: vec!["*".to_owned()],
         },
         format: Format::Toml,
         metadata: MetadataPlace::Table {
@@ -68,6 +68,13 @@ impl KindRules for ModelCardRules {
             .and_then(Value::decode::<CardIdentity>);
         match identity {
             Ok(identity) => {
+                let role = resource.path.rsplit('/').nth(1).unwrap_or_default();
+                if role != identity.role.to_string() {
+                    problems.push((
+                        "identity.role".to_owned(),
+                        "must match the path role".to_owned(),
+                    ));
+                }
                 if let Err(error) = ModelCard::from_identity(&identity) {
                     problems.push(("identity".to_owned(), error.to_string()));
                 }

@@ -46,6 +46,7 @@ rusqlite = { version = "0.40.2", default-features = false, features = [
 ] }
 rustix = { version = "=1.1.5", features = ["fs", "process"] }
 schemars = "1.2.2"
+semver = "=1.0.28"
 serde = { version = "1", features = ["derive"] }
 # Cedar core requires preserve_order; make every package test use the same map semantics.
 serde_json = { version = "1", features = ["preserve_order"] }

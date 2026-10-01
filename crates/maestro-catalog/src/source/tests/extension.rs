@@ -8,9 +8,10 @@ use super::{
     registry::glossary,
     support::{MemoryTree, assert_refused_by, check_by},
 };
+use crate::source::kinds::legacy as builtin;
 use crate::{
     limits::Limits,
-    source::{Float, KindDescriptor, Registry, ResourceId, Value, builtin, builtin_hooks},
+    source::{Float, KindDescriptor, Registry, ResourceId, Value, builtin_hooks},
 };
 use serde::Deserialize;
 

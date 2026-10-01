@@ -7,28 +7,17 @@
 //! fields, the kinds its `requires` may name and the stages it admits. A
 //! rule no descriptor can state is a [`KindRules`](crate::source::rules::KindRules) hook
 //! registered beside it. Adding a kind is one descriptor plus fixtures.
-//! The built-in kinds, each resource unique within its kind as `kind:name`:
+//! Builtins use registered area-relative placements: agents in core/team,
+//! skills in all areas, instructions in every area except common, and kernel
+//! model cards in core/team `llm/models/<role>/`. Native metadata and sidecars
+//! remain unchanged. `package.toml` roots common/core/team package closures and
+//! separate language/standard closures. Presets live at `presets/<name>.toml`.
+//! Unsupported nonempty kinds/configs refuse, including legacy MCP resources;
+//! MCP config registration belongs to its own task. Inert assets require exact
+//! inventories, never recursive directory exemptions.
 //!
-//! - `agent`: `agents/base/<name>.agent.md` and
-//!   `agents/capabilities/<capability>/<name>.agent.md`, each with a
-//!   `<name>.maestro.toml` sidecar; its hook checks the six fixed sections
-//!   and the `server/tool` references.
-//! - `skill`: `skills/<name>/SKILL.md`, with `references/`, `scripts/` and
-//!   `assets/` kept as data; its metadata sits in the Agent Skills
-//!   `metadata` string map.
-//! - `instructions`: `instructions/<name>.instructions.md` with a
-//!   `<name>.maestro.toml` sidecar.
-//! - `mcp`: `mcp/<name>.toml`, metadata in its `[metadata]` table.
-//! - `preset`: `presets/<name>.toml`, a closure root, metadata in its
-//!   `[metadata]` table; its hook refuses unknown setting keys.
-//! - `model-card`: `model-cards/<name>.toml`, with a kernel-validated v2
-//!   identity delegated whole to the model-card hook.
-//!
-//! A top-level directory with no registered kind (`workflows`, `policies`
-//! and the other later kinds today) is refused as "no kind registered",
-//! never accepted unchecked. `bootstrap`, `docs`, `README.md`, `CODEOWNERS`,
-//! `LICENSE` and names starting with a dot are not resources: never read,
-//! never run. Any other top-level entry is refused.
+//! C31 scopes descriptors; C32 owns the single `/2` identity/envelope cutover.
+//! The metadata and historical rulings below describe that pending `/1` envelope.
 //!
 //! # Metadata
 //!

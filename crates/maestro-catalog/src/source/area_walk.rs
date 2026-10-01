@@ -77,6 +77,21 @@ impl Walker<'_> {
                     self.folder(descriptor, directory, (file, data))?;
                 }
             }
+            Layout::Area { file } => {
+                for directory in self
+                    .snapshot
+                    .directories
+                    .keys()
+                    .filter(|directory| fits(pattern, directory))
+                {
+                    let name = directory
+                        .rsplit('/')
+                        .next()
+                        .filter(|name| !name.is_empty())
+                        .unwrap_or("common");
+                    self.single(descriptor, &join(directory, file), name)?;
+                }
+            }
             Layout::Single { file, name } => {
                 for directory in self
                     .snapshot
