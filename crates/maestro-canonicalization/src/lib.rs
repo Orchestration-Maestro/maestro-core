@@ -12,6 +12,7 @@
 mod accounting;
 mod assemble;
 mod chunk_mapping;
+mod chunk_profile;
 mod chunk_split;
 mod chunks;
 mod content;
@@ -29,7 +30,10 @@ mod replay;
 mod source_units;
 mod store;
 mod tokenizer;
+/// The opt-in /4 delivery graph and ranking profiles.
+mod unit_graph;
 mod validate;
+pub use chunk_profile::{ChromeRule, ChunkProfile};
 pub use chunks::*;
 pub use content::*;
 pub use dedup::*;
@@ -48,3 +52,10 @@ pub use source_units::{
 };
 pub use store::{load_document, save_document};
 pub use tokenizer::{NativeTokenizer, TokenCounter};
+pub use unit_graph::{
+    ContextRelation, CoverageEntry, DeliveryGraph, DeliveryUnit, Exclusion, FamilyKey,
+    GraphDescriptor, Group, GroupKind, MappingArtifact, MappingContribution, MappingEntry,
+    PartRole, RankedUnit, RetrievalMembership, RetrievalView, SourcePart, SourceRange, SplitMarker,
+    UnitBatch, UnitGraphError, UnitGraphInput, UnitKind, UnitProfile, UnitSizeLimits,
+    serialize_graph, serialize_mapping, unit_documents,
+};

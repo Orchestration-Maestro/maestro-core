@@ -8,26 +8,26 @@ measured on 2026-09-25. Tasks: [tasks.md](tasks.md).
 
 ## Summary
 
-Build the first product slice: a Rust knowledge kernel and a hybrid, evaluated
-RAG over the Control-M corpus, reachable from Pi, Codex, Claude Code and Copilot
-CLI through MCP. Three new crates appear, each only as its first working
-behaviour lands: `maestro-kernel` (the building blocks B1–B7, B9–B11 on SQLite
-and content-addressed artifacts), `maestro-knowledge` (collections, import,
-quality, prepare, representations, Qdrant generations, search, `ask`, evals)
-and `maestro` (the binary: CLI and MCP server). The canonicalization crate gains
-one seam, a `TokenCounter` trait, so chunks can be counted by the router as well
-as by the native counter. The router gains one option: load a model only into
-free memory, as a guest it unloads first. The private collection gains the
-corpus mapping, the collection
-declaration and the golden set. Model roles are filled by the first bake-off,
-and the published generation uses its winners. The work runs as 40 tasks in
-13 waves of up to six parallel tasks, on a critical path of twelve (D16).
+Build the first product slice: a Rust knowledge kernel and evaluated hybrid
+retrieval over the owner's private product collection, reachable from Pi,
+Codex, Claude Code and Copilot CLI through MCP. The workspace contains
+`maestro-kernel` (building blocks B1–B7, B9–B11 on SQLite and content-addressed
+artifacts, including the model-card/evaluation/selection registry),
+`maestro-knowledge` (collections, import, quality, preparation,
+representations, Qdrant generations, search, `ask` and evaluation), and
+`maestro` (the CLI and MCP server). The canonicalization crate exposes the
+`TokenCounter` seam for native and router counters. The router supports loading
+search models only into free memory. The private collection owns source rules,
+mappings, evaluation data and receipts; public CI uses synthetic fixtures only.
+The original 40-task, 13-wave schedule and critical path are historical (D16).
 
 ## Technical Context
 
 **Language/Version**: Rust 1.98.1 (edition 2024) from `rust-toolchain.toml`.
-The workspace MSRV stays 1.85 until `rmcp` enters in T034 and needs **1.88**;
-the MSRV job checks the dependencies that declare none.
+The workspace MSRV is **1.98** (owner, 2026-09-27): Maestro is an
+application, so its floor follows the toolchain. It was 1.85, then 1.88 when
+`qdrant-client` entered in T026 (its gRPC stack, `tonic` 0.14, needs 1.88, as
+`rmcp` does in T034); the MSRV job checks the dependencies that declare none.
 
 **Primary Dependencies** (latest on crates.io, checked 2026-09-25; each enters
 with the task that first needs it): `rusqlite` 0.40.2 (bundled), `qdrant-client`
@@ -67,7 +67,9 @@ under WSL2, with an RTX 5090).
 server).
 
 **Performance Goals**: `knowledge_search` p95 < 1.5 s with the search models
-loaded (SC-S1-004); import streams with memory bounded by the largest document.
+loaded (SC-S1-004). Import reads one document body at a time; retained
+bookkeeping includes one digest/conflict entry per distinct `source_ref` and
+one refusal record per refused entry.
 
 **Constraints**: public repository, so no Control-M content, personal path or
 secret (ADR-0009, ENF-001, SEC-001); a search never unloads a chat model
@@ -78,8 +80,10 @@ indexing or slicing, no one-letter names, paths within two segments, `mod.rs`
 modules whose `mod.rs` holds only `mod` and `use` lines, no import cycle, no
 file over 500 lines of code, `Debug` on every type.
 
-**Scale/Scope**: 7,988 documents, 31.3 MiB of Markdown (4.1 KB on average);
-the chunk count is measured at prepare (T023); one local user.
+**Scale/Scope**: The owner's product collection is private. Its scope rule,
+counts and pinned acceptance receipts live in the private collection repository;
+public CI uses synthetic fixtures only. Re-measure acceptance from the current
+owner-pinned receipt and keep production reports private.
 
 ## Starting point (measured 2026-09-25)
 
@@ -87,10 +91,10 @@ the chunk count is measured at prepare (T023); one local user.
 | --- | --- |
 | Workspace | Two crates, `maestro-canonicalization` and `maestro-conventions`; 333 tests pass; line coverage 94.41 % (`just check` on `main`) |
 | Token counting | No `TokenCounter` trait: `chunk_documents` takes `&NativeTokenizer`; a counting seam exists only as a test helper, `chunk_with_count` |
-| Corpus of record | 7,988 manifest lines, 31.3 MiB; every line carries the same 7 keys (`path`, `title`, `source_url`, `collection`, `source_tree`, `bytes`, `sha256`), fewer than `maestro-corpus/1` names; `source_tree` takes 6 values and `collection` 30 |
+| Corpus of record | The initial inventory and manifest contract were private; current scope, counts and receipts remain in the private collection repository |
 | Router | Dedicated endpoints forward any path (`/models/<id>/tokenize` reaches the model); entries `embed` (bge-m3 Q8) and `rerank` (bge-reranker-v2-m3 Q8), 1,280 MiB each, on demand; the largest chat entries estimate 28,928–30,464 MiB of the 32 GiB card; when room is short, admission unloads the coldest idle model, and no request option forbids it |
 | Reranking cost | 12 ms per pair on the card, from the router catalogue's note (about a quarter of a second for twenty pairs); the cost at 80–120 pairs is unmeasured |
-| MSRV | Workspace 1.85; `rmcp` 3.4.1 needs 1.88 |
+| MSRV | Workspace 1.85 at the time, 1.98 since 2026-09-27; `rmcp` 3.4.1 needs 1.88 |
 | Merged since | maestro-core #14 (rust-workflows v2.5.1 and its lints), #17, #20 and #21 (Linux, macOS and Windows, ADR-0018), then the moves to rust-workflows v4.x, where `just check` became `rust-gate ci --local`; the S1 branches rebased on them on 2026-09-26 |
 
 ## Constitution Check
@@ -106,16 +110,18 @@ them in [`docs/standards/`](../../docs/standards/engineering.md).
 | P-012 Illegal states unrepresentable | Pass: every read path takes a `ScopeSet`; there is no unscoped read function |
 | P-014 Least privilege | Pass: MCP tools check scopes per call; the search models load only into free room |
 | ENF-001 No machine paths | Pass: paths come from `bindings.toml` and XDG variables, never committed |
-| ENF-002 Claimed platforms tested | Pass: Linux only, and only Linux is claimed |
+| ENF-002 Claimed platforms tested | Required: Linux, macOS and Windows (ADR-0018); final platform-test evidence remains part of the full CI gate |
 | ENF-005 Failing test first | Pass: every task starts from a failing test; each diff is mutation-tested |
-| ENF-006, ENF-008 Gates | Pass: coverage stays ≥ 90 %; `just check` mirrors CI; the Qdrant tests run in CI, not only locally |
+| ENF-006, ENF-008 Gates | Full `just check` is the normal gate, including ≥ 90 % coverage; active S1 uses [targeted checks](tasks.md#current-s1-integration-workflow), with full CI required at integration; Qdrant tests run in CI |
 | ENF-012 Pinned inputs | Pass: Qdrant pinned by version and digest; models by model card digest; crates by `Cargo.lock` |
 | SEC-001 Minimise sensitive data | Pass: corpus, golden set and `ctm-*` reports live only in the private collection (FR-S1-016) |
 | SEC-002 Input is data | Pass: corpus text and retrieved passages never become instructions; `ask` validates before delivery |
 | SEC-003 Validate boundaries | Pass: artifact paths derive from digests only; restore refuses traversal and links |
 | SEC-008 Truthful evidence | Pass: every bake-off attempt, including failures, is kept; unavailable routes are flagged, never hidden |
 
-No exception is needed; Complexity Tracking is empty.
+No golden-rule exception is declared. `maestro-quality.toml` records five named
+DEP-001 dependency-version exceptions and scoped ARC-005 exceptions under
+ADR-0020; no other exception is assumed.
 
 ## Project Structure
 
@@ -167,7 +173,8 @@ has one consumer in S1.
 ### D1 Kernel store
 
 SQLite through `rusqlite` (bundled), WAL, `busy_timeout` 5 s, foreign keys on,
-short transactions with no I/O inside them, one writer connection behind a
+recursive triggers on (a `REPLACE` fires the delete triggers of the rows it
+removes), short transactions with no I/O inside them, one writer connection behind a
 mutex and readers on their own connections. Migrations are embedded SQL files,
 numbered in advance per task, applied in number order and recorded by name in
 a `migrations` table, so parallel tasks can merge in any order; each creates
@@ -214,10 +221,10 @@ access.
 A job has a kind, an idempotency key (a digest of the command and its frozen
 inputs), a state (`queued`, `running`, `succeeded`, `failed`, `cancelled`), a
 lease with a heartbeat and an expiry, and its progress in the journal. A second
-lease on the same key is refused, which is how two publishes of one collection
-are refused. `maestro job wait <id>` follows a job; the glossary keeps "run" for
-workflows, so this replaces the `maestro run wait` of
-[01 §12](../../docs/architecture/01-knowledge-pipeline.md#12-commands).
+lease on the same key is refused, and a job may hold a resource, such as the
+publication of a collection, which one queued or running job at most holds:
+that is how two publishes of one collection are refused. `maestro job wait
+<id>` follows a job; the glossary keeps "run" for workflows.
 
 ### D6 Documents and quality (B5)
 
@@ -262,8 +269,10 @@ search flags (FR-S1-015a).
 ### D9 Representations and generations (B6)
 
 One Qdrant collection per generation (`maestro-<collection>-g<n>`), behind the
-alias `maestro-<collection>`. Points carry a dense vector (dimension from the
-embedder's card) and a sparse vector that maestro computes with the
+alias `maestro-<collection>`. Collection IDs may not end in `-g` followed by
+one or more ASCII digits, so an alias cannot share a name with a generation.
+Points carry a dense vector (dimension from the embedder's card) and a sparse
+vector that maestro computes with the
 `bm25-en-fr/1` analyzer and Qdrant weights with `modifier: idf` (R7), with the
 chunk ID, revision ID, section path, scope tags, version and source kind as
 payload. Qdrant neither stores nor checks an analyzer policy, so the
@@ -286,6 +295,19 @@ design's 80–120 and set by measurement. Evidence assembly follows
 into a `maestro-evidence/1` bundle, with a trace kept apart. A route or the
 reranker that could not run is named in the bundle with its reason.
 
+Assembly runs once after reranking, on the admission-pinned generation and
+inherited deadline; it makes no new route call. It reads authorized original
+Markdown, unions overlapping or adjacent source spans, and windows only at
+whole lexical siblings. MMR uses ordinal input rank and exact case-sensitive
+word-shingle Jaccard (λ = 0.7). Version collapse is limited to byte-identical
+sections at the same path occurrence and context in one document or an
+allowed near-duplicate family; comparisons and version inventories remain
+unmerged. S1 flags only explicit differing values in supported canonical
+tables. Evidence counts the complete compact passage JSON: the default UTF-8
+byte counter is explicitly estimated, while an answerer-bound exact counter
+records its contract. The request budget and any exact inventory are echoed
+unchanged; an inventory is independent of selected supporting passages.
+
 ### D11 `ask`
 
 The generator answers from the bundle with structured output. Every command,
@@ -296,10 +318,12 @@ closest passages. The answer takes the question's language.
 ### D12 CLI and MCP
 
 `clap` noun-then-verb commands with `--json` output under versioned schemas,
-exit codes 0, 1, 2, and the job ID printed first for long commands. The MCP
-server uses `rmcp` 3.4.1 over stdio: `knowledge_collections`,
-`knowledge_search`, `knowledge_get`, `knowledge_ask`, each with a JSON Schema,
-a scope check per call and a 64 KiB response limit that reports truncation.
+exit codes 0, 1, 2, and the job ID printed first for long commands. The planned
+MCP surface uses `rmcp` 3.4.1 over stdio, with a JSON Schema, per-call scope
+check and bounded responses. T034's first server part is integrated at
+`750e7d6`; it advertises `knowledge_collections` and chunk-only
+`knowledge_get`. MCP search and section reads remain in T034;
+`knowledge_ask` is T035.
 
 ### D13 Evaluation and the bake-off
 
@@ -308,13 +332,17 @@ in the directory a collection's `evals.suite` names is the suite `<name>`,
 with one question per line, giving its id, language (`fr` or `en`), text,
 answerable flag and expected sections, each named by its document's
 `source_ref` and heading path, plus a 1-based occurrence when that path
-repeats, never by a section ID, which changes with the revision; the runner
-resolves the names to the section IDs of the generation it evaluates.
+repeats, or by an empty heading path for a document without sections, never
+by a section ID, which changes with the revision; the runner resolves the
+names to the section IDs of the generation it evaluates, and a document named
+whole to its document ID, which its passages carry.
 Metrics: Recall@5 and @10, MRR@10, nDCG@10, no-answer accuracy, command
 exactness, latency p50 and p95. Confidence intervals by paired bootstrap
 (2,000 resamples). Each failure is classified as not retrieved, misranked or
-wrong answer, with the route that missed it. The ladder report compares each
-rung with the one below it. The bake-off follows
+wrong answer, with the route that missed it. A report names the digest of its
+suite's file, and a comparison refuses two reports of different collections,
+suites or suite files. The ladder report compares each rung with the one
+below it. The bake-off follows
 [05 §3.3](../../docs/architecture/05-platform-and-operations.md#33-protocol):
 each embedder candidate gets its own chunk profile and generation, because
 chunks are counted in the embedder's tokens; the golden set's expected answers
@@ -328,42 +356,32 @@ release archive, checked against a digest pinned in the code, under
 nothing. `maestro doctor` checks the kernel database, the artifact tree,
 Qdrant, the router and each role's model card, with a next action for every
 failure. `maestro backup` uses SQLite's online backup and a manifest of the
-artifact tree; `maestro restore` refuses traversal and links, then rebuilds
-the projections from the kernel.
+artifact tree; `maestro restore` refuses traversal and links, then restores
+the authoritative kernel. Projection rebuilding is a separate T033b operation;
+restore itself does not rebuild projections.
 
 ### D15 The private collection
 
-`export.jq` maps the Python manifest to `maestro-corpus/1`: `source_url` to
-`source_ref`, `source_tree` to `source_kind` (6 kinds), `collection` to `set`
-(30 document sets, an optional field added to the contract so nothing is
-dropped), the directory name to `version`; `lang`, `captured_at`, `component`
-and `platform` are left out, never guessed. `path` stays relative to the
-manifest's own directory. 832 lines carry no URL, all of the GitHub and
-internal documents: their `source_ref` is `corpus-path:` followed by `path`,
-unique and derived rather than invented, and without the release so a document
-keeps its identity in the next one. Five URLs are each shared by two documents
-with different content; the importer holds both of each pair (T019).
-`collection.json` declares `ctm` (ADR-0014). The golden set is drafted after
-canonicalization, because its expected answers are section IDs: agents sample
-the corpus stratified by source kind, write the questions, and the owner
-validates 30 stratified by topic, language and answerability.
+The owner's product collection is maintained separately in a private
+repository. Its scope rules, mapping, inventory, counts, evaluation set,
+quality ledger and pinned acceptance receipts stay there. Public CI uses
+synthetic fixtures; public documentation publishes no production counts,
+content or reports. Re-measure acceptance from the current owner-pinned receipt
+and keep the result private.
 
-### D16 Parallel delivery, CI and pull requests
+### D16 Original parallel delivery plan (historical)
 
-The work is cut for parallel agents, not for one writer: 40 tasks in 13 waves,
-each task naming the tasks it waits for and the files it owns
-([tasks.md](tasks.md#parallel-delivery)). A task starts when its prerequisites
-have merged, so a wave never waits for its slowest member. The critical path
-is twelve tasks, from the artifact store to the release; the 28 others run
-beside it. Up to four agents work at once, one task and one branch each,
-because review is the limit; shared files are append-only and migration
-numbers are reserved per task, so the merge order inside a wave is free.
+The original 40-task, 13-wave plan and its critical path remain as planning
+history in [tasks.md](tasks.md#original-parallel-delivery-plan-historical).
+They do not describe the current branch, pull-request or ownership workflow.
+Follow [the current S1 integration workflow](tasks.md#current-s1-integration-workflow)
+for the single integration pull request, targeted task gates, current dependency
+and ownership table, and migration reservations. Migration `0010` was reserved
+to T029c and integrated as `fd73c13`; T030a's `0009` migration and model
+registry are integrated as `bf58adb`.
 
 `integration.yml` runs the Qdrant tests against the `qdrant/qdrant` 1.19 image
-pinned by digest; `ci.yml` runs everything else through rust-workflows. Branch
-names carry a conventional type first (`feat/s1-t005-kernel-store`), as the
-organization's `branch-names` ruleset requires; `ctm-collection` and the
-router take their pull requests in the waves that need them.
+pinned by digest; `ci.yml` runs everything else through rust-workflows.
 
 ## Data model
 
@@ -372,14 +390,13 @@ Kernel tables, beside the document tables of
 
 | Table | Key columns | Rules |
 | --- | --- | --- |
-| `scopes` | `path, parent, tags_json` | Tree; unknown path is no access |
-| `grants` | `principal, scope, rights, granted_by, granted_at` | Journaled; no implicit grant |
-| `events` | `id, stream, sequence, type, subject, scope, time, data_json` | Append-only (triggers); unique `(stream, sequence)` |
+| `grants` | `principal, scope, right, granted_by, granted_at` | Journaled; no implicit grant; no table of scopes: an unknown path is no access |
+| `events` | `id, stream, sequence, type, subject, scope, time, data` | Append-only (triggers); unique `(stream, sequence)` |
 | `cursors` | `consumer, stream, position, updated_at` | Moves forward only |
 | `artifacts` | `digest, bytes, media, pins, created_at` | Content-addressed; verified on read |
-| `jobs` | `id, kind, idempotency_key, state, lease_owner, lease_expires, attempt, outcome_json` | One live lease per key |
+| `jobs` | `id, kind, idempotency_key, attempt, scope, resource, state, lease_number, lease_holder, lease_heartbeat, lease_expires, outcome_json` | One live job per key and per resource; never replaced nor deleted (triggers) |
 | `model_cards` | `id, role, digest, card_json, recorded_at` | A generation names its cards |
-| `eval_reports` | `id, suite, generation_id, report_digest, created_at` | The report itself is an artifact |
+| `eval_reports` | `id, collection_id, generation_id, suite, digest, recorded_at` | The report itself is an artifact; never updated, replaced nor deleted (triggers) |
 
 ## Contracts
 
@@ -387,9 +404,9 @@ Kernel tables, beside the document tables of
 | --- | --- |
 | `maestro-corpus/1` | JSONL; required `schema`, `path` (relative to the manifest's directory), `sha256`, `bytes`, `source_ref` (the origin URL, or `corpus-path:` and `path` when there is none), `title`, `source_kind`; optional `set`, `version`, `lang`, `captured_at`, `product`, `component`, `platform`, `extractor`, `access`; unknown keys refused; lines sharing a `source_ref` with different digests are held |
 | `maestro-collection/1` | Strict JSON of [01 §1](../../docs/architecture/01-knowledge-pipeline.md#1-collections-sources-and-scopes) (ADR-0014) |
-| `maestro-evidence/1` | Passages with title, section path, version, URL, digest, span and text; conflict flags; known gaps; routes and their availability; trace apart |
+| `maestro-evidence/1` | Passages with title, section path, version, `source_ref`, digest, span and text; conflict flags; known gaps; routes and their availability; trace apart |
 | Events | `maestro.knowledge.{import.completed, revision.held, generation.published, generation.retired}.v1`, CloudEvents envelope, schemas in `schemas/events/` |
-| CLI | `knowledge collection add`, `knowledge import`, `knowledge quality`, `knowledge prepare`, `knowledge publish`, `knowledge status`, `knowledge verify`, `knowledge search`, `knowledge ask`; `eval run`, `eval compare`, `eval bakeoff`; `job wait`; `setup`, `status`, `doctor`, `backup`, `restore` |
+| CLI | `knowledge collection add`, `knowledge import`, `knowledge quality`, `knowledge prepare`, `knowledge publish`, `knowledge verify`, `knowledge status`, `knowledge collections`, `knowledge search`, `knowledge get`, `knowledge ask`; `eval ladder` (for M1 it replaces `eval run`, `eval compare` and `eval bakeoff`); `job wait`; `setup`, `status`, `doctor`, `mcp`, `backup`, `restore` |
 | MCP | The four tools of D12, inputs and outputs as in [02 §9](../../docs/architecture/02-retrieval-and-knowledge-graph.md#9-mcp-tools-knowledge) |
 
 ## Research
@@ -398,29 +415,39 @@ Kernel tables, beside the document tables of
 | --- | --- | --- | --- | --- |
 | R1 | Does the router pass `/tokenize` to a model? | Yes, through `/models/<id>/tokenize` | Its dedicated endpoints forward any path (router `main`, `eddeb59`) | A router change, not needed |
 | R2 | Can the router load a model without unloading another? | Not today; add `X-Model-Router-Room: free`, and unload what it loads first | Admission picks the coldest idle model to unload; only the router knows the room, so only it can refuse honestly | Checking `/metrics` first: racy, and still unloads when wrong |
-| R3 | Which MSRV? | 1.88, raised in T034 when `rmcp` enters | `rmcp` 3.4.1 declares it; the other crates declare less or nothing, and the MSRV job checks those | Keeping 1.85 without MCP |
+| R3 | Which MSRV? | 1.88, raised in T026 when `qdrant-client` enters; 1.98 since 2026-09-27 (owner) | `tonic` 0.14.6, under `qdrant-client` 1.19, and `rmcp` 3.4.1 declare it; the other crates declare less or nothing, and the MSRV job checks those | Keeping 1.85 with a hand-written Qdrant client and without MCP |
 | R4 | Where does the corpus mapping live? | `export.jq` in the private repository, run with `jaq` from the toolbelt | Seven keys to rename and three to leave out; no program needed | A Rust exporter; a Python script |
 | R5 | How can a chunk profile depend on a model the bake-off has not chosen? | Each candidate has its own chunk profile inside the bake-off | ADR-0008 counts chunks in the embedder's tokens; the golden set judges sections, which every profile shares | One neutral profile for all: breaks ADR-0008 |
 | R6 | Where do Qdrant tests run? | A CI job with a pinned Qdrant service | Reusable workflows take no service containers; the adapter must still be tested in CI | Local only: breaks ENF-006 |
 | R7 | Can Qdrant's server-side BM25 hold the French and English policy? | No: maestro computes the sparse vectors (`bm25-en-fr/1`, T040); Qdrant keeps the sparse index, IDF and fusion | Measured by T004 on Qdrant 1.19.1 ([research](research.md#r7-server-side-bm25)): no configuration passes the 23 checks, the best 18; folding runs before the French stemmer, no tokenizer keeps `max_retries` or `job-id` whole, and a misspelled option is ignored with HTTP 200 | Server-side BM25 with a language per passage and folding: fails French inflections and identifiers |
-| R8 | What does reranking 80–120 pairs cost? | To measure batched, in the search task | At the noted 12 ms per pair, 80–120 pairs would take 1–1.4 s of the 1.5 s budget unless batching lowers it; the depth becomes a ladder parameter | A fixed depth |
+| R8 | What does reranking 80–120 pairs cost? | About 11 ms a pair, batched or not; the ladder starts at depth 80, the deepest whose p95 leaves 0.3 s for the rest of a search; T037 then shipped depth 30, since 80 overran 1.5 s on the real corpus ([research](research.md#r8-the-cost-of-reranking-on-the-card)) | Measured by T008 on the RTX 5090: a `/v1/rerank` call is batched on the wire only, since the reranker's one slot scores its pairs one after another; p95 0.29–0.43 s at 20 pairs, 0.90–1.13 s at 80 and 1.41–1.42 s at 120; the depth stays a ladder parameter | A fixed depth; reranking on the CPU, 16 s for 20 pairs |
 
 ## Validation
 
 The end-to-end proof of M1, run on the reference workstation:
 
-1. `maestro setup`, then `maestro doctor`: every check passes or names its fix.
-2. `maestro knowledge collection add collection.json`, `import`, `quality`,
-   `prepare`: 7,988 documents accounted for, each with a disposition.
-3. `maestro eval bakeoff`: a model card per role, every attempt kept.
-4. `maestro knowledge publish --collection ctm`: a verified generation, the
-   alias switched, the event journaled.
-5. `maestro eval run ctm-retrieval` and `ctm-answers`: SC-S1-002, SC-S1-003 and
-   SC-S1-008 met, the reports kept private.
+1. `maestro setup`, then `maestro doctor`: every check passes or names its fix,
+   and it exits 0. Each role's model card shows "not checked yet" until its
+   per-collection check exists (post-M1 queue).
+2. `maestro knowledge collection add <collection.json>`, `import`, `quality`,
+   `prepare`: the current owner-pinned private receipt is fully accounted for,
+   each revision has a disposition, and the report stays private.
+3. The model bake-off (T030, T037): each candidate's card recorded in the
+   kernel's registry, measured as a rung of
+   `maestro eval ladder --manifest <private manifest>`, every rung's reports
+   kept; the winner's evaluation and selection recorded per role.
+4. `maestro knowledge publish --collection <collection-id> --card <card-id>`:
+   a verified generation, the alias switched, the event journaled.
+5. `maestro eval ladder --manifest <private manifest>`: each rung searches and
+   asks every question of the private golden suite; SC-S1-002, SC-S1-003 and
+   SC-S1-008 scored against their floors, the reports kept private.
 6. From Pi, Codex, Claude Code and Copilot CLI: `knowledge_search` returns cited
    passages (SC-S1-005); p95 measured (SC-S1-004).
-7. `maestro backup`, wipe, `maestro restore`: identical synthetic rankings
-   (SC-S1-006).
+7. `maestro backup`, restore the scratch kernel, then rebuild the lost
+   projection with `maestro knowledge publish --again` and its chunk set, and
+   compare identical synthetic rankings (SC-S1-006): the rebuild drill,
+   `crates/maestro/tests/it/rebuild_drill/`, run by the Qdrant integration
+   workflow.
 
 ## Complexity Tracking
 
@@ -434,7 +461,7 @@ None: no golden rule is waived.
 | The router change waits on review | It is small and lands first; search works without it but reports the dense route and reranking unavailable whenever room is short |
 | Beside the largest chat models, free room holds the embedder but not the reranker too | A free-room request unloads nothing, idle guests included, so reranking is flagged unavailable (FR-S1-015a); T008 and the ladder measure how often, and if it costs the quality target, a free-room request may replace an idle guest |
 | The lexical analyzer fits T004's sample but not the corpus | The ladder measures the BM25 route alone on the golden set (FR-S1-005a); the profile is versioned, so a better analyzer is a new generation |
-| An agent-drafted golden set misses real questions | Stratified drafting, the owner's 30-question check, and real questions added as they come (risk R8 of the roadmap) |
-| The organization's gate moves under S1 (rust-workflows went from 2.5 to 4.3 in a day) | Each S1 branch rebases on `main` and runs `just check` before its push; the lints and rules only get stricter |
+| An agent-drafted golden set misses real questions | Independent review checks every question; the owner decides flagged changes, and new questions follow the same private review receipt (risk R8 of the roadmap) |
+| The organization's gate moves under S1 | Task branches follow the current S1 workflow in [tasks.md](tasks.md#current-s1-integration-workflow); the final integration pull request still receives the full CI gate |
 | Model downloads need the owner's approval | Candidates are listed with size and licence before the bake-off; nothing downloads without approval |
-| The corpus manifest lacks language and capture time | Left out, never guessed; the analyzer policy and version filters do not depend on them |
+| Private source metadata is incomplete | Missing values remain explicit and are never guessed; the owner-managed private receipt defines the current acceptance scope |

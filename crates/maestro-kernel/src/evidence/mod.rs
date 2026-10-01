@@ -21,21 +21,27 @@
 //! the trace of how each passage was found and ranked. Its JSON is strict: the
 //! schema is checked, and an unknown key or a route named twice is refused.
 //! Its parts agree, both when it is written, which is refused before anything
-//! is written, and when it is read: no span starts after it ends; passage
-//! numbers start from 1 and are given once, though they may skip; a route
-//! that could not run gives a reason that is not blank; a conflict names at
-//! least two of the bundle's passages and no other; and the trace names each
-//! of its passages at most once and no other, with a finite score if any. So
-//! a bundle that writes reads back equal, its scores to the bit.
+//! is written, and when it is read: passage spans are valid, positive passage
+//! numbers are unique, and evidence size is within the recorded counter and
+//! request bounds. Unavailable routes give reasons; conflicts and traces refer
+//! only to held passages, with valid scores; inventories are validated and
+//! require a successful structured route. So a bundle that writes reads back
+//! equal, its scores to the bit.
 
 mod bundle;
 mod error;
+mod inventory;
+mod lookup;
 mod passage;
+mod request_budget;
 mod resolve;
 #[cfg(test)]
 mod tests;
 
 pub use bundle::{Budget, Bundle, Conflict, RouteStatus, Schema, Trace};
 pub use error::Error;
+pub use inventory::{Inventory, InventoryCount, TRUNCATED_INVENTORY_GAP_PREFIX};
+pub use lookup::{ChunkLocation, SectionLocation};
 pub use passage::{Alternate, Passage, Span};
+pub use request_budget::RequestBudget;
 pub use resolve::Excerpt;

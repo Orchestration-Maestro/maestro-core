@@ -57,6 +57,38 @@ fn a_second_publish_in_one_collection_retires_the_first() {
 }
 
 #[test]
+fn a_guarded_publish_refuses_a_changed_pointer_without_moving_either_generation() {
+    let scratch = Scratch::new();
+    let database = scratch.open();
+    let first = generation_in(&database, "ctm", Verified);
+    database.publish_generation(first).unwrap();
+    let second = generation_in(&database, "ctm", Verified);
+
+    let error = database
+        .publish_generation_if_current(second, None)
+        .unwrap_err();
+    assert_eq!(
+        error.to_string(),
+        format!("published generation changed from None to Some({first}) during replacement")
+    );
+    assert!(matches!(
+        error,
+        Error::PublishedChanged {
+            expected: None,
+            found: Some(found),
+        } if found == first
+    ));
+    assert_eq!(state(&database, first), Published);
+    assert_eq!(state(&database, second), Verified);
+    assert_eq!(
+        database
+            .publish_generation_if_current(second, Some(first))
+            .unwrap(),
+        Some(first)
+    );
+}
+
+#[test]
 fn a_failed_generation_neither_holds_back_the_next_publish_nor_resumes() {
     let scratch = Scratch::new();
     let database = scratch.open();

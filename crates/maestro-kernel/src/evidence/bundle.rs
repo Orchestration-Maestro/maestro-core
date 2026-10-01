@@ -1,13 +1,19 @@
 //! Bundles: `maestro-evidence/1`, the search response contract, checked whole
 //! when written and when read.
 
-use super::passage::Passage;
+use super::{
+    inventory::{Inventory, TRUNCATED_INVENTORY_GAP_PREFIX},
+    passage::Passage,
+    request_budget::RequestBudget,
+};
+use schemars::{JsonSchema, Schema as JsonSchemaSchema, SchemaGenerator};
 use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
     de::{self, MapAccess, Visitor},
     ser,
 };
 use std::{
+    borrow::Cow,
     collections::{BTreeMap, BTreeSet},
     fmt,
 };
@@ -39,13 +45,17 @@ pub struct Bundle {
     pub known_gaps: Vec<String>,
     /// The tokens its passages take, and the most they could.
     pub budget: Budget,
+    /// The accepted request bounds, when this bundle came from a search.
+    pub request_budget: Option<RequestBudget>,
+    /// Exact search counts, separate from supporting passages.
+    pub inventory: Option<Inventory>,
     /// How each passage was found and ranked, apart from the evidence.
     pub trace: Vec<Trace>,
 }
 
 /// The contract a bundle follows; this version writes and reads the first
 /// only.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, JsonSchema, Serialize, Deserialize)]
 pub enum Schema {
     /// `maestro-evidence/1`.
     #[serde(rename = "maestro-evidence/1")]
@@ -53,7 +63,7 @@ pub enum Schema {
 }
 
 /// Whether a route or the reranker ran for a search.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, JsonSchema, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum RouteStatus {
     /// It ran, written `"ok"`.
@@ -66,7 +76,7 @@ pub enum RouteStatus {
 /// Passages that state different values of one attribute of one entity,
 /// such as a default port that changed between versions: each is kept, and
 /// flagged here.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, JsonSchema, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Conflict {
     /// What the values are of, such as `agent`.
@@ -77,19 +87,26 @@ pub struct Conflict {
     pub passages: Vec<u32>,
 }
 
-/// A search's evidence budget, in tokens of the answerer's tokenizer.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// A search's evidence size under its recorded counter; estimates use
+/// UTF-8 bytes and do not promise the answerer's token count.
+#[derive(Debug, Clone, PartialEq, Eq, JsonSchema, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Budget {
-    /// The tokens its passages take.
-    pub evidence_tokens: u32,
+    /// The evidence size in the recorded counter's units; UTF-8 bytes when estimated.
+    pub evidence_bytes: u32,
     /// The most they could take.
     pub limit: u32,
+    /// The stable contract ID of the counter, if one was used.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub counter: Option<String>,
+    /// Whether the count is a proxy rather than an exact tokenizer count.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub estimated: bool,
 }
 
 /// How one passage was found and ranked: signals about the evidence, kept
 /// apart from it.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, JsonSchema, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Trace {
     /// The number of the passage it traces.
@@ -101,6 +118,20 @@ pub struct Trace {
     pub score: Option<f64>,
     /// The routes that found the passage.
     pub routes: Vec<String>,
+    /// The source chunks covered by the passage, when supplied.
+    #[serde(
+        default,
+        skip_serializing_if = "Vec::is_empty",
+        deserialize_with = "read_chunk_ids"
+    )]
+    pub chunk_ids: Vec<String>,
+    /// Admitted source seeds for which this passage supplies parent context, not containment.
+    #[serde(
+        default,
+        skip_serializing_if = "Vec::is_empty",
+        deserialize_with = "read_chunk_ids"
+    )]
+    pub parent_context_of: Vec<String>,
     /// Whether the passage is a procedure.
     pub procedural: bool,
 }
@@ -121,6 +152,8 @@ impl Serialize for Bundle {
             conflicts,
             known_gaps,
             budget,
+            request_budget,
+            inventory,
             trace,
         } = self;
         Written {
@@ -134,6 +167,8 @@ impl Serialize for Bundle {
             conflicts,
             known_gaps,
             budget,
+            request_budget: request_budget.as_ref(),
+            inventory: inventory.as_ref(),
             trace,
         }
         .serialize(serializer)
@@ -142,7 +177,7 @@ impl Serialize for Bundle {
 
 /// A bundle as its JSON writes it, borrowed once its checks passed; each
 /// field is the [`Bundle`] field of its name.
-#[derive(Serialize)]
+#[derive(JsonSchema, Serialize)]
 struct Written<'bundle> {
     /// [`Bundle::schema`].
     schema: &'bundle Schema,
@@ -164,8 +199,24 @@ struct Written<'bundle> {
     known_gaps: &'bundle [String],
     /// [`Bundle::budget`].
     budget: &'bundle Budget,
+    /// [`Bundle::request_budget`].
+    #[serde(skip_serializing_if = "Option::is_none")]
+    request_budget: Option<&'bundle RequestBudget>,
+    /// [`Bundle::inventory`].
+    #[serde(skip_serializing_if = "Option::is_none")]
+    inventory: Option<&'bundle Inventory>,
     /// [`Bundle::trace`].
     trace: &'bundle [Trace],
+}
+
+impl JsonSchema for Bundle {
+    fn schema_name() -> Cow<'static, str> {
+        Written::schema_name()
+    }
+
+    fn json_schema(generator: &mut SchemaGenerator) -> JsonSchemaSchema {
+        Written::json_schema(generator)
+    }
 }
 
 /// A bundle as its JSON holds it, before the checks across its parts; each
@@ -194,6 +245,12 @@ struct Unchecked {
     known_gaps: Vec<String>,
     /// [`Bundle::budget`].
     budget: Budget,
+    /// [`Bundle::request_budget`].
+    #[serde(default)]
+    request_budget: Option<RequestBudget>,
+    /// [`Bundle::inventory`].
+    #[serde(default)]
+    inventory: Option<Inventory>,
     /// [`Bundle::trace`].
     trace: Vec<Trace>,
 }
@@ -214,6 +271,8 @@ impl TryFrom<Unchecked> for Bundle {
             conflicts: unchecked.conflicts,
             known_gaps: unchecked.known_gaps,
             budget: unchecked.budget,
+            request_budget: unchecked.request_budget,
+            inventory: unchecked.inventory,
             trace: unchecked.trace,
         };
         check(&bundle)?;
@@ -222,14 +281,28 @@ impl TryFrom<Unchecked> for Bundle {
 }
 
 /// Why the parts of `bundle` disagree, if they do, the checks it passes when
-/// written and when read: no span starts after it ends; its passages are
-/// numbered from 1, each number given once; each route that could not run
-/// says why; each conflict names at least two of its passages and no other;
-/// and its trace names each of its passages at most once, and no other, with
-/// a finite score if any.
+/// written and when read: passage spans are valid and numbers are positive and
+/// unique; evidence size is within the named counter's limit; request bounds
+/// and passage count agree; unavailable routes give reasons; conflicts and
+/// traces refer only to held passages, with valid scores; and an inventory is
+/// valid and backed by a successful structured route.
 fn check(bundle: &Bundle) -> Result<(), String> {
     for passage in &bundle.passages {
         passage.span.checked()?;
+    }
+    if bundle.budget.evidence_bytes > bundle.budget.limit {
+        return Err("bundle evidence_bytes exceeds its budget limit".to_owned());
+    }
+    if bundle
+        .budget
+        .counter
+        .as_ref()
+        .is_some_and(|counter| counter.trim().is_empty())
+    {
+        return Err("bundle counter name is blank".to_owned());
+    }
+    if bundle.budget.estimated && bundle.budget.counter.is_none() {
+        return Err("an estimated budget requires a counter name".to_owned());
     }
     let numbers = numbers(&bundle.passages)?;
     for (name, status) in &bundle.routes {
@@ -242,7 +315,30 @@ fn check(bundle: &Bundle) -> Result<(), String> {
     for conflict in &bundle.conflicts {
         check_conflict(conflict, &numbers)?;
     }
-    check_trace(&bundle.trace, &numbers)
+    check_trace(&bundle.trace, &numbers)?;
+    check_parent_context(bundle)?;
+    if let Some(request_budget) = &bundle.request_budget {
+        request_budget.validate()?;
+        if bundle.budget.limit != request_budget.evidence_bytes {
+            return Err("bundle budget limit does not match request evidence_bytes".to_owned());
+        }
+        let passage_count = u32::try_from(bundle.passages.len())
+            .map_err(|_| "bundle passage count exceeds request budget k".to_owned())?;
+        if passage_count > request_budget.k {
+            return Err("bundle passage count exceeds request budget k".to_owned());
+        }
+    }
+    if let Some(inventory) = &bundle.inventory {
+        if !matches!(bundle.routes.get("structured"), Some(RouteStatus::Ok)) {
+            return Err("an inventory requires the structured route to be ok".to_owned());
+        }
+        let partial = bundle
+            .known_gaps
+            .iter()
+            .any(|gap| gap.starts_with(TRUNCATED_INVENTORY_GAP_PREFIX));
+        inventory.validate_partial(partial)?;
+    }
+    Ok(())
 }
 
 /// The numbers of `passages`, each from 1 and given once.
@@ -299,8 +395,34 @@ fn check_trace(trace: &[Trace], numbers: &BTreeSet<u32>) -> Result<(), String> {
                 entry.n
             ));
         }
+        let mut chunk_ids = BTreeSet::new();
+        for id in &entry.chunk_ids {
+            if id.trim().is_empty() {
+                return Err(format!(
+                    "the trace for passage {} has a blank chunk ID",
+                    entry.n
+                ));
+            }
+            if !chunk_ids.insert(id) {
+                return Err(format!(
+                    "the trace for passage {} names chunk {id} twice",
+                    entry.n
+                ));
+            }
+        }
     }
     Ok(())
+}
+
+/// Reads chunk references, requiring a nonempty list when the field is present.
+fn read_chunk_ids<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Vec<String>, D::Error> {
+    let ids = Vec::<String>::deserialize(deserializer)?;
+    if ids.is_empty() {
+        return Err(de::Error::custom(
+            "chunk_ids must not be empty when supplied",
+        ));
+    }
+    Ok(ids)
 }
 
 /// The routes of a bundle, each named once, from a JSON object: a map alone
@@ -334,4 +456,38 @@ impl<'de> Visitor<'de> for RoutesVisitor {
         }
         Ok(routes)
     }
+}
+
+/// Requires explicit context support to resolve to a contained seed of the same revision.
+fn check_parent_context(bundle: &Bundle) -> Result<(), String> {
+    let mut contained = BTreeSet::new();
+    for trace in &bundle.trace {
+        let passage = bundle
+            .passages
+            .iter()
+            .find(|passage| passage.n == trace.n)
+            .ok_or_else(|| "context trace passage is missing".to_owned())?;
+        for id in &trace.chunk_ids {
+            contained.insert((&passage.revision_id, id));
+        }
+    }
+    for trace in &bundle.trace {
+        let passage = bundle
+            .passages
+            .iter()
+            .find(|passage| passage.n == trace.n)
+            .ok_or_else(|| "context trace passage is missing".to_owned())?;
+        let mut unique = BTreeSet::new();
+        for id in &trace.parent_context_of {
+            if !unique.insert(id) || !contained.contains(&(&passage.revision_id, id)) {
+                return Err(
+                    "parent context must name a unique admitted seed of its revision".to_owned(),
+                );
+            }
+            if trace.chunk_ids.contains(id) {
+                return Err("parent context cannot also claim seed containment".to_owned());
+            }
+        }
+    }
+    Ok(())
 }

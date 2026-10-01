@@ -1,12 +1,15 @@
 //! `maestro-suite/1`: a suite, one JSON line per question, parses into typed
-//! questions in the order of their lines; an unknown or repeated key at any
-//! depth, a line or an expected section written as an array, a named value
-//! written as an object, a value the contract does not name, an occurrence
-//! below 1, an `answerable` that disagrees with `expected`, an id given twice
-//! and a line that is not one JSON object are refused, each naming its line,
-//! and so is a text without a question.
+//! questions in the order of their lines, an expected section with an empty
+//! heading path among them; an unknown or repeated key at any depth, a line
+//! or an expected section written as an array, a named value written as an
+//! object, a value the contract does not name, an occurrence below 1, an
+//! `answerable` that disagrees with `expected`, an id given twice and a line
+//! that is not one JSON object are refused, each naming its line, and so is a
+//! text without a question. A suite keeps the digest of the text it was read
+//! from.
 #![cfg(test)]
 
+use maestro_kernel::artifact::Digest;
 use maestro_knowledge::suite::{Error, Language, Schema, Suite};
 use serde_json::{Value, json};
 use std::{error, fmt::Write as _, num::NonZeroU32};
@@ -109,6 +112,19 @@ fn an_answerable_question_parses_into_typed_values() {
 }
 
 #[test]
+fn an_empty_heading_path_names_a_document_without_sections() {
+    let mut line = answerable();
+    line["expected"] = json!([{"source_ref": "corpus-path:notes/frost.md", "heading_path": []}]);
+    let parsed = parse(&suite(&[line])).unwrap();
+    let [whole] = parsed.questions[0].expected.as_slice() else {
+        panic!("one expected section: {:?}", parsed.questions[0].expected);
+    };
+    assert_eq!(whole.source_ref, "corpus-path:notes/frost.md");
+    assert!(whole.heading_path.is_empty(), "{:?}", whole.heading_path);
+    assert_eq!(whole.occurrence, None);
+}
+
+#[test]
 fn a_suite_holds_its_questions_in_the_order_of_their_lines() {
     let parsed = parse(&suite(&[answerable(), unanswerable()])).unwrap();
     let [first, second] = parsed.questions.as_slice() else {
@@ -121,6 +137,20 @@ fn a_suite_holds_its_questions_in_the_order_of_their_lines() {
     assert_eq!(second.question, "Comment chauffer une serre en hiver ?");
     assert!(!second.answerable);
     assert!(second.expected.is_empty(), "{:?}", second.expected);
+}
+
+#[test]
+fn a_suite_keeps_the_digest_of_its_text_not_of_its_questions() {
+    let text = suite(&[answerable(), unanswerable()]);
+    let parsed = parse(&text).unwrap();
+    assert_eq!(parsed.digest, Digest::of(text.as_bytes()));
+    // Without its final line break: the same questions, another file,
+    // another digest.
+    let shorter = text.strip_suffix('\n').unwrap();
+    let reparsed = parse(shorter).unwrap();
+    assert_eq!(reparsed.questions, parsed.questions);
+    assert_eq!(reparsed.digest, Digest::of(shorter.as_bytes()));
+    assert_ne!(reparsed.digest, parsed.digest);
 }
 
 #[test]

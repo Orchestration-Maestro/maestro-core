@@ -10,10 +10,20 @@
 //! `source_ref` and its heading path, the heading texts as canonicalization
 //! derives them from the document's first heading down to the section's own,
 //! plus a 1-based `occurrence` only when that path repeats in the document.
-//! The runner resolves each name in the canonicalized document of the
-//! generation it evaluates ([`ExpectedSection::resolve`]), which refuses a
-//! name that matches no section, several without an occurrence, or an
-//! occurrence where the path does not repeat or repeats fewer times.
+//! An empty heading path names a document that has no section at all, such
+//! as an article without headings, whose whole text answers; a document with
+//! sections is named by the heading path of one. The runner resolves each
+//! name in the canonicalized document of the generation it evaluates
+//! ([`ExpectedSection::resolve`]), which refuses a name that matches no
+//! section, several without an occurrence, an occurrence where the path does
+//! not repeat or repeats fewer times, and an empty path in a document with
+//! sections. Names that are copies of one answer may share a non-blank
+//! `group`; nDCG counts that group once at its best rank, while recall and MRR
+//! still count any member as a hit. A question whose answer needs several
+//! parts, such as a condition and the action it triggers, names the part each
+//! section gives in a non-blank `component`: sections that share a component
+//! are alternatives for it, and a question naming two or more components is
+//! answered only when each of them is. A `group` never makes a component.
 //!
 //! A suite is strict as a corpus manifest is: every line is one JSON object,
 //! never an array of its values; every key is one the contract names and
@@ -24,7 +34,8 @@
 
 use crate::shape;
 use maestro_canonicalization::{CanonicalDocument, Section};
-use serde::Deserialize;
+use maestro_kernel::artifact::Digest;
+use serde::{Deserialize, de};
 use std::{collections::BTreeMap, error, fmt, num::NonZeroU32, str::FromStr};
 
 /// A suite's questions. [`str::parse`] reads them from a text of one JSON
@@ -36,6 +47,10 @@ use std::{collections::BTreeMap, error, fmt, num::NonZeroU32, str::FromStr};
 pub struct Suite {
     /// The questions, in the order of their lines.
     pub questions: Vec<Question>,
+    /// The SHA-256 of the text they were read from: the digest of the
+    /// suite's file, read whole, which a run's report names, so that two
+    /// runs compare only when they read the same file.
+    pub digest: Digest,
 }
 
 impl FromStr for Suite {
@@ -75,7 +90,10 @@ impl FromStr for Suite {
         if questions.is_empty() {
             return Err(Error::Empty);
         }
-        Ok(Self { questions })
+        Ok(Self {
+            questions,
+            digest: Digest::of(text.as_bytes()),
+        })
     }
 }
 
@@ -109,27 +127,74 @@ pub struct ExpectedSection {
     /// Its document's `source_ref`, as the corpus manifest gives it.
     pub source_ref: String,
     /// Its heading path: the heading texts from the document's first heading
-    /// down to the section's own.
+    /// down to the section's own; empty for a document without sections,
+    /// named whole.
     pub heading_path: Vec<String>,
     /// Which of the sections under that heading path it is, counted from 1 in
     /// the document's order; given only when the path repeats.
     pub occurrence: Option<NonZeroU32>,
+    /// The other names of this same answer, if any, share this non-blank group.
+    #[serde(default, deserialize_with = "non_blank_group")]
+    pub group: Option<String>,
+    /// The part of a composed answer this section gives, if the answer has
+    /// several; the sections of one component are alternatives for it.
+    #[serde(default, deserialize_with = "non_blank_component")]
+    pub component: Option<String>,
+}
+
+/// Deserialize an optional group, refusing a value that is only whitespace.
+fn non_blank_group<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    non_blank(deserializer, "group")
+}
+
+/// Deserialize an optional component, refusing a value that is only
+/// whitespace.
+fn non_blank_component<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    non_blank(deserializer, "component")
+}
+
+/// Deserialize the optional `field`, refusing a value that is only
+/// whitespace.
+fn non_blank<'de, D>(deserializer: D, field: &str) -> Result<Option<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = Option::<String>::deserialize(deserializer)?;
+    if value.as_ref().is_some_and(|value| value.trim().is_empty()) {
+        return Err(de::Error::custom(format!("{field} must not be blank")));
+    }
+    Ok(value)
 }
 
 impl ExpectedSection {
     /// The section this name gives in `document`, the canonicalized document
     /// whose `source_ref` it names; the caller finds that document. The
-    /// heading path must equal a section's whole heading path, text for text.
+    /// heading path must equal a section's whole heading path, text for text,
+    /// or be empty for a document without sections, which it gives whole.
     ///
     /// # Errors
     ///
     /// [`Unresolved`] when no section has the heading path, when several
-    /// have it and no occurrence says which, and when an occurrence is given
-    /// for a path that does not repeat or repeats fewer times.
+    /// have it and no occurrence says which, when an occurrence is given for
+    /// a path that does not repeat or repeats fewer times, an empty one
+    /// included, and when the path is empty and the document has sections.
     pub fn resolve<'document>(
         &self,
         document: &'document CanonicalDocument,
-    ) -> Result<&'document Section, Unresolved> {
+    ) -> Result<Resolved<'document>, Unresolved> {
+        if self.heading_path.is_empty() {
+            return match (document.sections.len(), self.occurrence) {
+                (0, None) => Ok(Resolved::Document(document)),
+                (0, Some(_)) => Err(Unresolved::NotRepeated),
+                (sections, _) => Err(Unresolved::HasSections { sections }),
+            };
+        }
         let matching: Vec<&Section> = document
             .sections
             .iter()
@@ -137,7 +202,7 @@ impl ExpectedSection {
             .collect();
         match (self.occurrence, matching.as_slice()) {
             (_, []) => Err(Unresolved::NoSection),
-            (None, &[only]) => Ok(only),
+            (None, &[only]) => Ok(Resolved::Section(only)),
             (None, repeated) => Err(Unresolved::Ambiguous {
                 sections: repeated.len(),
             }),
@@ -146,12 +211,24 @@ impl ExpectedSection {
                 .ok()
                 .and_then(|index| repeated.get(index))
                 .copied()
+                .map(Resolved::Section)
                 .ok_or(Unresolved::PastLastRepeat {
                     occurrence,
                     sections: repeated.len(),
                 }),
         }
     }
+}
+
+/// What a name of an expected section gives in its document: one of its
+/// sections, or, for an empty heading path, the document itself, which has
+/// no section.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Resolved<'document> {
+    /// The section the heading path names.
+    Section(&'document Section),
+    /// The document, whole: it has no section, so its whole text answers.
+    Document(&'document CanonicalDocument),
 }
 
 /// Why an expected section names no one section of its document.
@@ -164,13 +241,20 @@ pub enum Unresolved {
         /// How many sections have it.
         sections: usize,
     },
-    /// An occurrence is given, but only one section has the heading path.
+    /// An occurrence is given, but only one section has the heading path, or
+    /// the path is empty and names the document, which is one.
     NotRepeated,
     /// The occurrence is past the last section with the heading path.
     PastLastRepeat {
         /// The occurrence given.
         occurrence: NonZeroU32,
         /// How many sections have the heading path.
+        sections: usize,
+    },
+    /// The heading path is empty, which names a document without sections,
+    /// but the document has sections.
+    HasSections {
+        /// How many sections the document has.
         sections: usize,
     },
 }
@@ -183,15 +267,21 @@ impl fmt::Display for Unresolved {
                 formatter,
                 "{sections} sections have this heading path, and no occurrence says which"
             ),
-            Self::NotRepeated => {
-                formatter.write_str("one section has this heading path, so it takes no occurrence")
-            }
+            Self::NotRepeated => formatter.write_str(
+                "this heading path names one section, or the document whole, so it takes no \
+                 occurrence",
+            ),
             Self::PastLastRepeat {
                 occurrence,
                 sections,
             } => write!(
                 formatter,
                 "occurrence {occurrence} is past the {sections} sections with this heading path"
+            ),
+            Self::HasSections { sections } => write!(
+                formatter,
+                "an empty heading path names a document without sections, but this document \
+                 has {sections} sections"
             ),
         }
     }

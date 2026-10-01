@@ -3,13 +3,13 @@
 
 use super::{
     error::Error,
-    migration::{MIGRATIONS, migrate},
+    migration::{MIGRATIONS, migrate, pending},
 };
 use crate::{
     artifact::Store,
     filesystem::{create_directories, new_file},
 };
-use rusqlite::{Connection, OpenFlags, Transaction, TransactionBehavior};
+use rusqlite::{Connection, ErrorCode, OpenFlags, Transaction, TransactionBehavior};
 use std::{
     fs, io,
     path::{self, Path, PathBuf},
@@ -23,6 +23,9 @@ use std::{
 
 /// How long a connection waits for another's lock before it gives up.
 const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// The database's file in the kernel's data directory.
+const FILE: &str = "kernel.sqlite3";
 
 /// Numbers the temporary database files of this process, so two opens never
 /// share one.
@@ -63,7 +66,7 @@ impl Database {
     ///
     /// As [`Database::open`].
     pub fn open_in(data: &Path) -> Result<Self, Error> {
-        Self::open(&data.join("kernel.sqlite3"), &data.join("artifacts"))
+        Self::open(&data.join(FILE), &data.join("artifacts"))
     }
 
     /// [`Database::open`] with `migrations` in place of the binary's own.
@@ -91,7 +94,9 @@ impl Database {
     /// Runs `work` in one write transaction on the writer and commits what it
     /// did, or rolls it all back when it fails. The transaction takes the
     /// write lock as it begins, so writers wait for each other, here and in
-    /// other processes; keep `work` short, with no file-system work inside.
+    /// other processes; keep `work` short. Config reconciliation deliberately
+    /// loads its small file inside this lock to prevent stale grant snapshots;
+    /// other file-system work stays outside.
     ///
     /// `work` must not call a method of this database that writes, `pin` and
     /// `put` among them: the lock is not re-entrant, and the call would wait
@@ -119,6 +124,35 @@ impl Database {
         Ok(value)
     }
 
+    /// What SQLite's quick check finds wrong in the database file, in its
+    /// words: nothing when the file is intact. It reads every page, so it
+    /// takes as long as the file is large; `maestro doctor` runs it.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Sqlite`] when the database cannot be read at all.
+    pub fn quick_check(&self) -> Result<Vec<String>, Error> {
+        let reader = self.reader()?;
+        let checked = reader
+            .prepare("PRAGMA quick_check")
+            .and_then(|mut statement| {
+                statement
+                    .query_map([], |row| row.get(0))?
+                    .collect::<rusqlite::Result<Vec<String>>>()
+            });
+        match checked {
+            Ok(found) => Ok(found.into_iter().filter(|line| line != "ok").collect()),
+            // A damaged page can end the check itself, as when it reads the
+            // rows of a table to check their NOT NULL columns.
+            Err(rusqlite::Error::SqliteFailure(failure, message))
+                if failure.code == ErrorCode::DatabaseCorrupt =>
+            {
+                Ok(vec![message.unwrap_or_else(|| failure.to_string())])
+            }
+            Err(error) => Err(error.into()),
+        }
+    }
+
     /// A connection of its own that only reads, and sees the last commit,
     /// never a write in progress.
     ///
@@ -133,12 +167,40 @@ impl Database {
     }
 }
 
+/// The migrations this binary carries that the kernel's database in the data
+/// directory `data` does not record, by name, in the order
+/// [`Database::open_in`] applies them: none when it is up to date. It opens
+/// the file read-only and never creates, migrates or changes it, so that
+/// `maestro doctor` and `maestro status`, which ask it before they open a
+/// database, never migrate one.
+///
+/// # Errors
+///
+/// [`Error::UnknownMigration`] when the database records a migration this
+/// binary lacks, which a newer binary applied, and [`Error::Sqlite`] when
+/// the file cannot be opened or read, a missing one among them.
+pub fn pending_migrations(data: &Path) -> Result<Vec<&'static str>, Error> {
+    let connection = configured(Connection::open_with_flags(
+        data.join(FILE),
+        OpenFlags::SQLITE_OPEN_READ_ONLY,
+    )?)?;
+    Ok(pending(&connection, MIGRATIONS)?
+        .into_iter()
+        .map(|(name, _)| name)
+        .collect())
+}
+
 /// `connection` with the settings every connection of the kernel has: a 5 s
-/// wait for another's lock, and foreign keys enforced. rusqlite and the
-/// bundled SQLite default to both; the kernel does not depend on it.
+/// wait for another's lock, foreign keys enforced, and recursive triggers, so
+/// that a row a `REPLACE` removes fires its delete triggers. Without them,
+/// an `INSERT OR REPLACE` or `UPDATE OR REPLACE` that names a row's rowid
+/// would delete a row the migrations say is never deleted. rusqlite and the
+/// bundled SQLite default to the first two; the kernel does not depend on it.
+/// No trigger of the kernel writes, so none fires another.
 pub(super) fn configured(connection: Connection) -> Result<Connection, Error> {
     connection.busy_timeout(BUSY_TIMEOUT)?;
     connection.pragma_update(None, "foreign_keys", true)?;
+    connection.pragma_update(None, "recursive_triggers", true)?;
     Ok(connection)
 }
 
@@ -214,5 +276,74 @@ fn io_error(path: &Path, source: io::Error) -> Error {
     Error::Io {
         path: path.to_path_buf(),
         source,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Database;
+    use maestro_test_scratch::scratch_directory;
+    use rusqlite::Connection;
+    use std::{
+        cell::RefCell,
+        fs,
+        sync::mpsc::{self, Receiver, Sender},
+        thread,
+        time::Duration,
+    };
+
+    thread_local! {
+        /// The refresh thread's handshake at SQLite's actual lock contention.
+        static BUSY_GATE: RefCell<Option<(Sender<()>, Receiver<()>)>> =
+            const { RefCell::new(None) };
+    }
+
+    /// Signals a blocked writer and waits until the outside transaction is released.
+    fn wait_for_release(_: i32) -> bool {
+        BUSY_GATE.with_borrow(|gate| {
+            let (blocked, released) = gate.as_ref().expect("busy handler handshake installed");
+            blocked.send(()).unwrap();
+            released.recv_timeout(Duration::from_secs(10)).unwrap();
+        });
+        true
+    }
+
+    #[test]
+    fn public_config_refresh_loads_only_after_the_writer_lock() {
+        let directory = scratch_directory().unwrap();
+        let database = Database::open_in(&directory).unwrap();
+        let config = directory.join("config.toml");
+        fs::write(&config, "[access]\nread = ['workspace/default']\n").unwrap();
+        let outside = Connection::open(directory.join("kernel.sqlite3")).unwrap();
+        outside.execute_batch("BEGIN IMMEDIATE").unwrap();
+        database
+            .writer
+            .lock()
+            .unwrap()
+            .busy_handler(Some(wait_for_release))
+            .unwrap();
+        let (blocked, contention) = mpsc::channel();
+        let (release, released) = mpsc::channel();
+        let scopes = thread::scope(|threads| {
+            let refresh = threads.spawn(|| {
+                BUSY_GATE.set(Some((blocked, released)));
+                let result = database.refresh_config(&directory);
+                BUSY_GATE.set(None);
+                result
+            });
+            contention.recv_timeout(Duration::from_secs(10)).unwrap();
+            // The public refresh has reached BEGIN IMMEDIATE, not a guessed delay.
+            fs::write(&config, "[access]\nread = []\n").unwrap();
+            outside.execute_batch("ROLLBACK").unwrap();
+            release.send(()).unwrap();
+            refresh.join().unwrap().unwrap()
+        });
+        assert!(
+            scopes.is_empty(),
+            "public refresh loaded config before obtaining the writer lock"
+        );
+        drop(outside);
+        drop(database);
+        fs::remove_dir_all(directory).unwrap();
     }
 }

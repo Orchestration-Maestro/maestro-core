@@ -1,21 +1,18 @@
 //! The scopes a principal may read, found for one request, and the condition
 //! a reader's query filters by.
 
-use super::path::Scope;
+use super::path::{Scope, WORKSPACE};
 use serde_json::Value;
 use std::collections::BTreeSet;
-
-/// The workspace the kernel keeps its records in: S1 has one.
-const WORKSPACE: &str = "workspace/default";
 
 /// The scopes a principal may read, as [`Database::visible`] found them for
 /// one request: each scope granted to it, and every scope below one. Keep it
 /// for that request and never longer, so a revocation applies to the next
-/// read. Outside the kernel only `visible` gives one, and an empty set sees
-/// nothing.
+/// read. Outside the kernel, visibility reads and atomic configuration refreshes
+/// give one, and an empty set sees nothing.
 ///
 /// [`Database::visible`]: crate::store::Database::visible
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ScopeSet(BTreeSet<Scope>);
 
 impl ScopeSet {
@@ -36,6 +33,12 @@ impl ScopeSet {
     #[must_use]
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
+    }
+
+    /// The scopes the set was granted, in path order; each covers every
+    /// scope below it too.
+    pub fn granted(&self) -> impl Iterator<Item = &Scope> {
+        self.0.iter()
     }
 
     /// The granted scopes' paths, as the JSON array a query binds to the
@@ -60,7 +63,8 @@ impl ScopeSet {
     }
 
     /// [`ScopeSet::condition`] for the collection whose id is the column
-    /// `collection`, whose scope is `workspace/default/collection/<id>`.
+    /// `collection`, whose scope is `workspace/default/collection/<id>`, as
+    /// [`collection_path`](super::collection_path) writes it.
     pub(crate) fn collection_condition(collection: &str, parameter: usize) -> String {
         Self::condition(
             &format!("('{WORKSPACE}/collection/' || {collection})"),
@@ -70,7 +74,8 @@ impl ScopeSet {
 
     /// [`ScopeSet::condition`] for the source whose id is the column `source`
     /// in the collection whose id is the column `collection`, whose scope is
-    /// `workspace/default/collection/<id>/source/<id>`.
+    /// `workspace/default/collection/<id>/source/<id>`, as
+    /// [`source_path`](super::source_path) writes it.
     pub(crate) fn source_condition(collection: &str, source: &str, parameter: usize) -> String {
         Self::condition(
             &format!("('{WORKSPACE}/collection/' || {collection} || '/source/' || {source})"),

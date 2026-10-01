@@ -1,8 +1,11 @@
-//! Telemetry: pinned span names and component health (building block B11).
+//! Telemetry: pinned span names, traced stages and component health
+//! (building block B11).
 //!
 //! Spans go through `tracing`. Their names, and the names of their
 //! attributes, are pinned in [`span`], in one place, so that a rename is a
-//! visible change (docs/architecture/05 §4). Nothing exports them in S1: the
+//! visible change (docs/architecture/05 §4). A [`stage::Stage`] is one step
+//! of publication, search, evidence assembly or a tool call: its span records
+//! the outcome, the duration and counts, never content. Nothing exports them in S1: the
 //! OTLP exporter's crates build on prost-derive, which still needs syn 2 where
 //! the workspace uses syn 3, and the dependency policy allows one version of
 //! each crate. Export arrives with the first task that needs it, once
@@ -16,6 +19,7 @@
 
 mod health;
 pub mod span;
+pub mod stage;
 #[cfg(test)]
 mod tests;
 

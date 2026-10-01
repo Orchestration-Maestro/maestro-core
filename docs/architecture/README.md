@@ -103,7 +103,7 @@ flowchart TB
     knowledge --> router[model router<br/>llama.cpp: generate, embed, rerank, tokenize<br/>models chosen by bake-off]
     runtime --> router
     runtime --> sandbox[Sandbox<br/>Landlock + seccomp]
-    app -.-> collector[(OTel collector<br/>otel-lgtm, optional)]
+    app -.-> collector[(Future OTLP exporter<br/>deferred beyond S1)]
   end
   sdk --> ghcopilot[(GitHub Copilot service)]
 ```
@@ -135,7 +135,7 @@ from the kernel at any time.
 | L13 | Execution | Agent sessions, providers, hooks, broker, sandbox, contracts | `maestro-runtime` | github-copilot-sdk 1.0.14, cedar-policy 4.13, landlock 0.4 | S4 |
 | L14 | Memory and continuity | Session capture, checkpoints, restore bundles, facts | `maestro-kernel`, `maestro-memory` | kernel journal, graph projection | S7-I1 |
 | L15 | Code intelligence | Code collections, symbol graph, impact | `maestro-code` | tree-sitter 0.27, SCIP later | S7-I2 |
-| L16 | Observability and evals | Traces, metrics, eval suites, benchmarks | `maestro-kernel::telemetry`, `maestro-eval` | opentelemetry 0.33, GenAI conventions | S1 → |
+| L16 | Observability and evals | Local spans, health, eval suites and benchmarks | `maestro-kernel::telemetry`, `maestro-eval` | `tracing`; OTLP export deferred beyond S1 | S1 instrumentation → future exporter |
 | L17 | Security | Threat model, policy, secrets, supply chain | cross-cutting | Cedar, Landlock, rust-workflows gates, attestations | S0 → |
 | L18 | Operations | Install, services, backup, doctor | `maestro` | systemd user units, XDG paths | S1 → |
 | L19 | Extensibility | Entry points, public event stream, extension host | `maestro-kernel::journal`, `maestro-runtime::extensions` | CloudEvents 1.0 envelope, JSON-RPC 2.0 extension protocol | S1 (stream), S4 (host) |
@@ -149,16 +149,16 @@ that the combination has been tested.
 
 | Component | Choice | Role | Alternatives considered | Why this choice | Risk / qualification |
 | --- | --- | --- | --- | --- | --- |
-| Language/toolchain | Rust 1.98.1, edition 2024, MSRV 1.94 | Everything first-party | — | Org standard; the Copilot SDK requires 1.94 | Workspace MSRV checked by rust-workflows |
-| CI | `Orchestration-Maestro/rust-workflows` v1.2.1 | Gates, releases, attestations | — | Production-proven on maestro-release-canary | Pinned by commit with tag comment |
+| Language/toolchain | Rust 1.98.1, edition 2024, MSRV 1.98 | Everything first-party | — | The workspace MSRV follows its toolchain floor | Checked by the current workspace gate |
+| CI | `Orchestration-Maestro/rust-workflows` v4.3.1 | Gates, releases, attestations | — | Current observed gate version | The final portability and full-S1 gate still require CI evidence |
 | Authority store | SQLite (rusqlite 0.40.2, bundled), WAL | Scopes, journal, jobs, facts, catalog state | Postgres, SurrealDB 3.2 | Embedded, zero-ops on a laptop, transactional, one file to back up | Single writer: short transactions, no I/O inside them |
 | Artifact store | Content-addressed files (SHA-256, zstd 0.14 optional) | Originals, canonical JSON, bundles, reports | Object store | Immutable, verifiable, deduplicated, rsync-able | fsync + atomic rename; verify on read |
-| Vector + lexical index | Qdrant 1.19 server + qdrant-client 1.19.0 | Dense, BM25 sparse, payload filters, aliases | Qdrant Edge 0.8 (embedded), LanceDB 0.39, tantivy 0.26 | Mature hybrid queries, server-side BM25, aliases for atomic generations | Edge evaluated before the laptop rollout (ADR-0003) |
+| Vector + lexical index | Qdrant 1.19 server + qdrant-client 1.19.0 | Dense and client-generated sparse vectors, payload filters, aliases | Qdrant Edge 0.8 (embedded), LanceDB 0.39, tantivy 0.26 | Qdrant stores and searches `bm25-en-fr/1` vectors with IDF weighting and provides aliases for atomic generations | Edge evaluation is deferred until after M1 (ADR-0003) |
 | Graph projection | Neo4j 2026.x Community + neo4rs 0.9 | Traversal, paths, Leiden communities, centrality | LadybugDB (lbug 0.20, embedded), SurrealDB 3.2, FalkorDB, SQLite + petgraph | Mature Cypher and graph algorithms; user-selected pairing with Qdrant | JVM footprint; Bolt compatibility of neo4rs with 2026.x; LadybugDB spike (ADR-0004) |
 | Canonicalization | `maestro-canonicalization` (in repo) | Canonical documents, dedup, chunking | — | Already built, tested and fixture-backed | Strict lints and file-size limits applied in S0 |
 | Token counting | llama.cpp `/tokenize` of the **selected** embedding model, through the router | Chunk budgets that the embedder will honour | Native `llama-tokenize` subprocess (kept for parity), HF `tokenizers` 0.23 | Same vocabulary as the embedder, no machine paths, no process per count | Ordered-ID parity test against the native counter; a new embedder means a new chunk profile (ADR-0008) |
 | Models (every role) | **None preselected.** Each role (embedder, reranker, generator, extractor, judge, agent roles) is filled by the winner of a recorded bake-off on our eval suites | Quality, latency, VRAM and licence decide | See [model selection](05-platform-and-operations.md#3-model-selection) for the candidate pools | "Use the best one", measured on our data, not on a leaderboard | Winners bound in model cards (GGUF hash, template, server build); re-run on any change (ADR-0011) |
-| Sparse | Qdrant server-side `qdrant/bm25` | Exact terms, identifiers, error codes | Learned sparse (e.g. BGE-M3 sparse, SPLADE), tantivy | No model to serve; available self-hosted | Tokenizer settings qualified on technical identifiers; learned sparse enters the bake-off |
+| Sparse | Client-generated `bm25-en-fr/1` vectors; Qdrant stores/searches with IDF | Exact terms and identifiers | Learned sparse, tantivy | Adopted after the Qdrant server-side analyzer failed the required checks (R7) | Profile and generation are versioned |
 | Agent runtime | github-copilot-sdk 1.0.14 (no `bundled-cli`) | Sessions, tools, hooks, custom agents, BYOK | Custom agent loop on raw HTTP | Official, Rust, hooks + permission handler + BYOK | CLI installed through the pinned toolbelt, not downloaded at build time |
 | Local inference | maestro-model-router router (llama.cpp) | OpenAI-compatible generate/embed/rerank/tokenize with VRAM budgeting | Ollama, vLLM | Ours, running, budgets VRAM across models | Imported into the org in S0 |
 | MCP | rmcp 3.4.1, spec 2026-07-28 | Knowledge, catalog and run tools for any host | — | Official Rust SDK; long-running tasks | stdio first; Streamable HTTP later |
@@ -172,7 +172,7 @@ that the combination has been tested.
 | Extensions | In-house extension host; JSON-RPC 2.0 over stdio; CloudEvents 1.0 events | Plug-in and plug-out integrations | Native dynamic libraries (rejected), MCP only (no durable delivery), embedded broker (rejected), WebAssembly components (later) | Isolation, any language, durable delivery from the journal | Schema compatibility tests; sandboxed like step nodes (ADR-0013) |
 | Local HTTP API | axum | Commands, jobs, server-sent events | — | Standard, Tokio-native | Unix socket or loopback with a token; never trusted by address alone |
 | Code parsing | tree-sitter 0.27 | Code collections and symbol graph | rust-analyzer/SCIP | Many languages, incremental | S7 |
-| Telemetry | tracing 0.1.44, tracing-opentelemetry 0.34, opentelemetry-otlp 0.33 | Traces, metrics, logs | — | Standard; GenAI semantic conventions (development status) | Attribute names pinned in one module |
+| Telemetry | `tracing` 0.1.44 | Local spans and health diagnostics | OpenTelemetry / OTLP export | No OTLP exporter is included in S1; the backend diagram is future work | Reconsider only under ADR-0020 with measured, named dependency exceptions |
 | CLI | clap 4.6 | Commands, help, JSON output | — | Standard | Contract tests on output and exit codes |
 | Evals | In-house runner (`maestro eval`) | Retrieval, answer, graph, routing and workflow suites | RAGAS (Python), DeepEval | Metrics are simple; suites stay in Rust and data | Judge model qualified against human labels |
 | Spec process | GitHub Spec Kit 1.0.1 (`specify`) | Constitution, spec, plan, tasks per slice | superpowers specs only | Structured, agent-friendly, Copilot integration | Evals and tests are the gates, not prose |
@@ -219,7 +219,7 @@ These hold in every slice and are enforced by tests, not by prose.
 | `maestro-core` | public | The Rust workspace: kernel, knowledge, catalog, runtime, `maestro` binary, architecture and specs |
 | `maestro-manifests` | public | Catalog content in Copilot-native formats, contracts, policies, workflow graphs, eval scenarios; release of attested bundles |
 | `maestro-model-router` | public | The model router (llama.cpp supervision, VRAM budget, OpenAI-compatible endpoints) |
-| `ctm-collection` | **private** | The Control-M collection: corpus export, source policy, BMC connectors, private eval questions |
+| Owner-managed product collection | **private** | Scope rules, inventory, counts, content and acceptance receipts remain outside the public repository |
 | `rust-workflows`, `.github` | public | CI, releases, organization policy (existing) |
 
 Generic engines are public; anything tied to a vendor's authenticated portals,

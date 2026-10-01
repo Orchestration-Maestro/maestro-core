@@ -6,14 +6,10 @@ use crate::{
     scope::{Right, Scope, ScopeSet},
     store::Database,
 };
+use maestro_test_scratch::scratch_directory;
 use rusqlite::{Connection, params};
 use serde_json::Value;
-use std::{
-    env, fs,
-    path::PathBuf,
-    process,
-    sync::atomic::{AtomicUsize, Ordering},
-};
+use std::{fs, path::PathBuf};
 use ulid::Ulid;
 
 /// The scope of the collection the tests grant most.
@@ -31,14 +27,7 @@ pub(super) struct Scratch(pub(super) PathBuf);
 impl Scratch {
     /// A directory of its own for one test.
     pub(super) fn new() -> Self {
-        static NEXT: AtomicUsize = AtomicUsize::new(0);
-        let path = env::temp_dir().join(format!(
-            "maestro-kernel-scope-{}-{}",
-            process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
-        fs::create_dir(&path).unwrap();
-        Self(path)
+        Self(scratch_directory().unwrap())
     }
 
     /// The database of this directory.

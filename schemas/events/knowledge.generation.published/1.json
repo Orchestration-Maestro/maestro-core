@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "A generation of a collection was published: searches read it from now on.",
+  "properties": {
+    "collection": {
+      "description": "The collection it is a generation of.",
+      "type": "string"
+    },
+    "generation": {
+      "description": "The generation published, by its id, which its projection is named after.",
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "point_count": {
+      "description": "How many points its verification counted.",
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "collection",
+    "generation",
+    "point_count"
+  ],
+  "title": "GenerationPublished",
+  "type": "object"
+}

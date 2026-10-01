@@ -19,6 +19,13 @@ pub enum Error {
         /// The state the move would have put it in.
         to: GenerationState,
     },
+    /// Another generation was published after this replacement was admitted.
+    PublishedChanged {
+        /// The generation expected at admission, or none.
+        expected: Option<i64>,
+        /// The generation currently published, or none.
+        found: Option<i64>,
+    },
     /// The kernel's database refused; the message and the source are its own.
     Store(store::Error),
 }
@@ -37,6 +44,10 @@ impl fmt::Display for Error {
                  only from building to verified, then to published, then to retired, or to \
                  failed before it is published"
             ),
+            Self::PublishedChanged { expected, found } => write!(
+                formatter,
+                "published generation changed from {expected:?} to {found:?} during replacement"
+            ),
             Self::Store(error) => fmt::Display::fmt(error, formatter),
         }
     }
@@ -46,7 +57,9 @@ impl error::Error for Error {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match self {
             Self::Store(error) => error.source(),
-            Self::UnknownGeneration(_) | Self::IllegalMove { .. } => None,
+            Self::UnknownGeneration(_)
+            | Self::IllegalMove { .. }
+            | Self::PublishedChanged { .. } => None,
         }
     }
 }

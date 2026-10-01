@@ -8,13 +8,11 @@ use crate::{
     scope::ScopeSet,
     store::{self, Database},
 };
-use std::{
-    collections::BTreeMap,
-    env, fs,
-    path::PathBuf,
-    process,
-    sync::atomic::{AtomicUsize, Ordering},
-};
+use maestro_test_scratch::scratch_directory;
+use std::{collections::BTreeMap, fs, path::PathBuf};
+
+/// The digest of the manifest each complete chunk set of the tests names.
+const MANIFEST: &str = "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945";
 
 /// A new empty directory under the platform's temporary directory, removed
 /// with everything in it when dropped: after the database a test opened in
@@ -23,14 +21,7 @@ pub(super) struct Scratch(PathBuf);
 
 impl Scratch {
     pub(super) fn new() -> Self {
-        static NEXT: AtomicUsize = AtomicUsize::new(0);
-        let path = env::temp_dir().join(format!(
-            "maestro-kernel-generation-{}-{}",
-            process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
-        fs::create_dir(&path).unwrap();
-        Self(path)
+        Self(scratch_directory().unwrap())
     }
 
     /// The kernel database of this directory, with the collections `ctm` and
@@ -49,7 +40,16 @@ impl Scratch {
                 &database,
                 "INSERT INTO chunk_sets (id, collection_id, chunk_profile, counter_contract_id,
                    state)
-                 VALUES (?1 || '-set', ?1, 'structural-500-700/1', 'native', 'complete')",
+                 VALUES (?1 || '-set', ?1, 'structural-500-700/1', 'native', 'building')",
+                id,
+            )
+            .unwrap();
+            execute(
+                &database,
+                &format!(
+                    "UPDATE chunk_sets SET state = 'complete', manifest_digest = '{MANIFEST}'
+                     WHERE id = ?1 || '-set'"
+                ),
                 id,
             )
             .unwrap();

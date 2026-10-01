@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "A published generation was retired: no search reads it, and it is kept for rollback.",
+  "properties": {
+    "collection": {
+      "description": "The collection it is a generation of.",
+      "type": "string"
+    },
+    "generation": {
+      "description": "The generation retired, by its id.",
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "collection",
+    "generation"
+  ],
+  "title": "GenerationRetired",
+  "type": "object"
+}

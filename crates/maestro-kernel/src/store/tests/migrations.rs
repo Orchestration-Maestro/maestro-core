@@ -1,13 +1,15 @@
 //! Migrations: applied in number order, each once, recorded by name, and a
-//! database a newer binary migrated refused before anything changes.
+//! database a newer binary migrated refused before anything changes; and
+//! the migrations a database lacks, read without opening it for writing.
 
 use super::support::Scratch;
 use crate::store::{
     Error,
     migration::{MIGRATIONS, apply, migrate},
+    pending_migrations,
 };
 use rusqlite::Connection;
-use std::{sync::Barrier, thread};
+use std::{fs, sync::Barrier, thread};
 
 /// Creates the table the other test migrations fill.
 const FIRST: (&str, &str) = (
@@ -82,6 +84,141 @@ fn a_new_database_is_created_in_wal_mode_and_migrated() {
             "{name}: {before} <= {applied_at} <= {after}"
         );
     }
+}
+
+#[test]
+fn adding_search_storage_to_an_existing_database_leaves_it_empty() {
+    let scratch = Scratch::new();
+    let earlier: Vec<_> = MIGRATIONS
+        .iter()
+        .copied()
+        .filter(|(name, _)| !matches!(*name, "0010_search" | "0011_exact_identifiers"))
+        .collect();
+    drop(scratch.open_with(&earlier).unwrap());
+    assert_eq!(
+        pending_migrations(&scratch.0).unwrap(),
+        ["0010_search", "0011_exact_identifiers"]
+    );
+
+    drop(scratch.open());
+    let reader = scratch.outside();
+    for table in [
+        "chunk_search_inputs",
+        "chunk_search_identifiers",
+        "chunk_set_members",
+        "generation_search",
+    ] {
+        let count: i64 = reader
+            .query_row(&format!("SELECT count(*) FROM {table}"), [], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(count, 0, "{table}");
+    }
+    assert_eq!(names(&reader), sorted(MIGRATIONS));
+}
+
+#[test]
+fn exact_identifier_migration_replaces_fts_without_backfilling() {
+    let without_exact_identifiers: Vec<_> = MIGRATIONS
+        .iter()
+        .copied()
+        .filter(|(name, _)| *name != "0011_exact_identifiers")
+        .collect();
+    let scratch = Scratch::new();
+    drop(scratch.open_with(&without_exact_identifiers).unwrap());
+    let before = scratch.outside();
+    assert_eq!(
+        before
+            .query_row(
+                "SELECT count(*) FROM sqlite_schema
+                 WHERE type = 'table' AND name = 'chunk_search_fts'",
+                [],
+                |row| row.get::<_, i64>(0),
+            )
+            .unwrap(),
+        1
+    );
+    drop(before);
+
+    drop(scratch.open_with(MIGRATIONS).unwrap());
+    let reader = scratch.outside();
+    assert_eq!(
+        reader
+            .query_row(
+                "SELECT count(*) FROM sqlite_schema
+                 WHERE type = 'table' AND name = 'chunk_search_fts'",
+                [],
+                |row| row.get::<_, i64>(0),
+            )
+            .unwrap(),
+        0
+    );
+    assert_eq!(
+        reader
+            .query_row("SELECT count(*) FROM chunk_search_identifiers", [], |row| {
+                row.get::<_, i64>(0)
+            })
+            .unwrap(),
+        0
+    );
+}
+
+#[test]
+fn model_card_migration_applies_after_0008_and_after_0010_search() {
+    assert!(
+        MIGRATIONS
+            .iter()
+            .any(|(name, _)| *name == "0009_model_cards"),
+        "0009_model_cards is registered"
+    );
+
+    let preceding: Vec<_> = MIGRATIONS
+        .iter()
+        .filter(|(name, _)| *name < "0009_model_cards")
+        .copied()
+        .collect();
+    let scratch = Scratch::new();
+    drop(scratch.open_with(&preceding).unwrap());
+    drop(scratch.open_with(MIGRATIONS).unwrap());
+    let reader = scratch.outside();
+    assert!(names(&reader).contains(&"0009_model_cards".to_owned()));
+    assert_eq!(
+        reader
+            .query_row(
+                "SELECT count(*) FROM sqlite_schema WHERE type = 'table' AND name = 'model_cards'",
+                [],
+                |row| row.get::<_, i64>(0),
+            )
+            .unwrap(),
+        1
+    );
+    drop(reader);
+
+    let without_model_cards: Vec<_> = MIGRATIONS
+        .iter()
+        .filter(|(name, _)| *name != "0009_model_cards")
+        .copied()
+        .collect();
+    let scratch = Scratch::new();
+    drop(scratch.open_with(&without_model_cards).unwrap());
+    assert_eq!(
+        pending_migrations(&scratch.0).unwrap(),
+        ["0009_model_cards"]
+    );
+    drop(scratch.open_with(MIGRATIONS).unwrap());
+    let outside = scratch.outside();
+    let applied = names(&outside);
+    assert!(applied.contains(&"0009_model_cards".to_owned()));
+    assert!(applied.contains(&"0010_search".to_owned()));
+    assert!(applied.contains(&"0011_exact_identifiers".to_owned()));
+    assert_eq!(
+        outside
+            .query_row("SELECT count(*) FROM model_cards", [], |row| row
+                .get::<_, i64>(0))
+            .unwrap(),
+        0
+    );
 }
 
 #[test]
@@ -187,4 +324,68 @@ fn a_failing_migration_leaves_neither_its_changes_nor_its_record() {
     assert_eq!(partial, 0, "the failed migration's table was rolled back");
     drop(scratch.open_with(&[FIRST, SECOND]).unwrap());
     assert_eq!(values(&outside), [1, 2]);
+}
+
+/// The names of `migrations`, in name order.
+fn sorted(migrations: &[(&'static str, &str)]) -> Vec<&'static str> {
+    let mut names: Vec<&str> = migrations.iter().map(|(name, _)| *name).collect();
+    names.sort_unstable();
+    names
+}
+
+#[test]
+fn the_migrations_a_database_lacks_are_read_without_changing_it() {
+    let scratch = Scratch::new();
+    drop(scratch.open_with(&MIGRATIONS[..6]).unwrap());
+    let lacking = sorted(&MIGRATIONS[6..]);
+    assert_eq!(lacking.first(), Some(&"0007_chunk_sets"), "{lacking:?}");
+    let before = fs::read(scratch.database()).unwrap();
+    assert_eq!(pending_migrations(&scratch.0).unwrap(), lacking);
+    assert_eq!(
+        fs::read(scratch.database()).unwrap(),
+        before,
+        "the file is unchanged"
+    );
+    assert_eq!(
+        names(&scratch.outside()),
+        sorted(&MIGRATIONS[..6]),
+        "nothing was applied"
+    );
+}
+
+#[test]
+fn an_up_to_date_database_lacks_nothing_and_one_never_migrated_lacks_all() {
+    let scratch = Scratch::new();
+    drop(scratch.open());
+    assert_eq!(pending_migrations(&scratch.0).unwrap(), Vec::<&str>::new());
+    let scratch = Scratch::new();
+    scratch
+        .outside()
+        .execute_batch("CREATE TABLE other (value INTEGER) STRICT;")
+        .unwrap();
+    assert_eq!(pending_migrations(&scratch.0).unwrap(), sorted(MIGRATIONS));
+}
+
+#[test]
+fn a_database_a_newer_binary_migrated_is_named_and_a_missing_one_never_created() {
+    let scratch = Scratch::new();
+    let missing = pending_migrations(&scratch.0).unwrap_err();
+    assert!(matches!(missing, Error::Sqlite(_)), "{missing}");
+    assert!(
+        !scratch.database().exists(),
+        "reading never creates the file"
+    );
+    drop(scratch.open());
+    scratch
+        .outside()
+        .execute(
+            "INSERT INTO migrations (name, applied_at) VALUES ('9999_future', 'now')",
+            [],
+        )
+        .unwrap();
+    let newer = pending_migrations(&scratch.0).unwrap_err();
+    assert!(
+        matches!(&newer, Error::UnknownMigration(name) if name == "9999_future"),
+        "{newer}"
+    );
 }

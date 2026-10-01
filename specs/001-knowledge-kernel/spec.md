@@ -26,14 +26,21 @@ in [`docs/standards/`](../../docs/standards/engineering.md)
 
 ## Clarifications
 
-### Session 2026-09-25
+### Session 2026-09-25 (superseded by the 2026-09-26 clarification)
 
-- Q: Who writes the 100+ Control-M test questions, and how many does the owner
-  check? → A: Agents draft all of them from the corpus; the owner validates a
-  stratified sample of 30.
+- Q: Who writes the evaluation questions, and how many does the owner check? →
+  A: Agents draft them from the corpus; the owner validates a stratified sample
+  of 30.
 - Q: When a search and the largest chat model cannot both fit on the GPU, which
   gives way? → A: The search. Its models load on demand and chat models keep the
   card; the latency target applies with the search models loaded.
+
+### Session 2026-09-26
+
+- Q: Who checks the evaluation set's questions? → A: An independent review,
+  by a model other than the drafter's, checks every question against the
+  corpus; the owner decides each change it proposes to a question's wording or
+  answerability. This replaces the owner's sample of 30.
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -69,15 +76,16 @@ match the expected sections of sample questions.
 
 ### User Story 2 - Import and publish the corpus safely (Priority: P1)
 
-As the maintainer, I import the corpus of record (Control-M 9.0.22, 7,988
-documents), prepare chunks and publish a searchable generation, knowing that bad
-inputs are refused, re-runs are idempotent and a crash can be resumed.
+As the maintainer, I import the owner-approved private product collection,
+prepare chunks and publish a searchable generation, knowing that bad inputs are
+refused, re-runs are idempotent and a crash can be resumed.
 
 **Why this priority**: without a trustworthy published generation there is
 nothing to search.
 
-**Independent Test**: import, prepare and publish on the full corpus; kill the
-process during publish and resume; compare counts and digests.
+**Independent Test**: use the current owner-pinned receipt privately; import,
+prepare and publish; interrupt publishing and resume; compare counts and
+digests in the private report.
 
 **Acceptance Scenarios**:
 
@@ -105,9 +113,10 @@ that win each role.
 **Why this priority**: every later choice (models, fusion weights, the graph)
 depends on a trustworthy measurement.
 
-**Independent Test**: `maestro eval run ctm-retrieval` produces a report with
-per-question results, metrics with confidence intervals and latency; the bake-off
-report names a winner per role with its model card.
+**Independent Test**: `maestro eval ladder --manifest <manifest>` runs every rung
+over the suite and writes, per rung, per-question rows, metrics against their
+floors and latency, then a comparison across rungs; the bake-off receipts name
+a winner per role with its model card.
 
 **Acceptance Scenarios**:
 
@@ -237,8 +246,10 @@ collections and generations are ready and how to fix what is not.
   `knowledge_search`, `knowledge_get` and `knowledge_ask` over stdio with bounded
   responses.
 - **FR-S1-008a**: The kernel journal MUST keep per-stream sequences with durable
-  consumer cursors and acknowledgements, used by the projections and telemetry
-  ([07 §3.3](../../docs/architecture/07-extensibility.md#33-subscriptions-and-delivery)).
+  consumer cursors and acknowledgements. S1 ships and tests this cursor
+  primitive; built-in projection and telemetry consumers move to S2
+  ([07 §3.3](../../docs/architecture/07-extensibility.md#33-subscriptions-and-delivery),
+  [07 §7](../../docs/architecture/07-extensibility.md#7-delivery-by-slice)).
 - **FR-S1-008b**: The public event catalogue MUST start with the knowledge events
   of [07 §3.2](../../docs/architecture/07-extensibility.md#32-event-catalogue)
   (`import.completed`, `revision.held`, `generation.published`,
@@ -255,9 +266,12 @@ collections and generations are ready and how to fix what is not.
   and the exit codes 0, 1, 2.
 - **FR-S1-013**: An evaluation set of at least 100 Control-M questions MUST exist
   before any model is selected: drafted by agents from the corpus, French and
-  English, about 15 % unanswerable, each with its expected sections. The owner
-  validates a sample of 30 stratified by topic, language and answerability; a
-  question the owner rejects is corrected or removed, never kept as drafted.
+  English, about 15 % unanswerable, each with its expected sections. An
+  independent review, by a model other than the drafter's, checks every
+  question against the corpus. A change it proposes to a question's wording or
+  answerability is the owner's decision; a change to its expected sections
+  lands only when the corpus confirms it and the suite check accepts it. No
+  question found wrong is kept as drafted.
 - **FR-S1-014**: Each model role (embedder, reranker, answerer) MUST be filled by
   a recorded bake-off whose winner is a model card
   ([ADR-0011](../../docs/adr/0011-models-chosen-by-bake-off.md)); no model is
@@ -285,8 +299,9 @@ collections and generations are ready and how to fix what is not.
 - **Evidence bundle**: the search response contract.
 - **Eval suite / report**: questions with expected sections; measured results,
   with every failure classified.
-- **Golden set**: the private Control-M question set the `ctm-*` suites are
-  built from, drafted by agents and checked by the owner on a stratified sample.
+- **Golden set**: the private product question set used by evaluation suites,
+  drafted by agents and independently reviewed in full; the owner decides only
+  flagged changes.
 - **Ladder report**: the paired comparison of each retrieval rung against the one
   below it, deciding which rungs ship.
 - **Public event**: a journaled event in the public catalogue, with its schema.
@@ -327,30 +342,128 @@ collections and generations are ready and how to fix what is not.
 
 ## Traceability
 
-[08](../../docs/architecture/08-traceability.md) requires each slice's spec to
-re-check the rows it touches. S1 touches 94 of them; none changes status. The
-rows S1 delivers only in part say which part:
+[08](../../docs/architecture/08-traceability.md) records design dispositions;
+those statuses are not delivery evidence. The 94 rows listed below are the
+rows S1 answers for: 93 delivered in whole or in part, and row 53 kept as a
+visible deferral (owner-approved keys, 2026-09-28, MR-07). A key is the
+numbered 08 section and the row's exact first cell; the same ID in
+two sections is two rows. The list reconciles the earlier aggregate of 94 by
+section rather than assuming it: §11.3 contributes 9 of its 10 rows
+(`rag.N011 techniques` was not tested in S1), §12 contributes 11, and §15
+contributes A4, A5, A7, A9 and A14 besides A1, A6, A22 and A26. Row 53,
+`rag.N016 agent`, delivers nothing in S1 and stays so that its deferral to S2
+is visible.
 
-| 08 section | Rows | S1's part |
-| --- | --- | --- |
-| [§3 Owner requirements](../../docs/architecture/08-traceability.md#3-owner-requirements) | 9 | The local RAG chain, BM25 with dense, Qdrant, the tokenizer contract (owner.n007, n020, n029, n031, n047, n062, session); llama.cpp and telemetry in part |
-| [§10 Testing and observability](../../docs/architecture/08-traceability.md#10-testing-observability-benchmarks-and-improvement) | 9 | The eval runner, per-item reports, bake-off round 1, OTel spans for knowledge; run telemetry waits for S4 |
-| [§11.1–§11.2 Acquisition, quality](../../docs/architecture/08-traceability.md#111-acquisition) | 5 | The corpus quality gate and per-source synchronization as a one-off import; native acquisition is S6 |
-| [§11.3 Canonicalization and chunking](../../docs/architecture/08-traceability.md#113-canonicalization-deduplication-and-chunking) | 9 | All, through the existing crate; A6 and A22 as adapted |
-| [§11.4 Representations and publication](../../docs/architecture/08-traceability.md#114-representations-indexing-and-publication) | 9 | All |
-| [§11.5 Retrieval and answers](../../docs/architecture/08-traceability.md#115-retrieval-fusion-reranking-evidence-and-answers) | 16 | All but the graph expansion and the research loop, which need S2 |
-| [§12 Delivery mapping](../../docs/architecture/08-traceability.md#12-delivery-mapping) | 12 | U03 parity, U11 local prepared documents, U13 Qdrant and embedding qualification, U14 retrieval, U15 and U16 in part |
-| [§4, §6–§9, §11.6, §13–§15, §17](../../docs/architecture/08-traceability.md) | 25 | Model profiles and provider qualification for knowledge roles only; the knowledge CLI; the journal as audit; knowledge ACLs apart from the catalog's; graph publication waits for S2; CD2, CD3; storage and scale; A1, A6, A22, A26 as adapted; the operational bindings, supplied as machine configuration |
+[08 §20.4](../../docs/architecture/08-traceability.md#204-approved-s1-row-keys)
+maps each key to its delivered portion, tasks, commits, tests and named
+remaining slice; `crates/maestro-conventions/tests/s1_traceability/` refuses a
+missing, duplicate or extra key in this list or in that map. Each FR-S1 and
+SC-S1 item is mapped to its commits and tests, or marked open with its owner,
+in [08 §20](../../docs/architecture/08-traceability.md#20-s1-delivery-evidence).
 
-The rows that belong to later slices keep their slice; `tasks.md` assigns each S1
-row to a task.
+| # | Section | Row |
+| ---: | --- | --- |
+| 1 | §3 | `owner.m001.llamacpp` |
+| 2 | §3 | `owner.m058` |
+| 3 | §3 | `owner.n007` |
+| 4 | §3 | `owner.n020` |
+| 5 | §3 | `owner.n029, n065` |
+| 6 | §3 | `owner.n031` |
+| 7 | §3 | `owner.n047, n053` |
+| 8 | §3 | `owner.n062` |
+| 9 | §3 | `owner.session` |
+| 10 | §10 | `chat.M048, M057 layers, delivery.§6.1` |
+| 11 | §10 | `chat.M048 tools` |
+| 12 | §10 | `chat.M057 CI` |
+| 13 | §10 | `chat.M059 streams` |
+| 14 | §10 | `chat.M059 provenance` |
+| 15 | §10 | `chat.M059 pitfalls` |
+| 16 | §10 | `chat.M059 tracing` |
+| 17 | §10 | `chat.M059 benchmarks` |
+| 18 | §10 | `chat.M059 capitalize B–H` |
+| 19 | §11.1 | `rag.N011 two circuits` |
+| 20 | §11.1 | `ingest scope` |
+| 21 | §11.1 | `rag.N046 filter` |
+| 22 | §11.1 | `product.CD2` |
+| 23 | §11.2 | `rag.N052 quality` |
+| 24 | §11.3 | `rag.N054–N056` |
+| 25 | §11.3 | `rag.N060 A01–A34` |
+| 26 | §11.3 | `rag.N038 dedup` |
+| 27 | §11.3 | `rag.N060 near-dup` |
+| 28 | §11.3 | `rag.N060 B01–B13` |
+| 29 | §11.3 | `rag.N052 chunk policy` |
+| 30 | §11.3 | `rag.N011 sizes` |
+| 31 | §11.3 | `rag.N064 tokenizer` |
+| 32 | §11.3 | `rag.N067 contracts` |
+| 33 | §11.4 | `rag.N070 EmbeddingProfile` |
+| 34 | §11.4 | `rag.N070 Bm25Profile` |
+| 35 | §11.4 | `rag.N070 index` |
+| 36 | §11.4 | `rag.N070 publication` |
+| 37 | §11.4 | `rag.N070 diagnostics` |
+| 38 | §11.4 | `rag.N038 statistics` |
+| 39 | §11.4 | `rag.N011, N016 automation` |
+| 40 | §11.4 | `rag.N052 recompute` |
+| 41 | §11.4 | `rag.N075 first deliverable` |
+| 42 | §11.5 | `rag.N038 context` |
+| 43 | §11.5 | `rag.N038 identity dedup` |
+| 44 | §11.5 | `rag.N038 RRF` |
+| 45 | §11.5 | `rag.N038 budgets` |
+| 46 | §11.5 | `rag.N038 rerank` |
+| 47 | §11.5 | `rag.N038 context dedup` |
+| 48 | §11.5 | `rag.N038 EvidenceBundle` |
+| 49 | §11.5 | `rag.N038 answer` |
+| 50 | §11.5 | `rag.N038 degradation` |
+| 51 | §11.5 | `rag.N016 interfaces` |
+| 52 | §11.5 | `rag.N016 tools` |
+| 53 | §11.5 | `rag.N016 agent` |
+| 54 | §11.5 | `rag.N016 local` |
+| 55 | §11.5 | `rag.N016 permissions` |
+| 56 | §11.5 | `rag.N011 evaluation` |
+| 57 | §11.5 | `product.CD3` |
+| 58 | §12 | `delivery.U03 (F7–F8)` |
+| 59 | §12 | `delivery.U11 (D2–D3)` |
+| 60 | §12 | `delivery.U13` |
+| 61 | §12 | `delivery.U14` |
+| 62 | §12 | `delivery.U15` |
+| 63 | §12 | `delivery.U16` |
+| 64 | §12 | `delivery.C03 Rust-first, explicit native dependencies, justified Python` |
+| 65 | §12 | `delivery.C14–C16 catalog MCP, shared Qdrant, separate knowledge ACLs` |
+| 66 | §12 | `delivery.C18–C21 layered tests, runner, real controls, honest tiers` |
+| 67 | §12 | `delivery.C22–C24 telemetry streams, coverage, units` |
+| 68 | §12 | `delivery.C25–C29 provider qualification, benchmarks, corpus, taxonomy, promotion loop` |
+| 69 | §6 | `chat.M059 model profile` |
+| 70 | §6 | `chat.M059 capitalize A` |
+| 71 | §6 | `rag.N075 profiles` |
+| 72 | §7 | `chat.M006 audit` |
+| 73 | §8 | `chat.M031 separation` |
+| 74 | §9 | `chat.M006 CLI` |
+| 75 | §9 | `product.GD2, GD4, GD5` |
+| 76 | §11.6 | `rag.N023 roles` |
+| 77 | §11.6 | `rag.N052 publication` |
+| 78 | §13.2 | `product.CD2` |
+| 79 | §13.2 | `product.CD3` |
+| 80 | §13.2 | `product.GD1–GD5` |
+| 81 | §14 | `core storage` |
+| 82 | §14 | `core scale` |
+| 83 | §14 | `core native` |
+| 84 | §14 | `core baseline` |
+| 85 | §15 | `A1` |
+| 86 | §15 | `A4` |
+| 87 | §15 | `A5` |
+| 88 | §15 | `A6` |
+| 89 | §15 | `A7` |
+| 90 | §15 | `A9` |
+| 91 | §15 | `A14` |
+| 92 | §15 | `A22` |
+| 93 | §15 | `A26` |
+| 94 | §17 | `Operational bindings: endpoints, accounts, data scopes, exclusion registries, budgets` |
 
 ## Assumptions
 
-- The corpus of record is the Control-M 9.0.22 clean corpus produced by the
-  existing Python pipeline: 7,988 documents with their manifest and Markdown
-  files, on the maintainer's machine. The private collection gains the exporter
-  that turns it into `maestro-corpus/1`; native acquisition comes in S6.
+- The owner's product collection is private. Its scope rule, counts and
+  receipts live in the private collection repository; public CI uses synthetic
+  fixtures only. Re-measure acceptance from the current owner-pinned receipt,
+  and keep the resulting report private.
 - The model router's dedicated endpoints forward any path to the model, so
   `/models/<id>/tokenize` reaches the embedder's tokenizer; no router change is
   needed (verified on the router's `main`, 2026-09-25).

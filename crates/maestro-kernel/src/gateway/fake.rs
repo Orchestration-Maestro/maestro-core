@@ -4,7 +4,7 @@
 
 use super::{
     card::{ModelCard, Role},
-    port::{Error, Message, ModelPort, Room, Speaker, embedder_dimensions, require},
+    port::{ChatRequest, Error, Message, ModelPort, Room, Speaker, embedder_dimensions, require},
 };
 use sha2::{Digest as _, Sha256};
 use std::{
@@ -67,9 +67,13 @@ impl ModelPort for FakeModels {
         &self,
         card: &ModelCard,
         _room: Room,
-        messages: &[Message],
+        request: &ChatRequest,
     ) -> impl Future<Output = Result<String, Error>> + Send {
-        future::ready(require(card, Role::Answerer).map(|()| reply(messages).to_owned()))
+        future::ready(
+            request
+                .validate(card)
+                .map(|_| reply(&request.messages).to_owned()),
+        )
     }
 }
 

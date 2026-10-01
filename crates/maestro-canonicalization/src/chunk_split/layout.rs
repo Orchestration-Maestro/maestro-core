@@ -1,13 +1,14 @@
 //! The layout's structural queries: owners, sections, table windows and packing atoms.
 use super::limits::MAX_TOKENS;
-use super::prepare::{boundaries, fit_prefix, normalized_range};
+use super::prepare::{boundaries, fit_prefix};
+use super::ranges::normalized_range;
 use super::refusal::structure_error;
 use super::structure::{Body, Layout};
 use crate::{
+    chunk_profile::Packing,
     content::{Block, BlockType, ContentNode},
     error::Error,
     prepared_inputs::{ChunkContent, Contribution, Fragment, SplitKind, TableWindow},
-    source_units::TextRange,
 };
 
 impl Layout<'_> {
@@ -135,7 +136,8 @@ impl Layout<'_> {
     }
 
     /// The packing atoms: runs of consecutive primary units that share a table row, list item or
-    /// definition (else a block) and a key.
+    /// definition (else a block) and a key, each unit with the part of its text the profile
+    /// indexes; page chrome joins no atom.
     pub(super) fn atoms(&self) -> Result<Vec<Body>, Error> {
         let mut atoms: Vec<Body> = Vec::new();
         let mut previous = None;
@@ -146,6 +148,9 @@ impl Layout<'_> {
             .enumerate()
             .filter(|(_, unit)| unit.primary)
         {
+            let Some(range) = self.kept(index) else {
+                continue;
+            };
             let window = self.window(index, true)?;
             let natural = window.as_ref().map_or_else(
                 || {
@@ -158,10 +163,7 @@ impl Layout<'_> {
             let fragment = Fragment {
                 contribution: Contribution {
                     unit_index: index,
-                    range: TextRange {
-                        start: 0,
-                        end: unit.text.len(),
-                    },
+                    range,
                 },
                 part_ordinal: 0,
                 split: SplitKind::Whole,
@@ -193,17 +195,27 @@ impl Layout<'_> {
         })
     }
 
-    /// Whether two bodies may share a chunk: the same key, and either no table or one table with
-    /// the same row or the same columns.
+    /// Whether two bodies may share a chunk: the same key when packing by container, the same
+    /// section when packing by section; and where both hold table rows, one table with the same
+    /// row or the same columns. Only packing by section joins rows to other blocks, one table per
+    /// chunk.
     pub(super) fn compatible(&self, left: &Body, right: &Body) -> bool {
         let (Some(left_first), Some(right_first)) =
             (left.fragments.first(), right.fragments.first())
         else {
             return false;
         };
-        if self.key(left_first.contribution.unit_index)
-            != self.key(right_first.contribution.unit_index)
-        {
+        let (left_unit, right_unit) = (
+            left_first.contribution.unit_index,
+            right_first.contribution.unit_index,
+        );
+        let ideas = self.rules().packing == Packing::Section;
+        let together = if ideas {
+            self.section(left_unit) == self.section(right_unit)
+        } else {
+            self.key(left_unit) == self.key(right_unit)
+        };
+        if !together {
             return false;
         }
         match (left.windows.last(), right.windows.first()) {
@@ -212,8 +224,24 @@ impl Layout<'_> {
                     && (last.row_id == first.row_id || last.columns == first.columns)
             }
             (None, None) => true,
-            _ => false,
+            _ => ideas,
         }
+    }
+
+    /// The open draft grown by a body, when the two are compatible and their combined chunk
+    /// stays within the maximum.
+    pub(super) fn grown(
+        &self,
+        body: &Body,
+        atom: &Body,
+        count: &mut impl FnMut(&str) -> Result<usize, Error>,
+    ) -> Result<Option<(Body, ChunkContent)>, Error> {
+        if !self.compatible(body, atom) {
+            return Ok(None);
+        }
+        let combined = body.combined(atom);
+        let candidate = self.prepare(&combined, count)?;
+        Ok((candidate.token_count <= MAX_TOKENS).then_some((combined, candidate)))
     }
 
     /// Split an oversized body at its structure: a multi-column row into one body per column, else
@@ -291,7 +319,9 @@ impl Layout<'_> {
     }
 
     /// Split one oversized unit into chunks, each the longest prefix that fits, preferring sentence
-    /// ends or code lines, then whitespace; each piece records how it was cut.
+    /// ends or code lines, then whitespace; each piece records how it was cut. A unit of which not
+    /// even one character fits with its context, or a piece counted over the maximum once chosen,
+    /// is refused by name.
     pub(super) fn split_unit(
         &self,
         body: &Body,
@@ -322,7 +352,8 @@ impl Layout<'_> {
             let length = fit_prefix(text, preferred, &mut |length| match make(length) {
                 Some(piece) => Ok(self.prepare(&piece, count)?.token_count <= MAX_TOKENS),
                 None => Ok(false),
-            })?;
+            })?
+            .ok_or_else(|| self.oversized(index))?;
             let mut piece = make(length).ok_or_else(structure_error)?;
             // A cut inside a word moves back to the last whitespace when that piece fits too.
             let retreat = !code && length < text.len() && !whitespace.contains(&length);
@@ -356,7 +387,7 @@ impl Layout<'_> {
             };
             let prepared = self.prepare(&piece, count)?;
             if prepared.token_count > MAX_TOKENS {
-                return Err(structure_error());
+                return Err(self.oversized(index));
             }
             result.push(prepared);
             start = end;
@@ -364,17 +395,11 @@ impl Layout<'_> {
         Ok(result)
     }
 
-    /// Whether the body carries a unit's whole text in one fragment.
+    /// Whether the body carries all of a unit's kept text in one fragment.
     pub(super) fn full(&self, unit: usize, body: &Body) -> bool {
         body.fragments.iter().any(|fragment| {
             fragment.contribution.unit_index == unit
-                && self.mapped.units.get(unit).is_some_and(|whole| {
-                    fragment.contribution.range
-                        == TextRange {
-                            start: 0,
-                            end: whole.text.len(),
-                        }
-                })
+                && Some(fragment.contribution.range) == self.kept(unit)
         })
     }
 

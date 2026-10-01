@@ -6,9 +6,13 @@ use super::{
     bridge::Bridge,
     error::TokenizerError,
     parity::{Fixture, fixtures},
+    qualification::{QualificationMode, TokenizerQualification},
 };
 use maestro_canonicalization::{Error, TokenCounter};
-use maestro_kernel::gateway::{ModelCard, ModelPort, Role};
+use maestro_kernel::{
+    artifact::Digest,
+    gateway::{ModelCard, ModelPort, Role},
+};
 use std::time::Duration;
 
 /// How long one call to the port may take: long enough for the router to
@@ -50,6 +54,19 @@ pub struct RouterTokenizer {
     contract_id: String,
     /// The fixtures `verify` tokenizes again.
     canaries: Vec<Fixture>,
+    /// The v2 document format, or identity formatting for legacy cards.
+    card: ModelCard,
+    /// Qualification provenance carried into bake-off report generation.
+    qualification_mode: QualificationMode,
+    /// Exact profile digest; absent for legacy qualification.
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "the following bake-off slice binds candidate qualification"
+        )
+    )]
+    qualification_digest: Option<Digest>,
     /// The port's `tokenize` for the card.
     bridge: Bridge,
 }
@@ -57,11 +74,13 @@ pub struct RouterTokenizer {
 impl RouterTokenizer {
     /// The router tokenizer of the embedder `card` names, through `port`,
     /// once the port gives every parity fixture of the native profile the
-    /// native counter's ordered IDs.
+    /// native counter's ordered IDs. It accepts v1 cards only; v2 cards need
+    /// candidate-specific evidence through [`RouterTokenizer::qualify_with_profile`].
     ///
     /// # Errors
     ///
-    /// [`TokenizerError::NotAnEmbedder`] for any other card, before any call;
+    /// [`TokenizerError::NotAnEmbedder`] for any other role, or
+    /// [`TokenizerError::Qualification`] for a v2 card, before any call;
     /// [`TokenizerError::Disagreement`] for the first fixture whose IDs
     /// differ; [`TokenizerError::Unavailable`] when the embedder does not fit
     /// in free room; [`TokenizerError::TimedOut`] for a call the port did not
@@ -90,9 +109,15 @@ impl RouterTokenizer {
                 role,
             });
         }
+        if card.identity().is_some() {
+            return Err(TokenizerError::Qualification {
+                reason: "v2 cards require candidate evidence through qualify_with_profile"
+                    .to_owned(),
+            });
+        }
         let fixtures = fixtures().map_err(TokenizerError::Fixtures)?;
         let contract_id = format!("router/1:sha256:{}", card.digest().as_str());
-        let bridge = Bridge::start(port, card, deadline)?;
+        let bridge = Bridge::start(port, card.clone(), deadline)?;
         agree(&bridge, &fixtures)?;
         Ok(Self {
             contract_id,
@@ -100,8 +125,89 @@ impl RouterTokenizer {
                 .into_iter()
                 .filter(|fixture| fixture.canary)
                 .collect(),
+            card,
+            qualification_mode: QualificationMode::Native,
+            qualification_digest: None,
             bridge,
         })
+    }
+
+    /// Qualifies a v2 card only against its exact native-produced profile.
+    /// The qualification digest, weights, tokenizer, build, tool versions and
+    /// special-token policy are checked before the bridge can call the port.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error for a non-embedder card, mismatched qualification, or
+    /// tokenizer disagreement/unavailability/timeout.
+    pub fn qualify_with_profile<P>(
+        port: P,
+        card: ModelCard,
+        profile: &TokenizerQualification,
+    ) -> Result<Self, TokenizerError>
+    where
+        P: ModelPort + Send + 'static,
+    {
+        let role = card.fields().role;
+        if role != Role::Embedder {
+            return Err(TokenizerError::NotAnEmbedder {
+                card: card.digest().clone(),
+                role,
+            });
+        }
+        profile
+            .validate_for_card(&card)
+            .map_err(|error| TokenizerError::Qualification {
+                reason: error.to_string(),
+            })?;
+        let fixtures: Vec<Fixture> = profile
+            .fixtures
+            .iter()
+            .map(|fixture| Fixture {
+                name: fixture.name.clone(),
+                input: fixture.input.clone(),
+                ids: fixture.ids.clone(),
+                canary: fixture.canary,
+            })
+            .collect();
+        let contract_id = format!("router/1:sha256:{}", card.digest().as_str());
+        let bridge = Bridge::start(port, card.clone(), DEADLINE)?;
+        agree(&bridge, &fixtures)?;
+        Ok(Self {
+            contract_id,
+            canaries: fixtures
+                .into_iter()
+                .filter(|fixture| fixture.canary)
+                .collect(),
+            card,
+            qualification_mode: profile.qualification_mode(),
+            qualification_digest: Some(profile.digest().clone()),
+            bridge,
+        })
+    }
+
+    /// Qualification provenance proven by the constructor.
+    #[must_use]
+    pub const fn qualification_mode(&self) -> QualificationMode {
+        self.qualification_mode
+    }
+
+    /// Whether this tokenizer was qualified against the exact candidate evidence.
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "the following bake-off slice checks candidate evidence"
+        )
+    )]
+    pub(crate) fn is_qualified_for(
+        &self,
+        card: &ModelCard,
+        profile: &TokenizerQualification,
+    ) -> bool {
+        self.card.digest() == card.digest()
+            && self.qualification_digest.as_ref() == Some(profile.digest())
+            && self.qualification_mode == profile.qualification_mode()
     }
 
     /// Tokenizes the canary fixtures again, as the router does now: `verify`,
@@ -127,6 +233,16 @@ impl RouterTokenizer {
     /// room; [`TokenizerError::TimedOut`] and any other refusal of the port.
     pub fn count(&self, input: &str) -> Result<Vec<u32>, TokenizerError> {
         self.bridge.tokenize(input)
+    }
+
+    /// Counts the once-formatted document input, including its special and
+    /// prefix tokens, under the candidate's chunk budget.
+    ///
+    /// # Errors
+    ///
+    /// Returns the tokenizer refusal, timeout, or capacity error from `count`.
+    pub fn count_document(&self, input: &str) -> Result<Vec<u32>, TokenizerError> {
+        self.count(&self.card.format_document(input))
     }
 }
 
@@ -176,6 +292,6 @@ impl TokenCounter for RouterTokenizer {
     /// Any refusal of the port, an embedder that does not fit in free room
     /// and a call past the deadline among them.
     fn token_ids(&self, input: &str) -> Result<Vec<u32>, Error> {
-        self.count(input).map_err(|error| refusal(&error))
+        self.count_document(input).map_err(|error| refusal(&error))
     }
 }

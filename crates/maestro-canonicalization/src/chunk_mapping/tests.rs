@@ -1,7 +1,7 @@
 //! Tests of source mapping: order, Unicode, entities, envelopes and accounting.
 use super::{map_accounting, map_document, mapped_slice};
 use crate::{
-    content::{BlockType, ContentNode},
+    content::{BlockType, ContentNode, InlineKind},
     document::{CanonicalDocument, SourceRole},
     model::{CanonicalizeInput, SourceSpan},
     pipeline::canonicalize,
@@ -37,6 +37,79 @@ fn decoded_entities_keep_original_syntax_origins() {
                         .iter()
                         .any(|origin| &markdown[origin.span.start..origin.span.end] == "&amp;")
             })
+    );
+}
+
+#[test]
+fn empty_inline_math_is_structural_and_keeps_neighboring_text_mappable() {
+    let markdown = "left $$$$ and $x$ right\n";
+    let document = canonicalize(CanonicalizeInput::new(markdown, "empty-math")).unwrap();
+    let math_span = document
+        .blocks
+        .iter()
+        .flat_map(|block| &block.structured_content.children)
+        .find_map(|child| match child {
+            ContentNode::Inline { inline }
+                if matches!(&inline.content, InlineKind::Math { text, .. } if text.is_empty()) =>
+            {
+                Some(inline.source_span)
+            }
+            _ => None,
+        })
+        .expect("fixture contains an empty math node");
+    let nonempty_math_span = document
+        .blocks
+        .iter()
+        .flat_map(|block| &block.structured_content.children)
+        .find_map(|child| match child {
+            ContentNode::Inline { inline }
+                if matches!(&inline.content, InlineKind::Math { text, .. } if !text.is_empty()) =>
+            {
+                Some(inline.source_span)
+            }
+            _ => None,
+        })
+        .expect("fixture contains nonempty math");
+    let mapped = map_document(&document, markdown).unwrap();
+    let accounting_index = document
+        .source_accounting
+        .iter()
+        .position(|entry| {
+            entry.source_span.start <= math_span.start && math_span.end <= entry.source_span.end
+        })
+        .unwrap();
+    assert_eq!(
+        document.source_accounting[accounting_index].role,
+        SourceRole::StructuralSyntax
+    );
+    assert_eq!(
+        mapped.accounting[accounting_index].disposition,
+        SourceDisposition::Structural
+    );
+    let nonempty_accounting_index = document
+        .source_accounting
+        .iter()
+        .position(|entry| {
+            entry.source_span.start <= nonempty_math_span.start
+                && nonempty_math_span.end <= entry.source_span.end
+        })
+        .unwrap();
+    assert_eq!(
+        document.source_accounting[nonempty_accounting_index].role,
+        SourceRole::ParsedContent
+    );
+    assert_eq!(
+        mapped.accounting[nonempty_accounting_index].disposition,
+        SourceDisposition::Eligible
+    );
+    assert_eq!(
+        mapped
+            .units
+            .iter()
+            .filter(|unit| unit.primary)
+            .map(|unit| unit.text.as_str())
+            .collect::<String>(),
+        "left  and x right"
     );
 }
 

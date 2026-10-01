@@ -13,6 +13,7 @@ workspace = true
 [dependencies]
 reqwest.workspace = true
 rusqlite.workspace = true
+schemars.workspace = true
 serde.workspace = true
 # Scores read back to the same bits, so a bundle reads back equal.
 serde_json = { workspace = true, features = ["float_roundtrip"] }
@@ -22,4 +23,5 @@ tracing.workspace = true
 ulid.workspace = true
 
 [dev-dependencies]
+maestro-test-scratch.workspace = true
 tokio = { workspace = true, features = ["macros", "rt"] }

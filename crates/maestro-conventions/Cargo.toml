@@ -12,3 +12,4 @@ workspace = true
 
 [dependencies]
 pulldown-cmark.workspace = true
+toml.workspace = true

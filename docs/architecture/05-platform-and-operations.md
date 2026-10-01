@@ -33,7 +33,7 @@ write authority. Core installation and execution work with **Python absent**
 | Qdrant 1.19 (binary + systemd user unit) | release checksum | S1 | No |
 | Neo4j 2026.x Community (tarball or image by digest) | checksum / digest | S2 | Yes: the graph route reports `unavailable` without it |
 | Copilot CLI (for the SDK) | toolbelt pin | S4 | Only for the `copilot` provider |
-| OpenTelemetry backend (`grafana/otel-lgtm` image by digest) | digest | S1 | Yes: telemetry is diagnostic |
+| OpenTelemetry backend | — | Future, not S1 | No: S1 has no OTLP exporter or backend |
 
 `maestro setup` previews, then applies, the directories, kernel database, units,
 MCP registrations (Pi, Copilot) and catalog install; `maestro doctor` checks
@@ -137,22 +137,35 @@ callers.
 
 ## 4. Observability
 
+S1 uses local `tracing` spans and kernel health diagnostics. The exporter,
+collector and dashboard path below is future work; no OTLP exporter or backend
+is part of S1.
+
 ```mermaid
 flowchart LR
-  code[tracing spans + metrics] --> exp[tracing-opentelemetry 0.34<br/>opentelemetry-otlp 0.33]
-  exp -->|OTLP| col[Collector]
+  code[local tracing spans + health] -.-> exp[Future: tracing-opentelemetry + OTLP]
+  exp -. OTLP .-> col[Future collector]
   col --> traces[(Traces)]
   col --> metrics[(Metrics)]
   col --> logs[(Logs)]
-  traces & metrics & logs --> dash[Dashboards]
+  traces & metrics & logs --> dash[Future dashboards]
   code --> journal[(Kernel journal<br/>authoritative audit)]
 ```
 
 | Output | Purpose | Loss behaviour |
 | --- | --- | --- |
 | **Journal** (kernel) | Authoritative audit of runs, jobs, decisions, captures | A failed mandatory write blocks the effect it records |
-| **Telemetry** (OTLP) | Diagnostics, performance, dashboards | Bounded buffer; drops are counted and visible, never silent |
+| **Telemetry** (local S1 diagnostics) | Spans and health diagnostics | External OTLP export and backend are deferred beyond S1 |
 | **Eval reports** (artifacts) | Quality evidence for decisions | Immutable, referenced by the decision they support |
+
+The requirements below are the target for a future observability extension;
+they are not claims of implemented S1 coverage. S1 opens a span for each stage
+of publication (`knowledge.publish` and its steps), search (`retrieval.search`,
+its four routes, `retrieval.fuse`, `retrieval.rerank`), evidence assembly
+(`retrieval.assemble` and its phases) and each MCP tool call
+(`gen_ai.execute_tool`), with its outcome, duration and counts and never its
+content; the names are pinned in `maestro-kernel`'s `telemetry::span`. It also
+reports component health.
 
 **Span taxonomy** (GenAI semantic conventions, development status, attribute
 names centralized in one module so a convention change is one edit):
@@ -167,10 +180,10 @@ names centralized in one module so a convention change is one edit):
 | `gen_ai.execute_tool` | tool name, policy decision, sandbox profile, exit status |
 | `mcp.request` | method, tool, response size |
 
-**Metrics:** per-stage latency histograms; token usage by provider and model;
-policy decisions by rule and outcome; contract rejections by reason; first-pass
-versus repaired acceptance; workflow outcomes (accepted, blocked, partial,
-failed, cancelled); router queue and slot use; telemetry drops and export lag.
+**Future metrics plan:** per-stage latency histograms; token usage by provider
+and model; policy decisions by rule and outcome; contract rejections by reason;
+first-pass versus repaired acceptance; workflow outcomes; router queue and slot
+use; export lag and overhead.
 
 **Privacy:** no prompt, completion, code or argument content in telemetry by
 default; opt-in content capture goes to protected storage after redaction.
@@ -181,8 +194,9 @@ model limit, provider/template, tool/MCP, contract, evidence, policy,
 sandbox/runtime, environment. Each class maps to an owner and a corrective
 action, so a workflow problem is not "fixed" by changing the model.
 
-**Coverage: every stage is measured**, in fifteen layers: installation and
-bootstrap (duration, conflicts, remaining manual steps); runs and workflows
+**Future coverage target: measure every stage**, in fifteen layers:
+installation and bootstrap (duration, conflicts, remaining manual steps); runs
+and workflows
 (outcomes, duration); the orchestrator (routing, re-planning, delegation, turns,
 unnecessary roles); models (first event, first visible content, first complete
 tool call, usage, truncation, errors); context and skills (loaded volume,
@@ -210,12 +224,11 @@ the laptop (CPU, GPU, RAM, swap, thermal and power state); telemetry itself
   monetary estimates, local infrastructure cost, human rework time and measured
   energy stay separate. llama.cpp's `/metrics` counters are shared across
   callers and never attributed to one run.
-- W3C trace context links core, SDK, MCP and provider spans
-  (`TraceContextProvider`); the Copilot runtime exports through its own
-  telemetry configuration, the launcher controls which environment overrides
-  are allowed, and GitHub's internal session telemetry is not ours.
-- Metrics are tested with a test exporter: units, labels, duplicates and
-  sensitive fields.
+- A future W3C trace-context integration can link core, SDK, MCP and provider
+  spans (`TraceContextProvider`); external runtimes keep their own telemetry
+  configuration, outside this S1 exporter scope.
+- A future metrics implementation must test units, labels, duplicates and
+  sensitive fields with a test exporter.
 
 **Views:** platform health, model comparison, workflow and skill quality,
 security and evidence quality. No developer ranking or covert monitoring.
@@ -323,10 +336,10 @@ release controls.
 
 | Repository | CI | Release |
 | --- | --- | --- |
-| `maestro-core` | `rust-workflows` `ci.yml` pinned to v1.2.1 (coverage ≥ 90 %, Clippy pedantic denied, unsafe denied, mutation testing, public API compatibility, unused dependencies, SARIF); an integration workflow with Qdrant and Neo4j service containers pinned by digest; public synthetic eval suites; Scorecard; CodeQL default setup | release-please → `publish-binaries` (the `maestro` binary) → attestation → release evidence |
+| `maestro-core` | `rust-workflows` v4.3.1 gate; Qdrant integration service pinned by digest; public synthetic eval suites; Scorecard; CodeQL default setup | Release and attestation follow the repository workflow; the full final S1 gate remains CI evidence |
 | `maestro-manifests` | `maestro catalog check`, `maestro policy test`, scenario suites, all with the pinned released `maestro` binary | Tag → attested bundle |
 | `maestro-model-router` | `rust-workflows` `ci.yml` | release-please → binaries |
-| `ctm-collection` (private) | Lint and exporter tests only | None |
+| Private product collection | Scope, counts, content and acceptance receipts stay private | None |
 
 All repositories follow the organization's rulesets: pull requests only, squash
 merges, signed commits, conventional titles, CodeQL gate, immutable `v*` tags.

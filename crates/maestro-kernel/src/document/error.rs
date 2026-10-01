@@ -26,6 +26,9 @@ pub enum Error {
         /// The document refused.
         given: String,
     },
+    /// The group has conflicting complete membership in this batch or its
+    /// stored record, so nothing in this batch is recorded.
+    NearDuplicateConflict(String),
     /// The kernel's database refused; the message and the source are its own.
     Store(store::Error),
 }
@@ -48,6 +51,10 @@ impl fmt::Display for Error {
                 "the document {given} is refused: its collection records the document \
                  {recorded} from the same source reference"
             ),
+            Self::NearDuplicateConflict(group) => write!(
+                formatter,
+                "the near-duplicate group {group} has conflicting complete membership"
+            ),
             Self::Store(error) => fmt::Display::fmt(error, formatter),
         }
     }
@@ -60,7 +67,8 @@ impl error::Error for Error {
             Self::Store(error) => error.source(),
             Self::DocumentConflict(_)
             | Self::RevisionConflict(_)
-            | Self::SourceRefConflict { .. } => None,
+            | Self::SourceRefConflict { .. }
+            | Self::NearDuplicateConflict(_) => None,
         }
     }
 }

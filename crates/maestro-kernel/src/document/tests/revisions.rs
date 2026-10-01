@@ -247,6 +247,42 @@ fn a_failed_revision_can_be_neither_replaced_nor_deleted() {
 }
 
 #[test]
+fn a_revision_is_never_replaced_through_its_rowid() {
+    let scratch = Scratch::new();
+    let database = scratch.open();
+    let kept = revision(&database, "rev-a", RevisionStatus::Valid);
+    database.record_revision(&kept).unwrap();
+    database
+        .record_revision(&revision(&database, "rev-b", RevisionStatus::Valid))
+        .unwrap();
+    // A new id passes the insert's trigger, and a change of the rowid alone
+    // fires no update trigger; each takes the rowid of `rev-a`.
+    let rewrites = [
+        "INSERT OR REPLACE INTO revisions (rowid, id, document_id, original_digest,
+           canonical_digest, status, metadata_json)
+         SELECT rowid, 'rev-c', document_id, original_digest, canonical_digest, 'valid', '{}'
+         FROM revisions WHERE id = 'rev-a'",
+        "UPDATE OR REPLACE revisions SET rowid = (SELECT rowid FROM revisions WHERE id = 'rev-a')
+         WHERE id = 'rev-b'",
+    ];
+    for rewrite in rewrites {
+        assert_eq!(
+            run(&database, rewrite).map_err(|error| error.to_string()),
+            Err("a revision is immutable once recorded: it is never deleted".to_owned()),
+            "{rewrite}"
+        );
+        assert_eq!(
+            database
+                .revision(&ScopeSet::default_workspace(), "rev-a")
+                .unwrap()
+                .as_ref(),
+            Some(&kept),
+            "{rewrite}"
+        );
+    }
+}
+
+#[test]
 fn a_revision_status_moves_only_to_failed_and_never_back() {
     let scratch = Scratch::new();
     let database = scratch.open();
@@ -307,6 +343,34 @@ fn a_failed_revision_stays_inspectable_and_is_never_eligible() {
     assert_eq!(ids(&eligible), ["rev-c", "rev-a"], "in record order");
     assert_eq!(pins(&database, &failed.original_digest), 1);
     assert_eq!(pins(&database, &failed.canonical_digest), 1);
+}
+
+#[test]
+fn every_revision_of_a_collection_is_listed_in_record_order_failed_ones_included() {
+    let scratch = Scratch::new();
+    let database = scratch.open();
+    for (id, status) in [
+        ("rev-c", RevisionStatus::Valid),
+        ("rev-b", RevisionStatus::Failed),
+        ("rev-a", RevisionStatus::ValidWithWarnings),
+    ] {
+        database
+            .record_revision(&revision(&database, id, status))
+            .unwrap();
+    }
+    let scopes = ScopeSet::default_workspace();
+    let listed = database.revisions(&scopes, "ctm").unwrap();
+    assert_eq!(ids(&listed), ["rev-c", "rev-b", "rev-a"], "in record order");
+    assert_eq!(
+        listed[1],
+        revision(&database, "rev-b", RevisionStatus::Failed),
+        "read whole"
+    );
+    assert_eq!(
+        ids(&database.eligible_revisions(&scopes, "ctm").unwrap()),
+        ["rev-c", "rev-a"]
+    );
+    assert_eq!(database.revisions(&scopes, "other").unwrap(), Vec::new());
 }
 
 #[test]

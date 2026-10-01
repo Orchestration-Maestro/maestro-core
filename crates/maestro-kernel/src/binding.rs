@@ -132,23 +132,15 @@ impl error::Error for Error {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use maestro_test_scratch::scratch_directory;
     use std::{
         env,
         fs::{self, File},
-        process,
-        sync::atomic::{AtomicUsize, Ordering},
     };
 
     /// A new, empty directory for one test.
     fn scratch() -> PathBuf {
-        static NEXT: AtomicUsize = AtomicUsize::new(0);
-        let path = env::temp_dir().join(format!(
-            "maestro-kernel-binding-{}-{}",
-            process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
-        fs::create_dir(&path).unwrap();
-        path
+        scratch_directory().unwrap()
     }
 
     /// A path that is absolute on the host running the test.

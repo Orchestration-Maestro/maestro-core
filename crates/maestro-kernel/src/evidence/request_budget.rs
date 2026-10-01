@@ -1,0 +1,67 @@
+//! The transport-safe echo of the accepted search budget.
+
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+
+/// The request limits accepted for a search, echoed without exposing a clock
+/// instant.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, JsonSchema, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[expect(
+    clippy::min_ident_chars,
+    reason = "the maestro-evidence/1 search contract names this limit k"
+)]
+pub struct RequestBudget {
+    /// The maximum final passage count.
+    pub k: u32,
+    /// The maximum evidence budget in UTF-8 bytes.
+    pub evidence_bytes: u32,
+    /// The accepted deadline duration, in milliseconds.
+    pub deadline_ms: u32,
+}
+
+impl Default for RequestBudget {
+    fn default() -> Self {
+        Self {
+            k: 10,
+            evidence_bytes: 6000,
+            deadline_ms: Self::MAX_DEADLINE_MS,
+        }
+    }
+}
+
+impl RequestBudget {
+    /// The default search evidence budget, in UTF-8 bytes.
+    pub const DEFAULT_SEARCH_EVIDENCE_BYTES: u32 = 12_000;
+
+    /// The longest deadline a search accepts, in milliseconds. It is a
+    /// safety cap, not a quality cutoff: a search that loads cold models
+    /// under a loaded machine still completes within it.
+    pub const MAX_DEADLINE_MS: u32 = 30_000;
+
+    /// The largest evidence budget, `evidence_bytes`, that a search or an ask
+    /// accepts: UTF-8 bytes under the byte counters. The 29,621-token worst
+    /// case (longest prompt, 24,000 evidence bytes, two 2,048-token replies,
+    /// and repair text) fits the 32,768-token card when the answer-bound
+    /// counter is used and the vocabulary has no normalization map. A
+    /// byte-level BPE token covers at least one byte; prose usually runs 3 to
+    /// 4 bytes per token, so 24,000 bytes are typically 6,000 to 8,000 tokens.
+    pub const MAX_EVIDENCE_BUDGET: u32 = 24_000;
+
+    /// Whether this echo is within the search request bounds.
+    pub(super) fn validate(&self) -> Result<(), String> {
+        if !(1..=50).contains(&self.k) {
+            return Err("request budget k must be between 1 and 50".to_owned());
+        }
+        if !(1..=Self::MAX_EVIDENCE_BUDGET).contains(&self.evidence_bytes) {
+            return Err(format!(
+                "request budget evidence_bytes must be between 1 and {}",
+                Self::MAX_EVIDENCE_BUDGET
+            ));
+        }
+        if !(1..=Self::MAX_DEADLINE_MS).contains(&self.deadline_ms) {
+            return Err("request budget deadline_ms must be between 1 and 30000".to_owned());
+        }
+        Ok(())
+    }
+}

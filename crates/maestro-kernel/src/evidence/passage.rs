@@ -2,13 +2,14 @@
 //! with what identifies and cites it.
 
 use crate::artifact::Digest;
+use schemars::JsonSchema;
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Error as _};
 use std::fmt;
 
 /// A passage a bundle cites: the exact source text of a span of one
 /// revision, as the authority holds it, with what identifies and cites it.
 /// How it was found and ranked is in the bundle's trace, never here.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, JsonSchema, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Passage {
     /// Its number in the bundle, from 1: conflicts, the trace and an
@@ -37,15 +38,19 @@ pub struct Passage {
     /// The SHA-256 of its text, written `sha256:` and 64 lowercase
     /// hexadecimal characters.
     #[serde(serialize_with = "write_digest", deserialize_with = "read_digest")]
+    #[schemars(with = "String")]
     pub digest: Digest,
     /// Its text, verbatim.
     pub text: String,
+    /// Whether this passage contains a bounded window of its section.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub windowed: bool,
     /// The same section in other versions: listed, not ranked.
     pub alternates: Vec<Alternate>,
 }
 
 /// The same section in another version, listed beside a passage.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, JsonSchema, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Alternate {
     /// The version it documents, if it states one.
@@ -58,8 +63,9 @@ pub struct Alternate {
 /// A span of a revision's original Markdown in UTF-8 bytes, its start
 /// included and its end excluded. It is written `[start, end]`, and read, as
 /// a bundle writes it, only when its start is not after its end.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, JsonSchema, Serialize, Deserialize)]
 #[serde(into = "[usize; 2]", try_from = "[usize; 2]")]
+#[schemars(with = "[usize; 2]")]
 pub struct Span {
     /// The offset of its first byte.
     pub start: usize,

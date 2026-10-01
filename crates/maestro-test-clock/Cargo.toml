@@ -1,0 +1,21 @@
+[package]
+name = "maestro-test-clock"
+description = "Stopped Tokio time and stage completion signals for workspace tests"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+tokio = { workspace = true, features = [
+  "macros",
+  "rt",
+  "sync",
+  "test-util",
+  "time",
+] }
+tracing.workspace = true

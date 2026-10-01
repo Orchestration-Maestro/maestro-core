@@ -1,4 +1,4 @@
-//! The crate's one error type: a refusal that says why, never the source text.
+//! Canonicalization errors report why processing refused without echoing source text.
 use std::{error, fmt};
 
 /// An input or execution error that prevents canonicalization.

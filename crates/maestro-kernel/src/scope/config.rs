@@ -14,6 +14,7 @@
 //! reconciles the local principal's grants with it.
 
 use super::path::{InvalidScope, Scope};
+use crate::store;
 use std::{
     collections::BTreeSet,
     error, fmt, fs, io,
@@ -115,6 +116,39 @@ fn scopes(value: toml::Value) -> Result<BTreeSet<Scope>, ConfigError> {
             _ => Err(shape()),
         })
         .collect()
+}
+
+/// Why loading and reconciling the local grants failed.
+#[derive(Debug)]
+pub enum ConfigRefreshError {
+    /// The configuration file could not be read or was refused.
+    Config(ConfigError),
+    /// The database could not reconcile the grants.
+    Store(store::Error),
+}
+
+impl fmt::Display for ConfigRefreshError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Config(error) => fmt::Display::fmt(error, formatter),
+            Self::Store(error) => fmt::Display::fmt(error, formatter),
+        }
+    }
+}
+
+impl error::Error for ConfigRefreshError {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
+        match self {
+            Self::Config(error) => Some(error),
+            Self::Store(error) => Some(error),
+        }
+    }
+}
+
+impl From<store::Error> for ConfigRefreshError {
+    fn from(error: store::Error) -> Self {
+        Self::Store(error)
+    }
 }
 
 /// Why [`CONFIG_FILE`] was refused.

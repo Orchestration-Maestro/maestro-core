@@ -3,12 +3,14 @@
 //!
 //! A scope is a node of the kernel's access tree, written as a path of kind
 //! and name pairs: `workspace/<name>`, then optionally `collection/<name>`,
-//! then optionally `source/<name>`. Those are the kinds, in that order, and a
-//! name follows the rule of [`check_name`]. Collection and source IDs follow
-//! the same rule: the kernel refuses to record a collection or a source whose
-//! ID breaks it, so each ID forms one segment of its scope's path. The
-//! kernel's records live in the workspace `default`: a collection's scope is
-//! `workspace/default/collection/<id>`, a source's `…/source/<id>`; a
+//! then optionally `source/<name>`. Workspace and source names follow the
+//! rule of [`check_name`]; collection IDs additionally may not end in
+//! `-g<digits>`, reserved for Qdrant generation names. The kernel refuses to
+//! record an ID that breaks its rule, so each ID forms one segment of its
+//! scope's path. The
+//! kernel's records live in the workspace `default`, [`WORKSPACE`]: a
+//! collection's scope is `workspace/default/collection/<id>`, a source's
+//! `…/source/<id>`, which [`collection_path`] and [`source_path`] write; a
 //! document and its revisions have their source's, a generation its
 //! collection's, and an event the scope it was recorded in, which the journal
 //! refuses unless it is a scope path.
@@ -42,25 +44,39 @@
 //!   [`Database::collect_garbage`](crate::store::Database::collect_garbage):
 //!   the artifacts no record refers to, whatever their scope, which serve the
 //!   garbage collector only, never a tool;
+//! - [`Database::quick_check`](crate::store::Database::quick_check) and
+//!   [`Database::check_artifacts`](crate::store::Database::check_artifacts):
+//!   whether the database file and the artifact tree are intact, which
+//!   serve `maestro doctor` only, never a tool: they name no record, and the
+//!   digests they give are those of artifacts nobody can read intact;
 //! - [`Database::cursor`](crate::store::Database::cursor): how far a
 //!   consumer has read a stream, a position rather than an event;
 //! - [`Database::ack`](crate::store::Database::ack): its refusal names a
 //!   stream's last sequence, a position rather than an event;
 //! - [`Database::visible`](crate::store::Database::visible): a principal's
-//!   grants, which are what a set is made of.
-//!
-//! The migrations have no public reader: the database applies them when it
-//! opens.
+//!   grants, which are what a set is made of;
+//! - [`Database::setting_changes`](crate::store::Database::setting_changes):
+//!   a principal's own changes to its preferences files, keys and values
+//!   only, which serve `maestro config history`: they name no record;
+//! - [`store::pending_migrations`](crate::store::pending_migrations): the
+//!   migrations a database lacks, or the one it records that this binary
+//!   lacks, read from the file opened read-only, which serve `maestro
+//!   doctor` and `maestro status` only, so that neither migrates a database:
+//!   the database applies them when it opens.
 
 mod config;
 mod grant;
+mod known;
 mod path;
 mod right;
 mod set;
 #[cfg(test)]
 mod tests;
 
-pub use config::{CONFIG_FILE, Config, ConfigError, LOCAL};
-pub use path::{InvalidName, InvalidScope, Scope, check_name};
+pub use config::{CONFIG_FILE, Config, ConfigError, ConfigRefreshError, LOCAL};
+pub use path::{
+    InvalidName, InvalidScope, Scope, WORKSPACE, check_collection_name, check_name,
+    collection_path, source_path,
+};
 pub use right::Right;
 pub use set::ScopeSet;

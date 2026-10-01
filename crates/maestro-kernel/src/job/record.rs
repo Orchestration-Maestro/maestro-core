@@ -20,6 +20,8 @@ use ulid::Ulid;
 pub(super) const COLUMNS: &str = "id, kind, idempotency_key, attempt, scope, resource, state, \
                                   lease_number, lease_holder, lease_heartbeat, lease_expires, \
                                   outcome_json";
+/// Maximum job history returned for one resource.
+const MAX_RESOURCE_JOBS: usize = 1000;
 
 /// A job to submit: work of a kind on the frozen inputs its caller chose, in
 /// the scope it works on, and the resource it holds, if any.
@@ -140,6 +142,60 @@ impl Database {
             record_on_stream(transaction, job.id, &job.scope, created, &data)?;
             Ok(job)
         })
+    }
+
+    /// Jobs that still hold `resource`, visible through `scopes`, in ID order.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Store`] when the database cannot be read or a job row cannot
+    /// be decoded.
+    pub fn unfinished_jobs(&self, scopes: &ScopeSet, resource: &str) -> Result<Vec<Job>, Error> {
+        let reader = self.reader()?;
+        let mut statement = reader.prepare(&format!(
+            "SELECT {COLUMNS} FROM jobs
+             WHERE resource = ?1 AND state IN ('queued', 'running') AND {}
+             ORDER BY id",
+            ScopeSet::condition("jobs.scope", 2)
+        ))?;
+        let jobs = statement
+            .query_map(params![resource, scopes.parameter()], job_row)?
+            .collect::<Result<_, _>>()?;
+        Ok(jobs)
+    }
+
+    /// Jobs of `kind` that held `resource`, in every state, newest first,
+    /// when `scopes` covers the job's scope.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::TooManyJobs`] when the visible history exceeds its bound, or
+    /// [`Error::Store`] when the database cannot be read or a job row cannot
+    /// be decoded.
+    pub fn jobs_for_resource(
+        &self,
+        scopes: &ScopeSet,
+        kind: &str,
+        resource: &str,
+    ) -> Result<Vec<Job>, Error> {
+        let reader = self.reader()?;
+        let mut statement = reader.prepare(&format!(
+            "SELECT {COLUMNS} FROM jobs
+             WHERE kind = ?1 AND resource = ?2 AND {}
+             ORDER BY rowid DESC LIMIT {}",
+            ScopeSet::condition("jobs.scope", 3),
+            MAX_RESOURCE_JOBS + 1,
+        ))?;
+        let jobs = statement
+            .query_map(params![kind, resource, scopes.parameter()], job_row)?
+            .collect::<Result<Vec<_>, _>>()?;
+        if jobs.len() > MAX_RESOURCE_JOBS {
+            return Err(Error::TooManyJobs {
+                resource: resource.to_owned(),
+                limit: MAX_RESOURCE_JOBS,
+            });
+        }
+        Ok(jobs)
     }
 
     /// The job `id`, if it is recorded and `scopes` covers the scope it works

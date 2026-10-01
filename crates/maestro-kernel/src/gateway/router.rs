@@ -2,13 +2,17 @@
 //! endpoints, `/models/<entry>/…`.
 
 use super::{
-    card::{ModelCard, Role},
-    port::{Error, Message, ModelPort, Room, embedder_dimensions, require},
+    body::{
+        MAX_CATALOG_BODY_BYTES, MAX_CHAT_BODY_BYTES, MAX_ERROR_BODY_BYTES, MAX_PROPS_BODY_BYTES,
+        embeddings_limit, ranking_limit, read_bounded, tokens_limit,
+    },
+    card::{ModelCard, Role, RouterEntry},
+    port::{ChatRequest, Error, ModelPort, Room, embedder_dimensions, require},
 };
 use crate::artifact::Digest;
-use reqwest::{Client, RequestBuilder, Url};
+use reqwest::{Client, RequestBuilder, Url, redirect::Policy};
 use serde::{Deserialize, de::DeserializeOwned};
-use serde_json::{Value, json};
+use serde_json::{Map, Value, json};
 use std::{
     collections::HashSet,
     sync::{Mutex, PoisonError},
@@ -18,6 +22,10 @@ use std::{
 /// (T002): with its one value, `free`, the router refuses rather than unload
 /// another model.
 const ROOM_HEADER: &str = "X-Model-Router-Room";
+/// Maximum decoded answer content accepted from the model.
+const MAX_CHAT_CONTENT_BYTES: usize = 32_768;
+// A reply at the chat ceiling fits the content cap at 16 bytes per token.
+const _: () = assert!(super::port::MAX_CHAT_OUTPUT_TOKENS as usize * 16 <= MAX_CHAT_CONTENT_BYTES);
 
 /// A client of the model router. Each call goes to the entry its card names,
 /// after the card is checked against what the model's server reports, and
@@ -36,8 +44,9 @@ pub struct RouterClient {
 
 impl RouterClient {
     /// A client of the router answering at the root of `base`, such as
-    /// `http://127.0.0.1:8080`. It uses no proxy and reads no environment
-    /// variable, and it sets no deadline: its caller does.
+    /// `http://127.0.0.1:8080`. It uses no proxy, follows no redirect and
+    /// reads no environment variable, and it sets no deadline: its caller
+    /// does.
     ///
     /// # Errors
     ///
@@ -45,6 +54,7 @@ impl RouterClient {
     pub fn new(base: Url) -> Result<Self, Error> {
         let http = Client::builder()
             .no_proxy()
+            .redirect(Policy::none())
             .build()
             .map_err(Error::Transport)?;
         Ok(Self {
@@ -52,6 +62,33 @@ impl RouterClient {
             http,
             checked: Mutex::default(),
         })
+    }
+
+    /// The entries of the router's catalog, in its order, as `GET
+    /// /v1/models` lists them: the listing starts no model, so it asks for
+    /// no room.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Transport`] when the router cannot be reached,
+    /// [`Error::Refused`] when it refuses, and [`Error::InvalidAnswer`] when
+    /// the answer is no listing or names an entry that is no entry name.
+    pub async fn catalog(&self) -> Result<Vec<RouterEntry>, Error> {
+        let mut url = self.base.clone();
+        url.set_path("/v1/models");
+        let listing: Listing = send(self.http.get(url), Room::Any, MAX_CATALOG_BODY_BYTES).await?;
+        listing
+            .data
+            .into_iter()
+            .map(|model| {
+                RouterEntry::parse(&model.id).map_err(|_| {
+                    invalid(format!(
+                        "the catalog lists {:?}, which is no entry name",
+                        model.id
+                    ))
+                })
+            })
+            .collect()
     }
 
     /// The URL of `path` under the model `card` names.
@@ -75,7 +112,14 @@ impl RouterClient {
         if self.is_checked(card.digest()) {
             return Ok(());
         }
-        let props: Props = send(self.http.get(self.endpoint(card, "props")), room).await?;
+        self.recheck(card, room).await
+    }
+
+    /// Asks `/props` in `room` and compares `card` with it, checked or not:
+    /// the request reloads a model the router unloaded.
+    async fn recheck(&self, card: &ModelCard, room: Room) -> Result<(), Error> {
+        let request = self.http.get(self.endpoint(card, "props"));
+        let props: Props = send(request, room, MAX_PROPS_BODY_BYTES).await?;
         props.compare(card)?;
         self.checked
             .lock()
@@ -93,20 +137,29 @@ impl RouterClient {
     }
 
     /// Posts `body` to `path` under the model `card` names, once the card is
-    /// checked.
+    /// checked, and reads an answer of at most `limit` bytes.
     async fn call<T: DeserializeOwned>(
         &self,
         card: &ModelCard,
         room: Room,
-        path: &str,
+        (path, limit): (&str, usize),
         body: &Value,
     ) -> Result<T, Error> {
         self.check(card, room).await?;
-        send(self.http.post(self.endpoint(card, path)).json(body), room).await
+        let request = self.http.post(self.endpoint(card, path)).json(body);
+        send(request, room, limit).await
     }
 }
 
 impl ModelPort for RouterClient {
+    /// Checks the card on every call, which loads its model in `room` when
+    /// it is not loaded, also after the router unloaded it while idle: a
+    /// long-lived client, such as the MCP server's, reloads the model here
+    /// rather than in the call's window. The calls keep their cached check.
+    async fn prepare(&self, card: &ModelCard, room: Room) -> Result<(), Error> {
+        self.recheck(card, room).await
+    }
+
     async fn embed(
         &self,
         card: &ModelCard,
@@ -117,8 +170,14 @@ impl ModelPort for RouterClient {
         if inputs.is_empty() {
             return Ok(Vec::new());
         }
+        let limit = embeddings_limit(inputs.len(), dimensions.get());
         let answer: Embeddings = self
-            .call(card, room, "v1/embeddings", &json!({"input": inputs}))
+            .call(
+                card,
+                room,
+                ("v1/embeddings", limit),
+                &json!({"input": inputs}),
+            )
             .await?;
         let vectors = by_index(
             inputs.len(),
@@ -151,7 +210,8 @@ impl ModelPort for RouterClient {
             return Ok(Vec::new());
         }
         let body = json!({"query": query, "documents": documents});
-        let answer: Ranking = self.call(card, room, "v1/rerank", &body).await?;
+        let limit = ranking_limit(documents.len());
+        let answer: Ranking = self.call(card, room, ("v1/rerank", limit), &body).await?;
         by_index(
             documents.len(),
             answer
@@ -165,7 +225,8 @@ impl ModelPort for RouterClient {
         // As the embedding path counts: special tokens added and parsed, as
         // maestro-canonicalization's TOKENIZER.md records.
         let body = json!({"content": text, "add_special": true, "parse_special": true});
-        let answer: Tokens = self.call(card, room, "tokenize", &body).await?;
+        let limit = tokens_limit(text.len());
+        let answer: Tokens = self.call(card, room, ("tokenize", limit), &body).await?;
         Ok(answer.tokens)
     }
 
@@ -173,34 +234,127 @@ impl ModelPort for RouterClient {
         &self,
         card: &ModelCard,
         room: Room,
-        messages: &[Message],
+        request: &ChatRequest,
     ) -> Result<String, Error> {
-        require(card, Role::Answerer)?;
-        let body = json!({"messages": messages});
-        let answer: Completion = self.call(card, room, "v1/chat/completions", &body).await?;
-        answer
-            .choices
-            .into_iter()
-            .next()
-            .and_then(|choice| choice.message.content)
-            .ok_or_else(|| invalid("no reply"))
+        let sampling = request.validate(card)?;
+        let mut body = Map::from_iter([
+            ("messages".to_owned(), json!(request.messages)),
+            ("max_tokens".to_owned(), json!(request.max_output_tokens)),
+            ("stream".to_owned(), Value::Bool(false)),
+            (
+                "chat_template_kwargs".to_owned(),
+                request.template_values()?,
+            ),
+        ]);
+        if let Some(sampling) = sampling {
+            for (field, value) in [
+                ("temperature", json!(sampling.temperature)),
+                ("top_p", json!(sampling.top_p)),
+                ("top_k", json!(sampling.top_k)),
+                ("min_p", json!(sampling.min_p)),
+                ("typical_p", json!(sampling.typical_p)),
+                ("repeat_penalty", json!(sampling.repeat_penalty)),
+                ("frequency_penalty", json!(sampling.frequency_penalty)),
+                ("presence_penalty", json!(sampling.presence_penalty)),
+            ] {
+                body.insert(field.to_owned(), value);
+            }
+            if let Some(seed) = sampling.seed {
+                body.insert("seed".to_owned(), json!(seed));
+            }
+        }
+        let answer: Completion = self
+            .call(
+                card,
+                room,
+                ("v1/chat/completions", MAX_CHAT_BODY_BYTES),
+                &Value::Object(body),
+            )
+            .await?;
+        answer.into_content()
     }
 }
 
-/// Sends `request` in `room`, and reads its answer as `T`.
-async fn send<T: DeserializeOwned>(request: RequestBuilder, room: Room) -> Result<T, Error> {
+/// Sends `request` in `room`, and reads its answer as `T` when it is at most
+/// `limit` bytes, and a refusal when it is at most [`MAX_ERROR_BODY_BYTES`];
+/// a longer refusal keeps its status and quotes only the limit.
+/// A redirect is refused unread: following it could send the request's body
+/// off this machine.
+async fn send<T: DeserializeOwned>(
+    request: RequestBuilder,
+    room: Room,
+    limit: usize,
+) -> Result<T, Error> {
     let request = match room {
         Room::Free => request.header(ROOM_HEADER, "free"),
         // No header at all: the router refuses any value but `free`.
         Room::Any => request,
     };
-    let response = request.send().await.map_err(Error::Transport)?;
+    let mut response = request.send().await.map_err(Error::Transport)?;
     let status = response.status();
-    let body = response.bytes().await.map_err(Error::Transport)?;
-    if !status.is_success() {
-        return Err(refusal(status.as_u16(), &body));
+    if status.is_redirection() {
+        return Err(Error::Redirected {
+            status: status.as_u16(),
+        });
     }
+    if !status.is_success() {
+        let status = status.as_u16();
+        return Err(
+            match read_bounded(&mut response, MAX_ERROR_BODY_BYTES).await {
+                Ok(body) => refusal(status, &body),
+                // A refusal too long to read is still a refusal of its status,
+                // not a model answer to repair: only the limit is quoted.
+                Err(Error::InvalidAnswer { reason }) => Error::Refused {
+                    status,
+                    code: None,
+                    message: reason,
+                },
+                Err(error) => error,
+            },
+        );
+    }
+    let body = read_bounded(&mut response, limit).await?;
     serde_json::from_slice(&body).map_err(|error| invalid(error.to_string()))
+}
+
+/// The text of a one-choice, complete assistant reply.
+fn completion_content(completion: Completion) -> Result<String, Error> {
+    let mut choices = completion.choices.into_iter();
+    let Some(choice) = choices.next() else {
+        return Err(invalid("chat response must contain exactly one choice"));
+    };
+    if choices.next().is_some() {
+        return Err(invalid("chat response must contain exactly one choice"));
+    }
+    if choice.index != 0 {
+        return Err(invalid("chat response choice index is not zero"));
+    }
+    if choice.finish_reason != "stop" {
+        return Err(invalid("chat response was truncated or ended unexpectedly"));
+    }
+    if choice.message.role != "assistant" || has_tool_call(&choice.message) {
+        return Err(invalid("chat response is not a plain assistant reply"));
+    }
+    let content = choice
+        .message
+        .content
+        .filter(|content| !content.is_empty())
+        .ok_or_else(|| invalid("chat response has no content"))?;
+    if content.len() > MAX_CHAT_CONTENT_BYTES {
+        return Err(invalid("chat response content exceeds 32768 bytes"));
+    }
+    Ok(content)
+}
+
+/// Whether a chat completion tries to call a tool or function.
+fn has_tool_call(message: &Reply) -> bool {
+    message.tool_calls.as_ref().is_some_and(has_value)
+        || message.function_call.as_ref().is_some_and(has_value)
+}
+
+/// Whether a provider field contains a nonempty tool invocation.
+fn has_value(value: &Value) -> bool {
+    !value.is_null() && !value.as_array().is_some_and(Vec::is_empty)
 }
 
 /// The error a refusal of `status` with `body` means: the router's own
@@ -320,6 +474,20 @@ struct Refusal {
     code: Option<Value>,
 }
 
+/// `/v1/models`' answer: the router's catalog.
+#[derive(Deserialize)]
+struct Listing {
+    /// One model per entry.
+    data: Vec<Listed>,
+}
+
+/// One entry of the catalog.
+#[derive(Deserialize)]
+struct Listed {
+    /// Its name.
+    id: String,
+}
+
 /// `/v1/embeddings`' answer.
 #[derive(Deserialize)]
 struct Embeddings {
@@ -362,13 +530,24 @@ struct Tokens {
 /// `/v1/chat/completions`' answer.
 #[derive(Deserialize)]
 struct Completion {
-    /// The replies; one unless more were asked for.
+    /// The choices returned for the single prompt.
     choices: Vec<Choice>,
+}
+
+impl Completion {
+    /// The one plain reply, if the response did not truncate or call tools.
+    fn into_content(self) -> Result<String, Error> {
+        completion_content(self)
+    }
 }
 
 /// One reply.
 #[derive(Deserialize)]
 struct Choice {
+    /// Its position in the request's choices.
+    index: usize,
+    /// Why generation stopped.
+    finish_reason: String,
     /// The reply's message.
     message: Reply,
 }
@@ -376,6 +555,12 @@ struct Choice {
 /// A reply's message.
 #[derive(Deserialize)]
 struct Reply {
-    /// The text, which a reply that only calls tools lacks.
+    /// The role the provider returned.
+    role: String,
+    /// The generated text, which a reply that only calls tools lacks.
     content: Option<String>,
+    /// A provider tool invocation, which ask never permits.
+    tool_calls: Option<Value>,
+    /// A legacy provider function invocation, which ask never permits.
+    function_call: Option<Value>,
 }

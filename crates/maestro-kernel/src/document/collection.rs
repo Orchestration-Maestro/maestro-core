@@ -3,7 +3,7 @@
 
 use super::error::Error;
 use crate::{
-    scope::{ScopeSet, check_name},
+    scope::{ScopeSet, check_collection_name, check_name},
     store::Database,
 };
 use rusqlite::{Connection, OptionalExtension as _, Row, Transaction, params, types::Type};
@@ -14,7 +14,7 @@ use std::collections::BTreeMap;
 /// A collection: a logical body of knowledge, as its declaration names it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Collection {
-    /// Its id, such as `ctm`: a scope name.
+    /// Its id, such as `ctm`: a collection name.
     pub id: String,
     /// What it holds, for people.
     pub title: String,
@@ -64,10 +64,11 @@ impl Database {
     ///
     /// # Errors
     ///
-    /// [`Error::InvalidId`] when its id is not a scope name, before anything
-    /// is written, and [`Error::Store`] when the database cannot record it.
+    /// [`Error::InvalidId`] when its id is not a collection name, before
+    /// anything is written, and [`Error::Store`] when the database cannot
+    /// record it.
     pub fn record_collection(&self, collection: &Collection) -> Result<(), Error> {
-        check_name(&collection.id).map_err(Error::InvalidId)?;
+        check_collection_name(&collection.id).map_err(Error::InvalidId)?;
         self.write(|transaction| {
             transaction.execute(
                 "INSERT INTO collections (id, title, visibility, profiles_json)
@@ -100,17 +101,28 @@ impl Database {
                     ScopeSet::collection_condition("collections.id", 2)
                 ),
                 params![id, scopes.parameter()],
-                |row| {
-                    Ok(Collection {
-                        id: row.get(0)?,
-                        title: row.get(1)?,
-                        visibility: row.get(2)?,
-                        profiles: json(row, 3)?,
-                    })
-                },
+                collection_row,
             )
             .optional()?;
         Ok(collection)
+    }
+
+    /// Every collection recorded whose scope `scopes` covers, in id order.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Store`] when the database cannot be read.
+    pub fn collections(&self, scopes: &ScopeSet) -> Result<Vec<Collection>, Error> {
+        let reader = self.reader()?;
+        let mut statement = reader.prepare(&format!(
+            "SELECT id, title, visibility, profiles_json FROM collections
+             WHERE {} ORDER BY id",
+            ScopeSet::collection_condition("collections.id", 1)
+        ))?;
+        let collections = statement
+            .query_map([scopes.parameter()], collection_row)?
+            .collect::<Result<_, _>>()?;
+        Ok(collections)
     }
 
     /// Records `source` in its collection as its declaration now names it: a
@@ -119,11 +131,12 @@ impl Database {
     ///
     /// # Errors
     ///
-    /// [`Error::InvalidId`] when its id or its collection's is not a scope
-    /// name, before anything is written, and [`Error::Store`] when its
-    /// collection is not recorded or the database cannot record it.
+    /// [`Error::InvalidId`] when its id is not a scope name or its collection
+    /// is not a collection name, before anything is written, and
+    /// [`Error::Store`] when its collection is not recorded or the database
+    /// cannot record it.
     pub fn record_source(&self, source: &Source) -> Result<(), Error> {
-        check_name(&source.collection_id).map_err(Error::InvalidId)?;
+        check_collection_name(&source.collection_id).map_err(Error::InvalidId)?;
         check_name(&source.id).map_err(Error::InvalidId)?;
         self.write(|transaction| {
             transaction.execute(
@@ -267,6 +280,16 @@ fn find_document(
             },
         )
         .optional()
+}
+
+/// The collection of a row of `id, title, visibility, profiles_json`.
+fn collection_row(row: &Row<'_>) -> rusqlite::Result<Collection> {
+    Ok(Collection {
+        id: row.get(0)?,
+        title: row.get(1)?,
+        visibility: row.get(2)?,
+        profiles: json(row, 3)?,
+    })
 }
 
 /// `profiles` as the JSON object their column holds.
