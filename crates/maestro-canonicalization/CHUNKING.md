@@ -176,7 +176,7 @@ just native
 `just native` runs the machine-specific ignored native test and requires
 `MAESTRO_NATIVE_BINDING`; see [TOKENIZER.md](TOKENIZER.md) for its prerequisites.
 For the current repository gate, use the workflow in the root
-[README](../../README.md#develop). An ignored test is not a pass. Private
+[README](../../README.md#-develop). An ignored test is not a pass. Private
 scalar-counter tests establish structure, not native budget compliance.
 
 ### Historical S0 verification (2026-09-26)
