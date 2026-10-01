@@ -105,7 +105,7 @@ impl LiteralKind {
 }
 
 /// Workspace-relative fixtures also work on native Windows and macOS.
-fn workspace() -> PathBuf {
+pub(super) fn workspace() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .unwrap()
@@ -430,81 +430,6 @@ fn check_coverage(tasks: &str) -> Result<(), &'static str> {
         return Err("requirement map differs from Acceptance lines");
     }
     Ok(())
-}
-
-/// G01's bounded document surface; no other slice's implementation is inspected.
-const CONTRACT_DOCUMENTS: &[&str] = &[
-    "specs/002-knowledge-graph/spec.md",
-    "specs/002-knowledge-graph/plan.md",
-    "specs/002-knowledge-graph/tasks.md",
-    "docs/adr/0021-embedded-ladybug-graph-projection.md",
-    "docs/adr/README.md",
-    "docs/adr/0004-neo4j-for-the-graph-projection.md",
-    "docs/adr/0020-rust-libraries-with-named-dependency-exceptions.md",
-    "docs/architecture/README.md",
-    "docs/architecture/01-knowledge-pipeline.md",
-    "docs/architecture/02-retrieval-and-knowledge-graph.md",
-    "docs/architecture/04-intelligence-backend.md",
-    "docs/architecture/05-platform-and-operations.md",
-    "docs/architecture/06-roadmap.md",
-    "docs/architecture/08-traceability.md",
-];
-
-#[test]
-fn manifest_graph_bounds_match_approved_s3_d14() {
-    let plan = fs::read_to_string(workspace().join(CONTRACT_DOCUMENTS[1])).unwrap();
-    let rows: Vec<_> = plan
-        .lines()
-        .filter(|line| line.starts_with("| `graphdb."))
-        .collect();
-    // Independent literals from S3 30b702b plan D14, not native optima.
-    assert_eq!(
-        rows,
-        [
-            "| `graphdb.buffer_pool_size` | 16 MiB | 1 GiB | 256 MiB | No zero/auto |",
-            "| `graphdb.max_db_size` | 16 MiB | 1 TiB | 16 GiB | Power of two; not a disk quota |",
-            "| `graphdb.max_num_threads` | 1 | 64 | 2 | Not Cargo parallelism |",
-        ]
-    );
-}
-
-#[test]
-fn manifest_setting_and_backend_type_keep_registry_and_lock_handoff() {
-    for path in &CONTRACT_DOCUMENTS[..4] {
-        let text = fs::read_to_string(workspace().join(path)).unwrap();
-        for required in [
-            "`graph.engine`",
-            "`type = \"ladybug\"`",
-            "`settings/defaults.toml`",
-            "C46",
-            "C47a",
-            "C48",
-            "OA1",
-            "complete non-resource lock",
-        ] {
-            assert!(text.contains(required), "{path}: missing {required}");
-        }
-    }
-}
-
-#[test]
-fn graph_documents_link_one_handoff_and_reject_retired_engine_resources() {
-    for path in CONTRACT_DOCUMENTS.iter().copied().chain([
-        "tests/fixtures/synthetic/graph/defaults.md",
-        "tests/fixtures/synthetic/graph/defaults.json",
-    ]) {
-        let text = fs::read_to_string(workspace().join(path)).unwrap();
-        for retired in ["engine:ladybug", "`engine:`", "engines/ladybug"] {
-            assert!(!text.contains(retired), "{path}: retired {retired}");
-        }
-        if path.ends_with(".md") && !path.ends_with("defaults.md") {
-            assert!(
-                text.contains("Manifest v4 settings and lock handoff")
-                    || text.contains("#manifest-v4-settings-and-lock-handoff"),
-                "{path}: handoff link"
-            );
-        }
-    }
 }
 
 #[test]

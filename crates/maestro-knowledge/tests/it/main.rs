@@ -7,6 +7,7 @@ mod corpus_contract;
 mod eval_synthetic;
 mod graph_descriptors;
 mod graph_fixture;
+mod graph_manifest_contract;
 mod import_contract;
 mod lexical_accents;
 mod lexical_fold;

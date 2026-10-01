@@ -1405,6 +1405,7 @@ in place.
 │   │   │       ├── eval_synthetic.rs                                        # The evaluation runner over the public synthetic suite (T014), end to end
 │   │   │       ├── graph_descriptors.rs                                     # The public descriptor adapter deletes and recreates its actual gRPC collection
 │   │   │       ├── graph_fixture.rs                                         # G01's synthetic pilot contract, not the G03 production rule engine
+│   │   │       ├── graph_manifest_contract.rs                               # Approved manifest handoff document guards; not runtime qualification
 │   │   │       ├── lexical_accents.rs                                       # Properties of bm25-en-fr/1 over generated texts: a text and the same
 │   │   │       ├── lexical_fold.rs                                          # Folding in bm25-en-fr/1: every letter of Latin-1 Supplement and Latin
 │   │   │       ├── lexical_golden.rs                                        # The golden of bm25-en-fr/1: the terms and vectors of sample passages and
