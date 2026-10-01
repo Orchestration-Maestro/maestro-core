@@ -21,7 +21,7 @@ use tokio::time::Instant;
 pub struct Accounting {
     /// Retained tighter effective limits, never widened on reuse.
     limits: Limits,
-    /// Raw bytes after each header CRLFCRLF: DATA, chunk framing and trailers.
+    /// Raw bytes after each final header CRLFCRLF: DATA, chunk framing and trailers.
     wire: u64,
     /// Bytes emitted by every decoder, not only final output.
     expanded: u64,
@@ -67,7 +67,7 @@ impl Accounting {
     pub fn limits(&self) -> &Limits {
         &self.limits
     }
-    /// All raw post-header bytes, including redirect DATA, framing and trailers.
+    /// All raw post-final-header bytes, including redirect DATA, framing and trailers.
     #[must_use]
     pub fn wire_bytes(&self) -> u64 {
         self.wire
@@ -118,6 +118,11 @@ impl Accounting {
     pub(super) fn bind_run_deadline(&mut self, deadline: StdInstant) {
         let deadline = Instant::from_std(deadline);
         self.run_deadline = Some(self.run_deadline.map_or(deadline, |old| old.min(deadline)));
+    }
+    /// Snapshot the effective owned cutoff and clock for the read boundary.
+    pub(super) fn read_timing(&self) -> Result<(Arc<dyn Clock>, StdInstant), Failure> {
+        let deadline = self.deadline.ok_or(Failure::Configuration)?;
+        Ok((Arc::clone(&self.clock), deadline.into_std()))
     }
     /// Current time from the document's trusted clock, also used for pacing.
     pub(super) fn now(&self) -> StdInstant {
@@ -471,10 +476,10 @@ impl Clock for TokioClock {
 
 /// Transfer every raw read to accounting before examining decoded frames.
 pub(super) fn charge_quota(quota: &Quota, accounting: &mut Accounting) -> Result<(), Failure> {
-    let (received, exhausted) = quota.take_received()?;
+    let (received, failure) = quota.take_received()?;
     accounting.encoded(received)?;
-    if exhausted {
-        return Err(Failure::EncodedBytes);
+    if let Some(failure) = failure {
+        return Err(failure);
     }
     Ok(())
 }

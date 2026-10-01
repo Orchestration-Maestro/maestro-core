@@ -53,7 +53,7 @@ pub struct Limits {
     pub depth: NonZeroU64,
     /// Declared `elapsed_ms`; no inferred default.
     pub elapsed_ms: NonZeroU64,
-    /// Raw bytes read after header CRLFCRLF: DATA, chunk framing and trailers.
+    /// Raw bytes read after the final header CRLFCRLF: DATA, chunk framing and trailers.
     /// Encoded response `wire_body` remains DATA-only. No inferred default.
     pub wire_bytes: NonZeroU64,
     /// Declared `dom_bytes`; no inferred default.

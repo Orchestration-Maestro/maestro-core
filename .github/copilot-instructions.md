@@ -385,6 +385,7 @@ in place.
 │   │   │       ├── n09_gzip_members.rs                                                  # RFC 1952 member accounting is shared with every decode stage
 │   │   │       ├── n09_hop_edges.rs                                                     # Attempt, redirect, authority and relative-reference boundary guards
 │   │   │       ├── n09_implement_bounded_admitted_http_transport.rs                     # N09 transport guards exercised over real hyper HTTP/1.1
+│   │   │       ├── n09_interim.rs                                                       # Informational blocks share finite header bounds without body read-ahead
 │   │   │       ├── n09_pacing.rs                                                        # HTTP owns pacing for first hops, redirects, retries and robots refreshes
 │   │   │       ├── n09_pacing_support.rs                                                # Recording fake that delegates N10 semantics while observing HTTP ownership
 │   │   │       ├── n09_parser.rs                                                        # Parser allocation floors and hostile header/status lines stay bounded

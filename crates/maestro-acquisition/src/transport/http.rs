@@ -32,7 +32,7 @@ use tokio::{
     time::{sleep, timeout_at},
 };
 
-pub use super::{http_protocol::Response, stream::Failure};
+pub use super::{http_protocol::Response, stream::Failure, wire_quota::MAX_INTERIM_RESPONSES};
 /// Current authority context and explicit operation; creates no entitlement.
 #[derive(Debug)]
 pub struct Fetch<'a> {
@@ -363,7 +363,7 @@ where
         destination: CheckedDestination,
         accounting: &mut Accounting,
     ) -> Result<Response, Failure> {
-        let builder = parser(accounting)?;
+        let (builder, headers) = parser(accounting)?;
         let connection = self
             .transport
             .connect(destination)
@@ -372,7 +372,12 @@ where
         accounting.check_time()?;
         let quota = Quota::default();
         let (mut sender, driver) = builder
-            .handshake(TokioIo::new(BoundedIo::new(connection, quota.clone())))
+            .handshake(TokioIo::new(BoundedIo::new(
+                connection,
+                quota.clone(),
+                headers,
+                accounting.read_timing()?,
+            )))
             .await
             .map_err(|_| Failure::Transport)?;
         accounting.check_time()?;

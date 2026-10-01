@@ -14,6 +14,7 @@ mod n09_decode;
 mod n09_gzip_members;
 mod n09_hop_edges;
 mod n09_implement_bounded_admitted_http_transport;
+mod n09_interim;
 mod n09_pacing;
 mod n09_pacing_support;
 mod n09_parser;

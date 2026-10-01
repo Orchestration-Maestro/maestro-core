@@ -1,7 +1,7 @@
 //! Bounded response parser, transient metadata and manual redirect spelling.
 use super::{
     stream::{Accounting, Failure, TRAILER_MAX_BYTES, read_body},
-    wire_quota::Quota,
+    wire_quota::{HeaderLimits, Quota},
 };
 use crate::policy::identity::FetchIdentity;
 use hyper::{body::Incoming, client::conn::http1};
@@ -129,10 +129,14 @@ pub(super) fn redirect_url(base: &reqwest::Url, location: &str) -> String {
     format!("{origin}{parent}/{location}")
 }
 
-/// Hyper's minimum bounded read buffer; the rest reserves header/index copies.
+/// Fixed parser workspace on the supported 64-bit targets:
+/// `32_768 = 8_192` read bytes `+ (100 * 32)` header slots `+ 21_376` copies.
+/// Hyper's default 100-slot index is not set again; the regression pins it.
 const PARSER_WORKSPACE: u64 = 32_768;
 /// Byte and header-count ceilings are derived from the effective memory envelope.
-pub(super) fn parser(accounting: &mut Accounting) -> Result<http1::Builder, Failure> {
+pub(super) fn parser(
+    accounting: &mut Accounting,
+) -> Result<(http1::Builder, HeaderLimits), Failure> {
     accounting.workspace(PARSER_WORKSPACE)?;
     accounting.reserve(TRAILER_MAX_BYTES)?;
     let memory = accounting
@@ -145,8 +149,14 @@ pub(super) fn parser(accounting: &mut Accounting) -> Result<http1::Builder, Fail
         / size_of::<(HeaderName, HeaderValue)>();
     let mut builder = http1::Builder::new();
     let read_bytes = usize::try_from(header_bytes).map_err(|_| Failure::Memory)?;
-    builder.max_buf_size(read_bytes).max_headers(header_count);
-    Ok(builder)
+    builder.max_buf_size(read_bytes);
+    Ok((
+        builder,
+        HeaderLimits {
+            bytes: read_bytes,
+            fields: header_count,
+        },
+    ))
 }
 /// Malformed/oversized protocol input is content failure, not a retryable socket.
 pub(super) fn protocol_error(error: &hyper::Error) -> Failure {
