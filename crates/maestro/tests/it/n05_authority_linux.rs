@@ -14,15 +14,15 @@ use std::{
 };
 
 /// A disk scratch authority and its separate pipeline/connector identities.
-struct Fixture {
-    home: Home,
-    config: String,
-    store: String,
-    socket: String,
-    owner_uid: String,
+pub(super) struct Fixture {
+    pub(super) home: Home,
+    pub(super) config: String,
+    pub(super) store: String,
+    pub(super) socket: String,
+    pub(super) owner_uid: String,
 }
 impl Fixture {
-    fn new() -> Self {
+    pub(super) fn new() -> Self {
         let home = Home::bare();
         let base = home.tools().join("authority");
         fs::create_dir(&base).unwrap();
@@ -71,13 +71,13 @@ impl Fixture {
             owner_uid: str::from_utf8(&uid.stdout).unwrap().trim().into(),
         }
     }
-    fn qualify(&self) {
+    pub(super) fn qualify(&self) {
         let ended = self
             .home
             .run(&["authority", "qualify", "--config", &self.config]);
         assert_eq!(ended.code, Some(0), "{ended:?}");
     }
-    fn serve(&self) -> Running {
+    pub(super) fn serve(&self) -> Running {
         let started = Instant::now();
         let mut running = self
             .home
@@ -150,7 +150,7 @@ impl Fixture {
             .unwrap();
         serde_json::from_str(reply).unwrap()
     }
-    fn request(&self, value: &Value) -> Value {
+    pub(super) fn request(&self, value: &Value) -> Value {
         let mut socket = UnixStream::connect(&self.socket).unwrap();
         socket
             .set_read_timeout(Some(Duration::from_secs(3)))
@@ -162,7 +162,7 @@ impl Fixture {
     }
 }
 /// Exact synthetic grant, not a manifest approval.
-fn grant() -> Value {
+pub(super) fn grant() -> Value {
     json!({
         "id":"fixture-grant",
         "principal":"65534",

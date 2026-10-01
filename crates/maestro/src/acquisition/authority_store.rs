@@ -173,8 +173,8 @@ mod tests {
             fs::remove_dir_all(&self.0).unwrap();
         }
     }
-    #[test]
-    fn n05_expired_read_only_decisions_name_the_grant_and_leave_store_byte_identical() {
+    /// A synthetic store seam, not qualification or a production fallback.
+    fn fixture() -> (Scratch, Host, Store, Grant) {
         let directory = Scratch(scratch_directory().unwrap());
         fs::set_permissions(&directory.0, fs::Permissions::from_mode(0o700)).unwrap();
         let host = Host {
@@ -201,6 +201,40 @@ mod tests {
             expires_at: "2099-01-01T00:00:00Z".into(),
         };
         store.change(&grant, false, host.owner_uid).unwrap();
+        (directory, host, store, grant)
+    }
+    #[test]
+    fn n05_store_fetch_and_robots_override_are_independent() {
+        let (_directory, host, mut store, fetch) = fixture();
+        let mut robots = fetch.clone();
+        robots.id = "fixture-robots".into();
+        robots.operation = Operation::RobotsOverride;
+        store.change(&robots, false, host.owner_uid).unwrap();
+        let now = UNIX_EPOCH + Duration::from_secs(4_000_000_000);
+        for grant in [fetch, robots] {
+            let permit = store
+                .decide(&grant.principal, grant.operation, &grant.target, now)
+                .unwrap();
+            assert_eq!(permit.grant_id, grant.id);
+        }
+    }
+    #[test]
+    fn n05_store_multiple_grants_prefer_live_longest_expiry() {
+        let (_directory, host, mut store, longest) = fixture();
+        let mut shorter = longest.clone();
+        shorter.id = "fixture-shorter".into();
+        shorter.expires_at = "2098-01-01T00:00:00Z".into();
+        store.change(&shorter, false, host.owner_uid).unwrap();
+        let now = shorter.expiry().unwrap() + Duration::from_secs(1);
+        let permit = store
+            .decide(&longest.principal, longest.operation, &longest.target, now)
+            .unwrap();
+        assert_eq!(permit.grant_id, longest.id);
+    }
+    #[test]
+    fn n05_expired_read_only_decisions_name_the_grant_and_leave_store_byte_identical() {
+        let (_directory, host, store, grant) = fixture();
+        let target = grant.target;
         let path = host.store.join("authority.sqlite3");
         let before = fs::read(&path).unwrap();
         assert_eq!(

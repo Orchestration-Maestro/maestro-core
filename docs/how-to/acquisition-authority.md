@@ -25,11 +25,17 @@ Do not run the following setup against a real host before that authorization.
    `pipeline_uid`, `connector_uid` and `launcher` (absolute executable path).
    The launcher is an admin-provisioned trust boundary: it receives the UID,
    binary and probe arguments, drops to that exact UID with cleared groups and
-   no retained privilege, and returns the child's output and status unchanged.
+   no retained privilege, and returns the child's status unchanged. Launcher
+   stdout is diagnostic only, never qualification evidence.
    Serving never invokes the launcher, `sudo` or any child process.
 4. Run `maestro authority qualify --config "$AUTHORITY_CONFIG"` as the owner.
    This launches the real pipeline and connector create/edit/delete probes and
-   requires the kernel-reported UID from each. A protected qualification receipt
+   requires each probe to connect to a one-shot qualification socket. Linux
+   peer credentials must match the expected UID, and a strict report must show
+   all three mutations denied. A second connection or existing endpoint refuses.
+   The qualifier also checks the canary digest, owner and mode remain unchanged.
+   Connection and launcher-exit waits use one cumulative deadline per UID: default
+   15 seconds, configurable with `--probe-timeout-seconds` (1–300). A protected qualification receipt
    binds the identities, paths, store owner/modes/device/inode, launcher identity
    and exact probe binary. Failed requalification probes remove the old receipt.
 5. Run `maestro authority serve --config "$AUTHORITY_CONFIG"` as the owner.
@@ -51,7 +57,10 @@ exposes no mutation operation and refuses a same-user authority fallback.
 
 ## Exact owner command
 
-An owner confirms the complete grant twice in a protected local request file:
+An owner confirms the complete grant twice in a protected local request file.
+The owner CLI opens without following symlinks, checks on that descriptor that
+it is a regular file owned by the authority UID without group/other write bits,
+and reads from that same descriptor. This applies to owner inspection too:
 
 ```json
 {
@@ -105,6 +114,10 @@ from the pipeline or connector UID cannot mutate anything.
 
 A client's read-only request uses `action`, `principal`, `operation` and `target`:
 `{"action":"decide","principal":"65534","operation":"fetch","target":...}`.
+The owner CLI can inspect these read-only decisions through its authenticated
+owner path; the pipeline adapter still refuses a same-UID authority. Non-owner
+decision files remain untrusted intent: the service authenticates their principal
+through kernel credentials and refuses all mutations.
 The authority uses its own clock, not the request's time. Refusals carry no grant
 or source details. JSON frames are capped at 64 KiB with a cumulative two-second
 read deadline; local command/configuration files are capped at 16 KiB.

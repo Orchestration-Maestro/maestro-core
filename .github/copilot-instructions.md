@@ -54,6 +54,7 @@ in place.
 │   │   │   ├── acquisition/                                                             # Native acquisition's local authority boundary
 │   │   │   │   ├── authority.rs                                                         # Owner authority commands; no pipeline writer or same-user store fallback
 │   │   │   │   ├── authority_host.rs                                                    # Linux host qualification, kept outside the serving path
+│   │   │   │   ├── authority_probe.rs                                                   # One-shot qualification evidence authenticated by Linux peer credentials
 │   │   │   │   ├── authority_service.rs                                                 # Bounded Linux Unix-socket IPC authenticated with kernel peer credentials
 │   │   │   │   ├── authority_store.rs                                                   # Authority-only SQLite writer; grant changes and audit commit atomically
 │   │   │   │   └── mod.rs                                                               # Native acquisition's local authority boundary
@@ -284,6 +285,7 @@ in place.
 │   │   │       ├── n05_authority_contract.rs                                            # Read-only authority contract: exact scope/account/effect and authority-clock expiry
 │   │   │       ├── n05_authority_frames.rs                                              # Actual Unix IPC framing refuses oversized, partial and cumulative-timeout input
 │   │   │       ├── n05_authority_linux.rs                                               # Qualified Linux authority fixtures; only the launcher uses sudo
+│   │   │       ├── n05_authority_review_fixes.rs                                        # Review regressions against real owner and unprivileged identities
 │   │   │       ├── n05_establish_owner_only_grants_and_the_read_only_authority_port.rs  # N05 authority command refusals; real identity probes are explicitly opt-in
 │   │   │       ├── publish_again.rs                                                     # Help for explicit projection recovery
 │   │   │       ├── quality_gates.rs                                                     # knowledge quality: its report, a rerun, a gate after an import, the ledger first, failures and refusals

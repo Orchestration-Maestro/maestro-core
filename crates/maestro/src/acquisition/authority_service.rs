@@ -8,7 +8,7 @@ use maestro_acquisition::policy::{
     authority::{Authority as _, AuthorityRefusal, Grant, Operation, Target},
     authority_socket::{AuthoritySocket, read_frame},
 };
-use rustix::net::sockopt::socket_peercred;
+use rustix::{net::sockopt::socket_peercred, process::geteuid};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::{
@@ -50,12 +50,24 @@ enum Request {
         target: Target,
     },
 }
-/// A mutation reply contains no source content, secrets or arbitrary extra fields.
+/// Strict CLI replies for owner mutations and read-only inspection.
 #[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct MutationResponse {
-    /// Only an explicit `ok` acknowledges an audited mutation.
-    status: String,
+#[serde(tag = "status", rename_all = "snake_case", deny_unknown_fields)]
+enum Response {
+    /// Only explicit success acknowledges an audited mutation.
+    Ok {},
+    /// Current matched permit for owner inspection.
+    Permit {
+        /// Opaque grant identity.
+        grant_id: String,
+    },
+    /// Expiry closes dispatch, including owner inspection.
+    Expired {
+        /// Exact expired grant identity.
+        grant_id: String,
+    },
+    /// No effect or permit.
+    Refused {},
 }
 /// Unlink only the socket this serving invocation successfully bound.
 struct SocketPath(PathBuf);
@@ -155,14 +167,21 @@ fn change(
         .map_err(|_| Failure::refused("authority refused"))?;
     Ok(json!({"status":"ok"}))
 }
-/// Owner CLI and unprivileged clients authenticate the authority end as well.
+/// Owner files are descriptor-validated; unprivileged decisions are untrusted intent.
+/// Both paths authenticate the authority peer; the pipeline retains its same-UID refusal.
 pub(super) fn request(socket: &Path, authority_uid: u32, file: &Path) -> Result<Value, Failure> {
-    let value: Request = authority_host::read(file)?;
+    let owner = geteuid().as_raw() == authority_uid;
+    let value: Request = if owner {
+        authority_host::read_protected(file, authority_uid)?
+    } else {
+        authority_host::read(file)?
+    };
     if let Request::Decide {
         principal,
         operation,
         target,
     } = &value
+        && !owner
     {
         let authority = AuthoritySocket {
             socket: socket.to_owned(),
@@ -192,11 +211,21 @@ pub(super) fn request(socket: &Path, authority_uid: u32, file: &Path) -> Result<
         .write_all(&bytes)
         .and_then(|()| stream.write_all(b"\n"))
         .map_err(|_| unqualified())?;
-    let response: MutationResponse =
+    let response: Response =
         serde_json::from_slice(&read_frame(&mut stream).map_err(|_| unqualified())?)
             .map_err(|_| unqualified())?;
-    if response.status != "ok" {
-        return Err(Failure::refused("authority refused"));
+    match (&value, response) {
+        (Request::Decide { .. }, Response::Permit { grant_id }) => {
+            Ok(json!({"status":"permit","grant_id":grant_id}))
+        }
+        (Request::Grant { .. } | Request::Revoke { .. }, Response::Ok {}) => {
+            Ok(json!({"status":"ok"}))
+        }
+        (_, Response::Expired { grant_id }) => {
+            // Expired grant identity stays internal; CLI refuses dispatch.
+            drop(grant_id);
+            Err(Failure::refused("authority refused"))
+        }
+        _ => Err(Failure::refused("authority refused")),
     }
-    Ok(json!({"status":"ok"}))
 }

@@ -3,6 +3,8 @@ use crate::failure::Failure;
 use clap::Subcommand;
 use serde_json::Value;
 use std::path::PathBuf;
+#[cfg(target_os = "linux")]
+use std::time::Duration;
 
 /// Separately authenticated local authority operations.
 #[derive(Debug, Subcommand)]
@@ -12,6 +14,9 @@ pub(crate) enum AuthorityCommand {
         /// Admin-provisioned host configuration, never a source manifest.
         #[arg(long)]
         config: PathBuf,
+        /// Cumulative qualification probe hang guard (1–300 seconds).
+        #[arg(long, default_value_t = 15, value_parser = clap::value_parser!(u64).range(1..=300))]
+        probe_timeout_seconds: u64,
     },
     /// Serve grants only after matching real identity-separation qualification.
     Serve {
@@ -37,6 +42,9 @@ pub(crate) enum AuthorityCommand {
         /// Protected store directory whose actual permissions are probed.
         #[arg(long)]
         store: PathBuf,
+        /// One-shot endpoint authenticated by the qualifying process.
+        #[arg(long)]
+        qualification_socket: PathBuf,
     },
 }
 /// Execute a separately scoped authority command without opening the kernel.
@@ -48,14 +56,20 @@ pub(crate) fn run(
     {
         use super::{authority_host, authority_service};
         match command {
-            AuthorityCommand::Qualify { config } => authority_host::qualify(config),
+            AuthorityCommand::Qualify {
+                config,
+                probe_timeout_seconds,
+            } => authority_host::qualify(config, Duration::from_secs(*probe_timeout_seconds)),
             AuthorityCommand::Serve { config } => authority_service::serve(config, ready),
             AuthorityCommand::Request {
                 socket,
                 authority_uid,
                 file,
             } => authority_service::request(socket, *authority_uid, file),
-            AuthorityCommand::ProbeStore { store } => authority_host::probe(store),
+            AuthorityCommand::ProbeStore {
+                store,
+                qualification_socket,
+            } => authority_host::probe(store, qualification_socket),
         }
     }
     #[cfg(not(target_os = "linux"))]

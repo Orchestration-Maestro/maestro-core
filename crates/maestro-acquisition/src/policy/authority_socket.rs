@@ -138,6 +138,7 @@ pub fn read_frame_with_clock(
             .set_read_timeout(Some(left))
             .map_err(|_| Refusal::Unqualified)?;
         let count = socket.read(&mut buffer).map_err(|_| Refusal::Unqualified)?;
+        frame_timeout(deadline, clock.now())?;
         if count == 0 {
             return Err(Refusal::Unqualified);
         }
@@ -151,5 +152,46 @@ pub fn read_frame_with_clock(
             }
             return Ok(bytes);
         }
+    }
+}
+
+#[cfg(all(test, target_os = "linux"))]
+mod tests {
+    use super::{Clock, Duration, Instant, UnixStream, read_frame_with_clock};
+    use crate::Refusal;
+    use std::{
+        io::Write as _,
+        sync::atomic::{AtomicUsize, Ordering},
+    };
+
+    /// Deterministic observations immediately before and at the cumulative cutoff.
+    #[derive(Debug)]
+    struct ProbeClock {
+        t0: Instant,
+        calls: AtomicUsize,
+    }
+
+    impl Clock for ProbeClock {
+        fn now(&self) -> Instant {
+            let elapsed = match self.calls.fetch_add(1, Ordering::SeqCst) {
+                0 => Duration::ZERO,
+                1 => Duration::from_millis(1_999),
+                _ => Duration::from_secs(2),
+            };
+            self.t0 + elapsed
+        }
+    }
+
+    #[test]
+    fn n05_probe_completed_frame_at_cumulative_deadline_refuses() {
+        let (mut reader, mut writer) = UnixStream::pair().unwrap();
+        writer.write_all(b"{}\n").unwrap();
+        let clock = ProbeClock {
+            t0: Instant::now(),
+            calls: AtomicUsize::new(0),
+        };
+        let result = read_frame_with_clock(&mut reader, &clock);
+        assert_eq!(result, Err(Refusal::Deadline));
+        assert_eq!(clock.calls.load(Ordering::SeqCst), 3);
     }
 }

@@ -41,7 +41,7 @@ rusqlite = { version = "0.40.2", default-features = false, features = [
   "bundled",
   "hooks",
 ] }
-rustix = { version = "=1.1.5", features = ["fs", "net", "process"] }
+rustix = { version = "=1.1.5", features = ["event", "fs", "net", "process"] }
 # Pinned acquisition TLS reuses the existing gRPC closure, without a new client.
 rustls = { version = "=0.23.45", default-features = false, features = [
   "ring",

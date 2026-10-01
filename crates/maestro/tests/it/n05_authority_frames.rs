@@ -12,7 +12,10 @@ use maestro_kernel::retrieval::Clock;
 use std::{
     fs, future,
     io::{BufRead as _, BufReader, Write as _},
-    os::unix::net::{UnixListener, UnixStream},
+    os::unix::{
+        fs::PermissionsExt as _,
+        net::{UnixListener, UnixStream},
+    },
     path::Path,
     process::Command,
     str,
@@ -141,6 +144,7 @@ fn n05_owner_command_refuses_wrong_peer_refusals_and_content_bearing_replies() {
             .unwrap(),
         )
         .unwrap();
+        fs::set_permissions(&file, fs::Permissions::from_mode(0o600)).unwrap();
         let ended = home.run(&[
             "authority",
             "request",

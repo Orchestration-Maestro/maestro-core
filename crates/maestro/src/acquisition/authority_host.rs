@@ -1,7 +1,11 @@
 //! Linux host qualification, kept outside the serving path.
+use super::authority_probe::{self, Probe, Report};
 use crate::failure::Failure;
-use maestro_kernel::artifact::Digest;
-use rustix::process::geteuid;
+use maestro_kernel::{artifact::Digest, retrieval::SystemClock};
+use rustix::{
+    fs::{Mode, OFlags, open},
+    process::geteuid,
+};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::{Value, json};
 use sha2::{Digest as _, Sha256};
@@ -9,10 +13,13 @@ use std::env;
 use std::{
     fs::{self, File, OpenOptions},
     io::{Read as _, Write as _},
-    os::unix::fs::{MetadataExt as _, OpenOptionsExt as _},
+    os::unix::{
+        fs::{MetadataExt as _, OpenOptionsExt as _},
+        net::UnixStream,
+    },
     path::{Path, PathBuf},
-    process::Command,
     sync::OnceLock,
+    time::Duration,
 };
 
 /// Trusted host bindings: source manifests cannot choose identities or files.
@@ -43,16 +50,49 @@ pub(super) fn read<T: DeserializeOwned>(path: &Path) -> Result<T, Failure> {
 }
 /// Bound reads before allocation, including malicious local request files.
 fn bytes(path: &Path) -> Result<Vec<u8>, Failure> {
+    bounded(File::open(path).map_err(|_| unqualified())?)
+}
+/// Read a previously validated descriptor, never reopen the path.
+fn bounded(file: File) -> Result<Vec<u8>, Failure> {
     let mut bytes = Vec::new();
-    File::open(path)
-        .map_err(|_| unqualified())?
-        .take(16_385)
+    file.take(16_385)
         .read_to_end(&mut bytes)
         .map_err(|_| unqualified())?;
     if bytes.len() > 16_384 {
         return Err(unqualified());
     }
     Ok(bytes)
+}
+/// Owner confirmation/inspection bytes must be protected, unlike untrusted client decisions.
+pub(super) fn read_protected<T: DeserializeOwned>(path: &Path, owner: u32) -> Result<T, Failure> {
+    let file = protected_file(path, owner)?;
+    serde_json::from_slice(&bounded(file)?).map_err(|_| unqualified())
+}
+/// No symlink traversal or blocking special file; fstat checks the same descriptor read later.
+fn protected_file(path: &Path, owner: u32) -> Result<File, Failure> {
+    let file = File::from(
+        open(
+            path,
+            OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::NONBLOCK,
+            Mode::empty(),
+        )
+        .map_err(|_| unqualified())?,
+    );
+    let metadata = file.metadata().map_err(|_| unqualified())?;
+    if !metadata.is_file() || metadata.uid() != owner || metadata.mode() & 0o022 != 0 {
+        return Err(unqualified());
+    }
+    Ok(file)
+}
+/// Canary identity and digest are observed through one protected opened descriptor.
+fn witness_state(path: &Path, owner: u32) -> Result<(u32, u32, String), Failure> {
+    let file = protected_file(path, owner)?;
+    let metadata = file.metadata().map_err(|_| unqualified())?;
+    Ok((
+        metadata.uid(),
+        metadata.mode(),
+        Digest::of(&bounded(file)?).as_str().into(),
+    ))
 }
 /// Check non-root distinct identities and the protected directory/launcher chain.
 pub(super) fn checked(path: &Path) -> Result<Host, Failure> {
@@ -137,7 +177,7 @@ fn runtime_digest() -> Result<Vec<u8>, Failure> {
 }
 
 /// Qualify using real subprocess identities, retaining a protected matching receipt.
-pub(super) fn qualify(path: &Path) -> Result<Value, Failure> {
+pub(super) fn qualify(path: &Path, budget: Duration) -> Result<Value, Failure> {
     let host = checked(path)?;
     let receipt = host.store.join("qualification");
     // A failed requalification invalidates any previous receipt first.
@@ -155,8 +195,9 @@ pub(super) fn qualify(path: &Path) -> Result<Value, Failure> {
         .map_err(|_| unqualified())?;
     file.sync_all().map_err(|_| unqualified())?;
     drop(file);
-    let result = probes(&host);
-    let untouched = fs::read(&witness).is_ok_and(|bytes| bytes == b"authority-probe");
+    let original = witness_state(&witness, host.owner_uid)?;
+    let result = probes(&host, budget);
+    let untouched = witness_state(&witness, host.owner_uid).is_ok_and(|state| state == original);
     fs::remove_file(&witness).map_err(|_| unqualified())?;
     result?;
     if !untouched {
@@ -178,26 +219,24 @@ pub(super) fn qualify(path: &Path) -> Result<Value, Failure> {
         .map_err(|_| unqualified())?;
     Ok(json!({"schema":"maestro-cli/authority/1","status":"qualified","binding":digest}))
 }
-/// Admin launcher must execute the probe under each exact identity and return its status.
-fn probes(host: &Host) -> Result<(), Failure> {
-    // Host setup provisions the same built binary beside its launcher for traversability.
+/// Real probe completions authenticate through the kernel; launcher stdout is diagnostic only.
+fn probes(host: &Host, budget: Duration) -> Result<(), Failure> {
     let binary = probe_binary(host)?;
     if binary_digest(&binary)? != runtime_digest()? {
         return Err(unqualified());
     }
     for uid in [host.pipeline_uid, host.connector_uid] {
-        let output = Command::new(&host.launcher)
-            .arg(uid.to_string())
-            .arg(&binary)
-            .args(["authority", "probe-store", "--store"])
-            .arg(&host.store)
-            .output()
-            .map_err(|_| unqualified())?;
-        if !output.status.success()
-            || output.stdout != format!("authority probe denied {uid}\n").as_bytes()
-        {
-            return Err(unqualified());
-        }
+        authority_probe::qualify(
+            &Probe {
+                launcher: &host.launcher,
+                binary: &binary,
+                store: &host.store,
+                endpoint: host.socket.with_extension("probe"),
+                uid,
+            },
+            budget,
+            &SystemClock,
+        )?;
     }
     Ok(())
 }
@@ -226,17 +265,21 @@ fn binary_digest(path: &Path) -> Result<Vec<u8>, Failure> {
     Ok(digest.finalize().to_vec())
 }
 /// Actual unprivileged create/edit/delete checks; callers cannot manufacture the UID.
-pub(super) fn probe(store: &Path) -> Result<Value, Failure> {
+pub(super) fn probe(store: &Path, endpoint: &Path) -> Result<Value, Failure> {
     let create = store.join("probe-created");
     let witness = store.join("probe-witness");
-    let denied = OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(&create)
-        .is_err()
-        && OpenOptions::new().write(true).open(&witness).is_err()
-        && fs::remove_file(&witness).is_err();
-    if !denied {
+    let mut stream = UnixStream::connect(endpoint).map_err(|_| unqualified())?;
+    let report = Report {
+        create_denied: OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&create)
+            .is_err(),
+        edit_denied: OpenOptions::new().write(true).open(&witness).is_err(),
+        delete_denied: fs::remove_file(&witness).is_err(),
+    };
+    authority_probe::send(&mut stream, &report)?;
+    if !report.create_denied || !report.edit_denied || !report.delete_denied {
         return Err(unqualified());
     }
     let uid = geteuid().as_raw();
@@ -263,7 +306,10 @@ mod tests {
     use rustix::process::geteuid;
     use std::{
         fs,
-        os::unix::fs::{PermissionsExt as _, symlink},
+        os::unix::{
+            fs::{PermissionsExt as _, symlink},
+            net::UnixListener,
+        },
         path::{Path, PathBuf},
     };
 
@@ -356,7 +402,8 @@ mod tests {
         assert!(checked(&config).is_err());
         // Being writable by the actual owner is explicitly not a passing separation probe.
         fs::write(host.store.join("probe-witness"), "authority-probe").unwrap();
-        assert!(probe(&host.store).is_err());
+        let _listener = UnixListener::bind(&host.socket).unwrap();
+        assert!(probe(&host.store, &host.socket).is_err());
     }
     #[test]
     fn n05_receipts_bind_current_host_metadata_and_protected_bytes() {
