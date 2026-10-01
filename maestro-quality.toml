@@ -345,10 +345,3 @@ rule = "TST-001"
 path = "crates/maestro-test-clock/src/stopped.rs"
 item = "work_is_constructed_on_the_stopped_clock"
 reason = "proves paused Tokio time ignores real time; the assertion is equality on paused time, so it is deterministic whatever the sleep length; 20 ms"
-
-# Remove this exception when N09 consumes transport::budget.
-[[exception]]
-rule = "ARC-005"
-path = "crates/maestro-acquisition/src/transport/mod.rs"
-item = "budget"
-reason = "the plan places Limits at transport/budget.rs as the public transport and scheduler budget contract; the second consumer, N09's bounded HTTP transport, arrives next"

@@ -316,6 +316,17 @@ pub struct RobotsCache {
     rules: Option<Box<dyn RobotsRules>>,
 }
 impl RobotsCache {
+    /// Exact store key; freshness and denial remain enforced by `check`.
+    pub(crate) fn matches(&self, identity: &FetchIdentity, binding: RobotsBinding<'_>) -> bool {
+        self.origin == identity.url().origin().ascii_serialization()
+            && self.agent == binding.policy.agent
+            && self.digest == *binding.digest
+    }
+    /// Replace only the same tuple; another policy digest must coexist.
+    pub(crate) fn same_key(&self, other: &Self) -> bool {
+        self.origin == other.origin && self.agent == other.agent && self.digest == other.digest
+    }
+
     /// Retain an admitted final HTTP response. 404/410 mean no rules; every other
     /// non-2xx response denies. Any supplied body over the effective cap denies.
     ///

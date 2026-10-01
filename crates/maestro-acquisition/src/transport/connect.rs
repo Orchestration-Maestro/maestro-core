@@ -3,35 +3,11 @@ use super::address::AddressTable;
 use crate::{policy::identity::FetchIdentity, refusal::Refusal};
 use reqwest::{Url, header::HeaderMap};
 use rustls::{ClientConfig, RootCertStore, crypto::ring, pki_types::ServerName};
-use std::{
-    fmt,
-    future::Future,
-    net::{SocketAddr, ToSocketAddrs},
-    pin::Pin,
-    sync::Arc,
-};
+use std::{fmt, future::Future, net::SocketAddr, pin::Pin, sync::Arc};
 use tokio::net::TcpStream;
 use tokio_rustls::{TlsConnector, client::TlsStream};
 
-/// Replaceable resolver; all returned candidates must pass core classification.
-pub trait Resolver: fmt::Debug {
-    /// Return address strings only; zone IDs and noncanonical forms refuse.
-    ///
-    /// # Errors
-    /// Failed or unavailable resolution refuses, with no fallback.
-    fn resolve(&self, hostname: &str) -> Result<Vec<String>, Refusal>;
-}
-/// Native DNS runs only before admission, never at connect time.
-#[derive(Debug)]
-pub struct SystemResolver;
-impl Resolver for SystemResolver {
-    fn resolve(&self, hostname: &str) -> Result<Vec<String>, Refusal> {
-        (hostname, 443)
-            .to_socket_addrs()
-            .map_err(|_| Refusal::Access)
-            .map(|addresses| addresses.map(|address| address.ip().to_string()).collect())
-    }
-}
+pub use super::dns::{Resolver, SystemResolver};
 /// Immutable checked address and certificate hostname; callers cannot forge it.
 #[derive(Debug)]
 pub struct CheckedDestination {

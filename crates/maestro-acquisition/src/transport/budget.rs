@@ -1,5 +1,5 @@
 //! Field-kind composition and typed resource-induced pending work.
-use crate::policy::limits::{DecodeLimits, Limits};
+pub use crate::policy::limits::{DecodeLimits, Limits};
 
 /// Why ingestion must checkpoint/hold rather than allocate resources.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

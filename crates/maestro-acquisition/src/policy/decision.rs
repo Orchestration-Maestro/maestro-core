@@ -179,6 +179,31 @@ pub(super) fn check_target(
     }
     Ok(())
 }
+/// Robots are derived only from an admitted origin, not content-path selectors.
+pub(super) fn check_robots(
+    source: &Source,
+    identity: &FetchIdentity,
+    registries: &[Decisions],
+) -> Result<(), Refusal> {
+    if !source.selectors.iter().any(|selector| {
+        selector.source_id == source.id
+            && selector
+                .origin
+                .as_deref()
+                .is_none_or(|origin| origin == identity.origin_id())
+    }) {
+        return Err(Refusal::Access);
+    }
+    for entry in registries.iter().flat_map(|registry| &registry.entries) {
+        if entry.action == Action::DenyFetch
+            && matches_selector(&entry.selector, identity, ItemAttributes::default())?
+        {
+            return Err(Refusal::Access);
+        }
+    }
+    Ok(())
+}
+
 /// Disjunctive allowed selectors, each internally conjunctive; unknown holds.
 fn check_selection(
     source: &Source,
@@ -247,4 +272,24 @@ pub(crate) fn time_key(text: &str) -> (&str, &str) {
     let text = text.trim_end_matches('Z');
     let (seconds, fraction) = text.split_once('.').unwrap_or((text, ""));
     (seconds, fraction.trim_end_matches('0'))
+}
+
+impl CheckedPolicy {
+    /// Derive only `/robots.txt`, without query/fragment, for a selected origin.
+    /// This does not admit robots as content or create authority to dispatch.
+    /// Each hop still needs fresh N05 authority and N08 destination admission.
+    ///
+    /// # Errors
+    /// Unknown source/origin, another path, or a current fetch denial refuses.
+    pub fn admit_robots(&self, source_id: &str, url: &str) -> Result<FetchIdentity, Refusal> {
+        let source = self
+            .policy
+            .sources
+            .iter()
+            .find(|source| source.id == source_id)
+            .ok_or(Refusal::Access)?;
+        let identity = FetchIdentity::parse_operation(source, url, true)?;
+        check_robots(source, &identity, &self.decisions)?;
+        Ok(identity)
+    }
 }

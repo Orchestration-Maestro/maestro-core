@@ -17,9 +17,19 @@ schemars.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 reqwest.workspace = true
+hyper.workspace = true
+hyper-util.workspace = true
+http-body-util.workspace = true
+flate2.workspace = true
 rustls.workspace = true
 rustls-native-certs.workspace = true
-tokio = { workspace = true, features = ["net", "rt", "time", "io-util"] }
+tokio = { workspace = true, features = [
+  "net",
+  "rt",
+  "time",
+  "io-util",
+  "macros",
+] }
 tokio-rustls.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
@@ -27,3 +37,4 @@ rustix.workspace = true
 
 [dev-dependencies]
 maestro-test-scratch.workspace = true
+tokio = { workspace = true, features = ["test-util"] }

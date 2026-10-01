@@ -342,10 +342,14 @@ in place.
 │   │   │   │   ├── address.rs                                                           # Deny-only address resources plus a non-removable special-purpose floor
 │   │   │   │   ├── budget.rs                                                            # Field-kind composition and typed resource-induced pending work
 │   │   │   │   ├── connect.rs                                                           # One checked destination per connection, with no proxy, pool or second DNS
+│   │   │   │   ├── dns.rs                                                               # Read-only native DNS waiting is bounded independently of the HTTP future
 │   │   │   │   ├── floor.rs                                                             # Non-removable IANA snapshot (2025-10-09), multicast and metadata denials
+│   │   │   │   ├── http.rs                                                              # Bounded HTTP/1 over one freshly admitted pinned connection per hop
 │   │   │   │   ├── mod.rs                                                               # Rust source: mod
 │   │   │   │   ├── pacing.rs                                                            # One injected atomic origin ledger shared by HTTP, browser and resumed runs
-│   │   │   │   └── robots.rs                                                            # RFC 9309 rules over N07's canonical fetch identity, without network effects
+│   │   │   │   ├── robots.rs                                                            # RFC 9309 rules over N07's canonical fetch identity, without network effects
+│   │   │   │   ├── robots_store.rs                                                      # Bounded robots entries; different policy digests on one origin coexist
+│   │   │   │   └── stream.rs                                                            # Shared cumulative wire/decode accounting, reusable by downstream decoders
 │   │   │   ├── files.rs                                                                 # Caller-bound direct files, never source-provided paths or writable bundles
 │   │   │   ├── lib.rs                                                                   # Strict source-policy configuration for native acquisition
 │   │   │   ├── ports.rs                                                                 # Small read-only ports; authority and transport startup are deliberately absent
@@ -369,6 +373,18 @@ in place.
 │   │   │       ├── n07_url_policy_edges.rs                                              # N07 edge guards share the primary task's synthetic fixture builders
 │   │   │       ├── n07_url_review_regressions.rs                                        # N07 review regressions share the checked synthetic policy closure
 │   │   │       ├── n08_classify_and_pin_every_destination_address.rs                    # N08 uses real admission with explicit synthetic resolver/connection adapters
+│   │   │       ├── n09_accounting.rs                                                    # Small public accounting checks for downstream reuse and exact boundaries
+│   │   │       ├── n09_authority_connect.rs                                             # Supervisor-approved N05 fix: IPC connect never blocks on a full backlog
+│   │   │       ├── n09_controls.rs                                                      # Caller/network/robots refusals precede any HTTP-owned effects
+│   │   │       ├── n09_decode.rs                                                        # Cumulative decoder guards, independently selected synthetic bombs
+│   │   │       ├── n09_gzip_members.rs                                                  # RFC 1952 member accounting is shared with every decode stage
+│   │   │       ├── n09_hop_edges.rs                                                     # Attempt, redirect, authority and relative-reference boundary guards
+│   │   │       ├── n09_implement_bounded_admitted_http_transport.rs                     # N09 transport guards exercised over real hyper HTTP/1.1
+│   │   │       ├── n09_parser.rs                                                        # Parser allocation floors and hostile header/status lines stay bounded
+│   │   │       ├── n09_profiles.rs                                                      # Checked browser profiles must never silently fall back to content HTTP
+│   │   │       ├── n09_robots.rs                                                        # Robots transport outcomes reach N10's actual fail-closed mapping
+│   │   │       ├── n09_support.rs                                                       # Synthetic admitted HTTP/1.1 connections, never a network listener
+│   │   │       ├── n09_sync_deadlines.rs                                                # Synchronous ports cannot consume a document deadline then dial a socket
 │   │   │       ├── n10_admission.rs                                                     # Robots denial reaches N07's real admission path before transport effects
 │   │   │       ├── n10_conform_robots_and_aggregate_origin_pacing.rs                    # Independently authored RFC 9309 and shared-origin contracts
 │   │   │       ├── n10_control_edges.rs                                                 # Additional actual-engine boundaries and substitute rules adapter

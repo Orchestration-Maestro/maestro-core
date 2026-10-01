@@ -31,14 +31,28 @@ impl FetchIdentity {
     /// # Errors
     /// Ambiguous URLs, undeclared origins/paths or query semantics refuse.
     pub fn parse(source: &Source, text: &str) -> Result<Self, Refusal> {
+        Self::parse_operation(source, text, false)
+    }
+    /// Shared canonicalization, with a narrow derived robots path.
+    pub(super) fn parse_operation(
+        source: &Source,
+        text: &str,
+        robots: bool,
+    ) -> Result<Self, Refusal> {
         let mut url = shape::checked_url(text).ok_or(Refusal::Invalid)?;
+        if robots
+            && (url.path() != "/robots.txt" || url.query().is_some() || url.fragment().is_some())
+        {
+            return Err(Refusal::Access);
+        }
         let mut origins = source.origins.iter().filter(|origin| {
             url.host_str() == Some(origin.host.as_str())
                 && url.port_or_known_default() == Some(origin.port.get())
-                && origin
-                    .path_prefixes
-                    .iter()
-                    .any(|prefix| within(url.path(), prefix))
+                && (robots
+                    || origin
+                        .path_prefixes
+                        .iter()
+                        .any(|prefix| within(url.path(), prefix)))
         });
         let origin = origins.next().ok_or(Refusal::Access)?;
         if origins.next().is_some() {
