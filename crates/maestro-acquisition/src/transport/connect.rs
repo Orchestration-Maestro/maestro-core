@@ -98,7 +98,10 @@ impl fmt::Debug for OriginCredentials {
 impl OriginCredentials {
     /// Bind all supplied sensitive headers to one origin.
     #[must_use]
-    pub fn new(origin: &FetchIdentity, headers: HeaderMap) -> Self {
+    pub fn new(origin: &FetchIdentity, mut headers: HeaderMap) -> Self {
+        for value in headers.values_mut() {
+            value.set_sensitive(true);
+        }
         Self {
             origin: origin.url().origin().ascii_serialization(),
             headers,

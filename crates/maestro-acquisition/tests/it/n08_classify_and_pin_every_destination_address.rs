@@ -286,6 +286,60 @@ fn n08_dispatch_rechecks_dns_and_pool_changes_before_effects() {
     );
     assert_eq!(wire.effects.get(), before);
 }
+/// Failed DNS must refuse instead of inventing a public fallback destination.
+#[derive(Debug)]
+struct FailedResolver;
+impl Resolver for FailedResolver {
+    fn resolve(&self, _hostname: &str) -> Result<Vec<String>, Refusal> {
+        Err(Refusal::Access)
+    }
+}
+/// Resolver errors stop dispatch before the transport sees any destination.
+#[test]
+fn n08_dns_failure_refuses_without_wire_effects() {
+    let (collection, catalog) = support::fixture();
+    let policy = checked(collection, &catalog).unwrap();
+    let identity = FetchIdentity::parse(
+        policy.policy().sources.first().unwrap(),
+        "https://garden.example/docs/start",
+    )
+    .unwrap();
+    let wire = Wire::default();
+    let runtime = Builder::new_current_thread().enable_all().build().unwrap();
+    assert_eq!(
+        runtime.block_on(connect(
+            &identity,
+            policy.address_table(),
+            &FailedResolver,
+            &wire
+        )),
+        Err(Refusal::Access)
+    );
+    assert_eq!(wire.effects.get(), 0);
+}
+/// Socket selection retains an explicitly admitted non-default HTTPS port.
+#[test]
+fn n08_pins_declared_non_default_https_port() {
+    let (mut collection, mut catalog) = support::fixture();
+    let mut value = support::value(&catalog, "policy");
+    value["sources"][0]["origins"][0]["port"] = json!(8443);
+    value["sources"][0]["seeds"][0] = json!("https://garden.example:8443/docs/start");
+    support::put(&mut catalog, "policy", &value);
+    support::rebind(&mut collection, &mut catalog);
+    let policy = checked(collection, &catalog).unwrap();
+    let identity = FetchIdentity::parse(
+        policy.policy().sources.first().unwrap(),
+        "https://garden.example:8443/docs/start",
+    )
+    .unwrap();
+    let resolver = Answers {
+        calls: Cell::new(0),
+        addresses: vec!["8.8.8.8".into()],
+    };
+    let destination =
+        CheckedDestination::resolve(&identity, policy.address_table(), &resolver).unwrap();
+    assert_eq!(destination.socket().port(), 8443);
+}
 /// Exact defensive limits and canonical parsing run before any wire effect.
 #[test]
 fn n08_resolver_limits_and_canonical_addresses() {
@@ -334,6 +388,14 @@ fn n08_credentials_are_exact_origin_bound() {
     headers.insert(COOKIE, HeaderValue::from_static("synthetic-cookie"));
     let credentials = OriginCredentials::new(&url, headers);
     assert_eq!(format!("{credentials:?}"), "OriginCredentials([redacted])");
+    let forwarded = credentials.for_url(url.url());
+    assert!(
+        forwarded.values().all(HeaderValue::is_sensitive),
+        "origin credential values are not Debug-redacted"
+    );
+    let debug = format!("{forwarded:?}");
+    assert!(!debug.contains("synthetic-secret"));
+    assert!(!debug.contains("synthetic-cookie"));
     for target in [
         "https://other.example/docs",
         "https://garden.example:444/docs",
