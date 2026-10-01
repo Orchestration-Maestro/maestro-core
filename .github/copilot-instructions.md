@@ -543,6 +543,7 @@ in place.
 │   │   │   │   │   ├── layout.rs                                            # The catalog's layout: agent and sidecar pairing, duplicate IDs, entries
 │   │   │   │   │   ├── mod.rs                                               # The source checker's tests: the valid synthetic catalog and each of its
 │   │   │   │   │   ├── model_card.rs                                        # Rust source: model card
+│   │   │   │   │   ├── ownership.rs                                         # Area principals, derived ownership and last-match delegation refusals
 │   │   │   │   │   ├── placement_boundaries.rs                              # Permanent discovery-only neighbours from the C30 review
 │   │   │   │   │   ├── placement_guards.rs                                  # Isolated registration and filename classification guards
 │   │   │   │   │   ├── qualified.rs                                         # C32 qualified identities and the single source schema cutover
@@ -563,6 +564,7 @@ in place.
 │   │   │   │   ├── metadata.rs                                              # The Maestro metadata every resource declares, read the same way wherever
 │   │   │   │   ├── mod.rs                                                   # The strict checker of a catalog's authoring sources: a registry of
 │   │   │   │   ├── naming.rs                                                # Functional naming from shared adapter metadata, with only exact host and
+│   │   │   │   ├── ownership.rs                                             # Offline area principals and ordered review delegation, not approval evidence
 │   │   │   │   ├── parse.rs                                                 # Bounded, strict parsing into checked values
 │   │   │   │   ├── placements.rs                                            # Descriptor placement patterns, shared by registration and discovery
 │   │   │   │   ├── registry.rs                                              # The kinds a checker knows: each a validated [KindDescriptor] and, when
@@ -1549,7 +1551,9 @@ in place.
 │       │   ├── source/                                                      # Source
 │       │   │   ├── valid-skill/                                             # Valid skill
 │       │   │   │   └── SKILL.md                                             # Synthetic skill that cites evidence from the public synthetic glossary
+│       │   │   ├── core-package.toml                                        # TOML settings: core package
 │       │   │   ├── invalid.agent.md                                         # Synthetic agent that carries metadata Copilot ignores
+│       │   │   ├── package.toml                                             # TOML settings: package
 │       │   │   ├── preset.toml                                              # TOML settings: preset
 │       │   │   ├── valid.agent.md                                           # Synthetic agent that answers from the public synthetic glossary
 │       │   │   ├── valid.instructions.maestro.toml                          # TOML settings: valid.instructions.maestro

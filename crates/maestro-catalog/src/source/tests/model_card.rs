@@ -4,7 +4,7 @@ use super::support::{MemoryTree, assert_refused_by, check_by};
 use crate::{limits::Limits, source::builtin};
 
 fn with_model_card() -> MemoryTree {
-    MemoryTree::default().with(
+    MemoryTree::owned().with(
         "core/llm/models/embedder/synthetic.toml",
         include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),

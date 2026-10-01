@@ -4,9 +4,10 @@
 //! lists at most [`DIAGNOSTICS`] diagnostics, then a count of the rest.
 
 use super::{
-    descriptor::Scope,
+    descriptor::{Layout, Scope},
     graph,
     load::{Context, Loaded, load},
+    ownership::area_path,
     placements::{directories, fits},
     registry::Registry,
     scan::scan,
@@ -102,6 +103,31 @@ fn across(loaded: &[Loaded], registry: &Registry) -> Vec<Diagnostic> {
         .iter()
         .map(|(id, loaded)| (id.clone(), &loaded.resource))
         .collect();
+    let area_paths: BTreeSet<&str> = resources
+        .values()
+        .filter(|resource| {
+            registry
+                .kind(&resource.id.kind)
+                .is_some_and(|registration| {
+                    matches!(registration.descriptor.layout, Layout::Area { .. })
+                })
+        })
+        .map(|resource| resource.path.as_str())
+        .collect();
+    for loaded in catalog.values() {
+        let resource = &loaded.resource;
+        let Some(registration) = registry.kind(&resource.id.kind) else {
+            continue;
+        };
+        let path = area_path(resource, &registration.descriptor);
+        if !area_paths.contains(path.as_str()) {
+            diagnostics.push(Diagnostic::new(
+                &resource.path,
+                "ownership",
+                format!("missing area descriptor {path}"),
+            ));
+        }
+    }
     let global_languages = global_languages(&resources, registry);
     for resource in catalog.values() {
         diagnostics.extend(references(

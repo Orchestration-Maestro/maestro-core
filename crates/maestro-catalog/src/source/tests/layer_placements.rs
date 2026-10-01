@@ -1,5 +1,6 @@
 //! Registered placements retain their dependency layer outside canonical folders.
 
+use super::support::check_under;
 use super::{area_packages::package_source, references::area, support::MemoryTree};
 use crate::limits::Limits;
 
@@ -34,9 +35,7 @@ fn root_support_under_presets_cannot_require_team() {
         )
         .replace("requires = []", "requires = [\"skill:common/valid-skill\"]");
         let path = format!("{root}/catalog/evidence.toml");
-        let tree = MemoryTree::default()
-            .with(&path, &source)
-            .with(SKILL, &skill);
+        let tree = MemoryTree::owned().with(&path, &source).with(SKILL, &skill);
         let checked = check_by(&tree, &registry, &Limits::PRODUCTION).unwrap();
         assert!(
             checked
@@ -83,9 +82,7 @@ fn area_cannot_require_registered_preset_under_docs() {
         }
         let path = format!("{directory}/knowledge-client.toml");
         let tree = area(
-            MemoryTree::default()
-                .with(&path, &preset)
-                .with(SKILL, &skill),
+            MemoryTree::owned().with(&path, &preset).with(SKILL, &skill),
             "language",
             "rust",
             "languages/rust/package.toml",
@@ -109,4 +106,133 @@ fn area_cannot_require_registered_preset_under_docs() {
                 .contains("layer may not require preset:knowledge-client")
         );
     }
+}
+
+/// A cross-area skill edge, with a same-layer neighbour using the same local name.
+fn layer_neighbours(from: &str, to: &str, namespace: &str) {
+    let source = if from.is_empty() {
+        SKILL.to_owned()
+    } else {
+        format!("{from}/{SKILL}")
+    };
+    let target = format!(
+        "{}skills/target/SKILL.md",
+        if to.is_empty() {
+            String::new()
+        } else {
+            format!("{to}/")
+        }
+    );
+    let skill = MemoryTree::valid().text(SKILL);
+    let tree = MemoryTree::owned()
+        .with(
+            "languages/python/package.toml",
+            &package_source("language", "python"),
+        )
+        .with(
+            "languages/rust/package.toml",
+            &package_source("language", "rust"),
+        )
+        .with(
+            &source,
+            &skill.replace(
+                "  maestro.workflows:",
+                &format!("  maestro.requires: skill:{namespace}/target\n  maestro.workflows:"),
+            ),
+        )
+        .with(&target, &skill.replace("valid-skill", "target"));
+    assert!(check_under(&tree, &Limits::PRODUCTION).is_ok());
+    let core_target = "core/skills/target/SKILL.md";
+    let refused = tree
+        .clone()
+        .without(&target)
+        .with(core_target, &skill.replace("valid-skill", "target"));
+    // The caller supplies the refused layer by moving the target and its qualified ID.
+    let refused = refused.edit(
+        &source,
+        &format!("skill:{namespace}/target"),
+        "skill:core/target",
+    );
+    let result = check_under(&refused, &Limits::PRODUCTION);
+    assert!(result.is_err(), "cross-layer edge must refuse");
+    assert!(
+        result
+            .unwrap_err()
+            .to_string()
+            .contains("layer may not require skill:core/target")
+    );
+}
+
+#[test]
+fn common_to_core_refuses() {
+    layer_neighbours("", "", "common");
+    let tree = area(
+        MemoryTree::default(),
+        "standard",
+        "security",
+        "standards/security/package.toml",
+        &["package:core"],
+    );
+    let tree = area(tree, "package", "core", "core/package.toml", &[]);
+    let result = check_under(&tree, &Limits::PRODUCTION);
+    assert!(result.is_err(), "standard to core must refuse");
+    assert!(
+        result
+            .unwrap_err()
+            .to_string()
+            .contains("layer may not require package:core")
+    );
+}
+
+/// A core/language skill can require a global skill but cannot require a team skill.
+fn team_neighbours(from: &str) {
+    let skill = MemoryTree::valid().text(SKILL);
+    let source = format!("{from}/{SKILL}");
+    let tree = MemoryTree::owned()
+        .with(
+            "languages/rust/package.toml",
+            &package_source("language", "rust"),
+        )
+        .with(
+            "capabilities/practice/review/package.toml",
+            &package_source("package", "review"),
+        )
+        .with(SKILL, &skill)
+        .with(
+            &source,
+            &skill.replace(
+                "  maestro.workflows:",
+                "  maestro.requires: skill:common/valid-skill\n  maestro.workflows:",
+            ),
+        );
+    assert!(check_under(&tree, &Limits::PRODUCTION).is_ok());
+    let tree = tree
+        .with(
+            "capabilities/practice/review/skills/valid-skill/SKILL.md",
+            &skill,
+        )
+        .edit(
+            &source,
+            "skill:common/valid-skill",
+            "skill:review/valid-skill",
+        );
+    let result = check_under(&tree, &Limits::PRODUCTION);
+    assert!(result.is_err(), "team edge must refuse");
+    assert!(
+        result
+            .unwrap_err()
+            .to_string()
+            .contains("layer may not require skill:review/valid-skill")
+    );
+}
+
+#[test]
+fn core_to_team_refuses() {
+    team_neighbours("core");
+}
+
+#[test]
+fn language_to_team_refuses() {
+    team_neighbours("languages/rust");
+    layer_neighbours("languages/rust", "languages/python", "python");
 }

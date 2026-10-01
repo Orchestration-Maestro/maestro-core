@@ -63,7 +63,7 @@ fn directory_checks_the_valid_catalog_without_running_its_scripts() {
         &asset_registry(&["scripts/run.sh"]),
         &Limits::PRODUCTION,
     );
-    assert_eq!(catalog.map(|catalog| catalog.resources.len()), Ok(4));
+    assert_eq!(catalog.map(|catalog| catalog.resources.len()), Ok(6));
     assert!(!marker.exists());
 }
 

@@ -52,7 +52,7 @@ fn area_package_placement_roundtrips() {
 #[test]
 fn role_card_path_matches_identity() {
     let registry = builtin().unwrap();
-    let tree = MemoryTree::default().with("core/llm/models/embedder/synthetic.toml", CARD);
+    let tree = MemoryTree::owned().with("core/llm/models/embedder/synthetic.toml", CARD);
     assert!(check_by(&tree, &registry, &Limits::PRODUCTION).is_ok());
     for role in ["answerer", "unknown"] {
         let path = format!("core/llm/models/{role}/synthetic.toml");
@@ -119,7 +119,7 @@ pub(super) fn package_source(kind: &str, name: &str) -> String {
         "kind = \"{kind}\"\nname = \"{name}\"\nversion = \"1.2.3\"\n\
          owners = [\"@synthetic/knowledge\"]\ndescription = \"Synthetic area\"\n\
          status = \"active\"\n\n[metadata]\nschema = \"maestro-source/2\"\n\
-         owner = \"@synthetic/knowledge\"\nmaturity = \"reviewed\"\n\
+         maturity = \"reviewed\"\n\
          rows = [\"chat.M036 objects\"]\nworkflows = [\"ctm-question\"]\nrequires = []\n"
     )
 }
@@ -186,12 +186,17 @@ fn preset_area_inventory_selectors_keep_native_settings() {
     // The envelope must be a table, not additional settings.
     let text = text.replace("schema =", "[metadata]\nschema =");
     let result = check_by(
-        &MemoryTree::default().with("presets/minimal.toml", &text),
+        &MemoryTree::owned().with("presets/minimal.toml", &text),
         &builtin().unwrap(),
         &Limits::PRODUCTION,
     );
     assert!(result.is_ok(), "{result:#?}");
-    let preset = &result.unwrap().resources[0];
+    let checked = result.unwrap();
+    let preset = checked
+        .resources
+        .iter()
+        .find(|resource| resource.id.kind == "preset")
+        .unwrap();
     assert_eq!(
         preset.fields["templates"].texts().unwrap(),
         ["common/base", "rust/starter"]
@@ -201,7 +206,7 @@ fn preset_area_inventory_selectors_keep_native_settings() {
 #[test]
 fn builtin_scoped_shapes_preserve_native_metadata_and_hooks() {
     let legacy = MemoryTree::valid();
-    let tree = MemoryTree::default()
+    let tree = MemoryTree::owned()
         .with(
             "core/agents/valid.agent.md",
             &legacy.text("core/agents/valid.agent.md"),
@@ -224,8 +229,7 @@ fn builtin_scoped_shapes_preserve_native_metadata_and_hooks() {
         );
     let registry = builtin().unwrap();
     let checked = check_by(&tree, &registry, &Limits::PRODUCTION).unwrap();
-    assert_eq!(checked.resources.len(), 3);
-    assert_eq!(checked.resources[0].metadata.owner, "@synthetic/knowledge");
+    assert_eq!(checked.resources.len(), 5);
     let bad = tree.edit(
         "core/agents/valid.agent.md",
         "## Boundaries",
@@ -268,40 +272,4 @@ fn area_root_layout_refuses_ambiguous_or_unsafe_descriptors() {
         };
         assert!(builtin_hooks().register(descriptor).is_err());
     }
-}
-
-#[test]
-fn package_legacy_owner_must_belong_to_authoritative_owners() {
-    let registry = builtin().unwrap();
-    let check = |text: &str| {
-        check_by(
-            &MemoryTree::default().with("core/package.toml", text),
-            &registry,
-            &Limits::PRODUCTION,
-        )
-    };
-    let valid = package_source("package", "core");
-    let mismatch = valid.replace(
-        "owner = \"@synthetic/knowledge\"",
-        "owner = \"@synthetic/other\"",
-    );
-    let refusal = check(&mismatch);
-    assert!(
-        refusal.is_err(),
-        "a legacy owner outside owners must refuse"
-    );
-    assert!(
-        refusal
-            .unwrap_err()
-            .to_string()
-            .contains("metadata.owner: must belong to owners")
-    );
-    let second_owner = valid.replace(
-        "owners = [\"@synthetic/knowledge\"]",
-        "owners = [\"@synthetic/first\", \"@synthetic/knowledge\"]",
-    );
-    assert!(
-        check(&second_owner).is_ok(),
-        "membership must not mean first owner"
-    );
 }

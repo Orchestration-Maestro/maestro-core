@@ -6,7 +6,9 @@ use serde_json::json;
 use std::{fs, path::PathBuf};
 
 /// The synthetic source fixtures, where each file of the valid catalog lives.
-const VALID: [(&str, &str); 6] = [
+const VALID: [(&str, &str); 8] = [
+    ("package.toml", "package.toml"),
+    ("core/package.toml", "core-package.toml"),
     ("core/agents/valid.agent.md", "valid.agent.md"),
     ("core/agents/valid.maestro.toml", "valid.maestro.toml"),
     ("skills/valid-skill/SKILL.md", "valid-skill/SKILL.md"),
@@ -42,7 +44,7 @@ fn catalog_check_passes_the_valid_catalog() {
     let result = home.run(&["catalog", "check", "--catalog-dir", root.to_str().unwrap()]);
     assert_eq!(
         (result.code, result.stdout.as_str(), result.stderr.as_str()),
-        (Some(0), "catalog check passed: 4 resources\n", ""),
+        (Some(0), "catalog check passed: 6 resources\n", ""),
     );
 }
 
@@ -66,7 +68,8 @@ fn catalog_check_reports_each_resource_under_json() {
         json!({
             "id": "agent:core/valid",
             "path": "core/agents/valid.agent.md",
-            "owner": "@synthetic/knowledge",
+            "owners": ["@synthetic/knowledge"],
+            "maintainers": [],
             "maturity": "reviewed",
         })
     );

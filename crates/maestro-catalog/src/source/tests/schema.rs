@@ -27,18 +27,18 @@ fn duplicate_keys_are_refused_in_yaml_and_toml() {
         ),
         (
             "sidecar",
-            edited(SIDECAR, "maturity", "owner = \"x\"\nmaturity"),
-            "core/agents/valid.maestro.toml: invalid TOML at line 3, column 1: duplicate key",
+            edited(SIDECAR, "maturity", "schema = \"x\"\nmaturity"),
+            "core/agents/valid.maestro.toml: invalid TOML at line 2, column 1: duplicate key",
         ),
         (
             "skill metadata",
             edited(
                 SKILL,
                 "  maestro.maturity",
-                "  maestro.owner: x\n  maestro.maturity",
+                "  maestro.maturity: x\n  maestro.maturity",
             ),
             "skills/valid-skill/SKILL.md: invalid frontmatter: metadata: duplicate key \
-                \"maestro.owner\"",
+                \"maestro.maturity\"",
         ),
     ]);
 }
@@ -111,16 +111,6 @@ fn schema_stage_owner_rows_and_workflows_are_checked() {
             edited(SIDECAR, "\"reviewed\"", "\"qualified\""),
             "core/agents/valid.maestro.toml: maturity: qualified needs S4 evidence; a source \
                 cannot declare it",
-        ),
-        (
-            "empty owner",
-            edited(SIDECAR, "\"@synthetic/knowledge\"", "\"  \""),
-            "core/agents/valid.maestro.toml: owner: must name an owner",
-        ),
-        (
-            "missing owner",
-            edited(SKILL, "  maestro.owner: \"@synthetic/knowledge\"\n", ""),
-            "skills/valid-skill/SKILL.md: metadata.maestro.owner: missing",
         ),
         (
             "no row",

@@ -27,7 +27,9 @@ macro_rules! fixture {
 }
 
 /// The files of the valid catalog: where each lives and its fixture.
-pub(super) const VALID: [(&str, &str); 6] = [
+pub(super) const VALID: [(&str, &str); 8] = [
+    ("package.toml", fixture!("package.toml")),
+    ("core/package.toml", fixture!("core-package.toml")),
     ("core/agents/valid.agent.md", fixture!("valid.agent.md")),
     (
         "core/agents/valid.maestro.toml",
@@ -68,6 +70,13 @@ impl MemoryTree {
         VALID
             .into_iter()
             .fold(Self::default(), |tree, (path, text)| tree.with(path, text))
+    }
+
+    /// A synthetic common/core ownership boundary for checked resource fixtures.
+    pub(super) fn owned() -> Self {
+        Self::default()
+            .with("package.toml", fixture!("package.toml"))
+            .with("core/package.toml", fixture!("core-package.toml"))
     }
 
     /// This catalog with `path` holding `text`.
@@ -160,7 +169,7 @@ impl SourceTree for MemoryTree {
 /// Parses and checks the model-card fixture through the production checker.
 pub(crate) fn checked_model_card(text: &str) -> Resource {
     check_by(
-        &MemoryTree::default().with("core/llm/models/embedder/synthetic.toml", text),
+        &MemoryTree::owned().with("core/llm/models/embedder/synthetic.toml", text),
         &builtin().unwrap(),
         &Limits::PRODUCTION,
     )

@@ -1,5 +1,5 @@
 //! The Maestro metadata every resource declares, read the same way wherever
-//! its kind keeps it: schema, owner, stage, 08 rows, workflows, typed
+//! its kind keeps it: schema, stage, 08 rows, workflows, typed
 //! references and an optional version.
 
 use super::{
@@ -10,9 +10,8 @@ use super::{
 
 /// The metadata keys, each a string but the lists `rows`, `workflows` and
 /// `requires`.
-const KEYS: [&str; 7] = [
+const KEYS: [&str; 6] = [
     "schema",
-    "owner",
     "maturity",
     "rows",
     "workflows",
@@ -23,9 +22,11 @@ const KEYS: [&str; 7] = [
 /// The keys a string map may not hold without Maestro's prefix: a reader
 /// would take them for Maestro's. `version`, which the Agent Skills
 /// specification's own example uses, is not among them.
-const AMBIGUOUS: [&str; 7] = [
+const AMBIGUOUS: [&str; 9] = [
     "schema",
     "owner",
+    "owners",
+    "maintainers",
     "maturity",
     "stage",
     "rows",
@@ -160,10 +161,6 @@ pub(super) fn metadata(
             ),
         ));
     }
-    let owner = text(table, "owner", prefix, problems);
-    if owner.is_some_and(|owner| owner.trim().is_empty()) {
-        problems.push((key("owner"), "must name an owner".to_owned()));
-    }
     let maturity = text(table, "maturity", prefix, problems).and_then(|name| {
         stage(name, rules)
             .map_err(|message| problems.push((key("maturity"), message)))
@@ -186,7 +183,6 @@ pub(super) fn metadata(
         version.map(str::to_owned)
     });
     Some(Metadata {
-        owner: owner?.to_owned(),
         maturity: maturity?,
         rows: rows.into_iter().map(str::to_owned).collect(),
         workflows: workflows.into_iter().map(str::to_owned).collect(),

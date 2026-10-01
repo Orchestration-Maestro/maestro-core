@@ -5,6 +5,7 @@
 use super::{
     descriptor::{Format, Layout, MetadataPlace},
     metadata::{Rules, from_strings, metadata},
+    ownership::{local, locate},
     parse::{Table, fields, split_frontmatter, toml_table, yaml_table},
     registry::Registration,
     tree::SourceTree,
@@ -184,6 +185,10 @@ pub(super) fn load(
     });
     if let (Some(resource), Some(rules)) = (&resource, registration.rules) {
         rules.check_resource(resource, body, context.known, &mut primary);
+    }
+    if let Some(resource) = &resource {
+        local(resource, descriptor, &mut primary);
+        locate(resource, descriptor, &mut beside);
     }
     let metadata_path = unit.sidecar.clone().unwrap_or_else(|| unit.path.clone());
     let mut diagnostics: Vec<Diagnostic> = located(&unit.path, primary).collect();

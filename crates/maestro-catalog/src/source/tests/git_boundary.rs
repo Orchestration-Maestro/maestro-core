@@ -1,9 +1,9 @@
 //! Git administration is outside the filesystem source view, not a dotfile filter.
 
-use super::{area_support::scoped, support::check_by};
+use super::{area_packages::package_source, area_support::scoped, support::check_by};
 use crate::{
     limits::Limits,
-    source::{Directory, Registry, SourceTree, walk::walk},
+    source::{Directory, Registry, SourceTree, builtin, builtin_hooks, walk::walk},
 };
 use std::{fs, path::PathBuf};
 
@@ -14,11 +14,7 @@ impl Scratch {
     /// Write a valid resource beside root Git administration.
     fn new() -> Self {
         let root = maestro_test_scratch::scratch_directory().unwrap();
-        let text = concat!(
-            "term='evidence'\n[metadata]\n",
-            "schema='maestro-source/2'\nowner='@synthetic/knowledge'\n",
-            "maturity='authored'\nrows=['chat.M036 objects']\nworkflows=['ctm-question']\n",
-        );
+        let text = package_source("package", "common");
         fs::write(root.join("package.toml"), text).unwrap();
         Self(root)
     }
@@ -33,8 +29,17 @@ impl Drop for Scratch {
 /// Check and discover exactly the one published primary under its exact budgets.
 fn accepts(root: &Scratch) {
     let tree = Directory::new(&root.0);
-    let mut registry = Registry::default();
-    registry.register(scoped("", &["common"])).unwrap();
+    let mut registry = builtin_hooks();
+    registry
+        .register(
+            builtin()
+                .unwrap()
+                .kind("package")
+                .unwrap()
+                .descriptor
+                .clone(),
+        )
+        .unwrap();
     let mut limits = Limits::PRODUCTION;
     limits.archive_entries = 1;
     limits.archive_total_bytes = fs::metadata(root.0.join("package.toml")).unwrap().len();
@@ -76,8 +81,17 @@ fn root_git_file_is_outside_source_and_budgets() {
 fn nested_git_is_unregistered_even_when_empty() {
     let root = Scratch::new();
     fs::create_dir_all(root.0.join("docs/.git")).unwrap();
-    let mut registry = Registry::default();
-    registry.register(scoped("", &["common"])).unwrap();
+    let mut registry = builtin_hooks();
+    registry
+        .register(
+            builtin()
+                .unwrap()
+                .kind("package")
+                .unwrap()
+                .descriptor
+                .clone(),
+        )
+        .unwrap();
     let tree = Directory::new(&root.0);
     let found = walk(&tree, &registry, &Limits::PRODUCTION).unwrap();
     assert!(

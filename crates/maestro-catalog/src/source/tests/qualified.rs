@@ -42,7 +42,7 @@ fn entry() -> String {
 
 #[test]
 fn same_stem_different_kind_accepts() {
-    let tree = MemoryTree::default()
+    let tree = MemoryTree::owned()
         .with("core/glossaries/one/evidence.toml", &entry())
         .with(
             "core/skills/evidence/SKILL.md",
@@ -56,12 +56,20 @@ fn same_stem_different_kind_accepts() {
         .iter()
         .map(|resource| resource.id.to_string())
         .collect();
-    assert_eq!(ids, ["glossary:core/evidence", "skill:core/evidence"]);
+    assert_eq!(
+        ids,
+        [
+            "glossary:core/evidence",
+            "package:common",
+            "package:core",
+            "skill:core/evidence"
+        ]
+    );
 }
 
 #[test]
 fn duplicate_kind_namespace_name_refuses() {
-    let tree = MemoryTree::default()
+    let tree = MemoryTree::owned()
         .with("core/glossaries/one/evidence.toml", &entry())
         .with("core/glossaries/two/evidence.toml", &entry());
     let refusal = check_by(&tree, &registry(), &Limits::PRODUCTION).unwrap_err();
@@ -216,7 +224,7 @@ fn root_and_namespace_ids_roundtrip() {
 
 #[test]
 fn duplicate_namespace_without_area_descriptor_refuses() {
-    let tree = MemoryTree::default()
+    let tree = MemoryTree::owned()
         .with("core/glossaries/one/evidence.toml", &entry())
         .with(
             "capabilities/practice/core/glossaries/one/other.toml",
@@ -237,7 +245,7 @@ fn duplicate_namespace_without_area_descriptor_refuses() {
 
 #[test]
 fn identity_serialization_is_a_typed_golden_vector() {
-    let tree = MemoryTree::default().with("core/glossaries/one/evidence.toml", &entry());
+    let tree = MemoryTree::owned().with("core/glossaries/one/evidence.toml", &entry());
     let id = &check_by(&tree, &registry(), &Limits::PRODUCTION)
         .unwrap()
         .resources[0]
@@ -264,7 +272,12 @@ fn identity_serialization_is_a_typed_golden_vector() {
 fn qualified_segments_keep_the_64_character_boundary() {
     let name = "a".repeat(64);
     let path = format!("capabilities/practice/{name}/glossaries/one/{name}.toml");
-    let tree = MemoryTree::default().with(&path, &entry());
+    let tree = MemoryTree::default()
+        .with(
+            &format!("capabilities/practice/{name}/package.toml"),
+            &package_source("package", &name),
+        )
+        .with(&path, &entry());
     let checked = check_by(&tree, &registry(), &Limits::PRODUCTION).unwrap();
     assert_eq!(
         checked.resources[0].id.to_string(),
@@ -292,7 +305,7 @@ fn root_support_qualified_identity_roundtrips() {
     descriptor.scopes = vec![Scope::Root];
     let mut registry = builtin().unwrap();
     registry.register(descriptor).unwrap();
-    let tree = MemoryTree::default().with("docs/catalog/evidence.toml", &entry());
+    let tree = MemoryTree::owned().with("docs/catalog/evidence.toml", &entry());
     let checked = check_by(&tree, &registry, &Limits::PRODUCTION).unwrap();
     assert_eq!(
         checked.resources[0].id.to_string(),
@@ -316,7 +329,7 @@ fn root_support_emitted_id_is_referenceable() {
     descriptor.scopes = vec![Scope::Root];
     let mut registry = builtin().unwrap();
     registry.register(descriptor).unwrap();
-    let tree = MemoryTree::default().with("docs/catalog/evidence.toml", &entry());
+    let tree = MemoryTree::owned().with("docs/catalog/evidence.toml", &entry());
     let checked = check_by(&tree, &registry, &Limits::PRODUCTION).unwrap();
     let id = checked.resources[0].id.to_string();
     let root = package_source("package", "core")

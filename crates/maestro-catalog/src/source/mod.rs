@@ -11,6 +11,7 @@ mod kinds;
 mod load;
 mod metadata;
 mod naming;
+mod ownership;
 mod parse;
 mod placements;
 mod registry;
@@ -26,6 +27,7 @@ mod yaml;
 pub use check::check;
 pub use descriptor::{Field, FieldType, Format, KindDescriptor, Layout, MetadataPlace, Scope};
 pub use kinds::{builtin, builtin_hooks};
+pub use ownership::{Ownership, ReviewPath, ReviewRole, ReviewRule};
 pub use registry::{Registration, RegistrationError, Registry};
 pub use tree::{Directory, Entry, EntryKind, SourceTree};
 pub use types::{

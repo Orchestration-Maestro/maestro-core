@@ -31,7 +31,6 @@ fn with(descriptor: KindDescriptor) -> Registry {
 const METADATA: &str = concat!(
     "[metadata]\n",
     "schema = \"maestro-source/2\"\n",
-    "owner = \"@synthetic/knowledge\"\n",
     "maturity = \"reviewed\"\n",
     "rows = [\"chat.M036 objects\"]\n",
     "workflows = [\"ctm-question\"]\n",
@@ -364,7 +363,7 @@ fn scoped_tool_fields_keep_native_names_and_ordered_repeated_arguments() {
         "term = \"evidence\"\ntools = [\"knowledge_get\"]\nargs = [\"-v\", \"serve\", \
         \"-v\"]\n{METADATA}"
     );
-    let tree = MemoryTree::default().with(ENTRY, &text);
+    let tree = MemoryTree::owned().with(ENTRY, &text);
     let catalog = check_by(&tree, &registry, &Limits::PRODUCTION).unwrap();
     assert_eq!(
         catalog.resources[0].fields["args"].texts(),

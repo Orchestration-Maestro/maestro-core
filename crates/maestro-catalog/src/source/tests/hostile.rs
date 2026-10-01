@@ -18,7 +18,7 @@ fn skill(name: &str, requires: &[String]) -> String {
     };
     format!(
         "---\nname: {name}\ndescription: Synthetic skill of a dependency graph.\nmetadata:\n  \
-            maestro.schema: maestro-source/2\n  maestro.owner: \"@synthetic/knowledge\"\n  \
+            maestro.schema: maestro-source/2\n  \
             maestro.maturity: reviewed\n  maestro.rows: chat.M019 descriptor\n  \
             maestro.workflows: ctm-question\n{requires}---\n\nSynthetic body.\n"
     )
@@ -67,7 +67,7 @@ fn yaml_aliases_expanding_past_twice_the_frontmatter_bytes_are_refused() {
 
 #[test]
 fn a_chain_of_4095_resources_is_checked_on_a_1_mib_stack() {
-    let names: Vec<String> = (0..4_091).map(|index| format!("chain-{index}")).collect();
+    let names: Vec<String> = (0..4_089).map(|index| format!("chain-{index}")).collect();
     let last = names.len() - 1;
     let tree = with_skills(&names, |index| {
         if index == last {
@@ -96,7 +96,7 @@ fn a_chain_of_4095_resources_is_checked_on_a_1_mib_stack() {
 
 #[test]
 fn production_walk_bound_refuses_the_large_graph_before_graph_checks() {
-    let names: Vec<String> = (0..4_091).map(|index| format!("chain-{index}")).collect();
+    let names: Vec<String> = (0..4_089).map(|index| format!("chain-{index}")).collect();
     let tree = with_skills(&names, |_| Vec::new());
     let error = check_under(&tree, &Limits::PRODUCTION).unwrap_err();
     assert!(

@@ -76,6 +76,10 @@ fn scoped_native_kinds_accept_registered_areas() {
         "requires = []",
     );
     let agent_tree = MemoryTree::default()
+        .with(
+            &format!("{team}/package.toml"),
+            &package_source("package", "review"),
+        )
         .with(&format!("{team}/agents/valid.agent.md"), &agent)
         .with(
             &format!("{team}/agents/valid.maestro.toml"),
@@ -84,7 +88,7 @@ fn scoped_native_kinds_accept_registered_areas() {
     let result = check_by(&agent_tree, &registry, &Limits::PRODUCTION);
     assert!(result.is_ok(), "team agent: {result:#?}");
     for area in ["core", team, "languages/rust", "standards/security"] {
-        let tree = MemoryTree::default().with(
+        let tree = area_tree(area).with(
             &format!("{area}/skills/valid-skill/SKILL.md"),
             &legacy.text("skills/valid-skill/SKILL.md"),
         );
@@ -92,7 +96,7 @@ fn scoped_native_kinds_accept_registered_areas() {
         assert!(result.is_ok(), "{area} skill: {result:#?}");
     }
     for area in [team, "languages/rust", "standards/security"] {
-        let tree = MemoryTree::default()
+        let tree = area_tree(area)
             .with(
                 &format!("{area}/instructions/valid.instructions.md"),
                 &legacy.text("core/instructions/valid.instructions.md"),
@@ -104,8 +108,7 @@ fn scoped_native_kinds_accept_registered_areas() {
         let result = check_by(&tree, &registry, &Limits::PRODUCTION);
         assert!(result.is_ok(), "{area} instructions: {result:#?}");
     }
-    let tree =
-        MemoryTree::default().with(&format!("{team}/llm/models/embedder/synthetic.toml"), CARD);
+    let tree = area_tree(team).with(&format!("{team}/llm/models/embedder/synthetic.toml"), CARD);
     let result = check_by(&tree, &registry, &Limits::PRODUCTION);
     assert!(result.is_ok(), "team card: {result:#?}");
 }
@@ -147,7 +150,7 @@ fn preset_missing_name_refuses() {
     let registry = builtin().unwrap();
     let check = |text: &str| {
         check_by(
-            &MemoryTree::default().with("presets/minimal.toml", text),
+            &MemoryTree::owned().with("presets/minimal.toml", text),
             &registry,
             &Limits::PRODUCTION,
         )
@@ -164,7 +167,7 @@ fn preset_duplicate_templates_refuse() {
     let registry = builtin().unwrap();
     let check = |text: &str| {
         check_by(
-            &MemoryTree::default().with("presets/minimal.toml", text),
+            &MemoryTree::owned().with("presets/minimal.toml", text),
             &registry,
             &Limits::PRODUCTION,
         )
@@ -192,7 +195,7 @@ fn area_roots_require_reviewed_transitive_members() {
             "requires = []",
             "requires = [\"skill:common/middle-skill\"]",
         );
-        let tree = MemoryTree::default()
+        let tree = MemoryTree::owned()
             .with(path, &root)
             .with("skills/middle-skill/SKILL.md", &middle)
             .with("skills/leaf-skill/SKILL.md", &leaf);
@@ -249,10 +252,23 @@ fn role_card_matching_kernel_roles_accept() {
         let text = toml::to_string(&declaration).unwrap();
         let path = format!("core/llm/models/{role}/synthetic.toml");
         let result = check_by(
-            &MemoryTree::default().with(&path, &text),
+            &MemoryTree::owned().with(&path, &text),
             &builtin().unwrap(),
             &Limits::PRODUCTION,
         );
         assert!(result.is_ok(), "{role} matching identity: {result:#?}");
     }
+}
+
+/// The explicit descriptor at each native fixture's area boundary.
+fn area_tree(area: &str) -> MemoryTree {
+    let name = area.rsplit('/').next().unwrap();
+    let kind = if area.starts_with("languages/") {
+        "language"
+    } else if area.starts_with("standards/") {
+        "standard"
+    } else {
+        "package"
+    };
+    MemoryTree::default().with(&format!("{area}/package.toml"), &package_source(kind, name))
 }

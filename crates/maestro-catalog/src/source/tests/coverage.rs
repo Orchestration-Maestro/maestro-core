@@ -235,7 +235,7 @@ fn a_toml_syntax_error_is_one_line_without_the_source() {
     let tree = edited(
         "core/agents/valid.maestro.toml",
         "maturity",
-        "owner = \"x\"\nmaturity",
+        "schema = \"x\"\nmaturity",
     );
     let lines: Vec<String> = check_under(&tree, &Limits::PRODUCTION)
         .unwrap_err()
@@ -245,6 +245,6 @@ fn a_toml_syntax_error_is_one_line_without_the_source() {
         .collect();
     assert_eq!(
         lines,
-        ["core/agents/valid.maestro.toml: invalid TOML at line 3, column 1: duplicate key"]
+        ["core/agents/valid.maestro.toml: invalid TOML at line 2, column 1: duplicate key"]
     );
 }

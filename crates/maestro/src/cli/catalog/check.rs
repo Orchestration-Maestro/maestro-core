@@ -35,8 +35,10 @@ struct ResourceLine<'a> {
     id: String,
     /// Its primary file, relative to the catalog.
     path: &'a str,
-    /// Its owner.
-    owner: &'a str,
+    /// Accountable principals derived from its area.
+    owners: Vec<&'a str>,
+    /// Delegated content reviewers derived from its area.
+    maintainers: Vec<&'a str>,
     /// Its declared stage.
     maturity: &'static str,
 }
@@ -53,22 +55,28 @@ struct DiagnosticLine<'a> {
 }
 
 /// The document of a passed check.
-fn passed(catalog: &Catalog) -> CheckDocument<'_> {
-    CheckDocument {
+fn passed(catalog: &Catalog) -> Result<CheckDocument<'_>, Failure> {
+    Ok(CheckDocument {
         schema: SCHEMA,
         status: "passed",
         resources: catalog
             .resources
             .iter()
-            .map(|resource| ResourceLine {
-                id: resource.id.to_string(),
-                path: &resource.path,
-                owner: &resource.metadata.owner,
-                maturity: resource.metadata.maturity.as_str(),
+            .map(|resource| {
+                let ownership = catalog
+                    .ownership(resource)
+                    .ok_or_else(|| Failure::failed("checked resource has no area ownership"))?;
+                Ok(ResourceLine {
+                    id: resource.id.to_string(),
+                    path: &resource.path,
+                    owners: ownership.owners,
+                    maintainers: ownership.maintainers,
+                    maturity: resource.metadata.maturity.as_str(),
+                })
             })
-            .collect(),
+            .collect::<Result<_, Failure>>()?,
         diagnostics: Vec::new(),
-    }
+    })
 }
 
 /// The document of a refused or failed check.
@@ -120,7 +128,7 @@ pub(in crate::cli) fn run(output: Output, catalog_dir: &Path) -> Result<ExitCode
                 "catalog check passed: {} resources",
                 catalog.resources.len()
             );
-            output.result(&passed(&catalog), &text)?;
+            output.result(&passed(&catalog)?, &text)?;
             Ok(ExitCode::SUCCESS)
         }
         Err(refusal) => {

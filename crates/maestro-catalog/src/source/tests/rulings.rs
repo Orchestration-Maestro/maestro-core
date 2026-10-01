@@ -24,8 +24,8 @@ fn bare_skill_metadata_keys_named_like_maestro_keys_are_refused() {
         (
             "bare keys only",
             MemoryTree::valid().with(SKILL, &bare),
-            "skills/valid-skill/SKILL.md: metadata.owner: ambiguous; Maestro reads only \
-                maestro.owner",
+            "skills/valid-skill/SKILL.md: metadata.maturity: ambiguous; Maestro reads only \
+                maestro.maturity",
         ),
         (
             "bare beside prefixed",
@@ -58,8 +58,9 @@ fn foreign_skill_metadata_keys_are_ignored_never_read() {
         "  author: someone-else\n  version: \"2.0\"\n  maestro.maturity",
     );
     let catalog = check_under(&tree, &Limits::PRODUCTION).unwrap();
-    let skill = &catalog.resources[3];
-    assert_eq!(skill.metadata.owner, "@synthetic/knowledge");
+    let skill = &catalog.resources[5];
+    assert!(!skill.fields.contains_key("author"));
+    assert!(skill.metadata.version.is_none());
 }
 
 #[test]
@@ -90,7 +91,7 @@ fn resources_may_declare_a_version() {
         Some("1.2.0")
     );
     assert_eq!(
-        catalog.resources[3].metadata.version.as_deref(),
+        catalog.resources[5].metadata.version.as_deref(),
         Some("0.3")
     );
     assert_refused(vec![(

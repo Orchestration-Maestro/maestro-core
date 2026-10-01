@@ -16,12 +16,14 @@
 //! MCP config registration belongs to its own task. Inert assets require exact
 //! inventories, never recursive directory exemptions.
 //!
-//! Resource identities use the single `/2` qualified envelope.
+//! Resource identities use the single `/2` qualified envelope. Ownership
+//! comes from the area's `package.toml` through [`Catalog::ownership`];
+//! resource-local ownership and delegation declarations are refused.
 //!
 //! # Metadata
 //!
-//! Every resource declares `schema` (`maestro-source/2`), `owner`
-//! (nonempty), `maturity` (a stage its kind admits: `placeholder`,
+//! Every resource declares `schema` (`maestro-source/2`), `maturity`
+//! (a stage its kind admits: `placeholder`,
 //! `authored`, `reviewed` or `retired` for every built-in kind), `rows`
 //! (nonempty, known architecture 08 rows), `workflows` (nonempty workflow
 //! names), optional `requires` (typed `kind:namespace/local-name` references) and an
@@ -47,7 +49,7 @@
 //!    graphs arrives with the workflow kind (C21, C22a).
 //! 4. A preset roots a declared closure: every resource its `requires` and
 //!    its members' hook edges reach, itself included, must be `reviewed`
-//!    with a nonempty owner. `qualified` needs S4 evidence, so no S3 kind
+//!    with area-derived ownership. `qualified` needs S4 evidence, so no S3 kind
 //!    admits it. References are typed `kind:namespace/local-name`.
 //! 5. S1 descriptors declare each setting's sole override class; preset
 //!    `[settings]` values are checked against those canonical descriptors.
@@ -118,7 +120,7 @@ pub enum Maturity {
     Placeholder,
     /// Written, not yet reviewed; discoverable, never in a closure.
     Authored,
-    /// Declared reviewed with a named owner: may enter a closure.
+    /// Declared reviewed with area ownership: may enter a closure.
     Reviewed,
     /// Qualified by S4 evidence.
     Qualified,
@@ -160,8 +162,6 @@ impl Maturity {
 /// The Maestro data every resource declares.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Metadata {
-    /// The owning team or person, nonempty.
-    pub owner: String,
     /// The declared stage.
     pub maturity: Maturity,
     /// The architecture 08 rows the resource serves.

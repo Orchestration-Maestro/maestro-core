@@ -1,9 +1,9 @@
 //! Area closure roots; the shared checker enforces dependency layers and
-//! preset membership. Derived ownership and mandatory-root admission follow
-//! in C34/C80a.
+//! preset membership. Mandatory-root admission follows in C34.
 
 use crate::source::{
     descriptor::{Field, FieldType, Format, KindDescriptor, Layout, MetadataPlace, Scope},
+    ownership::principals,
     rules::KindRules,
     types::{Known, Maturity, Problems, Resource, Value},
 };
@@ -92,28 +92,7 @@ impl KindRules for PackageRules {
                 "must equal the top-level version".to_owned(),
             ));
         }
-        if resource
-            .fields
-            .get("owners")
-            .and_then(Value::texts)
-            .is_none_or(|owners| owners.is_empty())
-        {
-            problems.push(("owners".to_owned(), "must be a nonempty list".to_owned()));
-        }
-        // Transitional /1 owner is only a member of the authoritative list;
-        // C80a derives ownership and removes this old editable envelope field.
-        if !resource
-            .fields
-            .get("owners")
-            .and_then(Value::texts)
-            .unwrap_or_default()
-            .contains(&resource.metadata.owner.as_str())
-        {
-            problems.push((
-                "metadata.owner".to_owned(),
-                "must belong to owners".to_owned(),
-            ));
-        }
+        principals(resource, problems);
         if resource
             .fields
             .get("status")

@@ -55,7 +55,11 @@ fn source_depth_boundary() {
     };
     assert_eq!(
         refusal_under(&past),
-        ["presets/knowledge-client.toml: deeper than 2 levels",]
+        [
+            "core/package.toml: deeper than 2 levels",
+            "package.toml: deeper than 2 levels",
+            "presets/knowledge-client.toml: deeper than 2 levels",
+        ]
     );
 }
 
@@ -82,15 +86,15 @@ fn yaml_frontmatter_depth_boundary() {
 #[test]
 fn catalog_resources_boundary() {
     let exact = Limits {
-        catalog_resources: 4,
+        catalog_resources: 6,
         ..Limits::PRODUCTION
     };
     assert_eq!(refusal_under(&exact), Vec::<String>::new());
     let past = Limits {
-        catalog_resources: 3,
+        catalog_resources: 5,
         ..Limits::PRODUCTION
     };
-    assert_eq!(refusal_under(&past), ["catalog: more than 3 resources"]);
+    assert_eq!(refusal_under(&past), ["catalog: more than 5 resources"]);
 }
 
 #[test]
