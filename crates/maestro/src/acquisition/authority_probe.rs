@@ -115,14 +115,10 @@ pub(super) fn qualify(
     let (mut stream, _) = listener.accept().map_err(|_| refused())?;
     authenticated_report(&mut stream, probe.uid, clock)?;
     timeout(deadline, clock)?;
-    let mut exit = [
-        PollFd::new(&pidfd, PollFlags::IN),
-        PollFd::new(&listener, PollFlags::IN),
-    ];
+    let mut exit = [PollFd::new(&pidfd, PollFlags::IN)];
     poll(&mut exit, Some(&timeout(deadline, clock)?)).map_err(|_| refused())?;
     timeout(deadline, clock)?;
-    if exit[1].revents().contains(PollFlags::IN)
-        || !exit[0].revents().contains(PollFlags::IN)
+    if !exit[0].revents().contains(PollFlags::IN)
         || !child.0.wait().map_err(|_| refused())?.success()
     {
         return Err(refused());

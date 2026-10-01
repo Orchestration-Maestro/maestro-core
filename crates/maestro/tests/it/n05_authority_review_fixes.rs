@@ -81,8 +81,8 @@ fn n05_needs_sudo_owner_refuses_rewritten_world_writable_request() {
 }
 
 #[test]
-#[ignore = "needs sudo: owner refuses a symlink to a UID 65534-owned request"]
-fn n05_needs_sudo_owner_refuses_symlink_confirmation() {
+#[ignore = "needs sudo: owner CLI uses a genuinely qualified authority"]
+fn n05_needs_sudo_owner_refuses_symlink_to_protected_confirmation() {
     let fixture = Fixture::new();
     fixture.qualify();
     let _service = fixture.serve();
@@ -93,18 +93,37 @@ fn n05_needs_sudo_owner_refuses_symlink_confirmation() {
         json!({"action":"grant","grant":grant,"confirmation":grant}).to_string(),
     )
     .unwrap();
-    let chown = Command::new("sudo")
-        .args(["-n", "chown", "65534:65534"])
-        .arg(&target)
-        .output()
-        .unwrap();
-    assert!(chown.status.success(), "{chown:?}");
+    fs::set_permissions(&target, fs::Permissions::from_mode(0o600)).unwrap();
     let path = fixture.home.tools().join("authority/linked.json");
     symlink(&target, &path).unwrap();
     let refused = owner_request(&fixture, &path);
     assert_eq!(refused.code, Some(2), "{refused:?}");
     let direct = owner_request(&fixture, &target);
-    assert_eq!(direct.code, Some(2), "{direct:?}");
+    assert_eq!(direct.code, Some(0), "{direct:?}");
+}
+
+#[test]
+#[ignore = "needs sudo: request is a regular UID 65534-owned non-writable file"]
+fn n05_needs_sudo_owner_refuses_foreign_owned_regular_confirmation() {
+    let fixture = Fixture::new();
+    fixture.qualify();
+    let _service = fixture.serve();
+    let path = fixture.home.tools().join("authority/foreign-request.json");
+    let grant = grant();
+    fs::write(
+        &path,
+        json!({"action":"grant","grant":grant,"confirmation":grant}).to_string(),
+    )
+    .unwrap();
+    fs::set_permissions(&path, fs::Permissions::from_mode(0o644)).unwrap();
+    let chown = Command::new("sudo")
+        .args(["-n", "chown", "65534:65534"])
+        .arg(&path)
+        .output()
+        .unwrap();
+    assert!(chown.status.success(), "{chown:?}");
+    let refused = owner_request(&fixture, &path);
+    assert_eq!(refused.code, Some(2), "{refused:?}");
 }
 
 #[test]
@@ -171,6 +190,33 @@ fn n05_needs_sudo_qualification_refuses_second_connection() {
 }
 
 #[test]
+#[ignore = "needs sudo: real authenticated probe succeeds before launcher exits nonzero"]
+fn n05_needs_sudo_qualification_refuses_failed_launcher_after_valid_report() {
+    let fixture = Fixture::new();
+    let launcher = fixture.home.tools().join("authority/launcher");
+    let original = fs::read_to_string(&launcher).unwrap();
+    fs::write(
+        &launcher,
+        format!(
+            "{}[ $? -eq 0 ] || exit 1\n: > \"$5/launcher-probe-completed\"\nexit 9\n",
+            original.replacen("exec sudo", "sudo", 1)
+        ),
+    )
+    .unwrap();
+    let refused = fixture
+        .home
+        .run(&["authority", "qualify", "--config", &fixture.config]);
+    assert!(
+        Path::new(&fixture.store)
+            .join("launcher-probe-completed")
+            .exists()
+    );
+    assert_eq!(refused.code, Some(2), "{refused:?}");
+    assert!(!Path::new(&fixture.store).join("qualification").exists());
+    assert!(!Path::new(&fixture.socket).with_extension("probe").exists());
+}
+
+#[test]
 #[ignore = "needs sudo: unchanged bytes alone cannot qualify a changed canary mode"]
 fn n05_needs_sudo_qualification_checks_canary_mode() {
     let fixture = Fixture::new();
@@ -203,8 +249,8 @@ fn n05_qualification_preserves_an_existing_endpoint() {
         .run(&["authority", "qualify", "--config", &fixture.config]);
     assert_eq!(refused.code, Some(2), "{refused:?}");
     assert_eq!(
-        fs::read_to_string(&endpoint).unwrap(),
-        "existing endpoint canary"
+        fs::read_to_string(&endpoint).ok().as_deref(),
+        Some("existing endpoint canary")
     );
     assert!(!Path::new(&fixture.store).join("qualification").exists());
 }
