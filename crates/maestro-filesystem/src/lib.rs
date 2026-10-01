@@ -4,6 +4,10 @@
 //! Windows, so neither the store nor the tokenizer branches on the platform (ADR-0018).
 #[cfg(test)]
 mod bounded_tests;
+#[cfg(test)]
+mod canonical_identity_tests;
+#[cfg(all(test, windows))]
+mod canonical_windows_identity_tests;
 mod listing;
 #[cfg(test)]
 mod listing_tests;

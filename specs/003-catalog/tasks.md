@@ -650,17 +650,17 @@ approval can add a folder, and config-only decline records grant no other write.
 `crates/maestro-catalog/resources/secret-paths.json`.
 **Requirements:** FR-S3-036, SC-S3-012.
 
-- [ ] **Step 1: Red.** Test inside/outside reads and writes, nested trust roots,
+- [x] **Step 1: Red.** Test inside/outside reads and writes, nested trust roots,
   lookalike prefixes, `..`, symlink/reparse escapes, link swaps and new-file
   parents. Deny secret reads even inside trust: SSH/GPG, cloud/CLI credentials,
   password stores/keyrings and `.env`/`.env.*`. Exercise home/XDG/Windows path
   mappings and a known secret path's allowed non-secret neighbour.
-- [ ] **Step 2: Green.** Implement the default `WorkspaceTrust` decision adapter
+- [x] **Step 2: Green.** Implement the default `WorkspaceTrust` decision adapter
   over ADR-0018 held handles/canonical ancestry, not string prefixes or a second
   path implementation. Load the immutable built-in deny rules as strict data;
   workspace/catalog inputs cannot remove or replace them. Keep kernel-internal
   storage inaccessible to agents/tools even if a broader folder is trusted.
-- [ ] **Step 3: Check.** Run capped nextest filter `policy::workspace::tests::paths`
+- [x] **Step 3: Check.** Run capped nextest filter `policy::workspace::tests::paths`
   and three-target Clippy; run the real filesystem cases on all three CI hosts.
 
 **Acceptance:** outside writes, secret reads and escapes fail before effects;

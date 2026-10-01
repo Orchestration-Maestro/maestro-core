@@ -400,9 +400,3 @@ rule = "ARC-005"
 path = "crates/maestro-catalog/src/policy/mod.rs"
 item = "workspace"
 reason = "C05h shared workspace authority port is composed by CLI trust/init/session across crates; discovery is its in-crate consumer"
-
-[[exception]]
-rule = "ARC-005"
-path = "crates/maestro-catalog/src/policy/workspace/mod.rs"
-item = "WorkspaceTrust"
-reason = "C05h public trust port is consumed by CLI init/session and keeps the C05b discovery contract; cross-crate callers are not counted"

@@ -1,4 +1,5 @@
 //! Default-no IO, adapter floor, and private digest receipts.
+use super::paths::literal_suffix;
 use crate::{
     files::FileInput,
     policy::workspace::{
@@ -78,7 +79,7 @@ fn confirm_path_rejects_relative_dot_and_mismatched_spellings() {
     let scratch = scratch_directory().unwrap();
     let canonical = scratch.canonicalize().unwrap();
     for path in [
-        canonical.join("."),
+        literal_suffix(&canonical, "."),
         PathBuf::from("workspace"),
         canonical.join("child"),
     ] {
@@ -178,6 +179,7 @@ fn journal_revocation_is_observed_by_the_same_adapter() {
     assert_eq!(database.trusted_workspaces().unwrap(), vec![approved]);
     record(Answer::Removed);
     assert!(adapter.containing_root(&root).is_none());
+    drop(database);
     fs::remove_dir_all(scratch).unwrap();
 }
 
@@ -214,5 +216,6 @@ fn declined_preferences_write_only_config_and_internal_digest_receipts() {
     assert!(!root.join("template.md").exists());
     assert!(write_preferences(&database, &root, &file, Confirmation::ConfirmPath).is_err());
     assert_eq!(fs::read(root.join(&file.path)).unwrap(), file.bytes);
+    drop(database);
     fs::remove_dir_all(scratch).unwrap();
 }

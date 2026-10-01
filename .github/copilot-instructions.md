@@ -485,6 +485,8 @@ in place.
 │   ├── maestro-catalog/                                                     # Maestro catalog
 │   │   ├── data/                                                            # Data
 │   │   │   └── known-rows.txt                                               # Text: known rows
+│   │   ├── resources/                                                       # Resources
+│   │   │   └── secret-paths.json                                            # JSON data: secret paths
 │   │   ├── src/                                                             # The crate's sources
 │   │   │   ├── bootstrap/                                                   # Inspect a project and plan a preset composition without executing its files
 │   │   │   │   ├── compose.rs                                               # Resolve explicit preset names through a replaceable source port
@@ -530,9 +532,15 @@ in place.
 │   │   │   │   ├── workspace/                                               # User-approved workspace records with a non-replaceable root refusal floor
 │   │   │   │   │   ├── tests/                                               # Workspace trust approval and mandatory refusal contracts
 │   │   │   │   │   │   ├── approval.rs                                      # Default-no IO, adapter floor, and private digest receipts
-│   │   │   │   │   │   └── mod.rs                                           # Workspace trust approval and mandatory refusal contracts
+│   │   │   │   │   │   ├── mod.rs                                           # Workspace trust approval and mandatory refusal contracts
+│   │   │   │   │   │   ├── path_effects.rs                                  # Effect-time secret rebinding and checked-parent creation leases
+│   │   │   │   │   │   ├── path_refusals.rs                                 # Failure and alias cases sharing the real filesystem path fixtures
+│   │   │   │   │   │   ├── path_secrets.rs                                  # Secret-data, platform-binding and strict-schema path contracts
+│   │   │   │   │   │   └── paths.rs                                         # Real held-parent path decisions and immutable deny data
 │   │   │   │   │   ├── approval.rs                                          # Exact-path or default-no terminal approval; preferences-only writes stay separate
+│   │   │   │   │   ├── deny.rs                                              # Immutable checked deny data; only the composition root supplies platform bindings
 │   │   │   │   │   ├── mod.rs                                               # User-approved workspace records with a non-replaceable root refusal floor
+│   │   │   │   │   ├── paths.rs                                             # Decisions retain a no-follow parent capability; no file effect uses a reopened path
 │   │   │   │   │   └── port.rs                                              # Replaceable journal authority adapter inside mandatory root refusals
 │   │   │   │   ├── check.rs                                                 # Cedar schema validation and authorization, fail-closed on every diagnostic
 │   │   │   │   ├── mod.rs                                                   # Effect-free Cedar checking and separately supplied trusted host facts
@@ -631,6 +639,8 @@ in place.
 │   ├── maestro-filesystem/                                                  # Maestro filesystem
 │   │   ├── src/                                                             # The crate's sources
 │   │   │   ├── bounded_tests.rs                                             # Rust source: bounded tests
+│   │   │   ├── canonical_identity_tests.rs                                  # Held-object canonical spelling, including a transient link swap on Unix
+│   │   │   ├── canonical_windows_identity_tests.rs                          # Windows full-volume/full-file identities from real held files
 │   │   │   ├── lib.rs                                                       # Filesystem access that never follows a link below the root its caller names, which resolves
 │   │   │   ├── listing.rs                                                   # Shared bounded listing records; platform adapters classify without following links
 │   │   │   ├── listing_tests.rs                                             # Bounded directory listing on held handles

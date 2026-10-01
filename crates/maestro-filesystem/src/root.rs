@@ -7,6 +7,17 @@ use std::{
     path::{Component, Path, PathBuf},
 };
 
+/// Validate a public regular-file open as exactly one normal name, never a path or stream.
+pub(super) fn leaf_name(name: &str) -> io::Result<()> {
+    if name.is_empty() || name.contains(['/', '\\', ':']) || name == "." || name == ".." {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "not one normal file name",
+        ));
+    }
+    Ok(())
+}
+
 /// The caller's root with its links resolved, followed by `below`. A root that does not exist yet
 /// resolves through its deepest existing ancestor, and the rest is appended unresolved, for the
 /// walk to create or refuse. Parent traversal is refused in either part, and `below` holds names

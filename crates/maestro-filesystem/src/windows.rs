@@ -9,8 +9,8 @@
 use super::{
     listing::{self, Entry},
     read::{read_limited, read_prefix},
-    root::resolve,
-    windows_security::private_metadata,
+    root::{leaf_name, resolve},
+    windows_security::{private_metadata, same_file},
 };
 use std::{
     ffi::OsStr,
@@ -222,10 +222,48 @@ impl Directory {
     /// # Errors
     /// Returns an error if the name is unsafe, linked, non-regular, or unreadable.
     pub fn read_regular(&self, name: &str) -> io::Result<Vec<u8>> {
-        let mut file = self.open_regular(name)?;
+        let mut file = self.open_regular_path(name)?;
         let mut bytes = Vec::new();
         file.read_to_end(&mut bytes)?;
         Ok(bytes)
+    }
+
+    /// Recheck the named directory chain. Held handles exclude deletion and renaming
+    /// on Windows, so successful no-follow opens establish the same identity.
+    ///
+    /// # Errors
+    /// Refuses missing paths, reparse points and failed opens.
+    pub fn verify_named(&self) -> io::Result<()> {
+        self.verify_path(&self.path)
+    }
+
+    /// The canonical spelling that provably names this held directory.
+    ///
+    /// # Errors
+    /// Refuses resolution failures, reparse points, changed names and identity mismatches.
+    pub fn canonical_path(&self) -> io::Result<PathBuf> {
+        self.verify_named()?;
+        let canonical = self.path.canonicalize()?;
+        self.verify_path(&canonical)?;
+        self.verify_named()?;
+        Ok(canonical)
+    }
+
+    /// One full-identity comparison for both original and resolved directory spellings.
+    fn verify_path(&self, path: &Path) -> io::Result<()> {
+        let held = self
+            .held
+            .last()
+            .ok_or_else(|| io::Error::other("no held directory"))?;
+        let named = Self::open_canonical(path)?;
+        let named = named
+            .held
+            .last()
+            .ok_or_else(|| io::Error::other("no named directory"))?;
+        if !same_file(held, named)? {
+            return Err(io::Error::other("directory changed during discovery"));
+        }
+        Ok(())
     }
 
     /// Read at most `max_bytes + 1` bytes of a regular file through this held handle.
@@ -234,7 +272,7 @@ impl Directory {
     /// # Errors
     /// Refuses unsafe names, links, non-regular files and failed reads.
     pub fn read_regular_prefix(&self, name: &str, max_bytes: u64) -> io::Result<Vec<u8>> {
-        read_prefix(self.open_regular(name)?, max_bytes)
+        read_prefix(self.open_regular_path(name)?, max_bytes)
     }
 
     /// The bytes of a regular file, never read through a link or beyond `max_bytes + 1`.
@@ -243,11 +281,24 @@ impl Directory {
     /// Returns `io::ErrorKind::FileTooLarge` when the file exceeds `max_bytes`, or an error
     /// if the name is unsafe, linked, non-regular, or unreadable.
     pub fn read_regular_bounded(&self, name: &str, max_bytes: u64) -> io::Result<Vec<u8>> {
-        read_limited(self.open_regular(name)?, max_bytes)
+        read_limited(self.open_regular_path(name)?, max_bytes)
     }
 
-    /// Open a regular file through the held directory without following a link.
-    fn open_regular(&self, name: &str) -> io::Result<File> {
+    /// Open exactly one regular-file leaf through the held, still-named directory.
+    ///
+    /// # Errors
+    /// Refuses traversal, separators/streams, replaced parents, links, non-regular files
+    /// and failed opens. The returned handle, not the path, must be used for reading.
+    pub fn open_regular(&self, name: &str) -> io::Result<File> {
+        leaf_name(name)?;
+        self.verify_named()?;
+        let file = self.open_regular_path(name)?;
+        self.verify_named()?;
+        Ok(file)
+    }
+
+    /// Existing internal readers also use relative paths for quarantine operations.
+    fn open_regular_path(&self, name: &str) -> io::Result<File> {
         let file = open_nofollow(&self.path.join(name))?;
         if !file.metadata()?.is_file() {
             return Err(io::Error::other("artifact is not a regular file"));

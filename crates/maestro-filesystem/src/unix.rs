@@ -5,7 +5,7 @@
 use super::{
     listing::{self, Entry, EntryKind},
     read::{read_limited, read_prefix},
-    root::resolve,
+    root::{leaf_name, resolve},
 };
 use rustix::fd::OwnedFd;
 use rustix::fs::{
@@ -196,18 +196,52 @@ impl Directory {
     pub fn read_preferences(&self, name: &str, max_bytes: u64) -> io::Result<Vec<u8>> {
         self.verify_named()?;
         private_metadata(&self.0)?;
-        let file = self.open_regular(name)?;
+        let file = self.open_regular_path(name)?;
         private_metadata(&file)?;
         let bytes = read_limited(file, max_bytes)?;
         self.verify_named()?;
         Ok(bytes)
     }
 
+    /// The canonical spelling that still names this held directory.
+    ///
+    /// # Errors
+    /// Refuses resolution failures, links, changed names and identity mismatches.
+    pub fn canonical_path(&self) -> io::Result<PathBuf> {
+        self.verify_named()?;
+        self.finish_canonical(self.1.canonicalize()?)
+    }
+
+    /// Test-only resolver seam for a link swap during canonicalization.
+    #[cfg(test)]
+    pub(crate) fn canonical_path_with(
+        &self,
+        resolve: impl FnOnce(&Path) -> io::Result<PathBuf>,
+    ) -> io::Result<PathBuf> {
+        self.verify_named()?;
+        self.finish_canonical(resolve(&self.1)?)
+    }
+
+    /// Bind the returned spelling to the same held object, then recheck the original name.
+    fn finish_canonical(&self, canonical: PathBuf) -> io::Result<PathBuf> {
+        self.verify_path(&canonical)?;
+        self.verify_named()?;
+        Ok(canonical)
+    }
+
     /// Refuse replacement of this directory or a link in its ancestor chain.
-    fn verify_named(&self) -> io::Result<()> {
+    ///
+    /// # Errors
+    /// Refuses an identity mismatch, links or unverifiable metadata.
+    pub fn verify_named(&self) -> io::Result<()> {
+        self.verify_path(&self.1)
+    }
+
+    /// The one identity comparison for both original and resolved spellings.
+    fn verify_path(&self, path: &Path) -> io::Result<()> {
         use std::os::unix::fs::MetadataExt as _;
         let held = self.0.metadata()?;
-        let named = Self::open_canonical(&self.1)?.0.metadata()?;
+        let named = Self::open_canonical(path)?.0.metadata()?;
         if held.dev() != named.dev() || held.ino() != named.ino() {
             return Err(io::Error::other("directory changed during discovery"));
         }
@@ -219,7 +253,7 @@ impl Directory {
     /// # Errors
     /// Returns an error if the name is unsafe, linked, non-regular, or unreadable.
     pub fn read_regular(&self, name: &str) -> io::Result<Vec<u8>> {
-        let mut file = self.open_regular(name)?;
+        let mut file = self.open_regular_path(name)?;
         let mut bytes = Vec::new();
         file.read_to_end(&mut bytes)?;
         Ok(bytes)
@@ -231,7 +265,7 @@ impl Directory {
     /// # Errors
     /// Refuses unsafe names, links, non-regular files and failed reads.
     pub fn read_regular_prefix(&self, name: &str, max_bytes: u64) -> io::Result<Vec<u8>> {
-        read_prefix(self.open_regular(name)?, max_bytes)
+        read_prefix(self.open_regular_path(name)?, max_bytes)
     }
 
     /// The bytes of a regular file, never read through a link or beyond `max_bytes + 1`.
@@ -240,11 +274,24 @@ impl Directory {
     /// Returns `io::ErrorKind::FileTooLarge` when the file exceeds `max_bytes`, or an error
     /// if the name is unsafe, linked, non-regular, or unreadable.
     pub fn read_regular_bounded(&self, name: &str, max_bytes: u64) -> io::Result<Vec<u8>> {
-        read_limited(self.open_regular(name)?, max_bytes)
+        read_limited(self.open_regular_path(name)?, max_bytes)
     }
 
-    /// Open a regular file through the held directory without following a link.
-    fn open_regular(&self, name: &str) -> io::Result<File> {
+    /// Open exactly one regular-file leaf through the held, still-named directory.
+    ///
+    /// # Errors
+    /// Refuses traversal, separators/streams, replaced parents, links, non-regular files
+    /// and failed opens. The returned handle, not the path, must be used for reading.
+    pub fn open_regular(&self, name: &str) -> io::Result<File> {
+        leaf_name(name)?;
+        self.verify_named()?;
+        let file = self.open_regular_path(name)?;
+        self.verify_named()?;
+        Ok(file)
+    }
+
+    /// Existing internal readers also use relative paths for quarantine operations.
+    fn open_regular_path(&self, name: &str) -> io::Result<File> {
         let fd = openat(&self.0, name, READ_REGULAR_FLAGS, Mode::empty())?;
         let file = File::from(fd);
         if !file.metadata()?.is_file() {

@@ -1,6 +1,7 @@
 //! Replaceable journal authority adapter inside mandatory root refusals.
+use super::deny::{SecretPaths, canonical_location, contains};
 use maestro_filesystem::Directory;
-use maestro_kernel::workspace::WorkspaceAuthority;
+use maestro_kernel::{paths::Environment, workspace::WorkspaceAuthority};
 use std::{
     fmt, io,
     path::{Path, PathBuf},
@@ -19,6 +20,14 @@ pub struct TrustBoundaries {
     home: PathBuf,
     /// Canonical internal directories; tools may never trust these subtrees.
     internal: Vec<PathBuf>,
+    /// Immutable secret denies shared by every checked adapter.
+    secrets: SecretPaths,
+    /// Composition-root HOME spelling, retained for effect-time alias resolution.
+    home_binding: PathBuf,
+    /// Composition-root internal bindings, never supplied by catalog content.
+    internal_bindings: Vec<PathBuf>,
+    /// Immutable per-composition platform variables; filesystem aliases stay live.
+    environment: Environment,
 }
 
 impl TrustBoundaries {
@@ -27,13 +36,53 @@ impl TrustBoundaries {
     /// # Errors
     /// Refuses unresolved home/internal locations rather than omitting a deny.
     pub fn new(home: &Path, internal: &[PathBuf]) -> io::Result<Self> {
+        Self::with_environment(home, internal, &Environment::current())
+    }
+
+    /// Resolve composition-root platform bindings; workspace data never supplies them.
+    ///
+    /// # Errors
+    /// Refuses unresolved locations or malformed immutable deny data.
+    pub fn with_environment(
+        home: &Path,
+        internal: &[PathBuf],
+        environment: &Environment,
+    ) -> io::Result<Self> {
+        let home_binding = home.to_path_buf();
+        let home = Directory::open_canonical(&home.canonicalize()?)?.canonical_path()?;
         Ok(Self {
-            home: home.canonicalize()?,
+            home_binding,
+            internal_bindings: internal.to_vec(),
+            environment: environment.clone(),
+            secrets: SecretPaths::built_in(&home, environment)?,
+            home,
             internal: internal
                 .iter()
                 .map(|path| canonical_location(path))
                 .collect::<io::Result<_>>()?,
         })
+    }
+
+    /// Re-resolve the same trusted bindings against the current filesystem before an effect.
+    pub(super) fn refreshed(&self) -> io::Result<Self> {
+        Self::with_environment(
+            &self.home_binding,
+            &self.internal_bindings,
+            &self.environment,
+        )
+    }
+
+    /// Mandatory target denies, including when a broader directory was approved.
+    pub(super) fn check_target(&self, path: &Path) -> io::Result<()> {
+        if self.secrets.refuses(path)
+            || self
+                .internal
+                .iter()
+                .any(|internal| contains(internal, path))
+        {
+            return Err(io::Error::other("secret or kernel-internal location"));
+        }
+        Ok(())
     }
 
     /// Resolve the selected directory once and apply the mandatory refusal floor.
@@ -76,23 +125,6 @@ impl TrustBoundaries {
     }
 }
 
-/// Resolve a possibly not-yet-created internal binding using its existing ancestor.
-fn canonical_location(path: &Path) -> io::Result<PathBuf> {
-    match path.canonicalize() {
-        Ok(path) => Ok(path),
-        Err(error) if error.kind() == io::ErrorKind::NotFound => {
-            let parent = path
-                .parent()
-                .ok_or_else(|| io::Error::other("internal path has no ancestor"))?;
-            let name = path
-                .file_name()
-                .ok_or_else(|| io::Error::other("internal path has no name"))?;
-            Ok(canonical_location(parent)?.join(name))
-        }
-        Err(error) => Err(error),
-    }
-}
-
 /// Read the existing kernel journal afresh, so revocation affects subsequent decisions.
 pub struct JournalTrust<'a> {
     /// User-local kernel authority; no preference file is consulted.
@@ -122,9 +154,9 @@ impl WorkspaceTrust for JournalTrust<'_> {
 /// Non-overridable refusal wrapper around any authority adapter.
 pub struct CheckedTrust<'a> {
     /// Replaceable source of approved roots.
-    adapter: &'a dyn WorkspaceTrust,
+    pub(super) adapter: &'a dyn WorkspaceTrust,
     /// Mandatory refusal floor.
-    boundaries: &'a TrustBoundaries,
+    pub(super) boundaries: &'a TrustBoundaries,
 }
 
 impl<'a> CheckedTrust<'a> {

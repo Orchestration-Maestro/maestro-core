@@ -31,8 +31,9 @@ use windows_sys::Win32::{
         TOKEN_USER, TokenUser, WELL_KNOWN_SID_TYPE, WinBuiltinAdministratorsSid, WinLocalSystemSid,
     },
     Storage::FileSystem::{
-        DELETE, FILE_APPEND_DATA, FILE_DELETE_CHILD, FILE_WRITE_ATTRIBUTES, FILE_WRITE_DATA,
-        FILE_WRITE_EA, WRITE_DAC, WRITE_OWNER,
+        DELETE, FILE_APPEND_DATA, FILE_DELETE_CHILD, FILE_ID_INFO, FILE_WRITE_ATTRIBUTES,
+        FILE_WRITE_DATA, FILE_WRITE_EA, FileIdInfo, GetFileInformationByHandleEx, WRITE_DAC,
+        WRITE_OWNER,
     },
     System::{
         SystemServices::{
@@ -42,6 +43,55 @@ use windows_sys::Win32::{
         Threading::{GetCurrentProcess, OpenProcessToken},
     },
 };
+
+/// ReFS-compatible identity: full volume serial and 128-bit file ID, never a 64-bit fallback.
+type FileIdentity = (u64, [u8; 16]);
+
+/// The shared equality check for original names and canonical spellings.
+pub(super) fn same_file(left: &File, right: &File) -> io::Result<bool> {
+    Ok(file_identity(left)? == file_identity(right)?)
+}
+
+/// Query identity from a live held handle, using the already-enabled Win32 filesystem API.
+fn file_identity(file: &File) -> io::Result<FileIdentity> {
+    file_identity_with(file, |file, information| {
+        let bytes = u32::try_from(size_of::<FILE_ID_INFO>()).map_err(io::Error::other)?;
+        // SAFETY: file owns a live handle; information is aligned initialized FILE_ID_INFO
+        // storage of exactly bytes, alive and exclusively borrowed throughout this call.
+        Ok(unsafe {
+            GetFileInformationByHandleEx(
+                file.as_raw_handle(),
+                FileIdInfo,
+                ptr::from_mut(information).cast(),
+                bytes,
+            )
+        })
+    })
+}
+
+/// Private query seam tests an unsupported/failing API without a production override.
+fn file_identity_with(
+    file: &File,
+    query: impl FnOnce(&File, &mut FILE_ID_INFO) -> io::Result<i32>,
+) -> io::Result<FileIdentity> {
+    let mut information = FILE_ID_INFO::default();
+    if query(file, &mut information)? == 0 {
+        return Err(io::Error::last_os_error());
+    }
+    Ok((
+        information.VolumeSerialNumber,
+        information.FileId.Identifier,
+    ))
+}
+
+/// Test-only injection into the private API query; production callers have no override.
+#[cfg(test)]
+pub(super) fn identity_with_for_test(
+    file: &File,
+    query: impl FnOnce(&File, &mut FILE_ID_INFO) -> io::Result<i32>,
+) -> io::Result<FileIdentity> {
+    file_identity_with(file, query)
+}
 
 /// Memory allocated by `GetSecurityInfo`, which owns the returned SID and ACL pointers.
 struct SecurityDescriptor(*mut c_void);
