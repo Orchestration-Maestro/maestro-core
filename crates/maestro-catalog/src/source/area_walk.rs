@@ -5,6 +5,7 @@ use super::{
     descriptor::{KindDescriptor, Layout, MetadataPlace, Scope},
     discovered::{Found, Unit, refusal},
     naming,
+    ownership::GENERATED_CODEOWNERS,
     parse::is_name,
     placements::{concrete, directories, fits, join},
     registry::Registry,
@@ -262,6 +263,12 @@ impl Walker<'_> {
                 path,
                 "must use a functional name, not a registered product or misplaced native filename",
             );
+        }
+        if path == GENERATED_CODEOWNERS.path {
+            if kind != EntryKind::File {
+                self.note(path, "generated CODEOWNERS must be a regular file");
+            }
+            return;
         }
         if kind != EntryKind::Directory && !self.consumed.contains(path) {
             self.note(

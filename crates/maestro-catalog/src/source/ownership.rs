@@ -7,6 +7,23 @@ use super::{
 };
 use std::{collections::BTreeSet, iter::once};
 
+/// A known generated file, counted in the snapshot and validated after area loading.
+pub(super) struct GeneratedFile {
+    /// Exact catalog-relative output path, never a directory exemption.
+    pub(super) path: &'static str,
+    /// Validator over the checked area's canonical records.
+    pub(super) validate: fn(&Catalog, &str) -> Result<(), String>,
+}
+
+/// The generated ownership entry: discovery and validation use this same record.
+pub(super) const GENERATED_CODEOWNERS: GeneratedFile = GeneratedFile {
+    path: ".github/CODEOWNERS",
+    validate: Catalog::check_codeowners,
+};
+
+/// The sole generated CODEOWNERS path, relative to the catalog.
+pub const CODEOWNERS_PATH: &str = GENERATED_CODEOWNERS.path;
+
 /// The sole area principal policy: owners are required, content delegates optional.
 const OWNERSHIP_FIELDS: [(&str, Option<bool>); 3] = [
     ("owner", None),
@@ -328,6 +345,122 @@ impl Ownership<'_> {
         }
         Ok(())
     }
+}
+
+impl Catalog {
+    /// Render anchored CODEOWNERS from checked area records, content first.
+    /// Root governance and descriptor/exception rules are owners-only and win last.
+    /// This is review routing, not identity verification or independent quorums.
+    ///
+    /// # Errors
+    /// Missing/ambiguous area ownership or an unsafe literal review placement.
+    pub fn codeowners(&self) -> Result<String, String> {
+        let root = self
+            .resources
+            .iter()
+            .find(|resource| resource.path == "package.toml")
+            .and_then(|resource| self.ownership(resource))
+            .ok_or_else(|| "CODEOWNERS requires root ownership from package.toml".to_owned())?;
+        let mut areas: Vec<_> = self
+            .resources
+            .iter()
+            .filter(|resource| {
+                resource.id.namespace.is_none() && resource.fields.contains_key("owners")
+            })
+            .collect();
+        areas.sort_by_key(|resource| (resource.path != root.descriptor.path, &resource.path));
+        let mut records = Vec::new();
+        for area in areas {
+            let ownership = self
+                .ownership(area)
+                .ok_or_else(|| format!("missing or ambiguous ownership for {}", area.path))?;
+            let protected: Vec<_> = if area.path == root.descriptor.path {
+                Scope::SUPPORT_ROOTS
+                    .into_iter()
+                    .chain(Scope::ROOT_GOVERNANCE)
+                    .map(|path| ReviewPath::Tree(path.to_owned()))
+                    .collect()
+            } else {
+                let parent = area.path.rsplit_once('/').map_or("", |(parent, _)| parent);
+                vec![ReviewPath::Tree(join(parent, Scope::EXCEPTIONS))]
+            };
+            let rules = ownership.review_rules(&protected);
+            ownership.check_review_rules(&rules, &protected)?;
+            records.push((ownership, rules));
+        }
+        let mut text = "# Generated from area descriptors; do not edit.\n\
+            # Review routing only; no identity or approval evidence.\n"
+            .to_owned();
+        for role in [ReviewRole::Content, ReviewRole::OwnersOnly] {
+            let rules = records
+                .iter()
+                .flat_map(|(ownership, rules)| rules.iter().map(move |rule| (ownership, rule)));
+            for (ownership, rule) in rules.filter(|(_, rule)| rule.role == role) {
+                text.push_str(&render_rule(
+                    &rule.path,
+                    &reviewers(ownership, rule, &root.owners),
+                )?);
+            }
+        }
+        Ok(text)
+    }
+
+    /// Compare committed CODEOWNERS byte for byte without writing anything.
+    ///
+    /// # Errors
+    /// The first missing, extra, stale, edited or reordered rule, naming both sides.
+    pub fn check_codeowners(&self, actual: &str) -> Result<(), String> {
+        let expected = self.codeowners()?;
+        let expected: Vec<_> = expected.split_inclusive('\n').collect();
+        let actual: Vec<_> = actual.split_inclusive('\n').collect();
+        for index in 0..expected.len().max(actual.len()) {
+            if expected.get(index) != actual.get(index) {
+                return Err(format!(
+                    "CODEOWNERS rule drift at line {}: expected {:?}; found {:?}",
+                    index + 1,
+                    expected.get(index).unwrap_or(&"<no rule>"),
+                    actual.get(index).unwrap_or(&"<missing rule>")
+                ));
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Delegates apply only to content; standard exceptions also name central owners.
+fn reviewers<'a>(ownership: &Ownership<'a>, rule: &ReviewRule, root: &[&'a str]) -> Vec<&'a str> {
+    let mut reviewers = ownership.owners.clone();
+    if rule.role == ReviewRole::Content {
+        reviewers.extend(&ownership.maintainers);
+    } else if ownership.descriptor.id.kind == "standard" && matches!(rule.path, ReviewPath::Tree(_))
+    {
+        reviewers.extend(root);
+    }
+    reviewers
+}
+
+/// Literal anchored patterns and normalized, case-insensitively deduplicated handles.
+fn render_rule(path: &ReviewPath, reviewers: &[&str]) -> Result<String, String> {
+    let (literal, suffix) = match path {
+        ReviewPath::Exact(path) => (path.as_str(), ""),
+        ReviewPath::Tree(path) if path.is_empty() => ("", "*"),
+        ReviewPath::Tree(path) => (path.as_str(), "/"),
+    };
+    if !literal
+        .bytes()
+        .all(|byte| byte.is_ascii_alphanumeric() || b"-_./".contains(&byte))
+    {
+        return Err(format!("unsafe CODEOWNERS rule path {literal:?}"));
+    }
+    let mut seen = BTreeSet::new();
+    let mut handles = Vec::new();
+    for reviewer in reviewers {
+        let handle = format!("@{}", reviewer.strip_prefix('@').unwrap_or(reviewer));
+        if seen.insert(handle.to_ascii_lowercase()) {
+            handles.push(handle);
+        }
+    }
+    Ok(format!("/{literal}{suffix} {}\n", handles.join(" ")))
 }
 
 /// One literal rule fully covers another placement.

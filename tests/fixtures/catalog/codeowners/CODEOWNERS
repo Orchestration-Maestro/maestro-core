@@ -1,0 +1,25 @@
+# Generated from area descriptors; do not edit.
+# Review routing only; no identity or approval evidence.
+/* @common-owner @reader
+/capabilities/practice/review/ @review-owner @reader
+/core/ @core-owner @reader
+/languages/rust/ @rust-owner @reader
+/standards/security/ @security-owner @reader
+/package.toml @common-owner
+/presets/ @common-owner
+/marketplace/ @common-owner
+/templates/ @common-owner
+/schemas/ @common-owner
+/fixtures/ @common-owner
+/docs/ @common-owner
+/.github/ @common-owner
+/scripts/ @common-owner
+/exceptions/ @common-owner
+/capabilities/practice/review/package.toml @review-owner
+/capabilities/practice/review/exceptions/ @review-owner
+/core/package.toml @core-owner
+/core/exceptions/ @core-owner
+/languages/rust/package.toml @rust-owner
+/languages/rust/exceptions/ @rust-owner
+/standards/security/package.toml @security-owner
+/standards/security/exceptions/ @security-owner @common-owner

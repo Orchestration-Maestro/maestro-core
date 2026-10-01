@@ -62,6 +62,7 @@ in place.
 │   │   │   │   │   └── tests.rs                                             # Rust source: tests
 │   │   │   │   ├── catalog/                                                 # catalog: the catalog's authoring commands
 │   │   │   │   │   ├── check.rs                                             # catalog check --catalog-dir DIR: the strict source checker over a
+│   │   │   │   │   ├── codeowners.rs                                        # Read-only CODEOWNERS rendering to stdout and exact committed-file comparison
 │   │   │   │   │   └── mod.rs                                               # catalog: the catalog's authoring commands
 │   │   │   │   ├── config/                                                  # maestro config: the settings, read, explained, changed and their
 │   │   │   │   │   ├── change.rs                                            # config set and config unset: one setting written in one preferences
@@ -272,6 +273,7 @@ in place.
 │   │   │       ├── backup_restore.rs                                        # Backup and restore: online copies keep the database, artifacts and leased
 │   │   │       ├── backup_restore_targets.rs                                # Rust source: backup restore targets
 │   │   │       ├── catalog_check.rs                                         # catalog check --catalog-dir DIR: the strict source checker as its
+│   │   │       ├── catalog_codeowners.rs                                    # Read-only CODEOWNERS rendering and comparison against committed rules
 │   │   │       ├── catalog_init.rs                                          # maestro init: inert fixture composition, preview-only default and owned apply
 │   │   │       ├── catalog_policy.rs                                        # Real Cedar through the effect-free policy CLI
 │   │   │       ├── catalog_preferences.rs                                   # Preference init is a side-effect-free draft until C05j supplies real trust
@@ -554,6 +556,7 @@ in place.
 │   │   │   │   │   ├── area_regressions.rs                                  # Regression neighbours for area-scoped descriptors and shared package rules
 │   │   │   │   │   ├── area_support.rs                                      # Data-only v4 fixtures; builtin migration belongs to C31/C32
 │   │   │   │   │   ├── bounds.rs                                            # D2's source limits at small injected values: each exact boundary passes
+│   │   │   │   │   ├── codeowners.rs                                        # C35 rendering, exact drift comparison and protected last-match neighbours
 │   │   │   │   │   ├── coverage.rs                                          # Refusals each guard owns alone: tool names and lists, agent sections
 │   │   │   │   │   ├── directory.rs                                         # The filesystem adapter: a bounded read, links never followed, and a
 │   │   │   │   │   ├── extension.rs                                         # The owner's scaling requirement: a new kind is one descriptor plus
@@ -1560,6 +1563,8 @@ in place.
 │       │   │   │       └── recipes.json                                     # JSON data: recipes
 │       │   │   ├── knowledge-client.toml                                    # TOML settings: knowledge client
 │       │   │   └── rust-service.toml                                        # TOML settings: rust service
+│       │   ├── codeowners/                                                  # Codeowners
+│       │   │   └── CODEOWNERS                                               # Who reviews each path
 │       │   ├── graphs/                                                      # Graphs
 │       │   │   ├── topology-invalid.md                                      # Sample document: Synthetic missing-reviewer refusal
 │       │   │   └── topology-valid.md                                        # Sample document: Synthetic topology neighbour

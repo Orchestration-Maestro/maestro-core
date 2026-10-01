@@ -8,6 +8,7 @@ mod area_packages;
 mod area_regressions;
 mod area_support;
 mod bounds;
+mod codeowners;
 mod coverage;
 mod directory;
 mod extension;

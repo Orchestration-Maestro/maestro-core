@@ -76,6 +76,13 @@ impl Scope {
         ".github",
     ];
 
+    /// Root owners protect generators/policy and central standard exceptions.
+    /// These governance rules do not admit unregistered source content.
+    pub const ROOT_GOVERNANCE: [&'static str; 2] = ["scripts", Self::EXCEPTIONS];
+
+    /// The owners-only exception directory at any area root.
+    pub(super) const EXCEPTIONS: &'static str = "exceptions";
+
     /// Area-bearing roots whose placement segments cannot nest inside another area.
     pub(super) const AREA_ROOTS: [Self; 4] =
         [Self::Core, Self::Team, Self::Language, Self::Standard];

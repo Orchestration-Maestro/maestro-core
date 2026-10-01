@@ -406,6 +406,16 @@ pub(super) enum CollectionCommand {
 /// What to do with a catalog's authoring sources.
 #[derive(Debug, Subcommand)]
 pub(super) enum CatalogCommand {
+    /// Render CODEOWNERS to stdout; redirect it to .github/CODEOWNERS to update.
+    /// --check compares the committed file without writing.
+    Codeowners {
+        /// The catalog's directory.
+        #[arg(long, value_name = "DIR")]
+        catalog_dir: PathBuf,
+        /// Refuse missing or differing rules without writing.
+        #[arg(long)]
+        check: bool,
+    },
     /// Check a catalog's sources strictly, running none of its content.
     Check {
         /// The catalog's directory.

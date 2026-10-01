@@ -26,10 +26,10 @@ mod types;
 mod walk;
 mod yaml;
 
-pub use check::check;
+pub use check::{build, check};
 pub use descriptor::{Field, FieldType, Format, KindDescriptor, Layout, MetadataPlace, Scope};
 pub use kinds::{builtin, builtin_hooks};
-pub use ownership::{Ownership, ReviewPath, ReviewRole, ReviewRule};
+pub use ownership::{CODEOWNERS_PATH, Ownership, ReviewPath, ReviewRole, ReviewRule};
 pub use registry::{Registration, RegistrationError, Registry};
 pub use tree::{Directory, Entry, EntryKind, SourceTree};
 pub use types::{

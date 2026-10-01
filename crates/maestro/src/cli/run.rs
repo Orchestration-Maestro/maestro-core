@@ -109,6 +109,9 @@ fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> 
         Noun::Config(command) => config_command(output, command, &session),
         Noun::Eval(EvalCommand::Ladder { manifest }) => eval::run(output, manifest),
         Noun::Catalog(CatalogCommand::Check { catalog_dir }) => catalog::check(output, catalog_dir),
+        Noun::Catalog(CatalogCommand::Codeowners { catalog_dir, check }) => {
+            catalog::codeowners(output, catalog_dir, *check)
+        }
         Noun::Policy(command) => policy::run(output, command),
         Noun::Init {
             catalog_dir,
