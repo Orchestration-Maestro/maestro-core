@@ -25,3 +25,11 @@ pub use envelope::{
     SafeIdentity, Transport,
 };
 pub use headers::{safe_header_names, safe_headers, safe_media};
+
+mod partition;
+mod partition_record;
+pub use partition::Partitions;
+pub use partition_record::{
+    AcceptedPartition, Batch, ChangeKeys, DiscoveredItem, Enumeration, Partition, PartitionState,
+    Window,
+};

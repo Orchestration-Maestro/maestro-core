@@ -10,7 +10,7 @@ use crate::{
     scope::{Scope, ScopeSet},
     store::{Database, artifacts::pin},
 };
-use rusqlite::{OptionalExtension as _, params};
+use rusqlite::{OptionalExtension as _, Transaction, params};
 use serde_json::json;
 use std::time::{Instant, SystemTime};
 use ulid::Ulid;
@@ -99,47 +99,7 @@ impl Frontier for Database {
         validate(request)?;
         self.write(|tx| {
             let scope = lease::held(tx, writer, now)?;
-            let insert = "INSERT INTO acquisition_frontier
-                (id, source, job, fetch_identity, authorization_context, representation_profile)
-                VALUES (?1, ?2, ?3, ?4, ?5, ?6)
-                ON CONFLICT (source, fetch_identity, authorization_context, representation_profile)
-                DO NOTHING";
-            let inserted = tx.execute(
-                insert,
-                params![
-                    Ulid::generate().to_string(),
-                    writer.source,
-                    writer.token.to_string(),
-                    request.fetch_identity,
-                    request.authorization_context.as_str(),
-                    request.representation_profile.as_str()
-                ],
-            )?;
-            let select = format!(
-                "SELECT {COLUMNS} FROM acquisition_frontier WHERE
-                source = ?1 AND fetch_identity = ?2 AND authorization_context = ?3
-                AND representation_profile = ?4"
-            );
-            let item = tx.query_row(
-                &select,
-                params![
-                    writer.source,
-                    request.fetch_identity,
-                    request.authorization_context.as_str(),
-                    request.representation_profile.as_str()
-                ],
-                item_row,
-            )?;
-            if inserted != 0 {
-                record_on_stream(
-                    tx,
-                    writer.token,
-                    &scope.parse().map_err(|_| Error::Invalid)?,
-                    "maestro.acquisition.enqueued.v1",
-                    &json!({"item": item.id.to_string()}),
-                )?;
-            }
-            Ok(item)
+            enqueue_on(tx, writer, request, &scope)
         })
     }
     fn lease(
@@ -257,4 +217,55 @@ impl Frontier for Database {
             .collect::<Result<_, _>>()?;
         Ok(rows)
     }
+}
+
+/// Existing uniqueness/journal transaction reused by partition checkpoints.
+pub(super) fn enqueue_on(
+    tx: &Transaction<'_>,
+    writer: &SourceLease,
+    request: &NewItem,
+    scope: &str,
+) -> Result<Item, Error> {
+    validate(request)?;
+    let insert = "INSERT INTO acquisition_frontier
+                (id, source, job, fetch_identity, authorization_context, representation_profile)
+                VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+                ON CONFLICT (source, fetch_identity, authorization_context, representation_profile)
+                DO NOTHING";
+    let inserted = tx.execute(
+        insert,
+        params![
+            Ulid::generate().to_string(),
+            writer.source,
+            writer.token.to_string(),
+            request.fetch_identity,
+            request.authorization_context.as_str(),
+            request.representation_profile.as_str()
+        ],
+    )?;
+    let select = format!(
+        "SELECT {COLUMNS} FROM acquisition_frontier WHERE
+                source = ?1 AND fetch_identity = ?2 AND authorization_context = ?3
+                AND representation_profile = ?4"
+    );
+    let item = tx.query_row(
+        &select,
+        params![
+            writer.source,
+            request.fetch_identity,
+            request.authorization_context.as_str(),
+            request.representation_profile.as_str()
+        ],
+        item_row,
+    )?;
+    if inserted != 0 {
+        record_on_stream(
+            tx,
+            writer.token,
+            &scope.parse().map_err(|_| Error::Invalid)?,
+            "maestro.acquisition.enqueued.v1",
+            &json!({"item": item.id.to_string()}),
+        )?;
+    }
+    Ok(item)
 }

@@ -162,7 +162,7 @@ pub fn admit(
 }
 
 /// Fresh policy-only target checks also apply to migration replacement URLs.
-pub(super) fn check_target(
+pub(crate) fn check_target(
     source: &Source,
     identity: &FetchIdentity,
     registries: &[Decisions],

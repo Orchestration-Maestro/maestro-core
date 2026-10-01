@@ -6,6 +6,8 @@
 pub mod adaptation;
 /// Immutable scoped capture preparation and truthful run outcomes.
 pub mod capture;
+/// Offline captured-page enumeration and bounded partition checkpoints.
+pub mod discovery;
 pub mod extraction;
 mod files;
 pub mod lifecycle;

@@ -88,3 +88,10 @@ mod n12_ports;
 mod n12_profile_binding;
 
 mod n12_parents;
+
+mod n13_durably_enumerate_public_links_and_bounded_partitions;
+mod n13_edges;
+
+mod n13_capture_edges;
+
+mod n13_dom_query;

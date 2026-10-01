@@ -35,6 +35,17 @@ pub struct PreparedCapture {
 }
 /// Replaceable immutable capture boundary; preparation is a durable checkpoint.
 pub trait Captures: Send + Sync {
+    /// Read a prepared capture through its existing verified linkage under the current lease.
+    /// A finite byte ceiling is checked before body allocation; admitted artifacts are rehashed.
+    /// Over-budget content returns the verified envelope with absent bytes.
+    /// # Errors
+    /// Substituted handles, lost ownership, corrupt content or exceeded bounds refuse.
+    fn read_capture(
+        &self,
+        context: &CaptureContext,
+        capture: Handle,
+        max_bytes: u64,
+    ) -> Result<(CaptureEnvelope, Option<Vec<u8>>), ReceiptError>;
     /// Verify bytes, lease and provenance, and retain one scoped immutable link.
     /// # Errors
     /// Invalid envelope, stale ownership, conflicting replay or storage failure.
@@ -78,6 +89,33 @@ pub trait Captures: Send + Sync {
     ) -> Result<(), ReceiptError>;
 }
 impl Captures for Database {
+    fn read_capture(
+        &self,
+        context: &CaptureContext,
+        capture: Handle,
+        max_bytes: u64,
+    ) -> Result<(CaptureEnvelope, Option<Vec<u8>>), ReceiptError> {
+        let envelope: CaptureEnvelope =
+            serde_json::from_slice(&privacy::snapshot(self, &capture.to_string())?)?;
+        if max_bytes == 0
+            || envelope.item.to_string() != context.item.item.to_string()
+            || envelope.source != context.writer.source
+        {
+            return Err(ReceiptError::Invalid);
+        }
+        let (_, stored) =
+            self.write(|tx| existing(tx, context, &envelope, &envelope.identity()?))?;
+        if stored != Some(capture) {
+            return Err(ReceiptError::Invalid);
+        }
+        if envelope.length > max_bytes {
+            return Ok((envelope, None));
+        }
+        // Preparation bound this immutable envelope to verified length/digest;
+        // the artifact store rehashes the returned body on every read.
+        let bytes = self.get(&envelope.artifact)?;
+        Ok((envelope, Some(bytes)))
+    }
     fn prepare_capture(
         &self,
         context: &CaptureContext,

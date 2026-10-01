@@ -2,10 +2,12 @@
 use super::error::Error;
 use crate::{artifact::Digest, job::unsigned};
 use rusqlite::{Row, types::Type};
+use serde::{Deserialize, Serialize};
 use ulid::Ulid;
 
 /// A fetch identity with separate authorization and representation contexts.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct NewItem {
     /// Stable, sanitized identity supplied by policy, never a transient signed URL.
     pub fetch_identity: String,

@@ -42,8 +42,9 @@ none.
 **Owner decision, 2026-09-30:** Rust owns acquisition producers, connectors and
 extraction. The sole Python exception is **crawl4ai, out of process**, only where
 JavaScript or Chromium is unavoidable, behind the replaceable admitted fetch/render
-port. It replaces Spider's chromey route; Spider remains the Rust crawler with
-`default-features = false`, extras, `chrome` and `chromey` off. No chromey,
+port. It replaces Spider's chromey route. Spider remains approved with
+`default-features = false`, extras, `chrome` and `chromey` off, but is unused
+by the current plan. No chromey,
 chromiumoxide, WebDriver or other production browser fallback is approved.
 
 The exception permits bounded browser requests/rendered DOM capture only:
@@ -53,6 +54,26 @@ indexing role. Rust core policy admits every destination and validates returned
 captures. Configured readiness is bounded and declarative, not arbitrary source
 scripts or network-idle alone. A disabled, missing or unqualified adapter refuses;
 its callers do not install or select another browser stack.
+
+### Captured link reading: dom_query
+
+**Owner decision, 2026-10-01:** link reading uses `dom_query` 0.28.0 (MIT),
+the `^0.28.0` reader in the approved `dom_smoothie` 0.18.2 family. It reads
+already verified N09/N12 captures offline; it has no network client, crawl
+queue or grant authority. CSS selection is available without default features;
+Markdown conversion, optional hashbrown and mini-selector features stay off.
+The checked-in selector list includes hidden anchors and the declared resource
+attributes, honours the first `<base href>`, and participates in the immutable
+extractor contract digest. Relative URLs use the existing `url` 2.5.8 crate.
+
+Against N57's integration lock, adoption adds 30 packages and one new duplicate
+family: foldhash 0.1.5/0.2.0. Its DEP-001 exception names whatlang's older
+hashbrown dependency and the foldhash 0.2 exit. There is no new native link,
+HTTP client, crypto stack or SQLite. Cargo-vet entries for this closure are
+explicit deployment exemptions, not completed security audits. Servo CSS
+components use the already-allowed MPL-2.0 licence; other added terms are
+MIT, Apache-2.0 and Zlib. Spider's measured default-off candidate added 112
+packages, a second reqwest and native crypto/compression; it was not adopted.
 
 ### Artifact and licence record
 
