@@ -8,6 +8,7 @@ use crate::{
         decision::time_key,
         decisions::{Action, Decision},
         manifest::AutomaticClass,
+        resolve::check_conflicts,
         schema::SourcePolicy,
         shape,
     },
@@ -247,14 +248,15 @@ fn add_exclusion(
     action: Action,
     now: &str,
 ) -> Result<(), WriteError> {
-    if expected.decisions.contains_key(&reference.id) {
+    let (id, (resolved, entry)) = candidate
+        .decisions
+        .iter()
+        .find(|(_, (resolved, _))| resolved == reference)
+        .ok_or(WriteError::Held)?;
+    if entry.id != *id || entry.action != action {
         return Err(WriteError::Held);
     }
-    let (resolved, entry) = candidate
-        .decisions
-        .get(&reference.id)
-        .ok_or(WriteError::Held)?;
-    if resolved != reference || entry.id != reference.id || entry.action != action {
+    if expected.decisions.contains_key(&entry.id) {
         return Err(WriteError::Held);
     }
     let source = expected
@@ -273,9 +275,15 @@ fn add_exclusion(
     {
         return Err(WriteError::Held);
     }
+    let previous = expected
+        .decisions
+        .values()
+        .map(|(_, entry)| entry)
+        .collect::<Vec<_>>();
+    check_conflicts(&previous, entry).map_err(|_| WriteError::Held)?;
     expected
         .decisions
-        .insert(reference.id.clone(), (resolved.clone(), entry.clone()));
+        .insert(entry.id.clone(), (resolved.clone(), entry.clone()));
     Ok(())
 }
 

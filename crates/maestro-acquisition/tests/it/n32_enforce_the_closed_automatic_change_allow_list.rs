@@ -1,5 +1,8 @@
 //! Pure synthetic N32 controls; runtime artifact contracts belong to N34.
-use super::n32_support::{NOW, cleanup, exclusion, fixture, held, reference, resolved};
+use super::n32_support::{
+    NOW, cleanup, disjoint_exclusion, disjoint_fixture, exclusion, fixture, held, reference,
+    resolved,
+};
 use maestro_acquisition::{
     adaptation::{
         Change, WriteError,
@@ -51,9 +54,10 @@ fn n32_five_classes_and_both_narrowing_actions_are_allowed() {
             Err(WriteError::Held)
         );
     }
+    let mut old = disjoint_fixture();
     for action in [Action::ExcludeFromKnowledge, Action::AssetOnly] {
         old.policy.adaptation.automatic_classes = vec![AutomaticClass::NewKnowledgeExclusions];
-        let (candidate, change) = exclusion(&old, action);
+        let (candidate, change) = disjoint_exclusion(&old, action);
         assert_eq!(admit(&old, &candidate, &[change], NOW, false), Ok(()));
     }
 }

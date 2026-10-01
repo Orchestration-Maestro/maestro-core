@@ -370,7 +370,7 @@ fn check_promotions(
 }
 
 /// Refuse incompatible dispositions over the same declarative selector.
-fn check_conflicts(entries: &[&Decision], decision: &Decision) -> Result<(), Refusal> {
+pub(crate) fn check_conflicts(entries: &[&Decision], decision: &Decision) -> Result<(), Refusal> {
     // ponytail: quadratic comparisons under the 20,000-item parser ceiling;
     // index by source/selector if reviewed registries grow enough to need it.
     for previous in entries {

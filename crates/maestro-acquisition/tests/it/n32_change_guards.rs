@@ -1,14 +1,204 @@
 //! Isolated boundary probes for N32's pure controls.
-use super::n32_support::{NOW, cleanup, exclusion, fixture, reference, resolved};
+use super::n32_support::{
+    NOW, cleanup, disjoint_exclusion, disjoint_fixture, exclusion, fixture, reference, resolved,
+};
 use maestro_acquisition::{
     adaptation::{
         Change, WriteError,
         change::{admit, apply},
     },
     extraction::model::QualificationState,
-    policy::decisions::Action,
+    policy::{decisions::Action, manifest::AutomaticClass},
 };
 use std::slice::from_ref;
+
+#[test]
+fn n32_exclusion_artifact_ref_differs_from_stable_id() {
+    let old = disjoint_fixture();
+    for action in [Action::AssetOnly, Action::ExcludeFromKnowledge] {
+        let (mut candidate, _) = disjoint_exclusion(&old, action);
+        let (artifact, _) = candidate.decisions.get_mut("new-exclusion").unwrap();
+        *artifact = reference("artifact-handle");
+        let change = if action == Action::AssetOnly {
+            Change::AddAssetOnly {
+                entry: artifact.clone(),
+            }
+        } else {
+            Change::AddKnowledgeExclusion {
+                entry: artifact.clone(),
+            }
+        };
+        assert_eq!(
+            apply(&old, &candidate, from_ref(&change), NOW),
+            Ok(candidate.clone())
+        );
+        assert_eq!(
+            admit(&old, &candidate, from_ref(&change), NOW, false),
+            Ok(())
+        );
+    }
+}
+
+#[test]
+fn n32_stable_decision_id_cannot_be_reused() {
+    let old = fixture();
+    let mut candidate = old.clone();
+    candidate.decisions.get_mut("no-assets").unwrap().0 = reference("another-artifact");
+    let change = Change::AddAssetOnly {
+        entry: reference("another-artifact"),
+    };
+    assert_eq!(
+        apply(&old, &candidate, from_ref(&change), NOW).map(|_| ()),
+        Err(WriteError::Held)
+    );
+    assert_eq!(
+        admit(&old, &candidate, from_ref(&change), NOW, false),
+        Err(WriteError::Held)
+    );
+}
+
+#[test]
+fn n32_new_exclusion_cannot_conflict_with_existing_disposition() {
+    let old = fixture();
+    let (candidate, change) = exclusion(&old, Action::ExcludeFromKnowledge);
+    assert_eq!(
+        apply(&old, &candidate, from_ref(&change), NOW).map(|_| ()),
+        Err(WriteError::Held)
+    );
+    assert_eq!(
+        admit(&old, &candidate, from_ref(&change), NOW, false),
+        Err(WriteError::Held)
+    );
+
+    let (candidate, change) = exclusion(&old, Action::AssetOnly);
+    assert_eq!(
+        apply(&old, &candidate, from_ref(&change), NOW),
+        Ok(candidate.clone())
+    );
+    assert_eq!(
+        admit(&old, &candidate, from_ref(&change), NOW, false),
+        Ok(())
+    );
+    let old = disjoint_fixture();
+    let (candidate, change) = disjoint_exclusion(&old, Action::ExcludeFromKnowledge);
+    assert_eq!(
+        apply(&old, &candidate, from_ref(&change), NOW),
+        Ok(candidate.clone())
+    );
+    assert_eq!(
+        admit(&old, &candidate, from_ref(&change), NOW, false),
+        Ok(())
+    );
+}
+
+#[test]
+fn n32_exclusions_cannot_conflict_with_earlier_proposal_entries() {
+    let old = disjoint_fixture();
+    for action in [Action::AssetOnly, Action::ExcludeFromKnowledge] {
+        let (mut candidate, first) = disjoint_exclusion(&old, action);
+        let mut second = candidate.decisions["new-exclusion"].1.clone();
+        second.id = "second-exclusion".into();
+        second.action = if action == Action::AssetOnly {
+            Action::ExcludeFromKnowledge
+        } else {
+            Action::AssetOnly
+        };
+        let artifact = reference("second-artifact");
+        let change = if second.action == Action::AssetOnly {
+            Change::AddAssetOnly {
+                entry: artifact.clone(),
+            }
+        } else {
+            Change::AddKnowledgeExclusion {
+                entry: artifact.clone(),
+            }
+        };
+        candidate
+            .decisions
+            .insert(second.id.clone(), (artifact, second));
+        let changes = [first, change];
+        assert_eq!(
+            apply(&old, &candidate, &changes, NOW).map(|_| ()),
+            Err(WriteError::Held)
+        );
+        assert_eq!(
+            admit(&old, &candidate, &changes, NOW, false),
+            Err(WriteError::Held)
+        );
+    }
+}
+
+#[test]
+fn n32_exact_selection_targets() {
+    for absent in [false, true] {
+        let mut old = fixture();
+        if absent {
+            old.selected = (None, None, None);
+        }
+        for change in [
+            Change::SelectProfile {
+                source_id: "notes".into(),
+                profile: old.profiles["new"].reference(),
+            },
+            cleanup(),
+            Change::SetS1ChunkStrategy {
+                strategy: reference("chunk-new"),
+            },
+            Change::SetDedupKeys {
+                keys: reference("dedup-new"),
+            },
+        ] {
+            let mut candidate = resolved(&old, &change);
+            match &change {
+                Change::SelectProfile { profile, .. } => {
+                    candidate.policy.sources[0].selected_profiles = vec![profile.clone()];
+                }
+                Change::SetCleanup { rules } => candidate.selected.0 = Some(rules.clone()),
+                Change::SetS1ChunkStrategy { strategy } => {
+                    candidate.selected.1 = Some(strategy.clone());
+                }
+                Change::SetDedupKeys { keys } => candidate.selected.2 = Some(keys.clone()),
+                Change::AddKnowledgeExclusion { .. } | Change::AddAssetOnly { .. } => {}
+            }
+            assert_eq!(
+                apply(&old, &candidate, from_ref(&change), NOW),
+                Ok(candidate.clone())
+            );
+            assert_eq!(
+                admit(&old, &candidate, from_ref(&change), NOW, false),
+                Ok(())
+            );
+        }
+    }
+}
+
+#[test]
+fn n32_exclusions_require_enabled_class() {
+    let mut old = disjoint_fixture();
+    old.policy.adaptation.automatic_classes.clear();
+    for action in [Action::AssetOnly, Action::ExcludeFromKnowledge] {
+        let (mut candidate, change) = disjoint_exclusion(&old, action);
+        assert_eq!(
+            apply(&old, &candidate, from_ref(&change), NOW).map(|_| ()),
+            Err(WriteError::Held)
+        );
+        let mut enabled = old.clone();
+        enabled.policy.adaptation.automatic_classes = vec![AutomaticClass::NewKnowledgeExclusions];
+        candidate
+            .policy
+            .adaptation
+            .automatic_classes
+            .clone_from(&enabled.policy.adaptation.automatic_classes);
+        assert_eq!(
+            apply(&enabled, &candidate, from_ref(&change), NOW),
+            Ok(candidate.clone())
+        );
+        assert_eq!(
+            admit(&enabled, &candidate, from_ref(&change), NOW, false),
+            Ok(())
+        );
+    }
+}
 
 #[test]
 fn n32_some_selection_cannot_be_cleared() {
@@ -256,6 +446,11 @@ fn n32_exclusion_binding_selector_and_time_must_be_narrowing() {
             "invalid_expiry" => entry.expires_at = Some("invalid".into()),
             _ => entry.expires_at = Some("2026-10-01T00:00:00.000Z".into()),
         }
+        assert_eq!(
+            apply(&old, &candidate, from_ref(&change), NOW).map(|_| ()),
+            Err(WriteError::Held),
+            "{fault}"
+        );
         assert_eq!(
             admit(&old, &candidate, &[change], NOW, false),
             Err(WriteError::Held),

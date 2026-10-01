@@ -97,6 +97,32 @@ pub(super) fn fixture() -> EffectiveConfiguration {
     }
 }
 
+pub(super) fn disjoint_fixture() -> EffectiveConfiguration {
+    let mut old = fixture();
+    old.decisions
+        .get_mut("no-assets")
+        .unwrap()
+        .1
+        .selector
+        .path_prefix = Some("/docs/assets".into());
+    old
+}
+
+pub(super) fn disjoint_exclusion(
+    old: &EffectiveConfiguration,
+    action: Action,
+) -> (EffectiveConfiguration, Change) {
+    let (mut candidate, change) = exclusion(old, action);
+    candidate
+        .decisions
+        .get_mut("new-exclusion")
+        .unwrap()
+        .1
+        .selector
+        .path_prefix = Some("/docs/text".into());
+    (candidate, change)
+}
+
 pub(super) fn cleanup() -> Change {
     Change::SetCleanup {
         rules: reference("cleanup-new"),
