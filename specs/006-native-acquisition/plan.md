@@ -16,7 +16,7 @@ mapped extraction; S1 alone prepares, embeds and publishes.
 reqwest, Tokio, Markdown and model ports. Owner-selected tools still need exact
 artifact/feature audits and qualification; other new libraries remain approval-blocked.
 
-**Spec:** [spec.md](spec.md), Revision 2.1, 62 FRs and 15 SCs.
+**Spec:** [spec.md](spec.md), Revision 2.2, 62 FRs and 15 SCs.
 **Research:** [research.md](research.md), Revision 2.2 (dated owner decisions and validation fixes), sources accessed 2026-09-30.
 **Tasks:** [tasks.md](tasks.md).
 **Branch:** `docs/s6-spec-set`, from S1 `0204846f7640e7219021b0b38daa60b4c4f98ee4`;
@@ -34,13 +34,22 @@ expansion over approved aliases is a later S1 item, not S6 implementation.
 Source-reference continuity and publication aliases remain separately required.
 Xberg 1.x (MIT) and the unchanged native docling bake-off are approved directions,
 not a measured winner or blanket feature approval.
+**Catalog amendment, 2026-09-30:** N56 adds the catalog-backed policy/resource
+adapter (6 estimated lane-hours); N55 retains integrated write-port/S4 conformance
+(6 h). Total: **56 tasks / 333 h**, of which **54 M6-path tasks / 321 h** and
+**2 later tasks / 12 h**. No delivery or qualification is claimed. N15/N30 keep
+only N03/N06 as predecessors and start with `DirectFiles` plus test-only synthetic
+catalog fixtures, without waiting for N56 or any S3 task.
 
 ## Global constraints
 
-- S6 depends only on S1 delivery, not M1 release or S3/S4 delivery. Missing
+- The S6 M6 path depends only on S1 delivery, not M1 release or S3/S4 delivery.
+  Later N56 consumes explicit S3 handoffs; N55 also waits for S4. Missing
   downstream qualification evidence still blocks the gate that needs it.
 - The manifest is processing-configuration authority; it cannot grant access.
-  Questions do not crawl. Grants require a separate owner-authenticated writer.
+  Source-owned URL rules are strict JSON data under `knowledge/sources/<name>/`,
+  not collection-local copies or per-site engine code. Questions do not crawl.
+  Grants require a separate owner-authenticated writer.
 - First-party producers, extractors and connectors are Rust. The sole non-Rust
   browser adapter is out-of-process crawl4ai for unavoidable Chromium work;
   native components need named OA5/ADR-0020 records. No implicit download or hidden fallback.
@@ -138,7 +147,7 @@ enforcing test is not a passing test.
 | C-001 | N01 reconciles 08 row ownership and this rule table; N54 verifies final FR/SC/evidence links. |
 | C-006, DEP-001, ENF-009, ENF-012 | N02 dependency/licence/vet and exception records; N21/N22 pin offline binaries/models/features; N43 refuses substituted extension artifacts at each launch. Exceptions expire by named condition, not silent exclusions. |
 | ENF-002–003, ENF-005–008 | All tasks use English, failing tests first, signed conventional commits and review. CI runs three-OS tests/Clippy, coverage and mutation gates; no local gate weakening or self-integration. |
-| ENF-010 | N03 single manifest schema, N30–N35 proposal/CAS/persistence contracts; N05 grants remain separate authority, N55 catalog adapter cannot rewrite trusted bundles. |
+| ENF-010 | N03 single manifest schema, N30–N35 proposal/CAS/persistence contracts; N05 grants remain separate authority; N56 resolves immutable catalog resources and N55 proves integrated writes never rewrite trusted bundles. |
 | SEC-010–011 | N54 checks existing private disclosure and signed-release/checksum/SBOM workflow evidence; N43/N53 verify launched/cutover artifacts against it, not a checksum-only trust claim. |
 | COV-001–002, TST-001 | Every implementation task records deterministic red/green tests; N54 requires CI ≥90% overall and ≥95% changed-line coverage, zero missed mutants and zero mutation timeouts. Network/model/private evidence cannot be silently skipped. |
 
@@ -176,7 +185,8 @@ only with their first tested behavior; registration edits accompany that task.
 
 ```text
 crates/maestro-acquisition/
-  src/policy/          strict policy, identity, decisions, baseline resolution
+  src/policy/          strict policy, identity, decisions, baseline validation
+  src/files.rs        DirectFiles local resource/policy adapter
   src/transport/       checked addresses, HTTP, robots, browser, aggregate permits
   src/capture/         immutable capture transaction and asset validation
   src/discovery/       partitions, links, change windows and repository selectors
@@ -190,6 +200,7 @@ crates/maestro-acquisition/
 crates/maestro-kernel/src/acquisition/  frontier, captures, scoped receipts/leases
 crates/maestro-knowledge/src/import/   one shared mapped-ingestion transaction
 crates/maestro/src/acquisition/        CLI binding, timers and authorized views
+  catalog.rs                         N56 CatalogSource composition adapter
 specs/006-native-acquisition/          spec.md, research.md, plan.md, tasks.md
 ```
 
@@ -362,13 +373,16 @@ rewrite of original text. Extraction and builds run offline with provisioned ass
 
 ### Small port contracts
 
-Method names below are the consumer-facing contract to implement, not claims of
-existing Rust APIs. DTOs are the records defined above; implementations may use
-async futures without exposing a particular runtime to callers.
+`PolicySource` and `ResourceSource` below are the existing read-only Rust ports
+at S6 `f9a57e5`, `crates/maestro-acquisition/src/ports.rs:54–91`; their signatures
+stay unchanged. Other method names are planned consumer-facing contracts, not
+claims of existing Rust APIs. DTOs are the records defined above; implementations
+may use async futures without exposing a particular runtime to callers.
 
 | Port | Operations and guarantees |
 | --- | --- |
-| `PolicySource` | `resolve(collection, principal) → CheckedPolicy`; same strict validator for local reviewed baseline and later catalog baseline. Validates digests/trust but neither creates grants nor activates connectors. |
+| `PolicySource` | `resolve(&Declaration, &Principal<'_>) → Result<CheckedPolicy, Refusal>`; `DirectFiles` and N56 `CatalogSource` delegate to the same `policy::resolve::validate`. Neither creates grants nor activates connectors. |
+| `ResourceSource` | `read(&Ref, &Principal<'_>) → Result<ImmutableResource, Refusal>`; bounded original bytes, exact reference and separate admission evidence, never a policy-supplied path. The shared validator rechecks identity/digest/review/platform and the typed closure. N56 additionally verifies installed catalog trust, ownership and current access before returning resources. |
 | `ProfileRegistry` | `resolve(registry_ref, principal) → CheckedRegistry/RegistryUnavailable`; `select(checked_registry, bounded_evidence, eligible_refs) → ProfileSelection/RegistryUnavailable`. `ProfileSelection` is `selected {profile: Ref, evidence: Ref[]}` or `held {reason: unknown/ambiguous, safe_profile: Ref, evidence: Ref[]}`; unavailable reasons include disabled/missing/corrupt/unqualified. Same pure selection and validation contract for local, substitute and disabled adapters. |
 | `Authority` | `decide(principal, operation, target, now) → Permit/Refusal`; read-only to pipeline. Owner command separately creates/revokes exact-scope grants with authenticated confirmation and audit. |
 | `AdmittedTransport` | `fetch(lease, request, acquisition_profile, permit, budget) → CaptureCandidate/TypedFailure`; checked digest-bound profile selects the injected adapter and bounded readiness; resolves/classifies every address/hop, pins checked address with hostname TLS validation, origin-binds credentials, ignores ambient proxies; bounded stream, cancellation and owned-process stop. Browser channels use this path or are blocked. |
@@ -376,6 +390,72 @@ async futures without exposing a particular runtime to callers.
 | `ConfigurationWriter` | `propose(expected_baseline, expected_active, proposal) → ProposalRef`; `activate(expected_baseline, expected_active, candidate, gate_receipt) → ActivationRef/Conflict`; `rollback(expected_active, previous, current_authority) → ActivationRef/Held`. All callers use the same port for direct-file and later catalog-backed baselines. |
 | `ConnectorHost` | `activate(declaration, authority)`, `invoke(operation, bounded_input)`, `deactivate(reason)`; local supervisor first, S4 adapter later. Every invocation rechecks principal, current grant and lease epoch; stop reaps only owned processes. |
 | `ScheduleTrigger` | `invoke(sync_request, principal) → RunRef`; CLI/manual and OS timer implementations call identical admission. Schedule is a trigger, not a second queue or trusted credential container. |
+
+### Catalog-backed policy and resource adapter (N56)
+
+The owner decision fixes source-rule placement relative to the owning manifest
+area: `knowledge/sources/<name>/source.toml` inventories `policy.json`,
+`decisions/<name>.json`, `promotions/<name>.json` and `migrations/<name>.json`.
+They carry core's strict JSON policy/decisions/promotions/migration types; preserve
+optional companions and original-byte digests. Collections keep only their strict
+`knowledge/collections/<name>/collection.json`, catalog metadata and exact policy
+reference. Rules are data, never site-specific code. S3 C52a/C52b publish schemas
+from those core types into `schemas/source-2/`; C66 supplies synthetic neighbours
+and C68 checks schema/fixture drift. N56 does not copy parsers or generate a
+competing schema inventory.
+
+**External handoff, not shared implementation ownership:** S3
+`30b702b:specs/003-catalog/plan.md:1509–1573` and its task contracts define:
+
+| S3 predecessor (exact task name) | N56 consumes; S3 keeps ownership |
+| --- | --- |
+| C41 S6 collection descriptor contract | Strict collection declaration, owner-relative placement and exact source-policy reference; no duplicate collection-local rules. |
+| C43 S6 source-rule admission and provenance contract | Checked collection/source/rule closure, signed ownership-review evidence, current admission and private provenance contract. |
+| C66 Knowledge sources and manifest-owned URL rules | Typed source-rule inventory with policy, decisions/promotions, expiry and `maestro-url-identity-migration/1`; owning core types and validators, not another parser. |
+| C69 Signed independent and private packages | Admitted private-package delivery and scoped publisher/access evidence; missing private access cannot disable public selection. C42's restricted mount is unchanged. |
+
+**Implementation boundary:** `crates/maestro/src/acquisition/catalog.rs` owns
+`CatalogSource`; only this composition adapter knows both catalog and acquisition.
+C66 consumes core wire types, so an acquisition-to-catalog dependency would risk
+a crate cycle. Do not add it. N56 consumes the installed reader/admission APIs S3
+hands off, not a second installer, trust store, registry or signature verifier.
+N14 supplies the existing composition entry; caller code continues receiving
+`&dyn PolicySource` / `&dyn ResourceSource`, with configuration selecting the
+adapter. No API signature change, URL-engine change or consumer branch is needed.
+
+For each resolution, use the caller-bound installed release pin and declared
+source closure; map catalog ownership/inventory to the unchanged core wire refs,
+never rewrite IDs/digests or use basename/last-wins lookup. Refuse missing or
+ambiguous resources. Preserve exact original bytes for policy, decisions,
+promotions, migrations, registries and referenced evidence. Admit only a signed,
+digest-pinned release whose protected ownership approvals bind the exact source
+revision/resource closure. Recheck current trust/freshness/revocation, review,
+expiry, scope and principal access through S3 admission; metadata `reviewed` or a
+policy authority field cannot supply that evidence. Feed the resulting resources
+through existing `validate`; current runtime URL/authority controls remain in
+force after resolution. Unsigned, unpinned, tampered, unreviewed, wrong-owner,
+expired, revoked or inaccessible resources refuse, including changed companions.
+
+Resolution is read-only and starts no source fetch, credential lookup, connector
+or model; it neither installs content nor writes the trusted bundle or grants.
+Private inventories resolve only from C69 packages under current local authority;
+public catalogs, diagnostics and fixtures contain none of their real metadata.
+Tests use independently authored synthetic packages and tagged privacy canaries.
+
+**Local-first task boundary:** N15 and N30 keep `After: N03, N06` only. N15 builds
+`ProfileRegistry.resolve/select` over the existing resource port, with local,
+test-only substitute and disabled registry cases. A substitute is not production
+catalog admission. N30 writes local proposal/activation overlays over immutable
+`DirectFiles` or synthetic catalog baselines, testing trust changes, CAS and
+zero bundle writes without claiming signed-catalog integration. N56 later passes
+the same shared policy/resource contract tests as `DirectFiles`, through trait
+objects, then N55 exercises the real installed baseline against N30 and plugs in
+S4 host/scheduling adapters. N55 does not own N56 code or edit S3 documents.
+
+N56 has S6 edges N03/N07/N14 and the four S3 edges above. C66's prerequisite is
+the already-landed N03/N07 wire types, **not N56**; that distinction prevents a
+cross-slice cycle. N55 adds N56 to its N30/N42/N43 predecessors. Neither N55 nor
+N56 is an ancestor of N54, N15 or N30. No S3/S4 wait enters M6.
 
 ### Grant separation and process isolation
 
@@ -447,8 +527,11 @@ an atomic manifest replacement with durable recovery marker. The effective-manif
 pointer is the commit point; only after it commits is the journal notification
 emitted. Recovery completes a missing notification or discards an uncommitted
 staging record, never exposes a half-activation. The report is immutable and exists
-before the pointer references it. Later catalog carriage changes baseline resolution,
-not this write contract, and makes zero trusted-bundle writes.
+before the pointer references it. N30 starts on N03/N06's `DirectFiles` and
+test-only immutable catalog fixtures; synthetic trust/revocation inputs are not
+production admission evidence. N56 later changes baseline resolution, not this
+write contract. N55 proves integrated catalog-baseline use makes zero
+trusted-bundle writes.
 
 Before activation revalidate baseline trust/current revocations, protected effective
 fields, persistence/rate ledger and all six matrix columns on changed **and**
@@ -560,9 +643,10 @@ checks. Failure/cancellation leaves staging invisible and previous generation cu
    N36–N42 implement US4 lifecycle, resource-safe concurrency and local timers.
 4. N43–N48 implement US5 local connectors, sessions, browser/wiki and separately
    approved private origins. N49–N54 qualify US6 family parity/retrieval/cutover.
-5. N55 coordinates later S3 JSON consumer and S4 adapter conformance, outside M6's
-   critical path. Their real delivery waits for those slices; synthetic baseline/
-   port substitution tests required for S6 are already in N03/N30/N43/N42.
+5. N56 delivers the catalog-backed read adapter after N03/N07/N14 and external
+   S3 C41/C43/C66/C69 handoffs; N55 follows N56 for integrated baseline/write-port
+   and S4 adapter conformance. Both remain outside M6's critical path. Required
+   local/synthetic conformance starts now in N03/N15/N30/N43/N42, not after S3/S4.
 
 ### Quickstart validation guide
 

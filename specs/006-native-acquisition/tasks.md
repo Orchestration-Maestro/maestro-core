@@ -3,11 +3,14 @@
 > **For agentic workers:** use superpowers:executing-plans for the single task in
 > your brief. Never start subagents or push an integration branch.
 
-**Input:** [spec.md](spec.md) Revision 2.1, [research.md](research.md) Revision 2.2,
+**Input:** [spec.md](spec.md) Revision 2.2, [research.md](research.md) Revision 2.2,
 and [plan.md](plan.md), including its data model, schemas, ports and quickstart.
 **Status:** all tasks are planned, not implemented. Only the supervisor records
-integrated completion. **55 tasks, 327 estimated lane-hours**: N01–N54 are
-M6-path work (321 h); N55 is a later adapter integration (6 h), outside M6.
+integrated completion. **56 tasks, 333 estimated lane-hours**: N01–N54 are
+M6-path work (321 h); N55 is later integrated adapter conformance (6 h) and N56
+is the catalog-backed policy/resource adapter (6 h), both outside M6.
+The 2026-09-30 catalog amendment adds **1 task / 6 h** to the 55-task / 327 h
+baseline; existing IDs and estimates are unchanged.
 
 ## Global execution contract
 
@@ -59,6 +62,8 @@ module doors and guide edits at landing. Rebase dependent tasks onto landed APIs
 
 Each implementation task adds the listed negative/positive cases to its own
 `tests/it/nNN_*.rs` module, registered in the crate's one integration binary.
+N56 instead colocates its trait-object contract tests under the CLI adapter:
+`maestro` is a binary crate, so no new public test API or library is needed.
 Kernel tests may use a dedicated acquisition integration binary if its existing
 layout requires it. The command shown filters the **test name prefix**, not a
 nonexistent test target; require at least one executed test. Test fixture helper
@@ -68,7 +73,9 @@ boundary. Production never receives a loopback/unsafe-host bypass for fixtures.
 `[P]` means a ready task can run alongside the ready peers named below after
 **all** its listed predecessors have landed; it does not remove dependencies.
 A task consumes the plan contracts produced by its predecessors and produces the
-behavior/API named in its Green step. No task assumes S3/S4 delivery except N55.
+behavior/API named in its Green step. Only N55/N56 assume S3/S4 delivery:
+N56 has the exact S3 handoffs below; N55 follows N56 and S4 host/schedule delivery.
+N15/N30 keep only N03/N06 and explicitly use local/test-only substitutes now.
 
 Estimates are planning judgments, not measurements, and include coding, focused
 checks and one evidence cycle, not reviewer/CI queues, owner wait, provisioning,
@@ -322,14 +329,16 @@ Independent test: every required media cohort has exact source-backed fidelity/h
 
 **After:** N03, N06. **Approval blockers:** OA5 for unselected detector/plug-in; observed qualification under the approved OA1 targets.
 
+**Start boundary:** N03's `DirectFiles`/`ResourceSource` plus N06's scoped receipts are the complete predecessor set. Start now on those landed contracts and test-only synthetic catalog fixtures; no N56, N55, S3 catalog install or C41/C43/C66/C69 edge. The extraction-profile registry is a consumer of immutable resources, not a second catalog registry or admission authority.
+
 **Files:** `crates/maestro-acquisition/src/extraction/{registry.rs,detect.rs}`; `crates/maestro-acquisition/src/ports.rs`.
 
 **Requirements:** FR-S6-023, FR-S6-041, FR-S6-050, FR-S6-056; SC-S6-006, SC-S6-012, SC-S6-013.
 
 **Test file:** `crates/maestro-acquisition/tests/it/n15_route_content_through_one_extensible_profile_registry.rs`; test names begin `n15_`.
 
-1. **Red:** Use misleading extensions, conflicting magic/container hints, encrypted/malformed files, unqualified profile and a new synthetic Rust parser capability without changing callers. Run the same resolve/select contract against a substitute registry and a disabled adapter: disabled returns RegistryUnavailable(disabled), with zero fetch/extractor/model starts and no default profile; forged substitute digests/qualification refuse.
-2. **Green:** Implement ProfileRegistry.resolve/select as defined in plan, with immutable checked handles and deterministic bounded detector/structure evidence. Inject local/substitute/disabled adapters without consumer edits; core verifies returned refs/protected fields. Retain safe bounded partial text/metadata/assets under an explicit unknown outcome, never arbitrary trusted fallback or side effects during selection.
+1. **Red:** Use misleading extensions, conflicting magic/container hints, encrypted/malformed files, unqualified profile and a new synthetic Rust parser capability without changing callers. Run the same resolve/select contract over `DirectFiles`, a test-only synthetic catalog resource source and a disabled registry: disabled returns RegistryUnavailable(disabled), with zero fetch/extractor/model starts and no default profile; forged substitute digests/qualification refuse. Synthetic admission proves the port contract only, never signed-release trust.
+2. **Green:** Implement ProfileRegistry.resolve/select as defined in plan, over N03's existing `ResourceSource`, with immutable checked handles and deterministic bounded detector/structure evidence. Inject local/test-only substitute/disabled adapters without consumer edits; core verifies returned refs/protected fields. Retain safe bounded partial text/metadata/assets under an explicit unknown outcome, never arbitrary trusted fallback or side effects during selection. N56 later supplies real catalog resources through the same port, not a new registry implementation.
 3. **Check and commit:** Run `capped cargo test -p maestro-acquisition --locked n15_ -- --nocapture`. Local and substitute adapters have identical checked outcomes; disabled fails closed. All media, including images/audio/video, get accountable outcomes when enabled; missing gold or capabilities cannot make a profile qualified. Run the applicable global gates, retain evidence and make one signed commit.
 
 - [ ] N16 [US2] Define extraction, fidelity and cumulative decode contracts in `crates/maestro-acquisition/src/extraction/{contract.rs,fidelity.rs,decode.rs}` (6 h).
@@ -564,14 +573,16 @@ Independent test: two unrelated synthetic sources yield complete evidence/unknow
 
 **After:** N03, N06. **Approval blockers:** None for synthetic work.
 
+**Start boundary:** Keep the smallest existing edge set: N03 immutable policy/resource resolution and N06 scoped report artifacts. Start now on `DirectFiles` and test-only synthetic catalog fixtures; no N56, N55 or S3 delivery edge. A synthetic catalog baseline tests the write contract, not installation/signature/ownership admission. N56 supplies the real read adapter later; N55 owns integrated catalog-baseline/write-port conformance.
+
 **Files:** `crates/maestro-acquisition/src/adaptation/{manifest.rs,writer.rs}`.
 
 **Requirements:** FR-S6-008, FR-S6-043, FR-S6-057, FR-S6-061, FR-S6-062; SC-S6-012, SC-S6-014.
 
 **Test file:** `crates/maestro-acquisition/tests/it/n30_implement_proposal_and_activation_manifest_write_port.rs`; test names begin `n30_`.
 
-1. **Red:** Race expected baseline/active digests; crash on either side of atomic replacement, substitute/revoke catalog baseline, and attempt trusted-bundle mutation.
-2. **Green:** Implement ConfigurationWriter over immutable baseline plus local overlay with durable recovery marker and atomic pointer commit. Store report/evidence before exposure; notify after commit. Direct local and immutable synthetic catalog baselines share one write contract and current scope checks.
+1. **Red:** Race expected baseline/active digests; crash on either side of atomic replacement, substitute/revoke the test-only synthetic catalog baseline, and attempt trusted-bundle mutation. Run these cases with `DirectFiles` and the synthetic source through the existing ports while S3 is absent; rejected/missing baseline evidence must hold, never fall back to trusted local content.
+2. **Green:** Implement ConfigurationWriter over immutable baseline plus local overlay with durable recovery marker and atomic pointer commit. Store report/evidence before exposure; notify after commit. `DirectFiles` and immutable synthetic catalog baselines share one write contract and current scope checks. Accept baseline resolution through existing ports, not catalog imports; production signed-review admission belongs to N56, never a fixture approval or writable copy of its release.
 3. **Check and commit:** Run `capped cargo test -p maestro-acquisition --locked n30_ -- --nocapture`. No stale activation, hidden rule store, trusted-bundle writes or silent overlay rebind; recovery exposes complete old or new state only. Run the applicable global gates, retain evidence and make one signed commit.
 
 - [ ] N31 [US3] Detect drift with durable persistence accounting in `crates/maestro-acquisition/src/adaptation/drift.rs` (4 h).
@@ -956,7 +967,7 @@ Independent test: frozen family fixture/live/retrieval results, single native wr
 
 ## Phase 9: Final acceptance and later adapter coordination
 
-N54 closes M6 only on complete evidence. N55 does not gate M6 and cannot turn catalog installation into acquisition authority.
+N54 closes M6 only on complete evidence. N55/N56 do not gate M6 and cannot turn catalog installation into acquisition authority. IDs remain stable: N56 implements the read adapter before N55 exercises integrated conformance.
 
 - [ ] N54 Audit combined M6 evidence and final quality gates in `specs/006-native-acquisition/{research.md,tasks.md}` (6 h).
 
@@ -972,28 +983,80 @@ N54 closes M6 only on complete evidence. N55 does not gate M6 and cannot turn ca
 2. **Green:** Check all approved families plus final combined native generation Q5, actual three-OS qualification and independent reviews, coverage/mutant completeness, secret-free evidence and existing private vulnerability/signed-release/SBOM controls. Recompute FR/SC/task totals; report blockers without lowering thresholds.
 3. **Check and commit:** Run the documented fixture/probe command, recording the exact invocation and output; for Markdown run `rumdl check --disable MD013,MD041 specs/006-native-acquisition` plus normal hooks. M6 only with every approved family native, zero Python producers/extractors/connectors and only the named crawl4ai render exception, approved scoped rollback evidence, ≥90% overall/≥95% changed-line coverage, zero missed mutants/timeouts and complete three-platform tests. No planning checkbox is proof. Run the applicable global gates, retain evidence and make one signed commit.
 
-- [ ] N55 [P] Coordinate later catalog and host adapters outside M6 in `crates/maestro-acquisition/src/policy/catalog.rs` (6 h).
+- [ ] N55 [P] Coordinate later catalog and host adapters outside M6 in `crates/maestro-acquisition/src/connector/s4.rs` (6 h).
 
 ### N55 — Coordinate later catalog and host adapters outside M6
 
-**After:** N30, N42, N43. **Approval blockers:** Coordination with S3/S4 delivery; no new source authority.
+**After:** N30, N42, N43, N56. **Approval blockers:** S4 host/schedule delivery; N56 carries the S3 handoffs. No new source authority.
 
-**Files:** `crates/maestro-acquisition/src/policy/catalog.rs`; `crates/maestro-acquisition/src/connector/s4.rs`; `crates/maestro-acquisition/src/lifecycle/s4_schedule.rs`; `specs/003-catalog/{plan.md,tasks.md}`.
+**Files:** `crates/maestro-acquisition/src/connector/s4.rs`; `crates/maestro-acquisition/src/lifecycle/s4_schedule.rs`; `crates/maestro/tests/it/n55_catalog_baseline_write_conformance.rs`.
 
 **Requirements:** FR-S6-008, FR-S6-017, FR-S6-040, FR-S6-061; SC-S6-012.
 
-**Test file:** `crates/maestro-acquisition/tests/it/n55_coordinate_later_catalog_and_host_adapters_outside_m6.rs`; test names begin `n55_`.
+**Test files:** `crates/maestro-acquisition/tests/it/n55_coordinate_later_catalog_and_host_adapters_outside_m6.rs`; `crates/maestro/tests/it/n55_catalog_baseline_write_conformance.rs`; test names begin `n55_`.
 
-1. **Red:** Run consumer/adapter conformance with substituted policy/host/schedule implementations; real S3 JSON install/resolve must preserve exact policy/registry/baseline digests and perform zero crawl/credential/activation effects.
-2. **Green:** Coordinate S3 FR-S3-002/037 JSON consumer support using its existing compiler/checker/reader/trust path and S4 protocol adapters when those slices expose them. Preserve N30 local overlay/write authority and requalification on baseline change; do not copy trusted bundle or build another host.
-3. **Check and commit:** Run `capped cargo test -p maestro-acquisition --locked n55_ -- --nocapture`. Synthetic substitute contracts already gate N03/N30/N42/N43; actual later adapters are separately reviewable and pending until their slices exist. Their delay never blocks S6/M6. Run the applicable global gates, retain evidence and make one signed commit.
+1. **Red:** Run host/schedule conformance with substitutes. At the composition boundary, feed N56's installed catalog baseline to N30's unchanged writer: exercise proposal/activation round trips, conflicting expected digests, a changed/untrusted/revoked baseline and an attempted trusted-bundle write. Require exact baseline/overlay identities, held stale activations and zero source-fetch/credential/connector-activation effects during resolution/writes.
+2. **Green:** Wire the real S4 protocol/schedule adapters when that slice exposes them and exercise the existing N56 adapter with N30. Preserve local overlay/write authority and explicit requalification before baseline rebinding. N56 alone owns catalog adapter code; S3 owns its JSON consumers, installer and trust machinery. This task edits no S3 documents, adds no catalog dependency to acquisition and builds no second host or trusted-bundle copy.
+3. **Check and commit:** Run `capped cargo test -p maestro-acquisition -p maestro --locked n55_ -- --nocapture`, with nonzero counts for host/schedule and catalog/write conformance. Synthetic substitute contracts already gate N03/N15/N30/N42/N43; actual later adapters remain pending until their handoffs exist. Their delay never blocks M6. Run the applicable global gates, retain evidence and make one signed commit.
+
+**Acceptance:** N30 consumers work unchanged with N56; a baseline change cannot silently rebind overlays or mutate a trusted release. S4 conformance remains separately qualified; N55 retains its 6 h estimate and does not duplicate N56's implementation.
+
+- [ ] N56 [P] Resolve catalog-backed policy and resources in `crates/maestro/src/acquisition/catalog.rs` (6 h).
+
+### N56 — Resolve catalog-backed policy and resources
+
+**After:** N03, N07, N14. **S3 external handoffs:** C41 S6 collection descriptor contract; C43 S6 source-rule admission and provenance contract; C66 Knowledge sources and manifest-owned URL rules; C69 Signed independent and private packages. **Approval blockers:** Those installed catalog/read/admission contracts and recorded ownership approvals; real private-package use still needs its own local access authority. Synthetic packages require no private-source read. **Estimate:** 6 lane-hours.
+
+**Files:** `crates/maestro/src/acquisition/catalog.rs`; `crates/maestro/src/acquisition/catalog/tests.rs`; composition registration/binding only in `crates/maestro/src/acquisition/{mod.rs,command.rs}` and existing internal dependencies in `crates/maestro/Cargo.toml`. Do not change consumer port signatures or add a catalog dependency to `maestro-acquisition`; C66 consumes its core wire types.
+
+**Requirements:** FR-S6-001, FR-S6-002, FR-S6-003, FR-S6-005, FR-S6-008, FR-S6-040, FR-S6-050, FR-S6-061, FR-S6-062; SC-S6-001, SC-S6-012, SC-S6-013.
+
+**Test file:** `crates/maestro/src/acquisition/catalog/tests.rs`, colocated in the binary crate. Names: `n56_shared_policy_resource_contract`, `n56_unsigned_unpinned_tampered_unreviewed_refuse`, `n56_owner_scope_expiry_revocation_refuse`, `n56_private_package_visibility_isolated`, `n56_resolution_has_no_effects_or_fallback`.
+
+**Interfaces:** `CatalogSource` implements existing `ResourceSource::read(&Ref, &Principal<'_>) -> Result<ImmutableResource, Refusal>` and `PolicySource::resolve(&Declaration, &Principal<'_>) -> Result<CheckedPolicy, Refusal>`. Reuse S3's installed reader/current admission boundary and acquisition's `policy::resolve::validate`; no new public port, approval store or rule parser.
+
+1. **Red:** Parameterize one shared contract over `&dyn PolicySource` and `&dyn ResourceSource`, running both `DirectFiles` and `CatalogSource` against identical independently authored N03/N07 fixture bytes. Check exact read bytes/refs for policy/decisions/promotions/migrations, missing-resource refusal, equal checked-policy outputs and URL decisions, strict-schema and digest/qualification refusals at the shared validator. Add real catalog-admission cases for unsigned release, missing pin, substituted policy or companion bytes, absent/fabricated owner or maintainer approval, unsupported version, wrong source owner, cross-scope access, expiry and revocation after installation. Each rejected root or transitive resource prevents a checked policy. Synthetic private packages prove denied reads reveal no metadata/content and unavailable private selection leaves public resolution working; inspect log/public-output canaries. Counters/spies prove zero source-fetch, credential, connector/model starts, grant writes or trusted-bundle writes, and no fallback to `DirectFiles` after catalog refusal.
+2. **Green:** Implement read-only `CatalogSource` at the `maestro` composition boundary, the only adapter that knows both catalog and acquisition. From a caller-bound installed, signed, digest-pinned release, resolve the collection's exact source-owned policy and referenced closure under `knowledge/sources/<name>/`, including decisions/promotions and `maestro-url-identity-migration/1`. Use S3 inventory/ownership mappings without rewriting wire IDs, reserializing bytes, path/glob lookup or last-wins fallback. Verify protected ownership approvals bound to release/resource digests and current scope/access/expiry/revocation before exposing each resource; a `reviewed` label or policy self-assertion is not evidence. Preserve bounded original bytes and separate admission evidence; `resolve` delegates to existing `validate`. Keep local `DirectFiles`, caller admission and N30 overlays unchanged. Private inventories use C69 packages, never an expanded C42 mount; S3 retains schema publication and fixture/checkpoint ownership.
+3. **Check and commit:** Run `capped cargo test -p maestro --locked n56_ -- --nocapture` and `capped cargo test -p maestro-acquisition --locked n03_ -- --nocapture`, then the `n07_` filter in the same crate. Record nonzero shared-contract and catalog-refusal counts; fixtures must exercise S3's real installed reader/admission, not self-assert trusted summaries. Run the applicable global gates, retain evidence and make one signed commit. Actual private grants or pending external handoffs stay blocked, never replaced by a claimed synthetic pass.
+
+**Acceptance:** `CatalogSource` passes the same shared contract tests as `DirectFiles`, run against `&dyn PolicySource` and `&dyn ResourceSource`, with no consumer edits. It refuses any unsigned, unpinned, tampered or unreviewed resource, enforces ownership/current scope and preserves exact policy/decision/promotion/migration digests. Resolution performs no acquisition, credential/activation, grant or trusted-bundle-write effects. No per-site engine rules, parallel trust authority or private content in public fixtures is added. N56 is an external-handoff adapter, not a prerequisite for N15, N30 or M6.
 
 ## Dependency graph, parallel execution and estimates
 
-The `After` lists above are the authoritative DAG; every edge points to an earlier
-ID. Story presentation is priority order, not a requirement to serialize ready
-stories. M6 does not wait for N55. A blocked private-origin grant or qualification cannot be silently removed from
-N54: OA2's policy is approved, but missing origin/effect evidence still holds M6.
+The `After` lists and N56's explicitly named **S3 external handoffs** above are
+the authoritative DAG. IDs remain stable, not topological: N55 now follows N56.
+Story presentation does not serialize ready stories. N15/N30 keep only N03/N06;
+N03 provides the local policy/resource seam and N06 the scoped evidence seam.
+No S3 delivery edge reaches either task or the N54 M6 closure. A blocked
+private-origin grant or qualification cannot be silently removed from N54:
+OA2's policy is approved, but missing origin/effect evidence still holds M6.
+
+Amended edges (the other `After` lists are unchanged):
+
+```mermaid
+flowchart LR
+  N03 --> N15
+  N06 --> N15
+  N03 --> N30
+  N06 --> N30
+  N03 --> N56
+  N07 --> N56
+  N14 --> N56
+  C41["S3 C41 external handoff"] --> N56
+  C43["S3 C43 external handoff"] --> N56
+  C66["S3 C66 external handoff"] --> N56
+  C69["S3 C69 external handoff"] --> N56
+  N56 --> N55
+  N30 --> N55
+  N42 --> N55
+  N43 --> N55
+```
+
+C66 consumes the already-landed N03/N07 types, never the N56 adapter. S3 owns
+its upstream graph (C41 also follows C66; C43 follows C41/C42); C42 remains an
+unchanged indirect handoff dependency. This graph treats the four delivered S3
+contracts as external inputs and charges none of their hours to S6. S4 delivery
+remains N55's external coordination blocker, not an unnamed S6 task.
 
 | Work group | Tasks | Hours |
 | --- | --- | --- |
@@ -1005,14 +1068,15 @@ N54: OA2's policy is approved, but missing origin/effect evidence still holds M6
 | US5 | 6 | 38 |
 | US6 | 5 | 30 |
 | Final acceptance N54 | 1 | 6 |
-| Later adapters N55 | 1 | 6 |
-| **Total** | **55** | **327** |
+| Later conformance N55 | 1 | 6 |
+| Catalog adapter N56 | 1 | 6 |
+| **Total** | **56** | **333** |
 
 | Story | Ready parallel example |
 | --- | --- |
 | US1 | After N03/N04, N05 authority and N07 URL policy can run independently; N10 robots and N11 aggregate budgets overlap after their listed gates. |
-| US2 | N18 Windows and N19 macOS share a landed N17 port but edit separate adapters; N20 HTML, N21 document probe, N24 text/structured and N26 S1 seam can run after their own predecessors. |
-| US3 | N29 inference and N30 manifest writer are independent after their respective inputs; N31 drift and N32 allow-list follow N30 in distinct files. |
+| US2 | N15 can start on N03/N06 with local/synthetic resources, no catalog wait. N18 Windows and N19 macOS share a landed N17 port but edit separate adapters; N20 HTML, N21 document probe, N24 text/structured and N26 S1 seam can run after their own predecessors. |
+| US3 | N30 can start on N03/N06 with DirectFiles/synthetic baselines, no N56/S3 wait. N29 inference and N30 are independent after their respective inputs; N31 drift and N32 allow-list follow N30 in distinct files. |
 | US4 | N38 withdrawal and N42 timers overlap after their dependencies; N41 repository work need not wait for N40 publication tests. |
 | US5 | N47 wiki and N48 private-origin adapter can run beside N45 sessions once N44 lands, but N48 live activation remains approval-blocked. |
 | US6 | N51 live parity and N52 retrieval run after N50 when separately authorized; avoid contending latency-sensitive model measurements. |
@@ -1024,6 +1088,11 @@ unlimited-worker precedence lower bound **43 h**:
 **M6 precedence critical path:** **95 h** for the first-family
 engineering/evidence cycle under unlimited ready workers:
 `N01 → N03 → N07 → N08 → N09 → N16 → N17 → N20 → N27 → N38 → N39 → N41 → N49 → N50 → N52 → N53 → N54`.
+
+The amendment leaves the MVP at **14 tasks / 77 h** and M6-path work at
+**54 tasks / 321 h**; N55/N56 add **2 tasks / 12 h** outside M6. All-task effort
+is **321 + 6 + 6 = 333 h**, a **+6 h** delta. Additional family effort remains
+**20 × (F−1) h**. External S3/S4 delivery has no S6 duration estimate here.
 
 These are recomputed longest-path sums of the task estimates, not calendar
 promises. Finite lane capacity, shared-file landings, external approvals, native
@@ -1038,14 +1107,14 @@ and criterion. Mapping does not mean implementation or approval is complete.
 
 | Requirement | Tasks |
 | --- | --- |
-| FR-S6-001 | N03, N05, N14 |
-| FR-S6-002 | N03, N14 |
-| FR-S6-003 | N03 |
+| FR-S6-001 | N03, N05, N14, N56 |
+| FR-S6-002 | N03, N14, N56 |
+| FR-S6-003 | N03, N56 |
 | FR-S6-004 | N07 |
-| FR-S6-005 | N07 |
+| FR-S6-005 | N07, N56 |
 | FR-S6-006 | N08, N09, N46, N48 |
 | FR-S6-007 | N10 |
-| FR-S6-008 | N01, N03, N14, N30, N42, N55 |
+| FR-S6-008 | N01, N03, N14, N30, N42, N55, N56 |
 | FR-S6-009 | N04, N37 |
 | FR-S6-010 | N13, N36, N37, N41 |
 | FR-S6-011 | N13, N36, N47 |
@@ -1077,7 +1146,7 @@ and criterion. Mapping does not mean implementation or approval is complete.
 | FR-S6-037 | N49, N50, N51 |
 | FR-S6-038 | N33, N52, N54 |
 | FR-S6-039 | N53, N54 |
-| FR-S6-040 | N01, N42, N53, N54, N55 |
+| FR-S6-040 | N01, N42, N53, N54, N55, N56 |
 | FR-S6-041 | N15, N24, N29 |
 | FR-S6-042 | N29 |
 | FR-S6-043 | N01, N29, N30, N32 |
@@ -1087,7 +1156,7 @@ and criterion. Mapping does not mean implementation or approval is complete.
 | FR-S6-047 | N04, N12, N34, N37, N40 |
 | FR-S6-048 | N40 |
 | FR-S6-049 | N11, N40 |
-| FR-S6-050 | N03, N15, N32 |
+| FR-S6-050 | N03, N15, N32, N56 |
 | FR-S6-051 | N08, N09, N45, N46 |
 | FR-S6-052 | N46 |
 | FR-S6-053 | N05, N44 |
@@ -1098,12 +1167,12 @@ and criterion. Mapping does not mean implementation or approval is complete.
 | FR-S6-058 | N31, N35 |
 | FR-S6-059 | N09, N16, N17, N18, N19, N22, N23, N25, N28 |
 | FR-S6-060 | N01, N02, N21, N46, N50, N53, N54 |
-| FR-S6-061 | N01, N03, N30, N34, N55 |
-| FR-S6-062 | N06, N29, N30, N34, N54 |
+| FR-S6-061 | N01, N03, N30, N34, N55, N56 |
+| FR-S6-062 | N06, N29, N30, N34, N54, N56 |
 
 | Criterion | Tasks |
 | --- | --- |
-| SC-S6-001 | N03, N05, N07, N08, N09, N10, N14, N46, N48 |
+| SC-S6-001 | N03, N05, N07, N08, N09, N10, N14, N46, N48, N56 |
 | SC-S6-002 | N04, N06, N09, N12, N13, N14, N36, N37 |
 | SC-S6-003 | N05, N17, N18, N19, N43, N44, N45, N46 |
 | SC-S6-004 | N08, N47, N48 |
@@ -1114,8 +1183,8 @@ and criterion. Mapping does not mean implementation or approval is complete.
 | SC-S6-009 | N36, N49, N50, N51, N54 |
 | SC-S6-010 | N33, N52, N54 |
 | SC-S6-011 | N02, N21, N42, N46, N50, N53, N54 |
-| SC-S6-012 | N01, N02, N03, N14, N15, N17, N18, N19, N28, N30, N42, N43, N44, N46, N54, N55 |
-| SC-S6-013 | N06, N15, N24, N29, N43, N54 |
+| SC-S6-012 | N01, N02, N03, N14, N15, N17, N18, N19, N28, N30, N42, N43, N44, N46, N54, N55, N56 |
+| SC-S6-013 | N06, N15, N24, N29, N43, N54, N56 |
 | SC-S6-014 | N06, N30, N31, N32, N33, N34, N35, N54 |
 | SC-S6-015 | N04, N10, N11, N34, N37, N40, N54 |
 
@@ -1124,5 +1193,6 @@ and criterion. Mapping does not mean implementation or approval is complete.
 Before each dispatch, verify approvals and predecessor artifacts rather than
 copying a green label. Before M6, N54 reconciles every FR/SC against observed test,
 review and owner evidence, including incomplete mutation shards. An unavailable
-required control or owner receipt keeps the affected work held. N55 remains an
-explicit later coordination task and no blanket exception is invented for it.
+required control or owner receipt keeps the affected work held. N56 consumes
+explicit S3 handoffs and N55 performs later integrated conformance; both remain
+outside M6, with no blanket trust, access or qualification exception.
