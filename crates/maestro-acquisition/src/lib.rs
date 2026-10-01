@@ -6,7 +6,7 @@ mod files;
 pub mod policy;
 mod ports;
 mod refusal;
-/// Checked-address classification and replaceable pinned connections.
+/// Checked-address classification, pinned connections, robots rules and shared origin pacing.
 pub mod transport;
 
 pub use files::{DirectFiles, LocalResource};

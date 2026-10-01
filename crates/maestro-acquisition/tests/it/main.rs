@@ -6,4 +6,7 @@ mod n07_parse_url_identity_and_denial_precedence;
 mod n07_url_policy_edges;
 mod n07_url_review_regressions;
 mod n08_classify_and_pin_every_destination_address;
+mod n10_admission;
+mod n10_conform_robots_and_aggregate_origin_pacing;
+mod n10_control_edges;
 mod support;

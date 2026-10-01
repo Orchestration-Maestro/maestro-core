@@ -303,7 +303,9 @@ in place.
 │   │   │   │   ├── address.rs                                                           # Deny-only address resources plus a non-removable special-purpose floor
 │   │   │   │   ├── connect.rs                                                           # One checked destination per connection, with no proxy, pool or second DNS
 │   │   │   │   ├── floor.rs                                                             # Non-removable IANA snapshot (2025-10-09), multicast and metadata denials
-│   │   │   │   └── mod.rs                                                               # Rust source: mod
+│   │   │   │   ├── mod.rs                                                               # Rust source: mod
+│   │   │   │   ├── pacing.rs                                                            # One injected atomic origin ledger shared by HTTP, browser and resumed runs
+│   │   │   │   └── robots.rs                                                            # RFC 9309 rules over N07's canonical fetch identity, without network effects
 │   │   │   ├── files.rs                                                                 # Caller-bound direct files, never source-provided paths or writable bundles
 │   │   │   ├── lib.rs                                                                   # Strict source-policy configuration for native acquisition
 │   │   │   ├── ports.rs                                                                 # Small read-only ports; authority and transport startup are deliberately absent
@@ -326,6 +328,9 @@ in place.
 │   │   │       ├── n07_url_policy_edges.rs                                              # N07 edge guards share the primary task's synthetic fixture builders
 │   │   │       ├── n07_url_review_regressions.rs                                        # N07 review regressions share the checked synthetic policy closure
 │   │   │       ├── n08_classify_and_pin_every_destination_address.rs                    # N08 uses real admission with explicit synthetic resolver/connection adapters
+│   │   │       ├── n10_admission.rs                                                     # Robots denial reaches N07's real admission path before transport effects
+│   │   │       ├── n10_conform_robots_and_aggregate_origin_pacing.rs                    # Independently authored RFC 9309 and shared-origin contracts
+│   │   │       ├── n10_control_edges.rs                                                 # Additional actual-engine boundaries and substitute rules adapter
 │   │   │       └── support.rs                                                           # Complete independently authored synthetic policy fixtures
 │   │   ├── Cargo.toml                                                                   # Crate manifest: Strict source policies and immutable baseline resolution for native acquisition
 │   │   └── README.md                                                                    # N03 implements strict source-policy declarations and immutable local baseline resolution
