@@ -6,6 +6,8 @@ mod files;
 pub mod policy;
 mod ports;
 mod refusal;
+/// Checked-address classification and replaceable pinned connections.
+pub mod transport;
 
 pub use files::{DirectFiles, LocalResource};
 pub use maestro_knowledge::collection::PolicyReference as Ref;

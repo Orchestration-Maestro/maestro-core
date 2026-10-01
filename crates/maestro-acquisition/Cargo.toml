@@ -17,6 +17,10 @@ schemars.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 reqwest.workspace = true
+rustls.workspace = true
+rustls-native-certs.workspace = true
+tokio = { workspace = true, features = ["net", "rt", "time", "io-util"] }
+tokio-rustls.workspace = true
 
 [dev-dependencies]
 maestro-test-scratch.workspace = true

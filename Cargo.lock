@@ -861,9 +861,13 @@ dependencies = [
  "maestro-knowledge",
  "maestro-test-scratch",
  "reqwest",
+ "rustls",
+ "rustls-native-certs",
  "schemars",
  "serde",
  "serde_json",
+ "tokio",
+ "tokio-rustls",
 ]
 
 [[package]]

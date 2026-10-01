@@ -117,7 +117,6 @@ pub(super) fn fixture() -> (Value, Catalog) {
         "owner",
         "evidence",
         "qualification",
-        "addresses",
         "matrix",
         "thresholds",
         "baseline",
@@ -141,6 +140,7 @@ pub(super) fn fixture() -> (Value, Catalog) {
         .references
         .push(markdown);
     for (id, text) in [
+        ("addresses", include_str!("../fixtures/address-table.json")),
         ("decisions", include_str!("../fixtures/decisions.json")),
         ("http", include_str!("../fixtures/http.json")),
         ("policy", include_str!("../fixtures/policy.json")),

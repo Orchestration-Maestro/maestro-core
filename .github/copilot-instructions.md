@@ -299,12 +299,21 @@ in place.
 │   │   │   │   ├── shape.rs                                                             # Objects, scalar names and bounded strings, never positional arrays or scripts
 │   │   │   │   ├── source.rs                                                            # Strict version-one source-policy wire contracts
 │   │   │   │   └── wiki.rs                                                              # Strict version-one source-policy wire contracts
+│   │   │   ├── transport/                                                               # Transport
+│   │   │   │   ├── address.rs                                                           # Deny-only address resources plus a non-removable special-purpose floor
+│   │   │   │   ├── connect.rs                                                           # One checked destination per connection, with no proxy, pool or second DNS
+│   │   │   │   ├── floor.rs                                                             # Non-removable IANA snapshot (2025-10-09), multicast and metadata denials
+│   │   │   │   └── mod.rs                                                               # Rust source: mod
 │   │   │   ├── files.rs                                                                 # Caller-bound direct files, never source-provided paths or writable bundles
 │   │   │   ├── lib.rs                                                                   # Strict source-policy configuration for native acquisition
 │   │   │   ├── ports.rs                                                                 # Small read-only ports; authority and transport startup are deliberately absent
 │   │   │   └── refusal.rs                                                               # Content-free policy failure codes: no source bytes or paths in diagnostics
 │   │   ├── tests/                                                                       # Integration tests
 │   │   │   ├── fixtures/                                                                # Test fixtures
+│   │   │   │   ├── tls/                                                                 # Tls
+│   │   │   │   │   ├── certificate.pem                                                  # File: certificate
+│   │   │   │   │   └── synthetic-key.json                                               # JSON data: synthetic key
+│   │   │   │   ├── address-table.json                                                   # JSON data: address table
 │   │   │   │   ├── collection.json                                                      # JSON data: collection
 │   │   │   │   ├── decisions.json                                                       # JSON data: decisions
 │   │   │   │   ├── http.json                                                            # JSON data: http
@@ -316,6 +325,7 @@ in place.
 │   │   │       ├── n07_parse_url_identity_and_denial_precedence.rs                      # N07 URL and denial contracts use only synthetic destinations
 │   │   │       ├── n07_url_policy_edges.rs                                              # N07 edge guards share the primary task's synthetic fixture builders
 │   │   │       ├── n07_url_review_regressions.rs                                        # N07 review regressions share the checked synthetic policy closure
+│   │   │       ├── n08_classify_and_pin_every_destination_address.rs                    # N08 uses real admission with explicit synthetic resolver/connection adapters
 │   │   │       └── support.rs                                                           # Complete independently authored synthetic policy fixtures
 │   │   ├── Cargo.toml                                                                   # Crate manifest: Strict source policies and immutable baseline resolution for native acquisition
 │   │   └── README.md                                                                    # N03 implements strict source-policy declarations and immutable local baseline resolution

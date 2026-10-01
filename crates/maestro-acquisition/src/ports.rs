@@ -7,6 +7,7 @@ use crate::{
         schema::SourcePolicy,
     },
     refusal::Refusal,
+    transport::address::AddressTable,
 };
 use maestro_kernel::{artifact::Digest, scope::ScopeSet};
 use maestro_knowledge::collection::Declaration;
@@ -94,6 +95,8 @@ pub trait PolicySource: Debug {
 pub struct CheckedPolicy {
     /// Exact original immutable baseline reference.
     pub(crate) reference: Ref,
+    /// Reviewed address data compiled with the non-removable denial floor.
+    pub(crate) address_table: AddressTable,
     /// Checked source-policy contract.
     pub(crate) policy: SourcePolicy,
     /// Resolved acquisition profiles keyed by logical ID.
@@ -106,6 +109,11 @@ pub struct CheckedPolicy {
     pub(crate) identity_migrations: BTreeMap<String, IdentityMigration>,
 }
 impl CheckedPolicy {
+    /// Immutable destination classifier; data cannot relax its denial floor.
+    #[must_use]
+    pub fn address_table(&self) -> &AddressTable {
+        &self.address_table
+    }
     /// Original policy digest, never a digest of reformatted bytes.
     #[must_use]
     pub fn reference(&self) -> &Ref {

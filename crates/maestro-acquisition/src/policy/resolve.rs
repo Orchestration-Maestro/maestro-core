@@ -12,6 +12,7 @@ use super::{
 use crate::{
     ports::{AdmissionStatus, CheckedPolicy, ImmutableResource, Principal, ResourceSource},
     refusal::Refusal,
+    transport::address::{AddressResource, AddressTable},
 };
 use maestro_kernel::artifact::Digest;
 use maestro_knowledge::collection::PolicyReference as Ref;
@@ -71,7 +72,6 @@ pub fn validate(
     checks::policy(&policy)?;
     for required in [
         &policy.profiles,
-        &policy.address_table,
         &policy.retention_rule,
         &policy.qualification,
         &policy.adaptation.matrix,
@@ -80,6 +80,7 @@ pub fn validate(
     ] {
         closure.read(required)?;
     }
+    let address_table = read_addresses(&mut closure, &policy.address_table, collection)?;
     let extraction = closure.read(&policy.profiles)?;
     let profiles = read_profiles(&mut closure, &policy, collection)?;
     let registries = read_registries(&mut closure, &policy, collection)?;
@@ -140,12 +141,28 @@ pub fn validate(
     validate_decisions(&registries, &policy)?;
     Ok(CheckedPolicy {
         reference: reference.clone(),
+        address_table,
         policy,
         acquisition_profiles: profiles,
         decisions: registries,
         promotions,
         identity_migrations,
     })
+}
+
+/// Resolve reviewed deny-only address data through the same immutable closure.
+fn read_addresses(
+    closure: &mut Closure<'_>,
+    reference: &Ref,
+    collection: &Declaration,
+) -> Result<AddressTable, Refusal> {
+    let immutable = closure.read(reference)?;
+    let resource = AddressResource::parse(&immutable.bytes)?;
+    closure.resource(&resource.resource, collection)?;
+    if resource.resource.id != reference.id {
+        return Err(Refusal::Invalid);
+    }
+    resource.compile()
 }
 
 /// Migration resolution retains mappings without applying or widening them.
