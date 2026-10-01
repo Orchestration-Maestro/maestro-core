@@ -13,37 +13,78 @@ use crate::{
         shape,
     },
 };
+use maestro_kernel::artifact::Digest;
+use maestro_knowledge::strict_json::{nullable_object, object};
+use schemars::JsonSchema;
+use serde::{Deserialize, Deserializer, Serialize, de};
 use std::collections::BTreeMap;
+
+/// Cleanup/chunk/dedup collection selections, with explicit null defaults.
+pub type ProcessingSelections = (Option<Ref>, Option<Ref>, Option<Ref>);
+
+/// Existing per-source effective triples, serialized as arrays.
+pub type SourceConfigurations = BTreeMap<String, (Ref, ProfileDefinition, Processing)>;
+/// Existing decision identities and definitions, serialized as arrays.
+pub type DecisionInventory = BTreeMap<String, (Ref, Decision)>;
+
+/// Deterministic bounded logical key for a source's retained selection receipt.
+/// All IDs use their digest so the whole key obeys N03's bound without namespaces.
+#[must_use]
+pub fn selection_key(source_id: &str) -> String {
+    format!(
+        "profile_selection.{}",
+        Digest::of(source_id.as_bytes()).as_str()
+    )
+}
 
 /// Caller-resolved effective values, not a proposal or a stored artifact format.
 /// Inputs must come from currently authorized, qualified immutable resources.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
 pub struct EffectiveConfiguration {
     /// Exact immutable baseline identity.
+    #[serde(deserialize_with = "object")]
     pub baseline: Ref,
     /// Resolved policy; only source selected-profile leaves may change.
+    #[serde(deserialize_with = "object")]
     pub policy: SourcePolicy,
+    /// Per-source effective profile, definition and processing values.
+    #[serde(deserialize_with = "source_map")]
+    #[schemars(length(max = 1000))]
+    pub sources: SourceConfigurations,
     /// Immutable qualified profile inventory, keyed by definition ID.
+    #[serde(deserialize_with = "object_map")]
+    #[schemars(length(max = 1000))]
     pub profiles: BTreeMap<String, Profile>,
     /// Effective exclusion inventory, keyed by stable decision ID.
-    pub decisions: BTreeMap<String, (Ref, Decision)>,
-    /// Per-source effective profile, definition and processing values.
-    /// The caller resolves profile-default versus collection-selection precedence.
-    pub sources: BTreeMap<String, (Ref, ProfileDefinition, Processing)>,
+    #[serde(deserialize_with = "decision_map")]
+    #[schemars(length(max = 1000))]
+    pub decisions: DecisionInventory,
     /// Selected cleanup, chunk and dedup references, respectively.
     /// None leaves profile defaults to the caller's resolver; changes cannot clear a selection.
-    pub selected: (Option<Ref>, Option<Ref>, Option<Ref>),
+    #[serde(deserialize_with = "selected_pins")]
+    pub selected: ProcessingSelections,
     /// Separately approved cleanup resolutions keyed by reference ID.
-    pub approved_cleanup: BTreeMap<String, (Ref, Vec<String>)>,
+    #[serde(deserialize_with = "object_map")]
+    #[schemars(length(max = 1000))]
+    pub approved_cleanup: BTreeMap<String, Ref>,
     /// Separately qualified S1 strategy resolutions keyed by reference ID.
-    pub approved_chunks: BTreeMap<String, (Ref, String)>,
+    #[serde(deserialize_with = "object_map")]
+    #[schemars(length(max = 1000))]
+    pub approved_chunks: BTreeMap<String, Ref>,
     /// Separately approved dedup resolutions keyed by reference ID.
-    pub approved_dedup: BTreeMap<String, (Ref, Vec<String>)>,
+    #[serde(deserialize_with = "object_map")]
+    #[schemars(length(max = 1000))]
+    pub approved_dedup: BTreeMap<String, Ref>,
     /// Qualified S1 hard token maxima, keyed by strategy ID.
+    #[serde(deserialize_with = "bounded_map")]
+    #[schemars(length(max = 1000))]
     pub qualified_chunk_tokens: BTreeMap<String, u64>,
     /// Separately qualified model maximum, never an adaptive resource budget.
     pub qualified_model_limit: u64,
     /// Exact resolved identities for protected resources outside `SourcePolicy`.
+    #[serde(deserialize_with = "object_map")]
+    #[schemars(length(max = 1000))]
     pub protected_resources: BTreeMap<String, Ref>,
 }
 
@@ -66,8 +107,12 @@ pub fn apply(
             return Err(WriteError::Held);
         }
         match change {
-            Change::SelectProfile { source_id, profile } => {
-                select_profile(&mut expected, candidate, source_id, profile)?;
+            Change::SelectProfile {
+                source_id,
+                profile,
+                selection,
+            } => {
+                select_profile(&mut expected, candidate, source_id, (profile, selection))?;
             }
             Change::SetCleanup { rules } => {
                 set_processing(
@@ -128,15 +173,15 @@ fn class(change: &Change) -> AutomaticClass {
 }
 
 /// A resolved name cannot silently substitute another immutable reference.
-fn selection<'a, T>(
-    approved: &'a BTreeMap<String, (Ref, T)>,
+fn selection<'a>(
+    approved: &'a BTreeMap<String, Ref>,
     reference: &Ref,
-) -> Result<&'a T, WriteError> {
-    let (resolved, value) = approved.get(&reference.id).ok_or(WriteError::Held)?;
+) -> Result<&'a Ref, WriteError> {
+    let resolved = approved.get(&reference.id).ok_or(WriteError::Held)?;
     if resolved != reference {
         return Err(WriteError::Held);
     }
-    Ok(value)
+    Ok(resolved)
 }
 
 /// Caller-resolved precedence may retain a source override or use the selection.
@@ -165,10 +210,10 @@ fn set_processing<T: PartialEq + Clone>(
 }
 
 /// S1 qualifications are explicit inputs, never inferred from strategy names.
-fn check_chunk(old: &EffectiveConfiguration, chunk: &str) -> Result<(), WriteError> {
+fn check_chunk(old: &EffectiveConfiguration, chunk: &Ref) -> Result<(), WriteError> {
     let maximum = old
         .qualified_chunk_tokens
-        .get(chunk)
+        .get(&chunk.id)
         .ok_or(WriteError::Held)?;
     if *maximum == 0 || *maximum > old.qualified_model_limit {
         return Err(WriteError::Held);
@@ -181,8 +226,9 @@ fn select_profile(
     expected: &mut EffectiveConfiguration,
     candidate: &EffectiveConfiguration,
     source_id: &str,
-    reference: &Ref,
+    pins: (&Ref, &Ref),
 ) -> Result<(), WriteError> {
+    let (reference, selection) = pins;
     let profile = expected
         .profiles
         .get(&reference.id)
@@ -209,6 +255,9 @@ fn select_profile(
         .ok_or(WriteError::Held)?;
     source.selected_profiles = vec![reference.clone()];
     expected.sources.insert(source_id.into(), resolved.clone());
+    expected
+        .protected_resources
+        .insert(selection_key(source_id), selection.clone());
     Ok(())
 }
 
@@ -228,12 +277,12 @@ fn check_processing(
         || old
             .approved_cleanup
             .values()
-            .any(|(_, value)| *value == effective.cleanup);
+            .any(|value| *value == effective.cleanup);
     let dedup = approved.clone().any(|value| value.dedup == effective.dedup)
         || old
             .approved_dedup
             .values()
-            .any(|(_, value)| *value == effective.dedup);
+            .any(|value| *value == effective.dedup);
     if !cleanup || !dedup {
         return Err(WriteError::Held);
     }
@@ -307,4 +356,60 @@ pub fn admit(
         return Err(WriteError::Held);
     }
     Ok(())
+}
+
+/// Bound logical inventory keys independently of the enclosing JSON limit.
+fn bounded_map<'de, D: Deserializer<'de>, T: Deserialize<'de>>(
+    decoder: D,
+) -> Result<BTreeMap<String, T>, D::Error> {
+    let map = BTreeMap::<String, T>::deserialize(decoder)?;
+    if map.len() > 1000 || !map.keys().all(|id| shape::valid_id(id)) {
+        return Err(de::Error::custom("invalid effective inventory"));
+    }
+    Ok(map)
+}
+/// One nullable object pin; tuple slots stay explicit nulls on the wire.
+#[derive(Deserialize)]
+struct NullablePin(#[serde(deserialize_with = "nullable_object")] Option<Ref>);
+/// Prevent positional Ref arrays inside the three selection slots.
+fn selected_pins<'de, D: Deserializer<'de>>(decoder: D) -> Result<ProcessingSelections, D::Error> {
+    let (cleanup, chunk, dedup) = <(NullablePin, NullablePin, NullablePin)>::deserialize(decoder)?;
+    Ok((cleanup.0, chunk.0, dedup.0))
+}
+
+/// Object shape only, without introducing another effective/wire DTO.
+#[derive(Deserialize)]
+#[serde(bound(deserialize = "T: Deserialize<'de>"))]
+struct ObjectValue<T>(#[serde(deserialize_with = "object")] T);
+/// Bounded maps whose values are strict objects.
+fn object_map<'de, D: Deserializer<'de>, T: Deserialize<'de>>(
+    decoder: D,
+) -> Result<BTreeMap<String, T>, D::Error> {
+    let values: BTreeMap<String, ObjectValue<T>> = bounded_map(decoder)?;
+    Ok(values
+        .into_iter()
+        .map(|(key, value)| (key, value.0))
+        .collect())
+}
+/// Object-only decoder components for the existing triple.
+type SourceObjects = (
+    ObjectValue<Ref>,
+    ObjectValue<ProfileDefinition>,
+    ObjectValue<Processing>,
+);
+/// Strict object components inside the existing array triples.
+fn source_map<'de, D: Deserializer<'de>>(decoder: D) -> Result<SourceConfigurations, D::Error> {
+    let values: BTreeMap<String, SourceObjects> = bounded_map(decoder)?;
+    Ok(values
+        .into_iter()
+        .map(|(key, (pin, definition, processing))| (key, (pin.0, definition.0, processing.0)))
+        .collect())
+}
+/// Strict object components inside the existing decision pairs.
+fn decision_map<'de, D: Deserializer<'de>>(decoder: D) -> Result<DecisionInventory, D::Error> {
+    let values: BTreeMap<String, (ObjectValue<Ref>, ObjectValue<Decision>)> = bounded_map(decoder)?;
+    Ok(values
+        .into_iter()
+        .map(|(key, (pin, decision))| (key, (pin.0, decision.0)))
+        .collect())
 }

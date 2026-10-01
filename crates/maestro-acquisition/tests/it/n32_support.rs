@@ -1,5 +1,6 @@
 //! Pure synthetic N32 controls; runtime artifact contracts belong to N34.
 #![expect(clippy::indexing_slicing, reason = "authored synthetic keys")]
+use maestro_acquisition::adaptation::change::selection_key;
 use maestro_acquisition::{
     Ref,
     adaptation::{
@@ -38,7 +39,7 @@ pub(super) fn fixture() -> EffectiveConfiguration {
         AutomaticClass::DedupKeys,
         AutomaticClass::NewKnowledgeExclusions,
     ];
-    let text = include_str!("../fixtures/profile-definition-v1.txt")
+    let text = include_str!("../fixtures/profile-definition-v2.txt")
         .split_once('\n')
         .unwrap()
         .1;
@@ -76,24 +77,15 @@ pub(super) fn fixture() -> EffectiveConfiguration {
             (old.reference(), old.definition.clone(), processing),
         )]),
         selected,
-        approved_cleanup: BTreeMap::from([(
-            "cleanup-new".into(),
-            (reference("cleanup-new"), vec!["trim".into()]),
-        )]),
-        approved_chunks: BTreeMap::from([(
-            "chunk-new".into(),
-            (reference("chunk-new"), "qualified-chunk".into()),
-        )]),
-        approved_dedup: BTreeMap::from([(
-            "dedup-new".into(),
-            (reference("dedup-new"), vec!["exact".into()]),
-        )]),
+        approved_cleanup: BTreeMap::from([("cleanup-new".into(), reference("cleanup-new"))]),
+        approved_chunks: BTreeMap::from([("chunk-new".into(), reference("chunk-new"))]),
+        approved_dedup: BTreeMap::from([("dedup-new".into(), reference("dedup-new"))]),
         qualified_chunk_tokens: BTreeMap::from([
-            ("qualified-chunk".into(), 700),
+            ("chunk-new".into(), 700),
             ("synthetic-chunk".into(), 700),
         ]),
         qualified_model_limit: 700,
-        protected_resources: BTreeMap::from([("wiki-permissions".into(), reference("wiki-old"))]),
+        protected_resources: BTreeMap::new(),
     }
 }
 
@@ -132,8 +124,15 @@ pub(super) fn cleanup() -> Change {
 pub(super) fn resolved(old: &EffectiveConfiguration, change: &Change) -> EffectiveConfiguration {
     let mut candidate = old.clone();
     match change {
-        Change::SelectProfile { source_id, profile } => {
+        Change::SelectProfile {
+            source_id,
+            profile,
+            selection,
+        } => {
             let definition = &old.profiles[&profile.id].definition;
+            candidate
+                .protected_resources
+                .insert(selection_key(source_id), selection.clone());
             candidate.sources.insert(
                 source_id.clone(),
                 (
@@ -147,19 +146,19 @@ pub(super) fn resolved(old: &EffectiveConfiguration, change: &Change) -> Effecti
             for (_, _, processing) in candidate.sources.values_mut() {
                 processing
                     .cleanup
-                    .clone_from(&old.approved_cleanup[&rules.id].1);
+                    .clone_from(&old.approved_cleanup[&rules.id]);
             }
         }
         Change::SetS1ChunkStrategy { strategy } => {
             for (_, _, processing) in candidate.sources.values_mut() {
                 processing
                     .chunk
-                    .clone_from(&old.approved_chunks[&strategy.id].1);
+                    .clone_from(&old.approved_chunks[&strategy.id]);
             }
         }
         Change::SetDedupKeys { keys } => {
             for (_, _, processing) in candidate.sources.values_mut() {
-                processing.dedup.clone_from(&old.approved_dedup[&keys.id].1);
+                processing.dedup.clone_from(&old.approved_dedup[&keys.id]);
             }
         }
         _ => {}

@@ -1,4 +1,5 @@
 //! Scoped local overlays and replaceable activation policy and commit ports.
+pub mod artifacts;
 pub mod change;
 #[cfg(test)]
 mod golden;
@@ -7,10 +8,11 @@ mod manifest;
 mod recovery;
 #[cfg(test)]
 mod recovery_tests;
-mod storage;
+pub mod snapshot;
+pub mod storage;
 mod writer;
 pub use manifest::{
-    ActivationAuthority, AtomicCommit, Change, Commit, ConfigurationWriter, CurrentGrants,
-    HeldAuthority, Notify, Proposal, WriteError,
+    Activation, ActivationAuthority, AtomicCommit, Change, Commit, ConfigurationWriter,
+    CurrentGrants, HeldAuthority, Notify, Proposal, WriteError,
 };
-pub use writer::{LocalWriter, WriterContext};
+pub use writer::{EffectivePreimage, LocalWriter, WriterContext};

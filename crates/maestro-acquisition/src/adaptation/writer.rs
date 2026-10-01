@@ -6,10 +6,13 @@ use super::{
         Proposal, WriteError,
     },
     recovery::Recovery,
+    snapshot::SnapshotReader,
     storage,
 };
 use crate::{
-    Principal, Ref, Refusal, ResourceSource, policy::manifest::AcquisitionManifest, validate,
+    Principal, Ref, Refusal, ResourceSource,
+    policy::{manifest::AcquisitionManifest, schema::SourcePolicy},
+    validate,
 };
 use maestro_kernel::{
     acquisition::{Handle, Progress, Reason, Receipts, Status},
@@ -18,6 +21,20 @@ use maestro_kernel::{
     scope::ScopeSet,
 };
 use maestro_knowledge::collection::Declaration;
+use serde::Serialize;
+
+/// Versioned typed effective identity; never depends on the JSON map backend.
+#[derive(Debug, Serialize)]
+pub struct EffectivePreimage<'a> {
+    /// Closed identity version.
+    pub schema: &'static str,
+    /// Exact checked immutable policy.
+    pub policy: &'a SourcePolicy,
+    /// Exact admitted initial snapshot.
+    pub processing_baseline: &'a Ref,
+    /// Ordered activation identities.
+    pub activations: &'a [Ref],
+}
 use std::{
     fmt,
     path::{Path, PathBuf},
@@ -94,6 +111,14 @@ impl<'a> LocalWriter<'a> {
             {
                 return Err(Refusal::Invalid.into());
             }
+            let scopes = writer.context.grants.visible(writer.context.principal)?;
+            let principal = writer.principal(&scopes);
+            let snapshot = writer
+                .reader(&principal)
+                .read(&initial.processing_baseline)?;
+            if snapshot.snapshot.effective.baseline != initial.baseline {
+                return Err(WriteError::Held);
+            }
             let mut manifest = initial.clone();
             manifest.effective_digest = writer.digest(&manifest)?;
             let bytes = storage::encode(&manifest)?;
@@ -116,7 +141,19 @@ impl<'a> LocalWriter<'a> {
         if manifest.active != manifest.baseline {
             self.eligible(&manifest.active)?;
         }
+        let scopes = self.context.grants.visible(self.context.principal)?;
+        self.reader(&self.principal(&scopes)).current(&manifest)?;
         Ok(manifest)
+    }
+
+    /// Shared scoped snapshot reader, usable by authority under this lock.
+    fn reader<'b>(&'b self, principal: &'b Principal<'b>) -> SnapshotReader<'b> {
+        SnapshotReader {
+            source: self.context.source,
+            receipts: self.context.receipts,
+            collection: self.context.collection,
+            principal,
+        }
     }
 
     /// Construct only request-local context from freshly acquired read grants.
@@ -158,11 +195,15 @@ impl<'a> LocalWriter<'a> {
         {
             return Err(Refusal::Access.into());
         }
-        // Canonical baseline content plus ordered immutable activation identities.
-        Ok(Digest::of(&storage::encode(&(
-            checked.policy(),
-            &manifest.activations,
-        ))?))
+        if manifest.processing_baseline != self.initial.processing_baseline {
+            return Err(WriteError::Conflict);
+        }
+        Ok(Digest::of(&storage::encode(&EffectivePreimage {
+            schema: "maestro-acquisition-effective/2",
+            policy: checked.policy(),
+            processing_baseline: &manifest.processing_baseline,
+            activations: &manifest.activations,
+        })?))
     }
 
     /// Operational reads validate precisely the currently effective lineage.
@@ -207,6 +248,8 @@ impl<'a> LocalWriter<'a> {
             &proposal,
             activation.gate,
         )?;
+        let scopes = self.context.grants.visible(self.context.principal)?;
+        self.reader(&self.principal(&scopes)).candidate(&proposal)?;
         self.context.authority.check(
             &proposal,
             activation.gate,
@@ -274,6 +317,8 @@ impl<'a> LocalWriter<'a> {
         let mut handles = proposal.evidence.clone();
         handles.push(proposal.report);
         storage::accessible(self.context.receipts, self.context.principal, &handles)?;
+        let scopes = self.context.grants.visible(self.context.principal)?;
+        self.reader(&self.principal(&scopes)).candidate(proposal)?;
         let bytes = storage::encode(proposal)?;
         // Decode even Rust-constructed DTOs to enforce strict Ref/string shapes.
         let _proposal: Proposal = storage::decode(&bytes)?;
@@ -306,6 +351,8 @@ impl<'a> LocalWriter<'a> {
             &proposal,
             gate,
         )?;
+        let scopes = self.context.grants.visible(self.context.principal)?;
+        self.reader(&self.principal(&scopes)).candidate(&proposal)?;
         self.context.authority.check(
             &proposal,
             gate,
@@ -409,17 +456,21 @@ impl ConfigurationWriter for LocalWriter<'_> {
         } else {
             Some(self.eligible(previous)?)
         };
+        let mut target = manifest.clone();
+        target.active = previous.clone();
+        let scopes = self.context.grants.visible(self.context.principal)?;
+        let (snapshot, _) = self.reader(&self.principal(&scopes)).current(&target)?;
         let proposal = Proposal {
             expected_baseline: manifest.baseline.clone(),
             expected_active: manifest.active.clone(),
             changes: restored
                 .as_ref()
                 .map_or_else(Vec::new, |value| value.changes.clone()),
-            candidate: restored.as_ref().map_or_else(
-                || manifest.baseline.digest.clone(),
-                |value| value.candidate.clone(),
-            ),
-            evidence: vec![current_authority],
+            candidate: snapshot.digest,
+            evidence: vec![
+                current_authority,
+                snapshot.id.parse().map_err(|_| Refusal::Invalid)?,
+            ],
             report,
             rollback: manifest.active.clone(),
         };

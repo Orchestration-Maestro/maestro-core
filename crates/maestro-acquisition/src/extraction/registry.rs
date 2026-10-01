@@ -44,12 +44,12 @@ impl ProfileDefinition {
     }
 }
 
-/// Stable version-one definition preimage. Typed field order is frozen by tests.
+/// Stable version-two definition preimage. Typed field order is frozen by tests.
 ///
 /// # Errors
 /// Serialization of an invalid typed definition refuses.
 pub fn definition_bytes(definition: &ProfileDefinition) -> Result<Vec<u8>, Refusal> {
-    let mut bytes = b"maestro-profile-definition/1\n".to_vec();
+    let mut bytes = b"maestro-profile-definition/2\n".to_vec();
     bytes.extend(serde_json::to_vec(definition).map_err(|_| Refusal::Invalid)?);
     Ok(bytes)
 }
@@ -289,7 +289,7 @@ fn resolve(
 
 /// Bounded shape requirements independent of parser global resource limits.
 fn validate_definition(profile: &ProfileDefinition) -> Result<(), RegistryUnavailable> {
-    if !id_valid(&profile.id) || !id_valid(&profile.processing.chunk) {
+    if !id_valid(&profile.id) {
         return Err(RegistryUnavailable::Corrupt);
     }
     for values in [
@@ -297,8 +297,6 @@ fn validate_definition(profile: &ProfileDefinition) -> Result<(), RegistryUnavai
         &profile.required_fidelity,
         &profile.admission_rules,
         &profile.platforms,
-        &profile.processing.cleanup,
-        &profile.processing.dedup,
     ] {
         if values.len() > 1000 || !values.iter().all(|value| id_valid(value)) {
             return Err(RegistryUnavailable::Corrupt);

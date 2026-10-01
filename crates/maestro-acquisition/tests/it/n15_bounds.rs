@@ -20,7 +20,11 @@ fn changed(field: &str, mut value: Value) -> (Value, support::Catalog, Ref) {
     let mut registry = support::value(&catalog, "extraction");
     support::bind(&mut value, &catalog);
     registry["profiles"][1][field] = value;
-    fixture::seal(&mut registry["profiles"][1], &mut catalog);
+    // A malformed Processing object cannot be sealed as a typed definition;
+    // the registry decoder must reject it before using its previous identity.
+    if field != "processing" {
+        fixture::seal(&mut registry["profiles"][1], &mut catalog);
+    }
     let reference = fixture::update(&mut collection, &mut catalog, &registry);
     (collection, catalog, reference)
 }

@@ -224,7 +224,7 @@ fn n15_missing_gold_capability_and_artifact_never_qualify() {
 #[test]
 fn n15_profile_digest_golden_and_canonical_order() {
     // The fixture file's final line terminator is not part of the preimage.
-    let golden = include_str!("../fixtures/profile-definition-v1.txt")
+    let golden = include_str!("../fixtures/profile-definition-v2.txt")
         .strip_suffix('\n')
         .unwrap();
     let (_, json) = golden.split_once('\n').unwrap();
@@ -233,7 +233,7 @@ fn n15_profile_digest_golden_and_canonical_order() {
     assert_eq!(bytes, golden.as_bytes());
     assert_eq!(
         Digest::of(&bytes).as_str(),
-        "149cd41f1ac71f1b046c7c635dbaa48161b1c048e537424885f6d0197199fa01"
+        "f8b76e9774548c2c83ab42841b88db85250df446261acc86b4c3f6263accbf26"
     );
     let (_, catalog, _) = fixture::registry_fixture();
     let mut value = support::value(&catalog, "extraction")["profiles"][0].clone();
@@ -242,7 +242,7 @@ fn n15_profile_digest_golden_and_canonical_order() {
     let digest = Digest::of(&definition_bytes(&profile.definition).unwrap());
     assert_eq!(
         digest.as_str(),
-        "679230578236d8ad1e7b5a8a6d268452015a76be42c43f0739fbe48d728c7d41"
+        "817029f93f41f3423a0094cfaaa554652a00d28874f63c9e990077aa999375a5"
     );
     let fields: Vec<_> = value
         .as_object()

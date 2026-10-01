@@ -297,6 +297,11 @@ in place.
 │   ├── maestro-acquisition/                                                             # N03 implements strict source-policy declarations and immutable local baseline resolution
 │   │   ├── src/                                                                         # The crate's sources
 │   │   │   ├── adaptation/                                                              # Scoped local overlays and replaceable activation policy and commit ports
+│   │   │   │   ├── snapshot/                                                            # Scoped snapshot envelope, reader and verified payloads
+│   │   │   │   │   ├── mod.rs                                                           # Scoped snapshot envelope, reader and verified payloads
+│   │   │   │   │   ├── payloads.rs                                                      # Verified whole-set payloads and scope links for the shared snapshot reader
+│   │   │   │   │   └── reader.rs                                                        # One scoped reader for N32's effective model and its immutable payloads
+│   │   │   │   ├── artifacts.rs                                                         # Immutable processing data; engines and quality qualification remain S1-owned
 │   │   │   │   ├── change.rs                                                            # Pure closed automatic-change control over freshly resolved, typed values
 │   │   │   │   ├── golden-activation-recovery.json                                      # JSON data: golden activation recovery
 │   │   │   │   ├── golden-activation.json                                               # JSON data: golden activation
@@ -366,6 +371,15 @@ in place.
 │   │   │   └── refusal.rs                                                               # Content-free policy failure codes: no source bytes or paths in diagnostics
 │   │   ├── tests/                                                                       # Integration tests
 │   │   │   ├── fixtures/                                                                # Test fixtures
+│   │   │   │   ├── adaptation/                                                          # Adaptation
+│   │   │   │   │   ├── chunk.json                                                       # JSON data: chunk
+│   │   │   │   │   ├── cleanup.json                                                     # JSON data: cleanup
+│   │   │   │   │   ├── dedup.json                                                       # JSON data: dedup
+│   │   │   │   │   ├── model-v2.json                                                    # JSON data: model v2
+│   │   │   │   │   ├── profile-change.json                                              # JSON data: profile change
+│   │   │   │   │   ├── rollback.json                                                    # JSON data: rollback
+│   │   │   │   │   ├── selection.json                                                   # JSON data: selection
+│   │   │   │   │   └── snapshot.json                                                    # JSON data: snapshot
 │   │   │   │   ├── tls/                                                                 # Tls
 │   │   │   │   │   ├── certificate.pem                                                  # File: certificate
 │   │   │   │   │   └── synthetic-key.json                                               # JSON data: synthetic key
@@ -379,7 +393,7 @@ in place.
 │   │   │   │   ├── n12-policy-schema.json                                               # SourcePolicy: the plan’s strict wire record
 │   │   │   │   ├── n12-profile-schema.json                                              # AcquisitionProfile: the plan’s strict wire record
 │   │   │   │   ├── policy.json                                                          # JSON data: policy
-│   │   │   │   └── profile-definition-v1.txt                                            # Text: profile definition v1
+│   │   │   │   └── profile-definition-v2.txt                                            # Text: profile definition v2
 │   │   │   └── it/                                                                      # It
 │   │   │       ├── main.rs                                                              # N03's synthetic integration contracts, in one test binary
 │   │   │       ├── n03_implement_strict_source_policy_and_local_baseline_resolution.rs  # N03: malformed policy closure must refuse before caller-side effects
@@ -448,6 +462,18 @@ in place.
 │   │   │       ├── n32_change_guards.rs                                                 # Isolated boundary probes for N32's pure controls
 │   │   │       ├── n32_enforce_the_closed_automatic_change_allow_list.rs                # Pure synthetic N32 controls; runtime artifact contracts belong to N34
 │   │   │       ├── n32_support.rs                                                       # Pure synthetic N32 controls; runtime artifact contracts belong to N34
+│   │   │       ├── n57_canonical_artifacts.rs                                           # N57 canonical bytes require explicit nulls without changing S1 card parsing
+│   │   │       ├── n57_decisions.rs                                                     # New exclusions use N03's exact singleton artifact, not a parallel schema
+│   │   │       ├── n57_decode_bounds.rs                                                 # Decoder ceilings are independent of later capability admission
+│   │   │       ├── n57_goldens.rs                                                       # Frozen typed preimages, separate from executable qualification evidence
+│   │   │       ├── n57_limits.rs                                                        # S1 capabilities and scope inheritance, with no real model qualification
+│   │   │       ├── n57_model_limits.rs                                                  # Qualified measurements, not card invocation claims, constrain S1 adaptation
+│   │   │       ├── n57_object_refs.rs                                                   # Every new Ref position remains an object, never a positional alias
+│   │   │       ├── n57_processing_artifacts.rs                                          # Scoped processing contracts use synthetic payloads only
+│   │   │       ├── n57_protected_closure.rs                                             # Protected identities come from current validation, not deserialized claims
+│   │   │       ├── n57_rollback.rs                                                      # Exact initial/prior snapshot rollback through the existing N30 lineage
+│   │   │       ├── n57_selection_guards.rs                                              # Stored selection evidence is mandatory even for a single eligible profile
+│   │   │       ├── n57_support.rs                                                       # Synthetic scoped snapshots shared with the owning N30 conformance fixtures
 │   │   │       └── support.rs                                                           # Complete independently authored synthetic policy fixtures
 │   │   ├── Cargo.toml                                                                   # Crate manifest: Strict source policies and immutable baseline resolution for native acquisition
 │   │   └── README.md                                                                    # N03 implements strict source-policy declarations and immutable local baseline resolution

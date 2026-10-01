@@ -76,6 +76,9 @@ pub struct AcquisitionManifest {
     /// Declared `baseline`; no inferred default.
     #[serde(deserialize_with = "shape::object")]
     pub baseline: Ref,
+    /// Admitted initial processing snapshot, distinct from policy/comparison evidence.
+    #[serde(deserialize_with = "shape::object")]
+    pub processing_baseline: Ref,
     /// Declared `baseline_kind`; no inferred default.
     #[serde(deserialize_with = "shape::name")]
     pub baseline_kind: BaselineKind,
@@ -98,9 +101,9 @@ pub struct AcquisitionManifest {
 /// The executable `AcquisitionManifest` version.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 pub enum ManifestSchema {
-    /// Version one only.
-    #[serde(rename = "maestro-acquisition-manifest/1")]
-    V1,
+    /// Version two only.
+    #[serde(rename = "maestro-acquisition-manifest/2")]
+    V2,
 }
 
 impl AutomaticClass {

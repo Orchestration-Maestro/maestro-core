@@ -116,6 +116,7 @@ fn n30_closed_change_wire_and_id_shapes_are_enforced() {
     proposal.changes = vec![Change::SelectProfile {
         source_id: "../source".into(),
         profile: fixture.manifest.baseline.clone(),
+        selection: fixture.manifest.processing_baseline.clone(),
     }];
     assert_eq!(
         writer.propose(
@@ -166,8 +167,7 @@ fn n30_history_activation_artifacts_are_verified() {
     let mut manifest = writer.current().unwrap();
     manifest.activations.first_mut().unwrap().digest = Digest::of(b"corrupt history");
     let checked = validate(&fixture.catalog, &fixture.collection, &principal).unwrap();
-    let canonical = (checked.policy(), &manifest.activations);
-    manifest.effective_digest = Digest::of(&serde_json::to_vec(&canonical).unwrap());
+    manifest.effective_digest = super::n30_support::effective_digest(checked.policy(), &manifest);
     fs::write(
         root.join("manifest.json"),
         serde_json::to_vec(&manifest).unwrap(),
@@ -237,27 +237,8 @@ fn n30_committed_recovery_revalidates_revoked_baseline() {
 
 #[test]
 fn n30_multiple_inherited_scopes_protect_proposals_and_events() {
-    let mut fixture = Fixture::new();
     let secondary: Scope = "workspace/default/collection/secondary".parse().unwrap();
-    fixture
-        .db
-        .grant("synthetic-reader", &secondary, Right::Read, "owner")
-        .unwrap();
-    let mut policy = support::value(&fixture.catalog, "policy");
-    policy["scope_tags"] = json!(["workspace/default/collection/garden", secondary.as_str()]);
-    let reference = support::put(&mut fixture.catalog, "policy", &policy);
-    fixture.collection.source_policy = Some(reference.clone());
-    fixture
-        .manifest
-        .resource
-        .scope_tags
-        .push(secondary.to_string());
-    fixture.manifest.baseline = reference.clone();
-    fixture.manifest.active = reference.clone();
-    fixture.proposal.expected_baseline = reference.clone();
-    fixture.proposal.expected_active = reference.clone();
-    fixture.proposal.rollback = reference;
-    fixture.scopes = fixture.db.visible("synthetic-reader").unwrap();
+    let fixture = Fixture::with_tags(&[super::n57_support::TAG.into(), secondary.to_string()]);
     let principal = support::principal(&fixture.scopes);
     let events = Events::default();
     let writer = LocalWriter::open(

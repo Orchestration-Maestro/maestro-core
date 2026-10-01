@@ -28,6 +28,15 @@ pub(super) fn registry_fixture() -> (Value, Catalog, Ref) {
         .admission
         .capabilities = vec!["thresholds".into()];
     catalog.0.get_mut("plugin").unwrap().admission.capabilities = vec!["synthetic-rust".into()];
+    // The new processing pins also participate in every fixture rebind.
+    for id in ["cleanup-default", "synthetic-chunk", "dedup-default"] {
+        put(&mut catalog, id, &json!({"synthetic":id}));
+        let resource = catalog.0.get_mut(id).unwrap();
+        resource.bytes = id.as_bytes().to_vec();
+        let digest = Digest::of(&resource.bytes);
+        resource.reference.digest = digest.clone();
+        resource.admission.digest = digest;
+    }
     let mut profiles = Vec::new();
     for (id, detectors) in [
         ("safe", json!([])),
@@ -47,7 +56,13 @@ pub(super) fn registry_fixture() -> (Value, Catalog, Ref) {
             "id":id,"version":1,"definition_digest":"0".repeat(64),
             "detectors":detectors,"structures":[],"languages":["en"],
             "extractor":catalog.0["plugin"].reference,
-            "processing":{"cleanup":[],"chunk":"synthetic-chunk","dedup":[]},
+            "processing":{
+                "cleanup":{"id":"cleanup-default",
+                    "digest":"fad6883aa083042e3e278ca312007bbd9f222bdb7ce11bc8ebdc7306205b1935"},
+                "chunk":{"id":"synthetic-chunk",
+                    "digest":"c5304fd6195251d9fc56c79602bd0ec6f0a40bfd0b138e939a71d22ead163ae9"},
+                "dedup":{"id":"dedup-default",
+                    "digest":"7bd8fd784129ffc11dc49a4fe706a90b459d8ca443d65113679dcd8ce08edffe"}},
             "decode_limits": super::support::value(&catalog,"policy")["aggregate_limits"]["decode"],
             "output_schema":catalog.0["output"].reference,
             "required_fidelity":["literal"],"admission_rules":["hold-partial"],
@@ -60,7 +75,7 @@ pub(super) fn registry_fixture() -> (Value, Catalog, Ref) {
     }
     let safe = catalog.0["safe"].reference.clone();
     let registry = json!({
-        "schema":"maestro-extraction-registry/1","id":"extraction","version":1,
+        "schema":"maestro-extraction-registry/2","id":"extraction","version":1,
         "collection_id":"garden","visibility":"public",
         "scope_tags":["workspace/default/collection/garden"],
         "owner_ref":catalog.0["owner"].reference,

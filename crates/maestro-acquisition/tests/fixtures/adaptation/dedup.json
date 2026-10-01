@@ -1,0 +1,7 @@
+{"schema":"maestro-dedup-keys/1","id":"dedup","version":1,
+"collection_id":"garden","visibility":"public",
+"scope_tags":["workspace/default/collection/garden"],
+"owner_ref":{"id":"owner","digest":"0000000000000000000000000000000000000000000000000000000000000000"},
+"exact":["original_digest","canonical_digest"],
+"prepared":["prepared_input_digest","embedding_profile_digest"],
+"qualification":{"id":"qualification","digest":"1dbf39600b5761d58378447f494a50c8b9c01b559b6ef420720f99f4e45717c9"}}

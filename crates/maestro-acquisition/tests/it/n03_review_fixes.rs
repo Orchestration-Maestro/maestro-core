@@ -215,8 +215,9 @@ fn n03_review_resource_schema_required_fields_match_parser() {
         manifest.as_object_mut().unwrap().remove(field);
     }
     let reference = json!({"id":"baseline","digest":"0".repeat(64)});
-    manifest["schema"] = json!("maestro-acquisition-manifest/1");
+    manifest["schema"] = json!("maestro-acquisition-manifest/2");
     manifest["baseline"] = reference.clone();
+    manifest["processing_baseline"] = reference.clone();
     manifest["baseline_kind"] = json!("local");
     manifest["proposals"] = json!([]);
     manifest["activations"] = json!([]);

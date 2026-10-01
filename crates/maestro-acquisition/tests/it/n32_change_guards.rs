@@ -139,6 +139,7 @@ fn n32_exact_selection_targets() {
             Change::SelectProfile {
                 source_id: "notes".into(),
                 profile: old.profiles["new"].reference(),
+                selection: reference("selection-new"),
             },
             cleanup(),
             Change::SetS1ChunkStrategy {
@@ -250,11 +251,17 @@ fn n32_per_source_precedence_is_resolved_by_caller() {
     let mut input = resolved(&old, &cleanup());
     input.sources.get_mut("second").unwrap().2 = old.sources["second"].2.clone();
     let candidate = apply(&old, &input, &[cleanup()], NOW).unwrap();
-    assert_eq!(candidate.sources["notes"].2.cleanup, vec!["trim"]);
-    assert!(candidate.sources["second"].2.cleanup.is_empty());
+    assert_eq!(
+        candidate.sources["notes"].2.cleanup,
+        reference("cleanup-new")
+    );
+    assert_eq!(
+        candidate.sources["second"].2.cleanup,
+        old.sources["second"].2.cleanup
+    );
     assert_eq!(admit(&old, &candidate, &[cleanup()], NOW, false), Ok(()));
     let mut smuggled = candidate;
-    smuggled.sources.get_mut("second").unwrap().2.dedup = vec!["unapproved".into()];
+    smuggled.sources.get_mut("second").unwrap().2.dedup = reference("unapproved");
     assert_eq!(
         admit(&old, &smuggled, &[cleanup()], NOW, false),
         Err(WriteError::Held)
@@ -300,9 +307,9 @@ fn n32_effective_processing_cannot_smuggle_unrelated_ids() {
         let mut candidate = resolved(&old, &change);
         let effective = &mut candidate.sources.get_mut("notes").unwrap().2;
         match change {
-            Change::SetCleanup { .. } => effective.cleanup = vec!["unapproved".into()],
-            Change::SetS1ChunkStrategy { .. } => effective.chunk = "unapproved".into(),
-            _ => effective.dedup = vec!["unapproved".into()],
+            Change::SetCleanup { .. } => effective.cleanup = reference("unapproved"),
+            Change::SetS1ChunkStrategy { .. } => effective.chunk = reference("unapproved"),
+            _ => effective.dedup = reference("unapproved"),
         }
         assert_eq!(
             apply(&old, &candidate, &[change], NOW).map(|_| ()),
@@ -328,6 +335,7 @@ fn n32_profile_reference_state_and_resolution_must_match() {
             &Change::SelectProfile {
                 source_id: "notes".into(),
                 profile: target.clone(),
+                selection: reference("selection-new"),
             },
         );
         let mut source_id = "notes".to_owned();
@@ -362,7 +370,8 @@ fn n32_profile_reference_state_and_resolution_must_match() {
                 &input,
                 &[Change::SelectProfile {
                     source_id,
-                    profile: target
+                    profile: target,
+                    selection: reference("selection-new")
                 }],
                 NOW
             )
@@ -379,14 +388,15 @@ fn n32_selected_profile_cannot_import_unapproved_processing() {
     let change = Change::SelectProfile {
         source_id: "notes".into(),
         profile: old.profiles["new"].reference(),
+        selection: reference("selection-new"),
     };
     for group in ["cleanup", "chunk", "dedup"] {
         let mut candidate = resolved(&old, &change);
         let effective = &mut candidate.sources.get_mut("notes").unwrap().2;
         match group {
-            "cleanup" => effective.cleanup = vec!["unapproved".into()],
-            "chunk" => effective.chunk = "unapproved".into(),
-            _ => effective.dedup = vec!["unapproved".into()],
+            "cleanup" => effective.cleanup = reference("unapproved"),
+            "chunk" => effective.chunk = reference("unapproved"),
+            _ => effective.dedup = reference("unapproved"),
         }
         assert_eq!(
             apply(&old, &candidate, from_ref(&change), NOW).map(|_| ()),
@@ -401,8 +411,7 @@ fn n32_chunk_qualification_cannot_be_missing_or_zero() {
     for zero in [false, true] {
         let mut old = fixture();
         if zero {
-            old.qualified_chunk_tokens
-                .insert("qualified-chunk".into(), 0);
+            old.qualified_chunk_tokens.insert("chunk-new".into(), 0);
         } else {
             old.qualified_chunk_tokens.clear();
         }

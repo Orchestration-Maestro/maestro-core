@@ -12,6 +12,7 @@ workspace = true
 
 [dependencies]
 maestro-kernel.workspace = true
+maestro-canonicalization.workspace = true
 maestro-knowledge.workspace = true
 schemars.workspace = true
 serde.workspace = true

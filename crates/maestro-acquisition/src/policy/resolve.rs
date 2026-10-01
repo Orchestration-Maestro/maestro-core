@@ -140,6 +140,7 @@ pub fn validate(
     }
     validate_decisions(&registries, &policy)?;
     Ok(CheckedPolicy {
+        references: closure.references(),
         reference: reference.clone(),
         address_table,
         policy,
@@ -197,6 +198,13 @@ struct Closure<'a> {
     resources: BTreeMap<String, ImmutableResource>,
 }
 impl Closure<'_> {
+    /// The verified cache owns one resource per ID; `BTreeMap` fixes the order.
+    fn references(&self) -> Vec<Ref> {
+        self.resources
+            .values()
+            .map(|resource| resource.reference.clone())
+            .collect()
+    }
     /// Read and validate the exact immutable bytes and external admission summary.
     fn read(&mut self, reference: &Ref) -> Result<ImmutableResource, Refusal> {
         read_resource(
@@ -363,4 +371,31 @@ pub(crate) fn check_conflicts(entries: &[&Decision], decision: &Decision) -> Res
         }
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Closure;
+    use crate::{DirectFiles, Principal};
+    use maestro_kernel::store::Database;
+    use maestro_test_scratch::scratch_directory;
+    use std::{collections::BTreeMap, env};
+    #[test]
+    fn n57_empty_closure_cache_has_no_reference_members() {
+        let root = scratch_directory().unwrap();
+        let database = Database::open_in(&root).unwrap();
+        let scopes = database.visible("synthetic-reader").unwrap();
+        let principal = Principal {
+            id: "synthetic-reader",
+            platform: env::consts::OS,
+            scopes: &scopes,
+        };
+        let source = DirectFiles::new(BTreeMap::new());
+        let closure = Closure {
+            source: &source,
+            principal: &principal,
+            resources: BTreeMap::new(),
+        };
+        assert!(closure.references().is_empty());
+    }
 }

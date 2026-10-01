@@ -158,6 +158,8 @@ pub trait ProfileRegistry: Debug {
 /// A read-only digest-bound policy; obtaining it creates no authority or effects.
 #[derive(Debug)]
 pub struct CheckedPolicy {
+    /// Sorted, deduplicated immutable members of the validated baseline closure.
+    pub(crate) references: Vec<Ref>,
     /// Exact original immutable baseline reference.
     pub(crate) reference: Ref,
     /// Reviewed address data compiled with the non-removable denial floor.
@@ -174,6 +176,12 @@ pub struct CheckedPolicy {
     pub(crate) identity_migrations: BTreeMap<String, IdentityMigration>,
 }
 impl CheckedPolicy {
+    /// Exact currently validated baseline closure, sorted by reference ID.
+    /// There is no setter or unchecked construction path.
+    #[must_use]
+    pub fn references(&self) -> &[Ref] {
+        &self.references
+    }
     /// Immutable destination classifier; data cannot relax its denial floor.
     #[must_use]
     pub fn address_table(&self) -> &AddressTable {

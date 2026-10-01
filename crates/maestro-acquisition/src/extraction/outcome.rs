@@ -5,6 +5,8 @@ use super::{
 };
 use crate::refusal::Refusal;
 use maestro_knowledge::collection::PolicyReference as Ref;
+use maestro_knowledge::strict_json::{object, objects};
+use serde::{Deserialize, Serialize};
 
 /// Content-free failures; none selects an implicit default.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -41,16 +43,20 @@ pub enum HeldReason {
 }
 
 /// Digest-bound outcome with evidence and safe retained partial data.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum ProfileSelection {
     /// One independently admitted content-backed definition matched.
     Selected {
         /// Exact approved profile identity/digest.
+        #[serde(deserialize_with = "object")]
         profile: Ref,
         /// Exact detection/structure receipt references.
+        #[serde(deserialize_with = "objects")]
         evidence: Vec<Ref>,
     },
     /// Explicit safe retention, not arbitrary trusted fallback.
+    #[serde(skip)]
     Held {
         /// Accountable uncertainty or contradiction.
         reason: HeldReason,

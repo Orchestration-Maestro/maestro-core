@@ -52,8 +52,9 @@ fn vector(value: &impl Serialize, expected: &str, digest: &str) {
 #[test]
 fn n30_review_canonical_encoder_typed_manifest() {
     let manifest = AcquisitionManifest {
-        resource: resource(ManifestSchema::V1, "manifest"),
+        resource: resource(ManifestSchema::V2, "manifest"),
         baseline: reference("policy"),
+        processing_baseline: reference("initial-snapshot"),
         baseline_kind: BaselineKind::Catalog,
         proposals: vec![],
         activations: vec![],
@@ -66,7 +67,7 @@ fn n30_review_canonical_encoder_typed_manifest() {
     vector(
         &manifest,
         include_str!("golden-manifest.json"),
-        "c8207f1c59533b808cf55b42ee5bff7d10afea473103bdced3a4a06d6766776b",
+        "8119f47da866dab1373a440054a3b611ce209f016703d186c4b361f3b47601d0",
     );
 }
 #[test]
@@ -188,8 +189,13 @@ fn n30_typed_effective_digest_tuple_golden_vector() {
         qualification: reference("qualification"),
     };
     vector(
-        &(policy, vec![reference("activation")]),
+        &super::writer::EffectivePreimage {
+            schema: "maestro-acquisition-effective/2",
+            policy: &policy,
+            processing_baseline: &reference("initial-snapshot"),
+            activations: &[reference("activation")],
+        },
         include_str!("golden-effective.json"),
-        "b57889313210db21ef985e1f8037a23d7e6783874a43fb3834e55952e2811aa9",
+        "66ba959616ab9892bc827669d28f72a96cd0fb993691d4c35b4adfd80dd11db5",
     );
 }

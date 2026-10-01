@@ -55,6 +55,18 @@ mod n30_write_guards;
 mod n32_change_guards;
 mod n32_enforce_the_closed_automatic_change_allow_list;
 mod n32_support;
+mod n57_canonical_artifacts;
+mod n57_decisions;
+mod n57_decode_bounds;
+mod n57_goldens;
+mod n57_limits;
+mod n57_model_limits;
+mod n57_object_refs;
+mod n57_processing_artifacts;
+mod n57_protected_closure;
+mod n57_rollback;
+mod n57_selection_guards;
+mod n57_support;
 mod support;
 
 mod n12_commit_immutable_captures_and_reconciled_run_outcomes;

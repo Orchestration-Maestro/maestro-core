@@ -362,3 +362,9 @@ rule = "TST-001"
 path = "crates/maestro-test-clock/src/stopped.rs"
 item = "work_is_constructed_on_the_stopped_clock"
 reason = "proves paused Tokio time ignores real time; the assertion is equality on paused time, so it is deterministic whatever the sleep length; 20 ms"
+
+[[exception]]
+rule = "ARC-005"
+path = "crates/maestro-acquisition/src/extraction/mod.rs"
+item = "registry"
+reason = "the existing public resolve/select port stays extraction-owned; N57 is its first production consumer"

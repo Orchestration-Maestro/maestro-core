@@ -41,7 +41,7 @@ fn n30_review_unactivated_revocation_does_not_hold_baseline() {
         .retain(&private, b"synthetic review private report", &[evidence])
         .unwrap();
     let mut proposal = fixture.proposal.clone();
-    proposal.evidence = vec![evidence];
+    proposal.evidence.push(evidence);
     proposal.report = report;
     writer
         .propose(
@@ -90,7 +90,7 @@ fn n30_review_rollback_after_current_evidence_revocation() {
         .retain(&private, b"synthetic review private report", &[evidence])
         .unwrap();
     let mut proposal = fixture.proposal.clone();
-    proposal.evidence = vec![evidence];
+    proposal.evidence.push(evidence);
     proposal.report = report;
     let reference = writer
         .propose(
@@ -218,7 +218,6 @@ fn n30_review_committed_recovery_missing_event_refuses() {
 #[test]
 fn n30_review_truncated_activation_chain_refuses() {
     use maestro_acquisition::{adaptation::Change, validate};
-    use maestro_kernel::artifact::Digest;
     let fixture = Fixture::new();
     let principal = support::principal(&fixture.scopes);
     let events = Events::default();
@@ -260,8 +259,7 @@ fn n30_review_truncated_activation_chain_refuses() {
     assert_eq!(manifest.active, a2);
     manifest.activations.retain(|reference| reference != &a1);
     let checked = validate(&fixture.catalog, &fixture.collection, &principal).unwrap();
-    let canonical = (checked.policy(), &manifest.activations);
-    manifest.effective_digest = Digest::of(&serde_json::to_vec(&canonical).unwrap());
+    manifest.effective_digest = super::n30_support::effective_digest(checked.policy(), &manifest);
     fs::write(
         root.join("manifest.json"),
         serde_json::to_vec(&manifest).unwrap(),

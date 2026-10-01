@@ -864,6 +864,7 @@ dependencies = [
  "http-body-util",
  "hyper",
  "hyper-util",
+ "maestro-canonicalization",
  "maestro-kernel",
  "maestro-knowledge",
  "maestro-test-scratch",

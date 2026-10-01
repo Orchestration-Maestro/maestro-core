@@ -10,6 +10,7 @@ use maestro_acquisition::{
     policy::{
         manifest::{AcquisitionManifest, BaselineKind, ManifestSchema},
         resource::Resource,
+        schema::SourcePolicy,
     },
 };
 use maestro_kernel::{
@@ -69,20 +70,34 @@ pub(super) struct Fixture {
 }
 impl Fixture {
     pub(super) fn new() -> Self {
+        Self::with_tags(&[super::n57_support::TAG.into()])
+    }
+    /// Fresh complete processing closure, with every inherited collection scope.
+    pub(super) fn with_tags(tags: &[String]) -> Self {
         let root = scratch_directory().unwrap();
         let db = Database::open_in(&root.join("kernel")).unwrap();
         let scope: Scope = "workspace/default/collection/garden".parse().unwrap();
         db.grant("synthetic-reader", &scope, Right::Read, "owner")
             .unwrap();
+        for tag in tags {
+            db.grant(
+                "synthetic-reader",
+                &tag.parse().unwrap(),
+                Right::Read,
+                "owner",
+            )
+            .unwrap();
+        }
         let scopes = db.visible("synthetic-reader").unwrap();
-        let (collection, catalog) = support::fixture();
-        let collection: Declaration = serde_json::from_value(collection).unwrap();
+        let (collection, catalog, snapshot) = super::n57_support::processing_fixture(&db, tags);
+        let processing_baseline =
+            super::n57_support::retain_snapshot(&db, &collection, &catalog, &snapshot);
         let policy =
             maestro_acquisition::validate(&catalog, &collection, &support::principal(&scopes))
                 .unwrap();
         let metadata = &policy.policy().resource;
         let resource = Resource {
-            schema: ManifestSchema::V1,
+            schema: ManifestSchema::V2,
             id: "manifest".into(),
             version: 1.try_into().unwrap(),
             collection_id: metadata.collection_id.clone(),
@@ -94,6 +109,7 @@ impl Fixture {
         let manifest = AcquisitionManifest {
             resource,
             baseline: baseline.clone(),
+            processing_baseline,
             baseline_kind: BaselineKind::Catalog,
             proposals: vec![],
             activations: vec![],
@@ -111,14 +127,20 @@ impl Fixture {
             )
             .unwrap();
         let gate = db.retain(&scope, b"synthetic gate", &[report]).unwrap();
+        let mut candidate = snapshot.clone();
+        candidate.resource.id = "candidate".into();
+        let rules = candidate.effective.sources["second"].2.cleanup.clone();
+        candidate.effective.selected.0 = Some(rules.clone());
+        for (_, _, processing) in candidate.effective.sources.values_mut() {
+            processing.cleanup = rules.clone();
+        }
+        let candidate = super::n57_support::retain_snapshot(&db, &collection, &catalog, &candidate);
         let proposal = Proposal {
             expected_baseline: baseline.clone(),
             expected_active: baseline.clone(),
-            changes: vec![Change::SetCleanup {
-                rules: catalog.0["evidence"].reference.clone(),
-            }],
-            candidate: Digest::of(b"synthetic candidate"),
-            evidence: vec![evidence],
+            changes: vec![Change::SetCleanup { rules }],
+            candidate: candidate.digest,
+            evidence: vec![evidence, candidate.id.parse().unwrap()],
             report,
             rollback: baseline,
         };
@@ -200,4 +222,15 @@ impl Fixture {
         context.source = source;
         context
     }
+}
+
+/// Independently recompute N30's owning typed effective preimage for forged-pointer tests.
+pub(super) fn effective_digest(policy: &SourcePolicy, manifest: &AcquisitionManifest) -> Digest {
+    let preimage = maestro_acquisition::adaptation::EffectivePreimage {
+        schema: "maestro-acquisition-effective/2",
+        policy,
+        processing_baseline: &manifest.processing_baseline,
+        activations: &manifest.activations,
+    };
+    Digest::of(&serde_json::to_vec(&preimage).unwrap())
 }

@@ -22,6 +22,7 @@ fn n32_five_classes_and_both_narrowing_actions_are_allowed() {
             Change::SelectProfile {
                 source_id: "notes".into(),
                 profile: old.profiles["new"].reference(),
+                selection: reference("selection-new"),
             },
             AutomaticClass::SelectedProfiles,
         ),
@@ -265,6 +266,7 @@ fn n32_indirect_profile_substitution_holds_even_when_qualified() {
     let change = Change::SelectProfile {
         source_id: "notes".into(),
         profile: new.reference(),
+        selection: reference("selection-new"),
     };
     assert_eq!(
         apply(&old, &resolved(&old, &change), &[change], NOW),
@@ -285,7 +287,7 @@ fn n32_mixed_proposal_is_held_whole_despite_passing_scores() {
     let mut candidate = apply(&old, &input, &changes, NOW).unwrap();
     candidate.policy.sources[0].auth_role = Some("unauthorized".into());
     held(&old, &candidate, &changes);
-    assert!(old.sources["notes"].2.cleanup.is_empty());
+    assert_eq!(old.sources["notes"].2.cleanup, reference("cleanup-default"));
 }
 
 #[test]

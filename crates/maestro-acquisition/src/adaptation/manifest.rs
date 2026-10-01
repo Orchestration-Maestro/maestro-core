@@ -24,6 +24,9 @@ pub enum Change {
         /// Exact immutable profile.
         #[serde(deserialize_with = "object")]
         profile: Ref,
+        /// Pinned source selection receipt and its content evidence.
+        #[serde(deserialize_with = "object")]
+        selection: Ref,
     },
     /// Replace cleanup selection, not its protected definition.
     SetCleanup {
@@ -84,7 +87,7 @@ pub struct Proposal {
 /// Stored activation identity includes gate, report and rollback bindings.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(super) struct Activation {
+pub struct Activation {
     /// Exact immutable proposal handle/digest.
     #[serde(deserialize_with = "object")]
     pub proposal: Ref,

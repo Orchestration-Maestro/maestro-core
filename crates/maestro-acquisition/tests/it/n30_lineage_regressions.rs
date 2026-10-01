@@ -97,7 +97,7 @@ fn n30_effective_lineage_verifies_each_binding() {
         manifest.activations = vec![reference];
         let checked = validate(&fixture.catalog, &fixture.collection, &principal).unwrap();
         manifest.effective_digest =
-            Digest::of(&serde_json::to_vec(&(checked.policy(), &manifest.activations)).unwrap());
+            super::n30_support::effective_digest(checked.policy(), &manifest);
         fs::write(
             root.join("manifest.json"),
             serde_json::to_vec(&manifest).unwrap(),
@@ -182,8 +182,7 @@ fn n30_rollback_validates_target_before_pointer_exposure() {
     };
     manifest.activations = vec![target.clone(), a2.clone()];
     let checked = validate(&fixture.catalog, &fixture.collection, &principal).unwrap();
-    manifest.effective_digest =
-        Digest::of(&serde_json::to_vec(&(checked.policy(), &manifest.activations)).unwrap());
+    manifest.effective_digest = super::n30_support::effective_digest(checked.policy(), &manifest);
     let before = serde_json::to_vec(&manifest).unwrap();
     fs::write(root.join("manifest.json"), &before).unwrap();
     assert_eq!(

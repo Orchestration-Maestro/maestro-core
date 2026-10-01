@@ -1,4 +1,4 @@
-//! Strict immutable profile definitions; field order is part of digest version one.
+//! Strict immutable profile definitions; field order is part of digest version two.
 use super::detect::{Detector, Structure};
 use crate::policy::{limits::DecodeLimits, resource::Resource};
 use maestro_kernel::artifact::Digest;
@@ -13,9 +13,9 @@ use std::num::NonZeroU64;
 /// Exact registry schema, never inferred.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 pub enum RegistrySchema {
-    /// Version one.
-    #[serde(rename = "maestro-extraction-registry/1")]
-    V1,
+    /// Version two.
+    #[serde(rename = "maestro-extraction-registry/2")]
+    V2,
 }
 
 /// Immutable manifest-bound registry.
@@ -94,12 +94,15 @@ pub struct ProfileDefinition {
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
 pub struct Processing {
-    /// Approved cleanup rule IDs.
-    pub cleanup: Vec<String>,
-    /// Qualified S1 chunk strategy/profile ID.
-    pub chunk: String,
-    /// Deduplication key IDs.
-    pub dedup: Vec<String>,
+    /// Immutable whole cleanup rule set.
+    #[serde(deserialize_with = "object")]
+    pub cleanup: Ref,
+    /// Qualified immutable S1 strategy.
+    #[serde(deserialize_with = "object")]
+    pub chunk: Ref,
+    /// Immutable whole deduplication key set.
+    #[serde(deserialize_with = "object")]
+    pub dedup: Ref,
 }
 
 /// Proposal state never substitutes for external reviewed evidence.

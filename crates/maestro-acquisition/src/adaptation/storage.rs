@@ -2,7 +2,7 @@
 use super::manifest::{Activation, Proposal, WriteError};
 use crate::{Ref, Refusal};
 use maestro_kernel::{
-    acquisition::{Handle, Receipts},
+    acquisition::{Handle, ProtectedArtifact, Receipts},
     artifact::Digest,
     filesystem,
     scope::Scope,
@@ -96,7 +96,9 @@ pub(super) fn accessible(
 }
 
 /// Store a payload with every inherited scope enforced through N06's link closure.
-pub(super) fn retain(
+/// # Errors
+/// Invalid scopes, absent links or scoped storage failure refuses.
+pub fn retain(
     receipts: &dyn Receipts,
     tags: &[String],
     bytes: &[u8],
@@ -127,11 +129,23 @@ pub(super) fn retain(
 }
 
 /// Load a digest-bound immutable overlay through current access checks only.
-pub(super) fn artifact<T: DeserializeOwned>(
+/// # Errors
+/// Inaccessible, substituted or malformed artifacts refuse without content diagnostics.
+pub fn artifact<T: DeserializeOwned>(
     receipts: &dyn Receipts,
     principal: &str,
     reference: &Ref,
 ) -> Result<T, WriteError> {
+    let resource = read_artifact(receipts, principal, reference)?;
+    decode(resource.bytes())
+}
+
+/// One currently authorized, digest-checked original payload.
+fn read_artifact(
+    receipts: &dyn Receipts,
+    principal: &str,
+    reference: &Ref,
+) -> Result<ProtectedArtifact, WriteError> {
     let handle = reference.id.parse().map_err(|_| Refusal::Invalid)?;
     let resource = receipts
         .read(principal, handle)
@@ -140,7 +154,21 @@ pub(super) fn artifact<T: DeserializeOwned>(
     if Digest::of(resource.bytes()) != reference.digest {
         return Err(Refusal::Digest.into());
     }
-    decode(resource.bytes())
+    Ok(resource)
+}
+
+/// N57 identities require the entire declaration-ordered typed preimage.
+pub(super) fn canonical_artifact<T: DeserializeOwned + Serialize>(
+    receipts: &dyn Receipts,
+    principal: &str,
+    reference: &Ref,
+) -> Result<T, WriteError> {
+    let resource = read_artifact(receipts, principal, reference)?;
+    let value = decode(resource.bytes())?;
+    if encode(&value)? != resource.bytes() {
+        return Err(Refusal::Digest.into());
+    }
+    Ok(value)
 }
 
 /// Gate and proposal report/evidence handles must remain currently readable.
