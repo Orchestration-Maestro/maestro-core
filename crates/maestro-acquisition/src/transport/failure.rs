@@ -44,4 +44,26 @@ pub enum Failure {
     Nesting,
     /// Cumulative gzip/deflate/container members exceed the decode ceiling.
     Members,
+    /// XML entity expansion is disabled by the protected policy.
+    Entities,
+    /// Cumulative decoded image pixels exceeded the ceiling.
+    Pixels,
+    /// Owned parser crashed; partial output must not be promoted.
+    ParserCrash,
+}
+
+/// Precise stage retained on parser-IPC preflight refusals.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DecodeStage {
+    /// HTTP content-encoding expansion.
+    Http,
+    /// Office container decoding.
+    Office,
+    /// PDF stream decoding.
+    Pdf,
+    /// Nested attachment/archive expansion.
+    Attachment,
+    /// Image pixel decoding.
+    Image,
 }

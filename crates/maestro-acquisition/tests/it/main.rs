@@ -88,3 +88,5 @@ mod n12_ports;
 mod n12_profile_binding;
 
 mod n12_parents;
+
+mod n16_define_extraction_fidelity_and_cumulative_decode_contracts;

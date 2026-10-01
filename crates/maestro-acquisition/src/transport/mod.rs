@@ -1,4 +1,5 @@
 //! Shared address admission, pinned TLS, robots, origin pacing and resource budgets.
+pub(crate) mod accounting;
 pub mod address;
 pub mod budget;
 pub mod connect;

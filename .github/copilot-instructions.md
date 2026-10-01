@@ -323,7 +323,10 @@ in place.
 │   │   │   │   ├── mod.rs                                                               # Immutable captures and content-free distinct-item run outcomes
 │   │   │   │   └── outcome.rs                                                           # Content-free outcomes over N06's authoritative stage inventories
 │   │   │   ├── extraction/                                                              # Immutable extraction profiles and bounded pure selection
+│   │   │   │   ├── contract.rs                                                          # Shared mapped extraction contract
+│   │   │   │   ├── decode.rs                                                            # Typed parser-IPC preflight boundary over N09's one core-owned ledger
 │   │   │   │   ├── detect.rs                                                            # Bounded deterministic evidence matching; no parser, network or model starts
+│   │   │   │   ├── fidelity.rs                                                          # Content and correspondence receipts converted to the existing S1 outcomes
 │   │   │   │   ├── mod.rs                                                               # Immutable extraction profiles and bounded pure selection
 │   │   │   │   ├── model.rs                                                             # Strict immutable profile definitions; field order is part of digest version one
 │   │   │   │   ├── outcome.rs                                                           # Immutable checked handles and content-free registry outcomes
@@ -350,6 +353,7 @@ in place.
 │   │   │   │   ├── utc.rs                                                               # One strict Gregorian UTC implementation for grants and transport times
 │   │   │   │   └── wiki.rs                                                              # Strict version-one source-policy wire contracts
 │   │   │   ├── transport/                                                               # Transport
+│   │   │   │   ├── accounting.rs                                                        # One core-owned cumulative accounting ledger shared by HTTP and parser IPC
 │   │   │   │   ├── address.rs                                                           # Deny-only address resources plus a non-removable special-purpose floor
 │   │   │   │   ├── budget.rs                                                            # Field-kind composition and typed resource-induced pending work
 │   │   │   │   ├── connect.rs                                                           # One checked destination per connection, with no proxy, pool or second DNS
@@ -452,6 +456,7 @@ in place.
 │   │   │       ├── n15_selection_edges.rs                                               # Selection predicates with qualified, pinned positive and negative neighbours
 │   │   │       ├── n15_support.rs                                                       # Independently authored synthetic registry resources, never catalog trust
 │   │   │       ├── n15_validation.rs                                                    # Independent boundary fixtures for registry guards and unmasked red proofs
+│   │   │       ├── n16_define_extraction_fidelity_and_cumulative_decode_contracts.rs    # Synthetic source-correspondence and core-owned parser preflight contracts
 │   │   │       ├── n30_additional_contracts.rs                                          # Typed proposal inputs, fresh CAS and scoped inheritance regressions
 │   │   │       ├── n30_implement_proposal_and_activation_manifest_write_port.rs         # Synthetic write-port conformance; no installed catalog admission is claimed
 │   │   │       ├── n30_lineage_regressions.rs                                           # Digest-consistent payload substitutions must not break effective ancestry
