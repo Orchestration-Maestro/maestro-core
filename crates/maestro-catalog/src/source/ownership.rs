@@ -28,6 +28,8 @@ pub struct Ownership<'a> {
 impl Catalog {
     /// Derives principals from the resource's area, including common-owned support.
     /// A catalog returned by the checker always has an ownership record.
+    /// An ID namespace inconsistent with its physical area returns `None`.
+    /// Declarations and offline validation confer no GitHub approval or runtime grant.
     #[must_use]
     pub fn ownership(&self, resource: &Resource) -> Option<Ownership<'_>> {
         let namespace = resource.id.namespace.as_deref().unwrap_or_else(|| {
@@ -37,11 +39,27 @@ impl Catalog {
                 "common"
             }
         });
-        let descriptor = self.resources.iter().find(|candidate| {
-            candidate.id.namespace.is_none()
-                && candidate.id.name == namespace
-                && candidate.fields.contains_key("owners")
-        })?;
+        let descriptor = self
+            .resources
+            .iter()
+            .filter(|candidate| {
+                candidate.id.namespace.is_none() && candidate.fields.contains_key("owners")
+            })
+            .filter(|candidate| {
+                let parent = candidate
+                    .path
+                    .rsplit_once('/')
+                    .map_or("", |(parent, _)| parent);
+                parent.is_empty()
+                    || resource
+                        .path
+                        .strip_prefix(parent)
+                        .is_some_and(|tail| tail.starts_with('/'))
+            })
+            .max_by_key(|candidate| candidate.path.len())?;
+        if descriptor.id.name != namespace {
+            return None;
+        }
         Some(Ownership {
             descriptor,
             owners: descriptor.fields.get("owners")?.texts()?,

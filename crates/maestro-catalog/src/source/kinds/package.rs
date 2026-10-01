@@ -1,5 +1,5 @@
 //! Area closure roots; the shared checker enforces dependency layers and
-//! preset membership. Mandatory-root admission follows in C34.
+//! preset membership. Selection admission checks the mandatory root closure.
 
 use crate::source::{
     descriptor::{Field, FieldType, Format, KindDescriptor, Layout, MetadataPlace, Scope},

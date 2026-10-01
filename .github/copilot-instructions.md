@@ -573,10 +573,12 @@ in place.
 │   │   │   │   │   ├── rulings.rs                                           # The C03 round-two rulings: skill metadata reads only maestro
 │   │   │   │   │   ├── scan.rs                                              # Aggregate snapshot trust-boundary neighbours, independent of content guards
 │   │   │   │   │   ├── schema.rs                                            # Each file's strict schema: duplicate and unknown keys, wrong types
+│   │   │   │   │   ├── selection.rs                                         # C34 selection admission, distinct from partial source checking
 │   │   │   │   │   ├── support.rs                                           # An in-memory [SourceTree] adapter holding the valid synthetic catalog
 │   │   │   │   │   └── yaml.rs                                              # YAML read node by node at injected limits: the exact node budget and
 │   │   │   │   ├── area_walk.rs                                             # Scoped discovery over the bounded snapshot
 │   │   │   │   ├── check.rs                                                 # The checker: discovery, each resource read by its kind, then the checks
+│   │   │   │   ├── closure.rs                                               # The shared exact-ID forward traversal for topology and selection admission
 │   │   │   │   ├── descriptor.rs                                            # A kind described as data: where its files live, how they are written
 │   │   │   │   ├── discovered.rs                                            # Discovery records shared by the legacy and scoped descriptor walkers
 │   │   │   │   ├── graph.rs                                                 # The dependency graph across resources, its nodes numbered in ID order
@@ -590,6 +592,7 @@ in place.
 │   │   │   │   ├── registry.rs                                              # The kinds a checker knows: each a validated [KindDescriptor] and, when
 │   │   │   │   ├── rules.rs                                                 # A kind's rules beyond its descriptor: a hook, which a descriptor selects
 │   │   │   │   ├── scan.rs                                                  # One bounded snapshot of every folder/file/link in the source tree
+│   │   │   │   ├── selection.rs                                             # Checked selection admission, separate from partial source validation
 │   │   │   │   ├── tree.rs                                                  # The port through which the checker reads a catalog's files, and its
 │   │   │   │   ├── types.rs                                                 # The catalog's authoring schema, maestro-source/1, as typed data
 │   │   │   │   ├── walk.rs                                                  # Discovery: the catalog's top level, then each registered kind's

@@ -26,5 +26,6 @@ mod root_boundaries;
 mod rulings;
 mod scan;
 mod schema;
+mod selection;
 pub(crate) mod support;
 mod yaml;

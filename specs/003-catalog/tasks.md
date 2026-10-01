@@ -2289,10 +2289,10 @@ source/runtime implementation or private-data read, and no delivered claim.
 **Requirements:** FR-S3-041, FR-S3-042, FR-S3-046, SC-S3-015, SC-S3-016.
 **Named tests:** `area_owner_reference_mismatch_refuses`, `mandatory_roots_selected_once`, `missing_reviewed_maestro_refuses`; required cases, not reported results.
 
-- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+- [x] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
   below; run the focused fixture/check command and retain the failure.
-- [ ] **Step 2: Green.** Use C80a owners/maintainers schema and derived resource ownership. Select reviewed common/core and all standards exactly once, with reviewed agent:core/maestro. Check namespace consistency, no independent resource owner list, and required closure maturity.
-- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+- [x] **Step 2: Green.** Use C80a owners/maintainers schema and derived resource ownership. Select reviewed common/core and all standards exactly once, with reviewed agent:core/maestro. Check namespace consistency, no independent resource owner list, and required closure maturity.
+- [x] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
   capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
   Record nonzero test counts, exact exits, applicable lane gates and review.
 

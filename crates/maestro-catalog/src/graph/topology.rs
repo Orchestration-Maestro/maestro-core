@@ -2,8 +2,13 @@
 //! checking for cycles: one bounded edge per component is not sufficient.
 
 use super::types::{Bindings, NodeKind, ReviewEvidence, Workflow};
-use crate::source::{Catalog, Diagnostic, Maturity, Problems, Refusal, Resource, ResourceId};
-use std::collections::{BTreeMap, BTreeSet};
+use crate::source::{
+    Catalog, Diagnostic, Maturity, Problems, Refusal, Resource, ResourceId, closure::closure,
+};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    slice::from_ref,
+};
 
 /// One architecture 03 §2.3 rule, kept in the sole covered-rule table.
 struct Rule {
@@ -152,26 +157,27 @@ fn references(check: &mut Check<'_>) {
             ),
         );
     }
-    let mut pending = vec![workflow.id.clone()];
-    while let Some(id) = pending.pop() {
-        if !check.closure.insert(id.clone()) {
-            continue;
-        }
-        let Some(resource) = check.resources.get(&id).copied() else {
-            check.refuse("requires", format!("{id} does not exist"));
+    let closure = closure(
+        &check.resources,
+        from_ref(&workflow.id),
+        |_| Vec::new(),
+        &mut check.problems,
+    );
+    for id in &closure {
+        let Some(resource) = check.resources.get(id).copied() else {
             continue;
         };
-        if ResourceId::parse(&id.to_string()).as_ref() != Some(&id) {
+        if ResourceId::parse(&id.to_string()).as_ref() != Some(id) {
             check.refuse("requires", format!("{id} is not a typed qualified ID"));
         }
-        if resource.metadata.maturity != Maturity::Reviewed || !check.evidence.reviewed(&id) {
+        if resource.metadata.maturity != Maturity::Reviewed || !check.evidence.reviewed(id) {
             check.refuse(
                 "requires",
                 format!("{id} needs reviewed maturity and admitted review evidence"),
             );
         }
-        pending.extend(resource.metadata.requires.iter().cloned());
     }
+    check.closure = closure;
     for (name, node) in &workflow.nodes {
         match &node.kind {
             NodeKind::Agent { agent, skill } => {

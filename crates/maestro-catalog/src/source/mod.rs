@@ -4,6 +4,7 @@
 
 mod area_walk;
 mod check;
+pub(crate) mod closure;
 mod descriptor;
 mod discovered;
 mod graph;
@@ -17,6 +18,7 @@ mod placements;
 mod registry;
 mod rules;
 mod scan;
+mod selection;
 #[cfg(test)]
 pub(crate) mod tests;
 pub(crate) mod tree;

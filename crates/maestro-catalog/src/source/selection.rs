@@ -1,0 +1,117 @@
+//! Checked selection admission, separate from partial source validation.
+
+use super::{
+    Catalog, Diagnostic, Maturity, Problems, Refusal, Registry, Resource, ResourceId,
+    closure::closure,
+};
+use std::collections::{BTreeMap, BTreeSet};
+
+impl Catalog {
+    /// Resolves a checked root closure in ID order: common, core, all standards,
+    /// canonical Maestro and the explicit selection, with transitive requirements.
+    /// Explicit-plus-implicit roots are deduplicated, never selected twice.
+    /// Partial source trees remain checkable; no install path calls this seam yet.
+    /// Declaration/offline validation confers no GitHub approval or runtime grant.
+    ///
+    /// # Errors
+    /// Refuses missing, duplicate, unreviewed or ownership-inconsistent selections.
+    pub fn selection(
+        &self,
+        selected: &[ResourceId],
+        registry: &Registry,
+    ) -> Result<Vec<&Resource>, Refusal> {
+        let mut diagnostics = Vec::new();
+        let mut resources = BTreeMap::new();
+        for resource in &self.resources {
+            if resources.insert(&resource.id, resource).is_some() {
+                diagnostics.push(Diagnostic::new(
+                    &resource.path,
+                    "id",
+                    format!("duplicate ID {}", resource.id),
+                ));
+            }
+        }
+        let mut explicit = BTreeSet::new();
+        for id in selected {
+            if !explicit.insert(id) {
+                diagnostics.push(Diagnostic::new(
+                    "",
+                    "selection",
+                    format!("duplicate selection {id}"),
+                ));
+            }
+        }
+        let mut roots = selected.to_vec();
+        roots.extend(["common", "core"].map(|name| ResourceId {
+            kind: "package".to_owned(),
+            namespace: None,
+            name: name.to_owned(),
+        }));
+        roots.push(ResourceId {
+            kind: "agent".to_owned(),
+            namespace: Some("core".to_owned()),
+            name: "maestro".to_owned(),
+        });
+        roots.extend(
+            self.resources
+                .iter()
+                .filter(|resource| resource.id.kind == "standard")
+                .map(|resource| resource.id.clone()),
+        );
+        let mut problems = Problems::new();
+        let ids = closure(
+            &resources,
+            &roots,
+            |resource| {
+                registry
+                    .kind(&resource.id.kind)
+                    .and_then(|registration| registration.rules)
+                    .map(|rules| rules.edges(resource))
+                    .unwrap_or_default()
+            },
+            &mut problems,
+        );
+        diagnostics.extend(
+            problems
+                .into_iter()
+                .map(|(key, message)| Diagnostic::new("", key, message)),
+        );
+        let mut members = Vec::new();
+        for id in &ids {
+            let Some(resource) = resources.get(id).copied() else {
+                continue;
+            };
+            if ResourceId::parse(&id.to_string()).as_ref() != Some(id)
+                || registry.kind(&id.kind).is_none()
+            {
+                diagnostics.push(Diagnostic::new(
+                    &resource.path,
+                    "id",
+                    format!("{id} is not a registered typed qualified ID"),
+                ));
+            }
+            if resource.metadata.maturity != Maturity::Reviewed {
+                diagnostics.push(Diagnostic::new(
+                    &resource.path,
+                    "maturity",
+                    format!("{id} needs reviewed maturity"),
+                ));
+            }
+            if self.ownership(resource).is_none() {
+                diagnostics.push(Diagnostic::new(
+                    &resource.path,
+                    "ownership",
+                    format!("{id} does not match its area ownership record"),
+                ));
+            }
+            members.push(resource);
+        }
+        if diagnostics.is_empty() {
+            Ok(members)
+        } else {
+            diagnostics.sort();
+            diagnostics.dedup();
+            Err(Refusal { diagnostics })
+        }
+    }
+}
