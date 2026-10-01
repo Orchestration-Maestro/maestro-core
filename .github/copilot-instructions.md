@@ -296,6 +296,9 @@ in place.
 │   │   └── Cargo.toml                                                                   # Crate manifest: The command line of Maestro: collections, their imports, the jobs that run them, and the machine's setup and checks
 │   ├── maestro-acquisition/                                                             # N03 implements strict source-policy declarations and immutable local baseline resolution
 │   │   ├── src/                                                                         # The crate's sources
+│   │   │   ├── lifecycle/                                                               # Process-local acquisition lifecycle accounting
+│   │   │   │   ├── mod.rs                                                               # Process-local acquisition lifecycle accounting
+│   │   │   │   └── resources.rs                                                         # Shared owned reservations, with fresh measurements at every checkpoint
 │   │   │   ├── policy/                                                                  # Strict policy schemas and the single immutable baseline validator
 │   │   │   │   ├── acquisition.rs                                                       # Strict version-one source-policy wire contracts
 │   │   │   │   ├── authority.rs                                                         # Read-only acquisition authority; manifests and registry evidence grant no access
@@ -315,6 +318,7 @@ in place.
 │   │   │   │   └── wiki.rs                                                              # Strict version-one source-policy wire contracts
 │   │   │   ├── transport/                                                               # Transport
 │   │   │   │   ├── address.rs                                                           # Deny-only address resources plus a non-removable special-purpose floor
+│   │   │   │   ├── budget.rs                                                            # Field-kind composition and typed resource-induced pending work
 │   │   │   │   ├── connect.rs                                                           # One checked destination per connection, with no proxy, pool or second DNS
 │   │   │   │   ├── floor.rs                                                             # Non-removable IANA snapshot (2025-10-09), multicast and metadata denials
 │   │   │   │   ├── mod.rs                                                               # Rust source: mod
@@ -346,6 +350,9 @@ in place.
 │   │   │       ├── n10_conform_robots_and_aggregate_origin_pacing.rs                    # Independently authored RFC 9309 and shared-origin contracts
 │   │   │       ├── n10_control_edges.rs                                                 # Additional actual-engine boundaries and substitute rules adapter
 │   │   │       ├── n10_review_regressions.rs                                            # RFC 9309 regression assertions from the independent N10 review probes
+│   │   │       ├── n11_account_aggregate_resources_and_interactive_priority.rs          # Synthetic N11 accounting contracts; no processes, live grants or GPU jobs
+│   │   │       ├── n11_resource_edges.rs                                                # N11 concurrent admission, overflow and resume edge contracts
+│   │   │       ├── n11_support.rs                                                       # Shared synthetic explicit N11 host/settings fixtures
 │   │   │       └── support.rs                                                           # Complete independently authored synthetic policy fixtures
 │   │   ├── Cargo.toml                                                                   # Crate manifest: Strict source policies and immutable baseline resolution for native acquisition
 │   │   └── README.md                                                                    # N03 implements strict source-policy declarations and immutable local baseline resolution

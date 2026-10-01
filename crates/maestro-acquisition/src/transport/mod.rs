@@ -1,5 +1,6 @@
-//! Shared address admission, socket-pinned TLS adapters, robots rules and origin pacing.
+//! Shared address admission, pinned TLS, robots, origin pacing and resource budgets.
 pub mod address;
+pub mod budget;
 pub mod connect;
 mod floor;
 pub mod pacing;

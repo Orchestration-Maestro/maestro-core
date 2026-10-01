@@ -10,4 +10,7 @@ mod n10_admission;
 mod n10_conform_robots_and_aggregate_origin_pacing;
 mod n10_control_edges;
 mod n10_review_regressions;
+mod n11_account_aggregate_resources_and_interactive_priority;
+mod n11_resource_edges;
+mod n11_support;
 mod support;

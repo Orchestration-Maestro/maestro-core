@@ -3,6 +3,7 @@
 //! Resolution reads only admitted immutable resources. It never creates grants,
 //! starts transports/sessions, activates connectors or chooses default adapters.
 mod files;
+pub mod lifecycle;
 pub mod policy;
 mod ports;
 mod refusal;
