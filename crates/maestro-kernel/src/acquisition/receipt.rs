@@ -63,6 +63,7 @@ pub struct StageItem {
     /// This stage's disposition.
     pub disposition: ItemDisposition,
     /// Protected capture, refusal or other evidence, if available.
+    #[serde(deserialize_with = "Option::deserialize")]
     pub evidence: Option<Handle>,
 }
 /// The exact inventory wire schema; unsupported versions refuse.
@@ -212,8 +213,13 @@ impl Receipts for Database {
         page: &InventoryPage,
     ) -> Result<Handle, ReceiptError> {
         validate_page(page)?;
-        let references = inventory_references(page);
-        self.retain(scope, &serde_json::to_vec(page)?, &references)
+        let bytes = serde_json::to_vec(page)?;
+        let mut references: Vec<_> = page.items.iter().filter_map(|item| item.evidence).collect();
+        privacy::validate(scope, &bytes, &references)?;
+        // The mandatory partition scope edge is not caller evidence overhead.
+        references.push(page.partition);
+        let digest = self.put(&bytes, "application/octet-stream")?;
+        self.write(|tx| privacy::retain_on(tx, scope, &digest, &references))
     }
     fn begin(&self, scope: &Scope, receipt: &Receipt) -> Result<(), ReceiptError> {
         if receipt.status != Status::Pending || receipt.reason != Reason::None {
@@ -250,11 +256,16 @@ impl Receipts for Database {
         if frozen.run != receipt.run || frozen.inputs != receipt.inputs {
             return Err(ReceiptError::Conflict);
         }
-        validate_inventories(self, receipt)?;
+        let initial_items = validate_inventories(self, &frozen)?;
+        let terminal_items = validate_inventories(self, receipt)?;
+        if !initial_items.is_subset(&terminal_items) {
+            return Err(ReceiptError::Invalid);
+        }
         let bytes = serde_json::to_vec(receipt)?;
         let mut references = receipt.references();
-        references.push(initial.parse()?);
         privacy::validate(&scope, &bytes, &references)?;
+        // History is a mandatory kernel edge outside the caller reference budget.
+        references.push(initial.parse()?);
         let digest = self.put(&bytes, "application/octet-stream")?;
         self.write(|tx| {
             let snapshot = privacy::retain_on(tx, &scope, &digest, &references)?;
@@ -352,7 +363,10 @@ fn inventory_references(page: &InventoryPage) -> Vec<Handle> {
         .collect()
 }
 /// Reconciles counting units and refuses incomplete inventories labeled successful.
-fn validate_inventories(db: &Database, receipt: &Receipt) -> Result<(), ReceiptError> {
+fn validate_inventories(
+    db: &Database,
+    receipt: &Receipt,
+) -> Result<BTreeSet<(Stage, Handle)>, ReceiptError> {
     let mut seen = BTreeSet::new();
     let mut complete = receipt.reason == Reason::None;
     for handle in &receipt.inventories {
@@ -383,7 +397,7 @@ fn validate_inventories(db: &Database, receipt: &Receipt) -> Result<(), ReceiptE
     if receipt.status == Status::Complete && !complete {
         return Err(ReceiptError::Invalid);
     }
-    Ok(())
+    Ok(seen)
 }
 /// Emits only the typed allow-list, atomically with the snapshot reference.
 fn publish(tx: &Transaction<'_>, scope: &Scope, progress: Progress) -> Result<(), ReceiptError> {

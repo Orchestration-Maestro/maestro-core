@@ -812,6 +812,7 @@ in place.
 │   │   │       ├── n04_frontier_ack.rs                                                  # N04 acknowledgement integrity, atomic journal writes and immutable source binding
 │   │   │       ├── n04_frontier_support.rs                                              # Synthetic fixtures for the N04 replaceable frontier contract
 │   │   │       ├── n04_persist_frontier_leases_and_fenced_submissions.rs                # N04 frontier contract: durable work, exclusive leases and fenced acknowledgement
+│   │   │       ├── n06_receipt_review_regressions.rs                                    # N06 review regressions for terminal reconciliation, bounds and privacy
 │   │   │       ├── n06_store_scoped_receipts_and_content_free_progress_events.rs        # N06: opaque receipt views, durable attempts, and content-free event sinks
 │   │   │       ├── unit_graph_code_leadin.rs                                            # The kernel accepts code groups without an optional lead-in relation
 │   │   │       ├── unit_graph_nested_producer.rs                                        # Kernel conformance for nested procedure, code and table producer graphs

@@ -15,18 +15,18 @@ use serde_json::{Value, json};
 use std::fmt::Write as _;
 
 /// Synthetic collection boundary.
-fn scope(name: &str) -> Scope {
+pub(super) fn scope(name: &str) -> Scope {
     format!("workspace/default/collection/{name}")
         .parse()
         .unwrap()
 }
 /// Gives the test reader one exact scope.
-fn grant(db: &Database, name: &str) {
+pub(super) fn grant(db: &Database, name: &str) {
     db.grant("reader", &scope(name), Right::Read, "owner")
         .unwrap();
 }
 /// Frozen inputs contain canaries, never event attributes.
-fn receipt(store: &dyn Receipts) -> Receipt {
+pub(super) fn receipt(store: &dyn Receipts) -> Receipt {
     let inputs = store
         .retain(
             &scope("docs"),
@@ -54,7 +54,7 @@ fn receipt(store: &dyn Receipts) -> Receipt {
     }
 }
 /// One page of distinct capture items; dispatch counts stay in the receipt.
-fn inventory(partition: Handle, disposition: ItemDisposition) -> InventoryPage {
+pub(super) fn inventory(partition: Handle, disposition: ItemDisposition) -> InventoryPage {
     InventoryPage {
         schema: InventorySchema::V1,
         partition,
