@@ -1,7 +1,9 @@
 //! Content-free outcomes over N06's authoritative stage inventories.
 use maestro_kernel::acquisition::{
-    Handle, InventoryPage, Item, ItemDisposition, Reason, ReceiptError, Stage, Status,
+    Captures, Handle, InventoryPage, Item, ItemDisposition, Reason, ReceiptError, Stage, StageItem,
+    Status,
 };
+use maestro_kernel::scope::Scope;
 use serde::Serialize;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -71,6 +73,7 @@ pub fn reconcile(
     pages: &[InventoryPage],
     frontier: &[Item],
     reason: Reason,
+    verification: (&dyn Captures, &Scope),
 ) -> Result<Outcome, ReceiptError> {
     let mut frontier_ids = BTreeSet::new();
     let mut attempted = BTreeSet::new();
@@ -128,6 +131,7 @@ pub fn reconcile(
                 return Err(ReceiptError::Invalid);
             }
             check_evidence(item.disposition, item.evidence)?;
+            verify_evidence(verification, frontier, item)?;
             match item.disposition {
                 ItemDisposition::Blocked => blocked = true,
                 ItemDisposition::Refused | ItemDisposition::Pending => incomplete = true,
@@ -210,6 +214,28 @@ fn check_evidence(
         && evidence.is_none()
     {
         return Err(ReceiptError::Invalid);
+    }
+    Ok(())
+}
+
+/// Counts cannot stand in for verification of accepted evidence, at any stage.
+fn verify_evidence(
+    verification: (&dyn Captures, &Scope),
+    frontier: &[Item],
+    item: &StageItem,
+) -> Result<(), ReceiptError> {
+    if item.disposition == ItemDisposition::Accepted
+        || item.disposition == ItemDisposition::Unchanged
+    {
+        let frontier_item = frontier
+            .iter()
+            .find(|entry| entry.id.to_string() == item.item.to_string())
+            .ok_or(ReceiptError::Invalid)?;
+        verification.0.verify_capture(
+            verification.1,
+            frontier_item,
+            item.evidence.ok_or(ReceiptError::Invalid)?,
+        )?;
     }
     Ok(())
 }

@@ -75,7 +75,7 @@ fn n12_kernel_checks_profile_even_when_a_trusted_host_bypasses_projection() {
     assert_eq!(
         fixture
             .db
-            .prepare_capture(&fixture.context, &fixture.envelope, b"body"),
+            .prepare_capture(&fixture.context, &fixture.envelope, b"body", u64::MAX),
         Err(ReceiptError::Invalid)
     );
 }

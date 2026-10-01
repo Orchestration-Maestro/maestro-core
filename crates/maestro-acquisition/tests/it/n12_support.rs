@@ -22,14 +22,15 @@ use maestro_test_scratch::scratch_directory;
 use std::{
     collections::BTreeMap,
     fs,
-    path::PathBuf,
+    ops::Deref,
+    path::{Path, PathBuf},
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
 /// Test-owned durable kernel directory.
 pub(super) struct Fixture {
-    pub(super) root: PathBuf,
     pub(super) db: Database,
+    pub(super) root: Scratch,
     pub(super) context: CaptureContext,
     pub(super) policy: CheckedPolicy,
     pub(super) envelope: CaptureEnvelope,
@@ -39,7 +40,7 @@ impl Fixture {
         Self::with_policy(n09_support::policy())
     }
     pub(super) fn with_policy(policy: CheckedPolicy) -> Self {
-        let root = scratch_directory().unwrap();
+        let root = Scratch(scratch_directory().unwrap());
         let db = Database::open_in(&root).unwrap();
         let scope: Scope = "workspace/default/collection/garden".parse().unwrap();
         db.grant("reader", &scope, Right::Read, "owner").unwrap();
@@ -131,9 +132,17 @@ impl Fixture {
         )
     }
 }
-impl Drop for Fixture {
+/// Directory owner drops after the database field closes all connections.
+pub(super) struct Scratch(PathBuf);
+impl Deref for Scratch {
+    type Target = Path;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+impl Drop for Scratch {
     fn drop(&mut self) {
-        fs::remove_dir_all(&self.root).unwrap();
+        fs::remove_dir_all(&self.0).unwrap();
     }
 }
 /// Fixed authority clock.

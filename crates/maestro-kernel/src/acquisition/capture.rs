@@ -5,10 +5,15 @@ use super::{
     headers,
     lease::{self, ItemLease, SourceLease},
     privacy::{self, Handle, ReceiptError},
+    record::Item,
 };
-use crate::{artifact::Digest, scope::Scope, store::Database};
+use crate::{
+    artifact::{self, Digest},
+    scope::Scope,
+    store::{self, Database},
+};
 use rusqlite::{OptionalExtension as _, Transaction, params};
-use std::time::SystemTime;
+use std::{collections::BTreeMap, time::SystemTime};
 
 /// Current trusted source/dispatch ownership, never a staging path from a source.
 #[derive(Debug, Clone)]
@@ -38,7 +43,31 @@ pub trait Captures: Send + Sync {
         context: &CaptureContext,
         envelope: &CaptureEnvelope,
         bytes: &[u8],
+        max_new_bytes: u64,
     ) -> Result<PreparedCapture, ReceiptError>;
+    /// Check the same ownership/reuse rules as preparation without writing.
+    /// Returns verified new body/envelope bytes needing admission.
+    /// # Errors
+    /// Invalid content, fenced ownership, conflicting reuse or unreadable storage.
+    fn check_capture(
+        &self,
+        context: &CaptureContext,
+        envelope: &CaptureEnvelope,
+        bytes: &[u8],
+    ) -> Result<u64, ReceiptError>;
+    /// Read back the unique body/envelope bytes actually retained, including unlinked writes.
+    /// # Errors
+    /// Corrupt or unreadable artifacts refuse; missing bytes count as zero.
+    fn capture_bytes(&self, envelope: &CaptureEnvelope) -> Result<u64, ReceiptError>;
+    /// Bind intact scoped capture evidence to this item's acknowledged envelope digest.
+    /// # Errors
+    /// Unknown, substituted, differently scoped or corrupt evidence refuses.
+    fn verify_capture(
+        &self,
+        scope: &Scope,
+        item: &Item,
+        evidence: Handle,
+    ) -> Result<(), ReceiptError>;
     /// Verify persisted artifacts before acknowledging this exact item once.
     /// # Errors
     /// Unknown/substituted handle, corrupt artifacts or fenced ownership refuses.
@@ -54,15 +83,15 @@ impl Captures for Database {
         context: &CaptureContext,
         envelope: &CaptureEnvelope,
         bytes: &[u8],
+        max_new_bytes: u64,
     ) -> Result<PreparedCapture, ReceiptError> {
-        validate(context, envelope, bytes)?;
+        let new_bytes = self.check_capture(context, envelope, bytes)?;
+        if new_bytes > max_new_bytes {
+            return Err(ReceiptError::Conflict);
+        }
         let identity = envelope.identity()?;
-        // Check ownership and reuse before any artifact write. Repeat under the
-        // final write lock: another process may prepare or fence us meanwhile.
         let encoded = serde_json::to_vec(envelope)?;
-        let (scope, previous) = self.write(|tx| existing(tx, context, envelope, &identity))?;
-        privacy::validate(&scope, &encoded, &[])?;
-        validate_parent(self, envelope, &scope)?;
+        let (_, previous) = self.write(|tx| existing(tx, context, envelope, &identity))?;
         if let Some(handle) = previous {
             verify(self, handle)?;
             return Ok(PreparedCapture {
@@ -70,8 +99,8 @@ impl Captures for Database {
                 retained_bytes: 0,
             });
         }
-        let body = self.put(bytes, "application/octet-stream")?;
-        let artifact = self.put(&encoded, "application/octet-stream")?;
+        let body = persist(self, bytes)?;
+        let artifact = persist(self, &encoded)?;
         self.write(|tx| {
             let (scope, previous) = existing(tx, context, envelope, &identity)?;
             if let Some(handle) = previous {
@@ -101,9 +130,68 @@ impl Captures for Database {
             )?;
             Ok(PreparedCapture {
                 handle,
-                retained_bytes: bytes.len() as u64 + encoded.len() as u64,
+                retained_bytes: new_bytes,
             })
         })
+    }
+    fn check_capture(
+        &self,
+        context: &CaptureContext,
+        envelope: &CaptureEnvelope,
+        bytes: &[u8],
+    ) -> Result<u64, ReceiptError> {
+        validate(context, envelope, bytes)?;
+        let encoded = serde_json::to_vec(envelope)?;
+        let (scope, previous) =
+            self.write(|tx| existing(tx, context, envelope, &envelope.identity()?))?;
+        privacy::validate(&scope, &encoded, &[])?;
+        validate_parent(self, envelope, &scope)?;
+        if let Some(handle) = previous {
+            verify(self, handle)?;
+            return Ok(0);
+        }
+        let total = payloads(envelope)?.values().sum::<u64>();
+        Ok(total.saturating_sub(self.capture_bytes(envelope)?))
+    }
+    fn capture_bytes(&self, envelope: &CaptureEnvelope) -> Result<u64, ReceiptError> {
+        let mut retained = 0;
+        for digest in payloads(envelope)?.keys() {
+            match self.get(digest) {
+                Ok(bytes) => retained += bytes.len() as u64,
+                Err(store::Error::Artifact(artifact::Error::Missing(_))) => {}
+                Err(error) => return Err(error.into()),
+            }
+        }
+        Ok(retained)
+    }
+    fn verify_capture(
+        &self,
+        scope: &Scope,
+        item: &Item,
+        evidence: Handle,
+    ) -> Result<(), ReceiptError> {
+        let envelope = verify(self, evidence)?;
+        let row: Option<(String, String, String, Option<String>)> = self
+            .reader()?
+            .query_row(
+                "SELECT e.scope, e.artifact, l.item, f.capture FROM acquisition_capture_links l
+             JOIN acquisition_evidence e ON e.id = l.envelope
+             JOIN acquisition_frontier f ON f.id = l.item WHERE l.envelope = ?1",
+                [evidence.to_string()],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )
+            .optional()?;
+        let (stored_scope, artifact, linked_item, acknowledged) =
+            row.ok_or(ReceiptError::Invalid)?;
+        if stored_scope != scope.as_str()
+            || linked_item != item.id.to_string()
+            || envelope.item.to_string() != linked_item
+            || acknowledged.as_deref() != Some(artifact.as_str())
+            || item.capture.as_ref().map(Digest::as_str) != Some(artifact.as_str())
+        {
+            return Err(ReceiptError::Invalid);
+        }
+        Ok(())
     }
     fn acknowledge_capture(
         &self,
@@ -277,4 +365,22 @@ fn validate_parent(
         return Err(ReceiptError::Invalid);
     }
     Ok(())
+}
+
+/// Unique immutable payloads, so identical body/envelope digests are charged once.
+fn payloads(envelope: &CaptureEnvelope) -> Result<BTreeMap<Digest, u64>, ReceiptError> {
+    let encoded = serde_json::to_vec(envelope)?;
+    Ok(BTreeMap::from([
+        (envelope.artifact.clone(), envelope.length),
+        (Digest::of(&encoded), encoded.len() as u64),
+    ]))
+}
+/// Existing verified bytes keep their first recorded media; defaults apply only to new bytes.
+fn persist(db: &Database, bytes: &[u8]) -> Result<Digest, ReceiptError> {
+    let digest = Digest::of(bytes);
+    if db.artifact(&digest)?.is_some() {
+        db.get(&digest)?;
+        return Ok(digest);
+    }
+    Ok(db.put(bytes, "application/octet-stream")?)
 }

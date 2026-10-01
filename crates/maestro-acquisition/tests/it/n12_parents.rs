@@ -161,7 +161,7 @@ fn n12_cross_source_parent_refuses_with_the_same_collection_scope() {
     };
     let parent = fixture
         .db
-        .prepare_capture(&context, &envelope, b"body")
+        .prepare_capture(&context, &envelope, b"body", u64::MAX)
         .unwrap()
         .handle;
     fixture.db.acknowledge_capture(&context, parent).unwrap();

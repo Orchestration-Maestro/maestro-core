@@ -4,6 +4,7 @@ use maestro_acquisition::{
     capture::{CaptureBudget, CaptureContext, CaptureEnvelope, Captures, prepare},
     transport::budget::Usage,
 };
+use maestro_kernel::{acquisition::Item, scope::Scope};
 use maestro_kernel::{
     acquisition::{DispatchRequest, Frontier, Handle, LeaseRequest, PreparedCapture, ReceiptError},
     store::Database,
@@ -11,16 +12,40 @@ use maestro_kernel::{
 use std::time::Duration;
 
 /// Fault adapter models a caller dying after the durable prepare commit.
-struct CrashAfterPrepare<'a>(&'a Database);
+struct CrashAfterPrepare<'a>(&'a Database, bool);
 impl Captures for CrashAfterPrepare<'_> {
     fn prepare_capture(
         &self,
         context: &CaptureContext,
         envelope: &CaptureEnvelope,
         bytes: &[u8],
+        max_new_bytes: u64,
     ) -> Result<PreparedCapture, ReceiptError> {
-        self.0.prepare_capture(context, envelope, bytes)?;
+        self.0
+            .prepare_capture(context, envelope, bytes, max_new_bytes)?;
         Err(ReceiptError::Storage)
+    }
+    fn check_capture(
+        &self,
+        context: &CaptureContext,
+        envelope: &CaptureEnvelope,
+        bytes: &[u8],
+    ) -> Result<u64, ReceiptError> {
+        self.0.check_capture(context, envelope, bytes)
+    }
+    fn capture_bytes(&self, envelope: &CaptureEnvelope) -> Result<u64, ReceiptError> {
+        if self.1 && self.0.artifact(&envelope.artifact)?.is_some() {
+            return Err(ReceiptError::Storage);
+        }
+        self.0.capture_bytes(envelope)
+    }
+    fn verify_capture(
+        &self,
+        scope: &Scope,
+        item: &Item,
+        evidence: Handle,
+    ) -> Result<(), ReceiptError> {
+        self.0.verify_capture(scope, item, evidence)
     }
     fn acknowledge_capture(
         &self,
@@ -32,6 +57,14 @@ impl Captures for CrashAfterPrepare<'_> {
 }
 #[test]
 fn n12_caller_crash_after_commit_replays_without_knowing_capture_handle() {
+    crash_after_prepare(false);
+}
+#[test]
+fn n12_failed_readback_keeps_full_staging_reservation() {
+    crash_after_prepare(true);
+}
+/// Durable write followed by an unreadable result retains its admitted allocation.
+fn crash_after_prepare(unreadable: bool) {
     let fixture = Fixture::new();
     let (_, resources) = n11_support::resources();
     let mut reservation = n11_support::reserve(&resources, Usage::default());
@@ -43,7 +76,7 @@ fn n12_caller_crash_after_commit_replays_without_knowing_capture_handle() {
     };
     assert_eq!(
         prepare(
-            &CrashAfterPrepare(&fixture.db),
+            &CrashAfterPrepare(&fixture.db, unreadable),
             &fixture.policy,
             &fixture.context,
             (&fixture.envelope, b"body"),
@@ -51,6 +84,8 @@ fn n12_caller_crash_after_commit_replays_without_knowing_capture_handle() {
         ),
         Err(ReceiptError::Storage)
     );
+    assert_eq!(budget.usage.staging_bytes, 824);
+    assert_eq!(resources.usage().unwrap().staging_bytes, 824);
     let pending = Frontier::page(
         &fixture.db,
         &fixture.db.visible("reader").unwrap(),
@@ -132,4 +167,51 @@ fn n12_lease_loss_then_current_epoch_reuses_prepared_capture() {
     assert_eq!(accepted.len(), 1);
     assert_eq!(accepted.first().unwrap().attempts, 2);
     assert!(accepted.first().unwrap().capture.is_some());
+}
+
+#[test]
+fn n12_fixture_closes_database_before_removing_directory() {
+    let fixture = Fixture::new();
+    let root = fixture.root.to_path_buf();
+    drop(fixture);
+    assert!(!root.exists());
+}
+#[test]
+fn n12_reuse_preflight_cannot_write_after_artifact_removal() {
+    let fixture = Fixture::new();
+    // Preexisting payloads yield zero growth even without a capture link.
+    fixture.db.put(b"body", "text/markdown").unwrap();
+    fixture
+        .db
+        .put(
+            &serde_json::to_vec(&fixture.envelope).unwrap(),
+            "application/json",
+        )
+        .unwrap();
+    let admitted = fixture
+        .db
+        .check_capture(&fixture.context, &fixture.envelope, b"body")
+        .unwrap();
+    assert_eq!(admitted, 0);
+    fixture.db.collect_garbage().unwrap();
+    assert_eq!(
+        fixture
+            .db
+            .prepare_capture(&fixture.context, &fixture.envelope, b"body", admitted),
+        Err(ReceiptError::Conflict)
+    );
+    assert_eq!(fixture.db.check_artifacts().unwrap().recorded, 1);
+    assert!(
+        fixture
+            .db
+            .artifact(&fixture.envelope.artifact)
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        fixture
+            .db
+            .prepare_capture(&fixture.context, &fixture.envelope, b"body", 824)
+            .is_ok()
+    );
 }

@@ -3,12 +3,14 @@
     clippy::indexing_slicing,
     reason = "authored synthetic inventory positions"
 )]
-use maestro_acquisition::capture::reconcile;
-use maestro_kernel::acquisition::{
-    Handle, InventoryPage, InventorySchema, Item, ItemDisposition, NewItem, Reason, ReceiptError,
-    Stage, StageItem, Status,
+use maestro_acquisition::capture::{
+    CaptureContext, CaptureEnvelope, Captures, Outcome, reconcile as reconcile_verified,
 };
-use maestro_kernel::artifact::Digest;
+use maestro_kernel::acquisition::{
+    Handle, InventoryPage, InventorySchema, Item, ItemDisposition, NewItem, PreparedCapture,
+    Reason, ReceiptError, Stage, StageItem, Status,
+};
+use maestro_kernel::{artifact::Digest, scope::Scope};
 
 use std::slice;
 
@@ -215,4 +217,51 @@ fn n12_eligible_discovery_and_non_capture_discovered_remain_pending() {
     )
     .unwrap();
     assert_eq!(outcome.status, Status::Partial);
+}
+
+/// Pure inventory counting uses a verifier; storage substitutions use real Database tests.
+struct CountingCaptures;
+impl Captures for CountingCaptures {
+    fn prepare_capture(
+        &self,
+        _: &CaptureContext,
+        _: &CaptureEnvelope,
+        _: &[u8],
+        _: u64,
+    ) -> Result<PreparedCapture, ReceiptError> {
+        Err(ReceiptError::Storage)
+    }
+    fn acknowledge_capture(&self, _: &CaptureContext, _: Handle) -> Result<(), ReceiptError> {
+        Err(ReceiptError::Storage)
+    }
+    fn check_capture(
+        &self,
+        _: &CaptureContext,
+        _: &CaptureEnvelope,
+        _: &[u8],
+    ) -> Result<u64, ReceiptError> {
+        Err(ReceiptError::Storage)
+    }
+    fn capture_bytes(&self, _: &CaptureEnvelope) -> Result<u64, ReceiptError> {
+        Err(ReceiptError::Storage)
+    }
+    fn verify_capture(&self, _: &Scope, _: &Item, _: Handle) -> Result<(), ReceiptError> {
+        Ok(())
+    }
+}
+/// This file tests only inventory algebra, not kernel artifact verification.
+fn reconcile(
+    pages: &[InventoryPage],
+    frontier: &[Item],
+    reason: Reason,
+) -> Result<Outcome, ReceiptError> {
+    reconcile_verified(
+        pages,
+        frontier,
+        reason,
+        (
+            &CountingCaptures,
+            &"workspace/default/collection/garden".parse().unwrap(),
+        ),
+    )
 }

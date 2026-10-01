@@ -49,23 +49,22 @@ pub fn prepare(
     {
         return Err(ReceiptError::Invalid);
     }
-    let encoded = serde_json::to_vec(envelope)?;
+    let before = captures.capture_bytes(envelope)?;
+    let new_bytes = captures.check_capture(context, envelope, bytes)?;
     let mut usage = budget.usage;
     usage.staging_bytes = usage
         .staging_bytes
-        .checked_add(bytes.len() as u64)
-        .and_then(|value| value.checked_add(encoded.len() as u64))
+        .checked_add(new_bytes)
         .ok_or(ReceiptError::Invalid)?;
     budget
         .reservation
         .checkpoint(budget.bounds, usage)
         .map_err(|_| ReceiptError::Conflict)?;
-    let prepared = captures.prepare_capture(context, envelope, bytes);
-    // The checkpoint reserved the worst-case write. Release unused/replayed
-    // allocation even on a refusal; immutable retained links survive a hold.
-    let retained = prepared
-        .as_ref()
-        .map_or(0, |capture| capture.retained_bytes);
+    let prepared = captures.prepare_capture(context, envelope, bytes, new_bytes);
+    // Read back even after failure: artifact writes can outlive a rolled-back link.
+    // Unknown readback keeps the whole admitted allocation, never assumes zero.
+    let readback = captures.capture_bytes(envelope);
+    let retained = readback.map_or(new_bytes, |after| after.saturating_sub(before));
     usage.staging_bytes = budget
         .usage
         .staging_bytes
@@ -76,6 +75,7 @@ pub fn prepare(
         .reservation
         .checkpoint(budget.bounds, usage)
         .map_err(|_| ReceiptError::Conflict)?;
+    readback?;
     Ok(prepared?.handle)
 }
 
@@ -84,13 +84,13 @@ pub fn prepare(
 /// # Errors
 /// Invalid inventories, missing evidence, changed frozen inputs or terminal replay refuse.
 pub fn finish_run(
-    receipts: &dyn Receipts,
+    receipts: &(impl Receipts + Captures),
     scope: &Scope,
     receipt: &Receipt,
     pages: &[InventoryPage],
     frontier: &[Item],
 ) -> Result<Outcome, ReceiptError> {
-    let mut outcome = reconcile(pages, frontier, receipt.reason)?;
+    let mut outcome = reconcile(pages, frontier, receipt.reason, (receipts, scope))?;
     // A completed capture stage cannot erase a declared lifecycle failure,
     // hold or owned cancellation elsewhere in the same run.
     match receipt.status {

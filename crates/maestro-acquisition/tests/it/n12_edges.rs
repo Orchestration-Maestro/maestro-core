@@ -55,7 +55,7 @@ fn n12_schema_source_item_status_media_and_redirect_bounds_refuse() {
         assert_eq!(
             fixture
                 .db
-                .prepare_capture(&fixture.context, &fixture.envelope, b"body"),
+                .prepare_capture(&fixture.context, &fixture.envelope, b"body", u64::MAX),
             Err(ReceiptError::Invalid),
             "case {case}"
         );
@@ -170,7 +170,7 @@ fn n12_different_bytes_cannot_replace_prepared_capture() {
     assert_eq!(
         fixture
             .db
-            .prepare_capture(&fixture.context, &fixture.envelope, b"else"),
+            .prepare_capture(&fixture.context, &fixture.envelope, b"else", u64::MAX),
         Err(ReceiptError::Conflict)
     );
     assert!(fixture.db.read("reader", original).unwrap().is_some());
@@ -239,7 +239,11 @@ fn n12_n11_budget_holds_before_write_and_replay_adds_no_usage() {
     );
     assert!(fixture.db.artifact(&Digest::of(b"body")).unwrap().is_none());
     let mut reservation = n11_support::reserve(&resources, Usage::default());
-    let bounds = [n11_support::limits()];
+    let mut exact = n11_support::limits();
+    exact.staging_bytes = (4 + serde_json::to_vec(&fixture.envelope).unwrap().len() as u64)
+        .try_into()
+        .unwrap();
+    let bounds = [exact];
     let mut budget = CaptureBudget {
         reservation: &mut reservation,
         bounds: &bounds,
@@ -270,6 +274,18 @@ fn n12_n11_budget_holds_before_write_and_replay_adds_no_usage() {
         first
     );
     assert_eq!(budget.usage, usage);
+    let other = Fixture::new();
+    assert_eq!(
+        prepare(
+            &other.db,
+            &other.policy,
+            &other.context,
+            (&other.envelope, b"body"),
+            &mut budget
+        ),
+        Err(ReceiptError::Conflict)
+    );
+    assert!(other.db.artifact(&Digest::of(b"body")).unwrap().is_none());
 }
 
 #[test]
@@ -333,4 +349,67 @@ fn n12_monotonic_and_durable_expiry_never_revive_a_capture() {
         );
         assert_eq!(fixture.prepare(), Err(ReceiptError::Conflict));
     }
+}
+
+#[test]
+fn n12_failed_link_keeps_written_bytes_charged() {
+    let mut fixture = Fixture::new();
+    fixture.envelope.inputs = Handle::new();
+    let (_, resources) = n11_support::resources();
+    let mut reservation = n11_support::reserve(&resources, Usage::default());
+    let bounds = [n11_support::limits()];
+    let mut budget = CaptureBudget {
+        reservation: &mut reservation,
+        bounds: &bounds,
+        usage: Usage::default(),
+    };
+    let result = prepare(
+        &fixture.db,
+        &fixture.policy,
+        &fixture.context,
+        (&fixture.envelope, b"body"),
+        &mut budget,
+    );
+    assert!(result.is_err());
+    let body = fixture.db.artifact(&Digest::of(b"body")).unwrap().unwrap();
+    let encoded = serde_json::to_vec(&fixture.envelope).unwrap();
+    let envelope = fixture.db.artifact(&Digest::of(&encoded)).unwrap().unwrap();
+    assert_eq!(body.bytes + envelope.bytes, 824);
+    assert_eq!(body.pins, 0);
+    assert_eq!(envelope.pins, 0);
+    assert_eq!(fixture.db.get(&body.digest).unwrap(), b"body");
+    assert_eq!(
+        budget.usage.staging_bytes,
+        body.bytes + envelope.bytes,
+        "durable artifacts left by failed linkage must remain charged"
+    );
+    assert_eq!(
+        resources.usage().unwrap().staging_bytes,
+        budget.usage.staging_bytes
+    );
+}
+
+#[test]
+fn n12_existing_artifact_media_is_reusable() {
+    let fixture = Fixture::new();
+    let digest = fixture.db.put(b"body", "text/markdown").unwrap();
+    fixture.db.pin(&digest).unwrap();
+    let encoded = serde_json::to_vec(&fixture.envelope).unwrap();
+    let envelope = fixture.db.put(&encoded, "application/json").unwrap();
+    fixture.db.pin(&envelope).unwrap();
+    let capture = fixture.prepare();
+    assert!(
+        capture.is_ok(),
+        "identical authorized bytes already in the shared store must be capturable; got {capture:?}"
+    );
+    assert_eq!(fixture.db.get(&digest).unwrap(), b"body");
+    assert_eq!(fixture.db.get(&envelope).unwrap(), encoded);
+    assert_eq!(
+        fixture.db.artifact(&envelope).unwrap().unwrap().media,
+        "application/json"
+    );
+    assert_eq!(
+        fixture.db.artifact(&digest).unwrap().unwrap().media,
+        "text/markdown"
+    );
 }
