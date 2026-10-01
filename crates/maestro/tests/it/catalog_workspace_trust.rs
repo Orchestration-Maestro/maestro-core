@@ -57,7 +57,9 @@ fn catalog_workspace_trust_confirmation_is_exact_and_required() {
 #[test]
 fn catalog_workspace_trust_changes_preserve_invalid_edited_preferences() {
     let home = Home::bare();
-    let root = root(&home);
+    let root = home.root().join("project\\edge");
+    fs::create_dir_all(&root).unwrap();
+    let root = root.canonicalize().unwrap();
     fs::create_dir(root.join(".maestro")).unwrap();
     let config = root.join(".maestro/config.toml");
     fs::write(&config, b"edited invalid preferences [trust] yes").unwrap();
@@ -65,7 +67,15 @@ fn catalog_workspace_trust_changes_preserve_invalid_edited_preferences() {
     assert_eq!(add(&home, &root).code, Some(0));
     let listed = home.run_in(&root, &["--json", "trust", "list"]);
     assert_eq!(listed.code, Some(0), "{listed:?}");
-    assert!(listed.stdout.contains(root.to_str().unwrap()), "{listed:?}");
+    let records: serde_json::Value = serde_json::from_str(&listed.stdout).unwrap();
+    assert!(
+        records
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|record| { record["change"]["path"].as_str() == root.to_str() }),
+        "{listed:?}"
+    );
     let removed = home.run_in(&root, &["trust", "remove", root.to_str().unwrap()]);
     assert_eq!(removed.code, Some(0), "{removed:?}");
     assert_eq!(fs::read(config).unwrap(), before);
@@ -110,7 +120,15 @@ fn catalog_workspace_trust_text_json_yes_and_environment_never_approve() {
     .unwrap();
     let listed = home.run(&["--json", "trust", "list"]);
     assert_eq!(listed.code, Some(0), "{listed:?}");
-    assert!(!listed.stdout.contains(path), "{listed:?}");
+    let records: serde_json::Value = serde_json::from_str(&listed.stdout).unwrap();
+    assert!(
+        records
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|record| { record["change"]["path"].as_str() != Some(path) }),
+        "{listed:?}"
+    );
 }
 
 #[test]
@@ -161,8 +179,14 @@ fn catalog_workspace_trust_preferences_only_requires_separate_confirmation() {
     assert_eq!(fs::read_dir(root.join(".maestro")).unwrap().count(), 1);
     assert!(root.join(".maestro/config.toml").exists());
     let listed = home.run(&["--json", "trust", "list"]);
+    assert_eq!(listed.code, Some(0), "{listed:?}");
+    let records: serde_json::Value = serde_json::from_str(&listed.stdout).unwrap();
     assert!(
-        !listed.stdout.contains(root.to_str().unwrap()),
+        records
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|record| { record["change"]["path"].as_str() != root.to_str() }),
         "{listed:?}"
     );
     assert_eq!(init(&home, &root, &[]).code, Some(2));

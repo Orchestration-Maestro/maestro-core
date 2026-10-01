@@ -70,7 +70,7 @@ pub(super) enum Noun {
     Trust(TrustCommand),
     /// Preview a project bootstrap; only --apply writes files.
     /// Use --set language=en, --set tone=brief, --set updates=off or a
-    /// documented `config list` key to draft preferences (preview only until C05j).
+    /// documented `config list` key to draft preferences; trusted --apply persists them.
     Init {
         /// Reviewed authoring catalog directory.
         #[arg(long, value_name = "DIR")]
@@ -439,7 +439,22 @@ pub(super) enum JobCommand {
 #[cfg(test)]
 mod tests {
     use super::{Arguments, KnowledgeCommand, Noun};
-    use clap::Parser as _;
+    use clap::{CommandFactory as _, Parser as _};
+
+    #[test]
+    fn catalog_init_help_describes_persisted_preferences() {
+        let mut command = Arguments::command();
+        let help = command
+            .find_subcommand_mut("init")
+            .unwrap()
+            .render_long_help()
+            .to_string();
+        assert!(
+            help.contains("draft preferences; trusted --apply persists them"),
+            "{help}"
+        );
+        assert!(!help.contains("preview only until C05j"), "{help}");
+    }
 
     #[test]
     fn knowledge_ask_parses_the_required_question_and_optional_bounds() {

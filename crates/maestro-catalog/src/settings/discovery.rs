@@ -16,7 +16,7 @@ type PreferenceBytes = io::Result<Vec<u8>>;
 
 pub use crate::policy::workspace::WorkspaceTrust;
 
-/// Until C05h supplies journal records, external workspaces are never trusted.
+/// Explicit deny-all authority for sessions without a journal-backed trust adapter.
 #[derive(Debug)]
 pub struct NoWorkspaceTrust;
 impl WorkspaceTrust for NoWorkspaceTrust {

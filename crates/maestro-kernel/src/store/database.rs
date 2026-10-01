@@ -68,12 +68,9 @@ impl Database {
         Self::open(&data.join(FILE), &data.join("artifacts"))
     }
 
-    /// Open an existing user-local database for reads only, without creating or migrating it.
-    /// Write methods on this handle fail through SQLite's read-only connection.
-    ///
-    /// # Errors
-    /// Returns an I/O or SQLite error for missing, unreadable or invalid database files.
-    pub fn open_read_only_in(data: &Path) -> Result<Self, Error> {
+    /// Open an existing database read-only; never create, migrate or write authority.
+    /// SQLite may create only this database's WAL sidecars.
+    pub(crate) fn open_read_only(data: &Path) -> Result<Self, Error> {
         let database = data.join(FILE);
         let path = path::absolute(&database).map_err(|source| io_error(&database, source))?;
         let reader = configured(Connection::open_with_flags(
@@ -170,7 +167,8 @@ impl Database {
     }
 
     /// A connection of its own that only reads, and sees the last commit,
-    /// never a write in progress.
+    /// never a write in progress. It preserves authority and database bytes, but
+    /// SQLite may create this database's `-wal` and `-shm` sidecars.
     ///
     /// # Errors
     ///

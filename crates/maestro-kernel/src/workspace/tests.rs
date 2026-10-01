@@ -1,5 +1,7 @@
 //! Golden payload bytes and journal-only authority/revocation contracts.
-use super::{ANSWERED, Answer, Confirmation, WorkspaceAnswer, records::STREAM};
+use super::{
+    ANSWERED, Answer, Confirmation, WorkspaceAnswer, WorkspaceAuthority as _, records::STREAM,
+};
 use crate::{
     journal::{Filter, NewEvent},
     scope::{Config, LOCAL, WORKSPACE},
@@ -69,6 +71,10 @@ fn workspace_journal_replays_revocation_and_never_exposes_authority() {
             confirmation: Confirmation::Terminal,
         }))
         .unwrap();
+    assert_eq!(
+        database.read_workspace_answers().unwrap(),
+        vec![approved.clone()]
+    );
     assert_eq!(database.trusted_workspaces().unwrap(), vec![approved]);
     database
         .record_workspace_answer(&change(Answer::Removed))
@@ -129,14 +135,91 @@ fn workspace_read_only_open_creates_nothing_and_cannot_record() {
     drop(Database::open_in(&scratch).unwrap());
     let database = Database::open_read_only_in(&scratch).unwrap();
     assert!(database.trusted_workspaces().unwrap().is_empty());
+    drop(database);
+    fs::remove_dir_all(scratch).unwrap();
+}
+
+#[test]
+fn workspace_read_only_view_cannot_create_artifacts() {
+    let scratch = scratch_directory().unwrap();
+    drop(Database::open_in(&scratch).unwrap());
+    let database = Database::open_read_only_in(&scratch).unwrap();
+    assert!(!scratch.join("artifacts").exists());
+    assert!(database.workspace_answers().unwrap().is_empty());
+    assert!(database.trusted_workspaces().unwrap().is_empty());
     assert!(
-        database
-            .record_workspace_answer(&WorkspaceAnswer {
-                path: scratch.canonicalize().unwrap(),
-                answer: Answer::Declined,
-            })
-            .is_err()
+        !scratch.join("artifacts").exists(),
+        "read-only view created artifacts"
     );
     drop(database);
+    fs::remove_dir_all(scratch).unwrap();
+}
+
+#[test]
+fn workspace_read_only_authority_preserves_database_and_journal_except_sidecars() {
+    let scratch = scratch_directory().unwrap();
+    let writer = Database::open_in(&scratch).unwrap();
+    let approved = writer
+        .record_workspace_answer(&WorkspaceAnswer {
+            path: scratch.canonicalize().unwrap().join("project"),
+            answer: Answer::Approved {
+                confirmation: Confirmation::ConfirmPath,
+            },
+        })
+        .unwrap();
+    drop(writer);
+    let file = scratch.join("kernel.sqlite3");
+    let before = fs::read(&file).unwrap();
+    let database = Database::open_read_only_in(&scratch).unwrap();
+    assert_eq!(
+        database.workspace_answers().unwrap(),
+        vec![approved.clone()]
+    );
+    assert_eq!(
+        database.trusted_workspaces().unwrap(),
+        vec![approved.clone()]
+    );
+    drop(database);
+    assert_eq!(fs::read(&file).unwrap(), before);
+    for entry in fs::read_dir(&scratch).unwrap() {
+        let name = entry.unwrap().file_name();
+        assert!(
+            ["kernel.sqlite3", "kernel.sqlite3-wal", "kernel.sqlite3-shm"]
+                .iter()
+                .any(|allowed| name == *allowed),
+            "unexpected file: {name:?}"
+        );
+    }
+    let database = Database::open_read_only_in(&scratch).unwrap();
+    assert_eq!(database.read_workspace_answers().unwrap(), vec![approved]);
+    drop(database);
+    fs::remove_dir_all(scratch).unwrap();
+}
+
+#[test]
+fn workspace_read_only_authority_observes_live_wal_revocation() {
+    let scratch = scratch_directory().unwrap();
+    let writer = Database::open_in(&scratch).unwrap();
+    let path = scratch.canonicalize().unwrap().join("project");
+    let approved = writer
+        .record_workspace_answer(&WorkspaceAnswer {
+            path: path.clone(),
+            answer: Answer::Approved {
+                confirmation: Confirmation::ConfirmPath,
+            },
+        })
+        .unwrap();
+    let reader = Database::open_read_only_in(&scratch).unwrap();
+    assert_eq!(reader.trusted_workspaces().unwrap(), vec![approved]);
+    writer
+        .record_workspace_answer(&WorkspaceAnswer {
+            path,
+            answer: Answer::Removed,
+        })
+        .unwrap();
+    assert!(reader.trusted_workspaces().unwrap().is_empty());
+    assert_eq!(reader.workspace_answers().unwrap().len(), 2);
+    drop(reader);
+    drop(writer);
     fs::remove_dir_all(scratch).unwrap();
 }

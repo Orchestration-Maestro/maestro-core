@@ -7,7 +7,10 @@ use crate::{
 use rusqlite::{Error as SqliteError, params, types::Type};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
-use std::{collections::BTreeMap, path::PathBuf};
+use std::{
+    collections::BTreeMap,
+    path::{Path, PathBuf},
+};
 use ulid::Ulid;
 
 /// Private event kind; never delivered to scoped journal consumers.
@@ -70,7 +73,61 @@ pub struct WorkspaceRecord {
     pub change: WorkspaceAnswer,
 }
 
+/// Read-only user-local workspace authority, with no artifact or journal write methods.
+/// Its type prevents callers from invoking `put` or `record`.
+///
+/// ```compile_fail
+/// use maestro_kernel::workspace::ReadOnlyDatabase;
+/// fn write_artifact(authority: &ReadOnlyDatabase) {
+///     authority.put(b"refused", "text/plain").unwrap();
+/// }
+/// ```
+///
+/// ```compile_fail
+/// use maestro_kernel::workspace::{ReadOnlyDatabase, WorkspaceAnswer};
+/// fn write_answer(authority: &ReadOnlyDatabase, answer: &WorkspaceAnswer) {
+///     authority.record_workspace_answer(answer).unwrap();
+/// }
+/// ```
+#[derive(Debug)]
+pub struct ReadOnlyDatabase {
+    /// Read-only SQLite handle, never exposed to callers.
+    database: Database,
+}
+
+impl ReadOnlyDatabase {
+    /// Read private workspace answers without changing authority or artifacts.
+    ///
+    /// # Errors
+    /// Refuses malformed payloads and database failures.
+    pub fn workspace_answers(&self) -> Result<Vec<WorkspaceRecord>, journal::Error> {
+        self.database.workspace_answers()
+    }
+
+    /// Replay approved roots from the live journal; preferences grant no trust.
+    ///
+    /// # Errors
+    /// Returns the private journal read failure.
+    pub fn trusted_workspaces(&self) -> Result<Vec<WorkspaceRecord>, journal::Error> {
+        self.database.trusted_workspaces()
+    }
+}
+
 impl Database {
+    /// Open existing user-local authority for reads only, without creating a database,
+    /// schema, migration or authority write. A missing database creates nothing.
+    /// Reads preserve database bytes and journal contents; SQLite may create only
+    /// this database's `-wal` and `-shm` sidecars to observe live WAL commits.
+    /// The returned view exposes no artifact or journal write methods.
+    ///
+    /// # Errors
+    /// Returns an I/O or SQLite error for missing, unreadable or invalid database files.
+    pub fn open_read_only_in(data: &Path) -> Result<ReadOnlyDatabase, store::Error> {
+        Ok(ReadOnlyDatabase {
+            database: Self::open_read_only(data)?,
+        })
+    }
+
     /// Record a user answer from the trusted CLI adapter, not discovered text.
     ///
     /// # Errors
@@ -159,5 +216,40 @@ impl Database {
             }
         }
         Ok(roots.into_values().collect())
+    }
+}
+
+/// Read-only user-local workspace authority shared by writable and read-only handles.
+pub trait WorkspaceAuthority {
+    /// Read private answers without knowledge grants or preference parsing.
+    ///
+    /// # Errors
+    /// Refuses malformed payloads and database failures.
+    fn read_workspace_answers(&self) -> Result<Vec<WorkspaceRecord>, journal::Error>;
+
+    /// Replay approved roots; preferences receipts never grant authority.
+    ///
+    /// # Errors
+    /// Returns the private journal read failure.
+    fn read_trusted_workspaces(&self) -> Result<Vec<WorkspaceRecord>, journal::Error>;
+}
+
+impl WorkspaceAuthority for Database {
+    fn read_workspace_answers(&self) -> Result<Vec<WorkspaceRecord>, journal::Error> {
+        self.workspace_answers()
+    }
+
+    fn read_trusted_workspaces(&self) -> Result<Vec<WorkspaceRecord>, journal::Error> {
+        self.trusted_workspaces()
+    }
+}
+
+impl WorkspaceAuthority for ReadOnlyDatabase {
+    fn read_workspace_answers(&self) -> Result<Vec<WorkspaceRecord>, journal::Error> {
+        self.workspace_answers()
+    }
+
+    fn read_trusted_workspaces(&self) -> Result<Vec<WorkspaceRecord>, journal::Error> {
+        self.trusted_workspaces()
     }
 }

@@ -3,4 +3,7 @@ mod records;
 #[cfg(test)]
 mod tests;
 
-pub use records::{ANSWERED, Answer, Confirmation, WorkspaceAnswer, WorkspaceRecord};
+pub use records::{
+    ANSWERED, Answer, Confirmation, ReadOnlyDatabase, WorkspaceAnswer, WorkspaceAuthority,
+    WorkspaceRecord,
+};

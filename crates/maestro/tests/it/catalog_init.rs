@@ -181,6 +181,7 @@ fn catalog_init_never_claims_applied_when_the_writer_refuses() {
     let home = Home::bare();
     let root = home.root().join("readonly");
     fs::create_dir(&root).unwrap();
+    approve(&home, &root);
     fs::set_permissions(&root, fs::Permissions::from_mode(0o500)).unwrap();
     let catalog = fixtures();
     let result = home.run_in(
@@ -196,6 +197,8 @@ fn catalog_init_never_claims_applied_when_the_writer_refuses() {
     );
     fs::set_permissions(&root, fs::Permissions::from_mode(0o700)).unwrap();
     assert_eq!(result.code, Some(2), "{result:?}");
+    assert!(result.stderr.contains("Permission denied"), "{result:?}");
+    assert!(result.stdout.contains("\"applied\": false"), "{result:?}");
     assert!(!result.stdout.contains("\"applied\": true"), "{result:?}");
     assert!(!root.join(".maestro/project.toml").exists());
 }

@@ -51,12 +51,12 @@ fn plain_windows_path(path: &str) -> Option<String> {
         if ["CON", "PRN", "AUX", "NUL"].contains(&stem.as_str()) {
             return None;
         }
-        if stem.len() == 4
+        if stem.chars().count() == 4
             && (stem.starts_with("COM") || stem.starts_with("LPT"))
             && stem
                 .chars()
                 .last()
-                .is_some_and(|digit| digit.is_ascii_digit() && digit != '0')
+                .is_some_and(|digit| "123456789¹²³".contains(digit))
         {
             return None;
         }
@@ -206,6 +206,18 @@ mod tests {
             (r"\\?\C:\NUL", None),
             (r"\\?\C:\NULL", Some(r"C:\NULL")),
             (r"\\?\C:\COM1.txt", None),
+            (r"\\?\C:\COM¹", None),
+            (r"\\?\C:\COM¹.txt", None),
+            (r"\\?\C:\COM²", None),
+            (r"\\?\C:\COM².txt", None),
+            (r"\\?\C:\COM³", None),
+            (r"\\?\C:\COM³.txt", None),
+            (r"\\?\C:\LPT¹", None),
+            (r"\\?\C:\LPT¹.txt", None),
+            (r"\\?\C:\LPT²", None),
+            (r"\\?\C:\LPT².txt", None),
+            (r"\\?\C:\LPT³", None),
+            (r"\\?\C:\LPT³.txt", None),
             (r"\\?\C:\COM0.txt", Some(r"C:\COM0.txt")),
             (r"\\?\C:\LPT9", None),
             (r"\\?\C:\LPT0", Some(r"C:\LPT0")),

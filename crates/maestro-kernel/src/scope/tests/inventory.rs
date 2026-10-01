@@ -32,11 +32,13 @@ const UNSCOPED: [&str; 8] = [
 /// them: `ack` reads inside its write, `collect_garbage` through `garbage`,
 /// `get` from the artifact store, and the other three are not the
 /// database's.
-const BY_HAND: [&str; 7] = [
+const BY_HAND: [&str; 9] = [
     "Database::ack",
     "Database::collect_garbage",
     "Database::get",
     "Database::trusted_workspaces",
+    "ReadOnlyDatabase::workspace_answers",
+    "ReadOnlyDatabase::trusted_workspaces",
     "artifact::Store::get",
     "ModelCard::load",
     "store::pending_migrations",

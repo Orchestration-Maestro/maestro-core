@@ -1,6 +1,6 @@
 //! Replaceable journal authority adapter inside mandatory root refusals.
 use maestro_filesystem::Directory;
-use maestro_kernel::store::Database;
+use maestro_kernel::workspace::WorkspaceAuthority;
 use std::{
     fmt, io,
     path::{Path, PathBuf},
@@ -94,16 +94,15 @@ fn canonical_location(path: &Path) -> io::Result<PathBuf> {
 }
 
 /// Read the existing kernel journal afresh, so revocation affects subsequent decisions.
-#[derive(Debug)]
 pub struct JournalTrust<'a> {
     /// User-local kernel authority; no preference file is consulted.
-    database: &'a Database,
+    database: &'a dyn WorkspaceAuthority,
 }
 
 impl<'a> JournalTrust<'a> {
     /// Bind the replaceable default adapter to its user-local database.
     #[must_use]
-    pub const fn new(database: &'a Database) -> Self {
+    pub const fn new(database: &'a dyn WorkspaceAuthority) -> Self {
         Self { database }
     }
 }
@@ -111,7 +110,7 @@ impl<'a> JournalTrust<'a> {
 impl WorkspaceTrust for JournalTrust<'_> {
     fn containing_root(&self, canonical_start: &Path) -> Option<PathBuf> {
         self.database
-            .trusted_workspaces()
+            .read_trusted_workspaces()
             .ok()?
             .into_iter()
             .map(|record| record.change.path)
@@ -154,6 +153,14 @@ impl fmt::Debug for CheckedTrust<'_> {
         formatter
             .debug_struct("CheckedTrust")
             .field("boundaries", &self.boundaries)
+            .finish_non_exhaustive()
+    }
+}
+
+impl fmt::Debug for JournalTrust<'_> {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("JournalTrust")
             .finish_non_exhaustive()
     }
 }
