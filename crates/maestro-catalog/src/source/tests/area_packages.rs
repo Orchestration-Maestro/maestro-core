@@ -10,7 +10,7 @@ use crate::{
 };
 
 /// A real declaration with the exact kernel fixture identity.
-const CARD: &str = include_str!(concat!(
+pub(super) const CARD: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../../tests/fixtures/catalog/model-cards/valid.toml"
 ));
@@ -113,7 +113,7 @@ fn unsupported_nonempty_kinds_and_configs_refuse() {
 }
 
 /// A checked root still uses the common envelope until C32's cutover.
-fn package_source(kind: &str, name: &str) -> String {
+pub(super) fn package_source(kind: &str, name: &str) -> String {
     format!(
         "kind = \"{kind}\"\nname = \"{name}\"\nversion = \"1.2.3\"\n\
          owners = [\"@synthetic/knowledge\"]\ndescription = \"Synthetic area\"\n\

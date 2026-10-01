@@ -533,6 +533,7 @@ in place.
 │   │   │   │   ├── tests/                                                   # The source checker's tests: the valid synthetic catalog and each of its
 │   │   │   │   │   ├── accepted.rs                                          # The valid catalog passes, and its typed resources hold exactly what the
 │   │   │   │   │   ├── area_packages.rs                                     # C31 scoped builtin placement and kernel-role neighbours
+│   │   │   │   │   ├── area_regressions.rs                                  # Regression neighbours for area-scoped descriptors and shared package rules
 │   │   │   │   │   ├── area_support.rs                                      # Data-only v4 fixtures; builtin migration belongs to C31/C32
 │   │   │   │   │   ├── bounds.rs                                            # D2's source limits at small injected values: each exact boundary passes
 │   │   │   │   │   ├── coverage.rs                                          # Refusals each guard owns alone: tool names and lists, agent sections

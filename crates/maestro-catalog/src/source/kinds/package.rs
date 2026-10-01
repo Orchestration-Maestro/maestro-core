@@ -82,6 +82,14 @@ impl KindRules for PackageRules {
                 "must be an exact SemVer version".to_owned(),
             ));
         }
+        if resource.metadata.version.as_deref().is_some_and(|version| {
+            Some(version) != resource.fields.get("version").and_then(Value::text)
+        }) {
+            problems.push((
+                "metadata.version".to_owned(),
+                "must equal the top-level version".to_owned(),
+            ));
+        }
         if resource
             .fields
             .get("owners")

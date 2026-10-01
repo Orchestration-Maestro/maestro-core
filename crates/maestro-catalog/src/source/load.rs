@@ -221,6 +221,7 @@ fn name_problem(
     if declared != unit.name {
         let what = match layout {
             Layout::Folder { .. } => "its directory",
+            Layout::Area { .. } => "the area name",
             _ => "the file stem",
         };
         problems.push((

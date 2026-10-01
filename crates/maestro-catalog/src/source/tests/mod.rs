@@ -4,6 +4,7 @@
 
 mod accepted;
 mod area_packages;
+mod area_regressions;
 mod area_support;
 mod bounds;
 mod coverage;
