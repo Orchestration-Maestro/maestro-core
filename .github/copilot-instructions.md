@@ -986,6 +986,7 @@ in place.
 │   │   │   │   │   ├── tests/                                               # Contracts of the public graph projection port and backend-neutral writer
 │   │   │   │   │   │   ├── writer/                                          # Writer
 │   │   │   │   │   │   │   └── extra.rs                                     # Additional validation cases for the generic projection writer
+│   │   │   │   │   │   ├── content_fields.rs                                # Each full-record field must affect durable projection verification
 │   │   │   │   │   │   ├── contract.rs                                      # Backend-generic projection writer contract; adapters call this unchanged
 │   │   │   │   │   │   ├── mod.rs                                           # Contracts of the public graph projection port and backend-neutral writer
 │   │   │   │   │   │   ├── port.rs                                          # Rust source: port

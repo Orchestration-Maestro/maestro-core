@@ -5,10 +5,13 @@
 )]
 
 use super::{EdgeFamily, EntityFact, ProjectionEdge, ProjectionScope};
-use maestro_kernel::{artifact::Digest, facts::Object};
+use maestro_kernel::{
+    artifact::Digest,
+    facts::{Object, ReviewState, Validity},
+};
 
 /// Version domain separating canonical projection content from other hashes.
-const CONTENT_VERSION: &[u8] = b"maestro-projection-content/1";
+const CONTENT_VERSION: &[u8] = b"maestro-projection-content/2";
 /// Version domain included in every stable receipt-name identity.
 const NAME_VERSION: &str = "maestro-projection-name/1";
 
@@ -35,22 +38,7 @@ pub(super) fn digest(edges: &[ProjectionEdge], facts: &[EntityFact]) -> Result<D
         })
         .collect::<Result<Vec<_>, _>>()?;
     for fact in facts {
-        let (kind, lexeme) = match &fact.claim.claim.object {
-            Object::Literal(literal) => (literal.kind.as_str(), literal.lexeme.as_str()),
-            Object::Entity(_) => return Err("entity object in literal fact rows".to_owned()),
-        };
-        rows.push(encode_row(
-            b'F',
-            &[
-                fact.claim.id.as_str(),
-                fact.subject.as_str(),
-                fact.claim.claim.predicate.as_str(),
-                kind,
-                lexeme,
-                &fact.scope.collection_id,
-                &fact.scope.generation_id.to_string(),
-            ],
-        )?);
+        rows.push(encode_fact(fact)?);
     }
     rows.sort();
 
@@ -64,6 +52,92 @@ pub(super) fn digest(edges: &[ProjectionEdge], facts: &[EntityFact]) -> Result<D
         bytes.extend(row);
     }
     Ok(Digest::of(&bytes))
+}
+
+/// Encode every field of a literal fact, including its complete kernel claim record.
+pub(super) fn encode_fact(fact: &EntityFact) -> Result<Vec<u8>, String> {
+    let claim = &fact.claim.claim;
+    let (kind, lexeme) = match &claim.object {
+        Object::Literal(literal) => (literal.kind.as_str(), literal.lexeme.as_str()),
+        Object::Entity(_) => return Err("entity object in literal fact rows".to_owned()),
+    };
+    let mut row = encode_row(
+        b'F',
+        &[
+            fact.claim.id.as_str(),
+            fact.subject.as_str(),
+            claim.predicate.as_str(),
+            kind,
+            lexeme,
+            &fact.scope.collection_id,
+            &fact.scope.generation_id.to_string(),
+            &fact.claim.collection_id,
+            claim.subject.kind.as_str(),
+            &claim.subject.name,
+        ],
+    )?;
+    row.extend(encode_count(claim.conditions.len())?);
+    for (key, value) in &claim.conditions {
+        row.extend(encode_fields(&[key, value])?);
+    }
+    row.extend(encode_validity(&claim.version)?);
+    row.extend(encode_validity(&claim.world)?);
+    row.extend(encode_fields(&[
+        &claim.provenance.extractor,
+        claim.provenance.profile.as_str(),
+    ])?);
+    row.extend(encode_count(claim.supports.len())?);
+    for support in &claim.supports {
+        row.extend(encode_fields(&[
+            &support.revision_id,
+            &support.block_id,
+            &support.span.start.to_string(),
+            &support.span.end.to_string(),
+            support.quote_digest.as_str(),
+        ])?);
+    }
+    row.extend(encode_fields(&[
+        match fact.claim.review {
+            ReviewState::Unreviewed => "unreviewed",
+            ReviewState::Accepted => "accepted",
+            ReviewState::Rejected => "rejected",
+            ReviewState::Flagged => "flagged",
+        },
+        &fact.claim.recorded_at,
+    ])?);
+    Ok(row)
+}
+
+/// Encode an explicit unknown/bounded tag, then independently optional bounds.
+fn encode_validity(validity: &Validity) -> Result<Vec<u8>, String> {
+    match validity {
+        Validity::Unknown => Ok(vec![0]),
+        Validity::Bounded { start, end } => {
+            let mut bytes = vec![1];
+            bytes.extend(encode_bound(start.as_deref())?);
+            bytes.extend(encode_bound(end.as_deref())?);
+            Ok(bytes)
+        }
+    }
+}
+
+/// Preserve absent versus present-empty qualifier bounds without a sentinel string.
+fn encode_bound(bound: Option<&str>) -> Result<Vec<u8>, String> {
+    match bound {
+        None => Ok(vec![0]),
+        Some(value) => {
+            let mut bytes = vec![1];
+            bytes.extend(encode_fields(&[value])?);
+            Ok(bytes)
+        }
+    }
+}
+
+/// Encode the checked size of a variable-length collection as u32 big-endian.
+fn encode_count(count: usize) -> Result<[u8; 4], String> {
+    u32::try_from(count)
+        .map(u32::to_be_bytes)
+        .map_err(|_| "projection collection exceeds u32 entries".to_owned())
 }
 
 /// Return the receipt basename for one collection generation and claim set.
@@ -114,7 +188,7 @@ fn encode_fields(fields: &[&str]) -> Result<Vec<u8>, String> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(super) mod tests {
     use super::*;
     use crate::graph::projection::{EdgeFamily, EntityFact, ProjectionEdge};
     use maestro_kernel::facts::{
@@ -137,7 +211,7 @@ mod tests {
         }
     }
 
-    fn fact() -> EntityFact {
+    pub(in crate::graph::projection) fn fact() -> EntityFact {
         let scope = ProjectionScope {
             collection_id: "c".to_owned(),
             generation_id: 1,
@@ -219,11 +293,11 @@ mod tests {
         let only_fact = fact();
         assert_eq!(
             digest(slice::from_ref(&first), &[]).unwrap().as_str(),
-            "8dff3db5d2ca38349bd4c4c3432a6af9cf88e3d9091810b890db0f6d2215963e"
+            "e2f151d0d7f1cdeaa6e405e21e080ce13c5cf7a4621ee6ff38e5b32c28203121"
         );
         assert_eq!(
             digest(&[], slice::from_ref(&only_fact)).unwrap().as_str(),
-            "08ad8aaed1176ad3a7cb464d7a802dfac5a925d8a7255ed47a0a4fd32046dc5d"
+            "ade1c37f3c52bdccb5fe3d585b56a9c53a0162088e38c88aed338f61894d9ea3"
         );
         assert_eq!(
             digest(
@@ -232,7 +306,7 @@ mod tests {
             )
             .unwrap()
             .as_str(),
-            "fafff101b76184cc449a7236da4afafa16a11361c30772c738853021c9591dbb"
+            "eeabd74ffef0facf49293251cc46a02d7e8111a7d6e9a9742b2a351d04acd30d"
         );
         assert_eq!(
             digest(&[first.clone(), second.clone()], &[]).unwrap(),

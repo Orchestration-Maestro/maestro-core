@@ -2,9 +2,17 @@
 //!
 //! Content rows use `E` (family, relation, subject ID, object ID, claim ID, collection,
 //! generation) and `F` (claim ID, subject, predicate, literal type, lexeme,
-//! collection, generation). Each field is UTF-8 preceded by a u32 big-endian
-//! byte length. Rows sort by encoded bytes; the SHA-256 input is the
-//! `maestro-projection-content/1` tag, u64 big-endian row count, then rows.
+//! collection, generation, claim collection, subject kind, subject name), followed
+//! by the complete claim record: conditions, version/world validity, provenance,
+//! ordered supports, review state and recorded time. Every string is UTF-8 with a
+//! u32 big-endian byte length; numbers in fields are canonical decimal strings.
+//! Conditions have a u32 big-endian count then sorted key/value fields. Validity
+//! has a byte tag (0 unknown, 1 bounded); bounded values carry start/end options
+//! (0 absent, 1 present followed by a string). Provenance is extractor/profile.
+//! Supports have a u32 big-endian count then revision/block/start/end/quote-digest
+//! fields in recorded order. Review is unreviewed/accepted/rejected/flagged.
+//! Rows sort by encoded bytes; the SHA-256 input is the
+//! `maestro-projection-content/2` tag, u64 big-endian row count, then rows.
 //! Receipt names hash length-delimited fields: the `maestro-projection-name/1` tag,
 //! collection, decimal generation, and claim-set ID; the
 //! basename is `g` plus 64 lowercase hex digits plus `.lbdb`. Fixed-width
