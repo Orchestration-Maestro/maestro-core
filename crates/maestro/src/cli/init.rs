@@ -12,7 +12,12 @@ use maestro_catalog::{
     settings::{PreferencesDraft, WorkspacePreferences, draft_preferences},
 };
 use serde::Serialize;
-use std::{env, path::Path, process::ExitCode};
+use std::{
+    env,
+    io::{self, BufRead, IsTerminal as _, Write},
+    path::Path,
+    process::ExitCode,
+};
 
 /// Machine-readable preview, or preview plus the requested owned-file apply.
 #[derive(Serialize)]
@@ -148,6 +153,29 @@ fn preferences_only(
     effects: &ApplyChoices<'_>,
     preferences: PreferenceChoices<'_>,
 ) -> Result<ExitCode, Failure> {
+    let stdin = io::stdin();
+    let stderr = io::stderr();
+    preferences_only_with_io(
+        output,
+        root,
+        effects,
+        preferences,
+        (
+            stdin.is_terminal() && stderr.is_terminal(),
+            &mut stdin.lock(),
+            &mut stderr.lock(),
+        ),
+    )
+}
+
+/// Preferences-only execution shares rendered prompt hand-off with injected IO.
+fn preferences_only_with_io(
+    output: Output,
+    root: &Path,
+    effects: &ApplyChoices<'_>,
+    preferences: PreferenceChoices<'_>,
+    (terminal, input, error): (bool, &mut dyn BufRead, &mut dyn Write),
+) -> Result<ExitCode, Failure> {
     trust::boundaries()?
         .check_root(root)
         .map_err(Failure::refused)?;
@@ -155,7 +183,13 @@ fn preferences_only(
         MessageKey::InitApprovePrompt,
         &[("path", &trust_path::visible_path(root))],
     )?;
-    let confirmation = match trust::approve(root, effects.confirm_path, &prompt) {
+    let confirmation = match trust::approve_with_io(
+        root,
+        effects.confirm_path,
+        &prompt,
+        terminal,
+        (input, error),
+    ) {
         Ok(confirmation) => confirmation,
         Err(failure) => {
             let instruction = if let Some(path) = trust_path::quoted_canonical(root) {
@@ -192,4 +226,52 @@ fn preferences_only(
         &output.wording(MessageKey::InitPreferencesWritten, &[])?,
     )?;
     Ok(ExitCode::SUCCESS)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ApplyChoices, PreferenceChoices, preferences_only_with_io};
+    use crate::cli::{output::Output, trust_path};
+    use maestro_catalog::settings::FilePreferences;
+    use maestro_test_scratch::scratch_directory;
+    use std::fs;
+
+    #[test]
+    fn catalog_presentation_init_terminal_handoff_is_localized_and_blank_declines() {
+        let root = scratch_directory().unwrap().canonicalize().unwrap();
+        let source = FilePreferences::new(&root, &root);
+        let visible = trust_path::visible_path(&root);
+        for (language, expected, declined) in [
+            (
+                "fr",
+                format!("Approuver {visible} ? [y/N] "),
+                "écriture des préférences seules refusée ; aucun fichier écrit",
+            ),
+            (
+                "es",
+                format!("¿Aprobar {visible}? [y/N] "),
+                "se rechazó escribir solo las preferencias; no se escribió ningún archivo",
+            ),
+        ] {
+            let output = Output::new(false).with_language(language).unwrap();
+            let mut rendered = Vec::new();
+            let result = preferences_only_with_io(
+                output,
+                &root,
+                &ApplyChoices {
+                    apply: true,
+                    preferences_only: true,
+                    confirm_path: None,
+                },
+                PreferenceChoices {
+                    source: &source,
+                    choices: &[],
+                },
+                (true, &mut "\n".as_bytes(), &mut rendered),
+            );
+            assert_eq!(String::from_utf8(rendered).unwrap(), expected);
+            assert_eq!(result.unwrap_err().to_string(), declined);
+            assert_eq!(fs::read_dir(&root).unwrap().count(), 0);
+        }
+    }
 }

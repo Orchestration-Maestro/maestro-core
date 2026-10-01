@@ -231,7 +231,8 @@ in place.
 │   │   │   │   ├── languages/                                               # Languages
 │   │   │   │   │   ├── en.json                                              # JSON data: en
 │   │   │   │   │   ├── es.json                                              # JSON data: es
-│   │   │   │   │   └── fr.json                                              # JSON data: fr
+│   │   │   │   │   ├── fr.json                                              # JSON data: fr
+│   │   │   │   │   └── rendered.golden.json                                 # JSON data: rendered.golden
 │   │   │   │   ├── messages.rs                                              # Deterministic interface templates; preferences never affect machine artifacts
 │   │   │   │   ├── mod.rs                                                   # Rust source: mod
 │   │   │   │   └── tests.rs                                                 # Strict embedded data and non-recursive interpolation contracts

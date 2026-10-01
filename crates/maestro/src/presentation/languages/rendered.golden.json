@@ -1,0 +1,38 @@
+{
+  "en": {
+    "init_approve_prompt": "Approve /synthetic/équipe/{literal}? [y/N] ",
+    "init_confirm": "preferences-only write requires separate confirmation: synthetic failure; synthetic instruction",
+    "init_confirm_command": "repeat init with --preferences-only --confirm-path /synthetic/équipe/{literal}",
+    "init_confirm_data": "quote the canonical path for your shell; path (data):\n/synthetic/équipe/{literal}",
+    "init_preferences_declined": "preferences-only write declined; no files written",
+    "init_preferences_written": "Wrote preferences only; no workspace trust granted.",
+    "init_trust_command": "run: maestro trust add /synthetic/équipe/{literal} --confirm-path /synthetic/équipe/{literal}",
+    "init_trust_data": "canonical path (data):\n/synthetic/équipe/{literal}\nQuote this path for your shell. From inside that folder, run maestro trust add .",
+    "init_untrusted": "workspace is untrusted; synthetic instruction",
+    "interface_fallback": "Interface is English; conversation language remains ja."
+  },
+  "es": {
+    "init_approve_prompt": "¿Aprobar /synthetic/équipe/{literal}? [y/N] ",
+    "init_confirm": "escribir solo las preferencias requiere una confirmación independiente: synthetic failure; synthetic instruction",
+    "init_confirm_command": "repita init con --preferences-only --confirm-path /synthetic/équipe/{literal}",
+    "init_confirm_data": "entrecomille la ruta canónica para su shell; ruta (dato):\n/synthetic/équipe/{literal}",
+    "init_preferences_declined": "se rechazó escribir solo las preferencias; no se escribió ningún archivo",
+    "init_preferences_written": "Solo se escribieron las preferencias; no se otorgó confianza al espacio de trabajo.",
+    "init_trust_command": "ejecute: maestro trust add /synthetic/équipe/{literal} --confirm-path /synthetic/équipe/{literal}",
+    "init_trust_data": "ruta canónica (dato):\n/synthetic/équipe/{literal}\nEntrecomille esta ruta para su shell. Desde esa carpeta, ejecute maestro trust add .",
+    "init_untrusted": "el espacio de trabajo no es de confianza; synthetic instruction",
+    "interface_fallback": "La interfaz está en inglés; el idioma de conversación sigue siendo ja."
+  },
+  "fr": {
+    "init_approve_prompt": "Approuver /synthetic/équipe/{literal} ? [y/N] ",
+    "init_confirm": "l’écriture des préférences seules nécessite une confirmation distincte : synthetic failure ; synthetic instruction",
+    "init_confirm_command": "relancez init avec --preferences-only --confirm-path /synthetic/équipe/{literal}",
+    "init_confirm_data": "mettez le chemin canonique entre guillemets, avec les échappements adaptés à votre shell ; chemin (donnée) :\n/synthetic/équipe/{literal}",
+    "init_preferences_declined": "écriture des préférences seules refusée ; aucun fichier écrit",
+    "init_preferences_written": "Préférences seules écrites ; aucune confiance accordée à l’espace de travail.",
+    "init_trust_command": "exécutez : maestro trust add /synthetic/équipe/{literal} --confirm-path /synthetic/équipe/{literal}",
+    "init_trust_data": "chemin canonique (donnée) :\n/synthetic/équipe/{literal}\nMettez ce chemin entre guillemets, avec les échappements adaptés à votre shell. Depuis ce dossier, exécutez maestro trust add .",
+    "init_untrusted": "l’espace de travail n’est pas approuvé ; synthetic instruction",
+    "interface_fallback": "L’interface est en anglais ; la langue de conversation reste ja."
+  }
+}

@@ -69,7 +69,7 @@ pub(super) fn approve(
 }
 
 /// Shared trusted IO boundary; the caller renders the prompt before approval.
-fn approve_with_io(
+pub(super) fn approve_with_io(
     root: &Path,
     path: Option<&Path>,
     prompt: &str,

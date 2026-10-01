@@ -83,3 +83,78 @@ fn catalog_presentation_selection_is_deterministic_and_fallback_is_english() {
         }
     }
 }
+
+#[test]
+fn catalog_presentation_translation_golden_covers_every_key_and_language() {
+    use std::collections::{BTreeMap, BTreeSet};
+
+    let path = [("path", "/synthetic/équipe/{literal}")];
+    let messages = [
+        (
+            MessageKey::InterfaceFallback,
+            "interface_fallback",
+            &[("language", "ja")][..],
+        ),
+        (
+            MessageKey::InitUntrusted,
+            "init_untrusted",
+            &[("instruction", "synthetic instruction")],
+        ),
+        (MessageKey::InitTrustCommand, "init_trust_command", &path),
+        (MessageKey::InitTrustData, "init_trust_data", &path),
+        (
+            MessageKey::InitConfirm,
+            "init_confirm",
+            &[
+                ("failure", "synthetic failure"),
+                ("instruction", "synthetic instruction"),
+            ],
+        ),
+        (MessageKey::InitApprovePrompt, "init_approve_prompt", &path),
+        (
+            MessageKey::InitConfirmCommand,
+            "init_confirm_command",
+            &path,
+        ),
+        (MessageKey::InitConfirmData, "init_confirm_data", &path),
+        (
+            MessageKey::InitPreferencesWritten,
+            "init_preferences_written",
+            &[],
+        ),
+        (
+            MessageKey::InitPreferencesDeclined,
+            "init_preferences_declined",
+            &[],
+        ),
+    ];
+    let mut rendered = BTreeMap::new();
+    for (language, source) in BUILT_INS {
+        let interface = Interface::select(language).unwrap();
+        let wording: BTreeMap<_, _> = messages
+            .iter()
+            .map(|(key, name, values)| {
+                (
+                    *name,
+                    interpolate(interface.template(*key), values).unwrap(),
+                )
+            })
+            .collect();
+        let translation: Value = serde_json::from_str(source).unwrap();
+        assert_eq!(
+            wording.keys().copied().collect::<BTreeSet<_>>(),
+            translation
+                .as_object()
+                .unwrap()
+                .keys()
+                .map(String::as_str)
+                .collect::<BTreeSet<_>>(),
+            "golden must render every key in {language}"
+        );
+        rendered.insert(*language, wording);
+    }
+    assert_eq!(
+        format!("{}\n", serde_json::to_string_pretty(&rendered).unwrap()),
+        include_str!("languages/rendered.golden.json")
+    );
+}
