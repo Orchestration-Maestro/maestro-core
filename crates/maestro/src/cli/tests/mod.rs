@@ -9,6 +9,7 @@ mod lease_heartbeats;
 mod model_failures;
 mod publication_resume;
 mod publish_again;
+mod stale_grants;
 mod supersessions;
 mod support;
 mod verify_outcome;

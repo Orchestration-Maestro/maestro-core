@@ -16,7 +16,7 @@ use maestro_kernel::{
     document::{Collection, Document, Revision, RevisionStatus, Source},
     evidence::Span,
     generation::{Error as GenerationError, NewGeneration},
-    scope::Config,
+    scope::{Config, LOCAL},
     store::Database,
 };
 use maestro_knowledge::{
@@ -24,7 +24,7 @@ use maestro_knowledge::{
     search::{SearchError, evidence::SectionReadError, routes::error::RouteError},
 };
 use maestro_test_scratch::scratch_directory;
-use serde_json::Map;
+use serde_json::{Map, json};
 use std::{
     collections::BTreeMap,
     fs, io,
@@ -42,6 +42,30 @@ pub(crate) struct Scratch(PathBuf);
 
 impl Scratch {
     pub(crate) fn new() -> Self {
+        Self::with_manifest(b"{}")
+    }
+
+    /// A valid manifest lets stale-grant tests reach the delivery refresh.
+    pub(crate) fn for_stale_grants() -> Self {
+        let manifest = json!({
+            "schema": "maestro-chunk-set/1",
+            "collection": "collection",
+            "chunk_set": "chunk-set",
+            "chunk_profile": "structural-500-700/1",
+            "preparation_profile": "canonicalization/1",
+            "counter": "test",
+            "revisions": ["revision"],
+            "duplicates": {},
+            "near_duplicate_groups": [],
+            "refusals": [],
+            "left_out": [],
+            "chunks": 1,
+            "tokens": 1,
+        });
+        Self::with_manifest(&serde_json::to_vec(&manifest).expect("serialize manifest"))
+    }
+
+    fn with_manifest(manifest: &[u8]) -> Self {
         let root = scratch_directory().unwrap();
         let data = root.join("data");
         let config = root.join("config");
@@ -53,11 +77,11 @@ impl Scratch {
         )
         .expect("write initial grant");
         let scratch = Self(root);
-        scratch.seed();
+        scratch.seed(manifest);
         scratch
     }
 
-    fn seed(&self) {
+    fn seed(&self, manifest: &[u8]) {
         let database = Database::open_in(&self.data()).expect("open scratch database");
         database
             .record_collection(&Collection {
@@ -129,7 +153,7 @@ impl Scratch {
             )
             .expect("record chunk");
         let manifest = database
-            .put(b"{}", "application/json")
+            .put(manifest, "application/json")
             .expect("store manifest");
         database
             .complete_chunk_set("chunk-set", &manifest)
@@ -158,6 +182,33 @@ impl Scratch {
         self.0.join("config")
     }
 
+    /// Replays a delayed opener's old config after another opener revoked it.
+    pub(crate) fn stale_grant_kernel(&self) -> Result<Kernel, Failure> {
+        let mut kernel = self.kernel(None)?;
+        let stale = Config::load(&self.config()).expect("capture warm-up grant");
+        revoke_access(&kernel);
+        kernel
+            .database
+            .apply_config(&Config::default())
+            .expect("apply revocation before the delayed opener resumes");
+        kernel
+            .database
+            .apply_config(&stale)
+            .expect("reapply the delayed opener's stale grant");
+        kernel.scopes = kernel
+            .database
+            .visible(LOCAL)
+            .expect("admit the stale grant");
+        Ok(kernel)
+    }
+
+    /// Admits the request before revocation, with a stale writer due at delivery.
+    pub(crate) fn kernel_with_pending_writer(&self) -> Result<Kernel, Failure> {
+        let kernel = self.kernel(None)?;
+        revoke_access(&kernel);
+        Ok(kernel.with_test_pending_writer(reapply_old_grant))
+    }
+
     pub(crate) fn kernel(&self, revoke_after_refreshes: Option<usize>) -> Result<Kernel, Failure> {
         let kernel = Kernel::open_at(&self.data(), &self.config())?;
         Ok(if let Some(after) = revoke_after_refreshes {
@@ -180,6 +231,17 @@ fn revoke_access(kernel: &Kernel) {
         "[access]\nread = []\n",
     )
     .expect("revoke local access");
+}
+
+/// The delayed writer still carries the grant parsed before revocation.
+fn reapply_old_grant(kernel: &Kernel) {
+    let stale = "[access]\nread = ['workspace/default']\n"
+        .parse::<Config>()
+        .expect("old grant snapshot");
+    kernel
+        .database
+        .apply_config(&stale)
+        .expect("resume stale writer");
 }
 
 fn chunk_request() -> GetRequest {

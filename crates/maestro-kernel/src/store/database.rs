@@ -93,7 +93,9 @@ impl Database {
     /// Runs `work` in one write transaction on the writer and commits what it
     /// did, or rolls it all back when it fails. The transaction takes the
     /// write lock as it begins, so writers wait for each other, here and in
-    /// other processes; keep `work` short, with no file-system work inside.
+    /// other processes; keep `work` short. Config reconciliation deliberately
+    /// loads its small file inside this lock to prevent stale grant snapshots;
+    /// other file-system work stays outside.
     ///
     /// `work` must not call a method of this database that writes, `pin` and
     /// `put` among them: the lock is not re-entrant, and the call would wait

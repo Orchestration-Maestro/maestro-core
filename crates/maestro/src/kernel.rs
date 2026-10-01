@@ -10,7 +10,7 @@ use maestro_kernel::{
     artifact::{Digest, Store},
     gateway::{ModelCard, Role},
     paths::{self, Environment},
-    scope::{Config, LOCAL, ScopeSet},
+    scope::{ConfigRefreshError, ScopeSet},
     store::Database,
 };
 use std::{
@@ -27,9 +27,15 @@ pub(crate) fn pinned_embedder(artifacts: &Store, profile: Option<&str>) -> Optio
     (card.fields().role == Role::Embedder).then_some(card)
 }
 
-/// One-shot callback used by tests to revoke access during a read.
+/// One-shot callbacks used to order revocation and a competing writer.
 #[cfg(test)]
-pub(crate) type RefreshHook = fn(&Kernel);
+#[derive(Debug)]
+pub(crate) enum RefreshHook {
+    /// Changes the config before the refresh loads it.
+    BeforeLoad(fn(&Kernel)),
+    /// Schedules a delayed writer at the refresh's snapshot boundary.
+    PendingWriter(fn(&Kernel)),
+}
 
 /// The kernel, opened for the local principal.
 #[derive(Debug)]
@@ -66,16 +72,12 @@ impl Kernel {
 
     /// Opens a kernel at explicit data and configuration directories.
     pub(crate) fn open_at(data: &Path, config_dir: &Path) -> Result<Self, Failure> {
-        let config = Config::load(config_dir).map_err(|error| Failure::refused_by(&error))?;
         let database =
             Arc::new(Database::open_in(data).map_err(|error| Failure::failed_by(&error))?);
         let artifacts = Store::new(data.join("artifacts"));
-        database
-            .apply_config(&config)
-            .map_err(|error| Failure::failed_by(&error))?;
         let scopes = database
-            .visible(LOCAL)
-            .map_err(|error| Failure::failed_by(&error))?;
+            .refresh_config(config_dir)
+            .map_err(config_refresh_failure)?;
         Ok(Self {
             database,
             artifacts,
@@ -88,22 +90,16 @@ impl Kernel {
 
     /// Reloads the local grants on this database connection and refreshes its scope snapshot.
     pub(crate) fn refresh_scopes(&mut self) -> Result<(), Failure> {
+        // A competing writer must finish before the atomic refresh's lock;
+        // there is no longer a gap between reconciliation and its snapshot.
         #[cfg(test)]
-        if let Some((remaining, hook)) = self.test_refresh_hook.take() {
-            if remaining == 0 {
-                hook(self);
-            } else {
-                self.test_refresh_hook = Some((remaining - 1, hook));
-            }
+        if let Some(writer) = self.test_pending_writer() {
+            writer(self);
         }
-        let config = Config::load(&self.config_dir).map_err(|error| Failure::refused_by(&error))?;
-        self.database
-            .apply_config(&config)
-            .map_err(|error| Failure::failed_by(&error))?;
         self.scopes = self
             .database
-            .visible(LOCAL)
-            .map_err(|error| Failure::failed_by(&error))?;
+            .refresh_config(&self.config_dir)
+            .map_err(config_refresh_failure)?;
         Ok(())
     }
 
@@ -114,8 +110,32 @@ impl Kernel {
         after_refreshes: usize,
         hook: fn(&Self),
     ) -> Self {
-        self.test_refresh_hook = Some((after_refreshes, hook));
+        self.test_refresh_hook = Some((after_refreshes, RefreshHook::BeforeLoad(hook)));
         self
+    }
+
+    /// Orders a competing writer at the final permission snapshot in a test.
+    #[cfg(test)]
+    pub(crate) fn with_test_pending_writer(mut self, writer: fn(&Self)) -> Self {
+        self.test_refresh_hook = Some((0, RefreshHook::PendingWriter(writer)));
+        self
+    }
+
+    /// Runs due config edits and returns a due competing writer.
+    #[cfg(test)]
+    fn test_pending_writer(&mut self) -> Option<fn(&Self)> {
+        let (remaining, hook) = self.test_refresh_hook.take()?;
+        if remaining > 0 {
+            self.test_refresh_hook = Some((remaining - 1, hook));
+            return None;
+        }
+        match hook {
+            RefreshHook::BeforeLoad(edit) => {
+                edit(self);
+                None
+            }
+            RefreshHook::PendingWriter(writer) => Some(writer),
+        }
     }
 
     /// The recorded model card `digest` when it is an embedder's.
@@ -148,5 +168,13 @@ impl Kernel {
             )));
         }
         Ok(card)
+    }
+}
+
+/// Preserves the CLI boundary between invalid configuration and database failure.
+fn config_refresh_failure(error: ConfigRefreshError) -> Failure {
+    match error {
+        ConfigRefreshError::Config(error) => Failure::refused_by(&error),
+        ConfigRefreshError::Store(error) => Failure::failed_by(&error),
     }
 }
