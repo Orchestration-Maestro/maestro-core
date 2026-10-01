@@ -1,7 +1,7 @@
 //! Checked selection admission, separate from partial source validation.
 
 use super::{
-    Catalog, Diagnostic, Maturity, Problems, Refusal, Registry, Resource, ResourceId,
+    Catalog, Diagnostic, Maturity, Problems, Refusal, Registry, Resource, ResourceId, Value,
     closure::closure,
 };
 use std::collections::{BTreeMap, BTreeSet};
@@ -14,7 +14,7 @@ impl Catalog {
     /// Declaration/offline validation confers no GitHub approval or runtime grant.
     ///
     /// # Errors
-    /// Refuses missing, duplicate, unreviewed or ownership-inconsistent selections.
+    /// Refuses missing, duplicate, unreviewed, retired-area or ownership-inconsistent selections.
     pub fn selection(
         &self,
         selected: &[ResourceId],
@@ -97,12 +97,8 @@ impl Catalog {
                     format!("{id} needs reviewed maturity"),
                 ));
             }
-            if self.ownership(resource).is_none() {
-                diagnostics.push(Diagnostic::new(
-                    &resource.path,
-                    "ownership",
-                    format!("{id} does not match its area ownership record"),
-                ));
+            if let Some(problem) = self.selection_ownership_problem(resource) {
+                diagnostics.push(problem);
             }
             members.push(resource);
         }
@@ -113,5 +109,33 @@ impl Catalog {
             diagnostics.dedup();
             Err(Refusal { diagnostics })
         }
+    }
+
+    /// Selection checks the owning area's status independently of member maturity.
+    fn selection_ownership_problem(&self, resource: &Resource) -> Option<Diagnostic> {
+        let Some(ownership) = self.ownership(resource) else {
+            return Some(Diagnostic::new(
+                &resource.path,
+                "ownership",
+                format!("{} does not match its area ownership record", resource.id),
+            ));
+        };
+        if ownership
+            .descriptor
+            .fields
+            .get("status")
+            .and_then(Value::text)
+            == Some("retired")
+        {
+            return Some(Diagnostic::new(
+                &resource.path,
+                "status",
+                format!(
+                    "{} belongs to retired area {}",
+                    resource.id, ownership.descriptor.id
+                ),
+            ));
+        }
+        None
     }
 }

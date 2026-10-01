@@ -94,3 +94,49 @@ fn registered_area_requires_ownership_record() {
         );
     }
 }
+
+#[test]
+fn area_specificity_ignores_descriptor_filename_length() {
+    use crate::source::{Field, FieldType, Layout, Scope, builtin, builtin_hooks};
+    for filename in ["root.toml", "root-ownership-record-with-a-long-name.toml"] {
+        let mut root = glossary();
+        root.directory.clear();
+        root.layout = Layout::Area {
+            file: filename.to_owned(),
+        };
+        root.fields
+            .push(Field::required("owners", FieldType::TextList));
+        let mut core = builtin()
+            .unwrap()
+            .kind("package")
+            .unwrap()
+            .descriptor
+            .clone();
+        core.scopes = vec![Scope::Core];
+        let mut registry = builtin_hooks();
+        registry.register(root).unwrap();
+        registry.register(core).unwrap();
+        let metadata = package_source("package", "common");
+        let source = format!(
+            "term = \"evidence\"\nowners = [\"reader\"]\n[metadata]{}",
+            metadata.split_once("[metadata]").unwrap().1
+        );
+        let tree = MemoryTree::default()
+            .with(filename, &source)
+            .with("core/package.toml", &package_source("package", "core"));
+        let catalog = check_by(&tree, &registry, &Limits::PRODUCTION).unwrap();
+        let core = catalog
+            .resources
+            .iter()
+            .find(|resource| resource.id.to_string() == "package:core")
+            .unwrap();
+        assert!(
+            catalog.ownership(core).is_some(),
+            "checked core ownership lost with root descriptor {filename}"
+        );
+        assert_eq!(
+            catalog.ownership(core).unwrap().descriptor.path,
+            "core/package.toml"
+        );
+    }
+}

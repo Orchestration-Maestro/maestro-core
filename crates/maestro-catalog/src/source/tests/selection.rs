@@ -96,6 +96,37 @@ fn area_owner_reference_mismatch_refuses() {
 }
 
 #[test]
+fn overlapping_area_ownership_refuses() {
+    let mut catalog = catalog();
+    let registry = builtin().unwrap();
+    let member = catalog
+        .resources
+        .iter()
+        .find(|resource| resource.id == id("agent:core/maestro"))
+        .unwrap()
+        .clone();
+    assert!(catalog.ownership(&member).is_some());
+    assert!(catalog.selection(&[], &registry).is_ok());
+    let mut overlapping = catalog
+        .resources
+        .iter()
+        .find(|resource| resource.id == id("package:core"))
+        .unwrap()
+        .clone();
+    overlapping.id = id("language:core");
+    overlapping.path = "core/agents/package.toml".to_owned();
+    catalog.resources.push(overlapping);
+    assert!(catalog.ownership(&member).is_none());
+    assert!(
+        catalog
+            .selection(&[], &registry)
+            .unwrap_err()
+            .to_string()
+            .contains("agent:core/maestro does not match its area ownership record")
+    );
+}
+
+#[test]
 fn mandatory_roots_selected_once() {
     let catalog = catalog();
     let registry = builtin().unwrap();
@@ -349,4 +380,82 @@ fn selection_walks_registered_hook_edges_and_shared_dependencies() {
             .to_string()
             .contains("mcp:missing does not exist")
     );
+}
+
+#[test]
+fn common_cannot_own_a_moved_resource_in_a_missing_area() {
+    let catalog = catalog();
+    let registry = builtin().unwrap();
+    let original = catalog
+        .resources
+        .iter()
+        .find(|resource| resource.id == id("skill:common/valid-skill"))
+        .unwrap();
+    assert_eq!(
+        catalog.ownership(original).unwrap().descriptor.path,
+        "package.toml"
+    );
+    assert!(catalog.selection(&[], &registry).is_ok());
+    for path in [
+        "capabilities/practice/moved/skills/valid-skill/SKILL.md",
+        "languages/rust/skills/valid-skill/SKILL.md",
+        "standards/other/skills/valid-skill/SKILL.md",
+    ] {
+        let mut moved = catalog.clone();
+        let resource = moved
+            .resources
+            .iter_mut()
+            .find(|resource| resource.id == id("skill:common/valid-skill"))
+            .unwrap();
+        resource.path = path.to_owned();
+        let resource = resource.clone();
+        assert!(
+            catalog.ownership(&resource).is_none(),
+            "common must not inherit ownership of missing area at {path}"
+        );
+        assert!(
+            moved.selection(&[], &registry).is_err(),
+            "selection must refuse a common ID physically moved into a different area: {path}"
+        );
+    }
+}
+
+#[test]
+fn retired_area_cannot_enter_a_new_selection() {
+    let registry = builtin().unwrap();
+    let original = MemoryTree::valid();
+    let tree = original
+        .clone()
+        .with(
+            "core/agents/maestro.agent.md",
+            &original
+                .text("core/agents/valid.agent.md")
+                .replace("name: valid", "name: maestro"),
+        )
+        .with(
+            "core/agents/maestro.maestro.toml",
+            &original.text("core/agents/valid.maestro.toml"),
+        );
+    for status in ["active", "deprecated", "retired"] {
+        let changed = tree.clone().edit(
+            "core/package.toml",
+            "status = \"active\"",
+            &format!("status = \"{status}\""),
+        );
+        let checked = check_under(&changed, &Limits::PRODUCTION).unwrap();
+        let result = checked.selection(&[], &registry);
+        assert_eq!(
+            result.is_ok(),
+            status != "retired",
+            "new selection of source-checked reviewed core with status {status}: {result:?}"
+        );
+        if status == "retired" {
+            assert!(
+                result
+                    .unwrap_err()
+                    .to_string()
+                    .contains("agent:core/maestro belongs to retired area package:core")
+            );
+        }
+    }
 }
