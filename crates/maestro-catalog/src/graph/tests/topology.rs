@@ -66,7 +66,6 @@ fn legacy_example_references_refuse() {
 #[test]
 fn unreachable_node_refuses() {
     let (mut workflow, catalog, evidence) = fixture(VALID);
-    workflow.edges.retain(|edge| edge.to != "plan");
     let mut orphan = workflow.nodes.get("test").unwrap().clone();
     orphan.terminal = true;
     workflow.nodes.insert("orphan".to_owned(), orphan);
@@ -87,6 +86,21 @@ fn bounded_repair_loop_accepts_unbounded_and_zero_refuse() {
         from: "test".to_owned(),
         to: "code".to_owned(),
         max_iterations: Some(3),
+    });
+    assert!(compile(&workflow, &catalog, &evidence).is_ok());
+    for bound in [None, Some(0)] {
+        workflow.edges.last_mut().unwrap().max_iterations = bound;
+        refuses(&workflow, &catalog, &evidence, "cycle");
+    }
+}
+
+#[test]
+fn self_loop_needs_a_positive_bound() {
+    let (mut workflow, catalog, evidence) = fixture(VALID);
+    workflow.edges.push(Edge {
+        from: "test".to_owned(),
+        to: "test".to_owned(),
+        max_iterations: Some(1),
     });
     assert!(compile(&workflow, &catalog, &evidence).is_ok());
     for bound in [None, Some(0)] {

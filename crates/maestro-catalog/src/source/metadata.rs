@@ -234,7 +234,7 @@ fn references(requires: &[&str], key: &str, problems: &mut Problems) -> Vec<Reso
     requires
         .iter()
         .filter_map(|text| {
-            let parsed = reference(text);
+            let parsed = ResourceId::parse(text);
             if parsed.is_none() {
                 problems.push((
                     key.to_owned(),
@@ -247,9 +247,4 @@ fn references(requires: &[&str], key: &str, problems: &mut Problems) -> Vec<Reso
             parsed
         })
         .collect()
-}
-
-/// Qualified resources and the four root identity families; no legacy aliases.
-fn reference(text: &str) -> Option<ResourceId> {
-    ResourceId::parse(text)
 }
