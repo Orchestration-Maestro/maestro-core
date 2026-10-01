@@ -1,8 +1,9 @@
 //! `agent`: a Copilot custom agent profile and its `<name>.maestro.toml`
 //! sidecar (C01: Copilot ignores and warns on agent `metadata:`). Its hook
-//! checks the six fixed body sections, its `server/tool` references and its
-//! `mcp-servers`, which name approved `mcp` resources: an agent never embeds
-//! a server launch, whose reviewed form the projection renders.
+//! checks the six fixed body sections and fails closed on raw `server/tool`
+//! and `mcp-servers` names. MCP is registered configuration, never a resource;
+//! C47b supplies config bindings and selected-owner validation. Until then,
+//! no MCP resource is registered, so raw native names cannot grant access.
 
 use crate::source::{
     descriptor::{Field, FieldType, Format, KindDescriptor, Layout, MetadataPlace, Scope},
@@ -63,7 +64,8 @@ pub(super) fn descriptor() -> KindDescriptor {
 #[derive(Debug)]
 pub(super) struct AgentRules;
 
-/// The ID of the MCP server `name`.
+/// An unbound legacy native server identity, always absent until C47b replaces
+/// this refusal with registered-config resolution (never a resource alias).
 fn server(name: &str) -> ResourceId {
     ResourceId {
         kind: "mcp".to_owned(),

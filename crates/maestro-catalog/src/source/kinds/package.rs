@@ -1,4 +1,6 @@
-//! Area closure roots; ownership and layer semantics are checked by later tasks.
+//! Area closure roots; the shared checker enforces dependency layers and
+//! preset membership. Derived ownership and mandatory-root admission follow
+//! in C34/C80a.
 
 use crate::source::{
     descriptor::{Field, FieldType, Format, KindDescriptor, Layout, MetadataPlace, Scope},
@@ -53,7 +55,7 @@ enum Status {
     Retired,
 }
 
-/// Minimal area shape checks, without approval or dependency-layer semantics.
+/// Minimal area shape checks; cross-resource layers belong to the shared checker.
 #[derive(Debug)]
 pub(super) struct PackageRules;
 

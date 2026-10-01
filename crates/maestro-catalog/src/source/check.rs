@@ -13,7 +13,7 @@ use super::{
     walk::walk_snapshot,
 };
 use crate::limits::Limits;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// The most diagnostics a refusal lists; one more counts the rest.
 const DIAGNOSTICS: usize = 1_000;
@@ -100,8 +100,14 @@ fn across(loaded: &[Loaded], registry: &Registry) -> Vec<Diagnostic> {
         .iter()
         .map(|(id, loaded)| (id.clone(), &loaded.resource))
         .collect();
+    let global_languages = global_languages(&resources);
     for resource in catalog.values() {
-        diagnostics.extend(references(resource, &resources, registry));
+        diagnostics.extend(references(
+            resource,
+            &resources,
+            registry,
+            &global_languages,
+        ));
         rules(resource, &resources, registry, &mut diagnostics);
     }
     let edges = edges(&catalog, registry);
@@ -118,6 +124,7 @@ fn references(
     loaded: &Loaded,
     resources: &BTreeMap<ResourceId, &Resource>,
     registry: &Registry,
+    global_languages: &BTreeSet<String>,
 ) -> Vec<Diagnostic> {
     let key = format!("{}requires", loaded.prefix);
     let admitted = registry
@@ -137,14 +144,116 @@ fn references(
                 .any(|kind| kind == "*" || *kind == target.kind)
             {
                 format!("kind {} may not require {target}", loaded.resource.id.kind)
-            } else if !resources.contains_key(target) {
-                format!("names {target}, which does not exist")
+            } else if let Some(required) = resources.get(target) {
+                let from = layer(&loaded.resource, global_languages);
+                let to = layer(required, global_languages);
+                if ALLOWED_LAYERS.contains(&(from, to)) {
+                    return None;
+                }
+                format!("{from:?} layer may not require {target} ({to:?} layer)")
             } else {
-                return None;
+                format!("names {target}, which does not exist")
             };
             Some(Diagnostic::new(&loaded.metadata_path, &key, message))
         })
         .collect()
+}
+
+/// Checked placement layers; workflow labels never enter this classification.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Layer {
+    /// Common, standards and languages required by them.
+    Global,
+    /// Framework declarations, not optional selection.
+    Core,
+    /// An optional language.
+    Language,
+    /// An explicitly selected team package.
+    Team,
+    /// A selection root, never an area dependency.
+    Preset,
+}
+
+/// The sole dependency-direction policy, applied only to explicit `requires`.
+/// Same-area wiring (including core agent to core instructions) stays allowed;
+/// framework cross-area edges require Global. Cycles are checked separately.
+const ALLOWED_LAYERS: [(Layer, Layer); 14] = [
+    (Layer::Global, Layer::Global),
+    (Layer::Core, Layer::Global),
+    (Layer::Core, Layer::Core),
+    (Layer::Language, Layer::Global),
+    (Layer::Language, Layer::Language),
+    (Layer::Team, Layer::Global),
+    (Layer::Team, Layer::Core),
+    (Layer::Team, Layer::Language),
+    (Layer::Team, Layer::Team),
+    (Layer::Preset, Layer::Global),
+    (Layer::Preset, Layer::Core),
+    (Layer::Preset, Layer::Language),
+    (Layer::Preset, Layer::Team),
+    (Layer::Preset, Layer::Preset),
+];
+
+/// Classifies a fixed checked placement, including root-support resources in common.
+fn layer(resource: &Resource, global_languages: &BTreeSet<String>) -> Layer {
+    match resource.path.split('/').next().unwrap_or_default() {
+        "presets" => Layer::Preset,
+        "core" => Layer::Core,
+        "capabilities" => Layer::Team,
+        "languages" if !global_languages.contains(area_name(resource)) => Layer::Language,
+        _ => Layer::Global,
+    }
+}
+
+/// A resource's qualified namespace, or its area root's name.
+fn area_name(resource: &Resource) -> &str {
+    resource
+        .id
+        .namespace
+        .as_deref()
+        .unwrap_or(&resource.id.name)
+}
+
+/// Languages reached explicitly from common/standards join Global as whole areas.
+/// Iterative traversal keeps cycles bounded; the normal graph check still refuses them.
+fn global_languages(resources: &BTreeMap<ResourceId, &Resource>) -> BTreeSet<String> {
+    let mut languages: BTreeMap<&str, Vec<&Resource>> = BTreeMap::new();
+    let mut pending = Vec::new();
+    let empty = BTreeSet::new();
+    for resource in resources.values() {
+        match layer(resource, &empty) {
+            Layer::Global => pending.push(*resource),
+            Layer::Language => languages
+                .entry(area_name(resource))
+                .or_default()
+                .push(resource),
+            _ => {}
+        }
+    }
+    let mut global = BTreeSet::new();
+    let mut visited = BTreeSet::new();
+    while let Some(resource) = pending.pop() {
+        if !visited.insert(&resource.id) {
+            continue;
+        }
+        for target in &resource.metadata.requires {
+            let Some(target) = resources.get(target) else {
+                continue;
+            };
+            if layer(target, &empty) == Layer::Language
+                && global.insert(area_name(target).to_owned())
+            {
+                pending.extend(
+                    languages
+                        .get(area_name(target))
+                        .into_iter()
+                        .flatten()
+                        .copied(),
+                );
+            }
+        }
+    }
+    global
 }
 
 /// Notes the problems the kind's own catalog rules find in `loaded`.
@@ -177,10 +286,21 @@ fn edges(catalog: &BTreeMap<ResourceId, &Loaded>, registry: &Registry) -> Vec<Ve
         .enumerate()
         .map(|(index, id)| (id, index))
         .collect();
+    let mandatory: Vec<ResourceId> = catalog
+        .keys()
+        .filter(|id| {
+            id.kind == "standard"
+                || (id.kind == "package" && ["common", "core"].contains(&id.name.as_str()))
+        })
+        .cloned()
+        .collect();
     catalog
         .iter()
         .map(|(id, loaded)| {
             let mut targets: Vec<ResourceId> = loaded.resource.metadata.requires.clone();
+            if id.kind == "preset" {
+                targets.extend(mandatory.iter().cloned());
+            }
             if let Some(rules) = registry
                 .kind(&id.kind)
                 .and_then(|registration| registration.rules)

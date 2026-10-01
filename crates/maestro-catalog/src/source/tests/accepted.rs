@@ -208,3 +208,54 @@ fn frozen_rows_equal_the_traceability_inventory() {
     assert_eq!(rows.len(), 85);
     assert_eq!(frozen_rows(), rows);
 }
+
+#[test]
+fn explicit_area_layer_matrix_and_core_internal_wiring() {
+    use super::references::area;
+    // Real core agent → core instructions wiring is a same-area passing neighbour.
+    assert!(check_under(&MemoryTree::valid(), &Limits::PRODUCTION).is_ok());
+    let roots = [
+        ("package", "common", "package.toml"),
+        ("package", "core", "core/package.toml"),
+        ("standard", "security", "standards/security/package.toml"),
+        ("language", "rust", "languages/rust/package.toml"),
+        (
+            "package",
+            "review",
+            "capabilities/practice/review/package.toml",
+        ),
+    ];
+    let tree = roots
+        .iter()
+        .fold(MemoryTree::valid(), |tree, (kind, name, path)| {
+            area(tree, kind, name, path, &[])
+        });
+    // Expectations are independent of the production table; same-root references
+    // are omitted because the existing cycle guard correctly refuses them.
+    for (from, forbidden) in [
+        (0, &[1_usize, 4][..]),
+        (1, &[3, 4][..]),
+        (2, &[1, 4][..]),
+        (3, &[1, 4][..]),
+        (4, &[][..]),
+    ] {
+        for (to, (kind, name, _)) in roots.iter().enumerate().filter(|(to, _)| *to != from) {
+            let (source_kind, source_name, path) = roots[from];
+            let edited = area(
+                tree.clone(),
+                source_kind,
+                source_name,
+                path,
+                &[&format!("{kind}:{name}")],
+            );
+            let result = check_under(&edited, &Limits::PRODUCTION);
+            // Common → language and standard → language make it Global.
+            let expected = !forbidden.contains(&to);
+            assert_eq!(
+                result.is_ok(),
+                expected,
+                "{source_kind}:{source_name} → {kind}:{name}: {result:?}"
+            );
+        }
+    }
+}

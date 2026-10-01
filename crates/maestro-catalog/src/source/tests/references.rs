@@ -1,7 +1,11 @@
 //! References across resources: dangling names and tools, dependency
 //! cycles, closure maturity and preset setting keys.
 
-use super::support::{MemoryTree, assert_refused};
+use super::{
+    area_packages::package_source,
+    support::{MemoryTree, assert_refused, check_under},
+};
+use crate::limits::Limits;
 
 /// The valid agent sidecar's path.
 const SIDECAR: &str = "core/agents/valid.maestro.toml";
@@ -125,6 +129,385 @@ fn closure_members_must_be_reviewed_beside_a_reviewed_neighbour() {
         ("authored member", stage("authored"), &authored),
         ("retired member", stage("retired"), &retired),
     ]);
+}
+
+/// A reviewed area whose explicit dependencies are the only selection inputs.
+pub(super) fn area(
+    tree: MemoryTree,
+    kind: &str,
+    name: &str,
+    path: &str,
+    requires: &[&str],
+) -> MemoryTree {
+    let references = requires
+        .iter()
+        .map(|id| format!("\"{id}\""))
+        .collect::<Vec<_>>();
+    tree.with(
+        path,
+        &package_source(kind, name).replace(
+            "requires = []",
+            &format!("requires = [{}]", references.join(", ")),
+        ),
+    )
+}
+
+/// A cross-area skill edge, with a same-layer neighbour using the same local name.
+fn layer_neighbours(from: &str, to: &str, namespace: &str) {
+    let source = if from.is_empty() {
+        SKILL.to_owned()
+    } else {
+        format!("{from}/{SKILL}")
+    };
+    let target = format!(
+        "{}skills/target/SKILL.md",
+        if to.is_empty() {
+            String::new()
+        } else {
+            format!("{to}/")
+        }
+    );
+    let skill = MemoryTree::valid().text(SKILL);
+    let tree = MemoryTree::default()
+        .with(
+            &source,
+            &skill.replace(
+                "  maestro.workflows:",
+                &format!("  maestro.requires: skill:{namespace}/target\n  maestro.workflows:"),
+            ),
+        )
+        .with(&target, &skill.replace("valid-skill", "target"));
+    assert!(check_under(&tree, &Limits::PRODUCTION).is_ok());
+    let core_target = "core/skills/target/SKILL.md";
+    let refused = tree
+        .clone()
+        .without(&target)
+        .with(core_target, &skill.replace("valid-skill", "target"));
+    // The caller supplies the refused layer by moving the target and its qualified ID.
+    let refused = refused.edit(
+        &source,
+        &format!("skill:{namespace}/target"),
+        "skill:core/target",
+    );
+    let result = check_under(&refused, &Limits::PRODUCTION);
+    assert!(result.is_err(), "cross-layer edge must refuse");
+    assert!(
+        result
+            .unwrap_err()
+            .to_string()
+            .contains("layer may not require skill:core/target")
+    );
+}
+
+#[test]
+fn common_to_core_refuses() {
+    layer_neighbours("", "", "common");
+    let tree = area(
+        MemoryTree::default(),
+        "standard",
+        "security",
+        "standards/security/package.toml",
+        &["package:core"],
+    );
+    let tree = area(tree, "package", "core", "core/package.toml", &[]);
+    let result = check_under(&tree, &Limits::PRODUCTION);
+    assert!(result.is_err(), "standard to core must refuse");
+    assert!(
+        result
+            .unwrap_err()
+            .to_string()
+            .contains("layer may not require package:core")
+    );
+}
+
+/// A core/language skill can require a global skill but cannot require a team skill.
+fn team_neighbours(from: &str) {
+    let skill = MemoryTree::valid().text(SKILL);
+    let source = format!("{from}/{SKILL}");
+    let tree = MemoryTree::default().with(SKILL, &skill).with(
+        &source,
+        &skill.replace(
+            "  maestro.workflows:",
+            "  maestro.requires: skill:common/valid-skill\n  maestro.workflows:",
+        ),
+    );
+    assert!(check_under(&tree, &Limits::PRODUCTION).is_ok());
+    let tree = tree
+        .with(
+            "capabilities/practice/review/skills/valid-skill/SKILL.md",
+            &skill,
+        )
+        .edit(
+            &source,
+            "skill:common/valid-skill",
+            "skill:review/valid-skill",
+        );
+    let result = check_under(&tree, &Limits::PRODUCTION);
+    assert!(result.is_err(), "team edge must refuse");
+    assert!(
+        result
+            .unwrap_err()
+            .to_string()
+            .contains("layer may not require skill:review/valid-skill")
+    );
+}
+
+#[test]
+fn core_to_team_refuses() {
+    team_neighbours("core");
+}
+
+#[test]
+fn language_to_team_refuses() {
+    team_neighbours("languages/rust");
+    layer_neighbours("languages/rust", "languages/python", "python");
+}
+
+#[test]
+fn core_optional_language_refuses_beside_global_language() {
+    let tree = area(
+        MemoryTree::default(),
+        "language",
+        "rust",
+        "languages/rust/package.toml",
+        &[],
+    );
+    let tree = area(
+        tree,
+        "package",
+        "core",
+        "core/package.toml",
+        &["language:rust"],
+    );
+    let global = area(
+        tree.clone(),
+        "package",
+        "common",
+        "package.toml",
+        &["language:rust"],
+    );
+    assert!(check_under(&global, &Limits::PRODUCTION).is_ok());
+    let result = check_under(&tree, &Limits::PRODUCTION);
+    assert!(result.is_err(), "optional language is not global");
+    assert!(
+        result
+            .unwrap_err()
+            .to_string()
+            .contains("layer may not require language:rust")
+    );
+}
+
+#[test]
+fn global_languages_follow_transitive_area_requirements() {
+    let tree = area(
+        MemoryTree::default(),
+        "standard",
+        "security",
+        "standards/security/package.toml",
+        &["language:rust"],
+    );
+    let tree = area(
+        tree,
+        "language",
+        "rust",
+        "languages/rust/package.toml",
+        &["language:python"],
+    );
+    let tree = area(
+        tree,
+        "language",
+        "python",
+        "languages/python/package.toml",
+        &[],
+    );
+    let skill = MemoryTree::valid().text(SKILL);
+    let tree = tree.with("languages/python/skills/valid-skill/SKILL.md", &skill);
+    let tree = area(
+        tree,
+        "package",
+        "core",
+        "core/package.toml",
+        &["skill:python/valid-skill"],
+    );
+    assert!(
+        check_under(&tree, &Limits::PRODUCTION).is_ok(),
+        "transitive Global language resources must be eligible"
+    );
+    let optional = tree.edit(
+        "languages/rust/package.toml",
+        "requires = [\"language:python\"]",
+        "requires = []",
+    );
+    assert!(
+        check_under(&optional, &Limits::PRODUCTION)
+            .unwrap_err()
+            .to_string()
+            .contains("layer may not require skill:python/valid-skill")
+    );
+}
+
+/// A selected team package and a surviving same-basename common resource.
+fn removable_tree() -> MemoryTree {
+    let skill = MemoryTree::valid().text(SKILL);
+    let tree = MemoryTree::valid()
+        .with(
+            "capabilities/practice/review/skills/valid-skill/SKILL.md",
+            &skill,
+        )
+        .edit(
+            PRESET,
+            "agent:core/valid",
+            "agent:core/valid\", \"package:other\", \"package:review\", \"skill:review/valid-skill",
+        );
+    let tree = [
+        ("package", "common", "package.toml"),
+        ("package", "core", "core/package.toml"),
+        ("standard", "security", "standards/security/package.toml"),
+        (
+            "package",
+            "other",
+            "capabilities/practice/other/package.toml",
+        ),
+    ]
+    .into_iter()
+    .fold(tree, |tree, (kind, name, path)| {
+        area(tree, kind, name, path, &[])
+    });
+    area(
+        tree,
+        "package",
+        "review",
+        "capabilities/practice/review/package.toml",
+        &["skill:review/valid-skill"],
+    )
+}
+
+#[test]
+fn removed_package_dangling_reference_refuses() {
+    let tree = removable_tree();
+    assert!(check_under(&tree, &Limits::PRODUCTION).is_ok());
+    let tree = tree
+        .without("capabilities/practice/review/package.toml")
+        .without("capabilities/practice/review/skills/valid-skill/SKILL.md");
+    let result = check_under(&tree, &Limits::PRODUCTION);
+    assert!(
+        result.is_err(),
+        "removal must refuse every surviving missing edge"
+    );
+    let result = result.unwrap_err();
+    let missing: Vec<_> = result
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.message.contains("does not exist"))
+        .collect();
+    assert_eq!(missing.len(), 2, "every surviving edge: {result}");
+    for id in ["package:review", "skill:review/valid-skill"] {
+        assert!(
+            missing
+                .iter()
+                .any(|diagnostic| diagnostic.path == PRESET && diagnostic.message.contains(id))
+        );
+    }
+}
+
+#[test]
+fn package_removal_keeps_core_bytes() {
+    let tree = removable_tree();
+    let before = check_under(&tree, &Limits::PRODUCTION).unwrap();
+    let removed = tree
+        .clone()
+        .without("capabilities/practice/review/package.toml")
+        .without("capabilities/practice/review/skills/valid-skill/SKILL.md")
+        .edit(
+            PRESET,
+            ", \"package:review\", \"skill:review/valid-skill\"",
+            "",
+        );
+    let after = check_under(&removed, &Limits::PRODUCTION).unwrap();
+    for path in [
+        "package.toml",
+        "core/package.toml",
+        "standards/security/package.toml",
+        "capabilities/practice/other/package.toml",
+        SIDECAR,
+        "core/agents/valid.agent.md",
+        SKILL,
+        "core/instructions/valid.instructions.md",
+        "core/instructions/valid.maestro.toml",
+    ] {
+        assert_eq!(removed.text(path), tree.text(path));
+    }
+    let surviving: Vec<_> = before
+        .resources
+        .into_iter()
+        .filter(|resource| {
+            resource.id.namespace.as_deref() != Some("review")
+                && resource.id.name != "review"
+                && resource.id.kind != "preset"
+        })
+        .collect();
+    assert_eq!(
+        after
+            .resources
+            .into_iter()
+            .filter(|resource| resource.id.kind != "preset")
+            .collect::<Vec<_>>(),
+        surviving
+    );
+}
+
+#[test]
+fn presets_include_required_roots_without_injecting_available_personas() {
+    for (kind, name, path) in [
+        ("package", "common", "package.toml"),
+        ("package", "core", "core/package.toml"),
+        ("standard", "security", "standards/security/package.toml"),
+    ] {
+        let tree = area(
+            MemoryTree::valid(),
+            kind,
+            name,
+            path,
+            &["skill:common/valid-skill"],
+        )
+        .edit(PRESET, "requires = [\"agent:core/valid\"]", "requires = []");
+        let checked = check_under(&tree, &Limits::PRODUCTION).unwrap();
+        assert!(
+            checked
+                .resources
+                .iter()
+                .find(|resource| resource.id.kind == "preset")
+                .unwrap()
+                .metadata
+                .requires
+                .is_empty()
+        );
+        let authored = tree.clone().edit(
+            SKILL,
+            "maestro.maturity: reviewed",
+            "maestro.maturity: authored",
+        );
+        let result = check_under(&authored, &Limits::PRODUCTION).unwrap_err();
+        assert!(
+            result
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.path == PRESET
+                    && diagnostic
+                        .message
+                        .contains("closure member skill:common/valid-skill is authored")),
+            "{result}"
+        );
+        let available = tree.edit(
+            SIDECAR,
+            "maturity = \"reviewed\"",
+            "maturity = \"authored\"",
+        );
+        assert!(
+            check_under(&available, &Limits::PRODUCTION).is_ok(),
+            "workflow labels and availability must select nothing"
+        );
+    }
 }
 
 #[test]
