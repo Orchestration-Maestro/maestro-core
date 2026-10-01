@@ -297,8 +297,18 @@ in place.
 │   ├── maestro-acquisition/                                                             # N03 implements strict source-policy declarations and immutable local baseline resolution
 │   │   ├── src/                                                                         # The crate's sources
 │   │   │   ├── adaptation/                                                              # Scoped local overlays and replaceable activation policy and commit ports
+│   │   │   │   ├── golden-activation-recovery.json                                      # JSON data: golden activation recovery
+│   │   │   │   ├── golden-activation.json                                               # JSON data: golden activation
+│   │   │   │   ├── golden-effective.json                                                # JSON data: golden effective
+│   │   │   │   ├── golden-manifest.json                                                 # JSON data: golden manifest
+│   │   │   │   ├── golden-proposal-recovery.json                                        # JSON data: golden proposal recovery
+│   │   │   │   ├── golden-proposal.json                                                 # JSON data: golden proposal
+│   │   │   │   ├── golden.rs                                                            # Frozen typed preimages: declaration order must not depend on JSON map features
+│   │   │   │   ├── lineage.rs                                                           # Validate only payloads that contribute to the effective configuration
 │   │   │   │   ├── manifest.rs                                                          # Typed local overlays and replaceable activation/recovery policy seams
 │   │   │   │   ├── mod.rs                                                               # Scoped local overlays and replaceable activation policy and commit ports
+│   │   │   │   ├── recovery.rs                                                          # Small strict transaction markers, verified against the retained old pointer
+│   │   │   │   ├── recovery_tests.rs                                                    # Each transition guard is checked directly, without lineage checks masking it
 │   │   │   │   ├── storage.rs                                                           # Local overlay I/O and protected receipt identity helpers
 │   │   │   │   └── writer.rs                                                            # Immutable baseline plus scoped local overlays; pointer replacement commits
 │   │   │   ├── extraction/                                                              # Immutable extraction profiles and bounded pure selection
@@ -377,8 +387,12 @@ in place.
 │   │   │       ├── n15_validation.rs                                                    # Independent boundary fixtures for registry guards and unmasked red proofs
 │   │   │       ├── n30_additional_contracts.rs                                          # Typed proposal inputs, fresh CAS and scoped inheritance regressions
 │   │   │       ├── n30_implement_proposal_and_activation_manifest_write_port.rs         # Synthetic write-port conformance; no installed catalog admission is claimed
+│   │   │       ├── n30_lineage_regressions.rs                                           # Digest-consistent payload substitutions must not break effective ancestry
+│   │   │       ├── n30_mutation_regressions.rs                                          # Regression checks for scope inheritance and pre-exposure/notification guards
 │   │   │       ├── n30_recovery_guards.rs                                               # Recovery, rollback and filesystem refusal contracts
+│   │   │       ├── n30_review_regressions.rs                                            # N30 review regressions: current authority, effective lineage and recovery
 │   │   │       ├── n30_support.rs                                                       # Synthetic write-port conformance; no installed catalog admission is claimed
+│   │   │       ├── n30_transition_regressions.rs                                        # Recovery must prove an exact pointer transition before delivery
 │   │   │       ├── n30_write_guards.rs                                                  # Individual safety guards and recovery identity proofs for N30
 │   │   │       └── support.rs                                                           # Complete independently authored synthetic policy fixtures
 │   │   ├── Cargo.toml                                                                   # Crate manifest: Strict source policies and immutable baseline resolution for native acquisition

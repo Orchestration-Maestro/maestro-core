@@ -4,6 +4,8 @@ use maestro_kernel::{
     acquisition::{Handle, Progress},
     artifact::Digest,
     filesystem,
+    scope::ScopeSet,
+    store::Database,
 };
 use maestro_knowledge::strict_json::{nullable_object, object};
 use serde::{Deserialize, Serialize};
@@ -122,6 +124,19 @@ impl From<Refusal> for WriteError {
 impl From<io::Error> for WriteError {
     fn from(_: io::Error) -> Self {
         Self::Storage
+    }
+}
+
+/// Fresh kernel grants, acquired for each writer operation, never cached at open.
+pub trait CurrentGrants: fmt::Debug {
+    /// Read the authenticated principal's current read scopes.
+    /// # Errors
+    /// An unavailable grant store refuses the operation.
+    fn visible(&self, principal: &str) -> Result<ScopeSet, WriteError>;
+}
+impl CurrentGrants for Database {
+    fn visible(&self, principal: &str) -> Result<ScopeSet, WriteError> {
+        Database::visible(self, principal).map_err(|_| WriteError::Storage)
     }
 }
 

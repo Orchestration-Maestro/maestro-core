@@ -207,7 +207,19 @@ fn n30_proposal_must_be_registered_and_digest_bound() {
         serde_json::to_vec(&state).unwrap(),
     )
     .unwrap();
-    assert_eq!(writer.current(), Err(WriteError::Refused(Refusal::Digest)));
+    // Unactivated history is not read by current(); selecting it still checks its digest.
+    assert!(writer.current().is_ok());
+    let mut wrong = proposal;
+    wrong.digest = Digest::of(b"wrong stored bytes");
+    assert_eq!(
+        writer.activate(
+            &fixture.manifest.baseline,
+            &fixture.manifest.active,
+            &wrong,
+            fixture.gate
+        ),
+        Err(WriteError::Refused(Refusal::Digest))
+    );
 }
 
 #[test]

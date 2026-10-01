@@ -1,9 +1,12 @@
 //! Immutable baseline plus scoped local overlays; pointer replacement commits.
 use super::{
+    lineage,
     manifest::{
-        Activation, ActivationAuthority, Commit, ConfigurationWriter, Notify, Proposal, WriteError,
+        Activation, ActivationAuthority, Commit, ConfigurationWriter, CurrentGrants, Notify,
+        Proposal, WriteError,
     },
-    storage::{self, Recovery},
+    recovery::Recovery,
+    storage,
 };
 use crate::{
     Principal, Ref, Refusal, ResourceSource, policy::manifest::AcquisitionManifest, validate,
@@ -12,6 +15,7 @@ use maestro_kernel::{
     acquisition::{Handle, Progress, Reason, Receipts, Status},
     artifact::Digest,
     filesystem,
+    scope::ScopeSet,
 };
 use maestro_knowledge::collection::Declaration;
 use std::{
@@ -25,8 +29,12 @@ pub struct WriterContext<'a> {
     pub source: &'a dyn ResourceSource,
     /// Exact collection link, never rebound by an overlay.
     pub collection: &'a Declaration,
-    /// Current external principal/platform context.
-    pub principal: &'a Principal<'a>,
+    /// Authenticated principal identity; no retained grant snapshot.
+    pub principal: &'a str,
+    /// Host platform being qualified.
+    pub platform: &'a str,
+    /// Authoritative grants read anew for every operation.
+    pub grants: &'a dyn CurrentGrants,
     /// Protected immutable reports and evidence, with current access checks.
     pub receipts: &'a dyn Receipts,
     /// N32–N34's current gate policy; disabled implementations hold.
@@ -111,13 +119,30 @@ impl<'a> LocalWriter<'a> {
         Ok(manifest)
     }
 
+    /// Construct only request-local context from freshly acquired read grants.
+    fn principal<'b>(&'b self, scopes: &'b ScopeSet) -> Principal<'b> {
+        Principal {
+            id: self.context.principal,
+            platform: self.context.platform,
+            scopes,
+        }
+    }
+
+    /// Do not decode unactivated proposals or superseded activation payloads.
+    fn lineage(&self, manifest: &AcquisitionManifest, start: &Ref) -> Result<(), WriteError> {
+        lineage::validate(
+            self.context.receipts,
+            self.context.principal,
+            manifest,
+            start,
+        )
+    }
+
     /// Revalidate the full N03 closure and exact inherited manifest metadata.
     fn digest(&self, manifest: &AcquisitionManifest) -> Result<Digest, WriteError> {
-        let checked = validate(
-            self.context.source,
-            self.context.collection,
-            self.context.principal,
-        )?;
+        let scopes = self.context.grants.visible(self.context.principal)?;
+        let principal = self.principal(&scopes);
+        let checked = validate(self.context.source, self.context.collection, &principal)?;
         let metadata = &checked.policy().resource;
         if manifest.baseline != *checked.reference()
             || manifest.baseline != self.initial.baseline
@@ -140,8 +165,15 @@ impl<'a> LocalWriter<'a> {
         ))?))
     }
 
-    /// Reread and verify pointer state while the collection lock is held.
+    /// Operational reads validate precisely the currently effective lineage.
     fn load(&self) -> Result<AcquisitionManifest, WriteError> {
+        let manifest = self.pointer()?;
+        self.lineage(&manifest, &manifest.active)?;
+        Ok(manifest)
+    }
+
+    /// Pointer metadata is sufficient to select a safe rollback target.
+    fn pointer(&self) -> Result<AcquisitionManifest, WriteError> {
         let bytes = storage::read(&self.root, "manifest.json")?.ok_or(WriteError::Storage)?;
         let manifest: AcquisitionManifest = storage::decode(&bytes)?;
         if manifest.effective_digest != self.digest(&manifest)? {
@@ -150,14 +182,6 @@ impl<'a> LocalWriter<'a> {
         let expected = manifest.activations.last().unwrap_or(&manifest.baseline);
         if &manifest.active != expected {
             return Err(Refusal::Invalid.into());
-        }
-        for reference in &manifest.proposals {
-            let _proposal: Proposal =
-                storage::artifact(self.context.receipts, self.context.principal, reference)?;
-        }
-        for reference in &manifest.activations {
-            let _activation: Activation =
-                storage::artifact(self.context.receipts, self.context.principal, reference)?;
         }
         Ok(manifest)
     }
@@ -183,9 +207,11 @@ impl<'a> LocalWriter<'a> {
             &proposal,
             activation.gate,
         )?;
-        self.context
-            .authority
-            .check(&proposal, activation.gate, self.context.principal)?;
+        self.context.authority.check(
+            &proposal,
+            activation.gate,
+            &self.principal(&self.context.grants.visible(self.context.principal)?),
+        )?;
         Ok(proposal)
     }
 
@@ -199,11 +225,9 @@ impl<'a> LocalWriter<'a> {
         let old = storage::read(&self.root, "manifest.json")?.ok_or(WriteError::Storage)?;
         let new = storage::encode(&manifest)?;
         let _checked: AcquisitionManifest = storage::decode(&new)?;
-        let recovery = Recovery {
-            old: Digest::of(&old),
-            new: Digest::of(&new),
-            event,
-        };
+        let before: AcquisitionManifest = storage::decode(&old)?;
+        let recovery = Recovery::new(Digest::of(&old), Digest::of(&new), before.active, event);
+        filesystem::atomic_replace(&self.root.join("recovery-old.json"), &old)?;
         filesystem::atomic_replace(
             &self.root.join("recovery.json"),
             &storage::encode(&recovery)?,
@@ -220,20 +244,25 @@ impl<'a> LocalWriter<'a> {
         let marker: Recovery = storage::decode(&bytes)?;
         let pointer = storage::read(&self.root, "manifest.json")?.ok_or(WriteError::Storage)?;
         let digest = Digest::of(&pointer);
-        if digest == marker.old {
+        let (old, new) = marker.digests();
+        let old_bytes = storage::read(&self.root, "recovery-old.json")?.ok_or(Refusal::Invalid)?;
+        if Digest::of(&old_bytes) != *old {
+            return Err(Refusal::Digest.into());
+        }
+        let before: AcquisitionManifest = storage::decode(&old_bytes)?;
+        if digest == *old {
             return storage::clear(&self.root);
         }
-        if digest != marker.new {
+        if digest != *new {
             return Err(WriteError::Conflict);
         }
         let manifest = self.load()?;
-        if let Some(event) = marker.event {
-            if event.receipt.to_string() != manifest.active.id
-                || event.status != Status::Complete
-                || event.reason != Reason::None
-            {
-                return Err(Refusal::Invalid.into());
-            }
+        if let Some(event) = marker.verify(
+            &before,
+            &manifest,
+            self.context.receipts,
+            self.context.principal,
+        )? {
             self.eligible(&manifest.active)?;
             self.context.notify.notify(event)?;
         }
@@ -277,9 +306,11 @@ impl<'a> LocalWriter<'a> {
             &proposal,
             gate,
         )?;
-        self.context
-            .authority
-            .check(&proposal, gate, self.context.principal)?;
+        self.context.authority.check(
+            &proposal,
+            gate,
+            &self.principal(&self.context.grants.visible(self.context.principal)?),
+        )?;
         let activation = Activation {
             proposal: reference.clone(),
             gate,
@@ -351,19 +382,28 @@ impl ConfigurationWriter for LocalWriter<'_> {
     ) -> Result<Ref, WriteError> {
         let _lock = storage::lock(&self.root)?;
         self.recover()?;
-        let mut manifest = self.load()?;
+        let mut manifest = self.pointer()?;
         if &manifest.active != expected_active {
             return Err(WriteError::Conflict);
         }
-        let current: Activation = storage::artifact(
-            self.context.receipts,
-            self.context.principal,
-            expected_active,
-        )?;
-        if &current.previous != previous {
+        if lineage::previous(&manifest, expected_active)? != previous {
             return Err(WriteError::Held);
         }
-        let original = storage::proposal(self.context.receipts, self.context.principal, &current)?;
+        self.lineage(&manifest, previous)?;
+        storage::accessible(
+            self.context.receipts,
+            self.context.principal,
+            &[current_authority],
+        )?;
+        // Fresh rollback report binds the gate, replaced active and restore target.
+        let report_bytes = storage::encode(&(current_authority, expected_active, previous))?;
+        let report = storage::retain(
+            self.context.receipts,
+            &manifest.resource.scope_tags,
+            &report_bytes,
+            &[current_authority],
+        )?;
+        let report = report.id.parse().map_err(|_| Refusal::Invalid)?;
         let restored = if previous == &manifest.baseline {
             None
         } else {
@@ -380,7 +420,7 @@ impl ConfigurationWriter for LocalWriter<'_> {
                 |value| value.candidate.clone(),
             ),
             evidence: vec![current_authority],
-            report: original.report,
+            report,
             rollback: manifest.active.clone(),
         };
         let reference = self.retain_proposal(&proposal)?;

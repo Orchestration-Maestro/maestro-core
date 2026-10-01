@@ -1,8 +1,8 @@
 //! Local overlay I/O and protected receipt identity helpers.
 use super::manifest::{Activation, Proposal, WriteError};
-use crate::{Principal, Ref, Refusal};
+use crate::{Ref, Refusal};
 use maestro_kernel::{
-    acquisition::{Handle, Progress, Receipts},
+    acquisition::{Handle, Receipts},
     artifact::Digest,
     filesystem,
     scope::Scope,
@@ -14,19 +14,6 @@ use std::{
     io::{ErrorKind, Read as _},
     path::Path,
 };
-
-/// Durable before/after pointer digests; payloads live in scoped receipt storage.
-#[derive(Debug, Serialize, serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(super) struct Recovery {
-    /// Complete old pointer identity.
-    pub old: Digest,
-    /// Complete new pointer identity.
-    pub new: Digest,
-    /// Absent for proposal-only commits; activation report handle otherwise.
-    #[serde(deserialize_with = "Option::deserialize")]
-    pub event: Option<Progress>,
-}
 
 /// Locks the collection overlay on a protected regular caller-owned lock file.
 pub(super) fn lock(root: &Path) -> Result<File, WriteError> {
@@ -85,22 +72,20 @@ pub(super) fn decode<T: DeserializeOwned>(bytes: &[u8]) -> Result<T, WriteError>
     strict_json::parse(bytes).map_err(|_| Refusal::Invalid.into())
 }
 
-/// Deterministic canonical JSON with lexically ordered object fields.
+/// Declaration-ordered typed JSON bytes, independent of the JSON map backend.
 pub(super) fn encode<T: Serialize>(value: &T) -> Result<Vec<u8>, WriteError> {
-    let value = serde_json::to_value(value).map_err(|_| WriteError::Refused(Refusal::Invalid))?;
-    let bytes = serde_json::to_vec(&value).map_err(|_| WriteError::Refused(Refusal::Invalid))?;
-    Ok(bytes)
+    serde_json::to_vec(value).map_err(|_| WriteError::Refused(Refusal::Invalid))
 }
 
 /// Read every input handle using fresh kernel grants, including transitive scopes.
 pub(super) fn accessible(
     receipts: &dyn Receipts,
-    principal: &Principal<'_>,
+    principal: &str,
     handles: &[Handle],
 ) -> Result<(), WriteError> {
     for handle in handles {
         if receipts
-            .read(principal.id, *handle)
+            .read(principal, *handle)
             .map_err(|_| WriteError::Storage)?
             .is_none()
         {
@@ -144,12 +129,12 @@ pub(super) fn retain(
 /// Load a digest-bound immutable overlay through current access checks only.
 pub(super) fn artifact<T: DeserializeOwned>(
     receipts: &dyn Receipts,
-    principal: &Principal<'_>,
+    principal: &str,
     reference: &Ref,
 ) -> Result<T, WriteError> {
     let handle = reference.id.parse().map_err(|_| Refusal::Invalid)?;
     let resource = receipts
-        .read(principal.id, handle)
+        .read(principal, handle)
         .map_err(|_| WriteError::Storage)?
         .ok_or(Refusal::Access)?;
     if Digest::of(resource.bytes()) != reference.digest {
@@ -161,7 +146,7 @@ pub(super) fn artifact<T: DeserializeOwned>(
 /// Gate and proposal report/evidence handles must remain currently readable.
 pub(super) fn inputs(
     receipts: &dyn Receipts,
-    principal: &Principal<'_>,
+    principal: &str,
     proposal: &Proposal,
     gate: Handle,
 ) -> Result<(), WriteError> {
@@ -173,7 +158,7 @@ pub(super) fn inputs(
 /// Load the activation's exact proposal, retaining all original report bindings.
 pub(super) fn proposal(
     receipts: &dyn Receipts,
-    principal: &Principal<'_>,
+    principal: &str,
     activation: &Activation,
 ) -> Result<Proposal, WriteError> {
     artifact(receipts, principal, &activation.proposal)
@@ -182,6 +167,8 @@ pub(super) fn proposal(
 /// Clear recovery only after delivery or proven uncommitted staging.
 pub(super) fn clear(root: &Path) -> Result<(), WriteError> {
     fs::remove_file(root.join("recovery.json"))?;
+    filesystem::sync_directory(root, |_, error| error)?;
+    fs::remove_file(root.join("recovery-old.json"))?;
     filesystem::sync_directory(root, |_, error| error)?;
     Ok(())
 }

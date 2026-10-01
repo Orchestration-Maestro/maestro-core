@@ -149,7 +149,9 @@ impl Fixture {
         WriterContext {
             source: &self.catalog,
             collection: &self.collection,
-            principal,
+            principal: principal.id,
+            platform: principal.platform,
+            grants: &self.db,
             receipts: &self.db,
             authority,
             notify: events,

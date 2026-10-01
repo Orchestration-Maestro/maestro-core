@@ -166,14 +166,15 @@ fn n30_history_activation_artifacts_are_verified() {
     let mut manifest = writer.current().unwrap();
     manifest.activations.first_mut().unwrap().digest = Digest::of(b"corrupt history");
     let checked = validate(&fixture.catalog, &fixture.collection, &principal).unwrap();
-    let canonical = serde_json::to_value((checked.policy(), &manifest.activations)).unwrap();
+    let canonical = (checked.policy(), &manifest.activations);
     manifest.effective_digest = Digest::of(&serde_json::to_vec(&canonical).unwrap());
     fs::write(
         root.join("manifest.json"),
         serde_json::to_vec(&manifest).unwrap(),
     )
     .unwrap();
-    assert_eq!(writer.current(), Err(WriteError::Refused(Refusal::Digest)));
+    // The child's previous identity no longer matches the ordered history.
+    assert_eq!(writer.current(), Err(WriteError::Refused(Refusal::Invalid)));
 }
 
 #[test]
