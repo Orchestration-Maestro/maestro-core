@@ -151,9 +151,25 @@ impl Directory {
     /// # Errors
     /// Refuses an extra entry or any listing/no-follow metadata failure.
     pub fn list_bounded(&self, limit: usize) -> io::Result<Vec<Entry>> {
+        self.list_bounded_excluding(limit, None)
+    }
+
+    /// List under a structural VCS boundary, excluding one exact name before
+    /// metadata access and counting. This is not a pattern or prefix filter.
+    ///
+    /// # Errors
+    /// Refuses an extra entry or any listing/no-follow metadata failure.
+    pub fn list_bounded_excluding(
+        &self,
+        limit: usize,
+        excluded: Option<&OsStr>,
+    ) -> io::Result<Vec<Entry>> {
         let mut entries = Vec::new();
         for entry in fs::read_dir(&self.path)? {
             let entry = entry?;
+            if excluded == Some(entry.file_name().as_os_str()) {
+                continue;
+            }
             let file = hold(&entry.path(), OPEN_REPARSE_DIRECTORY_FLAGS)?;
             let metadata = file.metadata()?;
             let kind = listing::windows_kind(

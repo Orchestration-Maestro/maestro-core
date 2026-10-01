@@ -2221,10 +2221,10 @@ source/runtime implementation or private-data read, and no delivered claim.
 **Requirements:** FR-S3-040, FR-S3-046, FR-S3-049, SC-S3-015.
 **Named tests:** `v4_area_placement_accepts`, `nested_or_unknown_area_refuses`, `aggregate_walk_limit_refuses`, `functional_naming_exception_is_exact`; required cases, not reported results.
 
-- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+- [x] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
   below; run the focused fixture/check command and retain the failure.
-- [ ] **Step 2: Green.** Discover common/core/team/root-language/root-standard areas and checked support roots through descriptor scope/fixed placements. Count all folders/assets/mounts under aggregate bounds. Register the reviewed two-category naming table from shared adapter metadata; no package self-exemption or product inference heuristic.
-- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+- [x] **Step 2: Green.** Discover common/core/team/root-language/root-standard areas and checked support roots through descriptor scope/fixed placements. Count all folders/assets/mounts under aggregate bounds. Register the reviewed two-category naming table from shared adapter metadata; no package self-exemption or product inference heuristic.
+- [x] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
   capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
   Record nonzero test counts, exact exits, applicable lane gates and review.
 

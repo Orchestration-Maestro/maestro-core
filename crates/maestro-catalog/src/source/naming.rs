@@ -4,6 +4,7 @@
 use super::{
     descriptor::Scope,
     placements::{fits, join},
+    tree::EntryKind,
 };
 use crate::adapters::REGISTERED;
 
@@ -49,7 +50,7 @@ fn native(path: &str, filename: &str) -> Option<bool> {
 }
 
 /// Whether every path segment uses functional names, with exact approved exceptions.
-pub(super) fn functional(path: &str) -> bool {
+pub(super) fn functional(path: &str, kind: EntryKind) -> bool {
     let mut prefix = String::new();
     for segment in path.split('/') {
         prefix = join(&prefix, segment);
@@ -62,9 +63,10 @@ pub(super) fn functional(path: &str) -> bool {
             continue;
         }
         if product(segment)
-            && !REGISTERED
-                .iter()
-                .any(|adapter| adapter.host_directory == Some(prefix.as_str()))
+            && !REGISTERED.iter().any(|adapter| {
+                adapter.host_directory == Some(prefix.as_str())
+                    && (prefix != path || kind == EntryKind::Directory)
+            })
         {
             return false;
         }

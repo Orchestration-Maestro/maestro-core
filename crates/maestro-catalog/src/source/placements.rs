@@ -1,7 +1,7 @@
 //! Descriptor placement patterns, shared by registration and discovery.
 
 use super::{
-    descriptor::{KindDescriptor, Layout, Scope},
+    descriptor::{KindDescriptor, Layout, MetadataPlace, Scope},
     parse::is_name,
 };
 
@@ -63,9 +63,12 @@ pub(super) fn occupied(descriptor: &KindDescriptor) -> Vec<String> {
 
 /// Whether placements can collide, including one owning the other's descendants.
 pub(super) fn overlaps(left: &str, right: &str) -> bool {
-    left.split('/')
-        .zip(right.split('/'))
-        .all(|(left, right)| left == right || left == "*" || right == "*")
+    left.is_empty()
+        || right.is_empty()
+        || left
+            .split('/')
+            .zip(right.split('/'))
+            .all(|(left, right)| left == right || left == "*" || right == "*")
 }
 
 /// Refuse traversal, wildcard inventories and internally overlapping placements.
@@ -76,10 +79,14 @@ pub(super) fn problem(descriptor: &KindDescriptor) -> Option<String> {
     if let Some(problem) = scope_problem(descriptor) {
         return Some(problem);
     }
+    if let MetadataPlace::Sidecar { suffix } = &descriptor.metadata
+        && !portable_suffix(suffix)
+    {
+        return Some("unsafe sidecar suffix".to_owned());
+    }
     let valid = match &descriptor.layout {
         Layout::Files { suffix, folders } => {
-            !suffix.is_empty()
-                && !suffix.contains(['/', '\\', ':', '*'])
+            portable_suffix(suffix)
                 && !folders.is_empty()
                 && folders.iter().all(|folder| safe(folder, true))
         }
@@ -122,6 +129,11 @@ pub(super) fn problem(descriptor: &KindDescriptor) -> Option<String> {
     None
 }
 
+/// Primary and sidecar suffixes use the same portable, separator-free spelling.
+fn portable_suffix(suffix: &str) -> bool {
+    !suffix.is_empty() && !suffix.contains(['/', '\\', ':', '*'])
+}
+
 /// Scope boundaries apply to every descriptor-relative placement segment.
 fn scope_problem(descriptor: &KindDescriptor) -> Option<String> {
     let mut relative = vec![descriptor.directory.clone()];
@@ -149,5 +161,35 @@ fn nested(path: &str) -> bool {
         Scope::AREA_ROOTS
             .iter()
             .any(|scope| scope.prefix().split('/').next() == Some(part))
+    })
+}
+
+/// Concrete descriptor-relative placements cannot recreate an area boundary.
+/// Scope prefixes themselves and Root support trees retain their semantics.
+pub(super) fn concrete(descriptor: &KindDescriptor, directory: &str) -> bool {
+    descriptor.scopes.iter().any(|scope| {
+        let prefix = scope.prefix();
+        let count = if prefix.is_empty() {
+            0
+        } else {
+            prefix.split('/').count()
+        };
+        let relative = directory
+            .split('/')
+            .skip(count)
+            .collect::<Vec<_>>()
+            .join("/");
+        let placement = join(prefix, &descriptor.directory);
+        let placement_count = if placement.is_empty() {
+            0
+        } else {
+            placement.split('/').count()
+        };
+        let boundary = directory
+            .split('/')
+            .take(placement_count)
+            .collect::<Vec<_>>()
+            .join("/");
+        fits(&placement, &boundary) && (*scope == Scope::Root || !nested(&relative))
     })
 }

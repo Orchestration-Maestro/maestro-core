@@ -6,7 +6,7 @@ use super::{
     discovered::{Found, Unit, refusal},
     naming,
     parse::is_name,
-    placements::{directories, fits, join},
+    placements::{concrete, directories, fits, join},
     registry::Registry,
     scan::Snapshot,
     tree::{Entry, EntryKind},
@@ -99,7 +99,7 @@ impl Walker<'_> {
         suffix: &str,
     ) -> Result<(), Refusal> {
         for (directory, entries) in &self.snapshot.directories {
-            if !fits(pattern, directory) {
+            if !fits(pattern, directory) || !self.concrete(descriptor, directory) {
                 continue;
             }
             for entry in entries {
@@ -166,6 +166,9 @@ impl Walker<'_> {
         directory: &str,
         (file, data): (&str, &[String]),
     ) -> Result<(), Refusal> {
+        if !self.concrete(descriptor, directory) {
+            return Ok(());
+        }
         let name = directory.rsplit('/').next().unwrap_or(directory);
         let path = join(directory, file);
         self.consumed.insert(path.clone());
@@ -187,6 +190,16 @@ impl Walker<'_> {
         }
     }
 
+    /// Validate one matched directory against the descriptor's scope boundaries.
+    fn concrete(&mut self, descriptor: &KindDescriptor, directory: &str) -> bool {
+        if concrete(descriptor, directory) {
+            true
+        } else {
+            self.note(directory, "nested area placement");
+            false
+        }
+    }
+
     /// Refuse names and unclaimed nonempty content, including shared support roots.
     fn unclaimed(&mut self) {
         for (directory, entries) in &self.snapshot.directories {
@@ -199,7 +212,7 @@ impl Walker<'_> {
 
     /// Refuse product/native names and content without an exact inventory placement.
     fn check_path(&mut self, path: &str, kind: EntryKind) {
-        if !naming::functional(path) {
+        if !naming::functional(path, kind) {
             self.note(
                 path,
                 "must use a functional name, not a registered product or misplaced native filename",

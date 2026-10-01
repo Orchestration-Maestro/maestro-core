@@ -72,3 +72,36 @@ fn held_listing_existing_links_use_no_follow_stat() {
     drop(directory);
     fs::remove_dir_all(root).unwrap();
 }
+
+#[test]
+fn held_listing_excludes_exact_git_boundary_before_counting() {
+    use std::ffi::OsStr;
+    let root = scratch();
+    fs::create_dir(root.join(".git")).unwrap();
+    fs::write(root.join(".github"), "data").unwrap();
+    fs::write(root.join("file"), "data").unwrap();
+    let directory = Directory::open(&root, Path::new(""), false).unwrap();
+    let result = directory.list_bounded_excluding(2, Some(OsStr::new(".git")));
+    assert!(result.is_ok(), "{result:?}");
+    let entries = result.unwrap();
+    assert_eq!(
+        entries
+            .iter()
+            .map(|entry| entry.name.as_os_str())
+            .collect::<Vec<_>>(),
+        [OsStr::new(".github"), OsStr::new("file")]
+    );
+    assert_eq!(
+        directory
+            .list_bounded_excluding(2, None)
+            .unwrap_err()
+            .kind(),
+        ErrorKind::InvalidData
+    );
+    assert_eq!(
+        directory.list_bounded(3).unwrap(),
+        directory.list_bounded_excluding(3, None).unwrap()
+    );
+    drop(directory);
+    fs::remove_dir_all(root).unwrap();
+}

@@ -535,12 +535,16 @@ in place.
 │   │   │   │   │   ├── coverage.rs                                          # Refusals each guard owns alone: tool names and lists, agent sections
 │   │   │   │   │   ├── directory.rs                                         # The filesystem adapter: a bounded read, links never followed, and a
 │   │   │   │   │   ├── extension.rs                                         # The owner's scaling requirement: a new kind is one descriptor plus
+│   │   │   │   │   ├── git_boundary.rs                                      # Git administration is outside the filesystem source view, not a dotfile filter
 │   │   │   │   │   ├── hostile.rs                                           # Hostile sources inside D2's limits: YAML aliases that expand past their
 │   │   │   │   │   ├── layout.rs                                            # The catalog's layout: agent and sidecar pairing, duplicate IDs, entries
 │   │   │   │   │   ├── mod.rs                                               # The source checker's tests: the valid synthetic catalog and each of its
 │   │   │   │   │   ├── model_card.rs                                        # Rust source: model card
+│   │   │   │   │   ├── placement_boundaries.rs                              # Permanent discovery-only neighbours from the C30 review
+│   │   │   │   │   ├── placement_guards.rs                                  # Isolated registration and filename classification guards
 │   │   │   │   │   ├── references.rs                                        # References across resources: dangling names and tools, dependency
 │   │   │   │   │   ├── registry.rs                                          # The kind registry: registrations stay distinct, each descriptor is
+│   │   │   │   │   ├── root_boundaries.rs                                   # Root occupancy and public filesystem spelling neighbours
 │   │   │   │   │   ├── rulings.rs                                           # The C03 round-two rulings: skill metadata reads only maestro
 │   │   │   │   │   ├── scan.rs                                              # Aggregate snapshot trust-boundary neighbours, independent of content guards
 │   │   │   │   │   ├── schema.rs                                            # Each file's strict schema: duplicate and unknown keys, wrong types

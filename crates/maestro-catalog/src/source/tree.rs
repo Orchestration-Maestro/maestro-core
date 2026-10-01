@@ -3,7 +3,7 @@
 
 use crate::limits::Limits;
 use maestro_filesystem::{Directory as HeldDirectory, EntryKind as HeldKind};
-use std::{io, path::Path, sync::Arc};
+use std::{ffi::OsStr, io, path::Path, sync::Arc};
 
 /// What a directory entry is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -113,8 +113,11 @@ impl SourceTree for Directory {
     }
 
     fn list_bounded(&self, directory: &str, limit: usize) -> io::Result<Vec<Entry>> {
-        Ok(self
-            .with_directory(directory, |held| held.list_bounded(limit))?
+        let excluded = directory.is_empty().then_some(OsStr::new(".git"));
+        let mut entries: Vec<_> = self
+            .with_directory(directory, |held| {
+                held.list_bounded_excluding(limit, excluded)
+            })?
             .into_iter()
             .map(|entry| {
                 let kind = match entry.kind {
@@ -130,10 +133,18 @@ impl SourceTree for Directory {
                     },
                 }
             })
-            .collect())
+            .collect();
+        entries.sort_by(|left, right| left.name.cmp(&right.name));
+        Ok(entries)
     }
 
     fn read(&self, file: &str, max_bytes: u64) -> io::Result<Vec<u8>> {
+        if file.starts_with('/') {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "not a relative catalog path",
+            ));
+        }
         let (parent, name) = file.rsplit_once('/').unwrap_or(("", file));
         valid_part(name)?;
         self.with_directory(parent, |held| held.read_regular_prefix(name, max_bytes))

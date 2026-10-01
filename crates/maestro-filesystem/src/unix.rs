@@ -120,11 +120,27 @@ impl Directory {
     /// # Errors
     /// Refuses an extra entry or any listing/no-follow metadata failure.
     pub fn list_bounded(&self, limit: usize) -> io::Result<Vec<Entry>> {
+        self.list_bounded_excluding(limit, None)
+    }
+
+    /// List under a structural VCS boundary, excluding one exact name before
+    /// metadata access and counting. This is not a pattern or prefix filter.
+    ///
+    /// # Errors
+    /// Refuses an extra entry or any listing/no-follow metadata failure.
+    pub fn list_bounded_excluding(
+        &self,
+        limit: usize,
+        excluded: Option<&OsStr>,
+    ) -> io::Result<Vec<Entry>> {
         let mut entries = Vec::new();
         for entry in Dir::read_from(&self.0)? {
             let entry = entry?;
             let name = entry.file_name();
             if name.to_bytes() == b"." || name.to_bytes() == b".." {
+                continue;
+            }
+            if excluded == Some(OsStr::from_bytes(name.to_bytes())) {
                 continue;
             }
             let metadata = statat(&self.0, name, AtFlags::SYMLINK_NOFOLLOW)?;

@@ -90,6 +90,14 @@ pub(super) fn scan(tree: &dyn SourceTree, limits: &Limits) -> Result<Snapshot, R
                 ));
                 continue;
             }
+            if entry.name == ".git" {
+                snapshot.diagnostics.push(Diagnostic::new(
+                    &path,
+                    "",
+                    "not a registered placement; nested Git administration refuses",
+                ));
+                continue;
+            }
             if depth >= limits.manifest_depth {
                 return Err(refusal(format!(
                     "more than {} walk depth levels",
