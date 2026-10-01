@@ -55,7 +55,8 @@ fn valid_host(host: &str) -> bool {
         })
         && Url::parse(&format!("https://{host}/")).is_ok_and(|url| url.domain() == Some(host))
 }
-/// Parse an unambiguous HTTPS URL without credentials or encoded separators.
+/// Parse HTTPS without credentials, encoded separators or encoded unreserved bytes.
+/// Path escapes use uppercase hex; query and fragment bytes remain unchanged.
 pub(super) fn checked_url(text: &str) -> Option<Url> {
     if text.len() > 8192
         || !safe_encoding(text)
@@ -65,7 +66,7 @@ pub(super) fn checked_url(text: &str) -> Option<Url> {
     {
         return None;
     }
-    let url = Url::parse(text).ok()?;
+    let mut url = Url::parse(text).ok()?;
     if url.scheme() != "https"
         || !url.username().is_empty()
         || url.password().is_some()
@@ -106,6 +107,7 @@ pub(super) fn checked_url(text: &str) -> Option<Url> {
     if supplied_query != url.query() {
         return None;
     }
+    url.set_path(&canonical_path(supplied_path));
     Some(url)
 }
 /// Percent escapes must be complete UTF-8 without raw or escaped controls.
@@ -141,7 +143,7 @@ pub(super) fn url<'de, D: Deserializer<'de>>(decoder: D) -> Result<String, D::Er
 }
 /// Relative admitted endpoint or origin path prefix.
 pub(super) fn path<'de, D: Deserializer<'de>>(decoder: D) -> Result<String, D::Error> {
-    checked(decoder, valid_path)
+    checked(decoder, valid_path).map(|path| canonical_path(&path))
 }
 /// One unambiguous path, checked before a later admission task matches boundaries.
 pub(super) fn valid_path(text: &str) -> bool {
@@ -155,9 +157,35 @@ pub(super) fn valid_path(text: &str) -> bool {
         && !text
             .split('/')
             .any(|segment| segment == "." || segment == "..")
-        && !["%2f", "%5c", "%25", "%2e", "%00"]
+        && !text.as_bytes().windows(3).any(encoded_unreserved)
+        && !["%2f", "%5c", "%25", "%00"]
             .iter()
             .any(|encoded| lower.contains(encoded))
+}
+/// RFC 3986 unreserved bytes must appear literally, never percent-encoded.
+fn encoded_unreserved(bytes: &[u8]) -> bool {
+    let [b'%', high, low] = bytes else {
+        return false;
+    };
+    let Some((high, low)) = hex_digit(*high).zip(hex_digit(*low)) else {
+        return false;
+    };
+    let byte = high * 16 + low;
+    byte.is_ascii_alphanumeric() || b"-._~".contains(&byte)
+}
+/// Validated paths store uppercase escape hex, preserving all other characters.
+fn canonical_path(text: &str) -> String {
+    let mut path = String::with_capacity(text.len());
+    let mut chars = text.chars();
+    while let Some(character) = chars.next() {
+        path.push(character);
+        if character == '%' {
+            for hex in chars.by_ref().take(2) {
+                path.push(hex.to_ascii_uppercase());
+            }
+        }
+    }
+    path
 }
 /// UTC RFC3339 time; comparisons use fixed UTC spellings without offsets.
 pub(super) fn time<'de, D: Deserializer<'de>>(decoder: D) -> Result<String, D::Error> {
@@ -254,7 +282,7 @@ pub(super) fn texts<'de, D: Deserializer<'de>>(decoder: D) -> Result<Vec<String>
 }
 /// A list of paths.
 pub(super) fn paths<'de, D: Deserializer<'de>>(decoder: D) -> Result<Vec<String>, D::Error> {
-    list(decoder, valid_path)
+    list(decoder, valid_path).map(|paths| paths.iter().map(|path| canonical_path(path)).collect())
 }
 /// A list of URLs.
 pub(super) fn urls<'de, D: Deserializer<'de>>(decoder: D) -> Result<Vec<String>, D::Error> {
@@ -274,7 +302,7 @@ pub(super) fn nullable_id<'de, D: Deserializer<'de>>(
 pub(super) fn nullable_path<'de, D: Deserializer<'de>>(
     decoder: D,
 ) -> Result<Option<String>, D::Error> {
-    optional(decoder, valid_path)
+    optional(decoder, valid_path).map(|path| path.map(|path| canonical_path(&path)))
 }
 /// A required nullable time.
 pub(super) fn nullable_time<'de, D: Deserializer<'de>>(

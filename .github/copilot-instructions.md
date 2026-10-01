@@ -315,6 +315,7 @@ in place.
 │   │   │       ├── n03_review_fixes.rs                                                  # Four ruled N03 parser and schema regressions
 │   │   │       ├── n07_parse_url_identity_and_denial_precedence.rs                      # N07 URL and denial contracts use only synthetic destinations
 │   │   │       ├── n07_url_policy_edges.rs                                              # N07 edge guards share the primary task's synthetic fixture builders
+│   │   │       ├── n07_url_review_regressions.rs                                        # N07 review regressions share the checked synthetic policy closure
 │   │   │       └── support.rs                                                           # Complete independently authored synthetic policy fixtures
 │   │   ├── Cargo.toml                                                                   # Crate manifest: Strict source policies and immutable baseline resolution for native acquisition
 │   │   └── README.md                                                                    # N03 implements strict source-policy declarations and immutable local baseline resolution

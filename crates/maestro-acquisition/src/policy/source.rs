@@ -98,7 +98,7 @@ pub struct Origin {
     pub host: String,
     /// Declared `port`; no inferred default.
     pub port: NonZeroU16,
-    /// Declared `path_prefixes`; no inferred default.
+    /// Declared path prefixes; escapes store uppercase hex, unreserved escapes refuse.
     #[serde(deserialize_with = "shape::paths")]
     #[schemars(length(max = 10000))]
     pub path_prefixes: Vec<String>,
@@ -174,7 +174,7 @@ pub struct Selector {
     #[serde(deserialize_with = "shape::nullable_id")]
     #[schemars(with = "RequiredNullable<String>")]
     pub origin: Option<String>,
-    /// Declared `path_prefix`; no inferred default.
+    /// Declared path prefix; escapes store uppercase hex, unreserved escapes refuse.
     #[serde(deserialize_with = "shape::nullable_path")]
     #[schemars(with = "RequiredNullable<String>")]
     pub path_prefix: Option<String>,

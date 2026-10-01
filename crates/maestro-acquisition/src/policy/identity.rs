@@ -25,6 +25,9 @@ pub struct FetchIdentity {
 impl FetchIdentity {
     /// Parse once under explicit HTTPS origin/path and query semantics.
     ///
+    /// Encoded unreserved path bytes refuse. Other path escapes use uppercase hex
+    /// for identity and policy matching; meaningful query pairs retain raw bytes.
+    ///
     /// # Errors
     /// Ambiguous URLs, undeclared origins/paths or query semantics refuse.
     pub fn parse(source: &Source, text: &str) -> Result<Self, Refusal> {
@@ -231,9 +234,13 @@ impl IdentityMigration {
         }
         let mut old_keys = BTreeSet::new();
         for entry in &self.entries {
+            // Check historical serialization only, not the replacement query rule.
+            let old = shape::checked_url(&entry.old).ok_or(Refusal::Invalid)?;
+            if entry.old.contains('#') || old.as_str() != entry.old {
+                return Err(Refusal::Invalid);
+            }
             let new = FetchIdentity::parse(source, &entry.new)?;
-            if entry.old.contains('#') || new.as_str() != entry.new || !old_keys.insert(&entry.old)
-            {
+            if new.as_str() != entry.new || !old_keys.insert(&entry.old) {
                 return Err(Refusal::Invalid);
             }
         }
