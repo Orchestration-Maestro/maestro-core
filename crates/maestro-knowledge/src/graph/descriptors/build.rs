@@ -15,10 +15,7 @@ use maestro_kernel::{
         Support, Validity,
     },
 };
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    iter::once,
-};
+use std::collections::{BTreeMap, BTreeSet};
 
 /// Read-only authority/artifact view; production callers obtain it from `read`.
 #[derive(Debug)]
@@ -51,24 +48,14 @@ pub fn build(input: &DescriptorInput) -> Result<Vec<Descriptor>, DescriptorError
     let attached: BTreeSet<_> = input
         .claims
         .iter()
-        .flat_map(|record| {
-            let subject = Mention {
-                claim: record.id.clone(),
-                endpoint: Endpoint::Subject,
-            };
-            let object = matches!(record.claim.object, Object::Entity(_)).then(|| Mention {
-                claim: record.id.clone(),
-                endpoint: Endpoint::Object,
-            });
-            once(subject).chain(object)
-        })
+        .map(|record| record.id.clone())
         .collect();
     if let Some(held) = entities.iter().find(|entity| {
         !entity.colliding.is_empty()
             && entity
                 .mentions
                 .iter()
-                .any(|mention| attached.contains(mention))
+                .any(|mention| attached.contains(&mention.claim))
     }) {
         return Err(DescriptorError::HeldForReview(held.id.clone()));
     }
