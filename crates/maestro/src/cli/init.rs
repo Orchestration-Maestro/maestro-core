@@ -2,6 +2,7 @@
 use crate::{
     cli::{output::Output, trust, trust_path},
     failure::Failure,
+    presentation::messages::MessageKey,
 };
 use maestro_catalog::{
     bootstrap::{self, DirectoryPresets, Prerequisite},
@@ -69,7 +70,7 @@ pub(super) fn run(
         .and_then(|root| root.canonicalize())
         .map_err(|error| Failure::failed_by(&error))?;
     if should_apply && !effects.preferences_only {
-        require_trust(&root)?;
+        require_trust(output, &root)?;
     }
     if effects.preferences_only {
         return preferences_only(output, &root, &effects, preference_choices);
@@ -117,7 +118,7 @@ pub(super) fn run(
 }
 
 /// CLI decision point only; C05j owns the later held-handle enforcement boundary.
-fn require_trust(root: &Path) -> Result<(), Failure> {
+fn require_trust(output: Output, root: &Path) -> Result<(), Failure> {
     let boundaries = trust::boundaries()?;
     boundaries.check_root(root).map_err(Failure::refused)?;
     let database = trust::database()?;
@@ -126,10 +127,16 @@ fn require_trust(root: &Path) -> Result<(), Failure> {
         .containing_root(root)
         .is_none()
     {
-        return Err(Failure::refused(format!(
-            "workspace is untrusted; {}",
-            trust_path::suggestion(root)
-        )));
+        let instruction = if let Some(path) = trust_path::quoted_canonical(root) {
+            output.wording(MessageKey::InitTrustCommand, &[("path", &path)])?
+        } else {
+            let path = format!("{:?}", trust_path::visible_path(root));
+            output.wording(MessageKey::InitTrustData, &[("path", &path)])?
+        };
+        return Err(Failure::refused(output.wording(
+            MessageKey::InitUntrusted,
+            &[("instruction", &instruction)],
+        )?));
     }
     Ok(())
 }
@@ -144,22 +151,27 @@ fn preferences_only(
     trust::boundaries()?
         .check_root(root)
         .map_err(Failure::refused)?;
-    let Some(confirmation) = trust::approve(root, effects.confirm_path).map_err(|failure| {
-        let instruction = if let Some(quoted) = trust_path::quoted_canonical(root) {
-            format!("repeat init with --preferences-only --confirm-path {quoted}")
-        } else {
-            format!(
-                "quote the canonical path for your shell; path (data):\n{:?}",
-                trust_path::visible_path(root)
-            )
-        };
-        Failure::refused(format!(
-            "preferences-only write requires separate confirmation: {failure}; {instruction}"
-        ))
-    })?
-    else {
+    let confirmation = match trust::approve(root, effects.confirm_path) {
+        Ok(confirmation) => confirmation,
+        Err(failure) => {
+            let instruction = if let Some(path) = trust_path::quoted_canonical(root) {
+                output.wording(MessageKey::InitConfirmCommand, &[("path", &path)])?
+            } else {
+                let path = format!("{:?}", trust_path::visible_path(root));
+                output.wording(MessageKey::InitConfirmData, &[("path", &path)])?
+            };
+            return Err(Failure::refused(output.wording(
+                MessageKey::InitConfirm,
+                &[
+                    ("failure", &failure.to_string()),
+                    ("instruction", &instruction),
+                ],
+            )?));
+        }
+    };
+    let Some(confirmation) = confirmation else {
         return Err(Failure::refused(
-            "preferences-only write declined; no files written",
+            output.wording(MessageKey::InitPreferencesDeclined, &[])?,
         ));
     };
     let draft = draft_preferences(
@@ -173,7 +185,7 @@ fn preferences_only(
         .map_err(Failure::refused)?;
     output.result(
         &draft,
-        "Wrote preferences only; no workspace trust granted.",
+        &output.wording(MessageKey::InitPreferencesWritten, &[])?,
     )?;
     Ok(ExitCode::SUCCESS)
 }

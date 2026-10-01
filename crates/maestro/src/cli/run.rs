@@ -70,6 +70,16 @@ fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> 
         Noun::Mcp { workspace } => session::for_mcp(workspace.as_deref(), &flags)?,
         _ => session::for_cli(&flags)?,
     };
+    let output = if matches!(&arguments.noun, Noun::Mcp { .. }) {
+        output
+    } else {
+        output.with_language(
+            session
+                .catalog_resolved()
+                .text("language")
+                .unwrap_or("auto"),
+        )?
+    };
     match &arguments.noun {
         Noun::Model(command) => model::run(&Kernel::open()?, output, command),
         Noun::Knowledge(KnowledgeCommand::Collections) => {

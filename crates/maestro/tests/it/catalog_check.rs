@@ -24,7 +24,7 @@ const VALID: [(&str, &str); 8] = [
 ];
 
 /// Writes the valid synthetic catalog under `home`, and returns its root.
-fn valid_catalog(home: &Home) -> PathBuf {
+pub(super) fn valid_catalog(home: &Home) -> PathBuf {
     let fixtures =
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/fixtures/catalog/source");
     let root = home.root().join("catalog");

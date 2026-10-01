@@ -714,17 +714,17 @@ supply live containment, not this S3 task.
 `crates/maestro/tests/it/catalog_presentation.rs`.
 **Requirements:** FR-S3-029, SC-S3-010.
 
-- [ ] **Step 1: Red.** Exercise en/fr/es plus another accepted subset tag across three
+- [x] **Step 1: Red.** Exercise en/fr/es plus another accepted subset tag across three
   tones; deterministic messages have one wording per language, invariant under
   tone. Assert one English-interface note for other tags, no snapshot language
   change, English logs, stable JSON/status/command fields and complete warnings.
   --help and clap reference stay English; no translation network calls occur.
-- [ ] **Step 2: Green.** Add deterministic built-in interface translations and
+- [x] **Step 2: Green.** Add deterministic built-in interface translations and
   fallback through the existing human output boundary, with data interpolation
   separate from message selection. Wire init's new prompts and the common output
   boundary only; C05l owns existing-message migration. Keep logs/receipts, code
   and documentation English and invariant under tone. No model call to render UI.
-- [ ] **Step 3: Check.** Run capped nextest filter `catalog_presentation` plus
+- [x] **Step 3: Check.** Run capped nextest filter `catalog_presentation` plus
   the existing CLI contract suite; compare structured outputs byte-for-byte
   and inspect the no-color/plain snapshots.
 

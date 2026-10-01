@@ -227,6 +227,14 @@ in place.
 │   │   │   │   ├── outcome.rs                                               # How a tool call ended, for its span: by the public code of the error it
 │   │   │   │   ├── run.rs                                                   # Runs the stdio MCP server without sending diagnostics to stdout
 │   │   │   │   └── transport.rs                                             # Stdio JSON-RPC framing with complete-line and complete-response byte bounds
+│   │   │   ├── presentation/                                                # Presentation
+│   │   │   │   ├── languages/                                               # Languages
+│   │   │   │   │   ├── en.json                                              # JSON data: en
+│   │   │   │   │   ├── es.json                                              # JSON data: es
+│   │   │   │   │   └── fr.json                                              # JSON data: fr
+│   │   │   │   ├── messages.rs                                              # Deterministic interface templates; preferences never affect machine artifacts
+│   │   │   │   ├── mod.rs                                                   # Rust source: mod
+│   │   │   │   └── tests.rs                                                 # Strict embedded data and non-recursive interpolation contracts
 │   │   │   ├── settings/                                                    # The session's settings, resolved once for the CLI and the MCP server, and
 │   │   │   │   ├── knowledge.rs                                             # The knowledge operations' settings, read from a session's resolved
 │   │   │   │   ├── mod.rs                                                   # The session's settings, resolved once for the CLI and the MCP server, and
@@ -277,6 +285,7 @@ in place.
 │   │   │       ├── catalog_init.rs                                          # maestro init: inert fixture composition, preview-only default and owned apply
 │   │   │       ├── catalog_policy.rs                                        # Real Cedar through the effect-free policy CLI
 │   │   │       ├── catalog_preferences.rs                                   # Preference init is a side-effect-free draft until C05j supplies real trust
+│   │   │       ├── catalog_presentation.rs                                  # C05c keeps localized interface prose separate from English machine contracts
 │   │   │       ├── catalog_session_preferences.rs                           # Every process pins the same safe preference snapshot before effects
 │   │   │       ├── catalog_workspace_trust.rs                               # Explicit user trust changes never consult or rewrite preference files
 │   │   │       ├── cli_contract.rs                                          # JSON on stdout, diagnostics on stderr, exit codes 0, 1 and 2, the job ID first

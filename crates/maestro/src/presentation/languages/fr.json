@@ -1,0 +1,11 @@
+{
+  "interface_fallback": "L’interface est en anglais ; la langue de conversation reste {language}.",
+  "init_untrusted": "l’espace de travail n’est pas approuvé ; {instruction}",
+  "init_trust_command": "exécutez : maestro trust add {path} --confirm-path {path}",
+  "init_trust_data": "chemin canonique (donnée) :\n{path}\nCitez ce chemin pour votre shell. Depuis ce dossier, exécutez maestro trust add .",
+  "init_confirm": "l’écriture des préférences seules nécessite une confirmation distincte : {failure} ; {instruction}",
+  "init_confirm_command": "relancez init avec --preferences-only --confirm-path {path}",
+  "init_confirm_data": "citez le chemin canonique pour votre shell ; chemin (donnée) :\n{path}",
+  "init_preferences_written": "Préférences seules écrites ; aucune confiance accordée à l’espace de travail.",
+  "init_preferences_declined": "écriture des préférences seules refusée ; aucun fichier écrit"
+}

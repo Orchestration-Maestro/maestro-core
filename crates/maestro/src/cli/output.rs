@@ -3,7 +3,10 @@
 //! to stderr only, and a long command's job ID comes before anything else:
 //! stdout's first line in text, stderr's under `--json`.
 
-use crate::failure::Failure;
+use crate::{
+    failure::Failure,
+    presentation::messages::{Interface, MessageKey, interpolate},
+};
 use maestro_kernel::json::canonical;
 use serde::Serialize;
 use serde_json::Value;
@@ -15,12 +18,43 @@ use ulid::Ulid;
 pub(super) struct Output {
     /// Whether it prints one JSON document instead of text.
     json: bool,
+    /// Optional human interface selection; machine output always uses English.
+    interface: Option<Interface>,
 }
 
 impl Output {
     /// Text for people, or one JSON document under `--json`.
     pub(super) fn new(json: bool) -> Self {
-        Self { json }
+        Self {
+            json,
+            interface: None,
+        }
+    }
+
+    /// Bind validated session language once, displaying fallback only for human CLI.
+    pub(super) fn with_language(mut self, language: &str) -> Result<Self, Failure> {
+        if self.json {
+            return Ok(self);
+        }
+        let interface = Interface::select(language).map_err(Failure::failed)?;
+        self.interface = Some(interface);
+        if interface.fallback() {
+            self.text(&self.wording(MessageKey::InterfaceFallback, &[("language", language)])?)?;
+        }
+        Ok(self)
+    }
+
+    /// Select interface prose, then insert literal data. JSON diagnostics stay English.
+    pub(super) fn wording(
+        self,
+        key: MessageKey,
+        values: &[(&str, &str)],
+    ) -> Result<String, Failure> {
+        let interface = match self.interface {
+            Some(interface) => interface,
+            _ => Interface::select("en").map_err(Failure::failed)?,
+        };
+        interpolate(interface.template(key), values).map_err(Failure::failed)
     }
 
     /// Prints `id`, the job a long command runs, before anything else: on

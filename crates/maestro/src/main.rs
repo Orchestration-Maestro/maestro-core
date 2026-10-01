@@ -479,6 +479,7 @@ mod failure;
 mod kernel;
 mod knowledge;
 mod mcp;
+mod presentation;
 mod settings;
 
 use std::process::ExitCode;

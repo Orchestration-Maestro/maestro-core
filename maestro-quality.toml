@@ -300,6 +300,8 @@ reason = "the MCP module owns bounded transport and server startup; the CLI disp
 # ratatui, the proposed TUI crate's proper name in S3's owner-action register.
 # qdrant-client's tonic brings, which supply-chain/config.toml exempts; nd,
 # the ordinal ending of 2nd that the intent guard reads as a quantity.
+# espace and distincte are French, requiere is Spanish: C05c interface data
+# and its literal presentation expectations, not misspelled English.
 [typos]
 words = [
   "Exemple",
@@ -331,6 +333,9 @@ words = [
   "flate",
   "ratatui",
   "nd",
+  "espace",
+  "distincte",
+  "requiere",
 ]
 
 [[exception]]

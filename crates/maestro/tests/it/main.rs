@@ -11,6 +11,7 @@ mod catalog_host_probe;
 mod catalog_init;
 mod catalog_policy;
 mod catalog_preferences;
+mod catalog_presentation;
 mod catalog_session_preferences;
 mod catalog_workspace_trust;
 mod cli_contract;
