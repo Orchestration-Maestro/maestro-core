@@ -45,14 +45,13 @@ qualification of each collection's model cards.
 
 From a checkout of this repository, try the public French/English handbook in
 [`tests/fixtures/synthetic`](tests/fixtures/synthetic). These Bash commands
-configure a **fresh installation**; keep existing bindings and grants if you
-already have collections:
+use a scratch configuration and data home, so an existing installation stays
+untouched:
 
 ```sh
 export DEMO="$(mktemp -d)"
-export XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
-export XDG_DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
-mkdir -p "$DEMO" "$XDG_CONFIG_HOME/maestro"
+export XDG_CONFIG_HOME="$DEMO/config" XDG_DATA_HOME="$DEMO/data"
+mkdir -p "$XDG_CONFIG_HOME/maestro"
 sed 's/"id": "synthetic"/"id": "readme-demo"/' \
   tests/fixtures/synthetic/collection.json > "$DEMO/collection.json"
 printf 'synthetic_root = "%s/tests/fixtures/synthetic"\n' "$PWD" \
