@@ -90,7 +90,8 @@ crates, duplicate versions, native links, licences, build time and binary-size
 delta under [ADR-0020](0020-rust-libraries-with-named-dependency-exceptions.md).
 Apply the six-row pass bar in [plan A1](../../specs/002-knowledge-graph/plan.md):
 bundled native source with no native-build network, no system OpenSSL, added
-clean CI build ≤15 minutes and no unrelated-change liblbug rebuild, platform
+clean CI build ≤25 minutes (raised from 15 by the owner on 2026-10-01) and no
+unrelated-change liblbug rebuild, platform
 evidence, licence compliance, and at most one forced duplicate. That duplicate
 needs a named DEP-001 exception, forcing library, removal condition and vet
 record. Measure real-cache shard/coverage cost: shards still fit 30 minutes,

@@ -205,7 +205,7 @@ with actual versus planned platform evidence distinguished. No weakened gate.
   full rooted native operation surface, restricted extensions/COPY and no
   ambient-path fallback. Record true-cold, fresh-target/native-cache-hit and
   warm Rust-only builds separately; a cache hit never satisfies true-cold cost.
-- [ ] **Check.** Apply the six-row bar: clean CI delta ≤15 minutes, unrelated
+- [ ] **Check.** Apply the six-row bar: clean CI delta ≤25 minutes, unrelated
   changes never rebuild liblbug; shards fit 30 minutes and local builds 8 GiB
   at three jobs. Linux evidence and working gate-preserving recipes for both
   cross-Clippy targets, plus native Windows/macOS evidence or a supervisor-

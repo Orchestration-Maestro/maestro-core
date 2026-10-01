@@ -346,7 +346,7 @@ verdict; a miss fails/blocks, never waives a gate:
 | --- | --- |
 | Bundled source | The pinned crate bundles native source; after fetching locked Cargo inputs, native build and runtime need no network or first-use download. |
 | TLS linkage | No system OpenSSL dependency introduced by lbug. Record actual native links. |
-| Build and cache cost | Added clean CI build time is at most 15 minutes over the same baseline. An unrelated Rust/document change must not rebuild liblbug. Measure clean/warm time, binary delta, added time per mutation shard and coverage run with the real cache. Mutation shards must fit their 30-minute deadline; local peak memory stays within 8 GiB with `CARGO_BUILD_JOBS=3`. No invented binary-size or warm-time ceiling. |
+| Build and cache cost | Added clean CI build time is at most 25 minutes over the same baseline (the owner raised it from 15 on 2026-10-01, after E03 measured 23 minutes on Linux). An unrelated Rust/document change must not rebuild liblbug. Measure clean/warm time, binary delta, added time per mutation shard and coverage run with the real cache. Mutation shards must fit their 30-minute deadline; local peak memory stays within 8 GiB with `CARGO_BUILD_JOBS=3`. No invented binary-size or warm-time ceiling. |
 | Platforms and behavior | Linux evidence plus working gate-preserving recipes for both local cross-Clippy targets are required before implementation. Windows/macOS native CI evidence or a supervisor-approved dated plan is also required; the actual three-OS behavior matrix still gates M2. A missing cross-Clippy recipe is blocked, never a skip. A plan is not a passed test. |
 | Licence | Record Rust/native licences and notices and pass the organization licence policy; unresolved obligations block adoption. |
 | Dependency cost | Minimum features, metadata and feature tree measured; at most one forced duplicate from lbug, with a named DEP-001 exception, forcing library, removal condition and vet evidence. |
@@ -384,7 +384,7 @@ added clean workspace cost is +10:32 to +16:04 on Linux, +16:35 to +26:38 on
 Windows and +10:40 to +12:55 on macOS (`research.md`, Row 3). An external cache
 can remove repeated compilation, not qualify a genuinely empty-cache build.
 Report true source-cold, fresh Cargo target with compatible native-cache hit,
-and warm Rust-only edit separately; retain the ≤15-minute true-cold delta bar.
+and warm Rust-only edit separately; retain the ≤25-minute true-cold delta bar.
 
 D8 approves E01/E02 rooted no-follow Unix/Windows operations, E03's external
 cache keyed by source/target/compiler/profile/native flags, and E03b's removal
