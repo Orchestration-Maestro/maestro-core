@@ -1068,15 +1068,15 @@ selection while existing role histories, pinned cards and guards survive.
 **Acceptance:** FR-S2-016, FR-S2-024; closed-schema extraction, pinned card/sampling,
 `Room::Free` and at most 1,024 output tokens without weakening Answerer chat.
 
-- [ ] **Red.** Inspect stub-router wire JSON and refusal paths: wrong role,
+- [x] **Red.** Inspect stub-router wire JSON and refusal paths: wrong role,
   card mismatch, invalid/partial JSON, duplicate/unknown keys, unsupported
   sampling/template controls, output overflow and insufficient room.
-- [ ] **Green.** Add the constrained extraction request through the existing
+- [x] **Green.** Add the constrained extraction request through the existing
   port/router and deterministic fake. Derive typed candidates from architecture
   02 §8.2's closed lists and FR-S2-024, excluding `ALIAS_OF` claims; no tools,
   arbitrary JSON instructions or caller-chosen authority fields. Reject an
   instance `Job` kind and event-satisfaction-as-dependency shortcuts.
-- [ ] **Check.** Run Test; no room means no unload, invalid output admits no
+- [x] **Check.** Run Test; no room means no unload, invalid output admits no
   partial claims, and all existing embed/rerank/tokenize/chat tests still pass.
 
 ### G19 [US4] [P] Extract offline through the verified build pipeline

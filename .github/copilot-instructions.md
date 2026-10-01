@@ -646,6 +646,7 @@ in place.
 │   │   │   │   │   ├── catalog.rs                                           # The router's catalog: GET /v1/models in no room; refusals kept, a bad entry name an invalid answer
 │   │   │   │   │   ├── chat.rs                                              # Chat sends one bounded, non-streaming prompt and refuses unusable replies
 │   │   │   │   │   ├── extract.rs                                           # Extraction is closed, card-bound and atomic: malformed replies admit no candidates
+│   │   │   │   │   ├── extraction_refusals.rs                               # Unlisted job and event kinds cannot become extraction candidates, even
 │   │   │   │   │   ├── extractor_card.rs                                    # Extractor cards: v2 only, with a pinned chat template, and no other role's calls.
 │   │   │   │   │   ├── fake.rs                                              # Tests of the deterministic fake: its outputs are fixed by its inputs, the
 │   │   │   │   │   ├── fixture.rs                                           # What the gateway's tests share: a scratch store, a card for each role, and

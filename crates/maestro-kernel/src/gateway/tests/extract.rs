@@ -19,7 +19,7 @@ use crate::{
 use serde_json::{Value, json};
 use std::{collections::BTreeMap, fs, num::NonZeroU32, path::PathBuf};
 
-fn extractor_card() -> (PathBuf, ModelCard) {
+pub(super) fn extractor_card() -> (PathBuf, ModelCard) {
     extractor_card_with_settings(
         128,
         Capability::Supported(BTreeMap::from([(
@@ -156,7 +156,7 @@ fn extraction_decode_refuses_alias_duplicate_unknown_and_mismatched_shapes() {
     }
 }
 
-fn completion(content: &str) -> Value {
+pub(super) fn completion(content: &str) -> Value {
     completion_with_reason(content, "stop")
 }
 
@@ -170,7 +170,7 @@ fn completion_with_reason(content: &str, finish_reason: &str) -> Value {
     })
 }
 
-fn props(build: &str) -> Reply {
+pub(super) fn props(build: &str) -> Reply {
     answer(
         200,
         &json!({
