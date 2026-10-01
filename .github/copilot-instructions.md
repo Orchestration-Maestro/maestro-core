@@ -296,6 +296,11 @@ in place.
 │   │   └── Cargo.toml                                                                   # Crate manifest: The command line of Maestro: collections, their imports, the jobs that run them, and the machine's setup and checks
 │   ├── maestro-acquisition/                                                             # N03 implements strict source-policy declarations and immutable local baseline resolution
 │   │   ├── src/                                                                         # The crate's sources
+│   │   │   ├── adaptation/                                                              # Scoped local overlays and replaceable activation policy and commit ports
+│   │   │   │   ├── manifest.rs                                                          # Typed local overlays and replaceable activation/recovery policy seams
+│   │   │   │   ├── mod.rs                                                               # Scoped local overlays and replaceable activation policy and commit ports
+│   │   │   │   ├── storage.rs                                                           # Local overlay I/O and protected receipt identity helpers
+│   │   │   │   └── writer.rs                                                            # Immutable baseline plus scoped local overlays; pointer replacement commits
 │   │   │   ├── extraction/                                                              # Immutable extraction profiles and bounded pure selection
 │   │   │   │   ├── detect.rs                                                            # Bounded deterministic evidence matching; no parser, network or model starts
 │   │   │   │   ├── mod.rs                                                               # Immutable extraction profiles and bounded pure selection
@@ -370,6 +375,11 @@ in place.
 │   │   │       ├── n15_selection_edges.rs                                               # Selection predicates with qualified, pinned positive and negative neighbours
 │   │   │       ├── n15_support.rs                                                       # Independently authored synthetic registry resources, never catalog trust
 │   │   │       ├── n15_validation.rs                                                    # Independent boundary fixtures for registry guards and unmasked red proofs
+│   │   │       ├── n30_additional_contracts.rs                                          # Typed proposal inputs, fresh CAS and scoped inheritance regressions
+│   │   │       ├── n30_implement_proposal_and_activation_manifest_write_port.rs         # Synthetic write-port conformance; no installed catalog admission is claimed
+│   │   │       ├── n30_recovery_guards.rs                                               # Recovery, rollback and filesystem refusal contracts
+│   │   │       ├── n30_support.rs                                                       # Synthetic write-port conformance; no installed catalog admission is claimed
+│   │   │       ├── n30_write_guards.rs                                                  # Individual safety guards and recovery identity proofs for N30
 │   │   │       └── support.rs                                                           # Complete independently authored synthetic policy fixtures
 │   │   ├── Cargo.toml                                                                   # Crate manifest: Strict source policies and immutable baseline resolution for native acquisition
 │   │   └── README.md                                                                    # N03 implements strict source-policy declarations and immutable local baseline resolution
@@ -873,6 +883,7 @@ in place.
 │   │   │       ├── n04_persist_frontier_leases_and_fenced_submissions.rs                # N04 frontier contract: durable work, exclusive leases and fenced acknowledgement
 │   │   │       ├── n06_receipt_review_regressions.rs                                    # N06 review regressions for terminal reconciliation, bounds and privacy
 │   │   │       ├── n06_store_scoped_receipts_and_content_free_progress_events.rs        # N06: opaque receipt views, durable attempts, and content-free event sinks
+│   │   │       ├── n30_filesystem.rs                                                    # Protected local-overlay and durable replacement contracts
 │   │   │       ├── unit_graph_code_leadin.rs                                            # The kernel accepts code groups without an optional lead-in relation
 │   │   │       ├── unit_graph_nested_producer.rs                                        # Kernel conformance for nested procedure, code and table producer graphs
 │   │   │       ├── unit_graph_producer.rs                                               # Kernel conformance against the canonicalization producer snapshot

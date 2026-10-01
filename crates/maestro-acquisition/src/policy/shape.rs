@@ -25,7 +25,7 @@ pub(crate) fn valid_id(text: &str) -> bool {
             .all(|byte| byte.is_ascii_alphanumeric() || b"-_.".contains(&byte))
 }
 /// Decode one bounded ID.
-pub(super) fn id<'de, D: Deserializer<'de>>(decoder: D) -> Result<String, D::Error> {
+pub(crate) fn id<'de, D: Deserializer<'de>>(decoder: D) -> Result<String, D::Error> {
     checked(decoder, valid_id)
 }
 /// Decode bounded non-executable text.

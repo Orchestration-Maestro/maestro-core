@@ -14,7 +14,7 @@ pub mod chunk_set;
 pub mod document;
 pub mod eval;
 pub mod evidence;
-mod filesystem;
+pub mod filesystem;
 pub mod gateway;
 pub mod generation;
 pub mod job;
