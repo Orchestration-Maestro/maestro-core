@@ -23,22 +23,27 @@ startup updates, user-approved path trust and small replaceable ports. The eveni
 amendment adds descriptor-only kinds, owner-approved model cards and S1 settings
 reuse; round 2 incorporates the 21:02 review ruling, explicit C16h registration,
 the owner's 20:48 registry-generated every-setting editor and 20:50 later glossary/
-source-class kinds. The owner-first amendment (2026-09-30) adds C30–C43
-under D13: strict owner segregation, `/2` source/output migration, native aliases
-and deferred S6 collection contracts. Research, data model and contracts are in
+source-class kinds. The final manifest v4 amendment (2026-09-30) updates C30–C43 and adds
+C44–C96b: mandatory standards, root languages, delegated ownership, three
+backends, typed content/lifecycle/checkpoints and bounded gap kits under D13–D15. Research, data model and contracts are in
 the plan.
 
-**Format:** `Cnn [USn] title (hours)`, with red/green/check steps. IDs preserve
-the approved draft, with explicit review splits. Physical order below is
-historical phase order, with the migration appendix's `After` edges authoritative.
-**71 tasks, 224–240 lane-hours**, including **68 S3 tasks, 218–230 h** and
-**3 deferred S6 tasks, 6–10 h**. The original 57 tasks/191 h stay unchanged;
-C30–C39 add the proposed 24–34 h plus the supervisor-approved 1 h core-label
-fix in C33 (25–35 h); C40 adds 2–4 h, C41–C43 add 6–10 h. Every new task is
-at most four hours; C03 retains its approved 6 h exception. The unchanged
-16–24 h baseline review/CI reserve is separate; C39 already prices migration
-verification/review, so it is not added twice. Open checkboxes are plans, not
-implementation evidence. Only the supervisor ticks integrated work.
+**Format:** `Cnn [USn] title (hours)`, with red/green/check steps. Each task's
+**Phase** and **After** fields are authoritative; physical workstream order is
+not execution order. Phase 1 means M3; Phase 2 starts immediately after M3.
+**143 S3 tasks / 477–489 h** comprise **108 Phase 1 tasks / 356–368 h** and
+**35 Phase 2 tasks / 121 h**. Three S6 tasks add 6–10 h; transferred C20 adds
+4 h in S4, not S3. All 147 headings total 487–503 h across those boundaries.
+The amendment is **149 h Phase 1 + 121 h Phase 2 = 270 h**, including the
+retained S2 7 h and C02 +1 h; it replaces, not adds to, the approved 27 h.
+[Accounting](#critical-paths-and-effort) reconciles every row and critical path.
+Completed work retains historical estimates, not new remaining effort.
+
+The approved inputs are `manifest-design-final.md` §§8.3–8.6 and
+`manifest-gap-analysis.md` §§3, 6–7 (2026-09-30). C44 records their minimal
+option; no intermediate layout, full-option duplicate or zero-hour recovery.
+C20's live hook moves to S4. G12 context limits are Phase 2 (6 h), per the
+supervisor's correction; G07–G11 are the Phase 1 12 h guides/guard bundle.
 
 ## Global Constraints
 
@@ -60,8 +65,8 @@ implementation evidence. Only the supervisor ticks integrated work.
   zero missed mutants and zero mutation timeouts, plus three-OS tests/Clippy.
   Supervisor review and integration checks still gate landings.
 - Public files/tests/logs contain no private vendor material, personal path or
-  secret. Keep private receipts at the owner-approved private location. Never
-  open the earlier catalog before C29. No task may expand its stated budget by
+  secret. Keep private receipts at the owner-approved private location. Read only the owner-approved legacy inputs for the named recovery tasks;
+  C29 audits their provenance before M3. No private collection access follows. No task may expand its stated budget by
   weakening scope, validation or tests; split a discovered overrun explicitly.
 - C05a/C05b/C05d/C17/C18 extend the integrated S1 settings registry, strict
   preference parser/resolver, config commands and change journal. Their files
@@ -76,8 +81,9 @@ implementation evidence. Only the supervisor ticks integrated work.
 
 `CORE` is maestro-core. `MAN` means the separate, owner-created
 maestro-manifests checkout; a task marked MAN commits there only. All other
-paths are relative to CORE. Brace lists name exact files, not directory-wide
-permission to refactor. Tests live beside source or in the existing `it`
+paths are relative to CORE. A MAN, RW (rust-workflows) or ORG (organization
+.github repository) qualifier applies until the next repository qualifier.
+Brace lists name exact files, not directory-wide permission to refactor. Tests live beside source or in the existing `it`
 process suite. New modules update only their necessary `mod.rs`/`lib.rs` lines;
 process test modules register in `crates/maestro/tests/it/main.rs`.
 
@@ -97,9 +103,11 @@ Copilot guide. Serialize C26's retrieval edits with S2 G12/G14 (including R4
 if present), and MCP dispatch with all slices. Do not create a new command/module
 before its first working behaviour.
 
-## Phase 1: First useful content, preferences and owner loop [US1, US3, US5]
+## Workstream 1: First useful content, preferences and owner loop [US1, US3, US5]
 
 ### C00 Contract and traceability [US1, US2, US3, US4, US5] (2 h)
+
+**Phase:** P1/M3
 
 **After:** D1–D5 already decided; no M1 start gate.
 **Files:**
@@ -122,9 +130,10 @@ for the existing dependency edge and generated-guide registration.
 - [x] **Step 2: Green.** Freeze exact keys/S3 portions, approved by the owner,
   2026-09-28 (C00 inventory approval). In 03/06/08 record D1's authoring boundary, D5's synthetic
   conditional hybrid result, the 08:12 parallel start and S3 static/S4 runtime split. For
-  `product.GD2, GD4, GD5`, keep four-client MCP and Copilot `preToolUse` in S3;
-  defer Pi/Codex/Claude Code hooks to S4 host-adapter qualification because their
-  trusted event/identity adapters are unqualified. Name C27a's catalog schema/
+  `product.GD2, GD4, GD5`, C00 originally kept four-client MCP and Copilot
+  `preToolUse` in S3, deferring other hooks. **Superseded by C44:** four-client
+  MCP stays S3; all live hooks, including C20, move to S4 qualification.
+  Name C27a's catalog schema/
   adapters and S2 G27's public port. Coordinate next-free migrations above all
   landed/reserved numbers across main, S1/S2/S3 and deployment-modes, never a
   fixed/gapped block.
@@ -148,6 +157,8 @@ approved by the owner, 2026-09-28 (C00 inventory approval); fixture checks are n
 evidence. Architecture 03/06/08 records the decided contract.
 
 ### C01 Real host format probe [US1, US5] (3 h)
+
+**Phase:** P1/M3
 
 **After:** C00; OA2 approved on 2026-09-28 for already-installed tools in isolated
 temporary homes only. No installs/upgrades, real-configuration or enterprise
@@ -183,6 +194,8 @@ missing format evidence blocks C03 too, not independent C04a/C09 work.
 No new extension and no implicit model fallback.
 
 ### C03 Strict source checker and kind registry [US1, US5] (6 h)
+
+**Phase:** P1/M3
 
 **After:** C00, C01's integrated [host-format evidence](research/hosts.md)
 (`0be954b`, ADR-0005): confirmed agent sidecars and specification-backed skill
@@ -246,6 +259,8 @@ Responsibilities, Inputs, Working sequence, Outputs and Boundaries.
 
 ### C03a Model-card declaration and kernel adapter [US1, US5] (4 h)
 
+**Phase:** P1/M3
+
 **After:** C03; existing S1 v2 cards/scoped registry integrated. S2 G17 is required
 only for extractor acceptance; unsupported query_expander waits for S1's named
 post-M1 role follow-up, never an S3 alias or role extension. No MAN prerequisite.
@@ -291,55 +306,32 @@ adapter; no second model registry, bespoke installer, bake-off runner or fake
 qualification. No fabricated evaluation/selection record; explicit registration
 can affect a later same-entry ask under S1's existing lookup, never rewrite history.
 
-### C02 Minimal catalog seed [US1, US5] (2 h)
+### C02 Minimal v4 catalog seed [US1, US5] (3 h)
 
-**After:** C00, C03, C39; OA1 owner identities and protections established.
-The README-only repository exists; seed publication waits for the `/2` migration.
-**Files (MAN):** `core/capability.toml`,
-`core/agents/{maestro.agent.md,maestro.maestro.toml}`,
-`core/skills/knowledge-evidence/SKILL.md`,
-`core/instructions/{knowledge.instructions.md,knowledge.maestro.toml}`,
-`core/mcp/maestro.toml`, `capabilities/engineering/rust/capability.toml`,
-`capabilities/engineering/rust/instructions/{rust.instructions.md,rust.maestro.toml}`,
-`capabilities/orchestration/application-workflow/capability.toml`,
-`presets/{knowledge-client.toml,rust-service.toml}`,
-`bootstrap/{core.toml,rust.toml}`,
-`bootstrap/core/.github/copilot-instructions.md`,
-`bootstrap/rust/.maestro/recipes.json`, `settings/README.md`, `CODEOWNERS`,
-`README.md`, `docs/standards/{engineering.md,security.md}`.
-The agent's `name: maestro` matches its stem. The canonical persona/system
-prompt lives in that agent body, not runtime code.
-Skill `metadata:` is specification-backed inside `SKILL.md`; a host warning
-reopens ADR-0005's sidecar decision, not an automatic skill sidecar.
-**Requirements:** FR-S3-001, FR-S3-002, FR-S3-003, FR-S3-007.
+**Phase:** P1/M3
+**After:** C00, C03, C39, C51a, C52b; OA1 approved identities/protection.
+**Files:** MAN package.toml; core/package.toml; core/agents/maestro.{agent.md,maestro.toml}; skills/knowledge-evidence/SKILL.md; core/instructions/knowledge.{instructions.md,maestro.toml}; languages/rust/{package.toml,instructions,bootstrap}; standards/<domain>/package.toml; capabilities/orchestration/application-workflow/package.toml; presets/{knowledge-client,rust-service}.toml; bootstrap/repository.toml and bootstrap/repository/files/; .github/CODEOWNERS; README.md; docs/standards/.
+**Requirements:** FR-S3-001, FR-S3-002, FR-S3-003, FR-S3-007, FR-S3-040, FR-S3-041, FR-S3-042, FR-S3-046, FR-S3-047, FR-S3-051, SC-S3-004, SC-S3-021.
+**Named tests:** `seed_missing_knowledge_skill_refuses`, `seed_unknown_setting_refuses`, `minimal_common_rust_starters_accept`; required cases, not reported results.
 
-- [ ] **Step 1: Red.** Create the MAN C-001 rule maps before affected content
-  work, naming gates/tests/reviews including SEC-011's C15/C28 holders; then
-  run the migrated checker against a seed missing its required
-  `skill:core/knowledge-evidence` and an unknown S1 setting; retain the refusals.
-- [ ] **Step 2: Green.** Write only the knowledge preset, Maestro and the
-  knowledge resources `ctm-question` will need, then the Rust capability.
-  Populate exact qualified capability/preset requirements and named core/Rust
-  inventories. Attach approved owners, honest maturity, source-row keys and
-  namespaced MCP tools; generate CODEOWNERS from the owner records.
-  `settings/README.md` only points to S1's registry. No QA/delivery resources,
-  collection descriptors or empty roles are seeded here.
-- [ ] **Step 3: Check.** Run
-  `"$MAESTRO_BIN" catalog check --catalog-dir "$MANIFESTS"`; validate
-  `recipes.json` as strict JSON. C08 runs C01's real probes on this seed; their
-  unavailability does not block checked content preparation.
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Write approved area records, knowledge resources, existing two presets and minimal standard/common/Rust starter fixtures at final paths; use exact qualified IDs and generated ownership/index/schema outputs. Standards imports join through C82 before publication; never invent approved rules/owners. C21b/C70/C72 add the remaining required framework content. No package-new, generic eval runner, extension or full historical starter dependency.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
 
-**Acceptance:** a useful generic seed passes without reading earlier content;
-no vendor text, credentials, empty roles, executable workflow activation or
-unqualified-role claim. Release CI arrives in C15 with a released compiler.
+**Acceptance:** Public synthetic seed is checked, useful and inert. Strict recipes JSON and missing prerequisite diagnostics remain; no private text, model selection, hook launch or qualification claim. C02 is 2 h historical seed + 1 h v4 adjustment, charged once.
 
 ### C02a Reviewed model cards in the manifest [US1, US5] (2 h)
 
+**Phase:** P1/M3
+
 **After:** C02, C03a; OA1 and owner-supplied approved public card identities/evidence
 references. Extractor content waits for S2 G17; do not invent query_expander data.
-**Files (MAN):** `core/model-cards/*.toml` for the owner-approved workflow
-dependencies only, `core/capability.toml`, `presets/knowledge-client.toml`,
-`CODEOWNERS`, `README.md`. Use qualified model-card IDs and core owner mirrors;
+**Files (MAN):** `core/llm/models/<role>/<name>.toml` for the owner-approved workflow
+dependencies only, `core/package.toml`, `presets/knowledge-client.toml`,
+`.github/CODEOWNERS`, `README.md`. Use qualified model-card IDs and area-derived ownership;
 canonical kernel identity bytes remain unchanged.
 **Requirements:** FR-S3-001, FR-S3-003, FR-S3-038, FR-S3-039.
 
@@ -361,6 +353,8 @@ selection effects. C08 can still use existing S1 cards without waiting for this
 content; C28 includes it before M3. C15/C21 do not wait for owner-approved winners.
 
 ### C04a Share the existing ADR-0018 filesystem [US1] (2 h)
+
+**Phase:** P1/M3
 
 **After:** C00.
 **Files:** `crates/maestro-filesystem/{Cargo.toml,src/lib.rs}`,
@@ -399,6 +393,8 @@ regression assertions; canonicalization no longer owns a private copy.
 
 ### C04 Shared owned-file operations [US1] (4 h)
 
+**Phase:** P1/M3
+
 **After:** C03, C04a.
 **Files:** `crates/maestro-catalog/src/files/{mod.rs,plan.rs,apply.rs,remove.rs,recovery.rs}`,
 `crates/maestro-catalog/src/files/tests/{mod.rs,crashes.rs,races.rs,removal.rs}`.
@@ -420,6 +416,8 @@ refused with user bytes intact; no path escapes its root and removal never
 claims another writer's file or entry.
 
 ### C17 Restrictive settings resolution [US3] (4 h)
+
+**Phase:** P1/M3
 
 **After:** C03; supervisor S1-to-S3 sync of the landed S1 settings
 (`feat/s1-settings`) registry/resolver and required kernel commits, with the
@@ -463,6 +461,8 @@ search results cannot change configuration or grant a permission.
 
 ### C05 Preview and apply project bootstrap [US1] (3 h)
 
+**Phase:** P1/M3
+
 **After:** C03, C04; CORE fixtures, not the owner-created seed.
 **Files:**
 `crates/maestro-catalog/src/bootstrap/{mod.rs,inspect.rs,compose.rs,project.rs,tests.rs}`,
@@ -471,8 +471,8 @@ search results cannot change configuration or grant a permission.
 `tests/fixtures/catalog/bootstrap/bootstrap/{core.toml,rust.toml}`,
 `tests/fixtures/catalog/bootstrap/bootstrap/core/.github/copilot-instructions.md`,
 `tests/fixtures/catalog/bootstrap/bootstrap/rust/.maestro/recipes.json`,
-`tests/fixtures/catalog/bootstrap/core/capability.toml`,
-`tests/fixtures/catalog/bootstrap/capabilities/engineering/rust/capability.toml`;
+`tests/fixtures/catalog/bootstrap/core/package.toml`,
+`tests/fixtures/catalog/bootstrap/languages/rust/package.toml`;
 these are target fixture paths, migrated in C36/C37, not a second charge to C05;
 CLI registration files from the shared list.
 **Requirements:** FR-S3-004, FR-S3-005, SC-S3-004.
@@ -494,6 +494,12 @@ install. Descriptor fields cannot override authentication, policy or hooks.
 
 ### C05a Strict workspace and user preferences [US1, US3] (3 h)
 
+**Phase:** P1/M3
+
+**Status:** Closed; integrated `a5e0e96`, `fa1f65e`, `2843b5f`.
+Historical acceptance below is retained. C44 and named v4 follow-ups carry
+new behavior; no implementation step is reopened or charged again.
+
 **After:** C05, C17, C37; S1 settings shared schema/parser integrated. D6's complete
 BCP 47 subset needs no dependency or OA9.
 **Files:** `crates/maestro-catalog/src/settings/preferences.rs` (init-plan adapter
@@ -504,7 +510,7 @@ consuming S1 descriptors/parser; no `preference_files.rs` parser copy),
 necessary module/CLI registrations only.
 **Requirements:** FR-S3-027, FR-S3-033, SC-S3-010.
 
-- [ ] **Step 1: Red.** Test full/partial files, absent language, canonical
+- [x] **Step 1: Red.** Test full/partial files, absent language, canonical
   en/fr/es/ja, zh-Hant-TW, es-419 and sr-Latn; reject variants, extensions,
   private-use, grandfathered forms, malformed tags and non-ASCII input. Test all
   tones/update modes, duplicate/unknown keys, types, versions, exact/one-past
@@ -512,7 +518,7 @@ necessary module/CLI registrations only.
   access/identity/hooks/secrets. Both preference files reject trust, paths and
   receipts; workspace auto is an ignored widening. Preview/cancel create no
   files and changed config bytes survive rerun.
-- [ ] **Step 2: Green.** Extend S1's strict schema with catalog settings and
+- [x] **Step 2: Green.** Extend S1's strict schema with catalog settings and
   adapt its file/parser API behind `WorkspacePreferences` for init planning.
   Both files hold preferences only. Reuse S1's exact bounded tag parser without
   a new library; pass only canonical tags onward.
@@ -521,7 +527,7 @@ necessary module/CLI registrations only.
   Do not enable config persistence before C05h/C05j supply the real trust guard;
   this task produces the validated C04 write plan, not an approval stub. Keep
   user authority config untouched; the draft contains no machine-local paths.
-- [ ] **Step 3: Check.** Run capped nextest filters `settings::tests::preferences`
+- [x] **Step 3: Check.** Run capped nextest filters `settings::tests::preferences`
   in maestro-catalog and `catalog_preferences` in maestro; parse the generated
   TOML and compare scripted and draft-plan bytes.
 
@@ -532,6 +538,12 @@ New storage adapters do
 not change configuration consumers.
 
 ### C05b Every-session discovery and precedence [US1, US3] (3 h)
+
+**Phase:** P1/M3
+
+**Status:** Closed; integrated `9a0852b`, `ab7e6b1`.
+Historical acceptance below is retained. C44 and named v4 follow-ups carry
+new behavior; no implementation step is reopened or charged again.
 
 **After:** C05a, C17; S1 settings discovery/resolver integrated. Read existing
 kernel journal records, not config claims.
@@ -571,6 +583,8 @@ consume the same port; replacing file storage does not change their resolution.
 
 ### C05h User-approved workspace trust records [US1, US3] (3 h)
 
+**Phase:** P1/M3
+
 **After:** C05a, C05b; existing kernel journal/scopes and C04 filesystem seam.
 Trust administration itself never depends on successful workspace discovery.
 **Files:** `crates/maestro-catalog/src/policy/workspace/{mod.rs,port.rs,approval.rs}`,
@@ -604,6 +618,8 @@ approval can add a folder, and config-only decline records grant no other write.
 
 ### C05i Canonical path policy and secret deny data [US1, US3] (4 h)
 
+**Phase:** P1/M3
+
 **After:** C05h, C04a.
 **Files:** `crates/maestro-catalog/src/policy/workspace/{paths.rs,deny.rs}`,
 `crates/maestro-catalog/src/policy/workspace/tests/paths.rs`,
@@ -629,6 +645,8 @@ under other controls. Adding a secret location changes checked data, not callers
 no adapter may weaken the mandatory policy floor.
 
 ### C05j Own-file-operation trust enforcement [US1, US2, US3] (4 h)
+
+**Phase:** P1/M3
 
 **After:** C05i, C04, C05.
 **Files:** `crates/maestro-catalog/src/files/{plan.rs,apply.rs,remove.rs,recovery.rs}`,
@@ -659,9 +677,12 @@ SC-S3-010, SC-S3-012.
 **Acceptance:** one controlled file-effect gate serves init, projection and
 later install/update/rollback; adapters do not bypass path policy. No trust
 preference, catalog or update widens roots. S3 does not claim containment of arbitrary
-Pi/Codex/Claude tools; C20 covers Copilot and the named S4 obligation covers the rest.
+external host tools; transferred C20 and the other named S4 host obligations
+supply live containment, not this S3 task.
 
 ### C05c Interface message port and English logs [US1, US3] (4 h)
+
+**Phase:** P1/M3
 
 **After:** C05b.
 **Files:** `crates/maestro/src/presentation/{mod.rs,messages.rs,tests.rs}`,
@@ -689,6 +710,8 @@ messages without changing language resolution or machine contracts.
 
 ### C05l Existing user-facing message migration [US1, US3] (4 h)
 
+**Phase:** P1/M3
+
 **After:** C05c.
 **Files:** existing human-message/error call sites under `crates/maestro/src/cli/`,
 `crates/maestro/src/presentation/{messages.rs,tests.rs}`,
@@ -711,6 +734,8 @@ changing output semantics or touching clap's English documentation. The inventor
 bounds this migration separately from the message port and the later renderer.
 
 ### C05d Ask language, tone and artifact boundary [US1, US3] (4 h)
+
+**Phase:** P1/M3
 
 **After:** C05b, C05c; S1 settings preference/answer integration and existing
 answer ports integrated, not live calibration approval. Extend those inputs;
@@ -752,6 +777,8 @@ unmeasured multilingual model quality.
 
 ### C05e Preferences delivered to client and agent sessions [US1, US3] (4 h)
 
+**Phase:** P1/M3
+
 **After:** C05b, C05c, C05d.
 **Files:** `crates/maestro-catalog/src/settings/{instructions.rs,tests/instructions.rs}`,
 `crates/maestro-catalog/src/hosts/preferences.rs`,
@@ -786,6 +813,8 @@ actually deny unsafe paths. No speculative S3 execution engine is introduced.
 
 ### C05g Plain init flow and script parity [US1, US3] (4 h)
 
+**Phase:** P1/M3
+
 **After:** C05a, C05b, C05h, C05i, C05j, C05c; no TUI or OA9 dependency.
 **Files:** `crates/maestro/src/cli/init/{mod.rs,flow.rs,plain.rs}`
 (move C05's adapter without duplicating its planner),
@@ -818,6 +847,8 @@ registry-generated every-setting editor without waiting on TUI evidence.
 C05k later replaces the renderer, not preferences, trust or owned-file planning.
 
 ### C06 Copilot projection and shared JSON ownership [US1] (4 h)
+
+**Phase:** P1/M3
 
 **After:** C01, C04, C05e, C05j; code uses CORE fixtures, not new live receipts.
 **Files:** `crates/maestro-catalog/src/hosts/{mod.rs,copilot.rs,shared_json.rs}`,
@@ -861,12 +892,14 @@ prove an outside-trust write is refused rather than silently granting a folder.
 
 ### C07 Pi projection [US1] (3 h)
 
+**Phase:** P1/M3
+
 **After:** C01, C04, C05e, C05j, C06; code uses CORE fixtures, not new live receipts.
 **Files:** `crates/maestro-catalog/src/hosts/pi.rs`,
 `crates/maestro-catalog/src/hosts/tests/pi.rs`,
 `crates/maestro/tests/it/catalog_pi.rs`; register Pi in the existing projector.
 Source fixtures use `core/agents/maestro.agent.md` and
-`capabilities/engineering/qa/agents/reviewer.agent.md` with owner-local sidecars.
+`capabilities/practice/qa/agents/reviewer.agent.md` with owner-local sidecars.
 C40 adds qualified-name mapping/collision probes; never read a type-first source
 or flatten IDs before building its checked closure.
 **Requirements:** FR-S3-006, FR-S3-007, FR-S3-031, FR-S3-036,
@@ -899,6 +932,8 @@ survive. Maestro's projection writes enforce trust; this does not claim Pi tool
 containment, whose hook obligation remains S4.
 
 ### C08 First owner loop [US1] (2 h)
+
+**Phase:** P1/M3
 
 **After:** C02, C05a, C05b, C05c, C05d, C05e, C05g, C05h, C05i, C05j, C05l,
 C06, C07, C40; integrated T034/T035 and completed T038 live evidence;
@@ -934,21 +969,27 @@ hours below; the old 72-hour baseline is historical, not a remaining-work claim.
 C31 reuses the landed model-card descriptor, but owner-approved C02a content
 still does not gate this loop. External S1-settings/owner waits are excluded.
 
-## Phase 2: Menu, settings, policy and required content [US1, US3, US5]
+## Workstream 2: Menu, settings, policy and required content [US1, US3, US5]
 
 ### C05f Terminal dependency measurements [US1] (2 h)
+
+**Phase:** P1/M3
+
+**Status:** Closed; integrated `3a4e6e4`.
+Historical acceptance below is retained. C44 and named v4 follow-ups carry
+new behavior; no implementation step is reopened or charged again.
 
 **After:** C05; independent of the first owner loop. OA9 approved ratatui +
 crossterm on 2026-09-28; ADR-0020 measurements still precede adoption.
 **Files:** `specs/003-catalog/research/interface.md`; scratch manifests only.
 **Requirements:** FR-S3-030, SC-S3-010.
 
-- [ ] **Step 1: Red.** Define a terminal probe for keyboard/focus, resize,
+- [x] **Step 1: Red.** Define a terminal probe for keyboard/focus, resize,
   Ctrl-C cleanup, plain output and no-color behavior on the three platforms.
-- [ ] **Step 2: Green.** Measure minimum ratatui/crossterm features, added
+- [x] **Step 2: Green.** Measure minimum ratatui/crossterm features, added
   crates, duplicates, native links, licences and vet needs. Keep the prototype
   disposable; no parser work or production dependency adoption in this task.
-- [ ] **Step 3: Check.** Run the probe and capped `cargo tree -e features` /
+- [x] **Step 3: Check.** Run the probe and capped `cargo tree -e features` /
   `cargo tree -d` on scratch manifests; record results and exact OA9 decision.
 
 **Acceptance:** reproducible measurement; only the optional renderer waits for
@@ -956,8 +997,10 @@ adoption evidence. The plain flow and preference parser have no new dependency.
 
 ### C05k Branded terminal renderer [US1, US3] (4 h)
 
-**After:** C05g, C05f, C05c; OA9 ratatui/crossterm approval recorded 2026-09-28,
-not a C08 prerequisite. Measurement/vet requirements remain.
+**Phase:** P1/M3
+
+**After:** C05g, C05f, C05c; OA9 library approval recorded; visual acceptance joins M3, not the first owner loop
+
 **Files:** `crates/maestro/src/cli/init/{terminal.rs,mod.rs}`,
 `crates/maestro/src/cli/init/tests/terminal.rs`,
 `crates/maestro/tests/it/catalog_init_menu.rs`, `docs/how-to/catalog.md`;
@@ -982,6 +1025,8 @@ can be replaced without changing preferences, trust or planning; plain C08 does
 not wait for this task or its library decision.
 
 ### C09 Dependency and trust measurements [US2, US3, US5] (3 h)
+
+**Phase:** P1/M3
 
 **After:** C00; D4 already approves the required libraries. Existing public
 attested artifacts supply real verification fixtures; no publisher-setup gate.
@@ -1014,6 +1059,12 @@ C28, never the library/verifier implementation that uses public fixtures.
 
 ### C19 Real Cedar checks [US3, US5] (4 h)
 
+**Phase:** P1/M3
+
+**Status:** Closed; integrated `94a4296`, `81a2c39`.
+Historical acceptance below is retained. C44 and named v4 follow-ups carry
+new behavior; no implementation step is reopened or charged again.
+
 **After:** C03, C09's measured dependencies under the decided D4.
 **Files:** `crates/maestro-catalog/src/policy/{mod.rs,check.rs,schema.rs}`,
 `crates/maestro-catalog/src/policy/tests/{mod.rs,check.rs}`,
@@ -1038,6 +1089,8 @@ dependency/CLI registrations from the shared list, including adoption-time
 pass, denied/error neighbours deny, and model text cannot supply trusted facts.
 
 ### C22a Graph topology [US5] (3 h)
+
+**Phase:** P1/M3
 
 **After:** C03, C17, C19.
 **Files:** `crates/maestro-catalog/src/graph/{mod.rs,types.rs,topology.rs}`,
@@ -1067,6 +1120,8 @@ pass, denied/error neighbours deny, and model text cannot supply trusted facts.
 loops and independent reviewers pass without treating source labels as evidence.
 
 ### C22b Graph contracts [US5] (4 h)
+
+**Phase:** P1/M3
 
 **After:** C22a, C19; C09's measured JSON Schema validator approval.
 **Files:** `crates/maestro-catalog/src/graph/{contracts.rs,conditions.rs,state.rs}`,
@@ -1103,31 +1158,33 @@ unsupported. A smaller language needs an approved 08 disposition, not omission.
 
 ### C21 Knowledge workflow and shared policies [US3, US5] (3 h)
 
+**Phase:** P1/M3
+
 **After:** C02, C17, C19, C22b.
 **Files (MAN):**
-`capabilities/orchestration/application-workflow/workflows/ctm-question/workflow.md`,
+`capabilities/orchestration/application-workflow/workflows/workload-question/workflow.md`,
 `capabilities/orchestration/application-workflow/contracts/answer.schema.json`,
-`capabilities/orchestration/application-workflow/evals/scenarios/ctm-question.yaml`,
-`capabilities/orchestration/application-workflow/capability.toml`,
+`capabilities/orchestration/application-workflow/evals/scenarios/workload-question.json`,
+`capabilities/orchestration/application-workflow/package.toml`,
 `core/profiles/models/maestro.toml`,
-`core/policies/{default-deny,destructive-operations,protected-paths}.cedar`,
-`core/policies/{egress-deny-by-default,mcp-allowlist}.cedar`,
-`core/policies/schema.cedarschema.json`, `core/hooks/pre-tool-use.json`,
-`core/evals/scenarios/policy-neighbours.json`, `core/capability.toml`,
-`presets/knowledge-client.toml`, `settings/README.md`, `CODEOWNERS`.
-Discovery cards are metadata of exact resources, not authority. Shared policies,
-hook and Maestro profiles are core; the application workflow is optional and
+`standards/security/policies/{default-deny,destructive-operations,protected-paths}.cedar`,
+`standards/security/policies/{egress-deny-by-default,mcp-allowlist}.cedar`,
+`standards/security/policies/schema.cedarschema.json`, `hooks/pre-tool/policy.toml`,
+`standards/security/checks/policy-neighbours.json`, `core/package.toml`,
+`presets/knowledge-client.toml`, `settings/README.md`, `.github/CODEOWNERS`.
+Discovery cards are metadata of exact resources, not authority. Universal policies are standard-owned, common hook subscriptions are inert,
+and Maestro session profiles are core; the application workflow is optional and
 requires core, never the reverse. No private collection ID enters this preset.
 **Requirements:** FR-S3-001, FR-S3-003, FR-S3-016, FR-S3-018, FR-S3-019.
 
 - [ ] **Step 1: Red.** Write missing knowledge-skill/answer-contract cases and
   all five production policies' allowed/denied neighbours; require real checker
   and evaluator refusals before completing the content.
-- [ ] **Step 2: Green.** Author `ctm-question`, its answer contract and shared
+- [ ] **Step 2: Green.** Author `workload-question`, its answer contract and shared
   policies/hook. Declare Maestro fast/balanced/deep profiles for `copilot` and
   `llamacpp`;
   retain unsupported/unqualified status without S4 evidence. Reuse C02's skill,
-  instructions and MCP descriptor rather than duplicating them.
+  instructions and checked MCP binding rather than duplicating them.
 - [ ] **Step 3: Check.** Run `"$MAESTRO_BIN" catalog check --catalog-dir "$MANIFESTS"`
   and `"$MAESTRO_BIN" policy test --catalog-dir "$MANIFESTS"` on production content.
 
@@ -1136,17 +1193,19 @@ policy neighbours and graph checks pass; no invented qualification or vendor tex
 
 ### C21b Feature-delivery workflow [US3, US5] (3 h)
 
+**Phase:** P1/M3
+
 **After:** C21.
-**Files (MAN):** owner root `capabilities/engineering/delivery/`, with exact
-relative files `capability.toml`, `workflows/feature-delivery/workflow.md`,
-`agents/{planner,coder,tester,reviewer}.agent.md`,
+**Files (MAN):** owner root `core/`, with exact
+relative files `package.toml`, `workflows/feature-delivery/workflow.md`,
+`agents/{planner,worker,tester,reviewer}.agent.md`,
 `contracts/{plan,patch,test-report,review,delivery}.schema.json`,
-`profiles/models/{planner,coder,tester,reviewer}.toml`,
+`profiles/models/{planner,worker,tester,reviewer}.toml`,
 `skills/{spec-compliance,security-review}/SKILL.md`,
-`evals/scenarios/feature-delivery.yaml`; global `presets/rust-service.toml`
-and generated `CODEOWNERS`.
+`evals/scenarios/feature-delivery.json`; global `presets/rust-service.toml`
+and generated `.github/CODEOWNERS`.
 C01's agent-sidecar decision requires owner-relative
-`agents/{planner,coder,tester,reviewer}.maestro.toml`;
+`agents/{planner,worker,tester,reviewer}.maestro.toml`;
 each agent's name equals its stem. The two `SKILL.md` files follow C01's
 specification-backed `metadata:` format; a host warning reopens the ADR-0005
 sidecar decision.
@@ -1155,23 +1214,25 @@ sidecar decision.
 - [ ] **Step 1: Red.** Require refusal for a missing role/contract, removed
   mandatory reviewer, self-review, missing approval gate and invented role
   qualification, with a valid complete feature-delivery neighbour.
-- [ ] **Step 2: Green.** Author only the four required roles, two skills,
+- [ ] **Step 2: Green.** Author the baseline required role definitions, two skills,
   contracts and declarative workflow; builder is a deterministic step. Declare
   fast/balanced/deep for `copilot` and `llamacpp`, marking absent S4 support
   unsupported.
-  Require C21's core policy IDs explicitly and preserve imported approval
-  obligations. `preset:rust-service` may select `capability:delivery`; neither
-  core nor the knowledge-client preset may require delivery. Test the latter
-  closure contains none of these optional roles, contracts or skills.
+  Require C21's standard policy IDs explicitly and preserve approval obligations.
+  Framework declarations belong to mandatory core and every preset closure;
+  knowledge-only native projection remains thin. C70 adapts recovered reviewer
+  content into this same definition, never creates a duplicate persona.
 - [ ] **Step 3: Check.** Run `"$MAESTRO_BIN" catalog check --catalog-dir "$MANIFESTS"`
   and the feature-delivery scenarios through its graph/contract checks.
 
 **Acceptance:** both v1 workflows have exact complete closures, required
 independent reviews and honest qualification states; no unused role is added.
 
-## Phase 3: Trusted distribution and explanation [US2, US3]
+## Workstream 3: Trusted distribution and explanation [US2, US3]
 
 ### C10 Deterministic bundle compiler [US2, US5] (3 h)
+
+**Phase:** P1/M3
 
 **After:** C03, C09, C22b, C39; compile CORE fixtures, not owner-published content.
 **Files:** `crates/maestro-catalog/src/bundle/{mod.rs,manifest.rs,write.rs}`,
@@ -1206,6 +1267,8 @@ marker; authoring and bundle schemas are separate and versioned.
 
 ### C11 Hostile bundle reader [US2] (4 h)
 
+**Phase:** P1/M3
+
 **After:** C10, C03a (model-card hook for the unsupported-role refusal).
 **Files:** `crates/maestro-catalog/src/bundle/{read.rs,compatibility.rs}`,
 `crates/maestro-catalog/src/bundle/tests/read.rs`.
@@ -1233,6 +1296,8 @@ marker; authoring and bundle schemas are separate and versioned.
 or writes outside staging; compatibility fails before activation.
 
 ### C12 Scoped install records [US2] (4 h)
+
+**Phase:** P1/M3
 
 **After:** C11; migration numbers above every migration landed or reserved
 on `main`, `feat/s1-integration`, `feat/s2-integration` and
@@ -1265,6 +1330,8 @@ an authorization source. Later trust/discovery tasks use this seam and receive
 new migration numbers if they need additional schema.
 
 ### C13 Bound attestation verification [US2] (4 h)
+
+**Phase:** P1/M3
 
 **After:** C09, C11, C12; use C09's real public artifact/identity fixtures and
 C12's kernel record seam, not OA4 live publisher provisioning.
@@ -1306,6 +1373,8 @@ subprocess doubles prove bounds only, not cryptographic authenticity.
 
 ### C13a Explicit publisher and verifier provisioning [US2] (3 h)
 
+**Phase:** P1/M3
+
 **After:** C13; synthetic authority fixtures need no OA4 live credentials.
 **Files:** `crates/maestro/src/cli/catalog/authority.rs`,
 `crates/maestro/tests/it/catalog_authority.rs`,
@@ -1336,9 +1405,12 @@ subprocess doubles prove bounds only, not cryptographic authenticity.
 
 **Acceptance:** an owner can provision and rotate actual roots/pin through a
 reviewed, journalled command. Content, generic `--yes` and MCP never grant
-this authority; C20 denies agent-shell invocation of the command as well.
+this authority; transferred C20/S4 denies agent-shell invocation of the command
+as well.
 
 ### C14 Shared freshness and revocation admission [US2, US4] (4 h)
+
+**Phase:** P1/M3
 
 **After:** C12, C13.
 **Files:** `crates/maestro-catalog/src/trust/{records.rs,admission.rs,refresh.rs}`,
@@ -1364,6 +1436,8 @@ this authority; C20 denies agent-shell invocation of the command as well.
 visible, and a locally invalidated in-flight consult does not return a candidate.
 
 ### C18 Explicit lock and explanations [US3] (3 h)
+
+**Phase:** P1/M3
 
 **After:** C14, C17, C05b, C03a; S1 settings registry/config-explain API integrated.
 **Files:** `crates/maestro-catalog/src/resolve/{mod.rs,lock.rs,explain.rs,tests.rs}`
@@ -1401,8 +1475,10 @@ change a pinned project and no S4 receipt is fabricated.
 
 ### C15 Release and trust-record workflow code [US2, US5] (3 h)
 
-**After:** C02, C10, C13, C22b; owner-created MAN checkout/maps for landing,
-not live publisher setup or compiler publication.
+**Phase:** P1/M3
+
+**After:** C02, C10, C13, C22b, C68; MAN workflow code needs no live publisher setup or compiler publication
+
 **Files (MAN):** `.github/workflows/{check.yml,release.yml,trust.yml,trust-watch.yml}`,
 `scripts/tests/{trust-workflow.sh,sbom.sh}`, `scripts/sbom.jq`,
 `tests/fixtures/sbom/{bundle.json,expected.spdx.json}`,
@@ -1444,6 +1520,8 @@ publisher setup. C28, not C15, owns the real compiler/tag, periodic refresh,
 missed-run alert, withdrawal and rotation proofs after OA4/OA5.
 
 ### C16 Verified install and update [US2] (4 h)
+
+**Phase:** P1/M3
 
 **After:** C12, C13, C13a, C14, C18, C05j, C03a; no MAN workflow input.
 **Files:** `crates/maestro-catalog/src/install/{download.rs,activate.rs,update.rs}`,
@@ -1488,6 +1566,8 @@ or compiler toolchain is needed by the implemented consumption path.
 
 ### C16h Explicit model-card registration [US2, US3, US5] (3 h)
 
+**Phase:** P1/M3
+
 **After:** C16, C18, C03a; CORE fixtures with all evidence already local,
 not owner-approved MAN content or cross-machine import.
 **Files:** `crates/maestro-catalog/src/resolve/lookup.rs`,
@@ -1531,6 +1611,8 @@ selection by manifest or rollback through re-registration.
 
 ### C16b Restore safety and installed-consumer admission [US1, US2] (3 h)
 
+**Phase:** P1/M3
+
 **After:** C16; C06/C07 only for their host-entry-point wiring.
 **Files:** `crates/maestro-catalog/src/install/restore.rs`,
 `crates/maestro-catalog/src/install/tests/restore.rs`,
@@ -1565,6 +1647,8 @@ init/project path uses admission and preserves user files on refusal.
 
 ### C16c Verified release discovery and proposals [US2, US3] (3 h)
 
+**Phase:** P1/M3
+
 **After:** C16b, C05a, C05b.
 **Files:** `crates/maestro-catalog/src/install/{sources.rs,proposal.rs}`,
 `crates/maestro-catalog/src/install/tests/proposals.rs`,
@@ -1588,6 +1672,8 @@ model, gh, Qdrant or router update. Adding a source requires an approved binding
 and adapter/contract tests, not changes to discovery-policy callers.
 
 ### C16d Shared update receipts and safe rollback [US2, US3] (4 h)
+
+**Phase:** P1/M3
 
 **After:** C16c, C05j.
 **Files:** `crates/maestro-catalog/src/install/{activate.rs,update.rs,rollback.rs,receipt.rs}`,
@@ -1619,6 +1705,8 @@ mint a folder-trust approval.
 
 ### C16e Verified runtime proposal contract [US2] (2 h)
 
+**Phase:** P1/M3
+
 **After:** C16c; OA4 runtime publisher bindings for live proof only.
 **Files:** `crates/maestro-catalog/src/install/{runtime.rs,tests/runtime.rs}`.
 **Requirements:** FR-S3-032, FR-S3-033, FR-S3-034, SC-S3-011.
@@ -1636,6 +1724,8 @@ mint a folder-trust approval.
 handoff. Only catalog adapters expose the existing activation lifecycle in S3.
 
 ### C16g Runtime install-command presentation [US2] (2 h)
+
+**Phase:** P1/M3
 
 **After:** C16e.
 **Files:** `crates/maestro/src/cli/update.rs`,
@@ -1657,6 +1747,8 @@ handoff. Only catalog adapters expose the existing activation lifecycle in S3.
 with no S3 runtime installation effects or implied cross-OS activation proof.
 
 ### C16f Startup policy, daily checks and mandatory consent [US1, US2, US3] (4 h)
+
+**Phase:** P1/M3
 
 **After:** C16c, C16d, C16e, C16g, C05b, C05h, C05j, C05e.
 **Files:** `crates/maestro-catalog/src/install/{startup.rs,tests/startup.rs}`,
@@ -1687,10 +1779,12 @@ SC-S3-011, SC-S3-012.
 `UpdateSource` adapters. A new source/client does not change callers; independent
 approval and path-policy ports keep updates from widening trust or permissions.
 
-### C20 Native Copilot policy hook [US1, US3] (4 h)
+### C20 Transferred live Copilot policy hook [US1, US3] (4 h)
 
-**After:** C06, C19, C05i, C05j; CORE policy fixtures, no MAN content or new
-live-receipt prerequisite.
+**Phase:** S4/C20
+
+**After:** C06, C19, C05i, C05j, C62, C63; S4 runtime and trusted-host qualification, OA2 for actual approved live proof
+
 **Files:** `crates/maestro-catalog/src/hosts/copilot.rs`,
 `crates/maestro-catalog/src/policy/{native.rs,normalize.rs}`,
 `crates/maestro-catalog/src/policy/tests/native.rs`,
@@ -1713,9 +1807,11 @@ live-receipt prerequisite.
   as unprotected; an approval-needed result cannot be manufactured into allow.
 - [ ] **Step 3: Check.** Run
   `~/.local/bin/capped cargo nextest run -p maestro catalog_hook`. Retain any
-  OA2-authorized real-host probe separately. C28 owns the live Copilot
+  OA2-authorized real-host probe separately. The S4 exit owns the live Copilot
   `preToolUse` proof: allow, deny, and hook error leading to deny; synthetic
-  events alone cannot satisfy that exit.
+  events alone cannot satisfy that S4 exit.
+
+**Transfer:** 4 h removed from S3 and retained in S4; no project saving.
 
 **Acceptance:** real policy denial, not merely hidden tools; errors/timeouts
 fail closed when the hook is installed. Documentation makes no broker,
@@ -1723,15 +1819,17 @@ acceptance, journal or sandbox claim for native mode. Extending secret-path
 rules changes checked data, not this hook; other clients' trust hooks stay the
 named S4 qualification obligation.
 
-## Phase 4: Measured routing and exact impact [US4]
+## Workstream 4: Measured routing and exact impact [US4]
 
 ### C23 Reviewed intent labels [US4] (3 h)
+
+**Phase:** P1/M3
 
 **After:** C10, C14, C22b; independent review of every label arranged by the
 supervisor. No MAN content/repository or publisher input.
 **Files:** `tests/fixtures/catalog/routing/{routing.jsonl,review.json,split.json,eligibility.json,check.jq,digests.json,bundle.tar,README.md}`;
 checked synthetic source under `tests/fixtures/catalog/routing/source/`:
-`capabilities/engineering/qa/workflows/{answer,change,review,test,build,docs,security,release,triage,migrate}/workflow.md`
+`capabilities/practice/qa/workflows/{answer,change,review,test,build,docs,security,release,triage,migrate}/workflow.md`
 and only the contracts/roles/policies these ten synthetic workflows reference.
 **Requirements:** FR-S3-020, SC-S3-006.
 
@@ -1762,6 +1860,8 @@ is tuned on the held-out set. This fixture never grants live qualification.
 
 ### C24a Exact resolve/search and eligibility [US4] (3 h)
 
+**Phase:** P1/M3
+
 **After:** C14, C18, C16h, C22b, C23; no release or real-host prerequisite.
 **Files:** `crates/maestro-catalog/src/resolve/{lookup.rs,search.rs}`,
 `crates/maestro-catalog/src/route/{mod.rs,request.rs,eligibility.rs,result.rs}`,
@@ -1788,6 +1888,8 @@ is tuned on the held-out set. This fixture never grants live qualification.
 synthetic qualification accepted by normal installed consumers.
 
 ### C24 Exact-ID and lexical baseline [US4] (4 h)
+
+**Phase:** P1/M3
 
 **After:** C14, C18, C22b, C23, C24a; no release-setup prerequisite.
 **Files:** `crates/maestro-catalog/src/route/{lexical.rs,tests/lexical.rs}`,
@@ -1820,6 +1922,8 @@ no failed or empty-denominator comparison is called a passing baseline.
 
 ### C25 Rebuildable catalog cards [US4] (3 h)
 
+**Phase:** P1/M3
+
 **After:** C10, C12, C14; verified CORE fixture records, not release setup.
 **Files:** `crates/maestro-catalog/src/discovery/{mod.rs,cards.rs,publish.rs,tests.rs}`,
 `crates/maestro-kernel/src/catalog/{discovery.rs,tests/discovery.rs}`,
@@ -1845,6 +1949,8 @@ no failed or empty-denominator comparison is called a passing baseline.
 scopes; incomplete/stale generations never masquerade as the current snapshot.
 
 ### C26 Hybrid comparison with pre-limit eligibility [US4] (4 h)
+
+**Phase:** P1/M3
 
 **After:** C23, C24, C25; OA6 only if a model/provider needs new access.
 **Files:** `crates/maestro-catalog/src/route/{hybrid.rs,tests/hybrid.rs}`,
@@ -1893,6 +1999,8 @@ retained; no benchmark result is invented to enable hybrid.
 
 ### C27a Scoped catalog dependency projection [US4] (4 h)
 
+**Phase:** P1/M3
+
 **After:** C12, C14; S2 G25 qualification and S2 G27 public typed-edge port at
 `crates/maestro-knowledge/src/graph/projection/port.rs` integrated.
 **Files:** `crates/maestro-catalog/src/impact/{mod.rs,edges.rs,projection.rs}`,
@@ -1918,6 +2026,8 @@ C00/08 name both slice owners, never an assumed S2 catalog deliverable.
 
 ### C27 Exact catalog impact [US4] (3 h)
 
+**Phase:** P1/M3
+
 **After:** C22b, C24, C27a.
 **Files:** `crates/maestro-catalog/src/impact/{traverse.rs,tests/traverse.rs}`,
 `crates/maestro/src/cli/catalog/impact.rs`,
@@ -1941,16 +2051,14 @@ C00/08 name both slice owners, never an assumed S2 catalog deliverable.
 **Acceptance:** exact scoped results with snapshot evidence. S2 absence blocks
 this M3 exit; a bounded in-memory fallback requires its own explicit approval.
 
-## Phase 5: M3 exit and the later comparison [US1–US5]
+## Workstream 5: M3 exit and approved recovery [US1–US5]
 
 ### C28 Tagged M3 proof [US1, US2, US3, US4, US5] (3 h)
 
-**After:** C08, C03a, C02a, C05f, C05k and OA9 visual acceptance, C15, C16, C16b,
-C16c, C16d, C16e, C16f, C16g, C16h, C17, C18, C19, C20, C21, C21b, C22b, C23,
-C24, C25, C26, C27, C39, C40; integrated T034/T035, T038 live registrations, M1 release,
-final CI and OA4/OA5/OA7 live trust/release/evidence actions. OA10 is approved
-by the owner, 2026-09-28: the quality target is held-out matchable top-1 ≥ 90 %,
-not an unresolved decision.
+**Phase:** P1/M3
+
+**After:** C00, C01, C03, C03a, C02, C02a, C04a, C04, C17, C05, C05a, C05b, C05h, C05i, C05j, C05c, C05l, C05d, C05e, C05g, C06, C07, C08, C05f, C05k, C09, C19, C22a, C22b, C21, C21b, C10, C11, C12, C13, C13a, C14, C18, C15, C16, C16h, C16b, C16c, C16d, C16e, C16g, C16f, C23, C24a, C24, C25, C26, C27a, C27, C29, C38, C30, C31, C32, C33, C34, C35, C36, C37, C39, C40, C44, C45a, C45b, C46, C47a, C47b, C48, C49a, C49b, C50, C51a, C52a, C52b, C53a, C54, C55, C60, C62, C63, C64, C65, C66, C68, C70, C72, C76a, C76b, C79a, C79b, C80a, C80b, C81a, C81b, C82a, C82b, C84, C90, C91, C92, C93, C94; integrated T034/T035 and T038 live evidence, M1 release, qualified S2, OA4/OA5/OA7/OA9 actions and final CI; no P2/S6/S4 gate
+
 **Files:** `scripts/tests/catalog-m3.sh`,
 `docs/how-to/catalog.md`, `docs/how-to/knowledge-mcp.md`,
 `docs/architecture/08-traceability.md`,
@@ -1958,9 +2066,7 @@ not an unresolved decision.
 `specs/003-catalog/research/m3-evidence.md`, `docs/standards/security.md`;
 verify MAN's rule map without editing another lane's checkout. Private receipts
 remain private.
-**Requirements:** FR-S3-017, SC-S3-001, SC-S3-002, SC-S3-003, SC-S3-004, SC-S3-005,
-SC-S3-006, SC-S3-007, SC-S3-008, SC-S3-009, SC-S3-010, SC-S3-011, SC-S3-012,
-SC-S3-013, SC-S3-014, SC-S3-015, SC-S3-016.
+**Requirements:** FR-S3-017, FR-S3-026, FR-S3-051, FR-S3-056, FR-S3-057, FR-S3-058, FR-S3-061, FR-S3-064, FR-S3-065, SC-S3-001, SC-S3-002, SC-S3-003, SC-S3-004, SC-S3-005, SC-S3-006, SC-S3-007, SC-S3-008, SC-S3-009, SC-S3-010, SC-S3-011, SC-S3-012, SC-S3-013, SC-S3-014, SC-S3-015, SC-S3-016, SC-S3-018, SC-S3-019, SC-S3-021, SC-S3-022, FR-S3-068, SC-S3-025.
 
 - [ ] **Step 1: Red.** Write the shell acceptance harness; fail its preflight
   if `command -v cargo`, `command -v rustc` or `command -v python3` succeeds,
@@ -1968,9 +2074,11 @@ SC-S3-013, SC-S3-014, SC-S3-015, SC-S3-016.
   `gh`. It must also fail a missing/mismatched SPDX JSON SBOM/closure, per-asset
   checksum or attestation, absent verification instructions, any exit/key/client evidence,
   M1 release, 08 §17 publisher closure, missed trust-refresh alert or current CI.
-  Fail without live Copilot `preToolUse` receipts for allow, deny, and hook error
-  leading to deny, tied to the exact host/hook pins and observed effects. An
-  ignored or synthetic-only hook case does not pass. Require the descriptor-only
+  Require all Phase 1 kind/config valid/refusal fixtures, deterministic schema/
+  index/ownership generation, mandatory standards, eight language declarations
+  and verified delegation, package/backend transactions and gap G01/G07–G11
+  evidence. Require C29's complete recovery/defer ledger; no missing case passes.
+  S3 ten-point hook maps make no live protection claim; C20 is S4. Require the descriptor-only
   lifecycle proof, C16h's card canonical-digest/returned-ID/refusal suite and
   A/B/A known-gap test, C03a/C11/C16 unknown-role refusals and owner-approved
   manifest winner changes. Each machine needs its qualified card and local
@@ -1983,9 +2091,8 @@ SC-S3-013, SC-S3-014, SC-S3-015, SC-S3-016.
   generation → update → remove without host execution. Separately run the live
   host stage in OA2's approved homes with pinned Copilot CLI, Pi/existing adapter,
   Codex and Claude Code; collect real load/MCP receipts there, without claiming
-  toolchain absence. In that OA2 stage run Copilot `preToolUse` allow, deny, and
-  hook error leading to deny against the installed C20 hook. Show the hook was
-  called, the allowed effect occurred, and denied/error cases caused zero effects.
+  toolchain absence. Record ten-point host states without launching a hook. C20 live effects are
+  S4 receipts, never an M3 gate or claimed result here.
   Verify OA4/OA5 release, six-hour re-issue, missed-run alert, withdrawal and
   rotation evidence; finish C09's owned publisher-row evidence handoff. Record
   expiry/revocation/offline/restore cases, C23's synthetic suite/eligibility
@@ -2006,37 +2113,39 @@ SC-S3-013, SC-S3-014, SC-S3-015, SC-S3-016.
   suite. Quote final CI platform/test counts, coverage, killed/missed/timeout
   totals and commit/suite/eligibility digests in the evidence note.
 
+**URL-rule amendment (+0 h):** Require C66 typed source-rule/signed-review
+fixtures and published schema drift evidence; N07 type synchronization must be
+complete. No live S6 catalog adapter or private-package publication is an M3 gate.
+
 **Acceptance:** every M3 criterion has current observed evidence; no skipped
 live test or pending owner/S2/CI action is called passed. Only the owner accepts
 M3 and authorizes publication; lanes neither release nor integrate themselves.
 
-### C29 One post-M3 comparison [US5] (3 h)
+### C29 Pre-M3 legacy disposition and provenance audit [US1, US5] (3 h)
 
-**After:** C28 accepted as M3; OA8 access approval. This is outside M3's exit.
-**Files:** `specs/003-catalog/research/{comparison.md,comparison-inventory.json}`;
-no recovered source files in this task.
-**Requirements:** FR-S3-026.
+**Phase:** P1/M3
+**After:** C68, C70, C72, C76b, C79b, C82b; owner-approved legacy access, no private collection access.
+**Files:** specs/003-catalog/research/{comparison.md,comparison-inventory.json}; MAN docs/catalog/migration.md.
+**Requirements:** FR-S3-001, FR-S3-026, SC-S3-009.
+**Named tests:** `legacy_inventory_has_395_unique_dispositions`, `legacy_deferred_row_names_phase2_task`, `legacy_provenance_and_attribution_are_complete`; required cases, not reported results.
 
-- [ ] **Step 1: Red.** Define a completeness check that fails for any source
-  item without a provenance, disposition and reason, including an item proposed
-  for recovery without a separately bounded task and licence/attribution notes.
-- [ ] **Step 2: Green.** Read the approved earlier catalog once, inventory it
-  and record recover/defer/reject decisions against the new requirements. Do not
-  copy bulk content or silently simplify an imported approval/gate.
-- [ ] **Step 3: Check.** Compare the complete authorized source inventory with
-  the disposition JSON: equal key sets, no duplicates, no missing reasons;
-  check report links and each proposed recovery's ≤4 h acceptance scope.
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Audit the authorized manifest/template inventory exactly once by old relative path, SHA-256, attribution, destination and keep/convert/drop/defer reason. Verify Phase 1 recovered/imported content and record C71/C73/C74/C75/C77/C52c/C78 deferrals explicitly. Do not copy content in this audit or reopen landed work.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
 
-**Acceptance:** every item is accounted for; useful recoveries become separate
-reviewed tasks/PRs, not an unreviewed extension of this comparison commit.
+**Acceptance:** Exactly 395 source files have one disposition; every recovery is a named bounded task. No C28 dependency, no claim that deferred content shipped, no loss of obligations or attribution.
 
 ## Owner-first migration (2026-09-30)
 
-C30–C39 are the proposed **24–34 h S3 increment plus 1 h** approved by the
-supervisor for core-workflow-label segregation in C33: **25–35 h**. C40 is the
-**2–4 h native increment**, and C41–C43 the **6–10 h deferred S6 contract**.
-The combined increment is **33–49 h**, versus the proposal's original 32–48 h. These estimates
-are incremental to landed/planned tasks, not replacements for their budgets.
+**Historical budget retained, contract amended by C44:** C30–C39 are the
+**24–34 h S3 increment plus 1 h** approved for core-workflow-label segregation
+in C33: **25–35 h**. C40 is the **2–4 h native increment**, and C41–C43 the
+**6–10 h deferred S6 contract**. The combined increment is **33–49 h**, versus
+the proposal's original 32–48 h. These rows are already in the pre-v4 whole-plan
+baseline; do not add their hours again to C44–C96b.
 No content seed is published until C39 passes. C41–C43 never gate C02/C08/M3;
 unsupported nonempty collection content refuses until that later work lands.
 QA is synthetic demonstration content only. All tests named here are required
@@ -2044,268 +2153,178 @@ future cases, not claims that the current `/1` implementation already has them.
 
 ### C38 Owner-first architecture, plan and README [US1, US5] (3–4 h)
 
+**Phase:** P1/M3
+
+**Status:** Closed; integrated `cd88a17`, `b39ce3c`.
+Historical acceptance below is retained. C44 and named v4 follow-ups carry
+new behavior; no implementation step is reopened or charged again.
+
 **After:** C00; approved owner-first proposal and supervisor segregation rulings.
 **Files:** `docs/architecture/03-agent-orchestration.md`,
 `specs/003-catalog/{spec.md,plan.md,tasks.md,traceability.json}` (the inventory's
 85 keys/six exclusions stay fixed); separately MAN `README.md` only.
 **Requirements:** FR-S3-040–048, SC-S3-009.
 
-- [ ] **Step 1: Red.** Check the existing source/output markers, owner paths,
+- [x] **Step 1: Red.** Check the existing source/output markers, owner paths,
   six segregation requirements and task coverage against the proposal. Retain
   the missing `/2`/migration-task failure and the exact 57-task/191-hour baseline.
-- [ ] **Step 2: Green.** Amend architecture 03 §1.1/§1.2, D13, C02's exact
+- [x] **Step 2: Green.** Amend architecture 03 §1.1/§1.2, D13, C02's exact
   file list and affected C02a/C05/C07/C21/C21b paths. Document `maestro-source/2`,
   `maestro-cli/catalog-check/2`, `maestro-project/2` and
   `maestro-authoring-lock/2`. Keep delivery separate from core; name the sole
   inventory-name selector exception and the deferred S6 contract. Replace the
   MAN README with the tree, root boundaries, QA/MCP authoring steps and private
   mount limits; create no resource, vendor content or owner identity.
-- [ ] **Step 3: Check.** Run rumdl, offline lychee, the `catalog_traceability`
+- [x] **Step 3: Check.** Run rumdl, offline lychee, the `catalog_traceability`
   conventions suite and an exact FR/SC-to-task/budget/DAG recomputation. Commit
   CORE normally and push only its lane branch; commit/push MAN and open its
   README-only PR against main. Record commands, exits, hashes and hour deltas.
 
+**Superseded contract:** C44 replaces the earlier tree and core segregation;
+these closed steps record historical work, not current v4 requirements.
+
 **Acceptance:** six falsifiable segregation rules and complete mappings; no
 source/runtime implementation or private-data read, and no delivered claim.
 
-### C30 Bounded owner-root discovery [US1, US5] (3–4 h)
+### C30 Bounded v4 area discovery [US1, US5] (3–4 h)
 
-**After:** C38, C03.
-**Files:** `crates/maestro-catalog/src/source/{descriptor.rs,registry.rs,walk.rs}`,
-`crates/maestro-catalog/src/source/tests/{directory.rs,layout.rs,bounds.rs,registry.rs}`.
-**Requirements:** FR-S3-040, FR-S3-046, SC-S3-015.
+**Phase:** P1/M3
+**After:** C38, C44, C03.
+**Files:** crates/maestro-catalog/src/source/{descriptor.rs,registry.rs,walk.rs}; crates/maestro-catalog/src/source/tests/{directory.rs,layout.rs,bounds.rs,registry.rs}.
+**Requirements:** FR-S3-040, FR-S3-046, FR-S3-049, SC-S3-015.
+**Named tests:** `v4_area_placement_accepts`, `nested_or_unknown_area_refuses`, `aggregate_walk_limit_refuses`, `functional_naming_exception_is_exact`; required cases, not reported results.
 
-- [ ] **Step 1: Red.** Add `owner_roots_reject_misplaced_content` and
-  `owner_discovery_is_bounded`: valid core/capability neighbours, type-first
-  roots, nested/empty-owner abuse, mount overlap, unsafe fixed directories,
-  links and ambiguous descriptor locations. Check exact/one-past injected bounds
-  before parsing, including empty owners; preserve D2 production limits.
-- [ ] **Step 2: Green.** Add descriptor catalog/owner scope and safe fixed
-  relative directories, plus owner-root single-file placement. Discover only
-  core and domain/capability leaves; retain namespace/local-path context and
-  full file sets. No recursive glob or per-kind walker switch. Unknown nonempty
-  resource trees refuse; shared docs are explicitly non-resource, not ignored
-  resource entry points. Register no collection kind here.
-- [ ] **Step 3: Check.** Run capped nextest `source::tests` in maestro-catalog;
-  retain mount overlap/depth, descriptor round-trip and bounds refusals.
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Discover common/core/team/root-language/root-standard areas and checked support roots through descriptor scope/fixed placements. Count all folders/assets/mounts under aggregate bounds. Register the reviewed two-category naming table from shared adapter metadata; no package self-exemption or product inference heuristic.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
 
-**Acceptance:** deterministic bounded discovery under separate owner/shared
-roots; no path/include can borrow another owner's resource bytes.
+**Acceptance:** No generic per-kind walker switches, overlapping placement, symlink/include escapes or unchecked nonempty trees; extensions/collections still refuse until registered.
 
-### C31 Owner-scoped descriptors and capability roots [US1, US5] (3–4 h)
+### C31 Area-scoped descriptors and package roots [US1, US5] (3–4 h)
 
+**Phase:** P1/M3
 **After:** C30, C03a.
-**Files:** `crates/maestro-catalog/src/source/kinds/{builtin.rs,agent.rs,skill.rs,instructions.rs,mcp.rs,model_card.rs,preset.rs,capability.rs}`,
-`crates/maestro-catalog/src/source/{descriptor.rs,registry.rs}`,
-`crates/maestro-catalog/src/source/tests/{registry.rs,layout.rs,extension.rs}`;
-necessary module registration only.
+**Files:** crates/maestro-catalog/src/source/kinds/{builtin.rs,agent.rs,skill.rs,instructions.rs,model_card.rs,preset.rs,package.rs}; crates/maestro-catalog/src/source/{descriptor.rs,registry.rs}; crates/maestro-catalog/src/source/tests/{registry.rs,layout.rs,extension.rs}.
 **Requirements:** FR-S3-040, FR-S3-046, SC-S3-013, SC-S3-015.
+**Named tests:** `area_package_placement_roundtrips`, `role_card_path_matches_identity`, `ambiguous_area_descriptor_refuses`; required cases, not reported results.
 
-- [ ] **Step 1: Red.** Round-trip every scoped descriptor; reject ambiguous
-  owner-root `capability.toml`, a preset inside core, bad `templates` list shape
-  and nonempty unregistered collections. Keep finite-float/nested-table hook
-  delivery and native stem/sidecar refusal fixtures.
-- [ ] **Step 2: Green.** Set agent folders to `[""]` under owner-relative
-  `agents/`; scope skill/instructions/MCP/model-card directories to owners.
-  Add the capability closure-root descriptor; preset stays global and gains
-  optional `templates: TextList`. Increment changed built-in shape versions
-  to 2; new capability descriptor starts at 1. Preserve existing metadata
-  locations/hooks and kernel card validation, not copied identity fields.
-- [ ] **Step 3: Check.** Run capped nextest `source::tests` and `model_cards::tests`
-  in maestro-catalog; demonstrate a test-only owner-scoped descriptor without
-  generic checker changes. The next task completes the `/2` ID cutover.
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Scope existing shapes to registered areas; register package closure roots and preset area/inventory selectors, preserving native metadata/hooks. Move cards to llm/models/<role>; retain exact kernel validator/fingerprint. Changed descriptor versions increment for the one pending /2 cutover. MCP is registered config in C45/C47, never a new mcp resource.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
 
-**Acceptance:** descriptor-driven placement, with unsupported collection/kind
-content refused rather than admitted by its folder name.
+**Acceptance:** Unsupported nonempty kinds/configs refuse; language/standard/delegation semantics belong to C79–C81, not unpriced work in this placement task.
 
-### C32 Qualified IDs and source-schema cutover [US1, US5] (2–3 h)
+### C32 Qualified v4 IDs and single schema cutover [US1, US5] (2–3 h)
 
+**Phase:** P1/M3
 **After:** C31.
-**Files:** `crates/maestro-catalog/src/source/{types.rs,parse.rs,load.rs,metadata.rs}`,
-`crates/maestro-catalog/src/source/tests/{accepted.rs,bounds.rs,coverage.rs,directory.rs,extension.rs,hostile.rs,layout.rs,model_card.rs,references.rs,registry.rs,rulings.rs,schema.rs,support.rs}`,
-`tests/fixtures/catalog/source/`, `tests/fixtures/catalog/model-cards/`,
-`crates/maestro/src/cli/catalog/check.rs`, `crates/maestro/tests/it/catalog_check.rs`.
-Fixture-directory edits are only the existing fixtures' schema/path/ID migration.
+**Files:** crates/maestro-catalog/src/source/{types.rs,parse.rs,load.rs,metadata.rs}; crates/maestro-catalog/src/source/tests/ existing 13 fixture modules; tests/fixtures/catalog/{source,model-cards}/; crates/maestro/src/cli/catalog/check.rs; crates/maestro/tests/it/catalog_check.rs.
 **Requirements:** FR-S3-002, FR-S3-041, FR-S3-046, SC-S3-016.
+**Named tests:** `same_stem_different_kind_accepts`, `duplicate_kind_namespace_name_refuses`, `duplicate_area_namespace_refuses`, `old_or_mixed_layout_refuses`; required cases, not reported results.
 
-- [ ] **Step 1: Red.** Test same-local-name acceptance across owners versus
-  duplicate full ID/path, `duplicate_namespace_refuses` across two domains,
-  reserved core, segment boundaries and `old_or_mixed_layout_refuses`.
-  Assert schema markers and diagnostic IDs, not only successful parsing.
-- [ ] **Step 2: Green.** Carry namespace/local name through loading and identity;
-  use `kind:namespace/local-name`, except `capability:namespace` and
-  `preset:name`. Keep source `name` local. Switch to `maestro-source/2` and
-  `maestro-cli/catalog-check/2`; refuse old/mixed inputs with a migration
-  diagnostic. Migrate the 13 named source-test modules and fixtures without
-  deleting existing bounds, sidecar, inert-script or traversal assertions.
-- [ ] **Step 3: Check.** Run capped nextest `source::tests` in maestro-catalog
-  and `catalog_check` in maestro. Domain relocation preserves the ID but changes
-  source provenance; no basename alias resolves a missing qualified ID.
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Use kind:namespace/local-name plus package/language/standard roots and global preset IDs. Keep 64-character segment grammar, globally unique area namespaces and per-kind/per-namespace local names. Migrate all existing fixture assertions and /2 check output; old capability IDs/paths and locks get explicit diagnostics.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
 
-**Acceptance:** qualified round-trips and explicit `/1` refusal, not dual layout.
+**Acceptance:** No silent alias/rebind or kernel-card/preference schema change; native names and all bounds/refusal regressions remain.
 
-### C33 Qualified references and removable capabilities [US1, US5] (3–4 h)
+### C33 Qualified layers and removable packages [US1, US5] (3–4 h)
 
+**Phase:** P1/M3
 **After:** C32.
-**Files:** `crates/maestro-catalog/src/source/{check.rs,metadata.rs}`,
-`crates/maestro-catalog/src/source/kinds/{agent.rs,capability.rs}`,
-`crates/maestro-catalog/src/source/tests/{references.rs,layout.rs,accepted.rs,schema.rs,support.rs}`.
+**Files:** crates/maestro-catalog/src/source/{check.rs,metadata.rs}; crates/maestro-catalog/src/source/kinds/{agent.rs,package.rs}; crates/maestro-catalog/src/source/tests/{references.rs,layout.rs,accepted.rs,schema.rs,support.rs}.
 **Requirements:** FR-S3-042, FR-S3-043, FR-S3-046, SC-S3-015, SC-S3-016.
+**Named tests:** `common_to_core_refuses`, `core_to_team_refuses`, `language_to_team_refuses`, `removed_package_dangling_reference_refuses`, `package_removal_keeps_core_bytes`; required cases, not reported results.
 
-**Estimate amendment:** original 2–3 h plus supervisor-approved 1 h for removing
-reverse workflow labels from core, its schema neighbours and unchanged-core
-removal proof. This is shown apart from the proposal's original subtotal.
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Resolve explicit qualified requires only; workflow labels select/grant nothing. Enforce global→global, core→global and selected-team/language rules; no common/standard→core, core→team or language→team edge. Every required common/core/standard member belongs to every preset closure. Knowledge-only native context stays thin although framework declarations are available. Raw MCP binding owners must be selected; C47b supplies config wiring.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
 
-- [ ] **Step 1: Red.** Add `cross_root_paths_refuse`, cross-owner cycle and
-  missing/unreviewed dependency neighbours, plus
-  `removed_capability_dangling_reference_refuses` and
-  `unrelated_selection_survives_removal`. Remove one whole QA fixture folder;
-  the public graph refuses remaining references, then passes after only its
-  dependants are explicitly removed. Never silently omit the missing resource.
-  Add `core_capability_workflow_label_refuses`,
-  `capability_removal_leaves_core_unchanged` and
-  `core_workflow_label_schema_neighbours`: core resource/manifest labels may be
-  omitted or empty; a core-named workflow is accepted in a synthetic registered
-  fixture, while any capability-named core label refuses. Core bytes must remain
-  identical after capability deletion.
-  Add `core_delivery_resource_refuses`: relocate a reviewed delivery reviewer
-  to `core/agents/reviewer.agent.md` as `agent:core/reviewer`, update its owner
-  mirror and delivery references, but leave it outside
-  `preset:knowledge-client`'s closure. Refuse with both qualified IDs, even when
-  a different preset is selected. Beside it, `core_common_resource_accepts`
-  requires one common core resource from every shipped preset and passes.
-  Add `core_via_capability_refuses`: make a core resource reachable only along
-  `capability:core` → `capability:delivery` → `agent:core/reviewer`; even if
-  every preset reaches it, the prohibited core → capability edge must refuse.
-- [ ] **Step 2: Green.** Parse only fully typed/qualified `requires`, even
-  locally. Workflow labels are namespaced, non-selecting usage metadata, never
-  dependencies or grants. Allow omitted/empty `workflows` only on core resources
-  and its owner manifest; labels there may name only core workflows, with none
-  seeded today. Remove reverse core-to-capability labels from migrated fixtures;
-  actual dependencies belong to capability workflows' forward `requires`.
-  Required/unused-resource checks derive from those closures; retain the
-  unresolved-workflow-kind boundary. Admit a resource under `core/` only when
-  every shipped preset requires it through that preset's forward `requires`
-  closure. Check all public `presets/` entries, not just the selected preset,
-  including the mandatory core root. Reuse the existing graph traversal;
-  containment/labels cannot add edges and core → capability still refuses.
-  Name the resource and every preset missing it in refusal diagnostics.
-  Match `mcp-servers` value `qa/test-runner` and tool
-  `qa/test-runner/run_tests` to required `mcp:qa/test-runner`, splitting the tool
-  at its last slash. Refuse undeclared hook edges/path includes; reuse graph,
-  cycle and reviewed-closure algorithms. An unresolved private ID in public
-  data is a refusal now; S6 adds source-visibility checks later.
-- [ ] **Step 3: Check.** Run capped nextest `source::tests` in maestro-catalog
-  and `catalog_check` in maestro; assert source/ID-specific missing-reference
-  diagnostics and no same-basename fallback after folder removal.
+**Acceptance:** Removal reports every surviving missing edge, preserves immutable roots and unrelated selections, and never falls back to a basename. Keep historical +1 h C33 adjustment, no second charge.
 
-**Acceptance:** every dependency is declared and every core resource belongs to
-all shipped preset closures without a core → capability edge; removing a folder
-cannot silently change another selection's meaning. The membership assertion
-and named neighbours fit the existing 3–4 h graph-check task; no estimate change.
+### C34 Area ownership and mandatory roots [US1, US5] (1–2 h)
 
-### C34 Single owner records and mandatory core [US1, US5] (1–2 h)
-
-**After:** C33.
-**Files:** `crates/maestro-catalog/src/source/kinds/capability.rs`,
-`crates/maestro-catalog/src/source/{check.rs,metadata.rs}`,
-`crates/maestro-catalog/src/source/tests/{rulings.rs,references.rs,schema.rs}`.
+**Phase:** P1/M3
+**After:** C33, C80a.
+**Files:** crates/maestro-catalog/src/source/kinds/package.rs; crates/maestro-catalog/src/source/{check.rs,metadata.rs}; crates/maestro-catalog/src/source/tests/{rulings.rs,references.rs,schema.rs}.
 **Requirements:** FR-S3-041, FR-S3-042, FR-S3-046, SC-S3-015, SC-S3-016.
+**Named tests:** `area_owner_reference_mismatch_refuses`, `mandatory_roots_selected_once`, `missing_reviewed_maestro_refuses`; required cases, not reported results.
 
-- [ ] **Step 1: Red.** Add `owner_mirror_mismatch_refuses`,
-  `core_cannot_require_capability` and `core_selected_once`. Refuse absent,
-  multiple or malformed owners, namespace mismatch, missing/unreviewed
-  core/Maestro and attempted core replacement. Use synthetic identity strings;
-  offline validation cannot claim observed GitHub approval. OA1/protected review
-  approves actual owner identities and changes, not a source-supplied grant.
-- [ ] **Step 2: Green.** Validate the one capability owner record and every
-  resource mirror through the checker boundary. Add reviewed `capability:core`
-  once to selections and require reviewed `agent:core/maestro`; preserve all
-  reviewed-closure checks. Core cannot require a capability; capability-to-core
-  and explicit capability-to-capability references are valid neighbours.
-- [ ] **Step 3: Check.** Run capped nextest `source::tests` in maestro-catalog.
-  Confirm a knowledge-client fixture excludes optional delivery resources;
-  labels and owner declarations grant no runtime or publisher authority.
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Use C80a owners/maintainers schema and derived resource ownership. Select reviewed common/core and all standards exactly once, with reviewed agent:core/maestro. Check namespace consistency, no independent resource owner list, and required closure maturity.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
 
-**Acceptance:** one approved owner per root and one canonical default Maestro.
+**Acceptance:** One canonical Maestro and one owner record per area, not one principal only; declaration/offline validation confers no GitHub approval or runtime grant.
 
-### C35 Generated per-owner CODEOWNERS [US5] (2–3 h)
+### C35 Delegated CODEOWNERS generation [US1, US5] (2–3 h)
 
-**After:** C34.
-**Files:** `crates/maestro-catalog/src/source/{ownership.rs,tests/ownership.rs}`,
-`crates/maestro/src/cli/catalog/{codeowners.rs,mod.rs}`,
-`crates/maestro/src/cli/args.rs`, `crates/maestro/tests/it/catalog_codeowners.rs`;
-MAN `.github/workflows/check.yml` and `CODEOWNERS` when C02 creates content.
-The CORE task owns renderer/CLI fixtures; MAN wiring is serialized with C02/C15.
-**Requirements:** FR-S3-041, FR-S3-045, SC-S3-015.
+**Phase:** P1/M3
+**After:** C34, C80a.
+**Files:** crates/maestro-catalog/src/source/{ownership.rs,tests/ownership.rs}; crates/maestro/src/cli/catalog/codeowners.rs; crates/maestro/tests/it/catalog_codeowners.rs; MAN .github/{CODEOWNERS,workflows/check.yml}.
+**Requirements:** FR-S3-041, FR-S3-045, FR-S3-058, SC-S3-015, SC-S3-018.
+**Named tests:** `codeowners_drift_refuses`, `descriptor_owner_rule_wins_last`, `removed_area_rule_refuses`; required cases, not reported results.
 
-- [ ] **Step 1: Red.** Add `codeowners_drift_refuses` and
-  `removed_owner_rule_refuses`: exact anchored rules, reordered input stability,
-  missing/extra/edited rules, stale removed capability and shared-root owner
-  mismatch. Test a changed mirror is refused before rendering.
-- [ ] **Step 2: Green.** Generate each owner folder's rule from its single
-  approved record; derive shared presets/bootstrap/docs/settings/governance
-  rules from core's same owner. `maestro catalog codeowners --catalog-dir DIR`
-  renders to stdout; `--check` compares the tracked file and refuses drift
-  without writing. Normal `catalog check` checks owner mirrors. CI runs the
-  renderer/check path and requires no diff; do not configure repository settings.
-- [ ] **Step 3: Check.** Run capped nextest `source::tests::ownership` in
-  maestro-catalog and `catalog_codeowners` in maestro. C02/C15 record MAN's
-  generation/check exit and zero diff with its approved pinned compiler.
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Render anchored owner+maintainer content rules followed by owners-only descriptor/exception rules. Root descriptor owners govern shared support, generator, CI, ownership policy and generated CODEOWNERS. --check compares without writing; CI refuses stale/missing/extra/edited rules.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
 
-**Acceptance:** one ownership model and deterministic drift detection; no manual
-wildcard or extra owner list, no runtime authority inferred from GitHub labels.
+**Acceptance:** No second owner registry, broad-rule protection bypass or claim of independent quorums; C80b verifies trusted identities/approvals.
 
-### C36 Capability-based preset and template composition [US1] (3–4 h)
+### C36 Area-based preset and inventory composition [US1, US5] (3–4 h)
 
-**After:** C34, C05.
-**Files:** `crates/maestro-catalog/src/bootstrap/{compose.rs,tests.rs}`,
-`crates/maestro-catalog/src/source/kinds/preset.rs`,
-`tests/fixtures/catalog/bootstrap/` (C05's target paths),
-`crates/maestro/tests/it/catalog_init.rs`.
+**Phase:** P1/M3
+**After:** C34, C05, C50.
+**Files:** crates/maestro-catalog/src/bootstrap/{compose.rs,tests.rs}; crates/maestro-catalog/src/source/kinds/preset.rs; tests/fixtures/catalog/bootstrap/; crates/maestro/tests/it/catalog_init.rs.
 **Requirements:** FR-S3-004, FR-S3-042, FR-S3-047, SC-S3-004, SC-S3-016.
+**Named tests:** `mandatory_roots_selected_once`, `unselected_inventory_refuses`, `distinct_inventory_output_collision_refuses`; required cases, not reported results.
 
-- [ ] **Step 1: Red.** Test core-only, QA and Rust checked selections;
-  `core_selected_once`, unknown/unsafe inventory names, cross-bootstrap paths
-  and `distinct_inventory_output_collision_refuses`, including identical bytes.
-  Keep oversized/truncated/symlink input, strict JSON and no-script markers.
-- [ ] **Step 2: Green.** Extend the existing `PresetPort` adapter to resolve
-  public `presets/` and their exact capability closures, then optional named
-  inventories `bootstrap/{core,rust}.toml`. Only `templates` selects inventories;
-  each inventory reads explicit files inside its bootstrap directory. Include
-  core/its inventory once; distinct sources colliding at an output still refuse.
-  Move Rust instruction/sidecar fixtures to the Rust capability. Use S1's
-  settings registry, never `settings/classes.toml` in the catalog.
-- [ ] **Step 3: Check.** Run capped nextest `bootstrap::tests` in maestro-catalog
-  and `catalog_init` in maestro. Both full compositions validate; preview writes
-  nothing and no template/script is executed.
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Extend PresetPort using C50 area/inventory selectors and explicit owner-local files. Include common and selected language starter inputs once; use the existing S1 registry and C04 writer. Preserve strict JSON, hostile input bounds, zero-write previews and inert scripts.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
 
-**Acceptance:** one selection authority and bounded composition, no preset/glob
-or file-include path around the checker.
+**Acceptance:** One checked selection/compose path; even identical outputs from distinct sources collide. Rust lives in languages/rust, never a team capability.
 
-### C37 Source-bound project and authoring-lock outputs [US1] (2–3 h)
+### C37 Complete source-bound project and authoring locks [US1, US5] (2–3 h)
 
+**Phase:** P1/M3
 **After:** C36.
-**Files:** `crates/maestro-catalog/src/bootstrap/{project.rs,tests.rs}`,
-`crates/maestro/src/cli/init.rs`, `crates/maestro/tests/it/catalog_init.rs`.
+**Files:** crates/maestro-catalog/src/bootstrap/{project.rs,tests.rs}; crates/maestro/src/cli/init.rs; crates/maestro/tests/it/catalog_init.rs.
 **Requirements:** FR-S3-046, FR-S3-047, SC-S3-004, SC-S3-016.
+**Named tests:** `old_authoring_lock_requires_preview`, `every_selected_input_is_locked`, `changed_source_path_requires_preview`; required cases, not reported results.
 
-- [ ] **Step 1: Red.** Add `old_authoring_lock_requires_preview`; assert exact
-  selected capabilities and complete owner/resource/sidecar/preset/inventory/
-  template lock membership. Mutate each source class, revision and path;
-  apply/replay must refuse until a fresh preview, preserving user bytes.
-- [ ] **Step 2: Green.** Emit `maestro-project/2` and
-  `maestro-authoring-lock/2`, with source identity/revision/digests for every
-  selected input. Refuse old locks rather than silently translating source
-  identity. Keep source and installed trust modes distinct; reuse C04 unchanged.
-- [ ] **Step 3: Check.** Run capped nextest `bootstrap::tests` in maestro-catalog
-  and `catalog_init` in maestro, including held-handle read bounds, stale plans,
-  replay, crash recovery, rerun, user edits and owned removal.
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Emit project/authoring-lock /2 with exact selected areas and complete source identity/revision/digest inventory. Include descriptors, resources/sidecars, presets, explicit inventories/assets and selected checked configs. C47a adds runtime non-resource wiring rather than hiding it here. Recheck exact bytes before apply through C04.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
 
-**Acceptance:** a complete reproducible authoring selection, never an attested
-install or implicit authority migration.
+**Acceptance:** No incomplete source closure, implicit authority migration or automatic lock rebind; changed user bytes survive replay/removal.
 
 ### C39 Migration verification and review reserve [US1, US5] (3–4 h)
+
+**Phase:** P1/M3
 
 **After:** C35, C37.
 **Files:** only fixes in C30–C37's named source/test/fixture files;
@@ -2324,11 +2343,13 @@ install or implicit authority migration.
   mappings. Record mutation/coverage evidence from CI when available, never
   invented local results. Native live evidence is C40/C08; S6 is separate.
 
-**Acceptance:** the public owner-first checker/bootstrap migration is ready for
+**Acceptance:** the public v4 checker/bootstrap migration is ready for
 C02 seed publication. This 3–4 h is the proposal's migration reserve, not a
 second addition to the baseline 16–24 h review/CI reserve.
 
 ### C40 Owner-qualified native projection delta [US1] (2–4 h)
+
+**Phase:** P1/M3
 
 **After:** C07, C33, C37; OA2 for pinned live host probes.
 **Files:** `crates/maestro-catalog/src/hosts/{copilot.rs,pi.rs}`,
@@ -2354,29 +2375,37 @@ planned host adapters; registration alone never launches a server.
 
 ### C41 S6 collection descriptor contract [US5] (2–3 h)
 
-**After:** C31, C34, C39; S6 contract work, not an M3 prerequisite.
+**Phase:** S6/collections
+
+**After:** C31, C34, C39, C66; S6 contract work, not an M3 prerequisite.
 **Files:** `crates/maestro-catalog/src/source/kinds/{builtin.rs,collection.rs}`,
 `crates/maestro-catalog/src/source/tests/collection.rs`,
-`tests/fixtures/catalog/collections/{public.toml,invalid.toml}`;
+`tests/fixtures/catalog/collections/{public.json,invalid.json}`;
 necessary module registration only. No MAN collection seed in this task.
-**Requirements:** FR-S3-040, FR-S3-048, SC-S3-017.
+**Requirements:** FR-S3-040, FR-S3-048, FR-S3-068, SC-S3-017, SC-S3-025.
 
 - [ ] **Step 1: Red.** Test descriptor absence, exact owner-relative
-  `knowledge/collections/<name>/collection.toml` placement, strict fields,
-  binding-only credentials/storage, unknown keys, URL/limit shape and unsupported
-  versions/types. `collection_install_is_offline` observes zero fetch calls.
+  `knowledge/collections/<name>/collection.json` placement, strict fields,
+  ADR-0014 strict JSON/core declaration, exact source-policy reference,
+  binding-only credentials/storage and unsupported versions/types. Add
+  `collection_local_url_rules_refuse` and `collection_source_digest_is_exact`.
+  `collection_install_is_offline` observes zero fetch calls.
 - [ ] **Step 2: Green.** Register the collection descriptor and isolated
   contract validator using supported descriptor shapes; no generic checker
   branch or second collection registry. Preserve named owner, qualified ID,
-  schema, provenance requirements and independent runtime ACLs.
+  schema, provenance requirements and independent runtime ACLs. Rules belong
+  only to C66 source resources; the collection stores no duplicate policy.
 - [ ] **Step 3: Check.** Run capped nextest `source::tests::collection` in
   maestro-catalog with synthetic fixtures; show a removed descriptor refuses
   nonempty collection content rather than ignoring the knowledge subtree.
 
 **Acceptance:** catalog contract only; no crawling, provider provisioning,
-private URL approval or collection activation.
+new approval store or collection activation. Signed-review rule admission
+comes from the source package; current local access remains separate.
 
 ### C42 S6 additive private-source mount [US5] (2–4 h)
+
+**Phase:** S6/collections
 
 **After:** C41, C35, C37; private access remains separately approved.
 **Files:** `crates/maestro-catalog/src/source/{tree.rs,overlay.rs}`,
@@ -2392,8 +2421,8 @@ necessary module registration only; synthetic sources, no private checkout.
   Cover duplicate bytes/IDs/paths, symlinks, owner/core/trust overrides,
   self-authorized publisher, indirect private edges and reordered sources.
 - [ ] **Step 2: Green.** Add the explicit opt-in pinned `SourceTree` adapter,
-  restricted to the CTM collection subtree under application-workflow and its
-  private preset. The mount adds no owner manifest; public ownership remains
+  restricted to application-workflow's `workload-docs` collection subtree and
+  `workload-private` preset. The mount adds no owner manifest; public ownership remains
   authoritative and private publishing/access authorization stays separate.
   Check public alone first, then combined inputs with aggregate limits and
   source-aware diagnostics/locks. Never last-wins or silently shadow.
@@ -2405,22 +2434,28 @@ necessary module registration only; synthetic sources, no private checkout.
 **Acceptance:** additive composition only; private corpus/evidence stays outside
 catalog inputs, public CI and public releases.
 
-### C43 S6 URL approval and provenance contract [US5] (2–3 h)
+### C43 S6 source-rule admission and provenance contract [US5] (2–3 h)
 
-**After:** C41, C42; exact private URLs require separate owner approval.
+**Phase:** S6/collections
+
+**After:** C41, C42; this task is a synthetic contract. The separately assigned
+S6 runtime adapter also needs C69 for real private-package consumption and
+recorded manifest review, never C42 mount expansion.
 **Files:** `crates/maestro-catalog/src/source/kinds/collection.rs`,
 `crates/maestro-catalog/src/source/tests/collection.rs`,
 `specs/003-catalog/research/collection-contract.md` for the S6 handoff.
-**Requirements:** FR-S3-048, SC-S3-017.
+**Requirements:** FR-S3-048, FR-S3-068, SC-S3-017, SC-S3-025.
 
-- [ ] **Step 1: Red.** Add `empty_approval_never_fetches`,
+- [ ] **Step 1: Red.** Add `unadmitted_source_rules_never_fetch`,
   `exclusion_wins_on_redirect` and `retained_original_has_provenance` using
   synthetic HTTPS URLs. Refuse off-origin/path/version/type, unapproved redirect,
   denied access, credential-bearing URL, login/error page and forbidden binary
-  contract cases; verify exclusions win and empty approval admits no URL.
-- [ ] **Step 2: Green.** Specify/check `[approved_urls]` exact URLs or explicit
-  origin/path-prefix rules, exclusion precedence, allowed versions/types and
-  crawl bounds. Require seed/discovered-link/every-redirect access checks and
+  contract cases; verify exclusions win and unadmitted rules admit no URL.
+- [ ] **Step 2: Green.** Check collection-to-source identity/digest links and
+  preserved rule/decision/migration references, signed catalog plus recorded
+  owner/maintainer review, expiry and current admission. Reuse the source types,
+  never collection-local `[approved_urls]` or a new rule parser. Require S6
+  seed/discovered-link/every-redirect access checks and private
   URL/version/digest/transformation provenance. Audit chrome removal/exact-body
   deduplication; keep admitted originals under private retention policy. Do not
   authorize relevance-based deletion or deletion of existing evidence.
@@ -2432,179 +2467,1660 @@ catalog inputs, public CI and public releases.
 **Acceptance:** a falsifiable S6 consumer contract, not a crawler or a claim that
 private collection setup/content approval is complete.
 
+## Approved manifest v4 and gap tasks
+
+All following names are planned checks, not passing implementation evidence.
+The owner's 20:45 URL-rule amendment changes only C66's estimate: 3→4 h;
+C52a/b/C68 and C41/C43 reuse their existing budgets. The 57 design task IDs
+remain, now 204 h including this separately recorded +1 h.
+Each row from design §8.4 appears once; umbrella C45/C47/C49/C51/C52/C53 IDs
+carry no second task or budget. Physical order does not change Phase/After.
+
+### C44 Record approved manifest v4 contract [US1, US5] (4 h)
+
+**Phase:** P1/M3
+**After:** C38.
+**Files:** specs/003-catalog/{spec.md,plan.md,tasks.md,traceability.json}; docs/architecture/{01-knowledge-pipeline.md,03-agent-orchestration.md,06-roadmap.md,08-traceability.md}; README.md; docs/adr/{0012-catalog-and-runtime-in-separate-repositories.md,0013-extensions-through-events-and-operations-out-of-process.md,0014-strict-json-for-collection-and-source-policy.md,0022-manifest-layout-v4-and-language-neutral-extensions.md,README.md}; generated .github/copilot-instructions.md.
+**Requirements:** FR-S3-040, FR-S3-041, FR-S3-042, FR-S3-043, FR-S3-044, FR-S3-045, FR-S3-046, FR-S3-047, FR-S3-048, FR-S3-049, FR-S3-050, FR-S3-051, FR-S3-052, FR-S3-053, FR-S3-054, FR-S3-055, FR-S3-056, FR-S3-057, FR-S3-058, FR-S3-059, FR-S3-060, FR-S3-061, FR-S3-062, FR-S3-063, FR-S3-064, FR-S3-065, FR-S3-066, FR-S3-067, SC-S3-009, SC-S3-015, SC-S3-016, SC-S3-018, SC-S3-019, SC-S3-020, SC-S3-021, SC-S3-022, SC-S3-023, SC-S3-024, FR-S3-068, SC-S3-025.
+**Design coverage:** MD01, MD12 (approved design §8.4).
+**Named tests:** `c44_contract_reconciliation`, `catalog_traceability_inventory_matches_exact_rows_and_dispositions`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Amend the four S3 documents, architecture/README and ADR-0012/0013/0022. Reconcile exact requirement links, phases, task totals and acyclic dependencies; retain the frozen 85 architecture keys and six exclusions. Refuse stale source/scope claims or invented delivered evidence.
+- [ ] **Step 3: Check.** Run `prek run --from-ref 815ff33 --to-ref HEAD`, the
+  conventions `catalog_traceability` suite and the C44 reconciliation of every
+  task/requirement/gap/phase/edge. Record commands, exits and pushed hash in the
+  ledger report. No implementation or runtime test result is claimed.
+
+**URL-rule amendment (+0 h):** Record the 20:45 URL-rule decision and its +1 h C66 delta; ADR-0014/architecture 01 join the same documentation sync.
+
+**Acceptance:** Amend the four S3 documents, architecture/README and ADR-0012/0013/0022. Reconcile exact requirement links, phases, task totals and acyclic dependencies; retain the frozen 85 architecture keys and six exclusions. Refuse stale source/scope claims or invented delivered evidence.
+
+### C45a Strict backend base descriptors [US1, US5] (4 h)
+
+**Phase:** P1/M3
+**After:** C44, C39.
+**Files:** crates/maestro-catalog/src/source/{backends.rs,kinds/backend.rs,tests/backends.rs}; tests/fixtures/catalog/backends/.
+**Requirements:** FR-S3-002, FR-S3-037, FR-S3-050, SC-S3-019.
+**Design coverage:** MD02, MD03 (approved design §8.4).
+**Named tests:** `backend_valid_base_accepts`, `inactive_backend_table_refuses`, `backend_numeric_bounds_refuse`, `uncompiled_backend_refuses`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Registered backend base types/settings over bounded SourceTree. Unknown/inactive bad tables, zero/overflow/power-of-two and unavailable selections refuse.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Registered backend base types/settings over bounded SourceTree. Unknown/inactive bad tables, zero/overflow/power-of-two and unavailable selections refuse.
+
+### C45b Add-or-narrow backend extensions [US1, US5] (4 h)
+
+**Phase:** P1/M3
+**After:** C45a.
+**Files:** crates/maestro-catalog/src/source/{backends.rs,backend_extensions.rs,tests/backend_extensions.rs}; tests/fixtures/catalog/backends/.
+**Requirements:** FR-S3-042, FR-S3-043, FR-S3-047, FR-S3-050, SC-S3-019.
+**Design coverage:** MD03, MD04 (approved design §8.4).
+**Named tests:** `backend_extension_narrows`, `backend_replacement_refuses`, `extension_aggregate_limit_refuses`, `extension_collision_refuses`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Typed role extensions/selectors, owner-scoped bindings and removal checks. Replace/type/endpoint/widening/collision attempts refuse.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Typed role extensions/selectors, owner-scoped bindings and removal checks. Replace/type/endpoint/widening/collision attempts refuse.
+
+### C46 Manifest defaults through the S1 registry [US1, US5] (4 h)
+
+**Phase:** P1/M3
+**After:** C45a, C17, C05b.
+**Files:** crates/maestro-catalog/src/settings/{defaults.rs,tests/defaults.rs}; crates/maestro-catalog/src/source/kinds/settings.rs; S1 registered graph setting descriptors at their integrated module.
+**Requirements:** FR-S3-014, FR-S3-015, FR-S3-027, FR-S3-028, FR-S3-029, FR-S3-030, FR-S3-031, FR-S3-050, SC-S3-010, SC-S3-019.
+**Design coverage:** MD03, MD11 (approved design §8.4).
+**Named tests:** `manifest_default_producer_is_unique`, `four_layers_keep_frozen_semantics`, `masked_invalid_default_refuses`, `graph_bounds_match_s2`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Catalog defaults feed S1 once; graph descriptor sync. Four layers, masked invalid input, locked fields and missing defaults/compiled adapters tested.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Catalog defaults feed S1 once; graph descriptor sync. Four layers, masked invalid input, locked fields and missing defaults/compiled adapters tested.
+
+### C47a Frozen defaults and complete non-resource locks [US1, US5] (4 h)
+
+**Phase:** P1/M3
+**After:** C46, C37.
+**Files:** crates/maestro-catalog/src/bootstrap/{project.rs,tests.rs}; crates/maestro-catalog/src/settings/{session.rs,tests/session.rs}; crates/maestro-catalog/src/bundle/{write.rs,read.rs}; existing S2 settings-consumer port.
+**Requirements:** FR-S3-008, FR-S3-009, FR-S3-014, FR-S3-015, FR-S3-028, FR-S3-047, FR-S3-050, SC-S3-010, SC-S3-019.
+**Design coverage:** MD03, MD11 (approved design §8.4).
+**Named tests:** `nonresource_input_change_requires_preview`, `session_keeps_admitted_defaults`, `bundle_preserves_config_closure`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Init/session frozen defaults, complete non-resource locks/bundle preservation and S2 consumer seam. Changed config/lock cannot replay; no live engine needed for fixtures.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Init/session frozen defaults, complete non-resource locks/bundle preservation and S2 consumer seam. Changed config/lock cannot replay; no live engine needed for fixtures.
+
+### C47b Vector and MCP configuration adapters [US1, US5] (4 h)
+
+**Phase:** P1/M3
+**After:** C47a, C45b, C40.
+**Files:** crates/maestro-catalog/src/source/{backend_extensions.rs,tests/backend_extensions.rs}; crates/maestro-catalog/src/hosts/{bindings.rs,tests/bindings.rs}; existing vector and MCP configuration ports.
+**Requirements:** FR-S3-006, FR-S3-042, FR-S3-050, SC-S3-016, SC-S3-019.
+**Design coverage:** MD03, MD04 (approved design §8.4).
+**Named tests:** `mcp_binding_owner_must_be_selected`, `legacy_mcp_edge_requires_migration`, `vector_identity_is_unchanged`, `endpoint_replacement_refuses`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Vector/MCP binding adapters and retired MCP-edge migration. Unknown/unselected server, alias shadow and changed endpoint refuse without launch.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Vector/MCP binding adapters and retired MCP-edge migration. Unknown/unselected server, alias shadow and changed endpoint refuse without launch.
+
+### C48 Publish checked backend declarations [US1, US5] (3 h)
+
+**Phase:** P1/M3
+**After:** C02, C45b, C47b; external G25/E07a qualification and approved real owners before actual pins; does not wait for G22.
+**Files:** MAN core/backends/{graphdb,vectordb,mcp}/config.toml; core/package.toml; settings/defaults.toml; retire core/mcp/*.toml.
+**Requirements:** FR-S3-014, FR-S3-050, SC-S3-019.
+**Design coverage:** MD03 (approved design §8.4).
+**Named tests:** `core_backend_fixtures_accept`, `backend_metadata_requires_qualified_pin`, `source_config_never_launches`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Three checked core configs and MCP cutover; actual qualified graph metadata after G25/E07a and approved owners, never an invented pin.
+- [ ] **Step 3: Check.** Run the pinned `maestro catalog check --catalog-dir "$MANIFESTS"`
+  and `catalog fixtures` plus affected generation checks; use `policy test`
+  for Cedar and `catalog eval --all --offline` only after E1. Documentation-only
+  changes run Markdown/link/drift checks. Record nonzero relevant case counts,
+  exact exits and review; missing runtime evidence is unsupported, not passed.
+
+**Acceptance:** Three checked core configs and MCP cutover; actual qualified graph metadata after G25/E07a and approved owners, never an invented pin.
+
+### C49a Native and featureless graph acceptance [US1, US5] (3 h)
+
+**Phase:** P1/M3
+**After:** C47b, C48, C18, C16b; external S2 G27 E11, G28 and G22 integrated.
+**Files:** crates/maestro-catalog/src/settings/tests/backends.rs; crates/maestro/tests/it/catalog_graph_backend.rs; specs/003-catalog/research/backend-acceptance.md.
+**Requirements:** FR-S3-011, FR-S3-015, FR-S3-050, SC-S3-019.
+**Design coverage:** MD03, MD11 (approved design §8.4).
+**Named tests:** `graph_none_makes_zero_calls`, `graph_unavailable_never_becomes_disabled`, `installed_graph_requires_current_admission`, `graph_explain_keeps_pin`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Native/featureless graph, installed admission/lock/explain proofs; additionally G27 E11/G28/G22. No silent disabled fallback.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Native/featureless graph, installed admission/lock/explain proofs; additionally G27 E11/G28/G22. No silent disabled fallback.
+
+### C49b Vector and MCP package round-trip [US1, US5] (3 h)
+
+**Phase:** P1/M3
+**After:** C47b, C48, C18, C16b, C55.
+**Files:** crates/maestro-catalog/src/install/tests/packages.rs; crates/maestro/tests/it/catalog_backends.rs.
+**Requirements:** FR-S3-011, FR-S3-012, FR-S3-043, FR-S3-050, SC-S3-003, SC-S3-019.
+**Design coverage:** MD03, MD04 (approved design §8.4).
+**Named tests:** `backend_add_remove_keeps_core_bytes`, `backend_collision_keeps_previous_install`, `backend_remove_preserves_shared_bindings`, `backend_tamper_refuses`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Vector/MCP/backend-extension round-trip, collision/removal/trust negatives and unchanged core bytes; executable extension proof belongs to C59.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Vector/MCP/backend-extension round-trip, collision/removal/trust negatives and unchanged core bytes; executable extension proof belongs to C59.
+
+### C50 Owner-local bootstrap inventories [US1, US5] (4 h)
+
+**Phase:** P1/M3
+**After:** C44, C34, C05.
+**Files:** crates/maestro-catalog/src/bootstrap/{compose.rs,inventory.rs,tests/inventory.rs}; crates/maestro-catalog/src/source/kinds/preset.rs; tests/fixtures/catalog/bootstrap/.
+**Requirements:** FR-S3-004, FR-S3-005, FR-S3-047, SC-S3-004, SC-S3-016.
+**Design coverage:** MD04 (approved design §8.4).
+**Named tests:** `selected_owner_inventory_accepts`, `unselected_inventory_refuses`, `inventory_escape_refuses`, `identical_output_collision_refuses`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Owner-local explicit inventories through PresetPort; unknown/unselected inventory, escape, changed input and identical-output collision refuse.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Owner-local explicit inventories through PresetPort; unknown/unselected inventory, escape, changed input and identical-output collision refuse.
+
+### C51a Pinned catalog index and type navigation [US1, US5] (2 h)
+
+**Phase:** P1/M3
+**After:** C35, C37, C53a.
+**Files:** crates/maestro-catalog/src/source/{index.rs,tests/index.rs}; crates/maestro/src/cli/catalog/index.rs; MAN marketplace/index.json and docs/catalog/by-type.md.
+**Requirements:** FR-S3-046, FR-S3-051, FR-S3-052, SC-S3-021.
+**Design coverage:** MD01, MD07, MD09 (approved design §8.4).
+**Named tests:** `catalog_index_is_deterministic`, `stale_extra_index_row_refuses`, `public_index_excludes_private`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Generated pinned-catalog marketplace/type view and drift CLI; stale/extra/private rows refuse.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Generated pinned-catalog marketplace/type view and drift CLI; stale/extra/private rows refuse.
+
+### C51b Independent-release index fields [US1, US5] (3 h)
+
+**Phase:** P2/L1
+**After:** C51a, C53b, C28.
+**Files:** crates/maestro-catalog/src/source/{index.rs,tests/index.rs}; MAN marketplace/index.json and docs/catalog/by-type.md.
+**Requirements:** FR-S3-052, SC-S3-020.
+**Design coverage:** MD07, MD08 (approved design §8.4).
+**Named tests:** `release_index_binds_signed_digest`, `unavailable_release_is_noninstallable`, `deprecation_index_drift_refuses`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Independent-release/version/deprecation listing; mutable or unavailable release never becomes installable.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Independent-release/version/deprecation listing; mutable or unavailable release never becomes installable.
+
+### C52a Registry schemas and editor associations [US1, US5] (4 h)
+
+**Phase:** P1/M3
+**After:** C32, C44.
+**Files:** crates/maestro-catalog/src/source/{schema.rs,tests/schema.rs}; crates/maestro/src/cli/catalog/schema.rs; MAN schemas/source-2/.
+**Requirements:** FR-S3-002, FR-S3-037, FR-S3-051, SC-S3-013, SC-S3-021, FR-S3-068, SC-S3-025.
+**Design coverage:** MD02, MD09 (approved design §8.4).
+**Named tests:** `schema_export_is_deterministic`, `stale_schema_refuses`, `unknown_descriptor_version_refuses`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Registry/settings schema export and editor association index; drift and unsupported descriptor versions refuse.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**URL-rule amendment (+0 h):** Export core-derived source-policy/decision/promotion/migration JSON Schemas alongside the registry schemas; do not hand-maintain them.
+
+**Acceptance:** Registry/settings schema export and editor association index; drift and unsupported descriptor versions refuse.
+
+### C52b Delegated schemas and every-shape fixtures [US1, US5] (4 h)
+
+**Phase:** P1/M3
+**After:** C52a, C45b, C62, C63, C64, C65, C66, C79a, C80a, C81b.
+**Files:** crates/maestro-catalog/src/source/{schema.rs,fixtures.rs,tests/fixtures.rs}; crates/maestro/src/cli/catalog/fixtures.rs; MAN fixtures/{valid,invalid}/ and schemas/source-2/.
+**Requirements:** FR-S3-002, FR-S3-037, FR-S3-038, FR-S3-051, FR-S3-055, SC-S3-013, SC-S3-014, SC-S3-021, FR-S3-068, SC-S3-025.
+**Design coverage:** MD02, MD09, MD11 (approved design §8.4).
+**Named tests:** `owning_validator_exports_exact_shape`, `missing_kind_fixture_refuses`, `zero_refusal_cases_refuse`, `stale_fixture_registration_refuses`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Semantic-hook schema export and every-kind fixture inventory; delegated fields stay exact, missing/zero refusal neighbours fail.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**URL-rule amendment (+0 h):** Include C66's four source-rule JSON families in schema/fixture inventory and editor associations, with actual core-type export and drift refusal.
+
+**Acceptance:** Semantic-hook schema export and every-kind fixture inventory; delegated fields stay exact, missing/zero refusal neighbours fail.
+
+### C52c Authoring templates and package-new [US1, US5] (3 h)
+
+**Phase:** P2/A0
+**After:** C52b, C28.
+**Files:** crates/maestro-catalog/src/bootstrap/{authoring.rs,tests/authoring.rs}; crates/maestro/src/cli/package/new.rs; MAN templates/{package,agent,skill,prompt}/.
+**Requirements:** FR-S3-005, FR-S3-041, FR-S3-059, SC-S3-021.
+**Design coverage:** MD02, MD07 (approved design §8.4).
+**Named tests:** `package_new_preview_writes_nothing`, `package_new_occupied_output_refuses`, `package_new_cannot_invent_owner`, `package_new_stays_authored`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** MAN kit plus package-new preview/apply over C04. Occupied outputs, invented owner and automatic reviewed maturity refuse.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** MAN kit plus package-new preview/apply over C04. Occupied outputs, invented owner and automatic reviewed maturity refuse.
+
+### C53a Exact versions and compatibility [US1, US5] (2 h)
+
+**Phase:** P1/M3
+**After:** C34.
+**Files:** crates/maestro-catalog/src/source/{versions.rs,kinds/package.rs,tests/versions.rs}; crates/maestro-catalog/src/bundle/read.rs.
+**Requirements:** FR-S3-008, FR-S3-009, FR-S3-041, FR-S3-052, SC-S3-002, SC-S3-003.
+**Design coverage:** MD08 (approved design §8.4).
+**Named tests:** `exact_package_pins_accept`, `conflicting_exact_pin_refuses`, `incompatible_runtime_refuses`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Exact package version/dependency pins and existing runtime compatibility; conflicting exact pins refuse.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Exact package version/dependency pins and existing runtime compatibility; conflicting exact pins refuse.
+
+### C53b Intervals and signed deprecation [US1, US5] (3 h)
+
+**Phase:** P2/L1
+**After:** C53a, C28.
+**Files:** crates/maestro-catalog/src/source/{versions.rs,tests/versions.rs}; crates/maestro-catalog/src/install/{deprecation.rs,tests/deprecation.rs}.
+**Requirements:** FR-S3-052, SC-S3-020.
+**Design coverage:** MD08 (approved design §8.4).
+**Named tests:** `compatible_lock_is_retained`, `highest_admitted_stable_selected`, `empty_version_intersection_refuses`, `republished_version_refuses`, `premature_deprecation_removal_refuses`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Dependency intervals, deterministic resolution and deprecation workflow; empty intersections/republished versions refuse.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Dependency intervals, deterministic resolution and deprecation workflow; empty intersections/republished versions refuse.
+
+### C54 Verified package-add transaction [US1, US5] (4 h)
+
+**Phase:** P1/M3
+**After:** C16, C18, C47b, C53a, C51a, C60.
+**Files:** crates/maestro-catalog/src/install/{packages.rs,tests/packages.rs}; crates/maestro/src/cli/package/{mod.rs,add.rs}; crates/maestro/tests/it/catalog_package.rs.
+**Requirements:** FR-S3-008, FR-S3-009, FR-S3-010, FR-S3-011, FR-S3-012, FR-S3-013, FR-S3-015, FR-S3-032, FR-S3-033, FR-S3-034, FR-S3-047, FR-S3-052, SC-S3-002, SC-S3-003, SC-S3-011, SC-S3-019.
+**Design coverage:** MD07, MD08 (approved design §8.4).
+**Named tests:** `package_add_verified_selection_accepts`, `package_tamper_keeps_prior_install`, `package_preview_change_refuses`, `interrupted_package_activation_recovers`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Package-add plan/apply over verified lifecycle and complete pins. Tamper, incompatibility, changed preview and interrupted activation keep prior install.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Package-add plan/apply over verified lifecycle and complete pins. Tamper, incompatibility, changed preview and interrupted activation keep prior install.
+
+### C55 Owned package removal [US1, US5] (3 h)
+
+**Phase:** P1/M3
+**After:** C54.
+**Files:** crates/maestro-catalog/src/install/{packages.rs,tests/packages.rs}; crates/maestro/src/cli/package/remove.rs; crates/maestro/tests/it/catalog_package.rs.
+**Requirements:** FR-S3-005, FR-S3-012, FR-S3-043, FR-S3-047, FR-S3-052, SC-S3-003, SC-S3-004, SC-S3-019.
+**Design coverage:** MD04, MD07 (approved design §8.4).
+**Named tests:** `package_remove_preserves_edits_and_evidence`, `mandatory_package_remove_refuses`, `reverse_dependency_remove_refuses`, `shared_dependency_survives`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Package-remove transaction/receipt. Refuse mandatory roots/reverse dependants; preserve shared dependencies, edited files and stored evidence.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Package-remove transaction/receipt. Refuse mandatory roots/reverse dependants; preserve shared dependencies, edited files and stored evidence.
+
+### C56 Package selection in plain and terminal init [US1, US5] (3 h)
+
+**Phase:** P2/L1
+**After:** C54, C55, C05k, C51b, C28.
+**Files:** crates/maestro/src/cli/init/{flow.rs,terminal.rs}; crates/maestro/tests/it/catalog_init_menu.rs.
+**Requirements:** FR-S3-030, FR-S3-047, FR-S3-052, SC-S3-010, SC-S3-020.
+**Design coverage:** MD07 (approved design §8.4).
+**Named tests:** `package_menu_script_plan_parity`, `package_menu_cancel_writes_nothing`, `inaccessible_private_entry_is_hidden`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Init plain/TUI package selection through the same package plan. Cancel writes nothing; script/menu parity and inaccessible private entries tested.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Init plain/TUI package selection through the same package plan. Cancel writes nothing; script/menu parity and inaccessible private entries tested.
+
+### C57 Catalog-wide frozen explanation [US1, US5] (3 h)
+
+**Phase:** P2/A1
+**After:** C18, C47b, C53a, C28.
+**Files:** crates/maestro-catalog/src/resolve/{explain.rs,tests/explain.rs}; crates/maestro/src/cli/catalog/explain.rs; crates/maestro/src/mcp/catalog.rs.
+**Requirements:** FR-S3-014, FR-S3-015, FR-S3-028, FR-S3-054, SC-S3-010, SC-S3-021.
+**Design coverage:** MD07, MD11 (approved design §8.4).
+**Named tests:** `catalog_explain_uses_frozen_contributors`, `stale_explain_lock_refuses`, `explain_redacts_secret_private_and_mcp_paths`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Catalog-explain adapter over C18/S1 provenance. Exact contributors/ignored widenings, stale lock refusal, secret/private/path redaction.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Catalog-explain adapter over C18/S1 provenance. Exact contributors/ignored widenings, stale lock refusal, secret/private/path redaction.
+
+### C58 Any-language extension descriptor [US1, US5] (4 h)
+
+**Phase:** P2/X1
+**After:** C32, C53a, C28.
+**Files:** crates/maestro-catalog/src/source/kinds/{builtin.rs,extension.rs}; crates/maestro-catalog/src/source/tests/extension_contract.rs; tests/fixtures/catalog/extensions/.
+**Requirements:** FR-S3-002, FR-S3-037, FR-S3-052, FR-S3-053, FR-S3-054, FR-S3-055, SC-S3-020.
+**Design coverage:** MD02, MD06, MD08 (approved design §8.4).
+**Named tests:** `extension_local_or_release_oneof`, `extension_mutable_release_refuses`, `extension_missing_contract_refuses`, `extension_unknown_hook_refuses`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Extension kind, code source one-of, runtime/tool/config/test/eval contracts. Unpinned release, missing contract and unknown hook subscription refuse.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Extension kind, code source one-of, runtime/tool/config/test/eval contracts. Unpinned release, missing contract and unknown hook subscription refuse.
+
+### C59 Extension artifact and MCP projection handoff [US1, US5] (4 h)
+
+**Phase:** P2/X1
+**After:** C54, C58, C61, C63, C67.
+**Files:** crates/maestro-catalog/src/install/{extensions.rs,tests/extensions.rs}; crates/maestro-catalog/src/hosts/bindings.rs; crates/maestro/tests/it/catalog_extensions.rs; docs/how-to/catalog.md.
+**Requirements:** FR-S3-010, FR-S3-011, FR-S3-012, FR-S3-043, FR-S3-050, FR-S3-053, FR-S3-054, SC-S3-020.
+**Design coverage:** MD06, MD07 (approved design §8.4).
+**Named tests:** `extension_verified_projection_accepts`, `extension_install_launches_nothing`, `extension_collision_refuses`, `extension_stale_artifact_refuses`, `extension_remove_preserves_core`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Derived MCP registration/projection ownership, artifact pin checks, removal and S4 handoff record. Collisions/stale pins refuse; install launches zero processes.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Derived MCP registration/projection ownership, artifact pin checks, removal and S4 handoff record. Collisions/stale pins refuse; install launches zero processes.
+
+### C60 Typed secret references without resolution [US1, US5] (4 h)
+
+**Phase:** P1/M3
+**After:** C32, C17.
+**Files:** crates/maestro-catalog/src/source/{secrets.rs,tests/secrets.rs}; crates/maestro-catalog/src/settings/defaults.rs.
+**Requirements:** FR-S3-002, FR-S3-014, FR-S3-054, SC-S3-019.
+**Design coverage:** MD02, MD06 (approved design §8.4).
+**Named tests:** `secret_reference_oneof_accepts`, `secret_literal_channels_refuse`, `check_install_explain_never_resolve_secrets`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Shared typed secret references across settings/backends/extensions. Literal secrets/URL credentials/argument channels refuse; explain never resolves a secret.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Shared typed secret references across settings/backends/extensions. Literal secrets/URL credentials/argument channels refuse; explain never resolves a secret.
+
+### C61 Extension-scoped Cedar grants [US1, US5] (4 h)
+
+**Phase:** P2/X1
+**After:** C19, C58, C60.
+**Files:** crates/maestro-catalog/src/policy/{extensions.rs,tests/extensions.rs}; tests/fixtures/catalog/extensions/policies/.
+**Requirements:** FR-S3-016, FR-S3-053, FR-S3-054, SC-S3-005, SC-S3-020.
+**Design coverage:** MD06 (approved design §8.4).
+**Named tests:** `extension_exact_grant_allows`, `extension_missing_grant_denies`, `extension_wrong_digest_denies`, `extension_egress_widening_denies`, `extension_unknown_facts_deny`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Extension-principal Cedar/grant fixture adapter. No grant, wrong digest, wider egress and unknown trusted facts deny; permitted neighbour passes.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Extension-principal Cedar/grant fixture adapter. No grant, wrong digest, wider egress and unknown trusted facts deny; permitted neighbour passes.
+
+### C62 Ten hook descriptors and platform bindings [US1, US5] (3 h)
+
+**Phase:** P1/M3
+**After:** C32, C64; supervisor-approved correction to design §8.4: the common
+prompt/contracts neighbour uses production descriptors, not substitutes.
+**Files:** crates/maestro-catalog/src/source/kinds/{builtin.rs,hook.rs}; crates/maestro-catalog/src/source/tests/hooks.rs; tests/fixtures/catalog/hooks/.
+**Requirements:** FR-S3-002, FR-S3-017, FR-S3-042, FR-S3-055, SC-S3-015, SC-S3-021.
+**Design coverage:** MD02, MD05 (approved design §8.4).
+**Named tests:** `ten_hook_points_validate_without_execution`, `common_prompt_common_contract_accepts`, `common_to_core_refuses`, `dangling_hook_tool_refuses`, `invalid_hook_timeout_refuses`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Ten hook-point descriptors, action references and implicit engine/checker event-protocol bindings; no event-contract catalog dependency. Fixtures: a common prompt with common input/output contracts passes; common → core dependency refuses. Unknown point, dangling tool and invalid timeout refuse; no execution path.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Ten hook-point descriptors, action references and implicit engine/checker event-protocol bindings; no event-contract catalog dependency. Fixtures: a common prompt with common input/output contracts passes; common → core dependency refuses. Unknown point, dangling tool and invalid timeout refuse; no execution path.
+
+### C63 Three explicit host capability maps [US1, US5] (3 h)
+
+**Phase:** P1/M3
+**After:** C62, C01.
+**Files:** crates/maestro-catalog/src/source/{host_config.rs,tests/host_config.rs}; MAN core/hosts/{pi,claude-code,copilot}/config.toml.
+**Requirements:** FR-S3-006, FR-S3-017, FR-S3-049, SC-S3-015, SC-S3-016, SC-S3-021.
+**Design coverage:** MD02, MD05 (approved design §8.4).
+**Named tests:** `each_host_has_ten_explicit_states`, `unsupported_blocking_hook_is_unprotected`, `host_config_cannot_register_code`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Three host mapping configs through registered adapters. All ten events get explicit states; unmapped/unsupported blocking use cannot appear protected.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Three host mapping configs through registered adapters. All ten events get explicit states; unmapped/unsupported blocking use cannot appear protected.
+
+### C64 Prompt handoff contract and eval shapes [US1, US5] (4 h)
+
+**Phase:** P1/M3
+**After:** C32, C22b.
+**Files:** crates/maestro-catalog/src/source/kinds/{prompt.rs,handoff.rs,contract.rs,eval.rs}; crates/maestro-catalog/src/source/tests/contracts.rs; tests/fixtures/catalog/contracts/.
+**Requirements:** FR-S3-002, FR-S3-016, FR-S3-037, FR-S3-055, SC-S3-005, SC-S3-021.
+**Design coverage:** MD02 (approved design §8.4).
+**Named tests:** `common_contract_reference_accepts`, `unfilled_prompt_template_refuses`, `handoff_missing_section_refuses`, `external_contract_reference_refuses`, `dangling_contract_refuses`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Prompt/handoff/eval-case descriptors and isolated body/reference checks using existing JSON contract consumer. Unfilled template, missing sections and dangling contracts refuse.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Prompt/handoff/eval-case descriptors and isolated body/reference checks using existing JSON contract consumer. Unfilled template, missing sections and dangling contracts refuse.
+
+### C65 Quality profiles separate from session profiles [US1, US5] (4 h)
+
+**Phase:** P1/M3
+**After:** C32, C17.
+**Files:** crates/maestro-catalog/src/source/kinds/quality_profile.rs; crates/maestro-catalog/src/source/tests/quality_profile.rs; tests/fixtures/catalog/quality/.
+**Requirements:** FR-S3-014, FR-S3-037, FR-S3-056, FR-S3-057, SC-S3-018.
+**Design coverage:** MD02, MD11 (approved design §8.4).
+**Named tests:** `quality_profile_is_not_session_profile`, `quality_thresholds_only_narrow`, `missing_required_binding_stays_unresolved`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Quality-profile descriptor distinct from M059, baseline/check accumulation and threshold narrowing. Missing bindings stay unresolved; weakened gate refuses.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Quality-profile descriptor distinct from M059, baseline/check accumulation and threshold narrowing. Missing bindings stay unresolved; weakened gate refuses.
+
+### C66 Knowledge sources and manifest-owned URL rules [US1, US5] (4 h)
+
+**Phase:** P1/M3
+**After:** C32; synchronize existing S6 wire types and N07 IdentityMigration
+only after reviewed fixes land; not the S6 runtime catalog adapter.
+**Files:** crates/maestro-catalog/src/source/kinds/knowledge_source.rs; crates/maestro-catalog/src/source/tests/knowledge_source.rs; tests/fixtures/catalog/sources/; owning core wire types are consumed, not copied. C52b publishes the typed synthetic companions in MAN fixtures, not a real source seed.
+**Requirements:** FR-S3-002, FR-S3-037, FR-S3-054, FR-S3-055, FR-S3-068, SC-S3-021, SC-S3-025.
+**Design coverage:** MD02 (approved design §8.4).
+**Named tests:** `pinned_source_with_provenance_accepts`, `mutable_unqualified_source_refuses`, `source_secret_literal_refuses`, `source_check_never_fetches`, `source_url_rule_families_roundtrip`,
+`source_rule_duplicate_key_refuses`, `source_rule_digest_or_expiry_refuses`,
+`source_review_evidence_is_not_self_asserted`, `source_private_inventory_never_publishes`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Knowledge-source descriptor plus strict JSON policy, decisions/promotions with expiry and URL-identity migrations beside source.toml. Reuse core types/validators, exact inventories/digests and ownership-derived signed-review evidence. Author valid/invalid neighbours for every family, including fabricated review, expiry, changed digest and private leakage. C52a/b/C68 consume the registrations/fixtures. No collection-local URL rules, per-site engine rules, network calls or S6 runtime adapter.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Knowledge-source descriptor plus strict JSON policy, decisions/promotions with expiry and URL-identity migrations beside source.toml. Reuse core types/validators, exact inventories/digests and ownership-derived signed-review evidence. Author valid/invalid neighbours for every family, including fabricated review, expiry, changed digest and private leakage. C52a/b/C68 consume the registrations/fixtures. No collection-local URL rules, per-site engine rules, network calls or S6 runtime adapter.
+
+### C67 Bounded offline package eval checkpoint [US1, US5] (4 h)
+
+**Phase:** P2/E1
+**After:** C64, C65, C66, C62, C58, C19, C22b.
+**Files:** crates/maestro-catalog/src/eval/{package.rs,drivers.rs,tests/package.rs}; crates/maestro/src/cli/catalog/eval.rs; MAN .github/workflows/check.yml.
+**Requirements:** FR-S3-013, FR-S3-051, FR-S3-060, SC-S3-020, SC-S3-021.
+**Design coverage:** MD09 (approved design §8.4).
+**Named tests:** `package_eval_report_binds_source_closure`, `wrong_eval_expectation_fails`, `missing_eval_driver_fails`, `zero_package_evals_fail`, `eval_egress_is_denied`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Registered offline package-eval drivers and exact revision-bound reports. Wrong expectation, missing driver, zero tests and unauthorized egress fail.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Registered offline package-eval drivers and exact revision-bound reports. Wrong expectation, missing driver, zero tests and unauthorized egress fail.
+
+### C68 Four-checkpoint CI wiring [US1, US5] (3 h)
+
+**Phase:** P1/M3
+**After:** C52b, C51a, C35, C80b.
+**Files:** crates/maestro/src/cli/catalog/{schema.rs,fixtures.rs,index.rs,owners.rs}; crates/maestro/tests/it/catalog_checkpoints.rs; MAN .pre-commit-config.yaml and .github/workflows/{check,release}.yml.
+**Requirements:** FR-S3-013, FR-S3-051, FR-S3-058, SC-S3-021, FR-S3-068, SC-S3-025.
+**Design coverage:** MD09 (approved design §8.4).
+**Named tests:** `checkpoint_generation_drift_fails`, `checkpoint_missing_refusal_fails`, `release_check_subject_mismatch_fails`, `untrusted_pr_has_no_credentials`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Four-checkpoint/fixture commands and MAN CI integration. Schema/index/owner drift, missing valid/refusal cases and release-check mismatch fail; generic package evals stay C67.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**URL-rule amendment (+0 h):** All four checkpoints include C66 source-rule fixtures and schema drift; CI supplies recorded ownership review and install rechecks signed digest-bound admission.
+
+**Acceptance:** Four-checkpoint/fixture commands and MAN CI integration. Schema/index/owner drift, missing valid/refusal cases and release-check mismatch fail; generic package evals stay C67.
+
+### C69 Signed independent and private packages [US1, US5] (4 h)
+
+**Phase:** P2/L1
+**After:** C13a, C14, C16b, C53b, C67, C54.
+**Files:** crates/maestro-catalog/src/install/{package_source.rs,tests/package_source.rs}; crates/maestro-catalog/src/trust/admission.rs; tests/fixtures/catalog/private-packages/.
+**Requirements:** FR-S3-010, FR-S3-011, FR-S3-012, FR-S3-013, FR-S3-044, FR-S3-052, FR-S3-060, SC-S3-003, SC-S3-020, FR-S3-068, SC-S3-025.
+**Design coverage:** MD08, MD09 (approved design §8.4).
+**Named tests:** `private_package_admitted_by_local_authority`, `self_authorized_publisher_refuses`, `public_private_metadata_leak_refuses`, `indirect_private_dependency_refuses`, `missing_private_access_preserves_public`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Signed private-package source adapter and synthetic public/private CI/admission proof. Self-authorized publisher, metadata leakage, indirect public-private dependency and missing access refuse locally.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**URL-rule amendment (+0 h):** Private knowledge-source URL inventories and their exact rule closure stay in admitted private packages; publish no real private URL/metadata in public indexes or fixtures.
+
+**Acceptance:** Signed private-package source adapter and synthetic public/private CI/admission proof. Self-authorized publisher, metadata leakage, indirect public-private dependency and missing access refuse locally.
+
+### C70 Recover core personas review skill and handoff [US1, US5] (4 h)
+
+**Phase:** P1/M3
+**After:** C02, C64.
+**Files:** MAN core/agents/{maestro,reviewer,steward,bootstrapper}.{agent.md,maestro.toml}; skills/reviewing-changes/SKILL.md; core/handoffs/implementation-to-review/; docs/catalog/migration.md.
+**Requirements:** FR-S3-001, FR-S3-018, FR-S3-026, FR-S3-055, SC-S3-009.
+**Design coverage:** MD10 (approved design §8.4).
+**Named tests:** `recovered_core_roles_have_native_sections`, `maestro_has_one_prompt_authority`, `recovered_handoff_keeps_independent_review`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Four authored core agents, Maestro prompt merge, review skill and handoff. Native shape/closure and author-reviewer separation cases pass.
+- [ ] **Step 3: Check.** Run the pinned `maestro catalog check --catalog-dir "$MANIFESTS"`
+  and `catalog fixtures` plus affected generation checks; use `policy test`
+  for Cedar and `catalog eval --all --offline` only after E1. Documentation-only
+  changes run Markdown/link/drift checks. Record nonzero relevant case counts,
+  exact exits and review; missing runtime evidence is unsupported, not passed.
+
+**Acceptance:** Four authored core agents, Maestro prompt merge, review skill and handoff. Native shape/closure and author-reviewer separation cases pass.
+
+### C71 Recover Translator and translation skill [US1, US5] (3 h)
+
+**Phase:** P2/R1
+**After:** C02, C64, C28.
+**Files:** MAN capabilities/governance/content-translation/{package.toml,agents,skills}; docs/catalog/migration.md.
+**Requirements:** FR-S3-001, FR-S3-026, FR-S3-041, FR-S3-042, SC-S3-009.
+**Design coverage:** MD10 (approved design §8.4).
+**Named tests:** `translation_references_are_owner_local`, `translator_grants_no_authority_or_runtime_localization`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Translator package, translation skill and two references; scoped links, no runtime localization or authority claims.
+- [ ] **Step 3: Check.** Run the pinned `maestro catalog check --catalog-dir "$MANIFESTS"`
+  and `catalog fixtures` plus affected generation checks; use `policy test`
+  for Cedar and `catalog eval --all --offline` only after E1. Documentation-only
+  changes run Markdown/link/drift checks. Record nonzero relevant case counts,
+  exact exits and review; missing runtime evidence is unsupported, not passed.
+
+**Acceptance:** Translator package, translation skill and two references; scoped links, no runtime localization or authority claims.
+
+### C72 Author missing framework roles [US1, US5] (3 h)
+
+**Phase:** P1/M3
+**After:** C21b.
+**Files:** MAN core/agents/{researcher,builder,releaser}.{agent.md,maestro.toml}; core/package.toml; docs/catalog/migration.md.
+**Requirements:** FR-S3-001, FR-S3-018, FR-S3-019, FR-S3-026, SC-S3-009.
+**Design coverage:** MD10 (approved design §8.4).
+**Named tests:** `new_roles_are_not_placeholders`, `builder_is_deterministic_step`, `releaser_has_no_publication_grant`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Researcher/builder/releaser definitions beyond baseline delivery work; replace placeholder semantics, keep builder deterministic and release unprivileged.
+- [ ] **Step 3: Check.** Run the pinned `maestro catalog check --catalog-dir "$MANIFESTS"`
+  and `catalog fixtures` plus affected generation checks; use `policy test`
+  for Cedar and `catalog eval --all --offline` only after E1. Documentation-only
+  changes run Markdown/link/drift checks. Record nonzero relevant case counts,
+  exact exits and review; missing runtime evidence is unsupported, not passed.
+
+**Acceptance:** Researcher/builder/releaser definitions beyond baseline delivery work; replace placeholder semantics, keep builder deterministic and release unprivileged.
+
+### C73 Reconcile legacy instruction families [US1, US5] (4 h)
+
+**Phase:** P2/R1
+**After:** C02, C82a, C82b, C28.
+**Files:** MAN standards/{engineering,security}/instructions/; docs/catalog/migration.md.
+**Requirements:** FR-S3-001, FR-S3-026, FR-S3-057, SC-S3-009, SC-S3-018.
+**Design coverage:** MD10 (approved design §8.4).
+**Named tests:** `legacy_instruction_inventory_is_complete`, `stale_or_competing_rule_authority_refuses`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Two instruction families and thirteen references reconciled with current standards; conflicting/stale rule authority refuses review.
+- [ ] **Step 3: Check.** Run the pinned `maestro catalog check --catalog-dir "$MANIFESTS"`
+  and `catalog fixtures` plus affected generation checks; use `policy test`
+  for Cedar and `catalog eval --all --offline` only after E1. Documentation-only
+  changes run Markdown/link/drift checks. Record nonzero relevant case counts,
+  exact exits and review; missing runtime evidence is unsupported, not passed.
+
+**Acceptance:** Two instruction families and thirteen references reconciled with current standards; conflicting/stale rule authority refuses review.
+
+### C74a Recover path egress and tool Cedar rules [US1, US5] (4 h)
+
+**Phase:** P2/R1
+**After:** C21, C19, C81b, C28.
+**Files:** MAN standards/security/{policies,checks}/; docs/catalog/migration.md.
+**Requirements:** FR-S3-016, FR-S3-026, FR-S3-057, SC-S3-005, SC-S3-018.
+**Design coverage:** MD10, MD14 (approved design §8.4).
+**Named tests:** `recovered_path_egress_tool_allow_neighbours`, `recovered_path_egress_tool_denials`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Protected-path, egress and tool-permission YAML responsibilities to Cedar; each retained rule gets real allowed/denied neighbours.
+- [ ] **Step 3: Check.** Run the pinned `maestro catalog check --catalog-dir "$MANIFESTS"`
+  and `catalog fixtures` plus affected generation checks; use `policy test`
+  for Cedar and `catalog eval --all --offline` only after E1. Documentation-only
+  changes run Markdown/link/drift checks. Record nonzero relevant case counts,
+  exact exits and review; missing runtime evidence is unsupported, not passed.
+
+**Acceptance:** Protected-path, egress and tool-permission YAML responsibilities to Cedar; each retained rule gets real allowed/denied neighbours.
+
+### C74b Recover destructive and prompt-integrity obligations [US1, US5] (4 h)
+
+**Phase:** P2/R1
+**After:** C74a, C73, C28.
+**Files:** MAN standards/security/{policies,instructions,checks}/; docs/catalog/migration.md.
+**Requirements:** FR-S3-016, FR-S3-026, FR-S3-057, SC-S3-005, SC-S3-018.
+**Design coverage:** MD10, MD14 (approved design §8.4).
+**Named tests:** `legacy_rule_disposition_has_no_gaps`, `cmd_008_has_one_owner`, `unsupported_prose_is_not_claimed_enforced`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Destructive/prompt-integrity rules and complete semantic disposition; CMD-008 stays single-owned and unsupported claims remain explicit.
+- [ ] **Step 3: Check.** Run the pinned `maestro catalog check --catalog-dir "$MANIFESTS"`
+  and `catalog fixtures` plus affected generation checks; use `policy test`
+  for Cedar and `catalog eval --all --offline` only after E1. Documentation-only
+  changes run Markdown/link/drift checks. Record nonzero relevant case counts,
+  exact exits and review; missing runtime evidence is unsupported, not passed.
+
+**Acceptance:** Destructive/prompt-integrity rules and complete semantic disposition; CMD-008 stays single-owned and unsupported claims remain explicit.
+
+### C75 Convert six legacy hook documents [US1, US5] (3 h)
+
+**Phase:** P2/R1
+**After:** C62, C63, C74b, C28.
+**Files:** MAN hooks/{pre-tool,prompt-submit,agent-stop}/; docs/catalog/migration.md.
+**Requirements:** FR-S3-017, FR-S3-026, SC-S3-009.
+**Design coverage:** MD05, MD10 (approved design §8.4).
+**Named tests:** `six_hook_documents_have_dispositions`, `unsupported_hook_timing_is_explicit`, `hook_docs_never_claim_s3_execution`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Six hook-doc conversions, event placement and unsupported timing notes; no false ten-event coverage or S3 protection claim.
+- [ ] **Step 3: Check.** Run the pinned `maestro catalog check --catalog-dir "$MANIFESTS"`
+  and `catalog fixtures` plus affected generation checks; use `policy test`
+  for Cedar and `catalog eval --all --offline` only after E1. Documentation-only
+  changes run Markdown/link/drift checks. Record nonzero relevant case counts,
+  exact exits and review; missing runtime evidence is unsupported, not passed.
+
+**Acceptance:** Six hook-doc conversions, event placement and unsupported timing notes; no false ten-event coverage or S3 protection claim.
+
+### C76a Baseline and Rust Python Go profiles [US1, US5] (4 h)
+
+**Phase:** P1/M3
+**After:** C65, C82a.
+**Files:** MAN standards/quality/; languages/{rust,python,go}/profiles/quality/; docs/catalog/migration.md.
+**Requirements:** FR-S3-026, FR-S3-056, FR-S3-057, SC-S3-018.
+**Design coverage:** MD10 (approved design §8.4).
+**Named tests:** `baseline_and_three_profiles_keep_gate_categories`, `absent_quality_binding_is_unresolved`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Baseline plus Rust/Python/Go quality profiles; mandatory gates/thresholds and unresolved binding cases.
+- [ ] **Step 3: Check.** Run the pinned `maestro catalog check --catalog-dir "$MANIFESTS"`
+  and `catalog fixtures` plus affected generation checks; use `policy test`
+  for Cedar and `catalog eval --all --offline` only after E1. Documentation-only
+  changes run Markdown/link/drift checks. Record nonzero relevant case counts,
+  exact exits and review; missing runtime evidence is unsupported, not passed.
+
+**Acceptance:** Baseline plus Rust/Python/Go quality profiles; mandatory gates/thresholds and unresolved binding cases.
+
+### C76b Five remaining language quality profiles [US1, US5] (4 h)
+
+**Phase:** P1/M3
+**After:** C76a.
+**Files:** MAN languages/{java,typescript,javascript,configuration-management,infrastructure-provisioning}/profiles/quality/; docs/catalog/migration.md.
+**Requirements:** FR-S3-026, FR-S3-049, FR-S3-056, FR-S3-057, SC-S3-018.
+**Design coverage:** MD10 (approved design §8.4).
+**Named tests:** `eight_profiles_have_complete_categories`, `quality_identity_is_functional`, `historical_weaker_threshold_refuses`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Java/TypeScript/JavaScript/configuration-management/infrastructure-provisioning profiles; retain actual applicability and product-free identities.
+- [ ] **Step 3: Check.** Run the pinned `maestro catalog check --catalog-dir "$MANIFESTS"`
+  and `catalog fixtures` plus affected generation checks; use `policy test`
+  for Cedar and `catalog eval --all --offline` only after E1. Documentation-only
+  changes run Markdown/link/drift checks. Record nonzero relevant case counts,
+  exact exits and review; missing runtime evidence is unsupported, not passed.
+
+**Acceptance:** Java/TypeScript/JavaScript/configuration-management/infrastructure-provisioning profiles; retain actual applicability and product-free identities.
+
+### C77a Recover repository starter inventory [US1, US5] (4 h)
+
+**Phase:** P2/R1
+**After:** C50, C73, C28.
+**Files:** MAN bootstrap/repository.toml and bootstrap/repository/files/; docs/catalog/migration.md.
+**Requirements:** FR-S3-004, FR-S3-005, FR-S3-026, FR-S3-047, SC-S3-004.
+**Design coverage:** MD04, MD10 (approved design §8.4).
+**Named tests:** `repository_starter_has_39_retained_payloads`, `repository_language_stub_is_dropped`, `starter_json_is_strict_and_inert`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Repository's 40 starter payloads audited, one stub removed; inventory complete, generated JSON strict, no script runs.
+- [ ] **Step 3: Check.** Run the pinned `maestro catalog check --catalog-dir "$MANIFESTS"`
+  and `catalog fixtures` plus affected generation checks; use `policy test`
+  for Cedar and `catalog eval --all --offline` only after E1. Documentation-only
+  changes run Markdown/link/drift checks. Record nonzero relevant case counts,
+  exact exits and review; missing runtime evidence is unsupported, not passed.
+
+**Acceptance:** Repository's 40 starter payloads audited, one stub removed; inventory complete, generated JSON strict, no script runs.
+
+### C77b Recover Rust Python Go starters [US1, US5] (4 h)
+
+**Phase:** P2/R1
+**After:** C77a, C76a, C28.
+**Files:** MAN languages/{rust,python,go}/bootstrap/; docs/catalog/migration.md.
+**Requirements:** FR-S3-004, FR-S3-026, FR-S3-047, FR-S3-056, SC-S3-004.
+**Design coverage:** MD04, MD10 (approved design §8.4).
+**Named tests:** `three_language_starters_have_20_payloads`, `starter_binding_and_composition_refusals`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Rust/Python/Go starters: 20 payloads; full composition/collision/required-binding cases.
+- [ ] **Step 3: Check.** Run the pinned `maestro catalog check --catalog-dir "$MANIFESTS"`
+  and `catalog fixtures` plus affected generation checks; use `policy test`
+  for Cedar and `catalog eval --all --offline` only after E1. Documentation-only
+  changes run Markdown/link/drift checks. Record nonzero relevant case counts,
+  exact exits and review; missing runtime evidence is unsupported, not passed.
+
+**Acceptance:** Rust/Python/Go starters: 20 payloads; full composition/collision/required-binding cases.
+
+### C77c Recover Java and script-language starters [US1, US5] (4 h)
+
+**Phase:** P2/R1
+**After:** C77a, C76b, C28.
+**Files:** MAN languages/{java,typescript,javascript}/bootstrap/; docs/catalog/migration.md.
+**Requirements:** FR-S3-004, FR-S3-026, FR-S3-047, FR-S3-056, SC-S3-004.
+**Design coverage:** MD04, MD10 (approved design §8.4).
+**Named tests:** `three_language_starters_have_33_payloads`, `starter_workflow_remains_inert`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Java/TypeScript/JavaScript starters: 33 payloads; same composition and inert-workflow proof.
+- [ ] **Step 3: Check.** Run the pinned `maestro catalog check --catalog-dir "$MANIFESTS"`
+  and `catalog fixtures` plus affected generation checks; use `policy test`
+  for Cedar and `catalog eval --all --offline` only after E1. Documentation-only
+  changes run Markdown/link/drift checks. Record nonzero relevant case counts,
+  exact exits and review; missing runtime evidence is unsupported, not passed.
+
+**Acceptance:** Java/TypeScript/JavaScript starters: 33 payloads; same composition and inert-workflow proof.
+
+### C77d Recover automation and infrastructure starters [US1, US5] (3 h)
+
+**Phase:** P2/R1
+**After:** C77a, C76b, C28.
+**Files:** MAN languages/{configuration-management,infrastructure-provisioning}/bootstrap/; docs/catalog/migration.md.
+**Requirements:** FR-S3-004, FR-S3-026, FR-S3-047, FR-S3-049, FR-S3-056, SC-S3-004.
+**Design coverage:** MD04, MD10 (approved design §8.4).
+**Named tests:** `automation_starters_have_14_payloads`, `starter_native_filename_exception_is_exact`, `starter_never_activates_tools`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Configuration-management/infrastructure-provisioning starters: 14 payloads; required filename exceptions and no setup/activation.
+- [ ] **Step 3: Check.** Run the pinned `maestro catalog check --catalog-dir "$MANIFESTS"`
+  and `catalog fixtures` plus affected generation checks; use `policy test`
+  for Cedar and `catalog eval --all --offline` only after E1. Documentation-only
+  changes run Markdown/link/drift checks. Record nonzero relevant case counts,
+  exact exits and review; missing runtime evidence is unsupported, not passed.
+
+**Acceptance:** Configuration-management/infrastructure-provisioning starters: 14 payloads; required filename exceptions and no setup/activation.
+
+### C78 Descriptor-led scaffolder persona [US1, US5] (3 h)
+
+**Phase:** P2/A0
+**After:** C52c, C64, C65, C79a, C28.
+**Files:** MAN core/agents/scaffolder.{agent.md,maestro.toml}; core/evals/scenarios/scaffolder/; templates/; core/package.toml.
+**Requirements:** FR-S3-018, FR-S3-059, SC-S3-021.
+**Design coverage:** MD16 (approved design §8.4).
+**Named tests:** `scaffolder_authors_supported_kinds_with_tests`, `scaffolder_unknown_kind_refuses`, `scaffolder_cannot_self_approve`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Scaffolder persona and supported-kind authoring scenarios; output tests/evals, checkpoint evidence and refusal of unavailable kinds/self-approval.
+- [ ] **Step 3: Check.** Run the pinned `maestro catalog check --catalog-dir "$MANIFESTS"`
+  and `catalog fixtures` plus affected generation checks; use `policy test`
+  for Cedar and `catalog eval --all --offline` only after E1. Documentation-only
+  changes run Markdown/link/drift checks. Record nonzero relevant case counts,
+  exact exits and review; missing runtime evidence is unsupported, not passed.
+
+**Acceptance:** Scaffolder persona and supported-kind authoring scenarios; output tests/evals, checkpoint evidence and refusal of unavailable kinds/self-approval.
+
+### C79a Root language areas and manager choices [US1, US5] (4 h)
+
+**Phase:** P1/M3
+**After:** C32, C65.
+**Files:** crates/maestro-catalog/src/source/kinds/{language.rs,quality_profile.rs}; crates/maestro-catalog/src/source/tests/language.rs; tests/fixtures/catalog/languages/.
+**Requirements:** FR-S3-040, FR-S3-041, FR-S3-042, FR-S3-046, FR-S3-049, FR-S3-056, FR-S3-057, SC-S3-015, SC-S3-018.
+**Design coverage:** MD02, MD13 (approved design §8.4).
+**Named tests:** `language_has_one_id_and_manager_default`, `duplicate_manager_default_refuses`, `language_product_path_refuses`, `language_cannot_weaken_standard`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Root language descriptor/profile contract, one language ID, manager default/alternatives and complete gate categories. Duplicate defaults, product paths or weakening a standard refuse.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Root language descriptor/profile contract, one language ID, manager default/alternatives and complete gate categories. Duplicate defaults, product paths or weakening a standard refuse.
+
+### C79b Eight complete language declarations [US1, US5] (4 h)
+
+**Phase:** P1/M3
+**After:** C79a, C76b, C82b.
+**Files:** MAN languages/{rust,python,typescript,javascript,java,go,configuration-management,infrastructure-provisioning}/{package.toml,instructions,bootstrap}; presets/rust-service.toml.
+**Requirements:** FR-S3-004, FR-S3-047, FR-S3-056, FR-S3-057, SC-S3-004, SC-S3-018.
+**Design coverage:** MD13 (approved design §8.4).
+**Named tests:** `eight_language_areas_are_declared`, `rust_gate_pin_is_reused`, `nonrust_gate_gaps_are_explicit`, `minimal_rust_init_works`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Complete eight language profiles/instructions/CI-template declarations, Rust gate pin and truthful non-Rust gaps. No full gate implementation charged here.
+- [ ] **Step 3: Check.** Run the pinned `maestro catalog check --catalog-dir "$MANIFESTS"`
+  and `catalog fixtures` plus affected generation checks; use `policy test`
+  for Cedar and `catalog eval --all --offline` only after E1. Documentation-only
+  changes run Markdown/link/drift checks. Record nonzero relevant case counts,
+  exact exits and review; missing runtime evidence is unsupported, not passed.
+
+**Acceptance:** Complete eight language profiles/instructions/CI-template declarations, Rust gate pin and truthful non-Rust gaps. No full gate implementation charged here.
+
+### C80a Owners maintainers and protected delegation [US1, US5] (3 h)
+
+**Phase:** P1/M3
+**After:** C32.
+**Files:** crates/maestro-catalog/src/source/kinds/package.rs; crates/maestro-catalog/src/source/{ownership.rs,tests/ownership.rs}.
+**Requirements:** FR-S3-041, FR-S3-045, FR-S3-058, SC-S3-015, SC-S3-018.
+**Design coverage:** MD01, MD15 (approved design §8.4).
+**Named tests:** `area_owners_maintainers_validate`, `resource_ownership_is_derived`, `broad_codeowners_rule_cannot_override_descriptor`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Owners/maintainers area schema, derived resource ownership and delegated CODEOWNERS semantics. Descriptor broad-rule override and self-delegation refuse.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Owners/maintainers area schema, derived resource ownership and delegated CODEOWNERS semantics. Descriptor broad-rule override and self-delegation refuse.
+
+### C80b Trusted identity and base-owner approval CI [US1, US5] (4 h)
+
+**Phase:** P1/M3
+**After:** C80a, C35.
+**Files:** crates/maestro-catalog/src/source/{owners.rs,tests/owners.rs}; crates/maestro/src/cli/catalog/owners.rs; MAN .github/workflows/check-owners.yml.
+**Requirements:** FR-S3-003, FR-S3-013, FR-S3-041, FR-S3-045, FR-S3-058, SC-S3-018, SC-S3-021, FR-S3-068, SC-S3-025.
+**Design coverage:** MD09, MD15 (approved design §8.4).
+**Named tests:** `verified_existing_principals_accept`, `unknown_team_or_missing_access_refuses`, `stale_head_approval_refuses`, `newly_added_owner_cannot_self_approve`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Trusted CI principal-existence/base-owner approval checks. Unknown user/team, missing access, stale-head approval and newly self-added owner fail; no token to PR code.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**URL-rule amendment (+0 h):** Source-rule approvals bind the exact admitted head/digests under these existing owner/maintainer rules; metadata cannot assert its own reviewed admission.
+
+**Acceptance:** Trusted CI principal-existence/base-owner approval checks. Unknown user/team, missing access, stale-head approval and newly self-added owner fail; no token to PR code.
+
+### C81a Mandatory standards and registered checks [US1, US5] (3 h)
+
+**Phase:** P1/M3
+**After:** C34.
+**Files:** crates/maestro-catalog/src/source/kinds/{standard.rs,standard_check.rs}; crates/maestro-catalog/src/source/tests/standards.rs.
+**Requirements:** FR-S3-037, FR-S3-040, FR-S3-042, FR-S3-046, FR-S3-057, SC-S3-015, SC-S3-018.
+**Design coverage:** MD02, MD14 (approved design §8.4).
+**Named tests:** `every_standard_is_pinned_once`, `missing_or_optional_standard_refuses`, `standard_removal_refuses`, `duplicate_rule_identity_refuses`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Standard/check descriptors and always-selected standard closure. Missing standard, opt-out/removal and duplicate rule identity refuse.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Standard/check descriptors and always-selected standard closure. Missing standard, opt-out/removal and duplicate rule identity refuse.
+
+### C81b Restrictive standards and central exceptions [US1, US5] (4 h)
+
+**Phase:** P1/M3
+**After:** C81a, C19, C17.
+**Files:** crates/maestro-catalog/src/source/{standards.rs,tests/standards.rs}; crates/maestro-catalog/src/policy/standards.rs.
+**Requirements:** FR-S3-014, FR-S3-016, FR-S3-043, FR-S3-057, SC-S3-005, SC-S3-018.
+**Design coverage:** MD04, MD14 (approved design §8.4).
+**Named tests:** `standard_constraints_only_narrow`, `local_expired_or_wider_exception_refuses`, `nonnegotiable_exception_refuses`, `secret_scan_weakening_refuses`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Add-or-narrow standard constraints and central exceptions. Local/expired/wider exception, non-negotiable exception and weaker secret-scan settings refuse.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Add-or-narrow standard constraints and central exceptions. Local/expired/wider exception, non-negotiable exception and weaker secret-scan settings refuse.
+
+### C82a Pinned import of canonical organization rules [US1, US5] (4 h)
+
+**Phase:** P1/M3
+**After:** C02, C81b, C35.
+**Files:** MAN standards/{engineering,security,architecture,quality}/; docs/standards/; docs/catalog/migration.md.
+**Requirements:** FR-S3-001, FR-S3-026, FR-S3-057, SC-S3-009, SC-S3-018.
+**Design coverage:** MD10, MD14 (approved design §8.4).
+**Named tests:** `org_import_matches_pinned_sources`, `normative_rules_and_local_observations_stay_distinct`, `imported_standard_drift_refuses`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Import org golden rules and engineering/northstar/security documents with rule/source pins; normative text and repo-local rule-map observations stay distinct.
+- [ ] **Step 3: Check.** Run the pinned `maestro catalog check --catalog-dir "$MANIFESTS"`
+  and `catalog fixtures` plus affected generation checks; use `policy test`
+  for Cedar and `catalog eval --all --offline` only after E1. Documentation-only
+  changes run Markdown/link/drift checks. Record nonzero relevant case counts,
+  exact exits and review; missing runtime evidence is unsupported, not passed.
+
+**Acceptance:** Import org golden rules and engineering/northstar/security documents with rule/source pins; normative text and repo-local rule-map observations stay distinct.
+
+### C82b Import four gate standards without a second gate [US1, US5] (3 h)
+
+**Phase:** P1/M3
+**After:** C82a.
+**Files:** MAN standards/ and languages/rust/; docs/catalog/migration.md; four source documents engineering.md, security.md, northstar.md, controls.md at the approved rust-workflows revision.
+**Requirements:** FR-S3-026, FR-S3-056, FR-S3-057, SC-S3-009, SC-S3-018.
+**Design coverage:** MD10, MD13, MD14 (approved design §8.4).
+**Named tests:** `four_gate_standard_imports_have_pins`, `rust_gate_authority_is_unchanged`, `imported_rule_mapping_is_preserved`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Import four rust-workflows standards documents, preserve mappings and existing gate authority; no copied second Rust gate.
+- [ ] **Step 3: Check.** Run the pinned `maestro catalog check --catalog-dir "$MANIFESTS"`
+  and `catalog fixtures` plus affected generation checks; use `policy test`
+  for Cedar and `catalog eval --all --offline` only after E1. Documentation-only
+  changes run Markdown/link/drift checks. Record nonzero relevant case counts,
+  exact exits and review; missing runtime evidence is unsupported, not passed.
+
+**Acceptance:** Import four rust-workflows standards documents, preserve mappings and existing gate authority; no copied second Rust gate.
+
+### C83a Verified standards input in rust-workflows [US1, US5] (4 h)
+
+**Phase:** P2/ST1
+**After:** C82a, C82b, C15, C28; coordinated owner-approved source-edit freeze; no independent manifest standards edits before ST1.
+**Files:** RW existing standards-input, guide-generation and drift-check modules plus their tests; docs/standards/{engineering,security,northstar,controls}.md.
+**Requirements:** FR-S3-051, FR-S3-057, SC-S3-018, SC-S3-021.
+**Design coverage:** MD09, MD14 (approved design §8.4).
+**Named tests:** `standard_render_uses_verified_pin`, `rendered_guide_is_reproducible`, `gate_floor_or_rule_id_drift_refuses`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Rust-workflows verified manifest-standard input/render adapter; preserve rule IDs and gate floors, reproducible guide/carry output and drift refusal.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Rust-workflows verified manifest-standard input/render adapter; preserve rule IDs and gate floors, reproducible guide/carry output and drift refusal.
+
+### C83b Single-authority standards render switch [US1, US5] (4 h)
+
+**Phase:** P2/ST1
+**After:** C83a; coordinated owner-approved source-edit freeze; no independent manifest standards edits before ST1.
+**Files:** ORG scripts/quality-sync.py and its existing tests; golden-rules/ and generated docs/standards/ mirrors; MAN standards authority metadata.
+**Requirements:** FR-S3-051, FR-S3-057, SC-S3-018, SC-S3-021.
+**Design coverage:** MD09, MD14 (approved design §8.4).
+**Named tests:** `only_manifest_standards_are_editable`, `reverse_sync_refuses`, `coordinated_authority_switch_has_no_dual_writer`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Switch org quality-sync/guide generation to pinned standards; atomic authoring-authority cutover, read-only generated mirrors and reverse-sync refusal.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Switch org quality-sync/guide generation to pinned standards; atomic authoring-authority cutover, read-only generated mirrors and reverse-sync refusal.
+
+### C84 Selectable starter catalog contracts [US1, US5] (4 h)
+
+**Phase:** P1/M3
+**After:** C50, C51a, C52b, C79b.
+**Files:** MAN marketplace/index.json; languages/<language>/contracts/starter-input.schema.json plus sidecars; bootstrap inventories; docs/catalog/templates.md; CORE crates/maestro-catalog/src/source/{index.rs,fixtures.rs,tests/index.rs,tests/fixtures.rs}.
+**Requirements:** FR-S3-047, FR-S3-051, FR-S3-061, SC-S3-022.
+**Gap holder:** G01; charged once, split only as listed in accounting.
+**Named tests:** `starter_index_covers_each_eligible_inventory_once`, `starter_unknown_parameter_refuses`, `starter_missing_standard_or_stale_output_refuses`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Extend the existing index with exact input/output contract references and selector metadata; do not build another registry. Index every eligible declared inventory once; reject unknown parameters/selectors, missing standards and stale/extra/private rows. Check/install starts no generator.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Extend the existing index with exact input/output contract references and selector metadata; do not build another registry. Index every eligible declared inventory once; reject unknown parameters/selectors, missing standards and stale/extra/private rows. Check/install starts no generator.
+
+### C85a Optional starter-renderer extension contract [US1, US5] (3 h)
+
+**Phase:** P2/X1
+**After:** C28, C58, C59, C84.
+**Files:** MAN capabilities/practice/project-creation/extensions/starter-renderer/{extension.toml,contracts,tests}/.
+**Requirements:** FR-S3-053, FR-S3-061, SC-S3-020, SC-S3-023.
+**Gap holder:** G02; charged once, split only as listed in accounting.
+**Named tests:** `renderer_contract_requires_pinned_adapter`, `unavailable_renderer_stays_unsupported`, `renderer_is_never_bootstrap_script`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Declare the optional out-of-process renderer and typed input/output contract using X1. Require a separately qualified real adapter before use; this task does not implement a renderer, install a runtime, run post-generation scripts or grant remote writes.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Declare the optional out-of-process renderer and typed input/output contract using X1. Require a separately qualified real adapter before use; this task does not implement a renderer, install a runtime, run post-generation scripts or grant remote writes.
+
+### C85b Isolated starter generation verifier [US1, US5] (3 h)
+
+**Phase:** P2/E1
+**After:** C85a, C67.
+**Files:** MAN .github/workflows/verify-starters.yml; capabilities/practice/project-creation/extensions/starter-renderer/tests/; capabilities/practice/project-creation/evals/ synthetic cases.
+**Requirements:** FR-S3-060, FR-S3-061, SC-S3-020, SC-S3-023.
+**Gap holder:** G02; charged once, split only as listed in accounting.
+**Named tests:** `synthetic_render_output_matches_expected`, `changed_render_output_fails`, `check_install_never_calls_renderer`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Use an isolated supported offline fixture driver to compare one synthetic rendered output with its pinned expectation. Generator and verifier are separate; stale output must fail. Absent real rendering support is labelled unsupported, not a passing production adapter.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Use an isolated supported offline fixture driver to compare one synthetic rendered output with its pinned expectation. Generator and verifier are separate; stale output must fail. Absent real rendering support is labelled unsupported, not a passing production adapter.
+
+### C86 Consumer setup receipt extension [US1, US5] (4 h)
+
+**Phase:** P2/L1
+**After:** C28, C54, C55, C84.
+**Files:** crates/maestro-catalog/src/install/{receipts.rs,tests/receipts.rs}; MAN core/contracts/consumer-setup.{schema.json,maestro.toml}; docs/catalog/consumer-setup.md.
+**Requirements:** FR-S3-012, FR-S3-034, FR-S3-062, SC-S3-023.
+**Gap holder:** G03; charged once, split only as listed in accounting.
+**Named tests:** `consumer_inputs_reproduce_receipt_outputs`, `changed_consumer_parameters_require_preview`, `consumer_receipt_never_holds_secret_values`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Extend the existing receipt with inventory/template ID, source/generator pin, schema, normalized nonsecret inputs, output digests, standard snapshot and approved operation. Actual records remain external. Refuse literal secrets and undeclared tool/endpoint/grant additions; removal preserves edited outputs and consumer data.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Extend the existing receipt with inventory/template ID, source/generator pin, schema, normalized nonsecret inputs, output digests, standard snapshot and approved operation. Actual records remain external. Refuse literal secrets and undeclared tool/endpoint/grant additions; removal preserves edited outputs and consumer data.
+
+### C87 Portable project enrollment plan [US1, US5] (4 h)
+
+**Phase:** P2/L1
+**After:** C86, C64.
+**Files:** MAN capabilities/operations/project-onboarding/{package.toml,contracts,workflows,bootstrap}/.
+**Requirements:** FR-S3-055, FR-S3-062, SC-S3-023.
+**Gap holder:** G04; charged once, split only as listed in accounting.
+**Named tests:** `synthetic_enrollment_bindings_validate`, `enrollment_cannot_create_grants_or_endpoints`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Provide typed environment/stack/tool-instance binding contracts, an existing-kind workflow and inert synthetic starter. Real consumer records stay outside manifests; no fleet registry, remote provisioning or enrollment service. Missing or unauthorized bindings refuse.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Provide typed environment/stack/tool-instance binding contracts, an existing-kind workflow and inert synthetic starter. Real consumer records stay outside manifests; no fleet registry, remote provisioning or enrollment service. Missing or unauthorized bindings refuse.
+
+### C88a Phase evidence and artifact trace contracts [US1, US5] (4 h)
+
+**Phase:** P2/R1
+**After:** C28, C64.
+**Files:** MAN core/contracts/{phase-evidence,artifact-trace}.{schema.json,maestro.toml}; contract fixtures.
+**Requirements:** FR-S3-055, FR-S3-063, SC-S3-023.
+**Gap holder:** G05; charged once, split only as listed in accounting.
+**Named tests:** `phase_evidence_is_revision_bound`, `stale_artifact_trace_refuses`, `missing_blocking_approval_refuses`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Define stable phase/step IDs, revision-bound progress, pending prerequisites, blocking/advisory approvals, resumable state and requirement/control/test/artifact links. Require references/evidence, but never claim schema validation authenticates an approval.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Define stable phase/step IDs, revision-bound progress, pending prerequisites, blocking/advisory approvals, resumable state and requirement/control/test/artifact links. Require references/evidence, but never claim schema validation authenticates an approval.
+
+### C88b Lifecycle phase and knowledge-selection kit [US1, US5] (3 h)
+
+**Phase:** P2/R1
+**After:** C88a, C21b, C66.
+**Files:** MAN core/workflows/feature-delivery/phases/; workflow input inventory and cases.
+**Requirements:** FR-S3-019, FR-S3-055, FR-S3-057, FR-S3-063, SC-S3-023.
+**Gap holder:** G05; charged once, split only as listed in accounting.
+**Named tests:** `lifecycle_phases_use_existing_graph`, `phase_missing_prerequisite_refuses`, `phase_cannot_omit_standard_or_invent_source`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Add inception/construction/operations assets inside the existing graph with stable steps and explicit knowledge-source requirements. No second workflow engine or fetch during checks. Required missing prerequisite/source evidence blocks its downstream phase.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Add inception/construction/operations assets inside the existing graph with stable steps and explicit knowledge-source requirements. No second workflow engine or fetch during checks. Required missing prerequisite/source evidence blocks its downstream phase.
+
+### C88c Release-to-operations handoff and progress template [US1, US5] (3 h)
+
+**Phase:** P2/R1
+**After:** C88a, C88b, C52c.
+**Files:** MAN core/handoffs/release-to-operations/; templates/workflow/; core/contracts/ trace fixtures.
+**Requirements:** FR-S3-019, FR-S3-055, FR-S3-063, SC-S3-023.
+**Gap holder:** G05; charged once, split only as listed in accounting.
+**Named tests:** `operations_handoff_requires_readiness_evidence`, `progress_template_links_exact_revision`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Wire artifact trace and approval evidence to the handoff and inert progress template. Operations is readiness/runbook transfer, not a deployed operator. Reject stale or missing trace links; template output grants no runtime authority.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Wire artifact trace and approval evidence to the handoff and inert progress template. Operations is readiness/runbook transfer, not a deployed operator. Reject stale or missing trace links; template output grants no runtime authority.
+
+### C89a One synthetic read-only lifecycle walkthrough [US1, US5] (3 h)
+
+**Phase:** P2/R1
+**After:** C88c.
+**Files:** MAN docs/examples/lifecycle/; skills/walkthrough/SKILL.md; explicit owner-local assets.
+**Requirements:** FR-S3-063, FR-S3-064, SC-S3-023.
+**Gap holder:** G06; charged once, split only as listed in accounting.
+**Named tests:** `walkthrough_labels_each_phase_honestly`, `walkthrough_has_no_live_service_calls`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Author one bounded synthetic walkthrough from scratch with complete/partial/unavailable phase labels and read-only replay instructions. Do not copy mocked source content or add interactive training/live sandbox provisioning.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Author one bounded synthetic walkthrough from scratch with complete/partial/unavailable phase labels and read-only replay instructions. Do not copy mocked source content or add interactive training/live sandbox provisioning.
+
+### C89b Walkthrough replay evaluation [US1, US5] (3 h)
+
+**Phase:** P2/E1
+**After:** C89a, C67.
+**Files:** MAN evals/{scenarios,data}/walkthrough/; eval TOML and input inventory.
+**Requirements:** FR-S3-060, FR-S3-063, SC-S3-023.
+**Gap holder:** G06; charged once, split only as listed in accounting.
+**Named tests:** `walkthrough_expected_replay_matches`, `partial_phase_cannot_count_as_qualified`, `fabricated_trace_evidence_fails`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Use a supported registered offline driver and exact synthetic assets/expectations. Refuse fabricated IDs, stale evidence and missing phases; a successful content replay cannot qualify actual workflow execution.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Use a supported registered offline driver and exact synthetic assets/expectations. Refuse fabricated IDs, stale evidence and missing phases; a successful content replay cannot qualify actual workflow execution.
+
+### C90 Catalog governance navigation [US1, US5] (2 h)
+
+**Phase:** P1/M3
+**After:** C80b, C82b.
+**Files:** MAN docs/governance/{ownership,contributing,security-reporting}.md; docs/standards/ links.
+**Requirements:** FR-S3-058, FR-S3-064, SC-S3-022.
+**Gap holder:** G07; charged once, split only as listed in accounting.
+**Named tests:** `governance_links_resolve`, `guide_cannot_create_second_authority`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Explain decision ownership, maintainer delegation, contribution, vulnerability reporting and the import/render transition. Link canonical rules/descriptors, do not duplicate editable normative content or invent owner identities.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Explain decision ownership, maintainer delegation, contribution, vulnerability reporting and the import/render transition. Link canonical rules/descriptors, do not duplicate editable normative content or invent owner identities.
+
+### C91 Consumer and contributor setup guides [US1, US5] (3 h)
+
+**Phase:** P1/M3
+**After:** C54, C55, C63.
+**Files:** MAN docs/setup/{installation,prerequisites,contributing,mcp,recovery}.md.
+**Requirements:** FR-S3-010, FR-S3-035, FR-S3-036, FR-S3-054, FR-S3-064, SC-S3-022.
+**Gap holder:** G08; charged once, split only as listed in accounting.
+**Named tests:** `setup_commands_match_registered_cli`, `mcp_auth_guidance_uses_references`, `recovery_preserves_owned_files`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Document installation/prerequisites/contributor setup, MCP authentication/pre-flight and recovery through existing checked commands and receipts. No second installer, automatic tool setup or embedded credential values. Label unsupported hosts/features honestly.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Document installation/prerequisites/contributor setup, MCP authentication/pre-flight and recovery through existing checked commands and receipts. No second installer, automatic tool setup or embedded credential values. Label unsupported hosts/features honestly.
+
+### C92 Release notes and canonical roadmap navigation [US1, US5] (2 h)
+
+**Phase:** P1/M3
+**After:** C15, C51a.
+**Files:** MAN `docs/releases/<actual-version>.md`; `docs/roadmap.md`.
+**Requirements:** FR-S3-013, FR-S3-052, FR-S3-064, SC-S3-022.
+**Gap holder:** G09; charged once, split only as listed in accounting.
+**Named tests:** `release_note_binds_actual_signed_identity`, `roadmap_links_canonical_tasks`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Tie notes to the actual released identity, not an invented version/digest. A missing release blocks that publication input, not fixture preparation. Maintain one roadmap linking the task ledger; do not copy independent task lists.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Tie notes to the actual released identity, not an invented version/digest. A missing release blocks that publication input, not fixture preparation. Maintain one roadmap linking the task ledger; do not copy independent task lists.
+
+### C93 Catalog reader index [US1, US5] (1 h)
+
+**Phase:** P1/M3
+**After:** C84, C90, C91, C92, C94.
+**Files:** MAN docs/README.md; docs/catalog/by-type.md generation cross-links.
+**Requirements:** FR-S3-051, FR-S3-064, SC-S3-021, SC-S3-022.
+**Gap holder:** G10; charged once, split only as listed in accounting.
+**Named tests:** `reader_index_links_contracts_guides_and_kinds`, `reader_navigation_drift_fails`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Join guides, contracts, examples, registered kinds and unsupported states in one reader entry point over generated indexes. Link/drift checks reject stale or broken destinations, without a second hand-maintained component registry.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Join guides, contracts, examples, registered kinds and unsupported states in one reader entry point over generated indexes. Link/drift checks reject stale or broken destinations, without a second hand-maintained component registry.
+
+### C94 Redacted guard-decision evidence contract [US1, US5] (4 h)
+
+**Phase:** P1/M3
+**After:** C62, C64.
+**Files:** MAN core/contracts/guard-evidence.{schema.json,maestro.toml}; docs/catalog/events.md; evals/scenarios/guard-outcomes/; contract fixtures.
+**Requirements:** FR-S3-017, FR-S3-055, FR-S3-065, SC-S3-022.
+**Gap holder:** G11; charged once, split only as listed in accounting.
+**Named tests:** `guard_outcomes_are_distinct`, `guard_evidence_rejects_raw_secret_or_command`, `warning_is_not_enforcement_proof`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Define refusal/warning/confirmation-required output evidence attributed to rule/tool/session with synthetic redacted cases. It is not another hook-event protocol/point. Live mediation, trusted attribution, publication, retention and delivery remain S4.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Define refusal/warning/confirmation-required output evidence attributed to rule/tool/session with synthetic redacted cases. It is not another hook-event protocol/point. Live mediation, trusted attribution, publication, retention and delivery remain S4.
+
+### C95a Per-host context accounting contract [US1, US5] (3 h)
+
+**Phase:** P2/A1
+**After:** C28, C63, C65.
+**Files:** crates/maestro-catalog/src/source/{host_config.rs,tests/host_config.rs}; MAN core/hosts/<host>/config.toml; docs/catalog/context.md.
+**Requirements:** FR-S3-051, FR-S3-066, SC-S3-024.
+**Gap holder:** G12; charged once, split only as listed in accounting.
+**Named tests:** `host_context_fields_are_typed`, `context_ceiling_requires_approved_config`, `neutral_projection_evidence_has_no_core_dependency`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Implement the reserved typed descriptor fields for approved aggregate injected-context/description ceilings and neutral projection evidence. Do not copy source numbers or claim tokenizer/model latency. Missing approved limits cannot be treated as measured support.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Implement the reserved typed descriptor fields for approved aggregate injected-context/description ceilings and neutral projection evidence. Do not copy source numbers or claim tokenizer/model latency. Missing approved limits cannot be treated as measured support.
+
+### C95b Static context load check and refusals [US1, US5] (3 h)
+
+**Phase:** P2/A1
+**After:** C95a, C81b.
+**Files:** crates/maestro-catalog/src/hosts/{context.rs,tests/context.rs}; MAN standards/quality/checks/context-load.toml; projection fixtures.
+**Requirements:** FR-S3-057, FR-S3-066, SC-S3-024.
+**Gap holder:** G12; charged once, split only as listed in accounting.
+**Named tests:** `context_includes_generated_descriptions`, `context_lf_crlf_counts_match`, `stable_rule_references_deduplicate`, `context_overflow_refuses_without_weakening`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Count generated descriptions and reviewed always-loaded selections, deduplicate stable rule references and test LF/CRLF equivalence. Standard check consumes neutral evidence; overflow refuses/requires reviewed restructuring, never removes a standard or disables scanning.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Count generated descriptions and reviewed always-loaded selections, deduplicate stable rule references and test LF/CRLF equivalence. Standard check consumes neutral evidence; overflow refuses/requires reviewed restructuring, never removes a standard or disables scanning.
+
+### C96a Portable code-graph declaration kit [US1, US5] (3 h)
+
+**Phase:** P2/R1
+**After:** C28, C64, C66.
+**Files:** MAN capabilities/practice/code-analysis/{package.toml,skills/build-code-graph/SKILL.md,contracts,knowledge/sources/code-graph/source.toml}.
+**Requirements:** FR-S3-055, FR-S3-067, SC-S3-024.
+**Gap holder:** G13; charged once, split only as listed in accounting.
+**Named tests:** `code_graph_contract_has_identity_and_provenance`, `code_graph_unknown_source_subtype_refuses`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Define code-graph/indexing-input contracts and an explicit recipe with source revision/digest, node/edge identity, extractor, relation/confidence/provenance and exclusions. Product implementation is a value. Reuse supported source shapes; no new ingester or read authorization.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Define code-graph/indexing-input contracts and an explicit recipe with source revision/digest, node/edge identity, extractor, relation/confidence/provenance and exclusions. Product implementation is a value. Reuse supported source shapes; no new ingester or read authorization.
+
+### C96b Synthetic code-graph freshness and refusal cases [US1, US5] (3 h)
+
+**Phase:** P2/R1
+**After:** C96a, C67.
+**Files:** MAN capabilities/practice/code-analysis/{evals,contracts}/; explicit synthetic graph assets.
+**Requirements:** FR-S3-060, FR-S3-067, SC-S3-024.
+**Gap holder:** G13; charged once, split only as listed in accounting.
+**Named tests:** `changed_graph_source_is_stale`, `graph_missing_provenance_refuses`, `malformed_graph_relation_refuses`, `graph_check_makes_zero_build_fetch_import_calls`; required cases, not reported results.
+
+- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+  below; run the focused fixture/check command and retain the failure.
+- [ ] **Step 2: Green.** Add exact synthetic fresh/stale/malformed/unknown-config cases through the existing driver. Keep full generated graphs, caches and repositories external; zero fetch/build/import on check. This proves declarations only, not code-graph ingestion or live freshness.
+- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+  capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
+  Record nonzero test counts, exact exits, applicable lane gates and review.
+
+**Acceptance:** Add exact synthetic fresh/stale/malformed/unknown-config cases through the existing driver. Keep full generated graphs, caches and repositories external; zero fetch/build/import on check. This proves declarations only, not code-graph ingestion or live freshness.
+
 ## Dependencies & Execution Order
 
-The **After** line is authoritative, including external prerequisites. The
-historical phases precede the migration appendix in this document, not execution
-order. The DAG must remain acyclic. Migrate C38 → C30 → C31 → C32 → C33 → C34,
-then C35 alongside C36 → C37, joining at C39 before C02 or C10. C05a consumes
-C37's new outputs; C40 joins native adapters before C08. C41–C43 are a separate
-S6 handoff and never enter the M3 gate. Shared registration files serialize.
+Each **After** field begins with the exact internal predecessor list; text after
+its semicolon names external evidence, not hidden C-task edges. All pending
+work obeys the v4 phase labels. Closed task edges retain historical target
+weights for whole-plan comparison; new C46/C47 wiring never reopens them.
 
-The following are safe file-separated examples after their own predecessors land:
+C44 → C30 → C31 → C32 → C33, joined with C80a at C34, then C50 → C36 → C37
+and C35 join C39. C02 additionally waits for C51a/C52b, not deferred package-new,
+extensions or generic evals. C15 joins Phase 1 checkpoint wiring C68. C29 audits
+C68 plus selected Phase 1 recovery/imports **before C28**, no longer after it.
+C28 joins every Phase 1 task and existing external live/release/quality evidence.
+C20, C41–C43 and all Phase 2 tasks cannot enter the M3 ancestor closure.
+C66 separately needs the owning core source-policy types synchronized, including
+N07's IdentityMigration after review fixes land. The S6 runtime catalog adapter
+is an external handoff, not an M3 gate; it additionally needs C69 for real private
+packages. C41/C43 consume C66's rules rather than define collection-local rules.
 
-| Ready work | Can overlap | Do not overlap |
-| --- | --- | --- |
-| C00 recorded | C01 live probe, C04a filesystem move and C09 measurements | C03 waits for C01's evidence-backed per-kind format decision |
-| C03 complete | C04 after C04a, C17 after S1 settings, C03a cards and C30 discovery after C38 | C02 content waits for C39 migration verification and OA1; C02a joins C02/C03a |
-| C05/C37 complete | C05a preferences and optional C05f TUI measurements | No parser dependency; C05f/OA9 never gate plain init |
-| C05b complete | C05h/C05i/C05j trust; C05c/C05l/C05d/C05e presentation | C05g plain flow joins trust and C05c, not MCP delivery |
-| C05e/C05j complete | C06 fixture code after C01, without C05g/C05k; optional renderer after C05g/C05f/OA9 | C07 waits for C06; C40 adds qualified aliases before C08 |
-| C09 complete | C19 policy work and source-independent trust research | Dependency-lock updates from multiple lanes |
-| C11 complete | C12 records; independent MAN content | C13 authority records wait for C12; coordinate migrations with every slice |
-| C10/C14/C22b complete | C23 CORE labels/compiled fixtures; C25 CORE cards | Scoring before labels freeze; MAN content is not an input |
+The S2 sequence is qualification → C48 → G22 → C49a, never C48↔G22.
+Existing S2 additions remain G01 1 h (after C44), G26 1 h (after C46/G25/G01),
+G27 E07a 2 h (after C47a/G01/fork/G25/E04), E08b 1 h (reader/writer/publication),
+G28 1 h (after C47a/graph prerequisites), G22 1 h (after C48/release inputs).
+S2 keeps 37 G tasks/14 E slices, 149 h bounded G + 43–89 h E = 192–238 h.
+C49a also requires E11/G28; qualified pins are execution inputs, never invented.
 
-The format chain is C00 → C01 → C03; integrated C01 confirms agent sidecars.
-Skill metadata rests on the Agent Skills specification, not the silent
-unknown-key control; a host warning reopens ADR-0005's sidecar decision.
-Independent C04a/C09 work can start at C00. C04/C05 and C17 follow C03 without
-a MAN seed prerequisite. C03a follows C03 and is reused by C31's descriptor
-migration; C02a follows C02/C03a plus approved owner content. This independent
-MAN card-content path joins C28, not C08/C15/C21;
-shared MAN files require rebasing, not a winner-content dependency.
-C05a/C05b/C05d/C17/C18 also require integrated S1 settings and extend it. The
-supervisor records the S1-to-S3 sync before C17 under the 21:02 canonical-name
-ruling; a missing API is a blocker, not permission to create a second registry.
-C17 precedes C05a, then C05b feeds trust and presentation. C05g's plain flow
-needs trust and C05c, not C05e; C06/C07 need delivery and the write gate, not the
-menu or new host access for fixture code. C05l owns message migration.
-Live receipts add OA2, plain C05g, C02/OA1 and T034/T035/T038 at C08; C28
-joins the later live hook/release tests. C01's format evidence remains a code
-input. C05f → C05k (OA9 library approval recorded) is an independent later
-renderer path, joined at C28 with visual evidence, never a first-loop gate.
-
-Trust/compiler code: C09 → C19 → C22a → C22b → C10 → C11 → C12 → C13 → C14;
-C10 also waits for C39's owner-first migration;
-C18 also needs C17. C15's MAN workflow code can land without OA4/OA5, but it
-is not a C16 input: C16 uses verified CORE artifacts and code only, with C13a's
-explicit authority CLI after C13. C11 also needs C03a's hook for model-card
-role refusals. C18 pins/explains model cards and M059 separately; after C16/C18/
-C03a, C16h owns the explicit registration command, its suite and the lock-bound
-lookup reused by C24a, without changing generic installation. C16b adds restore/admission wiring, preserving
-current roots/pin or requiring C13a reprovisioning. C20 uses C19's CORE policies, not C21's MAN content.
-C16c → C16d adds catalog receipts/rollback; C16c → C16e → C16g adds verified
-runtime proposals and install-command display only. C16f joins both for startup
-policy and MCP notices, consuming the existing trust/client-delivery ports.
-C28 alone joins these paths with real publisher/compiler/drill evidence.
-
-Routing: C10/C14/C22b → C23's digest-pinned CORE fixture, plus C18/C16 → C16h's
-shared lookup → C24a → C24, with C25 → C26. The lookup adds a CORE install-code
-prerequisite, not a MAN content, C15 release or live-host receipt prerequisite;
-C01's upstream format decision remains.
-Impact: C12/C14 plus qualified S2 G25 and the S2-owned G27 public port → C27a;
-C22b/C24/C27a → C27. C28 joins all exits, including C08, M1 release, C15/C16b,
-C27, C05k/OA9, OA4/OA5/OA7 and final CI. C29 starts only after accepted M3.
+Phase 2 begins immediately after M3. ST1 precedes independent standards edits;
+X1 requires its shared E1 eval checkpoint before extension publication/S4 use.
+A0 adds package-new/scaffolder; R1 adds deferred recovery/content kits; L1 adds
+independent/private lifecycle; A1 adds explain/context accounting. No new
+numbered project milestone or second layout migration is implied. Pulling a
+Phase 2 task forward needs explicit approval, its real prerequisites and a
+recomputed cost/exit gate, not merely deleting its C28 phase-boundary edge.
 
 ### Critical paths and effort
 
-Recomputed from task headings, Requirements and authoritative `After` lines:
-**71 tasks, 224–240 lane-hours; 65 requirements (48 FR, 17 SC)**. Every internal
-predecessor exists and the DAG is acyclic. New estimates are ranges from the
-approved proposal; sums below add every lower/upper endpoint independently.
-C03 retains the sole approved 6 h exception; every new task is at most 4 h.
+All sums include completed work at historical weights; they are not remaining
+hours. C03 retains its approved 6 h exception; all new implementation tasks are
+at most 4 h. C20 remains visible only as a 4 h S4 transfer, not a S3 task/saving.
 
-| Budget | Tasks | Lane-hours |
+| Whole-plan boundary | Tasks | Hours |
 | --- | ---: | ---: |
-| Unchanged baseline (phases 1–4: 78 + 26 + 57 + 24; C28/C29: 3 each) | 57 | 191 |
-| S3 migration C30–C39: proposed 24–34 h plus C33 core-label fix 1 h, including documents and migration verification/review | 10 | 25–35 |
-| Native projection delta C40 | 1 | 2–4 |
-| S3 subtotal, including post-M3 C29 | 68 | 218–230 |
-| Deferred S6 catalog contracts C41–C43, no crawler | 3 | 6–10 |
-| Combined planned total | 71 | 224–240 |
+| Pre-amendment S3 baseline | 68 | 218–230 |
+| Retained S3 baseline after C20 transfer, including C02 +1 h | 67 | 215–227 |
+| Design §8.4 task IDs, including the later C66 +1 h | 57 | 204 |
+| Gap holders, both phases | 19 | 58 |
+| **S3 Phase 1/M3** | **108** | **356–368** |
+| **S3 Phase 2** | **35** | **121** |
+| **S3 both phases** | **143** | **477–489** |
+| Deferred S6 C41–C43 | 3 | 6–10 |
+| S3 + S6 | 146 | 483–499 |
+| Transferred C20, S4 | 1 | 4 |
+| All task headings (S3 + S6 + transferred S4) | 147 | 487–503 |
+
+| Amendment reconciliation | Phase 1 h | Phase 2 h | Both h |
+| --- | ---: | ---: | ---: |
+| Original design new tasks (35 P1, 22 P2) | 124 | 79 | 203 |
+| Owner 20:45 URL rules, C66 3→4 h | 1 | 0 | 1 |
+| Existing C02 seed increment | 1 | 0 | 1 |
+| Already approved S2 delta | 7 | 0 | 7 |
+| Gap additions (6 P1 tasks, 13 P2 tasks) | 16 | 42 | 58 |
+| **Approved amendment, including URL rules** | **149** | **121** | **270** |
+
+The design's original Phase 2 40 h plus minimal-option deferrals 39 h = 79 h;
+gaps add 42 h = 121 h. The exact minimal deferrals are C52c+C78 authoring 6 h,
+C71 Translator 3 h, C73 instructions 4 h, C74a/b policies 8 h, C75 hooks 3 h,
+C77a–d starters 15 h: **39 h**, no work disappears. The design's 132 h minimal
+Phase 1 plus gap 16 h was **148 h**; the owner's 20:45 URL-rule amendment
+adds C66 1 h, making **149 h**. C52a/b, C68 and C41/C43 add 0 h by reusing
+the same type/schema/checkpoint contracts; the S6 runtime adapter is separately
+tasked and not estimated here. Against the earlier approved 27 h engine
+amendment this is **243 h extra**, not another 270 h stacked on 27 h.
+
+| Gap obligation | Holder tasks | Phase/milestone | h |
+| --- | --- | --- | ---: |
+| G01 | C84 | P1/M3 | 4 |
+| G02 | C85a, C85b | P2/X1, P2/E1 | 6 |
+| G03 | C86 | P2/L1 | 4 |
+| G04 | C87 | P2/L1 | 4 |
+| G05 | C88a, C88b, C88c | P2/R1 | 10 |
+| G06 | C89a, C89b | P2/R1, P2/E1 | 6 |
+| G07 | C90 | P1/M3 | 2 |
+| G08 | C91 | P1/M3 | 3 |
+| G09 | C92 | P1/M3 | 2 |
+| G10 | C93 | P1/M3 | 1 |
+| G11 | C94 | P1/M3 | 4 |
+| G12 | C95a, C95b | P2/A1 | 6 |
+| G13 | C96a, C96b | P2/R1 | 6 |
+
+G01 and G07–G11 are the six Phase 1 obligations (4 + 2 + 3 + 2 + 1 + 4 = 16 h).
+G12 is Phase 2 per-host context accounting, not part of that 12 h guide/guard
+bundle. Split gaps retain one obligation and disjoint bounded deliverables;
+no index, selector, receipt, workflow engine or fixture framework is charged twice.
 
 | Checkpoint | Dependency-closure effort | Internal longest path |
 | --- | --- | --- |
-| C08 owner loop | 103–115 h (33 tasks) | 58–66 h |
-| C28 M3 | 215–227 h (67 tasks; no C29/S6) | 75–82 h |
-| C29 post-M3 comparison | 218–230 h (68 tasks; no S6) | 78–85 h |
-| C43 S6 contract handoff | 55–69 h (20-task prerequisite closure, not additional effort) | 38–49 h |
+| C08 owner loop | 178–190 h (54 tasks) | 62–70 h |
+| C28 M3 | 356–368 h (108 tasks) | 79–86 h |
+| C43 S6 contract handoff | 70–84 h (24 tasks) | 42–53 h |
 
-The original 72 h C08/188 h M3/191 h total and 45/65/68 h paths are historical
-baseline values, not the amended schedule or remaining work. C31 now reuses
-C03a's landed descriptor; owner-approved C02a content still gates only C28.
-Another **112 h** of S3 effort follows the amended owner-loop dependency closure
-to M3, then **3 h** for C29. C41–C43 add **6–10 h** separately and never gate
-M3. This is whole-plan accounting: completed tasks retain their original
-budgets, not a claim that their hours must be spent again.
+Lower-bound M3 chain (task weights included):
 
-The unchanged baseline review/CI reserve adds **16–24 h**: **234–254 h for S3**
-or **240–264 h including S6 contracts**. C39's 3–4 h migration verification/review
-is already in the migration subtotal and is not added again. Longest paths are
-weighted DAG lower bounds, not calendar promises; queue time, shared-file
-serialization and external waits (S1 sync, owner actions, M1, S2 qualification,
-live hosts) are excluded. Re-estimate remaining delivery after C08.
+```text
+C00 → C01 → C03 → C03a → C31 → C32 → C80a → C34 → C50 → C36 → C37 → C39 → C10 → C11 → C12 → C13 → C14 → C18 → C16 → C16h → C24a → C24 → C26 → C28
+```
+
+The original design without gaps had C08 62–70 h and C28 79–86 h internal
+paths. The values above are recomputed after the gap edges; do not reuse the
+older path or divide it by lane count. External G25/native qualification, M1,
+hosts, owner credentials/approval, C66 wire-type synchronization (including
+reviewed N07), CI and shared-file serialization are excluded.
+The graph is acyclic with no Phase 2/S6/S4 ancestor of M3. The supervisor
+approved adding C64 to C62's predecessors: the hook-layer common-prompt fixture
+needs C64's real prompt/contract descriptors. This corrects design §8.4 without
+changing costs, closures or the C08/M3 paths above.
+
+The unchanged 16–24 h baseline CI/review reserve gives **493–513 h for S3**
+or **499–523 h with S6**; do not add C39's included migration review twice.
+S3 both phases + approved S2 192–238 h + transferred C20 4 h = **673–731 h**,
+excluding S6 and the reserve. This is 243 h above the engine-approved combined
+430–488 h. Seven later full non-Rust gate projects total **168–280 h** outside
+these numbers; each needs its own approved task plan. S4 execution beyond C20,
+real connectors/renderers, live model/router work and S6 crawling remain separate.
 
 ### Requirements coverage
 
-Regenerated from the task Requirements lines; ranges are expanded exactly.
+Regenerated from every task's Requirements field; ranges are expanded exactly.
+The same inverse appears in traceability.json. Phase-specific success criteria
+are not all M3 gates: Phase 2/S6/S4 evidence stays at its named checkpoint.
 
 | Requirement | Tasks |
 | --- | --- |
-| FR-S3-001 | C00, C03, C03a, C02, C02a, C21, C21b |
-| FR-S3-002 | C01, C03, C03a, C02, C32 |
-| FR-S3-003 | C03, C02, C02a, C22a, C21, C21b, C15 |
-| FR-S3-004 | C05, C36 |
-| FR-S3-005 | C04a, C04, C05, C05j |
-| FR-S3-006 | C01, C06, C07, C40 |
+| FR-S3-001 | C00, C03, C03a, C02, C02a, C21, C21b, C29, C70, C71, C72, C73, C82a |
+| FR-S3-002 | C01, C03, C03a, C02, C32, C45a, C52a, C52b, C58, C60, C62, C64, C66 |
+| FR-S3-003 | C03, C02, C02a, C22a, C21, C21b, C15, C80b |
+| FR-S3-004 | C05, C36, C50, C77a, C77b, C77c, C77d, C79b |
+| FR-S3-005 | C04a, C04, C05, C05j, C50, C52c, C55, C77a |
+| FR-S3-006 | C01, C06, C07, C40, C47b, C63 |
 | FR-S3-007 | C02, C06, C07, C08 |
-| FR-S3-008 | C09, C10 |
-| FR-S3-009 | C11, C16 |
-| FR-S3-010 | C09, C13, C13a, C16 |
-| FR-S3-011 | C09, C14, C18, C16, C16h, C16b, C24a, C24, C27 |
-| FR-S3-012 | C12, C16, C16b |
-| FR-S3-013 | C13, C13a, C15 |
-| FR-S3-014 | C03, C17, C05b |
-| FR-S3-015 | C18, C16h |
-| FR-S3-016 | C09, C19, C22b, C21, C20 |
-| FR-S3-017 | C20, C28 |
-| FR-S3-018 | C21, C21b |
-| FR-S3-019 | C00, C22a, C22b, C21, C21b |
+| FR-S3-008 | C09, C10, C47a, C53a, C54 |
+| FR-S3-009 | C11, C16, C47a, C53a, C54 |
+| FR-S3-010 | C09, C13, C13a, C16, C54, C59, C69, C91 |
+| FR-S3-011 | C09, C14, C18, C16, C16h, C16b, C24a, C24, C27, C49a, C49b, C54, C59, C69 |
+| FR-S3-012 | C12, C16, C16b, C49b, C54, C55, C59, C69, C86 |
+| FR-S3-013 | C13, C13a, C15, C54, C67, C68, C69, C80b, C92 |
+| FR-S3-014 | C03, C17, C05b, C46, C47a, C48, C57, C60, C65, C81b |
+| FR-S3-015 | C18, C16h, C46, C47a, C49a, C54, C57 |
+| FR-S3-016 | C09, C19, C22b, C21, C20, C61, C64, C74a, C74b, C81b |
+| FR-S3-017 | C20, C28, C62, C63, C75, C94 |
+| FR-S3-018 | C21, C21b, C70, C72, C78 |
+| FR-S3-019 | C00, C22a, C22b, C21, C21b, C72, C88b, C88c |
 | FR-S3-020 | C23, C24 |
 | FR-S3-021 | C24a, C24 |
 | FR-S3-022 | C14, C24a, C24, C26 |
 | FR-S3-023 | C25 |
 | FR-S3-024 | C00, C26 |
 | FR-S3-025 | C27a, C27 |
-| FR-S3-026 | C29 |
-| FR-S3-027 | C17, C05a, C05j, C05g, C08 |
-| FR-S3-028 | C05b, C08 |
-| FR-S3-029 | C05c, C05l, C05d, C08 |
-| FR-S3-030 | C05g, C08, C05f, C05k |
-| FR-S3-031 | C05e, C06, C07, C08 |
-| FR-S3-032 | C16c, C16e, C16g, C16f |
-| FR-S3-033 | C17, C05a, C16c, C16e, C16g, C16f |
-| FR-S3-034 | C16d, C16e, C16f |
-| FR-S3-035 | C05h, C05j, C05g, C08 |
-| FR-S3-036 | C05h, C05i, C05j, C05e, C06, C07, C08, C16d, C16f, C20 |
-| FR-S3-037 | C03, C10, C11, C12, C16 |
-| FR-S3-038 | C03a, C02a, C18 |
+| FR-S3-026 | C28, C29, C70, C71, C72, C73, C74a, C74b, C75, C76a, C76b, C77a, C77b, C77c, C77d, C82a, C82b |
+| FR-S3-027 | C17, C05a, C05j, C05g, C08, C46 |
+| FR-S3-028 | C05b, C08, C46, C47a, C57 |
+| FR-S3-029 | C05c, C05l, C05d, C08, C46 |
+| FR-S3-030 | C05g, C08, C05f, C05k, C46, C56 |
+| FR-S3-031 | C05e, C06, C07, C08, C46 |
+| FR-S3-032 | C16c, C16e, C16g, C16f, C54 |
+| FR-S3-033 | C17, C05a, C16c, C16e, C16g, C16f, C54 |
+| FR-S3-034 | C16d, C16e, C16f, C54, C86 |
+| FR-S3-035 | C05h, C05j, C05g, C08, C91 |
+| FR-S3-036 | C05h, C05i, C05j, C05e, C06, C07, C08, C16d, C16f, C20, C91 |
+| FR-S3-037 | C03, C10, C11, C12, C16, C45a, C52a, C52b, C58, C64, C65, C66, C81a |
+| FR-S3-038 | C03a, C02a, C18, C52b |
 | FR-S3-039 | C03a, C02a, C18, C16h |
-| FR-S3-040 | C38, C30, C31, C41 |
-| FR-S3-041 | C38, C32, C34, C35 |
-| FR-S3-042 | C22a, C22b, C38, C33, C34, C36 |
-| FR-S3-043 | C38, C33 |
-| FR-S3-044 | C38, C42 |
-| FR-S3-045 | C38, C35 |
-| FR-S3-046 | C38, C30, C31, C32, C33, C34, C37 |
-| FR-S3-047 | C38, C36, C37 |
-| FR-S3-048 | C38, C41, C43 |
+| FR-S3-040 | C02, C38, C30, C31, C41, C44, C79a, C81a |
+| FR-S3-041 | C02, C38, C32, C34, C35, C44, C52c, C53a, C71, C79a, C80a, C80b |
+| FR-S3-042 | C02, C22a, C22b, C38, C33, C34, C36, C44, C45b, C47b, C62, C71, C79a, C81a |
+| FR-S3-043 | C38, C33, C44, C45b, C49b, C55, C59, C81b |
+| FR-S3-044 | C38, C42, C44, C69 |
+| FR-S3-045 | C38, C35, C44, C80a, C80b |
+| FR-S3-046 | C02, C38, C30, C31, C32, C33, C34, C37, C44, C51a, C79a, C81a |
+| FR-S3-047 | C02, C38, C36, C37, C44, C45b, C47a, C50, C54, C55, C56, C77a, C77b, C77c, C77d, C79b, C84 |
+| FR-S3-048 | C38, C41, C43, C44 |
+| FR-S3-049 | C30, C44, C63, C76b, C77d, C79a |
+| FR-S3-050 | C44, C45a, C45b, C46, C47a, C47b, C48, C49a, C49b, C59 |
+| FR-S3-051 | C02, C28, C44, C51a, C52a, C52b, C67, C68, C83a, C83b, C84, C93, C95a |
+| FR-S3-052 | C44, C51a, C51b, C53a, C53b, C54, C55, C56, C58, C69, C92 |
+| FR-S3-053 | C44, C58, C59, C61, C85a |
+| FR-S3-054 | C44, C57, C58, C59, C60, C61, C66, C91 |
+| FR-S3-055 | C44, C52b, C58, C62, C64, C66, C70, C87, C88a, C88b, C88c, C94, C96a |
+| FR-S3-056 | C28, C44, C65, C76a, C76b, C77b, C77c, C77d, C79a, C79b, C82b |
+| FR-S3-057 | C28, C44, C65, C73, C74a, C74b, C76a, C76b, C79a, C79b, C81a, C81b, C82a, C82b, C83a, C83b, C88b, C95b |
+| FR-S3-058 | C28, C35, C44, C68, C80a, C80b, C90 |
+| FR-S3-059 | C44, C52c, C78 |
+| FR-S3-060 | C44, C67, C69, C85b, C89b, C96b |
+| FR-S3-061 | C28, C44, C84, C85a, C85b |
+| FR-S3-062 | C44, C86, C87 |
+| FR-S3-063 | C44, C88a, C88b, C88c, C89a, C89b |
+| FR-S3-064 | C28, C44, C89a, C90, C91, C92, C93 |
+| FR-S3-065 | C28, C44, C94 |
+| FR-S3-066 | C44, C95a, C95b |
+| FR-S3-067 | C44, C96a, C96b |
+| FR-S3-068 | C28, C41, C43, C44, C52a, C52b, C66, C68, C69, C80b |
 | SC-S3-001 | C01, C06, C07, C08, C28, C40 |
-| SC-S3-002 | C10, C15, C16, C28 |
-| SC-S3-003 | C11, C12, C13, C13a, C14, C15, C16, C16h, C16b, C28 |
-| SC-S3-004 | C04a, C04, C05, C06, C07, C08, C28, C36, C37 |
-| SC-S3-005 | C03, C17, C19, C22a, C22b, C18, C20, C28 |
+| SC-S3-002 | C10, C15, C16, C28, C53a, C54 |
+| SC-S3-003 | C11, C12, C13, C13a, C14, C15, C16, C16h, C16b, C28, C49b, C53a, C54, C55, C69 |
+| SC-S3-004 | C02, C04a, C04, C05, C06, C07, C08, C28, C36, C37, C50, C55, C77a, C77b, C77c, C77d, C79b |
+| SC-S3-005 | C03, C17, C19, C22a, C22b, C18, C20, C28, C61, C64, C74a, C74b, C81b |
 | SC-S3-006 | C23, C24a, C24, C26, C28 |
 | SC-S3-007 | C25, C26, C27a, C27, C28 |
 | SC-S3-008 | C28, C39 |
-| SC-S3-009 | C00, C28, C38, C39 |
-| SC-S3-010 | C05a, C05b, C05j, C05c, C05l, C05d, C05e, C05g, C06, C07, C08, C05f, C05k, C16d, C28 |
-| SC-S3-011 | C16c, C16d, C16e, C16g, C16f, C28 |
+| SC-S3-009 | C00, C28, C29, C38, C39, C44, C70, C71, C72, C73, C75, C82a, C82b |
+| SC-S3-010 | C05a, C05b, C05j, C05c, C05l, C05d, C05e, C05g, C06, C07, C08, C05f, C05k, C16d, C28, C46, C47a, C56, C57 |
+| SC-S3-011 | C16c, C16d, C16e, C16g, C16f, C28, C54 |
 | SC-S3-012 | C05h, C05i, C05j, C05g, C06, C07, C08, C16d, C16f, C20, C28 |
-| SC-S3-013 | C03, C10, C11, C12, C16, C28, C31 |
-| SC-S3-014 | C03a, C11, C18, C16, C16h, C28 |
-| SC-S3-015 | C28, C30, C31, C33, C34, C35, C39, C42 |
-| SC-S3-016 | C28, C32, C33, C34, C36, C37, C39, C40 |
+| SC-S3-013 | C03, C10, C11, C12, C16, C28, C31, C52a, C52b |
+| SC-S3-014 | C03a, C11, C18, C16, C16h, C28, C52b |
+| SC-S3-015 | C28, C30, C31, C33, C34, C35, C39, C42, C44, C62, C63, C79a, C80a, C81a |
+| SC-S3-016 | C28, C32, C33, C34, C36, C37, C39, C40, C44, C47b, C50, C63 |
 | SC-S3-017 | C41, C42, C43 |
+| SC-S3-018 | C28, C35, C44, C65, C73, C74a, C74b, C76a, C76b, C79a, C79b, C80a, C80b, C81a, C81b, C82a, C82b, C83a, C83b |
+| SC-S3-019 | C28, C44, C45a, C45b, C46, C47a, C47b, C48, C49a, C49b, C54, C55, C60 |
+| SC-S3-020 | C44, C51b, C53b, C56, C58, C59, C61, C67, C69, C85a, C85b |
+| SC-S3-021 | C02, C28, C44, C51a, C52a, C52b, C52c, C57, C62, C63, C64, C66, C67, C68, C78, C80b, C83a, C83b, C93 |
+| SC-S3-022 | C28, C44, C84, C90, C91, C92, C93, C94 |
+| SC-S3-023 | C44, C85a, C85b, C86, C87, C88a, C88b, C88c, C89a, C89b |
+| SC-S3-024 | C44, C95a, C95b, C96a, C96b |
+| SC-S3-025 | C28, C41, C43, C44, C52a, C52b, C66, C68, C69, C80b |
 
 ## Implementation Strategy
 
@@ -2616,8 +4132,8 @@ Regenerated from the task Requirements lines; ranges are expanded exactly.
    declarative checks before publishing their compiled closure.
 4. Measure routing against frozen labels; retain the simpler passing route.
    Do not let synthetic qualification fixtures authorize live roles.
-5. Close M3 only with observed release, host, S2 and full CI evidence. Compare
-   earlier content afterwards, once, without bulk recovery.
+5. Close M3 only with observed release, host, S2 and full CI evidence. Audit
+   the approved recovery ledger before M3; start the named Phase 2 work after it.
 
 ## Needs owner action
 
@@ -2630,10 +4146,10 @@ OA7 below names only M3 acceptance and eventual main release.
 | Action group | Register | Tasks waiting |
 | --- | --- | --- |
 | Repository created (README/MIT only); supply owners/protections and approve public model-card winner changes | OA1 and evening card decision | OA1 gates MAN landing: C02, C02a, C21, C21b, C15. Winner approval gates only C02a and its C28 acceptance, never C15/C21, C23 or CORE consumers |
-| **Approved 2026-09-28:** probe/test already-installed Copilot CLI, Pi, Claude Code and Codex, each in an isolated temporary home; C01 pins exact installed versions. No installs/upgrades, real owner configuration or enterprise policy changes; broader scope needs fresh approval | OA2 | Bounded C01, C06, C07, C08, C20, C28 host tests; missing access still blocks and OA6 data approval remains separate |
+| **Approved 2026-09-28:** probe/test already-installed Copilot CLI, Pi, Claude Code and Codex, each in an isolated temporary home; C01 pins exact installed versions. No installs/upgrades, real owner configuration or enterprise policy changes; broader scope needs fresh approval | OA2 | Bounded C01, C06, C07, C08, C28 host tests; C20 is S4; missing access still blocks and OA6 data approval remains separate |
 | Bind publishers and standalone pinned `gh` with repository-bound read-only fine-grained authentication; authorized maintainer handles any unlisted licence | OA4 | C09's publisher-row evidence closure and C28, not verifier/dependency implementation |
 | Publish compiler/catalog; enable six-hour trust attestations/hourly alerts; supply clean environment and drills; authorize private/model access | OA5, OA6 | C28 release proof; C08/C23/C26 only for the requested private/model access |
-| Accept M3 and eventual main release; later comparison access; any S2 fallback separately | OA7, OA8 | C28, C29 |
+| Accept M3 and eventual main release; authorized pre-M3 recovery; any S2 fallback separately | OA7, OA8 | C28, C29 |
 | **Approved 2026-09-28:** ratatui + crossterm under ADR-0020; C05f measurements/vet still required, branded visual acceptance pending; no parser dependency | OA9 | C05k after measurement, C28 after visual evidence; never first plain C08 |
 | **Approved by the owner, 2026-09-28:** amend D5's absolute routing bar to held-out matchable top-1 ≥ 90 %; the original top-3 ≥ 90 % bar is historical | OA10 | Quality target resolved; C24/C26 apply the top-1 gate and report both metrics; C28 verifies the amended bar before final quality acceptance |
 

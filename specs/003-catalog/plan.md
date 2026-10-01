@@ -1,11 +1,11 @@
 # Implementation Plan: Catalog
 
-**Branch**: `docs/s3-owner-first-layout` (base `4e8f6da`) | **Amended**: 2026-09-30 | **Spec**: [spec.md](spec.md)
+**Branch**: `docs/s3-manifest-v4` (base `815ff33`) | **Amended**: 2026-09-30 | **Spec**: [spec.md](spec.md)
 
 **Input**: the approved S3 draft, owner decisions of 2026-09-28 01:56, 08:12,
 11:25, 11:50, 11:55, 12:00, 12:05 and evening kind/model-card/settings amendments,
-the owner-approved 2026-09-30 owner-first layout and the supervisor's
-segregation rulings, and the specification-review ruling,
+the owner-approved 2026-09-30 final manifest v4 design (minimal Phase 1),
+all gap additions and corrected G12 Phase 2 placement, and the review rulings,
 architecture [03](../../docs/architecture/03-agent-orchestration.md),
 [06](../../docs/architecture/06-roadmap.md) and
 [08](../../docs/architecture/08-traceability.md). Tasks: [tasks.md](tasks.md).
@@ -13,7 +13,7 @@ architecture [03](../../docs/architecture/03-agent-orchestration.md),
 ## Summary
 
 Build the smallest useful catalog first: one knowledge preset, the Maestro
-profile and the dependencies of `ctm-question`, then the Rust capability. Explicit
+profile and the dependencies of `workload-question`, then common-plus-Rust starters. Explicit
 selection and the existing knowledge tools provide the first owner loop;
 there is no engine or intent router on that path. Label reviewed-source
 bootstrap and projection as authoring convenience. Init also collects and
@@ -26,8 +26,8 @@ records, startup update proposals/auto policy, settings, policies, graph
 validation and measured routing. Reuse the
 kernel, knowledge pipeline and existing CLI/MCP server. A catalog declares
 workflows; S4 will execute them. Model cards become one additional declarative
-kind, reusing the kernel registry rather than replacing it. Do not open the
-earlier catalog before M3.
+kind, reusing the kernel registry rather than replacing it. C29 audits owner-approved legacy recovery before M3; private sources remain
+out of scope. Phase 2 starts immediately after M3 at the checkpoints in D15.
 
 ## Technical Context
 
@@ -83,11 +83,11 @@ no inference of identity, approvals or qualification from model text.
 
 **Scale/Scope**: two v1 workflows, their required roles/resources, core and Rust
 composition, two native projections, four existing MCP registration guides,
-100+ independently reviewed intents. Rust is the first programming overlay;
+100+ independently reviewed intents. Rust is the first init language composition;
 the well-formed BCP 47 subset in D6 selects conversational language. Built-in interface
 strings start with `en`, `fr`, `es`; other languages use English interface text
-with a visible note, without changing conversation language. No extra
-programming languages or roles without a real workflow requirement.
+with a visible note, without changing conversation language. The approved v4 seed adds eight root language declarations and ten core
+personas; seven complete non-Rust gates and live execution remain separate.
 
 ## Starting point (checked 2026-09-28)
 
@@ -204,17 +204,12 @@ Modules arrive with their first tested behaviour, never as empty directories.
 `mod.rs` files with children contain only module/use declarations; tests live
 beside their subject. [Tasks](tasks.md) name leaf files and registration seams.
 
-In `maestro-manifests`, use the owner-first
-[architecture 03 §1.1 tree](../../docs/architecture/03-agent-orchestration.md#11-layout).
-`core/` and `capabilities/<domain>/<capability>/` are owner roots, each with one
-`capability.toml`; their kinds stay inside that owner. Shared `presets/`,
-`bootstrap/`, `docs/` and exactly `settings/README.md` are separate. No type-first
-mirror remains. C02 seeds core, Rust and application-workflow owners; QA is an
-example, collections await S6, and `capabilities/engineering/delivery/` arrives
-with C21b so a knowledge-client selection carries no optional delivery roles.
-Kernel declarations at `core/model-cards/` remain distinct from owner-relative
-`profiles/models/` agent-session preferences. Seed only required directories;
-read/copy no earlier catalog. D13 specifies discovery, segregation and migration.
+In `maestro-manifests`, [D13](#d13-manifest-v4-source-contract) is the final
+common/core/team layout with root standards and languages. Each area has one
+`package.toml`; common owns shared support roots, core owns framework personas,
+workflows/backends/hosts, and teams reference global/language content. Use one
+pending `/2` cutover before publication, never an intermediate tree. Only
+registered required content creates directories; no private corpus is seeded.
 
 **Structure decision**: kernel records stay in the kernel; catalog processing
 has no CLI/MCP types; adapters call it. Knowledge search receives only the
@@ -245,8 +240,8 @@ or remove an agent profile.
 C00 records the contract in architecture 03/06/08: graph checks needed to safely
 compile S3 bundles belong to C22a/C22b; S4 still owns general runtime execution.
 The frozen exact row-key inventory and S3/remaining portions, including
-GD4's Copilot-only S3 hook and S4 host-adapter qualification for the other
-clients, are approved by the owner, 2026-09-28 (C00 inventory approval). Do not
+GD4's four-client MCP scope, were approved on 2026-09-28. The v4 amendment
+moves C20's live Copilot hook and 4 h to S4 with the other host adapters. Do not
 quietly implement a smaller graph language. A supported construct passes all applicable checks;
 unsupported means not executable.
 
@@ -272,8 +267,8 @@ Missing confirmation returns status 2 with the exact command; a changed
 proposal/revision requires confirmation again. Atomically journal approval and
 write roots/pin; rotation invalidates cached admissions. Use user-local
 kernel authority directly, never workspace discovery, `--yes`, environment
-approval or MCP. C20 denies agent-shell authority administration, even with a
-correct confirmation digest; S3 claims no arbitrary same-user process containment.
+approval or MCP. C20/S4 denies agent-shell authority administration, even with a correct
+confirmation digest; S3 claims no host-process containment.
 Only that explicit authority operation may create or replace them; catalog
 releases, updates, model input, locks and all preference layers cannot. These
 are Locked authority, not Locked catalog-editable settings. Tests use synthetic
@@ -354,7 +349,7 @@ A larger production need requires a reviewed contract change. MiB = 1,048,576 by
 
 | Input | Limit | Owner and check |
 | --- | --- | --- |
-| Source/preference file | 1 MiB per file, 32 container levels (root = 1), 4,096 resources per catalog | C03 `source/parse.rs`; C05a reuses byte/depth bounds; refusals before unbounded parser allocation |
+| Source/preference file | Source 1 MiB per file; preferences 64 KiB (S1); 32 container levels (root = 1), 4,096 resources per catalog | C03 source and S1/C05a preference checks refuse before allocation; aggregate walk/asset/mount limits never reset per package |
 | Archive | 16 MiB per entry, 256 MiB total stream and aggregate entry payload, 4,096 entries including `bundle.json`; manifest nesting at most 32 container levels | C10 `bundle/write.rs` and C11 `bundle/read.rs` share `Limits`; count/size/nesting neighbours, declared-size checks before allocation |
 | Download | 256 MiB per artifact, 60 s total wall time including redirects/retries | C16 `install/download.rs`; streaming count even without or with false Content-Length, exact/over-limit and deadline tests |
 | gh verifier | 30 s wall time, 16 MiB stdout, 1 MiB stderr | C13 `trust/verifier.rs`; independent output-overflow tests, kill/reap at deadline; refuse completion at or after it |
@@ -404,7 +399,7 @@ limit and the restart/removal action.
 ### D3 Synthetic data first
 
 Approved: all committed fixtures and public CI are synthetic or public. Generic
-`ctm-question` instructions describe how to use knowledge tools; they contain no
+`workload-question` instructions describe how to use knowledge tools; they contain no
 vendor passages, question set, production counts or private configuration.
 
 Reuse T038's exact client/provider/account/data-scope approvals for any private
@@ -452,10 +447,9 @@ names without the adapter are not sufficient. Do not install a new extension
 or rely on model inheritance/fallback. Unsupported fields are diagnosed rather
 than dropped. Only **projectable** resources (reviewed evidence and a supported
 native mapping) are projected. A **route-eligible** executable closure also needs S4 qualification
-for every member; convenience projection does not grant it. S3 administers only
-Copilot `preToolUse`; Pi, Codex and Claude Code hooks are deferred to S4
-host-adapter qualification because their trusted event/identity adapters are
-not qualified here. Four-client MCP registration remains S3.
+for every member; convenience projection does not grant it. S3 checks ten-point subscription descriptors and explicit host mapping states
+only. All live hooks, including Copilot C20, are S4 host-adapter qualification.
+Four-client MCP registration remains S3.
 
 C09 records crates added, duplicate versions, native links, feature choices,
 licences and vet requirements against the current lock. D4 already approves
@@ -727,7 +721,7 @@ Read only the nearest workspace file and the user preferences file; do not
 merge workspace ancestors. Missing files are empty layers. Validate each
 present file in full even when an explicit flag masks one of its keys, so a
 flag cannot hide an unknown setting or an authority attempt. Resolve per key:
-**explicit flags > workspace file > user-level config > built-in defaults**.
+**explicit flags > workspace file > user-level config > pinned manifest defaults**.
 Only a flag actually present counts as explicit; clap defaults do not outrank
 files. Presets may suggest choices in init's displayed draft, persisted only
 after confirmation; they are not a fifth session layer. C17 resolves consent ceilings and budget-like bounds by intersection first;
@@ -916,7 +910,7 @@ only missing 03 §1.6 descriptors under D6's 21:02 canonical-name ruling. A test
 setting must become valid in presets, require exactly one class and appear in
 the editor without another key list. C17 precedes init's configuration tasks.
 Free values use
-explicit flags > workspace file > user-level config > built-in defaults.
+explicit flags > workspace file > user-level config > pinned manifest defaults.
 Resolve bounded consent/budgets by narrowing across layers, not by selecting a
 winning layer first. Language/tone are free; `updates` and `[overrides]` use
 the bounded contracts from D6/D9. Permissions
@@ -943,7 +937,8 @@ Carry the architecture 03 defaults as declarations, not an S3 run engine:
 
 Rule 10's organization ceilings come from the Bounded ranges in the shared S1
 setting descriptors, not a catalog `settings/classes.toml` or the defaults above;
-C22b refuses an exceeded ceiling. `settings/README.md` is reference only.
+C22b refuses an exceeded ceiling. `settings/README.md` documents the registry; v4 `settings/defaults.toml` feeds
+its single lowest defaults slot through C46, never a second key/type registry.
 
 Cedar evaluates normalized requests against the real schema/policy set. Trusted
 actor, allowed operation, target and approval facts come from the host adapter,
@@ -971,13 +966,13 @@ reviewer independence, bounded maps and subgraphs, policy/sandbox requirements,
 budgets, state flow and outputs on all successful paths. No condition executes
 code, no graph runs and no qualification card is fabricated.
 
-C21 adds `ctm-question` with the shared policy/knowledge resources; C21b adds
-`feature-delivery` with planner/coder/tester/reviewer and their contracts.
+C21 adds team `workload-question` and standard-owned policy checks; C21b adds
+core `feature-delivery` with planner/worker/tester/reviewer and their contracts.
 Profiles for `copilot` and `llamacpp` may be authored/reviewed without being
 live-qualified; routing excludes unsupported combinations. Synthetic
 eligibility records test the compiler/router, never qualify live execution.
 
-### D8 Impact and the later comparison
+### D8 Impact and approved recovery
 
 C27a owns the missing catalog projection. After C12, S2 G25 qualification and
 S2 G27's public typed-edge port at
@@ -994,10 +989,11 @@ preserves results across rebuilds. If G25/G27 are absent, block C27a and that M3
 exit explicitly. C00 records ownership in 08; no similarity edge, second graph
 store or unapproved in-memory closure fallback fills the gap.
 
-Only C29, after M3 and owner-granted access, opens the earlier catalog. It
-inventories every item once, records keep/recover/defer/reject with provenance
-and reason, and proposes separate ≤4 h recovery tasks/PRs. There is no bulk
-import or silent rewriting of imported approval obligations.
+C29 audits the owner-authorized legacy inventory before M3, after C68 and
+selected Phase 1 recovery/imports. Every input gets provenance and one
+keep/convert/drop/defer disposition. Minimal deferrals name their Phase 2 task,
+not a false recovery claim. Retained rule/approval obligations cannot weaken
+current canonical standards; no private collection access follows.
 
 ### D9 Startup updates through the existing lifecycle
 
@@ -1148,10 +1144,9 @@ Trust commands use explicit user-local authority, not discovered workspace
 settings, so an untrusted or invalid config cannot prevent this setup.
 
 Copied preference files cannot grant trust. Catalogs/updates cannot create or
-modify trust records. The Copilot hook denies agent-shell invocations of trust
-administration, including a correctly spelled `--confirm-path`; the explicit
-command is not process-origin authentication. Pi/Codex/Claude agent-shell
-containment remains the named S4 hook proof. S3 cannot distinguish arbitrary
+modify trust records. C20/S4
+denies agent-shell invocations of trust administration, including a correctly spelled `--confirm-path`; the explicit
+command is not process-origin authentication. All host agent-shell containment remains the named S4 hook proof. S3 cannot distinguish arbitrary
 same-user processes outside its controlled surfaces; do not claim otherwise.
 
 Declining trust normally prohibits all workspace writes. The owner-approved
@@ -1199,10 +1194,10 @@ secret files as tool content. Treat operation origin as a trusted adapter fact,
 never a caller/model boolean that says "internal".
 
 C05j enforces the port at Maestro's controlled file-effect boundary; C06/C07,
-C16 and update/rollback reuse it. C20 adds the same check to Copilot preToolUse,
+C16 and update/rollback reuse it. C20/S4 adds the same check to Copilot preToolUse,
 with zero effects on denied writes/reads and fail-closed normalization/errors.
-**S4 non-Copilot workspace-trust hook obligation:** qualify Pi, Codex and Claude
-Code's trusted event/identity adapters against outside-write, secret-read,
+**S4 workspace-trust hook obligation:** qualify Copilot (transferred C20,
+4 h), Pi, Codex and Claude Code's trusted event/identity adapters against outside-write, secret-read,
 symlink-escape and agent-shell trust-add cases (including `--confirm-path`),
 each with an allowed neighbour and
 zero executor calls on denial. Record it beside the already-deferred S4 hooks
@@ -1220,7 +1215,8 @@ that name against the fixed hook table and refuses unknown names; deserialized
 descriptors retain the same semantic checks as the built-ins. A hook is isolated
 and tested only for semantics that cannot be described as data. Untrusted content
 cannot load code or register a hook. File-loaded descriptors and JSON as a resource
-source format are later additions; C03/C03a use Markdown/frontmatter and TOML.
+source format are later additions; C03/C03a use Markdown/frontmatter and TOML; C64 adds the existing contract
+consumer's JSON shape without loading executable validators.
 
 C03's review round supplies an Eq-safe finite-float value (non-finite TOML floats
 refuse) and a structured-table field type. The whole bounded nested subtree reaches
@@ -1251,7 +1247,7 @@ per-kind graph/host rules remain hooks, not exceptions to shared trust or bounds
 C02a authors only owner-approved cards needed by the two workflows. The built-in
 registration lives in `source/kinds/{mod.rs,builtin.rs,model_card.rs}`;
 `source/registry.rs` remains generic. Human-authored owner-relative
-`model-cards/<local-name>.toml` (seed: `core/model-cards/`) holds common resource
+`llm/models/<role>/<local-name>.toml` (seed: `core/llm/models/`) holds common resource
 metadata (ID/owner/maturity/08/workflow references), a model-card `version` field,
 and structured `identity`, deserialized as the kernel's exact `CardIdentity`.
 Do not depend on `version` being a common metadata key. The catalog
@@ -1343,7 +1339,7 @@ history. C18 explains the card an ask would use now, not an observed answer ID.
 Per-answer storage would be a separate S1 follow-up, not part of this amendment.
 
 **M059 identity is unchanged.** Owner-relative `profiles/models/<agent-role>.toml`
-(core for Maestro, delivery for optional delivery roles) and bounded
+(core for framework roles, team areas for their own roles) and bounded
 `model_profile = fast|balanced|deep` select allowed agent-session configurations,
 including provider controls and later S4 qualification. They do not choose the
 kernel's embedder/reranker/answerer/extractor/expander. A local agent profile may
@@ -1360,204 +1356,424 @@ any genuinely new semantic hook is reviewed separately under this contract.
 The synthetic glossary proves extensibility only; neither production kind,
 its runtime binding nor a new schema is in the M3 estimate.
 
-### D13 Owner-first source migration
+### D13 Manifest v4 source contract
 
-**Approved 2026-09-30, not yet implemented.** The source-based migration starts
-from `4e8f6da`: `source/descriptor.rs:13–22` has only top-level locations,
-`source/types.rs:96–107` has `/1` and basename IDs,
-`bootstrap/compose.rs:29–35,77–99` resolves independent bootstrap manifests,
-and `bootstrap/project.rs:102–130` emits `/1` with empty capabilities. Reuse the
-checker graph, registry, `SourceTree`, `PresetPort`, held-handle reads and C04
-writer. No new library, runtime plugin or parallel type-first tree is needed.
+**Approved 2026-09-30; target contract, not delivered behavior.** The detailed
+rationale is the approved `manifest-design-final.md` §§2–7; gap obligations are
+`manifest-gap-analysis.md` §§3 and 7. [ADR-0022](../../docs/adr/0022-manifest-layout-v4-and-language-neutral-extensions.md)
+records durable choices. These public sections and task acceptances are the
+implementation contract; the design's earlier proposed/full alternative is not
+an additional budget. C44 records the **minimal** choice: Phase 1/M3 149 h (including the later URL-rule +1 h),
+Phase 2 immediately after M3 121 h, including the retained 7 h S2 amendment.
 
-#### Owner discovery, identity and dependency direction
+#### Tree and ownership
 
-Descriptors gain catalog-root versus owner-root scope, safe fixed relative
-directories (including `knowledge/collections`) and owner-root single-file
-placement for `capability.toml`. Discover only `core/` and
-`capabilities/<domain>/<capability>/`; cap discovered owners/entries before
-resource parsing, including empty owners. Retain the 4,096-resource and all D2
-byte/depth bounds; neither empty folders nor multiple sources reset the budget.
-Reject overlapping mounts, deeper owner nesting, unknown nonempty directories,
-ambiguous descriptor placement, links and traversal. All five owner-relative
-families (`agents`, `skills`, `instructions`, `mcp`, `knowledge`) are supported
-locations, not permission for unregistered content. Until C41 registers
-collections, a nonempty `knowledge/collections` subtree refuses.
+```text
+maestro-manifests/
+├── package.toml                         # package:common
+├── standards/<domain>/                  # standard:<domain>, always selected
+│   ├── package.toml
+│   └── {instructions,policies,checks,exceptions}/
+├── languages/<language>/                # language:<language>, reusable
+│   ├── package.toml
+│   └── {profiles/quality,instructions,bootstrap,contracts,evals}/
+├── {skills,knowledge/sources,profiles,prompts,contracts,evals,hooks}/
+├── bootstrap/<inventory>/files/         # common inert outputs; inventory TOML
+├── settings/{defaults.toml,README.md}    # one S1 lowest defaults slot
+├── core/                                # package:core
+│   ├── package.toml
+│   ├── {agents,workflows,handoffs,contracts}/
+│   ├── backends/{graphdb,vectordb,mcp}/config.toml
+│   ├── hosts/{pi,claude-code,copilot}/config.toml
+│   ├── extensions/<name>/extension.toml  # Phase 2/X1; otherwise unsupported
+│   └── llm/models/<role>/<name>.toml     # router/ only after M1
+├── capabilities/<group>/<name>/
+│   ├── package.toml
+│   └── <registered-family>/             # team-owned content, not copies
+├── presets/<name>.toml
+├── marketplace/index.json               # generated, never trust authority
+├── templates/{package,<kind>}/          # Phase 2/A0 authoring kit
+├── schemas/source-2/                    # generated from pinned checker
+├── fixtures/{valid,invalid}/<kind>/      # authored, with exact diagnostics
+├── docs/{catalog,standards,governance,setup,examples,releases}/
+└── .github/{CODEOWNERS,workflows}/
+```
 
-Agent descriptor folders become `[""]` relative to owner `agents/`; skill,
-instructions, MCP and model-card descriptors gain owner scope. Presets remain
-catalog-scoped. Existing shapes/sidecars/hooks remain; changed built-in
-source-shape versions increment from 1 to 2. The new capability closure-root
-descriptor starts at version 1 under source schema `/2`. JSON source formats,
-workflow checks and policies still arrive with their existing consumers; this
-migration does not accept unsupported kinds silently.
+Instantiate only registered content; braces abbreviate siblings. Core and team
+areas can use common families plus agents/workflows/handoffs/contracts/backends/
+extensions/model cards. Common has root prompt contracts, but no agents and no
+root instructions/policies. Universal normative instructions/policies belong to
+standards. The seven discovery groups (architecture, orchestration,
+observability, practice, security, operations, governance) are extensible data,
+not inherited authority or 29 empty leaves. Asset inventories are explicit,
+owner-local files, never recursive includes.
 
-IDs are `kind:namespace/local-name`, with exactly two exceptions:
-`capability:namespace` and global `preset:name`. Namespace `core` is reserved;
-capability leaves are unique across domains. Each segment uses the existing
-64-character lower-case hyphenated grammar. A domain move preserves IDs but
-changes source paths, requiring a new digest-bound preview. Reject duplicate
-namespaces, full IDs, source paths and ambiguous descriptors even for identical
-bytes. Same local names under different owners pass; local `name` still matches
-the file stem or skill directory. No basename alias or path escape exists.
-Workflow labels become namespaced usage metadata, never implicit dependencies,
-selection or authorization. Core resources and the core owner manifest may omit
-`workflows` or use an empty list. If present, a core label may name only a core
-workflow; a capability-named label on core refuses. No core workflow is seeded:
-acceptance of a core-named label is fixture-only until that kind/content exists.
-Capability resources retain their namespaced usage labels. C33 removes reverse
-core-to-capability labels and records dependencies on the capability workflow's
-forward `requires` instead. Required/unused-resource checks derive from declared
-forward closures, never reverse usage labels. Removing a capability leaves core
-valid and byte-identical; actual graph validation awaits its kind, not an executor.
+All areas use `package.toml`: kind, name, exact SemVer version, description,
+nonempty owners, optional maintainers (empty by default), maturity, rows,
+requires and active/deprecated/retired status. Language and standard areas have
+one identity each, not package aliases. Resource metadata names its owning area;
+ownership derives from that descriptor, never a second editable owner list.
+Owners control descriptors, delegation and exceptions; maintainers review
+content. Generate anchored `.github/CODEOWNERS`: broad owner+maintainer content
+rules first, owners-only descriptor/exception rules last. Root owners protect
+CI/generator/ownership policy/CODEOWNERS itself. Standard exceptions additionally
+need central root-owner approval. Groups have no inherited approval authority.
 
-One `capability.toml` declares namespace and common metadata: schema, exactly
-one approved GitHub user/team, maturity, rows, workflow labels and exact entry
-`requires`. A single approved identity per root is an OA1 input, not a guessed
-team name. Offline checks validate identity shape and mirrors, not completed
-GitHub approval; OA1/protected review approves actual owners and changes.
-Resource owner fields are checked/generated mirrors. The declared owner controls review, not runtime
-access. Core contains Maestro's canonical six-section persona/system prompt,
-knowledge resources and common policies/hook/profiles only. C21 puts the generic
-application workflow/answer contract/eval under application-workflow; C21b puts
-feature-delivery and all its optional roles/contracts/skills/profiles/eval under
-`capabilities/engineering/delivery/`. No optional role is smuggled into core.
+Offline validation checks syntax/duplicates/placement. Trusted CI uses read-only
+GitHub identity/team lookups and base-revision owners' approval of the exact head;
+missing access, unknown identities and self-added approvers block release.
+Never expose credentials to PR code. CODEOWNERS routes review; protected CI and
+rulesets enforce required quorums/separation, not a generated-file claim.
 
-All resource edges, even local ones, are typed qualified IDs in `requires`.
-Capabilities can depend on core and explicitly on other capabilities; core
-cannot depend on any capability. Reject a native reference absent from the
-resource's requirements, cross-root file paths/includes, missing IDs and cycles.
-Reuse reviewed-closure checks. Every selection adds reviewed `capability:core`
-exactly once, whose exact entries include reviewed `agent:core/maestro`. Missing
-core/Maestro or an attempted override refuses. Presets require capability roots,
-not globs; discovery alone never selects a capability. One-folder removal must
-leave unrelated selections working and diagnose every remaining dangling edge.
+#### Identity, naming and one cutover
 
-Core membership is checked, not curated in another list: a resource under
-`core/` is admissible only when every shipped preset requires it through that
-preset's forward `requires` closure. Evaluate all public `presets/` entries,
-including each selection's mandatory core root, using declared edges only.
-Refuse any missing membership with the qualified resource and preset IDs.
-C33 tests a delivery reviewer moved to core but absent from knowledge-client's
-closure, with a common resource required by every preset as the passing
-neighbour. A core resource reached only through a core → capability edge
-still refuses even if every preset reaches it; dependency direction is checked
-independently. Neither folder containment nor usage labels add a requirement.
+Use `kind:namespace/local-name`; area roots are `package:common`, `package:core`,
+`package:<name>`, `language:<name>`, `standard:<name>`, and presets `preset:<name>`.
+All area namespaces are globally unique. Resource names are unique within
+`(kind, namespace)`, including across hook-point/model-role folders of that kind.
+An agent and profile may share a stem. Segments retain the lowercase-hyphen
+64-character grammar. Moving a package's group preserves identity but changes
+the source-path lock and requires a new preview.
 
-#### Shared roots, templates and ownership
+Functional names are required in paths/files/IDs. Products are values, including
+`type = "ladybug"`, `type = "qdrant"` and `type = "gerrit"`. One checker-owned
+exception table permits only:
 
-`presets/` is the sole selection source. Extend its descriptor with optional
-`templates: TextList`; C31 checks shape, C36 resolves inventory names and refuses
-unknown/duplicate or unsafe names. This is the sole shared-root inventory
-selector, not a resource dependency, file include or new resource kind. It
-never exempts an owner-root edge from `requires`. An inventory reads explicit
-files only under its own declared directory within `bootstrap/`, on held
-handles. Rename inventories to `bootstrap/{core,rust}.toml`, with
-`bootstrap/core/` replacing the old base template directory. Rust instructions
-and sidecar move to the Rust capability, not bootstrap. `settings/README.md`
-only explains the S1 registry; reject other settings content and keep canonical
-S1 keys/validation. Shared docs/governance are explicitly admitted non-resource
-files, not an unchecked path back into the resource graph.
+| Exception category | Exact limit |
+| --- | --- |
+| Approved hosts | `core/hosts/pi/`, `core/hosts/claude-code/`, `core/hosts/copilot/`; no product-named package/ID exception |
+| Required native filenames | Registered exact relative placements of `AGENTS.md`, `CLAUDE.md`, `SKILL.md`, `.github/copilot-instructions.md` and tool-required outputs; no filename wildcard exemption |
 
-C36 extends `PresetPort` to resolve checked preset capability closures before
-composing named inventories. Include the same core closure/inventory once;
-refuse distinct inventories targeting one output, even with identical bytes.
-Continue strict JSON, explicit file lists, byte bounds, no-write preview and
-inert-script checks. C37 populates project capabilities and locks every selected
-owner manifest, resource and sidecar, preset, inventory and template input with
-source identity, revision and digest. Apply/replay rechecks exact input bytes;
-no source relocation or changed revision silently rebinds a lock. C04 remains
-unchanged. Kernel model-card fingerprints and the preference schema stay intact.
+Known products/aliases come from the adapter/host registry. New spellings require
+reviewed registry coverage; the checker cannot identify all trademarks from
+English. Packages cannot exempt themselves; exported schemas use the same table.
 
-Generate anchored CODEOWNERS rules per owner root from its one approved record.
-Generate separate shared-root and governance rules from core's same owner
-record, covering `presets/`, `bootstrap/`, `docs/`, `settings/`, README, licence
-and CODEOWNERS. `maestro catalog codeowners --catalog-dir DIR` renders to stdout;
-`--check` compares the tracked file and refuses drift without writing. Normal
-`catalog check` checks resource-owner mirrors. CI regenerates and requires zero
-diff; test extra, missing,
-changed and stale removed-capability rules. No competing owner list or manual
-wildcard wins. OA1 supplies real identities and protected-review settings;
-labels and a generated file grant no runtime authority.
+C30–C39 revise the still-unpublished `/2` contract once, not through a temporary
+layout. Refuse `/1`, mixed layouts, `capability.toml`, `capability:` IDs and old
+locks with migration/fresh-preview diagnostics. Increment changed descriptors;
+check output, project and authoring lock remain their planned `/2` contracts.
+Kernel card fingerprints, S1 preference schemas and C04 owned-file records stay
+unchanged. Retired engine resources, backend capability packages, backend-only
+presets, `mcp/` resource files/edges and flat hook JSON are not alternative inputs.
 
-#### Native projection and private collection handoff
+#### Formats and registered consumers
 
-MCP registration is one owner-relative `mcp/<server>.toml` plus an explicit
-qualified requirement from the consuming agent or capability. Agent native
-fields name `mcp-servers: ["qa/test-runner"]` and tool
-`qa/test-runner/run_tests`; split the latter at its last slash and verify the
-approved server/tool and `mcp:qa/test-runner` requirement. No Rust change or
-server execution is needed to register another instance of this kind.
+All structured shapes refuse duplicate/unknown keys, undeclared assets and
+unsupported versions. Reads remain bounded: 1 MiB source, 32 container levels,
+4,096 resources; preferences retain S1's stricter 64 KiB. Walk/byte ceilings
+aggregate across folders/assets/mounted sources and cannot reset per package.
+D2 archive limits remain unchanged. Registered native formats use sidecars where
+necessary; no file-loaded executable validator is admitted.
 
-C40 maps owner-qualified names, paths and MCP references together to native
-aliases, for example `qa/test-planning` to `qa-test-planning`. Reserve agent
-alias `maestro` for `agent:core/maestro`. Reject non-injective hyphen joins,
-host normalization/length collisions and unmanaged user shadows, even when an
-unmanaged filename differs from its declared name. Record the complete mapping
-in projection provenance. C07/C08 live probes validate the pinned hosts and
-reload limits; do not assume slash support or claim registration launches a
-server. Runtime permissions/qualification remain independent of selection.
+| Shape | Required contract beyond common metadata |
+| --- | --- |
+| Agent/skill/instruction | Existing native fields and fixed agent sections; specification-backed skill metadata and explicit inert assets; instruction applicability plus sidecar |
+| Prompt/handoff/contract | Bounded nonempty prompt plus input/output contract IDs; sender/recipient and Inputs/Context/Deliverables/Acceptance sections for handoff; JSON Schema 2020-12 typed object, local `$id` and declared digest-locked local references only; JSON/Cedar metadata sidecars |
+| Workflow | Existing typed graph, entry/nodes/edges, roles/steps, conditions, bounded maps/loops, budgets/state/outputs; all twelve C22 checks |
+| Policy/check/exception | Real Cedar/shared schema; stable rule IDs and allow/deny neighbours; check names registered validator/applicability/typed inputs/evidence/refusals, never an executable; exception names rule/scope/rationale/expiry/evidence |
+| Language/quality profile | Language/technology value, required profile/instruction/starter references; gates, applicability, failure conditions, evidence formats, thresholds and manager/tool default/alternatives; missing required bindings unresolved |
+| Session profile/model card | Existing fast/balanced/deep provider/role settings and qualification states, separate from quality; exact kernel card identity/version at `llm/models/<role>/`, role matches path and kernel validator owns canonical bytes |
+| Knowledge source | `knowledge/sources/<name>/source.toml` plus explicitly inventoried strict JSON URL policy, decisions/promotions/expiry and identity migrations; immutable pins/provenance/classification and local credential/storage references; signed-review rule admission below, never an ingested collection |
+| Hook/host | `hooks/<point>/<name>.toml`: point, target/action/tool, timeout/budget/failure behavior; host config has type/version/adapter/native aliases and explicit evidence state for all ten points; implicit engine event protocol, not a resource dependency |
+| Eval | Registered driver, subject IDs, explicit synthetic JSON inputs/cases, expected outputs/statuses, limits and required checks; fixtures now, generic driver execution Phase 2/E1 |
+| Bootstrap/preset | Explicit area-local source/output/digest inventory with binding/tool requirements; preset exact package/language requirements and area/inventory selectors, mandatory standards added/pinned by closure |
+| Defaults/backend | Typed canonical S1 defaults and registered base/extension shapes in D14; authority/secrets/duplicate default producers refuse |
 
-C41–C43 are **S6 contracts, not S3/M3 delivery**. The private source is external
-`ctm-collection/catalog/`, containing `presets/ctm-private.toml` and
-`capabilities/orchestration/application-workflow/knowledge/collections/ctm/collection.toml`.
-The private preset requires public `capability:application-workflow` and
-`collection:application-workflow/ctm`; no public preset or its transitive closure
-may depend on a private ID. An explicit pinned additive `SourceTree` adapter
-admits only those mount locations, never a second `capability.toml`. Public
-ownership governs that subtree; private publisher/access authorization is
-separate and cannot be self-declared. Check public alone, then combined sources
-under aggregate bounds. Refuse duplicate IDs/paths (including identical bytes),
-shadows, links, owner/core/trust overrides and unauthorized sources. Missing
-private input disables only the private preset. Public CI/releases do not
-fetch, package or index any private input. Synthetic negative fixtures are not
-private data or permission to open it.
+Every registered kind/config shape needs an authored valid and refusal fixture
+with expected diagnostic and allowed neighbour. Registry inventory rejects
+missing/zero/stale coverage. Schemas/editor associations are exported from the
+pinned registry/settings/owning semantic hooks, not another handwritten validator.
+Cedar, Markdown-body and cross-resource semantics remain checker-only where
+necessary; editor success is not semantic or trust admission.
 
-The collection contract's `[approved_urls]` holds exact HTTPS URLs or explicit
-origin/path-prefix rules, exclusions that win, versions/types and crawl bounds.
-Secrets and machine paths are forbidden; use named credential/storage bindings.
-No approved private URLs have been supplied; empty approval means no fetch.
-S6 must check seeds, discovered links and every redirect against access and URL
-approval. Keep admitted originals privately under the retention policy with
-URL/version/digest/transformation provenance. Reject off-scope hosts/paths/
-versions, login/error pages and forbidden binaries; audit navigation/tracking/
-repeated-chrome removal and exact-body deduplication. This contract authorizes
-no relevance-based passage deletion or removal of existing evidence. Catalog
-check is offline, installation never crawls, and runtime collection ACLs remain
-independent. The crawler, ingestion, corpus migration, provisioning and actual
-private approvals are excluded from these 6–10 hours.
+Ten hook points are session-start, session-end, prompt-submit, pre-tool,
+post-tool, agent-stop, subagent-stop, pre-compact, post-compact, notification.
+The engine/checker owns their versioned event protocols. Common prompt contracts
+live in common `contracts/`; common → core still refuses. Guard evidence is an
+ordinary core output contract, not a platform event protocol or extra hook point.
 
-#### Version cutover and falsifiable gates
+#### Manifest-owned source rules
 
-| Surface | Required new contract | Old-input behavior |
+**Owner decision, 2026-09-30 20:45:** URL rules and their definitions live in
+the manifest, not per-site engine configuration or a collection-local allowlist.
+C66 registers typed JSON payloads under each owning knowledge-source resource:
+
+```text
+knowledge/sources/<name>/
+├── source.toml
+├── policy.json                 # maestro-source-policy/1
+├── decisions/<name>.json        # maestro-source-decisions/1; expiry included
+├── promotions/<name>.json       # maestro-source-promotions/1; expiry included
+└── migrations/<name>.json       # maestro-url-identity-migration/1
+```
+
+These are explicitly inventoried typed resources inside the source kind, not
+unvalidated arbitrary assets. The tree shows permitted placements, not mandatory
+empty records: preserve core optionality, but every referenced companion must
+exist. Non-fetching source kinds gain no URL permission from absent rules. Retain existing wire IDs, versions and exact
+original-byte digests; the catalog-qualified source/owning area binds their
+inventory, without rewriting the core wire identity grammar. No implicit glob,
+undeclared companion, collection-local `[approved_urls]` or duplicate rule copy.
+The source carries its policy's referenced closure; unreachable/unpinned records
+refuse. Use the shared strict JSON decoder and owning semantic validators,
+never a TOML translation or a second policy parser (ADR-0014).
+
+Reviewed admission combines **the signed, digest-pinned catalog release** with
+**the owner and maintainer approvals recorded under the ownership rules**.
+Protected base-code checks bind review to exact source/head/digests; preserve
+that evidence through bundle/lock/install. A metadata `reviewed` label or a
+policy's own authority field is not proof. Current expiry, revocation, visibility
+and principal access still apply; manifest review does not grant credentials,
+network access, filesystem trust or processing entitlement. Offline validation
+can check shape and fixture evidence, not claim a real approval occurred.
+
+Collections keep strict `collection.json` plus catalog metadata and exact
+`source_policy` references; their own declaration is not a second URL-rule store.
+C41/C43's deferred S6 contracts check those links. S6 alone supplies a
+catalog-backed adapter behind existing `PolicySource` and `ResourceSource`,
+resolving admitted original bytes and review evidence through the existing
+strict validator. That runtime adapter is a separately assigned S6 dependency,
+not an S3 task or M3 gate; maestro-core holds zero real per-site rules.
+
+C52a/b export JSON Schemas from the core `schemars::JsonSchema` types into
+`schemas/source-2/` and associate the companion files. C66 authors synthetic
+valid/invalid neighbours for each family; C68 checks them at editor, pre-commit,
+CI and install. Unknown/duplicate keys, proposal schema, stale/altered digest,
+expired decision, contradictory references, fabricated approval or missing
+fixture fail. Schema generation does not replace semantic or trust admission.
+
+**Observed code and dependency:** S6 `a9c4f43` exposes the ports in
+`crates/maestro-acquisition/src/ports.rs:63–85`; `policy/schema.rs:10–12` and
+`policy/decisions.rs:135–180` derive the existing JSON contracts. N07
+`746cc58`, `policy/identity.rs`, adds `IdentityMigration`; it is under review
+with fixes pending, not landed or usable as a released pin. C66 synchronizes
+that owning type only after N07 lands; do not copy it into catalog or claim a
+migration fixture passed before then. This wire-type prerequisite is distinct
+from the deferred live S6 adapter. Existing schema derivation is reused, with
+no new library decision.
+
+Private inventories, including the Control-M source, live only in C69-admitted
+private manifest packages. Public catalogs/indexes/fixtures contain none of
+those URLs or metadata. C42's restricted private collection mount remains as
+narrow as before; it does not become a general source-rule overlay. Public
+checks run without private access; affected private selection fails closed.
+
+C66 changes from 3 to 4 h (**+1 h**); C52a/b, C68 and C41/C43 keep their
+existing hours. Updated amendment: **149 h Phase 1 / 121 h Phase 2**. The
+S6 runtime adapter's separate budget is not guessed or charged here.
+
+#### Resolution and mandatory standards
+
+1. **Global:** all pinned standards, common defaults/resources and explicitly
+   required languages. Standards/common cannot require core or optional packages.
+2. **Framework:** core declarations/backends/hosts, requiring global resources
+   only. Common/core and every admitted standard are mandatory exactly once.
+3. **Selected packages:** explicit team/language closure in stable topological
+   order. A language may require global resources/other languages, never a team
+   package. Reject cycles and undeclared or unresolved edges.
+
+Selection is a union, not last-file-wins. Duplicate full IDs/paths refuse even
+for identical bytes; never merge bodies/policies/native settings by directory
+order. All required common/core/standard resources enter every preset's checked
+forward closure/lock. Adding a standard needs a reviewed signed catalog update,
+not discovery of a local folder. Availability is not context injection: knowledge
+projection includes Maestro, required instructions/skills and selected MCP tools,
+not all ten personas. Maestro has one canonical core persona/system prompt.
+
+All standards are mandatory and non-removable. Required checks/prohibitions
+accumulate, ceilings take minima, floors maxima and permissions intersect;
+conflicts refuse. Exceptions are central, exact-scope/revision, expiring and
+owner-approved; non-negotiable rules have none. Consumers cannot add/expand an
+exception, select weaker revisions or disable secret scanning. Runtime authority
+is independent of content ownership.
+
+Phase 1 C82 imports canonical organization golden rules/maps plus four
+rust-workflows standards documents with exact revisions/digests, read-only and
+drift-checked. Preserve rule IDs and distinguish normative rules from repository
+"held here by" observations. Do not invent enforcement for prose. C83/ST1 freezes
+source edits, changes manifests to the sole editable source, then renders pinned
+organization/gate mirrors. This 8 h switch precedes independent standards edits;
+legacy recovery cannot create competing normative authority.
+
+Eight languages ship profiles/instructions and minimal inert CI declarations:
+Rust, Python, TypeScript, JavaScript, Java, Go, configuration-management,
+infrastructure-provisioning. Products/managers are values. Every gate category
+is present; one default and explicit alternatives cannot weaken standards.
+Rust references the released pinned gate. Seven complete non-Rust gate projects
+remain separate at 24–40 h each (168–280 h total), not M3 qualification.
+
+#### Recovery and private collection boundary
+
+C29's pre-M3 audit covers every one of 395 legacy manifest/template files with
+path, SHA-256, attribution, destination and disposition. Recover four authored
+core agents, one Maestro prompt merge, reviewing skill and handoff now; author
+six required unauthored roles afresh across baseline/C72. Phase 1 has ten core
+personas; Phase 2 adds scaffolder. Minimal defers Translator/translation skill
+with two references, two instruction families/13 references, five legacy YAML
+policy conversions, six hook documents and nine full starter inventories.
+Existing new M3 policies/imports/profile declarations/minimal Rust init remain.
+C74 records every retained rule's real Cedar or unsupported-prose disposition,
+including single-owned CMD-008; no pretend injection detector.
+
+The historical nine starter inventories contain 107 payloads: repository 40,
+Rust/Python/Go 20, Java/TypeScript/JavaScript 33, configuration/infrastructure 14.
+Drop the repository `just/lang.just` stub: 106 retained/adapted payloads.
+C52c recovers three authoring templates. Drop 45 placeholder agents, 130
+`.gitkeep` files, 39 section records and the obsolete validator/schema stack;
+these categories use different units and do not sum to a new whole-tree count.
+Do not copy scratch graphs/caches or infer content from empty directories.
+
+C41–C43 retain S6's external opt-in restricted collection mount under public
+application-workflow ownership and its private preset. Use functional logical
+names `workload-docs`/`workload-private`; the external repository name is not a
+catalog ID. No replacement owner record, public→private dependency, shadow or
+new grant. Check public alone before combined sources under aggregate bounds;
+missing access disables private selection only. URL rules instead belong to
+source resources in admitted packages; private source rules use C69, never a
+widened mount. Current rule/access checks on seeds, discovery and every redirect,
+private provenance/retention and zero fetch on check/install remain required. No private source was read for C44.
+
+### D14 Backends, preferences and extension boundaries
+
+Reuse `SourceTree`, kind hooks, `PresetPort`, S1 settings, C04, kernel install
+records, C14 admission, C18 lock/explain, `PolicyChecker`/`HostFacts`, graph and
+vector ports. Register product translations behind role adapters; knowledge
+never imports catalog TOML or a concrete database SDK. New consumer semantics
+get a narrow reviewed adapter, not generic kind switches or a plugin loader.
+
+Common defaults and core backend files feed **one manifest-backed lowest S1
+slot**, one producer per key. Free flags > nearest safe workspace > user
+preferences > pinned defaults; bounded user/default ceilings intersect workspace,
+flags and package limits. Additive restrictions accumulate/intersect; any locked
+attempt refuses even if masked. Validate whole files and inactive type tables.
+Preserve landed C05a/C05b no-ancestor merge, held-handle discovery, explicit MCP
+workspace, English-artifact boundary and frozen sessions; C46/C47 are follow-ups.
+
+Keep `graph.engine`; map `type = "ladybug"` via the registered adapter. The
+product-free knobs are `graphdb.buffer_pool_size`, `graphdb.max_db_size` and
+`graphdb.max_num_threads`; old `lbug` values require explicit migration.
+
+| Graph control | Contract, not a measured optimum |
+| --- | --- |
+| Buffer pool | 16 MiB–1 GiB; default 256 MiB; no zero/auto |
+| Database size | Power of two, 16 MiB–1 TiB; default 16 GiB; not a disk quota |
+| Query threads | 1–64; default 2; unrelated to Cargo parallelism |
+| Root/reader/writer | Locked rooted handle, read-only reader, writable writer; no manifest filesystem path |
+| Checkpoint-on-close | Locked true through actual supported adapter behavior; checked checkpoint/close/reopen, no invented setter |
+
+Native activation requires G25-qualified fork/lock/build/feature metadata,
+source-only build and disabled native extension installer. Uncompiled selection
+refuses before native calls; repair commands remain usable. Explicit `none`
+makes zero graph calls; stale/absent/rebuilding graph gives explicit unavailable
+while passage retrieval continues. C48 waits for G25/E07a, then G22 feeds C49a;
+there is no C48↔G22 cycle. Qdrant retains identity/dimensions/lifecycle and local
+endpoint/credentials; base defaults cannot change these.
+
+A package's `backend_extensions` must name exactly its role files. Registered
+extension shapes allow namespaced additions and narrowings only: no type/base/
+endpoint replacement, borrowed namespace, expanded budget/trust or server shadow.
+Intersect/minimize multiple limits; empty/conflicting results refuse independent
+of input order. Aggregate ceilings apply to all additions together. Core type
+changes revalidate every selected extension before activation. Logical collection,
+projection and tool bindings neither create stores nor authorize effects.
+
+MCP bases move into `core/backends/mcp/config.toml`; raw server records have no
+resource ID. Cross-package consumers require the binding owner's package;
+extension tools additionally require their qualified extension ID. Resolve
+namespace/server/tool at the final slash, never basename fallback. Add/remove
+derives the effective core view from immutable core plus selected records and
+owns only unchanged host entries. Lock/selection/projection/receipt activate
+atomically at a safe boundary; preserve shared dependencies, edits and kernel data.
+
+Phase 1 secret-bearing fields use exactly one environment-variable or keychain
+service/account reference. Literal secrets, credential URLs, environment-value
+maps and credentials in arguments/defaults refuse. Checking/install/explain
+never resolves or persists secrets; missing runtime binding refuses the action.
+
+Phase 2/X1 extensions use any language out of process; Maestro code remains Rust.
+`extension.toml` requires name/version/description/type, tools or hook-subscriber
+kind, runtime name/version, verified relative entry, MCP requirements, tool
+input/output and config contracts, secrets, egress ceiling, tests/evals and
+subscriber points where applicable. Code is one explicit local inventory or
+immutable version/digest/platform-assets/expected-signer release; verify with
+existing attestation ports. No latest/branch/shell/install/build scripts. Local
+runtime authority supplies interpreter/executable bindings. Every action is an
+MCP tool call; ADR-0013 durable events/cursors remain independent.
+
+Each extension needs its own trusted Cedar egress grant bound to principal,
+package/code digest and destinations. Default deny is absence of a valid permit,
+not an unconditional forbid that makes all valid permits impossible. Hard denies
+still win; unknown facts, wrong digest, invalid consent or unmediated action deny.
+S3 checks/verifies/projects data and launches nothing. S4 owns sandbox/process
+verification/limits/restart/supervision and durable subscription delivery.
+
+### D15 Checkpoints, lifecycle and gap deliverables
+
+All commands below are target interfaces, not statements that the current binary
+implements them. Reuse one checksum-pinned released checker; no new framework.
+
+| Checkpoint | Target command/binding | Evidence boundary |
 | --- | --- | --- |
-| Sources | `maestro-source/2`; changed descriptor versions 2, new capability descriptor 1 | Reject `/1` and mixed owner/type-first layout with migration diagnostic |
-| Check JSON | `maestro-cli/catalog-check/2`; qualified IDs and source-aware paths/diagnostics | Do not label changed ID semantics `/1` |
-| Project | `maestro-project/2`; selected capability IDs | No empty-capability placeholder for a nonempty selection |
-| Authoring lock | `maestro-authoring-lock/2`; complete source-bound input closure | Old lock requires fresh preview; no automatic rebind |
-| Unchanged | Kernel `maestro-model-card/2`, S1 preferences, C04 owned-file records | No identity/authority migration implied |
+| Editor | `schemas/source-2/index.json`; `maestro catalog check --catalog-dir DIR` | Structured fields plus full semantic checker; no approval, trust or runtime proof |
+| Pre-commit | `catalog check`, `catalog fixtures`, schema/codeowners/index `--check` | Whole working-tree closure and authored refusal neighbours; partial staging still needs exact-commit CI; offline/no launch |
+| CI | Same checks, deterministic compile/read, policy/graph fixtures; trusted `catalog owners --check-identities`; Phase 2 `catalog eval --all --offline` | Exact source/check attestations; untrusted PR gets no credentials; eval drivers isolated/egress denied; unsupported or zero cases fail |
+| Install | `maestro package add <package-id>@<version> --apply` | Exact signatures/digests/current trust/compatibility/closure/local authority/owned projections before atomic activation; no eval, runtime install or launch |
 
-| Checkable boundary | Named required tests | Tasks |
+Generation commands are `maestro catalog schema --output schemas/source-2`,
+`catalog schema --catalog-dir DIR --check`, `catalog codeowners --catalog-dir DIR
+--check` and `catalog index --catalog-dir DIR --check`. They compare schemas,
+`.github/CODEOWNERS`, `marketplace/index.json`, `docs/catalog/by-type.md` and the
+starter view `docs/catalog/templates.md`, rejecting stale/extra/missing rows.
+Index source entries are non-installable until a verified release identity
+exists. Public indexes never enumerate private metadata. The marketplace is a
+view of pinned inputs, not network trust authority. Existing presets and CLI
+add/remove remain Phase 1; C56 expands the selector in Phase 2.
+
+**Phase 1 lifecycle:** exact package versions/dependency pins, runtime/descriptor/
+feature/tool/host compatibility and existing signed whole-catalog bundles.
+Package selection stays within an admitted bundle, not independent publishers.
+Preserve five-minute refresh, offline expiry `min(expiry, issuance + 24 h)`,
+revocation/floors, user-only catalog auto consent, exact permission/hook-change
+human approval, idle transactions, receipts, rollback and propose-only runtime.
+
+**Phase 2 L1/E1:** independently signed/private package delivery, eval attestation,
+dependency intervals and deprecation. Exact `=1.2.3` or one `>=1.2.3, <2.0.0`
+interval only, bounded integer components and stable releases; no latest/caret/
+wildcard language. Keep an installed/locked compatible version; otherwise choose
+the highest admitted stable version in the selected signed index satisfying all
+constraints. Empty intersections, duplicate publishers and republished versions
+refuse. Optional packages cannot force a core upgrade; propose a whole compatible
+transaction. Deprecation warns with reason/replacement/migration guide, never
+auto-replaces; ordinary removal waits one minor release and 90 days, in a new
+major. Authenticated security revocation is immediate. Private publishers need
+explicit local authority and scoped credential references; public CI never fetches
+them. C69 is distinct from S6's restricted collection mount.
+
+**Phase 2 A0/A1:** `maestro package new <name> --group <group> --owner <identity>`
+uses templates/live descriptors and C04 preview/apply, creates authored requested
+kinds only and refuses occupied files/invented owners/self-review. Language and
+standard kinds use their root placement; central approval controls standards.
+Scaffolder is an ordinary unprivileged persona running available checkpoints,
+never a generation service or authority bypass. `maestro catalog explain
+<qualified-id-or-setting-key>` reuses C18/S1's frozen snapshot: exact version/
+digest/layer/field/requirement path, contributions/narrowings/rejections and
+adapter/evidence state. No re-resolution against changed files; MCP path-free,
+private names/secrets redacted. Phase 1 config explain remains available.
+
+| Gap group | Phase and existing seam | Falsifiable deliverable |
 | --- | --- | --- |
-| Separate roots and self-contained ownership | `owner_roots_reject_misplaced_content`, `owner_discovery_is_bounded`, `owner_mirror_mismatch_refuses`, `duplicate_namespace_refuses` | C30–C32, C34 |
-| Core membership in every shipped preset | `core_delivery_resource_refuses`, `core_common_resource_accepts`, `core_via_capability_refuses` | C33 |
-| Qualified-only edges and removability | `cross_root_paths_refuse`, `core_cannot_require_capability`, `core_capability_workflow_label_refuses`, `core_workflow_label_schema_neighbours`, `removed_capability_dangling_reference_refuses`, `capability_removal_leaves_core_unchanged`, `unrelated_selection_survives_removal` | C33, C34 |
-| Architecture example references | `owner_first_example_references_accept`, `legacy_example_references_refuse`: owner-relative graph fixtures with declared qualified agents/skills/contracts/policies pass; type-first placement, paths, basename aliases and undeclared references refuse | C22a, C22b |
-| Additive-only private source | `overlay_cannot_shadow_public`, `public_closure_cannot_require_private`, `missing_overlay_preserves_public_selection`, `combined_sources_share_limits` | C42 (S6) |
-| Generated per-root ownership | `codeowners_drift_refuses`, `removed_owner_rule_refuses` | C35 |
-| `/2` cutover, closure and native aliases | `old_or_mixed_layout_refuses`, `old_authoring_lock_requires_preview`, `core_selected_once`, `distinct_inventory_output_collision_refuses`, `native_alias_collision_refuses` | C32, C34, C36, C37, C40 |
-| Collection URL/provenance contract | `empty_approval_never_fetches`, `exclusion_wins_on_redirect`, `collection_install_is_offline`, `retained_original_has_provenance` | C41, C43 (S6) |
+| G01–G02 starters | G01 P1; G02 P2/X1+E1; C50/C51/index and extension/eval ports | Typed input/output contracts and one index entry per eligible inventory; unknown parameters/stale output/missing standard refuse; optional renderer declaration and one isolated synthetic expected-output comparison, not a new renderer implementation |
+| G03–G04 consumer setup | P2/L1 after receipts/package transactions | Existing receipt binds inventory/source/generator/schema/nonsecret normalized inputs/output digests/standard snapshot/approved operation; fresh preview on change, preserve edits. Portable enrollment schema/plan, no fleet service or real records in catalog |
+| G05–G06 lifecycle | P2/R1 after workflow/contracts/eval | Inception/construction/operations assets in feature-delivery, stable steps, blocking/advisory approvals, pending prerequisites/resumable revision-bound evidence and requirement/control/test trace links; one synthetic read-only walkthrough with complete/partial/unavailable labels; no second engine or deployed operator |
+| G07–G11 guides/evidence | P1/M3 | Ownership/contributing/security guides; installation/prerequisites/contributor/MCP/recovery; actual-identity release notes and one ledger-linked roadmap; reader index; redacted guard output schema/cases, not extra hook points or live enforcement |
+| G12 context | Contract reserved now; P2/A1 static implementation | Approved per-host aggregate injection/description ceilings, reviewed always-loaded sets, stable-rule deduplication, LF/CRLF parity and overflow refusal; neutral evidence consumed by standard checks, no standard→core dependency or removal of rules |
+| G13 code graph | P2/R1, existing skill/contract/source kinds | Portable indexing recipe, node/edge/source/extractor/provenance/freshness/exclusion contracts and synthetic stale/malformed cases; full graphs/caches external, zero fetch/build/import on check; unregistered source subtypes refuse |
 
-These are required tests, not existing test-name claims. C39 verifies source,
-bootstrap and CLI regressions plus the normal three-OS gates/review. C38 checks
-Markdown/links and exact requirement-to-task coverage. Keep the 13 existing
-source fixture modules' native-name, sidecar, inert-script, bounds and traversal
-refusals while migrating their IDs, paths and schema. Baseline work is not
-re-estimated; C30–C43 itemize only the approved incremental change. The core
-membership check reuses the preset closure traversal and C33's existing fixture
-neighbours; C22a/C22b add reference cases to their existing valid/invalid pairs.
-These fix-round clarifications stay within the current task estimates, with no
-new task, dependency edge or budget increase.
+These gaps add 16 h Phase 1 and 42 h Phase 2 exactly once. They exclude real
+renderer implementation, automatic tool installation, remote enrollment,
+interactive training, live event/audit transport, code-graph ingestion and full
+non-Rust gates. Every task records its phase/milestone and named test/refusal;
+Phase 2 never gates M3. No synthetic result qualifies a live runtime.
 
 ## Data model
 
@@ -1598,21 +1814,21 @@ there is no raw SDK configuration passthrough.
 
 | Surface | Contract |
 | --- | --- |
-| Authoring check | `maestro catalog check --catalog-dir DIR`; `maestro-source/2`, owner-scoped descriptors, qualified `requires`, fixed body sections, owner/maturity/08 checks; JSON output `maestro-cli/catalog-check/2`. C03 source formats remain Markdown/frontmatter and TOML until later JSON consumers |
+| Authoring check | `maestro catalog check --catalog-dir DIR`; `maestro-source/2`, area-scoped descriptors, qualified `requires`, fixed body sections, owner/maturity/08 checks; JSON output `maestro-cli/catalog-check/2`. C03 source formats remain Markdown/frontmatter and TOML until later JSON consumers |
 | Generated ownership | `maestro catalog codeowners --catalog-dir DIR` renders anchored rules to stdout; `--check` refuses tracked-file drift without writing. Normal source checking validates mirrors; no command configures GitHub protection or approves owners |
 | Compile | `maestro catalog compile --catalog-dir DIR --output FILE`; deterministic tar with `bundle.json`, normalized entries/closures, source and runtime/feature/tool requirements |
 | Catalog authority | `maestro catalog authority set --catalog-repository OWNER/REPO --catalog-workflow PATH --catalog-issuer URL --runtime-repository OWNER/REPO --runtime-workflow PATH --runtime-issuer URL --gh-path FILE --gh-sha256 HEX [--confirm HEX]`; D2's complete proposal/revision confirmation, terminal default-no or exact proposal digest, journalled atomic provisioning/rotation; never `--yes`, environment approval or MCP |
 | Release assets | Canonical SemVer `VERSION` without leading `v` maps exactly to tag `vVERSION`. Payloads: `maestro-catalog-VERSION.tar` and `maestro-catalog-VERSION.spdx.json`; checksum file: `SHA256SUMS`. One lowercase SHA-256, two ASCII spaces, exact basename and LF per payload, sorted by basename; no paths, duplicates or extra entries. Attestation subjects are those two exact payload names/digests under D2's publisher/source bindings. C15 workflow checks and C16 download fixtures assert this same contract |
 | Install/update | `maestro catalog install VERSION`, `maestro catalog update`; verified compatible releases only, explicit project lock update, no authoring or unsigned option |
 | Model-card registration | C16h: `maestro catalog register-model-card ID --collection COLLECTION`; its exact lock-bound lookup over C18/C14 feeds C03a and the existing scoped kernel registry, with all evidence already local and qualification specific to that machine; explicit, idempotent, no fabricated evaluation/selection record, import, download or MCP equivalent; D12 records S1's latest-registered-answerer and re-registration caveats |
-| Source bootstrap outputs | `maestro-project/2` and `maestro-authoring-lock/2`; complete selected capabilities and source-bound inputs per D13. Old locks require a fresh preview, not silent rebinding |
+| Source bootstrap outputs | `maestro-project/2` and `maestro-authoring-lock/2`; complete selected areas and source-bound inputs per D13. Old locks require a fresh preview, not silent rebinding |
 | Bootstrap | `maestro init` opens plain prompts first, later the approved TUI; `--preset knowledge-client\|rust-service`, `--language TAG`, `--tone brief\|normal\|detailed`, `--updates off\|propose`, `--set KEY=VALUE`, `--yes` support scripts. Preview by default, `--apply` to write, `--plain`/`--no-color` for fallbacks; `--catalog-dir DIR` selects labelled authoring-only mode |
 | Settings editor | `maestro config` without arguments opens the same registry-generated every-setting editor as init, with plain/no-color fallbacks. Current value, allowed values, description and source layer come from S1; authorized edits reuse its config API/journal, locked/authority-only entries cannot become preference writes |
 | Session preferences | Global `--language`, `--tone` and free `--set` values override the safely discovered workspace file, user `preferences.toml`, then defaults; update/budget values only narrow. No language set means question-language answers. MCP uses `--workspace DIR` only, otherwise user preferences; no roots-based discovery in S3 |
 | Workspace trust | `maestro trust add DIR` asks default-no on a terminal; otherwise needs exact canonical `--confirm-path DIR`, never `--yes`/`--json`; missing confirmation exits 2. Refuse filesystem/drive/mount roots, HOME and kernel-internal directories. `maestro trust list`/`remove DIR` read/change user-local authority only |
 | Hosts | `maestro catalog project --host copilot\|pi`, `--apply`, or `--remove`; preview-only by default, owned changes only. D1 authoring lock selects/rechecks source bytes; installed lock uses admission |
 | Resolve/search/route/impact | CLI `maestro catalog resolve ID`, `search QUERY`, `route INTENT`, `impact ID`; MCP `catalog_resolve`, `catalog_search`, `catalog_route`, `catalog_impact` under the existing bounded stdio server |
-| Explain | `maestro config explain` and `maestro catalog explain ID`; declared/effective/observed values, class, source rule, requester and unsupported/not-observed states |
+| Explain | Phase 1 `maestro config explain`/C18 provenance; Phase 2/A1 `maestro catalog explain ID-or-setting`; exact locked contributors and explicit unsupported/not-observed state, no second resolver |
 | Policy | `maestro policy check --stdin` and `maestro policy test --catalog-dir DIR`; bounded normalized input, Cedar diagnostics, allow/deny/approval-needed result without executing effects |
 | CLI output | Existing `--json` convention, versioned strict output, diagnostics on stderr; exit 0 success, 1 operation failure, 2 refused input/usage. A test command that discovers no cases does not pass |
 | MCP output | Typed statuses and bounded results, caller-bound context, exact snapshot and used generation; initialization instructions expose conversational preferences and any interface fallback note; never expose arbitrary Qdrant filters or administration |
@@ -1624,7 +1840,7 @@ there is no raw SDK configuration passthrough.
    en/fr/es/ja × three-tone prose and byte-identical artifact/log tests, four-client
    --workspace/user-only instructions, user-local trust and fresh-home CI setup.
    Prove outside-write/secret-read/link-escape denials and plain/script parity.
-   Then owner-first core/Rust init, real Copilot/Pi alias projection/restart, knowledge tools,
+   Then v4 common/core/Rust init, real Copilot/Pi alias projection/restart, knowledge tools,
    citation/refusal checks, separate denied kernel, repeat and owned-only removal.
    C05f/C05k's later TUI/keyboard/resize/contrast proof and OA9 visual acceptance
    are required before C28, never before this first plain owner loop.
@@ -1651,10 +1867,10 @@ there is no raw SDK configuration passthrough.
    projection-file generation/update/remove there, without host execution. In a
    separate OA2-approved host-home stage, allow the pinned Copilot CLI, Pi and
    its existing adapter, Codex and Claude Code binaries for real load/MCP
-   receipts. Require live Copilot `preToolUse` allow, deny, and hook error leading
-   to deny receipts: show hook invocation, the allowed effect and zero effects
-   for denied/error cases. Missing live hook evidence fails C28. Record each
-   environment separately; the host stage does not claim toolchain absence.
+   receipts. Require checked ten-point descriptors/mappings with explicit
+   unsupported/unqualified states, not a live hook. C20's live allow/deny/error
+   proof is transferred to S4 (+4 h there); never call static fixtures protection.
+   Record each environment separately; the host stage does not claim toolchain absence.
    Collect real `incompatible` and synthetic routing results,
    release SBOM/checksum/attestation verification, M1 and final three-OS CI.
 
@@ -1691,13 +1907,13 @@ which names only M3 acceptance and eventual main release below.
 
 | ID | Owner action | Needed by |
 | --- | --- | --- |
-| OA1 | Repository created with README and MIT licence, 2026-09-30; content waits for D13 migration. Supply one approved GitHub user/team per owner root, maintainer/backup and security/platform owners; configure visibility, rulesets, required checks, CODEOWNERS protection and organization properties | MAN C02/C02a/C21/C21b/C15 only; C23 fixtures and all CORE consumers are independent |
-| OA2 | **Approved 2026-09-28:** S3 may probe/test the already-installed Copilot CLI, Pi, Claude Code and Codex, each in an isolated temporary home. C01 records every exact installed version as its pin, including adapters used. No installs/upgrades, changes to real owner configuration or enterprise policy. Anything beyond this scope requires fresh OA2 approval; private/provider data approval remains OA6 | C01, C06–C08, C20, C28 may use this bounded scope; unavailable tools/access or broader operations remain blocked. C01's evidence gates C03's format; no later CORE fixture-code gate from live receipts |
+| OA1 | Repository created with README and MIT licence, 2026-09-30; content waits for D13 migration. Supply approved nonempty owners and optional maintainers per area, maintainer/backup and security/platform owners; configure visibility, rulesets, required checks, CODEOWNERS protection and organization properties | MAN C02/C02a/C21/C21b/C15 only; C23 fixtures and all CORE consumers are independent |
+| OA2 | **Approved 2026-09-28:** S3 may probe/test the already-installed Copilot CLI, Pi, Claude Code and Codex, each in an isolated temporary home. C01 records every exact installed version as its pin, including adapters used. No installs/upgrades, changes to real owner configuration or enterprise policy. Anything beyond this scope requires fresh OA2 approval; private/provider data approval remains OA6 | C01, C06–C08, C28 may use this bounded scope; C20 live hooks move to S4; unavailable tools/access or broader operations remain blocked. C01's evidence gates C03's format; no later CORE fixture-code gate from live receipts |
 | OA4 | Bind separate catalog/runtime repository/workflow/issuer identities, protected environments and emergency/rotation authority. Supply checksum-verified standalone pinned `gh` and repository-bound read-only fine-grained `GH_TOKEN` (or equivalently minimal login), with C09-measured read permissions only; doctor reports detectable excess scopes; authorize any unlisted-licence organization allowlist change, not a second D4 library approval | C09's owned 08 §17 closure and C28 live trust proof; no C09/C13 implementation-start gate |
 | OA5 | Publish checksum-pinned compiler and catalog canary/stable bundles/attestations. Enable the catalog publisher's six-hour trust schedule with protected `id-token: write`/`attestations: write` permissions and minimum publication access; enable hourly missed-refresh alerts to maintainer/backup. Perform withdrawal/rotation/missed-run drills. Supply C28's clean WSL user/container with released `maestro`, pinned `gh`, basic shell utilities and read authentication, but no checkout/Rust/Python | C28 release/clean-environment proof; C15 workflow code and C16 fixture tests do not wait |
 | OA6 | Grant private-data use per exact client/provider/account/scope, private receipt location and approved model downloads/access. Without it use synthetic data; do not infer permission from T038 code or a logged-in client | C08, C23, C26, C28 only for the corresponding private/model access |
 | OA7 | Accept M3 evidence and eventual main release. Any S2 fallback needs a separate explicit approval and 08 disposition | C28 exit; not a new product-choice gate |
-| OA8 | After M3, grant access to the earlier catalog and approve any recovery work, provenance/licence obligations and separate publication PRs | C29 and later recovery tasks |
+| OA8 | **Approved 2026-09-30:** bounded legacy recovery before M3, preserving provenance/attribution and minimal Phase 2 deferrals. Private collection access is not included | C29 and named C70–C78 recovery tasks |
 | OA9 | **Approved 2026-09-28:** ratatui + crossterm for the TUI under ADR-0020. C05f still measures minimum features/dependencies/licences/native links and vet before adoption. Owner visual acceptance of C05k's branded keyboard/plain/no-color walkthrough remains pending | Library choice resolved; C05f measurements precede C05k. Visual acceptance gates C28, never the first plain C08. No parser dependency or decision |
 | OA10 | **Approved by the owner, 2026-09-28:** amend D5's absolute routing bar to held-out matchable top-1 ≥ 90 % (correct first selection). The original top-3 ≥ 90 % wording is retained as history, not the current bar | Quality target resolved; C24/C26 apply the top-1 gate and report both metrics; C28 verifies evidence against the amended bar before final quality acceptance |
 
@@ -1730,33 +1946,27 @@ publish a tag, install clients or send private data to a provider.
 | S2/S3 shared retrieval or MCP changes | Serialize C26 with S2 G12/G14 and all MCP dispatch edits; cover every retrieval branch present at landing, including R4 graph, or prove catalog queries cannot enter it |
 | S1 settings or kernel roles differ at landing | Reuse integrated APIs; retain S3 preference/authority/discovery rules. Extractor waits for G17, query_expander refuses until S1's role follow-up; no silent alias or second registry |
 
-Recomputed for the owner-first amendment: **71 tasks, 224–240 lane-hours**;
-all **65 requirements (48 FR, 17 SC)** map to exact task Requirements lines.
-The unchanged baseline is **57 tasks/191 h**, including completed work at its
-original estimate, not newly charged effort. The approved proposal budgets
-**24–34 h** for C30–C39. The supervisor's later core-workflow-label segregation
-ruling adds **1 h to C33** (now 3–4 h), making **10 tasks/25–35 h** for S3
-migration. C40 adds **1 task/2–4 h** native projection. S3 therefore totals
-**68 tasks/218–230 h**, including C29's 3 h post-M3 comparison. Deferred S6
-C41–C43 add **3 tasks/6–10 h**, excluding crawler/ingestion, corpus migration,
-provisioning and private approvals. All new tasks stay at most 4 h; C03 retains
-its approved 6 h exception. No new dependency or measured saving is presumed.
+The authoritative [task accounting](tasks.md#critical-paths-and-effort) is
+recomputed from headings, phases and After edges. Whole S3 totals are
+**143 tasks / 477–489 h**: **108 Phase 1 tasks / 356–368 h** and
+**35 Phase 2 tasks / 121 h**. Deferred S6 adds 3 tasks / 6–10 h; transferred
+C20 adds 4 h in S4, not S3. Completed work retains historical weights, not a
+remaining-work estimate. The original 16–24 h CI/review reserve stays separate;
+C39 and new task estimates already include their focused review.
 
-C08's dependency closure is **33 tasks/103–115 h**; C31 now reuses C03a's landed
-model-card descriptor, but C02a content does not gate the first loop. M3 is
-**67 tasks/215–227 h**, excluding C29 and all S6 tasks. Another **112 h** of S3
-effort follows the owner-loop closure to M3, then **3 h** for C29. These are
-whole-plan sums, not remaining-hour claims. C41–C43 never block C02/C08/M3.
-The unchanged baseline review/CI reserve adds **16–24 h**, yielding
-**234–254 h for S3** or **240–264 h including S6 contracts**. C39's incremental
-migration verification/review **3–4 h is already included**; do not add it twice.
+The incremental amendment is **270 h = 149 Phase 1 + 121 Phase 2**, including
+7 h retained S2 work, +1 h C02 seed adjustment and +1 h C66 URL-rule amendment.
+It replaces the approved 27 h engine amendment: **243 h extra**, not 270+27.
+Phase 1 gaps add 16 h and
+Phase 2 gaps 42 h once. Seven later language-gate projects (168–280 h) and S4,
+S6 and post-M1 runtime work remain outside this amendment.
 
-The internal dependency DAG is acyclic. Its endpoint-weighted longest paths
-are **58–66 h to C08**, **75–82 h to C28** and **78–85 h through C29**;
-[task accounting](tasks.md#critical-paths-and-effort) also shows the separate S6
-contract closure. The previous 45/65/68 h paths are historical. C16h's shared
-lookup still depends on CORE install code, not MAN winners/live releases;
-C02a gates C28 only. These lower bounds exclude external S1 synchronization,
-owner actions, live hosts, M1 release, S2 qualification, review/CI waits and
-shared-file serialization. They are not calendar promises. Re-estimate delivery
-after C08; do not divide serial dependency hours by the number of lanes.
+Dependency closures are **C08 54 tasks / 178–190 h** and
+**C28 108 tasks / 356–368 h**. Endpoint-weighted internal
+paths are **C08 62–70 h** and **C28 79–86 h**, recomputed
+after gap dependencies, not guessed from a lane count. The DAG is acyclic; Phase 2, C41–C43/S6 and S4 have no edge into M3. C66 separately needs the
+existing core wire types synchronized after N07 lands; it does not wait for
+the live S6 catalog adapter. External owner identities/approvals, host pins, G25/G27/native release
+qualification, M1, publication credentials, CI and shared-file serialization can
+dominate these theoretical lower bounds. Re-estimate after C08, never promise
+calendar dates from effort sums.

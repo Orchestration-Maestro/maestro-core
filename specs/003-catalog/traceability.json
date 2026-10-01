@@ -3,9 +3,9 @@
   "rows": [
     {
       "source_row": "owner.catalog",
-      "s3_portion": "Fresh content, owner-approved model cards and later comparison",
-      "tasks": ["C02", "C02a", "C21", "C21b", "C29"],
-      "remaining": "S3: implement fresh content and model cards with owner approval, then C28 evidence and C29 comparison after M3 and OA8 access"
+      "s3_portion": "Approved minimal recovery, framework and language declarations, with a pre-M3 disposition audit",
+      "tasks": ["C02", "C02a", "C21", "C21b", "C29", "C70", "C71", "C72", "C73", "C74a", "C74b", "C75", "C76a", "C76b", "C77a", "C77b", "C77c", "C77d", "C82a", "C82b"],
+      "remaining": "S3: Phase 1 checked content and C29 recovery/defer evidence at M3, then named Phase 2 recovery"
     },
     {
       "source_row": "owner.m001.manifest",
@@ -16,7 +16,7 @@
     {
       "source_row": "owner.m001.team",
       "s3_portion": "Role declarations; execution stays S4",
-      "tasks": ["C21b", "C22a", "C22b"],
+      "tasks": ["C21b", "C22a", "C22b", "C78"],
       "remaining": "S3: declarations and static checks; S4: qualified role execution"
     },
     {
@@ -34,14 +34,14 @@
     {
       "source_row": "owner.m001.laptop",
       "s3_portion": "Detached install/native projection",
-      "tasks": ["C06", "C07", "C16", "C28"],
+      "tasks": ["C06", "C07", "C16", "C28", "C91"],
       "remaining": "S3: clean laptop install and live native projection evidence"
     },
     {
       "source_row": "owner.m001.guardrails",
-      "s3_portion": "Policy and Copilot hook; broker stays S4",
-      "tasks": ["C19", "C20"],
-      "remaining": "S3: Cedar policies and Copilot hook evidence; S4: authoritative broker and other host-adapter qualification"
+      "s3_portion": "Mandatory standards and real Cedar checks; all live host hooks stay S4",
+      "tasks": ["C19", "C62", "C63", "C58", "C59", "C60", "C61"],
+      "remaining": "S3: standards, policy fixtures and ten-point host mappings; S4: live Copilot C20 plus all trusted host-hook and broker qualification"
     },
     {
       "source_row": "owner.m024",
@@ -58,7 +58,7 @@
     {
       "source_row": "owner.m032",
       "s3_portion": "Restrictive settings; governed enforcement stays S4",
-      "tasks": ["C17", "C18", "C19"],
+      "tasks": ["C17", "C18", "C19", "C74a", "C74b", "C81a", "C81b", "C82a", "C82b", "C83a", "C83b"],
       "remaining": "S3: settings and policy checks; S4: governed enforcement and handoff validation"
     },
     {
@@ -69,20 +69,20 @@
     },
     {
       "source_row": "chat.M006 layout, M023 layout",
-      "s3_portion": "Required v1 content only; capability expansion stays S5",
-      "tasks": ["C02", "C21", "C21b"],
-      "remaining": "S3: required v1 content; S5: demand-driven capability expansion"
+      "s3_portion": "Global/framework/team layout v4, root standards/languages and functional package identities",
+      "tasks": ["C02", "C21", "C21b", "C44", "C51a", "C80a", "C30", "C31", "C32", "C33", "C34", "C37", "C38"],
+      "remaining": "S3: single source/2 migration and mandatory closures; S5: demand-driven capability expansion"
     },
     {
       "source_row": "chat.M006 compiler",
       "s3_portion": "Descriptor-driven strict definitions and static graph checks",
-      "tasks": ["C03", "C03a", "C10", "C11", "C22a", "C22b"],
+      "tasks": ["C03", "C03a", "C10", "C11", "C22a", "C22b", "C45a", "C52a", "C52b", "C52c", "C58", "C60", "C62", "C63", "C64", "C65", "C66", "C79a", "C81a"],
       "remaining": "S3: extensible definitions/model-card validation, all twelve static graph rules and rejection of unsupported constructs; S4: runtime execution of validated graphs"
     },
     {
       "source_row": "chat.M006 explain",
       "s3_portion": "Every effective setting's provenance",
-      "tasks": ["C17", "C18"],
+      "tasks": ["C17", "C18", "C46", "C47a", "C49a", "C52b", "C57", "C65"],
       "remaining": "S3: effective setting provenance; S4: observed governed-run evidence"
     },
     {
@@ -94,19 +94,19 @@
     {
       "source_row": "chat.M006 project file",
       "s3_portion": "Small non-authoritative descriptor",
-      "tasks": ["C05"],
+      "tasks": ["C05", "C86", "C87"],
       "remaining": "S3: descriptor implementation and bootstrap evidence"
     },
     {
       "source_row": "chat.M006 transparency",
       "s3_portion": "Declared/effective/observed; external export stays S5",
-      "tasks": ["C18"],
+      "tasks": ["C18", "C93"],
       "remaining": "S3: honest declared/effective/observed views; S4: governed-run observations; S5: sanitized external export"
     },
     {
       "source_row": "chat.M006 release",
       "s3_portion": "Trusted catalog lifecycle",
-      "tasks": ["C13", "C13a", "C14", "C15", "C16", "C16b"],
+      "tasks": ["C13", "C13a", "C14", "C15", "C16", "C16b", "C51b", "C53a", "C53b", "C54", "C58", "C69", "C92"],
       "remaining": "S3: verified lifecycle, rotation, revocation and C28 live evidence"
     },
     {
@@ -123,9 +123,9 @@
     },
     {
       "source_row": "chat.M019 ownership",
-      "s3_portion": "Required owners/CODEOWNERS; dual-approval operation stays S5",
-      "tasks": ["C02", "C21", "C21b"],
-      "remaining": "S3: one ownership model and generated CODEOWNERS; S5: dual-approval operating check"
+      "s3_portion": "Area owners and delegated maintainers with protected descriptors and trusted identity checks",
+      "tasks": ["C02", "C21", "C21b", "C80a", "C80b", "C90", "C32", "C34", "C35", "C38"],
+      "remaining": "S3: descriptor-derived ownership and base-owner exact-head checks; S5: broader InnerSource operating process"
     },
     {
       "source_row": "chat.M027 detached",
@@ -154,7 +154,7 @@
     {
       "source_row": "chat.M027 versions",
       "s3_portion": "Runtime/bundle/tool compatibility",
-      "tasks": ["C10", "C11", "C18"],
+      "tasks": ["C10", "C11", "C18", "C51b", "C53a", "C53b", "C54", "C58", "C69"],
       "remaining": "S3: compatibility checks and pins; S4: qualification of runtime execution features"
     },
     {
@@ -172,13 +172,13 @@
     {
       "source_row": "chat.M036 classes, M039 policy",
       "s3_portion": "Restrictive override classes over canonical S1 registry keys, not a second key list",
-      "tasks": ["C03", "C17"],
+      "tasks": ["C03", "C17", "C74a", "C74b", "C81a", "C81b", "C82a", "C82b", "C83a", "C83b"],
       "remaining": "S3: exactly one class per setting and restrictive resolution evidence; S1: shared settings registry and canonical keys integrated before the catalog adapter"
     },
     {
       "source_row": "chat.M036 defaults",
       "s3_portion": "Authored defaults; runtime application stays S4",
-      "tasks": ["C17", "C21", "C21b"],
+      "tasks": ["C17", "C21", "C21b", "C45a", "C45b", "C46", "C47a", "C47b", "C48", "C49a", "C49b"],
       "remaining": "S3: authored defaults and resolution; S4: runtime application and enforcement"
     },
     {
@@ -190,20 +190,20 @@
     {
       "source_row": "chat.M006 change workflow",
       "s3_portion": "Declarative development workflow; execution stays S4",
-      "tasks": ["C21b", "C22a", "C22b"],
+      "tasks": ["C21b", "C22a", "C22b", "C88a", "C88b", "C88c", "C89a", "C89b"],
       "remaining": "S3: declarations and static checks; S4: approval-bound workflow execution"
     },
     {
       "source_row": "chat.M019 machine contracts",
       "s3_portion": "Static schema validation; acceptance stays S4",
-      "tasks": ["C19", "C21", "C21b", "C22b"],
+      "tasks": ["C19", "C21", "C21b", "C22b", "C94"],
       "remaining": "S3: static schema and policy validation; S4: trusted handoffs and runtime acceptance"
     },
     {
       "source_row": "chat.M039 superpowers",
-      "s3_portion": "Explicit stages and preserved approval obligations",
+      "s3_portion": "Explicit lifecycle stages and preserved approval obligations",
       "tasks": ["C21b", "C29"],
-      "remaining": "S3: stage declarations and post-M3 comparison with obligations preserved; S4: governed stage execution"
+      "remaining": "S3: pre-M3 disposition audit and Phase 2 lifecycle kits; S4: governed stage execution"
     },
     {
       "source_row": "delivery.R08",
@@ -225,15 +225,15 @@
     },
     {
       "source_row": "chat.M006 broker",
-      "s3_portion": "Shared native evaluator only; authoritative broker stays S4",
-      "tasks": ["C19", "C20"],
-      "remaining": "S3: real Cedar evaluator and Copilot hook; S4: authoritative typed broker and permission handler"
+      "s3_portion": "Real offline policy checks and declared hook mappings; authoritative broker stays S4",
+      "tasks": ["C19", "C62", "C63"],
+      "remaining": "S3: Cedar fixtures, subscription/config validation and honest unsupported states; S4: live Copilot C20, typed broker and permission handler"
     },
     {
       "source_row": "chat.M006, M023 step 8",
-      "s3_portion": "Normalize supported native operations",
-      "tasks": ["C20"],
-      "remaining": "S3: supported native normalization and opaque-operation denial; S4: typed broker operations"
+      "s3_portion": "Checked hook action references and host capability states; native execution stays S4",
+      "tasks": ["C62", "C63"],
+      "remaining": "S3: ten-point descriptors and explicit host mappings; S4: C20 supported native normalization and opaque-operation denial, plus typed broker operations"
     },
     {
       "source_row": "chat.M006 destructive",
@@ -243,9 +243,9 @@
     },
     {
       "source_row": "chat.M006 approvals",
-      "s3_portion": "No model-supplied approval; bound approval execution stays S4",
-      "tasks": ["C19", "C20"],
-      "remaining": "S3: deny missing trusted facts and model-supplied approvals; S4: bound single-use approval execution"
+      "s3_portion": "No source-supplied grants; offline policy and guard-evidence contracts",
+      "tasks": ["C19", "C62", "C63"],
+      "remaining": "S3: policy refusals and redacted evidence shape; S4: trusted live attribution and bound single-use approval execution"
     },
     {
       "source_row": "chat.M023 step 7",
@@ -292,7 +292,7 @@
     {
       "source_row": "chat.M031 separation",
       "s3_portion": "Catalog/knowledge collection and scope separation",
-      "tasks": ["C25"],
+      "tasks": ["C25", "C96a", "C96b"],
       "remaining": "S3: isolated catalog projection and scope-leakage tests"
     },
     {
@@ -328,26 +328,26 @@
     {
       "source_row": "chat.M019 bootstrap, M023 step 13",
       "s3_portion": "Inspect/preview/apply/validate/ownership",
-      "tasks": ["C04", "C05"],
+      "tasks": ["C04", "C05", "C45b", "C47b", "C49b", "C50", "C55", "C77a", "C77b", "C77c", "C77d", "C81b", "C84", "C85a", "C85b"],
       "remaining": "S3: deterministic bootstrap, crash/race refusal and owned-only removal evidence"
     },
     {
       "source_row": "chat.M019 overlays",
       "s3_portion": "Core plus Rust composed output",
-      "tasks": ["C02", "C05"],
+      "tasks": ["C02", "C05", "C79a", "C79b", "C82b"],
       "remaining": "S3: core and Rust composition checks, with additional capabilities unscheduled until project demand"
     },
     {
       "source_row": "chat.M006 native",
-      "s3_portion": "Convenience projection, drift and owned removal",
-      "tasks": ["C06", "C07", "C20"],
-      "remaining": "S3: native convenience and Copilot hook evidence; S4: governed engine and other host hook qualification"
+      "s3_portion": "Convenience projection, checked host maps and owned removal; live hooks stay S4",
+      "tasks": ["C06", "C07", "C62", "C63"],
+      "remaining": "S3: native projection and ten-point host states; S4: all live hook execution including C20"
     },
     {
       "source_row": "product.GD2, GD4, GD5",
-      "s3_portion": "Four MCP clients, local access and Copilot hook; other hooks stay S4",
-      "tasks": ["C00", "C06", "C07", "C08", "C20", "C28"],
-      "remaining": "S3: Pi/Codex/Claude Code/Copilot MCP and Copilot preToolUse evidence; S4: Pi/Codex/Claude Code hooks after trusted event/identity adapter qualification"
+      "s3_portion": "Four-client local MCP and checked hook mappings; all live hooks stay S4",
+      "tasks": ["C00", "C06", "C07", "C08", "C28", "C62", "C63", "C75"],
+      "remaining": "S3: four-client MCP and ten-point host mapping evidence; S4: C20 live Copilot and other host-adapter qualification"
     },
     {
       "source_row": "chat.M048 real controls",
@@ -358,20 +358,20 @@
     {
       "source_row": "chat.M057 CI",
       "s3_portion": "Zero relevant tests cannot pass; honest statuses",
-      "tasks": ["C15", "C28"],
+      "tasks": ["C15", "C28", "C51a", "C52a", "C52b", "C67", "C68", "C69", "C80b", "C83a", "C83b"],
       "remaining": "S3: non-vacuous CI and distinct qualification statuses; S4: trusted runtime scenario suites"
     },
     {
       "source_row": "chat.M059 provenance",
       "s3_portion": "Declared model cards, registrations and returned answer card IDs kept distinct; no stored-answer history",
-      "tasks": ["C03a", "C08", "C16h", "C18", "C28"],
+      "tasks": ["C03a", "C08", "C16h", "C18", "C28", "C46", "C47a", "C49a", "C52b", "C57", "C65"],
       "remaining": "S3: model-card declaration/local-evidence registration, immutable returned-ID resolution and honest catalog/host observed/unsupported/not-run evidence, not an answer journal; S4: governed execution observations"
     },
     {
       "source_row": "delivery.U02",
-      "s3_portion": "Catalog consistency; translation comparison after M3",
+      "s3_portion": "Catalog consistency and provenance; bounded translation recovery after M3",
       "tasks": ["C03", "C21", "C21b", "C29"],
-      "remaining": "S3: catalog consistency and separately approved post-M3 comparison"
+      "remaining": "S3: pre-M3 disposition audit, then C71 translation recovery in Phase 2"
     },
     {
       "source_row": "delivery.U05",
@@ -412,32 +412,32 @@
     {
       "source_row": "delivery.§1.5",
       "s3_portion": "Exact S3 delivery evidence; other slices retain their portions",
-      "tasks": ["C00", "C28"],
+      "tasks": ["C00", "C28", "C44"],
       "remaining": "S3: C28 delivery map and post-M3 catalog comparison"
     },
     {
       "source_row": "chat.M006 CLI",
       "s3_portion": "Bootstrap, projection, doctor, catalog lifecycle, explicit local-evidence model-card registration, registry-generated settings editor and policy CLI; other commands stay S4/S5",
-      "tasks": ["C05", "C05g", "C05k", "C06", "C07", "C13", "C13a", "C16", "C16h", "C16b", "C17", "C18", "C19"],
+      "tasks": ["C05", "C05g", "C05k", "C06", "C07", "C13", "C13a", "C16", "C16h", "C16b", "C17", "C18", "C19", "C51a", "C51b", "C52c", "C54", "C55", "C56", "C57", "C59", "C78"],
       "remaining": "S3: checked catalog CLI, shared settings editor, explicit admitted local-evidence model-card registration over existing kernel authority and C28 evidence; S4: run, session and governed lifecycle commands; S5: capability scaffolding and contribution commands"
     },
     {
       "source_row": "chat.M036 objects",
       "s3_portion": "Descriptor-extensible resource kinds including model cards; runtime objects stay S4",
-      "tasks": ["C03", "C03a", "C02a", "C10", "C11", "C12", "C16", "C16h", "C21", "C21b"],
+      "tasks": ["C03", "C03a", "C02a", "C10", "C11", "C12", "C16", "C16h", "C21", "C21b", "C45a", "C52a", "C52b", "C52c", "C58", "C60", "C62", "C63", "C64", "C65", "C66", "C79a", "C81a"],
       "remaining": "S3: generic kind lifecycle, required declarations and model-card local-evidence registration; S4: runtime sessions, handoffs and execution objects"
     },
     {
       "source_row": "delivery.§2.2",
-      "s3_portion": "Catalog-release contract; runtime envelopes stay S4 and ingestion policy stays S6",
-      "tasks": ["C10", "C11"],
-      "remaining": "S3: independent catalog-release validation without conflating existing completion manifests; S4: trusted runtime envelopes; S6: ingestion-policy qualification"
+      "s3_portion": "Separate signed catalog, manifest-owned source-rule JSON and completion contracts; live runtime envelopes stay S4 and acquisition stays S6",
+      "tasks": ["C10", "C11", "C28", "C41", "C43", "C44", "C52a", "C52b", "C66", "C68", "C69", "C80b"],
+      "remaining": "S3: type-derived source-rule schemas, immutable manifests and signed ownership-review admission; S4: trusted runtime envelopes; S6: catalog-backed PolicySource/ResourceSource runtime adapter and acquisition checks"
     },
     {
       "source_row": "chat.M019 roles",
-      "s3_portion": "Earlier roles deferred to C29 comparison after M3, not seeded",
-      "tasks": ["C29"],
-      "remaining": "S3: owner-approved post-M3 comparison and separate decisions for any earlier role recovery"
+      "s3_portion": "Ten core personas now, scaffolder and Translator in named Phase 2 tasks",
+      "tasks": ["C29", "C70", "C71", "C72", "C73", "C74a", "C74b", "C75", "C76a", "C76b", "C77a", "C77b", "C77c", "C77d", "C82a", "C82b"],
+      "remaining": "S3: checked Phase 1 personas and pre-M3 legacy audit, then Phase 2 authoring/recovery; S4: qualified execution"
     },
     {
       "source_row": "chat.M023 step 13",
@@ -466,13 +466,13 @@
     {
       "source_row": "delivery.C06 closure, merge, explanation, one override class",
       "s3_portion": "Exact closure, restrictive resolution and one explained override class",
-      "tasks": ["C03", "C17", "C18", "C22a", "C22b"],
+      "tasks": ["C03", "C17", "C18", "C22a", "C22b", "C45b", "C47b", "C49b", "C50", "C55", "C77a", "C77b", "C77c", "C77d", "C81b"],
       "remaining": "S3: closure and override validation evidence; S4: runtime enforcement of effective settings"
     },
     {
       "source_row": "delivery.C08 explicit instructions and skills with provenance",
       "s3_portion": "Required skills/instructions and native projection provenance; session composition stays S4",
-      "tasks": ["C02", "C06", "C07", "C21", "C21b"],
+      "tasks": ["C02", "C06", "C07", "C21", "C21b", "C95a", "C95b"],
       "remaining": "S3: explicit resources and projection provenance; S4: qualified runtime session composition"
     },
     {
@@ -483,9 +483,9 @@
     },
     {
       "source_row": "delivery.C13 native projection",
-      "s3_portion": "Copilot/Pi convenience projection and Copilot policy hook",
-      "tasks": ["C06", "C07", "C20"],
-      "remaining": "S3: native projection, drift and unchanged-owned removal evidence; S4: governed execution and other-client hooks"
+      "s3_portion": "Copilot/Pi convenience projection; live policy hooks stay S4",
+      "tasks": ["C06", "C07", "C62", "C63"],
+      "remaining": "S3: native projection and explicit ten-point host maps; S4: C20 Copilot live allow/deny/error proof and other host qualification"
     },
     {
       "source_row": "delivery.C14–C16 catalog MCP, shared Qdrant, separate knowledge ACLs",
@@ -507,9 +507,9 @@
     },
     {
       "source_row": "product.GD1–GD5",
-      "s3_portion": "Four-client local MCP and Copilot hook; GD1 registry keeps its existing §6/05 ownership",
-      "tasks": ["C00", "C06", "C07", "C08", "C20", "C28"],
-      "remaining": "S3: four-client MCP and Copilot hook evidence; S4: other-client hook qualification; S7: non-blocking context graph advice"
+      "s3_portion": "Four-client local MCP and checked hook maps; live hooks stay S4 and GD1 retains its existing ownership",
+      "tasks": ["C00", "C06", "C07", "C08", "C28", "C62", "C63"],
+      "remaining": "S3: local four-client MCP and static hook maps; S4: all live host hooks including C20"
     }
   ],
   "excluded": [
@@ -537,5 +537,500 @@
       "source_row": "delivery.C05 InnerSource and domain capabilities",
       "reason": "S5-only InnerSource and domain capabilities; §10 is not catalog §1"
     }
-  ]
+  ],
+  "requirements": [
+    {
+      "id": "FR-S3-001",
+      "tasks": ["C00", "C03", "C03a", "C02", "C02a", "C21", "C21b", "C29", "C70", "C71", "C72", "C73", "C82a"]
+    },
+    {
+      "id": "FR-S3-002",
+      "tasks": ["C01", "C03", "C03a", "C02", "C32", "C45a", "C52a", "C52b", "C58", "C60", "C62", "C64", "C66"]
+    },
+    {
+      "id": "FR-S3-003",
+      "tasks": ["C03", "C02", "C02a", "C22a", "C21", "C21b", "C15", "C80b"]
+    },
+    {
+      "id": "FR-S3-004",
+      "tasks": ["C05", "C36", "C50", "C77a", "C77b", "C77c", "C77d", "C79b"]
+    },
+    {
+      "id": "FR-S3-005",
+      "tasks": ["C04a", "C04", "C05", "C05j", "C50", "C52c", "C55", "C77a"]
+    },
+    {
+      "id": "FR-S3-006",
+      "tasks": ["C01", "C06", "C07", "C40", "C47b", "C63"]
+    },
+    {
+      "id": "FR-S3-007",
+      "tasks": ["C02", "C06", "C07", "C08"]
+    },
+    {
+      "id": "FR-S3-008",
+      "tasks": ["C09", "C10", "C47a", "C53a", "C54"]
+    },
+    {
+      "id": "FR-S3-009",
+      "tasks": ["C11", "C16", "C47a", "C53a", "C54"]
+    },
+    {
+      "id": "FR-S3-010",
+      "tasks": ["C09", "C13", "C13a", "C16", "C54", "C59", "C69", "C91"]
+    },
+    {
+      "id": "FR-S3-011",
+      "tasks": ["C09", "C14", "C18", "C16", "C16h", "C16b", "C24a", "C24", "C27", "C49a", "C49b", "C54", "C59", "C69"]
+    },
+    {
+      "id": "FR-S3-012",
+      "tasks": ["C12", "C16", "C16b", "C49b", "C54", "C55", "C59", "C69", "C86"]
+    },
+    {
+      "id": "FR-S3-013",
+      "tasks": ["C13", "C13a", "C15", "C54", "C67", "C68", "C69", "C80b", "C92"]
+    },
+    {
+      "id": "FR-S3-014",
+      "tasks": ["C03", "C17", "C05b", "C46", "C47a", "C48", "C57", "C60", "C65", "C81b"]
+    },
+    {
+      "id": "FR-S3-015",
+      "tasks": ["C18", "C16h", "C46", "C47a", "C49a", "C54", "C57"]
+    },
+    {
+      "id": "FR-S3-016",
+      "tasks": ["C09", "C19", "C22b", "C21", "C20", "C61", "C64", "C74a", "C74b", "C81b"]
+    },
+    {
+      "id": "FR-S3-017",
+      "tasks": ["C20", "C28", "C62", "C63", "C75", "C94"]
+    },
+    {
+      "id": "FR-S3-018",
+      "tasks": ["C21", "C21b", "C70", "C72", "C78"]
+    },
+    {
+      "id": "FR-S3-019",
+      "tasks": ["C00", "C22a", "C22b", "C21", "C21b", "C72", "C88b", "C88c"]
+    },
+    {
+      "id": "FR-S3-020",
+      "tasks": ["C23", "C24"]
+    },
+    {
+      "id": "FR-S3-021",
+      "tasks": ["C24a", "C24"]
+    },
+    {
+      "id": "FR-S3-022",
+      "tasks": ["C14", "C24a", "C24", "C26"]
+    },
+    {
+      "id": "FR-S3-023",
+      "tasks": ["C25"]
+    },
+    {
+      "id": "FR-S3-024",
+      "tasks": ["C00", "C26"]
+    },
+    {
+      "id": "FR-S3-025",
+      "tasks": ["C27a", "C27"]
+    },
+    {
+      "id": "FR-S3-026",
+      "tasks": ["C28", "C29", "C70", "C71", "C72", "C73", "C74a", "C74b", "C75", "C76a", "C76b", "C77a", "C77b", "C77c", "C77d", "C82a", "C82b"]
+    },
+    {
+      "id": "FR-S3-027",
+      "tasks": ["C17", "C05a", "C05j", "C05g", "C08", "C46"]
+    },
+    {
+      "id": "FR-S3-028",
+      "tasks": ["C05b", "C08", "C46", "C47a", "C57"]
+    },
+    {
+      "id": "FR-S3-029",
+      "tasks": ["C05c", "C05l", "C05d", "C08", "C46"]
+    },
+    {
+      "id": "FR-S3-030",
+      "tasks": ["C05g", "C08", "C05f", "C05k", "C46", "C56"]
+    },
+    {
+      "id": "FR-S3-031",
+      "tasks": ["C05e", "C06", "C07", "C08", "C46"]
+    },
+    {
+      "id": "FR-S3-032",
+      "tasks": ["C16c", "C16e", "C16g", "C16f", "C54"]
+    },
+    {
+      "id": "FR-S3-033",
+      "tasks": ["C17", "C05a", "C16c", "C16e", "C16g", "C16f", "C54"]
+    },
+    {
+      "id": "FR-S3-034",
+      "tasks": ["C16d", "C16e", "C16f", "C54", "C86"]
+    },
+    {
+      "id": "FR-S3-035",
+      "tasks": ["C05h", "C05j", "C05g", "C08", "C91"]
+    },
+    {
+      "id": "FR-S3-036",
+      "tasks": ["C05h", "C05i", "C05j", "C05e", "C06", "C07", "C08", "C16d", "C16f", "C20", "C91"]
+    },
+    {
+      "id": "FR-S3-037",
+      "tasks": ["C03", "C10", "C11", "C12", "C16", "C45a", "C52a", "C52b", "C58", "C64", "C65", "C66", "C81a"]
+    },
+    {
+      "id": "FR-S3-038",
+      "tasks": ["C03a", "C02a", "C18", "C52b"]
+    },
+    {
+      "id": "FR-S3-039",
+      "tasks": ["C03a", "C02a", "C18", "C16h"]
+    },
+    {
+      "id": "FR-S3-040",
+      "tasks": ["C02", "C38", "C30", "C31", "C41", "C44", "C79a", "C81a"]
+    },
+    {
+      "id": "FR-S3-041",
+      "tasks": ["C02", "C38", "C32", "C34", "C35", "C44", "C52c", "C53a", "C71", "C79a", "C80a", "C80b"]
+    },
+    {
+      "id": "FR-S3-042",
+      "tasks": ["C02", "C22a", "C22b", "C38", "C33", "C34", "C36", "C44", "C45b", "C47b", "C62", "C71", "C79a", "C81a"]
+    },
+    {
+      "id": "FR-S3-043",
+      "tasks": ["C38", "C33", "C44", "C45b", "C49b", "C55", "C59", "C81b"]
+    },
+    {
+      "id": "FR-S3-044",
+      "tasks": ["C38", "C42", "C44", "C69"]
+    },
+    {
+      "id": "FR-S3-045",
+      "tasks": ["C38", "C35", "C44", "C80a", "C80b"]
+    },
+    {
+      "id": "FR-S3-046",
+      "tasks": ["C02", "C38", "C30", "C31", "C32", "C33", "C34", "C37", "C44", "C51a", "C79a", "C81a"]
+    },
+    {
+      "id": "FR-S3-047",
+      "tasks": ["C02", "C38", "C36", "C37", "C44", "C45b", "C47a", "C50", "C54", "C55", "C56", "C77a", "C77b", "C77c", "C77d", "C79b", "C84"]
+    },
+    {
+      "id": "FR-S3-048",
+      "tasks": ["C38", "C41", "C43", "C44"]
+    },
+    {
+      "id": "FR-S3-049",
+      "tasks": ["C30", "C44", "C63", "C76b", "C77d", "C79a"]
+    },
+    {
+      "id": "FR-S3-050",
+      "tasks": ["C44", "C45a", "C45b", "C46", "C47a", "C47b", "C48", "C49a", "C49b", "C59"]
+    },
+    {
+      "id": "FR-S3-051",
+      "tasks": ["C02", "C28", "C44", "C51a", "C52a", "C52b", "C67", "C68", "C83a", "C83b", "C84", "C93", "C95a"]
+    },
+    {
+      "id": "FR-S3-052",
+      "tasks": ["C44", "C51a", "C51b", "C53a", "C53b", "C54", "C55", "C56", "C58", "C69", "C92"]
+    },
+    {
+      "id": "FR-S3-053",
+      "tasks": ["C44", "C58", "C59", "C61", "C85a"]
+    },
+    {
+      "id": "FR-S3-054",
+      "tasks": ["C44", "C57", "C58", "C59", "C60", "C61", "C66", "C91"]
+    },
+    {
+      "id": "FR-S3-055",
+      "tasks": ["C44", "C52b", "C58", "C62", "C64", "C66", "C70", "C87", "C88a", "C88b", "C88c", "C94", "C96a"]
+    },
+    {
+      "id": "FR-S3-056",
+      "tasks": ["C28", "C44", "C65", "C76a", "C76b", "C77b", "C77c", "C77d", "C79a", "C79b", "C82b"]
+    },
+    {
+      "id": "FR-S3-057",
+      "tasks": ["C28", "C44", "C65", "C73", "C74a", "C74b", "C76a", "C76b", "C79a", "C79b", "C81a", "C81b", "C82a", "C82b", "C83a", "C83b", "C88b", "C95b"]
+    },
+    {
+      "id": "FR-S3-058",
+      "tasks": ["C28", "C35", "C44", "C68", "C80a", "C80b", "C90"]
+    },
+    {
+      "id": "FR-S3-059",
+      "tasks": ["C44", "C52c", "C78"]
+    },
+    {
+      "id": "FR-S3-060",
+      "tasks": ["C44", "C67", "C69", "C85b", "C89b", "C96b"]
+    },
+    {
+      "id": "FR-S3-061",
+      "tasks": ["C28", "C44", "C84", "C85a", "C85b"]
+    },
+    {
+      "id": "FR-S3-062",
+      "tasks": ["C44", "C86", "C87"]
+    },
+    {
+      "id": "FR-S3-063",
+      "tasks": ["C44", "C88a", "C88b", "C88c", "C89a", "C89b"]
+    },
+    {
+      "id": "FR-S3-064",
+      "tasks": ["C28", "C44", "C89a", "C90", "C91", "C92", "C93"]
+    },
+    {
+      "id": "FR-S3-065",
+      "tasks": ["C28", "C44", "C94"]
+    },
+    {
+      "id": "FR-S3-066",
+      "tasks": ["C44", "C95a", "C95b"]
+    },
+    {
+      "id": "FR-S3-067",
+      "tasks": ["C44", "C96a", "C96b"]
+    },
+    {
+      "id": "FR-S3-068",
+      "tasks": ["C28", "C41", "C43", "C44", "C52a", "C52b", "C66", "C68", "C69", "C80b"]
+    },
+    {
+      "id": "SC-S3-001",
+      "tasks": ["C01", "C06", "C07", "C08", "C28", "C40"]
+    },
+    {
+      "id": "SC-S3-002",
+      "tasks": ["C10", "C15", "C16", "C28", "C53a", "C54"]
+    },
+    {
+      "id": "SC-S3-003",
+      "tasks": ["C11", "C12", "C13", "C13a", "C14", "C15", "C16", "C16h", "C16b", "C28", "C49b", "C53a", "C54", "C55", "C69"]
+    },
+    {
+      "id": "SC-S3-004",
+      "tasks": ["C02", "C04a", "C04", "C05", "C06", "C07", "C08", "C28", "C36", "C37", "C50", "C55", "C77a", "C77b", "C77c", "C77d", "C79b"]
+    },
+    {
+      "id": "SC-S3-005",
+      "tasks": ["C03", "C17", "C19", "C22a", "C22b", "C18", "C20", "C28", "C61", "C64", "C74a", "C74b", "C81b"]
+    },
+    {
+      "id": "SC-S3-006",
+      "tasks": ["C23", "C24a", "C24", "C26", "C28"]
+    },
+    {
+      "id": "SC-S3-007",
+      "tasks": ["C25", "C26", "C27a", "C27", "C28"]
+    },
+    {
+      "id": "SC-S3-008",
+      "tasks": ["C28", "C39"]
+    },
+    {
+      "id": "SC-S3-009",
+      "tasks": ["C00", "C28", "C29", "C38", "C39", "C44", "C70", "C71", "C72", "C73", "C75", "C82a", "C82b"]
+    },
+    {
+      "id": "SC-S3-010",
+      "tasks": ["C05a", "C05b", "C05j", "C05c", "C05l", "C05d", "C05e", "C05g", "C06", "C07", "C08", "C05f", "C05k", "C16d", "C28", "C46", "C47a", "C56", "C57"]
+    },
+    {
+      "id": "SC-S3-011",
+      "tasks": ["C16c", "C16d", "C16e", "C16g", "C16f", "C28", "C54"]
+    },
+    {
+      "id": "SC-S3-012",
+      "tasks": ["C05h", "C05i", "C05j", "C05g", "C06", "C07", "C08", "C16d", "C16f", "C20", "C28"]
+    },
+    {
+      "id": "SC-S3-013",
+      "tasks": ["C03", "C10", "C11", "C12", "C16", "C28", "C31", "C52a", "C52b"]
+    },
+    {
+      "id": "SC-S3-014",
+      "tasks": ["C03a", "C11", "C18", "C16", "C16h", "C28", "C52b"]
+    },
+    {
+      "id": "SC-S3-015",
+      "tasks": ["C28", "C30", "C31", "C33", "C34", "C35", "C39", "C42", "C44", "C62", "C63", "C79a", "C80a", "C81a"]
+    },
+    {
+      "id": "SC-S3-016",
+      "tasks": ["C28", "C32", "C33", "C34", "C36", "C37", "C39", "C40", "C44", "C47b", "C50", "C63"]
+    },
+    {
+      "id": "SC-S3-017",
+      "tasks": ["C41", "C42", "C43"]
+    },
+    {
+      "id": "SC-S3-018",
+      "tasks": ["C28", "C35", "C44", "C65", "C73", "C74a", "C74b", "C76a", "C76b", "C79a", "C79b", "C80a", "C80b", "C81a", "C81b", "C82a", "C82b", "C83a", "C83b"]
+    },
+    {
+      "id": "SC-S3-019",
+      "tasks": ["C28", "C44", "C45a", "C45b", "C46", "C47a", "C47b", "C48", "C49a", "C49b", "C54", "C55", "C60"]
+    },
+    {
+      "id": "SC-S3-020",
+      "tasks": ["C44", "C51b", "C53b", "C56", "C58", "C59", "C61", "C67", "C69", "C85a", "C85b"]
+    },
+    {
+      "id": "SC-S3-021",
+      "tasks": ["C02", "C28", "C44", "C51a", "C52a", "C52b", "C52c", "C57", "C62", "C63", "C64", "C66", "C67", "C68", "C78", "C80b", "C83a", "C83b", "C93"]
+    },
+    {
+      "id": "SC-S3-022",
+      "tasks": ["C28", "C44", "C84", "C90", "C91", "C92", "C93", "C94"]
+    },
+    {
+      "id": "SC-S3-023",
+      "tasks": ["C44", "C85a", "C85b", "C86", "C87", "C88a", "C88b", "C88c", "C89a", "C89b"]
+    },
+    {
+      "id": "SC-S3-024",
+      "tasks": ["C44", "C95a", "C95b", "C96a", "C96b"]
+    },
+    {
+      "id": "SC-S3-025",
+      "tasks": ["C28", "C41", "C43", "C44", "C52a", "C52b", "C66", "C68", "C69", "C80b"]
+    }
+  ],
+  "design_coverage": {
+    "MD01": ["C44", "C51a", "C80a"],
+    "MD02": ["C45a", "C52a", "C52b", "C52c", "C58", "C60", "C62", "C63", "C64", "C65", "C66", "C79a", "C81a"],
+    "MD03": ["C45a", "C45b", "C46", "C47a", "C47b", "C48", "C49a", "C49b"],
+    "MD04": ["C45b", "C47b", "C49b", "C50", "C55", "C77a", "C77b", "C77c", "C77d", "C81b"],
+    "MD05": ["C62", "C63", "C75"],
+    "MD06": ["C58", "C59", "C60", "C61"],
+    "MD07": ["C51a", "C51b", "C52c", "C54", "C55", "C56", "C57", "C59"],
+    "MD08": ["C51b", "C53a", "C53b", "C54", "C58", "C69"],
+    "MD09": ["C51a", "C52a", "C52b", "C67", "C68", "C69", "C80b", "C83a", "C83b"],
+    "MD10": ["C70", "C71", "C72", "C73", "C74a", "C74b", "C75", "C76a", "C76b", "C77a", "C77b", "C77c", "C77d", "C82a", "C82b"],
+    "MD11": ["C46", "C47a", "C49a", "C52b", "C57", "C65"],
+    "MD12": ["C44"],
+    "MD13": ["C79a", "C79b", "C82b"],
+    "MD14": ["C74a", "C74b", "C81a", "C81b", "C82a", "C82b", "C83a", "C83b"],
+    "MD15": ["C80a", "C80b"],
+    "MD16": ["C78"]
+  },
+  "gap_obligations": {
+    "G01": {
+      "tasks": ["C84"],
+      "hours": 4,
+      "phase": 1
+    },
+    "G02": {
+      "tasks": ["C85a", "C85b"],
+      "hours": 6,
+      "phase": 2
+    },
+    "G03": {
+      "tasks": ["C86"],
+      "hours": 4,
+      "phase": 2
+    },
+    "G04": {
+      "tasks": ["C87"],
+      "hours": 4,
+      "phase": 2
+    },
+    "G05": {
+      "tasks": ["C88a", "C88b", "C88c"],
+      "hours": 10,
+      "phase": 2
+    },
+    "G06": {
+      "tasks": ["C89a", "C89b"],
+      "hours": 6,
+      "phase": 2
+    },
+    "G07": {
+      "tasks": ["C90"],
+      "hours": 2,
+      "phase": 1
+    },
+    "G08": {
+      "tasks": ["C91"],
+      "hours": 3,
+      "phase": 1
+    },
+    "G09": {
+      "tasks": ["C92"],
+      "hours": 2,
+      "phase": 1
+    },
+    "G10": {
+      "tasks": ["C93"],
+      "hours": 1,
+      "phase": 1
+    },
+    "G11": {
+      "tasks": ["C94"],
+      "hours": 4,
+      "phase": 1
+    },
+    "G12": {
+      "tasks": ["C95a", "C95b"],
+      "hours": 6,
+      "phase": 2
+    },
+    "G13": {
+      "tasks": ["C96a", "C96b"],
+      "hours": 6,
+      "phase": 2
+    }
+  },
+  "amendment": {
+    "status": "approved-planned-not-delivered",
+    "phase_1_hours": 149,
+    "phase_2_hours": 121,
+    "total_hours": 270,
+    "superseded_engine_amendment_hours": 27,
+    "additional_over_approved_hours": 243,
+    "retained_s2_hours": 7,
+    "c02_increment_hours": 1,
+    "c20_s4_transferred_hours": 4,
+    "url_rule_amendment_hours": 1,
+    "url_rule_task_deltas": {
+      "C66": 1,
+      "C52a": 0,
+      "C52b": 0,
+      "C68": 0,
+      "C41": 0,
+      "C43": 0
+    }
+  },
+  "cross_slice_dependencies": {
+    "source_policy_types": {
+      "consumer": "C66",
+      "provider": "S6 existing core contracts plus N07 IdentityMigration",
+      "reference_commit": "746cc589d12c0ed0cdebee78f348ef1b2ad5d316",
+      "status": "N07 under review with fixes pending; synchronize only after landing"
+    },
+    "source_policy_catalog_adapter": {
+      "owner": "S6",
+      "ports": ["PolicySource", "ResourceSource"],
+      "requires": ["C66", "C52a", "C52b", "C68", "C80b"],
+      "private_package_requires": ["C69"],
+      "s3_m3_gate": false,
+      "task": "assigned separately by supervisor; no task number or hours invented here"
+    }
+  }
 }

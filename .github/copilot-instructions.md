@@ -1442,6 +1442,7 @@ in place.
 │   │   ├── 0018-rustix-on-unix-and-win32-flags-on-windows.md                # The snapshot store uses rustix on Unix and Win32 flags on Windows
 │   │   ├── 0019-reverse-engineering-is-analysis-behind-a-clean-room.md      # Reverse engineering produces knowledge only, behind a clean-room boundary
 │   │   ├── 0020-rust-libraries-with-named-dependency-exceptions.md          # Rust libraries join the stack; the duplicates they force are named exceptions
+│   │   ├── 0022-manifest-layout-v4-and-language-neutral-extensions.md       # Manifest v4 separates global, framework and team content
 │   │   └── README.md                                                        # Hard-to-reverse decisions, each with the trade-off that produced it
 │   ├── architecture/                                                        # Status: design of record, 2026-09-23, completed 2026-09-24
 │   │   ├── 01-knowledge-pipeline.md                                         # 01 Knowledge pipeline

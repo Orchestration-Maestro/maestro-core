@@ -25,3 +25,7 @@ order; a superseded record stays and names its successor.
 | [0018](0018-rustix-on-unix-and-win32-flags-on-windows.md) | The snapshot store uses rustix on Unix and the standard library's Win32 flags on Windows |
 | [0019](0019-reverse-engineering-is-analysis-behind-a-clean-room.md) | Reverse engineering produces knowledge only, behind a clean-room boundary |
 | [0020](0020-rust-libraries-with-named-dependency-exceptions.md) | Rust libraries join the stack; the duplicates they force are named exceptions |
+| [0022](0022-manifest-layout-v4-and-language-neutral-extensions.md) | Manifest v4: mandatory standards, shared languages, delegated area ownership and any-language out-of-process extensions |
+
+0021 is reserved by the S2 integration branch for its embedded graph decision;
+it is not renumbered or replaced by the S3 amendment.

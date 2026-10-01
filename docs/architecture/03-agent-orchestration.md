@@ -50,115 +50,92 @@ These are design boundaries, not claims that the diagram above is delivered.
 
 ### 1.1 Layout
 
-**Owner-approved amendment, 2026-09-30:** owner-first, with strict segregation.
-This is the target `maestro-source/2` layout, not a claim that the checker has
-migrated. Publish C02's seed only after the migration checks in
-[S3 tasks](../../specs/003-catalog/tasks.md#owner-first-migration-2026-09-30).
+**Owner-approved v4 amendment, 2026-09-30.** This is the target single
+`maestro-source/2` cutover, not a claim that the checker/content is delivered.
+[ADR-0022](../adr/0022-manifest-layout-v4-and-language-neutral-extensions.md)
+and [S3 D13](../../specs/003-catalog/plan.md#d13-manifest-v4-source-contract)
+replace the earlier owner-only tree before publication.
 
 ```text
 maestro-manifests/
+├── package.toml                         # common owners/maintainers
+├── standards/<domain>/package.toml      # mandatory instructions/policies/checks
+├── languages/<language>/package.toml    # profiles/instructions/inert starters
+├── {skills,knowledge/sources,profiles,prompts,contracts,evals,hooks}/
+├── bootstrap/<inventory>/files/         # common explicit inert file inventory
+├── settings/{defaults.toml,README.md}    # lowest S1 defaults, not authority
 ├── core/
-│   ├── capability.toml
-│   ├── agents/{maestro.agent.md,maestro.maestro.toml}
-│   ├── skills/knowledge-evidence/SKILL.md
-│   ├── instructions/{knowledge.instructions.md,knowledge.maestro.toml}
-│   ├── mcp/maestro.toml
-│   └── model-cards/<approved-card>.toml
-├── capabilities/engineering/qa/             # example, not C02 seed content
-│   ├── capability.toml
-│   ├── agents/{reviewer.agent.md,reviewer.maestro.toml}
-│   ├── skills/test-planning/SKILL.md
-│   ├── instructions/{quality.instructions.md,quality.maestro.toml}
-│   ├── mcp/test-runner.toml
-│   └── knowledge/collections/qa-public/collection.toml
-├── capabilities/engineering/rust/
-│   ├── capability.toml
-│   └── instructions/{rust.instructions.md,rust.maestro.toml}
-├── capabilities/engineering/delivery/       # C21b, not C02
-│   ├── capability.toml
-│   ├── workflows/feature-delivery/workflow.md
-│   └── agents/                             # only required delivery roles
-├── capabilities/orchestration/application-workflow/
-│   ├── capability.toml
-│   └── knowledge/collections/              # private CTM mount awaits S6
-├── presets/{knowledge-client.toml,rust-service.toml,qa.toml}
-├── bootstrap/{core.toml,rust.toml}          # inventories, not presets
-├── bootstrap/core/.github/copilot-instructions.md
-├── bootstrap/rust/.maestro/recipes.json
-├── settings/README.md                      # S1 reference, no settings authority
-├── docs/standards/{engineering.md,security.md}
-└── {CODEOWNERS,README.md,LICENSE}           # generated ownership rules
+│   ├── package.toml
+│   ├── {agents,workflows,handoffs,contracts}/
+│   ├── backends/{graphdb,vectordb,mcp}/config.toml
+│   ├── hosts/{pi,claude-code,copilot}/config.toml
+│   ├── extensions/<name>/extension.toml  # Phase 2/X1
+│   └── llm/models/<role>/<name>.toml     # kernel identities, not session profiles
+├── capabilities/<group>/<name>/
+│   ├── package.toml
+│   └── <registered-family>/             # self-contained team content
+├── {presets,marketplace,templates,schemas,fixtures,docs}/
+└── .github/{CODEOWNERS,workflows}/
 ```
 
-Braces mean separate files. QA illustrates adding one folder, not new seed
-scope. Every owner root supports `agents/`, `skills/`, `instructions/`, `mcp/`
-and `knowledge/`; omit unused directories. A kind must be registered before
-nonempty content is admitted: collections await S6, model cards need approved
-identities, and later workflows/contracts/policies/profiles/hooks/evals follow
-their owner rather than restoring type-first roots. Do not create empty roles.
+Common has no agents and no root instructions/policies. Universal normative
+content belongs to standards; common prompt input/output contracts have root
+`contracts/`. Core has the sole Maestro persona/system prompt and framework
+feature-delivery workflow. Ten core personas ship in Phase 1: maestro, planner,
+researcher, worker, tester, reviewer, builder, releaser, steward, bootstrapper;
+scaffolder arrives in Phase 2. Builder is still a deterministic step, not an
+LLM/execution grant. `coder` is replaced, not retained as an alias.
 
-Core holds only what every install needs: Maestro, shared knowledge resources,
-shared policies, the hook and Maestro's agent-session profiles. The generic
-`ctm-question` workflow, answer contract and evaluation belong to
-`capabilities/orchestration/application-workflow/`. The feature-delivery
-workflow, roles, contracts, skills, profiles and evaluation belong to
-`capabilities/engineering/delivery/`, not core; a knowledge-client selection
-must not carry them. Maestro's canonical persona and system prompt live in
-`core/agents/maestro.agent.md`, never hard-coded runtime text.
+The generic `workload-question` belongs to
+`capabilities/orchestration/application-workflow/`. Team packages can use all
+registered families, including agents/workflows/handoffs/contracts/extensions,
+and require root languages instead of copying their profiles. Initial languages
+are Rust, Python, TypeScript, JavaScript, Java, Go, configuration-management and
+infrastructure-provisioning. Rust reuses the pinned gate; the other seven gates
+are separately qualified later projects, not passing declarations. The seven
+discovery groups remain extensible navigation; do not create 29 empty leaves.
 
-**Core-membership rule (FR-S3-042):** a resource under `core/` is admissible
-only if every shipped preset requires it through that preset's forward
-`requires` closure. Check all public `presets/` entries, not just the selected
-preset; include the mandatory core root, then follow declared edges, never
-folder contents or workflow labels. Refuse a core resource absent from any
-preset's closure, naming the qualified resource and preset in the diagnostic.
-C33 tests a relocated `agent:core/reviewer` absent from
-`preset:knowledge-client`, beside a common resource required by every preset.
-A resource reached only through a core → capability edge still refuses: closure
-membership never waives the dependency-direction rule. No hand-kept core list
-or resource-name exception substitutes for this check.
+**Required closure, not overwrite precedence:** common, core and all admitted
+standards are mandatory exactly once in every preset's checked forward closure.
+Standards/common cannot require core or optional teams; core cannot require
+teams; languages may require global content/other languages, never teams.
+Dependencies are explicit qualified IDs; workflow labels grant/select nothing.
+Core labels can name core workflows only. Duplicate full IDs/paths refuse even
+for identical bytes. Removing a team preserves immutable common/core and
+unrelated selections; live reverse dependencies refuse. Framework availability
+is not context injection: knowledge-only projection stays Maestro plus required
+instructions/skills and selected tools, not all personas.
 
-**Checkable segregation.** These are required checker/CI tests, not conventions
-that reviewers alone enforce. [S3 D13](../../specs/003-catalog/plan.md#d13-owner-first-source-migration)
-defines the contracts and named fixtures.
+**Ownership and standards:** one `package.toml` per area, nonempty owners,
+optional maintainers and derived resource ownership. Generate
+`.github/CODEOWNERS` with content delegation followed by owners-only descriptor/
+exception rules; root owners protect CI/generator/governance. Trusted base-code
+CI verifies principal readiness and base-owner approval of the exact head.
+CODEOWNERS cannot prove independent approval quorums or runtime authority.
+Standards are non-removable and add-or-narrow only, with central expiring
+exceptions and none for non-negotiable rules. Phase 1 imports canonical rules
+read-only; Phase 2/ST1 performs a coordinated single-authority render switch.
 
-| Rule | Required refusal or passing neighbour | Checker task |
-| --- | --- | --- |
-| FR-S3-040: separate roots | Reject type-first roots, misplaced/unknown resource subtrees, nested owners and private data in public inputs; accept the exact owner/shared layout | C30, C31 |
-| FR-S3-041: one self-contained owner root | Exactly one approved GitHub owner/team in each `capability.toml`; reject missing/multiple owners, namespace reuse and resource-owner mirror mismatch | C32, C34 |
-| FR-S3-042: explicit dependencies and common core | Every resource dependency, local or cross-owner, is a typed qualified ID in `requires`; refuse core resources outside any shipped preset's forward closure, file paths/includes, core-to-capability edges and core labels naming capability workflows; capability-to-capability edges require explicit declarations | C33, C34 |
-| FR-S3-043: removable capability | Remove one capability folder; core stays valid and byte-identical, unrelated selections still check, and every surviving dependant reference refuses with source-aware diagnostics | C33 |
-| FR-S3-044: additive private overlay | Reject duplicate public/core IDs or paths even for identical bytes, owner/trust overrides and public-to-private dependencies; a missing overlay disables only its private preset | C42 (S6); C33 checks public references now |
-| FR-S3-045: generated ownership | Generate anchored CODEOWNERS per owner root and shared-root rules from core's owner record; reject drift in CI | C35 |
-
-Workflow labels are non-selecting usage metadata, never dependencies or grants.
-Core resources and its owner manifest may omit or empty `workflows`; if present,
-labels may name only core workflows. A core label naming a capability workflow
-refuses. C33 removes reverse labels and keeps forward requirements on capability
-workflows instead; graph checks derive required/unused resources from those
-closures. There is no core workflow in the seed; core-labelled workflow
-acceptance is fixture-only until one exists.
-
-Resource dependencies have no file/include escape hatch. Preset `templates`
-is the sole shared-root inventory selector: inventory names only, not paths;
-each inventory reads explicit files only within `bootstrap/`. It is not a
-resource dependency or a new resource kind. The private source lives outside
-this repository, with an explicitly pinned, opt-in additive mount; public
-CI/releases never fetch, package or index it. Checking and registration do not
-crawl or launch an MCP server, and selection grants no runtime authority.
+**Checkable naming:** functional paths/files/IDs, products as values. Only exact
+approved host directories and registered host/tool-required native filenames
+have exceptions, in one checker-owned table shared with schemas/adapter metadata.
+No package-local exemption or wildcard. All nonempty content needs a registered
+shape and authored valid/refusal fixtures; owner-local assets are explicitly
+inventoried under aggregate limits. Unknown extensions/collections refuse until
+their Phase 2/S6 descriptors exist. Preset templates select area/inventory names,
+never arbitrary paths. Private collection mounts stay external, restricted and
+opt-in; public checks/releases never fetch their content.
 
 ### 1.2 Formats: Copilot-native first
 
-Canonical resource IDs are `kind:namespace/local-name`, for example
-`agent:core/maestro` and `skill:qa/test-planning`. Exceptions are owner closure
-roots `capability:core`/`capability:qa` and global `preset:knowledge-client`.
-Reserve `core`; capability leaf namespaces are globally unique even across
-domains, so a domain move preserves IDs. Each segment retains the lowercase
-hyphenated grammar and 64-character limit. Local names may repeat under
-different owners; full IDs, source paths and namespaces may not. No basename
-aliases are accepted. Every selection includes reviewed `capability:core`
-exactly once, requiring reviewed `agent:core/maestro`; core never requires an
-optional capability. Presets require exact capability roots, not globs.
+Canonical resource IDs are `kind:namespace/local-name`; area roots are
+`package:common`, `package:core`, `package:<name>`, `language:<name>` and
+`standard:<name>`, with global `preset:<name>`. There is no language/package
+alias. All area namespaces are globally unique; resource local names are unique
+within `(kind, namespace)`, including across role/point subfolders. Segments
+retain the lowercase-hyphen grammar and 64-character bound. Same agent/profile
+stem is legal; duplicate full IDs/paths/placements refuse. A group move changes
+the source-path lock, not identity. Every preset pins mandatory roots once.
 
 Source `name` remains local and matches its stem/directory. Host projection
 rewrites names, paths and references together (`qa/test-planning` becomes
@@ -167,21 +144,32 @@ length/normalization collisions and user shadows; joining with a hyphen is not
 injective. C40/C07/C08 re-probe hosts, never assume slash support. Agent MCP
 references use `mcp-servers: ["qa/test-runner"]` and tool
 `qa/test-runner/run_tests` (split at the last slash); both must resolve to the
-checked server/tool and the declared `mcp:qa/test-runner` requirement.
+checked selected-owner backend binding. A cross-package consumer declares the
+binding owner package; extension-provided tools also require their extension
+resource. Raw MCP config entries are not resources or `mcp:` edges.
 
 | Resource | Format | Maestro additions |
 | --- | --- | --- |
 | Agent | Copilot custom agent profile `.agent.md`: YAML frontmatter (`name`, `description`, `tools`, `mcp-servers`, optional `model`) + Markdown body | Integrated [C01 evidence](../../specs/003-catalog/research/hosts.md) (`0be954b`) confirms `<stem>.maestro.toml` sidecars: Copilot CLI 1.0.88 warns and ignores agent `metadata:`. Each catalog agent's stem must equal its `name:` for one-to-one pairing. Keys: `id`, `version`, `owner`, `maturity`, required skills and instructions, policies, contracts, allowed profiles, discovery card |
 | Skill | Agent Skills `SKILL.md`: frontmatter `name`, `description`, optional `license`, `metadata`, `allowed-tools` | Same keys under the Agent Skills specification's `metadata` field; C01's unknown-key control is silent, not proof of support. A host warning on skill metadata reopens the ADR-0005 sidecar decision |
 | Instructions | Owner-relative `instructions/<name>.instructions.md` with `applyTo` globs | Paired `<name>.maestro.toml` for strict common metadata and qualified requirements |
-| Prompt | Copilot `.prompt.md` | — |
+| Prompt | Native `.prompt.md` plus sidecar | Typed input/output contract references, description and bounded nonempty body; common prompts use common contracts |
 | Workflow graph | `workflow.md`: graph spec in YAML frontmatter, human documentation in the body | Maestro-specific (§2) |
-| Contract | JSON Schema 2020-12 + named semantic validators | — |
+| Contract | JSON Schema 2020-12 plus metadata sidecar and registered semantic validator | Local `$id`, declared digest-locked local references only; external references refuse |
 | Policy | Cedar policies + a Cedar schema | — |
-| Model card | Owner-relative `model-cards/<local-name>.toml`; seed cards under `core/` | Common resource metadata, a model-card `version` field and the exact nested kernel v2 `CardIdentity`; canonical JSON/fingerprint remain kernel-owned |
-| Owner closure | One `capability.toml` at `core/` or a capability leaf | Namespace, one approved owner/team, schema, maturity, rows, namespaced workflow labels and exact `requires`; resource owners are checked/generated mirrors |
-| MCP server | One owner-relative `mcp/<server>.toml` | Server definition and allowed tools; register by adding the file and a qualified `requires` reference, never a Rust branch or implicit launch |
-| Preset | Global `presets/<name>.toml` | Exact capability requirements and optional `templates` inventory names; no source file paths or directory globs |
+| Knowledge source | `source.toml` plus strict JSON policy/decision/promotion/identity-migration companions | Source-owned URL rules, exact inventory/digests and signed-release plus recorded ownership-review admission; core-derived schemas and valid/invalid fixtures under ADR-0014 |
+| Model card | Area-relative `llm/models/<role>/<local-name>.toml`; seed cards under `core/llm/models/` | Common resource metadata, a model-card `version` field and the exact nested kernel v2 `CardIdentity`; canonical JSON/fingerprint remain kernel-owned |
+| Area closure | One `package.toml` at common/core/team/language/standard root | Kind/name/version, owners and optional maintainers, description/status, maturity/rows and qualified `requires`; resource ownership derives from its area |
+| Backend/host config | Core `backends/<role>/config.toml`, package add-or-narrow role files; approved core host maps | Typed registered bases/bindings and ten explicit hook states; no replacement endpoint, server shadow, arbitrary adapter code or launch |
+| Preset | Global `presets/<name>.toml` | Exact package/language requirements, mandatory standards and optional area/inventory `templates` selectors; no source file paths or directory globs |
+
+**URL rules (owner, 20:45):** manifests are their sole home. Collections carry
+strict `collection.json` and reference source rules; core has no real per-site
+rules. C66 checks data and exports core-derived schemas with C52/C68, never
+fetches. S6 separately provides the catalog-backed `PolicySource` /
+`ResourceSource` adapter and rechecks current admission and local rights. Private
+inventories live only in admitted private packages (C69), not public content or
+a widened C42 mount. See [D13](../../specs/003-catalog/plan.md#manifest-owned-source-rules).
 
 **Version boundary:** `maestro-source/2`, changed descriptor versions,
 `maestro-cli/catalog-check/2`, `maestro-project/2` and
@@ -217,8 +205,9 @@ licence, attribution and a review of any script it carries.
 A built-in `Registration` pairs a descriptor with an existing named hook; generic
 check/compile/read/install code does not branch on each new kind. C03 supports
 finite floats and whole structured tables passed to `KindRules`, with strict
-bounds and unknown-hook/kind/version refusals. JSON resource-format support and
-file-loaded descriptors arrive later; no plugin execution is implied.
+bounds and unknown-hook/kind/version refusals. Contract JSON arrives with its registered consumer; file-loaded executable
+descriptors remain excluded. Every registered kind/config shape gets schemas
+and authored valid/refusal fixtures; no plugin execution is implied.
 Model cards use the existing kernel validator/registry, not copied identity types.
 After the glossary spike shows value, glossary and source-class tables become
 reviewed, versioned per-collection catalog kinds, not only kernel bindings; they
@@ -233,7 +222,7 @@ are later work, not additional M3 production kinds.
 | Release (manifests CI) | On a tag: compile with the **released, pinned** `maestro` binary (checksum verified), generate an SPDX 2.3 JSON SBOM from the pinned component closure/digests using checksum-pinned toolbelt jaq 3.1.1, commit-time `creationInfo.created` and bundle-digest `documentNamespace`; follow the [S3 release-assets contract](../../specs/003-catalog/plan.md#contracts) for tag/names, `SHA256SUMS` and both attestation subjects; document verification (SEC-011) |
 | `maestro catalog install <version>` | Downloads, verifies SHA-256 and the attestation (signer = the manifests release workflow), unpacks into the kernel's artifact store, records the install, indexes discovery cards (§1.4), and optionally projects to hosts (§1.5) |
 | `maestro catalog update` | Same as install for the newest compatible version; refuses a bundle whose runtime contract range excludes the installed `maestro` or that requires a feature it lacks |
-| `maestro catalog explain` | Declared, effective and observed views: what a resource is meant to do; what applies to this project after resolution, with the source of every setting; actual observations only where recorded. For model cards, explain the card an ask would use now, not a nonexistent stored-answer history |
+| `maestro catalog explain` (Phase 2/A1) | Declared, effective and observed views: what a resource is meant to do; what applies to this project after resolution, with the source of every setting; actual observations only where recorded. For model cards, explain the card an ask would use now, not a nonexistent stored-answer history |
 | `maestro catalog register-model-card ID --collection COLLECTION` | Explicitly register an exact admitted installed declaration in the existing scoped kernel registry with all evidence already local; never implicit in install/update, never a model download or selection-record write |
 
 The laptop never clones the manifests repository to run a bundle, and it needs
@@ -379,20 +368,18 @@ own, and `--remove` deletes only what it wrote. It previews before writing,
 detects same-name user resources that would shadow project ones and drift from
 what it installed, and reports registered, observed-working, stale and failed
 states honestly. Local MCP registration covers the four initial clients: Pi,
-Codex, Claude Code and GitHub Copilot CLI. S3 hook administration covers only
-Copilot `preToolUse`. Pi, Codex and Claude Code hooks wait for S4 host-adapter
-qualification because their trusted event/identity adapters are unqualified;
-this does not defer their MCP registration. Other clients remain out of scope.
+Codex, Claude Code and GitHub Copilot CLI. S3 checks ten-point subscriptions
+and three approved host mapping files; every point has explicit evidence state.
+All live hooks, including Copilot, wait for S4 trusted event/identity
+qualification. This does not defer four-client MCP registration.
 
-A native Copilot `preToolUse` hook calls `maestro policy check --stdin`, which
-evaluates **the same Cedar policies** as the broker. Developers using Copilot CLI
-directly therefore get the organization's guardrails as defence in depth. This
-mode is labelled *convenience*: it has no contracts, no acceptance and no
-journal. Missing hooks are reported as unprotected; unknown tools, opaque
-shell, missing trusted facts, errors and timeouts deny. Model text supplies
-neither identity nor approval. C28 requires live allow, deny and hook-error-to-deny
-receipts from the OA2 host stage, not just synthetic event tests. Governed work
-runs through the S4 engine.
+C20's native Copilot `preToolUse` adapter and live allow/deny/error-to-deny
+proof move to S4 with the existing 4 h budget. It calls the same real Cedar and
+workspace-trust ports, denies unknown tools/opaque shell/missing facts/errors,
+and never takes identity or approval from model text. S3 makes no live-hook
+protection claim; missing/unsupported/unqualified hooks remain unprotected.
+MCP carries extension actions, while ADR-0013 retains durable event delivery.
+Hook-event protocols belong to the engine/checker, not catalog dependencies.
 
 ### 1.6 Configuration and overrides
 
@@ -413,7 +400,7 @@ remain unchanged.
 | **Additive** | Project conventions, business context, extra acceptance criteria, extra instructions | The user or project may add, never remove what is required |
 | **Locked** | Identity, bundle integrity, access control, evidence and acceptance, secret protection, effect authorization, hook ordering | Only a reviewed catalog release |
 
-- **Free preferences** resolve per key as **explicit flags > workspace file > user-level config > built-in defaults**
+- **Free preferences** resolve per key as **explicit flags > workspace file > user-level config > pinned manifest defaults**
   (owner, 2026-09-28 11:25), replacing the earlier five-layer order. Only supplied
   flags override files; presets seed init choices, not another session layer.
 - **Permissions** never use last-value-wins: allowed operations are the
@@ -487,8 +474,8 @@ gain no access through workspace trust. External host folders need explicit
 once-only user trust; never automatically trust HOME.
 
 S3 applies this policy to Maestro-controlled init/projection/install/update/
-rollback effects and the Copilot preToolUse hook. Pi/Codex/Claude tool enforcement
-remains a named S4 hook obligation, including agent-shell trust commands with
+rollback effects. All live tool hooks, including Copilot C20, remain a named
+S4 obligation, including agent-shell trust commands with
 correct --confirm-path arguments and actual denial/allowed-neighbour tests.
 Repeating a path does not authenticate process origin. Decline allows only a
 separately confirmed preferences-config write plus kernel-local metadata;
@@ -535,8 +522,8 @@ Bootstrapping is deterministic software, not an agent copying files.
 2. **Select** a centrally tested preset (for example `rust-service`), which
    resolves routine project bindings.
 3. **Resolve** the bundle and the base template plus the language overlays that
-   apply: Rust first; another language joins when a project needs it, with its
-   composed-output test.
+   apply: minimal common/Rust starters first; eight language declarations ship
+   at M3, full historical starter sets in Phase 2 with composition tests.
 4. **Preview** every file to create, fill or relocate, including dotfiles,
    instruction packages, policies, hooks and profiles, and every collision.
 5. **Apply** only the authorized set, with interrupted-write recovery; stop on
@@ -575,18 +562,30 @@ stays small: `maestro doctor`, `maestro init`, `maestro run`, `maestro explain`.
 
 ### 1.8 Writing the first catalog
 
-The first catalog is written from zero (owner, 2026-09-24), from the
-requirements traced in [08](08-traceability.md) and nothing else: no file of an
-earlier catalog is imported, copied or opened while S3 is written.
+The 2026-09-30 owner approval replaces the earlier fresh-only/post-M3-only
+comparison rule. Recover only the explicitly authorized useful legacy content,
+with current native formats, provenance and authority boundaries. C29 accounts
+for all 395 manifest/template input files before M3, including named Phase 2
+deferrals; no private source or unchecked bulk copying is authorized.
 
-1. Start from the two v1 workflows (`feature-delivery`, `ctm-question`) and the
-   owner's roles (§2.6).
-2. Add a file only when a workflow step needs it; its pull request names the 08
-   rows it serves. A file that serves none is not added.
-3. Write the allowed and denied fixtures of a policy before the policy.
-4. After M3, one **comparison pass** reads the earlier catalog against the new
-   one. Each item worth recovering enters by its own pull request, which cites
-   it; the others are listed with the reason they stay out.
+1. Start with `feature-delivery` and `workload-question`, ten core personas,
+   mandatory standards and eight language declarations; keep execution unqualified.
+2. Add only content serving named architecture rows and explicit selections.
+   Register typed shapes and positive/refusal fixtures before accepting content.
+3. Keep existing fresh M3 Cedar controls mandatory; recover legacy YAML rules
+   later with rule-by-rule disposition, preserving unsupported prose obligations.
+4. Record every recovered file's digest, attribution and destination; discard
+   placeholders/scaffolding and keep synthetic public examples. Phase 2 adds
+   scaffolder, Translator, full historical starters and the other priced kits.
+
+See [S3 tasks](../../specs/003-catalog/tasks.md#critical-paths-and-effort) for
+149 h Phase 1 / 121 h Phase 2 amendment accounting and exclusions. Four
+checkpoints, generated schemas/ownership/indexes and package lifecycle are in
+[S3 D15](../../specs/003-catalog/plan.md#d15-checkpoints-lifecycle-and-gap-deliverables).
+Signed catalog admission and all M3 safety bars remain Phase 1. Catalog-wide
+explain, independent releases/evals and extensions are Phase 2, not fabricated
+M3 results. Any-language extensions remain verified out-of-process code; checks
+and installs execute none of it. Maestro implementation stays Rust.
 
 ## 2. Workflow graphs
 
@@ -611,40 +610,40 @@ tool names and the parser below are graph-local or host vocabulary, not catalog
 resource aliases. Every catalog reference is a qualified ID declared in `requires`.
 
 ```yaml
-# capabilities/engineering/delivery/workflows/feature-delivery/workflow.md
-id: workflow:delivery/feature-delivery
+# core/workflows/feature-delivery/workflow.md
+id: workflow:core/feature-delivery
 name: feature-delivery
 version: 1.2.0
 requires:
-  - agent:delivery/planner
-  - agent:delivery/coder
-  - agent:delivery/reviewer
-  - skill:delivery/spec-compliance
-  - skill:delivery/security-review
-  - contract:delivery/delivery
-  - contract:delivery/plan
-  - contract:delivery/patch
-  - contract:delivery/test-report
-  - contract:delivery/review
-  - policy:core/destructive-operations
-  - policy:core/protected-paths
-  - policy:core/egress-deny-by-default
+  - agent:core/planner
+  - agent:core/worker
+  - agent:core/reviewer
+  - skill:core/spec-compliance
+  - skill:core/security-review
+  - contract:core/delivery
+  - contract:core/plan
+  - contract:core/patch
+  - contract:core/test-report
+  - contract:core/review
+  - policy:security/destructive-operations
+  - policy:security/protected-paths
+  - policy:security/egress-deny-by-default
 inputs:  { task: string, repository: repo-ref }
-outputs: contract:delivery/delivery
+outputs: contract:core/delivery
 state:
-  plan:     { contract: "contract:delivery/plan",        reducer: set }
-  patch:    { contract: "contract:delivery/patch",       reducer: set }
-  tests:    { contract: "contract:delivery/test-report", reducer: set }
-  reviews:  { contract: "contract:delivery/review",      reducer: append }
+  plan:     { contract: "contract:core/plan",        reducer: set }
+  patch:    { contract: "contract:core/patch",       reducer: set }
+  tests:    { contract: "contract:core/test-report", reducer: set }
+  reviews:  { contract: "contract:core/review",      reducer: append }
 nodes:
-  plan:     { kind: agent, agent: "agent:delivery/planner", writes: plan }
-  code:     { kind: agent, agent: "agent:delivery/coder", reads: [plan, tests, reviews], writes: patch,
+  plan:     { kind: agent, agent: "agent:core/planner", writes: plan }
+  code:     { kind: agent, agent: "agent:core/worker", reads: [plan, tests, reviews], writes: patch,
               tools: [edit, shell] }
   test:     { kind: step,  run: "cargo nextest run --message-format libtest-json",
               parser: nextest-json, writes: tests }
-  spec:     { kind: agent, agent: "agent:delivery/reviewer", skill: "skill:delivery/spec-compliance",
+  spec:     { kind: agent, agent: "agent:core/reviewer", skill: "skill:core/spec-compliance",
               reads: [plan, patch], writes: reviews, independent_of: [code] }
-  security: { kind: agent, agent: "agent:delivery/reviewer", skill: "skill:delivery/security-review",
+  security: { kind: agent, agent: "agent:core/reviewer", skill: "skill:core/security-review",
               reads: [patch], writes: reviews, independent_of: [code] }
   reviewed: { kind: join, policy: all }
   approve:  { kind: gate, human: true, shows: [patch, tests, reviews] }
@@ -660,7 +659,7 @@ edges:
                         max_iterations: 2 }
   - reviewed -> approve: { when: "all(reviews, r => r.verdict == 'approved')" }
 budgets: { tokens: 600000, wall: 60m, tool_calls: 400 }
-policies: ["policy:core/destructive-operations", "policy:core/protected-paths", "policy:core/egress-deny-by-default"]
+policies: ["policy:security/destructive-operations", "policy:security/protected-paths", "policy:security/egress-deny-by-default"]
 ```
 
 ### 2.3 Compile-time validation
@@ -744,18 +743,23 @@ knowledge and run operations.
 
 ### 2.6 Roles
 
-Author only the roles a real workflow needs; a declared role that is not
-qualified never runs. Roles an earlier catalog had and no requirement here names
-wait for the comparison pass (§1.8).
+Phase 1 declares ten core personas, but a declared role without S4 qualification
+never runs. Recovery is explicitly authorized and audited before M3 (§1.8);
+Translator and scaffolder remain Phase 2, with no authority from their names.
 
 | Role | Responsibility | Default boundary |
 | --- | --- | --- |
 | Maestro | Understand the request, select a workflow, delegate, summarize accepted results | No edits, no shell, no self-approval; the Maestro agent is not the Maestro MCP service |
 | Planner | Plan and acceptance criteria | Writes plans only |
-| Coder | A scoped candidate change | Writes in its sandboxed worktree; cannot modify policy or acceptance evidence |
+| Researcher | Evidence-backed investigation and cited findings | No unsupported fact or approval claim |
+| Worker | A scoped candidate change | Writes in its sandboxed worktree; cannot modify policy or acceptance evidence |
 | Tester | Create and run relevant tests, report actual results | Cannot weaken the agreed test baseline |
 | Builder | Run approved build recipes, record artifacts | A deterministic `step` node; a model may diagnose failures, never decide that an unexecuted build passed |
 | Reviewer | Review the exact candidate; specification and standards reviews in separate contexts | Read-only; a review recommends, it does not merge or release |
+| Releaser | Assemble release evidence and request an approved release | No publisher credentials or self-approval |
+| Steward | Maintain catalog lifecycle and ownership records | Cannot grant itself review or runtime authority |
+| Bootstrapper | Inspect and propose owned project setup | C04 preview/apply, explicit approval and no script execution |
+| Scaffolder (Phase 2) | Author supported kinds with descriptors/templates | No privileged generation, unavailable kinds or self-review |
 | Product Owner (S5) | Draft requirements, acceptance criteria, open decisions | Never invents approval, priorities or commitments |
 | Monitoring (S5) | Investigate approved telemetry | Read-only; observations kept apart from inferred diagnoses |
 | Orchestration planning (S5) | Plans with dependency and effect analysis | Plan-only; applying is a separate authorized operation |
@@ -830,7 +834,7 @@ optional workflow, never the default.
 
 Owner-relative `profiles/models/<role>.toml` lists the allowed profiles per role
 and provider: Maestro's under `core/`, delivery roles' under
-`capabilities/engineering/delivery/`. These are filled from bake-off results
+`core/`. These are filled from bake-off results
 (see [05 §3](05-platform-and-operations.md#3-model-selection)).
 A node picks within that list. There is **no automatic fallback** between
 providers; an unavailable provider fails the node with a typed error that an edge
@@ -1011,7 +1015,7 @@ qualifies provenance, scope, retention and correction; see
 | L5 live | Authorized runs on Copilot and llama.cpp against a canary repository | Qualification cards per role and model | Untested roles, models and platforms |
 
 Scenario files live in their owner's `evals/scenarios/`, for example
-`capabilities/engineering/delivery/evals/scenarios/` in `maestro-manifests`.
+`core/evals/scenarios/` in `maestro-manifests`.
 Their workflow/resource references use qualified IDs in declared `requires`,
 never paths or basenames. They drive L1–L3 through a released runner, so
 contributors test a workflow without building the runtime.
@@ -1029,10 +1033,13 @@ contributors test a workflow without building the runtime.
 
 ## 10. InnerSource flow (S5)
 
-1. `maestro catalog new agent|skill|workflow <name>` scaffolds the resource, its
-   contract, a policy test and an eval scenario.
-2. The contributor opens a pull request; CODEOWNERS requests the capability
-   owners and, for policy or contract changes, the platform security owners.
+1. Reuse Phase 2/A0's `maestro package new <name> --group <group> --owner <identity>`
+   to preview/apply supported requested kinds, contracts and authored fixtures.
+   The unprivileged scaffolder persona runs available checkpoints; S5 does not
+   build a second generator.
+2. The contributor opens a pull request; generated CODEOWNERS routes content to
+   area owners/maintainers and descriptors/exceptions to owners. Trusted CI
+   enforces base-owner exact-head approvals and any additional security quorum.
 3. Manifests CI runs `maestro catalog check`, `maestro policy test` and the
    scenario suite with the released binary.
 4. A tag produces an attested bundle; developers `maestro catalog update`.

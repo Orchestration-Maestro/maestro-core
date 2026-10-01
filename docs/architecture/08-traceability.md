@@ -195,7 +195,7 @@ portion, integrated code or test evidence, and remaining work.
 | chat.M023 operating model | Platform, security, capability maintainers and application teams; contribution path | Kept | [03 §10](03-agent-orchestration.md#10-innersource-flow-s5) |
 | chat.M006 capability package | Maintainer, backup, maturity, environments, evaluations, deprecation, limitations; scaffolder | Kept | [03 §10](03-agent-orchestration.md#10-innersource-flow-s5) |
 | chat.M027 ladder, delivery.R10 | Compose tools → out-of-process tool or extension → core release | Kept | [03 §10](03-agent-orchestration.md#10-innersource-flow-s5), [07](07-extensibility.md) |
-| product.GD2, GD4, GD5 | Four initial clients; hook administration; local-only access | Kept: four-client MCP and Copilot preToolUse in S3; Deferred: Pi/Codex/Claude Code hooks to S4 host-adapter qualification, approved by the owner, 2026-09-28 (C00 inventory approval; A28, §21) | [03 §1.5](03-agent-orchestration.md#15-native-projection-convenience-mode), [04 §1](04-intelligence-backend.md#1-scope-and-stance) |
+| product.GD2, GD4, GD5 | Four initial clients; hook administration; local-only access | Kept: four-client MCP and static ten-point hook maps in S3; Deferred: all live hooks including C20 Copilot to S4, owner v4 amendment 2026-09-30 (A28, §21) | [03 §1.5](03-agent-orchestration.md#15-native-projection-convenience-mode), [04 §1](04-intelligence-backend.md#1-scope-and-stance) |
 
 ## 10. Testing, observability, benchmarks and improvement
 
@@ -456,7 +456,7 @@ first slice; the earlier plan's first governed workflow (U08) moves to S4.
 | A25 | Recopy 43 reviewed migration candidates (core) | The crate stays as is with its fixtures; S0 only brings it to the gates | Already present; delivery.§7.2 |
 | A26 | First governed workflow first (delivery.U08) | Knowledge kernel and Control-M RAG first (S1) | Owner decision |
 | A27 | Unconditional hybrid win for M3 (chat.M031 hybrid) | Passing baseline ships unless hybrid's seeded 95 % paired-bootstrap top-1 gain interval is strictly positive; held-out matchable top-1 ≥ 90 % is the absolute gate | OA10 approved by the owner, 2026-09-28: dated amendment to D5. The original top-3 ≥ 90 % bar is retained as history, not current acceptance (§21) |
-| A28 | Four-client hook administration in S3 (product.GD2, GD4, GD5) | Four-client MCP and Copilot preToolUse stay S3; other hooks are deferred to S4 host-adapter qualification | Supervisor ruling 2026-09-28; approved by the owner, 2026-09-28 (C00 inventory approval, §21). Trusted event/identity adapters are unqualified in S3; no reduction of MCP scope |
+| A28 | Four-client hook administration in S3 (product.GD2, GD4, GD5) | Four-client MCP and static hook maps stay S3; C20 live Copilot plus other hooks are S4, retaining C20's 4 h | Owner v4 amendment 2026-09-30 supersedes the 2026-09-28 Copilot-only exception. Trusted event/identity adapters need S4 qualification; no reduction of MCP scope |
 
 ## 16. Dropped
 
@@ -819,7 +819,7 @@ prove consistency and candidate coverage, not owner approval or runtime delivery
 | D5 routing | C23 freezes 100+ reviewed CORE synthetic/public cases: ≥20 tuning, ≥80 held-out, ≥60 held-out matchable, ten eligible synthetic workflows and a digest-pinned compiled bundle/eligibility fixture. OA10 approved by the owner, 2026-09-28: held-out matchable top-1 ≥ 90 % is the absolute gate, measuring first-selection correctness. This dated amendment to D5 replaces its original top-3 ≥ 90 % bar, retained as history, not current acceptance. Exact closure completeness is 100 %. Report both top-1/top-3, negative cohorts, unnecessary context, distractors and latency. S3 D5 uses the 95 % paired top-1 bootstrap (seed 42, S1's 2,000 resamples); C26 exposes that seam without changing S1 results. Hybrid needs a strictly positive gain interval, else ship the passing baseline and retain the comparison. Real executable workflows remain incompatible until S4 |
 | Parallel start, 2026-09-28 08:12 | S2/S3 start while S1 finishes. Integrated T034/T035 and T038 live evidence gate C08/C28; M1 release gates M3 exit, not C00 or independent fixture work |
 | Static versus runtime | S3 C22a/C22b check all twelve 03 §2.3 rules. Reviewed means declared stage plus named owner on OA1 protected-branch CODEOWNERS-reviewed content; C03 validates declaration/owner, C15 protected publication. Record/show each compiled member's maturity/owner in lock and preview/explain; local checks do not prove a remote review. S4 raises executable admission to qualified and owns execution, broker, sandbox, acceptance and general role/provider qualification; projectable is not route-eligible |
-| Hook scope | The exact product row above keeps local four-client MCP in S3, plus Copilot preToolUse calling the real Cedar checker. C28 requires live allow, deny and hook-error-to-deny receipts in the OA2 host stage. Pi/Codex/Claude Code hooks wait for S4 because trusted event/identity adapters are unqualified. Missing hooks are unprotected, never evidence of enforcement |
+| Hook scope | Owner v4 amendment: S3 keeps four-client local MCP, real Cedar fixtures and ten-point host mapping evidence only. C20 live Copilot normalization/allow/deny/error-to-deny and 4 h move to S4 with the other trusted host adapters. Missing hooks are unprotected; static fixtures never prove live enforcement |
 | Impact ownership | C12 scoped kernel records are authority. S3 C27a owns catalog edge schema, read/write adapters and snapshot bindings over S2 G27's public typed-edge port after G25 qualification; C27 traverses that separate rebuildable projection. No fabricated evidence-span claims, similarity edges or implicit in-memory fallback. Missing S2 evidence blocks impact/M3 |
 | Migration allocation | C00 reserves no number. The supervisor rechecks every landed/reserved number on main, S1/S2/S3 and deployment-modes at each landing, then allocates the next free one above them. Never a fixed/gapped block or a rewrite of an applied migration; dated observations belong in the S3 plan, not this rule |
 
@@ -830,7 +830,7 @@ rotation or private-data operation. Missing live evidence remains missing.
 
 ## 22. Owner amendments, 2026-09-28 11:25–12:05
 
-The [S3 amendment coverage](../../specs/003-catalog/spec.md#owner-amendment-coverage-2026-09-28-11251205)
+The [S3 amendment coverage](../../specs/003-catalog/spec.md#exact-requirement-coverage-after-v4)
 refines existing source rows, not a new source-key inventory. C00's 85 included
 keys, six exclusions and planned statuses remain unchanged; no new JSON row or
 inventory-test exemption is needed. The supplemental FR/task map must become
@@ -841,7 +841,7 @@ part of C28's evidence for these existing rows, never an untracked M3 promise.
 | Workspace config and polished init | `owner.m001.cli`, `owner.m001.load`, `chat.M019 bootstrap, M023 step 13`: C05a/C05b/C05g/C05j implement strict preferences, owner/home/trust-bounded discovery, free flags > workspace > user > defaults, successful root-only writes and plain/script parity. C05f/C05k add the approved branded renderer after the first owner loop |
 | Conversation versus artifacts | `owner.m001.load`, `chat.M036 classes, M039 policy`, `delivery.C08 explicit instructions and skills with provenance`: C05c/C05l/C05d/C05e use the bounded canonical BCP 47 subset, question-language fallback and evaluation isolation. Interface en/fr/es, English fallback, tone only for generated prose. MCP --workspace or user preferences, path-free source; native files contain fixed English rules only. C05j/C06/C07 prove byte invariance |
 | Verified startup updates | `chat.M006 release`, `chat.M027 TUF`, `delivery.C17 signed releases, freshness, revocation, transparency`, `owner.m024`: C16c–C16g add off/daily discovery, user-only catalog auto with narrowing ceilings, widening/hook consent, invariant receipts and trusted catalog rollback. Runtime propose-only; MCP never applies or carries release-note instructions; no mid-task activation |
-| User-approved workspace path trust | `owner.m001.guardrails`, `owner.m032`, `chat.M036 classes, M039 policy`, `chat.M006 destructive`: C05h/C05i/C05j and C20 use kernel-only canonical trust records, explicit add/list/remove with exact confirm-path for CI, root/HOME refusal and unchanged edited preferences. Shared policy denies outside writes and secret reads/escapes; Copilot denies agent-shell trust commands. Other host containment stays S4; internal paths never become tool grants |
+| User-approved workspace path trust | `owner.m001.guardrails`, `owner.m032`, `chat.M036 classes, M039 policy`, `chat.M006 destructive`: C05h/C05i/C05j and transferred C20/S4 use kernel-only canonical trust records, explicit add/list/remove with exact confirm-path for CI, root/HOME refusal and unchanged edited preferences. Shared policy denies outside writes and secret reads/escapes; C20/S4 denies Copilot agent-shell trust commands; all host containment stays S4; internal paths never become tool grants |
 | Modular delivery | The same rows above: `WorkspacePreferences`, `WorkspaceTrust`, `UpdateSource`, pure instruction construction and `ClientPreferencesDelivery` are small typed ports. New clients/sources add adapters without editing callers; no adapter can weaken mandatory controls or imply a plugin runtime |
 
 ### Named remaining obligations
@@ -852,9 +852,9 @@ part of C28's evidence for these existing rows, never an untracked M3 promise.
   Test adapter payloads on both providers with each tone and a non-interface
   language; preserve selected tag and English artifact/log rules, reject
   model-supplied preference replacement. S3 tests construction/delivery only.
-- **S4 non-Copilot workspace-trust hook obligation** (remaining portion of
-  `product.GD2, GD4, GD5` and the existing hook deferral): Pi, Codex and Claude
-  Code must use qualified trusted event/identity adapters with the same path
+- **S4 workspace-trust hook obligation** (remaining portion of
+  `product.GD2, GD4, GD5` and the existing hook deferral): transferred C20
+  Copilot (4 h), Pi, Codex and Claude Code must use qualified trusted event/identity adapters with the same path
   policy. Test actual outside-write, secret-read, symlink-escape and agent-shell
   trust administration, including correct --confirm-path arguments, with allowed
   neighbours and zero executor calls on denial.
@@ -883,3 +883,45 @@ exact installed pins. No installs/upgrades, real owner configuration or enterpri
 policy changes; broader scope needs fresh OA2 approval. Plain C08 does not wait
 for TUI evidence; the tag grammar needs no parser dependency. None of these
 approvals or dispositions claims that tasks or live checks have run.
+
+## 23. Manifest v4, owner approval 2026-09-30
+
+[ADR-0022](../adr/0022-manifest-layout-v4-and-language-neutral-extensions.md),
+[S3 D13–D15](../../specs/003-catalog/plan.md#d13-manifest-v4-source-contract)
+and the [exact requirement map](../../specs/003-catalog/tasks.md#requirements-coverage)
+replace the earlier layout, single-owner and live-hook dispositions. The 85
+source keys and six exclusions remain frozen; no architecture row is invented
+for a new FR. traceability.json adds exact FR/task, MD01–MD16 and G01–G13 links,
+all planned, not delivered. There are 68 FR and 25 SC after the amendment.
+
+Mandatory standards/common, framework core and selected teams/languages compose
+by explicit closures, not overwrite precedence. Ten personas and eight language
+profiles ship in Phase 1; knowledge-only projection stays thin. Delegated
+maintainers cannot self-approve ownership; trusted CI verifies identities and
+base-owner exact-head approval. Schemas/indexes/CODEOWNERS are generated from
+one checked registry. Standard imports remain read-only until Phase 2/ST1's
+single-authority switch. No copied non-Rust gate or automatic private grant.
+
+The minimal amendment is 149 h Phase 1 and 121 h Phase 2, beginning immediately
+after M3. G07–G11 guides/guard evidence cost 12 h in Phase 1; G12 context limits
+cost 6 h in Phase 2, per the supervisor's correction. C29 audits 395 legacy
+inputs before M3 with explicit deferred recovery. C20's 4 h transfers to S4.
+Independent package releases, scaffolder, generic evals, extensions and named
+gap kits retain their Phase 2 milestones. Any-language extensions run out of
+process: MCP actions, separate durable engine events, no launch during S3
+check/compile/install. Standards/pins/signing/trust/owned-removal and existing
+M3 quality controls are not deferred. S6's restricted private collection mount,
+seven later language-gate projects and post-M1 live model/router work remain
+separate; no private content was read or published by this amendment.
+
+The owner at 20:45 made manifests the sole home for URL policy/decision/
+promotion/expiry/migration JSON. `delivery.§2.2` now maps source-owned rules,
+core-derived published schemas and signed-release plus recorded owner/maintainer
+review; collections carry only strict JSON declarations and exact references.
+C66 rises 3→4 h, giving the 149/121 h totals above; C52a/b/C68 and C41/C43 add
+0 h. FR-S3-068/SC-S3-025 carry this new contract without another architecture
+key. S6 alone supplies the runtime `PolicySource`/`ResourceSource` catalog
+adapter; its task/hours are assigned separately. C66's N07 `IdentityMigration`
+type synchronization is pending landing, not delivered evidence or permission
+to use the under-review commit. Private source rules use admitted private
+packages (C69); C42 stays restricted and core stores no real per-site rules.

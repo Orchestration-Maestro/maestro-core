@@ -21,7 +21,7 @@ not fixture work. This scoped exception is recorded in
 | **S0 Foundation** | Clean `maestro-core` (canonicalization only) under org gates; the repositories S1 needs published; Spec Kit | 4–6 days (measured scope) | — | — |
 | **S1 Knowledge kernel + hybrid RAG** | Kernel building blocks; Control-M collection imported, published and searchable through MCP; eval suites; first model bake-off | 12–15 days | S0 | **M1 "Ask Control-M"** |
 | **S2 Knowledge graph** | Fact store, extraction, entity resolution, Neo4j projection, graph route, graph evals | 10–15 days | S1 | **M2 "Relationships answered"** |
-| **S3 Catalog** | Copilot-native catalog v1, settings classes and overrides, compile/release/install/update with freshness and revocation, `maestro init`, host projection, intent routing, policies and static graph checks | 218–230 lane-hours plus review/CI reserve; deferred S6 contracts separate ([plan](../../specs/003-catalog/plan.md#risks-and-estimates)) | S1 live evidence for C08/C28 and M1 release for M3 exit; S2 G25/G27 for impact | **M3 "Catalog installable"** |
+| **S3 Catalog** | Copilot-native catalog v1, settings classes and overrides, compile/release/install/update with freshness and revocation, `maestro init`, host projection, intent routing, policies and static graph checks | Phase 1 356–368 h; Phase 2 121 h; reserve and S6 separate ([plan](../../specs/003-catalog/plan.md#risks-and-estimates)) | S1 live evidence for C08/C28 and M1 release for M3 exit; S2 G25/G27 for impact | **M3 "Catalog installable"** |
 | **S4 Orchestration runtime** | Workflow graphs, durable engine, daemon, Copilot SDK + llama.cpp sessions, Cedar broker, sandbox, contracts, interrupts, extension host and event stream, test kit | 18–24 days | S3 | **M4 "First governed workflow"** |
 | **S5 Capabilities + InnerSource** | Monitoring, Product Owner and Control-M orchestration-planning capabilities; scaffolder; scenario runner; a contributed capability | 10–15 days | S4 | **M5 "First contributed capability"** |
 | **S6 Native acquisition** | Frontier, fetchers, extraction, policy; private BMC connectors; Python retired source by source | 15–25 days | S1 | **M6 "Python retired"** |
@@ -149,14 +149,14 @@ an M3 exit criterion, and no S3 task executes a workflow graph.
 | Bootstrap | Branded, keyboard/plain/no-color `maestro init` and the same every-setting editor on no-argument `maestro config`, generated from S1 descriptors with current value, allowed values, description and source; existing class/layer/authority restrictions. Strict workspace config, language/tone, user-approved folder trust, updates and overrides; scripted flags plus `--yes`, explicit apply, base/Rust composition and owned-file safety |
 | Session preferences and trust | Free flags > safely discovered workspace > user preferences > defaults; updates/budgets only narrow. Bounded canonical BCP 47 subset; question-language answers when unset, evaluation unchanged. en/fr/es interface, English fallback otherwise; English artifacts/logs. MCP --workspace or user-only snapshot, path-free source; static native English rules. Kernel-only path trust, immutable secret deny data |
 | Startup updates | Off or daily offline-safe verified discovery; default propose, user-only catalog auto before work, mandatory widening/hook consent, receipts and trusted catalog rollback. Runtime propose-only; MCP never applies, fixed ID/target/version notice only. Never update trusted roots |
-| Catalog v1 content | Written from zero ([03 §1.8](03-agent-orchestration.md#18-writing-the-first-catalog)): the `feature-delivery` and `ctm-question` workflows, the Maestro orchestrator and the owner's roles they need (planner, coder, tester, reviewer; builder as a step), and only the skills, instructions, contracts, Cedar policies (default deny, destructive operations, protected paths, egress, MCP allowlist, each with allowed and denied fixtures), model profiles (`fast`, `balanced`, `deep`) for `copilot` and `llamacpp`, MCP server descriptors and discovery cards those workflows use; every file's pull request names its 08 rows |
+| Catalog v4 content | Global mandatory standards, eight root language profiles and ten core personas; core feature-delivery, team workload-question, exact card identities and separate session profiles. Owner-approved recovery with C29 pre-M3 provenance/defer audit; no placeholders or private content. Full non-Rust gates are later projects |
 | Kinds and model cards | C03 finite floats/structured tables and named hooks permit descriptor-only lifecycle extension. C03a adds exact kernel v2 model-card declarations; C02a supplies owner-approved winners before C28. C16h explicitly registers admitted installed cards with local evidence, reusing kernel authority and one lock-bound lookup. No implicit registration, new role, download or fake selection/qualification |
 | Release | Manifests CI: check, policy tests, bundle plus SPDX JSON SBOM of pinned components/digests, per-asset checksums, attestations and verification instructions (SEC-011) |
-| Hosts | Copilot/Pi projection (preview, apply, owned removal); four-client local MCP registration (Pi, Codex, Claude Code, Copilot CLI); only Copilot `preToolUse` → `maestro policy check` in S3. Other hooks wait for S4 trusted event/identity adapter qualification |
+| Hosts | Copilot/Pi owned projection and four-client local MCP remain S3. Ten-point subscription/host maps have explicit mapped/unsupported/unqualified states; C20 live Copilot hook moves to S4 with 4 h, alongside other trusted host qualification |
 | Static graph checks | C22a/C22b check all twelve [03 §2.3](03-agent-orchestration.md#23-compile-time-validation) rules; unsupported constructs are refused. Execution and live role qualification remain S4 |
 | Routing | Exact-ID/local lexical baseline, scoped discovery cards, conditional measured hybrid; C27a's separate catalog edge schema/adapters over S2 G27's public typed-edge port after G25 qualification, then C27 exact impact. No evidence-span claims or implicit closure fallback |
 | Spike | ADR-0005 retained; C03 uses integrated [C01 evidence](../../specs/003-catalog/research/hosts.md) (`0be954b`). Agent sidecars confirmed (Copilot 1.0.88 ignores agent metadata); skills use specification-backed `metadata`, not support inferred from the silent unknown-key control. A host warning reopens ADR-0005's sidecar decision |
-| Comparison pass (after M3) | The earlier catalog read once against the new one; each recovered item its own pull request citing it; the rest listed with the reason |
+| Recovery audit before M3 | C29 assigns every one of 395 authorized legacy input files a provenance/disposition; named minimal-option deferrals remain Phase 2, not claimed shipped |
 
 **Exit criteria:** a tagged bundle is attested by manifests CI and verified by
 pinned `gh` through `maestro catalog install`; revoked, expired or replayed
@@ -166,8 +166,9 @@ offline expiry within 24 hours. An unclassified setting is rejected;
 cleanly and stops on collisions. Projection is idempotent and removes only
 unchanged owned content. Every policy and static graph rule
 has passing allowed and denied neighbours. C28 requires M1 release, S2 impact,
-live host/release evidence (including Copilot `preToolUse` allow, deny and
-hook-error-to-deny receipts in the OA2 host stage) and final three-platform CI.
+live native-load/MCP/release evidence, all Phase 1 standards/language/delegation/
+backend/checkpoint/gap proofs, and final three-platform CI. Static host maps
+never substitute for C20/S4 live effects or claim protection.
 
 **D5 routing exit — OA10 approved (owner, 2026-09-28):** the absolute bar is
 held-out matchable **top-1 ≥ 90 %**, requiring a correct first selection rather
@@ -196,18 +197,34 @@ precedence, conversational/artifact separation, four-client instruction delivery
 menu accessibility/visual acceptance, trust-backed real file denials, and startup
 off/propose/catalog-auto/approval/rollback/offline cases. Plain init serves C08
 without TUI/OA9; branded visual acceptance is required before M3, not the first
-owner loop. After the 2026-09-30 owner-first amendment, S3 has
-[68 tasks / 218–230 lane-hours](../../specs/003-catalog/tasks.md#critical-paths-and-effort),
-including C16h's split, C30–C39's migration and C40's native projection delta.
-C08's dependency closure is 103–115 h; C28 M3 requires 215–227 h, then C29 adds
-3 h. With the unchanged 16–24 h review/CI reserve, allow 234–254 h for S3.
-Deferred S6 collection contracts C41–C43 add 3 tasks / 6–10 h separately; they
-never gate M3 and include no crawler. The earlier 57-task / 191 h total,
-72 h C08 and 188 h M3 are historical baseline figures, not current or remaining
-work. These are whole-plan estimates, not a promise to spend completed tasks'
-hours again or a calendar commitment. Configuration, path trust, release
-sources and client delivery remain small modules with explicit ports; new
-adapters do not change callers or weaken mandatory controls.
+owner loop. The approved v4 minimal amendment is **149 h Phase 1 + 121 h
+Phase 2 = 270 h**, including the retained S2 7 h; **243 h above** the earlier
+approved 27 h, not stacked on it. Detailed gap rows place G01/G07–G11 (16 h)
+in Phase 1 and G12 context accounting (6 h) in Phase 2. Phase 2 begins right
+after M3: ST1 single-authority standards switch; A0 authoring; R1 recovery/kits;
+L1 independent/private releases; X1 extensions before S4; E1 generic package
+CI evals; A1 explain/context accounting. S3 executes no extension or hook.
+
+The owner's 20:45 URL-rule decision adds **C66 +1 h (3→4)** to the original
+148 h Phase 1 amendment, giving 149 h. Knowledge sources hold strict JSON rules,
+decisions/promotions/expiry and identity migrations; core-derived schemas are
+published with fixtures. C52a/b/C68 add 0 h; C41/C43 keep their S6 budgets and
+switch to collection JSON referencing those rules. S6 separately owns the
+catalog-backed `PolicySource`/`ResourceSource` adapter; N07's shared migration
+type must land and synchronize before C66 fixtures, not a live-adapter M3 gate.
+Private inventories use C69's admitted packages, never a widened C42 mount.
+
+Whole S3 [accounting](../../specs/003-catalog/tasks.md#critical-paths-and-effort)
+is **143 tasks / 477–489 h**: Phase 1 **108 tasks / 356–368 h**, Phase 2
+**35 tasks / 121 h**. Add the unchanged 16–24 h review/CI reserve separately;
+S6 C41–C43 remain 3 tasks / 6–10 h, never an M3 prerequisite. C20 transfers
+4 h to S4, not a project saving. C08 closure is 54 tasks / 178–190 h; internal
+longest paths remain C08 62–70 h, M3 79–86 h after gap recomputation.
+These count completed historical work and exclude external wait/serialization;
+they are not remaining-hour or calendar commitments. Seven later full
+non-Rust gate projects add 168–280 h outside this amendment. Existing signed
+catalogs, exact compatibility/pins, Cedar/local trust/owned removal and quality
+bars remain M3 requirements, never deferrals.
 
 Before C17, the supervisor synchronizes S1's landed registry/kernel APIs into S3.
 The 21:02 ruling makes S1 registry names canonical; C17 adds only missing catalog
@@ -231,7 +248,7 @@ query_expander still refuses through the kernel's unknown-role path.
 | Broker + sandbox | Cedar decisions on normalized arguments, approvals, Landlock + seccomp + network namespace + cgroups, worktrees |
 | Acceptance | Contracts, semantic validators, evidence cross-check, bounded repair |
 | Surface | `maestro run …` CLI; MCP run tools as long-running tasks; local HTTP API with server-sent events; schedules; OTel spans for runs |
-| Extensions | Extension host, Maestro Extension Protocol, process extensions, outbound webhooks, public event catalogue with schema compatibility tests, a reference `echo` extension ([07](07-extensibility.md)) |
+| Extensions | Any-language out-of-process extension host (Maestro code stays Rust), MCP actions plus durable versioned engine events/cursors, outbound webhooks, public event catalogue with schema compatibility tests, a reference `echo` extension ([07](07-extensibility.md)) |
 | Qualification | Provider qualification on both routes (direct endpoint, then SDK), the first model cards and the qualification registry, the test kit and released scenario runner with strict replay rules |
 
 **Exit criteria:** `feature-delivery` completes on the maestro-release-canary repository
@@ -249,9 +266,10 @@ three tones and a language without built-in interface strings, retaining the
 selected tag and English code/commit/name/identifier/log/documentation rule.
 S3 construction/delivery tests are not this launch proof or proof of host obedience.
 
-**S4 non-Copilot workspace-trust hook obligation:** qualify Pi, Codex and Claude
-Code's trusted event/identity adapters against the same `WorkspaceTrust` port.
-Actual hook/effect tests must deny outside writes, secret reads inside trust,
+**S4 workspace-trust hook obligation:** qualify Copilot (transferred C20,
+4 h), Pi, Codex and Claude Code's trusted event/identity adapters against the same `WorkspaceTrust` port.
+C20 requires actual Copilot allow, deny and error-to-deny receipts with
+observed effects; all hook/effect tests must deny outside writes, secret reads inside trust,
 link escapes and agent-shell trust administration (even a correct
 `--confirm-path`), with allowed neighbours and zero
 executor calls on denial. These extend the existing S4 hook qualification,

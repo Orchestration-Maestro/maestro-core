@@ -22,6 +22,20 @@ cuts them into token-budgeted chunks; later capabilities arrive slice by slice
 | Follow the active slice | [S1 knowledge kernel](specs/001-knowledge-kernel/spec.md) |
 | Work in this repository | [AGENTS.md](AGENTS.md) |
 
+## Catalog design
+
+The approved [S3 specification](specs/003-catalog/spec.md) records manifest v4:
+mandatory standards, shared language declarations, framework and team areas,
+delegated ownership and verified package selection. [The plan](specs/003-catalog/plan.md#d13-manifest-v4-source-contract)
+and [task ledger](specs/003-catalog/tasks.md#critical-paths-and-effort) separate
+Phase 1/M3 from Phase 2 immediately afterward; they are not delivery evidence.
+Any-language extensions run out of process; S3 checks/installs without launching
+content, and all live hook/extension execution belongs to S4. Maestro code stays
+Rust. Signed releases, exact compatibility/pins and safe removal remain M3 gates.
+Knowledge sources own reviewed URL-rule JSON and published type-derived schemas;
+collections reference them, while S6 supplies the runtime catalog adapter.
+Private URL inventories stay in admitted private manifest packages.
+
 ## Develop
 
 The crates build and pass their tests on Linux, macOS and Windows; CI runs them
