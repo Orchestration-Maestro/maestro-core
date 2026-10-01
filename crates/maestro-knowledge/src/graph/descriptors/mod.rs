@@ -12,6 +12,8 @@ mod tests_backend;
 #[cfg(test)]
 mod tests_embedding;
 #[cfg(test)]
+mod tests_hold;
+#[cfg(test)]
 mod tests_namespace;
 #[cfg(test)]
 mod tests_projection;

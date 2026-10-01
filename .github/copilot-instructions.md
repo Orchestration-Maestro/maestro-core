@@ -967,6 +967,7 @@ in place.
 │   │   │   │   │   ├── tests.rs                                             # Source-only composition and fail-closed pointer checks
 │   │   │   │   │   ├── tests_backend.rs                                     # Synthetic transport double for the existing retrieval port, not a second store
 │   │   │   │   │   ├── tests_embedding.rs                                   # Compatible outputs are shared across arms; mismatches cannot inherit readiness
+│   │   │   │   │   ├── tests_hold.rs                                        # Canonical held-endpoint selection and pair-local refusal
 │   │   │   │   │   ├── tests_namespace.rs                                   # Audited identities stay held for review or cross the projection unchanged
 │   │   │   │   │   ├── tests_projection.rs                                  # Rebuild equality and backend-scoped deterministic lookup fixtures
 │   │   │   │   │   ├── tests_source.rs                                      # Real kernel authority survives disposable descriptor deletion

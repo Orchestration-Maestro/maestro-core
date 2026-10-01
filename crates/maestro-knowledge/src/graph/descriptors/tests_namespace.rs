@@ -139,3 +139,51 @@ async fn reviewed_namespace_identity_survives_authority_embedding_and_projection
     );
     assert_eq!(build(&fixture.read()).unwrap(), build(&original).unwrap());
 }
+
+#[test]
+fn g10_review_multiple_held_endpoints_choose_canonical_entity() {
+    use super::{DescriptorError, DescriptorInput};
+    use crate::graph::resolve::resolve_snapshot;
+
+    let fixture = Authority::new();
+    let (held, mut input) = record_separation(&fixture);
+    input.previous = Some(held.id);
+    let mut object = input.decisions[0].clone();
+    object.left.endpoint = Endpoint::Object;
+    object.right.endpoint = Endpoint::Object;
+    input.decisions.push(object);
+    let snapshot = fixture
+        .database
+        .record_resolution(&fixture.scopes, "builder", &input, &validate_snapshot)
+        .unwrap();
+    let read = DescriptorInput::read(
+        &fixture.database,
+        &fixture.scopes,
+        "builder",
+        (&fixture.pin, &snapshot.id),
+    )
+    .unwrap();
+    let entities = resolve_snapshot(&read.snapshot).unwrap();
+    let held: Vec<_> = entities
+        .iter()
+        .filter(|entity| {
+            !entity.colliding.is_empty()
+                && entity
+                    .mentions
+                    .iter()
+                    .any(|mention| read.claims.iter().any(|record| record.id == mention.claim))
+        })
+        .map(|entity| entity.id.clone())
+        .collect();
+    assert_eq!(held.len(), 2);
+    assert_eq!(
+        held[0].as_str(),
+        "9dad7d3c60690eb52f1f1944134592751d29e05cbd2edd8d6169c1155f59a6a6"
+    );
+    let expected = DescriptorError::HeldForReview(held[0].clone());
+    let actual = build(&read).unwrap_err();
+    eprintln!("R1 held attached IDs = {held:?}");
+    eprintln!("R1 expected = {expected:?}");
+    eprintln!("R1 actual = {actual:?}");
+    assert_eq!(actual, expected);
+}

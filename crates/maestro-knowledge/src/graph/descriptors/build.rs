@@ -13,7 +13,10 @@ use maestro_kernel::{
     },
 };
 use serde_json::{Value, json};
-use std::collections::BTreeMap;
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    iter::once,
+};
 
 /// Read-only authority/artifact view; production callers obtain it from `read`.
 #[derive(Debug)]
@@ -43,6 +46,30 @@ pub struct DescriptorInput {
 pub fn build(input: &DescriptorInput) -> Result<Vec<Descriptor>, DescriptorError> {
     let entities =
         resolve_snapshot(&input.snapshot).map_err(|_| refused("invalid identity snapshot"))?;
+    let attached: BTreeSet<_> = input
+        .claims
+        .iter()
+        .flat_map(|record| {
+            let subject = Mention {
+                claim: record.id.clone(),
+                endpoint: Endpoint::Subject,
+            };
+            let object = matches!(record.claim.object, Object::Entity(_)).then(|| Mention {
+                claim: record.id.clone(),
+                endpoint: Endpoint::Object,
+            });
+            once(subject).chain(object)
+        })
+        .collect();
+    if let Some(held) = entities.iter().find(|entity| {
+        !entity.colliding.is_empty()
+            && entity
+                .mentions
+                .iter()
+                .any(|mention| attached.contains(mention))
+    }) {
+        return Err(DescriptorError::HeldForReview(held.id.clone()));
+    }
     let mut documents = BTreeMap::new();
     for record in &input.claims {
         let claim = &record.claim;
@@ -62,9 +89,6 @@ pub fn build(input: &DescriptorInput) -> Result<Vec<Descriptor>, DescriptorError
                 .iter()
                 .find(|entity| entity.mentions.contains(&mention))
                 .ok_or_else(|| refused("unresolved endpoint"))?;
-            if !target.colliding.is_empty() {
-                return Err(DescriptorError::HeldForReview(target.id.clone()));
-            }
             let pointer = SourcePointer {
                 revision_id: support.revision_id.clone(),
                 block_id: support.block_id.clone(),
