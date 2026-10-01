@@ -4,7 +4,7 @@ use super::{
     Descriptor, DescriptorEmbedder, DescriptorQuery, EmbeddedDescriptors, build, qdrant,
     tests_backend::Backend, tests_embedding::card, tests_source::Authority,
 };
-use crate::index::ProjectionFilter;
+use crate::index::{ProjectionFilter, point_id};
 use maestro_kernel::{artifact::Digest, facts::ReviewState, gateway::FakeModels};
 use serde_json::json;
 use std::time::Duration;
@@ -411,6 +411,37 @@ async fn lookup_refuses_well_typed_canonical_pin_identity_and_receipt_tampering(
     assert!(
         returned.is_empty(),
         "tampered canonical fields were returned: {returned:?}"
+    );
+}
+
+#[tokio::test]
+async fn lookup_refuses_reidentified_document_under_another_pin() {
+    let mut fixture = Authority::new();
+    fixture.pin.version = Some("1.0".into());
+    let output = embedded(&fixture).await;
+    let backend = Backend::default();
+    qdrant::rebuild(&backend, &output).await.unwrap();
+    let hits = qdrant::lookup(&backend, output.receipt(), claim_query())
+        .await
+        .unwrap();
+    assert_eq!(hits.len(), 1);
+    let mut point = backend.points.lock().unwrap().remove(&hits[0].id).unwrap();
+    let mut document: Descriptor = serde_json::from_value(json!(point.payload)).unwrap();
+    document.pin.version = Some("2.0".into());
+    document.id = document.identity();
+    point.id = point_id(&format!("descriptor:{}", document.id.as_str()));
+    // Keep receipt A and all pin-A filter keywords; only canonical pin/IDs change.
+    point.payload.insert("pin".into(), json!(document.pin));
+    point.payload.insert("id".into(), json!(document.id));
+    backend
+        .points
+        .lock()
+        .unwrap()
+        .insert(point.id.clone(), point);
+    let result = qdrant::lookup(&backend, output.receipt(), claim_query()).await;
+    assert!(
+        result.is_err(),
+        "receipt A returned a consistently reidentified pin-B document: {result:?}"
     );
 }
 
