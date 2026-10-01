@@ -28,8 +28,10 @@ const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 
 #[cfg(feature = "test")]
 thread_local! {
-    /// A thread-local override so parallel unit tests keep independent timeouts.
-    static TEST_BUSY_TIMEOUT: Cell<Duration> = const { Cell::new(BUSY_TIMEOUT) };
+    /// Test support only: the busy timeout of the connections this thread
+    /// opens next, per thread so parallel tests keep independent timeouts.
+    /// Normal builds keep the fixed five-second timeout.
+    pub static WRITER_BUSY_TIMEOUT_FOR_TESTS: Cell<Duration> = const { Cell::new(BUSY_TIMEOUT) };
 }
 /// The database's file in the kernel's data directory.
 const FILE: &str = "kernel.sqlite3";
@@ -50,14 +52,6 @@ pub struct Database {
 }
 
 impl Database {
-    /// Overrides the busy timeout of connections subsequently opened on this thread.
-    ///
-    /// Test support only: normal builds keep the fixed five-second timeout.
-    #[cfg(feature = "test")]
-    pub fn set_writer_busy_timeout_for_tests(timeout: Duration) {
-        TEST_BUSY_TIMEOUT.set(timeout);
-    }
-
     /// The database in the file `database`, with its artifacts under
     /// `artifacts`: created, with its missing directories, for the owner
     /// only, then migrated. Relative paths are resolved against the current
@@ -216,7 +210,7 @@ pub(super) fn configured(connection: Connection) -> Result<Connection, Error> {
     #[cfg(not(feature = "test"))]
     connection.busy_timeout(BUSY_TIMEOUT)?;
     #[cfg(feature = "test")]
-    connection.busy_timeout(TEST_BUSY_TIMEOUT.get())?;
+    connection.busy_timeout(WRITER_BUSY_TIMEOUT_FOR_TESTS.get())?;
     connection.pragma_update(None, "foreign_keys", true)?;
     connection.pragma_update(None, "recursive_triggers", true)?;
     Ok(connection)
