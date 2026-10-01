@@ -4,8 +4,10 @@
 //! lists at most [`DIAGNOSTICS`] diagnostics, then a count of the rest.
 
 use super::{
+    descriptor::Scope,
     graph,
     load::{Context, Loaded, load},
+    placements::{directories, fits},
     registry::Registry,
     scan::scan,
     tree::SourceTree,
@@ -100,7 +102,7 @@ fn across(loaded: &[Loaded], registry: &Registry) -> Vec<Diagnostic> {
         .iter()
         .map(|(id, loaded)| (id.clone(), &loaded.resource))
         .collect();
-    let global_languages = global_languages(&resources);
+    let global_languages = global_languages(&resources, registry);
     for resource in catalog.values() {
         diagnostics.extend(references(
             resource,
@@ -145,8 +147,8 @@ fn references(
             {
                 format!("kind {} may not require {target}", loaded.resource.id.kind)
             } else if let Some(required) = resources.get(target) {
-                let from = layer(&loaded.resource, global_languages);
-                let to = layer(required, global_languages);
+                let from = layer(&loaded.resource, global_languages, registry);
+                let to = layer(required, global_languages, registry);
                 if ALLOWED_LAYERS.contains(&(from, to)) {
                     return None;
                 }
@@ -194,13 +196,35 @@ const ALLOWED_LAYERS: [(Layer, Layer); 14] = [
     (Layer::Preset, Layer::Preset),
 ];
 
-/// Classifies a fixed checked placement, including root-support resources in common.
-fn layer(resource: &Resource, global_languages: &BTreeSet<String>) -> Layer {
-    match resource.path.split('/').next().unwrap_or_default() {
-        "presets" => Layer::Preset,
-        "core" => Layer::Core,
-        "capabilities" => Layer::Team,
-        "languages" if !global_languages.contains(area_name(resource)) => Layer::Language,
+/// Classifies the registered kind and scope, including root-support resources in common.
+fn layer(resource: &Resource, global_languages: &BTreeSet<String>, registry: &Registry) -> Layer {
+    let Some(registration) = registry.kind(&resource.id.kind) else {
+        return Layer::Global;
+    };
+    let descriptor = &registration.descriptor;
+    if descriptor.kind == "preset" {
+        return Layer::Preset;
+    }
+    let scope = descriptor
+        .scopes
+        .iter()
+        .zip(directories(descriptor))
+        // Empty Common placement is the Global fallback, not every area's prefix.
+        .filter(|(_, directory)| !directory.is_empty())
+        .find_map(|(scope, directory)| {
+            let count = directory.split('/').filter(|part| !part.is_empty()).count();
+            let boundary = resource
+                .path
+                .split('/')
+                .take(count)
+                .collect::<Vec<_>>()
+                .join("/");
+            fits(&directory, &boundary).then_some(*scope)
+        });
+    match scope {
+        Some(Scope::Core) => Layer::Core,
+        Some(Scope::Team) => Layer::Team,
+        Some(Scope::Language) if !global_languages.contains(area_name(resource)) => Layer::Language,
         _ => Layer::Global,
     }
 }
@@ -216,12 +240,15 @@ fn area_name(resource: &Resource) -> &str {
 
 /// Languages reached explicitly from common/standards join Global as whole areas.
 /// Iterative traversal keeps cycles bounded; the normal graph check still refuses them.
-fn global_languages(resources: &BTreeMap<ResourceId, &Resource>) -> BTreeSet<String> {
+fn global_languages(
+    resources: &BTreeMap<ResourceId, &Resource>,
+    registry: &Registry,
+) -> BTreeSet<String> {
     let mut languages: BTreeMap<&str, Vec<&Resource>> = BTreeMap::new();
     let mut pending = Vec::new();
     let empty = BTreeSet::new();
     for resource in resources.values() {
-        match layer(resource, &empty) {
+        match layer(resource, &empty, registry) {
             Layer::Global => pending.push(*resource),
             Layer::Language => languages
                 .entry(area_name(resource))
@@ -231,16 +258,12 @@ fn global_languages(resources: &BTreeMap<ResourceId, &Resource>) -> BTreeSet<Str
         }
     }
     let mut global = BTreeSet::new();
-    let mut visited = BTreeSet::new();
     while let Some(resource) = pending.pop() {
-        if !visited.insert(&resource.id) {
-            continue;
-        }
         for target in &resource.metadata.requires {
             let Some(target) = resources.get(target) else {
                 continue;
             };
-            if layer(target, &empty) == Layer::Language
+            if layer(target, &empty, registry) == Layer::Language
                 && global.insert(area_name(target).to_owned())
             {
                 pending.extend(

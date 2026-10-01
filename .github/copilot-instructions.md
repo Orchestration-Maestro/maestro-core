@@ -539,6 +539,7 @@ in place.
 │   │   │   │   │   ├── extension.rs                                         # The owner's scaling requirement: a new kind is one descriptor plus
 │   │   │   │   │   ├── git_boundary.rs                                      # Git administration is outside the filesystem source view, not a dotfile filter
 │   │   │   │   │   ├── hostile.rs                                           # Hostile sources inside D2's limits: YAML aliases that expand past their
+│   │   │   │   │   ├── layer_placements.rs                                  # Registered placements retain their dependency layer outside canonical folders
 │   │   │   │   │   ├── layout.rs                                            # The catalog's layout: agent and sidecar pairing, duplicate IDs, entries
 │   │   │   │   │   ├── mod.rs                                               # The source checker's tests: the valid synthetic catalog and each of its
 │   │   │   │   │   ├── model_card.rs                                        # Rust source: model card
