@@ -106,6 +106,29 @@ these are obligations, not passing evidence. Security IDs also follow the
   automatic prebuilt downloads removed. Adopt only a freshly qualified combined
   immutable pin. This does not waive the true-cold build bar or feature gates.
 
+### Approved manifest v4 cross-slice obligations
+
+The approved S3 `30b702b` handoff (`specs/003-catalog/tasks.md:3969–3974`)
+is part of S2's existing requirement scope, not evidence of implementation.
+Typed backend settings and frozen configuration/lock inputs cross the existing
+ports; knowledge does not parse catalog TOML or gain another authority.
+
+| Existing owner | Approved addition | Required inputs |
+| --- | --- | --- |
+| G01 | +1 h to reconcile the manifest v4 graph contract. | C44. |
+| G26 | +1 h for registry-backed graph settings in setup/health. | C46, G25, G01. |
+| G27 E07a | +2 h for the frozen settings/lock handoff into native activation. | C47a, G01, combined fork, G25, released E04. |
+| E08b | +1 h to carry settings/locks through reader, writer and publication. | E08a and E06, unchanged; these paths describe scope, not new edges. |
+| G28 | +1 h to bind those inputs to the existing loader/rebuild. | C47a and G26/G27/G35 graph prerequisites. |
+| G22 | +1 h for qualified backend declarations in the native/release drill. | C48 and existing release inputs. |
+
+S2 MUST preserve **qualification → C48 → G22 → C49a**, never C48 ↔ G22.
+C49a also requires **E11 and G28**; qualified pins come from actual execution
+receipts, never invented metadata. C49a remains S3-owned, not a new S2 task.
+The increment is **7 h** (4 G + 3 E), retaining **37 G tasks and 14 E slices**:
+**149 h** bounded G + **43–89 h** E = **192–238 h** full-plan effort, not remaining
+work or elapsed time. Task files, tests and acceptance ownership are retained.
+
 ## Needs owner action
 
 | Action | Trigger / blocked work | Recommendation |
@@ -352,6 +375,10 @@ paths, claims, evidence and coverage. Repeat after authoritative backup/restore.
   namespaces within one collection before freeze: an unresolved collision
   blocks automatic resolution and is retained for review, not silently merged.
   Any identity-key change requires a separate ruling with synthetic cases.
+  G35 landed before G10's reopened audit; that ordering exception does not
+  satisfy the audit. G10's existing 2 h follow-up MUST recheck G35's descriptor
+  linking and projection handoff against the audited identities and fix findings
+  in the same follow-up, without a silent identity-key change.
 - **FR-S2-007**: LadybugDB MUST be the only graph-read engine, including pilot
   neighbors and all paths, behind G27's projection port. SQLite serves claim
   authority and evidence checks only, never graph queries. The disposable

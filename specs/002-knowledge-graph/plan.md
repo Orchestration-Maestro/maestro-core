@@ -457,6 +457,11 @@ one collection; unresolved collisions block automatic resolution for review.
 A changed identity key or missing documentary vocabulary needs a narrow ruling/
 ADR with positive and negative synthetic cases before G07 freeze; never a
 per-product mapping file or silent semantic change.
+G35 nevertheless landed before G10's reopened namespace audit; tasks.md records
+the three integrated commits and the dispatch-order exception. G10's existing
+2 h follow-up must recheck G35's descriptor linking and projection handoff
+against the audited identities and fix findings in that same follow-up.
+Integrated descriptors do not prove the audit passed or authorize a key change.
 
 Version ranges are half-open where ordered bounds are known. Unknown validity
 is explicit, never replaced by capture time. Conditions are typed data from the
@@ -532,6 +537,36 @@ choice; S2 implements neither that trait nor the Neo4j adapter. Graph `none`
 is disabled with zero calls, including opens/probes, distinct from a selected
 but unavailable graph. The deployment mode where the entire knowledge core is
 not installed is a separate concern, not a new SQLite retrieval fallback.
+
+#### Manifest v4 settings and lock handoff
+
+The owner-approved S3 `30b702b` handoff (`specs/003-catalog/tasks.md:3969–3974`)
+adds **7 h** to existing S2 owners; the task delta table is authoritative:
+
+- G01 **+1 h**, after C44: reconcile the approved backend/settings contract.
+  G26 **+1 h**, after C46/G25/G01: consume the S1 registry's manifest-backed
+  graph settings through existing setup/health, not a second defaults producer.
+- G27 E07a **+2 h**, after C47a/G01, the combined E01/E02/E03/E03b fork,
+  fresh G25 qualification and released E04: carry frozen settings and complete
+  non-resource locks into the native adapter. Keep knowledge independent of
+  catalog TOML and concrete SDK types at the port.
+- E08b **+1 h**: carry the approved backend settings/lock handoff through its
+  reader, writer and publication paths. Its prerequisites stay **E08a and E06**;
+  reader/writer/publication describes the delta, not extra or self-dependencies.
+- G28 **+1 h**, after C47a and G26/G27/G35: bind the frozen settings/lock to
+  the existing loader/rebuild; changed inputs cannot replay. Preserve the
+  locked rooted handle, reader/writer modes and verified publication boundary.
+- G22 **+1 h**, after C48 and its existing release/drill inputs: consume the
+  actual qualified backend declarations, preserving native and featureless
+  checks. Qualified fork/lock/build/feature pins are observed execution inputs,
+  never guessed metadata.
+
+The order is **G25/E07a qualification → C48 → G22 → C49a**, never C48 ↔ G22.
+C49a also needs **E11 and G28**, plus its S3 prerequisites. E11 supplies engine
+and gate receipts to the native lifecycle; G22 owns release packaging/drills,
+not a prerequisite for E11 or C48. G27's full umbrella waits for E11; C49a is
+S3's downstream acceptance, not an additional S2 release gate. No existing
+Files/Test/Acceptance is replaced and no landed base closes these deltas.
 
 ### A4 Reads and complete proofs
 
@@ -993,21 +1028,25 @@ private workflow tools; no lane fills the gap with an ad-hoc text-dumping script
 The task accounting and exact dependency calculation are in
 [tasks.md](tasks.md#dependencies-and-parallel-opportunities). There are 37 stable
 G IDs: 36 initial task budgets total **136 lane-hours**, plus **9 h** in five
-explicitly dispatched reopened follow-ups (G06/G10/G18/G31/G19), for **145 h**
-of bounded G work. Their delta/budget/dispatch table is in tasks.md; landed base
-evidence does not complete these new obligations. G27's former 4 h is excluded.
-Its 14 E-slice ranges are estimates from observed lanes, not measured future
-durations: **40–86 h**, giving the arithmetic full-plan sum **185–231 lane-hours**.
+explicitly dispatched reopened follow-ups (G06/G10/G18/G31/G19) and **4 h** in
+cross-slice G follow-ups (G01/G26/G28/G22), for **149 h** bounded G work.
+Their delta/budget/dispatch tables are in tasks.md; landed base evidence does
+not complete these new obligations. G27's former 4 h is excluded.
+Its **14 E-slice** ranges include E07a **+2 h** and E08b **+1 h**, for
+**43–89 h** of E work and **192–238 lane-hours** overall. The cross-slice delta
+is exactly **7 h**; do not count its E hours again outside those ranges.
 This includes already landed base work, not a remaining-work estimate.
-G27-zero dependency accounting, with reopening hours added to their task nodes,
-is **70 h** overall and **45 h** for the **67 h** pilot ancestor set; these are
-bounded-G subtotals, not delivery times. G07 drafting no longer waits for G38;
-G08 final freeze does. The E prerequisite path and `66 + max(4, U)` /
-`41 + max(4, U)` full/pilot formulas in tasks.md account explicitly for the
-unresolved G27 join duration U. G38 step 0 stays within its 4 h budget; these
-conservative task-level paths take no early-handoff overlap credit. Runtime,
-human review, native CI and release/re-pin waits are outside fixed G-task hours.
-No aggregate-work quotient is a delivery-date promise.
+With all G deltas added, G27 weight zero and C/E boundaries treated as already
+available solely to isolate bounded G work, the longest G path is **72 h**
+overall and **47 h** for the **70 h** pilot G ancestor set. These subtotals
+exclude native and cross-slice waits, not qualifications from the actual DAG.
+G07 drafting does not wait for G38; G08 final freeze does. Scheduling must
+expand the E prerequisites through E11 and retain C44/C46/C47a/C48 plus the
+downstream C49a join; a single G27-duration formula cannot represent these
+independent C waits. G38 step 0 stays within its 4 h budget; no early-handoff
+overlap credit is taken. Runtime, human review, native CI and release/re-pin
+waits are outside fixed G-task hours. No combined completion time or
+aggregate-work quotient is a delivery-date promise.
 
 G01–G34 retain their IDs (G29 removed); G35–G38 add descriptor projection,
 passage projection, dependent passage fusion and development selection.

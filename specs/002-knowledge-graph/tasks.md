@@ -26,8 +26,10 @@ Stable IDs preserve the draft's references; G29's second loader is removed.
 **G25 is first**; public construction starts beside it, but pilot reads wait.
 Tasks are dependency-ordered, not numeric. There are **37 G tasks**: 36 bounded
 initial task budgets total **136 lane-hours**, each at most four hours including
-targeted gates, plus **9 h** of separately dispatched amendment follow-ups below
-(**145 bounded lane-hours**) and G27's 14-slice umbrella. Its old 4 h is excluded, not counted twice.
+targeted gates, plus **9 h** of reopened follow-ups and **4 h** of cross-slice
+G follow-ups below (**149 bounded lane-hours**). G27's **14 E slices** total
+**43–89 h**, including their **3 h** cross-slice delta, for **192–238 lane-hours**
+overall. Its old 4 h umbrella budget is excluded, not counted twice.
 G27's E-slice ranges and the exact dependency accounting appear below.
 Every task has a failing check, exact file targets and acceptance criteria.
 Split an overrun before dispatch rather than omit a check. Native CI waits are
@@ -69,7 +71,7 @@ review waits remain separate. If a delta cannot fit, split before dispatch.
 | Task | Delta | Bounded hours | Dispatch trigger |
 | --- | --- | ---: | --- |
 | G06 | Golden 84/16 answer/refusal gates, power-table reproduction, 2,880-request completeness and the single scorer's proof-attrition/citation-support diagnostics. | 3 h | Landed scorer available; dispatch after this amendment, before G07/G08 freeze or G38 measurement. |
-| G10 | Same-name documentary namespace audit and refusal/review tests; no silent identity-key change. | 2 h | Landed resolver and G31 follow-up available; before G35 linking/projection and G38 selection. |
+| G10 | Same-name documentary namespace audit and refusal/review tests; after the audit, recheck G35's descriptor linking and projection handoff against the audited identities and fix findings in this same follow-up; no silent identity-key change. | 2 h | Landed resolver and G31 follow-up available; required before G35 linking/projection and G38 selection, with the landed-G35 exception recorded below. |
 | G18 | Explicit instance `Job` and event-satisfaction-as-dependency refusal tests on the constrained gateway. | 1 h | Landed extraction gateway available; before G19 calibration and G38 inference. |
 | G31 | Matching `Job`/event refusal cases at the closed claim-authority boundary. | 1 h | Landed vocabulary available; before G10 audit and downstream G11/G19/G27 qualification. |
 | G19 | Fixed-window timed calibration with token/wall/GPU/rejection/retry receipts and documentary-scope checks. | 2 h | Landed extractor plus G10/G18/G31 follow-ups and G38 step 0's pre-use card receipt; approved development receipt and GPU slot before timing; before G38 selection. |
@@ -79,6 +81,39 @@ replacement or claim of remaining-project effort. Reopened tasks retain their
 requirement ownership. For the conservative full-plan DAG below, add each row's
 hours to its named task and require that follow-up before its downstream
 consumers; an already landed base never satisfies the amended completion gate.
+
+**Recorded ordering exception:** G35 landed as `bc5f722` + `cfcf788` + `f043e30`
+before G10's reopened namespace audit, contrary to the dispatch trigger above.
+Those commits are integrated descriptor work, not evidence that the audit ran.
+G10 retains its **2 h** follow-up: audit, recheck the landed linking/projection
+handoff against the audited identities, and fix anything found in that same
+follow-up. No silent identity-key change is permitted. Keep G10 → G35 as the
+required completion order; the historical exception adds no reverse G35 → G10
+edge and does not mark either amended obligation complete.
+
+## Approved manifest v4 cross-slice additions
+
+The owner-approved S3 `30b702b` handoff (`specs/003-catalog/tasks.md:3969–3974`)
+adds these deltas to existing IDs, not new tasks or completion credit. Preserve
+each task's Files, Test and Acceptance; use them for the delta's failing-first
+checks too. G follow-ups are separately dispatched, so a historical 4 h task
+plus its 1 h delta is not permission for a 5 h lane.
+
+| Task | Delta | Additional hours | After |
+| --- | --- | ---: | --- |
+| G01 | Reconcile S2's graph contract with C44's approved manifest v4 backend/settings contract. | 1 h | C44; retain the decided D3 and integrated S1 inputs. |
+| G26 | Consume C46's registry-backed graph settings through existing setup/health; preserve disabled/unavailable and owned-root boundaries. | 1 h | C46, G25, G01. |
+| G27 E07a | Wire C47a's frozen backend settings and complete non-resource lock handoff into the qualified native adapter. | 2 h | C47a, G01, combined E01/E02/E03/E03b fork, G25, released E04. |
+| E08b | Carry the approved backend settings and lock handoff through reader, writer and publication paths. | 1 h | E08a, E06, unchanged; reader/writer/publication names the delta's scope, not new predecessors. |
+| G28 | Bind C47a's frozen settings/lock to the existing snapshot loader and rebuild; changed inputs cannot replay. | 1 h | C47a, G26, G27, G35. |
+| G22 | Use C48's actual qualified backend declarations with the existing release/drill inputs; provide native/release evidence to C49a. | 1 h | C48, G14, G15, G16, G19, G30; retain release inputs. |
+
+The increment is **7 h**: **4 h** bounded G work and **3 h** already included
+in the E07a/E08b ranges below. Do not add those E deltas twice. Landed G01/G26
+base work does not satisfy these additions. Qualified pins are execution
+inputs from observed qualification, never invented by this amendment.
+The release order is **qualification → C48 → G22 → C49a**, never C48 ↔ G22;
+C49a additionally requires **E11 and G28**, alongside its S3 prerequisites.
 
 ## S2 integration workflow and global gates
 
@@ -191,7 +226,8 @@ start beside it. No task waits for M1 release; SQLite never answers graph querie
 
 ### G01 [US1] [P] Freeze the pilot and reconcile the design
 
-**Time:** 3 h. **After:** decided D3 and the integrated S1 head; no task dependency.
+**Time:** 3 h initial + 1 h cross-slice follow-up (4 h total).
+**After:** C44; decided D3 and the integrated S1 head remain required.
 **Files:** `S2/spec.md`, `S2/plan.md`, `S2/tasks.md`,
 `docs/adr/0021-embedded-ladybug-graph-projection.md`, `docs/adr/README.md`,
 `docs/adr/0004-neo4j-for-the-graph-projection.md`,
@@ -462,10 +498,15 @@ G05 is a later private pilot-review checkpoint, not a construction prerequisite.
   `capped cargo nextest run -p maestro-kernel store::tests::migrations`;
   known bounds are half-open, record time never supplies unknown world time and
   current grants protect aliases and review records as well as claims.
+  The reopened delta also rechecks G35's descriptor linking and projection
+  handoff against the audited identities, using G35's descriptor tests as well
+  as the existing resolver tests. Fix findings in this same follow-up; preserve
+  the separate-ruling requirement for any identity-key change.
 
 ### G26 [US5] [P] Package and diagnose local embedded operation
 
-**Time:** 3 h. **After:** G01, G25.
+**Time:** 3 h initial + 1 h cross-slice follow-up (4 h total).
+**After:** G01, G25, C46.
 **Files:** `C/src/cli/setup/graph.rs`, `C/src/cli/setup/command.rs`,
 `C/src/cli/health/graph.rs`, `C/src/cli/health/doctor.rs`,
 `C/src/cli/health/status.rs`, `C/tests/it/graph_operations.rs`,
@@ -549,10 +590,10 @@ already uses sub-slices); its range is not an oversized lane authorization.
 | E04 | rust-workflows policy/workflow/planner: exactly `coverage-features` and `mutation-engine`; unrelated-package and feature-only fixtures prove complete ownership, no extra unviable, default+feature coverage and required harvest. | E03 cache interface; supervisor release/re-pin before E07a | 4–8 h |
 | E05 | `P/writer.rs`, `P/content.rs`, shared contract tests: verify/publish/receipt-named open, canonical digest vectors, fixed-width basename, nonterminal verification. | None; landed contract evidence retained | 2–4 h |
 | E06 | `K/src/facts/projection.rs`, read-only store inventory, `P/receipts.rs`: old/missing authority never created/migrated; scoped current inventory and exact receipts. | E05 contract agreement; can overlap implementation | 2–4 h |
-| E07a | Core pin/lock/vet/ADR/research, feature manifests, engine-owned policy, `lbug-qualification.yml`, `P/engine/open.rs`: rooted smoke and forbidden old constructor lint; default no-lbug and required feature gates from this commit. | Combined E01/E02/E03/E03b pin, fresh three-OS G25 qualification, released E04 | 3–6 h |
+| E07a | Core pin/lock/vet/ADR/research, feature manifests, engine-owned policy, `lbug-qualification.yml`, `P/engine/open.rs`: rooted smoke and forbidden old constructor lint; default no-lbug and required feature gates from this commit. Carry C47a's frozen backend settings/lock into native activation (+2 h). | C47a, G01, combined E01/E02/E03/E03b pin, fresh three-OS G25 qualification, released E04 | 5–8 h |
 | E07b | `P/engine/{schema,transaction,rows}.rs`: bound full facts/edges, real post-write rollback, catalog access paths and independently frozen digest vectors. | E07a, E05 | 3–6 h |
 | E08a | `P/engine/{backend,reader}.rs`: shared fake/native contract, nonterminal verify and physical receipt-file binding. | E07b, E05 | 2–4 h |
-| E08b | `P/{lifecycle,access}.rs`, canonicalization safe graph-root facade, CLI setup: guarded no-overwrite publication, one native handle/path, setup-created permanent guards, process death/cancellation. | E08a, E06 | 4–8 h |
+| E08b | `P/{lifecycle,access}.rs`, canonicalization safe graph-root facade, CLI setup: guarded no-overwrite publication, one native handle/path, setup-created permanent guards, process death/cancellation. Carry approved backend settings/lock through reader, writer and publication (+1 h). | E08a, E06 | 5–9 h |
 | E09 | CLI health and `P/engine/probe.rs`: read-only inventory, try-lock, real two-open probe, only captured OS lock forms classify Locked; absent-engine tests remain killable. | E06, E08b | 2–4 h |
 | E10 | `P/cleanup.rs`, canonicalization anchored removal, CLI cleanup/how-to: Retired/Failed-with-receipt preview/confirmation, guard before lookup, no live-reader/unowned deletion or recursive cleanup. | E06, E08b; parallel with E09 | 3–6 h |
 | E11 | `S2/research.md`, how-to and required-check receipts: three-OS engine behavior, source-only runtime, complete feature/default/Windows gates and G22 engine packaging. | E04, E07a/E07b/E08a/E08b, E09, E10 | 2–4 h |
@@ -565,15 +606,17 @@ long integration wait, not measured coding time. The approximately 1–2 h core
 lane observations plus one fix round motivate 2–4 h simple-core ranges; native,
 shared gate and lifecycle work gets wider ranges. Native cold builds cost about
 20 minutes in observed jobs (plan A1 records the actual per-OS spread), so
-fork ranges are wider still. The E-slice sum is **40–86 h**; native queues,
+fork ranges are wider still. With the approved E07a +2 h and E08b +1 h,
+the E-slice sum is **43–89 h**; native queues,
 three-OS fork CI, review/re-pin and requalification can extend elapsed time.
 No completion-date total is inferred from this sum.
 
 Fork/gate path: E01 → E02 → combined fork pin (also E03b → E03) → native
 qualification → E07a → E07b → E08a → E08b → E10 → E11; E09 must also finish.
-E03 → E04 → gate release/re-pin joins before E07a. E05 precedes E07b and E06
-precedes E08b. Keep source-default and both safe-operation platforms in the
-same final immutable pin. G28 consumes the completed public lifecycle, not the
+E03 → E04 → gate release/re-pin joins before E07a, as do C47a and G01.
+E05 precedes E07b and E06 precedes E08b; E08b gains no new predecessor.
+Keep source-default and both safe-operation platforms in the same final
+immutable pin. G28 also waits for C47a and consumes the completed public lifecycle, not the
 fake-only port. Default builds remain featureless; M2 release uses `--features
 engine`. E07a and every later native slice update exact mutation ownership in
 the same commit. G11 still owns bounded multi-hop behavior; G28 owns resumable
@@ -607,7 +650,8 @@ claim-first descriptor data under the existing Qdrant/model infrastructure.
 
 ### G28 [US5] Load the frozen snapshot with one resumable batch loader
 
-**Time:** 4 h. **After:** G26, G27, G35.
+**Time:** 4 h initial + 1 h cross-slice follow-up (5 h total).
+**After:** G26, G27, G35, C47a.
 **Files:** `P/import.rs`, `P/tests/import.rs`, `C/src/cli/graph/rebuild.rs`,
 `C/src/cli/args.rs`, `C/src/cli/run.rs`, `C/tests/it/graph_rebuild.rs`,
 `docs/how-to/knowledge-graph.md`.
@@ -1305,7 +1349,8 @@ ordered semantic equality, not only equal node counts or query success.
 
 ### G22 [US3, US5] Restore the authority and repeat the native drill
 
-**Time:** 4 h. **After:** G14, G15, G16, G19, G30.
+**Time:** 4 h initial + 1 h cross-slice follow-up (5 h total).
+**After:** G14, G15, G16, G19, G30, C48; existing release inputs remain required.
 **Files:** `C/tests/it/graph_restore.rs`,
 `C/tests/it/graph_processes.rs`, `C/src/cli/backup/restore.rs`,
 `C/src/failure.rs`, `K/src/store/error.rs`, `K/src/store/tests/migrations.rs`,
@@ -1427,21 +1472,31 @@ SC-S2-006, SC-S2-007, SC-S2-008; supervisor-approved release evidence.
 
 ## Dependencies and parallel opportunities
 
-The **After** line is authoritative. Every G dependency appears earlier above;
-external private/CI evidence is named separately; M1 release is not a wait. G16 additionally waits for
-G15 so answer validation cannot outrun the whole-proof transport contract;
-G30 waits for G13 so its equality oracle can compare assembled graph evidence.
-G24 waits for every task, not only the quality report.
+The **After** line is authoritative for G tasks; the E table owns slice
+prerequisites. Every G predecessor appears earlier above. C44 → G01,
+C46 → G26 and C47a → E07a/G28 are explicit cross-slice waits; external
+private/CI evidence is separate. M1 release is not an S2 start gate.
+G16 additionally waits for G15 so answer validation cannot outrun the
+whole-proof transport contract; G30 waits for G13 so its equality oracle can
+compare assembled graph evidence. G24 waits for every S2 task/follow-up, not
+only the quality report.
+
+For the combined DAG, G27's native umbrella completes only after E11.
+G25 requalifies the combined E01/E02/E03/E03b fork before E07a. The S3 handoff
+is **G25/E07a qualification → C48 → G22 → C49a**, never C48 ↔ G22.
+C49a also joins E11/G28 and its existing C47b/C48/C18/C16b inputs. E11 supplies
+engine/gate receipts; G22 performs release packaging/drills, not a prerequisite
+for E11 or C48. C49a is a downstream S3 consumer, not an added S2 release gate.
 
 | Once these land | Independent work, subject to shared-file ownership |
 | --- | --- |
-| G01 | G02 claims and G17 model role start beside G25; G26 also needs G25. |
+| G01, after C44 | G02 claims and G17 model role start beside G25; G26 also needs G25 and C46. |
 | G03 | G06 scoring, G09 builds and G31 vocabulary are `[P]`; shared registration hunks are supervisor-rebased, not concurrent writes. G10 waits for G09/G31 so resolver edits serialize too. |
 | G06 | G34 local drafting tooling can run beside public native work; actual private drafting still waits for G05 and the frozen receipt. |
 | G04 and G34 | G32 reviewer/capture, then G33 owner page, unblock G05; G11/G12 proof work can proceed beside these tools. G34 precedes G32 for their shared manifest. |
 | G28 and G25 | G04 pilot neighbors can start immediately (G03 already landed); G11 adds paths after G04. |
 | G05 and G34 | G07 drafts source/arm-A questions independently of G38; G08 final freeze additionally waits for G38 selection, recorded receipts and reviewer confirmation. |
-| G27 and G35 | G28's single loader and S3 C27a's catalog-edge consumer use the shared typed-edge port; coordinate its public contract. |
+| G27, G35, G26 and C47a | G28's single loader can start. S3 C27a separately consumes the qualified G27 port; coordinate its public contract. |
 | G13 and G35 | G14 R4 and G15 tools proceed with a shared contract; G36 follows G11, G37 joins both routes, then G16/G38. |
 
 These are opportunities, not permission to write shared files in parallel.
@@ -1456,35 +1511,36 @@ behavior, not a framework assembled before the first useful result.
 
 ### Recomputed effort and dependency accounting
 
-The G-heading inventory is 37 tasks (G01–G38 except removed G29): 36 initial
-budgets total **136 h**, five reopened follow-ups add **9 h**, and G27 is the
-14-slice umbrella with no duplicate four-hour allocation. Bounded G work is
-**145 h**. E-slice estimates still sum to **40–86 h**; the arithmetic full-plan
-range is **185–231 lane-hours**, not elapsed time or remaining work. Already
-landed base tasks/slices remain in this inventory, but their new deltas are
-explicitly budgeted and dispatched separately. Extraction, acceptance runtime,
-human review and external native CI/gate-release waits remain additional.
+The G-heading inventory is **37 tasks** (G01–G38 except removed G29): 36 initial
+budgets total **136 h**, five reopened follow-ups add **9 h**, and the four
+cross-slice G follow-ups add **4 h**, for **149 h** bounded G work. G27 is the
+**14-slice** umbrella with no duplicate four-hour allocation. E07a adds **2 h**
+and E08b **1 h** within their revised ranges, totaling **43–89 h** of E work.
+Thus **149 + (43–89) = 192–238 lane-hours**, not elapsed time or remaining work.
+The cross-slice increase is exactly **4 + 2 + 1 = 7 h**. Already landed base
+tasks/slices remain in this inventory, but their new deltas are explicitly
+budgeted and dispatched separately. Extraction, acceptance runtime, human review
+and external native CI/gate-release waits remain additional.
 
-For a reproducible dependency-only calculation, give G27 weight zero solely
-to isolate bounded G work, add each reopened row's hours to its named task,
-use **After** edges and make G24 wait for all tasks/follow-ups. With the unused
-G38 prerequisite removed from G07, the longest weighted path is **70 h**:
+For a reproducible bounded-G subtotal only, give G27 weight zero, add each
+reopened/cross-slice G delta to its named task, use internal G **After** edges
+and make G24 wait for all G tasks/follow-ups. Treat all C/E boundaries as already
+available for this calculation only; it is not the combined release path.
+The longest weighted G path is **72 h**:
 G01 → G02 → G03 → G31 → G10 → G35 → G28 → G04 → G11 → G13 → G14 → G37 →
 G16 → G38 → G08 → G20 → G23 → G24. G31's follow-up breaks its former tie with G09.
-The pilot's ancestor set costs **67 h** with a **45 h** longest path:
+The pilot's G ancestor set costs **70 h** with a **47 h** longest G path:
 G01 → G02 → G03 → G31 → G10 → G35 → G28 → G04 → G32 → G33 → G05.
-These conservative full-plan paths include base work plus reopened deltas,
-not a remaining-work clock or permission to skip G27/native qualification.
-G38 step 0 stays inside its 4 h budget; no early-handoff overlap credit is taken
-in these conservative task-level upper-bound paths.
+These full-plan subtotals include base work plus all G deltas; they neither
+measure remaining work nor waive the G10/G35 recheck or native qualification.
+G38 step 0 stays inside its 4 h budget; no early-handoff overlap credit is taken.
 
-If U is the actual G27 completion duration after its G10/G31/G25 join, the
-collapsed G DAG has full path **66 + max(4, U) h**, pilot path
-**41 + max(4, U) h**. U is not the sum of E ranges: fork/E05/E06 work overlaps
-upstream G work, E09/E10 overlap, and qualification/re-pin waits are external.
-The E prerequisite path above must be combined with actual dispatch/completion
-receipts before making a calendar estimate. No single critical-path duration
-including those unmeasured waits is claimed.
+For scheduling, expand G27 into its E prerequisites and E11 completion join,
+retain C44/C46/C47a/C48 and the downstream C49a join, and use actual input and
+completion receipts at every **After** boundary. A single G27-duration formula
+cannot represent the new independent C waits. Fork/E05/E06 work can overlap
+upstream G work, E09/E10 can overlap, and qualification/re-pin waits are
+external. No combined critical-path duration or completion date is claimed.
 
 ## Requirement coverage
 
