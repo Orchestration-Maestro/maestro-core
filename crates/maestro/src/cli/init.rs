@@ -151,7 +151,11 @@ fn preferences_only(
     trust::boundaries()?
         .check_root(root)
         .map_err(Failure::refused)?;
-    let confirmation = match trust::approve(root, effects.confirm_path) {
+    let prompt = output.wording(
+        MessageKey::InitApprovePrompt,
+        &[("path", &trust_path::visible_path(root))],
+    )?;
+    let confirmation = match trust::approve(root, effects.confirm_path, &prompt) {
         Ok(confirmation) => confirmation,
         Err(failure) => {
             let instruction = if let Some(path) = trust_path::quoted_canonical(root) {

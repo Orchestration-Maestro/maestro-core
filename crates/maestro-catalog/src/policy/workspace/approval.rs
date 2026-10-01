@@ -12,7 +12,8 @@ use std::{
 };
 
 /// Obtain a real user confirmation for the canonical path, defaulting to no.
-/// The caller supplies terminal status from its trusted IO adapter, never from tool text.
+/// The caller supplies rendered prompt data and terminal status from its trusted IO adapter,
+/// never from tool text.
 ///
 /// # Errors
 /// Missing non-terminal confirmation and mismatched canonical spellings refuse.
@@ -20,8 +21,8 @@ pub fn confirmation(
     canonical: &Path,
     confirm_path: Option<&Path>,
     terminal: bool,
-    input: &mut dyn BufRead,
-    output: &mut dyn Write,
+    prompt: &str,
+    (input, output): (&mut dyn BufRead, &mut dyn Write),
 ) -> Result<Option<Confirmation>, String> {
     if let Some(confirm_path) = confirm_path {
         if confirm_path.as_os_str() != canonical.as_os_str() {
@@ -35,7 +36,7 @@ pub fn confirmation(
     if !terminal {
         return Err("user confirmation required (terminal or --confirm-path)".to_owned());
     }
-    write!(output, "Approve {}? [y/N] ", canonical.display()).map_err(|error| error.to_string())?;
+    write!(output, "{prompt}").map_err(|error| error.to_string())?;
     output.flush().map_err(|error| error.to_string())?;
     let mut answer = String::new();
     input

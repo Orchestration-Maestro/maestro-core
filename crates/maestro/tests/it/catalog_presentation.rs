@@ -85,15 +85,8 @@ fn catalog_presentation_fallback_note_is_once_only_for_human_cli() {
             assert_eq!(result.code, Some(0), "{result:?}");
             let fallback = !["en", "fr", "es", "auto"].contains(&language);
             let note = format!("Interface is English; conversation language remains {language}.\n");
-            assert_eq!(
-                result.stdout,
-                if fallback {
-                    format!("{note}gpu\n")
-                } else {
-                    "gpu\n".to_owned()
-                }
-            );
-            assert_eq!(result.stderr, "");
+            assert_eq!(result.stdout, "gpu\n");
+            assert_eq!(result.stderr, if fallback { note } else { String::new() });
             let json = home.run(&[
                 "--json",
                 "--language",
@@ -167,7 +160,14 @@ fn catalog_presentation_confirmation_and_outcome_use_the_message_port() {
             let written = plain(&home, &root, &args);
             assert_eq!(written.code, Some(0), "{written:?}");
             assert!(written.stdout.ends_with(outcome), "{written:?}");
-            assert_eq!(written.stderr, "");
+            assert_eq!(
+                written.stderr,
+                if language == "ja" {
+                    "Interface is English; conversation language remains ja.\n"
+                } else {
+                    ""
+                }
+            );
             assert!(home.database().trusted_workspaces().unwrap().is_empty());
         }
     }
@@ -290,6 +290,151 @@ fn catalog_presentation_help_and_complete_warnings_remain_english() {
                 assert_eq!(&result.stderr, before);
             }
             warning = Some(result.stderr);
+        }
+    }
+}
+
+#[test]
+fn catalog_presentation_review_resolution_precedes_fallback() {
+    let home = Home::bare();
+    let root = project(&home);
+    fs::create_dir(root.join(".maestro")).unwrap();
+    let file = root.join(".maestro/config.toml");
+    let valid = "schema = 'maestro-preferences/1'\nlanguage = 'fr'\n";
+    fs::write(&file, valid).unwrap();
+    make_safe_preferences_path(&root.join(".maestro"));
+    make_safe_preferences_path(&file);
+    for tone in TONES {
+        let selected = home.run_in(
+            &root,
+            &[
+                "--language",
+                "ja",
+                "--tone",
+                tone,
+                "config",
+                "get",
+                "language",
+            ],
+        );
+        assert_eq!(selected.code, Some(0), "{selected:?}");
+        assert_eq!(selected.stdout, "ja\n");
+        assert_eq!(
+            selected.stderr,
+            "Interface is English; conversation language remains ja.\n"
+        );
+        let json = home.run_in(
+            &root,
+            &[
+                "--json",
+                "--language",
+                "ja",
+                "--tone",
+                tone,
+                "config",
+                "get",
+                "language",
+            ],
+        );
+        assert_eq!(json.code, Some(0), "{json:?}");
+        assert_eq!(json.json()["value"], "ja");
+        let neighbour = home.run_in(&root, &["--tone", tone, "config", "get", "language"]);
+        assert_eq!(neighbour.code, Some(0), "{neighbour:?}");
+        assert_eq!(neighbour.stdout, "fr\n");
+        assert_eq!(fs::read_to_string(&file).unwrap(), valid);
+    }
+    fs::write(&file, "schema = 'maestro-preferences/1'\nunknown = true\n").unwrap();
+    for tone in TONES {
+        let refused = home.run_in(
+            &root,
+            &[
+                "--language",
+                "ja",
+                "--tone",
+                tone,
+                "config",
+                "get",
+                "language",
+            ],
+        );
+        assert_eq!(refused.code, Some(2), "{refused:?}");
+        assert!(refused.stderr.contains("unknown"), "{refused:?}");
+        assert_eq!(
+            refused.stdout, "",
+            "fallback precedes session refusal: {refused:?}"
+        );
+        assert!(
+            !refused.stderr.contains("Interface is English"),
+            "{refused:?}"
+        );
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn catalog_presentation_review_unsafe_path_instructions() {
+    let home = Home::bare();
+    let root = home.root().join("équipe {$literal}");
+    fs::create_dir(&root).unwrap();
+    let root = root.canonicalize().unwrap();
+    let escaped = format!("{:?}", root.to_str().unwrap());
+    for (language, trust_data, confirm_data) in [
+        (
+            "en",
+            "canonical path (data):",
+            "quote the canonical path for your shell; path (data):",
+        ),
+        (
+            "fr",
+            "chemin canonique (donnée) :",
+            concat!(
+                "mettez le chemin canonique entre guillemets, ",
+                "avec les échappements adaptés à votre shell ; chemin (donnée) :"
+            ),
+        ),
+        (
+            "es",
+            "ruta canónica (dato):",
+            "entrecomille la ruta canónica para su shell; ruta (dato):",
+        ),
+        (
+            "ja",
+            "canonical path (data):",
+            "quote the canonical path for your shell; path (data):",
+        ),
+    ] {
+        for tone in TONES {
+            let untrusted = plain(
+                &home,
+                &root,
+                &["--language", language, "--tone", tone, "init", "--apply"],
+            );
+            assert_eq!(untrusted.code, Some(2), "{untrusted:?}");
+            assert!(untrusted.stderr.contains(trust_data), "{untrusted:?}");
+            assert!(untrusted.stderr.contains(&escaped), "{untrusted:?}");
+            assert!(
+                !untrusted.stderr.contains("maestro trust add \""),
+                "{untrusted:?}"
+            );
+            let confirmation = plain(
+                &home,
+                &root,
+                &[
+                    "--language",
+                    language,
+                    "--tone",
+                    tone,
+                    "init",
+                    "--preferences-only",
+                ],
+            );
+            assert_eq!(confirmation.code, Some(2), "{confirmation:?}");
+            assert!(
+                confirmation.stderr.contains(confirm_data),
+                "{confirmation:?}"
+            );
+            assert!(confirmation.stderr.contains(&escaped), "{confirmation:?}");
+            assert_eq!(fs::read_dir(&root).unwrap().count(), 0);
         }
     }
 }

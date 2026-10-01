@@ -39,7 +39,7 @@ impl Output {
         let interface = Interface::select(language).map_err(Failure::failed)?;
         self.interface = Some(interface);
         if interface.fallback() {
-            self.text(&self.wording(MessageKey::InterfaceFallback, &[("language", language)])?)?;
+            diagnose(&self.wording(MessageKey::InterfaceFallback, &[("language", language)])?);
         }
         Ok(self)
     }

@@ -10,7 +10,7 @@ use maestro_kernel::{
 };
 use std::{
     env,
-    io::{self, IsTerminal as _},
+    io::{self, BufRead, IsTerminal as _, Write},
     path::{Path, PathBuf},
     process::ExitCode,
 };
@@ -52,23 +52,37 @@ pub(super) fn database() -> Result<Database, Failure> {
 }
 
 /// Confirm through trusted terminal IO or the exact repeated canonical path.
-pub(super) fn approve(root: &Path, path: Option<&Path>) -> Result<Option<Confirmation>, Failure> {
+pub(super) fn approve(
+    root: &Path,
+    path: Option<&Path>,
+    prompt: &str,
+) -> Result<Option<Confirmation>, Failure> {
+    let stdin = io::stdin();
+    let stderr = io::stderr();
+    approve_with_io(
+        root,
+        path,
+        prompt,
+        stdin.is_terminal() && stderr.is_terminal(),
+        (&mut stdin.lock(), &mut stderr.lock()),
+    )
+}
+
+/// Shared trusted IO boundary; the caller renders the prompt before approval.
+fn approve_with_io(
+    root: &Path,
+    path: Option<&Path>,
+    prompt: &str,
+    terminal: bool,
+    io: (&mut dyn BufRead, &mut dyn Write),
+) -> Result<Option<Confirmation>, Failure> {
     let visible = PathBuf::from(trust_path::visible_path(root));
     let canonical = if path.is_some_and(|path| path.as_os_str() == root.as_os_str()) {
         root
     } else {
         visible.as_path()
     };
-    let stdin = io::stdin();
-    let stderr = io::stderr();
-    confirmation(
-        canonical,
-        path,
-        stdin.is_terminal() && stderr.is_terminal(),
-        &mut stdin.lock(),
-        &mut stderr.lock(),
-    )
-    .map_err(Failure::refused)
+    confirmation(canonical, path, terminal, prompt, io).map_err(Failure::refused)
 }
 
 /// Run administration without reading or rewriting any workspace preference bytes.
@@ -81,12 +95,14 @@ pub(super) fn run(output: Output, command: &TrustCommand) -> Result<ExitCode, Fa
             let root = boundaries()?
                 .canonical_root(directory)
                 .map_err(Failure::refused)?;
-            let answer = match approve(&root, confirm_path.as_deref()).map_err(|failure| {
-                Failure::refused(format!("{failure}; {}", trust_path::suggestion(&root)))
-            })? {
-                Some(confirmation) => Answer::Approved { confirmation },
-                None => Answer::Declined,
-            };
+            let prompt = format!("Approve {}? [y/N] ", trust_path::visible_path(&root));
+            let answer =
+                match approve(&root, confirm_path.as_deref(), &prompt).map_err(|failure| {
+                    Failure::refused(format!("{failure}; {}", trust_path::suggestion(&root)))
+                })? {
+                    Some(confirmation) => Answer::Approved { confirmation },
+                    None => Answer::Declined,
+                };
             (root, answer)
         }
         TrustCommand::Remove { directory } => (
@@ -126,4 +142,71 @@ pub(super) fn run(output: Output, command: &TrustCommand) -> Result<ExitCode, Fa
         ),
     )?;
     Ok(ExitCode::SUCCESS)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::approve_with_io;
+    use crate::{cli::output::Output, presentation::messages::MessageKey};
+    use maestro_kernel::workspace::Confirmation;
+    use std::path::Path;
+
+    #[test]
+    fn terminal_preferences_prompt_is_localized_and_default_no() {
+        let root = Path::new("/synthetic/workspace");
+        for (language, expected) in [
+            ("fr", "Approuver /synthetic/workspace ? [y/N] "),
+            ("es", "¿Aprobar /synthetic/workspace? [y/N] "),
+        ] {
+            for (answer, expected_confirmation) in [
+                ("yes\n", Some(Confirmation::Terminal)),
+                ("no\n", None),
+                ("\n", None),
+            ] {
+                let output = Output::new(false).with_language(language).unwrap();
+                let prompt = output
+                    .wording(
+                        MessageKey::InitApprovePrompt,
+                        &[("path", root.to_str().unwrap())],
+                    )
+                    .unwrap();
+                let mut rendered = Vec::new();
+                let actual = approve_with_io(
+                    root,
+                    None,
+                    &prompt,
+                    true,
+                    (&mut answer.as_bytes(), &mut rendered),
+                )
+                .unwrap();
+                assert_eq!(actual, expected_confirmation);
+                assert_eq!(String::from_utf8(rendered).unwrap(), expected);
+            }
+        }
+    }
+
+    #[test]
+    fn terminal_trust_prompt_stays_english_and_nonterminal_never_prompts() {
+        let root = Path::new("/synthetic/workspace");
+        for terminal in [false, true] {
+            let mut rendered = Vec::new();
+            let actual = approve_with_io(
+                root,
+                None,
+                "Approve /synthetic/workspace? [y/N] ",
+                terminal,
+                (&mut "yes\n".as_bytes(), &mut rendered),
+            );
+            if terminal {
+                assert_eq!(actual.unwrap(), Some(Confirmation::Terminal));
+                assert_eq!(
+                    String::from_utf8(rendered).unwrap(),
+                    "Approve /synthetic/workspace? [y/N] "
+                );
+            } else {
+                assert!(actual.is_err());
+                assert!(rendered.is_empty());
+            }
+        }
+    }
 }

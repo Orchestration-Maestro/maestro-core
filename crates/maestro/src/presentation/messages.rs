@@ -22,6 +22,8 @@ pub(crate) enum MessageKey {
     InitTrustData,
     /// Preferences-only writes need their own confirmation.
     InitConfirm,
+    /// Default-no terminal confirmation for the visible canonical path.
+    InitApprovePrompt,
     /// Repeat init with a shell-safe canonical path.
     InitConfirmCommand,
     /// Quote the escaped canonical path with the user's shell.
@@ -46,6 +48,8 @@ pub(super) struct Translation {
     init_trust_data: String,
     /// English refusal detail and localized instruction placeholders.
     init_confirm: String,
+    /// Visible canonical path in a default-no terminal prompt.
+    init_approve_prompt: String,
     /// Literal shell-safe path placeholder.
     init_confirm_command: String,
     /// Escaped path data placeholder.
@@ -69,6 +73,7 @@ impl Translation {
                 translation.init_confirm.as_str(),
                 &["failure", "instruction"][..],
             ),
+            (translation.init_approve_prompt.as_str(), &["path"][..]),
             (translation.init_confirm_command.as_str(), &["path"][..]),
             (translation.init_confirm_data.as_str(), &["path"][..]),
             (translation.init_preferences_written.as_str(), &[][..]),
@@ -89,6 +94,7 @@ impl Translation {
             MessageKey::InitTrustCommand => &self.init_trust_command,
             MessageKey::InitTrustData => &self.init_trust_data,
             MessageKey::InitConfirm => &self.init_confirm,
+            MessageKey::InitApprovePrompt => &self.init_approve_prompt,
             MessageKey::InitConfirmCommand => &self.init_confirm_command,
             MessageKey::InitConfirmData => &self.init_confirm_data,
             MessageKey::InitPreferencesWritten => &self.init_preferences_written,

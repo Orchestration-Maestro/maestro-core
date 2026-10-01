@@ -4,6 +4,7 @@
   "init_trust_command": "ejecute: maestro trust add {path} --confirm-path {path}",
   "init_trust_data": "ruta canónica (dato):\n{path}\nEntrecomille esta ruta para su shell. Desde esa carpeta, ejecute maestro trust add .",
   "init_confirm": "escribir solo las preferencias requiere una confirmación independiente: {failure}; {instruction}",
+  "init_approve_prompt": "¿Aprobar {path}? [y/N] ",
   "init_confirm_command": "repita init con --preferences-only --confirm-path {path}",
   "init_confirm_data": "entrecomille la ruta canónica para su shell; ruta (dato):\n{path}",
   "init_preferences_written": "Solo se escribieron las preferencias; no se otorgó confianza al espacio de trabajo.",

@@ -4,6 +4,7 @@
   "init_trust_command": "run: maestro trust add {path} --confirm-path {path}",
   "init_trust_data": "canonical path (data):\n{path}\nQuote this path for your shell. From inside that folder, run maestro trust add .",
   "init_confirm": "preferences-only write requires separate confirmation: {failure}; {instruction}",
+  "init_approve_prompt": "Approve {path}? [y/N] ",
   "init_confirm_command": "repeat init with --preferences-only --confirm-path {path}",
   "init_confirm_data": "quote the canonical path for your shell; path (data):\n{path}",
   "init_preferences_written": "Wrote preferences only; no workspace trust granted.",

@@ -38,16 +38,39 @@ fn terminal_defaults_no_and_eof_cannot_approve() {
     ] {
         let mut output = Vec::new();
         assert_eq!(
-            confirmation(path, None, true, &mut answer.as_bytes(), &mut output).unwrap(),
+            confirmation(
+                path,
+                None,
+                true,
+                "Approve synthetic? [y/N] ",
+                (&mut answer.as_bytes(), &mut output)
+            )
+            .unwrap(),
             None
         );
         assert!(String::from_utf8(output).unwrap().contains("[y/N]"));
     }
     assert_eq!(
-        confirmation(path, None, true, &mut "yes\n".as_bytes(), &mut Vec::new()).unwrap(),
+        confirmation(
+            path,
+            None,
+            true,
+            "Approve synthetic? [y/N] ",
+            (&mut "yes\n".as_bytes(), &mut Vec::new())
+        )
+        .unwrap(),
         Some(Confirmation::Terminal)
     );
-    assert!(confirmation(path, None, false, &mut "yes\n".as_bytes(), &mut Vec::new()).is_err());
+    assert!(
+        confirmation(
+            path,
+            None,
+            false,
+            "Approve synthetic? [y/N] ",
+            (&mut "yes\n".as_bytes(), &mut Vec::new())
+        )
+        .is_err()
+    );
 }
 
 #[test]
@@ -64,8 +87,8 @@ fn confirm_path_rejects_relative_dot_and_mismatched_spellings() {
                 &canonical,
                 Some(&path),
                 false,
-                &mut &b""[..],
-                &mut Vec::new()
+                "unused prompt",
+                (&mut &b""[..], &mut Vec::new())
             )
             .is_err()
         );
@@ -75,8 +98,8 @@ fn confirm_path_rejects_relative_dot_and_mismatched_spellings() {
             &canonical,
             Some(&canonical),
             false,
-            &mut &b""[..],
-            &mut Vec::new()
+            "unused prompt",
+            (&mut &b""[..], &mut Vec::new())
         )
         .unwrap(),
         Some(Confirmation::ConfirmPath)
