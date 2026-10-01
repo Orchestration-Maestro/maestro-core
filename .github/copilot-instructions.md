@@ -51,6 +51,12 @@ in place.
 ├── crates/                                                                              # The workspace's crates
 │   ├── maestro/                                                                         # The maestro binary: the command line (CLI) over the knowledge library and the kernel
 │   │   ├── src/                                                                         # The crate's sources
+│   │   │   ├── acquisition/                                                             # Native acquisition's local authority boundary
+│   │   │   │   ├── authority.rs                                                         # Owner authority commands; no pipeline writer or same-user store fallback
+│   │   │   │   ├── authority_host.rs                                                    # Linux host qualification, kept outside the serving path
+│   │   │   │   ├── authority_service.rs                                                 # Bounded Linux Unix-socket IPC authenticated with kernel peer credentials
+│   │   │   │   ├── authority_store.rs                                                   # Authority-only SQLite writer; grant changes and audit commit atomically
+│   │   │   │   └── mod.rs                                                               # Native acquisition's local authority boundary
 │   │   │   ├── cli/                                                                     # The commands, a module each, and what they share
 │   │   │   │   ├── backup/                                                              # Back up and restore the kernel
 │   │   │   │   │   ├── command.rs                                                       # The backup and restore command handlers and backup writer
@@ -275,6 +281,10 @@ in place.
 │   │   │       ├── model_cli.rs                                                         # Registration and listing of scoped model cards through the public CLI
 │   │   │       ├── model_cli_registration.rs                                            # Registration input, grant, and router-failure contract tests
 │   │   │       ├── model_cli_selection.rs                                               # Selection reads only the evaluations of the exact card it selects
+│   │   │       ├── n05_authority_contract.rs                                            # Read-only authority contract: exact scope/account/effect and authority-clock expiry
+│   │   │       ├── n05_authority_frames.rs                                              # Actual Unix IPC framing refuses oversized, partial and cumulative-timeout input
+│   │   │       ├── n05_authority_linux.rs                                               # Qualified Linux authority fixtures; only the launcher uses sudo
+│   │   │       ├── n05_establish_owner_only_grants_and_the_read_only_authority_port.rs  # N05 authority command refusals; real identity probes are explicitly opt-in
 │   │   │       ├── publish_again.rs                                                     # Help for explicit projection recovery
 │   │   │       ├── quality_gates.rs                                                     # knowledge quality: its report, a rerun, a gate after an import, the ledger first, failures and refusals
 │   │   │       ├── settings_config.rs                                                   # maestro config: the user file preferences.toml, the project file
@@ -286,6 +296,8 @@ in place.
 │   │   ├── src/                                                                         # The crate's sources
 │   │   │   ├── policy/                                                                  # Strict policy schemas and the single immutable baseline validator
 │   │   │   │   ├── acquisition.rs                                                       # Strict version-one source-policy wire contracts
+│   │   │   │   ├── authority.rs                                                         # Read-only acquisition authority; manifests and registry evidence grant no access
+│   │   │   │   ├── authority_socket.rs                                                  # Read-only local IPC adapter: both peers are kernel-authenticated, never JSON identities
 │   │   │   │   ├── checks.rs                                                            # Semantic constraints not expressible by primitive serde shapes
 │   │   │   │   ├── decision.rs                                                          # One pure admission path: current caller, URL/network/robots, content, cache
 │   │   │   │   ├── decisions.rs                                                         # Strict version-one source-policy wire contracts
@@ -1413,6 +1425,7 @@ in place.
 │   ├── contracts/                                                                       # Contracts
 │   │   └── unit-graph-v1.md                                                             # Unit graph wire contract v1
 │   ├── how-to/                                                                          # How to
+│   │   ├── acquisition-authority.md                                                     # Acquisition authority
 │   │   └── knowledge-mcp.md                                                             # Connect a client to Maestro's knowledge MCP server
 │   └── standards/                                                                       # Standards
 │       ├── engineering.md                                                               # Engineering rules in maestro-core

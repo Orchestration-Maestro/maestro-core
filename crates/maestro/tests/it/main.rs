@@ -25,6 +25,12 @@ mod mcp_stdio;
 mod model_cli;
 mod model_cli_registration;
 mod model_cli_selection;
+mod n05_authority_contract;
+#[cfg(target_os = "linux")]
+mod n05_authority_frames;
+#[cfg(target_os = "linux")]
+mod n05_authority_linux;
+mod n05_establish_owner_only_grants_and_the_read_only_authority_port;
 mod publish_again;
 mod quality_gates;
 mod rebuild_drill;

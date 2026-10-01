@@ -12,6 +12,8 @@ pub enum Refusal {
     Digest,
     /// Reviewed evidence for this platform/capability is absent.
     Unqualified,
+    /// The cumulative local IPC budget is exhausted.
+    Deadline,
     /// Collection visibility/scopes do not permit this principal's read.
     Access,
     /// Old S1-only declaration, or an explicit null acquisition link.

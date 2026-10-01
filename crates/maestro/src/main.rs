@@ -466,6 +466,7 @@
 //!  "attempt":1,"state":"failed","outcome":{"error":"…"}}
 //! ```
 
+mod acquisition;
 mod cli;
 mod failure;
 mod kernel;

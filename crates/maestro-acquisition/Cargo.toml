@@ -22,5 +22,8 @@ rustls-native-certs.workspace = true
 tokio = { workspace = true, features = ["net", "rt", "time", "io-util"] }
 tokio-rustls.workspace = true
 
+[target.'cfg(target_os = "linux")'.dependencies]
+rustix.workspace = true
+
 [dev-dependencies]
 maestro-test-scratch.workspace = true

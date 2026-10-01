@@ -1,5 +1,7 @@
 //! Strict policy schemas and the single immutable baseline validator.
 pub mod acquisition;
+pub mod authority;
+pub mod authority_socket;
 mod checks;
 pub mod decision;
 pub mod decisions;
