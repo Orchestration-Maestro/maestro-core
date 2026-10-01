@@ -56,6 +56,16 @@ criteria = "safe-to-deploy"
 version = "0.23.1"
 criteria = "safe-to-deploy"
 
+[[exemptions.bit-set]]
+version = "0.8.0"
+criteria = "safe-to-deploy"
+notes = "dom_query 0.28.0 default-off closure for N13; owner approved 2026-10-01 (ADR-0020); exemption, not an audit"
+
+[[exemptions.bit-vec]]
+version = "0.8.0"
+criteria = "safe-to-deploy"
+notes = "dom_query 0.28.0 default-off closure for N13; owner approved 2026-10-01 (ADR-0020); exemption, not an audit"
+
 [[exemptions.bitflags]]
 version = "2.13.2"
 criteria = "safe-to-deploy"
@@ -121,6 +131,16 @@ criteria = "safe-to-deploy"
 version = "0.2.2"
 criteria = "safe-to-deploy"
 
+[[exemptions.cssparser]]
+version = "0.37.0"
+criteria = "safe-to-deploy"
+notes = "dom_query 0.28.0 default-off closure for N13; owner approved 2026-10-01 (ADR-0020); exemption, not an audit"
+
+[[exemptions.cssparser-macros]]
+version = "0.7.1"
+criteria = "safe-to-deploy"
+notes = "dom_query 0.28.0 default-off closure for N13; owner approved 2026-10-01 (ADR-0020); exemption, not an audit"
+
 [[exemptions.darling]]
 version = "0.20.11"
 criteria = "safe-to-deploy"
@@ -145,9 +165,34 @@ criteria = "safe-to-deploy"
 version = "0.20.2"
 criteria = "safe-to-deploy"
 
+[[exemptions.derive_more]]
+version = "2.1.1"
+criteria = "safe-to-deploy"
+notes = "dom_query 0.28.0 default-off closure for N13; owner approved 2026-10-01 (ADR-0020); exemption, not an audit"
+
+[[exemptions.derive_more-impl]]
+version = "2.1.1"
+criteria = "safe-to-deploy"
+notes = "dom_query 0.28.0 default-off closure for N13; owner approved 2026-10-01 (ADR-0020); exemption, not an audit"
+
 [[exemptions.digest]]
 version = "0.11.3"
 criteria = "safe-to-deploy"
+
+[[exemptions.dom_query]]
+version = "0.28.0"
+criteria = "safe-to-deploy"
+notes = "dom_query 0.28.0 default-off closure for N13; owner approved 2026-10-01 (ADR-0020); exemption, not an audit"
+
+[[exemptions.dtoa]]
+version = "1.0.11"
+criteria = "safe-to-deploy"
+notes = "dom_query 0.28.0 default-off closure for N13; owner approved 2026-10-01 (ADR-0020); exemption, not an audit"
+
+[[exemptions.dtoa-short]]
+version = "0.3.5"
+criteria = "safe-to-deploy"
+notes = "dom_query 0.28.0 default-off closure for N13; owner approved 2026-10-01 (ADR-0020); exemption, not an audit"
 
 [[exemptions.dyn-clone]]
 version = "1.0.20"
@@ -157,6 +202,11 @@ criteria = "safe-to-deploy"
 version = "1.18.0"
 criteria = "safe-to-deploy"
 
+[[exemptions.fastrand]]
+version = "2.5.0"
+criteria = "safe-to-deploy"
+notes = "dom_query 0.28.0 default-off closure for N13; owner approved 2026-10-01 (ADR-0020); exemption, not an audit"
+
 [[exemptions.find-msvc-tools]]
 version = "0.1.14"
 criteria = "safe-to-deploy"
@@ -164,6 +214,11 @@ criteria = "safe-to-deploy"
 [[exemptions.flate2]]
 version = "1.1.10"
 criteria = "safe-to-deploy"
+
+[[exemptions.foldhash]]
+version = "0.2.0"
+criteria = "safe-to-deploy"
+notes = "dom_query 0.28.0 default-off closure for N13; owner approved 2026-10-01 (ADR-0020); exemption, not an audit"
 
 [[exemptions.futures]]
 version = "0.3.34"
@@ -220,6 +275,11 @@ criteria = "safe-to-deploy"
 [[exemptions.hashbrown]]
 version = "0.17.1"
 criteria = "safe-to-deploy"
+
+[[exemptions.html5ever]]
+version = "0.39.0"
+criteria = "safe-to-deploy"
+notes = "dom_query 0.28.0 default-off closure for N13; owner approved 2026-10-01 (ADR-0020); exemption, not an audit"
 
 [[exemptions.http]]
 version = "1.5.0"
@@ -314,6 +374,11 @@ criteria = "safe-to-deploy"
 version = "0.4.34"
 criteria = "safe-to-deploy"
 
+[[exemptions.markup5ever]]
+version = "0.39.0"
+criteria = "safe-to-deploy"
+notes = "dom_query 0.28.0 default-off closure for N13; owner approved 2026-10-01 (ADR-0020); exemption, not an audit"
+
 [[exemptions.matchit]]
 version = "0.8.4"
 criteria = "safe-to-deploy"
@@ -333,6 +398,11 @@ criteria = "safe-to-deploy"
 [[exemptions.mio]]
 version = "1.2.3"
 criteria = "safe-to-deploy"
+
+[[exemptions.new_debug_unreachable]]
+version = "1.0.6"
+criteria = "safe-to-deploy"
+notes = "dom_query 0.28.0 default-off closure for N13; owner approved 2026-10-01 (ADR-0020); exemption, not an audit"
 
 [[exemptions.once_cell]]
 version = "1.12.0"
@@ -355,6 +425,31 @@ version = "0.2.3"
 criteria = "safe-to-deploy"
 notes = "rmcp 3.4.1 graph for T034 (ADR-0020)"
 
+[[exemptions.phf]]
+version = "0.13.1"
+criteria = "safe-to-deploy"
+notes = "dom_query 0.28.0 default-off closure for N13; owner approved 2026-10-01 (ADR-0020); exemption, not an audit"
+
+[[exemptions.phf_codegen]]
+version = "0.13.1"
+criteria = "safe-to-deploy"
+notes = "dom_query 0.28.0 default-off closure for N13; owner approved 2026-10-01 (ADR-0020); exemption, not an audit"
+
+[[exemptions.phf_generator]]
+version = "0.13.1"
+criteria = "safe-to-deploy"
+notes = "dom_query 0.28.0 default-off closure for N13; owner approved 2026-10-01 (ADR-0020); exemption, not an audit"
+
+[[exemptions.phf_macros]]
+version = "0.13.1"
+criteria = "safe-to-deploy"
+notes = "dom_query 0.28.0 default-off closure for N13; owner approved 2026-10-01 (ADR-0020); exemption, not an audit"
+
+[[exemptions.phf_shared]]
+version = "0.13.1"
+criteria = "safe-to-deploy"
+notes = "dom_query 0.28.0 default-off closure for N13; owner approved 2026-10-01 (ADR-0020); exemption, not an audit"
+
 [[exemptions.pin-project]]
 version = "1.1.13"
 criteria = "safe-to-deploy"
@@ -370,6 +465,11 @@ criteria = "safe-to-deploy"
 [[exemptions.pkg-config]]
 version = "0.3.34"
 criteria = "safe-to-deploy"
+
+[[exemptions.precomputed-hash]]
+version = "0.1.1"
+criteria = "safe-to-deploy"
+notes = "dom_query 0.28.0 default-off closure for N13; owner approved 2026-10-01 (ADR-0020); exemption, not an audit"
 
 [[exemptions.proc-macro2]]
 version = "1.0.107"
@@ -436,6 +536,16 @@ notes = "rmcp 3.4.1 graph for T034 (ADR-0020)"
 version = "0.40.2"
 criteria = "safe-to-deploy"
 
+[[exemptions.rustc-hash]]
+version = "2.1.3"
+criteria = "safe-to-deploy"
+notes = "dom_query 0.28.0 default-off closure for N13; owner approved 2026-10-01 (ADR-0020); exemption, not an audit"
+
+[[exemptions.rustc_version]]
+version = "0.4.1"
+criteria = "safe-to-deploy"
+notes = "dom_query 0.28.0 default-off closure for N13; owner approved 2026-10-01 (ADR-0020); exemption, not an audit"
+
 [[exemptions.rustix]]
 version = "1.1.5"
 criteria = "safe-to-deploy"
@@ -488,6 +598,11 @@ criteria = "safe-to-deploy"
 version = "2.17.0"
 criteria = "safe-to-deploy"
 
+[[exemptions.selectors]]
+version = "0.38.0"
+criteria = "safe-to-deploy"
+notes = "dom_query 0.28.0 default-off closure for N13; owner approved 2026-10-01 (ADR-0020); exemption, not an audit"
+
 [[exemptions.serde]]
 version = "1.0.229"
 criteria = "safe-to-deploy"
@@ -512,6 +627,11 @@ criteria = "safe-to-deploy"
 version = "0.10.0"
 criteria = "safe-to-deploy"
 
+[[exemptions.servo_arc]]
+version = "0.4.3"
+criteria = "safe-to-deploy"
+notes = "dom_query 0.28.0 default-off closure for N13; owner approved 2026-10-01 (ADR-0020); exemption, not an audit"
+
 [[exemptions.sha1]]
 version = "0.11.0"
 criteria = "safe-to-deploy"
@@ -523,6 +643,11 @@ criteria = "safe-to-deploy"
 [[exemptions.simd-adler32]]
 version = "0.3.10"
 criteria = "safe-to-deploy"
+
+[[exemptions.siphasher]]
+version = "1.0.4"
+criteria = "safe-to-deploy"
+notes = "dom_query 0.28.0 default-off closure for N13; owner approved 2026-10-01 (ADR-0020); exemption, not an audit"
 
 [[exemptions.slab]]
 version = "0.4.12"
@@ -536,6 +661,21 @@ criteria = "safe-to-deploy"
 version = "0.6.5"
 criteria = "safe-to-deploy"
 
+[[exemptions.stable_deref_trait]]
+version = "1.2.1"
+criteria = "safe-to-deploy"
+notes = "dom_query 0.28.0 default-off closure for N13; owner approved 2026-10-01 (ADR-0020); exemption, not an audit"
+
+[[exemptions.string_cache]]
+version = "0.9.0"
+criteria = "safe-to-deploy"
+notes = "dom_query 0.28.0 default-off closure for N13; owner approved 2026-10-01 (ADR-0020); exemption, not an audit"
+
+[[exemptions.string_cache_codegen]]
+version = "0.6.1"
+criteria = "safe-to-deploy"
+notes = "dom_query 0.28.0 default-off closure for N13; owner approved 2026-10-01 (ADR-0020); exemption, not an audit"
+
 [[exemptions.syn]]
 version = "2.0.119"
 criteria = "safe-to-deploy"
@@ -547,6 +687,11 @@ criteria = "safe-to-deploy"
 [[exemptions.sync_wrapper]]
 version = "0.1.2"
 criteria = "safe-to-deploy"
+
+[[exemptions.tendril]]
+version = "0.5.1"
+criteria = "safe-to-deploy"
+notes = "dom_query 0.28.0 default-off closure for N13; owner approved 2026-10-01 (ADR-0020); exemption, not an audit"
 
 [[exemptions.thiserror]]
 version = "2.0.21"
@@ -695,6 +840,11 @@ criteria = "safe-to-deploy"
 [[exemptions.web-time]]
 version = "1.1.0"
 criteria = "safe-to-deploy"
+
+[[exemptions.web_atoms]]
+version = "0.2.6"
+criteria = "safe-to-deploy"
+notes = "dom_query 0.28.0 default-off closure for N13; owner approved 2026-10-01 (ADR-0020); exemption, not an audit"
 
 [[exemptions.whatlang]]
 version = "0.18.0"

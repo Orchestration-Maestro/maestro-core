@@ -1,0 +1,13 @@
+{
+  "base": {"selector": "base[href]", "attribute": "href"},
+  "links": [
+    {"selector": "a[href]", "attribute": "href"},
+    {"selector": "area[href]", "attribute": "href"},
+    {"selector": "link[href]", "attribute": "href"},
+    {"selector": "script[src]", "attribute": "src"},
+    {"selector": "img[src]", "attribute": "src"},
+    {"selector": "iframe[src]", "attribute": "src"},
+    {"selector": "source[src]", "attribute": "src"},
+    {"selector": "embed[src]", "attribute": "src"}
+  ]
+}

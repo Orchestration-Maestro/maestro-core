@@ -368,3 +368,9 @@ rule = "ARC-005"
 path = "crates/maestro-acquisition/src/extraction/mod.rs"
 item = "registry"
 reason = "the existing public resolve/select port stays extraction-owned; N57 is its first production consumer"
+
+# dom_query uses foldhash 0.2; the older analyzer's hashbrown still requires 0.1.
+[[exception]]
+rule = "DEP-001"
+path = "foldhash@0.1.5"
+reason = "dom_query 0.28.0 brings foldhash 0.2, while whatlang 0.18.0's hashbrown 0.15.5 requires 0.1.5 (ADR-0020); remove when whatlang's hashbrown moves to foldhash 0.2"

@@ -14,6 +14,15 @@ use std::time::Duration;
 /// Fault adapter models a caller dying after the durable prepare commit.
 struct CrashAfterPrepare<'a>(&'a Database, bool);
 impl Captures for CrashAfterPrepare<'_> {
+    fn read_capture(
+        &self,
+        context: &CaptureContext,
+        capture: Handle,
+        max_bytes: u64,
+    ) -> Result<(CaptureEnvelope, Option<Vec<u8>>), ReceiptError> {
+        self.0.read_capture(context, capture, max_bytes)
+    }
+
     fn prepare_capture(
         &self,
         context: &CaptureContext,

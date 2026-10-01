@@ -46,6 +46,11 @@ impl SafeIdentity {
             query_digest,
         })
     }
+    /// Credential-, fragment- and query-free URL for offline relative-link resolution.
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        &self.url
+    }
     /// Retained heap bytes, including capacity left by removed URL credentials.
     #[must_use]
     pub fn retained_bytes(&self) -> u64 {

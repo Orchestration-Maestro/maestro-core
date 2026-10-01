@@ -89,6 +89,13 @@ mod n12_profile_binding;
 
 mod n12_parents;
 
+mod n13_durably_enumerate_public_links_and_bounded_partitions;
+mod n13_edges;
+
+mod n13_capture_edges;
+
+mod n13_dom_query;
+
 mod n16_define_extraction_fidelity_and_cumulative_decode_contracts;
 
 mod n16_fix_regressions;

@@ -322,6 +322,11 @@ in place.
 │   │   │   │   ├── envelope.rs                                                          # N09 response projection into the single kernel-owned envelope contract
 │   │   │   │   ├── mod.rs                                                               # Immutable captures and content-free distinct-item run outcomes
 │   │   │   │   └── outcome.rs                                                           # Content-free outcomes over N06's authoritative stage inventories
+│   │   │   ├── discovery/                                                               # Offline enumeration and kernel-backed bounded coverage checkpoints
+│   │   │   │   ├── link-selectors.json                                                  # JSON data: link selectors
+│   │   │   │   ├── links.rs                                                             # Offline link extraction over verified, bounded captured bytes; never a client
+│   │   │   │   ├── mod.rs                                                               # Offline enumeration and kernel-backed bounded coverage checkpoints
+│   │   │   │   └── partition.rs                                                         # Captured-page discovery acknowledges only after a durable bounded checkpoint
 │   │   │   ├── extraction/                                                              # Immutable extraction profiles and bounded pure selection
 │   │   │   │   ├── contract.rs                                                          # Shared mapped extraction contract
 │   │   │   │   ├── decode.rs                                                            # Typed parser-IPC preflight boundary over N09's one core-owned ledger
@@ -447,6 +452,10 @@ in place.
 │   │   │       ├── n12_secrets.rs                                                       # Secret canaries across envelopes, hops, journal output, errors and files
 │   │   │       ├── n12_support.rs                                                       # Synthetic scoped capture fixtures; no live authority is granted
 │   │   │       ├── n12_transfer.rs                                                      # Transfer encoding never changes payload capture identity or provenance label
+│   │   │       ├── n13_capture_edges.rs                                                 # N13 prepared-capture readback and provenance guards
+│   │   │       ├── n13_dom_query.rs                                                     # Owner-approved offline HTML5 link reader and its recorded data contract
+│   │   │       ├── n13_durably_enumerate_public_links_and_bounded_partitions.rs         # N13 durable synthetic discovery and partition contracts
+│   │   │       ├── n13_edges.rs                                                         # N13 trust, bound and partial-commit guards over real kernel storage
 │   │   │       ├── n15_bounds.rs                                                        # Independent shape/qualification guard neighbours, not parser-error mutants
 │   │   │       ├── n15_policy_binding.rs                                                # Genuine admitted handles exercise each core policy binding independently
 │   │   │       ├── n15_qualification_closure.rs                                         # Shared/cyclic closures remain bounded by the existing logical resource cache
@@ -685,7 +694,8 @@ in place.
 │   │   │   ├── 0018_retrieval_representations.sql                                       # File: 0018 retrieval representations
 │   │   │   ├── 0019_acquisition_frontier.sql                                            # File: 0019 acquisition frontier
 │   │   │   ├── 0020_acquisition_receipts.sql                                            # File: 0020 acquisition receipts
-│   │   │   └── 0021_acquisition_captures.sql                                            # File: 0021 acquisition captures
+│   │   │   ├── 0021_acquisition_captures.sql                                            # File: 0021 acquisition captures
+│   │   │   └── 0022_acquisition_partitions.sql                                          # File: 0022 acquisition partitions
 │   │   ├── src/                                                                         # The crate's sources
 │   │   │   ├── acquisition/                                                             # Kernel-owned acquisition work, exposed through a replaceable frontier port
 │   │   │   │   ├── capture.rs                                                           # Verified immutable capture preparation before fenced stage acknowledgment
@@ -696,6 +706,8 @@ in place.
 │   │   │   │   ├── headers.rs                                                           # Exact data-defined header selection and content-free unsafe value evidence
 │   │   │   │   ├── lease.rs                                                             # Fencing handles: durable authority time plus a local monotonic deadline
 │   │   │   │   ├── mod.rs                                                               # Kernel-owned acquisition work, exposed through a replaceable frontier port
+│   │   │   │   ├── partition.rs                                                         # Durable checkpoints reuse the frontier; complete snapshots never replace them
+│   │   │   │   ├── partition_record.rs                                                  # Pending checkpoints are separate from immutable accepted partition snapshots
 │   │   │   │   ├── privacy.rs                                                           # Content-free output types and opaque, transitively scoped artifact handles
 │   │   │   │   ├── receipt.rs                                                           # Unique run attempts, immutable receipt snapshots and bounded stage inventories
 │   │   │   │   ├── record.rs                                                            # Durable request identities and item rows; contexts are never normalized together
