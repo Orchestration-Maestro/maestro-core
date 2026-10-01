@@ -136,10 +136,15 @@ fn rollback_preserves_a_replacement_and_reports_refusal() {
             fs::write(moved.join("new"), b"").unwrap();
         },
     );
+    assert!(
+        moved.join("new").exists(),
+        "replacement must survive rollback"
+    );
+    assert_eq!(fs::read(moved.join("new")).unwrap(), b"");
     let error = result.unwrap_err().to_string();
     assert!(error.contains("parent changed"));
+    assert!(error.contains("rollback failed"));
     assert!(error.contains("replacement not deleted"));
-    assert_eq!(fs::read(moved.join("new")).unwrap(), b"");
     drop(grant);
     fixture
         .trust()
@@ -199,4 +204,108 @@ fn canonicalization_error_refuses_even_if_location_is_now_absent() {
         .unwrap()
         .create_new()
         .unwrap();
+}
+
+#[test]
+fn deny_rebind_between_check_and_create_rolls_back() {
+    let fixture = Fixture::new();
+    fs::create_dir(fixture.project.join("notes")).unwrap();
+    let grant = fixture
+        .trust()
+        .authorize(&fixture.project, Path::new("notes/new"), Access::Write)
+        .unwrap();
+    let result = grant.create_new_with(
+        || directory_link(&fixture.project.join("notes"), &fixture.home.join(".ssh")),
+        || {},
+    );
+    assert!(result.is_err());
+    assert!(!fixture.project.join("notes/new").exists());
+    let fresh =
+        TrustBoundaries::with_environment(&fixture.home, &[], &Environment::default()).unwrap();
+    assert!(
+        CheckedTrust::new(&fixture.roots, &fresh)
+            .authorize(&fixture.project, Path::new("notes/new"), Access::Write)
+            .is_err()
+    );
+    drop(grant);
+    #[cfg(unix)]
+    fs::remove_file(fixture.home.join(".ssh")).unwrap();
+    #[cfg(windows)]
+    fs::remove_dir(fixture.home.join(".ssh")).unwrap();
+    fixture
+        .trust()
+        .authorize(&fixture.project, Path::new("neighbour"), Access::Write)
+        .unwrap()
+        .create_new()
+        .unwrap();
+    assert!(fixture.project.join("neighbour").exists());
+}
+
+#[test]
+fn deny_rebind_between_check_and_read_drops_handle() {
+    let fixture = Fixture::new();
+    fixture.file("project/notes/plain");
+    fixture.file("project/neighbour/plain");
+    let grant = fixture
+        .trust()
+        .authorize(&fixture.project, Path::new("notes/plain"), Access::Read)
+        .unwrap();
+    let result = grant.open_read_with(|| {
+        directory_link(&fixture.project.join("notes"), &fixture.home.join(".ssh"));
+    });
+    assert!(result.is_err());
+    assert_eq!(
+        fixture
+            .trust()
+            .authorize(&fixture.project, Path::new("neighbour/plain"), Access::Read)
+            .unwrap()
+            .open_read()
+            .unwrap()
+            .metadata()
+            .unwrap()
+            .len(),
+        9
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn rollback_survives_owner_unreadable_created_file() {
+    use std::{os::unix::fs::PermissionsExt as _, process::Command};
+    let user = Command::new("id").arg("-u").output().unwrap();
+    assert!(user.status.success());
+    if user.stdout == b"0\n" {
+        return;
+    }
+    let fixture = Fixture::new();
+    fs::create_dir(fixture.project.join("parent")).unwrap();
+    let grant = fixture
+        .trust()
+        .authorize(&fixture.project, Path::new("parent/new"), Access::Write)
+        .unwrap();
+    let moved = fixture.outside.join("parent");
+    let result = grant.create_new_with(
+        || {
+            fs::rename(fixture.project.join("parent"), &moved).unwrap();
+            directory_link(&fixture.outside, &fixture.project.join("parent"));
+        },
+        || fs::set_permissions(moved.join("new"), fs::Permissions::from_mode(0o200)).unwrap(),
+    );
+    assert!(result.is_err());
+    assert!(!moved.join("new").exists());
+    assert!(fs::read_dir(&moved).unwrap().all(|entry| {
+        !entry
+            .unwrap()
+            .file_name()
+            .to_string_lossy()
+            .starts_with(".new.maestro-quarantine-")
+    }));
+    drop(grant);
+    fixture
+        .trust()
+        .authorize(&fixture.project, Path::new("neighbour"), Access::Write)
+        .unwrap()
+        .create_new()
+        .unwrap();
+    assert!(fixture.project.join("neighbour").exists());
 }

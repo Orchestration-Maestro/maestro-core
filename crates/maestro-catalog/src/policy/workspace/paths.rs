@@ -114,7 +114,24 @@ impl AuthorizedPath<'_> {
             return Err(io::Error::other("not a read capability"));
         }
         self.revalidate()?;
-        self.parent.open_regular(&self.name)
+        self.finish_read(self.parent.open_regular(&self.name)?)
+    }
+
+    /// Drop the opened handle on refusal rather than returning stale authority.
+    fn finish_read(&self, file: File) -> io::Result<File> {
+        self.check_current_policy()?;
+        Ok(file)
+    }
+
+    /// Test-only scheduling hook between the lease check and regular-file open.
+    #[cfg(test)]
+    pub(crate) fn open_read_with(&self, after_check: impl FnOnce()) -> io::Result<File> {
+        if self.access != Access::Read {
+            return Err(io::Error::other("not a read capability"));
+        }
+        self.revalidate()?;
+        after_check();
+        self.finish_read(self.parent.open_regular(&self.name)?)
     }
 
     /// Test-only scheduling hook between the lease check and exclusive creation.
@@ -136,6 +153,8 @@ impl AuthorizedPath<'_> {
     /// A moved parent causes unlink through the held parent and refusal; a cleanup
     /// I/O failure is reported and can leave the new file behind. Rollback verifies
     /// the created identity and empty bytes, preserving replacements on mismatch.
+    /// A same-user process can replace the quarantine entry between the last check
+    /// and unlinkat because POSIX has no unlink-if-same-file.
     /// Windows holds all ancestors without delete-sharing, blocking the rename.
     ///
     /// # Errors
@@ -154,12 +173,12 @@ impl AuthorizedPath<'_> {
         self.parent.verify_named()
     }
 
-    /// Do not return a created handle if its parent escaped after the check.
+    /// Do not return a created handle if its parent or policy changed after the check.
     fn finish_creation(&self, file: File) -> io::Result<File> {
-        if let Err(error) = self.parent.verify_named() {
+        if let Err(error) = self.check_current_policy() {
             self.rollback_creation(file).map_err(|cleanup| {
                 io::Error::other(format!(
-                    "parent changed: {error}; rollback refused; replacement not deleted: {cleanup}"
+                    "parent changed or policy changed: {error}; rollback failed: {cleanup}"
                 ))
             })?;
             return Err(error);
@@ -170,15 +189,16 @@ impl AuthorizedPath<'_> {
     /// Delete only the empty object this operation created, never a replaced entry.
     fn rollback_creation(&self, file: File) -> io::Result<()> {
         #[cfg(unix)]
-        let identity = {
-            use std::os::unix::fs::MetadataExt as _;
-            let metadata = file.metadata()?;
-            Some((metadata.dev(), metadata.ino()))
-        };
+        {
+            let result = self.parent.remove_created(&self.name, &file);
+            drop(file);
+            result
+        }
         #[cfg(windows)]
-        let identity = None;
-        drop(file);
-        self.parent.remove_verified(&self.name, &[], identity)
+        {
+            drop(file);
+            self.parent.remove_verified(&self.name, &[], None)
+        }
     }
 
     /// Refresh immutable deny data from live bindings, retaining both supplied and resolved names.

@@ -251,6 +251,38 @@ fn remove_verified_quarantine_never_replaces_a_planted_name() {
     fs::remove_dir_all(root).unwrap();
 }
 
+#[cfg(unix)]
+#[test]
+fn remove_created_refuses_bytes_written_after_quarantine() {
+    let root = scratch();
+    let directory = Directory::open(&root, Path::new(""), false).unwrap();
+    let created = directory.create_new("file").unwrap();
+    let mut writer = created.try_clone().unwrap();
+    let result = directory.remove_created_with("file", &created, || {
+        writer.write_all(b"late").unwrap();
+    });
+    assert!(result.is_err());
+    assert!(
+        result
+            .unwrap_err()
+            .to_string()
+            .contains("created file changed")
+    );
+    assert_eq!(fs::read(root.join("file")).unwrap(), b"late");
+    assert!(fs::read_dir(&root).unwrap().all(|entry| {
+        !entry
+            .unwrap()
+            .file_name()
+            .to_string_lossy()
+            .contains("maestro-quarantine")
+    }));
+    let neighbour = directory.create_new("neighbour").unwrap();
+    assert!(directory.remove_created("neighbour", &neighbour).is_ok());
+    assert!(!root.join("neighbour").exists());
+    drop((created, writer, neighbour, directory));
+    fs::remove_dir_all(root).unwrap();
+}
+
 #[test]
 fn remove_verified_restore_never_replaces_a_concurrently_recreated_name() {
     let root = scratch();

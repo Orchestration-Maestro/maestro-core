@@ -9,7 +9,7 @@ use super::{
 };
 use rustix::fd::OwnedFd;
 use rustix::fs::{
-    AtFlags, Dir, FileType, Mode, OFlags, RenameFlags, linkat, mkdirat, open, openat,
+    AtFlags, Dir, FileType, Mode, OFlags, RenameFlags, fstat, linkat, mkdirat, open, openat,
     renameat_with, statat, unlinkat,
 };
 #[cfg(target_os = "linux")]
@@ -334,6 +334,8 @@ impl Directory {
     /// bytes remain in the hidden quarantine; a resumed catalog removal then has no ownership
     /// record to proceed from. Verification precedes unlink-by-name, so a writer holding an open
     /// descriptor can still change bytes after verification.
+    /// A same-user process can replace the quarantine entry between the last check and unlinkat
+    /// because POSIX has no unlink-if-same-file.
     ///
     /// # Errors
     /// Returns an error if the entry changes, is not regular, or cannot be safely restored/removed.
@@ -369,23 +371,8 @@ impl Directory {
         if !File::from(original).metadata()?.is_file() {
             return Err(io::Error::other("artifact is not a regular file"));
         }
-        let quarantine = loop {
-            let counter = NEXT_QUARANTINE.fetch_add(1, Ordering::Relaxed);
-            let candidate = format!(".{name}.maestro-quarantine-{}-{counter}", process::id());
-            match renameat_with(&self.0, name, &self.0, &candidate, RenameFlags::NOREPLACE) {
-                Ok(()) => break candidate,
-                Err(Errno::EXIST) => {}
-                Err(error) => return Err(error.into()),
-            }
-        };
-        after_quarantine();
-        let opened = (|| {
-            let fd = openat(
-                &self.0,
-                quarantine.as_str(),
-                READ_REGULAR_FLAGS,
-                Mode::empty(),
-            )?;
+        self.remove_quarantined(name, after_quarantine, |quarantine| {
+            let fd = openat(&self.0, quarantine, READ_REGULAR_FLAGS, Mode::empty())?;
             let mut file = File::from(fd);
             let metadata = file.metadata()?;
             if !metadata.is_file() {
@@ -397,22 +384,72 @@ impl Directory {
             });
             let mut bytes = Vec::new();
             file.read_to_end(&mut bytes)?;
-            Ok((bytes, identity_matches))
-        })();
-        match opened {
-            Ok((bytes, true)) if bytes == expected => {
-                Ok(unlinkat(&self.0, quarantine.as_str(), AtFlags::empty())?)
+            if bytes != expected || !identity_matches {
+                return Err(io::Error::other(
+                    "verified removal refused: file bytes changed",
+                ));
             }
-            Ok(_) | Err(_) => {
+            Ok(())
+        })
+    }
+
+    /// Remove an empty created file using its still-held identity, without reopening it.
+    /// Use a regular-file handle returned by `create_new` and keep it open until removal
+    /// completes to prevent inode reuse.
+    ///
+    /// # Errors
+    /// Refuses non-empty entries, replacements and failed cleanup.
+    pub fn remove_created(&self, name: &str, created: &File) -> io::Result<()> {
+        self.remove_created_with(name, created, || {})
+    }
+
+    /// Verify the created identity after the quarantine scheduling hook.
+    pub(crate) fn remove_created_with(
+        &self,
+        name: &str,
+        created: &File,
+        after_quarantine: impl FnOnce(),
+    ) -> io::Result<()> {
+        leaf_name(name)?;
+        let held = fstat(created)?;
+        self.remove_quarantined(name, after_quarantine, |quarantine| {
+            let named = statat(&self.0, quarantine, AtFlags::SYMLINK_NOFOLLOW)?;
+            if named.st_size != 0 || named.st_dev != held.st_dev || named.st_ino != held.st_ino {
+                return Err(io::Error::other(
+                    "created file changed; replacement not deleted",
+                ));
+            }
+            Ok(())
+        })
+    }
+
+    /// Share the non-replacing quarantine and restoration for byte and held-identity checks.
+    fn remove_quarantined(
+        &self,
+        name: &str,
+        after_quarantine: impl FnOnce(),
+        verify: impl FnOnce(&str) -> io::Result<()>,
+    ) -> io::Result<()> {
+        let quarantine = loop {
+            let counter = NEXT_QUARANTINE.fetch_add(1, Ordering::Relaxed);
+            let candidate = format!(".{name}.maestro-quarantine-{}-{counter}", process::id());
+            match renameat_with(&self.0, name, &self.0, &candidate, RenameFlags::NOREPLACE) {
+                Ok(()) => break candidate,
+                Err(Errno::EXIST) => {}
+                Err(error) => return Err(error.into()),
+            }
+        };
+        after_quarantine();
+        match verify(&quarantine) {
+            Ok(()) => Ok(unlinkat(&self.0, quarantine.as_str(), AtFlags::empty())?),
+            Err(error) => {
                 if let Err(error) = self.link(&quarantine, name) {
                     return Err(io::Error::other(format!(
                         "verified removal refused; changed bytes retained at {quarantine}: {error}"
                     )));
                 }
                 self.remove_file(&quarantine)?;
-                Err(io::Error::other(
-                    "verified removal refused: file bytes changed",
-                ))
+                Err(error)
             }
         }
     }
