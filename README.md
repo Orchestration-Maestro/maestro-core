@@ -16,7 +16,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Orchestration-Maestro/maestro-core/actions"><img src="https://img.shields.io/github/check-runs/Orchestration-Maestro/maestro-core/main?style=for-the-badge&amp;label=checks" alt="Checks on main" /></a>
+  <a href="https://github.com/Orchestration-Maestro/maestro-core/actions"><img src="https://img.shields.io/github/check-runs/Orchestration-Maestro/maestro-core/main?label=checks" alt="Checks on main" /></a>
   <a href="https://scorecard.dev/viewer/?uri=github.com/Orchestration-Maestro/maestro-core"><img src="https://api.scorecard.dev/projects/github.com/Orchestration-Maestro/maestro-core/badge" alt="OpenSSF Scorecard" /></a>
   <a href="https://codecov.io/gh/Orchestration-Maestro/maestro-core"><img src="https://codecov.io/gh/Orchestration-Maestro/maestro-core/graph/badge.svg" alt="Codecov line coverage" /></a>
 </p>
@@ -134,15 +134,15 @@ exit criteria; a planned milestone is not a shipped capability.
 The crates build and pass their tests on Linux, macOS and Windows; CI runs them
 on all three ([ADR-0018](docs/adr/0018-rustix-on-unix-and-win32-flags-on-windows.md)).
 Install [rustup](https://rustup.rs), then the organization's gate from the
-[latest rust-workflows release](https://github.com/Orchestration-Maestro/rust-workflows/releases/latest),
+[latest maestro-rust-workflows release](https://github.com/Orchestration-Maestro/maestro-rust-workflows/releases/latest),
 which installs the toolbelt CI runs, at the versions it runs, and the commit
-hooks ([details](https://github.com/Orchestration-Maestro/rust-workflows/blob/main/docs/ci.md#the-tools-on-your-machine)).
+hooks ([details](https://github.com/Orchestration-Maestro/maestro-rust-workflows/blob/main/docs/ci.md#the-tools-on-your-machine)).
 `just check` runs exactly what CI runs, the steps of its checks job over the
 commits a push sends, and the pre-push hook runs it
-([details](https://github.com/Orchestration-Maestro/rust-workflows/blob/main/docs/ci.md#run-ci-before-you-push)):
+([details](https://github.com/Orchestration-Maestro/maestro-rust-workflows/blob/main/docs/ci.md#run-ci-before-you-push)):
 
 ```bash
-cargo install --locked --git https://github.com/Orchestration-Maestro/rust-workflows \
+cargo install --locked --git https://github.com/Orchestration-Maestro/maestro-rust-workflows \
   --tag vX.Y.Z rust-gate   # the latest release's tag
 rust-gate setup   # the pinned toolbelt, and the commit hooks
 just check        # CI's checks, here; it must pass before every push

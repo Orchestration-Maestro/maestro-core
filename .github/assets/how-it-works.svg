@@ -68,7 +68,7 @@
   <rect x="488" y="120" width="304" height="64" rx="6" fill="#ffffff" stroke="#261b08" stroke-width="1"/>
   <g text-anchor="middle">
     <text x="640" y="140" fill="#261b08" font-size="10" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" letter-spacing="0.08em">AUTHORITY · ON MAIN</text>
-    <text x="640" y="161" fill="#261b08" font-size="14" font-weight="600" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">SQLite journal · artifacts · receipts</text>
+    <text x="640" y="161" fill="#261b08" font-size="14" font-weight="600" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">SQLite journal · artifacts</text>
     <text x="640" y="177" fill="#604427" font-size="10" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">source bytes remain authoritative</text>
   </g>
 
