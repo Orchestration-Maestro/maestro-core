@@ -1,0 +1,129 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1160 512" width="1160" height="512" role="img" aria-labelledby="how-it-works-title how-it-works-desc">
+  <title id="how-it-works-title">Maestro Core: from sources to cited answers</title>
+  <desc id="how-it-works-desc">Roadmap data flow, not a claim that all parts are on main. Native acquisition in S6 feeds canonicalization: provenance-bearing documents, duplicate groups and token-budgeted chunks. S1 uses imported corpora first. The knowledge kernel holds the SQLite journal, artifacts and receipts; embeddings and lexical vectors feed a Qdrant projection, then hybrid search and reranking select evidence for answers through the CLI and MCP. The S2 knowledge graph adds evidence-backed relationships and graph retrieval. S3 catalog discovery cards feed the same kernel. Solid boxes are on main; dashed boxes are in progress. M1 is in final measurement.</desc>
+
+  <defs>
+    <marker id="hiw-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#604427"/>
+    </marker>
+    <marker id="hiw-arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#3f7d3f"/>
+    </marker>
+  </defs>
+
+  <rect width="100%" height="100%" fill="#f5f5f5"/>
+
+  <!-- Zones, then connectors, then nodes: opaque boxes keep the paths clear. -->
+  <rect x="464" y="80" width="352" height="276" rx="8" fill="rgba(38,27,8,0.02)" stroke="rgba(38,27,8,0.10)" stroke-width="0.8"/>
+  <rect x="480" y="84" width="320" height="18" rx="2" fill="#f5f5f5"/>
+  <text x="640" y="97" fill="#604427" font-size="10" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" text-anchor="middle" letter-spacing="0.14em">KNOWLEDGE KERNEL · S1</text>
+
+  <g fill="none" stroke="#604427" stroke-width="1.2" marker-end="url(#hiw-arrow)">
+    <path d="M 176,232 H 216"/>
+    <path d="M 424,232 H 448 V 154 H 488"/>
+    <path d="M 560,184 V 208"/>
+    <path d="M 632,272 H 648"/>
+    <path d="M 792,240 H 904"/>
+    <path d="M 732,380 V 356"/>
+  </g>
+  <g fill="none" stroke="#3f7d3f" stroke-width="1.2" marker-end="url(#hiw-arrow-link)">
+    <path d="M 608,184 V 196 H 452 V 414 H 464"/>
+    <path d="M 548,380 V 364 H 720 V 336"/>
+  </g>
+
+  <g fill="#604427" font-size="10" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" text-anchor="middle">
+    <text x="320" y="118" letter-spacing="0.14em">CANONICALIZATION</text>
+    <text x="848" y="226">EVIDENCE</text>
+    <text x="620" y="375" fill="#3f7d3f">GRAPH ROUTE</text>
+    <text x="336" y="410" fill="#3f7d3f">EVIDENCE-BACKED FACTS</text>
+  </g>
+
+  <!-- Native acquisition is in progress; S1 can import existing corpora. -->
+  <rect x="24" y="160" width="152" height="144" rx="6" fill="#f5f5f5"/>
+  <rect x="24" y="160" width="152" height="144" rx="6" fill="rgba(96,68,39,0.10)" stroke="#886c48" stroke-width="1" stroke-dasharray="4,3"/>
+  <g text-anchor="middle">
+    <text x="100" y="183" fill="#886c48" font-size="10" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" letter-spacing="0.08em">S6 · IN PROGRESS</text>
+    <text x="100" y="214" fill="#261b08" font-size="14" font-weight="600" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">Sources</text>
+    <g fill="#604427" font-size="11" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">
+      <text x="100" y="239">native acquisition</text>
+      <text x="100" y="260">fetch · extract</text>
+      <text x="100" y="281">provenance receipts</text>
+    </g>
+  </g>
+  <text x="100" y="330" fill="#604427" font-size="10" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" text-anchor="middle">S1: corpus import first</text>
+
+  <!-- Canonicalization and the authority store are already on main. -->
+  <rect x="216" y="144" width="208" height="176" rx="6" fill="#ffffff" stroke="#261b08" stroke-width="1"/>
+  <g text-anchor="middle">
+    <text x="320" y="169" fill="#261b08" font-size="10" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" letter-spacing="0.08em">ON MAIN</text>
+    <text x="320" y="204" fill="#261b08" font-size="14" font-weight="600" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">Canonical documents</text>
+    <g fill="#604427" font-size="11" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">
+      <text x="320" y="233">original bytes · provenance</text>
+      <text x="320" y="259">duplicates grouped</text>
+      <text x="320" y="285">token-budgeted chunks</text>
+      <text x="320" y="307">mapped source spans</text>
+    </g>
+  </g>
+
+  <rect x="488" y="120" width="304" height="64" rx="6" fill="#ffffff" stroke="#261b08" stroke-width="1"/>
+  <g text-anchor="middle">
+    <text x="640" y="140" fill="#261b08" font-size="10" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" letter-spacing="0.08em">AUTHORITY · ON MAIN</text>
+    <text x="640" y="161" fill="#261b08" font-size="14" font-weight="600" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">SQLite journal · artifacts · receipts</text>
+    <text x="640" y="177" fill="#604427" font-size="10" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">source bytes remain authoritative</text>
+  </g>
+
+  <!-- Dashed S1 nodes distinguish the M1 work from its main building blocks. -->
+  <rect x="488" y="208" width="144" height="128" rx="6" fill="#f5f5f5"/>
+  <rect x="488" y="208" width="144" height="128" rx="6" fill="rgba(38,27,8,0.05)" stroke="#604427" stroke-width="1" stroke-dasharray="4,3"/>
+  <rect x="648" y="208" width="144" height="128" rx="6" fill="#f5f5f5"/>
+  <rect x="648" y="208" width="144" height="128" rx="6" fill="rgba(140,58,43,0.08)" stroke="#8c3a2b" stroke-width="1.2" stroke-dasharray="4,3"/>
+  <g text-anchor="middle" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" fill="#261b08" font-size="14" font-weight="600">
+    <text x="560" y="252">Representations</text>
+    <text x="720" y="252">Hybrid search</text>
+  </g>
+  <g text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10" fill="#604427">
+    <text x="560" y="229" letter-spacing="0.08em">S1 · PROJECTION</text>
+    <text x="560" y="279">embeddings · lexical</text>
+    <text x="560" y="301">Qdrant index</text>
+    <text x="560" y="323">rebuildable</text>
+    <text x="720" y="229" fill="#8c3a2b" letter-spacing="0.08em">S1 · RETRIEVAL</text>
+    <text x="720" y="279">dense + BM25</text>
+    <text x="720" y="301">fusion · reranking</text>
+    <text x="720" y="323">source-span evidence</text>
+  </g>
+
+  <rect x="904" y="176" width="232" height="128" rx="6" fill="#f5f5f5"/>
+  <rect x="904" y="176" width="232" height="128" rx="6" fill="rgba(63,125,63,0.08)" stroke="#3f7d3f" stroke-width="1" stroke-dasharray="4,3"/>
+  <g text-anchor="middle">
+    <text x="1020" y="201" fill="#3f7d3f" font-size="10" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" letter-spacing="0.08em">S1 · DELIVERY</text>
+    <text x="1020" y="235" fill="#261b08" font-size="14" font-weight="600" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">Answers with citations</text>
+    <text x="1020" y="261" fill="#604427" font-size="11" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">CLI · MCP</text>
+    <text x="1020" y="286" fill="#604427" font-size="10" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">M1: final measurement</text>
+  </g>
+
+  <!-- The graph enriches retrieval; the catalog feeds it discovery cards. -->
+  <g fill="#f5f5f5" stroke="#604427" stroke-width="1" stroke-dasharray="4,3">
+    <rect x="464" y="380" width="168" height="68" rx="6"/>
+    <rect x="648" y="380" width="168" height="68" rx="6"/>
+  </g>
+  <g text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10" fill="#604427">
+    <text x="548" y="398" letter-spacing="0.08em">S2 · IN PROGRESS</text>
+    <text x="732" y="398" letter-spacing="0.08em">S3 · IN PROGRESS</text>
+    <text x="548" y="439">entities · relations</text>
+    <text x="732" y="439">discovery cards</text>
+  </g>
+  <g text-anchor="middle" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#261b08">
+    <text x="548" y="420">Knowledge graph</text>
+    <text x="732" y="420">Governed catalog</text>
+  </g>
+
+  <line x1="24" y1="464" x2="1136" y2="464" stroke="rgba(38,27,8,0.12)" stroke-width="0.8"/>
+  <g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="10" fill="#604427">
+    <text x="24" y="46" letter-spacing="0.14em">ROADMAP DATA FLOW · NOT ALL PARTS ARE ON MAIN</text>
+    <line x1="24" y1="487" x2="56" y2="487" stroke="#261b08" stroke-width="1"/>
+    <text x="68" y="491">SOLID BOX: ON MAIN</text>
+    <line x1="264" y1="487" x2="296" y2="487" stroke="#604427" stroke-width="1" stroke-dasharray="4,3"/>
+    <text x="308" y="491">DASHED BOX: IN PROGRESS</text>
+    <text x="640" y="491">S1 IMPORTS CORPORA; S6 ADDS NATIVE ACQUISITION</text>
+  </g>
+</svg>

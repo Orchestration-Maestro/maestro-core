@@ -2,12 +2,8 @@
 
 ## Start here
 
-The local runtime of Maestro: knowledge kernel, retrieval, orchestration and the
-command-line tools. Today it holds one crate,
-[`maestro-canonicalization`](../crates/maestro-canonicalization/README.md),
-which turns Markdown into provenance-bearing canonical documents, groups
-duplicates and cuts them into token-budgeted chunks. The rest arrives slice by
-slice ([roadmap](../docs/architecture/06-roadmap.md)).
+Try the canonicalization CLI on the checked-in example. From the repository
+root, with [rustup](https://rustup.rs) installed:
 
 Paths below are relative to this repository. Before editing, read
 [AGENTS.md](../AGENTS.md) for the rules that bind every change,
@@ -37,6 +33,10 @@ in place.
 ├── .cargo/                                                                  # Cargo settings for this workspace
 │   └── mutants.toml                                                         # Mutants no test can kill, each with its reason: none changes behaviour a test can observe
 ├── .github/                                                                 # GitHub metadata, templates and workflows
+│   ├── assets/                                                              # Images and other assets
+│   │   ├── CREDITS.md                                                       # Banner credits
+│   │   ├── how-it-works.svg                                                 # Roadmap data flow: native acquisition feeds canonicalization, then the knowledge kernel's SQLite journal and receipts
+│   │   └── maestro-core.jpg                                                 # Maestro Core: ask anything, cite everything
 │   ├── workflows/                                                           # GitHub Actions workflows
 │   │   ├── dependabot-auto-merge.yml                                        # Dependabot auto-merge
 │   │   └── scorecard.yml                                                    # OpenSSF Scorecard
