@@ -204,9 +204,7 @@ fn builtin_scoped_shapes_preserve_native_metadata_and_hooks() {
     let tree = MemoryTree::default()
         .with(
             "core/agents/valid.agent.md",
-            &legacy
-                .text("core/agents/valid.agent.md")
-                .replace("\"maestro/knowledge_search\", ", ""),
+            &legacy.text("core/agents/valid.agent.md"),
         )
         .with(
             "core/agents/valid.maestro.toml",

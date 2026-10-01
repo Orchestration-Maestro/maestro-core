@@ -70,9 +70,7 @@ fn scoped_native_kinds_accept_registered_areas() {
     let registry = builtin().unwrap();
     let legacy = MemoryTree::valid();
     let team = "capabilities/practice/review";
-    let agent = legacy
-        .text("core/agents/valid.agent.md")
-        .replace("\"maestro/knowledge_search\", ", "");
+    let agent = legacy.text("core/agents/valid.agent.md");
     let agent_metadata = legacy.text("core/agents/valid.maestro.toml").replace(
         "requires = [\"skill:common/valid-skill\", \"instructions:core/valid\"]",
         "requires = []",

@@ -284,3 +284,132 @@ fn qualified_segments_keep_the_64_character_boundary() {
         assert!(result.unwrap_err().to_string().contains("not a qualified"));
     }
 }
+
+#[test]
+fn root_support_qualified_identity_roundtrips() {
+    let mut descriptor = glossary();
+    descriptor.directory = "docs/catalog".to_owned();
+    descriptor.scopes = vec![Scope::Root];
+    let mut registry = builtin().unwrap();
+    registry.register(descriptor).unwrap();
+    let tree = MemoryTree::default().with("docs/catalog/evidence.toml", &entry());
+    let checked = check_by(&tree, &registry, &Limits::PRODUCTION).unwrap();
+    assert_eq!(
+        checked.resources[0].id.to_string(),
+        "glossary:common/evidence"
+    );
+    let id = checked.resources[0].id.to_string();
+    let root = package_source("package", "core")
+        .replace("requires = []", &format!("requires = [\"{id}\"]"));
+    check_by(
+        &tree.with("core/package.toml", &root),
+        &registry,
+        &Limits::PRODUCTION,
+    )
+    .unwrap();
+}
+
+#[test]
+fn root_support_emitted_id_is_referenceable() {
+    let mut descriptor = glossary();
+    descriptor.directory = "docs/catalog".to_owned();
+    descriptor.scopes = vec![Scope::Root];
+    let mut registry = builtin().unwrap();
+    registry.register(descriptor).unwrap();
+    let tree = MemoryTree::default().with("docs/catalog/evidence.toml", &entry());
+    let checked = check_by(&tree, &registry, &Limits::PRODUCTION).unwrap();
+    let id = checked.resources[0].id.to_string();
+    let root = package_source("package", "core")
+        .replace("requires = []", &format!("requires = [\"{id}\"]"));
+    let result = check_by(
+        &tree.with("core/package.toml", &root),
+        &registry,
+        &Limits::PRODUCTION,
+    );
+    assert!(
+        result.is_ok(),
+        "every admitted ID must be referenceable: {id}"
+    );
+}
+
+#[test]
+fn retired_capability_root_refuses() {
+    let mut descriptor = glossary();
+    descriptor.kind = "capability".to_owned();
+    descriptor.directory = String::new();
+    descriptor.scopes = vec![Scope::Core];
+    descriptor.layout = Layout::Area {
+        file: "capability.toml".to_owned(),
+    };
+    for mut registry in [Registry::default(), builtin().unwrap()] {
+        let result = registry.register(descriptor.clone());
+        assert!(
+            result.is_err(),
+            "retired descriptors must refuse before discovery"
+        );
+        assert!(result.unwrap_err().to_string().contains("migrate"));
+        assert!(registry.kind(&descriptor.kind).is_none());
+    }
+}
+
+#[test]
+fn retired_kind_with_legal_placement_refuses() {
+    let mut descriptor = glossary();
+    descriptor.kind = "capability".to_owned();
+    descriptor.scopes = vec![Scope::Core];
+    for mut registry in [Registry::default(), builtin().unwrap()] {
+        let result = registry.register(descriptor.clone());
+        assert!(
+            result.is_err(),
+            "retired descriptors must refuse before discovery"
+        );
+        assert!(result.unwrap_err().to_string().contains("migrate"));
+        assert!(registry.kind(&descriptor.kind).is_none());
+    }
+}
+
+#[test]
+fn retired_filename_with_legal_kind_refuses() {
+    let mut descriptor = glossary();
+    descriptor.directory = String::new();
+    descriptor.scopes = vec![Scope::Core];
+    descriptor.layout = Layout::Area {
+        file: "capability.toml".to_owned(),
+    };
+    for mut registry in [Registry::default(), builtin().unwrap()] {
+        let result = registry.register(descriptor.clone());
+        assert!(
+            result.is_err(),
+            "retired descriptors must refuse before discovery"
+        );
+        assert!(result.unwrap_err().to_string().contains("migrate"));
+        assert!(registry.kind(&descriptor.kind).is_none());
+    }
+}
+
+/// Root/Common overlap and duplicate-kind refusals make a direct collision unreachable.
+#[test]
+fn root_support_duplicate_common_identity_refuses() {
+    let mut descriptor = glossary();
+    descriptor.directory = "docs/catalog".to_owned();
+    descriptor.scopes = vec![Scope::Root, Scope::Team];
+    let mut registry = Registry::default();
+    registry.register(descriptor).unwrap();
+    let tree = MemoryTree::default()
+        .with("docs/catalog/evidence.toml", &entry())
+        .with(
+            "capabilities/practice/common/docs/catalog/evidence.toml",
+            &entry(),
+        );
+    let result = check_by(&tree, &registry, &Limits::PRODUCTION);
+    assert!(
+        result.is_err(),
+        "Root support must share the common namespace"
+    );
+    assert!(
+        result
+            .unwrap_err()
+            .to_string()
+            .contains("duplicate ID glossary:common/evidence")
+    );
+}

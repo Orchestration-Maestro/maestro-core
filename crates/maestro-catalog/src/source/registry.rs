@@ -15,6 +15,9 @@ use super::{
     types::Maturity,
 };
 
+/// Retired kind and area-file spellings, paired for the v4 migration.
+const RETIRED_NAMES: &[(&str, &str)] = &[("capability", "capability.toml")];
+
 /// A descriptor registration refused before any source discovery.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RegistrationError {
@@ -83,8 +86,22 @@ impl Registry {
     ///
     /// Why it cannot be registered: its kind or directory is already
     /// registered, its descriptor contradicts itself, or it selects an
-    /// unknown hook, or uses an unscoped pre-cutover placement.
+    /// unknown hook, or uses an unscoped placement or retired kind/area file.
     pub fn register(&mut self, descriptor: KindDescriptor) -> Result<(), RegistrationError> {
+        for (kind, file) in RETIRED_NAMES {
+            if descriptor.kind == *kind {
+                return Err(RegistrationError::InvalidDescriptor(format!(
+                    "kind {kind:?} is retired; migrate to v4 package identities"
+                )));
+            }
+            if let Layout::Area { file: area_file } = &descriptor.layout
+                && area_file == file
+            {
+                return Err(RegistrationError::InvalidDescriptor(format!(
+                    "area file {file:?} is retired; migrate to v4 package.toml"
+                )));
+            }
+        }
         if descriptor.scopes.is_empty() {
             return Err(RegistrationError::LegacyDescriptor {
                 kind: descriptor.kind.clone(),

@@ -11,7 +11,7 @@ use super::{
 pub(super) struct Unit {
     /// Its registered kind.
     pub(super) kind: String,
-    /// Its area namespace, absent for area roots and root support kinds.
+    /// Its area namespace, absent only for area roots and presets.
     pub(super) namespace: Option<String>,
     /// Its local name.
     pub(super) name: String,
@@ -69,8 +69,8 @@ fn namespace(descriptor: &KindDescriptor, path: &str) -> Option<String> {
                 return None;
             }
             match scope {
-                Scope::Root => None,
-                Scope::Common => Some("common".to_owned()),
+                Scope::Root if descriptor.kind == "preset" => None,
+                Scope::Root | Scope::Common => Some("common".to_owned()),
                 _ => path
                     .split('/')
                     .nth(scope.prefix().split('/').count() - 1)
