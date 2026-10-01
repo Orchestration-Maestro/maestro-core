@@ -10,8 +10,6 @@ use crate::{
     filesystem::{create_directories, new_file},
 };
 use rusqlite::{Connection, ErrorCode, OpenFlags, Transaction, TransactionBehavior};
-#[cfg(feature = "test")]
-use std::cell::Cell;
 use std::{
     fs, io,
     path::{self, Path, PathBuf},
@@ -26,13 +24,6 @@ use std::{
 /// How long a connection waits for another's lock before it gives up.
 const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
 
-#[cfg(feature = "test")]
-thread_local! {
-    /// Test support only: the busy timeout of the connections this thread
-    /// opens next, per thread so parallel tests keep independent timeouts.
-    /// Normal builds keep the fixed five-second timeout.
-    pub static WRITER_BUSY_TIMEOUT_FOR_TESTS: Cell<Duration> = const { Cell::new(BUSY_TIMEOUT) };
-}
 /// The database's file in the kernel's data directory.
 const FILE: &str = "kernel.sqlite3";
 
@@ -207,10 +198,7 @@ pub fn pending_migrations(data: &Path) -> Result<Vec<&'static str>, Error> {
 /// bundled SQLite default to the first two; the kernel does not depend on it.
 /// No trigger of the kernel writes, so none fires another.
 pub(super) fn configured(connection: Connection) -> Result<Connection, Error> {
-    #[cfg(not(feature = "test"))]
     connection.busy_timeout(BUSY_TIMEOUT)?;
-    #[cfg(feature = "test")]
-    connection.busy_timeout(WRITER_BUSY_TIMEOUT_FOR_TESTS.get())?;
     connection.pragma_update(None, "foreign_keys", true)?;
     connection.pragma_update(None, "recursive_triggers", true)?;
     Ok(connection)

@@ -183,13 +183,10 @@ fn config_refresh_failure(error: ConfigRefreshError) -> Failure {
 mod tests {
     use super::Kernel;
     use crate::failure::Failure;
-    use maestro_kernel::{
-        scope::LOCAL,
-        store::{Database, WRITER_BUSY_TIMEOUT_FOR_TESTS},
-    };
+    use maestro_kernel::{scope::LOCAL, store::Database};
     use maestro_test_scratch::scratch_directory;
     use rusqlite::Connection;
-    use std::{fs, time::Duration};
+    use std::fs;
 
     #[test]
     fn open_at_config_refresh_takes_the_writer_lock_before_loading() {
@@ -202,8 +199,9 @@ mod tests {
     }
 
     /// A malformed file must not be read until the writer lock is available.
+    /// Each call waits out the kernel's five-second busy timeout: the only
+    /// lock signal a caller outside the kernel crate can observe.
     fn assert_lock_precedes_config_load(refresh: bool) {
-        WRITER_BUSY_TIMEOUT_FOR_TESTS.set(Duration::from_millis(50));
         let directory = scratch_directory().unwrap();
         let mut kernel = Kernel::open_at(&directory, &directory).unwrap();
         let previous = kernel.scopes.clone();
@@ -237,6 +235,5 @@ mod tests {
         drop(outside);
         drop(kernel);
         fs::remove_dir_all(directory).unwrap();
-        WRITER_BUSY_TIMEOUT_FOR_TESTS.set(Duration::from_secs(5));
     }
 }

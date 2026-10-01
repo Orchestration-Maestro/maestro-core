@@ -55,7 +55,5 @@ mod migration;
 mod tests;
 
 pub use artifacts::{Artifact, ArtifactCheck};
-#[cfg(feature = "test")]
-pub use database::WRITER_BUSY_TIMEOUT_FOR_TESTS;
 pub use database::{Database, pending_migrations};
 pub use error::Error;
