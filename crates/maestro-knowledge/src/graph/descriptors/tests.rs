@@ -1,6 +1,6 @@
 //! Source-only composition and fail-closed pointer checks.
 
-use super::{DescriptorInput, DescriptorPin, build};
+use super::{DescriptorError, DescriptorInput, DescriptorPin, build};
 use crate::graph::{resolve::EXACT_RESOLVER_VERSION, verify::Source};
 use maestro_canonicalization::{CanonicalizeInput, canonicalize};
 use maestro_kernel::{
@@ -114,7 +114,10 @@ fn non_utf8_context_boundaries_are_refused_without_a_whole_source_fallback() {
     support.quote_digest = Digest::of(markdown.as_bytes());
     let result = build(&input);
     assert!(result.is_err());
-    assert_eq!(result.unwrap_err().0, "invalid UTF-8 span");
+    assert_eq!(
+        result.unwrap_err(),
+        DescriptorError::Refused("invalid UTF-8 span".into())
+    );
 }
 
 #[test]
@@ -330,4 +333,63 @@ fn endpoint_context_selection_uses_frozen_support_order_not_caller_order() {
     );
     input.claims[0].claim.supports.reverse();
     assert_eq!(documents, build(&input).unwrap());
+}
+
+#[test]
+fn unresolved_spelling_collision_is_held_not_built_as_a_descriptor() {
+    let mut input = fixture();
+    let mut other = input.snapshot.claims[0].clone();
+    other.id = Digest::of(b"different spelling");
+    other.claim.subject.name = "alpha".into();
+    input.snapshot.claims.push(other);
+    let result = build(&input);
+    assert_eq!(
+        result.unwrap_err(),
+        DescriptorError::HeldForReview(
+            Digest::parse("d5c16926bdd336139829d71d709c9c15d28ffc596fbe1efef5442325370075c7")
+                .unwrap()
+        )
+    );
+}
+
+#[test]
+fn same_name_namespace_collision_is_held_until_its_sourced_review() {
+    use maestro_kernel::facts::{Decision, DecisionKind, Endpoint, Mention, ReviewRecord};
+    let mut input = fixture();
+    let mut other = input.snapshot.claims[0].clone();
+    other.id = Digest::of(b"unrelated documentary namespace");
+    input.snapshot.claims.push(other.clone());
+    let decision = Decision {
+        left: Mention {
+            claim: input.claims[0].id.clone(),
+            endpoint: Endpoint::Subject,
+        },
+        right: Mention {
+            claim: other.id,
+            endpoint: Endpoint::Subject,
+        },
+        kind: DecisionKind::Separate,
+        reason: "the sourced Alpha commands belong to unrelated documentary namespaces".into(),
+    };
+    input.snapshot.history.push(ReviewRecord {
+        reviewer: "reviewer".into(),
+        decision: decision.clone(),
+    });
+    let result = build(&input);
+    assert!(result.is_err(), "{result:?}");
+    assert_eq!(
+        result.unwrap_err(),
+        DescriptorError::HeldForReview(
+            Digest::parse("d5c16926bdd336139829d71d709c9c15d28ffc596fbe1efef5442325370075c7")
+                .unwrap()
+        )
+    );
+    input.snapshot.history.push(ReviewRecord {
+        reviewer: "reviewer".into(),
+        decision: Decision {
+            kind: DecisionKind::Alias,
+            ..decision
+        },
+    });
+    assert_eq!(build(&input).unwrap(), build(&fixture()).unwrap());
 }

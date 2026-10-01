@@ -5,7 +5,7 @@ use crate::graph::{
         EXACT_RESOLVER_VERSION, EqualityOnly, ValidityOrder, contains, resolve, resolve_snapshot,
     },
     rules::{Extractor as _, TableRule},
-    tests::support::{markdown, rule_text, source_at},
+    tests::support::{markdown, rule_for, rule_text, source_at},
 };
 use maestro_kernel::{
     artifact::Digest,
@@ -341,4 +341,100 @@ fn entity_objects_supply_sourced_object_mentions() {
         entity.support_groups,
         vec![snapshot.claims[0].claim.supports[0].quote_digest.clone()]
     );
+}
+
+/// Same-name concepts supported in three unrelated documentary namespaces.
+fn namespace_snapshot() -> ResolutionSnapshot {
+    let mut snapshot = snapshot();
+    for (record, namespace) in snapshot.claims.iter_mut().zip(["north", "south", "west"]) {
+        let text = format!("# Documentary namespace {namespace}\n\n{}", markdown());
+        let rule = TableRule::parse(&rule_for(&text, &serde_json::json!({}))).unwrap();
+        record.claim = rule.extract(&source_at(&text, namespace)).claims.remove(0);
+        record.collection_id = "one".into();
+    }
+    snapshot
+}
+
+#[test]
+fn same_name_namespace_separation_holds_the_unchanged_identity_for_review() {
+    let mut snapshot = namespace_snapshot();
+    snapshot.claims.truncate(2);
+    let original = resolve_snapshot(&snapshot).unwrap();
+    snapshot
+        .history
+        .push(review(&snapshot, 0, 1, DecisionKind::Separate));
+    let result = resolve_snapshot(&snapshot);
+    assert!(
+        result.is_ok(),
+        "a sourced collision must stay inspectable: {result:?}"
+    );
+    let held = result.unwrap();
+    assert_eq!(held.len(), 1);
+    assert_eq!(held[0].id, original[0].id);
+    assert_eq!(held[0].mentions, original[0].mentions);
+    assert_eq!(held[0].colliding, vec![held[0].subject.clone()]);
+    snapshot
+        .history
+        .push(review(&snapshot, 1, 0, DecisionKind::Alias));
+    assert_eq!(resolve_snapshot(&snapshot).unwrap(), original);
+    snapshot
+        .history
+        .push(review(&snapshot, 1, 0, DecisionKind::Separate));
+    assert_eq!(resolve_snapshot(&snapshot).unwrap(), held);
+}
+
+#[test]
+fn same_name_review_clears_only_its_pair_not_other_namespace_collisions() {
+    let mut snapshot = namespace_snapshot();
+    snapshot.claims[2].collection_id = "one".into();
+    let original = resolve_snapshot(&snapshot).unwrap();
+    snapshot
+        .history
+        .push(review(&snapshot, 0, 1, DecisionKind::Separate));
+    snapshot
+        .history
+        .push(review(&snapshot, 1, 2, DecisionKind::Separate));
+    snapshot
+        .history
+        .push(review(&snapshot, 1, 0, DecisionKind::Alias));
+    snapshot
+        .history
+        .push(review(&snapshot, 1, 2, DecisionKind::Supersedes));
+    let result = resolve_snapshot(&snapshot);
+    assert!(result.is_ok(), "{result:?}");
+    assert_eq!(result.unwrap()[0].colliding.len(), 1);
+    snapshot
+        .history
+        .push(review(&snapshot, 2, 1, DecisionKind::Alias));
+    assert_eq!(resolve_snapshot(&snapshot).unwrap(), original);
+}
+
+#[test]
+fn identity_reviews_require_two_distinct_mentions() {
+    for kind in [DecisionKind::Alias, DecisionKind::Separate] {
+        let mut snapshot = namespace_snapshot();
+        snapshot.history.push(review(&snapshot, 0, 0, kind));
+        assert!(
+            resolve_snapshot(&snapshot).is_err(),
+            "accepted self review: {kind:?}"
+        );
+    }
+}
+
+#[test]
+fn cross_key_alias_does_not_mask_a_same_name_namespace_hold() {
+    let mut snapshot = namespace_snapshot();
+    snapshot.claims[2].collection_id = "two".into();
+    snapshot
+        .history
+        .push(review(&snapshot, 0, 1, DecisionKind::Separate));
+    snapshot
+        .history
+        .push(review(&snapshot, 0, 2, DecisionKind::Alias));
+    let result = resolve_snapshot(&snapshot);
+    assert!(result.is_ok(), "{result:?}");
+    let entities = result.unwrap();
+    assert_eq!(entities.len(), 1);
+    assert_eq!(entities[0].collection_id, "two");
+    assert_eq!(entities[0].colliding, vec![entities[0].subject.clone()]);
 }

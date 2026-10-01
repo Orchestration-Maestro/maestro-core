@@ -37,7 +37,8 @@ pub struct Mention {
 pub enum DecisionKind {
     /// Resolve the left mention to the right identity.
     Alias,
-    /// Reverse an alias; retain the distinct identity and the old decision.
+    /// Reverse an alias, or hold an existing same-key group for review without
+    /// changing its identity; retain the old decision in either case.
     Separate,
     /// The right claim supersedes the left, without deleting either.
     Supersedes,

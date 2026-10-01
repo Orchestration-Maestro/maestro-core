@@ -105,14 +105,21 @@ pub struct DescriptorReceipt {
 
 /// Sanitized refusal at the descriptor boundary.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct DescriptorError(
+pub enum DescriptorError {
     /// Sanitized boundary message, never original source text.
-    pub String,
-);
+    Refused(String),
+    /// An unresolved entity holds the entire build for sourced review.
+    HeldForReview(Digest),
+}
 
 impl fmt::Display for DescriptorError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(&self.0)
+        match self {
+            Self::Refused(message) => formatter.write_str(message),
+            Self::HeldForReview(entity) => {
+                write!(formatter, "entity {} held for review", entity.as_str())
+            }
+        }
     }
 }
 

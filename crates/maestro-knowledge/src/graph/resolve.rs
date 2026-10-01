@@ -123,7 +123,8 @@ pub struct SourcedEntity {
     pub subject: EntityName,
     /// Its normalized spelling, using the original G03 resolver.
     pub normalized: String,
-    /// Unreviewed spelling/kind collisions in this collection.
+    /// Unreviewed spelling/kind collisions in this collection. The entity's own
+    /// name marks a source-backed same-key separation held for review.
     pub colliding: Vec<EntityName>,
     /// Sourced occurrences, including reviewed aliases in other collections.
     pub mentions: Vec<Mention>,
@@ -159,8 +160,9 @@ struct Occurrence<'a> {
 
 /// Resolve exact names within collections, then apply attributed alias decisions.
 /// Supersession never removes a claim; consumers retain the snapshot's qualifiers
-/// and review history. A review applies to the whole exact identity group;
-/// reversing it restores that group, never splits identical sourced names.
+/// and review history. Cross-key aliases apply to the whole exact identity
+/// group. A same-key separation holds the group for review without splitting
+/// it or changing its ID; a later alias on that mention pair clears the hold.
 ///
 /// # Errors
 /// Returns [`ResolutionError`] for dangling mentions, cyclic aliases or unmatched separations.
@@ -187,11 +189,12 @@ pub fn resolve_snapshot(
         .iter()
         .map(|occurrence| (occurrence.mention.clone(), identity(occurrence)))
         .collect();
-    let aliases = aliases(snapshot, &identities)?;
+    let reviews = aliases(snapshot, &identities)?;
+    let aliases = &reviews.aliases;
     let mut entities = BTreeMap::<Digest, SourcedEntity>::new();
     for occurrence in &occurrences {
         let original = identities.get(&occurrence.mention).ok_or(ResolutionError)?;
-        let id = target(original, &aliases)?;
+        let id = target(original, aliases)?;
         let canonical = occurrences
             .iter()
             .find(|item| identities.get(&item.mention) == Some(&id))
@@ -224,9 +227,16 @@ pub fn resolve_snapshot(
                 .iter()
                 .find(|item| item.collection == entity.collection_id && item.name == name)
                 .ok_or(ResolutionError)?;
-            if target(&identity(occurrence), &aliases)? != entity.id {
+            if target(&identity(occurrence), aliases)? != entity.id {
                 colliding.push(name.clone());
             }
+        }
+        if entity.mentions.iter().any(|mention| {
+            identities
+                .get(mention)
+                .is_some_and(|id| reviews.held.contains(id))
+        }) {
+            colliding.push(entity.subject.clone());
         }
         entity.colliding = colliding;
         entity.mentions.sort();
@@ -238,6 +248,8 @@ pub fn resolve_snapshot(
 
 /// Default adapter for the kernel's record-time validation port.
 /// Uses the same resolver as reads, without storing a second derived graph.
+/// Consistent held-for-review groups are valid snapshots: their sourced history
+/// must be recordable even though consumers cannot automatically link them.
 ///
 /// # Errors
 /// Returns [`FactError::ResolutionRejected`] if the proposed snapshot cannot resolve.
@@ -284,18 +296,44 @@ fn identity(occurrence: &Occurrence<'_>) -> Digest {
     )
 }
 
+/// Reviewed aliases and groups held by unresolved same-key mention pairs.
+struct IdentityReviews {
+    /// Whole-group cross-key aliases.
+    aliases: BTreeMap<Digest, Digest>,
+    /// Existing keys held for review, never replaced with namespace-derived keys.
+    held: BTreeSet<Digest>,
+}
+
 /// Latest identity disposition per exact group, with all sourced history intact.
 fn aliases(
     snapshot: &ResolutionSnapshot,
     identities: &BTreeMap<Mention, Digest>,
-) -> Result<BTreeMap<Digest, Digest>, ResolutionError> {
+) -> Result<IdentityReviews, ResolutionError> {
     let mut aliases = BTreeMap::new();
+    let mut separated = BTreeMap::<[Mention; 2], Digest>::new();
     for review in &snapshot.history {
         let decision = &review.decision;
         let left = identities.get(&decision.left).ok_or(ResolutionError)?;
         let right = identities.get(&decision.right).ok_or(ResolutionError)?;
+        if decision.kind != DecisionKind::Supersedes && decision.left == decision.right {
+            return Err(ResolutionError);
+        }
+        if left == right {
+            let mut pair = [decision.left.clone(), decision.right.clone()];
+            pair.sort();
+            match decision.kind {
+                DecisionKind::Separate => {
+                    separated.insert(pair, left.clone());
+                }
+                DecisionKind::Alias => {
+                    separated.remove(&pair);
+                }
+                DecisionKind::Supersedes => {}
+            }
+            continue;
+        }
         match decision.kind {
-            DecisionKind::Alias if left != right => {
+            DecisionKind::Alias => {
                 aliases.insert(left.clone(), right.clone());
             }
             DecisionKind::Separate => {
@@ -304,10 +342,13 @@ fn aliases(
                 }
                 aliases.remove(left);
             }
-            DecisionKind::Alias | DecisionKind::Supersedes => {}
+            DecisionKind::Supersedes => {}
         }
     }
-    Ok(aliases)
+    Ok(IdentityReviews {
+        aliases,
+        held: separated.into_values().collect(),
+    })
 }
 
 /// Follow only explicit reviewed aliases; refuse cycles instead of selecting a name.

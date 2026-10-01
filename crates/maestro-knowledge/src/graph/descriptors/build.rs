@@ -62,6 +62,9 @@ pub fn build(input: &DescriptorInput) -> Result<Vec<Descriptor>, DescriptorError
                 .iter()
                 .find(|entity| entity.mentions.contains(&mention))
                 .ok_or_else(|| refused("unresolved endpoint"))?;
+            if !target.colliding.is_empty() {
+                return Err(DescriptorError::HeldForReview(target.id.clone()));
+            }
             let pointer = SourcePointer {
                 revision_id: support.revision_id.clone(),
                 block_id: support.block_id.clone(),
@@ -219,5 +222,5 @@ fn descriptor(
 
 /// A sanitized refusal; private source text never enters diagnostics.
 pub(super) fn refused(message: &str) -> DescriptorError {
-    DescriptorError(message.into())
+    DescriptorError::Refused(message.into())
 }

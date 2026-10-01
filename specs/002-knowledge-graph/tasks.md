@@ -482,19 +482,19 @@ and `capped cargo nextest run -p maestro-kernel facts::tests::resolution`.
 resolution and preserved temporal/conditional contradictions.
 G05 is a later private pilot-review checkpoint, not a construction prerequisite.
 
-- [ ] **Red.** Preserve G03's `rules::resolve` identity/collision cases, then
+- [x] **Red.** Preserve G03's `rules::resolve` identity/collision cases, then
   add sourced reversible decisions across documents and collections. Different
   colliding spellings, kinds or collections do not auto-merge. Add unrelated
   same-name documentary namespaces within one collection: unresolved collision
   blocks automatic resolution for review; a key change needs a separate ruling. Test typed literals remain claim properties with no literal/
   Document/Section nodes; also conflicting defaults, version bounds, unknown
   validity and superseded claims under old pins.
-- [ ] **Green.** Move and extend G03's existing resolver in `G/resolve.rs`,
+- [x] **Green.** Move and extend G03's existing resolver in `G/resolve.rs`,
   preserving its public re-export and tests; add sourced reversible review
   decisions, not a duplicate algorithm. Do not merge identities by fuzzy/vector
   similarity or turn literal values into entities. G14's descriptor candidates
   are retrieval hints, not a second resolver. Duplicate supporting copies are one group, not corroboration.
-- [ ] **Check.** Run both Test commands and
+- [x] **Check.** Run both Test commands and
   `capped cargo nextest run -p maestro-kernel store::tests::migrations`;
   known bounds are half-open, record time never supplies unknown world time and
   current grants protect aliases and review records as well as claims.
