@@ -1,7 +1,7 @@
 //! Independent boundary fixtures for registry guards and unmasked red proofs.
 use super::{n15_support as fixture, support};
 use maestro_acquisition::extraction::{
-    detect::DetectionEvidence,
+    detect::{DetectionEvidence, Observation},
     registry::{
         CheckedRegistry, DisabledRegistry, HeldReason, LocalRegistry, Profile, ProfileSelection,
         RegistryUnavailable, checked_resolve, checked_select, definition_bytes,
@@ -61,14 +61,42 @@ fn n15_ties_container_conflicts_and_structures_are_held() {
     registry["profiles"][2]["detectors"] = json!([{"kind":"container_member","name":"other-kind"}]);
     registry["profiles"][1]["structures"] = json!([
         {"kind":"all","children":[
-            {"kind":"observed","observation":{"kind":"block","id":"heading"}}
+            {"kind":"observed","observation":{"kind":"block","id":"heading"}},
+            {"kind":"observed","observation":{"kind":"block","id":"table"}}
         ]}
     ]);
     fixture::seal(&mut registry["profiles"][1], &mut catalog);
     fixture::seal(&mut registry["profiles"][2], &mut catalog);
     let reference = fixture::update(&mut collection, &mut catalog, &registry);
     let checked = resolved(&catalog, &collection, &reference).unwrap();
+    let only_markdown = [catalog.0["markdown"].reference.clone()];
+    assert!(matches!(
+        checked_select(
+            &LocalRegistry::new(&catalog),
+            &checked,
+            &sample(b"# text"),
+            &only_markdown
+        )
+        .unwrap(),
+        ProfileSelection::Held {
+            reason: HeldReason::Unknown,
+            ..
+        }
+    ));
     let mut input = sample(b"# text").input().clone();
+    input
+        .structures
+        .push(Observation::Block { id: "table".into() });
+    assert!(matches!(
+        checked_select(
+            &LocalRegistry::new(&catalog),
+            &checked,
+            &DetectionEvidence::new(input.clone()).unwrap(),
+            &only_markdown
+        )
+        .unwrap(),
+        ProfileSelection::Selected { .. }
+    ));
     input.members.push("other-kind".into());
     let eligible = [
         catalog.0["markdown"].reference.clone(),
@@ -297,12 +325,16 @@ fn n15_each_effective_protected_field_is_compared_and_digest_bound() {
         "artifacts",
         "platforms",
         "extractor",
+        "qualification_evidence",
     ] {
         let mut changed = original.clone();
         match field {
             "decode_limits" => changed[field]["members"] = json!(2),
-            "output_schema" | "extractor" => changed[field] = json!(catalog.0["owner"].reference),
-            "artifacts" => changed[field] = json!([catalog.0["owner"].reference]),
+            "output_schema" => changed[field]["digest"] = json!(Digest::of(b"different-output")),
+            "extractor" => changed[field] = json!(catalog.0["owner"].reference),
+            "artifacts" | "qualification_evidence" => {
+                changed[field] = json!([catalog.0["owner"].reference]);
+            }
             _ => changed[field] = json!(["different"]),
         }
         let changed: Profile = serde_json::from_value(changed).unwrap();

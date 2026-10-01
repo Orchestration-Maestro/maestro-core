@@ -134,6 +134,10 @@ fn n15_profile_id_list_and_reference_bounds_refuse() {
         ("languages", json!(vec!["en"; 1001])),
         ("languages", json!(["../bad"])),
         (
+            "artifacts",
+            json!(vec![json!({"id":"plugin","digest":"0".repeat(64)}); 1001]),
+        ),
+        (
             "qualification_evidence",
             json!(vec![json!({"id":"gold","digest":"0".repeat(64)}); 1001]),
         ),

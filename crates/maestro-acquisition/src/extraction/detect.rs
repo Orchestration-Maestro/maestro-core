@@ -1,7 +1,7 @@
 //! Bounded deterministic evidence matching; no parser, network or model starts.
 pub(crate) use crate::policy::shape::{valid_id as id_valid, valid_text as text};
 use crate::{policy::acquisition::DomPath, refusal::Refusal};
-use maestro_knowledge::collection::PolicyReference as Ref;
+use maestro_knowledge::{collection::PolicyReference as Ref, strict_json::objects};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::str;
@@ -28,6 +28,7 @@ pub enum Observation {
     /// Literal DOM tag/attribute path.
     Dom {
         /// Nonempty direct-child path.
+        #[serde(deserialize_with = "objects")]
         path: DomPath,
     },
     /// Literal JSON field/index path.

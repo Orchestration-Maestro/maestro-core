@@ -343,7 +343,8 @@ in place.
 │   │   │   │   ├── collection.json                                                      # JSON data: collection
 │   │   │   │   ├── decisions.json                                                       # JSON data: decisions
 │   │   │   │   ├── http.json                                                            # JSON data: http
-│   │   │   │   └── policy.json                                                          # JSON data: policy
+│   │   │   │   ├── policy.json                                                          # JSON data: policy
+│   │   │   │   └── profile-definition-v1.txt                                            # Text: profile definition v1
 │   │   │   └── it/                                                                      # It
 │   │   │       ├── main.rs                                                              # N03's synthetic integration contracts, in one test binary
 │   │   │       ├── n03_implement_strict_source_policy_and_local_baseline_resolution.rs  # N03: malformed policy closure must refuse before caller-side effects
@@ -361,7 +362,10 @@ in place.
 │   │   │       ├── n11_review_regressions.rs                                            # N11 review regressions for composed ceilings and retained allocation ownership
 │   │   │       ├── n11_support.rs                                                       # Shared synthetic explicit N11 host/settings fixtures
 │   │   │       ├── n15_bounds.rs                                                        # Independent shape/qualification guard neighbours, not parser-error mutants
+│   │   │       ├── n15_policy_binding.rs                                                # Genuine admitted handles exercise each core policy binding independently
+│   │   │       ├── n15_qualification_closure.rs                                         # Shared/cyclic closures remain bounded by the existing logical resource cache
 │   │   │       ├── n15_resources.rs                                                     # Unmasked immutable-resource and policy-binding neighbours
+│   │   │       ├── n15_review.rs                                                        # Permanent qualification and wire-shape regressions from the N15 review
 │   │   │       ├── n15_route_content_through_one_extensible_profile_registry.rs         # One resolve/select contract over local, synthetic catalog and disabled ports
 │   │   │       ├── n15_selection_edges.rs                                               # Selection predicates with qualified, pinned positive and negative neighbours
 │   │   │       ├── n15_support.rs                                                       # Independently authored synthetic registry resources, never catalog trust

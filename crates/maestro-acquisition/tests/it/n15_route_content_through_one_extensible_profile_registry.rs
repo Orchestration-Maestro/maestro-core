@@ -2,6 +2,7 @@
 use super::{n15_support as fixture, support};
 use maestro_acquisition::extraction::{
     detect::{DetectionEvidence, EvidenceInput},
+    model::ProfileDefinition,
     registry::{
         DisabledRegistry, HeldReason, LocalRegistry, Profile, ProfileSelection,
         RegistryUnavailable, checked_resolve, checked_select, definition_bytes,
@@ -35,7 +36,11 @@ pub(super) fn evidence(bytes: &[u8]) -> DetectionEvidence {
 
 #[test]
 fn n15_shared_resolve_select_contract() {
-    let (collection, catalog, reference) = fixture::registry_fixture();
+    let (mut collection, mut catalog, _) = fixture::registry_fixture();
+    let mut value = support::value(&catalog, "extraction");
+    value["profiles"][1]["detectors"][0]["offset"] = json!(1);
+    fixture::seal(&mut value["profiles"][1], &mut catalog);
+    let reference = fixture::update(&mut collection, &mut catalog, &value);
     let policy = fixture::policy(&collection, &catalog);
     let scopes = support::scopes();
     let principal = support::principal(&scopes);
@@ -67,7 +72,7 @@ fn n15_shared_resolve_select_contract() {
             checked_select(registry, &checked, &evidence(b"# heading"), &eligible).unwrap()
         );
         for (bytes, id) in [
-            (b"# heading".as_slice(), "markdown"),
+            (b"x# heading".as_slice(), "markdown"),
             (b"NEW format".as_slice(), "novel"),
         ] {
             let selected = checked_select(registry, &checked, &evidence(bytes), &eligible).unwrap();
@@ -79,6 +84,10 @@ fn n15_shared_resolve_select_contract() {
                 }
             );
         }
+        assert!(matches!(
+            checked_select(registry, &checked, &evidence(b"# heading"), &eligible).unwrap(),
+            ProfileSelection::Held { .. }
+        ));
         let unknown = checked_select(registry, &checked, &evidence(b"opaque"), &eligible).unwrap();
         assert_eq!(
             unknown,
@@ -214,6 +223,18 @@ fn n15_missing_gold_capability_and_artifact_never_qualify() {
 
 #[test]
 fn n15_profile_digest_golden_and_canonical_order() {
+    // The fixture file's final line terminator is not part of the preimage.
+    let golden = include_str!("../fixtures/profile-definition-v1.txt")
+        .strip_suffix('\n')
+        .unwrap();
+    let (_, json) = golden.split_once('\n').unwrap();
+    let definition: ProfileDefinition = serde_json::from_str(json).unwrap();
+    let bytes = definition_bytes(&definition).unwrap();
+    assert_eq!(bytes, golden.as_bytes());
+    assert_eq!(
+        Digest::of(&bytes).as_str(),
+        "149cd41f1ac71f1b046c7c635dbaa48161b1c048e537424885f6d0197199fa01"
+    );
     let (_, catalog, _) = fixture::registry_fixture();
     let mut value = support::value(&catalog, "extraction")["profiles"][0].clone();
     value["platforms"] = json!(["golden-platform"]);

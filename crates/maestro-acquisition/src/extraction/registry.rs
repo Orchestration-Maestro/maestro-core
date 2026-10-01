@@ -40,6 +40,7 @@ impl ProfileDefinition {
             && self.artifacts == other.artifacts
             && self.platforms == other.platforms
             && self.extractor == other.extractor
+            && self.qualification_evidence == other.qualification_evidence
     }
 }
 
@@ -199,9 +200,33 @@ impl Resources<'_> {
         Ok(value)
     }
     /// External reviewed qualification, never granted by wire state.
-    fn qualified(&self, resource: &ImmutableResource) -> bool {
+    fn own_qualified(&self, resource: &ImmutableResource) -> bool {
         resource.admission.status == AdmissionStatus::Reviewed
             && resource.admission.platform == self.principal.platform
+    }
+    /// Check the entire byte-verified closure once, including cycles and diamonds.
+    /// Both sets are bounded by the read cache's 1,000 logical IDs.
+    fn qualified(&self, resource: &ImmutableResource) -> bool {
+        let mut pending = BTreeSet::from([resource.reference.id.as_str()]);
+        let mut visited = BTreeSet::new();
+        while let Some(id) = pending.pop_first() {
+            visited.insert(id);
+            let Some(member) = self.cache.get(id) else {
+                return false;
+            };
+            if !self.own_qualified(member) {
+                return false;
+            }
+            pending.extend(
+                member
+                    .admission
+                    .references
+                    .iter()
+                    .map(|reference| reference.id.as_str())
+                    .filter(|id| !visited.contains(id)),
+            );
+        }
+        true
     }
 }
 
@@ -217,12 +242,25 @@ fn resolve(
         cache: BTreeMap::new(),
     };
     let immutable = resources.read(reference)?;
-    if !resources.qualified(&immutable) {
+    if !resources.own_qualified(&immutable) {
         return Err(RegistryUnavailable::Unqualified);
     }
     let registry: Registry = parse_resource(&immutable.bytes)?;
     if registry.resource.id != reference.id {
         return Err(RegistryUnavailable::Corrupt);
+    }
+    // Inventory profiles may be held; all other root dependencies must qualify.
+    for dependency in &immutable.admission.references {
+        if !registry
+            .profiles
+            .iter()
+            .any(|profile| profile.reference() == *dependency)
+        {
+            let member = resources.read(dependency)?;
+            if !resources.qualified(&member) {
+                return Err(RegistryUnavailable::Unqualified);
+            }
+        }
     }
     if principal.id.is_empty()
         || registry.resource.scope_tags.is_empty()
