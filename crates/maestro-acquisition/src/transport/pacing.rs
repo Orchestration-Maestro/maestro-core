@@ -9,7 +9,9 @@ use crate::{
 };
 use std::{
     collections::BTreeMap,
+    fmt::Debug,
     sync::{Arc, Mutex},
+    time::Instant,
 };
 
 /// Finite pacing bounds resolved from host/grant/collection/source/run policy.
@@ -140,6 +142,33 @@ struct RunState {
     /// Original start time cannot change on resume.
     started_ms: u64,
 }
+/// Replaceable reservation seam; every successful permit releases on drop.
+pub trait OriginPacing: Debug {
+    /// Owned slot retained until the transport's work has stopped.
+    type Permit;
+    /// Reserve one actual destination dispatch using N10's finite contract.
+    ///
+    /// # Errors
+    /// Pending work must make no dial; delay floors must never be shortened.
+    fn acquire(
+        &self,
+        identity: &FetchIdentity,
+        limits: PacingLimits,
+        demand: Demand<'_>,
+    ) -> Result<Self::Permit, Pending>;
+}
+/// Trusted logical-run context; never supplied by a remote response.
+#[derive(Debug, Clone, Copy)]
+pub struct PacingContext<'a> {
+    /// Stable identity shared across transports and pause/resume.
+    pub run_id: &'a str,
+    /// Epoch shared with the injected ledger and document clock.
+    pub epoch: Instant,
+    /// Original logical-run start, relative to the shared epoch.
+    pub started_ms: u64,
+    /// Owning logical-run deadline, relative to the shared epoch.
+    pub deadline_ms: u64,
+}
 /// State guarded by one short mutex; no network/sleep under the lock.
 #[derive(Debug, Default)]
 struct State {
@@ -172,6 +201,10 @@ impl OriginLedger {
     /// # Errors
     /// Concurrency, interval/server delay or finite budgets keep work pending.
     /// Required waits beyond backoff/deadline are never shortened.
+    #[expect(
+        clippy::same_name_method,
+        reason = "preserve N10 inherent API and exact reservation trait contract"
+    )]
     pub fn acquire(
         &self,
         identity: &FetchIdentity,
@@ -237,6 +270,17 @@ impl OriginLedger {
             origin,
             state: Arc::clone(&self.state),
         })
+    }
+}
+impl OriginPacing for OriginLedger {
+    type Permit = OriginPermit;
+    fn acquire(
+        &self,
+        identity: &FetchIdentity,
+        limits: PacingLimits,
+        demand: Demand<'_>,
+    ) -> Result<Self::Permit, Pending> {
+        Self::acquire(self, identity, limits, demand)
     }
 }
 /// An owned dispatch slot, not Clone; dropping it releases concurrency only.

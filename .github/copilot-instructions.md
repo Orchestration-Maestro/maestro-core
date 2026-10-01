@@ -337,19 +337,23 @@ in place.
 │   │   │   │   ├── schema.rs                                                            # Strict version-one source-policy wire contracts
 │   │   │   │   ├── shape.rs                                                             # Objects, scalar names and bounded strings, never positional arrays or scripts
 │   │   │   │   ├── source.rs                                                            # Strict version-one source-policy wire contracts
+│   │   │   │   ├── utc.rs                                                               # One strict Gregorian UTC implementation for grants and transport times
 │   │   │   │   └── wiki.rs                                                              # Strict version-one source-policy wire contracts
 │   │   │   ├── transport/                                                               # Transport
 │   │   │   │   ├── address.rs                                                           # Deny-only address resources plus a non-removable special-purpose floor
 │   │   │   │   ├── budget.rs                                                            # Field-kind composition and typed resource-induced pending work
 │   │   │   │   ├── connect.rs                                                           # One checked destination per connection, with no proxy, pool or second DNS
 │   │   │   │   ├── dns.rs                                                               # Read-only native DNS waiting is bounded independently of the HTTP future
+│   │   │   │   ├── failure.rs                                                           # Content-free transport and decode refusal contract
 │   │   │   │   ├── floor.rs                                                             # Non-removable IANA snapshot (2025-10-09), multicast and metadata denials
 │   │   │   │   ├── http.rs                                                              # Bounded HTTP/1 over one freshly admitted pinned connection per hop
+│   │   │   │   ├── http_protocol.rs                                                     # Bounded response parser, transient metadata and manual redirect spelling
 │   │   │   │   ├── mod.rs                                                               # Rust source: mod
 │   │   │   │   ├── pacing.rs                                                            # One injected atomic origin ledger shared by HTTP, browser and resumed runs
 │   │   │   │   ├── robots.rs                                                            # RFC 9309 rules over N07's canonical fetch identity, without network effects
 │   │   │   │   ├── robots_store.rs                                                      # Bounded robots entries; different policy digests on one origin coexist
-│   │   │   │   └── stream.rs                                                            # Shared cumulative wire/decode accounting, reusable by downstream decoders
+│   │   │   │   ├── stream.rs                                                            # Shared cumulative wire/decode accounting, reusable by downstream decoders
+│   │   │   │   └── wire_quota.rs                                                        # Gate header read-ahead and cap every raw post-header read before I/O
 │   │   │   ├── files.rs                                                                 # Caller-bound direct files, never source-provided paths or writable bundles
 │   │   │   ├── lib.rs                                                                   # Strict source-policy configuration for native acquisition
 │   │   │   ├── ports.rs                                                                 # Small read-only ports; authority and transport startup are deliberately absent
@@ -375,14 +379,21 @@ in place.
 │   │   │       ├── n08_classify_and_pin_every_destination_address.rs                    # N08 uses real admission with explicit synthetic resolver/connection adapters
 │   │   │       ├── n09_accounting.rs                                                    # Small public accounting checks for downstream reuse and exact boundaries
 │   │   │       ├── n09_authority_connect.rs                                             # Supervisor-approved N05 fix: IPC connect never blocks on a full backlog
+│   │   │       ├── n09_boundaries.rs                                                    # Read-side quotas, trailer reservation and async completion neighbours
 │   │   │       ├── n09_controls.rs                                                      # Caller/network/robots refusals precede any HTTP-owned effects
 │   │   │       ├── n09_decode.rs                                                        # Cumulative decoder guards, independently selected synthetic bombs
 │   │   │       ├── n09_gzip_members.rs                                                  # RFC 1952 member accounting is shared with every decode stage
 │   │   │       ├── n09_hop_edges.rs                                                     # Attempt, redirect, authority and relative-reference boundary guards
 │   │   │       ├── n09_implement_bounded_admitted_http_transport.rs                     # N09 transport guards exercised over real hyper HTTP/1.1
+│   │   │       ├── n09_pacing.rs                                                        # HTTP owns pacing for first hops, redirects, retries and robots refreshes
+│   │   │       ├── n09_pacing_support.rs                                                # Recording fake that delegates N10 semantics while observing HTTP ownership
 │   │   │       ├── n09_parser.rs                                                        # Parser allocation floors and hostile header/status lines stay bounded
 │   │   │       ├── n09_profiles.rs                                                      # Checked browser profiles must never silently fall back to content HTTP
+│   │   │       ├── n09_retained.rs                                                      # Tightened cumulative envelopes refuse before further effects, even without DATA
+│   │   │       ├── n09_review_probes.rs                                                 # Independent review probes: failures confirm suspected N09 regressions
+│   │   │       ├── n09_review_support.rs                                                # Test-owned timing and segmented I/O instrumentation for N09 review probes
 │   │   │       ├── n09_robots.rs                                                        # Robots transport outcomes reach N10's actual fail-closed mapping
+│   │   │       ├── n09_run_deadline.rs                                                  # The independent logical-run cutoff constrains still-live document work
 │   │   │       ├── n09_support.rs                                                       # Synthetic admitted HTTP/1.1 connections, never a network listener
 │   │   │       ├── n09_sync_deadlines.rs                                                # Synchronous ports cannot consume a document deadline then dial a socket
 │   │   │       ├── n10_admission.rs                                                     # Robots denial reaches N07's real admission path before transport effects

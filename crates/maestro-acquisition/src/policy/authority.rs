@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     error::Error,
     fmt::{self, Debug},
-    time::{Duration, SystemTime, UNIX_EPOCH},
+    time::SystemTime,
 };
 
 /// Separately authorized effects; an ordinary fetch never overrides robots.
@@ -86,7 +86,7 @@ impl Grant {
         if !valid_id(&self.id) || !valid_id(&self.principal) {
             return Err(Refusal::Invalid);
         }
-        expiry(&self.expires_at)
+        super::utc::parse(&self.expires_at)
     }
     /// Validate and canonicalize the exact confirmed record before storage or matching.
     ///
@@ -185,57 +185,5 @@ impl Authority for UnqualifiedAuthority {
         _now: SystemTime,
     ) -> Result<Permit, AuthorityRefusal> {
         Err(Refusal::Unqualified.into())
-    }
-}
-/// Parse the documented fixed-width UTC spelling without a time dependency.
-fn expiry(text: &str) -> Result<SystemTime, Refusal> {
-    // The shared strict date decoder checks leap years, bounds and exact fields.
-    let encoded = serde_json::to_string(text).map_err(|_| Refusal::Invalid)?;
-    let mut decoder = serde_json::Deserializer::from_str(&encoded);
-    super::shape::time(&mut decoder).map_err(|_| Refusal::Invalid)?;
-    let parts: Vec<u64> = text
-        .split(['-', 'T', ':', 'Z'])
-        .filter(|part| !part.is_empty())
-        .map(str::parse)
-        .collect::<Result<_, _>>()
-        .map_err(|_| Refusal::Invalid)?;
-    let [year, month, day, hour, minute, second] = parts.as_slice() else {
-        return Err(Refusal::Invalid);
-    };
-    let mut days = 0;
-    for previous in 0..*year {
-        days += year_days(previous);
-    }
-    for previous in 1..*month {
-        days += month_days(*year, previous);
-    }
-    days += day - 1;
-    // Gregorian days from year zero to 1970-01-01, including year zero's leap day.
-    let epoch = 719_528 * 86_400;
-    let seconds = days * 86_400 + hour * 3600 + minute * 60 + second;
-    if seconds < epoch {
-        UNIX_EPOCH
-            .checked_sub(Duration::from_secs(epoch - seconds))
-            .ok_or(Refusal::Invalid)
-    } else {
-        UNIX_EPOCH
-            .checked_add(Duration::from_secs(seconds - epoch))
-            .ok_or(Refusal::Invalid)
-    }
-}
-/// Number of days in a Gregorian year.
-fn year_days(year: u64) -> u64 {
-    if year.is_multiple_of(4) && (!year.is_multiple_of(100) || year.is_multiple_of(400)) {
-        366
-    } else {
-        365
-    }
-}
-/// Shared leap-year arithmetic, after the strict decoder validated the month.
-fn month_days(year: u64, month: u64) -> u64 {
-    match month {
-        2 => year_days(year) - 337,
-        4 | 6 | 9 | 11 => 30,
-        _ => 31,
     }
 }

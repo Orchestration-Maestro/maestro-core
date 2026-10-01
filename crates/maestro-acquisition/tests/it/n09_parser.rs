@@ -1,6 +1,9 @@
 //! Parser allocation floors and hostile header/status lines stay bounded.
 use super::{n07_parse_url_identity_and_denial_precedence::Controls, n09_support::*};
-use maestro_acquisition::transport::{http::Failure, stream::Accounting};
+use maestro_acquisition::transport::{
+    http::Failure,
+    stream::{Accounting, TRAILER_MAX_BYTES},
+};
 use reqwest::header::{CONTENT_TYPE, LOCATION, SET_COOKIE};
 use std::fmt::Write as _;
 
@@ -119,7 +122,7 @@ fn n09_parser_workspace_remains_charged_while_reading() {
         let dns = Dns::default();
         let wire = Wire::new(vec![response(200, "", b"ok")]);
         let mut limits = policy.policy().sources[0].limits.clone();
-        limits.memory_bytes = 32_768.try_into().unwrap();
+        limits.memory_bytes = (32_768 + TRAILER_MAX_BYTES).try_into().unwrap();
         let mut accounting = Accounting::new(limits);
         assert_eq!(
             http(&policy, &controls, &grants, &dns, &wire)
@@ -128,5 +131,11 @@ fn n09_parser_workspace_remains_charged_while_reading() {
                 .unwrap_err(),
             Failure::Memory
         );
+        assert_eq!(
+            wire.responses.lock().unwrap().len(),
+            0,
+            "connected before body refusal"
+        );
+        assert_eq!(accounting.wire_bytes(), 2);
     });
 }

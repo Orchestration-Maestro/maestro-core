@@ -99,9 +99,11 @@ mod tests {
     use super::{Clock, Duration, Refusal, SystemResolver};
     use std::{
         sync::{
+            Arc,
             atomic::{AtomicUsize, Ordering},
             mpsc,
         },
+        thread,
         time::Instant,
     };
     /// Advance to the exact cutoff without sleeps or relying on scheduling.
@@ -122,23 +124,36 @@ mod tests {
     }
     #[test]
     fn n09_native_dns_never_returning_lookup_is_bounded() {
-        let resolver = SystemResolver::new(1000.try_into().unwrap());
+        let resolver = Arc::new(SystemResolver::new(20.try_into().unwrap()));
+        // Both pre-wait clock reads are strictly before the cutoff. The lookup
+        // cannot complete until this test releases it, after observing timeout.
         let clock = Cutoff {
             start: Instant::now(),
             calls: AtomicUsize::new(0),
-            after: 1,
+            after: usize::MAX,
         };
         let (started, running) = mpsc::channel();
         let (release, blocked) = mpsc::channel();
-        let result = resolver.lookup(&clock, move || {
-            started.send(()).unwrap();
-            blocked.recv().unwrap();
-            Ok(vec!["8.8.8.8".into()])
+        let (complete, result) = mpsc::channel();
+        let owned = resolver.clone();
+        let waiter = thread::spawn(move || {
+            let result = owned.lookup(&clock, move || {
+                started.send(()).unwrap();
+                blocked.recv().unwrap();
+                Ok(vec!["8.8.8.8".into()])
+            });
+            complete.send(result).unwrap();
         });
-        assert_eq!(result, Err(Refusal::Deadline));
-        running.recv().unwrap();
-        assert_eq!(resolver.lookup(&clock, || Ok(vec![])), Err(Refusal::Access));
+        let entered = running.recv_timeout(Duration::from_secs(2));
+        let observed = result.recv_timeout(Duration::from_secs(2));
+        let second = resolver.lookup(&super::SystemClock, || Ok(vec![]));
+        // Clean up before asserting, so an overlong wait mutation fails on the
+        // watchdog assertion instead of hanging the test process.
         release.send(()).unwrap();
+        waiter.join().unwrap();
+        assert_eq!(entered, Ok(()));
+        assert_eq!(observed, Ok(Err(Refusal::Deadline)));
+        assert_eq!(second, Err(Refusal::Access));
     }
     #[test]
     fn n09_native_dns_result_at_deadline_is_refused() {

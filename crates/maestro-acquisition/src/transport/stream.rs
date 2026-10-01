@@ -1,6 +1,9 @@
 //! Shared cumulative wire/decode accounting, reusable by downstream decoders.
-use super::budget::{Limits, tighten};
-use crate::{Refusal, policy::authority::AuthorityRefusal};
+pub use super::failure::Failure;
+use super::{
+    budget::{Limits, tighten},
+    wire_quota::Quota,
+};
 use flate2::{Decompress, FlushDecompress, Status};
 use http_body_util::BodyExt as _;
 use hyper::{Response, body::Incoming};
@@ -12,62 +15,24 @@ use std::{
     time::{Duration, Instant as StdInstant},
 };
 use tokio::time::Instant;
-/// Content-free failures; no source URL, credentials or partial bytes escape.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Failure {
-    /// Current policy/URL/address controls refused this hop.
-    Admission(Refusal),
-    /// Current N05 grant was refused or expired.
-    Authority(AuthorityRefusal),
-    /// Invalid effective settings, including fewer than five robots redirects.
-    Configuration,
-    /// The same canonical identity was visited twice.
-    RedirectLoop,
-    /// The composed redirect ceiling was reached.
-    RedirectLimit,
-    /// The cumulative request ceiling was reached.
-    Requests,
-    /// Connection/HTTP work failed; eligible for a bounded freshly admitted retry.
-    Transport,
-    /// Checked acquisition profile selected a different content transport.
-    TransportMismatch,
-    /// Owned connection and driver were dropped on deadline.
-    Timeout,
-    /// Authentication is required; no automatic credential escalation.
-    Authentication,
-    /// Forbidden/challenge response; no challenge-solving fallback.
-    Challenge,
-    /// Truncated or unsolicited range response; no partial promotion.
-    Partial,
-    /// Unknown, malformed or incomplete content encoding.
-    Content,
-    /// Encoded wire-byte ceiling, distinct from expanded bytes.
-    EncodedBytes,
-    /// Cumulative bytes produced by all decode stages exceeded the ceiling.
-    ExpandedBytes,
-    /// Cumulative expanded/wire ratio exceeded the ceiling.
-    ExpansionRatio,
-    /// Decoder workspace or retained bytes exceed the memory ceiling.
-    Memory,
-    /// Content encoding layers exceed the nested decode ceiling.
-    Nesting,
-    /// Cumulative gzip/deflate/container members exceed the decode ceiling.
-    Members,
-}
 
 /// Accounting follows one document across HTTP hops and every decode stage.
 #[derive(Debug)]
 pub struct Accounting {
     /// Retained tighter effective limits, never widened on reuse.
     limits: Limits,
-    /// Bytes received before content decoding, across all hops.
+    /// Raw bytes after each header CRLFCRLF: DATA, chunk framing and trailers.
     wire: u64,
     /// Bytes emitted by every decoder, not only final output.
     expanded: u64,
     /// All dispatch attempts, including failed connects.
     requests: u64,
-    /// First deadline retained across all stages and retries.
+    /// Original document start in the trusted clock domain; never restarted.
+    started: StdInstant,
+    /// Anchored deadline retained across all stages and retries.
     deadline: Option<Instant>,
+    /// Independent logical-run cutoff; later contexts cannot extend it.
+    run_deadline: Option<Instant>,
     /// Decoder members across every hop and stage, including empty members.
     members: u64,
     /// Current fixed parser/codec workspaces; never hidden in body buffers.
@@ -85,11 +50,13 @@ impl Accounting {
     #[must_use]
     pub fn with_clock(limits: Limits, clock: Arc<dyn Clock>) -> Self {
         Self {
+            started: clock.now(),
             limits,
             wire: 0,
             expanded: 0,
             requests: 0,
             deadline: None,
+            run_deadline: None,
             members: 0,
             workspace: 0,
             clock,
@@ -100,7 +67,7 @@ impl Accounting {
     pub fn limits(&self) -> &Limits {
         &self.limits
     }
-    /// Cumulative received encoded bytes, including redirect bodies read.
+    /// All raw post-header bytes, including redirect DATA, framing and trailers.
     #[must_use]
     pub fn wire_bytes(&self) -> u64 {
         self.wire
@@ -139,13 +106,41 @@ impl Accounting {
                 .min(self.limits.decode.elapsed_ms)
                 .get(),
         );
-        let next = Instant::from_std(self.clock.now())
+        let deadline = Instant::from_std(self.started)
             .checked_add(term)
             .ok_or(Failure::Configuration)?;
-        let deadline = self.deadline.map_or(next, |old| old.min(next));
+        let deadline = self.run_deadline.map_or(deadline, |run| deadline.min(run));
         self.deadline = Some(deadline);
         self.check_time()?;
         Ok(deadline)
+    }
+    /// Retain the independent owning cutoff; only a tighter context can change it.
+    pub(super) fn bind_run_deadline(&mut self, deadline: StdInstant) {
+        let deadline = Instant::from_std(deadline);
+        self.run_deadline = Some(self.run_deadline.map_or(deadline, |old| old.min(deadline)));
+    }
+    /// Current time from the document's trusted clock, also used for pacing.
+    pub(super) fn now(&self) -> StdInstant {
+        self.clock.now()
+    }
+    /// Check every retained counter against the currently effective envelope.
+    pub(super) fn validate(&self) -> Result<(), Failure> {
+        self.check_time()?;
+        if self.wire > self.limits.wire_bytes.get() {
+            return Err(Failure::EncodedBytes);
+        }
+        if self.expanded > self.limits.decode.expanded_bytes.get() {
+            return Err(Failure::ExpandedBytes);
+        }
+        if u128::from(self.expanded)
+            > u128::from(self.wire) * u128::from(self.limits.decode.expansion_ratio.get())
+        {
+            return Err(Failure::ExpansionRatio);
+        }
+        if self.members > self.limits.decode.members.get() {
+            return Err(Failure::Members);
+        }
+        self.retained(self.expanded)
     }
     /// Cumulative number of decode members, including empty gzip members.
     #[must_use]
@@ -169,6 +164,11 @@ impl Accounting {
     pub(super) fn workspace(&mut self, bytes: u64) -> Result<(), Failure> {
         self.workspace = bytes;
         self.retained(self.expanded)
+    }
+    /// Add an independently owned fixed reservation before allocation.
+    pub(super) fn reserve(&mut self, bytes: u64) -> Result<(), Failure> {
+        let total = self.workspace.checked_add(bytes).ok_or(Failure::Memory)?;
+        self.workspace(total)
     }
     /// Conservative realloc/copy peak: two copies of cumulative wire/output.
     fn retained(&self, expanded: u64) -> Result<(), Failure> {
@@ -245,6 +245,9 @@ impl Accounting {
         Ok(())
     }
 }
+/// Hyper 1.11.1 has no trailer-size setting: proto/h1/decode.rs:25,181
+/// fixes this 16 KiB ceiling. Reserve it before connecting; discard its fields.
+pub const TRAILER_MAX_BYTES: u64 = 16_384;
 /// Codec workspaces are allocation costs, not configurable resource ceilings.
 /// zlib-rs's bounded inflate window/state plus one scratch block fit this reserve.
 const CODEC_WORKSPACE: u64 = 262_144;
@@ -409,17 +412,23 @@ fn append(output: &mut Vec<u8>, bytes: &[u8]) -> Result<(), Failure> {
 pub(super) async fn read_body(
     response: Response<Incoming>,
     accounting: &mut Accounting,
+    quota: &Quota,
 ) -> Result<(Vec<u8>, Vec<u8>), Failure> {
     let mut layers = decoders(&response, accounting)?;
     let mut incoming = response.into_body();
     let mut body = Vec::new();
     let mut wire = Vec::new();
-    while let Some(frame) = incoming.frame().await {
+    loop {
+        let frame = incoming.frame().await;
+        charge_quota(quota, accounting)?;
+        accounting.validate()?;
+        let Some(frame) = frame else {
+            break;
+        };
         let frame = frame.map_err(|_| Failure::Partial)?;
         let Ok(bytes) = frame.into_data() else {
             continue;
         };
-        accounting.encoded(bytes.len() as u64)?;
         accounting.retained(accounting.expanded)?;
         append(&mut wire, &bytes)?;
         if layers.is_empty() {
@@ -439,6 +448,7 @@ pub(super) async fn read_body(
         final_bytes = layer.push(&final_bytes, true, accounting)?;
     }
     append(&mut body, &final_bytes)?;
+    accounting.validate()?;
     Ok((body, wire))
 }
 
@@ -457,4 +467,14 @@ impl Clock for TokioClock {
     fn now(&self) -> StdInstant {
         Instant::now().into_std()
     }
+}
+
+/// Transfer every raw read to accounting before examining decoded frames.
+pub(super) fn charge_quota(quota: &Quota, accounting: &mut Accounting) -> Result<(), Failure> {
+    let (received, exhausted) = quota.take_received()?;
+    accounting.encoded(received)?;
+    if exhausted {
+        return Err(Failure::EncodedBytes);
+    }
+    Ok(())
 }

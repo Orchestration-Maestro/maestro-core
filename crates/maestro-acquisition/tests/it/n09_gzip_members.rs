@@ -43,6 +43,12 @@ fn n09_empty_gzip_member_consumes_cumulative_member_budget() {
                 .await;
             if member_limit == 1 {
                 assert_eq!(result.unwrap_err(), Failure::Members);
+                assert_eq!(
+                    accounting.members(),
+                    1,
+                    "refuse before starting the second member"
+                );
+                assert_eq!(accounting.expanded_bytes(), 0);
             } else {
                 assert_eq!(result.unwrap().body, b"second");
                 assert_eq!(accounting.members(), 2);

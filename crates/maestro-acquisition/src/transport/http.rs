@@ -3,8 +3,11 @@ use super::{
     budget::compose,
     connect::{CheckedDestination, OriginCredentials, PinnedTransport},
     dns::Resolver,
+    http_protocol::{parser, protocol_error, read_response, redirect, redirect_url},
+    pacing::{Demand, OriginLedger, OriginPacing, PacingContext, PacingLimits, Pending},
     robots::{RobotsBinding, RobotsCache},
-    stream::{Accounting, read_body},
+    stream::{Accounting, charge_quota},
+    wire_quota::{BoundedIo, Quota},
 };
 use crate::{
     CheckedPolicy, Refusal,
@@ -13,25 +16,23 @@ use crate::{
         authority::{Authority, Operation, Target},
         decision::{AdmissionControls, Request, RequestKind, admit},
         identity::FetchIdentity,
+        utc,
     },
 };
 use http_body_util::Empty;
-use hyper::{
-    Request as WireRequest,
-    body::{Bytes, Incoming},
-    client::conn::http1,
-};
+use hyper::{Request as WireRequest, body::Bytes};
 use hyper_util::rt::TokioIo;
-use reqwest::header::{
-    ACCEPT_ENCODING, CONTENT_TYPE, HOST, HeaderMap, HeaderName, HeaderValue, LOCATION,
+use reqwest::header::{ACCEPT_ENCODING, CONNECTION, HOST, HeaderValue};
+use std::{
+    collections::BTreeSet,
+    time::{Duration, Instant as StdInstant, SystemTime},
 };
-use std::{collections::BTreeSet, fmt, time::SystemTime};
 use tokio::{
     io::{AsyncRead, AsyncWrite},
-    time::{Instant, timeout_at},
+    time::{sleep, timeout_at},
 };
 
-pub use super::stream::Failure;
+pub use super::{http_protocol::Response, stream::Failure};
 /// Current authority context and explicit operation; creates no entitlement.
 #[derive(Debug)]
 pub struct Fetch<'a> {
@@ -50,32 +51,9 @@ pub struct Fetch<'a> {
     /// Narrow robots operation; cannot admit a content request to another path.
     pub robots: bool,
 }
-/// Authorized transient response, not a capture envelope or publish permission.
-pub struct Response {
-    /// Complete decoded body; every intermediate stage shares accounting.
-    pub body: Vec<u8>,
-    /// Complete encoded wire body, never mislabeled as decoded content.
-    pub wire_body: Vec<u8>,
-    /// Final HTTP status.
-    pub status: u16,
-    /// Selected noncredential metadata only.
-    pub headers: HeaderMap,
-    /// Admitted final fetch identity, protected from diagnostic output.
-    pub identity: FetchIdentity,
-    /// Redirect-only protected target; never part of safe capture metadata.
-    location: Option<HeaderValue>,
-}
-impl fmt::Debug for Response {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter
-            .debug_struct("Response")
-            .field("status", &self.status)
-            .finish_non_exhaustive()
-    }
-}
 /// Replaceable dependencies; no pool, proxy, implicit resolver or client defaults.
 #[derive(Debug)]
-pub struct Http<'a, T> {
+pub struct Http<'a, T, L = OriginLedger> {
     /// Immutable checked policy.
     pub policy: &'a CheckedPolicy,
     /// Current caller/network/robots controls; no effectful admission adapter.
@@ -86,8 +64,12 @@ pub struct Http<'a, T> {
     pub resolver: &'a dyn Resolver,
     /// Socket-only, certificate-validating connection adapter.
     pub transport: &'a T,
+    /// Shared origin reservation port; HTTP owns every hidden hop's permit.
+    pub pacing: &'a L,
+    /// Trusted run/monotonic domain shared with the ledger.
+    pub pacing_context: PacingContext<'a>,
 }
-impl<T: PinnedTransport> Http<'_, T>
+impl<T: PinnedTransport, L: OriginPacing> Http<'_, T, L>
 where
     T::Connection: AsyncRead + AsyncWrite + Unpin + Send,
 {
@@ -129,8 +111,21 @@ where
             }
             accounting.robots(source.robots.rules_max_bytes.get());
         }
+        let run_until_ms = self
+            .pacing_context
+            .started_ms
+            .checked_add(accounting.limits().elapsed_ms.get())
+            .ok_or(Failure::Configuration)?
+            .min(self.pacing_context.deadline_ms);
+        let run_deadline = self
+            .pacing_context
+            .epoch
+            .checked_add(Duration::from_millis(run_until_ms))
+            .ok_or(Failure::Configuration)?;
+        accounting.bind_run_deadline(run_deadline);
         let deadline = accounting.deadline()?;
-        let started = Instant::now();
+        accounting.validate()?;
+        let started = accounting.now();
         timeout_at(deadline, self.hops(fetch, accounting, started))
             .await
             .map_err(|_| Failure::Timeout)?
@@ -172,43 +167,36 @@ where
         &self,
         fetch: &Fetch<'_>,
         accounting: &mut Accounting,
-        started: Instant,
+        started: StdInstant,
     ) -> Result<Response, Failure> {
         let mut url = fetch.request.url.to_owned();
         let mut visited = BTreeSet::new();
         let mut redirects = 0;
         let mut retries = 0;
+        let mut retry_until = 0;
         let mut kind = fetch.request.kind;
         loop {
+            accounting.validate()?;
+            let now = utc::advance(fetch.request.now, elapsed(accounting, started)?)
+                .map_err(Failure::Admission)?;
             let request = Request {
                 url: &url,
                 kind,
+                now: &now,
                 ..fetch.request
             };
-            let identity = if fetch.robots {
-                let source = self
-                    .policy
-                    .policy()
-                    .sources
-                    .iter()
-                    .find(|source| source.id == request.source_id)
-                    .ok_or(Failure::Admission(Refusal::Access))?;
-                self.controls
-                    .caller(source, &request)
-                    .map_err(Failure::Admission)?;
-                let identity = self
-                    .policy
-                    .admit_robots(request.source_id, request.url)
-                    .map_err(Failure::Admission)?;
-                self.controls
-                    .network(&identity)
-                    .map_err(Failure::Admission)?;
-                identity
-            } else {
-                admit(self.policy, &request, self.controls)
-                    .map_err(Failure::Admission)?
-                    .identity()
-                    .clone()
+            let identity = self.admission(fetch.robots, &request)?;
+            let limits =
+                PacingLimits::compose([accounting.limits()]).map_err(Failure::Admission)?;
+            let demand = self.demand(accounting, retries, retry_until)?;
+            let permit = match self.pacing.acquire(&identity, limits, demand) {
+                Ok(permit) => permit,
+                Err(Pending::Delay { until_ms }) if until_ms > demand.now_ms => {
+                    sleep(Duration::from_millis(until_ms - demand.now_ms)).await;
+                    accounting.check_time()?;
+                    continue; // Fresh admission after a wait, before any dial.
+                }
+                Err(pending) => return Err(Failure::Pacing(pending)),
             };
             if !visited.insert(identity.as_str().to_owned()) && kind != RequestKind::Retry {
                 return Err(Failure::RedirectLoop);
@@ -218,19 +206,39 @@ where
                 CheckedDestination::resolve(&identity, self.policy.address_table(), self.resolver);
             accounting.check_time()?;
             let destination = destination.map_err(Failure::Admission)?;
-            let authority = self.authorize(fetch, &identity, started);
+            let authority = self.authorize(fetch, &identity, started, accounting);
             accounting.check_time()?;
             authority?;
             let result = self.hop(fetch, identity, destination, accounting).await;
-            let response = match result {
-                Err(Failure::Transport) if retries < accounting.limits().retries => {
-                    retries += 1;
-                    kind = RequestKind::Retry;
-                    continue;
-                }
-                other => other?,
-            };
+            drop(permit); // Owned hop stopped; release before retry/redirect acquire.
+            if retries < accounting.limits().retries
+                && (result
+                    .as_ref()
+                    .is_err_and(|error| *error == Failure::Transport)
+                    || result
+                        .as_ref()
+                        .is_ok_and(|response| matches!(response.status, 429 | 503)))
+            {
+                retries += 1;
+                let server = result
+                    .as_ref()
+                    .ok()
+                    .and_then(|response| response.retry_after.as_ref());
+                retry_until = self.retry_until(
+                    accounting,
+                    fetch
+                        .authority_time
+                        .checked_add(elapsed(accounting, started)?)
+                        .ok_or(Failure::Configuration)?,
+                    retries,
+                    server,
+                )?;
+                kind = RequestKind::Retry;
+                continue;
+            }
+            let response = result?;
             if !redirect(response.status) {
+                accounting.validate()?;
                 return Ok(response);
             }
             if redirects >= accounting.limits().redirects.get() {
@@ -242,10 +250,81 @@ where
                 .as_ref()
                 .and_then(|value| value.to_str().ok())
                 .ok_or(Failure::Content)?;
-            // Preserve raw dot segments/escapes for N07 before URL normalization.
             url = redirect_url(response.identity.url(), location);
             kind = RequestKind::Redirect;
         }
+    }
+    /// Every admission uses the same trusted elapsed time as authority rechecks.
+    fn admission(&self, robots: bool, request: &Request<'_>) -> Result<FetchIdentity, Failure> {
+        if !robots {
+            return Ok(admit(self.policy, request, self.controls)
+                .map_err(Failure::Admission)?
+                .identity()
+                .clone());
+        }
+        let source = self
+            .policy
+            .policy()
+            .sources
+            .iter()
+            .find(|source| source.id == request.source_id)
+            .ok_or(Failure::Admission(Refusal::Access))?;
+        self.controls
+            .caller(source, request)
+            .map_err(Failure::Admission)?;
+        let identity = self
+            .policy
+            .admit_robots(request.source_id, request.url)
+            .map_err(Failure::Admission)?;
+        self.controls
+            .network(&identity)
+            .map_err(Failure::Admission)?;
+        Ok(identity)
+    }
+    /// Use one trusted clock domain for ledger now and the owning deadline.
+    fn demand<'a>(
+        &'a self,
+        accounting: &mut Accounting,
+        retry: u64,
+        retry_until: u64,
+    ) -> Result<Demand<'a>, Failure> {
+        let now_ms = millis(accounting.now(), self.pacing_context.epoch)?;
+        let deadline_ms = millis(accounting.deadline()?.into_std(), self.pacing_context.epoch)?
+            .min(self.pacing_context.deadline_ms);
+        Ok(Demand {
+            run_id: self.pacing_context.run_id,
+            started_ms: self.pacing_context.started_ms,
+            now_ms,
+            deadline_ms,
+            retry,
+            server_delay_ms: retry_until.saturating_sub(now_ms),
+        })
+    }
+    /// Exponential failure floor and server floor compose with max, never clamp.
+    fn retry_until(
+        &self,
+        accounting: &Accounting,
+        now: SystemTime,
+        retry: u64,
+        server: Option<&HeaderValue>,
+    ) -> Result<u64, Failure> {
+        let multiplier = 1_u64
+            .checked_shl(u32::try_from(retry - 1).map_err(|_| Failure::Pacing(Pending::Budget))?)
+            .ok_or(Failure::Pacing(Pending::Budget))?;
+        let backoff = accounting
+            .limits()
+            .origin_interval_ms
+            .get()
+            .checked_mul(multiplier)
+            .ok_or(Failure::Pacing(Pending::Budget))?;
+        let server = server
+            .map(|value| utc::retry_after(value.to_str().map_err(|_| Refusal::Invalid)?, now))
+            .transpose()
+            .map_err(Failure::Admission)?
+            .unwrap_or(0);
+        millis(accounting.now(), self.pacing_context.epoch)?
+            .checked_add(backoff.max(server))
+            .ok_or(Failure::Pacing(Pending::Budget))
     }
     /// N05 grant identity excludes query/fragment, but keeps this hop's exact path.
     /// Queries remain part of N07 fetch identity, never authority prefix widening.
@@ -253,7 +332,8 @@ where
         &self,
         fetch: &Fetch<'_>,
         identity: &FetchIdentity,
-        started: Instant,
+        started: StdInstant,
+        accounting: &Accounting,
     ) -> Result<(), Failure> {
         let mut url = identity.url().clone();
         url.set_query(None);
@@ -267,7 +347,7 @@ where
         target.validate().map_err(Failure::Admission)?;
         let now = fetch
             .authority_time
-            .checked_add(started.elapsed())
+            .checked_add(elapsed(accounting, started)?)
             .ok_or(Failure::Configuration)?;
         self.authority
             .decide(fetch.principal, Operation::Fetch, &target, now)
@@ -289,10 +369,13 @@ where
             .connect(destination)
             .await
             .map_err(|_| Failure::Transport)?;
+        accounting.check_time()?;
+        let quota = Quota::default();
         let (mut sender, driver) = builder
-            .handshake(TokioIo::new(connection))
+            .handshake(TokioIo::new(BoundedIo::new(connection, quota.clone())))
             .await
             .map_err(|_| Failure::Transport)?;
+        accounting.check_time()?;
         let path = identity.url().query().map_or_else(
             || identity.url().path().to_owned(),
             |query| format!("{}?{query}", identity.url().path()),
@@ -313,120 +396,53 @@ where
         request
             .headers_mut()
             .insert(HOST, authority.parse().map_err(|_| Failure::Content)?);
+        // Each hop owns a fresh connection; never read an idle next response.
+        request
+            .headers_mut()
+            .insert(CONNECTION, HeaderValue::from_static("close"));
         request.headers_mut().insert(
             ACCEPT_ENCODING,
             "gzip, deflate, identity"
                 .parse()
                 .map_err(|_| Failure::Content)?,
         );
-        let work = async {
-            let response = sender
-                .send_request(request)
-                .await
-                .map_err(|error| protocol_error(&error))?;
-            read_response(response, identity, fetch.robots, accounting).await
+        let result = {
+            let work = async {
+                accounting.check_time()?;
+                let response = sender
+                    .send_request(request)
+                    .await
+                    .map_err(|error| protocol_error(&error))?;
+                accounting.check_time()?;
+                read_response(response, identity, fetch.robots, accounting, &quota).await
+            };
+            tokio::pin!(work);
+            tokio::select! { biased;
+                result = &mut work => result,
+                result = driver => match result {
+                    Ok(()) => work.await,
+                    Err(error) => Err(protocol_error(&error)),
+                }
+            }
         };
-        tokio::pin!(work);
-        tokio::select! { biased;
-            result = &mut work => result,
-            result = driver => { result.map_err(|error| protocol_error(&error))?; work.await }
-        }
+        charge_quota(&quota, accounting)?;
+        accounting.validate()?;
+        result
     }
 }
-/// Only standard HTTP redirect statuses trigger another admitted request.
-fn redirect(status: u16) -> bool {
-    matches!(status, 301 | 302 | 303 | 307 | 308)
+/// Reject invalid/backward clocks instead of treating elapsed time as zero.
+fn elapsed(accounting: &Accounting, started: StdInstant) -> Result<Duration, Failure> {
+    accounting
+        .now()
+        .checked_duration_since(started)
+        .ok_or(Failure::Configuration)
 }
-
-/// Typed status handling and body ownership live outside the driver future.
-async fn read_response(
-    response: hyper::Response<Incoming>,
-    identity: FetchIdentity,
-    robots: bool,
-    accounting: &mut Accounting,
-) -> Result<Response, Failure> {
-    let status = response.status().as_u16();
-    if !robots {
-        check_status(status)?;
-    }
-    let location = response.headers().get(LOCATION).cloned();
-    let mut headers = HeaderMap::new();
-    for name in [CONTENT_TYPE] {
-        if let Some(value) = response.headers().get(&name) {
-            headers.insert(name, value.clone());
-        }
-    }
-    let (body, wire_body) = if robots && (status == 404 || status == 410) {
-        (Vec::new(), Vec::new())
-    } else {
-        read_body(response, accounting).await?
-    };
-    Ok(Response {
-        body,
-        wire_body,
-        status,
-        headers,
-        identity,
-        location,
-    })
-}
-/// No authentication escalation, challenge solving or partial promotion.
-fn check_status(status: u16) -> Result<(), Failure> {
-    match status {
-        401 => Err(Failure::Authentication),
-        403 => Err(Failure::Challenge),
-        206 => Err(Failure::Partial),
-        _ => Ok(()),
-    }
-}
-
-/// Resolve relative references without erasing raw segments before N07 checks.
-fn redirect_url(base: &reqwest::Url, location: &str) -> String {
-    if reqwest::Url::parse(location).is_ok() || location.contains("://") {
-        return location.to_owned();
-    }
-    let origin = base.origin().ascii_serialization();
-    if location.starts_with("//") {
-        return format!("https:{location}");
-    }
-    if location.starts_with('/') {
-        return format!("{origin}{location}");
-    }
-    if location.starts_with('?') {
-        return format!("{origin}{}{location}", base.path());
-    }
-    if location.starts_with('#') || location.is_empty() {
-        return format!("{}{location}", base.as_str());
-    }
-    let (parent, _) = base.path().rsplit_once('/').unwrap_or(("", ""));
-    format!("{origin}{parent}/{location}")
-}
-
-/// Hyper's minimum bounded read buffer; the rest reserves header/index copies.
-const PARSER_WORKSPACE: u64 = 32_768;
-/// Byte and header-count ceilings are derived from the effective memory envelope.
-fn parser(accounting: &mut Accounting) -> Result<http1::Builder, Failure> {
-    accounting.workspace(PARSER_WORKSPACE)?;
-    let memory = accounting
-        .limits()
-        .memory_bytes
-        .min(accounting.limits().decode.memory_bytes)
-        .get();
-    let header_bytes = memory.min(PARSER_WORKSPACE) / 4;
-    let header_count = usize::try_from(header_bytes).map_err(|_| Failure::Memory)?
-        / size_of::<(HeaderName, HeaderValue)>();
-    let mut builder = http1::Builder::new();
-    let read_bytes = usize::try_from(header_bytes).map_err(|_| Failure::Memory)?;
-    builder.max_buf_size(read_bytes).max_headers(header_count);
-    Ok(builder)
-}
-/// Malformed/oversized protocol input is content failure, not a retryable socket.
-fn protocol_error(error: &hyper::Error) -> Failure {
-    if error.is_parse() {
-        return Failure::Content;
-    }
-    if error.is_incomplete_message() {
-        return Failure::Partial;
-    }
-    Failure::Transport
+/// Checked translation to the injected ledger's trusted monotonic domain.
+fn millis(now: StdInstant, epoch: StdInstant) -> Result<u64, Failure> {
+    u64::try_from(
+        now.checked_duration_since(epoch)
+            .ok_or(Failure::Configuration)?
+            .as_millis(),
+    )
+    .map_err(|_| Failure::Configuration)
 }

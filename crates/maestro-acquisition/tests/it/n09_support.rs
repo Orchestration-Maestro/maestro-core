@@ -6,10 +6,12 @@ use maestro_acquisition::{
     policy::{
         authority::{Authority, AuthorityRefusal, Operation, Permit, Target},
         decision::{AdmissionControls, RequestKind},
+        identity::FetchIdentity,
     },
     transport::{
         connect::{CheckedDestination, PinnedTransport, Resolver},
         http::{Fetch, Http},
+        pacing::{Demand, OriginPacing, PacingContext, PacingLimits, Pending},
     },
 };
 use std::{
@@ -27,7 +29,7 @@ use tokio::{
         AsyncRead, AsyncReadExt as _, AsyncWrite, AsyncWriteExt as _, DuplexStream, ReadBuf, duplex,
     },
     runtime::Builder,
-    time::pause,
+    time::{Instant, pause},
 };
 
 /// Explicit generous transport data, not an engine default.
@@ -192,13 +194,15 @@ pub(super) fn http<'a>(
     grants: &'a Grants,
     dns: &'a Dns,
     wire: &'a Wire,
-) -> Http<'a, Wire> {
+) -> Http<'a, Wire, AllowPacing> {
     Http {
         policy,
         controls,
         authority: grants,
         resolver: dns,
         transport: wire,
+        pacing: &ALLOW_PACING,
+        pacing_context: pacing_context(),
     }
 }
 /// Explicit current host identity and query-free authority binding.
@@ -274,5 +278,26 @@ impl AsyncWrite for ObservedStream {
     }
     fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<IoResult<()>> {
         Pin::new(&mut self.inner).poll_shutdown(cx)
+    }
+}
+
+/// Existing non-pacing cases bind an explicit test-only permissive ledger.
+#[derive(Debug)]
+pub(super) struct AllowPacing;
+/// No shared mutable state between independent test runs.
+pub(super) static ALLOW_PACING: AllowPacing = AllowPacing;
+impl OriginPacing for AllowPacing {
+    type Permit = ();
+    fn acquire(&self, _: &FetchIdentity, _: PacingLimits, _: Demand<'_>) -> Result<(), Pending> {
+        Ok(())
+    }
+}
+/// Same paused clock domain as document accounting, with a finite run deadline.
+pub(super) fn pacing_context() -> PacingContext<'static> {
+    PacingContext {
+        run_id: "synthetic",
+        epoch: Instant::now().into_std(),
+        started_ms: 0,
+        deadline_ms: 120_000,
     }
 }

@@ -67,6 +67,8 @@ fn n09_synchronous_resolver_deadline_prevents_dial() {
             authority: &grants,
             resolver: &dns,
             transport: &wire,
+            pacing: &ALLOW_PACING,
+            pacing_context: pacing_context(),
         };
         assert_eq!(
             client
@@ -77,6 +79,11 @@ fn n09_synchronous_resolver_deadline_prevents_dial() {
         );
         assert_eq!(grants.calls.get(), 0);
         assert!(wire.requests.lock().unwrap().is_empty());
+        assert_eq!(
+            wire.responses.lock().unwrap().len(),
+            1,
+            "no dial after cutoff"
+        );
     });
 }
 #[test]
@@ -96,6 +103,8 @@ fn n09_synchronous_authority_deadline_prevents_dial() {
             authority: &grants,
             resolver: &dns,
             transport: &wire,
+            pacing: &ALLOW_PACING,
+            pacing_context: pacing_context(),
         };
         assert_eq!(
             client
@@ -105,5 +114,10 @@ fn n09_synchronous_authority_deadline_prevents_dial() {
             Failure::Timeout
         );
         assert!(wire.requests.lock().unwrap().is_empty());
+        assert_eq!(
+            wire.responses.lock().unwrap().len(),
+            1,
+            "no dial after cutoff"
+        );
     });
 }
