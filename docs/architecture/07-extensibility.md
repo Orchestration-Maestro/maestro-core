@@ -29,7 +29,7 @@ flowchart LR
   subs --> ext[Extension host<br/>sandboxed processes]
   subs --> hookout[Outbound webhooks]
   subs --> bridge[Broker bridge<br/>NATS JetStream, Kafka]
-  ext -->|commands| admit
+  ext -->|MCP tool calls| admit
 ```
 
 ## 1. Principles
@@ -63,7 +63,7 @@ flowchart LR
 | Schedules | Daemon timers declared in configuration (`every`, `cron`) | The schedule's service principal | S4 |
 | Source watchers | Per-source synchronization policy (one-off, manual, watch) | The source's service principal | S6 |
 | Inbound webhooks | HTTPS receiver with signature verification (e.g. GitHub `X-Hub-Signature-256`), mapped to a declared command | A service principal per webhook | Later, on demand |
-| Extensions | Extension protocol `ops.invoke` | `Extension::"<id>"` | S4 |
+| Extensions | MCP tool calls through the same admitted operations; separate durable event protocol | `Extension::"<id>"` | S4 |
 
 **Command contract.** A command has a stable name and major version
 (`run.start/1`), a JSON Schema input, an **idempotency key** bound to the
@@ -143,67 +143,69 @@ its released predecessor.
 
 ### 4.1 What an extension can be
 
-| Kind | Does | Example |
+| Integration role | Does | Example |
 | --- | --- | --- |
 | `subscriber` | Reacts to events | Post a summary to a chat channel when `run.completed`; open an issue when `knowledge.revision.held` |
 | `notifier` | Outbound webhook with a signed payload | Notify a team service on `catalog.bundle.revoked` |
 | `bridge` | Relays the stream to a broker | NATS JetStream or Kafka for team-scale consumers |
 | `source-connector` | Leases frontier items and submits captures through `knowledge.capture.submit` | Private vendor connectors (ADR-0009): the frontier stays core-owned |
 | `extractor` | Converts one media type to canonical Markdown under the extractor contract ([01 §3](01-knowledge-pipeline.md#3-l2-extraction-and-normalization)) | A format the core does not support |
-| `tool-provider` | Exposes agent tools | An MCP server declared in owner-relative `mcp/*.toml`, with a qualified `mcp` ID in the consumer's `requires` ([03](03-agent-orchestration.md)) |
+| `tool-provider` | Exposes agent tools | A checked server record in `core/backends/mcp/config.toml` or a selected package's registered add-or-narrow binding; require the binding owner's package and, for extension tools, its qualified extension ID ([03](03-agent-orchestration.md)) |
 | `exporter` | Writes projections or reports elsewhere | A dashboard feed, an archive |
 | `analyzer` | Leases an analysis job and submits findings about one target revision, with their evidence, coverage and limits ([09 §8](09-reverse-engineering.md#8-analyzers-are-extensions)) | A licence scanner, a code-property-graph query runner, an authorized traffic recorder |
 
-New agent-facing tools keep using MCP servers and `step` nodes, which are
-already sandboxed and policy-governed. The extension protocol serves system
-integration: durable events and commands, which MCP does not provide.
+These are integration roles, not descriptor `kind` values. The v4 descriptor
+uses `tools` or `hook-subscriber`; a raw MCP server record has no resource ID.
+Every action, including an event-triggered action, is an MCP tool call. S4
+qualifies sandboxing and policy enforcement; S3 declarations do not prove it.
+The separate extension event protocol supplies durable delivery, cursors and
+acknowledgments, which MCP does not provide.
 
 ### 4.2 Declaration
 
-This S4 extension-kind excerpt uses an illustrative capability root and owner,
-not an approved identity or S3 seed. The future descriptor must register the
-owner-relative `extensions/` subtree before it can pass source checking; S3
-still refuses this unregistered kind. The owning `capability.toml` declares
-`extension:notifications/run-notifier` in its `requires`.
+Author v4 extensions with the pinned C58 schema and fixtures under
+[S3 D14](../../specs/003-catalog/plan.md#d14-backends-preferences-and-extension-boundaries).
+S3 Phase 2/X1 registers the descriptor and verified install/projection consumer
+before S4 execution; an earlier checker reports the kind as unsupported.
+The following field-level example replaces the old executable-command format;
+it is not an approved connector or a claim of delivered runtime support.
 
-```toml
-# maestro-manifests: capabilities/engineering/notifications/extensions/run-notifier/extension.toml
-id = "extension:notifications/run-notifier"
-name = "run-notifier"
-version = "1.0.0"
-owner = "@org/platform"                  # illustrative mirror of the owner root
-kind = "subscriber"
-transport = "process"                    # process | webhook | bridge
-command = ["run-notifier", "--stdio"]    # a released, checksum-pinned artifact
-requires = ["policy:core/default-deny", "policy:core/protected-paths", "policy:core/egress-deny-by-default"]
+The example root is `capabilities/operations/notifications/package.toml`.
+Its `requires` includes `extension:notifications/run-notifier`; the resource is
+`extensions/run-notifier/extension.toml` below that root. Its common metadata
+records the registered schema, `package:notifications`, maturity, architecture
+rows and exact qualified `requires`. Owners/maintainers derive from the owning
+`package.toml`, never a repeated resource owner field. Products are values,
+not source paths or IDs.
 
-[[subscribe]]
-types = ["maestro.run.completed.v1", "maestro.run.cancelled.v1"]
-scopes = ["workspace/*/project/*"]
+| Descriptor field or contract | Notification example |
+| --- | --- |
+| `name`, `version`, `description` | `run-notifier`, `1.0.0`, a description of the run-summary tool |
+| `type`, `kind` | Synthetic integration value `notification-service`; `kind = "tools"` |
+| Runtime and entry | Declared runtime name/version requirements; relative entry `code/run-notifier` within verified code, resolved through local runtime authority |
+| Code source | Explicit local inventory containing that entry, covered by the signed package digest; alternatively one immutable version/digest/platform-assets/expected-signer release, never both |
+| MCP and tools | Declared MCP protocol requirements; tool `notify` references `contract:notifications/notify-input` and `contract:notifications/notify-output` |
+| Configuration | Config-schema reference `contract:notifications/notifier-config`; all three JSON contracts and their `.maestro.toml` sidecars are inventoried and required |
+| Secrets and egress | Typed secret references only, for example `{ env = "NOTIFICATION_API_TOKEN" }`; declared ceiling `https://chat.example.org/api/`, not a runtime grant |
+| Tests and evals | Explicit test/eval references and inventoried synthetic inputs, expected outputs and refusals; missing, stale or zero cases fail |
+| Hook subscribers | For `kind = "hook-subscriber"`, also name supported D13 hook points; their event schemas are implicit platform protocols, not contract resources |
 
-[grants]
-operations = ["run.status"]              # commands it may call
-data_classes = ["public", "internal"]    # payload classes it may receive
+`requires` contains only qualified catalog IDs, including referenced contracts
+and standard-owned policy resources, never MCP server or protocol names. The
+checker rejects missing contracts, mutable code, escaping entries, shell command
+strings, install/build scripts and literal secrets. No check or install resolves
+secrets, installs a runtime or launches code. Each extension needs a separate
+trusted Cedar grant bound to its principal, package/code digest and destinations;
+its declared egress ceiling cannot grant access.
 
-[effects]
-network = ["https://chat.example.org/api/"]   # egress allowlist
-filesystem = []                                # none
-
-[limits]
-memory = "128MiB"
-cpu = "0.2"
-in_flight = 32
-```
-
-`requires` contains only qualified catalog resource IDs, not protocol names.
-Runtime compatibility still requires exactly `maestro-events` ^1 and
-`maestro-operations` ^1. Their machine-readable protocol field belongs to the
-future S4 extension schema, not to `requires`; no field is invented here.
-
-The catalog compiler validates the declaration like any resource: known event
-types and majors, operations that exist, effects covered by Cedar policies,
-limits within organizational ceilings. The artifact the command runs is
-referenced by digest in the bundle; an unpinned executable is refused.
+**Durable events remain separate.** For this tool example, S4 subscribes to
+`maestro.run.completed.v1` / `maestro.run.cancelled.v1` in admitted project scopes,
+then invokes `notify` over MCP. Those run events are not extra hook points.
+Delivery retains the journal cursor/acknowledgment protocol in §3; MCP supplies
+only the action. Runtime compatibility retains `maestro-events` ^1 and
+`maestro-operations` ^1 outside catalog `requires`. S4 checks known public event
+majors, admitted operations, scopes/data classes, Cedar effects and resource
+ceilings before activation; S3's static descriptor check cannot qualify them.
 
 ### 4.3 The extension host
 
@@ -214,10 +216,13 @@ supervises extensions:
   nodes (Landlock, seccomp, network namespace with its egress allowlist,
   cgroup limits). Process separation alone is not treated as a security
   boundary.
-- **Protocol**: JSON-RPC 2.0 over the process's stdio, the *Maestro Extension
-  Protocol*: `initialize` (versions, capabilities), `events.deliver` /
-  `events.ack` (push) or `events.poll` (pull), `ops.invoke`, `health`,
-  `shutdown`. Small on purpose; any language can implement it.
+- **Protocols**: the versioned *Maestro Extension Protocol* uses JSON-RPC 2.0
+  over the process's stdio for `initialize` (versions, capabilities),
+  `events.deliver` / `events.ack` (push)
+  or `events.poll` (pull), `health` and `shutdown` for durable delivery and
+  lifecycle. Actions are MCP tool calls, including admitted operation calls;
+  MCP never substitutes for event acknowledgments. Any language can implement
+  these out-of-process contracts.
 - **Principal**: `Extension::"extension:notifications/run-notifier"` in Cedar with exactly the declared
   grants; an extension cannot widen its own grants, and its outputs are
   untrusted data like any tool output.
@@ -276,10 +281,11 @@ The core never embeds a message broker; a broker is an exit point like any other
 | --- | --- |
 | S1 | Journal with per-stream sequences, durable cursors and acknowledgements; the event catalogue starts with knowledge events |
 | S2 | Built-in projection and telemetry consumers use the tested S1 cursor primitive |
+| S3 Phase 2/X1 | V4 extension descriptors, contracts/fixtures, artifact verification and install/projection; zero launch or execution qualification |
 | S4 | Extension host in the daemon, Maestro Extension Protocol, process extensions, outbound webhooks, local HTTP API with server-sent events, schedules; a reference `echo` extension in CI |
 | S5 | Capabilities use subscribers (for example notifications); a contributed extension ships through the catalog |
 | S6 | Source connectors as extensions; the private vendor connectors run this way |
-| S8 | The `analyzer` kind and its contract; analysis and provenance events; analyzers run under an `analysis/<target>` scope and reach nothing else ([09](09-reverse-engineering.md)) |
+| S8 | Analyzer tools and their contract on the v4 extension descriptor; analysis and provenance events; analyzers run under an `analysis/<target>` scope and reach nothing else ([09](09-reverse-engineering.md)) |
 | Later | Inbound webhooks, broker bridge, WebAssembly components, on demand |
 
 ## 8. Tests

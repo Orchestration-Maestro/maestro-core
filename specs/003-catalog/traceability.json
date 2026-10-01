@@ -737,7 +737,7 @@
     },
     {
       "id": "FR-S3-050",
-      "tasks": ["C44", "C45a", "C45b", "C46", "C47a", "C47b", "C48", "C49a", "C49b", "C59"]
+      "tasks": ["C02", "C44", "C45a", "C45b", "C46", "C47a", "C47b", "C48", "C49a", "C49b", "C59"]
     },
     {
       "id": "FR-S3-051",
@@ -761,7 +761,7 @@
     },
     {
       "id": "FR-S3-056",
-      "tasks": ["C28", "C44", "C65", "C76a", "C76b", "C77b", "C77c", "C77d", "C79a", "C79b", "C82b"]
+      "tasks": ["C02", "C28", "C44", "C65", "C76a", "C76b", "C77b", "C77c", "C77d", "C79a", "C79b", "C82b"]
     },
     {
       "id": "FR-S3-057",
@@ -999,13 +999,27 @@
   },
   "amendment": {
     "status": "approved-planned-not-delivered",
-    "phase_1_hours": 149,
+    "phase_1_hours": 150,
     "phase_2_hours": 121,
-    "total_hours": 270,
+    "total_hours": 271,
     "superseded_engine_amendment_hours": 27,
-    "additional_over_approved_hours": 243,
+    "additional_over_approved_hours": 244,
     "retained_s2_hours": 7,
-    "c02_increment_hours": 1,
+    "c02_increment_hours": 2,
+    "c02_v4_adjustment_hours": 1,
+    "c02_validation_fix_hours": 1,
+    "approved_phase_1_hours_before_validation": 149,
+    "validation_fix_scope": "C02 minimal conforming Rust profile/reference, MCP base and refusal cases; all other validation fixes retain their task hours",
+    "validation_fix_task_deltas": {
+      "C02": 1,
+      "C08": 0,
+      "C21": 0,
+      "C21b": 0,
+      "C44": 0,
+      "C48": 0,
+      "C76a": 0,
+      "C85a": 0
+    },
     "c20_s4_transferred_hours": 4,
     "url_rule_amendment_hours": 1,
     "url_rule_task_deltas": {

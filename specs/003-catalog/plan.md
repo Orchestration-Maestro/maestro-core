@@ -1363,8 +1363,11 @@ rationale is the approved `manifest-design-final.md` §§2–7; gap obligations 
 `manifest-gap-analysis.md` §§3 and 7. [ADR-0022](../../docs/adr/0022-manifest-layout-v4-and-language-neutral-extensions.md)
 records durable choices. These public sections and task acceptances are the
 implementation contract; the design's earlier proposed/full alternative is not
-an additional budget. C44 records the **minimal** choice: Phase 1/M3 149 h (including the later URL-rule +1 h),
-Phase 2 immediately after M3 121 h, including the retained 7 h S2 amendment.
+an additional budget. C44 records the **minimal** choice: approved Phase 1/M3
+149 h (including the later URL-rule +1 h), plus **1 h for C02's validation fix**
+(Rust profile/reference, checked MCP base and refusal cases) = **150 h**.
+Phase 2 immediately after M3 remains 121 h. The retained 7 h S2 amendment is
+included in Phase 1; all other validation fixes add 0 h.
 
 #### Tree and ownership
 
@@ -1479,6 +1482,17 @@ necessary; no file-loaded executable validator is admitted.
 | Bootstrap/preset | Explicit area-local source/output/digest inventory with binding/tool requirements; preset exact package/language requirements and area/inventory selectors, mandatory standards added/pinned by closure |
 | Defaults/backend | Typed canonical S1 defaults and registered base/extension shapes in D14; authority/secrets/duplicate default producers refuse |
 
+C02's minimal Rust seed includes `languages/rust/profiles/quality/default.toml`
+and the required `quality-profile:rust/default` reference in its `package.toml`,
+with instruction/starter references, an exact seeded `standard:quality` baseline,
+complete gate categories and honest unresolved runtime bindings. C76a extends
+that same file/identity after C82a; C02 never waits for its own recovery consumer.
+C21/C21b list paired `.maestro.toml` metadata for their JSON/Cedar contracts,
+policies and supporting inputs explicitly; a native-format file alone is not a
+complete resource. C85a supplies `capabilities/practice/project-creation/package.toml`
+and its `requires` reference to `extension:project-creation/starter-renderer`,
+rather than installing an extension without an owning area.
+
 Every registered kind/config shape needs an authored valid and refusal fixture
 with expected diagnostic and allowed neighbour. Registry inventory rejects
 missing/zero/stale coverage. Schemas/editor associations are exported from the
@@ -1559,8 +1573,10 @@ narrow as before; it does not become a general source-rule overlay. Public
 checks run without private access; affected private selection fails closed.
 
 C66 changes from 3 to 4 h (**+1 h**); C52a/b, C68 and C41/C43 keep their
-existing hours. Updated amendment: **149 h Phase 1 / 121 h Phase 2**. The
-S6 runtime adapter's separate budget is not guessed or charged here.
+existing hours. This URL-rule decision made the approved amendment **149 h
+Phase 1 / 121 h Phase 2**. C02's later validation fix adds 1 h for its minimal
+Rust profile/reference, MCP base and refusal cases: **150 h / 121 h**, 271 h
+combined. The S6 runtime adapter's separate budget is not guessed or charged here.
 
 #### Resolution and mandatory standards
 
@@ -1665,8 +1681,9 @@ Native activation requires G25-qualified fork/lock/build/feature metadata,
 source-only build and disabled native extension installer. Uncompiled selection
 refuses before native calls; repair commands remain usable. Explicit `none`
 makes zero graph calls; stale/absent/rebuilding graph gives explicit unavailable
-while passage retrieval continues. C48 waits for G25/E07a, then G22 feeds C49a;
-there is no C48↔G22 cycle. Qdrant retains identity/dimensions/lifecycle and local
+while passage retrieval continues. C48's qualified graph/vector publication
+waits for G25/E07a and applicable backend evidence, then G22 feeds C49a; there
+is no C48↔G22 cycle. Qdrant retains identity/dimensions/lifecycle and local
 endpoint/credentials; base defaults cannot change these.
 
 A package's `backend_extensions` must name exactly its role files. Registered
@@ -1677,8 +1694,12 @@ of input order. Aggregate ceilings apply to all additions together. Core type
 changes revalidate every selected extension before activation. Logical collection,
 projection and tool bindings neither create stores nor authorize effects.
 
-MCP bases move into `core/backends/mcp/config.toml`; raw server records have no
-resource ID. Cross-package consumers require the binding owner's package;
+C02 supplies the minimal checked MCP base for the existing S1 knowledge server
+in `core/backends/mcp/config.toml`; core/presets bind it without a retired MCP
+resource edge. C21 reuses it and C08 depends explicitly on C47b's consumer
+wiring. C48 reuses that same base at qualified backend publication, so neither
+C48 nor G25 gates the early owner loop. Raw server records have no resource ID.
+Cross-package consumers require the binding owner's package;
 extension tools additionally require their qualified extension ID. Resolve
 namespace/server/tool at the final slash, never basename fallback. Add/remove
 derives the effective core view from immutable core plus selected records and
@@ -1836,7 +1857,8 @@ there is no raw SDK configuration passthrough.
 
 ## Validation
 
-1. **First checkpoint (through C08):** strict config, safe discovery/narrowing,
+1. **First checkpoint (through C08):** C02's checked Rust seed and MCP base plus
+   C47b consumer wiring, without C48/G25 publication waits; strict config, safe discovery/narrowing,
    en/fr/es/ja × three-tone prose and byte-identical artifact/log tests, four-client
    --workspace/user-only instructions, user-local trust and fresh-home CI setup.
    Prove outside-write/secret-read/link-escape denials and plain/script parity.
@@ -1948,23 +1970,29 @@ publish a tag, install clients or send private data to a provider.
 
 The authoritative [task accounting](tasks.md#critical-paths-and-effort) is
 recomputed from headings, phases and After edges. Whole S3 totals are
-**143 tasks / 477–489 h**: **108 Phase 1 tasks / 356–368 h** and
+**143 tasks / 478–490 h**: **108 Phase 1 tasks / 357–369 h** and
 **35 Phase 2 tasks / 121 h**. Deferred S6 adds 3 tasks / 6–10 h; transferred
 C20 adds 4 h in S4, not S3. Completed work retains historical weights, not a
 remaining-work estimate. The original 16–24 h CI/review reserve stays separate;
 C39 and new task estimates already include their focused review.
 
-The incremental amendment is **270 h = 149 Phase 1 + 121 Phase 2**, including
-7 h retained S2 work, +1 h C02 seed adjustment and +1 h C66 URL-rule amendment.
-It replaces the approved 27 h engine amendment: **243 h extra**, not 270+27.
+The incremental amendment is **271 h = 150 Phase 1 + 121 Phase 2**, including
+7 h retained S2 work, +1 h original C02 v4 adjustment, +1 h C66 URL rules and
++1 h C02 validation fix for the minimal Rust profile/reference, MCP base and
+refusal cases. This last hour is the only increase above the owner's approved
+149 h Phase 1. C08/C21/C21b/C44/C48/C76a/C85a fixes add 0 h. It replaces the
+approved 27 h engine amendment: **244 h extra**, not 271+27.
 Phase 1 gaps add 16 h and
 Phase 2 gaps 42 h once. Seven later language-gate projects (168–280 h) and S4,
 S6 and post-M1 runtime work remain outside this amendment.
 
-Dependency closures are **C08 54 tasks / 178–190 h** and
-**C28 108 tasks / 356–368 h**. Endpoint-weighted internal
-paths are **C08 62–70 h** and **C28 79–86 h**, recomputed
-after gap dependencies, not guessed from a lane count. The DAG is acyclic; Phase 2, C41–C43/S6 and S4 have no edge into M3. C66 separately needs the
+Dependency closures are **C08 57 tasks / 191–203 h** and
+**C28 108 tasks / 357–369 h**. Endpoint-weighted internal paths are
+**C08 66–74 h** and **C28 79–86 h**. C08 adds exactly C46/C47a/C47b (12 h)
+and C02's 1 h to its previous 54 tasks / 178–190 h closure; C48 and C76a
+remain outside it. C43 stays 24 tasks / 70–84 h with a 42–53 h path.
+These are recomputed after validation fixes, not guessed from a lane count.
+The DAG is acyclic; Phase 2, C41–C43/S6 and S4 have no edge into M3. C66 separately needs the
 existing core wire types synchronized after N07 lands; it does not wait for
 the live S6 catalog adapter. External owner identities/approvals, host pins, G25/G27/native release
 qualification, M1, publication credentials, CI and shared-file serialization can

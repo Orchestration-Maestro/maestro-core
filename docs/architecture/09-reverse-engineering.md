@@ -261,10 +261,10 @@ given rights to.
 
 ## 8. Analyzers are extensions
 
-Each instrument is an **extension** of a new kind, `analyzer`, added to the kinds
-of [07 §4.1](07-extensibility.md#41-what-an-extension-can-be). Nothing about the
-core changes when one is added, replaced or removed: that is the requirement
-this design answers.
+Each instrument is an **extension** serving the analyzer role in
+[07 §4.1](07-extensibility.md#41-what-an-extension-can-be), using the v4
+`kind = "tools"` descriptor. Once the S8 analysis operations and contracts are
+registered, adding, replacing or removing an instrument needs no core change.
 
 An analyzer:
 
@@ -279,45 +279,38 @@ An analyzer:
   cannot read the repository, reach the network beyond its declared allowlist,
   or write canonical knowledge.
 
-This S8 analyzer-extension excerpt uses an illustrative capability root and
-owner, not an approved identity or S3 seed. Its future descriptor must register
-the owner-relative `extensions/` subtree; S3 still refuses this unregistered
-kind. The owning `capability.toml` declares
-`extension:reverse-engineering/joern-analyzer` in its `requires`.
+Use the v4 descriptor contract in
+[07 §4.2](07-extensibility.md#42-declaration), registered by S3 Phase 2/X1.
+The analyzer operations, runtime adapter and real qualification remain S8;
+unavailable analysis support is explicit, not unchecked source acceptance.
+The example's functional owning path is
+`capabilities/architecture/reverse-engineering/package.toml`, whose `requires`
+includes `extension:reverse-engineering/code-property-analyzer`. Its resource is
+`extensions/code-property-analyzer/extension.toml` below that root. Products
+appear only as values; this example is not an approved or qualified adapter.
 
-```toml
-# maestro-manifests: capabilities/engineering/reverse-engineering/extensions/joern-analyzer/extension.toml
-id = "extension:reverse-engineering/joern-analyzer"
-name = "joern-analyzer"
-version = "1.0.0"
-owner = "@org/platform"                  # illustrative mirror of the owner root
-kind = "analyzer"
-transport = "process"
-command = ["joern-analyzer", "--stdio"]
-requires = ["policy:core/default-deny", "policy:core/protected-paths", "policy:core/egress-deny-by-default"]
+| Descriptor field or contract | Analyzer example |
+| --- | --- |
+| Identity and common metadata | `extension:reverse-engineering/code-property-analyzer`; registered schema, owning area `package:reverse-engineering`, maturity, architecture rows and exact qualified `requires`; owners derive from `package.toml` |
+| `name`, `version`, `description` | `code-property-analyzer`, `1.0.0`, a description of the code-property analysis tool |
+| `type`, `kind` | `type = "joern"`; `kind = "tools"`, not a new product-specific descriptor kind |
+| Runtime, entry and code | Runtime name/version requirements; relative `code/analyzer` entry in one explicit signed local inventory or one immutable version/digest/platform-assets/expected-signer release; local authority supplies the executable/interpreter |
+| MCP and tools | MCP protocol requirements; tool `analyze` with `contract:reverse-engineering/analyze-input` and `contract:reverse-engineering/analysis-findings` |
+| Configuration | Config-schema reference `contract:reverse-engineering/analyzer-config`; all referenced JSON contracts and metadata sidecars are inventoried and in `requires` |
+| Secrets and egress | Explicit empty secret declarations and network allowlist for this isolated example; any later credential uses a typed environment/keychain reference, never a literal |
+| Tests and evals | Exact synthetic test/eval references, inventoried inputs/expected findings and refusals for stale targets, missing evidence and unavailable tools |
 
-[[subscribe]]
-types = ["maestro.analysis.job.ready.v1"]
-scopes = ["analysis/*"]
+The S8 runtime leases the analysis job and grants only its `analysis/<target>`
+scope, analysis data class, read-only analysis-workspace access and admitted
+finding/heartbeat operations. Actions use MCP tool calls under those grants;
+source declarations never authorize repository reads, network access or writes.
+S4 supplies sandbox limits and supervision, not the catalog compiler.
 
-[grants]
-operations = ["analysis.finding.submit", "jobs.heartbeat"]
-data_classes = ["analysis"]
-
-[effects]
-network = []
-filesystem = ["analysis-workspace"]
-
-[limits]
-memory = "8GiB"
-cpu = "4"
-in_flight = 1
-```
-
-`requires` contains only qualified catalog resource IDs. Runtime compatibility
-still requires exactly `maestro-events` ^1 and `maestro-operations` ^1. Their
-machine-readable protocol field belongs to the future S4/S8 extension schema,
-not to `requires`; no field is invented here.
+**Durable delivery is unchanged:** `maestro.analysis.job.ready.v1` remains a
+public journal event delivered with its own cursor and acknowledgment. It is
+not a D13 hook point or a catalog dependency. Runtime compatibility retains
+`maestro-events` ^1 and `maestro-operations` ^1 outside `requires`; MCP actions
+do not replace either durable delivery or operation admission.
 
 **The analyzer contract**, in the shape of the extractor contract of
 [01 §3](01-knowledge-pipeline.md#3-l2-extraction-and-normalization): every

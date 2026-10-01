@@ -405,7 +405,7 @@ first slice; the earlier plan's first governed workflow (U08) moves to S4.
 | product.CD6 | Adaptive L1 budget under a ceiling; L0 never truncated; optional model-traffic relay | Kept | [04 §4](04-intelligence-backend.md#4-phase-i1--memory-and-continuity), [§7](04-intelligence-backend.md#7-context-management-the-undecided-489-surfaces) |
 | product.CD7 | Views keep manual adjustments; frozen snapshots | Kept | [04 §8](04-intelligence-backend.md#8-phase-i4--workbench) |
 | product.CD8 | Graceful shutdown by default, real stop-all, forced termination | Kept | [04 §9](04-intelligence-backend.md#9-operating-model), [07 §4.3](07-extensibility.md#43-the-extension-host) |
-| product.GD1–GD5 | Provider configuration, four initial clients, non-blocking graph advice, hook administration, local access | Kept (GD4 hooks: Copilot in S3, others Deferred to S4, approved by the owner, 2026-09-28 (C00 inventory approval); §9, A28) | §6, §9, [04 §7](04-intelligence-backend.md#7-context-management-the-undecided-489-surfaces) |
+| product.GD1–GD5 | Provider configuration, four initial clients, non-blocking graph advice, hook administration, local access | Kept: four-client MCP and static hook maps in S3; all live hooks, including Copilot, in S4 (owner v4 amendment, 2026-09-30; §9, A28) | §6, §9, [04 §7](04-intelligence-backend.md#7-context-management-the-undecided-489-surfaces) |
 | product.NP | Native Rust desktop; Rust wherever feasible; justified Python exceptions; no framework reuse; one backend; three platforms | Kept | ADR-0016, [04 §1](04-intelligence-backend.md#1-scope-and-stance), [§8](04-intelligence-backend.md#8-phase-i4--workbench) |
 
 ## 14. Foundation and engineering

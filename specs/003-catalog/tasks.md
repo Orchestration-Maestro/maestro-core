@@ -31,11 +31,14 @@ the plan.
 **Format:** `Cnn [USn] title (hours)`, with red/green/check steps. Each task's
 **Phase** and **After** fields are authoritative; physical workstream order is
 not execution order. Phase 1 means M3; Phase 2 starts immediately after M3.
-**143 S3 tasks / 477–489 h** comprise **108 Phase 1 tasks / 356–368 h** and
+**143 S3 tasks / 478–490 h** comprise **108 Phase 1 tasks / 357–369 h** and
 **35 Phase 2 tasks / 121 h**. Three S6 tasks add 6–10 h; transferred C20 adds
-4 h in S4, not S3. All 147 headings total 487–503 h across those boundaries.
-The amendment is **149 h Phase 1 + 121 h Phase 2 = 270 h**, including the
-retained S2 7 h and C02 +1 h; it replaces, not adds to, the approved 27 h.
+4 h in S4, not S3. All 147 headings total 488–504 h across those boundaries.
+The amendment is **150 h Phase 1 + 121 h Phase 2 = 271 h**, including the
+retained S2 7 h, C02's original +1 h v4 adjustment and +1 h validation fix.
+The fix raises the approved Phase 1 149 h by exactly 1 h for C02's Rust
+profile/reference, MCP base and refusal cases; it replaces, not adds to, the
+approved 27 h engine amendment.
 [Accounting](#critical-paths-and-effort) reconciles every row and critical path.
 Completed work retains historical estimates, not new remaining effort.
 
@@ -306,22 +309,43 @@ adapter; no second model registry, bespoke installer, bake-off runner or fake
 qualification. No fabricated evaluation/selection record; explicit registration
 can affect a later same-entry ask under S1's existing lookup, never rewrite history.
 
-### C02 Minimal v4 catalog seed [US1, US5] (3 h)
+### C02 Minimal v4 catalog seed [US1, US5] (4 h)
 
 **Phase:** P1/M3
 **After:** C00, C03, C39, C51a, C52b; OA1 approved identities/protection.
-**Files:** MAN package.toml; core/package.toml; core/agents/maestro.{agent.md,maestro.toml}; skills/knowledge-evidence/SKILL.md; core/instructions/knowledge.{instructions.md,maestro.toml}; languages/rust/{package.toml,instructions,bootstrap}; standards/<domain>/package.toml; capabilities/orchestration/application-workflow/package.toml; presets/{knowledge-client,rust-service}.toml; bootstrap/repository.toml and bootstrap/repository/files/; .github/CODEOWNERS; README.md; docs/standards/.
-**Requirements:** FR-S3-001, FR-S3-002, FR-S3-003, FR-S3-007, FR-S3-040, FR-S3-041, FR-S3-042, FR-S3-046, FR-S3-047, FR-S3-051, SC-S3-004, SC-S3-021.
-**Named tests:** `seed_missing_knowledge_skill_refuses`, `seed_unknown_setting_refuses`, `minimal_common_rust_starters_accept`; required cases, not reported results.
+**Files:** MAN package.toml; core/package.toml; core/agents/maestro.{agent.md,maestro.toml}; skills/knowledge-evidence/SKILL.md; core/instructions/knowledge.{instructions.md,maestro.toml}; core/backends/mcp/config.toml; languages/rust/{package.toml,profiles/quality/default.toml,instructions,bootstrap}; standards/<domain>/package.toml; capabilities/orchestration/application-workflow/package.toml; presets/{knowledge-client,rust-service}.toml; bootstrap/repository.toml and bootstrap/repository/files/; .github/CODEOWNERS; README.md; docs/standards/.
+**Requirements:** FR-S3-001, FR-S3-002, FR-S3-003, FR-S3-007, FR-S3-040, FR-S3-041, FR-S3-042, FR-S3-046, FR-S3-047, FR-S3-050, FR-S3-051, FR-S3-056, SC-S3-004, SC-S3-021.
+**Named tests:** `seed_missing_knowledge_skill_refuses`, `seed_unknown_setting_refuses`, `minimal_common_rust_starters_accept`, `seed_missing_rust_profile_refuses`, `seed_missing_mcp_config_refuses`; required cases, not reported results.
 
 - [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
-  below; run the focused fixture/check command and retain the failure.
-- [ ] **Step 2: Green.** Write approved area records, knowledge resources, existing two presets and minimal standard/common/Rust starter fixtures at final paths; use exact qualified IDs and generated ownership/index/schema outputs. Standards imports join through C82 before publication; never invent approved rules/owners. C21b/C70/C72 add the remaining required framework content. No package-new, generic eval runner, extension or full historical starter dependency.
+  below; remove the Rust profile/reference or MCP config independently and
+  require a refusal. Run the focused fixture/check command and retain failures.
+- [ ] **Step 2: Green.** Write approved area records, knowledge resources, existing
+  two presets and minimal standard/common/Rust starter fixtures at final paths.
+  Include the conforming `quality-profile:rust/default` and its required reference
+  in `languages/rust/package.toml`, alongside instruction/starter references.
+  Bind the seeded `standard:quality` baseline exactly; retain every gate category,
+  applicability, thresholds, evidence/failure rules and manager/tool choices.
+  Missing runtime bindings stay unresolved, never reported as passing gates.
+  Include a minimal checked MCP base for the existing S1 knowledge server in
+  `core/backends/mcp/config.toml`, bound through `package:core` and the presets;
+  no `mcp:` resource/edge, new server or graph/vector qualification dependency.
+  Use exact qualified IDs and generated ownership/index/schema outputs.
+  C76a extends this same Rust profile; C48 reuses this MCP base when publishing
+  qualified backend declarations. Standards imports join through C82 before
+  publication; never invent approved rules/owners. C21b/C70/C72 add remaining
+  framework content. No package-new, generic eval runner, extension or full
+  historical starter dependency.
 - [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
   capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
   Record nonzero test counts, exact exits, applicable lane gates and review.
 
-**Acceptance:** Public synthetic seed is checked, useful and inert. Strict recipes JSON and missing prerequisite diagnostics remain; no private text, model selection, hook launch or qualification claim. C02 is 2 h historical seed + 1 h v4 adjustment, charged once.
+**Acceptance:** Public synthetic seed is checked, useful and inert, with complete
+Rust profile/instruction/starter references and the MCP configuration C21 reuses.
+Strict recipes JSON and missing prerequisite diagnostics remain; no private text,
+model selection, hook launch or qualification claim. C02 is 2 h historical seed +
+1 h v4 adjustment + 1 h validation fix for the minimal Rust profile/reference,
+MCP base and their refusal cases = 4 h, charged once. C76a/C48 retain their hours.
 
 ### C02a Reviewed model cards in the manifest [US1, US5] (2 h)
 
@@ -936,7 +960,7 @@ containment, whose hook obligation remains S4.
 **Phase:** P1/M3
 
 **After:** C02, C05a, C05b, C05c, C05d, C05e, C05g, C05h, C05i, C05j, C05l,
-C06, C07, C40; integrated T034/T035 and completed T038 live evidence;
+C06, C07, C40, C47b; integrated T034/T035 and completed T038 live evidence;
 OA2/OA6 for real hosts or private data.
 **Files:** `crates/maestro/tests/it/catalog_owner_loop.rs`,
 `docs/how-to/catalog.md`, `docs/how-to/knowledge-mcp.md`;
@@ -967,7 +991,9 @@ SC-S3-001, SC-S3-004, SC-S3-010, SC-S3-012.
 insufficient. Re-estimate remaining work from the amended dependency-closure
 hours below; the old 72-hour baseline is historical, not a remaining-work claim.
 C31 reuses the landed model-card descriptor, but owner-approved C02a content
-still does not gate this loop. External S1-settings/owner waits are excluded.
+still does not gate this loop. Use C02's checked MCP base through C47b's consumer
+wiring. C48's qualified graph/vector publication and G25 are not prerequisites.
+External S1-settings/owner waits are excluded.
 
 ## Workstream 2: Menu, settings, policy and required content [US1, US3, US5]
 
@@ -1163,28 +1189,29 @@ unsupported. A smaller language needs an approved 08 disposition, not omission.
 **After:** C02, C17, C19, C22b.
 **Files (MAN):**
 `capabilities/orchestration/application-workflow/workflows/workload-question/workflow.md`,
-`capabilities/orchestration/application-workflow/contracts/answer.schema.json`,
-`capabilities/orchestration/application-workflow/evals/scenarios/workload-question.json`,
+`capabilities/orchestration/application-workflow/contracts/answer.{schema.json,maestro.toml}`,
+`capabilities/orchestration/application-workflow/evals/scenarios/workload-question.{json,maestro.toml}`,
 `capabilities/orchestration/application-workflow/package.toml`,
 `core/profiles/models/maestro.toml`,
-`standards/security/policies/{default-deny,destructive-operations,protected-paths}.cedar`,
-`standards/security/policies/{egress-deny-by-default,mcp-allowlist}.cedar`,
-`standards/security/policies/schema.cedarschema.json`, `hooks/pre-tool/policy.toml`,
-`standards/security/checks/policy-neighbours.json`, `core/package.toml`,
+`standards/security/policies/{default-deny,destructive-operations,protected-paths}.{cedar,maestro.toml}`,
+`standards/security/policies/{egress-deny-by-default,mcp-allowlist}.{cedar,maestro.toml}`,
+`standards/security/policies/schema.{cedarschema.json,maestro.toml}`, `hooks/pre-tool/policy.toml`,
+`standards/security/checks/policy-neighbours.{json,maestro.toml}`, `core/package.toml`,
 `presets/knowledge-client.toml`, `settings/README.md`, `.github/CODEOWNERS`.
 Discovery cards are metadata of exact resources, not authority. Universal policies are standard-owned, common hook subscriptions are inert,
 and Maestro session profiles are core; the application workflow is optional and
 requires core, never the reverse. No private collection ID enters this preset.
 **Requirements:** FR-S3-001, FR-S3-003, FR-S3-016, FR-S3-018, FR-S3-019.
 
-- [ ] **Step 1: Red.** Write missing knowledge-skill/answer-contract cases and
-  all five production policies' allowed/denied neighbours; require real checker
-  and evaluator refusals before completing the content.
+- [ ] **Step 1: Red.** Write missing knowledge-skill/answer-contract/metadata-pair
+  cases and all five production policies' allowed/denied neighbours; require
+  real checker and evaluator refusals before completing the content.
 - [ ] **Step 2: Green.** Author `workload-question`, its answer contract and shared
   policies/hook. Declare Maestro fast/balanced/deep profiles for `copilot` and
   `llamacpp`;
   retain unsupported/unqualified status without S4 evidence. Reuse C02's skill,
-  instructions and checked MCP binding rather than duplicating them.
+  instructions and checked `core/backends/mcp/config.toml` binding through
+  `package:core` rather than duplicating them or adding a retired `mcp:` edge.
 - [ ] **Step 3: Check.** Run `"$MAESTRO_BIN" catalog check --catalog-dir "$MANIFESTS"`
   and `"$MAESTRO_BIN" policy test --catalog-dir "$MANIFESTS"` on production content.
 
@@ -1199,10 +1226,10 @@ policy neighbours and graph checks pass; no invented qualification or vendor tex
 **Files (MAN):** owner root `core/`, with exact
 relative files `package.toml`, `workflows/feature-delivery/workflow.md`,
 `agents/{planner,worker,tester,reviewer}.agent.md`,
-`contracts/{plan,patch,test-report,review,delivery}.schema.json`,
+`contracts/{plan,patch,test-report,review,delivery}.{schema.json,maestro.toml}`,
 `profiles/models/{planner,worker,tester,reviewer}.toml`,
 `skills/{spec-compliance,security-review}/SKILL.md`,
-`evals/scenarios/feature-delivery.json`; global `presets/rust-service.toml`
+`evals/scenarios/feature-delivery.{json,maestro.toml}`; global `presets/rust-service.toml`
 and generated `.github/CODEOWNERS`.
 C01's agent-sidecar decision requires owner-relative
 `agents/{planner,worker,tester,reviewer}.maestro.toml`;
@@ -1211,8 +1238,8 @@ specification-backed `metadata:` format; a host warning reopens the ADR-0005
 sidecar decision.
 **Requirements:** FR-S3-001, FR-S3-003, FR-S3-018, FR-S3-019.
 
-- [ ] **Step 1: Red.** Require refusal for a missing role/contract, removed
-  mandatory reviewer, self-review, missing approval gate and invented role
+- [ ] **Step 1: Red.** Require refusal for a missing role/contract/metadata pair,
+  removed mandatory reviewer, self-review, missing approval gate and invented role
   qualification, with a valid complete feature-delivery neighbour.
 - [ ] **Step 2: Green.** Author the baseline required role definitions, two skills,
   contracts and declarative workflow; builder is a deterministic step. Declare
@@ -2480,7 +2507,7 @@ carry no second task or budget. Physical order does not change Phase/After.
 
 **Phase:** P1/M3
 **After:** C38.
-**Files:** specs/003-catalog/{spec.md,plan.md,tasks.md,traceability.json}; docs/architecture/{01-knowledge-pipeline.md,03-agent-orchestration.md,06-roadmap.md,08-traceability.md}; README.md; docs/adr/{0012-catalog-and-runtime-in-separate-repositories.md,0013-extensions-through-events-and-operations-out-of-process.md,0014-strict-json-for-collection-and-source-policy.md,0022-manifest-layout-v4-and-language-neutral-extensions.md,README.md}; generated .github/copilot-instructions.md.
+**Files:** specs/003-catalog/{spec.md,plan.md,tasks.md,traceability.json}; docs/architecture/{01-knowledge-pipeline.md,03-agent-orchestration.md,05-platform-and-operations.md,06-roadmap.md,07-extensibility.md,08-traceability.md,09-reverse-engineering.md}; README.md; docs/adr/{0012-catalog-and-runtime-in-separate-repositories.md,0013-extensions-through-events-and-operations-out-of-process.md,0014-strict-json-for-collection-and-source-policy.md,0022-manifest-layout-v4-and-language-neutral-extensions.md,README.md}; generated .github/copilot-instructions.md.
 **Requirements:** FR-S3-040, FR-S3-041, FR-S3-042, FR-S3-043, FR-S3-044, FR-S3-045, FR-S3-046, FR-S3-047, FR-S3-048, FR-S3-049, FR-S3-050, FR-S3-051, FR-S3-052, FR-S3-053, FR-S3-054, FR-S3-055, FR-S3-056, FR-S3-057, FR-S3-058, FR-S3-059, FR-S3-060, FR-S3-061, FR-S3-062, FR-S3-063, FR-S3-064, FR-S3-065, FR-S3-066, FR-S3-067, SC-S3-009, SC-S3-015, SC-S3-016, SC-S3-018, SC-S3-019, SC-S3-020, SC-S3-021, SC-S3-022, SC-S3-023, SC-S3-024, FR-S3-068, SC-S3-025.
 **Design coverage:** MD01, MD12 (approved design §8.4).
 **Named tests:** `c44_contract_reconciliation`, `catalog_traceability_inventory_matches_exact_rows_and_dispositions`; required cases, not reported results.
@@ -2598,14 +2625,20 @@ carry no second task or budget. Physical order does not change Phase/After.
 
 - [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
   below; run the focused fixture/check command and retain the failure.
-- [ ] **Step 2: Green.** Three checked core configs and MCP cutover; actual qualified graph metadata after G25/E07a and approved owners, never an invented pin.
+- [ ] **Step 2: Green.** Publish the three checked core configs; this task reuses
+  C02's MCP base without a second declaration or seed dependency on G25.
+  Add qualified graph/vector metadata after G25/E07a and applicable backend
+  qualification plus approved owners, never an invented pin. Preserve the MCP
+  cutover and C02/C08's independent knowledge-only checkpoint.
 - [ ] **Step 3: Check.** Run the pinned `maestro catalog check --catalog-dir "$MANIFESTS"`
   and `catalog fixtures` plus affected generation checks; use `policy test`
   for Cedar and `catalog eval --all --offline` only after E1. Documentation-only
   changes run Markdown/link/drift checks. Record nonzero relevant case counts,
   exact exits and review; missing runtime evidence is unsupported, not passed.
 
-**Acceptance:** Three checked core configs and MCP cutover; actual qualified graph metadata after G25/E07a and approved owners, never an invented pin.
+**Acceptance:** Three checked core configs; C48 reuses C02's MCP base and adds
+qualified graph/vector publication without moving its external waits into C08.
+No invented pin, duplicate server registry or extra seed charge; estimate stays 3 h.
 
 ### C49a Native and featureless graph acceptance [US1, US5] (3 h)
 
@@ -3231,21 +3264,27 @@ only after reviewed fixes land; not the S6 runtime catalog adapter.
 
 **Phase:** P1/M3
 **After:** C65, C82a.
-**Files:** MAN standards/quality/; languages/{rust,python,go}/profiles/quality/; docs/catalog/migration.md.
+**Files:** MAN standards/quality/; languages/rust/profiles/quality/default.toml; languages/{python,go}/profiles/quality/; docs/catalog/migration.md.
 **Requirements:** FR-S3-026, FR-S3-056, FR-S3-057, SC-S3-018.
 **Design coverage:** MD10 (approved design §8.4).
-**Named tests:** `baseline_and_three_profiles_keep_gate_categories`, `absent_quality_binding_is_unresolved`; required cases, not reported results.
+**Named tests:** `baseline_and_three_profiles_keep_gate_categories`, `absent_quality_binding_is_unresolved`, `rust_seed_profile_is_extended_not_duplicated`; required cases, not reported results.
 
 - [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
   below; run the focused fixture/check command and retain the failure.
-- [ ] **Step 2: Green.** Baseline plus Rust/Python/Go quality profiles; mandatory gates/thresholds and unresolved binding cases.
+- [ ] **Step 2: Green.** Recover the baseline and Python/Go quality profiles;
+  extend C02's same Rust profile, `quality-profile:rust/default`, in place.
+  Preserve its language reference and complete gate categories; add recovered
+  rules/thresholds and unresolved binding cases, never a second Rust profile.
 - [ ] **Step 3: Check.** Run the pinned `maestro catalog check --catalog-dir "$MANIFESTS"`
   and `catalog fixtures` plus affected generation checks; use `policy test`
   for Cedar and `catalog eval --all --offline` only after E1. Documentation-only
   changes run Markdown/link/drift checks. Record nonzero relevant case counts,
   exact exits and review; missing runtime evidence is unsupported, not passed.
 
-**Acceptance:** Baseline plus Rust/Python/Go quality profiles; mandatory gates/thresholds and unresolved binding cases.
+**Acceptance:** Baseline plus Rust/Python/Go quality profiles; C02 remains the
+minimal Rust producer, C76a extends its same identity/file. Mandatory gates,
+thresholds and unresolved bindings remain; recovery stays 4 h, with no duplicate
+seed work and no C76a → C02 prerequisite cycle.
 
 ### C76b Five remaining language quality profiles [US1, US5] (4 h)
 
@@ -3577,19 +3616,29 @@ only after reviewed fixes land; not the S6 runtime catalog adapter.
 
 **Phase:** P2/X1
 **After:** C28, C58, C59, C84.
-**Files:** MAN capabilities/practice/project-creation/extensions/starter-renderer/{extension.toml,contracts,tests}/.
+**Files:** MAN capabilities/practice/project-creation/package.toml; capabilities/practice/project-creation/extensions/starter-renderer/{extension.toml,contracts/,tests/}; generated .github/CODEOWNERS.
 **Requirements:** FR-S3-053, FR-S3-061, SC-S3-020, SC-S3-023.
 **Gap holder:** G02; charged once, split only as listed in accounting.
-**Named tests:** `renderer_contract_requires_pinned_adapter`, `unavailable_renderer_stays_unsupported`, `renderer_is_never_bootstrap_script`; required cases, not reported results.
+**Named tests:** `renderer_contract_requires_pinned_adapter`, `unavailable_renderer_stays_unsupported`, `renderer_is_never_bootstrap_script`, `renderer_missing_owning_package_refuses`, `renderer_missing_package_reference_refuses`; required cases, not reported results.
 
 - [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
   below; run the focused fixture/check command and retain the failure.
-- [ ] **Step 2: Green.** Declare the optional out-of-process renderer and typed input/output contract using X1. Require a separately qualified real adapter before use; this task does not implement a renderer, install a runtime, run post-generation scripts or grant remote writes.
+- [ ] **Step 2: Green.** Declare `package:project-creation` with approved owners
+  and `extension:project-creation/starter-renderer` in its `requires`; derive
+  extension ownership from that `package.toml` and regenerate CODEOWNERS.
+  Declare the optional out-of-process renderer and typed input/output contract
+  using X1. Require a separately qualified real adapter before use; this task
+  does not implement a renderer, install a runtime, run post-generation scripts
+  or grant remote writes.
 - [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
   capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
   Record nonzero test counts, exact exits, applicable lane gates and review.
 
-**Acceptance:** Declare the optional out-of-process renderer and typed input/output contract using X1. Require a separately qualified real adapter before use; this task does not implement a renderer, install a runtime, run post-generation scripts or grant remote writes.
+**Acceptance:** The owning package and its exact extension reference check with
+X1's renderer/input/output contract. Missing owner or extension reference refuses.
+No renderer implementation, runtime install, post-generation scripts or remote
+writes; a real adapter needs separate qualification. Ownership files are part of
+the existing 3 h declaration task, not a new task or budget.
 
 ### C85b Isolated starter generation verifier [US1, US5] (3 h)
 
@@ -3906,8 +3955,10 @@ weights for whole-plan comparison; new C46/C47 wiring never reopens them.
 
 C44 → C30 → C31 → C32 → C33, joined with C80a at C34, then C50 → C36 → C37
 and C35 join C39. C02 additionally waits for C51a/C52b, not deferred package-new,
-extensions or generic evals. C15 joins Phase 1 checkpoint wiring C68. C29 audits
-C68 plus selected Phase 1 recovery/imports **before C28**, no longer after it.
+extensions or generic evals. It supplies the minimal Rust profile and MCP base;
+C76a extends the profile. C08 additionally joins C47b's MCP consumer wiring, not
+C48 or G25-qualified backend publication. C15 joins Phase 1 checkpoint wiring C68.
+C29 audits C68 plus selected Phase 1 recovery/imports **before C28**, no longer after it.
 C28 joins every Phase 1 task and existing external live/release/quality evidence.
 C20, C41–C43 and all Phase 2 tasks cannot enter the M3 ancestor closure.
 C66 separately needs the owning core source-policy types synchronized, including
@@ -3939,35 +3990,42 @@ at most 4 h. C20 remains visible only as a 4 h S4 transfer, not a S3 task/saving
 | Whole-plan boundary | Tasks | Hours |
 | --- | ---: | ---: |
 | Pre-amendment S3 baseline | 68 | 218–230 |
-| Retained S3 baseline after C20 transfer, including C02 +1 h | 67 | 215–227 |
+| Retained S3 baseline after C20 transfer, including C02 +2 h | 67 | 216–228 |
 | Design §8.4 task IDs, including the later C66 +1 h | 57 | 204 |
 | Gap holders, both phases | 19 | 58 |
-| **S3 Phase 1/M3** | **108** | **356–368** |
+| **S3 Phase 1/M3** | **108** | **357–369** |
 | **S3 Phase 2** | **35** | **121** |
-| **S3 both phases** | **143** | **477–489** |
+| **S3 both phases** | **143** | **478–490** |
 | Deferred S6 C41–C43 | 3 | 6–10 |
-| S3 + S6 | 146 | 483–499 |
+| S3 + S6 | 146 | 484–500 |
 | Transferred C20, S4 | 1 | 4 |
-| All task headings (S3 + S6 + transferred S4) | 147 | 487–503 |
+| All task headings (S3 + S6 + transferred S4) | 147 | 488–504 |
 
 | Amendment reconciliation | Phase 1 h | Phase 2 h | Both h |
 | --- | ---: | ---: | ---: |
 | Original design new tasks (35 P1, 22 P2) | 124 | 79 | 203 |
 | Owner 20:45 URL rules, C66 3→4 h | 1 | 0 | 1 |
-| Existing C02 seed increment | 1 | 0 | 1 |
+| Existing C02 v4 seed adjustment, 2→3 h | 1 | 0 | 1 |
 | Already approved S2 delta | 7 | 0 | 7 |
 | Gap additions (6 P1 tasks, 13 P2 tasks) | 16 | 42 | 58 |
-| **Approved amendment, including URL rules** | **149** | **121** | **270** |
+| Approved amendment before validation fixes | 149 | 121 | 270 |
+| C02 validation fix, 3→4 h: Rust profile/reference, MCP base and refusal cases | 1 | 0 | 1 |
+| C08/C21/C21b/C44/C48/C76a/C85a validation fixes within existing budgets | 0 | 0 | 0 |
+| **Amendment after validation fixes** | **150** | **121** | **271** |
 
 The design's original Phase 2 40 h plus minimal-option deferrals 39 h = 79 h;
 gaps add 42 h = 121 h. The exact minimal deferrals are C52c+C78 authoring 6 h,
 C71 Translator 3 h, C73 instructions 4 h, C74a/b policies 8 h, C75 hooks 3 h,
 C77a–d starters 15 h: **39 h**, no work disappears. The design's 132 h minimal
 Phase 1 plus gap 16 h was **148 h**; the owner's 20:45 URL-rule amendment
-adds C66 1 h, making **149 h**. C52a/b, C68 and C41/C43 add 0 h by reusing
-the same type/schema/checkpoint contracts; the S6 runtime adapter is separately
-tasked and not estimated here. Against the earlier approved 27 h engine
-amendment this is **243 h extra**, not another 270 h stacked on 27 h.
+adds C66 1 h, making the approved **149 h**. C02's validation fix adds **1 h**
+for the conforming Rust profile/reference, MCP base and refusal cases: **150 h**
+Phase 1. C08 adds only dependency edges; C21/C21b sidecars, C85a ownership,
+C76a/C48 reuse and C44 architecture corrections add **0 h**. No recovery hour
+is removed or charged twice. C52a/b, C68 and C41/C43 add 0 h by reusing the same
+type/schema/checkpoint contracts; the S6 runtime adapter is separately tasked
+and not estimated here. Against the earlier approved 27 h engine amendment
+this is **244 h extra**, not another 271 h stacked on 27 h.
 
 | Gap obligation | Holder tasks | Phase/milestone | h |
 | --- | --- | --- | ---: |
@@ -3992,8 +4050,8 @@ no index, selector, receipt, workflow engine or fixture framework is charged twi
 
 | Checkpoint | Dependency-closure effort | Internal longest path |
 | --- | --- | --- |
-| C08 owner loop | 178–190 h (54 tasks) | 62–70 h |
-| C28 M3 | 356–368 h (108 tasks) | 79–86 h |
+| C08 owner loop | 191–203 h (57 tasks) | 66–74 h |
+| C28 M3 | 357–369 h (108 tasks) | 79–86 h |
 | C43 S6 contract handoff | 70–84 h (24 tasks) | 42–53 h |
 
 Lower-bound M3 chain (task weights included):
@@ -4002,8 +4060,11 @@ Lower-bound M3 chain (task weights included):
 C00 → C01 → C03 → C03a → C31 → C32 → C80a → C34 → C50 → C36 → C37 → C39 → C10 → C11 → C12 → C13 → C14 → C18 → C16 → C16h → C24a → C24 → C26 → C28
 ```
 
-The original design without gaps had C08 62–70 h and C28 79–86 h internal
-paths. The values above are recomputed after the gap edges; do not reuse the
+Before validation fixes, C08 had 54 tasks / 178–190 h and a 62–70 h path.
+Adding C47b adds exactly C46/C47a/C47b (12 h); C02 adds 1 h, yielding 57 tasks /
+191–203 h and a 66–74 h path. C48 and C76a remain outside that closure; C02
+supplies their seed inputs. M3 gains only C02's 1 h and retains its 79–86 h
+path. The values above are recomputed from the final edges; do not reuse an
 older path or divide it by lane count. External G25/native qualification, M1,
 hosts, owner credentials/approval, C66 wire-type synchronization (including
 reviewed N07), CI and shared-file serialization are excluded.
@@ -4012,10 +4073,10 @@ approved adding C64 to C62's predecessors: the hook-layer common-prompt fixture
 needs C64's real prompt/contract descriptors. This corrects design §8.4 without
 changing costs, closures or the C08/M3 paths above.
 
-The unchanged 16–24 h baseline CI/review reserve gives **493–513 h for S3**
-or **499–523 h with S6**; do not add C39's included migration review twice.
-S3 both phases + approved S2 192–238 h + transferred C20 4 h = **673–731 h**,
-excluding S6 and the reserve. This is 243 h above the engine-approved combined
+The unchanged 16–24 h baseline CI/review reserve gives **494–514 h for S3**
+or **500–524 h with S6**; do not add C39's included migration review twice.
+S3 both phases + approved S2 192–238 h + transferred C20 4 h = **674–732 h**,
+excluding S6 and the reserve. This is 244 h above the engine-approved combined
 430–488 h. Seven later full non-Rust gate projects total **168–280 h** outside
 these numbers; each needs its own approved task plan. S4 execution beyond C20,
 real connectors/renderers, live model/router work and S6 crawling remain separate.
@@ -4077,13 +4138,13 @@ are not all M3 gates: Phase 2/S6/S4 evidence stays at its named checkpoint.
 | FR-S3-047 | C02, C38, C36, C37, C44, C45b, C47a, C50, C54, C55, C56, C77a, C77b, C77c, C77d, C79b, C84 |
 | FR-S3-048 | C38, C41, C43, C44 |
 | FR-S3-049 | C30, C44, C63, C76b, C77d, C79a |
-| FR-S3-050 | C44, C45a, C45b, C46, C47a, C47b, C48, C49a, C49b, C59 |
+| FR-S3-050 | C02, C44, C45a, C45b, C46, C47a, C47b, C48, C49a, C49b, C59 |
 | FR-S3-051 | C02, C28, C44, C51a, C52a, C52b, C67, C68, C83a, C83b, C84, C93, C95a |
 | FR-S3-052 | C44, C51a, C51b, C53a, C53b, C54, C55, C56, C58, C69, C92 |
 | FR-S3-053 | C44, C58, C59, C61, C85a |
 | FR-S3-054 | C44, C57, C58, C59, C60, C61, C66, C91 |
 | FR-S3-055 | C44, C52b, C58, C62, C64, C66, C70, C87, C88a, C88b, C88c, C94, C96a |
-| FR-S3-056 | C28, C44, C65, C76a, C76b, C77b, C77c, C77d, C79a, C79b, C82b |
+| FR-S3-056 | C02, C28, C44, C65, C76a, C76b, C77b, C77c, C77d, C79a, C79b, C82b |
 | FR-S3-057 | C28, C44, C65, C73, C74a, C74b, C76a, C76b, C79a, C79b, C81a, C81b, C82a, C82b, C83a, C83b, C88b, C95b |
 | FR-S3-058 | C28, C35, C44, C68, C80a, C80b, C90 |
 | FR-S3-059 | C44, C52c, C78 |

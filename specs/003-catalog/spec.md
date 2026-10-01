@@ -291,8 +291,11 @@ The detailed approved records are `manifest-design-final.md` (§§2–8) and
 `manifest-gap-analysis.md` (§§3, 6–7), dated 2026-09-30; the public implementation
 contract is [D13](plan.md#d13-manifest-v4-source-contract) and [tasks.md](tasks.md).
 
-- **Phase 1/M3: 149 amendment hours**, comprising minimal design 132 h,
-  gaps 16 h and the 20:45 source-policy amendment 1 h. Keep signed catalog bundles, compatibility, exact versions/digests,
+- **Phase 1/M3: 150 amendment hours**, comprising minimal design 132 h,
+  gaps 16 h, the 20:45 source-policy amendment 1 h and C02's validation fix
+  1 h (minimal Rust profile/reference, checked MCP base and refusal cases).
+  The last hour is explicit above the owner's approved 149 h; all other
+  validation fixes add 0 h. Keep signed catalog bundles, compatibility, exact versions/digests,
   existing init presets, Cedar, local trust, safe removal and all M3 quality bars.
 - **Phase 2 immediately after M3: 121 h**: minimal deferrals 39 h, original
   Phase 2 40 h, gaps 42 h. ST1 switches standards authority; A0 adds authoring;
@@ -314,6 +317,11 @@ Earlier scope decisions remain historical evidence only where this amendment
 explicitly replaces them. Old-content recovery is owner-approved before M3,
 but no private Control-M material is authorized. Landed C05a/C05b/C05f/C19
 stay closed; C46/C47/C61 carry new wiring rather than reopening that work.
+C02 supplies a conforming minimal Rust quality profile/reference and the checked
+MCP base at `core/backends/mcp/config.toml`; C76a extends the same Rust profile
+and C21 reuses the same MCP base. C08 requires C47b's consumer wiring but not
+C48's qualified graph/vector publication or G25. The amendment is now
+**150 + 121 = 271 h**, **244 h** above the superseded 27 h engine amendment.
 
 ### Manifest-owned URL rules, owner decision 2026-09-30 20:45
 
@@ -325,8 +333,9 @@ catalog release plus the owner/maintainer approvals recorded by the ownership
 rules. No policy JSON self-assertion supplies approval or local access rights.
 
 C66 grows from 3 to 4 h; C52a/b, C68 and C41/C43 retain their hours by reusing
-existing typed schema/checkpoint/collection consumers. Phase 1 is **149 h**;
-Phase 2 remains **121 h**. S6 alone owns the catalog-backed `PolicySource` /
+existing typed schema/checkpoint/collection consumers. This decision made
+Phase 1 **149 h**; C02's validation fix adds 1 h, making **150 h**. Phase 2
+remains **121 h**. S6 alone owns the catalog-backed `PolicySource` /
 `ResourceSource` runtime adapter; its separate task is not an M3 prerequisite.
 C66 needs the existing core wire types synchronized, including N07's
 `IdentityMigration` after its review fixes land. Private URL inventories use
