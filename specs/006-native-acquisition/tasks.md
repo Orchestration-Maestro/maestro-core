@@ -3,14 +3,15 @@
 > **For agentic workers:** use superpowers:executing-plans for the single task in
 > your brief. Never start subagents or push an integration branch.
 
-**Input:** [spec.md](spec.md) Revision 2.2, [research.md](research.md) Revision 2.2,
+**Input:** [spec.md](spec.md) Revision 2.3, [research.md](research.md) Revision 2.2,
 and [plan.md](plan.md), including its data model, schemas, ports and quickstart.
 **Status:** all tasks are planned, not implemented. Only the supervisor records
-integrated completion. **56 tasks, 333 estimated lane-hours**: N01–N54 are
-M6-path work (321 h); N55 is later integrated adapter conformance (6 h) and N56
-is the catalog-backed policy/resource adapter (6 h), both outside M6.
-The 2026-09-30 catalog amendment adds **1 task / 6 h** to the 55-task / 327 h
-baseline; existing IDs and estimates are unchanged.
+integrated completion. **57 tasks, 345 estimated lane-hours**: N01–N54 and N57
+are M6-path work (333 h); N55 is later integrated adapter conformance (6 h) and
+N56 is the catalog-backed policy/resource adapter (6 h), both outside M6.
+The 2026-10-01 adaptation amendment adds **1 task / 12 h** to the 56-task / 333 h
+baseline: N57 8 h, N29 +2 h and N34 +2 h. Earlier IDs remain stable; all other
+estimates are unchanged. The previous catalog amendment added N56 / 6 h.
 
 ## Global execution contract
 
@@ -76,6 +77,8 @@ A task consumes the plan contracts produced by its predecessors and produces the
 behavior/API named in its Green step. Only N55/N56 assume S3/S4 delivery:
 N56 has the exact S3 handoffs below; N55 follows N56 and S4 host/schedule delivery.
 N15/N30 keep only N03/N06 and explicitly use local/test-only substitutes now.
+N57 follows N15/N30/N32; its artifact contract and resolver precede N29/N33/N34.
+The stored view reuses N32's `EffectiveConfiguration`, never a parallel DTO.
 
 Estimates are planning judgments, not measurements, and include coding, focused
 checks and one evidence cycle, not reviewer/CI queues, owner wait, provisioning,
@@ -333,6 +336,8 @@ Independent test: every required media cohort has exact source-backed fidelity/h
 
 **Files:** `crates/maestro-acquisition/src/extraction/{registry.rs,detect.rs}`; `crates/maestro-acquisition/src/ports.rs`.
 
+**2026-10-01 follow-up:** N57 owns the Ref-valued change to the existing `extraction/model.rs::Processing`, registry/profile version bumps and affected goldens. N15's original edge set and 6 h estimate stay unchanged; no old-format reader or second profile model is required.
+
 **Requirements:** FR-S6-023, FR-S6-041, FR-S6-050, FR-S6-056; SC-S6-006, SC-S6-012, SC-S6-013.
 
 **Test file:** `crates/maestro-acquisition/tests/it/n15_route_content_through_one_extensible_profile_registry.rs`; test names begin `n15_`.
@@ -409,7 +414,7 @@ Independent test: every required media cohort has exact source-backed fidelity/h
 
 ### N20 — Preserve technical HTML with one qualified conversion path
 
-**After:** N02, N16, N17. **Approval blockers:** N02 exact HTML-library audit; observed profile qualification under approved OA1 targets.
+**After:** N02, N16, N17, N57. **Approval blockers:** N02 exact HTML-library audit; observed profile qualification under approved OA1 targets.
 
 **Files:** `crates/maestro-acquisition/src/extraction/html.rs`; `crates/maestro-acquisition/tests/fixtures/html/`.
 
@@ -418,7 +423,7 @@ Independent test: every required media cohort has exact source-backed fidelity/h
 **Test file:** `crates/maestro-acquisition/tests/it/n20_preserve_technical_html_with_one_qualified_conversion_path.rs`; test names begin `n20_`.
 
 1. **Red:** Use nested/span tables, layout-table wrappers, short prerequisites, exact whitespace/code, links/assets and login/challenge shells; demonstrate any selector/readability loss first.
-2. **Green:** Integrate selectors plus the approved htmd direction, checked against Xberg's built-in converter on the same fixed technical-HTML gold, without flattening or converter chains. Preserve correspondence into Markdown and original DOM locators; optional readability selection is a distinct recorded gated attempt, not silent fallback.
+2. **Green:** Consume N57's resolved CleanupRules/Structure data, omitting matched navigation units once with source mappings and rule reasons; no private selector format. Integrate the approved htmd direction, checked against Xberg's built-in converter on the same fixed technical-HTML gold, without flattening or converter chains. Preserve correspondence into Markdown and original DOM locators; optional readability selection is a distinct recorded gated attempt, not silent fallback.
 3. **Check and commit:** Run `capped cargo test -p maestro-acquisition --locked n20_ -- --nocapture`. Q1 exact literals/cell associations pass on frozen cohort; unsafe loss or sign-in shell is held with original bytes. Run the applicable global gates, retain evidence and make one signed commit.
 
 - [ ] N21 [P] [US2] Run the offline native document bake-off in `specs/006-native-acquisition/research.md` (8 h).
@@ -471,7 +476,7 @@ Independent test: every required media cohort has exact source-backed fidelity/h
 
 ### N24 — Normalize Markdown, text and structured records directly
 
-**After:** N16, N17. **Approval blockers:** OA5 for any unselected format parser; observed qualification under approved OA1 targets.
+**After:** N16, N17, N57. **Approval blockers:** OA5 for any unselected format parser; observed qualification under approved OA1 targets.
 
 **Files:** `crates/maestro-acquisition/src/extraction/{markdown.rs,text.rs,structured.rs}`.
 
@@ -480,7 +485,7 @@ Independent test: every required media cohort has exact source-backed fidelity/h
 **Test file:** `crates/maestro-acquisition/tests/it/n24_normalize_markdown_text_and_structured_records_directly.rs`; test names begin `n24_`.
 
 1. **Red:** Use code indentation/line endings, multilingual short text, structured null/number/array order, malformed XML/entities and unknown image/audio/video neighbours.
-2. **Green:** Reuse direct S1 Markdown parsing; typed JSON/YAML/XML/CSV normalization retains field/value/order locations, not invented prose. Registry entries for noninterpreted media retain assets/metadata/safe text with explicit partial state.
+2. **Green:** Reuse direct S1 Markdown parsing; typed JSON/YAML/XML/CSV normalization retains field/value/order locations, not invented prose. Consume N57's same resolved cleanup AST for supported unit observations, retaining omissions and refusing unsupported selectors instead of inventing a format-specific rule store. Registry entries for noninterpreted media retain assets/metadata/safe text with explicit partial state.
 3. **Check and commit:** Run `capped cargo test -p maestro-acquisition --locked n24_ -- --nocapture`. No converter round trip, whitespace compaction or invented media description; unqualified content cannot become accepted because text is nonempty. Run the applicable global gates, retain evidence and make one signed commit.
 
 - [ ] N25 [P] [US2] Validate downloads and safely admit archive members in `crates/maestro-acquisition/src/capture/{download.rs,archive.rs}` (8 h).
@@ -528,7 +533,7 @@ Independent test: every required media cohort has exact source-backed fidelity/h
 **Test file:** `crates/maestro-acquisition/tests/it/n27_connect_accepted_outputs_to_s1_preparation_and_publication.rs`; test names begin `n27_`.
 
 1. **Red:** Replay identical accepted captures, same content/different permissions, metadata-only updates, profile/tokenizer change, oversize indivisible units and failed embedding/publication.
-2. **Green:** Call existing S1 quality/preparation/cache/embedding/generation ports only. Preserve exact-group occurrences, non-destructive near groups, complete primary span coverage and prepared token limits including context/special tokens; permission changes propagate without needless embeddings.
+2. **Green:** Consume N57's resolved chunk/model-limit and dedup-key payloads (available through N20's predecessor); call existing S1 quality/preparation/cache/embedding/generation ports only and refuse unsupported settings. Preserve exact-group occurrences, non-destructive near groups, complete primary span coverage and prepared token limits including context/special tokens; permission changes propagate without needless embeddings.
 3. **Check and commit:** Run `capped cargo test -p maestro-acquisition --locked n27_ -- --nocapture`. Q2/Q3 pass; failed batches remain resumable and old verified generation stays current; unqualified/held extracts never enter prepare. Run the applicable global gates, retain evidence and make one signed commit.
 
 - [ ] N28 [US2] Qualify the complete media matrix and offline boundary in `crates/maestro-acquisition/tests/it/media_qualification.rs` (6 h).
@@ -551,21 +556,41 @@ Independent test: every required media cohort has exact source-backed fidelity/h
 
 Independent test: two unrelated synthetic sources yield complete evidence/unknown proposals; every automatic class and matrix/forbidden-field refusal, conflict and postcheck rollback is exercised.
 
-- [ ] N29 [P] [US3] Infer evidence-backed profiles and term aliases in `crates/maestro-acquisition/src/adaptation/{sample.rs,infer.rs,aliases.rs}` (8 h).
+- [ ] N57 [P] [US3] Define scoped processing artifacts and the effective snapshot reader in `crates/maestro-acquisition/src/adaptation/{artifacts.rs,snapshot.rs}` (8 h).
+
+### N57 — Define scoped processing artifacts and the effective snapshot reader
+
+**After:** N15, N30, N32. **Approval blockers:** None for synthetic contracts. Actual definition/model qualification requires OA1/OA5 evidence; private inputs/retention still require OA4c. No S3/S4 delivery or new library approval is assumed.
+
+**Files:** `crates/maestro-acquisition/src/adaptation/{artifacts.rs,snapshot.rs}`; existing `adaptation/{storage.rs,writer.rs,golden.rs}`, `policy/manifest.rs` and `extraction/{model.rs,registry.rs}`; affected N15/N30/N32 fixture builders/goldens. Mechanical Ref-type/serde changes in N32's existing effective model/control are permitted; no allow-list or precedence semantic rework. Module/test registrations accompany behavior.
+
+**Requirements:** FR-S6-003, FR-S6-026, FR-S6-030, FR-S6-031, FR-S6-041, FR-S6-043, FR-S6-045, FR-S6-050, FR-S6-057, FR-S6-061, FR-S6-062; SC-S6-007, SC-S6-013, SC-S6-014.
+
+**Test file:** `crates/maestro-acquisition/tests/it/n57_processing_artifacts.rs`; named cases `n57_strict_artifact_schemas`, `n57_processing_ref_goldens`, `n57_profile_defaults_and_collection_precedence`, `n57_scoped_snapshot_and_candidate_binding`, `n57_baseline_snapshot_rollback`, `n57_s1_supported_limits_and_keys`. Golden bytes/digests live in synthetic `tests/fixtures/adaptation/` plus the existing owning N15/N30 golden locations; do not copy private payloads.
+
+**Interfaces:** Consume N03 Resource/Ref/strict JSON, N15 Structure/Observation/ProfileDefinition/Processing, N30 Proposal/Change/storage/Receipts/CAS lineage and N32 EffectiveConfiguration/apply/admit. Produce the exact plan §Adaptation artifact schemas and resolution payloads and one shared scoped reader/resolver for that existing effective type. N57 supplies admitted initial snapshots; N29 supplies proposed candidate snapshots; N33/N34 consume the same reader. No new trait, store, active pointer or parallel processing DTO.
+
+1. **Red:** Reject ID-only Processing, duplicate/unknown/deep payloads, duplicate rule IDs, unsupported selectors, wrong-class pins, missing/substituted/cross-scope refs, unsupported chunk versions/budgets, forged model-limit claims and unsupported dedup tuples. Pin each typed preimage with byte/digest goldens; show old N15/N30 fixtures fail deliberately under the bumped contracts. Use two sources with different profile defaults: test null collection slots, each Set override, later profile changes, attempted clearing, and a stored effective view inconsistent with precedence. Refuse arbitrary candidate digests or multiple matching handles; baseline rollback must fail if it uses the source-policy digest instead of the initial processing snapshot.
+2. **Green:** Implement plan's minimal strict schemas and reader over existing N30 scoped storage. Change Processing to `{cleanup: Ref, chunk: Ref, dedup: Ref}` in place; bump registry/profile preimage and manifest versions and update owning goldens deliberately. Serialize N32's same EffectiveConfiguration inside ProcessingSnapshot; collapse each approved group map to `BTreeMap<Id, Ref>` mechanically with no second model or mixed-group placeholder. Resolve collection Some before per-source profile defaults, validating current resource and qualification closure. Store the initial snapshot in existing Receipts and pin it in `processing_baseline`; bind Proposal.candidate to typed snapshot bytes and preserve its handle in existing evidence. Update N30 effective preimage and baseline/prior rollback construction only; retain CAS/recovery/lineage and content-free notifications. All identities use typed `serde_json::to_vec` and golden vectors, never Value/Map/HashMap. **No migration, old-format reader or compatibility shim:** S6/C66/N30 have no released production state.
+3. **Check and commit:** Run `capped cargo test -p maestro-acquisition --locked n57_ -- --nocapture`, then `capped cargo test -p maestro-acquisition --locked --features serde_json/preserve_order n57_ -- --nocapture`. Rerun the affected `n15_`, `n30_` and `n32_` filters with both feature settings and record nonzero counts. Demonstrate exact bytes/digests, unchanged effective lineage/CAS refusal, successful initial/prior snapshot rollback and no scoped canary in logs. Run the applicable global gates, retain red/green evidence and make one signed commit.
+
+**Acceptance:** Every selected rule/strategy/key set is digest-bound data and every baseline/candidate has readable scoped bytes resolving to N32's exact effective view. N20/N24 consume cleanup data, N27 consumes S1 payloads, and N29/N33/N34 cannot start without this producer. Unsupported S1 capability or missing qualification holds; no Rust engine is duplicated, no arbitrary candidate digest accepted and no storage path added. Estimate 8 h includes these contracts and mechanical updates, not a new cleanup/chunk/dedup engine.
+
+- [ ] N29 [P] [US3] Infer evidence-backed profiles and term aliases in `crates/maestro-acquisition/src/adaptation/{sample.rs,infer.rs,aliases.rs}` (10 h).
 
 ### N29 — Infer evidence-backed profiles and term aliases
 
-**After:** N15, N16, N24. **Approval blockers:** OA4c for real private samples; approved OA3 envelope must be enforced. Term-alias scope approved 2026-09-30; no S2 delivery dependency.
+**After:** N15, N16, N24, N57. **Approval blockers:** OA4c for real private samples; approved OA3 envelope must be enforced. Term-alias scope approved 2026-09-30; no S2 delivery dependency.
 
 **Files:** `crates/maestro-acquisition/src/adaptation/{sample.rs,infer.rs,aliases.rs}`.
 
-**Requirements:** FR-S6-041, FR-S6-042, FR-S6-043, FR-S6-062; SC-S6-013.
+**Requirements:** FR-S6-003, FR-S6-041, FR-S6-042, FR-S6-043, FR-S6-061, FR-S6-062; SC-S6-013, SC-S6-014.
 
 **Test file:** `crates/maestro-acquisition/tests/it/n29_infer_evidence_backed_profiles_from_bounded_samples.rs`; test names begin `n29_`.
 
-1. **Red:** Use two unrelated synthetic layouts and insufficient/ambiguous samples; require every inference field to have observations or explicit unknown. Include source-defined acronyms/expansions and spelling variants with exact defining spans, conflicting expansions in different scopes and a similar-looking term with no definition. Only supported aliases become candidates; guessed aliases, a hard-coded product list, automatic approval/merge and cross-scope evidence must fail. Review/reversal retains old evidence and source-reference IDs.
-2. **Green:** Sample through normal access/rate/resource admission; reuse parser/whatlang/S1 grouping signals. Produce immutable profile references and typed rule proposals with pinned evidence/uncertainty. Automatically learn term-alias candidates only from explicit source definitions; store plan's maestro-term-alias-candidate/1 records and append explicit review/reversal evidence through scoped kernel artifacts. Preserve ambiguity and an S2 reviewed ALIAS_OF-compatible identity seam; no graph/permission/identity merge and no hand-written per-product list. Name the approved-record seam for later S1 query expansion but implement no search changes.
-3. **Check and commit:** Run `capped cargo test -p maestro-acquisition --locked n29_ -- --nocapture`. All fields are accounted for; aliases have resolvable defining spans, reversible reviewed state and scoped ambiguous neighbours. Candidate inference never counts as approval, a sixth automatic-change class or query expansion. Samples cannot widen scope and private canaries retain transitive tags. Run the applicable global gates, retain evidence and make one signed commit.
+1. **Red:** Use two unrelated synthetic layouts and insufficient/ambiguous samples; require every inference field to have observations or explicit unknown. Include source-defined acronyms/expansions and spelling variants with exact defining spans, conflicting expansions in different scopes and a similar-looking term with no definition. Only supported aliases become candidates; guessed aliases, a hard-coded product list, automatic approval/merge and cross-scope evidence must fail. Review/reversal retains old evidence and source-reference IDs. Add `n29_candidate_snapshot_precedes_proposal`: refuse an absent, ambiguous or substituted candidate handle/digest and cross-scope definitions; crash before/after candidate retention must not expose an active configuration.
+2. **Green:** Sample through normal access/rate/resource admission; reuse parser/whatlang/S1 grouping signals. Use N57's exact schemas and resolver to persist immutable rule definitions and the candidate ProcessingSnapshot through N30 scoped storage before proposing. Reuse N30 Proposal/Change: set Proposal.candidate to Digest::of(serde_json::to_vec(&snapshot)) and include exactly one candidate handle in Proposal.evidence. Pin baseline, old active and all source/profile/qualification inputs; inference leaves new unapproved definitions held. No ID-only lookup, new store or hand-built effective view. Automatically learn term-alias candidates only from explicit source definitions; store plan's maestro-term-alias-candidate/1 records and append explicit review/reversal evidence through scoped kernel artifacts. Preserve ambiguity and an S2 reviewed ALIAS_OF-compatible identity seam; no graph/permission/identity merge and no hand-written per-product list. Name the approved-record seam for later S1 query expansion but implement no search changes.
+3. **Check and commit:** Run `capped cargo test -p maestro-acquisition --locked n29_ -- --nocapture`. All fields are accounted for; the stored candidate round-trips to N32's same effective view under both serde_json/preserve_order settings, and arbitrary candidate digests cannot reach gates. Aliases have resolvable defining spans, reversible reviewed state and scoped ambiguous neighbours. Candidate inference never counts as approval, a sixth automatic-change class or query expansion. Samples cannot widen scope and private canaries retain transitive tags. Run the applicable global gates, retain evidence and make one signed commit.
 
 - [ ] N30 [P] [US3] Implement proposal and activation manifest write port in `crates/maestro-acquisition/src/adaptation/{manifest.rs,writer.rs}` (6 h).
 
@@ -576,6 +601,8 @@ Independent test: two unrelated synthetic sources yield complete evidence/unknow
 **Start boundary:** Keep the smallest existing edge set: N03 immutable policy/resource resolution and N06 scoped report artifacts. Start now on `DirectFiles` and test-only synthetic catalog fixtures; no N56, N55 or S3 delivery edge. A synthetic catalog baseline tests the write contract, not installation/signature/ownership admission. N56 supplies the real read adapter later; N55 owns integrated catalog-baseline/write-port conformance.
 
 **Files:** `crates/maestro-acquisition/src/adaptation/{manifest.rs,writer.rs}`.
+
+**2026-10-01 follow-up:** N57 owns the processing-baseline pin, candidate snapshot binding, exact baseline rollback target and changed goldens. N30's Proposal/Change types, scoped Receipts, CAS and effective-lineage transaction remain the basis; no second proposal store or migration. N30's original 6 h/After boundary remains unchanged.
 
 **Requirements:** FR-S6-008, FR-S6-043, FR-S6-057, FR-S6-061, FR-S6-062; SC-S6-012, SC-S6-014.
 
@@ -609,6 +636,8 @@ Independent test: two unrelated synthetic sources yield complete evidence/unknow
 
 **Files:** `crates/maestro-acquisition/src/adaptation/change.rs`.
 
+**Resolution boundary:** N32's EffectiveConfiguration/apply/admit remain pure. The caller supplies per-source effective Processing, nullable collection selections and separately typed approval maps per group; cross-group selection and clearing Some to None hold. N57 defines persisted bytes and the one default/override resolver, with only mechanical Ref-type updates here; N34 owns the rereading ActivationAuthority adapter. No N57 predecessor is added to N32.
+
 **Requirements:** FR-S6-043, FR-S6-045, FR-S6-046, FR-S6-050; SC-S6-014.
 
 **Test file:** `crates/maestro-acquisition/tests/it/n32_enforce_the_closed_automatic_change_allow_list.rs`; test names begin `n32_`.
@@ -621,32 +650,32 @@ Independent test: two unrelated synthetic sources yield complete evidence/unknow
 
 ### N33 — Evaluate the fixed mandatory matrix against pinned cohorts
 
-**After:** N27, N32. **Approval blockers:** An approved suite/baseline and observed evidence under the approved OA1 targets/matrix/protocol.
+**After:** N27, N32, N57. **Approval blockers:** An approved suite/baseline and observed evidence under the approved OA1 targets/matrix/protocol.
 
 **Files:** `crates/maestro-acquisition/src/adaptation/gates.rs`.
 
-**Requirements:** FR-S6-036, FR-S6-038, FR-S6-045; SC-S6-010, SC-S6-014.
+**Requirements:** FR-S6-036, FR-S6-038, FR-S6-045, FR-S6-061; SC-S6-010, SC-S6-014.
 
 **Test file:** `crates/maestro-acquisition/tests/it/n33_evaluate_the_fixed_mandatory_matrix_against_pinned_cohorts.rs`; test names begin `n33_`.
 
-1. **Red:** For every change class fail each of six matrix columns in turn, omit baseline/gold/suite/control cohort and forge N/A. A no-retrieval-suite collection must hold.
-2. **Green:** Bind existing Q1/Q2/Q3/lifecycle/S1 evaluation results to candidate/baseline/cohort/profile/suite digests; union rows for combined proposals. Separate pass/fail/inconclusive and require independent content-sensitive review; no alternative scoring engine.
+1. **Red:** For every change class fail each of six matrix columns in turn, omit baseline/gold/suite/control cohort and forge N/A. A no-retrieval-suite collection must hold. `n33_stored_candidate_binding` rejects an arbitrary digest, missing candidate snapshot and stale definition/model inputs even with passing score fixtures.
+2. **Green:** Read N57's typed snapshot through scoped storage and its resolver; bind existing Q1/Q2/Q3/lifecycle/S1 evaluation results to exact old/candidate snapshot and baseline/cohort/profile/suite digests; union rows for combined proposals. The typed receipt distinguishes activation/rollback and binds expected baseline/active plus exact target snapshot and rollback target, so a forward pass cannot authorize another operation. Separate pass/fail/inconclusive and require independent content-sensitive review; no alternative scoring engine.
 3. **Check and commit:** Run `capped cargo test -p maestro-acquisition --locked n33_ -- --nocapture`. All mandatory cells and unchanged controls required, empty cohorts never pass; threshold/matrix/gold changes need separate approval. Run the applicable global gates, retain evidence and make one signed commit.
 
-- [ ] N34 [US3] Automatically activate passing proposals with CAS in `crates/maestro-acquisition/src/adaptation/activate.rs` (6 h).
+- [ ] N34 [US3] Automatically activate passing proposals with CAS in `crates/maestro-acquisition/src/adaptation/activate.rs` (8 h).
 
 ### N34 — Automatically activate passing proposals with CAS
 
-**After:** N31, N32, N33. **Approval blockers:** Observed mandatory OA1 gate evidence; enforce the approved OA3 envelope.
+**After:** N31, N32, N33, N57. **Approval blockers:** Observed mandatory OA1 gate evidence; enforce the approved OA3 envelope.
 
-**Files:** `crates/maestro-acquisition/src/adaptation/activate.rs`.
+**Files:** `crates/maestro-acquisition/src/adaptation/{activate.rs,authority.rs}`.
 
 **Requirements:** FR-S6-046, FR-S6-047, FR-S6-057, FR-S6-061, FR-S6-062; SC-S6-014, SC-S6-015.
 
 **Test file:** `crates/maestro-acquisition/tests/it/n34_automatically_activate_passing_proposals_with_cas.rs`; test names begin `n34_`.
 
-1. **Red:** Race collection proposals, change grants or baseline during gates, and run a harvest pinned to the previous config while activation commits.
-2. **Green:** Recheck current trust/authority, allow-list, persistence and receipt bindings at safe boundary; use N30 compare-and-swap to commit complete diff/evidence/rollback reference automatically. Keep in-flight processing pinned and revocations immediate.
+1. **Red:** Race collection proposals, change grants or baseline during gates, and run a harvest pinned to the previous config while activation commits. Add `n34_authority_rereads_snapshot_closure` and `n34_baseline_rollback_uses_processing_snapshot`: substitute/revoke a selected definition, model-limit input or candidate handle after a gate pass; exercise current reads and committed recovery, not only activate. No guessed digest, stale caller snapshot or source-policy-as-candidate rollback passes.
+2. **Green:** Implement the existing ActivationAuthority port using N57's shared reader/resolver and N32 admit, not cached caller-supplied effective values. Reread exact baseline/old/candidate snapshots, current grants, profile/rule/model qualification, all mandatory receipt bindings, persistence and safe boundary; use N30 compare-and-swap to commit complete diff/evidence/rollback reference automatically. For rollback resolve the exact still-authorized initial/prior snapshot through N30 restores lineage, without reapplying old changes or reading revoked superseded payloads. Keep in-flight processing pinned and revocations immediate; store no duplicate authority or processing pointer.
 3. **Check and commit:** Run `capped cargo test -p maestro-acquisition --locked n34_ -- --nocapture`. Eligible passing changes apply without extra manual confirmation; stale/forbidden/inconclusive work remains wholly held with private report. Run the applicable global gates, retain evidence and make one signed commit.
 
 - [ ] N35 [US3] Gate first post-activation publication and safe rollback in `crates/maestro-acquisition/src/adaptation/postcheck.rs` (4 h).
@@ -1024,7 +1053,9 @@ N54 closes M6 only on complete evidence. N55/N56 do not gate M6 and cannot turn 
 ## Dependency graph, parallel execution and estimates
 
 The `After` lists and N56's explicitly named **S3 external handoffs** above are
-the authoritative DAG. IDs remain stable, not topological: N55 now follows N56.
+the authoritative DAG. IDs remain stable, not topological: N55 follows N56;
+N20/N24/N29/N33/N34 follow N57. N57 follows N15/N30/N32, never N29, so
+candidate production does not form a cycle with the artifact contract.
 Story presentation does not serialize ready stories. N15/N30 keep only N03/N06;
 N03 provides the local policy/resource seam and N06 the scoped evidence seam.
 No S3 delivery edge reaches either task or the N54 M6 closure. A blocked
@@ -1050,6 +1081,27 @@ flowchart LR
   N30 --> N55
   N42 --> N55
   N43 --> N55
+  N15 --> N57
+  N30 --> N57
+  N32 --> N57
+  N02 --> N20
+  N16 --> N20
+  N17 --> N20
+  N57 --> N20
+  N16 --> N24
+  N17 --> N24
+  N57 --> N24
+  N15 --> N29
+  N16 --> N29
+  N24 --> N29
+  N57 --> N29
+  N27 --> N33
+  N32 --> N33
+  N57 --> N33
+  N31 --> N34
+  N32 --> N34
+  N33 --> N34
+  N57 --> N34
 ```
 
 C66 consumes the already-landed N03/N07 types, never the N56 adapter. S3 owns
@@ -1063,20 +1115,20 @@ remains N55's external coordination blocker, not an unnamed S6 task.
 | Setup/foundations | 6 | 33 |
 | US1 | 8 | 44 |
 | US2 | 14 | 98 |
-| US3 | 7 | 38 |
+| US3 (including N57) | 8 | 50 |
 | US4 | 7 | 34 |
 | US5 | 6 | 38 |
 | US6 | 5 | 30 |
 | Final acceptance N54 | 1 | 6 |
 | Later conformance N55 | 1 | 6 |
 | Catalog adapter N56 | 1 | 6 |
-| **Total** | **56** | **333** |
+| **Total** | **57** | **345** |
 
 | Story | Ready parallel example |
 | --- | --- |
 | US1 | After N03/N04, N05 authority and N07 URL policy can run independently; N10 robots and N11 aggregate budgets overlap after their listed gates. |
 | US2 | N15 can start on N03/N06 with local/synthetic resources, no catalog wait. N18 Windows and N19 macOS share a landed N17 port but edit separate adapters; N20 HTML, N21 document probe, N24 text/structured and N26 S1 seam can run after their own predecessors. |
-| US3 | N30 can start on N03/N06 with DirectFiles/synthetic baselines, no N56/S3 wait. N29 inference and N30 are independent after their respective inputs; N31 drift and N32 allow-list follow N30 in distinct files. |
+| US3 | N30 starts on N03/N06 with DirectFiles/synthetic baselines, no N56/S3 wait; N32 stays pure after N30. N57 follows N15/N30/N32. N29 candidate production and N33 matrix integration can overlap after their own listed inputs; N34 waits for both through N31/N33 and explicitly for N57. |
 | US4 | N38 withdrawal and N42 timers overlap after their dependencies; N41 repository work need not wait for N40 publication tests. |
 | US5 | N47 wiki and N48 private-origin adapter can run beside N45 sessions once N44 lands, but N48 live activation remains approval-blocked. |
 | US6 | N51 live parity and N52 retrieval run after N50 when separately authorized; avoid contending latency-sensitive model measurements. |
@@ -1089,9 +1141,13 @@ unlimited-worker precedence lower bound **43 h**:
 engineering/evidence cycle under unlimited ready workers:
 `N01 → N03 → N07 → N08 → N09 → N16 → N17 → N20 → N27 → N38 → N39 → N41 → N49 → N50 → N52 → N53 → N54`.
 
-The amendment leaves the MVP at **14 tasks / 77 h** and M6-path work at
-**54 tasks / 321 h**; N55/N56 add **2 tasks / 12 h** outside M6. All-task effort
-is **321 + 6 + 6 = 333 h**, a **+6 h** delta. Additional family effort remains
+The adaptation amendment leaves the MVP at **14 tasks / 77 h** and raises
+M6-path work from **54 tasks / 321 h** to **55 tasks / 333 h**. N55/N56 retain
+**2 tasks / 12 h** outside M6. All-task effort is **333 + 6 + 6 = 345 h**, a
+**+12 h** delta from 333 h: N57 8 h, N29 +2 h, N34 +2 h. The artifact edges
+also put N57 before its N20/N24 consumers (and transitively N27); existing media
+task estimates are unchanged because these replace their previously unspecified
+rule/settings payloads. MVP/M6 longest paths remain **43/95 h**. Additional family effort remains
 **20 × (F−1) h**. External S3/S4 delivery has no S6 duration estimate here.
 
 These are recomputed longest-path sums of the task estimates, not calendar
@@ -1109,7 +1165,7 @@ and criterion. Mapping does not mean implementation or approval is complete.
 | --- | --- |
 | FR-S6-001 | N03, N05, N14, N56 |
 | FR-S6-002 | N03, N14, N56 |
-| FR-S6-003 | N03, N56 |
+| FR-S6-003 | N03, N29, N56, N57 |
 | FR-S6-004 | N07 |
 | FR-S6-005 | N07, N56 |
 | FR-S6-006 | N08, N09, N46, N48 |
@@ -1132,12 +1188,12 @@ and criterion. Mapping does not mean implementation or approval is complete.
 | FR-S6-023 | N15, N22, N23, N24, N25, N28, N47 |
 | FR-S6-024 | N02, N16, N20, N21, N22, N23, N24, N26, N28 |
 | FR-S6-025 | N16, N20, N22, N23, N28 |
-| FR-S6-026 | N16, N20, N23, N24, N28, N47 |
+| FR-S6-026 | N16, N20, N23, N24, N28, N47, N57 |
 | FR-S6-027 | N02, N17, N18, N19, N21, N22, N28 |
 | FR-S6-028 | N16, N20, N24, N27, N28 |
 | FR-S6-029 | N26, N27, N28 |
-| FR-S6-030 | N26, N27, N38 |
-| FR-S6-031 | N27, N28 |
+| FR-S6-030 | N26, N27, N38, N57 |
+| FR-S6-031 | N27, N28, N57 |
 | FR-S6-032 | N27 |
 | FR-S6-033 | N27, N35, N38, N40 |
 | FR-S6-034 | N38, N39 |
@@ -1147,28 +1203,28 @@ and criterion. Mapping does not mean implementation or approval is complete.
 | FR-S6-038 | N33, N52, N54 |
 | FR-S6-039 | N53, N54 |
 | FR-S6-040 | N01, N42, N53, N54, N55, N56 |
-| FR-S6-041 | N15, N24, N29 |
+| FR-S6-041 | N15, N24, N29, N57 |
 | FR-S6-042 | N29 |
-| FR-S6-043 | N01, N29, N30, N32 |
+| FR-S6-043 | N01, N29, N30, N32, N57 |
 | FR-S6-044 | N31 |
-| FR-S6-045 | N32, N33 |
+| FR-S6-045 | N32, N33, N57 |
 | FR-S6-046 | N01, N32, N34 |
 | FR-S6-047 | N04, N12, N34, N37, N40 |
 | FR-S6-048 | N40 |
 | FR-S6-049 | N11, N40 |
-| FR-S6-050 | N03, N15, N32, N56 |
+| FR-S6-050 | N03, N15, N32, N56, N57 |
 | FR-S6-051 | N08, N09, N45, N46 |
 | FR-S6-052 | N46 |
 | FR-S6-053 | N05, N44 |
 | FR-S6-054 | N17, N18, N19, N43, N44 |
 | FR-S6-055 | N17, N18, N19, N44 |
 | FR-S6-056 | N02, N15, N17, N18, N19, N43, N44 |
-| FR-S6-057 | N30, N34 |
+| FR-S6-057 | N30, N34, N57 |
 | FR-S6-058 | N31, N35 |
 | FR-S6-059 | N09, N16, N17, N18, N19, N22, N23, N25, N28 |
 | FR-S6-060 | N01, N02, N21, N46, N50, N53, N54 |
-| FR-S6-061 | N01, N03, N30, N34, N55, N56 |
-| FR-S6-062 | N06, N29, N30, N34, N54, N56 |
+| FR-S6-061 | N01, N03, N29, N30, N33, N34, N55, N56, N57 |
+| FR-S6-062 | N06, N29, N30, N34, N54, N56, N57 |
 
 | Criterion | Tasks |
 | --- | --- |
@@ -1178,14 +1234,14 @@ and criterion. Mapping does not mean implementation or approval is complete.
 | SC-S6-004 | N08, N47, N48 |
 | SC-S6-005 | N09, N16, N17, N18, N19, N25, N28, N39, N41 |
 | SC-S6-006 | N02, N15, N16, N17, N18, N19, N20, N21, N22, N23, N24, N25, N28, N47 |
-| SC-S6-007 | N26, N27, N28, N38 |
+| SC-S6-007 | N26, N27, N28, N38, N57 |
 | SC-S6-008 | N27, N35, N38, N39, N40 |
 | SC-S6-009 | N36, N49, N50, N51, N54 |
 | SC-S6-010 | N33, N52, N54 |
 | SC-S6-011 | N02, N21, N42, N46, N50, N53, N54 |
 | SC-S6-012 | N01, N02, N03, N14, N15, N17, N18, N19, N28, N30, N42, N43, N44, N46, N54, N55, N56 |
-| SC-S6-013 | N06, N15, N24, N29, N43, N54, N56 |
-| SC-S6-014 | N06, N30, N31, N32, N33, N34, N35, N54 |
+| SC-S6-013 | N06, N15, N24, N29, N43, N54, N56, N57 |
+| SC-S6-014 | N06, N29, N30, N31, N32, N33, N34, N35, N54, N57 |
 | SC-S6-015 | N04, N10, N11, N34, N37, N40, N54 |
 
 ## Implementation acceptance checklist

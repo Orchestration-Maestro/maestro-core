@@ -16,7 +16,7 @@ mapped extraction; S1 alone prepares, embeds and publishes.
 reqwest, Tokio, Markdown and model ports. Owner-selected tools still need exact
 artifact/feature audits and qualification; other new libraries remain approval-blocked.
 
-**Spec:** [spec.md](spec.md), Revision 2.2, 62 FRs and 15 SCs.
+**Spec:** [spec.md](spec.md), Revision 2.3, 62 FRs and 15 SCs.
 **Research:** [research.md](research.md), Revision 2.2 (dated owner decisions and validation fixes), sources accessed 2026-09-30.
 **Tasks:** [tasks.md](tasks.md).
 **Branch:** `docs/s6-spec-set`, from S1 `0204846f7640e7219021b0b38daa60b4c4f98ee4`;
@@ -36,10 +36,14 @@ Xberg 1.x (MIT) and the unchanged native docling bake-off are approved direction
 not a measured winner or blanket feature approval.
 **Catalog amendment, 2026-09-30:** N56 adds the catalog-backed policy/resource
 adapter (6 estimated lane-hours); N55 retains integrated write-port/S4 conformance
-(6 h). Total: **56 tasks / 333 h**, of which **54 M6-path tasks / 321 h** and
-**2 later tasks / 12 h**. No delivery or qualification is claimed. N15/N30 keep
-only N03/N06 as predecessors and start with `DirectFiles` plus test-only synthetic
-catalog fixtures, without waiting for N56 or any S3 task.
+(6 h). N15/N30 keep only N03/N06 as predecessors and start with `DirectFiles`
+plus test-only synthetic catalog fixtures, without waiting for N56 or any S3 task.
+**Adaptation contracts, 2026-10-01:** N57 adds the missing typed artifacts and
+snapshot reader (8 h), N29 adds candidate persistence (+2 h), and N34 adds the
+fresh authority adapter (+2 h). Total: **57 tasks / 345 h**, of which
+**55 M6-path tasks / 333 h** and **2 later tasks / 12 h**. The +12 h is a
+planning estimate; no delivery or qualification is claimed. The recomputed
+MVP/M6 precedence bounds remain 43/95 h; see tasks.md for the paths.
 
 ## Global constraints
 
@@ -249,7 +253,7 @@ from a URL, media label or profile.
 | `FieldPath` / `Pagination` | FieldPath is an array of at most 32 typed `field {name: Text}` or `index {value: u32}` steps; total mapping nodes obey config limits. Pagination is `cursor {request_field, response_path, terminal_path}` or `next_link {response_path, terminal_path}`. Preserve entire typed continuation object; empty items is not terminal. Next links are always re-admitted. |
 | `maestro-wiki-block-mapping/1` | Resource plus `blocks_path`, `block_id_path`, `parent_id_path`, `kind_path`, `text_path`, `children_path`, `kind_rules` mapping declared kind IDs to existing structural block kinds and typed payload paths. Unknown kinds remain explicit unsupported units; no prose synthesis, scripts or inferred permission inheritance. |
 | `AdaptationPolicy` | `matrix: Ref`, `thresholds: Ref`, `baseline: Ref`; positive **floors (`max`)** `minimum_sample`, `consecutive_runs`, `activation_interval_ms`; `automatic_classes` fixed subset of spec's five classes. Definitions, matrix, thresholds, cadence and budgets are protected. |
-| `maestro-acquisition-manifest/1` | Resource plus `baseline: Ref`, `baseline_kind: local/catalog`, `proposals: Ref[]`, `activations: Ref[]`, `active: Ref`, `effective_digest`. Digest covers canonical baseline bytes plus ordered activation identities, not file whitespace. Baseline bytes are immutable; direct-file updates use atomic compare-and-swap. |
+| `maestro-acquisition-manifest/2` (N57 amendment) | Resource plus `baseline: Ref`, `baseline_kind: local/catalog`, `processing_baseline: Ref`, `proposals: Ref[]`, `activations: Ref[]`, `active: Ref`, `effective_digest: Digest`. N30's baseline/activation lineage remains; the new pin names the initial scoped processing snapshot. The typed effective preimage below includes that pin. Baseline bytes are immutable; the existing atomic pointer/recovery path remains. |
 
 Compose each bound across host, grant, collection, source/origin and run by its
 kind, never by precedence order: **ceilings use `min`; floors use `max`**. The
@@ -340,7 +344,7 @@ A substitute must pass the same contract. A disabled adapter returns
 extractor launch, network call or searchable admission. Existing retained captures
 remain inspectable under current access, but dependent acquisition is blocked.
 
-`maestro-extraction-registry/1` has Resource fields, `profiles: Profile[]`,
+`maestro-extraction-registry/2` (N57's unreleased-format amendment) has Resource fields, `profiles: Profile[]`,
 `unknown_profile: Ref`, `qualification: Ref`. A Profile has `id/version`,
 `definition_digest`, `detectors`, `structures`, `languages`, `extractor`,
 `processing`, `decode_limits`, `output_schema`, `required_fidelity`,
@@ -356,9 +360,12 @@ executable snippets or unbounded regex. A new format registers a profile and, if
 needed, a pinned Rust plug-in providing the parser capability; callers do not
 change. Ties/contradictions produce unknown/held, not first-match trust.
 
-Processing names approved cleanup IDs, selected S1 chunk strategy/profile and
-dedup key IDs. Candidate selection compares **effective protected fields** of old
-and new profiles, not names alone. Qualified definitions with different fidelity,
+N57 changes the existing N15 `Processing` in place to
+`{cleanup: Ref, chunk: Ref, dedup: Ref}`: one immutable rule-set/strategy/key-set
+pin per group, never an ID-only lookup or two competing representations. These
+are each profile's defaults. Collection selections override them group by group
+only through the exact resolution below. Candidate selection compares
+**effective protected fields** of old and new profiles, not names alone. Qualified definitions with different fidelity,
 permission or admission settings cannot be swapped automatically. Profile state is
 `proposed/qualified/held/revoked`; qualification binds exact platform/artifacts,
 fixtures and owner-approved thresholds. Safe unknown profiles retain bounded assets
@@ -509,17 +516,210 @@ WebSocket/service-worker/prefetch/WebRTC/DNS channels must be intercepted by the
 checked-address route or disabled, with real bypass tests. No supported-channel
 claim from an interception API's existence alone.
 
+### Adaptation artifact schemas and resolution
+
+**N57 owns this prerequisite to N29/N33/N34.** Evidence at S6 `d613dfb`:
+`extraction/model.rs:93–103` uses bare processing IDs while
+`adaptation/manifest.rs:18–82` uses `Ref` selections and an unmaterialized
+candidate digest. `adaptation/storage.rs:70–144` already supplies typed encoding,
+scoped retention and digest-checked reads; reuse it. All paths in this paragraph
+are below `crates/maestro-acquisition/src/`. N32 supplies the pure
+`EffectiveConfiguration`, `apply` and `admit` contracts, not storage or authority.
+
+**Unreleased-format decision, 2026-10-01:** change the existing N15 `Processing`
+to `cleanup: Ref, chunk: Ref, dedup: Ref`, in that order. Bump the existing
+registry schema to `maestro-extraction-registry/2` and definition preimage prefix
+to `maestro-profile-definition/2\n`; there is no separate extraction-profile
+wire envelope to invent. Bump the N03/N30 manifest to
+`maestro-acquisition-manifest/2`. Update affected synthetic goldens deliberately
+with red/green evidence. S6 has not shipped, C66 has published no profiles and
+N30 has no production proposals: **no migration machinery, legacy reader or
+compatibility shim**. Do not change S1 canonical or corpus/1 identities.
+
+#### Exact definition payloads
+
+Use N03 `Resource<S>` flattened first, in its existing field order, with a closed
+schema enum for each row. The following fields follow it in the listed order.
+All are required; strict N03 duplicate/unknown-key, 4 MiB/depth/member limits
+apply before allocation. Lists/maps have at most 1,000 entries unless a tighter
+bound is specified. Definitions are immutable data; a qualification reference
+is not self-approval. Generate schemas from these owning types, not copied JSON
+validators. These are defensive format bounds, not new OA3 operating allowances.
+
+| Type / exact schema | Additional fields, in serialization order |
+| --- | --- |
+| `CleanupRules`, `maestro-cleanup-rules/1` | `rules: Vec<CleanupRule>`, `qualification: Ref`. Empty rules explicitly mean no cleanup. Rule order is meaningful; duplicate rule IDs refuse. |
+| `CleanupRule` (nested) | `id: Id`, `selector: Structure`, `action: omit_navigation`, `reason_code: Id`. Reuse N15 `Structure` and `Observation` unchanged: observed DOM path/JSON path/block/prefix, `all`, `any`; no new selector AST. |
+| `S1ChunkStrategy`, `maestro-s1-chunk-strategy/1` | `chunker_version: Text`, `preparation_profile: Text`, `target_tokens: NonZeroU64`, `hard_max_tokens: NonZeroU64`, `model: Ref`, `tokenizer_qualification: Ref`, `model_limits: maestro_kernel::gateway::Limits`, `qualification: Ref`. The model pin names an existing S1 model card; no copied model identity type. |
+| `DedupKeys`, `maestro-dedup-keys/1` | `exact: Vec<DedupKey>`, `prepared: Vec<DedupKey>`, `qualification: Ref`. `DedupKey` is the closed snake-case enum `original_digest`, `canonical_digest`, `prepared_input_digest`, `embedding_profile_digest`. No free-form field name or executable key expression. |
+
+Cleanup evaluates the existing AST against each bounded extracted unit's
+observations, not a document-wide match that deletes the whole document. Every
+matching navigation unit is omitted once from derived text, retaining original
+bytes, source mapping, rule ID and reason. No rewrite/substitution operation is
+available. Reuse N15's node/depth/path bounds (1,000 total AST nodes across the
+rule set, depth at most 32, subject to the enclosing JSON limit). Unsupported
+observations or loss of required code/table/technical content hold under Q1;
+calling content navigation does not qualify its removal.
+
+The chunk payload resolves `ChunkProfile::named(chunker_version)` and requires
+its exact `preparation_profile()`. At the inspected S1 seam
+(`crates/maestro-canonicalization/src/chunk_split/limits.rs:3–7`), supported token
+bounds are target 500 / hard 700; other budgets hold until S1 actually supports
+and qualifies them, never create an S6 chunker. Require positive
+`target_tokens <= hard_max_tokens <= model_limits.context_tokens`, embedder
+role, no output-token budget, and exact equality with the current S1 model
+card's qualified limits/tokenizer evidence. Count the complete prepared input,
+including context, literal model formatting and special tokens. The effective
+view's `protected_resources` must pin `s1_embedding_model` and
+`s1_tokenizer_qualification`; every selected strategy must name those same
+refs. Changing a chunk strategy cannot switch the model, tokenizer or its
+qualified limit. A stored number is not model qualification. N32's qualified
+maps are derived from these verified inputs; unavailable/forged inputs hold. OA1 governs quality and OA5
+model/artifact adoption; no download or new profile qualification is implied.
+
+The initial executable dedup tuples are exactly
+`exact = [original_digest, canonical_digest]` and
+`prepared = [prepared_input_digest, embedding_profile_digest]`, in that order,
+as in S1's existing exact grouping and full-profile prepared cache. Other keys,
+orders, duplicates or combinations hold as unsupported; they do not enable
+arbitrary deduplication. Occurrences, permissions and near-duplicate thresholds
+remain S1-owned. Selecting another immutable qualified key definition is allowed;
+defining a new engine, lossy key tuple or similarity threshold is not.
+
+New exclusion refs reuse N03 `Decisions` (`maestro-source-decisions/1`) with
+exactly one `Decision` whose action matches the Change variant. No parallel
+entry schema. Its decision ID must be new across the resolved collection;
+selector, effective/expiry and narrowing checks remain N32's responsibility.
+
+#### One stored effective view
+
+`ProcessingSnapshot` is **only an envelope**, not another effective model:
+flattened `Resource<SnapshotSchema>` (`maestro-processing-snapshot/1`) followed
+by `effective: EffectiveConfiguration`. Add strict serialization/schema support
+to N32's existing type. The effective fields stay in this declaration order:
+
+| Existing N32 field | Wire type after N57's mechanical Ref change |
+| --- | --- |
+| `baseline`, `policy` | `Ref`, N03 `SourcePolicy` |
+| `sources` | `BTreeMap<Id, (Ref, ProfileDefinition, Processing)>`; exactly one effective profile/default definition/processing triple per source |
+| `profiles`, `decisions` | `BTreeMap<Id, Profile>`, `BTreeMap<Id, (Ref, Decision)>`; reuse N15/N03 definitions |
+| `selected` | `(Option<Ref>, Option<Ref>, Option<Ref>)`, serialized as cleanup/chunk/dedup array slots; absent selection is explicit `null` |
+| `approved_cleanup`, `approved_chunks`, `approved_dedup` | Each `BTreeMap<Id, Ref>`, keyed by that Ref's ID. N32's pre-amendment `(Ref, ID-valued component)` becomes the single effective Ref; no duplicated `(Ref, Ref)` or unrelated group values. |
+| `qualified_chunk_tokens`, `qualified_model_limit` | `BTreeMap<Id, u64>` keyed by chunk selection Ref ID, and `u64`; all limits positive and independently verified, not trusted from storage |
+| `protected_resources` | `BTreeMap<Id, Ref>` with exact identities of the remaining protected closure |
+
+Tuple values serialize as arrays; maps are `BTreeMap`, never unordered maps.
+Profile map keys equal `ProfileDefinition.id`; source keys equal N03 source IDs;
+decision keys equal `Decision.id`. Ref-valued processing pins bind whole cleanup
+and dedup sets, not individual bare rule IDs. Resource IDs inside stored envelopes
+are bounded logical metadata, not a second lookup or activation selector.
+
+**One resolver, owned by N57; N32 stays pure:**
+
+1. Reread the baseline through the existing `ResourceSource`/validator and each
+   scoped definition through N30 storage under current principal/grants. Check
+   schema, digest, collection/owner/visibility, transitive scope and external
+   approval/qualification, including platform/model. Preserve the immutable
+   baseline; a derived snapshot is not an editable trusted-bundle copy.
+2. Resolve exactly one profile per source from its declared eligible refs and
+   pinned N15 selection evidence. Missing or ambiguous selection holds adaptation;
+   never choose the first profile. Source membership cannot change automatically.
+   Bind its exact definition digest and retain the immutable `ProfileDefinition`.
+3. For each cleanup/chunk/dedup group, take `selected[group]` when non-null,
+   otherwise that source profile's `processing[group]`. Resolve it only through
+   the matching schema/group map. Set changes replace that group's selection for
+   every source; a profile change affects defaults only in null slots. Some-to-null
+   is held because no closed Change clears a selection. Validate every source's
+   effective `Processing` equals this result, even if its stored claim differs.
+4. Rebuild approved group maps, positive token-limit inputs and protected closure
+   from current evidence, never from a caller's claim of qualification. Compare
+   with the stored effective view; changed/unavailable inputs hold requalification.
+   Feed this same type to `apply(old, candidate, changes, now)` and
+   `admit(old, candidate, changes, now, not_applicable)`. Both keep N30's
+   content-free `WriteError::Held`; no new control port or second evaluator.
+
+Stored candidates may still be held by the quality matrix: storage/inspection
+is not approval. N29 materializes an effective candidate only when its definition
+closure resolves; inferred new definitions with proposed evidence remain held
+reports until independently admitted. This adds no sixth automatic class.
+OA4c gates private samples/retention; OA3 still bounds sampling and activation.
+
+#### Storage, identity and lineage bindings
+
+All new definitions, snapshots and singleton decision artifacts are retained via
+N30 `storage::retain` over existing N06 `Receipts`; new artifact refs are
+`{id: Handle.to_string(), digest: Digest::of(stored_bytes)}`. Read them only with
+`storage::artifact`/`Receipts::read` and fresh grants, not `Database::get` or a
+filesystem lookup. Link every transitive receipt handle and inherit all resource
+scope tags; recheck externally admitted profile/model/qualification refs through
+their existing resource ports. Dispatch the reader by the field's contract,
+never try another store after refusal. No new directory, table, global ID index,
+manifest file or content-bearing notification is added.
+
+The exact new/changed preimages are typed structures encoded with
+`serde_json::to_vec`, never `Value`, `Map`, `HashMap` or a JSON stringify step:
+
+| Identity | Exact preimage |
+| --- | --- |
+| Definition/snapshot artifact digest | Entire corresponding typed payload above, Resource first and remaining fields in table order; store those same compact UTF-8 bytes. No digest field refers to its own artifact. |
+| N15 profile definition | Bytes `maestro-profile-definition/2\n` followed by `to_vec(&ProfileDefinition)` in its existing declaration order, with Ref-valued Processing. |
+| `Proposal.candidate` | Digest of the entire `ProcessingSnapshot` bytes, **not** policy bytes, activation history or an arbitrary digest. Exactly one handle in `Proposal.evidence` must resolve to that snapshot/digest; duplicate or missing matching handles refuse. |
+| Manifest `effective_digest` | `to_vec(&EffectivePreimage { schema: "maestro-acquisition-effective/2", policy: &SourcePolicy, processing_baseline: &Ref, activations: &[Ref] })` in that order. Activation refs retain their existing order; proposals do not change effective identity. |
+
+Pin bytes **and** SHA-256 vectors for every row (each definition kind separately),
+plus changed manifest/rollback fixtures, in both default and workspace
+`serde_json/preserve_order` builds. Insertion order of equivalent BTreeMap inputs
+cannot change identity; altered selector/model/key/default bytes must change it.
+Do not silently update an existing digest version or S1 identity golden.
+
+The existing manifest's new `processing_baseline` pins the admitted initial
+snapshot before initialization; `snapshot.effective.baseline == manifest.baseline`.
+It is distinct from N03 `AdaptationPolicy.baseline` (comparison evidence), and
+the snapshot contains no manifest/activation self-reference.
+An empty overlay still has `active == baseline`. The active processing snapshot
+is then the initial pin, or the current effective activation's proposal candidate
+resolved through its evidence handles, following N30 `restores` lineage. Do not
+add a second active pointer or reread irrelevant superseded payloads. On baseline
+rollback, bind `Proposal.candidate` to `processing_baseline.digest` and include
+its handle in evidence; other rollback targets bind their exact retained snapshot,
+not a replay of old changes over new state. N57 updates N30's existing rollback
+constructor and typed preimage/goldens; CAS, ancestry, lock and commit point stay.
+
+N20/N24 consume the same typed cleanup data after N57; N27 consumes its verified
+chunk/model-limit and dedup payloads through the existing S1 ports. These are
+contracts for already-planned behavior, not additional engines. N29 persists
+definitions/snapshot before `ConfigurationWriter::propose` and links
+the candidate handle through existing evidence. N33's gate receipts bind that
+snapshot and the old resolved snapshot with baseline, suite, gold, profiles and
+cohorts. N34's `ActivationAuthority` adapter rereads them and current authority
+on every check, including current reads, commit and committed recovery; a
+previous gate pass cannot turn substituted or inaccessible bytes into authority.
+Use existing under-lock read helpers, not a recursive `LocalWriter::current`
+call from `ActivationAuthority::check`. N33's typed gate receipt must distinguish
+forward activation from rollback and bind the exact expected baseline/active,
+target snapshot and rollback target. Rollback verifies N30's earlier-target
+lineage and current target authorization, not a replay of the old forward Change
+list or permission to remove exclusions through ordinary activation. It must
+not require revoked superseded payloads. Missing OA1 matrix evidence holds;
+OA4a/OA4b grants and OA4d cutover remain separate. N35 still owns the first post-activation check.
+
 ### Proposal, activation and privacy transaction
 
-`maestro-processing-proposal/1`: Resource fields, `proposal_id`, expected baseline/
-active refs, pinned sample/cohort/profile refs, observations plus uncertainty,
-`changes: Change[]`, classified fields, candidate effective digest, gate/report refs,
-state `proposed/held/qualified/active/rejected/superseded`, and rollback ref.
-Change is typed, not arbitrary JSON Patch: `select_profile`, `set_cleanup`,
-`set_s1_chunk_strategy`, `set_dedup_keys`, `add_knowledge_exclusion` or
-`add_asset_only`. Unsupported edits can be recorded as held proposals for owner
-review, but cannot be decoded as automatic changes. Existing exclusion edits,
-indirect profile changes and mixed proposals hold in full.
+Reuse the actual N30 `Proposal` wire record, not the earlier proposed second
+`maestro-processing-proposal/1` envelope. Its exact field order is
+`expected_baseline: Ref`, `expected_active: Ref`, `changes: Vec<Change>`,
+`candidate: Digest`, `evidence: Vec<Handle>`, `report: Handle`, `rollback: Ref`.
+It has no extra Resource/state fields: scoped reports carry observations,
+uncertainty, cohorts and outcomes. N57 changes the meaning of `candidate` to the
+stored snapshot digest above, not its type or a new proposal model. N30's six
+`Change` variants and fields remain: `select_profile {source_id, profile: Ref}`,
+`set_cleanup {rules: Ref}`, `set_s1_chunk_strategy {strategy: Ref}`,
+`set_dedup_keys {keys: Ref}`, `add_knowledge_exclusion {entry: Ref}` and
+`add_asset_only {entry: Ref}`. The three Set changes are collection-wide;
+selection clearing is not a seventh variant. Existing exclusion edits, indirect
+protected changes and mixed proposals hold in full. Unknown edits remain scoped
+held reports, not an executable JSON Patch.
 
 N30's direct-file implementation stages immutable proposal/evidence artifacts,
 then locks the collection, rereads expected baseline/active digests and performs
@@ -639,7 +839,8 @@ checks. Failure/cancellation leaves staging invisible and previous generation cu
 2. N15–N28 deliver US2 media receipts, bounded native extraction and the shared S1
    seam. Public HTML can feed S1 as soon as its dependencies qualify; other media
    need their own required-cohort evidence, not a universal-support claim.
-3. N29–N35 implement US3 inference, proposals and automatic gated activation;
+3. N57 completes the typed artifact/resolution contract after N15/N30/N32;
+   N29–N35 implement US3 inference, proposals and automatic gated activation;
    N36–N42 implement US4 lifecycle, resource-safe concurrency and local timers.
 4. N43–N48 implement US5 local connectors, sessions, browser/wiki and separately
    approved private origins. N49–N54 qualify US6 family parity/retrieval/cutover.
@@ -725,8 +926,8 @@ source-evidenced term-alias candidates under the dated owner decision; a search
 query-expansion engine remains later S1 work, not an S6 dependency.
 N09 introduces transport-side cumulative decode accounting; N16 extends that same
 accounting contract across parser/asset IPC rather than introducing a second meter.
-N33–N35 can land against synthetic gate receipts before every real matrix producer
-exists: live activation remains held until N28, lifecycle/concurrency qualification,
+N33–N35 can land against synthetic gate receipts after N57's artifact contract,
+before every real matrix producer exists: live activation remains held until N28, lifecycle/concurrency qualification,
 N49 and N52 supply actual required evidence. This separates code dependencies from
 runtime qualification and never permits a synthetic gate receipt in production.
 N02/N17–N22 may discover a library/containment infeasibility; report the affected
