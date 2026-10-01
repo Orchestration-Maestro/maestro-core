@@ -2,7 +2,7 @@
 name: valid-skill
 description: Synthetic skill that cites evidence from the public synthetic glossary.
 metadata:
-  maestro.schema: maestro-source/1
+  maestro.schema: maestro-source/2
   maestro.owner: "@synthetic/knowledge"
   maestro.maturity: reviewed
   maestro.rows: chat.M019 descriptor

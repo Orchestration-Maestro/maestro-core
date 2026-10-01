@@ -169,6 +169,7 @@ pub(super) fn load(
     let resource = table.zip(declared).map(|(fields, metadata)| Resource {
         id: ResourceId {
             kind: unit.kind.clone(),
+            namespace: unit.namespace.clone(),
             name: unit.name.clone(),
         },
         path: unit.path.clone(),

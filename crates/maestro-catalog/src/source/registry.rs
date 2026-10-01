@@ -18,12 +18,10 @@ use super::{
 /// A descriptor registration refused before any source discovery.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RegistrationError {
-    /// A registry cannot combine pre-cutover and scoped v4 descriptors.
-    MixedScopes {
-        /// The conflicting scoped descriptor's kind name.
-        scoped: String,
-        /// The conflicting legacy descriptor's kind name.
-        legacy: String,
+    /// Pre-cutover descriptors are never eligible for discovery.
+    LegacyDescriptor {
+        /// The descriptor requiring a scoped v4 placement.
+        kind: String,
     },
     /// An invalid descriptor, duplicate registration or unknown semantic hook.
     InvalidDescriptor(String),
@@ -32,9 +30,9 @@ pub enum RegistrationError {
 impl Display for RegistrationError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::MixedScopes { scoped, legacy } => write!(
+            Self::LegacyDescriptor { kind } => write!(
                 formatter,
-                "cannot mix scoped descriptor {scoped:?} with legacy descriptor {legacy:?}"
+                "unscoped descriptor {kind:?} is unsupported; migrate to v4 scoped placements"
             ),
             Self::InvalidDescriptor(message) => formatter.write_str(message),
         }
@@ -42,10 +40,6 @@ impl Display for RegistrationError {
 }
 
 impl Error for RegistrationError {}
-
-/// Top-level entries that are not resources: never read, never run.
-pub(super) const NOT_RESOURCES: [&str; 5] =
-    ["bootstrap", "docs", "README.md", "CODEOWNERS", "LICENSE"];
 
 /// The hooks a descriptor may select, each by its name. Content never
 /// supplies code: a hook is reviewed code in the built-in table.
@@ -89,26 +83,18 @@ impl Registry {
     ///
     /// Why it cannot be registered: its kind or directory is already
     /// registered, its descriptor contradicts itself, or it selects an
-    /// unknown hook, or mixes legacy and scoped descriptor placements.
+    /// unknown hook, or uses an unscoped pre-cutover placement.
     pub fn register(&mut self, descriptor: KindDescriptor) -> Result<(), RegistrationError> {
-        for other in &self.kinds {
-            let (scoped, legacy) = if descriptor.scopes.is_empty() {
-                (&other.descriptor, &descriptor)
-            } else {
-                (&descriptor, &other.descriptor)
-            };
-            if other.descriptor.scopes.is_empty() != descriptor.scopes.is_empty() {
-                return Err(RegistrationError::MixedScopes {
-                    scoped: scoped.kind.clone(),
-                    legacy: legacy.kind.clone(),
-                });
-            }
+        if descriptor.scopes.is_empty() {
+            return Err(RegistrationError::LegacyDescriptor {
+                kind: descriptor.kind.clone(),
+            });
         }
         self.register_descriptor(descriptor)
             .map_err(RegistrationError::InvalidDescriptor)
     }
 
-    /// Validate and retain one descriptor after the registry's mode has been checked.
+    /// Validate and retain one descriptor after its scopes have been checked.
     fn register_descriptor(&mut self, descriptor: KindDescriptor) -> Result<(), String> {
         if self.kind(&descriptor.kind).is_some() {
             return Err(format!("kind {:?} is already registered", descriptor.kind));
@@ -136,17 +122,8 @@ impl Registry {
         Ok(())
     }
 
-    /// Validate scoped placements and collisions, preserving legacy registration.
+    /// Validate scoped placements and collisions, refusing collisions.
     fn check_placement(&self, descriptor: &KindDescriptor) -> Result<(), String> {
-        if descriptor.scopes.is_empty() {
-            if self.directory(&descriptor.directory).is_some() {
-                return Err(format!(
-                    "directory {:?} already has a kind",
-                    descriptor.directory
-                ));
-            }
-            return Ok(());
-        }
         if naming::product(&descriptor.kind) {
             return Err("kind must use a functional name".to_owned());
         }
@@ -178,14 +155,6 @@ impl Registry {
             .iter()
             .find(|registration| registration.descriptor.kind == kind)
     }
-
-    /// The kind whose directory is `directory`.
-    #[must_use]
-    pub fn directory(&self, directory: &str) -> Option<&Registration> {
-        self.kinds
-            .iter()
-            .find(|registration| registration.descriptor.directory == directory)
-    }
 }
 
 /// The hook `descriptor` selects from `hooks`, if any.
@@ -209,16 +178,6 @@ fn shape_problem(descriptor: &KindDescriptor) -> Option<String> {
         "its name is not a lower-case hyphenated name".to_owned()
     } else if descriptor.version == 0 {
         "its version must be 1 or more".to_owned()
-    } else if descriptor.scopes.is_empty() && matches!(descriptor.layout, Layout::Area { .. }) {
-        "an area root requires registered scopes".to_owned()
-    } else if descriptor.scopes.is_empty()
-        && (!is_name(&descriptor.directory)
-            || NOT_RESOURCES.contains(&descriptor.directory.as_str()))
-    {
-        format!(
-            "directory {:?} is not one the catalog reads",
-            descriptor.directory
-        )
     } else if matches!(descriptor.metadata, MetadataPlace::Sidecar { .. })
         && !matches!(descriptor.layout, Layout::Files { .. })
     {

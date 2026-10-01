@@ -320,6 +320,7 @@ fn base_only_descriptor_has_exact_authoring_keys_and_lock_reference() {
             "schema"
         ]
     );
+    assert_eq!(descriptor["schema"].as_str(), Some("maestro-project/2"));
     assert_eq!(descriptor["mode"].as_str(), Some("authoring"));
     assert_eq!(
         descriptor["lock"].as_str(),
@@ -327,7 +328,7 @@ fn base_only_descriptor_has_exact_authoring_keys_and_lock_reference() {
     );
     assert_eq!(
         descriptor["presets"].as_array().unwrap(),
-        &[toml::Value::String("knowledge-client".into())]
+        &[toml::Value::String("preset:knowledge-client".into())]
     );
     assert_eq!(
         fs::read(scratch.0.join(".github/copilot-instructions.md")).unwrap(),
@@ -355,6 +356,7 @@ fn authoring_lock_binds_every_generated_file_and_source() {
     let lock: serde_json::Value =
         serde_json::from_slice(&fs::read(scratch.0.join(".maestro/authoring.lock.json")).unwrap())
             .unwrap();
+    assert_eq!(lock["schema"], "maestro-authoring-lock/2");
     for (field, root, expected) in [
         (
             "files",
@@ -467,4 +469,40 @@ fn overlays_and_tools_are_single_top_level_names() {
         );
     }
     assert!(!scratch.0.join(".maestro").exists());
+}
+
+#[test]
+fn old_authoring_lock_requires_fresh_preview() {
+    let scratch = Scratch::new();
+    fs::create_dir_all(scratch.0.join(".maestro")).unwrap();
+    fs::write(
+        scratch.0.join(".maestro/authoring.lock.json"),
+        br#"{"schema":"maestro-authoring-lock/1","files":[],"sources":[]}"#,
+    )
+    .unwrap();
+    let result = super::preview(&scratch.0, &Presets, &["knowledge-client".into()]);
+    assert!(result.is_err());
+    let error = result.unwrap_err();
+    assert!(
+        error.contains("maestro-authoring-lock/1") && error.contains("fresh preview"),
+        "{error}"
+    );
+}
+
+#[test]
+fn authoring_lock_read_keeps_source_byte_bound() {
+    let scratch = Scratch::new();
+    fs::create_dir_all(scratch.0.join(".maestro")).unwrap();
+    let mut bytes = br#"{"schema":"maestro-authoring-lock/2"}"#.to_vec();
+    bytes.resize(
+        usize::try_from(Limits::PRODUCTION.source_file_bytes).unwrap() + 1,
+        b' ',
+    );
+    fs::write(scratch.0.join(".maestro/authoring.lock.json"), bytes).unwrap();
+    let result = super::preview(&scratch.0, &Presets, &["knowledge-client".into()]);
+    assert!(
+        result
+            .unwrap_err()
+            .contains("file is larger than 1048576 bytes")
+    );
 }

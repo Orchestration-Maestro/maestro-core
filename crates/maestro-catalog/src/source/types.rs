@@ -1,4 +1,4 @@
-//! The catalog's authoring schema, `maestro-source/1`, as typed data.
+//! The catalog's authoring schema, `maestro-source/2`, as typed data.
 //!
 //! # Kinds
 //!
@@ -16,16 +16,15 @@
 //! MCP config registration belongs to its own task. Inert assets require exact
 //! inventories, never recursive directory exemptions.
 //!
-//! C31 scopes descriptors; C32 owns the single `/2` identity/envelope cutover.
-//! The metadata and historical rulings below describe that pending `/1` envelope.
+//! Resource identities use the single `/2` qualified envelope.
 //!
 //! # Metadata
 //!
-//! Every resource declares `schema` (`maestro-source/1`), `owner`
+//! Every resource declares `schema` (`maestro-source/2`), `owner`
 //! (nonempty), `maturity` (a stage its kind admits: `placeholder`,
 //! `authored`, `reviewed` or `retired` for every built-in kind), `rows`
 //! (nonempty, known architecture 08 rows), `workflows` (nonempty workflow
-//! names), optional `requires` (typed `kind:name` references) and an
+//! names), optional `requires` (typed `kind:namespace/local-name` references) and an
 //! optional nonempty `version`. A skill writes them as strings with a
 //! `maestro.` prefix, since the Agent Skills specification makes `metadata`
 //! a string map; its lists join items with `;`, which no row key contains.
@@ -49,7 +48,7 @@
 //! 4. A preset roots a declared closure: every resource its `requires` and
 //!    its members' hook edges reach, itself included, must be `reviewed`
 //!    with a nonempty owner. `qualified` needs S4 evidence, so no S3 kind
-//!    admits it. References are typed `kind:name`.
+//!    admits it. References are typed `kind:namespace/local-name`.
 //! 5. S1 descriptors declare each setting's sole override class; preset
 //!    `[settings]` values are checked against those canonical descriptors.
 //! 6. The owner's scaling requirement: kinds are registered descriptors
@@ -83,14 +82,17 @@ use std::{
 use toml::de::Error as TomlError;
 
 /// The one authoring schema version this checker reads.
-pub const SCHEMA: &str = "maestro-source/1";
+pub const SCHEMA: &str = "maestro-source/2";
 
 /// A resource's identity: its kind's registered name and its own name,
-/// unique within the kind, written `kind:name`.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+/// unique within its kind and namespace, written `kind:namespace/local-name`.
+/// Area roots and global presets instead use `kind:name`.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct ResourceId {
     /// The kind's registered name.
     pub kind: String,
+    /// The owning area namespace, absent for area roots and global presets.
+    pub namespace: Option<String>,
     /// The name: lower-case ASCII letters and digits in hyphen-separated
     /// words, at most 64 characters.
     pub name: String,
@@ -98,7 +100,11 @@ pub struct ResourceId {
 
 impl fmt::Display for ResourceId {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(formatter, "{}:{}", self.kind, self.name)
+        if let Some(namespace) = &self.namespace {
+            write!(formatter, "{}:{namespace}/{}", self.kind, self.name)
+        } else {
+            write!(formatter, "{}:{}", self.kind, self.name)
+        }
     }
 }
 

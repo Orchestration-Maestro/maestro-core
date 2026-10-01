@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct KindDescriptor {
-    /// The kind's name, as `kind:name` references write it.
+    /// The kind's name, as qualified references write it.
     pub kind: String,
     /// The version of the kind's source shape, from 1; a compiled catalog
     /// records it beside each resource.
@@ -19,7 +19,7 @@ pub struct KindDescriptor {
     /// The top-level catalog directory holding its resources.
     pub directory: String,
     /// V4 scopes in which `directory` is a relative placement. An empty list
-    /// denotes a legacy descriptor, never mixed with scoped registrations.
+    /// is refused as a pre-cutover descriptor.
     #[serde(default)]
     pub scopes: Vec<Scope>,
     /// How its files are laid out in that directory.

@@ -12,7 +12,7 @@ pub(super) fn descriptor() -> KindDescriptor {
     KindDescriptor {
         scopes: vec![Scope::Core, Scope::Team, Scope::Language, Scope::Standard],
         kind: "instructions".to_owned(),
-        version: 2,
+        version: 3,
         directory: "instructions".to_owned(),
         layout: Layout::Files {
             suffix: ".instructions.md".to_owned(),

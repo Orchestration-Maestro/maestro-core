@@ -1,10 +1,10 @@
 //! Aggregate snapshot trust-boundary neighbours, independent of content guards.
 
 use super::support::{MemoryTree, check_by};
-use crate::source::kinds::legacy as builtin;
+use crate::source::builtin;
 use crate::{
     limits::Limits,
-    source::{Cause, Entry, EntryKind, Registry, SourceTree, walk::walk},
+    source::{Cause, Entry, EntryKind, SourceTree, scan::scan},
 };
 use std::{cell::Cell, io};
 
@@ -21,7 +21,7 @@ impl SourceTree for ChangingTree {
         self.original.list(directory)
     }
     fn read(&self, file: &str, max_bytes: u64) -> io::Result<Vec<u8>> {
-        if file == "mcp/maestro.toml" {
+        if file == "core/agents/valid.maestro.toml" {
             let reads = self.reads.get();
             self.reads.set(reads + 1);
             if reads > 0 {
@@ -83,13 +83,11 @@ fn snapshot_refuses_adapter_listings_past_the_remaining_bound() {
         archive_entries: 1,
         ..Limits::PRODUCTION
     };
+    assert!(scan(&tree, &limits).is_err(), "adapter bound must refuse");
     assert!(
-        walk(&tree, &Registry::default(), &limits).is_err(),
-        "adapter bound must refuse"
-    );
-    assert!(
-        walk(&tree, &Registry::default(), &limits)
-            .unwrap_err()
+        scan(&tree, &limits)
+            .err()
+            .unwrap()
             .to_string()
             .contains("walk entry limit")
     );
@@ -103,7 +101,7 @@ fn snapshot_refuses_unsafe_adapter_path_components() {
             kind: EntryKind::File,
         }],
     };
-    let found = walk(&tree, &Registry::default(), &Limits::PRODUCTION).unwrap();
+    let found = scan(&tree, &Limits::PRODUCTION).unwrap();
     assert_eq!(found.diagnostics.len(), 1);
     assert_eq!(
         found.diagnostics[0].message,
@@ -120,7 +118,7 @@ fn snapshot_refuses_duplicate_source_paths_even_with_identical_bytes() {
     let tree = MalformedTree {
         entries: vec![entry.clone(), entry],
     };
-    let found = walk(&tree, &Registry::default(), &Limits::PRODUCTION).unwrap();
+    let found = scan(&tree, &Limits::PRODUCTION).unwrap();
     assert_eq!(found.diagnostics.len(), 1);
     assert_eq!(found.diagnostics[0].message, "duplicate source path");
 }
@@ -149,7 +147,7 @@ fn inert_source_read_and_listing_failures_cannot_be_skipped() {
             .with(".hidden/file", "data")
             .with_unreadable(".hidden"),
     ] {
-        let found = walk(&tree, &Registry::default(), &Limits::PRODUCTION).unwrap();
+        let found = scan(&tree, &Limits::PRODUCTION).unwrap();
         assert_eq!(found.diagnostics.len(), 1);
         assert_eq!(found.diagnostics[0].cause, Cause::Unreadable);
     }

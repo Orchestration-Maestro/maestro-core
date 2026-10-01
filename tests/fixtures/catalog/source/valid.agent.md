@@ -1,7 +1,7 @@
 ---
 name: valid
 description: Synthetic agent that answers from the public synthetic glossary.
-tools: ["maestro/knowledge_search", "view"]
+tools: ["view"]
 ---
 
 ## Purpose

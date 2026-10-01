@@ -3,16 +3,14 @@
 //! metadata fields the rulings admit.
 
 use super::support::{MemoryTree, assert_refused, check_under};
-use crate::{limits::Limits, source::ResourceId};
+use crate::limits::Limits;
 
 /// The valid agent profile's path.
-const AGENT: &str = "agents/base/valid.agent.md";
+const AGENT: &str = "core/agents/valid.agent.md";
 /// The valid skill's path.
 const SKILL: &str = "skills/valid-skill/SKILL.md";
 /// The valid preset's path.
 const PRESET: &str = "presets/knowledge-client.toml";
-/// The valid MCP server's path.
-const MCP: &str = "mcp/maestro.toml";
 
 /// The valid catalog with `from` replaced by `to` in `path`.
 fn edited(path: &str, from: &str, to: &str) -> MemoryTree {
@@ -60,7 +58,7 @@ fn foreign_skill_metadata_keys_are_ignored_never_read() {
         "  author: someone-else\n  version: \"2.0\"\n  maestro.maturity",
     );
     let catalog = check_under(&tree, &Limits::PRODUCTION).unwrap();
-    let skill = &catalog.resources[4];
+    let skill = &catalog.resources[3];
     assert_eq!(skill.metadata.owner, "@synthetic/knowledge");
 }
 
@@ -77,7 +75,7 @@ fn closures_skip_roots_that_are_not_reviewed() {
 #[test]
 fn resources_may_declare_a_version() {
     let tree = edited(
-        "agents/base/valid.maestro.toml",
+        "core/agents/valid.maestro.toml",
         "maturity",
         "version = \"1.2.0\"\nmaturity",
     )
@@ -92,86 +90,43 @@ fn resources_may_declare_a_version() {
         Some("1.2.0")
     );
     assert_eq!(
-        catalog.resources[4].metadata.version.as_deref(),
+        catalog.resources[3].metadata.version.as_deref(),
         Some("0.3")
     );
     assert_refused(vec![(
         "empty version",
         edited(
-            "agents/base/valid.maestro.toml",
+            "core/agents/valid.maestro.toml",
             "maturity",
             "version = \" \"\nmaturity",
         ),
-        "agents/base/valid.maestro.toml: version: must be a nonempty string",
+        "core/agents/valid.maestro.toml: version: must be a nonempty string",
     )]);
 }
 
 #[test]
-fn agents_name_a_model_and_mcp_servers_by_reference() {
-    let tree = edited(
-        AGENT,
-        "tools:",
-        "model: synthetic-model\nmcp-servers: [\"maestro\"]\ntools:",
+fn agents_keep_native_model_and_fail_closed_on_unbound_mcp_names() {
+    let tree = edited(AGENT, "tools:", "model: synthetic-model\ntools:");
+    let checked = check_under(&tree, &Limits::PRODUCTION).unwrap();
+    assert_eq!(
+        checked.resources[0].fields["model"].text(),
+        Some("synthetic-model")
     );
-    let catalog = check_under(&tree, &Limits::PRODUCTION).unwrap();
-    let agent = &catalog.resources[0];
-    assert_eq!(agent.fields["model"].text(), Some("synthetic-model"));
-    assert_eq!(agent.fields["mcp-servers"].texts(), Some(vec!["maestro"]));
-}
-
-#[test]
-fn agent_mcp_servers_must_exist_and_enter_closures() {
-    let only_agent = |tree: MemoryTree| {
-        tree.edit(
-            PRESET,
-            "requires = [\"agent:valid\", \"mcp:maestro\"]",
-            "requires = [\"agent:valid\"]",
-        )
-        .edit(MCP, "maturity = \"reviewed\"", "maturity = \"authored\"")
-    };
     assert_refused(vec![
         (
-            "absent server",
-            edited(AGENT, "tools:", "mcp-servers: [\"absent\"]\ntools:"),
-            "agents/base/valid.agent.md: mcp-servers: names mcp:absent, which does not exist",
+            "unbound server",
+            edited(AGENT, "tools:", "mcp-servers: [\"maestro\"]\ntools:"),
+            "mcp-servers: names mcp:maestro, which does not exist",
         ),
         (
-            "not a name",
+            "invalid server name",
             edited(AGENT, "tools:", "mcp-servers: [\"Bad Server\"]\ntools:"),
-            "agents/base/valid.agent.md: mcp-servers: \"Bad Server\" is not a lower-case \
-                hyphenated name",
+            "mcp-servers: \"Bad Server\" is not a lower-case hyphenated name",
         ),
         (
-            "closure through mcp-servers",
-            only_agent(edited(
-                AGENT,
-                "tools: [\"maestro/knowledge_search\", \"view\"]",
-                "mcp-servers: [\"maestro\"]",
-            )),
-            "presets/knowledge-client.toml: metadata.requires: closure member mcp:maestro is \
-                authored; a closure admits only reviewed members",
-        ),
-        (
-            "closure through tools",
-            only_agent(MemoryTree::valid()),
-            "presets/knowledge-client.toml: metadata.requires: closure member mcp:maestro is \
-                authored; a closure admits only reviewed members",
+            "legacy resource",
+            MemoryTree::valid().with("mcp/maestro.toml", "args = [\"-v\", \"mcp\", \"-v\"]"),
+            "mcp/maestro.toml: not a registered v4 placement",
         ),
     ]);
-}
-
-#[test]
-fn mcp_args_are_an_ordered_list_that_may_repeat() {
-    let tree = edited(MCP, "args = [\"mcp\"]", "args = [\"-v\", \"mcp\", \"-v\"]");
-    let catalog = check_under(&tree, &Limits::PRODUCTION).unwrap();
-    let id = ResourceId {
-        kind: "mcp".to_owned(),
-        name: "maestro".to_owned(),
-    };
-    let server = catalog
-        .resources
-        .iter()
-        .find(|resource| resource.id == id)
-        .unwrap();
-    assert_eq!(server.fields["args"].texts(), Some(vec!["-v", "mcp", "-v"]));
 }

@@ -2,7 +2,7 @@
 //! come only from descriptors; there is no resource-kind dispatch.
 
 use super::{
-    descriptor::{KindDescriptor, Layout, MetadataPlace},
+    descriptor::{KindDescriptor, Layout, MetadataPlace, Scope},
     discovered::{Found, Unit, refusal},
     naming,
     parse::is_name,
@@ -13,7 +13,7 @@ use super::{
     types::{Diagnostic, Refusal},
 };
 use crate::limits::Limits;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// One scoped discovery attempt with aggregate resource counts.
 struct Walker<'a> {
@@ -54,11 +54,41 @@ pub(super) fn discover(
             walker.note(&descriptor.directory, &format!("missing: {reason}"));
         }
     }
+    walker.namespaces(registry);
     walker.unclaimed();
     Ok(walker.found)
 }
 
 impl Walker<'_> {
+    /// Every concrete area boundary owns one global namespace, even without a root file.
+    fn namespaces(&mut self, registry: &Registry) {
+        let areas: BTreeSet<_> = registry
+            .registrations()
+            .flat_map(|registration| &registration.descriptor.scopes)
+            .filter(|scope| **scope != Scope::Root)
+            .flat_map(|scope| {
+                self.snapshot
+                    .directories
+                    .keys()
+                    .filter(move |path| fits(scope.prefix(), path))
+            })
+            .collect();
+        let mut seen = BTreeMap::new();
+        for path in areas {
+            let namespace = path
+                .rsplit('/')
+                .next()
+                .filter(|name| !name.is_empty())
+                .unwrap_or("common");
+            if let Some(first) = seen.insert(namespace, path) {
+                self.note(
+                    path,
+                    &format!("duplicate area namespace {namespace}, also {first}"),
+                );
+            }
+        }
+    }
+
     /// Discover one descriptor placement according to its data-defined layout.
     fn placement(&mut self, descriptor: &KindDescriptor, pattern: &str) -> Result<(), Refusal> {
         match &descriptor.layout {
@@ -236,7 +266,8 @@ impl Walker<'_> {
         if kind != EntryKind::Directory && !self.consumed.contains(path) {
             self.note(
                 path,
-                "not a registered v4 placement; nested/unknown areas and unregistered trees refuse",
+                "not a registered v4 placement; nested/unknown areas and unregistered trees \
+                 refuse; migrate old or mixed layouts to maestro-source/2",
             );
         }
     }

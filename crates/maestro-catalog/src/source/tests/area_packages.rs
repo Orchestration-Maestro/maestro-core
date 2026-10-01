@@ -80,6 +80,7 @@ fn ambiguous_area_descriptor_refuses() {
     let mut legacy = super::registry::glossary();
     legacy.kind = "legacy-glossary".to_owned();
     legacy.directory = "legacy-glossaries".to_owned();
+    legacy.scopes.clear();
     assert!(scoped.register(legacy).is_err());
 }
 
@@ -112,12 +113,12 @@ fn unsupported_nonempty_kinds_and_configs_refuse() {
     }
 }
 
-/// A checked root still uses the common envelope until C32's cutover.
+/// A checked area root using the /2 source envelope.
 pub(super) fn package_source(kind: &str, name: &str) -> String {
     format!(
         "kind = \"{kind}\"\nname = \"{name}\"\nversion = \"1.2.3\"\n\
          owners = [\"@synthetic/knowledge\"]\ndescription = \"Synthetic area\"\n\
-         status = \"active\"\n\n[metadata]\nschema = \"maestro-source/1\"\n\
+         status = \"active\"\n\n[metadata]\nschema = \"maestro-source/2\"\n\
          owner = \"@synthetic/knowledge\"\nmaturity = \"reviewed\"\n\
          rows = [\"chat.M036 objects\"]\nworkflows = [\"ctm-question\"]\nrequires = []\n"
     )
@@ -204,12 +205,12 @@ fn builtin_scoped_shapes_preserve_native_metadata_and_hooks() {
         .with(
             "core/agents/valid.agent.md",
             &legacy
-                .text("agents/base/valid.agent.md")
+                .text("core/agents/valid.agent.md")
                 .replace("\"maestro/knowledge_search\", ", ""),
         )
         .with(
             "core/agents/valid.maestro.toml",
-            &legacy.text("agents/base/valid.maestro.toml"),
+            &legacy.text("core/agents/valid.maestro.toml"),
         )
         .with(
             "skills/valid-skill/SKILL.md",
@@ -217,11 +218,11 @@ fn builtin_scoped_shapes_preserve_native_metadata_and_hooks() {
         )
         .with(
             "core/instructions/valid.instructions.md",
-            &legacy.text("instructions/valid.instructions.md"),
+            &legacy.text("core/instructions/valid.instructions.md"),
         )
         .with(
             "core/instructions/valid.maestro.toml",
-            &legacy.text("instructions/valid.maestro.toml"),
+            &legacy.text("core/instructions/valid.maestro.toml"),
         );
     let registry = builtin().unwrap();
     let checked = check_by(&tree, &registry, &Limits::PRODUCTION).unwrap();
@@ -239,7 +240,7 @@ fn builtin_scoped_shapes_preserve_native_metadata_and_hooks() {
             .contains("expected the sections")
     );
     for kind in ["agent", "skill", "instructions", "preset", "model-card"] {
-        assert_eq!(registry.kind(kind).unwrap().descriptor.version, 2);
+        assert_eq!(registry.kind(kind).unwrap().descriptor.version, 3);
     }
 }
 

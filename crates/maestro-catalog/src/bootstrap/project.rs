@@ -1,6 +1,8 @@
 //! Preview and apply project files through C04's digest-bound writer.
 use super::{compose::PresetPort, inspect::Inspection};
 use crate::files::{FileInput, FilePlan, apply as apply_files, digest};
+use crate::limits::Limits;
+use maestro_filesystem::Directory;
 use serde::Serialize;
 use std::{
     collections::BTreeSet,
@@ -77,6 +79,7 @@ pub fn preview(
     if names.is_empty() {
         return Err("select at least one preset".to_owned());
     }
+    refuse_old_lock(root)?;
     let inspection = super::inspect::inspect(root).map_err(|error| error.to_string())?;
     let presets = port.resolve(names)?;
     let prerequisites = presets
@@ -98,10 +101,11 @@ pub fn preview(
         })
         .collect();
     let mut files = super::compose::compose_resolved(presets)?;
+    let qualified: Vec<String> = names.iter().map(|name| format!("preset:{name}")).collect();
     let descriptor = ProjectDescriptor {
-        schema: "maestro-project/1",
+        schema: "maestro-project/2",
         lock: ".maestro/authoring.lock.json",
-        presets: names,
+        presets: &qualified,
         capabilities: &[],
         context_files: &[],
         mode: "authoring",
@@ -120,7 +124,7 @@ pub fn preview(
         })
         .collect();
     let lock = AuthoringLock {
-        schema: "maestro-authoring-lock/1",
+        schema: "maestro-authoring-lock/2",
         files: locked,
         sources,
     };
@@ -194,4 +198,30 @@ fn is_executable(path: &Path) -> bool {
         use std::os::unix::fs::PermissionsExt;
         metadata.permissions().mode() & 0o111 != 0
     }
+}
+
+/// Only the version is needed to reject an old authoring lock before planning.
+#[derive(serde::Deserialize)]
+struct Envelope {
+    /// The lock version, not installation authority.
+    schema: String,
+}
+
+/// Old authoring inputs cannot silently bind to the /2 source identity cutover.
+fn refuse_old_lock(root: &Path) -> Result<(), String> {
+    let bytes = match Directory::open(root, Path::new(".maestro"), false).and_then(|directory| {
+        directory.read_regular_bounded("authoring.lock.json", Limits::PRODUCTION.source_file_bytes)
+    }) {
+        Ok(bytes) => bytes,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => return Err(error.to_string()),
+    };
+    let envelope: Envelope = serde_json::from_slice(&bytes).map_err(|error| error.to_string())?;
+    if envelope.schema != "maestro-authoring-lock/2" {
+        return Err(format!(
+            "old or unsupported lock {}; maestro-source/2 cutover requires a fresh preview",
+            envelope.schema
+        ));
+    }
+    Ok(())
 }

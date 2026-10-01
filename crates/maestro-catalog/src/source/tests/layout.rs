@@ -5,9 +5,9 @@ use super::support::{MemoryTree, assert_refused};
 use std::collections::BTreeSet;
 
 /// The valid agent profile's path.
-const AGENT: &str = "agents/base/valid.agent.md";
+const AGENT: &str = "core/agents/valid.agent.md";
 /// The valid agent sidecar's path.
-const SIDECAR: &str = "agents/base/valid.maestro.toml";
+const SIDECAR: &str = "core/agents/valid.maestro.toml";
 
 #[test]
 fn agent_name_must_equal_its_stem_and_pair_one_sidecar() {
@@ -16,48 +16,30 @@ fn agent_name_must_equal_its_stem_and_pair_one_sidecar() {
         (
             "stem and name differ",
             valid.clone().edit(AGENT, "name: valid", "name: other"),
-            "agents/base/valid.agent.md: name: must equal the file stem \"valid\", not \"other\"",
+            "core/agents/valid.agent.md: name: must equal the file stem \"valid\", not \"other\"",
         ),
         (
             "no sidecar",
             valid.clone().without(SIDECAR),
-            "agents/base/valid.agent.md: no valid.maestro.toml sidecar beside it",
+            "core/agents/valid.agent.md: no valid.maestro.toml sidecar beside it",
         ),
         (
             "ambiguous sidecar",
             valid
                 .clone()
-                .with("agents/base/other.maestro.toml", &valid.text(SIDECAR))
-                .with("agents/base/renamed.agent.md", &valid.text(AGENT))
-                .edit("agents/base/renamed.agent.md", "name: valid", "name: other"),
-            "agents/base/other.maestro.toml: no other.agent.md beside it",
+                .with("core/agents/other.maestro.toml", &valid.text(SIDECAR))
+                .with("core/agents/renamed.agent.md", &valid.text(AGENT))
+                .edit("core/agents/renamed.agent.md", "name: valid", "name: other"),
+            "core/agents/other.maestro.toml: not a registered v4 placement",
         ),
         (
             "instructions without sidecar",
-            valid.clone().without("instructions/valid.maestro.toml"),
-            "instructions/valid.instructions.md: no valid.maestro.toml sidecar beside it",
+            valid
+                .clone()
+                .without("core/instructions/valid.maestro.toml"),
+            "core/instructions/valid.instructions.md: no valid.maestro.toml sidecar beside it",
         ),
     ]);
-}
-
-#[test]
-fn duplicate_ids_across_directories_are_refused() {
-    let valid = MemoryTree::valid();
-    assert_refused(vec![(
-        "same agent twice",
-        valid
-            .clone()
-            .with(
-                "agents/capabilities/review/valid.agent.md",
-                &valid.text(AGENT),
-            )
-            .with(
-                "agents/capabilities/review/valid.maestro.toml",
-                &valid.text(SIDECAR),
-            ),
-        "agents/capabilities/review/valid.agent.md: duplicate ID agent:valid, also \
-            agents/base/valid.agent.md",
-    )]);
 }
 
 #[test]
@@ -69,7 +51,7 @@ fn unsupported_kinds_stray_entries_and_links_are_refused() {
             valid
                 .clone()
                 .with("workflows/ctm-question/workflow.md", "---\n---\n"),
-            "workflows: no kind registered for this directory",
+            "workflows/ctm-question/workflow.md: not a registered v4 placement",
         ),
         (
             "policy",
@@ -77,34 +59,36 @@ fn unsupported_kinds_stray_entries_and_links_are_refused() {
                 "policies/base.cedar",
                 "permit(principal, action, resource);\n",
             ),
-            "policies: no kind registered for this directory",
+            "policies/base.cedar: not a registered v4 placement",
         ),
         (
             "stray top-level file",
             valid.clone().with("notes.txt", "notes\n"),
-            "notes.txt: not a catalog resource or a known non-resource entry",
+            "notes.txt: not a registered v4 placement",
         ),
         (
             "stray resource file",
-            valid.clone().with("agents/base/notes.txt", "notes\n"),
-            "agents/base/notes.txt: not a resource file of this directory",
+            valid.clone().with("core/agents/notes.txt", "notes\n"),
+            "core/agents/notes.txt: not a registered v4 placement; nested/unknown areas and \
+            unregistered trees refuse; migrate old or mixed layouts to maestro-source/2",
         ),
         (
             "stray skill entry",
             valid
                 .clone()
                 .with("skills/valid-skill/run.sh", "#!/bin/sh\n"),
-            "skills/valid-skill/run.sh: not a resource file of this directory",
+            "skills/valid-skill/run.sh: not a registered v4 placement; nested/unknown areas \
+            and unregistered trees refuse; migrate old or mixed layouts to maestro-source/2",
         ),
         (
             "link",
-            valid.clone().with_link("agents/base/linked.agent.md"),
-            "agents/base/linked.agent.md: links and special files are not read",
+            valid.clone().with_link("core/agents/linked.agent.md"),
+            "core/agents/linked.agent.md: links and special files are not read",
         ),
         (
             "not UTF-8",
             valid.with_bytes(SIDECAR, b"owner = \"\xff\"\n"),
-            "agents/base/valid.maestro.toml: not UTF-8",
+            "core/agents/valid.maestro.toml: not UTF-8",
         ),
     ]);
 }

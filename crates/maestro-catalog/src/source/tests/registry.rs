@@ -3,19 +3,19 @@
 //! built-in descriptor loaded back from data checks exactly as the original.
 
 use super::support::{MemoryTree, assert_refused_by, check_by};
-use crate::source::kinds::legacy as builtin;
+use crate::source::builtin;
 use crate::{
     limits::Limits,
     source::{
         Field, FieldType, Format, KindDescriptor, Layout, Maturity, MetadataPlace,
-        RegistrationError, Registry, builtin_hooks,
+        RegistrationError, Registry, Scope, builtin_hooks,
     },
 };
 
 /// A glossary kind, described as data only.
 pub(super) fn glossary() -> KindDescriptor {
     KindDescriptor {
-        scopes: Vec::new(),
+        scopes: vec![Scope::Common],
         kind: "glossary".to_owned(),
         version: 1,
         directory: "glossaries".to_owned(),
@@ -72,7 +72,7 @@ fn registry_refuses_a_second_kind_or_directory() {
     same_directory.directory = "skills".to_owned();
     assert_eq!(
         register(same_directory),
-        Err("directory \"skills\" already has a kind".to_owned())
+        Err("kind glossary: overlapping placement".to_owned())
     );
 }
 
@@ -94,13 +94,13 @@ fn registry_refuses_a_descriptor_that_contradicts_itself() {
         ),
         (
             "directory never read",
-            |descriptor| descriptor.directory = "docs".to_owned(),
-            "kind glossary: directory \"docs\" is not one the catalog reads",
+            |descriptor| descriptor.directory = "../docs".to_owned(),
+            "kind glossary: unsafe relative placement",
         ),
         (
             "directory not a name",
-            |descriptor| descriptor.directory = ".glossaries".to_owned(),
-            "kind glossary: directory \".glossaries\" is not one the catalog reads",
+            |descriptor| descriptor.directory = "glossaries/../other".to_owned(),
+            "kind glossary: unsafe relative placement",
         ),
         (
             "sidecar with a single file",
@@ -271,7 +271,9 @@ fn builtin_kinds_loaded_from_data_check_like_the_originals() {
             "agent",
             "skill",
             "instructions",
-            "mcp",
+            "package",
+            "language",
+            "standard",
             "preset",
             "model-card"
         ]
@@ -290,11 +292,11 @@ fn builtin_kinds_loaded_from_data_check_like_the_originals() {
             (
                 "agent hook",
                 MemoryTree::valid().edit(
-                    "agents/base/valid.agent.md",
+                    "core/agents/valid.agent.md",
                     "## Boundaries\n\nSynthetic data only; no other tool.\n",
                     "",
                 ),
-                "agents/base/valid.agent.md: body: expected the sections",
+                "core/agents/valid.agent.md: body: expected the sections",
             ),
             (
                 "preset hook",
@@ -459,49 +461,55 @@ fn unsafe_layout_shapes_and_overlapping_inventory_refuse() {
 }
 
 #[test]
-fn legacy_then_scoped_registry_refuses_before_discovery() {
-    use super::area_support::scoped;
-    let mut registry = Registry::default();
-    let mut legacy = glossary();
-    legacy.kind = "legacy-glossary".to_owned();
-    legacy.directory = "terms".to_owned();
-    registry.register(legacy).unwrap();
-    let result = registry.register(scoped("glossaries", &["common"]));
-    assert!(
-        result.is_err(),
-        "mixed registry must refuse legacy then scoped"
-    );
-    assert_eq!(
-        result,
-        Err(RegistrationError::MixedScopes {
-            scoped: "glossary".to_owned(),
-            legacy: "legacy-glossary".to_owned()
-        })
-    );
-    assert_eq!(registry.registrations().count(), 1);
+fn unscoped_descriptor_refuses_before_discovery() {
+    for populated in [false, true] {
+        let mut registry = Registry::default();
+        if populated {
+            registry.register(glossary()).unwrap();
+        }
+        let mut legacy = glossary();
+        legacy.kind = "legacy-glossary".to_owned();
+        legacy.directory = "terms".to_owned();
+        legacy.scopes.clear();
+        let result = registry.register(legacy);
+        assert!(
+            result.is_err(),
+            "all unscoped descriptors must refuse before discovery"
+        );
+        let error = result.unwrap_err();
+        assert_eq!(
+            error,
+            RegistrationError::LegacyDescriptor {
+                kind: "legacy-glossary".to_owned()
+            }
+        );
+        assert!(
+            error.to_string().contains("migrate") && error.to_string().contains("legacy-glossary")
+        );
+        assert_eq!(registry.registrations().count(), usize::from(populated));
+    }
 }
 
 #[test]
-fn scoped_then_legacy_registry_refuses_before_discovery() {
-    use super::area_support::scoped;
+fn all_unscoped_custom_source_refuses() {
+    let tree = MemoryTree::default().with(
+        "glossaries/evidence.toml",
+        &format!(
+            "term = \"evidence\"\n[metadata]{}",
+            super::area_packages::package_source("package", "common")
+                .split_once("[metadata]")
+                .unwrap()
+                .1
+        ),
+    );
     let mut registry = Registry::default();
-    registry
-        .register(scoped("glossaries", &["common"]))
-        .unwrap();
-    let mut legacy = glossary();
-    legacy.kind = "legacy-glossary".to_owned();
-    legacy.directory = "terms".to_owned();
-    let result = registry.register(legacy);
+    let mut descriptor = glossary();
+    descriptor.scopes.clear();
+    let registration = registry.register(descriptor);
     assert!(
-        result.is_err(),
-        "mixed registry must refuse scoped then legacy"
+        registration.is_err(),
+        "a custom /2 catalog cannot opt into legacy discovery"
     );
-    assert_eq!(
-        result,
-        Err(RegistrationError::MixedScopes {
-            scoped: "glossary".to_owned(),
-            legacy: "legacy-glossary".to_owned()
-        })
-    );
-    assert_eq!(registry.registrations().count(), 1);
+    let result = check_by(&tree, &registry, &Limits::PRODUCTION);
+    assert!(result.is_err());
 }

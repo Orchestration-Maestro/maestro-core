@@ -1,6 +1,6 @@
-schema = "maestro-source/1"
+schema = "maestro-source/2"
 owner = "@synthetic/knowledge"
 maturity = "reviewed"
 rows = ["chat.M036 objects"]
 workflows = ["ctm-question"]
-requires = ["skill:valid-skill", "instructions:valid"]
+requires = ["skill:common/valid-skill", "instructions:core/valid"]

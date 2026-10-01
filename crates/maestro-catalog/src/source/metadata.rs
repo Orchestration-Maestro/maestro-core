@@ -154,7 +154,10 @@ pub(super) fn metadata(
     if let Some(schema) = schema.filter(|schema| *schema != SCHEMA) {
         problems.push((
             key("schema"),
-            format!("unsupported schema {schema:?}; this checker reads {SCHEMA}"),
+            format!(
+                "unsupported schema {schema:?}; this checker reads {SCHEMA}; \
+                migrate the source envelope"
+            ),
         ));
     }
     let owner = text(table, "owner", prefix, problems);
@@ -235,20 +238,43 @@ fn references(requires: &[&str], key: &str, problems: &mut Problems) -> Vec<Reso
     requires
         .iter()
         .filter_map(|text| {
-            let parsed = text
-                .split_once(':')
-                .filter(|(kind, name)| is_name(kind) && is_name(name))
-                .map(|(kind, name)| ResourceId {
-                    kind: kind.to_owned(),
-                    name: name.to_owned(),
-                });
+            let parsed = reference(text);
             if parsed.is_none() {
                 problems.push((
                     key.to_owned(),
-                    format!("{text:?} is not a kind:name reference"),
+                    format!(
+                        "{text:?} is not a qualified kind:namespace/local-name reference \
+                        or area/preset root; migrate old IDs"
+                    ),
                 ));
             }
             parsed
         })
         .collect()
+}
+
+/// Qualified resources and the four root identity families; no legacy aliases.
+fn reference(text: &str) -> Option<ResourceId> {
+    let (kind, tail) = text.split_once(':')?;
+    if !is_name(kind) || kind == "capability" {
+        return None;
+    }
+    let root = matches!(kind, "package" | "language" | "standard" | "preset");
+    let (namespace, name) = if root {
+        (None, tail)
+    } else {
+        let (namespace, name) = tail.split_once('/')?;
+        if !is_name(namespace) {
+            return None;
+        }
+        (Some(namespace.to_owned()), name)
+    };
+    if !is_name(name) {
+        return None;
+    }
+    Some(ResourceId {
+        kind: kind.to_owned(),
+        namespace,
+        name: name.to_owned(),
+    })
 }

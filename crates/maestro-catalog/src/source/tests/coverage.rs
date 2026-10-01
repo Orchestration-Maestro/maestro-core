@@ -6,9 +6,7 @@ use super::support::{MemoryTree, assert_refused, check_under};
 use crate::limits::Limits;
 
 /// The valid agent profile's path.
-const AGENT: &str = "agents/base/valid.agent.md";
-/// The valid MCP server's path.
-const MCP: &str = "mcp/maestro.toml";
+const AGENT: &str = "core/agents/valid.agent.md";
 
 /// The valid catalog with `from` replaced by `to` in `path`.
 fn edited(path: &str, from: &str, to: &str) -> MemoryTree {
@@ -17,11 +15,7 @@ fn edited(path: &str, from: &str, to: &str) -> MemoryTree {
 
 /// The valid catalog whose agent lists `tools`.
 fn tools(tools: &str) -> MemoryTree {
-    edited(
-        AGENT,
-        "tools: [\"maestro/knowledge_search\", \"view\"]",
-        &format!("tools: {tools}"),
-    )
+    edited(AGENT, "tools: [\"view\"]", &format!("tools: {tools}"))
 }
 
 #[test]
@@ -30,32 +24,32 @@ fn tool_names_and_lists_are_checked() {
         (
             "tool not a name",
             tools("[\"maestro/Bad\"]"),
-            "agents/base/valid.agent.md: tools: \"maestro/Bad\" is not a tool name",
+            "core/agents/valid.agent.md: tools: \"maestro/Bad\" is not a tool name",
         ),
         (
             "server not a name",
             tools("[\"Bad/x\"]"),
-            "agents/base/valid.agent.md: tools: \"Bad/x\" is not a tool name",
+            "core/agents/valid.agent.md: tools: \"Bad/x\" is not a tool name",
         ),
         (
             "tools as a string",
             tools("view"),
-            "agents/base/valid.agent.md: tools: must be a list of strings",
+            "core/agents/valid.agent.md: tools: must be a list of strings",
         ),
         (
             "tool twice",
             tools("[\"view\", \"view\"]"),
-            "agents/base/valid.agent.md: tools: lists \"view\" twice",
+            "core/agents/valid.agent.md: tools: lists \"view\" twice",
         ),
         (
             "empty tool",
             tools("[\" \"]"),
-            "agents/base/valid.agent.md: tools: must not list an empty string",
+            "core/agents/valid.agent.md: tools: must not list an empty string",
         ),
         (
             "server tool not a tool name",
-            edited(MCP, "\"knowledge_get\"", "\"Bad Tool\""),
-            "mcp/maestro.toml: tools: \"Bad Tool\" is not a tool name",
+            tools("[\"Bad Tool\"]"),
+            "core/agents/valid.agent.md: tools: \"Bad Tool\" is not a tool name",
         ),
     ]);
 }
@@ -78,22 +72,25 @@ fn folders_outside_the_layout_are_refused() {
         (
             "folder outside the patterns",
             MemoryTree::valid().with("agents/other/x.agent.md", &agent),
-            "agents/other: not a resource file of this directory",
+            "agents/other/x.agent.md: not a registered v4 placement; nested/unknown areas and \
+            unregistered trees refuse; migrate old or mixed layouts to maestro-source/2",
         ),
         (
             "file above the patterns",
             MemoryTree::valid().with("agents/x.agent.md", &agent),
-            "agents/x.agent.md: not a resource file of this directory",
+            "agents/x.agent.md: not a registered v4 placement; nested/unknown areas and \
+            unregistered trees refuse; migrate old or mixed layouts to maestro-source/2",
         ),
         (
             "skill folder not a name",
             MemoryTree::valid().with("skills/Bad_Skill/SKILL.md", &skill),
-            "skills/Bad_Skill: \"Bad_Skill\" is not a lower-case hyphenated name",
+            "skills/Bad_Skill/SKILL.md: not a registered v4 placement",
         ),
         (
             "folder beside the data folders",
             MemoryTree::valid().with("skills/valid-skill/extra/n.md", "# Notes\n"),
-            "skills/valid-skill/extra: not a resource file of this directory",
+            "skills/valid-skill/extra/n.md: not a registered v4 placement; nested/unknown \
+            areas and unregistered trees refuse; migrate old or mixed layouts to maestro-source/2",
         ),
         (
             "skill folder without its file",
@@ -129,22 +126,22 @@ fn yaml_shapes_outside_the_value_model_are_refused() {
         (
             "null",
             edited(AGENT, "name: valid\n", "name: valid\nmodel:\n"),
-            "agents/base/valid.agent.md: model: must not be empty",
+            "core/agents/valid.agent.md: model: must not be empty",
         ),
         (
             "tag",
             edited(AGENT, "name: valid\n", "name: !custom valid\n"),
-            "agents/base/valid.agent.md: name: must not carry a YAML tag",
+            "core/agents/valid.agent.md: name: must not carry a YAML tag",
         ),
         (
             "key not a string",
             edited(AGENT, "name: valid\n", "name: valid\n1: one\n"),
-            "agents/base/valid.agent.md: has a key that is not a string",
+            "core/agents/valid.agent.md: has a key that is not a string",
         ),
         (
             "fraction not finite",
             edited(AGENT, "name: valid\n", "name: valid\nmodel: .nan\n"),
-            "agents/base/valid.agent.md: model: must be a finite number",
+            "core/agents/valid.agent.md: model: must be a finite number",
         ),
         (
             "integer past 64 bits",
@@ -153,7 +150,7 @@ fn yaml_shapes_outside_the_value_model_are_refused() {
                 "name: valid\n",
                 "name: valid\nmodel: 99999999999999999999\n",
             ),
-            "agents/base/valid.agent.md: model: must fit a 64-bit signed integer",
+            "core/agents/valid.agent.md: model: must fit a 64-bit signed integer",
         ),
         (
             "integer past 64 bits below zero",
@@ -162,7 +159,7 @@ fn yaml_shapes_outside_the_value_model_are_refused() {
                 "name: valid\n",
                 "name: valid\nmodel: -99999999999999999999\n",
             ),
-            "agents/base/valid.agent.md: model: must fit a 64-bit signed integer",
+            "core/agents/valid.agent.md: model: must fit a 64-bit signed integer",
         ),
         (
             "integer past 63 bits",
@@ -171,12 +168,12 @@ fn yaml_shapes_outside_the_value_model_are_refused() {
                 "name: valid\n",
                 "name: valid\nmodel: 18446744073709551615\n",
             ),
-            "agents/base/valid.agent.md: model: must fit a 64-bit signed integer",
+            "core/agents/valid.agent.md: model: must fit a 64-bit signed integer",
         ),
         (
             "fraction for text",
             edited(AGENT, "name: valid\n", "name: 1.5\n"),
-            "agents/base/valid.agent.md: name: must be a nonempty string",
+            "core/agents/valid.agent.md: name: must be a nonempty string",
         ),
     ]);
 }
@@ -186,13 +183,13 @@ fn unreadable_files_and_directories_are_reported() {
     assert_refused(vec![
         (
             "file",
-            MemoryTree::valid().with_unreadable("mcp/maestro.toml"),
-            "mcp/maestro.toml: cannot read: permission denied",
+            MemoryTree::valid().with_unreadable("core/agents/valid.maestro.toml"),
+            "core/agents/valid.maestro.toml: cannot read: permission denied",
         ),
         (
             "directory",
-            MemoryTree::valid().with_unreadable("agents/base"),
-            "agents/base: cannot list: permission denied",
+            MemoryTree::valid().with_unreadable("core/agents"),
+            "core/agents: cannot list: permission denied",
         ),
     ]);
 }
@@ -201,13 +198,13 @@ fn unreadable_files_and_directories_are_reported() {
 fn an_unreadable_file_marks_the_refusal_even_past_the_listed_diagnostics() {
     let tree = (0..1_500)
         .fold(MemoryTree::valid(), |tree, index| {
-            tree.with(&format!("agents/base/stray-{index:04}.txt"), "notes\n")
+            tree.with(&format!("core/agents/stray-{index:04}.txt"), "notes\n")
         })
-        .with_unreadable("mcp/maestro.toml");
+        .with_unreadable("core/agents/valid.maestro.toml");
     let refusal = check_under(&tree, &Limits::PRODUCTION).unwrap_err();
     assert!(refusal.unreadable());
     assert_eq!(refusal.diagnostics.len(), 1_001);
-    let readable = MemoryTree::valid().with("agents/base/notes.txt", "notes\n");
+    let readable = MemoryTree::valid().with("core/agents/notes.txt", "notes\n");
     assert!(
         !check_under(&readable, &Limits::PRODUCTION)
             .unwrap_err()
@@ -217,7 +214,7 @@ fn an_unreadable_file_marks_the_refusal_even_past_the_listed_diagnostics() {
 
 #[test]
 fn diagnostics_escape_control_characters() {
-    let tree = MemoryTree::valid().with("agents/base/\u{1b}[31mred.txt", "notes\n");
+    let tree = MemoryTree::valid().with("core/agents/\u{1b}[31mred.txt", "notes\n");
     let lines: Vec<String> = check_under(&tree, &Limits::PRODUCTION)
         .unwrap_err()
         .diagnostics
@@ -226,14 +223,17 @@ fn diagnostics_escape_control_characters() {
         .collect();
     assert_eq!(
         lines,
-        ["agents/base/\\u{1b}[31mred.txt: not a resource file of this directory"]
+        [
+            "core/agents/\\u{1b}[31mred.txt: not a registered v4 placement; nested/unknown \
+            areas and unregistered trees refuse; migrate old or mixed layouts to maestro-source/2"
+        ]
     );
 }
 
 #[test]
 fn a_toml_syntax_error_is_one_line_without_the_source() {
     let tree = edited(
-        "agents/base/valid.maestro.toml",
+        "core/agents/valid.maestro.toml",
         "maturity",
         "owner = \"x\"\nmaturity",
     );
@@ -245,6 +245,6 @@ fn a_toml_syntax_error_is_one_line_without_the_source() {
         .collect();
     assert_eq!(
         lines,
-        ["agents/base/valid.maestro.toml: invalid TOML at line 3, column 1: duplicate key"]
+        ["core/agents/valid.maestro.toml: invalid TOML at line 3, column 1: duplicate key"]
     );
 }

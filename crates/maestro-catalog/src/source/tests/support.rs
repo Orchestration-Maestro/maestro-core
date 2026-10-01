@@ -1,12 +1,12 @@
 //! An in-memory [`SourceTree`] adapter holding the valid synthetic catalog,
 //! and the helpers that mutate and check it.
 
-use crate::source::kinds::legacy as builtin;
+use crate::source::builtin;
 use crate::{
     limits::Limits,
     source::{
-        Catalog, Entry, EntryKind, Known, Refusal, Registry, Resource, SourceTree,
-        builtin as scoped_builtin, check, frozen_rows,
+        Catalog, Entry, EntryKind, Known, Layout, Refusal, Registry, Resource, SourceTree,
+        builtin_hooks, check, frozen_rows,
     },
 };
 use maestro_settings::Registry as SettingsRegistry;
@@ -27,10 +27,10 @@ macro_rules! fixture {
 }
 
 /// The files of the valid catalog: where each lives and its fixture.
-pub(super) const VALID: [(&str, &str); 10] = [
-    ("agents/base/valid.agent.md", fixture!("valid.agent.md")),
+pub(super) const VALID: [(&str, &str); 6] = [
+    ("core/agents/valid.agent.md", fixture!("valid.agent.md")),
     (
-        "agents/base/valid.maestro.toml",
+        "core/agents/valid.maestro.toml",
         fixture!("valid.maestro.toml"),
     ),
     (
@@ -38,21 +38,14 @@ pub(super) const VALID: [(&str, &str); 10] = [
         fixture!("valid-skill/SKILL.md"),
     ),
     (
-        "instructions/valid.instructions.md",
+        "core/instructions/valid.instructions.md",
         fixture!("valid.instructions.md"),
     ),
     (
-        "instructions/valid.maestro.toml",
+        "core/instructions/valid.maestro.toml",
         fixture!("valid.instructions.maestro.toml"),
     ),
-    ("mcp/maestro.toml", fixture!("mcp.toml")),
     ("presets/knowledge-client.toml", fixture!("preset.toml")),
-    (
-        "bootstrap/base/README.md",
-        "Copied as data {{ never rendered }}\n",
-    ),
-    ("README.md", "# Synthetic catalog\n"),
-    ("CODEOWNERS", "* @synthetic/knowledge\n"),
 ];
 
 /// The invalid agent fixture: `metadata:` in its profile, no Boundaries.
@@ -168,7 +161,7 @@ impl SourceTree for MemoryTree {
 pub(crate) fn checked_model_card(text: &str) -> Resource {
     check_by(
         &MemoryTree::default().with("core/llm/models/embedder/synthetic.toml", text),
-        &scoped_builtin().unwrap(),
+        &builtin().unwrap(),
         &Limits::PRODUCTION,
     )
     .unwrap()
@@ -225,4 +218,18 @@ pub(super) fn assert_refused_by(registry: &Registry, cases: Vec<(&str, MemoryTre
         })
         .collect();
     assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+/// Clone the production skill placement with an exact inert asset inventory.
+pub(super) fn asset_registry(paths: &[&str]) -> Registry {
+    let builtin = builtin().unwrap();
+    let mut registry = builtin_hooks();
+    for registration in builtin.registrations() {
+        let mut descriptor = registration.descriptor.clone();
+        if let Layout::Folder { data, .. } = &mut descriptor.layout {
+            *data = paths.iter().map(|path| (*path).to_owned()).collect();
+        }
+        registry.register(descriptor).unwrap();
+    }
+    registry
 }

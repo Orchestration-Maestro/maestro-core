@@ -16,7 +16,7 @@ impl Scratch {
         let root = maestro_test_scratch::scratch_directory().unwrap();
         let text = concat!(
             "term='evidence'\n[metadata]\n",
-            "schema='maestro-source/1'\nowner='@synthetic/knowledge'\n",
+            "schema='maestro-source/2'\nowner='@synthetic/knowledge'\n",
             "maturity='authored'\nrows=['chat.M036 objects']\nworkflows=['ctm-question']\n",
         );
         fs::write(root.join("package.toml"), text).unwrap();
@@ -120,7 +120,7 @@ fn github_and_other_dot_entries_remain_presented() {
 #[test]
 fn legacy_check_refuses_nested_git_administration() {
     use super::support::VALID;
-    use crate::source::kinds::legacy as builtin;
+    use crate::source::builtin;
     let root = Scratch::new();
     fs::remove_file(root.0.join("package.toml")).unwrap();
     for (file, text) in VALID {

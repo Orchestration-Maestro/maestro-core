@@ -30,14 +30,6 @@ fn valid_catalog(home: &Home) -> PathBuf {
         let path = root.join(file);
         fs::create_dir_all(path.parent().unwrap()).unwrap();
         let text = fs::read_to_string(fixtures.join(fixture)).unwrap();
-        let text = match fixture {
-            "valid.agent.md" => text.replace("\"maestro/knowledge_search\", ", ""),
-            "preset.toml" => format!(
-                "name = \"knowledge-client\"\n{}",
-                text.replace(", \"mcp:maestro\"", "")
-            ),
-            _ => text,
-        };
         fs::write(path, text).unwrap();
     }
     root
@@ -67,12 +59,12 @@ fn catalog_check_reports_each_resource_under_json() {
     ]);
     assert_eq!((result.code, result.stderr.as_str()), (Some(0), ""));
     let document = result.json();
-    assert_eq!(document["schema"], "maestro-cli/catalog-check/1");
+    assert_eq!(document["schema"], "maestro-cli/catalog-check/2");
     assert_eq!(document["status"], "passed");
     assert_eq!(
         document["resources"][0],
         json!({
-            "id": "agent:valid",
+            "id": "agent:core/valid",
             "path": "core/agents/valid.agent.md",
             "owner": "@synthetic/knowledge",
             "maturity": "reviewed",

@@ -18,7 +18,7 @@ pub(super) fn descriptor() -> KindDescriptor {
             Scope::Standard,
         ],
         kind: "skill".to_owned(),
-        version: 2,
+        version: 3,
         directory: "skills".to_owned(),
         layout: Layout::Folder {
             file: "SKILL.md".to_owned(),

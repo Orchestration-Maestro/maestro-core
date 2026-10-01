@@ -523,8 +523,6 @@ in place.
 │   │   │   │   │   ├── agent.rs                                             # agent: a Copilot custom agent profile and its <name>.maestro.toml
 │   │   │   │   │   ├── builtin.rs                                           # The registry of the built-in kinds and the fixed table of hooks their
 │   │   │   │   │   ├── instructions.rs                                      # instructions: a Copilot .instructions.md file and its
-│   │   │   │   │   ├── legacy.rs                                            # Test-only pre-cutover fixtures, removed by C32's single schema cutover
-│   │   │   │   │   ├── mcp.rs                                               # mcp: an approved MCP server, its launch and its tool allowlist
 │   │   │   │   │   ├── mod.rs                                               # The built-in kinds: each a descriptor and, where a rule is truly
 │   │   │   │   │   ├── model_card.rs                                        # model-card: a strict catalog declaration of the kernel's v2 identity
 │   │   │   │   │   ├── package.rs                                           # Area closure roots; ownership and layer semantics are checked by later tasks
@@ -546,6 +544,7 @@ in place.
 │   │   │   │   │   ├── model_card.rs                                        # Rust source: model card
 │   │   │   │   │   ├── placement_boundaries.rs                              # Permanent discovery-only neighbours from the C30 review
 │   │   │   │   │   ├── placement_guards.rs                                  # Isolated registration and filename classification guards
+│   │   │   │   │   ├── qualified.rs                                         # C32 qualified identities and the single source schema cutover
 │   │   │   │   │   ├── references.rs                                        # References across resources: dangling names and tools, dependency
 │   │   │   │   │   ├── registry.rs                                          # The kind registry: registrations stay distinct, each descriptor is
 │   │   │   │   │   ├── root_boundaries.rs                                   # Root occupancy and public filesystem spelling neighbours
@@ -1550,7 +1549,6 @@ in place.
 │       │   │   ├── valid-skill/                                             # Valid skill
 │       │   │   │   └── SKILL.md                                             # Synthetic skill that cites evidence from the public synthetic glossary
 │       │   │   ├── invalid.agent.md                                         # Synthetic agent that carries metadata Copilot ignores
-│       │   │   ├── mcp.toml                                                 # TOML settings: mcp
 │       │   │   ├── preset.toml                                              # TOML settings: preset
 │       │   │   ├── valid.agent.md                                           # Synthetic agent that answers from the public synthetic glossary
 │       │   │   ├── valid.instructions.maestro.toml                          # TOML settings: valid.instructions.maestro

@@ -58,7 +58,7 @@
 //!   prints `catalog check passed: <n> resources`, or each diagnostic as
 //!   `path: key: message` on stderr, at most 1,000 then a count of the rest;
 //!   it exits 2 when the catalog is refused and 1 when a file or directory
-//!   cannot be read. Under `--json`, `maestro-cli/catalog-check/1` holds
+//!   cannot be read. Under `--json`, `maestro-cli/catalog-check/2` holds
 //!   `status` (`passed`, `refused` or `failed`), `resources` and
 //!   `diagnostics`.
 //!

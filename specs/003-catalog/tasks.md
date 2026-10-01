@@ -2255,10 +2255,10 @@ source/runtime implementation or private-data read, and no delivered claim.
 **Requirements:** FR-S3-002, FR-S3-041, FR-S3-046, SC-S3-016.
 **Named tests:** `same_stem_different_kind_accepts`, `duplicate_kind_namespace_name_refuses`, `duplicate_area_namespace_refuses`, `old_or_mixed_layout_refuses`; required cases, not reported results.
 
-- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+- [x] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
   below; run the focused fixture/check command and retain the failure.
-- [ ] **Step 2: Green.** Use kind:namespace/local-name plus package/language/standard roots and global preset IDs. Keep 64-character segment grammar, globally unique area namespaces and per-kind/per-namespace local names. Migrate all existing fixture assertions and /2 check output; old capability IDs/paths and locks get explicit diagnostics.
-- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+- [x] **Step 2: Green.** Use kind:namespace/local-name plus package/language/standard roots and global preset IDs. Keep 64-character segment grammar, globally unique area namespaces and per-kind/per-namespace local names. Migrate all existing fixture assertions and /2 check output; old capability IDs/paths and locks get explicit diagnostics.
+- [x] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
   capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
   Record nonzero test counts, exact exits, applicable lane gates and review.
 

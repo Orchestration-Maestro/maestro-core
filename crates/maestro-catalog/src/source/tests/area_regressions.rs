@@ -71,10 +71,10 @@ fn scoped_native_kinds_accept_registered_areas() {
     let legacy = MemoryTree::valid();
     let team = "capabilities/practice/review";
     let agent = legacy
-        .text("agents/base/valid.agent.md")
+        .text("core/agents/valid.agent.md")
         .replace("\"maestro/knowledge_search\", ", "");
-    let agent_metadata = legacy.text("agents/base/valid.maestro.toml").replace(
-        "requires = [\"skill:valid-skill\", \"instructions:valid\"]",
+    let agent_metadata = legacy.text("core/agents/valid.maestro.toml").replace(
+        "requires = [\"skill:common/valid-skill\", \"instructions:core/valid\"]",
         "requires = []",
     );
     let agent_tree = MemoryTree::default()
@@ -97,11 +97,11 @@ fn scoped_native_kinds_accept_registered_areas() {
         let tree = MemoryTree::default()
             .with(
                 &format!("{area}/instructions/valid.instructions.md"),
-                &legacy.text("instructions/valid.instructions.md"),
+                &legacy.text("core/instructions/valid.instructions.md"),
             )
             .with(
                 &format!("{area}/instructions/valid.maestro.toml"),
-                &legacy.text("instructions/valid.maestro.toml"),
+                &legacy.text("core/instructions/valid.maestro.toml"),
             );
         let result = check_by(&tree, &registry, &Limits::PRODUCTION);
         assert!(result.is_ok(), "{area} instructions: {result:#?}");
@@ -183,15 +183,17 @@ fn area_roots_require_reviewed_transitive_members() {
     let skill = MemoryTree::valid().text("skills/valid-skill/SKILL.md");
     let middle = skill.replace("valid-skill", "middle-skill").replace(
         "  maestro.workflows:",
-        "  maestro.requires: skill:leaf-skill\n  maestro.workflows:",
+        "  maestro.requires: skill:common/leaf-skill\n  maestro.workflows:",
     );
     let leaf = skill.replace("valid-skill", "leaf-skill");
     for (kind, name, path) in [
         ("language", "rust", "languages/rust/package.toml"),
         ("standard", "security", "standards/security/package.toml"),
     ] {
-        let root = package_source(kind, name)
-            .replace("requires = []", "requires = [\"skill:middle-skill\"]");
+        let root = package_source(kind, name).replace(
+            "requires = []",
+            "requires = [\"skill:common/middle-skill\"]",
+        );
         let tree = MemoryTree::default()
             .with(path, &root)
             .with("skills/middle-skill/SKILL.md", &middle)
@@ -211,7 +213,7 @@ fn area_roots_require_reviewed_transitive_members() {
             result
                 .unwrap_err()
                 .to_string()
-                .contains("closure member skill:leaf-skill is authored")
+                .contains("closure member skill:common/leaf-skill is authored")
         );
     }
 }

@@ -3,7 +3,7 @@
 
 use super::support::{MemoryTree, VALID, check_under};
 use crate::limits::Limits;
-use crate::source::kinds::legacy as builtin;
+use crate::source::builtin;
 
 /// The lines of the refusal of the valid catalog under `limits`, or none.
 fn refusal_under(limits: &Limits) -> Vec<String> {
@@ -55,18 +55,15 @@ fn source_depth_boundary() {
     };
     assert_eq!(
         refusal_under(&past),
-        [
-            "mcp/maestro.toml: deeper than 2 levels",
-            "presets/knowledge-client.toml: deeper than 2 levels",
-        ]
+        ["presets/knowledge-client.toml: deeper than 2 levels",]
     );
 }
 
 #[test]
 fn yaml_frontmatter_depth_boundary() {
     let tree = MemoryTree::valid().edit(
-        "agents/base/valid.agent.md",
-        "tools: [\"maestro/knowledge_search\", \"view\"]",
+        "core/agents/valid.agent.md",
+        "tools: [\"view\"]",
         "tools: [[\"maestro/knowledge_search\"]]",
     );
     let past = Limits {
@@ -77,7 +74,7 @@ fn yaml_frontmatter_depth_boundary() {
     assert!(
         lines
             .iter()
-            .any(|line| line.to_string() == "agents/base/valid.agent.md: deeper than 2 levels"),
+            .any(|line| line.to_string() == "core/agents/valid.agent.md: deeper than 2 levels"),
         "{lines:#?}"
     );
 }
@@ -85,15 +82,15 @@ fn yaml_frontmatter_depth_boundary() {
 #[test]
 fn catalog_resources_boundary() {
     let exact = Limits {
-        catalog_resources: 5,
+        catalog_resources: 4,
         ..Limits::PRODUCTION
     };
     assert_eq!(refusal_under(&exact), Vec::<String>::new());
     let past = Limits {
-        catalog_resources: 4,
+        catalog_resources: 3,
         ..Limits::PRODUCTION
     };
-    assert_eq!(refusal_under(&past), ["catalog: more than 4 resources"]);
+    assert_eq!(refusal_under(&past), ["catalog: more than 3 resources"]);
 }
 
 #[test]

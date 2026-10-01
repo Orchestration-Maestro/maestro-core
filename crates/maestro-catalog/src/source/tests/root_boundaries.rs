@@ -83,7 +83,7 @@ fn c30_review_probe_root_full_check() {
     // Confirmed existing fixture row: source/tests/extension.rs:30.
     let text = concat!(
         "term='evidence'\n[metadata]\n",
-        "schema='maestro-source/1'\nowner='@synthetic/knowledge'\n",
+        "schema='maestro-source/2'\nowner='@synthetic/knowledge'\n",
         "maturity='authored'\nrows=['chat.M036 objects']\nworkflows=['ctm-question']\n",
     );
     let result = super::support::check_by(

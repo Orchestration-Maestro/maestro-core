@@ -4,7 +4,7 @@
 use super::support::{MemoryTree, assert_refused};
 
 /// The valid agent sidecar's path.
-const SIDECAR: &str = "agents/base/valid.maestro.toml";
+const SIDECAR: &str = "core/agents/valid.maestro.toml";
 /// The valid skill's path.
 const SKILL: &str = "skills/valid-skill/SKILL.md";
 /// The valid preset's path.
@@ -20,48 +20,51 @@ fn dangling_references_and_tools_are_refused() {
     assert_refused(vec![
         (
             "absent resource",
-            edited(SIDECAR, "skill:valid-skill", "skill:absent"),
-            "agents/base/valid.maestro.toml: requires: names skill:absent, which does not exist",
+            edited(SIDECAR, "skill:common/valid-skill", "skill:common/absent"),
+            "core/agents/valid.maestro.toml: requires: names skill:common/absent, which does \
+            not exist",
         ),
         (
             "unknown kind",
-            edited(SIDECAR, "skill:valid-skill", "workflow:ctm-question"),
-            "agents/base/valid.maestro.toml: requires: names workflow:ctm-question, whose kind is \
+            edited(
+                SIDECAR,
+                "skill:common/valid-skill",
+                "workflow:core/ctm-question",
+            ),
+            "core/agents/valid.maestro.toml: requires: names workflow:core/ctm-question, \
+            whose kind is \
                 not registered",
         ),
         (
             "not a reference",
-            edited(SIDECAR, "skill:valid-skill", "valid-skill"),
-            "agents/base/valid.maestro.toml: requires: \"valid-skill\" is not a kind:name \
-                reference",
+            edited(SIDECAR, "skill:common/valid-skill", "valid-skill"),
+            "core/agents/valid.maestro.toml: requires: \"valid-skill\" is not a qualified \
+            kind:namespace/local-name reference",
         ),
         (
             "kind not admitted",
             edited(
-                "mcp/maestro.toml",
-                "workflows = [\"ctm-question\"]",
-                "workflows = [\"ctm-question\"]\nrequires = [\"skill:valid-skill\"]",
+                SIDECAR,
+                "skill:common/valid-skill",
+                "preset:knowledge-client",
             ),
-            "mcp/maestro.toml: metadata.requires: kind mcp may not require skill:valid-skill",
+            "core/agents/valid.maestro.toml: requires: kind agent may not require \
+            preset:knowledge-client",
         ),
         (
             "unlisted tool",
-            edited(
-                "agents/base/valid.agent.md",
-                "maestro/knowledge_search",
-                "maestro/absent",
-            ),
-            "agents/base/valid.agent.md: tools: names maestro/absent, which mcp:maestro does not \
-                list",
+            edited("core/agents/valid.agent.md", "view", "maestro/absent"),
+            "core/agents/valid.agent.md: tools: names maestro/absent, and mcp:maestro does not \
+                exist",
         ),
         (
             "absent server",
             edited(
-                "agents/base/valid.agent.md",
-                "maestro/knowledge_search",
+                "core/agents/valid.agent.md",
+                "view",
                 "other/knowledge_search",
             ),
-            "agents/base/valid.agent.md: tools: names other/knowledge_search, and mcp:other does \
+            "core/agents/valid.agent.md: tools: names other/knowledge_search, and mcp:other does \
                 not exist",
         ),
     ]);
@@ -81,18 +84,18 @@ fn dependency_cycles_are_refused() {
         .edit(
             "skills/loop-skill/SKILL.md",
             "  maestro.workflows",
-            "  maestro.requires: skill:valid-skill\n  maestro.workflows",
+            "  maestro.requires: skill:common/valid-skill\n  maestro.workflows",
         )
         .edit(
             SKILL,
             "  maestro.workflows",
-            "  maestro.requires: skill:loop-skill\n  maestro.workflows",
+            "  maestro.requires: skill:common/loop-skill\n  maestro.workflows",
         );
     assert_refused(vec![(
         "two skills",
         looped,
         "skills/loop-skill/SKILL.md: metadata.maestro.requires: dependency cycle among \
-            skill:loop-skill, skill:valid-skill",
+            skill:common/loop-skill, skill:common/valid-skill",
     )]);
 }
 
@@ -107,7 +110,8 @@ fn closure_members_must_be_reviewed_beside_a_reviewed_neighbour() {
     };
     let message = |maturity: &str| {
         format!(
-            "presets/knowledge-client.toml: metadata.requires: closure member skill:valid-skill is \
+            "presets/knowledge-client.toml: metadata.requires: closure member \
+            skill:common/valid-skill is \
                 {maturity}; a closure admits only reviewed members"
         )
     };

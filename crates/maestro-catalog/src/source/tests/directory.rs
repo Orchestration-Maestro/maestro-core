@@ -1,8 +1,7 @@
 //! The filesystem adapter: a bounded read, links never followed, and a
 //! check that runs none of the catalog's scripts.
 
-use super::support::{VALID, check_by};
-use crate::source::kinds::legacy as builtin;
+use super::support::{VALID, asset_registry, check_by};
 use crate::{
     limits::Limits,
     source::{Directory, SourceTree},
@@ -61,10 +60,10 @@ fn directory_checks_the_valid_catalog_without_running_its_scripts() {
     );
     let catalog = check_by(
         &Directory::new(&scratch.path),
-        &builtin().unwrap(),
+        &asset_registry(&["scripts/run.sh"]),
         &Limits::PRODUCTION,
     );
-    assert_eq!(catalog.map(|catalog| catalog.resources.len()), Ok(5));
+    assert_eq!(catalog.map(|catalog| catalog.resources.len()), Ok(4));
     assert!(!marker.exists());
 }
 
@@ -77,13 +76,13 @@ fn directory_lists_a_link_as_unsupported() {
     use std::os::unix::fs::symlink;
 
     let scratch = Scratch::new("link");
-    scratch.write("agents/base/valid.agent.md", "text");
+    scratch.write("core/agents/valid.agent.md", "text");
     symlink(
-        scratch.path.join("agents/base/valid.agent.md"),
-        scratch.path.join("agents/base/linked.agent.md"),
+        scratch.path.join("core/agents/valid.agent.md"),
+        scratch.path.join("core/agents/linked.agent.md"),
     )
     .unwrap();
-    let entries = Directory::new(&scratch.path).list("agents/base").unwrap();
+    let entries = Directory::new(&scratch.path).list("core/agents").unwrap();
     assert_eq!(entries[0].name, "linked.agent.md");
     assert_eq!(entries[0].kind, EntryKind::Unsupported);
     assert_eq!(entries[1].kind, EntryKind::File);

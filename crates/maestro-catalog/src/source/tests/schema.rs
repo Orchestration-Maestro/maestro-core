@@ -4,9 +4,9 @@
 use super::support::{INVALID_AGENT, MemoryTree, assert_refused};
 
 /// The valid agent profile's path.
-const AGENT: &str = "agents/base/valid.agent.md";
+const AGENT: &str = "core/agents/valid.agent.md";
 /// The valid agent sidecar's path.
-const SIDECAR: &str = "agents/base/valid.maestro.toml";
+const SIDECAR: &str = "core/agents/valid.maestro.toml";
 /// The valid skill's path.
 const SKILL: &str = "skills/valid-skill/SKILL.md";
 /// The valid preset's path.
@@ -23,12 +23,12 @@ fn duplicate_keys_are_refused_in_yaml_and_toml() {
         (
             "frontmatter",
             edited(AGENT, "name: valid\n", "name: valid\nname: valid\n"),
-            "agents/base/valid.agent.md: invalid frontmatter: duplicate key \"name\"",
+            "core/agents/valid.agent.md: invalid frontmatter: duplicate key \"name\"",
         ),
         (
             "sidecar",
             edited(SIDECAR, "maturity", "owner = \"x\"\nmaturity"),
-            "agents/base/valid.maestro.toml: invalid TOML at line 3, column 1: duplicate key",
+            "core/agents/valid.maestro.toml: invalid TOML at line 3, column 1: duplicate key",
         ),
         (
             "skill metadata",
@@ -49,17 +49,17 @@ fn unknown_keys_and_wrong_types_are_refused() {
         (
             "agent metadata field",
             MemoryTree::valid()
-                .with("agents/base/invalid.agent.md", INVALID_AGENT)
+                .with("core/agents/invalid.agent.md", INVALID_AGENT)
                 .with(
-                    "agents/base/invalid.maestro.toml",
+                    "core/agents/invalid.maestro.toml",
                     &MemoryTree::valid().text(SIDECAR),
                 ),
-            "agents/base/invalid.agent.md: metadata: unknown key",
+            "core/agents/invalid.agent.md: metadata: unknown key",
         ),
         (
             "sidecar key",
             edited(SIDECAR, "maturity", "color = \"red\"\nmaturity"),
-            "agents/base/valid.maestro.toml: color: unknown key",
+            "core/agents/valid.maestro.toml: color: unknown key",
         ),
         (
             "preset key",
@@ -82,7 +82,7 @@ fn unknown_keys_and_wrong_types_are_refused() {
                 "rows = [\"chat.M036 objects\"]",
                 "rows = \"chat.M036 objects\"",
             ),
-            "agents/base/valid.maestro.toml: rows: must be a list of strings",
+            "core/agents/valid.maestro.toml: rows: must be a list of strings",
         ),
         (
             "preset table value",
@@ -97,25 +97,25 @@ fn schema_stage_owner_rows_and_workflows_are_checked() {
     assert_refused(vec![
         (
             "schema version",
-            edited(SIDECAR, "maestro-source/1", "maestro-source/2"),
-            "agents/base/valid.maestro.toml: schema: unsupported schema \"maestro-source/2\"; this \
-                checker reads maestro-source/1",
+            edited(SIDECAR, "maestro-source/2", "maestro-source/3"),
+            "core/agents/valid.maestro.toml: schema: unsupported schema \"maestro-source/3\"; this \
+                checker reads maestro-source/2",
         ),
         (
             "unknown stage",
             edited(SIDECAR, "\"reviewed\"", "\"draft\""),
-            "agents/base/valid.maestro.toml: maturity: unknown maturity \"draft\"",
+            "core/agents/valid.maestro.toml: maturity: unknown maturity \"draft\"",
         ),
         (
             "qualified label",
             edited(SIDECAR, "\"reviewed\"", "\"qualified\""),
-            "agents/base/valid.maestro.toml: maturity: qualified needs S4 evidence; a source \
+            "core/agents/valid.maestro.toml: maturity: qualified needs S4 evidence; a source \
                 cannot declare it",
         ),
         (
             "empty owner",
             edited(SIDECAR, "\"@synthetic/knowledge\"", "\"  \""),
-            "agents/base/valid.maestro.toml: owner: must name an owner",
+            "core/agents/valid.maestro.toml: owner: must name an owner",
         ),
         (
             "missing owner",
@@ -125,12 +125,12 @@ fn schema_stage_owner_rows_and_workflows_are_checked() {
         (
             "no row",
             edited(SIDECAR, "[\"chat.M036 objects\"]", "[]"),
-            "agents/base/valid.maestro.toml: rows: must name at least one architecture 08 row",
+            "core/agents/valid.maestro.toml: rows: must name at least one architecture 08 row",
         ),
         (
             "unknown row",
             edited(SIDECAR, "chat.M036 objects", "chat.M999 nothing"),
-            "agents/base/valid.maestro.toml: rows: unknown architecture 08 row \"chat.M999 \
+            "core/agents/valid.maestro.toml: rows: unknown architecture 08 row \"chat.M999 \
                 nothing\"",
         ),
         (
@@ -140,17 +140,17 @@ fn schema_stage_owner_rows_and_workflows_are_checked() {
                 "[\"chat.M036 objects\"]",
                 "[\"chat.M036 objects\", \"chat.M036 objects\"]",
             ),
-            "agents/base/valid.maestro.toml: rows: lists \"chat.M036 objects\" twice",
+            "core/agents/valid.maestro.toml: rows: lists \"chat.M036 objects\" twice",
         ),
         (
             "unused by any workflow",
             edited(SIDECAR, "[\"ctm-question\"]", "[]"),
-            "agents/base/valid.maestro.toml: workflows: must name at least one workflow it serves",
+            "core/agents/valid.maestro.toml: workflows: must name at least one workflow it serves",
         ),
         (
             "bad workflow name",
             edited(SIDECAR, "\"ctm-question\"", "\"CTM Question\""),
-            "agents/base/valid.maestro.toml: workflows: \"CTM Question\" is not a lower-case \
+            "core/agents/valid.maestro.toml: workflows: \"CTM Question\" is not a lower-case \
                 hyphenated name",
         ),
     ]);
@@ -166,7 +166,7 @@ fn agent_body_needs_the_six_fixed_sections_in_order() {
                 "## Boundaries\n\nSynthetic data only; no other tool.\n",
                 "",
             ),
-            "agents/base/valid.agent.md: body: expected the sections Purpose, Responsibilities, \
+            "core/agents/valid.agent.md: body: expected the sections Purpose, Responsibilities, \
                 Inputs, Working sequence, Outputs, Boundaries in order; found Purpose, \
                 Responsibilities, Inputs, Working sequence, Outputs",
         ),
@@ -178,12 +178,12 @@ fn agent_body_needs_the_six_fixed_sections_in_order() {
         (
             "empty section",
             edited(AGENT, "One question about the synthetic glossary.\n", ""),
-            "agents/base/valid.agent.md: body: section \"Inputs\" is empty",
+            "core/agents/valid.agent.md: body: section \"Inputs\" is empty",
         ),
         (
             "no frontmatter",
             edited(AGENT, "---\nname", "name"),
-            "agents/base/valid.agent.md: no frontmatter between --- lines",
+            "core/agents/valid.agent.md: no frontmatter between --- lines",
         ),
         (
             "empty skill body",

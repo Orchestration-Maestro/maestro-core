@@ -1,7 +1,7 @@
 version = "2"
 
 [metadata]
-schema = "maestro-source/1"
+schema = "maestro-source/2"
 owner = "@synthetic/models"
 maturity = "reviewed"
 rows = ["chat.M036 models"]

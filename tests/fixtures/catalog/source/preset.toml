@@ -1,3 +1,4 @@
+name = "knowledge-client"
 description = "Synthetic knowledge client preset."
 
 [settings]
@@ -6,9 +7,9 @@ tone = "normal"
 routing_candidates = 3
 
 [metadata]
-schema = "maestro-source/1"
+schema = "maestro-source/2"
 owner = "@synthetic/knowledge"
 maturity = "reviewed"
 rows = ["owner.catalog"]
 workflows = ["ctm-question"]
-requires = ["agent:valid", "mcp:maestro"]
+requires = ["agent:core/valid"]

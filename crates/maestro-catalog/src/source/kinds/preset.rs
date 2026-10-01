@@ -12,7 +12,7 @@ pub(super) fn descriptor() -> KindDescriptor {
     KindDescriptor {
         scopes: vec![Scope::Root],
         kind: "preset".to_owned(),
-        version: 2,
+        version: 3,
         directory: "presets".to_owned(),
         layout: Layout::Files {
             suffix: ".toml".to_owned(),

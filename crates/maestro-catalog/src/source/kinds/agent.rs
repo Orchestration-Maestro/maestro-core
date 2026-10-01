@@ -28,7 +28,7 @@ pub(super) fn descriptor() -> KindDescriptor {
     KindDescriptor {
         scopes: vec![Scope::Core, Scope::Team],
         kind: "agent".to_owned(),
-        version: 2,
+        version: 3,
         directory: "agents".to_owned(),
         layout: Layout::Files {
             suffix: ".agent.md".to_owned(),
@@ -67,6 +67,7 @@ pub(super) struct AgentRules;
 fn server(name: &str) -> ResourceId {
     ResourceId {
         kind: "mcp".to_owned(),
+        namespace: None,
         name: name.to_owned(),
     }
 }

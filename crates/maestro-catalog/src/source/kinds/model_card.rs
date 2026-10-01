@@ -12,7 +12,7 @@ pub(super) fn descriptor() -> KindDescriptor {
     KindDescriptor {
         scopes: vec![Scope::Core, Scope::Team],
         kind: "model-card".to_owned(),
-        version: 2,
+        version: 3,
         directory: "llm/models".to_owned(),
         layout: Layout::Files {
             suffix: ".toml".to_owned(),

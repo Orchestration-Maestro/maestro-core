@@ -12,7 +12,7 @@ use serde::Deserialize;
 pub(super) fn descriptor(kind: &str, scopes: Vec<Scope>) -> KindDescriptor {
     KindDescriptor {
         kind: kind.to_owned(),
-        version: 1,
+        version: 2,
         directory: String::new(),
         scopes,
         layout: Layout::Area {

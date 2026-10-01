@@ -8,7 +8,7 @@ use super::{
     registry::glossary,
     support::{MemoryTree, assert_refused_by, check_by},
 };
-use crate::source::kinds::legacy as builtin;
+use crate::source::builtin;
 use crate::{
     limits::Limits,
     source::{Float, KindDescriptor, Registry, ResourceId, Value, builtin_hooks},
@@ -30,7 +30,7 @@ fn with(descriptor: KindDescriptor) -> Registry {
 /// The metadata table of a reviewed synthetic resource.
 const METADATA: &str = concat!(
     "[metadata]\n",
-    "schema = \"maestro-source/1\"\n",
+    "schema = \"maestro-source/2\"\n",
     "owner = \"@synthetic/knowledge\"\n",
     "maturity = \"reviewed\"\n",
     "rows = [\"chat.M036 objects\"]\n",
@@ -53,8 +53,8 @@ fn glossary_catalog() -> MemoryTree {
         )
         .edit(
             "presets/knowledge-client.toml",
-            "\"mcp:maestro\"]",
-            "\"mcp:maestro\", \"glossary:evidence\"]",
+            "\"agent:core/valid\"]",
+            "\"agent:core/valid\", \"glossary:common/evidence\"]",
         )
 }
 
@@ -82,6 +82,7 @@ fn a_glossary_with_a_number_and_a_nested_table_is_one_descriptor() {
         entry.id,
         ResourceId {
             kind: "glossary".to_owned(),
+            namespace: Some("common".to_owned()),
             name: "evidence".to_owned(),
         }
     );
@@ -108,7 +109,7 @@ fn glossary_neighbours_are_refused_by_the_generic_checks() {
         vec![(
             "unregistered",
             tree.clone(),
-            "glossaries: no kind registered for this directory",
+            "glossaries/evidence.toml: not a registered v4 placement",
         )],
     );
     let edit = |from: &str, to: &str| tree.clone().edit(ENTRY, from, to);
@@ -181,7 +182,7 @@ fn glossary_neighbours_are_refused_by_the_generic_checks() {
                 "closure member",
                 edit("\"reviewed\"", "\"authored\""),
                 "presets/knowledge-client.toml: metadata.requires: closure member \
-                    glossary:evidence is authored; a closure admits only reviewed members",
+                    glossary:common/evidence is authored; a closure admits only reviewed members",
             ),
         ],
     );
@@ -192,8 +193,9 @@ fn glossary_neighbours_are_refused_by_the_generic_checks() {
 const MODEL_CARD: &str = r#"{
     "kind": "model-card",
     "version": 2,
-    "directory": "model-cards",
-    "layout": {"files": {"suffix": ".toml", "folders": [""]}},
+    "directory": "llm/models",
+    "scopes": ["core"],
+    "layout": {"files": {"suffix": ".toml", "folders": ["*"]}},
     "format": "toml",
     "metadata": {"table": {"key": "metadata"}},
     "name_field": null,
@@ -247,7 +249,7 @@ struct Identity {
 }
 
 /// The card's path.
-const CARD: &str = "model-cards/answerer.toml";
+const CARD: &str = "core/llm/models/answerer/answerer.toml";
 
 /// The valid catalog with a versioned model card the preset requires.
 fn card_catalog() -> MemoryTree {
@@ -262,8 +264,8 @@ fn card_catalog() -> MemoryTree {
         )
         .edit(
             "presets/knowledge-client.toml",
-            "\"mcp:maestro\"]",
-            "\"mcp:maestro\", \"model-card:answerer\"]",
+            "\"agent:core/valid\"]",
+            "\"agent:core/valid\", \"model-card:core/answerer\"]",
         )
 }
 
@@ -304,27 +306,29 @@ fn model_card_neighbours_are_refused_by_the_generic_checks() {
             (
                 "fraction not finite",
                 edit("0.7", "nan"),
-                "model-cards/answerer.toml: identity.sampling.temperature: must be a finite number",
+                "core/llm/models/answerer/answerer.toml: identity.sampling.temperature: must \
+                be a finite number",
             ),
             (
                 "fraction a string",
                 edit("0.95", "\"high\""),
-                "model-cards/answerer.toml: identity.sampling.top_p: must be a number",
+                "core/llm/models/answerer/answerer.toml: identity.sampling.top_p: must be a number",
             ),
             (
                 "missing sampling field",
                 edit("top_k = 40\n", ""),
-                "model-cards/answerer.toml: identity.sampling.top_k: missing",
+                "core/llm/models/answerer/answerer.toml: identity.sampling.top_k: missing",
             ),
             (
                 "unknown identity key",
                 edit("role =", "colour = \"red\"\nrole ="),
-                "model-cards/answerer.toml: identity.colour: unknown key",
+                "core/llm/models/answerer/answerer.toml: identity.colour: unknown key",
             ),
             (
                 "empty version",
                 edit("version = \"1.0.0\"", "version = \"\""),
-                "model-cards/answerer.toml: metadata.version: must be a nonempty string",
+                "core/llm/models/answerer/answerer.toml: metadata.version: must be a nonempty \
+                string",
             ),
         ],
     );
@@ -345,4 +349,33 @@ fn a_value_that_does_not_fit_the_hook_type_says_why() {
     assert_eq!(Float::new(f64::INFINITY), None);
     assert_eq!(Float::new(-0.0), Float::new(0.0));
     assert_eq!(Float::new(-2.5).map(Float::get), Some(-2.5));
+}
+
+#[test]
+fn scoped_tool_fields_keep_native_names_and_ordered_repeated_arguments() {
+    use crate::source::{Field, FieldType};
+    let mut descriptor = glossary();
+    descriptor.fields.extend([
+        Field::required("tools", FieldType::ToolList),
+        Field::required("args", FieldType::TextSequence),
+    ]);
+    let registry = with(descriptor);
+    let text = format!(
+        "term = \"evidence\"\ntools = [\"knowledge_get\"]\nargs = [\"-v\", \"serve\", \
+        \"-v\"]\n{METADATA}"
+    );
+    let tree = MemoryTree::default().with(ENTRY, &text);
+    let catalog = check_by(&tree, &registry, &Limits::PRODUCTION).unwrap();
+    assert_eq!(
+        catalog.resources[0].fields["args"].texts(),
+        Some(vec!["-v", "serve", "-v"])
+    );
+    assert_refused_by(
+        &registry,
+        vec![(
+            "malformed tool name",
+            tree.edit(ENTRY, "knowledge_get", "Bad Tool"),
+            "glossaries/evidence.toml: tools: \"Bad Tool\" is not a tool name",
+        )],
+    );
 }

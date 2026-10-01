@@ -13,7 +13,7 @@ use serde::Serialize;
 use std::{path::Path, process::ExitCode};
 
 /// The schema of the document `catalog check` prints under `--json`.
-const SCHEMA: &str = "maestro-cli/catalog-check/1";
+const SCHEMA: &str = "maestro-cli/catalog-check/2";
 
 /// What `catalog check` prints under `--json`.
 #[derive(Debug, Serialize)]
@@ -31,7 +31,7 @@ struct CheckDocument<'a> {
 /// One checked resource.
 #[derive(Debug, Serialize)]
 struct ResourceLine<'a> {
-    /// Its `kind:name` ID.
+    /// Its qualified ID.
     id: String,
     /// Its primary file, relative to the catalog.
     path: &'a str,

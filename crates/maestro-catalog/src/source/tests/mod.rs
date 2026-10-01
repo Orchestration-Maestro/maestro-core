@@ -16,6 +16,7 @@ mod layout;
 mod model_card;
 mod placement_boundaries;
 mod placement_guards;
+mod qualified;
 mod references;
 mod registry;
 mod root_boundaries;
