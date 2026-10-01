@@ -18,7 +18,7 @@ async fn embedded(fixture: &Authority) -> EmbeddedDescriptors {
         linking: Digest::of(b"linking"),
         deadline: Duration::from_secs(1),
     };
-    let documents = build(&fixture.read(), &fixture.contexts).unwrap();
+    let documents = build(&fixture.read()).unwrap();
     embedder
         .prepare(&fixture.pin, &documents, None)
         .await
@@ -182,7 +182,7 @@ async fn review_ineligibility_is_encoded_from_the_canonical_bool_before_caps() {
         for record in &mut input.claims {
             record.review = review;
         }
-        let documents = build(&input, &fixture.contexts).unwrap();
+        let documents = build(&input).unwrap();
         let output = embedder
             .prepare(&fixture.pin, &documents, None)
             .await
@@ -347,4 +347,81 @@ async fn readiness_refuses_count_payload_layout_and_receipt_mismatches() {
             "change {change} accepted invalid readiness"
         );
     }
+}
+
+#[tokio::test]
+async fn lookup_refuses_well_typed_canonical_pin_identity_and_receipt_tampering() {
+    let mut fixture = Authority::new();
+    fixture.pin.version = Some("1.0".into());
+    let output = embedded(&fixture).await;
+    let backend = Backend::default();
+    qdrant::rebuild(&backend, &output).await.unwrap();
+    let point = backend
+        .points
+        .lock()
+        .unwrap()
+        .values()
+        .find(|point| point.payload["kind"] == "claim")
+        .unwrap()
+        .clone();
+    let mut returned = Vec::new();
+    for case in ["pin.version", "target", "receipt", "point_id"] {
+        let mut tampered = point.clone();
+        let present = match case {
+            "pin.version" => {
+                let present = tampered.payload.contains_key("pin");
+                tampered.payload.get_mut("pin").unwrap()["version"] = json!("2.0");
+                present
+            }
+            "target" => {
+                let present = tampered.payload.contains_key("target");
+                tampered
+                    .payload
+                    .insert("target".into(), json!(Digest::of(b"other valid target")));
+                present
+            }
+            "point_id" => {
+                tampered.id = "wrong-physical-id".into();
+                true
+            }
+            _ => {
+                let present = tampered.payload.contains_key("receipt");
+                tampered.payload.insert("receipt".into(), json!({}));
+                present
+            }
+        };
+        backend
+            .points
+            .lock()
+            .unwrap()
+            .insert(point.id.clone(), tampered);
+        let result = qdrant::lookup(&backend, output.receipt(), claim_query()).await;
+        eprintln!(
+            "G35_REVIEW {case} (key present before: {present}): {}",
+            if result.is_ok() {
+                "Ok(returned)"
+            } else {
+                "Err(refused)"
+            }
+        );
+        if result.is_ok() {
+            returned.push(case);
+        }
+    }
+    assert!(
+        returned.is_empty(),
+        "tampered canonical fields were returned: {returned:?}"
+    );
+}
+
+#[test]
+fn source_only_rebuild_is_independent_of_unfrozen_context_selection() {
+    let fixture = Authority::new();
+    let first = {
+        let input = fixture.read();
+        serde_json::to_vec(&build(&input).unwrap()).unwrap()
+    };
+    // The read view and built descriptors are gone; Authority has no context map.
+    let second = build(&fixture.read()).unwrap();
+    assert_eq!(first, serde_json::to_vec(&second).unwrap());
 }

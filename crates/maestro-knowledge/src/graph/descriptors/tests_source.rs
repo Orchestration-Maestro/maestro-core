@@ -14,10 +14,7 @@ use maestro_kernel::{
     chunk_set::{Chunk, NewChunkSet},
     document::{Collection, Disposition, Document, Outcome, Revision, RevisionStatus, Source},
     evidence::Span,
-    facts::{
-        Batch, Budget, BuildPlan, ClaimSet, ClaimSetRecord, Endpoint, Mention, ResolutionInput,
-        Support,
-    },
+    facts::{Batch, Budget, BuildPlan, ClaimSet, ClaimSetRecord, ResolutionInput},
     generation::NewGeneration,
     job::{LeaseTiming, NewJob},
     scope::{Right, ScopeSet, WORKSPACE, collection_path},
@@ -45,8 +42,6 @@ pub(super) struct Authority {
     pub(super) pin: DescriptorPin,
     /// Frozen reviewed identity snapshot.
     pub(super) resolution: Digest,
-    /// Pointer-only endpoint selections.
-    pub(super) contexts: BTreeMap<Mention, Support>,
 }
 
 impl Authority {
@@ -59,7 +54,7 @@ impl Authority {
     fn with_chunks(complete: bool, include_revision: bool) -> Self {
         let path = scratch_directory().unwrap();
         let database = Database::open_in(&path).unwrap();
-        let (input, _) = fixture();
+        let input = fixture();
         let source = input.sources.values().next().unwrap();
         populate(&database, source, (complete, include_revision));
         database
@@ -80,27 +75,6 @@ impl Authority {
                 &validate_snapshot,
             )
             .unwrap();
-        let contexts = [
-            (Endpoint::Subject, "Alpha is a command."),
-            (Endpoint::Object, "Beta is a component."),
-        ]
-        .into_iter()
-        .map(|(endpoint, text)| {
-            let support = set.claims[0]
-                .claim
-                .supports
-                .iter()
-                .find(|support| support.quote_digest == Digest::of(text.as_bytes()))
-                .unwrap();
-            (
-                Mention {
-                    claim: set.claims[0].id.clone(),
-                    endpoint,
-                },
-                support.clone(),
-            )
-        })
-        .collect();
         Self {
             path,
             database,
@@ -111,7 +85,6 @@ impl Authority {
                 version: None,
             },
             resolution: snapshot.id,
-            contexts,
         }
     }
 
@@ -397,7 +370,7 @@ fn reader_refuses_failed_incomplete_misbound_or_ineligible_sources() {
 #[test]
 fn reader_uses_real_attached_authority_and_original_artifacts() {
     let fixture = Authority::new();
-    let descriptors = build(&fixture.read(), &fixture.contexts).unwrap();
+    let descriptors = build(&fixture.read()).unwrap();
     assert_eq!(descriptors.len(), 3);
     assert!(
         descriptors

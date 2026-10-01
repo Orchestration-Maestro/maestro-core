@@ -32,12 +32,15 @@ pub struct DescriptorInput {
 
 /// Compose entity and claim documents without accepting prose from a caller.
 ///
+/// Context candidates are full verified claim supports, never caller subspans.
+/// Select the first defining support in lexicographic order of
+/// `(revision_id, block_id, span.start, span.end, quote_digest)`.
+/// Defining text must contain the exact endpoint name at word boundaries and
+/// more than the name after trimming; no case folding or expansion is applied.
+///
 /// # Errors
 /// Refuses unsourced endpoint context or inconsistent frozen inputs.
-pub fn build(
-    input: &DescriptorInput,
-    contexts: &BTreeMap<Mention, Support>,
-) -> Result<Vec<Descriptor>, DescriptorError> {
+pub fn build(input: &DescriptorInput) -> Result<Vec<Descriptor>, DescriptorError> {
     let entities =
         resolve_snapshot(&input.snapshot).map_err(|_| refused("invalid identity snapshot"))?;
     let mut documents = BTreeMap::new();
@@ -54,10 +57,7 @@ pub fn build(
                 claim: record.id.clone(),
                 endpoint,
             };
-            let support = contexts
-                .get(&mention)
-                .ok_or_else(|| refused("missing endpoint context"))?;
-            let text = context(input, record, support, name)?;
+            let (support, text) = select_context(input, record, name)?;
             let target = entities
                 .iter()
                 .find(|entity| entity.mentions.contains(&mention))
@@ -98,21 +98,36 @@ pub fn build(
     Ok(documents.into_values().collect())
 }
 
-/// Locate a context only inside the original verified support, never across gaps.
+/// Select only full frozen supports, independent of claim support ordering.
+fn select_context<'a>(
+    input: &DescriptorInput,
+    record: &'a ClaimRecord,
+    name: &EntityName,
+) -> Result<(&'a Support, String), DescriptorError> {
+    let mut supports: Vec<_> = record.claim.supports.iter().collect();
+    supports.sort_by_key(|support| {
+        (
+            &support.revision_id,
+            &support.block_id,
+            support.span.start,
+            support.span.end,
+            &support.quote_digest,
+        )
+    });
+    for support in supports {
+        if let Some(text) = context(input, support, name)? {
+            return Ok((support, text));
+        }
+    }
+    Err(refused("missing endpoint context"))
+}
+
+/// Verify original support bytes before considering them as defining context.
 fn context(
     input: &DescriptorInput,
-    record: &ClaimRecord,
     support: &Support,
     name: &EntityName,
-) -> Result<String, DescriptorError> {
-    if !record.claim.supports.iter().any(|outer| {
-        outer.revision_id == support.revision_id
-            && outer.block_id == support.block_id
-            && outer.span.start <= support.span.start
-            && support.span.end <= outer.span.end
-    }) {
-        return Err(refused("context is outside frozen supports"));
-    }
+) -> Result<Option<String>, DescriptorError> {
     let source = input
         .sources
         .get(&support.revision_id)
@@ -140,10 +155,27 @@ fn context(
     if Digest::of(text.as_bytes()) != support.quote_digest {
         return Err(refused("unverified defining text"));
     }
-    if !text.contains(&name.name) {
-        return Err(refused("context does not name its endpoint"));
+    if text.trim() == name.name || !contains_name(text, &name.name) {
+        return Ok(None);
     }
-    Ok(format!("{}\n{}\n{text}", name.name, name.kind.as_str()))
+    Ok(Some(format!(
+        "{}\n{}\n{text}",
+        name.name,
+        name.kind.as_str()
+    )))
+}
+
+/// Exact Unicode word boundaries include letters, numbers and underscore.
+fn contains_name(text: &str, name: &str) -> bool {
+    let word = |character: char| character.is_alphanumeric() || character == '_';
+    !name.is_empty()
+        && text.match_indices(name).any(|(start, matched)| {
+            !text[..start].chars().next_back().is_some_and(word)
+                && !text[start + matched.len()..]
+                    .chars()
+                    .next()
+                    .is_some_and(word)
+        })
 }
 
 /// Qualifier representation preserves unknown and half-open source bounds.

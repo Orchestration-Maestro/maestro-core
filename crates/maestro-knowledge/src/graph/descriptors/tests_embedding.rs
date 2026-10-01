@@ -88,8 +88,8 @@ pub(super) fn card() -> ModelCard {
 
 #[tokio::test]
 async fn compatible_arms_reuse_checked_vectors_without_an_embedding_call() {
-    let (input, contexts) = fixture();
-    let documents = build(&input, &contexts).unwrap();
+    let input = fixture();
+    let documents = build(&input).unwrap();
     let card = card();
     let models = CountingModels::default();
     let embedder = DescriptorEmbedder {
@@ -131,8 +131,8 @@ async fn compatible_arms_reuse_checked_vectors_without_an_embedding_call() {
 
 #[tokio::test]
 async fn changed_builder_embedding_preprocessing_linking_content_or_pin_refuses_reuse() {
-    let (input, contexts) = fixture();
-    let documents = build(&input, &contexts).unwrap();
+    let input = fixture();
+    let documents = build(&input).unwrap();
     let card = card();
     let embedder = DescriptorEmbedder {
         models: &FakeModels,
@@ -176,8 +176,8 @@ async fn changed_builder_embedding_preprocessing_linking_content_or_pin_refuses_
 
 #[tokio::test]
 async fn descriptor_composition_is_model_free_but_mixed_embedding_pins_are_refused() {
-    let (input, contexts) = fixture();
-    let mut documents = build(&input, &contexts).unwrap();
+    let input = fixture();
+    let mut documents = build(&input).unwrap();
     assert_eq!(documents.len(), 3);
     documents[0].pin.generation_id += 1;
     let card = card();
@@ -198,8 +198,8 @@ async fn descriptor_composition_is_model_free_but_mixed_embedding_pins_are_refus
 
 #[tokio::test]
 async fn non_embedding_card_cannot_reuse_descriptor_readiness() {
-    let (input, contexts) = fixture();
-    let documents = build(&input, &contexts).unwrap();
+    let input = fixture();
+    let documents = build(&input).unwrap();
     let valid_card = card();
     let mut cached = DescriptorEmbedder {
         models: &FakeModels,
@@ -238,4 +238,57 @@ async fn non_embedding_card_cannot_reuse_descriptor_readiness() {
             .is_err()
     );
     assert_eq!(models.calls.load(Ordering::Relaxed), 0);
+}
+
+#[tokio::test]
+async fn fresh_descriptor_with_stale_content_id_is_refused() {
+    let input = fixture();
+    let mut documents = build(&input).unwrap();
+    documents[0].text.push_str("different source text");
+    let card = card();
+    let models = CountingModels::default();
+    let embedder = DescriptorEmbedder {
+        models: &models,
+        card: &card,
+        linking: Digest::of(b"linking"),
+        deadline: Duration::from_secs(1),
+    };
+    assert!(
+        embedder
+            .prepare(&input.pin, &documents, None)
+            .await
+            .is_err()
+    );
+    assert_eq!(models.calls.load(Ordering::Relaxed), 0);
+}
+
+#[tokio::test]
+async fn embedding_receipt_is_independent_of_descriptor_input_order() {
+    let input = fixture();
+    let documents = build(&input).unwrap();
+    let card = card();
+    let models = CountingModels::default();
+    let embedder = DescriptorEmbedder {
+        models: &models,
+        card: &card,
+        linking: Digest::of(b"linking"),
+        deadline: Duration::from_secs(1),
+    };
+    let canonical = embedder
+        .prepare(&input.pin, &documents, None)
+        .await
+        .unwrap();
+    let reversed: Vec<_> = documents.into_iter().rev().collect();
+    let fresh = embedder.prepare(&input.pin, &reversed, None).await.unwrap();
+    assert_eq!(fresh.receipt(), canonical.receipt());
+    assert_eq!(fresh.descriptors(), canonical.descriptors());
+    assert_eq!(fresh.vectors, canonical.vectors);
+    let reused = embedder
+        .prepare(&input.pin, &reversed, Some(&canonical))
+        .await
+        .unwrap();
+    assert_eq!(reused.receipt(), canonical.receipt());
+    assert_eq!(reused.descriptors(), canonical.descriptors());
+    assert_eq!(reused.vectors, canonical.vectors);
+    assert_eq!(models.calls.load(Ordering::Relaxed), 2);
 }

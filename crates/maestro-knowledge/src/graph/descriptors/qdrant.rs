@@ -224,6 +224,13 @@ pub(super) async fn lookup<P: RetrievalProjectionPort>(
     for hit in &hits {
         let document: Descriptor = serde_json::from_value(json!(hit.payload))
             .map_err(|_| refused("invalid descriptor canonical payload"))?;
+        if document.pin != receipt.pin
+            || document.id != document.identity()
+            || hit.id != point_id(&format!("descriptor:{}", document.id.as_str()))
+            || hit.payload.get("receipt") != Some(&json!(receipt))
+        {
+            return Err(refused("descriptor canonical identity or receipt mismatch"));
+        }
         // The keyword is only a transport encoding, never an eligibility authority.
         if hit.payload.get("eligibility") != Some(&json!(document.eligible.to_string())) {
             return Err(refused("descriptor eligibility encoding mismatch"));
