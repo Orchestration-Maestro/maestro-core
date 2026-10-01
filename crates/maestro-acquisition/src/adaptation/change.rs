@@ -186,11 +186,11 @@ fn selection<'a>(
 
 /// Caller-resolved precedence may retain a source override or use the selection.
 /// It cannot smuggle an unrelated value through a collection-wide edit.
-fn set_processing<T: PartialEq + Clone>(
+fn set_processing(
     expected: &mut EffectiveConfiguration,
     candidate: &EffectiveConfiguration,
-    selection: &T,
-    leaf: fn(&mut Processing) -> &mut T,
+    selection: &Ref,
+    leaf: fn(&mut Processing) -> &mut Ref,
 ) -> Result<(), WriteError> {
     for (source_id, (_, _, effective)) in &mut expected.sources {
         let mut resolved = candidate

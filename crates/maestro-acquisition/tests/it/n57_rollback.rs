@@ -6,7 +6,9 @@ use super::{
 };
 use maestro_acquisition::{
     Ref,
-    adaptation::{Activation, AtomicCommit, ConfigurationWriter, LocalWriter, Proposal, storage},
+    adaptation::{
+        Activation, AtomicCommit, Change, ConfigurationWriter, LocalWriter, Proposal, storage,
+    },
 };
 use maestro_kernel::{acquisition::Receipts, artifact::Digest};
 #[test]
@@ -38,6 +40,35 @@ fn n57_prior_snapshot_rollback() {
     let mut next = fixture.proposal.clone();
     next.expected_active = active.clone();
     next.rollback = active.clone();
+    let reader = support::reader(
+        &fixture.db,
+        &fixture.collection,
+        &fixture.catalog,
+        &principal,
+    );
+    let mut snapshot = reader.candidate(&fixture.proposal).unwrap().1.snapshot;
+    snapshot.resource.id = "second-candidate".into();
+    let keys = snapshot.effective.sources["second"].2.dedup.clone();
+    snapshot.effective.selected.2 = Some(keys.clone());
+    for (_, _, processing) in snapshot.effective.sources.values_mut() {
+        processing.dedup = keys.clone();
+    }
+    let pin = support::retain_snapshot(
+        &fixture.db,
+        &fixture.collection,
+        &fixture.catalog,
+        &snapshot,
+    );
+    assert_ne!(
+        pin.digest, fixture.proposal.candidate,
+        "prior and current snapshot differ"
+    );
+    next.candidate = pin.digest;
+    next.evidence = vec![
+        *fixture.proposal.evidence.first().unwrap(),
+        pin.id.parse().unwrap(),
+    ];
+    next.changes = vec![Change::SetDedupKeys { keys }];
     let proposal = writer
         .propose(&fixture.manifest.baseline, &active, &next)
         .unwrap();

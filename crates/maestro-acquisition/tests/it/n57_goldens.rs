@@ -131,3 +131,47 @@ fn n57_profile_change_and_rollback_bind_typed_snapshot_vectors() {
     );
     assert_eq!(rollback.candidate, proposal.candidate);
 }
+
+#[test]
+fn n57_review_owning_schemas_expose_declared_string_bounds() {
+    let cleanup = serde_json::to_value(schemars::schema_for!(CleanupRules)).unwrap();
+    let chunk = serde_json::to_value(schemars::schema_for!(S1ChunkStrategy)).unwrap();
+    println!("R3 CleanupRule={}", cleanup["$defs"]["CleanupRule"]);
+    println!(
+        "R3 chunker_version={} preparation_profile={}",
+        chunk["properties"]["chunker_version"], chunk["properties"]["preparation_profile"]
+    );
+    for field in ["id", "reason_code"] {
+        let schema = &cleanup["$defs"]["CleanupRule"]["properties"][field];
+        assert_eq!(schema["maxLength"].as_u64(), Some(128), "Id bound: {field}");
+        assert_eq!(
+            schema["pattern"].as_str(),
+            Some("^[A-Za-z0-9][A-Za-z0-9_.-]*$"),
+            "Id grammar: {field}"
+        );
+    }
+    for field in ["chunker_version", "preparation_profile"] {
+        assert_eq!(
+            chunk["properties"][field]["maxLength"].as_u64(),
+            Some(4096),
+            "Text bound: {field}"
+        );
+    }
+}
+
+#[test]
+fn n57_owning_schema_goldens() {
+    for (schema, golden) in [
+        (
+            serde_json::to_value(schemars::schema_for!(CleanupRules)).unwrap(),
+            include_str!("../fixtures/adaptation/cleanup-schema.json"),
+        ),
+        (
+            serde_json::to_value(schemars::schema_for!(S1ChunkStrategy)).unwrap(),
+            include_str!("../fixtures/adaptation/chunk-schema.json"),
+        ),
+    ] {
+        let expected: serde_json::Value = serde_json::from_str(golden).unwrap();
+        assert_eq!(schema, expected);
+    }
+}

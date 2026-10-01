@@ -6,7 +6,7 @@ use crate::{
 };
 use maestro_canonicalization::ChunkProfile;
 use maestro_kernel::gateway::{Limits, ModelCard, Role, card_v2::Observation};
-use maestro_knowledge::strict_json::{name, object, objects};
+use maestro_knowledge::strict_json::{name, names, object, objects};
 use schemars::JsonSchema;
 use serde::{Deserialize, Deserializer, Serialize, de};
 use std::{collections::BTreeSet, num::NonZeroU64};
@@ -45,6 +45,7 @@ pub enum CleanupAction {
 pub struct CleanupRule {
     /// Unique rule identity.
     #[serde(deserialize_with = "shape::id")]
+    #[schemars(length(max = 128), regex(pattern = "^[A-Za-z0-9][A-Za-z0-9_.-]*$"))]
     pub id: String,
     /// The existing observation AST, not a new selector language.
     #[serde(deserialize_with = "object")]
@@ -54,6 +55,7 @@ pub struct CleanupRule {
     pub action: CleanupAction,
     /// Auditable reason identity.
     #[serde(deserialize_with = "shape::id")]
+    #[schemars(length(max = 128), regex(pattern = "^[A-Za-z0-9][A-Za-z0-9_.-]*$"))]
     pub reason_code: String,
 }
 /// Ordered whole cleanup set. An empty set explicitly does no cleanup.
@@ -93,9 +95,11 @@ pub struct S1ChunkStrategy {
     pub resource: Resource<ChunkSchema>,
     /// Existing S1 chunker version.
     #[serde(deserialize_with = "bounded_text")]
+    #[schemars(length(max = 4096))]
     pub chunker_version: String,
     /// Exact corresponding preparation profile.
     #[serde(deserialize_with = "bounded_text")]
+    #[schemars(length(max = 4096))]
     pub preparation_profile: String,
     /// Supported target packing budget.
     pub target_tokens: NonZeroU64,
@@ -205,7 +209,7 @@ impl DedupKeys {
 
 /// Bound key inventories before capability checks.
 fn keys<'de, D: Deserializer<'de>>(decoder: D) -> Result<Vec<DedupKey>, D::Error> {
-    let values = Vec::<DedupKey>::deserialize(decoder)?;
+    let values = names(decoder)?;
     if values.len() > 1000 {
         return Err(de::Error::custom("dedup key limit"));
     }

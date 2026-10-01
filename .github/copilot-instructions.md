@@ -372,7 +372,9 @@ in place.
 │   │   ├── tests/                                                                       # Integration tests
 │   │   │   ├── fixtures/                                                                # Test fixtures
 │   │   │   │   ├── adaptation/                                                          # Adaptation
+│   │   │   │   │   ├── chunk-schema.json                                                # Existing S1 packing/preparation and its exact qualified model contract
 │   │   │   │   │   ├── chunk.json                                                       # JSON data: chunk
+│   │   │   │   │   ├── cleanup-schema.json                                              # Ordered whole cleanup set
 │   │   │   │   │   ├── cleanup.json                                                     # JSON data: cleanup
 │   │   │   │   │   ├── dedup.json                                                       # JSON data: dedup
 │   │   │   │   │   ├── model-v2.json                                                    # JSON data: model v2

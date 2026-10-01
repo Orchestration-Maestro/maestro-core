@@ -163,6 +163,9 @@ impl SnapshotReader<'_> {
         for evidence in &entry.evidence {
             self.external(evidence)?;
         }
+        if let Some(reversal) = &entry.reversal {
+            self.external(reversal)?;
+        }
         Ok(())
     }
     /// Digest-check evidence bytes without inventing an evidence wire schema.

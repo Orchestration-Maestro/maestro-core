@@ -81,3 +81,19 @@ fn n57_exact_source_and_profile_inventories_are_required() {
         assert!(!check(&fixture, &snapshot), "{fault}");
     }
 }
+
+#[test]
+fn n57_review_dedup_keys_are_strings_not_unit_variant_objects() {
+    let mut value: Value =
+        serde_json::from_slice(include_bytes!("../fixtures/adaptation/dedup.json")).unwrap();
+    let original = parse_resource::<DedupKeys>(&serde_json::to_vec(&value).unwrap()).unwrap();
+    assert!(original.validate().is_ok());
+    value["exact"][0] = json!({"original_digest":null});
+    let decoded = parse_resource::<DedupKeys>(&serde_json::to_vec(&value).unwrap());
+    println!(
+        "R2 object_alias_parses={} executable_tuple={}",
+        decoded.is_ok(),
+        decoded.as_ref().is_ok_and(|value| value.validate().is_ok())
+    );
+    assert!(decoded.is_err(), "dedup key must be a snake-case string");
+}
