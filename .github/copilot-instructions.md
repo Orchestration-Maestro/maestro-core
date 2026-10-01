@@ -352,6 +352,7 @@ in place.
 │   │   │       ├── n10_review_regressions.rs                                            # RFC 9309 regression assertions from the independent N10 review probes
 │   │   │       ├── n11_account_aggregate_resources_and_interactive_priority.rs          # Synthetic N11 accounting contracts; no processes, live grants or GPU jobs
 │   │   │       ├── n11_resource_edges.rs                                                # N11 concurrent admission, overflow and resume edge contracts
+│   │   │       ├── n11_review_regressions.rs                                            # N11 review regressions for composed ceilings and retained allocation ownership
 │   │   │       ├── n11_support.rs                                                       # Shared synthetic explicit N11 host/settings fixtures
 │   │   │       └── support.rs                                                           # Complete independently authored synthetic policy fixtures
 │   │   ├── Cargo.toml                                                                   # Crate manifest: Strict source policies and immutable baseline resolution for native acquisition

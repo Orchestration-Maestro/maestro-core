@@ -211,12 +211,11 @@ fn update(
     bounds: &[Limits],
     usage: Usage,
 ) -> Result<(), Pending> {
-    let snapshot = controls.snapshot()?;
     let mut limits = compose(bounds)?;
-    tighten(
-        &mut limits,
-        &state.runs.get(&id).ok_or(Pending::Accounting)?.limits,
-    );
+    let run = state.runs.get_mut(&id).ok_or(Pending::Accounting)?;
+    tighten(&mut run.limits, &limits);
+    limits = run.limits.clone();
+    let snapshot = controls.snapshot()?;
     effective(state, &snapshot, &mut limits);
     state.runs.get_mut(&id).ok_or(Pending::Accounting)?.limits = limits.clone();
     check(state, &snapshot, &limits, usage, Some(id))?;
@@ -240,7 +239,9 @@ fn check(
     let mut combined = usage;
     let mut disk_reserve = limits.free_reserve_bytes.get();
     let mut gpu_reserve = limits.gpu_reserve_bytes.get();
+    let mut run_ceiling = limits.source_runs.get();
     for (&id, run) in &state.runs {
+        run_ceiling = run_ceiling.min(run.limits.source_runs.get());
         if Some(id) != replacing {
             combined = add(combined, run.usage)?;
             disk_reserve = disk_reserve.max(run.limits.free_reserve_bytes.get());
@@ -252,7 +253,7 @@ fn check(
     let count = count
         .checked_add(u64::from(replacing.is_none()))
         .ok_or(Pending::Accounting)?;
-    if count > aggregate.source_runs.get() {
+    if count > run_ceiling {
         return Err(Pending::Runs);
     }
     if snapshot.free_disk_bytes < disk_reserve
@@ -260,10 +261,7 @@ fn check(
     {
         return Err(Pending::DiskReserve);
     }
-    let gpu_headroom = snapshot
-        .free_gpu_bytes
-        .saturating_sub(gpu_reserve)
-        .min(aggregate.gpu_bytes);
+    let gpu_headroom = snapshot.free_gpu_bytes.saturating_sub(gpu_reserve);
     if combined.gpu_bytes > gpu_headroom || (combined.gpu_batches > 0 && gpu_headroom == 0) {
         return Err(Pending::Gpu);
     }
