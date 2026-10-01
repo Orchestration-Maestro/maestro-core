@@ -100,6 +100,46 @@ pub struct ResourceId {
     pub name: String,
 }
 
+/// Whether `name` is lower-case ASCII letters and digits in hyphen-separated
+/// words, at most 64 characters.
+pub(super) fn is_name(name: &str) -> bool {
+    name.len() <= 64
+        && name.split('-').all(|word| {
+            !word.is_empty()
+                && word
+                    .bytes()
+                    .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit())
+        })
+}
+
+impl ResourceId {
+    /// Qualified resources and the four root families, never legacy aliases.
+    pub(crate) fn parse(text: &str) -> Option<ResourceId> {
+        let (kind, tail) = text.split_once(':')?;
+        if !is_name(kind) || kind == "capability" {
+            return None;
+        }
+        let root = matches!(kind, "package" | "language" | "standard" | "preset");
+        let (namespace, name) = if root {
+            (None, tail)
+        } else {
+            let (namespace, name) = tail.split_once('/')?;
+            if !is_name(namespace) {
+                return None;
+            }
+            (Some(namespace.to_owned()), name)
+        };
+        if !is_name(name) {
+            return None;
+        }
+        Some(Self {
+            kind: kind.to_owned(),
+            namespace,
+            name: name.to_owned(),
+        })
+    }
+}
+
 impl fmt::Display for ResourceId {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(namespace) = &self.namespace {

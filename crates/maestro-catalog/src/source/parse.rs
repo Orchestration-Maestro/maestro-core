@@ -17,17 +17,7 @@ use toml::de::Error as TomlError;
 /// A document's top level: its keys and values.
 pub(super) type Table = BTreeMap<String, Value>;
 
-/// Whether `name` is lower-case ASCII letters and digits in hyphen-separated
-/// words, at most 64 characters.
-pub(super) fn is_name(name: &str) -> bool {
-    name.len() <= 64
-        && name.split('-').all(|word| {
-            !word.is_empty()
-                && word
-                    .bytes()
-                    .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit())
-        })
-}
+pub(super) use super::types::is_name;
 
 /// Whether `name` is a tool name: lower-case ASCII letters, digits, `_` and
 /// `-`, nonempty.

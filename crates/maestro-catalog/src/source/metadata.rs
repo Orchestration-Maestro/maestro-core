@@ -251,26 +251,5 @@ fn references(requires: &[&str], key: &str, problems: &mut Problems) -> Vec<Reso
 
 /// Qualified resources and the four root identity families; no legacy aliases.
 fn reference(text: &str) -> Option<ResourceId> {
-    let (kind, tail) = text.split_once(':')?;
-    if !is_name(kind) || kind == "capability" {
-        return None;
-    }
-    let root = matches!(kind, "package" | "language" | "standard" | "preset");
-    let (namespace, name) = if root {
-        (None, tail)
-    } else {
-        let (namespace, name) = tail.split_once('/')?;
-        if !is_name(namespace) {
-            return None;
-        }
-        (Some(namespace.to_owned()), name)
-    };
-    if !is_name(name) {
-        return None;
-    }
-    Some(ResourceId {
-        kind: kind.to_owned(),
-        namespace,
-        name: name.to_owned(),
-    })
+    ResourceId::parse(text)
 }

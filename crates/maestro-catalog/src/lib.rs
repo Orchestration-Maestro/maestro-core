@@ -6,6 +6,7 @@ pub mod adapters;
 /// Digest-bound, recoverable writes and removal for catalog-owned files.
 pub mod bootstrap;
 pub mod files;
+mod graph;
 pub mod limits;
 mod model_cards;
 /// Effect-free policy checks behind a replaceable evaluator and host-facts port.

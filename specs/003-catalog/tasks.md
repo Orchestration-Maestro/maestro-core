@@ -1124,7 +1124,7 @@ pass, denied/error neighbours deny, and model text cannot supply trusted facts.
 `tests/fixtures/catalog/graphs/{topology-valid.md,topology-invalid.md}`.
 **Requirements:** FR-S3-003, FR-S3-019, FR-S3-042, SC-S3-005.
 
-- [ ] **Step 1: Red.** Cover missing/ineligible references, unreachable nodes,
+- [x] **Step 1: Red.** Cover missing/ineligible references, unreachable nodes,
   paths without terminals, unbounded cycles/maps/subgraph depth and impossible
   reviewer independence, including a mandatory reviewer omitted from closure.
   Reviewed-evidence members compile; placeholder/authored/retired members refuse,
@@ -1136,10 +1136,10 @@ pass, denied/error neighbours deny, and model text cannot supply trusted facts.
   replace an agent/skill ID with its basename or a source path, or remove its
   declared requirement. Each independent mutation must refuse with the source
   and offending reference, not fall back to a same-named resource.
-- [ ] **Step 2: Green.** Build exact dependency closures and topology checks
+- [x] **Step 2: Green.** Build exact dependency closures and topology checks
   for rules 1, 2, 3, 6 and 9 of architecture 03 §2.3. Reject unknown constructs;
   do not build a scheduler, engine or general plugin graph framework.
-- [ ] **Step 3: Check.** Run
+- [x] **Step 3: Check.** Run
   `~/.local/bin/capped cargo nextest run -p maestro-catalog graph::tests::topology`.
 
 **Acceptance:** each covered rule has a valid/invalid pair; bounded repair

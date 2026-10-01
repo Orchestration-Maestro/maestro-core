@@ -490,6 +490,15 @@ in place.
 │   │   │   │   ├── plan.rs                                                  # Preview immutable file bytes, validate relative names, and bind content digests
 │   │   │   │   ├── recovery.rs                                              # Read and validate write-ahead journals through the shared held-handle filesystem
 │   │   │   │   └── remove.rs                                                # Remove only committed, digest-matching owned file names
+│   │   │   ├── graph/                                                       # Internal graph checks, not source admission, routing or execution
+│   │   │   │   ├── tests/                                                   # Topology compilation's synthetic checked inputs and refusal neighbours
+│   │   │   │   │   ├── mod.rs                                               # Topology compilation's synthetic checked inputs and refusal neighbours
+│   │   │   │   │   ├── references.rs                                        # Exact reference closure, lifecycle evidence and typed identity vectors
+│   │   │   │   │   ├── support.rs                                           # Synthetic checked topology inputs and explicit review admission, tests only
+│   │   │   │   │   └── topology.rs                                          # Each topology guard has a passing neighbour and an assertion-based refusal
+│   │   │   │   ├── mod.rs                                                   # Internal graph checks, not source admission, routing or execution
+│   │   │   │   ├── topology.rs                                              # Static rules 1, 2, 3, 6 and 9
+│   │   │   │   └── types.rs                                                 # Normalized topology inputs
 │   │   │   ├── limits/                                                      # The one immutable set of numeric limits every catalog input path shares
 │   │   │   │   ├── mod.rs                                                   # The one immutable set of numeric limits every catalog input path shares
 │   │   │   │   ├── tests.rs                                                 # Plan D2's production constants, asserted once here; every boundary test
@@ -1534,6 +1543,9 @@ in place.
 │       │   │   │       └── recipes.json                                     # JSON data: recipes
 │       │   │   ├── knowledge-client.toml                                    # TOML settings: knowledge client
 │       │   │   └── rust-service.toml                                        # TOML settings: rust service
+│       │   ├── graphs/                                                      # Graphs
+│       │   │   ├── topology-invalid.md                                      # Sample document: Synthetic missing-reviewer refusal
+│       │   │   └── topology-valid.md                                        # Sample document: Synthetic topology neighbour
 │       │   ├── hosts/                                                       # Hosts
 │       │   │   ├── metadata.agent.md                                        # Synthetic agent for the catalog host format probe
 │       │   │   ├── pi.md                                                    # Synthetic agent for the catalog host format probe
