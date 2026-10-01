@@ -530,6 +530,7 @@ in place.
 │   │   │   │   │   └── skill.rs                                             # skill: an Agent Skills SKILL.md, whose Maestro data sits in the
 │   │   │   │   ├── tests/                                                   # The source checker's tests: the valid synthetic catalog and each of its
 │   │   │   │   │   ├── accepted.rs                                          # The valid catalog passes, and its typed resources hold exactly what the
+│   │   │   │   │   ├── area_ownership.rs                                    # Ownership admission for data-only Area registrations without a package hook
 │   │   │   │   │   ├── area_packages.rs                                     # C31 scoped builtin placement and kernel-role neighbours
 │   │   │   │   │   ├── area_regressions.rs                                  # Regression neighbours for area-scoped descriptors and shared package rules
 │   │   │   │   │   ├── area_support.rs                                      # Data-only v4 fixtures; builtin migration belongs to C31/C32

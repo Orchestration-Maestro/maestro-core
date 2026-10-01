@@ -3,6 +3,7 @@
 //! and the filesystem adapter.
 
 mod accepted;
+mod area_ownership;
 mod area_packages;
 mod area_regressions;
 mod area_support;

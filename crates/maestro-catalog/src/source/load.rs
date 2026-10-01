@@ -188,8 +188,9 @@ pub(super) fn load(
     }
     if let Some(resource) = &resource {
         local(resource, descriptor, &mut primary);
-        locate(resource, descriptor, &mut beside);
     }
+    locate(&unit.path, descriptor, &mut primary);
+    locate(&unit.path, descriptor, &mut beside);
     let metadata_path = unit.sidecar.clone().unwrap_or_else(|| unit.path.clone());
     let mut diagnostics: Vec<Diagnostic> = located(&unit.path, primary).collect();
     diagnostics.extend(located(&metadata_path, beside));

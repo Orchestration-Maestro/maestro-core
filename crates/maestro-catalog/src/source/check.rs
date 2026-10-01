@@ -119,7 +119,7 @@ fn across(loaded: &[Loaded], registry: &Registry) -> Vec<Diagnostic> {
         let Some(registration) = registry.kind(&resource.id.kind) else {
             continue;
         };
-        let path = area_path(resource, &registration.descriptor);
+        let path = area_path(&resource.path, &registration.descriptor);
         if !area_paths.contains(path.as_str()) {
             diagnostics.push(Diagnostic::new(
                 &resource.path,

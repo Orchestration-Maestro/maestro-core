@@ -394,3 +394,79 @@ fn review_paths_are_literal_and_catalog_relative() {
             .is_ok()
     );
 }
+
+#[test]
+fn last_match_reprotection_accepts() {
+    let catalog = check_under(&MemoryTree::valid(), &Limits::PRODUCTION).unwrap();
+    let area = catalog
+        .resources
+        .iter()
+        .find(|resource| resource.id.to_string() == "package:core")
+        .unwrap();
+    let ownership = catalog.ownership(area).unwrap();
+    let protected = [ReviewPath::Tree("exceptions".to_owned())];
+    let mut rules = ownership.review_rules(&protected);
+    assert!(ownership.check_review_rules(&rules, &protected).is_ok());
+    let file = "exceptions/standard.toml";
+    rules.push(ReviewRule {
+        path: ReviewPath::Exact(file.to_owned()),
+        role: ReviewRole::Content,
+    });
+    assert!(ownership.check_review_rules(&rules, &protected).is_err());
+    rules.push(ReviewRule {
+        path: ReviewPath::Exact(file.to_owned()),
+        role: ReviewRole::OwnersOnly,
+    });
+    assert_eq!(
+        rules
+            .iter()
+            .rev()
+            .find(|rule| rule.path.covers(file))
+            .unwrap()
+            .role,
+        ReviewRole::OwnersOnly
+    );
+    let checked = ownership.check_review_rules(&rules, &protected);
+    assert!(
+        checked.is_ok(),
+        "final owner-only rule restores all protected paths: {checked:?}"
+    );
+    rules.push(ReviewRule {
+        path: ReviewPath::Tree("exceptions/nested".to_owned()),
+        role: ReviewRole::Content,
+    });
+    rules.push(ReviewRule {
+        path: ReviewPath::Exact("exceptions/nested/one.toml".to_owned()),
+        role: ReviewRole::OwnersOnly,
+    });
+    assert!(
+        ownership.check_review_rules(&rules, &protected).is_err(),
+        "one repaired file cannot protect a whole tree"
+    );
+    rules.push(ReviewRule {
+        path: ReviewPath::Tree("exceptions/nested".to_owned()),
+        role: ReviewRole::OwnersOnly,
+    });
+    assert!(ownership.check_review_rules(&rules, &protected).is_ok());
+}
+
+#[test]
+fn legacy_owner_missing_maturity_points_to_area() {
+    let tree = MemoryTree::valid();
+    assert!(check_under(&tree, &Limits::PRODUCTION).is_ok());
+    let path = "core/agents/valid.maestro.toml";
+    let tree = tree.edit(path, "maturity = \"reviewed\"", "owner = \"reader\"");
+    let refusal = check_under(&tree, &Limits::PRODUCTION).unwrap_err();
+    let diagnostic = refusal
+        .diagnostics
+        .iter()
+        .find(|diagnostic| diagnostic.path == path && diagnostic.key == "owner")
+        .unwrap();
+    assert!(diagnostic.message.contains("unknown key"));
+    assert!(
+        diagnostic
+            .message
+            .contains("ownership is derived from core/package.toml"),
+        "legacy owner must still point to its area: {diagnostic}"
+    );
+}

@@ -3,7 +3,6 @@
 
 use crate::source::{
     descriptor::{Field, FieldType, Format, KindDescriptor, Layout, MetadataPlace, Scope},
-    ownership::principals,
     rules::KindRules,
     types::{Known, Maturity, Problems, Resource, Value},
 };
@@ -92,7 +91,6 @@ impl KindRules for PackageRules {
                 "must equal the top-level version".to_owned(),
             ));
         }
-        principals(resource, problems);
         if resource
             .fields
             .get("status")

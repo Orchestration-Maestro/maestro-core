@@ -55,16 +55,21 @@ impl Catalog {
 }
 
 /// Checks principals with GitHub's ASCII username grammar and team slug grammar.
-pub(super) fn principals(resource: &Resource, problems: &mut Problems) {
+fn principals(resource: &Resource, problems: &mut Problems) {
     for (field, required) in OWNERSHIP_FIELDS {
         let Some(required) = required else {
             continue;
         };
-        let entries = resource
-            .fields
-            .get(field)
-            .and_then(Value::texts)
-            .unwrap_or_default();
+        let entries = match resource.fields.get(field) {
+            Some(value) => {
+                let Some(entries) = value.texts() else {
+                    problems.push((field.to_owned(), "must be a list of strings".to_owned()));
+                    continue;
+                };
+                entries
+            }
+            None => Vec::new(),
+        };
         if required && entries.is_empty() {
             problems.push((field.to_owned(), "must be a nonempty list".to_owned()));
         }
@@ -120,21 +125,22 @@ fn principal(text: &str) -> bool {
     slug(text, false)
 }
 
-/// Resource-local ownership cannot delegate even through a registered custom field.
+/// Areas require principals; resource-local fields cannot delegate ownership.
 pub(super) fn local(resource: &Resource, descriptor: &KindDescriptor, problems: &mut Problems) {
-    if !matches!(descriptor.layout, Layout::Area { .. }) {
+    if matches!(descriptor.layout, Layout::Area { .. }) {
+        principals(resource, problems);
+    } else {
         for (field, _) in OWNERSHIP_FIELDS {
             if resource.fields.contains_key(field) {
                 problems.push((field.to_owned(), "unknown key".to_owned()));
             }
         }
     }
-    locate(resource, descriptor, problems);
 }
 
 /// Point refused legacy declarations to the authoritative area descriptor.
-pub(super) fn locate(resource: &Resource, descriptor: &KindDescriptor, problems: &mut Problems) {
-    let area = area_path(resource, descriptor);
+pub(super) fn locate(path: &str, descriptor: &KindDescriptor, problems: &mut Problems) {
+    let area = area_path(path, descriptor);
     for (key, message) in problems {
         if OWNERSHIP_FIELDS
             .iter()
@@ -147,9 +153,9 @@ pub(super) fn locate(resource: &Resource, descriptor: &KindDescriptor, problems:
 }
 
 /// The registered placement's exact area descriptor, never a group ancestor.
-pub(super) fn area_path(resource: &Resource, descriptor: &KindDescriptor) -> String {
+pub(super) fn area_path(path: &str, descriptor: &KindDescriptor) -> String {
     if matches!(descriptor.layout, Layout::Area { .. }) {
-        return resource.path.clone();
+        return path.to_owned();
     }
     let boundary = descriptor
         .scopes
@@ -157,19 +163,13 @@ pub(super) fn area_path(resource: &Resource, descriptor: &KindDescriptor) -> Str
         .zip(directories(descriptor))
         .filter_map(|(scope, directory)| {
             let count = directory.split('/').filter(|part| !part.is_empty()).count();
-            let boundary = resource
-                .path
-                .split('/')
-                .take(count)
-                .collect::<Vec<_>>()
-                .join("/");
+            let boundary = path.split('/').take(count).collect::<Vec<_>>().join("/");
             if !fits(&directory, &boundary) {
                 return None;
             }
             let area = match scope {
                 Scope::Common | Scope::Root => String::new(),
-                _ => resource
-                    .path
+                _ => path
                     .split('/')
                     .take(scope.prefix().split('/').count())
                     .collect::<Vec<_>>()
@@ -289,11 +289,14 @@ impl Ownership<'_> {
                     "owners-only protection missing or overridden for {path:?}"
                 ));
             };
-            if rules
-                .iter()
-                .skip(last + 1)
-                .any(|rule| rule.role == ReviewRole::Content && contains(path, &rule.path))
-            {
+            if rules.iter().skip(last + 1).any(|rule| {
+                contains(path, &rule.path)
+                    && rules
+                        .iter()
+                        .rev()
+                        .find(|later| contains(&later.path, &rule.path))
+                        .is_some_and(|later| later.role == ReviewRole::Content)
+            }) {
                 return Err(format!(
                     "content rule overrides owners-only protection for {path:?}"
                 ));
