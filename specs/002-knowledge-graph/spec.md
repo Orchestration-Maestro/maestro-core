@@ -112,6 +112,32 @@ The approved S3 `30b702b` handoff (`specs/003-catalog/tasks.md:3969–3974`)
 is part of S2's existing requirement scope, not evidence of implementation.
 Typed backend settings and frozen configuration/lock inputs cross the existing
 ports; knowledge does not parse catalog TOML or gain another authority.
+The [manifest v4 settings and lock handoff](plan.md#manifest-v4-settings-and-lock-handoff)
+records S3 D13/D14's exact names, bounds and source lines:
+
+- Keep canonical `graph.engine`; the registered adapter maps backend
+  `type = "ladybug"` from `core/backends/graphdb/config.toml`. Retired engine
+  resources refuse; old `lbug` values require explicit migration, not a new
+  alias invented here. `none` makes zero graph calls; an uncompiled selection
+  refuses before native calls, and a missing selected graph is unavailable.
+- C46 uses core backend defaults plus `settings/defaults.toml` as one lowest
+  S1 registry slot, one producer per key. Validate whole files, inactive tables,
+  masked invalid defaults and locked attempts. The only named tuning keys are
+  `graphdb.buffer_pool_size`, `graphdb.max_db_size`, `graphdb.max_num_threads`;
+  D14 fixes their bounds/defaults. Root handles, reader/writer modes and
+  checkpoint-on-close remain locked; no manifest path or invented native setter.
+- C47a supplies frozen admitted defaults and a complete non-resource lock,
+  preserving the checked config closure in bundles. Changed config/lock cannot
+  replay; E07a/E08b/G28 consume the existing typed seam, not catalog TOML.
+- C48 publishes actual qualified backend declarations only after G25/E07a
+  evidence and approved owners. **OA1** remains the owner-identities/protections
+  input (S3 plan:1932). Unspecified migration/encoded-value details belong to
+  C46 (plan:1668–1670), and handoff wire shape to C47a (tasks:2592–2597);
+  these are implementation inputs, not new owner decisions or approval IDs.
+
+This G01 reconciliation neither changes decided D3 nor replaces integrated
+S1 settings, search/ask, backup, scopes or generation inputs. Static fixture
+checks are not evidence that any downstream v4 consumer or release is complete.
 
 | Existing owner | Approved addition | Required inputs |
 | --- | --- | --- |

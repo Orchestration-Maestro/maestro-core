@@ -117,6 +117,11 @@ authority. Qdrant and the planned embedded LadybugDB hold **projections** that
 can be deleted and rebuilt from the kernel. S2 engine adoption requires G25
 qualification; later user-selected external Neo4j belongs to deployment modes,
 not a runtime fallback ([ADR-0021](../adr/0021-embedded-ladybug-graph-projection.md)).
+The [manifest v4 handoff](../../specs/002-knowledge-graph/plan.md#manifest-v4-settings-and-lock-handoff)
+keeps `graph.engine`, maps core backend `type = "ladybug"` through the registered
+adapter, and reuses one S1 defaults slot. C46/C47a and the S2 consumer deltas
+still own registry/frozen-lock wiring; C48 publishes only qualified metadata.
+These design rows do not supply native or release evidence.
 
 ## 4. Layer map
 

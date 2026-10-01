@@ -107,13 +107,19 @@ cited passages from the full corpus, with measured quality.
 
 Approved direction, implementation/qualification pending: [spec and fixed
 exits](../../specs/002-knowledge-graph/spec.md), [plan](../../specs/002-knowledge-graph/plan.md)
-and [33 tasks](../../specs/002-knowledge-graph/tasks.md), totaling 124 lane-hours.
+and [37 G tasks / 14 E slices](../../specs/002-knowledge-graph/tasks.md).
+The approved full-plan budgets are 149 h bounded G + 43–89 h E = 192–238
+lane-hours, not elapsed or remaining work. The bounded-G pilot ancestor set
+is 70 h with a 47 h longest path; the full bounded-G longest path is 72 h,
+excluding external C/E waits, not a combined release critical path.
 G25 runs beside public construction, but G04 pilot reads wait for G25/G27/G28;
 SQLite never answers graph queries. G31 supplies entity-valued claims; G32–G34
-supply local review, owner pages and drafting. The pilot and its prerequisites
-total 61 lane-hours (42-hour dependency path); the full critical path is 59
-hours. G06 follows G03, not G04; G09/G31 precede G10 and G34 precedes G32 for
-shared-file ownership. No task waits for M1 release.
+supply local review, owner pages and drafting. G06 follows G03, not G04;
+G09/G31 precede G10 and G34 precedes G32 for shared-file ownership. No task
+waits for M1 release. The [manifest v4 handoff](../../specs/002-knowledge-graph/plan.md#manifest-v4-settings-and-lock-handoff)
+retains C44 → G01, C46 → G26, C47a → E07a/G28 and qualification → C48 →
+G22 → C49a; C49a also needs E11/G28. Its 7 h delta is already included above.
+G01's static reconciliation does not complete any downstream consumer delta.
 
 | Deliverable | Detail |
 | --- | --- |
@@ -128,8 +134,9 @@ shared-file ownership. No task waits for M1 release.
 five-point complete-proof gain at the delivered evidence bundle after context/
 wire budgets with a positive paired interval, no retrieval
 or supported-answer loss, ≥95% relation precision, exact spans/quotes/commands,
-≥16/20 correct refusals and the warm graph/search/ask latency limits. The
-100-question suite and precision-review protocol need owner confirmation.
+≥16/20 correct refusals and the warm graph/search/ask latency limits. D7 approved
+220 graph questions (200 answerable families plus 20 unanswerable); the
+precision-review protocol still needs owner confirmation.
 Actual graph deletion/rebuild and authority backup/restore give identical
 ordered results; native Linux/Windows/macOS process tests, Pi/Claude Code
 smoke, coverage and zero-miss/zero-timeout CI mutations pass. G24 maps integrated

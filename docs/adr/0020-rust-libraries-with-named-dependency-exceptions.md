@@ -11,6 +11,10 @@ blocked on G25's measured qualification: exact pin, minimum features, native
 links, licences, vet evidence and at most one named forced duplicate. S2 adds
 no `neo4rs` dependency. The later user-selected Neo4j adapter belongs to
 separate deployment-modes work; its driver must be qualified there.
+The approved [manifest v4 handoff](../../specs/002-knowledge-graph/plan.md#manifest-v4-settings-and-lock-handoff)
+adds no library decision: C48 publishes backend metadata only from actual
+G25/E07a qualification, after approved owners. A configuration declaration is
+not a qualified dependency, and G01 supplies no new pin or exception.
 
 The organization's one-version rule (DEP-001) stays the default. The ecosystem
 is midway through several major transitions (`syn` 2 to 3, `getrandom` 0.2 to 0.3,

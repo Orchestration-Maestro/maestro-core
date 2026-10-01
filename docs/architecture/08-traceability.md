@@ -797,6 +797,11 @@ is checked against every task's Acceptance line by
 `crates/maestro-knowledge/tests/it/graph_fixture.rs`. G24 must replace planned
 ownership with integrated commit/test/receipt evidence or blockers for every
 FR-S2/SC-S2 requirement; G01 neither completes M1 nor declares the pilot M2.
+The [manifest v4 handoff](../../specs/002-knowledge-graph/plan.md#manifest-v4-settings-and-lock-handoff)
+is frozen from S3 `30b702b` D13/D14 and C44/C46/C47a/C48. It retains
+`graph.engine`, registered backend `type = "ladybug"`, one S1 defaults slot
+and complete non-resource locks. G01 checks documents/synthetic fixtures only;
+G26, E07a, E08b, G28 and G22 still own their consumer/release deltas.
 
 | Architecture rows | Planned S2 portion / task owners | Deferred or evidence still required |
 | --- | --- | --- |
@@ -804,10 +809,10 @@ FR-S2/SC-S2 requirement; G01 neither completes M1 nor declares the pilot M2.
 | `owner.n012`, `owner.n020`, `rag.N023 roles`, `rag.N023 access`, `rag.N023 editions` | Embedded-first projection and minimal application-ID typed-edge seam; G25, G26–G28, G11 | Qualification pending; G24 finalizes ADR-0021. Deployment-modes D07 later wraps the seam for selected Neo4j; no runtime fallback. |
 | `rag.N016 claims`, `rag.N052 layers`, `rag.N011 mining` | Verified immutable claims and original source references; one `DEFAULTS_TO` table first, G31 adds the closed entity-claim vocabulary; G01–G05, G09, G19, G31 | G01's synthetic fixture is not production claim/extraction/CLI or private pilot evidence; no structural/literal nodes. |
 | `rag.N016 resolution` | Exact spelling/name/kind/collection identity, reviewed reversible aliases and contradictions; G10 | Fuzzy/vector linking deferred. |
-| `rag.N052 publication`, `rag.N016, N052 authority` | Kernel claim/profile attachment, immutable pins, one loader and durable foreground effects; G09, G27, G28, G21 | Graph files never authority; process safety and ordered deletion/rebuild/restore equality pending G25, G30, G22. |
+| `rag.N052 publication`, `rag.N016, N052 authority` | Kernel claim/profile attachment, immutable pins, one loader and durable foreground effects; G09, G27, G28, G21. E07a/E08b/G28 bind C47a's frozen settings/lock without replay on changed inputs. | Graph files never authority; process safety and ordered deletion/rebuild/restore equality pending G25, G30, G22. C48's actual qualified declarations precede G22, which feeds C49a with E11/G28. |
 | `rag.N038 identity dedup`, `rag.N038 RRF`, `rag.N038 budgets`, `rag.N038 context dedup`, `rag.N038 EvidenceBundle` | Question-only R4, no echo vote, complete `/2` proofs through fusion and budgets; G11–G14 | S1 `/1` unchanged; general release-delta deduplication and calibration stay outside S2. |
 | `rag.N038 answer`, `rag.N038 degradation`, `rag.N016 permissions`, `rag.N016 tools` | Per-hop eligibility/current grants, explicit coverage/unavailable, four CLI/MCP reads, guarded local ≤4B answers; G11, G15, G16 | Real-client smoke and whole-proof transport evidence pending; HTTP/research loops remain S4. |
-| `rag.N023 variants`, `rag.N011 evaluation`, `owner.n057` | Construction/proof/answer scores, frozen private suite and same-run three-rung comparison; G06–G08, G20, G23; G32/G33/G34 supply local review, owner page and drafting | D3 gates stay fixed. U2/I1 are approved; receipts, suite size and reviewer protocol still gate execution. |
+| `rag.N023 variants`, `rag.N011 evaluation`, `owner.n057` | Construction/proof/answer scores, frozen private suite and same-run three-rung comparison; G06–G08, G20, G23; G32/G33/G34 supply local review, owner page and drafting | D3 gates stay fixed. D7's 220-question graph suite and U2/I1 are approved; recorded receipts and reviewer protocol still gate execution. |
 | `rag.N016 methods` | Bounded local/path traversal only; G11 | Leiden, PageRank/PPR, node similarity, global/DRIFT search, community summaries, incremental graph algorithms and dense-seeded expansion deferred until measured gain and a later plan. |
 | `core native`, `product.NP` | Linux/Windows/macOS and supported cross-Clippy gates; G25, G22 | A dated CI plan may permit implementation, never M2 acceptance; no platform deferral until after S4. |
 
@@ -816,7 +821,14 @@ FR-S2/SC-S2 requirement; G01 neither completes M1 nor declares the pilot M2.
 canonical row and literal-default checks. The dispatch source inspection at
 `821851a` confirms S1 search/ask, backup/restore, scope and generation seams
 ([plan Starting point](../../specs/002-knowledge-graph/plan.md#starting-point));
-it is not a new native or live-client receipt. G01 assigns no migration number.
+it is not a new native or live-client receipt. The manifest delta rechecks input
+seams at `ba89e925874883bcc0ee5248c7455c8612457808`, preserves both frozen
+fixture digests and extends
+`graph_fixture` with approved D14 bounds, registry/lock and retired-resource
+checks. Static checks are not C46/C47a wiring or C48 qualification evidence.
+G01 assigns no migration number, encoded setting value or qualified pin.
+Outstanding owner identities/protections retain S3 **OA1**; unspecified C46
+migration/C47a wire details are implementation inputs, not invented approvals.
 
 **Private boundary:** U2's 12:53 approval fixes the pilot at one 9.0.22 parameter
 table chosen by a local deterministic script, digests frozen before text reads

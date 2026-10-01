@@ -56,6 +56,33 @@ G10 follows G02; G05 is a later private pilot-review checkpoint that gates
 private acceptance, not public graph construction. This amends the earlier
 SQLite-pilot sequencing without changing the embedded engine choice.
 
+## Manifest v4 settings and lock handoff
+
+The [S2 handoff](../../specs/002-knowledge-graph/plan.md#manifest-v4-settings-and-lock-handoff)
+records S3 `30b702b` D13/D14 and C44/C46/C47a/C48, without finalizing native
+qualification. `core/backends/graphdb/config.toml` declares
+`type = "ladybug"`; the registered adapter maps it to `graph.engine`.
+Retired engine resources are refused. Old `lbug` setting values require explicit
+migration; they are not an alternative v4 contract or an invented alias.
+
+C46 feeds backend defaults and `settings/defaults.toml` into one lowest S1
+registry slot, one producer per key. Keep D14's three product-free settings
+(`graphdb.buffer_pool_size`, `graphdb.max_db_size`, `graphdb.max_num_threads`)
+and exact bounds/defaults from the handoff; validate inactive tables and masked
+invalid values too. Rooted handles, read-only readers, writable writers and
+checkpoint-on-close true remain locked; no manifest path or invented setter.
+`none` makes zero calls; uncompiled selection refuses before native calls while
+repair remains usable. Selected unavailable graphs never trigger fallback.
+
+C47a hands frozen admitted defaults and the complete non-resource lock to the
+existing S2 seam; bundles preserve checked configs, and changed config/lock
+cannot replay. E07a/E08b/G28 still own actual consumer wiring. C46 owns the
+unspecified migration/encoded-value details, C47a the concrete wire shape;
+G01 invents neither. C48 requires actual G25/E07a qualified fork/lock/build/
+feature metadata and approved owners (**OA1**, S3 plan:1932), source-only builds
+and a disabled native extension installer. No new pin or approval is supplied.
+G22's release/drill delta stays separate; G24 still finalizes this ADR.
+
 ## Qualification and safety conditions
 
 G25 pins the exact lbug version and the fewest features. It measures the added
@@ -101,6 +128,12 @@ and transport IDs. Retained generations and other collections survive. No
 model rerun, Qdrant claim source or graph backup is needed.
 
 ## The carried lbug fork
+
+The pins and measurements below are historical G25 observations, not C48's
+qualified declarations. D8 requires a freshly qualified combined rooted/cache/
+source-default fork through E07a; default builds remain featureless and G22's
+M2 release enables `engine`. This supersedes the earlier default-dependency
+plan below, not the recorded measurements. G01 does not select a replacement pin.
 
 G25 found that `lbug` 0.20.4 links system OpenSSL for its extension installer
 alone, with no switch to drop it (bar item 2). Upstream's optional-OpenSSL pull

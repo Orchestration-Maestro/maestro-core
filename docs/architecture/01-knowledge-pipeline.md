@@ -585,6 +585,13 @@ is settled with the publish command.
 | Verification | Required representations present, references resolve, profiles match the generation record, a retrieval smoke subset passes. **A point count alone is insufficient** |
 | Invariants | Staging is invisible; every search pins a generation; the previous generation stays for rollback; a filter is never treated as a snapshot; current revocations apply even to pinned older generations |
 
+Planned S2 graph publication also binds C47a's frozen settings and complete
+non-resource lock through the [manifest v4 handoff](../../specs/002-knowledge-graph/plan.md#manifest-v4-settings-and-lock-handoff).
+E07a/E08b/G28 own activation, reader/writer/publication and the existing snapshot
+loader/rebuild; changed config/lock cannot replay. These are pending consumer
+deltas, not new graph authority, another defaults producer or altered S1 vector
+identity/dimensions/lifecycle. Qdrant endpoint/credentials remain local.
+
 ## 10. Lifecycle
 
 | Change | Recomputed |

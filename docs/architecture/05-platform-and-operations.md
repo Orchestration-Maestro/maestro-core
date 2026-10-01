@@ -45,6 +45,15 @@ reader/writer file ownership; G26 packages it without a graph port, Docker,
 JVM or first-use download. Graph `none` is disabled with zero calls; a selected
 missing/stale/locked/rebuilding graph is unavailable, with passage retrieval
 continuing and unsupported graph conclusions refused. No SQL or Neo4j fallback.
+The [manifest v4 handoff](../../specs/002-knowledge-graph/plan.md#manifest-v4-settings-and-lock-handoff)
+keeps `graph.engine` distinct from core backend `type = "ladybug"`. C46/G26
+reuse the registry-backed settings and exact D14 bounds; masked invalid inputs,
+inactive bad tables and locked attempts refuse. Rooted handles and reader/writer
+modes stay locked with no manifest filesystem path. Checkpoint-on-close true
+uses actual supported checkpoint/close/reopen behavior, not an invented setter.
+Uncompiled selection refuses before native calls while repair remains usable.
+C47a's frozen settings/lock flow through E07a/E08b/G28; C48's actual qualified
+declarations feed G22's release/drill. These deltas remain planned, not delivered.
 
 `maestro setup` previews owned changes; read-only `maestro doctor` diagnoses
 permissions, locks, missing files and corruption without mutating graphs or

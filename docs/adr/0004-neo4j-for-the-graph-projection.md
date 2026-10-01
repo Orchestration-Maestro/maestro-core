@@ -7,7 +7,10 @@ authority. A qualification failure needs a supervisor re-plan ruling before
 substituting Neo4j in S2. Separately, approved deployment modes add a later
 user-selected external Neo4j adapter behind the graph port. Neither is a
 runtime fallback. G24 finalizes the qualification disposition against G25;
-this amendment is not engine adoption or M2 evidence.
+this amendment is not engine adoption or M2 evidence. The approved
+[manifest v4 handoff](../../specs/002-knowledge-graph/plan.md#manifest-v4-settings-and-lock-handoff)
+uses core backend configuration and the existing settings registry, not engine
+resources; it neither adds a Neo4j adapter nor qualifies a pin.
 
 ## Historical decision
 

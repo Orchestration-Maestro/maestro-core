@@ -428,6 +428,7 @@ projection used for traversal and algorithms, rebuildable at any time.
 | --- | --- |
 | Engine | Planned embedded LadybugDB through owner-approved `lbug`, subject to G25's six-row qualification bar. No S2 graph service, network port, Docker, JVM or first-use download. |
 | Boundary | G27's application-ID typed-edge port (§8.6); lbug calls stay in knowledge's `graph/projection/` and `graph/cypher.rs`. No backend-choice trait in S2. |
+| Manifest v4 | [Approved settings/lock handoff](../../specs/002-knowledge-graph/plan.md#manifest-v4-settings-and-lock-handoff): core backend `type = "ladybug"` maps through the registered adapter to `graph.engine`; C46 supplies one S1 defaults slot, C47a frozen settings and complete non-resource locks. E07a/E08b/G28 wiring remains pending; no catalog TOML in knowledge. |
 | Identifiers | Collection, generation, entity and claim application IDs; never engine IDs. Source references stay authoritative in SQLite/artifacts. |
 | Generations | Frozen claim/profile attachment, once per generation; writer owns unpublished files, readers retain immutable published pins, only if G25 proves this safe in independent processes. |
 | Loading | One resumable parameterized-batch loader from the complete frozen kernel snapshot; no CSV/COPY or second incremental loader. Native I/O stays outside SQLite transactions. |
@@ -435,7 +436,7 @@ projection used for traversal and algorithms, rebuildable at any time.
 | Algorithms | Bounded admissible neighbors/paths only. Leiden, PageRank, Personalized PageRank, node similarity and global analytics remain deferred; no GDS or petgraph fallback. |
 | Variants compared | Same-run passage-only (S1 default routes/weights/reranker, graph `none`), LadybugDB-only and pairing on G20's one digest-frozen graph with the same at-most-4B answerer; no re-extraction between repeats or duplicate embeddings. D3's gates decide M2, not a working import. |
 | Later selected Neo4j | Separate adapter behind deployment-modes D07's later `GraphStore`; not conditional on lbug failure and never a runtime fallback. G25 failure instead requires an S2 re-plan ruling before substitution. |
-| Disabled/unavailable | Graph `none` makes zero calls. A selected absent/stale/locked/rebuilding graph reports `unavailable`; passage retrieval continues, unsupported graph conclusions refuse. |
+| Disabled/unavailable | Graph `none` makes zero calls, including opens/probes. Uncompiled selection refuses before native calls while repair commands remain usable. A selected absent/stale/locked/rebuilding graph reports `unavailable`; passage retrieval continues, unsupported graph conclusions refuse. |
 
 G04 reads pilot subject facts through `entity_facts`, plus typed neighbors when
 present, only from LadybugDB through G27's projection port after G25/G28.

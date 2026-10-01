@@ -243,20 +243,42 @@ start beside it. No task waits for M1 release; SQLite never answers graph querie
 **Acceptance:** FR-S2-004, FR-S2-021, SC-S2-001; one synthetic table fixture,
 reviewed requirements and a private scope receipt reference, no vendor text.
 
-- [ ] **Red.** Fixture checks reject mismatched digest, UTF-8 spans and
+- [x] **Red.** Fixture checks reject mismatched digest, UTF-8 spans and
   defaults; check the requirement table equals the Acceptance lines exactly.
   Inventory ADR-0020's neo4rs wording, architecture 08's open Neo4j-first row,
   architecture 06's platform deferral until after S4, and architecture 05's
   Neo4j service row, the graph design in 02, README's graph stack, 01's
-  entity-vector row and 04's B6/D02 graph references.
-- [ ] **Green.** Reconcile those rows with embedded-first S2, later selected
+  entity-vector row and 04's B6/D02 graph references. For the v4 delta, reject
+  drift from D14's named controls/bounds, missing registry/lock handoff and
+  retired engine resources in G01's documents and synthetic fixture.
+- [x] **Green.** Reconcile those rows with embedded-first S2, later selected
   Neo4j, three-OS gates and the minimal typed-edge seam. Pin one table rule
   and synthetic fixture; keep private receipt content private. Allocate no
   migration numbers here. G24, not this task, finalizes ADR qualification
-  against G25. Do not call the pilot M2.
-- [ ] **Check.** Fixture and document hooks pass; architecture rows distinguish
+  against G25. Do not call the pilot M2. Reuse the v4 names/shapes below;
+  keep the extraction fixture's source/rule/oracle digests unchanged.
+- [x] **Check.** Fixture and document hooks pass; architecture rows distinguish
   planned work from delivered evidence and name deferred graph algorithms.
   Verify existing search/ask, backup, scopes and generation seams at dispatch.
+  For this delta run the Test command and
+  `prek run --from-ref origin/feat/s2-integration --to-ref HEAD`.
+
+**Manifest delta contract:** the [plan handoff](plan.md#manifest-v4-settings-and-lock-handoff)
+is sourced from S3 `30b702b` D13/D14 and C44/C46/C47a/C48. Keep `graph.engine`
+as the setting, with backend `type = "ladybug"` translated by the registered
+adapter from `core/backends/graphdb/config.toml`. C46's core backend defaults
+and `settings/defaults.toml` feed one lowest registry slot, one producer per
+key; only `graphdb.buffer_pool_size`, `graphdb.max_db_size` and
+`graphdb.max_num_threads` are the approved tuning keys. Keep D14's bounds,
+whole-file/inactive-table validation, masked-invalid and locked refusals,
+zero-call `none` and unavailable/owned-root boundaries. C47a freezes admitted
+defaults and the complete non-resource lock; bundles preserve checked configs,
+and changed config/lock cannot replay. C48 supplies qualified declarations,
+not guessed pins; approved owner identities/protections remain **OA1**.
+C46 migration/encoded-value details and C47a's concrete wire shape are
+implementation inputs not specified by S3, not new approval IDs. Preserve D3
+and integrated S1 inputs. G26, E07a, E08b, G28 and G22 deltas remain open;
+this document/fixture check provides no native, private or release evidence.
 
 G01's frozen public rule/oracle and dispatch inspection are in plan A0 and
 Starting point. The private reference `PRIVATE/graph/receipts/pilot-inputs.json`

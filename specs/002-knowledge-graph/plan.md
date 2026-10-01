@@ -124,6 +124,16 @@ and its independent review, against `edcce756b35128719b6754b3d72d1de50ad22433`.
 These are design inputs, not new benchmark results. Research §5 is implemented
 by the FR/task mapping below; private source text was not needed to plan it.
 
+For this manifest delta, G01 inspected S2
+`ba89e925874883bcc0ee5248c7455c8612457808`, retaining its integrated S1 inputs. `crates/maestro-settings/src/builtin.rs:382–388` still registers
+`graph.engine` as `none`/`lbug`; `crates/maestro/src/settings/graph.rs:30–37`
+consumes those legacy values. This is existing behavior, not v4 migration
+completion. C46/G26 own the registry/consumer change. The search/ask,
+backup/restore, scope and generation files listed above remain the input seams;
+their source inspection is not a new live or release test. G27's existing
+`TypedEdgeProjection` at `graph/projection/port.rs` remains the application-ID
+boundary, not a second catalog settings parser.
+
 The separate G25 lane writes the supervisor's G25 report and publishes
 sanitized evidence in `specs/002-knowledge-graph/research.md`. That is an
 execution output, not a passing result supplied by this plan.
@@ -258,8 +268,12 @@ source/quote digests, canonical row ownership, nonempty UTF-8 spans, explicit
 column bindings, all default values/types and complete row accounting. Closed
 rule checks reject unknown/executable/oracle and duplicate keys. It also checks
 the requirement table against every task's Acceptance line exactly, including
-missing, extra and duplicate ownership rows. G03 adds the production closed-rule
-parser and extraction; G04 proves CLI neighbors.
+missing, extra and duplicate ownership rows. The manifest delta adds checks
+for the approved D14 settings table, registry/lock handoff and retired-resource
+refusals in G01's documents. The synthetic source and rule/oracle bytes above
+stay unchanged: they describe extraction, not catalog defaults, and cannot
+qualify C46/C47a runtime wiring. G03 adds the production closed-rule parser
+and extraction; G04 proves CLI neighbors.
 
 **Temporary import metadata:** G03 and G04 build their import fixture in a fresh
 temp directory, without changing S1's collection or corpus manifest. Copy the
@@ -540,8 +554,66 @@ not installed is a separate concern, not a new SQLite retrieval fallback.
 
 #### Manifest v4 settings and lock handoff
 
-The owner-approved S3 `30b702b` handoff (`specs/003-catalog/tasks.md:3969–3974`)
-adds **7 h** to existing S2 owners; the task delta table is authoritative:
+**Source of truth:** S3 `30b702b`, `specs/003-catalog/plan.md` D13
+(lines 1385–1389, 1432–1460) and D14 (1652–1687); C44/C46/C47a/C48 in
+`specs/003-catalog/tasks.md` (2506–2525, 2563–2597, 2617–2641).
+These are approved contracts, not native qualification or delivered wiring.
+
+The graph base is `core/backends/graphdb/config.toml`, with
+`type = "ladybug"` translated by the registered adapter into the canonical
+`graph.engine` setting. Backend types are values, not resources, packages or
+presets. Retired engine resources are refused. No new encoded setting value
+is defined here; old `lbug` values require explicit migration, not an alias.
+Keep `none` as explicit zero-call mode, including opens and probes. An
+uncompiled selection refuses before native calls, without disabling repair
+commands; absent/stale/locked/rebuilding projections report `unavailable`
+while passage retrieval continues. There is no SQLite or Neo4j fallback.
+
+C46 feeds core backend defaults and `settings/defaults.toml` through **one
+manifest-backed lowest S1 slot**, one producer per key. Reuse the integrated
+registry, not a catalog/knowledge copy: free flags > nearest safe workspace >
+user preferences > pinned defaults. Bounded user/default ceilings intersect
+workspace, flags and package limits; additive restrictions accumulate/intersect.
+Validate whole files and inactive supported-type tables; masked invalid input
+and every locked-setting attempt refuse. Preserve no-ancestor merge, held-handle
+discovery and frozen sessions. The approved product-free controls are:
+
+| Setting | Minimum | Maximum | Default | Constraint |
+| --- | --- | --- | --- | --- |
+| `graphdb.buffer_pool_size` | 16 MiB | 1 GiB | 256 MiB | No zero/auto |
+| `graphdb.max_db_size` | 16 MiB | 1 TiB | 16 GiB | Power of two; not a disk quota |
+| `graphdb.max_num_threads` | 1 | 64 | 2 | Not Cargo parallelism |
+
+These bounds are the approved D14 contract, not measured optima. The rooted
+handle is locked; readers are read-only, writers writable, and no manifest
+filesystem path is accepted. Checkpoint-on-close is locked true through actual
+supported adapter behavior: verify checkpoint/close/reopen, never invent a
+setter. Native activation requires G25-qualified fork/lock/build/feature
+metadata, source-only builds and a disabled native extension installer.
+
+C47a freezes admitted defaults for init/session and supplies the
+**complete non-resource lock** through the existing S2 consumer seam. C37's
+`maestro-project/2` and `maestro-authoring-lock/2` bind selected areas and the
+complete source identity/revision/digest inventory: descriptors, resources and
+sidecars, presets, explicit inventories/assets and selected checked configs
+(S3 tasks:2341–2345; plan:1845). Bundle preservation includes that config
+closure. Changed config, source path or lock requires a fresh preview; an
+existing session retains its admitted defaults. E07a/E08b/G28 consume the
+frozen typed handoff for native activation, readers/writers/publication and
+the one snapshot loader/rebuild; changed inputs cannot replay. Knowledge
+parses neither catalog TOML nor a second lock format.
+
+**Execution inputs still required:** C46 owns the explicit old-`lbug`
+migration and setting-value translation (S3 plan:1668–1670); C47a owns the
+concrete frozen handoff/wire shape (S3 tasks:2592–2597). S3 does not specify
+those encodings, so G01 supplies none and invents no approval ID. C48 needs
+actual G25/E07a qualification and approved real owners before publishing pins
+(S3 tasks:2620–2634); the outstanding owner identities/protections are **OA1**
+(S3 plan:1932). G01 grants no owner approval or qualified pin. D3's fixed quality
+bars and all integrated S1 inputs remain unchanged.
+
+The S3 handoff (tasks:3969–3974) adds **7 h** to existing S2 owners; the task
+delta table is authoritative:
 
 - G01 **+1 h**, after C44: reconcile the approved backend/settings contract.
   G26 **+1 h**, after C46/G25/G01: consume the S1 registry's manifest-backed
