@@ -10,6 +10,8 @@ use crate::{
     filesystem::{create_directories, new_file},
 };
 use rusqlite::{Connection, ErrorCode, OpenFlags, Transaction, TransactionBehavior};
+#[cfg(feature = "test")]
+use std::cell::Cell;
 use std::{
     fs, io,
     path::{self, Path, PathBuf},
@@ -23,6 +25,12 @@ use std::{
 
 /// How long a connection waits for another's lock before it gives up.
 const BUSY_TIMEOUT: Duration = Duration::from_secs(5);
+
+#[cfg(feature = "test")]
+thread_local! {
+    /// A thread-local override so parallel unit tests keep independent timeouts.
+    static TEST_BUSY_TIMEOUT: Cell<Duration> = const { Cell::new(BUSY_TIMEOUT) };
+}
 /// The database's file in the kernel's data directory.
 const FILE: &str = "kernel.sqlite3";
 
@@ -42,6 +50,14 @@ pub struct Database {
 }
 
 impl Database {
+    /// Overrides the busy timeout of connections subsequently opened on this thread.
+    ///
+    /// Test support only: normal builds keep the fixed five-second timeout.
+    #[cfg(feature = "test")]
+    pub fn set_writer_busy_timeout_for_tests(timeout: Duration) {
+        TEST_BUSY_TIMEOUT.set(timeout);
+    }
+
     /// The database in the file `database`, with its artifacts under
     /// `artifacts`: created, with its missing directories, for the owner
     /// only, then migrated. Relative paths are resolved against the current
@@ -197,7 +213,10 @@ pub fn pending_migrations(data: &Path) -> Result<Vec<&'static str>, Error> {
 /// bundled SQLite default to the first two; the kernel does not depend on it.
 /// No trigger of the kernel writes, so none fires another.
 pub(super) fn configured(connection: Connection) -> Result<Connection, Error> {
+    #[cfg(not(feature = "test"))]
     connection.busy_timeout(BUSY_TIMEOUT)?;
+    #[cfg(feature = "test")]
+    connection.busy_timeout(TEST_BUSY_TIMEOUT.get())?;
     connection.pragma_update(None, "foreign_keys", true)?;
     connection.pragma_update(None, "recursive_triggers", true)?;
     Ok(connection)
@@ -275,5 +294,74 @@ fn io_error(path: &Path, source: io::Error) -> Error {
     Error::Io {
         path: path.to_path_buf(),
         source,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Database;
+    use maestro_test_scratch::scratch_directory;
+    use rusqlite::Connection;
+    use std::{
+        cell::RefCell,
+        fs,
+        sync::mpsc::{self, Receiver, Sender},
+        thread,
+        time::Duration,
+    };
+
+    thread_local! {
+        /// The refresh thread's handshake at SQLite's actual lock contention.
+        static BUSY_GATE: RefCell<Option<(Sender<()>, Receiver<()>)>> =
+            const { RefCell::new(None) };
+    }
+
+    /// Signals a blocked writer and waits until the outside transaction is released.
+    fn wait_for_release(_: i32) -> bool {
+        BUSY_GATE.with_borrow(|gate| {
+            let (blocked, released) = gate.as_ref().expect("busy handler handshake installed");
+            blocked.send(()).unwrap();
+            released.recv_timeout(Duration::from_secs(10)).unwrap();
+        });
+        true
+    }
+
+    #[test]
+    fn public_config_refresh_loads_only_after_the_writer_lock() {
+        let directory = scratch_directory().unwrap();
+        let database = Database::open_in(&directory).unwrap();
+        let config = directory.join("config.toml");
+        fs::write(&config, "[access]\nread = ['workspace/default']\n").unwrap();
+        let outside = Connection::open(directory.join("kernel.sqlite3")).unwrap();
+        outside.execute_batch("BEGIN IMMEDIATE").unwrap();
+        database
+            .writer
+            .lock()
+            .unwrap()
+            .busy_handler(Some(wait_for_release))
+            .unwrap();
+        let (blocked, contention) = mpsc::channel();
+        let (release, released) = mpsc::channel();
+        let scopes = thread::scope(|threads| {
+            let refresh = threads.spawn(|| {
+                BUSY_GATE.set(Some((blocked, released)));
+                let result = database.refresh_config(&directory);
+                BUSY_GATE.set(None);
+                result
+            });
+            contention.recv_timeout(Duration::from_secs(10)).unwrap();
+            // The public refresh has reached BEGIN IMMEDIATE, not a guessed delay.
+            fs::write(&config, "[access]\nread = []\n").unwrap();
+            outside.execute_batch("ROLLBACK").unwrap();
+            release.send(()).unwrap();
+            refresh.join().unwrap().unwrap()
+        });
+        assert!(
+            scopes.is_empty(),
+            "public refresh loaded config before obtaining the writer lock"
+        );
+        drop(outside);
+        drop(database);
+        fs::remove_dir_all(directory).unwrap();
     }
 }

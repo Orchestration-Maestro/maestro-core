@@ -178,3 +178,62 @@ fn config_refresh_failure(error: ConfigRefreshError) -> Failure {
         ConfigRefreshError::Store(error) => Failure::failed_by(&error),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Kernel;
+    use crate::failure::Failure;
+    use maestro_kernel::{scope::LOCAL, store::Database};
+    use maestro_test_scratch::scratch_directory;
+    use rusqlite::Connection;
+    use std::{fs, time::Duration};
+
+    #[test]
+    fn open_at_config_refresh_takes_the_writer_lock_before_loading() {
+        assert_lock_precedes_config_load(false);
+    }
+
+    #[test]
+    fn refresh_scopes_config_refresh_takes_the_writer_lock_before_loading() {
+        assert_lock_precedes_config_load(true);
+    }
+
+    /// A malformed file must not be read until the writer lock is available.
+    fn assert_lock_precedes_config_load(refresh: bool) {
+        Database::set_writer_busy_timeout_for_tests(Duration::from_millis(50));
+        let directory = scratch_directory().unwrap();
+        let mut kernel = Kernel::open_at(&directory, &directory).unwrap();
+        let previous = kernel.scopes.clone();
+        let outside = Connection::open(directory.join("kernel.sqlite3")).unwrap();
+        outside.execute_batch("BEGIN IMMEDIATE").unwrap();
+        fs::write(directory.join("config.toml"), "[unknown]\n").unwrap();
+        let result = if refresh {
+            kernel.refresh_scopes()
+        } else {
+            Kernel::open_at(&directory, &directory).map(|_| ())
+        };
+        assert!(
+            matches!(
+                &result,
+                Err(Failure::Failed(message)) if message.contains("database is locked")
+            ),
+            "atomic config refresh must encounter the writer lock before invalid config: {result:?}"
+        );
+        assert_eq!(kernel.scopes, previous);
+        outside.execute_batch("ROLLBACK").unwrap();
+        assert_eq!(kernel.database.visible(LOCAL).unwrap(), previous);
+        // Once the lock is available, the invalid config is a refusal, proving
+        // that opening the already-migrated database itself was not the failure.
+        let reopened = Database::open_in(&directory).unwrap();
+        assert!(matches!(kernel.refresh_scopes(), Err(Failure::Refused(_))));
+        assert!(matches!(
+            Kernel::open_at(&directory, &directory),
+            Err(Failure::Refused(_))
+        ));
+        drop(reopened);
+        drop(outside);
+        drop(kernel);
+        fs::remove_dir_all(directory).unwrap();
+        Database::set_writer_busy_timeout_for_tests(Duration::from_secs(5));
+    }
+}
