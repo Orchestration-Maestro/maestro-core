@@ -1,18 +1,20 @@
-//! Scope paths: a workspace, then optionally a collection, then optionally a
-//! source, each named by the rule collection and source IDs follow, and what
-//! a scope covers.
+//! Scope paths: a workspace name, then optionally a collection ID, then
+//! optionally a source ID, and what a scope covers.
 
 use std::{error, fmt, str::FromStr};
 
 /// The kinds of the nodes a scope path names, in the order they nest.
 const KINDS: [&str; 3] = ["workspace", "collection", "source"];
 
+/// The scope of the workspace the kernel keeps its records in: S1 has one.
+pub const WORKSPACE: &str = "workspace/default";
+
 /// The most characters a name holds.
 const LONGEST_NAME: usize = 64;
 
 /// A node of the kernel's access tree: `workspace/<name>`, then optionally
-/// `collection/<name>`, then optionally `source/<name>`, each name one that
-/// [`check_name`] accepts. [`str::parse`] reads one from its path.
+/// `collection/<name>`, then optionally `source/<name>`. [`str::parse`] reads
+/// one from its path.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Scope(String);
 
@@ -44,7 +46,7 @@ impl FromStr for Scope {
     ///
     /// [`InvalidScope`], naming the path, when it is not a workspace, then
     /// optionally a collection, then optionally a source, or when one of its
-    /// names breaks the rule of [`check_name`].
+    /// names breaks the rule of [`check_name`] or [`check_collection_name`].
     fn from_str(path: &str) -> Result<Self, InvalidScope> {
         let refusal = |fault| InvalidScope {
             path: path.to_owned(),
@@ -52,12 +54,16 @@ impl FromStr for Scope {
         };
         let mut segments = path.split('/');
         for kind in KINDS {
+            let validate = match kind {
+                "collection" => check_collection_name,
+                _ => check_name,
+            };
             let Some(found) = segments.next() else {
                 break;
             };
             match segments.next() {
                 Some(name) if found == kind => {
-                    check_name(name).map_err(|invalid| refusal(Fault::Name(invalid)))?;
+                    validate(name).map_err(|invalid| refusal(Fault::Name(invalid)))?;
                 }
                 _ => return Err(refusal(Fault::Shape)),
             }
@@ -75,10 +81,25 @@ impl fmt::Display for Scope {
     }
 }
 
-/// Checks that `name` may name a node of a scope path: 1 to 64 characters,
+/// The path of the scope of the collection `collection`, which every record
+/// of the collection has, `workspace/default/collection/<id>`: the one place
+/// a collection's scope is written, which the readers' conditions filter by.
+#[must_use]
+pub fn collection_path(collection: &str) -> String {
+    format!("{WORKSPACE}/collection/{collection}")
+}
+
+/// The path of the scope of the source `source` of the collection
+/// `collection`, which the documents and revisions of that source have:
+/// `workspace/default/collection/<id>/source/<id>`.
+#[must_use]
+pub fn source_path(collection: &str, source: &str) -> String {
+    format!("{}/source/{source}", collection_path(collection))
+}
+
+/// Checks that `name` may name a workspace or source: 1 to 64 characters,
 /// each a lowercase ASCII letter, a digit, `-`, `_` or `.`, the first a
-/// letter or a digit. Collection and source IDs follow the same rule, so each
-/// forms a segment of the path of the scope it names.
+/// letter or a digit. Use [`check_collection_name`] for collection IDs.
 ///
 /// # Errors
 ///
@@ -95,23 +116,60 @@ pub fn check_name(name: &str) -> Result<(), InvalidName> {
     if valid {
         Ok(())
     } else {
-        Err(InvalidName(name.to_owned()))
+        Err(InvalidName {
+            name: name.to_owned(),
+            collection: false,
+        })
     }
 }
 
-/// A name that breaks the rule of [`check_name`].
+/// Checks that `name` may name a collection: it follows [`check_name`] but
+/// may not end in `-g` and one or more ASCII digits, a suffix reserved for
+/// Qdrant generation names.
+///
+/// # Errors
+///
+/// [`InvalidName`], naming it, when it breaks either rule.
+pub fn check_collection_name(name: &str) -> Result<(), InvalidName> {
+    check_name(name)?;
+    if name.rsplit_once("-g").is_some_and(|(_, digits)| {
+        !digits.is_empty() && digits.bytes().all(|digit| digit.is_ascii_digit())
+    }) {
+        Err(InvalidName {
+            name: name.to_owned(),
+            collection: true,
+        })
+    } else {
+        Ok(())
+    }
+}
+
+/// A name that breaks the rule of [`check_name`] or [`check_collection_name`].
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct InvalidName(String);
+pub struct InvalidName {
+    /// The refused name.
+    name: String,
+    /// Whether the collection-specific suffix rule caused the refusal.
+    collection: bool,
+}
 
 impl fmt::Display for InvalidName {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            formatter,
-            "`{}` is not a scope name: a name is 1 to {LONGEST_NAME} characters, each a \
-             lowercase ASCII letter, a digit, `-`, `_` or `.`, and starts with a letter or \
-             a digit",
-            self.0
-        )
+        if self.collection {
+            write!(
+                formatter,
+                "`{}` is not a collection name: it may not end in `-g` and one or more digits",
+                self.name
+            )
+        } else {
+            write!(
+                formatter,
+                "`{}` is not a scope name: a name is 1 to {LONGEST_NAME} characters, each a \
+                 lowercase ASCII letter, a digit, `-`, `_` or `.`, and starts with a letter or \
+                 a digit",
+                self.name
+            )
+        }
     }
 }
 

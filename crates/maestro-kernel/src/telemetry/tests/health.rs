@@ -1,19 +1,14 @@
-//! Tests of telemetry: component health and the names of a tool call's span.
+//! Tests of component health.
 //!
 //! Every registered component is reported, whatever its check does: answers,
 //! panics or keeps silent. Checks run beside each other, and a check still
 //! running is never started beside itself.
 
-use super::{Components, DuplicateComponent, Report, Status, span};
+use super::super::{Components, DuplicateComponent, Report, Status};
 use std::{
-    fmt, panic,
+    panic,
     sync::{Arc, Barrier, Mutex, mpsc},
     time::Duration,
-};
-use tracing::{
-    Dispatch, Event, Metadata, Subscriber, dispatcher,
-    field::{Field, Visit},
-    span::{Attributes, Id, Record},
 };
 
 /// Long enough for any check that answers at once, however loaded the
@@ -209,86 +204,5 @@ fn the_debug_form_of_the_components_names_them() {
     assert_eq!(
         format!("{components:?}"),
         "Components { names: [\"database\", \"router\"] }"
-    );
-}
-
-/// A span as the recording subscriber saw it open.
-#[derive(Debug, PartialEq, Eq)]
-struct Opened {
-    /// The span's name.
-    name: &'static str,
-    /// Its fields, in order, each with its value as text.
-    fields: Vec<(String, String)>,
-}
-
-/// A subscriber that records every span opened while it is the default.
-#[derive(Debug, Default)]
-struct Recorder {
-    /// The spans opened, in order.
-    opened: Mutex<Vec<Opened>>,
-}
-
-/// The fields of one span, as text.
-#[derive(Default)]
-struct Fields(Vec<(String, String)>);
-
-impl Visit for Fields {
-    fn record_str(&mut self, field: &Field, value: &str) {
-        self.0.push((field.name().to_owned(), value.to_owned()));
-    }
-
-    fn record_debug(&mut self, field: &Field, value: &dyn fmt::Debug) {
-        self.0.push((field.name().to_owned(), format!("{value:?}")));
-    }
-}
-
-impl Subscriber for Recorder {
-    fn enabled(&self, _metadata: &Metadata<'_>) -> bool {
-        true
-    }
-
-    fn new_span(&self, span: &Attributes<'_>) -> Id {
-        let mut fields = Fields::default();
-        span.record(&mut fields);
-        let mut opened = self.opened.lock().unwrap();
-        opened.push(Opened {
-            name: span.metadata().name(),
-            fields: fields.0,
-        });
-        Id::from_u64(opened.len().try_into().unwrap())
-    }
-
-    fn record(&self, _span: &Id, _values: &Record<'_>) {}
-
-    fn record_follows_from(&self, _span: &Id, _follows: &Id) {}
-
-    fn event(&self, _event: &Event<'_>) {}
-
-    fn enter(&self, _span: &Id) {}
-
-    fn exit(&self, _span: &Id) {}
-}
-
-#[test]
-fn a_tool_call_opens_a_span_carrying_the_pinned_names() {
-    let dispatch = Dispatch::new(Recorder::default());
-
-    dispatcher::with_default(&dispatch, || {
-        let _call = span::tool_call("knowledge_search");
-    });
-
-    let recorder = dispatch.downcast_ref::<Recorder>().unwrap();
-    assert_eq!(
-        *recorder.opened.lock().unwrap(),
-        [Opened {
-            name: "gen_ai.execute_tool",
-            fields: vec![
-                (
-                    "gen_ai.operation.name".to_owned(),
-                    "execute_tool".to_owned()
-                ),
-                ("gen_ai.tool.name".to_owned(), "knowledge_search".to_owned()),
-            ],
-        }]
     );
 }

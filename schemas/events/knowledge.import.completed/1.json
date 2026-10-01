@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "An import of a collection's corpus manifest completed: what it did with its entries.",
+  "properties": {
+    "collection": {
+      "description": "The collection imported.",
+      "type": "string"
+    },
+    "held": {
+      "description": "How many entries it held back from indexing, their revisions new or recorded before.",
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "imported": {
+      "description": "How many entries it recorded as new revisions, not counting those it held.",
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "refused": {
+      "description": "How many entries it refused, each with its reason in the import's report.",
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    },
+    "unchanged": {
+      "description": "How many entries it found recorded already, as they are.",
+      "format": "uint64",
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "collection",
+    "imported",
+    "unchanged",
+    "held",
+    "refused"
+  ],
+  "title": "ImportCompleted",
+  "type": "object"
+}

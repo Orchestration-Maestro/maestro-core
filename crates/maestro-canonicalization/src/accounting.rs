@@ -105,13 +105,16 @@ pub(crate) fn account(doc: &CanonicalDocument, markdown: &str) -> Vec<SourceAcco
 }
 
 /// The claims of an inline node and its descendants: links and images as references, HTML as
-/// unsupported, leaf text as parsed content.
+/// unsupported, empty math as syntax, and leaf text as parsed content.
 fn inline_contributions<'a>(inline: &Inline, owner: &'a str, result: &mut Vec<Contribution<'a>>) {
     let classified = match inline.content {
         InlineKind::Link { .. } | InlineKind::Image { .. } => {
             Some((SourceRole::MetadataOrReference, 1))
         }
         InlineKind::Html { .. } => Some((SourceRole::Unsupported, 3)),
+        InlineKind::Math { ref text, .. } if text.is_empty() => {
+            Some((SourceRole::StructuralSyntax, 2))
+        }
         _ if inline.children.is_empty() => Some((SourceRole::ParsedContent, 2)),
         _ => None,
     };

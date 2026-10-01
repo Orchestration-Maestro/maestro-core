@@ -20,12 +20,25 @@
 //! moves a cursor forward only, and never past the stream's last event; the
 //! cursors are rows of the database, so they survive a restart. Triggers
 //! refuse to update, delete or replace an event, whoever writes.
+//!
+//! An event leaves the kernel in the `CloudEvents` 1.0 envelope of
+//! docs/architecture/07 §3.1, an [`Envelope`]. The public knowledge events
+//! carry the data of their types, such as [`GenerationPublished`], each with
+//! the JSON Schema committed under `schemas/events/` that its `dataschema`
+//! names.
 
 mod cursor;
+mod envelope;
 mod error;
 pub(crate) mod event;
+mod knowledge;
 #[cfg(test)]
 mod tests;
 
+pub use envelope::{Envelope, InvalidMachine, Machine};
 pub use error::Error;
-pub use event::{Event, Filter, NewEvent};
+pub use event::{EmptyAttribute, Event, Filter, NewEvent};
+pub use knowledge::{
+    GenerationPublished, GenerationRetired, HeldDisposition, ImportCompleted, PUBLIC_EVENTS,
+    PublicEvent, RevisionHeld, stream,
+};

@@ -115,12 +115,17 @@ In the pinned llama.cpp source, `tools/server/server-context.cpp`
 `parse_special=true`; `tools/server/server-common.cpp` delegates to
 `common_tokenize` without an instruction or chat template; and
 `tools/tokenize/tokenize.cpp` reads stdin verbatim with `--no-escape` and calls
-the same tokenizer. No live router call was made; S1 checks the serving path
-against this profile before indexing (ADR-0008).
+the same tokenizer. This records the S0 native qualification, which did not
+make a live router call. S1 adds a separate native/router comparison against
+the committed [parity fixture](../maestro-knowledge/src/prepare/native-parity.json),
+read by [the Rust parity reader](../maestro-knowledge/src/prepare/parity.rs#L1-L22)
+and exercised live by [the router integration test](../maestro-knowledge/tests/it/router_parity.rs).
 
-## Qualification results
+## S0 native qualification results (historical)
 
-41 synthetic complete inputs, each tokenized twice, compared by ordered IDs:
+These results compare the native counter with a cached tokenizer; they do not
+represent the S1 live router comparison. The S0 qualification used 41 synthetic
+complete inputs, each tokenized twice and compared by ordered IDs:
 
 | Check | Result |
 | --- | --- |
@@ -138,7 +143,15 @@ against this profile before indexing (ADR-0008).
 
 The comparison tokenizer both overcounts and undercounts, so it is no
 conservative bound. The Python qualification script that produced these
-results is kept with the S0 archive; S1 replaces it with Rust parity tests.
+historical results is kept with the S0 archive.
+
+S1's Rust comparison uses the 41-input fixture above, whose `profile` must equal
+the `contract_id` in [the tokenizer contract](tokenizer-contract.json). Run
+`just parity` from the repository root for the native fixture check followed by
+the live router check ([recipe](../../justfile#L32-L39)). It requires
+`MAESTRO_NATIVE_BINDING`, `MAESTRO_ROUTER_URL`, `MAESTRO_ROUTER_EMBEDDER` and
+`MAESTRO_ROUTER_EMBEDDER_FILE`; the router must have free room. An older router
+may ignore the free-room request and unload another model.
 
 ## Build the counter
 

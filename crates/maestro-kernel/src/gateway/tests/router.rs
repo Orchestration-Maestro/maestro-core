@@ -4,7 +4,7 @@
 
 use super::{
     super::{CardFields, Error, Message, ModelPort, Role, Room, RouterClient, Speaker},
-    fixture::{BUILD, TEMPLATE, TEMPLATE_DIGEST, card, card_of, fields},
+    fixture::{BUILD, TEMPLATE, TEMPLATE_DIGEST, card, card_of, chat_request, fields},
     stub::{Reply, StubRouter, answer, any_room, free},
 };
 use crate::artifact::Digest;
@@ -177,15 +177,20 @@ async fn every_call_is_bound_to_its_card_and_to_its_room() {
     };
     let messages = [instructions, user("Whales sing."), user("Do whales sing?")];
     let reply = client
-        .chat(&card(Role::Answerer), Room::Any, &messages)
+        .chat(&card(Role::Answerer), Room::Any, &chat_request(&messages))
         .await;
     assert_eq!(reply.unwrap(), "They do.");
     let counted = json!({"content": "Hello world", "add_special": true, "parse_special": true});
-    let asked = json!({"messages": [
-        {"role": "system", "content": "Answer from the evidence."},
-        {"role": "user", "content": "Whales sing."},
-        {"role": "user", "content": "Do whales sing?"}
-    ]});
+    let asked = json!({
+        "messages": [
+            {"role": "system", "content": "Answer from the evidence."},
+            {"role": "user", "content": "Whales sing."},
+            {"role": "user", "content": "Do whales sing?"}
+        ],
+        "max_tokens": 400,
+        "stream": false,
+        "chat_template_kwargs": {}
+    });
     assert_eq!(
         stub.requests(),
         [
@@ -238,8 +243,9 @@ async fn a_card_the_server_does_not_match_is_refused_before_any_call() {
             reported.to_owned(),
         );
         // A refused card is never taken as checked: its next call checks again.
-        let first = mismatch(client.chat(&card, Room::Any, &question).await);
-        let second = mismatch(client.chat(&card, Room::Any, &question).await);
+        let request = chat_request(&question);
+        let first = mismatch(client.chat(&card, Room::Any, &request).await);
+        let second = mismatch(client.chat(&card, Room::Any, &request).await);
         assert_eq!([first, second], [refused.clone(), refused]);
         let checked = any_room("GET", "/models/answer/props", Value::Null);
         let requests = [checked.clone(), checked];
@@ -267,6 +273,30 @@ async fn a_card_is_checked_once_per_card_and_gateway() {
         .collect();
     let (check, call) = ("/models/embed/props", "/models/embed/v1/embeddings");
     assert_eq!(paths, [check, call, call, check, call, check, call]);
+}
+
+#[tokio::test]
+async fn preparing_a_card_asks_for_its_model_every_time_and_its_call_checks_nothing() {
+    // Each prepare asks the router for the model, which reloads one the
+    // router unloaded while idle; the call after them sends only itself.
+    let (stub, client) = serve("embed", "v1/embeddings", embeddings());
+    let card = card(Role::Embedder);
+    client.prepare(&card, Room::Free).await.unwrap();
+    client.prepare(&card, Room::Free).await.unwrap();
+    client.embed(&card, Room::Free, &inputs()).await.unwrap();
+    let check = free("GET", "/models/embed/props", Value::Null);
+    assert_eq!(
+        stub.requests(),
+        [
+            check.clone(),
+            check,
+            free(
+                "POST",
+                "/models/embed/v1/embeddings",
+                json!({"input": inputs()})
+            )
+        ]
+    );
 }
 
 #[tokio::test]
@@ -404,7 +434,7 @@ async fn a_card_for_another_role_is_refused_before_any_request() {
         ),
         (
             client
-                .chat(&reranker, Room::Any, &question)
+                .chat(&reranker, Room::Any, &chat_request(&question))
                 .await
                 .unwrap_err(),
             &reranker,
@@ -464,7 +494,7 @@ async fn a_chat_without_a_reply_is_refused() {
         let (_stub, client) = serve("answer", "v1/chat/completions", reply);
         let card = card(Role::Answerer);
         let error = client
-            .chat(&card, Room::Any, &[user("Do whales sing?")])
+            .chat(&card, Room::Any, &chat_request(&[user("Do whales sing?")]))
             .await
             .unwrap_err();
         assert!(

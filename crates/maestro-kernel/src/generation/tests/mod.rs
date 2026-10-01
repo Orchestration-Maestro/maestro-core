@@ -1,6 +1,8 @@
-//! Tests of the generation records: their lifecycle and their publication,
-//! with the same outcomes on Linux, macOS and Windows.
+//! Tests of the generation records: their lifecycle, their listing and their
+//! publication, with the same outcomes on Linux, macOS and Windows.
 
 mod lifecycle;
+mod listing;
 mod publication;
+mod publication_events;
 mod support;

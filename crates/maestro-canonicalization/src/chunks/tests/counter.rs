@@ -53,7 +53,13 @@ impl Pinned {
             .zip(&self.markdowns)
             .map(|(document, markdown)| DedupInput { document, markdown })
             .collect();
-        chunk_documents(&self.scope, &inputs, WarningPolicy::Preserve, counter)
+        chunk_documents(
+            &self.scope,
+            &inputs,
+            WarningPolicy::Preserve,
+            ChunkProfile::Structural,
+            counter,
+        )
     }
 }
 
@@ -106,16 +112,12 @@ fn every_chunk_identity_carries_the_counters_contract_id() {
         for chunk in &batch.chunks {
             let occurrence = &batch.deduplication.occurrences[chunk.occurrence_index];
             let mapped = &batch.documents[chunk.occurrence_index].mapped;
-            let expected = chunk_id(
-                &batch.deduplication,
-                occurrence.document,
-                mapped,
-                &chunk.content,
-                contract_id,
-            );
+            let layout = structural(occurrence.document, occurrence.markdown, mapped);
+            let expected = chunk_id(&batch.deduplication, &layout, &chunk.content, contract_id);
             assert_eq!(expected.unwrap(), chunk.chunk_id);
             let prepared = prepared_identity(
                 &batch.deduplication,
+                ChunkProfile::Structural,
                 contract_id,
                 &chunk.content.prepared_input,
             );

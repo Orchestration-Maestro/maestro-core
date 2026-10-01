@@ -1,14 +1,15 @@
 //! What the gateway's tests share: a scratch store, a card for each role, and
 //! the values those cards record.
 
-use super::super::{CardFields, Limits, ModelCard, Role, RouterEntry, SuiteResult};
+use super::super::{
+    CardFields, ChatRequest, Limits, Message, ModelCard, Role, RouterEntry, SuiteResult,
+};
 use crate::artifact::{Digest, Store};
+use maestro_test_scratch::scratch_directory;
 use std::{
-    env, fs,
+    fs,
     num::{NonZeroU32, NonZeroUsize},
     path::PathBuf,
-    process,
-    sync::atomic::{AtomicUsize, Ordering},
 };
 
 /// The llama.cpp build the stub's model servers report.
@@ -31,14 +32,7 @@ pub(super) struct Scratch(pub(super) PathBuf);
 
 impl Scratch {
     pub(super) fn new() -> Self {
-        static NEXT: AtomicUsize = AtomicUsize::new(0);
-        let path = env::temp_dir().join(format!(
-            "maestro-kernel-gateway-{}-{}",
-            process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
-        fs::create_dir(&path).unwrap();
-        Self(path)
+        Self(scratch_directory().unwrap())
     }
 
     /// An artifact store rooted in the directory.
@@ -93,4 +87,9 @@ pub(super) fn card_of(fields: &CardFields) -> ModelCard {
 /// The card of [`fields`] for `role`.
 pub(super) fn card(role: Role) -> ModelCard {
     card_of(&fields(role))
+}
+
+/// A test-only chat request capped to 400 output tokens.
+pub(super) fn chat_request(messages: &[Message]) -> ChatRequest {
+    ChatRequest::new(messages.to_vec(), 400)
 }

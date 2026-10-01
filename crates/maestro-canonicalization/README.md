@@ -107,4 +107,4 @@ just native   # the native tokenizer tests, through the local binding
 just mutants  # every mutant of the workspace; a survivor fails
 ```
 
-`just check` runs formatting, strict Clippy, the tests, rustdoc with warnings denied, at least 90 % line coverage, licence, ban and source checks, unused dependencies, the workflow and secret checks, and the repository's policies. Pull requests run the same checks through the organization's `rust-workflows`. Rust 1.98.1 is the pinned toolchain; the declared MSRV is 1.85. The native tests read the tokenizer's artifacts through the binding described in [TOKENIZER.md](TOKENIZER.md).
+`just check` runs formatting, strict Clippy, the tests, rustdoc with warnings denied, at least 90 % line coverage, licence, ban and source checks, unused dependencies, the workflow and secret checks, and the repository's policies. Pull requests run the same checks through the organization's `rust-workflows`. Rust 1.98.1 is the pinned toolchain; the declared MSRV is 1.98. The native tests read the tokenizer's artifacts through the binding described in [TOKENIZER.md](TOKENIZER.md).

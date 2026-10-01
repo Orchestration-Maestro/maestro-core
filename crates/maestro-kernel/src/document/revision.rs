@@ -10,6 +10,7 @@ use crate::{
 };
 use rusqlite::{Connection, OptionalExtension as _, Row, Transaction, params, types::Type};
 use serde_json::{Map, Value};
+use std::fmt;
 
 /// The columns [`revision_row`] reads, in its order.
 const COLUMNS: &str = "revisions.id, document_id, original_digest, canonical_digest, status, \
@@ -49,7 +50,7 @@ pub enum RevisionStatus {
 
 impl RevisionStatus {
     /// Every status.
-    const ALL: [Self; 3] = [Self::Valid, Self::ValidWithWarnings, Self::Failed];
+    pub(super) const ALL: [Self; 3] = [Self::Valid, Self::ValidWithWarnings, Self::Failed];
 
     /// Its name, as the `status` column holds it.
     fn as_str(self) -> &'static str {
@@ -61,13 +62,21 @@ impl RevisionStatus {
     }
 }
 
-/// What recording a revision did.
+impl fmt::Display for RevisionStatus {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(self.as_str())
+    }
+}
+
+/// What recording a revision, or a quality disposition, did.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Recorded {
-    /// The revision is new: it is recorded and its two artifacts pinned.
+    /// The record is new: a revision is recorded and its two artifacts
+    /// pinned, a disposition recorded and journaled if it holds its revision
+    /// back.
     New,
-    /// The revision was recorded before with the same content: nothing was
-    /// written.
+    /// It was recorded before, a revision with the same content, a
+    /// disposition with any: nothing was written.
     Unchanged,
 }
 
@@ -82,10 +91,7 @@ impl Database {
     /// and [`Error::Store`] when an artifact or its document is not recorded
     /// or the database cannot record it: nothing is recorded then.
     pub fn record_revision(&self, revision: &Revision) -> Result<Recorded, Error> {
-        self.write(|transaction| match find(transaction, None, &revision.id)? {
-            Some(recorded) => record_again(recorded, revision),
-            None => insert(transaction, revision),
-        })
+        self.write(|transaction| record(transaction, revision))
     }
 
     /// The revision `id`, if it is recorded, whatever its status, and
@@ -96,6 +102,26 @@ impl Database {
     /// [`Error::Store`] when the database cannot be read.
     pub fn revision(&self, scopes: &ScopeSet, id: &str) -> Result<Option<Revision>, Error> {
         Ok(find(&self.reader()?, Some(scopes), id)?)
+    }
+
+    /// Every revision of the collection `collection_id`, failed ones
+    /// included, whose document's source has a scope `scopes` covers, in the
+    /// order they were recorded.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Store`] when the database cannot be read.
+    pub fn revisions(
+        &self,
+        scopes: &ScopeSet,
+        collection_id: &str,
+    ) -> Result<Vec<Revision>, Error> {
+        Ok(of_collection(
+            &self.reader()?,
+            scopes,
+            collection_id,
+            Failed::Included,
+        )?)
     }
 
     /// Every revision of the collection `collection_id` that is not failed
@@ -110,20 +136,63 @@ impl Database {
         scopes: &ScopeSet,
         collection_id: &str,
     ) -> Result<Vec<Revision>, Error> {
-        let reader = self.reader()?;
-        // Each insert takes a rowid above every other, so rowid order is
-        // record order, whatever the clock did in between.
-        let mut statement = reader.prepare(&format!(
-            "SELECT {COLUMNS} FROM revisions JOIN documents ON documents.id = revisions.document_id
-             WHERE documents.collection_id = ?1 AND status <> 'failed' AND {}
-             ORDER BY revisions.rowid",
-            ScopeSet::source_condition("documents.collection_id", "documents.source_id", 2)
-        ))?;
-        let revisions = statement
-            .query_map(params![collection_id, scopes.parameter()], revision_row)?
-            .collect::<Result<_, _>>()?;
-        Ok(revisions)
+        Ok(of_collection(
+            &self.reader()?,
+            scopes,
+            collection_id,
+            Failed::Excluded,
+        )?)
     }
+}
+
+/// Records `revision` inside `transaction`, as [`Database::record_revision`]
+/// does in a write of its own.
+pub(super) fn record(
+    transaction: &Transaction<'_>,
+    revision: &Revision,
+) -> Result<Recorded, Error> {
+    match find(transaction, None, &revision.id)? {
+        Some(recorded) => record_again(recorded, revision),
+        None => insert(transaction, revision),
+    }
+}
+
+/// Whether a list of revisions holds the failed ones.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Failed {
+    /// Every revision, failed or not.
+    Included,
+    /// The revisions that are not failed: the eligible ones.
+    Excluded,
+}
+
+/// Every revision of the collection `collection_id` that `connection`
+/// records, `failed` ones included or not, whose document's source has a
+/// scope `scopes` covers, in the order they were recorded.
+fn of_collection(
+    connection: &Connection,
+    scopes: &ScopeSet,
+    collection_id: &str,
+    failed: Failed,
+) -> rusqlite::Result<Vec<Revision>> {
+    // Each insert takes a rowid above every other, so rowid order is record
+    // order, whatever the clock did in between.
+    let mut statement = connection.prepare(&format!(
+        "SELECT {COLUMNS} FROM revisions JOIN documents ON documents.id = revisions.document_id
+         WHERE documents.collection_id = ?1 AND (?3 OR status <> 'failed') AND {}
+         ORDER BY revisions.rowid",
+        ScopeSet::source_condition("documents.collection_id", "documents.source_id", 2)
+    ))?;
+    statement
+        .query_map(
+            params![
+                collection_id,
+                scopes.parameter(),
+                failed == Failed::Included
+            ],
+            revision_row,
+        )?
+        .collect()
 }
 
 /// What recording `given` again does when its id is recorded as `recorded`:
@@ -206,7 +275,7 @@ fn digest(row: &Row<'_>, index: usize) -> rusqlite::Result<Digest> {
 }
 
 /// The status column `index` of `row` names.
-fn status(row: &Row<'_>, index: usize) -> rusqlite::Result<RevisionStatus> {
+pub(super) fn status(row: &Row<'_>, index: usize) -> rusqlite::Result<RevisionStatus> {
     let text: String = row.get(index)?;
     RevisionStatus::ALL
         .into_iter()

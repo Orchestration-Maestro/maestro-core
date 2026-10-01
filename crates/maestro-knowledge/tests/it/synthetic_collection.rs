@@ -10,7 +10,7 @@ use maestro_kernel::{artifact::Digest, binding::Bindings};
 use maestro_knowledge::{
     collection::{Declaration, Visibility},
     corpus::Entry,
-    suite::{ExpectedSection, Language, Question, Suite},
+    suite::{ExpectedSection, Language, Question, Resolved, Suite},
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -134,11 +134,12 @@ fn section_id(
         .iter()
         .find(|(entry, _)| entry.source_ref == expected.source_ref)
         .ok_or_else(|| format!("no document is {}", expected.source_ref))?;
-    let section = expected.resolve(document).map_err(|refusal| {
-        let path = &expected.heading_path;
-        format!("{} {path:?}: {refusal}", expected.source_ref)
-    })?;
-    Ok(section.section_id.clone())
+    let path = &expected.heading_path;
+    match expected.resolve(document) {
+        Ok(Resolved::Section(section)) => Ok(section.section_id.clone()),
+        Ok(Resolved::Document(_)) => Err(format!("{} is expected whole", expected.source_ref)),
+        Err(refusal) => Err(format!("{} {path:?}: {refusal}", expected.source_ref)),
+    }
 }
 
 /// The language a document is written in: its path's first directory.

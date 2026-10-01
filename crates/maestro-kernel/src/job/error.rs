@@ -39,6 +39,13 @@ pub enum Error {
         /// The job that holds it.
         job: Ulid,
     },
+    /// More than the bounded history of this resource is visible.
+    TooManyJobs {
+        /// The resource whose history is too large.
+        resource: String,
+        /// The largest history returned.
+        limit: usize,
+    },
     /// The lease is no longer the job's: another holder took it over, or the
     /// job ended. Its holder writes nothing more to the job, so a stalled
     /// process that wakes up never writes over its successor.
@@ -83,6 +90,10 @@ impl fmt::Display for Error {
                 "resource {resource} is held by job {job}, which is queued or running: another \
                  job on it is refused until that one ends"
             ),
+            Self::TooManyJobs { resource, limit } => write!(
+                formatter,
+                "resource {resource} has more than {limit} visible jobs; refusing its history"
+            ),
             Self::Lost {
                 job,
                 holder,
@@ -111,6 +122,7 @@ impl error::Error for Error {
             | Self::IllegalMove { .. }
             | Self::Held { .. }
             | Self::ResourceHeld { .. }
+            | Self::TooManyJobs { .. }
             | Self::Lost { .. }
             | Self::Time => None,
         }

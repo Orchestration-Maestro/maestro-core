@@ -6,7 +6,7 @@
 //! pin are committed or rolled back together.
 
 use super::{database::Database, error::Error};
-use crate::artifact::Digest;
+use crate::artifact::{self, Digest};
 use rusqlite::{Connection, OptionalExtension as _, Row, Transaction, params, types::Type};
 
 /// An artifact as the database records it.
@@ -23,7 +23,49 @@ pub struct Artifact {
     pub pins: u64,
 }
 
+/// What a check of the artifact tree found: how many artifacts the database
+/// records, and which of them the tree does not hold intact.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ArtifactCheck {
+    /// How many artifacts the database records.
+    pub recorded: u64,
+    /// Those whose file is not in the tree, in digest order.
+    pub missing: Vec<Digest>,
+    /// Those whose file no longer matches its digest, is no regular file or
+    /// cannot be read, in digest order.
+    pub damaged: Vec<Digest>,
+}
+
 impl Database {
+    /// Checks each artifact the database records against the tree: a
+    /// regular file, read whole and hashed to its digest. Nothing changes. It
+    /// reads the whole tree, so it takes as long as the tree is large;
+    /// `maestro doctor` runs it.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::Sqlite`] when the database cannot be read.
+    pub fn check_artifacts(&self) -> Result<ArtifactCheck, Error> {
+        let reader = self.reader()?;
+        let mut statement = reader.prepare("SELECT digest FROM artifacts ORDER BY digest")?;
+        let digests: Vec<Digest> = statement
+            .query_map([], |row| digest_column(row, 0))?
+            .collect::<Result<_, _>>()?;
+        let mut check = ArtifactCheck {
+            recorded: u64::try_from(digests.len()).unwrap_or(u64::MAX),
+            missing: Vec::new(),
+            damaged: Vec::new(),
+        };
+        for digest in digests {
+            match self.artifacts.get(&digest) {
+                Ok(_) => {}
+                Err(artifact::Error::Missing(_)) => check.missing.push(digest),
+                Err(_) => check.damaged.push(digest),
+            }
+        }
+        Ok(check)
+    }
+
     /// Stores `bytes` as an artifact of type `media` and records it, without
     /// a pin, and returns its digest. Bytes already recorded keep their
     /// record, pins included.
@@ -266,15 +308,19 @@ fn recorded(connection: &Connection, digest: &Digest) -> Result<bool, Error> {
 
 /// The artifact of a row of `digest, bytes, media, pins`.
 fn artifact_row(row: &Row<'_>) -> rusqlite::Result<Artifact> {
-    let hex: String = row.get(0)?;
-    let digest = Digest::parse(&hex).map_err(|invalid| {
-        rusqlite::Error::FromSqlConversionFailure(0, Type::Text, Box::new(invalid))
-    })?;
     Ok(Artifact {
-        digest,
+        digest: digest_column(row, 0)?,
         bytes: unsigned(row, 1)?,
         media: row.get(2)?,
         pins: unsigned(row, 3)?,
+    })
+}
+
+/// The digest column `index` of `row` holds.
+fn digest_column(row: &Row<'_>, index: usize) -> rusqlite::Result<Digest> {
+    let hex: String = row.get(index)?;
+    Digest::parse(&hex).map_err(|invalid| {
+        rusqlite::Error::FromSqlConversionFailure(index, Type::Text, Box::new(invalid))
     })
 }
 

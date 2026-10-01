@@ -2,5 +2,8 @@
 //! `maestro-evidence/1`, with the same outcomes on Linux, macOS and Windows.
 
 mod bundle;
+mod lookup;
+mod parent_context;
 mod resolve;
+mod search_wire;
 mod support;

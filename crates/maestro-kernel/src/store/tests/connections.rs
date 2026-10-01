@@ -20,14 +20,19 @@ const COUNTER: (&str, &str) = (
     "CREATE TABLE counter (value INTEGER NOT NULL) STRICT; INSERT INTO counter VALUES (0);",
 );
 
-/// The busy timeout in milliseconds and whether foreign keys are enforced.
-fn settings(connection: &Connection) -> (i64, i64) {
+/// The busy timeout in milliseconds, whether foreign keys are enforced and
+/// whether triggers fire recursively.
+fn settings(connection: &Connection) -> (i64, i64, i64) {
     let setting = |name| {
         connection
             .pragma_query_value(None, name, |row| row.get(0))
             .unwrap()
     };
-    (setting("busy_timeout"), setting("foreign_keys"))
+    (
+        setting("busy_timeout"),
+        setting("foreign_keys"),
+        setting("recursive_triggers"),
+    )
 }
 
 /// The names in `directory`, sorted.
@@ -71,25 +76,28 @@ fn count_together(database: &Database, start: &Barrier) {
 }
 
 #[test]
-fn every_connection_waits_five_seconds_and_enforces_foreign_keys() {
+fn every_connection_waits_five_seconds_and_enforces_foreign_keys_and_recursive_triggers() {
     let scratch = Scratch::new();
     let database = scratch.open();
-    assert_eq!(settings(&database.reader().unwrap()), (5000, 1));
+    assert_eq!(settings(&database.reader().unwrap()), (5000, 1, 1));
     let writer = database
         .write(|transaction| Ok::<_, Error>(settings(transaction)))
         .unwrap();
-    assert_eq!(writer, (5000, 1));
+    assert_eq!(writer, (5000, 1, 1));
 }
 
 #[test]
-fn configured_sets_both_settings_whatever_the_connection_had() {
+fn configured_sets_every_setting_whatever_the_connection_had() {
     let connection = Connection::open_in_memory().unwrap();
     connection.busy_timeout(Duration::ZERO).unwrap();
     connection
         .pragma_update(None, "foreign_keys", false)
         .unwrap();
-    assert_eq!(settings(&connection), (0, 0));
-    assert_eq!(settings(&configured(connection).unwrap()), (5000, 1));
+    connection
+        .pragma_update(None, "recursive_triggers", false)
+        .unwrap();
+    assert_eq!(settings(&connection), (0, 0, 0));
+    assert_eq!(settings(&configured(connection).unwrap()), (5000, 1, 1));
 }
 
 #[test]

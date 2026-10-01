@@ -5,12 +5,11 @@ use crate::{
     artifact::Digest,
     store::{Database, Error},
 };
+use maestro_test_scratch::scratch_directory;
 use rusqlite::Connection;
 use std::{
-    env, fs,
+    fs,
     path::{Path, PathBuf},
-    process,
-    sync::atomic::{AtomicUsize, Ordering},
 };
 
 /// SHA-256 of `abc`.
@@ -27,14 +26,7 @@ pub(super) struct Scratch(pub(super) PathBuf);
 
 impl Scratch {
     pub(super) fn new() -> Self {
-        static NEXT: AtomicUsize = AtomicUsize::new(0);
-        let path = env::temp_dir().join(format!(
-            "maestro-kernel-store-{}-{}",
-            process::id(),
-            NEXT.fetch_add(1, Ordering::Relaxed)
-        ));
-        fs::create_dir(&path).unwrap();
-        Self(path)
+        Self(scratch_directory().unwrap())
     }
 
     /// The database file of this directory.

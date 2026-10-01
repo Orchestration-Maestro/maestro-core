@@ -5,6 +5,7 @@ use super::support::{FIRST, SECOND, Scratch, TERM, at, collection, publish, rows
 use crate::{
     job::{JobState, NewJob},
     scope::ScopeSet,
+    store,
 };
 use rusqlite::Connection;
 use serde_json::json;
@@ -233,6 +234,49 @@ fn a_job_is_never_replaced_nor_deleted_whoever_writes() {
             (rows(&outside, "jobs"), rows(&outside, "events")),
             before,
             "{sql}: the job and its stream stay as they were"
+        );
+    }
+}
+
+#[test]
+fn a_job_is_never_replaced_through_its_rowid() {
+    let scratch = Scratch::new();
+    let database = scratch.open();
+    let (job, _) = running(&database, "demo");
+    let queued = database
+        .submit_job(&publish(&collection("queued")), at(0))
+        .unwrap();
+    // Another ID, key and resource pass the insert's trigger, and a change of
+    // the rowid alone fires no update trigger; each takes the rowid of `job`.
+    let rewrites = [
+        format!(
+            "INSERT OR REPLACE INTO jobs (rowid, id, kind, idempotency_key, attempt, scope, state)
+             SELECT rowid, '01ARZ3NDEKTSV4RRFFQ69G5FAV', kind, 'other', 1, scope, 'queued'
+             FROM jobs WHERE id = '{}'",
+            job.id
+        ),
+        format!(
+            "UPDATE OR REPLACE jobs SET rowid = (SELECT rowid FROM jobs WHERE id = '{}')
+             WHERE id = '{}'",
+            job.id, queued.id
+        ),
+    ];
+    let outside = scratch.outside();
+    let before = (rows(&outside, "jobs"), rows(&outside, "events"));
+    for rewrite in rewrites {
+        let refusal = database
+            .write(|transaction| Ok::<_, store::Error>(transaction.execute(&rewrite, [])))
+            .unwrap()
+            .map_err(|error| error.to_string());
+        assert_eq!(
+            refusal,
+            Err("a job is never deleted: its row stays, as its stream does".to_owned()),
+            "{rewrite}"
+        );
+        assert_eq!(
+            (rows(&outside, "jobs"), rows(&outside, "events")),
+            before,
+            "{rewrite}: the job and its stream stay as they were"
         );
     }
 }

@@ -1,11 +1,12 @@
 //! The prepared input: body parts, formatting, sentence boundaries and fitting prefixes.
+use super::chrome::heading_title;
 use super::refusal::structure_error;
 use super::structure::{Body, Layout};
 use crate::{
     content::BlockType,
     error::Error,
-    prepared_inputs::{ChunkContent, InputPart, InputRole, TableWindow},
-    source_units::{MappingRun, OriginMode, SourceUnit, TextRange},
+    prepared_inputs::{ChunkContent, Fragment, InputPart, InputRole, TableWindow},
+    source_units::{MappingRun, OriginMode, TextRange},
 };
 use std::collections::BTreeSet;
 
@@ -13,17 +14,28 @@ use std::collections::BTreeSet;
 const SENTENCE_ENDS: [char; 6] = ['.', '!', '?', '。', '！', '？'];
 
 impl Layout<'_> {
-    /// The body's input parts: a table window's cells separated by tabs, else each fragment with
-    /// its item marker and the separators between items and blocks.
+    /// The body's input parts: each fragment with its item marker and the separators between
+    /// items and blocks, a table's fragments laid out as its windows' rows.
     fn body_parts(&self, body: &Body) -> Result<Vec<InputPart>, Error> {
-        if !body.windows.is_empty() {
-            return self.window_parts(body);
-        }
+        let in_table = |fragment: &Fragment| {
+            self.nearest(fragment.contribution.unit_index, &BlockType::Table)
+                .is_some()
+        };
+        let last_row = body
+            .fragments
+            .iter()
+            .rev()
+            .find(|fragment| in_table(fragment));
         let mut parts = Vec::new();
         let mut previous: Option<usize> = None;
         let mut seen_items = BTreeSet::new();
+        let mut rows_laid = false;
         for fragment in &body.fragments {
             let index = fragment.contribution.unit_index;
+            let row = in_table(fragment);
+            if row && rows_laid {
+                continue;
+            }
             if let Some(previous) = previous {
                 self.body_separator(&mut parts, previous, index)?;
             }
@@ -33,30 +45,28 @@ impl Layout<'_> {
             if first_of_item {
                 self.item_prefix(index, &mut parts)?;
             }
-            self.fragment_parts(fragment, &mut parts)?;
-            previous = Some(index);
+            if row {
+                self.rows(body, index, &mut parts)?;
+                rows_laid = true;
+                previous = last_row.map(|last| last.contribution.unit_index);
+            } else {
+                self.fragment_parts(fragment, &mut parts)?;
+                previous = Some(index);
+            }
         }
         Ok(parts)
     }
 
-    /// A table body's input parts: its item marker, then each window's cells separated by tabs
-    /// and its rows by indented line breaks.
-    fn window_parts(&self, body: &Body) -> Result<Vec<InputPart>, Error> {
-        let mut parts = Vec::new();
-        let index = body
-            .fragments
-            .first()
-            .ok_or_else(structure_error)?
-            .contribution
-            .unit_index;
-        self.item_prefix(index, &mut parts)?;
+    /// Each window's cells separated by tabs, and its rows by line breaks indented as the unit
+    /// `index` of the first row.
+    fn rows(&self, body: &Body, index: usize, parts: &mut Vec<InputPart>) -> Result<(), Error> {
         for (row, window) in body.windows.iter().enumerate() {
             if row > 0 {
-                formatting(&mut parts, format!("\n{}", self.indentation(index)), true);
+                formatting(parts, format!("\n{}", self.indentation(index)), true);
             }
-            self.row_parts(body, window, &mut parts)?;
+            self.row_parts(body, window, parts)?;
         }
-        Ok(parts)
+        Ok(())
     }
 
     /// One window's cells, separated by tabs: the body's fragments in each cell.
@@ -157,10 +167,13 @@ impl Layout<'_> {
                 container_ids.push(block.block_id.clone());
             }
         }
+        let heading_path = self.owner(first)?.heading_path.iter();
         Ok(ChunkContent {
             section_id: self.section(first),
             container_ids,
-            heading_path: self.owner(first)?.heading_path.clone(),
+            heading_path: heading_path
+                .map(|title| heading_title(self.rules().chrome.as_ref(), title))
+                .collect(),
             fragments: body.fragments.clone(),
             table_windows: body.windows.clone(),
             body_text,
@@ -195,52 +208,6 @@ pub(super) fn formatting(parts: &mut Vec<InputPart>, text: String, body_layout: 
     });
 }
 
-/// A range of a unit's text that neither starts nor ends inside an inline delimiter, extended over
-/// closing delimiters and holding some text outside them; none otherwise.
-pub(super) fn normalized_range(
-    unit: &SourceUnit,
-    start: usize,
-    mut end: usize,
-) -> Option<TextRange> {
-    unit.text.get(start..end)?;
-    if start == end {
-        return None;
-    }
-    for envelope in &unit.envelopes {
-        for wrapper in [envelope.opening, envelope.closing] {
-            if wrapper.start < start && start < wrapper.end {
-                return None;
-            }
-        }
-        if envelope.opening.start < end && end <= envelope.opening.end {
-            return None;
-        }
-    }
-    // Take in closing delimiters; each pass moves past one for good: one pass per envelope.
-    for _ in &unit.envelopes {
-        let next = unit
-            .envelopes
-            .iter()
-            .filter(|envelope| envelope.closing.start <= end && end < envelope.closing.end)
-            .map(|envelope| envelope.closing.end)
-            .max();
-        match next {
-            Some(next) => end = next,
-            None => break,
-        }
-    }
-    let text = unit.text.get(start..end)?;
-    let substantive = text.char_indices().any(|(offset, _)| {
-        let at = start + offset;
-        !unit.envelopes.iter().any(|envelope| {
-            [envelope.opening, envelope.closing]
-                .iter()
-                .any(|wrapper| wrapper.start <= at && at < wrapper.end)
-        })
-    });
-    substantive.then_some(TextRange { start, end })
-}
-
 /// Candidate cut points after whitespace: the meaningful ones follow a line break in code or a
 /// sentence end elsewhere; the others follow any whitespace.
 pub(super) fn boundaries(text: &str, code: bool) -> (Vec<usize>, Vec<usize>) {
@@ -263,19 +230,19 @@ pub(super) fn boundaries(text: &str, code: bool) -> (Vec<usize>, Vec<usize>) {
 }
 
 /// A prefix of the text that fits: the whole text, or the first fitting half by halving, then cut
-/// back to the last preferred boundary if that also fits; a single character that does not fit is
-/// refused.
+/// back to the last preferred boundary if that also fits; none when not even a single character
+/// fits, which its caller refuses by naming its unit.
 pub(super) fn fit_prefix(
     text: &str,
     preferred: &[usize],
     fits: &mut impl FnMut(usize) -> Result<bool, Error>,
-) -> Result<usize, Error> {
+) -> Result<Option<usize>, Error> {
     let mut end = text.len();
     loop {
         if end > 0 && fits(end)? {
             // A rest that fits stays whole; only a halved prefix moves back to a preferred cut.
             if end == text.len() {
-                return Ok(end);
+                return Ok(Some(end));
             }
             let boundary = preferred
                 .iter()
@@ -283,13 +250,13 @@ pub(super) fn fit_prefix(
                 .copied()
                 .find(|&cut| cut > 0 && cut < end && text.is_char_boundary(cut));
             return match boundary {
-                Some(boundary) if fits(boundary)? => Ok(boundary),
-                Some(_) | None => Ok(end),
+                Some(boundary) if fits(boundary)? => Ok(Some(boundary)),
+                Some(_) | None => Ok(Some(end)),
             };
         }
         let scalar_count = text[..end].chars().count();
         if scalar_count <= 1 {
-            return Err(structure_error());
+            return Ok(None);
         }
         end = text
             .char_indices()

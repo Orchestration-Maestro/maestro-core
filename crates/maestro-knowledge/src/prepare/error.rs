@@ -46,6 +46,11 @@ pub enum TokenizerError {
     /// The parity fixtures built into this crate are not valid JSON of their
     /// shape.
     Fixtures(serde_json::Error),
+    /// Candidate-specific qualification evidence or provenance is invalid.
+    Qualification {
+        /// Why the qualification is refused.
+        reason: String,
+    },
     /// The thread that runs the port's calls, or its runtime, could not
     /// start.
     Start(io::Error),
@@ -97,6 +102,12 @@ impl fmt::Display for TokenizerError {
                 formatter,
                 "the parity fixtures built into maestro-knowledge are not valid: {error}"
             ),
+            Self::Qualification { reason } => {
+                write!(
+                    formatter,
+                    "candidate tokenizer qualification is invalid: {reason}"
+                )
+            }
             Self::Start(error) => {
                 write!(formatter, "the tokenizer's thread could not start: {error}")
             }
@@ -116,6 +127,7 @@ impl error::Error for TokenizerError {
             | Self::Unavailable { .. }
             | Self::Disagreement { .. }
             | Self::TimedOut { .. }
+            | Self::Qualification { .. }
             | Self::Stopped => None,
         }
     }

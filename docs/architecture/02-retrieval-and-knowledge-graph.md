@@ -91,7 +91,8 @@ bounded retrieval.
 
 Starting depths are budgets to tune with the ladder protocol (§10), not
 optima. Routes run in parallel under the admission deadline. A route that fails
-or times out is reported in the response (`routes: {graph: "unavailable"}`).
+or times out is reported in the response, with its reason
+(`"routes": {"graph": {"unavailable": "<reason>"}}`).
 Degradation depends on the question: without the graph, a documentary
 explanation may proceed with the limitation disclosed, but a dependency
 conclusion that needs the graph is refused rather than asserted unchecked.
@@ -161,8 +162,8 @@ ranking once enough relevance labels exist.
 - Latency: measured in S1 at 30, 60 and 120 candidates, batched through the
   router; the chosen depth is the smallest that keeps the measured gain.
 - If the reranker is unavailable, `search` returns the fused order flagged
-  `rerank: "unavailable"`; `ask` refuses unless the caller's policy accepts
-  degraded evidence.
+  `"rerank": {"unavailable": "<reason>"}`; `ask` refuses unless the caller's
+  policy accepts degraded evidence.
 
 ## 6. Evidence assembly
 
@@ -196,6 +197,80 @@ chunk: technical procedures lose meaning when cut.
    passage is procedural live in a `trace` section, separate from the evidence
    itself, which carries the version.
 
+S1 assembles evidence after reranking, using only the pinned generation and its
+named, currently authorized candidates. It inherits the request's absolute
+deadline and does not call a route or model. Overlapping and adjacent seed
+spans become one half-open source slice; gaps and revisions remain separate.
+Sections come from canonical heading blocks. A window contains whole lexical
+siblings only. `windowed: true` means the passage does not cover its chosen
+section/content extent; it never changes the verbatim text, span or digest.
+
+Selection uses ordinal input rank and case-sensitive word-shingle Jaccard with
+λ = 0.7. A protected signature disables the redundancy penalty when source
+numbers, code, conditional/negation blocks or version metadata differ. S1
+version collapse is conservative: only byte-identical complete section text
+with matching path occurrence and product context in one document or
+manifest-allowed near-duplicate group may collapse to numeric latest; comparison
+queries and version inventories keep versions distinct. S1 conflict flags come
+only from exact differing values in supported canonical tables, within the
+same authorized correspondence family. These are possible structured
+conflicts, not semantic contradiction detection. Graph support paths and
+arbitrary support groups remain outside S1.
+
+`request_budget` echoes the accepted request limits unchanged. An optional
+`inventory` is the exact structured result from the pinned generation; it is
+independent of supporting passages, so an inventory may be present when no
+passage fits. Neither a missing inventory nor missing passages assert corpus-
+wide absence. The evidence budget counts only the compact JSON array of final
+passages, including citation metadata and window markers. The default
+`evidence-utf8-bytes/1` counter records `estimated: true`; it is a conservative
+byte proxy, not a guarantee about an unselected answerer's tokenizer. An exact
+answerer-bound counter records its contract ID and `estimated: false`; its
+failures never fall back to bytes. Trace chunk IDs, scores and routes refer only
+to retained primary seeds, not alternates; alternate sections are not extra
+votes. Final reading order groups by document/revision in best input-rank order,
+then by source span.
+
+### Parent-chain delivery
+
+`evidence.expansion = "parent_chain"` delivers complete units plus their
+required parent context. Legacy modes keep
+the same serialized output. With parent-chain enabled,
+`evidence.parent_chain_order` accepts `minimum_complete_first` (the default)
+or `largest_fitting_parent`. An explicit order outside
+parent-chain mode is refused (exit 2). Search-only ladder rungs carry the same
+optional expansion and order; answer-enabled rungs reject these overrides.
+
+The request-local, internal `DeliveryGraph` port consumes already-authorized
+canonical artifacts: it performs no independent database or network reads.
+Its legacy adapter offers exact seed-linked primary parts separately from
+required context ranges: a standalone table row plus header, the whole table,
+then its section. Nested procedure units remain whole. Persisted retrieval-view
+adapters may supply disjoint primary parts without pretending that the source
+gap is delivered. Every required part is admitted atomically; shared or adjacent
+source ranges merge before counting the actual serialized final passage array.
+A UTF-8 byte counter can reject a single over-budget required range before
+rendering; no byte bound is assumed for tokenizer counters.
+
+Knowledge retrieval crosses the `RetrievalProjectionPort`: publication,
+verification, rebuild, and search use backend-neutral projection data and
+filters, while the Qdrant adapter owns transport conversion. This keeps the
+projection backend replaceable without changing retrieval callers.
+
+Conflict groups use global clamped tiers, preserving every member: minimum-first
+ascends them, largest-first descends the same tiers. Both retry lockstep growth
+after admission, because later overlaps can make a parent cheaper. Passage
+slots and source-byte accounting apply to each complete trial, not to isolated
+seed estimates. Unrelated rows gain no selection credit from a shared header.
+
+`trace.chunk_ids` means contained primary source contributions.
+`trace.parent_context_of` instead links a parent-only passage to admitted primary
+seeds in the same revision; it is omitted when empty. Duplicate, dangling,
+cross-revision or simultaneous containment/context links are rejected on read
+and write. Answer citations prefer contained chunks, then validated parent
+support; they retain the parent's own exact source span, including for closest
+passages in refusals.
+
 The bundle also carries the claims and paths used (S2), the **known gaps**
 (required evidence not found or not accessible) and, when `ask` is used, an
 **answer-support plan** that maps each planned statement to its evidence before
@@ -205,8 +280,11 @@ any text is drafted, so an unsupported conclusion is caught before generation.
 {
   "schema": "maestro-evidence/1",
   "collection": "ctm", "generation": 7, "query": "…", "lang": "fr",
-  "routes": {"dense": "ok", "bm25": "ok", "identifier": "ok", "graph": "ok", "rerank": "ok"},
+  "routes": {"dense": "ok", "lexical": "ok", "identifier": "ok", "structured": "ok", "rerank": "ok"},
+  "request_budget": {"k": 10, "evidence_bytes": 12000, "deadline_ms": 1500},
+  "inventory": {"kind": "documents_by_set", "set_filter": null, "total_documents": 12, "sets": [{"value": "ctm", "documents": 12}]},
   "passages": [{
+    "windowed": true,
     "n": 1, "section_id": "…", "doc_id": "…", "revision_id": "…",
     "title": "Installing Control-M/Agent on UNIX", "section_path": ["Installation", "Prerequisites"],
     "version": "9.0.22", "source_ref": "https://…", "span": [18230, 20411], "digest": "sha256:…",
@@ -219,10 +297,10 @@ any text is drafted, so an unsupported conclusion is caught before generation.
   }],
   "conflicts": [{"entity": "…", "attribute": "default port", "passages": [1, 2]}],
   "known_gaps": ["…"],
-  "budget": {"evidence_tokens": 5870, "limit": 6000},
+  "budget": {"evidence_bytes": 5870, "limit": 12000, "counter": "evidence-utf8-bytes/1", "estimated": true},
   "trace": [
-    {"n": 1, "score": 0.83, "routes": ["dense", "bm25"], "procedural": true},
-    {"n": 2, "score": 0.61, "routes": ["bm25"], "procedural": false}
+    {"n": 1, "score": 0.83, "routes": ["dense", "lexical"], "chunk_ids": ["chunk-a"], "procedural": true},
+    {"n": 2, "score": 0.61, "routes": ["lexical"], "chunk_ids": ["chunk-b"], "procedural": false}
   ]
 }
 ```
@@ -371,10 +449,15 @@ Each is a kernel-authoritative fact set with its own generation stamp.
 
 ## 9. MCP tools (knowledge)
 
+T034's first bounded local stdio server is integrated at `750e7d6`; it currently
+advertises `knowledge_collections` and chunk-only `knowledge_get`. MCP search, section
+reads and `knowledge_ask` are not yet exposed. The table and resource
+URIs below describe the planned surface by slice.
+
 | Tool | Input | Output | Slice |
 | --- | --- | --- | --- |
 | `knowledge_collections` | — | Collections visible to the caller with their published generation | S1 |
-| `knowledge_search` | `collection`, `query`, optional `version`, `k`, `max_tokens` | `maestro-evidence/1` bundle | S1 |
+| `knowledge_search` | `collection`, `query`, optional `version`, `k`, `evidence_bytes` | `maestro-evidence/1` bundle | S1 |
 | `knowledge_get` | `section_id` or `chunk_id` | Exact text with provenance | S1 |
 | `knowledge_graph_neighbors` | `entity` (ID or name), `relation_types?`, `version?`, `depth ≤ 2` | Entities and relations with evidence references | S2 |
 | `knowledge_graph_path` | `from`, `to`, `max_length ≤ 4` | Paths with evidence references | S2 |
@@ -410,22 +493,35 @@ blocks regressions.
 
 | Suite | Content | Where it runs |
 | --- | --- | --- |
-| `synthetic-retrieval` | Public synthetic corpus (non-vendor topics) with labelled questions | Public CI on every PR (deterministic fake embedder for pipeline checks; real models locally) |
-| `ctm-retrieval` | 100+ Control-M questions (FR/EN) with expected sections; ~15 % unanswerable | Local, private (`just eval`); reports attached to PRs |
+| `synthetic` | Public synthetic corpus (non-vendor topics) with 56 labelled questions in `tests/fixtures/synthetic` | Public CI on every PR with pinned Qdrant 1.19 and deterministic fake inference |
+| `ctm-retrieval` | Owner-pinned private questions from eligible official documentation; contents, counts and review receipt remain private | Local, private; reports remain private |
 | `ctm-identifiers` | Queries naming commands, parameters, error codes | Local, private |
 | `ctm-answers` | Questions with reference answers and required citations | Local, private |
 | `ctm-graph` (S2) | Relationship, dependency, version-difference and multi-hop questions | Local, private |
+
+The public synthetic CI leg uses pinned Qdrant and deterministic fake inference;
+its temporary test adapter records route/fusion rankings and T021 metrics without
+T032's abstention policy. Its no-answer accuracy of zero is expected and is not a
+regression result. Reports remain candidates until the supervisor seeds a
+baseline from a reviewed integration; later baseline changes require review.
+After seeding, integrity and degradation fail closed and the gate compares
+Recall@5/10, MRR@10, nDCG@10, no-answer accuracy and false abstentions, with no
+latency threshold.
 
 | Metric | Definition |
 | --- | --- |
 | Recall@k | Share of answerable questions with at least one expected section in the top k (k = 5, 10) |
 | MRR@10 | Mean reciprocal rank of the first expected section |
-| nDCG@10 | Graded relevance with multiple expected sections |
+| nDCG@10 | Each expected answer item (one name or one `group`) gains 1 at its best rank, over the ideal ranking of every item |
 | No-answer accuracy | Share of unanswerable questions correctly refused |
 | Citation precision / recall | Cited passages that support the answer / required passages cited |
 | Command exactness | Share of answers whose commands all appear verbatim in evidence (must be 100 %) |
 | Faithfulness | Judge-assessed entailment of cited sentences (judge qualified against human labels) |
 | Latency | p50 / p95 per stage and end to end |
+
+An expected section may name a non-blank `group` when it is a copy of another
+expected answer for the same question. Recall@k and MRR@10 continue to count any
+member; nDCG@10 uses each group's best member rank and counts the group once.
 
 **Ladder protocol:** each capability must beat the previous rung on the same
 generation and questions: BM25 → dense → hybrid → + identifier route → + rerank →
@@ -434,13 +530,15 @@ generation and questions: BM25 → dense → hybrid → + identifier route → +
 for its cost is not shipped. After selection, a drop of more than 2 points on
 Recall@10 or MRR@10, or any command-exactness failure, blocks the change.
 
-**Golden set construction:** questions are drafted from the corpus by an agent,
-covering all query types and both languages; the collection owner validates a
-stratified sample (at least 20 %), and every expected answer points at section
-IDs, not free text. The set starts at 100+ questions for M1 and grows toward
-200–500 (exact identifiers, paraphrases, close versions, tables,
-contradictions, unanswerable questions), with held-out items the tuning never
-sees. Targets are declared before a run and never lowered after a failure.
+**Golden set construction:** questions are drafted from eligible official
+documentation by an agent; an independent model checks every question and its
+expected sections, and the owner decides only flagged wording or answerability
+changes. Every expected answer is a section named by its document's
+`source_ref` and heading path, or a sectionless document named whole; the runner
+resolves each name against the generation. Equivalent version copies form one
+grouped evaluation item. The private repository keeps the current scope rule,
+question set and review receipt; public CI uses synthetic fixtures only.
+Targets are declared before a run and never lowered after a failure.
 
 **Diagnosis before tuning.** Evidence recall is measured per route **before**
 fusion, using the independent `search_dense` and `search_bm25` diagnostics

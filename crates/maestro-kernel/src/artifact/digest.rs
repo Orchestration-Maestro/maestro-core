@@ -1,5 +1,6 @@
 //! A SHA-256 digest: the name every artifact is stored under.
 
+use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 use sha2::{Digest as _, Sha256};
 use std::{error, fmt};
 
@@ -67,3 +68,16 @@ impl fmt::Display for InvalidDigest {
 }
 
 impl error::Error for InvalidDigest {}
+
+impl Serialize for Digest {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl<'de> Deserialize<'de> for Digest {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let text = String::deserialize(deserializer)?;
+        Self::parse(&text).map_err(de::Error::custom)
+    }
+}

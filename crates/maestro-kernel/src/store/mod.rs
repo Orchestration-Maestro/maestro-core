@@ -5,8 +5,10 @@
 //! WAL mode. One writer connection, behind a mutex, serves every thread, and
 //! each write is one short `IMMEDIATE` transaction; readers open connections
 //! of their own, which only read and see the last commit. Every connection
-//! waits 5 s for another's lock and enforces foreign keys. The kernel's other
-//! tables write through `Database::write`, in the crate, and pin the
+//! waits 5 s for another's lock, enforces foreign keys, and fires the delete
+//! triggers of the rows a `REPLACE` removes (recursive triggers), so no
+//! replacement that names a guarded row's rowid deletes it. The kernel's
+//! other tables write through `Database::write`, in the crate, and pin the
 //! artifacts they refer to in the same transaction.
 //!
 //! `open` creates the file and its missing directories for the owner only,
@@ -26,7 +28,9 @@
 //! transaction of its own, and recorded by name in `migrations`. A migration
 //! merged later with a lower number still applies; a database that records
 //! a migration this binary lacks was migrated by a newer binary and is
-//! refused before anything changes.
+//! refused before anything changes. [`pending_migrations`] reads which
+//! migrations a database lacks, or the one it records that this binary
+//! lacks, from the file opened read-only, and changes nothing.
 //!
 //! The `artifacts` table records each artifact the store holds: its size, its
 //! media type, its pins and when it was first stored. A pin is a record that
@@ -50,6 +54,6 @@ mod migration;
 #[cfg(test)]
 mod tests;
 
-pub use artifacts::Artifact;
-pub use database::Database;
+pub use artifacts::{Artifact, ArtifactCheck};
+pub use database::{Database, pending_migrations};
 pub use error::Error;

@@ -4,7 +4,7 @@
 
 use super::{
     super::{CardFields, Error, FakeModels, Message, ModelPort, Role, Room, Speaker},
-    fixture::{card, card_of, fields},
+    fixture::{card, card_of, chat_request, fields},
 };
 use std::num::NonZeroUsize;
 
@@ -122,7 +122,7 @@ async fn the_fake_answers_with_the_evidence_line_closest_to_the_question() {
         message(Speaker::User, "Do blue whales sing?"),
     ];
     let reply = FakeModels
-        .chat(&card(Role::Answerer), Room::Any, &messages)
+        .chat(&card(Role::Answerer), Room::Any, &chat_request(&messages))
         .await
         .unwrap();
     assert_eq!(reply, "Blue whales sing long songs.");
@@ -136,7 +136,7 @@ async fn the_fake_keeps_the_first_of_equally_close_lines() {
         message(Speaker::User, "Do whales sing?"),
     ];
     let reply = FakeModels
-        .chat(&card(Role::Answerer), Room::Any, &messages)
+        .chat(&card(Role::Answerer), Room::Any, &chat_request(&messages))
         .await
         .unwrap();
     assert_eq!(reply, "Whales sing.");
@@ -149,9 +149,11 @@ async fn the_fake_says_nothing_the_evidence_does_not_hold() {
         message(Speaker::User, "Ships sail at dawn."),
         message(Speaker::User, "Do whales sing?"),
     ];
-    let reply = FakeModels.chat(&card, Room::Any, &unrelated).await;
+    let reply = FakeModels
+        .chat(&card, Room::Any, &chat_request(&unrelated))
+        .await;
     assert_eq!(reply.unwrap(), "");
-    let silence = FakeModels.chat(&card, Room::Any, &[]).await;
+    let silence = FakeModels.chat(&card, Room::Any, &chat_request(&[])).await;
     assert_eq!(silence.unwrap(), "");
 }
 
@@ -177,7 +179,7 @@ async fn the_fake_refuses_a_card_for_another_role() {
         ),
         (
             FakeModels
-                .chat(&embedder, Room::Any, &question)
+                .chat(&embedder, Room::Any, &chat_request(&question))
                 .await
                 .unwrap_err(),
             Role::Answerer,

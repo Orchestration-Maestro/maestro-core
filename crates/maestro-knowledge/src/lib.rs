@@ -7,16 +7,37 @@
 //! `maestro-corpus/1`, one JSON line per document ([`corpus`]). Neither holds a
 //! machine path: a declaration names its corpus by a binding the kernel
 //! resolves ([`maestro_kernel::binding`]), and every path either gives is a
-//! [`RelativePath`], which stays inside its directory.
+//! [`RelativePath`], which stays inside its directory. An import ([`import`])
+//! reads a collection's manifests through them and records a revision of each
+//! document in the kernel.
+//!
+//! The quality gate ([`quality`]) then gives every revision a disposition
+//! before it may be indexed.
 //!
 //! Preparing the imported revisions for search starts with counting tokens as
 //! the selected embedder counts them, through the model router ([`prepare`]).
+//! A complete chunk set is then published as a search generation in Qdrant,
+//! each chunk represented by a dense and a sparse vector ([`index`]).
 
+#[expect(
+    clippy::self_named_module_files,
+    reason = "keep the public answer entry point in answer.rs beside answer/ siblings"
+)]
+pub mod answer;
 pub mod collection;
 pub mod corpus;
+pub mod eval;
+pub mod import;
+pub mod index;
 pub mod lexical;
 pub mod prepare;
+pub mod publish;
+pub mod quality;
+/// Deterministic query normalization, language detection and classification.
+pub mod query;
 mod relative_path;
+/// Search admission, route diagnostics and rank fusion for knowledge search.
+pub mod search;
 mod shape;
 pub mod suite;
 
