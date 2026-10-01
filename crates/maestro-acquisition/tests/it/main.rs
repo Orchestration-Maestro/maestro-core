@@ -9,4 +9,5 @@ mod n08_classify_and_pin_every_destination_address;
 mod n10_admission;
 mod n10_conform_robots_and_aggregate_origin_pacing;
 mod n10_control_edges;
+mod n10_review_regressions;
 mod support;

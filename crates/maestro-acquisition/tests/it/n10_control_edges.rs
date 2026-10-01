@@ -1,5 +1,7 @@
 //! Additional actual-engine boundaries and substitute rules adapter.
-use super::n10_conform_robots_and_aggregate_origin_pacing::{identity, limits, pending, source};
+use super::n10_conform_robots_and_aggregate_origin_pacing::{
+    binding, checked_robots, identity, limits, pending, source,
+};
 use maestro_acquisition::policy::identity::FetchIdentity;
 use maestro_acquisition::{
     Refusal,
@@ -20,50 +22,64 @@ impl RobotsRules for DisabledRules {
 #[test]
 fn n10_substitute_rules_use_same_cache_gate() {
     let source = source();
+    let checked = checked_robots(&source.robots);
+    let bound = binding(&checked);
     let target = identity(&source, "/docs/page");
-    let cache = RobotsCache::parsed(&target, &source.robots, Box::new(DisabledRules), 10, 0);
+    let cache = RobotsCache::parsed(&target, bound, Box::new(DisabledRules), 10, 0);
     assert_eq!(
-        cache.check(&target, &source.robots, 0, &DenyOverrides),
+        cache.check(&target, bound, 0, &DenyOverrides),
         Err(Refusal::Access)
     );
     let cache = RobotsCache::parsed(
         &target,
-        &source.robots,
+        bound,
         Box::new(Rfc9309::parse(b"", 512_000).unwrap()),
         20,
         10,
     );
+    assert_eq!(cache.check(&target, bound, 10, &DenyOverrides), Ok(()));
     assert_eq!(
-        cache.check(&target, &source.robots, 10, &DenyOverrides),
-        Ok(())
-    );
-    assert_eq!(
-        cache.check(&target, &source.robots, 9, &DenyOverrides),
+        cache.check(&target, bound, 9, &DenyOverrides),
         Err(Refusal::Access)
     );
     let mut unbounded = source.robots.clone();
     unbounded.rules_max_bytes = u64::MAX.try_into().unwrap();
     let oversized = RobotsCache::parsed(
         &target,
-        &unbounded,
+        binding(&checked_robots(&unbounded)),
         Box::new(Rfc9309::parse(b"", 512_000).unwrap()),
         512_001,
         10,
     );
     assert_eq!(
-        oversized.check(&target, &unbounded, 10, &DenyOverrides),
+        oversized.check(
+            &target,
+            binding(&checked_robots(&unbounded)),
+            10,
+            &DenyOverrides
+        ),
         Err(Refusal::Access)
     );
     let mut tightened = source.robots.clone();
     tightened.rules_max_bytes = 10.try_into().unwrap();
     assert_eq!(
-        cache.check(&target, &tightened, 10, &DenyOverrides),
+        cache.check(
+            &target,
+            binding(&checked_robots(&tightened)),
+            10,
+            &DenyOverrides
+        ),
         Err(Refusal::Access)
     );
     tightened.rules_max_bytes = source.robots.rules_max_bytes;
     tightened.cache_ttl_ms = 10.try_into().unwrap();
     assert_eq!(
-        cache.check(&target, &tightened, 20, &DenyOverrides),
+        cache.check(
+            &target,
+            binding(&checked_robots(&tightened)),
+            20,
+            &DenyOverrides
+        ),
         Err(Refusal::Access)
     );
 }
@@ -75,6 +91,7 @@ fn n10_multiple_agents_empty_directives_case_and_anchors() {
         b"\xef\xbb\xbfUser-agent: Maestro\n\
         User-agent: Other\n\
         dIsAlLoW: /docs/a*b*c$\n\
+        Disallow: /docs/private$\n\
         Allow: /docs/public\n\
         User-agent: Empty\n\
         Disallow:\n\
@@ -86,6 +103,8 @@ fn n10_multiple_agents_empty_directives_case_and_anchors() {
     .unwrap();
     for agent in ["Maestro", "Other"] {
         for (path, allowed) in [
+            ("/docs/private", false),
+            ("/docs/private/public", true),
             ("/docs/axbyc", false),
             ("/docs/axbyc/more", true),
             ("/docs/abc", false),

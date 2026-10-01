@@ -1,14 +1,17 @@
 //! Independently authored RFC 9309 and shared-origin contracts.
-use super::support;
-use maestro_acquisition::policy::{identity::FetchIdentity, source::Source};
+use super::{n07_parse_url_identity_and_denial_precedence as n07, support};
+use maestro_acquisition::policy::{
+    identity::FetchIdentity,
+    source::{Robots, Source},
+};
 use maestro_acquisition::transport::{
     pacing::{Demand, OriginLedger, OriginPermit, PacingLimits, Pending},
     robots::{
-        DenyOverrides, OverrideDecision, OverrideRequest, Rfc9309, RobotsCache, RobotsOverride,
-        RobotsRules,
+        DenyOverrides, OverrideDecision, OverrideRequest, Rfc9309, RobotsBinding, RobotsCache,
+        RobotsOverride, RobotsRules,
     },
 };
-use maestro_acquisition::{Ref, Refusal, parse_policy};
+use maestro_acquisition::{CheckedPolicy, Ref, Refusal, parse_policy};
 use maestro_kernel::artifact::Digest;
 use std::{
     sync::{Arc, Barrier},
@@ -33,6 +36,19 @@ pub(super) fn source() -> Source {
         .iter_mut()
         .for_each(|origin| origin.path_prefixes = vec!["/".into()]);
     source
+}
+/// Resolve edited synthetic robots settings through the real checked policy.
+pub(super) fn checked_robots(robots: &Robots) -> CheckedPolicy {
+    let (mut collection, mut catalog) = n07::fixture();
+    let mut policy = support::value(&catalog, "policy");
+    *policy.pointer_mut("/sources/0/robots").unwrap() = serde_json::to_value(robots).unwrap();
+    support::put(&mut catalog, "policy", &policy);
+    support::bind(&mut collection, &catalog);
+    n07::checked(collection, &catalog).unwrap()
+}
+/// Borrow the declared synthetic source; never pair arbitrary settings/digests.
+pub(super) fn binding(checked: &CheckedPolicy) -> RobotsBinding<'_> {
+    RobotsBinding::new(checked, "notes").unwrap()
 }
 /// Parse a destination under explicit policy, not arbitrary URL text.
 pub(super) fn identity(source: &Source, path: &str) -> FetchIdentity {
@@ -108,6 +124,7 @@ fn n10_rfc_wildcards_octets_and_comments() {
         Disallow: /%C3%A9\n\
         Disallow: /%62locked\n\
         Disallow: /docs/%3asecret\n\
+        Disallow: /docs/page?v=private\n\
         Allow: /docs/*.pdf/public\n\
         Disallow:\n\
         Sitemap: https://example.test/map\n\
@@ -116,8 +133,12 @@ fn n10_rfc_wildcards_octets_and_comments() {
         512_000,
     )
     .unwrap();
-    let source = source();
+    let mut source = source();
+    source.identity.meaningful_queries = vec!["v".into()];
     for (path, allowed) in [
+        ("/docs/page?v=private", false),
+        ("/docs/page?v=public", true),
+        ("/docs/page", true),
         ("/docs/book.pdf", false),
         ("/docs/book.pdf/more", true),
         ("/docs/book.pdf/public", true),
@@ -153,28 +174,27 @@ fn n10_parser_bounds_and_invalid_rules_refuse() {
 #[test]
 fn n10_cache_status_ttl_and_scope_fail_closed() {
     let source = source();
+    let checked = checked_robots(&source.robots);
+    let bound = binding(&checked);
     let target = identity(&source, "/docs/page");
     for status in [200, 204, 404, 410] {
-        let cache = RobotsCache::response(&target, &source.robots, status, b"", 0);
+        let cache = RobotsCache::response(&target, bound, status, b"", 0);
+        assert_eq!(cache.check(&target, bound, 999, &DenyOverrides), Ok(()));
         assert_eq!(
-            cache.check(&target, &source.robots, 999, &DenyOverrides),
-            Ok(())
-        );
-        assert_eq!(
-            cache.check(&target, &source.robots, 1000, &DenyOverrides),
+            cache.check(&target, bound, 1000, &DenyOverrides),
             Err(Refusal::Access)
         );
     }
     for status in [301, 401, 403, 429, 500, 503] {
-        let cache = RobotsCache::response(&target, &source.robots, status, b"", 0);
+        let cache = RobotsCache::response(&target, bound, status, b"", 0);
         assert_eq!(
-            cache.check(&target, &source.robots, 0, &DenyOverrides),
+            cache.check(&target, bound, 0, &DenyOverrides),
             Err(Refusal::Access)
         );
     }
     let cache = RobotsCache::response(
         &target,
-        &source.robots,
+        bound,
         200,
         b"User-agent: *\nDisallow: /docs/private",
         0,
@@ -183,7 +203,7 @@ fn n10_cache_status_ttl_and_scope_fail_closed() {
         cache
             .check(
                 &identity(&source, "/docs/private"),
-                &source.robots,
+                bound,
                 0,
                 &DenyOverrides
             )
@@ -193,7 +213,12 @@ fn n10_cache_status_ttl_and_scope_fail_closed() {
     other.robots.agent = "Other".into();
     assert!(
         cache
-            .check(&target, &other.robots, 0, &DenyOverrides)
+            .check(
+                &target,
+                binding(&checked_robots(&other.robots)),
+                0,
+                &DenyOverrides
+            )
             .is_err()
     );
     other
@@ -204,30 +229,31 @@ fn n10_cache_status_ttl_and_scope_fail_closed() {
         FetchIdentity::parse(&other, "https://other.example.test/docs/page").unwrap();
     assert!(
         cache
-            .check(&other_target, &source.robots, 0, &DenyOverrides)
+            .check(&other_target, bound, 0, &DenyOverrides)
             .is_err()
     );
+    assert!(cache.check(&target, bound, 0, &DenyOverrides).is_ok());
     assert!(
         cache
-            .check(&target, &source.robots, 0, &DenyOverrides)
-            .is_ok()
-    );
-    assert!(
-        cache
-            .check(&target, &source.robots, u64::MAX, &DenyOverrides)
+            .check(&target, bound, u64::MAX, &DenyOverrides)
             .is_err()
     );
     let mut long = source.robots.clone();
     long.cache_ttl_ms = u64::MAX.try_into().unwrap();
-    let cache = RobotsCache::response(&target, &long, 200, b"", 0);
+    let cache = RobotsCache::response(&target, binding(&checked_robots(&long)), 200, b"", 0);
     assert!(
         cache
-            .check(&target, &long, 86_400_000, &DenyOverrides)
+            .check(
+                &target,
+                binding(&checked_robots(&long)),
+                86_400_000,
+                &DenyOverrides
+            )
             .is_err()
     );
     assert!(
-        RobotsCache::unreadable(&target, &source.robots, 0)
-            .check(&target, &source.robots, 0, &DenyOverrides)
+        RobotsCache::unreadable(&target, bound, 0)
+            .check(&target, bound, 0, &DenyOverrides)
             .is_err()
     );
 }
@@ -246,34 +272,34 @@ impl RobotsOverride for Authority {
 #[test]
 fn n10_override_missing_expired_wrong_receipt_refuse() {
     let mut source = source();
-    let reference = Ref {
-        id: "override".into(),
-        digest: Digest::of(b"owner receipt"),
-    };
+    let (_, catalog) = support::fixture();
+    let reference = catalog.0.get("owner").unwrap().reference.clone();
     source.robots.r#override = Some(reference.clone());
     let target = identity(&source, "/docs/private");
-    let cache = RobotsCache::unreadable(&target, &source.robots, 0);
+    let checked = checked_robots(&source.robots);
+    let bound = binding(&checked);
+    let cache = RobotsCache::unreadable(&target, bound, 0);
     for authority in [
         Authority(OverrideDecision::Denied),
         Authority(OverrideDecision::Expired),
         Authority(OverrideDecision::Granted(Ref {
-            id: "override".into(),
+            id: reference.id.clone(),
             digest: Digest::of(b"forged"),
         })),
     ] {
         assert_eq!(
-            cache.check(&target, &source.robots, 0, &authority),
+            cache.check(&target, bound, 0, &authority),
             Err(Refusal::Access)
         );
     }
     assert_eq!(
-        cache.check(&target, &source.robots, 0, &DenyOverrides),
+        cache.check(&target, bound, 0, &DenyOverrides),
         Err(Refusal::Access)
     );
     assert_eq!(
         cache.check(
             &target,
-            &source.robots,
+            bound,
             0,
             &Authority(OverrideDecision::Granted(reference))
         ),
@@ -329,12 +355,13 @@ fn n10_http_browser_share_atomic_concurrency_permits() {
     let barrier = Arc::new(Barrier::new(3));
     let acquired = Arc::new(Barrier::new(3));
     let mut handles = Vec::new();
-    for _transport in ["http", "browser_render"] {
+    for transport in ["http", "browser_render"] {
         let ledger = ledger.clone();
         let barrier = barrier.clone();
         let acquired = acquired.clone();
         handles.push(thread::spawn(move || {
-            let source = source();
+            let mut source = source();
+            source.id = transport.into();
             barrier.wait();
             let permit = ledger.acquire(
                 &identity(&source, "/docs/page"),

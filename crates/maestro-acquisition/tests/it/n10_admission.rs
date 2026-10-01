@@ -5,11 +5,11 @@ use maestro_acquisition::{
     policy::{
         decision::{AdmissionControls, Request, RequestKind, admit},
         identity::FetchIdentity,
-        source::{Robots, Source},
+        source::Source,
     },
     transport::{
         pacing::{Demand, OriginLedger, PacingLimits},
-        robots::{DenyOverrides, RobotsCache},
+        robots::{DenyOverrides, RobotsBinding, RobotsCache},
     },
 };
 
@@ -19,7 +19,7 @@ struct Controls<'a> {
     /// Origin-bound rules response from the admitted robots fetch.
     cache: RobotsCache,
     /// Immutable checked source's robots contract.
-    policy: &'a Robots,
+    policy: RobotsBinding<'a>,
 }
 impl AdmissionControls for Controls<'_> {
     fn caller(&self, _source: &Source, _request: &Request<'_>) -> Result<(), Refusal> {
@@ -45,12 +45,12 @@ fn n10_every_request_kind_robots_denial_has_zero_dispatches() {
     let controls = Controls {
         cache: RobotsCache::response(
             &target,
-            &source.robots,
+            RobotsBinding::new(&checked, &source.id).unwrap(),
             200,
             b"User-agent: *\nDisallow: /docs/blocked\n",
             0,
         ),
-        policy: &source.robots,
+        policy: RobotsBinding::new(&checked, &source.id).unwrap(),
     };
     let ledger = OriginLedger::new(0);
     let effective =

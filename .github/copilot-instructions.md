@@ -331,6 +331,7 @@ in place.
 │   │   │       ├── n10_admission.rs                                                     # Robots denial reaches N07's real admission path before transport effects
 │   │   │       ├── n10_conform_robots_and_aggregate_origin_pacing.rs                    # Independently authored RFC 9309 and shared-origin contracts
 │   │   │       ├── n10_control_edges.rs                                                 # Additional actual-engine boundaries and substitute rules adapter
+│   │   │       ├── n10_review_regressions.rs                                            # RFC 9309 regression assertions from the independent N10 review probes
 │   │   │       └── support.rs                                                           # Complete independently authored synthetic policy fixtures
 │   │   ├── Cargo.toml                                                                   # Crate manifest: Strict source policies and immutable baseline resolution for native acquisition
 │   │   └── README.md                                                                    # N03 implements strict source-policy declarations and immutable local baseline resolution

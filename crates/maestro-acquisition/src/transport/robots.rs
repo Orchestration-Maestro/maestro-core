@@ -5,9 +5,10 @@
 //! is policy-bound and capped at 24 hours; failures remain denied until refreshed
 //! by an admitted, paced request. No stale-on-error or automatic override exists.
 use crate::{
-    Ref, Refusal,
+    CheckedPolicy, Ref, Refusal,
     policy::{identity::FetchIdentity, source::Robots},
 };
+use maestro_kernel::artifact::Digest;
 use std::{fmt::Debug, mem::take, str::from_utf8};
 
 /// Replaceable parser result: rules cannot dispatch or grant overrides.
@@ -90,7 +91,7 @@ impl Rfc9309 {
         let text = from_utf8(bytes).map_err(|_| Refusal::Invalid)?;
         let mut groups = Vec::new();
         let mut group = Group::default();
-        for line in text.trim_start_matches('\u{feff}').lines() {
+        for line in text.trim_start_matches('\u{feff}').split(['\r', '\n']) {
             parse_line(line, &mut group, &mut groups)?;
         }
         groups.push(group);
@@ -99,12 +100,17 @@ impl Rfc9309 {
 }
 /// Consume one record; unknown extensions do not terminate a group.
 fn parse_line(line: &str, group: &mut Group, groups: &mut Vec<Group>) -> Result<(), Refusal> {
-    let line = line.split('#').next().unwrap_or_default().trim();
+    let line = line
+        .split('#')
+        .next()
+        .unwrap_or_default()
+        .trim_matches([' ', '\t']);
     let Some((key, value)) = line.split_once(':') else {
         return Ok(());
     };
-    let value = value.trim();
-    if key.trim().eq_ignore_ascii_case("user-agent") {
+    let value = value.trim_matches([' ', '\t']);
+    let key = key.trim_matches([' ', '\t']);
+    if key.eq_ignore_ascii_case("user-agent") {
         if group.has_directive {
             groups.push(take(group));
         }
@@ -117,8 +123,8 @@ fn parse_line(line: &str, group: &mut Group, groups: &mut Vec<Group>) -> Result<
     if group.agents.is_empty() {
         return Ok(());
     }
-    let allow = key.trim().eq_ignore_ascii_case("allow");
-    if !allow && !key.trim().eq_ignore_ascii_case("disallow") {
+    let allow = key.eq_ignore_ascii_case("allow");
+    if !allow && !key.eq_ignore_ascii_case("disallow") {
         return Ok(());
     }
     group.has_directive = true;
@@ -129,7 +135,7 @@ fn parse_line(line: &str, group: &mut Group, groups: &mut Vec<Group>) -> Result<
         return Err(Refusal::Invalid);
     }
     group.rules.push(Rule {
-        pattern: normalize(value)?,
+        pattern: normalize_pattern(value)?,
         allow,
     });
     Ok(())
@@ -138,6 +144,9 @@ impl RobotsRules for Rfc9309 {
     fn allowed(&self, agent: &str, identity: &FetchIdentity) -> bool {
         if !product_token(agent) {
             return false;
+        }
+        if identity.url().path() == "/robots.txt" {
+            return true;
         }
         let agent = agent.to_ascii_lowercase();
         let specific = self
@@ -170,8 +179,23 @@ fn product_token(token: &str) -> bool {
             .bytes()
             .all(|byte| byte.is_ascii_alphabetic() || byte == b'_' || byte == b'-')
 }
-/// Normalize RFC octets: decode unreserved escapes, uppercase other escapes and
-/// percent-encode raw non-ASCII UTF-8. Encoded reserved octets stay distinct.
+/// Preserve raw rule stars and a final anchor separately from literal octets.
+fn normalize_pattern(text: &str) -> Result<String, Refusal> {
+    let (text, anchored) = text
+        .strip_suffix('$')
+        .map_or((text, false), |text| (text, true));
+    let segments = text
+        .split('*')
+        .map(normalize)
+        .collect::<Result<Vec<_>, _>>()?;
+    let mut pattern = segments.join("*");
+    if anchored {
+        pattern.push('$');
+    }
+    Ok(pattern)
+}
+/// Normalize literal RFC octets: decode unreserved escapes, uppercase other
+/// escapes, encode non-ASCII UTF-8 and verbatim stars/dollars. No rule syntax.
 fn normalize(text: &str) -> Result<String, Refusal> {
     let mut result = String::new();
     let mut bytes = text.bytes();
@@ -191,7 +215,7 @@ fn normalize(text: &str) -> Result<String, Refusal> {
             } else {
                 push_escape(&mut result, decoded);
             }
-        } else if !byte.is_ascii() {
+        } else if !byte.is_ascii() || byte == b'*' || byte == b'$' {
             push_escape(&mut result, byte);
         } else if byte.is_ascii_control() {
             return Err(Refusal::Invalid);
@@ -246,13 +270,42 @@ fn wildcard_match(pattern: &str, path: &str) -> bool {
     }
     true
 }
-/// Origin/agent-bound rules evidence supplied only after N09's admitted fetch.
+/// Unforgeable checked-policy/source pairing for constructing and checking rules.
+#[derive(Debug, Clone, Copy)]
+pub struct RobotsBinding<'a> {
+    /// Source robots settings borrowed only from the immutable checked policy.
+    policy: &'a Robots,
+    /// Original checked-policy digest, never supplied independently by a caller.
+    digest: &'a Digest,
+}
+impl<'a> RobotsBinding<'a> {
+    /// Select a declared source from an already checked immutable policy.
+    ///
+    /// # Errors
+    /// An undeclared source refuses; arbitrary settings cannot be paired to a digest.
+    pub fn new(checked: &'a CheckedPolicy, source_id: &str) -> Result<Self, Refusal> {
+        let source = checked
+            .policy()
+            .sources
+            .iter()
+            .find(|source| source.id == source_id)
+            .ok_or(Refusal::Access)?;
+        Ok(Self {
+            policy: &source.robots,
+            digest: &checked.reference().digest,
+        })
+    }
+}
+/// Origin/agent/digest-bound entry supplied only after N09's admitted fetch.
+/// Callers retain entries under that tuple; different digests can coexist.
 #[derive(Debug)]
 pub struct RobotsCache {
     /// Canonical origin; a redirected response still belongs to the first origin.
     origin: String,
     /// Exact configured agent prevents stale reuse after an identity change.
     agent: String,
+    /// Checked policy used for this entry; any digest change requires a refetch.
+    digest: Digest,
     /// Trusted host observation time, not remote content time.
     fetched_ms: u64,
     /// Original policy TTL; later policies may only tighten this cached entry.
@@ -264,15 +317,26 @@ pub struct RobotsCache {
 }
 impl RobotsCache {
     /// Retain an admitted final HTTP response. 404/410 mean no rules; every other
-    /// non-2xx response denies. No HTTP client or redirect bypass lives here.
+    /// non-2xx response denies. Any supplied body over the effective cap denies.
+    ///
+    /// N09 must bound streaming reads before allocation to the stricter policy
+    /// cap or 500 KiB, discard 404/410 bodies unread, and admit every redirect
+    /// hop through URL and network controls. Follow at least five consecutive
+    /// redirects per RFC 9309 section 2.3.1.2; exhausted limits fail closed.
+    /// Pass the initial fetch identity: redirected rules bind to its origin.
+    /// This entry neither performs HTTP nor bypasses caller or pacing controls.
     #[must_use]
     pub fn response(
         identity: &FetchIdentity,
-        policy: &Robots,
+        binding: RobotsBinding<'_>,
         status: u16,
         body: &[u8],
         now_ms: u64,
     ) -> Self {
+        let policy = binding.policy;
+        if body.len() as u64 > policy.rules_max_bytes.get().min(512_000) {
+            return Self::unreadable(identity, binding, now_ms);
+        }
         let rules = match status {
             200..=299 => Rfc9309::parse(body, policy.rules_max_bytes.get()).ok(),
             404 | 410 => Rfc9309::parse(b"", policy.rules_max_bytes.get()).ok(),
@@ -285,7 +349,7 @@ impl RobotsCache {
             } else {
                 body.len() as u64
             },
-            ..Self::unreadable(identity, policy, now_ms)
+            ..Self::unreadable(identity, binding, now_ms)
         }
     }
     /// Substitute parsed rules from an admitted response under the same cache
@@ -294,27 +358,29 @@ impl RobotsCache {
     #[must_use]
     pub fn parsed(
         identity: &FetchIdentity,
-        policy: &Robots,
+        binding: RobotsBinding<'_>,
         rules: Box<dyn RobotsRules>,
         bytes: u64,
         now_ms: u64,
     ) -> Self {
         Self {
-            rules: if bytes <= policy.rules_max_bytes.get().min(512_000) {
+            rules: if bytes <= binding.policy.rules_max_bytes.get().min(512_000) {
                 Some(rules)
             } else {
                 None
             },
             bytes,
-            ..Self::unreadable(identity, policy, now_ms)
+            ..Self::unreadable(identity, binding, now_ms)
         }
     }
     /// Missing, timeout or network-error evidence is always fail-closed.
     #[must_use]
-    pub fn unreadable(identity: &FetchIdentity, policy: &Robots, now_ms: u64) -> Self {
+    pub fn unreadable(identity: &FetchIdentity, binding: RobotsBinding<'_>, now_ms: u64) -> Self {
+        let policy = binding.policy;
         Self {
             origin: identity.url().origin().ascii_serialization(),
             agent: policy.agent.clone(),
+            digest: binding.digest.clone(),
             fetched_ms: now_ms,
             ttl_ms: policy.cache_ttl_ms.get().min(86_400_000),
             bytes: 0,
@@ -325,17 +391,21 @@ impl RobotsCache {
     /// exact current `OA4b` receipt, including expiry/revocation checks by the port.
     ///
     /// # Errors
-    /// Wrong origin/agent, stale evidence, missing/expired override or denial.
+    /// Wrong origin/agent/digest, stale evidence, missing/expired override or denial.
     pub fn check(
         &self,
         identity: &FetchIdentity,
-        policy: &Robots,
+        binding: RobotsBinding<'_>,
         now_ms: u64,
         authority: &dyn RobotsOverride,
     ) -> Result<(), Refusal> {
+        let policy = binding.policy;
         let origin = identity.url().origin().ascii_serialization();
-        if self.origin != origin || self.agent != policy.agent {
+        if self.origin != origin || self.agent != policy.agent || self.digest != *binding.digest {
             return Err(Refusal::Access);
+        }
+        if identity.url().path() == "/robots.txt" {
+            return Ok(());
         }
         if let Some(receipt) = &policy.r#override {
             let request = OverrideRequest {
