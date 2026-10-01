@@ -1,6 +1,11 @@
 //! Small read-only ports; authority and transport startup are deliberately absent.
 use crate::{
-    policy::{acquisition::AcquisitionProfile, schema::SourcePolicy},
+    policy::{
+        acquisition::AcquisitionProfile,
+        decisions::{Decisions, Promotion},
+        identity::IdentityMigration,
+        schema::SourcePolicy,
+    },
     refusal::Refusal,
 };
 use maestro_kernel::{artifact::Digest, scope::ScopeSet};
@@ -93,6 +98,12 @@ pub struct CheckedPolicy {
     pub(crate) policy: SourcePolicy,
     /// Resolved acquisition profiles keyed by logical ID.
     pub(crate) acquisition_profiles: BTreeMap<String, AcquisitionProfile>,
+    /// Resolved reviewed denials and content dispositions.
+    pub(crate) decisions: Vec<Decisions>,
+    /// Resolved separate promotions, keyed by source namespace.
+    pub(crate) promotions: BTreeMap<String, Vec<Promotion>>,
+    /// Explicit reviewed old-to-new mappings; resolution never applies them.
+    pub(crate) identity_migrations: BTreeMap<String, IdentityMigration>,
 }
 impl CheckedPolicy {
     /// Original policy digest, never a digest of reformatted bytes.
@@ -104,6 +115,11 @@ impl CheckedPolicy {
     #[must_use]
     pub fn policy(&self) -> &SourcePolicy {
         &self.policy
+    }
+    /// Persisted reviewed mappings; callers must not silently rewrite fetch keys.
+    #[must_use]
+    pub fn identity_migrations(&self) -> &BTreeMap<String, IdentityMigration> {
+        &self.identity_migrations
     }
     /// Exact profile members; callers cannot mutate transport/readiness selection.
     #[must_use]

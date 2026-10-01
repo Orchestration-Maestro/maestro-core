@@ -1,7 +1,9 @@
 //! Strict policy schemas and the single immutable baseline validator.
 pub mod acquisition;
 mod checks;
+pub mod decision;
 pub mod decisions;
+pub mod identity;
 pub mod limits;
 pub mod manifest;
 pub mod resolve;

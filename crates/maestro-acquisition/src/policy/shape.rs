@@ -58,6 +58,7 @@ fn valid_host(host: &str) -> bool {
 /// Parse an unambiguous HTTPS URL without credentials or encoded separators.
 pub(super) fn checked_url(text: &str) -> Option<Url> {
     if text.len() > 8192
+        || !safe_encoding(text)
         || text
             .bytes()
             .any(|byte| byte.is_ascii_control() || byte == b'\\' || byte == b' ')
@@ -87,10 +88,52 @@ pub(super) fn checked_url(text: &str) -> Option<Url> {
     if authority != canonical && authority != format!("{}:443", url.host_str()?) {
         return None;
     }
-    if !valid_path(url.path()) {
+    let remainder = text.strip_prefix("https://")?.strip_prefix(authority)?;
+    let supplied_path = remainder.split(['?', '#']).next()?;
+    let supplied_path = if supplied_path.is_empty() {
+        "/"
+    } else {
+        supplied_path
+    };
+    if !valid_path(supplied_path) || supplied_path != url.path() {
+        return None;
+    }
+    let supplied_query = remainder
+        .split('#')
+        .next()?
+        .split_once('?')
+        .map(|(_, query)| query);
+    if supplied_query != url.query() {
         return None;
     }
     Some(url)
+}
+/// Percent escapes must be complete UTF-8 without raw or escaped controls.
+fn safe_encoding(text: &str) -> bool {
+    let mut decoded = Vec::with_capacity(text.len());
+    let mut bytes = text.bytes();
+    while let Some(byte) = bytes.next() {
+        if byte == b'%' {
+            let Some(high) = bytes.next().and_then(hex_digit) else {
+                return false;
+            };
+            let Some(low) = bytes.next().and_then(hex_digit) else {
+                return false;
+            };
+            decoded.push(high * 16 + low);
+        } else {
+            decoded.push(byte);
+        }
+    }
+    String::from_utf8(decoded).is_ok_and(|text| !text.chars().any(char::is_control))
+}
+/// One hexadecimal nibble, whose value always fits arithmetic in a byte.
+fn hex_digit(byte: u8) -> Option<u8> {
+    match byte.to_ascii_lowercase() {
+        b'0'..=b'9' => Some(byte - b'0'),
+        b'a'..=b'f' => Some(byte.to_ascii_lowercase() - b'a' + 10),
+        _ => None,
+    }
 }
 /// One absolute safe URL string.
 pub(super) fn url<'de, D: Deserializer<'de>>(decoder: D) -> Result<String, D::Error> {
@@ -104,7 +147,8 @@ pub(super) fn path<'de, D: Deserializer<'de>>(decoder: D) -> Result<String, D::E
 pub(super) fn valid_path(text: &str) -> bool {
     let lower = text.to_ascii_lowercase();
     text.starts_with('/')
-        && !text.starts_with("//")
+        && !text.contains("//")
+        && safe_encoding(text)
         && valid_text(text)
         && !text.contains(['\\', '?', '#'])
         && !text.bytes().any(|byte| byte.is_ascii_control())
@@ -120,7 +164,7 @@ pub(super) fn time<'de, D: Deserializer<'de>>(decoder: D) -> Result<String, D::E
     checked(decoder, valid_time)
 }
 /// Validate date, seconds and an optional fractional-second part without a new dependency.
-fn valid_time(text: &str) -> bool {
+pub(super) fn valid_time(text: &str) -> bool {
     let Some((date, clock)) = text.split_once('T') else {
         return false;
     };

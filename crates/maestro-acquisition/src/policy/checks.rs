@@ -1,9 +1,9 @@
 //! Semantic constraints not expressible by primitive serde shapes.
 use super::{
     acquisition::{AcquisitionProfile, ReadyCondition, Transport},
+    identity::{FetchIdentity, within},
     resource::Resource,
     schema::SourcePolicy,
-    shape,
     source::{Selector, Source, SyncMode},
 };
 use crate::{ports::Principal, refusal::Refusal};
@@ -108,14 +108,6 @@ pub(super) fn selector(selector: &Selector, source: &Source) -> Result<(), Refus
     Ok(())
 }
 
-/// Whole path boundaries only: `/docs` cannot cover `/docs-neighbour`.
-fn within(path: &str, prefix: &str) -> bool {
-    path == prefix
-        || path
-            .strip_prefix(prefix)
-            .is_some_and(|rest| prefix.ends_with('/') || rest.starts_with('/'))
-}
-
 /// Check finite cadence, explicit origin/selection and URL/query semantics.
 fn check_source(source: &Source) -> Result<(), Refusal> {
     if source.origins.is_empty()
@@ -153,34 +145,7 @@ fn check_source(source: &Source) -> Result<(), Refusal> {
         self::selector(selector, source)?;
     }
     for seed in &source.seeds {
-        let url = shape::checked_url(seed).ok_or(Refusal::Invalid)?;
-        if !source.origins.iter().any(|origin| {
-            url.host_str() == Some(origin.host.as_str())
-                && url.port_or_known_default() == Some(origin.port.get())
-                && origin
-                    .path_prefixes
-                    .iter()
-                    .any(|prefix| within(url.path(), prefix))
-        }) {
-            return Err(Refusal::Invalid);
-        }
-        let mut queries = BTreeSet::new();
-        for (name, _) in url.query_pairs() {
-            if !source
-                .identity
-                .meaningful_queries
-                .iter()
-                .chain(&source.identity.ignored_tracking_queries)
-                .any(|allowed| allowed == &name)
-            {
-                return Err(Refusal::Invalid);
-            }
-            if source.identity.repeated_queries == super::source::RepeatedQueries::Reject
-                && !queries.insert(name.into_owned())
-            {
-                return Err(Refusal::Invalid);
-            }
-        }
+        FetchIdentity::parse(source, seed).map_err(|_| Refusal::Invalid)?;
     }
     Ok(())
 }

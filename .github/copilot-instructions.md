@@ -287,7 +287,9 @@ in place.
 │   │   │   ├── policy/                                                                  # Strict policy schemas and the single immutable baseline validator
 │   │   │   │   ├── acquisition.rs                                                       # Strict version-one source-policy wire contracts
 │   │   │   │   ├── checks.rs                                                            # Semantic constraints not expressible by primitive serde shapes
+│   │   │   │   ├── decision.rs                                                          # One pure admission path: current caller, URL/network/robots, content, cache
 │   │   │   │   ├── decisions.rs                                                         # Strict version-one source-policy wire contracts
+│   │   │   │   ├── identity.rs                                                          # URL identity is explicit, versioned and separate from protected references
 │   │   │   │   ├── limits.rs                                                            # Strict version-one source-policy wire contracts
 │   │   │   │   ├── manifest.rs                                                          # Strict version-one source-policy wire contracts
 │   │   │   │   ├── mod.rs                                                               # Strict policy schemas and the single immutable baseline validator
@@ -311,6 +313,8 @@ in place.
 │   │   │       ├── main.rs                                                              # N03's synthetic integration contracts, in one test binary
 │   │   │       ├── n03_implement_strict_source_policy_and_local_baseline_resolution.rs  # N03: malformed policy closure must refuse before caller-side effects
 │   │   │       ├── n03_review_fixes.rs                                                  # Four ruled N03 parser and schema regressions
+│   │   │       ├── n07_parse_url_identity_and_denial_precedence.rs                      # N07 URL and denial contracts use only synthetic destinations
+│   │   │       ├── n07_url_policy_edges.rs                                              # N07 edge guards share the primary task's synthetic fixture builders
 │   │   │       └── support.rs                                                           # Complete independently authored synthetic policy fixtures
 │   │   ├── Cargo.toml                                                                   # Crate manifest: Strict source policies and immutable baseline resolution for native acquisition
 │   │   └── README.md                                                                    # N03 implements strict source-policy declarations and immutable local baseline resolution

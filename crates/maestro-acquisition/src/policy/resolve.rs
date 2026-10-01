@@ -1,8 +1,9 @@
 //! One strict validator for local files and immutable catalog resources.
 use super::{
     acquisition::{AcquisitionProfile, Transport},
-    checks,
-    decisions::{Decision, Decisions, Promotions},
+    checks, decision,
+    decisions::{Decision, Decisions, Promotion, Promotions},
+    identity::{FetchIdentity, IdentityMigration},
     resource::Resource,
     schema::SourcePolicy,
     shape,
@@ -82,6 +83,8 @@ pub fn validate(
     let extraction = closure.read(&policy.profiles)?;
     let profiles = read_profiles(&mut closure, &policy, collection)?;
     let registries = read_registries(&mut closure, &policy, collection)?;
+    let mut promotions = BTreeMap::new();
+    let mut identity_migrations = BTreeMap::new();
     for source in &policy.sources {
         if !policy
             .acquisition_profiles
@@ -116,19 +119,22 @@ pub fn validate(
                 closure.read(mapping)?;
             }
         }
-        check_promotions(&mut closure, source, collection)?;
+        promotions.insert(
+            source.id.clone(),
+            check_promotions(&mut closure, source, collection)?,
+        );
         if let Some(reference) = source.connector.as_ref().or(source.wiki_mapping.as_ref()) {
             closure.read(reference)?;
             // N43/N47 own connector/wiki execution: evidence cannot enable it.
             return Err(Refusal::Unsupported);
         }
-        for reference in source
-            .robots
-            .r#override
-            .iter()
-            .chain(source.identity.migration.iter())
-        {
+        if let Some(reference) = &source.robots.r#override {
             closure.read(reference)?;
+        }
+        if let Some(reference) = &source.identity.migration {
+            let migration =
+                read_migration(&mut closure, reference, collection, source, &registries)?;
+            identity_migrations.insert(reference.id.clone(), migration);
         }
     }
     validate_decisions(&registries, &policy)?;
@@ -136,7 +142,32 @@ pub fn validate(
         reference: reference.clone(),
         policy,
         acquisition_profiles: profiles,
+        decisions: registries,
+        promotions,
+        identity_migrations,
     })
+}
+
+/// Migration resolution retains mappings without applying or widening them.
+fn read_migration(
+    closure: &mut Closure<'_>,
+    reference: &Ref,
+    collection: &Declaration,
+    source: &Source,
+    registries: &[Decisions],
+) -> Result<IdentityMigration, Refusal> {
+    let immutable = closure.read(reference)?;
+    let migration: IdentityMigration = parse_resource(&immutable.bytes)?;
+    closure.resource(&migration.resource, collection)?;
+    if migration.resource.id != reference.id {
+        return Err(Refusal::Invalid);
+    }
+    migration.validate(source)?;
+    for entry in &migration.entries {
+        let identity = FetchIdentity::parse(source, &entry.new)?;
+        decision::check_target(source, &identity, registries)?;
+    }
+    Ok(migration)
 }
 
 /// One request's immutable closure; each logical ID resolves at most once.
@@ -291,7 +322,8 @@ fn check_promotions(
     closure: &mut Closure<'_>,
     source: &Source,
     collection: &Declaration,
-) -> Result<(), Refusal> {
+) -> Result<Vec<Promotion>, Refusal> {
+    let mut entries = Vec::new();
     for reference in &source.promotions {
         let immutable = closure.read(reference)?;
         let promotions: Promotions = parse_resource(&immutable.bytes)?;
@@ -314,8 +346,10 @@ fn check_promotions(
                 closure.read(reference)?;
             }
         }
+        entries.extend(promotions.entries);
     }
-    Ok(())
+    checks::unique(entries.iter().map(|entry| entry.id.as_str()))?;
+    Ok(entries)
 }
 
 /// Refuse incompatible dispositions over the same declarative selector.
