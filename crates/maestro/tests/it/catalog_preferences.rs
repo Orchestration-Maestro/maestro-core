@@ -1,4 +1,4 @@
-//! Preference init is a side-effect-free draft until C05j supplies real trust.
+//! Preference drafts stay side-effect-free; CLI apply requires journal-backed trust.
 use super::support::Home;
 use maestro_catalog::{
     limits::Limits,
@@ -118,7 +118,7 @@ fn catalog_preferences_apply_refuses_without_touching_root_ancestor_or_authority
     let authority = fs::read(home.config().join("config.toml")).unwrap();
     let result = preview(&home, &root, "FR", "brief", true);
     assert_eq!(result.code, Some(2), "{result:?}");
-    assert!(result.stderr.contains("C05j"), "{result:?}");
+    assert!(result.stderr.contains("maestro trust add"), "{result:?}");
     assert!(!root.join(".maestro").exists());
     assert!(!root.join(".github").exists());
     assert_eq!(

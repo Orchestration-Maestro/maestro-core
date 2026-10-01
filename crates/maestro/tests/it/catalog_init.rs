@@ -1,6 +1,9 @@
 //! `maestro init`: inert fixture composition, preview-only default and owned apply.
 use super::support::{Home, Running};
-use std::{fs, path::PathBuf};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 fn fixtures() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -67,6 +70,7 @@ fn catalog_init_refuses_changed_sources_after_bootstrap() {
         "knowledge-client",
         "--apply",
     ];
+    approve(&home, &root);
     let initial = home.run_in(&root, &args);
     assert_eq!(initial.code, Some(0), "{initial:?}");
     let before = fs::read(&guide).unwrap();
@@ -96,6 +100,7 @@ fn catalog_init_apply_writes_composition_and_identical_rerun_is_noop() {
         "rust-service",
         "--apply",
     ];
+    approve(&home, &root);
     let result = home.run_in(&root, &args);
     assert_eq!(result.code, Some(0), "{result:?}");
     let guide = root.join(".github/copilot-instructions.md");
@@ -193,4 +198,12 @@ fn catalog_init_never_claims_applied_when_the_writer_refuses() {
     assert_eq!(result.code, Some(2), "{result:?}");
     assert!(!result.stdout.contains("\"applied\": true"), "{result:?}");
     assert!(!root.join(".maestro/project.toml").exists());
+}
+
+/// Existing apply scenarios explicitly provision user trust before effects.
+fn approve(home: &Home, root: &Path) {
+    let root = root.canonicalize().unwrap();
+    let path = root.to_str().unwrap();
+    let result = home.run(&["trust", "add", path, "--confirm-path", path]);
+    assert_eq!(result.code, Some(0), "{result:?}");
 }

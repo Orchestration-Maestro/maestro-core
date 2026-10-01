@@ -17,7 +17,7 @@ use std::{
 
 /// The readers of unscoped bookkeeping that open a reader: each takes no
 /// `ScopeSet`, and the scope module's docs give its reason.
-const UNSCOPED: [&str; 7] = [
+const UNSCOPED: [&str; 8] = [
     "artifact",
     "check_artifacts",
     "cursor",
@@ -25,16 +25,18 @@ const UNSCOPED: [&str; 7] = [
     "quick_check",
     "setting_changes",
     "visible",
+    "workspace_answers",
 ];
 
 /// The unscoped readers the scan cannot see, as the scope module's docs name
 /// them: `ack` reads inside its write, `collect_garbage` through `garbage`,
 /// `get` from the artifact store, and the other three are not the
 /// database's.
-const BY_HAND: [&str; 6] = [
+const BY_HAND: [&str; 7] = [
     "Database::ack",
     "Database::collect_garbage",
     "Database::get",
+    "Database::trusted_workspaces",
     "artifact::Store::get",
     "ModelCard::load",
     "store::pending_migrations",

@@ -172,6 +172,8 @@ in place.
 │   │   │   │   ├── run.rs                                                   # Parses the arguments, opens the kernel, runs the command, returns its exit code
 │   │   │   │   ├── session.rs                                               # CLI composition root for the process's immutable preferences snapshot
 │   │   │   │   ├── status.rs                                                # knowledge status: documents, revisions by status and disposition, generations
+│   │   │   │   ├── trust.rs                                                 # Explicit user-local trust administration, independent of preference discovery
+│   │   │   │   ├── trust_path.rs                                            # Shell-safe trust suggestions and lossless conventional Windows path spelling
 │   │   │   │   ├── verify.rs                                                # knowledge verify: checks a published generation as a leased job
 │   │   │   │   └── wait.rs                                                  # job wait: a job's stream followed to its end, the command exiting with its outcome; the follower
 │   │   │   ├── knowledge/                                                   # Scoped knowledge operations shared by the CLI and stdio MCP server
@@ -274,6 +276,7 @@ in place.
 │   │   │       ├── catalog_policy.rs                                        # Real Cedar through the effect-free policy CLI
 │   │   │       ├── catalog_preferences.rs                                   # Preference init is a side-effect-free draft until C05j supplies real trust
 │   │   │       ├── catalog_session_preferences.rs                           # Every process pins the same safe preference snapshot before effects
+│   │   │       ├── catalog_workspace_trust.rs                               # Explicit user trust changes never consult or rewrite preference files
 │   │   │       ├── cli_contract.rs                                          # JSON on stdout, diagnostics on stderr, exit codes 0, 1 and 2, the job ID first
 │   │   │       ├── collection_status.rs                                     # knowledge status of the synthetic collection: counts, dispositions and a generation
 │   │   │       ├── doctor_checks.rs                                         # maestro doctor: each failure names its next action, the router its address; v1 files listed, untouched
@@ -512,6 +515,13 @@ in place.
 │   │   │   │   ├── tests/                                                   # Integration tests
 │   │   │   │   │   ├── check.rs                                             # Allow/deny/error neighbours reach Cedar, never an effect executor
 │   │   │   │   │   └── mod.rs                                               # Rust source: mod
+│   │   │   │   ├── workspace/                                               # User-approved workspace records with a non-replaceable root refusal floor
+│   │   │   │   │   ├── tests/                                               # Workspace trust approval and mandatory refusal contracts
+│   │   │   │   │   │   ├── approval.rs                                      # Default-no IO, adapter floor, and private digest receipts
+│   │   │   │   │   │   └── mod.rs                                           # Workspace trust approval and mandatory refusal contracts
+│   │   │   │   │   ├── approval.rs                                          # Exact-path or default-no terminal approval; preferences-only writes stay separate
+│   │   │   │   │   ├── mod.rs                                               # User-approved workspace records with a non-replaceable root refusal floor
+│   │   │   │   │   └── port.rs                                              # Replaceable journal authority adapter inside mandatory root refusals
 │   │   │   │   ├── check.rs                                                 # Cedar schema validation and authorization, fail-closed on every diagnostic
 │   │   │   │   ├── mod.rs                                                   # Effect-free Cedar checking and separately supplied trusted host facts
 │   │   │   │   └── schema.rs                                                # Normalized data, separate host facts, and bounded authoring test inputs
@@ -906,6 +916,10 @@ in place.
 │   │   │   │   ├── serialization.rs                                         # Canonical JSON serialization: typed field order, exact bytes, no extra keys
 │   │   │   │   ├── types.rs                                                 # Kernel-owned delivery graph wire values, independent of canonicalization
 │   │   │   │   └── validation.rs                                            # Validate the immutable graph before it crosses the persistence boundary
+│   │   │   ├── workspace/                                                   # Private user-local workspace answers replayed from the existing journal
+│   │   │   │   ├── mod.rs                                                   # Private user-local workspace answers replayed from the existing journal
+│   │   │   │   ├── records.rs                                               # Private user-local workspace answers replayed from the existing journal
+│   │   │   │   └── tests.rs                                                 # Golden payload bytes and journal-only authority/revocation contracts
 │   │   │   ├── binding.rs                                                   # Named bindings: the local paths that the logical names of committed files
 │   │   │   ├── filesystem.rs                                                # The files and directories the kernel creates: its owner's only, and each
 │   │   │   ├── json.rs                                                      # Explicit sorted-object JSON for stable identities and presentation

@@ -68,6 +68,25 @@ impl Database {
         Self::open(&data.join(FILE), &data.join("artifacts"))
     }
 
+    /// Open an existing user-local database for reads only, without creating or migrating it.
+    /// Write methods on this handle fail through SQLite's read-only connection.
+    ///
+    /// # Errors
+    /// Returns an I/O or SQLite error for missing, unreadable or invalid database files.
+    pub fn open_read_only_in(data: &Path) -> Result<Self, Error> {
+        let database = data.join(FILE);
+        let path = path::absolute(&database).map_err(|source| io_error(&database, source))?;
+        let reader = configured(Connection::open_with_flags(
+            &path,
+            OpenFlags::SQLITE_OPEN_READ_ONLY,
+        )?)?;
+        Ok(Self {
+            writer: Mutex::new(reader),
+            path,
+            artifacts: Store::new(data.join("artifacts")),
+        })
+    }
+
     /// [`Database::open`] with `migrations` in place of the binary's own.
     pub(super) fn open_with(
         database: &Path,

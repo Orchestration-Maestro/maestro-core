@@ -14,11 +14,7 @@ use std::{
 /// Selected safe file bytes, including a fatal byte-limit refusal.
 type PreferenceBytes = io::Result<Vec<u8>>;
 
-/// User-local authorization for an external workspace boundary, never preference content.
-pub trait WorkspaceTrust {
-    /// Return a canonical containing root approved by the local authority, or none.
-    fn containing_root(&self, canonical_start: &Path) -> Option<PathBuf>;
-}
+pub use crate::policy::workspace::WorkspaceTrust;
 
 /// Until C05h supplies journal records, external workspaces are never trusted.
 #[derive(Debug)]

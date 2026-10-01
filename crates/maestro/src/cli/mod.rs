@@ -31,6 +31,8 @@ mod setup;
 mod status;
 #[cfg(test)]
 mod tests;
+mod trust;
+mod trust_path;
 mod verify;
 mod wait;
 

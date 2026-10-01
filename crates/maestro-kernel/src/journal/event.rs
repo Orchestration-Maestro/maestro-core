@@ -20,6 +20,9 @@ pub(crate) const COLUMNS: &str = "id, stream, sequence, type, subject, scope, ti
 /// [`Database::setting_changes`] reads it back, for its principal.
 pub(crate) const SETTING_CHANGED: &str = "maestro.kernel.setting.changed.v1";
 
+/// Private user-local workspace authority, never exposed to scoped consumers.
+pub(crate) const WORKSPACE_ANSWERED: &str = "maestro.kernel.workspace.answered.v1";
+
 /// An event as the journal records it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Event {
@@ -88,6 +91,12 @@ impl Database {
     /// the [`EmptyAttribute`] or the [`InvalidScope`], and when the database
     /// cannot record it.
     pub fn record(&self, event: &NewEvent<'_>) -> Result<Event, Error> {
+        if event.r#type == WORKSPACE_ANSWERED {
+            return Err(rusqlite::Error::InvalidParameterName(
+                "workspace authority requires the user approval adapter".to_owned(),
+            )
+            .into());
+        }
         Ok(self.write(|transaction| record(transaction, event))?)
     }
 
@@ -108,7 +117,7 @@ impl Database {
         let mut statement = reader.prepare(&format!(
             "SELECT {COLUMNS} FROM events
              WHERE stream = ?1 AND sequence > ?2 AND (?3 IS NULL OR type = ?3)
-             AND events.type <> ?5 AND {}
+             AND events.type NOT IN (?5, ?6) AND {}
              ORDER BY sequence",
             ScopeSet::condition("events.scope", 4)
         ))?;
@@ -117,7 +126,8 @@ impl Database {
             after,
             filter.r#type,
             scopes.parameter(),
-            SETTING_CHANGED
+            SETTING_CHANGED,
+            WORKSPACE_ANSWERED
         ];
         let events = statement
             .query_map(parameters, event_row)?

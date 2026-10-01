@@ -617,21 +617,21 @@ Trust administration itself never depends on successful workspace discovery.
 `crates/maestro/tests/it/catalog_workspace_trust.rs`.
 **Requirements:** FR-S3-035, FR-S3-036, SC-S3-012.
 
-- [ ] **Step 1: Red.** Test default-no terminal confirmation and fresh-home CI:
+- [x] **Step 1: Red.** Test default-no terminal confirmation and fresh-home CI:
   `trust add DIR --confirm-path DIR` then scripted init writes its files. Missing
   non-terminal confirmation exits 2 with the exact command; mismatched canonical
   path, --yes, --json, environment, catalog and MCP text cannot approve. Refuse
   filesystem/drive/mount roots, HOME itself and internal directories. Adding or
   removing trust preserves edited preference bytes; list reads only kernel state.
   Decline cannot apply a template/projection; copied configs never grant trust.
-- [ ] **Step 2: Green.** Store answers, canonical paths and receipts only in
+- [x] **Step 2: Green.** Store answers, canonical paths and receipts only in
   user-local kernel authority keyed by canonical path. Implement explicit
   `maestro trust add/list/remove`, never an MCP tool; no discovered config is
   read or rewritten by these commands. Add uses D11's terminal or exact
   --confirm-path contract; remove revokes subsequent controlled access. Implement
   the separately confirmed preferences-only decline write with internal metadata,
   without broad HOME grants, elevation or a new authorization database.
-- [ ] **Step 3: Check.** Run capped nextest filters `policy::workspace::tests::approval`
+- [x] **Step 3: Check.** Run capped nextest filters `policy::workspace::tests::approval`
   and `catalog_workspace_trust`; assert journal provenance and unchanged files
   after refused additions and successful trust changes beside an edited config.
 

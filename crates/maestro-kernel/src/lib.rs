@@ -39,3 +39,4 @@ pub mod store;
 pub mod telemetry;
 
 pub mod unit_graph;
+pub mod workspace;

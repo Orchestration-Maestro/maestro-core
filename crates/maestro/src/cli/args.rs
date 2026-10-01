@@ -1,7 +1,7 @@
 //! The command line's grammar, noun then verb (plan D12), as clap derives it
 //! from these types, whose comments are the help it prints.
 
-use super::policy::PolicyCommand;
+use super::{policy::PolicyCommand, trust::TrustCommand};
 use clap::{Args, Parser, Subcommand};
 use maestro_kernel::evidence::RequestBudget;
 use std::path::PathBuf;
@@ -65,6 +65,9 @@ pub(super) enum Noun {
     /// Effect-free authoring policy checks and neighbour tests.
     #[command(subcommand)]
     Policy(PolicyCommand),
+    /// User-approved canonical workspace roots, stored only in the kernel journal.
+    #[command(subcommand)]
+    Trust(TrustCommand),
     /// Preview a project bootstrap; only --apply writes files.
     /// Use --set language=en, --set tone=brief, --set updates=off or a
     /// documented `config list` key to draft preferences (preview only until C05j).
@@ -78,6 +81,12 @@ pub(super) enum Noun {
         /// Apply the displayed digest-bound plan.
         #[arg(long)]
         apply: bool,
+        /// Decline trust and write only separately confirmed preferences.
+        #[arg(long, requires = "apply")]
+        preferences_only: bool,
+        /// Exact canonical root confirming only the preferences-only write.
+        #[arg(long, requires = "preferences_only", value_name = "DIR")]
+        confirm_path: Option<PathBuf>,
     },
     /// Preview the search service Maestro needs, or install it with --yes.
     Setup {

@@ -4,6 +4,7 @@ mod check;
 mod schema;
 #[cfg(test)]
 mod tests;
+pub mod workspace;
 
 pub use check::{Cedar, PolicyChecker, load};
 pub use schema::{

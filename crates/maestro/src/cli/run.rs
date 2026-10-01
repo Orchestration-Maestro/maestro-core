@@ -11,7 +11,8 @@ use super::{
     config::{self, Change, Places},
     eval, health, import, init, model,
     output::{Output, diagnose},
-    policy, prepare, publish, quality, retrieve, search, session, setup, status, verify, wait,
+    policy, prepare, publish, quality, retrieve, search, session, setup, status, trust, verify,
+    wait,
 };
 use crate::{
     failure::Failure,
@@ -59,6 +60,9 @@ fn run(arguments: &Arguments) -> ExitCode {
 /// `setup`, `backup` and `restore` open no kernel for writing, and `status`
 /// and `doctor` never create or migrate it.
 fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> {
+    if let Noun::Trust(command) = &arguments.noun {
+        return trust::run(output, command);
+    }
     let flags = arguments.settings();
     let registry = Registry::built_in().map_err(|error| Failure::failed_by(&error))?;
     parse_flags(&registry, &flags).map_err(|error| Failure::refused_by(&error))?;
@@ -110,11 +114,17 @@ fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> 
             catalog_dir,
             presets,
             apply,
+            preferences_only,
+            confirm_path,
         } => init::run(
             output,
             catalog_dir,
             presets,
-            *apply,
+            init::ApplyChoices {
+                apply: *apply,
+                preferences_only: *preferences_only,
+                confirm_path: confirm_path.as_deref(),
+            },
             init::PreferenceChoices {
                 source: &session,
                 choices: &flags,
@@ -126,6 +136,7 @@ fn dispatch(arguments: &Arguments, output: Output) -> Result<ExitCode, Failure> 
         Noun::Doctor => health::doctor::run(output, &session),
         Noun::Backup { to } => backup::run_backup(output, to),
         Noun::Restore { from } => backup::run_restore(output, from),
+        Noun::Trust(command) => trust::run(output, command),
     }
 }
 
