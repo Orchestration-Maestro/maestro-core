@@ -2,10 +2,11 @@
 
 use super::support::{Scratch, scope};
 use crate::{
-    scope::{Config, ConfigRefreshError, LOCAL},
+    scope::{Config, ConfigError, ConfigRefreshError, LOCAL},
     store::Error as StoreError,
 };
 use rusqlite::{Error as SqliteError, ErrorCode};
+use std::error::Error as _;
 use std::time::Duration;
 
 #[test]
@@ -93,4 +94,21 @@ fn a_refused_refresh_rolls_back_and_preserves_the_previous_grants() {
         Err(ConfigRefreshError::Config(_))
     ));
     assert_eq!(database.visible(LOCAL).unwrap(), admitted);
+}
+
+#[test]
+fn refresh_errors_show_and_chain_their_cause() {
+    let unknown = || ConfigError::UnknownKey("access.write".to_owned());
+    let migration = || StoreError::UnknownMigration("0099_future".to_owned());
+    let cases: [(ConfigRefreshError, String); 2] = [
+        (ConfigRefreshError::Config(unknown()), unknown().to_string()),
+        (
+            ConfigRefreshError::Store(migration()),
+            migration().to_string(),
+        ),
+    ];
+    for (error, cause) in cases {
+        assert_eq!(error.to_string(), cause);
+        assert_eq!(error.source().map(ToString::to_string), Some(cause));
+    }
 }
