@@ -296,6 +296,12 @@ in place.
 │   │   └── Cargo.toml                                                                   # Crate manifest: The command line of Maestro: collections, their imports, the jobs that run them, and the machine's setup and checks
 │   ├── maestro-acquisition/                                                             # N03 implements strict source-policy declarations and immutable local baseline resolution
 │   │   ├── src/                                                                         # The crate's sources
+│   │   │   ├── extraction/                                                              # Immutable extraction profiles and bounded pure selection
+│   │   │   │   ├── detect.rs                                                            # Bounded deterministic evidence matching; no parser, network or model starts
+│   │   │   │   ├── mod.rs                                                               # Immutable extraction profiles and bounded pure selection
+│   │   │   │   ├── model.rs                                                             # Strict immutable profile definitions; field order is part of digest version one
+│   │   │   │   ├── outcome.rs                                                           # Immutable checked handles and content-free registry outcomes
+│   │   │   │   └── registry.rs                                                          # Pure replaceable registry adapter and core revalidation boundaries
 │   │   │   ├── lifecycle/                                                               # Process-local acquisition lifecycle accounting
 │   │   │   │   ├── mod.rs                                                               # Process-local acquisition lifecycle accounting
 │   │   │   │   └── resources.rs                                                         # Shared owned reservations, with fresh measurements at every checkpoint
@@ -354,6 +360,12 @@ in place.
 │   │   │       ├── n11_resource_edges.rs                                                # N11 concurrent admission, overflow and resume edge contracts
 │   │   │       ├── n11_review_regressions.rs                                            # N11 review regressions for composed ceilings and retained allocation ownership
 │   │   │       ├── n11_support.rs                                                       # Shared synthetic explicit N11 host/settings fixtures
+│   │   │       ├── n15_bounds.rs                                                        # Independent shape/qualification guard neighbours, not parser-error mutants
+│   │   │       ├── n15_resources.rs                                                     # Unmasked immutable-resource and policy-binding neighbours
+│   │   │       ├── n15_route_content_through_one_extensible_profile_registry.rs         # One resolve/select contract over local, synthetic catalog and disabled ports
+│   │   │       ├── n15_selection_edges.rs                                               # Selection predicates with qualified, pinned positive and negative neighbours
+│   │   │       ├── n15_support.rs                                                       # Independently authored synthetic registry resources, never catalog trust
+│   │   │       ├── n15_validation.rs                                                    # Independent boundary fixtures for registry guards and unmasked red proofs
 │   │   │       └── support.rs                                                           # Complete independently authored synthetic policy fixtures
 │   │   ├── Cargo.toml                                                                   # Crate manifest: Strict source policies and immutable baseline resolution for native acquisition
 │   │   └── README.md                                                                    # N03 implements strict source-policy declarations and immutable local baseline resolution

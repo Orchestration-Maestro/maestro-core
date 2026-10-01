@@ -346,13 +346,6 @@ path = "crates/maestro-test-clock/src/stopped.rs"
 item = "work_is_constructed_on_the_stopped_clock"
 reason = "proves paused Tokio time ignores real time; the assertion is equality on paused time, so it is deterministic whatever the sleep length; 20 ms"
 
-# Local files and synthetic/future catalog clients share the exact validator.
-[[exception]]
-rule = "ARC-005"
-path = "crates/maestro-acquisition/src/policy/mod.rs"
-item = "resolve"
-reason = "the public policy validator serves direct files and interchangeable catalog adapters; cross-crate clients and integration tests are not counted"
-
 # Remove this exception when N09 consumes transport::budget.
 [[exception]]
 rule = "ARC-005"

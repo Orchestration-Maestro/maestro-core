@@ -11,6 +11,6 @@ pub mod manifest;
 pub mod resolve;
 pub mod resource;
 pub mod schema;
-mod shape;
+pub(crate) mod shape;
 pub mod source;
 pub mod wiki;

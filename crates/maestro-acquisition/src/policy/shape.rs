@@ -13,7 +13,7 @@ pub(super) use maestro_knowledge::strict_json::{
 };
 
 /// Logical names are not filesystem paths.
-pub(super) fn valid_id(text: &str) -> bool {
+pub(crate) fn valid_id(text: &str) -> bool {
     !text.is_empty()
         && text.len() <= 128
         && text
@@ -33,7 +33,7 @@ pub(super) fn text<'de, D: Deserializer<'de>>(decoder: D) -> Result<String, D::E
     checked(decoder, valid_text)
 }
 /// Text never contains NUL.
-fn valid_text(text: &str) -> bool {
+pub(crate) fn valid_text(text: &str) -> bool {
     text.len() <= 4096 && !text.contains('\0')
 }
 /// One canonical DNS host, never an IP, userinfo or ambiguous host.

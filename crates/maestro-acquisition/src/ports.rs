@@ -1,5 +1,9 @@
 //! Small read-only ports; authority and transport startup are deliberately absent.
 use crate::{
+    extraction::{
+        detect::DetectionEvidence,
+        outcome::{CheckedRegistry, ProfileSelection, RegistryUnavailable},
+    },
     policy::{
         acquisition::AcquisitionProfile,
         decisions::{Decisions, Promotion},
@@ -89,6 +93,29 @@ pub trait PolicySource: Debug {
         collection: &Declaration,
         principal: &Principal<'_>,
     ) -> Result<CheckedPolicy, Refusal>;
+}
+/// Replaceable pure profile resolution/selection, with no acquisition or launches.
+/// Consumers use the core checked wrappers to revalidate substitute outcomes.
+pub trait ProfileRegistry: Debug {
+    /// Resolve exact immutable definitions and their qualification closure.
+    ///
+    /// # Errors
+    /// Disabled, missing, corrupt or unqualified registries refuse.
+    fn resolve(
+        &self,
+        reference: &Ref,
+        principal: &Principal<'_>,
+    ) -> Result<CheckedRegistry, RegistryUnavailable>;
+    /// Select one content-backed eligible profile or retain an explicit held result.
+    ///
+    /// # Errors
+    /// Disabled registries or invalid eligible references refuse without fallback.
+    fn select(
+        &self,
+        checked: &CheckedRegistry,
+        evidence: &DetectionEvidence,
+        eligible: &[Ref],
+    ) -> Result<ProfileSelection, RegistryUnavailable>;
 }
 /// A read-only digest-bound policy; obtaining it creates no authority or effects.
 #[derive(Debug)]
