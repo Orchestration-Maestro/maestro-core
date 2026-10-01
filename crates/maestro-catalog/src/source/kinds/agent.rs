@@ -26,6 +26,7 @@ const SECTIONS: [&str; 6] = [
 /// The agent kind.
 pub(super) fn descriptor() -> KindDescriptor {
     KindDescriptor {
+        scopes: Vec::new(),
         kind: "agent".to_owned(),
         version: 1,
         directory: "agents".to_owned(),

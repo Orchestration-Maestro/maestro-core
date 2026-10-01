@@ -10,6 +10,7 @@ use crate::source::{
 /// The instructions kind.
 pub(super) fn descriptor() -> KindDescriptor {
     KindDescriptor {
+        scopes: Vec::new(),
         kind: "instructions".to_owned(),
         version: 1,
         directory: "instructions".to_owned(),

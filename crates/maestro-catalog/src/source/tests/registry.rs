@@ -6,14 +6,15 @@ use super::support::{MemoryTree, assert_refused_by, check_by};
 use crate::{
     limits::Limits,
     source::{
-        Field, FieldType, Format, KindDescriptor, Layout, Maturity, MetadataPlace, Registry,
-        builtin, builtin_hooks,
+        Field, FieldType, Format, KindDescriptor, Layout, Maturity, MetadataPlace,
+        RegistrationError, Registry, builtin, builtin_hooks,
     },
 };
 
 /// A glossary kind, described as data only.
 pub(super) fn glossary() -> KindDescriptor {
     KindDescriptor {
+        scopes: Vec::new(),
         kind: "glossary".to_owned(),
         version: 1,
         directory: "glossaries".to_owned(),
@@ -52,7 +53,10 @@ pub(super) fn glossary() -> KindDescriptor {
 
 /// Registering `descriptor` beside the built-in kinds.
 fn register(descriptor: KindDescriptor) -> Result<(), String> {
-    builtin().unwrap().register(descriptor)
+    builtin()
+        .unwrap()
+        .register(descriptor)
+        .map_err(|error| error.to_string())
 }
 
 #[test]
@@ -302,4 +306,201 @@ fn builtin_kinds_loaded_from_data_check_like_the_originals() {
             ),
         ],
     );
+}
+
+#[test]
+fn overlapping_or_escaping_placements_refuse() {
+    use super::area_support::{folder, scoped};
+    let mut registry = Registry::default();
+    registry.register(scoped("glossaries", &["core"])).unwrap();
+    let mut overlap = scoped("glossaries", &["core"]);
+    overlap.kind = "other".to_owned();
+    let result = registry.register(overlap);
+    assert!(result.is_err(), "overlapping placements must refuse");
+    assert!(
+        result
+            .unwrap_err()
+            .to_string()
+            .contains("overlapping placement")
+    );
+    for path in [
+        "../glossaries",
+        "glossaries/../other",
+        "/glossaries",
+        "glossaries//other",
+        "glossaries\\other",
+        "c:/glossaries",
+    ] {
+        assert!(
+            Registry::default()
+                .register(scoped(path, &["common"]))
+                .is_err(),
+            "{path}"
+        );
+    }
+    for path in [
+        "../outside.json",
+        "/outside.json",
+        "assets/../../outside.json",
+        "assets/*",
+    ] {
+        assert!(
+            Registry::default().register(folder(&[path])).is_err(),
+            "{path}"
+        );
+    }
+}
+
+#[test]
+fn overlapping_folder_patterns_refuse() {
+    use super::area_support::scoped;
+    let mut descriptor = scoped("glossaries", &["common"]);
+    descriptor.layout = Layout::Files {
+        suffix: ".toml".to_owned(),
+        folders: vec!["*".to_owned(), "review".to_owned()],
+    };
+    let result = Registry::default().register(descriptor);
+    assert!(result.is_err(), "overlapping folder patterns must refuse");
+    assert!(
+        result
+            .unwrap_err()
+            .to_string()
+            .contains("overlapping placement")
+    );
+}
+
+#[test]
+fn root_support_and_scope_boundaries_refuse_unregistered_areas() {
+    use super::area_support::scoped;
+    for scope in ["common", "core", "team", "language", "standard"] {
+        for segment in ["core", "capabilities", "languages", "standards"] {
+            assert!(
+                Registry::default()
+                    .register(scoped(&format!("{segment}/glossaries"), &[scope]))
+                    .is_err(),
+                "{scope}/{segment}"
+            );
+        }
+    }
+    assert!(
+        Registry::default()
+            .register(scoped("unchecked", &["root"]))
+            .is_err()
+    );
+}
+
+#[test]
+fn root_support_table_is_exact() {
+    use crate::source::Scope;
+    assert_eq!(
+        Scope::SUPPORT_ROOTS,
+        [
+            "presets",
+            "marketplace",
+            "templates",
+            "schemas",
+            "fixtures",
+            "docs",
+            ".github"
+        ]
+    );
+}
+
+#[test]
+fn nested_area_folder_patterns_and_product_kinds_refuse() {
+    use super::area_support::scoped;
+    let mut descriptor = scoped("glossaries", &["core"]);
+    descriptor.layout = Layout::Files {
+        suffix: ".toml".to_owned(),
+        folders: vec!["languages/rust".to_owned()],
+    };
+    assert!(Registry::default().register(descriptor).is_err());
+    let mut descriptor = scoped("glossaries", &["common"]);
+    descriptor.kind = "ladybug".to_owned();
+    assert!(Registry::default().register(descriptor).is_err());
+}
+
+#[test]
+fn unsafe_layout_shapes_and_overlapping_inventory_refuse() {
+    use super::area_support::{folder, scoped};
+    for layout in [
+        Layout::Files {
+            suffix: String::new(),
+            folders: vec![String::new()],
+        },
+        Layout::Files {
+            suffix: "../.toml".to_owned(),
+            folders: vec![String::new()],
+        },
+        Layout::Files {
+            suffix: ".toml".to_owned(),
+            folders: vec![],
+        },
+        Layout::Files {
+            suffix: ".toml".to_owned(),
+            folders: vec!["../outside".to_owned()],
+        },
+        Layout::Single {
+            file: "../file.toml".to_owned(),
+            name: "valid".to_owned(),
+        },
+    ] {
+        let mut descriptor = scoped("glossaries", &["common"]);
+        descriptor.layout = layout;
+        assert!(Registry::default().register(descriptor).is_err());
+    }
+    assert!(
+        Registry::default()
+            .register(folder(&["assets/file.json", "assets/file.json"]))
+            .is_err()
+    );
+    assert!(Registry::default().register(folder(&["SKILL.md"])).is_err());
+}
+
+#[test]
+fn legacy_then_scoped_registry_refuses_before_discovery() {
+    use super::area_support::scoped;
+    let mut registry = Registry::default();
+    let mut legacy = glossary();
+    legacy.kind = "legacy-glossary".to_owned();
+    legacy.directory = "terms".to_owned();
+    registry.register(legacy).unwrap();
+    let result = registry.register(scoped("glossaries", &["common"]));
+    assert!(
+        result.is_err(),
+        "mixed registry must refuse legacy then scoped"
+    );
+    assert_eq!(
+        result,
+        Err(RegistrationError::MixedScopes {
+            scoped: "glossary".to_owned(),
+            legacy: "legacy-glossary".to_owned()
+        })
+    );
+    assert_eq!(registry.registrations().count(), 1);
+}
+
+#[test]
+fn scoped_then_legacy_registry_refuses_before_discovery() {
+    use super::area_support::scoped;
+    let mut registry = Registry::default();
+    registry
+        .register(scoped("glossaries", &["common"]))
+        .unwrap();
+    let mut legacy = glossary();
+    legacy.kind = "legacy-glossary".to_owned();
+    legacy.directory = "terms".to_owned();
+    let result = registry.register(legacy);
+    assert!(
+        result.is_err(),
+        "mixed registry must refuse scoped then legacy"
+    );
+    assert_eq!(
+        result,
+        Err(RegistrationError::MixedScopes {
+            scoped: "glossary".to_owned(),
+            legacy: "legacy-glossary".to_owned()
+        })
+    );
+    assert_eq!(registry.registrations().count(), 1);
 }

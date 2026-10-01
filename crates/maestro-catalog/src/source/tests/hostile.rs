@@ -79,12 +79,30 @@ fn a_chain_of_4095_resources_is_checked_on_a_1_mib_stack() {
     let checked = thread::Builder::new()
         .stack_size(1 << 20)
         .spawn(move || {
-            check_under(&tree, &Limits::PRODUCTION).map(|catalog| catalog.resources.len())
+            check_under(
+                &tree,
+                &Limits {
+                    archive_entries: 10_000,
+                    ..Limits::PRODUCTION
+                },
+            )
+            .map(|catalog| catalog.resources.len())
         })
         .unwrap()
         .join()
         .unwrap();
     assert_eq!(checked, Ok(4_095));
+}
+
+#[test]
+fn production_walk_bound_refuses_the_large_graph_before_graph_checks() {
+    let names: Vec<String> = (0..4_090).map(|index| format!("chain-{index}")).collect();
+    let tree = with_skills(&names, |_| Vec::new());
+    let error = check_under(&tree, &Limits::PRODUCTION).unwrap_err();
+    assert!(
+        error.to_string().contains("more than 4096 walk entries"),
+        "{error}"
+    );
 }
 
 #[test]

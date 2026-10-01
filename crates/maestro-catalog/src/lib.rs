@@ -2,6 +2,7 @@
 //! its authoring sources. Checking reads files as bounded data; it never runs a
 //! template, script or hook.
 #![forbid(unsafe_code)]
+pub mod adapters;
 /// Digest-bound, recoverable writes and removal for catalog-owned files.
 pub mod bootstrap;
 pub mod files;

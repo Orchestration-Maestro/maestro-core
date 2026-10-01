@@ -7,9 +7,10 @@ use super::{
     graph,
     load::{Context, Loaded, load},
     registry::Registry,
+    scan::scan,
     tree::SourceTree,
     types::{Catalog, Diagnostic, Known, Maturity, Refusal, Resource, ResourceId},
-    walk::walk,
+    walk::walk_snapshot,
 };
 use crate::limits::Limits;
 use std::collections::BTreeMap;
@@ -32,10 +33,11 @@ pub fn check(
     limits: &Limits,
     known: Known<'_>,
 ) -> Result<Catalog, Refusal> {
-    let found = walk(tree, registry, limits)?;
+    let snapshot = scan(tree, limits)?;
+    let found = walk_snapshot(&snapshot, registry, limits)?;
     let mut diagnostics = found.diagnostics;
     let context = Context {
-        tree,
+        tree: &snapshot,
         limits,
         known,
     };

@@ -3,6 +3,7 @@
 //! and the filesystem adapter.
 
 mod accepted;
+mod area_support;
 mod bounds;
 mod coverage;
 mod directory;
@@ -13,6 +14,7 @@ mod model_card;
 mod references;
 mod registry;
 mod rulings;
+mod scan;
 mod schema;
 pub(crate) mod support;
 mod yaml;

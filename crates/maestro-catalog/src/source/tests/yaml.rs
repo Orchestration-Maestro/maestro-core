@@ -21,6 +21,7 @@ fn yaml_alias_replays_count_against_the_budget() {
 fn yaml_depth_is_refused_as_a_container_opens() {
     let yaml = "a: [[b], {c: d}]\n";
     assert!(read(yaml, 3, 100).is_ok());
+    assert!(read(yaml, 2, 100).is_err(), "container depth must refuse");
     assert_eq!(read(yaml, 2, 100).unwrap_err(), "deeper than 2 levels");
 }
 

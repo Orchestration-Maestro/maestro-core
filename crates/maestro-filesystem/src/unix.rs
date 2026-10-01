@@ -2,10 +2,15 @@
 //! rustix's `openat` family closes the check-then-open ancestor/symlink race. The local filesystem
 //! must support hard links, directory fsync, and `renameat2` with `RENAME_NOREPLACE`; Linux drvfs
 //! and NFS return `EINVAL` and fail closed without that support.
-use super::{read::read_limited, root::resolve};
+use super::{
+    listing::{self, Entry, EntryKind},
+    read::{read_limited, read_prefix},
+    root::resolve,
+};
 use rustix::fd::OwnedFd;
 use rustix::fs::{
-    AtFlags, Mode, OFlags, RenameFlags, linkat, mkdirat, open, openat, renameat_with, unlinkat,
+    AtFlags, Dir, FileType, Mode, OFlags, RenameFlags, linkat, mkdirat, open, openat,
+    renameat_with, statat, unlinkat,
 };
 #[cfg(target_os = "linux")]
 use rustix::fs::{StatxFlags, statx};
@@ -14,6 +19,7 @@ use std::{
     ffi::OsStr,
     fs::File,
     io::{self, Read},
+    os::unix::ffi::OsStrExt as _,
     path::{Component, Path, PathBuf},
     process,
     sync::atomic::{AtomicUsize, Ordering},
@@ -109,6 +115,38 @@ impl Directory {
         Ok(Self(File::from(fd), self.1.join(name)))
     }
 
+    /// List at most `limit` entries of this held handle, without following links.
+    ///
+    /// # Errors
+    /// Refuses an extra entry or any listing/no-follow metadata failure.
+    pub fn list_bounded(&self, limit: usize) -> io::Result<Vec<Entry>> {
+        let mut entries = Vec::new();
+        for entry in Dir::read_from(&self.0)? {
+            let entry = entry?;
+            let name = entry.file_name();
+            if name.to_bytes() == b"." || name.to_bytes() == b".." {
+                continue;
+            }
+            let metadata = statat(&self.0, name, AtFlags::SYMLINK_NOFOLLOW)?;
+            let kind = match FileType::from_raw_mode(metadata.st_mode) {
+                FileType::RegularFile => EntryKind::File,
+                FileType::Directory => EntryKind::Directory,
+                FileType::Symlink => EntryKind::Link,
+                _ => EntryKind::Other,
+            };
+            listing::push(
+                &mut entries,
+                Entry {
+                    name: OsStr::from_bytes(name.to_bytes()).to_owned(),
+                    kind,
+                },
+                limit,
+            )?;
+        }
+        entries.sort_by(|left, right| left.name.cmp(&right.name));
+        Ok(entries)
+    }
+
     /// Whether this held directory is a filesystem or mount root.
     ///
     /// # Errors
@@ -169,6 +207,15 @@ impl Directory {
         let mut bytes = Vec::new();
         file.read_to_end(&mut bytes)?;
         Ok(bytes)
+    }
+
+    /// Read at most `max_bytes + 1` bytes of a regular file through this held handle.
+    /// Retains the sentinel byte for callers that diagnose oversize sources themselves.
+    ///
+    /// # Errors
+    /// Refuses unsafe names, links, non-regular files and failed reads.
+    pub fn read_regular_prefix(&self, name: &str, max_bytes: u64) -> io::Result<Vec<u8>> {
+        read_prefix(self.open_regular(name)?, max_bytes)
     }
 
     /// The bytes of a regular file, never read through a link or beyond `max_bytes + 1`.

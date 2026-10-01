@@ -18,6 +18,10 @@ pub struct KindDescriptor {
     pub version: u32,
     /// The top-level catalog directory holding its resources.
     pub directory: String,
+    /// V4 scopes in which `directory` is a relative placement. An empty list
+    /// retains the pre-cutover builtin layout until C31/C32 migrate it.
+    #[serde(default)]
+    pub scopes: Vec<Scope>,
     /// How its files are laid out in that directory.
     pub layout: Layout,
     /// How its primary file is written.
@@ -42,6 +46,52 @@ pub struct KindDescriptor {
     pub hook: Option<String>,
 }
 
+/// Registered v4 placement roots, never inferred from resource kinds.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum Scope {
+    /// Common content at the catalog root.
+    Common,
+    /// Framework content under `core/`.
+    Core,
+    /// Team content under `capabilities/<group>/<name>/`.
+    Team,
+    /// Root language content under `languages/<name>/`.
+    Language,
+    /// Root standard content under `standards/<name>/`.
+    Standard,
+    /// A fixed catalog support placement, outside an area.
+    Root,
+}
+
+impl Scope {
+    /// The reviewed fixed support roots; no unchecked nonempty support tree is admitted.
+    pub const SUPPORT_ROOTS: [&'static str; 7] = [
+        "presets",
+        "marketplace",
+        "templates",
+        "schemas",
+        "fixtures",
+        "docs",
+        ".github",
+    ];
+
+    /// Area-bearing roots whose placement segments cannot nest inside another area.
+    pub(super) const AREA_ROOTS: [Self; 4] =
+        [Self::Core, Self::Team, Self::Language, Self::Standard];
+
+    /// The fixed root pattern, with wildcards only for area names/groups.
+    pub(super) const fn prefix(self) -> &'static str {
+        match self {
+            Self::Common | Self::Root => "",
+            Self::Core => "core",
+            Self::Team => "capabilities/*/*",
+            Self::Language => "languages/*",
+            Self::Standard => "standards/*",
+        }
+    }
+}
+
 /// How a kind's files are laid out in its directory.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "kebab-case")]
@@ -56,7 +106,7 @@ pub enum Layout {
         folders: Vec<String>,
     },
     /// `<name>/<file>`: one folder per resource, whose `data` subfolders are
-    /// kept as data, never read.
+    /// kept as inert data. V4 lists exact owner-local files, not directories.
     Folder {
         /// The primary file's name.
         file: String,

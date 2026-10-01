@@ -10,6 +10,7 @@ use maestro_kernel::gateway::{CardIdentity, ModelCard};
 /// The model-card kind.
 pub(super) fn descriptor() -> KindDescriptor {
     KindDescriptor {
+        scopes: Vec::new(),
         kind: "model-card".to_owned(),
         version: 1,
         directory: "model-cards".to_owned(),

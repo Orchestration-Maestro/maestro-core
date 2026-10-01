@@ -39,7 +39,9 @@ pub fn builtin() -> Result<Registry, String> {
         preset::descriptor(),
         model_card::descriptor(),
     ] {
-        registry.register(descriptor)?;
+        registry
+            .register(descriptor)
+            .map_err(|error| error.to_string())?;
     }
     Ok(registry)
 }

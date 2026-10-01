@@ -2,15 +2,20 @@
 //! kinds described as data, generic discovery and bounded typed parsing,
 //! then the checks across resources.
 
+mod area_walk;
 mod check;
 mod descriptor;
+mod discovered;
 mod graph;
 mod kinds;
 mod load;
 mod metadata;
+mod naming;
 mod parse;
+mod placements;
 mod registry;
 mod rules;
+mod scan;
 #[cfg(test)]
 pub(crate) mod tests;
 pub(crate) mod tree;
@@ -19,9 +24,9 @@ mod walk;
 mod yaml;
 
 pub use check::check;
-pub use descriptor::{Field, FieldType, Format, KindDescriptor, Layout, MetadataPlace};
+pub use descriptor::{Field, FieldType, Format, KindDescriptor, Layout, MetadataPlace, Scope};
 pub use kinds::{builtin, builtin_hooks};
-pub use registry::{Registration, Registry};
+pub use registry::{Registration, RegistrationError, Registry};
 pub use tree::{Directory, Entry, EntryKind, SourceTree};
 pub use types::{
     Catalog, Cause, Diagnostic, Float, Known, KnownRows, KnownSettings, Maturity, Metadata,

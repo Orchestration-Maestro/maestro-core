@@ -10,6 +10,7 @@ use crate::source::{
 /// The preset kind.
 pub(super) fn descriptor() -> KindDescriptor {
     KindDescriptor {
+        scopes: Vec::new(),
         kind: "preset".to_owned(),
         version: 1,
         directory: "presets".to_owned(),

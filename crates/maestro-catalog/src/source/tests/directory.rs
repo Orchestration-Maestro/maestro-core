@@ -6,7 +6,7 @@ use crate::{
     limits::Limits,
     source::{Directory, SourceTree, builtin},
 };
-use std::{env, fs, io, path::PathBuf, process};
+use std::{fs, io, path::PathBuf};
 
 /// A scratch directory, removed when dropped.
 #[derive(Debug)]
@@ -17,11 +17,10 @@ struct Scratch {
 
 impl Scratch {
     /// A new, empty scratch directory named after `name`.
-    fn new(name: &str) -> Self {
-        let path = env::temp_dir().join(format!("maestro-catalog-{name}-{}", process::id()));
-        drop(fs::remove_dir_all(&path));
-        fs::create_dir_all(&path).unwrap();
-        Self { path }
+    fn new(_name: &str) -> Self {
+        Self {
+            path: maestro_test_scratch::scratch_directory().unwrap(),
+        }
     }
 
     /// Writes `text` at the relative `file`.
@@ -110,10 +109,60 @@ fn directory_refuses_paths_that_leave_or_bypass_the_root() {
         "c:/file.toml",
         absolute.to_str().unwrap(),
     ] {
+        assert!(
+            directory.read(path, 100).is_err(),
+            "escape must refuse: {path}"
+        );
         let error = directory.read(path, 100).unwrap_err();
         assert_eq!(error.kind(), io::ErrorKind::InvalidInput, "{path}");
         let error = directory.list(path).unwrap_err();
         assert_eq!(error.kind(), io::ErrorKind::InvalidInput, "{path}");
     }
     assert_eq!(directory.read("inside/file.toml", 100).unwrap(), b"inside");
+}
+
+// Unix permits unprivileged symbolic links; the no-follow implementation is shared by callers.
+#[cfg(unix)]
+#[test]
+fn directory_refuses_link_ancestors_and_direct_reads() {
+    use std::os::unix::fs::symlink;
+    let scratch = Scratch::new("ancestor-link");
+    scratch.write("inside/file.toml", "inside");
+    symlink(scratch.path.join("inside"), scratch.path.join("alias")).unwrap();
+    symlink(
+        scratch.path.join("inside/file.toml"),
+        scratch.path.join("linked.toml"),
+    )
+    .unwrap();
+    let directory = Directory::new(&scratch.path);
+    assert!(
+        directory.list("alias").is_err(),
+        "must not list through a link ancestor"
+    );
+    assert!(
+        directory.read("alias/file.toml", 100).is_err(),
+        "must not read through a link ancestor"
+    );
+    assert!(
+        directory.read("linked.toml", 100).is_err(),
+        "must not read a direct link"
+    );
+}
+
+#[test]
+fn directory_empty_scoped_primary_is_not_a_resource() {
+    use super::area_support::folder;
+    use crate::source::{Registry, walk::walk};
+    let scratch = Scratch::new("empty-primary");
+    let mut registry = Registry::default();
+    registry.register(folder(&[])).unwrap();
+    let directory = Directory::new(&scratch.path);
+    let empty = walk(&directory, &registry, &Limits::PRODUCTION).unwrap();
+    assert!(empty.units.is_empty());
+    assert!(empty.diagnostics.is_empty());
+    fs::create_dir_all(scratch.path.join("skills/review/SKILL.md")).unwrap();
+    let found = walk(&directory, &registry, &Limits::PRODUCTION).unwrap();
+    assert!(found.units.is_empty());
+    assert_eq!(found.diagnostics.len(), 1);
+    assert_eq!(found.diagnostics[0].message, "no SKILL.md");
 }

@@ -1,69 +1,21 @@
 //! Discovery: the catalog's top level, then each registered kind's
-//! directory as its layout describes it. Nothing is read or parsed here, so
-//! the resource limit refuses a catalog before any parser allocates.
+//! directory as its layout describes it. The full snapshot enforces aggregate
+//! entry/byte bounds before any parser allocates; scoped descriptors use v4 discovery.
 
+pub(super) use super::discovered::{Found, Unit};
 use super::{
+    area_walk,
     descriptor::{KindDescriptor, Layout, MetadataPlace},
+    discovered::refusal,
     parse::is_name,
+    placements::join,
     registry::{NOT_RESOURCES, Registry},
+    scan::Snapshot,
     tree::{Entry, EntryKind, SourceTree},
     types::{Diagnostic, Refusal},
 };
 use crate::limits::Limits;
 use std::collections::BTreeSet;
-
-/// One resource found: its kind, name and files.
-#[derive(Debug)]
-pub(super) struct Unit {
-    /// Its kind's name.
-    pub(super) kind: String,
-    /// Its name.
-    pub(super) name: String,
-    /// Its primary file.
-    pub(super) path: String,
-    /// Its sidecar, when its kind keeps metadata in one.
-    pub(super) sidecar: Option<String>,
-    /// The data folders it holds, never read.
-    pub(super) data: Vec<String>,
-}
-
-impl Unit {
-    /// The resource `name` of `descriptor` whose primary file is `path`.
-    fn new(descriptor: &KindDescriptor, name: &str, path: String) -> Self {
-        Self {
-            kind: descriptor.kind.clone(),
-            name: name.to_owned(),
-            path,
-            sidecar: None,
-            data: Vec::new(),
-        }
-    }
-}
-
-/// What discovery found.
-#[derive(Debug)]
-pub(super) struct Found {
-    /// The resources.
-    pub(super) units: Vec<Unit>,
-    /// The problems of the layout.
-    pub(super) diagnostics: Vec<Diagnostic>,
-}
-
-/// The relative path of `name` in `directory`.
-fn join(directory: &str, name: &str) -> String {
-    if directory.is_empty() {
-        name.to_owned()
-    } else {
-        format!("{directory}/{name}")
-    }
-}
-
-/// A refusal of the whole catalog.
-fn refusal(message: String) -> Refusal {
-    Refusal {
-        diagnostics: vec![Diagnostic::new("", "", message)],
-    }
-}
 
 /// The folder patterns that continue into the folder `name`: those whose
 /// next segment is `name`, or `*` when `name` is a valid name.
@@ -95,23 +47,24 @@ struct Walker<'a> {
 ///
 /// A [`Refusal`] when the catalog cannot be listed or holds more resources
 /// than `limits` allow.
-pub(super) fn walk(
-    tree: &dyn SourceTree,
+pub(super) fn walk_snapshot(
+    snapshot: &Snapshot,
     registry: &Registry,
     limits: &Limits,
 ) -> Result<Found, Refusal> {
-    let entries = tree.list("").map_err(|error| Refusal {
-        diagnostics: vec![Diagnostic::unreadable(
-            "",
-            format!("cannot list the catalog directory: {error}"),
-        )],
-    })?;
+    if registry
+        .registrations()
+        .any(|registration| !registration.descriptor.scopes.is_empty())
+    {
+        return area_walk::discover(snapshot, registry, limits);
+    }
+    let entries = snapshot.list("").unwrap_or_default();
     let mut walker = Walker {
-        tree,
+        tree: snapshot,
         limit: limits.catalog_resources,
         found: Found {
             units: Vec::new(),
-            diagnostics: Vec::new(),
+            diagnostics: snapshot.diagnostics.clone(),
         },
     };
     for entry in entries {
@@ -384,4 +337,15 @@ impl Walker<'_> {
         }
         Ok(())
     }
+}
+
+/// Discovery-only test seam; production check uses the same snapshot for loading.
+#[cfg(test)]
+pub(super) fn walk(
+    tree: &dyn SourceTree,
+    registry: &Registry,
+    limits: &Limits,
+) -> Result<Found, Refusal> {
+    let snapshot = super::scan::scan(tree, limits)?;
+    walk_snapshot(&snapshot, registry, limits)
 }

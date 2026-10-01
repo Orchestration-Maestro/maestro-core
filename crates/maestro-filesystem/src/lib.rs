@@ -4,6 +4,9 @@
 //! Windows, so neither the store nor the tokenizer branches on the platform (ADR-0018).
 #[cfg(test)]
 mod bounded_tests;
+mod listing;
+#[cfg(test)]
+mod listing_tests;
 mod read;
 mod root;
 #[cfg(test)]
@@ -18,3 +21,5 @@ mod windows_security;
 pub use unix::{Directory, open_nofollow};
 #[cfg(windows)]
 pub use windows::{Directory, open_nofollow};
+
+pub use listing::{Entry, EntryKind};

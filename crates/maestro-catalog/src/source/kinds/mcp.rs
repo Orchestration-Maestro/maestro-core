@@ -9,6 +9,7 @@ use crate::source::{
 /// The MCP server kind.
 pub(super) fn descriptor() -> KindDescriptor {
     KindDescriptor {
+        scopes: Vec::new(),
         kind: "mcp".to_owned(),
         version: 1,
         directory: "mcp".to_owned(),

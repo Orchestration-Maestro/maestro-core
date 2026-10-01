@@ -530,6 +530,7 @@ in place.
 │   │   │   │   │   └── skill.rs                                             # skill: an Agent Skills SKILL.md, whose Maestro data sits in the
 │   │   │   │   ├── tests/                                                   # The source checker's tests: the valid synthetic catalog and each of its
 │   │   │   │   │   ├── accepted.rs                                          # The valid catalog passes, and its typed resources hold exactly what the
+│   │   │   │   │   ├── area_support.rs                                      # Data-only v4 fixtures; builtin migration belongs to C31/C32
 │   │   │   │   │   ├── bounds.rs                                            # D2's source limits at small injected values: each exact boundary passes
 │   │   │   │   │   ├── coverage.rs                                          # Refusals each guard owns alone: tool names and lists, agent sections
 │   │   │   │   │   ├── directory.rs                                         # The filesystem adapter: a bounded read, links never followed, and a
@@ -541,22 +542,29 @@ in place.
 │   │   │   │   │   ├── references.rs                                        # References across resources: dangling names and tools, dependency
 │   │   │   │   │   ├── registry.rs                                          # The kind registry: registrations stay distinct, each descriptor is
 │   │   │   │   │   ├── rulings.rs                                           # The C03 round-two rulings: skill metadata reads only maestro
+│   │   │   │   │   ├── scan.rs                                              # Aggregate snapshot trust-boundary neighbours, independent of content guards
 │   │   │   │   │   ├── schema.rs                                            # Each file's strict schema: duplicate and unknown keys, wrong types
 │   │   │   │   │   ├── support.rs                                           # An in-memory [SourceTree] adapter holding the valid synthetic catalog
 │   │   │   │   │   └── yaml.rs                                              # YAML read node by node at injected limits: the exact node budget and
+│   │   │   │   ├── area_walk.rs                                             # Scoped discovery over the bounded snapshot
 │   │   │   │   ├── check.rs                                                 # The checker: discovery, each resource read by its kind, then the checks
 │   │   │   │   ├── descriptor.rs                                            # A kind described as data: where its files live, how they are written
+│   │   │   │   ├── discovered.rs                                            # Discovery records shared by the legacy and scoped descriptor walkers
 │   │   │   │   ├── graph.rs                                                 # The dependency graph across resources, its nodes numbered in ID order
 │   │   │   │   ├── load.rs                                                  # One discovered resource read from its files, as its kind's descriptor
 │   │   │   │   ├── metadata.rs                                              # The Maestro metadata every resource declares, read the same way wherever
 │   │   │   │   ├── mod.rs                                                   # The strict checker of a catalog's authoring sources: a registry of
+│   │   │   │   ├── naming.rs                                                # Functional naming from shared adapter metadata, with only exact host and
 │   │   │   │   ├── parse.rs                                                 # Bounded, strict parsing into checked values
+│   │   │   │   ├── placements.rs                                            # Descriptor placement patterns, shared by registration and discovery
 │   │   │   │   ├── registry.rs                                              # The kinds a checker knows: each a validated [KindDescriptor] and, when
 │   │   │   │   ├── rules.rs                                                 # A kind's rules beyond its descriptor: a hook, which a descriptor selects
+│   │   │   │   ├── scan.rs                                                  # One bounded snapshot of every folder/file/link in the source tree
 │   │   │   │   ├── tree.rs                                                  # The port through which the checker reads a catalog's files, and its
 │   │   │   │   ├── types.rs                                                 # The catalog's authoring schema, maestro-source/1, as typed data
 │   │   │   │   ├── walk.rs                                                  # Discovery: the catalog's top level, then each registered kind's
 │   │   │   │   └── yaml.rs                                                  # YAML frontmatter read node by node, never as a whole generic tree first
+│   │   │   ├── adapters.rs                                                  # Shared reviewed adapter naming metadata
 │   │   │   └── lib.rs                                                       # The Maestro catalog: its shared security limits and the strict checker of
 │   │   └── Cargo.toml                                                       # Crate manifest: The Maestro catalog: strict, bounded checks of its authoring sources
 │   ├── maestro-conventions/                                                 # Maestro conventions
@@ -578,6 +586,8 @@ in place.
 │   │   ├── src/                                                             # The crate's sources
 │   │   │   ├── bounded_tests.rs                                             # Rust source: bounded tests
 │   │   │   ├── lib.rs                                                       # Filesystem access that never follows a link below the root its caller names, which resolves
+│   │   │   ├── listing.rs                                                   # Shared bounded listing records; platform adapters classify without following links
+│   │   │   ├── listing_tests.rs                                             # Bounded directory listing on held handles
 │   │   │   ├── read.rs                                                      # Platform-independent byte limit for reads through an already-held file handle
 │   │   │   ├── root.rs                                                      # The root a caller names, resolved once, and the names the store appends below it
 │   │   │   ├── tests.rs                                                     # Rust source: tests

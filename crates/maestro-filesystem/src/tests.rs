@@ -1,9 +1,10 @@
 use super::{Directory, open_nofollow};
+#[cfg(windows)]
+use std::{env, path::Component, sync::Barrier, thread};
 use std::{
-    env, fs, io,
+    fs, io,
     path::{Path, PathBuf},
     process,
-    sync::atomic::{AtomicUsize, Ordering},
 };
 #[cfg(unix)]
 use std::{
@@ -13,19 +14,10 @@ use std::{
     thread,
     time::Duration,
 };
-#[cfg(windows)]
-use std::{path::Component, sync::Barrier, thread};
 
 /// A new empty directory whose name is unique within the test process.
 pub(super) fn scratch() -> PathBuf {
-    static NEXT: AtomicUsize = AtomicUsize::new(0);
-    let root = env::temp_dir().join(format!(
-        "maestro-filesystem-{}-{}",
-        process::id(),
-        NEXT.fetch_add(1, Ordering::Relaxed)
-    ));
-    fs::create_dir(&root).unwrap();
-    root
+    maestro_test_scratch::scratch_directory().unwrap()
 }
 
 /// `read_regular` on its own thread: the test fails, rather than hangs, if opening blocks.

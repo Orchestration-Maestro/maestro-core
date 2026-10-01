@@ -10,6 +10,7 @@ use crate::source::{
 /// The skill kind.
 pub(super) fn descriptor() -> KindDescriptor {
     KindDescriptor {
+        scopes: Vec::new(),
         kind: "skill".to_owned(),
         version: 1,
         directory: "skills".to_owned(),

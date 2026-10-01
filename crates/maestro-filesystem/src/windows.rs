@@ -6,7 +6,12 @@
 //! the single-bit constants are Win32's documented values, and each combined value is checked
 //! against its bits at compile time. The local filesystem must support hard links; directories
 //! are not flushed, which Windows does only through a writable handle (ADR-0018).
-use super::{read::read_limited, root::resolve, windows_security::private_metadata};
+use super::{
+    listing::{self, Entry},
+    read::{read_limited, read_prefix},
+    root::resolve,
+    windows_security::private_metadata,
+};
 use std::{
     ffi::OsStr,
     fs::{self, File, OpenOptions},
@@ -140,6 +145,35 @@ impl Directory {
         open_child(clone, OsStr::new(name), false)
     }
 
+    /// List at most `limit` entries below held, non-renamable ancestors.
+    /// Every entry is opened with the Win32 no-follow flag before classification.
+    ///
+    /// # Errors
+    /// Refuses an extra entry or any listing/no-follow metadata failure.
+    pub fn list_bounded(&self, limit: usize) -> io::Result<Vec<Entry>> {
+        let mut entries = Vec::new();
+        for entry in fs::read_dir(&self.path)? {
+            let entry = entry?;
+            let file = hold(&entry.path(), OPEN_REPARSE_DIRECTORY_FLAGS)?;
+            let metadata = file.metadata()?;
+            let kind = listing::windows_kind(
+                metadata.file_attributes(),
+                metadata.is_dir(),
+                metadata.is_file(),
+            );
+            listing::push(
+                &mut entries,
+                Entry {
+                    name: entry.file_name(),
+                    kind,
+                },
+                limit,
+            )?;
+        }
+        entries.sort_by(|left, right| left.name.cmp(&right.name));
+        Ok(entries)
+    }
+
     /// Whether this directory is the drive/share anchor.
     ///
     /// # Errors
@@ -176,6 +210,15 @@ impl Directory {
         let mut bytes = Vec::new();
         file.read_to_end(&mut bytes)?;
         Ok(bytes)
+    }
+
+    /// Read at most `max_bytes + 1` bytes of a regular file through this held handle.
+    /// Retains the sentinel byte for callers that diagnose oversize sources themselves.
+    ///
+    /// # Errors
+    /// Refuses unsafe names, links, non-regular files and failed reads.
+    pub fn read_regular_prefix(&self, name: &str, max_bytes: u64) -> io::Result<Vec<u8>> {
+        read_prefix(self.open_regular(name)?, max_bytes)
     }
 
     /// The bytes of a regular file, never read through a link or beyond `max_bytes + 1`.
