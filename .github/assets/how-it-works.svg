@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1160 512" width="1160" height="512" role="img" aria-labelledby="how-it-works-title how-it-works-desc">
+  <title id="how-it-works-title">Maestro Core: from Markdown to cited answers</title>
+  <desc id="how-it-works-desc">A Markdown collection passes through import and quality, then chunking and embedding with the embedder's tokenizer. A verified generation publishes dense vectors and a French/English BM25 index together. Search fuses dense, lexical and identifier routes and reranks the best 30 candidates. Ask uses bounded evidence for a cited answer or a refusal, delivered through the CLI and MCP clients.</desc>
+
+  <defs>
+    <marker id="hiw-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#604427"/>
+    </marker>
+    <marker id="hiw-answer-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#3f7d3f"/>
+    </marker>
+  </defs>
+
+  <rect width="100%" height="100%" fill="#f5f5f5"/>
+  <text x="24" y="46" fill="#604427" font-size="12" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" letter-spacing="0.14em">LOCAL KNOWLEDGE · SOURCE-BACKED ANSWERS</text>
+
+  <!-- Connectors precede opaque nodes; the lower row reads right to left. -->
+  <g fill="none" stroke="#604427" stroke-width="1.2" marker-end="url(#hiw-arrow)">
+    <path d="M 204,184 H 244"/>
+    <path d="M 484,184 H 524"/>
+    <path d="M 764,184 H 804"/>
+    <path d="M 970,256 V 320"/>
+    <path d="M 804,382 H 764"/>
+  </g>
+  <path d="M 524,382 H 484" fill="none" stroke="#3f7d3f" stroke-width="1.2" marker-end="url(#hiw-answer-arrow)"/>
+
+  <rect x="24" y="112" width="180" height="144" rx="6" fill="#ffffff" stroke="#261b08" stroke-width="1"/>
+  <rect x="244" y="112" width="240" height="144" rx="6" fill="#ffffff" stroke="#261b08" stroke-width="1"/>
+  <rect x="524" y="112" width="240" height="144" rx="6" fill="#ffffff" stroke="#261b08" stroke-width="1"/>
+  <rect x="804" y="112" width="332" height="144" rx="6" fill="#ece9e6" stroke="#261b08" stroke-width="1"/>
+
+  <g text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" fill="#604427" letter-spacing="0.08em">
+    <text x="114" y="137">1 · COLLECTION</text>
+    <text x="364" y="137">2 · IMPORT</text>
+    <text x="644" y="137">3 · PREPARE</text>
+    <text x="970" y="137">4 · PUBLISH</text>
+  </g>
+  <g text-anchor="middle" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="16" font-weight="600" fill="#261b08">
+    <text x="114" y="174">Markdown</text>
+    <text x="364" y="174">Import and quality</text>
+    <text x="644" y="174">Chunk and embed</text>
+    <text x="970" y="174">Published generation</text>
+  </g>
+  <g text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" fill="#604427">
+    <text x="114" y="202">corpus manifest</text>
+    <text x="114" y="226">French · English</text>
+    <text x="364" y="202">check source bytes</text>
+    <text x="364" y="226">eligible revisions only</text>
+    <text x="644" y="202">embedder's tokenizer</text>
+    <text x="644" y="226">token-budgeted chunks</text>
+    <text x="970" y="202">dense vectors + BM25</text>
+    <text x="970" y="226">verified, then switched whole</text>
+  </g>
+
+  <rect x="804" y="320" width="332" height="128" rx="6" fill="#f2e7e4" stroke="#8c3a2b" stroke-width="1.2"/>
+  <rect x="524" y="320" width="240" height="128" rx="6" fill="#e8eee8" stroke="#3f7d3f" stroke-width="1"/>
+  <rect x="244" y="320" width="240" height="128" rx="6" fill="#ffffff" stroke="#3f7d3f" stroke-width="1"/>
+
+  <g text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" letter-spacing="0.08em">
+    <text x="970" y="343" fill="#8c3a2b">5 · SEARCH</text>
+    <text x="644" y="343" fill="#3f7d3f">6 · ASK</text>
+    <text x="364" y="343" fill="#3f7d3f">7 · CLIENTS</text>
+  </g>
+  <g text-anchor="middle" font-family="ui-sans-serif, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="16" font-weight="600" fill="#261b08">
+    <text x="970" y="372">Retrieve, fuse, rerank</text>
+    <text x="644" y="372">Cited answer or refusal</text>
+    <text x="364" y="372">CLI and MCP</text>
+  </g>
+  <g text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" fill="#604427">
+    <text x="970" y="398">dense · lexical · identifier</text>
+    <text x="970" y="422">rank fusion → rerank best 30</text>
+    <text x="644" y="398">bounded source evidence</text>
+    <text x="644" y="422">question's language</text>
+    <text x="364" y="398">shared knowledge operations</text>
+    <text x="364" y="422">user-granted access only</text>
+  </g>
+
+  <line x1="24" y1="472" x2="1136" y2="472" stroke="#dedbd7" stroke-width="0.8"/>
+  <text x="24" y="495" fill="#604427" font-size="11" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" letter-spacing="0.04em">KERNEL = AUTHORITY · SEARCH INDEXES = REBUILDABLE PROJECTIONS</text>
+</svg>
