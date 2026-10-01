@@ -696,13 +696,39 @@ cohorts. N34's `ActivationAuthority` adapter rereads them and current authority
 on every check, including current reads, commit and committed recovery; a
 previous gate pass cannot turn substituted or inaccessible bytes into authority.
 Use existing under-lock read helpers, not a recursive `LocalWriter::current`
-call from `ActivationAuthority::check`. N33's typed gate receipt must distinguish
-forward activation from rollback and bind the exact expected baseline/active,
-target snapshot and rollback target. Rollback verifies N30's earlier-target
+call from `ActivationAuthority::check`.
+
+**Writer-supplied operation:** N34 changes the existing authority signature to
+`check(proposal, gate, operation, principal) -> Result<(), WriteError>`, adding
+`operation: &Operation` with all other parameter types unchanged. Its closed
+variants are `Operation::Activate` and `Operation::Rollback { restores: Ref }`.
+This is call context, not a new port, proposal model or stored record. N34 owns
+N30's signature and call-site updates: `apply` derives the operation from its
+writer-controlled `restores` argument (`None` means Activate, `Some(target)`
+means Rollback with that exact Ref). `eligible` derives it from the retained
+`activation.restores` for current reads and committed recovery. Every authority
+call passes that context; neither the receipt tag nor the Change list chooses
+which operation the writer is performing.
+
+N33's typed gate receipt distinguishes forward activation from rollback and
+binds the exact expected baseline/active, target snapshot and rollback target.
+N34 checks the receipt's operation against the writer-supplied operation, and
+for rollback requires its restore target to equal the supplied Ref in both ID
+and digest. Any mismatch returns `WriteError::Held` before a rollback exemption
+can bypass N32's forward comparison. Rollback verifies N30's earlier-target
 lineage and current target authorization, not a replay of the old forward Change
 list or permission to remove exclusions through ordinary activation. It must
-not require revoked superseded payloads. Missing OA1 matrix evidence holds;
-OA4a/OA4b grants and OA4d cutover remain separate. N35 still owns the first post-activation check.
+not require revoked superseded payloads.
+
+**Fail-closed adapter boundary:** N34 turns every read, decode, qualification or gate failure
+into `WriteError::Held`, including operation/restore-target mismatches. Errors
+from `storage::artifact` remain unchanged below this boundary (`Storage` or
+`Refused`); normalize them in the authority adapter, not in storage or unrelated
+writer operations. N34's tests assert Held for a storage read failure and an
+inaccessible artifact as well as the operation/target negatives. These signature,
+call-site and assertion updates fit N34's existing +2 h adapter delta (8 h total);
+no task estimate changes. Missing OA1 matrix evidence holds; OA4a/OA4b grants
+and OA4d cutover remain separate. N35 still owns the first post-activation check.
 
 ### Proposal, activation and privacy transaction
 
