@@ -1,6 +1,9 @@
 //! Deterministic text construction from a frozen source view.
 
-use super::types::{Descriptor, DescriptorError, DescriptorPin, SourcePointer};
+use super::{
+    qualifiers::{DescriptorQualifiers, DescriptorValidity},
+    types::{Descriptor, DescriptorError, DescriptorPin, SourcePointer},
+};
 use crate::graph::{
     resolve::resolve_snapshot,
     verify::{Source, check_source},
@@ -12,7 +15,6 @@ use maestro_kernel::{
         Support, Validity,
     },
 };
-use serde_json::{Value, json};
 use std::{
     collections::{BTreeMap, BTreeSet},
     iter::once,
@@ -206,10 +208,14 @@ fn contains_name(text: &str, name: &str) -> bool {
 }
 
 /// Qualifier representation preserves unknown and half-open source bounds.
-fn validity(value: &Validity) -> Value {
+fn validity(value: &Validity) -> DescriptorValidity {
     match value {
-        Validity::Unknown => json!({"known": false}),
-        Validity::Bounded { start, end } => json!({"known": true, "start": start, "end": end}),
+        Validity::Unknown => DescriptorValidity::Unknown { known: false },
+        Validity::Bounded { start, end } => DescriptorValidity::Bounded {
+            end: end.clone(),
+            known: true,
+            start: start.clone(),
+        },
     }
 }
 
@@ -222,11 +228,11 @@ fn descriptor(
     pointers: Vec<SourcePointer>,
 ) -> Descriptor {
     let (target, kind) = target;
-    let qualifiers = json!({
-        "conditions": record.claim.conditions,
-        "version": validity(&record.claim.version),
-        "world": validity(&record.claim.world),
-    });
+    let qualifiers = DescriptorQualifiers {
+        conditions: record.claim.conditions.clone(),
+        version: validity(&record.claim.version),
+        world: validity(&record.claim.world),
+    };
     let eligible = record.review != ReviewState::Rejected && record.review != ReviewState::Flagged;
     let mut document = Descriptor {
         id: Digest::of(b""),

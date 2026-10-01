@@ -5,7 +5,7 @@ use super::{
     port::{DescriptorEmbedder, EmbeddedDescriptors},
     types::{
         BUILDER_VERSION, Descriptor, DescriptorError, DescriptorPin, DescriptorProfile,
-        DescriptorReceipt,
+        DescriptorReceipt, content_digest,
     },
 };
 use crate::index::{check_dense, embed_dense, embedding_profile};
@@ -49,7 +49,7 @@ impl<P: ModelPort> DescriptorEmbedder<'_, P> {
                 linking: self.linking.clone(),
                 dimensions,
             },
-            content: Digest::of(serde_json::json!(documents).to_string().as_bytes()),
+            content: content_digest(&documents),
             count: documents.len(),
         };
         if let Some(cached) = cached {

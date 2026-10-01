@@ -166,12 +166,16 @@ fn conditions_and_known_half_open_validity_are_retained_without_inference() {
         end: Some("2030".into()),
     };
     let documents = build(&input).unwrap();
-    assert!(documents.iter().all(|document| document.qualifiers
-        == serde_json::json!({
-            "conditions": {"mode": "safe"},
-            "version": {"known": true, "start": "1.0", "end": "2.0"},
-            "world": {"known": true, "start": null, "end": "2030"},
-        })));
+    assert!(
+        documents
+            .iter()
+            .all(|document| serde_json::json!(document.qualifiers)
+                == serde_json::json!({
+                    "conditions": {"mode": "safe"},
+                    "version": {"known": true, "start": "1.0", "end": "2.0"},
+                    "world": {"known": true, "start": null, "end": "2030"},
+                }))
+    );
 }
 
 #[test]

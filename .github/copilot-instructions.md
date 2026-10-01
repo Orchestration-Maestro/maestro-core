@@ -963,11 +963,13 @@ in place.
 │   │   │   │   │   ├── mod.rs                                               # Deterministic, disposable source descriptors beside passage projections
 │   │   │   │   │   ├── port.rs                                              # Small optional projection and embedding boundary, independent of graph readiness
 │   │   │   │   │   ├── qdrant.rs                                            # Descriptor adapter over the existing retrieval projection infrastructure
+│   │   │   │   │   ├── qualifiers.rs                                        # Typed source qualifiers in the frozen /1 JSON field order
 │   │   │   │   │   ├── source.rs                                            # Read-only authority reader for generation-bound original artifacts
 │   │   │   │   │   ├── tests.rs                                             # Source-only composition and fail-closed pointer checks
 │   │   │   │   │   ├── tests_backend.rs                                     # Synthetic transport double for the existing retrieval port, not a second store
 │   │   │   │   │   ├── tests_embedding.rs                                   # Compatible outputs are shared across arms; mismatches cannot inherit readiness
 │   │   │   │   │   ├── tests_hold.rs                                        # Canonical held-endpoint selection and pair-local refusal
+│   │   │   │   │   ├── tests_identity.rs                                    # Frozen /1 preimages remain typed and independent of the JSON map backend
 │   │   │   │   │   ├── tests_namespace.rs                                   # Audited identities stay held for review or cross the projection unchanged
 │   │   │   │   │   ├── tests_projection.rs                                  # Rebuild equality and backend-scoped deterministic lookup fixtures
 │   │   │   │   │   ├── tests_source.rs                                      # Real kernel authority survives disposable descriptor deletion
@@ -1599,6 +1601,10 @@ in place.
 │           ├── graph/                                                       # Graph
 │           │   ├── defaults.json                                            # JSON data: defaults
 │           │   ├── defaults.md                                              # Sample document: Lantern controller
+│           │   ├── descriptor-bounded-content-preimage.json                 # JSON data: descriptor bounded content preimage
+│           │   ├── descriptor-content-preimage.json                         # JSON data: descriptor content preimage
+│           │   ├── descriptor-identity-preimages.json                       # JSON data: descriptor identity preimages
+│           │   ├── descriptor-receipt-preimage.json                         # JSON data: descriptor receipt preimage
 │           │   └── descriptors.json                                         # JSON data: descriptors
 │           ├── .rumdl.toml                                                  # The synthetic collection is test input, not documentation: one of its documents repeats a heading under the same parent, as authors do
 │           └── collection.json                                              # The maestro-collection/1 declaration of the public collection synthetic

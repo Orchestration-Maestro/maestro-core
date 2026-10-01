@@ -3,7 +3,7 @@
 use super::{
     build::refused,
     port::{DescriptorProjection, DescriptorQuery, EmbeddedDescriptors},
-    types::{BUILDER_VERSION, Descriptor, DescriptorError, DescriptorReceipt},
+    types::{BUILDER_VERSION, Descriptor, DescriptorError, DescriptorReceipt, content_digest},
 };
 use crate::index::{
     CollectionLayout, PointHit, ProjectionFilter, ProjectionPoint, Qdrant, RetrievalProjectionPort,
@@ -70,8 +70,12 @@ fn collection_name(receipt: &DescriptorReceipt) -> String {
 }
 
 /// Canonical serialized receipt identity for payload filtering and collection ownership.
+#[expect(
+    clippy::expect_used,
+    reason = "Typed receipt fields contain only JSON-safe strings and integers."
+)]
 fn receipt_digest(receipt: &DescriptorReceipt) -> Digest {
-    Digest::of(json!(receipt).to_string().as_bytes())
+    Digest::of(&serde_json::to_vec(receipt).expect("typed descriptor receipt serializes"))
 }
 
 /// Reuse the existing dense/sparse transport layout, with no sparse descriptor route.
@@ -151,7 +155,7 @@ pub(super) async fn verify<P: RetrievalProjectionPort>(
 ) -> Result<(), DescriptorError> {
     let receipt = &output.receipt;
     if receipt.profile.builder != Digest::of(BUILDER_VERSION.as_bytes())
-        || receipt.content != Digest::of(json!(output.documents).to_string().as_bytes())
+        || receipt.content != content_digest(&output.documents)
     {
         return Err(refused("invalid descriptor receipt"));
     }

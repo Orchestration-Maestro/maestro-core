@@ -4,6 +4,7 @@ mod build;
 mod embedding;
 mod port;
 mod qdrant;
+mod qualifiers;
 mod source;
 #[cfg(test)]
 mod tests;
@@ -13,6 +14,8 @@ mod tests_backend;
 mod tests_embedding;
 #[cfg(test)]
 mod tests_hold;
+#[cfg(test)]
+mod tests_identity;
 #[cfg(test)]
 mod tests_namespace;
 #[cfg(test)]
@@ -24,6 +27,7 @@ mod types;
 pub use build::{DescriptorInput, build};
 pub use port::{DescriptorEmbedder, DescriptorProjection, DescriptorQuery, EmbeddedDescriptors};
 pub use qdrant::DescriptorQdrant;
+pub use qualifiers::{DescriptorQualifiers, DescriptorValidity};
 pub use types::{
     BUILDER_VERSION, Descriptor, DescriptorError, DescriptorPin, DescriptorProfile,
     DescriptorReceipt, SourcePointer,
