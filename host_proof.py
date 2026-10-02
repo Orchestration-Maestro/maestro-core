@@ -27,8 +27,8 @@ if platform=='win32':
  ('hardened-directory-identity',W,'pub fn harden_created_child','self.verify_created(name, held)?;','/* skip */','maestro-catalog',F+'directory_hardening_refuses_replacement_before_returning_a_parent_grant'),
  ('rollback-full-identity',S,'fn remove_created_directory','if !same_file(&file, created)? {','if false {','maestro-catalog',F+'directory_rollback_restores_a_replacement_instead_of_deleting_it'),
  ('created-full-identity',W,'pub fn verify_created','if !same_file(created, &named)? {','if false {','maestro-catalog',F+'written_bytes_are_not_owned_when_the_created_name_is_replaced'),
- ('created-no-follow',W,'pub fn verify_created','hold(&self.path.join(name), OPEN_REPARSE_DIRECTORY_FLAGS)','hold(&path, FILE_FLAG_BACKUP_SEMANTICS)','maestro-filesystem','created_identity_matches_only_regular_same_objects_never_a_symlink_alias'),
- ('rollback-written-identity',W,'fn remove_created_inner','self.verify_created(quarantine, created)?;','/* skip */','maestro-catalog',F+'written_file_rollback_preserves_a_replacement_with_identical_bytes'),
+ ('created-no-follow',W,'pub fn verify_created','hold(&self.path.join(name), OPEN_REPARSE_DIRECTORY_FLAGS)','hold(&self.path.join(name), FILE_FLAG_BACKUP_SEMANTICS)','maestro-filesystem','created_identity_matches_only_regular_same_objects_never_a_symlink_alias'),
+ ('rollback-written-identity',W,'fn remove_verified_impl','&& !same_file(created, &file)?','&& false','maestro-catalog',F+'written_file_rollback_preserves_a_replacement_with_identical_bytes'),
  ]
 else:
  cases += [

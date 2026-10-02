@@ -4,12 +4,7 @@ use crate::{
     unix::{Directory, NEXT_QUARANTINE},
 };
 use rustix::fs::{AtFlags, Mode, RenameFlags, fstat, mkdirat, renameat_with, statat, unlinkat};
-use std::{
-    fs::File,
-    io,
-    process,
-    sync::atomic::Ordering,
-};
+use std::{fs::File, io, process, sync::atomic::Ordering};
 
 impl Directory {
     /// Exclusively create and hold one child directory without following links.

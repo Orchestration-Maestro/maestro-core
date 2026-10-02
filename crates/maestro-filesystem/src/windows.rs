@@ -497,12 +497,12 @@ impl Directory {
         }
         let verification = policy().and_then(|()| {
             let mut file = self.open_regular_path(&quarantine_file)?;
-            if let Some(created) = created {
-                if !same_file(created, &file)? {
-                    return Err(io::Error::other(
-                        "created file changed; replacement not deleted",
-                    ));
-                }
+            if let Some(created) = created
+                && !same_file(created, &file)?
+            {
+                return Err(io::Error::other(
+                    "created file changed; replacement not deleted",
+                ));
             }
             let mut bytes = Vec::new();
             file.read_to_end(&mut bytes)?;

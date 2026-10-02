@@ -36,7 +36,10 @@ jobs:
       - name: Native affected-crate Clippy
         run: cargo clippy --locked -p maestro-catalog -p maestro-filesystem -p maestro --all-targets -- -D warnings
       - name: Native workspace trust and owned-file regressions
-        run: cargo test --locked -p maestro-catalog
+        run: |
+          cargo test --locked -p maestro-catalog files::tests
+          cargo test --locked -p maestro-catalog policy::workspace
+          cargo test --locked -p maestro-catalog bootstrap
       - name: Native filesystem identities and dispositions
         run: cargo test --locked -p maestro-filesystem
       - name: Native CLI default, nested and full language-tone matrix
