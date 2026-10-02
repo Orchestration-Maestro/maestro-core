@@ -145,7 +145,14 @@ pub(super) fn fixture(text: &str) -> (Workflow, Catalog, Reviewed) {
             .map(|resource| resource.id.clone())
             .collect(),
     );
-    (workflow, Catalog { resources }, evidence)
+    (
+        workflow,
+        Catalog {
+            resources,
+            ..Catalog::default()
+        },
+        evidence,
+    )
 }
 
 /// Refuses at the real compiler, retaining the source and the offending key/reference.

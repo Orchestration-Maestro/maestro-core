@@ -104,7 +104,7 @@ impl Catalog {
             members.push(resource);
         }
         if diagnostics.is_empty() {
-            super::backend_extensions::selected(&members)?;
+            super::backend_extensions::selected(&members, self.common_defaults.as_deref())?;
             Ok(members)
         } else {
             diagnostics.sort();

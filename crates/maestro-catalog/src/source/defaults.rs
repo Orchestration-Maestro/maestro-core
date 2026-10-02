@@ -13,13 +13,13 @@ use std::{borrow::Cow, collections::BTreeMap, io};
 pub(crate) const DEFAULTS_PATH: &str = "settings/defaults.toml";
 
 /// Read and validate non-resource defaults from the same no-follow catalog snapshot.
-/// Returns the checked registry and whether the exact defaults placement was consumed.
+/// Returns the checked registry and the validated common input for later selection.
 pub(super) fn from_snapshot(
     snapshot: &Snapshot,
     resources: &[Resource],
     registry: Option<&Registry>,
     limits: &Limits,
-) -> Result<(Option<Registry>, bool), Refusal> {
+) -> Result<(Option<Registry>, Option<String>), Refusal> {
     if snapshot.list("settings").is_ok_and(|entries| {
         entries
             .iter()
@@ -58,7 +58,7 @@ pub(super) fn from_snapshot(
         }
         None => None,
     };
-    Ok((settings, common.is_some()))
+    Ok((settings, common))
 }
 
 /// Construct the S1 registry with one producer for each manifest-declared default.

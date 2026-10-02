@@ -322,6 +322,8 @@ pub struct Resource {
 pub struct Catalog {
     /// The resources.
     pub resources: Vec<Resource>,
+    /// Validated common-default input retained from the checked source snapshot.
+    pub(crate) common_defaults: Option<String>,
 }
 
 /// What a diagnostic reports: a source the schema refuses, or a file the

@@ -42,7 +42,7 @@ impl Catalog {
         registry: &CatalogRegistry,
     ) -> Result<BackendExtensions, Refusal> {
         let members = self.selection(selected, registry)?;
-        self::selected(&members)
+        self::selected(&members, self.common_defaults.as_deref())
     }
 }
 
@@ -154,11 +154,8 @@ pub(super) fn effective(
         let roles = selectors(resource)
             .map_err(|message| refusal(&resource.path, "backend_extensions", message))?;
         for role in roles {
-            let path = assets(resource)
-                .unwrap_or_default()
-                .into_iter()
-                .find(|path| path.ends_with(&format!("/{role}/config.toml")))
-                .unwrap_or_else(|| resource.path.clone());
+            let parent = resource.path.strip_suffix("package.toml").unwrap_or("");
+            let path = format!("{parent}backends/{role}/config.toml");
             let base = resources.iter().find(|base| {
                 base.id.kind == "backend"
                     && base.id.name == role
@@ -302,13 +299,17 @@ fn additions(
 }
 
 /// Activation reuses the sole S1 default producer and checked extension algorithm.
-pub(super) fn selected(resources: &[&Resource]) -> Result<BackendExtensions, Refusal> {
+pub(super) fn selected(
+    resources: &[&Resource],
+    common: Option<&str>,
+) -> Result<BackendExtensions, Refusal> {
     let registry = Registry::built_in().map_err(|error| refusal("", "", error.to_string()))?;
     let bases = resources
         .iter()
+        .filter(|resource| resource.id.kind == "backend" && resource.id.name == "graphdb")
         .map(|resource| (*resource).clone())
         .collect::<Vec<_>>();
-    let registry = manifest_registry(&registry, &bases, None, &Limits::PRODUCTION)?;
+    let registry = manifest_registry(&registry, &bases, common, &Limits::PRODUCTION)?;
     effective(resources, &registry, &Limits::PRODUCTION)
 }
 

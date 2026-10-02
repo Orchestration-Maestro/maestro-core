@@ -7,6 +7,7 @@ mod area_ownership;
 mod area_packages;
 mod area_regressions;
 mod area_support;
+mod backend_extension_regressions;
 mod backend_extensions;
 mod backends;
 mod bounds;

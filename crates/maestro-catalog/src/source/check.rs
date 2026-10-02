@@ -121,9 +121,9 @@ fn build_snapshot(
     let (settings, common) = from_snapshot(snapshot, &resources, known.settings.registry(), limits)
         .unwrap_or_else(|refusal| {
             diagnostics.extend(refusal.diagnostics);
-            (None, false)
+            (None, None)
         });
-    if common {
+    if common.is_some() {
         claimed.insert(DEFAULTS_PATH.to_owned());
     }
     diagnostics.extend(area_walk::unclaimed(snapshot, &claimed));
@@ -148,7 +148,10 @@ fn build_snapshot(
         let mut resources: Vec<Resource> =
             loaded.into_iter().map(|loaded| loaded.resource).collect();
         resources.sort_by(|left, right| left.id.cmp(&right.id));
-        let catalog = Catalog { resources };
+        let catalog = Catalog {
+            resources,
+            common_defaults: common,
+        };
         let generated = match snapshot.read(GENERATED_CODEOWNERS.path, limits.source_file_bytes) {
             Ok(bytes) => Some(bytes),
             Err(error) if error.kind() == io::ErrorKind::NotFound => None,
