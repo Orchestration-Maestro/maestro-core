@@ -14,7 +14,7 @@ This report covers the nine Phase A requirements supplied by the user. It does n
 
 ## Supported contract
 
-Completed UTF-8 Markdown is processed locally with pinned `pulldown-cmark =0.13.4`, recorded extension options, schema **1.2.0**, and parser profile **canonicalization/0.3.0+pulldown-cmark/0.13.4+source-accounting**. There is no document networking, inference, model download or source rewriting. This 2026-09-26 record was checked at the then-declared MSRV 1.85. The workspace now inherits MSRV 1.98 (2026-09-27); see the root [current verification instructions](../../README.md#develop).
+Completed UTF-8 Markdown is processed locally with pinned `pulldown-cmark =0.13.4`, recorded extension options, schema **1.2.0**, and parser profile **canonicalization/0.3.0+pulldown-cmark/0.13.4+source-accounting**. There is no document networking, inference, model download or source rewriting. This 2026-09-26 record was checked at the then-declared MSRV 1.85. The workspace now inherits MSRV 1.98 (2026-09-27); see the root [current verification instructions](../../README.md#-develop).
 
 The current reader accepts snapshots from this schema/profile. Older artifacts are retained, never rewritten or silently migrated; compatibility with older readers/profiles is not claimed. Historical **source updates within this supported contract** remain separately retrievable. Inputs exceeding 128 parser nesting nodes receive an explicit refusal. Empty/body-free or conflicting/malformed metadata inputs have explicit blocked outcomes, rather than fabricated content or provenance.
 
@@ -58,7 +58,7 @@ workspace-gate results.
 
 The commands and timings below are the historical Phase A record from the
 standalone crate checkout. Current package checks run from the workspace root;
-see the [current verification instructions](../../README.md#develop). Historical
+see the [current verification instructions](../../README.md#-develop). Historical
 logs and machine-readable outcomes were kept under ignored `target/acceptance/`.
 
 | Exact command | Exit / elapsed | Artifact |

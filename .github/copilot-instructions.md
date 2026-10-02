@@ -2,13 +2,7 @@
 
 ## Start here
 
-The local runtime of Maestro: a knowledge kernel, retrieval and a command-line
-application. The workspace contains `maestro-canonicalization`,
-`maestro-conventions`, `maestro-kernel`, `maestro-knowledge` and `maestro`.
-[`maestro-canonicalization`](../crates/maestro-canonicalization/README.md) turns
-Markdown into provenance-bearing canonical documents, groups duplicates and cuts
-them into token-budgeted chunks; later capabilities arrive slice by slice
-([roadmap](../docs/architecture/06-roadmap.md)).
+Install from source with [rustup](https://rustup.rs) installed:
 
 Paths below are relative to this repository. Before editing, read
 [AGENTS.md](../AGENTS.md) for the rules that bind every change,
@@ -40,6 +34,10 @@ in place.
 │   ├── lbug-debug-flags.cmake                                               # File: lbug debug flags
 │   └── mutants.toml                                                         # Mutants no test can kill, each with its reason: none changes behaviour a test can observe
 ├── .github/                                                                 # GitHub metadata, templates and workflows
+│   ├── assets/                                                              # Images and other assets
+│   │   ├── CREDITS.md                                                       # Banner credits
+│   │   ├── how-it-works.svg                                                 # A Markdown collection passes through import and quality, then chunking and embedding with the embedder's tokenizer
+│   │   └── maestro-core.jpg                                                 # Maestro Core: ask anything, cite everything
 │   ├── workflows/                                                           # GitHub Actions workflows
 │   │   ├── dependabot-auto-merge.yml                                        # Dependabot auto-merge
 │   │   ├── event-schemas.yml                                                # Released event schema compatibility

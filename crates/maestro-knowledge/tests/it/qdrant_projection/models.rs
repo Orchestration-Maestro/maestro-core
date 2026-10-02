@@ -156,6 +156,8 @@ pub(super) struct Embedder {
     embed_never_ready: bool,
     /// How its reranker is slow, when it is.
     slow_reranker: Option<SlowReranker>,
+    /// Signals that scoring began before a test advances its cutoff.
+    rerank_started: Arc<Notify>,
 }
 
 #[derive(Debug, Default)]
@@ -188,6 +190,7 @@ impl Embedder {
                 gate: Some(gate.clone()),
                 embed_never_ready: false,
                 slow_reranker: None,
+                rerank_started: Arc::default(),
             },
             EmbedGate(gate),
         )
@@ -230,6 +233,11 @@ impl Embedder {
     /// Makes every later embedding call answer as `delay` says.
     pub(super) fn delay_embeddings(&self, delay: Answers) {
         self.script.lock().unwrap().embedding_delay = delay;
+    }
+
+    /// Waits until scoring has begun, independently of host scheduling.
+    pub(super) async fn wait_for_rerank(&self) {
+        self.rerank_started.notified().await;
     }
 
     /// The number of rerank calls made so far.
@@ -312,6 +320,7 @@ impl ModelPort for Embedder {
         documents: &[String],
     ) -> Result<Vec<f64>, Error> {
         self.script.lock().unwrap().rerank_calls += 1;
+        self.rerank_started.notify_one();
         self.wait_for_reranker(true).await;
         FakeModels.rerank(card, room, query, documents).await
     }
