@@ -138,6 +138,7 @@ fn backend_numeric_boundaries_accept() {
     for (pool, size, threads) in [
         (16_777_216_u64, 16_777_216_u64, 1),
         (1_073_741_824, 1_099_511_627_776, 64),
+        (16_777_217, 16_777_216, 3),
     ] {
         let text = BASES[0]
             .1
@@ -225,7 +226,25 @@ fn uncompiled_backend_refuses() {
     let members = catalog
         .runtime_selection(&[], &registry, &compiled)
         .unwrap();
-    assert!(members.iter().any(|resource| resource.id.kind == "backend"));
+    let backend = members
+        .iter()
+        .find(|resource| resource.id.kind == "backend")
+        .unwrap()
+        .id
+        .clone();
+    let explicit = catalog
+        .runtime_selection(&[backend], &registry, &compiled)
+        .unwrap();
+    assert_eq!(
+        explicit
+            .iter()
+            .map(|resource| &resource.id)
+            .collect::<BTreeSet<_>>(),
+        members
+            .iter()
+            .map(|resource| &resource.id)
+            .collect::<BTreeSet<_>>()
+    );
     let error = catalog
         .runtime_selection(&[], &registry, &BTreeSet::new())
         .unwrap_err();
