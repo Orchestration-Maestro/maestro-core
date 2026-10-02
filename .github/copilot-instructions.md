@@ -646,6 +646,7 @@ in place.
 │   │   │   │   ├── ownership.rs                                             # Offline area principals and ordered review delegation, not approval evidence
 │   │   │   │   ├── parse.rs                                                 # Bounded, strict parsing into checked values
 │   │   │   │   ├── placements.rs                                            # Descriptor placement patterns, shared by registration and discovery
+│   │   │   │   ├── references.rs                                            # Typed reference admission and dependency-direction classification
 │   │   │   │   ├── registry.rs                                              # The kinds a checker knows: each a validated [KindDescriptor] and, when
 │   │   │   │   ├── rules.rs                                                 # A kind's rules beyond its descriptor: a hook, which a descriptor selects
 │   │   │   │   ├── scan.rs                                                  # One bounded snapshot of every folder/file/link in the source tree

@@ -18,6 +18,7 @@ mod naming;
 mod ownership;
 mod parse;
 mod placements;
+mod references;
 mod registry;
 mod rules;
 mod scan;
