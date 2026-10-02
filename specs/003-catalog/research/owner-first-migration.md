@@ -47,67 +47,56 @@ consumer obligation, not substituted by source-only checks.
 ## Evidence matrix
 
 Counts below are named-test counts, not assertion counts. Each command selects
-only the listed tests; zero tests or absent assertions are findings. Repeated
-rows share a proving run and must not be summed as distinct tests.
+only the listed tests; zero tests or absent assertions are findings. Merged
+families use one focused command and count each named test once.
 
 | Item | Proving file and tests | Command | Passing count |
 | --- | --- | --- | ---: |
-| FR-S3-040: registered v4 placement, naming and bounded assets | [crates/maestro-catalog/src/source/tests/layout.rs](../../../crates/maestro-catalog/src/source/tests/layout.rs)<br>`v4_area_placement_accepts`<br>`nested_or_unknown_area_refuses`<br>`functional_naming_exception_is_exact`<br>`registered_product_names_and_tokens_refuse_without_self_exemptions`<br>`scoped_assets_are_exact_and_owner_local` | [matrix-01](#matrix-01) | 5 |
-| FR-S3-041: area-derived owners, maintainers and delegation | [crates/maestro-catalog/src/source/tests/ownership.rs](../../../crates/maestro-catalog/src/source/tests/ownership.rs)<br>`area_owners_maintainers_validate`<br>`resource_ownership_is_derived`<br>`groups_have_no_inherited_approval_authority`<br>`broad_codeowners_rule_cannot_override_descriptor` | [matrix-02](#matrix-02) | 4 |
-| FR-S3-042: layer directions, common passing neighbour and mandatory roots | [crates/maestro-catalog/src/source/tests/accepted.rs](../../../crates/maestro-catalog/src/source/tests/accepted.rs)<br>`explicit_area_layer_matrix_and_core_internal_wiring` | [matrix-03](#matrix-03) | 1 |
+| FR-S3-040: registered v4 placement, naming, bounded assets; overlapping placements and escaping inventories refuse | [crates/maestro-catalog/src/source/tests/layout.rs](../../../crates/maestro-catalog/src/source/tests/layout.rs)<br>`v4_area_placement_accepts`<br>`nested_or_unknown_area_refuses`<br>`functional_naming_exception_is_exact`<br>`registered_product_names_and_tokens_refuse_without_self_exemptions`<br>`scoped_assets_are_exact_and_owner_local`<br>[crates/maestro-catalog/src/source/tests/registry.rs](../../../crates/maestro-catalog/src/source/tests/registry.rs)<br>`overlapping_or_escaping_placements_refuse` | [matrix-01](#matrix-01) | 6 (exit 0) |
+| FR-S3-041: area-derived owners, maintainers and delegation; owner-reference mismatch refuses | [crates/maestro-catalog/src/source/tests/ownership.rs](../../../crates/maestro-catalog/src/source/tests/ownership.rs)<br>`area_owners_maintainers_validate`<br>`resource_ownership_is_derived`<br>`groups_have_no_inherited_approval_authority`<br>`broad_codeowners_rule_cannot_override_descriptor`<br>[crates/maestro-catalog/src/source/tests/selection.rs](../../../crates/maestro-catalog/src/source/tests/selection.rs)<br>`area_owner_reference_mismatch_refuses` | [matrix-02](#matrix-02) | 5 (exit 0) |
+| FR-S3-042: area-root layer directions, common passing neighbour and core internal wiring | [crates/maestro-catalog/src/source/tests/accepted.rs](../../../crates/maestro-catalog/src/source/tests/accepted.rs)<br>`explicit_area_layer_matrix_and_core_internal_wiring` | [matrix-03](#matrix-03) | 1 |
+| FR-S3-042: mandatory common/core/standards/Maestro selected once; missing roots and unreviewed mandatory roots refuse; every-preset required closure without injecting available personas | [crates/maestro-catalog/src/source/tests/selection.rs](../../../crates/maestro-catalog/src/source/tests/selection.rs)<br>`mandatory_roots_selected_once`<br>`missing_reviewed_maestro_refuses`<br>[crates/maestro-catalog/src/source/tests/references.rs](../../../crates/maestro-catalog/src/source/tests/references.rs)<br>`presets_include_required_roots_without_injecting_available_personas` | [matrix-40](#matrix-40) | 3 (exit 0) |
 | FR-S3-042: common/core/language refusal neighbours | [crates/maestro-catalog/src/source/tests/layer_placements.rs](../../../crates/maestro-catalog/src/source/tests/layer_placements.rs)<br>`common_to_core_refuses`<br>`core_to_team_refuses`<br>`language_to_team_refuses` | [matrix-04](#matrix-04) | 3 |
 | FR-S3-042: mandatory standards pinned once | [crates/maestro-catalog/src/source/tests/standards.rs](../../../crates/maestro-catalog/src/source/tests/standards.rs)<br>`every_standard_is_pinned_once`<br>`missing_or_optional_standard_refuses`<br>`standard_removal_refuses` | [matrix-05](#matrix-05) | 3 |
 | FR-S3-043: public source removal preserves core; dangling qualified IDs refuse | [crates/maestro-catalog/src/source/tests/references.rs](../../../crates/maestro-catalog/src/source/tests/references.rs)<br>`package_removal_keeps_core_bytes`<br>`removed_package_dangling_reference_refuses` | [matrix-06](#matrix-06) | 2 |
 | FR-S3-044: public part proven; private overlay deferred to S6 per spec.md:1002–1010 and FR-S3-040 at 973 | [crates/maestro-catalog/src/source/tests/layout.rs](../../../crates/maestro-catalog/src/source/tests/layout.rs)<br>`unregistered_collection_refuses_without_another_guard` | [matrix-07](#matrix-07) | 1 |
 | FR-S3-044: standalone public check needs no private checkout | [crates/maestro/tests/it/catalog_check.rs](../../../crates/maestro/tests/it/catalog_check.rs)<br>`catalog_check_passes_the_valid_catalog` | [matrix-08](#matrix-08) | 1 |
 | FR-S3-045: generated CODEOWNERS exact bytes and last-match protection | [crates/maestro-catalog/src/source/tests/codeowners.rs](../../../crates/maestro-catalog/src/source/tests/codeowners.rs)<br>`fixture_codeowners_matches_golden`<br>`descriptor_owner_rule_wins_last`<br>`root_owners_govern_generated_and_shared_files`<br>`codeowners_drift_refuses`<br>`removed_area_rule_refuses` | [matrix-09](#matrix-09) | 5 |
-| Qualified IDs: roundtrip, collisions and grammar | [crates/maestro-catalog/src/source/tests/qualified.rs](../../../crates/maestro-catalog/src/source/tests/qualified.rs)<br>`root_and_namespace_ids_roundtrip`<br>`same_stem_different_kind_accepts`<br>`duplicate_kind_namespace_name_refuses`<br>`duplicate_area_namespace_refuses`<br>`identity_serialization_is_a_typed_golden_vector`<br>`qualified_segments_keep_the_64_character_boundary` | [matrix-10](#matrix-10) | 6 |
-| maestro-source/2: accepted envelope and /1 or mixed refusal | [crates/maestro-catalog/src/source/tests/qualified.rs](../../../crates/maestro-catalog/src/source/tests/qualified.rs)<br>`root_and_namespace_ids_roundtrip`<br>`old_or_mixed_layout_refuses`<br>`old_and_malformed_ids_refuse_without_rebinding` | [matrix-11](#matrix-11) | 3 |
+| Qualified IDs: roundtrip, collisions and grammar; maestro-source/2 accepted envelope and /1 or mixed refusal | [crates/maestro-catalog/src/source/tests/qualified.rs](../../../crates/maestro-catalog/src/source/tests/qualified.rs)<br>`root_and_namespace_ids_roundtrip`<br>`same_stem_different_kind_accepts`<br>`duplicate_kind_namespace_name_refuses`<br>`duplicate_area_namespace_refuses`<br>`identity_serialization_is_a_typed_golden_vector`<br>`qualified_segments_keep_the_64_character_boundary`<br>`old_or_mixed_layout_refuses`<br>`old_and_malformed_ids_refuse_without_rebinding` | [matrix-10](#matrix-10) | 8 (exit 0) |
 | maestro-cli/catalog-check/2: exact JSON marker and qualified ID | [crates/maestro/tests/it/catalog_check.rs](../../../crates/maestro/tests/it/catalog_check.rs)<br>`catalog_check_reports_each_resource_under_json` | [matrix-12](#matrix-12) | 1 |
 | maestro-project/2: exact descriptor marker/keys | [crates/maestro-catalog/src/bootstrap/tests/project.rs](../../../crates/maestro-catalog/src/bootstrap/tests/project.rs)<br>`base_only_descriptor_has_exact_authoring_keys_and_lock_reference` | [matrix-13](#matrix-13) | 1 |
 | maestro-authoring-lock/2: marker and locked output/source bytes | [crates/maestro-catalog/src/bootstrap/tests/project.rs](../../../crates/maestro-catalog/src/bootstrap/tests/project.rs)<br>`authoring_lock_binds_every_generated_file_and_source` | [matrix-14](#matrix-14) | 1 |
-| Descriptor agent version 3 | [crates/maestro-catalog/src/source/tests/registry.rs](../../../crates/maestro-catalog/src/source/tests/registry.rs)<br>`builtin_kinds_loaded_from_data_check_like_the_originals` | [matrix-15](#matrix-15) | 1 |
-| Descriptor skill version 3 | [crates/maestro-catalog/src/source/tests/registry.rs](../../../crates/maestro-catalog/src/source/tests/registry.rs)<br>`builtin_kinds_loaded_from_data_check_like_the_originals` | [matrix-15](#matrix-15) | 1 |
-| Descriptor instructions version 4 | [crates/maestro-catalog/src/source/tests/registry.rs](../../../crates/maestro-catalog/src/source/tests/registry.rs)<br>`builtin_kinds_loaded_from_data_check_like_the_originals` | [matrix-15](#matrix-15) | 1 |
-| Descriptor package version 3 | [crates/maestro-catalog/src/source/tests/registry.rs](../../../crates/maestro-catalog/src/source/tests/registry.rs)<br>`builtin_kinds_loaded_from_data_check_like_the_originals` | [matrix-15](#matrix-15) | 1 |
-| Descriptor language version 3 | [crates/maestro-catalog/src/source/tests/registry.rs](../../../crates/maestro-catalog/src/source/tests/registry.rs)<br>`builtin_kinds_loaded_from_data_check_like_the_originals` | [matrix-15](#matrix-15) | 1 |
-| Descriptor standard version 4 (C81b dd07ac8) | [crates/maestro-catalog/src/source/tests/registry.rs](../../../crates/maestro-catalog/src/source/tests/registry.rs)<br>`builtin_kinds_loaded_from_data_check_like_the_originals` | [matrix-15](#matrix-15) | 1 |
-| Descriptor standard-check version 1 | [crates/maestro-catalog/src/source/tests/registry.rs](../../../crates/maestro-catalog/src/source/tests/registry.rs)<br>`builtin_kinds_loaded_from_data_check_like_the_originals` | [matrix-15](#matrix-15) | 1 |
-| Descriptor standard-exception version 1 | [crates/maestro-catalog/src/source/tests/registry.rs](../../../crates/maestro-catalog/src/source/tests/registry.rs)<br>`builtin_kinds_loaded_from_data_check_like_the_originals` | [matrix-15](#matrix-15) | 1 |
-| Descriptor preset version 3 | [crates/maestro-catalog/src/source/tests/registry.rs](../../../crates/maestro-catalog/src/source/tests/registry.rs)<br>`builtin_kinds_loaded_from_data_check_like_the_originals` | [matrix-15](#matrix-15) | 1 |
-| Descriptor bootstrap-inventory version 1 | [crates/maestro-catalog/src/source/tests/registry.rs](../../../crates/maestro-catalog/src/source/tests/registry.rs)<br>`builtin_kinds_loaded_from_data_check_like_the_originals` | [matrix-15](#matrix-15) | 1 |
-| Descriptor model-card version 3 | [crates/maestro-catalog/src/source/tests/registry.rs](../../../crates/maestro-catalog/src/source/tests/registry.rs)<br>`builtin_kinds_loaded_from_data_check_like_the_originals` | [matrix-15](#matrix-15) | 1 |
+| Descriptor kind/version vector (eleven): agent 3, skill 3, instructions 4, package 3, language 3, standard 4 (C81b dd07ac8), standard-check 1, standard-exception 1, preset 3, bootstrap-inventory 1, model-card 3 | [crates/maestro-catalog/src/source/tests/registry.rs](../../../crates/maestro-catalog/src/source/tests/registry.rs)<br>`builtin_kinds_loaded_from_data_check_like_the_originals` | [matrix-15](#matrix-15) | 1 |
 | Migrated source fixture family: agent/native sections and sidecar | [crates/maestro-catalog/src/source/tests/accepted.rs](../../../crates/maestro-catalog/src/source/tests/accepted.rs)<br>`valid_agent_round_trips_its_profile_and_sidecar` | [matrix-16](#matrix-16) | 1 |
 | Migrated source fixture family: skill metadata | [crates/maestro-catalog/src/source/tests/accepted.rs](../../../crates/maestro-catalog/src/source/tests/accepted.rs)<br>`valid_skill_reads_its_maestro_metadata_strings` | [matrix-17](#matrix-17) | 1 |
 | Migrated source fixture family: instructions/area descriptors/preset | [crates/maestro-catalog/src/source/tests/accepted.rs](../../../crates/maestro-catalog/src/source/tests/accepted.rs)<br>`valid_catalog_passes_with_every_resource_sorted_by_id`<br>`valid_preset_keeps_its_values`<br>`each_resource_lists_the_files_it_owns` | [matrix-18](#matrix-18) | 3 |
 | Migrated source fixture family: invalid neighbours | [crates/maestro-catalog/src/source/tests/schema.rs](../../../crates/maestro-catalog/src/source/tests/schema.rs)<br>`schema_stage_owner_rows_and_workflows_are_checked`<br>`agent_body_needs_the_six_fixed_sections_in_order` | [matrix-19](#matrix-19) | 2 |
-| Migrated owner-local bootstrap fixture family: common/base + language/rust, strict JSON | [crates/maestro-catalog/src/bootstrap/tests/project.rs](../../../crates/maestro-catalog/src/bootstrap/tests/project.rs)<br>`core_fixture_presets_compose_from_the_replaceable_directory_adapter`<br>`generated_recipe_json_is_strict_and_preset_collision_refuses` | [matrix-20](#matrix-20) | 2 |
+| Migrated owner-local bootstrap fixture family: common/base + language/rust, strict JSON; unselected area inventories and distinct inventory output collisions refuse without writes | [crates/maestro-catalog/src/bootstrap/tests/project.rs](../../../crates/maestro-catalog/src/bootstrap/tests/project.rs)<br>`core_fixture_presets_compose_from_the_replaceable_directory_adapter`<br>`generated_recipe_json_is_strict_and_preset_collision_refuses`<br>[crates/maestro-catalog/src/bootstrap/tests/selection.rs](../../../crates/maestro-catalog/src/bootstrap/tests/selection.rs)<br>`unselected_inventory_refuses`<br>`distinct_inventory_output_collision_refuses` | [matrix-20](#matrix-20) | 4 (exit 0) |
 | Migrated CODEOWNERS fixture family: CLI drift and exact golden | [crates/maestro/tests/it/catalog_codeowners.rs](../../../crates/maestro/tests/it/catalog_codeowners.rs)<br>`catalog_codeowners_stdout_matches_fixture_golden`<br>`catalog_codeowners_drift_refuses_without_writing` | [matrix-21](#matrix-21) | 2 |
 | Migrated model-card fixture family: unchanged kernel identity | [crates/maestro-catalog/src/model_cards/tests.rs](../../../crates/maestro-catalog/src/model_cards/tests.rs)<br>`declaration_preserves_the_kernel_identity_and_declares_version_separately` | [matrix-22](#matrix-22) | 1 |
 | Old locks: /1 and genuine previously committed incomplete /2 refuse rebind | [crates/maestro-catalog/src/bootstrap/tests/locks.rs](../../../crates/maestro-catalog/src/bootstrap/tests/locks.rs)<br>`old_authoring_lock_requires_preview`<br>`genuine_committed_old_v2_lock_refuses_rebind` | [matrix-23](#matrix-23) | 2 |
 | Complete source locks: IDs/revisions/digests/area roots and stale input refusal | [crates/maestro-catalog/src/bootstrap/tests/locks.rs](../../../crates/maestro-catalog/src/bootstrap/tests/locks.rs)<br>`every_selected_input_is_locked`<br>`changed_source_path_requires_preview`<br>`registered_checked_config_is_locked_and_revalidated`<br>`requires_only_inventory_still_locks_its_assets` | [matrix-24](#matrix-24) | 4 |
 | C04 retained: held reads, post-check links and zero-write refusal | [crates/maestro-catalog/src/bootstrap/tests/snapshot.rs](../../../crates/maestro-catalog/src/bootstrap/tests/snapshot.rs)<br>`checked_snapshot_never_reopens_presets_inventories_or_payloads`<br>`post_check_links_refuse_before_writes` | [matrix-25](#matrix-25) | 2 |
-| Aggregate source bounds retained | [crates/maestro-catalog/src/source/tests/bounds.rs](../../../crates/maestro-catalog/src/source/tests/bounds.rs)<br>`aggregate_walk_limit_refuses`<br>`aggregate_walk_counts_unchecked_legacy_support_and_depth`<br>`inert_asset_source_bytes_are_bounded_without_parsing` | [matrix-26](#matrix-26) | 3 |
+| Bounds family: aggregate entries/bytes/walk depth (including unchecked legacy support); inert asset bytes without parsing; per-file bytes, source/YAML depth and resource-count boundaries | [crates/maestro-catalog/src/source/tests/bounds.rs](../../../crates/maestro-catalog/src/source/tests/bounds.rs)<br>`aggregate_walk_limit_refuses`<br>`aggregate_walk_counts_unchecked_legacy_support_and_depth`<br>`inert_asset_source_bytes_are_bounded_without_parsing`<br>`source_file_bytes_boundary`<br>`source_depth_boundary`<br>`yaml_frontmatter_depth_boundary`<br>`catalog_resources_boundary` | [matrix-26](#matrix-26) | 7 (exit 0) |
 | Settings authority retained, no source migration bypass | [crates/maestro/tests/it/catalog_preferences.rs](../../../crates/maestro/tests/it/catalog_preferences.rs)<br>`catalog_preferences_apply_refuses_without_touching_root_ancestor_or_authority` | [matrix-27](#matrix-27) | 1 |
 | Frozen architecture task inventory remains exactly 85 keys | [crates/maestro-catalog/src/source/tests/accepted.rs](../../../crates/maestro-catalog/src/source/tests/accepted.rs)<br>`frozen_rows_equal_the_traceability_inventory` | [matrix-28](#matrix-28) | 1 |
-| Migrated bounded fixture family: bytes/depth/resources | [crates/maestro-catalog/src/source/tests/bounds.rs](../../../crates/maestro-catalog/src/source/tests/bounds.rs)<br>`source_file_bytes_boundary`<br>`source_depth_boundary`<br>`yaml_frontmatter_depth_boundary`<br>`catalog_resources_boundary` | [matrix-29](#matrix-29) | 4 |
 | Migrated directory fixture family: no execution/no-follow/escapes | [crates/maestro-catalog/src/source/tests/directory.rs](../../../crates/maestro-catalog/src/source/tests/directory.rs)<br>`directory_checks_the_valid_catalog_without_running_its_scripts`<br>`directory_refuses_link_ancestors_and_direct_reads`<br>`directory_refuses_paths_that_leave_or_bypass_the_root` | [matrix-30](#matrix-30) | 3 |
-| Migrated data-extension fixture family: glossary/card/delegation/native tool sequences | [crates/maestro-catalog/src/source/tests/extension.rs](../../../crates/maestro-catalog/src/source/tests/extension.rs)<br>`a_glossary_with_a_number_and_a_nested_table_is_one_descriptor`<br>`glossary_neighbours_are_refused_by_the_generic_checks`<br>`a_model_card_kind_is_one_descriptor_read_from_text`<br>`model_card_neighbours_are_refused_by_the_generic_checks`<br>`scoped_tool_fields_keep_native_names_and_ordered_repeated_arguments` | [matrix-31](#matrix-31) | 5 |
+| Migrated data-extension fixture family: glossary/card/nested serde decoding/native tool sequences | [crates/maestro-catalog/src/source/tests/extension.rs](../../../crates/maestro-catalog/src/source/tests/extension.rs)<br>`a_glossary_with_a_number_and_a_nested_table_is_one_descriptor`<br>`glossary_neighbours_are_refused_by_the_generic_checks`<br>`a_model_card_kind_is_one_descriptor_read_from_text`<br>`model_card_neighbours_are_refused_by_the_generic_checks`<br>`scoped_tool_fields_keep_native_names_and_ordered_repeated_arguments` | [matrix-31](#matrix-31) | 5 |
 | Migrated Git boundary fixture family: root administration excluded; nested administration refused | [crates/maestro-catalog/src/source/tests/git_boundary.rs](../../../crates/maestro-catalog/src/source/tests/git_boundary.rs)<br>`root_git_large_pack_is_outside_source_and_budgets`<br>`nested_git_is_unregistered_even_when_empty` | [matrix-32](#matrix-32) | 2 |
 | Migrated scanner fixture family: one counted snapshot and duplicate paths | [crates/maestro-catalog/src/source/tests/scan.rs](../../../crates/maestro-catalog/src/source/tests/scan.rs)<br>`check_parses_only_the_aggregate_counted_snapshot_bytes`<br>`snapshot_refuses_duplicate_source_paths_even_with_identical_bytes` | [matrix-33](#matrix-33) | 2 |
 | Migrated hostile fixture family: aliases/stack/cycles/diagnostic bound | [crates/maestro-catalog/src/source/tests/hostile.rs](../../../crates/maestro-catalog/src/source/tests/hostile.rs)<br>`yaml_aliases_expanding_past_twice_the_frontmatter_bytes_are_refused`<br>`a_chain_of_4095_resources_is_checked_on_a_1_mib_stack`<br>`a_complete_graph_of_50_skills_is_one_cycle_diagnostic`<br>`diagnostics_stop_at_1000_with_a_count_of_the_rest` | [matrix-34](#matrix-34) | 4 |
 | Migrated native MCP fixture cases: no implicit resource binding | [crates/maestro-catalog/src/source/tests/rulings.rs](../../../crates/maestro-catalog/src/source/tests/rulings.rs)<br>`agents_keep_native_model_and_fail_closed_on_unbound_mcp_names` | [matrix-35](#matrix-35) | 1 |
 | Migrated generic schema fixture family: tool grammar/strict shapes | [crates/maestro-catalog/src/source/tests/coverage.rs](../../../crates/maestro-catalog/src/source/tests/coverage.rs)<br>`tool_names_and_lists_are_checked`<br>`folders_outside_the_layout_are_refused`<br>`yaml_shapes_outside_the_value_model_are_refused` | [matrix-36](#matrix-36) | 3 |
 | Owner-qualified graph fixture family: positive/refusal IDs | [crates/maestro-catalog/src/graph/tests/topology.rs](../../../crates/maestro-catalog/src/graph/tests/topology.rs)<br>`owner_first_example_references_accept`<br>`legacy_example_references_refuse` | [matrix-37](#matrix-37) | 2 |
-| FR-S3-041: malformed ownership, exact area versions and duplicate namespaces refuse | [crates/maestro-catalog/src/source/tests/area_packages.rs](../../../crates/maestro-catalog/src/source/tests/area_packages.rs)<br>`package_fields_and_path_refuse_invalid_neighbours` | [matrix-38](#matrix-38) | 1 |
+| FR-S3-041: malformed ownership and nonexact area versions refuse | [crates/maestro-catalog/src/source/tests/area_packages.rs](../../../crates/maestro-catalog/src/source/tests/area_packages.rs)<br>`package_fields_and_path_refuse_invalid_neighbours` | [matrix-38](#matrix-38) | 1 |
 | FR-S3-042/045: standards narrow settings; local/expired/wider exceptions refuse | [crates/maestro-catalog/src/source/tests/restrictive_standards.rs](../../../crates/maestro-catalog/src/source/tests/restrictive_standards.rs)<br>`standard_constraints_only_narrow`<br>`local_expired_or_wider_exception_refuses`<br>`nonnegotiable_exception_refuses` | [matrix-39](#matrix-39) | 3 |
 
 ## Exact focused commands
 
 All commands below exited 0 on Linux. `CARGO_BUILD_JOBS=3` and the
 pinned toolbelt were used; dev/test debug info was `line-tables-only`.
-The matrix has 49 rows and 39 distinct commands, covering 92 distinct named tests.
-Descriptor rows intentionally share one assertion over all 11 versions.
+The matrix has 38 rows and 38 distinct commands, covering 99 distinct named tests.
+The descriptor row shares one assertion over all 11 kind/version pairs.
 
 The missing exact descriptor-version proof was a finding, repaired in the
 existing round-trip test. Red proof bumped the bootstrap-inventory descriptor
@@ -118,13 +107,13 @@ the same focused test passed (1 passed, exit 0). No production code changed.
 ### matrix-01
 
 ```sh
-capped cargo nextest run -p maestro-catalog --locked --no-fail-fast -E 'test(/::v4_area_placement_accepts$/) | test(/::nested_or_unknown_area_refuses$/) | test(/::functional_naming_exception_is_exact$/) | test(/::registered_product_names_and_tokens_refuse_without_self_exemptions$/) | test(/::scoped_assets_are_exact_and_owner_local$/)'
+capped cargo nextest run -p maestro-catalog --locked --no-fail-fast -E 'test(/::v4_area_placement_accepts$/) | test(/::nested_or_unknown_area_refuses$/) | test(/::functional_naming_exception_is_exact$/) | test(/::registered_product_names_and_tokens_refuse_without_self_exemptions$/) | test(/::scoped_assets_are_exact_and_owner_local$/) | test(/::overlapping_or_escaping_placements_refuse$/)'
 ```
 
 ### matrix-02
 
 ```sh
-capped cargo nextest run -p maestro-catalog --locked --no-fail-fast -E 'test(/::area_owners_maintainers_validate$/) | test(/::resource_ownership_is_derived$/) | test(/::groups_have_no_inherited_approval_authority$/) | test(/::broad_codeowners_rule_cannot_override_descriptor$/)'
+capped cargo nextest run -p maestro-catalog --locked --no-fail-fast -E 'test(/::area_owners_maintainers_validate$/) | test(/::resource_ownership_is_derived$/) | test(/::groups_have_no_inherited_approval_authority$/) | test(/::broad_codeowners_rule_cannot_override_descriptor$/) | test(/::area_owner_reference_mismatch_refuses$/)'
 ```
 
 ### matrix-03
@@ -172,13 +161,7 @@ capped cargo nextest run -p maestro-catalog --locked --no-fail-fast -E 'test(/::
 ### matrix-10
 
 ```sh
-capped cargo nextest run -p maestro-catalog --locked --no-fail-fast -E 'test(/::root_and_namespace_ids_roundtrip$/) | test(/::same_stem_different_kind_accepts$/) | test(/::duplicate_kind_namespace_name_refuses$/) | test(/::duplicate_area_namespace_refuses$/) | test(/::identity_serialization_is_a_typed_golden_vector$/) | test(/::qualified_segments_keep_the_64_character_boundary$/)'
-```
-
-### matrix-11
-
-```sh
-capped cargo nextest run -p maestro-catalog --locked --no-fail-fast -E 'test(/::root_and_namespace_ids_roundtrip$/) | test(/::old_or_mixed_layout_refuses$/) | test(/::old_and_malformed_ids_refuse_without_rebinding$/)'
+capped cargo nextest run -p maestro-catalog --locked --no-fail-fast -E 'test(/::root_and_namespace_ids_roundtrip$/) | test(/::same_stem_different_kind_accepts$/) | test(/::duplicate_kind_namespace_name_refuses$/) | test(/::duplicate_area_namespace_refuses$/) | test(/::identity_serialization_is_a_typed_golden_vector$/) | test(/::qualified_segments_keep_the_64_character_boundary$/) | test(/::old_or_mixed_layout_refuses$/) | test(/::old_and_malformed_ids_refuse_without_rebinding$/)'
 ```
 
 ### matrix-12
@@ -232,7 +215,7 @@ capped cargo nextest run -p maestro-catalog --locked --no-fail-fast -E 'test(/::
 ### matrix-20
 
 ```sh
-capped cargo nextest run -p maestro-catalog --locked --no-fail-fast -E 'test(/::core_fixture_presets_compose_from_the_replaceable_directory_adapter$/) | test(/::generated_recipe_json_is_strict_and_preset_collision_refuses$/)'
+capped cargo nextest run -p maestro-catalog --locked --no-fail-fast -E 'test(/::core_fixture_presets_compose_from_the_replaceable_directory_adapter$/) | test(/::generated_recipe_json_is_strict_and_preset_collision_refuses$/) | test(/^bootstrap::tests::selection::unselected_inventory_refuses$/) | test(/::distinct_inventory_output_collision_refuses$/)'
 ```
 
 ### matrix-21
@@ -268,7 +251,7 @@ capped cargo nextest run -p maestro-catalog --locked --no-fail-fast -E 'test(/::
 ### matrix-26
 
 ```sh
-capped cargo nextest run -p maestro-catalog --locked --no-fail-fast -E 'test(/::aggregate_walk_limit_refuses$/) | test(/::aggregate_walk_counts_unchecked_legacy_support_and_depth$/) | test(/::inert_asset_source_bytes_are_bounded_without_parsing$/)'
+capped cargo nextest run -p maestro-catalog --locked --no-fail-fast -E 'test(/::aggregate_walk_limit_refuses$/) | test(/::aggregate_walk_counts_unchecked_legacy_support_and_depth$/) | test(/::inert_asset_source_bytes_are_bounded_without_parsing$/) | test(/::source_file_bytes_boundary$/) | test(/::source_depth_boundary$/) | test(/::yaml_frontmatter_depth_boundary$/) | test(/::catalog_resources_boundary$/)'
 ```
 
 ### matrix-27
@@ -281,12 +264,6 @@ capped cargo nextest run -p maestro --locked --no-fail-fast -E 'test(/::catalog_
 
 ```sh
 capped cargo nextest run -p maestro-catalog --locked --no-fail-fast -E 'test(/::frozen_rows_equal_the_traceability_inventory$/)'
-```
-
-### matrix-29
-
-```sh
-capped cargo nextest run -p maestro-catalog --locked --no-fail-fast -E 'test(/::source_file_bytes_boundary$/) | test(/::source_depth_boundary$/) | test(/::yaml_frontmatter_depth_boundary$/) | test(/::catalog_resources_boundary$/)'
 ```
 
 ### matrix-30
@@ -347,6 +324,12 @@ capped cargo nextest run -p maestro-catalog --locked --no-fail-fast -E 'test(/::
 
 ```sh
 capped cargo nextest run -p maestro-catalog --locked --no-fail-fast -E 'test(/::standard_constraints_only_narrow$/) | test(/::local_expired_or_wider_exception_refuses$/) | test(/::nonnegotiable_exception_refuses$/)'
+```
+
+### matrix-40
+
+```sh
+capped cargo nextest run -p maestro-catalog --locked --no-fail-fast -E 'test(/^source::tests::selection::mandatory_roots_selected_once$/) | test(/::missing_reviewed_maestro_refuses$/) | test(/::presets_include_required_roots_without_injecting_available_personas$/)'
 ```
 
 ## Task and remaining-evidence mappings
