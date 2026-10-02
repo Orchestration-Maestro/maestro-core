@@ -213,10 +213,14 @@ fn project_files(presets: Vec<Preset>, names: &[String]) -> Result<Vec<FileInput
         areas,
         sources,
     };
-    files.push(FileInput::new(
-        ".maestro/authoring.lock.json",
-        serde_json::to_vec_pretty(&lock).map_err(|error| error.to_string())?,
-    ));
+    let lock_bytes = serde_json::to_vec_pretty(&lock).map_err(|error| error.to_string())?;
+    let limit = Limits::PRODUCTION.source_file_bytes;
+    if u64::try_from(lock_bytes.len()).map_err(|error| error.to_string())? > limit {
+        return Err(format!(
+            ".maestro/authoring.lock.json exceeds the {limit}-byte limit"
+        ));
+    }
+    files.push(FileInput::new(".maestro/authoring.lock.json", lock_bytes));
     Ok(files)
 }
 

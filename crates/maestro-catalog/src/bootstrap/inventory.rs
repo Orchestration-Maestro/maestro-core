@@ -237,11 +237,7 @@ impl Loader<'_> {
                     "inventory digest mismatch: {path}; input changed; run preview again"
                 ));
             }
-            if preset
-                .files
-                .insert(file.output.clone(), bytes.clone())
-                .is_some()
-            {
+            if preset.files.insert(file.output.clone(), bytes).is_some() {
                 return Err(format!("inventory file collision: {}", file.output));
             }
         }

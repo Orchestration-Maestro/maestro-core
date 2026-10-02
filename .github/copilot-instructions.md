@@ -498,6 +498,7 @@ in place.
 │   │   │   │   │   ├── discovery.rs                                         # Inventory claims remain exact and owner-local in the checked source tree
 │   │   │   │   │   ├── inventory.rs                                         # Owner-local data inventories through the shared bootstrap composition
 │   │   │   │   │   ├── inventory_reuse.rs                                   # Resolve-wide source capture and apply revalidation regressions
+│   │   │   │   │   ├── lock_limits.rs                                       # Serialized authoring locks stay within their replay read bound
 │   │   │   │   │   ├── locks.rs                                             # Complete source locks, stale-input refusals and owned user-byte preservation
 │   │   │   │   │   ├── mod.rs                                               # Bootstrap contract tests, grouped by adapter
 │   │   │   │   │   ├── project.rs                                           # Rust source: project

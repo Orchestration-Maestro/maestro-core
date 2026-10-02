@@ -2,6 +2,7 @@
 mod discovery;
 mod inventory;
 mod inventory_reuse;
+mod lock_limits;
 mod locks;
 mod project;
 mod selection;
