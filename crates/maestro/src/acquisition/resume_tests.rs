@@ -6,7 +6,9 @@ use super::{
 };
 use maestro_acquisition::Principal;
 use maestro_kernel::{
-    acquisition::{Frontier, LeaseRequest, NewItem, Partitions as _, Receipts as _, Status},
+    acquisition::{
+        Enumeration, Frontier, LeaseRequest, NewItem, Partitions as _, Receipts as _, Status,
+    },
     artifact::Digest,
 };
 use serde_json::{Value, json};
@@ -57,7 +59,18 @@ fn n14_review_checkpoint_depth_survives_resume() {
             .db
             .partition_page(&scope, "notes", Some(checkpoint), 1000)
             .unwrap()
-            .is_empty()
+            .into_iter()
+            .all(|id| fixture
+                .db
+                .partition(&scope, id)
+                .unwrap()
+                .unwrap()
+                .batches
+                .first()
+                .unwrap()
+                .partition
+                .kind
+                != Enumeration::Links)
     );
     assert!(fixture.db.partition_page(&scope, "notes", None, 0).is_err());
     let (collection, files) = fixture_with(clean);

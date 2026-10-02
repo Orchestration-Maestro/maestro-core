@@ -61,10 +61,10 @@ Grant material never belongs in this file.
    this owner-run preview. Missing robots evidence is pending, not an invented
    allow. Preview cannot predict links in a page it has not fetched.
 
-2. Run manual capture with the same inputs:
+2. Run incremental capture with the same inputs:
 
    ```sh
-   maestro --json knowledge acquire sync --manifest "$MANIFEST" \
+   maestro --json knowledge acquire sync --mode incremental --manifest "$MANIFEST" \
      --bindings "$BINDINGS" --authority-socket "$AUTHORITY_SOCKET" \
      --authority-uid "$AUTHORITY_UID"
    ```
@@ -112,10 +112,24 @@ returns exit 0 when its decision report was produced, not when work completed.
   around those controls. Authority, transport, lease and resource holds are
   also reported without exposing raw errors.
 
-An immediate second sync can reuse acknowledged captures. They are labelled
-**captured earlier, not revalidated**, with their original observation time;
-there is no second fetch. This is not full or incremental refresh. `--mode`,
-repair, withdrawal and schedules are not registered yet. N36 owns revalidation.
+`--mode incremental` is the default; `--mode full` revalidates every known
+currently in-scope item and discovers new links. Both preserve older immutable
+captures. Metadata, validators, permissions, links and representation bytes
+matter; visible-text equality is not a change signal.
+
+Links have no remote change index. Incremental uses a local verification window:
+the last fully committed source watermark minus declared overlap and clock skew,
+through the frozen run-start time. Pending items come first by durable ID, then
+verified items by oldest observation. Observations inside the covered window may
+be reused without fetching, labelled **captured earlier, not revalidated**.
+With no earlier window, incremental revalidates all known items like full.
+
+Caps and holds preserve actual pending coverage and do not advance the source
+watermark. A later incremental invocation continues the oldest unfinished
+window, reusing captures verified since its original run start. Its target stays
+that original start until all chunks are committed and the receipt finalized;
+these local bounds never claim a remote snapshot. Repair, withdrawal and
+schedules are not registered yet.
 Missing media evidence and HTML whose earlier discovery depth is unavailable are explicitly held,
 not guessed into a completed crawl.
 
@@ -124,7 +138,7 @@ receipt is written. Errors release owned leases too; a crash falls back to
 expiry. If release fails, the diagnostic says when the next sync can start.
 The manual MVP admits at most 1,000 declared seeds across sources. The durable
 frontier has no item ceiling: 1,000-row cursor pages cover the whole inventory.
-The per-run page budget limits new capture attempts, not historical reuse.
+The per-run page budget limits new captures and revalidation, not covered reuse.
 Remaining unfinished items are listed with their hold reasons; a complete run
 must account for the full frontier, not just its first page.
 
@@ -137,7 +151,7 @@ kernel reads use the mapped principal and its current scope grants.
 ## Verify without a live site
 
 ```sh
-capped cargo test -p maestro --locked n14_ -- --nocapture
+capped cargo test -p maestro -p maestro-acquisition --locked n36_ -- --nocapture
 ```
 
 These tests use an independently authored public synthetic site and injected

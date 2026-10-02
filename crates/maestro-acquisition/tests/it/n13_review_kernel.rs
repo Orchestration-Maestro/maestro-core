@@ -46,7 +46,7 @@ fn n13_review_changed_index_keys_require_current_capture() {
     let keys = &mut changed.items.first_mut().unwrap().keys;
     keys.revision = Some(Digest::of(b"new revision"));
     keys.validator = Some(Digest::of(b"new validator"));
-    keys.links = Digest::of(b"new links");
+    keys.links = Some(Digest::of(b"new links"));
     keys.representation = Some(Digest::of(b"new representation"));
     fixture
         .db

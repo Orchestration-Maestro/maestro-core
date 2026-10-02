@@ -52,7 +52,7 @@ pub(super) fn item(fixture: &Fixture, suffix: &str) -> DiscoveredItem {
             )),
             metadata: Some(Digest::of(b"metadata")),
             permissions: fixture.envelope.authorization_context.clone(),
-            links: Digest::of(suffix.as_bytes()),
+            links: Some(Digest::of(suffix.as_bytes())),
             representation: Some(fixture.envelope.artifact.clone()),
         },
     }

@@ -95,7 +95,7 @@ pub async fn discover_with_captured(
         parent_depth: Some(depth),
         capture: Some(handle),
         extractor: Some(extractor.contract().to_owned()),
-        parent_keys: Some(keys(&envelope, &[])?),
+        parent_keys: Some(captured_keys(&envelope, Some(&[]))?),
         not_enqueued: vec![],
         inventory_overflow: 0,
     };
@@ -109,7 +109,7 @@ pub async fn discover_with_captured(
         let mut links = output.links;
         links.sort_unstable();
         links.dedup();
-        batch.parent_keys = Some(keys(&envelope, &links)?);
+        batch.parent_keys = Some(captured_keys(&envelope, Some(&links))?);
         let keys = child_keys(&envelope);
         let now = utc::format(context.now).map_err(|_| ReceiptError::Invalid)?;
         let stopped = depth_reason(source, limits.depth.get(), depth)?;
@@ -227,7 +227,13 @@ fn non_fetch_scheme(reference: &str) -> bool {
 }
 
 /// Independent representation, metadata, permission, validator and canonical link keys.
-fn keys(envelope: &CaptureEnvelope, links: &[String]) -> Result<ChangeKeys, ReceiptError> {
+/// Actual HTTP evidence; absent extraction makes no link inventory claim.
+/// # Errors
+/// Source evidence cannot be serialized.
+pub fn captured_keys(
+    envelope: &CaptureEnvelope,
+    links: Option<&[String]>,
+) -> Result<ChangeKeys, ReceiptError> {
     Ok(ChangeKeys {
         revision: None,
         validator: Some(Digest::of(&serde_json::to_vec(&envelope.headers)?)),
@@ -236,7 +242,10 @@ fn keys(envelope: &CaptureEnvelope, links: &[String]) -> Result<ChangeKeys, Rece
             &envelope.detected_media,
         ))?)),
         permissions: envelope.authorization_context.clone(),
-        links: Digest::of(&serde_json::to_vec(links)?),
+        links: links
+            .map(serde_json::to_vec)
+            .transpose()?
+            .map(|bytes| Digest::of(&bytes)),
         representation: Some(envelope.artifact.clone()),
     })
 }
@@ -283,7 +292,7 @@ fn child_keys(envelope: &CaptureEnvelope) -> ChangeKeys {
         validator: None,
         metadata: None,
         permissions: envelope.authorization_context.clone(),
-        links: Digest::of(b""),
+        links: None,
         representation: None,
     }
 }

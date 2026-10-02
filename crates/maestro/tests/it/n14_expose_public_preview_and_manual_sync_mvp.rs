@@ -129,10 +129,16 @@ fn n14_inspect_receipt_and_run_are_real_exclusive_read_operations() {
     ]);
     assert_eq!(result.code, Some(2));
     assert!(result.stdout.is_empty());
-    let result = home.run(&["knowledge", "acquire", "sync", "--mode", "full"]);
+    for mode in ["full", "incremental"] {
+        let result = home.run(&["knowledge", "acquire", "sync", "--mode", mode]);
+        assert_eq!(result.code, Some(2));
+        assert!(result.stderr.contains("required arguments"), "{result:?}");
+        assert!(!result.stderr.contains("unexpected argument '--mode'"));
+    }
+    let result = home.run(&["knowledge", "acquire", "sync", "--mode", "unknown"]);
     assert_eq!(result.code, Some(2));
     assert!(
-        result.stderr.contains("unexpected argument '--mode'"),
+        result.stderr.contains("invalid value 'unknown'"),
         "{result:?}"
     );
 }

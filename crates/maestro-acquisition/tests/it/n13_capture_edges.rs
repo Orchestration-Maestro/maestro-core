@@ -130,6 +130,7 @@ fn n13_prepared_parent_and_change_keys_bind_the_exact_source_context() {
     child.representation = None;
     child.validator = None;
     child.metadata = None;
+    child.links = None;
     for index in 0..10 {
         let mut wrong = batch.clone();
         match index {

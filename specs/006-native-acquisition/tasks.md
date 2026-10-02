@@ -702,7 +702,7 @@ Independent test: two unrelated synthetic sources yield complete evidence/unknow
 
 Independent test: five lifecycle modes equal uninterrupted reference, and overlapping runs preserve current access, accepted updates and pinned readers.
 
-- [ ] N36 [P] [US4] Complete full and incremental lifecycle windows in `crates/maestro-acquisition/src/lifecycle/{full.rs,incremental.rs}` (6 h).
+- [x] N36 [P] [US4] Complete full and incremental lifecycle windows in `crates/maestro-acquisition/src/lifecycle/{full.rs,incremental.rs}` (6 h).
 
 ### N36 — Complete full and incremental lifecycle windows
 

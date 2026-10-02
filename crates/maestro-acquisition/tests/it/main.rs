@@ -105,3 +105,8 @@ mod n16_physical_order_index;
 
 mod n16_fix_regressions;
 mod n16_stage_regressions;
+
+mod n36_complete_full_and_incremental_lifecycle_windows;
+
+mod n36_link_evidence;
+mod n36_revision_edges;

@@ -7,6 +7,7 @@ use super::{
 use crate::failure::Failure;
 use maestro_acquisition::{
     capture::{CaptureBudget, http_envelope, prepare},
+    lifecycle::full::same_capture,
     policy::{format_time, identity::FetchIdentity},
     transport::{
         budget::Usage,
@@ -25,7 +26,7 @@ use maestro_kernel::{
 };
 use std::{
     collections::BTreeMap,
-    time::{Duration, SystemTime},
+    time::{Duration, SystemTime, UNIX_EPOCH},
 };
 use tokio::io::{AsyncRead, AsyncWrite};
 
@@ -124,11 +125,24 @@ where
     stage.evidence = Some(handle);
     let acknowledged = interpret(work, (&context, handle), (&envelope, depth), report).await?;
     if acknowledged {
-        stage.disposition = ItemDisposition::Accepted;
+        stage.disposition = if work
+            .previous
+            .is_some_and(|previous| same_capture(previous, &envelope))
+        {
+            ItemDisposition::Unchanged
+        } else {
+            ItemDisposition::Accepted
+        };
     }
     let mut entry = Entry::new(
         &item.request.fetch_identity,
-        if acknowledged {
+        if acknowledged && work.previous.is_some() {
+            if stage.disposition == ItemDisposition::Unchanged {
+                "revalidated_unchanged"
+            } else {
+                "revalidated_changed"
+            }
+        } else if acknowledged {
             "captured"
         } else {
             "captured_discovery_pending"
@@ -218,26 +232,20 @@ async fn interpret<S: Frontier + Captures + Partitions + Receipts, T>(
     }
 }
 /// Locate checkpoint-backed parent evidence; current lease verification follows before reuse.
-pub(crate) fn prepared_parent<S: Receipts, T>(
+pub(crate) fn prepared_parent<S: Receipts + Captures, T>(
     work: &SourceWork<'_, S, T>,
     checkpoints: &[Batch],
     item: &Item,
 ) -> Result<Option<Handle>, Failure> {
-    for batch in checkpoints {
-        if let Some(handle) = batch.capture {
-            let bytes = work
-                .store
-                .read(work.runtime.kernel_principal, handle)
-                .map_err(|_| storage())?
-                .ok_or_else(storage)?;
-            let envelope: CaptureEnvelope =
-                serde_json::from_slice(bytes.bytes()).map_err(|_| storage())?;
-            if envelope.item.to_string() == item.id.to_string() {
-                return Ok(Some(handle));
-            }
-        }
-    }
-    Ok(None)
+    let current = work
+        .store
+        .prepared_for(work.scope, item)
+        .map_err(|_| storage())?;
+    Ok(current.filter(|handle| {
+        checkpoints
+            .iter()
+            .any(|batch| batch.capture == Some(*handle))
+    }))
 }
 /// Fresh readiness, leases and the actual N09 operation share the same guards.
 async fn fetch_item<S, T>(
@@ -381,7 +389,13 @@ fn envelope<S, T>(
         detected_media: None,
         artifact: Digest::of(b""),
         length: 0,
-        observed_ms: millis().map_err(|_| storage())?,
+        observed_ms: u64::try_from(
+            (work.source.runtime.clock)()
+                .duration_since(UNIX_EPOCH)
+                .map_err(|_| storage())?
+                .as_millis(),
+        )
+        .map_err(|_| storage())?,
         transport: Transport::Http,
         profile: item.request.representation_profile.clone(),
         authorization_context: item.request.authorization_context.clone(),

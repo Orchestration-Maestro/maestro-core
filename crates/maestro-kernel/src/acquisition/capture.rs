@@ -35,6 +35,10 @@ pub struct PreparedCapture {
 }
 /// Replaceable immutable capture boundary; preparation is a durable checkpoint.
 pub trait Captures: Send + Sync {
+    /// Locate immutable prepared evidence for the item's current refresh generation.
+    /// # Errors
+    /// Invalid scoped evidence or unreadable storage refuses.
+    fn prepared_for(&self, scope: &Scope, item: &Item) -> Result<Option<Handle>, ReceiptError>;
     /// Locate a scoped acknowledged envelope, verifying its immutable linkage.
     /// Unknown, differently scoped or corrupt capture evidence returns none.
     /// # Errors
@@ -94,6 +98,24 @@ pub trait Captures: Send + Sync {
     ) -> Result<(), ReceiptError>;
 }
 impl Captures for Database {
+    fn prepared_for(&self, scope: &Scope, item: &Item) -> Result<Option<Handle>, ReceiptError> {
+        let reader = self.reader()?;
+        let handle: Option<String> = reader
+            .query_row(
+                "SELECT l.envelope FROM acquisition_capture_links l
+             JOIN acquisition_frontier f ON f.id = l.item
+             JOIN acquisition_evidence e ON e.id = l.envelope
+             WHERE l.item = ?1 AND l.generation = f.capture_generation AND e.scope = ?2",
+                params![item.id.to_string(), scope.as_str()],
+                |row| row.get(0),
+            )
+            .optional()?;
+        let handle = handle.map(|text| text.parse()).transpose()?;
+        if let Some(handle) = handle {
+            verify(self, &reader, handle)?;
+        }
+        Ok(handle)
+    }
     fn capture_for(&self, scope: &Scope, item: &Item) -> Result<Option<Handle>, ReceiptError> {
         capture_for_on(self, &*self.reader()?, scope, item)
     }
@@ -173,8 +195,9 @@ impl Captures for Database {
             references.extend(envelope.parent);
             let handle = privacy::retain_on(tx, &scope, &artifact, &references)?;
             tx.execute(
-                "INSERT INTO acquisition_capture_links (item, identity, envelope, body)
-                 VALUES (?1, ?2, ?3, ?4)",
+                "INSERT INTO acquisition_capture_links (item, generation, identity, envelope, body)
+                 SELECT ?1, capture_generation, ?2, ?3, ?4 FROM acquisition_frontier
+                 WHERE id = ?1",
                 params![
                     envelope.item.to_string(),
                     identity.as_str(),
@@ -235,6 +258,11 @@ impl Captures for Database {
         capture: Handle,
     ) -> Result<(), ReceiptError> {
         let envelope = verify(self, &*self.reader()?, capture)?;
+        let (_, prepared) =
+            self.write(|tx| existing(tx, context, &envelope, &envelope.identity()?))?;
+        if prepared != Some(capture) {
+            return Err(ReceiptError::Invalid);
+        }
         if envelope.item.to_string() != context.item.item.to_string() {
             return Err(ReceiptError::Invalid);
         }
@@ -262,7 +290,9 @@ fn capture_for_on(
 ) -> Result<Option<Handle>, ReceiptError> {
     let capture: Option<String> = reader
         .query_row(
-            "SELECT envelope FROM acquisition_capture_links WHERE item = ?1",
+            "SELECT l.envelope FROM acquisition_capture_links l
+             JOIN acquisition_frontier f ON f.id = l.item
+             WHERE l.item = ?1 AND l.generation = f.capture_generation",
             [item.id.to_string()],
             |row| row.get(0),
         )
@@ -375,7 +405,9 @@ fn existing(
     }
     let found: Option<(String, String)> = tx
         .query_row(
-            "SELECT identity, envelope FROM acquisition_capture_links WHERE item = ?1",
+            "SELECT l.identity, l.envelope FROM acquisition_capture_links l
+             JOIN acquisition_frontier f ON f.id = l.item
+             WHERE l.item = ?1 AND l.generation = f.capture_generation",
             [envelope.item.to_string()],
             |row| Ok((row.get(0)?, row.get(1)?)),
         )

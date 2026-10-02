@@ -11,6 +11,8 @@ use crate::kernel::Kernel;
 use clap::{Args, Subcommand};
 #[cfg(target_os = "linux")]
 use maestro_acquisition::Principal;
+#[cfg(target_os = "linux")]
+use maestro_acquisition::lifecycle::full::Mode;
 use maestro_kernel::{
     acquisition::{Handle, Receipts},
     paths::{Environment, data_dir},
@@ -52,7 +54,7 @@ pub(crate) struct Inputs {
     #[arg(long)]
     authority_uid: u32,
 }
-/// Manual capture MVP only; lifecycle modes and schedules are not registered.
+/// Manual public capture with full or incremental verification windows.
 #[derive(Debug, Subcommand)]
 pub(crate) enum Acquire {
     /// Show every seed decision without network or credential calls.
@@ -63,6 +65,9 @@ pub(crate) enum Acquire {
     },
     /// Capture current public pending work through the built-in HTTP adapter.
     Sync {
+        /// Full revalidation or conservative local incremental windows.
+        #[arg(long, default_value = "incremental", value_parser = ["full", "incremental"])]
+        mode: String,
         /// Checked manifest and local resource/authority bindings.
         #[command(flatten)]
         inputs: Inputs,
@@ -100,7 +105,7 @@ pub(crate) fn run(command: &Acquire) -> Result<Report, Failure> {
         return inspect(&database, LOCAL, attempt);
     }
     let inputs = match command {
-        Acquire::Preview { inputs } | Acquire::Sync { inputs } => inputs,
+        Acquire::Preview { inputs } | Acquire::Sync { inputs, .. } => inputs,
         Acquire::Inspect { .. } => return Err(Failure::refused("acquisition operation invalid")),
     };
     // Decode both strict documents before any kernel/resource/authority start.
@@ -159,6 +164,12 @@ fn configured(command: &Acquire, inputs: &Inputs) -> Result<Report, Failure> {
         pacing: &pacing,
         controls: &controls,
         epoch: Instant::now(),
+        run_now: SystemTime::now(),
+        clock: &SystemTime::now,
+        mode: match command {
+            Acquire::Sync { mode, .. } if mode == "full" => Mode::Full,
+            _ => Mode::Incremental,
+        },
         collection,
         kernel_principal: LOCAL,
         frontier_page_size: 1000,

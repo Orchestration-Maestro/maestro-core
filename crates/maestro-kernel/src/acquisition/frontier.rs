@@ -1,8 +1,10 @@
 //! Replaceable frontier contract and the kernel SQLite adapter.
 use super::{
+    envelope::CaptureEnvelope,
     error::Error,
     lease::{self, DispatchRequest, ItemLease, LeaseRequest, SourceLease},
     record::{COLUMNS, Item, NewItem, item_row, validate},
+    work_order::{self, WorkCursor, WorkItem},
 };
 use crate::{
     artifact::Digest,
@@ -25,6 +27,20 @@ use ulid::Ulid;
 /// Handles supplied by a connector are untrusted; adapters must recheck their
 /// source, holder and both fencing epochs. No transport runs inside a write.
 pub trait Frontier: Send + Sync {
+    /// Page pending work by ID, then verified work by oldest observation and ID.
+    /// # Errors
+    /// Invalid bounds or unreadable authorized storage refuse.
+    fn work_page(
+        &self,
+        scopes: &ScopeSet,
+        source: &str,
+        after: Option<WorkCursor>,
+        limit: u16,
+    ) -> Result<Vec<WorkItem>, Error>;
+    /// Begin a fenced refresh generation without modifying old capture evidence.
+    /// # Errors
+    /// Lost ownership or an unknown, foreign or already-pending item refuses.
+    fn refresh(&self, writer: &SourceLease, item: Ulid, now: SystemTime) -> Result<(), Error>;
     /// Expire only the exact current source writer, leaving its job/work unchanged.
     /// # Errors
     /// Expired or taken-over writers return Lost and cannot release a successor.
@@ -90,6 +106,18 @@ pub trait Frontier: Send + Sync {
 }
 
 impl Frontier for Database {
+    fn work_page(
+        &self,
+        scopes: &ScopeSet,
+        source: &str,
+        after: Option<WorkCursor>,
+        limit: u16,
+    ) -> Result<Vec<WorkItem>, Error> {
+        work_order::page(self, scopes, source, after, limit)
+    }
+    fn refresh(&self, writer: &SourceLease, item: Ulid, now: SystemTime) -> Result<(), Error> {
+        work_order::refresh(self, writer, item, now)
+    }
     fn release_source(&self, writer: &SourceLease, now: SystemTime) -> Result<(), Error> {
         self.write(|tx| {
             lease::held(tx, writer, now)?;
@@ -179,7 +207,15 @@ impl Frontier for Database {
         now: SystemTime,
     ) -> Result<(), Error> {
         // Verify bytes outside the write; pinning inside it refuses a concurrent collection.
-        self.get(artifact)?;
+        let bytes = self.get(artifact)?;
+        let observed = serde_json::from_slice::<CaptureEnvelope>(&bytes)
+            .ok()
+            .filter(|envelope| {
+                envelope.item.to_string() == item.item.to_string()
+                    && envelope.source == writer.source
+            })
+            .map(|envelope| i64::try_from(envelope.observed_ms).map_err(|_| Error::Invalid))
+            .transpose()?;
         self.write(|tx| {
             let (scope, captured) = lease::dispatched(tx, writer, item, now)?;
             match captured {
@@ -189,8 +225,8 @@ impl Frontier for Database {
             }
             pin(tx, artifact)?;
             tx.execute(
-                "UPDATE acquisition_frontier SET capture = ?2 WHERE id = ?1",
-                params![item.item.to_string(), artifact.as_str()],
+                "UPDATE acquisition_frontier SET capture = ?2, observed_ms = ?3 WHERE id = ?1",
+                params![item.item.to_string(), artifact.as_str(), observed],
             )?;
             record_on_stream(
                 tx,

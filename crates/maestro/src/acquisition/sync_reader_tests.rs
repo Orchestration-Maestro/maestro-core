@@ -1,7 +1,7 @@
 //! Deterministic reader costs and the opt-in N14 large-history profile.
 use super::{
     flow_edges::{Fixture, clean},
-    history_tests::historical,
+    history_tests::{cover_history, historical},
     inspect::inspect,
 };
 use maestro_kernel::acquisition::Status;
@@ -14,6 +14,7 @@ fn s6_sync_reader_opens_do_not_grow_with_acknowledged_history() {
         .map(|rows| {
             let fixture = Fixture::new(clean);
             historical(&fixture, rows, true, "reader");
+            cover_history(&fixture);
             let before = fixture.db.reader_opens();
             let report = fixture.sync();
             let opens = fixture.db.reader_opens() - before;
@@ -38,6 +39,7 @@ fn s6_sync_large_history_profile() {
     let fixture = Fixture::new(clean);
     let start = Instant::now();
     historical(&fixture, 2500, true, "reader");
+    cover_history(&fixture);
     println!("historical generation {:?}", start.elapsed());
     let before = fixture.db.reader_opens();
     let start = Instant::now();

@@ -220,7 +220,9 @@ fn freeze<T>(
         "resources":policy.references(),
         "os_principal":principal.id,
         "kernel_principal":runtime.kernel_principal,
-        "scope":scope.as_str()
+        "scope":scope.as_str(),
+        "mode":runtime.mode,
+        "run_now":runtime.run_now
     }))
     .map_err(|_| storage())?;
     store.retain(scope, &bytes, &[]).map_err(|_| storage())

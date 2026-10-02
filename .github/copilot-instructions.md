@@ -63,6 +63,8 @@ in place.
 │   │   │   │   ├── command.rs                                                           # Public manual acquisition composition over the existing admission and frontier ports
 │   │   │   │   ├── controls.rs                                                          # Shared admission and borrowed acquisition port context; no authoritative queue
 │   │   │   │   ├── flow_edges.rs                                                        # Completion, reuse, depth, bindings and resource boundaries of the public MVP
+│   │   │   │   ├── flow_fixture.rs                                                      # Shared real-kernel admitted source fixture with explicit lifecycle windows
+│   │   │   │   ├── flow_site.rs                                                         # Synthetic admitted HTTP site with explicit source revision cases
 │   │   │   │   ├── flow_tests.rs                                                        # Synthetic public site through the production composition, without sockets or credentials
 │   │   │   │   ├── history_tests.rs                                                     # Cursor paging and the frozen OS-to-kernel mapping use the real durable ports
 │   │   │   │   ├── inspect.rs                                                           # Inspect reads authorized durable records only; no policy, authority or transport
@@ -76,8 +78,12 @@ in place.
 │   │   │   │   ├── sync_capture.rs                                                      # Public HTTP, immutable capture and offline discovery under one current writer
 │   │   │   │   ├── sync_discovery.rs                                                    # Full declared inventories are independent of this run's remaining HTTP slots
 │   │   │   │   ├── sync_disposition.rs                                                  # Definitive historical exclusions precede readiness, allocation and dispatch holds
+│   │   │   │   ├── sync_drain.rs                                                        # Paged pending-first traversal over the authoritative frontier
 │   │   │   │   ├── sync_reader_tests.rs                                                 # Deterministic reader costs and the opt-in N14 large-history profile
-│   │   │   │   └── sync_source.rs                                                       # One source writer; frontier pages, never a second authoritative queue
+│   │   │   │   ├── sync_source.rs                                                       # One source writer; frontier pages, never a second authoritative queue
+│   │   │   │   ├── sync_window.rs                                                       # Verification coverage reuses immutable bounded kernel partition checkpoints
+│   │   │   │   ├── window_edges.rs                                                      # N36 pending targets, chunk crashes and non-text source revalidation
+│   │   │   │   └── window_tests.rs                                                      # N36 production sync revalidation with an injected frozen verification clock
 │   │   │   ├── cli/                                                                     # The commands, a module each, and what they share
 │   │   │   │   ├── backup/                                                              # Back up and restore the kernel
 │   │   │   │   │   ├── command.rs                                                       # The backup and restore command handlers and backup writer
@@ -360,6 +366,8 @@ in place.
 │   │   │   │   ├── outcome.rs                                                           # Immutable checked handles and content-free registry outcomes
 │   │   │   │   └── registry.rs                                                          # Pure replaceable registry adapter and core revalidation boundaries
 │   │   │   ├── lifecycle/                                                               # Process-local acquisition lifecycle accounting
+│   │   │   │   ├── full.rs                                                              # Full revalidation compares source evidence, never visible text alone
+│   │   │   │   ├── incremental.rs                                                       # Local verification windows do not claim a remote change index or snapshot
 │   │   │   │   ├── mod.rs                                                               # Process-local acquisition lifecycle accounting
 │   │   │   │   └── resources.rs                                                         # Shared owned reservations, with fresh measurements at every checkpoint
 │   │   │   ├── policy/                                                                  # Strict policy schemas and the single immutable baseline validator
@@ -506,6 +514,9 @@ in place.
 │   │   │       ├── n32_change_guards.rs                                                 # Isolated boundary probes for N32's pure controls
 │   │   │       ├── n32_enforce_the_closed_automatic_change_allow_list.rs                # Pure synthetic N32 controls; runtime artifact contracts belong to N34
 │   │   │       ├── n32_support.rs                                                       # Pure synthetic N32 controls; runtime artifact contracts belong to N34
+│   │   │       ├── n36_complete_full_and_incremental_lifecycle_windows.rs               # N36 local verification windows and append-only source revalidation
+│   │   │       ├── n36_link_evidence.rs                                                 # Unknown link evidence is not a sentinel or proof that a child is unchanged
+│   │   │       ├── n36_revision_edges.rs                                                # N36 observation provenance and finite durable integer bounds
 │   │   │       ├── n57_canonical_artifacts.rs                                           # N57 canonical bytes require explicit nulls without changing S1 card parsing
 │   │   │       ├── n57_decisions.rs                                                     # New exclusions use N03's exact singleton artifact, not a parallel schema
 │   │   │       ├── n57_decode_bounds.rs                                                 # Decoder ceilings are independent of later capability admission
@@ -740,7 +751,8 @@ in place.
 │   │   │   │   ├── privacy.rs                                                           # Content-free output types and opaque, transitively scoped artifact handles
 │   │   │   │   ├── receipt.rs                                                           # Unique run attempts, immutable receipt snapshots and bounded stage inventories
 │   │   │   │   ├── record.rs                                                            # Durable request identities and item rows; contexts are never normalized together
-│   │   │   │   └── safe-headers.json                                                    # JSON data: safe headers
+│   │   │   │   ├── safe-headers.json                                                    # JSON data: safe headers
+│   │   │   │   └── work_order.rs                                                        # Indexed pending-first verification order and fenced append-only refreshes
 │   │   │   ├── artifact/                                                                # Content-addressed artifacts: immutable bytes stored, and read back, by their
 │   │   │   │   ├── digest.rs                                                            # A SHA-256 digest: the name every artifact is stored under
 │   │   │   │   ├── mod.rs                                                               # Content-addressed artifacts: immutable bytes stored, and read back, by their

@@ -2,7 +2,10 @@
 use crate::failure::Failure;
 use maestro_acquisition::{
     CheckedPolicy, Principal, Refusal,
-    lifecycle::resources::{Reservation, Resources},
+    lifecycle::{
+        full::Mode,
+        resources::{Reservation, Resources},
+    },
     policy::{
         authority::{Authority, Operation, Target},
         decision::{AdmissionControls, ItemAttributes, Request, RequestKind, admit},
@@ -20,7 +23,7 @@ use maestro_acquisition::{
     },
 };
 use maestro_kernel::{
-    acquisition::{Batch, Handle, Receipt, SourceLease},
+    acquisition::{Batch, CaptureEnvelope, Handle, Receipt, SourceLease},
     artifact::Digest,
     scope::Scope,
 };
@@ -144,6 +147,12 @@ pub(crate) struct Runtime<'a, T> {
     pub(crate) collection: Digest,
     /// One trusted run time domain.
     pub(crate) epoch: Instant,
+    /// Frozen local verification clock, independent of remote source clocks.
+    pub(crate) run_now: SystemTime,
+    /// Trusted observation clock; tests inject a deterministic clock.
+    pub(crate) clock: &'a dyn Fn() -> SystemTime,
+    /// Explicit lifecycle mode, recorded with the run's immutable inputs.
+    pub(crate) mode: Mode,
 }
 /// The existing pure admission request, used by preview and current dispatch.
 pub(crate) fn request<'a>(source: &'a str, url: &'a str, now: &'a str) -> Request<'a> {
@@ -230,6 +239,8 @@ pub(crate) struct SourceWork<'a, S, T> {
 
 /// One admitted source allocation and its durable discovery checkpoints.
 pub(crate) struct CaptureWork<'a, 'b, S, T> {
+    /// Prior acknowledged source evidence when this run revalidates an item.
+    pub(crate) previous: Option<&'a CaptureEnvelope>,
     /// Prior immutable checkpoints for verified offline continuation.
     pub(crate) checkpoints: &'a [Batch],
     /// Existing source composition and ports.

@@ -11,6 +11,8 @@ pub enum Enumeration {
     Links,
     /// A source-provided bounded index with explicit coverage evidence.
     Index,
+    /// Local verification coverage, never a remote snapshot or change index.
+    Verification,
 }
 /// Finite source window; overlap and skew never imply remote snapshot stability.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -54,8 +56,8 @@ pub struct ChangeKeys {
     pub metadata: Option<Digest>,
     /// Exact effective permission identity.
     pub permissions: Digest,
-    /// Exact canonical link inventory digest.
-    pub links: Digest,
+    /// Exact canonical link inventory digest, when known. Children are unobserved.
+    pub links: Option<Digest>,
     /// Raw representation identity; hidden link changes remain revisions.
     pub representation: Option<Digest>,
 }

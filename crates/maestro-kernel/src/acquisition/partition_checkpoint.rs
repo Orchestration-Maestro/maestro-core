@@ -196,7 +196,8 @@ fn parent(
         &envelope.declared_media,
         &envelope.detected_media,
     ))?);
-    if keys.representation.as_ref() != Some(&envelope.artifact)
+    if keys.links.is_none()
+        || keys.representation.as_ref() != Some(&envelope.artifact)
         || keys.validator.as_ref() != Some(&validator)
         || keys.metadata.as_ref() != Some(&metadata)
         || keys.permissions != envelope.authorization_context
@@ -209,6 +210,7 @@ fn parent(
             || item.keys.representation.is_some()
             || item.keys.validator.is_some()
             || item.keys.metadata.is_some()
+            || item.keys.links.is_some()
         {
             return Err(ReceiptError::Invalid);
         }
@@ -218,7 +220,9 @@ fn parent(
 /// Bound all durable inventories and preserve unknown coverage instead of guessing.
 fn validate(batch: &Batch) -> Result<(), ReceiptError> {
     let partition = &batch.partition;
-    if partition.window.start >= partition.window.end
+    if partition.window.start > partition.window.end
+        || (partition.window.start == partition.window.end
+            && partition.kind != Enumeration::Verification)
         || !(1..=1000).contains(&partition.max_batches)
         || partition.max_items > 1000
         || (partition.kind == Enumeration::Index && partition.max_items == 0)

@@ -222,6 +222,9 @@ fn n12_eligible_discovery_and_non_capture_discovered_remain_pending() {
 /// Pure inventory counting uses a verifier; storage substitutions use real Database tests.
 struct CountingCaptures;
 impl Captures for CountingCaptures {
+    fn prepared_for(&self, _: &Scope, _: &Item) -> Result<Option<Handle>, ReceiptError> {
+        Ok(None)
+    }
     fn capture_for(&self, _: &Scope, _: &Item) -> Result<Option<Handle>, ReceiptError> {
         Ok(None)
     }

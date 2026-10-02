@@ -41,3 +41,20 @@ mod sync_discovery;
 mod sync_disposition;
 #[cfg(any(target_os = "linux", test))]
 mod sync_source;
+
+#[cfg(test)]
+mod window_tests;
+
+#[cfg(any(target_os = "linux", test))]
+mod sync_window;
+
+#[cfg(any(target_os = "linux", test))]
+mod sync_drain;
+
+#[cfg(test)]
+mod window_edges;
+
+#[cfg(test)]
+mod flow_fixture;
+#[cfg(test)]
+mod flow_site;

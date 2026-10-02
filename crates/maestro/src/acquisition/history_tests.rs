@@ -109,6 +109,94 @@ pub(super) fn historical(fixture: &Fixture, count: usize, captured: bool, kernel
     fixture.db.release_source(&writer, now).unwrap();
 }
 
+/// Historical reuse has a prior complete local watermark, not merely retained bytes.
+pub(super) fn cover_history(fixture: &Fixture) {
+    use maestro_kernel::acquisition::{
+        Batch, ChangeKeys, DiscoveredItem, Enumeration, Partition, Partitions, Window,
+    };
+    let scope = "workspace/default/collection/garden".parse().unwrap();
+    let now = SystemTime::now();
+    let writer = fixture
+        .db
+        .lease_source(
+            "notes",
+            &scope,
+            LeaseRequest {
+                holder: "coverage",
+                now,
+                term: Duration::from_secs(30),
+            },
+        )
+        .unwrap();
+    let scopes = fixture.db.visible("reader").unwrap();
+    let inputs = fixture
+        .db
+        .retain(&scope, b"synthetic prior full verification", &[])
+        .unwrap();
+    let mut report = super::output::Report::new();
+    report.run = Some(Handle::new());
+    report.receipt = Some(Handle::new());
+    let mut receipt = super::command::new_receipt(&report, inputs).unwrap();
+    fixture.db.begin(&scope, &receipt).unwrap();
+    let mut after = None;
+    loop {
+        let page = Frontier::page(&fixture.db, &scopes, "notes", after, 999).unwrap();
+        if page.is_empty() {
+            break;
+        }
+        after = page.last().map(|item| item.id);
+        let batch = Batch {
+            partition: Partition {
+                id: Handle::new(),
+                run: receipt.run,
+                kind: Enumeration::Verification,
+                window: Window {
+                    start: 0,
+                    end: 1_000_000_000,
+                    overlap: 0,
+                    skew: 0,
+                },
+                max_batches: 1,
+                max_items: 999,
+            },
+            cursor: None,
+            next: None,
+            terminal: true,
+            stable: true,
+            truncated: false,
+            expected: Some(u16::try_from(page.len()).unwrap()),
+            items: page
+                .into_iter()
+                .map(|item| DiscoveredItem {
+                    keys: ChangeKeys {
+                        revision: None,
+                        validator: None,
+                        metadata: None,
+                        permissions: item.request.authorization_context.clone(),
+                        links: None,
+                        representation: None,
+                    },
+                    request: item.request,
+                })
+                .collect(),
+            extractor: None,
+            parent_keys: None,
+            not_enqueued: vec![],
+            inventory_overflow: 0,
+            parent_depth: None,
+            capture: None,
+        };
+        fixture.db.checkpoint(&writer, &batch, now).unwrap();
+        fixture
+            .db
+            .commit_partition(&writer, batch.partition.id, now)
+            .unwrap();
+    }
+    receipt.status = Status::Complete;
+    fixture.db.finish(&receipt).unwrap();
+    fixture.db.release_source(&writer, now).unwrap();
+}
+
 #[test]
 fn n14_all_three_frontier_pages_and_new_seed_are_seen_with_bounded_fetches() {
     let fixture = Fixture::new(|policy| {
@@ -144,6 +232,7 @@ fn n14_historical_reuse_does_not_spend_new_fetch_slots_and_complete_covers_all_p
         policy["sources"][0]["limits"]["pages"] = serde_json::json!(3);
     });
     historical(&fixture, 5, true, "reader");
+    cover_history(&fixture);
     let report = fixture.sync();
     assert_eq!(report.status, Status::Complete, "{report:?}");
     assert_eq!(report.completed.len(), 8);

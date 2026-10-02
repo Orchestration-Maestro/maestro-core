@@ -1,2 +1,5 @@
 //! Process-local acquisition lifecycle accounting.
 pub mod resources;
+
+pub mod full;
+pub mod incremental;

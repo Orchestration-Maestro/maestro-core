@@ -37,3 +37,6 @@ pub use partition_record::{
 
 mod link;
 pub use link::{MappedRevision, RevisionLink};
+
+mod work_order;
+pub use work_order::{WorkCursor, WorkItem};
