@@ -452,6 +452,7 @@ in place.
 │   │   │       ├── n13_dom_query.rs                                                     # Owner-approved offline HTML5 link reader and its recorded data contract
 │   │   │       ├── n13_durably_enumerate_public_links_and_bounded_partitions.rs         # N13 durable synthetic discovery and partition contracts
 │   │   │       ├── n13_edges.rs                                                         # N13 trust, bound and partial-commit guards over real kernel storage
+│   │   │       ├── n13_review_discovery.rs                                              # N13 review regressions for eligibility, parser ceilings and exclusion coverage
 │   │   │       ├── n15_bounds.rs                                                        # Independent shape/qualification guard neighbours, not parser-error mutants
 │   │   │       ├── n15_policy_binding.rs                                                # Genuine admitted handles exercise each core policy binding independently
 │   │   │       ├── n15_qualification_closure.rs                                         # Shared/cyclic closures remain bounded by the existing logical resource cache
