@@ -225,7 +225,7 @@ fn write_new(
     let source = trust.authorize(root, Path::new(&temporary), Access::Read)?;
     trust
         .authorize(root, Path::new(name), Access::Write)?
-        .publish_from(&source)?;
+        .publish_from(&source, bytes)?;
     effects::remove(root, &temporary, bytes, None, trust)
 }
 

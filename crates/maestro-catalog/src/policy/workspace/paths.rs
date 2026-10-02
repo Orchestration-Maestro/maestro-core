@@ -238,18 +238,20 @@ impl AuthorizedPath<'_> {
     ///
     /// # Errors
     /// Refuses denied source/destination paths, different parents and failed verified rollback.
-    pub fn publish_from(&self, source: &AuthorizedPath<'_>) -> io::Result<()> {
-        self.publish_from_with(source, || {})
+    pub fn publish_from(&self, source: &AuthorizedPath<'_>, bytes: &[u8]) -> io::Result<()> {
+        self.publish_from_with(source, bytes, || {})
     }
 
     /// Scheduling seam exercises post-publication rollback with live authority.
     pub(crate) fn publish_from_with(
         &self,
         source: &AuthorizedPath<'_>,
+        bytes: &[u8],
         after: impl FnOnce(),
     ) -> io::Result<()> {
         self.publish_scheduled(
             source,
+            bytes,
             PublicationChecks {
                 after_source_open: || {},
                 before_link: || {},
@@ -262,6 +264,7 @@ impl AuthorizedPath<'_> {
     fn publish_scheduled(
         &self,
         source: &AuthorizedPath<'_>,
+        bytes: &[u8],
         hooks: PublicationChecks<impl FnOnce(), impl FnOnce(), impl FnOnce()>,
     ) -> io::Result<()> {
         if source.access != Access::Read {
@@ -274,6 +277,7 @@ impl AuthorizedPath<'_> {
         self.parent.publish_verified(
             &source.name,
             &self.name,
+            bytes,
             PublicationChecks {
                 after_source_open: || {
                     (hooks.after_source_open)();
@@ -298,11 +302,13 @@ impl AuthorizedPath<'_> {
     pub(crate) fn publish_before_for_test(
         &self,
         source: &AuthorizedPath<'_>,
+        bytes: &[u8],
         before: impl FnOnce(),
         after: impl FnOnce(),
     ) -> io::Result<()> {
         self.publish_scheduled(
             source,
+            bytes,
             PublicationChecks {
                 after_source_open: || {},
                 before_link: before,
@@ -316,13 +322,16 @@ impl AuthorizedPath<'_> {
     pub(crate) fn publish_after_open_for_test(
         &self,
         source: &AuthorizedPath<'_>,
+        bytes: &[u8],
         after_open: impl FnOnce(),
+        before_link: impl FnOnce(),
     ) -> io::Result<()> {
         self.publish_scheduled(
             source,
+            bytes,
             PublicationChecks {
                 after_source_open: after_open,
-                before_link: || {},
+                before_link,
                 after_link: || {},
             },
         )
@@ -438,7 +447,8 @@ impl AuthorizedPath<'_> {
     ///
     /// # Errors
     /// Refuses read-only capabilities, swaps, existing names and failed creation.
-    pub fn create_new(&self) -> io::Result<File> {
+    #[cfg(test)]
+    pub(crate) fn create_new(&self) -> io::Result<File> {
         self.prepare_creation()?;
         self.finish_creation(self.parent.create_new(&self.name)?)
     }
@@ -453,6 +463,7 @@ impl AuthorizedPath<'_> {
     }
 
     /// Do not return a created handle if its parent or policy changed after the check.
+    #[cfg(test)]
     fn finish_creation(&self, file: File) -> io::Result<File> {
         if let Err(error) = self.check_current_policy() {
             self.rollback_creation(file).map_err(|cleanup| {
@@ -466,10 +477,11 @@ impl AuthorizedPath<'_> {
     }
 
     /// Delete only the empty object this operation created, never a replaced entry.
+    #[cfg(test)]
     fn rollback_creation(&self, file: File) -> io::Result<()> {
         #[cfg(unix)]
         {
-            let result = self.parent.remove_created(&self.name, &file);
+            let result = self.parent.remove_created_bytes(&self.name, &file, &[]);
             drop(file);
             result
         }

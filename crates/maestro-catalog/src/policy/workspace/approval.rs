@@ -73,6 +73,7 @@ pub struct PreferencesConfirmation {
 }
 
 /// Confirm only the root-local config through the trusted user-only IO adapter.
+/// CLI confirmed-path flow only; private fields and consumption keep token narrow and single-use.
 ///
 /// # Errors
 /// Refuses unresolved paths and missing or mismatched user confirmation.

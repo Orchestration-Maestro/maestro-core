@@ -27,20 +27,21 @@ impl Directory {
         &self,
         from: &str,
         to: &str,
+        expected: &[u8],
         checks: PublicationChecks<
             impl FnOnce() -> io::Result<()>,
             impl FnOnce() -> io::Result<()>,
             impl FnOnce() -> io::Result<()>,
         >,
     ) -> io::Result<()> {
-        self.publish_verified_inner(from, to, checks, || {})
+        self.publish_verified_inner((from, to), expected, checks, || {})
     }
 
     /// Shared publication with a private scheduling seam after the final source comparison.
     fn publish_verified_inner(
         &self,
-        from: &str,
-        to: &str,
+        (from, to): (&str, &str),
+        expected: &[u8],
         checks: PublicationChecks<
             impl FnOnce() -> io::Result<()>,
             impl FnOnce() -> io::Result<()>,
@@ -53,6 +54,11 @@ impl Directory {
         self.verify_created(from, &source)?;
         let mut bytes = Vec::new();
         source.read_to_end(&mut bytes)?;
+        if bytes != expected {
+            return Err(io::Error::other(
+                "publication refused: source bytes changed",
+            ));
+        }
         (checks.before_link)()?;
         self.verify_created(from, &source)?;
         after_compare();
@@ -72,11 +78,12 @@ impl Directory {
         &self,
         from: &str,
         to: &str,
+        expected: &[u8],
         after_compare: impl FnOnce(),
     ) -> io::Result<()> {
         self.publish_verified_inner(
-            from,
-            to,
+            (from, to),
+            expected,
             PublicationChecks {
                 after_source_open: || Ok(()),
                 before_link: || Ok(()),

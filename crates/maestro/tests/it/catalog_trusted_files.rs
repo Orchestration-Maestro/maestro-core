@@ -74,6 +74,42 @@ fn catalog_trusted_files_default_config_is_persisted_at_displayed_root() {
     );
 }
 
+#[test]
+fn catalog_trusted_files_bootstrap_without_config_is_not_already_applied() {
+    let home = Home::bare();
+    let root = home.root().join("project");
+    fs::create_dir(&root).unwrap();
+    let canonical = root.canonicalize().unwrap();
+    let path = canonical.to_str().unwrap();
+    assert_eq!(
+        home.run(&["trust", "add", path, "--confirm-path", path])
+            .code,
+        Some(0)
+    );
+    assert_eq!(init(&home, &root, &[]).code, Some(0));
+    // Model a bootstrap-only workspace: remove the separate config and its ownership.
+    for entry in fs::read_dir(root.join(".maestro-files")).unwrap() {
+        let entry = entry.unwrap();
+        let record: toml::Value =
+            toml::from_str(&fs::read_to_string(entry.path()).unwrap()).unwrap();
+        if record["files"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|file| file["path"].as_str() == Some(".maestro/config.toml"))
+        {
+            fs::remove_file(entry.path()).unwrap();
+        }
+    }
+    fs::remove_file(root.join(".maestro/config.toml")).unwrap();
+    assert!(root.join(".maestro/project.toml").exists());
+    let rerun = init(&home, &root, &[]);
+    assert_eq!(rerun.code, Some(0), "{rerun:?}");
+    let document: serde_json::Value = serde_json::from_str(&rerun.stdout).unwrap();
+    assert_eq!(document["already_applied"], false);
+    assert!(root.join(".maestro/config.toml").exists());
+}
+
 /// The workspace/host deliverable boundary permits only config language/tone changes;
 /// kernel/internal ownership metadata must bind that exact config digest structurally.
 /// There are no other deliverable exceptions and no receipt/log normalization here.

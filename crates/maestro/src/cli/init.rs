@@ -8,7 +8,9 @@ use maestro_catalog::{
     bootstrap::{self, DirectoryPresets, Prerequisite},
     files::{self, FilePlan},
     limits::Limits,
-    policy::workspace::{CheckedTrust, JournalTrust, WorkspaceTrust as _, write_preferences},
+    policy::workspace::{
+        Access, CheckedTrust, JournalTrust, WorkspaceTrust as _, write_preferences,
+    },
     settings::{PreferencesDraft, WorkspacePreferences, draft_preferences},
 };
 use maestro_kernel::workspace::WorkspaceAuthority;
@@ -89,17 +91,14 @@ pub(super) fn run(
             .map(|database| database as &dyn WorkspaceAuthority),
     );
     let checked = CheckedTrust::new(&adapter, &boundaries);
-    let preferences = Some(
-        draft_preferences(&root, source, choices, &Limits::PRODUCTION, &checked)
-            .map_err(Failure::refused)?,
-    );
+    let preferences = preference_draft(&root, source, choices, &checked)?;
     let provider = DirectoryPresets::new(catalog_dir);
     let preview =
         bootstrap::preview(&root, &provider, presets, &checked).map_err(Failure::refused)?;
     let already_applied = preview.plan.is_applied()
         && preferences
             .as_ref()
-            .is_some_and(|draft| draft.files.is_applied());
+            .is_none_or(|draft| draft.files.is_applied());
     let mut document = InitDocument {
         schema: "maestro-cli/init/1",
         mode: "authoring convenience; not a verified install",
@@ -131,6 +130,28 @@ pub(super) fn run(
         output.result(&document, "")?;
     }
     Ok(ExitCode::SUCCESS)
+}
+
+/// Existing config without explicit choices is checked but never adopted or rewritten.
+fn preference_draft(
+    root: &Path,
+    source: &dyn WorkspacePreferences,
+    choices: &[String],
+    checked: &CheckedTrust<'_>,
+) -> Result<Option<PreferencesDraft>, Failure> {
+    if choices.is_empty() {
+        match checked
+            .authorize(root, Path::new(".maestro/config.toml"), Access::Read)
+            .and_then(|path| path.open_read())
+        {
+            Ok(_) => return Ok(None),
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+            Err(error) => return Err(Failure::refused_by(&error)),
+        }
+    }
+    draft_preferences(root, source, choices, &Limits::PRODUCTION, checked)
+        .map(Some)
+        .map_err(Failure::refused)
 }
 
 /// CLI decision point only; C05j owns the later held-handle enforcement boundary.

@@ -13,7 +13,11 @@ use super::{
     listing::{self, Entry},
     read::{read_limited, read_prefix},
     root::{leaf_name, resolve},
-    windows_security::{private_metadata, remove_created_directory, same_file},
+    windows_security::{
+        FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT, FILE_SHARE_ALL,
+        FILE_SHARE_READ_WRITE, OPEN_REPARSE_DIRECTORY_FLAGS, private_metadata,
+        remove_created_directory, same_file,
+    },
 };
 use std::{
     ffi::OsStr,
@@ -28,24 +32,6 @@ use std::{
 /// The next process-local suffix for a collision-free quarantine name.
 static NEXT_QUARANTINE: AtomicUsize = AtomicUsize::new(0);
 
-/// `FILE_SHARE_READ`: others may read the file while the handle is open.
-const FILE_SHARE_READ: u32 = 0x0000_0001;
-/// `FILE_SHARE_WRITE`: others may write the file while the handle is open.
-const FILE_SHARE_WRITE: u32 = 0x0000_0002;
-/// `FILE_SHARE_READ | FILE_SHARE_WRITE`: never deletion or renaming while held.
-const FILE_SHARE_READ_WRITE: u32 = 0x0000_0003;
-/// `FILE_FLAG_BACKUP_SEMANTICS`: the open may name a directory.
-const FILE_FLAG_BACKUP_SEMANTICS: u32 = 0x0200_0000;
-/// `FILE_FLAG_OPEN_REPARSE_POINT`: a reparse point is opened itself, never followed.
-const FILE_FLAG_OPEN_REPARSE_POINT: u32 = 0x0020_0000;
-/// `FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT`: a directory may open, and a
-/// reparse point opens itself.
-const OPEN_REPARSE_DIRECTORY_FLAGS: u32 = 0x0220_0000;
-// Each precombined value is exactly its named Win32 bits.
-const _: () = assert!(FILE_SHARE_READ_WRITE == FILE_SHARE_READ | FILE_SHARE_WRITE);
-const _: () = assert!(
-    OPEN_REPARSE_DIRECTORY_FLAGS == FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT
-);
 /// `FILE_ATTRIBUTE_DIRECTORY`: the handle names a directory.
 const FILE_ATTRIBUTE_DIRECTORY: u32 = 0x0000_0010;
 /// `FILE_ATTRIBUTE_REPARSE_POINT`: the handle names a reparse point, a link or junction among them.
@@ -158,7 +144,7 @@ impl Directory {
         fs::create_dir(&path)?;
         let child = OpenOptions::new()
             .read(true)
-            .share_mode(7)
+            .share_mode(FILE_SHARE_ALL)
             .custom_flags(OPEN_REPARSE_DIRECTORY_FLAGS)
             .open(&path)?;
         refuse_reparse_point(&child)?;
@@ -513,7 +499,11 @@ impl Directory {
                 self.remove_file(&quarantine_file)?;
                 fs::remove_dir(self.path.join(&quarantine))
             }
-            Ok(_) | Err(_) => {
+            refused => {
+                let error = refused.map_or_else(
+                    |error| error,
+                    |_| io::Error::other("verified removal refused: file bytes changed"),
+                );
                 if let Err(error) = self.link(&quarantine_file, name) {
                     return Err(io::Error::other(format!(
                         "verified removal refused; changed bytes retained at {quarantine}: {error}"
@@ -521,9 +511,7 @@ impl Directory {
                 }
                 self.remove_file(&quarantine_file)?;
                 fs::remove_dir(self.path.join(&quarantine))?;
-                Err(io::Error::other(
-                    "verified removal refused: file bytes changed",
-                ))
+                Err(error)
             }
         }
     }

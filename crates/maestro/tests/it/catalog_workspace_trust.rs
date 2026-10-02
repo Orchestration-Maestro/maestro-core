@@ -34,6 +34,25 @@ fn init(home: &Home, root: &Path, extra: &[&str]) -> super::support::Ended {
 }
 
 #[test]
+fn review_probe_trusted_default_init_after_preferences_only_config() {
+    let home = Home::bare();
+    let root = root(&home);
+    let path = root.to_str().unwrap();
+    let written = init(
+        &home,
+        &root,
+        &["--preferences-only", "--confirm-path", path],
+    );
+    assert_eq!(written.code, Some(0), "{written:?}");
+    let config = fs::read(root.join(".maestro/config.toml")).unwrap();
+    assert_eq!(add(&home, &root).code, Some(0));
+    let applied = init(&home, &root, &[]);
+    assert_eq!(applied.code, Some(0), "{applied:?}");
+    assert!(root.join(".maestro/project.toml").exists());
+    assert_eq!(fs::read(root.join(".maestro/config.toml")).unwrap(), config);
+}
+
+#[test]
 fn catalog_workspace_trust_confirmation_is_exact_and_required() {
     let home = Home::bare();
     let root = root(&home);

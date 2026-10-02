@@ -24,8 +24,23 @@ impl Directory {
     /// # Errors
     /// Refuses replacements and failed opens or identity queries.
     pub fn harden_created_child(&self, name: &str, created: &Self) -> io::Result<Self> {
+        self.harden_created_child_with(name, created, || {})
+    }
+
+    /// Scheduling seam proves the returned handle, not a later name lookup, is compared.
+    pub(crate) fn harden_created_child_with(
+        &self,
+        name: &str,
+        created: &Self,
+        after_open: impl FnOnce(),
+    ) -> io::Result<Self> {
         let child = self.child(name)?;
-        self.verify_created(name, &created.0)?;
+        after_open();
+        let opened = fstat(&child.0)?;
+        let held = fstat(&created.0)?;
+        if opened.st_dev != held.st_dev || opened.st_ino != held.st_ino {
+            return Err(io::Error::other("created directory changed"));
+        }
         Ok(child)
     }
 
@@ -74,7 +89,8 @@ impl Directory {
     ///
     /// # Errors
     /// Refuses non-empty entries, replacements and failed cleanup.
-    pub fn remove_created(&self, name: &str, created: &File) -> io::Result<()> {
+    #[cfg(test)]
+    pub(crate) fn remove_created(&self, name: &str, created: &File) -> io::Result<()> {
         self.remove_created_bytes(name, created, &[])
     }
 

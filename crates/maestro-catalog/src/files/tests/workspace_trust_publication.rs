@@ -21,7 +21,8 @@ fn publication_rechecks_both_paths_and_rolls_back_only_the_created_link() {
     let writer_calls = Cell::new(0);
     assert!(
         publish
-            .publish_from_with(&source, || writer_calls.set(writer_calls.get() + 1))
+            .publish_from_with(&source, b"bytes", || writer_calls
+                .set(writer_calls.get() + 1))
             .is_err()
     );
     assert_eq!(writer_calls.get(), 0);
@@ -29,7 +30,7 @@ fn publication_rechecks_both_paths_and_rolls_back_only_the_created_link() {
     fixture.approved.set(true);
     assert!(
         publish
-            .publish_from_with(&source, || fixture.approved.set(false))
+            .publish_from_with(&source, b"bytes", || fixture.approved.set(false))
             .is_err()
     );
     assert!(!fixture.root.join("published").exists());
@@ -57,7 +58,7 @@ fn publication_refuses_different_held_parents_before_linking_any_name() {
     let calls = Cell::new(0);
     assert!(
         target
-            .publish_from_with(&source, || calls.set(calls.get() + 1))
+            .publish_from_with(&source, b"bytes", || calls.set(calls.get() + 1))
             .is_err()
     );
     assert_eq!(calls.get(), 0);
@@ -88,13 +89,13 @@ fn publication_rechecks_secret_source_before_and_after_link_effect() {
     };
     assert!(
         target
-            .publish_before_for_test(&source, rebind, || calls.set(calls.get() + 1))
+            .publish_before_for_test(&source, b"bytes", rebind, || calls.set(calls.get() + 1))
             .is_err()
     );
     assert_eq!(calls.get(), 0);
     assert!(!fixture.root.join("published").exists());
     fs::remove_file(fixture.scratch.path.join(".netrc")).unwrap();
-    assert!(target.publish_from_with(&source, rebind).is_err());
+    assert!(target.publish_from_with(&source, b"bytes", rebind).is_err());
     assert!(!fixture.root.join("published").exists());
     assert_eq!(fs::read(fixture.root.join("temporary")).unwrap(), b"bytes");
 }
@@ -110,7 +111,7 @@ fn read_capabilities_cannot_be_promoted_to_new_effects() {
     assert!(read.write_new(b"overwrite").is_err());
     assert!(read.create_directory_for_test(|| {}).is_err());
     assert!(read.remove_verified(b"bytes", None).is_err());
-    assert!(read.publish_from(&read).is_err());
+    assert!(read.publish_from(&read, b"bytes").is_err());
     let write_source = fixture
         .trust()
         .authorize(&fixture.root, Path::new("ordinary"), Access::Write)
@@ -119,7 +120,7 @@ fn read_capabilities_cannot_be_promoted_to_new_effects() {
         .trust()
         .authorize(&fixture.root, Path::new("published"), Access::Write)
         .unwrap();
-    assert!(target.publish_from(&write_source).is_err());
+    assert!(target.publish_from(&write_source, b"bytes").is_err());
     assert!(!fixture.root.join("published").exists());
     assert_eq!(fs::read(fixture.root.join("ordinary")).unwrap(), b"bytes");
 }
@@ -160,6 +161,7 @@ fn assert_source_swap(symlinked: bool) {
     let calls = Cell::new(0);
     let result = target.publish_before_for_test(
         &source,
+        b"original bytes",
         || {
             fs::rename(
                 fixture.root.join(source_name),
@@ -221,7 +223,7 @@ fn publication_post_compare_preserves_a_replacement_of_the_published_link() {
         .trust()
         .authorize(&fixture.root, Path::new("published"), Access::Write)
         .unwrap();
-    let result = target.publish_from_with(&source, || {
+    let result = target.publish_from_with(&source, b"bytes", || {
         fs::rename(
             fixture.root.join("published"),
             fixture.root.join("link-moved"),
@@ -249,13 +251,24 @@ fn publication_after_source_open_rechecks_deny_before_reading_or_linking() {
         .trust()
         .authorize(&fixture.root, Path::new("published"), Access::Write)
         .unwrap();
-    let result = target.publish_after_open_for_test(&source, || {
-        file_link(
-            &fixture.root.join("temporary"),
-            &fixture.scratch.path.join(".netrc"),
-        );
-    });
+    let before_link = Cell::new(0);
+    let result = target.publish_after_open_for_test(
+        &source,
+        b"bytes",
+        || {
+            file_link(
+                &fixture.root.join("temporary"),
+                &fixture.scratch.path.join(".netrc"),
+            );
+        },
+        || before_link.set(before_link.get() + 1),
+    );
     assert!(result.is_err());
+    assert_eq!(
+        before_link.get(),
+        0,
+        "deny must stop before the read/link checkpoint"
+    );
     assert!(!fixture.root.join("published").exists());
     assert_eq!(fs::read(fixture.root.join("temporary")).unwrap(), b"bytes");
 }
