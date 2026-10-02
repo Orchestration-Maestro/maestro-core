@@ -1,15 +1,18 @@
 use super::compose as compose_module;
-use super::{Preset, PresetPort, inspect};
+use super::{
+    Preset, PresetPort, inspect,
+    support::{apply, preview},
+};
 use crate::{
     files::{
         FileInput,
-        tests::support::{apply_with_failure, recover, remove, with_trust},
+        tests::support::{apply_with_failure, recover, remove},
     },
     limits::Limits,
 };
 use std::{
     collections::BTreeMap,
-    env, fs, io,
+    env, fs,
     path::{Path, PathBuf},
     process,
 };
@@ -512,18 +515,4 @@ fn authoring_lock_read_keeps_source_byte_bound() {
             .unwrap_err()
             .contains("file is larger than 1048576 bytes")
     );
-}
-
-/// Bind the legacy bootstrap contracts to explicit synthetic authority, not a bypass.
-fn preview(
-    root: &Path,
-    port: &dyn PresetPort,
-    names: &[String],
-) -> Result<super::BootstrapPreview, String> {
-    with_trust(root, |trust| super::preview(root, port, names, trust))
-}
-
-/// Exercise the production checked writer with the fixture's approved root.
-fn apply(root: &Path, preview: &super::BootstrapPreview) -> io::Result<()> {
-    with_trust(root, |trust| super::apply(root, preview, trust))
 }

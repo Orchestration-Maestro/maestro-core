@@ -96,7 +96,7 @@ pub(crate) fn decode_preset(name: &str, bytes: &[u8]) -> Result<Resource, String
         rules: Some(&PresetRules),
     };
     let path = format!("presets/{name}.toml");
-    let unit = Unit::new(&registration.descriptor, name, path.clone());
+    let unit = Unit::new(&registration.descriptor, name, path);
     let tree = PresetDocument { bytes };
     let rows = frozen_rows();
     let settings = maestro_settings::Registry::built_in().map_err(|error| error.to_string())?;

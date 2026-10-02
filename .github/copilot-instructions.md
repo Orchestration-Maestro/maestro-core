@@ -496,8 +496,10 @@ in place.
 │   │   │   ├── bootstrap/                                                   # Inspect a project and plan a preset composition without executing its files
 │   │   │   │   ├── tests/                                                   # Bootstrap contract tests, grouped by adapter
 │   │   │   │   │   ├── inventory.rs                                         # Owner-local data inventories through the shared bootstrap composition
+│   │   │   │   │   ├── inventory_reuse.rs                                   # Resolve-wide source capture and apply revalidation regressions
 │   │   │   │   │   ├── legacy.rs                                            # Rust source: legacy
-│   │   │   │   │   └── mod.rs                                               # Bootstrap contract tests, grouped by adapter
+│   │   │   │   │   ├── mod.rs                                               # Bootstrap contract tests, grouped by adapter
+│   │   │   │   │   └── support.rs                                           # Synthetic checked trust shared by bootstrap contract tests
 │   │   │   │   ├── compose.rs                                               # Resolve explicit preset names through a replaceable source port
 │   │   │   │   ├── inspect.rs                                               # Read a project inventory as inert data; no script or build tool is launched
 │   │   │   │   ├── inventory.rs                                             # Explicit area-local inventory data behind the existing preset port

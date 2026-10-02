@@ -80,6 +80,8 @@ struct Loader<'a> {
     adapter: &'a AreaInventories<'a>,
     /// Each selected area/inventory is included once across all requested presets.
     selected: BTreeSet<String>,
+    /// First capture of each distinct path across the complete resolve call.
+    source_files: FileBytes,
     /// Sources counted across presets, manifests and assets.
     count: usize,
     /// Captured input bytes across the complete request.
@@ -91,6 +93,7 @@ impl PresetPort for AreaInventories<'_> {
         let mut loader = Loader {
             adapter: self,
             selected: BTreeSet::new(),
+            source_files: FileBytes::new(),
             count: 0,
             bytes: 0,
         };
@@ -99,8 +102,11 @@ impl PresetPort for AreaInventories<'_> {
 }
 
 impl Loader<'_> {
-    /// Read one bounded source through the existing held-handle reader.
+    /// Capture each distinct source once through the existing held-handle reader.
     fn read(&mut self, path: &str) -> Result<Vec<u8>, String> {
+        if let Some(bytes) = self.source_files.get(path) {
+            return Ok(bytes.clone());
+        }
         self.count += 1;
         if self.count > self.adapter.limits.archive_entries {
             return Err("inventory source count exceeds limit".to_owned());
@@ -110,6 +116,7 @@ impl Loader<'_> {
         if self.bytes > self.adapter.limits.archive_total_bytes {
             return Err("inventory source bytes exceed limit".to_owned());
         }
+        self.source_files.insert(path.to_owned(), bytes.clone());
         Ok(bytes)
     }
 

@@ -1,23 +1,22 @@
 //! Owner-local data inventories through the shared bootstrap composition.
-use super::super::{AreaInventories, PresetPort, apply, preview};
+use super::{
+    super::{AreaInventories, PresetPort},
+    support::{apply, preview},
+};
 use crate::files::digest;
 use maestro_test_scratch::scratch_directory;
-use std::{
-    collections::BTreeMap,
-    fs,
-    path::{Path, PathBuf},
-};
+use std::{collections::BTreeMap, fs, path::PathBuf};
 
 /// Synthetic catalog and empty project with automatic scratch cleanup.
-struct Fixture {
-    root: PathBuf,
-    catalog: PathBuf,
-    project: PathBuf,
-    areas: BTreeMap<String, String>,
+pub(super) struct Fixture {
+    pub(super) root: PathBuf,
+    pub(super) catalog: PathBuf,
+    pub(super) project: PathBuf,
+    pub(super) areas: BTreeMap<String, String>,
 }
 
 impl Fixture {
-    fn new() -> Self {
+    pub(super) fn new() -> Self {
         let root = scratch_directory().unwrap();
         let catalog = root.join("catalog");
         let project = root.join("project");
@@ -47,16 +46,20 @@ impl Fixture {
         }
     }
 
-    fn edit(&self, path: &str, old: &str, new: &str) {
+    pub(super) fn edit(&self, path: &str, old: &str, new: &str) {
         let path = self.catalog.join(path);
         let text = fs::read_to_string(&path).unwrap();
         assert!(text.contains(old));
         fs::write(path, text.replace(old, new)).unwrap();
     }
 
-    fn refuses(&self, names: &[String], message: &str) {
-        let error =
-            preview(&self.project, &provider(&self.catalog, &self.areas), names).unwrap_err();
+    pub(super) fn refuses(&self, names: &[String], message: &str) {
+        let error = preview(
+            &self.project,
+            &AreaInventories::new(&self.catalog, &self.areas),
+            names,
+        )
+        .unwrap_err();
         assert!(error.contains(message), "{error}");
         assert_eq!(fs::read_dir(&self.project).unwrap().count(), 0);
     }
@@ -68,15 +71,10 @@ impl Drop for Fixture {
     }
 }
 
-/// The explicit selection seam C36 will supply from the checked source closure.
-fn provider<'a>(root: &'a Path, areas: &'a BTreeMap<String, String>) -> AreaInventories<'a> {
-    AreaInventories::new(root, areas)
-}
-
 #[test]
 fn selected_owner_inventory_accepts() {
     let fixture = Fixture::new();
-    let port = provider(&fixture.catalog, &fixture.areas);
+    let port = AreaInventories::new(&fixture.catalog, &fixture.areas);
     for names in [vec!["base".into()], vec!["base".into(), "rust".into()]] {
         let resolved = port.resolve(&names).unwrap();
         let files: Vec<_> = resolved
@@ -123,7 +121,7 @@ fn selected_owner_inventory_accepts() {
 fn unselected_inventory_refuses() {
     let mut fixture = Fixture::new();
     assert!(
-        provider(&fixture.catalog, &fixture.areas)
+        AreaInventories::new(&fixture.catalog, &fixture.areas)
             .resolve(&["rust".into()])
             .is_ok()
     );
@@ -138,7 +136,7 @@ fn unselected_inventory_refuses() {
     .unwrap();
     fixture.refuses(&["rust".into()], "unselected area: rust");
     assert!(
-        provider(&fixture.catalog, &fixture.areas)
+        AreaInventories::new(&fixture.catalog, &fixture.areas)
             .resolve(&["base".into()])
             .is_ok()
     );
@@ -148,7 +146,7 @@ fn unselected_inventory_refuses() {
 fn unknown_inventory_refuses() {
     let fixture = Fixture::new();
     assert!(
-        provider(&fixture.catalog, &fixture.areas)
+        AreaInventories::new(&fixture.catalog, &fixture.areas)
             .resolve(&["base".into()])
             .is_ok()
     );
@@ -167,7 +165,7 @@ fn inventory_escape_refuses() {
         ] {
             let fixture = Fixture::new();
             assert!(
-                provider(&fixture.catalog, &fixture.areas)
+                AreaInventories::new(&fixture.catalog, &fixture.areas)
                     .resolve(&["base".into()])
                     .is_ok()
             );
@@ -190,7 +188,7 @@ fn inventory_escape_refuses() {
 fn identical_output_collision_refuses() {
     let fixture = Fixture::new();
     assert!(
-        provider(&fixture.catalog, &fixture.areas)
+        AreaInventories::new(&fixture.catalog, &fixture.areas)
             .resolve(&["rust".into()])
             .is_ok()
     );
@@ -233,7 +231,7 @@ fn changed_inventory_input_requires_fresh_preview() {
         "bootstrap/base/files/instructions.md",
     ] {
         let fixture = Fixture::new();
-        let port = provider(&fixture.catalog, &fixture.areas);
+        let port = AreaInventories::new(&fixture.catalog, &fixture.areas);
         let proposal = preview(&fixture.project, &port, &["base".into()]).unwrap();
         let original = fs::read(fixture.catalog.join(path)).unwrap();
         let mut changed = original.clone();
@@ -284,7 +282,7 @@ fn inventory_digest_name_tools_and_strict_fields_refuse() {
     ] {
         let fixture = Fixture::new();
         assert!(
-            provider(&fixture.catalog, &fixture.areas)
+            AreaInventories::new(&fixture.catalog, &fixture.areas)
                 .resolve(&["base".into()])
                 .is_ok()
         );
@@ -356,7 +354,7 @@ fn inventory_aggregate_bounds_have_passing_neighbours() {
         ..Limits::PRODUCTION
     };
     assert!(
-        provider(&fixture.catalog, &fixture.areas)
+        AreaInventories::new(&fixture.catalog, &fixture.areas)
             .with_limits(limits)
             .resolve(&["base".into()])
             .is_ok()
@@ -377,7 +375,7 @@ fn inventory_aggregate_bounds_have_passing_neighbours() {
             "source bytes exceed limit",
         ),
     ] {
-        let error = provider(&fixture.catalog, &fixture.areas)
+        let error = AreaInventories::new(&fixture.catalog, &fixture.areas)
             .with_limits(limits)
             .resolve(&["base".into()])
             .unwrap_err();
@@ -427,7 +425,7 @@ fn owner_inventory_paths_and_requirements_are_data() {
     fixture.edit("presets/rust.toml", "rust/starter", "python/starter");
     let proposal = preview(
         &fixture.project,
-        &provider(&fixture.catalog, &fixture.areas),
+        &AreaInventories::new(&fixture.catalog, &fixture.areas),
         &["rust".into()],
     )
     .unwrap();
@@ -488,7 +486,7 @@ fn inventory_file_byte_bound_refuses_one_past() {
     )
     .unwrap();
     assert!(
-        provider(&fixture.catalog, &fixture.areas)
+        AreaInventories::new(&fixture.catalog, &fixture.areas)
             .resolve(&["base".into()])
             .is_ok()
     );
