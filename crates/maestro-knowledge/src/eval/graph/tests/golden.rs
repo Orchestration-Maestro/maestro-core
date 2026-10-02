@@ -1,6 +1,6 @@
 //! Golden support and refusal gates never substitute retrieval credit.
-use super::gates_support::{failed, passing};
-use crate::eval::graph::{AnswerOutcome, Gate};
+use super::gates_support::{failed, golden_suite, passing, retrieval_suite};
+use crate::eval::graph::{AnswerOutcome, Gate, judge_runs};
 
 #[test]
 fn golden_84_support_and_16_refusal_fail_separately_for_both_rungs() {
@@ -32,6 +32,38 @@ fn golden_84_support_and_16_refusal_fail_separately_for_both_rungs() {
     run.pairing.golden_answers[0].outcome = AnswerOutcome::Refused;
     run.pairing.golden_answers[84].outcome = AnswerOutcome::Supported;
     assert_eq!(failed(run), vec![Gate::GoldenSupport, Gate::GoldenRefusal]);
+}
+
+#[test]
+fn golden_repeats_cannot_compensate_for_one_regression() {
+    for graph_only in [false, true] {
+        for (index, credit, gate) in [
+            (0, AnswerOutcome::Supported, Gate::GoldenSupport),
+            (99, AnswerOutcome::Refused, Gate::GoldenRefusal),
+        ] {
+            let mut runs = [passing(1), passing(2), passing(3)];
+            for run in &mut runs {
+                run.passage_only.golden_answers[index].outcome = AnswerOutcome::Failed;
+            }
+            runs[1].passage_only.golden_answers[index].outcome = credit;
+            let rung = if graph_only {
+                &mut runs[1].graph_only
+            } else {
+                &mut runs[1].pairing
+            };
+            rung.golden_answers[index].outcome = AnswerOutcome::Failed;
+            let verdict = judge_runs(
+                &runs,
+                &retrieval_suite(200),
+                &retrieval_suite(50),
+                &golden_suite(),
+            );
+            assert!(verdict.requests.passed);
+            assert!(verdict.runs[0].passed && verdict.runs[2].passed);
+            assert_eq!(verdict.runs[1].failed_gates(), vec![gate]);
+            assert!(!verdict.passed);
+        }
+    }
 }
 
 #[test]

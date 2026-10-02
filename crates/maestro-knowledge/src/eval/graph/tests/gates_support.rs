@@ -107,10 +107,18 @@ pub(super) fn passing(run: u32) -> RunEvidence {
     }
     latency.extend(warm(Operation::Search, Duration::from_millis(2_000)));
     latency.extend(warm(Operation::Ask, Duration::from_secs(9)));
+    let mut graph_only = rung(run, GraphRoute::Enabled, 40);
+    graph_only.definition.configuration = SearchConfiguration {
+        dense_enabled: false,
+        lexical_enabled: false,
+        identifier_enabled: false,
+        structured_enabled: false,
+        ..SearchConfiguration::default()
+    };
     RunEvidence {
         run,
         passage_only: rung(run, GraphRoute::None, 40),
-        graph_only: rung(run, GraphRoute::Enabled, 40),
+        graph_only,
         pairing: rung(run, GraphRoute::Enabled, 50),
         construction: score_construction(&reviews, &[], &[]).unwrap(),
         inexact_commands: 0,

@@ -111,7 +111,7 @@ fn present_citations_do_not_prove_supported_conclusions() {
     };
     let score = score_graph(&[item()], &[row]).unwrap();
     assert_eq!(score.conclusions.citation_presence, ratio(3, 4, 0));
-    assert_eq!(score.conclusions.citation_support, ratio(2, 4, 0));
+    assert_eq!(score.conclusions.citation_support, ratio(1, 4, 0));
     assert_eq!(score.conclusions.unsupported, ratio(3, 4, 0));
 }
 
@@ -170,4 +170,37 @@ fn inconsistent_later_proofs_and_invalid_observation_ids_refuse_safely() {
     let error = score_graph(&[item()], &[row]).unwrap_err();
     assert_eq!(error.code, "graph_observation_unsafe_id");
     assert!(error.item.is_none());
+}
+
+#[test]
+fn invalid_content_has_no_citation_support_credit() {
+    let row = ProofObservation {
+        id: "q-1".to_owned(),
+        stages: [None, None, None, Some(vec![anchor(0), anchor(10)])],
+        conclusions: Some(vec![ConclusionObservation {
+            citations: vec![anchor(0), anchor(10)],
+            supported: false,
+        }]),
+    };
+    let score = score_graph(&[item()], &[row]).unwrap();
+    assert_eq!(score.conclusions.citation_support, ratio(0, 1, 0));
+    assert_eq!(score.conclusions.unsupported, ratio(1, 1, 0));
+}
+
+#[test]
+fn unanswerable_conclusions_are_still_observed() {
+    let mut label = item();
+    label.kind = QuestionKind::Unanswerable;
+    label.proofs.clear();
+    let row = ProofObservation {
+        id: label.id.clone(),
+        stages: [None, None, None, Some(vec![])],
+        conclusions: Some(vec![ConclusionObservation {
+            citations: vec![anchor(0)],
+            supported: false,
+        }]),
+    };
+    let score = score_graph(&[label], &[row]).unwrap();
+    assert_eq!(score.conclusions.citation_presence, ratio(1, 1, 0));
+    assert_eq!(score.conclusions.unsupported, ratio(1, 1, 0));
 }

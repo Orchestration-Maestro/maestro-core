@@ -67,6 +67,13 @@ fn pairing_is_compared_with_passage_only_of_the_same_run() {
 }
 
 #[test]
+fn graph_only_must_belong_to_the_same_run() {
+    let mut evidence = passing(1);
+    evidence.graph_only.run = 2;
+    assert_eq!(failed(evidence), vec![Gate::SameRunComparator]);
+}
+
+#[test]
 fn passage_only_is_s1_defaults_with_graph_none_and_the_same_reranker() {
     let mut graph = passing(1);
     graph.passage_only.definition.graph = GraphRoute::Enabled;
@@ -303,4 +310,30 @@ fn each_graph_tool_requires_its_own_passing_warm_population() {
             .retain(|sample| sample.operation != operation);
         assert_eq!(failed(evidence), vec![Gate::Latency]);
     }
+}
+
+#[test]
+fn graph_only_cannot_have_graph_none() {
+    let mut evidence = passing(1);
+    evidence.graph_only.definition.graph = GraphRoute::None;
+    assert_eq!(failed(evidence), vec![Gate::PassageDefinition]);
+}
+
+#[test]
+fn graph_only_disables_every_passage_route_and_keeps_the_frozen_reranker() {
+    for switch in 0..5 {
+        let mut evidence = passing(1);
+        let configuration = &mut evidence.graph_only.definition.configuration;
+        match switch {
+            0 => configuration.dense_enabled = true,
+            1 => configuration.lexical_enabled = true,
+            2 => configuration.identifier_enabled = true,
+            3 => configuration.structured_enabled = true,
+            _ => configuration.rerank_enabled = false,
+        }
+        assert_eq!(failed(evidence), vec![Gate::PassageDefinition]);
+    }
+    let mut evidence = passing(1);
+    evidence.graph_only.definition.reranker = Some(Digest::of(b"another"));
+    assert_eq!(failed(evidence), vec![Gate::PassageDefinition]);
 }

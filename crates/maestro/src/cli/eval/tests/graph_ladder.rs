@@ -103,7 +103,8 @@ fn graph_eval_private_ladder_counts_unreviewed_unanswerable_and_failed_asks() {
         0,
         &[rung("first"), rung("second")],
         |run| {
-            record_counts(&mut counts, run, &labels)?;
+            let score = score_run(run, &labels)?;
+            record_counts(&mut counts, run, &labels, &score);
             Ok(())
         },
     )

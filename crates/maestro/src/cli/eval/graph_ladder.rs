@@ -59,7 +59,7 @@ fn execute(manifest: &Manifest, inputs: &Inputs) -> Result<Counts, Failure> {
             let report = RungReport::new(run, &manifest.collection, &inputs.suite.digest, binary);
             write_rung(&manifest.output, run, &report)?;
             let score = score_run(run, &labels)?;
-            record_counts(&mut counts, run, &labels)?;
+            record_counts(&mut counts, run, &labels, &score);
             let receipt = json!({"schema":"maestro-graph-proof-score/1", "rung":run.rung.name,
             "labels_digest":inputs.digest.as_str(), "suite_digest":inputs.suite.digest.as_str(),
             "complete":score.final_wire.complete,"of":score.final_wire.of,
@@ -121,8 +121,8 @@ pub(super) fn record_counts(
     counts: &mut Counts,
     run: &RungRun,
     labels: &CheckedLabels,
-) -> Result<(), Failure> {
-    let score = score_run(run, labels)?;
+    score: &GraphScore,
+) {
     counts.items += run.rows.len();
     counts.unreviewed += labels.summary.unreviewed;
     counts.unanswerable += labels.summary.unanswerable;
@@ -138,5 +138,4 @@ pub(super) fn record_counts(
                 || matches!(row.ask.outcome, AskOutcome::Failed | AskOutcome::TimedOut)
         })
         .count();
-    Ok(())
 }

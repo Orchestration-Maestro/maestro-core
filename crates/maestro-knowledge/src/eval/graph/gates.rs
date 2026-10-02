@@ -134,7 +134,7 @@ pub enum Gate {
     ProofGain,
     /// Not the same run comparator.
     SameRunComparator,
-    /// Frozen passage/pairing definitions differ.
+    /// Frozen passage-only, graph-only or pairing definition is invalid.
     PassageDefinition,
     /// Construction precision failed.
     RelationPrecision,
@@ -216,8 +216,7 @@ pub fn judge_runs(
     let mut requests = request_completeness(graph_suite, golden_suite, &arms);
     requests.required = 2_880;
     requests.passed &= requests.observed == 2_880 && unique;
-    let passed =
-        requests.passed && runs.len() == 3 && unique && runs.iter().all(|result| result.passed);
+    let passed = requests.passed && runs.iter().all(|result| result.passed);
     RunsVerdict {
         runs,
         requests,
@@ -245,7 +244,16 @@ fn judge_run(
     }
     let defaults = SearchConfiguration::default();
     let baseline = &evidence.passage_only.definition;
-    if baseline.graph != GraphRoute::None
+    let graph_only = &evidence.graph_only.definition;
+    let graph_configuration = graph_only.configuration;
+    if graph_only.graph != GraphRoute::Enabled
+        || graph_configuration.dense_enabled
+        || graph_configuration.lexical_enabled
+        || graph_configuration.identifier_enabled
+        || graph_configuration.structured_enabled
+        || graph_configuration.rerank_enabled != defaults.rerank_enabled
+        || graph_only.reranker != baseline.reranker
+        || baseline.graph != GraphRoute::None
         || baseline.configuration != defaults
         || baseline.reranker != evidence.pairing.definition.reranker
         || evidence.pairing.definition.configuration != defaults

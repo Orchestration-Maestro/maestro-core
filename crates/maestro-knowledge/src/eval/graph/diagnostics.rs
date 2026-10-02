@@ -57,11 +57,11 @@ pub struct ProofStageScore {
 pub struct ConclusionScore {
     /// Conclusions with any citation over observed conclusions.
     pub citation_presence: DiagnosticRatio,
-    /// Conclusions with one complete proof both cited and delivered.
+    /// Content-validated conclusions with one complete proof both cited and delivered.
     pub citation_support: DiagnosticRatio,
     /// Conclusions lacking validated content and a complete cited/delivered proof.
     pub unsupported: DiagnosticRatio,
-    /// Answerable items with no conclusion observation; their conclusion count is unknown.
+    /// Items with no conclusion observation; their conclusion count is unknown.
     pub unobserved_items: usize,
 }
 
@@ -107,18 +107,17 @@ pub fn score_graph(
         conclusions: ConclusionScore::default(),
         final_wire: score_proofs(items, &delivered),
     };
-    for item in items
-        .iter()
-        .filter(|item| item.kind != QuestionKind::Unanswerable)
-    {
+    for item in items {
         let observation = by_id.get(item.id.as_str()).copied();
-        let stages = from_fn::<_, 4, _>(|index| {
-            observation
-                .and_then(|row| row.stages.get(index).and_then(Option::as_ref))
-                .map(|anchors| proof_complete(&item.proofs, anchors))
-        });
-        validate_stages(item, stages)?;
-        include_stages(&mut score.stages, stages);
+        if item.kind != QuestionKind::Unanswerable {
+            let stages = from_fn::<_, 4, _>(|index| {
+                observation
+                    .and_then(|row| row.stages.get(index).and_then(Option::as_ref))
+                    .map(|anchors| proof_complete(&item.proofs, anchors))
+            });
+            validate_stages(item, stages)?;
+            include_stages(&mut score.stages, stages);
+        }
         include_conclusions(&mut score.conclusions, item, observation);
     }
     Ok(score)
@@ -218,7 +217,7 @@ fn include_conclusions(
                 && proof_complete(from_ref(proof), wire)
         });
         score.citation_support.of += 1;
-        score.citation_support.count += usize::from(cited_proof);
+        score.citation_support.count += usize::from(cited_proof && conclusion.supported);
         score.unsupported.of += 1;
         score.unsupported.count += usize::from(!(cited_proof && conclusion.supported));
     }
