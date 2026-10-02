@@ -6,7 +6,7 @@ repository; this page is the working summary.
 
 | Command | When |
 | --- | --- |
-| `rust-gate setup` | Once per clone: the pinned toolbelt and the commit hooks ([README](README.md#develop)) |
+| `rust-gate setup` | Once per clone: the pinned toolbelt and the commit hooks ([README](README.md#-develop)) |
 | `just check` | Full local CI check for the normal workflow; active slice branches follow the [S1 integration workflow](specs/001-knowledge-kernel/tasks.md#current-s1-integration-workflow) |
 | `just native` | After touching the tokenizer; needs `MAESTRO_NATIVE_BINDING` |
 | `just mutants` | Full-workspace mutations; defaults to four jobs. Use `just mutants 1` on memory-constrained machines. Follow the active slice for diff-scoped mutation runs. |
