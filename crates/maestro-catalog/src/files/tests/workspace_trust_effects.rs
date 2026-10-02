@@ -116,7 +116,6 @@ fn nonempty_directory_rollback_refuses_and_retains_other_process_bytes() {
     );
 }
 
-#[cfg(unix)]
 #[test]
 fn directory_rollback_restores_a_replacement_instead_of_deleting_it() {
     let fixture = Fixture::new();
