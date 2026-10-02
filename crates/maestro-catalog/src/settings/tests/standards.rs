@@ -126,6 +126,15 @@ fn descriptor_classes_drive_standard_list_intersection_and_accumulation() {
             .value(),
         &Value::List(vec!["changelog".to_owned()])
     );
+    assert_eq!(
+        resolved
+            .get("search.section_prior.classes")
+            .unwrap()
+            .as_ref()
+            .unwrap()
+            .source(),
+        "standard"
+    );
     descriptors
         .iter_mut()
         .find(|descriptor| descriptor.key == "search.section_prior.classes")
@@ -146,6 +155,15 @@ fn descriptor_classes_drive_standard_list_intersection_and_accumulation() {
             "release_notes".to_owned(),
             "conversion".to_owned(),
         ])
+    );
+    assert_eq!(
+        resolved
+            .get("search.section_prior.classes")
+            .unwrap()
+            .as_ref()
+            .unwrap()
+            .source(),
+        "standard"
     );
 }
 
