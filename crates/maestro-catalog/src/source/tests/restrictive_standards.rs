@@ -146,6 +146,41 @@ fn exception() -> &'static str {
 }
 
 #[test]
+fn invalid_defaults_preserve_unreadable_diagnostics() {
+    let tree = MemoryTree::valid()
+        .with(
+            "settings/defaults.toml",
+            "schema = \"maestro-preferences/1\"\nlanguage = \"en-US-extra\"\n",
+        )
+        .with_unreadable("core/agents/valid.maestro.toml");
+    let refusal = checked(&tree).unwrap_err();
+    let diagnostics = refusal.to_string();
+    assert!(diagnostics.contains("settings/defaults.toml: language:"));
+    assert!(diagnostics.contains("core/agents/valid.maestro.toml: cannot read"));
+    assert!(refusal.unreadable());
+}
+
+#[test]
+fn manifest_defaults_reach_production_standards() {
+    let base = consumer(
+        tree("[settings]\n\"test.check\" = false"),
+        "core/package.toml",
+        "[settings]\n\"test.check\" = false",
+    );
+    assert!(checked(&base).is_ok(), "{:?}", checked(&base));
+    let with_defaults = base.with(
+        "settings/defaults.toml",
+        "schema = \"maestro-preferences/1\"\n\"test.check\" = true\n",
+    );
+    assert!(
+        checked(&with_defaults)
+            .unwrap_err()
+            .to_string()
+            .contains("widens standard")
+    );
+}
+
+#[test]
 fn standard_constraints_only_narrow() {
     let base = tree(
         "[settings]\n\"test.ceiling\" = 50\n\"test.permission\" = false\n\
