@@ -92,7 +92,7 @@ included in its estimate; waiting for models/approvals is not disguised as work.
 
 Land decided amendments and measured adoption decisions; no code before N01.
 
-- [ ] N01 Land the four architecture amendments and row ownership in `docs/architecture/{01-knowledge-pipeline.md,06-roadmap.md,08-traceability.md}` (3 h).
+- [x] N01 Land the four architecture amendments and row ownership in `docs/architecture/{01-knowledge-pipeline.md,06-roadmap.md,08-traceability.md}` (3 h).
 
 ### N01 — Land the four architecture amendments and row ownership
 
@@ -106,7 +106,7 @@ Land decided amendments and measured adoption decisions; no code before N01.
 2. **Green:** Apply the four decided amendments and reconcile all 08 keys listed in plan Phase 1; also update 01 §2.2.2 and 06/08's native-cutover wording for the 2026-09-30 crawl4ai-only browser exception instead of Spider/chromey. N02 records its ADR-0020 artifacts/role. Leave the private-network prohibition for the separate approved N48 amendment and exact-origin grants. Record enforcing N-task owners, not completion claims.
 3. **Check and commit:** Run the documented fixture/probe command, recording the exact invocation and output; for Markdown run `rumdl check --disable MD013,MD041 specs/006-native-acquisition` plus normal hooks. All four amendments land before code; all 62 FRs/15 SCs retain owners; no S3/S4 delivery prerequisite or unapproved private-network permission remains in S6 wording. Run the applicable global gates, retain evidence and make one signed commit.
 
-- [ ] N02 Measure dependencies and record the crawl4ai exception in `docs/adr/0020-rust-libraries-with-named-dependency-exceptions.md` (6 h).
+- [x] N02 Measure dependencies and record the crawl4ai exception in `docs/adr/0020-rust-libraries-with-named-dependency-exceptions.md` (6 h).
 
 ### N02 — Measure dependencies and record the crawl4ai exception
 
@@ -124,7 +124,7 @@ Land decided amendments and measured adoption decisions; no code before N01.
 
 Strict configuration, kernel authority/frontier and protected receipts block every story.
 
-- [ ] N03 Implement strict source policy and local baseline resolution in `crates/maestro-acquisition/{Cargo.toml,src/lib.rs,src/ports.rs,src/policy/schema.rs,src/policy/resolve.rs}` (6 h).
+- [x] N03 Implement strict source policy and local baseline resolution in `crates/maestro-acquisition/{Cargo.toml,src/lib.rs,src/ports.rs,src/policy/schema.rs,src/policy/resolve.rs}` (6 h).
 
 ### N03 — Implement strict source policy and local baseline resolution
 
@@ -140,7 +140,7 @@ Strict configuration, kernel authority/frontier and protected receipts block eve
 2. **Green:** Create the first working crate with typed v1 schemas from plan, including Source.acquisition_profile, maestro-acquisition-profile/1 and bounded Readiness/ReadyCondition, collection-link version compatibility and PolicySource direct-file adapter. Resolve exact acquisition/extraction refs and immutable local or synthetic catalog baselines through one validator; no connector activation or hidden default transport.
 3. **Check and commit:** Run `capped cargo test -p maestro-acquisition --locked n03_ -- --nocapture`. Strict schema round trips are deterministic; old S1 collection declarations still import but cannot acquire; registry evidence binds exact immutable digests. Run the applicable global gates, retain evidence and make one signed commit.
 
-- [ ] N04 Persist frontier leases and fenced submissions in `crates/maestro-kernel/src/acquisition/{mod.rs,frontier.rs,lease.rs}` (6 h).
+- [x] N04 Persist frontier leases and fenced submissions in `crates/maestro-kernel/src/acquisition/{mod.rs,frontier.rs,lease.rs}` (6 h).
 
 ### N04 — Persist frontier leases and fenced submissions
 
@@ -156,7 +156,7 @@ Strict configuration, kernel authority/frontier and protected receipts block eve
 2. **Green:** Add the next sequential migration, kernel frontier uniqueness and fencing using existing jobs/journal/artifacts. Separate authorization/representation contexts, preserve pending attempts and expose bounded lease/ack calls.
 3. **Check and commit:** Run `capped cargo test -p maestro-kernel --locked n04_ -- --nocapture`. Exactly one source writer and one in-flight equivalent request/context; different contexts never coalesce; crash/lease-loss leaves durable resumable work. Run the applicable global gates, retain evidence and make one signed commit.
 
-- [ ] N05 [P] Establish owner-only grants and the read-only authority port in `crates/maestro-acquisition/src/policy/authority.rs` (8 h).
+- [x] N05 [P] Establish owner-only grants and the read-only authority port in `crates/maestro-acquisition/src/policy/authority.rs` (8 h).
 
 ### N05 — Establish owner-only grants and the read-only authority port
 
@@ -172,7 +172,7 @@ Strict configuration, kernel authority/frontier and protected receipts block eve
 2. **Green:** Provide separately protected authority-store writer and platform-authenticated local IPC, plus read-only decisions for acquisition. Setup verifies real identity separation; no same-user writable-store fallback. Expiry/revocation closes future dispatch.
 3. **Check and commit:** Run `capped cargo test -p maestro --locked n05_ -- --nocapture`. Actual unprivileged principals cannot mutate grants on qualified hosts; absent authenticated separation blocks live grants, never simulates a pass. Run the applicable global gates, retain evidence and make one signed commit.
 
-- [ ] N06 [P] Store scoped receipts and content-free progress events in `crates/maestro-kernel/src/acquisition/{receipt.rs,privacy.rs}` (4 h).
+- [x] N06 [P] Store scoped receipts and content-free progress events in `crates/maestro-kernel/src/acquisition/{receipt.rs,privacy.rs}` (4 h).
 
 ### N06 — Store scoped receipts and content-free progress events
 
@@ -194,7 +194,7 @@ The authorized kernel view lands here; N14 registers the CLI inspect binding onc
 
 Independent test: public allowed/denied/robots/redirect/attachment fixture completes manual capture with S3/S4 absent; denied destinations see zero effects.
 
-- [ ] N07 [P] [US1] Parse URL identity and denial precedence in `crates/maestro-acquisition/src/policy/{identity.rs,decision.rs}` (4 h).
+- [x] N07 [P] [US1] Parse URL identity and denial precedence in `crates/maestro-acquisition/src/policy/{identity.rs,decision.rs}` (4 h).
 
 ### N07 — Parse URL identity and denial precedence
 
@@ -210,7 +210,7 @@ Independent test: public allowed/denied/robots/redirect/attachment fixture compl
 2. **Green:** Produce typed fetch identity separately from display/signed-transfer references; enforce caller then network/robots denial then promotion then cache-bypass order. Persist versioned old/new identity mappings, never silent normalization.
 3. **Check and commit:** Run `capped cargo test -p maestro-acquisition --locked n07_ -- --nocapture`. Every denied path produces zero requests; unknown semantics refuse rather than merge; promotions and cache bypass cannot override denial. Run the applicable global gates, retain evidence and make one signed commit.
 
-- [ ] N08 [US1] Classify and pin every destination address in `crates/maestro-acquisition/src/transport/{address.rs,connect.rs}` (6 h).
+- [x] N08 [US1] Classify and pin every destination address in `crates/maestro-acquisition/src/transport/{address.rs,connect.rs}` (6 h).
 
 ### N08 — Classify and pin every destination address
 
@@ -226,7 +226,7 @@ Independent test: public allowed/denied/robots/redirect/attachment fixture compl
 2. **Green:** Use reviewed digest-pinned address data plus multicast/metadata/reserved rules. Admit each resolved candidate and connect only to the selected checked address with hostname TLS validation; disable ambient proxy/second DNS and strip origin-bound credentials on origin change.
 3. **Check and commit:** Run `capped cargo test -p maestro-acquisition --locked n08_ -- --nocapture`. All denied destinations see zero network effects; permitted adjacent public destinations work. Private unicast remains denied until N48 and grant approval. Run the applicable global gates, retain evidence and make one signed commit.
 
-- [ ] N09 [US1] Implement bounded admitted HTTP transport in `crates/maestro-acquisition/src/transport/{http.rs,stream.rs}` (6 h).
+- [x] N09 [US1] Implement bounded admitted HTTP transport in `crates/maestro-acquisition/src/transport/{http.rs,stream.rs}` (6 h).
 
 ### N09 — Implement bounded admitted HTTP transport
 
@@ -242,7 +242,7 @@ Independent test: public allowed/denied/robots/redirect/attachment fixture compl
 2. **Green:** Reuse reqwest with manually admitted redirects and checked-address connection; stream bytes with cumulative decode budgets before allocation. Return typed content/auth/challenge/partial failures, cancel owned work and recheck current authority per dispatch.
 3. **Check and commit:** Run `capped cargo test -p maestro-acquisition --locked n09_ -- --nocapture`. No raw or compressed body exceeds its budget; HTTP decoding participates in cumulative accounting; timeout never falsely marks underlying work stopped. Run the applicable global gates, retain evidence and make one signed commit.
 
-- [ ] N10 [P] [US1] Conform robots and aggregate origin pacing in `crates/maestro-acquisition/src/transport/{robots.rs,pacing.rs}` (4 h).
+- [x] N10 [P] [US1] Conform robots and aggregate origin pacing in `crates/maestro-acquisition/src/transport/{robots.rs,pacing.rs}` (4 h).
 
 ### N10 — Conform robots and aggregate origin pacing
 
@@ -258,7 +258,7 @@ Independent test: public allowed/denied/robots/redirect/attachment fixture compl
 2. **Green:** Integrate the approved minimal parser behind the existing policy contract; one origin permit ledger spans all transports. Compose ceilings with min and interval/server-delay floors with max. Enforce robots before request, finite retries and pacing; if required delay exceeds backoff/elapsed ceiling, leave work pending rather than shorten it.
 3. **Check and commit:** Run `capped cargo test -p maestro-acquisition --locked n10_ -- --nocapture`. No ignore-all switch, override inference or origin overshoot; robots override requires OA4b receipt, inaccessible rules fail closed. Run the applicable global gates, retain evidence and make one signed commit.
 
-- [ ] N11 [P] [US1] Account aggregate resources and interactive priority in `crates/maestro-acquisition/src/transport/budget.rs` (6 h).
+- [x] N11 [P] [US1] Account aggregate resources and interactive priority in `crates/maestro-acquisition/src/transport/budget.rs` (6 h).
 
 ### N11 — Account aggregate resources and interactive priority
 
@@ -274,7 +274,7 @@ Independent test: public allowed/denied/robots/redirect/attachment fixture compl
 2. **Green:** Implement the plan's field-kind table: min for every ceiling, max for each at-least floor, no absent/unbounded defaults. Shared/per-run reservations track actual usage and checkpoint/pause before effective reserve floors are crossed. GPU headroom subtracts its max-composed reserve, clamps at zero and then applies its min-composed ceiling; never evict interactive models. Incompatible or unenforceable bounds hold; cancellation releases owned reservations.
 3. **Check and commit:** Run `capped cargo test -p maestro-acquisition --locked n11_ -- --nocapture`. Combined usage cannot exceed approved limits; reserved free space is maintained; pending work exposes budget reason and interactive floors are measured later in N40. Run the applicable global gates, retain evidence and make one signed commit.
 
-- [ ] N12 [US1] Commit immutable captures and reconciled run outcomes in `crates/maestro-acquisition/src/capture/{envelope.rs,commit.rs}` (6 h).
+- [x] N12 [US1] Commit immutable captures and reconciled run outcomes in `crates/maestro-acquisition/src/capture/{envelope.rs,commit.rs}` (6 h).
 
 ### N12 — Commit immutable captures and reconciled run outcomes
 
@@ -290,7 +290,7 @@ Independent test: public allowed/denied/robots/redirect/attachment fixture compl
 2. **Green:** Validate lease/staging handle and envelope, atomically retain scoped immutable capture linkage, acknowledge only verified content and reuse digest-identical captures. Count distinct items per stage separately from attempts; incomplete/blocked/failed returns non-success.
 3. **Check and commit:** Run `capped cargo test -p maestro-acquisition --locked n12_ -- --nocapture`. Replay creates no duplicate accepted occurrence; every item has capture or reason; provenance representation labels and safe header allow-list are exact. Run the applicable global gates, retain evidence and make one signed commit.
 
-- [ ] N13 [US1] Durably enumerate public links and bounded partitions in `crates/maestro-acquisition/src/discovery/{links.rs,partition.rs}` (6 h).
+- [x] N13 [US1] Durably enumerate public links and bounded partitions in `crates/maestro-acquisition/src/discovery/{links.rs,partition.rs}` (6 h).
 
 ### N13 — Durably enumerate public links and bounded partitions
 
@@ -306,7 +306,7 @@ Independent test: public allowed/denied/robots/redirect/attachment fixture compl
 2. **Green:** Use the owner-approved `dom_query` 0.28.0 link reader over N09/N12's verified captured bytes as a bounded leased adapter, never an independent network route or authoritative queue. Keep selectors as data, include hidden anchors and declared resource attributes, honour HTML base URLs, and record the selector-list digest in the extractor contract. Durably enqueue every eligible link before acknowledging discovery, retain revision/validator/permission/link/representation keys and complete partition evidence. Keep pending checkpoint distinct from accepted snapshot; advance watermarks only for committed complete windows.
 3. **Check and commit:** Run `capped cargo test -p maestro-acquisition --locked n13_ -- --nocapture`. R1/R2/R4/R6 are reproduced then fixed; no text-only shortcut, keyword-search enumeration or false complete watermark. Run the applicable global gates, retain evidence and make one signed commit.
 
-- [ ] N14 [US1] Expose public preview and manual sync MVP in `crates/maestro/src/acquisition/{mod.rs,command.rs,output.rs}` (6 h).
+- [x] N14 [US1] Expose public preview and manual sync MVP in `crates/maestro/src/acquisition/{mod.rs,command.rs,output.rs}` (6 h).
 
 ### N14 — Expose public preview and manual sync MVP
 
@@ -328,7 +328,7 @@ Machine-local `maestro-acquisition-bindings/1` supplies separate strict direct-f
 
 Independent test: every required media cohort has exact source-backed fidelity/hold evidence; mapped accepted content traverses unchanged S1 preparation/publication contracts.
 
-- [ ] N15 [P] [US2] Route content through one extensible profile registry in `crates/maestro-acquisition/src/extraction/{registry.rs,detect.rs}` (6 h).
+- [x] N15 [P] [US2] Route content through one extensible profile registry in `crates/maestro-acquisition/src/extraction/{registry.rs,detect.rs}` (6 h).
 
 ### N15 — Route content through one extensible profile registry
 
@@ -348,7 +348,7 @@ Independent test: every required media cohort has exact source-backed fidelity/h
 2. **Green:** Implement ProfileRegistry.resolve/select as defined in plan, over N03's existing `ResourceSource`, with immutable checked handles and deterministic bounded detector/structure evidence. Inject local/test-only substitute/disabled adapters without consumer edits; core verifies returned refs/protected fields. Retain safe bounded partial text/metadata/assets under an explicit unknown outcome, never arbitrary trusted fallback or side effects during selection. N56 later supplies real catalog resources through the same port, not a new registry implementation.
 3. **Check and commit:** Run `capped cargo test -p maestro-acquisition --locked n15_ -- --nocapture`. Local and substitute adapters have identical checked outcomes; disabled fails closed. All media, including images/audio/video, get accountable outcomes when enabled; missing gold or capabilities cannot make a profile qualified. Run the applicable global gates, retain evidence and make one signed commit.
 
-- [ ] N16 [US2] Define extraction, fidelity and cumulative decode contracts in `crates/maestro-acquisition/src/extraction/{contract.rs,fidelity.rs,decode.rs}` (6 h).
+- [x] N16 [US2] Define extraction, fidelity and cumulative decode contracts in `crates/maestro-acquisition/src/extraction/{contract.rs,fidelity.rs,decode.rs}` (6 h).
 
 ### N16 — Define extraction, fidelity and cumulative decode contracts
 
@@ -506,7 +506,7 @@ Independent test: every required media cohort has exact source-backed fidelity/h
 2. **Green:** Separate stable asset identity from protected transient transfer URL; stream/verify before atomic promotion, re-mint only same representation. Inspect selected archive members under shared cumulative budgets with parent/member provenance and no execution; installers remain asset-only without separate ingress.
 3. **Check and commit:** Run `capped cargo test -p maestro-acquisition --locked n25_ -- --nocapture`. No append across representations, corrupt accepted assets, unauthorized member extraction or partial promotion after limit breach. Run the applicable global gates, retain evidence and make one signed commit.
 
-- [ ] N26 [P] [US2] Factor S1 mapped ingestion without changing corpus/1 in `crates/maestro-knowledge/src/import/{entry.rs,ingest.rs,mod.rs}` (6 h).
+- [x] N26 [P] [US2] Factor S1 mapped ingestion without changing corpus/1 in `crates/maestro-knowledge/src/import/{entry.rs,ingest.rs,mod.rs}` (6 h).
 
 ### N26 — Factor S1 mapped ingestion without changing corpus/1
 
@@ -558,7 +558,7 @@ Independent test: every required media cohort has exact source-backed fidelity/h
 
 Independent test: two unrelated synthetic sources yield complete evidence/unknown proposals; every automatic class and matrix/forbidden-field refusal, conflict and postcheck rollback is exercised.
 
-- [ ] N57 [P] [US3] Define scoped processing artifacts and the effective snapshot reader in `crates/maestro-acquisition/src/adaptation/{artifacts.rs,snapshot.rs}` (8 h).
+- [x] N57 [P] [US3] Define scoped processing artifacts and the effective snapshot reader in `crates/maestro-acquisition/src/adaptation/{artifacts.rs,snapshot.rs}` (8 h).
 
 ### N57 — Define scoped processing artifacts and the effective snapshot reader
 
@@ -594,7 +594,7 @@ Independent test: two unrelated synthetic sources yield complete evidence/unknow
 2. **Green:** Sample through normal access/rate/resource admission; reuse parser/whatlang/S1 grouping signals. Use N57's exact schemas and resolver to persist immutable rule definitions and the candidate ProcessingSnapshot through N30 scoped storage before proposing. Reuse N30 Proposal/Change: set Proposal.candidate to Digest::of(serde_json::to_vec(&snapshot)) and include exactly one candidate handle in Proposal.evidence. Pin baseline, old active and all source/profile/qualification inputs; inference leaves new unapproved definitions held. No ID-only lookup, new store or hand-built effective view. Automatically learn term-alias candidates only from explicit source definitions; store plan's maestro-term-alias-candidate/1 records and append explicit review/reversal evidence through scoped kernel artifacts. Preserve ambiguity and an S2 reviewed ALIAS_OF-compatible identity seam; no graph/permission/identity merge and no hand-written per-product list. Name the approved-record seam for later S1 query expansion but implement no search changes.
 3. **Check and commit:** Run `capped cargo test -p maestro-acquisition --locked n29_ -- --nocapture`. All fields are accounted for; the stored candidate round-trips to N32's same effective view under both serde_json/preserve_order settings, and arbitrary candidate digests cannot reach gates. Aliases have resolvable defining spans, reversible reviewed state and scoped ambiguous neighbours. Candidate inference never counts as approval, a sixth automatic-change class or query expansion. Samples cannot widen scope and private canaries retain transitive tags. Run the applicable global gates, retain evidence and make one signed commit.
 
-- [ ] N30 [P] [US3] Implement proposal and activation manifest write port in `crates/maestro-acquisition/src/adaptation/{manifest.rs,writer.rs}` (6 h).
+- [x] N30 [P] [US3] Implement proposal and activation manifest write port in `crates/maestro-acquisition/src/adaptation/{manifest.rs,writer.rs}` (6 h).
 
 ### N30 — Implement proposal and activation manifest write port
 
@@ -630,7 +630,7 @@ Independent test: two unrelated synthetic sources yield complete evidence/unknow
 2. **Green:** Report pinned same-cohort numerators/denominators/uncertainty; persist completed-run history and collection-wide activation budget. New type flags immediately; non-safety activation waits approved consecutive runs, safety holds immediately.
 3. **Check and commit:** Run `capped cargo test -p maestro-acquisition --locked n31_ -- --nocapture`. No threshold loosening, discarded hard items or restart reset can evade persistence/rate checks. Run the applicable global gates, retain evidence and make one signed commit.
 
-- [ ] N32 [P] [US3] Enforce the closed automatic-change allow-list in `crates/maestro-acquisition/src/adaptation/change.rs` (4 h).
+- [x] N32 [P] [US3] Enforce the closed automatic-change allow-list in `crates/maestro-acquisition/src/adaptation/change.rs` (4 h).
 
 ### N32 — Enforce the closed automatic-change allow-list
 
