@@ -3,6 +3,7 @@
 //! then the checks across resources.
 
 mod area_walk;
+mod backend_extensions;
 mod backends;
 pub(crate) mod bootstrap_inventory;
 mod check;
@@ -32,6 +33,7 @@ mod types;
 mod walk;
 mod yaml;
 
+pub use backend_extensions::BackendExtensions;
 pub use backends::{BACKENDS, BackendDescriptor};
 pub use check::{build, check};
 pub use descriptor::{Field, FieldType, Format, KindDescriptor, Layout, MetadataPlace, Scope};

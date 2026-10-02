@@ -459,3 +459,32 @@ fn retired_area_cannot_enter_a_new_selection() {
         }
     }
 }
+
+#[test]
+fn selected_reverse_dependency_keeps_backend_extension_owner() {
+    use super::backend_extensions::{activation_tree, package};
+    let tree = package(activation_tree(), "alpha", "[\"graphdb\"]").with(
+        "capabilities/team/alpha/backends/graphdb/config.toml",
+        "projections = [\"alpha/overview\"]",
+    );
+    let tree = package(tree, "beta", "[]").edit(
+        "capabilities/team/beta/package.toml",
+        "requires = []",
+        "requires = [\"package:alpha\"]",
+    );
+    let catalog = check_under(&tree, &Limits::PRODUCTION).unwrap();
+    let view = catalog
+        .effective_backend_extensions(&[id("package:beta")], &builtin().unwrap())
+        .unwrap();
+    assert!(view.projections.contains("alpha/overview"));
+    let missing = tree
+        .without("capabilities/team/alpha/package.toml")
+        .without("capabilities/team/alpha/backends/graphdb/config.toml");
+    let error = check_under(&missing, &Limits::PRODUCTION).unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("names package:alpha, which does not exist"),
+        "{error}"
+    );
+}

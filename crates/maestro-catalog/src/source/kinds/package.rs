@@ -1,11 +1,11 @@
 //! Area closure roots; the shared checker enforces dependency layers and
 //! preset membership. Selection admission checks the mandatory root closure.
 
-use crate::source::standards;
+use crate::source::{backend_extensions, standards};
 use crate::source::{
     descriptor::{Field, FieldType, Format, KindDescriptor, Layout, MetadataPlace, Scope},
     rules::KindRules,
-    types::{Known, Maturity, Problems, Resource, Value},
+    types::{Known, Maturity, Problems, Resource, ResourceId, Value},
 };
 use semver::Version;
 use serde::Deserialize;
@@ -14,7 +14,7 @@ use serde::Deserialize;
 pub(super) fn descriptor(kind: &str, scopes: Vec<Scope>) -> KindDescriptor {
     let mut descriptor = KindDescriptor {
         kind: kind.to_owned(),
-        version: 3,
+        version: if kind == "package" { 4 } else { 3 },
         directory: String::new(),
         scopes,
         layout: Layout::Area {
@@ -41,6 +41,12 @@ pub(super) fn descriptor(kind: &str, scopes: Vec<Scope>) -> KindDescriptor {
         required: None,
         hook: Some("area-package".to_owned()),
     };
+    if kind == "package" {
+        descriptor.fields.push(Field::optional(
+            "backend_extensions",
+            FieldType::TextSequence,
+        ));
+    }
     descriptor.fields.extend(standards::fields("area-package"));
     descriptor
 }
@@ -69,6 +75,9 @@ impl KindRules for PackageRules {
         _known: Known<'_>,
         problems: &mut Problems,
     ) {
+        if let Err(message) = backend_extensions::selectors(resource) {
+            problems.push(("backend_extensions".to_owned(), message));
+        }
         if resource.fields.get("kind").and_then(Value::text) != Some(resource.id.kind.as_str()) {
             problems.push((
                 "kind".to_owned(),
@@ -104,5 +113,21 @@ impl KindRules for PackageRules {
                 "must be active, deprecated or retired".to_owned(),
             ));
         }
+    }
+
+    fn assets(&self, resource: &Resource) -> Result<Vec<String>, String> {
+        backend_extensions::assets(resource)
+    }
+
+    fn edges(&self, resource: &Resource) -> Vec<ResourceId> {
+        backend_extensions::selectors(resource)
+            .unwrap_or_default()
+            .into_iter()
+            .map(|role| ResourceId {
+                kind: "backend".to_owned(),
+                namespace: Some("core".to_owned()),
+                name: role,
+            })
+            .collect()
     }
 }

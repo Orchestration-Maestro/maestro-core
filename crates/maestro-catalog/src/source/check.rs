@@ -134,7 +134,15 @@ fn build_snapshot(
                 .map_or(known.settings, |settings| settings),
             ..known
         };
-        diagnostics = across(&loaded, registry, known);
+        if let Err(refusal) = super::backend_extensions::from_snapshot(
+            snapshot,
+            &mut loaded,
+            known.settings.registry(),
+            limits,
+        ) {
+            diagnostics.extend(refusal.diagnostics);
+        }
+        diagnostics.extend(across(&loaded, registry, known));
     }
     if diagnostics.is_empty() {
         let mut resources: Vec<Resource> =

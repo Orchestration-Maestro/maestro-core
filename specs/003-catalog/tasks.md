@@ -2561,10 +2561,10 @@ credentials and endpoints remain outside catalog defaults.
 **Design coverage:** MD03, MD04 (approved design §8.4).
 **Named tests:** `backend_extension_narrows`, `backend_replacement_refuses`, `extension_aggregate_limit_refuses`, `extension_collision_refuses`; required cases, not reported results.
 
-- [ ] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
+- [x] **Step 1: Red.** Add the named passing/refusal neighbours for the acceptance
   below; run the focused fixture/check command and retain the failure.
-- [ ] **Step 2: Green.** Typed role extensions/selectors, owner-scoped bindings and removal checks. Replace/type/endpoint/widening/collision attempts refuse.
-- [ ] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
+- [x] **Step 2: Green.** Typed role extensions/selectors, owner-scoped bindings and removal checks. Replace/type/endpoint/widening/collision attempts refuse.
+- [x] **Step 3: Check.** Run the affected source/bootstrap/CLI test filters through
   capped nextest; MAN uses the pinned `catalog check` and fixture/drift commands.
   Record nonzero test counts, exact exits, applicable lane gates and review.
 

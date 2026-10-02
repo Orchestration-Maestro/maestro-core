@@ -602,6 +602,7 @@ in place.
 │   │   │   │   │   ├── area_packages.rs                                     # C31 scoped builtin placement and kernel-role neighbours
 │   │   │   │   │   ├── area_regressions.rs                                  # Regression neighbours for area-scoped descriptors and shared package rules
 │   │   │   │   │   ├── area_support.rs                                      # Data-only v4 fixtures; builtin migration belongs to C31/C32
+│   │   │   │   │   ├── backend_extensions.rs                                # Add-or-narrow declarations use the real bounded checker, never a store
 │   │   │   │   │   ├── backends.rs                                          # Strict core backend declarations and build-aware activation refusals
 │   │   │   │   │   ├── bounds.rs                                            # D2's source limits at small injected values: each exact boundary passes
 │   │   │   │   │   ├── codeowners.rs                                        # C35 rendering, exact drift comparison and protected last-match neighbours
@@ -631,6 +632,7 @@ in place.
 │   │   │   │   │   ├── support.rs                                           # An in-memory [SourceTree] adapter holding the valid synthetic catalog
 │   │   │   │   │   └── yaml.rs                                              # YAML read node by node at injected limits: the exact node budget and
 │   │   │   │   ├── area_walk.rs                                             # Scoped discovery over the bounded snapshot
+│   │   │   │   ├── backend_extensions.rs                                    # Owner-local, inert backend additions and descriptor-checked ceiling minima
 │   │   │   │   ├── backends.rs                                              # Registered backend contracts, independent of the adapters linked by a caller
 │   │   │   │   ├── bootstrap_inventory.rs                                   # Shared strict schema owned by the registered bootstrap inventory kind
 │   │   │   │   ├── check.rs                                                 # The checker: discovery, each resource read by its kind, then the checks
@@ -1632,6 +1634,7 @@ in place.
 │   └── fixtures/                                                            # Test fixtures
 │       ├── catalog/                                                         # Catalog
 │       │   ├── backends/                                                    # Backends
+│       │   │   ├── graphdb-extension.toml                                   # TOML settings: graphdb extension
 │       │   │   ├── graphdb.toml                                             # TOML settings: graphdb
 │       │   │   ├── inactive-invalid.toml                                    # TOML settings: inactive invalid
 │       │   │   ├── mcp.toml                                                 # TOML settings: mcp
