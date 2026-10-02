@@ -407,12 +407,7 @@ impl Catalog {
                 )?);
             }
         }
-        if u64::try_from(text.len()).unwrap_or(u64::MAX) > Limits::PRODUCTION.source_file_bytes {
-            return Err(format!(
-                "{CODEOWNERS_PATH}: larger than {} bytes",
-                Limits::PRODUCTION.source_file_bytes
-            ));
-        }
+        within(&text, Limits::PRODUCTION.source_file_bytes)?;
         Ok(text)
     }
 
@@ -483,4 +478,12 @@ fn contains(outer: &ReviewPath, inner: &ReviewPath) -> bool {
             ReviewPath::Tree(prefix) => prefix == path || outer.covers(path),
         },
     }
+}
+
+/// Refuse rendered text that the committed-file check would refuse: at most `limit` bytes.
+pub(super) fn within(text: &str, limit: u64) -> Result<(), String> {
+    if u64::try_from(text.len()).unwrap_or(u64::MAX) > limit {
+        return Err(format!("{CODEOWNERS_PATH}: larger than {limit} bytes"));
+    }
+    Ok(())
 }

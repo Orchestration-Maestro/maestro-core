@@ -295,6 +295,14 @@ fn codeowners_render_refuses_oversized_without_truncating_reviewers() {
 }
 
 #[test]
+fn codeowners_size_ceiling_is_inclusive() {
+    let limit = 64;
+    assert!(super::super::ownership::within(&"x".repeat(64), limit).is_ok());
+    let refusal = super::super::ownership::within(&"x".repeat(65), limit).unwrap_err();
+    assert!(refusal.contains("larger than 64 bytes"), "{refusal}");
+}
+
+#[test]
 fn codeowners_requires_root_ownership() {
     let tree = MemoryTree::default().with("core/package.toml", &package_source("package", "core"));
     assert!(
