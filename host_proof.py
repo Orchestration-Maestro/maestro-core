@@ -22,7 +22,7 @@ cases=[
 ]
 if platform=='win32':
  cases += [
- ('native-directory-disposition',S,'fn remove_created_directory','DeleteFile: 1','DeleteFile: 0','maestro-catalog',F+'deny_alias_rebinding_on_both_sides_of_mkdir_and_write_leaves_no_new_entries'),
+ ('native-directory-disposition',S,'fn remove_created_directory','DeleteFile: true','DeleteFile: false','maestro-catalog',F+'deny_alias_rebinding_on_both_sides_of_mkdir_and_write_leaves_no_new_entries'),
  ('directory-delete-share-leak',P,'fn create_directory_with','Ok(hardened) => Ok(hardened)','Ok(_hardened) => Ok(child)','maestro-catalog',F+'newly_created_parent_handles_block_rename_before_reuse'),
  ('hardened-directory-identity',W,'pub fn harden_created_child','self.verify_created(name, held)?;','/* skip */','maestro-catalog',F+'directory_hardening_refuses_replacement_before_returning_a_parent_grant'),
  ('rollback-full-identity',S,'fn remove_created_directory','if !same_file(&file, created)? {','if false {','maestro-catalog',F+'directory_rollback_restores_a_replacement_instead_of_deleting_it'),

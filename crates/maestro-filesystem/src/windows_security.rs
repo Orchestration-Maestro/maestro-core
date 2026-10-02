@@ -70,7 +70,7 @@ pub(super) fn remove_created_directory(path: &Path, created: &File) -> io::Resul
             "rollback failed: created directory changed",
         ));
     }
-    let mut disposition = FILE_DISPOSITION_INFO { DeleteFile: 1 };
+    let mut disposition = FILE_DISPOSITION_INFO { DeleteFile: true };
     let bytes = u32::try_from(size_of::<FILE_DISPOSITION_INFO>()).map_err(io::Error::other)?;
     // SAFETY: file owns a live DELETE-capable no-follow directory handle; disposition is
     // aligned initialized storage of exactly bytes, exclusively borrowed for this call.
