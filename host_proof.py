@@ -9,7 +9,7 @@ F='files::tests::workspace_trust::effects::'
 cases=[
  ('source-open-checkpoint',V,'fn publish_verified_inner','(checks.after_source_open)()?;','/* skip */','maestro-catalog',F+'publication_after_source_open_rechecks_deny_before_reading_or_linking'),
  ('before-link-checkpoint',V,'fn publish_verified_inner','(checks.before_link)()?;','/* skip */','maestro-filesystem','publication_checkpoints_run_in_named_open_before_after_order'),
- ('after-link-checkpoint',V,'fn publish_verified_inner','(checks.after_link)()','Ok::<(), std::io::Error>(())','maestro-catalog',F+'publication_rechecks_both_paths_and_rolls_back_only_the_created_link'),
+ ('after-link-checkpoint',V,'fn publish_verified_inner','(checks.after_link)()','Ok::<(), io::Error>(())','maestro-catalog',F+'publication_rechecks_both_paths_and_rolls_back_only_the_created_link'),
  ('read-identity',V,'fn publish_verified_inner','self.verify_created(from, &source)?;','/* skip */','maestro-filesystem','publication_identity_is_rechecked_after_source_open_before_read_checkpoint'),
  ('post-link-identity',V,'fn publish_verified_inner','(checks.after_link)().and_then(|()| self.verify_created(to, &source))','(checks.after_link)()','maestro-filesystem','publication_post_link_compare_refuses_source_swap_in_the_last_syscall_window'),
  ('swap-checkpoints',V,'fn publish_verified_inner','(checks.after_source_open)()?; self.verify_created(from, &source)?; let mut bytes = Vec::new(); source.read_to_end(&mut bytes)?; (checks.before_link)()?;','(checks.before_link)()?; self.verify_created(from, &source)?; let mut bytes = Vec::new(); source.read_to_end(&mut bytes)?; (checks.after_source_open)()?;','maestro-filesystem','publication_checkpoints_run_in_named_open_before_after_order'),
