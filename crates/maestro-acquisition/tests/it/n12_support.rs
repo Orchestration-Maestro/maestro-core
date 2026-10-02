@@ -40,7 +40,7 @@ impl Fixture {
         Self::with_policy(n09_support::policy())
     }
     pub(super) fn with_policy(policy: CheckedPolicy) -> Self {
-        let root = Scratch(scratch_directory().unwrap());
+        let root = Scratch::new();
         let db = Database::open_in(&root).unwrap();
         let scope: Scope = "workspace/default/collection/garden".parse().unwrap();
         db.grant("reader", &scope, Right::Read, "owner").unwrap();
@@ -135,6 +135,11 @@ impl Fixture {
 }
 /// Directory owner drops after the database field closes all connections.
 pub(super) struct Scratch(PathBuf);
+impl Scratch {
+    pub(super) fn new() -> Self {
+        Self(scratch_directory().unwrap())
+    }
+}
 impl Deref for Scratch {
     type Target = Path;
     fn deref(&self) -> &Self::Target {

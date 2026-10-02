@@ -187,7 +187,10 @@ fn canonical_path(text: &str) -> String {
     }
     path
 }
-/// UTC RFC3339 time; comparisons use fixed UTC spellings without offsets.
+/// First Gregorian year representable by `SystemTime` on every supported host.
+pub(super) const MIN_YEAR: u32 = 1601;
+
+/// UTC RFC3339 time, years 1601–9999; comparisons use fixed UTC spellings.
 pub(super) fn time<'de, D: Deserializer<'de>>(decoder: D) -> Result<String, D::Error> {
     checked(decoder, valid_time)
 }
@@ -230,7 +233,8 @@ pub(crate) fn valid_time(text: &str) -> bool {
         1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
         _ => return false,
     };
-    day > 0
+    year >= MIN_YEAR
+        && day > 0
         && day <= days
         && digits(hour, 2).is_some_and(|number| number < 24)
         && digits(minute, 2).is_some_and(|number| number < 60)

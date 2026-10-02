@@ -1,6 +1,6 @@
 //! Synthetic write-port conformance; no installed catalog admission is claimed.
 #![expect(clippy::indexing_slicing, reason = "authored fixture resource IDs")]
-use super::support;
+use super::{n12_support::Scratch, support};
 use maestro_acquisition::{
     DirectFiles, LocalResource, Principal, ResourceSource,
     adaptation::{
@@ -20,12 +20,7 @@ use maestro_kernel::{
     store::Database,
 };
 use maestro_knowledge::collection::Declaration;
-use maestro_test_scratch::scratch_directory;
-use std::{
-    fs,
-    path::{Path, PathBuf},
-    sync::Mutex,
-};
+use std::{fs, path::Path, sync::Mutex};
 
 #[derive(Debug)]
 pub(super) struct Grant;
@@ -59,7 +54,6 @@ impl Commit for Crash {
 }
 /// One actual scoped artifact database and separately bound overlay.
 pub(super) struct Fixture {
-    pub(super) root: PathBuf,
     pub(super) db: Database,
     pub(super) scopes: ScopeSet,
     pub(super) collection: Declaration,
@@ -67,6 +61,8 @@ pub(super) struct Fixture {
     pub(super) manifest: AcquisitionManifest,
     pub(super) proposal: Proposal,
     pub(super) gate: Handle,
+    /// Last: close the database and its pooled readers before removing files.
+    pub(super) root: Scratch,
 }
 impl Fixture {
     pub(super) fn new() -> Self {
@@ -74,7 +70,7 @@ impl Fixture {
     }
     /// Fresh complete processing closure, with every inherited collection scope.
     pub(super) fn with_tags(tags: &[String]) -> Self {
-        let root = scratch_directory().unwrap();
+        let root = Scratch::new();
         let db = Database::open_in(&root.join("kernel")).unwrap();
         let scope: Scope = "workspace/default/collection/garden".parse().unwrap();
         db.grant("synthetic-reader", &scope, Right::Read, "owner")
@@ -151,7 +147,6 @@ impl Fixture {
             fs::set_permissions(root.join("overlay"), fs::Permissions::from_mode(0o700)).unwrap();
         }
         Self {
-            root,
             db,
             scopes,
             collection,
@@ -159,6 +154,7 @@ impl Fixture {
             manifest,
             proposal,
             gate,
+            root,
         }
     }
     pub(super) fn context<'a>(
@@ -181,12 +177,6 @@ impl Fixture {
         }
     }
 }
-impl Drop for Fixture {
-    fn drop(&mut self) {
-        fs::remove_dir_all(&self.root).unwrap();
-    }
-}
-
 impl Fixture {
     /// Separately bound direct-file adapter over the same synthetic closure.
     pub(super) fn direct(&self) -> DirectFiles {
@@ -222,6 +212,17 @@ impl Fixture {
         context.source = source;
         context
     }
+}
+
+#[test]
+fn n30_fixture_closes_pooled_readers_before_removing_root() {
+    let fixture = Fixture::new();
+    // Populate the idle pool, not only the writer connection.
+    fixture.db.visible("synthetic-reader").unwrap();
+    let root = fixture.root.to_path_buf();
+    assert!(root.join("kernel/kernel.sqlite3").is_file());
+    drop(fixture);
+    assert!(!root.exists());
 }
 
 /// Independently recompute N30's owning typed effective preimage for forged-pointer tests.

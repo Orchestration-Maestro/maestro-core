@@ -59,7 +59,7 @@ fn month_days(year: u64, month: u64) -> u64 {
 pub(crate) fn advance(text: &str, elapsed: Duration) -> Result<String, Refusal> {
     format(parse(text)?.checked_add(elapsed).ok_or(Refusal::Invalid)?)
 }
-/// Fixed-width UTC spelling, limited to the same year range as the strict parser.
+/// Fixed-width Gregorian UTC spelling, with years 1601–9999 on every platform.
 /// # Errors
 /// Unrepresentable host time refuses instead of constructing a non-UTC request.
 pub fn format(time: SystemTime) -> Result<String, Refusal> {
@@ -79,6 +79,9 @@ pub fn format(time: SystemTime) -> Result<String, Refusal> {
         if year > 9999 {
             return Err(Refusal::Invalid);
         }
+    }
+    if year < u64::from(super::shape::MIN_YEAR) {
+        return Err(Refusal::Invalid);
     }
     let mut month = 1;
     while days >= month_days(year, month) {
@@ -133,7 +136,7 @@ mod tests {
     #[test]
     fn n09_utc_round_trips_year_and_leap_boundaries() {
         for text in [
-            "0000-01-01T00:00:00Z",
+            "1601-01-01T00:00:00Z",
             "1969-12-31T23:59:59Z",
             "1970-01-01T00:00:00Z",
             "2000-02-29T23:59:59Z",
@@ -154,8 +157,30 @@ mod tests {
             Err(Refusal::Invalid)
         );
         assert_eq!(
-            format(UNIX_EPOCH - Duration::from_nanos(1)).unwrap(),
+            // Windows SystemTime has 100 ns ticks, so use a portable fraction.
+            format(UNIX_EPOCH - Duration::from_nanos(100)).unwrap(),
             "1969-12-31T23:59:59Z"
+        );
+    }
+    #[test]
+    fn n09_utc_refuses_dates_before_portable_range() {
+        for text in [
+            "0000-01-01T00:00:00Z",
+            "1600-02-29T00:00:00Z",
+            "1600-12-31T23:59:59Z",
+            "1600-12-31T23:59:59.999Z",
+        ] {
+            assert!(!super::super::shape::valid_time(text));
+            assert_eq!(parse(text), Err(Refusal::Invalid));
+        }
+        // Hosts able to construct earlier times must refuse formatting them too.
+        let earliest = parse("1601-01-01T00:00:00Z").unwrap();
+        if let Some(previous) = earliest.checked_sub(Duration::from_nanos(100)) {
+            assert_eq!(format(previous), Err(Refusal::Invalid));
+        }
+        assert_eq!(
+            retry_after("Sun, 31 Dec 1600 23:59:59 GMT", UNIX_EPOCH),
+            Err(Refusal::Invalid)
         );
     }
     #[test]
