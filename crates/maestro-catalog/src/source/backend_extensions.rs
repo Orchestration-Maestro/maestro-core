@@ -306,7 +306,7 @@ pub(super) fn selected(
     let registry = Registry::built_in().map_err(|error| refusal("", "", error.to_string()))?;
     let bases = resources
         .iter()
-        .filter(|resource| resource.id.kind == "backend" && resource.id.name == "graphdb")
+        .filter(|resource| resource.id.kind == "backend")
         .map(|resource| (*resource).clone())
         .collect::<Vec<_>>();
     let registry = manifest_registry(&registry, &bases, common, &Limits::PRODUCTION)?;

@@ -41,6 +41,28 @@ fn common_ceiling_survives_activation() {
 }
 
 #[test]
+fn base_ceiling_survives_activation() {
+    let tree = activation_tree();
+    let original = tree.text("core/backends/graphdb/config.toml");
+    let graph = original.replace("max_num_threads = 2\n", "max_num_threads = 4\n");
+    assert_ne!(graph, original, "the base must raise the built-in ceiling");
+    let tree = package(tree, "alpha", "[\"graphdb\"]")
+        .with("core/backends/graphdb/config.toml", &graph)
+        .with(
+            "capabilities/team/alpha/backends/graphdb/config.toml",
+            "[graphdb]\nmax_num_threads = 3",
+        );
+    let catalog = check_under(&tree, &Limits::PRODUCTION).unwrap();
+    let view = catalog
+        .effective_backend_extensions(
+            &[ResourceId::parse("package:alpha").unwrap()],
+            &builtin().unwrap(),
+        )
+        .unwrap();
+    assert_eq!(view.ceilings["graphdb.max_num_threads"], 3);
+}
+
+#[test]
 fn backend_extension_mixed_role_aggregate_refuses() {
     let tree = package(activation_tree(), "alpha", "[\"graphdb\", \"vectordb\"]")
         .with("core/backends/vectordb/config.toml", VECTOR)
