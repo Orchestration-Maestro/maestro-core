@@ -11,6 +11,8 @@ fn set_sddl(path: &Path, dacl: &str) {
         "Set-Acl -LiteralPath $env:PROBE_PATH -AclObject $a",
     );
     let output = Command::new("powershell.exe")
+        // Windows PowerShell must not inherit pwsh's incompatible module search path.
+        .env_remove("PSModulePath")
         .args(["-NoProfile", "-NonInteractive", "-Command", script])
         .env("PROBE_PATH", path)
         .env("PROBE_SDDL", dacl)
@@ -31,6 +33,7 @@ fn windows_owner_only_and_privileged_default_acl_shapes_accept_but_null_and_othe
         "schema = 'maestro-preferences/1'\ntone = 'brief'",
     );
     let sid = Command::new("powershell.exe")
+        .env_remove("PSModulePath")
         .args([
             "-NoProfile",
             "-NonInteractive",

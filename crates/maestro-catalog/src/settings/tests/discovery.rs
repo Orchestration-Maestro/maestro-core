@@ -35,6 +35,11 @@ impl Home {
             )
             .unwrap();
         }
+        // Elevated pwsh can create fixtures owned by Administrators, not the user.
+        #[cfg(windows)]
+        for target in [path.join(".maestro"), path.join(".maestro/config.toml")] {
+            restore_owner(&target);
+        }
         path
     }
     pub(super) fn load(&self, start: Option<&Path>) -> Result<SessionPreferences, String> {
