@@ -10,7 +10,10 @@ use maestro_knowledge::{
     graph::descriptors::{
         Descriptor, DescriptorEmbedder, DescriptorProjection, DescriptorQdrant, DescriptorQuery,
     },
-    index::{CollectionLayout, Qdrant, RetrievalProjectionPort},
+    index::{
+        CollectionLayout, DenseDistance, DenseLayout, Qdrant, RetrievalProjectionPort,
+        SparseModifier,
+    },
 };
 use maestro_test_scratch::scratch_directory;
 use std::{
@@ -50,11 +53,12 @@ async fn graph_descriptors_qdrant_delete_and_recreate_preserves_payloads_and_oth
         .create_collection(
             "passage-survivor",
             CollectionLayout {
-                dense_dimensions: 4,
-                dense_present: true,
-                dense_distance: "Cosine".into(),
+                dense: Some(DenseLayout {
+                    dimensions: 4,
+                    distance: DenseDistance::Cosine,
+                }),
                 sparse_present: true,
-                sparse_modifier: Some("Idf".into()),
+                sparse_modifier: Some(SparseModifier::Idf),
             },
         )
         .await

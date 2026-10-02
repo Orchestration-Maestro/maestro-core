@@ -1,8 +1,8 @@
 //! Synthetic transport double for the existing retrieval port, not a second store.
 
 use crate::index::{
-    CollectionLayout, PointHit, ProjectionCursor, ProjectionError, ProjectionFilter,
-    ProjectionPage, ProjectionPoint, RetrievalProjectionPort, SparseValues,
+    CollectionLayout, PayloadFieldKind, PointHit, ProjectionCursor, ProjectionError,
+    ProjectionFilter, ProjectionPage, ProjectionPoint, RetrievalProjectionPort, SparseValues,
 };
 use std::{collections::BTreeMap, sync::Mutex};
 
@@ -77,7 +77,7 @@ impl RetrievalProjectionPort for Backend {
     async fn payload_fields(
         &self,
         _collection: &str,
-    ) -> Result<BTreeMap<String, String>, ProjectionError> {
+    ) -> Result<BTreeMap<String, PayloadFieldKind>, ProjectionError> {
         Err(ProjectionError::new("unsupported test transport call"))
     }
     async fn upsert_points(

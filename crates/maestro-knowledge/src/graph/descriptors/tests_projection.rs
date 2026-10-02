@@ -4,7 +4,9 @@ use super::{
     Descriptor, DescriptorEmbedder, DescriptorQuery, EmbeddedDescriptors, build, qdrant,
     tests_backend::Backend, tests_embedding::card, tests_source::Authority,
 };
-use crate::index::{ProjectionFilter, point_id};
+use crate::index::{
+    CollectionLayout, DenseDistance, DenseLayout, ProjectionFilter, SparseModifier, point_id,
+};
 use maestro_kernel::{artifact::Digest, facts::ReviewState, gateway::FakeModels};
 use serde_json::json;
 use std::time::Duration;
@@ -41,6 +43,17 @@ async fn deleting_projection_recreates_equal_canonical_payloads_from_kernel_and_
     let backend = Backend::default();
     let result = qdrant::rebuild(&backend, &output).await;
     assert!(result.is_ok(), "{result:?}");
+    assert_eq!(
+        backend.layout.lock().unwrap().as_ref().unwrap().1,
+        CollectionLayout {
+            dense: Some(DenseLayout {
+                dimensions: 4,
+                distance: DenseDistance::Cosine,
+            }),
+            sparse_present: true,
+            sparse_modifier: Some(SparseModifier::Idf),
+        }
+    );
     let before = backend.points.lock().unwrap().clone();
     assert_eq!(before.len(), 3);
     backend.delete();
@@ -325,7 +338,10 @@ async fn readiness_refuses_count_payload_layout_and_receipt_mismatches() {
                     .as_mut()
                     .unwrap()
                     .1
-                    .dense_dimensions = 999;
+                    .dense
+                    .as_mut()
+                    .unwrap()
+                    .dimensions = 999;
             }
             3 => {
                 backend.points.lock().unwrap().pop_first();

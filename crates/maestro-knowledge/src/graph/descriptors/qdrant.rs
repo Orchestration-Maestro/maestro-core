@@ -6,8 +6,8 @@ use super::{
     types::{BUILDER_VERSION, Descriptor, DescriptorError, DescriptorReceipt, content_digest},
 };
 use crate::index::{
-    CollectionLayout, PointHit, ProjectionFilter, ProjectionPoint, Qdrant, RetrievalProjectionPort,
-    SparseValues, point_id,
+    CollectionLayout, DenseDistance, DenseLayout, PointHit, ProjectionFilter, ProjectionPoint,
+    Qdrant, RetrievalProjectionPort, SparseModifier, SparseValues, point_id,
 };
 use maestro_kernel::artifact::Digest;
 use serde_json::{Value, json};
@@ -81,11 +81,12 @@ fn receipt_digest(receipt: &DescriptorReceipt) -> Digest {
 /// Reuse the existing dense/sparse transport layout, with no sparse descriptor route.
 fn layout(receipt: &DescriptorReceipt) -> CollectionLayout {
     CollectionLayout {
-        dense_dimensions: u64::try_from(receipt.profile.dimensions).unwrap_or(u64::MAX),
-        dense_present: true,
-        dense_distance: "Cosine".into(),
+        dense: Some(DenseLayout {
+            dimensions: u64::try_from(receipt.profile.dimensions).unwrap_or(u64::MAX),
+            distance: DenseDistance::Cosine,
+        }),
         sparse_present: true,
-        sparse_modifier: Some("Idf".into()),
+        sparse_modifier: Some(SparseModifier::Idf),
     }
 }
 
